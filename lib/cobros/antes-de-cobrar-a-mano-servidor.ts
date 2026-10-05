@@ -53,12 +53,23 @@ export async function bloqueadosPorPenalizacion(
   return bloqueados;
 }
 
-export type StripeDelEstudio = { stripe: Stripe; cuenta: string } | null;
+/**
+ * - `listo`: se puede consultar.
+ * - `sin-cuenta`: el estudio no tiene cuenta de Stripe; ningún cobro de Stripe puede
+ *   seguir vivo en ella.
+ * - `sin-consultar`: la cuenta existe, pero el entorno no deja consultarla (falta la
+ *   clave, el modo no cuadra). Un cobro puede seguir vivo, así que no se cobra lo que
+ *   lo necesite.
+ */
+export type StripeDelEstudio =
+  | { tipo: 'listo'; stripe: Stripe; cuenta: string }
+  | { tipo: 'sin-cuenta' }
+  | { tipo: 'sin-consultar' };
 
 /**
  * Stripe del estudio, preparado una vez y solo si hace falta, con el mismo guardia
  * de modo que el resto de cobros (`contextoCobroDe`) y tiempos cortos: la pantalla
- * espera. `null` = no se puede consultar (y entonces no se cobra lo que lo necesite).
+ * espera.
  */
 export function preparadorDeStripe(admin: SupabaseClient, studioId: string): () => Promise<StripeDelEstudio> {
   let stripeDelEstudio: StripeDelEstudio | undefined;
@@ -69,9 +80,11 @@ export function preparadorDeStripe(admin: SupabaseClient, studioId: string): () 
       Sentry.captureMessage('[cobros] cobro a mano con un pago en marcha y sin Stripe para comprobarlo', {
         level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { studioId, motivo: c.motivo },
       });
-      stripeDelEstudio = null;
+      // 409 es «sin cuenta conectada»; lo demás (503) es el entorno.
+      stripeDelEstudio = c.status === 409 ? { tipo: 'sin-cuenta' } : { tipo: 'sin-consultar' };
     } else {
       stripeDelEstudio = {
+        tipo: 'listo',
         stripe: new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2026-06-24.dahlia', timeout: 5_000, maxNetworkRetries: 1 }),
         cuenta: c.ctx.stripeAccount,
       };
@@ -155,16 +168,19 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
     const s = await prepararStripe();
     // Se lee SIN tocarlo, y solo cuenta si es de este recibo (lo dice su metadata).
     const de = { reciboId, studioId };
-    const leido = s ? await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de) : null;
+    const leido = s.tipo === 'listo' ? await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de) : null;
     if (esMismoIntentoVivo(leido, p.claveIntento)) {
       // La Caja repitiendo la misma petición: es el mismo cobro, no se cancela.
       referenciaQueSigue = ref;
     } else {
-      // Sin Stripe en el estudio no hay datáfono ni Bizum que pudieran cobrar: la
-      // referencia es vieja y se suelta (antes se seguía sin soltarla, y quien guarda
-      // después exige el recibo sin cobro del mostrador: no se podía cobrar).
-      const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, !s
+      const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s.tipo === 'sin-cuenta'
+        // Sin cuenta de Stripe no hay datáfono ni Bizum que pudieran cobrar: la referencia
+        // es vieja y se suelta (antes se seguía sin soltarla, y quien guarda después exige
+        // el recibo sin cobro del mostrador: no se podía cobrar).
         ? { consultar: async () => 'CANCELADO', cancelar: async () => {}, soltar: () => soltarReferencia(ref) }
+        // Con la cuenta, pero sin poder consultarla: puede seguir vivo, y no se cobra.
+        : s.tipo === 'sin-consultar'
+        ? { consultar: async () => 'ERROR', cancelar: async () => {}, soltar: async () => false }
         : {
         consultar: async () => estadoParaSoltar(await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de)),
         // Solo ESTE cobro. En el datáfono, `anularCobroDelDatafono` para su lector solo
@@ -192,10 +208,13 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
   const checkoutLeido = (fila?.checkout_session_id as string | null) ?? null;
   if (checkoutLeido) {
     const s = await prepararStripe();
-    const sesiones: SesionesDeStripe | null = s && {
+    // Con la cuenta pero sin poder consultarla, el enlace puede seguir pagable: no se cobra.
+    // Sin cuenta, nadie puede pagarlo ya (`cerrarPagoOnlineAntesDeCobrarAMano` sigue).
+    if (s.tipo === 'sin-consultar') return { ok: false, motivo: 'PAGO_ONLINE_SIN_COMPROBAR', mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };
+    const sesiones: SesionesDeStripe | null = s.tipo === 'listo' ? {
       consultar: id => s.stripe.checkout.sessions.retrieve(id, undefined, { stripeAccount: s.cuenta }),
       cerrar: id => s.stripe.checkout.sessions.expire(id, undefined, { stripeAccount: s.cuenta }),
-    };
+    } : null;
     const online = await cerrarPagoOnlineAntesDeCobrarAMano(checkoutLeido, sesiones);
     if (online.tipo === 'YA_PAGADO') {
       // Si el webhook rechazó esa sesión (otro importe, otra cuenta), el recibo no se

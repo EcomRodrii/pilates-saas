@@ -89,6 +89,32 @@ export function mensajeCajaAntesDeCobrar(r: { motivo: string; mensaje: string })
   return r.mensaje;
 }
 
+/**
+ * ¿Sigue vivo el cobro de la Caja guardado en un recibo? Lo pregunta el enlace de pago
+ * online (`/api/stripe/checkout`) antes de abrirle uno a la socia: con un cobro de la
+ * Caja vivo, serían dos. Uno que ya acabó sin cobrar, o que no es de este recibo ni
+ * existe ya en la cuenta (`null`), está muerto: un Bizum caducado que nadie soltó no
+ * puede dejarla sin pagar online para siempre. Sin poder leerlo, no se sabe.
+ */
+export type VidaCobroCaja = 'muerto' | 'vivo' | 'pagado' | 'no-se-sabe';
+
+export function vidaDelCobroDeLaCaja(estado: EstadoPagoPOS | null | 'SIN_LEER'): VidaCobroCaja {
+  if (estado === null) return 'muerto';
+  if (estado === 'PAGADO') return 'pagado';
+  if (estado === 'RECHAZADO' || estado === 'CANCELADO' || estado === 'EXPIRADO') return 'muerto';
+  if (estado === 'PENDIENTE' || estado === 'PROCESANDO') return 'vivo';
+  return 'no-se-sabe';
+}
+
+/**
+ * Para quien abre el enlace de pago con un cobro de la Caja que no está muerto. Uno
+ * solo, sin decir si se está cobrando en el estudio o ya se cobró: la ruta es pública
+ * (basta el enlace del recibo, sin sesión) y diría en tiempo real que la socia está
+ * en el estudio. En unos minutos el recibo sale cobrado, o se puede pagar.
+ */
+export const MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA =
+  'Este recibo no se puede pagar online ahora mismo. Vuelve a mirarlo en unos minutos.';
+
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */
 export type MotivoCancelacion = 'CAMBIO' | 'ERROR_AL_GUARDAR';
 

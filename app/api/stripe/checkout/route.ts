@@ -32,6 +32,8 @@ import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
+import { vidaDelCobroDeLaCajaEnElRecibo } from '@/lib/pos/cobro-del-estudio';
+import { MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA } from '@/lib/pos/referencia-cobro-recibo';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -188,6 +190,9 @@ export async function POST(req: NextRequest) {
   // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
   // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
   let sesionAbiertaId: string | null = null;
+  // El cobro de la Caja que tenía el recibo al leerlo (`cobro_mostrador_pi`): el UPDATE
+  // que guarda la sesión nueva exige que siga siendo ese.
+  let cobroCajaLeido: string | null = null;
   // Qué se cobra, a efectos de Bizum (lib/billing/bizum-permitido.ts): el
   // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
@@ -197,7 +202,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -221,6 +226,18 @@ export async function POST(req: NextRequest) {
     // sesión abierta, y el UPDATE que guarda la sesión nueva lo vuelve a exigir.
     if (recibo.cobro_off_session_clave) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO }, { status: 409 }));
+    }
+    // Se le está cobrando AHORA en la Caja (datáfono o Bizum del mostrador): lo mismo,
+    // sería un segundo cobro. Pero solo si ese cobro sigue vivo: uno viejo ya muerto
+    // (un Bizum caducado, que nadie suelta) no puede dejarla sin pagar online para
+    // siempre. Se mira SIN tocarlo (la Caja lo lleva), y el UPDATE de abajo exige que
+    // siga siendo el mismo: uno nuevo de la Caja entre medias, y no se guarda.
+    cobroCajaLeido = (recibo.cobro_mostrador_pi as string | null) ?? null;
+    if (cobroCajaLeido) {
+      const vida = await vidaDelCobroDeLaCajaEnElRecibo(admin, body.studioId, body.reciboId, cobroCajaLeido, { origen: req.nextUrl.origin });
+      if (vida !== 'muerto') {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA }, { status: 409 }));
+      }
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
     // decidido (RECIBO_CREADO) o con la penalización FALLIDA, que es deuda de la
@@ -790,18 +807,24 @@ export async function POST(req: NextRequest) {
     // la siguiente petición crearía otra: exactamente el bug que cierra esto.
     // Regla de la casa: cero escritura optimista en el camino del dinero.
     if (body.reciboId) {
-      const { data: guardadas, error: errGuardar } = await admin
+      const guardar = admin
         .from('recibos')
         .update({ checkout_session_id: session.id })
         .eq('id', body.reciboId)
         .eq('studio_id', body.studioId)
         // Ni con un cobro con tarjeta guardada en vuelo (empezó tras la lectura de arriba).
-        .is('cobro_off_session_clave', null)
-        .select('id');
+        .is('cobro_off_session_clave', null);
+      // Ni con un cobro de la Caja distinto del leído (se empezó tras la lectura de arriba).
+      // El leído estaba muerto: si entre medias alguien lo soltó, tampoco es un cobro nuevo.
+      const { data: guardadas, error: errGuardar } = await (cobroCajaLeido
+        ? guardar.or(`cobro_mostrador_pi.is.null,cobro_mostrador_pi.eq."${cobroCajaLeido}"`)
+        : guardar.is('cobro_mostrador_pi', null)
+      ).select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
-      // decidió no cobrar), o se está cobrando con su tarjeta guardada. Devolver la
-      // URL sería abrir un pago de algo que Tentare ya no tiene, o un segundo cobro.
+      // decidió no cobrar), o se está cobrando con su tarjeta guardada o en la Caja.
+      // Devolver la URL sería abrir un pago de algo que Tentare ya no tiene, o un
+      // segundo cobro.
       const reciboDesaparecido = !errGuardar && (guardadas?.length ?? 0) === 0;
       if (errGuardar || reciboDesaparecido) {
         if (errGuardar) console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);

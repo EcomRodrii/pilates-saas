@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetodoPago } from '@/lib/types';
 import { contextoCobroDe, proveedorPara, type PeticionCobro, type ResultadoInicio } from './terminal.ts';
 import { desenlaceDeCobroSoltado, type ConsultaCobro } from './consulta-stripe.ts';
+import { vidaDelCobroDeLaCaja, type VidaCobroCaja } from './referencia-cobro-recibo.ts';
 import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui, type ClienteSumup } from './sumup.ts';
 import { urlDeAviso } from './sumup-aviso.ts';
 import { crearProveedorSumup } from './terminal-sumup.ts';
@@ -143,4 +144,22 @@ export async function cobroDeReciboSoloLectura(
   const cx = await contextoCobroDe(admin, studioId);
   if (!cx.ok) return { comprobado: false };
   return desenlaceDeCobroSoltado(cx.ctx.stripe, referencia, cx.ctx.stripeAccount, { reciboId, studioId });
+}
+
+/**
+ * ¿Sigue vivo el cobro de la Caja guardado en un recibo? (`vidaDelCobroDeLaCaja`).
+ * SOLO LEE: lo pregunta el enlace de pago de la socia, que nunca para el cobro del
+ * mostrador (lo lleva la Caja). Un cobro de SumUp se le pregunta a SumUp.
+ */
+export async function vidaDelCobroDeLaCajaEnElRecibo(
+  admin: SupabaseClient, studioId: string, reciboId: string, referencia: string, o: { origen: string },
+): Promise<VidaCobroCaja> {
+  if (proveedorDeReferencia(referencia) === 'sumup') {
+    const prep = await prepararCobroExistente(admin, studioId, referencia, 'DATAFONO', o);
+    if (!prep.ok) return vidaDelCobroDeLaCaja('SIN_LEER');
+    const est = await prep.cobro.consultar(referencia).catch(() => null);
+    return vidaDelCobroDeLaCaja(est ? est.estado : 'SIN_LEER');
+  }
+  const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
+  return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');
 }
