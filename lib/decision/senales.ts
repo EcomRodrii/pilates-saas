@@ -5,7 +5,7 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot, ContactoManualSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
-import { franjaLocalDe } from '../utils.ts';
+import { diaSemanaEstudio, franjaLocalDe, horaEstudio } from '../utils.ts';
 import { tieneEntitlementActivo } from '../bono-logic.ts';
 import { PREFIJO_RECIBO_PENALIZACION } from '../billing/penalizacion-aprobar-reglas.ts';
 import { estadosDeClientas, type ResultadoEstado } from '../clientas/estado.ts';
@@ -932,4 +932,14 @@ export function tasaAbandonoCheckout(eventos: SnapshotEstudio['widgetEventosChec
     }
   }
   return { exitosReciente, totalReciente, exitosBase, totalBase };
+}
+
+/**
+ * Día de la semana y hora de una clase, legibles (es-ES) y en hora del ESTUDIO:
+ * «martes», «20:00». La comparten los especialistas que nombran una franja
+ * (Agenda, Ingresos). En UTC, en verano una clase de las 20:00 salía como «la de
+ * las 18:00», y una de las 00:30 del martes, como del lunes.
+ */
+export function etiquetaFranja(inicioISO: string): { diaSemana: string; hora: string } {
+  return { diaSemana: diaSemanaEstudio(inicioISO), hora: horaEstudio(inicioISO) };
 }

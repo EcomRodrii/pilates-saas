@@ -217,3 +217,43 @@ test('silencio: estudio sin datos suficientes no genera candidatas', () => {
   const snap = snapshot({});
   assert.equal(ingresos.detectar(snap, memoriaVacia(), NOW).length, 0);
 });
+
+// ── I1 en hora del ESTUDIO (Madrid), no en UTC ───────────────────────────────
+// El título nombraba la franja con el día y la hora en UTC: en verano «tu clase
+// de las 18:00» era la de las 20:00, y una de las 00:30 salía como del día antes.
+
+/** La franja I1 (llena 3 semanas, con lista de espera y sala libre) a las hh:mm UTC, contada desde `ahora`. */
+function franjaLlenaA(ahora: Date, hUtc: number, mUtc: number) {
+  const sesiones = [7, 14, 21].map(dias => {
+    const d = new Date(ahora.getTime() - dias * 86400000);
+    d.setUTCHours(hUtc, mUtc, 0, 0);
+    return sesion({ id: `ses-tz-${dias}`, inicio: d.toISOString(), aforoMaximo: 8, salaId: 's1' });
+  });
+  const reservas = [
+    ...sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id }))),
+    ...sesiones.flatMap(se => [0, 1].map(i => reserva({ socioId: `w${se.id}${i}`, estado: 'LISTA_ESPERA', sesionId: se.id }))),
+  ];
+  const salas = [sala({ id: 's1', capacidad: 8 }), sala({ id: 's2', capacidad: 8 })];
+  return ingresos.detectar(snapshot({ sesiones, reservas, salas }), memoriaVacia(), ahora).find(c => c.tipo === 'ABRIR_SESION');
+}
+
+test('I1 en verano: la clase de las 20:00 de Madrid (18:00 UTC) se nombra a las 20:00', () => {
+  const abrir = franjaLlenaA(NOW, 18, 0); // NOW es sábado 11-jul-2026
+  assert.ok(abrir);
+  assert.equal(abrir.tituloMotor, 'Tu clase del sábado a las 20:00 se llena sola');
+  assert.equal(abrir.datosUsados.hora, '20:00');
+});
+
+test('I1 cruzando la medianoche UTC: 22:30 UTC del sábado es el domingo a las 00:30 en Madrid (verano)', () => {
+  const abrir = franjaLlenaA(NOW, 22, 30);
+  assert.ok(abrir);
+  assert.equal(abrir.datosUsados.diaSemana, 'domingo');
+  assert.equal(abrir.datosUsados.hora, '00:30');
+});
+
+test('I1 en invierno: 23:30 UTC del sábado es el domingo a las 00:30 en Madrid', () => {
+  const abrir = franjaLlenaA(new Date('2026-01-17T12:00:00.000Z'), 23, 30); // sábado 17-ene-2026
+  assert.ok(abrir);
+  assert.equal(abrir.datosUsados.diaSemana, 'domingo');
+  assert.equal(abrir.datosUsados.hora, '00:30');
+});

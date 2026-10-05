@@ -6,7 +6,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Sesion } from '@/lib/types';
 import {
   construirIndices, agruparFranjasRecurrentes, hayProximaSesionEnFranja, precioMedioSesion,
-  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad,
+  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad, etiquetaFranja,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import {
@@ -14,7 +14,6 @@ import {
   confianzaLlenarPlazas, confianzaCubrirClaseEnRiesgo,
 } from '../confianza.ts';
 import { estimarProbabilidad, tasaBase, nivelPrediccion } from '../prediccion.ts';
-import { TZ_ESTUDIO } from '../../utils.ts';
 import { bloqueoPisaSesion, diaLocalDe } from '../../calendario/ausencias.ts';
 
 const MS_DIA = 86400000;
@@ -31,18 +30,10 @@ const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arra
 const A2_MIN_VACIAS = 6;        // nº de clases casi vacías para que valga la pena avisar
 const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la confianza
 
-/**
- * Día de la semana + hora de una franja, en formato legible (es-ES) y en la
- * hora LOCAL del estudio. Iba en UTC: en horario de verano español una clase
- * de las 20:00 se le presentaba a la propietaria como "tu clase de las 18:00",
- * que es una hora a la que no tiene ninguna clase. Ver franjaLocalDe (senales.ts).
- */
-function etiquetaFranja(referencia: FranjaRecurrente['sesionesOrdenadas'][number]): { diaSemana: string; hora: string } {
-  const inicio = new Date(referencia.inicio);
-  return {
-    diaSemana: inicio.toLocaleDateString('es-ES', { weekday: 'long', timeZone: TZ_ESTUDIO }),
-    hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO }),
-  };
+// Día y hora de una franja: `etiquetaFranja` (senales.ts), en hora del estudio,
+// compartida con Ingresos.
+function etiquetaDe(referencia: FranjaRecurrente['sesionesOrdenadas'][number]): { diaSemana: string; hora: string } {
+  return etiquetaFranja(referencia.inicio);
 }
 
 /** Media de ocupación de las últimas `n` ocurrencias de una franja. */
@@ -109,8 +100,8 @@ function reglaA3(clave: string, franja: FranjaRecurrente, franjas: Map<string, F
   if (!confianza) return null;
 
   const tipo = idx.tipoClasePorId.get(tipoClaseId);
-  const aqui = etiquetaFranja(referencia);
-  const alli = etiquetaFranja(alternativa.franja.sesionesOrdenadas[0]);
+  const aqui = etiquetaDe(referencia);
+  const alli = etiquetaDe(alternativa.franja.sesionesOrdenadas[0]);
 
   const ocupacionMedia = ultimas3.reduce((a, b) => a + b, 0) / ultimas3.length;
   const plazasVacias = Math.max(0, referencia.aforoMaximo - Math.round(ocupacionMedia * referencia.aforoMaximo));
@@ -172,7 +163,7 @@ function reglaA1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
   const referencia = franja.sesionesOrdenadas[0];
   const tipo = idx.tipoClasePorId.get(referencia.tipoClaseId);
   // Misma etiqueta que A3 — un solo sitio que decide cómo se nombra una franja.
-  const { diaSemana, hora } = etiquetaFranja(referencia);
+  const { diaSemana, hora } = etiquetaDe(referencia);
 
   const ocupacionMedia = ultimas3.reduce((a, b) => a + b, 0) / ultimas3.length;
   const asistentesMedios = redondear1(ocupacionMedia * referencia.aforoMaximo);
@@ -325,7 +316,7 @@ function reglaA4(
     base: `esta franja se llenó ${p.nSeLlenaron} de las últimas ${p.nOcurrencias} veces`,
   });
 
-  const { diaSemana, hora } = etiquetaFranja(futura);
+  const { diaSemana, hora } = etiquetaDe(futura);
   const dias = Math.round(p.diasVista);
   const precioMedio = precioMedioSesion(s, idx);
   const valor = redondear2(plazasLibresPrevistas * precioMedio);
@@ -428,7 +419,7 @@ function reglaA5(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata[] 
     const ins = instructorPorId.get(se.instructorId);
     const nombre = ins?.nombre ?? 'La instructora';
     const tipo = idx.tipoClasePorId.get(se.tipoClaseId);
-    const { diaSemana, hora } = etiquetaFranja(se);
+    const { diaSemana, hora } = etiquetaDe(se);
     const reservas = idx.ocupadasPorSesion.get(se.id) ?? 0;
 
     const motivoMotor = bloqueo
