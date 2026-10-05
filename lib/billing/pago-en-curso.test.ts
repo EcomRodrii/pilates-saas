@@ -28,18 +28,21 @@ const raiz = join(import.meta.dirname, '..', '..');
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 for (const ruta of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe/checkout/route.ts']) {
-  test(`${ruta}: ante idempotency_error, 409 «pago en curso» SIN soltar la plaza de cupo del cobro vivo`, () => {
+  test(`${ruta}: ante idempotency_error, 409 «pago en curso» y la plaza de cupo solo si no es de ningún cobro`, () => {
     const s = sinComentarios(readFileSync(join(raiz, ruta), 'utf8'));
     const catchFinal = s.slice(s.lastIndexOf('} catch (err) {'));
     const rama = catchFinal.indexOf('if (esErrorDeIdempotencia(err)) {');
     assert.ok(rama > 0, 'el catch del cobro no distingue la colisión de idempotencia');
     const finRama = catchFinal.indexOf('\n    }\n', rama);
     const cuerpo = catchFinal.slice(rama, finRama);
-    assert.doesNotMatch(cuerpo, /liberarPlaza\(/, 'la plaza de cupo es la del cobro de antes, que sigue pagable');
+    // La plaza puede ser la del cobro de antes (misma clave), que sigue pagable: nunca
+    // a ciegas. Solo si ningún cobro la tiene ligada (revisión del 5-oct, #4: si la
+    // etapa empezó entre las dos peticiones, el cobro de antes no la lleva).
+    assert.doesNotMatch(cuerpo, /liberarPlaza\(/, 'la plaza de cupo puede ser la del cobro de antes');
+    assert.match(cuerpo, /if \(plaza\) await liberarPlazaSinCobro\(admin, plaza\.id\);/);
     assert.match(cuerpo, /status: 409/);
     assert.match(cuerpo, /codigo: CODIGO_PAGO_EN_CURSO/);
     // La matrícula gratis la reservó ESTA petición para sí sola: esa sí vuelve.
-    assert.match(cuerpo, /liberarCupoMatricula\(/);
-    assert.ok(rama < catchFinal.indexOf('if (plaza) await liberarPlaza('), 'la rama va antes de soltar nada');
+    assert.match(cuerpo, /liberarCupoMatricula\(|devolverMatriculaPropia\(\)/);
   });
 }

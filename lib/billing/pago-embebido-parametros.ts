@@ -92,6 +92,18 @@ export function metadataEstableEmbebida(d: DatosCompraEmbebida): Record<string, 
   return metadata;
 }
 
+/**
+ * Lo más largo que Stripe acepta en un valor de metadata. Lo volátil llega del
+ * formulario sin tope (`?ref=`, el nombre, el código postal…): con un valor más
+ * largo el `update` fallaba DESPUÉS de crear el cobro, y el cobro se cancelaba con
+ * la matrícula gratis ya gastada. Se recorta aquí: el dato sigue, entero o casi.
+ */
+export const MAX_VALOR_METADATA = 500;
+
+export function recortarMetadata(m: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.slice(0, MAX_VALOR_METADATA)]));
+}
+
 /** Lo que el formulario puede cambiar sin ser otro intento: va DESPUÉS, por `update`. */
 export function metadataVolatilEmbebida(d: DatosCompraEmbebida): Record<string, string> {
   const metadata: Record<string, string> = {};
@@ -111,7 +123,7 @@ export function metadataVolatilEmbebida(d: DatosCompraEmbebida): Record<string, 
   if (d.comoConociste) metadata.comoConociste = d.comoConociste;
   if (d.codigoPostal) metadata.codigoPostal = d.codigoPostal;
   if (d.fechaNacimiento) metadata.fechaNacimiento = d.fechaNacimiento;
-  return metadata;
+  return recortarMetadata(metadata);
 }
 
 /** Toda la metadata con la que se paga: la estable y la volátil. Stripe exige valores no vacíos: lo que no hay, no va. */

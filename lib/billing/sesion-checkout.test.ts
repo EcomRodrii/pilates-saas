@@ -304,7 +304,9 @@ test('la repetición de Stripe se mira antes de entregar su URL, y la segunda pe
   const mira = s.indexOf('queHacerConSesionRepetida(actual)', crea);
   const guarda = s.indexOf('.update({ checkout_session_id: session.id })', crea);
   assert.ok(crea > 0 && mira > crea && guarda > mira, 'crear → mirar la repetición → guardar');
-  assert.match(s.slice(mira, guarda), /session = await crearSesion\(claveTrasSesion\(claveSesion, session\.id\)\)/, 'caducada: otra con otra clave');
+  // Caducada: otra con otra clave, y la repetición de ESA también se mira (revisión del 5-oct, #2).
+  assert.match(s.slice(mira, guarda), /claveActual = claveTrasSesion\(claveActual, session\.id\);\s*session = await crearSesion\(claveActual\);\s*creadaAqui = !esRespuestaRepetida\(session\);\s*continue;/, 'caducada: otra con otra clave');
+  assert.match(s.slice(crea, mira), /for \(let vuelta = 0; !creadaAqui && claveActual && vuelta < 4; vuelta\+\+\) \{/);
   const cero = s.indexOf('if (reciboDesaparecido) {', guarda);
   const caduca = s.indexOf('await stripe.checkout.sessions.expire(session.id', guarda);
   assert.ok(cero > 0 && caduca > cero, 'antes de caducar se relee');

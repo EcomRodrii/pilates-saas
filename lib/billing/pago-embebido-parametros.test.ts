@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  metadataCompraEmbebida, metadataEstableEmbebida, metadataVolatilEmbebida, parametrosClienteInvitada, parametrosPaymentIntentEmbebido,
-  type DatosCompraEmbebida,
+  MAX_VALOR_METADATA, metadataCompraEmbebida, metadataEstableEmbebida, metadataVolatilEmbebida, parametrosClienteInvitada,
+  parametrosPaymentIntentEmbebido, recortarMetadata, type DatosCompraEmbebida,
 } from './pago-embebido-parametros.ts';
 
 // Stripe devuelve el MISMO PaymentIntent a dos peticiones con la misma
@@ -142,8 +142,8 @@ test('el Customer de una invitada se crea con lo que identifica el intento; el n
 
 test('la ruta escribe lo volátil DESPUÉS de crear y ANTES de devolver el client_secret', () => {
   const s = sinComentarios(leer('app/api/public/checkout-embebido/route.ts'));
-  const crea = s.indexOf('= await crearCobro(claveCobro);');
-  const repetido = s.indexOf('queHacerConCobroRepetido(actual?.status)', crea);
+  const crea = s.indexOf('= await crearCobro(clave);');
+  const repetido = s.indexOf('queHacerConCobroRepetido(actual?.status, {', crea);
   const datosDespues = s.indexOf('await stripe.paymentIntents.update(paymentIntent.id, { metadata: volatil }, { stripeAccount });', repetido);
   const responde = s.indexOf('clientSecret: paymentIntent.client_secret', datosDespues);
   assert.ok(crea > 0 && repetido > crea && datosDespues > repetido && responde > datosDespues,
@@ -160,13 +160,36 @@ test('Modo A (Checkout hospedado): lo del formulario tampoco va al crear la sesi
     assert.match(s, new RegExp(`metadataVolatil\\.${campo} =`), campo);
   }
   const crea = s.indexOf('= await crearSesion(claveSesion);');
-  const update = s.indexOf('await stripe.checkout.sessions.update(session.id, { metadata: metadataVolatil }', crea);
+  const update = s.indexOf('await stripe.checkout.sessions.update(session.id, { metadata: recortarMetadata(metadataVolatil) }', crea);
   const responde = s.lastIndexOf('NextResponse.json({ url: session.url })');
   assert.ok(crea > 0 && update > crea && responde > update);
   // La descripción de una compra de plan no lleva el nombre del formulario.
   assert.match(s, /description: body\.reciboId && body\.socioNombre \? `Tentare · \$\{body\.socioNombre\}` : 'Tentare'/);
 });
 
+
+// Revisión del 5-oct (#6): un valor de más de 500 caracteres hacía fallar el `update`
+// DESPUÉS de crear el cobro (con la matrícula gratis ya gastada). Se recorta.
+test('lo volátil nunca pasa de lo que Stripe admite por valor', () => {
+  const largo = 'x'.repeat(MAX_VALOR_METADATA + 50);
+  const m = metadataVolatilEmbebida(datos({ origenLead: largo, socioNombre: largo, codigoPostal: '28001' }));
+  assert.equal(m.origenLead.length, MAX_VALOR_METADATA);
+  assert.equal(m.socioNombre.length, MAX_VALOR_METADATA);
+  assert.equal(m.codigoPostal, '28001');
+  assert.deepEqual(recortarMetadata({ a: largo }), { a: largo.slice(0, MAX_VALOR_METADATA) });
+});
+
+// Revisión del 5-oct (#1): la clave normalizaba el email y los parámetros no.
+test('el email se normaliza UNA vez en las dos rutas y es el mismo en la clave y en los parámetros', () => {
+  for (const ruta of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe/checkout/route.ts']) {
+    const s = sinComentarios(leer(ruta));
+    assert.match(s, /const socioEmail = typeof body\.socioEmail === 'string' && body\.socioEmail\.trim\(\)\s*\? body\.socioEmail\.trim\(\)\.toLowerCase\(\)\s*: null;/, ruta);
+    // Fuera de la validación y de la normalización, nadie vuelve a leer el email crudo.
+    const resto = s.replace(/const socioEmail = typeof body\.socioEmail[\s\S]*?: null;/, '')
+      .replace(/if \(body\.socioEmail != null && !EMAIL_RE\.test\(body\.socioEmail\.trim\(\)\)\)/, '');
+    assert.doesNotMatch(resto, /body\.socioEmail/, ruta);
+  }
+});
 
 test('ninguna puerta de pago vuelve a meter la fecha de aceptación en la metadata', () => {
   for (const ruta of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe/checkout/route.ts']) {

@@ -23,9 +23,12 @@ import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
-import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, esRespuestaRepetida } from '@/lib/billing/matricula-online';
+import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, liberarCupoMatriculaUnaVez, esRespuestaRepetida } from '@/lib/billing/matricula-online';
+import { recortarMetadata } from '@/lib/billing/pago-embebido-parametros';
+import { mensajeClaseYaPagada } from '@/lib/billing/pago-anterior';
+import { idsDe } from '@/lib/billing/ids-compra';
 import {
-  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
+  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlazaPorRef, liberarPlazaSiEsDe, liberarPlazaSinCobro, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas, reservarPlazaEtapa,
   type PlazaReservada,
 } from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
@@ -69,6 +72,24 @@ import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apert
 // afecta a las llamadas same-origin ya existentes de Modo A.
 export async function OPTIONS(req: NextRequest) {
   return respuestaPreflightWidget(req);
+}
+
+/** «Ya has pagado esta clase», con lo que de verdad tiene (lib/billing/pago-anterior.ts). */
+async function mensajeDeClasePagadaPorSesion(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, sesion: Stripe.Checkout.Session, studioId: string,
+): Promise<string> {
+  const pi = typeof sesion.payment_intent === 'string' ? sesion.payment_intent : sesion.payment_intent?.id ?? null;
+  const [{ data: reserva }, { data: recibo }] = await Promise.all([
+    pi
+      ? admin.from('reservas').select('estado').eq('id', idsDe(pi).reservaId).eq('studio_id', studioId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin.from('recibos').select('id').eq('id', idsDe(sesion.id).reciboId).eq('studio_id', studioId).maybeSingle(),
+  ]);
+  return mensajeClaseYaPagada({
+    cobro: sesion.payment_status === 'paid' ? 'cobrado' : 'procesando',
+    entregado: !!recibo,
+    reserva: ((reserva as { estado?: string | null } | null)?.estado as string | null | undefined) ?? null,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -150,6 +171,12 @@ export async function POST(req: NextRequest) {
   if (!body?.studioId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
+  // Normalizado UNA vez y el MISMO en la clave de idempotencia (`claveCheckoutPlanModoA`
+  // ya lo normalizaba) y en los parámetros de la sesión (`customer_email`): con otras
+  // mayúsculas, el mismo intento iba con otros parámetros → `idempotency_error`.
+  const socioEmail = typeof body.socioEmail === 'string' && body.socioEmail.trim()
+    ? body.socioEmail.trim().toLowerCase()
+    : null;
 
   // F-30 (auditoría 20ª pasada): esta es la OTRA puerta por la que entra
   // dinero (la socia paga desde el portal o un enlace público, sin sesión de
@@ -383,7 +410,7 @@ export async function POST(req: NextRequest) {
     // «Clase de prueba»: la MISMA puerta que su gemelo /api/public/checkout-embebido.
     const rechazoPrueba = await rechazoCompraPrueba(admin, {
       studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
-      socioId, email: body.socioEmail, sesionId: body.sesionId,
+      socioId, email: socioEmail, sesionId: body.sesionId,
     });
     if (rechazoPrueba) {
       return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
@@ -409,7 +436,7 @@ export async function POST(req: NextRequest) {
       const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
         hoyISO: new Date().toISOString(),
         subtotal: importe,
-        esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
+        esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
         codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
       });
       if (resultado.ok) {
@@ -447,7 +474,7 @@ export async function POST(req: NextRequest) {
     // clase es reservable, porque el webhook de esta puerta (más abajo)
     // también va a intentar reservarla.
     if (body.sesionId) {
-      if (!socioId && !body.socioEmail) {
+      if (!socioId && !socioEmail) {
         return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
       }
       const { data: sesion } = await admin
@@ -561,7 +588,7 @@ export async function POST(req: NextRequest) {
   // partir de aquí, el único camino que no crea el cobro es el `catch` — que sí
   // devuelve la plaza.
   if (matriculaBase > 0 && body.planId
-      && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+      && await primeraVezConPlan(admin, body.studioId, socioId, socioEmail)) {
     const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, matriculaBase);
     matriculaCentimos = Math.round(aCobrar * 100);
     // Solo se anota si se cobra: un 0 en metadata haría que el webhook
@@ -726,7 +753,7 @@ export async function POST(req: NextRequest) {
         studioId: body.studioId,
         planId: body.planId,
         socioId,
-        socioEmail: body.socioEmail ?? null,
+        socioEmail,
         codigoDescuentoId: metadata.codigoDescuentoId ?? null,
         metodos: paymentMethodTypes,
         sesionId: body.sesionId ?? null,
@@ -754,6 +781,20 @@ export async function POST(req: NextRequest) {
     // se liga por su referencia (`asignarRefPlaza`), no por la creación.
     if (plaza) metadataVolatil.plazaEtapaId = plaza.id;
   }
+
+  // La matrícula gratis de una sesión que ya existe con la marca y se cierra aquí: con
+  // la clave de ESA sesión, la misma del conciliador (`plazaDeSesionCaducada`).
+  const devolverMatriculaDeSesion = async (sessionId: string) => {
+    if (!cupoMatriculaReservado) return;
+    try {
+      await liberarCupoMatriculaUnaVez(admin, sessionId, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    } catch (e) {
+      // Nada anotado: el conciliador la devuelve al verla caducada.
+      Sentry.captureException(e instanceof Error ? e : new Error('liberar matrícula de la sesión cerrada'), {
+        level: 'warning', tags: { area: 'stripe-checkout', tipo: 'matricula' }, extra: { studioId: body.studioId, sessionId },
+      });
+    }
+  };
 
   try {
     const parametrosSesion: Stripe.Checkout.SessionCreateParams = {
@@ -785,7 +826,7 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         }] : []),
       ],
-      customer_email: body.socioEmail ?? undefined,
+      customer_email: socioEmail ?? undefined,
       // Siempre: sin Customer no hay dónde adjuntar la tarjeta, y esto vale
       // igual cuando se paga por Bizum (el Customer se queda sin método
       // reutilizable, que es lo correcto, en vez de no existir).
@@ -845,12 +886,14 @@ export async function POST(req: NextRequest) {
       stripeAccount: studio.stripe_account_id,
       ...(clave ? { idempotencyKey: clave } : {}),
     });
+    // Cada repetición de Stripe (la de la clave y la de cada clave derivada) se mira
+    // contra la sesión de AHORA: nunca se devuelve la URL de una sesión caducada o
+    // ya pagada sin su `retrieve`.
     let session: Stripe.Checkout.Session = await crearSesion(claveSesion);
     // ¿La creó ESTA petición, o es la repetición de otra con la misma clave?
     let creadaAqui = !esRespuestaRepetida(session);
-    if (!creadaAqui && claveSesion) {
-      // La repetición trae la sesión como era al CREARSE: si desde entonces caducó o
-      // se pagó, su URL ya no sirve (o pagaría lo pagado). Se mira la de ahora.
+    let claveActual = claveSesion;
+    for (let vuelta = 0; !creadaAqui && claveActual && vuelta < 4; vuelta++) {
       let actual: Stripe.Checkout.Session | null = null;
       try {
         actual = await stripe.checkout.sessions.retrieve(session.id, undefined, { stripeAccount: studio.stripe_account_id });
@@ -858,39 +901,53 @@ export async function POST(req: NextRequest) {
         console.error('[stripe/checkout] no se pudo mirar la sesión repetida', session.id, errActual);
       }
       const repetida = queHacerConSesionRepetida(actual);
-      if (repetida === 'nueva') {
+      if (repetida === 'usar' && actual) { session = actual; break; }
+      if (repetida === 'nueva' && vuelta < 3) {
         // Caducada: este mismo intento necesita otra, con una clave que no la repita.
-        session = await crearSesion(claveTrasSesion(claveSesion, session.id));
+        claveActual = claveTrasSesion(claveActual, session.id);
+        session = await crearSesion(claveActual);
         creadaAqui = !esRespuestaRepetida(session);
-      } else if (repetida === 'usar' && actual) {
-        session = actual;
-      } else {
-        // Ya pagada, o sin poder saberlo: ni se devuelve su URL ni se crea otra. La
-        // plaza de cupo es la de esa sesión (misma clave): no se suelta. La de
-        // matrícula gratis la reservó esta petición para sí: vuelve.
-        if (cupoMatriculaReservado) {
-          await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-        }
-        return conCorsWidget(req, repetida === 'pagada'
-          ? NextResponse.json({ error: body.reciboId ? MENSAJE_RECIBO_YA_PAGADO_ONLINE : MENSAJE_COMPRA_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 })
-          : NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
+        continue;
       }
+      // Ya pagada, o sin poder saberlo: ni se devuelve su URL ni se crea otra. La
+      // plaza de cupo es la de esa sesión (misma clave): no se suelta. La de
+      // matrícula gratis la reservó esta petición para sí: vuelve.
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      if (repetida === 'pagada' && !body.reciboId && body.sesionId && actual) {
+        // Con clase: lo que de verdad tiene (lib/billing/pago-anterior.ts), no una
+        // confirmación que puede no llegar.
+        return conCorsWidget(req, NextResponse.json({ error: await mensajeDeClasePagadaPorSesion(admin, actual, body.studioId), codigo: 'ya-pagado' }, { status: 409 }));
+      }
+      return conCorsWidget(req, repetida === 'pagada'
+        ? NextResponse.json({ error: body.reciboId ? MENSAJE_RECIBO_YA_PAGADO_ONLINE : MENSAJE_COMPRA_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 })
+        : NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
     }
 
     // La plaza queda ligada a ESTE cobro. Si no se puede guardar, no hay forma
     // de confirmarla ni de soltarla después: se deshace la venta entera.
+    // Una sesión que no creó esta petición no se toca: es la de otra pestaña.
     if (plaza && !(await asignarRefPlaza(admin, plaza.id, session.id))) {
-      try {
-        await stripe.checkout.sessions.expire(session.id, undefined, {
-          stripeAccount: studio.stripe_account_id, idempotencyKey: `checkout-expirar-${session.id}`,
-        });
-      } catch (errExpirar) {
-        Sentry.captureException(errExpirar instanceof Error ? errExpirar : new Error('No se pudo expirar la sesión de Checkout'), {
-          tags: { area: 'stripe-checkout' }, extra: { sessionId: session.id, studioId: body.studioId, motivo: 'plaza_sin_ref' },
-        });
-      }
-      await liberarPlaza(admin, plaza.id);
-      if (cupoMatriculaReservado) {
+      if (creadaAqui) {
+        let expirada = false;
+        try {
+          const e = await stripe.checkout.sessions.expire(session.id, undefined, {
+            stripeAccount: studio.stripe_account_id, idempotencyKey: `checkout-expirar-${session.id}`,
+          });
+          expirada = e.status === 'expired';
+        } catch (errExpirar) {
+          Sentry.captureException(errExpirar instanceof Error ? errExpirar : new Error('No se pudo expirar la sesión de Checkout'), {
+            tags: { area: 'stripe-checkout' }, extra: { sessionId: session.id, studioId: body.studioId, motivo: 'plaza_sin_ref' },
+          });
+        }
+        if (expirada) {
+          // La plaza, solo si no es de OTRA sesión (sigue pagable); la matrícula, con
+          // la clave de esta sesión: la misma con la que la devolvería el conciliador.
+          await liberarPlazaSiEsDe(admin, plaza.id, session.id);
+          await devolverMatriculaDeSesion(session.id);
+        }
+      } else if (cupoMatriculaReservado) {
         await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
       }
       return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
@@ -911,18 +968,20 @@ export async function POST(req: NextRequest) {
     // gana lo último que se escribe.
     if (Object.keys(metadataVolatil).length > 0) {
       try {
-        await stripe.checkout.sessions.update(session.id, { metadata: metadataVolatil }, { stripeAccount: studio.stripe_account_id });
+        await stripe.checkout.sessions.update(session.id, { metadata: recortarMetadata(metadataVolatil) }, { stripeAccount: studio.stripe_account_id });
       } catch (errDatos) {
         if (creadaAqui) {
           // Sin el teléfono o el sitio, la ficha y la reserva saldrían mal: esta
           // sesión no se entrega. Se cierra y se devuelve lo retenido.
+          // Con las claves de ESTA sesión: la plaza por su referencia y la matrícula
+          // «una vez». Sin clave, el conciliador la devolvía otra vez al verla caducada.
           try {
-            await stripe.checkout.sessions.expire(session.id, undefined, {
+            const e = await stripe.checkout.sessions.expire(session.id, undefined, {
               stripeAccount: studio.stripe_account_id, idempotencyKey: `checkout-expirar-${session.id}`,
             });
-            if (plaza) await liberarPlaza(admin, plaza.id);
-            if (cupoMatriculaReservado) {
-              await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+            if (e.status === 'expired') {
+              if (plaza) await liberarPlazaPorRef(admin, session.id);
+              await devolverMatriculaDeSesion(session.id);
             }
           } catch (errExpirar) {
             console.error('[stripe/checkout] no se pudo cerrar la sesión sin datos', session.id, errExpirar);
@@ -1019,6 +1078,10 @@ export async function POST(req: NextRequest) {
       if (cupoMatriculaReservado) {
         await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
       }
+      // La plaza de cupo solo si ninguna sesión la tiene: si la etapa empezó entre
+      // las dos peticiones, la de antes se creó sin plaza (y sin `expires_at`, por eso
+      // los parámetros ya no coinciden): retenerla 31 min no servía a nadie.
+      if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
       Sentry.captureMessage('[stripe/checkout] el mismo intento de pago volvió con otros parámetros', {
         level: 'warning', tags: { area: 'stripe-checkout', tipo: 'pago-en-curso' },
         extra: { studioId: body.studioId, conRecibo: !!body.reciboId, conClase: !!body.sesionId, conPlaza: !!plaza },
@@ -1026,8 +1089,9 @@ export async function POST(req: NextRequest) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
     // Si el cobro no llegó a nacer, la plaza que se reservó para decidir su
-    // precio no se ha usado. Devolverla antes de contestar el error.
-    if (plaza) await liberarPlaza(admin, plaza.id);
+    // precio no se ha usado. Devolverla antes de contestar el error (si una sesión
+    // anterior ya la tiene ligada, es suya y no se toca).
+    if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
     if (cupoMatriculaReservado) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }

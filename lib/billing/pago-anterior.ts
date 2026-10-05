@@ -22,10 +22,34 @@
 //     pantalla, nunca dos pagables.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CobroRepetido = 'usar' | 'nuevo' | 'pagado' | 'en-curso' | 'no-se-sabe';
+export type CobroRepetido = 'usar' | 'nuevo' | 'cancelar-y-nuevo' | 'pagado' | 'en-curso' | 'no-se-sabe';
+
+/**
+ * Lo que tarda un 3DS en darse por abandonado (5-oct-2026). Stripe no caduca un
+ * PaymentIntent en `requires_action`: si la pestaña o el navegador de Instagram se
+ * cerró a mitad del desafío, se queda así para siempre, y con la misma clave cada
+ * intento nuevo de esa clase recibía «a medias» durante 24 h. Pasado esto se cancela
+ * (Stripe lo permite en `requires_action`) y el intento sigue con otro cobro. Un
+ * desafío del banco no dura tanto; y si alguien lo aprueba después de cancelarlo, el
+ * cobro falla: nunca se cobra dos veces.
+ */
+export const MINUTOS_3DS_ABANDONADO = 10;
+
+export interface ContextoCobroRepetido {
+  /** `pi.created`, en segundos. Sin él, un 3DS nunca se da por abandonado. */
+  creadoEnSeg?: number | null;
+  ahora?: Date;
+  /** El cargo está devuelto ENTERO (`charge.refunded`): ese pago ya no cuenta. */
+  reembolsado?: boolean;
+}
+
+export function tresDSAbandonado(ctx: ContextoCobroRepetido): boolean {
+  if (typeof ctx.creadoEnSeg !== 'number' || !Number.isFinite(ctx.creadoEnSeg) || !ctx.ahora) return false;
+  return ctx.ahora.getTime() - ctx.creadoEnSeg * 1000 >= MINUTOS_3DS_ABANDONADO * 60_000;
+}
 
 /** La repetición de Stripe, contra el estado de AHORA del PaymentIntent. */
-export function queHacerConCobroRepetido(statusActual: string | null | undefined): CobroRepetido {
+export function queHacerConCobroRepetido(statusActual: string | null | undefined, ctx: ContextoCobroRepetido = {}): CobroRepetido {
   switch (statusActual) {
     // Se puede pagar: es el mismo cobro (otra pestaña del mismo intento).
     case 'requires_payment_method':
@@ -34,14 +58,16 @@ export function queHacerConCobroRepetido(statusActual: string | null | undefined
     // Cancelado (abandonado): este intento necesita otro, con otra clave.
     case 'canceled':
       return 'nuevo';
-    // Cobrado, o cobrándose: no se entrega ni se crea otro.
+    // Cobrado… salvo que se le haya devuelto entero: entonces es un intento nuevo.
     case 'succeeded':
+      return ctx.reembolsado ? 'nuevo' : 'pagado';
+    // Cobrándose: no se entrega ni se crea otro.
     case 'processing':
     case 'requires_capture':
       return 'pagado';
-    // A medias (3DS en la app del banco): no se toca.
+    // A medias (3DS): reciente, no se toca; abandonado, se cancela y se sigue.
     case 'requires_action':
-      return 'en-curso';
+      return tresDSAbandonado(ctx) ? 'cancelar-y-nuevo' : 'en-curso';
     default:
       return 'no-se-sabe';
   }
@@ -68,7 +94,7 @@ export interface IntentoDeClase {
 export type DecisionPagoAnterior =
   /** No es de esta pantalla, de este estudio, de esta clase o de esta persona: no se toca. */
   | 'ajeno'
-  /** Sigue pagable: se cancela antes de crear el nuevo. */
+  /** Sigue pagable (o a medias en el banco): se cancela antes de crear el nuevo. */
   | 'cancelar'
   /** Ya estaba cancelado: el nuevo necesita otra clave. */
   | 'ya-cancelado'
@@ -88,20 +114,59 @@ export function decidirPagoAnterior(pi: CobroAnterior, secretoEnviado: string, i
     ? md.socioId === intento.socioId
     : !md.socioId && mismoEmail(md.socioEmail, intento.socioEmail);
   if (!mismaPersona) return 'ajeno';
+  // Un 3DS a medias de ESTA pantalla: si ha vuelto atrás y continúa, lo ha dejado.
+  // Se cancela (si el banco lo aprueba después, el cobro falla: nunca dos cobros).
+  if (pi.status === 'requires_action') return 'cancelar';
   switch (queHacerConCobroRepetido(pi.status)) {
     case 'usar': return 'cancelar';
     case 'nuevo': return 'ya-cancelado';
+    case 'cancelar-y-nuevo': return 'cancelar';
     case 'pagado': return 'pagado';
     case 'en-curso': return 'en-curso';
     default: return 'en-curso';
   }
 }
 
-export const MENSAJE_CLASE_YA_PAGADA =
-  'Ya has pagado esta clase: te llegará la confirmación por email. No hace falta que la pagues otra vez.';
-
 export const MENSAJE_PAGO_A_MEDIAS =
-  'Tienes un pago de esta clase a medias (por ejemplo, esperando la confirmación de tu banco). Termínalo, o espera unos minutos y vuelve a intentarlo.';
+  'Tu banco todavía está esperando que confirmes un pago de esta clase. Confírmalo en la app de tu banco; si lo dejaste a medias, podrás volver a pagar dentro de un rato (como mucho, media hora). No se te cobrará dos veces.';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Ya has pagado esta clase», solo si es verdad lo que se le dice (5-oct-2026).
+// Antes era siempre «te llegará la confirmación por email», también a quien pagó y
+// se quedó sin plaza (clase llena, tope semanal), a quien la canceló después o a
+// quien ya se le devolvió el dinero: podía presentarse en clase sin estar apuntada.
+// Se dice lo que hay: lo que dice su reserva (`res-web-<pago>`), si el pago aún se
+// procesa, o si ya se entregó lo comprado y no tiene plaza. Un pago devuelto entero
+// no llega aquí: es un intento nuevo (`queHacerConCobroRepetido`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SituacionClasePagada {
+  /** `processing`/`requires_capture` → procesando; `succeeded` → cobrado. */
+  cobro: 'procesando' | 'cobrado';
+  /** Lo comprado ya se entregó (existe su recibo `rec-web-…`). */
+  entregado: boolean;
+  /** Estado de la reserva de ESTE pago (`res-web-…`), o null si no la hay. */
+  reserva: string | null;
+}
+
+export function mensajeClaseYaPagada(s: SituacionClasePagada): string {
+  if (s.cobro === 'procesando') {
+    return 'Tu pago de esta clase se está procesando: te avisaremos por email en cuanto se confirme. No hace falta que la pagues otra vez.';
+  }
+  if (s.reserva === 'CONFIRMADA' || s.reserva === 'ASISTIDA') {
+    return 'Ya has pagado esta clase y tienes tu plaza. No hace falta que la pagues otra vez.';
+  }
+  if (s.reserva === 'LISTA_ESPERA') {
+    return 'Ya pagaste esta clase y estás en su lista de espera: si queda un sitio, te avisaremos. No hace falta que la pagues otra vez.';
+  }
+  if (s.reserva === 'PENDIENTE_APROBACION') {
+    return 'Ya pagaste esta clase y tu reserva está pendiente de que el estudio la apruebe. No hace falta que la pagues otra vez.';
+  }
+  if (!s.entregado) {
+    return 'Tu pago de esta clase ya se ha hecho y estamos preparando tu reserva: te llegará un email. No hace falta que la pagues otra vez.';
+  }
+  return 'Ya pagaste esta clase, pero ahora no tienes plaza en ella. Lo que compraste está en tu cuenta: entra con tu email para reservar con ello, o escribe al estudio.';
+}
 
 export const MENSAJE_PAGO_SIN_COMPROBAR =
   'No hemos podido comprobar tu pago anterior. Inténtalo en un momento: no se te ha cobrado nada.';

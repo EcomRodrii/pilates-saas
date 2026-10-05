@@ -16,8 +16,10 @@ import {
   metadataVolatilEmbebida, parametrosClienteInvitada, parametrosPaymentIntentEmbebido, type DatosCompraEmbebida,
 } from '@/lib/billing/pago-embebido-parametros';
 import {
-  claveTrasCobro, decidirPagoAnterior, MENSAJE_CLASE_YA_PAGADA, MENSAJE_PAGO_A_MEDIAS, MENSAJE_PAGO_SIN_COMPROBAR, queHacerConCobroRepetido,
+  claveTrasCobro, decidirPagoAnterior, mensajeClaseYaPagada, MENSAJE_PAGO_A_MEDIAS, MENSAJE_PAGO_SIN_COMPROBAR, queHacerConCobroRepetido,
 } from '@/lib/billing/pago-anterior';
+import { MENSAJE_COMPRA_YA_PAGADA } from '@/lib/billing/sesion-checkout';
+import { idsDe } from '@/lib/billing/ids-compra';
 import { piDeClientSecret } from '@/lib/billing/estado-pago-publico';
 import { sesionNoExisteEnStripe } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
@@ -31,8 +33,8 @@ import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, liberarCupoMatriculaUnaVez, esRespuestaRepetida } from '@/lib/billing/matricula-online';
 import {
-  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlaza, liberarPlazaPorRef, MENSAJE_ETAPA_AGOTADA, recuperarPlazasCaducadas,
-  reservarPlazaEtapa, type PlazaReservada,
+  asignarRefPlaza, claveStripe, esEtapaAgotada, liberarPlazaPorRef, liberarPlazaSiEsDe, liberarPlazaSinCobro, MENSAJE_ETAPA_AGOTADA,
+  recuperarPlazasCaducadas, reservarPlazaEtapa, type PlazaReservada,
 } from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
@@ -76,6 +78,38 @@ function detalleErrorStripe(e: unknown): Record<string, unknown> {
     requestId: err?.requestId ?? null,
     statusCode: err?.statusCode ?? null,
   };
+}
+
+/** El cargo de este cobro está devuelto ENTERO (`latest_charge` expandido). */
+function cargoDevueltoEntero(pi: Stripe.PaymentIntent | null): boolean {
+  const cargo = pi?.latest_charge;
+  return !!cargo && typeof cargo === 'object' && (cargo as Stripe.Charge).refunded === true;
+}
+
+/**
+ * «Ya has pagado»: con lo que de verdad tiene (lib/billing/pago-anterior.ts,
+ * `mensajeClaseYaPagada`), nunca una confirmación que no va a llegar. Quien pregunta
+ * es la misma persona del mismo intento (la clave lleva quién paga), así que puede
+ * saber qué pasó con SU pago.
+ */
+async function respuestaYaPagado(
+  req: NextRequest, admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  pi: Stripe.PaymentIntent, studioId: string, conClase: boolean,
+) {
+  if (!conClase) {
+    return conCorsWidget(req, NextResponse.json({ error: MENSAJE_COMPRA_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 }));
+  }
+  const ids = idsDe(pi.id);
+  const [{ data: reserva }, { data: recibo }] = await Promise.all([
+    admin.from('reservas').select('estado').eq('id', ids.reservaId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('recibos').select('id').eq('id', ids.reciboId).eq('studio_id', studioId).maybeSingle(),
+  ]);
+  const error = mensajeClaseYaPagada({
+    cobro: pi.status === 'succeeded' ? 'cobrado' : 'procesando',
+    entregado: !!recibo,
+    reserva: (reserva?.estado as string | null | undefined) ?? null,
+  });
+  return conCorsWidget(req, NextResponse.json({ error, codigo: 'ya-pagado' }, { status: 409 }));
 }
 
 export async function POST(req: NextRequest) {
@@ -173,6 +207,14 @@ export async function POST(req: NextRequest) {
   if (body.socioEmail != null && !EMAIL_RE.test(body.socioEmail.trim())) {
     return conCorsWidget(req, NextResponse.json({ error: 'Email no válido' }, { status: 400 }));
   }
+  // Normalizado UNA vez (sin espacios, en minúsculas) y el MISMO en la clave de
+  // idempotencia y en los parámetros del cobro y del Customer (5-oct-2026). La clave
+  // ya lo normalizaba y los parámetros no: otra pestaña con «Maria@…» en vez de
+  // «maria@…» era el mismo intento con otros parámetros → `idempotency_error` → sin
+  // poder pagar esa clase en 24 h.
+  const socioEmail = typeof body.socioEmail === 'string' && body.socioEmail.trim()
+    ? body.socioEmail.trim().toLowerCase()
+    : null;
   // Teléfono: saneado pero NO bloqueante — a diferencia del email (que decide
   // a qué ficha se asocia el bono, y por eso 400ea), el teléfono es un dato de
   // contacto secundario: un formato raro no puede frenar un cobro legítimo.
@@ -268,7 +310,7 @@ export async function POST(req: NextRequest) {
   // gemelo /api/stripe/checkout). Un plan normal no toca la base aquí.
   const rechazoPrueba = await rechazoCompraPrueba(admin, {
     studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
-    socioId, email: body.socioEmail, sesionId: body.sesionId,
+    socioId, email: socioEmail, sesionId: body.sesionId,
   });
   if (rechazoPrueba) {
     return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
@@ -296,7 +338,7 @@ export async function POST(req: NextRequest) {
     const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
       hoyISO: new Date().toISOString(),
       subtotal: importe,
-      esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
+      esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
       codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
     });
     if (resultado.ok) {
@@ -350,7 +392,7 @@ export async function POST(req: NextRequest) {
     // Sin socioId (visitante nueva) hace falta email para poder crear la
     // ficha/cuenta después del pago — sin él, entregarPlanComprado no tiene a
     // quién entregarle nada (mismo motivo que 'sin-socia' en ese módulo).
-    if (!socioId && !body.socioEmail) {
+    if (!socioId && !socioEmail) {
       return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
     }
     const { data: sesion } = await admin
@@ -406,10 +448,10 @@ export async function POST(req: NextRequest) {
       }
     }
     const decision = anterior
-      ? decidirPagoAnterior(anterior, secretoAnterior, { studioId: body.studioId, sesionId: body.sesionId ?? null, socioId, socioEmail: body.socioEmail ?? null })
+      ? decidirPagoAnterior(anterior, secretoAnterior, { studioId: body.studioId, sesionId: body.sesionId ?? null, socioId, socioEmail })
       : 'ajeno';
-    if (decision === 'pagado') {
-      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_CLASE_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 }));
+    if (decision === 'pagado' && anterior) {
+      return respuestaYaPagado(req, admin, anterior, body.studioId, !!body.sesionId);
     }
     if (decision === 'en-curso') {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
@@ -429,11 +471,10 @@ export async function POST(req: NextRequest) {
         // Sin poder mirarlo, tampoco se crea otro (`ahora` se queda en null).
         try { ahora = await stripe.paymentIntents.retrieve(anterior.id, undefined, { stripeAccount }); } catch { ahora = null; }
         if (ahora?.status !== 'canceled') {
-          const yaPagado = queHacerConCobroRepetido(ahora?.status) === 'pagado';
-          return conCorsWidget(req, NextResponse.json(
-            yaPagado ? { error: MENSAJE_CLASE_YA_PAGADA, codigo: 'ya-pagado' } : { error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO },
-            { status: 409 },
-          ));
+          if (ahora && queHacerConCobroRepetido(ahora.status) === 'pagado') {
+            return respuestaYaPagado(req, admin, ahora, body.studioId, !!body.sesionId);
+          }
+          return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
         }
         cancelado = ahora;
       }
@@ -461,7 +502,7 @@ export async function POST(req: NextRequest) {
   // que diga. Es el último punto en que la compra puede fallar sin haber
   // gastado nada: de aquí en adelante, lo único que no crea el cobro es el
   // `catch` — que sí devuelve la plaza.
-  if (matriculaBase > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+  if (matriculaBase > 0 && await primeraVezConPlan(admin, body.studioId, socioId, socioEmail)) {
     const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, matriculaBase);
     matriculaCentimos = Math.round(aCobrar * 100);
     if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
@@ -474,7 +515,7 @@ export async function POST(req: NextRequest) {
   // segundo reintento legítimo del mismo intento.
   const idemKey = claveCheckoutEmbebido({
     studioId: body.studioId, planId: body.planId, socioId,
-    socioEmail: body.socioEmail ?? null, sesionId: body.sesionId ?? null,
+    socioEmail, sesionId: body.sesionId ?? null,
     codigoDescuentoId,
   });
 
@@ -522,7 +563,7 @@ export async function POST(req: NextRequest) {
         const customer = await stripe.customers.create(
           {
             name: (socio?.nombre as string | null) ?? undefined,
-            email: (socio?.email as string | null) ?? body.socioEmail ?? undefined,
+            email: (socio?.email as string | null) ?? socioEmail ?? undefined,
             metadata: { socioId, studioId: body.studioId },
           },
           { stripeAccount, idempotencyKey: `${idemKey}:customer` },
@@ -551,7 +592,7 @@ export async function POST(req: NextRequest) {
         customerId = null;
       }
     }
-  } else if (body.socioEmail) {
+  } else if (socioEmail) {
     // Camino de invitada (sin socioId todavía: la ficha la crea
     // entregarPlanComprado DESPUÉS del pago). No hay fila `socios` donde
     // persistir nada aquí — se crea el Customer igualmente y viaja en el
@@ -573,7 +614,7 @@ export async function POST(req: NextRequest) {
       // Customer y el cobro salía distinto del primero (`-v3` estrena las claves
       // con estos parámetros).
       const customer = await stripe.customers.create(
-        parametrosClienteInvitada({ socioEmail: body.socioEmail, studioId: body.studioId }),
+        parametrosClienteInvitada({ socioEmail, studioId: body.studioId }),
         { stripeAccount, idempotencyKey: `${idemKey}:customer-v3` },
       );
       customerId = customer.id;
@@ -619,7 +660,7 @@ export async function POST(req: NextRequest) {
     cupoMatriculaReservado: cupoMatriculaReservado !== null,
     plazaEtapaId: plaza?.id ?? null,
     socioId,
-    socioEmail: body.socioEmail ?? null,
+    socioEmail,
     socioNombre: body.socioNombre ?? null,
     socioTelefono,
     origenLead: body.origenLead ?? null,
@@ -644,46 +685,119 @@ export async function POST(req: NextRequest) {
   // pestañas del mismo intento legítimo no generan dos PaymentIntents cobrables
   // — ver §1/§9.4 del diseño y `claveIdempotencia` arriba. Con plaza de cupo, la
   // clave lleva su intento: si su PaymentIntent se canceló al recuperar la plaza,
-  // un nuevo intento necesita otro, no ese. Y si esta pantalla canceló su cobro
-  // anterior, el nuevo lleva otra clave: con la de aquel, Stripe repetiría el
-  // cancelado (o, con otro importe, daría `idempotency_error`).
+  // un nuevo intento necesita otro, no ese.
+  //
+  // ⚠️ La clave NO se deriva del pago anterior de esta pantalla (5-oct-2026): otra
+  // pestaña del mismo intento, sin ese pago, usaba la clave a secas y creaba un
+  // SEGUNDO cobro pagable (y con plaza de etapa soltaba la del cobro vivo). Todas
+  // las pestañas usan la misma; si la ocupa el cobro cancelado, la repetición lo
+  // dice y el camino 'nuevo' deriva la siguiente igual para todas.
   const claveBase = plaza ? claveStripe(idemKey, plaza.intento) : idemKey;
-  const claveCobro = cobroSustituido ? claveTrasCobro(claveBase, cobroSustituido) : claveBase;
   const crearCobro = (clave: string) => stripe.paymentIntents.create(parametros, { stripeAccount, idempotencyKey: clave });
+  // La plaza de matrícula gratis que reservó ESTA petición y que no va con ningún cobro.
+  const devolverMatriculaPropia = async () => {
+    if (cupoMatriculaReservado) await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+  };
+  // La de un cobro que ya existe con la marca: con SU clave, la misma del conciliador,
+  // que la vería otra vez en el PI cancelado. Sin clave se devolvía dos veces (−1 neto
+  // por petición: la promoción no se agotaba nunca).
+  const devolverMatriculaDe = async (cobroId: string) => {
+    if (!cupoMatriculaReservado) return;
+    try {
+      await liberarCupoMatriculaUnaVez(admin, cobroId, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    } catch (e) {
+      // No ha quedado nada anotado: el conciliador la devuelve (PI cancelado con la marca).
+      Sentry.captureException(e instanceof Error ? e : new Error('liberar matrícula del cobro cancelado'), {
+        level: 'warning', tags: { modulo: 'checkout-embebido', paso: 'matricula' }, extra: { studioId: body.studioId, paymentIntentId: cobroId },
+      });
+    }
+  };
+  // Cancela un cobro y dice cómo ha quedado (null = no se ha podido ni mirar).
+  const cancelarYMirar = async (id: string): Promise<Stripe.PaymentIntent | null> => {
+    try {
+      return await stripe.paymentIntents.cancel(id, { cancellation_reason: 'abandoned' }, { stripeAccount, idempotencyKey: `abandonado-cancelar-${id}` });
+    } catch {
+      try { return await stripe.paymentIntents.retrieve(id, undefined, { stripeAccount }); } catch { return null; }
+    }
+  };
 
   try {
-    let paymentIntent: Stripe.PaymentIntent = await crearCobro(claveCobro);
-    // ¿Lo creó ESTA petición, o es la repetición de otra con la misma clave?
-    let creadoAqui = !esRespuestaRepetida(paymentIntent);
-    if (!creadoAqui) {
-      // La repetición trae el cobro como era al CREARSE: el conciliador puede
-      // haberlo cancelado (abandonado), o puede estar ya cobrado. Se mira el de ahora.
+    // El cobro de ESTE intento. Cada repetición de Stripe (la de la clave a secas y
+    // la de cada clave derivada) se mira contra el cobro de AHORA: nunca se entrega
+    // el client_secret de un cobro cancelado o ya cobrado sin su `retrieve`.
+    let clave = claveBase;
+    let probadaTrasSustituido = false;
+    let paymentIntent: Stripe.PaymentIntent | null = null;
+    let creadoAqui = false;
+    let final: { tipo: 'pagado'; pi: Stripe.PaymentIntent } | { tipo: 'en-curso' } | { tipo: 'no-se-sabe' } = { tipo: 'no-se-sabe' };
+    for (let vuelta = 0; vuelta < 4; vuelta++) {
+      let pi: Stripe.PaymentIntent;
+      try {
+        pi = await crearCobro(clave);
+      } catch (errCrear) {
+        // La clave a secas la ocupa el cobro que ESTA pantalla acaba de cancelar, con
+        // otro importe (la matrícula gratis se agotó, otro precio). Solo esta petición
+        // sabe que está muerto, así que solo ella sigue con otra clave; las demás
+        // pestañas reciben el 409 de abajo, nunca un segundo cobro.
+        if (esErrorDeIdempotencia(errCrear) && cobroSustituido && !probadaTrasSustituido && clave === claveBase) {
+          probadaTrasSustituido = true;
+          clave = claveTrasCobro(claveBase, cobroSustituido);
+          continue;
+        }
+        throw errCrear;
+      }
+      if (!esRespuestaRepetida(pi)) { paymentIntent = pi; creadoAqui = true; break; }
+      // La repetición trae el cobro como era al CREARSE: se mira el de ahora.
       let actual: Stripe.PaymentIntent | null = null;
       try {
-        actual = await stripe.paymentIntents.retrieve(paymentIntent.id, undefined, { stripeAccount });
+        actual = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge'] }, { stripeAccount });
       } catch (errActual) {
-        console.error('[checkout-embebido] no se pudo mirar el cobro repetido', paymentIntent.id, errActual);
+        console.error('[checkout-embebido] no se pudo mirar el cobro repetido', pi.id, errActual);
       }
-      const repetido = queHacerConCobroRepetido(actual?.status);
-      if (repetido === 'nuevo') {
-        // Cancelado: este mismo intento necesita otro, con una clave que no lo repita.
-        paymentIntent = await crearCobro(claveTrasCobro(claveCobro, paymentIntent.id));
-        creadoAqui = !esRespuestaRepetida(paymentIntent);
-      } else if (repetido === 'usar' && actual) {
-        paymentIntent = actual;
-      } else {
-        // Cobrado, a medias o sin poder saberlo: ni su client_secret ni otro cobro.
-        // La plaza de cupo es la de ese cobro (misma clave): no se suelta. La de
-        // matrícula gratis la reservó esta petición para sí: vuelve.
-        if (cupoMatriculaReservado) {
-          await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      const que = queHacerConCobroRepetido(actual?.status, {
+        creadoEnSeg: actual?.created ?? null, ahora: new Date(), reembolsado: cargoDevueltoEntero(actual),
+      });
+      if (que === 'usar' && actual) { paymentIntent = actual; break; }
+      // Cancelado, o devuelto entero: este mismo intento necesita otro, con una clave
+      // que no lo repita (la misma para todas sus pestañas).
+      if (que === 'nuevo') { clave = claveTrasCobro(clave, pi.id); continue; }
+      // Un 3DS abandonado: se cancela y se sigue. Con plaza de etapa no: esa plaza es
+      // la suya, y `recuperarPlazasCaducadas` cancela el cobro y la devuelve a su
+      // plazo (como mucho media hora, lo que dice el texto).
+      if (que === 'cancelar-y-nuevo' && actual && !plaza) {
+        const tras = await cancelarYMirar(actual.id);
+        if (tras?.status === 'canceled') {
+          const retenida = plazaDePICancelado(tras);
+          if (retenida) {
+            try {
+              await liberarCupoMatriculaUnaVez(admin, retenida.clave, retenida.planId, body.studioId);
+            } catch (e) {
+              Sentry.captureException(e instanceof Error ? e : new Error('liberar matrícula del 3DS abandonado'), {
+                level: 'warning', tags: { modulo: 'checkout-embebido', paso: '3ds-abandonado' }, extra: { studioId: body.studioId, paymentIntentId: tras.id },
+              });
+            }
+          }
+          clave = claveTrasCobro(clave, pi.id);
+          continue;
         }
-        return conCorsWidget(req, repetido === 'pagado'
-          ? NextResponse.json({ error: MENSAJE_CLASE_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 })
-          : repetido === 'en-curso'
-            ? NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 })
-            : NextResponse.json({ error: MENSAJE_PAGO_SIN_COMPROBAR }, { status: 503 }));
+        // No se dejó cancelar: lo normal es que se acabe de pagar.
+        final = tras && queHacerConCobroRepetido(tras.status) === 'pagado' ? { tipo: 'pagado', pi: tras } : { tipo: 'en-curso' };
+        break;
       }
+      final = que === 'pagado' && actual
+        ? { tipo: 'pagado', pi: actual }
+        : que === 'en-curso' || que === 'cancelar-y-nuevo' ? { tipo: 'en-curso' } : { tipo: 'no-se-sabe' };
+      break;
+    }
+    if (!paymentIntent) {
+      // Cobrado, a medias o sin poder saberlo: ni su client_secret ni otro cobro. La
+      // plaza de cupo es la de ese cobro (misma clave): no se suelta. La de matrícula
+      // gratis la reservó esta petición para sí: vuelve.
+      await devolverMatriculaPropia();
+      if (final.tipo === 'pagado') return respuestaYaPagado(req, admin, final.pi, body.studioId, !!body.sesionId);
+      return conCorsWidget(req, final.tipo === 'en-curso'
+        ? NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 })
+        : NextResponse.json({ error: MENSAJE_PAGO_SIN_COMPROBAR }, { status: 503 }));
     }
 
     // La plaza queda ligada a ESTE cobro; si no se puede guardar, no habría
@@ -691,17 +805,23 @@ export async function POST(req: NextRequest) {
     // Un cobro que no creó esta petición no se cancela: es el de otra pestaña.
     if (plaza && !(await asignarRefPlaza(admin, plaza.id, paymentIntent.id))) {
       if (creadoAqui) {
+        let cancelado = false;
         try {
-          await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `plaza-cancelar-${paymentIntent.id}` });
-          await liberarPlaza(admin, plaza.id);
+          const c = await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `plaza-cancelar-${paymentIntent.id}` });
+          cancelado = c.status === 'canceled';
         } catch (errCancelar) {
           // Si no se puede cancelar, la plaza se queda reservada: mejor no vender
           // una de más. La recuperará la siguiente compra si Stripe lo confirma.
           console.error('[checkout-embebido] no se pudo cancelar el cobro sin plaza ligada', paymentIntent.id, errCancelar);
         }
-      }
-      if (cupoMatriculaReservado) {
-        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+        if (cancelado) {
+          // Solo si no es de OTRO cobro: la de otra pestaña sigue pagable.
+          await liberarPlazaSiEsDe(admin, plaza.id, paymentIntent.id);
+          await devolverMatriculaDe(paymentIntent.id);
+        }
+        // Sin cancelar, el cobro sigue con su marca: lo cancela y la devuelve el conciliador.
+      } else {
+        await devolverMatriculaPropia();
       }
       return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
     }
@@ -710,9 +830,7 @@ export async function POST(req: NextRequest) {
     // Stripe devuelve el de antes y esta petición no ha creado nada, pero SÍ ha
     // reservado otra plaza de matrícula gratis, que no usará nadie. (Si el
     // repetido estaba cancelado y esta petición creó otro, la plaza va con él.)
-    if (cupoMatriculaReservado && !creadoAqui) {
-      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-    }
+    if (!creadoAqui) await devolverMatriculaPropia();
 
     // Lo que el formulario puede cambiar, DESPUÉS de crear: antes de devolver el
     // client_secret, así que nadie paga este cobro sin estos datos. En uno
@@ -724,12 +842,14 @@ export async function POST(req: NextRequest) {
       } catch (errDatos) {
         if (creadoAqui) {
           // Sin el nombre, el teléfono o el sitio, la ficha y la reserva saldrían
-          // mal: este cobro no se entrega. Se cancela y se devuelve lo retenido.
+          // mal: este cobro no se entrega. Se cancela y se devuelve lo retenido,
+          // con las claves de ESTE cobro: la plaza por su referencia y la matrícula
+          // «una vez», las mismas que usaría el conciliador al verlo cancelado.
           try {
-            await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `sin-datos-cancelar-${paymentIntent.id}` });
-            if (plaza) await liberarPlaza(admin, plaza.id);
-            if (cupoMatriculaReservado) {
-              await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+            const c = await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `sin-datos-cancelar-${paymentIntent.id}` });
+            if (c.status === 'canceled') {
+              if (plaza) await liberarPlazaPorRef(admin, paymentIntent.id);
+              await devolverMatriculaDe(paymentIntent.id);
             }
           } catch (errCancelar) {
             console.error('[checkout-embebido] no se pudo cancelar el cobro sin datos', paymentIntent.id, errCancelar);
@@ -772,20 +892,20 @@ export async function POST(req: NextRequest) {
     // de más. Solo vuelve la plaza de matrícula gratis, que esta petición reservó
     // para sí sola. Ver lib/billing/pago-en-curso.ts.
     if (esErrorDeIdempotencia(err)) {
-      if (cupoMatriculaReservado) {
-        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-      }
+      await devolverMatriculaPropia();
+      // La plaza de cupo solo si ningún cobro la tiene: si la etapa empezó entre las
+      // dos peticiones, el cobro de antes no la lleva (ver lib/billing/pago-en-curso.ts).
+      if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
       Sentry.captureMessage('[checkout-embebido] el mismo intento de pago volvió con otros parámetros', {
         level: 'warning', tags: { modulo: 'checkout-embebido', tipo: 'pago-en-curso' },
         extra: { studioId: body.studioId, conClase: !!body.sesionId, conPlaza: !!plaza, ...detalleErrorStripe(err) },
       });
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
-    // Si el cobro no llegó a nacer, la plaza no se ha usado.
-    if (plaza) await liberarPlaza(admin, plaza.id);
-    if (cupoMatriculaReservado) {
-      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-    }
+    // Si el cobro no llegó a nacer, la plaza no se ha usado (si un cobro anterior ya
+    // la tiene ligada, es suya y no se toca).
+    if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
+    await devolverMatriculaPropia();
     return conCorsWidget(req, errorInterno('public/checkout-embebido:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }
 }
