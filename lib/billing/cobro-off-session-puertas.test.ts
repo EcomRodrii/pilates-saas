@@ -84,3 +84,22 @@ test('el conciliador resuelve las marcas colgadas en cada barrido, preguntando a
   assert.equal((resolver.match(/soltarMarcaCobroOffSession\(/g) ?? []).length, 1);
   assert.match(resolver, /case 'SOLTAR':\s*await soltarMarcaCobroOffSession\(/);
 });
+
+test('⚠️ un cobro de la Caja MUERTO no deja el recibo sin cobrarse solo: se suelta y se reserva otra vez, una', () => {
+  // Un Bizum del mostrador caducado (que nadie suelta: no hay aviso `checkout.session.expired`)
+  // o un cobro del datáfono cancelado frenaban el cobro con la tarjeta guardada para siempre.
+  const cobros = sinComentarios(leer('lib/billing/stripe-cobros.ts'));
+  const caso = cobros.indexOf("case 'EN_MARCHA': {");
+  const soltar = cobros.indexOf('await soltarCobroDeLaCajaSiEstaMuerto(admin, {', caso);
+  const otra = cobros.indexOf('const otra = await reservarCobroOffSession(admin, {', soltar);
+  const gana = cobros.indexOf("if (otra.tipo === 'RESERVADA') {", otra);
+  const frena = cobros.indexOf("return { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' };", gana);
+  assert.ok(caso > 0 && soltar > caso && otra > soltar && gana > otra && frena > gana,
+    'solo con el cobro de la Caja muerto y soltado se vuelve a reservar; si no, sigue frenando');
+  assert.ok(cobros.includes("if (perdida.por === 'MOSTRADOR' && cobroCaja && await soltarCobroDeLaCajaSiEstaMuerto("));
+  // Se suelta solo si está muerto (se mira sin tocarlo) y solo ESA referencia.
+  const caja = sinComentarios(leer('lib/pos/cobro-del-estudio.ts'));
+  const fn = caja.slice(caja.indexOf('export async function soltarCobroDeLaCajaSiEstaMuerto'));
+  assert.ok(fn.indexOf("if (vida !== 'muerto') return false;") < fn.indexOf('.update({ cobro_mostrador_pi: null'));
+  assert.ok(fn.includes(".eq('cobro_mostrador_pi', p.referencia)"));
+});

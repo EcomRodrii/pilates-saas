@@ -163,3 +163,23 @@ export async function vidaDelCobroDeLaCajaEnElRecibo(
   const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
   return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');
 }
+
+/**
+ * Suelta el cobro de la Caja guardado en un recibo SOLO si está muerto
+ * (`vidaDelCobroDeLaCajaEnElRecibo`): cancelado, rechazado, un Bizum caducado que
+ * nadie soltó, o que ya no existe en la cuenta. Uno así no es un cobro en marcha y
+ * no puede dejar el recibo sin cobrarse para siempre (el cobro con la tarjeta
+ * guardada lo exige vacío). Compare-and-set sobre esa misma referencia: uno nuevo
+ * que se haya empezado entre medias no se toca. Devuelve si lo soltó.
+ */
+export async function soltarCobroDeLaCajaSiEstaMuerto(
+  admin: SupabaseClient, p: { studioId: string; reciboId: string; referencia: string },
+): Promise<boolean> {
+  const vida = await vidaDelCobroDeLaCajaEnElRecibo(admin, p.studioId, p.reciboId, p.referencia, { origen: '' });
+  if (vida !== 'muerto') return false;
+  const { data, error } = await admin.from('recibos')
+    .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
+    .eq('id', p.reciboId).eq('studio_id', p.studioId).eq('cobro_mostrador_pi', p.referencia)
+    .select('id');
+  return !error && (data?.length ?? 0) > 0;
+}

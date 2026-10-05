@@ -8,6 +8,7 @@ import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { puedeIntentarCobro, type MotivoSinCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
 import { cerrarCobroOffSession, registrarIntentoCobro } from '@/lib/billing/confirmar-cobro';
+import { soltarCobroDeLaCajaSiEstaMuerto } from '@/lib/pos/cobro-del-estudio';
 import {
   claveCobroOffSession, clasificarReservaPerdida, COLUMNAS_RELECTURA_RESERVA, desenlaceDeEstadoPi, marcarAdeudoEnCurso, MENSAJE_COBRO_EN_MARCHA,
   MENSAJE_RESERVA_SIN_CONFIRMAR, reservarCobroOffSession, soltarMarcaCobroOffSession,
@@ -204,8 +205,26 @@ export async function cobrarReciboOffSession(params: {
         return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
       case 'SIN_PERMISO':
         return resultadoSinPermiso(perdida.motivo);
-      case 'EN_MARCHA':
+      case 'EN_MARCHA': {
+        // Un cobro de la Caja ya MUERTO (cancelado, rechazado, un Bizum caducado que
+        // nadie soltó) no es un cobro en marcha: se suelta y se reserva otra vez, una.
+        // Antes dejaba el recibo sin cobrarse solo para siempre. Uno vivo, que ya
+        // entró o que no se puede leer, sigue frenando el cargo.
+        const cobroCaja = (fila as FilaReciboReserva | null)?.cobro_mostrador_pi ?? null;
+        if (perdida.por === 'MOSTRADOR' && cobroCaja && await soltarCobroDeLaCajaSiEstaMuerto(admin, {
+          studioId: params.studioId, reciboId: params.reciboId, referencia: cobroCaja,
+        })) {
+          const otra = await reservarCobroOffSession(admin, {
+            studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
+            intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
+          });
+          if (otra.tipo === 'RESERVADA') {
+            marca = otra.marca;
+            break;
+          }
+        }
         return { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' };
+      }
       case 'CAMBIO':
         return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
       case 'REENTRANTE':
