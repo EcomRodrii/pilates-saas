@@ -2020,6 +2020,10 @@ export default function ReservarPage() {
           // Dato opcional y no bloqueante: si no cuadra el patrón, simplemente
           // no viaja, en vez de frenar una reserva ya pagada por un typo.
           fechaNacimiento: fechaNacimientoISO(datosInfoAdicional.fechaNacimiento) ?? undefined,
+          // El cobro que esta misma pantalla creó antes (volver a «Tus datos» y
+          // continuar): el servidor lo cancela antes de crear el nuevo, para que
+          // nunca queden dos pagables de la misma clase. Ver lib/billing/pago-anterior.ts.
+          pagoAnterior: datosClientSecret ?? undefined,
         }),
       });
       const data = await res.json() as { clientSecret?: string; error?: string };

@@ -16,7 +16,10 @@ const fuente = (ruta: string) => readFileSync(new URL(ruta, import.meta.url), 'u
 
 test('⚠️ checkout embebido: si Stripe repite el PaymentIntent del mismo intento, la plaza de esta petición vuelve', () => {
   const src = fuente('../../app/api/public/checkout-embebido/route.ts');
-  assert.match(src, /if \(cupoMatriculaReservado && esRespuestaRepetida\(paymentIntent\)\) \{\s*await liberarCupoMatricula\(/,
+  // `creadoAqui` = no es la repetición de otra petición (o lo es de un cobro
+  // cancelado y esta petición creó otro, que se queda con la plaza).
+  assert.match(src, /let creadoAqui = !esRespuestaRepetida\(paymentIntent\);/);
+  assert.match(src, /if \(cupoMatriculaReservado && !creadoAqui\) \{\s*await liberarCupoMatricula\(/,
     'dos peticiones del mismo intento reservan dos plazas y Stripe crea UN cobro: la segunda tiene que devolverse');
   assert.ok(src.indexOf('esRespuestaRepetida(paymentIntent)') > src.indexOf('stripe.paymentIntents.create('),
     'la comprobación tiene que ir DESPUÉS de crear el cobro');

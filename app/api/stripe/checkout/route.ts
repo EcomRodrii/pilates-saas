@@ -204,6 +204,13 @@ export async function POST(req: NextRequest) {
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
   let tipoPlanCobrado: string | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
+  // Lo que el formulario puede cambiar sin ser otro intento (teléfono, sitio, la
+  // pestaña del widget, el `?ref=`…). NO va al crear la sesión: con la misma clave
+  // de idempotencia, Stripe exige parámetros idénticos y contestaba
+  // `idempotency_error` en cuanto cambiaba uno, 24 h sin poder pagar. Se escribe
+  // DESPUÉS (`sessions.update`), antes de devolver la URL. Ver
+  // lib/billing/pago-embebido-parametros.ts (la misma regla en el checkout embebido).
+  const metadataVolatil: Record<string, string> = {};
 
   if (body.reciboId) {
     const { data: recibo, error } = await admin
@@ -493,7 +500,7 @@ export async function POST(req: NextRequest) {
   // marca presente.
   if (body.reciboId && pagadorVerificado) metadata.pagadorVerificado = '1';
   // Stripe exige valores de metadata como string no vacío.
-  if (body.origenLead) metadata.origenLead = body.origenLead;
+  if (body.origenLead) metadataVolatil.origenLead = body.origenLead;
   // "Pagar y reservar sin login" con Bizum: el webhook (checkout.session.
   // completed → entregarPlanComprado, y el bloque de reserva justo después)
   // necesita estos mismos campos que ya viaja checkout-embebido — sin ellos
@@ -502,21 +509,21 @@ export async function POST(req: NextRequest) {
   if (body.sesionId) metadata.sesionId = body.sesionId;
   // La sesión del widget, para anotar la compra en su embudo al entregarla.
   const widgetSesion = sesionWidgetValida(body.widgetSesion);
-  if (widgetSesion) metadata.widgetSesion = widgetSesion;
+  if (widgetSesion) metadataVolatil.widgetSesion = widgetSesion;
   // Solo tiene sentido junto a sesionId — sin sesión no hay reserva a la que
   // asignarle un sitio.
-  if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
+  if (body.sesionId && body.spotId) metadataVolatil.spotId = body.spotId;
   // Teléfono: saneado pero NO bloqueante, mismo criterio que checkout-embebido
   // — un formato raro no puede frenar un cobro legítimo, simplemente no viaja.
   const telefonoCrudo = body.socioTelefono?.trim() ?? '';
   const socioTelefono = telefonoCrudo && telefonoCrudo.length <= 32 && telefonoValido(telefonoCrudo)
     ? telefonoCrudo
     : null;
-  if (socioTelefono) metadata.socioTelefono = socioTelefono;
-  if (body.genero) metadata.genero = body.genero;
-  if (body.comoConociste) metadata.comoConociste = body.comoConociste;
-  if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
-  if (body.fechaNacimiento) metadata.fechaNacimiento = body.fechaNacimiento;
+  if (socioTelefono) metadataVolatil.socioTelefono = socioTelefono;
+  if (body.genero) metadataVolatil.genero = body.genero;
+  if (body.comoConociste) metadataVolatil.comoConociste = body.comoConociste;
+  if (body.codigoPostal) metadataVolatil.codigoPostal = body.codigoPostal;
+  if (body.fechaNacimiento) metadataVolatil.fechaNacimiento = body.fechaNacimiento;
 
   const { data: studio } = await admin
     .from('studios')
@@ -727,7 +734,9 @@ export async function POST(req: NextRequest) {
       }
       return conCorsWidget(req, errorInterno('stripe/checkout:plaza', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo.'));
     }
-    if (plaza) metadata.plazaEtapaId = plaza.id;
+    // Volátil: si la etapa empieza entre dos peticiones del mismo intento, la plaza
+    // se liga por su referencia (`asignarRefPlaza`), no por la creación.
+    if (plaza) metadataVolatil.plazaEtapaId = plaza.id;
   }
 
   try {
@@ -740,7 +749,10 @@ export async function POST(req: NextRequest) {
             currency: 'eur',
             product_data: {
               name: concepto,
-              description: body.socioNombre ? `Tentare · ${body.socioNombre}` : 'Tentare',
+              // En la compra de un plan, sin el nombre: es del formulario, y con la
+              // misma clave de idempotencia corregirlo daba `idempotency_error`. La
+              // ficha saca el nombre de lo que Stripe recoge (`customer_details`).
+              description: body.reciboId && body.socioNombre ? `Tentare · ${body.socioNombre}` : 'Tentare',
             },
             unit_amount: Math.round(importe * 100),
           },
@@ -876,6 +888,36 @@ export async function POST(req: NextRequest) {
     // había caducado y esta petición creó otra (`creadaAqui`), la plaza va con ella.
     if (cupoMatriculaReservado && !creadaAqui) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    }
+
+    // Lo volátil, DESPUÉS de crear y antes de devolver la URL: nadie paga esta
+    // sesión sin estos datos. En una compartida (otra pestaña del mismo intento)
+    // gana lo último que se escribe.
+    if (Object.keys(metadataVolatil).length > 0) {
+      try {
+        await stripe.checkout.sessions.update(session.id, { metadata: metadataVolatil }, { stripeAccount: studio.stripe_account_id });
+      } catch (errDatos) {
+        if (creadaAqui) {
+          // Sin el teléfono o el sitio, la ficha y la reserva saldrían mal: esta
+          // sesión no se entrega. Se cierra y se devuelve lo retenido.
+          try {
+            await stripe.checkout.sessions.expire(session.id, undefined, {
+              stripeAccount: studio.stripe_account_id, idempotencyKey: `checkout-expirar-${session.id}`,
+            });
+            if (plaza) await liberarPlaza(admin, plaza.id);
+            if (cupoMatriculaReservado) {
+              await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+            }
+          } catch (errExpirar) {
+            console.error('[stripe/checkout] no se pudo cerrar la sesión sin datos', session.id, errExpirar);
+          }
+          return conCorsWidget(req, errorInterno('stripe/checkout:datos', errDatos, 'No se pudo iniciar el cobro. Inténtalo de nuevo.'));
+        }
+        // La de otra pestaña ya lleva los datos con los que se creó.
+        Sentry.captureException(errDatos instanceof Error ? errDatos : new Error('actualizar datos de la sesión'), {
+          level: 'warning', tags: { area: 'stripe-checkout', tipo: 'datos-sesion' }, extra: { studioId: body.studioId, sessionId: session.id },
+        });
+      }
     }
 
     // Se registra ANTES de devolver la URL. Si esto fallara y devolviéramos la

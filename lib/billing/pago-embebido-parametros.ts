@@ -54,8 +54,25 @@ export interface DatosCompraEmbebida {
   fee: number | undefined;
 }
 
-/** La metadata del cobro. Stripe exige valores string no vacíos: lo que no hay, no va. */
-export function metadataCompraEmbebida(d: DatosCompraEmbebida): Record<string, string> {
+// ─────────────────────────────────────────────────────────────────────────────
+// La metadata en DOS mitades (5-oct-2026). La clave de idempotencia identifica el
+// INTENTO (estudio, plan, quién paga, código y clase), así que lo que se manda al
+// CREAR el cobro tiene que ser función de eso y nada más: si dos peticiones del
+// mismo intento mandan algo distinto, Stripe contesta `idempotency_error` y esa
+// persona no puede pagar esa clase en 24 h. Pasaba con cosas normales del
+// formulario: corregir el teléfono o el nombre, elegir otro sitio, volver desde
+// otra pestaña (otra `widgetSesion`) o con otro `?ref=`.
+//
+//  · ESTABLE: va en la creación. Lo que identifica el intento y lo que decide el
+//    importe (matrícula incluida) y las condiciones aceptadas.
+//  · VOLÁTIL: va DESPUÉS, con `paymentIntents.update`, antes de devolver el
+//    client_secret (nadie puede pagar el cobro sin esos datos). Dos pestañas del
+//    mismo intento comparten así UN cobro: gana lo último que se escribió, y
+//    pagar en una hace que la otra ya no pueda pagar. Sin un segundo cobro.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Lo que identifica el intento y decide el cargo: va al CREAR el cobro. */
+export function metadataEstableEmbebida(d: DatosCompraEmbebida): Record<string, string> {
   const metadata: Record<string, string> = {
     studioId: d.studioId,
     planId: d.planId,
@@ -67,25 +84,53 @@ export function metadataCompraEmbebida(d: DatosCompraEmbebida): Record<string, s
   // Stripe lo rechaza), el webhook necesita saber que se llevó una plaza
   // gratis de matrícula para devolverla (lib/billing/cupo-matricula-abandonado.ts).
   if (d.cupoMatriculaReservado) metadata.cupoMatriculaReservado = '1';
-  if (d.plazaEtapaId) metadata.plazaEtapaId = d.plazaEtapaId;
   if (d.socioId) metadata.socioId = d.socioId;
-  if (d.origenLead) metadata.origenLead = d.origenLead;
   if (d.socioEmail) metadata.socioEmail = d.socioEmail;
+  if (d.sesionId) metadata.sesionId = d.sesionId;
+  if (d.codigoDescuentoId) metadata.codigoDescuentoId = d.codigoDescuentoId;
+  if (d.matriculaCentimos > 0) metadata.matriculaCentimos = String(d.matriculaCentimos);
+  return metadata;
+}
+
+/** Lo que el formulario puede cambiar sin ser otro intento: va DESPUÉS, por `update`. */
+export function metadataVolatilEmbebida(d: DatosCompraEmbebida): Record<string, string> {
+  const metadata: Record<string, string> = {};
+  // La plaza de cupo de una etapa: si la etapa empieza entre dos peticiones del
+  // mismo intento, la segunda reserva una plaza que el cobro de la primera no
+  // llevaba. Ligada por su referencia (`asignarRefPlaza`), no por la creación.
+  if (d.plazaEtapaId) metadata.plazaEtapaId = d.plazaEtapaId;
+  if (d.origenLead) metadata.origenLead = d.origenLead;
   if (d.socioNombre) metadata.socioNombre = d.socioNombre;
   if (d.socioTelefono) metadata.socioTelefono = d.socioTelefono;
-  if (d.sesionId) metadata.sesionId = d.sesionId;
   // La sesión del widget, para anotar la compra en su embudo al entregarla.
   if (d.widgetSesion) metadata.widgetSesion = d.widgetSesion;
   // Solo tiene sentido junto a sesionId (misma clase que reservar_plaza va a
   // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
   if (d.sesionId && d.spotId) metadata.spotId = d.spotId;
-  if (d.codigoDescuentoId) metadata.codigoDescuentoId = d.codigoDescuentoId;
-  if (d.matriculaCentimos > 0) metadata.matriculaCentimos = String(d.matriculaCentimos);
   if (d.genero) metadata.genero = d.genero;
   if (d.comoConociste) metadata.comoConociste = d.comoConociste;
   if (d.codigoPostal) metadata.codigoPostal = d.codigoPostal;
   if (d.fechaNacimiento) metadata.fechaNacimiento = d.fechaNacimiento;
   return metadata;
+}
+
+/** Toda la metadata con la que se paga: la estable y la volátil. Stripe exige valores no vacíos: lo que no hay, no va. */
+export function metadataCompraEmbebida(d: DatosCompraEmbebida): Record<string, string> {
+  return { ...metadataEstableEmbebida(d), ...metadataVolatilEmbebida(d) };
+}
+
+/**
+ * Los parámetros del Customer de una invitada (sin ficha todavía). Solo lo que
+ * identifica el intento: el nombre y el teléfono se escriben después
+ * (`customers.update`). Con ellos en la creación, corregir el nombre daba
+ * `idempotency_error` en el Customer, el cobro salía sin `customer` y ya era
+ * distinto del primero.
+ */
+export function parametrosClienteInvitada(d: { socioEmail: string; studioId: string }) {
+  return {
+    email: d.socioEmail,
+    metadata: { socioEmail: d.socioEmail, studioId: d.studioId },
+  };
 }
 
 export function parametrosPaymentIntentEmbebido(d: DatosCompraEmbebida): Stripe.PaymentIntentCreateParams {
@@ -112,6 +157,7 @@ export function parametrosPaymentIntentEmbebido(d: DatosCompraEmbebida): Stripe.
     receipt_email: d.socioEmail ?? undefined,
     description: d.planNombre,
     ...(d.fee !== undefined ? { application_fee_amount: d.fee } : {}),
-    metadata: metadataCompraEmbebida(d),
+    // Solo la mitad estable: la volátil va por `update` (ver arriba).
+    metadata: metadataEstableEmbebida(d),
   };
 }

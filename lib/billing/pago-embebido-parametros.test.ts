@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { metadataCompraEmbebida, parametrosPaymentIntentEmbebido, type DatosCompraEmbebida } from './pago-embebido-parametros.ts';
+import {
+  metadataCompraEmbebida, metadataEstableEmbebida, metadataVolatilEmbebida, parametrosClienteInvitada, parametrosPaymentIntentEmbebido,
+  type DatosCompraEmbebida,
+} from './pago-embebido-parametros.ts';
 
 // Stripe devuelve el MISMO PaymentIntent a dos peticiones con la misma
 // Idempotency-Key solo si los parámetros son idénticos. Con clase concreta la
@@ -87,13 +90,83 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 
 test('checkout-embebido crea el cobro con los parámetros de este módulo, sin nada del reloj por en medio', () => {
   const s = sinComentarios(leer('app/api/public/checkout-embebido/route.ts'));
-  assert.match(s, /await stripe\.paymentIntents\.create\(parametros, \{/);
-  const desde = s.indexOf('const parametros = parametrosPaymentIntentEmbebido({');
+  assert.match(s, /const parametros = parametrosPaymentIntentEmbebido\(datosCompra\);/);
+  assert.match(s, /stripe\.paymentIntents\.create\(parametros, \{ stripeAccount, idempotencyKey: clave \}\)/);
+  const desde = s.indexOf('const datosCompra: DatosCompraEmbebida = {');
   assert.ok(desde > 0);
-  const bloque = s.slice(desde, s.indexOf('});', desde));
+  const bloque = s.slice(desde, s.indexOf('};', desde));
   assert.doesNotMatch(bloque, /new Date\(|Date\.now\(|randomUUID|Math\.random/, 'un parámetro del reloj o del azar rompe la idempotencia');
   assert.doesNotMatch(s, /terminosAceptadosEn|aceptadoEn/);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El INTENTO, no el formulario (5-oct-2026): lo que la persona puede corregir sin
+// ser otro intento no va en la creación del cobro, sino después (`update`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('dos peticiones del mismo intento que solo cambian el formulario crean el cobro con los MISMOS parámetros', () => {
+  const a = datos({
+    socioNombre: 'Nombre Uno', socioTelefono: '600000001', spotId: 'spot-1', widgetSesion: 'ws-pestana-a',
+    origenLead: 'lead-a', genero: 'mujer', comoConociste: 'instagram', codigoPostal: '28001', fechaNacimiento: '1990-01-01',
+    plazaEtapaId: null,
+  });
+  const b = datos({
+    socioNombre: 'Nombre Corregido', socioTelefono: '600000002', spotId: 'spot-7', widgetSesion: 'ws-pestana-b',
+    origenLead: 'lead-b', genero: null, comoConociste: 'amiga', codigoPostal: '29005', fechaNacimiento: null,
+    plazaEtapaId: 'plaza-de-una-etapa-que-acaba-de-empezar',
+  });
+  assert.deepEqual(parametrosPaymentIntentEmbebido(b), parametrosPaymentIntentEmbebido(a),
+    'con la misma clave, Stripe exige parámetros idénticos: si no, `idempotency_error` y 24 h sin poder pagar');
+  // Y lo del formulario sí viaja, pero en la otra mitad.
+  assert.equal(metadataVolatilEmbebida(b).socioTelefono, '600000002');
+  assert.equal(metadataVolatilEmbebida(b).spotId, 'spot-7');
+  assert.equal(metadataVolatilEmbebida(b).plazaEtapaId, 'plaza-de-una-etapa-que-acaba-de-empezar');
+});
+
+test('lo que SÍ es otro intento o cambia el cargo no se esconde en la mitad volátil', () => {
+  const v = metadataVolatilEmbebida(datos({ socioId: 'soc-1', codigoDescuentoId: 'cod-1', matriculaCentimos: 2500, cupoMatriculaReservado: true }));
+  for (const k of ['studioId', 'planId', 'origen', 'terminosHash', 'socioId', 'socioEmail', 'sesionId', 'codigoDescuentoId', 'matriculaCentimos', 'cupoMatriculaReservado']) {
+    assert.equal(k in v, false, `${k} decide el intento o el cargo: va en la creación`);
+  }
+  const e = metadataEstableEmbebida(datos({ socioId: 'soc-1', codigoDescuentoId: 'cod-1', matriculaCentimos: 2500, cupoMatriculaReservado: true }));
+  assert.deepEqual(Object.keys(e).sort(), ['codigoDescuentoId', 'cupoMatriculaReservado', 'matriculaCentimos', 'origen', 'planId', 'sesionId', 'socioEmail', 'socioId', 'studioId', 'terminosHash']);
+  // El importe sí distingue: otra matrícula es otro cobro.
+  assert.notDeepEqual(parametrosPaymentIntentEmbebido(datos({ amountCentimos: 1800 })), parametrosPaymentIntentEmbebido(datos({ amountCentimos: 4800, matriculaCentimos: 3000 })));
+});
+
+test('el Customer de una invitada se crea con lo que identifica el intento; el nombre y el teléfono van después', () => {
+  assert.deepEqual(parametrosClienteInvitada({ socioEmail: 'alguien@example.com', studioId: 'studio-1' }), {
+    email: 'alguien@example.com', metadata: { socioEmail: 'alguien@example.com', studioId: 'studio-1' },
+  });
+});
+
+test('la ruta escribe lo volátil DESPUÉS de crear y ANTES de devolver el client_secret', () => {
+  const s = sinComentarios(leer('app/api/public/checkout-embebido/route.ts'));
+  const crea = s.indexOf('= await crearCobro(claveCobro);');
+  const repetido = s.indexOf('queHacerConCobroRepetido(actual?.status)', crea);
+  const datosDespues = s.indexOf('await stripe.paymentIntents.update(paymentIntent.id, { metadata: volatil }, { stripeAccount });', repetido);
+  const responde = s.indexOf('clientSecret: paymentIntent.client_secret', datosDespues);
+  assert.ok(crea > 0 && repetido > crea && datosDespues > repetido && responde > datosDespues,
+    'crear → mirar la repetición → escribir lo volátil → responder');
+  // Del Customer de la invitada, lo mismo.
+  assert.match(s, /stripe\.customers\.create\(\s*parametrosClienteInvitada\(/);
+  assert.match(s, /await stripe\.customers\.update\(customer\.id, datosCliente, \{ stripeAccount \}\)/);
+});
+
+test('Modo A (Checkout hospedado): lo del formulario tampoco va al crear la sesión', () => {
+  const s = sinComentarios(leer('app/api/stripe/checkout/route.ts'));
+  for (const campo of ['origenLead', 'widgetSesion', 'spotId', 'socioTelefono', 'genero', 'comoConociste', 'codigoPostal', 'fechaNacimiento', 'plazaEtapaId']) {
+    assert.doesNotMatch(s, new RegExp(`[^l]metadata\\.${campo} =`), `${campo} va en metadataVolatil`);
+    assert.match(s, new RegExp(`metadataVolatil\\.${campo} =`), campo);
+  }
+  const crea = s.indexOf('= await crearSesion(claveSesion);');
+  const update = s.indexOf('await stripe.checkout.sessions.update(session.id, { metadata: metadataVolatil }', crea);
+  const responde = s.lastIndexOf('NextResponse.json({ url: session.url })');
+  assert.ok(crea > 0 && update > crea && responde > update);
+  // La descripción de una compra de plan no lleva el nombre del formulario.
+  assert.match(s, /description: body\.reciboId && body\.socioNombre \? `Tentare · \$\{body\.socioNombre\}` : 'Tentare'/);
+});
+
 
 test('ninguna puerta de pago vuelve a meter la fecha de aceptación en la metadata', () => {
   for (const ruta of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe/checkout/route.ts']) {

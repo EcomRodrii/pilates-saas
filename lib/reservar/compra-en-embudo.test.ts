@@ -64,7 +64,8 @@ test('los dos checkouts gemelos ponen la sesión validada en la metadata', () =>
     const f = fuente(r);
     assert.ok(f.includes('sesionWidgetValida(body.widgetSesion)'), r);
   }
-  assert.ok(fuente('app/api/stripe/checkout/route.ts').includes('metadata.widgetSesion = widgetSesion'));
+  // Volátil: se escribe tras crear la sesión (ver `metadataVolatil` en la ruta).
+  assert.ok(fuente('app/api/stripe/checkout/route.ts').includes('metadataVolatil.widgetSesion = widgetSesion'));
   // El embebido arma sus parámetros en un módulo puro (sin reloj, ver
   // lib/billing/pago-embebido-parametros.ts): la sesión validada va ahí.
   assert.ok(fuente('app/api/public/checkout-embebido/route.ts').includes('widgetSesion: sesionWidgetValida(body.widgetSesion)'));
