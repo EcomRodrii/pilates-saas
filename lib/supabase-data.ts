@@ -28,6 +28,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
@@ -4819,6 +4820,8 @@ export async function dbDeleteNovedadEstudio(id: string): Promise<ResultadoEscri
 // (studio_id = current_studio_id()); devuelve ResultadoEscritura para que la
 // dueña sepa si guardó antes de que la UI le enseñe la sala.
 
+// La imagen también (lib/sala-cambios.ts): antes no se escribía y la sala se
+// guardaba sin ella.
 function salaToDb(s: Sala) {
   return {
     id: s.id,
@@ -4826,6 +4829,7 @@ function salaToDb(s: Sala) {
     nombre: s.nombre,
     capacidad: s.capacidad,
     color: s.color,
+    foto_url: fotoSalaParaGuardar(s.fotoUrl),
   };
 }
 
@@ -4835,10 +4839,7 @@ export async function dbInsertSala(s: Sala): Promise<ResultadoEscritura> {
 }
 
 export async function dbUpdateSala(id: string, changes: Partial<Sala>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('nombre' in changes) db.nombre = changes.nombre;
-  if ('capacidad' in changes) db.capacidad = changes.capacidad;
-  if ('color' in changes) db.color = changes.color;
+  const db = salaCambiosToDb(changes);
   // La RLS exige `puede_gestionar_sede()`: sin contar filas, un cambio sin
   // permiso volvería sin error y la pantalla diría «Guardado».
   const { data: tocadas, error } = await supabase.from('salas').update(db).eq('id', id).select('id');

@@ -1,5 +1,6 @@
 import type { EstadoPagoPOS } from './tipos.ts';
 import { entornoDespliegue } from '../billing/modo-stripe.ts';
+import { senalConLimite } from '../senal-con-limite.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El datáfono SumUp Solo (Cloud API de SumUp): las reglas y el cliente HTTP.
@@ -310,7 +311,7 @@ function aLectorSumup(d: unknown, nombrePorDefecto: string): LectorSumup {
 export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: string }) {
   // Con tiempo límite: una llamada colgada no puede comerse la función entera (y
   // con ella el «¿salió o no?» de quien la llama).
-  const f: FetchSumup = o.fetch ?? ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(20_000) }));
+  const f: FetchSumup = o.fetch ?? ((url, init) => fetch(url, { ...init, signal: senalConLimite(20_000) }));
   const base = (o.base ?? BASE).replace(/\/$/, '');
   const mc = (merchantCode: string) => encodeURIComponent(merchantCode);
 

@@ -106,12 +106,14 @@ export async function ejecutarCopiaDiariaDeTodos(): Promise<{
   }
 
   // Con `R2_BUCKET_UE` puesto, cada noche se mueve un trozo del bucket viejo al
-  // de la UE (lib/r2.ts) hasta vaciarlo. Después de las copias, con lo que quede
-  // del tiempo de la función (300 s): las copias de hoy mandan.
+  // de la UE (lib/r2.ts) hasta vaciarlo. Después de las copias: las de hoy mandan.
+  // ⚠️ Tope a los 90 s desde el arranque, no al de la función (300 s): pg_cron
+  // llama con `timeout_milliseconds := 120000`, y pasado eso `vigilar-jobs-http`
+  // da la noche por fallida aunque la copia haya salido bien (4-oct-2026).
   let traslado: { trasladados: number; yaEstaban: number; fallos: number; quedan: boolean } | undefined;
   if (trasladoAUePendiente()) {
     try {
-      const t = await trasladarAlBucketUe({ limite: 400, hastaMs: Math.min(inicio + 240_000, Date.now() + 150_000) });
+      const t = await trasladarAlBucketUe({ limite: 400, hastaMs: inicio + 90_000 });
       traslado = { trasladados: t.trasladados, yaEstaban: t.yaEstaban, fallos: t.fallos.length, quedan: t.quedan };
       if (t.fallos.length > 0) {
         Sentry.captureMessage('backups: fallos al trasladar objetos al bucket de la UE', {

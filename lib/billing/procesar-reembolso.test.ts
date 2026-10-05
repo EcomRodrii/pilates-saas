@@ -253,3 +253,14 @@ test('plan y matrícula con el MISMO importe no colisionan por referencia (sufij
   const referencias = devs.map(d => d.fila.referencia);
   assert.notEqual(referencias[0], referencias[1]);
 });
+
+// El conciliador repasa la misma devolución en cada pasada: un recibo que ya
+// está DEVUELTO es el caso normal y no debe avisar (36 avisos de un solo recibo
+// en Sentry, sep-oct 2026). Por código fuente, como la rama de arriba.
+test('una devolución ya aplicada no avisa por Sentry; solo la de un recibo que no está', () => {
+  const fuente = readFileSync(new URL('./procesar-reembolso.ts', import.meta.url), 'utf8');
+  const i = fuente.indexOf('devolución sin efecto');
+  assert.ok(i > 0, 'sigue avisando cuando el recibo no aparece');
+  const antes = fuente.slice(Math.max(0, i - 600), i);
+  assert.match(antes, /estado !== 'DEVUELTO'/, 'el aviso va detrás de comprobar que el recibo no estaba ya DEVUELTO');
+});
