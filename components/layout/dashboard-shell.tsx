@@ -29,7 +29,8 @@ import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils
 import { navSections } from '@/lib/nav-config';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
-// bienvenida sale una vez en la vida del estudio (con la mascota, ~80 KB), y
+// bienvenida solo sale hasta que el estudio la sella (y trae a Tenti, con su
+// motor de canvas y sus sonidos: un import estático, ver pantallas-valor), y
 // la tira de la guía trae el currículo entero para enseñar una línea — y ya
 // aparecía después de leer localStorage, así que cargarla aparte no la retrasa
 // a la vista.

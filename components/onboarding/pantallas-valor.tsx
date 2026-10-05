@@ -23,7 +23,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
-import { Tenti, type TentiPose } from '@/components/marca/tenti';
+// Import ESTÁTICO a propósito, y no `TentiDiferido`: este fichero ya viaja en
+// el chunk diferido de `PantallaBienvenida` (dashboard-shell), y aquí hace
+// falta su ref para saludar y alegrarse. Un ref no atraviesa next/dynamic: con
+// él en medio, saludar() y emocion() dejarían de llegar sin dar ningún error.
+import { Tenti, type TentiControl } from '@/components/tenti/tenti';
+import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
 import { PasoLogo } from './paso-logo';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { LogoTentare } from '@/components/marca/logo-tentare';
@@ -42,7 +47,6 @@ type Pantalla = {
   /** Tres cosas concretas. Rellenan con INFORMACIÓN el hueco que antes era
    *  aire, y se leen de un vistazo sin tener que leerse el párrafo. */
   puntos: string[];
-  pose: TentiPose;
   /** `null` en la pantalla del logo: ahí no hay antes/después que enseñar,
    *  hay algo que hacer. */
   Escena: ((p: { activa: boolean }) => React.ReactElement) | null;
@@ -55,7 +59,6 @@ const PANTALLAS: Pantalla[] = [
     titular: 'Tus alumnas reservan solas, a cualquier hora',
     apoyo: 'Tienes una página de reservas propia. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
     puntos: ['Aforo por sala', 'Lista de espera', 'Cancelan según tus normas'],
-    pose: 'hola',
     Escena: EscenaReservas,
   },
   {
@@ -64,7 +67,6 @@ const PANTALLAS: Pantalla[] = [
     titular: 'Cobras las cuotas y los bonos automáticamente',
     apoyo: 'El día que toca, Tentare cobra la tarjeta guardada y envía el recibo. Si un pago falla, lo reintenta y te avisa.',
     puntos: ['Cobro el día 1', 'Recibo y factura', 'Reintento si falla'],
-    pose: 'lo-lograste',
     Escena: EscenaCobros,
   },
   {
@@ -73,7 +75,6 @@ const PANTALLAS: Pantalla[] = [
     titular: 'Cuando una instructora no puede, buscamos sustituta',
     apoyo: 'Tentare avisa a las que encajan con esa clase, de una en una, hasta que alguna acepta. Y avisa a las alumnas.',
     puntos: ['Por orden de encaje', 'Avisa a las alumnas', 'Sin llamar a nadie'],
-    pose: 'pensando',
     Escena: EscenaSustituciones,
   },
   {
@@ -82,7 +83,6 @@ const PANTALLAS: Pantalla[] = [
     titular: 'Ves qué clases se llenan y cuáles no',
     apoyo: 'Ocupación y margen de cada clase, con sus números. Y te avisa de la que lleva semanas sin llenarse.',
     puntos: ['Ocupación por clase', 'Margen real', 'Aviso si una se vacía'],
-    pose: 'celebracion',
     Escena: EscenaInformes,
   },
   {
@@ -98,7 +98,6 @@ const PANTALLAS: Pantalla[] = [
     // la portada no. Se promete solo lo que hay.
     apoyo: 'Es lo único que te pedimos ahora. Tu color y tus textos los cambias cuando quieras desde Configuración.',
     puntos: ['Tu página de reservas', 'La app de tus alumnas', 'Sus correos'],
-    pose: 'con-amor',
     Escena: null,
   },
 ];
@@ -107,8 +106,15 @@ const PANTALLAS: Pantalla[] = [
  *  el titular primero: si la transformación ocurre a la vez, no se ve. */
 const MS_ANTES_DE_TRANSFORMAR = 900;
 
+/** Desde aquí la rejilla tiene dos columnas y Tenti va bajo la escena; por
+ *  debajo, en la fila del botón. El mismo corte que `.valor-rejilla`. */
+const CONSULTA_ESCRITORIO = '(min-width: 860px)';
+
+/** Cuánto de Tenti tiene que estar en pantalla para que el saludo se vea. */
+const VISIBLE_PARA_SALUDAR = 0.6;
+
 export function PantallasValor({
-  onContinuar, studioId, studioNombre, logoActual, onGuardarLogo, soloLogo = false,
+  onContinuar, studioId, studioNombre, logoActual, onGuardarLogo, soloLogo = false, saludar = false,
 }: {
   /** Solo la pantalla del logo, sin la baraja de valor delante. El alta ya la
    *  hace la propietaria que ha decidido registrarse: venderle otra vez el
@@ -120,11 +126,25 @@ export function PantallasValor({
   studioNombre: string;
   logoActual: string | null;
   onGuardarLogo: (url: string) => Promise<ResultadoEscritura>;
+  /** Si Tenti saluda al verse. Solo en el primer contacto: lo decide quien
+   *  sabe si es una sede nueva, si ya hay logo o si el asistente va a medias. */
+  saludar?: boolean;
 }) {
   const [i, setI] = useState(0);
   const [transformada, setTransformada] = useState(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Tenti ──────────────────────────────────────────────────────────────────
+  // Uno solo montado a la vez (escritorio O móvil), así que un solo ref.
+  const escritorio = useCoincideMedio(CONSULTA_ESCRITORIO);
+  const tenti = useRef<TentiControl>(null);
+  const envoltorio = useRef<HTMLDivElement>(null);
+  // Sobrevive a que Tenti se remonte (cambiar de pantalla, cruzar los 860 px):
+  // un saludo por montaje de la bienvenida, no uno por cada Tenti.
+  const saludado = useRef(false);
+  const [opaco, setOpaco] = useState(false);
+  const [enPantalla, setEnPantalla] = useState(false);
 
   const pantallas = soloLogo ? PANTALLAS.filter((x) => x.id === 'logo') : PANTALLAS;
   const p = pantallas[i];
@@ -135,7 +155,9 @@ export function PantallasValor({
   // transformada, y además `react-hooks/set-state-in-effect` prohíbe lo otro.
   // Mismo patrón que ya usa tab-estudio-general al recargar su formulario.
   const [iAnterior, setIAnterior] = useState(i);
-  if (i !== iAnterior) { setIAnterior(i); setTransformada(false); }
+  // `opaco` también: el envoltorio de la pantalla nueva vuelve a nacer
+  // transparente, y con el valor viejo se podría saludar sin verse.
+  if (i !== iAnterior) { setIAnterior(i); setTransformada(false); setOpaco(false); }
 
   // La transformación arranca sola. Aquí NO se consulta «reducir movimiento»:
   // el estado final es la información, así que siempre se llega a él. Quien
@@ -152,6 +174,45 @@ export function PantallasValor({
   // se cae al principio del documento y el cambio no se anuncia. Mismo arreglo
   // que ya lleva el alta de /crear-estudio.
   useEffect(() => { tituloRef.current?.focus(); }, [i]);
+
+  // El saludo tiene que VERSE. Ni `saludaAlAparecer` ni el fin del fundido
+  // bastan solos: el primero saludaría con Tenti aún transparente, y el segundo
+  // aunque estuviera fuera de pantalla (en un móvil bajo, con el teclado…),
+  // porque los recorridos del motor van por reloj aunque no se pinte. Hacen
+  // falta las dos cosas: el fundido terminado y Tenti dentro de la pantalla.
+  // Depende de `escritorio` porque el nodo observado cambia con él.
+  useEffect(() => {
+    const nodo = envoltorio.current;
+    if (!nodo) return;
+    const io = new IntersectionObserver(
+      ([e]) => setEnPantalla(e.intersectionRatio >= VISIBLE_PARA_SALUDAR),
+      { threshold: [0, VISIBLE_PARA_SALUDAR] },
+    );
+    io.observe(nodo);
+    return () => io.disconnect();
+  }, [escritorio, i]);
+
+  useEffect(() => {
+    if (!saludar || !opaco || !enPantalla || saludado.current) return;
+    saludado.current = true;
+    tenti.current?.saludar();
+  }, [saludar, opaco, enPantalla]);
+
+  const alTerminarFundido = useCallback((e: React.TransitionEvent<HTMLDivElement>) => {
+    // Las transiciones de dentro también suben hasta aquí: solo cuenta la
+    // opacidad del propio envoltorio, y solo de ida.
+    if (e.target === e.currentTarget && e.propertyName === 'opacity' && transformada) setOpaco(true);
+  }, [transformada]);
+
+  // Se alegra con lo que ha dicho la base de datos, no con el clic: PasoLogo
+  // solo llama aquí después de subir la imagen, y `ok` es que `studios.logo_url`
+  // la ha aceptado. Si algo falla, PasoLogo ya enseña su error y Tenti no hace
+  // nada — alegrarse ahí sería celebrar lo que no ha pasado.
+  const guardarLogo = useCallback(async (url: string) => {
+    const r = await onGuardarLogo(url);
+    if (r.ok) tenti.current?.emocion('feliz');
+    return r;
+  }, [onGuardarLogo]);
 
   const siguiente = useCallback(() => {
     if (ultima) { onContinuar(); return; }
@@ -170,6 +231,17 @@ export function PantallasValor({
 
   const { Escena } = p;
 
+  // El fundido de Tenti, el mismo en los dos sitios: entra después de la
+  // escena, cuando ya se ha leído el titular. Con «reducir movimiento» el CSS
+  // de abajo quita la transición, no hay `transitionend` y no saluda — que es
+  // lo que toca: el motor tampoco saludaría (`quieto`).
+  const fundido: React.CSSProperties = {
+    display: 'flex', flex: 'none', pointerEvents: 'none',
+    opacity: transformada ? 1 : 0,
+    transform: transformada ? 'translateY(0)' : 'translateY(12px)',
+    transition: 'opacity 420ms linear 620ms, transform 560ms cubic-bezier(0.22,1,0.36,1) 620ms',
+  };
+
   return (
     <div
       style={{
@@ -177,9 +249,12 @@ export function PantallasValor({
         // La primera versión era un oliva muy oscuro a pantalla completa: se
         // veía imponente en una captura y se sentía frío y pesado siendo quien
         // acaba de registrarse. Y encima era un salto: entrabas al producto y
-        // el producto es claro. Al mapear `--valor-*` a los tokens del sistema,
-        // esto sigue al tema (claro/oscuro) solo, y es literalmente el mismo
-        // material que el panel al que va a entrar.
+        // el producto es claro. Mapear `--valor-*` a los tokens del sistema lo
+        // hace literalmente el mismo material que el panel al que va a entrar.
+        // ⚠️ Siempre en CLARO, aunque ella use el modo oscuro: la bienvenida se
+        // monta fuera de `PanelThemeProvider` (dashboard-shell), que es quien
+        // pone `.dark`, así que aquí solo llegan los tokens de :root. Tenti
+        // también se pinta con los claros.
         '--valor-fondo': 'var(--background)',
         '--valor-superficie': 'var(--card)',
         '--valor-linea': 'var(--border)',
@@ -339,14 +414,33 @@ export function PantallasValor({
                 {i + 1} de {pantallas.length}
               </span>
               </>)}
+
+              {/* En el móvil Tenti va AQUÍ, a la derecha del botón, y no bajo la
+                  escena como en escritorio. Allí sus 104 px más el hueco caían
+                  entre el logo y «Montar mi estudio», y en un iPhone (≈390×664
+                  con Safari) dejaban el único botón por debajo del primer
+                  pantallazo. Aquí no empuja nada y saluda junto a la acción.
+                  Los -8 px de arriba y abajo hacen que la fila mida lo que el
+                  botón (48) y no lo que Tenti (64): medido a 390×664, con ellos
+                  el botón acaba en 652 y Tenti cabe entero; sin ellos, el botón
+                  en 660 y Tenti asomando 4 px por debajo. El dibujo ocupa algo
+                  más de la mitad del lienzo, así que lo que sobresale es aire. */}
+              {!escritorio && (
+                <div ref={envoltorio} onTransitionEnd={alTerminarFundido} style={{ ...fundido, margin: '-8px 0 -8px auto' }}>
+                  <Tenti ref={tenti} estado="reposo" tamano={64} sigueCursor />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* La escena, con Tenti debajo. Va en FLUJO y no posicionada encima:
+          {/* La escena, con Tenti debajo en escritorio (en el móvil va en la
+              fila del botón, ver arriba). Va en FLUJO y no posicionado encima:
               en absoluto se montaba sobre la última tarjeta y le tapaba el
-              check —visto en el navegador—, y además cualquier cambio de alto
-              de una escena volvería a romperlo. Decorativa: el titular de al
-              lado ya dice lo que ella celebra. */}
+              check —visto en el navegador con el dibujo anterior—, y cualquier
+              cambio de alto de una escena volvería a romperlo. Decorativo
+              (aria-hidden): el titular de al lado ya dice lo que pasa. Ni se
+              toca, ni suena, ni lleva insignia: los valores por defecto de
+              <Tenti> ya son esos. */}
           <div style={{ gridArea: 'escena', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             {Escena ? (
               <Escena activa={transformada} />
@@ -355,20 +449,14 @@ export function PantallasValor({
                 studioId={studioId}
                 studioNombre={studioNombre}
                 logoActual={logoActual}
-                onGuardar={onGuardarLogo}
+                onGuardar={guardarLogo}
               />
             )}
-            <div
-              style={{
-                alignSelf: 'flex-end', marginRight: 4,
-                opacity: transformada ? 1 : 0,
-                transform: transformada ? 'translateY(0)' : 'translateY(12px)',
-                transition: 'opacity 420ms linear 620ms, transform 560ms cubic-bezier(0.22,1,0.36,1) 620ms',
-                pointerEvents: 'none',
-              }}
-            >
-              <Tenti pose={p.pose} alto={104} />
-            </div>
+            {escritorio && (
+              <div ref={envoltorio} onTransitionEnd={alTerminarFundido} style={{ ...fundido, alignSelf: 'flex-end', marginRight: 4 }}>
+                <Tenti ref={tenti} estado="reposo" tamano={104} sigueCursor />
+              </div>
+            )}
           </div>
         </div>
       </div>

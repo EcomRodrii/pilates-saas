@@ -99,12 +99,14 @@ export default function TentiPagina() {
 
 // La bienvenida de la pantalla del logo. Siempre en claro: en el panel se monta
 // fuera del proveedor del tema. Saluda una vez, la primera vez que se ve, y se
-// alegra solo cuando el logo ha quedado guardado de verdad.
+// alegra solo cuando el logo ha quedado guardado de verdad. Esta es la de
+// escritorio; por debajo de 860 px va a 64 px a la derecha de «Montar mi
+// estudio» (components/onboarding/pantallas-valor.tsx).
 function MaquetaBienvenida() {
   const tenti = useRef<TentiControl>(null);
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-[11.5px] font-semibold text-muted-foreground">Bienvenida · el logo · 104 px · reposo</p>
+      <p className="text-[11.5px] font-semibold text-muted-foreground">Bienvenida · el logo · 104 px (64 px junto al botón en el móvil) · reposo</p>
       <div className="mt-3 grid gap-4 rounded-xl bg-background p-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
         <div>
           <h3 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">Ponle tu logo y ya es tuyo</h3>
