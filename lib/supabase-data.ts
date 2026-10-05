@@ -4513,13 +4513,24 @@ export async function dbMisLikesComunidad(): Promise<string[]> {
 // propietaria borraba un aviso del tablón, desaparecía de su pantalla y, si el
 // DELETE había fallado, el post SEGUÍA sirviéndose a todas las socias (el feed
 // público lee la tabla con service-role, no el estado local del panel).
+//
+// Por el servidor (`DELETE /api/comunidad/posts/[id]`): borra también la foto del
+// bucket público, que por RLS se quedaba servida en su URL. El navegador ya no
+// puede borrar la fila (migr 20261005150400). Solo `204` cuenta como borrado: un
+// DELETE por RLS que no tocaba ninguna fila también decía «sin error».
 export async function dbDeletePostComunidad(id: string): Promise<boolean> {
-  const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
-  if (error) {
-    reportDbError('[dbDeletePostComunidad]', error);
+  try {
+    const res = await fetch(`/api/comunidad/posts/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { ...(await staffAuthHeader()) },
+    });
+    if (res.status === 204) return true;
+    reportDbError('[dbDeletePostComunidad]', await cuerpoDeError(res));
+    return false;
+  } catch (e) {
+    reportDbError('[dbDeletePostComunidad]', e);
     return false;
   }
-  return true;
 }
 
 export async function dbUpsertIntegracion(
