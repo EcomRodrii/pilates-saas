@@ -35,7 +35,7 @@ test.describe('Student PWA · cambiar la contraseña', () => {
   test('se llega desde el perfil: antes no había ninguna entrada', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('link', { name: 'Contraseña' }).click({ timeout: 30_000 });
+    await page.getByRole('link', { name: 'Seguridad', exact: true }).click({ timeout: 30_000 });
     // Margen: es la PRIMERA carga de esta ruta, y los 5 s por defecto de la
     // aserción no cubren compilar y servir una pantalla nueva.
     await expect(page.getByLabel('Contraseña actual')).toBeVisible({ timeout: 30_000 });
