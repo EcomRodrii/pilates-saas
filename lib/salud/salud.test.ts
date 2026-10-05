@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { secretoValido } from './secreto.ts';
 import {
-  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_PENALIZACIONES_COBRADAS_SIN_DINERO,
-  ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
+  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_DENUNCIAS_ESPERANDO_A_TENTARE, ID_DENUNCIAS_SIN_REVISAR_48H,
+  ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
 } from './comprobaciones.ts';
+import { HORAS_REVISION_ESTUDIO } from '../moderacion/reglas.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ── La puerta ────────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ function adminFalso(porTabla: Record<string, { count: number | null; error: { me
   const encadenable = (tabla: string) => {
     const r = respuesta(tabla);
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit']) self[m] = () => self;
+    for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit', 'or']) self[m] = () => self;
     // `then` lo hace awaitable: es lo que consume `contar`.
     self.then = (res: (v: typeof r) => unknown) => Promise.resolve(r).then(res);
     return self;
@@ -103,7 +104,7 @@ test('cada comprobación explica su impacto en lenguaje de negocio', () => {
 function adminQueGraba(resultado: { count: number | null; error: { message: string } | null }) {
   const llamadas: Array<[string, ...unknown[]]> = [];
   const self: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit']) {
+  for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit', 'or']) {
     self[m] = (...args: unknown[]) => { llamadas.push([m, ...args]); return self; };
   }
   self.then = (res: (v: typeof resultado) => unknown) => Promise.resolve(resultado).then(res);
@@ -200,4 +201,38 @@ test('ledger-no-concilia: un solo descuadre ya es fallo, y mira la vista de conc
   const { admin, llamadas } = adminQueGraba({ count: 0, error: null });
   await def.contar(admin, new Date());
   assert.deepEqual(llamadas[0], ['from', 'ledger_conciliacion']);
+});
+
+// ── Denuncias de la app (App Store 1.2) ─────────────────────────────────────
+
+test('denuncias esperando a Tentare: pendientes contra el estudio o con más de 24 h, solo el número', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_DENUNCIAS_ESPERANDO_A_TENTARE)!;
+  const ahora = new Date('2026-10-05T12:00:00.000Z');
+  const { admin, llamadas } = adminQueGraba({ count: 2, error: null });
+  await def.contar(admin, ahora);
+  assert.deepEqual(llamadas[0], ['from', 'denuncias']);
+  assert.deepEqual(llamadas.find(l => l[0] === 'select')![2], { count: 'exact', head: true });
+  assert.ok(llamadas.some(l => l[0] === 'eq' && l[1] === 'estado' && l[2] === 'PENDIENTE'));
+  assert.ok(llamadas.some(l => l[0] === 'or' && l[1] === 'destino.eq.TENTARE,creada_en.lte.2026-10-04T12:00:00.000Z'));
+  // Las 24 h son las del estudio: si cambian en un sitio, cambian en el otro.
+  assert.equal(HORAS_REVISION_ESTUDIO, 24);
+  const informe = await comprobarFlujos(adminFalso({ denuncias: { count: 1, error: null } }));
+  assert.equal(informe.comprobaciones.find(x => x.id === ID_DENUNCIAS_ESPERANDO_A_TENTARE)!.estado, 'aviso');
+});
+
+test('denuncias sin revisar en 48 h: una sola ya es fallo', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_DENUNCIAS_SIN_REVISAR_48H)!;
+  const { admin, llamadas } = adminQueGraba({ count: 0, error: null });
+  await def.contar(admin, new Date('2026-10-05T12:00:00.000Z'));
+  assert.ok(llamadas.some(l => l[0] === 'lte' && l[1] === 'creada_en' && l[2] === '2026-10-03T12:00:00.000Z'));
+  const informe = await comprobarFlujos(adminFalso({ denuncias: { count: 1, error: null } }));
+  assert.equal(informe.comprobaciones.find(x => x.id === ID_DENUNCIAS_SIN_REVISAR_48H)!.estado, 'fallo');
+});
+
+test('la alarma de denuncias la manda a Sentry un cron que ya existe (el digest de mensajes)', () => {
+  const fuente = readFileSync(new URL('../../app/api/cron/notif-mensajes-digest/route.ts', import.meta.url), 'utf8');
+  const vigiladas = fuente.slice(fuente.indexOf('const VIGILADAS'), fuente.indexOf('async function vigilarDenuncias'));
+  assert.ok(vigiladas.includes('ID_DENUNCIAS_ESPERANDO_A_TENTARE'));
+  assert.ok(vigiladas.includes('ID_DENUNCIAS_SIN_REVISAR_48H'));
+  assert.ok(fuente.includes('await vigilarDenuncias()'));
 });

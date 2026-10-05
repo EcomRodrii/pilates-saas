@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  accionesPosibles, ambitosQueRevisa, destinoDeDenuncia, errorDeResolver, horasHastaTentare, leTocaATentare,
-  puedeRevisarDenuncia, textoParaDenunciante,
+  accionesPosibles, ambitosQueRevisa, corteTurnoTentare, destinoDeDenuncia, errorDeResolver, horasHastaTentare, leTocaATentare,
+  porQueLaRevisaTentare, puedeRevisarDenuncia, textoParaDenunciante,
 } from './denuncias.ts';
 import { EVENTOS, plantillaDe, render } from '../notifications/catalog.ts';
 
@@ -40,6 +40,12 @@ test('las 24 h: horas que quedan y cuándo le toca a Tentare', () => {
   assert.equal(leTocaATentare({ destino: 'ESTUDIO', creadaEn: '2026-10-05T11:00:00Z' }, ahora), false);
   assert.equal(leTocaATentare({ destino: 'ESTUDIO', creadaEn: '2026-10-04T11:59:00Z' }, ahora), true);
   assert.equal(leTocaATentare({ destino: 'TENTARE', creadaEn: '2026-10-05T11:59:00Z' }, ahora), true);
+});
+
+test('la cola de Tentare: el corte de las 24 h y por qué le toca', () => {
+  assert.equal(corteTurnoTentare(new Date('2026-10-05T12:00:00Z')), '2026-10-04T12:00:00.000Z');
+  assert.equal(porQueLaRevisaTentare({ destino: 'TENTARE' }), 'CONTRA_EL_ESTUDIO');
+  assert.equal(porQueLaRevisaTentare({ destino: 'ESTUDIO' }), 'SIN_REVISAR_POR_EL_ESTUDIO');
 });
 
 test('lo que se le dice a quien denunció, sin el texto denunciado', () => {
@@ -88,4 +94,21 @@ test('las rutas de moderación del panel exigen sesión de equipo y su permiso',
   assert.ok(comprobacion > 0 && servidor.indexOf(".rpc('resolver_denuncia'") > comprobacion);
   // Cerrar solo un chat instructora–alumna, nunca el hilo con el estudio.
   assert.match(servidor, /\.eq\('tipo', 'ALUMNA_INSTRUCTORA'\)/);
+});
+
+test('/interno: su propio permiso, el estudio sale de la denuncia, decide como TENTARE y deja rastro', () => {
+  const lista = leer('app/api/interno/denuncias/route.ts');
+  assert.match(lista, /exigirPermiso\(req, 'app\.moderate'\)/);
+  assert.match(lista, /registrar\(admin, req/);
+  const decidir = leer('app/api/interno/denuncias/[id]/route.ts');
+  assert.match(decidir, /exigirPermiso\(req, 'app\.moderate'\)/);
+  assert.match(decidir, /const studioId = await estudioDeDenuncia\(admin, id\)/);
+  assert.match(decidir, /revisor: \{ tipo: 'TENTARE', userId: g\.admin\.userId \}/);
+  assert.match(decidir, /registrar\(admin, req/);
+  assert.doesNotMatch(decidir, /body\?\.studioId|studioId:\s*body/, 'el estudio nunca viene del navegador');
+  // La cola usa la misma regla que la RPC: contra el estudio, o 24 h sin revisar.
+  const servidor = leer('lib/moderacion/denuncias-servidor.ts');
+  assert.match(servidor, /\.or\(`destino\.eq\.TENTARE,creada_en\.lte\.\$\{corteTurnoTentare\(ahora\)\}`\)/);
+  // Tentare tampoco puede tomar una decisión que no esté entre las suyas.
+  assert.match(servidor, /const quien = p\.revisor\.tipo === 'ESTUDIO' \? p\.revisor\.rol : 'TENTARE'/);
 });

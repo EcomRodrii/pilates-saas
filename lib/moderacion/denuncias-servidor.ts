@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Recipient } from '@/lib/notifications/types';
 import { emitirContenidoRetirado, emitirDenunciaNueva, emitirDenunciaResuelta } from '@/lib/notifications/emit';
 import {
-  accionesPosibles, ambitosQueRevisa, destinoDeDenuncia, errorDeResolver, puedeRevisarDenuncia, textoParaDenunciante,
+  accionesPosibles, ambitosQueRevisa, corteTurnoTentare, destinoDeDenuncia, errorDeResolver, porQueLaRevisaTentare,
+  puedeRevisarDenuncia, textoParaDenunciante,
   type AccionDenuncia, type AmbitoDenuncia, type DestinoDenuncia, type MotivoDenuncia, type ResultadoDenuncia, type RolEquipo,
 } from './denuncias';
 
@@ -215,6 +216,50 @@ export async function enriquecer(
   });
 }
 
+// ── La cola de Tentare (/interno) ────────────────────────────────────────────
+
+export interface DenunciaParaTentare extends DenunciaParaRevisar {
+  estudio: { id: string; nombre: string };
+  porQue: 'CONTRA_EL_ESTUDIO' | 'SIN_REVISAR_POR_EL_ESTUDIO';
+}
+
+/**
+ * Lo que le toca a Tentare, de todos los estudios: las que van contra el propio
+ * estudio y las que el estudio no revisó en `HORAS_REVISION_ESTUDIO`. La misma
+ * regla que aplica `resolver_denuncia`; de la más antigua a la más nueva.
+ */
+export async function listarDenunciasParaTentare(admin: SupabaseClient, ahora: Date = new Date()): Promise<DenunciaParaTentare[]> {
+  const { data, error } = await admin.from('denuncias').select(`${COLUMNAS_DENUNCIA}, studio_id`)
+    .eq('estado', 'PENDIENTE')
+    .or(`destino.eq.TENTARE,creada_en.lte.${corteTurnoTentare(ahora)}`)
+    .order('creada_en', { ascending: true }).limit(200);
+  if (error) throw new Error(`denuncias: ${error.message}`);
+  const filas = (data ?? []) as (FilaDenuncia & { studio_id: string })[];
+  if (filas.length === 0) return [];
+  const porEstudio = new Map<string, (FilaDenuncia & { studio_id: string })[]>();
+  for (const f of filas) porEstudio.set(f.studio_id, [...(porEstudio.get(f.studio_id) ?? []), f]);
+  const ids = [...porEstudio.keys()];
+  const [{ data: estudios }, ...enriquecidas] = await Promise.all([
+    admin.from('studios').select('id, nombre').in('id', ids),
+    ...ids.map((id) => enriquecer(admin, id, porEstudio.get(id)!, 'TENTARE')),
+  ]);
+  const nombres = new Map(((estudios ?? []) as { id: string; nombre: string | null }[]).map((e) => [e.id, e.nombre ?? 'Estudio']));
+  const out: DenunciaParaTentare[] = [];
+  ids.forEach((id, i) => {
+    for (const d of enriquecidas[i]) {
+      out.push({ ...d, estudio: { id, nombre: nombres.get(id) ?? 'Estudio' }, porQue: porQueLaRevisaTentare(d) });
+    }
+  });
+  return out.sort((a, b) => a.creadaEn.localeCompare(b.creadaEn));
+}
+
+/** El estudio de una denuncia, para decidir desde /interno sin fiarse del navegador. */
+export async function estudioDeDenuncia(admin: SupabaseClient, denunciaId: string): Promise<string | null> {
+  const { data, error } = await admin.from('denuncias').select('studio_id').eq('id', denunciaId).maybeSingle();
+  if (error) throw new Error(`denuncias: ${error.message}`);
+  return (data?.studio_id as string | undefined) ?? null;
+}
+
 // ── Decidir ──────────────────────────────────────────────────────────────────
 
 export type RevisorDenuncia = { tipo: 'ESTUDIO'; rol: RolEquipo; userId: string } | { tipo: 'TENTARE'; userId: string };
@@ -237,17 +282,19 @@ interface RespuestaRpc {
 export async function resolverDenuncia(
   admin: SupabaseClient, p: { studioId: string; denunciaId: string; accion: AccionDenuncia; revisor: RevisorDenuncia },
 ): Promise<ResultadoResolver> {
-  // El estudio: el ámbito tiene que ser de los suyos y la acción, de las que su rol puede.
-  if (p.revisor.tipo === 'ESTUDIO') {
-    const { data: d, error } = await admin.from('denuncias').select('ambito, mensaje_id, comentario_id')
-      .eq('id', p.denunciaId).eq('studio_id', p.studioId).maybeSingle();
-    if (error) throw new Error(`denuncias: ${error.message}`);
-    if (!d || !puedeRevisarDenuncia(p.revisor.rol, d.ambito as AmbitoDenuncia)) {
-      return { ok: false, status: 404, error: 'Esta denuncia ya no está pendiente para ti.' };
-    }
-    const posibles = accionesPosibles(p.revisor.rol, { ambito: d.ambito as AmbitoDenuncia, tieneContenido: Boolean(d.mensaje_id || d.comentario_id) });
-    if (!posibles.includes(p.accion)) return { ok: false, status: 403, error: 'Esa decisión no la puedes tomar tú.' };
+  // El ámbito tiene que ser de los que revisa quien decide (el estudio) y la
+  // acción, de las que puede tomar. La RPC vuelve a comprobar a quién le toca.
+  const { data: d, error: errLeer } = await admin.from('denuncias').select('ambito, mensaje_id, comentario_id')
+    .eq('id', p.denunciaId).eq('studio_id', p.studioId).maybeSingle();
+  if (errLeer) throw new Error(`denuncias: ${errLeer.message}`);
+  if (!d) return { ok: false, status: 404, error: 'Esta denuncia ya no está pendiente para ti.' };
+  const ambito = d.ambito as AmbitoDenuncia;
+  if (p.revisor.tipo === 'ESTUDIO' && !puedeRevisarDenuncia(p.revisor.rol, ambito)) {
+    return { ok: false, status: 404, error: 'Esta denuncia ya no está pendiente para ti.' };
   }
+  const quien = p.revisor.tipo === 'ESTUDIO' ? p.revisor.rol : 'TENTARE';
+  const posibles = accionesPosibles(quien, { ambito, tieneContenido: Boolean(d.mensaje_id || d.comentario_id) });
+  if (!posibles.includes(p.accion)) return { ok: false, status: 403, error: 'Esa decisión no la puedes tomar tú.' };
   const { data, error } = await admin.rpc('resolver_denuncia', {
     p_denuncia_id: p.denunciaId, p_studio_id: p.studioId, p_accion: p.accion, p_revisor: p.revisor.tipo, p_por: p.revisor.userId,
   });

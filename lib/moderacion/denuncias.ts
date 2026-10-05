@@ -80,6 +80,16 @@ export function leTocaATentare(d: { destino: DestinoDenuncia; creadaEn: string }
   return d.destino === 'TENTARE' || horasHastaTentare(d.creadaEn, ahora) === 0;
 }
 
+/** Desde cuándo una denuncia del estudio pasa a Tentare: lo creado antes de esto ya es suyo. */
+export function corteTurnoTentare(ahora: Date = new Date()): string {
+  return new Date(ahora.getTime() - HORAS_REVISION_ESTUDIO * 3600_000).toISOString();
+}
+
+/** Por qué la ve Tentare en /interno: va contra el estudio, o el estudio no la revisó a tiempo. */
+export function porQueLaRevisaTentare(d: { destino: DestinoDenuncia }): 'CONTRA_EL_ESTUDIO' | 'SIN_REVISAR_POR_EL_ESTUDIO' {
+  return d.destino === 'TENTARE' ? 'CONTRA_EL_ESTUDIO' : 'SIN_REVISAR_POR_EL_ESTUDIO';
+}
+
 /** La decisión, contada a quien denunció («Hemos revisado tu denuncia: …»). */
 export function textoParaDenunciante(resultado: ResultadoDenuncia, ambito: AmbitoDenuncia): string {
   const que = ambito === 'TABLON' ? 'el comentario' : 'el mensaje';

@@ -94,6 +94,17 @@ export function avisoParaSentry(
   return { nivel: estado === 'fallo' ? 'error' : 'warning', mensaje, extra: { comprobacion: d.id, valor } };
 }
 
+/**
+ * Denuncias de la app que ya le tocan a Tentare (contra el estudio, o el estudio
+ * no las revisó en 24 h) y siguen sin decidir. Las 24 h son las de
+ * `HORAS_REVISION_ESTUDIO` (lib/moderacion/reglas.ts): duplicadas como número
+ * por lo mismo que `VENTANA_ESPERAS_DIAS`; un test las ata.
+ */
+export const ID_DENUNCIAS_ESPERANDO_A_TENTARE = 'denuncias-esperando-a-tentare';
+/** Las mismas, con más de 48 h desde que se hicieron: tampoco las ha revisado Tentare. */
+export const ID_DENUNCIAS_SIN_REVISAR_48H = 'denuncias-sin-revisar-48h';
+const HORAS_REVISION_ESTUDIO = 24;
+
 export const DEFINICIONES: Definicion[] = [
   {
     id: 'reservas-pendientes-sin-expirar',
@@ -258,6 +269,35 @@ export const DEFINICIONES: Definicion[] = [
     contar: (admin) => admin
       .from('ledger_conciliacion')
       .select('derecho_id', { count: 'exact', head: true }),
+  },
+  {
+    id: ID_DENUNCIAS_ESPERANDO_A_TENTARE,
+    que: 'Denuncias de la app que ya le tocan a Tentare (van contra el propio estudio, o el estudio no las revisó en 24 h) y siguen sin decidir.',
+    impacto:
+      'Una alumna o una instructora denunció un mensaje o un comentario y nadie lo ha mirado: el contenido sigue a la ' +
+      'vista y quien denunció no sabe nada. Apple exige actuar sobre una denuncia en 24 h (guía 1.2); se revisan en ' +
+      '/interno/denuncias.',
+    umbralAviso: 1,
+    umbralFallo: 5,
+    contar: (admin, ahora) => admin
+      .from('denuncias')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado', 'PENDIENTE')
+      .or(`destino.eq.TENTARE,creada_en.lte.${menos(ahora, HORAS_REVISION_ESTUDIO * 60)}`),
+  },
+  {
+    id: ID_DENUNCIAS_SIN_REVISAR_48H,
+    que: 'Denuncias de la app sin decidir más de 48 horas después de hacerse: ni el estudio ni Tentare las han revisado.',
+    impacto:
+      'Ya se ha pasado el plazo que se promete a quien denuncia y el que pide Apple para la app (guía 1.2). Una sola ' +
+      'basta para que la revisión de la App Store lo tome como moderación que no funciona.',
+    umbralAviso: 1,
+    umbralFallo: 1,
+    contar: (admin, ahora) => admin
+      .from('denuncias')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado', 'PENDIENTE')
+      .lte('creada_en', menos(ahora, 48 * 60)),
   },
 ];
 
