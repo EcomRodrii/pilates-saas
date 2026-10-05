@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EMOCIONES, ESTADOS, type EmocionTenti, type EstadoTenti } from './motor.ts';
 import {
-  DECIDEN, FRASE_DORMIDO, MAPA, SIGNIFICADO, SIN_SITIO_TODAVIA, UMBRAL_AGOBIO,
+  DECIDEN, FRASE_DORMIDO, estadoDelVeredicto, MAPA, SIGNIFICADO, SIN_SITIO_TODAVIA, UMBRAL_AGOBIO,
   emocionDeHoy, esRecordDelDia, estadoDeHoy, estadoDeLaBandeja, estadoDeLaMigracion, estadoDelAutonomo,
   fraseDeHoy, maxAlumnasAntesDe, primerasVecesHoy, subio,
 } from './momentos.ts';
@@ -27,6 +27,15 @@ const DOMINIO: Record<keyof typeof DECIDEN, () => unknown[]> = {
       clases.map(c => estadoDeHoy({ esHoy, cargando, fallo, clases: c })))));
   },
   estadoDeLaMigracion: () => [true, false].flatMap(deshecho => [[], [{}], [{ error: 'x' }]].map(resultados => estadoDeLaMigracion({ resultados, deshecho }))),
+  estadoDelVeredicto: () => {
+    const out: unknown[] = [];
+    for (const tipo of ['MENSAJE', 'SILENCIO', 'SIN_ANALIZAR'] as const)
+      for (const analisis of ['quieto', 'en-curso', 'tardando'] as const)
+        for (const b of [0, 1, 2, 3, 4, 5, 6, 7].map(i => [!!(i & 1), !!(i & 2), !!(i & 4)]))
+          for (const fallidasHoy of [0, 1])
+            out.push(estadoDelVeredicto({ tipo, analisis, hayRecomendacion: b[0], pospuesta: b[1], efectoCobra: b[2], recienTerminado: b[0], recienRespondido: b[1], fallidasHoy }));
+    return out;
+  },
 };
 
 test('cada función devuelve solo estados que MAPA da a su sitio (o null: sin Tenti)', () => {
@@ -179,4 +188,23 @@ test('maxAlumnasAntesDe: plazas ocupadas por día anterior, con la regla de resu
   const reservas = [...r('a', 'CONFIRMADA', 3), ...r('b', 'ASISTIDA', 2), ...r('b', 'NO_ASISTIO', 4), ...r('c', 'ASISTIDA', 4), ...r('x', 'CONFIRMADA', 9), ...r('hoy', 'CONFIRMADA', 30)];
   assert.equal(maxAlumnasAntesDe({ sesiones, reservas, hoy: '2026-10-06', diaDe }), 5);
   assert.equal(maxAlumnasAntesDe({ sesiones: [sesiones[4]], reservas, hoy: '2026-10-06', diaDe }), null);
+});
+
+test('estadoDelVeredicto: las reglas en orden, y nunca una cara junto a un cobro', () => {
+  const base = {
+    tipo: 'SILENCIO' as const, hayRecomendacion: false, pospuesta: false, efectoCobra: false,
+    analisis: 'quieto' as const, recienTerminado: false, recienRespondido: false, fallidasHoy: 0,
+  };
+  assert.equal(estadoDelVeredicto({ ...base, analisis: 'en-curso', fallidasHoy: 2 }), 'pensando');
+  assert.equal(estadoDelVeredicto({ ...base, analisis: 'tardando' }), 'pensando');
+  assert.equal(estadoDelVeredicto({ ...base, recienTerminado: true, fallidasHoy: 2 }), 'hecho');
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'SIN_ANALIZAR', recienTerminado: true }), 'reposo', 'un análisis que murió no es un hecho');
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'MENSAJE', recienRespondido: true }), 'hecho');
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'MENSAJE', hayRecomendacion: true, fallidasHoy: 1 }), 'pregunta');
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'MENSAJE', hayRecomendacion: true, efectoCobra: true }), null);
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'MENSAJE', hayRecomendacion: true, efectoCobra: true, analisis: 'en-curso' }), null,
+    'ni pensando junto a «Cobrar ahora»');
+  assert.equal(estadoDelVeredicto({ ...base, tipo: 'MENSAJE', hayRecomendacion: true, pospuesta: true }), 'reposo', 'aplazada: ya no pregunta');
+  assert.equal(estadoDelVeredicto({ ...base, fallidasHoy: 1 }), 'error');
+  assert.equal(estadoDelVeredicto(base), 'reposo', '«Hoy no te interrumpo con nada»: la firma, no un «todo bien»');
 });

@@ -184,6 +184,10 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   'components/calendario/adaptaciones-clase.tsx': { usos: 1, motivo: '«Preparar clase con IA»' },
   'components/socios/ficha-salud.tsx': { usos: 1, motivo: '«Adaptar ejercicios con IA»' },
   'components/socios/modal-nota-voz.tsx': { usos: 1, motivo: '«Estructurar con IA», del piloto de la nota de voz' },
+  // El veredicto del día, en lugar del anillo (fundador, 5-oct): el motivo del
+  // veto («la IA que te habla») se cae con el asistente; el de dinero no
+  // (estadoDelVeredicto → sin Tenti si aprobar cobra).
+  'components/decision/veredicto-del-dia.tsx': { usos: 1, motivo: 'el veredicto del día: analizando, recién hecho, el mensaje que te pregunta o lo que el piloto no pudo; nunca junto a un cobro' },
   'app/(dashboard)/bienvenido-apertura/page.tsx': { usos: 1, motivo: 'las tres preguntas de apertura, donde estaba el Orb (ningún enlace trae aquí desde #2270)' },
 };
 
@@ -364,9 +368,11 @@ const VETADOS: { grupo: string; motivo: string; rutas: string[]; deRebote: boole
   },
   {
     grupo: 'Centro de Control', deRebote: true,
-    motivo: 'el veredicto, el Contrato y las filas los puede redactar un modelo en primera persona: una cara al lado es «la IA que te habla»',
+    // El veredicto salió de aquí el 5-oct (fundador): lleva a Tenti en lugar
+    // del anillo, y nunca junto a un cobro (`estadoDelVeredicto` → null).
+    motivo: 'las filas, el Contrato y las tarjetas siguen sin cara: las puede redactar un modelo en primera persona, y una cara al lado es «la IA que te habla»',
     rutas: [
-      'veredicto-del-dia', 'contrato-decision-os', 'empty-state', 'while-you-slept', 'fila-situacion', 'fila-especialista',
+      'contrato-decision-os', 'empty-state', 'while-you-slept', 'fila-situacion', 'fila-especialista',
       'activity-list', 'bandeja-hoy', 'action-center', 'riesgo-planton', 'especialista-cartera', 'codigos-descuento',
     ].map((f) => `components/decision/${f}.tsx`),
   },

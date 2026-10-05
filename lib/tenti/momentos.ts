@@ -55,7 +55,7 @@ export const SIGNIFICADO: {
       nunca: 'Una petición tuya que espera respuesta (eso es «pensando»).',
     },
     hecho: {
-      es: 'Algo que estabas viendo acaba de terminar, y el servidor lo confirma. Con celebración en los hitos; breve en lo diario.',
+      es: 'Algo que estabas viendo acaba de terminar, y el servidor lo confirma. Con celebración en los hitos (Listo, la migración); breve en lo diario (el veredicto).',
       nunca: 'Un hecho pasado pintado al cargar la pantalla, ni junto a un cobro.',
     },
     error: {
@@ -67,7 +67,7 @@ export const SIGNIFICADO: {
       nunca: 'El Centro de Control: sus sugerencias no bloquean nada, y el Contrato promete no interrumpir.',
     },
     pregunta: {
-      es: 'Tentare te pregunta algo y puedes no contestar: nada se para si no lo haces.',
+      es: 'Tentare te pregunta algo y puedes no contestar: nada se para si no lo haces (el mensaje del día, la apertura).',
       nunca: 'Algo que bloquea (eso es «espera tu visto bueno»).',
     },
     agobiado: {
@@ -159,6 +159,46 @@ export function estadoDeLaMigracion({ resultados, deshecho }: {
 }): 'hecho' | 'error' | null {
   if (deshecho) return null;
   return resultados.some(r => r.error) ? 'error' : 'hecho';
+}
+
+/** Lo que dura el 'hecho' breve de lo diario (el veredicto, el asistente). */
+export const HECHO_BREVE_MS = 1500;
+
+/**
+ * El Tenti del veredicto del día (Centro de Control), en lugar del anillo que
+ * había (decisión del fundador, 5-oct). El primero que se cumpla:
+ *   0. el mensaje de hoy, vivo y sin aplazar, cobra al aprobarlo → `null`:
+ *      nunca una cara junto a «Cobrar ahora» (se lee como manipulación), ni
+ *      siquiera pensando;
+ *   1. «Analizar ahora» en curso o tardando → 'pensando';
+ *   2. el análisis acaba de terminar y hay análisis de hoy → 'hecho' breve
+ *      (un análisis que murió no deja veredicto nuevo: sigue SIN_ANALIZAR);
+ *   3. acabas de responder al mensaje y el servidor dijo que sí → 'hecho' breve;
+ *   4. el mensaje de hoy, vivo y sin aplazar → 'pregunta' (puedes no contestar:
+ *      nada se para);
+ *   5. el piloto intentó algo hoy y no salió → 'error';
+ *   6. si no, la firma: 'reposo'.
+ * Sin sonido ni emociones: el Contrato promete no interrumpir.
+ */
+export function estadoDelVeredicto({
+  tipo, hayRecomendacion, pospuesta, efectoCobra, analisis, recienTerminado, recienRespondido, fallidasHoy,
+}: {
+  tipo: 'MENSAJE' | 'SILENCIO' | 'SIN_ANALIZAR';
+  hayRecomendacion: boolean;
+  pospuesta: boolean;
+  efectoCobra: boolean;
+  analisis: 'quieto' | 'en-curso' | 'tardando';
+  recienTerminado: boolean;
+  recienRespondido: boolean;
+  fallidasHoy: number;
+}): 'pensando' | 'hecho' | 'pregunta' | 'error' | 'reposo' | null {
+  const mensajeVivo = tipo === 'MENSAJE' && hayRecomendacion && !pospuesta;
+  if (mensajeVivo && efectoCobra) return null;
+  if (analisis !== 'quieto') return 'pensando';
+  if (recienTerminado && tipo !== 'SIN_ANALIZAR') return 'hecho';
+  if (recienRespondido) return 'hecho';
+  if (mensajeVivo) return 'pregunta';
+  return fallidasHoy > 0 ? 'error' : 'reposo';
 }
 
 /** Si un recuento ha subido (nunca al cargar: sin valor anterior, no). */
@@ -303,7 +343,7 @@ export function fraseDeHoy({ resumen, clases, primerasVeces, record, estado }: {
 // ── El mapa: sitio → función que decide → estados y emociones posibles ───────
 
 /** Las funciones que deciden, por nombre (la guardia las busca así). */
-export const DECIDEN = { estadoDeLaBandeja, estadoDelAutonomo, estadoDeHoy, estadoDeLaMigracion } as const;
+export const DECIDEN = { estadoDeLaBandeja, estadoDelAutonomo, estadoDeHoy, estadoDeLaMigracion, estadoDelVeredicto } as const;
 
 export interface SitioDeTenti {
   /** Dónde, en palabras. */
@@ -351,6 +391,12 @@ export const MAPA: Record<string, SitioDeTenti> = {
     funcion: 'estadoDeLaMigracion', literales: ['trabajando'],
     estados: ['reposo', 'pensando', 'trabajando', 'hecho', 'error'], emociones: [],
     motivo: 'Tentare lee los archivos (pensando), mete las filas solo (trabajando) y el acta dice si salió',
+  },
+  'components/decision/veredicto-del-dia.tsx': {
+    sitio: 'Centro de Control › el veredicto del día, en lugar del anillo',
+    funcion: 'estadoDelVeredicto', literales: [],
+    estados: ['reposo', 'pensando', 'hecho', 'pregunta', 'error'], emociones: [],
+    motivo: 'analizando, recién terminado o respondido, el mensaje que te pregunta (nunca si aprobar cobra) y lo que el piloto no pudo hacer',
   },
   'app/(dashboard)/bienvenido-apertura/page.tsx': {
     sitio: 'Bienvenida de apertura',

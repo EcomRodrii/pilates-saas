@@ -379,18 +379,20 @@ esa lista con su motivo, no un import de paso.
   `SIGNIFICADO` dice qué es cada uno y `MAPA` dónde sale y con qué dato; la
   guardia y `/interno/tenti` leen esos dos objetos. **Las pantallas no escriben
   estados: los piden con su dato** (`estadoDeLaBandeja`, `estadoDelAutonomo`,
-  `estadoDeHoy`, `estadoDeLaMigracion`), salvo los literales que `MAPA` da a
+  `estadoDeHoy`, `estadoDeLaMigracion`, `estadoDelVeredicto`), salvo los literales que `MAPA` da a
   ese fichero.
   `reposo` la firma (nunca «todo bien»: lo dice el texto) · `pensando` una
   petición tuya en vuelo, con la forma `X ? 'pensando' : 'reposo'` y
   `aria-busy`, respirando por CSS · `trabajando` Tentare hace un proceso solo
   («Tentare lo está haciendo», importar en la migración) · `hecho` algo que
   veías acaba de terminar y el servidor lo confirma: con celebración en los
-  hitos (Listo, el acta de la migración), breve en lo diario · `error` algo que
+  hitos (Listo, el acta de la migración), breve en lo diario (el veredicto al
+  terminar el análisis o al responder, `HECHO_BREVE_MS`) · `error` algo que
   Tentare hizo por ti no salió (nunca un error de formulario) · `esperaTuOk`
   algo no avanza sin tu sí · `agobiado` la bandeja llega a `UMBRAL_AGOBIO` (10,
   **sin medir todavía**: mirar el p90 antes de fiarse) · `pregunta` te pregunta
-  y puedes no contestar (la bienvenida de apertura) · `dormido` el ESTUDIO
+  y puedes no contestar (el mensaje del día del Centro de Control, la
+  bienvenida de apertura) · `dormido` el ESTUDIO
   descansa (hoy ya no quedan clases, o no hay) · `mareado` solo al tocarlo ·
   `buscando`, con el asistente. Emociones, una vez y sin sonido: `amor` (alguien
   viene hoy por primera vez), `orgullo` (el día con más alumnas, con ≥ 56 días
@@ -442,8 +444,12 @@ esa lista con su motivo, no un import de paso.
 - **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
   soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
-  (el veredicto, el Contrato, las filas del Centro de Control, el resultado de
-  una adaptación o de una nota). En la web comercial se propone, no se pone.
+  (el Contrato, las filas del Centro de Control, el resultado de una adaptación
+  o de una nota). En la web comercial se propone, no se pone.
+  ⚠️ El veredicto del día SÍ lleva a Tenti desde el 5-oct (fundador: en lugar
+  del anillo; el veto de «la IA que te habla» cae con el asistente), pero
+  nunca junto a un cobro: si aprobar el mensaje cobra, `estadoDelVeredicto`
+  devuelve `null` y no hay cara, ni pensando.
 
 ## Brand System: `brand/` es la fuente de verdad visual (fase 1, 5-oct-2026)
 
