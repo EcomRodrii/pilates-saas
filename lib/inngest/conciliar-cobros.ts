@@ -39,6 +39,7 @@ import {
 } from '../billing/cobro-off-session-marca.ts';
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { reservarClasePagada } from '../billing/reservar-clase-pagada.ts';
+import { barrerPagosDeClase } from '../billing/barrido-pagos-clase.ts';
 import { selloDelCobro } from '../billing/sello-del-cobro.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
@@ -250,6 +251,13 @@ async function conciliarEstudio(
     });
   });
   await resolverCobrosConMetodoGuardadoColgados(admin, stripe, studio, [...piPorId.values()], inicioListado);
+  // Los pagos de clase sin desenlace (P06): reservar o compensar los pagados, cancelar
+  // los abandonados. Su fallo no corta nada.
+  await barrerPagosDeClase(admin, stripe, studio, piPorId).catch((e) => {
+    Sentry.captureException(e instanceof Error ? e : new Error('barrido de pagos de clase'), {
+      level: 'warning', tags: { area: 'cobros', tipo: 'barrido-pagos-clase' }, extra: { studioId: studio.id },
+    });
+  });
   return pendientes.length;
 }
 
@@ -1043,6 +1051,11 @@ async function entregar(
         // concreta, el rescate tiene que darle ESA, no una cualquiera.
         paymentIntentId: pi.id, spotId: pi.metadata.spotId ?? null,
         via: 'conciliador', referencia: { paymentIntentId: pi.id },
+        // La fila del pago (P06): queda registrado en qué acabó. Sin `pagadoEn`: el
+        // conciliador llega tarde y no sabe cuándo cobró Stripe; la fila toma «ahora»
+        // y no da prioridad en la cola (nunca de más).
+        pagoClaseId: pi.metadata?.pagoClaseId ?? null,
+        suscripcionEntregadaId: entrega.suscripcionId,
       });
     }
   } else if (typeof sesion?.payment_intent === 'string') {

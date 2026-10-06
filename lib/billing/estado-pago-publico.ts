@@ -20,7 +20,12 @@ export type EstadoPagoPublico =
   // tenía. Antes salía «fallida» («no hemos podido asignarte la plaza») a quien
   // SÍ tenía plaza.
   | 'ya_tenia_plaza'
-  | 'fallida';
+  | 'fallida'
+  // P06 · Fase A (6-oct-2026): el pago tiene su fila en `pagos_clase` y el servidor ya
+  // decidió. `compensada`: el dinero está y la plaza no (o no la pagó este pago): la
+  // clase queda a su favor en lo que compró. `reembolsada`: el estudio le devolvió el dinero.
+  | 'compensada'
+  | 'reembolsada';
 
 export type ReservaPrevia = 'confirmada' | 'lista_espera' | 'pendiente_aprobacion';
 
@@ -42,6 +47,49 @@ export interface RespuestaEstadoPago {
    * solo cuando dice COBRADO; la renovación, hasta cuándo deja su plan.
    */
   recibo?: { situacion: string; renovadoHasta?: string | null };
+  /**
+   * Con `compensada`: por qué, si va en la lista de espera (y en qué puesto, el real),
+   * y lo que tiene a su favor. Sin sesión (modo email) solo `motivo` y `enEspera`.
+   */
+  compensacion?: {
+    motivo: string; enEspera: boolean; posicion?: number | null;
+    bono?: { nombre: string; sesionesRestantes: number | null; fechaFin: string | null } | null;
+    estudioAvisado?: boolean;
+  };
+}
+
+/** La fila de `pagos_clase` de un pago, lo que hace falta para decir la verdad. */
+export interface FilaPagoParaEstado {
+  estado: string;
+  motivo: string | null;
+  aviso_estudio_en?: string | null;
+}
+
+/**
+ * La tabla de verdad de un pago de clase (P06). Manda la RESERVA: si la `res-web` está
+ * CONFIRMADA o ASISTIDA, es «confirmada» siempre (lo demás pudo quedarse atrás). Si no,
+ * la fila: COMPENSADA → «compensada»; REEMBOLSADA → «reembolsada». Cualquier otra cosa
+ * (ABIERTO, PAGADO, sin fila): lo de siempre, que decide `resolverEstadoPago`.
+ */
+export function estadoConPagoDeClase(
+  estadoReserva: string | null | undefined,
+  fila: FilaPagoParaEstado | null | undefined,
+): 'confirmada' | 'compensada' | 'reembolsada' | null {
+  if (estadoReserva === 'CONFIRMADA' || estadoReserva === 'ASISTIDA') return 'confirmada';
+  if (fila?.estado === 'COMPENSADA') return 'compensada';
+  if (fila?.estado === 'REEMBOLSADA') return 'reembolsada';
+  return null;
+}
+
+/**
+ * /reservar (sin sesión) conoce los estados de siempre: «compensada» en espera se le
+ * enseña como la lista de espera, y sin plaza como «fallida» (el estudio la llamará,
+ * que es la verdad: tiene el aviso). La versión mínima del diseño.
+ */
+export function estadoParaReservarPublico(r: Pick<RespuestaEstadoPago, 'estado' | 'compensacion'>): EstadoPagoPublico {
+  if (r.estado === 'compensada') return r.compensacion?.enEspera ? 'lista_espera' : 'fallida';
+  if (r.estado === 'reembolsada') return 'fallida';
+  return r.estado;
 }
 
 /** Forma de un id de recibo que se acepta en la URL (los de la casa: letras, números y guiones). */

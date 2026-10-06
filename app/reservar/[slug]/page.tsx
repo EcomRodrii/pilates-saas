@@ -64,7 +64,7 @@ import { urlServida } from '@/lib/student/imagen-servida';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
 import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
-import { piDeClientSecret, RETARDOS_POLL_MS, type ReservaPrevia, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
+import { estadoParaReservarPublico, piDeClientSecret, RETARDOS_POLL_MS, type ReservaPrevia, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
@@ -2172,7 +2172,8 @@ export default function ReservarPage() {
       } catch { /* red caída en un poll: se reintenta con el siguiente */ }
       if (!vivo) return;
       if (resuelto && resuelto.estado !== 'en_proceso') {
-        setConfirmacionPago(resuelto.estado);
+        // «compensada»/«reembolsada» (P06): la versión mínima, con los estados de siempre.
+        setConfirmacionPago(estadoParaReservarPublico(resuelto) as Exclude<typeof confirmacionPago, 'confirmando' | 'tardando'>);
         if (resuelto.clase) setClaseConfirmada(resuelto.clase);
         setReservaPrevia(resuelto.previa ?? null);
         return;

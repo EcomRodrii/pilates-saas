@@ -11,7 +11,8 @@ import { idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import {
   avisoDeYaTenia, compraDeSuscripcion, elegirAvisoDelPago, emailsCoinciden, modoDeIdentidad, reservaPreviaDe,
-  reciboIdValido, resolverEstadoPago, type AvisoSinPlaza, type CompraEntregada, type ReservaPrevia, type RespuestaEstadoPago,
+  estadoConPagoDeClase, reciboIdValido, resolverEstadoPago, type AvisoSinPlaza, type CompraEntregada, type FilaPagoParaEstado,
+  type ReservaPrevia, type RespuestaEstadoPago,
 } from '@/lib/billing/estado-pago-publico';
 import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 
@@ -144,7 +145,7 @@ export async function GET(req: NextRequest) {
     if (!recibo) return respuesta(req, { estado: 'en_proceso' });
 
     const [cuerpo, compra] = await Promise.all([
-      estadoDeLaReserva(admin, { pi, studioId: studioIdParam, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null }),
+      estadoDeLaReserva(admin, { pi, studioId: studioIdParam, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null, detalle: true }),
       compraDelPago(admin, ids.suscripcionId, studioIdParam, socioId),
     ]);
     return respuesta(req, compra ? { ...cuerpo, compra } : cuerpo);
@@ -185,7 +186,7 @@ export async function GET(req: NextRequest) {
   }
 
   return respuesta(req, await estadoDeLaReserva(admin, {
-    pi, studioId, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null,
+    pi, studioId, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null, detalle: false,
   }));
 }
 
@@ -222,7 +223,11 @@ async function compraDelPago(
  */
 async function estadoDeLaReserva(
   admin: SupabaseClient,
-  { pi, studioId, socioId, fechaCobro }: { pi: string; studioId: string; socioId: string; fechaCobro: string | null },
+  { pi, studioId, socioId, fechaCobro, detalle }: {
+    pi: string; studioId: string; socioId: string; fechaCobro: string | null;
+    /** Con la sesión de la socia: lo que tiene a su favor (bono, saldo, caducidad) y su puesto. Sin ella, solo si va en espera. */
+    detalle: boolean;
+  },
 ): Promise<RespuestaEstadoPago> {
   const ids = idsDe(pi);
 
@@ -235,6 +240,41 @@ async function estadoDeLaReserva(
     .eq('studio_id', studioId)
     .eq('socio_id', socioId)
     .maybeSingle();
+
+  // 3b. El pago de clase con su fila (P06): si el servidor ya decidió, eso manda
+  //     (salvo una reserva confirmada, que manda siempre: `estadoConPagoDeClase`).
+  const { data: filaPago } = await admin.from('pagos_clase')
+    .select('estado, motivo, aviso_estudio_en, suscripcion_id, reserva_id')
+    .eq('payment_intent_id', pi).eq('studio_id', studioId).maybeSingle();
+  const decidido = estadoConPagoDeClase(reserva?.estado as string | null | undefined, filaPago as FilaPagoParaEstado | null);
+  if (decidido === 'compensada' && filaPago) {
+    const enEspera = filaPago.motivo === 'EN_ESPERA';
+    if (!detalle) return { estado: 'compensada', compensacion: { motivo: filaPago.motivo as string, enEspera } };
+    let posicion: number | null = null;
+    if (enEspera && filaPago.reserva_id) {
+      const { data: r } = await admin.from('reservas').select('posicion_espera, estado')
+        .eq('id', filaPago.reserva_id as string).eq('studio_id', studioId).maybeSingle();
+      posicion = r?.estado === 'LISTA_ESPERA' ? ((r.posicion_espera as number | null) ?? null) : null;
+    }
+    let bono: NonNullable<RespuestaEstadoPago['compensacion']>['bono'] = null;
+    if (filaPago.suscripcion_id) {
+      const { data: sus } = await admin.from('suscripciones').select('sesiones_restantes, fecha_fin, plan_id')
+        .eq('id', filaPago.suscripcion_id as string).eq('studio_id', studioId).eq('socio_id', socioId).maybeSingle();
+      if (sus) {
+        const { data: plan } = await admin.from('planes_tarifa').select('nombre').eq('id', sus.plan_id as string).eq('studio_id', studioId).maybeSingle();
+        bono = {
+          nombre: (plan?.nombre as string | undefined) ?? 'Tu bono',
+          sesionesRestantes: (sus.sesiones_restantes as number | null) ?? null,
+          fechaFin: (sus.fecha_fin as string | null) ?? null,
+        };
+      }
+    }
+    return {
+      estado: 'compensada',
+      compensacion: { motivo: filaPago.motivo as string, enEspera, posicion, bono, estudioAvisado: !!filaPago.aviso_estudio_en },
+    };
+  }
+  if (decidido === 'reembolsada') return { estado: 'reembolsada' };
 
   // 4. Sin reserva: ¿dejó el webhook el aviso de «pagó y no hubo plaza» al
   //    mostrador? Acotado a este estudio, esta socia y a partir del cobro

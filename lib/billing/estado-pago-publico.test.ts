@@ -5,6 +5,8 @@ import {
   emailsCoinciden,
   resolverEstadoPago,
   RETARDOS_POLL_MS,
+  estadoConPagoDeClase,
+  estadoParaReservarPublico,
 } from './estado-pago-publico.ts';
 
 test('piDeClientSecret extrae el id del PaymentIntent', () => {
@@ -224,4 +226,23 @@ test('estado-pago con sesión: token → socia del estudio pedido → límite po
 test('estado-pago: `compra` solo sale con sesión', () => {
   const sinSesion = get.slice(pos('// ── Sin sesión'), pos('async function compraDelPago(', fuenteRuta) - fuenteRuta.indexOf('export async function GET('));
   assert.ok(!sinSesion.includes('compraDelPago('), 'sin sesión no se dice qué se compró');
+});
+
+// ── P06 · Fase A: el pago de una clase con su fila en pagos_clase ────────────
+test('pago de clase: manda la reserva; si no hay plaza, la fila dice compensada o reembolsada', () => {
+  assert.equal(estadoConPagoDeClase('CONFIRMADA', { estado: 'COMPENSADA', motivo: 'EN_ESPERA' }), 'confirmada', 'la promoción ya le dio plaza');
+  assert.equal(estadoConPagoDeClase('ASISTIDA', null), 'confirmada');
+  assert.equal(estadoConPagoDeClase('LISTA_ESPERA', { estado: 'COMPENSADA', motivo: 'EN_ESPERA' }), 'compensada');
+  assert.equal(estadoConPagoDeClase(null, { estado: 'REEMBOLSADA', motivo: 'LLENA' }), 'reembolsada');
+  for (const estado of ['ABIERTO', 'PAGADO', 'RESERVADA', 'CANCELADO']) {
+    assert.equal(estadoConPagoDeClase(null, { estado, motivo: null }), null, `${estado}: lo de siempre`);
+  }
+  assert.equal(estadoConPagoDeClase(null, null), null, 'sin fila (pago de antes de P06): lo de siempre');
+});
+
+test('/reservar sin sesión: compensada en espera es la lista de espera; sin espera o reembolsada, «fallida» (el estudio la llama)', () => {
+  assert.equal(estadoParaReservarPublico({ estado: 'compensada', compensacion: { motivo: 'EN_ESPERA', enEspera: true } }), 'lista_espera');
+  assert.equal(estadoParaReservarPublico({ estado: 'compensada', compensacion: { motivo: 'LLENA', enEspera: false } }), 'fallida');
+  assert.equal(estadoParaReservarPublico({ estado: 'reembolsada' }), 'fallida');
+  assert.equal(estadoParaReservarPublico({ estado: 'confirmada' }), 'confirmada');
 });

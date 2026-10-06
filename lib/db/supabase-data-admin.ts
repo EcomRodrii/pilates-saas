@@ -1769,6 +1769,28 @@ async function trasPlazaConfirmada(admin: SupabaseClient, p: {
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
 }
 
+/**
+ * La socia que pagó una clase y se quedó primera en la espera (pago COMPENSADA, P06)
+ * acaba de subir: su pago queda RESERVADA. Nunca tumba la promoción: si la tabla aún no
+ * existe o la RPC falla, se avisa y sigue (la compensación sigue a la vista del estudio).
+ */
+async function cerrarCompensacionPorPromocion(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string; reservaId: string;
+}): Promise<void> {
+  const { data, error } = await admin.from('pagos_clase').select('id')
+    .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('sesion_id', p.sesionId).eq('estado', 'COMPENSADA');
+  if (error) {
+    if (error.code !== '42P01') reportDbError('[trasPromocionDeEspera] no se pudo leer el pago compensado', error);
+    return;
+  }
+  for (const f of (data ?? []) as { id: string }[]) {
+    const { error: e } = await admin.rpc('registrar_resultado_pago_clase', {
+      p_id: f.id, p_studio_id: p.studioId, p_estado: 'RESERVADA', p_reserva_id: p.reservaId,
+    });
+    if (e) reportDbError('[trasPromocionDeEspera] no se pudo cerrar el pago compensado', e);
+  }
+}
+
 async function trasPromocionDeEspera(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string;
 }): Promise<{ bonoConsumido: boolean }> {
@@ -1796,6 +1818,9 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
       ? await efectosPostBono(admin, { studioId: p.studioId, socioId: p.socioId, reservaId, consumible: d.consumible, consumo: d.consumo })
       : segunLaConfirmacion(d, await consumirBonoServidor(admin, { studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId }));
     bonoConsumido = sesionDescontada(consumo);
+    // P06 · Fase A: si había pagado esta clase y se quedó en espera (COMPENSADA), su pago
+    // ya acabó en plaza. Lo decide la RPC (solo COMPENSADA → RESERVADA, idempotente).
+    await cerrarCompensacionPorPromocion(admin, { ...p, reservaId });
     // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
     if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
   } else {

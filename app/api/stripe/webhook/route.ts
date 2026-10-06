@@ -762,6 +762,8 @@ async function procesarEvento(
             paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
             spotId: session.metadata?.spotId ?? null,
             via: 'checkout', referencia: { sessionId: session.id },
+            // Lo que este pago entregó: así se sabe si la plaza la pagó él (P06).
+            suscripcionEntregadaId: entrega.suscripcionId,
           });
         }
 
@@ -1053,6 +1055,24 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
       }
 
+      // "Pagar y reservar" (P06 · Fase A): la clase, JUSTO tras entregar el plan que la
+      // cubre — antes iba lo último, detrás de remates que pueden fallar o tardar
+      // (metadata del cobro, guardar la tarjeta, gastar el código), y si el proceso moría
+      // entre medias el dinero quedaba cobrado sin plaza ni aviso. Con la fila del pago
+      // (`pagoClaseId`), además se REGISTRA en qué acabó: reserva o compensación; y la
+      // reserva debe gastar lo que este pago entregó (`suscripcionEntregadaId`).
+      // `pagadoEn` = cuándo cobró Stripe: decide la prioridad en la cola si se llenó.
+      if (pi.metadata.sesionId) {
+        await reservarClasePagada(admin, {
+          studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId,
+          paymentIntentId: pi.id, spotId: pi.metadata.spotId ?? null,
+          via: 'embebido', referencia: { paymentIntentId: pi.id },
+          pagoClaseId: pi.metadata.pagoClaseId ?? null,
+          suscripcionEntregadaId: entrega.suscripcionId,
+          pagadoEn: new Date(event.created * 1000).toISOString(),
+        });
+      }
+
       // Sella el recibo en la metadata del PaymentIntent. SIN ESTO, una compra
       // por el checkout embebido es INVISIBLE a reembolsos y disputas: sus tres
       // handlers filtran por `pi.metadata.reciboId && ORIGENES_CON_RECIBO.has(
@@ -1152,20 +1172,6 @@ async function procesarEvento(
       // El aviso y el email de justificante ya los ha pedido
       // `entregarPlanComprado` (vía `aplicarEfectosCobro`), después de sellar
       // y solo si esta llamada creó el recibo.
-
-      // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
-      // §4.2): si el checkout venía con una clase concreta, reservarla ahora
-      // que el plan que la cubre ya está entregado. Best-effort, y con alerta
-      // `error` + aviso al mostrador si no hay plaza: la pantalla ya le dijo a
-      // la socia que estaba reservada (handlePagoExitoso pasa a 'done' sin
-      // volver a preguntar). Ver `reservarClasePagada`.
-      if (pi.metadata.sesionId) {
-        await reservarClasePagada(admin, {
-          studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId,
-          paymentIntentId: pi.id, spotId: pi.metadata.spotId ?? null,
-          via: 'embebido', referencia: { paymentIntentId: pi.id },
-        });
-      }
 
       // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'checkout' } });
