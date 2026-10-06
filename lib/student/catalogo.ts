@@ -6,6 +6,7 @@ import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { memoriaVistas } from '@/lib/student/memoria-vistas';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
+import type { CobroDeReciboAlumna } from '@/lib/billing/cobro-recibo-alumna';
 import type { ReglaDef } from '@/lib/student/gamificacion';
 import type {
   AchievementDefinition, AchievementProgress, BannerPortal, ChallengeDefinition, ChallengeProgress,
@@ -151,6 +152,8 @@ export interface PayloadPublico {
     retosApuntados?: string[];
     /** Su renovación que NO se va a cobrar sola (sin tarjeta guardada). Ver `lib/billing/renovacion-sin-tarjeta.ts`. */
     renovacionPorPagar?: RenovacionPorPagar | null;
+    /** Quién cobra cada recibo que debe, por id (`lib/billing/cobro-recibo-alumna.ts`). */
+    cobroRecibos?: Record<string, CobroDeReciboAlumna>;
     /** Sus citas: solo cuentan para saber si es una recién llegada (`huellaDeLaSocia`). */
     citas?: { estado: string }[];
     /** Falló alguna lectura de las que dicen «no tiene nada»: no se afirma nada de ella. */
