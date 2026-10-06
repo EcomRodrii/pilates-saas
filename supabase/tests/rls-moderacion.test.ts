@@ -344,7 +344,10 @@ test('10 y 11. quién resuelve: cada cual lo suyo, Tentare lo del estudio a las 
     await sql`insert into public.denuncias (id, studio_id, ambito, destino, conversacion_id, mensaje_id, autor_auth_user_id, denunciante_auth_user_id, creada_en)
               values (${deTentare}, ${studio.studioId}, 'CHAT_INSTRUCTORA', 'TENTARE', ${h.conv}, ${h.deLaInstructora}, ${h.instructora.authUserId}, ${h.alumna.authUserId}, now()),
                      (${vieja}, ${studio.studioId}, 'CHAT_INSTRUCTORA', 'ESTUDIO', ${h.conv}, ${h.deLaAlumna}, ${h.alumna.authUserId}, ${h.instructora.authUserId}, now() - interval '25 hours'),
-                     (${reciente}, ${studio.studioId}, 'CHAT_INSTRUCTORA', 'ESTUDIO', ${h.conv}, ${h.deLaInstructora}, ${h.instructora.authUserId}, ${h.alumna.authUserId}, now() - interval '1 hour')`;
+                     (${reciente}, ${studio.studioId}, 'CHAT_INSTRUCTORA', 'ESTUDIO', ${h.conv}, ${h.deLaInstructora}, ${h.instructora.authUserId}, ${studio.authUserId}, now() - interval '1 hour')`;
+    // ⚠️ `reciente` la hace la dueña, no la alumna: la misma persona no puede tener dos
+    // denuncias pendientes del mismo mensaje (`uq_denuncias_pendiente`), y `deTentare`
+    // ya es de la alumna sobre ese mensaje.
 
     const estudioSobreTentare = await resolver(deTentare, studio.studioId, 'MANTENER', 'ESTUDIO', studio.authUserId);
     assert.match(estudioSobreTentare.error?.message ?? '', /DENUNCIA_NO_EXISTE/);
