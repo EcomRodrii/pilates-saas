@@ -46,7 +46,7 @@ type Estado =
 
 export function HojaCompra({ textosLegales,
   plan, cobertura, studioId, socioId, socioEmail, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
-  onSegundoPaso, enlaceEstudio,
+  onSegundoPaso, enlaceEstudio, paraClase,
 }: {
   plan: PlanTarifa | null;
   /** Condiciones y privacidad del estudio, para poder leerlas ANTES de pagar. */
@@ -72,6 +72,11 @@ export function HojaCompra({ textosLegales,
   onSegundoPaso?: () => void;
   /** Dónde escribir al estudio si la entrega tarda (la bandeja de mensajes). */
   enlaceEstudio?: string;
+  /**
+   * Se compra PARA una clase (`/comprar?para=`, P01): con el bono ya confirmado por el servidor, el botón principal
+   * es volver a reservarla. Antes de esa confirmación no se ofrece (la reserva lo rechazaría «sin plan»).
+   */
+  paraClase?: { nombre: string; onReservar: () => void };
 }) {
   // ⚠️ El padre TIENE que montar esto con `key={plan?.id}` (ver
   // app/portal/[slug]/comprar/page.tsx). Sin una key que cambie por plan,
@@ -340,7 +345,14 @@ export function HojaCompra({ textosLegales,
             <p className="t-meta" data-testid="compra-entregada" style={{ marginTop: 6 }}>
               {resumenDeCompra(estado.compra, fechaLarga)}
             </p>
-            <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
+            {paraClase ? (
+              <>
+                <Button full onClick={paraClase.onReservar} style={{ marginTop: 14 }}>{`Reservar ${paraClase.nombre}`}</Button>
+                <Button full variant="secondary" onClick={onComprado} style={{ marginTop: 8 }}>Ver mis bonos</Button>
+              </>
+            ) : (
+              <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
+            )}
           </div>
         ) : (
           <>

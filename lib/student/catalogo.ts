@@ -62,6 +62,11 @@ export interface PayloadPublico {
     politicaPrivacidad?: string | null;
     terminosServicio?: string | null;
     cancelacionVentanaHoras?: number | null;
+    /**
+     * «Exigir plan o bono para reservar» del estudio (cada tipo de clase puede pisarlo). Ya viajaba en el payload
+     * (`studioPublico`); declarado para que la app sepa ANTES de pulsar si una clase sin bono se puede reservar (P01).
+     */
+    reservaExigirPlan?: boolean | null;
     /** Clases por semana que mantienen la racha. `null` = 1 (lo de siempre). */
     rachaClasesSemana?: number | null;
     penalizacionImporteEur?: number | null;

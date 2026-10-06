@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Bono, BookingState, Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import type { HojaReservaControl, ModoHoja } from '@/lib/student/use-hoja-reserva';
-import { esCuota } from '@/lib/student/como-se-paga';
-import { precioClaseTexto } from '@/lib/student/formato';
+import { esCuota, notaSinBono, type ComoVieneSinBono } from '@/lib/student/como-se-paga';
+import { euros, precioClaseTexto } from '@/lib/student/formato';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { BookingSummary } from '@/components/student/domain/BookingSummary';
@@ -22,6 +22,7 @@ import { ElegirHueco, type SpotMin } from '@/components/student/domain/ElegirHue
  */
 export function HojaReserva({
   hoja, clase, desaparecida = false, instructora, disp, bono, bonoNoCubre, politicaHoras, huecos = null, yaEmpezo, contexto,
+  sinBono = null, onVerOpciones,
 }: {
   hoja: HojaReservaControl;
   /** La clase que se pinta: la de los datos vivos o, si ha desaparecido, la última conocida. */
@@ -39,6 +40,13 @@ export function HojaReserva({
   /** La clase ha empezado con la hoja abierta: ya no se puede reservar (el servidor la rechazaría). */
   yaEmpezo: boolean;
   contexto: 'ficha' | 'fila';
+  /**
+   * Sin nada que cubra la clase, cuál de los cuatro casos es (`comoVieneSinBono`, P01). `null` = no se sabe (payload
+   * sin el ajuste de «exigir plan»): la hoja hace lo de siempre y decide el servidor.
+   */
+  sinBono?: ComoVieneSinBono | null;
+  /** «Ver cómo venir»: a las opciones de pago de ESTA clase (la tienda con `?para=`). */
+  onVerOpciones?: () => void;
 }) {
   const router = useRouter();
   const href = usePortalHref();
@@ -51,6 +59,12 @@ export function HojaReserva({
   const enEspera = modo === 'espera';
   const abierta = bk !== 'idle';
   const esFinal = abierta && bk !== 'reviewing' && bk !== 'submitting';
+  // Solo cuenta si NADA cubre la clase: con bono o cuota, la hoja de siempre.
+  const caso = bono ? null : sinBono;
+  const nota = caso ? notaSinBono(caso, bonoNoCubre) : null;
+  // Con el plan exigido, ni reservar ni apuntarse a la espera sin algo que la cubra: el servidor lo rechazaría
+  // (`evaluar_reserva` corta en «sin-plan» antes de mirar el aforo). No se ofrece un botón que va a decir que no.
+  const exigePlanSinBono = caso?.caso === 'PAGA_AQUI' || caso?.caso === 'PIDE_BONO_EN_ESTUDIO';
 
   const finalizar = () => {
     if (bk === 'session-expired') { router.push(href('/acceso/login')); return; }
@@ -72,6 +86,7 @@ export function HojaReserva({
               bonoNoCubre={bonoNoCubre}
               enEspera={enEspera}
               politicaHoras={politicaHoras}
+              nota={nota}
             />
           </div>
           {/* Elegir sitio: solo si la sala tiene huecos definidos, y solo cuando hay plaza — en lista de espera no hay
@@ -79,11 +94,16 @@ export function HojaReserva({
           {huecos && !enEspera && (
             <ElegirHueco spots={huecos.spots} ocupados={huecos.ocupados} elegido={hueco} onElegir={setHueco} />
           )}
-          {enEspera && (
+          {enEspera && !exigePlanSinBono && (
             // Era «Sin coste — solo reservas si se libera y tú confirmas»: la plaza se da SOLA al liberarse
             // (`trasPromocionDeEspera`) y consume como cualquier reserva; ella no confirma nada.
             <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>
               Sin coste al apuntarte. Si se libera una plaza, te avisamos; al entrar cuenta como una reserva normal.
+            </p>
+          )}
+          {enEspera && exigePlanSinBono && (
+            <p role="status" className="note note--warn" data-testid="espera-necesita-bono" style={{ marginTop: 10 }}>
+              Esta clase está llena, y para apuntarte a su lista de espera necesitas un bono o una cuota que la cubra.
             </p>
           )}
           {desaparecida ? (
@@ -92,6 +112,14 @@ export function HojaReserva({
             </p>
           ) : yaEmpezo && bk !== 'submitting' ? (
             <Button full disabled style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>La clase ya ha empezado</Button>
+          ) : caso?.caso === 'PAGA_AQUI' && !enEspera && onVerOpciones ? (
+            // No se reserva aquí: sin nada que la cubra y con el plan exigido, primero se paga (la tienda con esta clase).
+            <Button full onClick={onVerOpciones} data-testid="ver-como-venir" style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
+              {`Ver cómo venir · desde ${euros(caso.desde)}`}
+            </Button>
+          ) : exigePlanSinBono ? (
+            // El muro dicho con todas las letras, y sin un botón que mande al servidor algo que va a rechazar.
+            <Button full variant="secondary" onClick={hoja.cerrar} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>Cerrar</Button>
           ) : (
             <Button
               full
@@ -101,7 +129,11 @@ export function HojaReserva({
             >
               {enEspera
                 ? 'Unirme a la lista de espera'
-                : `Confirmar ${clase.hora}${bono ? (esCuota(bono) ? ' con tu cuota' : ' con bono') : ` · ${precioClaseTexto(clase)}`}`}
+                : caso?.caso === 'PAGA_EN_ESTUDIO'
+                  ? 'Reservar · pagas en el estudio'
+                  : caso?.caso === 'RESERVA_SIN_PAGAR'
+                    ? `Confirmar ${clase.hora}`
+                    : `Confirmar ${clase.hora}${bono ? (esCuota(bono) ? ' con tu cuota' : ' con bono') : ` · ${precioClaseTexto(clase)}`}`}
             </Button>
           )}
           {bk === 'submitting' && (
@@ -123,7 +155,8 @@ export function HojaReserva({
           onRetry={hoja.volverARevisar}
           // Solo si la clase admite lista de espera: tras «aforo-lleno» no la tiene (`desenlaceDeLaHoja`).
           onWaitlist={desenlace?.ofreceEspera ? hoja.volverARevisar : undefined}
-          onComprar={() => router.push(href('/comprar'))}
+          // A la tienda CON esta clase (P01): las opciones que la cubren, y la vuelta aquí tras comprar.
+          onComprar={() => router.push(`${href('/comprar')}?para=${encodeURIComponent(clase.id)}`)}
           onClose={finalizar}
           onVerReservas={() => router.push(href('/mis-reservas'))}
         />

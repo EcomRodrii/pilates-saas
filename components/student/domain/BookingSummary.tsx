@@ -16,7 +16,7 @@ export const CARA: Record<TonoPago, { icono: NombreIcono; clase: string }> = {
 };
 
 /** Resumen antes de confirmar: clase + instructora + cómo se paga + política. */
-export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, enEspera = false, politicaHoras }: {
+export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, enEspera = false, politicaHoras, nota }: {
   clase: Clase;
   instructora?: Instructora;
   bono: Bono | null;
@@ -46,8 +46,13 @@ export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, 
    * comprometerse.
    */
   politicaHoras: number;
+  /**
+   * La nota de pago YA decidida para quien no tiene nada que cubra la clase (`notaSinBono`, P01). Sin ella, la de
+   * `comoSePaga` de siempre.
+   */
+  nota?: { texto: string; tono: TonoPago } | null;
 }) {
-  const { texto, tono } = comoSePaga(clase, bono, bonoNoCubre);
+  const { texto, tono } = nota ?? comoSePaga(clase, bono, bonoNoCubre);
   const cara = CARA[tono];
   return (
     <div>
