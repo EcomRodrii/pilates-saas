@@ -16,7 +16,14 @@ async function montar(page: Page, ajustar: (f: Record<string, unknown>) => void 
   }));
   await page.route((u) => u.pathname === '/api/public/comunidad/posts', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }));
   const borrados: unknown[] = [];
-  await page.route('**/api/public/tarjeta', (r) => {
+  // Desde #2564 la pantalla también LEE las tarjetas guardadas para la app
+  // (`GET /api/public/tarjeta?studioId=…`). El glob de antes no casaba con la
+  // query, así que esa lectura iba al servidor de verdad: se mockea por ruta y
+  // se separa la lectura (lista vacía, la forma real de la ruta) del borrado.
+  await page.route((u) => u.pathname === '/api/public/tarjeta', (r) => {
+    if (r.request().method() === 'GET') {
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tarjetas: [] }) });
+    }
     borrados.push(r.request().postDataJSON());
     const s = opts.borrarTarjeta ?? 200;
     return r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(s === 200 ? { ok: true } : { error: 'No se ha podido quitar la tarjeta.' }) });

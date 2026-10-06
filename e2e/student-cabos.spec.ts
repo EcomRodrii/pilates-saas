@@ -111,8 +111,11 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
     await ir(page, `${base}/comprar`);
     const abrir = page.getByRole('button', { name: 'Comprar' }).first();
     await expect(abrir).toBeVisible({ timeout: 30_000 });
+    // Con el teclado, como lo haría quien navega sin ratón. Un clic no vale para
+    // esto en Safari: allí pulsar un botón NO le da el foco (se queda en el
+    // <body>), así que no hay botón al que volver — es el navegador, no la hoja.
     await abrir.focus();
-    await abrir.click();
+    await page.keyboard.press('Enter');
 
     const hoja = page.getByRole('dialog');
     await expect(hoja).toBeVisible();
