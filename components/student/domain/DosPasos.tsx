@@ -57,10 +57,18 @@ export function DosPasos({ volverA }: { volverA: string }) {
   const [confirmarQuitar, setConfirmarQuitar] = useState(false);
 
   const leer = useCallback(async () => {
-    const [factores, aal] = await Promise.all([
-      supabasePortal.auth.mfa.listFactors(),
-      supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(),
-    ]);
+    // ⚠️ Con un token que no se puede leer, `getAuthenticatorAssuranceLevel` LANZA en vez de devolver `error`, y la
+    // pantalla se quedaba en el esqueleto para siempre (visto en la auditoría del 6-oct): lanzar también es «error».
+    let factores: Awaited<ReturnType<typeof supabasePortal.auth.mfa.listFactors>>;
+    let aal: Awaited<ReturnType<typeof supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel>>;
+    try {
+      [factores, aal] = await Promise.all([
+        supabasePortal.auth.mfa.listFactors(),
+        supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(),
+      ]);
+    } catch {
+      setEstado({ tipo: 'error' }); return;
+    }
     if (factores.error || aal.error) { setEstado({ tipo: 'error' }); return; }
     // El factor de la zona interna de Tentare no cuenta aquí (lib/auth/doble-factor-reglas.ts).
     const verificado = factores.data.totp.find((f) => f.status === 'verified' && !esFactorInterno(f)) ?? null;
