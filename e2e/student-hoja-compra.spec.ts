@@ -126,6 +126,28 @@ test.describe('Student PWA · hoja de compra', () => {
     await expect(hoja.getByText('89 €').first()).toBeVisible();
   });
 
+  test('un rechazo del banco se dice con su motivo, y la hoja no da la compra por hecha', async ({ page }) => {
+    // El stub de Stripe responde como un rechazo real (`{ error }` con
+    // `decline_code`). Con su contador: «no se cobró» solo vale si se intentó.
+    await montar(page);
+    await page.route('https://js.stripe.com/**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/javascript', body: STRIPE_STUB }));
+    await page.addInitScript(() => { (window as unknown as { __TENTARE_CONFIRM: string }).__TENTARE_CONFIRM = 'card_error'; });
+    await page.route((u) => u.pathname === '/api/public/checkout-embebido', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_rechazo123_secret_x', importe: 96 }) }));
+    await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    const hoja = page.locator('[role="dialog"]').last();
+    await hoja.getByRole('button', { name: /^Pagar 96/ }).click({ timeout: 30_000 });
+    await expect(page.getByText(/Tu tarjeta no tiene fondos suficientes/)).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => (window as unknown as { __TENTARE_CONFIRM_LLAMADAS?: number }).__TENTARE_CONFIRM_LLAMADAS ?? 0)).toBe(1);
+    // El Stripe de la hoja se cargó con la cuenta del estudio (cargo directo).
+    const init = await page.evaluate(() => (window as unknown as { __TENTARE_STRIPE_INIT?: { stripeAccount: string | null }[] }).__TENTARE_STRIPE_INIT ?? []);
+    expect(init.map(i => i.stripeAccount)).toContain('acct_test_123');
+    await expect(page.getByText('Compra realizada')).toHaveCount(0);
+  });
+
   test('⚠️ el pago no le pide la letra a Google: la de su app, de Tentare', async ({ page }) => {
     // El iframe de Stripe no ve las fuentes de la app: se le dan sus caras.
     // Eran de Google (Instrument Sans), o sea la IP de la alumna a un tercero
