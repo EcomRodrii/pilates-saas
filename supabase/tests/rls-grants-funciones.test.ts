@@ -33,7 +33,7 @@ const CASOS: Caso[] = [
   // reservar_plaza: sin llamador de cliente (los tres del repo son
   // service-role, `lib/db/supabase-data-admin.ts`) — RES-6, reendurecido tras
   // reabrirse dos veces por cambios de firma (auditoría 19-sep).
-  { firma: 'reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Revocado a `authenticated` en 20260902211300 (auditoría 21ª pasada, P-1):
   // el panel llamaba a esta RPC directo desde el navegador, saltándose
   // `ejecutarCancelacionReserva` (que sí dispara las notificaciones). Ya no
@@ -83,6 +83,9 @@ const CASOS: Caso[] = [
   { firma: 'ia_saldo_consultas(text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'ia_reservar_consulta(text, uuid, text, uuid, text, numeric)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'ia_cerrar_consulta(uuid, text, text, integer, integer, integer, integer, numeric, integer, integer, text, text[])', anon: false, authenticated: false, serviceRole: true },
+  // El pago de una clase (migr 20261006052737, P06): solo el servidor cambia su estado (webhook, conciliador y la API
+  // del panel con permiso de dinero). Con EXECUTE en `authenticated`, una sesión cualquiera daría un pago por reservado.
+  { firma: 'registrar_resultado_pago_clase(text, text, text, text, text, text, timestamp with time zone, boolean)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

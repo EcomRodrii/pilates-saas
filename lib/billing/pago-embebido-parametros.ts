@@ -52,6 +52,12 @@ export interface DatosCompraEmbebida {
   customerId: string | null;
   /** Take-rate de la plataforma (`applicationFeeAmount`). */
   fee: number | undefined;
+  /**
+   * La fila de `pagos_clase` de este pago (P06): con clase concreta, el dueño del pago. Es
+   * ESTABLE (la clave de Stripe es su id), así que va en la creación: el webhook la lee para
+   * marcar el pago PAGADO y decidir reserva o compensación.
+   */
+  pagoClaseId?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +95,7 @@ export function metadataEstableEmbebida(d: DatosCompraEmbebida): Record<string, 
   if (d.sesionId) metadata.sesionId = d.sesionId;
   if (d.codigoDescuentoId) metadata.codigoDescuentoId = d.codigoDescuentoId;
   if (d.matriculaCentimos > 0) metadata.matriculaCentimos = String(d.matriculaCentimos);
+  if (d.pagoClaseId) metadata.pagoClaseId = d.pagoClaseId;
   return metadata;
 }
 

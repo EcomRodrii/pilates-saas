@@ -21,7 +21,10 @@ test('⚠️ checkout embebido: si Stripe repite el PaymentIntent del mismo inte
   assert.match(src, /if \(!esRespuestaRepetida\(pi\)\) \{ paymentIntent = pi; creadoAqui = true; break; \}/);
   assert.match(src, /if \(!creadoAqui\) await devolverMatriculaPropia\(\);/,
     'dos peticiones del mismo intento reservan dos plazas y Stripe crea UN cobro: la segunda tiene que devolverse');
-  assert.match(src, /const devolverMatriculaPropia = async \(\) => \{\s*if \(cupoMatriculaReservado\) await liberarCupoMatricula\(/);
+  // Salvo al RECREAR un pago de clase (P06): esa petición no reservó ninguna, la de la fila es de ese pago.
+  assert.match(src, /const devolverMatriculaPropia = async \(\) => \{\s*if \(cupoMatriculaReservado && !pagoClaseRecreado\) await soltarMatriculaPropia\(/);
+  // Sin pago de clase, la de siempre; con él, «una vez» con la clave de la fila (la del barrido y el conciliador).
+  assert.match(src, /const soltarMatriculaPropia = [\s\S]*?liberarCupoMatriculaUnaVez\(admin, claveMatriculaDePagoClase\(pagoClase\.id\)[\s\S]*?await liberarCupoMatricula\(admin, m\.planId, m\.studioId\)/);
   assert.ok(src.indexOf('esRespuestaRepetida(pi)') > src.indexOf('stripe.paymentIntents.create('),
     'la comprobación tiene que ir DESPUÉS de crear el cobro');
 });
@@ -32,7 +35,8 @@ test('⚠️ checkout embebido: si Stripe repite el PaymentIntent del mismo inte
 // devolvería otra vez. Sin clave era −1 neto por petición y la promoción no se agotaba.
 test('⚠️ un cobro que ya existe con la marca y se cancela aquí devuelve la matrícula «una vez», con SU clave', () => {
   const emb = fuente('../../app/api/public/checkout-embebido/route.ts');
-  assert.match(emb, /const devolverMatriculaDe = async \(cobroId: string\) => \{[\s\S]*?liberarCupoMatriculaUnaVez\(admin, cobroId,/);
+  // Su clave: la del cobro, o la de la fila si es un pago de clase (la misma que usa `plazaDePICancelado`).
+  assert.match(emb, /const devolverMatriculaDe = async \(cobroId: string\) => \{[\s\S]*?liberarCupoMatriculaUnaVez\(admin, pagoClase \? claveMatriculaDePagoClase\(pagoClase\.id\) : cobroId,/);
   const sinDatos = emb.slice(emb.indexOf('sin-datos-cancelar-'), emb.indexOf("errorInterno('public/checkout-embebido:datos'"));
   assert.match(sinDatos, /await devolverMatriculaDe\(paymentIntent\.id\);/);
   assert.doesNotMatch(sinDatos, /liberarCupoMatricula\(admin/);

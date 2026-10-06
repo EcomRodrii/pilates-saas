@@ -11,7 +11,11 @@ import { CARA } from '@/components/student/domain/BookingSummary';
  * «Cómo vienes» (P02): con SUS datos, con qué viene a esta clase. La cara (icono y fondo) es la MISMA que la de la hoja
  * para el mismo tono (`CARA`), así que un muro se ve como un muro aquí y allí. Solo informa: no vende ni cobra.
  */
-export function ComoVienes({ vista }: { vista: ComoVienesVista | null }) {
+export function ComoVienes({ vista, claseId }: {
+  vista: ComoVienesVista | null;
+  /** La clase de la ficha: la tienda se abre con sus opciones (`/comprar?para=`) y vuelve aquí tras comprar. */
+  claseId?: string;
+}) {
   const href = usePortalHref();
   if (!vista) return null;
   const cara = CARA[vista.tono];
@@ -27,7 +31,9 @@ export function ComoVienes({ vista }: { vista: ComoVienesVista | null }) {
       </div>
       {enlace && (
         <Link
-          href={href(enlace.destino === 'bono' ? `/bonos/${enlace.bonoId}` : '/comprar')}
+          href={enlace.destino === 'bono'
+            ? href(`/bonos/${enlace.bonoId}`)
+            : claseId ? `${href('/comprar')}?para=${encodeURIComponent(claseId)}` : href('/comprar')}
           transitionTypes={enlace.destino === 'bono' ? TRANSICION_ADELANTE : undefined}
           className="tap no-shrink"
           style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 2 }}

@@ -91,6 +91,71 @@ export function textoPagoFila(clase: ClaseMin, bono: BonoMin | null): string {
   return precioClaseTexto(clase);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sin nada que la cubra, ¿cómo se viene a esta clase? (P01 · 6-oct-2026)
+//
+// La hoja ofrecía «Confirmar 10:00 · 15 €» a quien no tenía bono, el servidor
+// contestaba «Necesitas un plan o bono activo» y la hoja la mandaba a «Perfil →
+// Comprar». Un botón que dice que sí y un servidor que dice que no. Ahora la
+// hoja sabe ANTES de pulsar cuál de los cuatro casos es, con la misma regla que
+// aplica el servidor (`exigePlanAlReservar` sobre `heredaOverride`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ComoVieneSinBono =
+  /** El estudio exige plan y vende online algo que cubre la clase: se paga aquí. */
+  | { caso: 'PAGA_AQUI'; desde: number }
+  /** El estudio exige plan y aquí no se puede comprar nada que la cubra. Ni botón de reservar. */
+  | { caso: 'PIDE_BONO_EN_ESTUDIO'; motivo: 'sin-pagos-online' | 'nada-a-la-venta' | 'precio-especial' }
+  /** No exige plan y la clase tiene precio: se reserva y se paga en el estudio, el día de la clase. */
+  | { caso: 'PAGA_EN_ESTUDIO'; importe: number }
+  /** No exige plan y no hay precio que cobrar: se reserva sin más. */
+  | { caso: 'RESERVA_SIN_PAGAR' };
+
+/**
+ * `exigePlan`: el ajuste YA resuelto para esta clase (tipo ?? estudio, y que haya
+ * algo que contratar). `null` = no se sabe (un payload sin el dato): se reserva
+ * como siempre y decide el servidor, en vez de inventar un muro.
+ * `pagosOnline`: el estudio tiene Stripe conectado y la app la clave pública.
+ * `desde`: lo más barato pagable online que cubre la clase (`desdeImporte`).
+ * `importeEnEstudio`: lo que cobra el mostrador por la suelta (`importeDeClaseSuelta`).
+ */
+export function comoVieneSinBono({ exigePlan, pagosOnline, desde, precioEspecial, importeEnEstudio }: {
+  exigePlan: boolean | null;
+  pagosOnline: boolean;
+  desde: number | null;
+  precioEspecial: boolean;
+  importeEnEstudio: number | null;
+}): ComoVieneSinBono {
+  if (exigePlan === true) {
+    if (precioEspecial) return { caso: 'PIDE_BONO_EN_ESTUDIO', motivo: 'precio-especial' };
+    if (!pagosOnline) return { caso: 'PIDE_BONO_EN_ESTUDIO', motivo: 'sin-pagos-online' };
+    if (desde == null) return { caso: 'PIDE_BONO_EN_ESTUDIO', motivo: 'nada-a-la-venta' };
+    return { caso: 'PAGA_AQUI', desde };
+  }
+  if (exigePlan === false && importeEnEstudio != null && importeEnEstudio > 0) {
+    return { caso: 'PAGA_EN_ESTUDIO', importe: importeEnEstudio };
+  }
+  return { caso: 'RESERVA_SIN_PAGAR' };
+}
+
+/** La nota de la hoja para cada caso (el tono es el de `CARA`). `null`: la de `comoSePaga` de siempre. */
+export function notaSinBono(c: ComoVieneSinBono, bonoNoCubre: boolean): { texto: string; tono: TonoPago } | null {
+  const necesita = bonoNoCubre ? 'Tu bono no incluye este tipo de clase.' : 'Para esta clase necesitas un bono.';
+  switch (c.caso) {
+    case 'PIDE_BONO_EN_ESTUDIO':
+      if (c.motivo === 'precio-especial') return { texto: 'Esta clase tiene un precio especial: resérvala en el estudio.', tono: 'bloqueo' };
+      return c.motivo === 'sin-pagos-online'
+        ? { texto: `${necesita} Este estudio no vende online: pídelo en recepción.`, tono: 'bloqueo' }
+        : { texto: `${necesita} Desde la app no se vende ninguno que sirva para esta clase: pídelo en recepción.`, tono: 'bloqueo' };
+    case 'PAGA_AQUI':
+      return { texto: `${necesita} Puedes pagarla aquí: clase suelta o bono, desde ${euros(c.desde)}.`, tono: 'coste' };
+    case 'PAGA_EN_ESTUDIO':
+      return { texto: `Pagas ${euros(c.importe)} en el estudio, el día de la clase.`, tono: 'coste' };
+    case 'RESERVA_SIN_PAGAR':
+      return null;
+  }
+}
+
 /**
  * ¿Se reserva sin pagar nada? Es la condición del botón «Reservar» de la fila del horario (P12): exactamente la frase
  * «No pagas nada hoy» de la hoja (`comoSePaga` en tono ok), así que el botón y la hoja no pueden contradecirse.

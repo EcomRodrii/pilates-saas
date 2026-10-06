@@ -154,6 +154,27 @@ export function claveCheckoutRecibo(
   return `checkout-${reciboId}-${[...metodosPedidos].sort().join('-')}-${importeCentimos}-${quien}-${ventana}`;
 }
 
+/**
+ * Cuándo caduca una sesión INCRUSTADA (la de la app, RECIBOS · 6-oct-2026), en
+ * segundos epoch: el inicio del minuto de la clave + 31 min. Sale del MISMO
+ * minuto que `claveCheckoutRecibo`, así que dos peticiones del mismo intento
+ * mandan los mismos parámetros (sin `idempotency_error`), y cumple el mínimo de
+ * Stripe (30 min desde que se crea, que cae dentro de ese minuto).
+ *
+ * Corta a propósito (la hospedada vive 24 h): una sesión abandonada deja
+ * `checkout_session_id` puesto, y mientras viva el recibo no se cobra por otra
+ * vía (dunning, remesa). A los 30 min el conciliador la ve caducada y la suelta
+ * (`queHacerConSesionCaducada`).
+ */
+export function expiraSesionIncrustada(ahoraMs: number = Date.now()): number {
+  return Math.floor(ahoraMs / 60000) * 60 + 31 * 60;
+}
+
+/** La respuesta para la app: lo que monta el Checkout incrustado. */
+export function respuestaIncrustada(s: { id: string; client_secret: string | null }): { clientSecret: string; checkoutSessionId: string } | null {
+  return s.client_secret ? { clientSecret: s.client_secret, checkoutSessionId: s.id } : null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La REPETICIÓN idempotente de Stripe (5-oct-2026). Con la misma clave y los
 // mismos parámetros, Stripe no crea otra sesión: devuelve la primera tal como era

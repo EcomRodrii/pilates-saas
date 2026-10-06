@@ -10,7 +10,7 @@ import { bonoParaClase, esCuota, tieneBonoQueNoCubre } from './bono-cubre.ts';
 import { euros } from './formato.ts';
 import { textoSaldoBono, textoTopes } from './saldo-bono.ts';
 import { hayALaVentaQueCubra, type PlanTienda } from './tienda.ts';
-import type { TonoPago } from './como-se-paga.ts';
+import { notaSinBono, type ComoVieneSinBono, type TonoPago } from './como-se-paga.ts';
 import type { Bono, Clase, Disponibilidad, Reserva } from './tipos.ts';
 
 export type CasoComoVienes = 'clase-fija' | 'cuota' | 'ilimitado' | 'bono' | 'bono-no-cubre' | 'sin-nada';
@@ -27,7 +27,7 @@ export interface ComoVienesVista {
 /** El prefijo de las reservas de una clase fija: es CONTRATO, no un nombre (lib/plazas-fijas-cancelacion.ts). */
 const PREFIJO_CLASE_FIJA = 'res-pf-';
 
-export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planesTarifa, nombresTipo, hoy }: {
+export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planesTarifa, nombresTipo, hoy, sinBono }: {
   clase: Pick<Clase, 'id' | 'tipo' | 'tipoClaseId' | 'precioSuelto' | 'sinPrecioSuelto'>;
   bonos: Bono[];
   disp: Disponibilidad;
@@ -37,6 +37,11 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
   planesTarifa: readonly PlanTienda[] | null | undefined;
   nombresTipo: Record<string, string>;
   hoy: string;
+  /**
+   * Sin nada que la cubra, cuál de los cuatro casos es (`comoVieneSinBono`, P01, bloque de dinero). Con él, la tarjeta
+   * dice lo MISMO que la hoja (pagar aquí, pedirlo en recepción, pagar en el estudio). Sin él, lo de antes.
+   */
+  sinBono?: ComoVieneSinBono | null;
 }): ComoVienesVista | null {
   // La suya, con el mismo criterio que `disponibilidad()` (estados proyectados, en minúscula).
   const mia = reservas.find((r) => r.claseId === clase.id && (r.estado === 'confirmada' || r.estado === 'en-espera'));
@@ -77,6 +82,25 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
     : clase.precioSuelto === 0
       ? { texto: 'Esta clase es gratis', tono: 'ok' as const }
       : { texto: `Clase suelta · ${euros(clase.precioSuelto)}`, tono: 'coste' as const };
+
+  // El bloque de dinero (P01): la tarjeta y la hoja salen de la MISMA decisión. «Clase suelta · 15 €» con un enlace a
+  // la tienda, en un estudio que no vende online, era invitarla a comprar algo que aquí no se puede comprar.
+  if (sinBono && sinBono.caso !== 'RESERVA_SIN_PAGAR') {
+    const nota = notaSinBono(sinBono, tieneBonoQueNoCubre(bonos, clase.tipoClaseId));
+    if (sinBono.caso === 'PAGA_AQUI') {
+      return {
+        caso: tieneBonoQueNoCubre(bonos, clase.tipoClaseId) ? 'bono-no-cubre' : 'sin-nada',
+        titulo: 'Sin bono para esta clase',
+        detalle: `Clase suelta o bono, desde ${euros(sinBono.desde)}`,
+        enlace: { texto: 'Ver opciones', destino: 'tienda' },
+        tono: 'coste',
+      };
+    }
+    if (sinBono.caso === 'PAGA_EN_ESTUDIO') {
+      return { caso: 'sin-nada', titulo: `Pagas ${euros(sinBono.importe)} en el estudio`, detalle: 'El día de la clase', tono: 'coste' };
+    }
+    return { caso: 'sin-nada', titulo: 'Esta clase necesita bono', detalle: nota?.texto ?? null, tono: 'bloqueo' };
+  }
 
   const conSaldo = bonos.filter((b) => b.estado === 'activo');
   if (tieneBonoQueNoCubre(bonos, clase.tipoClaseId)) {

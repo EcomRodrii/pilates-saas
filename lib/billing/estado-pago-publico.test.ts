@@ -5,6 +5,8 @@ import {
   emailsCoinciden,
   resolverEstadoPago,
   RETARDOS_POLL_MS,
+  estadoConPagoDeClase,
+  estadoParaReservarPublico,
 } from './estado-pago-publico.ts';
 
 test('piDeClientSecret extrae el id del PaymentIntent', () => {
@@ -146,5 +148,101 @@ test('la ruta elige el aviso por pago y, si ya tenía reserva, contesta lo que T
   const lee = s.indexOf(".eq('sesion_id', aviso.resource_id)", ya);
   const estado = s.indexOf("const estado = previa ? 'ya_tenia_plaza'", lee);
   assert.ok(ya > 0 && lee > ya && estado > lee, 'aviso del pago → su reserva viva en esa clase → estado');
-  assert.match(s, /return respuesta\(req, \{ estado, clase, \.\.\.\(previa \? \{ previa \} : \{\}\) \}\);/);
+  // El cuerpo lo arma `estadoDeLaReserva`, compartida por los dos modos de identidad.
+  assert.match(s, /return \{ estado, clase, \.\.\.\(previa \? \{ previa \} : \{\}\) \};/);
+});
+
+// ── P01 (6-oct-2026): lo que el pago ha entregado, con la sesión de la socia ──
+import { compraDeSuscripcion, modoDeIdentidad } from './estado-pago-publico.ts';
+
+test('compraDeSuscripcion: sin suscripción todavía, nada que anunciar', () => {
+  assert.equal(compraDeSuscripcion(null, 'Bono 8'), null);
+  assert.equal(compraDeSuscripcion(undefined, 'Bono 8'), null);
+});
+
+test('compraDeSuscripcion: un bono entregado dice qué es, cuántas quedan y hasta cuándo', () => {
+  assert.deepEqual(
+    compraDeSuscripcion({ estado: 'ACTIVA', sesiones_restantes: 8, fecha_fin: '2026-12-31' }, 'Bono 8 sesiones'),
+    { entregada: true, plan: 'Bono 8 sesiones', sesionesRestantes: 8, fechaFin: '2026-12-31' },
+  );
+});
+
+test('compraDeSuscripcion: una cuota (ilimitada) no inventa un número de sesiones', () => {
+  const c = compraDeSuscripcion({ estado: 'ACTIVA', sesiones_restantes: null, fecha_fin: null }, 'Mensual');
+  assert.equal(c?.sesionesRestantes, null);
+  assert.equal(c?.fechaFin, null);
+});
+
+test('compraDeSuscripcion: una suscripción que ya no está viva (reembolsada) no se anuncia como activa', () => {
+  assert.equal(compraDeSuscripcion({ estado: 'CANCELADA', sesiones_restantes: 0, fecha_fin: null }, 'Bono'), null);
+});
+
+test('compraDeSuscripcion: sin nombre de plan, uno neutro', () => {
+  assert.equal(compraDeSuscripcion({ estado: 'ACTIVA', sesiones_restantes: 1, fecha_fin: null }, null)?.plan, 'Tu bono');
+});
+
+test('modoDeIdentidad: con cabecera Authorization, la sesión y nada más', () => {
+  assert.equal(modoDeIdentidad('Bearer abc'), 'sesion');
+  // Una cabecera basura sigue siendo «modo sesión»: el token se valida y, si no
+  // vale, 401 — nunca se cae al modo email.
+  assert.equal(modoDeIdentidad('basura'), 'sesion');
+  assert.equal(modoDeIdentidad(null), 'email');
+  assert.equal(modoDeIdentidad('   '), 'email');
+});
+
+// Contrato de la ruta con sesión (leyendo el fuente):
+//   · el límite va ANTES de nada;
+//   · con sesión, la identidad sale del token y nunca del email;
+//   · la socia se resuelve con el studioId de la petición, y el recibo se acota
+//     a esa socia y ese estudio.
+const fuenteRuta = leerFuente(unir(import.meta.dirname, '..', '..', 'app/api/public/estado-pago/route.ts'), 'utf8');
+const get = fuenteRuta.slice(fuenteRuta.indexOf('export async function GET('));
+function pos(trozo: string, en = get): number {
+  const i = en.indexOf(trozo);
+  assert.ok(i >= 0, `falta «${trozo}» en la ruta`);
+  return i;
+}
+
+test('estado-pago: el límite por IP va antes de leer nada', () => {
+  const lim = pos('enforceRateLimit(');
+  assert.ok(lim < pos('getSupabaseAdmin()'));
+  assert.ok(lim < pos('usuarioSupabaseConPaso('));
+});
+
+test('estado-pago con sesión: token → socia del estudio pedido → límite por socia → recibo SUYO', () => {
+  const rama = get.slice(pos("if (modo === 'sesion') {"), pos('// ── Sin sesión'));
+  let ultimo = -1;
+  for (const t of ['usuarioSupabaseConPaso(req)', 'socioAutenticado(r.usuario.userId, studioIdParam)', 'rateLimit(`estado-pago-socia:', ".eq('socio_id', socioId)"]) {
+    const i = rama.indexOf(t);
+    assert.ok(i > ultimo, `«${t}» fuera de orden o ausente en la rama con sesión`);
+    ultimo = i;
+  }
+  assert.ok(rama.includes(".eq('studio_id', studioIdParam)"), 'el recibo se acota al estudio pedido');
+  assert.ok(!rama.includes("searchParams.get('email')"), 'con sesión nunca se mira el email');
+  assert.ok(rama.includes('CODIGO_SEGUNDO_PASO'), 'segundo paso pendiente: su código, no un 401 a secas');
+  assert.ok(rama.includes('return respuesta(req, compra ? { ...cuerpo, compra } : cuerpo);'), 'la rama con sesión contesta ella misma');
+});
+
+test('estado-pago: `compra` solo sale con sesión', () => {
+  const sinSesion = get.slice(pos('// ── Sin sesión'), pos('async function compraDelPago(', fuenteRuta) - fuenteRuta.indexOf('export async function GET('));
+  assert.ok(!sinSesion.includes('compraDelPago('), 'sin sesión no se dice qué se compró');
+});
+
+// ── P06 · Fase A: el pago de una clase con su fila en pagos_clase ────────────
+test('pago de clase: manda la reserva; si no hay plaza, la fila dice compensada o reembolsada', () => {
+  assert.equal(estadoConPagoDeClase('CONFIRMADA', { estado: 'COMPENSADA', motivo: 'EN_ESPERA' }), 'confirmada', 'la promoción ya le dio plaza');
+  assert.equal(estadoConPagoDeClase('ASISTIDA', null), 'confirmada');
+  assert.equal(estadoConPagoDeClase('LISTA_ESPERA', { estado: 'COMPENSADA', motivo: 'EN_ESPERA' }), 'compensada');
+  assert.equal(estadoConPagoDeClase(null, { estado: 'REEMBOLSADA', motivo: 'LLENA' }), 'reembolsada');
+  for (const estado of ['ABIERTO', 'PAGADO', 'RESERVADA', 'CANCELADO']) {
+    assert.equal(estadoConPagoDeClase(null, { estado, motivo: null }), null, `${estado}: lo de siempre`);
+  }
+  assert.equal(estadoConPagoDeClase(null, null), null, 'sin fila (pago de antes de P06): lo de siempre');
+});
+
+test('/reservar sin sesión: compensada en espera es la lista de espera; sin espera o reembolsada, «fallida» (el estudio la llama)', () => {
+  assert.equal(estadoParaReservarPublico({ estado: 'compensada', compensacion: { motivo: 'EN_ESPERA', enEspera: true } }), 'lista_espera');
+  assert.equal(estadoParaReservarPublico({ estado: 'compensada', compensacion: { motivo: 'LLENA', enEspera: false } }), 'fallida');
+  assert.equal(estadoParaReservarPublico({ estado: 'reembolsada' }), 'fallida');
+  assert.equal(estadoParaReservarPublico({ estado: 'confirmada' }), 'confirmada');
 });

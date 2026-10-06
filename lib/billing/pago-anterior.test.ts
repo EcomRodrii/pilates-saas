@@ -79,14 +79,22 @@ test('sin su client_secret no se toca: nadie cancela el cobro de otra persona sa
   assert.equal(decidirPagoAnterior(cobro({ client_secret: null }), SECRETO, intento), 'ajeno');
 });
 
-test('de otro estudio, otra clase, otra vía o otra persona: no se toca', () => {
+test('de otro estudio, otra clase u otra vía: no se toca', () => {
   assert.equal(decidirPagoAnterior(cobro({ md: { studioId: 'otro' } }), SECRETO, intento), 'ajeno');
   assert.equal(decidirPagoAnterior(cobro({ md: { sesionId: 'otra-clase' } }), SECRETO, intento), 'ajeno');
   assert.equal(decidirPagoAnterior(cobro({ md: { origen: 'tarjeta_recibo' } }), SECRETO, intento), 'ajeno');
-  assert.equal(decidirPagoAnterior(cobro({ md: { socioEmail: 'otra@example.com' } }), SECRETO, intento), 'ajeno');
-  // Una socia con sesión solo cancela los suyos (por su ficha), nunca uno de invitada.
-  assert.equal(decidirPagoAnterior(cobro(), SECRETO, { ...intento, socioId: 'soc-1' }), 'ajeno');
   assert.equal(decidirPagoAnterior(cobro({ md: { socioId: 'soc-1' } }), SECRETO, { ...intento, socioId: 'soc-1' }), 'cancelar');
+});
+
+test('⚠️ misma pantalla (tiene el secreto) pero otra persona: se cancela si se puede; nunca «pagado» de otra', () => {
+  // Cambió el email en /reservar: el cobro anterior seguía pagable y quedaban dos de la misma clase.
+  assert.equal(decidirPagoAnterior(cobro({ md: { socioEmail: 'otra@example.com' } }), SECRETO, intento), 'cancelar');
+  assert.equal(decidirPagoAnterior(cobro(), SECRETO, { ...intento, socioId: 'soc-1' }), 'cancelar');
+  assert.equal(decidirPagoAnterior(cobro({ status: 'requires_action', md: { socioEmail: 'otra@example.com' } }), SECRETO, intento), 'cancelar');
+  assert.equal(decidirPagoAnterior(cobro({ status: 'canceled', md: { socioEmail: 'otra@example.com' } }), SECRETO, intento), 'ya-cancelado');
+  for (const status of ['succeeded', 'processing']) {
+    assert.equal(decidirPagoAnterior(cobro({ status, md: { socioEmail: 'otra@example.com' } }), SECRETO, intento), 'ajeno', status);
+  }
 });
 
 test('ya cobrado o ya cancelado: ni se cancela ni se crea otro a ciegas; a medias, se cancela', () => {

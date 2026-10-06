@@ -11,6 +11,7 @@ import { fotoPropia, imagenDeClase } from '../imagenes-por-defecto.ts';
 import { spotsActivosDeLaSala } from './huecos-sala.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
+import { exigePlanAlReservar } from '../bono-logic.ts';
 import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
 import { instanteDeApertura } from '../booking-logic.ts';
 import {
@@ -171,6 +172,8 @@ export interface PlanMin {
   /** Topes por actividad (`plan_tipos_clase.limite_semanal`), por id de tipo. `null` = ese tipo sin tope. Lo cuelga
       `hidratarTiposDePlanes` en el payload público junto a `tiposClaseIds`. */
   limitePorTipo?: Record<string, number | null>;
+  /** La oferta de prueba: no cuenta como «algo que contratar» para exigir plan (`hayAlgoQueContratar`). */
+  esPrueba?: boolean | null;
 }
 
 /** `planes_tarifa.tipo` → el del modelo. Un tipo que la app no conoce es `null`, no se adivina. */
@@ -301,13 +304,15 @@ export interface PayloadMin {
     reservaVentanaMinimaMinutos?: number | null;
     /** El estudio aprueba cada reserva (lo hereda el tipo que no lo fije). Viaja en `studioPublico`. */
     requiereAprobacion?: boolean | null;
+    /** «Exigir plan o bono para reservar» (lo hereda el tipo que no lo fije). Viaja en `studioPublico`. */
+    reservaExigirPlan?: boolean | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null; reservaExigirPlan?: boolean | null }[];
   /** Los sitios de cada sala (`mapSpot`). Viajan desde siempre; la hoja de la ficha los usa para elegir sitio. */
   spots?: { id: string; salaId: string; activo?: boolean | null }[];
   levelDefinitions?: NivelDef[];
@@ -408,6 +413,13 @@ function cierraEl(inicioISO: string, minutosTipo: number | null | undefined, stu
   return Number.isNaN(inicio) ? null : new Date(inicio - minutos * 60_000).toISOString();
 }
 
+function exigePlanDe(d: PayloadMin, tipo: { reservaExigirPlan?: boolean | null } | undefined): boolean | null {
+  const delEstudio = d.studio?.reservaExigirPlan;
+  if (delEstudio == null) return null;
+  const ajuste = tipo?.reservaExigirPlan ?? delEstudio;
+  return exigePlanAlReservar(ajuste, (d.planesTarifa ?? []).map((p) => ({ activo: p.activo !== false, esPrueba: p.esPrueba === true })));
+}
+
 export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
   const tipos = new Map((d.tiposClase ?? []).map((t) => [t.id, t]));
   // El orden de los tipos que decidió el estudio, para los filtros por tipo.
@@ -480,6 +492,12 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // porque `Clase.precioSuelto` es `number`; quien decide qué enseñar es
       // `etiquetaPrecio()`, que distingue los dos casos.
       precioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) ?? 0,
+      // El precio PROPIO de la sesión, en crudo (un taller): la app no vende online una clase con precio especial
+      // (`opcionesDeClase`, Fase A del bloque de dinero).
+      precioPuntual: s.precioPuntual ?? null,
+      // ¿Exige plan para reservar ESTA clase? La misma regla que `crearReservaPublica`: el tipo hereda del estudio y
+      // solo se exige si hay algo que contratar. `null` si el payload no trae el ajuste: decide el servidor.
+      exigePlan: exigePlanDe(d, tipo),
       /** `true` si el estudio NO vende clases sueltas: no es «gratis». */
       sinPrecioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) === null,
       // ⚠️ Herencia del BANNER, y el orden importa.

@@ -1,6 +1,7 @@
 'use client';
 
-import { borrarTarjetaPublica } from '@/lib/student/api-publica';
+import { borrarTarjetaPublica, portalAuthHeader } from '@/lib/student/api-publica';
+import type { TarjetaGuardada } from '@/lib/billing/tarjetas-guardadas';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 
 // El método de pago guardado de la alumna. Sale del payload que ya se pide
@@ -51,4 +52,34 @@ export async function quitarTarjeta(slug: string, studioId: string): Promise<str
   const error = await borrarTarjetaPublica(studioId);
   if (!error) invalidarCatalogo(slug);
   return error;
+}
+
+// ── P16: las tarjetas que guardó para pagar en la app ───────────────────────
+
+/** Las que aceptó guardar («Guárdala para la próxima»). `null` = no se han podido leer (no se inventa una lista). */
+export async function getTarjetasApp(studioId: string): Promise<TarjetaGuardada[] | null> {
+  try {
+    const res = await fetch(`/api/public/tarjeta?studioId=${encodeURIComponent(studioId)}`, { headers: await portalAuthHeader(), cache: 'no-store' });
+    if (!res.ok) return null;
+    const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[] } | null;
+    return Array.isArray(c?.tarjetas) ? c.tarjetas : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Quita UNA tarjeta guardada para la app. Devuelve el mensaje de error, o `null` si fue bien. */
+export async function quitarTarjetaApp(slug: string, studioId: string, paymentMethodId: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/public/tarjeta', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId, paymentMethodId }),
+    });
+    if (res.ok) { invalidarCatalogo(slug); return null; }
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.status >= 500 || !data.error ? 'No se ha podido quitar la tarjeta. Inténtalo de nuevo.' : data.error;
+  } catch {
+    return 'No hemos podido conectar. Inténtalo de nuevo.';
+  }
 }

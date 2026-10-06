@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -17,10 +17,15 @@ import { Button } from '@/components/student/ui/Button';
 import { HojaCompra } from '@/components/student/domain/HojaCompra';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { proyectarClases } from '@/lib/student/mapeo';
+import { opcionesDeClase } from '@/lib/reservar/opciones-de-clase';
+import { etiquetaDia, euros } from '@/lib/student/formato';
 import type { PlanTarifa } from '@/lib/types';
 import { configLegalDe } from '@/lib/legal-textos';
 import { Foto } from '@/components/student/ui/Foto';
+import { pedirPrueba } from '@/lib/student/pagar-clase';
+import Link from 'next/link';
 
 // Comprar (P0-5). Hasta ahora la alumna solo podía RESERVAR: no había ningún
 // sitio donde ver qué vende el estudio, así que un bono o una suscripción solo
@@ -34,9 +39,14 @@ import { Foto } from '@/components/student/ui/Foto';
 //
 // ⚠️ Elegibilidad: un plan `activo: false` y un servicio sin `auto_reservable`
 // NO aparecen. Enseñarlos llevaría a un checkout que los rechaza.
-export default function ComprarPage() {
+function Comprar() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
+  // `?para=<clase>` (P01): se llega desde una clase que no tiene con qué pagar. La tienda enseña solo lo que la cubre
+  // y, cuando el servidor confirma la compra, ofrece volver a reservarla. «Ver todo el catálogo» quita el filtro sin
+  // tocar la URL (cambiar solo la query de la misma ruta con el router deja la vieja pegada en producción).
+  const para = useSearchParams().get('para');
+  const [verTodo, setVerTodo] = useState(false);
 
   const router = useRouter();
   const { socia } = useSesionStudent(estudio.slug);
@@ -80,12 +90,28 @@ export default function ComprarPage() {
       // «Si lo compras hoy, hasta el…»: el «hoy» se fija al cargar, no en cada
       // render (un render tiene que ser puro, y la fecha no cambia mirando).
       ahora: new Date(),
+      // «Tu primera clase» (P07): solo se pregunta al servidor si el estudio tiene una prueba activa (si no, 0
+      // peticiones), y solo él decide si ESTA socia la puede estrenar.
+      prueba: (d?.planesTarifa ?? []).some((p) => p.esPrueba === true && p.activo !== false) ? await pedirPrueba(estudio.id) : null,
+      // La clase para la que compra (`?para=`), y qué la cubre: la MISMA regla que la ficha y el cobro.
+      clase: (() => {
+        if (!para || !d) return null;
+        const c = proyectarClases(d).find((x) => x.id === para);
+        if (!c) return null;
+        const r = opcionesDeClase({ planes: d.planesTarifa ?? [], tipoClaseId: c.tipoClaseId, precioPuntualSesion: c.precioPuntual });
+        return {
+          id: c.id, nombre: c.nombre, cuando: `${etiquetaDia(c.fecha)} · ${c.hora}`,
+          planIds: new Set(r.opciones.filter((o) => !o.noPagable).map((o) => o.planId)),
+        };
+      })(),
     };
-  }, [estudio.slug]);
+  }, [estudio.slug, estudio.id, para]);
 
   const { data, estado, reintentar } = useAsync(cargar);
 
-  const productos = data?.productos ?? [];
+  const claseDestino = data?.clase ?? null;
+  const filtrando = !!claseDestino && !verTodo;
+  const productos = (data?.productos ?? []).filter((p) => !filtrando || claseDestino!.planIds.has(p.id));
   const nombresTipo = data?.nombresTipo ?? new Map<string, string>();
   const familias = (['suscripcion', 'bono', 'suelta', 'servicio', 'producto'] as FamiliaProducto[])
     .map((f) => ({ familia: f, items: productos.filter((p) => p.familia === f) }))
@@ -95,13 +121,37 @@ export default function ComprarPage() {
     <StudentShell>
       <PageHeader titulo="Comprar" back />
 
+      {claseDestino && (
+        <div className="px" style={{ marginTop: 10 }}>
+          <div className="card card--pad" data-testid="comprar-para-clase" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="t-label" style={{ margin: 0 }}>Para tu clase</p>
+              <p style={{ margin: '2px 0 0', fontWeight: 800 }}>{claseDestino.nombre} · {claseDestino.cuando}</p>
+            </div>
+            {!verTodo && (
+              <button type="button" className="tap no-shrink" onClick={() => setVerTodo(true)} style={{ border: 'none', background: 'none', padding: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', cursor: 'pointer' }}>
+                Ver todo el catálogo
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '20px', marginTop: 14 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={96} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && (
           <OfflineState cuerpo="Los productos se mostrarán cuando vuelva la conexión." />
         )}
-        {estado === 'empty' || (data && productos.length === 0) ? (
+        {filtrando && data && productos.length === 0 ? (
+          <EmptyState
+            ilustracion="tienda"
+            titulo="Para esta clase no se vende nada aquí"
+            cuerpo="Pídelo en recepción, o mira el resto del catálogo."
+            accion="Ver todo el catálogo"
+            onAccion={() => setVerTodo(true)}
+          />
+        ) : estado === 'empty' || (data && productos.length === 0) ? (
           // Estado vacío DISEÑADO, no una lista en blanco: un estudio puede no
           // vender nada online y eso no es un error.
           <EmptyState
@@ -113,10 +163,18 @@ export default function ComprarPage() {
           />
         ) : null}
 
-        {/* Aquí irá «Tu primera clase» (P07), ANTES de las familias y solo para
-            quien el servidor diga que puede estrenarla. No se pinta todavía: va
-            atada a reservar una clase concreta y entra con el diseño de pagar y
-            reservar en la misma hoja (P06), que pasa por revisión de pagos. */}
+        {/* «Tu primera clase» (P07), ANTES de las familias y solo para quien el servidor dice que puede estrenarla.
+            Va atada a una clase concreta: se elige la clase y se paga (o se reserva gratis) en su ficha. */}
+        {data?.prueba && !claseDestino && (
+          <div className="card card--pad" data-testid="tu-primera-clase">
+            <p className="t-label" style={{ margin: 0 }}>Tu primera clase</p>
+            <p style={{ margin: '4px 0 0', fontWeight: 800, fontSize: 'var(--t-h3)' }}>
+              {data.prueba.gratis ? 'Gratis' : euros(data.prueba.precio)}
+            </p>
+            <p className="t-meta" style={{ margin: '4px 0 0' }}>Una clase, la que elijas. Solo una vez por persona.</p>
+            <Link href={href('/reservar')} className="btn btn--primary" style={{ display: 'flex', marginTop: 12 }}>Elegir mi clase</Link>
+          </div>
+        )}
 
         {data && productos.length > 0 && familias.map(({ familia, items }) => (
           <section key={familia}>
@@ -185,12 +243,25 @@ export default function ComprarPage() {
         textosLegales={data?.textosLegales ?? null}
         onCerrar={() => setComprando(null)}
         onComprado={() => {
-          // El bono ya está en su cuenta: el catálogo cacheado ya no vale.
+          // El servidor ya ha confirmado el bono (la hoja no llega aquí antes):
+          // el catálogo cacheado ya no vale. `?compra=ok&plan=` hace que Bonos
+          // vuelva a comprobarlo al cargar, en vez de fiarse de esta pantalla.
           invalidarCatalogo(estudio.slug);
+          const planId = comprando?.id;
           setComprando(null);
-          router.push(href('/bonos'));
+          router.push(planId ? `${href('/bonos')}?compra=ok&plan=${encodeURIComponent(planId)}` : href('/bonos'));
         }}
         onSesionCaducada={() => router.push(href('/acceso/login'))}
+        onSegundoPaso={() => router.push(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(href('/bonos'))}`)}
+        enlaceEstudio={href('/mensajes')}
+        // Comprado PARA una clase y solo si lo que compra la cubre: tras confirmarlo el servidor, volver a reservarla.
+        paraClase={claseDestino && comprando && claseDestino.planIds.has(comprando.id) ? {
+          nombre: claseDestino.nombre,
+          onReservar: () => {
+            invalidarCatalogo(estudio.slug);
+            router.push(`${href(`/reservar/${encodeURIComponent(claseDestino.id)}`)}?reservar=1`);
+          },
+        } : undefined}
       />
     </StudentShell>
   );
@@ -272,5 +343,14 @@ function TarjetaProducto({ p, nombresTipo, planesTarifa, ahora, delay, onComprar
         </Button>
       )}
     </article>
+  );
+}
+
+export default function ComprarPage() {
+  // `useSearchParams` exige un límite de Suspense en el App Router.
+  return (
+    <Suspense fallback={null}>
+      <Comprar />
+    </Suspense>
   );
 }

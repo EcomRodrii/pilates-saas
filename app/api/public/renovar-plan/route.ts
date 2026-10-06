@@ -6,7 +6,10 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
-import { renovacionPorLaAlumna } from '@/lib/billing/renovar-plan-reglas';
+import {
+  CODIGO_RENOVACION_COBRANDOSE, elegirSuscripcionARenovar, MENSAJE_RENOVACION_COBRANDOSE, planSeRenueva,
+  reciboPrevioDeRenovacion, renovacionPorLaAlumna,
+} from '@/lib/billing/renovar-plan-reglas';
 
 // "Renovar en un toque" desde el portal: garantiza que exista el recibo de
 // renovación del plan de la socia y devuelve su id — el portal lo paga acto
@@ -22,7 +25,9 @@ export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-renovar-plan', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
 
-  const body = await req.json().catch(() => null) as { studioId?: string } | null;
+  // `suscripcionId` (RECIBOS · 6-oct-2026): la app dice QUÉ plan renueva. Solo vale
+  // uno suyo y de los que la regla admite (`elegirSuscripcionARenovar`).
+  const body = await req.json().catch(() => null) as { studioId?: string; suscripcionId?: string | null } | null;
   if (!body?.studioId) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
 
   const user = await verificarUsuarioSupabase(req);
@@ -48,8 +53,14 @@ export async function POST(req: NextRequest) {
       .eq('socio_id', socioId)
       .order('fecha_inicio', { ascending: false });
     if (susErr) throw new Error(susErr.message);
-    const sus = (susRows ?? []).find(s => s.estado === 'ACTIVA') ?? (susRows ?? [])[0];
-    if (!sus) return NextResponse.json({ error: 'No tienes ningún plan que renovar' }, { status: 404 });
+    const elegida = elegirSuscripcionARenovar(
+      (susRows ?? []) as Array<{ id: string; estado: string | null; plan_id: string | null; fecha_fin: string | null }>,
+      typeof body.suscripcionId === 'string' ? body.suscripcionId : null,
+    );
+    if (!elegida.ok) {
+      return NextResponse.json({ error: elegida.error, ...(elegida.codigo ? { codigo: elegida.codigo } : {}) }, { status: elegida.status });
+    }
+    const sus = elegida.sus;
 
     // ¿Lo puede renovar ELLA? (lib/billing/renovar-plan-reglas.ts). Renovar deja la
     // suscripción ACTIVA al cobrarse: una cuota en PAUSADA no se renueva desde la
@@ -72,8 +83,8 @@ export async function POST(req: NextRequest) {
 
     const { data: plan, error: planErr } = await admin
       .from('planes_tarifa')
-      .select('id, nombre, precio, tipo, es_prueba')
-      .eq('id', sus.plan_id)
+      .select('id, nombre, precio, tipo, es_prueba, activo')
+      .eq('id', sus.plan_id as string)
       .eq('studio_id', body.studioId)
       .maybeSingle();
     if (planErr) throw new Error(planErr.message);
@@ -87,18 +98,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Si ya hay un recibo de renovación en juego, se reutiliza (el portal lo
-    // paga): puede venir del cron, del panel o de un toque anterior.
-    const { data: pendiente, error: penErr } = await admin
+    // Un plan que el estudio ya no vende no se le vuelve a vender a quien ya lo dejó.
+    const seRenueva = planSeRenueva(sus.estado, plan as { activo?: boolean | null });
+    if (!seRenueva.ok) return NextResponse.json({ error: seRenueva.error, codigo: seRenueva.codigo }, { status: 409 });
+
+    // Si ya hay un recibo DE RENOVACIÓN en juego, se reutiliza (el portal lo
+    // paga): puede venir del cron, del panel o de un toque anterior. Solo uno de
+    // renovación y cobrable (`reciboPrevioDeRenovacion`): antes se le daba cualquier
+    // PENDIENTE o EN_CURSO de la suscripción, también uno que estaba en el banco.
+    const { data: previos, error: penErr } = await admin
       .from('recibos')
-      .select('id')
+      .select('id, estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, es_renovacion, cobro_off_session_clave')
       .eq('studio_id', body.studioId)
       .eq('suscripcion_id', sus.id)
-      .in('estado', ['PENDIENTE', 'EN_CURSO'])
-      .limit(1)
-      .maybeSingle();
+      .eq('es_renovacion', true)
+      .in('estado', ['PENDIENTE', 'EN_CURSO', 'FALLIDO', 'DEVUELTO'])
+      .order('fecha_vencimiento', { ascending: false })
+      .limit(10);
     if (penErr) throw new Error(penErr.message);
-    if (pendiente) return NextResponse.json({ reciboId: pendiente.id });
+    const decisiones = (previos ?? []).map((r) => ({ id: r.id as string, que: reciboPrevioDeRenovacion(r as Parameters<typeof reciboPrevioDeRenovacion>[0]) }));
+    if (decisiones.some((d) => d.que === 'cobrandose')) {
+      return NextResponse.json({ error: MENSAJE_RENOVACION_COBRANDOSE, codigo: CODIGO_RENOVACION_COBRANDOSE }, { status: 409 });
+    }
+    const reutilizable = decisiones.find((d) => d.que === 'reutilizar');
+    if (reutilizable) return NextResponse.json({ reciboId: reutilizable.id });
 
     const hoy = new Date().toISOString().slice(0, 10);
     // ⚠️ 26ª pasada. El id determinista POR MES viene de `lib/inngest/

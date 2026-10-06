@@ -1,12 +1,16 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { MODO_TOKENS } from '@/lib/portal-paleta';
 import { comprobarCodigo, iniciarCompra, comprarConBizum, clavePublicableStripe } from '@/lib/student/comprar';
-import { euros } from '@/lib/student/formato';
+import { euros, fechaLarga } from '@/lib/student/formato';
+import { piDeClientSecret } from '@/lib/billing/estado-pago-publico';
+import { esperarCompraEntregada } from '@/lib/student/estado-compra';
+import { resumenDeCompra, type CompraEntregada } from '@/lib/student/estado-compra-reglas';
 import { esSuscripcion } from '@/lib/student/tienda';
 import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -31,12 +35,18 @@ import { Sello } from '@/components/student/ui/Sello';
 type Estado =
   | { fase: 'listo' }
   | { fase: 'preparando' }
-  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number }
+  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number; total: number; customerSessionClientSecret: string | null }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
-  | { fase: 'hecho' };
+  // Stripe ha dicho que cobró; el bono lo entrega el SERVIDOR (webhook o
+  // conciliador). Hasta que `estado-pago` no lo confirma, NO se dice «ya está».
+  | { fase: 'confirmando' }
+  | { fase: 'hecho'; compra: CompraEntregada }
+  // Se agotó la espera razonable: el pago está hecho, el bono llegará.
+  | { fase: 'tarda' };
 
 export function HojaCompra({ textosLegales,
   plan, cobertura, studioId, socioId, socioEmail, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
+  onSegundoPaso, enlaceEstudio, paraClase,
 }: {
   plan: PlanTarifa | null;
   /** Condiciones y privacidad del estudio, para poder leerlas ANTES de pagar. */
@@ -55,8 +65,18 @@ export function HojaCompra({ textosLegales,
   socioEmail: string | null;
   stripeAccountId: string | null;
   onCerrar: () => void;
+  /** El servidor ha confirmado que el bono está: a «Mis bonos». */
   onComprado: () => void;
   onSesionCaducada: () => void;
+  /** Le falta el segundo paso de la verificación (lo dice el servidor al confirmar). */
+  onSegundoPaso?: () => void;
+  /** Dónde escribir al estudio si la entrega tarda (la bandeja de mensajes). */
+  enlaceEstudio?: string;
+  /**
+   * Se compra PARA una clase (`/comprar?para=`, P01): con el bono ya confirmado por el servidor, el botón principal
+   * es volver a reservarla. Antes de esa confirmación no se ofrece (la reserva lo rechazaría «sin plan»).
+   */
+  paraClase?: { nombre: string; onReservar: () => void };
 }) {
   // ⚠️ El padre TIENE que montar esto con `key={plan?.id}` (ver
   // app/portal/[slug]/comprar/page.tsx). Sin una key que cambie por plan,
@@ -77,6 +97,31 @@ export function HojaCompra({ textosLegales,
   // (`onProcesando`), no una suposición desde fuera.
   const [confirmando, setConfirmando] = useState(false);
   const publishableKey = clavePublicableStripe();
+
+  // El sondeo de «¿ya está el bono?» sigue mientras la hoja esté montada; al
+  // cerrarla (o navegar) se deja de preguntar.
+  const viva = useRef(true);
+  useEffect(() => {
+    viva.current = true;
+    return () => { viva.current = false; };
+  }, []);
+
+  // Stripe dice que cobró (o que está en proceso): desde aquí manda el
+  // servidor. Se arranca desde el gesto (`onExito`), no desde un efecto.
+  const confirmarEntrega = useCallback(async (clientSecret: string) => {
+    setEstado({ fase: 'confirmando' });
+    const pi = piDeClientSecret(clientSecret);
+    if (!pi) { setEstado({ fase: 'tarda' }); return; }
+    const r = await esperarCompraEntregada(studioId, pi, () => viva.current);
+    if (r.tipo === 'cancelado') return;
+    if (r.tipo === 'entregada') { setEstado({ fase: 'hecho', compra: r.compra }); return; }
+    if (r.tipo === 'dos-pasos' && onSegundoPaso) { onSegundoPaso(); return; }
+    if (r.tipo === 'sesion' || r.tipo === 'dos-pasos') {
+      setEstado({ fase: 'error', mensaje: 'Tu sesión ha caducado. Vuelve a entrar: tu pago está hecho y no se pierde.', sesionCaducada: true });
+      return;
+    }
+    setEstado({ fase: 'tarda' });
+  }, [studioId, onSegundoPaso]);
 
   // ── Código de descuento ───────────────────────────────────────────────
   // ⚠️ AQUÍ NO SE RESTA NADA. Se manda el texto y el servidor decide, con la
@@ -110,14 +155,18 @@ export function HojaCompra({ textosLegales,
         importe: Number.isFinite(r.importe) ? r.importe : Number(plan.precio),
         descuento: r.descuento,
         matricula: r.matricula,
+        // El cargo de verdad: cuota + matrícula. Antes el botón decía solo la cuota y se cobraba la matrícula encima.
+        total: Number.isFinite(r.total) ? r.total : (Number.isFinite(r.importe) ? r.importe : Number(plan.precio)) + r.matricula,
+        customerSessionClientSecret: r.customerSessionClientSecret,
       });
       if (codigo.trim() && !r.codigoAplicado) {
         setCodigoDicho({ ok: false, texto: 'Ese código ya no se puede aplicar. Pagas el precio normal.' });
       }
       return;
     }
+    if (r.segundoPaso && onSegundoPaso) { onSegundoPaso(); return; }
     setEstado({ fase: 'error', mensaje: r.error, sesionCaducada: r.sesionCaducada });
-  }, [plan, studioId, socioId, codigo]);
+  }, [plan, studioId, socioId, codigo, onSegundoPaso]);
 
   // Fallback de Bizum (`onBizum` de <CheckoutEmbebido>): mismo criterio que
   // `handleContratarPlan`/el widget — redirige fuera a la página hospedada de
@@ -149,7 +198,7 @@ export function HojaCompra({ textosLegales,
     // el widget.
     <Sheet
       open
-      onClose={estado.fase === 'preparando' || confirmando ? () => {} : onCerrar}
+      onClose={estado.fase === 'preparando' || estado.fase === 'confirmando' || confirmando ? () => {} : onCerrar}
       label={`Comprar ${plan.nombre}`}
     >
       <div className="px" style={{ paddingBottom: 16 }}>
@@ -270,14 +319,44 @@ export function HojaCompra({ textosLegales,
               <Button variant="secondary" onClick={onCerrar}>Cerrar</Button>
             </div>
           </>
+        ) : estado.fase === 'confirmando' ? (
+          // Pago hecho, bono todavía no: ni sello ni «ya está». Lo dice el
+          // servidor cuando lo ha entregado de verdad.
+          <div role="status" aria-live="polite" style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+            <span aria-hidden style={{ display: 'inline-block', width: 22, height: 22, borderRadius: 'var(--radius-round)', border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
+            <h3 className="t-title" style={{ marginTop: 12 }}>Pago recibido. Activando tu bono…</h3>
+            <p className="t-meta" style={{ marginTop: 6 }}>Tarda unos segundos; no tienes que hacer nada.</p>
+          </div>
+        ) : estado.fase === 'tarda' ? (
+          // Sin ✓ y sin prometer minutos: si el aviso de Stripe se pierde, el
+          // conciliador lo entrega en la siguiente pasada (cada hora).
+          <div role="status" style={{ padding: '8px 0 4px' }}>
+            <h3 className="t-title">El pago está hecho</h3>
+            <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.55 }}>
+              Pero tu bono tarda más de lo normal en aparecer. Te avisamos en cuanto esté; si en un rato no lo ves, escribe al estudio. No vuelvas a pagar.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              {enlaceEstudio && (
+                <Link href={enlaceEstudio} className="btn btn--secondary" style={{ flex: 1 }}>Escribir al estudio</Link>
+              )}
+              <Button variant="secondary" onClick={onCerrar}>Cerrar</Button>
+            </div>
+          </div>
         ) : estado.fase === 'hecho' ? (
           <div className="a-pop" style={{ textAlign: 'center', padding: '8px 0 4px' }}>
             <Sello />
             <h3 className="t-title" style={{ marginTop: 14 }}>Compra realizada</h3>
-            <p className="t-meta" style={{ marginTop: 6 }}>
-              Ya está en tu cuenta. Puedes reservar con ella ahora mismo.
+            <p className="t-meta" data-testid="compra-entregada" style={{ marginTop: 6 }}>
+              {resumenDeCompra(estado.compra, fechaLarga)}
             </p>
-            <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
+            {paraClase ? (
+              <>
+                <Button full onClick={paraClase.onReservar} style={{ marginTop: 14 }}>{`Reservar ${paraClase.nombre}`}</Button>
+                <Button full variant="secondary" onClick={onComprado} style={{ marginTop: 8 }}>Ver mis bonos</Button>
+              </>
+            ) : (
+              <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
+            )}
           </div>
         ) : (
           <>
@@ -334,7 +413,7 @@ export function HojaCompra({ textosLegales,
                 <div aria-hidden style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
                 <div className="row row--between">
                   <span className="t-card-title">Total</span>
-                  <span className="t-card-title t-num">{euros(estado.importe)}</span>
+                  <span className="t-card-title t-num">{euros(estado.total)}</span>
                 </div>
               </div>
             )}
@@ -345,9 +424,10 @@ export function HojaCompra({ textosLegales,
             clientSecret={estado.clientSecret}
             publishableKey={publishableKey}
             stripeAccountId={stripeAccountId}
-            importeTotal={estado.importe}
+            importeTotal={estado.total}
+            customerSessionClientSecret={estado.customerSessionClientSecret}
             onProcesando={setConfirmando}
-            onExito={() => { setConfirmando(false); setEstado({ fase: 'hecho' }); }}
+            onExito={() => { setConfirmando(false); void confirmarEntrega(estado.clientSecret); }}
             onBizum={plan && bizumPermitidoPara(plan.tipo) ? manejarBizum : undefined}
             onCerrar={onCerrar}
             />

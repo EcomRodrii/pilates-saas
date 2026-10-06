@@ -7,7 +7,8 @@ import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getMetodoPago, quitarTarjeta } from '@/lib/student/pago';
+import { getMetodoPago, getTarjetasApp, quitarTarjeta, quitarTarjetaApp } from '@/lib/student/pago';
+import type { TarjetaGuardada } from '@/lib/billing/tarjetas-guardadas';
 import { Button } from '@/components/student/ui/Button';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -31,9 +32,27 @@ export default function PagoPage() {
   const [confirmando, setConfirmando] = useState(false);
   const [quitando, setQuitando] = useState(false);
 
-  const cargar = useCallback(() => getMetodoPago(estudio.slug), [estudio.slug]);
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.tieneTarjeta);
+  // P16: además de la de cobros automáticos, las que aceptó guardar para pagar en la app.
+  const cargar = useCallback(async () => {
+    const [metodo, app] = await Promise.all([getMetodoPago(estudio.slug), getTarjetasApp(estudio.id)]);
+    return { ...metodo, app };
+  }, [estudio.slug, estudio.id]);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.tieneTarjeta && (d.app?.filter((t) => !t.paraCobros).length ?? 0) === 0);
   const esLink = data?.esLink === true;
+  const delApp = (data?.app ?? []).filter((t) => !t.paraCobros);
+  const [quitandoApp, setQuitandoApp] = useState<TarjetaGuardada | null>(null);
+  const [quitandoAppEnVuelo, setQuitandoAppEnVuelo] = useState(false);
+  const confirmarApp = async () => {
+    if (!quitandoApp) return;
+    setQuitandoAppEnVuelo(true);
+    const error = await quitarTarjetaApp(estudio.slug, estudio.id, quitandoApp.id);
+    setQuitandoAppEnVuelo(false);
+    setQuitandoApp(null);
+    // Si falla, se dice y la tarjeta sigue en la lista (no se quita de la pantalla sin que el servidor diga que sí).
+    if (error) { toast(error); return; }
+    toast('Tarjeta eliminada');
+    await refrescar();
+  };
 
   const confirmar = async () => {
     setQuitando(true);
@@ -85,6 +104,24 @@ export default function PagoPage() {
             </p>
           </>
         )}
+
+        {estado === 'ready' && delApp.length > 0 && (
+          <section data-testid="tarjetas-app" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            <p className="t-label" style={{ margin: 0 }}>Para pagar en la app</p>
+            <p className="t-meta" style={{ margin: 0, lineHeight: 1.5 }}>
+              Las guardaste al pagar («Guárdala para la próxima»). Solo se usan cuando tú pagas; nunca para cobros automáticos.
+            </p>
+            {delApp.map((t) => (
+              <div key={t.id} className="card" data-tarjeta={t.id} style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 800, textTransform: 'capitalize' }}>{t.marca} •••• {t.ultimos4}</p>
+                  {t.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {t.caducidad}</p>}
+                </div>
+                <Button variant="secondary" disabled={!online} onClick={() => setQuitandoApp(t)}>Quitar</Button>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
 
       <Sheet open={confirmando} onClose={() => setConfirmando(false)} label={esLink ? 'Quitar Link' : 'Quitar la tarjeta'}>
@@ -98,6 +135,18 @@ export default function PagoPage() {
             {quitando ? 'Quitando…' : esLink ? 'Sí, quitar Link' : 'Sí, quitar la tarjeta'}
           </Button>
           <Button variant="ghost" full onClick={() => setConfirmando(false)}>{esLink ? 'Mantenerlo' : 'Mantenerla'}</Button>
+        </div>
+      </Sheet>
+      <Sheet open={!!quitandoApp} onClose={() => setQuitandoApp(null)} label="Quitar la tarjeta guardada">
+        <h3 className="t-h2" style={{ margin: 0 }}>¿Quitar esta tarjeta?</h3>
+        <p style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>
+          {quitandoApp ? `${quitandoApp.marca} •••• ${quitandoApp.ultimos4}` : ''} dejará de salir al pagar. Podrás volver a guardarla la próxima vez.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+          <Button variant="danger" full disabled={quitandoAppEnVuelo} onClick={() => void confirmarApp()}>
+            {quitandoAppEnVuelo ? 'Quitando…' : 'Sí, quitarla'}
+          </Button>
+          <Button variant="ghost" full onClick={() => setQuitandoApp(null)}>Mantenerla</Button>
         </div>
       </Sheet>
     </StudentShell>

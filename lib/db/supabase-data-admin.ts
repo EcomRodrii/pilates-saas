@@ -17,6 +17,10 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
+import {
+  decidirPlazaAntesDeCobrar, decidirPlazaInvitadaSinFicha, MENSAJES_PLAZA, type EvaluacionReserva as EvaluacionPlaza,
+  type PlazaAntesDeCobrar,
+} from '@/lib/reservas/plaza-antes-de-cobrar';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
@@ -126,6 +130,7 @@ import {
 import { mensajeErrorReservaExterna } from '@/lib/plataformas/reserva-externa';
 import type { Plataforma } from '@/lib/plataformas/catalogo';
 import { trasReservaExterna } from '@/lib/plataformas/tras-reserva-externa';
+import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 import {
   fetchAllRows,
   getCurrentStudioId,
@@ -1760,9 +1765,37 @@ async function trasPlazaConfirmada(admin: SupabaseClient, p: {
     : segunLaConfirmacion(d, await consumirBonoServidor(admin, {
       studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
     }));
+  // P06: si esta plaza era la de un pago que se quedó en la cola o pendiente (COMPENSADA), ese pago ya tiene plaza.
+  await cerrarCompensacionPorPromocion(admin, { studioId: p.studioId, reservaId: p.reservaId });
   if (!efectosTrasConsumo('CONFIRMADA', consumo, p.reintento ?? false)) return;
   const { emitirReserva } = await import('@/lib/notifications/emit');
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
+}
+
+/**
+ * Quien pagó una clase y se quedó en la espera o pendiente de aprobar (pago COMPENSADA, P06)
+ * acaba de tener plaza: su pago queda RESERVADA. Se busca por la RESERVA del pago (la
+ * `res-web-…` que quedó en la cola), no por la socia: en una invitada la fila nace sin
+ * `socio_id`. Lo llaman los dueños de «plaza confirmada» (`trasPromocionDeEspera` y
+ * `trasPlazaConfirmada`: subir por cancelación, aceptar la oferta, aprobar la pendiente).
+ * Nunca tumba la confirmación: si la tabla aún no existe o la RPC falla, se avisa y sigue.
+ */
+async function cerrarCompensacionPorPromocion(admin: SupabaseClient, p: {
+  studioId: string; reservaId: string;
+}): Promise<void> {
+  const { data, error } = await admin.from('pagos_clase').select('id')
+    .eq('studio_id', p.studioId).eq('reserva_id', p.reservaId).eq('estado', 'COMPENSADA')
+    .in('motivo', ['EN_ESPERA', 'PENDIENTE_APROBACION']);
+  if (error) {
+    if (!esTablaQueFalta(error)) reportDbError('[trasPromocionDeEspera] no se pudo leer el pago compensado', error);
+    return;
+  }
+  for (const f of (data ?? []) as { id: string }[]) {
+    const { error: e } = await admin.rpc('registrar_resultado_pago_clase', {
+      p_id: f.id, p_studio_id: p.studioId, p_estado: 'RESERVADA', p_reserva_id: p.reservaId,
+    });
+    if (e) reportDbError('[trasPromocionDeEspera] no se pudo cerrar el pago compensado', e);
+  }
 }
 
 async function trasPromocionDeEspera(admin: SupabaseClient, p: {
@@ -1792,6 +1825,9 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
       ? await efectosPostBono(admin, { studioId: p.studioId, socioId: p.socioId, reservaId, consumible: d.consumible, consumo: d.consumo })
       : segunLaConfirmacion(d, await consumirBonoServidor(admin, { studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId }));
     bonoConsumido = sesionDescontada(consumo);
+    // P06 · Fase A: si había pagado esta clase y se quedó en espera (COMPENSADA), su pago
+    // ya acabó en plaza. Lo decide la RPC (solo COMPENSADA → RESERVADA, idempotente).
+    await cerrarCompensacionPorPromocion(admin, { studioId: p.studioId, reservaId });
     // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
     if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
   } else {
@@ -2444,6 +2480,21 @@ export async function comprobarVentanaReserva(
   return ventanaCerrada(params.inicioISO, pol, reglasTipo);
 }
 
+/**
+ * Cuándo se CIERRA la reserva de esta clase (su inicio menos la antelación mínima, la del
+ * tipo o la del estudio). El Checkout hospedado de una clase (Bizum) caduca ahí: pagado
+ * después, la reserva tras pagar la rechazaría (P06).
+ */
+export async function cierreDeReserva(
+  admin: SupabaseClient,
+  params: { studioId: string; tipoClaseId: string | null | undefined; inicioISO: string },
+): Promise<Date> {
+  const pol = await cargarPoliticaEstudio(admin, params.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, params.tipoClaseId);
+  const minimos = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos) ?? 0;
+  return new Date(new Date(params.inicioISO).getTime() - Math.max(0, minimos) * 60_000);
+}
+
 function ventanaCerrada(
   inicioISO: string,
   pol: Awaited<ReturnType<typeof cargarPoliticaEstudio>>,
@@ -2615,6 +2666,147 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   }
 }
 
+/**
+ * Los topes de reservas que decide TypeScript y no `evaluar_reserva`: el máximo a la vez
+ * (`reserva_max_simultaneas`) y el máximo de clases al día (`reserva_max_por_dia`). Un solo
+ * dueño para la reserva de la alumna (`crearReservaPublica`) y para el cobro de una clase
+ * ANTES de cobrar (`comprobarPlazaAntesDeCobrar`): si los dos los contaran a su manera, se
+ * cobraría una clase que luego la reserva rechaza. `null`: no se pasa de ninguno (o no se
+ * ha podido contar el del día: no se inventa un «ya tienes una»).
+ */
+export async function topesDeReservaTS(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string; inicioISO: string;
+  maxSimultaneas: number | null; maxPorDia: number | null;
+}): Promise<{ excede: 'max-simultaneas'; activas: number; tope: number } | { excede: 'max-por-dia'; tiene: number; tope: number } | null> {
+  if (p.maxSimultaneas != null) {
+    const [{ data: resRows }, { data: sesRows }] = await Promise.all([
+      admin.from('reservas').select('*').eq('studio_id', p.studioId).eq('socio_id', p.socioId),
+      // Solo futuras: contarReservasActivasFuturas() solo mira sesiones por venir. Sin
+      // este filtro, select('*') sin paginar traía TODO el histórico del estudio y
+      // PostgREST lo cortaba en 1000 filas. `cancelada` hace falta: descuenta las
+      // clases canceladas, y sin la columna no podría distinguirlas.
+      admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', p.studioId).gte('inicio', new Date().toISOString()),
+    ]);
+    const activas = contarReservasActivasFuturas(
+      p.socioId,
+      (resRows ?? []).map(mapReserva),
+      // `cancelada` DEBE propagarse: si llega undefined, el filtro de clases canceladas
+      // de contarReservasActivasFuturas es inerte (el campo es opcional y TS no avisa).
+      (sesRows ?? []).map(r => ({ id: r.id as string, inicio: r.inicio as string, cancelada: (r.cancelada as boolean | null) ?? false })),
+      new Date(),
+    );
+    if (activas >= p.maxSimultaneas) return { excede: 'max-simultaneas', activas, tope: p.maxSimultaneas };
+  }
+  if (p.maxPorDia != null) {
+    const dia = diaEnEstudio(p.inicioISO);
+    const { data: sesDia, error: errSesDia } = await admin
+      .from('sesiones').select('id, inicio, cancelada')
+      .eq('studio_id', p.studioId)
+      .gte('inicio', inicioDelDiaEstudio(dia)).lt('inicio', finDelDiaEstudio(dia));
+    const ids = (sesDia ?? []).map(s => s.id as string);
+    const { data: resDia, error: errResDia } = ids.length === 0 ? { data: [], error: null } : await admin
+      .from('reservas').select('socio_id, sesion_id, estado')
+      .eq('studio_id', p.studioId).eq('socio_id', p.socioId).in('sesion_id', ids);
+    if (errSesDia || errResDia) {
+      capturarExcepcion(new Error(`maxPorDia: ${(errSesDia ?? errResDia)?.message}`), { tags: { area: 'reservas' } });
+      return null;
+    }
+    const tiene = contarClasesDelDia(
+      p.socioId,
+      { id: p.sesionId, inicio: p.inicioISO },
+      (resDia ?? []).map(r => ({ socioId: r.socio_id as string, sesionId: r.sesion_id as string, estado: r.estado as EstadoReserva })),
+      (sesDia ?? []).map(s => ({ id: s.id as string, inicio: s.inicio as string, cancelada: (s.cancelada as boolean | null) ?? false })),
+    );
+    if (tiene >= p.maxPorDia) return { excede: 'max-por-dia', tiene, tope: p.maxPorDia };
+  }
+  return null;
+}
+
+/**
+ * ¿Hay plaza para ella ANTES de cobrarle esta clase? (P06 · Fase A). Las dos puertas
+ * de cobro con clase (`/api/public/checkout-embebido` y `/api/stripe/checkout`) lo
+ * llaman ANTES de reservar matrícula, crear Customer o PaymentIntent. La decisión está
+ * en `lib/reservas/plaza-antes-de-cobrar.ts`; aquí se piden los datos con la misma
+ * regla que usará la reserva tras pagar (`reservarPlazaTrasPagoPublico`): las mismas
+ * opciones de `evaluar_reserva` (lista de espera y sitio resueltos), salvo el impago,
+ * que aquí SÍ se mira. Lo que ya comprueban las rutas antes (clase viva, plan, ventana,
+ * apertura suave) no se repite.
+ *
+ * Invitada (sin sesión): si su email ya tiene ficha en el estudio se evalúa con ella
+ * (la compra acabará en esa ficha), con los motivos personales neutralizados; si no,
+ * solo la clase (aforo y sitio).
+ */
+export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
+  studioId: string; sesionId: string; socioId: string | null; email: string | null; spotId: string | null;
+}): Promise<PlazaAntesDeCobrar> {
+  try {
+    const { data: ses } = await admin.from('sesiones').select('inicio, tipo_clase_id')
+      .eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle();
+    if (!ses) return { ok: false, codigo: 'sesion-no-encontrada', error: MENSAJES_PLAZA['sesion-no-encontrada'] };
+    const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
+    const pol = await cargarPoliticaEstudio(admin, p.studioId);
+    const reglasTipo = await cargarReglasReservaTipoClase(admin, p.studioId, tipoClaseId);
+    const permiteListaEspera = heredaOverride(reglasTipo.permiteListaEspera, pol.permiteListaEspera);
+    const requiereAprobacion = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
+
+    let socioId = p.socioId;
+    let invitadaConFicha = false;
+    if (!socioId && p.email) {
+      const { data: ficha } = await admin.from('socios').select('id')
+        .eq('studio_id', p.studioId).ilike('email', escaparLike(p.email.trim())).is('borrado_en', null).limit(1).maybeSingle();
+      if (ficha?.id) { socioId = ficha.id as string; invitadaConFicha = true; }
+    }
+
+    if (!socioId) {
+      // Sin ficha: solo la clase. Lo mismo que cuenta `evaluar_reserva`.
+      const [{ data: aforo }, { count: ocupadas }, { count: enEspera }] = await Promise.all([
+        admin.rpc('aforo_efectivo', { p_sesion_id: p.sesionId }),
+        admin.from('reservas').select('id', { count: 'exact', head: true })
+          .eq('sesion_id', p.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+        admin.from('reservas').select('id', { count: 'exact', head: true })
+          .eq('sesion_id', p.sesionId).eq('estado', 'LISTA_ESPERA'),
+      ]);
+      let spot: 'libre' | 'ocupado' | 'no-disponible' | null = null;
+      if (p.spotId) {
+        const { data: sp } = await admin.from('spots').select('id, activo').eq('id', p.spotId).eq('studio_id', p.studioId).maybeSingle();
+        if (!sp || sp.activo === false) spot = 'no-disponible';
+        else {
+          const { count } = await admin.from('reservas').select('id', { count: 'exact', head: true })
+            .eq('sesion_id', p.sesionId).eq('spot_id', p.spotId).in('estado', ['CONFIRMADA', 'ASISTIDA']);
+          spot = (count ?? 0) > 0 ? 'ocupado' : 'libre';
+        }
+      }
+      return decidirPlazaInvitadaSinFicha({
+        requiereAprobacion, aforo: typeof aforo === 'number' ? aforo : null, ocupadas: ocupadas ?? 0,
+        permiteListaEspera, spot, enEspera: enEspera ?? 0,
+      });
+    }
+
+    const evaluar = async (opciones: Record<string, unknown>): Promise<EvaluacionPlaza> => {
+      const { data, error } = await admin.rpc('evaluar_reserva', {
+        p_studio_id: p.studioId, p_sesion_id: p.sesionId, p_socio_id: socioId, p_opciones: opciones,
+      });
+      if (error) throw new Error(`evaluar_reserva: ${error.message}`);
+      return data as EvaluacionPlaza;
+    };
+    const [conDerecho, paraReservar, topes] = await Promise.all([
+      evaluar({ exigir_entitlement: true, saltar_gate_impago: false, permite_lista_espera: permiteListaEspera, spot_id: p.spotId ?? null }),
+      evaluar({ exigir_entitlement: false, saltar_gate_impago: false, permite_lista_espera: permiteListaEspera, spot_id: p.spotId ?? null, requiere_aprobacion: false }),
+      topesDeReservaTS(admin, {
+        studioId: p.studioId, socioId, sesionId: p.sesionId, inicioISO: ses.inicio as string,
+        maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+      }),
+    ]);
+    return decidirPlazaAntesDeCobrar({
+      requiereAprobacion, conDerecho, paraReservar, topes: topes?.excede ?? null, invitadaConFicha,
+    });
+  } catch (e) {
+    // Sin poder comprobarlo, NO se cobra: «no te hemos cobrado nada» es verdad.
+    capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'cobros', paso: 'plaza-antes-de-cobrar' } });
+    return { ok: false, codigo: 'error', error: MENSAJES_PLAZA.error };
+  }
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
@@ -2705,19 +2897,10 @@ export async function crearReservaPublica(params: {
   // Lo que se le pide a la RPC. `false` salvo que se exija plan Y haya algo que
   // comprar (`exigePlanAlReservar`). Si no se exige plan, ni se leen las tarifas.
   let exigirPlanEnRpc = false;
-  if (exigirPlanResuelto || pol.maxSimultaneas != null) {
-    const [{ data: susRows }, { data: planRows, error: errorPlanes }, { data: resRows }, { data: sesRows }] = await Promise.all([
+  if (exigirPlanResuelto) {
+    const [{ data: susRows }, { data: planRows, error: errorPlanes }] = await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
-      admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
-      // Solo futuras: contarReservasActivasFuturas() de abajo solo mira sesiones
-      // por venir. Sin este filtro, select('*') sin paginar traía TODO el
-      // histórico del estudio y PostgREST lo cortaba en 1000 filas — un estudio
-      // con meses de uso podía perder sesiones futuras del corte y contar mal
-      // el máximo de reservas simultáneas.
-      // `cancelada` hace falta: contarReservasActivasFuturas descuenta las
-      // clases canceladas, y sin la columna no podría distinguirlas.
-      admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
     // RES-4: El gate de entitlement se ha movido DENTRO de la RPC (dentro del
     // lock transaccional). La RPC devuelve SIN_ENTITLEMENT si falla la
@@ -2747,56 +2930,27 @@ export async function crearReservaPublica(params: {
         ? { error: ERROR_BONO_NO_CUBRE, codigo: 'bono-no-cubre' as const }
         : { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
     }
-    if (pol.maxSimultaneas != null) {
-      const activas = contarReservasActivasFuturas(
-        params.socioId,
-        (resRows ?? []).map(mapReserva),
-        // `cancelada` DEBE propagarse: si se queda fuera del map llega como
-        // undefined y el filtro de clases canceladas de
-        // contarReservasActivasFuturas es inerte (el campo es opcional, así
-        // que TypeScript no avisa). Este es el camino del widget público.
-        (sesRows ?? []).map(r => ({
-          id: r.id as string, inicio: r.inicio as string,
-          cancelada: (r.cancelada as boolean | null) ?? false,
-        })),
-        new Date(),
-      );
-      if (activas >= pol.maxSimultaneas) {
-        registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
-        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const, codigo: 'max-simultaneas' as const };
-      }
-    }
   }
 
-  // Tope de clases al día (studios.reserva_max_por_dia; NULL = sin tope). Solo
-  // aquí, en la reserva de la propia alumna: el mostrador decide por su cuenta, y
-  // la reserva tras pagar sin cuenta (`reservarPlazaTrasPagoPublico`) no puede
-  // rechazar ya cobrada. Fuera del candado de `reservar_plaza`, como el máximo a
-  // la vez: dos pestañas a la vez podrían colarse, aceptado igual que allí.
-  if (pol.maxPorDia != null) {
-    const dia = diaEnEstudio(inicioISO);
-    const { data: sesDia, error: errSesDia } = await admin
-      .from('sesiones').select('id, inicio, cancelada')
-      .eq('studio_id', params.studioId)
-      .gte('inicio', inicioDelDiaEstudio(dia)).lt('inicio', finDelDiaEstudio(dia));
-    const ids = (sesDia ?? []).map(s => s.id as string);
-    const { data: resDia, error: errResDia } = ids.length === 0 ? { data: [], error: null } : await admin
-      .from('reservas').select('socio_id, sesion_id, estado')
-      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).in('sesion_id', ids);
-    if (errSesDia || errResDia) {
-      // Sin poder contar no se inventa un «ya tienes una»: se deja pasar y se ve.
-      capturarExcepcion(new Error(`maxPorDia: ${(errSesDia ?? errResDia)?.message}`), { tags: { area: 'reservas' } });
-    } else {
-      const tiene = contarClasesDelDia(
-        params.socioId,
-        { id: params.sesionId, inicio: inicioISO },
-        (resDia ?? []).map(r => ({ socioId: r.socio_id as string, sesionId: r.sesion_id as string, estado: r.estado as EstadoReserva })),
-        (sesDia ?? []).map(s => ({ id: s.id as string, inicio: s.inicio as string, cancelada: (s.cancelada as boolean | null) ?? false })),
-      );
-      if (tiene >= pol.maxPorDia) {
-        registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_POR_DIA' });
-        return { error: mensajeMaxPorDia(tiene, pol.maxPorDia, inicioISO), codigo: 'max-por-dia' as const };
-      }
+  // Los topes de reservas a la vez y por día (studios.reserva_max_simultaneas /
+  // reserva_max_por_dia). Solo aquí, en la reserva de la propia alumna: el
+  // mostrador decide por su cuenta, y la reserva tras pagar
+  // (`reservarPlazaTrasPagoPublico`) no puede rechazar ya cobrada — por eso el
+  // cobro de una clase los mira ANTES de cobrar, con esta MISMA función
+  // (`comprobarPlazaAntesDeCobrar`). Un solo dueño. Fuera del candado de
+  // `reservar_plaza`: dos pestañas a la vez podrían colarse, aceptado.
+  {
+    const tope = await topesDeReservaTS(admin, {
+      studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, inicioISO,
+      maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+    });
+    if (tope?.excede === 'max-simultaneas') {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
+      return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const, codigo: 'max-simultaneas' as const };
+    }
+    if (tope?.excede === 'max-por-dia') {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_POR_DIA' });
+      return { error: mensajeMaxPorDia(tope.tiene, tope.tope, inicioISO), codigo: 'max-por-dia' as const };
     }
   }
 
@@ -3181,6 +3335,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
   studioId: string; sesionId: string; socioId: string; paymentIntentId: string;
   /** "Elige tu plaza" — sitio concreto que se pagó, si la sala tiene mapa. */
   spotId?: string | null;
+  /**
+   * P06 · Fase A: la suscripción que entregó ESTE pago. La reserva gasta esa y no la
+   * que elegiría la regla general (con un bono viejo que caduca antes, se gastaba el
+   * viejo y el recién pagado quedaba intacto). Migr 20261006052831.
+   */
+  suscripcionEntregadaId?: string | null;
 }): Promise<
   | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
   | {
@@ -3226,7 +3386,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
   const consumibleBono = await resolverBonoParaSesion(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
   });
-  const { data, error } = await admin.rpc('reservar_plaza', {
+  const llamarReserva = (consumir: string | null) => admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
@@ -3247,7 +3407,16 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
     // transacción que confirma la plaza.
     p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
+    ...(consumir ? { p_consumir_suscripcion_id: consumir } : {}),
   });
+  const entregada = params.suscripcionEntregadaId ?? null;
+  let { data, error } = await llamarReserva(entregada);
+  if (error && entregada && error.code === 'PGRST202') {
+    // La migración aún no está aplicada: la firma nueva no existe. La reserva de
+    // siempre (gasta lo que elija la regla general) antes que dejarla sin plaza.
+    reportDbError('[reservarPlazaTrasPagoPublico] reservar_plaza sin p_consumir_suscripcion_id: falta la migración 20261006052831', error);
+    ({ data, error } = await llamarReserva(null));
+  }
   if (error) {
     // YA_RESERVADA quiere decir «esta socia ya tiene una reserva viva en esta
     // clase» (`evaluar_reserva`), y hay DOS formas de llegar aquí:

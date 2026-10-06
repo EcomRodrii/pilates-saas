@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -23,7 +23,9 @@ import { pagarRenovacion, renovarPlan } from '@/lib/student/pagos-acciones';
 import { euros } from '@/lib/student/formato';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Ilustracion } from '@/components/student/ui/Ilustracion';
-import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
+import { clavePublicableStripe } from '@/lib/student/comprar';
+import { HojaPagarRecibo } from '@/components/student/domain/HojaPagarRecibo';
 import { compararPorElegibilidad, esCuota } from '@/lib/student/bono-cubre';
 import { CUOTA_EN_PAUSA } from '@/lib/student/pagos-acciones';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
@@ -41,11 +43,12 @@ function Bonos() {
 
   const cargar = useCallback(async () => {
     // Todo del MISMO payload cacheado: el héroe del bono, la cuota y «Si quieres más» no piden nada más.
-    const [bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos] = await Promise.all([
+    const [bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, d] = await Promise.all([
       getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug), getNombresTiposClase(estudio.slug),
-      getReservas(estudio.slug), getClases(estudio.slug), getPagos(estudio.slug), getProductosTienda(estudio.slug),
+      getReservas(estudio.slug), getClases(estudio.slug), getPagos(estudio.slug), getProductosTienda(estudio.slug), catalogo(estudio.slug),
     ]);
-    return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos };
+    // La cuenta de Stripe del estudio: con ella se paga DENTRO de la app (RECIBOS); sin ella, como siempre.
+    return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, stripeAccountId: d?.studio?.stripeAccountId ?? null };
   }, [estudio.slug]);
   const { data: cargado, estado, reintentar, refrescar } = useAsync(
     cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion,
@@ -72,6 +75,12 @@ function Bonos() {
   const [confirmando, setConfirmando] = useState(aviso?.comprobar === true);
   const yaTratado = useRef(false);
   const [renovando, setRenovando] = useState(false);
+  const router = useRouter();
+  // RECIBOS (6-oct-2026): el pago va dentro de la app, en una hoja con el Checkout de Stripe incrustado. Solo si el
+  // estudio tiene Stripe y la app la clave pública; si no, el enlace a la página de Stripe de siempre.
+  const stripeAccountId = cargado?.stripeAccountId ?? null;
+  const incrustado = !!stripeAccountId && !!clavePublicableStripe();
+  const [hojaPago, setHojaPago] = useState<null | { que: { reciboId: string } | { renovar: true }; titulo: string; importe: number | null }>(null);
 
   // B-1 (auditoría 24ª pasada): "Renovar en un toque" — prepara el recibo de
   // su plan más reciente y la lleva DIRECTA al mismo checkout que ya usa el
@@ -80,6 +89,7 @@ function Bonos() {
   // del `await` para que no se pueda pulsar dos veces mientras la red va y
   // vuelve (mismo motivo que el resto de escrituras de este portal).
   const renovar = useCallback(async () => {
+    if (incrustado) { setHojaPago({ que: { renovar: true }, titulo: 'Renovar mi plan', importe: null }); return; }
     setRenovando(true);
     const r = await renovarPlan(estudio.id);
     if (!r.ok) {
@@ -90,13 +100,14 @@ function Bonos() {
     // Redirección real a Stripe: no hay nada más que pintar aquí, así que no
     // se apaga `renovando` — la pantalla se sustituye por el checkout.
     window.location.href = r.url;
-  }, [estudio.id, toast]);
+  }, [estudio.id, toast, incrustado]);
 
   // «Pagar ahora» de su renovación pendiente: a ESE recibo, no a «Renovar mi
   // plan» (ver `pagarRenovacion`). Encendido antes del `await`: sin doble toque.
   const [pagando, setPagando] = useState(false);
   const pagar = useCallback(async () => {
     if (!renovacion) return;
+    if (incrustado) { setHojaPago({ que: { reciboId: renovacion.reciboId }, titulo: renovacion.concepto, importe: renovacion.importe }); return; }
     setPagando(true);
     const r = await pagarRenovacion(estudio.id, renovacion.reciboId);
     if (!r.ok) {
@@ -105,7 +116,7 @@ function Bonos() {
       return;
     }
     window.location.href = r.url;
-  }, [estudio.id, renovacion, toast]);
+  }, [estudio.id, renovacion, toast, incrustado]);
 
   useEffect(() => {
     if (yaTratado.current || !aviso) return;
@@ -294,6 +305,20 @@ function Bonos() {
           </>
         )}
       </div>
+      {hojaPago && stripeAccountId && (
+        <HojaPagarRecibo
+          studioId={estudio.id}
+          stripeAccountId={stripeAccountId}
+          que={hojaPago.que}
+          titulo={hojaPago.titulo}
+          importe={hojaPago.importe}
+          onCerrar={() => setHojaPago(null)}
+          // El servidor ya leyó el recibo COBRADO: lo que cuelga de él (el plan, la renovación pendiente) ha cambiado.
+          onPagado={() => { invalidarCatalogo(estudio.slug, { conservarVistas: true }); void refrescar(); }}
+          onSesionCaducada={() => router.push(href('/acceso/login'))}
+          enlaceEstudio={href('/mensajes')}
+        />
+      )}
     </StudentShell>
   );
 }

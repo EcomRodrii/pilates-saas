@@ -4,7 +4,7 @@ import { nombreCreditos } from '@/lib/creditos-nombre';
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
@@ -17,6 +17,8 @@ import { catalogo } from '@/lib/student/catalogo';
 import { avisoCancelacion, disponibilidad } from '@/lib/student/maquina-reserva';
 import { horaFin, hoyISO } from '@/lib/student/formato';
 import { textoPagoCorto } from '@/lib/student/como-se-paga';
+import { sinBonoDeClase } from '@/lib/student/como-viene-sin-bono';
+import { clavePublicableStripe } from '@/lib/student/comprar';
 import { comoVienes } from '@/lib/student/como-vienes';
 import {
   antetituloClase, consultaMapa, textoCancelacion, textoCreditosAlAsistir, textoCuando, textoDonde, textoPlazas,
@@ -40,6 +42,9 @@ import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
 import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { ComoVienes } from '@/components/student/domain/ComoVienes';
+import { OpcionesDeClaseLista } from '@/components/student/domain/OpcionesDeClaseLista';
+import { HojaPagarYReservar } from '@/components/student/domain/HojaPagarYReservar';
+import { configLegalDe } from '@/lib/legal-textos';
 import { CompartirClase, InvitarAClaseFila } from '@/components/student/domain/CompartirClase';
 import { formasDeGanar, premioPorInvitar } from '@/lib/student/gamificacion';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
@@ -74,6 +79,11 @@ export default function FichaClasePage() {
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
   const [verInstructora, setVerInstructora] = useState(false);
+  // P06 · Fase A: la hoja de pagar y reservar ESTA clase (con el sitio que eligió en la hoja de reserva).
+  const [pagar, setPagar] = useState<{ spotId: string | null } | null>(null);
+  // `?reservar=1`: la vuelta desde la tienda tras comprar el bono PARA esta clase (solo cuando el servidor ya confirmó
+  // la compra, HojaCompra). Abre la hoja; reservar sigue siendo un toque suyo.
+  const reservarAlVolver = useSearchParams().get('reservar') === '1';
 
   const cargar = useCallback(async () => {
     // `getClases` sale del MISMO payload que `getClase`: la ficha de la
@@ -95,6 +105,14 @@ export default function FichaClasePage() {
       // Cómo premia el estudio (sus reglas activas): la fila de invitar dice lo que gana, o no sale.
       formasDeGanar: formasDeGanar(payload?.rewardRules ?? []),
       planesTarifa: payload?.planesTarifa ?? [],
+      // ¿Puede pagar aquí? Cuenta conectada del estudio (la clave pública se mira al pintar).
+      stripeAccountId: payload?.studio?.stripeAccountId ?? null,
+      // Las condiciones del estudio SOLO si las reescribió (el mismo criterio que la tienda y que el servidor,
+      // `exigeAceptacionExplicita`): entonces hay que aceptarlas antes de cobrar.
+      textosLegales: (() => {
+        const s2 = payload?.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | undefined;
+        return s2?.politicaPrivacidad || s2?.terminosServicio ? configLegalDe(payload?.studio, payload?.studio) : null;
+      })(),
       nombresTipo: Object.fromEntries((payload?.tiposClase ?? []).map((t) => [t.id, t.nombre])) as Record<string, string>,
     };
   }, [estudio.slug, claseId]);
@@ -104,7 +122,7 @@ export default function FichaClasePage() {
   // Tras confirmar relee con `refrescar` (sin esqueleto): con `reintentar` el esqueleto desmontaba la hoja a mitad de la
   // celebración. Una hoja a la vez: al abrir esta se cierra la de la instructora.
   const cerrarInstructora = useCallback(() => setVerInstructora(false), []);
-  const hoja = useHojaReserva({ slug: estudio.slug, studioId: estudio.id, online, onCambio: refrescar, alCambiarDeEstado: cerrarInstructora });
+  const hoja = useHojaReserva({ slug: estudio.slug, studioId: estudio.id, online, onCambio: refrescar, alCambiarDeEstado: cerrarInstructora, abiertaAlEmpezar: reservarAlVolver });
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
@@ -165,9 +183,13 @@ export default function FichaClasePage() {
 
   const huecos = huecosDeClase(data?.spots, data?.aforoReservas, clase.salaId, clase.id);
   const hoy = hoyISO();
+  // Sin nada que la cubra: cuál de los cuatro casos es (P01). Con la misma regla de «exigir plan» que el servidor.
+  const sinBono = !bono
+    ? sinBonoDeClase(clase, data?.planesTarifa, !!data?.stripeAccountId && !!clavePublicableStripe())
+    : null;
   const vienes = comoVienes({
     clase, bonos: data?.bonos ?? [], disp, reservas: data?.reservas ?? [], yaNoSeReserva,
-    planesTarifa: data?.planesTarifa, nombresTipo: data?.nombresTipo ?? {}, hoy,
+    planesTarifa: data?.planesTarifa, nombresTipo: data?.nombresTipo ?? {}, hoy, sinBono: sinBono?.caso ?? null,
   });
   const donde = textoDonde(estudio, clase.sala);
   // «Cómo llegar» abre Mapas con la MISMA búsqueda que la tarjeta de Inicio (`consultaMapa`). Sin dirección no se pinta.
@@ -232,7 +254,11 @@ export default function FichaClasePage() {
               reservarla; eso lo decide el servidor (crearReservaPublica). */}
           {suave && <p style={{ fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{suave}</p>}
 
-          <ComoVienes vista={vienes} />
+          <ComoVienes vista={vienes} claseId={clase.id} />
+          {/* Las 2-3 formas de venir pagando aquí, con su precio (bloque de dinero, P01/P02). Solo si se puede pagar. */}
+          {sinBono?.caso.caso === 'PAGA_AQUI' && !yaNoSeReserva && (
+            <OpcionesDeClaseLista opciones={sinBono.opciones.opciones} />
+          )}
 
           <div className="card" style={{ padding: '2px 16px' }}>
             <FilaDato icono="calendario" fila="cuando">{textoCuando(clase, hoy)}</FilaDato>
@@ -338,7 +364,28 @@ export default function FichaClasePage() {
         huecos={huecos}
         yaEmpezo={empezada}
         contexto="ficha"
+        sinBono={sinBono?.caso ?? null}
+        onVerOpciones={(spotId) => { hoja.cerrar(); setPagar({ spotId }); }}
       />
+
+      {pagar && (
+        <HojaPagarYReservar
+          studioId={estudio.id}
+          socioId={data?.socioId ?? null}
+          clase={{ id: clase.id, nombre: clase.nombre, fecha: clase.fecha, hora: clase.hora }}
+          spotId={pagar.spotId}
+          planes={data?.planesTarifa ?? []}
+          stripeAccountId={data?.stripeAccountId ?? null}
+          textosLegales={data?.textosLegales ?? null}
+          onCerrar={() => setPagar(null)}
+          onReservada={() => void refrescar()}
+          onSesionCaducada={() => router.push(href('/acceso/login'))}
+          onSegundoPaso={() => router.push(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(href(`/reservar/${clase.id}`))}`)}
+          hrefPagos={href('/pagos')}
+          hrefMisReservas={href('/mis-reservas')}
+          hrefMensajes={href('/mensajes')}
+        />
+      )}
     </StudentShell>
   );
 }

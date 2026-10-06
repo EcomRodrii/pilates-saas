@@ -90,8 +90,10 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 
 test('checkout-embebido crea el cobro con los parámetros de este módulo, sin nada del reloj por en medio', () => {
   const s = sinComentarios(leer('app/api/public/checkout-embebido/route.ts'));
-  assert.match(s, /const parametros = parametrosPaymentIntentEmbebido\(datosCompra\);/);
+  // `let`: con un Customer de otra cuenta de Stripe se cobra sin él (P06), con otra clave.
+  assert.match(s, /let parametros = parametrosPaymentIntentEmbebido\(datosCompra\);/);
   assert.match(s, /stripe\.paymentIntents\.create\(parametros, \{ stripeAccount, idempotencyKey: clave \}\)/);
+  assert.match(s, /stripe\.paymentIntents\.create\(parametros, \{ stripeAccount, idempotencyKey: `\$\{clave\}:sin-cliente` \}\)/);
   const desde = s.indexOf('const datosCompra: DatosCompraEmbebida = {');
   assert.ok(desde > 0);
   const bloque = s.slice(desde, s.indexOf('};', desde));
@@ -161,7 +163,8 @@ test('Modo A (Checkout hospedado): lo del formulario tampoco va al crear la sesi
   }
   const crea = s.indexOf('= await crearSesion(claveSesion);');
   const update = s.indexOf('await stripe.checkout.sessions.update(session.id, { metadata: recortarMetadata(metadataVolatil) }', crea);
-  const responde = s.lastIndexOf('NextResponse.json({ url: session.url })');
+  // La respuesta sale de `responderSesion` (el enlace, o lo que monta la app incrustada).
+  const responde = s.lastIndexOf('return responderSesion(session);');
   assert.ok(crea > 0 && update > crea && responde > update);
   // La descripción de una compra de plan no lleva el nombre del formulario.
   assert.match(s, /description: body\.reciboId && body\.socioNombre \? `Tentare · \$\{body\.socioNombre\}` : 'Tentare'/);

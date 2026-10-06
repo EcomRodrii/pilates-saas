@@ -35,7 +35,7 @@ function origenDelPago(origenTentare: string | undefined): string {
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
-  onProcesando, importeTotal, textosLegales, origenTentare,
+  onProcesando, importeTotal, textosLegales, origenTentare, customerSessionClientSecret,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -145,6 +145,12 @@ export function CheckoutEmbebido({
    * garantizar que coincidan. Opcional: sin pasarlo, se comporta como siempre.
    */
   importeTotal?: number;
+  /**
+   * P16 (6-oct-2026): la sesión de cliente de Stripe que deja enseñar las tarjetas que la alumna aceptó guardar
+   * («Guárdala para la próxima», que Stripe pinta desmarcada). Solo la da el servidor a la app de la alumna con su
+   * sesión, nunca a la web de un estudio. Opcional y aditiva: /reservar y el widget no la pasan y no cambian.
+   */
+  customerSessionClientSecret?: string | null;
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -255,6 +261,7 @@ export function CheckoutEmbebido({
   // pago justo en el momento más sensible del flujo (tecleando la tarjeta).
   const elementsOptions = useMemo(() => ({
     clientSecret,
+    ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
     locale: 'es' as const,
     // Ver el docblock de `fuentePago`: dentro del iframe de Stripe ni
     // existen las custom properties ni están cargadas nuestras fuentes.
@@ -300,7 +307,7 @@ export function CheckoutEmbebido({
         '.TermsText': { color: t.muted, fontSize: '11.5px' },
       },
     },
-  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, colorPeligro, fuenteCheckout, radioInput]);
+  }), [clientSecret, customerSessionClientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, colorPeligro, fuenteCheckout, radioInput]);
 
   if (!stripePromise || stripeKo) {
     return (

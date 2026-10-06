@@ -20,7 +20,12 @@ export type EstadoPagoPublico =
   // tenía. Antes salía «fallida» («no hemos podido asignarte la plaza») a quien
   // SÍ tenía plaza.
   | 'ya_tenia_plaza'
-  | 'fallida';
+  | 'fallida'
+  // P06 · Fase A (6-oct-2026): el pago tiene su fila en `pagos_clase` y el servidor ya
+  // decidió. `compensada`: el dinero está y la plaza no (o no la pagó este pago): la
+  // clase queda a su favor en lo que compró. `reembolsada`: el estudio le devolvió el dinero.
+  | 'compensada'
+  | 'reembolsada';
 
 export type ReservaPrevia = 'confirmada' | 'lista_espera' | 'pendiente_aprobacion';
 
@@ -29,6 +34,107 @@ export interface RespuestaEstadoPago {
   clase?: { nombre: string; inicio: string };
   /** Solo con `ya_tenia_plaza`: lo que ya tenía en la clase. */
   previa?: ReservaPrevia;
+  /**
+   * Solo con la sesión de la socia (Bearer): lo que este pago le ha entregado.
+   * Existe en cuanto el servidor ha creado la suscripción `sus-web-…` del pago,
+   * o sea cuando el bono YA está en su cuenta — no cuando Stripe dice que cobró.
+   * Es lo único que deja a la app decir «tu bono está activo» (P01).
+   */
+  compra?: CompraEntregada;
+  /**
+   * Solo con la sesión de la socia y `?reciboId=` (RECIBOS · pagar un recibo desde
+   * la app): en qué situación está SU recibo, leída con `situacionRecibo`. «Pagado»
+   * solo cuando dice COBRADO; la renovación, hasta cuándo deja su plan.
+   */
+  recibo?: { situacion: string; renovadoHasta?: string | null };
+  /**
+   * Con `compensada`: por qué, si va en la lista de espera (y en qué puesto, el real),
+   * y lo que tiene a su favor. Sin sesión (modo email) solo `motivo` y `enEspera`.
+   */
+  compensacion?: {
+    motivo: string; enEspera: boolean; posicion?: number | null;
+    bono?: { nombre: string; sesionesRestantes: number | null; fechaFin: string | null } | null;
+    estudioAvisado?: boolean;
+  };
+}
+
+/** La fila de `pagos_clase` de un pago, lo que hace falta para decir la verdad. */
+export interface FilaPagoParaEstado {
+  estado: string;
+  motivo: string | null;
+  aviso_estudio_en?: string | null;
+}
+
+/**
+ * La tabla de verdad de un pago de clase (P06). Manda la RESERVA: si la `res-web` está
+ * CONFIRMADA o ASISTIDA, es «confirmada» siempre (lo demás pudo quedarse atrás). Si no,
+ * la fila: COMPENSADA → «compensada»; REEMBOLSADA → «reembolsada». Cualquier otra cosa
+ * (ABIERTO, PAGADO, sin fila): lo de siempre, que decide `resolverEstadoPago`.
+ */
+export function estadoConPagoDeClase(
+  estadoReserva: string | null | undefined,
+  fila: FilaPagoParaEstado | null | undefined,
+): 'confirmada' | 'compensada' | 'reembolsada' | null {
+  if (estadoReserva === 'CONFIRMADA' || estadoReserva === 'ASISTIDA') return 'confirmada';
+  if (fila?.estado === 'COMPENSADA') return 'compensada';
+  if (fila?.estado === 'REEMBOLSADA') return 'reembolsada';
+  return null;
+}
+
+/**
+ * /reservar (sin sesión) conoce los estados de siempre: «compensada» en espera se le
+ * enseña como la lista de espera, y sin plaza como «fallida» (el estudio la llamará,
+ * que es la verdad: tiene el aviso). La versión mínima del diseño.
+ */
+export function estadoParaReservarPublico(r: Pick<RespuestaEstadoPago, 'estado' | 'compensacion'>): EstadoPagoPublico {
+  if (r.estado === 'compensada') return r.compensacion?.enEspera ? 'lista_espera' : 'fallida';
+  if (r.estado === 'reembolsada') return 'fallida';
+  return r.estado;
+}
+
+/** Forma de un id de recibo que se acepta en la URL (los de la casa: letras, números y guiones). */
+export function reciboIdValido(id: string | null | undefined): id is string {
+  return !!id && /^[A-Za-z0-9_-]{1,120}$/.test(id);
+}
+
+/** Lo que entregó el pago, leído de la suscripción que creó el servidor. */
+export interface CompraEntregada {
+  entregada: true;
+  /** Nombre del plan comprado. */
+  plan: string;
+  /** Sesiones que le quedan; `null` = ilimitado (una cuota). */
+  sesionesRestantes: number | null;
+  /** Hasta cuándo vale (YYYY-MM-DD), si caduca. */
+  fechaFin: string | null;
+}
+
+/**
+ * La suscripción que creó la entrega, traducida. `null` si todavía no existe
+ * (el webhook no ha llegado) o no es una suscripción viva: un bono cancelado
+ * (reembolso) no se anuncia como «activo».
+ */
+export function compraDeSuscripcion(
+  sus: { estado?: string | null; sesiones_restantes?: number | null; fecha_fin?: string | null } | null | undefined,
+  nombrePlan: string | null | undefined,
+): CompraEntregada | null {
+  if (!sus || sus.estado !== 'ACTIVA') return null;
+  return {
+    entregada: true,
+    plan: nombrePlan?.trim() || 'Tu bono',
+    sesionesRestantes: typeof sus.sesiones_restantes === 'number' ? sus.sesiones_restantes : null,
+    fechaFin: sus.fecha_fin ?? null,
+  };
+}
+
+/**
+ * Cómo se identifica quien pregunta. Con cabecera `Authorization` es la app de
+ * la alumna y se la identifica SOLO por su sesión: un Bearer que no vale nunca
+ * cae a la comprobación por email (sería una puerta trasera: quien conoce el pi
+ * y el email de otra preguntaría como invitada). Sin cabecera, el modo email de
+ * siempre (/reservar sin cuenta).
+ */
+export function modoDeIdentidad(authorization: string | null | undefined): 'sesion' | 'email' {
+  return authorization && authorization.trim() ? 'sesion' : 'email';
 }
 
 // El cliente guarda el clientSecret (`pi_xxx_secret_yyy`); el id del

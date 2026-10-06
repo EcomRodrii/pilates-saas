@@ -145,6 +145,8 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
     // El teléfono viaja al servidor (antes se validaba y se TIRABA — la
     // ficha creada por el webhook quedaba sin él).
     socioTelefono: '+34 600 123 456',
+    // La casilla marcada viaja al servidor, que la exige con clase concreta (P06).
+    aceptaCondiciones: true,
   });
 
   // Sin socioId: nunca se manda una identidad que la visitante no tiene todavía.
@@ -202,6 +204,28 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
   await expect(page.getByText('Esta clase ya ha empezado')).toBeVisible();
   // Reintentable: el botón no se queda inerte tras el fallo.
   await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeEnabled();
+});
+
+test('⚠️ la clase se ha llenado antes de cobrar (409 del servidor): lo dice, y no se monta ningún pago', async ({ page }) => {
+  // P06 · Fase A: el servidor comprueba la plaza ANTES de crear el cobro. Si se ha llenado, 409 sin
+  // nada creado, y la pantalla lo dice con su texto («no te hemos cobrado nada»), sin paso de pago.
+  await abrirClaseSinSesion(page);
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
+  let intentos = 0;
+  await page.route('**/api/public/checkout-embebido', (r) => {
+    intentos += 1;
+    return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({
+      error: 'Esta clase se acaba de llenar. No te hemos cobrado nada.', codigo: 'llena-con-espera', posicionEspera: 1,
+    }) });
+  });
+  await page.getByPlaceholder('Nombre y apellido').fill('Marta Ruiz');
+  await page.getByPlaceholder('Email').fill('marta.ruiz@example.com');
+  await page.getByPlaceholder('Móvil').fill('+34 600 123 456');
+  await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
+  await page.getByRole('button', { name: /Continuar al pago/ }).click();
+  await expect(page.getByText('Esta clase se acaba de llenar. No te hemos cobrado nada.')).toBeVisible({ timeout: 15_000 });
+  expect(intentos, 'el pago no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Pagar 18 € y reservar' })).not.toBeVisible();
 });
 
 test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantalla', async ({ page }) => {

@@ -172,6 +172,13 @@ export interface Clase {
   precioSuelto: number;     // € si no hay bono
   /** `true` si el estudio NO vende clases sueltas — distinto de «cuesta 0 €». */
   sinPrecioSuelto?: boolean;
+  /** El precio propio de la sesión (`sesiones.precio_puntual`), en crudo. `null` = el de su tarifa. */
+  precioPuntual?: number | null;
+  /**
+   * ¿Exige plan o bono para reservar esta clase? Ya resuelto como el servidor (tipo ?? estudio, y que haya algo que
+   * contratar). `null`/ausente = no se sabe: se reserva como siempre y decide el servidor.
+   */
+  exigePlan?: boolean | null;
   /**
    * Banner ancho de la cabecera. Hereda: tipo de clase → sala → portada del estudio → la por defecto de su familia
    * (`imagenDeClase`). Este comentario decía «sala → tipo → estudio»: el orden real es el de `proyectarClases`.

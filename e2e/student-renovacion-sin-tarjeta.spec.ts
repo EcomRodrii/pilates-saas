@@ -6,6 +6,9 @@ import { SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-l
 // se la enseña en Bonos con «Pagar ahora», que paga ESE recibo —no «Renovar mi
 // plan», que elige la suscripción activa más reciente— y guarda la tarjeta.
 // Cada camino que escribe lleva su contador: un test de fallo sin él es hueco.
+//
+// Aquí, el estudio SIN Stripe conectado en el payload: el pago sale a la página de Stripe (hospedado),
+// como siempre. Con Stripe, el pago va dentro de la app (Checkout incrustado): student-pagar-recibo.spec.ts.
 
 const base = `/portal/${SLUG}`;
 

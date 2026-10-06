@@ -2,10 +2,12 @@ import { sesionWidgetValida } from '@/lib/reservar/compra-en-embudo';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
+import { usoFuturoCheckoutHospedado } from '@/lib/billing/uso-futuro-tarjeta';
+import { cerrarPagoDeClaseAbierto } from '@/lib/billing/pago-de-clase-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
-import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
 import { ofrecerBizum } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
@@ -14,8 +16,9 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import {
-  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, MENSAJE_COMPRA_YA_PAGADA,
-  MENSAJE_SESION_PREVIA_SIN_COMPROBAR, queHacerConSesionRepetida, type PeticionCheckout,
+  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, expiraSesionIncrustada,
+  MENSAJE_COMPRA_YA_PAGADA, MENSAJE_SESION_PREVIA_SIN_COMPROBAR, queHacerConSesionRepetida, respuestaIncrustada,
+  type PeticionCheckout,
 } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
@@ -34,7 +37,12 @@ import {
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { cierreDeReserva, comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { caducidadCheckoutDeClase } from '@/lib/billing/bizum-clase';
+import { IMPORTE_MINIMO_EUR, tienePrecioEspecial } from '@/lib/reservar/opciones-de-clase';
+import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
+import type { RowPlanesTarifa } from '@/lib/db-types';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
@@ -167,10 +175,28 @@ export async function POST(req: NextRequest) {
     codigoPostal?: string | null;
     /** ISO `yyyy-mm-dd`. */
     fechaNacimiento?: string | null;
+    /**
+     * RECIBOS (6-oct-2026): `'incrustado'` = la app de la alumna paga el recibo SIN
+     * salir (Checkout de Stripe incrustado). Solo para un recibo, solo la titular con
+     * su sesión, sin Bizum, y la respuesta es `{ clientSecret, checkoutSessionId }` en
+     * vez de `{ url }`. Sin él, todo como siempre (panel, enlaces, web).
+     */
+    modo?: string;
   } | null;
 
   if (!body?.studioId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
+  }
+  const incrustado = body.modo === 'incrustado';
+  // P16: el checkout incrustado se monta en el navegador con la publicable: las dos claves del mismo modo.
+  if (incrustado && !comprobarParDeClaves().ok) {
+    console.error('[stripe/checkout]', (comprobarParDeClaves() as { motivo?: string }).motivo);
+    return conCorsWidget(req, NextResponse.json({ error: 'El pago no está disponible ahora mismo. No se te ha cobrado nada.' }, { status: 503 }));
+  }
+  // El incrustado es solo para pagar un recibo que ya existe: una compra de plan
+  // incrustada va por /api/public/checkout-embebido (Payment Element).
+  if (incrustado && !body.reciboId) {
+    return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo a pagar' }, { status: 400 }));
   }
   // Normalizado UNA vez y el MISMO en la clave de idempotencia (`claveCheckoutPlanModoA`
   // ya lo normalizaba) y en los parámetros de la sesión (`customer_email`): con otras
@@ -235,6 +261,11 @@ export async function POST(req: NextRequest) {
   // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
   let tipoPlanCobrado: string | null = null;
+  // P16: si es el recibo de una RENOVACIÓN (para la regla de guardar la tarjeta).
+  let reciboEsRenovacion = false;
+  let reciboTieneSuscripcion = false;
+  // Con clase concreta (P06): cuándo caduca la sesión, sacado del cierre de la reserva de la clase.
+  let expiraPorClase: number | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
   // Lo que el formulario puede cambiar sin ser otro intento (teléfono, sitio, la
   // pestaña del widget, el `?ref=`…). NO va al crear la sesión: con la misma clave
@@ -331,12 +362,22 @@ export async function POST(req: NextRequest) {
     metadata.reciboId = body.reciboId;
     // PAY-3: sin exigir sesión (a diferencia de la rama de plan de abajo),
     // comprueba si la hay y si resuelve a la MISMA socia dueña del recibo.
+    let haySesion = false;
     if (socioId) {
       const usuarioRecibo = await verificarUsuarioSupabase(req);
       if (usuarioRecibo) {
+        haySesion = true;
         const socioIdDeSesion = await socioAutenticado(usuarioRecibo.userId, body.studioId);
         pagadorVerificado = !!socioIdDeSesion && socioIdDeSesion === socioId;
       }
+    }
+    // Incrustado = dentro de la app de la TITULAR: con su sesión y su recibo, o
+    // nada. Una sesión anónima no se monta en la app de nadie (PAY-3): quien solo
+    // conoce el reciboId sigue pudiendo pagarlo por el enlace de siempre.
+    if (incrustado && !pagadorVerificado) {
+      return conCorsWidget(req, haySesion
+        ? NextResponse.json({ error: 'Este recibo no es tuyo.' }, { status: 403 })
+        : NextResponse.json({ error: 'Tu sesión ha caducado. Vuelve a entrar: no se te ha cobrado nada.' }, { status: 401 }));
     }
     // ¿Es el recibo de una CUOTA? `entrega_tipo` se escribe DESPUÉS de cobrar,
     // así que un pendiente casi nunca lo trae y se mira el plan de su
@@ -344,6 +385,8 @@ export async function POST(req: NextRequest) {
     // `null`: sin Bizum.
     // El mismo helper que usa el mostrador (`/api/pos/recibo`): el 14-sep esta
     // resolución vivía solo aquí y el TPV ofrecía Bizum en cuotas.
+    reciboEsRenovacion = recibo.es_renovacion === true;
+    reciboTieneSuscripcion = !!recibo.suscripcion_id;
     tipoPlanCobrado = await tipoDePlanDelRecibo(admin, {
       entrega_tipo: (recibo.entrega_tipo as string | null) ?? null,
       suscripcion_id: (recibo.suscripcion_id as string | null) ?? null,
@@ -416,6 +459,12 @@ export async function POST(req: NextRequest) {
     const rechazoPrueba = await rechazoCompraPrueba(admin, {
       studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
       socioId, email: socioEmail, sesionId: body.sesionId,
+      // P07: una prueba abandonada en OTRA clase se cierra en Stripe (no bloquea); solo bloquea si se está pagando.
+      cerrarPagoAbierto: async (pagoClaseId: string) => {
+        const { data: est } = await admin.from('studios').select('stripe_account_id').eq('id', body.studioId!).maybeSingle();
+        const cuenta = (est?.stripe_account_id as string | null | undefined) ?? null;
+        return cuenta ? cerrarPagoDeClaseAbierto(admin, stripe, cuenta, body.studioId!, pagoClaseId) : 'no-se-sabe';
+      },
     });
     if (rechazoPrueba) {
       return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
@@ -483,7 +532,7 @@ export async function POST(req: NextRequest) {
         return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
       }
       const { data: sesion } = await admin
-        .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+        .from('sesiones').select('inicio, cancelada, tipo_clase_id, precio_puntual')
         .eq('id', body.sesionId).eq('studio_id', body.studioId).maybeSingle();
       if (!sesion) return conCorsWidget(req, NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 }));
       if (sesion.cancelada) return conCorsWidget(req, NextResponse.json({ error: 'Esta clase está cancelada' }, { status: 409 }));
@@ -503,6 +552,36 @@ export async function POST(req: NextRequest) {
       // porque la reserva tras el pago (`reservarPlazaTrasPagoPublico`) la rechaza.
       const ventana = await comprobarVentanaReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string });
       if (ventana) return conCorsWidget(req, NextResponse.json({ error: ventana.error, codigo: ventana.codigo }, { status: 409 }));
+      // Fase A (P06): una clase con precio propio distinto de su tarifa no se vende online.
+      const precioPuntual = sesion.precio_puntual as number | null;
+      if (typeof precioPuntual === 'number' && precioPuntual > 0) {
+        const { data: planRows } = await admin.from('planes_tarifa').select('*').eq('studio_id', body.studioId);
+        const planesEstudio = await hidratarTiposDePlanes(admin as never, body.studioId, ((planRows ?? []) as RowPlanesTarifa[]).map(mapPlanTarifa));
+        if (tienePrecioEspecial(precioPuntual, planDeClaseSuelta(planesEstudio, (sesion.tipo_clase_id as string | null) ?? null))) {
+          return conCorsWidget(req, NextResponse.json(
+            { error: 'Esta clase tiene un precio especial: resérvala en el estudio. No te hemos cobrado nada.', codigo: 'precio-especial' },
+            { status: 409 },
+          ));
+        }
+      }
+      // ¿Hay plaza para ella? Lo mismo que preguntará la reserva tras pagar, ANTES de reservar
+      // matrícula o crear la sesión de Stripe (P06 · Fase A).
+      const plazaClase = await comprobarPlazaAntesDeCobrar(admin, {
+        studioId: body.studioId, sesionId: body.sesionId, socioId, email: socioEmail, spotId: body.spotId ?? null,
+      });
+      if (!plazaClase.ok) {
+        return conCorsWidget(req, NextResponse.json(
+          { error: plazaClase.error, codigo: plazaClase.codigo, ...(plazaClase.posicionEspera != null ? { posicionEspera: plazaClase.posicionEspera } : {}) },
+          { status: plazaClase.codigo === 'error' ? 503 : 409 },
+        ));
+      }
+      // La sesión caduca cuando se cierra la reserva: pagada después, no habría plaza.
+      const caducidad = caducidadCheckoutDeClase(
+        await cierreDeReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string }),
+        Date.now(),
+      );
+      if (!caducidad.ok) return conCorsWidget(req, NextResponse.json({ error: caducidad.error, codigo: caducidad.codigo }, { status: 409 }));
+      expiraPorClase = caducidad.expiresAt;
     }
 
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout
@@ -540,6 +619,13 @@ export async function POST(req: NextRequest) {
 
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
+  }
+  // Por debajo de 0,50 € Stripe no cobra: se dice antes de crear nada (P06).
+  if (body.planId && !body.reciboId && importe < IMPORTE_MINIMO_EUR) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Ese importe es demasiado bajo para pagarlo online. Pide a tu estudio que te lo dé directamente.', codigo: 'importe-minimo' },
+      { status: 409 },
+    ));
   }
   if (socioId) metadata.socioId = socioId;
   // PAY-3: solo se marca cuando el JWT de esta petición resolvió a la MISMA
@@ -616,7 +702,8 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   const slugEstudio = studio.slug as string | null;
   const retorno = urlsDeRetorno({
-    origen: parsearOrigenPago(body.origen),
+    // La incrustada vive en la app de la alumna: su vuelta (si un método redirige) es su app.
+    origen: incrustado ? 'portal' : parsearOrigenPago(body.origen),
     appUrl,
     slug: slugEstudio,
     esCompraDePlan: !!body.planId && !body.reciboId,
@@ -662,7 +749,16 @@ export async function POST(req: NextRequest) {
   // Sin `bizum`, la sesión ofrece solo tarjeta y pide el guardado GLOBAL, que es
   // justo lo que la renovación necesita. Es la cerradura; las pantallas además
   // ocultan el botón (lib/billing/bizum-permitido.ts).
-  const conBizum = ofrecerBizum(body.bizum === true, tipoPlanCobrado);
+  // En la hoja incrustada no va Bizum: exige salir a la app del banco, y la hoja
+  // es justo para no salir. Quien quiera Bizum tiene el enlace de siempre.
+  const conBizum = !incrustado && ofrecerBizum(body.bizum === true, tipoPlanCobrado);
+  // P16: la tarjeta se guarda para cobros automáticos SOLO si hace falta (la cuota). Antes se pedía para todo.
+  const guardado = usoFuturoCheckoutHospedado({ tipoPlan: tipoPlanCobrado, esReciboDeRenovacion: reciboEsRenovacion, tieneSuscripcion: reciboTieneSuscripcion });
+  if (guardado.avisar) {
+    Sentry.captureMessage('[stripe/checkout] recibo de renovación con el tipo de plan sin saber: se guarda la tarjeta por si acaso', {
+      level: 'warning', tags: { area: 'cobros' }, extra: { studioId: body.studioId, reciboId: body.reciboId ?? null },
+    });
+  }
   // Pedir Bizum sin comprobar que la cuenta CONECTADA lo tiene `active` tumba
   // la sesión ENTERA (Stripe rechaza el `create` si cualquier método pedido
   // no está activo) -- también la tarjeta, que sí funcionaría. Confirmado en
@@ -698,7 +794,18 @@ export async function POST(req: NextRequest) {
   // cálculo que hace el webhook al comprobar el importe cobrado.
   // Quién pide esta sesión y cómo se enseña (hoy siempre la página de Stripe):
   // solo hereda la sesión abierta quien la abrió (ver `decidirSesionCheckout`).
-  const peticionCheckout: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
+  const peticionCheckout: PeticionCheckout = { modo: incrustado ? 'incrustado' : 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
+  // Lo que se devuelve de una sesión: el enlace, o lo que monta la app.
+  const responderSesion = (sesion: Stripe.Checkout.Session) => {
+    if (!incrustado) return conCorsWidget(req, NextResponse.json({ url: sesion.url }));
+    const r = respuestaIncrustada(sesion);
+    return conCorsWidget(req, r
+      ? NextResponse.json(r)
+      : NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo: no se te ha cobrado nada.' }, { status: 500 }));
+  };
+  // Un solo «ahora» para la clave y el `expires_at` de la incrustada: los dos salen
+  // del mismo minuto, y así dos peticiones del mismo intento mandan lo mismo.
+  const ahoraMs = Date.now();
   if (sesionAbiertaId) {
     // ⚠️ Si no se puede revisar ni cerrar la sesión guardada, NO se crea otra
     // (5-oct-2026). Antes un fallo aquí solo se anotaba y se seguía: con la sesión
@@ -721,8 +828,8 @@ export async function POST(req: NextRequest) {
     }
     if (previa) {
       const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout);
-      if (decision === 'reutilizar' && previa.url) {
-        return conCorsWidget(req, NextResponse.json({ url: previa.url }));
+      if (decision === 'reutilizar' && (incrustado ? previa.client_secret : previa.url)) {
+        return responderSesion(previa);
       }
       // Ya se pagó por esa sesión y el recibo aún no consta cobrado (el webhook
       // no ha llegado, o lo rechazó): otra sesión sería cobrarlo dos veces.
@@ -838,11 +945,12 @@ export async function POST(req: NextRequest) {
       customer_creation: 'always' as const,
       // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Es lo que
       // permite ofrecer Bizum y seguir pudiendo cobrar después.
-      payment_method_options: { card: { setup_future_usage: 'off_session' as const } },
+      // P16: solo cuando hay un cargo futuro (`usoFuturoCheckoutHospedado`).
+      ...(guardado.usoFuturo ? { payment_method_options: { card: { setup_future_usage: guardado.usoFuturo } } } : {}),
       payment_intent_data: {
         // Y el global cuando no hay Bizum, para no cambiar en nada el camino que
         // ya funcionaba (ver el comentario largo más arriba).
-        ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
+        ...(conBizum || !guardado.usoFuturo ? {} : { setup_future_usage: guardado.usoFuturo }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
         // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
         // session (Stripe no la copia). Sin el reciboId aquí, una devolución o
@@ -851,18 +959,33 @@ export async function POST(req: NextRequest) {
         ...(body.reciboId ? { metadata: { reciboId: body.reciboId, origen: 'tarjeta_recibo', studioId: body.studioId } } : {}),
       },
       metadata,
-      // A dónde vuelve la persona: lo resuelve `urlsDeRetorno` a partir de
-      // `origen` (lista blanca) + si es compra de plan. Antes esto asumía que
-      // todo lo que llevara `reciboId` lo iniciaba el estudio desde su panel, y
-      // dejaba a la socia que paga desde el portal en el login del staff.
-      success_url: retorno.successUrl,
-      cancel_url: retorno.cancelUrl,
+      ...(incrustado ? {
+        // La app: Stripe pinta el pago DENTRO de la hoja. Con tarjeta no sale de la
+        // app (`if_required`); solo un método con redirección vuelve a `return_url`,
+        // que lleva el recibo para que la pantalla COMPRUEBE antes de afirmar nada.
+        ui_mode: 'embedded_page' as const,
+        redirect_on_completion: 'if_required' as const,
+        return_url: `${retorno.successUrl}&session_id={CHECKOUT_SESSION_ID}`,
+        // 31 min desde el minuto de la clave (`expiraSesionIncrustada`): abandonada,
+        // caduca pronto y el conciliador suelta el recibo para su cobro de siempre.
+        expires_at: expiraSesionIncrustada(ahoraMs),
+      } : {
+        // A dónde vuelve la persona: lo resuelve `urlsDeRetorno` a partir de
+        // `origen` (lista blanca) + si es compra de plan. Antes esto asumía que
+        // todo lo que llevara `reciboId` lo iniciaba el estudio desde su panel, y
+        // dejaba a la socia que paga desde el portal en el login del staff.
+        success_url: retorno.successUrl,
+        cancel_url: retorno.cancelUrl,
+      }),
       locale: 'es',
       // Con plaza reservada la sesión caduca con ella (31 min): así Stripe
       // confirma el abandono con `checkout.session.expired` y la plaza vuelve.
       // Sale de la plaza, no de Date.now(): un reintento del mismo intento
       // manda los mismos parámetros y la idempotencia de Stripe no protesta.
       ...(plaza ? { expires_at: Math.floor(new Date(plaza.expiraEn).getTime() / 1000) } : {}),
+      // Con clase concreta y sin plaza de etapa: caduca al cerrarse la reserva de la clase
+      // (`caducidadCheckoutDeClase`, de la clase y no del reloj: misma clave, mismos parámetros).
+      ...(!plaza && !incrustado && expiraPorClase ? { expires_at: expiraPorClase } : {}),
     };
     // Cinturón además de los tirantes: la reutilización de arriba no cubre la
     // carrera de dos peticiones que entran ANTES de que ninguna haya llegado a
@@ -881,7 +1004,7 @@ export async function POST(req: NextRequest) {
       // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
       // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
       // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
-      ? claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout)
+      ? claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout, ahoraMs)
       : clavePlan
         // Con plaza de cupo, la clave lleva su intento: un intento liberado y
         // vuelto a reservar necesita otra sesión, no la caducada.
@@ -1043,7 +1166,7 @@ export async function POST(req: NextRequest) {
         const { data: ahora } = await admin.from('recibos').select('checkout_session_id')
           .eq('id', body.reciboId).eq('studio_id', body.studioId).maybeSingle();
         if (ahora?.checkout_session_id === session.id) {
-          return conCorsWidget(req, NextResponse.json({ url: session.url }));
+          return responderSesion(session);
         }
       }
       if (errGuardar || reciboDesaparecido) {
@@ -1076,7 +1199,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return conCorsWidget(req, NextResponse.json({ url: session.url }));
+    return responderSesion(session);
   } catch (err) {
     // Stripe ya tiene una sesión con ESTA clave y otros parámetros: el mismo
     // intento reabierto con datos distintos. Esa sesión sigue viva y la plaza de

@@ -24,7 +24,7 @@ export type ModoHoja = 'reservar' | 'espera';
  *  · `modoEnviado`: mientras envía, la hoja no pasa de «Confirma tu plaza» a «Clase llena» porque el aforo en vivo traiga
  *    su propia reserva.
  */
-export function useHojaReserva({ slug, studioId, online, onCambio, alCambiarDeEstado }: {
+export function useHojaReserva({ slug, studioId, online, onCambio, alCambiarDeEstado, abiertaAlEmpezar = false }: {
   slug: string;
   studioId: string;
   online: boolean;
@@ -32,8 +32,14 @@ export function useHojaReserva({ slug, studioId, online, onCambio, alCambiarDeEs
   onCambio?: () => unknown;
   /** Para cerrar otra hoja (la de la instructora) al abrir esta: una hoja a la vez. */
   alCambiarDeEstado?: () => void;
+  /**
+   * La hoja nace abierta («Confirma tu plaza»): la vuelta desde la tienda tras comprar el bono PARA esta clase
+   * (`?reservar=1`, solo cuando el servidor ya ha confirmado la compra). No reserva nada sola: abre la hoja, y
+   * confirmar sigue siendo un toque suyo.
+   */
+  abiertaAlEmpezar?: boolean;
 }) {
-  const [bk, setBk] = useState<BookingState>('idle');
+  const [bk, setBk] = useState<BookingState>(abiertaAlEmpezar ? 'reviewing' : 'idle');
   const [desenlace, setDesenlace] = useState<DesenlaceHoja | null>(null);
   const [modoEnviado, setModoEnviado] = useState<ModoHoja | null>(null);
   const enviando = useRef(false);
