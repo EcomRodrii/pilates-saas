@@ -141,3 +141,54 @@ test('la propia migración se verifica por el estado FINAL (RLS, privilegios, tr
     "position('tentare.ledger' in p.prosrc) > 0) <> 5", 'from public.ledger_conciliacion',
   ]) assert.ok(verificacion.includes(frag), `la verificación final no comprueba: ${frag}`);
 });
+
+// ── PR-14: revertir_compra_de_clase (migración `…_revertir_compra_de_clase.sql`) ─────────────
+// La sexta función que mueve saldo con contexto: devolver el dinero de una clase COMPENSADA retira
+// la suscripción que entregó el pago, solo si está intacta. Lo que HACE contra Postgres está en
+// `supabase/tests/rls-revertir-compra-de-clase.test.ts`.
+
+function migracionRevertir(): string {
+  const dir = join(raiz, 'supabase', 'migrations');
+  const nombre = readdirSync(dir).find(n => n.endsWith('_revertir_compra_de_clase.sql'));
+  assert.ok(nombre, 'no existe la migración de revertir_compra_de_clase');
+  return readFileSync(join(dir, nombre), 'utf8').replace(/^\s*--.*$/gm, '');
+}
+
+test('revertir_compra_de_clase: etiqueta su movimiento REVERSION_VENTA y limpia el contexto justo después', () => {
+  const c = cuerpoDe(migracionRevertir(), 'revertir_compra_de_clase');
+  const pone = c.search(/set_config\('tentare\.ledger', jsonb_build_object\(\s*'tipo', 'REVERSION_VENTA'/);
+  assert.ok(pone > 0, 'sin el contexto REVERSION_VENTA, el ledger lo anotaría como AJUSTE_SIN_CONTEXTO');
+  const update = c.indexOf('set sesiones_restantes = 0', pone);
+  const limpia = c.indexOf("set_config('tentare.ledger', '', true)", pone);
+  assert.ok(update > pone && limpia > update, 'el orden es: poner contexto, UPDATE del saldo, limpiar');
+});
+
+test('⚠️ revertir_compra_de_clase: «no se actualizó» se mira con la variable del RETURNING, no con `not found`', () => {
+  const c = cuerpoDe(migracionRevertir(), 'revertir_compra_de_clase');
+  const tras = c.slice(c.indexOf('returning s.sesiones_restantes into v_saldo_nuevo'));
+  assert.match(tras, /if v_saldo_nuevo is null then/);
+  assert.doesNotMatch(c, /if not found/, 'un PERFORM (el del contexto) también fija FOUND');
+});
+
+test('revertir_compra_de_clase: solo retira una suscripción INTACTA y solo actúa sobre un pago COMPENSADA', () => {
+  const c = cuerpoDe(migracionRevertir(), 'revertir_compra_de_clase');
+  for (const guarda of [
+    "if v_pago.estado <> 'COMPENSADA' then", 'for update', 'v_saldo <> v_sesiones_entregadas',
+    'rc.entrega_sesiones_despues', "dv.estado in ('DESCARTADA', 'ANULADA_REEMBOLSO_FALLIDO')",
+    "m.tipo = 'CONSUMO_BONO'", 'rv.bono_suscripcion_id = v_pago.suscripcion_id',
+    'and s.sesiones_restantes = v_saldo', "where pc.id = v_pago.id and pc.estado = 'COMPENSADA'",
+    "v_pago.reserva_id like 'res-web-%'", "r.estado in ('LISTA_ESPERA', 'PENDIENTE_APROBACION')",
+    'perform public.renumerar_lista_espera(v_res_sesion)', 'if not public.es_llamada_servicio() then',
+  ]) assert.ok(c.includes(guarda), `revertir_compra_de_clase perdió «${guarda}»`);
+});
+
+test('revertir_compra_de_clase: solo el servidor (los tres pasos y su verificación)', () => {
+  const sql = migracionRevertir();
+  for (const rol of ['public', 'anon', 'authenticated']) {
+    assert.match(sql, new RegExp(`revoke all on function public\\.revertir_compra_de_clase\\(text, text\\) from ${rol};`), rol);
+  }
+  assert.match(sql, /grant execute on function public\.revertir_compra_de_clase\(text, text\) to service_role, postgres;/);
+  const verificacion = sql.slice(sql.lastIndexOf('do $$'));
+  for (const rol of ['anon', 'authenticated', 'service_role']) assert.ok(verificacion.includes(`has_function_privilege('${rol}'`), rol);
+  assert.ok(verificacion.includes('REVERSION_VENTA'), 'la verificación comprueba que el ledger admite el tipo');
+});

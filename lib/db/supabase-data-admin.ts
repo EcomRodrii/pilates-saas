@@ -4633,24 +4633,15 @@ export async function ejecutarCancelacionReserva(
     }
   }
 
-  if (row?.promovida_socio_id) {
-    // `sesion_id` es required en consumirBonoServidor (0132): sin sesión no hay
-    // de qué clase decidir la cobertura, así que sin ella no hay nada que
-    // consumir ni que contar. Bono + correo + push: `trasPromocionDeEspera`.
-    if (cancelada?.sesion_id) {
-      await trasPromocionDeEspera(admin, {
-        studioId: params.studioId, socioId: row.promovida_socio_id as string, sesionId: cancelada.sesion_id as string,
-      });
-    }
-  } else if (row?.oferta_socio_id && cancelada?.sesion_id) {
-    // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
-    // confirma sola (sin consumir bono ni asignar spot todavía, eso pasa al
-    // aceptar, ver aceptarOfertaListaEspera), solo se le avisa que tiene una
-    // oferta viva hasta oferta_expira_en.
-    const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
-    await emitirOfertaListaEspera(admin, {
+  // `sesion_id` es required en consumirBonoServidor (0132): sin sesión no hay
+  // de qué clase decidir la cobertura, así que sin ella no hay nada que
+  // consumir ni que contar.
+  if (cancelada?.sesion_id) {
+    await seguirPromocionDeEspera(admin, {
       studioId: params.studioId, sesionId: cancelada.sesion_id as string,
-      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+      promovidaSocioId: (row?.promovida_socio_id as string | null) ?? null,
+      ofertaSocioId: (row?.oferta_socio_id as string | null) ?? null,
+      ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
     });
   }
   // Notification Engine: confirmación a la socia de que su plaza ya no está.
@@ -4690,6 +4681,29 @@ export async function ejecutarCancelacionReserva(
     ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
     recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana,
   };
+}
+
+/**
+ * Lo que sigue en el servidor a una promoción de la espera que ya hizo la base de datos
+ * (`promocionar_siguiente_espera`, dentro de `cancelar_reserva_plaza` o de
+ * `revertir_compra_de_clase`):
+ *   · subió directa → descuento + correo + push (`trasPromocionDeEspera`);
+ *   · se le abrió una OFERTA con plazo (Fase 2b) → solo el aviso: no se confirma
+ *     sola (ni bono ni spot todavía, eso pasa al aceptar, ver aceptarOfertaListaEspera).
+ * Un solo dueño para los dos caminos que liberan un hueco.
+ */
+export async function seguirPromocionDeEspera(admin: SupabaseClient, p: {
+  studioId: string; sesionId: string;
+  promovidaSocioId: string | null; ofertaSocioId: string | null; ofertaExpiraEn: string | null;
+}): Promise<void> {
+  if (p.promovidaSocioId) {
+    await trasPromocionDeEspera(admin, { studioId: p.studioId, socioId: p.promovidaSocioId, sesionId: p.sesionId });
+  } else if (p.ofertaSocioId && p.ofertaExpiraEn) {
+    const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
+    await emitirOfertaListaEspera(admin, {
+      studioId: p.studioId, sesionId: p.sesionId, socioId: p.ofertaSocioId, expiraEn: p.ofertaExpiraEn,
+    });
+  }
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.

@@ -86,6 +86,13 @@ const CASOS: Caso[] = [
   // El pago de una clase (migr 20261006052737, P06): solo el servidor cambia su estado (webhook, conciliador y la API
   // del panel con permiso de dinero). Con EXECUTE en `authenticated`, una sesión cualquiera daría un pago por reservado.
   { firma: 'registrar_resultado_pago_clase(text, text, text, text, text, text, timestamp with time zone, boolean)', anon: false, authenticated: false, serviceRole: true },
+  // Las que ordenan la cola (PR-13, quien pagó y se quedó sin plaza va la primera): ninguna la ejecuta el cliente.
+  { firma: 'renumerar_lista_espera(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'promocionar_siguiente_espera(text, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'expirar_oferta_lista_espera(text, text)', anon: false, authenticated: false, serviceRole: true },
+  // PR-14: devolver el dinero de una clase COMPENSADA le quita el bono. Desde el cliente, cualquiera podría
+  // vaciar el bono de otra (o sacarla de la cola) con solo conocer el id del pago.
+  { firma: 'revertir_compra_de_clase(text, text)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
