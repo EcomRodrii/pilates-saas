@@ -9,7 +9,8 @@ import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPagos, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
+import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPagos, getPlazaFija, getMinimoRacha, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
+import { porPagarEnLaApp } from '@/lib/student/mi-plan-vista';
 import { pagosPendientes } from '@/lib/student/pagos-agrupados';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
@@ -93,11 +94,11 @@ export default function InicioPage() {
     // ofrecer «Favoritas», que solo tiene sentido si ha guardado alguna.
     // `getAlumna`, `getHuella` y `getHayAlgoALaVenta` (la bienvenida de la recién llegada) salen del mismo payload:
     // ninguna petición de más.
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos] = await Promise.all([
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos, renovacion] = await Promise.all([
       getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug), getFavoritos(estudio.slug),
-      getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug), getPagos(estudio.slug),
+      getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug), getPagos(estudio.slug), getRenovacionPorPagar(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos, renovacion };
   }, [estudio.slug]);
 
   // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
@@ -195,12 +196,17 @@ export default function InicioPage() {
   // «Lo tuyo»: con algo que contar (cuota, bono, clase fija o recuperaciones). Sin nada de eso, la línea «Sin cuota ni
   // bono» solo a quien ya ha venido y solo si su estudio vende algo: a la recién llegada ya le habla su bienvenida.
   const yaVino = !!data && data.reservas.some((r) => r.estado === 'asistida');
-  const loTuyo = data && loTengo && (tieneAlgo(loTengo) || (yaVino && data.hayAlgoALaVenta)) ? (
+  const debeCuota = data && loTengo?.cuota ? pagosPendientes(data.pagos).find((p) => p.bonoId === loTengo.cuota?.id) ?? null : null;
+  // Lo que puede pagar ELLA desde la app (la regla del servidor, `cobro-recibo-alumna`, la misma que Mi plan y Recibos):
+  // lo que cobrará su banco o su estudio no se le pide aquí. El recibo de su cuota ya lo dice la línea de la cuota.
+  const porPagar = data ? porPagarEnLaApp(data.pagos, data.renovacion).filter((p) => p.reciboId !== debeCuota?.id) : [];
+  const loTuyo = data && loTengo && (tieneAlgo(loTengo) || porPagar.length > 0 || (yaVino && data.hayAlgoALaVenta)) ? (
     <LoTuyo
       slug={estudio.slug} t={loTengo} hoy={hoy} racha={racha}
       hrefMiPlan={href('/bonos')} hrefClaseFija={`${href('/mis-reservas')}?tab=fija`}
       hrefTienda={data.hayAlgoALaVenta ? href('/comprar') : null}
-      debe={loTengo.cuota ? pagosPendientes(data.pagos).find((p) => p.bonoId === loTengo.cuota?.id) ?? null : null}
+      debe={debeCuota}
+      porPagar={porPagar} hrefRecibos={href('/pagos')}
     />
   ) : null;
   // La MISMA búsqueda que la ficha de la clase (dirección y ciudad): una sola regla para «Cómo llegar».

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { LoQueTengo } from '@/lib/student/lo-que-tengo';
-import { resumenClaseFija, textoHasta, textoRecuperaciones, textoRenovacionCorto, textoSaldoDe } from '@/lib/student/mi-plan-vista';
+import { lineaRecibo, resumenClaseFija, textoHasta, textoRecuperaciones, textoRenovacionCorto, textoSaldoDe, type PorPagar } from '@/lib/student/mi-plan-vista';
 import { textoTopes } from '@/lib/student/saldo-bono';
 import { euros } from '@/lib/student/formato';
 import { useSemanaCuota } from '@/components/student/domain/SemanaCuota';
@@ -31,7 +31,7 @@ function Linea({ icono, href, titulo, sub, testId }: { icono: NombreIcono; href:
   );
 }
 
-export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTienda, debe = null }: {
+export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTienda, debe = null, porPagar = [], hrefRecibos }: {
   slug: string;
   t: LoQueTengo;
   hoy: string;
@@ -43,6 +43,9 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
   hrefTienda: string | null;
   /** Un recibo de su cuota sin pagar: se dice en la línea de la cuota, en vez de la próxima renovación. */
   debe?: { importe: number } | null;
+  /** Otros recibos que puede pagar ella en la app (`porPagarEnLaApp`, sin el de la cuota): una línea, a Recibos. */
+  porPagar?: readonly PorPagar[];
+  hrefRecibos?: string;
 }) {
   // El MISMO criterio que la tarjeta de la cuota: hay tope si lo hay en total o por actividad.
   const conTope = !!t.cuota && ((t.cuota.limiteSemanal ?? 0) > 0 || Object.keys(t.cuota.limitePorTipo ?? {}).length > 0);
@@ -53,7 +56,8 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
   const fija = resumenClaseFija(t.fijas, hoy);
   const recup = textoRecuperaciones(t.recuperaciones);
   const sinPlan = !t.cuota && !t.bono;
-  if (!t.cuota && !t.bono && !fija && !recup && !hrefTienda) return null;
+  const pagar = porPagar.length > 0 && hrefRecibos ? { total: porPagar.reduce((s, p) => s + p.importe, 0), n: porPagar.length } : null;
+  if (!t.cuota && !t.bono && !fija && !recup && !hrefTienda && !pagar) return null;
 
   const tope = t.cuota ? (textoTopes(t.cuota, {}) ?? (conTope ? 'con máximo por actividad' : 'sin máximo semanal')) : '';
   return (
@@ -67,6 +71,14 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
           </p>
         )}
       </div>
+      {/* Lo que debe va primero: es lo único de la tarjeta que pide hacer algo. */}
+      {pagar && hrefRecibos && (
+        <Linea
+          icono="recibo" href={hrefRecibos} testId="lo-tuyo-pago"
+          titulo={<><b>Pago pendiente</b> · {euros(pagar.total)}</>}
+          sub={pagar.n === 1 ? lineaRecibo(porPagar[0], hoy) : `${pagar.n} recibos · págalos desde Recibos`}
+        />
+      )}
       {t.cuota && (
         <Linea
           icono="bono" href={hrefMiPlan} testId="lo-tuyo-cuota"

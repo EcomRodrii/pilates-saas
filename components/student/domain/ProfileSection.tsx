@@ -8,6 +8,8 @@ export interface FilaPerfil {
   href?: string;
   onClick?: () => void;
   valor?: string;
+  /** El valor pide atención (algo por pagar): en tinta de texto y en negrita, no en gris. */
+  valorDestacado?: boolean;
   destructivo?: boolean;
   /**
    * Icono en baldosa a la izquierda (P15: Perfil, Ayuda). Opcional: las filas
@@ -44,7 +46,7 @@ export function ProfileSection({ titulo, items }: { titulo?: string; items: Fila
                 <span style={it.valor ? { whiteSpace: 'nowrap' } : undefined}>{it.label}</span>
               </span>
               <span style={{ color: 'var(--subtle-foreground)', fontSize: 'var(--t-small)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                {it.valor && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{it.valor}</span>}
+                {it.valor && <span data-valor-destacado={it.valorDestacado || undefined} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, ...(it.valorDestacado ? { color: 'var(--foreground)', fontWeight: 800 } : {}) }}>{it.valor}</span>}
                 <Icono nombre="chevron-derecha" tamano={conIcono ? 16 : 18} style={{ flexShrink: 0 }} />
               </span>
             </>
