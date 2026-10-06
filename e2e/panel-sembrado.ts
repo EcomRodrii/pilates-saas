@@ -204,7 +204,7 @@ const REC_HORARIO = rec({
 
 const ESPECIALISTAS_MVP = ['RETENCION', 'INGRESOS', 'AGENDA', 'CAPTACION', 'FINANZAS', 'MARKETING', 'EQUIPO', 'ONBOARDING'];
 
-const DECISIONES = {
+export const DECISIONES = {
   resumen: {
     id: 'rd-1', studioId: STUDIO_ID, fecha: fecha(dia(0)),
     ingresosMes: 4820, sociasActivas: 3, altasMes: 1, bajasMes: 0,
