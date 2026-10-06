@@ -5,7 +5,7 @@
 // es quien fija la regla de vigencia en servidor. Import relativo por el
 // mismo motivo que el resto del fichero.
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
-import { situacionRecibo } from '../billing/situacion-recibo.ts';
+import { importeIngresado, situacionRecibo } from '../billing/situacion-recibo.ts';
 import { horasDeCobroTardio, penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
 import { fotoPropia, imagenDeClase } from '../imagenes-por-defecto.ts';
 import { spotsActivosDeLaSala } from './huecos-sala.ts';
@@ -148,6 +148,8 @@ export interface SuscripcionMin {
   fechaInicio: string;
   fechaFin: string | null;
   sesionesRestantes: number | null;
+  /** `suscripciones.baja_al_vencer` (`mapSuscripcion`): termina en su fecha de fin y no se renueva. */
+  bajaAlVencer?: boolean;
 }
 
 /** Lo mínimo de una fila de `planes_tarifa`. */
@@ -198,7 +200,7 @@ function topesPorTipoDe(plan: PlanMin | undefined): Record<string, number> {
 export function bonoDeSuscripcion(
   s: SuscripcionMin, plan: PlanMin | undefined, ahora: number,
   /** Se ha renovado alguna vez (`proyectarBonos` lo saca de sus recibos `es_renovacion`). */
-  opciones: { renovado?: boolean } = {},
+  opciones: { renovado?: boolean; precioPorClase?: number | null } = {},
 ): Bono {
   const ilimitado = s.sesionesRestantes === null;
   const tipoPlan = tipoPlanDe(plan?.tipo);
@@ -247,6 +249,8 @@ export function bonoDeSuscripcion(
     tipoPlan,
     sesionesDelPlan: delPlan,
     renovado: opciones.renovado === true,
+    bajaAlVencer: s.bajaAlVencer === true,
+    precioPorClase: opciones.precioPorClase ?? null,
     id: s.id,
     nombre: plan?.nombre ?? 'Bono',
     creditosTotales: ilimitado ? Infinity : totales,
@@ -333,7 +337,9 @@ export interface PayloadMin {
       fechaAlta?: string | null;
     } | null;
     suscripciones?: SuscripcionMin[];
-    reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
+    reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null;
+      /** El bono que la pagó (`reservas.bono_suscripcion_id`, lo escribe `reservar_plaza`). `null` = no se sabe. */
+      bonoSuscripcionId?: string | null }[];
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null;
       /** Es la renovación de su plan (`recibos.es_renovacion`, `mapRecibo`): decide si «de M» sigue siendo verdad. */
       esRenovacion?: boolean | null }[];
@@ -761,6 +767,7 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     // `Reserva` en tipos.ts), y solo eso vale: importadas y anteriores al rastreo llegan a null y no se deducen.
     posicionEspera: r.posicionEspera ?? undefined,
     ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
+    bonoId: r.bonoSuscripcionId ?? null,
   }));
 }
 
@@ -771,7 +778,40 @@ export function proyectarBonos(d: PayloadMin, ahora: number): Bono[] {
   // Las suscripciones que ya se renovaron alguna vez: desde entonces «de M» deja de ser verdad (renovar SUMA al mismo
   // bono). Se calcula aquí, una vez, para que la tarjeta, la ficha, Perfil y Bonos lo decidan igual sin pasarse recibos.
   const renovadas = new Set((socia.recibos ?? []).filter((r) => r.esRenovacion === true && r.suscripcionId).map((r) => r.suscripcionId as string));
-  return (socia.suscripciones ?? []).map((s) => bonoDeSuscripcion(s, planes.get(s.planId), ahora, { renovado: renovadas.has(s.id) }));
+  return (socia.suscripciones ?? []).map((s) => {
+    const plan = planes.get(s.planId);
+    const renovado = renovadas.has(s.id);
+    return bonoDeSuscripcion(s, plan, ahora, {
+      renovado,
+      precioPorClase: precioPorClaseDe(plan, renovado, (socia.recibos ?? []).filter((r) => r.suscripcionId === s.id)),
+    });
+  });
+}
+
+/**
+ * «12 € por clase» de un bono: lo que de verdad pagó por él entre las sesiones que trae. SOLO cuando es verdad, y si no,
+ * `null` (no se dice nada):
+ *   · un bono de sesiones (BONO o PUNTUAL) con su número de sesiones;
+ *   · sin renovar: con una renovación el saldo es de dos ciclos y el cociente no sale de ningún recibo;
+ *   · UN solo recibo de esa suscripción (sin contar los anulados), COBRADO y sin nada devuelto: lo ingresado lo dice
+ *     `importeIngresado` (lib/billing/situacion-recibo.ts), nunca el importe en bruto ni un `estado === 'COBRADO'` a mano.
+ * Un bono regalado, importado o pagado en dos veces no tiene «precio por clase» que se pueda afirmar.
+ */
+export function precioPorClaseDe(
+  plan: Pick<PlanMin, 'tipo' | 'sesiones'> | undefined, renovado: boolean,
+  recibos: ReadonlyArray<{ estado: string; importe?: number | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null }>,
+): number | null {
+  const tipo = tipoPlanDe(plan?.tipo);
+  if (tipo !== 'BONO' && tipo !== 'PUNTUAL') return null;
+  const sesiones = plan?.sesiones ?? 0;
+  if (!(sesiones > 0) || renovado) return null;
+  const vivos = recibos.map((r) => ({ ...r, importe: r.importe ?? 0 })).filter((r) => situacionRecibo(r) !== 'ANULADO');
+  if (vivos.length !== 1) return null;
+  const [r] = vivos;
+  if (situacionRecibo(r) !== 'COBRADO' || (r.importeDevuelto ?? 0) > 0) return null;
+  const ingresado = importeIngresado(r);
+  if (!(ingresado > 0)) return null;
+  return Math.round((ingresado / sesiones) * 100) / 100;
 }
 
 /**

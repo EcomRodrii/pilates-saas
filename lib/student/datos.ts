@@ -180,3 +180,9 @@ export async function getNombresTiposClase(slug: string): Promise<Record<string,
   const d = await catalogo(slug);
   return Object.fromEntries((d?.tiposClase ?? []).map((t) => [t.id, t.nombre]));
 }
+
+/** El escaparate de /comprar (`catalogoTienda`), del mismo payload: para «Si quieres más» de la cuota en Bonos. */
+export async function getProductosTienda(slug: string): Promise<ReturnType<typeof catalogoTienda>> {
+  const d = await catalogo(slug);
+  return d ? catalogoTienda(d.planesTarifa, d.citasServicios, d.productosFisicos) : [];
+}

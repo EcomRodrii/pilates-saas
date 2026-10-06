@@ -36,15 +36,30 @@ async function montar(page: Page, restantes: number | null, estado = 'ACTIVA') {
   ));
 }
 
-/** El color real del relleno de la barra, y el acento del estudio, para comparar. */
+/**
+ * El color real del relleno, y el acento del estudio, para comparar. El bono VIVO es el héroe de Bonos (P4-C, 6-oct-2026),
+ * con un anillo en vez de barra: su progreso es `anillo-progreso`. Uno caducado o cancelado sigue con su tarjeta y su `.bar`.
+ */
 async function colores(page: Page) {
   await expect(page.getByText('Bono 8 sesiones').first()).toBeVisible({ timeout: 30_000 });
   return page.evaluate(() => {
-    const i = document.querySelector('.bar > i');
+    const anillo = document.querySelector('[data-testid="anillo-progreso"]');
+    const i = anillo ?? document.querySelector('.bar > i');
+    const heroe = document.querySelector('[data-testid="bono-hero"]');
     const raiz = document.querySelector('.student-app') ?? document.documentElement;
     return {
-      relleno: i ? getComputedStyle(i).backgroundColor : null,
+      relleno: i ? (anillo ? getComputedStyle(i).stroke : getComputedStyle(i).backgroundColor) : null,
+      fondoHeroe: heroe ? getComputedStyle(heroe).backgroundColor : null,
       acento: getComputedStyle(raiz).getPropertyValue('--accent').trim(),
+      // El tono hondo resuelto por el navegador (puede venir como hex o como mezcla): se pinta y se lee.
+      acentoHondo: (() => {
+        const d = document.createElement('div');
+        d.style.background = 'var(--accent-deep)';
+        raiz.appendChild(d);
+        const v = getComputedStyle(d).backgroundColor;
+        d.remove();
+        return v;
+      })(),
       exito: getComputedStyle(raiz).getPropertyValue('--success').trim(),
       aviso: getComputedStyle(raiz).getPropertyValue('--warning').trim(),
     };
@@ -67,8 +82,9 @@ test.describe('Student PWA · la barra de un bono', () => {
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
     const c = await colores(page);
     expect(c.acento, 'el tema del estudio no ha llegado a la pantalla').toBeTruthy();
-    expect(c.relleno, 'la barra sigue con el verde del sistema').not.toBe(aRgb(c.exito));
-    expect(c.relleno).toBe(aRgb(c.acento));
+    expect(c.relleno, 'el anillo sigue con el verde del sistema').not.toBe(aRgb(c.exito));
+    // El héroe lleva el tono hondo del estudio: el color de marca es la tarjeta entera.
+    expect(c.fondoHeroe).toBe(c.acentoHondo);
   });
 
   test('con una sesión, la barra dice lo mismo que la etiqueta', async ({ page }) => {
@@ -76,7 +92,7 @@ test.describe('Student PWA · la barra de un bono', () => {
     await montar(page, 1);
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
     const c = await colores(page);
-    expect(c.relleno, 'la etiqueta avisa y la barra celebra').toBe(aRgb(c.aviso));
+    expect(c.relleno, 'le queda una y el anillo celebra').toBe(aRgb(c.aviso));
   });
 
   test('un bono expirado no se pinta de la marca: no queda nada que gastar', async ({ page }) => {

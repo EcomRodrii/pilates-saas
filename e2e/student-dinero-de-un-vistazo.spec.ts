@@ -145,6 +145,7 @@ test('un plan ilimitado no enseña ninguna cifra de sesiones', async ({ page }) 
     }],
   });
   await page.goto(`${base}/bonos`);
-  await expect(page.getByText('Clases sin límite')).toBeVisible();
+  // Es su cuota (P4-E): su cabecera, y nunca «sin límite» (hay topes por día que la app no conoce).
+  await expect(page.getByTestId('cuota-hero')).toContainText('Sin máximo semanal');
   await expect(page.getByTestId('bono-restantes')).toHaveCount(0);
 });

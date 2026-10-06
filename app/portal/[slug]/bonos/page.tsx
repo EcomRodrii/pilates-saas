@@ -7,9 +7,14 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getNombresTiposClase, getPlazaFija, getRenovacionPorPagar } from '@/lib/student/datos';
+import { getBonos, getClases, getNombresTiposClase, getPagos, getPlazaFija, getProductosTienda, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
 import { MovimientosBono } from '@/components/student/domain/MovimientosBono';
-import { CuotaSemanaCard } from '@/components/student/domain/CuotaSemanaCard';
+import { BonoHero } from '@/components/student/domain/BonoHero';
+import { CuotaHero } from '@/components/student/domain/CuotaHero';
+import { avisoBono, esBonoDeSesiones, masParaCuota, reservadasConBono } from '@/lib/student/bonos-vista';
+import { hoyISO } from '@/lib/student/formato';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { Icono } from '@/components/student/ui/Icono';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { useToast } from '@/components/student/ui/Toast';
@@ -35,8 +40,12 @@ function Bonos() {
   const href = usePortalHref();
 
   const cargar = useCallback(async () => {
-    const [bonos, plazaFija, renovacion, nombresTipo] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug), getNombresTiposClase(estudio.slug)]);
-    return { bonos, plazaFija, renovacion, nombresTipo };
+    // Todo del MISMO payload cacheado: el héroe del bono, la cuota y «Si quieres más» no piden nada más.
+    const [bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos] = await Promise.all([
+      getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug), getNombresTiposClase(estudio.slug),
+      getReservas(estudio.slug), getClases(estudio.slug), getPagos(estudio.slug), getProductosTienda(estudio.slug),
+    ]);
+    return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos };
   }, [estudio.slug]);
   const { data: cargado, estado, reintentar, refrescar } = useAsync(
     cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion,
@@ -125,10 +134,14 @@ function Bonos() {
   const cuotaEnPausa = activos.length === 0 && otros.some((b) => b.estado === 'pausado' && esCuota(b));
   // Los movimientos (P4-D) del bono que el servidor gastaría primero (`compararPorElegibilidad`, como Inicio): solo un
   // bono de sesiones activo; una cuota no gasta sesiones.
-  const bonoPrincipal = activos
-    .filter((b) => !esCuota(b) && Number.isFinite(b.creditosTotales) && (b.tipoPlan === 'BONO' || b.tipoPlan === 'PUNTUAL'))
-    .sort(compararPorElegibilidad)[0] ?? null;
+  const bonoPrincipal = activos.filter(esBonoDeSesiones).sort(compararPorElegibilidad)[0] ?? null;
   const nombresTipo = cargado?.nombresTipo ?? {};
+  const hoy = hoyISO();
+  const ahoraMs = useAhoraMs();
+  // P4-C y E: la cuota y el bono principal, en grande; lo demás que esté activo, con su tarjeta de siempre.
+  const cuotas = activos.filter((b) => esCuota(b));
+  const tambien = activos.filter((b) => !esCuota(b) && b.id !== bonoPrincipal?.id);
+  const avisoDelBono = avisoBono(activos, bonoPrincipal, hoy);
 
   return (
     <StudentShell>
@@ -223,16 +236,45 @@ function Bonos() {
             {/* Sus clases fijas viven en «Mis clases → Fijas» (aquí eran un lío, quejas de
                 estudios 23-sep). En Bonos solo queda lo que es saldo: las recuperaciones. */}
             {plazaFija && <PlazaFijaCard compacta plazas={[]} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
-            {activos.map((b) => (
-              <div key={b.id} className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                <CreditCard bono={b} />
-                {/* Su cuota con tope: «Esta semana N de L» (P4-E), con la cuenta del servidor. */}
-                {esCuota(b) && <CuotaSemanaCard slug={estudio.slug} cuota={b} nombresTipo={nombresTipo} />}
-              </div>
+            {/* Su cuota (P4-E): pagos, lo que incluye, vigencia, «Esta semana», su clase fija, sus recibos y «Si quieres
+                más» solo si algo da clases que la cuota no incluye. */}
+            {cuotas.map((b) => (
+              <CuotaHero
+                key={b.id}
+                slug={estudio.slug}
+                cuota={b}
+                pagos={cargado?.pagos ?? []}
+                plazas={plazaFija?.plazas ?? []}
+                nombresTipo={nombresTipo}
+                mas={masParaCuota(b, cargado?.productos ?? [], Object.keys(nombresTipo), nombresTipo)}
+                href={href}
+              />
             ))}
+            {/* El bono que se gasta primero (P4-C), con el anillo; sus movimientos (P4-D) debajo. */}
             {bonoPrincipal && (
-              <MovimientosBono slug={estudio.slug} bonoId={bonoPrincipal.id} compacta hrefTodo={href(`/bonos/${bonoPrincipal.id}`)} />
+              <>
+                <BonoHero
+                  bono={bonoPrincipal}
+                  reservadas={reservadasConBono(cargado?.reservas ?? [], cargado?.clases ?? [], bonoPrincipal.id, ahoraMs, hoy)}
+                  nombresTipo={nombresTipo}
+                  hoy={hoy}
+                  hrefDetalle={href(`/bonos/${bonoPrincipal.id}`)}
+                  hrefMisClases={href('/mis-reservas')}
+                />
+                {avisoDelBono && (
+                  <div className="card" data-testid="bono-aviso" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderColor: 'var(--accent)' }}>
+                    <span aria-hidden style={{ width: 40, height: 40, borderRadius: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)' }}>
+                      <Icono nombre="alerta" tamano={20} />
+                    </span>
+                    <span className="t-small" style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{avisoDelBono}</span>
+                    <Link href={href('/comprar')} className="btn btn--secondary btn--sm tap">Ver bonos</Link>
+                  </div>
+                )}
+                <MovimientosBono slug={estudio.slug} bonoId={bonoPrincipal.id} compacta hrefTodo={href(`/bonos/${bonoPrincipal.id}`)} />
+              </>
             )}
+            {tambien.length > 0 && (cuotas.length > 0 || bonoPrincipal) && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>También tienes</p>}
+            {tambien.map((b) => <CreditCard key={b.id} bono={b} />)}
             {otros.length > 0 && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}
 
