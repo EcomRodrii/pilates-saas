@@ -703,11 +703,28 @@ hereda, migr `20260731130000`), en vez de confirmar directo le abre una
 se ofrece a la siguiente.
 
 ⚠️ **El override se resuelve en SQL directo, no con `heredaOverride()` en
-TS** — a diferencia de Fase 1/2a. Motivo: `cancelar_reserva_plaza` es
-ejecutable directo por `authenticated` desde el cliente
-(`dbCancelarReservaPlaza`, `lib/supabase-data.ts`, sin pasar nunca por
-`cargarPoliticaEstudio`), así que la resolución en TS simplemente no vería el
-plazo en ese camino. Mismo criterio que ya usa `ventana_cancelacion_horas`.
+TS** — a diferencia de Fase 1/2a. Motivo de entonces: `cancelar_reserva_plaza`
+era ejecutable por `authenticated` desde el navegador (`dbCancelarReservaPlaza`).
+**Ya no lo es** (corregido el 6-oct-2026, medido con `has_function_privilege`:
+anon y authenticated `false`, solo service_role): el último llamador de
+navegador se retiró en `20260902211300` (P-1, 21ª pasada) y hoy todos pasan por
+`ejecutarCancelacionReserva` (`lib/db/supabase-data-admin.ts`, `admin.rpc`).
+El plazo sigue en SQL porque se decide en la MISMA transacción que promociona
+(`promocionar_siguiente_espera`), igual que `ventana_cancelacion_horas`.
+
+**Orden de la cola (PR-13, 6-oct-2026)**: quien pagó la clase y se quedó sin
+plaza (pago `COMPENSADA` con `pagos_clase.prioridad_espera_desde`) va la
+PRIMERA; el resto, por `creado_en`. Lo aplican `renumerar_lista_espera` (la
+que RE-numera la cola entera: `cancelar_reserva_plaza` y
+`expirar_oferta_lista_espera` la llaman, ya no copian el UPDATE) y
+`promocionar_siguiente_espera`, con el mismo `ORDER BY` (lo fija
+`lib/reservas/cola-prioridad-contrato.test.ts`). ⚠️ Al ENTRAR en la cola,
+`reservar_plaza` (vía `evaluar_reserva`) y `resolver_reserva_pendiente` ponen
+«la última» (`count + 1`) sin renumerar: correcto para quien llega sin
+prioridad, pero una pendiente aprobada con `creado_en` antiguo puede enseñar un
+puesto que no es el del orden hasta la siguiente renumeración (de antes de
+PR-13). Riesgo aceptado: la prioridad se anota después de entrar en la cola; si
+en medio se libera plaza, sube la de delante.
 
 Lógica de promoción extraída a un helper compartido
 (`promocionar_siguiente_espera`, `SECURITY INVOKER`, nunca expuesto directo a

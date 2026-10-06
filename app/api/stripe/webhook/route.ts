@@ -11,6 +11,7 @@ import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
+import { esReciboDePagoOnline, reembolsoTotalDelCargo, reembolsosDelCargoConfirmados, revertirCompraDeClaseDelRecibo } from '@/lib/billing/revertir-compra-de-clase';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
@@ -1532,6 +1533,13 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
+        const cargo = { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null };
+        // PR-14: una clase pagada y COMPENSADA solo se revierte con el reembolso YA salido:
+        // `charge.refunded` llega también con el reembolso `pending`, que puede fallar. Solo
+        // se le pregunta a Stripe cuando hay algo que revertir (total y recibo de pago online).
+        const reembolsosConfirmados = event.account && reembolsoTotalDelCargo(cargo) && esReciboDePagoOnline(reciboId)
+          ? await reembolsosDelCargoConfirmados(stripe, charge.id, event.account)
+          : undefined;
         const resultado = await procesarChargeRefunded(admin, {
           studioId, reciboId,
           // 32ª pasada de auditoría: si el cargo combinó plan+matrícula, este
@@ -1539,8 +1547,9 @@ async function procesarEvento(
           // recibos en vez de dejar la matrícula COBRADA para siempre.
           reciboMatriculaId: pi.metadata?.reciboMatriculaId ?? null,
           origenPi: pi.metadata?.origen,
-          charge: { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null },
+          charge: cargo,
           fuente: 'webhook', eventAccount: event.account,
+          paymentIntentId: piId, reembolsosConfirmados,
         });
         if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
       }
@@ -1661,9 +1670,47 @@ async function procesarEvento(
         const cargoId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
         const resultado = await procesarDisputeClosed(admin, {
           studioId, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
-          chargeId: cargoId, amount: dispute.amount ?? null, fuente: 'webhook',
+          chargeId: cargoId, amount: dispute.amount ?? null, fuente: 'webhook', paymentIntentId: piId,
         });
         if (!resultado.ok) return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
+      }
+    }
+  }
+
+  // PR-14 — el reembolso que estaba `pending` cuando llegó `charge.refunded` y ahora
+  // SALE de verdad. Entonces no se revirtió la compra de la clase (podía fallar); ahora sí.
+  // Solo eso: la devolución ya la anotó `charge.refunded`. Idempotente (la RPC solo actúa
+  // sobre un pago COMPENSADA), así que repetirlo con otro evento no hace nada.
+  if (event.type === 'charge.refund.updated') {
+    const refund = event.data.object as Stripe.Refund;
+    const piId = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+    const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+    if (refund.status === 'succeeded' && piId && chargeId && event.account) {
+      const pi = await recuperarPaymentIntent(stripe, piId, event, 'reembolso-perdido');
+      if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
+      const reciboId = pi.metadata?.reciboId;
+      if (reciboId && ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '') && esReciboDePagoOnline(reciboId)) {
+        const admin = getSupabaseAdmin();
+        if (!admin) return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        let charge: Stripe.Charge;
+        try {
+          charge = await stripe.charges.retrieve(chargeId, {}, { stripeAccount: event.account });
+        } catch {
+          return NextResponse.json({ error: 'No se pudo recuperar el cargo' }, { status: 500 });
+        }
+        const cargo = { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null };
+        if (reembolsoTotalDelCargo(cargo)) {
+          const confirmados = await reembolsosDelCargoConfirmados(stripe, charge.id, event.account);
+          if (confirmados === null) return NextResponse.json({ error: 'No se pudo comprobar el reembolso' }, { status: 500 });
+          if (confirmados) {
+            const rev = await revertirCompraDeClaseDelRecibo(admin, {
+              studioId, reciboId, paymentIntentId: piId, motivo: 'reembolso', fuente: 'webhook',
+            });
+            if (!rev.ok) return NextResponse.json({ error: 'No se pudo revertir la compra de la clase' }, { status: 500 });
+          }
+        }
       }
     }
   }
@@ -1797,15 +1844,15 @@ async function procesarEvento(
         // computada (acumulado fresco + lo que intentaba este refund); fallback
         // por recibo+charge para parciales intercalados. No encontrarla NO
         // bloquea: la fila es contabilidad, el flip de arriba es la verdad.
-        let fila: { id: string; estado: string } | null = null;
+        let fila: { id: string; estado: string; aplicado?: { automatica?: boolean } | null } | null = null;
         {
           const { data } = await admin.from('devoluciones')
-            .select('id, estado').eq('studio_id', studioId)
+            .select('id, estado, aplicado').eq('studio_id', studioId)
             .eq('referencia', plan.referenciaOriginal).maybeSingle();
           fila = (data as { id: string; estado: string } | null) ?? null;
           if (!fila) {
             const { data: porRecibo } = await admin.from('devoluciones')
-              .select('id, estado').eq('studio_id', studioId)
+              .select('id, estado, aplicado').eq('studio_id', studioId)
               .eq('recibo_id', reciboId).eq('stripe_charge_id', chargeId)
               .like('origen', 'REEMBOLSO%')
               .order('detectada_en', { ascending: false }).limit(1).maybeSingle();
@@ -1853,7 +1900,10 @@ async function procesarEvento(
         // clienta pagó Y perdió lo entregado: el texto lo dice, con el delta
         // cuando el snapshot lo tiene.
         let sesionesTexto = '';
-        if (fila?.estado === 'REVERTIDA') {
+        if (fila?.estado === 'REVERTIDA' && fila.aplicado?.automatica === true) {
+          // PR-14: la reversión la hizo Tentare sola (clase pagada que se quedó sin plaza), no la propietaria.
+          sesionesTexto = ' Al ver la devolución, Tentare le retiró el bono de esa compra y su sitio en la lista de espera: si no vas a devolverle el dinero, devuélveselo a mano.';
+        } else if (fila?.estado === 'REVERTIDA') {
           const delta = rec.entrega_tipo === 'BONO'
             && typeof rec.entrega_sesiones_antes === 'number'
             && typeof rec.entrega_sesiones_despues === 'number'

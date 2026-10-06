@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, type OrigenDevolucion } from './registrar-devolucion.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
+import { esReciboDePagoOnline, reembolsoTotalDelCargo, revertirCompraDeClaseDelRecibo } from './revertir-compra-de-clase.ts';
 
 // Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
 // tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
@@ -185,27 +186,56 @@ async function procesarReembolsoDeUnRecibo(
   return { ok: true, huboEfecto: !!dev };
 }
 
-export async function procesarChargeRefunded(
-  admin: SupabaseClient,
-  p: {
-    studioId: string;
-    reciboId: string;
-    /**
-     * 32ª pasada de auditoría: recibo de la matrícula, cuando el cargo la
-     * combinó con el plan en un solo PaymentIntent (ver `entregarPlanComprado`).
-     * Presente => el acumulado devuelto se reparte entre los dos recibos en
-     * vez de atribuirse entero al del plan (`p.reciboId`), que es lo que
-     * pasaba antes: la matrícula se quedaba COBRADO para siempre tras un
-     * reembolso del cargo combinado.
-     */
-    reciboMatriculaId?: string | null;
-    /** `pi.metadata?.origen` — decide si el reembolso parcial deja restaurado sepa_estado. */
-    origenPi: string | undefined;
-    charge: ChargeReembolsado;
-    fuente: Fuente;
-    eventAccount?: string | null;
-  },
-): Promise<ResultadoProcesado> {
+/** Parámetros de `procesarChargeRefunded`. */
+export interface ChargeRefundedParams {
+  studioId: string;
+  reciboId: string;
+  /**
+   * 32ª pasada de auditoría: recibo de la matrícula, cuando el cargo la
+   * combinó con el plan en un solo PaymentIntent (ver `entregarPlanComprado`).
+   * Presente => el acumulado devuelto se reparte entre los dos recibos en
+   * vez de atribuirse entero al del plan (`p.reciboId`), que es lo que
+   * pasaba antes: la matrícula se quedaba COBRADO para siempre tras un
+   * reembolso del cargo combinado.
+   */
+  reciboMatriculaId?: string | null;
+  /** `pi.metadata?.origen` — decide si el reembolso parcial deja restaurado sepa_estado. */
+  origenPi: string | undefined;
+  charge: ChargeReembolsado;
+  fuente: Fuente;
+  eventAccount?: string | null;
+  /** El PaymentIntent del cargo: localiza el pago de clase (`pagos_clase.payment_intent_id`). */
+  paymentIntentId?: string | null;
+  /**
+   * PR-14: ¿han salido ya de verdad TODOS los reembolsos del cargo? (`reembolsosDelCargoConfirmados`).
+   * Solo con `true` se revierte una compra de clase; `null` = no se pudo saber (se pide reintento);
+   * sin dato o `false` (alguno `pending`), se espera a `charge.refund.updated`.
+   */
+  reembolsosConfirmados?: boolean | null;
+}
+
+export async function procesarChargeRefunded(admin: SupabaseClient, p: ChargeRefundedParams): Promise<ResultadoProcesado> {
+  const resultado = await anotarChargeRefunded(admin, p);
+  // PR-14: un reembolso TOTAL del cargo de una clase pagada y COMPENSADA (se quedó en la
+  // espera, pendiente de aprobar, o la plaza la pagó otro bono) le quita el sitio en la
+  // cola y, si está intacto, lo que compró. Un parcial no revierte nada, y un reembolso
+  // aún `pending` tampoco (podría fallar). Después de anotar la devolución (la revisión
+  // que cierra ya existe) y solo si se anotó bien. Si falla, `ok: false`: se reintenta.
+  if (resultado.ok && reembolsoTotalDelCargo(p.charge) && esReciboDePagoOnline(p.reciboId)) {
+    if (p.reembolsosConfirmados === null) {
+      return { ...resultado, ok: false, error: 'no se pudo comprobar si el reembolso ya salió' };
+    }
+    if (p.reembolsosConfirmados === true) {
+      const rev = await revertirCompraDeClaseDelRecibo(admin, {
+        studioId: p.studioId, reciboId: p.reciboId, paymentIntentId: p.paymentIntentId ?? null, motivo: 'reembolso', fuente: p.fuente,
+      });
+      if (!rev.ok) return { ...resultado, ok: false, error: 'no se pudo revertir la compra de la clase' };
+    }
+  }
+  return resultado;
+}
+
+async function anotarChargeRefunded(admin: SupabaseClient, p: ChargeRefundedParams): Promise<ResultadoProcesado> {
   const acumuladoDevuelto = p.charge.amountRefunded ?? 0;
 
   if (!p.reciboMatriculaId) {
@@ -313,6 +343,8 @@ export async function procesarDisputeClosed(
   p: {
     studioId: string; reciboId: string; disputeStatus: string; disputeId: string;
     chargeId: string | null; amount: number | null; fuente: Fuente;
+    /** El PaymentIntent del cargo: localiza el pago de clase (PR-14). */
+    paymentIntentId?: string | null;
   },
 ): Promise<ResultadoProcesado> {
   // Se parte en DOS escrituras a propósito. `disputa_estado` debe sellarse
@@ -399,6 +431,17 @@ export async function procesarDisputeClosed(
         console.error(`[${p.fuente}] chargeback anotado pero sin notificar`, p.reciboId, e instanceof Error ? e.message : e);
       }
     }
+
+    // PR-14: perder la disputa ENTERA de una clase pagada y COMPENSADA es devolverle el
+    // dinero: fuera de la cola y, si está intacto, fuera lo que compró. Después de anotar
+    // el contracargo (la revisión que cierra ya existe). SIEMPRE que se pierde, como los
+    // créditos: idempotente (solo actúa sobre COMPENSADA). Si falla, `ok: false` para que
+    // Stripe reintente: el conciliador no vuelve a pasar por una disputa ya cerrada.
+    const rev = await revertirCompraDeClaseDelRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, paymentIntentId: p.paymentIntentId ?? null,
+      importeDevueltoCentimos: p.amount ?? 0, motivo: 'disputa', fuente: p.fuente,
+    });
+    if (!rev.ok) return { ok: false, huboEfecto, error: 'no se pudo revertir la compra de la clase' };
   }
   return { ok: true, huboEfecto };
 }

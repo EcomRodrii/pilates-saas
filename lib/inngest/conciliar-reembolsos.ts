@@ -45,6 +45,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
+import { esReciboDePagoOnline, reembolsoTotalDelCargo, reembolsosDelCargoConfirmados } from '@/lib/billing/revertir-compra-de-clase';
 import { origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import {
   ESTADOS_DISPUTA_CERRADA, ESTADOS_DISPUTA_SIN_RESCATE, clasificarReciboConDisputa, referenciasChargebackPorComprobar,
@@ -179,17 +180,24 @@ async function conciliarRefundsEstudio(
     const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
     if (!reciboId || !esRecibo) continue;
 
+    const cargo = {
+      id: charge.id, refunded: charge.refunded === true,
+      amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null,
+    };
+    // PR-14: igual que el webhook, una clase COMPENSADA solo se revierte con TODOS los
+    // reembolsos del cargo ya salidos (este puede estar `succeeded` y otro `pending`).
+    const reembolsosConfirmados = reembolsoTotalDelCargo(cargo) && esReciboDePagoOnline(reciboId)
+      ? await reembolsosDelCargoConfirmados(stripe, charge.id, studio.stripe_account_id)
+      : undefined;
     const resultado = await procesarChargeRefunded(admin, {
       studioId: studio.id, reciboId,
       // 32ª pasada de auditoría: mismo motivo que el webhook — reparte el
       // reembolso entre plan y matrícula cuando el cargo los combinó.
       reciboMatriculaId: pi.metadata?.reciboMatriculaId ?? null,
       origenPi: pi.metadata?.origen,
-      charge: {
-        id: charge.id, refunded: charge.refunded === true,
-        amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null,
-      },
+      charge: cargo,
       fuente: 'conciliador',
+      paymentIntentId: piId, reembolsosConfirmados,
     });
 
     // Registro de AUDITORÍA de lo recuperado — no es la fuente de
@@ -356,7 +364,7 @@ async function conciliarDisputesEstudio(
       ? await procesarDisputeClosed(admin, {
           studioId: studio.id, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
           chargeId: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null,
-          amount: dispute.amount ?? null, fuente: 'conciliador',
+          amount: dispute.amount ?? null, fuente: 'conciliador', paymentIntentId: piId,
         })
       : await procesarDisputeCreated(admin, {
           studioId: studio.id, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
@@ -498,6 +506,7 @@ async function conciliarDisputasAbiertasEstudio(
       studioId: studio.id, reciboId: rec.id, disputeStatus: dispute.status, disputeId: dispute.id,
       chargeId: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null,
       amount: dispute.amount ?? null, fuente: 'conciliador',
+      paymentIntentId: typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id ?? null,
     });
 
     const { error: errAuditoria } = await admin.from('webhook_disputas').upsert({
