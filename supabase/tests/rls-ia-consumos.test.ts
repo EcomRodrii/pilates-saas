@@ -1,4 +1,5 @@
-// El libro de consumos del asistente (migr 20261005213749_asistente_y_consumos_ia.sql),
+// El libro de consumos del asistente (migr 20261005213749_asistente_y_consumos_ia.sql
+// y 20261006014513_asistente_charla_no_gasta.sql),
 // contra Postgres de verdad (job `calidad-rls`): la cuota por plan, la reserva
 // fail-closed, la fórmula de unidades, el reparto cuota → pack → sin saldo, la
 // idempotencia del cierre, los topes en dólares y quién lee qué.
@@ -23,10 +24,11 @@ async function reservar(studioId: string, coste = 0.15, authUserId: string | nul
   return (data as { consumo_id: string | null; codigo: string; disponibles: number }[])[0];
 }
 
-async function cerrar(studioId: string, consumoId: string, estado: string, coste: number) {
+async function cerrar(studioId: string, consumoId: string, estado: string, coste: number, nHerramientas = 1) {
   const { data, error } = await admin.rpc('ia_cerrar_consulta', {
     p_consumo_id: consumoId, p_studio_id: studioId, p_estado: estado, p_input: 100, p_cache_read: 4000,
-    p_cache_creation: 0, p_output: 200, p_coste_usd: coste, p_n_llamadas: 2, p_n_herramientas: 1, p_codigo_error: null, p_herramientas: ['contar_alumnas'],
+    p_cache_creation: 0, p_output: 200, p_coste_usd: coste, p_n_llamadas: nHerramientas ? 2 : 1, p_n_herramientas: nHerramientas,
+    p_codigo_error: null, p_herramientas: nHerramientas ? ['contar_alumnas'] : [],
   });
   assert.ok(!error, error?.message);
   return (data as { unidades_cobradas: number; disponibles: number }[])[0];
@@ -98,6 +100,40 @@ test('reserva fail-closed, fórmula de unidades e idempotencia del cierre', asyn
     // Sin saldo: no se reserva (y por tanto no se llama a Anthropic).
     await consumidas(f.studioId, 50);
     assert.equal((await reservar(f.studioId)).codigo, 'SIN_SALDO');
+  } finally {
+    await limpiarFixtures(admin, [f]);
+  }
+});
+
+// Migr 20261006014513_asistente_charla_no_gasta (decisión del fundador, 6-oct-2026).
+test('la charla (sin herramientas) no gasta hasta 50 al día; la 51.ª sí, y lo fallido nunca cuenta como charla', async () => {
+  const f = await crearStudioConPropietaria(admin);
+  try {
+    await conPlan(f, 'BASE', 'active', 'sub_x');
+    const antes = (await saldo(f.studioId)).disponibles;
+    const r = await reservar(f.studioId);
+    const c = await cerrar(f.studioId, r.consumo_id!, 'CONSUMIDA', 0.002, 0);
+    assert.equal(c.unidades_cobradas, 0, 'una respuesta sin datos no gasta');
+    assert.equal(c.disponibles, antes, 'y la reserva se devuelve: «Te quedan N» no se mueve');
+    // Idempotente también aquí: repetir el cierre (ahora «con herramientas») no cobra.
+    assert.equal((await cerrar(f.studioId, r.consumo_id!, 'CONSUMIDA', 0.09, 3)).unidades_cobradas, 0);
+    // Con una herramienta, gasta como siempre.
+    const conDatos = await reservar(f.studioId);
+    assert.equal((await cerrar(f.studioId, conDatos.consumo_id!, 'CONSUMIDA', 0.0035, 1)).unidades_cobradas, 1);
+    // Una fallida sin herramientas no ocupa hueco de charla.
+    const fallida = await reservar(f.studioId);
+    await cerrar(f.studioId, fallida.consumo_id!, 'FALLIDA', 0.01, 0);
+    // Hasta 50 charlas gratis hoy (ya va 1): 48 más directas en el libro (sin 48 viajes de reserva y cierre); la 50.ª, por la RPC.
+    await sql`insert into public.ia_consumos (studio_id, origen, modelo, estado, periodo, coste_max_usd, coste_usd, unidades, n_herramientas)
+              select ${f.studioId}, 'ASISTENTE', 'm', 'CONSUMIDA', ${MES()}, 0.15, 0.001, 0, 0 from generate_series(1, 48)`;
+    const la50 = await reservar(f.studioId);
+    assert.equal((await cerrar(f.studioId, la50.consumo_id!, 'CONSUMIDA', 0.001, 0)).unidades_cobradas, 0, 'la 50.ª sigue gratis');
+    const la51 = await reservar(f.studioId);
+    assert.equal((await cerrar(f.studioId, la51.consumo_id!, 'CONSUMIDA', 0.001, 0)).unidades_cobradas, 1, 'pasado el tope, la charla gasta');
+    // Las de ayer no cuentan para el tope de hoy.
+    await sql`update public.ia_consumos set creado_en = now() - interval '2 days' where studio_id = ${f.studioId} and unidades = 0`;
+    const manana = await reservar(f.studioId);
+    assert.equal((await cerrar(f.studioId, manana.consumo_id!, 'CONSUMIDA', 0.001, 0)).unidades_cobradas, 0);
   } finally {
     await limpiarFixtures(admin, [f]);
   }

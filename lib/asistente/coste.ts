@@ -4,6 +4,7 @@
 // input + cache_read + cache_creation (cada uno a su precio).
 
 import { PRECIOS_HAIKU_45 } from './modelo.ts';
+import { MAX_CHARLAS_GRATIS_DIA } from './limites.ts';
 
 export interface UsoAcumulado {
   input: number;
@@ -53,4 +54,17 @@ export function costeUsd(u: UsoAcumulado): number {
  */
 export function unidadesDe(usd: number): number {
   return Math.min(5, Math.max(1, Math.ceil(usd / 0.03)));
+}
+
+/**
+ * Espejo de la regla de cobro de `ia_cerrar_consulta` (migr 20261006014513): una
+ * respuesta solo gasta si ha usado al menos una herramienta de datos; la charla
+ * es gratis mientras el estudio lleve menos de MAX_CHARLAS_GRATIS_DIA hoy. Lo
+ * fallido o liberado, nunca. Solo para las pruebas y los textos: lo que se cobra
+ * lo decide SIEMPRE el libro.
+ */
+export function unidadesACobrar(c: { estado: 'CONSUMIDA' | 'FALLIDA' | 'LIBERADA'; costeUsd: number; nHerramientas: number; charlasGratisHoy: number }): number {
+  if (c.estado !== 'CONSUMIDA') return 0;
+  if (c.nHerramientas === 0 && c.charlasGratisHoy < MAX_CHARLAS_GRATIS_DIA) return 0;
+  return unidadesDe(c.costeUsd);
 }
