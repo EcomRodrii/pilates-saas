@@ -146,6 +146,9 @@ test.describe('Student PWA · comunidad', () => {
 // pantalla no hubiera pedido nada.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('Student PWA · comentarios del tablón: borrar, denunciar y bloquear', () => {
+  // Como el resto de specs de la app: abrir la pantalla, el hilo y la hoja en un
+  // `next dev` en frío y con la máquina compartida no cabe en los 30 s por defecto.
+  test.describe.configure({ timeout: 120_000 });
   const MIO = { id: 'c-mio', postId: 'p-txt', autorNombre: 'Ana T.', autorInicial: 'AT', texto: 'Me encanta la sala', creadoEn: '2026-08-11T11:00:00Z', esMio: true, deAlumna: true };
   const DE_OTRA = { id: 'c-otra', postId: 'p-txt', autorNombre: 'Marta R.', autorInicial: 'MR', texto: 'Comentario feo', creadoEn: '2026-08-11T12:00:00Z', esMio: false, deAlumna: true };
   const DEL_ESTUDIO = { id: 'c-est', postId: 'p-txt', autorNombre: 'Estudio Alma', autorInicial: 'E', texto: '¡Gracias a todas!', creadoEn: '2026-08-11T13:00:00Z', esMio: false, deAlumna: false };
