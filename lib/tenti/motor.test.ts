@@ -485,6 +485,61 @@ test('con miradas, el bucle sigue durmiendo: muy por debajo de 60 fps', () => {
   for (const a of r.abiertosAlDormir) assert.ok(a > 0.99, `dormido con los ojos a medio cerrar (open=${a.toFixed(3)})`);
 });
 
+test('con varios Tentis en la página, miran de uno en uno y no se pisan', () => {
+  const motores = [0, 1, 2, 3].map(() => crear({ paleta: PALETA, insignias: false, miradas: true, mini: true }));
+  const fuera = motores.map(() => false);
+  let a_la_vez = 0, miradas = 0;
+  for (let i = 0; i < 60_000 / 16; i++) {
+    reloj += 16;
+    mock.timers.tick(16);
+    let mirando = 0;
+    motores.forEach((m, k) => {
+      m.fotograma();
+      const y = Math.abs(yaw(m));
+      if (y > 0.15 && !fuera[k]) { fuera[k] = true; miradas++; } else if (y < 0.02) fuera[k] = false;
+      if (y > 0.15) mirando++;
+    });
+    if (mirando > 1) a_la_vez++;
+  }
+  for (const m of motores) m.destruir();
+  assert.equal(a_la_vez, 0, 'dos Tentis mirando a los lados a la vez');
+  assert.ok(miradas >= 4, `solo ${miradas} miradas en 60 s entre cuatro Tentis: parecen de piedra`);
+  // Cada uno a su aire serían ~8 por cabeza en 60 s (32): con turnos, como mucho una cada ~5 s.
+  assert.ok(miradas <= 14, `${miradas} miradas en 60 s: no se están turnando`);
+});
+
+test('al destruirse mirando, suelta el turno: el siguiente no se queda esperando', () => {
+  const a = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  const b = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  let i = 0;
+  while (Math.abs(yaw(a)) < 0.15 && i++ < 20_000 / 16) { correr(a, 16); }
+  assert.ok(Math.abs(yaw(a)) >= 0.15, 'a no ha llegado a mirar');
+  a.destruir();
+  let maximo = 0;
+  for (let j = 0; j < 12_000 / 16; j++) { correr(b, 16); maximo = Math.max(maximo, Math.abs(yaw(b))); }
+  b.destruir();
+  assert.ok(maximo > 0.2, 'el turno se ha quedado cogido por un Tenti desmontado');
+});
+
+test('a medio ritmo solo el ambiente: un estado, una emoción o el cursor van a ritmo completo', () => {
+  const m = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  correr(m, 3_000);
+  assert.equal(m.aMedioRitmo(), true, 'en reposo, ya asentado, debería ir a medio ritmo');
+  m.ponerEstado('hecho', { forzar: true, silencio: true });
+  assert.equal(m.aMedioRitmo(), false, 'recién cambiado de estado va a medio ritmo');
+  correr(m, 6_000);
+  m.ponerEstado('reposo', { forzar: true, silencio: true });
+  correr(m, 3_000);
+  m.emocion('guino', 1200, true);
+  assert.equal(m.aMedioRitmo(), false, 'con una emoción en curso va a medio ritmo');
+  correr(m, 3_000);
+  assert.equal(m.aMedioRitmo(), true);
+  m.mira.x = 0.8;
+  correr(m, 16);
+  assert.equal(m.aMedioRitmo(), false, 'siguiendo al cursor va a medio ritmo');
+  m.destruir();
+});
+
 test("las miradas son solo de 'reposo', y con «reducir movimiento» no hay ninguna", () => {
   const quieto = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true, quieto: true });
   correr(quieto, 20_000);

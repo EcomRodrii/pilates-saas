@@ -238,9 +238,9 @@ test('Centro de Control: el Piloto automático lleva a Tenti, quieto con el inte
   const piloto = page.locator('div.rounded-3xl', { has: page.getByRole('heading', { name: 'Piloto automático' }) });
   await expect(piloto).toBeVisible();
   await expect(piloto.locator('[data-tenti-icono]')).toHaveCount(1);
-  // El único de la pantalla: el veredicto y las filas los puede redactar un
-  // modelo, y ahí no va ninguna cara.
-  await expect(tenti(page)).toHaveCount(1);
+  // Dos en la pantalla: el del veredicto del día (decisión del fundador,
+  // 5-oct) y este. Las filas no llevan cara.
+  await expect(tenti(page)).toHaveCount(2);
   await todosVivosYDecorativos(page);
 
   const interruptor = page.getByRole('switch', { name: 'Activar piloto automático' });

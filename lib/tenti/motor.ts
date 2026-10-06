@@ -100,6 +100,17 @@ const DURACION_MOVIMIENTO: Record<Movimiento, number> = {
   situacion: MOVIMIENTO_SITUACION_MS, peticion: MOVIMIENTO_PETICION_MS, sinFin: Infinity,
 };
 
+/**
+ * Una mirada a la vez en toda la página, y este hueco entre una y la siguiente.
+ * Con cuatro Tentis en Resumen, cada uno mirando a su aire, las miradas eran
+ * casi todo lo que se pintaba en reposo (1,5 % del hilo principal). Un Tenti
+ * solo no lo nota: su propio hueco (4,5–10 s) ya es mayor.
+ */
+export const HUECO_ENTRE_MIRADAS_MS = 4000;
+const turnoDeMirar = { quien: null as object | null, libreDesde: 0 };
+/** Tras un gesto (un estado, una emoción, el cursor), cuánto va a ritmo completo. */
+const PRISA_MS = 1500;
+
 type FormaOjo = 'pill' | 'wide' | 'dot' | 'line' | 'flat' | 'happy' | 'closed' | 'spiral' | 'heart' | 'star' | 'tired' | 'wink';
 // La insignia lleva el color de su estado (`colorDe`): así 'hecho' no puede
 // quedarse con un punto de otro color que el tinte.
@@ -287,6 +298,9 @@ export class Tenti {
   private proxMirada: number;
   private t0: number;
   private saludaHasta = 0;
+  /** Hasta cuándo pinta a ritmo completo aunque solo quede ambiente (`aMedioRitmo`). */
+  private prisaHasta = 0;
+  private miraAntes = { x: 0, y: 0 };
   private ultimoAmbiente = 0;
   private ultimo = AHORA();
   private temporizadores = new Set<ReturnType<typeof setTimeout>>();
@@ -323,7 +337,12 @@ export class Tenti {
     const t = setTimeout(() => { this.temporizadores.delete(t); fn(); }, ms);
     this.temporizadores.add(t);
   }
-  destruir() { for (const t of this.temporizadores) clearTimeout(t); this.temporizadores.clear(); }
+  destruir() {
+    for (const t of this.temporizadores) clearTimeout(t);
+    this.temporizadores.clear();
+    // Si estaba mirando, que no deje a los demás esperando su turno.
+    if (turnoDeMirar.quien === this) { turnoDeMirar.quien = null; turnoDeMirar.libreDesde = 0; }
+  }
   private suena(n?: Sonido) {
     if (!this.conSonido || !n) return;
     if (sonidos) sonidos.sonar(n);
@@ -352,6 +371,7 @@ export class Tenti {
     const c: ConfigEstado | undefined = ESTADOS[n];
     if (!c || (this.estado === n && !forzar)) return;
     const prev = this.estado; this.estado = n; this.cfg = c;
+    this.prisaHasta = AHORA() + PRISA_MS;
     this.armarOscilacion();
     this.colT = hexRgb(this.colorDe(n));
     // Si el tinte de antes no se veía, su color no pinta nada: arrancar la
@@ -406,6 +426,7 @@ export class Tenti {
   aplastar() {
     this.suena('slap');
     if (this.quieto) return;
+    this.prisaHasta = AHORA() + PRISA_MS;
     this.anim('sy', [[0.78, 70, E.out], [1.1, 130, E.out], [1, 170, E.inOut]]);
     this.anim('sx', [[1.16, 70, E.out], [0.95, 130, E.out], [1, 170, E.inOut]]);
   }
@@ -431,6 +452,7 @@ export class Tenti {
     const em: { ojo: FormaOjo; sonido?: Sonido } | undefined = EMOCIONES[n]; if (!em) return;
     const mueve = !this.quieto;
     this.ojoForzado = em.ojo; this.ojoHasta = AHORA() + d;
+    this.prisaHasta = Math.max(this.prisaHasta, AHORA() + d + 600);
     if (n === 'amor') {
       this.anim('blush', [[1, 300, E.out], [1, d - 600, E.lin], [0, 300, E.inOut]]);
       if (mueve) { this.emitir('heart', 4); this.anim('oy', [[-0.1, 160, E.out], [0, 300, E.back]]); }
@@ -513,6 +535,16 @@ export class Tenti {
     return Math.min(this.proxParpadeo, ambiente, mirada);
   }
 
+  /**
+   * Si lo que queda por moverse es solo ambiente (un parpadeo, una mirada, la
+   * cola de un gesto), que a ~30 fps no se distingue de 60: el bucle se salta
+   * uno de cada dos fotogramas. Lo que alguien provoca (un estado, una emoción,
+   * el saludo, el cursor) y lo que oscila va a ritmo completo.
+   */
+  aMedioRitmo(): boolean {
+    return !this.perpetuo() && !this.ojoForzado && AHORA() >= this.prisaHasta;
+  }
+
   /** Si toca mirar alrededor: solo en reposo, y nunca con «reducir movimiento». */
   private miraAlrededor(): boolean {
     return this.miradas && !this.quieto && this.estado === 'reposo';
@@ -543,14 +575,24 @@ export class Tenti {
     // o abajo) un rato, y vuelve al frente. Se suman a `mira`, sin pisarla.
     if (this.miraAlrededor()) {
       if (n >= this.proxMirada) {
-        const lado = Math.random() < 0.5 ? -1 : 1;
-        this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
-        this.miradaHasta = n + 900 + Math.random() * 900;
-        this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+        // Otro Tenti de la página tiene el turno (o acaba de soltarlo): luego.
+        if (turnoDeMirar.quien !== this && n < turnoDeMirar.libreDesde) {
+          this.proxMirada = turnoDeMirar.libreDesde + Math.random() * 2000;
+        } else {
+          const lado = Math.random() < 0.5 ? -1 : 1;
+          this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
+          this.miradaHasta = n + 900 + Math.random() * 900;
+          this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+          turnoDeMirar.quien = this; turnoDeMirar.libreDesde = this.miradaHasta + HUECO_ENTRE_MIRADAS_MS;
+        }
       } else if (n >= this.miradaHasta) this.mirada = { x: 0, y: 0 };
     } else {
       this.mirada = { x: 0, y: 0 };
       if (n >= this.proxMirada) this.proxMirada = n + 2500 + Math.random() * 4000;
+    }
+    // El cursor (o `mira`) se ha movido: eso es un gesto, a ritmo completo.
+    if (this.mira.x !== this.miraAntes.x || this.mira.y !== this.miraAntes.y) {
+      this.miraAntes = { ...this.mira }; this.prisaHasta = n + 600;
     }
     let ty = q ? 0 : clamp(this.mira.x + this.mirada.x, -1, 1) * 0.62, tp = q ? 0 : clamp(this.mira.y + this.mirada.y, -1, 1) * 0.5;
     if (c.mira) { ty = ty * 0.35 + c.mira[0] * 0.55; tp = tp * 0.3 + c.mira[1] * 0.5; }

@@ -32,7 +32,8 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 // insignia, de paleta (claro ↔ oscuro), el puntero si sigue al cursor, `mira`
 // y volver a verse. Fuera de pantalla o con la pestaña oculta no queda ni el
 // fotograma ni el temporizador. En reposo pinta unos pocos fotogramas por
-// segundo en vez de 60. Con «reducir movimiento» el motor no tiene recorrido
+// segundo en vez de 60, y lo que es solo ambiente (parpadeos y miradas, que
+// en toda la página van de una en una) a medio ritmo. Con «reducir movimiento» el motor no tiene recorrido
 // (`quieto`) y ni siquiera se despierta para parpadear.
 //
 // Se deja observar desde los e2e, porque ningún test ve un canvas: data-estado,
@@ -219,11 +220,16 @@ export function Tenti({
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       if (reloj != null) { clearTimeout(reloj); reloj = null; }
     };
-    const bucle = () => {
+    let pintado = -Infinity;
+    const bucle = (t: number) => {
       raf = 0;
       if (!visible || document.hidden) return;
       let seguir: boolean, despertar: number;
       try {
+        // Solo ambiente (parpadeo, mirada): ~30 fps, también en pantallas de
+        // 120 Hz. 28 ms y no 33 para que el temblor del reloj no salte dos.
+        if (t - pintado < 28 && motor.aMedioRitmo()) { raf = requestAnimationFrame(bucle); return; }
+        pintado = t;
         motor.fotograma();
         seguir = motor.animando() || motor.perpetuo();
         despertar = seguir ? 0 : motor.proximoDespertar();
