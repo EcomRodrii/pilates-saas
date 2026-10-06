@@ -3,11 +3,13 @@
 //
 // Lo usan dos puertas con la MISMA función, para que no puedan divergir:
 //   · la alumna, desde su app  → GET /api/public/mis-datos (incluye su salud:
-//     son sus datos);
+//     son sus datos; y sus denuncias, sus bloqueos y las normas que aceptó);
 //   · el estudio, desde la ficha → GET /api/socios/[id]/exportar (la salud
 //     solo si el rol puede ver la ficha clínica Y la socia tiene el
 //     consentimiento vigente — el mismo criterio que la RLS, que aquí no
-//     protege porque se lee con service-role).
+//     protege porque se lee con service-role. Sin sus denuncias, y sus
+//     mensajes con su instructora solo si descarga la propietaria: es lo que
+//     cada rol puede leer en el panel).
 //
 // No confundir con `app/api/exportar/mis-datos`: esa es la exportación del
 // ESTUDIO entero (CSV por tabla, solo propietaria), no la de una interesada.
@@ -24,6 +26,8 @@
 //     decidir.
 //
 // Sin imports de Next ni de `@/`: se prueba con node --test.
+
+import type { Rol } from '../types.ts';
 
 export const VERSION_EXPORTACION = 1;
 
@@ -64,6 +68,11 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   challenge_progress: { seccion: 'creditos' },
   reto_participaciones: { seccion: 'creditos' },
   conversacion_participantes: { seccion: 'mensajesEnviados' },
+  // Sus comentarios en el tablón (migr 20261006014051 les pone su ficha).
+  comentarios_comunidad: { seccion: 'otros' },
+  // Lo que denunció o bloqueó en la app. Solo por la puerta de la alumna: el
+  // estudio no se lleva en un archivo quién denunció qué.
+  denuncias: { seccion: 'otros' },
   valoraciones: { seccion: 'valoraciones' },
   preferencias_socio: { seccion: 'preferencias' },
   favoritos_clase: { seccion: 'preferencias' },
@@ -212,6 +221,14 @@ export interface OpcionesExportacion {
    * de las tablas de salud para el personal clínico.
    */
   saludSoloConConsentimiento: boolean;
+  /**
+   * Quién descarga. La alumna se lleva también lo que denunció o bloqueó y todos
+   * sus mensajes. El estudio, con el rol de quien descarga: sin sus denuncias, y
+   * los mensajes con su instructora solo la propietaria (la RLS de `mensajes` no
+   * se los deja leer a gerencia ni a recepción, 20260914154415; aquí se lee con
+   * service-role y la regla va a mano).
+   */
+  puerta: 'alumna' | { estudio: Rol };
   ahora: Date;
 }
 
@@ -239,6 +256,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
   const authUserId = str(s.auth_user_id);
   const conSalud = o.incluirSalud && (!o.saludSoloConConsentimiento || consentimientoSaludVigente(s));
   const sinFilas = Promise.resolve([] as Fila[]);
+  const esLaAlumna = o.puerta === 'alumna';
+  const mensajesSoloDelMostrador = o.puerta !== 'alumna' && o.puerta.estudio !== 'PROPIETARIO';
 
   const [
     reservas, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos,
@@ -246,7 +265,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
     comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, consentimientosMarketing, memoria, recomendaciones,
-    accesos, bajas, consultasSuyas, avisos, camposPersonalizados,
+    accesos, bajas, consultasSuyas, avisos, camposPersonalizados, comentariosTablon, denuncias,
+    meGusta, bloqueosTablon, normasAceptadas,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
     tabla('reservas', 'id, sesion_id, estado, posicion_espera, check_in_en, creado_en, cancelada_tardia, valoracion_experiencia'),
@@ -275,7 +295,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('challenge_history', 'id, nombre, creado_en'),
     tabla('challenge_progress', 'id, challenge_id, progreso_actual, completado, completado_en'),
     tabla('reto_participaciones', 'id, reto_key, created_at'),
-    leer(db, 'conversacion_participantes', 'conversacion_id', [['eq', 'socio_id', socioId]], 'conversacion_id'),
+    // Con `bloqueo_en`: si bloqueó a la otra parte de ese hilo (solo sale en su propia descarga).
+    leer(db, 'conversacion_participantes', 'conversacion_id, bloqueo_en', [['eq', 'socio_id', socioId]], 'conversacion_id'),
     tabla('valoraciones', 'id, sesion_id, instructor_id, puntuacion, comentario, creado_en'),
     tabla('preferencias_socio', 'disponibilidad, instructor_favorito_id, tipo_clase_favorita, duracion_preferida, nivel, notif_email, notif_whatsapp, actualizado_en', 'socio_id'),
     tabla('favoritos_clase', 'id, tipo_clase_id, created_at'),
@@ -304,6 +325,22 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
       ? leer(db, 'notification_preference', 'category, inapp, push, email, push_eventos', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'category')
       : sinFilas,
     leer(db, 'campos_personalizados', 'id, etiqueta', [['eq', 'studio_id', studioId]], 'id'),
+    // Sus comentarios del tablón, por su ficha (también los que retiró el estudio: son suyos).
+    tabla('comentarios_comunidad', 'id, post_id, texto, creado_en, oculto_en', 'creado_en'),
+    // Sin quién la revisó (`resuelta_por`) ni de quién era lo denunciado: son cuentas de otras personas.
+    esLaAlumna ? tabla('denuncias', 'id, ambito, motivo, estado, revisada_por, detalle, creada_en, resuelta_en', 'creada_en') : sinFilas,
+    // Sus «me gusta» del tablón: van por su CUENTA (`post_likes.user_id`), no por su ficha.
+    authUserId
+      ? leer(db, 'post_likes', 'post_id, creado_en', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'creado_en')
+      : sinFilas,
+    // A quién bloqueó en el tablón: solo que lo hizo y cuándo, sin la ficha de la otra (es de otra persona).
+    esLaAlumna
+      ? leer(db, 'socio_companeras', 'id, estado, resuelto_en', [['eq', 'studio_id', studioId], ['eq', 'bloqueada_por', socioId]], 'id')
+      : sinFilas,
+    // Las normas de la comunidad que aceptó (por su cuenta; valen para todos sus estudios).
+    esLaAlumna && authUserId
+      ? leer(db, 'normas_comunidad_aceptaciones', 'version, aceptada_en', [['eq', 'auth_user_id', authUserId]], 'aceptada_en')
+      : sinFilas,
     conSalud ? tabla('valoraciones_iniciales', 'id, estado, objetivos, objetivo_principal, experiencia, nivel, actividad_habitual, frecuencia, expectativas, creado_en, actualizado_en, completada_en') : sinFilas,
     conSalud ? tabla('valoraciones_iniciales_salud', 'valoracion_id, tiene_molestias, zonas, detalle, estado_cuerpo, creado_en', 'valoracion_id') : sinFilas,
     conSalud ? tabla('condiciones_salud', 'id, categoria, etiqueta, zona, restricciones, severidad, estado, inicio, fin, revisar_en, notas, creado_en, actualizado_en') : sinFilas,
@@ -322,9 +359,11 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
       leerPorIds(db, 'facturas', COLUMNAS_FACTURA, studioId, 'venta_pos_id', ventas.map(f => f.id)),
     ]).then(([a, b]) => [...porId([...a, ...b]).values()]),
     // Solo lo que ELLA escribió: los mensajes del personal son de otras personas.
+    // Desde el panel, sin la propietaria, solo los del hilo con el estudio.
     authUserId
-      ? leerPorIds(db, 'mensajes', 'id, conversacion_id, cuerpo, creado_en', studioId, 'conversacion_id',
-        participaciones.map(f => f.conversacion_id), [['eq', 'remitente_auth_user_id', authUserId]])
+      ? conversacionesExportables(db, studioId, participaciones.map(f => f.conversacion_id), mensajesSoloDelMostrador)
+        .then(ids => leerPorIds(db, 'mensajes', 'id, conversacion_id, cuerpo, creado_en, oculto_en', studioId, 'conversacion_id',
+          ids, [['eq', 'remitente_auth_user_id', authUserId]]))
       : sinFilas,
     leerPorIds(db, 'plantillas_cuestionario_salud', 'id, pregunta', studioId, 'id', respuestasCuestionario.map(f => f.pregunta_id)),
     // El texto de cada aceptación se guarda una vez por versión: se resuelve por su huella.
@@ -435,7 +474,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         progresoRetos: progresoRetos.map(p => ({ progreso: num(p.progreso_actual), completado: bool(p.completado), completadoEn: str(p.completado_en) })),
         participacionesRetos: participacionesRetos.map(p => ({ reto: str(p.reto_key), fecha: str(p.created_at) })),
       },
-      mensajesEnviados: porFecha(mensajes, 'creado_en').map(m => ({ fecha: str(m.creado_en), texto: str(m.cuerpo) })),
+      mensajesEnviados: porFecha(mensajes, 'creado_en').map(m => ({
+        fecha: str(m.creado_en), texto: str(m.cuerpo), retiradoPorElEstudio: Boolean(m.oculto_en),
+      })),
       valoraciones: valoraciones.map(v => ({
         ...clase(v.sesion_id), instructora: nombre(mInstr, v.instructor_id), puntuacion: num(v.puntuacion), comentario: str(v.comentario), fecha: str(v.creado_en),
       })),
@@ -535,6 +576,26 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           fecha: str(a.ocurrido_en), clase: clase(a.sesion_id)?.clase ?? null,
           resultado: str(a.resultado), motivo: str(a.motivo), decision: str(a.decision),
         })),
+        // Lo que escribió en el tablón, también lo que el estudio retiró.
+        tablon: {
+          comentarios: porFecha(comentariosTablon, 'creado_en').map(c => ({
+            fecha: str(c.creado_en), texto: str(c.texto), retiradoPorElEstudio: Boolean(c.oculto_en),
+          })),
+          meGusta: porFecha(meGusta, 'creado_en').map(l => ({ fecha: str(l.creado_en), publicacion: str(l.post_id) })),
+        },
+        // Lo que denunció o bloqueó en la app y qué se decidió. Solo en su propia descarga.
+        ...(esLaAlumna ? {
+          denunciasHechas: porFecha(denuncias, 'creada_en').map(d => ({
+            fecha: str(d.creada_en), sobre: str(d.ambito), tipo: str(d.motivo), estado: str(d.estado),
+            revisadaPor: str(d.revisada_por), resueltaEn: str(d.resuelta_en), loQueContaste: str(d.detalle),
+          })),
+          // A quién bloqueó: dónde y desde cuándo. Sin la identidad de la otra persona.
+          bloqueos: [
+            ...bloqueosTablon.filter(b => b.estado === 'bloqueada').map(b => ({ donde: 'tablon', desde: str(b.resuelto_en) })),
+            ...participaciones.filter(p => p.bloqueo_en).map(p => ({ donde: 'mensajes', desde: str(p.bloqueo_en) })),
+          ],
+          normasDeLaComunidadAceptadas: normasAceptadas.map(n => ({ version: str(n.version), fecha: str(n.aceptada_en) })),
+        } : {}),
         perfilado: {
           hechos: memoria.map(m => ({ clave: str(m.clave), origen: str(m.origen), evidencia: str(m.evidencia), activo: bool(m.activa), fecha: str(m.creado_en), caduca: str(m.expira_en) })),
           recomendaciones: recomendaciones.map(r => ({ tipo: str(r.tipo), titulo: str(r.titulo), motivo: str(r.motivo), estado: str(r.estado), fecha: str(r.creado_en) })),
@@ -543,6 +604,19 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     },
     notas,
   };
+}
+
+/**
+ * Las conversaciones de las que salen sus mensajes. Con `soloMostrador`, solo su
+ * hilo con el estudio (ALUMNA_MOSTRADOR): el de su instructora no lo puede leer
+ * en el panel quien descarga.
+ */
+async function conversacionesExportables(
+  db: LectorBd, studioId: string, ids: unknown[], soloMostrador: boolean,
+): Promise<unknown[]> {
+  if (!soloMostrador) return ids;
+  const conversaciones = await leerPorIds(db, 'conversaciones', 'id, tipo', studioId, 'id', ids);
+  return conversaciones.filter(c => c.tipo === 'ALUMNA_MOSTRADOR').map(c => c.id);
 }
 
 const COLUMNAS_FACTURA = 'id, recibo_id, venta_pos_id, numero_completo, serie, tipo, fecha_emision, concepto, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, rectifica_a, verifactu_estado, verifactu_qr_url';

@@ -4,16 +4,19 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
-import { uid } from '@/lib/utils';
 import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
+import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
+import { bloqueadasConmigo, filaComentarioDeSocia } from '@/lib/comunidad/comentarios-servidor';
+import { filtrarComentariosParaSocia } from '@/lib/comunidad/comentarios-reglas';
 import type { DestinatariosCampana } from '@/lib/types';
 
 // Comentarios del tablón para el PORTAL — antes el tablón ni siquiera enseñaba
 // el contador de comentarios a la socia (ver lib/student/tipos.ts), y no
 // existía ninguna vía para que escribiera uno. Mismo patrón que
 // app/api/comunidad/comentarios/route.ts (staff) pero con la comprobación de
-// identidad de socia — service-role + socioAutenticado, nunca RLS directa
-// (la socia no tiene JWT `authenticated` de Postgres).
+// identidad de socia — service-role + socioAutenticado, nunca RLS directa (la
+// socia tiene JWT de Supabase, pero el tablón no se le abre por PostgREST: todo
+// lo suyo pasa por aquí, y aquí la RLS no actúa).
 //
 // A diferencia del staff (que trae TODOS los comentarios del estudio de una
 // vez para su propia bandeja interna), aquí se pide por post: la socia solo
@@ -29,6 +32,10 @@ function mapRow(r: Record<string, unknown>) {
     texto: r.texto as string,
     creadoEn: r.creado_en as string,
     esMio: false,
+    /** Retirado por el estudio (moderación). Solo lo ve así quien lo escribió. */
+    oculto: Boolean(r.oculto_en),
+    /** De una alumna (no del equipo): se puede bloquear a quien lo escribió. Nunca va su ficha. */
+    deAlumna: r.socio_id != null,
   };
 }
 
@@ -56,15 +63,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
   }
 
-  const { data, error } = await admin
-    .from('comentarios_comunidad')
-    .select('*')
-    .eq('studio_id', studioId)
-    .eq('post_id', postId)
-    .order('creado_en', { ascending: true });
+  const [{ data, error }, bloqueadas] = await Promise.all([
+    admin
+      .from('comentarios_comunidad')
+      .select('*')
+      .eq('studio_id', studioId)
+      .eq('post_id', postId)
+      .order('creado_en', { ascending: true }),
+    bloqueadasConmigo(admin, studioId, socioId).catch(() => null),
+  ]);
   if (error) return errorInterno('public/comunidad/comentarios:GET', error, 'No se han podido cargar los comentarios.');
+  if (!bloqueadas) return errorInterno('public/comunidad/comentarios:GET', new Error('no se han podido leer los bloqueos'), 'No se han podido cargar los comentarios.');
 
-  const comentarios = (data ?? []).map(row => ({ ...mapRow(row), esMio: row.autor_id === user.userId }));
+  // Suyo: por su cuenta o por su ficha (si borró la cuenta y volvió con otra, la
+  // cuenta vieja ya no la reconoce). Lo retirado solo lo ve quien lo escribió;
+  // nada de alguien con quien hay un bloqueo; y en una publicación para un
+  // grupo, solo lo suyo y lo del estudio (`filtrarComentariosParaSocia`).
+  const comentarios = filtrarComentariosParaSocia(
+    (data ?? []) as (Record<string, unknown> & { socio_id: string | null; autor_id: string | null; oculto_en: string | null })[],
+    { socioId, authUserId: user.userId, audiencia, bloqueadas },
+  ).map(row => ({ ...mapRow(row), esMio: row.esMio }));
   return NextResponse.json({ comentarios });
 }
 
@@ -106,22 +124,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
   }
 
+  // Normas aceptadas y filtro de palabras (App Store 1.2), antes de guardar nada.
+  try {
+    const motivo = await antesDePublicar(admin, user.userId, texto);
+    if (motivo) return NextResponse.json(cuerpoNoPublicar(motivo), { status: motivo.status });
+  } catch (e) {
+    return errorInterno('public/comunidad/comentarios:POST:normas', e, 'No se ha podido guardar el comentario.');
+  }
+
   const { data: socio, error: errSocio } = await admin
     .from('socios').select('nombre, apellidos').eq('id', socioId).maybeSingle();
   if (errSocio || !socio) return errorInterno('public/comunidad/comentarios:POST', errSocio, 'No se ha podido leer tu ficha.');
 
-  const nombreCompleto = `${socio.nombre} ${socio.apellidos ?? ''}`.trim();
-  const inicial = nombreCompleto.split(/\s+/).slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || 'S';
-  const fila = {
-    id: `com-${uid()}`,
-    studio_id: studioId,
-    post_id: postId,
-    autor_id: user.userId,
-    autor_nombre: nombreCompleto || 'Clienta',
-    autor_inicial: inicial,
-    texto,
-    creado_en: new Date().toISOString(),
-  };
+  // Con nombre e inicial («Lucía M.»), nunca sus apellidos: lo leen sus compañeras.
+  const fila = filaComentarioDeSocia({
+    studioId, postId, authUserId: user.userId, socioId, texto,
+    socio: { nombre: socio.nombre as string | null, apellidos: (socio.apellidos as string | null) ?? null },
+  });
   const { error: errIns } = await admin.from('comentarios_comunidad').insert(fila);
   if (errIns) return errorInterno('public/comunidad/comentarios:POST', errIns, 'No se ha podido guardar el comentario.');
 

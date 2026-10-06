@@ -12,7 +12,7 @@ import type { OpcionesNuevaClase } from '@/lib/student/nueva-clase';
 import type { AlumnaResumen, FichaAlumna } from '@/lib/student/alumnas-instructora';
 import type { SaludAlumna } from '@/lib/datos-salud/salud-para-instructora';
 import type { HiloInstructora } from '@/lib/student/mensajes-instructora';
-import type { ResultadoAbrir, ResultadoEnviar } from '@/lib/student/mensajeria';
+import { estadoDeRespuesta, type HiloCargado, type MensajeHilo, type ResultadoAbrir, type ResultadoEnviar, type ResultadoModeracionApp } from '@/lib/student/mensajeria';
 import type { RowMensajes } from '@/lib/db-types';
 import { mensajeSeguro } from '@/lib/errores';
 import { faltaDisponibilidad } from '@/lib/student/disponibilidad-vista';
@@ -443,17 +443,46 @@ export async function escribirAAlumna(slug: string, socioId: string): Promise<Re
   }
 }
 
-export async function getMensajesHilo(slug: string, conversacionId: string): Promise<RowMensajes[]> {
+export async function getMensajesHilo(slug: string, conversacionId: string): Promise<HiloCargado> {
   const res = await postInstructora('mensajes', { slug, accion: 'mensajes', conversacionId });
   if (!res.ok) throw new Error(`instructora/mensajes:mensajes ${res.status}`);
-  const d = await res.json() as { mensajes?: RowMensajes[] };
-  return Array.isArray(d.mensajes) ? d.mensajes : [];
+  const d = await res.json() as { mensajes?: MensajeHilo[]; estado?: unknown };
+  return { mensajes: Array.isArray(d.mensajes) ? d.mensajes : [], estado: estadoDeRespuesta(d.estado) };
+}
+
+async function moderarEnHilo(cuerpo: Record<string, unknown>, respaldo: string): Promise<ResultadoModeracionApp> {
+  try {
+    const res = await postInstructora('mensajes', cuerpo);
+    if (!res.ok) {
+      const e = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, error: e?.error ? mensajeSeguro(e.error, respaldo) : respaldo };
+    }
+    const d = await res.json().catch(() => ({})) as { mensaje?: string; estado?: unknown };
+    return { ok: true, mensaje: d.mensaje, estado: d.estado === undefined ? undefined : estadoDeRespuesta(d.estado) };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
+  }
+}
+
+/** Denuncia un mensaje de la alumna (App Store 1.2). */
+export function denunciarEnHiloInstructora(slug: string, conversacionId: string, mensajeId: string): Promise<ResultadoModeracionApp> {
+  return moderarEnHilo({ slug, accion: 'denunciar', conversacionId, mensajeId }, 'No se ha podido enviar la denuncia.');
+}
+
+/** Bloquea (o desbloquea) a la alumna en este estudio. */
+export function bloquearHiloInstructora(slug: string, conversacionId: string, bloquear: boolean): Promise<ResultadoModeracionApp> {
+  return moderarEnHilo({ slug, accion: 'bloquear', conversacionId, bloquear }, 'No se ha podido guardar.');
 }
 
 export async function enviarEnHiloInstructora(slug: string, conversacionId: string, cuerpo: string): Promise<ResultadoEnviar> {
   try {
     const res = await postInstructora('mensajes', { slug, accion: 'enviar', conversacionId, cuerpo });
-    if (!res.ok) return { ok: false, error: await errorDe(res, 'No se ha podido enviar el mensaje.') };
+    if (!res.ok) {
+      // `codigo`: NORMAS_PENDIENTES (la pantalla enseña las normas y lo reintenta) o FILTRO.
+      const cuerpoError = await res.json().catch(() => null) as { error?: string; codigo?: string } | null;
+      const error = cuerpoError?.error ? mensajeSeguro(cuerpoError.error, 'No se ha podido enviar el mensaje.') : 'No se ha podido enviar el mensaje.';
+      return { ok: false, error, codigo: cuerpoError?.codigo };
+    }
     const d = await res.json() as { mensaje: RowMensajes };
     return { ok: true, mensaje: d.mensaje };
   } catch {

@@ -58,6 +58,16 @@ export default function Terminos() {
         <a href="/privacidad">Política de Privacidad</a> y a la normativa de protección de datos. Eres
         responsable de contar con la base jurídica adecuada para tratarlos.
       </p>
+      <p>
+        <strong>Moderación de contenidos de la app.</strong> Para cumplir las condiciones de las tiendas de
+        aplicaciones (App Store, guía 1.2), {LEGAL.marca} ofrece en la app de las alumnas normas de la comunidad, un
+        filtro de contenido y herramientas para denunciar y bloquear. Tú, como responsable, revisas las denuncias
+        sobre tu contenido desde tu panel. Nos autorizas a acceder al contenido denunciado y a decidir sobre él
+        únicamente cuando la denuncia se dirige contra tu propio estudio o contra una persona con rol de
+        propietaria, o cuando no la has revisado en 24 horas. Ese acceso se limita al contenido denunciado y a su
+        contexto inmediato, lo hace solo personal de {LEGAL.marca} con un permiso específico y queda registrado en
+        un registro de auditoría. Las denuncias resueltas se suprimen a los 12 meses de su resolución.
+      </p>
 
       <h2>6. Disponibilidad</h2>
       <p>

@@ -29,12 +29,15 @@ import { subirImagenPostComunidad } from '@/lib/portal-storage';
 import type { DestinatariosCampana } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Toast, useToast } from '@/components/ui/toast';
+import { retirarComentarioComunidad } from '@/lib/api-client';
 import {
   AVATAR_COLORS, Avatar, CompositorPost, FeedVacio, PostCardPanel, SkeletonPostPanel,
   getInitials, timeAgo, type OpcionesPublicar,
 } from '@/components/comunidad/feed-panel';
 
-type Comment = { id: string; autorNombre: string; texto: string; creadoEn: string };
+// `ocultoEn`: retirado por el estudio (moderación). Las alumnas no lo ven; aquí se ve marcado.
+type Comment = { id: string; autorNombre: string; texto: string; creadoEn: string; ocultoEn?: string | null };
 
 // Cuántos posts se pintan de una y cuántos se añaden al llegar al final. El
 // feed del panel ya viene entero en memoria (el contexto lo carga con el resto
@@ -58,6 +61,7 @@ export function ComunidadFeed() {
   // botón que la base de datos va a rechazar.
   const puedeModerar = puedeModerarComunidad(rol);
   const [borrarId, setBorrarId] = useState<string | null>(null);
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
@@ -75,7 +79,7 @@ export function ComunidadFeed() {
       if (!vivo) return;
       const mapa: Record<string, Comment[]> = {};
       for (const c of comentarios) {
-        (mapa[c.postId] ??= []).push({ id: c.id, autorNombre: c.autorNombre, texto: c.texto, creadoEn: c.creadoEn });
+        (mapa[c.postId] ??= []).push({ id: c.id, autorNombre: c.autorNombre, texto: c.texto, creadoEn: c.creadoEn, ocultoEn: c.ocultoEn ?? null });
       }
       setCommentsMap(mapa);
     });
@@ -207,6 +211,18 @@ export function ComunidadFeed() {
     });
   }
 
+  // Retirar un comentario (o volver a mostrarlo) sin esperar a una denuncia. Se
+  // pinta cuando lo confirma el servidor: el aviso a quien lo escribió ya ha salido.
+  async function handleRetirar(postId: string, comentarioId: string, retirar: boolean) {
+    const r = await retirarComentarioComunidad(comentarioId, retirar);
+    if ('error' in r) { showToastError(r.error); return; }
+    setCommentsMap(prev => ({
+      ...prev,
+      [postId]: (prev[postId] ?? []).map(c => (c.id === comentarioId ? { ...c, ocultoEn: retirar ? new Date().toISOString() : null } : c)),
+    }));
+    showToast(retirar ? 'Comentario retirado. Ya no lo ve nadie más que quien lo escribió.' : 'Comentario visible otra vez.');
+  }
+
   const aPintar = sortedPosts.slice(0, visibles);
 
   return (
@@ -279,6 +295,7 @@ export function ComunidadFeed() {
                 inicialesEstudio={inicialesEstudio}
                 logoEstudio={studio?.logoUrl}
                 onAddComment={handleAddComment}
+                onRetirar={puedeModerar ? (comentarioId, retirar) => void handleRetirar(post.id, comentarioId, retirar) : undefined}
               />
             </PostCardPanel>
           );
@@ -379,6 +396,7 @@ export function ComunidadFeed() {
       destructivo
       onConfirm={() => { if (borrarId) deletePost(borrarId); setBorrarId(null); }}
     />
+    {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </>
   );
 }
@@ -402,12 +420,15 @@ function HiloComentarios({
   inicialesEstudio,
   logoEstudio,
   onAddComment,
+  onRetirar,
 }: {
   postId: string;
   comments: Comment[];
   inicialesEstudio: string;
   logoEstudio?: string | null;
   onAddComment: (postId: string, texto: string) => void;
+  /** Quien modera el tablón: retirar o volver a mostrar un comentario. */
+  onRetirar?: (comentarioId: string, retirar: boolean) => void;
 }) {
   const [draft, setDraft] = useState('');
 
@@ -430,10 +451,20 @@ function HiloComentarios({
             colorClass={AVATAR_COLORS[i % AVATAR_COLORS.length]}
             size="sm"
           />
-          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-muted px-3.5 py-2.5">
+          <div data-testid="comentario-panel" className={cn('min-w-0 flex-1 rounded-xl rounded-tl-sm bg-muted px-3.5 py-2.5', c.ocultoEn && 'opacity-60')}>
             <div className="mb-0.5 flex items-baseline gap-2">
               <span className="text-[12.5px] font-bold text-foreground">{c.autorNombre}</span>
               <span className="text-[11px] text-muted-foreground">{timeAgo(c.creadoEn)}</span>
+              {c.ocultoEn && <span className="text-[11px] font-semibold text-muted-foreground">· Retirado</span>}
+              {onRetirar && !c.id.startsWith('temp-') && (
+                <button
+                  type="button"
+                  onClick={() => onRetirar(c.id, !c.ocultoEn)}
+                  className="ml-auto text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  {c.ocultoEn ? 'Volver a mostrar' : 'Retirar'}
+                </button>
+              )}
             </div>
             <p className="break-words text-[13px] leading-relaxed text-foreground">{c.texto}</p>
           </div>

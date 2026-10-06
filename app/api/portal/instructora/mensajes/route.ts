@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarInstructoraEnEstudio } from '@/lib/auth-instructora';
 import {
-  abrirHiloConAlumna, avisarMensajeNuevo, enviarEnHilo, hilosDeInstructora, marcarHiloLeido, mensajesDeHilo,
+  abrirHiloConAlumna, avisarMensajeNuevo, bloquearEnHilo, denunciarEnHilo, enviarEnHilo, hilosDeInstructora,
+  marcarHiloLeido, mensajesDeHilo,
 } from '@/lib/portal-instructora/mensajes-servidor';
+import { TEXTO_GRACIAS_DENUNCIA } from '@/lib/moderacion/denuncias';
 import { textoNoAbrir } from '@/lib/student/mensajes-instructora';
 import { leerHasta } from '@/lib/mensajeria/avisos-leidos';
+import { TEXTO_NO_ADMITE } from '@/lib/moderacion/reglas';
+import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -17,7 +22,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 // instructora y el estudio salen del token + slug. Un hilo o una alumna que no
 // son suyos responden igual (404) que si no existieran.
 
-const ACCIONES = ['hilos', 'abrir', 'mensajes', 'enviar', 'leido'] as const;
+const ACCIONES = ['hilos', 'abrir', 'mensajes', 'enviar', 'leido', 'denunciar', 'bloquear'] as const;
 type Accion = (typeof ACCIONES)[number];
 
 const NO_ENCONTRADO = 'No encontramos esta conversación.';
@@ -28,6 +33,8 @@ const ERRORES: Record<Accion, string> = {
   mensajes: 'No hemos podido cargar los mensajes. Vuelve a intentarlo.',
   enviar: 'No se ha podido enviar el mensaje. Vuelve a intentarlo.',
   leido: 'No se ha podido marcar como leído.',
+  denunciar: 'No se ha podido enviar la denuncia. Inténtalo otra vez.',
+  bloquear: 'No se ha podido guardar. Inténtalo otra vez.',
 };
 
 export async function POST(req: NextRequest) {
@@ -36,6 +43,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null) as {
     slug?: string; accion?: unknown; socioId?: unknown; conversacionId?: unknown; cuerpo?: unknown; hasta?: unknown;
+    mensajeId?: unknown; bloquear?: unknown; detalle?: unknown;
   } | null;
   if (!body?.slug) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
   const accion = body.accion as Accion;
@@ -44,9 +52,13 @@ export async function POST(req: NextRequest) {
   const socioId = texto(body.socioId);
   const conversacionId = texto(body.conversacionId);
   if (accion === 'abrir' && !socioId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
-  if ((accion === 'mensajes' || accion === 'enviar' || accion === 'leido') && !conversacionId) {
+  if (accion !== 'hilos' && accion !== 'abrir' && !conversacionId) {
     return NextResponse.json({ error: 'Falta la conversación' }, { status: 400 });
   }
+  const mensajeId = texto(body.mensajeId);
+  if (accion === 'denunciar' && !mensajeId) return NextResponse.json({ error: 'Falta el mensaje' }, { status: 400 });
+  if (accion === 'bloquear' && typeof body.bloquear !== 'boolean') return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
+  const detalle = texto(body.detalle);
   const cuerpo = typeof body.cuerpo === 'string' ? body.cuerpo.trim() : '';
   if (accion === 'enviar' && (cuerpo.length < 1 || cuerpo.length > 4000)) {
     return NextResponse.json({ error: 'El mensaje debe tener entre 1 y 4000 caracteres.' }, { status: 400 });
@@ -59,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // Escribir y abrir, con tope por INSTRUCTORA (no por IP: `enforceRateLimit`
     // mete la IP en la clave y con datos y wifi el límite se multiplica).
-    if (accion === 'enviar' || accion === 'abrir') {
+    if (accion === 'enviar' || accion === 'abrir' || accion === 'denunciar' || accion === 'bloquear') {
       const opciones = accion === 'enviar' ? { max: 30, windowSeconds: 60 } : { max: 20, windowSeconds: 60 };
       const limite = await rateLimit(`portal-instructora-mensajes-${accion}:${sesion.instructorId}`, opciones);
       if (!limite.allowed) return tooManyRequestsResponse(retryAfterSeconds(limite.resetAt, opciones.windowSeconds));
@@ -77,17 +89,41 @@ export async function POST(req: NextRequest) {
       }
 
       case 'mensajes': {
-        const mensajes = await mensajesDeHilo(suya, conversacionId as string);
-        if (!mensajes) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
-        return NextResponse.json({ mensajes }, { headers: { 'Cache-Control': 'no-store' } });
+        const hilo = await mensajesDeHilo(suya, conversacionId as string);
+        if (!hilo) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        // `estado` es aditivo: dice si el hilo admite mensajes (la app de antes lo ignora).
+        return NextResponse.json({ mensajes: hilo.mensajes, estado: hilo.estado }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
       case 'enviar': {
-        const mensaje = await enviarEnHilo(suya, conversacionId as string, cuerpo);
-        if (!mensaje) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        // Normas aceptadas y filtro de palabras (App Store 1.2), antes de guardar nada.
+        const admin = getSupabaseAdmin();
+        if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+        const motivo = await antesDePublicar(admin, sesion.userId, cuerpo);
+        if (motivo) return NextResponse.json(cuerpoNoPublicar(motivo), { status: motivo.status });
+        const r = await enviarEnHilo(suya, conversacionId as string, cuerpo);
+        if (!r) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        // Cerrado por el estudio o con un bloqueo: el borrador se queda en su pantalla.
+        if (!r.ok) return NextResponse.json({ error: TEXTO_NO_ADMITE, estado: r.estado }, { status: 409 });
+        const mensaje = r.mensaje;
         // Avisar nunca retrasa la respuesta: el mensaje ya está guardado.
         after(() => avisarMensajeNuevo({ ...suya, remitente: sesion.nombre }, conversacionId as string, mensaje.id));
         return NextResponse.json({ mensaje });
+      }
+
+      // Denunciar un mensaje de la alumna, y bloquearla o desbloquearla (App Store 1.2).
+      case 'denunciar': {
+        const r = await denunciarEnHilo(suya, conversacionId as string, mensajeId as string, detalle);
+        if (!r) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+        return NextResponse.json({ ok: true, mensaje: TEXTO_GRACIAS_DENUNCIA });
+      }
+
+      case 'bloquear': {
+        const r = await bloquearEnHilo(suya, conversacionId as string, body.bloquear as boolean, detalle);
+        if (!r) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+        return NextResponse.json({ ok: true, estado: r.estado });
       }
 
       case 'leido': {

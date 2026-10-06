@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { Icono } from '@/components/student/ui/Icono';
+import { NormasYContacto } from '@/components/student/domain/NormasComunidad';
 
 // Ayuda (§A.20): contacto del estudio y las preguntas que de verdad hacen.
 //
@@ -62,6 +63,10 @@ export default function AyudaPage() {
             ))}
           </div>
         </section>
+
+        {/* App Store 1.2: las normas de la comunidad a mano y el contacto de
+            Tentare como desarrollador de la app. */}
+        <NormasYContacto />
 
         {/* ⚠️ Faltaba. El paquete cierra esta pantalla con un pie legal, y no
             es cosmético: es el ÚNICO sitio de la app de la alumna desde el que

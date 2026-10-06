@@ -4,8 +4,8 @@ import { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useEstudio } from '@/components/student/contexto';
 import {
-  fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida, useMiAuthUserId,
-  type ConversacionPortal,
+  bloquearChatAlumna, denunciarMensajeAlumna, fetchConversaciones, fetchMensajes, enviarMensaje,
+  marcarConversacionLeida, useMiAuthUserId, type ConversacionPortal,
 } from '@/lib/student/mensajeria';
 import { AVISO_ESTUDIO_PUEDE_LEER, tituloConversacionAlumna } from '@/lib/mensajeria/presentacion';
 import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
@@ -31,6 +31,10 @@ export default function HiloMensajesPage() {
     return mensajes;
   }, [estudio.id, id]);
   const enviar = useCallback((cuerpo: string) => enviarMensaje(estudio.id, id, cuerpo), [estudio.id, id]);
+  // Denunciar, en cualquier hilo suyo; bloquear, solo a su instructora (el hilo
+  // con el estudio no se bloquea: el servidor también lo rechaza).
+  const denunciar = useCallback((mensajeId: string) => denunciarMensajeAlumna(estudio.id, id, mensajeId), [estudio.id, id]);
+  const bloquear = useCallback((b: boolean) => bloquearChatAlumna(estudio.id, id, b), [estudio.id, id]);
   // Abrir el hilo marca leídos también sus avisos (el servidor lo hace en el
   // mismo PATCH). La campana vive en un caché de 60 s, así que se relee solo si
   // el servidor lo confirmó: sin confirmación, seguir encendida es lo honesto.
@@ -48,6 +52,9 @@ export default function HiloMensajesPage() {
       enviar={enviar}
       marcarLeido={marcarLeido}
       miId={miId}
+      denunciar={denunciar}
+      bloquear={conv?.tipo === 'ALUMNA_INSTRUCTORA' ? bloquear : null}
+      nombreOtraParte={conv?.interlocutor?.nombre ?? null}
     />
   );
 }

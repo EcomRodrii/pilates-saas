@@ -33,7 +33,7 @@ export const LEGAL = {
   dominio: 'www.tentare.app',
   url: URL_CANONICA,
   // Fecha de última revisión del contenido legal (no la de render).
-  actualizado: '30 de septiembre de 2026',
+  actualizado: '6 de octubre de 2026',
 
   // ── Identificación del titular (LSSI-CE art. 10) ────────────────────────────
   // Persona física (autónomo). Sin datos registrales (ver cabecera).

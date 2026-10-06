@@ -98,6 +98,106 @@ test.describe('Student PWA · hilo de mensajes', () => {
   });
 });
 
+test.describe('Student PWA · hilo que ya no admite mensajes', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  // El estudio cerró el hilo, o hay un bloqueo (moderación): el servidor responde 409.
+  test('al enviar, lo dice, el borrador se queda y no se pinta la burbuja', async ({ page }) => {
+    await montar(page, { conInstructora: true });
+    let intentos = 0;
+    // Registrada DESPUÉS del arnés: Playwright prueba las rutas de la última a la primera.
+    await page.route(
+      (u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/mensajes`,
+      (r) => {
+        if (r.request().method() !== 'POST') return r.fallback();
+        intentos++;
+        return r.fulfill({
+          status: 409, contentType: 'application/json',
+          body: JSON.stringify({ error: 'Esta conversación ya no admite mensajes.', estado: 'NO_ADMITE' }),
+        });
+      },
+    );
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByPlaceholder('Escribe un mensaje…').fill('¿Y el jueves?');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('Esta conversación ya no admite mensajes.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('¿Y el jueves?');
+    await expect(page.getByTestId('mensaje').filter({ hasText: '¿Y el jueves?' })).toHaveCount(0);
+    expect(intentos).toBe(1);
+  });
+});
+
+test.describe('Student PWA · normas de la comunidad y filtro', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  /** El servidor pide las normas hasta que se aceptan; después guarda el mensaje. */
+  async function montarNormas(page: Page, o: { filtro?: boolean } = {}) {
+    await montar(page);
+    const cuenta = { envios: 0, aceptar: 0 };
+    let aceptadas = false;
+    const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    await page.route((u) => u.pathname === '/api/public/normas-comunidad', (r) => {
+      cuenta.aceptar++;
+      aceptadas = true;
+      return r.fulfill(json({ version: '2026-10-05', aceptadas: true }));
+    });
+    await page.route((u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/mensajes`, (r) => {
+      if (r.request().method() !== 'POST') return r.fallback();
+      cuenta.envios++;
+      if (o.filtro) return r.fulfill(json({ error: 'Tu mensaje tiene palabras que no se permiten en la comunidad. Cámbialo y vuelve a enviarlo.', codigo: 'FILTRO' }, 422));
+      if (!aceptadas) return r.fulfill(json({ error: 'Antes de escribir, acepta las normas de la comunidad.', codigo: 'NORMAS_PENDIENTES', version: '2026-10-05' }, 409));
+      const { cuerpo } = r.request().postDataJSON() as { cuerpo: string };
+      return r.fulfill(json({ mensaje: { id: 'm-nuevo', conversacion_id: CONV, studio_id: STUDIO_ID, remitente_auth_user_id: YO, cuerpo, creado_en: new Date().toISOString() } }));
+    });
+    return cuenta;
+  }
+
+  test('la primera vez enseña las normas; al aceptarlas, el mismo mensaje se envía', async ({ page }) => {
+    const cuenta = await montarNormas(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('Perfecto, gracias');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+
+    const hoja = page.getByTestId('hoja-normas');
+    await expect(hoja).toBeInViewport({ timeout: 15_000 });
+    await expect(hoja).toContainText('Tolerancia cero');
+    await hoja.getByRole('button', { name: 'Acepto las normas' }).click();
+    await expect(page.getByTestId('mensaje').filter({ hasText: 'Perfecto, gracias' })).toHaveCount(1, { timeout: 15_000 });
+    expect(cuenta).toEqual({ envios: 2, aceptar: 1 });
+  });
+
+  test('si no las acepta, no se envía nada más y el borrador se queda', async ({ page }) => {
+    const cuenta = await montarNormas(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('Perfecto, gracias');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    const hoja = page.getByTestId('hoja-normas');
+    await expect(hoja).toBeInViewport({ timeout: 15_000 });
+    await hoja.getByRole('button', { name: 'Ahora no' }).click();
+    await expect(hoja).not.toBeInViewport();
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('Perfecto, gracias');
+    await expect(page.getByTestId('mensaje').filter({ hasText: 'Perfecto, gracias' })).toHaveCount(0);
+    expect(cuenta).toEqual({ envios: 1, aceptar: 0 });
+  });
+
+  test('con palabras no permitidas, lo dice y el borrador se queda', async ({ page }) => {
+    const cuenta = await montarNormas(page, { filtro: true });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('algo feo');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText(/palabras que no se permiten/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('algo feo');
+    expect(cuenta.envios).toBe(1);
+  });
+});
+
 test.describe('Student PWA · hilo con su instructora', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
@@ -258,5 +358,78 @@ test.describe('Student PWA · mensajes sin leer y sus avisos', () => {
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/mensajes/${CONV}$`), { timeout: 30_000 });
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Denunciar y bloquear desde la app de la alumna (App Store 1.2).
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · denunciar y bloquear', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  async function rutaModeracion(page: Page, o: { falla?: boolean } = {}) {
+    const llamadas: { ruta: string; cuerpo: Record<string, unknown> }[] = [];
+    // Registrada DESPUÉS del arnés: Playwright prueba las rutas de la última a la primera.
+    await page.route((u) => /\/conversaciones\/[^/]+\/(denunciar|bloquear)$/.test(u.pathname), (r) => {
+      const ruta = new URL(r.request().url()).pathname.split('/').pop()!;
+      const cuerpo = r.request().postDataJSON() as Record<string, unknown>;
+      llamadas.push({ ruta, cuerpo });
+      if (o.falla) return r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'No se ha podido enviar la denuncia. Inténtalo otra vez.' }) });
+      const respuesta = ruta === 'bloquear'
+        ? { ok: true, estado: cuerpo.bloquear ? 'BLOQUEADA_POR_MI' : 'ABIERTA' }
+        : { ok: true, mensaje: 'Gracias. Lo revisaremos.' };
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(respuesta) });
+    });
+    return llamadas;
+  }
+
+  test('en el hilo con el estudio se denuncia (no se bloquea), y da las gracias', async ({ page }) => {
+    await montar(page);
+    const llamadas = await rutaModeracion(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    // Solo el mensaje de la otra parte se puede tocar.
+    await expect(page.getByRole('button', { name: 'Opciones del mensaje' })).toHaveCount(1, { timeout: 30_000 });
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click();
+    await expect(page.getByRole('button', { name: /^Bloquear/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Denunciar este mensaje' }).click();
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toBeVisible({ timeout: 30_000 });
+    expect(llamadas).toEqual([{ ruta: 'denunciar', cuerpo: { studioId: STUDIO_ID, mensajeId: 'm2' } }]);
+  });
+
+  test('si la denuncia no llega, lo dice y no da las gracias', async ({ page }) => {
+    await montar(page);
+    const llamadas = await rutaModeracion(page, { falla: true });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Denunciar este mensaje' }).click();
+    await expect(page.getByText('No se ha podido enviar la denuncia')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toHaveCount(0);
+    expect(llamadas.length).toBeGreaterThan(0);
+  });
+
+  test('a su instructora la puede bloquear, con confirmación', async ({ page }) => {
+    await montar(page, { conInstructora: true });
+    const llamadas = await rutaModeracion(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Bloquear a Laura M.' }).click();
+    await page.getByRole('button', { name: 'Bloquear', exact: true }).click();
+    await expect(page.getByText('Has bloqueado esta conversación.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveCount(0);
+    expect(llamadas).toEqual([{ ruta: 'bloquear', cuerpo: { studioId: STUDIO_ID, bloquear: true } }]);
+  });
+
+  test('si el servidor dice que el hilo ya no admite mensajes, no hay compositor', async ({ page }) => {
+    await montar(page, { conInstructora: true });
+    await page.route(
+      (u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/mensajes`,
+      (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mensajes, estado: 'NO_ADMITE' }) }),
+    );
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('hilo-sin-compositor')).toHaveText('Esta conversación ya no admite mensajes.', { timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveCount(0);
+    // Sin decir quién bloqueó: no hay «Desbloquear».
+    await expect(page.getByRole('button', { name: 'Desbloquear' })).toHaveCount(0);
   });
 });

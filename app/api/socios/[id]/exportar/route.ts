@@ -40,7 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const datos = await exportarDatosSocia(admin as unknown as LectorBd, {
       studioId: sesion.studioId, socioId,
-      incluirSalud: puedeVerFichaClinica(sesion.rol), saludSoloConConsentimiento: true, ahora,
+      incluirSalud: puedeVerFichaClinica(sesion.rol), saludSoloConConsentimiento: true,
+      puerta: { estudio: sesion.rol }, ahora,
     });
     if (!datos) return NextResponse.json({ error: 'Socia no encontrada' }, { status: 404 });
 

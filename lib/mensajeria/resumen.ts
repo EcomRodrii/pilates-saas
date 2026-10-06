@@ -13,12 +13,25 @@
 // vacía (nunca la equivocada): degrada, no miente.
 
 import { tieneSinLeer, type LadoLectura, type ResumenConversacion } from './presentacion.ts';
+import { TEXTO_RETIRADO } from '../moderacion/reglas.ts';
 
 export interface FilaUltimoMensaje {
   conversacion_id: string;
   cuerpo: string;
   remitente_auth_user_id: string;
   creado_en: string;
+  /** Retirado por el estudio (migr 20261006014051). Las tres bandejas lo piden. */
+  oculto_en?: string | null;
+}
+
+export interface OpcionesResumen {
+  /**
+   * Las apps de la alumna y de la instructora no ven el texto de un mensaje
+   * retirado, tampoco como última línea de la lista: sale `TEXTO_RETIRADO`. El
+   * panel sí lo ve (`false`). Por defecto, oculto: quien se olvide de pasarlo
+   * enseña de menos, nunca de más.
+   */
+  ocultarRetirados?: boolean;
 }
 
 export interface FilaLectura {
@@ -53,7 +66,9 @@ export function resumirConversaciones<T extends ConversacionAResumir>(
   lecturas: FilaLectura[],
   miAuthUserId: string,
   lado: LadoLectura,
+  opciones: OpcionesResumen = {},
 ): (T & ResumenConversacion)[] {
+  const ocultarRetirados = opciones.ocultarRetirados ?? true;
   const ultimoPorConversacion = new Map<string, FilaUltimoMensaje>();
   for (const m of ultimos) {
     const previo = ultimoPorConversacion.get(m.conversacion_id);
@@ -78,11 +93,13 @@ export function resumirConversaciones<T extends ConversacionAResumir>(
 
   return conversaciones.map(c => {
     const ultimo = ultimoPorConversacion.get(c.id);
+    const ultimoOculto = Boolean(ultimo?.oculto_en);
     const resumen = {
       ...c,
       leido_hasta: mio.get(c.id) ?? null,
       leido_hasta_otros: otros.get(c.id) ?? null,
-      ultimo_cuerpo: ultimo?.cuerpo ?? null,
+      ultimo_cuerpo: ultimo ? (ultimoOculto && ocultarRetirados ? TEXTO_RETIRADO : ultimo.cuerpo) : null,
+      ultimo_oculto: ultimoOculto,
       ultimo_remitente_auth_user_id: ultimo?.remitente_auth_user_id ?? null,
       // La propietaria lee los hilos instructora–alumna del estudio sin
       // participar: en esos, solo lectura (la RLS ya le impide escribir).

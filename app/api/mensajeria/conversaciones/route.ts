@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
-  const columnas = 'id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, mostrador_leido_hasta, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)';
+  const columnas = 'id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, mostrador_leido_hasta, cerrada_en, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)';
   const ERROR_LISTA = 'No se han podido cargar las conversaciones.';
   const desc = (a: RowConversacionesConParticipantes, b: RowConversacionesConParticipantes) =>
     (a.ultimo_mensaje_en < b.ultimo_mensaje_en ? 1 : a.ultimo_mensaje_en > b.ultimo_mensaje_en ? -1 : 0);
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
 
   const { data: ultimos } = await sesionCliente
     .from('mensajes')
-    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en, oculto_en')
     .in('conversacion_id', filas.map(c => c.id))
     .in('creado_en', instantesUltimoMensaje(filas));
 
@@ -202,6 +202,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     conversaciones: resumirConversaciones(
       filas, (ultimos ?? []) as FilaUltimoMensaje[], lecturas, sesion.userId, 'equipo',
+      // El panel modera: ve el texto de lo retirado, con `ultimo_oculto`.
+      { ocultarRetirados: false },
     ),
   });
 }

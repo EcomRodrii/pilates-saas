@@ -152,7 +152,7 @@ const TABLAS_SALUD = ['condiciones_salud', 'respuestas_cuestionario_salud', 'res
 
 test('forma: JSON versionado con todas las secciones, y solo lo de ESTA socia en ESTE estudio', async () => {
   const { db } = bdFalsa(fixture());
-  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA });
+  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   assert.ok(r);
   assert.equal(r.version, VERSION_EXPORTACION);
   assert.equal(r.generadoEn, AHORA.toISOString());
@@ -166,7 +166,7 @@ test('forma: JSON versionado con todas las secciones, y solo lo de ESTA socia en
   assert.equal(reservas[0].clase, 'Reformer');
   assert.equal(reservas[0].instructora, 'Laura');
   assert.equal((r.secciones.facturas as Fila[]).length, 1);
-  assert.deepEqual(r.secciones.mensajesEnviados, [{ fecha: '2026-09-02T10:00:00Z', texto: 'Hola, ¿mañana hay clase?' }]);
+  assert.deepEqual(r.secciones.mensajesEnviados, [{ fecha: '2026-09-02T10:00:00Z', texto: 'Hola, ¿mañana hay clase?', retiradoPorElEstudio: false }]);
   const salud = r.secciones.salud as Record<string, unknown>;
   assert.equal((salud.condiciones as Fila[]).length, 1);
   assert.deepEqual((salud.valoracionInicial as Fila).salud, { tieneMolestias: true, zonas: ['lumbar'], detalle: null, estadoDelCuerpo: null });
@@ -174,7 +174,7 @@ test('forma: JSON versionado con todas las secciones, y solo lo de ESTA socia en
 
 test('minimización: nada de contacto del personal, de quién tecleó ni del IBAN entero', async () => {
   const { db } = bdFalsa(fixture());
-  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA });
+  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   const json = JSON.stringify(r);
   for (const prohibido of ['laura@equipo.es', '600000000', 'Respuesta del equipo', 'ES9121000418450200051332', 'leido_por', 'creado_por']) {
     assert.ok(!json.includes(prohibido), `no debe salir: ${prohibido}`);
@@ -184,7 +184,7 @@ test('minimización: nada de contacto del personal, de quién tecleó ni del IBA
 
 test('historial del contrato (art. 15): fecha, vía, si coincidía y el texto; nada de IP, navegador ni quién lo tecleó', async () => {
   const { db } = bdFalsa(fixture());
-  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, ahora: AHORA });
+  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   const c = r!.secciones.consentimientos as { historialContrato: Fila[] };
   assert.deepEqual(c.historialContrato, [{
     fecha: '2026-09-01T08:00:00Z', via: 'MOSTRADOR', textoCoincidiaConElMostrado: true,
@@ -198,8 +198,9 @@ test('historial del contrato (art. 15): fecha, vía, si coincidía y el texto; n
 
 test('alcance: cada lectura de una tabla con socio_id va filtrada por la socia, y por el estudio si la tabla lo tiene', async () => {
   const { db, llamadas } = bdFalsa(fixture());
-  await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA });
-  const sinEstudio = new Set(['codigos_descuento_consumos', 'conversacion_participantes', 'post_evento_asistentes']);
+  await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
+  // `normas_comunidad_aceptaciones` va por su cuenta: las normas valen para todos sus estudios.
+  const sinEstudio = new Set(['codigos_descuento_consumos', 'conversacion_participantes', 'post_evento_asistentes', 'normas_comunidad_aceptaciones']);
   for (const l of llamadas) {
     const tiene = (op: string, c: string, v?: unknown) => l.filtros.some(f => f[0] === op && f[1] === c && (v === undefined || f[2] === v));
     if (l.tabla in COBERTURA_TABLAS) {
@@ -215,7 +216,7 @@ test('alcance: cada lectura de una tabla con socio_id va filtrada por la socia, 
 test('columnas: todo lo que se pide existe en lib/db-types.ts', async () => {
   const tipos = readFileSync(join(RAIZ, 'lib', 'db-types.ts'), 'utf8');
   const { db, llamadas } = bdFalsa(fixture());
-  await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA });
+  await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   const errores: string[] = [];
   for (const l of llamadas) {
     const nombre = 'Row' + l.tabla.split('_').map(p => p[0].toUpperCase() + p.slice(1)).join('');
@@ -228,7 +229,7 @@ test('columnas: todo lo que se pide existe en lib/db-types.ts', async () => {
 
 test('salud: no sale (ni se lee) sin permiso clínico', async () => {
   const { db, llamadas } = bdFalsa(fixture());
-  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, ahora: AHORA });
+  const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
   assert.equal(r?.secciones.salud, null);
   assert.ok(!llamadas.some(l => TABLAS_SALUD.includes(l.tabla)));
   assert.match(r!.notas.join(' '), /ficha clínica/);
@@ -236,21 +237,21 @@ test('salud: no sale (ni se lee) sin permiso clínico', async () => {
 
 test('salud en el panel: además exige el consentimiento vigente, igual que la RLS', async () => {
   const sinConsentimiento = await exportarDatosSocia(bdFalsa(fixture()).db,
-    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, ahora: AHORA });
+    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
   assert.equal(sinConsentimiento?.secciones.salud, null);
 
   const revocado = await exportarDatosSocia(bdFalsa(fixture({ consentimiento_salud_fecha: '2026-01-01', consentimiento_salud_revocado_en: '2026-02-01' })).db,
-    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, ahora: AHORA });
+    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
   assert.equal(revocado?.secciones.salud, null);
 
   const vigente = await exportarDatosSocia(bdFalsa(fixture({ consentimiento_salud_fecha: '2026-01-01' })).db,
-    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, ahora: AHORA });
+    { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
   assert.notEqual(vigente?.secciones.salud, null);
 });
 
 test('una socia de otro estudio no existe para esta exportación', async () => {
   const r = await exportarDatosSocia(bdFalsa(fixture()).db,
-    { studioId: 'st2', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA });
+    { studioId: 'st2', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   assert.equal(r, null);
 });
 
@@ -267,11 +268,128 @@ test('si una lectura falla, falla la exportación entera (nunca un archivo a med
     },
   };
   await assert.rejects(
-    exportarDatosSocia(conFallo, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, ahora: AHORA }),
+    exportarDatosSocia(conFallo, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA }),
     /recibos/,
   );
 });
 
 test('nombre de archivo apto para una cabecera', () => {
   assert.equal(nombreArchivoExportacion('mis-datos Pilates Luz Ñ', AHORA), 'mis-datos-pilates-luz-n-2026-09-13.json');
+});
+
+// ── Moderación de la app (migr 20261006014051) ──────────────────────────────
+
+/** El fixture con su hilo con la instructora, comentarios del tablón y denuncias. */
+function fixtureModeracion(): Record<string, Fila[]> {
+  const f = fixture();
+  return {
+    ...f,
+    conversaciones: [
+      { id: 'cv1', studio_id: 'st1', tipo: 'ALUMNA_MOSTRADOR' },
+      { id: 'cv2', studio_id: 'st1', tipo: 'ALUMNA_INSTRUCTORA' },
+    ],
+    conversacion_participantes: [...f.conversacion_participantes, { conversacion_id: 'cv2', socio_id: 's1', bloqueo_en: '2026-09-09T10:00:00Z' }],
+    post_likes: [
+      { post_id: 'p1', studio_id: 'st1', user_id: 'u1', creado_en: '2026-09-05T12:00:00Z' },
+      { post_id: 'p1', studio_id: 'st1', user_id: 'u2', creado_en: '2026-09-05T12:30:00Z' },
+    ],
+    socio_companeras: [
+      { id: 'sc1', studio_id: 'st1', solicitante_id: 's1', destinataria_id: 's2', estado: 'bloqueada', bloqueada_por: 's1', resuelto_en: '2026-09-10T10:00:00Z' },
+      // La bloqueó otra: eso no es suyo (y no se le cuenta).
+      { id: 'sc2', studio_id: 'st1', solicitante_id: 's3', destinataria_id: 's1', estado: 'bloqueada', bloqueada_por: 's3', resuelto_en: '2026-09-10T11:00:00Z' },
+    ],
+    normas_comunidad_aceptaciones: [
+      { auth_user_id: 'u1', version: '2026-10-05', aceptada_en: '2026-10-05T09:00:00Z' },
+      { auth_user_id: 'u2', version: '2026-10-05', aceptada_en: '2026-10-05T09:30:00Z' },
+    ],
+    mensajes: [
+      ...f.mensajes,
+      { id: 'ms3', studio_id: 'st1', conversacion_id: 'cv2', remitente_auth_user_id: 'u1', cuerpo: 'Laura, ¿me cambias el ejercicio?', creado_en: '2026-09-03T10:00:00Z', oculto_en: '2026-09-04T10:00:00Z' },
+    ],
+    comentarios_comunidad: [
+      // Escrito con una cuenta que ya no es la suya: se reconoce por la ficha.
+      { id: 'cc1', studio_id: 'st1', post_id: 'p1', autor_id: 'cuenta-vieja', socio_id: 's1', texto: '¡Qué bien lo pasamos!', creado_en: '2026-09-05T10:00:00Z', oculto_en: null },
+      { id: 'cc2', studio_id: 'st1', post_id: 'p1', autor_id: 'u1', socio_id: 's1', texto: 'Algo que el estudio retiró', creado_en: '2026-09-06T10:00:00Z', oculto_en: '2026-09-06T12:00:00Z' },
+      { id: 'cc3', studio_id: 'st1', post_id: 'p1', autor_id: 'u2', socio_id: 's2', texto: 'Comentario de Bea', creado_en: '2026-09-05T11:00:00Z' },
+    ],
+    denuncias: [
+      { id: 'd1', studio_id: 'st1', socio_id: 's1', ambito: 'CHAT_INSTRUCTORA', motivo: 'DENUNCIA', estado: 'MANTENIDA', revisada_por: 'ESTUDIO',
+        detalle: 'Me habló mal', creada_en: '2026-09-07T10:00:00Z', resuelta_en: '2026-09-08T10:00:00Z',
+        resuelta_por: 'cuenta-duena', autor_auth_user_id: 'cuenta-laura', denunciante_auth_user_id: 'u1' },
+      { id: 'd2', studio_id: 'st1', socio_id: 's2', ambito: 'TABLON', motivo: 'DENUNCIA', estado: 'PENDIENTE', detalle: 'De Bea', creada_en: '2026-09-07T11:00:00Z' },
+    ],
+  };
+}
+
+test('denuncias: solo salen en su propia descarga, con lo que contó y sin cuentas de nadie', async () => {
+  const alumna = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
+  const otros = alumna!.secciones.otros as { denunciasHechas?: Fila[] };
+  assert.deepEqual(otros.denunciasHechas, [{
+    fecha: '2026-09-07T10:00:00Z', sobre: 'CHAT_INSTRUCTORA', tipo: 'DENUNCIA', estado: 'MANTENIDA',
+    revisadaPor: 'ESTUDIO', resueltaEn: '2026-09-08T10:00:00Z', loQueContaste: 'Me habló mal',
+  }]);
+  const json = JSON.stringify(alumna);
+  for (const prohibido of ['cuenta-duena', 'cuenta-laura', 'De Bea']) assert.ok(!json.includes(prohibido), `no debe salir: ${prohibido}`);
+
+  // Desde la ficha, ni la propietaria se lleva lo que denunció: ni se lee.
+  const { db, llamadas } = bdFalsa(fixtureModeracion());
+  const panel = await exportarDatosSocia(db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
+  assert.ok(!('denunciasHechas' in (panel!.secciones.otros as object)));
+  assert.ok(!llamadas.some((l) => l.tabla === 'denuncias'));
+});
+
+test('tablón: sus comentarios por su ficha, también los retirados (son suyos), y nada de otra socia', async () => {
+  const { db, llamadas } = bdFalsa(fixtureModeracion());
+  for (const puerta of ['alumna', { estudio: 'RECEPCION' }] as const) {
+    const r = await exportarDatosSocia(db,
+      { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, puerta, ahora: AHORA });
+    const tablon = (r!.secciones.otros as { tablon: { comentarios: Fila[] } }).tablon;
+    assert.deepEqual(tablon.comentarios, [
+      { fecha: '2026-09-05T10:00:00Z', texto: '¡Qué bien lo pasamos!', retiradoPorElEstudio: false },
+      { fecha: '2026-09-06T10:00:00Z', texto: 'Algo que el estudio retiró', retiradoPorElEstudio: true },
+    ]);
+  }
+  const lectura = llamadas.find((l) => l.tabla === 'comentarios_comunidad');
+  assert.ok(lectura?.filtros.some(([op, c, v]) => op === 'eq' && c === 'socio_id' && v === 's1'), 'se leen por su ficha');
+});
+
+test('mensajes desde el panel: recepción solo se lleva los del hilo con el estudio', async () => {
+  const r = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta: { estudio: 'RECEPCION' }, ahora: AHORA });
+  assert.deepEqual(r!.secciones.mensajesEnviados, [{ fecha: '2026-09-02T10:00:00Z', texto: 'Hola, ¿mañana hay clase?', retiradoPorElEstudio: false }]);
+  assert.ok(!JSON.stringify(r).includes('Laura, ¿me cambias el ejercicio?'));
+});
+
+test('mensajes: la propietaria y la propia alumna se llevan también los de su instructora', async () => {
+  for (const puerta of ['alumna', { estudio: 'PROPIETARIO' }] as const) {
+    const r = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
+      { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta, ahora: AHORA });
+    assert.deepEqual((r!.secciones.mensajesEnviados as Fila[]).map((m) => [m.texto, m.retiradoPorElEstudio]), [
+      ['Hola, ¿mañana hay clase?', false],
+      ['Laura, ¿me cambias el ejercicio?', true],
+    ]);
+  }
+});
+
+test('tablón y moderación: sus «me gusta», a quién bloqueó (sin quién era) y las normas que aceptó', async () => {
+  const alumna = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
+  const otros = alumna!.secciones.otros as { tablon: { meGusta: Fila[] }; bloqueos: Fila[]; normasDeLaComunidadAceptadas: Fila[] };
+  assert.deepEqual(otros.tablon.meGusta, [{ fecha: '2026-09-05T12:00:00Z', publicacion: 'p1' }]);
+  assert.deepEqual(otros.bloqueos, [
+    { donde: 'tablon', desde: '2026-09-10T10:00:00Z' },
+    { donde: 'mensajes', desde: '2026-09-09T10:00:00Z' },
+  ]);
+  assert.deepEqual(otros.normasDeLaComunidadAceptadas, [{ version: '2026-10-05', fecha: '2026-10-05T09:00:00Z' }]);
+  assert.ok(!JSON.stringify(otros.bloqueos).includes('s2'), 'sin la ficha de la otra persona');
+
+  // Desde la ficha del estudio: los «me gusta» sí (son del tablón del estudio); bloqueos y normas, no (ni se leen).
+  const { db, llamadas } = bdFalsa(fixtureModeracion());
+  const panel = await exportarDatosSocia(db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
+  const o = panel!.secciones.otros as Record<string, unknown>;
+  assert.ok(!('bloqueos' in o) && !('normasDeLaComunidadAceptadas' in o));
+  assert.ok(!llamadas.some((l) => l.tabla === 'socio_companeras' || l.tabla === 'normas_comunidad_aceptaciones'));
 });

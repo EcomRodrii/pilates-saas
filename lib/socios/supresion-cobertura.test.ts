@@ -99,6 +99,43 @@ test('la cabecera de la migración documenta todas las tablas clasificadas', () 
   assert.deepEqual(sinDocumentar, []);
 });
 
+test('moderación de la app: avisos de sus conversaciones, comentarios por su ficha y sus denuncias', () => {
+  // Los avisos «mensaje.recibido» llevan su nombre como remitente: se borran por la
+  // conversación, ANTES de borrar las conversaciones (después ya no se encuentran).
+  const avisos = cuerpoFuncion.search(/n\.event_type = 'mensaje\.recibido'\s+and n\.data ->> 'conversacionId' in \(select cp\.conversacion_id/);
+  assert.ok(avisos > 0, 'anonimizar_socio no borra los avisos de mensajes de sus conversaciones');
+  assert.ok(avisos < cuerpoFuncion.indexOf('delete from public.conversaciones c'), 'los avisos se buscan después de borrar sus conversaciones');
+  assert.match(cuerpoFuncion, /cc\.autor_id = p_socio_id or cc\.socio_id = p_socio_id/);
+  // Denuncias: se ANONIMIZAN (la fila queda como constancia), nunca se borran.
+  assert.match(cuerpoFuncion, /update public\.denuncias dn set socio_id = null, denunciante_auth_user_id = null, detalle = null/);
+  assert.match(cuerpoFuncion, /update public\.denuncias dn set autor_auth_user_id = null, detalle = null/);
+  assert.doesNotMatch(cuerpoFuncion, /delete from public\.denuncias/);
+});
+
+test('la guarda md5 de la copia acepta su propio cuerpo, con y sin líneas de comentario (repetible)', async () => {
+  // Producción puede guardar el cuerpo sin las líneas `--` (pasó con anonimizar_instructor,
+  // 5-oct-2026): la guarda acepta las dos huellas de cada versión. Si se toca el cuerpo y no
+  // la guarda, volver a aplicar el fichero fallaría.
+  const { createHash } = await import('node:crypto');
+  const md5 = (s: string) => createHash('md5').update(s).digest('hex');
+  const funciones: [string, string][] = [['anonimizar_socio', migracion]];
+  const dir = DIR_MIGRACIONES;
+  const ultimaInstructor = readdirSync(dir).filter(n => n.endsWith('.sql')).sort()
+    .filter(n => /create or replace function public\.anonimizar_instructor\(/.test(readFileSync(new URL(n, dir), 'utf8'))).at(-1);
+  if (ultimaInstructor) funciones.push(['anonimizar_instructor', readFileSync(new URL(ultimaInstructor, dir), 'utf8')]);
+  for (const [nombre, sql] of funciones) {
+    const guarda = sql.match(/select md5\(prosrc\)[\s\S]*?not in \(([\s\S]*?)\)\s*then/);
+    if (!guarda) continue; // sin guarda, nada que comprobar
+    const aceptadas = [...guarda[1].matchAll(/'([0-9a-f]{32})'/g)].map(m => m[1]);
+    const ini = sql.indexOf(`create or replace function public.${nombre}(`);
+    const a = sql.indexOf('$function$', ini) + '$function$'.length;
+    const cuerpo = sql.slice(a, sql.indexOf('$function$', a));
+    const sinComentarios = cuerpo.split(/(?<=\n)/).filter(l => !l.trim().startsWith('--')).join('');
+    assert.ok(aceptadas.includes(md5(cuerpo)), `${nombre}: la guarda no acepta su propio cuerpo (${md5(cuerpo)})`);
+    assert.ok(aceptadas.includes(md5(sinComentarios)), `${nombre}: la guarda no acepta su cuerpo sin comentarios (${md5(sinComentarios)})`);
+  }
+});
+
 test('la función es solo de service_role y lo comprueba al aplicarse', () => {
   const firma = 'public.anonimizar_socio(text, text, uuid, text)';
   for (const rol of ['public', 'anon', 'authenticated']) {

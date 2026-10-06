@@ -100,6 +100,10 @@ export function BorrarCuenta({ slug, nombreEstudio, hrefLogin }: {
                 guardar, como facturas y pagos.
               </p>
               <p style={p}>
+                Tus mensajes y tus comentarios del tablón se quedan en el estudio con tu nombre, y quien hayas bloqueado
+                sigue bloqueada. Tus «me gusta» se borran.
+              </p>
+              <p style={p}>
                 Si quieres que un estudio borre también tus datos, pídeselo con «Solicitar la eliminación de mis datos»,
                 justo encima.
               </p>

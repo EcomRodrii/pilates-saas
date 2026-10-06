@@ -20,6 +20,7 @@ function mapRow(r: Record<string, unknown>): ComentarioComunidad {
     autorInicial: (r.autor_inicial as string | null) ?? null,
     texto: r.texto as string,
     creadoEn: r.creado_en as string,
+    ocultoEn: (r.oculto_en as string | null) ?? null,
   };
 }
 
@@ -30,6 +31,12 @@ export async function GET(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Mismo corte que el POST: lee con service-role todos los comentarios del
+  // estudio, también los retirados por moderación. INSTRUCTOR no modera el tablón
+  // (ni tiene panel) y por PostgREST ya no los lee (migr 20261006013928).
+  if (!puedeModerarComunidad(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver los comentarios de la comunidad' }, { status: 403 });
+  }
 
   const { data, error } = await admin
     .from('comentarios_comunidad')

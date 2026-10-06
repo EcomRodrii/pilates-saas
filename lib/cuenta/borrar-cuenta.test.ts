@@ -125,6 +125,7 @@ test('alumna: quita sus avisos, desvincula sus fichas, borra la cuenta y lo conf
   assert.deepEqual(await borrarMiCuenta(admin, 'uid-1', { esperaBaseMs: 0 }), { ok: true });
   assert.deepEqual(pasos, [
     'delete push_subscription user_id=uid-1',
+    'delete post_likes user_id=uid-1',
     'update socios {"auth_user_id":null} auth_user_id=uid-1',
     'deleteUser uid-1',
     'getUserById uid-1',

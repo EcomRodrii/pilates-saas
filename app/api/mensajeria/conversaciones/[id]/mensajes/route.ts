@@ -7,6 +7,7 @@ import { emitirMensajeRecibido } from '@/lib/notifications/emit';
 import { previsualizacionParaAviso } from '@/lib/mensajeria/presentacion';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import { errorDeModeracion } from '@/lib/moderacion/reglas';
 import type { RowMensajes } from '@/lib/db-types';
 
 const LIMITE_DEFECTO = 50;
@@ -25,7 +26,8 @@ function sesionCliente(token: string) {
 // Cliente de SESIÓN (no service-role): la policy `mensajes_lectura` ya exige
 // participación (o EQUIPO/ALUMNA_MOSTRADOR con puede_gestionar_calendario()),
 // así que una conversación ajena simplemente devuelve 0 filas, sin más
-// comprobación que hacer aquí.
+// comprobación que hacer aquí. El panel modera: lee el texto de lo que el
+// estudio retiró, con `oculto_en` (las apps reciben «Mensaje retirado…»).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let query = sesionCliente(token)
     .from('mensajes')
-    .select('id, conversacion_id, studio_id, remitente_auth_user_id, cuerpo, creado_en')
+    .select('id, conversacion_id, studio_id, remitente_auth_user_id, cuerpo, creado_en, oculto_en')
     .eq('conversacion_id', id)
     .order('creado_en', { ascending: false })
     .limit(limite);
@@ -93,6 +95,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .single();
 
   if (error) {
+    // Hilo cerrado por el estudio, o un bloqueo entre quien escribe y esa alumna
+    // (también si lo intenta por el hilo del estudio): lo decide el trigger de la
+    // base de datos (migr 20261006014051), y aquí solo se traduce.
+    const moderacion = errorDeModeracion(error, { panel: true });
+    if (moderacion) return NextResponse.json({ error: moderacion.error }, { status: 409 });
     // RLS deniega el INSERT (no participa en la conversación, o no es su
     // studio): PostgREST lo reporta como 42501/violación de policy, nunca
     // como un fallo de servidor genuino — se lo decimos claro a quien escribe.

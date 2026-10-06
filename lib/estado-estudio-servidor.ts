@@ -12,6 +12,7 @@ import { HORAS_LIMITE_POR_DEFECTO, instructorasGestionables } from '@/lib/fichaj
 import type { ModoFacturacion, Rol } from '@/lib/types';
 import { emiteFacturas } from '@/lib/factura-automatica';
 import { nifEmisorValido } from '@/lib/nif';
+import { ambitosQueRevisa } from '@/lib/moderacion/denuncias';
 
 // Los recuentos de la bandeja única (lib/estado-estudio.ts), sacados tal cual
 // de GET /api/estado-estudio para que el asistente («¿qué debería revisar
@@ -82,7 +83,7 @@ export async function contarConteosEstudio(
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
     alertasApertura, equipoPorRevisar, clasesSinInstructora, doblesCobrosPorRevisar,
-    seguimientosParaHoy, facturasSinNif,
+    seguimientosParaHoy, facturasSinNif, denunciasPorRevisar,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -278,6 +279,13 @@ export async function contarConteosEstudio(
         .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'COBRADO').eq('factura_pendiente_sellar', true));
       return n === null ? null : Math.max(1, n);
     }),
+    // Denuncias de la app que le tocan al estudio, de los ámbitos que revisa quien
+    // mira (el chat con una instructora, solo la propietaria; el tablón, quien lo modera).
+    si(ambitosQueRevisa(rol).length > 0, () => contar('denuncias', admin.from('denuncias')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE').eq('destino', 'ESTUDIO')
+      .in('ambito', ambitosQueRevisa(rol))
+      // Las que van contra quien mira, ni se cuentan: no decide sobre sí misma.
+      .or(`autor_auth_user_id.is.null,autor_auth_user_id.neq.${userId}`))),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
@@ -288,7 +296,7 @@ export async function contarConteosEstudio(
     plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar, seguimientosParaHoy,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar, facturasSinNif,
+    alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar, facturasSinNif, denunciasPorRevisar,
   };
   return conteos;
 }

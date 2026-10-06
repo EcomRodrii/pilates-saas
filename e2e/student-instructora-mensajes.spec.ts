@@ -36,15 +36,15 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: boolean } = {}) {
-  const contador = { abrir: 0, hilos: 0, enviados: [] as string[] };
+async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: boolean; hiloNoAdmite?: boolean; denunciarFalla?: boolean } = {}) {
+  const contador = { abrir: 0, hilos: 0, enviados: [] as string[], moderacion: [] as Record<string, unknown>[] };
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
   await page.route('**/api/portal/instructora/sesion', (route) => json(route, { instructora: INSTRUCTORA }));
   await page.route('**/api/portal/instructora/perfil', (route) => json(route, { estudios: [], tarifa: null }));
   await page.route('**/api/portal/instructora/alumnas', (route) => json(route, FICHA));
   await page.route('**/api/portal/instructora/mensajes', (route) => {
-    const cuerpo = JSON.parse(route.request().postData() || '{}') as { accion?: string; cuerpo?: string };
+    const cuerpo = JSON.parse(route.request().postData() || '{}') as { accion?: string; cuerpo?: string; bloquear?: boolean };
     switch (cuerpo.accion) {
       case 'hilos':
         contador.hilos++;
@@ -62,6 +62,8 @@ async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: bo
       case 'enviar':
         contador.enviados.push(cuerpo.cuerpo ?? '');
         if (o.enviarFalla) return json(route, { error: 'No se ha podido enviar el mensaje. Vuelve a intentarlo.' }, 500);
+        // El estudio cerró el hilo, o hay un bloqueo (moderación): el servidor dice que no.
+        if (o.hiloNoAdmite) return json(route, { error: 'Esta conversación ya no admite mensajes.', estado: 'NO_ADMITE' }, 409);
         return json(route, {
           // La cuenta de la sesión del mock (`montarPortal`): así el mensaje que
           // envía sale como suyo, a la derecha, igual que en la app de verdad.
@@ -69,6 +71,13 @@ async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: bo
         });
       case 'leido':
         return route.fulfill({ status: 204 });
+      case 'denunciar':
+        contador.moderacion.push(cuerpo);
+        if (o.denunciarFalla) return json(route, { error: 'No se ha podido enviar la denuncia. Inténtalo otra vez.' }, 500);
+        return json(route, { ok: true, mensaje: 'Gracias. Lo revisaremos.' });
+      case 'bloquear':
+        contador.moderacion.push(cuerpo);
+        return json(route, { ok: true, estado: cuerpo.bloquear ? 'BLOQUEADA_POR_MI' : 'ABIERTA' });
       default:
         return json(route, { error: 'Acción no válida' }, 400);
     }
@@ -127,5 +136,63 @@ test.describe('Mensajes de la instructora con sus alumnas', () => {
     await expect(page.getByTestId('mensaje').filter({ hasText: 'Esto no llega' })).toHaveCount(0);
     await expect(page.getByTestId('mensaje')).toHaveCount(1);
     expect(contador.enviados.length).toBeGreaterThan(0);
+  });
+
+  test('si el hilo ya no admite mensajes (cerrado o bloqueado), lo dice y conserva el borrador', async ({ page }) => {
+    const contador = await montar(page, { hiloNoAdmite: true });
+    await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
+    await expect(page.getByText(PREGUNTA)).toBeVisible({ timeout: 30_000 });
+
+    await page.getByPlaceholder('Escribe un mensaje…').fill('¿Seguimos el jueves?');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('Esta conversación ya no admite mensajes.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('¿Seguimos el jueves?');
+    await expect(page.getByTestId('mensaje').filter({ hasText: '¿Seguimos el jueves?' })).toHaveCount(0);
+    // Sí se intentó, una vez: el «no» es del servidor, no de una pantalla que no llegó a pedir nada.
+    expect(contador.enviados).toEqual(['¿Seguimos el jueves?']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Denunciar y bloquear (App Store 1.2): tocar un mensaje de la alumna abre sus
+// opciones. Cada camino lleva su contador: «no dijo gracias» sería verdad
+// también si la pantalla no hubiera mandado nada.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('La instructora denuncia y bloquea', () => {
+  test('denunciar un mensaje de la alumna: se manda y da las gracias', async ({ page }) => {
+    const contador = await montar(page);
+    await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Denunciar este mensaje' }).click();
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toBeVisible({ timeout: 30_000 });
+    expect(contador.moderacion).toEqual([expect.objectContaining({ accion: 'denunciar', conversacionId: 'conv-1', mensajeId: 'm1' })]);
+  });
+
+  test('si la denuncia no llega, lo dice y no da las gracias', async ({ page }) => {
+    const contador = await montar(page, { denunciarFalla: true });
+    await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Denunciar este mensaje' }).click();
+    await expect(page.getByText('No se ha podido enviar la denuncia')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toHaveCount(0);
+    expect(contador.moderacion.length).toBeGreaterThan(0);
+  });
+
+  test('bloquear pide confirmación, quita el compositor y se puede deshacer', async ({ page }) => {
+    const contador = await montar(page);
+    await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
+    await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Bloquear a Aina P.' }).click();
+    await expect(page.getByRole('heading', { name: '¿Bloquear a Aina P.?' })).toBeVisible();
+    // Sin confirmar, no se ha mandado nada.
+    expect(contador.moderacion).toHaveLength(0);
+    await page.getByRole('button', { name: 'Bloquear', exact: true }).click();
+    await expect(page.getByText('Has bloqueado esta conversación.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveCount(0);
+    expect(contador.moderacion).toEqual([expect.objectContaining({ accion: 'bloquear', bloquear: true })]);
+
+    await page.getByRole('button', { name: 'Desbloquear' }).click();
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toBeVisible({ timeout: 30_000 });
+    expect(contador.moderacion[1]).toMatchObject({ accion: 'bloquear', bloquear: false });
   });
 });

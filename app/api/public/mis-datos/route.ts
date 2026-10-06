@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const ahora = new Date();
   try {
     const datos = await exportarDatosSocia(admin as unknown as LectorBd, {
-      studioId, socioId, incluirSalud: true, saludSoloConConsentimiento: false, ahora,
+      studioId, socioId, incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora,
     });
     if (!datos) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     return new NextResponse(JSON.stringify(datos, null, 2), {
