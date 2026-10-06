@@ -5,6 +5,8 @@ import { PLANS } from './data';
 import { FotoLanding } from './FotoLanding';
 import { FOTOS_BENTO } from './fotos-bento';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { MockupIphone, estilosMockupIphone } from './MockupIphone';
+import { MessageCircle, Mail, CalendarDays } from 'lucide-react';
 
 // «Todo lo que necesita tu estudio, en una sola plataforma» — cuarta versión
 // (6-oct-2026), esta vez CLONANDO la estructura, la escala y la sensación de la
@@ -74,15 +76,25 @@ const MOVILES = {
   asistente: { n: 'app-asistente-confirmar-clase', alt: 'Chat de «Pregúntale a Tentare» en el móvil: una petición para crear una clase y la tarjeta «Crear una clase» con los botones Confirmar, Cambiar algo y Cancelar' },
 } as const;
 
-/** El móvil que asoma por el borde de abajo: la pantalla real dentro de un bisel fino. */
-function Movil({ cual, pos, ancho = 150, mancho }: { cual: keyof typeof MOVILES; pos: Pos; ancho?: number; mancho?: number }) {
+/** El móvil que asoma por el borde de abajo: un iPhone (MockupIphone) con la pantalla real de la app dentro. */
+function Movil({ cual, pos, ancho = 150, mancho, tono = 'claro' }: { cual: keyof typeof MOVILES; pos: Pos; ancho?: number; mancho?: number; tono?: 'claro' | 'oscuro' }) {
   const m = MOVILES[cual];
   return (
     <div className="bn-e bn-tel" style={{ ...estilo(pos), ['--tw' as string]: `${ancho}px`, ['--mtw' as string]: `${mancho ?? ancho}px` }}>
-      <span className="bn-tel-isla" aria-hidden="true" />
-      <Imagen n={m.n} r={844 / 390} a={[390, 780]} alt={m.alt} sizes="(max-width: 700px) 150px, 170px" ancho={780} />
+      <MockupIphone tono={tono} style={{ ['--iw' as string]: 'var(--tel-w)' }}>
+        <Imagen n={m.n} r={844 / 390} a={[390, 780]} alt={m.alt} sizes="(max-width: 700px) 150px, 170px" ancho={780} />
+      </MockupIphone>
     </div>
   );
+}
+
+/** Emoji REAL de Unicode, decorativo: lo dibuja la fuente de emoji del sistema (Apple Color Emoji en Mac e iOS). */
+const Emo = ({ e }: { e: string }) => <span className="bn-emo" aria-hidden="true">{e}</span>;
+
+type Glifo = typeof MessageCircle;
+/** Icono de app al estilo de iOS (squircle con degradado suave y glifo blanco). Glifos genéricos: nunca logos de terceros. */
+function TileIos({ Icono, tono, tam = 34 }: { Icono: Glifo; tono: 'verde' | 'azul' | 'rojo' | 'naranja'; tam?: number }) {
+  return <span className={`bn-squircle bn-ti bn-ti-${tono}`} style={{ ['--ti' as string]: `${tam}px` }} aria-hidden="true"><Icono size={Math.round(tam * 0.56)} strokeWidth={2} /></span>;
 }
 
 /** Tarjetita blanca, plana y muy pequeña. */
@@ -98,11 +110,11 @@ const Av = ({ t, tono = 'a' }: { t: string; tono?: 'a' | 'o' | 'c' }) => <span c
 const Tag = ({ t, tono = 'o' }: { t: string; tono?: 'ok' | 'warn' | 'arena' | 'o' | 'osc' }) => <span className={`bn-tag bn-tag-${tono}`}>{t}</span>;
 
 /** Aviso al estilo de iOS, con el isotipo de Tentare como icono de app. */
-function Aviso({ titulo, linea, hora = 'ahora', pos }: { titulo: string; linea: string; hora?: string; pos: Pos }) {
+function Aviso({ titulo, linea, hora = 'ahora', pos, emoji, icono }: { titulo: string; linea: string; hora?: string; pos: Pos; emoji?: string; icono?: { Icono: Glifo; tono: 'verde' | 'azul' | 'rojo' | 'naranja' } }) {
   return (
     <div className="bn-e bn-aviso" style={estilo(pos)} role="img" aria-label={`Aviso de ejemplo: ${titulo}. ${linea}`}>
-      <span className="bn-squircle bn-aviso-i" aria-hidden="true"><LogoTentare formato="isotipo" tinta="color" alto={15} decorativo /></span>
-      <span className="bn-aviso-t" aria-hidden="true"><b>{titulo}</b><span>{linea}</span></span>
+      {icono ? <TileIos Icono={icono.Icono} tono={icono.tono} tam={28} /> : <span className="bn-squircle bn-aviso-i" aria-hidden="true"><LogoTentare formato="isotipo" tinta="color" alto={15} decorativo /></span>}
+      <span className="bn-aviso-t" aria-hidden="true"><b>{titulo}{emoji && <> <Emo e={emoji} /></>}</b><span>{linea}</span></span>
       <time aria-hidden="true">{hora}</time>
     </div>
   );
@@ -182,23 +194,23 @@ export function SeccionBento() {
           <article className="bn-card bn-w7 bn-r1 bn-c1 lp-rv" aria-labelledby="bn-res-h">
             <Texto id="bn-res-h" href="/funcionalidades/reservas-online" titulo="Que tus alumnas llenen las clases solas"
               texto="Reservan desde el móvil, eligen su reformer y, si la clase está llena, entran en la lista de espera."
-              chips={['Elige su reformer', 'Lista de espera', 'Reservas en tu web']} />
+              chips={['Elige su reformer', 'Lista de espera', 'En tu web']} />
             <div className="bn-st" style={{ ['--sh' as string]: '250px' }}>
-              <Foto clave="reservas" pos={{ r: 0, t: 0, b: 0, w: 214, mr: 0, mt: 0, mb: 0, mw: 128 }} />
-              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 153 })} aria-hidden="true">09:00</span>
-              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 213 })} aria-hidden="true">10:00</span>
-              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 273 })} aria-hidden="true">11:00</span>
-              <Mini etiqueta="Clase de Reformer Flow de las 9:00, completa: 12 de 12" pos={{ l: 78, t: 142, w: 196, ml: 18, mt: 8, mw: 200 }}>
-                <span className="bn-fila"><span><b>Reformer Flow</b><i>09:00 – 09:50</i></span><span className="bn-cifra bn-ok">12/12<i>llena</i></span></span>
+              <Foto clave="reservas" pos={{ r: 0, t: 0, b: 0, w: 190, mr: 0, mt: 0, mb: 0, mw: 128 }} />
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 173 })} aria-hidden="true">09:00</span>
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 233 })} aria-hidden="true">10:00</span>
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 293 })} aria-hidden="true">11:00</span>
+              <Mini etiqueta="Clase de Reformer Flow de las 9:00, completa: 12 de 12" pos={{ l: 78, t: 162, w: 196, ml: 18, mt: 8, mw: 200 }}>
+                <span className="bn-fila"><span><b>Reformer Flow <Emo e="🧘‍♀️" /></b><i>09:00 – 09:50</i></span><span className="bn-cifra bn-ok">12/12<i>llena</i></span></span>
               </Mini>
-              <Mini etiqueta="Clase de Reformer Avanzado de las 10:00 con 8 de 12 plazas y 2 personas en lista de espera" clase="bn-m-arena" pos={{ l: 138, t: 196, w: 224, ml: 62, mt: 62, mw: 230 }}>
+              <Mini etiqueta="Clase de Reformer Avanzado de las 10:00 con 8 de 12 plazas y 2 personas en lista de espera" clase="bn-m-arena" pos={{ l: 138, t: 216, w: 224, ml: 62, mt: 62, mw: 230 }}>
                 <span className="bn-fila"><span><b>Reformer Avanzado</b><i>10:00 – 10:50</i></span><span className="bn-cifra bn-warn">8/12<i>reservadas</i></span></span>
                 <span className="bn-fila bn-fila-pie"><Tag t="LISTA DE ESPERA" tono="arena" /><span className="bn-mini-txt">+2 esperando</span></span>
               </Mini>
-              <Mini etiqueta="Clase de Mat de las 11:00 con 10 de 12 plazas" pos={{ l: 78, t: 262, w: 196, ml: 18, mt: 140, mw: 200 }}>
+              <Mini etiqueta="Clase de Mat de las 11:00 con 10 de 12 plazas" pos={{ l: 78, t: 282, w: 196, ml: 18, mt: 140, mw: 200 }}>
                 <span className="bn-fila"><span><b>Mat</b><i>11:00 – 11:50</i></span><span className="bn-cifra bn-ok">10/12<i>reservadas</i></span></span>
               </Mini>
-              <Mini etiqueta="Mapa de la sala para elegir reformer, con unos ocupados y uno elegido" pos={{ r: 150, t: 236, w: 176, ml: 150, mt: 150, mw: 176 }} clase="bn-no-m-corto">
+              <Mini etiqueta="Mapa de la sala para elegir reformer, con unos ocupados y uno elegido" pos={{ r: 150, t: 256, w: 176, ml: 150, mt: 150, mw: 176 }} clase="bn-no-m-corto">
                 <b className="bn-mapa-t">Elige tu sitio</b>
                 <span className="bn-mapa">{['x', 'x', 'l', 'e', 'l', 'x', 'l', 'x', 'l', 'l', 'x', 'l', 'l', 'x'].map((v, i) => <i key={i} className={`bn-pl bn-pl-${v}`} />)}</span>
               </Mini>
@@ -210,10 +222,12 @@ export function SeccionBento() {
             <Texto id="bn-app-h" href="/funcionalidades/app-para-alumnas" titulo="Tu app, con el nombre de tu estudio"
               texto="Tus alumnas reservan, ven su bono y pagan desde el móvil, con tu nombre, tu logo y tus colores."
               chips={['Tu logo y tus colores', 'Avisos en el móvil']} />
-            <div className="bn-st" style={{ ['--sh' as string]: '260px' }}>
-              <Foto clave="app" pos={{ l: 0, t: 132, b: 0, w: 196, ml: 0, mt: 46, mb: 0, mw: 150 }} />
-              <Movil cual="inicio" ancho={158} pos={{ r: 38, t: 176, mr: 22, mt: 62 }} />
-              <Aviso titulo="Recordatorio de clase" linea="Reformer Flow, hoy a las 19:00" pos={{ l: 22, t: 150, w: 250, ml: 12, mt: 4, mw: 262 }} />
+            <div className="bn-st" style={{ ['--sh' as string]: '300px' }}>
+              <Foto clave="app" pos={{ l: 0, t: 140, b: 0, w: 196, ml: 0, mt: 40, mb: 0, mw: 130 }} />
+              <Movil cual="inicio" tono="oscuro" ancho={146} pos={{ r: 18, t: 196, mr: 14, mt: 150 }} />
+              <Aviso titulo="Hola, Lucía" emoji="👋" linea="Tu clase de hoy es a las 19:00" hora="ahora" icono={{ Icono: CalendarDays, tono: 'rojo' }} pos={{ l: 14, t: 150, w: 236, ml: 12, mt: 4, mw: 270 }} />
+              <Aviso titulo="Plaza liberada" emoji="🎉" linea="Ya puedes reservar tu plaza" hora="9:41" pos={{ l: 24, t: 200, w: 236, ml: 26, mt: 54, mw: 270 }} />
+              <Aviso titulo="Pago recibido" emoji="✅" linea="Cuota de octubre · 59 €" hora="9:38" icono={{ Icono: MessageCircle, tono: 'verde' }} pos={{ l: 34, t: 250, w: 236, ml: 40, mt: 104, mw: 270 }} />
             </div>
           </article>
 
@@ -224,7 +238,7 @@ export function SeccionBento() {
               chips={['Tarjeta y SEPA', 'Reintento de cobros', 'Facturas']} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Mini etiqueta="Recibo de Ana López, cuota mensual de 59 euros, cobrado" pos={{ l: 470, t: 30, w: 246, ml: 12, mt: 4, mw: 262 }}>
-                <span className="bn-fila"><span className="bn-quien"><Av t="AL" /><span><b>Ana López</b><i>Cuota mensual · 59 €</i></span></span><Tag t="Cobrado" tono="ok" /></span>
+                <span className="bn-fila"><span className="bn-quien"><Av t="AL" /><span><b>Ana López</b><i>Cuota mensual · 59 €</i></span></span><Tag t="Cobrado ✅" tono="ok" /></span>
               </Mini>
               <Mini etiqueta="Recibo de Marta Ruiz, bono de 10 clases de 120 euros, se reintenta mañana" pos={{ l: 560, t: 94, w: 256, ml: 56, mt: 62, mw: 270 }}>
                 <span className="bn-fila"><span className="bn-quien"><Av t="MR" tono="o" /><span><b>Marta Ruiz</b><i>Bono 10 clases · 120 €</i></span></span><Tag t="Reintento mañana" tono="warn" /></span>
@@ -243,7 +257,7 @@ export function SeccionBento() {
               chips={['Calendario por sala', 'Lo que espera tu visto bueno', 'Pregúntale a Tentare']} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Mini etiqueta="Recomendación del Centro de Control: abrir una segunda clase de Reformer los martes, con 7 personas en lista de espera" pos={{ l: 30, t: 150, w: 292, ml: 12, mt: 4, mw: 276 }}>
-                <span className="bn-fila"><Tag t="RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Plan Estudio</span></span>
+                <span className="bn-fila"><Tag t="✨ RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Plan Estudio</span></span>
                 <b className="bn-m-tit">Abrir una segunda clase de Reformer los martes</b>
                 <i className="bn-m-sub">7 personas en lista de espera</i>
               </Mini>
@@ -263,13 +277,13 @@ export function SeccionBento() {
               texto="Cada instructora ve su agenda y marca su disponibilidad. Cuando hay una baja, la sustituta la apruebas tú."
               chips={['Disponibilidad', 'App de la instructora', 'Sustituciones con tu visto bueno']} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
-              <Foto clave="equipo" pos={{ l: 0, r: 0, t: 206, b: 0, ml: 0, mr: 0, mt: 70, mb: 0 }} />
+              <Foto clave="equipo" pos={{ l: 18, r: 18, t: 214, b: 0, ml: 16, mr: 16, mt: 70, mb: 0 }} />
               <Mini etiqueta="Disponibilidad de Marta Ruiz esta semana: lunes, miércoles y viernes" pos={{ l: 24, t: 172, w: 230, ml: 16, mt: 40, mw: 232 }}>
                 <span className="bn-fila"><span className="bn-quien"><Av t="MR" tono="o" /><span><b>Marta Ruiz</b><i>Esta semana</i></span></span>
                   <span className="bn-dias">{['L', 'M', 'X', 'J', 'V'].map((d, i) => <i key={d} className={i % 2 === 0 ? 'on' : ''}>{d}</i>)}</span></span>
               </Mini>
               <Mini etiqueta="Ausencia de vacaciones del 3 al 7 de noviembre" pos={{ r: 22, t: 250, w: 150, mr: 14, mt: 150, mw: 160 }}>
-                <span className="bn-fila"><span><b>Vacaciones</b><i>3 – 7 nov</i></span><Tag t="Ausencia" tono="arena" /></span>
+                <span className="bn-fila"><span><b>Vacaciones <Emo e="🌴" /></b><i>3 – 7 nov</i></span><Tag t="Ausencia" tono="arena" /></span>
               </Mini>
             </div>
           </article>
@@ -279,20 +293,20 @@ export function SeccionBento() {
             <Texto id="bn-mig-h" href="/soluciones/cambiar-de-software" titulo="Cámbiate sin empezar de cero"
               texto="Trae tus alumnas y tus bonos desde Excel u otro programa y revisa los números. Si algo no sale, te responde una persona."
               chips={['Excel y otros programas', 'Botón para deshacer', 'Te responde una persona']} />
-            <div className="bn-st" style={{ ['--sh' as string]: '260px' }}>
-              <Mini etiqueta="Importando: alumnas, bonos y horario, todo revisado" pos={{ l: 520, t: 34, w: 232, ml: 14, mt: 4, mw: 240 }}>
-                <b className="bn-m-tit">Importando desde Excel</b>
+            <div className="bn-st" style={{ ['--sh' as string]: '250px' }}>
+              <Mini etiqueta="Importando: alumnas, bonos y horario, todo revisado" pos={{ l: 470, t: 30, w: 232, ml: 14, mt: 4, mw: 240 }}>
+                <b className="bn-m-tit">Importando desde Excel <Emo e="📥" /></b>
                 <span className="bn-lista"><span><i className="bn-ck">✓</i>Alumnas</span><span><i className="bn-ck">✓</i>Bonos</span><span><i className="bn-ck">✓</i>Horario</span></span>
               </Mini>
-              <Mini etiqueta="Botón para deshacer la importación" pos={{ l: 590, t: 156, w: 176, ml: 70, mt: 118, mw: 180 }}>
+              <Mini etiqueta="Botón para deshacer la importación" pos={{ l: 520, t: 150, w: 176, ml: 70, mt: 118, mw: 180 }}>
                 <span className="bn-fila"><b>↶ Deshacer importación</b></span>
               </Mini>
-              <Mini etiqueta="Soporte de Tentare: te responde una persona, por WhatsApp o por email" pos={{ r: 56, t: 52, w: 262, ml: 22, mt: 150, mw: 270 }}>
-                <b className="bn-m-tit">¿Dudas? Te respondemos</b>
+              <Mini etiqueta="Soporte de Tentare: te responde una persona, por chat o por email" pos={{ r: 56, t: 36, w: 286, ml: 22, mt: 150, mw: 280 }}>
+                <b className="bn-m-tit">¿Dudas? Te respondemos <Emo e="💬" /></b>
                 <span className="bn-soporte">
                   <span className="bn-quien"><span className="bn-av bn-av-o bn-av-logo"><LogoTentare formato="isotipo" tinta="color" alto={12} decorativo /></span><span><b>Soporte de Tentare</b><i>Una persona, en español</i></span></span>
                 </span>
-                <span className="bn-fila bn-fila-pie"><Tag t="WhatsApp" tono="o" /><Tag t="Email" tono="o" /></span>
+                <span className="bn-fila bn-fila-pie bn-tiles"><TileIos Icono={MessageCircle} tono="verde" tam={26} /><TileIos Icono={Mail} tono="azul" tam={26} /><span className="bn-mini-txt">Chat o email</span></span>
               </Mini>
             </div>
           </article>
@@ -305,6 +319,7 @@ export function SeccionBento() {
       </div>
 
       <style>{`
+        ${estilosMockupIphone}
         .bn { padding: clamp(56px,6vw,88px) clamp(16px,4vw,40px); }
         .bn-wrap { max-width: 1100px; margin: 0 auto; }
         .bn-h2 { margin: 0 auto 30px; max-width: 18em; text-align: center; font-size: clamp(25px,3.1vw,34px); font-weight: 600; line-height: 1.16; letter-spacing: -.03em; color: #1F2216; text-wrap: balance; }
@@ -312,11 +327,12 @@ export function SeccionBento() {
         .bn-rejilla { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 12px; }
         .bn-w7 { grid-column: span 7; } .bn-w5 { grid-column: span 5; } .bn-w12 { grid-column: span 12; }
         .bn-card { position: relative; overflow: hidden; border-radius: 22px; }
-        .bn-r1 { height: 372px; } .bn-r2 { height: 270px; } .bn-r3 { height: 398px; } .bn-r4 { height: 246px; }
+        .bn-r1 { height: 392px; } .bn-r2 { height: 270px; } .bn-r3 { height: 398px; } .bn-r4 { height: 222px; }
         .bn-c1 { background: #E6EBDB; } .bn-c2 { background: #F0F2E7; } .bn-c3 { background: #E9EDDF; }
 
         .bn-t { position: relative; z-index: 3; padding: 26px 26px 0; max-width: 100%; }
         .bn-w12 .bn-t { max-width: 420px; }
+        @media (min-width: 701px) { .bn-c1.bn-r1 .bn-t { max-width: calc(100% - 212px); } }
         .bn-h3 { margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; color: #1F2216; text-wrap: balance; }
         .bn-h3 a { color: inherit; text-decoration: none; }
         .bn-h3 a:hover { text-decoration: underline; text-underline-offset: 4px; }
@@ -334,7 +350,7 @@ export function SeccionBento() {
         .bn-m-arena { background: #FBF5E6; }
         .bn-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .bn-fila-pie { margin-top: 6px; justify-content: flex-start; }
-        .bn-m b { display: block; font-size: 10.5px; font-weight: 600; }
+        .bn-m b { white-space: nowrap; display: block; font-size: 10.5px; font-weight: 600; }
         .bn-m i { display: block; font-style: normal; font-size: 9px; color: #7C806F; }
         .bn-m-tit { margin: 5px 0 1px; } .bn-m-sub { }
         .bn-mini-txt { font-size: 9px; color: #7C806F; }
@@ -369,17 +385,20 @@ export function SeccionBento() {
         .bn-aviso-t b { font-size: 10.5px; font-weight: 600; color: #1A1A1A; } .bn-aviso-t span { font-size: 10px; color: #3C3C43; }
         .bn-aviso time { align-self: flex-start; font-size: 9px; color: #6B6B73; }
         .bn-squircle { clip-path: url(#bn-squircle); }
+        .bn-emo { font-family: 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif; font-style: normal; font-weight: 400; }
+        .bn-ti { display: inline-grid; place-items: center; flex-shrink: 0; width: var(--ti,34px); height: var(--ti,34px); color: #fff; filter: drop-shadow(0 2px 3px rgba(34,37,26,.18)); }
+        .bn-ti-verde { background: linear-gradient(160deg,#6FD38A,#2FA656); } .bn-ti-azul { background: linear-gradient(160deg,#6AB8FF,#2F7BF0); }
+        .bn-ti-rojo { background: linear-gradient(160deg,#FF8A80,#E8483B); } .bn-ti-naranja { background: linear-gradient(160deg,#FFC266,#F29B1D); }
+        .bn-tiles { align-items: center; gap: 7px !important; }
         .bn-tile-caja { display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-ui), system-ui, sans-serif; }
         .bn-tile { display: grid; place-items: center; width: 46px; height: 46px; background: linear-gradient(160deg,#fff,#EDEBDD); filter: drop-shadow(0 6px 10px rgba(34,37,26,.16)); }
         .bn-tile svg { width: 26px; height: auto; }
         .bn-tile-et { font-size: 9.5px; font-weight: 500; color: #3B3F2C; }
 
         /* Móvil que asoma: bisel fino, isla y pantalla real, cortado por el borde de abajo. */
-        .bn-tel { width: var(--tw, 150px); padding: 14px 4px 0; border-radius: 24px 24px 0 0; background: #1B1D14; box-shadow: 0 30px 50px -28px rgba(34,37,26,.4); overflow: hidden; }
-        .bn-tel img { display: block; width: 100%; height: auto; border-radius: 20px 20px 0 0; }
-        .bn-tel-isla { position: absolute; top: 4px; left: 50%; width: 26%; height: 6px; border-radius: 99px; background: #0B0C07; transform: translateX(-50%); }
+        .bn-tel { width: var(--tw, 150px); --tel-w: var(--tw, 150px); }
         .bn-foto { overflow: hidden; background: transparent; }
-        .bn-foto[data-hueco="app"] { border-radius: 20px 20px 0 0; }
+        .bn-foto[data-hueco="app"] { border-radius: 20px 20px 0 0; } .bn-foto[data-hueco="equipo"] { border-radius: 16px 16px 0 0; }
         .bn-foto picture, .bn-foto img { display: block; width: 100%; height: 100%; } .bn-foto img { object-fit: cover; }
         
         .bn-mas-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 22px; margin-top: 22px; }
@@ -400,7 +419,7 @@ export function SeccionBento() {
           .bn-t { padding: 22px 20px 0; }
           .bn-st { position: relative; inset: auto; height: var(--sh, 250px); margin-top: 12px; }
           .bn-e { left: var(--ml, auto); right: var(--mr, auto); top: var(--mt, auto); bottom: var(--mb, auto); width: var(--mw, auto); }
-          .bn-tel { width: var(--mtw, var(--tw, 150px)); }
+          .bn-tel { width: var(--mtw, var(--tw, 150px)); --tel-w: var(--mtw, var(--tw, 150px)); }
           .bn-hora, .bn-no-m { display: none !important; }
           .bn-foto { border-radius: 0; }
           .bn-c3 .bn-st, .bn-c1 .bn-st { }
