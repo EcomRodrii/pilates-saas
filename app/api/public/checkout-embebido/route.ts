@@ -4,7 +4,8 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
-import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
+import { componentesSesionDeTarjetas, debeCrearSesionDeTarjetas } from '@/lib/billing/tarjetas-guardadas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
@@ -119,6 +120,32 @@ async function respuestaYaPagado(
   return conCorsWidget(req, NextResponse.json({ error, codigo: 'ya-pagado' }, { status: 409 }));
 }
 
+/**
+ * P16: la sesión de cliente que deja enseñar (y guardar, con la casilla) sus tarjetas en el Payment Element. Solo
+ * para la socia del TOKEN, con Customer y desde la app/portal de Tentare (nunca la web de un estudio). Si Stripe
+ * falla, se paga sin tarjetas guardadas: nunca bloquea el cobro.
+ */
+async function sesionDeTarjetas(
+  req: NextRequest, stripe: Stripe, stripeAccount: string,
+  p: { socioId: string | null; customerId: string | null; usoFuturo: 'off_session' | undefined; studioId: string },
+): Promise<string | null> {
+  if (!debeCrearSesionDeTarjetas({
+    socioPorToken: !!p.socioId, customerId: p.customerId, origin: req.headers.get('origin'), appUrl: process.env.NEXT_PUBLIC_APP_URL,
+  })) return null;
+  try {
+    const cs = await stripe.customerSessions.create(
+      { customer: p.customerId!, components: componentesSesionDeTarjetas(p.usoFuturo) },
+      { stripeAccount },
+    );
+    return cs.client_secret;
+  } catch (e) {
+    Sentry.captureException(e instanceof Error ? e : new Error('crear la sesión de tarjetas'), {
+      level: 'warning', tags: { modulo: 'checkout-embebido', paso: 'customer-session' }, extra: { studioId: p.studioId },
+    });
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Bucket dedicado, no 'stripe-checkout': un checkout embebido tiene más idas
   // y vueltas por el mismo intento legítimo (crear intent → posible reintento
@@ -135,6 +162,12 @@ export async function POST(req: NextRequest) {
   const modo = comprobarModoStripe();
   if (!modo.puedeCobrar) {
     return conCorsWidget(req, NextResponse.json({ error: modo.motivo }, { status: 503 }));
+  }
+  // P16: la publicable (navegador) y la secreta (servidor) del mismo modo, o el pago no cuadra.
+  const par = comprobarParDeClaves();
+  if (!par.ok) {
+    console.error('[checkout-embebido]', par.motivo);
+    return conCorsWidget(req, NextResponse.json({ error: 'El pago no está disponible ahora mismo. No se te ha cobrado nada.' }, { status: 503 }));
   }
 
   const admin = getSupabaseAdmin();
@@ -541,8 +574,13 @@ export async function POST(req: NextRequest) {
           });
         });
       }
+      const sesionTarjetasReutilizada = await sesionDeTarjetas(req, stripe, stripeAccount, {
+        socioId, customerId: typeof prep.pi.customer === 'string' ? prep.pi.customer : (prep.pi.customer?.id ?? null),
+        usoFuturo, studioId: body.studioId,
+      });
       return conCorsWidget(req, NextResponse.json({
         clientSecret: prep.pi.client_secret,
+        ...(sesionTarjetasReutilizada ? { customerSessionClientSecret: sesionTarjetasReutilizada } : {}),
         importe: prep.fila.importe_centimos / 100,
         descuento: descuentoAplicado,
         codigoAplicado: codigoDescuentoId !== null,
@@ -1080,8 +1118,14 @@ export async function POST(req: NextRequest) {
     //
     // Con el importe del servidor no hay aritmética en el cliente que pueda
     // divergir: se enseña el número con el que se ha creado el PaymentIntent.
+    // El Customer del COBRO (no el de la ficha: si era de otra cuenta, se cobró sin él).
+    const sesionTarjetas = await sesionDeTarjetas(req, stripe, stripeAccount, {
+      socioId, customerId: typeof paymentIntent.customer === 'string' ? paymentIntent.customer : (paymentIntent.customer?.id ?? null),
+      usoFuturo, studioId: body.studioId,
+    });
     return conCorsWidget(req, NextResponse.json({
       clientSecret: paymentIntent.client_secret,
+      ...(sesionTarjetas ? { customerSessionClientSecret: sesionTarjetas } : {}),
       importe,
       descuento: descuentoAplicado,
       codigoAplicado: codigoDescuentoId !== null,

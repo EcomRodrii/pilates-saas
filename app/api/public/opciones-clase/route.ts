@@ -7,7 +7,7 @@ import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
-import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { opcionDePrueba, opcionesDeClase } from '@/lib/reservar/opciones-de-clase';
 import { pruebaCubreTipo, pruebaParaSocia } from '@/lib/billing/clase-prueba';
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
       bloqueoPorSuscripcion(studioId),
     ]);
-    const pagosOnline = !!key && !key.startsWith('sk_test_XXXX') && comprobarModoStripe().puedeCobrar
+    const pagosOnline = !!key && !key.startsWith('sk_test_XXXX') && comprobarModoStripe().puedeCobrar && comprobarParDeClaves().ok
       && !!studio?.stripe_account_id && !bloqueoSuscripcion;
 
     if (await bloqueoPorPreguntasAlta(studioId, socioId, 'comprar')) {

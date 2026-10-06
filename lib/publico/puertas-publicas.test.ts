@@ -160,6 +160,8 @@ test('checkout embebido: el gate va antes de la matrícula, de Stripe y de escri
   gateAntesDe('app/api/public/checkout-embebido/route.ts', [
     'reservarMatricula(', 'stripe.customers.create(', 'stripe.paymentIntents.create(', ".update({ stripe_customer_id",
     "from('planes_tarifa')",
+    // P16: la sesión de tarjetas guardadas (la llamada; la función va definida arriba, fuera de la ruta).
+    'sesionDeTarjetas(req, stripe',
   ], { despuesDe: ['if (!body?.studioId)'] });
 });
 

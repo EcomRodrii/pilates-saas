@@ -2,10 +2,11 @@ import { sesionWidgetValida } from '@/lib/reservar/compra-en-embudo';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
+import { usoFuturoCheckoutHospedado } from '@/lib/billing/uso-futuro-tarjeta';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
-import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
 import { ofrecerBizum } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
@@ -186,6 +187,11 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
   const incrustado = body.modo === 'incrustado';
+  // P16: el checkout incrustado se monta en el navegador con la publicable: las dos claves del mismo modo.
+  if (incrustado && !comprobarParDeClaves().ok) {
+    console.error('[stripe/checkout]', (comprobarParDeClaves() as { motivo?: string }).motivo);
+    return conCorsWidget(req, NextResponse.json({ error: 'El pago no está disponible ahora mismo. No se te ha cobrado nada.' }, { status: 503 }));
+  }
   // El incrustado es solo para pagar un recibo que ya existe: una compra de plan
   // incrustada va por /api/public/checkout-embebido (Payment Element).
   if (incrustado && !body.reciboId) {
@@ -254,6 +260,8 @@ export async function POST(req: NextRequest) {
   // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
   let tipoPlanCobrado: string | null = null;
+  // P16: si es el recibo de una RENOVACIÓN (para la regla de guardar la tarjeta).
+  let reciboEsRenovacion = false;
   // Con clase concreta (P06): cuándo caduca la sesión, sacado del cierre de la reserva de la clase.
   let expiraPorClase: number | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
@@ -375,6 +383,7 @@ export async function POST(req: NextRequest) {
     // `null`: sin Bizum.
     // El mismo helper que usa el mostrador (`/api/pos/recibo`): el 14-sep esta
     // resolución vivía solo aquí y el TPV ofrecía Bizum en cuotas.
+    reciboEsRenovacion = recibo.es_renovacion === true;
     tipoPlanCobrado = await tipoDePlanDelRecibo(admin, {
       entrega_tipo: (recibo.entrega_tipo as string | null) ?? null,
       suscripcion_id: (recibo.suscripcion_id as string | null) ?? null,
@@ -734,6 +743,13 @@ export async function POST(req: NextRequest) {
   // En la hoja incrustada no va Bizum: exige salir a la app del banco, y la hoja
   // es justo para no salir. Quien quiera Bizum tiene el enlace de siempre.
   const conBizum = !incrustado && ofrecerBizum(body.bizum === true, tipoPlanCobrado);
+  // P16: la tarjeta se guarda para cobros automáticos SOLO si hace falta (la cuota). Antes se pedía para todo.
+  const guardado = usoFuturoCheckoutHospedado({ tipoPlan: tipoPlanCobrado, esReciboDeRenovacion: reciboEsRenovacion });
+  if (guardado.avisar) {
+    Sentry.captureMessage('[stripe/checkout] recibo de renovación con el tipo de plan sin saber: se guarda la tarjeta por si acaso', {
+      level: 'warning', tags: { area: 'cobros' }, extra: { studioId: body.studioId, reciboId: body.reciboId ?? null },
+    });
+  }
   // Pedir Bizum sin comprobar que la cuenta CONECTADA lo tiene `active` tumba
   // la sesión ENTERA (Stripe rechaza el `create` si cualquier método pedido
   // no está activo) -- también la tarjeta, que sí funcionaría. Confirmado en
@@ -920,11 +936,12 @@ export async function POST(req: NextRequest) {
       customer_creation: 'always' as const,
       // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Es lo que
       // permite ofrecer Bizum y seguir pudiendo cobrar después.
-      payment_method_options: { card: { setup_future_usage: 'off_session' as const } },
+      // P16: solo cuando hay un cargo futuro (`usoFuturoCheckoutHospedado`).
+      ...(guardado.usoFuturo ? { payment_method_options: { card: { setup_future_usage: guardado.usoFuturo } } } : {}),
       payment_intent_data: {
         // Y el global cuando no hay Bizum, para no cambiar en nada el camino que
         // ya funcionaba (ver el comentario largo más arriba).
-        ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
+        ...(conBizum || !guardado.usoFuturo ? {} : { setup_future_usage: guardado.usoFuturo }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
         // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
         // session (Stripe no la copia). Sin el reciboId aquí, una devolución o

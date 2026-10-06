@@ -37,7 +37,8 @@ type Fase =
   | { fase: 'elegir'; opciones: OpcionDeClase[]; aviso?: string }
   | { fase: 'no-se-puede'; titulo: string; mensaje: string; impago?: boolean }
   | { fase: 'preparando'; opciones: OpcionDeClase[] }
-  | { fase: 'pagando'; opciones: OpcionDeClase[]; plan: PlanTarifa; clientSecret: string; importe: number; descuento: number; matricula: number }
+  /** `importe`: el TOTAL del cargo (cuota + matrícula), el que va en el botón. */
+  | { fase: 'pagando'; opciones: OpcionDeClase[]; plan: PlanTarifa; clientSecret: string; importe: number; descuento: number; matricula: number; customerSessionClientSecret: string | null }
   | { fase: 'confirmando'; pi: string }
   | { fase: 'resuelto'; desenlace: DesenlacePagoClase }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean; opciones?: OpcionDeClase[] };
@@ -206,6 +207,7 @@ export function HojaPagarYReservar({
         setEstado({
           fase: 'pagando', opciones, plan, clientSecret: r.clientSecret,
           importe: r.total ?? (r.importe ?? op.importe) + r.matricula, descuento: r.descuento, matricula: r.matricula,
+          customerSessionClientSecret: r.customerSessionClientSecret,
         });
         return;
       case 'pago-en-curso':
@@ -355,6 +357,7 @@ export function HojaPagarYReservar({
                   publishableKey={publishableKey}
                   stripeAccountId={stripeAccountId}
                   importeTotal={estado.importe}
+                  customerSessionClientSecret={estado.customerSessionClientSecret}
                   textoBoton={`Pagar ${euros(estado.importe)} y reservar`}
                   onProcesando={setConfirmandoStripe}
                   onExito={() => {

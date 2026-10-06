@@ -131,3 +131,23 @@ export function comprobarModoStripe(env: NodeJS.ProcessEnv = process.env): Vered
   }
   return { ...base, puedeCobrar: true, motivo: null };
 }
+
+/**
+ * ¿La clave publicable (la del navegador) y la secreta (la del servidor) son del MISMO
+ * modo? P16, 6-oct-2026. Una `pk_live_` con una `sk_test_` (o al revés) monta un pago
+ * que nunca cuadra: el navegador confirma contra un modo y el cobro existe en el otro.
+ * Bloquea las puertas que dan algo al NAVEGADOR (checkout incrustado y su sesión de
+ * tarjetas); el cobro de servidor (off-session) no usa la publicable y no se toca.
+ * Sin configurar, o una publicable sin forma reconocible: no bloquea aquí (ya lo cortan
+ * los guardias de siempre con su mensaje).
+ */
+export function comprobarParDeClaves(env: NodeJS.ProcessEnv = process.env): { ok: true } | { ok: false; motivo: string } {
+  const secreta = modoDeClave(env.STRIPE_SECRET_KEY);
+  const pk = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  const publicable = pk?.startsWith('pk_live_') ? 'live' : pk?.startsWith('pk_test_') ? 'test' : null;
+  if (secreta === 'sin-configurar' || !publicable || env.STRIPE_PERMITIR_MODO_CRUZADO === '1') return { ok: true };
+  if (secreta !== publicable) {
+    return { ok: false, motivo: `La clave publicable de Stripe es ${publicable} y la secreta ${secreta}: el pago no cuadraría. Pon las dos del mismo modo.` };
+  }
+  return { ok: true };
+}

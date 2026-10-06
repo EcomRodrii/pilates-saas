@@ -53,7 +53,9 @@ test('opciones: 401 (sesión o segundo paso), 500, 429 y cuerpo raro nunca ofrec
 
 test('cobro: 200 con el importe del servidor; sin clientSecret es un error que no cobra', () => {
   assert.deepEqual(leerInicioPagoClase(200, { clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0 }),
-    { tipo: 'ok', clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0, total: 20 });
+    { tipo: 'ok', clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0, total: 20, customerSessionClientSecret: null });
+  const conTarjetas = leerInicioPagoClase(200, { clientSecret: 's', importe: 20, customerSessionClientSecret: 'cuss_x' });
+  assert.equal(conTarjetas.tipo === 'ok' && conTarjetas.customerSessionClientSecret, 'cuss_x');
   // ⚠️ La matrícula va en el MISMO cargo: el total la incluye (antes el botón decía solo la cuota).
   const conMatricula = leerInicioPagoClase(200, { clientSecret: 's', importe: 20, matricula: 30 });
   assert.equal(conMatricula.tipo === 'ok' && conMatricula.total, 50);

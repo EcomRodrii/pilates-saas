@@ -73,7 +73,11 @@ export function leerOpcionesClase(status: number, cuerpo: unknown): LecturaOpcio
 // ── 2. El cobro ─────────────────────────────────────────────────────────────
 
 export type InicioPagoClase =
-  | { tipo: 'ok'; clientSecret: string; importe: number | null; descuento: number; matricula: number; total: number | null }
+  | {
+    tipo: 'ok'; clientSecret: string; importe: number | null; descuento: number; matricula: number; total: number | null;
+    /** P16: la sesión para enseñar sus tarjetas guardadas (solo la da el servidor a la app). */
+    customerSessionClientSecret: string | null;
+  }
   | { tipo: 'pago-en-curso'; pi: string | null; mensaje: string }
   /** Otro intento suyo está creando el cobro ahora mismo: se reintenta en un segundo. */
   | { tipo: 'preparandose' }
@@ -89,7 +93,7 @@ const SIN_COBRO = 'No hemos podido iniciar el pago. No se te ha cobrado nada.';
 export function leerInicioPagoClase(status: number, cuerpo: unknown): InicioPagoClase {
   const c = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as {
     clientSecret?: unknown; error?: unknown; codigo?: unknown; pi?: unknown;
-    importe?: unknown; descuento?: unknown; matricula?: unknown; total?: unknown;
+    importe?: unknown; descuento?: unknown; matricula?: unknown; total?: unknown; customerSessionClientSecret?: unknown;
   };
   const s = deSesion(status, c);
   if (s) return s;
@@ -104,6 +108,7 @@ export function leerInicioPagoClase(status: number, cuerpo: unknown): InicioPago
       matricula,
       // El cargo de verdad (cuota + matrícula): lo dice el servidor; uno viejo, importe + matrícula.
       total: typeof c.total === 'number' && Number.isFinite(c.total) ? c.total : importe == null ? null : importe + matricula,
+      customerSessionClientSecret: typeof c.customerSessionClientSecret === 'string' && c.customerSessionClientSecret ? c.customerSessionClientSecret : null,
     };
   }
   if (codigo === 'pago-en-curso') {

@@ -43,6 +43,8 @@ export type InicioCobro =
       matricula: number;
       /** El TOTAL del cargo (importe + matrícula), dicho por el servidor: lo que va en el botón de pagar. */
       total: number;
+      /** P16: la sesión para enseñar sus tarjetas guardadas (y la casilla para guardar). Solo en la app. */
+      customerSessionClientSecret: string | null;
     }
   | { ok: false; error: string; sesionCaducada?: boolean; segundoPaso?: boolean };
 
@@ -108,6 +110,7 @@ export async function iniciarCompra(
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string; codigo?: string;
       importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number; total?: number;
+      customerSessionClientSecret?: string;
     } | null;
 
     if (res.status === 401) {
@@ -135,6 +138,7 @@ export async function iniciarCompra(
       clientSecret: cuerpo.clientSecret,
       // Un servidor viejo no lo manda: entonces es importe + matrícula (un solo cargo).
       total: typeof cuerpo.total === 'number' ? cuerpo.total : importe + matricula,
+      customerSessionClientSecret: typeof cuerpo.customerSessionClientSecret === 'string' ? cuerpo.customerSessionClientSecret : null,
       // Si un servidor viejo no los manda, se cae al precio del plan: es lo
       // que se enseñaba antes, así que no empeora nada.
       importe: typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN,
