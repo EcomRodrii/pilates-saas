@@ -30,7 +30,7 @@ export function BloqueMetricas({ bloque }: { bloque: Extract<BloqueAsistente, { 
             />
           );
           const borde = cn(
-            'block min-w-0 [&_[data-valor]]:text-[24px] [&_[data-valor]]:font-mono [&_[data-valor]]:tracking-tight',
+            'block min-w-0 [&_[data-valor]]:text-[20px] sm:[&_[data-valor]]:text-[24px] [&_[data-valor]]:whitespace-nowrap [&_[data-valor]]:font-mono [&_[data-valor]]:tracking-tight',
             i % 2 === 1 && 'border-l border-border',
             i >= 2 && 'border-t border-border',
             n % 2 === 1 && i === n - 1 && n > 1 && 'col-span-2',

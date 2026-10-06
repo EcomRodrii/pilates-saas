@@ -21,7 +21,7 @@ export function NombrePersona({ referencia: r, enTexto = false }: { referencia: 
   const refs = useContext(ReferenciasCtx);
   const { nombre, href } = nombreDe(r, refs);
   const clase = enTexto
-    ? 'mx-0.5 inline-flex items-baseline rounded-md bg-muted px-1.5 font-medium text-foreground'
+    ? 'inline-flex items-baseline rounded-md bg-muted px-1 font-medium text-foreground'
     : 'truncate font-semibold text-foreground';
   if (!href) return <span className={clase} data-ref={r}>{nombre}</span>;
   return (

@@ -163,14 +163,10 @@ export const TEXTOS = {
 /** «Vuelven el 1 de noviembre.»: el día 1 del mes siguiente al de `hoy` (YYYY-MM-DD, Madrid), o `renuevaEl` si llega. */
 export function textoSinSaldo(hoy: string, saldo: { enPrueba?: boolean; renuevaEl?: string | null } | null): string {
   if (saldo?.enPrueba) return 'Has usado las consultas de tu prueba gratuita. Vuelven cada mes cuando elijas tu plan.';
-  let y: number, m: number;
-  if (saldo?.renuevaEl && /^\d{4}-\d{2}-\d{2}/.test(saldo.renuevaEl)) {
-    [y, m] = saldo.renuevaEl.split('-').map(Number);
-  } else {
-    [y, m] = hoy.split('-').map(Number);
-    m += 1;
-    if (m > 12) { m = 1; y += 1; }
-  }
+  // Solo hace falta el MES: el día 1 del siguiente (o el de `renuevaEl`).
+  const m = saldo?.renuevaEl && /^\d{4}-\d{2}-\d{2}/.test(saldo.renuevaEl)
+    ? Number(saldo.renuevaEl.slice(5, 7))
+    : (Number(hoy.slice(5, 7)) % 12) + 1;
   return `Has usado las consultas de este mes. Vuelven el 1 de ${MESES[m - 1]}.`;
 }
 

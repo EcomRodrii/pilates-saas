@@ -181,7 +181,7 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
 }
 
 /** El dibujo quieto, en SVG: la reserva mientras llega el motor o si no puede pintarse. */
-function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
+export function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
   const propio = useId();
   const id = (n: string) => `tenti-${n}-${propio}`;
   return (

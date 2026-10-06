@@ -1,31 +1,31 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from './auth-context';
 import { useCore } from './core-context';
 import { useRol } from './permisos';
-import { puedeVerFinanzas } from './permisos-reglas';
 import { tieneFeature } from './billing/entitlements';
 import { puedeUsarAsistente } from './asistente/roles';
 import { authHeader } from './api-client';
 
-// «Pregúntale a Tentare»: un solo panel para todo el panel (spec §5.1), con dos
-// puertas (la barra del Centro de Control y la fila de ⌘K) y el atajo ⌘J.
+// «Pregúntale a Tentare»: el chat vive en su propia pantalla, /asistente, y se
+// llega por tres puertas: la barra del Centro de Control, la fila de ⌘K y el
+// atajo ⌘J. Las tres llevan ahí con la pregunta ya enviada (si la hay).
 //
 // ⚠️ Esto va en el chunk de TODO el panel, así que es mínimo a propósito:
-//   · El panel (y con él las tarjetas, el lector del stream y Tenti) llega con
-//     next/dynamic la PRIMERA vez que se abre. Antes, nada (lo vigila
+//   · El chat (las tarjetas, el lector del stream, Tenti) es el chunk de la
+//     ruta /asistente: no se descarga hasta entrar (lo vigila
 //     e2e/asistente.spec.ts con el recolector de scripts).
 //   · Sin sondeos ni temporizadores. Si el servidor lo tiene encendido para
 //     este estudio se pregunta UNA vez por sesión del navegador y estudio
 //     (`?solo=disponible`, sin tocar el libro), y solo cuando una puerta lo
 //     necesita: al montarse la barra, al abrir ⌘K o al pulsar ⌘J. Un rol o un
 //     plan sin asistente no pregunta nunca.
+//   · La pregunta que trae una puerta viaja en memoria (`tomarPreguntaPendiente`),
+//     NUNCA en la URL: puede llevar el nombre de una alumna.
 //   · El rol y el plan se miran aquí (`ROLES_ASISTENTE`, feature `asistente`):
 //     ninguna puerta los vuelve a escribir. El límite de verdad es el servidor.
-
-const PanelAsistente = dynamic(() => import('@/components/asistente/panel-asistente').then(m => m.PanelAsistente), { ssr: false });
 
 interface ValorAsistente {
   /** Rol y plan lo permiten (sin preguntar al servidor). */
@@ -34,14 +34,21 @@ interface ValorAsistente {
   disponible: boolean | null;
   /** Que se averigüe si está disponible (una vez por sesión). Lo llaman las puertas al montarse. */
   comprobar: () => void;
+  /** Lleva al chat; con `pregunta`, la deja enviada. */
   abrir: (pregunta?: string) => void;
-  cerrar: () => void;
-  abierto: boolean;
 }
 
 const Ctx = createContext<ValorAsistente>({
-  puede: false, disponible: false, comprobar: () => {}, abrir: () => {}, cerrar: () => {}, abierto: false,
+  puede: false, disponible: false, comprobar: () => {}, abrir: () => {},
 });
+
+/** La pregunta que trajo una puerta, para que el chat la envíe al montarse. Una sola vez. */
+let preguntaPendiente: string | null = null;
+export function tomarPreguntaPendiente(): string | null {
+  const p = preguntaPendiente;
+  preguntaPendiente = null;
+  return p;
+}
 
 const CLAVE = (studioId: string) => `tentare-asistente-disponible:${studioId}`;
 /** Lo que se recuerda la respuesta en esta pestaña: el interruptor se puede cambiar en Vercel. */
@@ -93,54 +100,39 @@ export function AsistenteProvider({ children }: { children: ReactNode }) {
     void preguntarDisponible(studioId).then(v => setDisponibles(d => ({ ...d, [studioId]: v })));
   }, [puede, studioId, disponibles]);
 
-  const [abierto, setAbierto] = useState(false);
-  const [montado, setMontado] = useState(false);
-  const [preguntaInicial, setPreguntaInicial] = useState<{ texto: string; n: number } | null>(null);
-  const contador = useRef(0);
-
+  const router = useRouter();
   const abrir = useCallback((pregunta?: string) => {
     if (!puede) return;
-    setMontado(true);
-    setAbierto(true);
     const t = pregunta?.trim();
-    if (t) setPreguntaInicial({ texto: t.slice(0, 500), n: ++contador.current });
-  }, [puede]);
-  const cerrar = useCallback(() => setAbierto(false), []);
+    preguntaPendiente = t ? t.slice(0, 500) : null;
+    router.push('/asistente');
+  }, [puede, router]);
 
-  // ⌘J (Ctrl+J): abre el panel desde cualquier pantalla, si está disponible.
+  // ⌘J (Ctrl+J): al chat desde cualquier pantalla, si está disponible.
   useEffect(() => {
     if (!puede || !studioId) return;
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'j' || e.shiftKey || e.altKey) return;
       e.preventDefault();
       const ya = disponibles[studioId] ?? leerGuardado(studioId);
-      if (ya !== null && ya !== undefined) { if (ya) { setMontado(true); setAbierto(v => !v); } return; }
+      if (ya !== null && ya !== undefined) { if (ya) abrir(); return; }
       void preguntarDisponible(studioId).then(v => {
         setDisponibles(d => ({ ...d, [studioId]: v }));
-        if (v) { setMontado(true); setAbierto(true); }
+        if (v) abrir();
       });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [puede, studioId, disponibles]);
+  }, [puede, studioId, disponibles, abrir]);
 
   const valor = useMemo<ValorAsistente>(
-    () => ({ puede, disponible, comprobar, abrir, cerrar, abierto }),
-    [puede, disponible, comprobar, abrir, cerrar, abierto],
+    () => ({ puede, disponible, comprobar, abrir }),
+    [puede, disponible, comprobar, abrir],
   );
 
   return (
     <Ctx.Provider value={valor}>
       {children}
-      {montado && puede && studioId && (
-        <PanelAsistente
-          abierto={abierto}
-          onCerrar={cerrar}
-          studioId={studioId}
-          veDinero={puedeVerFinanzas(rol)}
-          preguntaInicial={preguntaInicial}
-        />
-      )}
     </Ctx.Provider>
   );
 }

@@ -120,8 +120,8 @@ const CAPTURAS = process.env.ASISTENTE_CAPTURAS;
 async function captura(page: Page, nombre: string) {
   if (!CAPTURAS) return;
   mkdirSync(CAPTURAS, { recursive: true });
-  await page.waitForTimeout(700); // la animación de entrada del panel
-  await page.screenshot({ path: join(CAPTURAS, `asistente-${nombre}.png`) });
+  await page.waitForTimeout(700); // las animaciones de entrada
+  await page.screenshot({ path: join(CAPTURAS, nombre.startsWith('chat-') ? `${nombre}.png` : `asistente-${nombre}.png`) });
 }
 
 test('propietaria: la barra del Centro de Control abre el panel; una pregunta trae texto, métricas y clases', async ({ page }) => {
@@ -250,7 +250,7 @@ test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y a
   const fila = page.getByTestId('buscador-preguntar');
   await expect(fila).toBeVisible();
   // La primera de todas las filas del buscador.
-  const primera = buscador.locator('button').filter({ hasText: /./ }).nth(1);
+  const primera = buscador.locator('.overflow-y-auto button').first();
   await expect(primera).toHaveAttribute('data-testid', 'buscador-preguntar');
   await fila.click();
   await expect(panel(page)).toBeVisible({ timeout: 30_000 });
@@ -283,9 +283,9 @@ test('móvil y oscuro: hoja desde abajo, el campo dentro de la ventana', async (
   await enOscuro(page);
   const n = await conAsistente(page);
   await abrirDesdeLaBarra(page);
+  // Cuando acaba de subir (la hoja entra deslizándose desde abajo).
+  await expect.poll(async () => { const b = await panel(page).boundingBox(); return b ? Math.round(b.y + b.height) : 9999; }).toBeLessThanOrEqual(844);
   const caja = await panel(page).boundingBox();
-  expect(caja).not.toBeNull();
-  expect(Math.round(caja!.y + caja!.height)).toBeLessThanOrEqual(844);
   expect(caja!.y).toBeGreaterThan(30); // hoja, no pantalla completa
   await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
   await expect(panel(page).locator('[data-bloque="clases"]')).toBeVisible();
@@ -296,35 +296,100 @@ test('móvil y oscuro: hoja desde abajo, el campo dentro de la ventana', async (
 
 // ── Capturas para revisar a ojo (solo con ASISTENTE_CAPTURAS=<carpeta>) ─────
 
+const SEGUNDA = [
+  { t: 'inicio', conversacionId: CONVERSACION, disponibles: 181 },
+  { t: 'herramienta', id: 'tu_2', nombre: 'pagos_pendientes', etiqueta: 'Mirando los pagos pendientes…' },
+  { t: 'referencias', refs: { ALUMNA_1: { nombre: 'Laura Martín', href: '/clientas/soc-2' }, ALUMNA_2: { nombre: 'Bea Ortega', href: '/clientas/soc-4' }, ALUMNA_3: { nombre: 'María García', href: '/clientas/soc-1' } } },
+  { t: 'bloque', id: 'tu_2-0', bloque: { tipo: 'recibos', titulo: 'Sin cobrar', href: '/cobros', total: 3, importeTotal: '168,00 €', recibos: [
+    { reciboId: 'r1', alumna: 'ALUMNA_1', importe: '89,00 €', situacion: 'IMPAGADO', vence: 'jueves 1 de octubre' },
+    { reciboId: 'r2', alumna: 'ALUMNA_2', importe: '79,00 €', situacion: 'POR_COBRAR', vence: 'lunes 5 de octubre' },
+    { reciboId: 'r3', alumna: 'ALUMNA_3', importe: '79,00 €', situacion: 'EN_CURSO', vence: 'martes 6 de octubre' },
+  ] } },
+  ...['Tienes 168,00 € pendientes de cobro entre 2 alumnas. ', 'El que más urge es el de [ALUMNA_1]: **89,00 €** impagados desde el jueves 1 de octubre. ', 'El de [ALUMNA_3] ya está en el banco y todavía no es deuda.'].map(delta => ({ t: 'texto', delta })),
+  { t: 'fin', unidades: 1, disponibles: 180, motivo: 'OK' },
+];
+
+const LISTA = [
+  { id: CONVERSACION, titulo: '¿Qué clases hay mañana?', ultimaEn: new Date().toISOString() },
+  { id: '0b0c0d0e-1111-4222-8333-944445555666', titulo: '¿Quién lleva más de 30 días sin venir?', ultimaEn: new Date().toISOString() },
+  { id: '1b0c0d0e-1111-4222-8333-944445555666', titulo: 'Hazme un resumen del estudio', ultimaEn: new Date(Date.now() - 86_400_000).toISOString() },
+  { id: '2b0c0d0e-1111-4222-8333-944445555666', titulo: '¿Qué bonos caducan esta semana?', ultimaEn: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+  { id: '3b0c0d0e-1111-4222-8333-944445555666', titulo: 'Quiero hacer un taller: ¿qué día me conviene?', ultimaEn: new Date(Date.now() - 12 * 86_400_000).toISOString() },
+  { id: '4b0c0d0e-1111-4222-8333-944445555666', titulo: '¿Cuánto cobré con Laura Martín el mes pasado?', ultimaEn: new Date(Date.now() - 40 * 86_400_000).toISOString() },
+];
+
+const chat = (page: Page) => page.getByTestId('chat-asistente');
+
 for (const tema of ['claro', 'oscuro'] as const) {
   for (const ancho of [1280, 390] as const) {
-    test(`capturas · ${tema} · ${ancho}`, async ({ page }) => {
+    test(`capturas del chat · ${tema} · ${ancho}`, async ({ page }) => {
       test.skip(!CAPTURAS, 'Solo con ASISTENTE_CAPTURAS=<carpeta>');
       await page.setViewportSize({ width: ancho, height: ancho === 1280 ? 860 : 844 });
       if (tema === 'oscuro') await enOscuro(page);
-      await conAsistente(page);
+      let vez = 0;
+      await conAsistente(page, {
+        responder: (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson(vez++ === 0 ? RESPUESTA : SEGUNDA) }),
+      });
+      await page.route((u) => u.pathname === '/api/asistente/conversaciones', (r) => json(r, { conversaciones: LISTA }));
+
+      // La puerta del Centro de Control.
       await ir(page, 'centro-de-control');
       await expect(barra(page)).toBeVisible({ timeout: 30_000 });
-      await captura(page, `barra-${tema}-${ancho}`);
+      await captura(page, `chat-barra-${tema}-${ancho}`);
       await barra(page).click();
-      await expect(panel(page).getByText('¿Qué quieres saber de tu estudio?')).toBeVisible({ timeout: 30_000 });
-      await captura(page, `panel-vacio-${tema}-${ancho}`);
-      await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
-      await expect(tenti(page)).toHaveAttribute('data-momento', 'listo', { timeout: 10_000 });
-      await panel(page).locator('[data-turno]').first().evaluate(el => el.scrollIntoView({ block: 'start' }));
-      await captura(page, `panel-${tema}-${ancho}`);
-      await panel(page).locator('[data-bloque="clases"]').evaluate(el => el.scrollIntoView({ block: 'start' }));
-      await captura(page, `panel-clases-${tema}-${ancho}`);
-      await page.keyboard.press('Escape');
-      await expect(panel(page)).toHaveCount(0);
-      await page.keyboard.press('Control+k');
-      const buscador = page.getByRole('dialog', { name: 'Buscar' });
-      await expect(buscador).toBeVisible({ timeout: 30_000 });
-      await expect(buscador.getByText('Pregúntale a Tentare')).toBeVisible({ timeout: 15_000 });
-      await captura(page, `buscador-vacio-${tema}-${ancho}`);
-      await buscador.getByRole('textbox').fill('¿qué franja va peor este mes?');
-      await expect(page.getByTestId('buscador-preguntar')).toBeVisible();
-      await captura(page, `buscador-${tema}-${ancho}`);
+      await expect(chat(page)).toBeVisible({ timeout: 60_000 });
+      await expect(chat(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 30_000 });
+      await captura(page, `chat-vacio-${tema}-${ancho}`);
+
+      // Dos preguntas, con texto y tarjetas.
+      await chat(page).getByLabel('Preguntas de ejemplo').getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
+      await expect(chat(page).locator('[data-bloque="clases"]')).toBeVisible();
+      await chat(page).getByLabel('Pregunta sobre tu estudio').fill('¿Y qué pagos tengo pendientes?');
+      await chat(page).getByLabel('Pregunta sobre tu estudio').press('Enter');
+      await expect(chat(page).locator('[data-bloque="recibos"]')).toBeVisible();
+      await expect(chat(page).locator('[data-tenti-asistente]').last()).toHaveAttribute('data-momento', 'listo', { timeout: 10_000 });
+      await chat(page).getByTestId('chat-mensajes').evaluate(el => { el.scrollTop = 0; });
+      await captura(page, `chat-conversacion-${tema}-${ancho}`);
+      await chat(page).getByTestId('chat-mensajes').evaluate(el => { el.scrollTop = el.scrollHeight; });
+      await captura(page, `chat-conversacion-final-${tema}-${ancho}`);
+
+      if (ancho === 390) {
+        await chat(page).getByRole('button', { name: 'Tus conversaciones' }).click();
+        await expect(page.getByRole('dialog', { name: 'Tus conversaciones' })).toBeVisible();
+        await captura(page, `chat-lista-${tema}-${ancho}`);
+        await page.keyboard.press('Escape');
+      }
+    });
+
+    test(`captura del chat respondiendo en streaming · ${tema} · ${ancho}`, async ({ page }) => {
+      test.skip(!CAPTURAS, 'Solo con ASISTENTE_CAPTURAS=<carpeta>');
+      await page.setViewportSize({ width: ancho, height: ancho === 1280 ? 860 : 844 });
+      if (tema === 'oscuro') await enOscuro(page);
+      // Un stream que se queda a medias (page.route no entrega por partes): el
+      // fetch de POST /api/asistente se sustituye en la página por uno que
+      // empuja medio turno y no cierra.
+      const parcial = ndjson([...RESPUESTA.slice(0, 5), { t: 'texto', delta: 'Mañana tienes 5 clases con 30 alumnas apuntadas. La que pide atención es la de las 19:00 con [EQUIPO_1]' }]);
+      await page.addInitScript((cuerpo) => {
+        const original = window.fetch.bind(window);
+        window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+          if (new URL(url, location.href).pathname === '/api/asistente' && init?.method === 'POST') {
+            const flujo = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(cuerpo)); } });
+            return Promise.resolve(new Response(flujo, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }));
+          }
+          return original(input, init);
+        };
+      }, parcial);
+      await conAsistente(page);
+      await page.route((u) => u.pathname === '/api/asistente/conversaciones', (r) => json(r, { conversaciones: LISTA }));
+      await ir(page, 'centro-de-control');
+      await expect(barra(page)).toBeVisible({ timeout: 30_000 });
+      await barra(page).click();
+      await expect(chat(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 60_000 });
+      await chat(page).getByLabel('Preguntas de ejemplo').getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
+      await expect(chat(page).getByTestId('chat-respuesta')).toContainText('Marta Ruiz');
+      await chat(page).locator('[data-turno]').last().evaluate(el => el.scrollIntoView({ block: 'start' }));
+      await captura(page, `chat-respondiendo-${tema}-${ancho}`);
     });
   }
 }

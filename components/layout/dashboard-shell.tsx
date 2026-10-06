@@ -420,7 +420,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </PanelPageTransition>
             </div>
           </main>
-          <WhatsAppFab />
+          {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
+              soporte sigue en el menú de ayuda, no encima del campo. */}
+          {pathname !== '/asistente' && <WhatsAppFab />}
           </AsistenteProvider>
         </TourProvider>
       </PanelThemeProvider>
