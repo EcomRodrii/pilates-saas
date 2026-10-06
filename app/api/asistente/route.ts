@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
             return d && p?.success ? d.etiqueta(p.data, hoy) : 'Consultando tus datos…';
           },
           emitir,
-          avisar: (codigo, nivel) => { Sentry.captureMessage(codigo, { level: nivel, tags: { area: 'asistente' }, extra: { consumoId } }); },
+          avisar: (codigo, nivel, detalle) => { Sentry.captureMessage(codigo, { level: nivel, tags: { area: 'asistente' }, extra: { consumoId, ...detalle } }); },
         }, {
           historial: historial ? historial.historial : [],
           pregunta: marcada.texto,
