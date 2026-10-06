@@ -18,7 +18,7 @@ import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 // `pago-de-clase.ts`; aquí la base de datos y Stripe.
 //
 // ⚠️ Si la tabla todavía no existe (código desplegado antes que la migración
-// 20261006120000), devuelve `sin-tabla` y la ruta cobra como antes: nunca se
+// 20261006052737), devuelve `sin-tabla` y la ruta cobra como antes: nunca se
 // queda nadie sin poder pagar por el orden de despliegue.
 // ─────────────────────────────────────────────────────────────────────────────
 

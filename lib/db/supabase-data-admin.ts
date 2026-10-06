@@ -3338,7 +3338,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
   /**
    * P06 · Fase A: la suscripción que entregó ESTE pago. La reserva gasta esa y no la
    * que elegiría la regla general (con un bono viejo que caduca antes, se gastaba el
-   * viejo y el recién pagado quedaba intacto). Migr 20261006120200.
+   * viejo y el recién pagado quedaba intacto). Migr 20261006052831.
    */
   suscripcionEntregadaId?: string | null;
 }): Promise<
@@ -3414,7 +3414,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
   if (error && entregada && error.code === 'PGRST202') {
     // La migración aún no está aplicada: la firma nueva no existe. La reserva de
     // siempre (gasta lo que elija la regla general) antes que dejarla sin plaza.
-    reportDbError('[reservarPlazaTrasPagoPublico] reservar_plaza sin p_consumir_suscripcion_id: falta la migración 20261006120200', error);
+    reportDbError('[reservarPlazaTrasPagoPublico] reservar_plaza sin p_consumir_suscripcion_id: falta la migración 20261006052831', error);
     ({ data, error } = await llamarReserva(null));
   }
   if (error) {

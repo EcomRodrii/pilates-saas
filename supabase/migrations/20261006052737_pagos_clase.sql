@@ -37,7 +37,7 @@
 create table if not exists public.pagos_clase (
   id                     text primary key,
   studio_id              text not null references public.studios(id) on delete cascade,
-  -- Quién paga: `quienPaga(socioId, email)` (socio:<id> o un hash del email de la
+  -- Quién paga: `quienPaga(socioId, email)` (su socio_id, o un hash del email de la
   -- invitada). La clave de «un pago vivo por persona y clase».
   pagador                text not null,
   socio_id               text references public.socios(id) on delete set null,

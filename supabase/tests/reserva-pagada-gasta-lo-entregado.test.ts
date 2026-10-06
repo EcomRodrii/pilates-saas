@@ -1,4 +1,4 @@
-// `reservar_plaza` con `p_consumir_suscripcion_id` (migr 20261006120200, P06 · Fase A): la reserva de una clase
+// `reservar_plaza` con `p_consumir_suscripcion_id` (migr 20261006052831, P06 · Fase A): la reserva de una clase
 // PAGADA gasta exactamente la suscripción que entregó ese pago, no el bono que elegiría la regla general.
 //
 // El caso que fija: la socia tenía un bono que caduca ANTES y compra otro para esta clase. Con la regla general

@@ -92,7 +92,7 @@ export async function reservarClasePagada(
   if (fila === 'resuelta') return null;
   try {
     const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
-    // La plaza la paga lo que entregó ESTE pago, no otro bono suyo (migr 20261006120200).
+    // La plaza la paga lo que entregó ESTE pago, no otro bono suyo (migr 20261006052831).
     const entregada = p.suscripcionEntregadaId ?? (fila ? fila.suscripcion_id : null);
     let r = await reservarPlazaTrasPagoPublico({
       studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId,

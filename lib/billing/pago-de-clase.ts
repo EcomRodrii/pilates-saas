@@ -2,7 +2,7 @@
 // Un solo pago VIVO por persona y clase (P06 · Fase A, 6-oct-2026).
 //
 // El dueño de «el pago abierto de una clase» es la fila de `pagos_clase`
-// (migr 20261006120000). Esta parte decide, sin red, qué hacer cuando alguien
+// (migr 20261006052737). Esta parte decide, sin red, qué hacer cuando alguien
 // pide pagar una clase: crear un pago, reutilizar el que ya tiene abierto (mismo
 // PaymentIntent: ni otra matrícula ni otro cupo), decirle que ya lo está pagando,
 // o cancelar el anterior (contenido distinto: otro plan, otro código, otro sitio)

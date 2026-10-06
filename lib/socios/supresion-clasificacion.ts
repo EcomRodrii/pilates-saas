@@ -153,7 +153,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   suscripciones: { accion: 'CONSERVAR', detalle: 'Seudónima y pasada a CANCELADA: los recibos fiscales la referencian.' },
   pagos_clase: {
     accion: 'CONSERVAR',
-    documentadaEn: '20261006120000_pagos_clase.sql',
+    documentadaEn: '20261006052737_pagos_clase.sql',
     detalle: 'El registro de cada pago de una clase (ids, importes, estados y fechas): cuadra con el recibo fiscal que ya se conserva, con el mismo seudónimo por socio_id. `pagador` es su socio_id o un hash de su email, nunca el email.',
   },
   movimientos_derecho: {

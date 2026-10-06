@@ -1,4 +1,4 @@
-// `pagos_clase` (migr 20261006120000, P06 · Fase A del bloque de dinero): el pago de UNA clase.
+// `pagos_clase` (migr 20261006052737, P06 · Fase A del bloque de dinero): el pago de UNA clase.
 // Contra Postgres de verdad (job `calidad-rls`):
 //   · nadie del cliente la escribe; la leen PROPIETARIO y RECEPCION de su estudio, nadie más;
 //   · un solo pago VIVO por (pagador, clase);
