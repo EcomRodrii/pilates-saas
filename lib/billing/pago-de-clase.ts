@@ -12,6 +12,8 @@
 // Puro y sin `@/`.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { MINUTOS_3DS_ABANDONADO } from './pago-anterior.ts';
+
 export type EstadoPagoClase = 'ABIERTO' | 'CANCELADO' | 'PAGADO' | 'RESERVADA' | 'COMPENSADA' | 'REEMBOLSADA' | 'CERRADA';
 
 /** Lo que identifica el CONTENIDO de un pago: si cambia algo, es otro pago. */
@@ -73,8 +75,13 @@ export type DecisionPagoClase =
   | 'recrear'
   /** Otra petición está creando el cobro ahora mismo. */
   | 'preparandose'
-  /** Ya lo ha pagado, o se está pagando (3DS, procesando): ni otro cobro ni el mismo otra vez. */
+  /** Ya lo ha pagado, o se está cobrando (procesando): ni otro cobro ni el mismo otra vez. */
   | 'en-curso'
+  /**
+   * La verificación del banco (3DS) a medias y reciente: NO está pagado. Ni «pago hecho» ni otro cobro: se le dice
+   * que lo tiene a medias. Pasados `MINUTOS_3DS_ABANDONADO` se da por abandonado (`cancelar-y-crear`).
+   */
+  | 'a-medias'
   /** Hay que mirar el cobro en Stripe antes de decidir. */
   | 'mirar-stripe'
   /** Contenido distinto (o el cobro ya está cancelado): se cancela el anterior y se abre otro. */
@@ -82,17 +89,19 @@ export type DecisionPagoClase =
   /** No se ha podido saber cómo está el cobro: no se crea otro. */
   | 'no-se-sabe';
 
-const PAGANDOSE = new Set(['succeeded', 'processing', 'requires_action', 'requires_capture']);
+const PAGANDOSE = new Set(['succeeded', 'processing', 'requires_capture']);
 const PAGABLE = new Set(['requires_payment_method', 'requires_confirmation']);
 
 /**
  * `estadoStripe`: `undefined` = todavía no se ha mirado; `null` = se intentó y no se pudo.
+ * `piCreadoEnSeg`: el `created` del cobro, para saber si un 3DS a medias está abandonado.
  */
 export function decidirPagoDeClase(
   fila: FilaPagoClase | null,
   contenido: ContenidoPagoClase,
   ahoraMs: number,
   estadoStripe?: string | null,
+  piCreadoEnSeg?: number | null,
 ): DecisionPagoClase {
   if (!fila) return 'crear';
   if (fila.estado === 'PAGADO') return 'en-curso';
@@ -107,10 +116,17 @@ export function decidirPagoDeClase(
   if (estadoStripe === null) return 'no-se-sabe';
   if (estadoStripe === 'canceled') return 'cancelar-y-crear';
   if (PAGANDOSE.has(estadoStripe)) return 'en-curso';
+  if (estadoStripe === 'requires_action') {
+    const abandonado = typeof piCreadoEnSeg === 'number' && Number.isFinite(piCreadoEnSeg)
+      && ahoraMs - piCreadoEnSeg * 1000 >= MINUTOS_3DS_ABANDONADO * 60_000;
+    return abandonado ? 'cancelar-y-crear' : 'a-medias';
+  }
   if (PAGABLE.has(estadoStripe)) return mismoContenido(fila, contenido) ? 'reutilizar' : 'cancelar-y-crear';
   // Un estado de Stripe que no conocemos (o un `cs_` en un estado raro): no se arriesga otro cobro.
   return 'no-se-sabe';
 }
 
 export const MENSAJE_PAGO_PREPARANDOSE = 'Estamos preparando tu pago. Un momento…';
+export const CODIGO_PAGO_A_MEDIAS = 'pago-a-medias';
+export const MENSAJE_PAGO_DE_CLASE_A_MEDIAS = 'Tienes un pago de esta clase a medias (la verificación de tu banco). Termínalo, o espera unos minutos para empezar otro. No te hemos cobrado nada.';
 export const MENSAJE_PAGO_DE_CLASE_EN_CURSO = 'Ya has pagado esta clase (o se está pagando). Estamos confirmando tu plaza: no vuelvas a pagar.';

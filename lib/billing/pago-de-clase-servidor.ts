@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import {
-  decidirPagoDeClase, MENSAJE_PAGO_DE_CLASE_EN_CURSO, MENSAJE_PAGO_PREPARANDOSE,
+  decidirPagoDeClase, MENSAJE_PAGO_DE_CLASE_EN_CURSO, MENSAJE_PAGO_PREPARANDOSE, CODIGO_PAGO_A_MEDIAS, MENSAJE_PAGO_DE_CLASE_A_MEDIAS,
   type ContenidoPagoClase, type FilaPagoClase,
 } from '@/lib/billing/pago-de-clase';
 import { quienPaga } from '@/lib/billing/clave-checkout-embebido';
@@ -69,12 +69,15 @@ export async function prepararPagoDeClase(admin: SupabaseClient, stripe: Stripe,
       } catch {
         estadoStripe = null;
       }
-      decision = decidirPagoDeClase(fila, p.contenido, ahora.getTime(), estadoStripe);
+      decision = decidirPagoDeClase(fila, p.contenido, ahora.getTime(), estadoStripe, pi?.created ?? null);
     }
 
     switch (decision) {
       case 'en-curso':
         return { tipo: 'rechazo', status: 409, codigo: CODIGO_PAGO_EN_CURSO, error: MENSAJE_PAGO_DE_CLASE_EN_CURSO, ...(fila?.payment_intent_id ? { pi: fila.payment_intent_id } : {}) };
+      case 'a-medias':
+        // Un 3DS a medias NO es «pago hecho»: sin `pi`, la pantalla no se pone a esperar una plaza que nadie ha pagado.
+        return { tipo: 'rechazo', status: 409, codigo: CODIGO_PAGO_A_MEDIAS, error: MENSAJE_PAGO_DE_CLASE_A_MEDIAS };
       case 'preparandose':
         return { tipo: 'rechazo', status: 409, codigo: 'pago-preparandose', error: MENSAJE_PAGO_PREPARANDOSE };
       case 'no-se-sabe':
@@ -167,6 +170,23 @@ async function cerrarPagoAnterior(
     }
   }
   return 'cerrado';
+}
+
+/**
+ * Se le vuelve a entregar el mismo cobro (reabrió la hoja): la plaza se acaba de comprobar y el reloj del abandono
+ * empieza de nuevo (el barrido cuenta desde `actualizado_en`, no desde que se creó). Best-effort: si falla, como mucho
+ * el barrido lo cancela antes de tiempo y el siguiente intento abre otro.
+ */
+export async function renovarEntregaDePago(admin: SupabaseClient, filaId: string, plazaComprobadaEn: Date): Promise<void> {
+  const ahora = new Date().toISOString();
+  const { error } = await admin.from('pagos_clase')
+    .update({ actualizado_en: ahora, plaza_comprobada_en: plazaComprobadaEn.toISOString() })
+    .eq('id', filaId).eq('estado', 'ABIERTO');
+  if (error) {
+    Sentry.captureException(new Error(`renovar la entrega del pago de clase: ${error.message}`), {
+      level: 'warning', tags: { modulo: 'pago-de-clase', paso: 'reutilizar' }, extra: { pagoClaseId: filaId },
+    });
+  }
 }
 
 /** Lo que se reservó al crear la fila: la matrícula de ESTE pago (para no volver a gastarla al recrear). */

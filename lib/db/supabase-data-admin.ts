@@ -1765,21 +1765,27 @@ async function trasPlazaConfirmada(admin: SupabaseClient, p: {
     : segunLaConfirmacion(d, await consumirBonoServidor(admin, {
       studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
     }));
+  // P06: si esta plaza era la de un pago que se quedó en la cola o pendiente (COMPENSADA), ese pago ya tiene plaza.
+  await cerrarCompensacionPorPromocion(admin, { studioId: p.studioId, reservaId: p.reservaId });
   if (!efectosTrasConsumo('CONFIRMADA', consumo, p.reintento ?? false)) return;
   const { emitirReserva } = await import('@/lib/notifications/emit');
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
 }
 
 /**
- * La socia que pagó una clase y se quedó primera en la espera (pago COMPENSADA, P06)
- * acaba de subir: su pago queda RESERVADA. Nunca tumba la promoción: si la tabla aún no
- * existe o la RPC falla, se avisa y sigue (la compensación sigue a la vista del estudio).
+ * Quien pagó una clase y se quedó en la espera o pendiente de aprobar (pago COMPENSADA, P06)
+ * acaba de tener plaza: su pago queda RESERVADA. Se busca por la RESERVA del pago (la
+ * `res-web-…` que quedó en la cola), no por la socia: en una invitada la fila nace sin
+ * `socio_id`. Lo llaman los dueños de «plaza confirmada» (`trasPromocionDeEspera` y
+ * `trasPlazaConfirmada`: subir por cancelación, aceptar la oferta, aprobar la pendiente).
+ * Nunca tumba la confirmación: si la tabla aún no existe o la RPC falla, se avisa y sigue.
  */
 async function cerrarCompensacionPorPromocion(admin: SupabaseClient, p: {
-  studioId: string; socioId: string; sesionId: string; reservaId: string;
+  studioId: string; reservaId: string;
 }): Promise<void> {
   const { data, error } = await admin.from('pagos_clase').select('id')
-    .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('sesion_id', p.sesionId).eq('estado', 'COMPENSADA');
+    .eq('studio_id', p.studioId).eq('reserva_id', p.reservaId).eq('estado', 'COMPENSADA')
+    .in('motivo', ['EN_ESPERA', 'PENDIENTE_APROBACION']);
   if (error) {
     if (!esTablaQueFalta(error)) reportDbError('[trasPromocionDeEspera] no se pudo leer el pago compensado', error);
     return;
@@ -1821,7 +1827,7 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
     bonoConsumido = sesionDescontada(consumo);
     // P06 · Fase A: si había pagado esta clase y se quedó en espera (COMPENSADA), su pago
     // ya acabó en plaza. Lo decide la RPC (solo COMPENSADA → RESERVADA, idempotente).
-    await cerrarCompensacionPorPromocion(admin, { ...p, reservaId });
+    await cerrarCompensacionPorPromocion(admin, { studioId: p.studioId, reservaId });
     // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
     if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
   } else {

@@ -23,9 +23,16 @@ test('sin pago vivo: se crea', () => {
 
 test('pagado (o pagándose en Stripe): ni otro cobro ni el mismo otra vez', () => {
   assert.equal(decidirPagoDeClase(fila({ estado: 'PAGADO' }), C, AHORA), 'en-curso');
-  for (const e of ['succeeded', 'processing', 'requires_action', 'requires_capture']) {
+  for (const e of ['succeeded', 'processing', 'requires_capture']) {
     assert.equal(decidirPagoDeClase(fila(), C, AHORA, e), 'en-curso', e);
   }
+});
+
+test('⚠️ un 3DS a medias NO es «pagado»: reciente, «a medias»; abandonado (10 min), se cancela y se crea otro', () => {
+  const ahoraSeg = AHORA / 1000;
+  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action', ahoraSeg - 60), 'a-medias');
+  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action', ahoraSeg - 11 * 60), 'cancelar-y-crear');
+  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action'), 'a-medias', 'sin saber cuándo se creó, no se cancela');
 });
 
 test('con cobro: primero hay que mirarlo en Stripe; si no se puede, no se crea otro', () => {

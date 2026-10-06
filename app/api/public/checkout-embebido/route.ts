@@ -8,10 +8,11 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
-import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { usuarioSupabaseConPaso } from '@/lib/auth-server';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { claveDePagoDeClase, type FilaPagoClase } from '@/lib/billing/pago-de-clase';
-import { anclarCobroDePago, anotarMatriculaDePago, prepararPagoDeClase } from '@/lib/billing/pago-de-clase-servidor';
+import { anclarCobroDePago, anotarMatriculaDePago, prepararPagoDeClase, renovarEntregaDePago } from '@/lib/billing/pago-de-clase-servidor';
 import { IMPORTE_MINIMO_EUR, tienePrecioEspecial } from '@/lib/reservar/opciones-de-clase';
 import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
@@ -280,10 +281,16 @@ export async function POST(req: NextRequest) {
   // `socioId` (P06): quien entra con su sesión nunca paga como invitada (ni su compra acaba en
   // otra ficha por el email). Sin cabecera, el camino de invitada de siempre.
   if (body.socioId || req.headers.get('authorization')) {
-    const usuario = await verificarUsuarioSupabase(req);
-    if (!usuario) {
+    const conPaso = await usuarioSupabaseConPaso(req);
+    if (!conPaso) {
       return conCorsWidget(req, NextResponse.json({ error: 'Inicia sesión para comprar.' }, { status: 401 }));
     }
+    // Con el segundo paso pendiente, el código que la app sabe leer (a la pantalla de verificar), no un 401 a secas
+    // que se lee como «sin sesión» y la manda a entrar otra vez.
+    if (conPaso.paso === 'doble_factor') {
+      return conCorsWidget(req, NextResponse.json({ error: 'Falta el segundo paso de la verificación', codigo: CODIGO_SEGUNDO_PASO }, { status: 401 }));
+    }
+    const usuario = conPaso.usuario;
     socioId = await socioAutenticado(usuario.userId, body.studioId);
     if (!socioId) {
       return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
@@ -526,6 +533,7 @@ export async function POST(req: NextRequest) {
         codigoPostal: body.codigoPostal ?? null, fechaNacimiento: body.fechaNacimiento ?? null,
         amountCentimos: prep.pi.amount, usoFuturo, customerId: null, fee: undefined,
       });
+      await renovarEntregaDePago(admin, prep.fila.id, plazaComprobadaEn ?? new Date());
       if (Object.keys(volatil).length > 0) {
         await stripe.paymentIntents.update(prep.pi.id, { metadata: volatil }, { stripeAccount }).catch((errDatos: unknown) => {
           Sentry.captureException(errDatos instanceof Error ? errDatos : new Error('actualizar datos del cobro reutilizado'), {
@@ -539,6 +547,8 @@ export async function POST(req: NextRequest) {
         descuento: descuentoAplicado,
         codigoAplicado: codigoDescuentoId !== null,
         matricula: prep.fila.matricula_centimos / 100,
+        // Lo que de verdad se cobra (cuota + matrícula, un solo cargo): el importe del cobro de Stripe.
+        total: prep.pi.amount / 100,
         pagoClaseId: prep.fila.id,
       }));
     }
@@ -571,8 +581,10 @@ export async function POST(req: NextRequest) {
   // puede volver a usar. Solo se toca si quien lo manda tiene su client_secret y es
   // de este estudio, esta clase y esta persona (`decidirPagoAnterior`).
   let cobroSustituido: string | null = null;
-  // Con fila de `pagos_clase`, el pago anterior ya lo ha resuelto ella (`prepararPagoDeClase`).
-  const secretoAnterior = !pagoClase && typeof body.pagoAnterior === 'string' ? body.pagoAnterior : null;
+  // ⚠️ También con fila de `pagos_clase`: ella resuelve el pago vivo de ESTA persona (mismo pagador), pero el
+  // cobro anterior de esta pantalla puede ser de otro pagador (cambió el email en /reservar) y seguiría
+  // pagable. Si hay que cortar aquí, la fila recién abierta se cierra antes (sin cobro, no retiene nada).
+  const secretoAnterior = typeof body.pagoAnterior === 'string' && body.pagoAnterior !== pagoClase?.payment_intent_id ? body.pagoAnterior : null;
   const piAnteriorId = piDeClientSecret(secretoAnterior);
   if (secretoAnterior && piAnteriorId) {
     let anterior: Stripe.PaymentIntent | null = null;
@@ -580,6 +592,7 @@ export async function POST(req: NextRequest) {
       anterior = await stripe.paymentIntents.retrieve(piAnteriorId, undefined, { stripeAccount });
     } catch (e) {
       if (!sesionNoExisteEnStripe(e)) {
+        await cerrarPagoClaseSinCobro();
         return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_SIN_COMPROBAR }, { status: 503 }));
       }
     }
@@ -587,9 +600,11 @@ export async function POST(req: NextRequest) {
       ? decidirPagoAnterior(anterior, secretoAnterior, { studioId: body.studioId, sesionId: body.sesionId ?? null, socioId, socioEmail })
       : 'ajeno';
     if (decision === 'pagado' && anterior) {
+      await cerrarPagoClaseSinCobro();
       return respuestaYaPagado(req, admin, anterior, body.studioId, !!body.sesionId);
     }
     if (decision === 'en-curso') {
+      await cerrarPagoClaseSinCobro();
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
     if (decision === 'ya-cancelado' && anterior) cobroSustituido = anterior.id;
@@ -607,6 +622,7 @@ export async function POST(req: NextRequest) {
         // Sin poder mirarlo, tampoco se crea otro (`ahora` se queda en null).
         try { ahora = await stripe.paymentIntents.retrieve(anterior.id, undefined, { stripeAccount }); } catch { ahora = null; }
         if (ahora?.status !== 'canceled') {
+          await cerrarPagoClaseSinCobro();
           if (ahora && queHacerConCobroRepetido(ahora.status) === 'pagado') {
             return respuestaYaPagado(req, admin, ahora, body.studioId, !!body.sesionId);
           }
@@ -1073,6 +1089,8 @@ export async function POST(req: NextRequest) {
       // vez de un total mudo — el desglose real, con el que se ha creado el
       // cobro, nunca una resta hecha en el cliente.
       matricula: matriculaCentimos / 100,
+      // El TOTAL del cargo (importe + matrícula): lo que la pantalla tiene que enseñar en el botón de pagar.
+      total: paymentIntent.amount / 100,
       ...(pagoClase ? { pagoClaseId: pagoClase.id } : {}),
     }));
   } catch (err) {

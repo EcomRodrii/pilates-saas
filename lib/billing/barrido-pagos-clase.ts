@@ -8,9 +8,16 @@
 //     con aviso al mostrador (`reservarClasePagada`).
 //   · ABIERTO con su cobro ya pagado en Stripe y el plan entregado (el webhook se
 //     perdió y la entrega la hizo el conciliador): se marca PAGADO y se reserva.
-//   · ABIERTO con un cobro abandonado (nadie pagó en 45 min): se cancela en Stripe
-//     y, SOLO si Stripe confirma, la fila pasa a CANCELADO y vuelve lo retenido.
-//   · ABIERTO sin cobro hace 45 min (la petición murió antes de crearlo): CANCELADO.
+//   · ABIERTO con un cobro abandonado (nadie lo ha tocado en `ABANDONO_PI_SEGUNDOS`,
+//     2 h, contando desde la ÚLTIMA vez que se le entregó: reabrir la hoja lo renueva):
+//     se cancela en Stripe y, SOLO si Stripe confirma, la fila pasa a CANCELADO y
+//     vuelve lo retenido. Un 3DS a medias (`requires_action`) no lo cancela el barrido:
+//     lo cancela el siguiente intento pasados 10 min, o el barrido de matrícula.
+//   · ABIERTO sin cobro hace 45 min (la petición murió antes de crearlo): CANCELADO,
+//     y su matrícula gratis vuelve (una vez, con la clave de la fila).
+//   · Orden por `actualizado_en`, y lo que no se puede resolver todavía (cobrándose,
+//     3DS a medias) se «toca» al pasar: va al final de la cola y no tapa a las nuevas
+//     (el `limit` no se queda atascado en las mismas 50 filas).
 //
 // La regla es pura (`queHacerEnElBarrido`); aquí, la base y Stripe.
 // Imports relativos: lo importa `lib/inngest/conciliar-cobros.ts`.
@@ -23,12 +30,15 @@ import { reservarClasePagada } from './reservar-clase-pagada.ts';
 import { plazaDePICancelado } from './cupo-matricula-abandonado.ts';
 import { liberarCupoMatriculaUnaVez } from './matricula-online.ts';
 import { liberarPlazaPorRef } from '../opening/cupo.ts';
+import { ABANDONO_PI_SEGUNDOS } from './cupo-matricula-abandonado.ts';
 import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 
 /** Un PAGADO se reintenta pasado este rato (el webhook está terminando, o murió). */
 export const MINUTOS_REINTENTO_PAGADO = 10;
-/** Un pago abierto sin pagar se da por abandonado pasado este rato. */
+/** Un pago abierto SIN cobro (la petición murió antes de crearlo) se cierra pasado este rato. */
 export const MINUTOS_ABANDONO = 45;
+/** Un cobro abierto que nadie toca se cancela pasado este rato desde su última entrega (el de la matrícula). */
+export const MINUTOS_ABANDONO_COBRO = ABANDONO_PI_SEGUNDOS / 60;
 
 export interface FilaBarrido {
   id: string;
@@ -39,12 +49,15 @@ export interface FilaBarrido {
   payment_intent_id: string | null;
   creado_en: string;
   actualizado_en: string;
+  plan_id?: string;
+  cupo_matricula?: boolean;
 }
 
-export type AccionBarrido = 'reservar' | 'cancelar-cobro' | 'cerrar-sin-cobro' | 'nada';
+/** `al-final`: nada que hacer todavía y no se sabe cuándo (cobrándose, 3DS a medias): se manda al final de la cola. */
+export type AccionBarrido = 'reservar' | 'cancelar-cobro' | 'cerrar-sin-cobro' | 'al-final' | 'nada';
 
-const PAGANDOSE = new Set(['processing', 'requires_capture']);
-const ABANDONABLE = new Set(['requires_payment_method', 'requires_confirmation', 'requires_action']);
+const PAGANDOSE = new Set(['processing', 'requires_capture', 'requires_action']);
+const ABANDONABLE = new Set(['requires_payment_method', 'requires_confirmation']);
 
 /**
  * `estadoPI`: el del cobro en Stripe si se conoce (`undefined` = no se ha mirado;
@@ -54,11 +67,11 @@ export function queHacerEnElBarrido(f: FilaBarrido, ahoraMs: number, estadoPI: s
   const minDesde = (iso: string) => (ahoraMs - new Date(iso).getTime()) / 60_000;
   if (f.estado === 'PAGADO') return minDesde(f.actualizado_en) >= MINUTOS_REINTENTO_PAGADO ? 'reservar' : 'nada';
   if (f.estado !== 'ABIERTO') return 'nada';
-  if (!f.payment_intent_id) return minDesde(f.creado_en) >= MINUTOS_ABANDONO ? 'cerrar-sin-cobro' : 'nada';
+  if (!f.payment_intent_id) return minDesde(f.actualizado_en) >= MINUTOS_ABANDONO ? 'cerrar-sin-cobro' : 'nada';
   if (estadoPI === 'succeeded') return entregado ? 'reservar' : 'nada'; // sin entregar: lo entrega el conciliador primero
   if (estadoPI === 'canceled') return 'cerrar-sin-cobro';
-  if (estadoPI && PAGANDOSE.has(estadoPI)) return 'nada';
-  if (estadoPI && ABANDONABLE.has(estadoPI)) return minDesde(f.creado_en) >= MINUTOS_ABANDONO ? 'cancelar-cobro' : 'nada';
+  if (estadoPI && PAGANDOSE.has(estadoPI)) return 'al-final';
+  if (estadoPI && ABANDONABLE.has(estadoPI)) return minDesde(f.actualizado_en) >= MINUTOS_ABANDONO_COBRO ? 'cancelar-cobro' : 'nada';
   return 'nada';
 }
 
@@ -68,9 +81,9 @@ export async function barrerPagosDeClase(
 ): Promise<{ reservados: number; cancelados: number }> {
   const hace = new Date(Date.now() - MINUTOS_REINTENTO_PAGADO * 60_000).toISOString();
   const { data, error } = await admin.from('pagos_clase')
-    .select('id, estado, socio_id, sesion_id, spot_id, payment_intent_id, creado_en, actualizado_en')
+    .select('id, estado, socio_id, sesion_id, spot_id, payment_intent_id, creado_en, actualizado_en, plan_id, cupo_matricula')
     .eq('studio_id', studio.id).in('estado', ['ABIERTO', 'PAGADO']).lt('creado_en', hace)
-    .order('creado_en', { ascending: true }).limit(50);
+    .order('actualizado_en', { ascending: true }).limit(50);
   if (error) {
     // Tabla aún sin aplicar: no hay nada que barrer.
     if (!esTablaQueFalta(error)) {
@@ -121,8 +134,18 @@ export async function barrerPagosDeClase(
       } else if (accion === 'cerrar-sin-cobro') {
         if (await cerrarFila(admin, studio.id, f.id)) {
           if (pi?.status === 'canceled') await devolverRetenido(admin, studio.id, pi);
+          // Sin cobro no hay metadata de la que leer la matrícula: la dice la fila (una vez, con su clave).
+          else if (!f.payment_intent_id && f.cupo_matricula && f.plan_id) {
+            await liberarCupoMatriculaUnaVez(admin, `pago-clase-sin-cobro-${f.id}`, f.plan_id, studio.id)
+              .catch(() => { /* sin anotar: se queda retenida y Sentry lo cuenta abajo si se repite */ });
+          }
           cancelados += 1;
         }
+      } else if (accion === 'al-final') {
+        // Cobrándose o con el 3DS a medias: nada que hacer todavía. Se toca para que pase al final
+        // de la cola (orden por `actualizado_en`) y no ocupe siempre el mismo hueco del `limit`.
+        await admin.from('pagos_clase').update({ actualizado_en: new Date().toISOString() })
+          .eq('id', f.id).eq('studio_id', studio.id).eq('estado', 'ABIERTO');
       }
     } catch (e) {
       Sentry.captureException(e instanceof Error ? e : new Error('barrido de pagos de clase'), {

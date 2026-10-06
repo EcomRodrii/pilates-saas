@@ -37,7 +37,9 @@ test('checkout-embebido: plaza y pago vivo antes de matrícula, Customer y cobro
 
 test('checkout-embebido: con Authorization, la identidad SIEMPRE del token', () => {
   const f = leer('app/api/public/checkout-embebido/route.ts');
-  assert.match(f, /if \(body\.socioId \|\| req\.headers\.get\('authorization'\)\) \{\s*const usuario = await verificarUsuarioSupabase\(req\);/);
+  assert.match(f, /if \(body\.socioId \|\| req\.headers\.get\('authorization'\)\) \{\s*const conPaso = await usuarioSupabaseConPaso\(req\);/);
+  // Con el segundo paso pendiente, su código (la app manda a verificar, no a entrar).
+  assert.match(f, /conPaso\.paso === 'doble_factor'[\s\S]{0,200}codigo: CODIGO_SEGUNDO_PASO/);
 });
 
 test('checkout-embebido: con clase, la casilla de condiciones; y nunca por debajo del mínimo de Stripe', () => {
