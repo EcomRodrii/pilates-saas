@@ -23,6 +23,7 @@ import { reservarClasePagada } from './reservar-clase-pagada.ts';
 import { plazaDePICancelado } from './cupo-matricula-abandonado.ts';
 import { liberarCupoMatriculaUnaVez } from './matricula-online.ts';
 import { liberarPlazaPorRef } from '../opening/cupo.ts';
+import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 
 /** Un PAGADO se reintenta pasado este rato (el webhook está terminando, o murió). */
 export const MINUTOS_REINTENTO_PAGADO = 10;
@@ -72,7 +73,7 @@ export async function barrerPagosDeClase(
     .order('creado_en', { ascending: true }).limit(50);
   if (error) {
     // Tabla aún sin aplicar: no hay nada que barrer.
-    if (error.code !== '42P01') {
+    if (!esTablaQueFalta(error)) {
       Sentry.captureMessage('[conciliador] no se pudieron leer los pagos de clase', { level: 'warning', tags: { area: 'cobros' }, extra: { studioId: studio.id, detalle: error.message } });
     }
     return { reservados: 0, cancelados: 0 };

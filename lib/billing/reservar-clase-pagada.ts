@@ -28,6 +28,7 @@
 // o la tabla aún sin aplicar), exactamente como antes.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
+import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 import {
   conPrioridadEnLaCola, destinoDelPago, MAX_INTENTOS_RESERVA, type DestinoPagoClase, type MotivoCompensacion,
   type ReservaTrasPago,
@@ -192,7 +193,7 @@ async function filaDelPago(admin: SupabaseClient, studioId: string, id: string, 
     .select('estado, plaza_comprobada_en, pagado_en, intentos_reserva, suscripcion_id')
     .eq('id', id).eq('studio_id', studioId).maybeSingle();
   if (error || !data) {
-    if (error && error.code !== '42P01') {
+    if (error && !esTablaQueFalta(error)) {
       Sentry.captureMessage('[pago de clase] no se pudo leer la fila del pago', {
         level: 'warning', tags: { area: 'cobros' }, extra: { studioId, pagoClaseId: id, detalle: error.message },
       });

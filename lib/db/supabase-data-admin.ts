@@ -130,6 +130,7 @@ import {
 import { mensajeErrorReservaExterna } from '@/lib/plataformas/reserva-externa';
 import type { Plataforma } from '@/lib/plataformas/catalogo';
 import { trasReservaExterna } from '@/lib/plataformas/tras-reserva-externa';
+import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 import {
   fetchAllRows,
   getCurrentStudioId,
@@ -1780,7 +1781,7 @@ async function cerrarCompensacionPorPromocion(admin: SupabaseClient, p: {
   const { data, error } = await admin.from('pagos_clase').select('id')
     .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('sesion_id', p.sesionId).eq('estado', 'COMPENSADA');
   if (error) {
-    if (error.code !== '42P01') reportDbError('[trasPromocionDeEspera] no se pudo leer el pago compensado', error);
+    if (!esTablaQueFalta(error)) reportDbError('[trasPromocionDeEspera] no se pudo leer el pago compensado', error);
     return;
   }
   for (const f of (data ?? []) as { id: string }[]) {

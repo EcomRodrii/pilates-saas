@@ -28,6 +28,7 @@ import { cicloInicialDe } from '../bono-logic.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import type { PlanTarifa } from '../types.ts';
 import { quienPaga } from './clave-checkout-embebido.ts';
+import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 
 const YA_EXISTIA = '23505';
 
@@ -127,7 +128,7 @@ async function pruebaEnCursoEnOtraClase(
 ): Promise<'si' | 'no' | 'no-se-sabe'> {
   const { data, error } = await admin.from('pagos_clase').select('plan_id')
     .eq('studio_id', studioId).eq('pagador', pagador).in('estado', ['ABIERTO', 'PAGADO']).neq('sesion_id', sesionId);
-  if (error) return error.code === '42P01' ? 'no' : 'no-se-sabe'; // tabla aún sin aplicar: no hay pagos de clase
+  if (error) return esTablaQueFalta(error) ? 'no' : 'no-se-sabe'; // tabla aún sin aplicar: no hay pagos de clase
   const planes = [...new Set(((data ?? []) as { plan_id: string }[]).map((f) => f.plan_id))];
   if (planes.length === 0) return 'no';
   const { data: pruebas, error: e2 } = await admin.from('planes_tarifa').select('id')

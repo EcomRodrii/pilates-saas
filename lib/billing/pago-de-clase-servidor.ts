@@ -11,6 +11,7 @@ import { plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
 import { CODIGO_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
+import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El dueño de «el pago abierto de una clase» (P06 · Fase A). La regla está en
@@ -31,7 +32,7 @@ export type PreparacionPagoClase =
   | { tipo: 'sin-tabla' };
 
 function sinTabla(e: { code?: string } | null | undefined): boolean {
-  return e?.code === '42P01';
+  return esTablaQueFalta(e);
 }
 
 /**
