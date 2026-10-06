@@ -158,6 +158,12 @@ const SPECS_WEBKIT = [
   // P11–P13 (5-oct-2026): la fila del horario (qué capa recibe el toque) y la tira de días (Intl, que ya falló en Safari).
   '**/student-horario-reservar-fila.spec.ts',
   '**/student-horario-dia.spec.ts',
+  // EXCEPCIÓN al criterio de arriba, pedida por el fundador (6-oct-2026): el
+  // chat de Tentare es panel, pero lo abrió desde su iPhone y «le das a escribir
+  // y se hace zoom, es 0 responsive». Lo que se prueba —anchos que obligan a
+  // Safari a encoger la página y campos de menos de 16 px— es justo lo que un
+  // motor resuelve distinto. Dos pruebas (claro y oscuro); solo corre aquí.
+  '**/asistente-movil.spec.ts',
 ];
 
 export default defineConfig({

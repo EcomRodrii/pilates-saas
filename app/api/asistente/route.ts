@@ -10,16 +10,17 @@ import { clienteAnthropic } from '@/lib/ai/cliente';
 import { ejecutarTurno } from '@/lib/asistente/bucle';
 import { codificarEvento, type EventoAsistente } from '@/lib/asistente/protocolo';
 import { PROMPT_SISTEMA, contextoDelDia } from '@/lib/asistente/prompt';
-import { marcarPersonasEnPregunta, tablaReferencias } from '@/lib/asistente/referencias';
+import { marcarPersonasEnPregunta, refDeQuienEscribe, tablaReferencias } from '@/lib/asistente/referencias';
 import { puedeUsarAsistente } from '@/lib/asistente/roles';
 import { HERRAMIENTAS_DEL_ASISTENTE, definicionDe } from '@/lib/asistente/herramientas/definiciones';
 import { ejecutarHerramienta } from '@/lib/asistente/herramientas';
 import { COSTE_MAX_PREGUNTA_USD, MAX_CONTEXTO_TOKENS } from '@/lib/asistente/limites';
 import { MODELO_ASISTENTE } from '@/lib/asistente/modelo';
-import { costeUsd, unidadesDe } from '@/lib/asistente/coste';
 import { liquidar, validarCuerpo } from '@/lib/asistente/peticion';
+import { cronometro } from '@/lib/asistente/tiempos';
+import type { MessageStreamLike } from '@/lib/asistente/bucle';
 import {
-  asistenteEncendido, atarConsumo, cargarConversacion, cerrarConsulta, crearConversacion, guardarTurno,
+  asistenteEncendido, atarConsumo, cargarConversacion, cerrarConsulta, crearConversacion, guardarTurno, leerSaldo,
   nombresDeReferencias, personasDelEstudio, reservarConsulta, soltarTurno, tomarTurno, type ConversacionCargada, type SesionAsistente,
 } from '@/lib/asistente/servidor';
 import type { ContextoHerramienta } from '@/lib/asistente/tipos';
@@ -39,6 +40,12 @@ import type { ContextoHerramienta } from '@/lib/asistente/tipos';
 // (`[ALUMNA_3]`); los nombres se resuelven aquí y solo van al navegador (evento
 // `referencias`). Ni a la Sentry ni a los logs va el texto de la pregunta o de
 // la respuesta: solo códigos, ids y tokens.
+//
+// Tiempos (lib/asistente/tiempos.ts): `Server-Timing` con las fases de antes del
+// stream y el registro `[asistente] tiempos` con todo (primer evento de cada
+// llamada a Anthropic, cada herramienta, cierre). Lo que no depende entre sí va a
+// la vez: las puertas (plan, antirráfaga, cuerpo), y después la lista de
+// personas, la conversación y la fila del estudio.
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -46,35 +53,45 @@ export const maxDuration = 60;
 const json = (body: unknown, status: number) => NextResponse.json(body, { status });
 
 export async function POST(req: NextRequest) {
+  const tiempos = cronometro();
   const sesionStaff = await verificarSesionStaff(req);
   if (!sesionStaff) return json({ error: 'No autorizado' }, 401);
   if (!puedeUsarAsistente(sesionStaff.rol)) return json({ error: 'No tienes permiso para esto', codigo: 'SIN_PERMISO' }, 403);
   if (!asistenteEncendido(sesionStaff.studioId)) return json({ error: 'El asistente no está disponible', codigo: 'NO_DISPONIBLE' }, 404);
-  const bloqueo = await bloqueoPorFeature(sesionStaff.studioId, 'asistente');
+  // Las tres puertas no dependen entre sí: a la vez, y se responde en el mismo orden de siempre.
+  const [bloqueo, rafaga, body] = await Promise.all([
+    bloqueoPorFeature(sesionStaff.studioId, 'asistente'),
+    enforceRateLimit(req, 'asistente', { max: 12, windowSeconds: 60 }, sesionStaff.userId),
+    req.json().catch(() => null),
+  ]);
   if (bloqueo) return bloqueo;
-  const rafaga = await enforceRateLimit(req, 'asistente', { max: 12, windowSeconds: 60 }, sesionStaff.userId);
   if (rafaga) return rafaga;
+  tiempos.marcar('auth');
 
-  const cuerpo = validarCuerpo(await req.json().catch(() => null));
+  const cuerpo = validarCuerpo(body);
   if (!cuerpo.ok) return json({ error: cuerpo.error }, 400);
 
   const admin = getSupabaseAdmin();
   if (!admin) return json({ error: 'Servidor no configurado', codigo: 'NO_DISPONIBLE' }, 503);
   const sesion: SesionAsistente = { studioId: sesionStaff.studioId, userId: sesionStaff.userId, rol: sesionStaff.rol };
 
-  const [studioR, personas] = await Promise.all([
-    admin.from('studios').select('plan, subscription_status').eq('id', sesion.studioId).maybeSingle(),
+  let conversacionId = cuerpo.conversacionId;
+  const [personas, cargada, studioR] = await Promise.all([
     personasDelEstudio(admin, sesion),
+    conversacionId ? cargarConversacion(admin, sesion, conversacionId) : Promise.resolve(null),
+    admin.from('studios').select('nombre, ciudad, plan, subscription_status, subscription_id').eq('id', sesion.studioId).maybeSingle(),
   ]);
   // Sin la lista de personas no se puede quitar un nombre de la pregunta: no se pregunta.
   if (studioR.error || !studioR.data || !personas) return json({ error: 'No disponible ahora', codigo: 'NO_DISPONIBLE' }, 503);
-  const decisiones = tieneFeature({ plan: studioR.data.plan as string | null, subscriptionStatus: studioR.data.subscription_status as string | null }, 'decisiones');
+  const fila = studioR.data as { nombre: string | null; ciudad: string | null; plan: string | null; subscription_status: string | null; subscription_id: string | null };
+  const decisiones = tieneFeature({ plan: fila.plan, subscriptionStatus: fila.subscription_status }, 'decisiones');
+  // La prueba LOCAL (sin tarjeta): el mismo criterio que ia_saldo_consultas.
+  const estudio = { nombre: fila.nombre, ciudad: fila.ciudad, plan: fila.plan, enPrueba: fila.subscription_status === 'trialing' && !fila.subscription_id };
+  tiempos.marcar('carga');
 
   // ── La conversación ──
-  let conversacionId = cuerpo.conversacionId;
   let historial: ConversacionCargada | null = null;
   if (conversacionId) {
-    const cargada = await cargarConversacion(admin, sesion, conversacionId);
     if (cargada === 'ERROR') return json({ error: 'No disponible ahora', codigo: 'NO_DISPONIBLE' }, 503);
     if (!cargada) return json({ error: 'Conversación no encontrada' }, 404);
     historial = cargada;
@@ -82,6 +99,8 @@ export async function POST(req: NextRequest) {
     if (!(await tomarTurno(admin, sesion, conversacionId))) return json({ error: 'Ya hay una pregunta en curso', codigo: 'OTRA_PREGUNTA_EN_CURSO' }, 409);
   }
   const refs = tablaReferencias(historial ? historial.referencias : {});
+  // Antes de marcar la pregunta: así quien escribe tiene la misma referencia desde el primer turno.
+  const quienEscribe = refDeQuienEscribe(personas, refs);
   const marcada = marcarPersonasEnPregunta(cuerpo.pregunta, personas, refs);
 
   // ── El libro (fail-closed) ──
@@ -92,13 +111,15 @@ export async function POST(req: NextRequest) {
     return json({ error: 'Sin consultas disponibles', codigo: reserva.codigo, disponibles: reserva.disponibles }, 429);
   }
   const consumoId = reserva.consumoId;
+  tiempos.marcar('libro');
+  const nueva = !conversacionId;
   if (!conversacionId) {
     conversacionId = await crearConversacion(admin, sesion, marcada.texto);
     if (!conversacionId) {
       await cerrarConsulta(admin, sesion, { consumoId, estado: 'LIBERADA', input: 0, cacheRead: 0, cacheCreation: 0, output: 0, costeUsd: 0, nLlamadas: 0, nHerramientas: 0, herramientas: [], codigoError: 'SIN_CONVERSACION' });
       return json({ error: 'No disponible ahora', codigo: 'NO_DISPONIBLE' }, 503);
     }
-    await atarConsumo(admin, sesion, consumoId, conversacionId);
+    tiempos.marcar('conversacion');
   }
   const conversacion = conversacionId;
 
@@ -120,14 +141,41 @@ export async function POST(req: NextRequest) {
       let cerrado = false;
       try {
         emitir({ t: 'inicio', conversacionId: conversacion, disponibles: reserva.disponibles });
-        const deLaPregunta = await nombresDeReferencias(admin, sesion, refs, refs.tomarUsadas());
-        const locales = Object.fromEntries(Object.entries(marcada.locales).map(([r, n]) => [r, { nombre: n, href: null }]));
-        if (Object.keys(deLaPregunta).length || Object.keys(locales).length) emitir({ t: 'referencias', refs: { ...deLaPregunta, ...locales } });
+        // Los nombres de la pregunta y atar el consumo a la conversación nueva NO tienen
+        // que esperar a Anthropic ni Anthropic a ellos: van a la vez que la primera
+        // llamada, y se esperan antes de cerrar el libro. (Un nombre que llegue después
+        // de su marca no rompe nada: el panel pinta el chip en cuanto le llega.)
+        const usadasPregunta = refs.tomarUsadas();
+        const preparacion = Promise.all([
+          nombresDeReferencias(admin, sesion, refs, usadasPregunta).then(deLaPregunta => {
+            const locales = Object.fromEntries(Object.entries(marcada.locales).map(([r, n]) => [r, { nombre: n, href: null }]));
+            if (Object.keys(deLaPregunta).length || Object.keys(locales).length) emitir({ t: 'referencias', refs: { ...deLaPregunta, ...locales } });
+          }),
+          nueva ? atarConsumo(admin, sesion, consumoId, conversacion) : null,
+        ]).catch(e => { Sentry.captureException(e, { tags: { area: 'asistente' }, extra: { consumoId, fase: 'preparacion' } }); });
 
+        let nLlamada = 0;
+        const herramientasMs: { nombre: string; ms: number }[] = [];
         const turno = await ejecutarTurno({
-          stream: (params, signal) => clienteAnthropic().messages.stream(params, { signal }),
+          stream: (params, signal) => {
+            const n = ++nLlamada;
+            const s = clienteAnthropic().messages.stream(params, { signal });
+            const medido: MessageStreamLike = {
+              async *[Symbol.asyncIterator]() {
+                for await (const ev of s) {
+                  tiempos.hito(`llamada${n}PrimerEvento`);
+                  yield ev;
+                }
+                tiempos.hito(`llamada${n}Fin`);
+              },
+              finalMessage: () => s.finalMessage(),
+            };
+            return medido;
+          },
           ejecutar: async (nombre, input) => {
+            const t0 = performance.now();
             const s = await ejecutarHerramienta(nombre, input, ctx);
+            herramientasMs.push({ nombre, ms: Math.round(performance.now() - t0) });
             if (s.codigo !== 'OK') console.warn('[asistente] herramienta', { nombre, codigo: s.codigo, consumoId });
             const nuevas = refs.tomarUsadas();
             if (nuevas.length) emitir({ t: 'referencias', refs: await nombresDeReferencias(admin, sesion, refs, nuevas) });
@@ -151,18 +199,24 @@ export async function POST(req: NextRequest) {
             // muchas menos veces. Va ANTES del punto de 5 minutos del historial, como
             // exige la API (los TTL largos primero).
             { type: 'text', text: PROMPT_SISTEMA, cache_control: { type: 'ephemeral', ttl: '1h' } },
-            { type: 'text', text: contextoDelDia({ hoy, rol: sesion.rol }) },
+            // El estudio y quien escribe, aquí y no en el prefijo: el prefijo es el mismo para todos.
+            { type: 'text', text: contextoDelDia({ hoy, rol: sesion.rol, estudio, quienEscribe }) },
           ],
           signal: corte.signal,
         });
 
+        tiempos.marcar('turno');
+        await preparacion;
         const l = liquidar(turno.motivo, turno.uso);
+        // Las unidades las decide el libro: la charla (sin herramientas) no gasta,
+        // hasta 50 al día por estudio (migr 20261006014513, ia_cerrar_consulta).
         const cierre = await cerrarConsulta(admin, sesion, {
           consumoId, estado: l.estado, input: turno.uso.input, cacheRead: turno.uso.cacheRead, cacheCreation: turno.uso.cacheCreation,
           output: turno.uso.output, costeUsd: l.costeUsd, nLlamadas: turno.nLlamadas, nHerramientas: turno.nHerramientas,
           herramientas: turno.herramientasUsadas, codigoError: l.codigoError,
         });
         cerrado = true;
+        tiempos.marcar('cierre');
         await guardarTurno(admin, sesion, {
           conversacionId: conversacion, desdeOrden: historial ? historial.siguienteOrden : 0, mensajes: turno.mensajesNuevos,
           bloques: turno.bloques, consumoId, refs, tokensContexto: turno.tokensContexto,
@@ -174,12 +228,18 @@ export async function POST(req: NextRequest) {
           motivo: turno.motivo, herramientas: turno.herramientasUsadas, llamadas: turno.nLlamadas,
           tokens: turno.uso, costeUsd: l.costeUsd, unidades: cierre?.unidades ?? null,
         }));
+        tiempos.marcar('guardar');
+        // Dónde se fue el tiempo. Solo fases, milisegundos e ids: nunca la pregunta ni la respuesta.
+        console.info('[asistente] tiempos', JSON.stringify({
+          consumoId, nueva, llamadas: turno.nLlamadas, herramientasMs, ...tiempos.resumen(),
+        }));
 
         if (l.estado === 'CONSUMIDA') {
-          const unidades = cierre?.unidades ?? unidadesDe(costeUsd(turno.uso));
+          // Si el cierre no contestó, la consulta sigue reservada en el libro (se dará por
+          // fallida, 0 unidades): lo que queda lo dice el propio libro, no una cuenta aquí.
+          const disponibles = cierre?.disponibles ?? (await leerSaldo(admin, sesion))?.disponibles ?? reserva.disponibles;
           emitir({
-            t: 'fin', unidades,
-            disponibles: cierre?.disponibles ?? Math.max(0, reserva.disponibles - unidades),
+            t: 'fin', unidades: cierre?.unidades ?? 0, disponibles,
             motivo: turno.motivo === 'ACLARACION' || turno.motivo === 'DEMASIADO_AMPLIA' ? turno.motivo : 'OK',
           });
         }
@@ -208,6 +268,7 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'application/x-ndjson; charset=utf-8',
       'Cache-Control': 'no-store',
       'X-Accel-Buffering': 'no',
+      'Server-Timing': tiempos.cabecera(),
     },
   });
 }

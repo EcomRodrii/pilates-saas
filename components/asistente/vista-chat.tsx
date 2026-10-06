@@ -8,6 +8,7 @@ import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { MS_HECHO } from '@/lib/tenti/asistente';
 import { enVuelo, sugerenciasPara, type EstadoAsistente, type TurnoUI } from '@/lib/asistente/estado-ui';
 import { cn } from '@/lib/utils';
+import { areaConTeclado } from '@/lib/asistente/teclado';
 import {
   abrirConversacion, cargarConversaciones, cargarSaldo, montarVista, nuevaConversacion, parar, preguntar, prepararEstudio,
   useAlmacenAsistente, volverAReposo, type ConversacionListada, type SaldoAsistente,
@@ -77,6 +78,8 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
     return () => clearTimeout(t);
   }, [estado.momento]);
 
+  const teclado = useAreaConTeclado();
+
   const vacio = estado.turnos.length === 0;
   const elegir = (id: string) => { setListaMovil(false); void abrirConversacion(id); };
   const nueva = () => { setListaMovil(false); nuevaConversacion(); };
@@ -85,14 +88,22 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
     <ReferenciasCtx.Provider value={estado.referencias}>
       <div
         data-testid="chat-asistente"
-        className="fixed inset-x-0 top-12 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-20 flex bg-background lg:top-[calc(var(--panel-top,0.5rem)+4rem)] lg:bottom-0 lg:left-[var(--sidebar-w,0px)]"
+        data-teclado={teclado ? '' : undefined}
+        className={cn(
+          'fixed inset-x-0 flex bg-background lg:top-[calc(var(--panel-top,0.5rem)+4rem)] lg:bottom-0 lg:left-[var(--sidebar-w,0px)]',
+          // Con el teclado abierto (móvil), justo sobre lo visible y por encima de las barras del panel.
+          // En el móvil tapa la barra de arriba del panel: una sola cabecera, la del chat
+          // (como ChatGPT o Claude), y la barra de abajo sigue para salir.
+          teclado ? 'z-40' : 'top-0 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-[35] lg:z-20',
+        )}
+        style={teclado ? { top: teclado.top, height: teclado.height } : undefined}
       >
         <aside className="hidden w-[272px] shrink-0 flex-col border-r border-border lg:flex" aria-label="Tus conversaciones">
           <ListaConversaciones conversaciones={conversaciones} activa={estado.conversacionId} onElegir={elegir} onNueva={nueva} />
         </aside>
 
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-1 px-2 lg:hidden">
+          <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/60 px-1.5 lg:hidden">
             <button type="button" onClick={() => setListaMovil(true)} aria-label="Tus conversaciones" className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
               <MessagesSquare size={19} aria-hidden="true" />
             </button>
@@ -121,6 +132,46 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
       </div>
     </ReferenciasCtx.Provider>
   );
+}
+
+/**
+ * Móvil: dónde va el chat con el teclado abierto (lib/asistente/teclado.ts), y
+ * la página de debajo quieta mientras se está en el chat. Sin esto, el teclado
+ * de iOS corría la página y el chat se quedaba a medias, y un deslizamiento
+ * fuera de la lista movía el documento entero que hay detrás.
+ */
+function useAreaConTeclado() {
+  const [area, setArea] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const movil = window.matchMedia('(max-width: 1023px)');
+    const html = document.documentElement;
+    const antes = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior };
+    const medir = () => {
+      if (!vv || !movil.matches) { setArea(null); return; }
+      const nueva = areaConTeclado({ alto: window.innerHeight, altoVisible: vv.height, desplazamiento: vv.offsetTop });
+      setArea(a => (a?.top === nueva?.top && a?.height === nueva?.height ? a : nueva));
+    };
+    const fijarPagina = () => {
+      html.style.overflow = movil.matches ? 'hidden' : antes.overflow;
+      html.style.overscrollBehavior = movil.matches ? 'none' : antes.overscroll;
+    };
+    fijarPagina();
+    medir();
+    vv?.addEventListener('resize', medir);
+    vv?.addEventListener('scroll', medir);
+    movil.addEventListener('change', medir);
+    movil.addEventListener('change', fijarPagina);
+    return () => {
+      vv?.removeEventListener('resize', medir);
+      vv?.removeEventListener('scroll', medir);
+      movil.removeEventListener('change', medir);
+      movil.removeEventListener('change', fijarPagina);
+      html.style.overflow = antes.overflow;
+      html.style.overscrollBehavior = antes.overscroll;
+    };
+  }, []);
+  return area;
 }
 
 // ── La columna de conversaciones ─────────────────────────────────────────────
@@ -200,8 +251,11 @@ function ListaConversaciones({ conversaciones, activa, onElegir, onNueva }: {
 function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null }) {
   const sugerencias = sugerenciasPara(veDinero, 4);
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-8">
-      <div className="w-full max-w-[720px]">
+    <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pt-4 pb-8">
+      {/* `my-auto` y no `justify-center` en el padre: centrado mientras cabe, y si no
+          cabe (un móvil bajo) empieza arriba y se desplaza; con `justify-center`
+          lo que sobraba se cortaba por ARRIBA y no había forma de llegar a ello. */}
+      <div className="my-auto w-full max-w-[720px]">
         <div className="flex flex-col items-center text-center">
           <TentiAsistente momento={estado.momento} tamano={96} />
           <h1 className="mt-3 font-heading text-[26px] font-semibold leading-tight tracking-tight text-foreground text-balance sm:text-[30px]">
@@ -264,7 +318,7 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
           ))}
         </div>
       </div>
-      <div className="shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-4 pt-2 pb-3 sm:px-6">
+      <div className="shrink-0 bg-background px-3 pt-2 pb-2 sm:px-6 sm:pb-3">
         <div className="mx-auto w-full max-w-[760px]">
           <Compositor estado={estado} saldo={saldo} />
         </div>
@@ -287,8 +341,10 @@ function Turno({ t, ultimo, momento, referencias }: {
       </div>
 
       {/* La respuesta, a la izquierda: Tenti de avatar en la que está en curso. */}
-      <div className="mt-5 flex gap-3 sm:gap-4">
-        <div className="w-10 shrink-0">
+      {/* En el móvil, a todo el ancho (las tarjetas no caben con una columna de
+          avatar al lado): Tenti va encima, y solo en la respuesta en curso. */}
+      <div className="mt-5 flex flex-col gap-1 sm:flex-row sm:gap-4">
+        <div className={cn('shrink-0 sm:block sm:w-10', ultimo ? 'block h-10' : 'hidden')}>
           {ultimo ? <TentiAsistente momento={momento} tamano={40} className="-mt-1.5" /> : <TentiAsistenteQuieto className="-mt-1.5" />}
         </div>
         <div className="min-w-0 flex-1">
@@ -366,7 +422,9 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
   const campo = useRef<HTMLTextAreaElement>(null);
   const ocupado = enVuelo(estado);
 
-  useEffect(() => { campo.current?.focus(); }, []);
+  // El foco al entrar, solo con ratón: en el móvil abriría el teclado (y taparía
+  // media pantalla) sin que ella haya tocado el campo.
+  useEffect(() => { if (window.matchMedia('(pointer: fine)').matches) campo.current?.focus(); }, []);
   // Crece con el texto, hasta ~8 líneas.
   useLayoutEffect(() => {
     const el = campo.current;
@@ -415,8 +473,10 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
           </BotonRedondo>
         )}
       </div>
-      <p className="mt-2 text-center text-[12px] text-muted-foreground" data-testid="asistente-saldo">
-        {saldoTexto ? `${saldoTexto} · ` : ''}Tentare consulta tus datos; todavía no hace cambios.
+      <p className="mt-1.5 text-center text-[12px] leading-snug text-muted-foreground sm:mt-2" data-testid="asistente-saldo">
+        {saldoTexto && <>{saldoTexto}<span className="hidden sm:inline"> · </span></>}
+        {/* En el móvil, una sola línea bajo el campo: el saldo. */}
+        <span className={saldoTexto ? 'hidden sm:inline' : undefined}>Tentare consulta tus datos; todavía no hace cambios.</span>
       </p>
     </form>
   );

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { marcarPersonasEnPregunta, tablaReferencias, type PersonaDelEstudio } from './referencias.ts';
+import { marcarPersonasEnPregunta, tablaReferencias, type PersonaDelEstudio, refDeQuienEscribe } from './referencias.ts';
 
 // Fixtures inventadas (repo público: nada de datos reales).
 const PERSONAS: PersonaDelEstudio[] = [
@@ -67,4 +67,21 @@ test('la herramienta de «qué revisar hoy» seudonimiza con TODAS las personas 
   assert.match(src, /marcarPersonasEnPregunta\(texto, ctx\.personas, ctx\.refs\)/,
     'sinNombres tiene que usar la lista entera (ctx.personas), no solo la socia de la recomendación');
   assert.doesNotMatch(src, /sinNombres\([^)]*socioId/);
+});
+
+test('quien escribe: su referencia se crea ANTES de marcar la pregunta y es la misma con la que sale su nombre', () => {
+  const personas = [
+    { tipo: 'instructora' as const, id: 'i-otra', nombre: 'Lucía' },
+    { tipo: 'instructora' as const, id: 'i-yo', nombre: 'Marta', propia: true },
+    { tipo: 'socia' as const, id: 's-1', nombre: 'Marta', apellidos: 'Gil' },
+  ];
+  const refs = tablaReferencias();
+  const yo = refDeQuienEscribe(personas, refs);
+  assert.equal(yo, 'EQUIPO_1');
+  // Estable entre turnos: la tabla guardada la devuelve igual.
+  assert.equal(refDeQuienEscribe(personas, tablaReferencias(refs.aJson())), 'EQUIPO_1');
+  // Sin ficha propia en el equipo (una propietaria que no da clases): nada.
+  assert.equal(refDeQuienEscribe(personas.map(p => ({ ...p, propia: false })), tablaReferencias()), null);
+  // Una socia nunca es «quien escribe», aunque viniera marcada.
+  assert.equal(refDeQuienEscribe([{ tipo: 'socia', id: 's-1', nombre: 'Ana', propia: true }], tablaReferencias()), null);
 });

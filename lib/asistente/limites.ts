@@ -19,3 +19,11 @@ export const MAX_CHARS_CAMPO = 60;
 export const TIMEOUT_HERRAMIENTA_MS = 8_000;
 /** Longitud de la pregunta. */
 export const MAX_CHARS_PREGUNTA = 500;
+/**
+ * Respuestas SIN herramientas de datos (la charla: un saludo, «¿cómo hago X?»,
+ * un consejo) que no gastan consulta, por estudio y día de Madrid. Pasado esto,
+ * la charla gasta como cualquier otra. La dueña de la regla es
+ * `ia_cerrar_consulta` (migr 20261006014513); esto es su espejo, y coste.test.ts
+ * cruza los dos números.
+ */
+export const MAX_CHARLAS_GRATIS_DIA = 50;
