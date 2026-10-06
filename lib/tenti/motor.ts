@@ -21,13 +21,23 @@
 // estudio. El dibujo y las curvas de animación son las mismas. Los colores, en
 // cambio, salen de los tokens del panel (./paleta.ts) cuando se le pasan, y
 // «reducir movimiento» (`quieto`) quita todo recorrido, no solo lo acorta.
+//
+// Los trajes (el gorro de bruja…) son los de Coucou, portados tal cual en
+// ./trajes-coucou.ts con SUS colores (decisión del fundador, 6-oct-2026): aquí
+// solo se les da el marco de la cabeza (el `H` del original) y la física de lo
+// que cuelga.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Sonido } from './sonidos.ts';
 import type { PaletaTenti } from './paleta.ts';
 // El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
 // icono de lo diario: aquí solo se anima.
-import { BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
+import {
+  BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX,
+  colocarOjo, lienzoDeTenti, medidas, pildora, recorrerContorno,
+} from './geometria.ts';
+import { TRAJES, type Traje } from './trajes.ts';
+import { OUTFITS, VIEW_TILT, type Fisica, type MarcoCabeza } from './trajes-coucou.ts';
 
 type RGB = [number, number, number];
 
@@ -63,7 +73,43 @@ const mix = (a: RGB, b: RGB, t: number): RGB => [lerp(a[0], b[0], t), lerp(a[1],
 // no se pudieron leer: el componente lo marca con data-paleta="defecto").
 const PALETA_PROTOTIPO: PaletaTenti = {
   cuerpo: ['#FFFAF5', '#DDCCBF'], tinta: '#1A1412', rubor: '#FF7896', chispa: '#FFFFFF', hecho: '#34D399',
+  estados: { error: '#F4505E', esperaTuOk: '#F5A524', agobiado: '#FB923C', trabajando: '#3B9EFF' },
 };
+// Las partículas y los ojos de las emociones, sin paleta: los del prototipo.
+// Con paleta salen de sus tokens (corazón → rubor, estrella → chispa, gota →
+// el color de 'trabajando', --info): ver `ponerPaleta`.
+const PROTOTIPO_EMOCIONES = { corazon: '#FF4D6D', estrella: '#F7B32B', gota: '#7CC7FF' };
+
+/**
+ * Cuánto oscila un estado al entrar en él (escanear, botar, respirar, la
+ * insignia de puntos y las partículas de ambiente), según lo que describe:
+ *   · 'situacion' — algo que es así un rato largo (espera tu visto bueno,
+ *     agobiado, dormido, trabajando por su cuenta): entra con su gesto, oscila
+ *     MOVIMIENTO_SITUACION_MS y se queda en su pose, quieto. Un 'esperaTuOk'
+ *     botando todo el día en el iPad de recepción serían 60 fps sin fin.
+ *   · 'peticion' — algo que tiene fin y que la pantalla espera (una
+ *     herramienta del asistente buscando): hasta MOVIMIENTO_PETICION_MS.
+ *   · 'sinFin' — el catálogo (/interno/tenti) y el prototipo: mientras dure.
+ * No acota el mareo (lo acota quien lo pone), el saludo ni los ojos de una
+ * emoción (los acota su duración).
+ */
+export type Movimiento = 'situacion' | 'peticion' | 'sinFin';
+export const MOVIMIENTO_SITUACION_MS = 4000;
+export const MOVIMIENTO_PETICION_MS = 30_000;
+const DURACION_MOVIMIENTO: Record<Movimiento, number> = {
+  situacion: MOVIMIENTO_SITUACION_MS, peticion: MOVIMIENTO_PETICION_MS, sinFin: Infinity,
+};
+
+/**
+ * Una mirada a la vez en toda la página, y este hueco entre una y la siguiente.
+ * Con cuatro Tentis en Resumen, cada uno mirando a su aire, las miradas eran
+ * casi todo lo que se pintaba en reposo (1,5 % del hilo principal). Un Tenti
+ * solo no lo nota: su propio hueco (4,5–10 s) ya es mayor.
+ */
+export const HUECO_ENTRE_MIRADAS_MS = 4000;
+const turnoDeMirar = { quien: null as object | null, libreDesde: 0 };
+/** Tras un gesto (un estado, una emoción, el cursor), cuánto va a ritmo completo. */
+const PRISA_MS = 1500;
 
 type FormaOjo = 'pill' | 'wide' | 'dot' | 'line' | 'flat' | 'happy' | 'closed' | 'spiral' | 'heart' | 'star' | 'tired' | 'wink';
 // La insignia lleva el color de su estado (`colorDe`): así 'hecho' no puede
@@ -102,9 +148,14 @@ const ENTRADA: Partial<Record<EstadoTenti, AnimacionEntrada[]>> = {
  * Qué anima al entrar en `estado`. Con `quieto` («reducir movimiento») se queda,
  * como mucho, en un parpadeo: el cambio se ve en los ojos y el color, sin giros,
  * botes ni chispas que crucen la pantalla.
+ *
+ * `celebra` solo cambia 'hecho': con `false` es el 'hecho' BREVE de lo diario
+ * (el tinte y los ojos felices, sin girar ni chispas); con `true`, la
+ * celebración de los hitos (Listo, la migración). Significan lo mismo: algo que
+ * veías acaba de terminar y el servidor lo confirma.
  */
-export function animacionDeEntrada(estado: EstadoTenti, quieto: boolean): AnimacionEntrada[] {
-  const a = ENTRADA[estado] ?? ['parpadear'];
+export function animacionDeEntrada(estado: EstadoTenti, quieto: boolean, celebra = true): AnimacionEntrada[] {
+  const a = estado === 'hecho' && !celebra ? ['parpadear' as const] : ENTRADA[estado] ?? ['parpadear'];
   return quieto ? a.filter((x) => x === 'parpadear') : a;
 }
 
@@ -142,6 +193,19 @@ function estrella(x: CanvasRenderingContext2D, ro: number, ri: number) {
 type Prop = 'yaw' | 'pitch' | 'roll' | 'tilt' | 'open' | 'sx' | 'sy' | 'oy' | 'ox' | 'tint' | 'morph' | 'hands' | 'blush' | 'es' | 'badgeS';
 type Clave = [valor: number, ms: number, curva: Curva];
 interface Tween { p: Prop; keys: Clave[]; i: number; from: number; t0: number; after?: () => void }
+
+/** Una pose fija (la hoja de /interno/tenti, como sheet.html de Coucou): la
+ *  cabeza girada `yaw`/`pitch`, ladeada `tilt` y lo que cuelga en `fisica`. */
+export interface PoseTenti { yaw: number; pitch: number; tilt?: number; fisica: Fisica }
+
+// La física de lo que cuelga del traje (la punta del gorro de bruja, el pompón,
+// la bufanda): el `phys` de Coucou, «spring lag of floppy parts, driven by yaw
+// velocity + gravity». En reposo cuelga hacia donde la deja la cabeza (los
+// valores de las vistas de sheet.html: girada 0,5 a la izquierda, dx 0,6;
+// mirando arriba 0,4, dy 0,4); al moverse, un muelle poco amortiguado la deja
+// atrás y la hace rebotar. Aplastarlo la lanza arriba y un bote la deja caer.
+const FISICA = { porYaw: -1.2, porPitch: 0.9, porAplastar: 2.5, porBote: -2.5, rigidez: 90, amortigua: 7, tope: 1 } as const;
+
 interface Particula { type: 'heart' | 'star' | 'spark' | 'sweat' | 'z'; x: number; y: number; vx: number; vy: number; age: number; life: number; rot: number; sz: number }
 
 export interface OpcionesTenti {
@@ -154,10 +218,16 @@ export interface OpcionesTenti {
   quieto?: boolean;
   /** Mira alrededor de vez en cuando, en reposo (`proximoDespertar` lo cuenta). */
   miradas?: boolean;
-  /** El color de la silueta por dentro del cuerpo, o null para no pintarla.
+  /** El color de la silueta por dentro del cuerpo (no del traje), o null para no pintarla.
    *  Es la del icono (`SILUETA_PX`): a tamaño de icono, en claro, el cuerpo
    *  crema da 1,04:1 sobre --card y sin ella Tenti son dos ojos flotando. */
   silueta?: string | null;
+  /** El traje (./trajes.ts), o null. Con traje el lienzo crece (`lienzoDeTenti`). */
+  traje?: Traje | null;
+  /** Una pose fija: solo la hoja del catálogo. */
+  pose?: PoseTenti | null;
+  /** Cuánto oscila un estado (ver `Movimiento`). Sin él, sin fin, como el prototipo. */
+  movimiento?: Movimiento;
 }
 
 interface ColoresRgb { luz: RGB; sombra: RGB; rubor: RGB }
@@ -178,10 +248,30 @@ export class Tenti {
   miradas: boolean;
   /** Ver `OpcionesTenti.silueta`. Se puede cambiar en vivo (claro ↔ oscuro). */
   silueta: string | null;
+  private ropa: Traje | null;
+  /** El traje que lleva, o null. Se puede cambiar en vivo: el lienzo se vuelve
+   *  a medir (con traje es más grande: ver `lienzoDeTenti`). */
+  get traje(): Traje | null { return this.ropa; }
+  set traje(v: Traje | null) { this.ropa = v; if (this.lado) this.medir(this.lado); }
+  /** Ver `PoseTenti`. Se puede cambiar en vivo. */
+  pose: PoseTenti | null;
+  /** Lo que cuelga del traje (ver FISICA): dónde está, a qué velocidad y adónde va. */
+  private fis: Fisica = { dx: 0, dy: 0 };
+  private vfis: Fisica = { dx: 0, dy: 0 };
+  private objFis: Fisica = { dx: 0, dy: 0 };
   private dpr = 1;
+  /** El lado del cuadro del cuerpo, en px de CSS (sin el margen del traje). */
+  private lado = 0;
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
+  private emociones = PROTOTIPO_EMOCIONES;
+  private mov: Movimiento = 'sinFin';
+  /** Hasta cuándo oscila el estado actual (ver `Movimiento`). */
+  private oscilaHasta = Infinity;
+  /** Ver `Movimiento`. Cambiarlo vuelve a contar desde ahora. */
+  get movimiento(): Movimiento { return this.mov; }
+  set movimiento(v: Movimiento) { this.mov = v; this.armarOscilacion(); }
   /** Cuántas veces ha saludado DE VERDAD (con `quieto`, saludar() no cuenta). */
   saludos = 0;
   private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0 };
@@ -208,37 +298,51 @@ export class Tenti {
   private proxMirada: number;
   private t0: number;
   private saludaHasta = 0;
+  /** Hasta cuándo pinta a ritmo completo aunque solo quede ambiente (`aMedioRitmo`). */
+  private prisaHasta = 0;
+  private miraAntes = { x: 0, y: 0 };
   private ultimoAmbiente = 0;
   private ultimo = AHORA();
   private temporizadores = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
-    miradas = false, silueta = null,
+    miradas = false, silueta = null, traje = null, pose = null, movimiento = 'sinFin',
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
     this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
+    this.ropa = traje; this.pose = pose; this.mov = movimiento;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
     this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
     this.t0 = AHORA() - Math.random() * 5000;
   }
 
-  /** Ajusta la resolución del canvas a su tamaño en pantalla. */
+  /**
+   * Ajusta la resolución del canvas a su tamaño en pantalla. `cssPx` es el lado
+   * del cuadro del CUERPO; con traje el lienzo es más grande (`lienzoDeTenti`,
+   * el mismo cálculo con el que tenti.tsx le da su tamaño CSS).
+   */
   medir(cssPx: number) {
     const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-    this.dpr = dpr;
-    this.c.width = Math.round(cssPx * dpr); this.c.height = Math.round(cssPx * dpr);
+    this.dpr = dpr; this.lado = cssPx;
+    const l = lienzoDeTenti(cssPx, this.ropa != null);
+    this.c.width = Math.round(l.ancho * dpr); this.c.height = Math.round(l.alto * dpr);
   }
 
   private luego(fn: () => void, ms: number) {
     const t = setTimeout(() => { this.temporizadores.delete(t); fn(); }, ms);
     this.temporizadores.add(t);
   }
-  destruir() { for (const t of this.temporizadores) clearTimeout(t); this.temporizadores.clear(); }
+  destruir() {
+    for (const t of this.temporizadores) clearTimeout(t);
+    this.temporizadores.clear();
+    // Si estaba mirando, que no deje a los demás esperando su turno.
+    if (turnoDeMirar.quien === this) { turnoDeMirar.quien = null; turnoDeMirar.libreDesde = 0; }
+  }
   private suena(n?: Sonido) {
     if (!this.conSonido || !n) return;
     if (sonidos) sonidos.sonar(n);
@@ -250,20 +354,32 @@ export class Tenti {
     this.tw.push({ p, keys, i: 0, from: this.s[p], t0: AHORA(), after }); this.lock[p] = 1;
   }
 
-  /** El color de un estado: 'hecho' tiñe con el de la paleta (--success en el panel). */
-  private colorDe(n: EstadoTenti): string { return n === 'hecho' ? this.paleta.hecho : ESTADOS[n].col; }
+  /** El color de un estado: 'hecho' tiñe con el de la paleta (--success en el
+   *  panel), y los estados que enseña el panel con los suyos (--destructive,
+   *  --warning, --info). Los demás, con el del prototipo. */
+  private colorDe(n: EstadoTenti): string {
+    if (n === 'hecho') return this.paleta.hecho;
+    const e = this.paleta.estados as Partial<Record<EstadoTenti, string>>;
+    return e[n] ?? ESTADOS[n].col;
+  }
 
-  ponerEstado(n: EstadoTenti, { forzar = false, silencio = false } = {}) {
+  private armarOscilacion() { this.oscilaHasta = AHORA() + DURACION_MOVIMIENTO[this.mov]; }
+  /** Si el estado aún oscila (ver `Movimiento`). Con `quieto`, nunca. */
+  private oscila(n = AHORA()): boolean { return !this.quieto && n < this.oscilaHasta; }
+
+  ponerEstado(n: EstadoTenti, { forzar = false, silencio = false, celebra = true } = {}) {
     const c: ConfigEstado | undefined = ESTADOS[n];
     if (!c || (this.estado === n && !forzar)) return;
     const prev = this.estado; this.estado = n; this.cfg = c;
+    this.prisaHasta = AHORA() + PRISA_MS;
+    this.armarOscilacion();
     this.colT = hexRgb(this.colorDe(n));
     // Si el tinte de antes no se veía, su color no pinta nada: arrancar la
     // mezcla desde él solo enseñaría un tono intermedio sucio (el gris azulado
     // de 'reposo' cruzándose con el verde de 'hecho').
     if (this.s.tint < 0.01) this.col = [...this.colT];
     this.tg.tint = c.tint; this.tg.tilt = c.ladea || 0; this.ponerInsignia(this.insignias ? c.insignia : null);
-    for (const a of animacionDeEntrada(n, this.quieto)) {
+    for (const a of animacionDeEntrada(n, this.quieto, celebra)) {
       if (a === 'rodar') this.rodar(950, 1);
       else if (a === 'chispas') this.luego(() => this.emitir('spark', 5), 500);
       else if (a === 'sacudir') this.anim('ox', [[0.08, 50, E.out], [-0.08, 70, E.inOut], [0.05, 70, E.inOut], [0, 90, E.out]]);
@@ -275,9 +391,17 @@ export class Tenti {
     if (!silencio) this.suena(c.sonido);
   }
 
+  /**
+   * Suena el estado en el que está, sin volver a animarlo. Para quien pone el
+   * estado en silencio y decide aparte si ese cambio responde a algo que se
+   * acaba de pedir (components/tenti/tenti.tsx, `sonarCambios`).
+   */
+  sonarEstado() { this.suena(this.cfg.sonido); }
+
   /** Cambia los colores (al pasar de claro a oscuro). No anima: el resto de la pantalla tampoco. */
   ponerPaleta(p: PaletaTenti | null) {
     this.paleta = p ?? PALETA_PROTOTIPO; this.rgb = aRgb(this.paleta);
+    this.emociones = p ? { corazon: p.rubor, estrella: p.chispa, gota: p.estados.trabajando } : PROTOTIPO_EMOCIONES;
     this.colT = hexRgb(this.colorDe(this.estado)); this.col = [...this.colT];
     if (this.insignia) this.colInsignia = this.colorDe(this.estado);
   }
@@ -302,6 +426,7 @@ export class Tenti {
   aplastar() {
     this.suena('slap');
     if (this.quieto) return;
+    this.prisaHasta = AHORA() + PRISA_MS;
     this.anim('sy', [[0.78, 70, E.out], [1.1, 130, E.out], [1, 170, E.inOut]]);
     this.anim('sx', [[1.16, 70, E.out], [0.95, 130, E.out], [1, 170, E.inOut]]);
   }
@@ -327,6 +452,7 @@ export class Tenti {
     const em: { ojo: FormaOjo; sonido?: Sonido } | undefined = EMOCIONES[n]; if (!em) return;
     const mueve = !this.quieto;
     this.ojoForzado = em.ojo; this.ojoHasta = AHORA() + d;
+    this.prisaHasta = Math.max(this.prisaHasta, AHORA() + d + 600);
     if (n === 'amor') {
       this.anim('blush', [[1, 300, E.out], [1, d - 600, E.lin], [0, 300, E.inOut]]);
       if (mueve) { this.emitir('heart', 4); this.anim('oy', [[-0.1, 160, E.out], [0, 300, E.back]]); }
@@ -369,6 +495,9 @@ export class Tenti {
     // treinta fotogramas de cola que cuesta acercarse a 0,002.
     const umbral = this.mini ? 0.01 : 0.002;
     for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > umbral) return true;
+    // Lo que cuelga del traje, mientras rebota.
+    if (this.ropa && (Math.abs(this.vfis.dx) + Math.abs(this.vfis.dy) > umbral * 10
+      || Math.abs(this.objFis.dx - this.fis.dx) + Math.abs(this.objFis.dy - this.fis.dy) > umbral)) return true;
     return Math.abs(this.col[0] - this.colT[0]) + Math.abs(this.col[1] - this.colT[1]) + Math.abs(this.col[2] - this.colT[2]) > 1;
   }
 
@@ -377,12 +506,15 @@ export class Tenti {
    * la insignia de puntos, los ojos que giran (espiral, estrella) y la mano del
    * saludo. Mientras sea cierto, un fotograma por refresco; si no, el bucle
    * duerme hasta `proximoDespertar()`. Con `quieto` nada de esto se mueve.
+   * Escanear, botar, respirar y la insignia, solo mientras el estado oscila
+   * (`Movimiento`): pasado el tope, pose quieta y el bucle se duerme.
    */
   perpetuo(): boolean {
     if (this.quieto) return false;
-    const c = this.cfg;
-    if (c.escanea || c.bota || c.respira || this.estado === 'mareado') return true;
-    if (this.insignias && this.insignia === 'dots' && !this.mini) return true;
+    const c = this.cfg, oscila = this.oscila();
+    if (oscila && (c.escanea || c.bota || c.respira)) return true;
+    if (this.estado === 'mareado') return true;
+    if (oscila && this.insignias && this.insignia === 'dots' && !this.mini) return true;
     const forma = this.ojoForzado || c.ojo;
     if (forma === 'spiral' || forma === 'star') return true;
     return AHORA() < this.saludaHasta;
@@ -390,17 +522,27 @@ export class Tenti {
 
   /**
    * Cuándo vuelve a pasar algo sin que nadie lo pida: el próximo parpadeo y,
-   * solo fuera de mini, la siguiente partícula de ambiente de 'dormido' y
-   * 'agobiado' (que el panel no usa). Con `quieto`, nunca: ni parpadea ni echa
-   * partículas, así que no hay por qué despertar.
+   * solo fuera de mini y mientras el estado oscila, la siguiente partícula de
+   * ambiente de 'dormido' y 'agobiado'. Con `quieto` o con una pose fija, nunca:
+   * ni parpadea ni echa partículas, así que no hay por qué despertar.
    */
   proximoDespertar(): number {
-    if (this.quieto) return Infinity;
+    if (this.quieto || this.pose) return Infinity;
     const c = this.cfg;
-    const ambiente = !this.mini && (c.zz || c.suda) ? this.ultimoAmbiente + 1300 : Infinity;
+    const ambiente = !this.mini && (c.zz || c.suda) && this.oscila() ? this.ultimoAmbiente + 1300 : Infinity;
     // Una mirada en curso se despierta para volver al frente; si no, para la siguiente.
     const mirada = !this.miraAlrededor() ? Infinity : this.miradaHasta > AHORA() ? this.miradaHasta : this.proxMirada;
     return Math.min(this.proxParpadeo, ambiente, mirada);
+  }
+
+  /**
+   * Si lo que queda por moverse es solo ambiente (un parpadeo, una mirada, la
+   * cola de un gesto), que a ~30 fps no se distingue de 60: el bucle se salta
+   * uno de cada dos fotogramas. Lo que alguien provoca (un estado, una emoción,
+   * el saludo, el cursor) y lo que oscila va a ritmo completo.
+   */
+  aMedioRitmo(): boolean {
+    return !this.perpetuo() && !this.ojoForzado && AHORA() >= this.prisaHasta;
   }
 
   /** Si toca mirar alrededor: solo en reposo, y nunca con «reducir movimiento». */
@@ -416,6 +558,9 @@ export class Tenti {
     // partículas de ambiente. Lo que oscila nunca acabaría, y el bucle no
     // podría dormirse.
     const q = this.quieto;
+    // Lo que oscila (escanear, botar, respirar, el ambiente), solo hasta el
+    // tope de su `Movimiento`: después, cada objetivo vuelve a su pose.
+    const oscila = this.oscila(n);
     for (const tw of [...this.tw]) {
       const k = tw.keys[tw.i]; const p = clamp((n - tw.t0) / k[1], 0, 1); s[tw.p] = tw.from + (k[0] - tw.from) * k[2](p);
       if (p >= 1) {
@@ -430,21 +575,31 @@ export class Tenti {
     // o abajo) un rato, y vuelve al frente. Se suman a `mira`, sin pisarla.
     if (this.miraAlrededor()) {
       if (n >= this.proxMirada) {
-        const lado = Math.random() < 0.5 ? -1 : 1;
-        this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
-        this.miradaHasta = n + 900 + Math.random() * 900;
-        this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+        // Otro Tenti de la página tiene el turno (o acaba de soltarlo): luego.
+        if (turnoDeMirar.quien !== this && n < turnoDeMirar.libreDesde) {
+          this.proxMirada = turnoDeMirar.libreDesde + Math.random() * 2000;
+        } else {
+          const lado = Math.random() < 0.5 ? -1 : 1;
+          this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
+          this.miradaHasta = n + 900 + Math.random() * 900;
+          this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+          turnoDeMirar.quien = this; turnoDeMirar.libreDesde = this.miradaHasta + HUECO_ENTRE_MIRADAS_MS;
+        }
       } else if (n >= this.miradaHasta) this.mirada = { x: 0, y: 0 };
     } else {
       this.mirada = { x: 0, y: 0 };
       if (n >= this.proxMirada) this.proxMirada = n + 2500 + Math.random() * 4000;
     }
+    // El cursor (o `mira`) se ha movido: eso es un gesto, a ritmo completo.
+    if (this.mira.x !== this.miraAntes.x || this.mira.y !== this.miraAntes.y) {
+      this.miraAntes = { ...this.mira }; this.prisaHasta = n + 600;
+    }
     let ty = q ? 0 : clamp(this.mira.x + this.mirada.x, -1, 1) * 0.62, tp = q ? 0 : clamp(this.mira.y + this.mirada.y, -1, 1) * 0.5;
     if (c.mira) { ty = ty * 0.35 + c.mira[0] * 0.55; tp = tp * 0.3 + c.mira[1] * 0.5; }
-    if (c.escanea && !q) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
+    if (c.escanea && oscila) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
     if (this.estado === 'dormido') { ty = 0; tp = -0.14; }
     if (this.estado === 'mareado' && !q) ty = Math.sin(t * 9) * 0.25;
-    const bota = c.bota && !q, respira = c.respira && !q;
+    const bota = c.bota && oscila, respira = c.respira && oscila;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
     // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
@@ -452,13 +607,18 @@ export class Tenti {
     // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
     const kMira = 1 - Math.pow(this.mini ? 0.0001 : 0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
     for (const k of Object.keys(tg) as Prop[]) { if (this.lock[k]) continue; s[k] += (tg[k] - s[k]) * (k === 'yaw' || k === 'pitch' ? kMira : kGen); }
+    // La pose fija de la hoja del catálogo manda sobre todo lo de arriba.
+    const pose = this.pose;
+    if (pose) { s.yaw = tg.yaw = pose.yaw; s.pitch = tg.pitch = pose.pitch; s.tilt = tg.tilt = pose.tilt ?? 0; }
+    this.moverFisica(dt, q);
     this.col = mix(this.col, this.colT, 1 - Math.pow(0.002, dt));
     if (n > this.proxParpadeo) {
-      if (!q && this.estado !== 'dormido' && this.estado !== 'mareado') { this.parpadear(); if (Math.random() < 0.22) this.luego(() => this.parpadear(), 230); }
+      // Con pose fija (la hoja del catálogo) no parpadea: es una lámina, como sheet.html.
+      if (!q && !this.pose && this.estado !== 'dormido' && this.estado !== 'mareado') { this.parpadear(); if (Math.random() < 0.22) this.luego(() => this.parpadear(), 230); }
       this.proxParpadeo = n + 2200 + Math.random() * 3200;
     }
     if (this.ojoForzado && n > this.ojoHasta) this.ojoForzado = null;
-    if (!q && !this.mini && n - this.ultimoAmbiente > 1300) {
+    if (oscila && !this.mini && n - this.ultimoAmbiente > 1300) {
       this.ultimoAmbiente = n;
       if (c.zz) this.emitir('z', 1);
       if (c.suda && Math.random() < 0.5) this.emitir('sweat', 1);
@@ -467,9 +627,35 @@ export class Tenti {
     this.parts = this.parts.filter((p) => p.age < p.life);
   }
 
+  /** Mueve lo que cuelga del traje (ver FISICA). Con pose, la de la pose; con
+   *  «reducir movimiento», ni muelle ni rebote: donde la deja la cabeza. */
+  private moverFisica(dt: number, quieto: boolean) {
+    const s = this.s, F = FISICA;
+    const obj: Fisica = this.pose ? { ...this.pose.fisica } : {
+      dx: clamp(s.yaw * F.porYaw, -F.tope, F.tope),
+      dy: clamp(s.pitch * F.porPitch + (s.sy - 1) * F.porAplastar + s.oy * F.porBote, -F.tope, F.tope),
+    };
+    this.objFis = obj;
+    if (!this.ropa || this.pose || quieto) { this.fis = { ...obj }; this.vfis = { dx: 0, dy: 0 }; return; }
+    // Pasos cortos: un muelle con dt de 50 ms (una pestaña que vuelve) se disparaba.
+    const pasos = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / pasos;
+    for (let i = 0; i < pasos; i++) {
+      for (const k of ['dx', 'dy'] as const) {
+        const a = F.rigidez * (obj[k] - this.fis[k]) - F.amortigua * this.vfis[k];
+        this.vfis[k] += a * h;
+        this.fis[k] = clamp(this.fis[k] + this.vfis[k] * h, -F.tope, F.tope);
+      }
+    }
+  }
+
   private dibujar() {
-    const x = this.x, W = this.c.width, H = this.c.height, s = this.s, P = this.rgb;
-    x.clearRect(0, 0, W, H);
+    const x = this.x, s = this.s, P = this.rgb, dpr = this.dpr;
+    x.clearRect(0, 0, this.c.width, this.c.height);
+    // Con traje, el lienzo lleva aire alrededor del cuadro del cuerpo: se dibuja
+    // en el cuadro, desplazado. W y H son el cuadro, como sin traje.
+    const lienzo = lienzoDeTenti(this.lado, this.ropa != null);
+    const W = this.lado * dpr, H = W, arribaPx = lienzo.arriba * dpr;
+    x.save(); x.translate(lienzo.izquierda * dpr, arribaPx);
     const { R, rx, ry } = medidas(W);
     const cx = W / 2 + s.ox * R, cy = H / 2 + s.oy * R + R * BAJADA;
     const col = this.col;
@@ -482,11 +668,20 @@ export class Tenti {
       const w = lerp(rx, R * 1.02, m), h = lerp(ry, R * 0.94, m), r = lerp(Math.min(rx, ry), R * 0.34, m);
       path.roundRect(-w, -h, 2 * w, 2 * h, r);
     }
+    // El traje de Coucou, con el marco de la cabeza del original (`H`): lo de
+    // detrás antes del cuerpo y lo de delante después de cuerpo y ojos, todo
+    // dentro de la transformación del cuerpo, así que se aplasta, se ladea,
+    // bota y salta con él y gira con la cabeza.
+    const ropa = this.ropa ? OUTFITS[TRAJES[this.ropa].coucou] : null;
+    const cabeza: MarcoCabeza = { R, rx, ry, view: VIEW_TILT, yaw: s.yaw, pitch: s.pitch, phys: this.fis };
+    if (ropa?.back) { x.save(); ropa.back(x, cabeza); x.restore(); }
     // cuerpo
     const bc = this.colorCuerpo;
     {
       let c0: RGB, c1: RGB;
-      if (bc) { c0 = mix(bc, [255, 255, 255], 0.35); c1 = mix(bc, [0, 0, 0], 0.18); } else { c0 = P.luz; c1 = P.sombra; }
+      if (bc) { c0 = mix(bc, [255, 255, 255], 0.35); c1 = mix(bc, [0, 0, 0], 0.18); }
+      // La calabaza recolorea el cuerpo (con sus colores, los del original).
+      else if (ropa?.bodyColors) { c0 = hexRgb(ropa.bodyColors[0]); c1 = hexRgb(ropa.bodyColors[1]); } else { c0 = P.luz; c1 = P.sombra; }
       const { degradado: dg, volumen: vo, brillo: br } = LUZ;
       const g = x.createLinearGradient(rx * dg.desde[0], ry * dg.desde[1], rx * dg.hasta[0], ry * dg.hasta[1]); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(1, rgba(c1, 1)); x.fillStyle = g; x.fill(path);
       if (!bc && s.tint > 0.01) {
@@ -520,6 +715,9 @@ export class Tenti {
       x.save(); x.translate(o.x, o.y); x.scale(o.escalaX, o.escalaY); this.ojo(forma, R * OJO.w * s.es, R * OJO.h * s.es, s.open, sd); x.restore();
     }
     x.restore();
+    // Lo de delante del traje, sobre cuerpo y ojos (las gafas de sol, que
+    // `frontAfterEyes`, también: en el original `front` va siempre detrás de los ojos).
+    if (ropa?.front) { x.save(); ropa.front(x, cabeza, path); x.restore(); }
     x.restore();
     // manos
     if (s.hands > 0.01) {
@@ -533,7 +731,8 @@ export class Tenti {
     }
     // insignia
     if (this.insignias && this.insignia && s.badgeS > 0.01) {
-      const bs = s.badgeS * (this.mini ? 1.25 : 1); const bx = cx - rx * 0.76 * s.sx, by = cy - ry * 0.72 * s.sy;
+      // Con traje, sube para no pisar el ala.
+      const bs = s.badgeS * (this.mini ? 1.25 : 1); const bx = cx - rx * 0.76 * s.sx, by = cy - ry * 0.72 * s.sy - (this.traje ? R * 0.3 : 0);
       x.save(); x.translate(bx, by); x.scale(bs, bs); const bcol = this.colInsignia;
       if (this.insignia === 'dots' && !this.mini) {
         const w = R * 0.74, h = R * 0.42; x.fillStyle = '#000'; rr(x, -w / 2 - R * 0.07, -h / 2 - R * 0.07, w + R * 0.14, h + R * 0.14, (h + R * 0.14) / 2); x.fill();
@@ -566,17 +765,19 @@ export class Tenti {
       if (p.age < 0) continue;
       const k = p.age / p.life, a = k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8;
       const px = cx + (p.x + p.vx * p.age) * R * 1.3, py = cy + (p.y + p.vy * p.age) * R * 1.3; const sz = R * p.sz * (1 + k * 0.4);
-      const borde = clamp((py - sz * (p.type === 'z' ? 1.4 : 1)) / fundidoBorde, 0, 1);
+      // El borde de arriba del LIENZO, que con traje queda `arribaPx` por encima del cuadro.
+      const borde = clamp((py + arribaPx - sz * (p.type === 'z' ? 1.4 : 1)) / fundidoBorde, 0, 1);
       if (borde <= 0) continue;
       x.save(); x.translate(px, py); x.globalAlpha = clamp(a, 0, 1) * borde;
-      if (p.type === 'heart') { x.fillStyle = '#FF4D6D'; x.rotate(Math.sin(p.age * 6) * 0.3); corazon(x, sz); x.fill(); }
-      else if (p.type === 'star') { x.fillStyle = '#F7B32B'; x.rotate(p.rot + p.age * 2); estrella(x, sz, sz * 0.45); x.fill(); }
+      if (p.type === 'heart') { x.fillStyle = this.emociones.corazon; x.rotate(Math.sin(p.age * 6) * 0.3); corazon(x, sz); x.fill(); }
+      else if (p.type === 'star') { x.fillStyle = this.emociones.estrella; x.rotate(p.rot + p.age * 2); estrella(x, sz, sz * 0.45); x.fill(); }
       else if (p.type === 'spark') { x.fillStyle = this.paleta.chispa; x.rotate(p.rot); estrella(x, sz * 0.8, sz * 0.18); x.fill(); }
       else if (p.type === 'sweat') {
-        x.fillStyle = '#7CC7FF'; x.beginPath(); x.moveTo(0, -sz); x.quadraticCurveTo(sz * 0.8, sz * 0.2, 0, sz * 0.6); x.quadraticCurveTo(-sz * 0.8, sz * 0.2, 0, -sz); x.fill();
+        x.fillStyle = this.emociones.gota; x.beginPath(); x.moveTo(0, -sz); x.quadraticCurveTo(sz * 0.8, sz * 0.2, 0, sz * 0.6); x.quadraticCurveTo(-sz * 0.8, sz * 0.2, 0, -sz); x.fill();
       } else { x.fillStyle = 'rgba(210,220,235,1)'; x.font = `700 ${sz * 1.9}px -apple-system,system-ui,sans-serif`; x.fillText('z', 0, 0); }
       x.restore();
     }
+    x.restore();
   }
 
   private ojo(forma: FormaOjo, w: number, h: number, abierto: number, sd: number) {
@@ -594,8 +795,8 @@ export class Tenti {
         for (let a = 0; a < 4.4 * Math.PI; a += 0.2) { const r = w * 0.06 + a * w * 0.058, aa = a + t * 9 * sd; const px = Math.cos(aa) * r, py = Math.sin(aa) * r; if (a) x.lineTo(px, py); else x.moveTo(px, py); }
         x.stroke(); break;
       }
-      case 'heart': x.fillStyle = '#FF4D6D'; corazon(x, w * 1.2); x.fill(); x.fillStyle = this.paleta.tinta; break;
-      case 'star': x.fillStyle = '#F7B32B'; x.rotate(t * 1.5 * sd); estrella(x, w * 1.05, w * 0.46); x.fill(); x.fillStyle = this.paleta.tinta; break;
+      case 'heart': x.fillStyle = this.emociones.corazon; corazon(x, w * 1.2); x.fill(); x.fillStyle = this.paleta.tinta; break;
+      case 'star': x.fillStyle = this.emociones.estrella; x.rotate(t * 1.5 * sd); estrella(x, w * 1.05, w * 0.46); x.fill(); x.fillStyle = this.paleta.tinta; break;
       case 'tired': rr(x, -w / 2, -h * 0.02, w, h * 0.38, w / 2); x.fill(); rr(x, -w * 0.62, -h * 0.1, w * 1.24, w * 0.22, w * 0.11); x.fill(); break;
       case 'wink':
         if (sd < 0) { rr(x, -w / 2, -h / 2, w, h, w / 2); x.fill(); }

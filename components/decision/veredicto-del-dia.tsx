@@ -7,12 +7,28 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AccionesRecomendacion } from './acciones-recomendacion';
 import { severidad } from './severidad';
 import { SeveridadBadge } from './severidad-badge';
-import type { VeredictoAPI } from './use-decisiones';
+import type { EstadoAnalisis, VeredictoAPI } from './use-decisiones';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { efectoDe } from '@/lib/decision/efecto-aprobar';
+import { HECHO_BREVE_MS, estadoDelVeredicto } from '@/lib/tenti/momentos';
+import { useDuranteUnMomento } from '@/lib/tenti/durante-un-momento';
+import {
+  lineaDelPiloto, lineaEnSeguimiento, SIGUE_EN_EL_DETALLE, TEXTO_SIN_ANALIZAR, TITULO_POSPUESTA,
+  TITULO_RESPONDIDO, TITULO_SILENCIO, TITULO_YA_NO_PENDIENTE,
+} from '@/lib/decision/veredicto-copy';
 
 // El Umbral (lib/decision/umbral.ts), en pantalla: el elemento principal de
 // Centro de Control ya no es una lista — es una sola frase, o silencio. La
 // evidencia y el resto de detalle quedan ocultos hasta que se piden (ver
 // nota de diseño "un mensaje, uno").
+//
+// Tenti, en lugar del anillo que había (decisión del fundador, 5-oct): un solo
+// Tenti de 28 px, con el estado que decide `estadoDelVeredicto`
+// (lib/tenti/momentos.ts): pensando mientras se analiza, 'hecho' breve al
+// terminar el análisis o al responder, 'pregunta' en el mensaje del día,
+// 'error' si el piloto no pudo con algo, y la firma si no. NUNCA junto a un
+// cobro: si aprobar el mensaje cobra, no hay Tenti. Sin sonido ni emociones:
+// el Contrato promete no interrumpir.
 
 const QUE_REVISO = [
   'reservas y ocupación de las clases',
@@ -21,30 +37,12 @@ const QUE_REVISO = [
   'carga de trabajo del equipo',
 ];
 
-/** Cabecera / estado global (reorganización Centro de Control §1). Un mismo
- * titular para las dos ramas "nada pendiente" (SILENCIO y MENSAJE ya
- * resuelto): si el piloto hizo algo hoy, se dice explícitamente — es el
- * valor central de la pantalla, no un detalle a adivinar en Actividad. */
-function tituloEstadoGlobal(nAutonomasHoy: number): { titulo: string; subtitulo: string } {
-  if (nAutonomasHoy > 0) {
-    const accion = nAutonomasHoy === 1 ? 'acción' : 'acciones';
-    return {
-      titulo: 'Ya te ocupaste de lo de hoy.',
-      subtitulo: `Tentare ha resuelto ${nAutonomasHoy} ${accion} automáticamente. Nada más necesita tu criterio por ahora.`,
-    };
-  }
-  return {
-    titulo: 'Todo bajo control.',
-    subtitulo: 'No hay ninguna acción pendiente que requiera tu criterio ahora mismo.',
-  };
-}
-
 // Ejemplo de un día CON mensaje, para un estudio que todavía no tiene
 // historial del que sacar uno propio. No es un dato real ni pretende parecerlo:
 // va rotulado como ejemplo y sin botones de acción.
 //
 // Existe porque durante la prueba de 7 días esta pantalla —la primera del menú,
-// y el argumento que justifica el plan Estudio— dice «Todo bajo control» los
+// y el argumento que justifica el plan Estudio— no tiene nada que decir los
 // siete días. Quien la mira no puede distinguir «es brillante» de «no hace
 // nada», y decide sobre lo segundo.
 function EjemploDelUmbral() {
@@ -67,8 +65,10 @@ function EjemploDelUmbral() {
   );
 }
 
-export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe, onPosponer, procesando, tardando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false, bandejaHoy }: {
+export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe, onPosponer, procesando, tardando, whatsappHref, nAutonomasHoy = 0, nAutonomasFallidasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false, bandejaHoy, analisis = 'quieto' }: {
   veredicto: VeredictoAPI;
+  /** «Analizar ahora», visto desde la pantalla (use-decisiones.ts): Tenti piensa mientras dura. */
+  analisis?: EstadoAnalisis;
   onAprobar: () => void;
   onYaContactada: () => void;
   onYaLoSe: () => void;
@@ -83,14 +83,15 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
    * no dependa de un clic aparte. Se ve en las 4 ramas (incluida SIN_ANALIZAR
    * y SILENCIO): no depende de que el Decision OS haya terminado su análisis. */
   bandejaHoy?: React.ReactNode;
-  /** Reorganización Centro de Control §1: cuántas acciones ejecutó el piloto
-   * automático hoy sin esperar criterio — cambia el titular de "nada
-   * pendiente" para que se note que Tentare ya trabajó, no solo que calló. */
+  /** Cuántas acciones del piloto automático salieron hoy (EJECUTADA): se
+   * dice en los días sin mensaje, para que se note que Tentare trabajó. */
   nAutonomasHoy?: number;
+  /** Las que el piloto intentó hoy y no salieron (FALLIDA): se dicen aparte. */
+  nAutonomasFallidasHoy?: number;
   /** Cuántas situaciones sigue habiendo en Prioridades + Más situaciones
    * aunque El Umbral haya decidido no interrumpir hoy — el mismo número que
-   * ya suma el Action Center del Dashboard. Sin esto, "Todo bajo control"
-   * contradice a un clic de distancia a "9 cosas necesitan tu atención". */
+   * ya suma el Action Center del Dashboard. Sin esto, un «no hay nada»
+   * contradecía a un clic de distancia a "9 cosas necesitan tu atención". */
   totalPendiente?: number;
   onVerPendiente?: () => void;
   /** Estudio recién creado, sin historial del que sacar un mensaje propio.
@@ -102,22 +103,48 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const [queRevisoAbierto, setQueRevisoAbierto] = useState(false);
 
-  const puente = totalPendiente > 0 && onVerPendiente && (
+  // Lo pendiente sigue ahí aunque hoy no interrumpa por ello: se dice cuánto y
+  // dónde está, sin calificarlo (lib/decision/veredicto-copy.ts).
+  const enSeguimiento = lineaEnSeguimiento(totalPendiente);
+  const puente = enSeguimiento && onVerPendiente && (
     <button
       type="button"
       onClick={onVerPendiente}
       className="max-w-sm text-[12.5px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
     >
-      Nada cruza el umbral hoy. Tienes {totalPendiente} {totalPendiente === 1 ? 'situación' : 'situaciones'} en seguimiento — {totalPendiente === 1 ? 'no necesita' : 'ninguna necesita'}, de momento, tu criterio.
+      {enSeguimiento}
     </button>
   );
+  const piloto = lineaDelPiloto(nAutonomasHoy, nAutonomasFallidasHoy);
+  // Tenti, con el dato que lo decide (lib/tenti/momentos.ts). «Recién» = durante
+  // HECHO_BREVE_MS después de que pase: el análisis acaba de terminar, o la
+  // respuesta acaba de confirmarse (un cobro aprobado no se va de la pantalla:
+  // `respondido` nunca viene de un COBRAR).
+  const recienTerminado = useDuranteUnMomento(analisis === 'quieto', HECHO_BREVE_MS);
+  const recienRespondido = useDuranteUnMomento(!!veredicto.respondido, HECHO_BREVE_MS);
+  const rec = veredicto.recomendacion;
+  const estadoTenti = estadoDelVeredicto({
+    tipo: veredicto.tipo,
+    hayRecomendacion: !!rec,
+    pospuesta: !!veredicto.pospuesta && rec?.estado === 'PENDIENTE',
+    // El mismo efecto que decide el botón principal (AccionesRecomendacion).
+    efectoCobra: !!rec && efectoDe(rec) === 'COBRAR',
+    analisis,
+    recienTerminado,
+    recienRespondido,
+    fallidasHoy: nAutonomasFallidasHoy,
+  });
+  const tenti = estadoTenti && <TentiIcono ancho={28} estado={estadoTenti} />;
 
+  // El análisis corre una vez al día, por la tarde (14:30 UTC): hasta entonces
+  // no hay mensaje de hoy, y el texto lo dice en vez de prometer que será pronto.
   if (veredicto.tipo === 'SIN_ANALIZAR') {
     return (
       <Card>
-        <CardContent className="flex flex-col gap-1 py-6 text-center">
+        <CardContent className="flex flex-col items-center gap-1 py-6 text-center">
+          {tenti}
           <p className="text-[14px] text-muted-foreground">
-            Todavía no he hecho mi primer análisis de hoy. Vuelve en un rato.
+            {TEXTO_SIN_ANALIZAR}
           </p>
           {bandejaHoy}
         </CardContent>
@@ -126,13 +153,12 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
   }
 
   if (veredicto.tipo === 'SILENCIO') {
-    const { titulo, subtitulo } = tituloEstadoGlobal(nAutonomasHoy);
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-          <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
-          <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
+          {tenti}
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">{TITULO_SILENCIO}</h2>
+          {piloto && <p className="max-w-sm text-[13.5px] text-muted-foreground">{piloto}</p>}
           {puente}
           {veredicto.porApertura && (
             <p className="max-w-sm text-[12.5px] text-muted-foreground">
@@ -166,20 +192,50 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
   }
 
   const r = veredicto.recomendacion;
-  // MENSAJE cuya recomendación ya se resolvió por otra vía (p.ej. aprobada
-  // desde "Recomendaciones de hoy" antes de recargar) — antes esto devolvía
-  // null y dejaba el hueco del titular del día vacío, justo donde más se
-  // nota (arriba del todo, antes de Seguimiento). Mismo tratamiento visual
-  // que SILENCIO, pero reconociendo que sí hubo algo y ya se gestionó.
+  // MENSAJE sin recomendación que enseñar. O acaba de responderlo en esta
+  // pantalla (`respondido`: la tarjeta se va con el sí del servidor), o el
+  // servidor no la encuentra viva ni resuelta hoy. Una resuelta HOY sí llega
+  // (por su id o por su clave), y entonces no se pinta esta rama: se pinta su
+  // tarjeta, con lo que pasó de verdad (`AccionesRecomendacion`, abajo) —un
+  // cobro rechazado o un mensaje que no salió no se tapan con un titular.
   if (!r) {
-    const { titulo, subtitulo } = tituloEstadoGlobal(nAutonomasHoy);
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-          <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
-          <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
+          {tenti}
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">
+            {veredicto.respondido ? TITULO_RESPONDIDO : TITULO_YA_NO_PENDIENTE}
+          </h2>
+          {piloto && <p className="max-w-sm text-[13.5px] text-muted-foreground">{piloto}</p>}
           {puente}
+          {bandejaHoy}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // «Recuérdamelo» hoy: sigue PENDIENTE y sigue en el detalle, con sus botones.
+  // Aquí no se le vuelve a pedir lo mismo (antes, al recargar, volvía como si
+  // nadie lo hubiera tocado).
+  if (veredicto.pospuesta && r.estado === 'PENDIENTE') {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
+          {tenti}
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">{TITULO_POSPUESTA}</h2>
+          <p className="max-w-sm text-[13.5px] text-muted-foreground">{r.titulo}</p>
+          {onVerPendiente ? (
+            <button
+              type="button"
+              onClick={onVerPendiente}
+              className="text-[12.5px] font-semibold underline underline-offset-2"
+              style={{ color: 'var(--brand-secondary)' }}
+            >
+              {SIGUE_EN_EL_DETALLE}
+            </button>
+          ) : (
+            <p className="text-[12.5px] text-muted-foreground">{SIGUE_EN_EL_DETALLE}</p>
+          )}
           {bandejaHoy}
         </CardContent>
       </Card>
@@ -191,7 +247,10 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
-        <SeveridadBadge nivel={nivelSev} />
+        <div className="flex items-center gap-2.5">
+          {tenti}
+          <SeveridadBadge nivel={nivelSev} />
+        </div>
         <h2 className="font-heading text-[20px] leading-snug font-semibold text-foreground">{r.titulo}</h2>
         <p className="text-[14.5px] leading-relaxed text-muted-foreground">{r.motivo}</p>
 

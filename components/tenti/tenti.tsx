@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
-import { Tenti as Motor, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
+import { Tenti as Motor, type EmocionTenti, type EstadoTenti, type Movimiento, type PoseTenti } from '@/lib/tenti/motor';
+import { DURACION_EMOCION_MS } from '@/lib/tenti/momentos';
+import { lienzoDeTenti } from '@/lib/tenti/geometria';
 import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
+import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
+import type { Traje } from '@/lib/tenti/trajes';
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
 import { prepararSonidos, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
@@ -28,13 +32,34 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 // insignia, de paleta (claro ↔ oscuro), el puntero si sigue al cursor, `mira`
 // y volver a verse. Fuera de pantalla o con la pestaña oculta no queda ni el
 // fotograma ni el temporizador. En reposo pinta unos pocos fotogramas por
-// segundo en vez de 60. Con «reducir movimiento» el motor no tiene recorrido
+// segundo en vez de 60, y lo que es solo ambiente (parpadeos y miradas, que
+// en toda la página van de una en una) a medio ritmo. Con «reducir movimiento» el motor no tiene recorrido
 // (`quieto`) y ni siquiera se despierta para parpadear.
 //
 // Se deja observar desde los e2e, porque ningún test ve un canvas: data-estado,
 // data-paleta ('tokens' o 'defecto'), data-quieto, data-emocion (la última que
 // se le pidió) y data-saludo (cuántas veces ha saludado DE VERDAD; con «reducir
 // movimiento» no saluda y no sube).
+//
+// El traje de temporada (el gorro de bruja, lib/tenti/trajes.ts) lo lleva por
+// defecto; quien lo monta dentro de un botón o un enlace pasa `conTraje={false}`
+// (TentiIcono, con la misma regla que decide si se toca). Se ve en data-traje.
+// Los trajes son los de Coucou y no caben en el cuadro: con traje el canvas
+// crece hacia fuera (`lienzoDeTenti`) con márgenes negativos, así que ocupa
+// en la página lo mismo que sin él y el cuerpo mide lo mismo.
+//
+// Cada estado y emoción, en su momento (lib/tenti/momentos.ts, 5-oct-2026):
+//   · `movimiento` ('situacion' por defecto): lo que oscila (botar, respirar,
+//     escanear) dura como mucho 4 s y se queda en su pose; el catálogo pide
+//     'sinFin'. Un 'esperaTuOk' botando todo el día serían 60 fps sin fin.
+//   · Los cambios de estado NO suenan, salvo con `sonarCambios`: solo donde
+//     el cambio responde a algo que acabas de pedir en esa pantalla (Listo, la
+//     migración). Con él suena también el estado con el que aparece, porque
+//     aparecer ya es la respuesta (el acta de la migración).
+//   · `celebra`: 'hecho' con giro y chispas (los hitos) o breve (lo diario).
+//   · `emocion`: declarativa, porque el ref no atraviesa next/dynamic. Sale una
+//     vez por `clave`, en silencio y cuando ya se ve (si llega fuera de
+//     pantalla o con la pestaña oculta, espera). Se ve en data-emocion.
 
 export interface TentiControl {
   emocion: (e: EmocionTenti) => void;
@@ -70,6 +95,20 @@ export interface PropsTenti {
   insignias?: boolean;
   /** Nombre accesible. Sin él, Tenti es decorativo (aria-hidden): el texto de al lado ya dice lo que pasa. */
   titulo?: string;
+  /** Lleva el traje de temporada (o el que pida este navegador desde /interno/tenti). */
+  conTraje?: boolean;
+  /** Un traje fijo, sea la época que sea: solo el catálogo. */
+  traje?: Traje | null;
+  /** Cuánto oscila un estado (ver `Movimiento` en el motor). 'sinFin', solo el catálogo. */
+  movimiento?: Movimiento;
+  /** Si sus cambios de estado suenan (y el estado con el que aparece). */
+  sonarCambios?: boolean;
+  /** 'hecho' con celebración (giro y chispas) en vez de breve. */
+  celebra?: boolean;
+  /** Una emoción, una vez por `clave`, sin sonido y cuando ya se ve. */
+  emocion?: { tipo: EmocionTenti; clave: string } | null;
+  /** Una pose fija (la hoja de /interno/tenti, como sheet.html de Coucou): solo el catálogo. */
+  pose?: PoseTenti;
   /** Lo que se pinta si no se puede dibujar (sin canvas 2D, o el motor falla). Sin él, nada. */
   reserva?: ReactNode;
   className?: string;
@@ -93,15 +132,30 @@ const MAREO_MS = 2200;
 export function Tenti({
   estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido: sonidoPedido, miradas = true, silueta,
   saludaUnaVez = false, interactivo = false, saludaAlAparecer = false, insignias = false, titulo, reserva = null,
+  conTraje = true, traje: trajePedido, pose, movimiento = 'situacion', sonarCambios = false, celebra = false, emocion = null,
   className, ref,
 }: PropsTenti) {
   const preferencia = useSonidosDeTenti();
   const sonido = sonidoPedido ?? preferencia;
+  const deTemporada = useTrajeDeTenti();
+  const traje = trajePedido !== undefined ? trajePedido : conTraje ? deTemporada : null;
+  const trajeRef = useRef(traje);
+  const poseRef = useRef(pose);
+  const lienzo = lienzoDeTenti(tamano, traje != null);
+  const lienzoRef = useRef(lienzo);
   const siluetaRef = useRef(silueta);
   const saludaUnaVezRef = useRef(saludaUnaVez);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const motorRef = useRef<Motor | null>(null);
   const estadoRef = useRef(estado);
+  const movimientoRef = useRef(movimiento);
+  const celebraRef = useRef(celebra);
+  // El último estado que ha sonado (con `sonarCambios`), para no repetirlo.
+  const sonadoRef = useRef<EstadoTenti | null>(null);
+  // La emoción pedida que aún no ha salido, y la clave de la última que salió.
+  const emocionPendiente = useRef<{ tipo: EmocionTenti; clave: string } | null>(null);
+  const emocionHecha = useRef<string | null>(null);
+  const intentarEmocionRef = useRef<() => void>(() => {});
   const toques = useRef<number[]>([]);
   const mareadoHasta = useRef(0);
   const despertarRef = useRef<() => void>(() => {});
@@ -137,9 +191,11 @@ export function Tenti({
       const paleta = leerPaleta();
       creado = new Motor(canvas, {
         mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
+        traje: trajeRef.current, pose: poseRef.current ?? null,
+        movimiento: movimientoRef.current,
       });
       creado.medir(tamano);
-      creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
+      creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true, celebra: celebraRef.current });
       marcarPaleta(paleta);
       marcarQuieto(creado.quieto);
     } catch (e) {
@@ -156,17 +212,24 @@ export function Tenti({
     fallarRef.current = fallar;
 
     let visible = true;
+    // Visto de verdad (el IntersectionObserver lo ha dicho): las emociones esperan a esto.
+    let visto = false;
     let raf = 0;
     let reloj: ReturnType<typeof setTimeout> | null = null;
     const dormir = () => {
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       if (reloj != null) { clearTimeout(reloj); reloj = null; }
     };
-    const bucle = () => {
+    let pintado = -Infinity;
+    const bucle = (t: number) => {
       raf = 0;
       if (!visible || document.hidden) return;
       let seguir: boolean, despertar: number;
       try {
+        // Solo ambiente (parpadeo, mirada): ~30 fps, también en pantallas de
+        // 120 Hz. 28 ms y no 33 para que el temblor del reloj no salte dos.
+        if (t - pintado < 28 && motor.aMedioRitmo()) { raf = requestAnimationFrame(bucle); return; }
+        pintado = t;
         motor.fotograma();
         seguir = motor.animando() || motor.perpetuo();
         despertar = seguir ? 0 : motor.proximoDespertar();
@@ -182,19 +245,31 @@ export function Tenti({
       if (!raf && visible && !document.hidden) raf = requestAnimationFrame(bucle);
     }
 
+    const intentarEmocion = () => {
+      const p = emocionPendiente.current;
+      if (!p || !visto || !visible || document.hidden) return;
+      emocionPendiente.current = null;
+      emocionHecha.current = p.clave;
+      try { motor.emocion(p.tipo, DURACION_EMOCION_MS, true); } catch (err) { fallar(err); return; }
+      canvas.dataset.emocion = p.tipo;
+      arrancar();
+    };
+
     let saludoPendiente = saludaUnaVezRef.current;
     const io = new IntersectionObserver(([e]) => {
       visible = e.isIntersecting;
       if (!visible) { dormir(); return; }
+      visto = true;
       // El saludo de la sesión, la primera vez que se VE (no al montarse).
       if (saludoPendiente && !motor.quieto) {
         saludoPendiente = false;
         try { if (tomarSaludoDeSesion() && motor.saludar()) canvas.dataset.saludo = String(motor.saludos); } catch (err) { fallar(err); return; }
       }
       arrancar();
+      intentarEmocion();
     });
     io.observe(canvas);
-    const alVolver = () => { if (document.hidden) dormir(); else arrancar(); };
+    const alVolver = () => { if (document.hidden) dormir(); else { arrancar(); intentarEmocion(); } };
     document.addEventListener('visibilitychange', alVolver);
     const alCambiarMovimiento = () => { motor.quieto = reducido.matches; marcarQuieto(motor.quieto); arrancar(); };
     reducido.addEventListener('change', alCambiarMovimiento);
@@ -215,6 +290,7 @@ export function Tenti({
     if (contenedorTema) mo?.observe(contenedorTema, { attributes: true, attributeFilter: ['class'] });
 
     despertarRef.current = arrancar;
+    intentarEmocionRef.current = intentarEmocion;
     arrancar();
     if (saludaAlAparecer) {
       try { if (motor.saludar()) canvas.dataset.saludo = String(motor.saludos); } catch (e) { fallar(e); }
@@ -225,6 +301,7 @@ export function Tenti({
       document.removeEventListener('visibilitychange', alVolver);
       reducido.removeEventListener('change', alCambiarMovimiento);
       motor.destruir(); motorRef.current = null; despertarRef.current = () => {}; fallarRef.current = () => {};
+      intentarEmocionRef.current = () => {};
     };
     // El motor se crea una vez por tamaño (y se suelta si ha fallado); el resto
     // de props se aplican abajo sin recrearlo.
@@ -240,26 +317,68 @@ export function Tenti({
 
   useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
 
+  // Ponerse o quitarse el traje vuelve a medir el lienzo (el motor, al
+  // cambiarlo; el tamaño CSS, este mismo render).
+  useEffect(() => {
+    trajeRef.current = traje;
+    lienzoRef.current = lienzoDeTenti(tamano, traje != null);
+    if (motorRef.current) { motorRef.current.traje = traje; despertarRef.current(); }
+  }, [traje, tamano]);
+
+  const p = pose;
+  useEffect(() => {
+    poseRef.current = p;
+    if (motorRef.current) { motorRef.current.pose = p ?? null; despertarRef.current(); }
+    // Por valor: la pose llega como objeto nuevo en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.yaw, p?.pitch, p?.tilt, p?.fisica.dx, p?.fisica.dy]);
+
+  useEffect(() => { movimientoRef.current = movimiento; if (motorRef.current) motorRef.current.movimiento = movimiento; }, [movimiento]);
+  useEffect(() => { celebraRef.current = celebra; }, [celebra]);
+
+  // Los cambios de estado, en silencio: si suenan lo decide el efecto de abajo.
   useEffect(() => {
     estadoRef.current = estado;
     if (performance.now() < mareadoHasta.current) return;
-    try { motorRef.current?.ponerEstado(estado); } catch (e) { fallarRef.current(e); return; }
+    try { motorRef.current?.ponerEstado(estado, { silencio: true, celebra: celebraRef.current }); } catch (e) { fallarRef.current(e); return; }
     despertarRef.current();
   }, [estado]);
+
+  // Con `sonarCambios`, suena cada estado nuevo, y el primero con el que se le
+  // ve (aparecer ya responde a lo que se acaba de pedir). Aparte del de arriba
+  // porque `sonarCambios` puede llegar un render después (el icono sabe si va
+  // dentro de un control cuando ya se ha montado).
+  useEffect(() => {
+    const m = motorRef.current;
+    if (!sonarCambios || !m || sonadoRef.current === estado) return;
+    sonadoRef.current = estado;
+    if (performance.now() < mareadoHasta.current) return;
+    try { m.sonarEstado(); } catch (e) { fallarRef.current(e); }
+  }, [estado, sonarCambios, tamano, fallo]);
+
+  // Una emoción por clave: se apunta y sale cuando se vea.
+  const claveEmocion = emocion?.clave ?? null;
+  const tipoEmocion = emocion?.tipo ?? null;
+  useEffect(() => {
+    if (!claveEmocion || !tipoEmocion || claveEmocion === emocionHecha.current) return;
+    emocionPendiente.current = { tipo: tipoEmocion, clave: claveEmocion };
+    intentarEmocionRef.current();
+  }, [claveEmocion, tipoEmocion, tamano, fallo]);
 
   // Los ojos siguen al cursor. Con «reducir movimiento», el motor no hace caso.
   useEffect(() => {
     if (!sigueCursor) return;
     const mover = (e: PointerEvent) => {
       const c = canvasRef.current, m = motorRef.current; if (!c || !m) return;
-      const r = c.getBoundingClientRect();
+      // Hacia el centro del CUADRO, no del lienzo: con traje el lienzo sube.
+      const r = c.getBoundingClientRect(), l = lienzoRef.current;
       m.mira.x = Math.tanh((e.clientX - (r.left + r.width / 2)) / 260);
-      m.mira.y = -Math.tanh((e.clientY - (r.top + r.height / 2)) / 200);
+      m.mira.y = -Math.tanh((e.clientY - (r.top + l.arriba + tamano / 2)) / 200);
       despertarRef.current();
     };
     window.addEventListener('pointermove', mover, { passive: true });
     return () => window.removeEventListener('pointermove', mover);
-  }, [sigueCursor]);
+  }, [sigueCursor, tamano]);
 
   // Hacia dónde mira cuando se lo dicen (el buscador: hacia lo que se
   // escribe). Si además sigue al cursor, manda lo último que pase: escribir o
@@ -313,12 +432,21 @@ export function Tenti({
       ref={canvasRef}
       data-tenti=""
       data-estado={estado}
+      data-traje={traje ?? undefined}
       {...(titulo ? { role: 'img', 'aria-label': titulo } : { 'aria-hidden': true })}
       onClick={interactivo ? tocar : undefined}
       // Tocarlo no le quita el foco a nadie (el campo del buscador sigue activo).
       onMouseDown={interactivo ? (e) => e.preventDefault() : undefined}
       className={className}
-      style={{ width: tamano, height: tamano, ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null) }}
+      style={{
+        width: lienzo.ancho, height: lienzo.alto,
+        // Con traje, el lienzo se sale de su caja: ocupa `tamano` × `tamano`.
+        ...(lienzo.ancho !== tamano ? {
+          marginTop: -lienzo.arriba, marginBottom: -(lienzo.alto - tamano - lienzo.arriba),
+          marginLeft: -lienzo.izquierda, marginRight: -lienzo.izquierda,
+        } : null),
+        ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null),
+      }}
     />
   );
 }

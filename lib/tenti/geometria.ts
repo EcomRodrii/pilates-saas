@@ -204,3 +204,35 @@ export function dibujoDelIcono(): DibujoIcono {
     ojos,
   };
 }
+
+// ── El lienzo, con traje ─────────────────────────────────────────────────────
+//
+// Los trajes son los de Coucou (./trajes-coucou.ts), y no caben en el cuadro
+// del cuerpo: el gorro de fiesta sube 2,4 R por encima del centro y el lienzo
+// sin traje acaba a 1,73 R; el ala de la bruja y la punta del de Papá Noel se
+// salen por los lados. Coucou dibuja el cuerpo pequeño en su lienzo (la hoja
+// usa el 62 %); aquí el CUERPO tiene que seguir midiendo lo mismo (el icono
+// mide el cuerpo, y la pantalla no se mueve un píxel), así que con traje el
+// lienzo crece hacia fuera y se sale de su caja con márgenes negativos
+// (components/tenti/tenti.tsx). Lo mide trajes-coucou.test.ts con TODOS los
+// trajes, en todas las poses, aplastado y botando.
+
+/** El aire de más con traje, en proporción al lado del cuadro del cuerpo. */
+export const MARGEN_TRAJE = { arriba: 0.38, lado: 0.13, abajo: 0.03 } as const;
+
+export interface LienzoTenti {
+  /** Tamaño del lienzo, en las unidades de `lado`. */
+  ancho: number; alto: number;
+  /** Dónde empieza el cuadro del cuerpo dentro del lienzo (= el margen negativo). */
+  izquierda: number; arriba: number;
+}
+
+/** El lienzo de un Tenti cuyo cuadro mide `lado`: sin traje, el cuadro; con traje, más. */
+export function lienzoDeTenti(lado: number, conTraje: boolean): LienzoTenti {
+  if (!conTraje) return { ancho: lado, alto: lado, izquierda: 0, arriba: 0 };
+  const m = MARGEN_TRAJE;
+  return {
+    ancho: lado * (1 + 2 * m.lado), alto: lado * (1 + m.arriba + m.abajo),
+    izquierda: lado * m.lado, arriba: lado * m.arriba,
+  };
+}

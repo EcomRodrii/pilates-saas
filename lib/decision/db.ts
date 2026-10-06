@@ -5,6 +5,8 @@
 import * as Sentry from '@sentry/nextjs';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
+import { inicioDeHoyEnEstudio } from './mensaje-del-dia.ts';
+import { enCursoDesde } from './analisis-en-curso.ts';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
@@ -42,8 +44,10 @@ function reportError(tag: string, error: unknown) {
 
 export async function dbInsertDecisionSession(input: {
   studioId: string; disparadoPor: DecisionSession['disparadoPor']; algorithmVersion: string; iniciadoEn: string;
+  /** POST /analizar la crea con su id antes de enviar el evento (lib/decision/analisis-en-curso.ts). */
+  id?: string;
 }): Promise<string> {
-  const id = uid();
+  const id = input.id ?? uid();
   const { error } = await db().from('decision_sessions').insert({
     id, studio_id: input.studioId, disparado_por: input.disparadoPor,
     algorithm_version: input.algorithmVersion, iniciado_en: input.iniciadoEn,
@@ -61,6 +65,83 @@ export async function dbInsertDecisionSession(input: {
     throw error instanceof Error ? error : new Error(`[dbInsertDecisionSession]: ${JSON.stringify(error)}`);
   }
   return id;
+}
+
+/**
+ * ¿Existe esta sesión, y es de este estudio? La usa el análisis para
+ * reutilizar la que creó POST /analizar. Lanza si no se puede leer: dentro de
+ * `step.run('crear-sesion')`, que Inngest lo reintente antes que crear otra.
+ */
+export async function dbExisteDecisionSession(id: string, studioId: string): Promise<boolean> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('id').eq('id', id).eq('studio_id', studioId).maybeSingle();
+  if (error) {
+    reportError('[dbExisteDecisionSession]', error);
+    throw error instanceof Error ? error : new Error(`[dbExisteDecisionSession]: ${JSON.stringify(error)}`);
+  }
+  return !!data;
+}
+
+/**
+ * Las sesiones de este estudio de los últimos 10 min (VENTANA_EN_CURSO_MS),
+ * para que POST /analizar decida si puede lanzar otro (`motivoParaNoAnalizar`).
+ * `undefined` si la consulta falla.
+ */
+export async function dbListSesionesRecientes(studioId: string, ahora: Date): Promise<{
+  disparadoPor: string; iniciadoEn: string | null; finalizadoEn: string | null;
+}[] | undefined> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('disparado_por, iniciado_en, finalizado_en')
+    .eq('studio_id', studioId)
+    .gte('iniciado_en', enCursoDesde(ahora))
+    .order('iniciado_en', { ascending: false })
+    .limit(10);
+  if (error) { reportError('[dbListSesionesRecientes]', error); return undefined; }
+  return (data ?? []).map(r => ({
+    disparadoPor: r.disparado_por as string, iniciadoEn: (r.iniciado_en as string | null) ?? null,
+    finalizadoEn: (r.finalizado_en as string | null) ?? null,
+  }));
+}
+
+/**
+ * ¿Hay un «Analizar ahora» de este estudio en marcha? Una sesión MANUAL sin
+ * cerrar de hace menos de 10 min. Nunca la del cron: la pantalla solo sigue lo
+ * que pidió la propietaria. `false` también si la consulta falla: la pantalla
+ * no se queda «analizando» por un error de lectura.
+ */
+export async function dbAnalisisManualEnCurso(studioId: string, ahora: Date): Promise<boolean> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('id')
+    .eq('studio_id', studioId)
+    .eq('disparado_por', 'MANUAL')
+    .is('finalizado_en', null)
+    .gte('iniciado_en', enCursoDesde(ahora))
+    .limit(1);
+  if (error) { reportError('[dbAnalisisManualEnCurso]', error); return false; }
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Cierra como FALLIDA la sesión de un análisis que no terminó: la de POST
+ * /analizar cuyo evento no se pudo enviar, o la del análisis que agotó sus
+ * reintentos (`onFailure`). Por su id si se sabe; si no (un análisis del cron,
+ * cuya sesión creó el propio análisis), por el instante con el que se creó, que
+ * es el `nowISO` del evento. Solo toca una sesión ABIERTA de este estudio: una
+ * que ya terminó se queda como terminó. Lanza si no se puede escribir.
+ */
+export async function dbCerrarSesionInterrumpida(
+  studioId: string, cual: { id: string } | { iniciadoEn: string }, motivo: string,
+): Promise<void> {
+  let q = db().from('decision_sessions')
+    .update({ estado: 'FALLIDA', finalizado_en: new Date().toISOString(), errores: [motivo] })
+    .eq('studio_id', studioId)
+    .is('finalizado_en', null);
+  q = 'id' in cual ? q.eq('id', cual.id) : q.eq('iniciado_en', cual.iniciadoEn);
+  const { error } = await q;
+  if (error) {
+    reportError('[dbCerrarSesionInterrumpida]', error);
+    throw error instanceof Error ? error : new Error(`[dbCerrarSesionInterrumpida]: ${JSON.stringify(error)}`);
+  }
 }
 
 export async function dbFinalizarDecisionSession(id: string, patch: {
@@ -90,6 +171,7 @@ interface RowRecomendaciones {
   tiempo_estimado_min: number; estado: string; vista_en: string | null; expira_en: string;
   creado_en: string; resuelto_en: string | null; resuelto_por: string | null;
   resultado?: Record<string, unknown> | null;
+  pospuesta_en?: string | null;
 }
 
 function mapRecomendacion(row: RowRecomendaciones): Recomendacion {
@@ -105,11 +187,14 @@ function mapRecomendacion(row: RowRecomendaciones): Recomendacion {
     vistaEn: row.vista_en, expiraEn: row.expira_en, creadoEn: row.creado_en,
     resueltoEn: row.resuelto_en, resueltoPor: row.resuelto_por,
     resultado: (row.resultado ?? null) as ResultadoEjecucion | null,
+    pospuestaEn: row.pospuesta_en ?? null,
   };
 }
 
-// Sin `resultado` a propósito: lo escribe solo el ejecutor, al cerrarla
-// (`dbTransicionarRecomendacion`), y el refresco de una PENDIENTE no lo pisa.
+// Sin `resultado` ni `pospuesta_en` a propósito: el primero lo escribe solo el
+// ejecutor, al cerrarla (`dbTransicionarRecomendacion`), y el segundo solo
+// «Recuérdamelo» (`dbPosponerRecomendacion`). El refresco de una PENDIENTE no
+// pisa ninguno de los dos.
 function recomendacionToDb(r: Recomendacion) {
   return {
     id: r.id, studio_id: r.studioId, decision_session_id: r.decisionSessionId, algorithm_version: r.algorithmVersion,
@@ -149,16 +234,22 @@ export function construirRecomendacion(c: CandidataPriorizada, ctx: {
  * recién construida (que siempre trae `estado: 'PENDIENTE'` y
  * `resueltoEn/Por: null`) borraría la aprobación del propietario en silencio
  * antes de que le diera tiempo a ejecutarse.
+ *
+ * Devuelve el id de la fila que queda en la base de datos para ese asunto, que
+ * NO es `r.id` cuando ya existía (al refrescar, la fila conserva el suyo), o
+ * `null` si no se ha podido escribir. El análisis guardaba como mensaje del día
+ * el id en memoria de la candidata —uno que nunca llegó a la base de datos—, y
+ * la pantalla no encontraba la recomendación de su propio mensaje.
  */
-export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
+export async function dbUpsertRecomendacion(r: Recomendacion): Promise<string | null> {
   const { data: existente, error: selectError } = await db()
     .from('recomendaciones')
-    .select('id, estado')
+    .select('id, estado, expira_en')
     .eq('studio_id', r.studioId)
     .eq('dedupe_key', r.dedupeKey)
     .in('estado', ['PENDIENTE', 'APROBADA'])
     .maybeSingle();
-  if (selectError) { reportError('[dbUpsertRecomendacion:select]', selectError); return; }
+  if (selectError) { reportError('[dbUpsertRecomendacion:select]', selectError); return null; }
 
   // 36ª pasada de auditoría: una APROBADA está en vuelo hacia su ejecución
   // (asíncrona, vía Inngest, con reintentos) — antes esta función la
@@ -169,7 +260,7 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
   // ejecutarse. Se deja intacta sin tocar nada; el motor la recalculará
   // mañana si para entonces ya transicionó a EJECUTADA/FALLIDA (el índice
   // único parcial deja hueco libre en cuanto sale de PENDIENTE/APROBADA).
-  if (existente?.estado === 'APROBADA') return;
+  if (existente?.estado === 'APROBADA') return existente.id as string;
 
   const row = recomendacionToDb(r);
   if (existente) {
@@ -177,6 +268,12 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
     const actualizable: Partial<typeof row> = { ...row };
     delete actualizable.id;
     delete actualizable.creado_en;
+    // Ni se le acorta el vencimiento: «Recuérdamelo» lo alarga unos días, y el
+    // refresco de la tarde siguiente lo devolvía al de la candidata (a veces un
+    // día), con lo que la aplazada caducaba sola antes de volver a salir.
+    if (typeof existente.expira_en === 'string' && Date.parse(existente.expira_en) > Date.parse(row.expira_en)) {
+      delete actualizable.expira_en;
+    }
     // `estado = 'PENDIENTE'` también en el UPDATE, no solo en la lectura de
     // arriba: entre las dos la propietaria puede aprobarla, y el refresco
     // (que trae `estado: 'PENDIENTE'` y `resuelto_*: null`) la devolvía a
@@ -184,10 +281,12 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
     // motor la recalculará cuando salga de APROBADA, como arriba.
     const { error } = await db().from('recomendaciones').update(actualizable).eq('id', existente.id).eq('estado', 'PENDIENTE');
     if (error) reportError('[dbUpsertRecomendacion:update]', error);
-  } else {
-    const { error } = await db().from('recomendaciones').insert(row);
-    if (error) reportError('[dbUpsertRecomendacion:insert]', error);
+    // La fila existe con este id aunque el refresco no haya podido escribirse.
+    return existente.id as string;
   }
+  const { error } = await db().from('recomendaciones').insert(row);
+  if (error) { reportError('[dbUpsertRecomendacion:insert]', error); return null; }
+  return row.id;
 }
 
 /**
@@ -242,16 +341,47 @@ export async function dbTransicionarRecomendacion(
  * "Recuérdamelo": la recomendación se queda PENDIENTE (no es una transición
  * de estado, solo se aplaza su vencimiento) — el Umbral ya no la repetirá en
  * los próximos días por la puerta de novedad (queda en `decision_mensajes_dia`
- * de hoy), y con `expira_en` empujada no caduca sola mientras tanto.
+ * de hoy), y con `expira_en` empujada no caduca sola mientras tanto (el
+ * refresco del análisis ya no la acorta, `dbUpsertRecomendacion`).
+ *
+ * `pospuesta_en` guarda que se aplazó (migr 20261005204656): sin ella, al
+ * recargar, el mensaje del día volvía con sus botones como si nadie lo hubiera
+ * tocado.
  */
-export async function dbPosponerRecomendacion(id: string, studioId: string, nuevaExpiraEn: string): Promise<{ ok: boolean }> {
-  const { data, error } = await db()
+export async function dbPosponerRecomendacion(
+  id: string, studioId: string, nuevaExpiraEn: string, pospuestaEn: string,
+): Promise<{ ok: boolean }> {
+  const aplazar = (patch: Record<string, unknown>) => db()
     .from('recomendaciones')
-    .update({ expira_en: nuevaExpiraEn })
+    .update(patch)
     .eq('id', id).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
     .select('id').maybeSingle();
+  let { data, error } = await aplazar({ expira_en: nuevaExpiraEn, pospuesta_en: pospuestaEn });
+  // Desplegado antes de aplicar la migración: aplazarla sigue funcionando, solo
+  // que sin dejar dicho que se aplazó (mismo criterio que `resultado` arriba).
+  if (error && /pospuesta_en/.test(error.message ?? '') && (error.code === 'PGRST204' || error.code === '42703')) {
+    ({ data, error } = await aplazar({ expira_en: nuevaExpiraEn }));
+  }
   if (error) { reportError('[dbPosponerRecomendacion]', error); return { ok: false }; }
   return { ok: !!data };
+}
+
+/**
+ * Las recomendaciones del estudio con esta `dedupe_key`, de cualquier estado:
+ * el respaldo del mensaje del día cuyo `recomendacion_id` no existe (lo elige
+ * `elegirRecomendacionDelMensaje`, lib/decision/mensaje-del-dia.ts). Acotada al
+ * estudio en la propia consulta. `undefined` si la consulta falla.
+ */
+export async function dbListRecomendacionesPorDedupe(studioId: string, dedupeKey: string): Promise<Recomendacion[] | undefined> {
+  const { data, error } = await db()
+    .from('recomendaciones')
+    .select('*')
+    .eq('studio_id', studioId)
+    .eq('dedupe_key', dedupeKey)
+    .order('creado_en', { ascending: false })
+    .limit(20);
+  if (error) { reportError('[dbListRecomendacionesPorDedupe]', error); return undefined; }
+  return (data ?? []).map(r => mapRecomendacion(r as RowRecomendaciones));
 }
 
 export async function dbMarcarVista(id: string, vistaEn: string): Promise<void> {
@@ -502,7 +632,7 @@ function mapResumenDiario(row: RowResumenDiario): ResumenDiario {
   };
 }
 
-/** Upsert por (studio_id, fecha) — el análisis de las 14:30 sobreescribe el de las 06:30. */
+/** Upsert por (studio_id, fecha): un «Analizar ahora» del mismo día sobreescribe el del análisis diario. */
 export async function dbUpsertResumenDiario(r: ResumenDiario): Promise<string> {
   const id = uid();
   const { data, error } = await db().from('resumen_diario').upsert({
@@ -521,8 +651,8 @@ export async function dbGetResumenDiario(studioId: string, fecha: string): Promi
 }
 
 // El Centro de Control mostraba el resumen SOLO si existía uno con la fecha de
-// HOY: entre ejecuciones del cron (2×/día) o si el análisis de hoy aún no había
-// corrido, el panel caía a "Aún estoy conociendo tu estudio" aunque hubiera un
+// HOY: hasta que corría el análisis del día (una vez, a las 14:30 UTC), el
+// panel caía a "Aún estoy conociendo tu estudio" aunque hubiera un
 // briefing reciente perfectamente válido. Se toma el más reciente dentro de una
 // ventana (por defecto 7 días); solo si no hay ninguno se considera "sin datos".
 export async function dbGetResumenDiarioReciente(studioId: string, now: Date, maxDias = 7): Promise<ResumenDiario | null> {
@@ -635,9 +765,12 @@ function mapMensajeDia(row: RowMensajeDia): MensajeDia {
   };
 }
 
-// Upsert por (studio_id, fecha) — el análisis de las 14:30 sobreescribe el de
-// las 06:30, mismo criterio que `dbUpsertResumenDiario`. Este es el punto que
-// hace cumplir "nunca dos mensajes el mismo día" también a nivel de fila viva.
+// Upsert por (studio_id, fecha) — el análisis diario corre una vez (14:30 UTC),
+// y un «Analizar ahora» del mismo día lo sobreescribe, mismo criterio que
+// `dbUpsertResumenDiario`. Este es el punto que hace cumplir "nunca dos
+// mensajes el mismo día" también a nivel de fila viva. `fecha` es el día en
+// Madrid (`fechaDelMensaje`, lib/decision/mensaje-del-dia.ts): con la del
+// análisis, la pantalla busca el mensaje con la misma.
 export async function dbUpsertMensajeDia(m: Omit<MensajeDia, 'id' | 'creadoEn'>): Promise<void> {
   const { error } = await db().from('decision_mensajes_dia').upsert({
     id: uid(), studio_id: m.studioId, fecha: m.fecha, tipo: m.tipo, recomendacion_id: m.recomendacionId,
@@ -835,18 +968,51 @@ export async function dbSetAutonomiaConfig(studioId: string, config: AutonomiaCo
   return c;
 }
 
-// Cuántas recomendaciones se han auto-ejecutado hoy (para respetar el tope diario).
-// Día en UTC — el cron corre a 06:30/14:30 UTC; el cupo es una salvaguarda de
-// volumen, no un límite fiscal, así que la frontera de día exacta no es crítica.
-export async function dbCountAutonomasHoy(studioId: string, now: Date): Promise<number> {
-  const inicioDia = new Date(now); inicioDia.setUTCHours(0, 0, 0, 0);
+// Lo que el piloto automático cerró HOY con este estado, en el día de Madrid:
+// es lo que el Centro de Control le cuenta a la propietaria («Tentare ha
+// resuelto N…», «N no salió…»). Por `resuelto_por = 'AUTONOMIA'`, que no cambia
+// al cerrarse.
+async function contarAutonomasHoyEn(studioId: string, now: Date, estado: 'EJECUTADA' | 'FALLIDA'): Promise<number> {
   const { count, error } = await db()
     .from('recomendaciones')
     .select('id', { count: 'exact', head: true })
     .eq('studio_id', studioId)
     .eq('resuelto_por', 'AUTONOMIA')
-    .gte('resuelto_en', inicioDia.toISOString());
-  if (error) { reportError('[dbCountAutonomasHoy]', error); return 0; }
+    .eq('estado', estado)
+    .gte('resuelto_en', inicioDeHoyEnEstudio(now));
+  if (error) { reportError(`[contarAutonomasHoyEn:${estado}]`, error); return 0; }
+  return count ?? 0;
+}
+
+/**
+ * Cuántas resolvió hoy el piloto automático DE VERDAD: solo EJECUTADA. Una
+ * APROBADA aún no ha hecho nada (el ejecutor va después) y una FALLIDA no salió;
+ * contarlas era decir «Tentare ha resuelto 3» con un cobro rechazado dentro.
+ */
+export function dbCountAutonomasHoy(studioId: string, now: Date): Promise<number> {
+  return contarAutonomasHoyEn(studioId, now, 'EJECUTADA');
+}
+
+/** Las que el piloto intentó hoy y no salieron (FALLIDA): el motivo está en Actividad. */
+export function dbCountAutonomasFallidasHoy(studioId: string, now: Date): Promise<number> {
+  return contarAutonomasHoyEn(studioId, now, 'FALLIDA');
+}
+
+// El cupo diario del piloto, contado COMO LO CUENTA `aprobar_recomendacion_autonoma`
+// (20260910163827): toda aprobación autónoma, en cualquier estado, desde las
+// 00:00 UTC. Es solo la estimación con la que el análisis decide cuántas
+// intentar (la que pone el tope de verdad es la RPC, bajo su lock); si contara
+// otra cosa que la RPC, el análisis intentaría aprobaciones que la RPC rechaza,
+// y cada intento es un paso de Inngest.
+export async function dbCountCupoAutonomasHoy(studioId: string, now: Date): Promise<number> {
+  const inicioDiaUtc = new Date(now); inicioDiaUtc.setUTCHours(0, 0, 0, 0);
+  const { count, error } = await db()
+    .from('recomendaciones')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('resuelto_por', 'AUTONOMIA')
+    .gte('resuelto_en', inicioDiaUtc.toISOString());
+  if (error) { reportError('[dbCountCupoAutonomasHoy]', error); return 0; }
   return count ?? 0;
 }
 
@@ -854,7 +1020,7 @@ export async function dbCountAutonomasHoy(studioId: string, now: Date): Promise<
  * 52ª pasada de auditoría, hallazgo H2: aprueba UNA recomendación como
  * AUTONOMIA a través de `aprobar_recomendacion_autonoma` (RPC con advisory
  * lock por estudio+día) en vez de fiarse del cupo calculado en TS con
- * `dbCountAutonomasHoy` — ese conteo sigue sirviendo para ORDENAR/priorizar
+ * `dbCountCupoAutonomasHoy` — ese conteo sigue sirviendo para ORDENAR/priorizar
  * cuántas intentar (seleccionarAutonomas), pero la SEGURIDAD de no superar
  * `maxDiario` la da esta función, que recuenta en caliente dentro de la
  * misma transacción que aprueba. Así, aunque dos invocaciones se solapen,

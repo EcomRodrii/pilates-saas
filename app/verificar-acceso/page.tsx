@@ -84,7 +84,7 @@ export default function PantallaVerificarAcceso() {
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exigida, setExigida] = useState(false);
-  const [recordar, setRecordar] = useState(false);
+  const [recordar, setRecordar] = useState(true);
   // `?codigo=1`: hace falta el código de la app (aal2) para lo que se va a hacer.
   const [metodo, setMetodo] = useState<'correo' | 'app'>('correo');
   const [correo, setCorreo] = useState<Correo>({ tipo: 'enviando' });
@@ -245,7 +245,7 @@ export default function PantallaVerificarAcceso() {
         <span>
           No volver a pedir el código en este dispositivo
           <span className="block text-[11.5px] text-muted-foreground">
-            Durante {DIAS_DISPOSITIVO_CONFIANZA} días desde la última vez que entres. Márcalo solo en un dispositivo que uses únicamente tú.
+            Durante {DIAS_DISPOSITIVO_CONFIANZA} días desde la última vez que entres. Desmárcalo si este dispositivo lo usa más gente.
           </span>
         </span>
       </label>

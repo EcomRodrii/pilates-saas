@@ -22,6 +22,7 @@ import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { estadoDelAutonomo } from '@/lib/tenti/momentos';
 import { ActionCenter } from '@/components/decision/action-center';
 import { fetchLayout } from '@/lib/api-client';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
@@ -829,18 +830,26 @@ export default function Dashboard() {
         <div {...wrap('automatizaciones')}>
         {(() => {
           const { esperando, ejecutadas, fallidas } = automationBriefing;
+          // La cara sigue a la BANDEJA (lib/tenti/momentos.ts): espera tu
+          // visto bueno si la bandeja cuenta algo; si no, error si algo falló
+          // hoy. Para quien la bandeja no cuenta, sin cifra: reposo.
+          const estadoTenti = estadoDelAutonomo({
+            esperandoEnBandeja: puedeGestionarAutomatizaciones(rolActual) ? esperandoEnBandeja : null,
+            fallidasHoy: fallidas,
+          });
           return (
             <Link
               href="/automatizaciones"
               className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              {/* Tenti en reposo, no un robot: aquí Tentare ejecuta cosas por
-                  su cuenta. Es decorativo (aria-hidden): el nombre del enlace
-                  sigue siendo «Sistema autónomo — …». Sobre bg-primary, con la
-                  silueta del color del texto: en oscuro el fondo es casi el
-                  del cuerpo. */}
+              {/* Tenti, no un robot: aquí Tentare ejecuta cosas por su
+                  cuenta. Es decorativo (aria-hidden): el nombre del enlace
+                  sigue siendo «Sistema autónomo — …», y el texto dice lo
+                  mismo que su cara. Sobre bg-primary, con la silueta del
+                  color del texto: en oscuro el fondo es casi el del cuerpo.
+                  Dentro del enlace, sin sonido y sin traje. */}
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card/10">
-                <TentiIcono ancho={22} sobre="invertida" />
+                <TentiIcono ancho={22} sobre="invertida" estado={estadoTenti} />
               </div>
               <div className="min-w-0 flex-1">
                 {esperando === 0 ? (
@@ -851,7 +860,7 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[13px] font-medium">
                     Sistema autónomo —{' '}
-                    <span className="text-amber-300 dark:text-amber-800">{esperando} caso{esperando > 1 ? 's' : ''} requiere tu atención</span>
+                    <span className="text-amber-300 dark:text-amber-800">{esperando} caso{esperando > 1 ? 's' : ''} requiere{esperando > 1 ? 'n' : ''} tu atención</span>
                   </p>
                 )}
                 <p className="mt-0.5 text-[11px] text-primary-foreground/70">

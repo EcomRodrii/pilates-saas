@@ -12,12 +12,17 @@ import {
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo, enviarPruebaAutomatizacion } from '@/lib/api-client';
 import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
+import { registrosDeHoy, saludoDelEstudio } from '@/lib/automatizaciones-hoy';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
+import { estadoDelAutonomo } from '@/lib/tenti/momentos';
+import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
+import { useRol } from '@/lib/permisos';
+import { puedeGestionarAutomatizaciones } from '@/lib/permisos-reglas';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
@@ -194,8 +199,9 @@ function BaldosaZap() {
 }
 
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayLogs = logs.filter(l => l.ejecutadoEn.startsWith(today));
+  // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
+  const ahora = new Date();
+  const todayLogs = registrosDeHoy(logs, ahora);
   const pendingAdmin = logs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
   // 'ESPERANDO' nunca lo escribe ningún camino de ejecución (ver
@@ -205,8 +211,19 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // justo lo que necesita un vistazo.
   const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  // Cuántas esperan tu visto bueno: la cifra de la BANDEJA, la misma que
+  // «Sistema autónomo» de Resumen (#1401: la bandeja es la dueña de ese
+  // número). Solo para quien la bandeja cuenta; para el resto, o mientras no
+  // contesta, el recuento local, que es el único que hay. La cara de Tenti, en
+  // cambio, solo con la cifra de la bandeja (lib/tenti/momentos.ts): sin ella,
+  // reposo.
+  const rol = useRol();
+  const enBandeja = useConteoDecidir('automatizacionesEsperando');
+  const esperandoEnBandeja = puedeGestionarAutomatizaciones(rol) ? enBandeja : null;
+  const esperando = esperandoEnBandeja ?? pendingAdmin.length;
+  const estadoTenti = estadoDelAutonomo({ esperandoEnBandeja, fallidasHoy: fallidas });
+
+  const greeting = saludoDelEstudio(ahora);
 
   return (
     <div className="rounded-2xl bg-primary text-primary-foreground p-6 mb-6">
@@ -214,10 +231,10 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             {/* Tenti, como en el Piloto automático: aquí Tentare trabaja solo.
-                Quieto pase lo que pase con los recuentos de abajo: si algo
-                espera tu visto bueno o ha fallado, lo dicen el texto y las
-                cifras, nunca su cara. Sobre bg-primary, con la silueta del
-                color del texto (en oscuro el fondo es casi el del cuerpo). */}
+                En reposo: la cara de lo que pasa es la del canvas grande de
+                la derecha, y dos caras distintas en la misma tarjeta no dicen
+                nada. Sobre bg-primary, con la silueta del color del texto (en
+                oscuro el fondo es casi el del cuerpo). */}
             <TentiIcono ancho={24} sobre="invertida" />
             {/* ⚠️ Tinta `primary-foreground`, nunca `white`: en oscuro la
                 tarjeta `bg-primary` es CLARA y el blanco fijo se quedaba en
@@ -236,7 +253,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
           <h1 className="text-2xl font-bold mb-1">
             {greeting} 👋
           </h1>
-          {pendingAdmin.length === 0 ? (
+          {esperando === 0 ? (
             <p className="text-primary-foreground/70 text-sm">
               {/* Solo afirma lo que cuenta —las automatizaciones que esperan
                   tu visto bueno—, no «nada pendiente» en general: el mismo
@@ -248,17 +265,19 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             <p className="text-primary-foreground/70 text-sm">
               El sistema gestionó{' '}
               <span className="text-primary-foreground font-semibold">{ejecutadas} acciones</span> hoy,
-              pero hay <span className="text-amber-300 dark:text-amber-800 font-semibold">{pendingAdmin.length} casos</span> que requieren tu atención.
+              pero hay <span className="text-amber-300 dark:text-amber-800 font-semibold">{esperando} caso{esperando === 1 ? '' : 's'}</span> que requiere{esperando === 1 ? '' : 'n'} tu atención.
             </p>
           )}
         </div>
         {/* Tenti en el sitio de la baldosa del Zap: la cara de lo que Tentare
-            hace solo. Vivo pero en reposo y decorativo, pase lo que pase con
-            los recuentos (lo dicen el texto y las cifras). La baldosa de
-            siempre mientras llega su chunk, si no llega o si no hay canvas 2D,
-            en la misma caja de 56 px: nada salta. */}
+            hace solo, con la misma regla y la misma cifra que «Sistema
+            autónomo» de Resumen: espera tu visto bueno si la bandeja cuenta
+            algo; si no, error si algo falló hoy; si no, reposo. El texto dice
+            lo mismo. Decorativo y sin sonido: llega sin que pidas nada. La
+            baldosa de siempre mientras llega su chunk, si no llega o si no hay
+            canvas 2D, en la misma caja de 56 px: nada salta. */}
         <div className="shrink-0 size-14">
-          <TentiDecorativo tamano={56} reserva={<BaldosaZap />} />
+          <TentiDecorativo tamano={56} reserva={<BaldosaZap />} estado={estadoTenti} />
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -19,6 +19,13 @@ import {
   construirAgendaDelDia, resumirDia, type ClaseDelDia, type SesionAgenda,
 } from '@/lib/hoy-agenda';
 import { recogerAgendaPrecargada } from '@/lib/agenda-precarga';
+import { hechosDeAsistencia, tieneHistorialPrevio } from '@/lib/clientas/estado';
+import {
+  emocionDeHoy, esRecordDelDia, estadoDeHoy, fraseDeHoy, maxAlumnasAntesDe, primerasVecesHoy,
+  RECORD_ALUMNAS_MINIMAS, RECORD_DIAS_MINIMOS,
+} from '@/lib/tenti/momentos';
+import { almacenLocal, claveEmocion, tocaHoy } from '@/lib/tenti/una-vez';
+import { useVueltaTrasAusencia } from '@/lib/tenti/vuelta-tras-ausencia';
 import {
   capitalizarPrimera, cn, fechaLargaEstudio, finDelDiaEstudio, horaEstudio,
   hoyEnEstudio, inicioDelDiaEstudio, masDias, tituloDia,
@@ -48,6 +55,19 @@ import type { Instructor, Reserva, Sala, Sesion } from '@/lib/types';
 // queda vieja). Del contexto se usan solo nombres y colores (tipos de clase) y,
 // dentro del panel de rellenar hueco, el histórico de asistencia: cosas que
 // este endpoint no da y que no son cifras del día.
+//
+// ── Tenti en la tira de lo que ha visto Tentare (lib/tenti/momentos.ts) ──────
+// Un solo Tenti, y la tira sale si hay algo que contar: huecos, problemas,
+// alumnas que vienen por primera vez, un récord, o que el estudio descansa.
+//   · 'dormido' — hoy ya no quedan clases (o no hay) y nada por resolver.
+//     Siempre con «Tentare sigue atento…»: es el estudio el que duerme.
+//   · Una emoción por carga y una vez al día en este dispositivo: 'amor' si
+//     alguien viene por primera vez, 'orgullo' con el récord del día, 'guino'
+//     si lo único es un hueco que puedes llenar. Y 'bostezo' al volver a la
+//     pestaña tras media hora fuera. Ninguna suena.
+//   El histórico del contexto se usa aquí para lo que el endpoint del día no
+//   sabe (si alguien ya había venido, el máximo de días anteriores), como en
+//   «rellenar hueco»; las cifras de HOY siguen saliendo del endpoint.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface SesionApi extends Sesion {
@@ -64,8 +84,13 @@ interface DatosDia {
 
 const VACIO: DatosDia = { sesiones: [], reservas: [], salas: [], instructores: [] };
 
+// `hechosDeAsistencia` pide un «ahora» solo para la última asistencia; aquí se
+// usa la primera reserva, que no depende del reloj (y así no se recalcula cada
+// minuto con el reloj de la agenda).
+const SIN_RELOJ = new Date(0);
+
 export function HoyEnElEstudio() {
-  const { tiposClase } = useStudio();
+  const { tiposClase, reservas: reservasHistoricas, sesiones: sesionesHistoricas, socios, dataLoaded, studio } = useStudio();
   const rol = useRol();
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -170,6 +195,74 @@ export function HoyEnElEstudio() {
 
   const resumen = useMemo(() => resumirDia(clases), [clases]);
 
+  // ── Lo que ha visto Tentare hoy ────────────────────────────────────────────
+  const esHoy = fecha !== null && fecha === hoy;
+  const listo = !cargando && !fallo;
+
+  // Quién viene hoy por primera vez. Solo con el histórico entero cargado
+  // (`dataLoaded`): antes, todas parecerían nuevas.
+  const primerasVeces = useMemo(() => {
+    if (!esHoy || !listo || !dataLoaded || !hoy || datos.reservas.length === 0) return 0;
+    const hechos = hechosDeAsistencia(reservasHistoricas, sesionesHistoricas, SIN_RELOJ);
+    const fichas = new Map(socios.map(x => [x.id, x]));
+    return primerasVecesHoy({
+      reservasHoy: datos.reservas,
+      sesionesCanceladas: new Set(datos.sesiones.filter(x => x.cancelada).map(x => x.id)),
+      primeraReservaDe: id => hechos.get(id)?.primeraReserva ?? null,
+      historialPrevio: id => { const f = fichas.get(id); return f ? tieneHistorialPrevio(f) : null; },
+      hoy,
+      diaDe: iso => hoyEnEstudio(new Date(iso)),
+    });
+  }, [esHoy, listo, dataLoaded, hoy, datos.reservas, datos.sesiones, reservasHistoricas, sesionesHistoricas, socios]);
+
+  // El récord: solo se recorre el histórico si hoy ya podría serlo.
+  const creadoEn = studio?.creadoEn ?? null;
+  const record = useMemo(() => {
+    if (!esHoy || !listo || !dataLoaded || !hoy || !creadoEn || resumen.alumnas < RECORD_ALUMNAS_MINIMAS) return false;
+    const diasDeHistoria = Math.round((Date.parse(hoy) - Date.parse(hoyEnEstudio(new Date(creadoEn)))) / 86_400_000);
+    if (!(diasDeHistoria >= RECORD_DIAS_MINIMOS)) return false;
+    // `diaDe` por clase, con caché por hora UTC: una vez por hora distinta, no por fila.
+    const cache = new Map<string, string>();
+    const diaDe = (iso: string) => {
+      const k = iso.slice(0, 13);
+      let d = cache.get(k);
+      if (!d) { d = hoyEnEstudio(new Date(iso)); cache.set(k, d); }
+      return d;
+    };
+    const maxPrevio = maxAlumnasAntesDe({ sesiones: sesionesHistoricas, reservas: reservasHistoricas, hoy, diaDe });
+    return esRecordDelDia({ alumnasHoy: resumen.alumnas, maxPrevio, diasDeHistoria });
+  }, [esHoy, listo, dataLoaded, hoy, creadoEn, resumen.alumnas, sesionesHistoricas, reservasHistoricas]);
+
+  const estadoTenti = estadoDeHoy({ esHoy, cargando, fallo, clases });
+  const frase = listo
+    ? fraseDeHoy({ resumen, clases, primerasVeces, record, estado: estadoTenti })
+    : null;
+  // Solo hoy y con el histórico ya cargado: decidir antes (un guiño) y luego
+  // otra vez (un amor) serían dos emociones en una misma carga.
+  const candidata = frase && esHoy && dataLoaded
+    ? emocionDeHoy({ primerasVeces, record, soloHuecos: frase.soloHuecos })
+    : null;
+
+  // Una vez al día en este dispositivo y como mucho una por carga: se decide
+  // (y se apunta) al saberse, fuera del render porque lee y escribe localStorage.
+  const studioId = studio?.id ?? null;
+  const [emocionDelDia, setEmocionDelDia] = useState<{ tipo: 'amor' | 'orgullo' | 'guino'; clave: string } | null>(null);
+  const emocionDecidida = useRef(false);
+  useEffect(() => {
+    if (emocionDecidida.current || !candidata || !hoy || !studioId) return;
+    emocionDecidida.current = true;
+    if (!tocaHoy(claveEmocion(candidata, studioId), hoy, almacenLocal())) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage solo se puede leer y apuntar fuera del render, y una sola vez al saberse.
+    setEmocionDelDia({ tipo: candidata, clave: `${candidata}-${hoy}` });
+  }, [candidata, hoy, studioId]);
+
+  // El bostezo, al volver tras media hora fuera (una vuelta de antes de montarse no es suya).
+  const vueltas = useVueltaTrasAusencia();
+  const [vueltasAlMontar] = useState(vueltas);
+  const emocionTenti = vueltas > vueltasAlMontar
+    ? { tipo: 'bostezo' as const, clave: `bostezo-${vueltas}` }
+    : emocionDelDia;
+
   // ── Rellenar hueco ─────────────────────────────────────────────────────────
   const [huecoAbierto, setHuecoAbierto] = useState<string | null>(null);
   const claseHueco = huecoAbierto ? clases.find(c => c.sesionId === huecoAbierto) ?? null : null;
@@ -180,8 +273,6 @@ export function HoyEnElEstudio() {
   );
 
   const puedeCalendario = puedeVer(rol, '/calendario');
-
-  const esHoy = fecha !== null && fecha === hoy;
 
   // ── Cabecera ───────────────────────────────────────────────────────────────
   const etiqueta = fecha && hoy ? tituloDia(fecha, hoy) : '';
@@ -240,13 +331,14 @@ export function HoyEnElEstudio() {
       <h2 className="sr-only">Tu día en el estudio</h2>
 
       {/* Lo que ha visto Tentare. Solo aparece cuando de verdad hay algo que
-          contar — si el día está limpio, no se interrumpe a nadie. Tenti va
-          quieto: firma la frase, no la dice él, y si hay un aviso («sin
-          instructora») lo da el texto, nunca su cara. */}
-      {!cargando && (resumen.huecos > 0 || resumen.problemas > 0) && (
+          contar — si el día está limpio, no se interrumpe a nadie. Tenti firma
+          la frase, no la dice él: si hay un aviso («sin instructora») lo da el
+          texto, nunca su cara. Dormido solo si el estudio descansa, y con la
+          frase que dice que Tentare sigue. */}
+      {frase && (
         <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5">
-          <TentiIcono ancho={28} />
-          <p className="text-[12.5px] text-foreground">{fraseDeTentare(resumen, clases)}</p>
+          <TentiIcono ancho={28} estado={estadoTenti} emocion={emocionTenti} />
+          <p className="text-[12.5px] text-foreground">{frase.texto}</p>
         </div>
       )}
 
@@ -549,28 +641,6 @@ function AccionClase({
       {clase.finalizada ? 'Ver clase' : 'Todo preparado'}
     </Link>
   );
-}
-
-// ─── Lo que ha visto Tentare ──────────────────────────────────────────────────
-
-function fraseDeTentare(
-  resumen: { huecos: number; problemas: number },
-  clases: readonly ClaseDelDia[],
-): string {
-  const sinInstructora = clases.filter(c => c.estado === 'SIN_INSTRUCTORA' && !c.finalizada).length;
-  const conHueco = clases.filter(c => !c.finalizada && c.estado !== 'CANCELADA' && c.huecos > 0).length;
-  const partes: string[] = [];
-  if (conHueco > 0) {
-    partes.push(`${conHueco} clase${conHueco === 1 ? '' : 's'} con hueco que puedes llenar`);
-  }
-  if (sinInstructora > 0) {
-    partes.push(`${sinInstructora} clase${sinInstructora === 1 ? '' : 's'} sin instructora`);
-  }
-  const otros = resumen.problemas - sinInstructora;
-  if (otros > 0) partes.push(`${otros} clase${otros === 1 ? '' : 's'} con algo que resolver`);
-  if (partes.length === 0) return 'Tentare no ha encontrado nada que necesite tu atención hoy.';
-  const ultimo = partes.pop()!;
-  return `Tentare ha encontrado ${partes.length ? `${partes.join(', ')} y ${ultimo}` : ultimo}.`;
 }
 
 // ─── Esqueletos ───────────────────────────────────────────────────────────────

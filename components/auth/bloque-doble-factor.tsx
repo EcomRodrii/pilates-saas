@@ -3,7 +3,8 @@
 // «Verificación en dos pasos» en Mi perfil (2-oct-2026, contrato de encargo):
 // cualquiera del equipo del panel puede activarla para su cuenta. Activar y
 // escribir el código se hace en /verificar-acceso; aquí se ve cómo está y se
-// puede quitar (salvo que el estudio la exija a todo el equipo).
+// puede quitar (salvo que el estudio la exija a todo el equipo). El factor de
+// la zona interna de Tentare no cuenta aquí: solo se pide en /interno.
 //
 // Quitarla exige la sesión verificada (`aal2`): Supabase lo rechaza si no, y
 // con la sesión sin verificar ni se llega a este panel. Una sesión que entró
@@ -18,11 +19,12 @@ import { supabase } from '@/lib/db/supabase';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { DispositivosConfianza } from '@/components/auth/dispositivos-confianza';
+import { esFactorInterno } from '@/lib/auth/doble-factor-reglas';
 
 // `sinCodigo`: tiene la verificación activada y esta sesión entró sin escribir
 // el código (dispositivo recordado). Para lo que Supabase protege con el código
 // de verdad —quitarla, cambiar email o contraseña— primero hay que escribirlo.
-type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; exigida: boolean; sinCodigo: boolean };
+type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; soloInterno: boolean; exigida: boolean; sinCodigo: boolean };
 
 export function BloqueDobleFactor() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
@@ -39,9 +41,13 @@ export function BloqueDobleFactor() {
         .then(r => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ estudioLoExige?: boolean } | null>,
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     ]);
-    const totp = factores.data?.totp ?? [];
+    // `totp` ya trae solo los verificados. El de /interno no se enseña ni se quita
+    // desde aquí: quitarlo solo haría que /interno lo volviera a pedir.
+    const todos = factores.data?.totp ?? [];
+    const totp = todos.filter(f => !esFactorInterno(f));
     setEstado({
-      tipo: 'listo', factores: totp, exigida: porEstudio?.estudioLoExige === true,
+      tipo: 'listo', factores: totp, soloInterno: totp.length === 0 && todos.length > 0,
+      exigida: porEstudio?.estudioLoExige === true,
       sinCodigo: totp.length > 0 && aal.data?.currentLevel === 'aal1',
     });
   }, []);
@@ -114,6 +120,10 @@ export function BloqueDobleFactor() {
           )}
           <DispositivosConfianza />
         </div>
+      ) : estado.soloInterno ? (
+        <p className="text-[12px] text-muted-foreground">
+          Desactivada en el panel. Tu app de códigos de Tentare Internal solo se pide al entrar en la zona interna.
+        </p>
       ) : (
         <Link
           href="/verificar-acceso?activar=1&volver=/mi-perfil"

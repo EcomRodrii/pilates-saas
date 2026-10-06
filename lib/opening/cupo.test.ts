@@ -3,7 +3,38 @@ import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type Stripe from 'stripe';
 import { idsDe } from '../billing/ids-compra.ts';
-import { claveDeRefPOS, claveStripe, esEtapaAgotada, EtapaAgotadaError, recuperarPlazasCaducadas, refPlazaPOS } from './cupo.ts';
+import {
+  claveDeRefPOS, claveStripe, esEtapaAgotada, EtapaAgotadaError, liberarPlazaSiEsDe, liberarPlazaSinCobro, recuperarPlazasCaducadas, refPlazaPOS,
+} from './cupo.ts';
+
+// Revisión del 5-oct (#4/#8): la plaza de un intento puede ser la del cobro de OTRA
+// petición del mismo intento. Se suelta solo si es de este cobro, o de ninguno, y lo
+// decide el propio UPDATE (compare-and-set), no una lectura previa.
+test('soltar la plaza solo si es de este cobro, o de ninguno', async () => {
+  const llamadas: { filtros: string[]; or?: string }[] = [];
+  const admin = {
+    from(tabla: string) {
+      assert.equal(tabla, 'launch_stage_plazas');
+      const q = { filtros: [] as string[], or: undefined as string | undefined };
+      llamadas.push(q);
+      const b = {
+        update: () => b,
+        eq: (c: string, v: string) => { q.filtros.push(`${c}=${v}`); return b; },
+        or: (f: string) => { q.or = f; return b; },
+        select: async () => ({ data: [{ id: 'p1' }], error: null }),
+      };
+      return b;
+    },
+  } as unknown as SupabaseClient;
+  assert.equal(await liberarPlazaSiEsDe(admin, 'p1', 'pi_123'), true);
+  assert.deepEqual(llamadas[0].filtros, ['id=p1', 'estado=RESERVADA']);
+  assert.equal(llamadas[0].or, 'stripe_ref.is.null,stripe_ref.eq.pi_123');
+  assert.equal(await liberarPlazaSinCobro(admin, 'p1'), true);
+  assert.equal(llamadas[1].or, 'stripe_ref.is.null');
+  // Una referencia con forma rara no entra en el filtro: no se suelta nada.
+  assert.equal(await liberarPlazaSiEsDe(admin, 'p1', 'pi_1,estado.eq.VENDIDA'), false);
+  assert.equal(llamadas.length, 2);
+});
 
 test('la clave del TPV se recupera de su ref aunque lleve dos puntos', () => {
   const ref = refPlazaPOS('caja:1:abc', 'plan-x', 3);

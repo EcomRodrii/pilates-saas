@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { RefreshCw, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, hoyEnEstudio, TZ_ESTUDIO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeParaSocia, enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
@@ -11,6 +11,7 @@ import { useAutonomiaConfig } from '@/components/decision/use-autonomia-config';
 import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
 import { sigueAbierta } from '@/lib/decision/efecto-aprobar';
 import { partirMasSituaciones } from '@/lib/decision/prioridad';
+import { TEXTO_ANALISIS_TARDANDO } from '@/lib/decision/analisis-en-curso';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import { FilaSituacion } from '@/components/decision/fila-situacion';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
@@ -60,13 +61,13 @@ function frasesSeguimientoOutcome(o: { outcome: 'POSITIVO' | 'NEGATIVO' | 'NEUTR
   return `Seguiste esto: ${o.titulo}. Sin cambios claros.`;
 }
 
-// `partirMasSituaciones` garantiza `creadoEn.slice(0,10) < fechaHoy` para
-// todo lo que entra en `seguimiento`, así que el resultado siempre es ≥1 —
-// sin caso 0/negativo que blindar. Misma base de comparación (día-calendario
-// en UTC) que ya usa esa partición, para no introducir un segundo criterio
-// de "qué día es hoy" en la misma pantalla.
+// `partirMasSituaciones` garantiza que el día (en Madrid) de `creadoEn` es
+// anterior a `fechaHoy` para todo lo que entra en `seguimiento`, así que el
+// resultado siempre es ≥1, sin caso 0/negativo que blindar. Misma base de
+// comparación (el día en Madrid) que esa partición, para no tener dos «hoy»
+// en la misma pantalla.
 function diasAbierta(creadoEn: string, fechaHoy: string): number {
-  return Math.round((Date.parse(fechaHoy) - Date.parse(creadoEn.slice(0, 10))) / 86400000);
+  return Math.round((Date.parse(fechaHoy) - Date.parse(hoyEnEstudio(new Date(creadoEn)))) / 86400000);
 }
 
 /** Cada situación de la lista, localizable por su id para llegar a ella desde un enlace. */
@@ -84,18 +85,24 @@ function AnclaSituacion({ id, resaltada, children }: { id: string; resaltada: bo
 
 export default function CentroDeControlPage() {
   // `seguirCobros`: tras «Cobrar ahora», la pantalla pregunta cómo ha ido y lo dice.
-  const { data, loading, error, aprobar, rechazar, posponer, yaContactada, analizarAhora, recargar, cobrosTardando } = useDecisiones({ seguirCobros: true });
+  // `seguirAnalisis`: tras «Analizar ahora» (o con uno en marcha desde otra
+  // pestaña), pregunta cuándo termina y entonces recarga.
+  const { data, loading, error, aprobar, rechazar, posponer, yaContactada, analizarAhora, analisis, recargar, cobrosTardando } = useDecisiones({ seguirCobros: true, seguirAnalisis: true });
   const { socios, studio } = useStudio();
   const autonomia = useAutonomiaConfig();
   // Las recomendaciones con una petición en vuelo, todas: con un solo id, pulsar
   // en otra tarjeta mientras la primera esperaba le volvía a encender los
   // botones a la primera, que ahora sigue en pantalla hasta la respuesta.
   const [procesando, setProcesando] = useState<ReadonlySet<string>>(() => new Set());
-  const [analizando, setAnalizando] = useState(false);
+  // El POST de «Analizar ahora» en vuelo; lo que dura el análisis lo lleva `analisis`.
+  const [lanzando, setLanzando] = useState(false);
+  const analizando = lanzando || analisis === 'en-curso';
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const toast = useToast();
 
-  const fechaHoy = new Date().toISOString().slice(0, 10);
+  // El día en Madrid, el mismo con el que el servidor elige el mensaje de hoy:
+  // con el día UTC, de 00:00 a 02:00 de Madrid «hoy» todavía era ayer.
+  const fechaHoy = hoyEnEstudio();
 
   // El Veredicto del Día ya muestra esta recomendación como el mensaje único
   // de arriba: si además cae en Prioridades/Más situaciones (su mismo score
@@ -105,7 +112,9 @@ export default function CentroDeControlPage() {
   // tarjeta, nunca de `data.prioridades`/`data.masSituaciones` en crudo:
   // `totalPendiente` de abajo tiene que seguir contando esta recomendación
   // mientras siga sin resolver, o el puente con el Dashboard se desincroniza.
-  const idVeredicto = data?.veredicto.recomendacion?.id ?? null;
+  // Una aplazada hoy con «Recuérdamelo» NO se filtra: el veredicto ya no la
+  // pinta con botones, sino que dice que sigue en el detalle, y ahí tiene que estar.
+  const idVeredicto = data && !data.veredicto.pospuesta ? data.veredicto.recomendacion?.id ?? null : null;
   const prioridadesParaTarjetas = useMemo(
     () => (data ? data.prioridades.filter(r => r.id !== idVeredicto) : []),
     [data, idVeredicto],
@@ -121,9 +130,9 @@ export default function CentroDeControlPage() {
   );
 
   // Puente Centro de Control ↔ Dashboard: mismo total que suma el Action
-  // Center (`tituloAtencion`, lib/decision/action-center.ts) para que "Todo
-  // bajo control" nunca contradiga "N cosas necesitan tu atención" a un clic
-  // de distancia — ver hallazgo de auditoría "Veredicto de Marta" 2026-08-20.
+  // Center (`tituloAtencion`, lib/decision/action-center.ts) para que el
+  // veredicto nunca diga «no hay nada» frente a «N cosas necesitan tu atención»
+  // a un clic de distancia — hallazgo de auditoría "Veredicto de Marta" 2026-08-20.
   // Deliberadamente NO usa `prioridadesParaTarjetas`: cuenta lo pendiente de
   // verdad, no lo que se pinta como tarjeta en esta pantalla. Un cobro recién
   // aprobado sigue en pantalla diciendo que está en marcha, pero ya no está
@@ -180,8 +189,9 @@ export default function CentroDeControlPage() {
         document.getElementById('recomendaciones')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
-      // La del mensaje del día no se repite en la lista: está arriba del todo.
-      if (rec === data.veredicto.recomendacion?.id) {
+      // La del mensaje del día no se repite en la lista: está arriba del todo
+      // (salvo aplazada, que sí está en la lista).
+      if (rec === idVeredicto) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -194,7 +204,7 @@ export default function CentroDeControlPage() {
       setResaltada(rec);
     }, 50);
     return () => clearTimeout(t);
-  }, [pedida, data, toast]);
+  }, [pedida, data, toast, idVeredicto]);
 
   useEffect(() => {
     if (!resaltada) return;
@@ -255,15 +265,15 @@ export default function CentroDeControlPage() {
   }
 
   async function handleAnalizar() {
-    setAnalizando(true);
+    setLanzando(true);
     try {
       const res = await analizarAhora();
-      if (!res.ok) { toast.show(res.error ?? 'No se pudo lanzar el análisis'); return; }
-      // El análisis es asíncrono (Inngest) — un margen antes de refrescar para
-      // darle tiempo a persistir, sin bloquear la pantalla con un spinner largo.
-      setTimeout(recargar, 4000);
+      if (res.mensaje) {
+        if (res.esError) toast.showError(res.mensaje);
+        else toast.show(res.mensaje);
+      }
     } finally {
-      setAnalizando(false);
+      setLanzando(false);
     }
   }
 
@@ -301,13 +311,20 @@ export default function CentroDeControlPage() {
         <div>
           <h1 className="font-heading text-[20px] font-semibold text-foreground">Centro de Control</h1>
           <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
-            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {/* El día en Madrid, como el mensaje que hay debajo: con la zona del
+                navegador, uno en UTC a las 01:30 de Madrid ponía la fecha de ayer. */}
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO })}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
-          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
-          Analizar ahora
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando} aria-busy={analizando || undefined}>
+            <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
+            {analizando ? 'Analizando…' : 'Analizar ahora'}
+          </Button>
+          {analisis === 'tardando' && (
+            <p role="status" className="max-w-[16rem] text-right text-[12px] text-muted-foreground">{TEXTO_ANALISIS_TARDANDO}</p>
+          )}
+        </div>
       </div>
 
       <ContratoDecisionOS hayAnalisis={!modoAprendizaje} />
@@ -323,15 +340,18 @@ export default function CentroDeControlPage() {
         tardando={!!data.veredicto.recomendacion && cobrosTardando.has(data.veredicto.recomendacion.id)}
         whatsappHref={data.veredicto.recomendacion ? whatsappHref(data.veredicto.recomendacion) : null}
         nAutonomasHoy={data.nAutonomasHoy ?? 0}
+        nAutonomasFallidasHoy={data.nAutonomasFallidasHoy ?? 0}
         totalPendiente={totalPendiente}
         onVerPendiente={handleVerPendiente}
         // Un estudio con menos de cinco socias todavía no puede producir un
         // mensaje del Umbral: no hay historial de asistencia ni de cobros del
-        // que sacarlo. En vez de enseñar «Todo bajo control» los siete días de
-        // la prueba —indistinguible de que la pantalla no haga nada— se enseña
+        // que sacarlo. En vez de un veredicto vacío los siete días de la
+        // prueba —indistinguible de que la pantalla no haga nada— se enseña
         // un ejemplo rotulado de qué aparecerá aquí cuando lo haya.
         sinHistorial={socios.filter(s => s.activo).length < 5}
         bandejaHoy={<BandejaHoy />}
+        // Tenti piensa mientras dura el análisis (y no el POST: eso es «Analizando…» del botón).
+        analisis={analisis}
       />
 
       <button

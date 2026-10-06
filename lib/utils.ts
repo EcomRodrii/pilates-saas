@@ -340,6 +340,11 @@ export function fechaCortaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO)
   return formatoFechaCorta(tz).format(new Date(fecha));
 }
 
+/** "lunes" en hora del estudio: el día de la semana de ese instante en Madrid, no en UTC. */
+export function diaSemanaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
+  return formatoDiaSemana(tz).format(new Date(fecha));
+}
+
 /** "09:00" en hora del estudio. */
 export function horaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
   return formatoHora(tz).format(new Date(fecha));
@@ -351,6 +356,7 @@ export function horaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): stri
 const formatoFechaLarga = porZona(tz => new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz }));
 const formatoFechaCorta = porZona(tz => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: tz }));
 const formatoHora = porZona(tz => new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: tz }));
+const formatoDiaSemana = porZona(tz => new Intl.DateTimeFormat('es-ES', { weekday: 'long', timeZone: tz }));
 
 /** "sábado, 25 de julio a las 09:00" en hora del estudio. */
 export function cuandoEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {

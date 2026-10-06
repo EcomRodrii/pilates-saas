@@ -5,7 +5,7 @@
 // vivía solo dentro de la propia pestaña de Mensajería: la propietaria no
 // tenía forma de saber que tenía algo pendiente sin entrar antes a mirar.
 // Mismo patrón de polling que components/notifications/notification-bell.tsx
-// (fetch al montar + cada 60s, pausado con la pestaña oculta) — sin Realtime
+// (fetch al montar + cada 120s, pausado con la pestaña oculta) — sin Realtime
 // propio aquí porque el Sidebar vive en TODAS las páginas del panel, no solo
 // en Mensajería, y no vale la pena mantener un canal por conversación abierto
 // en todo momento solo para un contador.
@@ -37,8 +37,12 @@ export function useMensajesSinLeerStaff(activo: boolean): number {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- apaga el badge al desmontar/ocultar, no es un valor derivado.
     if (!activo) { setTotal(0); return; }
     void cargar();
-    const t = setInterval(() => { if (!document.hidden) void cargar(); }, 60_000);
-    return () => clearInterval(t);
+    // 120 s y no 60 (6-oct-2026): ver notification-bell.tsx. Al volver a la
+    // pestaña se recarga al instante, así que el badge no se queda viejo.
+    const t = setInterval(() => { if (!document.hidden) void cargar(); }, 120_000);
+    const alVolver = () => { if (!document.hidden) void cargar(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
   }, [activo, cargar]);
 
   return total;

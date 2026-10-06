@@ -6,9 +6,14 @@
 // ya decide para claro y oscuro, así que Tenti cambia de modo con el resto de
 // la pantalla en vez de llevar su propio tema.
 //
-// ⚠️ Solo los tokens que usa la fase 1 (reposo y 'hecho'). Leer más —
-// --destructive, --warning…— solo añadiría formas de caer a 'defecto' en
-// silencio, para colores de estados que el panel no enseña.
+// Desde el 5-oct-2026 (fundador: «que use todos sus estados y emociones, cada
+// uno en su momento», lib/tenti/momentos.ts) el panel enseña también 'error',
+// 'esperaTuOk', 'agobiado' y 'trabajando', así que sus colores salen de los
+// tokens de estado del panel (--destructive, --warning, --info): el azul, el
+// ámbar y el rojo del prototipo no son de Tentare. Son OBLIGATORIOS: existen
+// siempre en :root y en .dark, y si falta uno la paleta entera cae a 'defecto',
+// como con los demás. 'pensando', 'pregunta', 'buscando' y 'dormido' siguen
+// con el color del prototipo (el morado de 'pensando' ya está en producción).
 //
 // ⚠️ --success se lee DIRECTO y no con un alias tipo `--tenti-hecho:
 // var(--success)` en :root: la var() se resuelve donde se declara, así que
@@ -16,6 +21,9 @@
 //
 // Puro (sin DOM) para poder probarlo con node --test: quien lo llama le pasa
 // cómo leer un token (getComputedStyle(canvas).getPropertyValue en el navegador).
+//
+// Los trajes NO salen de aquí: llevan los colores del original de Coucou
+// (lib/tenti/trajes-coucou.ts, decisión del fundador del 6-oct-2026).
 
 export interface PaletaTenti {
   /** Degradado del cuerpo y de las manos: [luz, sombra]. */
@@ -28,6 +36,8 @@ export interface PaletaTenti {
   chispa: string;
   /** El tinte de 'hecho'. */
   hecho: string;
+  /** El tinte de los estados del panel que avisan o trabajan. */
+  estados: { error: string; esperaTuOk: string; agobiado: string; trabajando: string };
 }
 
 export const TOKENS_TENTI = {
@@ -37,6 +47,11 @@ export const TOKENS_TENTI = {
   rubor: '--tenti-rubor',
   chispa: '--tenti-chispa',
   hecho: '--success',
+  error: '--destructive',
+  // 'esperaTuOk' y 'agobiado' comparten ámbar: los dos son «esto espera tu
+  // visto bueno»; agobiado es solo más.
+  aviso: '--warning',
+  trabajando: '--info',
 } as const;
 
 // Sin distinguir mayúsculas: el --destructive oscuro es '#E08a6B', y el día que
@@ -51,6 +66,10 @@ export function paletaDesdeTokens(leer: (token: string) => string | null | undef
   };
   const luz = v(TOKENS_TENTI.cuerpoLuz), sombra = v(TOKENS_TENTI.cuerpoSombra), tinta = v(TOKENS_TENTI.tinta);
   const rubor = v(TOKENS_TENTI.rubor), chispa = v(TOKENS_TENTI.chispa), hecho = v(TOKENS_TENTI.hecho);
-  if (!luz || !sombra || !tinta || !rubor || !chispa || !hecho) return null;
-  return { cuerpo: [luz, sombra], tinta, rubor, chispa, hecho };
+  const error = v(TOKENS_TENTI.error), aviso = v(TOKENS_TENTI.aviso), trabajando = v(TOKENS_TENTI.trabajando);
+  if (!luz || !sombra || !tinta || !rubor || !chispa || !hecho || !error || !aviso || !trabajando) return null;
+  return {
+    cuerpo: [luz, sombra], tinta, rubor, chispa, hecho,
+    estados: { error, esperaTuOk: aviso, agobiado: aviso, trabajando },
+  };
 }

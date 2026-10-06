@@ -76,7 +76,7 @@ test('el banner de automatizaciones dice el número de la bandeja, no el suyo', 
   ]);
   const banner = page.getByRole('link', { name: /Sistema autónomo/ });
   await expect(banner).toBeVisible({ timeout: 30_000 });
-  await expect(banner).toContainText('2 casos requiere tu atención');
+  await expect(banner).toContainText('2 casos requieren tu atención');
   await expect(banner).not.toContainText('ninguna automatización');
 });
 

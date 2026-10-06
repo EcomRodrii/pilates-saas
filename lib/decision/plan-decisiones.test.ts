@@ -59,6 +59,7 @@ test('aprobar, rechazar, posponer, «Ya la he contactado», el estado y el Centr
     'app/api/decisiones/[id]/posponer/route.ts',
     'app/api/decisiones/[id]/gestionada/route.ts',
     'app/api/decisiones/[id]/estado/route.ts',
+    'app/api/decisiones/analizar/route.ts',
   ]) {
     // El manejador, sin los imports (que nombran las funciones que se llaman después).
     const src = sinComentarios(leer(ruta)).replace(/^[\s\S]*?export async function /, '');
@@ -79,6 +80,18 @@ test('ninguna ruta de /api/decisiones se queda sin comprobar el plan', () => {
     const src = sinComentarios(leer(ruta));
     const conAyudante = /await bloqueoPorPlan\(sesion\.studioId\)/.test(src);
     const aMano = /tieneFeature\([^)]*'decisiones'\)/.test(src);
-    assert.ok(conAyudante || aMano, `${ruta}: no comprueba que el plan incluya el Centro de Control`);
+    // El sondeo de «Analizar ahora» lee el plan en su única consulta y aplica la mitad pura.
+    const enSuConsulta = /bloqueoDelPlan\(data, !!error\)/.test(src);
+    assert.ok(conAyudante || aMano || enSuConsulta, `${ruta}: no comprueba que el plan incluya el Centro de Control`);
   }
+});
+
+test('el sondeo de «Analizar ahora»: rol, y el plan del estudio de la sesión en su única consulta', () => {
+  const src = sinComentarios(leer('app/api/decisiones/analisis-en-curso/route.ts'));
+  assert.match(src, /if \(sesion\.rol !== 'PROPIETARIO'\) return NextResponse\.json\(\{ error: 'No autorizado' \}, \{ status: 403 \}\);/);
+  assert.match(src, /\.select\('plan, subscription_status, decision_sessions\(id\)'\)\s*\.eq\('id', sesion\.studioId\)\s*\.eq\('decision_sessions\.studio_id', sesion\.studioId\)/);
+  // Antes de contestar nada sobre las sesiones, la puerta del plan.
+  assert.ok(src.indexOf('bloqueoDelPlan(data, !!error)') < src.indexOf('analisisEnCurso:'));
+  // Una sola consulta.
+  assert.equal((src.match(/\.from\(/g) ?? []).length, 1);
 });

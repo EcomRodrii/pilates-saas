@@ -35,7 +35,11 @@
 // se sale de ella por arriba y por los lados, centrado en el cuerpo: así el
 // cuerpo mide `ancho`, como el icono, y la pantalla no se mueve un píxel.
 //
-// Dos estados, y ninguno más:
+// Sus estados (desde el 5-oct-2026 por la noche, fundador: «que use todos sus
+// estados y emociones, cada uno en su momento»): cada uno significa UNA cosa, y
+// cada sitio lo pide a una función de lib/tenti/momentos.ts con el dato que lo
+// decide (`MAPA`). Fuera quedan 'buscando' (el asistente) y 'mareado' (solo al
+// tocarlo). Dos que conviene recordar:
 //   · 'reposo' — la firma. No es un aviso ni un «todo bien»: si hay algo que
 //     avisar, lo dice el texto de al lado.
 //   · 'pensando' — una petición de verdad en vuelo (un botón de IA, Analizar),
@@ -44,6 +48,10 @@
 //     (`tenti-respira`, globals.css) mientras dura la petición.
 //     Empezar a pensar no suena; terminar con resultado lo suena quien llama
 //     (`sonarTenti('pop')`), porque solo él sabe si hubo resultado.
+// Lo que describe una situación (espera tu visto bueno, dormido…) oscila como
+// mucho 4 s y se queda en su pose (`movimiento`, lib/tenti/motor.ts). Los
+// cambios de estado no suenan salvo con `sonarCambios`, y dentro de un control
+// nunca. Las emociones, una vez por `clave` y en silencio.
 // Con «reducir movimiento», quieto (sin respirar, parpadear ni mirar).
 // En reposo no respira, como en el catálogo: medido, una respiración CSS sin fin
 // en cada icono costaba más hilo principal que los tres canvas juntos.
@@ -51,6 +59,16 @@
 // Siempre aria-hidden: va pegado a un texto que ya dice lo mismo, y su nombre
 // no puede colarse en el del botón o el enlace que lo lleva. Por eso no acepta
 // `titulo`.
+//
+// El traje de temporada (el gorro de bruja, lib/tenti/trajes.ts) lo lleva solo
+// donde se toca: dentro de un botón o un enlace, no. Así quedan fuera sin otra
+// lista los botones de IA que tratan salud (un disfraz junto a la lesión de una
+// alumna es frívolo) y los enlaces pequeños, donde el gorro compite con la
+// etiqueta. Lo pinta el canvas (el traje de Coucou, lib/tenti/trajes-coucou.ts),
+// que con traje crece hacia fuera sin mover la caja. El SVG de reserva va SIN
+// traje a propósito: solo se ve los instantes que tarda en llegar el motor (o
+// si no hay canvas 2D), y redibujar a mano en SVG los trajes de Coucou sería
+// volver a tener un gorro que solo se parece al original.
 //
 // useId(): hay varios Tentis por página (tres en Resumen), y con ids fijos los
 // url(#…) de los degradados del SVG resolverían todos al primero.
@@ -62,12 +80,17 @@ import dynamic from 'next/dynamic';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { BAJADA, R_DEL_LADO, SEMIEJE_X, SILUETA_PX, dibujoDelIcono } from '@/lib/tenti/geometria';
+import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
 import type { PropsTenti } from './tenti';
 
 /** Anchos cerrados. Por debajo de 18 los ojos miden menos de 2 px y a DPR 1 se
  *  leen como manchas: el 16 no existe a propósito. */
 export type AnchoTentiIcono = 18 | 20 | 22 | 24 | 28;
-export type EstadoTentiIcono = 'reposo' | 'pensando';
+export type EstadoTentiIcono =
+  | 'reposo' | 'pensando' | 'trabajando' | 'hecho' | 'error' | 'esperaTuOk' | 'pregunta' | 'agobiado' | 'dormido';
+/** Las emociones que el icono puede tener; 'feliz' es del logo guardado y
+ *  'molesto' solo sale al tocarlo. */
+export type EmocionTentiIcono = 'amor' | 'orgullo' | 'guino' | 'bostezo' | 'sorpresa';
 /** `invertida`: la superficie de debajo es la tinta del texto (bg-primary,
  *  bg-brand). En oscuro --primary es casi el color del cuerpo (1,34:1), así que
  *  ahí la silueta toma el color del texto de esa superficie (currentColor). */
@@ -78,6 +101,12 @@ export interface PropsTentiIcono {
   ancho: AnchoTentiIcono;
   estado?: EstadoTentiIcono;
   sobre?: SuperficieTentiIcono;
+  /** Una vez por `clave`, sin sonido y cuando ya se ve. */
+  emocion?: { tipo: EmocionTentiIcono; clave: string } | null;
+  /** 'hecho' con celebración (los hitos) en vez de breve. */
+  celebra?: boolean;
+  /** Sus cambios de estado suenan (y el estado con el que aparece). Dentro de un control, nunca. */
+  sonarCambios?: boolean;
   className?: string;
 }
 
@@ -116,13 +145,17 @@ const TentiCanvas = dynamic<PropsTenti>(
 /** Lo que hace de un sitio «el clic es de otro»: ahí Tenti no se toca. */
 const DENTRO_DE_UN_CONTROL = 'a, button, label, summary, [role="button"], [role="link"], [role="switch"], [role="menuitem"], [role="tab"]';
 
-export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', className }: PropsTentiIcono) {
+export function TentiIcono({
+  ancho, estado = 'reposo', sobre = 'normal', emocion = null, celebra = false, sonarCambios = false, className,
+}: PropsTentiIcono) {
   const caja = useRef<HTMLSpanElement>(null);
   // Se sabe después de montar (hay que mirar el DOM): hasta entonces, no tocable.
   const [tocable, setTocable] = useState(false);
   useEffect(() => {
     setTocable(!caja.current?.closest(DENTRO_DE_UN_CONTROL));
   }, []);
+  const deTemporada = useTrajeDeTenti();
+  const traje = tocable ? deTemporada : null;
   const alto = Math.round(ancho * D.proporcion * 100) / 100;
   const { lado, izquierda, arriba } = encajeDelCanvas(ancho);
   // El SVG quieto vuelve a la caja desde la del canvas.
@@ -136,6 +169,7 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
       ref={caja}
       data-tenti-icono=""
       data-estado={estado}
+      data-traje={traje ?? undefined}
       aria-hidden="true"
       className={cn('relative inline-block shrink-0', className)}
       style={{ width: ancho, height: alto }}
@@ -155,6 +189,11 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
             sigueCursor
             interactivo={tocable}
             saludaUnaVez={tocable}
+            // El traje, solo donde se toca: la misma regla.
+            conTraje={tocable}
+            celebra={celebra}
+            sonarCambios={tocable && sonarCambios}
+            emocion={emocion}
             reserva={reserva}
             className="block"
           />
