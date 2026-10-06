@@ -194,7 +194,7 @@ export default function EntradaApp() {
   };
 
   const salir = async () => {
-    await supabasePortal.auth.signOut();
+    await supabasePortal.auth.signOut({ scope: 'local' });
     try { localStorage.removeItem(CLAVE_ULTIMO_ESTUDIO); } catch { /* modo privado */ }
     setEstudios([]); setNombre(null); setPass(''); setGlobal('');
     setFase('puerta');

@@ -47,6 +47,23 @@ export function esSesionAnonimaInesperada(error: unknown): boolean {
   return code === '42501' && /\bto anon\b/i.test(hint);
 }
 
+/**
+ * ¿El error al refrescar la sesión es pasajero? (6-oct-2026: «recordar sesión
+ * funciona a veces sí, a veces no»). Lo es si no hubo respuesta (sin red, el
+ * móvil volviendo de segundo plano) o si Supabase contestó 5xx — se ha medido
+ * un «500: error finding refresh token: context canceled». Solo un 4xx de
+ * GoTrue (refresh token no encontrado, ya usado, sesión borrada) dice que la
+ * sesión murió de verdad. Ante la duda, pasajero: echar a alguien con la
+ * sesión viva es peor que reintentar.
+ */
+export function esFalloTransitorioDeRefresh(error: unknown): boolean {
+  if (!error) return false;
+  const e = error as { name?: unknown; status?: unknown };
+  if (e.name === 'AuthRetryableFetchError') return true;
+  const status = typeof e.status === 'number' ? e.status : 0;
+  return !(status >= 400 && status < 500);
+}
+
 export type DecisionRecuperacionJwt = 'recargar' | 'login' | 'nada';
 
 // Si la última recarga por este motivo fue hace menos de esto y el token
@@ -68,10 +85,16 @@ export const VENTANA_ANTIBUCLE_MS = 5 * 60_000;
 export function decidirRecuperacionJwt(p: {
   haySesionLocal: boolean;
   refreshOk: boolean;
+  /** El refresco falló por la red o por un 5xx de Supabase: la sesión puede seguir viva. */
+  refreshTransitorio?: boolean;
   ultimaRecargaMs: number | null;
   ahoraMs: number;
 }): DecisionRecuperacionJwt {
   if (!p.haySesionLocal) return 'nada';
+  // Sin red o con Supabase caído un momento, el refresh token sigue valiendo:
+  // mandar a /login (y antes, cerrar sesión) echaba a la persona por un corte
+  // de un segundo. El SDK lo reintenta solo; la siguiente consulta funcionará.
+  if (!p.refreshOk && p.refreshTransitorio) return 'nada';
   if (!p.refreshOk) return 'login';
   if (p.ultimaRecargaMs !== null && p.ahoraMs - p.ultimaRecargaMs < VENTANA_ANTIBUCLE_MS) {
     return 'login';

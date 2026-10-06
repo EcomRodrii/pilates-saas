@@ -8,7 +8,7 @@ import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { setCurrentStudioId, setJwtCaducadoListener } from './supabase-data';
-import { decidirRecuperacionJwt } from './recuperar-sesion.ts';
+import { decidirRecuperacionJwt, esFalloTransitorioDeRefresh } from './recuperar-sesion.ts';
 
 // A-3: marca de la última recarga por sesión caducada (anti-bucle, ver
 // VENTANA_ANTIBUCLE_MS en lib/recuperar-sesion.ts).
@@ -115,11 +115,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       recuperacionJwtEnCurso = true;
       void (async () => {
         let refreshOk = false;
+        let refreshTransitorio = false;
         try {
           const { data, error } = await supabase.auth.refreshSession();
           refreshOk = !error && !!data.session;
-        } catch {
+          refreshTransitorio = !refreshOk && esFalloTransitorioDeRefresh(error);
+        } catch (e) {
           refreshOk = false;
+          refreshTransitorio = esFalloTransitorioDeRefresh(e ?? new Error('sin respuesta'));
         }
         let ultima: number | null = null;
         try {
@@ -129,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch { /* sessionStorage puede no estar (SSR, privacidad) */ }
 
         const decision = decidirRecuperacionJwt({
-          haySesionLocal: true, refreshOk, ultimaRecargaMs: ultima, ahoraMs: Date.now(),
+          haySesionLocal: true, refreshOk, refreshTransitorio, ultimaRecargaMs: ultima, ahoraMs: Date.now(),
         });
 
         if (decision === 'recargar') {
@@ -160,7 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             tags: { area: 'auth', tipo: 'sesion-caducada' },
             extra: { refreshOk, ultimaRecargaMs: ultima },
           });
-          try { await supabase.auth.signOut(); } catch { /* la sesión ya no vale */ }
+          // `local`: solo este dispositivo. Sin el scope, signOut cierra la
+          // sesión de la cuenta en TODOS (auth-js lo hace 'global' por defecto).
+          try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* la sesión ya no vale */ }
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: con la sesión muerta no puede quedar en memoria nada de ella (contextos, cachés), y `router.push` lo conservaría todo.
           window.location.assign('/login?motivo=sesion-caducada');
           setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
@@ -349,7 +354,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]);
       await soltarDispositivoEnServidor(authHeader);
     } catch { /* cerrar sesión no puede depender de esto */ }
-    await supabase.auth.signOut();
+    // Cerrar sesión cierra ESTE dispositivo (lib/auth/cerrar-sesion-local.test.ts).
+    await supabase.auth.signOut({ scope: 'local' });
     // Multi-tenancy: don't let the next session (anonymous browsing, or a
     // different account signing in on this device) inherit this user's
     // resolved studio id. Empty sentinel = matches no tenant.
