@@ -80,6 +80,11 @@ export function leTocaATentare(d: { destino: DestinoDenuncia; creadaEn: string }
   return d.destino === 'TENTARE' || horasHastaTentare(d.creadaEn, ahora) === 0;
 }
 
+/** Filtro PostgREST: denuncias que NO van contra esta cuenta (un `neq` a secas dejaría fuera las de autor nulo). */
+export function noContraQuienMira(userId: string): string {
+  return `autor_auth_user_id.is.null,autor_auth_user_id.neq.${userId}`;
+}
+
 /** Desde cuándo una denuncia del estudio pasa a Tentare: lo creado antes de esto ya es suyo. */
 export function corteTurnoTentare(ahora: Date = new Date()): string {
   return new Date(ahora.getTime() - HORAS_REVISION_ESTUDIO * 3600_000).toISOString();

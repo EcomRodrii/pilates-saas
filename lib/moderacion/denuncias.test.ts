@@ -7,6 +7,7 @@ import {
   porQueLaRevisaTentare, puedeRevisarDenuncia, textoParaDenunciante,
 } from './denuncias.ts';
 import { EVENTOS, plantillaDe, render } from '../notifications/catalog.ts';
+import { noContraQuienMira } from './denuncias.ts';
 
 test('a Tentare cuando el estudio es parte: su hilo con la alumna, o algo escrito por una propietaria', () => {
   assert.equal(destinoDeDenuncia({ ambito: 'CHAT_ESTUDIO', autorEsPropietaria: false }), 'TENTARE');
@@ -111,4 +112,25 @@ test('/interno: su propio permiso, el estudio sale de la denuncia, decide como T
   assert.match(servidor, /\.or\(`destino\.eq\.TENTARE,creada_en\.lte\.\$\{corteTurnoTentare\(ahora\)\}`\)/);
   // Tentare tampoco puede tomar una decisión que no esté entre las suyas.
   assert.match(servidor, /const quien = p\.revisor\.tipo === 'ESTUDIO' \? p\.revisor\.rol : 'TENTARE'/);
+});
+
+test('revisión de seguridad: nadie ve ni decide lo que va contra sí misma; el estudio no deshace lo de Tentare', () => {
+  // La bandeja y su contador excluyen las denuncias contra quien mira.
+  assert.match(leer('app/api/moderacion/denuncias/route.ts'), /listarDenunciasDelEstudio\(admin, sesion\.studioId, sesion\.rol, sesion\.userId\)/);
+  const servidor = leer('lib/moderacion/denuncias-servidor.ts');
+  assert.match(servidor, /\.or\(noContraQuienMira\(userId\)\)/);
+  assert.match(leer('lib/estado-estudio-servidor.ts'), /\.or\(`autor_auth_user_id\.is\.null,autor_auth_user_id\.neq\.\$\{userId\}`\)/);
+  // Retirar o volver a mostrar: la RPC rechaza a la autora y lo retirado por Tentare, y el estudio solo cierra lo suyo.
+  const sql = leer('supabase/migrations/20261005150100_moderacion_esquema.sql');
+  const ocultar = sql.slice(sql.indexOf('create or replace function public.ocultar_comentario_comunidad'), sql.indexOf('-- ── 6. Resolver una denuncia'));
+  assert.match(ocultar, /raise exception 'ES_AUTORA'/);
+  assert.match(ocultar, /raise exception 'RETIRADO_POR_TENTARE'/);
+  assert.match(ocultar, /and \(p_revisor = 'TENTARE' or d\.destino = 'ESTUDIO'\)/);
+  assert.match(sql, /set cerrada_en = now\(\), cerrada_por = p_por, cerrada_revisor = p_revisor/);
+  // Reabrir desde el panel: nunca quien es parte del hilo, ni lo que cerró Tentare.
+  const cerrar = servidor.slice(servidor.indexOf('export async function cerrarConversacion'));
+  assert.match(cerrar, /partes\.some\(\(x\) => x\.auth_user_id === p\.userId\)/);
+  assert.match(cerrar, /conv\.cerrada_revisor === 'TENTARE'/);
+  assert.match(cerrar, /\.not\('cerrada_en', 'is', null\)\.eq\('cerrada_revisor', 'ESTUDIO'\)/);
+  assert.equal(noContraQuienMira('u-1'), 'autor_auth_user_id.is.null,autor_auth_user_id.neq.u-1');
 });

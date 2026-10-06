@@ -292,6 +292,42 @@ test('9. retirar un comentario denunciado: el contador baja una vez y se cierran
   }
 });
 
+const ocultar = (comentarioId: string, studioId: string, ocultarlo: boolean, por: string, revisor: string) =>
+  admin.rpc('ocultar_comentario_comunidad', {
+    p_comentario_id: comentarioId, p_studio_id: studioId, p_ocultar: ocultarlo, p_por: por, p_revisor: revisor,
+  }) as unknown as Promise<Rpc>;
+
+test('9b. retirar desde el estudio: nunca la autora, solo cierra lo suyo y no deshace lo que retiró Tentare', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const alumna = await alumnaConSesion(studio.studioId);
+  // Hace de persona de Tentare: `oculto_por` y `resuelta_por` apuntan a auth.users.
+  const tentare = await crearInstructora(admin, studio.studioId);
+  try {
+    const { comentarioId } = await postConComentario(studio, alumna.authUserId);
+    const delEstudio = `den-${randomUUID()}`;
+    const deTentare = `den-${randomUUID()}`;
+    await sql`insert into public.denuncias (id, studio_id, ambito, destino, comentario_id, autor_auth_user_id, denunciante_auth_user_id)
+              values (${delEstudio}, ${studio.studioId}, 'TABLON', 'ESTUDIO', ${comentarioId}, ${alumna.authUserId}, ${tentare.authUserId}),
+                     (${deTentare}, ${studio.studioId}, 'TABLON', 'TENTARE', ${comentarioId}, ${alumna.authUserId}, ${studio.authUserId})`;
+
+    const laAutora = await ocultar(comentarioId, studio.studioId, true, alumna.authUserId, 'ESTUDIO');
+    assert.match(laAutora.error?.message ?? '', /ES_AUTORA/);
+
+    const estudio = await ocultar(comentarioId, studio.studioId, true, studio.authUserId, 'ESTUDIO');
+    assert.ok(!estudio.error, estudio.error?.message);
+    assert.equal((estudio.data?.cerradas as unknown[]).length, 1, 'solo la que le toca al estudio');
+    const [pendiente] = await sql<{ estado: string }[]>`select estado from public.denuncias where id = ${deTentare}`;
+    assert.equal(pendiente.estado, 'PENDIENTE');
+
+    assert.ok(!(await ocultar(comentarioId, studio.studioId, false, studio.authUserId, 'ESTUDIO')).error);
+    assert.ok(!(await ocultar(comentarioId, studio.studioId, true, tentare.authUserId, 'TENTARE')).error);
+    const deshacer = await ocultar(comentarioId, studio.studioId, false, studio.authUserId, 'ESTUDIO');
+    assert.match(deshacer.error?.message ?? '', /RETIRADO_POR_TENTARE/);
+  } finally {
+    await limpiar(studio, [tentare], [alumna.authUserId]);
+  }
+});
+
 test('10 y 11. quién resuelve: cada cual lo suyo, Tentare lo del estudio a las 24 h, y nunca quien escribió lo denunciado', async () => {
   const studio = await crearStudioConPropietaria(admin);
   const h = await hiloConInstructora(studio);

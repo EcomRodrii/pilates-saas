@@ -44,11 +44,17 @@
 -- ── 1. Columnas ──────────────────────────────────────────────────────────────
 alter table public.conversaciones add column if not exists cerrada_en timestamptz;
 alter table public.conversaciones add column if not exists cerrada_por uuid references auth.users(id) on delete set null;
+-- Quién decidió cerrarla: el estudio puede reabrir lo que cerró él, nunca lo que cerró Tentare.
+alter table public.conversaciones add column if not exists cerrada_revisor text
+  check (cerrada_revisor is null or cerrada_revisor in ('ESTUDIO', 'TENTARE'));
 alter table public.conversacion_participantes add column if not exists bloqueo_en timestamptz;
 alter table public.mensajes add column if not exists oculto_en timestamptz;
 alter table public.mensajes add column if not exists oculto_por uuid references auth.users(id) on delete set null;
 alter table public.comentarios_comunidad add column if not exists oculto_en timestamptz;
 alter table public.comentarios_comunidad add column if not exists oculto_por uuid references auth.users(id) on delete set null;
+-- Quién decidió retirarlo: el estudio puede volver a mostrar lo que retiró él, nunca lo que retiró Tentare.
+alter table public.comentarios_comunidad add column if not exists oculto_revisor text
+  check (oculto_revisor is null or oculto_revisor in ('ESTUDIO', 'TENTARE'));
 alter table public.comentarios_comunidad add column if not exists socio_id text references public.socios(id) on delete cascade;
 
 create index if not exists idx_conversaciones_cerrada_por on public.conversaciones (cerrada_por) where cerrada_por is not null;
@@ -205,8 +211,11 @@ create trigger trg_mensajes_conversacion_abierta
   for each row execute function public.mensajes_conversacion_abierta();
 
 -- ── 5. Retirar o volver a mostrar un comentario ──────────────────────────────
--- Un único dueño: lo usan la denuncia (resolver_denuncia) y, más adelante, el botón
--- del panel. Al retirar, cierra también las denuncias pendientes de ese comentario.
+-- Un único dueño: lo usan la denuncia (resolver_denuncia) y el botón del panel.
+-- Al retirar, cierra también las denuncias pendientes de ese comentario que le
+-- tocan a quien decide (el estudio, solo las suyas; Tentare, todas). Nadie retira
+-- ni vuelve a mostrar lo que escribió él mismo, y el estudio no vuelve a mostrar
+-- lo que retiró Tentare.
 create or replace function public.ocultar_comentario_comunidad(
   p_comentario_id text, p_studio_id text, p_ocultar boolean, p_por uuid, p_revisor text
 ) returns jsonb
@@ -217,14 +226,27 @@ as $function$
 declare
   v_post text;
   v_cerradas jsonb := '[]'::jsonb;
+  v_c record;
 begin
   if p_revisor is null or p_revisor not in ('ESTUDIO', 'TENTARE') or p_ocultar is null then
     raise exception 'ACCION_INVALIDA' using errcode = '22023';
   end if;
 
+  select cc.autor_id, cc.oculto_revisor into v_c
+    from public.comentarios_comunidad cc
+   where cc.id = p_comentario_id and cc.studio_id = p_studio_id
+   for update;
+  if found and p_por is not null and v_c.autor_id = p_por::text then
+    raise exception 'ES_AUTORA' using errcode = '42501';
+  end if;
+  if found and not p_ocultar and p_revisor = 'ESTUDIO' and v_c.oculto_revisor = 'TENTARE' then
+    raise exception 'RETIRADO_POR_TENTARE' using errcode = '42501';
+  end if;
+
   update public.comentarios_comunidad cc
      set oculto_en = case when p_ocultar then now() end,
-         oculto_por = case when p_ocultar then p_por end
+         oculto_por = case when p_ocultar then p_por end,
+         oculto_revisor = case when p_ocultar then p_revisor end
    where cc.id = p_comentario_id and cc.studio_id = p_studio_id
      and (cc.oculto_en is null) = p_ocultar
   returning cc.post_id into v_post;
@@ -240,6 +262,7 @@ begin
       update public.denuncias d
          set estado = 'CONTENIDO_OCULTO', resuelta_en = now(), resuelta_por = p_por, revisada_por = p_revisor
        where d.studio_id = p_studio_id and d.comentario_id = p_comentario_id and d.estado = 'PENDIENTE'
+         and (p_revisor = 'TENTARE' or d.destino = 'ESTUDIO')
       returning d.id, d.motivo, d.denunciante_auth_user_id
     )
     select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'motivo', x.motivo, 'denunciante', x.denunciante_auth_user_id)), '[]'::jsonb)
@@ -332,7 +355,7 @@ begin
     perform public.ocultar_comentario_comunidad(v_d.comentario_id, p_studio_id, true, p_por, p_revisor);
   elsif p_accion = 'CERRAR_CONVERSACION' then
     update public.conversaciones c
-       set cerrada_en = now(), cerrada_por = p_por
+       set cerrada_en = now(), cerrada_por = p_por, cerrada_revisor = p_revisor
      where c.id = v_d.conversacion_id and c.studio_id = p_studio_id and c.cerrada_en is null;
   end if;
 

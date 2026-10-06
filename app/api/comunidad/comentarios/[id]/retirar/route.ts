@@ -27,9 +27,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const retirar = body?.retirar !== false;
   const { id } = await params;
   try {
-    const cambiado = await retirarComentario(admin, { studioId: sesion.studioId, comentarioId: id, retirar, userId: sesion.userId });
+    const r = await retirarComentario(admin, { studioId: sesion.studioId, comentarioId: id, retirar, userId: sesion.userId });
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
     // Ya estaba así (otra persona lo hizo a la vez): no es un error, y la pantalla se pone al día.
-    return NextResponse.json({ retirado: retirar, cambiado });
+    return NextResponse.json({ retirado: retirar, cambiado: r.cambiado });
   } catch (e) {
     return errorInterno('comunidad/comentarios/retirar:POST', e, 'No se ha podido guardar. Inténtalo otra vez.');
   }

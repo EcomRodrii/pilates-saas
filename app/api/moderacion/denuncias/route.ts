@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   try {
-    const denuncias = await listarDenunciasDelEstudio(admin, sesion.studioId, sesion.rol);
+    const denuncias = await listarDenunciasDelEstudio(admin, sesion.studioId, sesion.rol, sesion.userId);
     return NextResponse.json({ denuncias }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     return errorInterno('moderacion/denuncias:GET', e, 'No se han podido cargar las denuncias.');

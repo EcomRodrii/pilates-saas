@@ -1412,6 +1412,8 @@ export interface RowComentariosComunidad {
   // migr 20261005150100.
   oculto_por: string | null;
   // migr 20261005150100.
+  oculto_revisor: string | null;
+  // migr 20261005150100.
   socio_id: string | null;
 }
 
@@ -2707,6 +2709,8 @@ export interface RowConversaciones {
   cerrada_en: string | null;
   // migr 20261005150100.
   cerrada_por: string | null;
+  // migr 20261005150100.
+  cerrada_revisor: string | null;
 }
 
 export interface RowConversacionParticipantes {
@@ -6188,6 +6192,7 @@ export type ComentariosComunidadInsert = {
   creado_en?: string | null | null;
   oculto_en?: string | null | null;
   oculto_por?: string | null | null;
+  oculto_revisor?: string | null | null;
   socio_id?: string | null | null;
 }
 
@@ -6202,6 +6207,7 @@ export type ComentariosComunidadUpdate = {
   creado_en?: string | null | null;
   oculto_en?: string | null | null;
   oculto_por?: string | null | null;
+  oculto_revisor?: string | null | null;
   socio_id?: string | null | null;
 }
 
@@ -8577,6 +8583,7 @@ export type ConversacionesInsert = {
   mostrador_leido_hasta?: string | null | null;
   cerrada_en?: string | null | null;
   cerrada_por?: string | null | null;
+  cerrada_revisor?: string | null | null;
 }
 
 export type ConversacionesUpdate = {
@@ -8591,6 +8598,7 @@ export type ConversacionesUpdate = {
   mostrador_leido_hasta?: string | null | null;
   cerrada_en?: string | null | null;
   cerrada_por?: string | null | null;
+  cerrada_revisor?: string | null | null;
 }
 
 export type ConversacionParticipantesInsert = {

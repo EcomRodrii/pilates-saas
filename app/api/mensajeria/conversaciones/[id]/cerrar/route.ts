@@ -25,8 +25,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const cerrar = body?.cerrar !== false;
   const { id } = await params;
   try {
-    const cambiado = await cerrarConversacion(admin, { studioId: sesion.studioId, conversacionId: id, cerrar, userId: sesion.userId });
-    return NextResponse.json({ cerrada: cerrar, cambiado });
+    const r = await cerrarConversacion(admin, { studioId: sesion.studioId, conversacionId: id, cerrar, userId: sesion.userId });
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+    return NextResponse.json({ cerrada: cerrar, cambiado: r.cambiado });
   } catch (e) {
     return errorInterno('mensajeria/cerrar:POST', e, 'No se ha podido guardar. Inténtalo otra vez.');
   }

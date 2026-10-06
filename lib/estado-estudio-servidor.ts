@@ -283,7 +283,9 @@ export async function contarConteosEstudio(
     // mira (el chat con una instructora, solo la propietaria; el tablón, quien lo modera).
     si(ambitosQueRevisa(rol).length > 0, () => contar('denuncias', admin.from('denuncias')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE').eq('destino', 'ESTUDIO')
-      .in('ambito', ambitosQueRevisa(rol)))),
+      .in('ambito', ambitosQueRevisa(rol))
+      // Las que van contra quien mira, ni se cuentan: no decide sobre sí misma.
+      .or(`autor_auth_user_id.is.null,autor_auth_user_id.neq.${userId}`))),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);

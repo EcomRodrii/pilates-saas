@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Recipient } from '@/lib/notifications/types';
 import { emitirContenidoRetirado, emitirDenunciaNueva, emitirDenunciaResuelta } from '@/lib/notifications/emit';
 import {
-  accionesPosibles, ambitosQueRevisa, corteTurnoTentare, destinoDeDenuncia, errorDeResolver, porQueLaRevisaTentare,
+  accionesPosibles, ambitosQueRevisa, corteTurnoTentare, destinoDeDenuncia, errorDeResolver, noContraQuienMira, porQueLaRevisaTentare,
   puedeRevisarDenuncia, textoParaDenunciante,
   type AccionDenuncia, type AmbitoDenuncia, type DestinoDenuncia, type MotivoDenuncia, type ResultadoDenuncia, type RolEquipo,
 } from './denuncias';
@@ -167,14 +167,19 @@ async function nombresPorCuenta(admin: SupabaseClient, studioId: string, cuentas
   return out;
 }
 
-/** Las denuncias pendientes que le tocan a este rol en este estudio, de la más antigua a la más nueva. */
+/**
+ * Las denuncias pendientes que le tocan a este rol en este estudio, de la más
+ * antigua a la más nueva. Nunca las que van contra quien mira (`userId`): ni
+ * decide sobre sí misma ni ve quién la denunció ni lo que contó.
+ */
 export async function listarDenunciasDelEstudio(
-  admin: SupabaseClient, studioId: string, rol: RolEquipo,
+  admin: SupabaseClient, studioId: string, rol: RolEquipo, userId: string,
 ): Promise<DenunciaParaRevisar[]> {
   const ambitos = ambitosQueRevisa(rol);
   if (ambitos.length === 0) return [];
   const { data, error } = await admin.from('denuncias').select(COLUMNAS_DENUNCIA)
     .eq('studio_id', studioId).eq('estado', 'PENDIENTE').eq('destino', 'ESTUDIO').in('ambito', ambitos)
+    .or(noContraQuienMira(userId))
     .order('creada_en', { ascending: true }).limit(100);
   if (error) throw new Error(`denuncias: ${error.message}`);
   return enriquecer(admin, studioId, (data ?? []) as FilaDenuncia[], rol);
@@ -362,34 +367,64 @@ async function avisarAutorRetirado(
  * («hemos retirado el comentario») y se avisa a quien las hizo y a quien lo
  * escribió. `false` si no había nada que cambiar.
  */
+export type ResultadoModeracionPanel = { ok: true; cambiado: boolean } | { ok: false; status: number; error: string };
+
+/**
+ * Retirar o volver a mostrar un comentario desde el panel. La RPC rechaza que lo
+ * haga quien lo escribió y que el estudio vuelva a mostrar lo que retiró Tentare;
+ * al retirar, solo cierra las denuncias que le tocan al estudio.
+ */
 export async function retirarComentario(
   admin: SupabaseClient, p: { studioId: string; comentarioId: string; retirar: boolean; userId: string },
-): Promise<boolean> {
+): Promise<ResultadoModeracionPanel> {
   const { data, error } = await admin.rpc('ocultar_comentario_comunidad', {
     p_comentario_id: p.comentarioId, p_studio_id: p.studioId, p_ocultar: p.retirar, p_por: p.userId, p_revisor: 'ESTUDIO',
   });
-  if (error) throw new Error(`ocultar_comentario_comunidad: ${error.message}`);
+  if (error) {
+    if (error.message.includes('ES_AUTORA')) return { ok: false, status: 403, error: 'No puedes moderar un comentario tuyo.' };
+    if (error.message.includes('RETIRADO_POR_TENTARE')) {
+      return { ok: false, status: 409, error: 'Lo retiró Tentare al revisar una denuncia: no se puede volver a mostrar desde aquí.' };
+    }
+    throw new Error(`ocultar_comentario_comunidad: ${error.message}`);
+  }
   const r = data as { cambiado: boolean; cerradas: RespuestaRpc['cerradas'] };
-  if (!r.cambiado || !p.retirar) return r.cambiado;
+  if (!r.cambiado || !p.retirar) return { ok: true, cambiado: r.cambiado };
   await avisarDecision(admin, p.studioId, {
     resultado: 'CONTENIDO_OCULTO', ambito: 'TABLON', mensajeId: null, comentarioId: p.comentarioId, conversacionId: null,
     autor: null, cerradas: r.cerradas ?? [],
   });
-  return true;
+  return { ok: true, cambiado: true };
 }
 
 /**
  * Cerrar (o reabrir) un hilo instructora–alumna desde el panel. Solo ese tipo:
- * el hilo con el estudio no se cierra nunca. `false` si no existe o ya estaba así.
+ * el hilo con el estudio no se cierra nunca. Quien es parte del hilo (la dueña
+ * que también da clase) no decide sobre él, y el estudio no reabre lo que cerró
+ * Tentare. `cambiado: false` si no existe o ya estaba así.
  */
 export async function cerrarConversacion(
   admin: SupabaseClient, p: { studioId: string; conversacionId: string; cerrar: boolean; userId: string },
-): Promise<boolean> {
+): Promise<ResultadoModeracionPanel> {
+  const { data: conv, error: errConv } = await admin.from('conversaciones')
+    .select('id, cerrada_en, cerrada_revisor, conversacion_participantes(rol_en_conversacion, auth_user_id)')
+    .eq('id', p.conversacionId).eq('studio_id', p.studioId).eq('tipo', 'ALUMNA_INSTRUCTORA').maybeSingle();
+  if (errConv) throw new Error(`conversaciones: ${errConv.message}`);
+  if (!conv) return { ok: true, cambiado: false };
+  const partes = (conv.conversacion_participantes ?? []) as { rol_en_conversacion: string; auth_user_id: string | null }[];
+  if (partes.some((x) => x.auth_user_id === p.userId)) {
+    return { ok: false, status: 403, error: 'Eres parte de esta conversación: no puedes cerrarla ni reabrirla tú.' };
+  }
+  if (!p.cerrar && conv.cerrada_en && conv.cerrada_revisor === 'TENTARE') {
+    return { ok: false, status: 409, error: 'La cerró Tentare al revisar una denuncia: no se puede reabrir desde aquí.' };
+  }
   let q = admin.from('conversaciones')
-    .update(p.cerrar ? { cerrada_en: new Date().toISOString(), cerrada_por: p.userId } : { cerrada_en: null, cerrada_por: null })
+    .update(p.cerrar
+      ? { cerrada_en: new Date().toISOString(), cerrada_por: p.userId, cerrada_revisor: 'ESTUDIO' }
+      : { cerrada_en: null, cerrada_por: null, cerrada_revisor: null })
     .eq('id', p.conversacionId).eq('studio_id', p.studioId).eq('tipo', 'ALUMNA_INSTRUCTORA');
-  q = p.cerrar ? q.is('cerrada_en', null) : q.not('cerrada_en', 'is', null);
+  // Reabrir, solo lo que cerró el estudio (la misma condición, en el propio UPDATE).
+  q = p.cerrar ? q.is('cerrada_en', null) : q.not('cerrada_en', 'is', null).eq('cerrada_revisor', 'ESTUDIO');
   const { data, error } = await q.select('id');
   if (error) throw new Error(`conversaciones: ${error.message}`);
-  return (data ?? []).length > 0;
+  return { ok: true, cambiado: (data ?? []).length > 0 };
 }
