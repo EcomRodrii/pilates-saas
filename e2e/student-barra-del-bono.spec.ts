@@ -83,8 +83,8 @@ test.describe('Student PWA · la barra de un bono', () => {
     const c = await colores(page);
     expect(c.acento, 'el tema del estudio no ha llegado a la pantalla').toBeTruthy();
     expect(c.relleno, 'el anillo sigue con el verde del sistema').not.toBe(aRgb(c.exito));
-    // El héroe lleva el tono hondo del estudio: el color de marca es la tarjeta entera.
-    expect(c.fondoHeroe).toBe(c.acentoHondo);
+    // Mi plan (6-oct-2026): la tarjeta del bono ya no es un héroe oscuro; el color de marca va en el anillo.
+    expect(c.relleno, 'el anillo no lleva el color del estudio').not.toBe(c.fondoHeroe);
   });
 
   test('con una sesión, la barra dice lo mismo que la etiqueta', async ({ page }) => {
@@ -100,6 +100,8 @@ test.describe('Student PWA · la barra de un bono', () => {
     // color de marca parecería disponible.
     await montar(page, 5, 'CANCELADA');
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
+    // Sin nada activo, «Anteriores» sale desplegado: es lo que tiene.
+    await expect(page.getByTestId('mi-plan-anteriores')).toHaveAttribute('aria-expanded', 'true', { timeout: 30_000 });
     const c = await colores(page);
     expect(c.relleno).not.toBe(aRgb(c.acento));
     expect(c.relleno).not.toBe(aRgb(c.exito));

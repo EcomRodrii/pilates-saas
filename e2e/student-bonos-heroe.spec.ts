@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { sembrarSociaCompleta, SLUG, SOCIO_ID, type OpcionesSocia } from './socia-completa';
 
-// Bonos (P4-C y E, 6-oct-2026): el bono que se gasta primero con su anillo, y la cabecera de la cuota. Lo que se
-// prueba es que NADA de dinero se dice sin un dato que lo sostenga: «12 € por clase» solo con un recibo cobrado,
-// «Al día» solo sin deudas y con algo pagado, «Si quieres más» solo con algo que dé clases que la cuota no incluye.
+// Mi plan (antes «Bonos»; P4-C y E, 6-oct-2026, y el rediseño «Clase fija y bonos, ordenados»): el bono que se gasta
+// primero con su anillo, y la tarjeta de la cuota. Lo que se prueba es que NADA de dinero se dice sin un dato que lo
+// sostenga: «12 € por clase» solo con un recibo cobrado, «Al día» solo sin deudas y con algo pagado, «Próxima
+// renovación» solo de una cuota que se renueva, y la tienda dice «lo que tu cuota no incluye» solo si hay algo así.
 // Reloj: 12-ago-2026, 08:00 de Madrid (miércoles). Con contador de studio-data en cada test.
 
 test.describe.configure({ timeout: 150_000 });
@@ -38,12 +39,19 @@ test('el bono, con su anillo: lo que queda, de cuántas, cuándo caduca, a 12 �
   const heroe = page.getByTestId('bono-hero');
   await expect(heroe.getByTestId('bono-restantes')).toHaveText('5', { timeout: 45_000 });
   await expect(heroe).toContainText('Bono 8 sesiones');
-  await expect(heroe).toContainText('de 8 sesiones');
-  await expect(heroe.getByTestId('bono-caduca')).toHaveText('Caduca el 31 dic · en 141 días');
+  // El anillo dice DE QUÉ queda: «5 de 8 sesiones», nunca «Te quedan» con el 8 suelto.
+  await expect(heroe.getByTestId('bono-caduca')).toHaveText('5 de 8 sesiones · hasta el 31 dic');
+  // Caduca lejos (141 días): sin píldora, ya lo dice «hasta el 31 dic».
+  await expect(heroe.getByTestId('bono-caduca-pronto')).toHaveCount(0);
+  await expect(heroe.getByText('Te quedan', { exact: true })).toHaveCount(0);
   await expect(heroe.getByTestId('bono-precio-clase')).toHaveText('12 € por clase');
   await expect(heroe.getByTestId('bono-reservadas')).toHaveText('Ya reservada con este bono: mié 12');
   await expect(heroe).toContainText('Sirve para cualquier clase');
   await expect(heroe.getByRole('link').first()).toHaveAttribute('href', `${BONOS}/sus-1`);
+  await expect(heroe.getByTestId('bono-movimientos')).toHaveAttribute('href', `${BONOS}/sus-1`);
+  // Solo bono: es «Tu bono», no «También tienes».
+  await expect(heroe).toContainText('Tu bono');
+  await expect(heroe.getByTestId('bono-se-usa')).toHaveCount(0);
   await expect(page.getByTestId('bono-aviso')).toHaveCount(0);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);
@@ -61,16 +69,16 @@ test('sin un único recibo cobrado no hay «€ por clase», y una reserva sin b
   expect(pedidas()).toBeGreaterThan(0);
 });
 
-test('con una sesión, el aviso lo dice sin «Renovar» y lleva a ver bonos', async ({ page }) => {
+test('con una sesión, el aviso lo dice sin «Renovar» y lleva a la tienda', async ({ page }) => {
   const { pedidas } = await montar(page, { bono: 1 });
   const aviso = page.getByTestId('bono-aviso');
   await expect(aviso).toContainText('Una sesión más y se acaba tu bono.', { timeout: 45_000 });
-  await expect(aviso.getByRole('link', { name: 'Ver bonos' })).toHaveAttribute('href', `/portal/${SLUG}/comprar`);
+  await expect(aviso.getByRole('link', { name: 'Tienda' })).toHaveAttribute('href', `/portal/${SLUG}/comprar`);
   await expect(page.getByText(/Renueva/)).toHaveCount(0);
   expect(pedidas()).toBeGreaterThan(0);
 });
 
-test('la cuota: «Al día», lo que incluye, hasta cuándo vale, su semana y su último recibo', async ({ page }) => {
+test('la cuota: «Al día», su semana con lo que le queda, la próxima renovación y su último recibo', async ({ page }) => {
   const { a, pedidas } = await montar(page, {
     bono: null, cuota: { limiteSemanal: 2 },
     payload: (f) => { socia(f).recibos = [recibo('rec-m', 'sus-mes', 89)]; },
@@ -81,11 +89,12 @@ test('la cuota: «Al día», lo que incluye, hasta cuándo vale, su semana y su 
   const cuota = page.getByTestId('cuota-hero');
   await expect(cuota.getByTestId('cuota-pagos')).toHaveText('Al día', { timeout: 45_000 });
   await expect(cuota).toContainText('Mensual ilimitado');
-  await expect(cuota).toContainText('2 clases a la semana');
-  await expect(cuota.getByTestId('cuota-vigencia')).toHaveText('Vigente hasta el 31 dic');
+  // Una MENSUAL activa sin baja programada se renueva el día siguiente a su fin, por el precio de su plan.
+  await expect(cuota.getByTestId('cuota-vigencia')).toHaveText('Próxima renovación: 1 ene · 89 €');
   await expect(cuota.getByTestId('semana-cifra')).toHaveText('1 de 2');
-  await expect(page.getByTestId('cuota-recibos')).toContainText('Último: 1 ago · 89 € · Pagado');
-  await expect(page.getByTestId('cuota-recibos').getByRole('link')).toHaveAttribute('href', `/portal/${SLUG}/pagos`);
+  await expect(cuota.getByTestId('semana-queda')).toHaveText('Te queda 1 clase hasta el domingo.');
+  await expect(page.getByTestId('mi-plan-recibos')).toContainText('Último: 1 ago · 89 € · Pagado');
+  await expect(page.getByTestId('mi-plan-recibos').getByRole('link')).toHaveAttribute('href', `/portal/${SLUG}/pagos`);
   await expect(page.getByText(/se renueva sola|sin límite/i)).toHaveCount(0);
   // Cubre todas las clases: no hay nada que «quiera más» que la cuota no le dé.
   await expect(page.getByTestId('cuota-mas')).toHaveCount(0);
@@ -103,7 +112,17 @@ test('con un recibo sin cobrar, «Pago pendiente»; nunca «Al día»', async ({
   expect(pedidas()).toBeGreaterThan(0);
 });
 
-test('«Si quieres más» solo con lo que da clases que la cuota no incluye', async ({ page }) => {
+test('con una baja programada, la cuota NO promete renovarse', async ({ page }) => {
+  const { pedidas } = await montar(page, {
+    bono: null, cuota: true,
+    payload: (f) => { for (const s of socia(f).suscripciones as Array<Record<string, unknown>>) s.bajaAlVencer = true; },
+  });
+  await expect(page.getByTestId('cuota-vigencia')).toHaveText('Termina el 31 dic · no se renueva', { timeout: 45_000 });
+  await expect(page.getByText(/Próxima renovación/)).toHaveCount(0);
+  expect(pedidas()).toBeGreaterThan(0);
+});
+
+test('la tienda dice «lo que tu cuota no incluye» solo si hay algo así', async ({ page }) => {
   const { pedidas } = await montar(page, {
     bono: null, cuota: true,
     payload: (f) => {
@@ -112,21 +131,18 @@ test('«Si quieres más» solo con lo que da clases que la cuota no incluye', as
     },
   });
   const mas = page.getByTestId('cuota-mas');
-  await expect(mas).toContainText('Para las clases que tu cuota no incluye: Mat.', { timeout: 45_000 });
-  await expect(mas).toContainText('Bono 8 sesiones');
-  await expect(mas.getByRole('link', { name: 'Ver en la tienda' })).toHaveAttribute('href', `/portal/${SLUG}/comprar`);
-  // Ni la propia cuota ni otra cuota se ofrecen para «venir más».
-  await expect(mas).not.toContainText('Mensual ilimitado');
+  await expect(mas).toContainText('Para lo que tu cuota no incluye: Mat', { timeout: 45_000 });
+  await expect(mas.getByRole('link')).toHaveAttribute('href', `/portal/${SLUG}/comprar`);
   expect(pedidas()).toBeGreaterThan(0);
 });
 
-test('la clase fija de la cuota lleva a Mis clases → Fijas', async ({ page }) => {
+test('la clase fija de la cuota, en una línea, lleva a Mis clases → Clase fija', async ({ page }) => {
   const { pedidas } = await montar(page, { bono: null, cuota: true, reservaFija: true, payload: (f) => {
     socia(f).plazasFijas = [{ id: 'pf-1', socioId: SOCIO_ID, diaSemana: 3, horaInicio: '10:00', salaId: 'sala-1', tipoClaseId: 'tc-r', estado: 'ACTIVA', vigenciaDesde: '2026-08-01', vigenciaHasta: null }];
   } });
   const fija = page.getByTestId('cuota-fija');
   await expect(fija).toContainText('Tu clase fija', { timeout: 45_000 });
-  await expect(fija).toContainText('10:00');
-  await expect(fija.getByRole('link')).toHaveAttribute('href', `/portal/${SLUG}/mis-reservas?tab=fijas`);
+  await expect(fija).toContainText('miércoles 10:00');
+  await expect(fija).toHaveAttribute('href', `/portal/${SLUG}/mis-reservas?tab=fija`);
   expect(pedidas()).toBeGreaterThan(0);
 });

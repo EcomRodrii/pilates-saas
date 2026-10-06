@@ -122,7 +122,7 @@ test('«Volver» en una ficha a la que se llegó directa va a la pantalla padre,
   await expect(page.getByRole('heading', { name: 'Recibo' })).toBeVisible({ timeout: 60_000 });
   await page.getByRole('button', { name: 'Volver' }).click();
   await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/pagos$`), { timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Pagos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Recibos' })).toBeVisible({ timeout: 30_000 });
   // La vuelta anterior SUSTITUYÓ la ficha: no hay historial falso detrás, así
   // que este «Volver» no hace un `history.back()` al vacío: va a Inicio.
   await page.getByRole('button', { name: 'Volver' }).click();

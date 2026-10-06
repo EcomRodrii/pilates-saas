@@ -2,8 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { SLUG, SESION_ID, sembrarSociaCompleta, type OpcionesSocia } from './socia-completa';
 
 // La ficha de una clase (P10 + P02, 5-oct-2026): la foto entera y el título DEBAJO, «Cómo vienes» con sus datos, las
-// filas con icono, «Cómo llegar» y «Escribe al estudio». Todo afirmado dentro de su testid o `data-fila`: la fila corta
-// y la tarjeta pueden repetir «Incluida en tu cuota».
+// filas con icono, «Cómo llegar» y «Escribe al estudio». Todo afirmado dentro de su testid o `data-fila`. Desde el
+// rediseño «Clase fija y bonos, ordenados» (6-oct-2026) lo que dice «Cómo vienes» NO se repite en la fila corta.
 //
 // Horas con zona explícita (+02:00) y el reloj en hora de Madrid: el test dice lo mismo con TZ=UTC (el CI).
 
@@ -50,6 +50,8 @@ test.describe('Student PWA · ficha de una clase', () => {
     const caja = await cv.boundingBox();
     expect(caja!.y, '«Cómo vienes» empieza fuera de la primera pantalla').toBeLessThan(MOVIL.height);
     await expect(cv.getByRole('link', { name: /Ver/ })).toHaveAttribute('href', `${base}/bonos/sus-1`);
+    // El bono se nombra en su tarjeta, no también en la fila corta de arriba.
+    await expect(page.getByTestId('pago-corto')).toHaveCount(0);
 
     await expect(page.locator('[data-fila="cuando"]')).toHaveText('Hoy · 10:00 – 10:50 · 50 min');
     await expect(page.locator('[data-fila="donde"]')).toContainText('Sala 1 · Tentare');
@@ -101,27 +103,32 @@ test.describe('Student PWA · ficha de una clase', () => {
     await expect(cv).not.toContainText(/Te quedan|sesi/);
   });
 
-  test('cuota + bono acotado a Reformer: la fila corta, la tarjeta y la hoja dicen CUOTA (la mensual gana)', async ({ page }) => {
+  test('cuota + bono acotado a Reformer: la tarjeta y la hoja dicen CUOTA (la mensual gana), y una sola vez', async ({ page }) => {
     await abrir(page, { bono: null, cuotaYBonoAcotado: true });
-    await expect(page.getByTestId('pago-corto')).toHaveText('Incluida en tu cuota');
     await expect(page.getByTestId('como-vienes')).toContainText('Incluida en tu cuota');
+    await expect(page.getByTestId('pago-corto')).toHaveCount(0);
+    // A quien viene con su cuota no se le habla de sesiones devueltas.
+    await expect(page.locator('[data-fila="cancelacion"]')).not.toContainText('sesión');
     await page.getByRole('button', { name: /^Reservar$/ }).click();
-    await expect(page.getByText('Incluida en tu mensualidad. No pagas nada hoy.')).toBeVisible();
+    await expect(page.getByText('Incluida en tu cuota. No pagas nada hoy.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Confirmar 10:00 con tu cuota' })).toBeVisible();
     await expect(page.getByText(/Te quedan/)).toHaveCount(0);
   });
 
-  test('su clase fija: «Es tu clase fija», y «Incluida en tu cuota» solo con una cuota que la cubra', async ({ page }) => {
+  test('su clase fija: «Tu clase fija · incluida en tu cuota», dicho UNA vez en la ficha', async ({ page }) => {
     await abrir(page, { bono: null, cuota: true, reservaFija: true });
     const cv = page.getByTestId('como-vienes');
-    await expect(cv).toContainText('Es tu clase fija');
-    await expect(cv).toContainText('Incluida en tu cuota');
+    await expect(cv).toContainText('Tu clase fija · incluida en tu cuota');
+    await expect(page.getByTestId('pago-corto')).toHaveCount(0);
+    await expect(page.getByText(/incluida en tu cuota/i)).toHaveCount(1);
+    // Ni «no se devuelve la sesión» a quien no gasta sesiones.
+    await expect(page.getByText(/no se devuelve la sesión/i)).toHaveCount(0);
   });
 
-  test('su clase fija sin cuota: solo «Es tu clase fija», sin prometer quién la paga', async ({ page }) => {
+  test('su clase fija sin cuota: solo «Tu clase fija», sin prometer quién la paga', async ({ page }) => {
     await abrir(page, { bono: null, reservaFija: true });
     const cv = page.getByTestId('como-vienes');
-    await expect(cv).toContainText('Es tu clase fija');
+    await expect(cv).toContainText('Tu clase fija');
     await expect(cv).not.toContainText('Incluida');
   });
 

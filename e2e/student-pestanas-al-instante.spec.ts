@@ -41,10 +41,10 @@ test.describe('Student PWA · pestañas al instante', () => {
     await page.goto(`${base}/mis-reservas`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('proxima-clase')).toBeVisible({ timeout: 60_000 });
 
-    await pestana(page, 'Bonos').click();
-    // Primera visita a Bonos: en `next dev` la ruta se compila ahora.
+    await pestana(page, 'Mi plan').click();
+    // Primera visita a Mi plan: en `next dev` la ruta se compila ahora.
     await expect(page).toHaveURL(new RegExp(`${base}/bonos$`), { timeout: 45_000 });
-    await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
 
     await vigilar(page, '$^');
     await pestana(page, 'Mis clases').click();
@@ -80,8 +80,8 @@ test.describe('Student PWA · pestañas al instante', () => {
     // La primera ve su clase en «Mis clases»…
     await page.goto(`${base}/mis-reservas`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('proxima-clase')).toContainText('Reformer', { timeout: 60_000 });
-    await pestana(page, 'Bonos').click();
-    await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible({ timeout: 30_000 });
+    await pestana(page, 'Mi plan').click();
+    await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
 
     // …y sin recargar, la sesión del dispositivo pasa a ser de otra persona.
     await page.evaluate(() => {

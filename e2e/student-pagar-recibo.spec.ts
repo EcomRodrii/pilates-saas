@@ -57,7 +57,7 @@ const embebidos = (page: Page) => page.evaluate(() => (window as unknown as { __
 
 async function pagarAhora(page: Page) {
   await page.goto(`${base}/bonos`);
-  await page.getByTestId('renovacion-por-pagar').getByRole('button', { name: 'Pagar ahora' }).click({ timeout: 30_000 });
+  await page.getByTestId('renovacion-por-pagar').getByRole('button', { name: /^Pagar \d/ }).click({ timeout: 30_000 });
 }
 
 test.describe('Student PWA · pagar un recibo sin salir de la app (RECIBOS)', () => {
@@ -128,7 +128,7 @@ test.describe('Student PWA · pagar un recibo sin salir de la app (RECIBOS)', ()
   test('«Renovar mi plan» prepara el recibo y lo paga en la misma hoja', async ({ page }) => {
     const m = await montar(page, { conRenovacion: false, agotado: true });
     await page.goto(`${base}/bonos`);
-    await page.getByRole('button', { name: 'Renovar mi plan' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Renovar mi (cuota|bono)$/ }).click({ timeout: 30_000 });
     await expect(page.getByTestId('checkout-incrustado')).toBeVisible({ timeout: 30_000 });
     expect(m.renovar).toHaveLength(1);
     expect(m.checkout[0]).toMatchObject({ reciboId: 'rec-renov-sus-1-2026-10-06', modo: 'incrustado' });

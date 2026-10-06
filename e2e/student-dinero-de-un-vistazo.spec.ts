@@ -91,7 +91,7 @@ test('Pagos abre diciendo cuánto se debe, y agrupa por mes', async ({ page }) =
   const total = page.getByTestId('total-pendiente');
   await expect(total).toContainText('Te queda por pagar');
   await expect(total).toContainText('89 €');
-  await expect(total).toContainText('1 recibo sin cobrar');
+  await expect(total).toContainText('Mensual ilimitado · vence el 1 sep');
 
   // Los tabiques de mes: sin ellos, doce recibos iguales son un muro.
   await expect(page.getByText('Septiembre de 2026')).toBeVisible();
@@ -115,9 +115,9 @@ test('un recibo DEVUELTO por el banco cuenta como deuda, no como reembolso', asy
   await expect(page.getByTestId('total-pendiente')).toContainText('89 €');
 });
 
-// ── Bonos ──────────────────────────────────────────────────────────────────
+// ── Mi plan ────────────────────────────────────────────────────────────────
 
-test('Bonos enseña las sesiones que quedan en la tipografía de cifra, no en un pie', async ({ page }) => {
+test('Mi plan enseña las sesiones que quedan en la tipografía de cifra, no en un pie', async ({ page }) => {
   await montar(page, {
     suscripciones: [{
       id: 'sus-1', socioId: SOCIO_ID, planId: 'plan-bono8', estado: 'ACTIVA',
@@ -133,8 +133,9 @@ test('Bonos enseña las sesiones que quedan en la tipografía de cifra, no en un
   // mirar». Se comprueba el tamaño PINTADO y no la clase: una clase presente
   // pero pisada no se vería.
   await expect(cifra).toHaveCSS('font-size', '38px');
-  await expect(page.getByText('Te quedan')).toBeVisible();
-  await expect(page.getByText('de 8 sesiones')).toBeVisible();
+  // La cifra dice DE QUÉ: «de 8» en el anillo y «5 de 8 sesiones» a su lado.
+  await expect(page.getByTestId('anillo-bono').locator('..')).toContainText('de 8');
+  await expect(page.getByText('5 de 8 sesiones · hasta el 31 dic')).toBeVisible();
 });
 
 test('un plan ilimitado no enseña ninguna cifra de sesiones', async ({ page }) => {

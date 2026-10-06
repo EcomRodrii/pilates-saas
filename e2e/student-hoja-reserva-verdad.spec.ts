@@ -160,7 +160,7 @@ test.describe('Student PWA · la hoja de reserva dice la verdad sin bono (P01)',
     await page.getByRole('button', { name: /^Comprar · 15/ }).click({ timeout: 45_000 });
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
     await page.getByRole('button', { name: /^Pagar 15/ }).click({ timeout: 30_000 });
-    await expect(page.getByText('Pago recibido. Activando tu bono…')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Pago recibido. Activando tu clase suelta…')).toBeVisible({ timeout: 15_000 });
     // Mientras el servidor no confirma, no hay botón para reservar (el servidor la rechazaría «sin plan»).
     await expect(page.getByRole('button', { name: 'Reservar Reformer' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Reservar Reformer' }).click({ timeout: 30_000 });

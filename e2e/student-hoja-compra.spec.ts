@@ -261,7 +261,7 @@ test.describe('Student PWA · hoja de compra · después de pagar (P01)', () => 
     await expect(page.getByText('Compra realizada')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('compra-entregada')).toContainText('Bono 8 sesiones activo · te quedan 8 clases');
     expect(peticiones.length).toBeGreaterThanOrEqual(2);
-    await page.getByRole('button', { name: 'Ver mis bonos' }).click();
+    await page.getByRole('button', { name: 'Ver Mi plan' }).click();
     await expect(page).toHaveURL(/\/bonos\?compra=ok&plan=plan-bono8/, { timeout: 30_000 });
   });
 

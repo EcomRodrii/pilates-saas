@@ -52,7 +52,7 @@ test.describe('Student PWA · Bonos con la cuota en pausa', () => {
     const tarjeta = page.getByTestId('cuota-en-pausa');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     await expect(tarjeta).toContainText(CUOTA_EN_PAUSA);
-    await expect(page.getByRole('button', { name: 'Renovar mi plan' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Renovar mi (cuota|bono)$/ })).toHaveCount(0);
     // La frase que mentía (no está agotada ni caducada: está en pausa) no sale.
     await expect(page.getByText('Tus bonos anteriores están agotados o han caducado.')).toHaveCount(0);
     // Comprar otra cosa sigue a un toque: no se ha quitado nada más.
@@ -69,7 +69,7 @@ test.describe('Student PWA · Bonos con la cuota en pausa', () => {
     const m = await montar(page, [sus({ id: 'sus-bono', planId: 'plan-bono', estado: 'ACTIVA', sesionesRestantes: 3, fechaFin: '2026-07-31' })]);
     await m.responder(200, { reciboId: 'rec-x' });
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('button', { name: 'Renovar mi plan' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /^Renovar mi (cuota|bono)$/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('cuota-en-pausa')).toHaveCount(0);
   });
 
@@ -79,11 +79,11 @@ test.describe('Student PWA · Bonos con la cuota en pausa', () => {
     const m = await montar(page, [sus({ id: 'sus-bono', planId: 'plan-bono', estado: 'ACTIVA', sesionesRestantes: 0 })]);
     await m.responder(409, { error: 'mensaje del servidor', codigo: 'cuota-en-pausa' });
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: 'Renovar mi plan' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Renovar mi (cuota|bono)$/ }).click({ timeout: 30_000 });
     await expect(page.getByText(CUOTA_EN_PAUSA)).toBeVisible();
     expect(m.renovar.length, 'la petición de renovar no llegó a salir: el test no prueba nada').toBeGreaterThan(0);
     // No se llegó a ningún cobro, y el botón vuelve a estar disponible.
     expect(m.checkout).toHaveLength(0);
-    await expect(page.getByRole('button', { name: 'Renovar mi plan' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: /^Renovar mi (cuota|bono)$/ })).toBeEnabled();
   });
 });

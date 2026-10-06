@@ -76,7 +76,7 @@ test.describe('Student PWA · reservar', () => {
       return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Aquí hace falta un bono para reservar.', codigo: 'sin-plan' }) });
     });
     await abrirHoja(page);
-    await expect(page.getByRole('button', { name: 'Ver bonos y suscripciones' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Ver opciones' })).toBeVisible({ timeout: 30_000 });
     expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
     // Reintentar no arregla «no tienes bono».
     await expect(page.getByRole('button', { name: 'Intentar de nuevo' })).toHaveCount(0);
@@ -92,7 +92,7 @@ test.describe('Student PWA · reservar', () => {
     await abrirHoja(page);
     await expect(page.getByText('Has llegado a tu tope de clases de esta semana.')).toBeVisible({ timeout: 30_000 });
     expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
-    await expect(page.getByRole('button', { name: 'Ver bonos y suscripciones' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Ver opciones' })).toHaveCount(0);
   });
 
   test('solape con otra clase suya → conflict, con su copy propio', async ({ page }) => {

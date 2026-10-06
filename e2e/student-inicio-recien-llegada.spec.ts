@@ -75,7 +75,7 @@ test('recién llegada: bienvenida, la cifra real de clases con plaza y su primer
   expect(cajaV && cajaT && cajaV.y < cajaT.y).toBe(true);
 
   // Sin «Tu ritmo» ni sus ceros; lo de siempre sigue.
-  await expect(page.getByRole('region', { name: 'Tu ritmo' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
   await expect(page.getByText('Sin bono activo')).toHaveCount(0);
   await expect(page.getByText('No tienes clases próximas')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Huecos de hoy' })).toBeVisible();
@@ -150,15 +150,15 @@ test('alta de hace años (importada con su fecha): no es recién llegada', async
   await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('primera-clase')).toHaveCount(0);
   // Sin clase asistida ni bono, «Tu ritmo» se esconde igual: eran ceros.
-  await expect(page.getByRole('region', { name: 'Tu ritmo' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);
 });
 
-test('con su bono: ni tarjeta de bienvenida ni se esconde «Tu ritmo»', async ({ page }) => {
+test('con su bono: ni tarjeta de bienvenida ni se esconde «Lo tuyo»', async ({ page }) => {
   const { a, pedidas } = await montar(page, { bono: 5 });
   await abrir(page);
-  await expect(page.getByRole('region', { name: 'Tu ritmo' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole('region', { name: 'Lo tuyo' })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('primera-clase')).toHaveCount(0);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);

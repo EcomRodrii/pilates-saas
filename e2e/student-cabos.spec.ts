@@ -99,7 +99,7 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
     await expect(page.getByText('Pendiente')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Procesando')).toHaveCount(0);
 
-    await page.getByText('Cuota de septiembre').click();
+    await page.getByRole('link', { name: /Cuota de septiembre/ }).click();
     await expect(page.getByText(/todavía está sin cobrar/i)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/el banco todavía no ha confirmado/i)).toHaveCount(0);
   });

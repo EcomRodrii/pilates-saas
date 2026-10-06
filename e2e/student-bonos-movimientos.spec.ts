@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { sembrarSociaCompleta, SLUG, type OpcionesSocia } from './socia-completa';
 
-// Bonos (P4-D y E, 5-oct-2026): los movimientos del bono, del ledger (`POST /api/public/mis-bonos`), y «Esta semana» de
+// Mi plan (antes «Bonos»; P4-D y E, 5-oct-2026): los movimientos del bono, del ledger (`POST /api/public/mis-bonos`), y «Esta semana» de
 // una cuota con tope. Con CONTADOR de peticiones en cada camino de fallo: «no dijo 0 de 2» puede ser verdad por no haber
 // preguntado nada.
 
@@ -32,7 +32,10 @@ test('el bono enseña sus movimientos, con por qué entró o salió cada sesión
   const { a, cuerpos } = await montar(page, { bono: 5 }, (_c, r) => r.fulfill(json({
     movimientos: { movimientos: MOVIMIENTOS, hayMas: false, cuadra: true, historialCompleto: true, desde: '2026-08-01T09:00:00Z' }, semanas: [],
   })));
+  // Mi plan lleva a ellos con «Movimientos» (maqueta «Clase fija y bonos, ordenados»); la lista vive en el detalle.
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('bono-movimientos').click({ timeout: 60_000 });
+  await expect(page).toHaveURL(new RegExp(`${BONOS}/sus-1$`));
   const lista = page.getByTestId('movimientos-bono');
   await expect(lista.getByTestId('movimiento')).toHaveCount(3, { timeout: 60_000 });
   await expect(lista).toContainText('Reformer · mar 11 ago');
@@ -41,14 +44,13 @@ test('el bono enseña sus movimientos, con por qué entró o salió cada sesión
   await expect(lista).toContainText('Bono activado');
   await expect(lista).not.toContainText(/Compraste/);
   expect(cuerpos.length).toBeGreaterThan(0);
-  expect(cuerpos[0]).toMatchObject({ slug: SLUG, bono: 'sus-1', limite: 4 });
-  await expect(lista.getByRole('link', { name: 'Ver todo' })).toHaveAttribute('href', `${BONOS}/sus-1`);
+  expect(cuerpos[0]).toMatchObject({ slug: SLUG, bono: 'sus-1' });
   expect(a.sinMockear()).toEqual([]);
 });
 
 test('si mis-bonos falla, se dice; nunca «Aún no hay movimientos»', async ({ page }) => {
   const { cuerpos } = await montar(page, { bono: 5 }, (_c, r) => r.fulfill(json({ error: 'fallo' }, 500)));
-  await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BONOS}/sus-1`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByTestId('movimientos-error')).toBeVisible({ timeout: 60_000 });
   expect(cuerpos.length).toBeGreaterThan(0);
   await expect(page.getByTestId('movimientos-vacio')).toHaveCount(0);
@@ -60,7 +62,7 @@ test('si el saldo no cuadra con el ledger, se avisa de que manda el saldo', asyn
   const { cuerpos } = await montar(page, { bono: 5 }, (_c, r) => r.fulfill(json({
     movimientos: { movimientos: MOVIMIENTOS.slice(0, 1), hayMas: false, cuadra: false, historialCompleto: false, desde: '2026-08-02T09:00:00Z' }, semanas: [],
   })));
-  await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BONOS}/sus-1`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByTestId('movimientos-no-cuadra')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('movimientos-bono')).toContainText('Apuntamos cada movimiento desde el dom 2 ago');
   expect(cuerpos.length).toBeGreaterThan(0);
@@ -92,7 +94,7 @@ test('cuota con tope: «Esta semana 2 de 2» cuenta también la de recuperación
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
   const semana = page.getByTestId('cuota-hero');
   await expect(semana.getByTestId('semana-cifra')).toHaveText('2 de 2', { timeout: 60_000 });
-  await expect(semana).toContainText('2 clases a la semana');
+  await expect(semana.getByTestId('semana-queda')).toHaveText('Ya tienes todas las de esta semana.');
   await expect(semana).toContainText('1 de ellas, con recuperación');
   expect(cuerpos.some((c) => (c.semanaDe as string[] | undefined)?.includes('sus-mes'))).toBe(true);
   // Una cuota no tiene movimientos de sesiones.
@@ -111,7 +113,7 @@ test('si no se puede contar la semana, se dice; nunca un «0 de 2»', async ({ p
 test('una cuota sin tope no pregunta nada ni pinta la semana', async ({ page }) => {
   const { a, cuerpos } = await montar(page, { bono: null, cuota: true }, (_c, r) => r.fulfill(json({ movimientos: null, semanas: [] })));
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('cuota-hero')).toBeVisible();
   await expect(page.getByTestId('semana-cuota')).toHaveCount(0);
   expect(cuerpos).toEqual([]);

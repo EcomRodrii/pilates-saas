@@ -48,7 +48,7 @@ test.describe('Student PWA · ilustraciones de los estados vacíos', () => {
   test('se tiñe con el acento del estudio, sin un solo color escrito a mano', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/bonos`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('No tienes ningún bono')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Aún no tienes cuota ni bono')).toBeVisible({ timeout: 30_000 });
 
     const medida = await page.evaluate(() => {
       const svg = document.querySelector('svg[viewBox="0 0 160 120"]');
