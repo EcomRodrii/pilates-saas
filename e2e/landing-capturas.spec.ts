@@ -128,7 +128,7 @@ const INS_M = [
 const PLAN: [number, number, number, string, string, string | null, number, number][] = [
   [0, 9, 0, 'tc-r', 'sala-1', 'ins-marta', 8, 7], [0, 10, 15, 'tc-m', 'sala-2', 'ins-irene', 12, 9], [0, 18, 30, 'tc-r', 'sala-1', 'ins-cloe', 8, 8],
   [1, 9, 0, 'tc-r', 'sala-1', 'ins-cloe', 8, 8], [1, 10, 15, 'tc-b', 'sala-2', 'ins-lucia', 12, 6], [1, 19, 0, 'tc-r', 'sala-1', 'ins-marta', 8, 8],
-  [2, 9, 0, 'tc-m', 'sala-2', 'ins-irene', 12, 10], [2, 10, 15, 'tc-r', 'sala-1', 'ins-cloe', 8, 7], [2, 18, 0, 'tc-r', 'sala-1', null, 8, 6], [2, 19, 15, 'tc-b', 'sala-2', 'ins-lucia', 12, 9],
+  [2, 9, 0, 'tc-m', 'sala-2', 'ins-irene', 12, 10], [2, 10, 15, 'tc-r', 'sala-1', 'ins-cloe', 8, 7], [2, 18, 0, 'tc-r', 'sala-1', 'ins-irene', 8, 6], [2, 19, 15, 'tc-b', 'sala-2', 'ins-lucia', 12, 9],
   [3, 9, 0, 'tc-r', 'sala-1', 'ins-marta', 8, 8], [3, 10, 15, 'tc-m', 'sala-2', 'ins-irene', 12, 8], [3, 18, 30, 'tc-r', 'sala-1', 'ins-cloe', 8, 7],
   [4, 9, 0, 'tc-r', 'sala-1', 'ins-cloe', 8, 6], [4, 10, 15, 'tc-b', 'sala-2', 'ins-lucia', 12, 7], [4, 17, 30, 'tc-m', 'sala-2', 'ins-irene', 12, 5],
 ];
@@ -147,19 +147,21 @@ async function panelDeMuestra(page: Page) {
   const sesiones = PLAN.map(([d, h, m, tc, sala, ins, aforo], i) => ({
     id: `ses-m-${i}`, studioId: STUDIO, tipoClaseId: tc, salaId: sala, instructorId: ins,
     inicio: en(d, h, m).toISOString(), fin: en(d, h, m + 55).toISOString(), aforoMaximo: aforo, cancelada: false, notas: null, precioPuntual: null, serieId: null,
-    incidenciaTexto: null, sustitucionAbierta: ins === null, motivoBaja: null, sustitucionId: ins === null ? 'sust-1' : null,
-    sustitucionEstado: ins === null ? 'pendiente_aprobacion' : null, ausencia: null, instructoraInactiva: false, floja: null,
+    incidenciaTexto: null, sustitucionAbierta: false, motivoBaja: null, sustitucionId: null,
+    sustitucionEstado: null, ausencia: null, instructoraInactiva: false, floja: null,
   }));
   const reservas = PLAN.flatMap(([, , , , , , , n], i) => Array.from({ length: n }, (_, j) => ({
     id: `res-m-${i}-${j}`, studioId: STUDIO, sesionId: `ses-m-${i}`, socioId: `soc-m-${j}`, estado: 'CONFIRMADA',
     spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: new Date().toISOString(),
   })));
+  // La clase llena del martes (ses-m-3) con dos alumnas en lista de espera.
+  reservas.push(...[1, 2].map((n) => ({ id: `res-m-espera-${n}`, studioId: STUDIO, sesionId: 'ses-m-3', socioId: `soc-m-e${n}`, estado: 'LISTA_ESPERA', spotId: null, posicionEspera: n, ofertaExpiraEn: null, checkInEn: null, creadoEn: new Date().toISOString() })));
   await page.route('**/rest/v1/sesiones**', (r) => json(r, sesiones.map((x) => ({
     id: x.id, studio_id: STUDIO, tipo_clase_id: x.tipoClaseId, sala_id: x.salaId, instructor_id: x.instructorId, inicio: x.inicio, fin: x.fin,
     aforo_maximo: x.aforoMaximo, cancelada: false, notas: null, google_event_id: null, serie_id: null, incidencia_texto: null, precio_puntual: null, zoom_meeting_id: null, zoom_join_url: null,
   }))));
   await page.route('**/rest/v1/reservas**', (r) => json(r, reservas.map((x) => ({
-    id: x.id, studio_id: STUDIO, sesion_id: x.sesionId, socio_id: x.socioId, estado: 'CONFIRMADA', spot_id: null, posicion_espera: null, oferta_expira_en: null,
+    id: x.id, studio_id: STUDIO, sesion_id: x.sesionId, socio_id: x.socioId, estado: x.estado, spot_id: null, posicion_espera: x.posicionEspera, oferta_expira_en: null,
     check_in_en: null, creado_en: x.creadoEn, confirmacion_pedida_en: null, confirmado_en: null, recordatorio_confirmacion_en: null, valoracion_experiencia: null, cancelada_tardia: false,
   }))));
   await page.route(/\/api\/calendario/, (r) => json(r, {
@@ -180,16 +182,13 @@ async function panelDeMuestra(page: Page) {
 
 test.describe('panel', () => {
   test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-  test('calendario y sustituciones', async ({ page }) => {
+  test('calendario', async ({ page }) => {
     test.setTimeout(240_000);
     await panelDeMuestra(page);
     await ir(page, 'calendario');
     await page.waitForTimeout(2500);
-    await page.screenshot({ path: `${DESTINO}/panel-calendario.png` });
-    await page.getByRole('button', { name: /Reformer/ }).filter({ hasText: 'visto bueno' }).first().click({ timeout: 20_000 });
-    await page.waitForTimeout(2000);
     await sinFab(page);
-    await page.screenshot({ path: `${DESTINO}/panel-calendario-clase.png` });
+    await page.screenshot({ path: `${DESTINO}/panel-calendario.png` });
   });
 });
 

@@ -23,10 +23,10 @@ export function SeccionEnUnaFrase() {
         <h2 id="v5-frase-h" className="v5-frase-h2">Tentare, en una frase</h2>
         <p className="v5-frase-def">
           Tentare es el software para estudios y centros de Pilates en España que reúne en un solo panel las{' '}
-          <Link href="/funcionalidades/reservas-online">reservas online</Link>, la{' '}
+          <Link href="/funcionalidades/reservas-online">reservas online</Link> con lista de espera, la{' '}
           <Link href="/funcionalidades/app-para-alumnas">app de tus alumnas</Link>, los bonos y los{' '}
-          <Link href="/funcionalidades/cobros-recurrentes">cobros recurrentes</Link>, el equipo y las{' '}
-          <Link href="/funcionalidades/sustituciones">sustituciones de instructora</Link>. Está hecho para estudios de
+          <Link href="/funcionalidades/cobros-recurrentes">cobros recurrentes</Link>, el{' '}
+          <Link href="/funcionalidades/calendario-y-salas">calendario</Link> y el equipo. Está hecho para estudios de
           reformer y de mat, no para gimnasios generalistas.
         </p>
         <ul className="v5-frase-datos">

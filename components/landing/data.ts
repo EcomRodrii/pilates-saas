@@ -73,7 +73,7 @@ export const PLANS = [
 //  · el asistente (lib/asistente): consulta y PROPONE clases, salas, eventos y
 //    citas, nada se crea sin confirmar; no cobra, no borra, no edita, no
 //    escribe a nadie; lo usan propietaria y gerencia; límite mensual por plan;
-//  · la sustitución espera el visto bueno en el modo por defecto (asistido) y
+//  · (va la última: no es lo que más busca un estudio) la sustitución espera el visto bueno en el modo por defecto (asistido) y
 //    nunca cancela la clase sola; el autónomo es del plan Estudio;
 //  · varias sedes = plan Cadena, un acceso con selector de sede, sin vista que
 //    las sume; la prueba es del plan que eliges (no «todo abierto»); la
@@ -87,7 +87,7 @@ const PRECIOS_FAQ = PLANS.map((p) => `${p.name} (${p.price.replace('€', ' €'
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: '¿Qué programa necesito para gestionar un centro de Pilates?',
-    a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer, los bonos y las cuotas, los cobros, el equipo y las bajas de las instructoras. Tentare es un software hecho para estudios y centros de Pilates que reúne todo eso en un panel, con una app con tu marca para las alumnas. Interfaz y soporte en español.',
+    a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer con su lista de espera, los bonos y las cuotas, los cobros y el calendario. Tentare es un software hecho para estudios y centros de Pilates que reúne todo eso en un panel, con una app con tu marca para las alumnas. Interfaz y soporte en español.',
   },
   {
     q: '¿Puedo traer mis alumnas desde Excel u otro programa?',
@@ -110,10 +110,6 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
     a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. También puedes apuntar pagos en efectivo o por transferencia, y cada cobro genera su recibo y su factura.',
   },
   {
-    q: '¿Qué pasa si una instructora cancela su clase?',
-    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. El plan Estudio añade un modo autónomo.',
-  },
-  {
     q: '¿Sirve para varios centros o sedes?',
     a: 'Sí, con el plan Cadena: varias sedes con un solo acceso y un selector de sede, y los datos de cada una separados. Todavía no hay una vista que sume todas las sedes a la vez.',
   },
@@ -124,5 +120,9 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: '¿Qué es «Pregúntale a Tentare»?',
     a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia, y viene en todos los planes con un límite de consultas al mes.',
+  },
+  {
+    q: '¿Qué pasa si una instructora cancela su clase?',
+    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. El plan Estudio añade un modo autónomo.',
   },
 ];

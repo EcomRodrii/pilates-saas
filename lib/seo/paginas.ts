@@ -330,9 +330,9 @@ export const PAGINAS: PaginaSeo[] = [
     // llevó la coletilla «en Barcelona» (retirada el 2026-09-10, auditoría SEO:
     // la intención local la cubre /network/instructoras/ciudad/barcelona).
     path: '/',
-    titulo: 'Software para estudios de Pilates: reservas y app | Tentare',
+    titulo: 'Software para estudios de Pilates: reservas, app y cobros',
     descripcion:
-      'Programa para centros de Pilates: reservas, app con tu marca, bonos, cobros y sustituciones de instructora. 7 días gratis sin tarjeta, desde 29 €/mes.',
+      'Programa para centros de Pilates: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,

@@ -20,7 +20,7 @@ export function StructuredData() {
     url: BASE_URL,
     publisher: { '@id': ID_ORGANIZACION },
     description:
-      'Software para estudios y centros de Pilates en España: reservas y lista de espera, app con la marca del estudio, bonos y cobros, calendario por salas, equipo y sustituciones cuando una instructora no puede dar su clase.',
+      'Software para estudios y centros de Pilates en España: reservas online y lista de espera, app con la marca del estudio para las alumnas, bonos, cuotas y cobros, calendario por salas y gestión del equipo.',
     inLanguage: 'es-ES',
     // Lo que el producto hace hoy, en las palabras de la página (nada congelado
     // ni «próximamente»; ver lib/frozen-features.ts).
@@ -30,9 +30,9 @@ export function StructuredData() {
       'Bonos, cuotas mensuales y cobros con tarjeta o SEPA, con reintento de cobros',
       'Facturas con numeración legal',
       'Calendario por salas',
-      'Gestión de instructoras, disponibilidad y sustituciones',
       'Importación desde Excel y otros programas, con acta y botón de deshacer',
       'Asistente «Pregúntale a Tentare»: consulta datos y prepara clases, salas, eventos y citas con confirmación',
+      'Gestión de instructoras, disponibilidad y sustituciones con tu visto bueno',
     ],
     audience: { '@type': 'Audience', audienceType: 'Estudios y centros de Pilates' },
 
