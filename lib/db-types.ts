@@ -4022,6 +4022,37 @@ export interface RowIaPacks {
   stripe_payment_intent_id: string | null;
 }
 
+export interface RowPagosClase {
+  id: string;
+  studio_id: string;
+  pagador: string;
+  socio_id: string | null;
+  sesion_id: string;
+  plan_id: string;
+  spot_id: string | null;
+  codigo_descuento_id: string | null;
+  importe_centimos: number;
+  matricula_centimos: number;
+  cupo_matricula: boolean;
+  terminos_hash: string | null;
+  referencia_stripe: string | null;
+  payment_intent_id: string | null;
+  estado: string;
+  motivo: string | null;
+  reserva_id: string | null;
+  suscripcion_id: string | null;
+  plaza_comprobada_en: string;
+  pagado_en: string | null;
+  prioridad_espera_desde: string | null;
+  intentos_reserva: number;
+  aviso_estudio_en: string | null;
+  aviso_socia_en: string | null;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11127,6 +11158,68 @@ export type IaPacksUpdate = {
   stripe_payment_intent_id?: string | null | null;
 }
 
+export type PagosClaseInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  pagador?: string | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null;
+  plan_id?: string | null;
+  spot_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
+  importe_centimos?: number | null;
+  matricula_centimos?: number | null;
+  cupo_matricula?: boolean | null;
+  terminos_hash?: string | null | null;
+  referencia_stripe?: string | null | null;
+  payment_intent_id?: string | null | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  reserva_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  plaza_comprobada_en?: string | null;
+  pagado_en?: string | null | null;
+  prioridad_espera_desde?: string | null | null;
+  intentos_reserva?: number | null;
+  aviso_estudio_en?: string | null | null;
+  aviso_socia_en?: string | null | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type PagosClaseUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  pagador?: string | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null;
+  plan_id?: string | null;
+  spot_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
+  importe_centimos?: number | null;
+  matricula_centimos?: number | null;
+  cupo_matricula?: boolean | null;
+  terminos_hash?: string | null | null;
+  referencia_stripe?: string | null | null;
+  payment_intent_id?: string | null | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  reserva_id?: string | null | null;
+  suscripcion_id?: string | null | null;
+  plaza_comprobada_en?: string | null;
+  pagado_en?: string | null | null;
+  prioridad_espera_desde?: string | null | null;
+  intentos_reserva?: number | null;
+  aviso_estudio_en?: string | null | null;
+  aviso_socia_en?: string | null | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12369,6 +12462,11 @@ export type Database = {
         Row: RowIaPacks;
         Insert: IaPacksInsert;
         Update: IaPacksUpdate;
+      };
+      pagos_clase: {
+        Row: RowPagosClase;
+        Insert: PagosClaseInsert;
+        Update: PagosClaseUpdate;
       };
     };
   };

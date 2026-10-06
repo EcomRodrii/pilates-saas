@@ -76,6 +76,9 @@ const CASOS: Caso[] = [
   { firma: 'ia_saldo_consultas(text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'ia_reservar_consulta(text, uuid, text, uuid, text, numeric)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'ia_cerrar_consulta(uuid, text, text, integer, integer, integer, integer, numeric, integer, integer, text, text[])', anon: false, authenticated: false, serviceRole: true },
+  // El pago de una clase (migr 20261006120000, P06): solo el servidor cambia su estado (webhook, conciliador y la API
+  // del panel con permiso de dinero). Con EXECUTE en `authenticated`, una sesión cualquiera daría un pago por reservado.
+  { firma: 'registrar_resultado_pago_clase(text, text, text, text, text, text, timestamp with time zone, boolean)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

@@ -96,6 +96,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   lecturas_ficha_salud: { excluida: 'Registro de quién del equipo abrió la ficha de salud: son datos de esas personas (nombre y rol). Se informa a petición.' },
   actividad_reciente: { excluida: 'Feed interno del panel redactado para el personal; repite hechos que ya salen en reservas y pagos.' },
   automation_logs: { excluida: 'Registro técnico de las automatizaciones del estudio; lo que llegó a la socia consta en otros.comunicacionesRecibidas.' },
+  pagos_clase: { excluida: 'Registro interno de cada pago de una clase (estado, importes y cuándo se comprobó la plaza); lo que pagó sale en recibos, y lo que le dio, en reservas y suscripciones.' },
   movimientos_derecho: { excluida: 'Libro interno de auditoría de su saldo de sesiones (incluye la cuenta del equipo que hizo cada ajuste, que son datos de esas personas); el resultado, con sus sesiones restantes, reservas y recuperaciones, sale en sus secciones.' },
   auditoria_estudio: { excluida: 'Libro interno de auditoría de los cambios de dinero hechos por el equipo (son datos de esas personas); los importes y recibos de ella salen en su sección de pagos.' },
   campana_envios: { excluida: 'Registro técnico de a quién se envió cada campaña (estado y id del envío); lo que llegó a la socia consta en otros.comunicacionesRecibidas.' },

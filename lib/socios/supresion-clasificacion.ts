@@ -140,6 +140,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     detalle: 'Seudónima por socio_id (asistencia y métricas). Las futuras las cancela la ruta ANTES, con el núcleo que promociona la lista de espera.',
   },
   suscripciones: { accion: 'CONSERVAR', detalle: 'Seudónima y pasada a CANCELADA: los recibos fiscales la referencian.' },
+  pagos_clase: {
+    accion: 'CONSERVAR',
+    detalle: 'El registro de cada pago de una clase (ids, importes, estados y fechas): cuadra con el recibo fiscal que ya se conserva, con el mismo seudónimo por socio_id. `pagador` es su socio_id o un hash de su email, nunca el email.',
+  },
   movimientos_derecho: {
     accion: 'CONSERVAR',
     detalle: 'Libro de movimientos de su saldo de sesiones y recuperaciones (ids, cifras y fechas, y un motivo redactado por el sistema o el equipo, nunca por ella). Es el registro que explica cada sesión cobrada o devuelta y cuadra con los recibos y reservas que ya se conservan, con el mismo seudónimo por socio_id.',
