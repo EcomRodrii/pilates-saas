@@ -53,8 +53,12 @@ test.describe('Student PWA · QR de acceso', () => {
   test('si el servidor falla, un hueco que se lee y se puede reintentar (y se reintentó de verdad)', async ({ page }) => {
     await sembrarSociaCompleta(page, { bono: 5 });
     let intentos = 0;
+    // El servidor falla hasta que el test lo arregla, y no «la primera petición»: en `next dev` React monta el efecto
+    // DOS veces (Strict Mode), la primera respuesta se descarta y la segunda —ya en 200— pintaba el QR. El test fallaba
+    // en local y pasaba en CI (build de producción, un solo montaje) sin que la app hiciera nada distinto.
+    let caido = true;
     // Registrada DESPUÉS del andamiaje: en Playwright gana la última ruta.
-    await page.route(esQr, r => { intentos++; return r.fulfill(intentos === 1 ? json({ error: 'caído' }, 500) : json({ activo: true, qr: QR_ACCESO_E2E, creadoEn: '2026-08-01T10:00:00.000Z' })); });
+    await page.route(esQr, r => { intentos++; return r.fulfill(caido ? json({ error: 'caído' }, 500) : json({ activo: true, qr: QR_ACCESO_E2E, creadoEn: '2026-08-01T10:00:00.000Z' })); });
     await page.goto(`${base}/perfil/qr`);
 
     const hueco = page.getByTestId('qr-acceso-hueco');
@@ -80,9 +84,12 @@ test.describe('Student PWA · QR de acceso', () => {
     });
     expect(+ratio.toFixed(2)).toBeGreaterThanOrEqual(4.5);
 
+    const antes = intentos;
+    caido = false;
     await hueco.getByRole('button', { name: 'Reintentar' }).click();
     await expect(page.getByTestId('qr-acceso')).toBeVisible({ timeout: 15_000 });
-    expect(intentos).toBe(2);
+    // «Reintentar» pidió el QR otra vez, y solo una.
+    expect(intentos).toBe(antes + 1);
   });
 
   test('generar uno nuevo: si el servidor dice que no, no se anuncia; si dice que sí, se dice que el anterior ya no vale', async ({ page }) => {

@@ -11,14 +11,15 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { ErrorState } from '@/components/student/ui/States';
-import { getAlumna, getBonos, getClases, getHuella, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { getAlumna, getBonos, getClases, getHuella, getPagos, getPlazaFija, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
+import { porPagarEnLaApp } from '@/lib/student/mi-plan-vista';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { getMetodoPago } from '@/lib/student/pago';
 import { esRecienLlegada } from '@/lib/student/momento-inicio';
 import { cifrasDeLaSocia } from '@/lib/student/tarjeta-socia';
 import { premioPorInvitar } from '@/lib/student/gamificacion';
 import { nombreCreditos } from '@/lib/creditos-nombre';
-import { hoyISO } from '@/lib/student/formato';
+import { euros, hoyISO } from '@/lib/student/formato';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { mayuscula, trato } from '@/lib/genero';
 import { TarjetaSocia } from '@/components/student/domain/TarjetaSocia';
@@ -43,11 +44,12 @@ export default function PerfilPage() {
   // Todo del MISMO payload que ya se pedía (`catalogo`): la tarjeta de cifras no cuesta ninguna petición. `getClases` hace
   // falta para la fecha de «Tu próxima clase».
   const cargar = useCallback(async () => {
-    const [alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago] = await Promise.all([
+    const [alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago, pagos, renovacion] = await Promise.all([
       getAlumna(estudio.slug), getHuella(estudio.slug), getReservas(estudio.slug), getClases(estudio.slug),
       getBonos(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMetodoPago(estudio.slug),
+      getPagos(estudio.slug), getRenovacionPorPagar(estudio.slug),
     ]);
-    return { alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago };
+    return { alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago, pagos, renovacion };
   }, [estudio.slug]);
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d.alumna, `alumna:${estudio.slug}:perfil`);
   const socia = data?.alumna ?? null;
@@ -68,6 +70,10 @@ export default function PerfilPage() {
     : null;
   const premio = data?.gamificacion?.hay ? premioPorInvitar(data.gamificacion.formasDeGanar, moneda) : null;
   const metodo = data?.metodoPago;
+  // Lo que puede pagar ella en la app (la regla del servidor, la misma de Mi plan, Recibos e Inicio): en la fila de
+  // Recibos, para que se vea desde aquí. Lo que cobra su banco o su estudio no se anuncia como deuda suya.
+  const porPagar = data ? porPagarEnLaApp(data.pagos, data.renovacion) : [];
+  const valorRecibos = porPagar.length > 0 ? `${euros(porPagar.reduce((s, p) => s + p.importe, 0))} por pagar` : undefined;
   // «Visa ··4242» o «Link», la misma fuente que /perfil/pago. Solo se enseña el dato.
   const valorMetodo = metodo?.esLink ? 'Link'
     : metodo?.tieneTarjeta && metodo.ultimos4 ? `${metodo.marca ? `${mayuscula(metodo.marca)} ` : ''}··${metodo.ultimos4}` : undefined;
@@ -184,7 +190,7 @@ export default function PerfilPage() {
             // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba y por la
             // baldosa de Inicio. Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
             { label: 'Tienda', href: href('/comprar'), icono: 'bolsa' },
-            { label: 'Recibos', href: href('/pagos'), icono: 'recibo' },
+            { label: 'Recibos', href: href('/pagos'), icono: 'recibo', valor: valorRecibos, valorDestacado: !!valorRecibos },
             { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },
           ]}
         />

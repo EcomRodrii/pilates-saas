@@ -162,7 +162,10 @@ test.describe('Apariencia de tu app', () => {
     await expect(marco.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
     expect(page.frames().some((f) => /\/acceso\//.test(f.url()))).toBe(false);
-    expect(publicas.some((p) => p.ruta === '/api/public/studio-data')).toBe(true);
+    // Esperando a la petición, no mirando una vez: el saludo de Inicio se pinta ANTES de que la guardia resuelva y pida
+    // el catálogo (la portada no espera a los datos), así que comprobarlo en el mismo instante era una carrera: falló
+    // en CI, con sus dos reintentos, en el merge de #2572.
+    await expect.poll(() => publicas.some((p) => p.ruta === '/api/public/studio-data'), { timeout: 30_000 }).toBe(true);
     expect(publicas.filter((p) => p.conToken)).toEqual([]);
 
     await page.getByRole('radio', { name: 'Entrada', exact: true }).click();

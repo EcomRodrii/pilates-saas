@@ -204,7 +204,10 @@ export default function ReciboPage() {
           </Button>
         ) : (
           <p className="t-meta" style={{ textAlign: 'center', lineHeight: 1.5 }}>
-            ¿Necesitas la factura? Pídesela al estudio: {estudio.email || estudio.telefono || estudio.nombre}.
+            {/* El contacto, de una pieza: un correo con guion («hola@mi-estudio.es») se partía por el guion y no se podía
+                leer ni copiar entero. Solo se corta si no cabe ni en su propia línea. */}
+            ¿Necesitas la factura? Pídesela al estudio:{' '}
+            <span style={{ display: 'inline-block', maxWidth: '100%', overflowWrap: 'anywhere' }}>{estudio.email || estudio.telefono || estudio.nombre}.</span>
           </p>
         )}
       </div>

@@ -11,7 +11,7 @@ import { getBonos, getClases, getNombresTiposClase, getPagos, getPlazaFija, getP
 import { avisoBono, masParaCuota, reservadasConBono } from '@/lib/student/bonos-vista';
 import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { esCuota } from '@/lib/student/bono-cubre';
-import { diaMes, hayDeudaQueNoSePagaAqui, porPagarEnLaApp, subtituloTienda, textoRecuperaciones } from '@/lib/student/mi-plan-vista';
+import { deudaDeLaCuota, diaMes, hayDeudaQueNoSePagaAqui, porPagarEnLaApp, subtituloTienda, textoRecuperaciones } from '@/lib/student/mi-plan-vista';
 import { pagosPendientes } from '@/lib/student/pagos-agrupados';
 import { euros, hoyISO } from '@/lib/student/formato';
 import { useAhoraMs } from '@/lib/student/use-ahora';
@@ -153,7 +153,7 @@ function MiPlan() {
               <TarjetaCuota
                 slug={estudio.slug} cuota={t.cuota} pagos={cargado.pagos} fijas={t.fijas} nombresTipo={nombresTipo} hoy={hoy}
                 hrefClaseFija={`${href('/mis-reservas')}?tab=fija`}
-                debe={pagosPendientes(cargado.pagos).find((p) => p.bonoId === t.cuota?.id) ?? null}
+                debe={deudaDeLaCuota(cargado.pagos, t.cuota.id, hoy)}
               />
             )}
 

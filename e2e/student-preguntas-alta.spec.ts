@@ -40,8 +40,10 @@ async function conFicha(page: Page) {
 async function montar(page: Page, opts: {
   get?: unknown;
   post?: { status?: number; body: unknown };
+  /** El reloj a las 08:00 DE MADRID, para los tests que reservan la clase de las 10:00 (ver abajo). */
+  relojMadrid?: boolean;
 } = {}) {
-  await sembrarSociaLista(page);
+  await sembrarSociaLista(page, { relojMadrid: opts.relojMadrid });
   await conFicha(page);
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill(json({ items: [] })));
   await page.route((u) => u.pathname === '/api/public/comunidad/posts', (r) => r.fulfill(json({ posts: [] })));
@@ -168,8 +170,18 @@ test.describe('Student PWA · preguntas del estudio antes de empezar', () => {
     await expect(page.getByTestId('preguntas-alta')).toHaveCount(0);
   });
 
+});
+
+// La hora, fijada en las DOS mitades. `AHORA` es una hora SIN zona: el reloj lo lee el runner (Node) en SU zona y la
+// clase de las 10:00 la lee el navegador en la suya. En macOS WebKit no hace caso de `TZ` (sigue en la del sistema,
+// Madrid) y Chromium sí: con `TZ=UTC` el reloj marcaba las 10:00 de Madrid para WebKit —la clase «ya empezada», sin
+// botón de reservar— y el test solo fallaba en el iPhone emulado. Reloj a las 08:00 de Madrid y navegador en Madrid,
+// sea cual sea la máquina.
+test.describe('Student PWA · preguntas del estudio que se encienden con la app abierta', () => {
+  test.use({ serviceWorkers: 'block', timezoneId: 'Europe/Madrid' });
+
   test('si el estudio las enciende con la app abierta, reservar le abre las preguntas en vez de un error', async ({ page }) => {
-    const { lecturas } = await montar(page);
+    const { lecturas } = await montar(page, { relojMadrid: true });
     let reservas = 0;
     await page.route('**/api/public/reserva', (r) => {
       if (r.request().method() !== 'POST') return r.continue();
