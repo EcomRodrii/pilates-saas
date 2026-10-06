@@ -124,3 +124,47 @@ test('logo y banner son independientes: se pueden poner por separado', () => {
   assert.equal(ambos.logoUrl, '/logo.webp');
   assert.equal(ambos.fotoUrl, '/banner.webp');
 });
+
+// ── La miniatura del horario y lo que la fila necesita para ofrecer «Reservar» (P11/P12, 5-oct-2026) ──────────
+
+test('la foto PROPIA de la fila: la del tipo, o la de la sala; nunca la del estudio ni una por defecto', () => {
+  assert.equal(proyectar({ tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS', fotoUrl: '/tipo.webp' }], salas: [{ id: 'sala-1', nombre: 'Sala 1', fotoUrl: '/sala.webp' }] }).fotoPropiaUrl, '/tipo.webp');
+  assert.equal(proyectar({ salas: [{ id: 'sala-1', nombre: 'Sala 1', fotoUrl: '/sala.webp' }] }).fotoPropiaUrl, '/sala.webp');
+  // La portada del estudio NUNCA: repetida en cada fila se lee como un error.
+  assert.equal(proyectar({ studio: { imagenBienvenidaUrl: '/estudio.webp' } }).fotoPropiaUrl, undefined);
+  // Una de /por-defecto/ elegida como banner del tipo no cuenta (y no tapa la propia de la sala).
+  assert.equal(proyectar({
+    tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS', fotoUrl: '/por-defecto/clase-reformer.webp' }],
+    salas: [{ id: 'sala-1', nombre: 'Sala 1', fotoUrl: '/sala.webp' }],
+  }).fotoPropiaUrl, '/sala.webp');
+  // El banner de la ficha no cambia.
+  assert.equal(proyectar({ tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS', fotoUrl: '/tipo.webp' }] }).fotoUrl, '/tipo.webp');
+});
+
+test('aprobación: la del tipo manda, sin ella la del estudio (la misma herencia que `heredaOverride`)', () => {
+  const con = (tipo: boolean | null, estudio: boolean | null | undefined) => proyectar({
+    studio: estudio === undefined ? { imagenBienvenidaUrl: '/estudio.webp' } : { imagenBienvenidaUrl: '/estudio.webp', requiereAprobacion: estudio },
+    tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS', requiereAprobacion: tipo }],
+  }).requiereAprobacion;
+  assert.equal(con(true, false), true);
+  assert.equal(con(false, true), false);
+  assert.equal(con(null, true), true);
+  assert.equal(con(null, false), false);
+  assert.equal(con(null, undefined), false);
+});
+
+test('autorización del tipo y sitios de la sala (un sitio inactivo no cuenta, el mismo criterio que la hoja)', () => {
+  assert.equal(proyectar({ tiposClase: [{ id: 'tc-1', nombre: 'Reformer', nivel: 'TODOS', requiereAutorizacion: true }] }).requiereAutorizacion, true);
+  assert.equal(proyectar({}).requiereAutorizacion, false);
+  assert.equal(proyectar({ spots: [{ id: 'sp-1', salaId: 'sala-1' }] }).salaConSitios, true);
+  assert.equal(proyectar({ spots: [{ id: 'sp-1', salaId: 'sala-1', activo: false }] }).salaConSitios, false);
+  assert.equal(proyectar({ spots: [{ id: 'sp-1', salaId: 'otra' }] }).salaConSitios, false);
+  assert.equal(proyectar({}).salaConSitios, false);
+});
+
+test('el payload público del estudio manda si aprueba cada reserva (sin dato, no)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const admin = readFileSync(new URL('../db/supabase-data-admin.ts', import.meta.url), 'utf8');
+  const cuerpo = admin.slice(admin.indexOf('function studioPublico('), admin.indexOf('\n}\n', admin.indexOf('function studioPublico(')));
+  assert.match(cuerpo, /requiereAprobacion: r\.requiere_aprobacion \?\? false,/);
+});

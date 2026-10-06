@@ -1,5 +1,5 @@
 import { type Page, type Route } from '@playwright/test';
-import { SLUG, STUDIO_ID, SOCIO_ID, SESION_ID, AHORA, fixtureSociaLista } from './socia-lista';
+import { SLUG, STUDIO_ID, SOCIO_ID, SESION_ID, AHORA, PLAN_MENSUAL, fixtureSociaLista } from './socia-lista';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Socia completa» — el andamiaje que contesta a TODO lo que la app pregunta.
@@ -87,6 +87,23 @@ export interface OpcionesSocia {
    * solo para medir.
    */
   sinReloj?: boolean;
+  /**
+   * El reloj a `AHORA` en hora de MADRID (`+02:00`), no en la de la máquina que corre el test: con `TZ=UTC` (el CI) las
+   * 08:00 sin zona son las 10:00 de Madrid. Quien mire horas en pantalla lo pide, como `sembrarSociaLista`.
+   */
+  relojMadrid?: boolean;
+  /** Tiene una CUOTA (`plan-mes`), sin contador. `limiteSemanal` = su tope por semana. */
+  cuota?: boolean | { limiteSemanal?: number | null };
+  /** Además de la cuota, un bono acotado a Reformer (el caso de «la mensual gana»). */
+  cuotaYBonoAcotado?: boolean;
+  /** Su reserva en la clase del fixture es la de su CLASE FIJA (`res-pf-…`, CONFIRMADA). */
+  reservaFija?: boolean;
+  /** Su bono está acotado a OTRO tipo de clase (Mat): no cubre la del fixture (Reformer). */
+  bonoQueNoCubre?: boolean;
+  /** Las reglas de créditos del estudio (`reward_rules`). */
+  reglasCreditos?: Array<{ trigger: string; creditos: number; activa?: boolean; topeMensual?: number | null }>;
+  /** Último retoque del payload, ya montado (sesiones con zona, dirección…). */
+  ajustar?: (f: Record<string, unknown>) => void;
 }
 
 const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
@@ -113,7 +130,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     llamadas[p] = (llamadas[p] ?? 0) + 1;
   };
 
-  if (!o.sinReloj) await page.clock.install({ time: new Date(AHORA) });
+  if (!o.sinReloj) await page.clock.install({ time: new Date(o.relojMadrid ? `${AHORA}+02:00` : AHORA) });
   await page.addInitScript(() => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -148,18 +165,26 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   f.planesTarifa = conTienda
     ? [
         { id: 'plan-bono', studioId: STUDIO_ID, nombre: 'Bono 8 sesiones', tipo: 'BONO', sesiones: 8, precio: 96, activo: true },
-        { id: 'plan-mes', studioId: STUDIO_ID, nombre: 'Mensual ilimitado', tipo: 'MENSUAL', sesiones: null, precio: 89, activo: true, periodicidadMeses: 1 },
+        { ...PLAN_MENSUAL, ...(typeof o.cuota === 'object' && o.cuota.limiteSemanal != null ? { limiteSemanal: o.cuota.limiteSemanal } : {}) },
+        ...(o.cuotaYBonoAcotado ? [{ id: 'plan-bono-ref', studioId: STUDIO_ID, nombre: 'Bono Reformer', tipo: 'BONO', sesiones: 10, precio: 120, activo: true, tiposClaseIds: ['tc-r'] }] : []),
+        ...(o.bonoQueNoCubre ? [{ id: 'plan-bono-mat', studioId: STUDIO_ID, nombre: 'Bono Mat', tipo: 'BONO', sesiones: 10, precio: 90, activo: true, tiposClaseIds: ['tc-mat'] }] : []),
       ]
     : [];
 
-  s.suscripciones = bono === null ? [] : [{
-    id: 'sus-1', socioId: SOCIO_ID, planId: 'plan-bono', estado: 'ACTIVA',
-    sesionesRestantes: bono, fechaInicio: '2026-08-01', fechaFin: '2026-12-31',
-  }];
+  const sus = (id: string, planId: string, sesionesRestantes: number | null) => ({
+    id, socioId: SOCIO_ID, planId, estado: 'ACTIVA', sesionesRestantes, fechaInicio: '2026-08-01', fechaFin: '2026-12-31',
+  });
+  s.suscripciones = [
+    ...(bono === null ? [] : [sus('sus-1', o.bonoQueNoCubre ? 'plan-bono-mat' : 'plan-bono', bono)]),
+    ...(o.cuota || o.cuotaYBonoAcotado ? [sus('sus-mes', 'plan-mes', null)] : []),
+    ...(o.cuotaYBonoAcotado ? [sus('sus-ref', 'plan-bono-ref', 6)] : []),
+  ];
 
-  s.reservas = reservada
-    ? [{ id: 'res-1', socioId: SOCIO_ID, sesionId: SESION_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T09:00:00Z' }]
+  // Su clase fija reserva con `res-pf-` (contrato del motor): la ficha solo afirma con qué viene en ESA.
+  s.reservas = reservada || o.reservaFija
+    ? [{ id: o.reservaFija ? `res-pf-${SESION_ID}` : 'res-1', socioId: SOCIO_ID, sesionId: SESION_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T09:00:00Z' }]
     : [];
+  if (o.reglasCreditos) f.rewardRules = o.reglasCreditos.map((r) => ({ activa: true, unidadEuros: null, topeMensual: null, ...r }));
 
   // «Descubre». El servidor ya filtra por `activo` y ubicación y ordena por
   // `orden`, así que el andamiaje manda solo lo que llegaría de verdad. La
@@ -185,7 +210,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   // reservada — y eso también se investigó como si fuera un bug.
   const filasAforo = [
     ...Array.from({ length: ocupadas }, (_, i) => ({ id: `ar-otra-${i}`, sesion_id: SESION_ID, estado: 'CONFIRMADA' })),
-    ...(reservada ? [{ id: 'ar-mia', sesion_id: SESION_ID, estado: 'CONFIRMADA' }] : []),
+    ...(reservada || o.reservaFija ? [{ id: 'ar-mia', sesion_id: SESION_ID, estado: 'CONFIRMADA' }] : []),
   ];
   f.aforoReservas = filasAforo;
 
@@ -202,6 +227,8 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     socio.tarjetaExpMes = 12;
     socio.tarjetaExpAnio = 2029;
   }
+
+  o.ajustar?.(f);
 
   // ── 3. Los 27 endpoints. ──
   const ruta = (test: (p: string) => boolean, responder: (r: Route) => unknown) =>
@@ -282,6 +309,8 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     activa: valoracionActiva, conSalud: false, historial: null,
   })));
 
+  // Bonos: los movimientos y la semana de la cuota (P4). Vacío por defecto; un spec que los mire registra el suyo DESPUÉS.
+  await ruta((p) => p === '/api/public/mis-bonos', (r) => r.fulfill(json({ movimientos: { movimientos: [], hayMas: false, cuadra: true, historialCompleto: true, desde: null }, semanas: [] })));
   await ruta((p) => p === '/api/public/socio', (r) => r.fulfill(json({ ok: true })));
   await ruta((p) => p === '/api/public/favoritos', (r) => r.fulfill(json({ favoritos: [] })));
   await ruta((p) => p === '/api/public/retos', (r) => r.fulfill(json({ ok: true })));

@@ -22,10 +22,15 @@ export function useCompartir() {
   const hayHoja = useSyncExternalStore(nada, hayHojaDeCompartir, () => false);
   const [copiado, setCopiado] = useState<boolean | null>(null);
 
-  const compartir = useCallback(async (c: { titulo: string; texto: string; url?: string }) => {
+  // Devuelve además en qué quedó, para quien prefiere avisar con un toast en vez de pintar `copiado`: 'hoja' (salió la
+  // hoja del sistema, o la cerró), 'copiado' o 'no-copiado' (el portapapeles lo rechazó DE VERDAD).
+  const compartir = useCallback(async (c: { titulo: string; texto: string; url?: string }): Promise<'hoja' | 'copiado' | 'no-copiado'> => {
     setCopiado(null);
     const r = await compartirTexto(c);
-    if (r === 'copiar') setCopiado(await copiarAlPortapapeles(textoParaCopiar(c.texto, c.url)));
+    if (r !== 'copiar') return 'hoja';
+    const ok = await copiarAlPortapapeles(textoParaCopiar(c.texto, c.url));
+    setCopiado(ok);
+    return ok ? 'copiado' : 'no-copiado';
   }, []);
 
   const olvidar = useCallback(() => setCopiado(null), []);

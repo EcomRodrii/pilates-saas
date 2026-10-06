@@ -28,7 +28,11 @@ async function montar(page: Page, opts: { plaza?: boolean; recuperaciones?: numb
 }
 
 test.describe('Student PWA · clase fija y recuperaciones', () => {
-  test('Bonos se queda con las recuperaciones; la clase fija vive en Mis clases → Fijas', async ({ page }) => {
+  // Como los demás bloques de este fichero: hay pruebas que pasan por dos pantallas (Bonos y Mis clases),
+  // y con 30 s la primera compilación de `next dev` se las comía enteras.
+  test.describe.configure({ timeout: 120_000 });
+
+  test('Bonos se queda con las recuperaciones; la clase fija vive en Mis clases → Fija', async ({ page }) => {
     await montar(page, { recuperaciones: 2 });
     await page.goto(`${base}/bonos`);
     const tarjeta = page.getByTestId('plaza-fija');
@@ -38,10 +42,15 @@ test.describe('Student PWA · clase fija y recuperaciones', () => {
     await expect(tarjeta.getByText('Jueves · 18:00')).toHaveCount(0);
 
     await page.goto(`${base}/mis-reservas?tab=fijas`);
-    await expect(page.getByRole('tab', { name: 'Fijas' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+    await expect(page.getByRole('tab', { name: 'Fija' })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
     const mia = page.getByTestId('clase-fija-mia');
-    await expect(mia).toContainText('Los jueves · 18:00', { timeout: 30_000 });
+    await expect(mia).toContainText('Jueves 18:00', { timeout: 30_000 });
     await expect(mia).toContainText('Reformer · Sala 1');
+    await expect(mia).toContainText('Sin fecha de fin');
+    // Y en Fija también: sus clases por recuperar, con «Elegir clase» al horario.
+    const recuperar = page.getByTestId('fila-recuperaciones');
+    await expect(recuperar).toContainText('2 clases por recuperar');
+    await expect(recuperar.getByRole('link', { name: 'Elegir clase' })).toHaveAttribute('href', `${base}/reservar`);
   });
 
   test('sin plaza ni recuperaciones no se pinta nada (ni en Bonos ni en Inicio)', async ({ page }) => {
@@ -81,7 +90,7 @@ test.describe('Student PWA · clase fija y recuperaciones', () => {
     await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
+    await tarjeta.getByTestId('pausar-clase-fija').getByRole('button').click();
     // El reloj de `sembrarSociaLista` es el 2026-08-12.
     await page.getByLabel('Hasta').fill('2026-08-26');
     await page.getByRole('button', { name: 'Pedir la pausa' }).click();
@@ -90,8 +99,9 @@ test.describe('Student PWA · clase fija y recuperaciones', () => {
     await expect(tarjeta.getByText(/Pausa pedida del .* esperando a tu estudio/)).toBeVisible({ timeout: 30_000 });
     expect(intentos).toBeGreaterThan(0);
     expect(cuerpo).toMatchObject({ accion: 'solicitar_pausa', plazaId: 'pf-1', hasta: '2026-08-26' });
-    // Hasta que el estudio conteste, su plaza sigue igual.
-    await expect(tarjeta.getByText('Activa')).toBeVisible();
+    // Hasta que el estudio conteste, su plaza sigue igual: lo pedido se dice, y que se reserva sola también.
+    await expect(tarjeta.getByTestId('clase-fija-estado')).toHaveText('Pausa pedida');
+    await expect(tarjeta.getByTestId('plaza-fija-reservada-sola')).toHaveText('Se reserva sola cada semana. Tú solo avisa si un día no vas.');
   });
 
   test('si el servidor dice que no, la app no dice que sí', async ({ page }) => {
@@ -105,7 +115,7 @@ test.describe('Student PWA · clase fija y recuperaciones', () => {
     await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await tarjeta.getByRole('button', { name: 'Pedir una pausa' }).click();
+    await tarjeta.getByTestId('pausar-clase-fija').getByRole('button').click();
     await page.getByLabel('Hasta').fill('2026-08-26');
     await page.getByRole('button', { name: 'Pedir la pausa' }).click();
 
@@ -687,11 +697,27 @@ test.describe('Student PWA · clases fijas · enlaces viejos', () => {
     await expect(page.getByTestId('entrada-clases-fijas')).toHaveCount(0);
   });
 
-  test('Mis clases → Fijas sin ninguna dice cómo se consigue y lleva al horario', async ({ page }) => {
+  test('Mis clases → Fija sin ninguna dice qué es, cómo se pide y lleva al horario', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'cuota');
     await page.goto(`${base}/mis-reservas?tab=fijas`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText(/activa «Clase fija»: tu plaza quedará reservada cada semana/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('link', { name: 'Ver el horario' })).toHaveAttribute('href', `${base}/reservar`);
+    const vacia = page.getByTestId('clase-fija-vacia');
+    await expect(vacia.getByRole('heading', { name: 'Tu hueco, cada semana' })).toBeVisible({ timeout: 30_000 });
+    // En e2e el estudio deja pedirla desde la app (E2E_PLAZA_FIJA_APP): los pasos hablan del interruptor.
+    // Sin ese ajuste dicen «Pídesela a tu estudio» (lo fija `clase-fija-vista.test.ts`: es del servidor, no se cambia por test).
+    await expect(vacia.getByRole('listitem')).toHaveText([/Abre la clase a la que vas siempre$/, /Activa «Clase fija» y elige hasta cuándo$/, /Tu estudio la confirma y ya está$/]);
+    // El interruptor de muestra no es un control de verdad: nada que tocar aquí.
+    await expect(vacia.getByRole('switch')).toHaveCount(0);
+    await expect(vacia.getByRole('link', { name: 'Ver el horario' })).toHaveAttribute('href', `${base}/reservar`);
+  });
+
+  test('sin cuota (solo bono), no se le enseña un interruptor que no va a encontrar: primero la cuota', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    await page.goto(`${base}/mis-reservas?tab=fijas`, { waitUntil: 'domcontentloaded' });
+    const vacia = page.getByTestId('clase-fija-vacia');
+    await expect(vacia.getByRole('heading', { name: 'Tu hueco, cada semana' })).toBeVisible({ timeout: 30_000 });
+    await expect(vacia.getByRole('listitem').first()).toContainText('Consigue una cuota que cubra tus clases');
+    await expect(vacia.getByText('Así lo verás en la ficha de la clase (un ejemplo).')).toHaveCount(0);
+    await expect(vacia.getByTestId('clase-fija-con-bono')).toHaveText('Con bono, desde la ficha de una clase puedes reservar varias semanas de una vez.');
   });
 });
 
@@ -725,9 +751,15 @@ async function montarConClaseFija(page: Page, opts: {
   estados?: Record<string, string>;
   /** Reservas de la clase fija que NO existen: la clase está, la reserva no. */
   sinReserva?: string[];
+  /** Lo que el estudio cobra por cancelar tarde (`studios.penalizacion_importe_eur`). */
+  penalizacionEur?: number;
+  /** «Cobrar si cancela tarde» (`studios.penalizacion_aplica_cancelacion_tardia`). Sin dato, encendido. */
+  cobraCancelarTarde?: boolean;
 } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
+  if (opts.penalizacionEur != null) (f.studio as Record<string, unknown>).penalizacionImporteEur = opts.penalizacionEur;
+  if (opts.cobraCancelarTarde != null) (f.studio as Record<string, unknown>).penalizacionAplicaCancelacionTardia = opts.cobraCancelarTarde;
   const sesiones = f.sesiones as unknown[];
   const clasesFijas = [
     ...CLASES_FIJAS,
@@ -762,30 +794,33 @@ test.describe('Student PWA · tu clase fija', () => {
     await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await expect(tarjeta.getByTestId('clase-fija-mia')).toContainText('Los jueves · 10:00');
-    await expect(tarjeta.getByTestId('plaza-fija-reservada-sola')).toHaveText('Tu plaza está reservada automáticamente cada semana. No necesitas reservar esta clase.');
+    await expect(tarjeta.getByTestId('clase-fija-mia')).toContainText('Jueves 10:00');
+    await expect(tarjeta.getByTestId('clase-fija-mia')).toContainText('Reformer · Sala 1 · con Ana');
+    await expect(tarjeta.getByTestId('plaza-fija-reservada-sola')).toHaveText('Se reserva sola cada semana. Tú solo avisa si un día no vas.');
 
     // Las tres que el motor le tiene reservadas, y NO la que reservó a mano.
     const proximas = tarjeta.getByTestId('proximas-clases-fijas');
-    await expect(proximas.getByText('Próximas clases')).toBeVisible();
-    await expect(proximas.getByText('Reservada')).toHaveCount(3);
-    await expect(proximas.getByRole('button', { name: 'No puedo asistir' })).toHaveCount(3);
+    await expect(proximas.getByText('Próximas semanas')).toBeVisible();
+    await expect(proximas.locator('[data-testid="semana-clase-fija"][data-estado="va"]')).toHaveCount(3);
+    await expect(proximas.getByRole('button', { name: /No puedo asistir$/ })).toHaveCount(3);
     // Y cómo dejarla o cambiarla: no se hace desde la app, se escribe al estudio.
     await expect(tarjeta.getByRole('link', { name: 'Escribir al estudio' })).toHaveAttribute('href', `${base}/mensajes`);
   });
 
-  test('cada próxima clase de su clase fija abre su ficha, como en el horario', async ({ page }) => {
+  test('su próxima clase abre su ficha, como en el horario; y cada día del mes, la suya', async ({ page }) => {
     await montarConClaseFija(page);
     await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    // Cada próxima, a la ficha de ESE día (donde se ve y se cancela ese día).
-    const proximas = tarjeta.getByTestId('proximas-clases-fijas');
-    await expect(proximas.getByTestId('enlace-clase-fija')).toHaveCount(3);
-    await expect(proximas.getByTestId('enlace-clase-fija').nth(1)).toHaveAttribute('href', `${base}/reservar/ses-21`);
-    // «No puedo asistir» sigue siendo un botón aparte: no abre la ficha.
-    await expect(proximas.getByRole('button', { name: 'No puedo asistir' })).toHaveCount(3);
-    await proximas.getByTestId('enlace-clase-fija').first().click();
+    // El día y la hora de su tarjeta llevan a la ficha de la PRÓXIMA (donde se ve y se cancela ese día).
+    await expect(tarjeta.getByTestId('enlace-clase-fija')).toHaveCount(1);
+    // Las semanas con su reserva son «no voy» (un botón), no un enlace: no abren la ficha.
+    await expect(tarjeta.getByTestId('proximas-clases-fijas').getByRole('button', { name: /No puedo asistir$/ })).toHaveCount(3);
+    // Cada día, a su ficha: en «Ver el mes entero».
+    await tarjeta.getByTestId('ver-mes-clase-fija').getByRole('button').click();
+    await expect(page.getByTestId('calendario-clase-fija').locator('[data-fecha="2026-08-20"]')).toHaveAttribute('href', `${base}/reservar/ses-21`);
+    await page.keyboard.press('Escape');
+    await tarjeta.getByTestId('enlace-clase-fija').click();
     await expect(page).toHaveURL(new RegExp(`${base}/reservar/ses-20$`), { timeout: 30_000 });
   });
 
@@ -802,7 +837,7 @@ test.describe('Student PWA · tu clase fija', () => {
     await page.goto(`${base}/mis-reservas?tab=fijas`);
     const tarjeta = page.getByTestId('plaza-fija');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
-    await tarjeta.getByRole('button', { name: 'No puedo asistir' }).first().click();
+    await tarjeta.getByRole('button', { name: /No puedo asistir$/ }).first().click();
 
     // Antes de confirmar se le dice qué toca: solo esta clase, y nada de «tu bono».
     const aviso = page.getByTestId('no-puedo-aviso');
@@ -810,7 +845,7 @@ test.describe('Student PWA · tu clase fija', () => {
     await expect(aviso).not.toContainText('bono');
     await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
 
-    await expect(page.getByText('Cancelada solo esta semana · tu clase fija sigue activa ✓')).toBeVisible({ timeout: 30_000 });
+    await expect(tarjeta.getByTestId('no-voy-resultado')).toContainText('Mañana: no vas. Tu clase fija sigue activa.', { timeout: 30_000 });
     // Un camino que no llega a cancelar nada «no miente», y no probaría nada.
     expect(cancelaciones.length).toBeGreaterThan(0);
     expect(cancelaciones[0]).toMatchObject({ reservaId: 'res-pf-s20' });
@@ -863,10 +898,15 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   const dia = (page: Page, fecha: string) => page.getByTestId('calendario-clase-fija').locator(`[data-testid="dia-clase-fija"][data-fecha="${fecha}"]`);
+  // El calendario es el mismo de siempre, ahora en una hoja: «Ver el mes entero».
+  const abrirMes = async (page: Page) => {
+    await page.getByTestId('ver-mes-clase-fija').getByRole('button').click({ timeout: 30_000 });
+  };
 
   test('marca los jueves que ya tiene reservados y cada día abre su clase', async ({ page }) => {
     await montarConClaseFija(page);
     await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await abrirMes(page);
     const cal = page.getByTestId('calendario-clase-fija');
     await expect(cal).toBeVisible({ timeout: 30_000 });
     await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
@@ -883,6 +923,13 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
   test('el día que no va sale distinto, y un día con clase sin reserva lo dice', async ({ page }) => {
     await montarConClaseFija(page, { estados: { 'res-pf-s21': 'CANCELADA' }, sinReserva: ['res-pf-s22'] });
     await page.goto(`${base}/mis-reservas?tab=fijas`);
+    // Las píldoras de las próximas semanas dicen lo mismo que el calendario.
+    const semanas = page.getByTestId('semana-clase-fija');
+    await expect(semanas).toHaveCount(3, { timeout: 30_000 });
+    await expect(semanas.nth(0)).toHaveAttribute('data-estado', 'va');
+    await expect(semanas.nth(1)).toHaveAttribute('data-estado', 'no-va');
+    await expect(semanas.nth(2)).toHaveAttribute('data-estado', 'sin-reservar');
+    await abrirMes(page);
     await expect(page.getByTestId('calendario-clase-fija')).toBeVisible({ timeout: 30_000 });
     await expect(dia(page, '2026-08-13').locator('[data-marca="RESERVADA"]')).toHaveCount(1);
     await expect(dia(page, '2026-08-20').locator('[data-marca="NO_VA"]')).toHaveCount(1);
@@ -895,6 +942,7 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
     // Con los jueves de septiembre y los dos primeros de octubre también reservados.
     await montarConClaseFija(page, { masFijas: 6 });
     await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await abrirMes(page);
     const cal = page.getByTestId('calendario-clase-fija');
     await expect(cal).toBeVisible({ timeout: 30_000 });
     await expect(cal.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
@@ -920,5 +968,138 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
     await page.goto(base);
     await expect(page.getByTestId('plaza-fija')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('calendario-clase-fija')).toHaveCount(0);
+  });
+});
+
+// ── «No voy» desde las próximas semanas (rediseño del 5-oct-2026) ─────────────
+//
+// Un toque en una semana = «no voy», por la MISMA vía que «No puedo asistir»
+// (cancelar esa reserva, con su confirmación). La píldora cambia solo con lo que
+// contesta el servidor; con un no, se queda como estaba. Siempre con contador:
+// un camino que no llega a pedir nada «no miente», y no probaría nada.
+test.describe('Student PWA · tu clase fija · no voy', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  type Respuesta = { status: number; body: unknown };
+  async function rutaReserva(page: Page, respuestas: { cancelar: Respuesta; crear?: Respuesta }) {
+    const cuenta = { cancelar: 0, crear: 0, cuerpos: [] as Record<string, unknown>[] };
+    await page.route('**/api/public/reserva', (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      const cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      cuenta.cuerpos.push(cuerpo);
+      const res = cuerpo.accion === 'cancelar' ? respuestas.cancelar : cuerpo.accion === 'crear' ? respuestas.crear : undefined;
+      if (!res) return r.continue();
+      if (cuerpo.accion === 'cancelar') cuenta.cancelar++; else cuenta.crear++;
+      return r.fulfill({ status: res.status, contentType: 'application/json', body: JSON.stringify(res.body) });
+    });
+    return cuenta;
+  }
+  const CANCELADA_A_TIEMPO = { status: 200, body: { ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: false } };
+
+  test('un toque: confirmación, UNA petición, y la semana pasa a «No vas» solo con el sí del servidor', async ({ page }) => {
+    await montarConClaseFija(page);
+    const cuenta = await rutaReserva(page, { cancelar: CANCELADA_A_TIEMPO });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const primera = page.getByTestId('semana-clase-fija').first();
+    await expect(primera).toHaveAttribute('data-estado', 'va', { timeout: 30_000 });
+
+    await primera.click();
+    await expect(page.getByTestId('no-puedo-aviso')).toBeVisible();
+    // A tiempo: ni cancelación tardía ni penalización.
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveCount(0);
+    expect(cuenta.cancelar, 'abrir la confirmación no cancela nada').toBe(0);
+    await expect(primera).toHaveAttribute('data-estado', 'va');
+
+    await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
+    const resultado = page.getByTestId('no-voy-resultado');
+    await expect(resultado).toContainText('Mañana: no vas. Tu clase fija sigue activa.', { timeout: 30_000 });
+    expect(cuenta.cancelar).toBe(1);
+    expect(cuenta.cuerpos[0]).toMatchObject({ accion: 'cancelar', reservaId: 'res-pf-s20' });
+    await expect(page.getByTestId('semana-clase-fija').first()).toHaveAttribute('data-estado', 'no-va');
+    // El foco va a lo que contestó el servidor (la semana ha dejado de ser un botón).
+    await expect(resultado).toBeFocused();
+    // Sin «Deshacer»: si cambia de idea, a la ficha de esa clase. Y nada más se ha pedido.
+    await expect(resultado.getByRole('button', { name: 'Deshacer' })).toHaveCount(0);
+    await expect(resultado.getByTestId('volver-a-reservarla')).toHaveAttribute('href', `${base}/reservar/ses-20`);
+    expect(cuenta.crear, 'no se reserva nada por su cuenta').toBe(0);
+  });
+
+  test('si el servidor dice que no (4xx), la semana NO cambia y la confirmación sigue abierta', async ({ page }) => {
+    await montarConClaseFija(page);
+    const cuenta = await rutaReserva(page, { cancelar: { status: 409, body: { error: 'La clase ya ha empezado: no se puede cancelar.' } } });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const primera = page.getByTestId('semana-clase-fija').first();
+    await expect(primera).toHaveAttribute('data-estado', 'va', { timeout: 30_000 });
+    await primera.click();
+    await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
+
+    await expect(page.getByText('La clase ya ha empezado: no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
+    expect(cuenta.cancelar, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(primera).toHaveAttribute('data-estado', 'va');
+    await expect(page.getByTestId('no-voy-resultado')).toHaveCount(0);
+    await expect(page.getByTestId('no-puedo-aviso')).toBeVisible();
+  });
+
+  test('con una clase para recuperar ya creada, se dice hasta cuándo y NO se invita a volver a reservarla (sería una clase de regalo)', async ({ page }) => {
+    await montarConClaseFija(page);
+    await rutaReserva(page, { cancelar: { status: 200, body: { ...CANCELADA_A_TIEMPO.body, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' } } });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
+    const linea = page.getByTestId('no-voy-resultado');
+    await expect(linea).toContainText(/Tienes una clase para recuperar hasta el \w+ 11 \w+: úsala desde el horario/, { timeout: 30_000 });
+    await expect(linea.getByTestId('volver-a-reservarla')).toHaveCount(0);
+  });
+
+  test('tarde: la confirmación avisa de la penalización ANTES, y después dice «fuera de plazo» (el servidor manda `tardia`)', async ({ page }) => {
+    await montarConClaseFija(page, { penalizacionEur: 8 });
+    // A 5 h de la clase del jueves 13 a las 10:00 (el estudio tiene 12 h de plazo).
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    const cuenta = await rutaReserva(page, { cancelar: { status: 200, body: { ...CANCELADA_A_TIEMPO.body, tardia: true } } });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
+    const aviso = page.getByTestId('no-puedo-aviso');
+    await expect(aviso).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveText(/Tu estudio puede cobrarte 8(,00)?\s?€ por cancelar tan tarde\./);
+    expect(cuenta.cancelar, 'avisar no cancela nada').toBe(0);
+
+    await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
+    const linea = page.getByTestId('no-voy-resultado');
+    await expect(linea).toContainText('Fuera de plazo: esta vez no hay clase para recuperar.', { timeout: 30_000 });
+    expect(cuenta.cancelar).toBe(1);
+    // Volver a ir no anula la cancelación tardía: no se le invita.
+    await expect(linea.getByTestId('volver-a-reservarla')).toHaveCount(0);
+  });
+
+  test('«Mis clases → Próximas»: cancelar tarde una de su clase fija también avisa ANTES de lo que se cobraría', async ({ page }) => {
+    await montarConClaseFija(page, { penalizacionEur: 8 });
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    const cuenta = await rutaReserva(page, { cancelar: { status: 200, body: { ...CANCELADA_A_TIEMPO.body, tardia: true } } });
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
+    // La primera es la de hoy (jueves 13 a las 10:00): a 5 h, dentro del plazo de 12 h.
+    await page.getByRole('button', { name: /^Cancelar$/ }).first().click();
+    await expect(page.getByTestId('cancelar-clase-fija-aviso')).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('cancelar-penalizacion')).toHaveText(/Tu estudio puede cobrarte 8(,00)?\s?€ por cancelar tan tarde\./);
+    expect(cuenta.cancelar, 'avisar no cancela nada').toBe(0);
+  });
+
+  test('con «Cobrar si cancela tarde» apagado, la confirmación tardía no habla de cobrar nada', async ({ page }) => {
+    await montarConClaseFija(page, { penalizacionEur: 8, cobraCancelarTarde: false });
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
+    await expect(page.getByTestId('no-puedo-aviso')).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveCount(0);
+  });
+
+  test('sin penalización en el estudio, la confirmación tardía no habla de cobrar nada', async ({ page }) => {
+    await montarConClaseFija(page);
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
+    await expect(page.getByTestId('no-puedo-aviso')).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveCount(0);
   });
 });

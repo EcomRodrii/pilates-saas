@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -12,16 +12,17 @@ import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
-import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
+import { ClaseFijaVacia, MiClaseFija } from '@/components/student/domain/MiClaseFija';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
+import { etiquetaDia, euros, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
+import { avisoPenalizacionTardia } from '@/lib/student/clase-fija-vista';
 import { acotarFijasProximas, diaSemanaDe } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
-import { useAhoraMs } from '@/lib/student/use-ahora';
+import { useAhoraConPlazos } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
@@ -32,6 +33,8 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { vibrar } from '@/lib/nativo/puente';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
+import { alLlegarAccionPendiente, decidirOrdenAviso, hayAccionPendiente, tomarAccionPendiente } from '@/lib/student/accion-pendiente';
+import type { AccionPendiente } from '@/lib/notifications/acciones-ios';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
 // podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
@@ -64,19 +67,10 @@ export default function MisReservasPage() {
   // `?tab=fijas`: llegan desde la tarjeta de Inicio y desde la ficha de una clase
   // fija. Cualquier otro valor cae en «Próximas».
   const sp = useSearchParams();
-  const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
+  const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' || sp.get('tab') === 'fija' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
-  // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
-  //
-  // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta
-  // por dos motivos: «en curso» tiene que aparecer y desaparecer sola mientras la
-  // pantalla está abierta, y ese inicializador corre TAMBIÉN en el SSR de este
-  // componente de cliente, así que servidor y cliente capturaban instantes
-  // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
-  const ahoraMs = useAhoraMs();
-
   const cargar = useCallback(async () => {
     const [reservas, clases, instructoras, plazaFija] = await Promise.all([
       getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
@@ -85,6 +79,16 @@ export default function MisReservasPage() {
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:mis-clases`);
+  // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
+  //
+  // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta
+  // por dos motivos: «en curso» tiene que aparecer y desaparecer sola mientras la
+  // pantalla está abierta, y ese inicializador corre TAMBIÉN en el SSR de este
+  // componente de cliente, así que servidor y cliente capturaban instantes
+  // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
+  //
+  // …y repinta en el instante en que caduca una oferta: «Aceptar» no sigue activo hasta el minuto siguiente.
+  const ahoraMs = useAhoraConPlazos((data?.reservas ?? []).map((r) => (r.estado === 'en-espera' ? r.ofertaExpiraEn : null)));
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
@@ -131,6 +135,11 @@ export default function MisReservasPage() {
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
   const selEsFija = !!sel && sel.r.estado !== 'en-espera' && esClaseFija(sel.r.id);
+  // Tarde y con penalización que de verdad se cobraría por ESA clase: se dice antes de confirmar
+  // (la misma regla y el mismo texto que «no voy» en Fija: `avisoPenalizacionTardia`).
+  // Solo junto al «tarde» del propio diálogo (ver MiClaseFija): no pueden contradecirse.
+  const penalizacionSel = sel && sel.r.estado !== 'en-espera' && aviso && !aviso.devolveriaCredito
+    ? avisoPenalizacionTardia(sel.c, new Date(), euros) : null;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
@@ -161,6 +170,55 @@ export default function MisReservasPage() {
     // alguien de la cola. Tachar la fila a mano enseñaría un estado inventado.
     reintentar();
   };
+
+  // Un botón del aviso del iPhone («Aceptar la plaza», «No, gracias», «No puedo
+  // ir»): la orden llega EN MEMORIA desde el evento nativo (nunca por la URL) y se
+  // ejecuta aquí, con la sesión de la alumna y por la MISMA vía que los botones de
+  // esta pantalla. Aceptar la plaza es lo que pulsó; salir de la lista y «no puedo
+  // ir» abren su confirmación de siempre. Ver lib/notifications/acciones-ios.ts.
+  //
+  // ⚠️ Se decide con datos RECIÉN TRAÍDOS, no con la copia guardada: la pantalla se
+  // pinta con lo que recordaba (y el catálogo vive 60 s), y una oferta abierta
+  // mientras la app estaba en segundo plano no salía ahí: se le decía «ya no está
+  // disponible» con la plaza esperándola. La orden no se recoge hasta tener esos
+  // datos; si la pantalla se va antes, sigue esperando (dos minutos, ver
+  // `accion-pendiente.ts`).
+  const [ordenAviso, setOrdenAviso] = useState<{ orden: AccionPendiente; reservas: Reserva[] } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    let buscando = false;
+    const recoger = async () => {
+      if (buscando || !hayAccionPendiente(estudio.slug)) return;
+      buscando = true;
+      invalidarCatalogo(estudio.slug, { conservarVistas: true });
+      const frescos = await cargar().catch(() => null);
+      buscando = false;
+      if (!vivo) return;
+      const orden = tomarAccionPendiente(estudio.slug);
+      if (!orden) return;
+      if (!frescos) { toast('No hemos podido comprobar esa clase. Revisa tu conexión y vuelve a intentarlo.'); return; }
+      // La pantalla, con lo mismo que se ha leído (sale del catálogo recién traído: no pide otra vez).
+      await refrescar();
+      if (vivo) setOrdenAviso({ orden, reservas: frescos.reservas });
+    };
+    void recoger();
+    const dejarDeOir = alLlegarAccionPendiente(() => { void recoger(); });
+    return () => { vivo = false; dejarDeOir(); };
+  }, [estudio.slug, cargar, refrescar, toast]);
+  // Con la orden y SUS datos frescos: lo decide `decidirOrdenAviso` (puro, con tests).
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!ordenAviso) return;
+    setOrdenAviso(null);
+    const d = decidirOrdenAviso(ordenAviso.orden, ordenAviso.reservas, Date.now());
+    if (d.tipo === 'aviso') { toast(d.texto); return; }
+    setTab('prox');
+    if (d.tipo === 'confirmar-cancelar') { setCancelId(d.reservaId); return; }
+    void handleAceptarOferta(d.reservaId);
+    // `handleAceptarOferta` se recrea en cada render; lo que dispara esto es la orden.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordenAviso]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // P-5 (auditoría 23ª pasada): hasta ahora no había NINGUNA vía en la PWA
   // para aceptar una oferta de lista de espera — el aviso llegaba, y la
@@ -258,19 +316,15 @@ export default function MisReservasPage() {
 
         {data && estado !== 'loading' && estado !== 'error' && tab === 'fijas' && (
           data.plazaFija.plazas.length === 0 ? (
-            <EmptyState
-              ilustracion="calendario"
-              titulo="Aún no tienes clase fija"
-              cuerpo={TEXTOS_PLAZA_FIJA.vacia}
-              accion="Ver el horario"
-              href={href('/reservar')}
-            />
+            <ClaseFijaVacia hrefHorario={href('/reservar')} tieneCuota={data.plazaFija.tieneCuota} />
           ) : (
-            // Las recuperaciones se quedan en Bonos, junto a su saldo: aquí solo sus clases fijas.
-            <PlazaFijaCard
+            // Las recuperaciones están aquí Y en Bonos: aquí, como «Elegir clase» junto a su clase fija.
+            // `refrescar` y no `reintentar`: `reintentar` pasa por `loading` y desmontaría la tarjeta
+            // justo cuando enseña lo que contestó el servidor al decir «no voy».
+            <MiClaseFija
               plazas={data.plazaFija.plazas} calendario={data.plazaFija.calendario}
-              recuperaciones={{ disponibles: 0, proximaCaducidad: null, detalle: [] }}
-              hrefHorario={href('/reservar')} onCambio={reintentar}
+              recuperaciones={data.plazaFija.recuperaciones}
+              hrefHorario={href('/reservar')} onCambio={() => void refrescar()}
             />
           )
         )}
@@ -397,6 +451,9 @@ export default function MisReservasPage() {
             <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
               {aviso.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(aviso.horasVentana)}
             </p>
+            {penalizacionSel && (
+              <p data-testid="cancelar-penalizacion" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>{penalizacionSel}</p>
+            )}
           </div>
         )}
         {sel && sel.r.estado !== 'en-espera' && !selEsFija && (
@@ -411,6 +468,9 @@ export default function MisReservasPage() {
                 ? 'Estás dentro del plazo: deberías recuperar la sesión de tu bono.'
                 : `Quedan menos de ${aviso?.horasVentana ?? estudio.politicaCancelacionHoras} h: es probable que la sesión no se devuelva.`}
             </p>
+            {penalizacionSel && (
+              <p data-testid="cancelar-penalizacion" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>{penalizacionSel}</p>
+            )}
             {/* ⚠️ El número sale de `aviso.horasVentana`, que es la ventana YA
                 RESUELTA (la del tipo de clase manda sobre la del estudio), no de
                 `estudio.politicaCancelacionHoras`. Escribir la del estudio era
@@ -431,7 +491,7 @@ export default function MisReservasPage() {
 
 type Tab = 'prox' | 'fijas' | 'hist';
 const TABS: Tab[] = ['prox', 'fijas', 'hist'];
-const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fijas', hist: 'Historial' };
+const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fija', hist: 'Historial' };
 
 // ── Piezas de «Próximas» ─────────────────────────────────────────────────────
 

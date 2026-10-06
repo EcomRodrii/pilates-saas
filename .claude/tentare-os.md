@@ -161,7 +161,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `aal2`: regla de negocio, no de reloj). El código va HMAC con `secretoRateLimit` (sin secreto,
   no se envía), atado a cuenta+sesión, 10 min, 5 intentos contados en SQL con candado.
   **La alumna y la instructora en la app del estudio** (4-oct-2026, opcional: solo quien la activa
-  en Perfil → Contraseña y verificación; sin factor, cero peticiones de más). Misma regla
+  en Perfil → Seguridad; sin factor, cero peticiones de más). Misma regla
   (`faltaSegundoPaso`), la pone el SERVIDOR: `verificarUsuarioSupabase` corta a la sesión con factor
   sin verificar (ni `aal2` ni confiada). ⚠️ Una ruta de arranque contesta `doble_factor_requerido`
   (`usuarioSupabaseConPaso`), nunca un 401 a secas: el cliente lo leería como «sin sesión» y la

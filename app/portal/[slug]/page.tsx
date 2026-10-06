@@ -9,7 +9,7 @@ import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { compararPorElegibilidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { getBonos, getClases, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
+import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
@@ -21,6 +21,7 @@ import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { consultaMapa } from '@/lib/student/ficha-clase-textos';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { useToast } from '@/components/student/ui/Toast';
 import type { Clase } from '@/lib/student/tipos';
@@ -39,12 +40,13 @@ import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
-import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
+import { enVistaPreviaDelPanel, useEnVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 import { tiposDeLasClases } from '@/lib/student/mapeo';
 import { cuerpoSinHuecosHoy } from '@/lib/student/huecos-texto';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
-import { claseDelMomento } from '@/lib/student/momento-inicio';
+import { claseDelMomento, clasesConPlazaProximas, esRecienLlegada, tuRitmoTieneAlgoQueContar } from '@/lib/student/momento-inicio';
+import { PrimeraClaseCard } from '@/components/student/domain/PrimeraClaseCard';
 import { ClaseDelMomentoCard } from '@/components/student/domain/ClaseDelMomentoCard';
 import { QueTalLaClase } from '@/components/student/domain/QueTalLaClase';
 
@@ -89,10 +91,13 @@ export default function InicioPage() {
     // `getFavoritos` sale del MISMO payload que el resto (`catalogo`), así que
     // no añade petición: hace falta para saber si la hoja de filtros puede
     // ofrecer «Favoritas», que solo tiene sentido si ha guardado alguna.
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos] = await Promise.all([
+    // `getAlumna`, `getHuella` y `getHayAlgoALaVenta` (la bienvenida de la recién llegada) salen del mismo payload:
+    // ninguna petición de más.
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta] = await Promise.all([
       getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug), getFavoritos(estudio.slug),
+      getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta };
   }, [estudio.slug]);
 
   // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
@@ -189,7 +194,55 @@ export default function InicioPage() {
   // la propia tarjeta al servidor (el catálogo no trae clases terminadas). Sin
   // nada que valorar, no pinta nada.
   const tarjetaValorar = <QueTalLaClase studioId={estudio.id} />;
-  const comoLlegar = () => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener');
+
+  // ── La recién llegada (P03) ───────────────────────────────────────────────
+  // Sin nada todavía en el estudio (`esRecienLlegada`, la MISMA regla que Perfil), «No tienes clases próximas» y «Tu ritmo»
+  // a cero se cambian por la bienvenida y su primera clase. Con la huella desconocida (sin ficha, o el payload incompleto
+  // por un fallo de lectura) NO: con la duda, Inicio queda como siempre. La vista previa del panel enseña a propósito
+  // la de una recién llegada, que es como la vería una alumna nueva.
+  const vistaPrevia = useEnVistaPreviaDelPanel();
+  const recienLlegada = !!data && (vistaPrevia || esRecienLlegada(data.huella, hoy));
+  const primera = data && recienLlegada ? clasesConPlazaProximas(data.clases, data.reservas, hoy, ahoraMs) : null;
+  // «Tu ritmo» se esconde hasta que hay algo que contar (una clase a la que vino, o un bono o cuota activos): eran ceros.
+  const conRitmo = !!data && tuRitmoTieneAlgoQueContar(data.reservas, bonoActivo);
+  // La MISMA búsqueda que la ficha de la clase (dirección y ciudad): una sola regla para «Cómo llegar».
+  const comoLlegar = () => window.open(urlComoLlegar(consultaMapa(estudio.direccion, estudio.ciudad), estudio.nombre, navigator.userAgent), '_blank', 'noopener');
+
+  // «Huecos de hoy»: igual en las dos ramas de abajo (la de siempre y la de la recién llegada).
+  const seccionHuecos = (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
+        <h2 className="t-h2">Huecos de hoy</h2>
+        <Link href={href('/reservar')} className="tap" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+          Ver horario →
+        </Link>
+      </div>
+      {huecos.length === 0 ? (
+        <EmptyState
+          ilustracion="calendario"
+          titulo="Hoy ya no quedan huecos"
+          // Solo lo que dicen las clases cargadas: antes afirmaba «suele
+          // haber más plazas por la mañana» sin ningún dato detrás.
+          cuerpo={cuerpoSinHuecosHoy(data?.clases ?? [], hoy)}
+          accion="Ver el horario"
+          href={href('/reservar')}
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {huecos.map((c, i) => (
+            <ClassCard
+              key={c.id}
+              clase={c}
+              instructora={(data?.instructoras ?? []).find((x) => x.id === c.instructoraId)}
+              estado={disponibilidad(c, (data?.reservas ?? []), estudio.soportaListaEspera)}
+              bono={bonoParaClase(data?.bonos ?? [], c.tipoClaseId)}
+              delay={i * 55}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
 
   // La portada va FUERA de la guardia (`heroe` de StudentShell): sale en el
   // HTML y no espera a `/api/public/session`. El saludo arranca sin nombre (así
@@ -488,7 +541,31 @@ export default function InicioPage() {
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
 
-        {data && estado !== 'loading' && estado !== 'error' && (
+        {data && estado !== 'loading' && estado !== 'error' && recienLlegada && primera && (
+          <>
+            {/* La recién llegada (P03). Sin reserva confirmada no hay clase del momento, así que la portada es la alta.
+                Mismas piezas que la rama de abajo y en el orden de la maqueta: la valoración inicial delante (es lo que
+                el estudio espera de ella), su primera clase, los avisos. Sin «Tu ritmo» (eran ceros) y sin «Tus
+                créditos» si no tiene ninguno. */}
+            {tarjetaValorar}
+            <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />
+            <PrimeraClaseCard
+              estudio={estudio.nombre}
+              genero={data.alumna?.genero}
+              clasesConPlaza={primera.total}
+              soloConBono={primera.soloConBono}
+              hrefReservar={href('/reservar')}
+              hrefPrecios={data.hayAlgoALaVenta ? href('/comprar') : null}
+            />
+            <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
+            {plazaFija && <PlazaFijaCard compacta plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+            {gamificacion && gamificacion.saldo > 0 && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
+            <Descubre slug={estudio.slug} href={href} />
+            {seccionHuecos}
+          </>
+        )}
+
+        {data && estado !== 'loading' && estado !== 'error' && !recienLlegada && (
           <>
             {/* Sin clase hoy/mañana, «¿Qué tal la clase?» va lo primero aquí. */}
             {!compacta && tarjetaValorar}
@@ -519,7 +596,7 @@ export default function InicioPage() {
 
                 Era un rótulo suelto + tres tarjetas; ahora es UNA. El detalle
                 de por qué, en el componente. */}
-            <TuRitmo
+            {conRitmo && <TuRitmo
               dias={semana}
               racha={racha}
               estaSemana={estaSemana}
@@ -527,7 +604,7 @@ export default function InicioPage() {
               hrefBono={bonoActivo ? href(`/bonos/${bonoActivo.id}`) : href('/bonos')}
               hrefBonos={href('/bonos')}
               hrefCalendario={href('/calendario')}
-            />
+            />}
 
 
             {/* ── VALORACIÓN INICIAL ──────────────────────────────────────
@@ -563,38 +640,7 @@ export default function InicioPage() {
                 pinta nada. */}
             <Descubre slug={estudio.slug} href={href} />
 
-            <section>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
-                <h2 className="t-h2">Huecos de hoy</h2>
-                <Link href={href('/reservar')} className="tap" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
-                  Ver horario →
-                </Link>
-              </div>
-              {huecos.length === 0 ? (
-                <EmptyState
-                  ilustracion="calendario"
-                  titulo="Hoy ya no quedan huecos"
-                  // Solo lo que dicen las clases cargadas: antes afirmaba «suele
-                  // haber más plazas por la mañana» sin ningún dato detrás.
-                  cuerpo={cuerpoSinHuecosHoy(data.clases, hoy)}
-                  accion="Ver el horario"
-                  href={href('/reservar')}
-                />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {huecos.map((c, i) => (
-                    <ClassCard
-                      key={c.id}
-                      clase={c}
-                      instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
-                      estado={disponibilidad(c, data.reservas, estudio.soportaListaEspera)}
-                      conBono={Boolean(bonoParaClase(data?.bonos ?? [], c.tipoClaseId))}
-                      delay={i * 55}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+            {seccionHuecos}
           </>
         )}
       </div>

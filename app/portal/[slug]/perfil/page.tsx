@@ -10,7 +10,17 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getAlumna } from '@/lib/student/datos';
+import { getAlumna, getBonos, getClases, getHuella, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { getGamificacion } from '@/lib/student/gamificacion-datos';
+import { getMetodoPago } from '@/lib/student/pago';
+import { esRecienLlegada } from '@/lib/student/momento-inicio';
+import { cifrasDeLaSocia } from '@/lib/student/tarjeta-socia';
+import { premioPorInvitar } from '@/lib/student/gamificacion';
+import { nombreCreditos } from '@/lib/creditos-nombre';
+import { hoyISO } from '@/lib/student/formato';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { mayuscula, trato } from '@/lib/genero';
+import { TarjetaSocia } from '@/components/student/domain/TarjetaSocia';
 import { useAuthStudent } from '@/lib/student/auth';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
@@ -29,8 +39,38 @@ export default function PerfilPage() {
   const { socia: sesion } = useSesionStudent(estudio.slug);
   const href = usePortalHref();
   const router = useRouter();
-  const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
-  const { data: socia } = useAsync(cargarAlumna, (d) => !d, `alumna:${estudio.slug}:perfil`);
+  // Todo del MISMO payload que ya se pedía (`catalogo`): la tarjeta de cifras no cuesta ninguna petición. `getClases` hace
+  // falta para la fecha de «Tu próxima clase».
+  const cargar = useCallback(async () => {
+    const [alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago] = await Promise.all([
+      getAlumna(estudio.slug), getHuella(estudio.slug), getReservas(estudio.slug), getClases(estudio.slug),
+      getBonos(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMetodoPago(estudio.slug),
+    ]);
+    return { alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago };
+  }, [estudio.slug]);
+  const { data, estado } = useAsync(cargar, (d) => !d.alumna, `alumna:${estudio.slug}:perfil`);
+  const socia = data?.alumna ?? null;
+  const hoy = hoyISO();
+  const ahoraMs = useAhoraMs();
+  const moneda = nombreCreditos(estudio.creditosNombre);
+  // La tarjeta de cifras solo con datos y sabiendo quién es: con error, sin conexión o con el payload incompleto
+  // (`huella` null) no se pinta nada, nunca un cero ni un «Aún no has venido».
+  const tarjeta = data?.alumna && data.huella
+    ? cifrasDeLaSocia({
+      reservas: data.reservas, clases: data.clases, bonos: data.bonos,
+      recuperacionesDisponibles: data.plazaFija?.recuperaciones.disponibles ?? 0,
+      tienePlazaFija: (data.plazaFija?.plazas.length ?? 0) > 0,
+      puntos: data.gamificacion?.hay ? data.gamificacion.saldo : null,
+      nombreCreditos: moneda,
+      recienLlegada: esRecienLlegada(data.huella, hoy),
+      hoy, ahoraMs, href,
+    })
+    : null;
+  const premio = data?.gamificacion?.hay ? premioPorInvitar(data.gamificacion.formasDeGanar, moneda) : null;
+  const metodo = data?.metodoPago;
+  // «Visa ··4242» o «Link», la misma fuente que /perfil/pago. Solo se enseña el dato.
+  const valorMetodo = metodo?.esLink ? 'Link'
+    : metodo?.tieneTarjeta && metodo.ultimos4 ? `${metodo.marca ? `${mayuscula(metodo.marca)} ` : ''}··${metodo.ultimos4}` : undefined;
   // SEC-01 (auditoría 23-sep): `socia.fotoUrl` ya no es una URL pública
   // pintable directa — mismo criterio que `perfil/datos/page.tsx`. Solo se
   // pide la firma si `fotoUrl` existe (evita un "object not found" en cada
@@ -64,10 +104,11 @@ export default function PerfilPage() {
           className="card card--pad-lg card--tap row"
           style={{ ['--gap' as string]: '13px' }}
         >
-          <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={fotoFirmada} size={56} />
+          <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={fotoFirmada} size={64} />
           <div className="trunc">
             <p className="t-card-title trunc">{nombreCompleto}</p>
-            <p className="t-meta" style={{ marginTop: 1 }}>Alumna de {estudio.nombre}</p>
+            {/* Sin «desde marzo»: a las importadas sin fecha se les guardó como alta el día de la importación. */}
+            <p className="t-meta" style={{ marginTop: 1 }}>{mayuscula(trato(socia?.genero).alumna)} de {estudio.nombre}</p>
           </div>
           {/* La cabecera dejó de ser decorado: es la puerta a los datos y a la
               foto. Antes esta fila no hacía nada, y la única forma de cambiar
@@ -76,6 +117,11 @@ export default function PerfilPage() {
             <Icono nombre="chevron-derecha" tamano={18} />
           </span>
         </Link>
+
+        {/* Lo suyo en el estudio (P14): hasta tres cifras, nunca un cero; sin ninguna, una frase que dice la verdad. */}
+        {(estado === 'loading' || tarjeta) && (
+          <TarjetaSocia cargando={estado === 'loading' && !data} cifras={tarjeta?.cifras ?? []} sinCifras={tarjeta?.sinCifras ?? null} />
+        )}
 
         {/* Su QR de acceso, justo debajo de su nombre y con el color de la
             tarjeta de su reserva: es lo que busca en la puerta del estudio, con
@@ -115,26 +161,28 @@ export default function PerfilPage() {
         <ProfileSection
           titulo="Cuenta"
           items={[
-            { label: 'Datos personales', href: href('/perfil/datos'), valor: socia?.email ?? undefined },
-            { label: 'Preferencias', href: href('/perfil/preferencias') },
+            { label: 'Datos personales', href: href('/perfil/datos'), valor: socia?.email ?? undefined, icono: 'perfil' },
+            { label: 'Preferencias', href: href('/perfil/preferencias'), icono: 'ajustes' },
             // Aquí y no en Ajustes: es información SUYA, no una opción de la
             // app. El encargo lo pide explícitamente («Perfil → Valoración
             // inicial»), y coincide con el criterio del resto de esta lista.
-            { label: 'Valoración inicial', href: href('/valoracion') },
+            { label: 'Valoración inicial', href: href('/valoracion'), icono: 'editar' },
             // Antes no había ninguna entrada: la única forma de cambiar la
             // contraseña era el flujo de recuperación por correo, que es para
             // cuando NO te acuerdas.
-            { label: 'Contraseña y verificación', href: href('/perfil/seguridad') },
+            // «Seguridad», como su pantalla: contraseña y verificación en dos pasos viven dentro.
+            { label: 'Seguridad', href: href('/perfil/seguridad'), icono: 'candado' },
           ]}
         />
 
         <ProfileSection
           titulo="Bonos y pagos"
           items={[
-            { label: 'Bonos', href: href('/bonos') },
-            { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
-            { label: 'Pagos y recibos', href: href('/pagos') },
-            { label: 'Método de pago', href: href('/perfil/pago') },
+            // Sin fila «Bonos» (P14): a Bonos se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba
+            // y por la baldosa de Inicio.
+            { label: 'Comprar bonos y suscripciones', href: href('/comprar'), icono: 'bolsa' },
+            { label: 'Pagos y recibos', href: href('/pagos'), icono: 'recibo' },
+            { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },
           ]}
         />
 
@@ -145,34 +193,34 @@ export default function PerfilPage() {
             Solo con la socia resuelta: el enlace lleva su id, así que sin él
             no hay invitación que dar. */}
         {sesion?.socioId && (
-          <InvitarAmiga slug={estudio.slug} socioId={sesion.socioId} nombreEstudio={estudio.nombre} />
+          <InvitarAmiga slug={estudio.slug} socioId={sesion.socioId} nombreEstudio={estudio.nombre} premio={premio} />
         )}
 
         <ProfileSection
           titulo="Estudio"
           items={[
-            { label: 'Ayuda y contacto', href: href('/ayuda') },
+            { label: 'Ayuda y contacto', href: href('/ayuda'), icono: 'ayuda' },
             // ⚠️ «Escribir al estudio» ENTRA aquí en el mismo cambio que saca
             // la tarjeta de Mensajes de Inicio. Esa tarjeta era la ÚNICA puerta
             // a `/mensajes` en toda la app —comprobado con grep antes de
             // tocarla—, así que quitarla sin esto habría dejado a la alumna sin
             // forma de escribir a su estudio. Comunidad no tenía el problema:
             // ya se llegaba desde aquí.
-            { label: 'Escribir al estudio', href: href('/mensajes') },
-            { label: 'Notificaciones', href: href('/notificaciones') },
-            { label: 'Comunidad', href: href('/comunidad') },
-            { label: 'Logros y recompensas', href: href('/logros') },
+            { label: 'Escribir al estudio', href: href('/mensajes'), icono: 'mensaje' },
+            { label: 'Notificaciones', href: href('/notificaciones'), icono: 'campana' },
+            { label: 'Comunidad', href: href('/comunidad'), icono: 'personas' },
+            { label: 'Logros y recompensas', href: href('/logros'), icono: 'trofeo' },
             // Descargar, retirar el consentimiento de salud y pedir que borren
             // sus datos viven en su propia pantalla. Antes eran dos bloques
             // aquí, con la eliminación en rojo a un toque; son cosas de casi
             // nunca, así que queda UNA fila, la última antes de cerrar sesión.
-            { label: 'Privacidad y datos', href: href('/perfil/privacidad') },
+            { label: 'Privacidad y datos', href: href('/perfil/privacidad'), icono: 'escudo' },
           ]}
         />
 
         <ProfileSection
           titulo="Sesión"
-          items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true }]}
+          items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true, icono: 'salir' }]}
         />
 
 

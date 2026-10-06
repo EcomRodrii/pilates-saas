@@ -2,16 +2,17 @@
 
 import { catalogo, refrescarAforo } from '@/lib/student/catalogo';
 import {
-  proyectarAlumna, proyectarBonos, proyectarCalendarioClaseFija, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazasFijas, proyectarRecuperaciones, proyectarReservas,
+  huellaDeLaSocia, proyectarAlumna, proyectarBonos, proyectarCalendarioClaseFija, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazasFijas, proyectarRecuperaciones, proyectarReservas,
   type CalendarioClaseFija,
 } from '@/lib/student/mapeo';
 import { horaAhora, hoyISO } from '@/lib/student/formato';
 import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
 import { proyectarClasesSueltas, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { hoyEnEstudio } from '@/lib/utils';
-import type { PlazaFijaMin } from '@/lib/student/plaza-fija';
+import { tieneCuotaQueCubre, type PlazaFijaMin } from '@/lib/student/plaza-fija';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
-import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
+import { catalogoTienda } from '@/lib/student/tienda';
+import type { Alumna, Bono, Clase, HuellaSocia, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -87,17 +88,23 @@ export async function getPagos(slug: string): Promise<Pago[]> {
 }
 
 /** Sus plazas fijas (todas) y recuperaciones (F2). Del mismo payload. */
-export async function getPlazaFija(slug: string): Promise<{ plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; calendario: CalendarioClaseFija }> {
+export async function getPlazaFija(slug: string): Promise<{
+  plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; calendario: CalendarioClaseFija;
+  /** Tiene una cuota vigente (la clase fija va con cuota, no con bono): decide qué se le cuenta sin clase fija. */
+  tieneCuota: boolean;
+}> {
   const d = await catalogo(slug);
   const ahora = new Date();
   // La hora EN LA ZONA DEL ESTUDIO: `plazas_fijas.hora_inicio` es el horario
   // del estudio, así que compararlo con la hora del móvil desplazaba la
   // «próxima» plaza fija un día entero para quien no esté en hora peninsular.
   const hora = horaAhora(ahora);
-  if (!d) return { plazas: [], recuperaciones: { disponibles: 0, proximaCaducidad: null, detalle: [] }, calendario: { plazas: [], sesiones: [], reservas: [] } };
+  if (!d) return { plazas: [], recuperaciones: { disponibles: 0, proximaCaducidad: null, detalle: [] }, calendario: { plazas: [], sesiones: [], reservas: [] }, tieneCuota: false };
   return {
     plazas: proyectarPlazasFijas(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)),
     calendario: proyectarCalendarioClaseFija(d),
+    // Sin tipo de clase: «¿le cubre ALGUNA clase?», la misma regla que la ficha (`tieneCuotaQueCubre`).
+    tieneCuota: tieneCuotaQueCubre(d.socia?.suscripciones ?? [], d.planesTarifa ?? [], hoyISO(ahora), null),
   };
 }
 
@@ -154,4 +161,22 @@ export async function getClasesFijas(slug: string): Promise<ClasesFijasData | nu
     sueltas: proyectarClasesSueltas(cat.sueltas, socia, d?.planesTarifa ?? [], hoy),
     plazas: (d?.socia?.plazasFijas ?? []) as PlazaFijaMin[],
   };
+}
+
+/** Si ya ha pasado algo con ella en el estudio (`huellaDeLaSocia`). `null` = no se sabe. Del mismo payload. */
+export async function getHuella(slug: string): Promise<HuellaSocia | null> {
+  const d = await catalogo(slug);
+  return d ? huellaDeLaSocia(d) : null;
+}
+
+/** ¿Vende algo el estudio en su tienda? La MISMA llamada que el escaparate de /comprar (`catalogoTienda`). */
+export async function getHayAlgoALaVenta(slug: string): Promise<boolean> {
+  const d = await catalogo(slug);
+  return d ? catalogoTienda(d.planesTarifa, d.citasServicios, d.productosFisicos).length > 0 : false;
+}
+
+/** Los nombres de los tipos de clase del estudio (para «Reformer: 1 de 2»). Del mismo payload. */
+export async function getNombresTiposClase(slug: string): Promise<Record<string, string>> {
+  const d = await catalogo(slug);
+  return Object.fromEntries((d?.tiposClase ?? []).map((t) => [t.id, t.nombre]));
 }

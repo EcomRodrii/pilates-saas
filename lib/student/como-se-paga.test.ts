@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { comoSePaga, esCuota, textoPagoCorto } from './como-se-paga.ts';
+import { comoSePaga, esCuota, textoPagoCorto, textoPagoFila } from './como-se-paga.ts';
 
 // El aviso de «cómo se paga» de la última pantalla antes de confirmar.
 //
@@ -86,4 +86,49 @@ test('textoPagoCorto: con bono, sin nada y en una clase solo-con-bono, lo de sie
   assert.equal(textoPagoCorto(suelta, conBono), 'Con tu bono · 1 sesión');
   assert.equal(textoPagoCorto(suelta, null), '18 € clase suelta');
   assert.equal(textoPagoCorto(soloBono, null), 'Solo con bono');
+});
+
+// ── Una sola clasificación (5-oct-2026) ──────────────────────────────────────
+// La cuota se reconoce por el TIPO del plan (como el servidor), no por «no tener contador»: un bono sin límite que no es
+// mensual decía «Incluida en tu mensualidad» a quien no tiene mensualidad.
+
+const cuotaConTipo = { nombre: 'Mensual 2 días', creditosTotales: Infinity, creditosUsados: 0, tipoPlan: 'MENSUAL' };
+const anualSinLimite = { nombre: 'Bono anual', creditosTotales: Infinity, creditosUsados: 0, tipoPlan: 'BONO' };
+
+test('cuota por tipo de plan: la hoja dice mensualidad, la ficha «cuota» y la fila «Cuota»', () => {
+  assert.equal(comoSePaga(suelta, cuotaConTipo, false).texto, 'Incluida en tu mensualidad. No pagas nada hoy.');
+  assert.equal(textoPagoCorto(suelta, cuotaConTipo), 'Incluida en tu cuota');
+  assert.equal(textoPagoFila(suelta, cuotaConTipo), 'Cuota');
+  // Una MENSUAL con contador sigue siendo cuota: el motor no gasta ese contador.
+  const mensualConContador = { ...cuotaConTipo, creditosTotales: 4, creditosUsados: 1 };
+  assert.equal(textoPagoFila(suelta, mensualConContador), 'Cuota');
+  assert.doesNotMatch(comoSePaga(suelta, mensualConContador, false).texto, /sesión|disponibles/);
+});
+
+test('bono sin límite que NO es cuota: «Incluida en tu bono anual», nunca «mensualidad» ni «1 sesión»', () => {
+  const r = comoSePaga(suelta, anualSinLimite, false);
+  assert.equal(r.tono, 'ok');
+  assert.equal(r.texto, 'Incluida en tu bono anual. No pagas nada hoy.');
+  assert.equal(textoPagoCorto(suelta, anualSinLimite), 'Incluida en tu bono');
+  assert.equal(textoPagoFila(suelta, anualSinLimite), 'Incluida');
+  assert.equal(esCuota(anualSinLimite), false);
+});
+
+test('textoPagoFila: «1 sesión» solo con un bono que gasta sesiones; sin nada, el precio de siempre', () => {
+  assert.equal(textoPagoFila(suelta, conBono), '1 sesión');
+  assert.equal(textoPagoFila(suelta, null), '18 €');
+  assert.equal(textoPagoFila(soloBono, null), 'Solo con bono');
+  assert.equal(textoPagoFila({ sinPrecioSuelto: false, precioSuelto: 0 }, null), 'Gratis');
+});
+
+// ── El atajo «Reservar» de la fila del horario (P12) ────────────────────────
+// Sale cuando la hoja diría «No pagas nada hoy»: la misma clasificación, para que no puedan contradecirse.
+
+test('seReservaSinPagar: con bono con sesiones o con cuota, sí; con suelta, sin bono o agotado, no', async () => {
+  const { seReservaSinPagar } = await import('./como-se-paga.ts');
+  assert.equal(seReservaSinPagar(suelta, conBono), true);
+  assert.equal(seReservaSinPagar(suelta, cuotaConTipo), true);
+  assert.equal(seReservaSinPagar(suelta, null), false);
+  assert.equal(seReservaSinPagar(soloBono, null), false);
+  assert.equal(seReservaSinPagar(suelta, gastado), false);
 });

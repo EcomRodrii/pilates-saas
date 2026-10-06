@@ -37,6 +37,8 @@ interface FilaNotificacion {
   body?: string | null;
   category?: string | null;
   eventType?: string | null;
+  resourceType?: string | null;
+  resourceId?: string | null;
   deepLink?: string | null;
   readAt?: string | null;
   createdAt?: string | null;
@@ -76,6 +78,10 @@ export async function getNotificaciones(slug: string, studioId: string): Promise
     fecha: n.createdAt ?? n.created_at ?? new Date().toISOString(),
     leida: Boolean(n.readAt ?? n.read_at),
     enlace: traducirEnlace(n.deepLink ?? n.deep_link, slug),
+    // Para filtrar y para los botones del aviso (aceptar la plaza, añadir al calendario).
+    categoria: n.category ?? null,
+    evento: n.eventType ?? null,
+    sesionId: n.resourceType === 'sesion' && n.resourceId ? n.resourceId : null,
   }));
 
 }

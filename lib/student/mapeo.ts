@@ -6,7 +6,9 @@
 // mismo motivo que el resto del fichero.
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
-import { imagenDeClase } from '../imagenes-por-defecto.ts';
+import { horasDeCobroTardio, penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
+import { fotoPropia, imagenDeClase } from '../imagenes-por-defecto.ts';
+import { spotsActivosDeLaSala } from './huecos-sala.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
@@ -19,7 +21,8 @@ import {
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, HuellaSocia, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva, TipoPlanBono } from './tipos.ts';
+import { generoDe } from '../genero.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
 import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
 
@@ -163,6 +166,21 @@ export interface PlanMin {
   tiposClaseIds?: string[];
   /** Clases por semana que permite (una cuota «2 clases/semana»). `null` = sin tope. */
   limiteSemanal?: number | null;
+  /** Topes por actividad (`plan_tipos_clase.limite_semanal`), por id de tipo. `null` = ese tipo sin tope. Lo cuelga
+      `hidratarTiposDePlanes` en el payload público junto a `tiposClaseIds`. */
+  limitePorTipo?: Record<string, number | null>;
+}
+
+/** `planes_tarifa.tipo` → el del modelo. Un tipo que la app no conoce es `null`, no se adivina. */
+function tipoPlanDe(tipo: string | null | undefined): TipoPlanBono | null {
+  return tipo === 'MENSUAL' || tipo === 'BONO' || tipo === 'PUNTUAL' ? tipo : null;
+}
+
+/** Solo los topes de verdad (> 0), como la tienda: el panel escribe `null` en los tipos sin tope. */
+function topesPorTipoDe(plan: PlanMin | undefined): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(plan?.limitePorTipo ?? {}).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] > 0),
+  );
 }
 
 /**
@@ -177,10 +195,20 @@ export interface PlanMin {
  * `ahora` se pasa por parámetro y no se lee de `Date.now()` dentro: así el
  * caso «caducado» es comprobable sin viajar en el tiempo.
  */
-export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, ahora: number): Bono {
+export function bonoDeSuscripcion(
+  s: SuscripcionMin, plan: PlanMin | undefined, ahora: number,
+  /** Se ha renovado alguna vez (`proyectarBonos` lo saca de sus recibos `es_renovacion`). */
+  opciones: { renovado?: boolean } = {},
+): Bono {
   const ilimitado = s.sesionesRestantes === null;
-  const totales = plan?.sesiones ?? 0;
+  const tipoPlan = tipoPlanDe(plan?.tipo);
+  const delPlan = plan?.sesiones ?? null;
   const restantes = s.sesionesRestantes ?? 0;
+  // ⚠️ SALDO REAL. Era `totales = plan.sesiones` y `usados = max(0, totales − restantes)`: renovar SUMA al mismo bono
+  // (`renovar_bono_idempotente`), así que con 3 del ciclo anterior y 8 nuevas (11) la app decía «Te quedan 8». Con
+  // `max(plan, restantes)` totales − usados es siempre lo que queda. «De cuántas» ya no sale de aquí: `saldoBono`.
+  // Y un bono sin plan (borrado) ya no llega con 0 y saldo de verdad: llega con sus restantes.
+  const totales = Math.max(delPlan ?? 0, restantes);
   // ⚠️ Se compara DÍA con DÍA, no un día contra un instante.
   //
   // Esto era `new Date(s.fechaFin).getTime() < ahora`, y `s.fechaFin` es
@@ -201,14 +229,24 @@ export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, 
   // sobra pero fuera de plazo está expirado, que es lo que dirá el servidor al
   // intentar usarlo.
   if (caducado) estado = 'expirado';
+  // En pausa y cancelada son cosas distintas de «caducó», y se decían igual: una cuota en pausa salía «Expirado».
+  else if (s.estado === 'PAUSADA') estado = 'pausado';
+  else if (s.estado === 'CANCELADA') estado = 'cancelado';
   else if (s.estado !== 'ACTIVA') estado = 'expirado';
-  else if (!ilimitado && restantes <= 0) estado = 'agotado';
+  // Una CUOTA no se agota: el servidor la da por buena tenga o no contador (`socio_tiene_entitlement_activo`:
+  // `p.tipo = 'MENSUAL'` sin mirar el saldo) y el motor no gasta ese contador (`elegir_bono_consumible` solo elige
+  // BONO y PUNTUAL).
+  else if (!ilimitado && tipoPlan !== 'MENSUAL' && restantes <= 0) estado = 'agotado';
 
   return {
     // A qué tipos de clase está acotado: lo necesita la hoja de clase para no
     // prometer «no pagas nada hoy» con un bono que no cubre esa clase.
     tiposClaseIds: plan?.tiposClaseIds,
     limiteSemanal: plan?.limiteSemanal ?? null,
+    limitePorTipo: topesPorTipoDe(plan),
+    tipoPlan,
+    sesionesDelPlan: delPlan,
+    renovado: opciones.renovado === true,
     id: s.id,
     nombre: plan?.nombre ?? 'Bono',
     creditosTotales: ilimitado ? Infinity : totales,
@@ -253,13 +291,21 @@ export interface PayloadMin {
   studio?: {
     fotoUrl?: string | null; imagenBienvenidaUrl?: string | null;
     reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
+    penalizacionImporteEur?: number | null; penalizacionAplicaCancelacionTardia?: boolean | null;
+    cancelacionVentanaHoras?: number | null; terminosPropios?: boolean | null;
+    /** Antelación mínima para reservar, en minutos (0 = ninguna). Viaja en `studioPublico`. */
+    reservaVentanaMinimaMinutos?: number | null;
+    /** El estudio aprueba cada reserva (lo hereda el tipo que no lo fije). Viaja en `studioPublico`. */
+    requiereAprobacion?: boolean | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null }[];
+  /** Los sitios de cada sala (`mapSpot`). Viajan desde siempre; la hoja de la ficha los usa para elegir sitio. */
+  spots?: { id: string; salaId: string; activo?: boolean | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -281,10 +327,16 @@ export interface PayloadMin {
       id?: string; nombre?: string | null; apellidos?: string | null;
       email?: string | null; telefono?: string | null; direccion?: string | null;
       fotoUrl?: string | null; objetivoClasesMes?: number | null;
+      /** `socios.genero` (`mapSocio` → `generoDe`): «Alumno de X». */
+      genero?: string | null;
+      /** `socios.fecha_alta`: cuánto lleva (la bienvenida de la recién llegada). */
+      fechaAlta?: string | null;
     } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
-    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null }[];
+    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null;
+      /** Es la renovación de su plan (`recibos.es_renovacion`, `mapRecibo`): decide si «de M» sigue siendo verdad. */
+      esRenovacion?: boolean | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
@@ -311,6 +363,10 @@ export interface PayloadMin {
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
     retosApuntados?: string[];
+    /** Sus citas (sesiones privadas): cuentan en la huella (una alumna con citas no es «recién llegada»). */
+    citas?: { estado: string }[];
+    /** Falló alguna lectura de las que dicen «no tiene nada» (`fetchPublicStudioData`): no se afirma nada de ella. */
+    incompleta?: boolean;
   } | null;
 }
 
@@ -334,6 +390,18 @@ function seAbreEl(
   return instanteDeApertura(inicioISO, dias, studio?.reservaAntelacionHora ?? null).toISOString();
 }
 
+/**
+ * El instante en que se CIERRA la reserva por la antelación mínima, o `null` sin ella. Los minutos del tipo mandan y,
+ * si el tipo no los fija, los del estudio (`heredaOverride`); 0 o menos es «sin antelación mínima». Misma cuenta que
+ * `puedeReservarPorVentanaMinima` (lib/booking-logic.ts), que es la que aplica el servidor.
+ */
+function cierraEl(inicioISO: string, minutosTipo: number | null | undefined, studio: PayloadMin['studio']): string | null {
+  const minutos = minutosTipo ?? studio?.reservaVentanaMinimaMinutos ?? 0;
+  if (!minutos || minutos <= 0) return null;
+  const inicio = Date.parse(inicioISO);
+  return Number.isNaN(inicio) ? null : new Date(inicio - minutos * 60_000).toISOString();
+}
+
 export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
   const tipos = new Map((d.tiposClase ?? []).map((t) => [t.id, t]));
   // El orden de los tipos que decidió el estudio, para los filtros por tipo.
@@ -343,6 +411,8 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     ? new Map(ordenarTipos(d.tiposClase ?? []).map((t, i) => [t.id, i]))
     : new Map<string, number>();
   const salas = new Map((d.salas ?? []).map((s) => [s.id, s]));
+  // Las salas con sitios que elegir (el mismo criterio que la hoja): una vez para todo el horario.
+  const salasConSitios = new Set((d.spots ?? []).map((s) => s.salaId).filter((id) => spotsActivosDeLaSala(d.spots, id).length > 0));
 
   // Ocupadas por sesión, con el MISMO criterio que la RPC.
   const ocupadas = new Map<string, number>();
@@ -368,8 +438,11 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       tipoClaseId: s.tipoClaseId,
       tipoOrden: puesto.get(s.tipoClaseId),
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
+      penalizacionTardiaEur: penalizacionTardiaDe(d, tipo),
+      penalizacionTardiaHoras: horasDeCobroDe(d, tipo),
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
       seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
+      cierraEl: cierraEl(s.inicio, tipo?.reservaVentanaMinimaMinutos, d.studio),
       creditosAlAsistir: porAsistir,
       fecha: f,
       hora: horaLocal(s.inicio),
@@ -436,6 +509,13 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // cara de la dueña. Mismo fallo que tenía la portada de Inicio, y el
       // mismo campo.
       fotoUrl: imagenDeClase({ fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.imagenBienvenidaUrl, nombre: tipo?.nombre }),
+      // La miniatura del horario: SOLO la foto propia del tipo o de su sala (nunca la del estudio ni una por defecto).
+      fotoPropiaUrl: fotoPropia(tipo?.fotoUrl, sala?.fotoUrl) ?? undefined,
+      // Lo que la fila del horario necesita para NO ofrecer «Reservar» donde el servidor exige algo más (quien decide
+      // sigue siendo `crearReservaPublica`): la misma herencia tipo ?? estudio que `heredaOverride`.
+      requiereAprobacion: tipo?.requiereAprobacion ?? d.studio?.requiereAprobacion ?? false,
+      requiereAutorizacion: tipo?.requiereAutorizacion === true,
+      salaConSitios: salasConSitios.has(s.salaId),
       // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
       logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,
@@ -548,19 +628,72 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
   }));
   return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones, d.socia?.peticionesPlazaFija ?? []).map((p) => ({
-    id: p.id, diaSemana: p.diaSemana, hora: p.hora,
+    id: p.id, diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId,
     sala: (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala',
     tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
     pausaPedida: p.pausaPedida, deClaseFija: p.deClaseFija,
-    // Lo que su clase fija le tiene ya reservado. Una plaza en pausa o sin clase no lo enseña.
+    instructora: instructoraDeSuHueco(d, p, sesiones, hoyISO, horaAhora),
+    // TODO lo que su clase fija le tiene ya reservado, sin tope: «Mis clases → Fija» enseña 5
+    // semanas con el reloj VIVO, y con una lista cortada al cargar (5, a la hora de la carga),
+    // al empezar la clase de hoy la 5.ª semana se quedaba sin su reserva y perdía el «no voy».
+    // Una plaza en pausa o sin clase no lo enseña. Ventana y penalización, las de SU sesión.
     proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
-      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora,
+      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora, Number.POSITIVE_INFINITY,
     ).map((x) => {
-      const tipoId = (d.sesiones ?? []).find((s) => s.id === x.sesionId)?.tipoClaseId;
-      return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
+      const tipo = tipoDeSesion(d, x.sesionId);
+      return { ...x, ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: penalizacionTardiaDe(d, tipo), penalizacionTardiaHoras: horasDeCobroDe(d, tipo) };
     }),
   }));
+}
+
+function tipoDeSesion(d: PayloadMin, sesionId: string) {
+  const tipoId = (d.sesiones ?? []).find((s) => s.id === sesionId)?.tipoClaseId;
+  return (d.tiposClase ?? []).find((t) => t.id === tipoId);
+}
+
+/**
+ * Lo que su estudio le cobraría por cancelar tarde una clase de ese tipo: la misma regla
+ * que la detección y el guardia de cobro (`penalizacionTardiaQueSeCobraria`). `null` = nada.
+ */
+function penalizacionTardiaDe(d: PayloadMin, tipo: { penalizacionImporteEur?: number | null } | undefined): number | null {
+  return penalizacionTardiaQueSeCobraria({
+    aplicaTardia: d.studio?.penalizacionAplicaCancelacionTardia,
+    importeEstudio: d.studio?.penalizacionImporteEur,
+    importeTipoSesion: tipo?.penalizacionImporteEur,
+    terminosPropios: d.studio?.terminosPropios,
+  });
+}
+
+/**
+ * Hasta cuántas horas antes de empezar ESA clase cancelar se cobraría (`horasDeCobroTardio`:
+ * la menor entre la ventana de la detección y la del contrato). La del estudio, como la
+ * manda el servidor (`?? 12`, el mismo valor por defecto de la columna).
+ */
+function horasDeCobroDe(d: PayloadMin, tipo: { ventanaCancelacionHoras?: number | null } | undefined): number | null {
+  return horasDeCobroTardio({
+    ventanaTipoSesion: tipo?.ventanaCancelacionHoras,
+    ventanaEstudio: d.studio?.cancelacionVentanaHoras ?? 12,
+  });
+}
+
+/**
+ * Quién da la PRÓXIMA clase de su hueco (día, hora y sala), por el horario
+ * publicado. Es la de la próxima, no «su profesora para siempre»: una semana la
+ * puede dar otra. `null` si no hay clase próxima o no se sabe quién la da.
+ */
+function instructoraDeSuHueco(
+  d: PayloadMin, p: { diaSemana: number; hora: string; salaId: string },
+  sesiones: { id: string; fecha: string; hora: string; salaId: string; cancelada: boolean }[], hoyISO: string, horaAhora: string,
+): string | null {
+  const siguiente = sesiones
+    .filter((s) => !s.cancelada && s.salaId === p.salaId && s.hora === p.hora
+      && new Date(`${s.fecha}T12:00:00Z`).getUTCDay() === p.diaSemana
+      && (s.fecha > hoyISO || (s.fecha === hoyISO && s.hora >= horaAhora)))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+  if (!siguiente) return null;
+  const instructorId = (d.sesiones ?? []).find((s) => s.id === siguiente.id)?.instructorId;
+  return (d.instructores ?? []).find((i) => i.id === instructorId)?.nombre ?? null;
 }
 
 /**
@@ -623,11 +756,9 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     alumnaId: r.socioId,
     estado: estadoReservaDe(r.estado),
     creadaEn: r.creadoEn,
-    // NO hay `pagadaCon`: `reservas` no guarda con qué se pagó (el consumo de
-    // bono es un paso aparte, `consumir_sesion_bono`, y no deja columna). Lo
-    // que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba
-    // como pagadas con bono reservas de hace meses. Lo único cierto sobre el
-    // dinero es el recibo (`Pago`), y se enseña en Pagos.
+    // NO hay `pagadaCon` deducido. Lo que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba como
+    // pagadas con bono reservas de hace meses. Hoy la reserva sí guarda qué bono la pagó (`bono_suscripcion_id`, ver
+    // `Reserva` en tipos.ts), y solo eso vale: importadas y anteriores al rastreo llegan a null y no se deducen.
     posicionEspera: r.posicionEspera ?? undefined,
     ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
   }));
@@ -637,7 +768,10 @@ export function proyectarBonos(d: PayloadMin, ahora: number): Bono[] {
   const socia = d.socia;
   if (!socia) return [];
   const planes = new Map((d.planesTarifa ?? []).map((p) => [p.id, p]));
-  return (socia.suscripciones ?? []).map((s) => bonoDeSuscripcion(s, planes.get(s.planId), ahora));
+  // Las suscripciones que ya se renovaron alguna vez: desde entonces «de M» deja de ser verdad (renovar SUMA al mismo
+  // bono). Se calcula aquí, una vez, para que la tarjeta, la ficha, Perfil y Bonos lo decidan igual sin pasarse recibos.
+  const renovadas = new Set((socia.recibos ?? []).filter((r) => r.esRenovacion === true && r.suscripcionId).map((r) => r.suscripcionId as string));
+  return (socia.suscripciones ?? []).map((s) => bonoDeSuscripcion(s, planes.get(s.planId), ahora, { renovado: renovadas.has(s.id) }));
 }
 
 /**
@@ -686,5 +820,23 @@ export function proyectarAlumna(d: PayloadMin): Alumna | null {
     telefono: s.telefono ?? undefined,
     fotoUrl: s.fotoUrl ?? null,
     objetivoClasesMes: s.objetivoClasesMes ?? null,
+    genero: generoDe(s.genero),
+  };
+}
+
+/**
+ * Lo que dice si ya ha pasado algo con ella en el estudio (P03). `null` si no se sabe: sin ficha, o el servidor avisó de
+ * que una lectura falló (`incompleta`) — con la duda, ni «Bienvenida» ni «Aún no has venido a ninguna clase».
+ */
+export function huellaDeLaSocia(d: PayloadMin): HuellaSocia | null {
+  const socia = d.socia;
+  if (!socia?.socio?.id || socia.incompleta) return null;
+  return {
+    reservasNoCanceladas: (socia.reservas ?? []).filter((r) => r.estado !== 'CANCELADA').length,
+    suscripciones: (socia.suscripciones ?? []).length,
+    plazasFijas: (socia.plazasFijas ?? []).length,
+    recuperaciones: (socia.recuperaciones ?? []).length,
+    citas: (socia.citas ?? []).filter((c) => c.estado !== 'CANCELADA').length,
+    fechaAlta: socia.socio.fechaAlta ?? null,
   };
 }

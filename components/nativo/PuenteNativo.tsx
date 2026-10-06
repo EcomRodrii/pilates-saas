@@ -7,6 +7,8 @@ import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
 import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
 import { escalaDeTexto } from '@/lib/nativo/escala-texto';
 import { marcarNavegacionDesdeFuera } from '@/lib/nativo/navegacion-desde-fuera';
+import { accionDeBotonIos } from '@/lib/notifications/acciones-ios';
+import { dejarAccionPendiente } from '@/lib/student/accion-pendiente';
 
 /**
  * Lo que la app de iOS necesita en TODAS sus pantallas, y que en la web no hace
@@ -15,7 +17,8 @@ import { marcarNavegacionDesdeFuera } from '@/lib/nativo/navegacion-desde-fuera'
  * - Un enlace a otro dominio, o uno que pide ventana nueva, no puede abrir una
  *   «pestaña»: dentro de la app no existen. Va a un Safari por encima (vuelve con
  *   «OK») o, si es nuestra web, se navega dentro. Igual con `window.open`.
- * - Pulsar un aviso lleva a su pantalla.
+ * - Pulsar un aviso lleva a su pantalla; un botón del aviso, además, deja su
+ *   orden para la pantalla que la ejecuta (`lib/student/accion-pendiente.ts`).
  * - Un enlace universal (el del correo, la vuelta de un pago) lleva a su ruta.
  * - Al montarse, la página ya está pintada: quita el logo del arranque.
  * - La barra de estado, con letras que se lean sobre el fondo de la app
@@ -85,8 +88,15 @@ export function PuenteNativo({ fondoOscuro = false }: { fondoOscuro?: boolean } 
     let dejarAvisos: (() => void) | null = null;
     let dejarEnlaces: (() => void) | null = null;
     let vivo = true;
+    // Un botón del aviso («Aceptar la plaza», «No puedo ir»): la orden se deja en
+    // memoria —nunca en la URL— y la ejecuta Mis clases con la sesión de la alumna.
     // `marcarNavegacionDesdeFuera`: en un arranque en frío, `/app` no pisa este destino.
-    void alPulsarAviso((aviso) => { if (aviso.ruta) { marcarNavegacionDesdeFuera(); r.push(aviso.ruta); } })
+    void alPulsarAviso((aviso) => {
+      const boton = accionDeBotonIos(aviso.accion, aviso.datos);
+      if (boton && 'nada' in boton) return;
+      if (boton) { dejarAccionPendiente(boton.pendiente); marcarNavegacionDesdeFuera(); r.push(boton.ruta); return; }
+      if (aviso.ruta) { marcarNavegacionDesdeFuera(); r.push(aviso.ruta); }
+    })
       .then((f) => { if (vivo) dejarAvisos = f; else f(); });
     // La vuelta de un login por navegador (`/auth/vuelta?code=…`) la canjea quien
     // lo abrió (`loginConGoogleNativo`); navegar a ella aquí la gastaría dos veces.

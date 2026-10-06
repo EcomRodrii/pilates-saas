@@ -18,11 +18,23 @@ import { portalAuthHeader, prepararRenovacionPlan } from '@/lib/student/api-publ
 
 export type ResultadoRenovar =
   | { ok: true; url: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; codigo?: string };
+
+/** Lo que se le dice a quien tiene la cuota en pausa (decisión del fundador, 5-oct-2026). */
+export const CUOTA_EN_PAUSA = 'Tu cuota está en pausa. Habla con tu estudio para reanudarla.';
+
+/**
+ * El servidor contesta 409 con `codigo: 'cuota-en-pausa'` cuando lo que se pide renovar o pagar es una cuota en pausa
+ * (esa cerradura va en otra rama de dinero). Aquí solo se traduce, para que llegue con las mismas palabras que la
+ * tarjeta de Bonos; sin ese código, el mensaje del servidor tal cual.
+ */
+function mensajeDe(codigo: string | undefined, error: string): string {
+  return codigo === 'cuota-en-pausa' ? CUOTA_EN_PAUSA : error;
+}
 
 export async function renovarPlan(studioId: string): Promise<ResultadoRenovar> {
   const prep = await prepararRenovacionPlan(studioId);
-  if ('error' in prep) return { ok: false, error: prep.error };
+  if ('error' in prep) return { ok: false, error: mensajeDe(prep.codigo, prep.error), codigo: prep.codigo };
 
   try {
     const auth = await portalAuthHeader();
@@ -38,9 +50,9 @@ export async function renovarPlan(studioId: string): Promise<ResultadoRenovar> {
       // siguiente sin cobrarse sola (ver lib/billing/bizum-permitido.ts).
       body: JSON.stringify({ studioId, reciboId: prep.reciboId, origen: 'portal', bizum: true }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string; codigo?: string } | null;
     if (!res.ok || !cuerpo?.url) {
-      return { ok: false, error: cuerpo?.error ?? 'No se ha podido iniciar el cobro.' };
+      return { ok: false, error: mensajeDe(cuerpo?.codigo, cuerpo?.error ?? 'No se ha podido iniciar el cobro.'), codigo: cuerpo?.codigo };
     }
     return { ok: true, url: cuerpo.url };
   } catch {
@@ -65,9 +77,9 @@ export async function pagarRenovacion(studioId: string, reciboId: string): Promi
       headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({ studioId, reciboId, origen: 'portal' }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string; codigo?: string } | null;
     if (!res.ok || !cuerpo?.url) {
-      return { ok: false, error: cuerpo?.error ?? 'No se ha podido iniciar el pago.' };
+      return { ok: false, error: mensajeDe(cuerpo?.codigo, cuerpo?.error ?? 'No se ha podido iniciar el pago.'), codigo: cuerpo?.codigo };
     }
     return { ok: true, url: cuerpo.url };
   } catch {

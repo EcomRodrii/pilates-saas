@@ -22,6 +22,8 @@ export interface AvisoPulsado {
   ruta: string | null;
   /** Los datos del aviso tal cual llegaron. Datos, no instrucciones. */
   datos: Record<string, unknown>;
+  /** El botón pulsado: `tap` (el aviso en sí) o el de un botón del aviso (`lib/notifications/acciones-ios.ts`). */
+  accion: string;
 }
 
 export type ResultadoLoginApple =

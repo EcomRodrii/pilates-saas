@@ -14,7 +14,7 @@ export type PlazaADejar = Pick<PlazaFijaVista, 'id' | 'diaSemana' | 'hora' | 'ti
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // La confirmación de dejar una clase fija, con lo que pasa con sus clases (la ventana REAL del estudio). La comparten la tarjeta de
-// «Mis clases → Fijas» y el interruptor de «Auto reservable»: una sola copia, y la misma regla que cuando la quita el mostrador.
+// «Mis clases → Fija» y el interruptor de «Auto reservable»: una sola copia, y la misma regla que cuando la quita el mostrador.
 // Si el servidor dice que no, la plaza SIGUE y el diálogo se queda abierto con el motivo: nunca se dice que sí sin que lo sea.
 export function DialogoDejarClaseFija({ plaza, onClose, onDejada }: { plaza: PlazaADejar | null; onClose: () => void; onDejada?: () => void }) {
   const { estudio } = useEstudio();

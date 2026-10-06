@@ -27,6 +27,25 @@ export function referidorUtilizable(ref: string | null | undefined, yo: string |
   return r.length <= 64 && /^[0-9a-zA-Z_-]+$/.test(r);
 }
 
+/**
+ * Quién invitó a esta alta en la página pública del estudio. Manda `refValido` (el camino de `?ref=`, que no se toca),
+ * luego `?invita=` (el enlace de «Compartir esta clase», P04) y por último lo que se guardó antes de ir al correo o a
+ * Google (`st_ref_<slug>`, misma pestaña). Todo pasa por `referidorUtilizable`: ni basura que rompa la clave foránea, ni
+ * invitarse a sí misma. La comprobación de verdad (misma ficha, MISMO estudio) la hace el servidor al dar de alta, que
+ * descarta en silencio lo que no cuadre: el alta nunca depende de que el enlace estuviera bien.
+ */
+export function referidorDeAlta({ refValido, invitaUrl, guardado, nuevoId }: {
+  refValido: string | null | undefined;
+  invitaUrl: string | null | undefined;
+  guardado: string | null | undefined;
+  nuevoId: string | null | undefined;
+}): string | null {
+  for (const candidato of [refValido, invitaUrl, guardado]) {
+    if (referidorUtilizable(candidato, nuevoId)) return (candidato as string).trim();
+  }
+  return null;
+}
+
 /** El enlace que la socia comparte. */
 export function enlaceInvitacion(origen: string, slug: string, socioId: string): string {
   const base = origen.replace(/\/$/, '');

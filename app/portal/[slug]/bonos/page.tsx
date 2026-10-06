@@ -7,7 +7,9 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getPlazaFija, getRenovacionPorPagar } from '@/lib/student/datos';
+import { getBonos, getNombresTiposClase, getPlazaFija, getRenovacionPorPagar } from '@/lib/student/datos';
+import { MovimientosBono } from '@/components/student/domain/MovimientosBono';
+import { CuotaSemanaCard } from '@/components/student/domain/CuotaSemanaCard';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { useToast } from '@/components/student/ui/Toast';
@@ -17,6 +19,8 @@ import { euros } from '@/lib/student/formato';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Ilustracion } from '@/components/student/ui/Ilustracion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { compararPorElegibilidad, esCuota } from '@/lib/student/bono-cubre';
+import { CUOTA_EN_PAUSA } from '@/lib/student/pagos-acciones';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Bonos (§A.12). Lo único que mueve dinero son dos atajos al checkout de
@@ -31,8 +35,8 @@ function Bonos() {
   const href = usePortalHref();
 
   const cargar = useCallback(async () => {
-    const [bonos, plazaFija, renovacion] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug)]);
-    return { bonos, plazaFija, renovacion };
+    const [bonos, plazaFija, renovacion, nombresTipo] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug), getNombresTiposClase(estudio.slug)]);
+    return { bonos, plazaFija, renovacion, nombresTipo };
   }, [estudio.slug]);
   const { data: cargado, estado, reintentar, refrescar } = useAsync(
     cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion,
@@ -115,6 +119,16 @@ function Bonos() {
 
   const activos = data?.filter((b) => b.estado === 'activo') ?? [];
   const otros = data?.filter((b) => b.estado !== 'activo') ?? [];
+  // Decisión del fundador (5-oct-2026): sin nada activo y con la cuota EN PAUSA no se ofrece «Renovar mi plan».
+  // `renovar-plan` renueva la suscripción ACTIVA o, si no hay, la más reciente, y esa puede ser la cuota en pausa:
+  // el botón le cobraría la renovación de algo que el estudio ha parado. Se lo decimos y que lo hable con su estudio.
+  const cuotaEnPausa = activos.length === 0 && otros.some((b) => b.estado === 'pausado' && esCuota(b));
+  // Los movimientos (P4-D) del bono que el servidor gastaría primero (`compararPorElegibilidad`, como Inicio): solo un
+  // bono de sesiones activo; una cuota no gasta sesiones.
+  const bonoPrincipal = activos
+    .filter((b) => !esCuota(b) && Number.isFinite(b.creditosTotales) && (b.tipoPlan === 'BONO' || b.tipoPlan === 'PUNTUAL'))
+    .sort(compararPorElegibilidad)[0] ?? null;
+  const nombresTipo = cargado?.nombresTipo ?? {};
 
   return (
     <StudentShell>
@@ -170,7 +184,14 @@ function Bonos() {
         {data && estado === 'ready' && (
           <>
             {activos.length === 0 && (
-              otros.length > 0 ? (
+              cuotaEnPausa ? (
+                <div className="card card--pad stack" data-testid="cuota-en-pausa" style={{ ['--gap' as string]: 'var(--s-2)', alignItems: 'center', textAlign: 'center' }}>
+                  <Ilustracion nombre="bono" alto={76} />
+                  <p className="t-small" style={{ fontWeight: 800 }}>Sin bono activo</p>
+                  <p className="t-meta">{CUOTA_EN_PAUSA}</p>
+                  <Link href={href('/comprar')} className="t-small tap" style={{ fontWeight: 800, color: 'var(--accent)' }}>o comprar un bono distinto</Link>
+                </div>
+              ) : otros.length > 0 ? (
                 // B-1: si ya tuvo un plan (aunque hoy esté agotado/caducado),
                 // ofrecerle renovar ESE plan es más directo que mandarla a
                 // "Comprar" a elegir de nuevo entre todos — mismo plan, mismo
@@ -202,7 +223,16 @@ function Bonos() {
             {/* Sus clases fijas viven en «Mis clases → Fijas» (aquí eran un lío, quejas de
                 estudios 23-sep). En Bonos solo queda lo que es saldo: las recuperaciones. */}
             {plazaFija && <PlazaFijaCard compacta plazas={[]} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
-            {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
+            {activos.map((b) => (
+              <div key={b.id} className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
+                <CreditCard bono={b} />
+                {/* Su cuota con tope: «Esta semana N de L» (P4-E), con la cuenta del servidor. */}
+                {esCuota(b) && <CuotaSemanaCard slug={estudio.slug} cuota={b} nombresTipo={nombresTipo} />}
+              </div>
+            ))}
+            {bonoPrincipal && (
+              <MovimientosBono slug={estudio.slug} bonoId={bonoPrincipal.id} compacta hrefTodo={href(`/bonos/${bonoPrincipal.id}`)} />
+            )}
             {otros.length > 0 && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}
 

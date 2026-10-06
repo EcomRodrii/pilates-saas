@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selloDelMotor } from '@/lib/notifications/cambio-de-clase';
 import * as Sentry from '@sentry/nextjs';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
@@ -76,6 +77,7 @@ export async function confirmarSustituta(
         const { data: cand } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
         alumnas = await avisarAlumnas(admin, {
           sesionId: r.sesion_id, studioId: p.studioId, tipo: 'cubierta', sustituta: (cand?.nombre as string | null) ?? undefined,
+          sustitucionId: p.sustitucionId,
         });
       } catch (e) {
         Sentry.captureException(e, {
@@ -85,7 +87,8 @@ export async function confirmarSustituta(
       }
     }
     const { emitirSustitucionAceptada, emitirSustitucionCubierta } = await import('@/lib/notifications/emit');
-    await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: r.sesion_id, instructorId: p.instructorId });
+    // Con el sello de esta sustitución: otra posterior a la misma instructora también le avisa.
+    await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: r.sesion_id, instructorId: p.instructorId, sello: selloDelMotor(p.sustitucionId) });
     if (p.avisarPropietaria) {
       await emitirSustitucionCubierta(admin, {
         studioId: p.studioId, sesionId: r.sesion_id, sustitucionId: p.sustitucionId, instructorId: p.instructorId,

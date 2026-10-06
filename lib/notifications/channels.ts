@@ -221,6 +221,10 @@ const push: Canal = {
       // El service worker devuelve este id al recibir y al pulsar: así se sabe si
       // el aviso llegó de verdad al dispositivo (`/api/notifications/receipt`).
       nid: notificacion.id,
+      // Qué aviso es y de qué clase: con ellos el iPhone pone sus botones
+      // (`payloadApns` → `acciones-ios.ts`). Ids, nunca datos de la persona.
+      ev: notificacion.eventType,
+      sid: notificacion.resourceType === 'sesion' ? notificacion.resourceId : null,
       icon: logoUrl || urlMonograma(st?.nombre as string | undefined, st?.color_primario as string | undefined, 192),
     });
 

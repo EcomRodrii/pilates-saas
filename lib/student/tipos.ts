@@ -47,7 +47,29 @@ export interface StudioConfig {
   tema: Record<string, string>;
 }
 
-export interface Alumna { id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; objetivoClasesMes?: number | null; }
+export interface Alumna {
+  id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; objetivoClasesMes?: number | null;
+  /** Para «Alumna»/«Alumno de X» (`trato`). `null`/ausente = sin decir: femenino, lo de siempre. */
+  genero?: import('../genero.ts').Genero | null;
+}
+
+/**
+ * Si ya ha pasado algo con ella en el estudio (P03): lo que decide la bienvenida de la recién llegada. Sale del payload
+ * (`huellaDeLaSocia`); `null` = no se sabe (sin ficha, o el payload llegó incompleto) y entonces no se afirma nada.
+ */
+export interface HuellaSocia {
+  /** Reservas no canceladas (las de lista de espera y pendientes de aprobar cuentan). */
+  reservasNoCanceladas: number;
+  /** Suscripciones en cualquier estado (bono o cuota, viva o no). */
+  suscripciones: number;
+  /** Clases fijas en cualquier estado. */
+  plazasFijas: number;
+  recuperaciones: number;
+  /** Citas no canceladas. */
+  citas: number;
+  /** `socios.fecha_alta`. Ojo: en las importadas sin fecha es la de la importación. */
+  fechaAlta: string | null;
+}
 
 export interface Instructora {
   id: string; nombre: string; iniciales: string; fotoUrl: string | null; especialidades: string[];
@@ -73,12 +95,25 @@ export interface Clase {
   /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
   ventanaCancelacionHoras: number | null;
   /**
+   * Lo que su estudio le cobraría por cancelar tarde ESTA clase (`penalizacionTardiaQueSeCobraria`):
+   * `null`/ausente = nada. Solo para avisar antes de confirmar: quien cobra es el servidor.
+   */
+  penalizacionTardiaEur?: number | null;
+  /** Hasta cuántas horas antes del inicio se cobraría (`horasDeCobroTardio`); `null` = nunca. */
+  penalizacionTardiaHoras?: number | null;
+  /**
    * Cuándo se abre la reserva de esta clase (ISO), con los días del tipo o del
    * estudio y la hora fija del estudio; `null`/ausente = sin límite. Es el
    * INSTANTE, no «si ya está abierta»: eso lo decide la pantalla con su reloj
    * (`useAunNoAbre`). Quien manda es el servidor.
    */
   seAbreEl?: string | null;
+  /**
+   * Cuándo se CIERRA la reserva por la antelación mínima (ISO): el inicio menos los minutos del tipo o, si el tipo no
+   * los fija, los del estudio. `null`/ausente = sin antelación mínima. La misma cuenta que `puedeReservarPorVentanaMinima`
+   * en el servidor, que es quien decide; aquí solo sirve para no OFRECER reservar una clase ya cerrada.
+   */
+  cierraEl?: string | null;
   /**
    * ¿Este tipo de clase admite lista de espera? `null` = lo que diga el estudio.
    *
@@ -137,8 +172,22 @@ export interface Clase {
   precioSuelto: number;     // € si no hay bono
   /** `true` si el estudio NO vende clases sueltas — distinto de «cuesta 0 €». */
   sinPrecioSuelto?: boolean;
-  /** Banner ancho de la cabecera. Hereda: sala → tipo de clase → estudio. */
+  /**
+   * Banner ancho de la cabecera. Hereda: tipo de clase → sala → portada del estudio → la por defecto de su familia
+   * (`imagenDeClase`). Este comentario decía «sala → tipo → estudio»: el orden real es el de `proyectarClases`.
+   */
   fotoUrl: string;
+  /**
+   * La foto PROPIA para la miniatura del horario (P11): la del tipo de clase o, si no, la de su sala, nunca una de por
+   * defecto ni la del estudio (`fotoPropia`). Ausente = sin foto propia: la fila pinta el logo o el color.
+   */
+  fotoPropiaUrl?: string;
+  /** El estudio aprueba cada reserva de esta clase (`requiere_aprobacion`, el tipo ?? el estudio). Lo decide el servidor. */
+  requiereAprobacion?: boolean;
+  /** La clase exige que el estudio autorice a la alumna (`requiere_autorizacion`), y la app no sabe si lo está. */
+  requiereAutorizacion?: boolean;
+  /** Su sala tiene sitios que elegir: reservar con sitio solo se hace desde la ficha. */
+  salaConSitios?: boolean;
   /**
    * Logo CUADRADO del tipo de clase, para la fila del horario.
    *
@@ -160,12 +209,11 @@ export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
   creadaEn: string;
   /**
-   * ⚠️ NO existe `bonoId` en una reserva, y no es un olvido: `reservas` no
-   * guarda con qué se pagó (consumir el bono es un paso aparte,
-   * `consumir_sesion_bono`, y no deja columna) — lo documenta
-   * `proyectarReservas`. El campo estaba declarado, nadie lo escribía nunca, y
-   * la ficha del bono filtraba por él: su lista de «sesiones usadas» salía
-   * vacía siempre. Se quita para que no vuelva a parecer que el dato está ahí.
+   * ⚠️ Con qué se pagó: lo guarda `reservas.bono_suscripcion_id`, que escribe `reservar_plaza` al consumir el bono en
+   * su misma transacción (motor de derechos, 2-oct-2026), y viaja en el payload (`mapReserva.bonoSuscripcionId`).
+   * Este comentario decía lo contrario («`reservas` no guarda con qué se pagó»): era verdad antes del motor y dejó de
+   * serlo. Ojo con dos casos en los que llega `null` sin que signifique «no pagó con bono»: las reservas IMPORTADAS y
+   * las anteriores al rastreo. Nunca se deduce: si no está, no se sabe.
    */
   posicionEspera?: number;
   /**
@@ -177,14 +225,41 @@ export interface Reserva {
   ofertaExpiraEn?: string;
 }
 
-export type EstadoBono = 'activo' | 'agotado' | 'expirado';
+/**
+ * `pausado` y `cancelado` son de la SUSCRIPCIÓN (`PAUSADA`/`CANCELADA`): antes caían los dos en `expirado`, y una cuota
+ * en pausa salía «Expirado» y una cancelada con fecha futura decía «caducó <fecha que aún no ha llegado>».
+ */
+export type EstadoBono = 'activo' | 'agotado' | 'expirado' | 'pausado' | 'cancelado';
+/** El tipo del plan: `MENSUAL` es una cuota; `BONO` y `PUNTUAL`, sesiones que se gastan. */
+export type TipoPlanBono = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 export interface Bono {
-  id: string; nombre: string; creditosTotales: number; creditosUsados: number;
+  id: string; nombre: string;
+  /**
+   * ⚠️ El SALDO REAL: `max(sesiones del plan, restantes)`, de modo que totales − usados = restantes siempre. Renovar
+   * un bono SUMA al mismo (`renovar_bono_idempotente`), y con «totales = sesiones del plan» un bono de 8 con 11 se
+   * pintaba como 8. «De cuántas» no sale de aquí: sale de `saldoBono` (lib/student/saldo-bono.ts). `Infinity` = sin
+   * límite.
+   */
+  creditosTotales: number; creditosUsados: number;
   compradoEn: string; expiraEn: string | null; estado: EstadoBono; precio: number;
   /** Tipos de clase que cubre. Vacío = todos (misma regla que el servidor). */
   tiposClaseIds?: string[];
   /** Clases por semana que permite su plan (una cuota «2 clases/semana»). `null`/ausente = sin tope. */
   limiteSemanal?: number | null;
+  /**
+   * Topes por actividad de su plan (`plan_tipos_clase.limite_semanal`), por id de tipo de clase. Solo los de verdad
+   * (> 0): un tipo sin tope no aparece. Vacío/ausente = sin topes por actividad.
+   */
+  limitePorTipo?: Record<string, number>;
+  /** Tipo de su plan. `null`/ausente = no se sabe (sin plan o un tipo desconocido): ver `esCuota`. */
+  tipoPlan?: TipoPlanBono | null;
+  /** Sesiones que trae su plan (`planes_tarifa.sesiones`). `null`/ausente = sin límite o sin plan. */
+  sesionesDelPlan?: number | null;
+  /**
+   * Se ha renovado alguna vez (tiene un recibo `es_renovacion`). Renovar SUMA al mismo bono, así que desde la primera
+   * renovación «de M» ya no es verdad: con 3 del ciclo anterior y 8 nuevas no quedan «11 de 8».
+   */
+  renovado?: boolean;
 }
 
 /**
@@ -198,7 +273,15 @@ export interface Bono {
 export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded' | 'reimbursed';
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
-export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
+export interface Notificacion {
+  id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string;
+  /** La categoría con la que la guardó el motor (`reservas`, `clases`, `pagos`…): decide su filtro. */
+  categoria?: string | null;
+  /** El tipo de evento del catálogo (`reserva.oferta_lista_espera`…): decide su icono y su botón. */
+  evento?: string | null;
+  /** La clase de la que habla, si es de una clase. */
+  sesionId?: string | null;
+}
 
 /** Todo lo que la alumna ve de gamificación (lib/student/gamificacion.ts). */
 export interface GamificacionVista {
@@ -230,6 +313,8 @@ export interface PlazaFijaVista {
   /** Para pedir una pausa de esta plaza. `null` si el payload no lo trae. */
   id: string | null;
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
+  /** Su sala (id): con el día y la hora, identifica su hueco en el horario. */
+  salaId: string;
   /** La pausa que ha pedido y el estudio aún no ha contestado. */
   pausaPedida: { id: string; desde: string; hasta: string } | null;
   proximaFecha: string | null; vigenciaHasta: string | null;
@@ -241,9 +326,21 @@ export interface PlazaFijaVista {
   proximas: ProximaClaseFijaVista[];
   /** Viene de una clase fija con nombre (varios días): se deja entera, no una franja suelta. */
   deClaseFija: boolean;
+  /** Quién da la próxima clase de su hueco (`null` = sin clase próxima o sin saberlo). */
+  instructora: string | null;
 }
-/** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
-export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };
+/**
+ * Una próxima clase de su clase fija, con lo de SU sesión: la ventana de cancelación de su
+ * tipo de clase (`null` = la del estudio) y lo que se le cobraría por cancelarla tarde
+ * (`penalizacionTardiaQueSeCobraria`, `null` = nada). Por sesión y no por la plaza: una
+ * plaza sin tipo (las importadas) se reserva en clases de tipos distintos.
+ */
+export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & {
+  ventanaCancelacionHoras: number | null;
+  penalizacionTardiaEur: number | null;
+  /** Hasta cuántas horas antes del inicio se cobraría (`horasDeCobroTardio`); `null` = nunca. */
+  penalizacionTardiaHoras: number | null;
+};
 /**
  * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive
  * la proyección que la construye. Estaban las dos escritas a mano y a la

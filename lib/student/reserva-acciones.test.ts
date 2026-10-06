@@ -90,7 +90,11 @@ test('la pantalla de la alumna decide el botón de comprar por las acciones, con
   const estado = leer('components/student/domain/BookingStatus.tsx');
   assert.match(estado, /acciones\?\.includes\('comprar_plan'\)/);
   assert.match(estado, /seArreglaComprando\(mensaje\)/, 'el respaldo para respuestas sin código sigue');
-  const pagina = leer('app/portal/[slug]/reservar/[claseId]/page.tsx');
-  assert.match(pagina, /setBkAcciones\(r\.acciones\)/);
-  assert.match(pagina, /acciones=\{bkAcciones\}/);
+  // La hoja salió de la ficha para que el horario abra la misma (`desenlaceDeLaHoja` + `HojaReserva`): las acciones del
+  // servidor siguen llegando, por CÓDIGO, al botón de la hoja.
+  const desenlace = leer('lib/student/desenlace-hoja.ts');
+  assert.match(desenlace, /acciones: r\.acciones/);
+  const hoja = leer('components/student/domain/HojaReserva.tsx');
+  assert.match(hoja, /acciones=\{desenlace\?\.acciones\}/);
+  assert.match(leer('app/portal/[slug]/reservar/[claseId]/page.tsx'), /<HojaReserva/, 'la ficha sigue abriendo la hoja de reserva');
 });

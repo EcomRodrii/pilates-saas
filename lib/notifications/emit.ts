@@ -14,6 +14,7 @@ import { publish } from './engine.ts';
 import type { Recipient } from './types.ts';
 import { EVENTOS } from './catalog.ts';
 import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
+import { claveAvisoSustituta, selloDelPanel } from './cambio-de-clase.ts';
 import { quienEscribeALaAlumna } from './aviso-mensaje.ts';
 import {
   avisoLlevaALaFicha, dedupKeyPagadaSinPlaza, SITUACION_PAGADA_SIN_PLAZA, type SituacionPagadaSinPlaza,
@@ -667,11 +668,37 @@ export async function emitirClaseCancelada(
 // Devuelve a cuántas SOCIAS se ha avisado de verdad (la instructora entrante
 // también recibe aviso, pero no cuenta: quien pregunta es la dueña y lo que
 // quiere saber es cuántas alumnas se han enterado).
+//
+// `soloInstructora`: lo único que ha cambiado es quién la da (ni hora ni sala).
+// Entonces NO es «tu clase ha cambiado: pasa a <la misma hora>», que se lee como
+// un cambio de horario: es el aviso de sustituta (`clase.sustituta`, «tu clase
+// sigue en pie, la dará Laura»), el mismo que manda el motor de sustituciones y
+// con la misma clave de duplicados, así que las dos vías nunca avisan dos veces.
+// Ver `lib/notifications/cambio-de-clase.ts`. La instructora que entra se entera
+// por «Nueva clase asignada» (antes le llegaba el «tu clase ha cambiado»).
+//
+// `sello`: el del guardado del panel (`selloDelPanel`), para que cada cambio tenga
+// su clave. Sin él, una clave por contenido no olvida: volver a la hora, la sala o
+// la instructora de antes chocaba con el primer aviso y no llegaba. El motor de
+// sustituciones («reprogramada») no lo pasa y su clave no cambia.
 export async function emitirClaseModificada(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string },
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string; soloInstructora?: boolean; sello?: string },
 ): Promise<number> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    if (p.soloInstructora && p.instructora) {
+      const creadas = await publish({
+        type: EVENTOS.CLASE_SUSTITUTA, studioId: p.studioId,
+        data: { clase: p.clase, cuando: p.cuando, sesionId: p.sesionId, sustituta: p.instructora, slug: (studio?.slug as string | null) ?? '' },
+        resource: { type: 'sesion', id: p.sesionId },
+        dedupKey: claveAvisoSustituta({ sesionId: p.sesionId, instructora: p.instructora, sello: p.sello ?? selloDelPanel(new Date()) }),
+      });
+      const { data: ses } = await admin.from('sesiones').select('instructor_id').eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle();
+      if (ses?.instructor_id) {
+        await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: p.sesionId, instructorId: ses.instructor_id as string, sello: p.sello ?? selloDelPanel(new Date()) });
+      }
+      return creadas.filter(c => c.destinatario.role === 'SOCIA').length;
+    }
     // La socia ve la nueva instructora en el cuerpo ({sala}{instructora}); vacío
     // si no cambió. Con separador para no pegarla a la sala.
     const instructoraTxt = p.instructora ? ` · con ${p.instructora}` : '';
@@ -681,7 +708,7 @@ export async function emitirClaseModificada(
       resource: { type: 'sesion', id: p.sesionId },
       // La instructora entra en la clave: si solo cambia ella (misma hora y sala),
       // sin esto el aviso se descartaría como duplicado del cambio anterior.
-      dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}:${p.instructora ?? ''}`,
+      dedupKey: `clase-modificada:${p.sesionId}:${p.cuando}:${p.sala}:${p.instructora ?? ''}${p.sello ? `:${p.sello}` : ''}`,
     });
     return creadas.filter(c => c.destinatario.role === 'SOCIA').length;
   } catch (e) {
@@ -1011,15 +1038,17 @@ export async function emitirEmbudoSinPrimeraReserva(p: { studioId: string }): Pr
 }
 
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
+// `sello`: el cambio de instructora desde el panel (`selloDelPanel`); sin él, que
+// volvieran a darle una clase que ya le habían quitado no le avisaba.
 export async function emitirSustitucionAceptada(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string; sello?: string },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     await publish({
       type: EVENTOS.SUSTITUCION_ACEPTADA, studioId: p.studioId,
       data: { ...ctx, instructorId: p.instructorId }, resource: { type: 'sesion', id: p.sesionId },
-      dedupKey: `sustitucion-aceptada:${p.sesionId}:${p.instructorId}`,
+      dedupKey: `sustitucion-aceptada:${p.sesionId}:${p.instructorId}${p.sello ? `:${p.sello}` : ''}`,
     });
   } catch (e) {
     console.error('[notifications] emitirSustitucionAceptada:', e instanceof Error ? e.message : e);

@@ -1,5 +1,6 @@
 'use client';
 
+import { referidorUtilizable } from '@/lib/student/referido';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -101,8 +102,12 @@ export function useSociaSession(slug: string) {
   const enviarEnlace = useCallback(async (email: string, sesionId?: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
     // La «clase de prueba» (`?prueba=1`) sigue siéndolo al volver del correo:
     // sin esto aterrizaría en el horario normal, sin la oferta.
-    const prueba = new URLSearchParams(window.location.search).get('prueba') === '1' ? '&prueba=1' : '';
-    const base = `${sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1'}${prueba}`;
+    const params = new URLSearchParams(window.location.search);
+    const prueba = params.get('prueba') === '1' ? '&prueba=1' : '';
+    // Quien la invita a ESTA clase (P04) viaja también: abriendo el correo en otra pestaña, lo guardado no está.
+    const invitaUrl = params.get('invita');
+    const invita = referidorUtilizable(invitaUrl, null) ? `&invita=${encodeURIComponent((invitaUrl as string).trim())}` : '';
+    const base = `${sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1'}${prueba}${invita}`;
     // Fase 8 (CRO): propaga el sessionId ANÓNIMO (sessionStorage, no
     // identidad de socia — eventos.ts) al enlace mágico para poder medir
     // lead_completed al volver: es la única forma de emparejar "pidió el

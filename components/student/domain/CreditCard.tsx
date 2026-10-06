@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Bono } from '@/lib/student/tipos';
-import { fechaCorta } from '@/lib/student/formato';
+import { hoyISO } from '@/lib/student/formato';
+import { saldoBono, textoCaduca } from '@/lib/student/saldo-bono';
 import { Badge } from '@/components/student/ui/Badge';
 // ⚠️ Los enlaces del paquete son absolutos ('/reservar/…') porque allí la app
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
@@ -15,11 +16,17 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
   // Un plan ilimitado llega con `creditosTotales: Infinity` (el diseño no
   // tiene ese concepto). Restar daba «Infinity», dividir daba NaN, y la socia
   // veía «Infinity de Infinity sesiones» con la barra en `width: NaN%`.
-  const ilimitado = !Number.isFinite(bono.creditosTotales);
-  const quedan = ilimitado ? Infinity : bono.creditosTotales - bono.creditosUsados;
-  const pct = ilimitado ? 100 : (bono.creditosTotales > 0 ? (quedan / bono.creditosTotales) * 100 : 0);
+  // ⚠️ «de M» y la barra salen de `saldoBono`: con el saldo real (`max(plan, restantes)`), un bono renovado de 8 con 11
+  // diría «de 11 sesiones». Sin un «de» verdadero no se escribe, y la barra va contra las sesiones de SU plan.
+  const { quedan, de, ilimitado } = saldoBono(bono);
+  const base = bono.sesionesDelPlan && bono.sesionesDelPlan > 0 ? bono.sesionesDelPlan : bono.creditosTotales;
+  const pct = ilimitado ? 100 : (base > 0 ? Math.min(1, quedan / base) * 100 : 0);
   const tono = bono.estado === 'activo' ? (!ilimitado && quedan <= 1 ? 'few' : 'ok') : 'neutral';
-  const etiqueta = bono.estado === 'activo' ? (!ilimitado && quedan === 0 ? 'Sin sesiones' : 'Activo') : bono.estado === 'agotado' ? 'Agotado' : 'Expirado';
+  const etiqueta = bono.estado === 'activo' ? (!ilimitado && quedan === 0 ? 'Sin sesiones' : 'Activo')
+    : bono.estado === 'agotado' ? 'Agotado'
+      : bono.estado === 'pausado' ? 'En pausa'
+        : bono.estado === 'cancelado' ? 'Cancelado' : 'Expirado';
+  const caduca = textoCaduca(bono, hoyISO());
   return (
     <Link href={href('/bonos/' + bono.id)} transitionTypes={TRANSICION_ADELANTE} className="card card--tap" style={{ display: 'block', padding: compacta ? '12px 15px' : '15px 17px', opacity: bono.estado === 'activo' ? 1 : .7 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -73,13 +80,15 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
                     se quita. */}
                 <p className="t-label">Te quedan</p>
                 <p className="t-display t-num" data-testid="bono-restantes" style={{ marginTop: 1 }}>{quedan}</p>
-                <p className="t-meta" style={{ marginTop: 1 }}>
-                  de {bono.creditosTotales} {bono.creditosTotales === 1 ? 'sesión' : 'sesiones'}
-                </p>
+                {de != null && (
+                  <p className="t-meta" style={{ marginTop: 1 }}>
+                    de {de} {de === 1 ? 'sesión' : 'sesiones'}
+                  </p>
+                )}
               </>
             )}
           </div>
-          <p className="t-meta t-num" style={{ flexShrink: 0, textAlign: 'right' }}>{bono.expiraEn ? (bono.estado === 'expirado' ? 'caducó ' : 'caduca ') + fechaCorta(bono.expiraEn) : 'sin caducidad'}</p>
+          {caduca && <p className="t-meta t-num" style={{ flexShrink: 0, textAlign: 'right' }}>{caduca}</p>}
         </div>
       )}
     </Link>

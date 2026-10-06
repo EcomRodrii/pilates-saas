@@ -80,7 +80,7 @@ export function correoDobleFactorQuitado(p: { marca: MarcaCorreo }): string {
     titular: 'Hemos quitado la verificación en dos pasos',
     parrafos: [
       `${p.marca.estudioNombre} ha quitado la verificación en dos pasos de tu cuenta. Desde ahora entras en la app solo con tu contraseña.`,
-      'Puedes volver a activarla cuando quieras en Perfil → Contraseña y verificación.',
+      'Puedes volver a activarla cuando quieras en Perfil → Seguridad.',
     ],
     nota: `Si no lo has pedido tú, cambia tu contraseña ya con «¿Has olvidado la contraseña?» en la pantalla de entrar y avisa a ${p.marca.estudioNombre}.`,
     conPortada: false,

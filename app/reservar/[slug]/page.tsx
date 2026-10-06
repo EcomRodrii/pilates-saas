@@ -1,4 +1,6 @@
 'use client';
+import { referidorDeAlta } from '@/lib/student/referido';
+import { guardarReferidor, leerReferidor, olvidarReferidor } from '@/lib/student/referido-sesion';
 import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { esClavePublicable } from '@/lib/billing/modo-stripe';
@@ -446,6 +448,13 @@ export default function ReservarPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const refCode = searchParams.get('ref');
+  // P04 (5-oct-2026): quién invita a ESTA clase («Compartir esta clase» de la app de la alumna). No es `ref`: `ref` es la
+  // etiqueta del widget y acabaría en Crecimiento web y en «Llegó por». Se guarda para el viaje por el correo o Google
+  // (misma pestaña), y el servidor comprueba al dar de alta que esa ficha existe en el MISMO estudio.
+  const invita = searchParams.get('invita');
+  useEffect(() => {
+    if (invita) guardarReferidor(slug, invita);
+  }, [slug, invita]);
   // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
   // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
   // solo pestañas + contenido. Nunca cambia lógica de negocio, solo layout.
@@ -1793,7 +1802,7 @@ export default function ReservarPage() {
   // mostrar y no se pintaba nunca.
   async function crearAltaWalkIn(id: string) {
     const referidoValido = refCode && refCode !== id && socios.some(s => s.id === refCode) ? refCode : null;
-    return addSocioFromPortal({
+    const r = await addSocioFromPortal({
       id,
       nombre: loginForm.nombre.trim(),
       telefono: loginForm.telefono.trim(),
@@ -1804,13 +1813,17 @@ export default function ReservarPage() {
         versionTexto: textoLegalCompleto(studioConfig),
         origen: 'PORTAL',
       },
-      referidoPor: referidoValido,
+      // `ref` primero (el camino de siempre), luego `invita` y luego lo guardado antes del correo (`referidorDeAlta`).
+      referidoPor: referidorDeAlta({ refValido: referidoValido, invitaUrl: invita, guardado: leerReferidor(slug), nuevoId: id }),
       marketing: marketingAceptado,
       // P1 auditoría Momence: valor CRUDO de `?ref=`, no `referidoValido` —
       // uno es la cadena de atribución a guardar, el otro solo la lógica de
       // recompensa entre socias.
       origenLead: refCode ?? null,
     });
+    // Dada de alta: lo guardado ya no hace falta, y no debe colarse en otra alta de esta pestaña.
+    if (r.ok) olvidarReferidor(slug);
+    return r;
   }
 
   function openBooking(sesionId: string) {

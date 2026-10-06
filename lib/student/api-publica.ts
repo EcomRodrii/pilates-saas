@@ -79,15 +79,17 @@ export async function cargarAforoPublico(
 // renovación del plan de la socia y devuelve su id, listo para pagarlo con el
 // checkout de recibos. La identidad va en el JWT; la suscripción se resuelve
 // en servidor.
-export async function prepararRenovacionPlan(studioId: string): Promise<{ reciboId: string } | { error: string }> {
+export async function prepararRenovacionPlan(studioId: string): Promise<{ reciboId: string } | { error: string; codigo?: string }> {
   try {
     const res = await fetch('/api/public/renovar-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
       body: JSON.stringify({ studioId }),
     });
-    const data = await res.json().catch(() => null) as { reciboId?: string; error?: string } | null;
-    if (!res.ok || !data?.reciboId) return { error: data?.error ?? 'No se ha podido preparar la renovación.' };
+    const data = await res.json().catch(() => null) as { reciboId?: string; error?: string; codigo?: string } | null;
+    // `codigo`: el motivo por CÓDIGO cuando el servidor lo da (p. ej. `cuota-en-pausa`, 409), para traducirlo sin
+    // comparar frases.
+    if (!res.ok || !data?.reciboId) return { error: data?.error ?? 'No se ha podido preparar la renovación.', ...(data?.codigo ? { codigo: data.codigo } : {}) };
     return { reciboId: data.reciboId };
   } catch {
     return { error: 'No se ha podido preparar la renovación.' };
