@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { comoVieneSinBono, notaSinBono } from './como-se-paga.ts';
 import { sinBonoDeClase } from './como-viene-sin-bono.ts';
 import { proyectarClases, type PayloadMin } from './mapeo.ts';
+import { seReservaSinNadaQueCobrar } from './formato.ts';
 import type { PlanTarifa } from '../types.ts';
 
 // P01 (6-oct-2026): sin nada que cubra la clase, la hoja sabe ANTES de pulsar
@@ -73,4 +74,23 @@ test('sinBonoDeClase: monta el caso con las opciones y lo que cobra el mostrador
   assert.deepEqual(sinBonoDeClase(libre, [BONO], true)?.caso, { caso: 'RESERVA_SIN_PAGAR' });
   const [nose] = proyectarClases(payload({ exigeEstudio: null }));
   assert.equal(sinBonoDeClase(nose, [SUELTA, BONO], true), null);
+});
+
+test('paridad: la fila del horario dice «Sin pagar» EXACTAMENTE cuando la ficha y la hoja ven RESERVA_SIN_PAGAR sin precio suelto', () => {
+  // La fila no tiene los planes ni los pagos online: decide con `exigePlan` y `sinPrecioSuelto`, que ya trae la clase. Si
+  // esto se separa, el horario vuelve a decir una cosa y la ficha otra.
+  const GRATIS_SUELTA = { ...SUELTA, id: 'gratis', precio: 0 } as PlanTarifa;
+  for (const exigeEstudio of [true, false, null]) {
+    for (const exigeTipo of [true, false, null]) {
+      for (const planes of [[SUELTA, BONO], [BONO], [PRUEBA], [], [GRATIS_SUELTA, BONO]]) {
+        for (const precioPuntual of [null, 25, 0]) {
+          const [c] = proyectarClases(payload({ exigeEstudio, exigeTipo, planes, precioPuntual }));
+          const ficha = sinBonoDeClase(c, planes, true);
+          const filaSinPagar = seReservaSinNadaQueCobrar(c);
+          const fichaSinPagarSinPrecio = ficha?.caso.caso === 'RESERVA_SIN_PAGAR' && c.sinPrecioSuelto === true;
+          assert.equal(filaSinPagar, fichaSinPagarSinPrecio, JSON.stringify({ exigeEstudio, exigeTipo, planes: planes.map((p) => p.id), precioPuntual }));
+        }
+      }
+    }
+  }
 });

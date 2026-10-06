@@ -1,5 +1,5 @@
 import type { Clase, HuellaSocia, Reserva } from './tipos.ts';
-import { addDias, horaFin } from './formato.ts';
+import { addDias, horaFin, seReservaSinNadaQueCobrar } from './formato.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inicio según el momento (maquetas aprobadas por el fundador, oct-2026).
@@ -111,10 +111,11 @@ export function esRecienLlegada(huella: HuellaSocia | null, hoy: string): boolea
  * servidor. Sin reloj (`ahoraMs` null) no se descarta nada por la hora.
  *
  * `soloConBono`: TODAS las contadas necesitan un bono o cuota (`sinPrecioSuelto`) — es lo único que la app sabe de lo
- * que no se puede reservar sin comprar.
+ * que no se puede reservar sin comprar. Salvo si el estudio no exige plan (`seReservaSinNadaQueCobrar`): entonces se
+ * reservan sin pagar y «hace falta un bono o una cuota» mentiría (6-oct-2026).
  */
 export function clasesConPlazaProximas(
-  clases: Pick<Clase, 'id' | 'fecha' | 'inicio' | 'fin' | 'plazasLibres' | 'seAbreEl' | 'cierraEl' | 'sinPrecioSuelto'>[],
+  clases: Pick<Clase, 'id' | 'fecha' | 'inicio' | 'fin' | 'plazasLibres' | 'seAbreEl' | 'cierraEl' | 'sinPrecioSuelto' | 'exigePlan'>[],
   reservas: Pick<Reserva, 'claseId' | 'estado'>[],
   hoy: string,
   ahoraMs: number | null,
@@ -130,7 +131,7 @@ export function clasesConPlazaProximas(
     if (c.cierraEl && ahoraMs >= Date.parse(c.cierraEl)) return false;
     return true;
   });
-  return { total: validas.length, soloConBono: validas.length > 0 && validas.every((c) => c.sinPrecioSuelto === true) };
+  return { total: validas.length, soloConBono: validas.length > 0 && validas.every((c) => c.sinPrecioSuelto === true && !seReservaSinNadaQueCobrar(c)) };
 }
 
 /**

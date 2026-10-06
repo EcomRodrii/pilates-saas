@@ -132,3 +132,16 @@ test('seReservaSinPagar: con bono con sesiones o con cuota, sí; con suelta, sin
   assert.equal(seReservaSinPagar(soloBono, null), false);
   assert.equal(seReservaSinPagar(suelta, gastado), false);
 });
+
+test('la fila del horario sin bono: «Sin pagar» si el estudio no exige plan y no hay precio suelto; si no, «Solo con bono»', () => {
+  const sinPrecio = { precioSuelto: 0, sinPrecioSuelto: true };
+  assert.equal(textoPagoFila({ ...sinPrecio, exigePlan: false }, null), 'Sin pagar');
+  assert.equal(textoPagoFila({ ...sinPrecio, exigePlan: true }, null), 'Solo con bono');
+  // Sin el dato no se promete nada.
+  assert.equal(textoPagoFila({ ...sinPrecio, exigePlan: null }, null), 'Solo con bono');
+  assert.equal(textoPagoFila(sinPrecio, null), 'Solo con bono');
+  // Con precio suelto, el precio de siempre (lo que cobra el estudio), exija plan o no.
+  assert.equal(textoPagoFila({ precioSuelto: 15, sinPrecioSuelto: false, exigePlan: false }, null), '15 €');
+  // Con bono, lo de su bono.
+  assert.equal(textoPagoFila({ ...sinPrecio, exigePlan: false }, { nombre: 'Bono 8', creditosTotales: 8, creditosUsados: 2, tipoPlan: 'BONO' }), '1 sesión');
+});

@@ -145,6 +145,25 @@ test.describe('Student PWA · horario: reservar desde la fila', () => {
     await expect(page.getByRole('button', { name: 'Confirmar 10:00 con tu cuota' })).toBeVisible();
   });
 
+  test('sin bono y sin precio suelto: «Sin pagar» si el estudio no exige plan (como la ficha); si lo exige, «Solo con bono»', async ({ page }) => {
+    // El andamiaje no vende nada (`planesTarifa: []`): con «exigir plan» no hay nada que contratar y no bloquea, así que
+    // el servidor la reserva sin cobrar (RESERVA_SIN_PAGAR). «Solo con bono» le decía que no podía.
+    const { pedidas } = await montar(page);
+    await abrirHorario(page);
+    await expect(fila(page)).toContainText('Sin pagar');
+    await expect(fila(page)).not.toContainText('Solo con bono');
+    expect(pedidas()).toBeGreaterThan(0);
+
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    const exige = await montar(page, (f) => {
+      f.planesTarifa = [{ id: 'plan-bono', studioId: 'studio-test', nombre: 'Bono 8 sesiones', tipo: 'BONO', sesiones: 8, precio: 96, activo: true }];
+    });
+    await abrirHorario(page);
+    await expect(fila(page)).toContainText('Solo con bono');
+    await expect(fila(page)).not.toContainText('Sin pagar');
+    expect(exige.pedidas()).toBeGreaterThan(0);
+  });
+
   const SIN_BOTON: Array<[string, (f: Fixture) => void, unknown[]?]> = [
     ['sin bono', () => {}],
     ['con un bono de otro tipo', (f) => conBono(f, { tipos: ['tc-mat'] })],

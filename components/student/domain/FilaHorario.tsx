@@ -72,7 +72,7 @@ export function FilaHorario({ clase, instructora, estado, temporal, bono, ofrece
             Reservar
           </button>
         )}
-        {/* Cómo se pagaría, de la misma clasificación que la hoja: «Cuota», «1 sesión», el precio o «Solo con bono». En
+        {/* Cómo se pagaría, de la misma clasificación que la hoja: «Cuota», «1 sesión», el precio, «Solo con bono» o «Sin pagar». En
             curso, terminada o sin abrir no se dice: ya no se reserva. */}
         {temporal === 'plazas' && (
           <p className="t-micro" style={{ margin: 0, fontWeight: 800, color: 'var(--muted-foreground)' }}>{textoPagoFila(clase, bono)}</p>
