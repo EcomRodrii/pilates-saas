@@ -11,12 +11,13 @@
 // tardan lo que tarda el bucle, y siempre salen igual.
 import { test, mock, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { Tenti, ESTADOS, animacionDeEntrada, type EstadoTenti } from './motor.ts';
+import { Tenti, ESTADOS, MOVIMIENTO_PETICION_MS, MOVIMIENTO_SITUACION_MS, animacionDeEntrada, type EstadoTenti } from './motor.ts';
 import { lienzoDeTenti } from './geometria.ts';
 import type { PaletaTenti } from './paleta.ts';
 
 const PALETA: PaletaTenti = {
   cuerpo: ['#FFFAF5', '#DDCCBF'], tinta: '#1A1412', rubor: '#C98F76', chispa: '#B8975A', hecho: '#2F6B4F',
+  estados: { error: '#A8442A', esperaTuOk: '#8F6215', agobiado: '#8F6215', trabajando: '#3F5A7A' },
 };
 
 type RGB = [number, number, number];
@@ -104,7 +105,9 @@ function correr(motor: Tenti, ms: number): string[][] {
   return fotogramas;
 }
 
-function comprobarPaleta(estado: EstadoTenti) {
+/** `extra`: colores que ese estado puede pintar además de la paleta (el tinte
+ *  del prototipo de los estados que no tienen token, la «z» de dormido). */
+function comprobarPaleta(estado: EstadoTenti, extra: string[] = []) {
   const motor = crear({ paleta: PALETA, insignias: false });
   motor.ponerEstado(estado, { forzar: true, silencio: true });
   const fotogramas = correr(motor, 1500);
@@ -121,8 +124,8 @@ function comprobarPaleta(estado: EstadoTenti) {
   });
 
   const permitidos: RGB[] = [
-    ...[PALETA.cuerpo[0], PALETA.cuerpo[1], PALETA.tinta, PALETA.rubor, PALETA.chispa, PALETA.hecho].map(hexRgb),
-    [0, 0, 0], [255, 255, 255],
+    ...[PALETA.cuerpo[0], PALETA.cuerpo[1], PALETA.tinta, PALETA.rubor, PALETA.chispa, PALETA.hecho, ...Object.values(PALETA.estados)].map(hexRgb),
+    [0, 0, 0], [255, 255, 255], ...extra.map(aRgb),
   ];
   const ultimo = fotogramas.at(-1)!;
   assert.ok(ultimo.length > 0, 'el último fotograma no ha pintado nada');
@@ -143,6 +146,43 @@ test("en 'hecho', con paleta y sin insignias: tinte de paleta.hecho, chispas de 
   const pintados = comprobarPaleta('hecho');
   assert.ok(pintados.some((c) => cerca(c, hexRgb(PALETA.hecho))), "'hecho' no tiñe con paleta.hecho");
   assert.ok(pintados.some((c) => cerca(c, hexRgb(PALETA.chispa))), 'las chispas no usan paleta.chispa');
+});
+
+// Los estados que el panel enseña desde el 5-oct (lib/tenti/momentos.ts):
+// tiñen con los tokens de estado y nunca con un color del prototipo.
+for (const [estado, token] of [
+  ['trabajando', PALETA.estados.trabajando], ['error', PALETA.estados.error],
+  ['esperaTuOk', PALETA.estados.esperaTuOk], ['agobiado', PALETA.estados.agobiado],
+] as const) {
+  test(`en '${estado}', con paleta: tinte del token, sin un color del prototipo`, () => {
+    const pintados = comprobarPaleta(estado);
+    assert.ok(pintados.some((c) => cerca(c, hexRgb(token))), `'${estado}' no tiñe con ${token}`);
+  });
+}
+// 'dormido' y 'pregunta' conservan el tinte del prototipo (no son avisos), pero
+// sus partículas y sus ojos tampoco pueden llevar los colores prohibidos.
+test("en 'dormido' y 'pregunta', con paleta: ningún color prohibido", () => {
+  comprobarPaleta('dormido', [ESTADOS.dormido.col, 'rgba(210,220,235,1)']);
+  comprobarPaleta('pregunta', [ESTADOS.pregunta.col]);
+});
+
+test('amor y orgullo con paleta: corazones del rubor, estrellas de la chispa; la gota de agobiado, de --info', () => {
+  const motor = crear({ paleta: PALETA, insignias: false });
+  motor.emocion('amor', 1500, true);
+  const amor = correr(motor, 1500).flat().map(aRgb);
+  motor.emocion('orgullo', 1500, true);
+  const orgullo = correr(motor, 1500).flat().map(aRgb);
+  motor.ponerEstado('agobiado', { forzar: true, silencio: true });
+  const agobiado = correr(motor, 1500).flat().map(aRgb);
+  motor.destruir();
+  for (const [nombre, pintados] of [['amor', amor], ['orgullo', orgullo], ['agobiado', agobiado]] as const) {
+    for (const c of pintados) {
+      for (const [prohibido, rgb] of PROHIBIDOS_RGB) assert.ok(!cerca(c, rgb), `${nombre} pinta ${prohibido}`);
+    }
+  }
+  assert.ok(amor.some((c) => cerca(c, hexRgb(PALETA.rubor))), 'los corazones no salen del rubor');
+  assert.ok(orgullo.some((c) => cerca(c, hexRgb(PALETA.chispa))), 'las estrellas no salen de la chispa');
+  assert.ok(agobiado.some((c) => cerca(c, hexRgb(PALETA.estados.trabajando))), 'la gota no sale de --info');
 });
 
 test('las manos del saludo usan el cuerpo de la paleta', () => {
@@ -178,6 +218,21 @@ test("animacionDeEntrada: 'hecho' gira y echa chispas; con «reducir movimiento�
     const a = animacionDeEntrada(e, true);
     assert.ok(a.every((x) => x === 'parpadear'), `con quieto, '${e}' anima ${a.join(', ')}`);
   }
+});
+
+test("'hecho' breve (celebra: false): el tinte y los ojos felices, sin girar ni chispas", () => {
+  assert.deepEqual(animacionDeEntrada('hecho', false, false), ['parpadear']);
+  assert.deepEqual(animacionDeEntrada('error', false, false), animacionDeEntrada('error', false), 'celebra solo cambia hecho');
+  const motor = crear({ paleta: PALETA, insignias: false });
+  motor.ponerEstado('hecho', { forzar: true, silencio: true, celebra: false });
+  const roll = () => (motor as unknown as { s: { roll: number } }).s.roll;
+  let maxRoll = 0;
+  const pintados: RGB[] = [];
+  for (const f of correr(motor, 1500)) { maxRoll = Math.max(maxRoll, Math.abs(roll())); pintados.push(...f.map(aRgb)); }
+  motor.destruir();
+  assert.equal(maxRoll, 0, 'el hecho breve ha girado');
+  assert.ok(!pintados.some((c) => cerca(c, hexRgb(PALETA.chispa))), 'el hecho breve ha echado chispas');
+  assert.ok(pintados.some((c) => cerca(c, hexRgb(PALETA.hecho))), 'el hecho breve no tiñe');
 });
 
 test('con «reducir movimiento», saludar() no hace nada: ni anima ni cuenta', () => {
@@ -337,6 +392,66 @@ test('perpetuo: lo que oscila sin fin no deja dormir; en reposo y con «reducir 
   mini.destruir();
 });
 
+// ── El tope de lo que oscila (lib/tenti/momentos.ts, regla de §4) ──────────
+//
+// En lo diario un estado solo se mueve sin fin mientras dure algo que tiene fin
+// y que la pantalla está esperando. Los que describen una situación oscilan
+// 4 s y se quedan en su pose; la herramienta del asistente, 30 s; el catálogo,
+// sin fin.
+
+test("'situacion': esperaTuOk, dormido y buscando oscilan 4 s y el bucle se duerme", () => {
+  for (const estado of ['esperaTuOk', 'dormido', 'buscando', 'agobiado'] as EstadoTenti[]) {
+    const motor = crear({ paleta: PALETA, insignias: false, movimiento: 'situacion' });
+    motor.ponerEstado(estado, { forzar: true, silencio: true });
+    if (estado !== 'agobiado') assert.equal(motor.perpetuo(), true, `'${estado}' al entrar`);
+    correr(motor, MOVIMIENTO_SITUACION_MS + 50);
+    assert.equal(motor.perpetuo(), false, `'${estado}' sigue oscilando pasados 4 s`);
+    // Y a partir de ahí duerme de verdad: muy por debajo de 60 fps.
+    const r = vivir(motor, 20_000);
+    motor.destruir();
+    assert.ok(r.fotogramas < 400, `'${estado}': ${r.fotogramas} fotogramas en 20 s tras el tope`);
+  }
+});
+
+test("'situacion': pasado el tope, cada estado se queda en su pose", () => {
+  const s = (m: Tenti) => (m as unknown as { s: Record<string, number>; tg: Record<string, number> });
+  const espera = crear({ paleta: PALETA, insignias: false, movimiento: 'situacion' });
+  espera.ponerEstado('esperaTuOk', { forzar: true, silencio: true });
+  correr(espera, MOVIMIENTO_SITUACION_MS + 1500);
+  assert.ok(Math.abs(s(espera).s.oy) < 0.005, 'esperaTuOk sigue botando');
+  espera.destruir();
+  const dormido = crear({ paleta: PALETA, insignias: false, movimiento: 'situacion' });
+  dormido.ponerEstado('dormido', { forzar: true, silencio: true });
+  correr(dormido, MOVIMIENTO_SITUACION_MS + 1500);
+  assert.ok(Math.abs(s(dormido).s.sy - 1) < 0.005, 'dormido sigue respirando');
+  assert.ok(s(dormido).s.pitch < -0.1, 'dormido no baja la cabeza');
+  dormido.destruir();
+  // Fuera de mini, agobiado ya no echa gotas de ambiente.
+  const agobiado = crear({ paleta: PALETA, insignias: false, movimiento: 'situacion' });
+  agobiado.ponerEstado('agobiado', { forzar: true, silencio: true });
+  correr(agobiado, MOVIMIENTO_SITUACION_MS + 2000);
+  correr(agobiado, 5000);
+  assert.equal((agobiado as unknown as { parts: unknown[] }).parts.length, 0, 'agobiado sigue sudando pasado el tope');
+  agobiado.destruir();
+});
+
+test("'peticion' oscila 30 s, 'sinFin' mientras dure, y cambiar de estado vuelve a contar", () => {
+  const peticion = crear({ paleta: PALETA, insignias: false, movimiento: 'peticion' });
+  peticion.ponerEstado('buscando', { forzar: true, silencio: true });
+  correr(peticion, MOVIMIENTO_SITUACION_MS + 100);
+  assert.equal(peticion.perpetuo(), true, "'peticion' se ha cortado a los 4 s");
+  reloj += MOVIMIENTO_PETICION_MS;
+  assert.equal(peticion.perpetuo(), false, "'peticion' sigue pasados 30 s");
+  peticion.ponerEstado('buscando', { forzar: true, silencio: true });
+  assert.equal(peticion.perpetuo(), true, 'volver a pedirlo (otra herramienta) vuelve a armar el tope');
+  peticion.destruir();
+  const sinFin = crear({ paleta: PALETA, insignias: false });
+  sinFin.ponerEstado('esperaTuOk', { forzar: true, silencio: true });
+  reloj += 120_000;
+  assert.equal(sinFin.perpetuo(), true, "'sinFin' (el catálogo) se ha cortado");
+  sinFin.destruir();
+});
+
 // ── Vivo a tamaño de icono: mira alrededor y lleva silueta ──────────────────
 //
 // Desde el 5-oct-2026 Tenti va vivo en todos sus sitios (decisión del
@@ -368,6 +483,61 @@ test('con miradas, el bucle sigue durmiendo: muy por debajo de 60 fps', () => {
   assert.ok(r.fotogramas < 900, `${r.fotogramas} fotogramas en 30 s con miradas`);
   assert.equal(r.despertaresPerdidos, 0);
   for (const a of r.abiertosAlDormir) assert.ok(a > 0.99, `dormido con los ojos a medio cerrar (open=${a.toFixed(3)})`);
+});
+
+test('con varios Tentis en la página, miran de uno en uno y no se pisan', () => {
+  const motores = [0, 1, 2, 3].map(() => crear({ paleta: PALETA, insignias: false, miradas: true, mini: true }));
+  const fuera = motores.map(() => false);
+  let a_la_vez = 0, miradas = 0;
+  for (let i = 0; i < 60_000 / 16; i++) {
+    reloj += 16;
+    mock.timers.tick(16);
+    let mirando = 0;
+    motores.forEach((m, k) => {
+      m.fotograma();
+      const y = Math.abs(yaw(m));
+      if (y > 0.15 && !fuera[k]) { fuera[k] = true; miradas++; } else if (y < 0.02) fuera[k] = false;
+      if (y > 0.15) mirando++;
+    });
+    if (mirando > 1) a_la_vez++;
+  }
+  for (const m of motores) m.destruir();
+  assert.equal(a_la_vez, 0, 'dos Tentis mirando a los lados a la vez');
+  assert.ok(miradas >= 4, `solo ${miradas} miradas en 60 s entre cuatro Tentis: parecen de piedra`);
+  // Cada uno a su aire serían ~8 por cabeza en 60 s (32): con turnos, como mucho una cada ~5 s.
+  assert.ok(miradas <= 14, `${miradas} miradas en 60 s: no se están turnando`);
+});
+
+test('al destruirse mirando, suelta el turno: el siguiente no se queda esperando', () => {
+  const a = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  const b = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  let i = 0;
+  while (Math.abs(yaw(a)) < 0.15 && i++ < 20_000 / 16) { correr(a, 16); }
+  assert.ok(Math.abs(yaw(a)) >= 0.15, 'a no ha llegado a mirar');
+  a.destruir();
+  let maximo = 0;
+  for (let j = 0; j < 12_000 / 16; j++) { correr(b, 16); maximo = Math.max(maximo, Math.abs(yaw(b))); }
+  b.destruir();
+  assert.ok(maximo > 0.2, 'el turno se ha quedado cogido por un Tenti desmontado');
+});
+
+test('a medio ritmo solo el ambiente: un estado, una emoción o el cursor van a ritmo completo', () => {
+  const m = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  correr(m, 3_000);
+  assert.equal(m.aMedioRitmo(), true, 'en reposo, ya asentado, debería ir a medio ritmo');
+  m.ponerEstado('hecho', { forzar: true, silencio: true });
+  assert.equal(m.aMedioRitmo(), false, 'recién cambiado de estado va a medio ritmo');
+  correr(m, 6_000);
+  m.ponerEstado('reposo', { forzar: true, silencio: true });
+  correr(m, 3_000);
+  m.emocion('guino', 1200, true);
+  assert.equal(m.aMedioRitmo(), false, 'con una emoción en curso va a medio ritmo');
+  correr(m, 3_000);
+  assert.equal(m.aMedioRitmo(), true);
+  m.mira.x = 0.8;
+  correr(m, 16);
+  assert.equal(m.aMedioRitmo(), false, 'siguiendo al cursor va a medio ritmo');
+  m.destruir();
 });
 
 test("las miradas son solo de 'reposo', y con «reducir movimiento» no hay ninguna", () => {

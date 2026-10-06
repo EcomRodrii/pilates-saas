@@ -121,9 +121,11 @@ function PuenteApertura() {
       <div className="w-full max-w-[420px]">
         {/* Tenti, donde estaba el Orb: es Tentare quien te propone por dónde
             empezar. 28 es el ancho más grande del icono; el canvas no entra
-            en una pantalla sin enlaces solo para ganar tamaño. */}
+            en una pantalla sin enlaces solo para ganar tamaño. 'pregunta'
+            (lib/tenti/momentos.ts): son tres preguntas, y «Lo veo más tarde»
+            deja no contestarlas. Sin sonido. */}
         <div className="flex justify-center">
-          <TentiIcono ancho={28} />
+          <TentiIcono ancho={28} estado="pregunta" />
         </div>
         <h1 className="mt-4 text-center text-[19px] font-bold leading-tight tracking-tight text-foreground">
           Una última cosa antes de entrar

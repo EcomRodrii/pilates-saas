@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowDown, ArrowRight, Check } from 'lucide-react';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { ANCLA_DECIDIR, invalidarEstadoEstudio, useEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { LineaEstado } from '@/lib/estado-estudio';
+import { estadoDeLaBandeja, subio } from '@/lib/tenti/momentos';
 
 // «Lo que espera tu visto bueno» — la bandeja única de la home, justo debajo de
 // la agenda del día. Contesta la segunda pregunta con la que se abre el panel:
@@ -32,12 +34,23 @@ import type { LineaEstado } from '@/lib/estado-estudio';
 // de rama, las tarjetas se desmontarían al llegar o refrescarse el recuento —
 // y una que estuviera a mitad de «Cobrando…» volvería a ofrecer el botón con la
 // lista recargada antes de que el servidor contestara.
+//
+// Tenti, en dos sitios de la bandeja (lib/tenti/momentos.ts):
+//   · en el titular de «Decidir», donde va el Check cuando no hay nada: con
+//     algo esperando, 'esperaTuOk' (o 'agobiado' desde UMBRAL_AGOBIO). La cifra
+//     es la de la bandeja, el texto no cambia («N cosas esperan tu visto
+//     bueno») y, si la bandeja sube con la pantalla delante (al volver a la
+//     pestaña o tras resolver algo), una 'sorpresa' sin sonido;
+//   · en «Tentare lo está haciendo», 'trabajando': ese bloque solo existe si
+//     hay algo en marcha, así que la cara dice literalmente su título.
 export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.ReactNode }) {
   const e = useEstadoEstudio();
   // Sin datos (cargando, error o un rol que no ve ninguna fuente) no se afirma
   // nada, pero las tarjetas se pintan igual: su dinero no puede depender de que
   // un recuento haya llegado.
   const datos = e?.aplica ? e : null;
+  const estadoTenti = estadoDeLaBandeja(datos?.nDecidir);
+  const subidas = useSubidas(datos?.nDecidir ?? null);
   const hayActividad = !!datos && (datos.enMarcha.length > 0 || datos.resuelto.length > 0);
   const conBandeja = !!datos && (datos.nDecidir > 0 || hayActividad);
 
@@ -65,7 +78,15 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
         {datos && conBandeja && (
           <div className={`flex flex-col gap-2 ${datos.nDecidir === 0 ? ocultaSiHayTarjeta : ''}`}>
             <p className="flex items-center gap-2 text-[15px] font-bold text-foreground">
-              {datos.nDecidir === 0 && <Check size={16} style={{ color: 'var(--success)' }} aria-hidden />}
+              {estadoTenti
+                ? (
+                  <TentiIcono
+                    ancho={18}
+                    estado={estadoTenti}
+                    emocion={subidas > 0 ? { tipo: 'sorpresa', clave: `sorpresa-${subidas}` } : null}
+                  />
+                )
+                : datos.nDecidir === 0 && <Check size={16} style={{ color: 'var(--success)' }} aria-hidden />}
               {datos.titulo}
             </p>
             {datos.decidir.length > 0 && <Lineas lineas={datos.decidir} />}
@@ -83,11 +104,11 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
           {accionesEnLinea}
         </div>
 
-        {/* Tenti firma lo que Tentare está haciendo por su cuenta: quieto, y el
-            bloque solo existe si hay algo en marcha. No dice «todo bien» ni
-            celebra nada: lo resuelto va aparte, con su Check. */}
+        {/* Tenti firma lo que Tentare está haciendo por su cuenta: 'trabajando',
+            porque el bloque solo existe si hay algo en marcha. No dice «todo
+            bien» ni celebra nada: lo resuelto va aparte, con su Check. */}
         {datos && conBandeja && datos.enMarcha.length > 0 && (
-          <Bloque titulo="Tentare lo está haciendo" icono={<TentiIcono ancho={18} />}>
+          <Bloque titulo="Tentare lo está haciendo" icono={<TentiIcono ancho={18} estado="trabajando" />}>
             <Lineas lineas={datos.enMarcha} tenue />
           </Bloque>
         )}
@@ -100,6 +121,21 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
       </section>
     </div>
   );
+}
+
+/**
+ * Cuántas veces ha subido `n` mientras este componente está montado (nunca al
+ * cargar). Estado derivado durante el render, el patrón de React para «lo que
+ * cambió desde el render anterior»: sin efecto ni ref leído al pintar.
+ */
+function useSubidas(n: number | null): number {
+  const [visto, setVisto] = useState<{ n: number | null; subidas: number }>({ n, subidas: 0 });
+  if (visto.n !== n) {
+    const subidas = visto.subidas + (subio(visto.n, n) ? 1 : 0);
+    setVisto({ n, subidas });
+    return subidas;
+  }
+  return visto.subidas;
 }
 
 function Bloque({ titulo, icono, children }: { titulo: string; icono: React.ReactNode; children: React.ReactNode }) {

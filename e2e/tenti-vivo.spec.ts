@@ -72,6 +72,42 @@ test('Resumen: los tres Tentis son el canvas vivo, del tamaño del icono, y duer
   expect(await sonidos.cuantos(), 'parpadear y mirar alrededor no suenan').toBe(antes);
 });
 
+// Con sus estados de situación (lib/tenti/momentos.ts): espera tu visto bueno
+// bota, dormido respira… y en lo diario solo 4 s (`movimiento`, motor.ts). Tras
+// asentarse, Resumen con CUATRO Tentis (esperaTuOk, trabajando, dormido y el de
+// «Sistema autónomo») tiene que costar lo que costaba en reposo: ~100
+// fotogramas en 10 s y 1,0–1,7 % del hilo principal (.claude/tentare-os.md).
+const BANDEJA_CON_TODO = {
+  aplica: true, nDecidir: 3, titulo: '3 cosas esperan tu visto bueno',
+  decidir: [{ id: 'reservasPorAprobar', n: 3, texto: '3 reservas por aprobar', href: null }],
+  enMarcha: BANDEJA_CON_MARCHA.enMarcha, resuelto: [],
+};
+
+test('Resumen con esperaTuOk, trabajando y dormido: oscilan al entrar y, asentados, cuestan lo que el reposo', async ({ page }) => {
+  const fotogramas = await contarFotogramas(page);
+  const sonidos = await espiarSonidos(page);
+  await montarHome(page, { estadoEstudio: BANDEJA_CON_TODO, calendarioVacio: true });
+  await expect(page.getByText(/Tentare sigue atento/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('[data-tenti-icono] canvas[data-tenti]')).toHaveCount(4, { timeout: 30_000 });
+  for (const estado of ['esperaTuOk', 'trabajando', 'dormido']) {
+    await expect(page.locator(`[data-tenti-icono][data-estado="${estado}"] canvas[data-tenti]`)).toHaveCount(1);
+  }
+  // Al entrar oscilan (bota, respira): más fotogramas que en reposo...
+  const entrada = await fotogramas.durante(3_000);
+  // ...y pasados 5 s, en su pose: el bucle duerme entre parpadeos.
+  await page.waitForTimeout(2_500);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Performance.enable');
+  const ocupado = async () => (await cdp.send('Performance.getMetrics')).metrics.find((m) => m.name === 'TaskDuration')!.value;
+  const t0 = await ocupado();
+  const r = await fotogramas.durante(10_000);
+  const cpu = (await ocupado()) - t0;
+  test.info().annotations.push({ type: 'rendimiento', description: `estados asentados, 10 s de Resumen con 4 Tentis: ${r.pintados} fotogramas de Tenti, hilo principal ${(cpu * 1000).toFixed(0)} ms (${(cpu * 10).toFixed(2)} %); los 3 primeros segundos, ${entrada.pintados}` });
+  console.log(`[tenti-vivo] ${test.info().annotations.at(-1)!.description}`);
+  expect(r.pintados, `${r.pintados} fotogramas en 10 s con los estados asentados: alguno sigue oscilando`).toBeLessThan(900);
+  expect(await sonidos.cuantos(), 'los estados que llegan sin gesto no suenan').toBe(0);
+});
+
 test('tocar a Tenti fuera de un botón lo aplasta y suena; en un enlace, el clic es del enlace', async ({ page }) => {
   const sonidos = await espiarSonidos(page);
   await montarHome(page, { estadoEstudio: BANDEJA_CON_MARCHA });

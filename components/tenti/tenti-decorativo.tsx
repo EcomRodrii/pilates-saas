@@ -14,13 +14,16 @@ import type { PropsTenti } from './tenti';
 //     lupa, la baldosa del Zap), en la misma caja: nada salta. Si el chunk no
 //     llega, `reserva` también; y si llega pero no hay canvas 2D, Tenti la
 //     recibe por props y la pinta él.
-//   · Siempre en 'reposo' y sin insignias, pero vivo como en /interno/tenti
-//     (decisión del fundador del 5-oct): parpadea, mira alrededor, sigue el
-//     cursor con los ojos y se deja tocar (se aplasta y suena; se molesta y se
-//     marea si insistes). Tocarlo no le quita el foco al campo del buscador.
-//     Suena si «Sonidos de Tenti» está encendido en este dispositivo. No hay
-//     prop para pedir otra cosa: el tsc del CI lo vigila, y la guardia
+//   · Sin insignias, vivo como en /interno/tenti (decisión del fundador del
+//     5-oct): parpadea, mira alrededor, sigue el cursor con los ojos y se deja
+//     tocar (se aplasta y suena; se molesta y se marea si insistes). Tocarlo no
+//     le quita el foco al campo del buscador. Suena si «Sonidos de Tenti» está
+//     encendido en este dispositivo.
+//   · `estado`: 'reposo', o lo que diga `estadoDelAutonomo` en el resumen de
+//     Automatizaciones ('esperaTuOk', 'error': lib/tenti/momentos.ts). El ⌘K
+//     no lo pasa. El tipo es cerrado (lo vigila tsc) y la guardia
 //     lib/tenti/donde-vive-tenti.test.ts vigila quién lo usa y a qué tamaño.
+//     Sus cambios no suenan: llegan sin que hayas pedido nada.
 //   · `mira`: hacia dónde mira en horizontal (el buscador, hacia el texto). Si
 //     se mueve el ratón, manda el ratón hasta que se vuelva a escribir.
 //
@@ -41,6 +44,8 @@ export interface PropsTentiDecorativo {
   reserva: ReactNode;
   /** Hacia dónde mira, de -1 (izquierda) a 1 (derecha). */
   mira?: number;
+  /** Lo que dice de lo que Tentare hace solo. Sin él, 'reposo'. */
+  estado?: 'reposo' | 'esperaTuOk' | 'error';
   className?: string;
 }
 
@@ -55,10 +60,10 @@ const TentiCanvas = dynamic<PropsTenti>(
   { ssr: false, loading: () => <SoloReserva /> },
 );
 
-export function TentiDecorativo({ tamano, reserva, mira, className }: PropsTentiDecorativo) {
+export function TentiDecorativo({ tamano, reserva, mira, estado = 'reposo', className }: PropsTentiDecorativo) {
   return (
     <ReservaCtx.Provider value={reserva}>
-      <TentiCanvas estado="reposo" tamano={tamano} mira={mira} sigueCursor interactivo reserva={reserva} className={className} />
+      <TentiCanvas estado={estado} tamano={tamano} mira={mira} sigueCursor interactivo reserva={reserva} className={className} />
     </ReservaCtx.Provider>
   );
 }
