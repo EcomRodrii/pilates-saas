@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cobroDeReciboAlumna, cobrosDeRecibosAlumna, type ContextoCobroAlumna, type FilaReciboAlumna } from './cobro-recibo-alumna.ts';
+import { cobroDeReciboAlumna, cobrosDeRecibosAlumna, leTocaPagarlaAElla, type ContextoCobroAlumna, type FilaReciboAlumna } from './cobro-recibo-alumna.ts';
 
 const HOY = '2026-10-12';
 const recibo = (c: Partial<FilaReciboAlumna> = {}): FilaReciboAlumna => ({
@@ -93,4 +93,48 @@ test('un estudio sin pago online: se dice que se paga en el estudio', () => {
 test('el mapa del payload solo lleva la deuda', () => {
   const m = cobrosDeRecibosAlumna([recibo({ id: 'a' }), recibo({ id: 'b', estado: 'COBRADO' })], ctx());
   assert.deepEqual(Object.keys(m), ['a']);
+});
+
+test('con un pago que abrió ella (Checkout) o un PaymentIntent suelto, ni la remesa ni el dunning lo cobran: lo paga ella', () => {
+  const card = { stripe_payment_method_id: 'pm_card' };
+  // Domiciliada: sin esto decía «Lo cobrará tu banco» de algo que la remesa no mete nunca (sesión abandonada de un bono).
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ checkout_session_id: 'cs_1' }), ctx({ domiciliadaEnRemesa: true })), { como: 'APP' });
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ stripe_payment_intent_id: 'pi_1' }), ctx({ domiciliadaEnRemesa: true })), { como: 'APP' });
+  // Con reintento y tarjeta: el dunning salta los que llevan `checkout_session_id`.
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ checkout_session_id: 'cs_1', proximo_reintento: '2026-11-01T00:00:00Z' }), ctx({ socio: card })), { como: 'APP' });
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ checkout_session_id: 'cs_1' }), ctx({ pagableOnline: false })), { como: 'ESTUDIO', motivo: 'sin-pago-online' });
+  // La pausa sigue mandando: abrir un pago no descongela la cuota.
+  const pausada = ctx({ cuotas: new Map([['sus-1', { ...cuotaActiva, estado: 'PAUSADA' }]]) });
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ checkout_session_id: 'cs_1' }), pausada), { como: 'ESTUDIO', motivo: 'cuota-en-pausa' });
+});
+
+test('el reintento solo lo cobra el dunning en un PENDIENTE sin «sin reintentos» (lo que exige puedeIntentarCobro)', () => {
+  const card = { stripe_payment_method_id: 'pm_card' };
+  const r = { proximo_reintento: '2026-11-01T00:00:00Z' };
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ ...r, estado: 'FALLIDO' }), ctx({ socio: card })), { como: 'APP' });
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ ...r, estado: 'DEVUELTO' }), ctx({ socio: card })), { como: 'APP' });
+  assert.deepEqual(cobroDeReciboAlumna(recibo({ ...r, tras_cancelar_cuota: 'SIN_REINTENTOS' }), ctx({ socio: card })), { como: 'APP' });
+  assert.deepEqual(cobroDeReciboAlumna(recibo(r), ctx({ socio: card })), { como: 'TARJETA', desde: '2026-11-01' });
+});
+
+test('le toca pagarla a ella solo desde la app o, sin pago online, en el estudio: nadie más la va a cobrar', () => {
+  assert.equal(leTocaPagarlaAElla({ como: 'APP' }), true);
+  assert.equal(leTocaPagarlaAElla({ como: 'ESTUDIO', motivo: 'sin-pago-online' }), true);
+  assert.equal(leTocaPagarlaAElla({ como: 'BANCO', via: 'remesa', desde: null }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'BANCO', via: 'remesa', desde: null, cuandoVenza: true }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'BANCO', via: 'sepa', desde: '2026-11-01' }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'TARJETA', desde: '2026-11-01' }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'EN_MARCHA' }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'ESTUDIO', motivo: 'cuota-en-pausa' }), false);
+  assert.equal(leTocaPagarlaAElla({ como: 'ESTUDIO', motivo: 'pendiente-estudio' }), false);
+  assert.equal(leTocaPagarlaAElla(null), false);
+  assert.equal(leTocaPagarlaAElla(undefined), false);
+});
+
+test('la renovación que acaba de crear el cron para una domiciliada sin tarjeta la cobra la remesa: no le toca a ella', () => {
+  // Lo que crea `generarRecibosRenovacion` sin método guardado: PENDIENTE, sin reintento. Es el aviso que no debe salir.
+  const recienCreada = recibo({ proximo_reintento: null });
+  assert.equal(leTocaPagarlaAElla(cobroDeReciboAlumna(recienCreada, ctx({ domiciliadaEnRemesa: true }))), false);
+  assert.equal(leTocaPagarlaAElla(cobroDeReciboAlumna(recienCreada, ctx())), true);
+  assert.equal(leTocaPagarlaAElla(cobroDeReciboAlumna(recienCreada, ctx({ pagableOnline: false }))), true);
 });

@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { esReciboCobrable, type ReciboParaDeuda } from './deuda-recibo.ts';
+import { leTocaPagarlaAElla, type CobroDeReciboAlumna } from './cobro-recibo-alumna.ts';
 
 /** El código que la app traduce (y el texto, por si no lo traduce). */
 export const CODIGO_CUOTA_EN_PAUSA = 'cuota-en-pausa';
@@ -125,4 +126,29 @@ export function reciboPrevioDeRenovacion(
   if (r.es_renovacion !== true) return 'ignorar';
   if (r.estado === 'EN_CURSO' || r.cobro_off_session_clave) return 'cobrandose';
   return esReciboCobrable(r) ? 'reutilizar' : 'ignorar';
+}
+
+export const CODIGO_RENOVACION_LA_COBRA_OTRO = 'renovacion-la-cobra-otro';
+
+/**
+ * La renovación que ya hay, ¿se la damos a pagar a ella? Con la regla de su app (`leTocaPagarlaAElla`, de
+ * `cobro-recibo-alumna.ts`), no con otra: si la cobra el banco (remesa o SEPA), su tarjeta guardada con el reintento
+ * programado, si se está cobrando o si la cuota está en pausa, NO. Los códigos que la app ya sabe leer se conservan
+ * (`cuota-en-pausa`, `renovacion-cobrandose`); el resto es `renovacion-la-cobra-otro`, con lo que se le dice en Recibos.
+ * `null` (la regla dice que no es deuda): tampoco, falla cerrado.
+ */
+export function renovacionQuePagaElla(cobro: CobroDeReciboAlumna | null): RenovacionPorLaAlumna {
+  if (leTocaPagarlaAElla(cobro)) return { ok: true };
+  if (cobro?.como === 'EN_MARCHA') return { ok: false, codigo: CODIGO_RENOVACION_COBRANDOSE, error: MENSAJE_RENOVACION_COBRANDOSE };
+  if (cobro?.como === 'ESTUDIO' && cobro.motivo === 'cuota-en-pausa') {
+    return { ok: false, codigo: CODIGO_CUOTA_EN_PAUSA, error: MENSAJE_CUOTA_EN_PAUSA };
+  }
+  const error = cobro?.como === 'BANCO'
+    ? (cobro.via === 'remesa'
+      ? 'Tu estudio pasará tu renovación a tu banco. No tienes que hacer nada.'
+      : 'Tu renovación la cobrará tu banco. No tienes que hacer nada.')
+    : cobro?.como === 'TARJETA'
+      ? 'Tu renovación se cobrará de tu tarjeta guardada. No tienes que hacer nada.'
+      : 'Tu renovación no se paga desde aquí. Habla con tu estudio.';
+  return { ok: false, codigo: CODIGO_RENOVACION_LA_COBRA_OTRO, error };
 }

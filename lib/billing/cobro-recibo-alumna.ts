@@ -43,6 +43,9 @@ export interface FilaReciboAlumna {
   cobro_off_session_clave?: string | null;
   cobro_mostrador_pi?: string | null;
   tras_cancelar_cuota?: string | null;
+  /** Un pago que abrió ella (o un PaymentIntent suelto): ni el dunning ni la remesa lo tocan mientras esté puesto. */
+  checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
 }
 
 /**
@@ -104,8 +107,15 @@ export function cobroDeReciboAlumna(r: FilaReciboAlumna, ctx: ContextoCobroAlumn
   // En pausa: ni el checkout ni el dunning la cobran. ANTES que el reintento: el dunning la omite cada día sin desprogramarla.
   if (r.es_renovacion === true && cuota?.estado === 'PAUSADA') return { como: 'ESTUDIO', motivo: 'cuota-en-pausa' };
 
-  // Con reintento programado lo cobra el dunning, si corre (estudio con Stripe) y tiene con qué.
-  if (r.proximo_reintento) {
+  // Con un pago abierto por ella (Checkout) o un PaymentIntent suelto, ni el dunning (`.is('checkout_session_id', null)`) ni
+  // la remesa (`COLUMNAS_COBRO_EN_MARCHA`) lo cobran: si se abandonó, la sesión se mantiene y nadie más lo va a cobrar. Lo
+  // termina ella (el checkout decide si reutiliza o caduca esa sesión). Sin esto, «Lo cobrará tu banco» era falso para
+  // siempre y `/api/public/renovar-plan` contestaba 409 a una renovación que solo podía pagar ella.
+  if (r.checkout_session_id || r.stripe_payment_intent_id) return enLaApp(ctx);
+
+  // Con reintento programado lo cobra el dunning, si corre (estudio con Stripe) y tiene con qué. Solo un PENDIENTE sin la
+  // marca «sin reintentos»: lo mismo que exige `puedeIntentarCobro` (vía AUTOMATICO); lo demás no lo cobra solo nadie.
+  if (r.proximo_reintento && r.estado === 'PENDIENTE' && r.tras_cancelar_cuota !== 'SIN_REINTENTOS') {
     if (!ctx.pagableOnline) return { como: 'ESTUDIO', motivo: 'sin-pago-online' };
     const m = elegirMetodoCobro(ctx.socio);
     if (!m.ok) return { como: 'APP' };
@@ -141,4 +151,18 @@ export function cobrosDeRecibosAlumna(
     if (c) out[r.id] = c;
   }
   return out;
+}
+
+/**
+ * ¿Le toca pagarlo a ELLA? Sí cuando nadie más lo va a cobrar: desde la app (`APP`) o, en un estudio sin pago online, en
+ * el propio estudio (`sin-pago-online`, que es `enLaApp` sin Stripe). El banco, su tarjeta guardada, un cobro en vuelo,
+ * una cuota en pausa o una penalización sin decidir: no. `null` (no es deuda): no.
+ *
+ * Lo usan las tres puertas de la renovación, para que no decida cada una a su manera: la que la app le ofrece pagar
+ * (`renovacionPorPagar` en fetchPublicStudioData), `/api/public/renovar-plan` al reutilizar la que ya hay, y el aviso
+ * «renovación sin tarjeta» del cron (`emitirRenovacionSinTarjeta`).
+ */
+export function leTocaPagarlaAElla(c: CobroDeReciboAlumna | null | undefined): boolean {
+  if (!c) return false;
+  return c.como === 'APP' || (c.como === 'ESTUDIO' && c.motivo === 'sin-pago-online');
 }
