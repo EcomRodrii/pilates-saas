@@ -37,7 +37,6 @@ import {
   type EntidadMigracion, type ContextoEstudio,
 } from '@/lib/migracion/clasificador';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
-import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { estadoDeLaMigracion } from '@/lib/tenti/momentos';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
@@ -201,8 +200,6 @@ export default function MigracionPage() {
     }
     setPlan(r);
     setPaso('revisar');
-    // Tenti avisa de que ha terminado de leer (si suena en este dispositivo).
-    sonarTenti('pop');
   }
 
   // Re-deriva las filas en cliente con las MISMAS funciones puras de lib/csv
@@ -722,7 +719,7 @@ export default function MigracionPage() {
       {paso === 'ejecutando' && (
         <div className="text-center py-16">
           <div className="mb-4 flex justify-center">
-            <TentiIcono ancho={28} estado="trabajando" sonarCambios />
+            <TentiIcono ancho={28} estado="trabajando" />
           </div>
           <p className="text-[14px] font-bold text-foreground">{progreso}</p>
           <p className="text-[12px] text-muted-foreground mt-1">Tu software anterior sigue funcionando: aquí no se corta nada.</p>
@@ -740,7 +737,7 @@ export default function MigracionPage() {
             <div className="flex items-center gap-2.5 mb-3">
               {deshecho || !estadoActa
                 ? <><Undo2 size={18} className="text-muted-foreground" /><p className="text-[15px] font-extrabold text-foreground">Migración deshecha</p></>
-                : <><TentiIcono ancho={22} estado={estadoActa} celebra sonarCambios /><p className="text-[15px] font-extrabold text-foreground">Acta de migración</p></>}
+                : <><TentiIcono ancho={22} estado={estadoActa} celebra /><p className="text-[15px] font-extrabold text-foreground">Acta de migración</p></>}
             </div>
             <div className="space-y-1.5">
               {resultados.map(r => (

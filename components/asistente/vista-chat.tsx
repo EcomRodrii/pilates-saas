@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Key
 import { ArrowUp, Check, Copy, MessagesSquare, RotateCcw, Square, SquarePen } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { TentiAsistente, TentiAsistenteQuieto } from '@/components/tenti/tenti-asistente';
-import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { MS_HECHO } from '@/lib/tenti/asistente';
 import { enVuelo, sugerenciasPara, type EstadoAsistente, type TurnoUI } from '@/lib/asistente/estado-ui';
 import { cn } from '@/lib/utils';
@@ -69,11 +68,10 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
   }, [studioId]);
   useEffect(() => montarVista(), []);
 
-  // «Hecho» breve (1,5 s y a reposo) y un solo «pop» al terminar con datos
-  // una pregunta que ha hecho ella (si «Sonidos de Tenti» está encendido).
+  // «Hecho» breve (1,5 s y a reposo) al terminar una pregunta. Sin sonido:
+  // Tenti no suena (fundador, 6-oct-2026).
   useEffect(() => {
     if (estado.momento !== 'terminado') return;
-    sonarTenti('pop');
     const t = setTimeout(volverAReposo, MS_HECHO);
     return () => clearTimeout(t);
   }, [estado.momento]);

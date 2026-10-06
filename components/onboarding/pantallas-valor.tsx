@@ -441,9 +441,8 @@ export function PantallasValor({
               cambio de alto de una escena volvería a romperlo. Decorativo
               (aria-hidden): el titular de al lado ya dice lo que pasa. Sin
               insignia. Como en /interno/tenti (decisión del fundador del
-              5-oct): se deja tocar (se aplasta y suena), y saluda y se alegra
-              con su sonido si «Sonidos de Tenti» está encendido en este
-              dispositivo (lo lee <Tenti> solo). */}
+              5-oct): se deja tocar (se aplasta), saluda y se alegra. Sin
+              sonido: Tenti no suena (fundador, 6-oct-2026). */}
           <div style={{ gridArea: 'escena', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             {Escena ? (
               <Escena activa={transformada} />

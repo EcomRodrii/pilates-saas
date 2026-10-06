@@ -16,7 +16,6 @@ import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
-import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
 import { pareceUnaPregunta } from '@/lib/asistente/pregunta';
 import { sugerenciasPara } from '@/lib/asistente/estado-ui';
@@ -76,18 +75,6 @@ export function GlobalSearch({
   // buscador se veía un frame con la búsqueda anterior todavía escrita.
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 40);
-  }, [open]);
-
-  // Tenti suena al abrirse el buscador y al cerrarse (si «Sonidos de Tenti»
-  // está encendido en este dispositivo). Solo en el CAMBIO, y partiendo de
-  // cerrado: la barra del panel monta este componente la primera vez que se
-  // abre, ya con `abierto`, y esa apertura también suena. Montar cerrado no
-  // suena, y StrictMode no lo duplica (el ref ya vale).
-  const abiertoAntes = useRef(false);
-  useEffect(() => {
-    if (open === abiertoAntes.current) return;
-    abiertoAntes.current = open;
-    sonarTenti(open ? 'open' : 'close');
   }, [open]);
 
   const [abiertoPrevio, setAbiertoPrevio] = useState(open);

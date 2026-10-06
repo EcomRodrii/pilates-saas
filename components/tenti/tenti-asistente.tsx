@@ -17,10 +17,8 @@ import type { PropsTenti } from './tenti';
 //   · Props cerrados: `momento` (el vocabulario del asistente, no el del motor:
 //     lib/tenti/asistente.ts lo traduce), `tamano` (40, el avatar; 96, el
 //     saludo) y `className`.
-//   · `sonido={false}`: el motor sonaría en CADA cambio (pensar, buscar,
-//     terminar: tres sonidos por pregunta). El panel suena una vez, 'pop', al
-//     terminar una respuesta que la propietaria pidió (si «Sonidos de Tenti»
-//     está encendido).
+//   · Sin sonido: Tenti no suena (fundador, 6-oct-2026), tampoco al terminar
+//     una respuesta.
 //   · Tope de animación: 'buscando' escanea sin fin; pasados MS_MAX_BUSCANDO
 //     se queda en 'pensando', que duerme entre parpadeos.
 //   · El motor llega en un chunk aparte (dynamic, sin SSR); mientras tanto, la
@@ -53,7 +51,7 @@ export function TentiAsistente({ momento, tamano, className }: { momento: Moment
 
   return (
     <span data-tenti-asistente="" data-momento={momento} aria-hidden="true" className={cn('relative block shrink-0', className)} style={{ width: tamano, height: tamano }}>
-      <TentiCanvas estado={estadoParaPintar(momento, agotado)} tamano={tamano} sonido={false} className="block" />
+      <TentiCanvas estado={estadoParaPintar(momento, agotado)} tamano={tamano} className="block" />
     </span>
   );
 }

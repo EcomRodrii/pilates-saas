@@ -28,7 +28,6 @@
 // que cuelga.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Sonido } from './sonidos.ts';
 import type { PaletaTenti } from './paleta.ts';
 // El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
 // icono de lo diario: aquí solo se anima.
@@ -41,19 +40,11 @@ import { OUTFITS, VIEW_TILT, type Fisica, type MarcoCabeza } from './trajes-couc
 
 type RGB = [number, number, number];
 
-// Los sonidos van en su propio chunk y se piden la primera vez que hacen falta:
-// con «Sonidos de Tenti» apagado (Configuración › Tu panel) no se descarga la
-// síntesis de veinticinco efectos. Se piden al encender `sonido`, no al primer
-// efecto, para que ese primero no llegue tarde respecto al gesto que lo provoca.
-let sonidos: typeof import('./sonidos.ts') | null = null;
-let pidiendoSonidos: Promise<void> | null = null;
-function cargarSonidos(): Promise<void> {
-  return (pidiendoSonidos ??= import('./sonidos.ts').then(
-    (m) => { sonidos = m; },
-    // Si el chunk no llega, otro intento la próxima vez: un sonido no rompe nada.
-    () => { pidiendoSonidos = null; },
-  ));
-}
+// Tenti NO suena (fundador, 6-oct-2026: «quítale el sonido a Tenti»): ni sus
+// estados, ni sus emociones, ni al tocarlo o saludar. Se quitó entero —la
+// síntesis (lib/tenti/sonidos.ts), la preferencia «Sonidos de Tenti» y la carga
+// perezosa—, no se apagó por defecto. La guardia
+// lib/tenti/donde-vive-tenti.test.ts falla si vuelve cualquier sonido.
 
 const AHORA = () => performance.now();
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -117,23 +108,23 @@ type FormaOjo = 'pill' | 'wide' | 'dot' | 'line' | 'flat' | 'happy' | 'closed' |
 type Insignia = 'dots' | 'dot' | 'bang' | 'q' | null;
 
 interface ConfigEstado {
-  etiqueta: string; col: string; tint: number; ojo: FormaOjo; insignia: Insignia; sonido?: Sonido;
+  etiqueta: string; col: string; tint: number; ojo: FormaOjo; insignia: Insignia;
   mira?: [number, number]; escanea?: boolean; bota?: boolean; ladea?: number; suda?: boolean; respira?: boolean; zz?: boolean;
 }
 
-/** Lo que Tenti está haciendo. Cada uno con su color, sus ojos y su sonido. */
+/** Lo que Tenti está haciendo. Cada uno con su color y sus ojos. */
 export const ESTADOS = {
   reposo: { etiqueta: 'En reposo', col: '#E6E9EE', tint: 0, ojo: 'pill', insignia: null },
-  trabajando: { etiqueta: 'Trabajando', col: '#3B9EFF', tint: 0.72, ojo: 'pill', insignia: 'dots', sonido: 'work' },
-  hecho: { etiqueta: 'Hecho', col: '#34D399', tint: 0.35, ojo: 'happy', insignia: 'dot', sonido: 'finish' },
-  error: { etiqueta: 'Algo ha fallado', col: '#F4505E', tint: 0.78, ojo: 'flat', insignia: 'dot', sonido: 'error' },
-  mareado: { etiqueta: 'Mareado', col: '#F472B6', tint: 0.7, ojo: 'spiral', insignia: null, sonido: 'dizzy' },
-  pensando: { etiqueta: 'Pensando', col: '#8B5CF6', tint: 0.72, ojo: 'pill', insignia: 'dots', mira: [0.55, 0.55], sonido: 'think' },
-  buscando: { etiqueta: 'Buscando', col: '#6366F1', tint: 0.72, ojo: 'pill', insignia: 'dots', escanea: true, sonido: 'search' },
-  esperaTuOk: { etiqueta: 'Espera tu visto bueno', col: '#F5A524', tint: 0.78, ojo: 'wide', insignia: 'bang', bota: true, sonido: 'approval' },
-  pregunta: { etiqueta: 'Tiene una pregunta', col: '#22D3EE', tint: 0.75, ojo: 'pill', insignia: 'q', ladea: 0.17, sonido: 'question' },
-  agobiado: { etiqueta: 'Agobiado', col: '#FB923C', tint: 0.72, ojo: 'tired', insignia: 'dot', suda: true, sonido: 'rate' },
-  dormido: { etiqueta: 'Dormido', col: '#94A3B8', tint: 0.32, ojo: 'closed', insignia: null, respira: true, zz: true, sonido: 'sleep' },
+  trabajando: { etiqueta: 'Trabajando', col: '#3B9EFF', tint: 0.72, ojo: 'pill', insignia: 'dots' },
+  hecho: { etiqueta: 'Hecho', col: '#34D399', tint: 0.35, ojo: 'happy', insignia: 'dot' },
+  error: { etiqueta: 'Algo ha fallado', col: '#F4505E', tint: 0.78, ojo: 'flat', insignia: 'dot' },
+  mareado: { etiqueta: 'Mareado', col: '#F472B6', tint: 0.7, ojo: 'spiral', insignia: null },
+  pensando: { etiqueta: 'Pensando', col: '#8B5CF6', tint: 0.72, ojo: 'pill', insignia: 'dots', mira: [0.55, 0.55] },
+  buscando: { etiqueta: 'Buscando', col: '#6366F1', tint: 0.72, ojo: 'pill', insignia: 'dots', escanea: true },
+  esperaTuOk: { etiqueta: 'Espera tu visto bueno', col: '#F5A524', tint: 0.78, ojo: 'wide', insignia: 'bang', bota: true },
+  pregunta: { etiqueta: 'Tiene una pregunta', col: '#22D3EE', tint: 0.75, ojo: 'pill', insignia: 'q', ladea: 0.17 },
+  agobiado: { etiqueta: 'Agobiado', col: '#FB923C', tint: 0.72, ojo: 'tired', insignia: 'dot', suda: true },
+  dormido: { etiqueta: 'Dormido', col: '#94A3B8', tint: 0.32, ojo: 'closed', insignia: null, respira: true, zz: true },
 } satisfies Record<string, ConfigEstado>;
 export type EstadoTenti = keyof typeof ESTADOS;
 
@@ -161,17 +152,16 @@ export function animacionDeEntrada(estado: EstadoTenti, quieto: boolean, celebra
 
 /** Reacciones de un momento: vuelven solas al estado de antes. */
 export const EMOCIONES = {
-  amor: { etiqueta: 'Amor', ojo: 'heart', sonido: 'love' },
-  sorpresa: { etiqueta: 'Sorpresa', ojo: 'dot', sonido: 'pop' },
-  orgullo: { etiqueta: 'Orgullo', ojo: 'star', sonido: 'proud' },
-  guino: { etiqueta: 'Guiño', ojo: 'wink', sonido: 'wink' },
-  bostezo: { etiqueta: 'Bostezo', ojo: 'tired', sonido: 'yawn' },
-  // 'feliz' suena (corto y alegre): es la emoción del logo guardado. Al
-  // saludar va en silencio, porque el saludo ya lleva su propio sonido.
-  feliz: { etiqueta: 'Feliz', ojo: 'happy', sonido: 'love' },
+  amor: { etiqueta: 'Amor', ojo: 'heart' },
+  sorpresa: { etiqueta: 'Sorpresa', ojo: 'dot' },
+  orgullo: { etiqueta: 'Orgullo', ojo: 'star' },
+  guino: { etiqueta: 'Guiño', ojo: 'wink' },
+  bostezo: { etiqueta: 'Bostezo', ojo: 'tired' },
+  // 'feliz': la emoción del logo guardado, y la del saludo.
+  feliz: { etiqueta: 'Feliz', ojo: 'happy' },
   // El segundo toque seguido: «¡eh!».
-  molesto: { etiqueta: 'Molesto', ojo: 'line', sonido: 'annoyed' },
-} satisfies Record<string, { etiqueta: string; ojo: FormaOjo; sonido?: Sonido }>;
+  molesto: { etiqueta: 'Molesto', ojo: 'line' },
+} satisfies Record<string, { etiqueta: string; ojo: FormaOjo }>;
 export type EmocionTenti = keyof typeof EMOCIONES;
 
 function rr(x: CanvasRenderingContext2D, X: number, Y: number, W: number, H: number, R: number) {
@@ -209,7 +199,7 @@ const FISICA = { porYaw: -1.2, porPitch: 0.9, porAplastar: 2.5, porBote: -2.5, r
 interface Particula { type: 'heart' | 'star' | 'spark' | 'sweat' | 'z'; x: number; y: number; vx: number; vy: number; age: number; life: number; rot: number; sz: number }
 
 export interface OpcionesTenti {
-  mini?: boolean; colorCuerpo?: string | null; sonido?: boolean;
+  mini?: boolean; colorCuerpo?: string | null;
   /** Los colores del panel (./paleta.ts). Sin ella, los del prototipo. */
   paleta?: PaletaTenti | null;
   /** El piloto de estado sobre la cabeza (puntos, «!», «?»). */
@@ -238,10 +228,6 @@ export class Tenti {
   private x: CanvasRenderingContext2D;
   private mini: boolean;
   private colorCuerpo: RGB | null;
-  private conSonido = false;
-  /** Si sus reacciones suenan. Al encenderlo se piden los sonidos (otro chunk). */
-  get sonido(): boolean { return this.conSonido; }
-  set sonido(v: boolean) { this.conSonido = v; if (v) void cargarSonidos(); }
   /** «Reducir movimiento». Se puede cambiar en vivo. */
   quieto: boolean;
   /** Mirar alrededor en reposo. Se puede cambiar en vivo. */
@@ -306,13 +292,13 @@ export class Tenti {
   private temporizadores = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(canvas: HTMLCanvasElement, {
-    mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
+    mini = false, colorCuerpo = null, paleta = null, insignias = true, quieto = false,
     miradas = false, silueta = null, traje = null, pose = null, movimiento = 'sinFin',
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
-    this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
+    this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null;
     this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
     this.ropa = traje; this.pose = pose; this.mov = movimiento;
     if (paleta) this.ponerPaleta(paleta);
@@ -343,11 +329,6 @@ export class Tenti {
     // Si estaba mirando, que no deje a los demás esperando su turno.
     if (turnoDeMirar.quien === this) { turnoDeMirar.quien = null; turnoDeMirar.libreDesde = 0; }
   }
-  private suena(n?: Sonido) {
-    if (!this.conSonido || !n) return;
-    if (sonidos) sonidos.sonar(n);
-    else void cargarSonidos().then(() => { if (this.conSonido) sonidos?.sonar(n); });
-  }
 
   private anim(p: Prop, keys: Clave[], after?: () => void) {
     this.tw = this.tw.filter((t) => t.p !== p);
@@ -367,7 +348,7 @@ export class Tenti {
   /** Si el estado aún oscila (ver `Movimiento`). Con `quieto`, nunca. */
   private oscila(n = AHORA()): boolean { return !this.quieto && n < this.oscilaHasta; }
 
-  ponerEstado(n: EstadoTenti, { forzar = false, silencio = false, celebra = true } = {}) {
+  ponerEstado(n: EstadoTenti, { forzar = false, celebra = true } = {}) {
     const c: ConfigEstado | undefined = ESTADOS[n];
     if (!c || (this.estado === n && !forzar)) return;
     const prev = this.estado; this.estado = n; this.cfg = c;
@@ -388,15 +369,7 @@ export class Tenti {
       else if (a === 'sudar') this.emitir('sweat', 1);
       else if (n === 'pregunta' || prev !== 'reposo' || n !== 'reposo') this.parpadear();
     }
-    if (!silencio) this.suena(c.sonido);
   }
-
-  /**
-   * Suena el estado en el que está, sin volver a animarlo. Para quien pone el
-   * estado en silencio y decide aparte si ese cambio responde a algo que se
-   * acaba de pedir (components/tenti/tenti.tsx, `sonarCambios`).
-   */
-  sonarEstado() { this.suena(this.cfg.sonido); }
 
   /** Cambia los colores (al pasar de claro a oscuro). No anima: el resto de la pantalla tampoco. */
   ponerPaleta(p: PaletaTenti | null) {
@@ -421,10 +394,8 @@ export class Tenti {
   }
 
   parpadear() { if (this.lock.open) return; this.anim('open', [[0.06, 70, E.inOut], [1, 130, E.out]]); }
-  /** Se aplasta, como al tocarlo, y suena (el sonido no es movimiento: con
-   *  «reducir movimiento» suena igual, sin aplastarse). */
+  /** Se aplasta, como al tocarlo (con «reducir movimiento», nada). */
   aplastar() {
-    this.suena('slap');
     if (this.quieto) return;
     this.prisaHasta = AHORA() + PRISA_MS;
     this.anim('sy', [[0.78, 70, E.out], [1.1, 130, E.out], [1, 170, E.inOut]]);
@@ -441,15 +412,14 @@ export class Tenti {
   saludar(): boolean {
     if (this.quieto) return false;
     this.saludos++;
-    this.anim('hands', [[1, 280, E.back]]); this.saludaHasta = AHORA() + 1500; this.emocion('feliz', 1500, true);
-    this.suena('greet');
+    this.anim('hands', [[1, 280, E.back]]); this.saludaHasta = AHORA() + 1500; this.emocion('feliz', 1500);
     this.luego(() => this.anim('hands', [[0, 240, E.inOut]]), 1550);
     return true;
   }
 
   /** Con `quieto`, solo cambian los ojos y el rubor: nada se desplaza ni sale volando. */
-  emocion(n: EmocionTenti, d = 1800, silencio = false) {
-    const em: { ojo: FormaOjo; sonido?: Sonido } | undefined = EMOCIONES[n]; if (!em) return;
+  emocion(n: EmocionTenti, d = 1800) {
+    const em: { ojo: FormaOjo } | undefined = EMOCIONES[n]; if (!em) return;
     const mueve = !this.quieto;
     this.ojoForzado = em.ojo; this.ojoHasta = AHORA() + d;
     this.prisaHasta = Math.max(this.prisaHasta, AHORA() + d + 600);
@@ -465,7 +435,6 @@ export class Tenti {
       this.luego(() => { this.ojoForzado = 'closed'; if (this.quieto) return; this.emitir('z', 2); }, 700);
     }
     if (n === 'feliz') this.anim('blush', [[0.6, 200, E.out], [0, 600, E.inOut]]);
-    if (!silencio) this.suena(em.sonido);
   }
 
   private emitir(type: Particula['type'], n: number) {

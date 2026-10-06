@@ -319,7 +319,7 @@ esa lista con su motivo, no un import de paso.
 - **Vivo en todos sus sitios, como en `/interno/tenti`** (decisión del fundador,
   5-oct-2026 por la tarde: «no se mueve en ningún lado… tampoco hace el
   sonido»; «en /interno/tenti está perfecto»). Deroga «icono quieto en lo
-  diario» y «sonido apagado por defecto». Un dibujo (`lib/tenti/geometria.ts`)
+  diario». Un dibujo (`lib/tenti/geometria.ts`)
   y un motor: `TentiIcono` es el canvas del motor a tamaño de icono (el
   `tamano` del canvas es `ancho / 0,684`, para que el CUERPO mida lo que medía
   el icono, y se sale de la caja centrado en el cuerpo: nada se mueve), con el
@@ -329,27 +329,25 @@ esa lista con su motivo, no un import de paso.
   reposo) y sigue el cursor con los ojos; en reposo NO respira, como en el
   catálogo (una respiración CSS sin fin por icono costaba, medido, más hilo
   principal que los tres canvas de Resumen juntos). Si NO va dentro de un
-  botón o un enlace, se deja tocar: se aplasta y suena, se molesta si insistes y se marea si insistes
+  botón o un enlace, se deja tocar: se aplasta, se molesta si insistes y se marea si insistes
   mucho, y el primero que se ve en la sesión saluda. Dentro de un botón o un
-  enlace el clic es del botón: ni tocable ni suena por su cuenta. El canvas
+  enlace el clic es del botón: no es tocable. El canvas
   grande va en el logo y Listo (`TentiDiferido`, solo la propietaria) y en el
-  buscador ⌘K y el resumen de Automatizaciones (`TentiDecorativo`, todos los
-  roles). Sin insignias en el panel. El motor llega SIEMPRE por `dynamic()`:
+  buscador ⌘K (`TentiDecorativo`, todos los roles). **Automatizaciones, SIN
+  Tenti** (fundador, 6-oct-2026: «En Automatizaciones quita a Tenti»): ni el
+  canvas del resumen del día (vuelve la baldosa del Zap) ni sus dos iconos. Sin insignias en el panel. El motor llega SIEMPRE por `dynamic()`:
   nunca en el chunk inicial de una pantalla (lo vigila la guardia).
-- **Suena solo en momentos**, nunca al parpadear ni al mirar: abrir y cerrar el
-  buscador ('open'/'close'), el saludo ('greet') y el logo guardado ('love'),
-  Listo ('finish'), la IA que termina CON resultado ('pop', lo pide quien
-  llama con `sonarTenti`; empezar a pensar no suena) y tocarlo ('slap',
-  'annoyed', 'dizzy'). Un cambio de ESTADO solo suena si responde a algo que
-  acabas de pedir en esa pantalla y no lleva ya su `pop` (`sonarCambios`: Listo
-  y la migración, `SUENAN_AL_CAMBIAR` en la guardia); las emociones que llegan
-  sin gesto (amor, orgullo, guiño, bostezo, sorpresa), nunca. Encendido por defecto; el interruptor «Sonidos de
-  Tenti» (Configuración › Tu panel › Solo para ti, de este navegador, como
-  claro u oscuro) lo apaga, y todos los Tentis le hacen caso sin recargar
-  (`lib/tenti/preferencia-sonido.ts`). Quién suena y con qué lo cierra la
-  guardia (`SUENAN`). ⚠️ El navegador no deja sonar antes del primer gesto:
-  `prepararSonidos()` despierta el audio en el primer clic o tecla, que es lo
-  que Safari necesita para que después suene lo que llega sin gesto.
+- **Tenti NO suena, en ningún sitio** (fundador, 6-oct-2026: «quítale el
+  sonido a Tenti»). Se QUITÓ, no se apagó: fuera la síntesis
+  (`lib/tenti/sonidos.ts`), la preferencia «Sonidos de Tenti» de Configuración ›
+  Tu panel (`lib/tenti/preferencia-sonido.ts`), las props `sonido` y
+  `sonarCambios`, el 'pop' del asistente, de los botones de IA y de la
+  migración, el abrir/cerrar de ⌘K y el sonido del catálogo de /interno. La
+  guardia («5b · Tenti no suena») falla si vuelve un `AudioContext`, un `new
+  Audio`, un `.play()` o cualquiera de esos nombres en el código de Tenti, y los
+  e2e (`e2e/espia-sonidos.ts`) cuentan cero intentos de sonar. Los otros sonidos
+  del producto no son de Tenti y siguen: el «cha-ching» de nueva venta
+  (`lib/notifications/sound.ts`) y el tecleo de la bienvenida.
 - **El canvas DUERME entre parpadeos y miradas.** Pide rAF solo mientras algo
   se mueve (`animando()`: tweens, temporizadores, partículas, valores sin
   llegar —en mini con un umbral de 0,01, que no llega a medio píxel—;
@@ -1614,8 +1612,8 @@ Puertas en `lib/asistente-context.tsx`. Lo que no se reabre:
   los estudios: el prompt es una constante y el orden de herramientas es fijo.
 - **Tenti** va solo en el chat (`components/tenti/tenti-asistente.tsx`): grande en el saludo y
   de avatar VIVO solo en la respuesta en curso (las terminadas, el dibujo quieto, sin canvas),
-  con momentos que traduce `lib/tenti/asistente.ts`; nunca en una tarjeta. Suena una vez
-  ('pop') al terminar una respuesta con datos.
+  con momentos que traduce `lib/tenti/asistente.ts`; nunca en una tarjeta. Sin sonido
+  (6-oct-2026: Tenti no suena en ningún sitio).
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

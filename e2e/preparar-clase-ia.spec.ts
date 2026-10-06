@@ -119,8 +119,9 @@ test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase
 // mientras espera el clic, pensando solo con la petición en vuelo, y nunca
 // junto a lo que redacta el modelo (el botón se desmonta al llegar la
 // preparación). Ocupado no es deshabilitado: mientras trabaja, el botón dice
-// aria-busy y no se atenúa. Dentro del botón no se toca ni suena por su
-// cuenta: empezar a pensar no suena, y terminar con resultado suena una vez.
+// aria-busy y no se atenúa. Dentro del botón no se toca. Y no suena nunca
+// (fundador, 6-oct-2026: «quítale el sonido a Tenti»): antes, terminar con
+// resultado sonaba una vez.
 
 test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el resultado', async ({ page }) => {
   let intentos = 0;
@@ -151,14 +152,15 @@ test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el 
   await expect(ocupado.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', 'pensando');
   // Ocupado no es deshabilitado: no se atenúa.
   expect(await ocupado.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
-  // Empezar a pensar no suena (para que no pese).
+  // Empezar a pensar no suena.
   await page.waitForTimeout(500);
   expect(await sonidos.cuantos()).toBe(0);
 
   soltar();
   await expect(page.getByText('Clase con una alumna con el hombro lesionado.')).toBeVisible();
-  // Terminar con resultado, sí: un sonido corto.
-  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
+  // Terminar con resultado, tampoco.
+  await page.waitForTimeout(1_000);
+  expect(await sonidos.cuantos(), 'Tenti no suena al terminar').toBe(0);
   // El botón se desmonta con el resultado: ninguna cara junto al texto del modelo.
   await expect(page.getByTestId('adaptaciones-clase').locator('[data-tenti-icono]')).toHaveCount(0);
 });
@@ -180,7 +182,7 @@ test('si la preparación falla, Tenti vuelve a reposo, lo dice el texto y nunca 
   await expect(boton).toHaveAttribute('aria-busy', 'false');
   await expect(boton.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
   await expect(page.locator('[data-tenti-icono][data-estado="hecho"]')).toHaveCount(0);
-  // Sin resultado no hay sonido de «terminado».
+  // Ni sin resultado.
   await page.waitForTimeout(1_000);
   expect(await sonidos.cuantos()).toBe(0);
 });

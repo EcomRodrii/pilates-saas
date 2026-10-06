@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import { montarHome, json } from './hoy-home-mock';
-import { montar, ir } from './panel-sembrado';
 import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,7 +9,7 @@ import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
 // lib/tenti/trajes.test.ts y el dibujo trajes-coucou.test.ts; aquí, lo que se
 // ve en el panel:
 //   · lo lleva donde se toca (la tira de Hoy, «Tentare lo está haciendo», el
-//     resumen de Automatizaciones, el buscador ⌘K) y NO dentro de un botón o un
+//     buscador ⌘K) y NO dentro de un botón o un
 //     enlace («Sistema autónomo» de Resumen): la misma regla que decide si se
 //     toca;
 //   · 'ninguno' en este navegador se lo quita en todas partes;
@@ -81,16 +80,6 @@ test("con 'ninguno' en este navegador, ningún Tenti lleva traje", async ({ page
   await expect(tira(page).locator('canvas[data-tenti]')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.locator('canvas[data-tenti]')).toHaveCount(3);
   await expect(page.locator('[data-traje]')).toHaveCount(0);
-});
-
-test('Automatizaciones con el gorro: el Tenti del resumen y el de «Esto ya lo hace Tentare»', async ({ page }) => {
-  await conTraje(page, 'bruja');
-  await montar(page);
-  await ir(page, 'automatizaciones');
-  await expect(page.getByText(/^Ninguna automatización espera tu visto bueno\./)).toBeVisible({ timeout: 60_000 });
-  const briefing = page.locator('div.rounded-2xl.bg-primary', { has: page.getByRole('heading', { level: 1 }) });
-  // El decorativo de 56 px (el sitio del Zap) y el icono de la fila, que no va en un control.
-  await expect(briefing.locator('canvas[data-tenti][data-traje="bruja"]')).toHaveCount(2, { timeout: 30_000 });
 });
 
 test('sin canvas 2D, el SVG de reserva va sin traje, y la caja mide el cuerpo', async ({ page }) => {

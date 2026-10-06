@@ -117,8 +117,8 @@ export function estadoDeLaBandeja(nDecidir: number | null | undefined): 'esperaT
 }
 
 /**
- * El Tenti de «Sistema autónomo» (Resumen y el resumen del día de
- * Automatizaciones). Lo que no avanza sin ti va antes que lo que falló: lo
+ * El Tenti de «Sistema autónomo» de Resumen (Automatizaciones ya no lleva
+ * Tenti desde el 6-oct-2026: lo quitó el fundador). Lo que no avanza sin ti va antes que lo que falló: lo
  * fallido ya sale en la línea de abajo. `esperandoEnBandeja` es la cifra de la
  * BANDEJA, nunca un recuento propio; con `null` (no ha contestado, o este rol
  * no la tiene), 'reposo': la cara no puede afirmar lo que la bandeja no ha
@@ -375,11 +375,6 @@ export const MAPA: Record<string, SitioDeTenti> = {
     sitio: 'Resumen › «Sistema autónomo»',
     funcion: 'estadoDelAutonomo', literales: [], estados: ['reposo', 'esperaTuOk', 'error'], emociones: [],
     motivo: 'lo que no avanza sin ti (la cifra de la bandeja) y lo que Tentare intentó hoy y no salió',
-  },
-  'app/(dashboard)/automatizaciones/page.tsx': {
-    sitio: 'Automatizaciones › el resumen del día (el canvas de 56 px)',
-    funcion: 'estadoDelAutonomo', literales: [], estados: ['reposo', 'esperaTuOk', 'error'], emociones: [],
-    motivo: 'la misma regla y la misma cifra que «Sistema autónomo» de Resumen',
   },
   'components/dashboard/hoy-en-el-estudio.tsx': {
     sitio: 'Resumen › «Hoy en el estudio», la tira de lo que ha visto Tentare',

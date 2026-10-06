@@ -1,5 +1,5 @@
 // El traje de Tenti en ESTE navegador: el de temporada (lo de siempre), uno
-// forzado o ninguno. Gemelo de ./preferencia-sonido.ts: no pasa por el
+// forzado o ninguno. No pasa por el
 // servidor, y todos los Tentis cambian al momento (un evento en esta pestaña,
 // `storage` en las demás).
 //

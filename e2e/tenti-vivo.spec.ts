@@ -5,17 +5,17 @@ import { contarFotogramas } from './contador-fotogramas';
 import { espiarSonidos } from './espia-sonidos';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tenti VIVO en todos sus sitios, con sonido (5-oct-2026, decisión del
-// fundador: «no se mueve en ningún lado… tampoco hace el sonido»; «en
-// /interno/tenti está perfecto»). Lo que se fija aquí:
+// Tenti VIVO en todos sus sitios (5-oct-2026, decisión del fundador: «no se
+// mueve en ningún lado»; «en /interno/tenti está perfecto») y SIN SONIDO
+// (6-oct-2026: «quítale el sonido a Tenti»). Lo que se fija aquí:
 //   · en Resumen, sus tres iconos son el canvas del motor, del tamaño del icono
 //     de antes (el cuerpo mide lo mismo), y viven: pintan, pero duermen entre
-//     parpadeos y miradas (muy por debajo de 60 fps) y no suenan solos;
-//   · tocar un Tenti que no va en un botón ni en un enlace lo aplasta y suena;
-//     en un enlace, el clic es del enlace;
+//     parpadeos y miradas (muy por debajo de 60 fps) y no suenan;
+//   · tocar un Tenti que no va en un botón ni en un enlace lo aplasta, y no
+//     suena; en un enlace, el clic es del enlace;
 //   · con «reducir movimiento», quietos;
-//   · «Sonidos de Tenti» en Configuración › Tu panel: encendido por defecto,
-//     de este navegador, y todos los Tentis le hacen caso sin recargar.
+//   · «Sonidos de Tenti» ya no está en Configuración › Tu panel, y abrir el
+//     buscador no suena.
 // El buscador (abrir/cerrar/tocar) tiene su prueba en tenti-buscador.spec.ts y
 // los botones de IA en preparar-clase-ia.spec.ts.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,7 +57,6 @@ test('Resumen: los tres Tentis son el canvas vivo, del tamaño del icono, y duer
   // 10 s en reposo, con el ratón quieto: algo pinta (vive), muy lejos de 60 fps
   // por Tenti (serían 1800), y nada suena.
   await page.waitForTimeout(2_000);
-  const antes = await sonidos.cuantos();
   // El hilo principal, medido por el navegador (CDP): cuánto ha estado ocupado.
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Performance.enable');
@@ -69,7 +68,7 @@ test('Resumen: los tres Tentis son el canvas vivo, del tamaño del icono, y duer
   console.log(`[tenti-vivo] ${test.info().annotations.at(-1)!.description}`);
   expect(r.pintados, 'en 10 s ningún Tenti ha parpadeado ni mirado').toBeGreaterThan(0);
   expect(r.pintados, `${r.pintados} fotogramas en 10 s: no se duermen`).toBeLessThan(900);
-  expect(await sonidos.cuantos(), 'parpadear y mirar alrededor no suenan').toBe(antes);
+  expect(await sonidos.cuantos(), 'Tenti no suena: ni al montarse, ni al parpadear o mirar').toBe(0);
 });
 
 // Con sus estados de situación (lib/tenti/momentos.ts): espera tu visto bueno
@@ -105,21 +104,19 @@ test('Resumen con esperaTuOk, trabajando y dormido: oscilan al entrar y, asentad
   test.info().annotations.push({ type: 'rendimiento', description: `estados asentados, 10 s de Resumen con 4 Tentis: ${r.pintados} fotogramas de Tenti, hilo principal ${(cpu * 1000).toFixed(0)} ms (${(cpu * 10).toFixed(2)} %); los 3 primeros segundos, ${entrada.pintados}` });
   console.log(`[tenti-vivo] ${test.info().annotations.at(-1)!.description}`);
   expect(r.pintados, `${r.pintados} fotogramas en 10 s con los estados asentados: alguno sigue oscilando`).toBeLessThan(900);
-  expect(await sonidos.cuantos(), 'los estados que llegan sin gesto no suenan').toBe(0);
+  expect(await sonidos.cuantos(), 'ningún estado suena').toBe(0);
 });
 
-test('tocar a Tenti fuera de un botón lo aplasta y suena; en un enlace, el clic es del enlace', async ({ page }) => {
+test('tocar a Tenti fuera de un botón lo aplasta, sin sonar; en un enlace, el clic es del enlace', async ({ page }) => {
   const sonidos = await espiarSonidos(page);
   await montarHome(page, { estadoEstudio: BANDEJA_CON_MARCHA });
   await tresVivos(page);
   const tira = page.getByText(/^Tentare ha encontrado/).locator('xpath=..').locator('[data-tenti-icono] canvas[data-tenti]');
   await expect(tira).toHaveCSS('cursor', 'pointer');
-  const antes = await sonidos.cuantos();
-  await tira.click();
-  await expect.poll(() => sonidos.cuantos()).toBeGreaterThan(antes);
-  // Insistir: se molesta y se marea (cada toque suena).
-  for (let i = 0; i < 4; i++) await tira.click();
-  await expect.poll(() => sonidos.cuantos()).toBeGreaterThan(antes + 4);
+  // Tocarlo e insistir (se molesta y se marea): antes, cada toque sonaba.
+  for (let i = 0; i < 5; i++) await tira.click();
+  await page.waitForTimeout(1_000);
+  expect(await sonidos.cuantos(), 'tocar a Tenti no suena').toBe(0);
 
   // En el enlace «Sistema autónomo» Tenti no se toca: no recibe el puntero.
   const enlace = page.getByRole('link', { name: /Sistema autónomo/ });
@@ -139,28 +136,19 @@ test('con «reducir movimiento», los Tentis se quedan quietos', async ({ page }
   expect(r.pintados, 'quieto no tiene por qué pintar').toBe(0);
 });
 
-test('«Sonidos de Tenti» en Tu panel: encendido por defecto, y apagarlo calla al buscador sin recargar', async ({ page }) => {
+test('«Sonidos de Tenti» ya no está en Tu panel, y abrir y cerrar el buscador no suena', async ({ page }) => {
   const sonidos = await espiarSonidos(page);
   await montar(page);
   await ir(page, 'configuracion?tab=panel');
-  const interruptor = page.getByRole('switch', { name: /Sonidos de Tenti/ });
-  await expect(interruptor).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
-  await expect(page.getByText('Tenti suena al abrir el buscador, al celebrar, cuando la IA termina y cuando lo tocas. Se guarda en este navegador.')).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Claro u oscuro' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('switch', { name: /Sonidos de Tenti/ })).toHaveCount(0);
+  await expect(page.getByText(/Tenti suena/)).toHaveCount(0);
 
-  await interruptor.click();
-  await expect(interruptor).toHaveAttribute('aria-checked', 'false');
-  expect(await page.evaluate(() => localStorage.getItem('tenti-sonidos'))).toBe('0');
   await page.keyboard.press('ControlOrMeta+k');
   await expect(page.getByRole('dialog', { name: 'Buscar' })).toBeVisible();
   await page.waitForTimeout(1_500);
-  expect(await sonidos.cuantos(), 'con el interruptor apagado ha sonado').toBe(0);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Buscar' })).toHaveCount(0);
-
-  // Encenderlo otra vez, sin recargar: vuelve a sonar.
-  await interruptor.click();
-  await expect(interruptor).toHaveAttribute('aria-checked', 'true');
-  await page.keyboard.press('ControlOrMeta+k');
-  await expect(page.getByRole('dialog', { name: 'Buscar' })).toBeVisible();
-  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(500);
+  expect(await sonidos.cuantos(), 'abrir y cerrar el buscador no suena').toBe(0);
 });
