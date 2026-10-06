@@ -73,7 +73,7 @@ export function leerOpcionesClase(status: number, cuerpo: unknown): LecturaOpcio
 // ── 2. El cobro ─────────────────────────────────────────────────────────────
 
 export type InicioPagoClase =
-  | { tipo: 'ok'; clientSecret: string; importe: number | null; descuento: number; matricula: number }
+  | { tipo: 'ok'; clientSecret: string; importe: number | null; descuento: number; matricula: number; total: number | null }
   | { tipo: 'pago-en-curso'; pi: string | null; mensaje: string }
   /** Otro intento suyo está creando el cobro ahora mismo: se reintenta en un segundo. */
   | { tipo: 'preparandose' }
@@ -89,18 +89,21 @@ const SIN_COBRO = 'No hemos podido iniciar el pago. No se te ha cobrado nada.';
 export function leerInicioPagoClase(status: number, cuerpo: unknown): InicioPagoClase {
   const c = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as {
     clientSecret?: unknown; error?: unknown; codigo?: unknown; pi?: unknown;
-    importe?: unknown; descuento?: unknown; matricula?: unknown;
+    importe?: unknown; descuento?: unknown; matricula?: unknown; total?: unknown;
   };
   const s = deSesion(status, c);
   if (s) return s;
   const codigo = typeof c.codigo === 'string' ? c.codigo : null;
   if (status >= 200 && status < 300) {
     if (typeof c.clientSecret !== 'string' || !c.clientSecret) return { tipo: 'error', mensaje: SIN_COBRO };
+    const importe = typeof c.importe === 'number' && Number.isFinite(c.importe) ? c.importe : null;
+    const matricula = typeof c.matricula === 'number' ? c.matricula : 0;
     return {
-      tipo: 'ok', clientSecret: c.clientSecret,
-      importe: typeof c.importe === 'number' && Number.isFinite(c.importe) ? c.importe : null,
+      tipo: 'ok', clientSecret: c.clientSecret, importe,
       descuento: typeof c.descuento === 'number' ? c.descuento : 0,
-      matricula: typeof c.matricula === 'number' ? c.matricula : 0,
+      matricula,
+      // El cargo de verdad (cuota + matrícula): lo dice el servidor; uno viejo, importe + matrícula.
+      total: typeof c.total === 'number' && Number.isFinite(c.total) ? c.total : importe == null ? null : importe + matricula,
     };
   }
   if (codigo === 'pago-en-curso') {
@@ -181,7 +184,7 @@ export function textoCompensacion(
     case 'EN_ESPERA':
       return {
         titulo: c.posicion ? `Estás la ${c.posicion}.ª en la lista de espera` : 'Estás en la lista de espera',
-        cuerpo: `La clase se llenó mientras pagabas. Si se libera una plaza, es tuya y te avisamos.${aFavor}${avisado}`,
+        cuerpo: `La clase se llenó mientras pagabas. Te avisamos si se libera una plaza.${aFavor}${avisado}`,
       };
     case 'PENDIENTE_APROBACION':
       return { titulo: 'Tu reserva espera al estudio', cuerpo: `En esta clase el estudio aprueba cada reserva. Te avisamos en cuanto conteste.${aFavor}` };

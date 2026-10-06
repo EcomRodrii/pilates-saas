@@ -35,7 +35,7 @@ import { Sello } from '@/components/student/ui/Sello';
 type Estado =
   | { fase: 'listo' }
   | { fase: 'preparando' }
-  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number }
+  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number; total: number }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
   // Stripe ha dicho que cobró; el bono lo entrega el SERVIDOR (webhook o
   // conciliador). Hasta que `estado-pago` no lo confirma, NO se dice «ya está».
@@ -155,14 +155,17 @@ export function HojaCompra({ textosLegales,
         importe: Number.isFinite(r.importe) ? r.importe : Number(plan.precio),
         descuento: r.descuento,
         matricula: r.matricula,
+        // El cargo de verdad: cuota + matrícula. Antes el botón decía solo la cuota y se cobraba la matrícula encima.
+        total: Number.isFinite(r.total) ? r.total : (Number.isFinite(r.importe) ? r.importe : Number(plan.precio)) + r.matricula,
       });
       if (codigo.trim() && !r.codigoAplicado) {
         setCodigoDicho({ ok: false, texto: 'Ese código ya no se puede aplicar. Pagas el precio normal.' });
       }
       return;
     }
+    if (r.segundoPaso && onSegundoPaso) { onSegundoPaso(); return; }
     setEstado({ fase: 'error', mensaje: r.error, sesionCaducada: r.sesionCaducada });
-  }, [plan, studioId, socioId, codigo]);
+  }, [plan, studioId, socioId, codigo, onSegundoPaso]);
 
   // Fallback de Bizum (`onBizum` de <CheckoutEmbebido>): mismo criterio que
   // `handleContratarPlan`/el widget — redirige fuera a la página hospedada de
@@ -409,7 +412,7 @@ export function HojaCompra({ textosLegales,
                 <div aria-hidden style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
                 <div className="row row--between">
                   <span className="t-card-title">Total</span>
-                  <span className="t-card-title t-num">{euros(estado.importe)}</span>
+                  <span className="t-card-title t-num">{euros(estado.total)}</span>
                 </div>
               </div>
             )}
@@ -420,7 +423,7 @@ export function HojaCompra({ textosLegales,
             clientSecret={estado.clientSecret}
             publishableKey={publishableKey}
             stripeAccountId={stripeAccountId}
-            importeTotal={estado.importe}
+            importeTotal={estado.total}
             onProcesando={setConfirmando}
             onExito={() => { setConfirmando(false); void confirmarEntrega(estado.clientSecret); }}
             onBizum={plan && bizumPermitidoPara(plan.tipo) ? manejarBizum : undefined}

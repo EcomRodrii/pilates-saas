@@ -41,8 +41,10 @@ export type InicioCobro =
        * desglosarla en pantalla.
        */
       matricula: number;
+      /** El TOTAL del cargo (importe + matrícula), dicho por el servidor: lo que va en el botón de pagar. */
+      total: number;
     }
-  | { ok: false; error: string; sesionCaducada?: boolean };
+  | { ok: false; error: string; sesionCaducada?: boolean; segundoPaso?: boolean };
 
 /** Lo que dice el servidor de un código ANTES de pagar. */
 export type ComprobacionCodigo =
@@ -103,14 +105,17 @@ export async function iniciarCompra(
       body: JSON.stringify({ studioId, planId, socioId, codigoDescuento: codigoDescuento || undefined }),
     });
 
-    if (res.status === 401) {
-      return { ok: false, sesionCaducada: true, error: 'Tu sesión ha caducado. Vuelve a entrar y no se te ha cobrado nada.' };
-    }
-
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string; codigo?: string;
-      importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number;
+      importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number; total?: number;
     } | null;
+
+    if (res.status === 401) {
+      if (cuerpo?.codigo === 'doble_factor_requerido') {
+        return { ok: false, segundoPaso: true, error: 'Falta el segundo paso de la verificación. No se te ha cobrado nada.' };
+      }
+      return { ok: false, sesionCaducada: true, error: 'Tu sesión ha caducado. Vuelve a entrar y no se te ha cobrado nada.' };
+    }
 
     if (!res.ok) {
       // Le faltan las preguntas del estudio: se le abren encima, y la hoja
@@ -123,9 +128,13 @@ export async function iniciarCompra(
     if (!cuerpo?.clientSecret) {
       return { ok: false, error: 'No hemos podido iniciar el pago. No se te ha cobrado nada.' };
     }
+    const importe = typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN;
+    const matricula = typeof cuerpo.matricula === 'number' ? cuerpo.matricula : 0;
     return {
       ok: true,
       clientSecret: cuerpo.clientSecret,
+      // Un servidor viejo no lo manda: entonces es importe + matrícula (un solo cargo).
+      total: typeof cuerpo.total === 'number' ? cuerpo.total : importe + matricula,
       // Si un servidor viejo no los manda, se cae al precio del plan: es lo
       // que se enseñaba antes, así que no empeora nada.
       importe: typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN,

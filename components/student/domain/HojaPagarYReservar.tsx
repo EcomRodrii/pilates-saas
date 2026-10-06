@@ -205,7 +205,7 @@ export function HojaPagarYReservar({
       case 'ok':
         setEstado({
           fase: 'pagando', opciones, plan, clientSecret: r.clientSecret,
-          importe: r.importe ?? op.importe, descuento: r.descuento, matricula: r.matricula,
+          importe: r.total ?? (r.importe ?? op.importe) + r.matricula, descuento: r.descuento, matricula: r.matricula,
         });
         return;
       case 'pago-en-curso':
@@ -221,7 +221,10 @@ export function HojaPagarYReservar({
           return;
         }
         // La plaza ya no está, o algo cambió: lo que diga el servidor, y nada de pago.
-        setEstado({ fase: 'no-se-puede', titulo: 'No hemos podido cobrarte', mensaje: r.mensaje, impago: r.codigo === 'impago' });
+        setEstado({
+          fase: 'no-se-puede', titulo: r.codigo === 'pago-a-medias' ? 'Tienes un pago a medias' : 'No hemos podido cobrarte',
+          mensaje: r.mensaje, impago: r.codigo === 'impago',
+        });
         return;
       }
       case 'preparandose':
@@ -398,7 +401,7 @@ function Desenlace({ d, clase, onCerrar, hrefMisReservas, hrefMensajes }: {
   let cuerpo: string;
   switch (d.tipo) {
     case 'compensada': ({ titulo, cuerpo } = textoCompensacion(d.compensacion, fechaLarga)); break;
-    case 'lista_espera': titulo = 'Estás en la lista de espera'; cuerpo = 'La clase se llenó mientras pagabas. Si se libera una plaza, es tuya y te avisamos.'; break;
+    case 'lista_espera': titulo = 'Estás en la lista de espera'; cuerpo = 'La clase se llenó mientras pagabas. Te avisamos si se libera una plaza; lo que has pagado queda a tu favor.'; break;
     case 'pendiente_aprobacion': titulo = 'Tu reserva espera al estudio'; cuerpo = 'En esta clase el estudio aprueba cada reserva. Te avisamos en cuanto conteste.'; break;
     case 'ya_tenia_plaza': titulo = 'Ya tenías esta clase'; cuerpo = 'No te hemos reservado otra plaza. Lo que has pagado queda a tu favor.'; break;
     case 'reembolsada': titulo = 'El estudio te ha devuelto el dinero'; cuerpo = 'Este pago ya no cuenta para esta clase.'; break;

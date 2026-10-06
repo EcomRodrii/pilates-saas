@@ -126,6 +126,24 @@ test.describe('Student PWA · hoja de compra', () => {
     await expect(hoja.getByText('89 €').first()).toBeVisible();
   });
 
+  test('⚠️ con matrícula, el total y el botón son cuota + matrícula (un solo cargo), no solo la cuota', async ({ page }) => {
+    await montar(page);
+    await page.route('https://js.stripe.com/**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/javascript', body: STRIPE_STUB }));
+    let pedidos = 0;
+    await page.route((u) => u.pathname === '/api/public/checkout-embebido', (r) => {
+      pedidos += 1;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_matricula_secret_x', importe: 96, matricula: 30, descuento: 0 }) });
+    });
+    await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    const hoja = page.locator('[role="dialog"]').last();
+    await expect(hoja.getByTestId('desglose')).toContainText('126 €', { timeout: 30_000 });
+    await expect(hoja.getByRole('button', { name: /^Pagar 126/ })).toBeVisible({ timeout: 30_000 });
+    expect(pedidos).toBe(1);
+  });
+
   test('un rechazo del banco se dice con su motivo, y la hoja no da la compra por hecha', async ({ page }) => {
     // El stub de Stripe responde como un rechazo real (`{ error }` con
     // `decline_code`). Con su contador: «no se cobró» solo vale si se intentó.

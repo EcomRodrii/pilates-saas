@@ -114,6 +114,15 @@ test.describe('Student PWA · pagar y reservar una clase (P06)', () => {
     expect(c.reservas, 'la reserva la hace el servidor tras cobrar, no la app').toBe(0);
   });
 
+  test('⚠️ con matrícula, el botón y el total dicen el cargo entero (cuota + matrícula), el que da el servidor', async ({ page }) => {
+    const c = await montar(page, { checkout: () => ({ body: { clientSecret: `${PI}_secret_x`, importe: 15, descuento: 0, matricula: 10, total: 25 } }) });
+    await abrirPago(page);
+    await page.getByRole('button', { name: 'Continuar · 15 €' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('desglose')).toContainText('25 €', { timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Pagar 25 € y reservar' })).toBeVisible();
+    expect(c.checkout).toHaveLength(1);
+  });
+
   test('elegir el bono: el cobro lleva ESE plan', async ({ page }) => {
     const c = await montar(page);
     await abrirPago(page);

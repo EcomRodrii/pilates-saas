@@ -53,7 +53,12 @@ test('opciones: 401 (sesión o segundo paso), 500, 429 y cuerpo raro nunca ofrec
 
 test('cobro: 200 con el importe del servidor; sin clientSecret es un error que no cobra', () => {
   assert.deepEqual(leerInicioPagoClase(200, { clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0 }),
-    { tipo: 'ok', clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0 });
+    { tipo: 'ok', clientSecret: 'pi_1_secret_x', importe: 20, descuento: 0, matricula: 0, total: 20 });
+  // ⚠️ La matrícula va en el MISMO cargo: el total la incluye (antes el botón decía solo la cuota).
+  const conMatricula = leerInicioPagoClase(200, { clientSecret: 's', importe: 20, matricula: 30 });
+  assert.equal(conMatricula.tipo === 'ok' && conMatricula.total, 50);
+  const conTotal = leerInicioPagoClase(200, { clientSecret: 's', importe: 20, matricula: 30, total: 50 });
+  assert.equal(conTotal.tipo === 'ok' && conTotal.total, 50);
   assert.equal(leerInicioPagoClase(200, {}).tipo, 'error');
 });
 
@@ -92,6 +97,8 @@ test('compensación: dice la posición real, lo que tiene a su favor y «el estu
   assert.equal(t.titulo, 'Estás la 1.ª en la lista de espera');
   assert.match(t.cuerpo, /Tienes 1 clase en Clase suelta hasta el 2026-11-06/);
   assert.match(t.cuerpo, /El estudio ya lo sabe/);
+  // El puesto real y nada más: «es tuya» sería falso yendo 2.ª o con plazo para aceptar.
+  assert.doesNotMatch(t.cuerpo, /es tuya/);
   const sinAviso = textoCompensacion({ motivo: 'SIN_PLAZA', enEspera: false });
   assert.doesNotMatch(sinAviso.cuerpo, /ya lo sabe/);
   assert.match(sinAviso.cuerpo, /queda a tu favor/);
