@@ -58,6 +58,7 @@ export function StudentShell({
   sinNav = false,
   modo = 'alumna',
   vistaPrevia = false,
+  sinCabecera = false,
   heroe,
 }: {
   children: ReactNode;
@@ -71,6 +72,14 @@ export function StudentShell({
   /** Se deja ver sin sesión dentro de la vista previa del panel. Ver `GuardiaSesion`. */
   vistaPrevia?: boolean;
   /**
+   * Sin la barra del estudio (nombre, campana y avatar). Solo para una pantalla
+   * que abre con una foto a sangre y trae SUS controles encima: la ficha de una
+   * clase (decisión del fundador, 6-oct-2026: una sola fila de controles sobre
+   * la foto). Lo que quita no se pierde: Inicio y Perfil están en la barra de
+   * abajo, y la campana en cualquier otra pantalla.
+   */
+  sinCabecera?: boolean;
+  /**
    * La portada de Inicio. Con ella, la cabecera y la portada se pintan SIN
    * esperar a la guardia (van en el HTML): ver `ShellConHeroe`.
    */
@@ -79,14 +88,14 @@ export function StudentShell({
   if (heroe && modo === 'alumna') {
     return (
       <ShellConHeroe heroe={heroe} noLeidas={noLeidas} badgeReservas={badgeReservas}
-        headerTransparente={headerTransparente} conLema={conLema} sinNav={sinNav} vistaPrevia={vistaPrevia}>
+        headerTransparente={headerTransparente} conLema={conLema} sinNav={sinNav} vistaPrevia={vistaPrevia} sinCabecera={sinCabecera}>
         {children}
       </ShellConHeroe>
     );
   }
   return (
     <ShellConGuardia noLeidas={noLeidas} badgeReservas={badgeReservas} headerTransparente={headerTransparente}
-      conLema={conLema} sinNav={sinNav} modo={modo} vistaPrevia={vistaPrevia}>
+      conLema={conLema} sinNav={sinNav} modo={modo} vistaPrevia={vistaPrevia} sinCabecera={sinCabecera}>
       {children}
     </ShellConGuardia>
   );
@@ -100,6 +109,7 @@ interface PropsMarco {
   conLema: boolean;
   sinNav: boolean;
   vistaPrevia: boolean;
+  sinCabecera: boolean;
 }
 
 // Si en ESTE dispositivo no hay sesión de alumna (ni en localStorage ni en
@@ -128,7 +138,7 @@ const MARCAR_SIN_SESION = `(function(){try{var m=document.currentScript&&documen
  * irse. Quien no tiene sesión en el dispositivo NO la ve: el script de arriba.
  * Las preguntas del alta siguen ocupando la pantalla entera.
  */
-function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTransparente, conLema, sinNav, vistaPrevia }: PropsMarco & { heroe: ReactNode }) {
+function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTransparente, conLema, sinNav, vistaPrevia, sinCabecera }: PropsMarco & { heroe: ReactNode }) {
   const { estudio } = useEstudio();
   const sinLeer = useNoLeidas(estudio.id);
   // Scroll de la pestaña y animaciones de entrada solo la primera vez (ver el hook).
@@ -142,10 +152,10 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
     // `suppressHydrationWarning`: el script puede haberle puesto `data-sin-sesion`.
     <div className="shell" suppressHydrationWarning data-revisita={revisita ? '' : undefined}>
       <ScriptEnLinea js={MARCAR_SIN_SESION} />
-      <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
+      {!sinCabecera && <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />}
       <PantallaConTransicion>
         <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined} aria-busy={esperando || undefined}>
-          <OfflineBanner />
+          <OfflineBanner sinCabecera={sinCabecera} />
           {heroe}
           {esperando ? <div className="px esqueleto-inicio"><EsqueletoTarjetas /></div> : children}
         </main>
@@ -156,7 +166,7 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
   );
 }
 
-function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente, conLema, sinNav, modo, vistaPrevia }: PropsMarco & { modo: 'alumna' | 'instructora' }) {
+function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente, conLema, sinNav, modo, vistaPrevia, sinCabecera }: PropsMarco & { modo: 'alumna' | 'instructora' }) {
   // El punto de la campana era una rama muerta: ninguna pantalla pasaba
   // `noLeidas`. Lo pide el marco, una vez y compartido. Una pantalla puede
   // seguir pasándolo explícitamente y entonces manda el suyo.
@@ -168,10 +178,10 @@ function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
   const contenido = (
     <div className="shell" data-revisita={revisita ? '' : undefined}>
-      <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
+      {!sinCabecera && <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />}
       <PantallaConTransicion>
         <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
-          <OfflineBanner />
+          <OfflineBanner sinCabecera={sinCabecera} />
           {children}
         </main>
       </PantallaConTransicion>

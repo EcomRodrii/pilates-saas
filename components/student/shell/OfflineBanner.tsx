@@ -9,16 +9,24 @@ import { useOnline } from '@/lib/student/useOnline';
  * Offline = solo lectura. Este banner ANUNCIA la regla; quien la impone son los
  * botones de cada acción crítica, que se deshabilitan por su cuenta.
  */
-export function OfflineBanner() {
+export function OfflineBanner({ sinCabecera = false }: {
+  /**
+   * La pantalla no tiene la barra del estudio (la ficha de una clase). Pegado con `sticky` ocupaba su hueco en el
+   * flujo y empujaba la foto hacia abajo, dejando una franja crema arriba; sin la barra encima, esa franja se veía.
+   * Ahí va fijo y no ocupa sitio: debajo de la fila de volver · favorita · compartir.
+   */
+  sinCabecera?: boolean;
+} = {}) {
   const { online, reconectando } = useOnline();
   if (online && !reconectando) return null;
 
-  return (
+  const aviso = (
     <div
       role="status"
       aria-live="polite"
       style={{
-        position: 'sticky', top: 'calc(56px + var(--safe-top))', zIndex: 45, margin: '0 18px',
+        ...(sinCabecera ? {} : { position: 'sticky' as const, top: 'calc(56px + var(--safe-top))', zIndex: 45 }),
+        margin: '0 18px',
         display: 'flex', alignItems: 'center', gap: 9,
         background: reconectando ? 'var(--accent-soft)' : 'var(--primary)',
         color: reconectando ? 'var(--accent-soft-foreground)' : 'var(--primary-foreground)',
@@ -28,6 +36,13 @@ export function OfflineBanner() {
     >
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: reconectando ? 'var(--success)' : 'var(--warning)', animation: 'apPulse 1.6s infinite' }} />
       {reconectando ? 'Conexión recuperada · actualizando' : 'Sin conexión — puedes consultar, pero no reservar ni pagar'}
+    </div>
+  );
+  if (!sinCabecera) return aviso;
+  // Fijo con el mismo ancho que el shell (`ancho-shell`, como la cabecera), por debajo de los controles de la foto.
+  return (
+    <div className="ancho-shell" style={{ position: 'fixed', top: 'calc(56px + var(--safe-top))', width: '100%', zIndex: 45 }}>
+      {aviso}
     </div>
   );
 }

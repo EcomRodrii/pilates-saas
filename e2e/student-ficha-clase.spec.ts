@@ -64,6 +64,35 @@ test.describe('Student PWA · ficha de una clase', () => {
     expect(pedidas.filter((r) => !RUTAS_DE_LA_FICHA.has(r)), 'la ficha pide algo que no pedía').toEqual([]);
   });
 
+  test('una sola fila de controles sobre la foto: volver, favorita y compartir, sin la barra del estudio', async ({ page }) => {
+    // Decisión del fundador (6-oct-2026): antes eran dos filas de botones flotando sobre la misma foto (estudio,
+    // campana y avatar; debajo, volver, favorita y compartir). Inicio y Perfil siguen a un toque en la barra de abajo.
+    await abrir(page);
+    const heroe = (await page.getByTestId('ficha-heroe').boundingBox())!;
+    await expect(page.locator('header[data-vt-ancla="cabecera"]')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Notificaciones/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Tu perfil/ })).toHaveCount(0);
+
+    const controles = [
+      page.getByRole('button', { name: 'Volver' }),
+      page.getByRole('button', { name: /favorita/ }),
+      page.getByRole('button', { name: /esta clase/ }),
+    ];
+    const ys: number[] = [];
+    for (const c of controles) {
+      await expect(c).toBeVisible();
+      const b = (await c.boundingBox())!;
+      // Arriba de la foto, no a media altura.
+      expect(b.y - heroe.y, 'el control flota demasiado abajo').toBeLessThan(60);
+      ys.push(Math.round(b.y + b.height / 2));
+    }
+    expect(Math.max(...ys) - Math.min(...ys), 'los tres controles van en UNA fila').toBeLessThanOrEqual(2);
+
+    const nav = page.getByRole('navigation', { name: 'Principal' });
+    await expect(nav.getByRole('link', { name: /Inicio/ })).toBeVisible();
+    await expect(nav.getByRole('link', { name: /Perfil/ })).toBeVisible();
+  });
+
   test('cuota con tope: «Incluida en tu cuota» y su tope, sin contador de sesiones', async ({ page }) => {
     await abrir(page, { bono: null, cuota: { limiteSemanal: 2 } });
     const cv = page.getByTestId('como-vienes');
