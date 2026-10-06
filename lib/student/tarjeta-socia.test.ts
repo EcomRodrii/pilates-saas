@@ -19,7 +19,7 @@ const cuota = (extra: Partial<Bono> = {}) => bono({ id: 'q1', nombre: 'Mensual 2
 
 function base(extra: Partial<Parameters<typeof cifrasDeLaSocia>[0]> = {}): Parameters<typeof cifrasDeLaSocia>[0] {
   return {
-    reservas: [], clases: [], bonos: [], recuperacionesDisponibles: 0, tienePlazaFija: false, puntos: null,
+    reservas: [], clases: [], bonos: [], recuperacionesDisponibles: 0, puntos: null,
     nombreCreditos: 'créditos', recienLlegada: false, hoy: HOY, ahoraMs: Date.parse('2026-10-07T10:00:00Z'), href, ...extra,
   };
 }
@@ -87,7 +87,8 @@ test('un bono caducado o en pausa no cuenta', () => {
 });
 
 test('recuperaciones: a Fija si tiene clase fija; si no, a Bonos', () => {
-  assert.equal(cifrasDeLaSocia(base({ recuperacionesDisponibles: 1, tienePlazaFija: true })).cifras[0].destino, '/portal/e/mis-reservas?tab=fijas');
+  // Las recuperaciones viven en Mi plan: la cifra lleva allí siempre, tenga o no clase fija.
+  assert.equal(cifrasDeLaSocia(base({ recuperacionesDisponibles: 1 })).cifras[0].destino, '/portal/e/bonos');
   assert.equal(cifrasDeLaSocia(base({ recuperacionesDisponibles: 1 })).cifras[0].destino, '/portal/e/bonos');
 });
 

@@ -60,7 +60,6 @@ export default function PerfilPage() {
     ? cifrasDeLaSocia({
       reservas: data.reservas, clases: data.clases, bonos: data.bonos,
       recuperacionesDisponibles: data.plazaFija?.recuperaciones.disponibles ?? 0,
-      tienePlazaFija: (data.plazaFija?.plazas.length ?? 0) > 0,
       puntos: data.gamificacion?.hay ? data.gamificacion.saldo : null,
       nombreCreditos: moneda,
       recienLlegada: esRecienLlegada(data.huella, hoy),
@@ -180,12 +179,12 @@ export default function PerfilPage() {
         />
 
         <ProfileSection
-          titulo="Bonos y pagos"
+          titulo="Comprar y pagar"
           items={[
-            // Sin fila «Bonos» (P14): a Bonos se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba
-            // y por la baldosa de Inicio.
-            { label: 'Comprar bonos y suscripciones', href: href('/comprar'), icono: 'bolsa' },
-            { label: 'Pagos y recibos', href: href('/pagos'), icono: 'recibo' },
+            // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba y por la
+            // baldosa de Inicio. Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
+            { label: 'Tienda', href: href('/comprar'), icono: 'bolsa' },
+            { label: 'Recibos', href: href('/pagos'), icono: 'recibo' },
             { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },
           ]}
         />

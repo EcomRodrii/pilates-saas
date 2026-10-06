@@ -264,7 +264,7 @@ export function hayALaVentaQueCubra(planes: readonly PlanTienda[] | null | undef
 
 /** Títulos de sección, en el mismo orden que `catalogoTienda`. */
 export const TITULO_FAMILIA: Record<FamiliaProducto, string> = {
-  suscripcion: 'Suscripciones',
+  suscripcion: 'Cuotas',
   bono: 'Bonos y paquetes',
   suelta: 'Clases sueltas',
   servicio: 'Sesiones y privadas',

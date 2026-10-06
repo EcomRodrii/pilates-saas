@@ -19,7 +19,7 @@ import { horaFin, hoyISO } from '@/lib/student/formato';
 import { textoPagoCorto } from '@/lib/student/como-se-paga';
 import { sinBonoDeClase } from '@/lib/student/como-viene-sin-bono';
 import { clavePublicableStripe } from '@/lib/student/comprar';
-import { comoVienes } from '@/lib/student/como-vienes';
+import { comoVienes, pagoCortoSobra } from '@/lib/student/como-vienes';
 import {
   antetituloClase, consultaMapa, textoCancelacion, textoCreditosAlAsistir, textoCuando, textoDonde, textoPlazas,
 } from '@/lib/student/ficha-clase-textos';
@@ -191,6 +191,18 @@ export default function FichaClasePage() {
     clase, bonos: data?.bonos ?? [], disp, reservas: data?.reservas ?? [], yaNoSeReserva,
     planesTarifa: data?.planesTarifa, nombresTipo: data?.nombresTipo ?? {}, hoy, sinBono: sinBono?.caso ?? null,
   });
+  // Con bono, el interruptor/«Reservar las próximas» va dentro de su tarjeta; si no, suelto como siempre.
+  const autoEnElBono = vienes?.caso === 'bono';
+  const autoReservable = (embebido: boolean) => (
+    <AutoReservable
+      claseId={clase.id} fecha={clase.fecha} hora={clase.hora} salaId={clase.salaId} tipoClaseId={clase.tipoClaseId}
+      ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}
+      onCambio={refrescar} embebido={embebido}
+    />
+  );
+  // Viene con su cuota, con un plan sin límite o con su clase fija: ninguna sesión que devolver al cancelar.
+  const noGastaSesion = vienes?.caso === 'clase-fija' || vienes?.caso === 'cuota' || vienes?.caso === 'ilimitado'
+    || (!!bono && !Number.isFinite(bono.creditosTotales));
   const donde = textoDonde(estudio, clase.sala);
   // «Cómo llegar» abre Mapas con la MISMA búsqueda que la tarjeta de Inicio (`consultaMapa`). Sin dirección no se pinta.
   const comoLlegar = () => window.open(urlComoLlegar(consultaMapa(estudio.direccion, estudio.ciudad), estudio.nombre, navigator.userAgent), '_blank', 'noopener');
@@ -246,16 +258,22 @@ export default function FichaClasePage() {
               : aunNoAbre
                 ? <span data-se-abre="" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{ahoraMs === null ? etiquetaSeAbre(aunNoAbre) : `La reserva se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date(ahoraMs))}`}</span>
                 : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
-            <span data-testid="pago-corto" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)', textAlign: 'right' }}>
-              {textoPagoCorto(clase, bono)}
-            </span>
+            {/* Lo que ya dice «Cómo vienes» justo debajo no se repite aquí (`pagoCortoSobra`). */}
+            {!pagoCortoSobra(vienes) && (
+              <span data-testid="pago-corto" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)', textAlign: 'right' }}>
+                {textoPagoCorto(clase, bono)}
+              </span>
+            )}
           </div>
 
           {/* Apertura suave: solo avisa. Una fundadora o invitada sí puede
               reservarla; eso lo decide el servidor (crearReservaPublica). */}
           {suave && <p style={{ fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{suave}</p>}
 
-          <ComoVienes vista={vienes} claseId={clase.id} />
+          <ComoVienes vista={vienes} claseId={clase.id}>
+            {/* Con bono, «Reservar las próximas» va DENTRO de la tarjeta del bono: una tarjeta, no tres menciones. */}
+            {autoEnElBono && autoReservable(true)}
+          </ComoVienes>
           {/* Las 2-3 formas de venir pagando aquí, con su precio (bloque de dinero, P01/P02). Solo si se puede pagar. */}
           {sinBono?.caso.caso === 'PAGA_AQUI' && !yaNoSeReserva && (
             <OpcionesDeClaseLista opciones={sinBono.opciones.opciones} />
@@ -277,7 +295,7 @@ export default function FichaClasePage() {
             </FilaDato>
             {/* En vivo con el aforo. Con la clase empezada o terminada, solo el aforo (RES-11). */}
             <FilaDato icono="personas" fila="plazas">{textoPlazas(clase.capacidad, clase.plazasLibres, empezada)}</FilaDato>
-            {aviso && <FilaDato icono="reloj" fila="cancelacion">{textoCancelacion(aviso)}</FilaDato>}
+            {aviso && <FilaDato icono="reloj" fila="cancelacion">{textoCancelacion(aviso, { gastaSesion: !noGastaSesion })}</FilaDato>}
             {/* Lo que da venir a ESTA clase, solo si el estudio premia la asistencia. Se gana al registrar la asistencia,
                 no al reservar. */}
             {clase.creditosAlAsistir != null && (
@@ -298,11 +316,7 @@ export default function FichaClasePage() {
           )}
 
           {/* El interruptor «Clase fija»: no se mueve al tocarlo, abre lo que toque y sigue lo que conteste el servidor. Se carga aparte: no frena la reserva. */}
-          <AutoReservable
-            claseId={clase.id} fecha={clase.fecha} hora={clase.hora} salaId={clase.salaId} tipoClaseId={clase.tipoClaseId}
-            ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}
-            onCambio={refrescar}
-          />
+          {!autoEnElBono && autoReservable(false)}
 
           {/* Invitar a una amiga a ESTA clase, con lo que gana: solo si el estudio premia invitar y la clase no ha
               empezado (el enlace la ofrecería con «Reservar mi plaza» y el servidor la rechazaría). */}

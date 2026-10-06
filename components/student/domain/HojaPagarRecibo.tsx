@@ -36,7 +36,7 @@ type Fase =
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean };
 
 export function HojaPagarRecibo({
-  studioId, stripeAccountId, que, titulo, importe, onCerrar, onPagado, onSesionCaducada, enlaceEstudio,
+  studioId, stripeAccountId, que, titulo, importe, onCerrar, onPagado, onSesionCaducada, enlaceEstudio, onTarda,
 }: {
   studioId: string;
   stripeAccountId: string;
@@ -50,6 +50,8 @@ export function HojaPagarRecibo({
   onPagado: () => void;
   onSesionCaducada: () => void;
   enlaceEstudio?: string;
+  /** Stripe cerró su Checkout y el servidor aún no lo confirma: quien la abrió deja de ofrecer pagar ESE recibo. */
+  onTarda?: (reciboId: string) => void;
 }) {
   const [f, setF] = useState<Fase>({ fase: 'preparando' });
   const viva = useRef(true);
@@ -99,8 +101,9 @@ export function HojaPagarRecibo({
         return;
       }
       setF({ fase: 'tarda' });
+      onTarda?.(reciboId);
     });
-  }, [studioId, onPagado]);
+  }, [studioId, onPagado, onTarda]);
 
   // Mientras se prepara o se comprueba, no se cierra: hay dinero en movimiento.
   const bloqueada = f.fase === 'preparando' || f.fase === 'comprobando';

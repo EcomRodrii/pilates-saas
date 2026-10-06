@@ -53,8 +53,13 @@ export function textoPlazas(capacidad: number, libres: number, cerrada: boolean)
  * antes» es verdad: antes de esa ventana no se detecta ninguna penalización. El importe por cancelar tarde lo cuenta
  * Mis clases al cancelar (decisión: la ficha no habla de dinero en este bloque).
  */
-export function textoCancelacion(aviso: { devolveriaCredito: boolean; horasVentana: number }): string {
-  return aviso.devolveriaCredito ? `Cancelación gratis hasta ${aviso.horasVentana} h antes` : 'Ya no se devuelve la sesión si cancelas';
+export function textoCancelacion(aviso: { devolveriaCredito: boolean; horasVentana: number }, opciones: { gastaSesion?: boolean } = {}): string {
+  if (aviso.devolveriaCredito) return `Cancelación gratis hasta ${aviso.horasVentana} h antes`;
+  // A quien viene con su cuota (o con su clase fija) no se le gasta ninguna sesión: «no se devuelve la sesión» le hablaba
+  // de algo que no tiene. Lo que sí es verdad es que cancelar ya es tarde.
+  return opciones.gastaSesion === false
+    ? `Quedan menos de ${aviso.horasVentana} h: cancelar ahora ya es tarde`
+    : 'Ya no se devuelve la sesión si cancelas';
 }
 
 /** «+10 créditos al asistir», con el nombre que el estudio da a sus créditos (ya resuelto). */

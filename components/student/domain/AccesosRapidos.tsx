@@ -42,7 +42,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
     },
     {
       // «Créditos» es la moneda de puntos del estudio (lib/creditos-nombre.ts): aquí se habla de bonos y cuotas.
-      href: hrefBonos, titulo: 'Bonos', pie: 'Tus bonos y tu cuota',
+      href: hrefBonos, titulo: 'Mi plan', pie: 'Tu cuota y tus bonos',
       icono: 'bono',
     },
     {

@@ -28,8 +28,10 @@ const tonoDe = (o: OcurrenciaVista): 'ok' | 'booked' | 'neutral' | 'few' =>
   o.resultado === 'SE_RESERVARA' ? 'ok' : o.resultado === 'RESERVADA' || o.resultado === 'YA_RESERVADA' ? 'booked'
     : o.resultado === 'COMPLETA' || o.resultado === 'CERRADA' || o.resultado === 'NO_INTENTADA' ? 'neutral' : 'few';
 
-export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onReservadas }: {
+export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onReservadas, embebido = false }: {
   sesionId: string;
+  /** Dentro de la tarjeta del bono («Cómo vienes»): sin tarjeta propia y sin repetir el saldo, que ya está arriba. */
+  embebido?: boolean;
   /** Tras reservar (lo que contestó el servidor): la pantalla de detrás vuelve a leer sus reservas. */
   onReservadas?: () => void;
   /** Las sesiones que le quedan del bono que cubre esta clase. */
@@ -77,14 +79,19 @@ export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onR
   const previo = !hecho && datos ? datos : null;
 
   return (
-    <section data-testid="reservar-proximas" className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <section
+      data-testid="reservar-proximas" className={embebido ? undefined : 'card'}
+      style={embebido
+        ? { marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }
+        : { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
       <div>
-        <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>Reserva las próximas clases con tu bono</p>
+        <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>{embebido ? 'Reservar las próximas' : 'Reserva las próximas clases con tu bono'}</p>
         {/* El saldo es el de ANTES de reservar: con las clases ya reservadas, el resumen de abajo dice cuántas quedan, y
             dejar esta frase decía «Tienes 8» justo encima de «te quedan 4». */}
         {!hecho && (
           <p className="t-meta" style={{ margin: '3px 0 0' }}>
-            Una clase cada semana, a la misma hora. Tienes {saldo === 1 ? '1 sesión' : `${saldo} sesiones`} en tu bono.
+            Una clase cada semana, a la misma hora.{embebido ? '' : ` Tienes ${saldo === 1 ? '1 sesión' : `${saldo} sesiones`} en tu bono.`}
           </p>
         )}
       </div>

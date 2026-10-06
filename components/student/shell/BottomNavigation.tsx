@@ -35,7 +35,7 @@ const TABS: Tab[] = [
     icono: 'mis-clases',
   },
   {
-    ruta: '/bonos', label: 'Bonos',
+    ruta: '/bonos', label: 'Mi plan',
     icono: 'bono',
   },
   {

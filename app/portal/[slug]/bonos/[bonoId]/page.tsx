@@ -10,7 +10,8 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getPagos } from '@/lib/student/datos';
 import { euros, fechaCorta, unir } from '@/lib/student/formato';
-import { saldoBono } from '@/lib/student/saldo-bono';
+import { saldoBono, textoTopes } from '@/lib/student/saldo-bono';
+import { textoRenovacionCuota } from '@/lib/student/mi-plan-vista';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { MovimientosBono } from '@/components/student/domain/MovimientosBono';
@@ -60,7 +61,7 @@ export default function DetalleBonoPage() {
     return (
       <StudentShell>
         <div className="px" style={{ paddingTop: 12 }}>
-          <ErrorState titulo="No encontramos este bono" onRetry={reintentar} />
+          <ErrorState titulo="No lo encontramos" cuerpo="Puede que ya no esté en Mi plan." onRetry={reintentar} />
         </div>
       </StudentShell>
     );
@@ -70,6 +71,7 @@ export default function DetalleBonoPage() {
   // «Usadas / total» solo cuando es verdad: un bono de UN ciclo (sin renovar) y con no más de las que trae su plan. Con
   // el saldo real, un bono renovado de 8 con 11 habría dicho «0 / 11»; antes decía «0 / 8» y la tarjeta «Te quedan 8».
   const saldo = saldoBono(b);
+  const cuota = esCuota(b);
 
   return (
     <StudentShell>
@@ -78,7 +80,8 @@ export default function DetalleBonoPage() {
           pantallas hermanas ya resuelven esto igual —«Recibo» en
           `/pagos/[id]`, «Tu reserva» en `/mis-reservas/[id]`—, y en las dos la
           tarjeta es la que nombra la cosa. Esta era la única que lo repetía. */}
-      <PageHeader titulo="Tu bono" back />
+      {/* «Tu cuota» o «Tu bono»: una cuota no es un bono (decisión del fundador, «una palabra para cada cosa»). */}
+      <PageHeader titulo={cuota ? 'Tu cuota' : 'Tu bono'} back />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '12px', marginTop: 14 }}>
         <CreditCard bono={b} />
@@ -87,9 +90,11 @@ export default function DetalleBonoPage() {
           <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
           {/* Un mensual ilimitado trae `creditosTotales: Infinity`: «0 / Infinity» no es un dato, es un fallo. */}
           {saldo.ilimitado
-            ? <Fila k="Sesiones" v="Sin límite" />
+            ? <Fila k="Clases" v={textoTopes(b, {}) ?? 'Sin máximo semanal'} />
             : saldo.de != null && <Fila k="Usadas / total" v={`${saldo.de - saldo.quedan} / ${saldo.de}`} />}
-          <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
+          {cuota
+            ? <Fila k="Vigencia" v={textoRenovacionCuota(b)} />
+            : <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />}
           {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
               WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un
               `::after` SIN tocar la caja pintada — la solución que el sistema
@@ -106,7 +111,7 @@ export default function DetalleBonoPage() {
             cada reserva (`bono_suscripcion_id`). Una cuota no gasta sesiones: no hay lista que enseñar. */}
         {(b.tipoPlan === 'BONO' || b.tipoPlan === 'PUNTUAL') && Number.isFinite(b.creditosTotales)
           ? <MovimientosBono slug={estudio.slug} bonoId={b.id} compacta={false} />
-          : esCuota(b) && <p className="t-meta" data-testid="cuota-sin-movimientos">Tu cuota no gasta sesiones.</p>}
+          : cuota && <p className="t-meta" data-testid="cuota-sin-movimientos">Tu cuota no gasta sesiones.</p>}
 
         {/* ⚠️ Aquí había una sección «Sesiones usadas» que listaba las clases
             pagadas con este bono filtrando `reservas` por `r.bonoId`. Ese campo

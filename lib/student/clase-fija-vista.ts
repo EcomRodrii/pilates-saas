@@ -154,7 +154,7 @@ export function trasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => strin
   }
   if (res.recuperacionAlCerrarSemana) {
     return {
-      texto: 'Si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar. Tu clase fija sigue activa.',
+      texto: 'Si no usas esa clase esta semana, al acabarla tendrás una clase para recuperar. Tu clase fija sigue activa.',
       invitarAReservar: true,
     };
   }

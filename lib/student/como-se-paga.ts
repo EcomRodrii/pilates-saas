@@ -42,7 +42,7 @@ export function comoSePaga(
   // Una cuota la cubre y no gasta ningún bono. «Mensualidad» se queda: es la palabra que fija la hoja
   // (student-auditoria) y la que ya leen las alumnas; los textos nuevos dicen «cuota».
   if (bono && esCuota(bono)) {
-    return { texto: 'Incluida en tu mensualidad. No pagas nada hoy.', tono: 'ok' };
+    return { texto: 'Incluida en tu cuota. No pagas nada hoy.', tono: 'ok' };
   }
   // Un bono SIN LÍMITE que no es cuota: tampoco gasta una sesión, pero no es «tu mensualidad». Antes caía en la frase
   // de la cuota y le hablaba de una mensualidad que no tiene.
@@ -62,7 +62,7 @@ export function comoSePaga(
       : { texto: `Tu bono no incluye este tipo de clase: se cobra como suelta, ${euros(clase.precioSuelto)}.`, tono: 'coste' };
   }
   return clase.sinPrecioSuelto
-    ? { texto: 'Esta clase solo se reserva con bono. Puedes comprar uno desde Perfil → Comprar.', tono: 'bloqueo' }
+    ? { texto: 'Esta clase solo se reserva con bono o cuota.', tono: 'bloqueo' }
     : { texto: `Sin bono activo: clase suelta ${euros(clase.precioSuelto)}.`, tono: 'coste' };
 }
 

@@ -19,7 +19,7 @@ export interface ComoVienesVista {
   caso: CasoComoVienes;
   titulo: string;
   detalle: string | null;
-  /** «Ver» su bono o cuota, o «Ver bonos y cuotas» de la tienda (solo si algo de la tienda cubre la clase). */
+  /** «Ver» su bono o cuota, o «Ver opciones» de la tienda (solo si algo de la tienda cubre la clase). */
   enlace?: { texto: string; destino: 'bono'; bonoId: string } | { texto: string; destino: 'tienda' };
   tono: TonoPago;
 }
@@ -51,7 +51,8 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
     // De una reserva YA hecha solo se sabe con certeza con qué viene si es de su clase fija. «Incluida en tu cuota»,
     // solo si hay una cuota que la cubre: sin ella, el barrido nocturno cancela las `res-pf-` (no se promete nada).
     if (mia.id.startsWith(PREFIJO_CLASE_FIJA)) {
-      return { caso: 'clase-fija', titulo: 'Es tu clase fija', detalle: esCuota(pagaria) ? 'Incluida en tu cuota' : null, tono: 'ok' };
+      // UNA vez, en una línea (la ficha ya no repite «Incluida en tu cuota» en la fila corta: ver `pagoCortoSobra`).
+      return { caso: 'clase-fija', titulo: esCuota(pagaria) ? 'Tu clase fija · incluida en tu cuota' : 'Tu clase fija', detalle: null, tono: 'ok' };
     }
     return null;
   }
@@ -75,7 +76,7 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
   // Nada la cubre: lo que costaría, y la tienda SOLO si algo de la tienda la cubre (si no, sería mandarla a buscar algo
   // que no está). Sin las 2-3 opciones con precio: esperan al bloque de dinero (decisión del fundador, 5-oct-2026).
   const tienda = hayALaVentaQueCubra(planesTarifa, clase.tipoClaseId)
-    ? { texto: 'Ver bonos y cuotas', destino: 'tienda' as const }
+    ? { texto: 'Ver opciones', destino: 'tienda' as const }
     : undefined;
   const precio = clase.sinPrecioSuelto
     ? { texto: 'Esta clase solo se reserva con bono o cuota', tono: 'bloqueo' as const }
@@ -118,4 +119,12 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
 function unir(...partes: Array<string | null | undefined>): string | null {
   const v = partes.filter((p): p is string => !!p && p.trim() !== '');
   return v.length > 0 ? v.join(' · ') : null;
+}
+
+/**
+ * La fila corta de la ficha («Incluida en tu cuota», «Con tu bono · 1 sesión») sobra cuando «Cómo vienes» ya dice lo
+ * mismo justo debajo: era la misma frase dos y tres veces en la misma pantalla.
+ */
+export function pagoCortoSobra(v: ComoVienesVista | null): boolean {
+  return !!v && (v.caso === 'clase-fija' || v.caso === 'cuota' || v.caso === 'ilimitado' || v.caso === 'bono');
 }

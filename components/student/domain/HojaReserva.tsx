@@ -68,6 +68,8 @@ export function HojaReserva({
   // Con el plan exigido, ni reservar ni apuntarse a la espera sin algo que la cubra: el servidor lo rechazaría
   // (`evaluar_reserva` corta en «sin-plan» antes de mirar el aforo). No se ofrece un botón que va a decir que no.
   const exigePlanSinBono = caso?.caso === 'PAGA_AQUI' || caso?.caso === 'PIDE_BONO_EN_ESTUDIO';
+  // Sin nada que la cubra, sin saber el caso y sin precio suelto: solo se viene con bono o cuota.
+  const soloConPlan = !bono && !caso && clase.sinPrecioSuelto === true && !enEspera;
 
   const finalizar = () => {
     if (bk === 'session-expired') { router.push(href('/acceso/login')); return; }
@@ -123,6 +125,18 @@ export function HojaReserva({
           ) : exigePlanSinBono ? (
             // El muro dicho con todas las letras, y sin un botón que mande al servidor algo que va a rechazar.
             <Button full variant="secondary" onClick={hoja.cerrar} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>Cerrar</Button>
+          ) : soloConPlan ? (
+            // Sin bono ni cuota, la clase no se vende suelta y no se sabe si el estudio exige plan (payload sin el dato):
+            // «Confirmar · Solo con bono» parecía un botón que funcionaba. Lo principal es ver con qué se puede venir (la
+            // tienda filtrada por ESTA clase); intentar reservar igual queda debajo, y decide el servidor.
+            <>
+              <Button full data-testid="ver-opciones" onClick={() => router.push(`${href('/comprar')}?para=${encodeURIComponent(clase.id)}`)} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
+                Ver opciones
+              </Button>
+              <Button full variant="secondary" loading={bk === 'submitting'} onClick={() => void hoja.confirmar(clase.id, hueco, modo)} style={{ marginTop: 8 }}>
+                {`Confirmar ${clase.hora} igualmente`}
+              </Button>
+            </>
           ) : (
             <Button
               full

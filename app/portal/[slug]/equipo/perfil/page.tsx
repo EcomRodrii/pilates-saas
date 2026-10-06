@@ -218,7 +218,7 @@ export default function PerfilInstructoraPage() {
             items={[
               { label: 'Reservar una clase', href: href('/reservar') },
               { label: 'Mis clases como alumna', href: href('/mis-reservas') },
-              { label: 'Bonos', href: href('/bonos') },
+              { label: 'Mi plan', href: href('/bonos') },
             ]}
           />
         )}

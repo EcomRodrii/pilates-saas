@@ -8,6 +8,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClasesFijas } from '@/lib/student/datos';
 import { autoReservableDe, trasAnularla, trasDejarla, trasPedirla, type EstadoAutoReservable } from '@/lib/student/auto-reservable';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
+import { saldoBono } from '@/lib/student/saldo-bono';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { TEXTOS_PLAZA_FIJA as T } from '@/lib/student/plaza-fija-textos';
 import { hoyEnEstudio } from '@/lib/utils';
@@ -31,8 +32,10 @@ import { ReservarProximas } from '@/components/student/domain/ReservarProximas';
 //
 // Sin cuota no hay clase fija (sus reservas no descuentan bono: `res-pf-`). Con bono, la ficha ofrece en su lugar «Reservar
 // las próximas clases», que es RESERVAR (N reservas normales) y por eso no lleva el nombre ni el interruptor de la clase fija.
-export function AutoReservable({ claseId, fecha, hora, salaId, tipoClaseId, ventanaCancelacionHoras, onCambio }: {
+export function AutoReservable({ claseId, fecha, hora, salaId, tipoClaseId, ventanaCancelacionHoras, onCambio, embebido = false }: {
   claseId: string; fecha: string; hora: string; salaId: string; tipoClaseId: string; ventanaCancelacionHoras: number;
+  /** Dentro de la tarjeta del bono de la ficha: «Reservar las próximas» sin tarjeta propia. */
+  embebido?: boolean;
   /** Tras cualquier cambio que confirma el servidor: la ficha vuelve a leer sus reservas (puede haber reservado o cancelado esta). */
   onCambio?: () => void;
 }) {
@@ -63,7 +66,7 @@ export function AutoReservable({ claseId, fecha, hora, salaId, tipoClaseId, vent
 
   // Sin cuota: no hay clase fija. Con bono, reservar las próximas clases (otra cosa, con su propio nombre); sin bono, una frase.
   if (e.accion?.tipo === 'SOLO_CON_CUOTA') {
-    return <VariasSemanas claseId={claseId} tipoClaseId={tipoClaseId} ventanaCancelacionHoras={ventanaCancelacionHoras} onReservadas={onCambio} />;
+    return <VariasSemanas claseId={claseId} tipoClaseId={tipoClaseId} ventanaCancelacionHoras={ventanaCancelacionHoras} onReservadas={onCambio} embebido={embebido} />;
   }
 
   const dia = new Date(`${fecha}T12:00:00Z`).getUTCDay();
@@ -136,7 +139,12 @@ export function AutoReservable({ claseId, fecha, hora, salaId, tipoClaseId, vent
 
   return (
     <>
-      <label data-testid="auto-reservable" className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer' }}>
+      <label
+        data-testid="auto-reservable" className={embebido ? undefined : 'card'}
+        style={embebido
+          ? { display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', cursor: 'pointer' }
+          : { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', cursor: 'pointer' }}
+      >
         <span style={{ minWidth: 0, flex: 1 }}>
           <span style={{ display: 'block', fontWeight: 800, fontSize: 'var(--t-body)' }}>{T.autoTitulo}</span>
           <span id={idCuerpo} className="t-meta" style={{ display: 'block', marginTop: 1 }}>{cuerpo}</span>
@@ -186,18 +194,19 @@ export function AutoReservable({ claseId, fecha, hora, salaId, tipoClaseId, vent
  * Sin cuota que cubra la clase. Con un bono que la cubra y al menos dos sesiones: reservar varias semanas de una vez (N reservas
  * normales, cada una descontando su sesión). Sin eso, solo una frase: qué haría falta para tenerla fija.
  */
-function VariasSemanas({ claseId, tipoClaseId, ventanaCancelacionHoras, onReservadas }: {
-  claseId: string; tipoClaseId: string; ventanaCancelacionHoras: number; onReservadas?: () => void;
+function VariasSemanas({ claseId, tipoClaseId, ventanaCancelacionHoras, onReservadas, embebido }: {
+  claseId: string; tipoClaseId: string; ventanaCancelacionHoras: number; onReservadas?: () => void; embebido: boolean;
 }) {
   const { estudio } = useEstudio();
   const cargar = useCallback(() => getBonos(estudio.slug), [estudio.slug]);
   const { data } = useAsync(cargar, () => false);
   // El bono que de VERDAD cubre esta clase (la misma regla que el servidor), si le quedan al menos dos sesiones.
   const bono = data ? bonoParaClase(data, tipoClaseId) : null;
-  const saldo = bono ? bono.creditosTotales - bono.creditosUsados : 0;
+  // El saldo de `saldoBono` (el mismo de Mi plan), no una resta suelta.
+  const saldo = bono ? saldoBono(bono).quedan : 0;
   if (!data) return null;
   if (!bono || saldo < 2) {
-    return <p data-testid="clase-fija-solo-cuota" className="t-meta" style={{ margin: 0 }}>{T.autoSoloConCuota}</p>;
+    return <p data-testid="clase-fija-solo-cuota" className="t-meta" style={{ margin: embebido ? '10px 0 0' : 0 }}>{T.autoSoloConCuota}</p>;
   }
-  return <ReservarProximas sesionId={claseId} saldo={saldo} ventanaCancelacionHoras={ventanaCancelacionHoras} onReservadas={onReservadas} />;
+  return <ReservarProximas sesionId={claseId} saldo={saldo} ventanaCancelacionHoras={ventanaCancelacionHoras} onReservadas={onReservadas} embebido={embebido} />;
 }

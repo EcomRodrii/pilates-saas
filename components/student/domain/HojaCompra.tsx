@@ -65,7 +65,7 @@ export function HojaCompra({ textosLegales,
   socioEmail: string | null;
   stripeAccountId: string | null;
   onCerrar: () => void;
-  /** El servidor ha confirmado que el bono está: a «Mis bonos». */
+  /** El servidor ha confirmado que lo comprado está: a Mi plan. */
   onComprado: () => void;
   onSesionCaducada: () => void;
   /** Le falta el segundo paso de la verificación (lo dice el servidor al confirmar). */
@@ -78,6 +78,8 @@ export function HojaCompra({ textosLegales,
    */
   paraClase?: { nombre: string; onReservar: () => void };
 }) {
+  // Cada cosa con su palabra: una cuota no es «tu bono» (decisión del fundador, 6-oct-2026).
+  const loQueCompra = plan?.tipo === 'MENSUAL' ? 'tu cuota' : plan?.tipo === 'PUNTUAL' ? 'tu clase suelta' : 'tu bono';
   // ⚠️ El padre TIENE que montar esto con `key={plan?.id}` (ver
   // app/portal/[slug]/comprar/page.tsx). Sin una key que cambie por plan,
   // React reutiliza esta misma instancia al cambiar de `plan` — cancelar la
@@ -324,7 +326,7 @@ export function HojaCompra({ textosLegales,
           // servidor cuando lo ha entregado de verdad.
           <div role="status" aria-live="polite" style={{ textAlign: 'center', padding: '12px 0 4px' }}>
             <span aria-hidden style={{ display: 'inline-block', width: 22, height: 22, borderRadius: 'var(--radius-round)', border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
-            <h3 className="t-title" style={{ marginTop: 12 }}>Pago recibido. Activando tu bono…</h3>
+            <h3 className="t-title" style={{ marginTop: 12 }}>Pago recibido. Activando {loQueCompra}…</h3>
             <p className="t-meta" style={{ marginTop: 6 }}>Tarda unos segundos; no tienes que hacer nada.</p>
           </div>
         ) : estado.fase === 'tarda' ? (
@@ -333,7 +335,7 @@ export function HojaCompra({ textosLegales,
           <div role="status" style={{ padding: '8px 0 4px' }}>
             <h3 className="t-title">El pago está hecho</h3>
             <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.55 }}>
-              Pero tu bono tarda más de lo normal en aparecer. Te avisamos en cuanto esté; si en un rato no lo ves, escribe al estudio. No vuelvas a pagar.
+              Pero {loQueCompra} tarda más de lo normal en aparecer. Te avisamos en cuanto esté; si en un rato no lo ves, escribe al estudio. No vuelvas a pagar.
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
               {enlaceEstudio && (
@@ -352,10 +354,10 @@ export function HojaCompra({ textosLegales,
             {paraClase ? (
               <>
                 <Button full onClick={paraClase.onReservar} style={{ marginTop: 14 }}>{`Reservar ${paraClase.nombre}`}</Button>
-                <Button full variant="secondary" onClick={onComprado} style={{ marginTop: 8 }}>Ver mis bonos</Button>
+                <Button full variant="secondary" onClick={onComprado} style={{ marginTop: 8 }}>Ver Mi plan</Button>
               </>
             ) : (
-              <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
+              <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver Mi plan</Button>
             )}
           </div>
         ) : (

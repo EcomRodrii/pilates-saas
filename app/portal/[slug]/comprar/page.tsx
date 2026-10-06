@@ -119,7 +119,7 @@ function Comprar() {
 
   return (
     <StudentShell>
-      <PageHeader titulo="Comprar" back />
+      <PageHeader titulo="Tienda" back />
 
       {claseDestino && (
         <div className="px" style={{ marginTop: 10 }}>

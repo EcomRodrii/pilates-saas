@@ -62,7 +62,11 @@ export function DialogoDejarClaseFija({ plaza, onClose, onDejada }: { plaza: Pla
           {plaza.deClaseFija && (
             <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVarios}</p>
           )}
-          <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVuelve}</p>
+          {/* Solo si es verdad: el interruptor de la ficha existe cuando el estudio deja pedirla desde la app, y una clase
+              fija con nombre ya no se pide (retiradas el 4-oct-2026). Si no, la promesa mandaba a buscar algo que no hay. */}
+          {estudio.puedePedirPlazaFija === true && !plaza.deClaseFija && (
+            <p data-testid="dejar-vuelve" style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVuelve}</p>
+          )}
           {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--danger, #b00020)' }}>{error}</p>}
         </div>
       )}
