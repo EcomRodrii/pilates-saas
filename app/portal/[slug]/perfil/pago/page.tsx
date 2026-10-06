@@ -138,7 +138,7 @@ export default function PagoPage() {
             <div className="card" data-testid="tarjeta" style={{ padding: '15px 16px' }}>
               <p className="t-label" style={{ margin: 0 }}>{esLink ? 'Método guardado' : 'Tarjeta guardada'}</p>
               <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.01em' }}>
-                {esLink ? 'Link' : data.ultimos4 ? <>{data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}</> : 'Método guardado'}
+                {esLink ? 'Link' : data.ultimos4 ? <>{data.marca && <span style={{ textTransform: 'capitalize' }}>{data.marca} </span>}•••• {data.ultimos4}</> : 'Método guardado'}
               </p>
               {data.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {data.caducidad}</p>}
               <p className="t-meta" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
