@@ -43,6 +43,13 @@ export type Bloque =
    * Tentare; texto sin enlaces (el botón ya es el enlace).
    */
   | { t: 'producto'; titulo: string; texto: string }
+  /**
+   * Llamada a la acción a mitad del artículo, en el tono editorial (un filete a
+   * la izquierda, sin caja de color): una frase que une el tema con Tentare y
+   * dos enlaces, al alta y a /precios. El clic lo mide MedicionPaginasPublicas
+   * (cualquier enlace a /crear-estudio de una página pública). Texto sin enlaces.
+   */
+  | { t: 'llamada'; texto: string }
   /** Cifras grandes. `nota` dice de dónde salen o que son de ejemplo. */
   | { t: 'cifras'; titulo: string; cifras: { valor: string; etiqueta: string }[]; nota: string }
   /** Herramienta interactiva (components/recursos). Solo las que existen. */

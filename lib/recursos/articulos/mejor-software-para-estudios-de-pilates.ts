@@ -4,7 +4,7 @@ const articulo: Articulo = {
   slug: 'mejor-software-para-estudios-de-pilates',
   titulo: 'Mejor software para estudios y centros de Pilates en 2026',
   tituloSeo: 'Mejor software para estudios de pilates 2026: 13 comparados',
-  descripcion: 'Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para estudios de pilates, comparados con lo que dice la web de cada uno.',
+  descripcion: '¿Cuál te conviene? Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para pilates, con lo que dice la web de cada uno.',
   resumen:
     'Guía comparativa escrita por Tentare: lo que necesita un estudio de pilates, una tabla con 13 programas según su web pública y una ficha breve de cada uno.',
   categoria: 'software',

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { fechaModificada, guia } from '@/lib/recursos/guias';
 import { openGraphGuia } from '@/lib/recursos/schema';
@@ -11,8 +12,8 @@ import { urlDe } from '@/lib/seo/paginas';
 const GUIA = guia('checklist-elegir-software-estudio');
 
 export const metadata: Metadata = {
-  title: 'Checklist: cómo elegir el software de tu estudio — Tentare',
-  description: 'Qué dicen de verdad miles de reseñas en Capterra y G2 sobre Mindbody, Glofox o WellnessLiving, y las preguntas exactas que hay que hacer en una demo antes de firmar.',
+  title: 'Elegir software para un estudio de yoga o pilates | Tentare',
+  description: 'Checklist para elegir el software de un estudio de yoga o pilates: 10 criterios, las preguntas de la demo y las señales de alarma antes de firmar.',
   alternates: { canonical: urlDe('/recursos/checklist-elegir-software-estudio') },
   openGraph: {
     type: 'article',
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
 
 const TOC = [
   { id: 's1', label: 'Por qué esta decisión pesa más de lo que parece' },
+  { id: 'criterios', label: '10 criterios para un estudio de yoga o pilates' },
   { id: 's2', label: 'Lo que dicen miles de reseñas reales' },
   { id: 's3', label: 'Las preguntas que hay que hacer en la demo' },
   { id: 's4', label: 'Señales de alarma antes de firmar' },
@@ -32,7 +34,28 @@ const TOC = [
   { id: 's6', label: 'Preguntas frecuentes' },
 ];
 
+const CRITERIOS: [string, string, string][] = [
+  ['Reservas y aforo', 'En reformer la plaza es una máquina; en yoga o mat, un sitio en la sala. Si el aforo es un número global, se te cuelan o se te quedan huecos.', '¿El aforo se fija por sala o por máquina, o es un número por clase?'],
+  ['Lista de espera', 'Una plaza libre a última hora es dinero perdido si nadie la ofrece a tiempo.', '¿Se ofrece sola a la siguiente? ¿Hay plazo para aceptarla?'],
+  ['Bonos y cuotas', 'Casi todos los estudios venden bonos, cuotas y clases sueltas a la vez.', '¿Caducidad, pausas y planes limitados a un tipo de clase, todo en el mismo sitio?'],
+  ['Cobros', 'Lo que se cobra a mano se olvida; lo que falla, se reintenta.', '¿Tarjeta y domiciliación SEPA? ¿Qué pasa con un pago que falla?'],
+  ['Facturas', 'En España hacen falta facturas con numeración legal, no solo recibos.', '¿Numeración correlativa? ¿Cómo lo resuelven con Veri*Factu?'],
+  ['App y reserva online', 'La alumna reserva desde el móvil y tu web no debería mandarla a otra página.', '¿App con tu marca? ¿Widget para incrustar en tu web?'],
+  ['Equipo', 'Con varias instructoras, una baja de última hora es el mayor dolor de cabeza.', '¿Ayuda a encontrar sustituta o lo haces tú con llamadas?'],
+  ['Tus datos', 'Es lo que más cuesta recuperar si te vas.', '¿Exportas todo cuando quieras? ¿Te ayudan a traer tus datos actuales?'],
+  ['Precio y contrato', 'El precio base importa menos que las comisiones, las subidas y la permanencia.', '¿Precio publicado? ¿Permanencia? ¿Comisión sobre tus cobros?'],
+  ['Prueba real', 'Una demo grabada no es una prueba con tu horario.', '¿Cuántos días de prueba, con tu estudio y sin tarjeta?'],
+];
+
 const FAQ = [
+  {
+    q: '¿Sirve el mismo software para un estudio de yoga y uno de pilates?',
+    a: 'En lo común sí: reservas, bonos, cuotas, cobros y lista de espera funcionan igual. Lo que cambia es el aforo: en pilates reformer cada plaza es una máquina, y conviene que el programa lo entienda. Tentare nació con foco en Pilates y el mismo motor funciona para yoga y para centros que combinan las dos disciplinas.',
+  },
+  {
+    q: '¿Cuánto cuesta un software para un estudio de pilates o yoga?',
+    a: 'Depende del programa y de si publica precio. Mira siempre también las comisiones sobre tus cobros y la permanencia. Tentare publica sus planes, desde 29 € al mes con IVA y sin permanencia, en la página de precios, y la guía de mejor software compara 13 programas con lo que dice la web de cada uno.',
+  },
   {
     q: '¿Un contrato anual es siempre una mala señal?',
     a: 'No necesariamente, pero sí lo es si viene sin opción de mes a mes y con penalización dura por salir antes. Las quejas reales en Capterra y G2 no son sobre el contrato en sí, sino sobre la letra pequeña de cancelación y las subidas de precio a mitad de contrato.',
@@ -51,14 +74,14 @@ export default function ChecklistSoftwarePage() {
   return (
     <PageShell>
       <ArticleStructuredData
-        title="Checklist: cómo elegir el software de tu estudio"
+        title="Cómo elegir el software de tu estudio de yoga o pilates: checklist"
         description="Qué dicen de verdad miles de reseñas en Capterra y G2, y las preguntas exactas que hay que hacer en una demo antes de firmar."
         slug="checklist-elegir-software-estudio"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        title="Checklist: cómo elegir el software de tu estudio"
+        title="Cómo elegir el software de tu estudio de yoga o pilates: checklist"
         intro="Cambiar de software una vez ya duele. Cambiarlo dos veces por no haber preguntado lo correcto en la demo, duele el doble. Esto es lo que ya han encontrado miles de reseñas públicas — antes de que tengas que descubrirlo tú."
         readTime={`${GUIA.lectura} min de lectura`}
         actualizado={fechaModificada(GUIA)}
@@ -98,6 +121,34 @@ export default function ChecklistSoftwarePage() {
         <Callout title="La idea clave">
           El problema número uno que reportan las propietarias reales no es &quot;le falta una función&quot;. Es el contrato: cuánto tarda en subir el precio, y qué tan difícil es salir. Pregunta eso ANTES de preguntar por funcionalidades — casi todas las plataformas grandes ya las tienen todas.
         </Callout>
+
+        <h2 id="criterios">10 criterios para elegir software para un estudio de yoga o pilates</h2>
+        <p>
+          Antes de comparar programas, decide qué tiene que resolver el tuyo. Estos son los diez criterios que más pesan en un estudio de yoga o pilates, con la pregunta que conviene hacer en cada caso.
+        </p>
+        <div style={{ overflowX: 'auto', border: '1px solid #E7E7E0', borderRadius: 16, background: '#fff', margin: '22px 0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 560 }}>
+            <thead>
+              <tr style={{ background: '#F5F5F1' }}>
+                {['Criterio', 'Por qué importa', 'Qué preguntar'].map((c) => (
+                  <th key={c} scope="col" style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12, fontWeight: 700, color: '#5A5A52', borderBottom: '1px solid #E7E7E0' }}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {CRITERIOS.map(([c, porque, pregunta]) => (
+                <tr key={c} style={{ borderBottom: '1px solid #EDEDE6' }}>
+                  <td style={{ padding: '11px 14px', verticalAlign: 'top', fontWeight: 600 }}>{c}</td>
+                  <td style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, color: '#3A3A34' }}>{porque}</td>
+                  <td style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, color: '#3A3A34' }}>{pregunta}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Si das clases de reformer, mira con calma <Link href="/soluciones/estudio-de-pilates-reformer">cómo lo resuelve Tentare en un estudio de Pilates reformer</Link>; si es yoga, <Link href="/soluciones/estudio-de-yoga">en uno de yoga</Link>. Y para ver las diferencias entre programas con lo que publica cada uno, la guía de <Link href="/recursos/mejor-software-para-estudios-de-pilates">mejor software para estudios de pilates</Link>.
+        </p>
 
         <h2 id="s3">Las preguntas que hay que hacer en la demo</h2>
         <Checklist
@@ -144,6 +195,8 @@ export default function ChecklistSoftwarePage() {
 
         <RelatedLinks
           items={[
+            { href: '/recursos/mejor-software-para-estudios-de-pilates', category: 'Elegir software', categoryColor: '#6E7650', title: 'Mejor software para estudios de pilates: 13 comparados' },
+            { href: '/precios', category: 'Precios', categoryColor: '#6E7650', title: 'Planes desde 29 €/mes, sin permanencia' },
             { href: '/soluciones/cambiar-de-software', category: 'Cambiarte de software', categoryColor: '#4E9E7F', title: 'Cambiarte a Tentare sin perder nada' },
             { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#3E7C86', title: 'Cómo cubrir una baja de instructora sin hacer una llamada' },
           ]}

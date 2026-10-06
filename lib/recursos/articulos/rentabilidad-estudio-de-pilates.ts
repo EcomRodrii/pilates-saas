@@ -166,6 +166,10 @@ const articulo: Articulo = {
           ],
         },
         { t: 'p', texto: 'Para decidir necesitas el margen clase a clase, no la media del mes. El [informe de rentabilidad por clase de Tentare](/funcionalidades/informes-y-rentabilidad) da, para cada clase, lo que ingresó menos lo que costó su instructora, y la [lista de espera automática](/funcionalidades/lista-de-espera) ofrece la plaza que se libera, al momento o con plazo para aceptarla.' },
+        {
+          t: 'llamada',
+          texto: 'Para saber qué clases pagan su coste sin hacer la cuenta a mano, el informe de rentabilidad por clase de Tentare resta a lo que ingresó cada clase lo que costó su instructora.',
+        },
       ],
     },
     {

@@ -1,6 +1,6 @@
 # Tentare
 
-> Software de gestión para estudios de Pilates (y de Yoga) en España. Reservas online, calendario y salas, sustitución de instructoras, bonos y cobros recurrentes, facturas con numeración legal y huella encadenada (Veri*Factu; el envío a la AEAT, en desarrollo), y una app con la marca del estudio para las alumnas — todo en un solo panel.
+> Software de gestión para estudios de Pilates y Yoga en España. Reservas online, calendario y salas, sustitución de instructoras, bonos y cobros recurrentes, facturas con numeración legal y huella encadenada (Veri*Factu; el envío a la AEAT, en desarrollo), y una app con la marca del estudio para las alumnas — todo en un solo panel.
 
 Tentare es un SaaS B2B: no es un software genérico de gimnasio al que se le ha añadido Pilates como categoría más, ni es solo un sistema de reservas. Es la plataforma central con la que una propietaria opera el estudio entero — quién reserva, quién sustituye a quién, qué se cobra y qué se factura. La idea: que el estudio siga funcionando aunque ella suelte el móvil — las alumnas reservan y cancelan solas, las bajas encuentran quien las cubra y los cobros que fallan se reintentan solos; ella decide solo lo que necesita su criterio. Interfaz y soporte en español, datos alojados en la Unión Europea.
 
@@ -25,6 +25,7 @@ Tentare tiene tres planes según el tamaño: Founding Studio (una sala, 1-2 inst
 - **Control de asistencia** → check-in por clase, con o sin escanear nada.
 - **Ficha de alumna dispersa entre varios sitios** → ficha única con historial, ficha de salud con permisos por rol, campos personalizados.
 - **Avisos que no llegan o se olvidan** → automatizaciones (recordatorios de clase, bono a punto de acabarse, alumna que lleva tiempo sin venir) por email y notificación push; por WhatsApp si el estudio conecta su propia cuenta de WhatsApp Business.
+- **Preguntas sobre el estudio que obligan a abrir tres pantallas** → «Pregúntale a Tentare», un asistente dentro del panel que responde con los datos del propio estudio (agenda, clientas, cobros e informes) y puede preparar la creación de una clase o una cita: solo la crea cuando la propietaria pulsa Confirmar. Está en todos los planes, con un número de consultas al mes que depende del plan.
 - **Falta de visibilidad sobre qué funciona y qué no** → informes de ocupación e ingresos por clase; Centro de Control con un resumen diario (plan Estudio y superior).
 - **Gestión de varios centros con datos mezclados** → varias sedes con un solo acceso y una sola suscripción, datos separados por sede (plan Cadena). No hay todavía una vista que sume todas las sedes a la vez.
 
@@ -73,10 +74,11 @@ Tipo de producto: SaaS B2B
 Cliente principal: estudios de Pilates (reformer y/o mat), independientes o pequeña cadena
 Moneda: EUR
 Idioma: español (interfaz y soporte)
-Especialización: Pilates / Pilates reformer
+Especialización: Pilates / Pilates reformer; también estudios de Yoga y centros que combinan ambas disciplinas
 Modelo: suscripción mensual, sin permanencia, sin comisión sobre cobros
 Planes públicos: Founding Studio 29€/mes · Estudio 59€/mes · Cadena 149€/mes
 Prueba: 7 días del plan elegido, sin tarjeta de crédito
+Asistente integrado: «Pregúntale a Tentare», en todos los planes (50, 200 y 500 consultas al mes según el plan); propone acciones y la persona las confirma
 Alojamiento de datos: Unión Europea
 ```
 
@@ -106,15 +108,18 @@ software para estudios de Pilates · software de gestión para Pilates · progra
 - [Bonos de pilates](https://www.tentare.app/recursos/bonos-de-pilates): tipos de bono, descuento frente a la clase suelta, caducidades reales de estudios españoles y cancelaciones tardías.
 - [Cuánto cobra una instructora de pilates](https://www.tentare.app/recursos/cuanto-cobra-una-instructora-de-pilates): convenio estatal de gimnasios, salario mínimo de 2026, lo que pagan las ofertas por hora y el coste para el estudio (nómina o factura).
 - [IVA de las clases de pilates](https://www.tentare.app/recursos/iva-clases-de-pilates): 21 % en un estudio privado; exenciones (fisioterapia, entidades sin ánimo de lucro) según la Ley del IVA y las consultas de la DGT.
+- [Cómo elegir software para un estudio de yoga o pilates](https://www.tentare.app/recursos/checklist-elegir-software-estudio): checklist con 10 criterios (aforo por sala o máquina, lista de espera, bonos, cobros, facturas, app, equipo, datos, precio y prueba), las preguntas de la demo y las señales de alarma antes de firmar.
 - [Mejor software para estudios de pilates](https://www.tentare.app/recursos/mejor-software-para-estudios-de-pilates): comparativa de 13 programas según su web pública (precio, permanencia, Veri*Factu, sustituciones), escrita por Tentare y marcada como tal.
 - [Software de pilates gratis](https://www.tentare.app/recursos/software-pilates-gratis): lo que se puede montar sin pagar y sus límites.
 - [Plantilla de control de asistencia](https://www.tentare.app/recursos/plantilla-control-de-asistencia-pilates): Excel gratuito con alumnas, bonos, clases y asistencia.
 - [Franquicia de pilates](https://www.tentare.app/recursos/franquicia-de-pilates): inversión, canon y royalty de las franquicias que publican sus condiciones, y lo que la ley obliga a entregar antes de firmar.
 - [Nombres para estudio de pilates](https://www.tentare.app/recursos/nombres-para-estudio-de-pilates): más de 100 ideas por estilos y cómo comprobar que el nombre está libre (OEPM, Registro Mercantil, dominio .es).
+- [Alternativas a bsport](https://www.tentare.app/recursos/alternativas-a-bsport) y [alternativas a TIMP](https://www.tentare.app/recursos/alternativas-a-timp): seis opciones cada una para estudios de pilates, con precio, permanencia, app y qué pasa con tus datos; las escribe Tentare y lo dice.
 - [bsport vs TIMP](https://www.tentare.app/recursos/bsport-vs-timp): los dos programas lado a lado para un estudio boutique, con lo que publica cada uno (precio, permanencia, app, cobros, Veri*Factu, sustituciones); lo escribe Tentare y lo dice.
 - [Cómo abrir un estudio de yoga](https://www.tentare.app/recursos/como-abrir-un-estudio-de-yoga): lo propio del yoga (estilos y local, material con precios, epígrafe y CNAE, titulación oficial) y precios de 14 estudios.
 - [Política de cancelación de clases](https://www.tentare.app/recursos/politica-de-cancelacion-de-clases): plantilla cláusula a cláusula, ventanas reales de estudios y el encaje en la ley de consumidores (penalizaciones y desistimiento).
 - [Cómo ser instructora de pilates](https://www.tentare.app/recursos/como-ser-instructora-de-pilates): la cualificación oficial AFD805_3, formaciones privadas con horas y precio, y cómo encontrar trabajo.
+- [Lista de espera para clases de Pilates](https://www.tentare.app/funcionalidades/lista-de-espera): cómo funciona la promoción automática de la plaza que se libera y el plazo para aceptarla.
 - [Glosario](https://www.tentare.app/glosario): definiciones neutrales de los términos del sector (software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio, etc.).
 
 ## Perfiles en directorios de software
