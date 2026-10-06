@@ -172,7 +172,8 @@ test('TS ordena los ids en binario (el `collate "C"` de la base de datos): «sus
 test('⚠️ reservar_plaza: si TS eligió un bono, la base de datos lo vuelve a elegir bajo el candado', () => {
   const cuerpo = cuerpoVigente('reservar_plaza');
   const candado = cuerpo.search(/pg_advisory_xact_lock\(hashtext\(p_studio_id \|\| ':' \|\| p_socio_id\)\)/);
-  const eleccion = cuerpo.search(/case when p_suscripcion_id is null then null\s+else public\.elegir_bono_consumible\(p_studio_id, p_socio_id, v_tipo_clase_id\) end/);
+  // P06 (migr 20261006120200): antes de la regla general, lo que entregó el pago de la clase.
+  const eleccion = cuerpo.search(/case\s+(?:when p_consumir_suscripcion_id is not null then p_consumir_suscripcion_id\s+)?when p_suscripcion_id is null then null\s+else public\.elegir_bono_consumible\(p_studio_id, p_socio_id, v_tipo_clase_id\) end/);
   assert.ok(candado > -1 && eleccion > candado, 'la elección, dentro del candado');
   assert.doesNotMatch(cuerpo, /consumir_bono_interno\(p_reserva_id, p_suscripcion_id, p_studio_id\)/, 'nunca el bono elegido fuera del candado');
 });

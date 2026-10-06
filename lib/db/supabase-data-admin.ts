@@ -3328,6 +3328,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
   studioId: string; sesionId: string; socioId: string; paymentIntentId: string;
   /** "Elige tu plaza" — sitio concreto que se pagó, si la sala tiene mapa. */
   spotId?: string | null;
+  /**
+   * P06 · Fase A: la suscripción que entregó ESTE pago. La reserva gasta esa y no la
+   * que elegiría la regla general (con un bono viejo que caduca antes, se gastaba el
+   * viejo y el recién pagado quedaba intacto). Migr 20261006120200.
+   */
+  suscripcionEntregadaId?: string | null;
 }): Promise<
   | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
   | {
@@ -3373,7 +3379,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
   const consumibleBono = await resolverBonoParaSesion(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
   });
-  const { data, error } = await admin.rpc('reservar_plaza', {
+  const llamarReserva = (consumir: string | null) => admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
@@ -3394,7 +3400,16 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // D-1: el bono elegido arriba, para que la RPC lo descuente en la misma
     // transacción que confirma la plaza.
     p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
+    ...(consumir ? { p_consumir_suscripcion_id: consumir } : {}),
   });
+  const entregada = params.suscripcionEntregadaId ?? null;
+  let { data, error } = await llamarReserva(entregada);
+  if (error && entregada && error.code === 'PGRST202') {
+    // La migración aún no está aplicada: la firma nueva no existe. La reserva de
+    // siempre (gasta lo que elija la regla general) antes que dejarla sin plaza.
+    reportDbError('[reservarPlazaTrasPagoPublico] reservar_plaza sin p_consumir_suscripcion_id: falta la migración 20261006120200', error);
+    ({ data, error } = await llamarReserva(null));
+  }
   if (error) {
     // YA_RESERVADA quiere decir «esta socia ya tiene una reserva viva en esta
     // clase» (`evaluar_reserva`), y hay DOS formas de llegar aquí:

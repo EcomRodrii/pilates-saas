@@ -91,9 +91,11 @@ export async function reservarClasePagada(
   if (fila === 'resuelta') return null;
   try {
     const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+    // La plaza la paga lo que entregó ESTE pago, no otro bono suyo (migr 20261006120200).
+    const entregada = p.suscripcionEntregadaId ?? (fila ? fila.suscripcion_id : null);
     let r = await reservarPlazaTrasPagoPublico({
       studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId,
-      paymentIntentId: p.paymentIntentId, spotId: p.spotId,
+      paymentIntentId: p.paymentIntentId, spotId: p.spotId, suscripcionEntregadaId: entregada,
     });
     let destino: DestinoPagoClase | null = null;
     if (fila) {
@@ -102,6 +104,7 @@ export async function reservarClasePagada(
         // Pagó por un sitio que otra se llevó primero: la plaza sin sitio concreto.
         r = await reservarPlazaTrasPagoPublico({
           studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, paymentIntentId: p.paymentIntentId, spotId: null,
+          suscripcionEntregadaId: entregada,
         });
         destino = destinoDelPago(r as ReservaTrasPago, { sinSitio: true, pagadaConLoEntregado: await pagadaConLoEntregado(admin, r, p.suscripcionEntregadaId ?? fila.suscripcion_id) });
       }
