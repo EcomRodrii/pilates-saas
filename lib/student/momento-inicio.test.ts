@@ -162,6 +162,11 @@ test('clasesConPlazaProximas: «solo con bono» solo si TODAS lo son', () => {
   const mezcla = [...todas, libre('c', '2026-10-11', '09:00')];
   assert.equal(clasesConPlazaProximas(mezcla, [], HOY, A_LAS_1620).soloConBono, false);
   assert.equal(clasesConPlazaProximas([], [], HOY, A_LAS_1620).soloConBono, false);
+  // El estudio no exige plan: se reservan sin pagar, «hace falta un bono o una cuota» mentiría. Sin el dato, como antes.
+  const sinExigir = todas.map((c) => ({ ...c, exigePlan: false }));
+  assert.equal(clasesConPlazaProximas(sinExigir, [], HOY, A_LAS_1620).soloConBono, false);
+  const sinDato = todas.map((c) => ({ ...c, exigePlan: null }));
+  assert.equal(clasesConPlazaProximas(sinDato, [], HOY, A_LAS_1620).soloConBono, true);
 });
 
 test('tuRitmoTieneAlgoQueContar: una asistida o un bono activo; una no asistida sola, no', () => {

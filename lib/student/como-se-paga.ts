@@ -3,7 +3,7 @@ import { esCuota } from './bono-cubre.ts';
 
 export type TonoPago = 'ok' | 'coste' | 'bloqueo';
 
-interface ClaseMin { sinPrecioSuelto?: boolean; precioSuelto: number }
+interface ClaseMin { sinPrecioSuelto?: boolean; precioSuelto: number; exigePlan?: boolean | null }
 interface BonoMin { nombre: string; creditosTotales: number; creditosUsados: number; tipoPlan?: string | null }
 
 /**

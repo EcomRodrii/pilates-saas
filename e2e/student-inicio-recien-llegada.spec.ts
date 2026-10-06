@@ -55,6 +55,17 @@ async function abrir(page: Page) {
   await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({ timeout: 60_000 });
 }
 
+test('recién llegada en un estudio que NO exige plan: no se le dice que hace falta un bono', async ({ page }) => {
+  // Sin precio suelto pero sin plan exigido, el servidor las reserva sin cobrar (RESERVA_SIN_PAGAR, la regla de la ficha).
+  const { a, pedidas } = await montar(page, { payload: (f) => { (f.studio as Record<string, unknown>).reservaExigirPlan = false; } });
+  await abrir(page);
+  const tarjeta = page.getByTestId('primera-clase');
+  await expect(page.getByTestId('primera-clase-cifra')).toHaveText('En los próximos 7 días hay 2 clases con plaza.', { timeout: 45_000 });
+  await expect(tarjeta).not.toContainText('hace falta un bono');
+  expect(pedidas()).toBeGreaterThan(0);
+  expect(a.sinMockear()).toEqual([]);
+});
+
 test('recién llegada: bienvenida, la cifra real de clases con plaza y su primera clase', async ({ page }) => {
   const { a, pedidas } = await montar(page, { valoracionActiva: true });
   await abrir(page);

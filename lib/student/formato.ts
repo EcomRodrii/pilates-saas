@@ -168,15 +168,29 @@ export function horaFin(hora: string, duracionMin: number): string {
 }
 
 /**
+ * ¿Se reserva sin pagar nada aunque no tenga bono? El estudio NO exige plan (`exigePlan === false`, ya resuelto por
+ * `mapeo`: tipo ?? estudio, y que haya algo que contratar) y la clase no tiene precio suelto. Es el caso
+ * `RESERVA_SIN_PAGAR` de la ficha y la hoja (`comoVieneSinBono`): sin precio suelto no hay clase suelta que cobrar en el
+ * estudio, así que no hay otro camino (lo fija la paridad de `formato.test.ts`). `exigePlan` desconocido (`null`) no
+ * cuenta: sin el dato no se promete nada.
+ */
+export function seReservaSinNadaQueCobrar(c: { sinPrecioSuelto?: boolean; exigePlan?: boolean | null }): boolean {
+  return c.sinPrecioSuelto === true && c.exigePlan === false;
+}
+
+/**
  * Lo que se le enseña como precio de una clase cuando NO tiene bono.
  *
- * Tres casos distintos, y antes se pintaban los tres igual («0 €»):
+ * Cuatro casos distintos, y antes se pintaban los tres primeros igual («0 €»):
  *   · hay precio            → el importe, el mismo que cobrará el checkout
  *   · precio 0 deliberado   → «Gratis» (una clase de puertas abiertas)
  *   · el estudio no vende sueltas → «Solo con bono», que es la verdad y además
  *     dice qué hacer; «0 €» invitaría a reservar algo que no se puede pagar.
+ *   · …pero el estudio no exige plan → «Sin pagar» (6-oct-2026): el servidor la
+ *     reserva sin cobrar, y «Solo con bono» le decía que no podía.
  */
-export function precioClaseTexto(c: { precioSuelto: number; sinPrecioSuelto?: boolean }): string {
+export function precioClaseTexto(c: { precioSuelto: number; sinPrecioSuelto?: boolean; exigePlan?: boolean | null }): string {
+  if (seReservaSinNadaQueCobrar(c)) return 'Sin pagar';
   if (c.sinPrecioSuelto) return 'Solo con bono';
   if (c.precioSuelto === 0) return 'Gratis';
   return euros(c.precioSuelto);
