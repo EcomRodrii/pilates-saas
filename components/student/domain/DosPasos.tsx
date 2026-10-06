@@ -199,7 +199,7 @@ export function DosPasos({ volverA }: { volverA: string }) {
           <Input
             label="Código de 6 dígitos" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
             value={codigo} onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(null); }}
-            style={{ letterSpacing: '.3em', fontVariantNumeric: 'tabular-nums' }}
+            style={{ letterSpacing: '.3em', fontVariantNumeric: 'lining-nums tabular-nums' }}
           />
           <Button type="submit" full loading={trabajando} disabled={codigo.length !== 6 || !online}>Activar</Button>
           <button type="button" onClick={() => { setActivando(null); setCodigo(''); setError(null); }} style={{ border: 'none', background: 'none', padding: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>

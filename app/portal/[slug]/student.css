@@ -44,6 +44,12 @@
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  /* Números de altura de mayúscula en TODA la app, sea cual sea la tipografía
+     del estudio. Algunas de las que puede elegir (Cormorant en «Elegante»)
+     traen por defecto números de estilo antiguo, que bajan y suben como
+     minúsculas: el «10» del saldo se leía «IO» (auditoría del 6-oct). Un
+     número que no se lee es un fallo, no un estilo. */
+  font-variant-numeric: lining-nums;
 
   /* ── Marca del estudio ── */
   --primary: #1A1A1A;             /* CTA principal, tabs activos */
@@ -352,7 +358,9 @@
 .student-app .t-faint { color: var(--subtle-foreground); }
 /* Cifras en columna (importes, saldos, contadores): sin esto un «1» ocupa menos
    que un «0» y una lista de precios queda con las comas bailando. */
-.student-app .t-num { font-variant-numeric: tabular-nums; }
+/* `lining-nums` otra vez: `font-variant-numeric` no suma, sustituye, y sin él
+   aquí la cifra volvería a los números de estilo antiguo de la tipografía. */
+.student-app .t-num { font-variant-numeric: lining-nums tabular-nums; }
 
 /* ── Primitivas de composición ──
    Una columna con hueco y una fila con hueco son el grueso de los `style={{}}`

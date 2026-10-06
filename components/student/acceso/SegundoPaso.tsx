@@ -181,7 +181,7 @@ export function SegundoPaso({ slug, nombreEstudio, pideLaApp = false, alTerminar
         label="Código de 6 dígitos" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
         value={codigo} onChange={(e) => { setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(null); }}
         error={error ?? undefined}
-        style={{ letterSpacing: '.3em', fontVariantNumeric: 'tabular-nums' }}
+        style={{ letterSpacing: '.3em', fontVariantNumeric: 'lining-nums tabular-nums' }}
       />
 
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
