@@ -20,10 +20,12 @@ import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { proyectarClases } from '@/lib/student/mapeo';
 import { opcionesDeClase } from '@/lib/reservar/opciones-de-clase';
-import { etiquetaDia } from '@/lib/student/formato';
+import { etiquetaDia, euros } from '@/lib/student/formato';
 import type { PlanTarifa } from '@/lib/types';
 import { configLegalDe } from '@/lib/legal-textos';
 import { Foto } from '@/components/student/ui/Foto';
+import { pedirPrueba } from '@/lib/student/pagar-clase';
+import Link from 'next/link';
 
 // Comprar (P0-5). Hasta ahora la alumna solo podía RESERVAR: no había ningún
 // sitio donde ver qué vende el estudio, así que un bono o una suscripción solo
@@ -88,6 +90,9 @@ function Comprar() {
       // «Si lo compras hoy, hasta el…»: el «hoy» se fija al cargar, no en cada
       // render (un render tiene que ser puro, y la fecha no cambia mirando).
       ahora: new Date(),
+      // «Tu primera clase» (P07): solo se pregunta al servidor si el estudio tiene una prueba activa (si no, 0
+      // peticiones), y solo él decide si ESTA socia la puede estrenar.
+      prueba: (d?.planesTarifa ?? []).some((p) => p.esPrueba === true && p.activo !== false) ? await pedirPrueba(estudio.id) : null,
       // La clase para la que compra (`?para=`), y qué la cubre: la MISMA regla que la ficha y el cobro.
       clase: (() => {
         if (!para || !d) return null;
@@ -100,7 +105,7 @@ function Comprar() {
         };
       })(),
     };
-  }, [estudio.slug, para]);
+  }, [estudio.slug, estudio.id, para]);
 
   const { data, estado, reintentar } = useAsync(cargar);
 
@@ -158,10 +163,18 @@ function Comprar() {
           />
         ) : null}
 
-        {/* Aquí irá «Tu primera clase» (P07), ANTES de las familias y solo para
-            quien el servidor diga que puede estrenarla. No se pinta todavía: va
-            atada a reservar una clase concreta y entra con el diseño de pagar y
-            reservar en la misma hoja (P06), que pasa por revisión de pagos. */}
+        {/* «Tu primera clase» (P07), ANTES de las familias y solo para quien el servidor dice que puede estrenarla.
+            Va atada a una clase concreta: se elige la clase y se paga (o se reserva gratis) en su ficha. */}
+        {data?.prueba && !claseDestino && (
+          <div className="card card--pad" data-testid="tu-primera-clase">
+            <p className="t-label" style={{ margin: 0 }}>Tu primera clase</p>
+            <p style={{ margin: '4px 0 0', fontWeight: 800, fontSize: 'var(--t-h3)' }}>
+              {data.prueba.gratis ? 'Gratis' : euros(data.prueba.precio)}
+            </p>
+            <p className="t-meta" style={{ margin: '4px 0 0' }}>Una clase, la que elijas. Solo una vez por persona.</p>
+            <Link href={href('/reservar')} className="btn btn--primary" style={{ display: 'flex', marginTop: 12 }}>Elegir mi clase</Link>
+          </div>
+        )}
 
         {data && productos.length > 0 && familias.map(({ familia, items }) => (
           <section key={familia}>

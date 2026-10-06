@@ -9,7 +9,8 @@ import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
-import { opcionesDeClase } from '@/lib/reservar/opciones-de-clase';
+import { opcionDePrueba, opcionesDeClase } from '@/lib/reservar/opciones-de-clase';
+import { pruebaCubreTipo, pruebaParaSocia } from '@/lib/billing/clase-prueba';
 import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
 import type { RowPlanesTarifa } from '@/lib/db-types';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -96,12 +97,19 @@ export async function POST(req: NextRequest) {
       planes, tipoClaseId, precioPuntualSesion: (ses.precio_puntual as number | null) ?? null,
     });
 
+    // P07: la clase de prueba, PRIMERA, solo si el servidor la considera nueva (`pruebaParaSocia`, el mismo dueño que
+    // las puertas de cobro) y si cubre ESTE tipo de clase. La gratis no pasa por Stripe: se ofrece sin pagos online.
+    // Con precio especial no se ofrece nada (la clase no se vende en la app).
+    const prueba = plaza.ok && !precioEspecial ? await pruebaParaSocia(admin, studioId, socioId) : null;
+    const opcionPrueba = prueba && pruebaCubreTipo(prueba, tipoClaseId) && (prueba.gratis || pagosOnline)
+      ? [opcionDePrueba(prueba)] : [];
+
     return json({
       pagosOnline,
       ...(plaza.ok ? { plaza: { ok: true } } : { rechazo: { codigo: plaza.codigo, error: plaza.error, ...(plaza.posicionEspera != null ? { posicionEspera: plaza.posicionEspera } : {}) } }),
       precioEspecial,
       // Sin plaza para ella, no se le ofrece pagar nada.
-      opciones: plaza.ok && pagosOnline ? opciones : [],
+      opciones: plaza.ok ? [...opcionPrueba, ...(pagosOnline ? opciones : [])] : [],
     });
   } catch (err) {
     return errorInterno('public/opciones-clase:POST', err, 'No hemos podido comprobar la clase. Inténtalo en un momento.');

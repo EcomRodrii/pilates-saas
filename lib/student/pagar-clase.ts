@@ -9,10 +9,11 @@
 // servidor resuelve el precio, la socia (por el token) y si hay plaza.
 
 import { portalAuthHeader } from '@/lib/student/api-publica';
+import type { OfertaPrueba } from '@/lib/billing/clase-prueba';
 import { avisarFaltanPreguntas } from '@/lib/student/preguntas-alta';
 import {
-  esperaAntesDeConsultar, leerInicioPagoClase, leerOpcionesClase, leerReservaPagada,
-  type InicioPagoClase, type LecturaOpcionesClase, type LecturaReservaPagada,
+  esperaAntesDeConsultar, leerInicioPagoClase, leerOpcionesClase, leerReservaPagada, leerReservaPrueba,
+  type InicioPagoClase, type LecturaOpcionesClase, type LecturaReservaPagada, type LecturaReservaPrueba,
 } from '@/lib/student/pagar-clase-reglas';
 
 export async function pedirOpcionesClase(studioId: string, sesionId: string, spotId: string | null): Promise<LecturaOpcionesClase> {
@@ -67,7 +68,9 @@ async function consultarReservaPagada(studioId: string, pi: string): Promise<Lec
 export type DesenlacePagoClase =
   | Exclude<LecturaReservaPagada, { tipo: 'en_proceso' }>
   | { tipo: 'tarda' }
-  | { tipo: 'cancelado' };
+  | { tipo: 'cancelado' }
+  /** P07: la prueba gratis entró en la espera (la clase de prueba sigue disponible). Solo la pinta la hoja. */
+  | { tipo: 'prueba-en-espera'; posicion: number | null };
 
 /** Pregunta hasta que el servidor diga en qué acabó el pago, o se agote la espera razonable (~35 s). */
 export async function esperarReservaDePago(studioId: string, pi: string, sigueVivo: () => boolean): Promise<DesenlacePagoClase> {
@@ -81,5 +84,47 @@ export async function esperarReservaDePago(studioId: string, pi: string, sigueVi
     if (!sigueVivo()) return { tipo: 'cancelado' };
     if (l.tipo !== 'en_proceso') return l;
     espera = l.esperaMinMs;
+  }
+}
+
+/**
+ * La clase de prueba GRATIS (P07): la reserva de siempre con `pruebaPlanId`. El servidor concede el bono de prueba
+ * (una sola vez, `concederClasePruebaGratis`) y la reserva lo gasta. Nunca lanza.
+ */
+export async function reservarPruebaGratis(p: {
+  studioId: string; sesionId: string; spotId: string | null; pruebaPlanId: string;
+}): Promise<LecturaReservaPrueba> {
+  try {
+    const res = await fetch('/api/public/reserva', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ accion: 'crear', studioId: p.studioId, sesionId: p.sesionId, spotId: p.spotId, pruebaPlanId: p.pruebaPlanId }),
+    });
+    const cuerpo = await res.json().catch(() => null);
+    if ((cuerpo as { codigo?: unknown } | null)?.codigo === 'faltan-preguntas') avisarFaltanPreguntas();
+    return leerReservaPrueba(res.status, cuerpo);
+  } catch {
+    // No se sabe si llegó: el texto honesto es mirar sus reservas antes de reintentar.
+    return { tipo: 'error', mensaje: 'Se ha cortado la conexión. Mira «Mis reservas» antes de volver a intentarlo.' };
+  }
+}
+
+/**
+ * «Tu primera clase» (P07): ¿la puede estrenar? Solo se llama si el catálogo trae una prueba activa. Fail-closed:
+ * cualquier fallo es `null` y no se ofrece nada.
+ */
+export async function pedirPrueba(studioId: string): Promise<OfertaPrueba | null> {
+  try {
+    const res = await fetch(`/api/public/prueba?studioId=${encodeURIComponent(studioId)}`, { headers: await portalAuthHeader(), cache: 'no-store' });
+    if (!res.ok) return null;
+    const c = (await res.json().catch(() => null)) as { disponible?: unknown; oferta?: Partial<OfertaPrueba> } | null;
+    const o = c?.oferta;
+    if (c?.disponible !== true || !o || typeof o.planId !== 'string' || typeof o.precio !== 'number') return null;
+    return {
+      planId: o.planId, nombre: typeof o.nombre === 'string' ? o.nombre : 'Tu primera clase', precio: o.precio,
+      gratis: o.gratis === true, tiposClaseIds: Array.isArray(o.tiposClaseIds) ? o.tiposClaseIds.filter((t): t is string => typeof t === 'string') : [],
+    };
+  } catch {
+    return null;
   }
 }

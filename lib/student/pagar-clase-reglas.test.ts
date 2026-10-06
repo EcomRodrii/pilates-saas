@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  esperaAntesDeConsultar, leerInicioPagoClase, leerOpcionesClase, leerReservaPagada, textoCompensacion,
+  esperaAntesDeConsultar, leerInicioPagoClase, leerOpcionesClase, leerReservaPagada, leerReservaPrueba, textoCompensacion,
 } from './pagar-clase-reglas.ts';
 import { RETARDOS_POLL_MS } from '../billing/estado-pago-publico.ts';
 
@@ -100,4 +100,26 @@ test('compensación: dice la posición real, lo que tiene a su favor y «el estu
     assert.ok(x.titulo && x.cuerpo, motivo);
     assert.doesNotMatch(x.titulo, /Reservada/, `${motivo}: nunca dice «Reservada»`);
   }
+});
+
+test('P07: la prueba va primera; la gratis vale sin pagos online y sin importe mínimo', () => {
+  const prueba = opcion({ tipo: 'prueba', planId: 'p-prueba', nombre: 'Tu primera clase', importe: 0, gratis: true });
+  const r = leerOpcionesClase(200, { pagosOnline: false, plaza: { ok: true }, opciones: [prueba, opcion()] });
+  assert.equal(r.tipo, 'opciones');
+  if (r.tipo === 'opciones') assert.deepEqual(r.opciones.map((o) => o.planId), ['p-prueba'], 'sin pagos online, solo la gratis');
+  const pago = leerOpcionesClase(200, { pagosOnline: true, plaza: { ok: true }, opciones: [opcion({ tipo: 'prueba', planId: 'p-16', importe: 16 }), opcion()] });
+  if (pago.tipo === 'opciones') assert.deepEqual(pago.opciones.map((o) => o.planId), ['p-16', 'p-suelta']);
+  assert.deepEqual(leerOpcionesClase(200, { pagosOnline: false, plaza: { ok: true }, opciones: [opcion()] }), { tipo: 'sin-pago-online', precioEspecial: false });
+});
+
+test('P07 gratis: confirmada solo con ok+CONFIRMADA; los rechazos de la prueba aparte de los de la reserva', () => {
+  assert.deepEqual(leerReservaPrueba(200, { ok: true, estado: 'CONFIRMADA' }), { tipo: 'confirmada' });
+  assert.deepEqual(leerReservaPrueba(200, { ok: true, estado: 'LISTA_ESPERA', posicionEspera: 2 }), { tipo: 'lista_espera', posicion: 2 });
+  assert.equal(leerReservaPrueba(200, { ok: true, estado: 'RARO' }).tipo, 'error');
+  assert.deepEqual(leerReservaPrueba(409, { codigo: 'prueba-no-cubre', error: 'La clase de prueba no sirve para esta clase.' }),
+    { tipo: 'rechazo-prueba', codigo: 'prueba-no-cubre', mensaje: 'La clase de prueba no sirve para esta clase.' });
+  assert.deepEqual(leerReservaPrueba(400, { codigo: 'aforo-lleno', error: 'Clase completa' }), { tipo: 'rechazo', mensaje: 'Clase completa' });
+  const e = leerReservaPrueba(500, { error: 'stack', codigo: 'error' });
+  assert.equal(e.tipo, 'error');
+  assert.deepEqual(leerReservaPrueba(401, {}), { tipo: 'sesion' });
 });

@@ -28,7 +28,8 @@ import { ahorroPorcentaje } from './ahorro-plan.ts';
 export const IMPORTE_MINIMO_EUR = 0.5;
 
 export interface OpcionDeClase {
-  tipo: 'suelta' | 'bono';
+  /** `prueba`: la clase de prueba de quien nunca ha venido (P07). Solo la añade el servidor (`opciones-clase`). */
+  tipo: 'suelta' | 'bono' | 'prueba';
   planId: string;
   nombre: string;
   /** Lo que cuesta el plan (sin código ni matrícula: eso lo suma el servidor al cobrar). */
@@ -45,6 +46,21 @@ export interface OpcionDeClase {
   quedanTrasEsta: number;
   /** Por debajo del mínimo de Stripe: se enseña, pero no se puede pagar online. */
   noPagable?: boolean;
+  /** Solo la prueba: a 0 € no se paga, se reserva con `pruebaPlanId` («Reservar gratis»). */
+  gratis?: boolean;
+}
+
+/**
+ * La clase de prueba como una opción más, la PRIMERA (P07). Solo para quien el servidor considera nueva
+ * (`pruebaParaSocia`) y si cubre el tipo de la clase: eso lo decide quien llama.
+ */
+export function opcionDePrueba(o: { planId: string; nombre: string; precio: number; gratis: boolean }): OpcionDeClase {
+  const importe = redondear(Number(o.precio));
+  return {
+    tipo: 'prueba', planId: o.planId, nombre: o.nombre, importe, sesiones: 1, precioPorClase: importe,
+    validezDias: null, quedanTrasEsta: 0,
+    ...(o.gratis ? { gratis: true } : importe < IMPORTE_MINIMO_EUR ? { noPagable: true } : {}),
+  };
 }
 
 export interface OpcionesDeClase {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   puedeEstrenarPrueba, rechazoCompraPrueba, concederClasePruebaGratis, idSuscripcionPrueba,
+  elegirPlanPrueba, pruebaParaSocia, pruebaCubreTipo,
 } from './clase-prueba.ts';
 
 // Cliente falso: cada consulta encadenada acaba en `responder(tabla, op, filtros)`.
@@ -191,4 +192,62 @@ test('una socia con historial no la estrena', async () => {
   const r = await concederClasePruebaGratis(admin, base);
   assert.equal(!r.ok && r.codigo, 'prueba-no-disponible');
   assert.equal(llamadas.filter(l => l.op === 'insert').length, 0);
+});
+
+// ── P07: prueba a medio pagar en otra clase, y la oferta para una socia ───────
+
+test('⚠️ prueba de pago con otra prueba viva (ABIERTO/PAGADO) en OTRA clase: 409 prueba-en-curso', async () => {
+  const { admin, llamadas } = falso((l) => {
+    if (l.tabla === 'pagos_clase') return { data: [{ plan_id: 'p-prueba' }] };
+    if (l.tabla === 'planes_tarifa') return { data: [{ id: 'p-prueba' }] };
+    return historial({})(l);
+  });
+  const r = await rechazoCompraPrueba(admin, { studioId: 'st', plan: { es_prueba: true, precio: 12 }, socioId: 'soc-1', email: null, sesionId: 's2' });
+  assert.equal(r?.codigo, 'prueba-en-curso');
+  const pc = llamadas.find((l) => l.tabla === 'pagos_clase');
+  assert.deepEqual(pc?.filtros, { studio_id: 'st', pagador: 'soc-1', 'estado[]': ['ABIERTO', 'PAGADO'], 'sesion_id!=': 's2' });
+});
+
+test('el pago vivo de un plan normal en otra clase no cuenta; sin tabla (42P01), tampoco; otro error, fail-closed', async () => {
+  const normal = falso((l) => (l.tabla === 'pagos_clase' ? { data: [{ plan_id: 'p-bono' }] } : l.tabla === 'planes_tarifa' ? { data: [] } : historial({})(l)));
+  assert.equal(await rechazoCompraPrueba(normal.admin, { studioId: 'st', plan: { es_prueba: true, precio: 12 }, socioId: 'soc-1', email: null, sesionId: 's2' }), null);
+  const sinTabla = falso((l) => (l.tabla === 'pagos_clase' ? { error: { code: '42P01' } } : historial({})(l)));
+  assert.equal(await rechazoCompraPrueba(sinTabla.admin, { studioId: 'st', plan: { es_prueba: true, precio: 12 }, socioId: 'soc-1', email: null, sesionId: 's2' }), null);
+  const roto = falso((l) => (l.tabla === 'pagos_clase' ? { error: { code: 'XX000' } } : historial({})(l)));
+  const r = await rechazoCompraPrueba(roto.admin, { studioId: 'st', plan: { es_prueba: true, precio: 12 }, socioId: 'soc-1', email: null, sesionId: 's2' });
+  assert.equal(r?.status, 409);
+});
+
+test('elegirPlanPrueba: el activo más barato, desempate por id; ignora los que no son prueba o están inactivos', () => {
+  const p = (id: string, precio: number, o: Record<string, unknown> = {}) => ({ id, precio, activo: true, es_prueba: true, ...o });
+  assert.equal(elegirPlanPrueba([p('b', 16), p('a', 16), p('c', 20)])?.id, 'a');
+  assert.equal(elegirPlanPrueba([p('x', 5, { activo: false }), p('y', 1, { es_prueba: false }), p('z', 9)])?.id, 'z');
+  assert.equal(elegirPlanPrueba([]), null);
+  assert.equal(elegirPlanPrueba([p('g', 0)])?.id, 'g', 'la gratis también vale');
+});
+
+test('pruebaParaSocia: oferta con sus tipos; precio 0 = gratis', async () => {
+  const { admin } = falso((l) => {
+    if (l.tabla === 'planes_tarifa') return { data: [{ id: 'p1', nombre: 'Tu primera clase', precio: 0, activo: true, es_prueba: true }] };
+    if (l.tabla === 'plan_tipos_clase') return { data: [{ tipo_clase_id: 'tc-r' }] };
+    return historial({})(l);
+  });
+  assert.deepEqual(await pruebaParaSocia(admin, 'st', 'soc-1'), { planId: 'p1', nombre: 'Tu primera clase', precio: 0, gratis: true, tiposClaseIds: ['tc-r'] });
+});
+
+test('pruebaParaSocia: con historial, sin plan de prueba o con un error → null (sin plan, ni mira el historial)', async () => {
+  const conHistorial = falso((l) => (l.tabla === 'planes_tarifa' ? { data: [{ id: 'p1', nombre: 'P', precio: 16, activo: true, es_prueba: true }] } : historial({ res: 1 })(l)));
+  assert.equal(await pruebaParaSocia(conHistorial.admin, 'st', 'soc-1'), null);
+  const sinPlan = falso((l) => (l.tabla === 'planes_tarifa' ? { data: [] } : historial({})(l)));
+  assert.equal(await pruebaParaSocia(sinPlan.admin, 'st', 'soc-1'), null);
+  assert.ok(!sinPlan.llamadas.some((l) => l.tabla === 'reservas'));
+  const roto = falso((l) => (l.tabla === 'planes_tarifa' ? { error: { message: 'boom' } } : historial({})(l)));
+  assert.equal(await pruebaParaSocia(roto.admin, 'st', 'soc-1'), null);
+});
+
+test('pruebaCubreTipo: sin tipos, todas; con tipos, solo esos', () => {
+  assert.equal(pruebaCubreTipo({ tiposClaseIds: [] }, 'tc-x'), true);
+  assert.equal(pruebaCubreTipo({ tiposClaseIds: ['tc-r'] }, 'tc-r'), true);
+  assert.equal(pruebaCubreTipo({ tiposClaseIds: ['tc-r'] }, 'tc-m'), false);
+  assert.equal(pruebaCubreTipo({ tiposClaseIds: ['tc-r'] }, null), false);
 });

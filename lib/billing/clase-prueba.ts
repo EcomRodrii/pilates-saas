@@ -27,6 +27,7 @@ import { escaparLike } from '../escapar-like.ts';
 import { cicloInicialDe } from '../bono-logic.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import type { PlanTarifa } from '../types.ts';
+import { quienPaga } from './clave-checkout-embebido.ts';
 
 const YA_EXISTIA = '23505';
 
@@ -83,7 +84,7 @@ async function sinHistorial(admin: SupabaseClient, studioId: string, ids: string
 export interface RechazoPrueba {
   status: 400 | 409;
   error: string;
-  codigo: 'prueba-sin-clase' | 'prueba-gratis' | 'prueba-no-disponible';
+  codigo: 'prueba-sin-clase' | 'prueba-gratis' | 'prueba-no-disponible' | 'prueba-en-curso';
 }
 
 /**
@@ -108,7 +109,79 @@ export async function rechazoCompraPrueba(admin: SupabaseClient, p: {
   if (!(await puedeEstrenarPrueba(admin, p.studioId, p.socioId, p.email))) {
     return { status: 409, codigo: 'prueba-no-disponible', error: 'La clase de prueba es solo para tu primera visita al estudio.' };
   }
+  // P07: una prueba a medio pagar en OTRA clase (pagos_clase vivo). Sin esto, dos pestañas pagaban dos pruebas:
+  // la nueva «sigue siendo nueva» hasta que el webhook entrega la primera. En la MISMA clase no se corta aquí: ese
+  // reintento lo resuelve el pago vivo (`prepararPagoDeClase`), que reutiliza o cancela el anterior.
+  const enCurso = await pruebaEnCursoEnOtraClase(admin, p.studioId, quienPaga(p.socioId, p.email ?? null), p.sesionId);
+  if (enCurso !== 'no') {
+    return enCurso === 'si'
+      ? { status: 409, codigo: 'prueba-en-curso', error: 'Ya tienes tu clase de prueba a medio pagar en otra clase. No te hemos cobrado nada.' }
+      : { status: 409, codigo: 'prueba-no-disponible', error: 'No hemos podido comprobar tu clase de prueba. Inténtalo en un momento: no te hemos cobrado nada.' };
+  }
   return null;
+}
+
+/** ¿Tiene un pago de prueba vivo (ABIERTO/PAGADO) en otra clase? Fail-closed: un error es «no se sabe». */
+async function pruebaEnCursoEnOtraClase(
+  admin: SupabaseClient, studioId: string, pagador: string, sesionId: string,
+): Promise<'si' | 'no' | 'no-se-sabe'> {
+  const { data, error } = await admin.from('pagos_clase').select('plan_id')
+    .eq('studio_id', studioId).eq('pagador', pagador).in('estado', ['ABIERTO', 'PAGADO']).neq('sesion_id', sesionId);
+  if (error) return error.code === '42P01' ? 'no' : 'no-se-sabe'; // tabla aún sin aplicar: no hay pagos de clase
+  const planes = [...new Set(((data ?? []) as { plan_id: string }[]).map((f) => f.plan_id))];
+  if (planes.length === 0) return 'no';
+  const { data: pruebas, error: e2 } = await admin.from('planes_tarifa').select('id')
+    .eq('studio_id', studioId).in('id', planes).eq('es_prueba', true);
+  if (e2) return 'no-se-sabe';
+  return ((pruebas ?? []) as unknown[]).length > 0 ? 'si' : 'no';
+}
+
+// ── La oferta para UNA socia (P07) ───────────────────────────────────────────
+
+export interface OfertaPrueba {
+  planId: string;
+  nombre: string;
+  precio: number;
+  /** Precio 0: no pasa por Stripe, se reserva con `pruebaPlanId` (`concederClasePruebaGratis`). */
+  gratis: boolean;
+  /** Tipos de clase que cubre; vacío = todas. */
+  tiposClaseIds: string[];
+}
+
+/** De los planes de prueba activos, el más barato; a igual precio, el de id menor (determinista). */
+export function elegirPlanPrueba<T extends { id: string; precio: number | string; activo?: boolean | null; es_prueba?: boolean | null }>(
+  planes: readonly T[],
+): T | null {
+  const vivos = planes.filter((p) => p.es_prueba === true && p.activo !== false && Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0);
+  vivos.sort((a, b) => Number(a.precio) - Number(b.precio) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return vivos[0] ?? null;
+}
+
+/**
+ * La clase de prueba que ESTA socia puede estrenar, o `null`. El mismo dueño que
+ * las puertas de cobro (`puedeEstrenarPrueba`), y fail-closed: cualquier error es
+ * `null` (no se ofrece). Sin plan de prueba activo no se mira el historial.
+ */
+export async function pruebaParaSocia(admin: SupabaseClient, studioId: string, socioId: string): Promise<OfertaPrueba | null> {
+  const { data, error } = await admin.from('planes_tarifa').select('id, nombre, precio, activo, es_prueba')
+    .eq('studio_id', studioId).eq('es_prueba', true).eq('activo', true);
+  if (error) return null;
+  const plan = elegirPlanPrueba((data ?? []) as { id: string; nombre: string; precio: number; activo: boolean; es_prueba: boolean }[]);
+  if (!plan) return null;
+  if (!(await puedeEstrenarPrueba(admin, studioId, socioId, null))) return null;
+  const { data: tipos, error: errTipos } = await admin.from('plan_tipos_clase').select('tipo_clase_id')
+    .eq('studio_id', studioId).eq('plan_id', plan.id);
+  if (errTipos) return null;
+  const precio = Number(plan.precio);
+  return {
+    planId: plan.id, nombre: plan.nombre, precio, gratis: precio === 0,
+    tiposClaseIds: ((tipos ?? []) as { tipo_clase_id: string }[]).map((t) => t.tipo_clase_id),
+  };
+}
+
+/** ¿La oferta sirve para una clase de este tipo? Sin tipos marcados, para todas (como `planCubreTipo`). */
+export function pruebaCubreTipo(o: Pick<OfertaPrueba, 'tiposClaseIds'>, tipoClaseId: string | null): boolean {
+  return o.tiposClaseIds.length === 0 || (!!tipoClaseId && o.tiposClaseIds.includes(tipoClaseId));
 }
 
 export type ResultadoPruebaGratis =

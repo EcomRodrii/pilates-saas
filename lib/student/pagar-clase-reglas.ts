@@ -56,13 +56,16 @@ export function leerOpcionesClase(status: number, cuerpo: unknown): LecturaOpcio
       posicionEspera: typeof c.rechazo.posicionEspera === 'number' ? c.rechazo.posicionEspera : null,
     };
   }
-  if (c.pagosOnline !== true || c.precioEspecial === true) return { tipo: 'sin-pago-online', precioEspecial: c.precioEspecial === true };
-  const opciones = (Array.isArray(c.opciones) ? c.opciones : [])
+  if (c.precioEspecial === true) return { tipo: 'sin-pago-online', precioEspecial: true };
+  const validas = (Array.isArray(c.opciones) ? c.opciones : [])
     .filter((o): o is OpcionDeClase => !!o && typeof o === 'object' && typeof (o as OpcionDeClase).planId === 'string'
       && typeof (o as OpcionDeClase).importe === 'number')
-    // Por debajo del mínimo de Stripe no se ofrece (el servidor lo rechazaría).
-    .filter((o) => !o.noPagable && o.importe >= IMPORTE_MINIMO_EUR)
-    .slice(0, 3);
+    // La prueba gratis no pasa por Stripe (P07): vale aunque el estudio no cobre online.
+    .filter((o) => (o.tipo === 'prueba' && o.gratis === true) || c.pagosOnline === true)
+    // Por debajo del mínimo de Stripe no se ofrece (el servidor lo rechazaría); la gratis no se paga.
+    .filter((o) => (o.tipo === 'prueba' && o.gratis === true) || (!o.noPagable && o.importe >= IMPORTE_MINIMO_EUR));
+  // La prueba (si la hay) primera, y después como mucho tres formas de venir.
+  const opciones = [...validas.filter((o) => o.tipo === 'prueba').slice(0, 1), ...validas.filter((o) => o.tipo !== 'prueba').slice(0, 3)];
   if (opciones.length === 0) return { tipo: 'sin-pago-online', precioEspecial: false };
   return { tipo: 'opciones', opciones };
 }
@@ -193,4 +196,37 @@ export function textoCompensacion(
     default:
       return { titulo: 'Pago hecho, pero no hemos podido darte la plaza', cuerpo: `${aFavor.trim()}${avisado || ' Escribe al estudio y te lo resuelven.'}` };
   }
+}
+
+// ── P07: la clase de prueba GRATIS (no pasa por Stripe) ─────────────────────
+
+export type LecturaReservaPrueba =
+  | { tipo: 'confirmada' }
+  /** Sin plaza: entra en la espera; su clase de prueba sigue disponible (la reserva en espera no la gasta). */
+  | { tipo: 'lista_espera'; posicion: number | null }
+  /** La prueba no vale aquí (no cubre la clase, ya no es su primera visita…): las demás opciones siguen. */
+  | { tipo: 'rechazo-prueba'; codigo: string; mensaje: string }
+  /** Rechazo de la reserva (llena sin espera, horario…): su texto. La prueba, si se concedió, sigue disponible. */
+  | { tipo: 'rechazo'; mensaje: string }
+  | { tipo: 'sesion' }
+  | { tipo: 'dos-pasos' }
+  | { tipo: 'error'; mensaje: string };
+
+export function leerReservaPrueba(status: number, cuerpo: unknown): LecturaReservaPrueba {
+  const c = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as {
+    ok?: unknown; estado?: unknown; posicionEspera?: unknown; error?: unknown; codigo?: unknown;
+  };
+  const s = deSesion(status, c);
+  if (s) return s;
+  if (status >= 200 && status < 300 && c.ok === true) {
+    if (c.estado === 'CONFIRMADA') return { tipo: 'confirmada' };
+    if (c.estado === 'LISTA_ESPERA') return { tipo: 'lista_espera', posicion: typeof c.posicionEspera === 'number' ? c.posicionEspera : null };
+    return { tipo: 'error', mensaje: 'No hemos podido confirmar tu reserva. Mira «Mis reservas» antes de volver a intentarlo.' };
+  }
+  const mensaje = typeof c.error === 'string' && c.error ? c.error : null;
+  if (status >= 400 && status < 500 && typeof c.codigo === 'string' && c.codigo.startsWith('prueba-')) {
+    return { tipo: 'rechazo-prueba', codigo: c.codigo, mensaje: mensaje ?? 'Esta oferta no sirve para esta clase.' };
+  }
+  if (status >= 400 && status < 500 && mensaje) return { tipo: 'rechazo', mensaje };
+  return { tipo: 'error', mensaje: 'No hemos podido reservar tu clase de prueba. Inténtalo en un momento.' };
 }

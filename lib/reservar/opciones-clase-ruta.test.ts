@@ -32,12 +32,32 @@ test('lo que el cobro mira, aquí también: modo de Stripe, suscripción del est
   assert.ok(pos(".eq('estado', 'PAGADO')") < pos('comprobarPlazaAntesDeCobrar(admin'));
 });
 
-test('sin plaza o sin pagos online, ninguna opción de pago', () => {
-  assert.match(f, /opciones: plaza\.ok && pagosOnline \? opciones : \[\]/);
+test('sin plaza, ninguna opción; sin pagos online, solo la prueba gratis', () => {
+  assert.match(f, /opciones: plaza\.ok \? \[\.\.\.opcionPrueba, \.\.\.\(pagosOnline \? opciones : \[\]\)\] : \[\]/);
+  assert.match(f, /\(prueba\.gratis \|\| pagosOnline\)/);
+});
+
+test('P07: la prueba sale del mismo dueño que el cobro y solo si cubre el tipo', () => {
+  assert.ok(pos('pruebaParaSocia(admin, studioId, socioId)') > pos('comprobarPlazaAntesDeCobrar(admin'));
+  pos('pruebaCubreTipo(prueba, tipoClaseId)');
 });
 
 test('solo lectura: ni Stripe, ni escrituras', () => {
   assert.doesNotMatch(f, /new Stripe\(|stripe\./);
   assert.doesNotMatch(f, /\.(insert|update|upsert|delete)\(/);
   assert.doesNotMatch(f, /\.rpc\(/);
+});
+
+test('P07 · GET /api/public/prueba: límite, sesión con su segundo paso, la socia del token, y solo lectura', () => {
+  const g = sinComentarios(readFileSync(join(raiz, 'app/api/public/prueba/route.ts'), 'utf8'));
+  const p = (x: string) => {
+    const i = g.indexOf(x);
+    assert.ok(i >= 0, `falta «${x}»`);
+    return i;
+  };
+  assert.ok(p("enforceRateLimit(req, 'prueba-app'") < p('usuarioSupabaseConPaso(req)'));
+  assert.ok(p("r.paso === 'doble_factor'") < p('socioAutenticado(r.usuario.userId, studioId)'));
+  assert.ok(p('socioAutenticado(r.usuario.userId, studioId)') < p('pruebaParaSocia(admin, studioId, socioId)'));
+  assert.doesNotMatch(g, /\.(insert|update|upsert|delete|rpc)\(/);
+  assert.match(g, /catch \{\s*return json\(\{ disponible: false \}\)/, 'fail-closed');
 });

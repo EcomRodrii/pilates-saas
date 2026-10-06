@@ -8,7 +8,7 @@ import { Sello } from '@/components/student/ui/Sello';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { MODO_TOKENS } from '@/lib/portal-paleta';
 import { clavePublicableStripe } from '@/lib/student/comprar';
-import { esperarReservaDePago, iniciarPagoDeClase, pedirOpcionesClase, type DesenlacePagoClase } from '@/lib/student/pagar-clase';
+import { esperarReservaDePago, iniciarPagoDeClase, pedirOpcionesClase, reservarPruebaGratis, type DesenlacePagoClase } from '@/lib/student/pagar-clase';
 import { REINTENTOS_PREPARANDOSE, textoCompensacion } from '@/lib/student/pagar-clase-reglas';
 import { piDeClientSecret } from '@/lib/billing/estado-pago-publico';
 import { euros, fechaLarga } from '@/lib/student/formato';
@@ -33,7 +33,8 @@ import type { PlanTarifa } from '@/lib/types';
 
 type Fase =
   | { fase: 'comprobando' }
-  | { fase: 'elegir'; opciones: OpcionDeClase[] }
+  /** `aviso`: el servidor dijo que la prueba no vale aquí; las demás opciones siguen a la vista (P07). */
+  | { fase: 'elegir'; opciones: OpcionDeClase[]; aviso?: string }
   | { fase: 'no-se-puede'; titulo: string; mensaje: string; impago?: boolean }
   | { fase: 'preparando'; opciones: OpcionDeClase[] }
   | { fase: 'pagando'; opciones: OpcionDeClase[]; plan: PlanTarifa; clientSecret: string; importe: number; descuento: number; matricula: number }
@@ -41,10 +42,17 @@ type Fase =
   | { fase: 'resuelto'; desenlace: DesenlacePagoClase }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean; opciones?: OpcionDeClase[] };
 
-const nombreOpcion = (o: OpcionDeClase) => (o.tipo === 'suelta' ? 'Solo esta clase' : o.nombre);
+const nombreOpcion = (o: OpcionDeClase) => (o.tipo === 'suelta' ? 'Solo esta clase' : o.tipo === 'prueba' ? 'Tu primera clase' : o.nombre);
 const detalleOpcion = (o: OpcionDeClase) => (o.tipo === 'suelta'
   ? 'Pagas esta clase y ya está'
-  : `${o.sesiones} clases · ${euros(o.precioPorClase)}/clase · esta y ${o.quedanTrasEsta === 1 ? '1 más' : `${o.quedanTrasEsta} más`}${o.ahorroPct ? ` · ahorras un ${o.ahorroPct} %` : ''}`);
+  : o.tipo === 'prueba'
+    ? (o.gratis ? 'Tu primera clase es gratis. Solo una vez por persona' : 'Una clase, la que elijas. Solo una vez por persona')
+    : `${o.sesiones} clases · ${euros(o.precioPorClase)}/clase · esta y ${o.quedanTrasEsta === 1 ? '1 más' : `${o.quedanTrasEsta} más`}${o.ahorroPct ? ` · ahorras un ${o.ahorroPct} %` : ''}`);
+const precioOpcion = (o: OpcionDeClase) => (o.gratis ? 'Gratis' : euros(o.importe));
+/** El plan que pinta el checkout: el del catálogo, o uno mínimo con lo que dijo el servidor (la prueba no sale en la tienda). */
+const planDeOpcion = (planes: readonly PlanTarifa[], o: OpcionDeClase, studioId: string): PlanTarifa =>
+  planes.find((p) => p.id === o.planId)
+  ?? ({ id: o.planId, studioId, nombre: o.tipo === 'prueba' ? 'Tu primera clase' : o.nombre, tipo: 'PUNTUAL', precio: o.importe, sesiones: o.sesiones, activo: true } as unknown as PlanTarifa);
 
 export function HojaPagarYReservar({
   studioId, socioId, clase, spotId, planes, stripeAccountId, textosLegales, onCerrar, onReservada,
@@ -145,9 +153,40 @@ export function HojaPagarYReservar({
   // 2. «Continuar»: el cobro. El estado de carga se enciende ANTES de la petición.
   const continuar = useCallback(async (opciones: OpcionDeClase[]) => {
     const op = opciones.find((o) => o.planId === elegida);
-    const plan = planes.find((p) => p.id === op?.planId);
-    if (!op || !plan) return;
+    if (!op) return;
+    const plan = planDeOpcion(planes, op, studioId);
     setEstado({ fase: 'preparando', opciones });
+    if (op.tipo === 'prueba' && op.gratis) {
+      // P07: la prueba gratis no pasa por Stripe: la reserva de siempre con `pruebaPlanId`.
+      const g = await reservarPruebaGratis({ studioId, sesionId: clase.id, spotId, pruebaPlanId: op.planId });
+      if (!viva.current) return;
+      switch (g.tipo) {
+        case 'confirmada':
+          onReservada();
+          setEstado({ fase: 'resuelto', desenlace: { tipo: 'confirmada', clase: null } });
+          return;
+        case 'lista_espera':
+          setEstado({ fase: 'resuelto', desenlace: { tipo: 'prueba-en-espera', posicion: g.posicion } });
+          return;
+        case 'rechazo-prueba': {
+          const resto = opciones.filter((o) => o.tipo !== 'prueba');
+          if (resto.length === 0) { setEstado({ fase: 'no-se-puede', titulo: 'Tu primera clase', mensaje: g.mensaje }); return; }
+          setElegida(resto[0].planId);
+          setEstado({ fase: 'elegir', opciones: resto, aviso: g.mensaje });
+          return;
+        }
+        case 'rechazo':
+          setEstado({ fase: 'no-se-puede', titulo: 'No hemos podido reservarla', mensaje: g.mensaje });
+          return;
+        case 'dos-pasos': onSegundoPaso(); return;
+        case 'sesion':
+          setEstado({ fase: 'error', mensaje: 'Tu sesión ha caducado. Vuelve a entrar.', sesionCaducada: true });
+          return;
+        default:
+          setEstado({ fase: 'error', mensaje: g.mensaje, opciones });
+      }
+      return;
+    }
     let r = await iniciarPagoDeClase({
       studioId, planId: op.planId, socioId, sesionId: clase.id, spotId, codigoDescuento: null,
       aceptaCondiciones: textosLegales ? acepta : true,
@@ -173,10 +212,18 @@ export function HojaPagarYReservar({
         if (r.pi) { void confirmar(r.pi); return; }
         setEstado({ fase: 'error', mensaje: r.mensaje, opciones });
         return;
-      case 'rechazo':
+      case 'rechazo': {
+        // P07: la prueba no vale (ya no es su primera visita, otra a medio pagar…): las demás opciones siguen.
+        const resto = opciones.filter((o) => o.tipo !== 'prueba');
+        if (r.codigo?.startsWith('prueba-') && resto.length > 0) {
+          setElegida(resto[0].planId);
+          setEstado({ fase: 'elegir', opciones: resto, aviso: r.mensaje });
+          return;
+        }
         // La plaza ya no está, o algo cambió: lo que diga el servidor, y nada de pago.
         setEstado({ fase: 'no-se-puede', titulo: 'No hemos podido cobrarte', mensaje: r.mensaje, impago: r.codigo === 'impago' });
         return;
+      }
       case 'preparandose':
         setEstado({ fase: 'error', mensaje: 'Estamos preparando tu pago. Inténtalo en un momento: no se te ha cobrado nada.', opciones });
         return;
@@ -192,7 +239,7 @@ export function HojaPagarYReservar({
       default:
         setEstado({ fase: 'error', mensaje: r.mensaje, opciones });
     }
-  }, [elegida, planes, studioId, socioId, clase.id, spotId, textosLegales, acepta, confirmar, onSegundoPaso]);
+  }, [elegida, planes, studioId, socioId, clase.id, spotId, textosLegales, acepta, confirmar, onSegundoPaso, onReservada]);
 
   const sinCobro = !stripeAccountId || !publishableKey;
   const bloqueada = estado.fase === 'preparando' || estado.fase === 'confirmando' || confirmandoStripe;
@@ -226,16 +273,19 @@ export function HojaPagarYReservar({
               </div>
             </>
           ) : estado.fase === 'elegir' || estado.fase === 'preparando' ? (
-            sinCobro ? (
+            sinCobro && !estado.opciones.some((o) => o.gratis) ? (
               <>
                 <p className="t-meta">Este estudio todavía no tiene los pagos activados en la app. Escríbeles y te lo resuelven.</p>
                 <Button variant="secondary" full onClick={onCerrar} style={{ marginTop: 14 }}>Entendido</Button>
               </>
             ) : (
               <>
+                {estado.fase === 'elegir' && estado.aviso && (
+                  <p role="status" className="note note--warn" data-testid="aviso-prueba" style={{ marginBottom: 'var(--s-3)' }}>{estado.aviso}</p>
+                )}
                 <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Cómo vienes</p>
                 <div role="radiogroup" aria-label="Cómo vienes a esta clase" className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                  {estado.opciones.map((o) => (
+                  {estado.opciones.filter((o) => o.gratis || !sinCobro).map((o) => (
                     <label
                       key={o.planId}
                       className="card card--pad"
@@ -250,11 +300,11 @@ export function HojaPagarYReservar({
                         <span style={{ display: 'block', fontWeight: 800 }}>{nombreOpcion(o)}</span>
                         <span className="t-meta">{detalleOpcion(o)}</span>
                       </span>
-                      <span className="t-num no-shrink" style={{ fontWeight: 800 }}>{euros(o.importe)}</span>
+                      <span className="t-num no-shrink" style={{ fontWeight: 800 }}>{precioOpcion(o)}</span>
                     </label>
                   ))}
                 </div>
-                {textosLegales && (
+                {textosLegales && !estado.opciones.find((o) => o.planId === elegida)?.gratis && (
                   <label className="t-small" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 'var(--s-3)' }}>
                     <input type="checkbox" checked={acepta} disabled={estado.fase === 'preparando'} onChange={(e) => setAcepta(e.target.checked)} />
                     <span>Acepto las condiciones y la política de privacidad del estudio.</span>
@@ -269,11 +319,13 @@ export function HojaPagarYReservar({
                     <Button
                       full
                       loading={estado.fase === 'preparando'}
-                      disabled={!op || (!!textosLegales && !acepta)}
+                      disabled={!op || (!!textosLegales && !op.gratis && !acepta)}
                       onClick={() => void continuar(estado.opciones)}
                       style={{ marginTop: 'var(--s-3)' }}
                     >
-                      {estado.fase === 'preparando' ? 'Comprobando tu plaza…' : `Continuar · ${op ? euros(op.importe) : ''}`}
+                      {estado.fase === 'preparando'
+                        ? (op?.gratis ? 'Reservando…' : 'Comprobando tu plaza…')
+                        : op?.gratis ? 'Reservar gratis' : `Continuar · ${op ? euros(op.importe) : ''}`}
                     </Button>
                   );
                 })()}
@@ -350,6 +402,10 @@ function Desenlace({ d, clase, onCerrar, hrefMisReservas, hrefMensajes }: {
     case 'pendiente_aprobacion': titulo = 'Tu reserva espera al estudio'; cuerpo = 'En esta clase el estudio aprueba cada reserva. Te avisamos en cuanto conteste.'; break;
     case 'ya_tenia_plaza': titulo = 'Ya tenías esta clase'; cuerpo = 'No te hemos reservado otra plaza. Lo que has pagado queda a tu favor.'; break;
     case 'reembolsada': titulo = 'El estudio te ha devuelto el dinero'; cuerpo = 'Este pago ya no cuenta para esta clase.'; break;
+    case 'prueba-en-espera':
+      titulo = d.posicion ? `Estás la ${d.posicion}.ª en la lista de espera` : 'Estás en la lista de espera';
+      cuerpo = 'La clase está llena. Si se libera una plaza te avisamos, y tu clase de prueba sigue disponible para otra clase.';
+      break;
     case 'fallida': titulo = 'Pago hecho, pero sin plaza'; cuerpo = 'No hemos podido darte la plaza. El estudio ya lo sabe y te lo resuelve.'; break;
     default:
       // Se agotó la espera: el pago está, la plaza se está confirmando. Nunca un ✓ ni «vuelve a pagar».
