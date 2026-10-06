@@ -8,8 +8,10 @@ import { DescargarMisDatos, SolicitudesDerechos } from '@/components/student/dom
 import { ConsentimientoSaludPerfil } from '@/components/student/domain/ConsentimientoSaludPerfil';
 import { Skeleton } from '@/components/student/ui/States';
 import { BorrarCuenta } from '@/components/student/domain/BorrarCuenta';
+import { PersonasBloqueadas } from '@/components/student/domain/PersonasBloqueadas';
 import { useAsync } from '@/lib/student/useAsync';
 import { leerConsentimientoSalud } from '@/lib/student/consentimiento-salud';
+import { fetchPersonasBloqueadas } from '@/lib/student/bloqueos';
 
 // Privacidad y datos: los derechos RGPD de la alumna, fuera del Perfil.
 //
@@ -30,7 +32,11 @@ export default function PrivacidadPage() {
   // durante la carga acababa en otra acción. Descargar va arriba y no se mueve,
   // así que se pinta ya.
   const cargarSalud = useCallback(() => leerConsentimientoSalud(estudio.id), [estudio.id]);
-  const { data: salud, estado } = useAsync(cargarSalud, () => false);
+  const { data: salud, estado: estadoSalud } = useAsync(cargarSalud, () => false);
+  // Lo mismo con «Personas bloqueadas»: se pide aquí y se pinta con lo demás.
+  const cargarBloqueos = useCallback(() => fetchPersonasBloqueadas(estudio.id), [estudio.id]);
+  const { data: bloqueos, estado: estadoBloqueos } = useAsync(cargarBloqueos, () => false);
+  const estado = estadoSalud === 'loading' || estadoBloqueos === 'loading' ? 'loading' : estadoSalud;
 
   return (
     <StudentShell>
@@ -49,6 +55,8 @@ export default function PrivacidadPage() {
             {salud && salud.estado !== 'NO_CONSTA' && (
               <ConsentimientoSaludPerfil inicial={salud} studioId={estudio.id} nombreEstudio={estudio.nombre} hrefMensajes={href('/mensajes')} />
             )}
+            {/* A quién bloqueó en el tablón o en sus mensajes (App Store 1.2): aquí se desbloquea. */}
+            <PersonasBloqueadas studioId={estudio.id} data={bloqueos ?? null} />
             <SolicitudesDerechos slug={estudio.slug} nombreEstudio={estudio.nombre} />
             {/* Lo último: borrar la CUENTA de Tentare (App Store 5.1.1(v)), que no es
                 pedir al estudio que borre sus datos (justo encima). */}

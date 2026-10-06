@@ -24,6 +24,7 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { enviarAvisoEstudioVencido, enviarConfirmacionBorrado } from '@/lib/emails/estudio-vencido-server';
 import { borrarPrefijoR2, r2Configurado } from '@/lib/r2';
+import { BUCKET_COMUNIDAD } from '@/lib/comunidad/foto';
 import {
   cicloDelEstudio, debeRecalcularInforme, mismaAncla, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseCiclo, type FaseRegistrada, type MotivoCiclo,
@@ -105,12 +106,15 @@ async function purgaEnBd(admin: SupabaseClient, studioId: string, ejecutar: bool
 }
 
 /**
- * Ficheros fuera de la BD: documentos de socia (bucket privado) y avatares
- * (ruta = id de la socia, mismo criterio que app/api/socios/eliminar). Antes que
- * la RPC: si esto falla, se aborta y la BD sigue intacta para reintentar; al
+ * Ficheros fuera de la BD: documentos de socia (bucket privado), avatares
+ * (ruta = id de la socia, mismo criterio que app/api/socios/eliminar) y las
+ * fotos del tablón (bucket público `comunidad-media`, carpeta del estudio). Antes
+ * que la RPC: si esto falla, se aborta y la BD sigue intacta para reintentar; al
  * revés, las filas con la ruta ya no existirían y los objetos quedarían huérfanos.
  */
-async function borrarFicherosDelEstudio(admin: SupabaseClient, studioId: string): Promise<{ documentos: number; avatares: number }> {
+async function borrarFicherosDelEstudio(
+  admin: SupabaseClient, studioId: string,
+): Promise<{ documentos: number; avatares: number; fotosComunidad: number }> {
   const [docs, socias] = await Promise.all([
     fetchAllRows<{ id: string; storage_path: string }>(studioId, 'documentos_socio',
       (from, to) => admin.from('documentos_socio').select('id, storage_path').eq('studio_id', studioId).order('id').range(from, to)),
@@ -128,7 +132,20 @@ async function borrarFicherosDelEstudio(admin: SupabaseClient, studioId: string)
   };
   await porTandas('documentos-socio', docs.data.map(d => d.storage_path));
   await porTandas('avatars', socias.data.map(s => s.id));
-  return { documentos: docs.data.length, avatares: socias.data.length };
+
+  // Las fotos del tablón no tienen fila propia que diga su ruta: se listan de la
+  // carpeta del estudio, por páginas (`list` corta en `limit`). Una entrada sin
+  // `id` es una subcarpeta, no un fichero.
+  const fotos: string[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await admin.storage.from(BUCKET_COMUNIDAD).list(studioId, { limit: 1000, offset });
+    if (error) throw new Error(`listando ${BUCKET_COMUNIDAD}: ${error.message}`);
+    const lote = data ?? [];
+    fotos.push(...lote.filter(o => o.id).map(o => `${studioId}/${o.name}`));
+    if (lote.length < 1000) break;
+  }
+  await porTandas(BUCKET_COMUNIDAD, fotos);
+  return { documentos: docs.data.length, avatares: socias.data.length, fotosComunidad: fotos.length };
 }
 
 export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Promise<ResumenCiclo | { skipped: string }> {

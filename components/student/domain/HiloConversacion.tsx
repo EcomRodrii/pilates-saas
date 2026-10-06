@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useVolver } from '@/components/student/shell/volver';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useAsync } from '@/lib/student/useAsync';
-import type { ResultadoEnviar } from '@/lib/student/mensajeria';
+import type { HiloCargado, MensajeHilo, ResultadoEnviar, ResultadoModeracionApp } from '@/lib/student/mensajeria';
 import { agruparHilo, horaCorta } from '@/lib/mensajeria/presentacion';
-import type { RowMensajes } from '@/lib/db-types';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
 import { Icono } from '@/components/student/ui/Icono';
+import { useNormasComunidad } from '@/components/student/domain/NormasComunidad';
+import { Sheet } from '@/components/student/ui/Sheet';
+import { Button } from '@/components/student/ui/Button';
+import { TEXTO_NO_ADMITE, type EstadoHilo } from '@/lib/moderacion/reglas';
+import { TEXTO_BLOQUEO_HECHO, TEXTO_GRACIAS_DENUNCIA } from '@/lib/moderacion/denuncias';
 
 // Hilo de una conversación: el de la alumna (`/mensajes/[id]`) y el de la
 // instructora con una alumna suya (`/equipo/mensajes/[id]`). Misma pantalla;
@@ -38,14 +42,21 @@ import { Icono } from '@/components/student/ui/Icono';
 // que el estudio puede leer va en una etiqueta, y una conversación vacía enseña
 // con quién vas a hablar en vez de una línea suelta. Sin `avatar`, la cabecera
 // de siempre.
+//
+// Moderación (App Store 1.2): tocar un mensaje de la otra parte abre una hoja
+// con «Denunciar este mensaje» y, en un chat instructora–alumna, «Bloquear»
+// (con confirmación: es en este estudio, y el estudio lo revisa). Si el hilo
+// ya no admite mensajes —cerrado por el estudio o bloqueado— no hay
+// compositor: lo dice el servidor (`estado`), nunca se deduce aquí. Quien
+// bloqueó puede desbloquear desde el mismo sitio.
 
 export function HiloConversacion({
   titulo, cargar, enviar, marcarLeido, miId, modo = 'alumna', aviso = null,
-  avatar = null, subtitulo = null, hrefPerfil = null,
+  avatar = null, subtitulo = null, hrefPerfil = null, denunciar = null, bloquear = null, nombreOtraParte = null,
 }: {
   titulo: string;
   /** Estable (useCallback). Lanza si no se pueden leer los mensajes. */
-  cargar: () => Promise<RowMensajes[]>;
+  cargar: () => Promise<HiloCargado>;
   enviar: (cuerpo: string) => Promise<ResultadoEnviar>;
   /** `hasta`: el id del último mensaje pintado (`null` si ninguno). */
   marcarLeido: (hasta: string | null) => Promise<void>;
@@ -59,22 +70,33 @@ export function HiloConversacion({
   subtitulo?: string | null;
   /** Su ficha, si la hay: el enlace «Ver ficha» de la cabecera. */
   hrefPerfil?: string | null;
+  /** Denunciar un mensaje de la otra parte. Sin él, los mensajes no se pueden tocar. */
+  denunciar?: ((mensajeId: string) => Promise<ResultadoModeracionApp>) | null;
+  /** Bloquear o desbloquear (solo en un chat instructora–alumna). */
+  bloquear?: ((bloquear: boolean) => Promise<ResultadoModeracionApp>) | null;
+  /** Para el texto de bloquear: «Bloquear a Lucía M.». */
+  nombreOtraParte?: string | null;
 }) {
   const { toast } = useToast();
+  const { conNormas, hoja: hojaNormas } = useNormasComunidad();
   const [borrador, setBorrador] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [extra, setExtra] = useState<RowMensajes[]>([]);
+  const [extra, setExtra] = useState<MensajeHilo[]>([]);
+  // Lo que ha cambiado aquí (bloquear, o un 409 al enviar) manda sobre lo cargado.
+  const [estadoLocal, setEstadoLocal] = useState<EstadoHilo | null>(null);
+  const [opciones, setOpciones] = useState<MensajeHilo | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
 
-  const mensajes = [...(data ?? []), ...extra];
+  const mensajes = [...(data?.mensajes ?? []), ...extra];
+  const estadoHilo: EstadoHilo = estadoLocal ?? data?.estado ?? 'ABIERTA';
 
   // Marcar leído al abrir, HASTA el último mensaje que se ha pintado: uno que
   // llegue después no se ha visto. Best-effort: si falla, la próxima carga de la
   // bandeja seguirá enseñándola sin leer, que es el fallo seguro correcto —
   // nunca al revés.
-  const ultimoPintado = data && data.length > 0 ? data[data.length - 1].id : null;
+  const ultimoPintado = data && data.mensajes.length > 0 ? data.mensajes[data.mensajes.length - 1].id : null;
   useEffect(() => {
     if (estado === 'ready' || estado === 'empty') void marcarLeido(ultimoPintado);
   }, [estado, marcarLeido, ultimoPintado]);
@@ -87,9 +109,16 @@ export function HiloConversacion({
     const cuerpo = borrador.trim();
     if (!cuerpo || enviando) return;
     setEnviando(true);
-    const r = await enviar(cuerpo);
+    // Si faltan las normas de la comunidad, se enseñan y el mismo envío se repite.
+    const r = await conNormas(() => enviar(cuerpo));
     setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) {
+      // Sin aceptar las normas no hay nada que avisar: la hoja ya lo ha dicho todo.
+      // Cerrado o bloqueado entre medias (409): se dice y el borrador se queda a la
+      // vista, para que no se pierda; al volver a entrar ya no hay compositor.
+      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error);
+      return;
+    }
     setExtra((e) => [...e, r.mensaje]);
     setBorrador('');
   };
@@ -97,6 +126,13 @@ export function HiloConversacion({
   const dias = agruparHilo(mensajes, new Date());
   const listo = estado === 'ready' || estado === 'empty';
   const puedeEnviar = Boolean(borrador.trim()) && !enviando;
+
+  const desbloquear = async () => {
+    if (!bloquear) return;
+    const r = await bloquear(false);
+    if (!r.ok) { toast(r.error); return; }
+    setEstadoLocal(r.estado ?? 'ABIERTA');
+  };
 
   return (
     <StudentShell sinNav modo={modo}>
@@ -146,11 +182,21 @@ export function HiloConversacion({
                 const mio = bloque.remitenteAuthUserId === miId;
                 return (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: mio ? 'flex-end' : 'flex-start', gap: 3, marginTop: 6 }}>
-                    {bloque.items.map((m) => (
+                    {bloque.items.map((m) => {
+                      const tocable = !mio && !m.oculto && Boolean(denunciar);
+                      return (
                       <div
                         key={m.id}
                         data-testid="mensaje"
+                        {...(tocable ? {
+                          role: 'button', tabIndex: 0, 'aria-label': 'Opciones del mensaje', 'aria-haspopup': 'dialog' as const,
+                          onClick: () => setOpciones(m),
+                          onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpciones(m); } },
+                        } : {})}
                         style={{
+                          cursor: tocable ? 'pointer' : undefined,
+                          fontStyle: m.oculto ? 'italic' : undefined,
+                          opacity: m.oculto ? 0.7 : undefined,
                           maxWidth: '80%', padding: '9px 12px', borderRadius: 18,
                           borderBottomRightRadius: mio ? 6 : 18, borderBottomLeftRadius: mio ? 18 : 6,
                           background: mio ? 'var(--accent)' : 'var(--card)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
@@ -160,7 +206,8 @@ export function HiloConversacion({
                       >
                         {m.cuerpo}
                       </div>
-                    ))}
+                      );
+                    })}
                     <span className="t-num" style={{ fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
                   </div>
                 );
@@ -186,7 +233,20 @@ export function HiloConversacion({
           <div ref={finRef} />
         </div>
 
-        {listo && (
+        {listo && estadoHilo !== 'ABIERTA' && (
+          <div data-testid="hilo-sin-compositor" style={{ flexShrink: 0, borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
+            <div className="px" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', paddingTop: 12, paddingBottom: 12, textAlign: 'center' }}>
+              <p className="t-meta" style={{ margin: 0 }}>
+                {estadoHilo === 'BLOQUEADA_POR_MI' ? 'Has bloqueado esta conversación.' : TEXTO_NO_ADMITE}
+              </p>
+              {estadoHilo === 'BLOQUEADA_POR_MI' && bloquear && (
+                <Button size="sm" variant="secondary" onClick={() => void desbloquear()}>Desbloquear</Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {listo && estadoHilo === 'ABIERTA' && (
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
             <div className="px" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', paddingTop: 10, paddingBottom: 10 }}>
               <textarea
@@ -222,6 +282,18 @@ export function HiloConversacion({
           </div>
         )}
       </div>
+      {hojaNormas}
+      {/* Montada solo mientras se usa: un `Sheet` cerrado sigue en el DOM. */}
+      {opciones && denunciar && (
+        <HojaMensaje
+          mensaje={opciones}
+          onClose={() => setOpciones(null)}
+          denunciar={denunciar}
+          bloquear={estadoHilo === 'ABIERTA' ? bloquear : null}
+          nombreOtraParte={nombreOtraParte}
+          onBloqueado={(e) => setEstadoLocal(e)}
+        />
+      )}
     </StudentShell>
   );
 }
@@ -253,5 +325,79 @@ function CabeceraChat({ titulo, avatar, subtitulo, hrefPerfil }: {
         </Link>
       )}
     </div>
+  );
+}
+
+/**
+ * Lo que se puede hacer con un mensaje de la otra parte. Denunciar va al
+ * momento («Gracias. Lo revisaremos.»); bloquear pide confirmación porque
+ * corta la conversación en este estudio.
+ */
+function HojaMensaje({ mensaje, onClose, denunciar, bloquear, nombreOtraParte, onBloqueado }: {
+  mensaje: MensajeHilo;
+  onClose: () => void;
+  denunciar: (mensajeId: string) => Promise<ResultadoModeracionApp>;
+  bloquear: ((bloquear: boolean) => Promise<ResultadoModeracionApp>) | null;
+  nombreOtraParte: string | null;
+  onBloqueado: (estado: EstadoHilo) => void;
+}) {
+  const { toast } = useToast();
+  const [paso, setPaso] = useState<'opciones' | 'bloquear'>('opciones');
+  const [ocupado, setOcupado] = useState<'denunciar' | 'bloquear' | null>(null);
+  const quien = nombreOtraParte ?? 'esta persona';
+
+  const alDenunciar = async () => {
+    setOcupado('denunciar');
+    const r = await denunciar(mensaje.id);
+    setOcupado(null);
+    if (!r.ok) { toast(r.error); return; }
+    toast(r.mensaje ?? TEXTO_GRACIAS_DENUNCIA);
+    onClose();
+  };
+  const alBloquear = async () => {
+    if (!bloquear) return;
+    setOcupado('bloquear');
+    const r = await bloquear(true);
+    setOcupado(null);
+    if (!r.ok) { toast(r.error); return; }
+    onBloqueado(r.estado ?? 'BLOQUEADA_POR_MI');
+    toast(TEXTO_BLOQUEO_HECHO);
+    onClose();
+  };
+
+  return (
+    <Sheet open onClose={onClose} label="Opciones del mensaje">
+      <div data-testid="hoja-mensaje">
+        {paso === 'opciones' ? (
+          <>
+            <p className="t-meta" style={{ margin: 0, padding: '8px 12px', borderRadius: 12, background: 'var(--muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 120, overflow: 'hidden' }}>
+              {mensaje.cuerpo}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+              <Button full variant="secondary" loading={ocupado === 'denunciar'} disabled={ocupado !== null} onClick={() => void alDenunciar()}>
+                Denunciar este mensaje
+              </Button>
+              {bloquear && (
+                <Button full variant="danger" disabled={ocupado !== null} onClick={() => setPaso('bloquear')}>
+                  Bloquear a {quien}
+                </Button>
+              )}
+              <Button full variant="ghost" disabled={ocupado !== null} onClick={onClose}>Cancelar</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="t-h2" style={{ margin: 0 }}>¿Bloquear a {quien}?</h3>
+            <p className="t-meta" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+              En este estudio, ninguna de las dos podréis escribir en esta conversación. El estudio lo sabrá para revisarlo. Podrás desbloquearla cuando quieras.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+              <Button full variant="danger" loading={ocupado === 'bloquear'} onClick={() => void alBloquear()}>Bloquear</Button>
+              <Button full variant="ghost" disabled={ocupado !== null} onClick={() => setPaso('opciones')}>Cancelar</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }

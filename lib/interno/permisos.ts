@@ -22,6 +22,7 @@ export const PERMISOS = [
   'users.delete',
   'content.write',
   'network.moderate',
+  'app.moderate',
   'admin.full',
 ] as const;
 
@@ -44,6 +45,10 @@ export const PERMISO_ETIQUETA: Record<Permiso, string> = {
   'users.delete':   'Dar de baja usuarios internos',
   'content.write':  'Publicar el changelog de Actualizaciones',
   'network.moderate': 'Moderar perfiles, verificaciones y reportes de Tentare Network',
+  // Aparte de `network.moderate` a propósito: aquí se LEE lo que escribieron
+  // alumnas e instructoras en chats privados de un estudio (lo denunciado), no
+  // perfiles públicos. Quien modera Network no tiene por qué leer eso.
+  'app.moderate':   'Revisar las denuncias de la app de los estudios (leer lo denunciado y decidir)',
   'admin.full':     'Todos los permisos, presentes y futuros',
 };
 
@@ -54,6 +59,7 @@ export const PERMISOS_POR_AREA: Array<{ area: string; permisos: Permiso[] }> = [
   { area: 'Crecimiento', permisos: ['marketing.send', 'crm.update', 'growth.read'] },
   { area: 'Contenido',  permisos: ['content.write'] },
   { area: 'Network',    permisos: ['network.moderate'] },
+  { area: 'Moderación', permisos: ['app.moderate'] },
   { area: 'Plataforma',  permisos: ['logs.read', 'users.create', 'users.delete', 'admin.full'] },
 ];
 

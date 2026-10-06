@@ -9,7 +9,8 @@ import { authUserIdsParaNotificar } from './destinatarios.ts';
 // Guardián: la baja de alguien del equipo cierra también su mensajería.
 //
 // Las policies de conversaciones, participantes, mensajes y Realtime autorizan
-// a quien participa con `es_participante_conversacion()`. Una fila STAFF de
+// a quien participa con `es_participante_conversacion()` (desde 20261006013928,
+// solo el equipo: la alumna va por rutas de servidor). Una fila STAFF de
 // `conversacion_participantes` no se borra con la baja, así que si la función
 // vuelve a mirar solo esa fila, la baja deja de llegar a la mensajería sin que
 // falle nada. Mismo enfoque que `abrir-conversacion-misma-clave.test.ts`: se lee
@@ -34,9 +35,16 @@ function ultimaDefinicion(): { fichero: string; sql: string } {
 
 test('es_participante_conversacion exige ficha activa en el estudio para una fila STAFF', () => {
   const { fichero, sql } = ultimaDefinicion();
-  const cuerpo = sql.slice(sql.indexOf('function public.es_participante_conversacion'));
-  assert.match(cuerpo, /rol_en_conversacion\s*=\s*'SOCIO'/, `${fichero}: la fila SOCIO debe seguir contando`);
+  const inicio = sql.indexOf('function public.es_participante_conversacion');
+  const cuerpo = sql.slice(inicio, sql.indexOf('$function$;', inicio));
+  // Desde 20261006013928 la alumna ya no entra por PostgREST: su app va por rutas
+  // de servidor, y su fila SOCIO no le abre nada con su JWT.
+  assert.match(cuerpo, /cp\.rol_en_conversacion\s*=\s*'STAFF'/, `${fichero}: solo cuenta la fila del equipo`);
+  assert.doesNotMatch(cuerpo, /'SOCIO'/, `${fichero}: la fila SOCIO no debe abrir la mensajería por PostgREST`);
   assert.match(cuerpo, /coalesce\(i\.activo,\s*true\)/, `${fichero}: una fila STAFF sin ficha activa no debe contar`);
+  // Ni la de una INSTRUCTORA: su app va por el servidor, y por PostgREST vería el
+  // bloqueo de la alumna y lo retirado (revisión de seguridad, 5-oct-2026).
+  assert.match(cuerpo, /i\.rol is distinct from 'INSTRUCTOR'/, `${fichero}: la instructora no entra por PostgREST`);
   assert.match(cuerpo, /i\.studio_id\s*=\s*c\.studio_id/,
     `${fichero}: la ficha activa tiene que ser la del estudio de la conversación, no otra sede`);
   assert.match(cuerpo, /owner_auth_user_id\s*=\s*cp\.auth_user_id/, `${fichero}: la dueña no se queda fuera`);

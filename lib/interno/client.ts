@@ -437,3 +437,22 @@ export interface VerifactuEstudiosInterno { estudios: EstudioVerifactuInterno[];
 export const fetchVerifactuEstudios = () => pedir<VerifactuEstudiosInterno>('/verifactu/estudios');
 export const accionVerifactuEstudios = (cuerpo: Record<string, unknown>) =>
   pedir<VerifactuEstudiosInterno>('/verifactu/estudios', { method: 'POST', body: JSON.stringify(cuerpo) });
+
+// ── Moderación de la app (App Store 1.2) ─────────────────────────────────────
+export interface DenunciaInterna {
+  id: string;
+  ambito: 'CHAT_INSTRUCTORA' | 'CHAT_ESTUDIO' | 'TABLON';
+  motivo: 'DENUNCIA' | 'BLOQUEO';
+  creadaEn: string;
+  detalle: string | null;
+  contenido: string | null;
+  contenidoRetirado: boolean;
+  autor: string | null;
+  denunciante: string | null;
+  estudio: { id: string; nombre: string };
+  porQue: 'CONTRA_EL_ESTUDIO' | 'SIN_REVISAR_POR_EL_ESTUDIO';
+  acciones: ('MANTENER' | 'OCULTAR' | 'CERRAR_CONVERSACION')[];
+}
+export const fetchDenunciasInterno = () => pedir<{ denuncias: DenunciaInterna[] }>('/denuncias');
+export const decidirDenunciaInterno = (id: string, accion: DenunciaInterna['acciones'][number]) =>
+  pedir<{ resultado: string }>(`/denuncias/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ accion }) });

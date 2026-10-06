@@ -256,6 +256,77 @@ test.describe('Lo que se aprueba, dentro de la bandeja', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Denuncias de la app (App Store 1.2), decididas dentro de la bandeja.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Denuncias de la app en la bandeja', () => {
+  const CON_DENUNCIA = {
+    aplica: true, nDecidir: 1, titulo: 'Una cosa espera tu visto bueno',
+    decidir: [{ id: 'denunciasPorRevisar', n: 1, texto: 'Una denuncia de la app por revisar', href: null }],
+    enMarcha: [], resuelto: [],
+  };
+  const DENUNCIA = {
+    id: 'den-1', ambito: 'TABLON', motivo: 'DENUNCIA', destino: 'ESTUDIO',
+    creadaEn: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    detalle: 'Me ha faltado al respeto', contenido: 'Un comentario feo', contenidoRetirado: false,
+    autor: 'Bea Ortega', denunciante: 'Lucía Martínez', conversacionId: null, postId: 'post-1',
+    acciones: ['MANTENER', 'OCULTAR'],
+  };
+
+  function mockDenuncias(respuestaPost: { status: number; body: unknown }) {
+    const intentos = { post: 0, cuerpo: null as null | Record<string, unknown>, url: '' };
+    let pendiente = true;
+    const registrar = async (page: Page) => {
+      await page.route('**/api/moderacion/denuncias**', route => {
+        if (route.request().method() === 'POST') {
+          intentos.post++;
+          intentos.url = new URL(route.request().url()).pathname;
+          intentos.cuerpo = JSON.parse(route.request().postData() || '{}');
+          if (respuestaPost.status === 200) pendiente = false;
+          return json(route, respuestaPost.body, respuestaPost.status);
+        }
+        return json(route, { denuncias: pendiente ? [DENUNCIA] : [] });
+      });
+    };
+    return { intentos, registrar };
+  }
+
+  test('se lee lo denunciado y se decide ahí mismo: retirar', async ({ page }) => {
+    const { intentos, registrar } = mockDenuncias({ status: 200, body: { resultado: 'CONTENIDO_OCULTO' } });
+    await montar(page, { cuerpo: CON_DENUNCIA }, {}, registrar);
+
+    const tarjeta = page.getByTestId('denuncias-por-revisar');
+    await expect(tarjeta).toContainText('Denuncia · Tablón', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Un comentario feo');
+    await expect(tarjeta).toContainText('Me ha faltado al respeto');
+    await expect(tarjeta).toContainText('para que la revise Tentare');
+    // Sin cerrar conversación: en el tablón no hay ninguna.
+    await expect(tarjeta.getByRole('button', { name: 'Cerrar conversación' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Lo que espera tu visto bueno' })
+      .getByRole('link', { name: /Una denuncia de la app por revisar/ })).toHaveAttribute('href', '#decidir-denuncias');
+
+    await tarjeta.getByRole('button', { name: 'Retirar', exact: true }).click();
+    await expect(page.getByTestId('denuncias-por-revisar')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText(/^Retirado\./)).toBeVisible();
+    expect(intentos.post).toBe(1);
+    expect(intentos.url).toBe('/api/moderacion/denuncias/den-1');
+    expect(intentos.cuerpo).toEqual({ accion: 'OCULTAR' });
+  });
+
+  test('si otra persona ya la decidió, lo dice y quita la fila sin anunciar que se ha guardado', async ({ page }) => {
+    const { intentos, registrar } = mockDenuncias({ status: 409, body: { error: 'Otra persona ya ha decidido sobre esta denuncia.' } });
+    await montar(page, { cuerpo: CON_DENUNCIA }, {}, registrar);
+
+    const tarjeta = page.getByTestId('denuncias-por-revisar');
+    await tarjeta.getByRole('button', { name: 'Mantener', exact: true }).click({ timeout: 30_000 });
+    await expect(page.getByText('Otra persona ya ha decidido sobre esta denuncia.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/^Mantenido\./)).toHaveCount(0);
+    await expect(page.getByTestId('denuncias-por-revisar')).toHaveCount(0);
+    expect(intentos.post).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Reservas pendientes de aprobación, decididas dentro de la bandeja.
 //
 // Cada prueba de camino de fallo lleva su contador de POST: «no dijo aprobada»

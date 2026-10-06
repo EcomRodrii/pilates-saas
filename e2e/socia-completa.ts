@@ -295,6 +295,10 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   )));
   await ruta((p) => p === '/api/public/consentimiento-salud/revocar', (r) => r.fulfill(json({ ok: true })));
 
+  // «Personas bloqueadas» (Perfil → «Privacidad y datos»): la alumna nueva no ha
+  // bloqueado a nadie.
+  await ruta((p) => p === '/api/public/bloqueos', (r) => r.fulfill(json({ personas: [] })));
+
   // Su QR de acceso permanente (Perfil → QR de acceso y el detalle de una
   // reserva). Encendido, como el estudio del fixture (`controlAccesoQr: true`).
   await ruta((p) => p === '/api/public/qr-acceso', (r) => r.fulfill(json({

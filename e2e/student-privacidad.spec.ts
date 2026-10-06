@@ -150,3 +150,57 @@ test.describe('Student PWA · privacidad y datos', () => {
     expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Personas bloqueadas» (App Store 1.2): el sitio que prometen las
+// confirmaciones de bloquear. Desbloquear no es optimista: con contador, y si el
+// servidor dice que no, la fila se queda.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · personas bloqueadas', () => {
+  test.describe.configure({ timeout: 120_000 });
+  const PERSONAS = [
+    { tipo: 'TABLON', id: 'comp-1', nombre: 'Marta R.', desde: '2026-10-05T10:00:00Z' },
+    { tipo: 'MENSAJES', id: 'conv-9', nombre: 'Laura M.', desde: '2026-10-05T11:00:00Z' },
+  ];
+
+  async function montarBloqueos(page: import('@playwright/test').Page, o: { falla?: boolean } = {}) {
+    const and = await sembrarSociaCompleta(page);
+    const llamadas: { ruta: string; cuerpo: unknown }[] = [];
+    // Registradas DESPUÉS del andamiaje, así que ganan.
+    await page.route((u) => u.pathname === '/api/public/bloqueos', (r) => r.fulfill({ json: { personas: PERSONAS } }));
+    await page.route((u) => /\/(desbloquear|bloquear)$/.test(u.pathname), (r) => {
+      llamadas.push({ ruta: new URL(r.request().url()).pathname, cuerpo: r.request().postDataJSON() });
+      return o.falla
+        ? r.fulfill({ status: 500, json: { error: 'No se ha podido desbloquear.' } })
+        : r.fulfill({ json: { ok: true } });
+    });
+    await page.goto(`${base}/perfil/privacidad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('persona-bloqueada')).toHaveCount(2, { timeout: 30_000 });
+    return { and, llamadas };
+  }
+
+  test('enseña a quién bloqueó y dónde; desbloquear la quita cuando el servidor lo confirma', async ({ page }) => {
+    const { and, llamadas } = await montarBloqueos(page);
+    const marta = page.getByTestId('persona-bloqueada').filter({ hasText: 'Marta R.' });
+    await expect(marta).toContainText('En el tablón');
+    await expect(page.getByTestId('persona-bloqueada').filter({ hasText: 'Laura M.' })).toContainText('En tus mensajes');
+
+    await marta.getByRole('button', { name: 'Desbloquear' }).click();
+    await expect(page.getByTestId('persona-bloqueada')).toHaveCount(1, { timeout: 15_000 });
+    await page.getByTestId('persona-bloqueada').getByRole('button', { name: 'Desbloquear' }).click();
+    await expect(page.getByText('No has bloqueado a nadie.')).toBeVisible({ timeout: 15_000 });
+    expect(llamadas).toEqual([
+      { ruta: '/api/public/social/companeras/comp-1/desbloquear', cuerpo: { studioId: expect.any(String) } },
+      { ruta: '/api/public/mensajeria/conversaciones/conv-9/bloquear', cuerpo: { studioId: expect.any(String), bloquear: false } },
+    ]);
+    expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
+  });
+
+  test('si el servidor dice que no, lo dice y la fila se queda', async ({ page }) => {
+    const { llamadas } = await montarBloqueos(page, { falla: true });
+    await page.getByTestId('persona-bloqueada').filter({ hasText: 'Marta R.' }).getByRole('button', { name: 'Desbloquear' }).click();
+    await expect(page.getByText('No se ha podido desbloquear.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('persona-bloqueada')).toHaveCount(2);
+    expect(llamadas.length).toBeGreaterThan(0);
+  });
+});

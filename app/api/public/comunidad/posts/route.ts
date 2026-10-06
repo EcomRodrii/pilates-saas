@@ -8,6 +8,10 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
 import type { RowPostsComunidad } from '@/lib/db-types';
+import { esPublicacionDeGrupo } from '@/lib/comunidad/comentarios-reglas';
+
+/** Cuántas fijadas, como mucho, encabezan el tablón. */
+const MAX_FIJADAS = 10;
 
 const LIMITE_DEFECTO = 20;
 const LIMITE_MAXIMO = 50;
@@ -17,10 +21,10 @@ const LIMITE_MAXIMO = 50;
 // verlo en producción: "nadie puede dar like, nadie puede comentar") abre
 // like real (`likedByMe` aquí, alternar en /posts/[id]/like) y comentarios
 // (/api/public/comunidad/comentarios). Mismo patrón que
-// /api/public/mensajeria/conversaciones: la socia no tiene JWT
-// `authenticated` de Postgres (su sesión no llega a auth.uid() en RLS), así
-// que esta ruta usa service-role y filtra a mano — nunca confía en RLS para
-// resolver quién es ella.
+// /api/public/mensajeria/conversaciones: la socia tiene JWT de Supabase, pero
+// el tablón no se le abre por PostgREST, así que esta ruta usa service-role
+// (aquí la RLS no actúa) y filtra a mano — nunca confía en RLS para resolver
+// quién es ella.
 //
 // El filtro de audiencia por post reutiliza `resolverDestinatariasCampana`
 // TAL CUAL (misma función que ya resuelve el segmento de una campaña de
@@ -73,15 +77,28 @@ export async function GET(req: NextRequest) {
   // visible para esta socia (p. ej. dirigido solo a BONO) podría vaciar una
   // página entera y devolver menos de `limite` aunque sí hubiera más posts
   // reales para ella más atrás.
+  //
+  // Fijadas primero: el «Fijar» del panel tiene que llegar a la alumna. Van
+  // aparte, solo en la primera página y encima de todo; las páginas siguientes
+  // (por `antes`) solo traen las demás, así una fijada no sale dos veces.
   let query = admin.from('posts_comunidad').select('*').eq('studio_id', studioId)
+    .or('fijado.is.null,fijado.eq.false')
     .order('creado_en', { ascending: false }).limit(Math.min(limite * 3, 150));
   if (antes) query = query.lt('creado_en', antes);
 
-  const { data, error } = await query;
+  const [{ data, error }, fijadasRes] = await Promise.all([
+    query,
+    antes
+      ? Promise.resolve({ data: [] as RowPostsComunidad[], error: null })
+      : admin.from('posts_comunidad').select('*').eq('studio_id', studioId).eq('fijado', true)
+        .order('creado_en', { ascending: false }).limit(MAX_FIJADAS),
+  ]);
   if (error) return errorInterno('public/comunidad/posts:GET', error, 'No se ha podido cargar el tablón.');
+  if (fijadasRes.error) return errorInterno('public/comunidad/posts:GET', fijadasRes.error, 'No se ha podido cargar el tablón.');
 
   const now = new Date();
-  const filas = (data ?? []) as RowPostsComunidad[];
+  const fijadas = (fijadasRes.data ?? []) as RowPostsComunidad[];
+  const filas = [...fijadas, ...((data ?? []) as RowPostsComunidad[])];
   const audienciaDe = (row: RowPostsComunidad) => (row.audiencia as DestinatariosCampana | null) ?? 'TODAS';
   // Su estado (Activa, Sin renovar…) solo si algún post de la página va a un
   // segmento que lo usa: el caso común (todo «Todas») no lee nada más. Si no se
@@ -91,7 +108,20 @@ export async function GET(req: NextRequest) {
     : null;
   const visibles = filas.filter(row =>
     resolverDestinatariasCampana(audienciaDe(row), { ...misDatos, estados }, now).length > 0,
-  ).slice(0, limite);
+  ).slice(0, fijadas.length + limite);
+
+  // En una publicación para un grupo cada alumna ve solo sus comentarios y los
+  // del estudio (`filtrarComentariosParaSocia`): el contador cuenta esos, no
+  // los de las demás (diría cuántas más hay en el grupo).
+  const deGrupo = visibles.filter(row => esPublicacionDeGrupo(audienciaDe(row))).map(row => row.id);
+  const comentariosVisibles = new Map<string, number>();
+  if (deGrupo.length > 0) {
+    const { data: coms, error: errComs } = await admin.from('comentarios_comunidad').select('post_id')
+      .eq('studio_id', studioId).in('post_id', deGrupo).is('oculto_en', null)
+      .or(`socio_id.is.null,socio_id.eq.${socioId}`);
+    if (errComs) return errorInterno('public/comunidad/posts:GET', errComs, 'No se ha podido cargar el tablón.');
+    for (const c of (coms ?? []) as { post_id: string }[]) comentariosVisibles.set(c.post_id, (comentariosVisibles.get(c.post_id) ?? 0) + 1);
+  }
 
   // Eventos como entidad propia dentro del Feed (P2): conteo de asistentes
   // por evento, una sola query agregada sobre los posts de esta página —
@@ -141,7 +171,9 @@ export async function GET(req: NextRequest) {
       creadoEn: row.creado_en,
       likes: row.likes ?? 0,
       likedByMe: misLikes.has(row.id),
-      comentariosCount: row.comentarios_count ?? 0,
+      comentariosCount: deGrupo.includes(row.id) ? (comentariosVisibles.get(row.id) ?? 0) : (row.comentarios_count ?? 0),
+      /** Fijada por el estudio: va arriba y lleva la marca «Fijado». */
+      fijado: row.fijado === true,
       tipo: (row.tipo as 'TEXTO' | 'EVENTO' | null) ?? 'TEXTO',
       eventoFecha: row.evento_fecha ?? null,
       eventoAforo: row.evento_aforo ?? null,

@@ -29,6 +29,12 @@ export interface ResumenConversacion {
   ultimo_cuerpo: string | null;
   ultimo_remitente_auth_user_id: string | null;
   /**
+   * El estudio retiró el último mensaje (moderación). En las apps
+   * `ultimo_cuerpo` ya viene como «Mensaje retirado por el estudio»; el panel
+   * recibe el texto y esta marca.
+   */
+  ultimo_oculto?: boolean;
+  /**
    * Hilo instructora–alumna que quien pregunta lee sin participar (la
    * propietaria). La RLS ya le impide escribir; esto decide la pantalla.
    */

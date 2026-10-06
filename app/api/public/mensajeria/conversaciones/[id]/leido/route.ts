@@ -10,9 +10,10 @@ import { instanteDelMensaje, leerHasta, marcarAvisosDeConversacionLeidos } from 
 // uno que llegó después de cargar el hilo no se ha visto y sigue sin leer. Sin
 // `hasta` (app anterior) se marca hasta ahora, como antes.
 //
-// Sin RLS que proteja a la socia (no llega a auth.uid()), así que se
-// comprueba la participación a mano antes de escribir nada — mismo criterio
-// que GET/POST de mensajes en esta misma carpeta.
+// Con service-role, sin RLS que proteja a la socia (su JWT de Supabase no abre
+// la mensajería por PostgREST: `es_participante_conversacion` solo cuenta filas
+// del equipo), así que se comprueba la participación a mano antes de escribir
+// nada — mismo criterio que GET/POST de mensajes en esta misma carpeta.
 //
 // Y apaga sus avisos de ese hilo en la campana (`marcarAvisosDeConversacionLeidos`):
 // si eso falla, 500, para que la app no apague el punto de la campana por su

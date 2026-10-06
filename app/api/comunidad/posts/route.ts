@@ -6,6 +6,7 @@ import { resolverDestinatariasCampana, segmentoNecesitaEstado } from '@/lib/mark
 import { cargarEstadosClientas } from '@/lib/clientas/estado-servidor';
 import { emitirPostComunidadNuevo } from '@/lib/notifications/emit';
 import { mapPostComunidad } from '@/lib/supabase-data';
+import { rutaFotoComunidad } from '@/lib/comunidad/foto';
 import { uuidV4 } from '@/lib/utils';
 import type { DestinatariosCampana, Socio, Suscripcion, Recibo } from '@/lib/types';
 import type { RowPostsComunidad } from '@/lib/db-types';
@@ -69,13 +70,14 @@ export async function POST(req: NextRequest) {
   // `https://rastreo.ajeno.example/comunidad-media/x.png`, y esa URL acaba en
   // un `<img src>` que cargan todas las socias del estudio (IP, User-Agent y
   // hora de lectura al tercero). El prefijo es exactamente el que produce
-  // `getPublicUrl` en lib/portal-storage.ts:93.
+  // `getPublicUrl` en lib/portal-storage.ts.
+  //
+  // Y tiene que ser una foto de SU estudio (`<prefijo><studioId>/…`): al borrar
+  // la publicación, el servidor borra el objeto que diga `imagen_url`
+  // (app/api/comunidad/posts/[id]/route.ts), así que una URL que apuntara a la
+  // foto de otro estudio sería una forma de borrársela.
   const imagenUrlRaw = typeof body?.imagenUrl === 'string' ? body.imagenUrl : null;
-  const baseStorage = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const prefijoComunidadMedia = baseStorage
-    ? `${baseStorage}/storage/v1/object/public/comunidad-media/`
-    : null;
-  const imagenUrl = imagenUrlRaw && prefijoComunidadMedia && imagenUrlRaw.startsWith(prefijoComunidadMedia)
+  const imagenUrl = imagenUrlRaw && rutaFotoComunidad(imagenUrlRaw, sesion.studioId, process.env.NEXT_PUBLIC_SUPABASE_URL)
     ? imagenUrlRaw
     : null;
 

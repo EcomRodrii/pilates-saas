@@ -12,7 +12,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, CreditCard, FileCheck2, LayoutDashboard, LifeBuoy, Megaphone, Network, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
+import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
 import { EVENTO_MFA_REQUERIDO, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
 import { useAuth } from '@/lib/auth-context';
 import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
@@ -41,6 +41,8 @@ const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2
   { href: '/interno/tenti', etiqueta: 'Tenti', icono: Smile, permisos: ['content.write'] },
   { href: '/interno/auditoria', etiqueta: 'Auditoría', icono: ScrollText, permisos: ['logs.read'] },
   { href: '/interno/network', etiqueta: 'Network', icono: Network, permisos: ['network.moderate'] },
+  // Denuncias de la app de los estudios que le tocan a Tentare (App Store 1.2).
+  { href: '/interno/denuncias', etiqueta: 'Denuncias', icono: Flag, permisos: ['app.moderate'] },
   { href: '/interno/equipo', etiqueta: 'Equipo', icono: Users, permisos: ['users.create', 'users.delete'] },
 ];
 

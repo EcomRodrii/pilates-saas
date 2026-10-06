@@ -317,6 +317,14 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // solo PUSH. Nunca EMAIL aquí — es justo la restricción de coste de esta
   // fase (cero email por mensaje); el correo va SOLO por el digest de abajo.
   [EVENTOS.MENSAJE_RECIBIDO]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'participantes-conversacion' },
+  // Moderación (App Store 1.2). Destinatarios explícitos (`recipients`), por id y
+  // con su papel: quien revisa en el estudio (de entre el mostrador, según el
+  // ámbito), quien denunció, quien escribió.
+  // ALTA la nueva: si en 24 h no la revisa nadie, pasa a Tentare. Solo PUSH:
+  // ninguna lleva el texto denunciado.
+  [EVENTOS.DENUNCIA_NUEVA]: { category: 'mensajeria', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
+  [EVENTOS.DENUNCIA_RESUELTA]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'participantes-conversacion' },
+  [EVENTOS.CONTENIDO_RETIRADO]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'participantes-conversacion' },
   // Digest de baja frecuencia (cron cada 3h, dedup por día): el ÚNICO canal
   // EMAIL de toda la mensajería, para no saturar Resend con un correo por
   // mensaje. BAJA prioridad — es un recordatorio, no algo urgente.
@@ -472,6 +480,54 @@ function plantillasMensajeRecibido(): Record<string, Plantilla> {
 }
 
 // Digest de baja frecuencia: mismo reparto de deepLink por lado que arriba.
+// Moderación de la app. Sin el texto denunciado en ningún aviso: el push se ve en
+// la pantalla bloqueada. A la alumna y a la instructora, su app; al equipo, la
+// bandeja de Inicio.
+function plantillasModeracion(): Record<string, Plantilla> {
+  const equipo = ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const;
+  const enApp = (d: Datos, rol: 'SOCIA' | 'INSTRUCTOR'): string | null => {
+    if (!d.slug) return null;
+    if (d.ambito === 'TABLON') return `/portal/${s(d.slug)}/comunidad`;
+    if (!d.conversacionId) return rol === 'SOCIA' ? `/portal/${s(d.slug)}/mensajes` : `/portal/${s(d.slug)}/equipo/mensajes`;
+    return rol === 'SOCIA'
+      ? `/portal/${s(d.slug)}/mensajes/${s(d.conversacionId)}`
+      : `/portal/${s(d.slug)}/equipo/mensajes/${s(d.conversacionId)}`;
+  };
+  const resuelta = (rol: 'SOCIA' | 'INSTRUCTOR'): Plantilla => ({
+    title: 'Hemos revisado tu denuncia',
+    body: 'Hemos revisado tu denuncia: {resultado}',
+    deepLink: (d: Datos) => enApp(d, rol),
+  });
+  const retirado = (rol: 'SOCIA' | 'INSTRUCTOR'): Plantilla => ({
+    title: 'Se ha retirado {queTuyo}',
+    body: 'Se ha retirado {queTuyo} por no cumplir las normas de la comunidad.',
+    deepLink: (d: Datos) => enApp(d, rol),
+  });
+  const retiradoEquipo: Plantilla = {
+    title: 'Se ha retirado {queTuyo}',
+    body: 'Se ha retirado {queTuyo} por no cumplir las normas de la comunidad.',
+    deepLink: (d: Datos) => (d.ambito === 'TABLON' ? '/comunidad' : '/mensajeria'),
+  };
+  const nueva: Plantilla = {
+    title: 'Una denuncia por revisar',
+    body: '{queDenuncia} Si nadie la revisa en 24 horas, la revisa Tentare.',
+    deepLink: () => '/dashboard#decidir-denuncias',
+  };
+  return {
+    ...Object.fromEntries(equipo.map((rol) => [`${EVENTOS.DENUNCIA_NUEVA}#${rol}`, nueva])),
+    ...Object.fromEntries(equipo.map((rol) => [`${EVENTOS.CONTENIDO_RETIRADO}#${rol}`, retiradoEquipo])),
+    // Al equipo, la decisión sobre algo que denunció desde el panel (hoy no se
+    // denuncia desde el panel; la plantilla está para que nadie reciba un aviso vacío).
+    ...Object.fromEntries(equipo.map((rol) => [`${EVENTOS.DENUNCIA_RESUELTA}#${rol}`, {
+      title: 'Hemos revisado tu denuncia', body: 'Hemos revisado tu denuncia: {resultado}', deepLink: () => '/dashboard',
+    }])),
+    [`${EVENTOS.DENUNCIA_RESUELTA}#SOCIA`]: resuelta('SOCIA'),
+    [`${EVENTOS.DENUNCIA_RESUELTA}#INSTRUCTOR`]: resuelta('INSTRUCTOR'),
+    [`${EVENTOS.CONTENIDO_RETIRADO}#SOCIA`]: retirado('SOCIA'),
+    [`${EVENTOS.CONTENIDO_RETIRADO}#INSTRUCTOR`]: retirado('INSTRUCTOR'),
+  };
+}
+
 function plantillasMensajeDigest(): Record<string, Plantilla> {
   const staff: Plantilla = {
     title: 'Tienes mensajes sin leer',
@@ -1130,6 +1186,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // la mensajería del panel, la socia en el hilo de su app.
   ...plantillasMensajeRecibido(),
   ...plantillasMensajeDigest(),
+  ...plantillasModeracion(),
   ...plantillaPostComunidadNuevo(),
   ...plantillaDocumentoSocioNuevo(),
 };

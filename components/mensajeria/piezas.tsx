@@ -299,6 +299,7 @@ export interface ContextoAncla { titulo: string; detalle: string }
 export function HiloVista({
   conversacion, identidad, mensajes, authUserId, error, ancla,
   cuerpo, enviando, onCuerpo, onEnviar, onVolver, onReintentar, escribiendoOtros, soloLectura = false,
+  cerrada = false, onCerrar,
 }: {
   conversacion: ConversacionStaff;
   identidad: Identidad;
@@ -315,6 +316,10 @@ export function HiloVista({
   escribiendoOtros?: boolean;
   /** Hilo instructora–alumna que la propietaria lee sin participar: sin compositor. */
   soloLectura?: boolean;
+  /** Cerrada por el estudio (moderación): nadie escribe en ella. */
+  cerrada?: boolean;
+  /** Solo la propietaria, en un chat instructora–alumna: cerrarla o reabrirla. */
+  onCerrar?: (cerrar: boolean) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -365,6 +370,15 @@ export function HiloVista({
           <p className="text-sm font-bold text-foreground truncate">{identidad.nombre}</p>
           <p className="text-[11px] truncate" style={{ color: info.color }}>{identidad.contexto}</p>
         </div>
+        {onCerrar && (
+          <button
+            type="button"
+            onClick={() => onCerrar(!cerrada)}
+            className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[11.5px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {cerrada ? 'Reabrir conversación' : 'Cerrar conversación'}
+          </button>
+        )}
       </div>
 
       {/* Fase 7 — la conversación no flota en el vacío: si nació de una clase
@@ -432,9 +446,11 @@ export function HiloVista({
                           texto={m.cuerpo}
                           mio={mio}
                           ultimaDelBloque={m.id === ultimo.id}
-                          pie={m.id === ultimo.id ? (
+                          pie={m.id === ultimo.id || m.oculto_en ? (
                             <>
-                              <span>{horaCorta(m.creado_en)}</span>
+                              {/* El panel modera: ve el texto; las apps, «Mensaje retirado por el estudio». */}
+                              {m.oculto_en && <span data-testid="mensaje-retirado">Retirado por el estudio{m.id === ultimo.id ? ' ·' : ''}</span>}
+                              {m.id === ultimo.id && <span>{horaCorta(m.creado_en)}</span>}
                               {m.id === idUltimoMio && (
                                 estadoEntrega(m.creado_en, conversacion.leido_hasta_otros) === 'leido'
                                   ? <CheckCheck size={12} style={{ color: 'var(--brand)' }} aria-label="Leído" />
@@ -466,7 +482,11 @@ export function HiloVista({
         </div>
       )}
 
-      {soloLectura ? (
+      {cerrada ? (
+        <div className="px-4 py-3 border-t border-border shrink-0" data-testid="conversacion-cerrada">
+          <p className="text-xs text-muted-foreground text-center">Conversación cerrada por el estudio: ya nadie puede escribir en ella.</p>
+        </div>
+      ) : soloLectura ? (
         <div className="px-4 py-3 border-t border-border shrink-0">
           <p className="text-xs text-muted-foreground text-center">No puedes escribir en esta conversación: es de tu equipo con una alumna.</p>
         </div>

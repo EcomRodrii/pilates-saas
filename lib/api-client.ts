@@ -3815,3 +3815,65 @@ export async function fetchHistorialAsistidas(
     return [];
   }
 }
+
+// ── Moderación de la app (App Store 1.2) ─────────────────────────────────────
+// Las denuncias que esperan al estudio, decidirlas, retirar un comentario del
+// tablón y cerrar un chat instructora–alumna. Lo que puede cada rol lo decide el
+// servidor; aquí solo se traduce.
+
+export type ResultadoModeracion = { ok: true } | { error: string; status: number };
+
+export interface DenunciaPorRevisar {
+  id: string;
+  ambito: 'CHAT_INSTRUCTORA' | 'CHAT_ESTUDIO' | 'TABLON';
+  motivo: 'DENUNCIA' | 'BLOQUEO';
+  destino: 'ESTUDIO' | 'TENTARE';
+  creadaEn: string;
+  detalle: string | null;
+  contenido: string | null;
+  contenidoRetirado: boolean;
+  autor: string | null;
+  denunciante: string | null;
+  conversacionId: string | null;
+  postId: string | null;
+  acciones: ('MANTENER' | 'OCULTAR' | 'CERRAR_CONVERSACION')[];
+}
+
+/** `null` = no se han podido leer (la tarjeta no inventa un «nada pendiente»). */
+export async function listarDenunciasPorRevisar(): Promise<DenunciaPorRevisar[] | null> {
+  try {
+    const res = await fetch('/api/moderacion/denuncias', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = await res.json().catch(() => null) as { denuncias?: unknown } | null;
+    return Array.isArray(d?.denuncias) ? (d.denuncias as DenunciaPorRevisar[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function postModeracion(url: string, cuerpo: Record<string, unknown>): Promise<ResultadoModeracion> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cuerpo),
+    });
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), status: res.status };
+    return { ok: true };
+  } catch {
+    return { error: 'Sin conexión: no se ha guardado. Inténtalo de nuevo.', status: 0 };
+  }
+}
+
+export function decidirDenuncia(id: string, accion: DenunciaPorRevisar['acciones'][number]): Promise<ResultadoModeracion> {
+  return postModeracion(`/api/moderacion/denuncias/${encodeURIComponent(id)}`, { accion });
+}
+
+export function retirarComentarioComunidad(id: string, retirar: boolean): Promise<ResultadoModeracion> {
+  return postModeracion(`/api/comunidad/comentarios/${encodeURIComponent(id)}/retirar`, { retirar });
+}
+
+export function cerrarConversacionPanel(id: string, cerrar: boolean): Promise<ResultadoModeracion> {
+  return postModeracion(`/api/mensajeria/conversaciones/${encodeURIComponent(id)}/cerrar`, { cerrar });
+}

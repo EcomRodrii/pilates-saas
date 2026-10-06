@@ -17,7 +17,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
-import { authHeader } from '@/lib/api-client';
+import { authHeader, cerrarConversacionPanel } from '@/lib/api-client';
 import { supabase } from '@/lib/db/supabase';
 import { EmptyState } from '@/components/ui/empty-state';
 import { anadirMensaje, tieneSinLeer } from '@/lib/mensajeria/presentacion';
@@ -85,6 +85,10 @@ function Hilo({
   const [cuerpo, setCuerpo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const conversacionId = conversacion.id;
+  const rol = useRol();
+  // Cerrar un chat instructora–alumna: solo la propietaria (lo vuelve a exigir el servidor).
+  const [cerrada, setCerrada] = useState(Boolean(conversacion.cerrada_en));
+  const puedeCerrar = rol === 'PROPIETARIO' && conversacion.tipo === 'ALUMNA_INSTRUCTORA';
   // La propietaria lee hilos del equipo sin participar: ni leído ni «escribiendo».
   const soloLectura = Boolean(conversacion.solo_lectura);
   // Mismo mecanismo "escribiendo…" que ya vive en el portal
@@ -210,6 +214,13 @@ function Hilo({
     onEnviado();
   }
 
+  async function alternarCerrada(cerrar: boolean) {
+    const r = await cerrarConversacionPanel(conversacionId, cerrar);
+    if ('error' in r) { setError(r.error); return; }
+    setCerrada(cerrar);
+    setError(null);
+  }
+
   const identidad = identidadDe(conversacion, socios, instructores);
 
   // Fase 7 — el contexto real de la conversación, si lo hay. Sin ancla no se
@@ -241,6 +252,8 @@ function Hilo({
       onReintentar={() => void cargar()}
       escribiendoOtros={escribiendoOtros}
       soloLectura={soloLectura}
+      cerrada={cerrada}
+      onCerrar={puedeCerrar ? (c) => void alternarCerrada(c) : undefined}
     />
   );
 }

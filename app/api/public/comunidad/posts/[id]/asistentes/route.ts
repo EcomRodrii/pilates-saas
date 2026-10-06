@@ -11,9 +11,9 @@ import type { DestinatariosCampana } from '@/lib/types';
 // Eventos como entidad propia dentro del Feed (P2 Community & Messaging OS).
 // Apuntarse/desapuntarse de un evento del tablón, desde el portal de la
 // socia. Mismo patrón de auth que el resto de app/api/public/comunidad/** y
-// app/api/public/mensajeria/**: la socia no tiene JWT `authenticated` de
-// Postgres en este endpoint (su sesión no llega a auth.uid() en RLS), así
-// que se usa service-role y se comprueba `socioAutenticado` a mano.
+// app/api/public/mensajeria/**: la socia tiene JWT de Supabase, pero el tablón
+// no se le abre por PostgREST, así que se usa service-role (aquí la RLS no
+// actúa) y se comprueba `socioAutenticado` a mano.
 //
 // Migración real: `supabase/migrations/20260826210000_posts_comunidad_eventos.sql`.
 //   - Tabla `post_evento_asistentes(post_id text, socio_id text, creado_en)`,

@@ -376,12 +376,18 @@ export interface Post {
   /** Si ESTA socia ya le ha dado a "me gusta". */
   likedByMe: boolean;
   comentariosCount: number;
+  /** Fijada por el estudio: va arriba con la marca «Fijado». */
+  fijado?: boolean;
 }
 
 /** Un comentario del hilo de un post (`comentarios_comunidad`). */
 export interface ComentarioTablon {
   id: string; postId: string; autorNombre: string; autorInicial: string | null;
   texto: string; creadoEn: string; esMio: boolean;
+  /** Retirado por el estudio: solo le llega a quien lo escribió. */
+  oculto?: boolean;
+  /** De una compañera (no del estudio): a quien lo escribió se la puede bloquear. */
+  deAlumna?: boolean;
 }
 
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */
