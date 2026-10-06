@@ -26,6 +26,12 @@
 -- Solo el servidor la escribe (service_role). El personal que ve las finanzas
 -- (PROPIETARIO, RECEPCION) la LEE, de su estudio y con la verificación en dos
 -- pasos si la tiene activada. Nadie más.
+--
+-- Supresión (RGPD): CONSERVAR. `anonimizar_socio` no la toca: es el registro de
+-- cada pago de una clase (ids, importes, estados y fechas) y cuadra con el recibo
+-- fiscal que ya se conserva, con el mismo seudónimo por `socio_id`. `pagador` es
+-- su socio_id o un hash de su email, nunca el email. Clasificada en
+-- lib/socios/supresion-clasificacion.ts (`documentadaEn`).
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create table if not exists public.pagos_clase (

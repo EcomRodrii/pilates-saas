@@ -33,6 +33,13 @@ export interface ClasificacionTabla {
   accion: AccionSupresion;
   /** Qué se hace exactamente y por qué. Va copiado a la migración. */
   detalle: string;
+  /**
+   * SOLO para CONSERVAR: la migración que crea la tabla y documenta en su cabecera que la
+   * supresión la conserva. Una tabla CONSERVAR no cambia `anonimizar_socio`, así que no hace
+   * falta recrear la función entera (y copiarla a mano arriesga revertir un cambio posterior:
+   * pasó con `pagos_clase` frente a la de moderación, 6-oct-2026).
+   */
+  documentadaEn?: string;
 }
 
 export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
@@ -142,6 +149,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   suscripciones: { accion: 'CONSERVAR', detalle: 'Seudónima y pasada a CANCELADA: los recibos fiscales la referencian.' },
   pagos_clase: {
     accion: 'CONSERVAR',
+    documentadaEn: '20261006120000_pagos_clase.sql',
     detalle: 'El registro de cada pago de una clase (ids, importes, estados y fechas): cuadra con el recibo fiscal que ya se conserva, con el mismo seudónimo por socio_id. `pagador` es su socio_id o un hash de su email, nunca el email.',
   },
   movimientos_derecho: {

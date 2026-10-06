@@ -95,8 +95,21 @@ test('la función no borra ni modifica ninguna tabla fiscal ni el registro de ac
 test('la cabecera de la migración documenta todas las tablas clasificadas', () => {
   const cabecera = migracion.slice(0, migracion.indexOf('create or replace function'));
   const sinDocumentar = Object.keys(CLASIFICACION_SUPRESION)
+    // Las CONSERVAR que documenta la migración que las crea (ver `documentadaEn`).
+    .filter(t => !CLASIFICACION_SUPRESION[t].documentadaEn)
     .filter(t => !new RegExp(`\\b${escapar(t)}\\b`).test(cabecera));
   assert.deepEqual(sinDocumentar, []);
+});
+
+test('una tabla documentada en su propia migración es CONSERVAR y esa migración lo dice', () => {
+  for (const [t, c] of Object.entries(CLASIFICACION_SUPRESION)) {
+    if (!c.documentadaEn) continue;
+    assert.equal(c.accion, 'CONSERVAR', `${t}: solo una tabla que la supresión no toca puede documentarse fuera de anonimizar_socio`);
+    const texto = readFileSync(new URL(c.documentadaEn, DIR_MIGRACIONES), 'utf8');
+    assert.match(texto, new RegExp(`create table if not exists public\\.${escapar(t)}\\b`), `${c.documentadaEn} no crea ${t}`);
+    assert.match(texto, /Supresión \(RGPD\): CONSERVAR/, `${c.documentadaEn} no documenta qué hace la supresión con ${t}`);
+    assert.doesNotMatch(cuerpoFuncion, new RegExp(`public\\.${escapar(t)}\\b`), `anonimizar_socio toca ${t}, que dice CONSERVAR`);
+  }
 });
 
 test('la función es solo de service_role y lo comprueba al aplicarse', () => {
