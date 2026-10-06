@@ -134,7 +134,7 @@ export function prepararClase(input: EntradaClase, c: CatalogoClase, ahoraMs: nu
   if (fechaEnZona(fin) !== input.fecha) return no('La clase terminaría pasada la medianoche: pregunta una hora más temprana.');
 
   let aforo = tipo.aforo ?? sala.capacidad;
-  if (input.aforo > 0) {
+  if (input.aforo !== undefined && input.aforo > 0) {
     if (input.aforo > sala.capacidad) return no(`${sala.nombre} tiene ${sala.capacidad} plazas: no puedo poner ${input.aforo}. Pregunta si quiere otro aforo u otra sala.`);
     aforo = input.aforo;
   }
@@ -204,8 +204,8 @@ export function prepararEvento(
   }).replace(/\s+/g, ' ').trim();
   if (fallo) return no(fallo);
   if (limpio.length < 5) return no('Falta el texto del anuncio. Pregunta de qué trata el evento.');
-  const lugar = input.lugar.replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim() || null;
-  const aforo = input.aforo > 0 ? input.aforo : null;
+  const lugar = (input.lugar ?? '').replace(/[[\]]/g, ' ').replace(/\s+/g, ' ').trim() || null;
+  const aforo = input.aforo !== undefined && input.aforo > 0 ? input.aforo : null;
   const lineas: LineaPropuesta[] = [
     { etiqueta: 'Anuncio', valor: input.texto.replace(/\s+/g, ' ').trim() }, { etiqueta: 'Día', valor: dia(input.fecha) },
     { etiqueta: 'Hora', valor: textoHora(t0.inicio) },
@@ -242,7 +242,7 @@ export function prepararCita(input: EntradaCita, c: CatalogoCita, ahoraMs: numbe
   if (!c.socia) return no('No encuentro a esa alumna. Pregunta su nombre completo.');
   if (c.instructora === 'ambigua') return no('No sé a qué instructora se refiere. Pregunta cuál.');
   if (!c.instructora || !c.instructora.activa) return no('Falta la instructora de la cita. Pregunta con quién es.');
-  const minutos = input.duracion_min > 0 ? input.duracion_min : 60;
+  const minutos = input.duracion_min !== undefined && input.duracion_min > 0 ? input.duracion_min : 60;
   const inicio = t0.inicio;
   const fin = new Date(Date.parse(inicio) + minutos * 60_000).toISOString();
   if (fechaEnZona(fin) !== input.fecha) return no('La cita terminaría pasada la medianoche: pregunta una hora más temprana.');

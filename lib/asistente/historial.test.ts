@@ -65,3 +65,17 @@ test(`ventana de ${TURNOS_MAX} turnos que se recorta de seis en seis`, () => {
   // Siempre empieza por la propietaria.
   assert.equal(h[0].role, 'user');
 });
+
+test('un turno con una propuesta ya hecha lleva una marca corta: el modelo no la repite ni la da por pendiente', () => {
+  const m = [
+    { role: 'user', content: 'Créame una sala llamada reformer avanzado de 8 plazas' },
+    { role: 'assistant', content: [{ type: 'tool_use', id: 't', name: 'proponer_sala', input: { nombre: 'Reformer avanzado', capacidad: 8 } }] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: '{}' }] },
+    { role: 'assistant', content: [{ type: 'text', text: 'Propongo la sala; confirma.' }] },
+  ] as Anthropic.MessageParam[];
+  const h = historialParaElModelo(m);
+  const texto = (h[1].content as Anthropic.TextBlockParam[])[0].text;
+  assert.match(texto, /Propongo la sala; confirma\./);
+  assert.match(texto, /\[acción ya propuesta y resuelta: sala «Reformer avanzado»\]/);
+  assert.doesNotMatch(texto, /8/);
+});
