@@ -40,6 +40,8 @@ export interface FilaPagoClase {
   referencia_stripe: string | null;
   payment_intent_id: string | null;
   creado_en: string;
+  /** La última vez que se tocó (se ancló el cobro o se le volvió a entregar). */
+  actualizado_en?: string | null;
 }
 
 /** Cuánto se espera a otra petición que está creando el cobro de la misma fila. */
@@ -94,14 +96,14 @@ const PAGABLE = new Set(['requires_payment_method', 'requires_confirmation']);
 
 /**
  * `estadoStripe`: `undefined` = todavía no se ha mirado; `null` = se intentó y no se pudo.
- * `piCreadoEnSeg`: el `created` del cobro, para saber si un 3DS a medias está abandonado.
+ * Un 3DS a medias se da por abandonado contando desde la ÚLTIMA entrega del cobro (`actualizado_en`
+ * de la fila), no desde que Stripe lo creó: a quien se le acaba de volver a entregar no se le corta.
  */
 export function decidirPagoDeClase(
   fila: FilaPagoClase | null,
   contenido: ContenidoPagoClase,
   ahoraMs: number,
   estadoStripe?: string | null,
-  piCreadoEnSeg?: number | null,
 ): DecisionPagoClase {
   if (!fila) return 'crear';
   if (fila.estado === 'PAGADO') return 'en-curso';
@@ -117,8 +119,8 @@ export function decidirPagoDeClase(
   if (estadoStripe === 'canceled') return 'cancelar-y-crear';
   if (PAGANDOSE.has(estadoStripe)) return 'en-curso';
   if (estadoStripe === 'requires_action') {
-    const abandonado = typeof piCreadoEnSeg === 'number' && Number.isFinite(piCreadoEnSeg)
-      && ahoraMs - piCreadoEnSeg * 1000 >= MINUTOS_3DS_ABANDONADO * 60_000;
+    const desde = new Date(fila.actualizado_en ?? fila.creado_en).getTime();
+    const abandonado = Number.isFinite(desde) && ahoraMs - desde >= MINUTOS_3DS_ABANDONADO * 60_000;
     return abandonado ? 'cancelar-y-crear' : 'a-medias';
   }
   if (PAGABLE.has(estadoStripe)) return mismoContenido(fila, contenido) ? 'reutilizar' : 'cancelar-y-crear';

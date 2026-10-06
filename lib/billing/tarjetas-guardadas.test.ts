@@ -1,8 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  componentesSesionDeTarjetas, debeCrearSesionDeTarjetas, idDeTarjetaValido, tarjetaEsSuya, tarjetasVisibles,
+  componentesSesionDeTarjetas, debeCrearSesionDeTarjetas, idDeTarjetaValido, puedeQuitarseDesdeLaApp, tarjetaEsSuya, tarjetasVisibles,
 } from './tarjetas-guardadas.ts';
+
+test('⚠️ quitar desde la app: solo una tarjeta «always»; nunca el SEPA de sus domiciliaciones ni una no aceptada', () => {
+  assert.equal(puedeQuitarseDesdeLaApp({ id: 'pm_a', type: 'card', allow_redisplay: 'always' }, null), true);
+  assert.equal(puedeQuitarseDesdeLaApp({ id: 'pm_s', type: 'sepa_debit', allow_redisplay: 'always' }, 'pm_s'), false);
+  assert.equal(puedeQuitarseDesdeLaApp({ id: 'pm_s', type: 'card', allow_redisplay: 'always' }, 'pm_s'), false);
+  assert.equal(puedeQuitarseDesdeLaApp({ id: 'pm_l', type: 'card', allow_redisplay: 'limited' }, null), false);
+});
 import { comprobarParDeClaves } from './modo-stripe.ts';
 import { usoFuturoCheckoutHospedado } from './uso-futuro-tarjeta.ts';
 import { metodoReutilizableDe } from './metodo-reutilizable.ts';
@@ -78,6 +85,9 @@ test('Checkout hospedado: guarda la tarjeta solo para la cuota (y una renovació
   }
   assert.deepEqual(usoFuturoCheckoutHospedado({ tipoPlan: null, esReciboDeRenovacion: true }), { usoFuturo: 'off_session', avisar: true });
   assert.deepEqual(usoFuturoCheckoutHospedado({ tipoPlan: null, esReciboDeRenovacion: false }), { usoFuturo: undefined, avisar: false }, 'penalización, cita o recibo suelto');
+  // ⚠️ La lectura del tipo falló en un recibo con suscripción: puede ser una cuota, se guarda (con aviso).
+  assert.deepEqual(usoFuturoCheckoutHospedado({ tipoPlan: null, esReciboDeRenovacion: false, tieneSuscripcion: true }), { usoFuturo: 'off_session', avisar: true });
+  assert.deepEqual(usoFuturoCheckoutHospedado({ tipoPlan: 'BONO', esReciboDeRenovacion: false, tieneSuscripcion: true }), { usoFuturo: undefined, avisar: false });
 });
 
 test('la ruta de tarjetas: socia del token, y quitar una guardada mira que sea SUYA antes de soltarla en Stripe', async () => {

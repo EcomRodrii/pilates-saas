@@ -13,7 +13,7 @@ import { usuarioSupabaseConPaso } from '@/lib/auth-server';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { claveDePagoDeClase, type FilaPagoClase } from '@/lib/billing/pago-de-clase';
-import { anclarCobroDePago, anotarMatriculaDePago, prepararPagoDeClase, renovarEntregaDePago } from '@/lib/billing/pago-de-clase-servidor';
+import { anclarCobroDePago, anotarMatriculaDePago, cerrarPagoDeClaseAbierto, prepararPagoDeClase, renovarEntregaDePago } from '@/lib/billing/pago-de-clase-servidor';
 import { IMPORTE_MINIMO_EUR, tienePrecioEspecial } from '@/lib/reservar/opciones-de-clase';
 import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
@@ -29,7 +29,7 @@ import { MENSAJE_COMPRA_YA_PAGADA } from '@/lib/billing/sesion-checkout';
 import { idsDe } from '@/lib/billing/ids-compra';
 import { piDeClientSecret } from '@/lib/billing/estado-pago-publico';
 import { sesionNoExisteEnStripe } from '@/lib/billing/pago-online-al-cobrar-a-mano';
-import { plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
+import { claveMatriculaDePagoClase, plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
 import { telefonoValido } from '@/lib/csv';
@@ -367,6 +367,12 @@ export async function POST(req: NextRequest) {
   const rechazoPrueba = await rechazoCompraPrueba(admin, {
     studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
     socioId, email: socioEmail, sesionId: body.sesionId,
+    // P07: una prueba abandonada en OTRA clase se cierra en Stripe (no bloquea); solo bloquea si se está pagando.
+    cerrarPagoAbierto: async (pagoClaseId: string) => {
+      const { data: est } = await admin.from('studios').select('stripe_account_id').eq('id', body.studioId!).maybeSingle();
+      const cuenta = (est?.stripe_account_id as string | null | undefined) ?? null;
+      return cuenta ? cerrarPagoDeClaseAbierto(admin, stripe, cuenta, body.studioId!, pagoClaseId) : 'no-se-sabe';
+    },
   });
   if (rechazoPrueba) {
     return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
@@ -610,8 +616,19 @@ export async function POST(req: NextRequest) {
       return;
     }
     if (soltarMatricula && (data?.length ?? 0) > 0 && pagoClaseRecreado && pagoClase.cupo_matricula) {
-      await liberarCupoMatricula(admin, pagoClase.plan_id, body.studioId!);
+      // Con la clave de la fila: la misma del barrido y del conciliador (una sola vez).
+      await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(pagoClase.id), pagoClase.plan_id, body.studioId!).catch(() => {});
     }
+  };
+
+  // La matrícula gratis que reservó ESTA petición y que no va con ningún cobro. Con fila de pago de clase,
+  // con la clave de la fila: así el barrido (que la vería en la fila sin cobro) no la devuelve otra vez.
+  const soltarMatriculaPropia = async (m: { planId: string; studioId: string }): Promise<void> => {
+    if (pagoClase) {
+      await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(pagoClase.id), m.planId, m.studioId).catch(() => {});
+      return;
+    }
+    await liberarCupoMatricula(admin, m.planId, m.studioId);
   };
 
   // El cobro que esta misma pantalla creó antes (5-oct-2026). Va ANTES de reservar
@@ -622,7 +639,9 @@ export async function POST(req: NextRequest) {
   // ⚠️ También con fila de `pagos_clase`: ella resuelve el pago vivo de ESTA persona (mismo pagador), pero el
   // cobro anterior de esta pantalla puede ser de otro pagador (cambió el email en /reservar) y seguiría
   // pagable. Si hay que cortar aquí, la fila recién abierta se cierra antes (sin cobro, no retiene nada).
-  const secretoAnterior = typeof body.pagoAnterior === 'string' && body.pagoAnterior !== pagoClase?.payment_intent_id ? body.pagoAnterior : null;
+  // (Se compara el COBRO del secreto con el de la fila: el secreto nunca es igual al id.)
+  const secretoAnterior = typeof body.pagoAnterior === 'string' && piDeClientSecret(body.pagoAnterior) !== (pagoClase?.payment_intent_id ?? null)
+    ? body.pagoAnterior : null;
   const piAnteriorId = piDeClientSecret(secretoAnterior);
   if (secretoAnterior && piAnteriorId) {
     let anterior: Stripe.PaymentIntent | null = null;
@@ -729,9 +748,7 @@ export async function POST(req: NextRequest) {
     await recuperarPlazasCaducadas(admin, stripe, body.planId, body.studioId, stripeAccount);
     plaza = await reservarPlazaEtapa(admin, body.planId, body.studioId, idemKey);
   } catch (err) {
-    if (cupoMatriculaReservado && !pagoClaseRecreado) {
-      await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
-    }
+    if (cupoMatriculaReservado && !pagoClaseRecreado) await soltarMatriculaPropia(cupoMatriculaReservado);
     await cerrarPagoClaseSinCobro();
     if (esEtapaAgotada(err)) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_ETAPA_AGOTADA }, { status: 409 }));
@@ -917,7 +934,7 @@ export async function POST(req: NextRequest) {
   // Al RECREAR un pago (`pagoClaseRecreado`) esta petición no ha reservado ninguna: la que hay es
   // la de ese pago, y no se suelta desde aquí.
   const devolverMatriculaPropia = async () => {
-    if (cupoMatriculaReservado && !pagoClaseRecreado) await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    if (cupoMatriculaReservado && !pagoClaseRecreado) await soltarMatriculaPropia(cupoMatriculaReservado);
   };
   // La de un cobro que ya existe con la marca: con SU clave, la misma del conciliador,
   // que la vería otra vez en el PI cancelado. Sin clave se devolvía dos veces (−1 neto
@@ -925,7 +942,7 @@ export async function POST(req: NextRequest) {
   const devolverMatriculaDe = async (cobroId: string) => {
     if (!cupoMatriculaReservado) return;
     try {
-      await liberarCupoMatriculaUnaVez(admin, cobroId, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      await liberarCupoMatriculaUnaVez(admin, pagoClase ? claveMatriculaDePagoClase(pagoClase.id) : cobroId, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     } catch (e) {
       // No ha quedado nada anotado: el conciliador la devuelve (PI cancelado con la marca).
       Sentry.captureException(e instanceof Error ? e : new Error('liberar matrícula del cobro cancelado'), {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { usoFuturoCheckoutHospedado } from '@/lib/billing/uso-futuro-tarjeta';
+import { cerrarPagoDeClaseAbierto } from '@/lib/billing/pago-de-clase-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
@@ -262,6 +263,7 @@ export async function POST(req: NextRequest) {
   let tipoPlanCobrado: string | null = null;
   // P16: si es el recibo de una RENOVACIÓN (para la regla de guardar la tarjeta).
   let reciboEsRenovacion = false;
+  let reciboTieneSuscripcion = false;
   // Con clase concreta (P06): cuándo caduca la sesión, sacado del cierre de la reserva de la clase.
   let expiraPorClase: number | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
@@ -384,6 +386,7 @@ export async function POST(req: NextRequest) {
     // El mismo helper que usa el mostrador (`/api/pos/recibo`): el 14-sep esta
     // resolución vivía solo aquí y el TPV ofrecía Bizum en cuotas.
     reciboEsRenovacion = recibo.es_renovacion === true;
+    reciboTieneSuscripcion = !!recibo.suscripcion_id;
     tipoPlanCobrado = await tipoDePlanDelRecibo(admin, {
       entrega_tipo: (recibo.entrega_tipo as string | null) ?? null,
       suscripcion_id: (recibo.suscripcion_id as string | null) ?? null,
@@ -456,6 +459,12 @@ export async function POST(req: NextRequest) {
     const rechazoPrueba = await rechazoCompraPrueba(admin, {
       studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
       socioId, email: socioEmail, sesionId: body.sesionId,
+      // P07: una prueba abandonada en OTRA clase se cierra en Stripe (no bloquea); solo bloquea si se está pagando.
+      cerrarPagoAbierto: async (pagoClaseId: string) => {
+        const { data: est } = await admin.from('studios').select('stripe_account_id').eq('id', body.studioId!).maybeSingle();
+        const cuenta = (est?.stripe_account_id as string | null | undefined) ?? null;
+        return cuenta ? cerrarPagoDeClaseAbierto(admin, stripe, cuenta, body.studioId!, pagoClaseId) : 'no-se-sabe';
+      },
     });
     if (rechazoPrueba) {
       return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
@@ -744,7 +753,7 @@ export async function POST(req: NextRequest) {
   // es justo para no salir. Quien quiera Bizum tiene el enlace de siempre.
   const conBizum = !incrustado && ofrecerBizum(body.bizum === true, tipoPlanCobrado);
   // P16: la tarjeta se guarda para cobros automáticos SOLO si hace falta (la cuota). Antes se pedía para todo.
-  const guardado = usoFuturoCheckoutHospedado({ tipoPlan: tipoPlanCobrado, esReciboDeRenovacion: reciboEsRenovacion });
+  const guardado = usoFuturoCheckoutHospedado({ tipoPlan: tipoPlanCobrado, esReciboDeRenovacion: reciboEsRenovacion, tieneSuscripcion: reciboTieneSuscripcion });
   if (guardado.avisar) {
     Sentry.captureMessage('[stripe/checkout] recibo de renovación con el tipo de plan sin saber: se guarda la tarjeta por si acaso', {
       level: 'warning', tags: { area: 'cobros' }, extra: { studioId: body.studioId, reciboId: body.reciboId ?? null },

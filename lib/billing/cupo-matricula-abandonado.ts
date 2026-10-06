@@ -76,7 +76,15 @@ export function plazaDePICancelado(pi: Omit<PIMin, 'created'>): PlazaADevolver |
   if (pi.status !== 'canceled') return null;
   const md = pi.metadata ?? {};
   if (md.origen !== 'plan_web_embebido' || md[FLAG] !== '1' || !md.planId) return null;
-  return { clave: pi.id, planId: md.planId };
+  // El cobro de un pago de clase (P06): la matrícula es de la FILA, no del cobro. Con la clave de la fila, el
+  // conciliador (que ve el cobro cancelado) y el barrido de pagos de clase (que ve la fila sin cobro) devuelven
+  // la misma plaza UNA vez. Con la del cobro, cada uno la devolvía con su clave: dos veces.
+  return { clave: md.pagoClaseId ? claveMatriculaDePagoClase(md.pagoClaseId) : pi.id, planId: md.planId };
+}
+
+/** La clave «una vez» de la matrícula gratis retenida por un pago de clase (la fila, no su cobro). */
+export function claveMatriculaDePagoClase(pagoClaseId: string): string {
+  return `pago-clase-matricula-${pagoClaseId}`;
 }
 
 /**

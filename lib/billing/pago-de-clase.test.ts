@@ -28,11 +28,12 @@ test('pagado (o pagándose en Stripe): ni otro cobro ni el mismo otra vez', () =
   }
 });
 
-test('⚠️ un 3DS a medias NO es «pagado»: reciente, «a medias»; abandonado (10 min), se cancela y se crea otro', () => {
-  const ahoraSeg = AHORA / 1000;
-  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action', ahoraSeg - 60), 'a-medias');
-  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action', ahoraSeg - 11 * 60), 'cancelar-y-crear');
-  assert.equal(decidirPagoDeClase(fila(), C, AHORA, 'requires_action'), 'a-medias', 'sin saber cuándo se creó, no se cancela');
+test('⚠️ un 3DS a medias NO es «pagado»: reciente, «a medias»; 10 min sin tocar DESDE SU ÚLTIMA ENTREGA, se cancela y se crea otro', () => {
+  const hace = (min: number) => new Date(AHORA - min * 60_000).toISOString();
+  assert.equal(decidirPagoDeClase(fila({ actualizado_en: hace(1) }), C, AHORA, 'requires_action'), 'a-medias');
+  assert.equal(decidirPagoDeClase(fila({ actualizado_en: hace(11) }), C, AHORA, 'requires_action'), 'cancelar-y-crear');
+  // Creada hace una hora pero se le acaba de entregar: no se le corta.
+  assert.equal(decidirPagoDeClase(fila({ creado_en: hace(60), actualizado_en: hace(2) }), C, AHORA, 'requires_action'), 'a-medias');
 });
 
 test('con cobro: primero hay que mirarlo en Stripe; si no se puede, no se crea otro', () => {

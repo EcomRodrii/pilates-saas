@@ -5,7 +5,7 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
-import { idDeTarjetaValido, tarjetaEsSuya, tarjetasVisibles, type PaymentMethodMin } from '@/lib/billing/tarjetas-guardadas';
+import { idDeTarjetaValido, puedeQuitarseDesdeLaApp, tarjetaEsSuya, tarjetasVisibles, type PaymentMethodMin } from '@/lib/billing/tarjetas-guardadas';
 
 const claveStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -122,6 +122,11 @@ export async function DELETE(req: NextRequest) {
       }
       if (!tarjetaEsSuya(pm.customer, (socio.stripe_customer_id as string | null) ?? null)) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      // Solo una TARJETA guardada para pagar en la app: ni el mandato SEPA de sus domiciliaciones ni un método que
+      // no aceptó guardar (esos no se ven en la lista y no se quitan desde aquí).
+      if (!puedeQuitarseDesdeLaApp(pm, (socio.sepa_payment_method_id as string | null) ?? null)) {
+        return NextResponse.json({ error: 'Esta tarjeta no se puede quitar desde aquí. Escribe al estudio.' }, { status: 403 });
       }
       try {
         await stripe.paymentMethods.detach(pmPedido, {}, { stripeAccount });

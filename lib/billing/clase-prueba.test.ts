@@ -251,3 +251,26 @@ test('pruebaCubreTipo: sin tipos, todas; con tipos, solo esos', () => {
   assert.equal(pruebaCubreTipo({ tiposClaseIds: ['tc-r'] }, 'tc-m'), false);
   assert.equal(pruebaCubreTipo({ tiposClaseIds: ['tc-r'] }, null), false);
 });
+
+test('⚠️ una prueba ABIERTA y abandonada en otra clase se cierra y no bloquea; si Stripe dice que se está pagando, sí', async () => {
+  const fake = () => falso((l) => {
+    if (l.tabla === 'pagos_clase') return { data: [{ id: 'pc-a', estado: 'ABIERTO', plan_id: 'p-prueba' }] };
+    if (l.tabla === 'planes_tarifa') return { data: [{ id: 'p-prueba' }] };
+    return historial({})(l);
+  });
+  const p = { studioId: 'st', plan: { es_prueba: true, precio: 12 }, socioId: 'soc-1', email: null, sesionId: 's2' };
+  const cerrados: string[] = [];
+  const libre = await rechazoCompraPrueba(fake().admin, { ...p, cerrarPagoAbierto: async (id) => { cerrados.push(id); return 'cerrado'; } });
+  assert.equal(libre, null);
+  assert.deepEqual(cerrados, ['pc-a']);
+  const pagandose = await rechazoCompraPrueba(fake().admin, { ...p, cerrarPagoAbierto: async () => 'pagado' });
+  assert.equal(pagandose?.codigo, 'prueba-en-curso');
+  const nsé = await rechazoCompraPrueba(fake().admin, { ...p, cerrarPagoAbierto: async () => 'no-se-sabe' });
+  assert.equal(nsé?.status, 409);
+  // Una PAGADA no se intenta cerrar: es su prueba.
+  const pagada = falso((l) => (l.tabla === 'pagos_clase' ? { data: [{ id: 'pc-b', estado: 'PAGADO', plan_id: 'p-prueba' }] } : l.tabla === 'planes_tarifa' ? { data: [{ id: 'p-prueba' }] } : historial({})(l)));
+  let llamado = false;
+  const r = await rechazoCompraPrueba(pagada.admin, { ...p, cerrarPagoAbierto: async () => { llamado = true; return 'cerrado'; } });
+  assert.equal(r?.codigo, 'prueba-en-curso');
+  assert.equal(llamado, false);
+});

@@ -29,9 +29,12 @@ test('ABIERTO abandonado: se cancela en Stripe 2 h después de su ÚLTIMA entreg
     assert.equal(queHacerEnElBarrido(fila({ creado_en: hace(300), actualizado_en: hace(5) }), AHORA, e), 'nada', e);
     assert.equal(queHacerEnElBarrido(fila({ actualizado_en: hace(60) }), AHORA, e), 'nada', `${e}: 1 h no es abandono`);
   }
-  for (const e of ['processing', 'requires_action', 'requires_capture']) {
+  for (const e of ['processing', 'requires_capture']) {
     assert.equal(queHacerEnElBarrido(fila({ actualizado_en: hace(500) }), AHORA, e), 'al-final', e);
   }
+  // ⚠️ Un 3DS a medias no se queda para siempre (bloquearía la prueba en otra clase): 2 h desde su última entrega.
+  assert.equal(queHacerEnElBarrido(fila({ actualizado_en: hace(60) }), AHORA, 'requires_action'), 'al-final');
+  assert.equal(queHacerEnElBarrido(fila({ actualizado_en: hace(MINUTOS_ABANDONO_COBRO + 1) }), AHORA, 'requires_action'), 'cancelar-cobro');
   assert.equal(queHacerEnElBarrido(fila(), AHORA, null), 'nada', 'sin poder mirarlo, no se toca');
 });
 

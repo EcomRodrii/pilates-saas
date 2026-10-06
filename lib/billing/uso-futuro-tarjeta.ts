@@ -33,12 +33,19 @@ export function setupFutureUsageCheckout(tipo: TipoPlan): 'off_session' | undefi
  *    guardarla dejaría una cuota sin poder renovarse, que es el fallo caro;
  *  - lo demás (bono, suelta, sin plan, penalización, cita) → nada.
  */
-export function usoFuturoCheckoutHospedado(p: { tipoPlan: string | null | undefined; esReciboDeRenovacion: boolean }): {
+export function usoFuturoCheckoutHospedado(p: {
+  tipoPlan: string | null | undefined;
+  esReciboDeRenovacion: boolean;
+  /** El recibo va atado a una suscripción: si el tipo no se ha podido leer, puede ser una cuota. */
+  tieneSuscripcion?: boolean;
+}): {
   usoFuturo: 'off_session' | undefined;
   avisar: boolean;
 } {
   if (p.tipoPlan === 'MENSUAL') return { usoFuturo: 'off_session', avisar: false };
   const conocido = p.tipoPlan === 'BONO' || p.tipoPlan === 'PUNTUAL' || p.tipoPlan === 'SIN_PLAN';
-  if (!conocido && p.esReciboDeRenovacion) return { usoFuturo: 'off_session', avisar: true };
+  // Tipo desconocido (la lectura falló) en un recibo de renovación o atado a una suscripción: podría ser una cuota,
+  // y no guardarla la dejaría sin renovarse sola. Se guarda y se avisa.
+  if (!conocido && (p.esReciboDeRenovacion || p.tieneSuscripcion)) return { usoFuturo: 'off_session', avisar: true };
   return { usoFuturo: undefined, avisar: false };
 }

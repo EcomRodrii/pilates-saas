@@ -3,11 +3,11 @@ import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import {
-  decidirPagoDeClase, MENSAJE_PAGO_DE_CLASE_EN_CURSO, MENSAJE_PAGO_PREPARANDOSE, CODIGO_PAGO_A_MEDIAS, MENSAJE_PAGO_DE_CLASE_A_MEDIAS,
+  decidirPagoDeClase, SEGUNDOS_PREPARANDOSE, MENSAJE_PAGO_DE_CLASE_EN_CURSO, MENSAJE_PAGO_PREPARANDOSE, CODIGO_PAGO_A_MEDIAS, MENSAJE_PAGO_DE_CLASE_A_MEDIAS,
   type ContenidoPagoClase, type FilaPagoClase,
 } from '@/lib/billing/pago-de-clase';
 import { quienPaga } from '@/lib/billing/clave-checkout-embebido';
-import { plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
+import { claveMatriculaDePagoClase, plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
 import { CODIGO_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
@@ -22,7 +22,7 @@ import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 // queda nadie sin poder pagar por el orden de despliegue.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COLUMNAS = 'id, estado, plan_id, codigo_descuento_id, spot_id, importe_centimos, matricula_centimos, cupo_matricula, referencia_stripe, payment_intent_id, creado_en';
+const COLUMNAS = 'id, estado, plan_id, codigo_descuento_id, spot_id, importe_centimos, matricula_centimos, cupo_matricula, referencia_stripe, payment_intent_id, creado_en, actualizado_en';
 
 export type PreparacionPagoClase =
   | { tipo: 'crear'; fila: FilaPagoClase }
@@ -69,7 +69,7 @@ export async function prepararPagoDeClase(admin: SupabaseClient, stripe: Stripe,
       } catch {
         estadoStripe = null;
       }
-      decision = decidirPagoDeClase(fila, p.contenido, ahora.getTime(), estadoStripe, pi?.created ?? null);
+      decision = decidirPagoDeClase(fila, p.contenido, ahora.getTime(), estadoStripe);
     }
 
     switch (decision) {
@@ -124,6 +124,24 @@ export async function prepararPagoDeClase(admin: SupabaseClient, stripe: Stripe,
 }
 
 /**
+ * Cierra un pago de clase ABIERTO por su id, con el criterio de `cerrarPagoAnterior`: solo si Stripe confirma que
+ * su cobro está cancelado (si se está pagando o ya se pagó, `pagado`). Una fila sin cobro de menos de
+ * `SEGUNDOS_PREPARANDOSE` es la de otra petición que lo está creando ahora: `pagado` (no se toca).
+ * P07: lo usa la puerta de la clase de prueba, para que una prueba abandonada en otra clase no la bloquee.
+ */
+export async function cerrarPagoDeClaseAbierto(
+  admin: SupabaseClient, stripe: Stripe, stripeAccount: string, studioId: string, filaId: string,
+): Promise<'cerrado' | 'pagado' | 'no-se-sabe'> {
+  const { data, error } = await admin.from('pagos_clase').select(COLUMNAS).eq('id', filaId).eq('studio_id', studioId).maybeSingle();
+  if (error) return 'no-se-sabe';
+  const fila = data as FilaPagoClase | null;
+  if (!fila || (fila.estado !== 'ABIERTO' && fila.estado !== 'PAGADO')) return 'cerrado';
+  if (fila.estado === 'PAGADO') return 'pagado';
+  if (!fila.payment_intent_id && Date.now() - new Date(fila.creado_en).getTime() < SEGUNDOS_PREPARANDOSE * 1000) return 'pagado';
+  return cerrarPagoAnterior(admin, stripe, stripeAccount, studioId, fila, null);
+}
+
+/**
  * Cancela el cobro de un pago anterior (otro contenido) y da la fila por CANCELADA.
  * Solo si Stripe confirma `canceled`: un cobro que se acaba de pagar NO se toca.
  * Devuelve lo retenido (plaza de etapa y matrícula gratis) con las mismas claves que
@@ -155,6 +173,10 @@ async function cerrarPagoAnterior(
     p_id: fila.id, p_studio_id: studioId, p_estado: 'CANCELADO',
   });
   if (error) return 'no-se-sabe';
+  // Sin cobro no hay metadata de la que leer la matrícula retenida: la dice la fila (misma clave «una vez»).
+  if (!cancelado && fila.cupo_matricula) {
+    await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(fila.id), fila.plan_id, studioId).catch(() => {});
+  }
   if (cancelado) {
     await liberarPlazaPorRef(admin, cancelado.id);
     const matricula = plazaDePICancelado(cancelado);

@@ -113,7 +113,14 @@ export function decidirPagoAnterior(pi: CobroAnterior, secretoEnviado: string, i
   const mismaPersona = intento.socioId
     ? md.socioId === intento.socioId
     : !md.socioId && mismoEmail(md.socioEmail, intento.socioEmail);
-  if (!mismaPersona) return 'ajeno';
+  if (!mismaPersona) {
+    // Tiene el secreto (lo creó ESTA pantalla) pero ha cambiado quién paga (otro email en /reservar, o ha entrado
+    // con su cuenta): el cobro anterior se CANCELA si todavía se puede, para que no queden dos pagables de la misma
+    // clase. Nunca se le dice «pagado» ni «a medias» de un cobro de otra persona: si no se puede cancelar, se ignora.
+    if (pi.status === 'requires_action') return 'cancelar';
+    const r = queHacerConCobroRepetido(pi.status);
+    return r === 'usar' || r === 'cancelar-y-nuevo' ? 'cancelar' : r === 'nuevo' ? 'ya-cancelado' : 'ajeno';
+  }
   // Un 3DS a medias de ESTA pantalla: si ha vuelto atrás y continúa, lo ha dejado.
   // Se cancela (si el banco lo aprueba después, el cobro falla: nunca dos cobros).
   if (pi.status === 'requires_action') return 'cancelar';

@@ -103,3 +103,11 @@ export function tarjetaEsSuya(pmCustomer: string | { id?: string } | null | unde
   const de = typeof pmCustomer === 'string' ? pmCustomer : (pmCustomer?.id ?? null);
   return !!de && !!customerDeLaFicha && de === customerDeLaFicha;
 }
+
+/**
+ * ¿Se puede quitar desde Perfil? Solo una TARJETA que ella aceptó guardar (`always`), y nunca el método de sus
+ * domiciliaciones SEPA (con el id que sea): quitarlo dejaría sin cobrar sus cuotas por el banco.
+ */
+export function puedeQuitarseDesdeLaApp(pm: Pick<PaymentMethodMin, 'id' | 'type' | 'allow_redisplay'>, sepaDeLaFicha: string | null): boolean {
+  return pm.type === 'card' && pm.allow_redisplay === 'always' && pm.id !== sepaDeLaFicha;
+}

@@ -99,6 +99,11 @@ export async function rechazoCompraPrueba(admin: SupabaseClient, p: {
   socioId: string | null;
   email: string | null | undefined;
   sesionId: string | null | undefined;
+  /**
+   * P07: cierra en Stripe un pago de prueba ABIERTO de OTRA clase (`cerrarPagoDeClaseAbierto`). Sin él, cualquier
+   * pago vivo bloquea; con él, solo el que Stripe dice que se está pagando o ya se pagó.
+   */
+  cerrarPagoAbierto?: (pagoClaseId: string) => Promise<'cerrado' | 'pagado' | 'no-se-sabe'>;
 }): Promise<RechazoPrueba | null> {
   if (p.plan.es_prueba !== true) return null;
   if (!p.sesionId) {
@@ -113,7 +118,7 @@ export async function rechazoCompraPrueba(admin: SupabaseClient, p: {
   // P07: una prueba a medio pagar en OTRA clase (pagos_clase vivo). Sin esto, dos pestañas pagaban dos pruebas:
   // la nueva «sigue siendo nueva» hasta que el webhook entrega la primera. En la MISMA clase no se corta aquí: ese
   // reintento lo resuelve el pago vivo (`prepararPagoDeClase`), que reutiliza o cancela el anterior.
-  const enCurso = await pruebaEnCursoEnOtraClase(admin, p.studioId, quienPaga(p.socioId, p.email ?? null), p.sesionId);
+  const enCurso = await pruebaEnCursoEnOtraClase(admin, p.studioId, quienPaga(p.socioId, p.email ?? null), p.sesionId, p.cerrarPagoAbierto);
   if (enCurso !== 'no') {
     return enCurso === 'si'
       ? { status: 409, codigo: 'prueba-en-curso', error: 'Ya tienes tu clase de prueba a medio pagar en otra clase. No te hemos cobrado nada.' }
@@ -125,16 +130,27 @@ export async function rechazoCompraPrueba(admin: SupabaseClient, p: {
 /** ¿Tiene un pago de prueba vivo (ABIERTO/PAGADO) en otra clase? Fail-closed: un error es «no se sabe». */
 async function pruebaEnCursoEnOtraClase(
   admin: SupabaseClient, studioId: string, pagador: string, sesionId: string,
+  cerrar?: (pagoClaseId: string) => Promise<'cerrado' | 'pagado' | 'no-se-sabe'>,
 ): Promise<'si' | 'no' | 'no-se-sabe'> {
-  const { data, error } = await admin.from('pagos_clase').select('plan_id')
+  const { data, error } = await admin.from('pagos_clase').select('id, estado, plan_id')
     .eq('studio_id', studioId).eq('pagador', pagador).in('estado', ['ABIERTO', 'PAGADO']).neq('sesion_id', sesionId);
   if (error) return esTablaQueFalta(error) ? 'no' : 'no-se-sabe'; // tabla aún sin aplicar: no hay pagos de clase
-  const planes = [...new Set(((data ?? []) as { plan_id: string }[]).map((f) => f.plan_id))];
+  const filas = (data ?? []) as { id: string; estado: string; plan_id: string }[];
+  const planes = [...new Set(filas.map((f) => f.plan_id))];
   if (planes.length === 0) return 'no';
   const { data: pruebas, error: e2 } = await admin.from('planes_tarifa').select('id')
     .eq('studio_id', studioId).in('id', planes).eq('es_prueba', true);
   if (e2) return 'no-se-sabe';
-  return ((pruebas ?? []) as unknown[]).length > 0 ? 'si' : 'no';
+  const deprueba = new Set(((pruebas ?? []) as { id: string }[]).map((x) => x.id));
+  for (const f of filas.filter((x) => deprueba.has(x.plan_id))) {
+    // Pagada (se está confirmando la plaza): esa es su prueba.
+    if (f.estado === 'PAGADO' || !cerrar) return 'si';
+    // Abierta y abandonada en otra clase: se cierra, y solo bloquea si Stripe dice que se está pagando.
+    const r = await cerrar(f.id);
+    if (r === 'pagado') return 'si';
+    if (r === 'no-se-sabe') return 'no-se-sabe';
+  }
+  return 'no';
 }
 
 // ── La oferta para UNA socia (P07) ───────────────────────────────────────────

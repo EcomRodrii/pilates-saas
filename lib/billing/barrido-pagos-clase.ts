@@ -11,10 +11,11 @@
 //   · ABIERTO con un cobro abandonado (nadie lo ha tocado en `ABANDONO_PI_SEGUNDOS`,
 //     2 h, contando desde la ÚLTIMA vez que se le entregó: reabrir la hoja lo renueva):
 //     se cancela en Stripe y, SOLO si Stripe confirma, la fila pasa a CANCELADO y
-//     vuelve lo retenido. Un 3DS a medias (`requires_action`) no lo cancela el barrido:
-//     lo cancela el siguiente intento pasados 10 min, o el barrido de matrícula.
+//     vuelve lo retenido. Un 3DS a medias (`requires_action`) también, con el mismo plazo
+//     (antes no se cancelaba nunca y bloqueaba la clase de prueba en otra clase).
 //   · ABIERTO sin cobro hace 45 min (la petición murió antes de crearlo): CANCELADO,
-//     y su matrícula gratis vuelve (una vez, con la clave de la fila).
+//     y su matrícula gratis vuelve (una vez, con la clave de la fila, la misma que usa el
+//     conciliador con el cobro cancelado: `claveMatriculaDePagoClase`).
 //   · Orden por `actualizado_en`, y lo que no se puede resolver todavía (cobrándose,
 //     3DS a medias) se «toca» al pasar: va al final de la cola y no tapa a las nuevas
 //     (el `limit` no se queda atascado en las mismas 50 filas).
@@ -30,7 +31,7 @@ import { reservarClasePagada } from './reservar-clase-pagada.ts';
 import { plazaDePICancelado } from './cupo-matricula-abandonado.ts';
 import { liberarCupoMatriculaUnaVez } from './matricula-online.ts';
 import { liberarPlazaPorRef } from '../opening/cupo.ts';
-import { ABANDONO_PI_SEGUNDOS } from './cupo-matricula-abandonado.ts';
+import { ABANDONO_PI_SEGUNDOS, claveMatriculaDePagoClase } from './cupo-matricula-abandonado.ts';
 import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 
 /** Un PAGADO se reintenta pasado este rato (el webhook está terminando, o murió). */
@@ -56,7 +57,7 @@ export interface FilaBarrido {
 /** `al-final`: nada que hacer todavía y no se sabe cuándo (cobrándose, 3DS a medias): se manda al final de la cola. */
 export type AccionBarrido = 'reservar' | 'cancelar-cobro' | 'cerrar-sin-cobro' | 'al-final' | 'nada';
 
-const PAGANDOSE = new Set(['processing', 'requires_capture', 'requires_action']);
+const PAGANDOSE = new Set(['processing', 'requires_capture']);
 const ABANDONABLE = new Set(['requires_payment_method', 'requires_confirmation']);
 
 /**
@@ -71,6 +72,9 @@ export function queHacerEnElBarrido(f: FilaBarrido, ahoraMs: number, estadoPI: s
   if (estadoPI === 'succeeded') return entregado ? 'reservar' : 'nada'; // sin entregar: lo entrega el conciliador primero
   if (estadoPI === 'canceled') return 'cerrar-sin-cobro';
   if (estadoPI && PAGANDOSE.has(estadoPI)) return 'al-final';
+  // Un 3DS a medias: el banco puede tardar, pero no 2 h. Pasado `ABANDONO_PI_SEGUNDOS` desde su última entrega se
+  // cancela (si el banco lo aprueba después, el cobro falla: nunca dos cobros); antes, al final de la cola.
+  if (estadoPI === 'requires_action') return minDesde(f.actualizado_en) >= MINUTOS_ABANDONO_COBRO ? 'cancelar-cobro' : 'al-final';
   if (estadoPI && ABANDONABLE.has(estadoPI)) return minDesde(f.actualizado_en) >= MINUTOS_ABANDONO_COBRO ? 'cancelar-cobro' : 'nada';
   return 'nada';
 }
@@ -136,7 +140,7 @@ export async function barrerPagosDeClase(
           if (pi?.status === 'canceled') await devolverRetenido(admin, studio.id, pi);
           // Sin cobro no hay metadata de la que leer la matrícula: la dice la fila (una vez, con su clave).
           else if (!f.payment_intent_id && f.cupo_matricula && f.plan_id) {
-            await liberarCupoMatriculaUnaVez(admin, `pago-clase-sin-cobro-${f.id}`, f.plan_id, studio.id)
+            await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(f.id), f.plan_id, studio.id)
               .catch(() => { /* sin anotar: se queda retenida y Sentry lo cuenta abajo si se repite */ });
           }
           cancelados += 1;

@@ -76,3 +76,10 @@ test('Modo B: sin plaza, sin plan o de otra vía → no se cancela nada', () => 
     { ...base, metadata: null },
   ], AHORA), []);
 });
+
+test('⚠️ el cobro de un pago de clase devuelve la matrícula con la clave de la FILA (la misma del barrido): una vez', async () => {
+  const { claveMatriculaDePagoClase } = await import('./cupo-matricula-abandonado.ts');
+  const md = { origen: 'plan_web_embebido', planId: 'plan-1', cupoMatriculaReservado: '1' };
+  assert.equal(plazaDePICancelado({ id: 'pi_x', status: 'canceled', metadata: md })?.clave, 'pi_x');
+  assert.equal(plazaDePICancelado({ id: 'pi_x', status: 'canceled', metadata: { ...md, pagoClaseId: 'pc-1' } })?.clave, claveMatriculaDePagoClase('pc-1'));
+});
