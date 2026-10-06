@@ -1,184 +1,171 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Link from 'next/link';
-import { CalendarDays, FileSpreadsheet, Mail, MessageCircle } from 'lucide-react';
 import { PLANS } from './data';
-import { ALTA } from './enlaces';
 import { FotoLanding } from './FotoLanding';
-import { FOTOS_BENTO, type ClaveHueco } from './fotos-bento';
+import { FOTOS_BENTO } from './fotos-bento';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
 
-// «Todo lo que necesita un estudio, en una sola plataforma» — rehecha por
-// tercera vez el 6-oct-2026 con el fundador mirando una referencia: tarjetas de
-// esquinas muy redondeadas con un TINTE suave, un titular corto, UNA descripción
-// de dos líneas, chips pequeños y, de visual, FRAGMENTOS reales del producto
-// (recortes apretados de las capturas: un mapa de reformers, un recibo, una
-// clase llena, la confirmación del asistente) colocados como pegatinas
-// escalonadas que se salen por un borde, más un móvil que asoma, notificaciones
-// al estilo de iOS, iconos de app «squircle» y fotos donde pide el diseño.
+// «Todo lo que necesita tu estudio, en una sola plataforma» — cuarta versión
+// (6-oct-2026), esta vez CLONANDO la estructura, la escala y la sensación de la
+// referencia que el fundador ha pegado dos veces (images/8.png): título
+// centrado en dos líneas, rejilla de dos columnas con ritmo alterno
+// [ancha|estrecha] · [ancha completa] · [ancha|estrecha] · [ancha completa],
+// seis tarjetas COMPACTAS con el mismo tinte pastel (una sola familia oliva/
+// arena, sin bordes ni sombra de tarjeta) y, dentro de cada una, SOLO: un
+// título, una descripción de dos o tres líneas, chips pequeños con un último «…»
+// y el visual.
 //
-// ORDEN = lo que compra un estudio: 1) reservas y lista de espera (llenar
-// clases), 2) la app de la alumna, 3) cobros y bonos, 4) el calendario; después
-// Centro de Control y «Pregúntale a Tentare», equipo (con las sustituciones
-// como un chip, no como protagonista) y migración. Soporte, en una franja.
+// EL VISUAL son tarjetitas blancas, planas y muy pequeñas (9–11 px) hechas en
+// HTML/CSS con el estilo real del producto y DATOS DE MUESTRA creíbles
+// (nombres inventados, sin apellidos reales), apiladas, escalonadas y a veces
+// cortadas por el borde de la tarjeta; un móvil que asoma por abajo con la
+// pantalla REAL de la app (captura de e2e con datos de muestra, ver
+// scripts/capturas-landing.mjs); avisos al estilo de iOS con el isotipo de
+// Tentare; y fotos donde las hay (fotos-bento.ts dice qué foto pide cada hueco).
+// Ni un logotipo de terceros. Sin Tenti: la web comercial está vetada en
+// lib/tenti/donde-vive-tenti.test.ts.
 //
-// IMÁGENES. Los fragmentos son recortes de capturas REALES hechas por
-// e2e/landing-capturas.spec.ts con los andamiajes de e2e (datos de MUESTRA:
-// nombres inventados, `@example.com`, un estudio ficticio) y recortadas por
-// scripts/capturas-landing.mjs. Nunca datos reales: el repo es público. Las
-// notificaciones y los iconos son HTML/CSS (genéricos: sin logotipos de
-// terceros; el único icono de app con marca es el de Tentare, del isotipo).
-// Las fotos salen de `fotos-bento.ts`: cada hueco dice qué foto pide y vale
-// `null` hasta que haya una (entonces, un tinte limpio).
+// Los enlaces SEO no ocupan sitio dentro de las tarjetas: el título entero es el
+// enlace (sin subrayado) y una fila de enlaces cierra la sección.
 //
-// Es un Server Component: ni un byte de esto entra en el JavaScript de la home.
-// El movimiento es CSS (`animation-timeline: view()`, solo `translate`). Las
+// Server Component: ni un byte de esto entra en el JavaScript de la home. Las
 // imágenes van con <picture> AVIF+WebP ya generados (FotoLanding.tsx explica por
 // qué no next/image), con width/height (CLS 0) y `loading="lazy"`.
 //
-// En móvil los fragmentos NO se encogen: se reordenan en una columna a su
-// tamaño legible, escalonados. Sin Tenti: la web comercial está vetada en
-// lib/tenti/donde-vive-tenti.test.ts.
+// Cada pieza se coloca con variables CSS: `--l/--r/--t/--b` en escritorio (px
+// desde el borde de la tarjeta) y `--ml/--mr/--mt/--mb` en móvil (px desde el
+// escenario, que en móvil pasa a ir debajo del texto). Las piezas con
+// `.bn-no-m` desaparecen en móvil en vez de encogerse a ilegible.
 //
 // ⚠️ TODA frase de promesa de aquí está cruzada con el código (lista en el PR):
 //   · el asistente CONSULTA y PROPONE clases, salas, eventos y citas; nada se
-//     crea sin confirmar, y no cobra, borra, edita ni escribe a nadie;
-//   · los reintentos de cobro son los de lib/billing/dunning.ts (1, 3 y 7 días);
-//   · la sustitución espera tu visto bueno en el modo por defecto; el autónomo,
-//     el Centro de Control, plan Estudio; varias sedes, plan Cadena;
-//   · los avisos de ejemplo son los que la app manda hoy (recordatorio de clase,
-//     bono a punto de agotarse); nada de cifras de clientas.
+//     crea sin confirmar y no cobra, borra, edita ni escribe a nadie;
+//   · los reintentos de cobro, de lib/billing/dunning.ts (1, 3 y 7 días);
+//   · el Centro de Control, plan Estudio; la sustitución espera tu visto bueno,
+//     y es solo un chip: no es lo que más busca un estudio;
+//   · los avisos y las tarjetitas son ejemplos de lo que la app y el panel
+//     muestran hoy; nada de cifras de clientas.
 // Nada de lo congelado (Kiosko, VOD, Chat de equipo, Network).
 
 const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
 
-/** Fragmentos: nombre del fichero y alto/ancho del recorte (scripts/capturas-landing.mjs). */
-const F = {
-  mapa: { n: 'fragmento-mapa-reformers-reserva', r: 650 / 1090 },
-  pago: { n: 'fragmento-pago-recibo-app', r: 600 / 1090 },
-  bono: { n: 'fragmento-bono-sesiones-app', r: 640 / 1090 },
-  semana: { n: 'fragmento-semana-calendario', r: 400 / 860 },
-  ocupacion: { n: 'fragmento-ocupacion-calendario', r: 80 / 700 },
-  llena: { n: 'fragmento-clase-llena-lista-espera', r: 104 / 420 },
-  reco: { n: 'fragmento-recomendacion-centro-de-control', r: 322 / 1330 },
-  botones: { n: 'fragmento-botones-decision', r: 110 / 700 },
-  peticion: { n: 'fragmento-asistente-peticion', r: 140 / 830 },
-  confirmacion: { n: 'fragmento-asistente-confirmacion', r: 620 / 1340 },
-  acta: { n: 'fragmento-acta-migracion', r: 215 / 1560 },
-  actaMovil: { n: 'fragmento-acta-migracion-movil', r: 215 / 830 },
-  deshacer: { n: 'fragmento-deshacer-migracion', r: 110 / 780 },
-  sustituta: { n: 'fragmento-avisar-sustituta', r: 360 / 740 },
-} as const;
-type Frag = keyof typeof F;
+type Pos = Partial<Record<'l' | 'r' | 't' | 'b' | 'w' | 'ml' | 'mr' | 'mt' | 'mb' | 'mw', string | number>>;
+const px = (v: string | number) => (typeof v === 'number' ? `${v}px` : v);
+function estilo(p: Pos): React.CSSProperties {
+  const s: Record<string, string> = {};
+  for (const [k, v] of Object.entries(p)) if (v !== undefined) s[`--${k}`] = px(v);
+  return s as React.CSSProperties;
+}
 
-const MOVIL_INICIO = { n: 'app-alumna-inicio-estudio-pilates', r: 844 / 390 };
-
-function Imagen({ n, r, a, alt, sizes, ancho, movil }: { n: string; r: number; a: readonly [number, number]; alt: string; sizes: string; ancho: number; movil?: { n: string; r: number } }) {
-  const set = (nombre: string, f: 'avif' | 'webp') => a.map((w) => `/landing/capturas/${nombre}-${w}.${f} ${w}w`).join(', ');
+function Imagen({ n, r, a, alt, sizes, ancho }: { n: string; r: number; a: readonly [number, number]; alt: string; sizes: string; ancho: number }) {
+  const set = (f: 'avif' | 'webp') => a.map((w) => `/landing/capturas/${n}-${w}.${f} ${w}w`).join(', ');
   return (
     <picture>
-      {/* Otro recorte en móvil (dirección de arte): una sola <img>, así nunca queda una imagen oculta sin cargar. */}
-      {movil && <source type="image/avif" media="(max-width: 700px)" srcSet={set(movil.n, 'avif')} sizes={sizes} width={ancho} height={Math.round(ancho * movil.r)} />}
-      {movil && <source type="image/webp" media="(max-width: 700px)" srcSet={set(movil.n, 'webp')} sizes={sizes} width={ancho} height={Math.round(ancho * movil.r)} />}
-      <source type="image/avif" srcSet={set(n, 'avif')} sizes={sizes} />
-      <img src={`/landing/capturas/${n}-${a[0]}.webp`} srcSet={set(n, 'webp')} sizes={sizes} width={ancho} height={Math.round(ancho * r)} alt={alt} loading="lazy" decoding="async" />
+      <source type="image/avif" srcSet={set('avif')} sizes={sizes} />
+      <img src={`/landing/capturas/${n}-${a[0]}.webp`} srcSet={set('webp')} sizes={sizes} width={ancho} height={Math.round(ancho * r)} alt={alt} loading="lazy" decoding="async" />
     </picture>
   );
 }
 
-/** Un fragmento real, como pegatina: sombra larga y suave, ligeramente girado. */
-function Peg({ f, alt, estilo, par = false, sizes = '(max-width: 700px) 92vw, 420px', movil }: {
-  f: Frag; alt: string; estilo: React.CSSProperties; par?: boolean; sizes?: string; movil?: Frag;
-}) {
-  const d = F[f];
+const MOVILES = {
+  inicio: { n: 'app-alumna-inicio-estudio-pilates', alt: 'Inicio de la app de una alumna: su próxima clase de hoy y accesos rápidos a clases, instructoras, su plan y favoritos' },
+  recibos: { n: 'app-alumna-recibos-pagar', alt: 'App de la alumna: pantalla de Recibos con 120 euros por pagar y el botón «Pagar 120 euros»' },
+  asistente: { n: 'app-asistente-confirmar-clase', alt: 'Chat de «Pregúntale a Tentare» en el móvil: una petición para crear una clase y la tarjeta «Crear una clase» con los botones Confirmar, Cambiar algo y Cancelar' },
+} as const;
+
+/** El móvil que asoma por el borde de abajo: la pantalla real dentro de un bisel fino. */
+function Movil({ cual, pos, ancho = 150, mancho }: { cual: keyof typeof MOVILES; pos: Pos; ancho?: number; mancho?: number }) {
+  const m = MOVILES[cual];
   return (
-    <div className={`bn-peg${par ? ' bn-par' : ''}`} style={estilo}>
-      <Imagen n={d.n} r={d.r} a={[480, 960]} alt={alt} sizes={sizes} ancho={960} movil={movil ? { n: F[movil].n, r: F[movil].r } : undefined} />
+    <div className="bn-e bn-tel" style={{ ...estilo(pos), ['--tw' as string]: `${ancho}px`, ['--mtw' as string]: `${mancho ?? ancho}px` }}>
+      <span className="bn-tel-isla" aria-hidden="true" />
+      <Imagen n={m.n} r={844 / 390} a={[390, 780]} alt={m.alt} sizes="(max-width: 700px) 150px, 170px" ancho={780} />
     </div>
   );
 }
 
-/** El móvil que asoma por el borde: pantalla real dentro de un bisel limpio. */
-function Movil({ alt, estilo }: { alt: string; estilo: React.CSSProperties }) {
+/** Tarjetita blanca, plana y muy pequeña. */
+function Mini({ pos, children, clase = '', etiqueta }: { pos: Pos; children: React.ReactNode; clase?: string; etiqueta: string }) {
   return (
-    <div className="bn-peg bn-movil bn-par" style={estilo}>
-      <div className="bn-movil-isla" aria-hidden="true" />
-      <Imagen n={MOVIL_INICIO.n} r={MOVIL_INICIO.r} a={[390, 780]} alt={alt} sizes="(max-width: 700px) 60vw, 260px" ancho={780} />
+    <div className={`bn-e bn-m ${clase}`} style={estilo(pos)} role="img" aria-label={etiqueta}>
+      <div aria-hidden="true" className="bn-m-in">{children}</div>
     </div>
   );
 }
 
-/** El hueco de una foto: la foto si ya hay, o un tinte limpio. */
-function Hueco({ clave, estilo, alt }: { clave: ClaveHueco; estilo?: React.CSSProperties; alt: string }) {
-  const h = FOTOS_BENTO[clave];
-  return (
-    <div className={`bn-foto bn-foto-${clave}`} style={{ ...estilo, ['--ar-m' as string]: h.proporcion.movil }} data-hueco={clave} data-foto={h.foto ? 'puesta' : 'pendiente'}>
-      {h.foto && (
-        <FotoLanding foto={h.foto} mediaMovil="(max-width: 700px)" sizes={{ escritorio: '(max-width: 960px) 92vw, 340px', movil: '92vw' }} />
-      )}
-      {/* alt de reserva para cuando se suelte la foto: lo escribe el que la ponga junto a su registro */}
-      <span hidden data-alt-pendiente={alt} />
-    </div>
-  );
-}
+const Av = ({ t, tono = 'a' }: { t: string; tono?: 'a' | 'o' | 'c' }) => <span className={`bn-av bn-av-${tono}`}>{t}</span>;
+const Tag = ({ t, tono = 'o' }: { t: string; tono?: 'ok' | 'warn' | 'arena' | 'o' | 'osc' }) => <span className={`bn-tag bn-tag-${tono}`}>{t}</span>;
 
-/** Notificación al estilo de iOS: icono de app, título + línea y hora. Los textos son avisos que la app manda de verdad. */
-function Aviso({ titulo, linea, hora = 'ahora', estilo, par = false }: { titulo: string; linea: string; hora?: string; estilo: React.CSSProperties; par?: boolean }) {
+/** Aviso al estilo de iOS, con el isotipo de Tentare como icono de app. */
+function Aviso({ titulo, linea, hora = 'ahora', pos }: { titulo: string; linea: string; hora?: string; pos: Pos }) {
   return (
-    <div className={`bn-peg bn-aviso${par ? ' bn-par' : ''}`} style={estilo} role="img" aria-label={`Aviso de ejemplo: ${titulo}. ${linea}`}>
-      <span className="bn-squircle bn-aviso-icono" aria-hidden="true"><LogoTentare formato="isotipo" tinta="color" alto={22} decorativo /></span>
-      <span className="bn-aviso-texto" aria-hidden="true"><b>{titulo}</b><span>{linea}</span></span>
+    <div className="bn-e bn-aviso" style={estilo(pos)} role="img" aria-label={`Aviso de ejemplo: ${titulo}. ${linea}`}>
+      <span className="bn-squircle bn-aviso-i" aria-hidden="true"><LogoTentare formato="isotipo" tinta="color" alto={15} decorativo /></span>
+      <span className="bn-aviso-t" aria-hidden="true"><b>{titulo}</b><span>{linea}</span></span>
       <time aria-hidden="true">{hora}</time>
     </div>
   );
 }
 
-/** Icono de app «squircle» (superelipse), con su etiqueta. Glifos genéricos, sin marcas de terceros. */
-function Tile({ Icono, etiqueta, tono = 'oliva', estilo }: { Icono: typeof Mail; etiqueta?: string; tono?: 'oliva' | 'arena' | 'crema'; estilo?: React.CSSProperties }) {
-  return (
-    <div className={`bn-peg bn-tile-caja${etiqueta ? '' : ' bn-tile-sin'}`} style={estilo} aria-hidden="true">
-      <span className={`bn-squircle bn-tile bn-tile-${tono}`}><Icono size={30} strokeWidth={1.8} /></span>
-      {etiqueta && <span className="bn-tile-etiqueta">{etiqueta}</span>}
-    </div>
-  );
+/**
+ * Las fotos que suministra el fundador (public/landing/fotos-fundador/, FUERA de
+ * git: el repo es público y su licencia está sin confirmar). Si el fichero no
+ * está, el hueco queda limpio (solo el tinte y las tarjetitas) y el PR no rompe;
+ * para `equipo` hay además una foto de reserva de las registradas en la home.
+ * Nunca se amplía por encima de su tamaño nativo: `object-fit: cover` sin escalado
+ * artificial, y las cajas miden menos que la foto.
+ */
+const FOTOS_FUNDADOR = {
+  reservas: { f: 'reservas.png', w: 412, h: 624, alt: 'Mujer sentada en un reformer, con la mano en alto, haciéndose un selfie en un estudio de Pilates luminoso', pos: '50% 30%' },
+  app: { f: 'app.png', w: 414, h: 742, alt: 'Mujer sonriendo con el móvil en la mano, con ropa de deporte clara y verde, después de la clase', pos: '50% 20%' },
+  equipo: { f: 'equipo.png', w: 434, h: 600, alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', pos: '50% 40%' },
+} as const;
+const hayFoto = (clave: keyof typeof FOTOS_FUNDADOR) => existsSync(join(process.cwd(), 'public/landing/fotos-fundador', FOTOS_FUNDADOR[clave].f));
+
+function Foto({ clave, pos }: { clave: keyof typeof FOTOS_FUNDADOR; pos: Pos }) {
+  const d = FOTOS_FUNDADOR[clave];
+  const hueco = clave === 'equipo' ? FOTOS_BENTO.equipo : null;
+  if (hayFoto(clave)) {
+    return (
+      <div className="bn-e bn-foto" style={estilo(pos)} data-hueco={clave} data-foto="fundador">
+        {/* eslint-disable-next-line @next/next/no-img-element -- foto provisional del fundador, sin derivados */}
+        <img src={`/landing/fotos-fundador/${d.f}`} width={d.w} height={d.h} alt={d.alt} loading="lazy" decoding="async" style={{ objectPosition: d.pos }} />
+      </div>
+    );
+  }
+  if (hueco?.foto) {
+    return (
+      <div className="bn-e bn-foto" style={estilo(pos)} data-hueco={clave} data-foto="reserva">
+        <FotoLanding foto={hueco.foto} mediaMovil="(max-width: 700px)" sizes={{ escritorio: '(max-width: 960px) 92vw, 440px', movil: '92vw' }} />
+      </div>
+    );
+  }
+  return <span hidden data-hueco={clave} data-foto="pendiente" data-pide={FOTOS_BENTO[clave as 'app'].pide} />;
 }
 
-function Pildora({ iniciales, nombre, nota, estilo }: { iniciales: string; nombre: string; nota: string; estilo: React.CSSProperties }) {
+function Texto({ id, href, titulo, texto, chips }: { id: string; href: string; titulo: string; texto: string; chips: string[] }) {
   return (
-    <div className="bn-peg bn-pildora" style={estilo} aria-hidden="true">
-      <span className="bn-pildora-av">{iniciales}</span>
-      <span className="bn-pildora-tx"><b>{nombre}</b><i>{nota}</i></span>
-    </div>
-  );
-}
-
-function Chips({ lista }: { lista: string[] }) {
-  return <ul className="bn-chips">{lista.map((c) => <li key={c}>{c}</li>)}</ul>;
-}
-
-/** Encabezado de una tarjeta: el titular ES el enlace (anclas descriptivas para el SEO, sin una fila de «ver más»). */
-function Cabeza({ id, href, titulo, texto, chips }: { id: string; href: string; titulo: string; texto: string; chips: string[] }) {
-  return (
-    <div className="bn-texto">
+    <div className="bn-t">
       <h3 id={id} className="bn-h3"><Link href={href}>{titulo}</Link></h3>
       <p className="bn-p">{texto}</p>
-      <Chips lista={chips} />
+      <ul className="bn-chips">{[...chips, '…'].map((c) => <li key={c}>{c}</li>)}</ul>
     </div>
   );
 }
 
 const MAS: { href: string; label: string }[] = [
   { href: '/funcionalidades', label: 'Todas las funcionalidades' },
-  { href: '/precios', label: 'Planes y precios' },
+  { href: '/precios', label: `Planes y precios · desde ${PRECIO_DESDE}` },
   { href: '/soluciones/estudio-de-pilates-reformer', label: 'Software para estudios de Pilates reformer' },
   { href: '/recursos', label: 'Guías para dueñas de estudios' },
   { href: '/comparativa', label: 'Comparativa de programas' },
-  { href: '/glosario', label: 'Glosario de gestión de estudios' },
+  { href: '/glosario', label: 'Glosario' },
 ];
 
 export function SeccionBento() {
   return (
     <section id="plataforma" className="bn" aria-labelledby="bn-h">
-      {/* Superelipse de los iconos de app: una sola definición, sin dibujar nada. */}
       <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: 'absolute' }}>
         <defs>
           <clipPath id="bn-squircle" clipPathUnits="objectBoundingBox">
@@ -188,263 +175,235 @@ export function SeccionBento() {
       </svg>
 
       <div className="bn-wrap">
-        <header className="bn-head lp-rv">
-          <h2 id="bn-h" className="bn-h2">Todo lo que necesita tu estudio de Pilates, en una sola plataforma.</h2>
-          <p className="bn-lead">
-            Reservas, app para tus alumnas, bonos y cobros. Un programa para centros de Pilates pensado para quien lleva el estudio, da clase y contesta mensajes a la vez.
-          </p>
-        </header>
+        <h2 id="bn-h" className="bn-h2 lp-rv">Todo lo que necesita tu estudio de Pilates, en una sola plataforma.</h2>
 
         <div className="bn-rejilla">
           {/* 1 · Reservas y lista de espera */}
-          <article className="bn-card bn-w7 bn-t1 lp-rv" aria-labelledby="bn-res-h">
-            <Cabeza id="bn-res-h" href="/funcionalidades/reservas-online" titulo="Que tus alumnas llenen las clases solas"
+          <article className="bn-card bn-w7 bn-r1 bn-c1 lp-rv" aria-labelledby="bn-res-h">
+            <Texto id="bn-res-h" href="/funcionalidades/reservas-online" titulo="Que tus alumnas llenen las clases solas"
               texto="Reservan desde el móvil, eligen su reformer y, si la clase está llena, entran en la lista de espera."
               chips={['Elige su reformer', 'Lista de espera', 'Reservas en tu web']} />
-            <div className="bn-vis bn-vis-res">
-              <Hueco clave="reservas" alt="Alumna haciendo Pilates en un reformer en un estudio luminoso" estilo={{ right: 0, top: 0, bottom: 0, width: '46%' }} />
-              <Peg f="mapa" par alt="Fragmento de la app de la alumna: mapa de reformers de la sala con unos ocupados y el 4 elegido" estilo={{ ['--l' as string]: '10%', ['--b' as string]: '-30px', ['--w' as string]: '56%', ['--rot' as string]: '-1.6deg', ['--mw' as string]: '88%', ['--ma' as string]: 'flex-start' }} />
-              <Peg f="llena" alt="Fragmento del calendario: clase de Reformer de las 9:00 completa, 8 de 8, con 2 alumnas en lista de espera" estilo={{ ['--l' as string]: '6%', ['--t' as string]: '18px', ['--w' as string]: '30%', ['--rot' as string]: '-2deg', ['--mw' as string]: '64%', ['--ma' as string]: 'flex-end' }} sizes="(max-width: 700px) 64vw, 200px" />
+            <div className="bn-st" style={{ ['--sh' as string]: '250px' }}>
+              <Foto clave="reservas" pos={{ r: 0, t: 0, b: 0, w: 214, mr: 0, mt: 0, mb: 0, mw: 128 }} />
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 153 })} aria-hidden="true">09:00</span>
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 213 })} aria-hidden="true">10:00</span>
+              <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 273 })} aria-hidden="true">11:00</span>
+              <Mini etiqueta="Clase de Reformer Flow de las 9:00, completa: 12 de 12" pos={{ l: 78, t: 142, w: 196, ml: 18, mt: 8, mw: 200 }}>
+                <span className="bn-fila"><span><b>Reformer Flow</b><i>09:00 – 09:50</i></span><span className="bn-cifra bn-ok">12/12<i>llena</i></span></span>
+              </Mini>
+              <Mini etiqueta="Clase de Reformer Avanzado de las 10:00 con 8 de 12 plazas y 2 personas en lista de espera" clase="bn-m-arena" pos={{ l: 138, t: 196, w: 224, ml: 62, mt: 62, mw: 230 }}>
+                <span className="bn-fila"><span><b>Reformer Avanzado</b><i>10:00 – 10:50</i></span><span className="bn-cifra bn-warn">8/12<i>reservadas</i></span></span>
+                <span className="bn-fila bn-fila-pie"><Tag t="LISTA DE ESPERA" tono="arena" /><span className="bn-mini-txt">+2 esperando</span></span>
+              </Mini>
+              <Mini etiqueta="Clase de Mat de las 11:00 con 10 de 12 plazas" pos={{ l: 78, t: 262, w: 196, ml: 18, mt: 140, mw: 200 }}>
+                <span className="bn-fila"><span><b>Mat</b><i>11:00 – 11:50</i></span><span className="bn-cifra bn-ok">10/12<i>reservadas</i></span></span>
+              </Mini>
+              <Mini etiqueta="Mapa de la sala para elegir reformer, con unos ocupados y uno elegido" pos={{ r: 150, t: 236, w: 176, ml: 150, mt: 150, mw: 176 }} clase="bn-no-m-corto">
+                <b className="bn-mapa-t">Elige tu sitio</b>
+                <span className="bn-mapa">{['x', 'x', 'l', 'e', 'l', 'x', 'l', 'x', 'l', 'l', 'x', 'l', 'l', 'x'].map((v, i) => <i key={i} className={`bn-pl bn-pl-${v}`} />)}</span>
+              </Mini>
             </div>
           </article>
 
-          {/* 2 · La app de la alumna */}
-          <article className="bn-card bn-w5 bn-t2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-app-h">
-            <Cabeza id="bn-app-h" href="/funcionalidades/app-para-alumnas" titulo="Tu app, con el nombre de tu estudio"
-              texto="Tus alumnas reservan, ven su bono y pagan sus recibos desde el móvil, y te escriben menos para preguntarlo."
+          {/* 2 · App con tu marca */}
+          <article className="bn-card bn-w5 bn-r1 bn-c2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-app-h">
+            <Texto id="bn-app-h" href="/funcionalidades/app-para-alumnas" titulo="Tu app, con el nombre de tu estudio"
+              texto="Tus alumnas reservan, ven su bono y pagan desde el móvil, con tu nombre, tu logo y tus colores."
               chips={['Tu logo y tus colores', 'Avisos en el móvil']} />
-            <div className="bn-vis bn-vis-app">
-              <Hueco clave="app" alt="Alumna sonriendo con el móvil en la mano tras la clase" estilo={{ inset: 0 }} />
-              <Movil alt="Inicio de la app de una alumna: su próxima clase de hoy y accesos rápidos a clases, instructoras, su plan y favoritos" estilo={{ ['--l' as string]: '50%', ['--b' as string]: '-150px', ['--w' as string]: '52%', ['--mw' as string]: '58%', ['--ma' as string]: 'center' }} />
-              <Aviso titulo="Recordatorio de clase" linea="Reformer Flow, hoy a las 19:00 · Sala Norte" estilo={{ ['--l' as string]: '6%', ['--t' as string]: '4px', ['--w' as string]: '88%', ['--mw' as string]: '100%' }} par />
-              <Tile Icono={CalendarDays} tono="oliva" etiqueta="Estudio Alma" estilo={{ ['--l' as string]: '7%', ['--t' as string]: '170px', ['--mw' as string]: 'auto', ['--ma' as string]: 'flex-start' }} />
+            <div className="bn-st" style={{ ['--sh' as string]: '260px' }}>
+              <Foto clave="app" pos={{ l: 0, t: 132, b: 0, w: 196, ml: 0, mt: 46, mb: 0, mw: 150 }} />
+              <Movil cual="inicio" ancho={158} pos={{ r: 38, t: 176, mr: 22, mt: 62 }} />
+              <Aviso titulo="Recordatorio de clase" linea="Reformer Flow, hoy a las 19:00" pos={{ l: 22, t: 150, w: 250, ml: 12, mt: 4, mw: 262 }} />
             </div>
           </article>
 
-          {/* 3 · Bonos y cobros */}
-          <article className="bn-card bn-w5 bn-t3 lp-rv" aria-labelledby="bn-cob-h">
-            <Cabeza id="bn-cob-h" href="/funcionalidades/cobros-recurrentes" titulo="Cobra sin perseguir a nadie"
+          {/* 3 · Bonos y cobros (ancha) */}
+          <article className="bn-card bn-w12 bn-r2 bn-c3 lp-rv" aria-labelledby="bn-cob-h">
+            <Texto id="bn-cob-h" href="/funcionalidades/cobros-recurrentes" titulo="Cobra sin perseguir a nadie"
               texto="Bonos y cuotas con tarjeta o SEPA. Si un cobro falla, se reintenta a los 1, 3 y 7 días."
-              chips={['Tarjeta y SEPA', 'Bizum en pagos sueltos', 'Facturas']} />
-            <div className="bn-vis bn-vis-cob">
-              <Peg f="pago" par alt="Fragmento de la app de la alumna: «Te queda por pagar 120 euros» con el botón Pagar 120 euros" estilo={{ ['--l' as string]: '6%', ['--t' as string]: '0px', ['--w' as string]: '68%', ['--rot' as string]: '-1.4deg', ['--mw' as string]: '90%', ['--ma' as string]: 'flex-start' }} />
-              <Peg f="bono" alt="Fragmento de la app de la alumna: su bono de 10 clases con 6 sesiones disponibles" estilo={{ ['--rt' as string]: '-5%', ['--t' as string]: '150px', ['--w' as string]: '64%', ['--rot' as string]: '1.6deg', ['--mw' as string]: '88%', ['--ma' as string]: 'flex-end' }} />
-              <Aviso titulo="Tu recibo vence pronto" linea="Bono 10 · 120 € · vence el 8 oct" hora="9:41" estilo={{ ['--l' as string]: '4%', ['--b' as string]: '14px', ['--w' as string]: '84%', ['--mw' as string]: '100%' }} par />
+              chips={['Tarjeta y SEPA', 'Reintento de cobros', 'Facturas']} />
+            <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
+              <Mini etiqueta="Recibo de Ana López, cuota mensual de 59 euros, cobrado" pos={{ l: 470, t: 30, w: 246, ml: 12, mt: 4, mw: 262 }}>
+                <span className="bn-fila"><span className="bn-quien"><Av t="AL" /><span><b>Ana López</b><i>Cuota mensual · 59 €</i></span></span><Tag t="Cobrado" tono="ok" /></span>
+              </Mini>
+              <Mini etiqueta="Recibo de Marta Ruiz, bono de 10 clases de 120 euros, se reintenta mañana" pos={{ l: 560, t: 94, w: 256, ml: 56, mt: 62, mw: 270 }}>
+                <span className="bn-fila"><span className="bn-quien"><Av t="MR" tono="o" /><span><b>Marta Ruiz</b><i>Bono 10 clases · 120 €</i></span></span><Tag t="Reintento mañana" tono="warn" /></span>
+              </Mini>
+              <Mini etiqueta="Recibo de Laura Martín por pagar desde su app" pos={{ l: 484, t: 158, w: 246, ml: 12, mt: 128, mw: 196 }}>
+                <span className="bn-fila"><span className="bn-quien"><Av t="LM" tono="c" /><span><b>Laura Martín</b><i>Cuota · 59 €</i></span></span><Tag t="Pagar 59 €" tono="osc" /></span>
+              </Mini>
+              <Movil cual="recibos" ancho={150} mancho={128} pos={{ r: 110, t: 30, mr: 12, mt: 126 }} />
             </div>
           </article>
 
-          {/* 4 · El calendario */}
-          <article className="bn-card bn-w7 bn-t1 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-cal-h">
-            <Cabeza id="bn-cal-h" href="/funcionalidades/calendario-y-salas" titulo="Tu semana, de un vistazo"
-              texto="Clases, salas y ocupación en un solo calendario, sin Excel ni mensajes cruzados."
-              chips={['Calendario por salas', 'Clases recurrentes', 'Pasar lista']} />
-            <div className="bn-vis bn-vis-cal">
-              <Peg f="semana" par alt="Fragmento del calendario semanal: las clases del martes y el miércoles con su ocupación" estilo={{ ['--rt' as string]: '-6%', ['--t' as string]: '20px', ['--w' as string]: '78%', ['--rot' as string]: '1deg', ['--mw' as string]: '96%', ['--ma' as string]: 'flex-end' }} sizes="(max-width: 700px) 96vw, 480px" />
-              <Peg f="ocupacion" alt="Fragmento del calendario: 13 clases, 74 por ciento de ocupación y 3 por pasar lista" estilo={{ ['--l' as string]: '3%', ['--b' as string]: '40px', ['--w' as string]: '46%', ['--rot' as string]: '-1.8deg', ['--mw' as string]: '86%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 86vw, 330px" />
+          {/* 4 · Calendario y Centro de Control */}
+          <article className="bn-card bn-w7 bn-r3 bn-c1 lp-rv" aria-labelledby="bn-cc-h">
+            <Texto id="bn-cc-h" href="/funcionalidades/calendario-y-salas" titulo="Cada mañana, una sola cosa que mirar"
+              texto="El Centro de Control te propone lo que merece tu atención y «Pregúntale a Tentare» prepara clases y citas cuando tú confirmas."
+              chips={['Calendario por sala', 'Lo que espera tu visto bueno', 'Pregúntale a Tentare']} />
+            <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
+              <Mini etiqueta="Recomendación del Centro de Control: abrir una segunda clase de Reformer los martes, con 7 personas en lista de espera" pos={{ l: 30, t: 150, w: 292, ml: 12, mt: 4, mw: 276 }}>
+                <span className="bn-fila"><Tag t="RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Plan Estudio</span></span>
+                <b className="bn-m-tit">Abrir una segunda clase de Reformer los martes</b>
+                <i className="bn-m-sub">7 personas en lista de espera</i>
+              </Mini>
+              <Mini etiqueta="Bea lleva seis semanas sin venir" pos={{ l: 74, t: 258, w: 228, ml: 12, mt: 120, mw: 188 }}>
+                <span className="bn-fila"><span className="bn-quien"><Av t="BO" tono="c" /><span><b>Bea</b><i>6 semanas sin venir</i></span></span></span>
+              </Mini>
+              <Mini etiqueta="Lo que espera tu visto bueno: una reserva por aprobar" pos={{ l: 196, t: 318, w: 214, ml: 80, mt: 142, mw: 230 }} clase="bn-no-m">
+                <span className="bn-fila"><span><b>Reserva por aprobar</b><i>Valoración · jue 12:00</i></span><Tag t="Revisar" tono="osc" /></span>
+              </Mini>
+              <Movil cual="asistente" ancho={162} mancho={140} pos={{ r: 30, t: 152, mr: 10, mt: 116 }} />
             </div>
           </article>
 
-          {/* 5 · Centro de Control */}
-          <article className="bn-card bn-w7 bn-t3 lp-rv" aria-labelledby="bn-cc-h">
-            <Cabeza id="bn-cc-h" href="/funcionalidades/informes-y-rentabilidad" titulo="Cada mañana, una sola cosa que mirar"
-              texto="El Centro de Control te propone lo que merece tu atención, con su porqué, y tú decides."
-              chips={['Recomendaciones', 'Tú decides', 'Plan Estudio']} />
-            <div className="bn-vis bn-vis-cc">
-              <Peg f="reco" par alt="Fragmento del Centro de Control: recomendación para abrir una segunda clase de Reformer los martes a las 11:00, con su explicación" estilo={{ ['--l' as string]: '5%', ['--t' as string]: '10px', ['--w' as string]: '76%', ['--rot' as string]: '-1deg', ['--mw' as string]: '100%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 100vw, 540px" />
-              <Peg f="botones" alt="Fragmento del Centro de Control: botones Hecho, Ya lo sé y Recuérdamelo" estilo={{ ['--l' as string]: '14%', ['--t' as string]: '124px', ['--w' as string]: '40%', ['--rot' as string]: '1.4deg', ['--mw' as string]: '72%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 72vw, 290px" />
-              <Pildora iniciales="BO" nombre="Bea" nota="6 semanas sin venir" estilo={{ ['--rt' as string]: '5%', ['--b' as string]: '30px', ['--mw' as string]: 'auto', ['--ma' as string]: 'flex-end' }} />
+          {/* 5 · Equipo */}
+          <article className="bn-card bn-w5 bn-r3 bn-c2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-eq-h">
+            <Texto id="bn-eq-h" href="/funcionalidades/gestion-de-instructoras" titulo="Tu equipo, con su horario"
+              texto="Cada instructora ve su agenda y marca su disponibilidad. Cuando hay una baja, la sustituta la apruebas tú."
+              chips={['Disponibilidad', 'App de la instructora', 'Sustituciones con tu visto bueno']} />
+            <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
+              <Foto clave="equipo" pos={{ l: 0, r: 0, t: 206, b: 0, ml: 0, mr: 0, mt: 70, mb: 0 }} />
+              <Mini etiqueta="Disponibilidad de Marta Ruiz esta semana: lunes, miércoles y viernes" pos={{ l: 24, t: 172, w: 230, ml: 16, mt: 40, mw: 232 }}>
+                <span className="bn-fila"><span className="bn-quien"><Av t="MR" tono="o" /><span><b>Marta Ruiz</b><i>Esta semana</i></span></span>
+                  <span className="bn-dias">{['L', 'M', 'X', 'J', 'V'].map((d, i) => <i key={d} className={i % 2 === 0 ? 'on' : ''}>{d}</i>)}</span></span>
+              </Mini>
+              <Mini etiqueta="Ausencia de vacaciones del 3 al 7 de noviembre" pos={{ r: 22, t: 250, w: 150, mr: 14, mt: 150, mw: 160 }}>
+                <span className="bn-fila"><span><b>Vacaciones</b><i>3 – 7 nov</i></span><Tag t="Ausencia" tono="arena" /></span>
+              </Mini>
             </div>
           </article>
 
-          {/* 6 · Pregúntale a Tentare */}
-          <article className="bn-card bn-w5 bn-t2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-as-h">
-            <Cabeza id="bn-as-h" href="/precios" titulo="Pregúntale a Tentare"
-              texto="Consulta tus datos y prepara clases, salas, eventos y citas. Nada se crea sin tu confirmación."
-              chips={['Consulta tus datos', 'Con tu confirmación']} />
-            <div className="bn-vis bn-vis-as">
-              <Peg f="peticion" par alt="Fragmento del chat: «Crea una clase de Reformer el miércoles a las 18:00»" estilo={{ ['--rt' as string]: '-3%', ['--t' as string]: '0px', ['--w' as string]: '78%', ['--rot' as string]: '1deg', ['--mw' as string]: '100%', ['--ma' as string]: 'flex-end' }} sizes="(max-width: 700px) 100vw, 400px" />
-              <Peg f="confirmacion" alt="Fragmento del chat: tarjeta «Crear una clase» con los datos de la clase y los botones Confirmar, Cambiar algo y Cancelar" estilo={{ ['--l' as string]: '5%', ['--t' as string]: '70px', ['--w' as string]: '86%', ['--rot' as string]: '-1deg', ['--mw' as string]: '100%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 100vw, 440px" />
-            </div>
-          </article>
-
-          {/* 7 · Equipo (las sustituciones, un chip) */}
-          <article className="bn-card bn-w5 bn-t3 lp-rv" aria-labelledby="bn-eq-h">
-            <Cabeza id="bn-eq-h" href="/funcionalidades/gestion-de-instructoras" titulo="Tu equipo, con su horario"
-              texto="Cada instructora ve su agenda y marca su disponibilidad. Si una no puede dar su clase, tú das el visto bueno a la sustituta."
-              chips={['Disponibilidad y ausencias', 'App de la instructora', 'Sustituciones con tu visto bueno']} />
-            <div className="bn-vis bn-vis-eq">
-              <Hueco clave="equipo" alt="Instructora y alumna charlando en la recepción de un estudio de Pilates" estilo={{ left: 0, right: 0, top: 0, height: '62%' }} />
-              <Peg f="sustituta" alt="Fragmento del calendario: botón «Avisar a Irene Sanz» con la explicación de que se espera tu visto bueno" estilo={{ ['--l' as string]: '8%', ['--b' as string]: '-14px', ['--w' as string]: '58%', ['--rot' as string]: '-1.2deg', ['--mw' as string]: '78%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 78vw, 300px" />
-            </div>
-          </article>
-
-          {/* 8 · Migración */}
-          <article className="bn-card bn-w7 bn-t1 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-mig-h">
-            <Cabeza id="bn-mig-h" href="/soluciones/cambiar-de-software" titulo="Cámbiate sin empezar de cero"
-              texto="Trae tus alumnas y tus bonos desde Excel u otro programa. Ves los números y, si algo no cuadra, lo deshaces con un botón."
-              chips={['Excel y otros programas', 'Botón para deshacer', 'Te ayudamos']} />
-            <div className="bn-vis bn-vis-mig">
-              <Peg f="acta" movil="actaMovil" par alt="Fragmento del acta de migración: bonos y membresías, 38 importadas y 0 que ya existían" estilo={{ ['--l' as string]: '5%', ['--t' as string]: '14px', ['--w' as string]: '72%', ['--rot' as string]: '-1deg', ['--mw' as string]: '100%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 100vw, 520px" />
-              <Peg f="deshacer" alt="Fragmento del acta de migración: botón Deshacer migración" estilo={{ ['--l' as string]: '30%', ['--t' as string]: '124px', ['--w' as string]: '36%', ['--rot' as string]: '1.6deg', ['--mw' as string]: '64%', ['--ma' as string]: 'flex-start' }} sizes="(max-width: 700px) 64vw, 260px" />
-              <Tile Icono={FileSpreadsheet} tono="arena" etiqueta="bonos.csv" estilo={{ ['--rt' as string]: '8%', ['--b' as string]: '28px', ['--mw' as string]: 'auto', ['--ma' as string]: 'flex-end' }} />
+          {/* 6 · Migración y soporte (ancha) */}
+          <article className="bn-card bn-w12 bn-r4 bn-c3 lp-rv" aria-labelledby="bn-mig-h">
+            <Texto id="bn-mig-h" href="/soluciones/cambiar-de-software" titulo="Cámbiate sin empezar de cero"
+              texto="Trae tus alumnas y tus bonos desde Excel u otro programa y revisa los números. Si algo no sale, te responde una persona."
+              chips={['Excel y otros programas', 'Botón para deshacer', 'Te responde una persona']} />
+            <div className="bn-st" style={{ ['--sh' as string]: '260px' }}>
+              <Mini etiqueta="Importando: alumnas, bonos y horario, todo revisado" pos={{ l: 520, t: 34, w: 232, ml: 14, mt: 4, mw: 240 }}>
+                <b className="bn-m-tit">Importando desde Excel</b>
+                <span className="bn-lista"><span><i className="bn-ck">✓</i>Alumnas</span><span><i className="bn-ck">✓</i>Bonos</span><span><i className="bn-ck">✓</i>Horario</span></span>
+              </Mini>
+              <Mini etiqueta="Botón para deshacer la importación" pos={{ l: 590, t: 156, w: 176, ml: 70, mt: 118, mw: 180 }}>
+                <span className="bn-fila"><b>↶ Deshacer importación</b></span>
+              </Mini>
+              <Mini etiqueta="Soporte de Tentare: te responde una persona, por WhatsApp o por email" pos={{ r: 56, t: 52, w: 262, ml: 22, mt: 150, mw: 270 }}>
+                <b className="bn-m-tit">¿Dudas? Te respondemos</b>
+                <span className="bn-soporte">
+                  <span className="bn-quien"><span className="bn-av bn-av-o bn-av-logo"><LogoTentare formato="isotipo" tinta="color" alto={12} decorativo /></span><span><b>Soporte de Tentare</b><i>Una persona, en español</i></span></span>
+                </span>
+                <span className="bn-fila bn-fila-pie"><Tag t="WhatsApp" tono="o" /><Tag t="Email" tono="o" /></span>
+              </Mini>
             </div>
           </article>
         </div>
-
-        {/* Soporte y precio: una franja, no una tarjeta más */}
-        <div className="bn-persona lp-rv">
-          <div>
-            <h3 className="bn-h3 bn-h3-grande">Una persona al otro lado, desde el primer día</h3>
-            <p className="bn-p">Escribes por WhatsApp o por email y te responde alguien que conoce un estudio.</p>
-            <div className="bn-persona-acc">
-              <Link href={ALTA} className="bn-cta">Probar {TRIAL_DIAS} días gratis</Link>
-              <Link href="/sobre-tentare" className="bn-salida lp-flecha">Quién está detrás de Tentare</Link>
-            </div>
-          </div>
-          <div className="bn-persona-tiles" aria-hidden="true">
-            <Tile Icono={MessageCircle} tono="oliva" etiqueta="Chat" estilo={{}} />
-            <Tile Icono={Mail} tono="arena" etiqueta="Email" estilo={{}} />
-          </div>
-          <ul className="bn-datos">
-            <li><b>{TRIAL_DIAS} días</b><span>gratis, sin tarjeta</span></li>
-            <li><b>Sin permanencia</b><span>mes a mes</span></li>
-            <li><b>Desde {PRECIO_DESDE}</b><span>al mes, con IVA</span></li>
-          </ul>
-        </div>
-
-        <p className="bn-nota">Las pantallas son recortes del producto con datos de muestra.</p>
 
         <nav className="bn-mas-nav" aria-label="Seguir explorando Tentare">
-          {MAS.map((l) => (
-            <Link key={l.href} href={l.href} className="bn-salida lp-flecha">{l.label}</Link>
-          ))}
+          {MAS.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
         </nav>
+        <p className="bn-nota">Las pantallas y tarjetas son ejemplos con datos de muestra.</p>
       </div>
 
       <style>{`
-        .bn { padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); --pad: clamp(26px,3vw,42px); }
-        .bn-wrap { max-width: 1240px; margin: 0 auto; }
-        .bn-head { max-width: 780px; margin: 0 auto clamp(32px,4vw,52px); text-align: center; }
-        .bn-h2 { margin: 0 0 16px; font-size: clamp(28px,4vw,52px); font-weight: 800; line-height: 1.04; letter-spacing: -.04em; text-wrap: balance; color: #1F2216; }
-        .bn-lead { margin: 0 auto; max-width: 56ch; font-size: clamp(16px,1.4vw,18px); line-height: 1.6; color: #5A5A52; text-wrap: pretty; }
+        .bn { padding: clamp(56px,6vw,88px) clamp(16px,4vw,40px); }
+        .bn-wrap { max-width: 1100px; margin: 0 auto; }
+        .bn-h2 { margin: 0 auto 30px; max-width: 18em; text-align: center; font-size: clamp(25px,3.1vw,34px); font-weight: 600; line-height: 1.16; letter-spacing: -.03em; color: #1F2216; text-wrap: balance; }
 
-        .bn-rejilla { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 16px; }
-        .bn-w7 { grid-column: span 7; } .bn-w5 { grid-column: span 5; }
+        .bn-rejilla { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 12px; }
+        .bn-w7 { grid-column: span 7; } .bn-w5 { grid-column: span 5; } .bn-w12 { grid-column: span 12; }
+        .bn-card { position: relative; overflow: hidden; border-radius: 22px; }
+        .bn-r1 { height: 372px; } .bn-r2 { height: 270px; } .bn-r3 { height: 398px; } .bn-r4 { height: 246px; }
+        .bn-c1 { background: #E6EBDB; } .bn-c2 { background: #F0F2E7; } .bn-c3 { background: #E9EDDF; }
 
-        /* Tarjetas: esquinas muy redondeadas, tinte suave de una sola familia, aire. */
-        .bn-card { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 36px; padding: var(--pad) var(--pad) 0; min-height: 540px; }
-        .bn-t1 { background: #E6EADA; } .bn-t2 { background: #F1E9D8; } .bn-t3 { background: #EEEFE4; }
-        .bn-texto { position: relative; z-index: 3; }
-        .bn-h3 { margin: 0 0 10px; font-size: clamp(24px,2.4vw,32px); font-weight: 800; line-height: 1.08; letter-spacing: -.035em; color: #1F2216; text-wrap: balance; }
-        .bn-h3 a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
-        .bn-h3 a:focus-visible, .bn-salida:focus-visible, .bn-cta:focus-visible { outline: 2px solid #343825; outline-offset: 3px; border-radius: 6px; }
-        .bn-p { margin: 0 0 14px; max-width: 42ch; font-size: 15.5px; line-height: 1.55; color: #55584A; text-wrap: pretty; }
-        .bn-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 7px; }
-        .bn-chips li { padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.62); border: 1px solid rgba(52,56,37,.1); font-size: 12px; font-weight: 600; color: #3B3F2C; }
+        .bn-t { position: relative; z-index: 3; padding: 26px 26px 0; max-width: 100%; }
+        .bn-w12 .bn-t { max-width: 420px; }
+        .bn-h3 { margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; color: #1F2216; text-wrap: balance; }
+        .bn-h3 a { color: inherit; text-decoration: none; }
+        .bn-h3 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+        .bn-h3 a:focus-visible, .bn-mas-nav a:focus-visible { outline: 2px solid #343825; outline-offset: 3px; border-radius: 6px; }
+        .bn-p { margin: 0 0 10px; max-width: 46ch; font-size: 13px; line-height: 1.5; color: #636758; text-wrap: pretty; }
+        .bn-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+        .bn-chips li { padding: 4px 10px; border-radius: 999px; background: rgba(52,56,37,.07); font-size: 11px; font-weight: 500; color: #4A4E3D; }
 
-        /* El visual ocupa todo el ancho de la tarjeta (sin el relleno) y por abajo se sale. */
-        .bn-vis { position: relative; flex: 1; min-height: var(--vh, 340px); margin: 24px calc(-1 * var(--pad)) 0; }
-        .bn-vis-res { --vh: 360px; } .bn-vis-app { --vh: 440px; } .bn-vis-cob { --vh: 470px; } .bn-vis-cal { --vh: 330px; }
-        .bn-vis-cc { --vh: 290px; } .bn-vis-as { --vh: 380px; } .bn-vis-eq { --vh: 400px; } .bn-vis-mig { --vh: 290px; }
+        /* El escenario ocupa toda la tarjeta (por detrás del texto) en escritorio. */
+        .bn-st { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+        .bn-e { position: absolute; left: var(--l, auto); right: var(--r, auto); top: var(--t, auto); bottom: var(--b, auto); width: var(--w, auto); }
 
-        /* Pegatina: un fragmento real, sombra larga y suave, un pelín girado. */
-        .bn-peg { position: absolute; left: var(--l, auto); right: var(--rt, auto); top: var(--t, auto); bottom: var(--b, auto); width: var(--w, auto);
-          rotate: var(--rot, 0deg); z-index: 2; border-radius: 18px; overflow: hidden; background: #fff;
-          box-shadow: 0 44px 80px -34px rgba(34,37,26,.3), 0 10px 22px -10px rgba(34,37,26,.1); }
-        .bn-peg img { display: block; width: 100%; height: auto; }
-        .bn-foto { position: absolute; overflow: hidden; background: transparent; z-index: 1; }
-        .bn-foto picture, .bn-foto img { display: block; width: 100%; height: 100%; }
-        .bn-foto img { object-fit: cover; }
-        .bn-foto-reservas { border-radius: 28px 0 0 0; }
-        .bn-foto-equipo { border-radius: 0; }
+        /* Tarjetita: blanca, plana, muy pequeña, sombra casi inexistente. */
+        .bn-m { background: #fff; border-radius: 13px; padding: 8px 10px; font-size: 10px; line-height: 1.25; color: #1F2216; box-shadow: 0 1px 2px rgba(34,37,26,.05), 0 8px 18px -12px rgba(34,37,26,.12); }
+        .bn-m-arena { background: #FBF5E6; }
+        .bn-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .bn-fila-pie { margin-top: 6px; justify-content: flex-start; }
+        .bn-m b { display: block; font-size: 10.5px; font-weight: 600; }
+        .bn-m i { display: block; font-style: normal; font-size: 9px; color: #7C806F; }
+        .bn-m-tit { margin: 5px 0 1px; } .bn-m-sub { }
+        .bn-mini-txt { font-size: 9px; color: #7C806F; }
+        .bn-cifra { text-align: right; font-size: 11px; font-weight: 700; } .bn-cifra i { font-weight: 500; }
+        .bn-ok { color: #2F6B4F; } .bn-warn { color: #B5701A; }
+        .bn-hora { position: absolute; left: var(--l); top: var(--t); font-size: 9.5px; color: #8A8E7D; font-variant-numeric: tabular-nums; }
+        .bn-quien { display: flex; align-items: center; gap: 7px; }
+        .bn-av { display: grid; place-items: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: 99px; font-size: 8.5px; font-weight: 700; }
+        .bn-av-a { background: #EBD9B4; color: #4B3E1B; } .bn-av-o { background: #D6DCC4; color: #343825; } .bn-av-c { background: #E8E3D2; color: #4A4535; }
+        .bn-av-logo { background: #fff; box-shadow: 0 0 0 1px rgba(52,56,37,.1); } .bn-av-logo svg { width: 12px; height: auto; }
+        .bn-tag { flex-shrink: 0; padding: 2px 6px; border-radius: 5px; font-size: 8.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+        .bn-tag-ok { background: #E1EEDF; color: #2F6B4F; } .bn-tag-warn { background: #F7E9CC; color: #8F6215; }
+        .bn-tag-arena { background: #EFE2C8; color: #5A4A1F; } .bn-tag-o { background: #E4E8D6; color: #343825; } .bn-tag-osc { background: #343825; color: #E9D9B6; }
+        .bn-mapa-t { margin-bottom: 5px; }
+        .bn-mapa { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+        .bn-pl { display: block; height: 11px; border-radius: 4px; background: #fff; border: 1px solid #C9CFB7; }
+        .bn-pl-x { background: #E4E6DA; border-color: #E4E6DA; } .bn-pl-e { background: #343825; border-color: #343825; }
+        .bn-dias { display: flex; gap: 3px; } .bn-dias i { display: grid !important; place-items: center; width: 14px; height: 14px; border-radius: 99px; background: #EEF0E6; font-size: 7.5px !important; font-weight: 600; color: #8A8E7D !important; }
+        .bn-dias i.on { background: #343825; color: #E9D9B6 !important; }
+        .bn-lista { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; font-size: 9.5px; color: #3B3F2C; } .bn-lista span { display: flex; align-items: center; gap: 6px; }
+        .bn-ck { display: inline-grid !important; place-items: center; width: 13px; height: 13px; border-radius: 99px; background: #E1EEDF; color: #2F6B4F !important; font-size: 8px !important; font-weight: 800; }
+        .bn-soporte { display: block; margin-top: 6px; }
 
-        /* Móvil que asoma: bisel limpio y pantalla real. */
-        .bn-movil { translate: -50% 0; padding: 22px 6px 6px; border-radius: 40px 40px 0 0; background: #1F2216; overflow: visible; aspect-ratio: auto; }
-        .bn-movil img { border-radius: 33px 33px 0 0; }
-        .bn-movil-isla { position: absolute; top: 7px; left: 50%; width: 26%; height: 9px; border-radius: 99px; background: #0E0F0A; transform: translateX(-50%); }
-
-        /* Notificación al estilo de iOS: esquinas de 22, fondo translúcido con desenfoque, icono a la izquierda, hora a la derecha. */
-        .bn-aviso { display: flex; align-items: center; gap: 11px; padding: 11px 14px 11px 11px; border-radius: 22px; background: rgba(255,255,255,.74);
-          -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6); border: 1px solid rgba(255,255,255,.7);
-          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-ui), system-ui, sans-serif; }
+        /* Aviso al estilo de iOS: 18 px de radio, translúcido con desenfoque, icono de app a la izquierda, hora a la derecha. */
+        .bn-aviso { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 8px; border-radius: 18px; background: rgba(255,255,255,.78);
+          -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+          box-shadow: 0 1px 2px rgba(34,37,26,.05), 0 8px 18px -12px rgba(34,37,26,.14); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-ui), system-ui, sans-serif; }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .bn-aviso { background: #FBFAF5; } }
-        .bn-aviso-icono { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; background: #fff; filter: drop-shadow(0 1px 2px rgba(34,37,26,.18)); }
-        .bn-aviso-icono svg { width: 24px; height: auto; }
-        .bn-aviso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
-        .bn-aviso-texto b { font-size: 13.5px; font-weight: 600; color: #1A1A1A; }
-        .bn-aviso-texto span { font-size: 13px; color: #3C3C43; }
-        .bn-aviso time { align-self: flex-start; margin-top: 2px; font-size: 12px; color: #6B6B73; }
-
-        /* Icono de app «squircle» (superelipse) con degradado sutil y glifo. La sombra va en la caja: clip-path la cortaría. */
+        .bn-aviso-i { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; background: #fff; }
+        .bn-aviso-i svg { width: 15px; height: auto; }
+        .bn-aviso-t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+        .bn-aviso-t b { font-size: 10.5px; font-weight: 600; color: #1A1A1A; } .bn-aviso-t span { font-size: 10px; color: #3C3C43; }
+        .bn-aviso time { align-self: flex-start; font-size: 9px; color: #6B6B73; }
         .bn-squircle { clip-path: url(#bn-squircle); }
-        .bn-tile-caja { background: none; box-shadow: none; overflow: visible; display: flex; flex-direction: column; align-items: center; gap: 7px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-ui), system-ui, sans-serif; }
-        .bn-tile { display: grid; place-items: center; width: 68px; height: 68px; filter: drop-shadow(0 8px 14px rgba(34,37,26,.2)); color: #fff; }
-        .bn-tile-oliva { background: linear-gradient(160deg,#6E7B55,#454E33); }
-        .bn-tile-arena { background: linear-gradient(160deg,#EBD9B4,#D2B887); color: #2B2F1E; }
-        .bn-tile-crema { background: linear-gradient(160deg,#FFFFFF,#E9E7DA); color: #343825; }
-        .bn-tile-etiqueta { font-size: 12px; font-weight: 500; color: #3B3F2C; }
+        .bn-tile-caja { display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-ui), system-ui, sans-serif; }
+        .bn-tile { display: grid; place-items: center; width: 46px; height: 46px; background: linear-gradient(160deg,#fff,#EDEBDD); filter: drop-shadow(0 6px 10px rgba(34,37,26,.16)); }
+        .bn-tile svg { width: 26px; height: auto; }
+        .bn-tile-et { font-size: 9.5px; font-weight: 500; color: #3B3F2C; }
 
-        /* Etiqueta con avatar de iniciales, como los chips con persona de las referencias de producto. */
-        .bn-pildora { display: flex; align-items: center; gap: 9px; padding: 7px 14px 7px 7px; border-radius: 999px; background: #fff; }
-        .bn-pildora-av { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 99px; background: #D9C29E; color: #2B2F1E; font-size: 11.5px; font-weight: 800; }
-        .bn-pildora-tx { display: flex; flex-direction: column; line-height: 1.2; font-size: 12.5px; color: #1F2216; }
-        .bn-pildora-tx b { font-weight: 700; } .bn-pildora-tx i { font-style: normal; font-size: 11.5px; color: #8F6215; font-weight: 600; }
-
-        /* Movimiento suave al hacer scroll: solo translate, sin «reducir movimiento» y con soporte. */
-        @media (prefers-reduced-motion: no-preference) {
-          @supports (animation-timeline: view()) {
-            @keyframes bn-par { from { translate: 0 22px; } to { translate: 0 -12px; } }
-            @keyframes bn-par-movil { from { translate: -50% 26px; } to { translate: -50% -10px; } }
-            .bn-par { animation: bn-par linear both; animation-timeline: view(); animation-range: cover; }
-            .bn-movil.bn-par { animation-name: bn-par-movil; }
-          }
-        }
-
-        .bn-persona { display: grid; grid-template-columns: minmax(0,1.3fr) auto minmax(0,1fr); gap: clamp(24px,4vw,56px); align-items: center; margin-top: 16px; padding: clamp(30px,4vw,52px) clamp(26px,3.4vw,46px); border-radius: 36px; background: #E6EADA; }
-        .bn-persona .bn-p { max-width: 44ch; }
-        .bn-h3-grande { font-size: clamp(26px,3vw,38px); }
-        .bn-persona-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 26px; }
-        .bn-persona-tiles { display: flex; gap: 22px; }
-        .bn-persona-tiles .bn-peg { position: static; rotate: none; }
-        .bn-cta { display: inline-flex; align-items: center; min-height: 48px; padding: 0 26px; border-radius: 999px; background: #343825; color: #D9C29E; font-weight: 800; font-size: 15.5px; }
-        .bn-cta:hover { background: #22251A; }
-        .bn-datos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-        .bn-datos li { display: flex; align-items: baseline; gap: 12px; }
-        .bn-datos b { font-size: clamp(20px,2.2vw,26px); font-weight: 800; letter-spacing: -.035em; color: #1F2216; white-space: nowrap; }
-        .bn-datos span { font-size: 14px; color: #55584A; }
-
-        .bn-nota { margin: 18px 0 0; text-align: center; font-size: 12.5px; color: #6B6B63; }
-        .bn-mas-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 28px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #DEDED6; }
-        .bn-salida { display: inline-flex; align-items: center; min-height: 44px; font-size: 14.5px; font-weight: 700; color: #343825; }
-        .bn-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
+        /* Móvil que asoma: bisel fino, isla y pantalla real, cortado por el borde de abajo. */
+        .bn-tel { width: var(--tw, 150px); padding: 14px 4px 0; border-radius: 24px 24px 0 0; background: #1B1D14; box-shadow: 0 30px 50px -28px rgba(34,37,26,.4); overflow: hidden; }
+        .bn-tel img { display: block; width: 100%; height: auto; border-radius: 20px 20px 0 0; }
+        .bn-tel-isla { position: absolute; top: 4px; left: 50%; width: 26%; height: 6px; border-radius: 99px; background: #0B0C07; transform: translateX(-50%); }
+        .bn-foto { overflow: hidden; background: transparent; }
+        .bn-foto[data-hueco="app"] { border-radius: 20px 20px 0 0; }
+        .bn-foto picture, .bn-foto img { display: block; width: 100%; height: 100%; } .bn-foto img { object-fit: cover; }
+        
+        .bn-mas-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 22px; margin-top: 22px; }
+        .bn-mas-nav a { display: inline-flex; align-items: center; min-height: 40px; font-size: 13px; font-weight: 600; color: #4A4E3D; }
+        .bn-mas-nav a:hover { color: #1F2216; text-decoration: underline; text-underline-offset: 4px; }
+        .bn-nota { margin: 4px 0 0; text-align: center; font-size: 11.5px; color: #8A8E7D; }
 
         @media (max-width: 960px) {
-          .bn-w7, .bn-w5 { grid-column: span 12; }
-          .bn-persona { grid-template-columns: minmax(0,1fr); }
-          .bn-persona-tiles { justify-content: flex-start; }
+          .bn-w7, .bn-w5, .bn-w12 { grid-column: span 12; }
+          .bn-w12 .bn-t { max-width: none; }
+          .bn-r1, .bn-r2, .bn-r3, .bn-r4 { height: 340px; }
         }
 
-        /* Móvil: los fragmentos NO se encogen; se reordenan en columna, a un tamaño legible, escalonados y solapados. */
+        /* Móvil: una columna, tarjetas compactas; el escenario pasa debajo del texto y las piezas se recolocan a tamaño legible. */
         @media (max-width: 700px) {
-          .bn-card { border-radius: 28px; min-height: 0; padding-bottom: 28px; }
-          .bn-vis { min-height: 0; margin: 22px 0 0; display: flex; flex-direction: column; gap: 0; }
-          .bn-peg { position: relative; left: auto; right: auto; top: auto; bottom: auto; width: var(--mw, 100%); align-self: var(--ma, center); rotate: var(--rot, 0deg); margin-top: -10px; }
-          .bn-vis > .bn-peg:first-child { margin-top: 0; }
-          .bn-par, .bn-movil.bn-par { animation: none; }
-          /* La foto, arriba y a todo lo ancho de la tarjeta; el resto se le solapa. */
-          .bn-foto { position: relative !important; inset: auto !important; left: auto !important; right: auto !important; top: auto !important; bottom: auto !important; width: calc(100% + 2 * var(--pad)) !important; height: auto !important; margin: -22px calc(-1 * var(--pad)) 22px; aspect-ratio: var(--ar-m, 4 / 3); border-radius: 0 !important; order: -1; }
-          .bn-foto[data-foto="pendiente"] { display: none; }
-          .bn-movil { translate: none; align-self: center; margin-bottom: -150px; width: min(220px, 62%); }
-          .bn-movil.bn-par { translate: none; }
-          .bn-vis-app .bn-aviso { order: -1; margin-top: 0; }
-          .bn-vis-app .bn-tile-caja { display: none; }
-          .bn-vis-app { padding-bottom: 150px; overflow: hidden; margin-bottom: calc(-1 * var(--pad) - 28px); }
-          .bn-vis-app .bn-movil { margin-top: 10px; }
-          .bn-pildora { margin-top: 12px; }
-          .bn-vis-eq { }
-          .bn-tile-caja { margin-top: 14px; }
-          .bn-persona-tiles .bn-peg { margin-top: 0; }
-          .bn-datos b { white-space: normal; }
+          .bn-h2 { margin-bottom: 20px; }
+          .bn-card { height: auto !important; border-radius: 20px; }
+          .bn-t { padding: 22px 20px 0; }
+          .bn-st { position: relative; inset: auto; height: var(--sh, 250px); margin-top: 12px; }
+          .bn-e { left: var(--ml, auto); right: var(--mr, auto); top: var(--mt, auto); bottom: var(--mb, auto); width: var(--mw, auto); }
+          .bn-tel { width: var(--mtw, var(--tw, 150px)); }
+          .bn-hora, .bn-no-m { display: none !important; }
+          .bn-foto { border-radius: 0; }
+          .bn-c3 .bn-st, .bn-c1 .bn-st { }
         }
       `}</style>
     </section>

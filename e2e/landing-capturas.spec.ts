@@ -244,3 +244,16 @@ test.describe('panel · resto', () => {
     await page.screenshot({ path: `${DESTINO}/panel-asistente.png` });
   });
 });
+
+test.describe('asistente · móvil', () => {
+  test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  test('chat con la confirmación', async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.addInitScript(() => { localStorage.setItem('tenti-traje', 'ninguno'); });
+    await conAcciones(page, { tipo: 'CREAR_CLASE' });
+    await pedirAlAsistente(page);
+    await page.waitForTimeout(2000);
+    await sinFab(page);
+    await page.screenshot({ path: `${DESTINO}/app-asistente-movil.png` });
+  });
+});

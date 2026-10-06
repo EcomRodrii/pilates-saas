@@ -25,16 +25,9 @@ export interface HuecoFoto {
 }
 
 export const FOTOS_BENTO = {
-  // Reservas + lista de espera: la mitad derecha de la tarjeta.
-  reservas: {
-    pide: 'Alumna haciendo Pilates en un reformer, con luz natural, estudio limpio y claro (vertical o cuadrada)',
-    proporcion: { escritorio: '4 / 5', movil: '4 / 3' },
-    foto: FOTOS.heroe,
-    provisional: true,
-  },
-  // App de la alumna: detrás del móvil.
+  // App de la alumna: media tarjeta, a la izquierda del móvil que asoma (aún sin foto: la tarjeta se ve completa con el móvil y el aviso).
   app: {
-    pide: 'Alumna sonriendo con el móvil en la mano justo después de la clase, ropa de deporte clara, fondo luminoso (vertical 4:5)',
+    pide: 'Mujer fitness o de Pilates sonriendo con el móvil en la mano justo después de la clase, ropa de deporte clara, fondo luminoso (vertical 4:5, a media tarjeta)',
     proporcion: { escritorio: '4 / 5', movil: '4 / 3' },
     foto: null,
   },

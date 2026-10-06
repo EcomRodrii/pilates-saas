@@ -19,30 +19,14 @@ if (!ENTRADA) { console.error('Uso: node scripts/capturas-landing.mjs <carpeta-d
 const SALIDA = new URL('../public/landing/capturas/', import.meta.url).pathname;
 
 const MOVIL = [390, 780];
-const FRAGMENTO = [480, 960];
 
-// Cada fragmento es un RECORTE APRETADO de una captura real (px del PNG crudo,
-// que es @2x en el panel y @3x en la app): una tarjeta de reserva, un recibo,
-// una fila del calendario, la confirmación del asistente… Se colocan como
-// pegatinas sobre el tinte de las tarjetas (components/landing/SeccionBento.tsx).
-// Las proporciones (alto/ancho) están repetidas en SeccionBento.tsx (`F`).
+// Solo las pantallas de móvil que «asoman» por el borde de las tarjetas de
+// components/landing/SeccionBento.tsx; todo lo demás de esas tarjetas son
+// tarjetitas en HTML/CSS con el estilo del producto y datos de muestra.
 export const CAPTURAS = {
-  'fragmento-mapa-reformers-reserva': { crudo: 'app-elegir-reformer-4', recorte: { left: 40, top: 1555, width: 1090, height: 650 }, anchos: FRAGMENTO },
-  'fragmento-pago-recibo-app': { crudo: 'app-pagos', recorte: { left: 40, top: 320, width: 1090, height: 600 }, anchos: FRAGMENTO },
-  'fragmento-bono-sesiones-app': { crudo: 'app-bonos', recorte: { left: 40, top: 850, width: 1090, height: 640 }, anchos: FRAGMENTO },
-  'fragmento-semana-calendario': { crudo: 'panel-calendario', recorte: { left: 716, top: 556, width: 860, height: 400 }, anchos: FRAGMENTO },
-  'fragmento-ocupacion-calendario': { crudo: 'panel-calendario', recorte: { left: 606, top: 470, width: 700, height: 80 }, anchos: FRAGMENTO },
-  'fragmento-clase-llena-lista-espera': { crudo: 'panel-calendario', recorte: { left: 724, top: 726, width: 420, height: 104 }, anchos: FRAGMENTO },
-  'fragmento-recomendacion-centro-de-control': { crudo: 'panel-centro-de-control', recorte: { left: 600, top: 316, width: 1330, height: 322 }, anchos: FRAGMENTO },
-  'fragmento-botones-decision': { crudo: 'panel-centro-de-control', recorte: { left: 590, top: 640, width: 700, height: 110 }, anchos: FRAGMENTO },
-  'fragmento-asistente-peticion': { crudo: 'panel-asistente', recorte: { left: 1880, top: 170, width: 830, height: 140 }, anchos: FRAGMENTO },
-  'fragmento-asistente-confirmacion': { crudo: 'panel-asistente', recorte: { left: 1355, top: 440, width: 1340, height: 620 }, anchos: FRAGMENTO },
-  'fragmento-acta-migracion': { crudo: 'panel-migracion', recorte: { left: 550, top: 450, width: 1560, height: 215 }, anchos: FRAGMENTO },
-  'fragmento-acta-migracion-movil': { crudo: 'panel-migracion', recorte: { left: 1280, top: 450, width: 830, height: 215 }, anchos: FRAGMENTO },
-  'fragmento-deshacer-migracion': { crudo: 'panel-migracion', recorte: { left: 550, top: 785, width: 780, height: 110 }, anchos: FRAGMENTO },
-  'fragmento-avisar-sustituta': { crudo: 'panel-calendario-clase', recorte: { left: 2015, top: 940, width: 740, height: 360 }, anchos: FRAGMENTO },
-  // El móvil entero, que asoma por el borde de la tarjeta de la app.
   'app-alumna-inicio-estudio-pilates': { crudo: 'app-inicio', anchos: MOVIL },
+  'app-alumna-recibos-pagar': { crudo: 'app-pagos', anchos: MOVIL },
+  'app-asistente-confirmar-clase': { crudo: 'app-asistente-movil', anchos: MOVIL },
 };
 
 await mkdir(SALIDA, { recursive: true });
