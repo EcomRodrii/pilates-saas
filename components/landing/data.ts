@@ -86,7 +86,7 @@ const PRECIOS_FAQ = PLANS.map((p) => `${p.name} (${p.price.replace('€', ' €'
 
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
-    q: '¿Qué programa necesito para gestionar un centro de Pilates?',
+    q: '¿Qué programa necesito para gestionar un centro de Pilates o yoga?',
     a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer con su lista de espera, los bonos y las cuotas, los cobros y el calendario. Tentare es un software hecho para estudios y centros de Pilates que reúne todo eso en un panel, con una app con tu marca para las alumnas. Interfaz y soporte en español.',
   },
   {
@@ -100,6 +100,10 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: '¿Hay permanencia?',
     a: 'Ninguna. Pagas mes a mes y te vas cuando quieras. Tus datos son tuyos: exportas alumnas, reservas, suscripciones, recibos y pagos cuando lo necesites.',
+  },
+  {
+    q: '¿Sirve también para estudios de yoga?',
+    a: 'Sí. Las clases, las salas, las reservas con lista de espera, los bonos, las cuotas y los cobros funcionan igual para yoga, para Pilates o para un centro que combine las dos disciplinas: tú das nombre a cada tipo de clase. Lo que es propio del Pilates reformer, como el mapa para elegir máquina, es opcional y no hace falta en una sala de yoga.',
   },
   {
     q: '¿Mis alumnas tienen una app?',

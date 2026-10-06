@@ -1,9 +1,6 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import Link from 'next/link';
 import { PLANS } from './data';
-import { FotoLanding } from './FotoLanding';
-import { FOTOS_BENTO } from './fotos-bento';
+import { FOTOS_APORTADAS } from './fotos';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { MockupIphone, estilosMockupIphone } from './MockupIphone';
 import { MessageCircle, Mail, CalendarDays } from 'lucide-react';
@@ -24,7 +21,7 @@ import { MessageCircle, Mail, CalendarDays } from 'lucide-react';
 // cortadas por el borde de la tarjeta; un móvil que asoma por abajo con la
 // pantalla REAL de la app (captura de e2e con datos de muestra, ver
 // scripts/capturas-landing.mjs); avisos al estilo de iOS con el isotipo de
-// Tentare; y fotos donde las hay (fotos-bento.ts dice qué foto pide cada hueco).
+// Tentare; y fotos donde las hay (las aportadas por el fundador, en fotos.ts).
 // Ni un logotipo de terceros. Sin Tenti: la web comercial está vetada en
 // lib/tenti/donde-vive-tenti.test.ts.
 //
@@ -120,40 +117,34 @@ function Aviso({ titulo, linea, hora = 'ahora', pos, emoji, icono }: { titulo: s
   );
 }
 
-/**
- * Las fotos que suministra el fundador (public/landing/fotos-fundador/, FUERA de
- * git: el repo es público y su licencia está sin confirmar). Si el fichero no
- * está, el hueco queda limpio (solo el tinte y las tarjetitas) y el PR no rompe;
- * para `equipo` hay además una foto de reserva de las registradas en la home.
- * Nunca se amplía por encima de su tamaño nativo: `object-fit: cover` sin escalado
- * artificial, y las cajas miden menos que la foto.
- */
+/** Fotos aportadas por el fundador (public/landing/fotos-aportadas/, crédito en fotos.ts). Sin escalar por encima de su tamaño nativo: `object-fit: cover`. */
 const FOTOS_FUNDADOR = {
-  reservas: { f: 'reservas.png', w: 412, h: 624, alt: 'Mujer sentada en un reformer, con la mano en alto, haciéndose un selfie en un estudio de Pilates luminoso', pos: '50% 30%' },
-  app: { f: 'app.png', w: 414, h: 742, alt: 'Mujer sonriendo con el móvil en la mano, con ropa de deporte clara y verde, después de la clase', pos: '50% 20%' },
-  equipo: { f: 'equipo.png', w: 434, h: 600, alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', pos: '50% 40%' },
+  reservas: { f: 'reservas', alt: 'Mujer sentada en un reformer, con la mano en alto, haciéndose un selfie en un estudio de Pilates luminoso', pos: '50% 30%' },
+  app: { f: 'app', alt: 'Alumna sonriendo con el móvil y una esterilla de yoga', pos: '50% 20%' },
+  equipo: { f: 'equipo', alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', pos: '50% 40%' },
 } as const;
-const hayFoto = (clave: keyof typeof FOTOS_FUNDADOR) => existsSync(join(process.cwd(), 'public/landing/fotos-fundador', FOTOS_FUNDADOR[clave].f));
-
 function Foto({ clave, pos }: { clave: keyof typeof FOTOS_FUNDADOR; pos: Pos }) {
   const d = FOTOS_FUNDADOR[clave];
-  const hueco = clave === 'equipo' ? FOTOS_BENTO.equipo : null;
-  if (hayFoto(clave)) {
+  if (clave === 'app') {
+    const n = FOTOS_APORTADAS.app.base;
     return (
-      <div className="bn-e bn-foto" style={estilo(pos)} data-hueco={clave} data-foto="fundador">
-        {/* eslint-disable-next-line @next/next/no-img-element -- foto provisional del fundador, sin derivados */}
-        <img src={`/landing/fotos-fundador/${d.f}`} width={d.w} height={d.h} alt={d.alt} loading="lazy" decoding="async" style={{ objectPosition: d.pos }} />
+      <div className="bn-e bn-foto" style={estilo(pos)} data-hueco="app" data-foto="aportada">
+        <picture>
+          <source type="image/avif" srcSet={`/landing/fotos-aportadas/${n}-432.avif 432w, /landing/fotos-aportadas/${n}-864.avif 864w`} sizes="(max-width: 700px) 92vw, 260px" />
+          <img src={`/landing/fotos-aportadas/${n}-432.webp`} srcSet={`/landing/fotos-aportadas/${n}-432.webp 432w, /landing/fotos-aportadas/${n}-864.webp 864w`} sizes="(max-width: 700px) 92vw, 260px" width={864} height={1080} alt={d.alt} loading="lazy" decoding="async" style={{ objectPosition: d.pos }} />
+        </picture>
       </div>
     );
   }
-  if (hueco?.foto) {
-    return (
-      <div className="bn-e bn-foto" style={estilo(pos)} data-hueco={clave} data-foto="reserva">
-        <FotoLanding foto={hueco.foto} mediaMovil="(max-width: 700px)" sizes={{ escritorio: '(max-width: 960px) 92vw, 440px', movil: '92vw' }} />
-      </div>
-    );
-  }
-  return <span hidden data-hueco={clave} data-foto="pendiente" data-pide={FOTOS_BENTO[clave as 'app'].pide} />;
+  const a = FOTOS_APORTADAS[clave];
+  return (
+    <div className="bn-e bn-foto" style={estilo(pos)} data-hueco={clave} data-foto="aportada">
+      <picture>
+        <source type="image/avif" srcSet={`/landing/fotos-aportadas/${a.base}.avif`} />
+        <img src={`/landing/fotos-aportadas/${a.base}.webp`} width={a.ancho} height={a.alto} alt={d.alt} loading="lazy" decoding="async" style={{ objectPosition: d.pos }} />
+      </picture>
+    </div>
+  );
 }
 
 function Texto({ id, href, titulo, texto, chips }: { id: string; href: string; titulo: string; texto: string; chips: string[] }) {
@@ -170,6 +161,7 @@ const MAS: { href: string; label: string }[] = [
   { href: '/funcionalidades', label: 'Todas las funcionalidades' },
   { href: '/precios', label: `Planes y precios · desde ${PRECIO_DESDE}` },
   { href: '/soluciones/estudio-de-pilates-reformer', label: 'Software para estudios de Pilates reformer' },
+  { href: '/soluciones/estudio-de-yoga', label: 'Software para estudios de yoga' },
   { href: '/recursos', label: 'Guías para dueñas de estudios' },
   { href: '/comparativa', label: 'Comparativa de programas' },
   { href: '/glosario', label: 'Glosario' },
@@ -187,7 +179,7 @@ export function SeccionBento() {
       </svg>
 
       <div className="bn-wrap">
-        <h2 id="bn-h" className="bn-h2 lp-rv">Todo lo que necesita tu estudio de Pilates, en una sola plataforma.</h2>
+        <h2 id="bn-h" className="bn-h2 lp-rv">Todo lo que necesita tu estudio de Pilates o yoga, en una sola plataforma.</h2>
 
         <div className="bn-rejilla">
           {/* 1 · Reservas y lista de espera */}
@@ -203,12 +195,12 @@ export function SeccionBento() {
               <Mini etiqueta="Clase de Reformer Flow de las 9:00, completa: 12 de 12" pos={{ l: 78, t: 162, w: 196, ml: 18, mt: 8, mw: 200 }}>
                 <span className="bn-fila"><span><b>Reformer Flow <Emo e="🧘‍♀️" /></b><i>09:00 – 09:50</i></span><span className="bn-cifra bn-ok">12/12<i>llena</i></span></span>
               </Mini>
-              <Mini etiqueta="Clase de Reformer Avanzado de las 10:00 con 8 de 12 plazas y 2 personas en lista de espera" clase="bn-m-arena" pos={{ l: 138, t: 216, w: 224, ml: 62, mt: 62, mw: 230 }}>
-                <span className="bn-fila"><span><b>Reformer Avanzado</b><i>10:00 – 10:50</i></span><span className="bn-cifra bn-warn">8/12<i>reservadas</i></span></span>
+              <Mini etiqueta="Clase de Yoga Vinyasa de las 10:00 con 8 de 12 plazas y 2 personas en lista de espera" clase="bn-m-arena" pos={{ l: 138, t: 216, w: 224, ml: 62, mt: 62, mw: 230 }}>
+                <span className="bn-fila"><span><b>Yoga Vinyasa</b><i>10:00 – 10:50</i></span><span className="bn-cifra bn-warn">8/12<i>reservadas</i></span></span>
                 <span className="bn-fila bn-fila-pie"><Tag t="LISTA DE ESPERA" tono="arena" /><span className="bn-mini-txt">+2 esperando</span></span>
               </Mini>
-              <Mini etiqueta="Clase de Mat de las 11:00 con 10 de 12 plazas" pos={{ l: 78, t: 282, w: 196, ml: 18, mt: 140, mw: 200 }}>
-                <span className="bn-fila"><span><b>Mat</b><i>11:00 – 11:50</i></span><span className="bn-cifra bn-ok">10/12<i>reservadas</i></span></span>
+              <Mini etiqueta="Clase de Hatha Yoga de las 11:00 con 10 de 12 plazas" pos={{ l: 78, t: 282, w: 196, ml: 18, mt: 140, mw: 200 }}>
+                <span className="bn-fila"><span><b>Hatha Yoga</b><i>11:00 – 11:50</i></span><span className="bn-cifra bn-ok">10/12<i>reservadas</i></span></span>
               </Mini>
               <Mini etiqueta="Mapa de la sala para elegir reformer, con unos ocupados y uno elegido" pos={{ r: 150, t: 256, w: 176, ml: 150, mt: 150, mw: 176 }} clase="bn-no-m-corto">
                 <b className="bn-mapa-t">Elige tu sitio</b>
@@ -222,12 +214,12 @@ export function SeccionBento() {
             <Texto id="bn-app-h" href="/funcionalidades/app-para-alumnas" titulo="Tu app, con el nombre de tu estudio"
               texto="Tus alumnas reservan, ven su bono y pagan desde el móvil, con tu nombre, tu logo y tus colores."
               chips={['Tu logo y tus colores', 'Avisos en el móvil']} />
-            <div className="bn-st" style={{ ['--sh' as string]: '300px' }}>
-              <Foto clave="app" pos={{ l: 0, t: 140, b: 0, w: 196, ml: 0, mt: 40, mb: 0, mw: 130 }} />
-              <Movil cual="inicio" tono="oscuro" ancho={146} pos={{ r: 18, t: 196, mr: 14, mt: 150 }} />
-              <Aviso titulo="Hola, Lucía" emoji="👋" linea="Tu clase de hoy es a las 19:00" hora="ahora" icono={{ Icono: CalendarDays, tono: 'rojo' }} pos={{ l: 14, t: 150, w: 236, ml: 12, mt: 4, mw: 270 }} />
-              <Aviso titulo="Plaza liberada" emoji="🎉" linea="Ya puedes reservar tu plaza" hora="9:41" pos={{ l: 24, t: 200, w: 236, ml: 26, mt: 54, mw: 270 }} />
-              <Aviso titulo="Pago recibido" emoji="✅" linea="Cuota de octubre · 59 €" hora="9:38" icono={{ Icono: MessageCircle, tono: 'verde' }} pos={{ l: 34, t: 250, w: 236, ml: 40, mt: 104, mw: 270 }} />
+            <div className="bn-st" style={{ ['--sh' as string]: '440px' }}>
+              <Foto clave="app" pos={{ l: 0, t: 140, b: 0, w: 200, ml: 0, mt: 40, mb: 0, mw: 130 }} />
+              <Movil cual="inicio" tono="oscuro" ancho={146} pos={{ r: 18, t: 196, mr: 14, mt: 296 }} />
+              <Aviso titulo="Hola, Lucía" emoji="👋" linea="Tu clase de hoy es a las 19:00" hora="ahora" icono={{ Icono: CalendarDays, tono: 'rojo' }} pos={{ l: 14, t: 232, w: 236, ml: 12, mt: 150, mw: 270 }} />
+              <Aviso titulo="Plaza liberada" emoji="🎉" linea="Ya puedes reservar tu plaza" hora="9:41" pos={{ l: 24, t: 276, w: 236, ml: 26, mt: 196, mw: 270 }} />
+              <Aviso titulo="Pago recibido" emoji="✅" linea="Cuota de octubre · 59 €" hora="9:38" icono={{ Icono: MessageCircle, tono: 'verde' }} pos={{ l: 34, t: 320, w: 236, ml: 40, mt: 242, mw: 270 }} />
             </div>
           </article>
 

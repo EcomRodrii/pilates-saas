@@ -255,3 +255,15 @@ export function derivados(foto: FotoRegistrada): { recorte: NombreRecorte; ancho
   }
   return lista;
 }
+
+/**
+ * Fotos APORTADAS por el fundador (6-oct-2026), fuera del registro de arriba
+ * porque no salen de un banco ni de `scripts/fotos-landing.mjs`: son suyas y las
+ * subió él mismo (public/landing/fotos-aportadas/, AVIF + WebP, sin escalar por
+ * encima de su tamaño nativo). Usadas en components/landing/SeccionBento.tsx.
+ */
+export const FOTOS_APORTADAS = {
+  app: { base: 'alumna-con-movil-y-esterilla-de-yoga', ancho: 864, alto: 1080, origen: 'foto aportada por el fundador' },
+  reservas: { base: 'alumna-reformer-selfie-estudio-pilates', ancho: 412, alto: 624, origen: 'foto aportada por el fundador' },
+  equipo: { base: 'instructora-y-alumna-reformers-estudio-pilates', ancho: 434, alto: 600, origen: 'foto aportada por el fundador' },
+} as const;

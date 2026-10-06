@@ -17,8 +17,8 @@ import { paginaDe, urlDe } from '@/lib/seo/paginas';
 const pagina = paginaDe('/')!;
 
 const COMPARTIR = {
-  titulo: 'El software que lleva tu estudio de Pilates.',
-  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel. Pruébalo 7 días gratis, sin tarjeta.',
+  titulo: 'El software que lleva tu estudio de Pilates y yoga.',
+  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Pruébalo 7 días gratis, sin tarjeta.',
   imagen: '/og-image.png',
   alt: 'Tentare',
 };

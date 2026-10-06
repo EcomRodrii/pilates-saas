@@ -115,13 +115,14 @@ export function LandingCliente({ guias, bento, frase }: { guias?: ReactNode; ben
         {frase}
         <SeccionTuEstudio />
         <SeccionReservas />
-        <SeccionSustituciones />
         {/* La noche y su mañana: mismo fondo, se leen como un solo bloque. */}
         <SeccionParteNoche />
         <SeccionCalendarioReservas />
         {/* El resumen de TODO lo que hace Tentare (encargo 6-oct): tras la
             historia en profundidad y antes de pedir confianza. */}
         {bento}
+        {/* Las sustituciones, un bloque corto: no es lo que más busca un estudio (fundador, 6-oct). */}
+        <SeccionSustituciones />
         <SeccionConfianza />
         <SeccionFuncionalidades />
         <SeccionPrecio />

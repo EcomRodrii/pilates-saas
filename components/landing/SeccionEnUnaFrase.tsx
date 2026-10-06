@@ -22,15 +22,15 @@ export function SeccionEnUnaFrase() {
       <div className="v5-frase-wrap lp-rv">
         <h2 id="v5-frase-h" className="v5-frase-h2">Tentare, en una frase</h2>
         <p className="v5-frase-def">
-          Tentare es el software para estudios y centros de Pilates en España que reúne en un solo panel las{' '}
+          Tentare es el software para estudios y centros de Pilates y yoga en España que reúne en un solo panel las{' '}
           <Link href="/funcionalidades/reservas-online">reservas online</Link> con lista de espera, la{' '}
           <Link href="/funcionalidades/app-para-alumnas">app de tus alumnas</Link>, los bonos y los{' '}
           <Link href="/funcionalidades/cobros-recurrentes">cobros recurrentes</Link>, el{' '}
           <Link href="/funcionalidades/calendario-y-salas">calendario</Link> y el equipo. Está hecho para estudios de
-          reformer y de mat, no para gimnasios generalistas.
+          Pilates (reformer y mat) y de <Link href="/soluciones/estudio-de-yoga">yoga</Link>, no para gimnasios generalistas.
         </p>
         <ul className="v5-frase-datos">
-          <li><b>Para quién</b>Estudios y centros de Pilates (y de Yoga), independientes o con varias sedes</li>
+          <li><b>Para quién</b>Estudios y centros de Pilates y yoga, independientes o con varias sedes</li>
           <li><b>Dónde</b>España: interfaz y soporte en español, datos en la Unión Europea</li>
           <li><b>Cuánto</b>Desde <Link href="/precios">{PRECIO_DESDE} al mes</Link>, sin permanencia</li>
           <li><b>Cómo empezar</b>{TRIAL_DIAS} días gratis, sin tarjeta</li>

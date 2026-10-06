@@ -330,9 +330,9 @@ export const PAGINAS: PaginaSeo[] = [
     // llevó la coletilla «en Barcelona» (retirada el 2026-09-10, auditoría SEO:
     // la intención local la cubre /network/instructoras/ciudad/barcelona).
     path: '/',
-    titulo: 'Software para estudios de Pilates: reservas, app y cobros',
+    titulo: 'Software para estudios de Pilates y yoga: reservas y cobros',
     descripcion:
-      'Programa para centros de Pilates: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
+      'Programa para centros de Pilates y yoga: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,

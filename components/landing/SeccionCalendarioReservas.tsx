@@ -8,7 +8,7 @@
 // la lista de espera ya la cuenta «Mientras cerrabas» y la elección de reformer
 // vive en /funcionalidades/plazas-fijas y en la app de la alumna.
 
-const CLASE = { n: 'Reformer Avanzado', sub: 'Mañana · 08:30 · Sala 1', dia: 'LUN 10', ocup: '6/8' };
+const CLASE = { n: 'Reformer Avanzado', sub: 'Mañana · 08:30 · Sala 1', dia: 'LUN 10', ocup: '8/8' };
 
 const RESTO_SEMANA: { dia: string; clases: { h: string; n: string; sub: string; bg: string }[] }[] = [
   { dia: 'MAR 11', clases: [
@@ -57,8 +57,8 @@ export function SeccionCalendarioReservas() {
           </div>
           <div className="v5-cal-alerta">
             <span className="v5-cal-punto" aria-hidden />
-            <span className="v5-cal-alerta-t">1 clase necesita una decisión — Reformer Avanzado · lun 08:30 · sin instructora</span>
-            <span className="v5-cal-alerta-b">Ver 08:30</span>
+            <span className="v5-cal-alerta-t">1 clase llena con 2 en lista de espera — Reformer Avanzado · lun 08:30</span>
+            <span className="v5-cal-alerta-b">Ver lista</span>
           </div>
           {/* En el móvil la semana se desliza en horizontal: con tabIndex y nombre,
               también se puede recorrer con el teclado (axe, QA fase 7). */}
@@ -66,7 +66,7 @@ export function SeccionCalendarioReservas() {
             <div className="v5-cal-col">
               <span className="v5-cal-dia">{CLASE.dia}</span>
               <div className="v5-cal-clase v5-cal-clase-alerta">
-                <div className="v5-cal-clase-h">08:30 · sin instructora</div>
+                <div className="v5-cal-clase-h">08:30 · llena · +2 en espera</div>
                 <div className="v5-cal-clase-n">{CLASE.n}</div>
                 <div className="v5-cal-clase-o">{CLASE.ocup}</div>
               </div>

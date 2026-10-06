@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, RefreshCw, UserCheck, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, Hourglass, RefreshCw, type LucideIcon } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { ALTA, NAV_V5 } from './enlaces';
@@ -73,7 +73,7 @@ const PROPORCION_ESCRITORIO = proporcion(FOTOS.heroe.recortes.escritorio);
 const PROPORCION_MOVIL = proporcion(FOTOS.heroe.recortes.movil);
 
 const TARJETAS: Tarjeta[] = [
-  { Icono: UserCheck, etiqueta: 'Sustitución', estado: 'Cubierta', texto: 'Julia da la clase de las 19:00', nota: 'Aceptó tras tu visto bueno' },
+  { Icono: Hourglass, etiqueta: 'Lista de espera', estado: 'Plaza ocupada', texto: 'Carmen entra en Reformer 19:00', nota: 'Se liberó una plaza y pasó sola' },
   { Icono: CalendarCheck, etiqueta: 'Reserva nueva', estado: 'Confirmada', texto: 'Reformer 3 · mar 09:00', nota: 'Lucía reservó desde la app', arena: true, soloEscritorio: true },
   { Icono: RefreshCw, etiqueta: 'Recibo reintentado', estado: 'Cobrado', texto: 'Cuota mensual de Ana', nota: 'Con su tarjeta guardada' },
 ];
@@ -157,7 +157,7 @@ export function SeccionHero() {
               <span className="v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
             </h1>
             <p className="v5-hero-lead">
-              Tus alumnas reservan y cancelan desde tu app, las bajas encuentran quien las cubra y los cobros
+              Tus alumnas reservan desde tu app, la lista de espera llena las plazas que se liberan y los cobros
               se reintentan solos. Tú solo decides lo que necesita tu criterio.
             </p>
             <div className="v5-hero-acciones">
@@ -199,7 +199,7 @@ export function SeccionHero() {
               ))}
             </div>
             <figcaption className="v5-hero-oculto">
-              Ejemplos de avisos de Tentare sobre una clase de Pilates: una sustitución cubierta tras tu visto bueno,
+              Ejemplos de avisos de Tentare sobre una clase de Pilates: una plaza de la lista de espera ocupada,
               una reserva confirmada y un recibo cobrado al reintentarlo.
             </figcaption>
           </figure>

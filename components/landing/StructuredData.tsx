@@ -20,7 +20,7 @@ export function StructuredData() {
     url: BASE_URL,
     publisher: { '@id': ID_ORGANIZACION },
     description:
-      'Software para estudios y centros de Pilates en España: reservas online y lista de espera, app con la marca del estudio para las alumnas, bonos, cuotas y cobros, calendario por salas y gestión del equipo.',
+      'Software para estudios y centros de Pilates y yoga en España: reservas online y lista de espera, app con la marca del estudio para las alumnas, bonos, cuotas y cobros, calendario por salas y gestión del equipo.',
     inLanguage: 'es-ES',
     // Lo que el producto hace hoy, en las palabras de la página (nada congelado
     // ni «próximamente»; ver lib/frozen-features.ts).
@@ -34,7 +34,8 @@ export function StructuredData() {
       'Asistente «Pregúntale a Tentare»: consulta datos y prepara clases, salas, eventos y citas con confirmación',
       'Gestión de instructoras, disponibilidad y sustituciones con tu visto bueno',
     ],
-    audience: { '@type': 'Audience', audienceType: 'Estudios y centros de Pilates' },
+    keywords: 'software para estudios de Pilates, software para estudios de yoga, programa para centros de Pilates y yoga',
+    audience: { '@type': 'Audience', audienceType: 'Estudios y centros de Pilates y yoga' },
 
     // TODO: añadir `aggregateRating` ({ '@type': 'AggregateRating', ratingValue,
     // reviewCount }) en cuanto haya reseñas reales del SOFTWARE Tentare
