@@ -4,10 +4,10 @@ import { herramientasDelRol, NOMBRES_DEFINIDOS } from './herramientas/definicion
 import { NOMBRES_HERRAMIENTAS } from './tipos.ts';
 import { puedeUsarAsistente, ROLES_ASISTENTE } from './roles.ts';
 
-test('la propietaria tiene las 12; la gerente 10, sin dinero; recepción e instructoras, ninguna', () => {
-  assert.equal(herramientasDelRol('PROPIETARIO').length, 12);
+test('la propietaria tiene las 16; la gerente 14, sin dinero; recepción e instructoras, ninguna', () => {
+  assert.equal(herramientasDelRol('PROPIETARIO').length, 16);
   const gerente = herramientasDelRol('MANAGER').map(h => h.nombre);
-  assert.equal(gerente.length, 10);
+  assert.equal(gerente.length, 14);
   assert.ok(!gerente.includes('facturacion_del_periodo'));
   assert.ok(!gerente.includes('pagos_pendientes'));
   assert.deepEqual(herramientasDelRol('RECEPCION'), []);
@@ -21,6 +21,6 @@ test('quién puede usarlo: propietaria y gerencia, una sola lista', () => {
   assert.equal(puedeUsarAsistente('MANAGER'), true);
 });
 
-test('el registro tiene las 12 del catálogo, en su orden fijo', () => {
+test('el registro tiene las 16 del catálogo, en su orden fijo', () => {
   assert.deepEqual([...NOMBRES_DEFINIDOS], [...NOMBRES_HERRAMIENTAS]);
 });

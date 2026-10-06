@@ -13,6 +13,8 @@ export const NOMBRES_HERRAMIENTAS = [
   'resumen_del_estudio', 'que_revisar_hoy', 'contar_alumnas', 'alumnas_sin_venir', 'agenda_del_dia',
   'clases_proximas_con_huecos', 'ocupacion_por_franja', 'actividad_del_periodo', 'facturacion_del_periodo',
   'pagos_pendientes', 'bonos_por_caducar', 'datos_para_un_evento',
+  // Fase 2: PROPONEN (nunca ejecutan). Al final: el orden de las anteriores no cambia.
+  'proponer_clase', 'proponer_sala', 'proponer_evento', 'proponer_cita',
 ] as const;
 export type NombreHerramienta = typeof NOMBRES_HERRAMIENTAS[number];
 
@@ -39,6 +41,7 @@ export interface ClaseDelBloque {
 }
 
 export type BloqueAsistente =
+  | { tipo: 'propuesta'; propuesta: PropuestaAccion }
   | { tipo: 'metricas'; titulo: string; nota?: string; metricas: Metrica[] }
   | { tipo: 'clases'; titulo: string; href: string; total: number; clases: ClaseDelBloque[] }
   | { tipo: 'alumnas'; titulo: string; href: string; total: number; alumnas: { ref: string; socioId: string; detalle: string }[] }
@@ -47,16 +50,20 @@ export type BloqueAsistente =
   | { tipo: 'bonos'; titulo: string; href: string; total: number; bonos: { suscripcionId: string; alumna: string; plan: string; restantes: number; caduca: string }[] }
   | { tipo: 'franjas'; titulo: string; href: string; franjas: { clave: string; texto: string; tipoClase: string; ocupacion: number | null; nClases: number; enEspera: number }[] }
   | { tipo: 'revisar'; lineas: { id: string; n: number; texto: string; href: string | null; bandeja: 'decidir' | 'enMarcha' }[]; veredicto: { titulo: string; href: string } | null };
-// Fase 2 (solo el tipo; nada lo emite en fase 1):
-//  | { tipo: 'propuesta'; propuesta: PropuestaAccion }
-
-/** Fase 2: una acción que el asistente PROPONE y la propietaria confirma. Solo el contrato. */
+/** Fase 2: una acción que el asistente PROPONE y la persona confirma. Solo ids, marcas (`[ALUMNA_3]`) y datos del negocio: nunca nombres de personas. */
 export interface PropuestaAccion {
   id: string;
-  tipo: string;
-  resumen: string;
-  visto: Record<string, unknown>;
+  accion: 'CREAR_CLASE' | 'CREAR_SALA' | 'CREAR_EVENTO' | 'CREAR_CITA';
+  titulo: string;
+  lineas: { etiqueta: string; valor: string }[];
+  avisos: string[];
+  /** Lo que ocurre además de crearla (un aviso a las alumnas). */
+  efecto: string | null;
   expiraEn: string;
+  destino: { href: string; texto: string };
+  /** Solo al reabrir una conversación: cómo está ahora en el servidor. */
+  estado?: 'PROPUESTA' | 'EJECUTADA' | 'CANCELADA' | 'CADUCADA' | 'EJECUTANDO';
+  resultado?: { href: string; texto: string } | null;
 }
 
 export interface ContextoHerramienta {
@@ -76,6 +83,8 @@ export interface ContextoHerramienta {
    *  que la recomendación dice tratar — su motivo puede nombrar a otra (A4 «la primera, X…»). */
   personas: readonly PersonaDelEstudio[];
   plan: { decisiones: boolean };
+  /** La conversación en curso (para atar las propuestas a ella). */
+  conversacionId?: string | null;
 }
 
 export interface ResultadoHerramienta {
@@ -90,8 +99,8 @@ export interface ResultadoHerramienta {
 /** Lo que se sabe de una herramienta sin ejecutarla: puro, sirve para el prompt, la caché y las guardias. */
 export interface DefinicionHerramienta<I = unknown> {
   nombre: NombreHerramienta;
-  /** Fase 2 añadirá 'accion' (propone, nunca ejecuta). */
-  clase: 'lectura';
+  /** 'accion': propone, nunca ejecuta (lo hace el endpoint de confirmar). */
+  clase: 'lectura' | 'accion';
   descripcion: string;
   esquema: Anthropic.Tool['input_schema'];
   zod: z.ZodType<I>;

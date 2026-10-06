@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   const hoy = hoyEnEstudio(ahora);
   const corte = new AbortController();
   req.signal.addEventListener('abort', () => corte.abort(), { once: true });
-  const ctx: ContextoHerramienta = { admin, studioId: sesion.studioId, userId: sesion.userId, rol: sesion.rol, ahora, hoy, refs, personas, plan: { decisiones } };
+  const ctx: ContextoHerramienta = { admin, studioId: sesion.studioId, userId: sesion.userId, rol: sesion.rol, ahora, hoy, refs, personas, plan: { decisiones }, conversacionId: conversacion };
   const codificador = new TextEncoder();
 
   const cuerpoStream = new ReadableStream<Uint8Array>({

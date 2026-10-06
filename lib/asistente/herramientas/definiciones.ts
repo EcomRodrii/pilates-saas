@@ -27,6 +27,8 @@ import {
 import type { Rol } from '../../types.ts';
 import type { DefinicionHerramienta, NombreHerramienta } from '../tipos.ts';
 import { ROLES_ASISTENTE } from '../roles.ts';
+import { zCita, zClase, zEvento as zEventoPublicado, zSala, TIPOS_CITA } from '../acciones/esquemas.ts';
+import { puedeEjecutarAccion } from '../acciones/permisos.ts';
 
 const delAsistente = (rol: Rol) => (ROLES_ASISTENTE as readonly Rol[]).includes(rol);
 
@@ -234,6 +236,63 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     zod: zEvento,
     permitida: rol => delAsistente(rol) && puedeGestionarCalendario(rol),
     etiqueta: () => 'Buscando el mejor hueco…',
+  }),
+  // Fase 2: PROPONEN. Ninguna escribe nada: guardan la propuesta y la persona la confirma con un botón.
+  def({
+    nombre: 'proponer_clase',
+    clase: 'accion',
+    descripcion: 'Prepara (no crea) UNA clase suelta para que la propietaria la confirme. Nombres de tipo de clase y sala tal como los dice ella; instructora con su marca [EQUIPO_n] o "" si no dice ninguna; aforo 0 = el habitual. Errores: dilos y pregunta lo que falte.',
+    esquema: objeto({
+      tipo_clase: { type: 'string', description: 'Nombre del tipo de clase.' },
+      fecha: { type: 'string', description: 'AAAA-MM-DD.' },
+      hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
+      sala: { type: 'string', description: 'Nombre de la sala.' },
+      instructora: { type: 'string', description: '[EQUIPO_n] o "".' },
+      aforo: { type: 'integer', description: 'Plazas; 0 = el habitual.' },
+    }),
+    zod: zClase,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
+    etiqueta: () => 'Preparando la clase…',
+  }),
+  def({
+    nombre: 'proponer_sala',
+    clase: 'accion',
+    descripcion: 'Prepara (no crea) una sala nueva para que la propietaria la confirme.',
+    esquema: objeto({ nombre: { type: 'string' }, capacidad: { type: 'integer', description: 'Plazas.' } }),
+    zod: zSala,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_SALA'),
+    etiqueta: () => 'Preparando la sala…',
+  }),
+  def({
+    nombre: 'proponer_evento',
+    clase: 'accion',
+    descripcion: 'Prepara (no publica) un evento o taller para la Comunidad de la app (avisa a las alumnas al confirmar). texto = el anuncio, sin nombres de alumnas; aforo 0 = sin límite; lugar "" si no hay.',
+    esquema: objeto({
+      texto: { type: 'string', description: 'El anuncio.' },
+      fecha: { type: 'string', description: 'AAAA-MM-DD.' },
+      hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
+      aforo: { type: 'integer', description: '0 = sin límite.' },
+      lugar: { type: 'string' },
+    }),
+    zod: zEventoPublicado,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_EVENTO'),
+    etiqueta: () => 'Preparando el evento…',
+  }),
+  def({
+    nombre: 'proponer_cita',
+    clase: 'accion',
+    descripcion: 'Prepara (no crea) una cita 1:1, sin precio ni cobro, para que la propietaria la confirme. alumna e instructora con su marca exacta ([ALUMNA_n], [EQUIPO_n]); duracion_min 0 = 60.',
+    esquema: objeto({
+      alumna: { type: 'string', description: '[ALUMNA_n].' },
+      instructora: { type: 'string', description: '[EQUIPO_n].' },
+      fecha: { type: 'string', description: 'AAAA-MM-DD.' },
+      hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
+      duracion_min: { type: 'integer', description: '0 = 60.' },
+      tipo: enumerado(Object.keys(TIPOS_CITA), 'Tipo de cita.'),
+    }),
+    zod: zCita,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CITA'),
+    etiqueta: () => 'Preparando la cita…',
   }),
 ];
 

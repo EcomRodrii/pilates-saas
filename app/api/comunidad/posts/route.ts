@@ -2,13 +2,11 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeModerarComunidad } from '@/lib/permisos-reglas';
-import { resolverDestinatariasCampana, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
-import { cargarEstadosClientas } from '@/lib/clientas/estado-servidor';
-import { emitirPostComunidadNuevo } from '@/lib/notifications/emit';
+import { avisarPostComunidad } from '@/lib/comunidad/avisar-post';
 import { mapPostComunidad } from '@/lib/supabase-data';
 import { rutaFotoComunidad } from '@/lib/comunidad/foto';
 import { uuidV4 } from '@/lib/utils';
-import type { DestinatariosCampana, Socio, Suscripcion, Recibo } from '@/lib/types';
+import type { DestinatariosCampana } from '@/lib/types';
 import type { RowPostsComunidad } from '@/lib/db-types';
 
 // Server-authoritative: el estudio y el autor salen del JWT, nunca del body
@@ -134,45 +132,7 @@ export async function POST(req: NextRequest) {
   // marketing, sin motor de audiencias paralelo para Comunidad. Queries
   // acotadas por studio_id (nunca fetchAllStudioData), mismo criterio que
   // tenía el worker de Inngest que sustituye.
-  const studioId = sesion.studioId;
-  const postId = fila.id;
-  after(async () => {
-    try {
-      const adminAfter = getSupabaseAdmin();
-      if (!adminAfter) return;
-      const [{ data: sociosRaw }, { data: susRaw }, { data: recRaw }, { data: studioRaw }] = await Promise.all([
-        adminAfter.from('socios').select('id, activo, tags, fecha_nacimiento').eq('studio_id', studioId),
-        adminAfter.from('suscripciones').select('socio_id, estado, sesiones_restantes, fecha_fin').eq('studio_id', studioId).eq('estado', 'ACTIVA'),
-        adminAfter.from('recibos').select('socio_id, estado').eq('studio_id', studioId).eq('estado', 'FALLIDO'),
-        adminAfter.from('studios').select('slug').eq('id', studioId).maybeSingle(),
-      ]);
-      const socios = (sociosRaw ?? []).map(r => ({
-        id: r.id, activo: r.activo, tags: r.tags ?? undefined, fechaNacimiento: r.fecha_nacimiento ?? undefined,
-      })) as unknown as Socio[];
-      const suscripciones = (susRaw ?? []).map(r => ({
-        socioId: r.socio_id, estado: r.estado, sesionesRestantes: r.sesiones_restantes, fechaFin: r.fecha_fin,
-      })) as unknown as Suscripcion[];
-      const recibos = (recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado })) as unknown as Recibo[];
-
-      const ahora = new Date();
-      // El estado de cada una (Activa, Sin renovar…), solo si la audiencia lo usa.
-      // Si no se puede leer, no se avisa a nadie antes que a quien no toca.
-      const estados = segmentoNecesitaEstado(audiencia)
-        ? await cargarEstadosClientas(adminAfter, studioId, { ahora })
-        : null;
-      if (segmentoNecesitaEstado(audiencia) && !estados) return;
-      const destinatarias = resolverDestinatariasCampana(audiencia, { socios, suscripciones, recibos, estados }, ahora);
-      if (destinatarias.length === 0) return;
-      await emitirPostComunidadNuevo(adminAfter, {
-        studioId, postId, autorNombre: sesion.nombre,
-        previsualizacion: texto ? texto.slice(0, 80) : null,
-        socioIds: destinatarias.map(s => s.id),
-        slug: (studioRaw as { slug: string | null } | null)?.slug ?? null,
-      });
-    } catch (e) {
-      console.error('[comunidad/posts:POST] fan-out tras respuesta falló', e instanceof Error ? e.message : e);
-    }
-  });
+  after(() => avisarPostComunidad({ studioId: sesion.studioId, postId: fila.id, autorNombre: sesion.nombre, texto, audiencia }));
 
   return NextResponse.json({ post: mapPostComunidad(fila as RowPostsComunidad) });
 }

@@ -27,7 +27,7 @@ import { DEFINICION_ESTADO, ESTADOS_CLIENTA, ETIQUETA_ESTADO } from '../clientas
 import type { Rol } from '../types.ts';
 import { INSTRUCCION_REFERENCIAS, marca } from './referencias.ts';
 import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
-import { diaLargo } from './herramientas/definiciones.ts';
+import { diaLargo, sumarDiasYmd } from './herramientas/definiciones.ts';
 
 const ESTADOS = ESTADOS_CLIENTA.map(e => `- ${ETIQUETA_ESTADO[e]}: ${DEFINICION_ESTADO[e]}`).join('\n');
 
@@ -66,9 +66,18 @@ No puedes buscar a una alumna concreta ni ver su ficha, su teléfono, su correo 
 
 Nada de salud. No consultas lesiones, patologías, embarazos, la ficha clínica ni las notas de sesión, ni el motivo de una baja o de una ausencia del equipo (puede ser médica). Si te preguntan por eso, responde: «Eso vive en la ficha de la alumna, con su consentimiento; no lo consulto». No especules sobre la salud de nadie a partir de otros datos (por ejemplo, que alguien haya dejado de venir).
 
-# Lo que todavía no puedes hacer
+# Crear: clases, salas, eventos y citas
 
-Todavía no puedes hacer cambios: ni cobrar, ni cancelar o mover clases, ni apuntar o quitar a nadie, ni escribir a nadie, ni crear campañas. Si te lo piden, di que todavía no puedes hacerlo tú y en qué pantalla se hace, en una frase. Tampoco ves otros estudios ni otras sedes: solo el estudio en el que está ahora quien te pregunta. Si te preguntan por otro estudio, por todas las sedes a la vez o por Tentare como empresa, di que solo ves este estudio.
+Con proponer_clase, proponer_sala, proponer_evento y proponer_cita preparas UNA cosa. Ninguna crea nada: el panel enseña una tarjeta con lo que se va a crear y un botón Confirmar, y solo cuando la propietaria lo pulsa se crea.
+- Si falta algo imprescindible (día, hora, tipo de clase, sala, con quién), pregunta lo que falte en UNA sola pregunta corta, no en cinco. Si lo dice todo, propón directamente.
+- Los nombres de tipo de clase y de sala son los que dice ella; si no existen, la herramienta te da los que hay y preguntas cuál. No inventes salas, tipos de clase ni personas. Las personas, con su marca exacta ([EQUIPO_n], [ALUMNA_n]); si una marca no es de nadie concreto ([PERSONA_n]), pregunta a quién se refiere.
+- Las fechas, en AAAA-MM-DD y las horas en HH:MM de Madrid; «el martes» es el próximo martes de la lista de días de hoy. Si la herramienta devuelve un error (sala ocupada, instructora ausente, día cerrado, fecha pasada), dilo en una frase y pregunta otra hora, sala o día.
+- Tras proponer, di en una frase qué propones (copia el resumen) y que pulse Confirmar. NUNCA digas que está creada, hecha o guardada: eso lo dice la tarjeta cuando se confirma. Si pide cambiar algo, propón otra vez con el cambio.
+- Un evento avisa a todas las alumnas al confirmarse: dilo. Una cita se crea sin precio ni cobro.
+
+# Lo que no puedes hacer
+
+Solo creas esas cuatro cosas. No puedes cobrar, borrar, editar ni cancelar nada, mover clases, apuntar o quitar a nadie, escribir a nadie ni crear campañas; ni crear series que se repiten (eso es del Calendario). Si te lo piden, di que eso no lo haces tú y en qué pantalla se hace, en una frase. Tampoco ves otros estudios ni otras sedes: solo el estudio en el que está ahora quien te pregunta. Si te preguntan por otro estudio, por todas las sedes a la vez o por Tentare como empresa, di que solo ves este estudio.
 
 # Estilo
 
@@ -199,7 +208,7 @@ function datoCorto(t: string | null | undefined, max = 60): string | null {
 export function contextoDelDia({ hoy, rol, estudio, quienEscribe }: {
   hoy: string; rol: Rol; estudio?: EstudioDelContexto | null; quienEscribe?: string | null;
 }): string {
-  const partes = [`Hoy es ${diaLargo(hoy)} de ${hoy.slice(0, 4)} (${hoy}), hora de Madrid.`];
+  const partes = [`Hoy es ${diaLargo(hoy)} de ${hoy.slice(0, 4)} (${hoy}), hora de Madrid. Próximos días: ${Array.from({ length: 10 }, (_, i) => { const d = sumarDiasYmd(hoy, i + 1); return `${diaLargo(d).split(' ')[0]} ${d}`; }).join('; ')}.`];
   if (estudio) {
     const nombre = datoCorto(estudio.nombre);
     const ciudad = datoCorto(estudio.ciudad, 40);

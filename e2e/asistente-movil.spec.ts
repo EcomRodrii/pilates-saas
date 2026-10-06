@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ir, enOscuro, DECISIONES } from './panel-sembrado';
-import { barra, chat, campoChat, conAsistente, json, LISTA, ndjson, RESPUESTA, SEGUNDA, sugerencia } from './asistente-andamiaje';
+import { barra, chat, campoChat, conAcciones, conAsistente, json, LISTA, ndjson, pedirAlAsistente, RESPUESTA, SEGUNDA, sugerencia } from './asistente-andamiaje';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Pregúntale a Tentare» en el iPhone (proyecto `webkit-publico`, iPhone 13).
@@ -280,3 +280,26 @@ test('Android: la meta viewport SIN maximum-scale (ahí sí quitaría el pellizc
   expect(meta, 'en Android no se toca el zoom').not.toMatch(/maximum-scale|user-scalable/);
   await ctx.close();
 });
+
+// ── Fase 2: la tarjeta de confirmación en el iPhone ──
+for (const tema of ['claro', 'oscuro'] as const) {
+  test(`iPhone · ${tema}: la tarjeta de confirmación no desborda, con botones de 44 px y campo a 16 px`, async ({ page, browserName }) => {
+    test.skip(browserName !== 'webkit', 'Es la prueba del iPhone: corre en el proyecto webkit-publico');
+    if (tema === 'oscuro') await enOscuro(page);
+    const n = await conAcciones(page, { tipo: 'CREAR_CITA' });
+    const tarjeta = await pedirAlAsistente(page);
+    await sinDesborde(page, 'propuesta');
+    for (const nombre of ['Confirmar', 'Cambiar algo', 'Cancelar']) {
+      const caja = await tarjeta.getByRole('button', { name: nombre }).boundingBox();
+      expect(caja?.height, `${nombre} mide al menos 44 px`).toBeGreaterThanOrEqual(44);
+    }
+    const tamano = await campoChat(page).evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    expect(tamano).toBeGreaterThanOrEqual(16);
+    await captura(page, `${tema}-accion-propuesta`);
+    await tarjeta.getByRole('button', { name: 'Confirmar' }).click();
+    await expect(tarjeta.getByText('Creada', { exact: true }).first()).toBeVisible();
+    expect(n.acc.confirmar).toBeGreaterThan(0);
+    await sinDesborde(page, 'creada');
+    await captura(page, `${tema}-accion-creada`);
+  });
+}

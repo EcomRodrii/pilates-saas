@@ -13,9 +13,30 @@ import { agendaDelDia, clasesProximasConHuecos } from './agenda.ts';
 import { actividadDelPeriodo, datosParaUnEvento, ocupacionPorFranja } from './informes.ts';
 import { facturacionDelPeriodo, pagosPendientes } from './dinero.ts';
 import { queRevisarHoy, resumenDelEstudio } from './estudio.ts';
-import { LecturaFallida } from './comun.ts';
+import { LecturaFallida, fallo } from './comun.ts';
+import { proponerCita, proponerClase, proponerEvento, proponerSala } from '../acciones/servidor.ts';
+import { guardarPropuesta } from '../acciones/servidor.ts';
+import type { Preparada } from '../acciones/nucleo.ts';
 
 type Ejecutor = (input: never, ctx: ContextoHerramienta) => Promise<ResultadoHerramienta>;
+
+/** Una herramienta de ACCIÓN: prepara y guarda la propuesta; no escribe nada del estudio. */
+const proponiendo = <I>(preparar: (i: I, ctx: ContextoHerramienta) => Promise<Preparada>): Ejecutor =>
+  (async (input: I, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> => {
+    const p = await preparar(input, ctx);
+    if (!p.ok) return fallo(p.error);
+    const bloque = await guardarPropuesta(ctx, p);
+    return {
+      paraModelo: {
+        propuesta: 'preparada, a la espera de que la propietaria pulse Confirmar',
+        resumen: p.resumen,
+        ...(p.avisos.length ? { avisos: p.avisos } : {}),
+        ...(p.efecto ? { efecto: p.efecto } : {}),
+        nota: 'La tarjeta con Confirmar ya está en el panel. Di en una frase qué propones y que confirme; NO digas que está creada.',
+      },
+      bloques: [bloque],
+    };
+  }) as unknown as Ejecutor;
 
 const EJECUTORES: Record<NombreHerramienta, Ejecutor> = {
   resumen_del_estudio: resumenDelEstudio,
@@ -30,6 +51,10 @@ const EJECUTORES: Record<NombreHerramienta, Ejecutor> = {
   pagos_pendientes: pagosPendientes,
   bonos_por_caducar: bonosPorCaducar,
   datos_para_un_evento: datosParaUnEvento,
+  proponer_clase: proponiendo(proponerClase),
+  proponer_sala: proponiendo(proponerSala),
+  proponer_evento: proponiendo(proponerEvento),
+  proponer_cita: proponiendo(proponerCita),
 };
 
 export const REGISTRO: readonly Herramienta<unknown>[] = DEFINICIONES.map(d => ({
