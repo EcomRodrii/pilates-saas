@@ -59,11 +59,11 @@ test('un bono agotado no cuenta como bono que cubre', () => {
 });
 
 // ⚠️ Un mensual ilimitado llega con `creditosTotales: Infinity`. Salía «(Infinity disponibles)».
-test('con mensualidad (ilimitado): «Incluida en tu mensualidad», sin contador ni «Infinity»', () => {
+test('con mensualidad (ilimitado): «Incluida en tu cuota», sin contador ni «Infinity»', () => {
   const mensual = { nombre: 'Mensual ilimitado', creditosTotales: Infinity, creditosUsados: 0 };
   const r = comoSePaga(suelta, mensual, false);
   assert.equal(r.tono, 'ok');
-  assert.match(r.texto, /Incluida en tu mensualidad/);
+  assert.match(r.texto, /Incluida en tu cuota/);
   assert.match(r.texto, /No pagas nada hoy/);
   assert.doesNotMatch(r.texto, /Infinity|NaN|disponibles|sesión/);
   // Aunque la clase sea solo-con-bono: la cuota la cubre.
@@ -95,8 +95,8 @@ test('textoPagoCorto: con bono, sin nada y en una clase solo-con-bono, lo de sie
 const cuotaConTipo = { nombre: 'Mensual 2 días', creditosTotales: Infinity, creditosUsados: 0, tipoPlan: 'MENSUAL' };
 const anualSinLimite = { nombre: 'Bono anual', creditosTotales: Infinity, creditosUsados: 0, tipoPlan: 'BONO' };
 
-test('cuota por tipo de plan: la hoja dice mensualidad, la ficha «cuota» y la fila «Cuota»', () => {
-  assert.equal(comoSePaga(suelta, cuotaConTipo, false).texto, 'Incluida en tu mensualidad. No pagas nada hoy.');
+test('cuota por tipo de plan: la hoja, la ficha y la fila dicen «cuota» y la fila «Cuota»', () => {
+  assert.equal(comoSePaga(suelta, cuotaConTipo, false).texto, 'Incluida en tu cuota. No pagas nada hoy.');
   assert.equal(textoPagoCorto(suelta, cuotaConTipo), 'Incluida en tu cuota');
   assert.equal(textoPagoFila(suelta, cuotaConTipo), 'Cuota');
   // Una MENSUAL con contador sigue siendo cuota: el motor no gasta ese contador.

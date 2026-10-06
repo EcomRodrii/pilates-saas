@@ -43,7 +43,7 @@ test.describe('Student PWA · renovación que no se cobra sola', () => {
     await expect(tarjeta).toContainText('no tienes una tarjeta guardada');
     await expect(tarjeta).toContainText('las próximas renovaciones se cobran solas');
 
-    await tarjeta.getByRole('button', { name: 'Pagar ahora' }).click();
+    await tarjeta.getByRole('button', { name: /^Pagar \d/ }).click();
     await expect.poll(() => pagos.length, { timeout: 30_000 }).toBeGreaterThan(0);
     expect(pagos[0]).toMatchObject({ studioId: STUDIO_ID, reciboId: RENOVACION.reciboId, origen: 'portal' });
   });
@@ -52,10 +52,10 @@ test.describe('Student PWA · renovación que no se cobra sola', () => {
     const { pagos } = await montar(page, RENOVACION, { status: 409, body: { error: 'Este recibo ya no está pendiente de cobro' } });
     await page.goto(`${base}/bonos`);
     const tarjeta = page.getByTestId('renovacion-por-pagar');
-    await tarjeta.getByRole('button', { name: 'Pagar ahora' }).click({ timeout: 30_000 });
+    await tarjeta.getByRole('button', { name: /^Pagar \d/ }).click({ timeout: 30_000 });
     await expect(page.getByText('Este recibo ya no está pendiente de cobro')).toBeVisible({ timeout: 30_000 });
     expect(pagos.length, 'la petición salió de verdad').toBeGreaterThan(0);
-    await expect(tarjeta.getByRole('button', { name: 'Pagar ahora' })).toBeEnabled();
+    await expect(tarjeta.getByRole('button', { name: /^Pagar \d/ })).toBeEnabled();
   });
 
   test('si el estudio no cobra online, no hay botón: se paga en el estudio', async ({ page }) => {
@@ -63,14 +63,14 @@ test.describe('Student PWA · renovación que no se cobra sola', () => {
     await page.goto(`${base}/bonos`);
     const tarjeta = page.getByTestId('renovacion-por-pagar');
     await expect(tarjeta).toContainText('Págala en el estudio.', { timeout: 30_000 });
-    await expect(tarjeta.getByRole('button', { name: 'Pagar ahora' })).toHaveCount(0);
+    await expect(tarjeta.getByRole('button', { name: /^Pagar \d/ })).toHaveCount(0);
     expect(pagos).toHaveLength(0);
   });
 
   test('sin renovación pendiente, no hay tarjeta', async ({ page }) => {
     await montar(page, null);
     await page.goto(`${base}/bonos`);
-    await expect(page.getByRole('heading', { name: /bonos/i }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('renovacion-por-pagar')).toHaveCount(0);
   });
 });

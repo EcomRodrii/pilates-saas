@@ -26,6 +26,7 @@ import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Gamifi
 import { generoDe } from '../genero.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
 import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
+import type { CobroDeReciboAlumna } from '../billing/cobro-recibo-alumna.ts';
 
 export interface CalendarioClaseFija { plazas: PlazaCalendario[]; sesiones: SesionCalendario[]; reservas: ReservaCalendario[] }
 
@@ -355,6 +356,8 @@ export interface PayloadMin {
     peticionesPlazaFija?: PeticionPlazaFijaMin[];
     /** Su renovación que NO se va a cobrar sola (sin tarjeta guardada). Ver `lib/billing/renovacion-sin-tarjeta.ts`. */
     renovacionPorPagar?: RenovacionPorPagar | null;
+    /** Quién cobra cada recibo que debe, por id (`lib/billing/cobro-recibo-alumna.ts`). Lo decide el servidor. */
+    cobroRecibos?: Record<string, CobroDeReciboAlumna>;
     recuperaciones?: RecuperacionMin[];
     // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
   // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.
@@ -855,6 +858,9 @@ export function proyectarPagos(d: PayloadMin): Pago[] {
       estado: estadoPagoDeRecibo(r),
       metodo: r.metodoCobro ?? '',
       bonoId: r.suscripcionId ?? undefined,
+      // Solo los que debe, y solo si el servidor lo dijo: sin entrada no se ofrece pagar nada.
+      cobro: socia.cobroRecibos?.[r.id] ?? undefined,
+      vence: r.fechaVencimiento ? r.fechaVencimiento.slice(0, 10) : null,
     }))
     // Más reciente primero: es como los lee cualquiera.
     .sort((a, b) => b.fecha.localeCompare(a.fecha));

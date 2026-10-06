@@ -85,11 +85,11 @@ test.describe('La instructora entra en la app del estudio', () => {
     await expect(page.getByTestId('clase-que-da').first()).toBeVisible();
     await expect(page.getByTestId('baja-pedida')).toContainText('Buscando quién la cubra');
     await expect(page.getByTestId('baja-pedida')).toContainText('sigue a tu nombre');
-    // La barra es la de la instructora, sin «Bonos» ni «Reservar».
+    // La barra es la de la instructora, sin «Mi plan» ni «Reservar».
     // `exact`: el nombre accesible es SUBCADENA por defecto, y «Agenda» casaría
     // también con «Ver toda tu agenda».
     await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Bonos', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Mi plan', exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Reservar', exact: true })).toHaveCount(0);
 
     expect(contador.instructora).toBeGreaterThan(0);

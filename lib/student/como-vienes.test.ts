@@ -62,7 +62,7 @@ test('bono que no cubre: lo dice (uno o varios) y lo que costaría, con la tiend
   assert.equal(v.titulo, 'Tu Bono Mat no sirve para Reformer');
   assert.equal(v.detalle, 'Clase suelta · 20 €');
   assert.equal(v.tono, 'coste');
-  assert.deepEqual(v.enlace, { texto: 'Ver bonos y cuotas', destino: 'tienda' });
+  assert.deepEqual(v.enlace, { texto: 'Ver opciones', destino: 'tienda' });
   const dos = vista({ bonos: [mat, bono({ id: 'sus-2', nombre: 'Bono Barre', tiposClaseIds: ['tc-barre'] })] })!;
   assert.equal(dos.titulo, 'Ninguno de tus bonos sirve para Reformer');
   // Solo con bono: es un muro, no un coste.
@@ -82,20 +82,20 @@ test('sin nada: suelta con su precio, gratis o solo con bono o cuota', () => {
   assert.equal(muro.tono, 'bloqueo');
 });
 
-test('«Ver bonos y cuotas» SOLO si un plan activo, no de prueba, cubre ese tipo', () => {
+test('«Ver opciones» SOLO si un plan activo, no de prueba, cubre ese tipo', () => {
   assert.equal(vista({ planesTarifa: [] })!.enlace, undefined);
   assert.equal(vista({ planesTarifa: [{ ...planes[0], tiposClaseIds: ['tc-mat'] }] })!.enlace, undefined);
   assert.equal(vista({ planesTarifa: [{ ...planes[0], activo: false }] })!.enlace, undefined);
   assert.equal(vista({ planesTarifa: [{ ...planes[0], esPrueba: true }] })!.enlace, undefined);
-  assert.deepEqual(vista({ planesTarifa: [{ ...planes[0], tiposClaseIds: ['tc-r'] }] })!.enlace, { texto: 'Ver bonos y cuotas', destino: 'tienda' });
+  assert.deepEqual(vista({ planesTarifa: [{ ...planes[0], tiposClaseIds: ['tc-r'] }] })!.enlace, { texto: 'Ver opciones', destino: 'tienda' });
 });
 
-test('su clase fija: «Es tu clase fija», y «Incluida en tu cuota» solo si hay una cuota que la cubra', () => {
+test('su clase fija, dicho UNA vez: «Tu clase fija · incluida en tu cuota» solo si hay una cuota que la cubra', () => {
   const reservas = [{ id: 'res-pf-abc', claseId: 'ses-10', estado: 'confirmada' as const }];
   const conCuota = vista({ reservas, bonos: [cuota()], disp: 'reservada' })!;
-  assert.deepEqual([conCuota.caso, conCuota.titulo, conCuota.detalle], ['clase-fija', 'Es tu clase fija', 'Incluida en tu cuota']);
+  assert.deepEqual([conCuota.caso, conCuota.titulo, conCuota.detalle], ['clase-fija', 'Tu clase fija · incluida en tu cuota', null]);
   const sinCuota = vista({ reservas, bonos: [], disp: 'reservada' })!;
-  assert.deepEqual([sinCuota.titulo, sinCuota.detalle], ['Es tu clase fija', null]);
+  assert.deepEqual([sinCuota.titulo, sinCuota.detalle], ['Tu clase fija', null]);
 });
 
 test('no se pinta: reserva normal ya hecha, clase empezada sin plaza suya, o llena sin lista de espera', () => {

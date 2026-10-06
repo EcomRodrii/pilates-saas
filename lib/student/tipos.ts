@@ -283,7 +283,16 @@ export interface Bono {
 // ⚠️ `refunded` es «devuelto POR EL BANCO» (se sigue debiendo), no un reembolso.
 // El dinero que el estudio le devolvió a la alumna es `reimbursed` (F0, 1-oct-2026).
 export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded' | 'reimbursed';
-export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
+export interface Pago {
+  id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string;
+  /**
+   * Quién cobra este recibo, si lo debe (`lib/billing/cobro-recibo-alumna.ts`, lo decide el servidor): `APP` = lo puede
+   * pagar ella desde la app. Ausente = no lo debe, o el servidor no lo ha podido saber: no se ofrece pagar nada.
+   */
+  cobro?: import('../billing/cobro-recibo-alumna.ts').CobroDeReciboAlumna;
+  /** `recibos.fecha_vencimiento` (YYYY-MM-DD), si la tiene. */
+  vence?: string | null;
+}
 
 export interface Notificacion {
   id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string;

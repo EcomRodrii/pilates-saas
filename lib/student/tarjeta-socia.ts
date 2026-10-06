@@ -1,8 +1,7 @@
 // La tarjeta de alumna de Perfil (P14, 5-oct-2026): hasta tres cifras que valen la pena, nunca un cero. Pura, imports
 // relativos con `.ts` (tarjeta-socia.test.ts).
 
-import { esCuota } from './bono-cubre.ts';
-import { saldoBono } from './saldo-bono.ts';
+import { loQueTengo } from './lo-que-tengo.ts';
 import { fechaCorta } from './formato.ts';
 import type { Bono, Clase, Reserva } from './tipos.ts';
 
@@ -33,14 +32,13 @@ function diaMes(iso: string, hoy: string): string {
 }
 
 export function cifrasDeLaSocia({
-  reservas, clases, bonos, recuperacionesDisponibles, tienePlazaFija, puntos, nombreCreditos, recienLlegada, hoy, ahoraMs, href,
+  reservas, clases, bonos, recuperacionesDisponibles, puntos, nombreCreditos, recienLlegada, hoy, ahoraMs, href,
 }: {
   /** Todo su historial (proyectado): las asistidas cuentan como «clases contigo». */
   reservas: Pick<Reserva, 'id' | 'claseId' | 'estado'>[];
   clases: Pick<Clase, 'id' | 'fecha' | 'hora' | 'fin'>[];
   bonos: Bono[];
   recuperacionesDisponibles: number;
-  tienePlazaFija: boolean;
   /** Su saldo de créditos, solo si el estudio usa gamificación (`null` si no). */
   puntos: number | null;
   nombreCreditos: string;
@@ -60,31 +58,28 @@ export function cifrasDeLaSocia({
   }
 
   // 2. Lo que tiene: la cuota delante (la mensual gana, como el servidor); si no, la suma de sus bonos con sesiones.
-  const activos = bonos.filter((b) => b.estado === 'activo');
-  const cuota = activos.find((b) => esCuota(b));
-  if (cuota) {
-    // Nunca «sin límite»: sin tope semanal, el nombre de su plan (hay topes por día y a la vez que la app no conoce).
-    const tope = cuota.limiteSemanal && cuota.limiteSemanal > 0 ? `${cuota.limiteSemanal} ${cuota.limiteSemanal === 1 ? 'clase' : 'clases'} a la semana` : cuota.nombre;
+  // Lo que tiene sale del MISMO selector que Inicio y Mi plan (`loQueTengo`): la cuota que manda y lo que le queda en sus
+  // bonos con `saldoBono`. Antes esta tarjeta lo decidía a su manera.
+  const t = loQueTengo({ bonos });
+  if (t.cuota) {
+    const tope = t.cuota.limiteSemanal && t.cuota.limiteSemanal > 0 ? `${t.cuota.limiteSemanal} ${t.cuota.limiteSemanal === 1 ? 'clase' : 'clases'} a la semana` : t.cuota.nombre;
     cifras.push({ valor: 'Cuota', texto: tope, destino: href('/bonos'), etiqueta: `Cuota, ${tope}` });
-  } else {
-    const conSesiones = activos.filter((b) => !esCuota(b) && Number.isFinite(b.creditosTotales) && saldoBono(b).quedan > 0);
-    const quedan = conSesiones.reduce((n, b) => n + saldoBono(b).quedan, 0);
-    if (quedan > 0) {
-      const verbo = quedan === 1 ? 'te queda' : 'te quedan';
-      const detalle = conSesiones.length > 1
-        ? `en ${conSesiones.length} bonos`
-        : conSesiones[0].expiraEn ? `hasta ${diaMes(conSesiones[0].expiraEn, hoy)}` : '';
-      const texto = detalle ? `${verbo} · ${detalle}` : verbo;
-      cifras.push({ valor: String(quedan), texto, destino: href('/bonos'), etiqueta: `${quedan} ${verbo}${detalle ? `, ${detalle}` : ''}` });
-    }
+  } else if (t.sesionesEnBonos > 0 && t.bono) {
+    const quedan = t.sesionesEnBonos;
+    const verbo = quedan === 1 ? 'te queda' : 'te quedan';
+    const detalle = t.bonosConSesiones > 1
+      ? `en ${t.bonosConSesiones} bonos`
+      : t.bono.expiraEn ? `hasta ${diaMes(t.bono.expiraEn, hoy)}` : '';
+    const texto = detalle ? `${verbo} · ${detalle}` : verbo;
+    cifras.push({ valor: String(quedan), texto, destino: href('/bonos'), etiqueta: `${quedan} ${verbo}${detalle ? `, ${detalle}` : ''}` });
   }
 
-  // 3. Recuperaciones: a Fija si tiene clase fija (allí se ven); si no, a Bonos, que también las enseña.
   if (recuperacionesDisponibles > 0) {
     const texto = recuperacionesDisponibles === 1 ? 'recuperación' : 'recuperaciones';
     cifras.push({
       valor: String(recuperacionesDisponibles), texto,
-      destino: tienePlazaFija ? `${href('/mis-reservas')}?tab=fijas` : href('/bonos'),
+      // Las recuperaciones viven en Mi plan (decisión del fundador, 6-oct-2026): la cifra lleva SIEMPRE allí.
+      destino: href('/bonos'),
       etiqueta: `${recuperacionesDisponibles} ${texto}`,
     });
   }

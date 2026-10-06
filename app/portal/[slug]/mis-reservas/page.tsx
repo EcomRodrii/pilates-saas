@@ -64,7 +64,7 @@ export default function MisReservasPage() {
   const { online } = useOnline();
   const { toast } = useToast();
 
-  // `?tab=fijas`: llegan desde la tarjeta de Inicio y desde la ficha de una clase
+  // `?tab=fija` (o `fijas`, el de los avisos ya enviados): llegan desde «Lo tuyo», Mi plan y la ficha de una clase
   // fija. Cualquier otro valor cae en «Próximas».
   const sp = useSearchParams();
   const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' || sp.get('tab') === 'fija' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
@@ -88,6 +88,11 @@ export default function MisReservasPage() {
   // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
   //
   // …y repinta en el instante en que caduca una oferta: «Aceptar» no sigue activo hasta el minuto siguiente.
+  // La pestaña «Clase fija» solo a quien tiene cuota (la clase fija va con cuota) o ya tiene una (decisión del fundador,
+  // 6-oct-2026). A las demás les salía un tutorial de tres pasos que mezclaba el bono. Mientras carga, solo si se pidió.
+  const puedeFija = data ? (data.plazaFija.tieneCuota || data.plazaFija.plazas.length > 0) : tab === 'fijas';
+  const pestanas = puedeFija ? TABS : TABS.filter((t) => t !== 'fijas');
+  const vista: Tab = tab === 'fijas' && !puedeFija ? 'prox' : tab;
   const ahoraMs = useAhoraConPlazos((data?.reservas ?? []).map((r) => (r.estado === 'en-espera' ? r.ofertaExpiraEn : null)));
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
@@ -273,18 +278,18 @@ export default function MisReservasPage() {
         <span
           aria-hidden
           style={{
-            position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc((100% - 8px) / 3)',
+            position: 'absolute', top: 4, bottom: 4, left: 4, width: `calc((100% - 8px) / ${pestanas.length})`,
             background: 'var(--card)', borderRadius: 999, boxShadow: '0 3px 10px rgba(26,26,26,.1)',
-            transform: `translateX(${TABS.indexOf(tab) * 100}%)`,
+            transform: `translateX(${pestanas.indexOf(vista) * 100}%)`,
             transition: 'transform .32s var(--ease-spring)',
           }}
         />
-        {TABS.map((t) => (
+        {pestanas.map((t) => (
           <button
             key={t}
             type="button"
             role="tab"
-            aria-selected={tab === t}
+            aria-selected={vista === t}
             onClick={() => setTab(t)}
             // 9 px arriba y abajo dejaban la pestaña en 34 px de alto. `tap`
             // la lleva a 44 sin mover ni un píxel de lo que se ve.
@@ -300,7 +305,7 @@ export default function MisReservasPage() {
               // contra un fondo y usado sobre otro—, así que la salida no es
               // retocar el token (rompería las 21 pantallas donde sí cumple)
               // sino usar aquí el que sí contrasta: 5,93:1.
-              color: tab === t ? 'var(--foreground)' : 'var(--muted-foreground)',
+              color: vista === t ? 'var(--foreground)' : 'var(--muted-foreground)',
               transition: 'color .25s',
             }}
           >
@@ -314,23 +319,22 @@ export default function MisReservasPage() {
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
 
-        {data && estado !== 'loading' && estado !== 'error' && tab === 'fijas' && (
+        {data && estado !== 'loading' && estado !== 'error' && vista === 'fijas' && (
           data.plazaFija.plazas.length === 0 ? (
             <ClaseFijaVacia hrefHorario={href('/reservar')} tieneCuota={data.plazaFija.tieneCuota} />
           ) : (
-            // Las recuperaciones están aquí Y en Bonos: aquí, como «Elegir clase» junto a su clase fija.
+            // Las recuperaciones viven en Mi plan (decisión del fundador, 6-oct-2026): aquí, solo la clase fija.
             // `refrescar` y no `reintentar`: `reintentar` pasa por `loading` y desmontaría la tarjeta
             // justo cuando enseña lo que contestó el servidor al decir «no voy».
             <MiClaseFija
-              plazas={data.plazaFija.plazas} calendario={data.plazaFija.calendario}
-              recuperaciones={data.plazaFija.recuperaciones}
-              hrefHorario={href('/reservar')} onCambio={() => void refrescar()}
+              plazas={data.plazaFija.plazas} calendario={data.plazaFija.calendario} tieneCuota={data.plazaFija.tieneCuota}
+              onCambio={() => void refrescar()}
             />
           )
         )}
 
-        {data && estado !== 'loading' && estado !== 'error' && tab !== 'fijas' && (
-          tab === 'prox' ? (
+        {data && estado !== 'loading' && estado !== 'error' && vista !== 'fijas' && (
+          vista === 'prox' ? (
             prox.length === 0 ? (
               <EmptyState
                 ilustracion="postura"
@@ -491,7 +495,7 @@ export default function MisReservasPage() {
 
 type Tab = 'prox' | 'fijas' | 'hist';
 const TABS: Tab[] = ['prox', 'fijas', 'hist'];
-const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fija', hist: 'Historial' };
+const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Clase fija', hist: 'Historial' };
 
 // ── Piezas de «Próximas» ─────────────────────────────────────────────────────
 

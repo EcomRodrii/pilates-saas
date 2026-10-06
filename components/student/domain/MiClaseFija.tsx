@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { vibrar } from '@/lib/nativo/puente';
-import type { PlazaFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
+import type { PlazaFijaVista } from '@/lib/student/tipos';
 import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo';
 import { etiquetaDia, euros, fechaCorta, fechaLarga, horaAhora } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
@@ -57,9 +57,10 @@ type Resultado = { plazaClave: string; fecha: string; sesionId: string; texto: s
 const clave = (p: PlazaFijaVista) => `${p.diaSemana}-${p.hora}-${p.sala}`;
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, onCambio }: {
-  plazas: PlazaFijaVista[]; recuperaciones: RecuperacionesVista; calendario: DatosCalendario;
-  hrefHorario: string;
+export function MiClaseFija({ plazas, calendario, onCambio, tieneCuota }: {
+  plazas: PlazaFijaVista[]; calendario: DatosCalendario;
+  /** Tiene una cuota que cubra sus clases: solo entonces se dice «va con tu cuota». */
+  tieneCuota: boolean;
   /** Tras un cambio que el servidor ha confirmado: la pantalla vuelve a leer sus datos SIN desmontar esto. */
   onCambio: () => void;
 }) {
@@ -155,7 +156,7 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
   const resumenMes = hoy ? resumenDelMes(calendario, hoy) : null;
 
   return (
-    <div data-testid="plaza-fija" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div data-testid="mi-clase-fija" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {plazas.map((plaza) => {
         const pedida = pausaPedidaDe(plaza);
         const e = estadoTarjetaFija(plaza, pedida, fechaCorta);
@@ -195,7 +196,7 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
                   <TituloClase plaza={plaza} />
                 </Link>
               ) : <TituloClase plaza={plaza} />}
-              <p data-testid="clase-fija-hasta" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--on-dark)' }}>{e.hasta}</p>
+              <p data-testid="clase-fija-hasta" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--on-dark)' }}>{tieneCuota ? `${e.hasta} · ${TEXTOS_PLAZA_FIJA.vaConTuCuota}` : e.hasta}</p>
               <p data-testid="plaza-fija-reservada-sola" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.45, color: 'color-mix(in srgb, var(--accent-deep-foreground) 88%, transparent)' }}>
                 {e.frase}
               </p>
@@ -222,7 +223,7 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
                 ) : (
                   <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'flex', gap: 7 }}>
                     {semanas.map((s) => (
-                      <li key={s.sesionId} style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
+                      <li key={s.sesionId} style={{ flex: '1 1 0', minWidth: 0, maxWidth: 76, display: 'flex' }}>
                         <Pildora
                           semana={s}
                           hrefFicha={href(`/reservar/${s.sesionId}`)}
@@ -267,16 +268,12 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
       })}
 
       <div className="card" style={{ padding: '0 16px', overflow: 'hidden' }}>
-        {recuperaciones.disponibles > 0 && (
+        {plazas.length > 0 && (
           <Fila
-            icono="plaza" acento testId="fila-recuperaciones"
-            titulo={recuperaciones.disponibles === 1 ? '1 clase por recuperar' : `${recuperaciones.disponibles} clases por recuperar`}
-            detalle={[
-              recuperaciones.proximaCaducidad ? `La primera caduca el ${fechaCorta(recuperaciones.proximaCaducidad)}` : null,
-              // De cuáles se acuerda: las que se ganó. El nombre sale del VÍNCULO con el canje, nunca del motivo libre del mostrador.
-              ...recuperaciones.detalle.filter((r) => r.deRecompensa).map((r) => `Una es tu ${r.deRecompensa}`),
-            ].filter(Boolean).join(' · ')}
-            accion={<Link href={hrefHorario} className="btn btn--secondary btn--sm tap">Elegir clase</Link>}
+            icono="calendario" testId="ver-mes-clase-fija"
+            titulo="Ver el mes entero"
+            detalle={resumenMes ?? 'Tus días, mes a mes'}
+            onClick={() => setVerMes(true)}
           />
         )}
         {plazas.map((plaza) => {
@@ -303,10 +300,9 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
         })}
         {plazas.length > 0 && (
           <Fila
-            icono="calendario" testId="ver-mes-clase-fija"
-            titulo="Ver el mes entero"
-            detalle={resumenMes ?? 'Tus días, mes a mes'}
-            onClick={() => setVerMes(true)}
+            icono="comentario" testId="cambiar-clase-fija" href={href('/mensajes')}
+            titulo={estudio.puedePedirPlazaFija === true || plazas.some((p) => p.deClaseFija) ? TEXTOS_PLAZA_FIJA.cambiarlaDeDiaHora : TEXTOS_PLAZA_FIJA.cambiarla}
+            detalle={TEXTOS_PLAZA_FIJA.escribeAlEstudio}
           />
         )}
         {plazas.filter((p) => (estudio.puedePedirPlazaFija === true || p.deClaseFija) && !!p.id).map((plaza) => (
@@ -319,12 +315,6 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
         ))}
       </div>
 
-      {plazas.length > 0 && (
-        <p className="t-meta" style={{ margin: '0 4px' }}>
-          {estudio.puedePedirPlazaFija === true || plazas.some((p) => p.deClaseFija) ? TEXTOS_PLAZA_FIJA.cambiarlaDeDiaHora : TEXTOS_PLAZA_FIJA.cambiarla}{' '}
-          <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
-        </p>
-      )}
 
       {error && !pidiendo && <p role="alert" className="t-meta" style={{ margin: 0 }}>{error}</p>}
 
@@ -470,9 +460,9 @@ export function ClaseFijaVacia({ hrefHorario, tieneCuota }: { hrefHorario: strin
         <span aria-hidden style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icono nombre="calendario" tamano={30} />
         </span>
-        <h2 style={{ fontSize: 'var(--t-h3, 1.25rem)', fontWeight: 800, margin: '12px 0 6px', letterSpacing: '-.02em' }}>Tu hueco, cada semana</h2>
+        <h2 style={{ fontSize: 'var(--t-h3, 1.25rem)', fontWeight: 800, margin: '12px 0 6px', letterSpacing: '-.02em' }}>Tu clase, cada semana</h2>
         <p className="t-meta" style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.5 }}>
-          Con una clase fija tu plaza se reserva sola cada semana. Sin estar pendiente de que se llene.
+          Con una clase fija se te reserva sola cada semana. Sin estar pendiente de que se llene.
         </p>
       </div>
       <p className="t-label" style={{ margin: '4px 4px 0' }}>Así se pide</p>

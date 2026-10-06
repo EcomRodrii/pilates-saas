@@ -11,7 +11,7 @@ import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
  * una clase) y la de Perfil, `ProfileSection` + `BaldosaIcono`.
  */
 export function FilaAccion({ icono, titulo, detalle, accion, onClick, href, acento, peligro, disabled, testId }: {
-  icono: NombreIcono; titulo: string; detalle?: string; accion?: ReactNode; onClick?: () => void;
+  icono: NombreIcono; titulo: ReactNode; detalle?: ReactNode; accion?: ReactNode; onClick?: () => void;
   /** Lleva a esta ruta (ya resuelta con `usePortalHref`). */
   href?: string;
   acento?: boolean; peligro?: boolean; disabled?: boolean; testId?: string;

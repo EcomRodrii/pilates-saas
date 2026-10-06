@@ -6,10 +6,11 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
-import { compararPorElegibilidad } from '@/lib/student/bono-cubre';
+import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
+import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPagos, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
+import { pagosPendientes } from '@/lib/student/pagos-agrupados';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
@@ -25,18 +26,17 @@ import { consultaMapa } from '@/lib/student/ficha-clase-textos';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { useToast } from '@/components/student/ui/Toast';
 import type { Clase } from '@/lib/student/tipos';
-import { TuRitmo } from '@/components/student/domain/TuRitmo';
+import { LoTuyo } from '@/components/student/domain/LoTuyo';
 import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
 import { ActivarAvisos } from '@/components/student/domain/ActivarAvisos';
 import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
-import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { Descubre } from '@/components/student/domain/Descubre';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
-import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
+import { rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
@@ -45,7 +45,7 @@ import { tiposDeLasClases } from '@/lib/student/mapeo';
 import { cuerpoSinHuecosHoy } from '@/lib/student/huecos-texto';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
-import { claseDelMomento, clasesConPlazaProximas, esRecienLlegada, tuRitmoTieneAlgoQueContar } from '@/lib/student/momento-inicio';
+import { claseDelMomento, clasesConPlazaProximas, esRecienLlegada } from '@/lib/student/momento-inicio';
 import { PrimeraClaseCard } from '@/components/student/domain/PrimeraClaseCard';
 import { ClaseDelMomentoCard } from '@/components/student/domain/ClaseDelMomentoCard';
 import { QueTalLaClase } from '@/components/student/domain/QueTalLaClase';
@@ -93,11 +93,11 @@ export default function InicioPage() {
     // ofrecer «Favoritas», que solo tiene sentido si ha guardado alguna.
     // `getAlumna`, `getHuella` y `getHayAlgoALaVenta` (la bienvenida de la recién llegada) salen del mismo payload:
     // ninguna petición de más.
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta] = await Promise.all([
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos] = await Promise.all([
       getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug), getFavoritos(estudio.slug),
-      getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug),
+      getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug), getPagos(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos, alumna, huella, hayAlgoALaVenta, pagos };
   }, [estudio.slug]);
 
   // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
@@ -113,7 +113,6 @@ export default function InicioPage() {
     invalidarCatalogo(estudio.slug, { conservarVistas: true });
     await refrescar();
   }, [estudio.slug, refrescar]);
-  const plazaFija = data?.plazaFija ?? null;
   const { toast } = useToast();
   // «+ Calendario»: en la app (iOS 17+), la hoja de iOS ya rellena; si no, el
   // .ics / Google de siempre (lib/student/calendario-dispositivo.ts).
@@ -121,12 +120,9 @@ export default function InicioPage() {
     .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); });
   const gamificacion = data?.gamificacion ?? null;
 
-  // ⚠️ El que el servidor gastaría primero, no «el primero del array».
-  // `.find()` devolvía el que viniera antes en la respuesta, así que la tarjeta
-  // de inicio podía anunciar un bono y el servidor descontar otro.
-  const bonoActivo = [...(data?.bonos ?? [])]
-    .filter((b) => b.estado === 'activo')
-    .sort(compararPorElegibilidad)[0] ?? null;
+  // Lo que tiene (cuota, bono, clase fija, recuperaciones), del MISMO selector que Mi plan y Perfil (`loQueTengo`): «la
+  // mensual gana» y el bono que el servidor gastaría primero, con su saldo de `saldoBono`.
+  const loTengo = data ? loQueTengo({ bonos: data.bonos, plazas: data.plazaFija.plazas, recuperaciones: data.plazaFija.recuperaciones }) : null;
 
   // La próxima: de sus reservas confirmadas, la primera que aún no ha pasado.
   // El paquete no filtra por fecha porque sus datos de ejemplo son siempre
@@ -157,16 +153,9 @@ export default function InicioPage() {
     .filter((x): x is { r: (typeof x)['r']; c: NonNullable<(typeof x)['c']> } => Boolean(x.c))
     .map((x) => ({ fecha: x.c.fecha, estado: x.r.estado }));
 
-  const semana = semanaDe(clasesHechas, hoy);
-  const estaSemana = hechasEstaSemana(clasesHechas, hoy);
   // El mínimo lo decide el estudio: «al menos una» no mide lo mismo donde se da
   // clase una vez por semana que donde se da tres.
   const racha = rachaSemanas(clasesHechas, hoy, data?.minimoRacha ?? 1);
-  // Aquí se calculaba la MEJOR semana conocida, que era el eje de la barra de
-  // «Mi progreso». Esa barra se ha ido: medía exactamente lo mismo que los
-  // siete puntos de la semana justo encima, y contra una referencia que la
-  // propia app se inventaba. Con la barra fuera, el cálculo sobra.
-
   // «Huecos de hoy» es un atajo para RESERVAR, así que una clase ya empezada no
   // es un hueco: el servidor la rechaza (`sesionYaEmpezada`). Antes salía toda la
   // mañana ofreciendo plazas de clases que ya se estaban dando o que habían
@@ -203,8 +192,17 @@ export default function InicioPage() {
   const vistaPrevia = useEnVistaPreviaDelPanel();
   const recienLlegada = !!data && (vistaPrevia || esRecienLlegada(data.huella, hoy));
   const primera = data && recienLlegada ? clasesConPlazaProximas(data.clases, data.reservas, hoy, ahoraMs) : null;
-  // «Tu ritmo» se esconde hasta que hay algo que contar (una clase a la que vino, o un bono o cuota activos): eran ceros.
-  const conRitmo = !!data && tuRitmoTieneAlgoQueContar(data.reservas, bonoActivo);
+  // «Lo tuyo»: con algo que contar (cuota, bono, clase fija o recuperaciones). Sin nada de eso, la línea «Sin cuota ni
+  // bono» solo a quien ya ha venido y solo si su estudio vende algo: a la recién llegada ya le habla su bienvenida.
+  const yaVino = !!data && data.reservas.some((r) => r.estado === 'asistida');
+  const loTuyo = data && loTengo && (tieneAlgo(loTengo) || (yaVino && data.hayAlgoALaVenta)) ? (
+    <LoTuyo
+      slug={estudio.slug} t={loTengo} hoy={hoy} racha={racha}
+      hrefMiPlan={href('/bonos')} hrefClaseFija={`${href('/mis-reservas')}?tab=fija`}
+      hrefTienda={data.hayAlgoALaVenta ? href('/comprar') : null}
+      debe={loTengo.cuota ? pagosPendientes(data.pagos).find((p) => p.bonoId === loTengo.cuota?.id) ?? null : null}
+    />
+  ) : null;
   // La MISMA búsqueda que la ficha de la clase (dirección y ciudad): una sola regla para «Cómo llegar».
   const comoLlegar = () => window.open(urlComoLlegar(consultaMapa(estudio.direccion, estudio.ciudad), estudio.nombre, navigator.userAgent), '_blank', 'noopener');
 
@@ -561,7 +559,7 @@ export default function InicioPage() {
               hrefPrecios={data.hayAlgoALaVenta ? href('/comprar') : null}
             />
             <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
-            {plazaFija && <PlazaFijaCard compacta plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+            {loTuyo}
             {gamificacion && gamificacion.saldo > 0 && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
             <Descubre slug={estudio.slug} href={href} />
             {seccionHuecos}
@@ -591,23 +589,10 @@ export default function InicioPage() {
                 solo en Perfil → Preferencias. Se oculta sola si ya están activos. */}
             <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
 
-            {/* ── TU RITMO ─────────────────────────────────────────────────
-                Todo lo que enseña sale de sus reservas reales
-                (`lib/student/ritmo.ts`, 16 tests): los días de la semana, la
-                racha y lo que lleva hecho. Lo que el backend no tiene —una meta
-                semanal configurable, retos— no se rellena con cifras a dedo.
-
-                Era un rótulo suelto + tres tarjetas; ahora es UNA. El detalle
-                de por qué, en el componente. */}
-            {conRitmo && <TuRitmo
-              dias={semana}
-              racha={racha}
-              estaSemana={estaSemana}
-              bono={bonoActivo ?? null}
-              hrefBono={bonoActivo ? href(`/bonos/${bonoActivo.id}`) : href('/bonos')}
-              hrefBonos={href('/bonos')}
-              hrefCalendario={href('/calendario')}
-            />}
+            {/* ── LO TUYO ──────────────────────────────────────────────────
+                Una tarjeta en vez de «Tu ritmo» y «Tu clase fija» (maqueta «Clase fija y bonos, ordenados»): una línea
+                por cosa y cada línea a su sitio. Lo que hay detrás, en `LoTuyo` y `loQueTengo`. */}
+            {loTuyo}
 
 
             {/* ── VALORACIÓN INICIAL ──────────────────────────────────────
@@ -616,10 +601,6 @@ export default function InicioPage() {
                 está esperando de ella; enterrarlo entre el bono y el muro
                 sería ofrecerlo sin ofrecerlo. Desaparece al completarla. */}
             <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />
-
-            {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
-                Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
-            {plazaFija && <PlazaFijaCard compacta plazas={plazaFija.plazas} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
 
             {/* Nivel y créditos: solo si el estudio usa gamificación. */}
             {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}

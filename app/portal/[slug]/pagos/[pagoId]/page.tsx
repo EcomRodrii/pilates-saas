@@ -8,8 +8,9 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getPagos } from '@/lib/student/datos';
-import { euros, fechaLarga, metodoPagoTexto, unir } from '@/lib/student/formato';
+import { getBonos, getPagos } from '@/lib/student/datos';
+import { textoCobro, verLoQueEs } from '@/lib/student/mi-plan-vista';
+import { euros, fechaLarga, hoyISO, metodoPagoTexto, unir } from '@/lib/student/formato';
 import { Badge } from '@/components/student/ui/Badge';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ESTADO_PAGO } from '@/components/student/domain/PaymentItem';
@@ -46,7 +47,12 @@ export default function ReciboPage() {
   const href = usePortalHref();
 
   const cargar = useCallback(
-    async () => (await getPagos(estudio.slug)).find((p) => p.id === pagoId) ?? null,
+    async () => {
+      const [pagos, bonos] = await Promise.all([getPagos(estudio.slug), getBonos(estudio.slug)]);
+      const p = pagos.find((x) => x.id === pagoId) ?? null;
+      // De qué es el recibo (cuota o bono), para nombrar el enlace con su palabra. Del mismo payload: sin petición de más.
+      return p ? { ...p, plan: p.bonoId ? bonos.find((b) => b.id === p.bonoId) ?? null : null } : null;
+    },
     [estudio.slug, pagoId],
   );
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d);
@@ -118,7 +124,7 @@ export default function ReciboPage() {
             // «procesando» y le prometía a la alumna un aviso que nadie iba a
             // mandarle: no hay ningún cobro en marcha que confirmar.
             <p className="note note--warn" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
-              Este recibo todavía está sin cobrar. Lo gestiona el estudio.
+              {data.cobro ? (textoCobro(data.cobro, hoyISO()) ?? 'Este recibo todavía está sin cobrar. Puedes pagarlo desde Recibos.') : 'Este recibo todavía está sin cobrar. Lo gestiona el estudio.'}
             </p>
           )}
           {data.estado === 'processing' && (
@@ -128,7 +134,7 @@ export default function ReciboPage() {
           )}
           {data.estado === 'failed' && (
             <p className="note note--danger" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
-              El pago no se completó y no se ha hecho ningún cargo. Habla con el estudio para volver a intentarlo.
+              El pago no se completó y no se ha hecho ningún cargo. {data.cobro?.como === 'APP' ? 'Puedes pagarlo desde Recibos.' : 'Habla con el estudio para volver a intentarlo.'}
             </p>
           )}
           {/* ⚠️ `refunded` NO es «te devolvimos el dinero»: sale de
@@ -178,9 +184,9 @@ export default function ReciboPage() {
               `::after` SIN tocar la caja pintada — la solución que el sistema
               ya tiene. Se quedó sin ella porque es un `<Link>` suelto dentro
               de una tarjeta de filas, no un control con su propio estilo. */}
-          {data.bonoId && (
+          {data.bonoId && data.plan && (
             <Link className="tap" href={href(`/bonos/${data.bonoId}`)} transitionTypes={TRANSICION_ADELANTE} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
-              Ver el bono →
+              {verLoQueEs(data.plan)} →
             </Link>
           )}
         </div>

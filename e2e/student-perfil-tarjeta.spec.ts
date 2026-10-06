@@ -62,12 +62,12 @@ test('recién llegada: «Aún no has venido a ninguna clase»; la misma con alta
   expect(antigua.pedidas()).toBeGreaterThan(0);
 });
 
-test('las filas: una baldosa por fila, «Seguridad», sin «Bonos», y el método de pago a la vista', async ({ page }) => {
+test('las filas: una baldosa por fila, «Seguridad», sin «Mi plan», y el método de pago a la vista', async ({ page }) => {
   const { a, pedidas } = await montar(page, { conTarjeta: true });
   const main = page.getByRole('main');
   await expect(main.getByRole('link', { name: 'Seguridad' })).toHaveAttribute('href', `/portal/${SLUG}/perfil/seguridad`, { timeout: 45_000 });
   await expect(main.getByText('Contraseña y verificación')).toHaveCount(0);
-  await expect(main.getByRole('link', { name: 'Bonos', exact: true })).toHaveCount(0);
+  await expect(main.getByRole('link', { name: 'Mi plan', exact: true })).toHaveCount(0);
   await expect(main.getByRole('link', { name: /Escribir al estudio/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Privacidad y datos/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Método de pago/ })).toContainText('Visa ··4242');

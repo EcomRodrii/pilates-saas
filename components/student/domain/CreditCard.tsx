@@ -67,7 +67,7 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
               pequeño, porque «de 8» es lo que da sentido al 5. */}
           <div style={{ minWidth: 0 }}>
             {ilimitado ? (
-              <p className="t-card-title">Clases sin límite</p>
+              <p className="t-card-title">Sin máximo semanal</p>
             ) : (
               <>
                 {/* ⚠️ «Te quedan» ENCIMA de la cifra, y no «5 · sesiones de 8».

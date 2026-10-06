@@ -106,7 +106,7 @@ test.describe('Student PWA · horario: reservar desde la fila', () => {
 
   for (const [nombre, status, cuerpo, espera] of [
     ['aforo-lleno: sin lista de espera, no se ofrece', 400, { error: 'Esta clase está completa', codigo: 'aforo-lleno' }, /esta clase no tiene lista de espera/],
-    ['sin-plan: lleva a comprar, sin «Intentar de nuevo»', 400, { error: 'Necesitas un plan o bono activo', codigo: 'sin-plan' }, /Ver bonos y suscripciones/],
+    ['sin-plan: lleva a comprar, sin «Intentar de nuevo»', 400, { error: 'Necesitas un plan o bono activo', codigo: 'sin-plan' }, /Ver opciones/],
     ['el servidor se cae: no se usó ninguna sesión', 500, { error: 'boom' }, /no se ha usado ninguna sesión/],
     ['sesión caducada: «Iniciar sesión»', 401, {}, /Tu sesión ha caducado/],
   ] as const) {
@@ -141,7 +141,7 @@ test.describe('Student PWA · horario: reservar desde la fila', () => {
     await expect(fila(page)).toContainText('Cuota');
     await expect(fila(page)).not.toContainText('1 sesión');
     await botonFila(page).click();
-    await expect(page.getByText('Incluida en tu mensualidad. No pagas nada hoy.')).toBeVisible();
+    await expect(page.getByText('Incluida en tu cuota. No pagas nada hoy.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Confirmar 10:00 con tu cuota' })).toBeVisible();
   });
 

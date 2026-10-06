@@ -42,6 +42,8 @@ test('cancelación: «gratis hasta N h antes» dentro de plazo (lo busca student
   assert.equal(dentro, 'Cancelación gratis hasta 12 h antes');
   assert.match(dentro, /gratis hasta 12 h antes/);
   assert.equal(textoCancelacion({ devolveriaCredito: false, horasVentana: 12 }), 'Ya no se devuelve la sesión si cancelas');
+  // Con cuota no hay sesión que devolver: no se le habla de ella.
+  assert.equal(textoCancelacion({ devolveriaCredito: false, horasVentana: 12 }, { gastaSesion: false }), 'Quedan menos de 12 h: cancelar ahora ya es tarde');
 });
 
 test('créditos al asistir, con el nombre que les da el estudio', () => {

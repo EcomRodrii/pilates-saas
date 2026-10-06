@@ -63,7 +63,7 @@ export function BookingStatus({ state, titulo, mensaje, acciones, onRetry, onWai
       {ok && oferta}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, animation: 'apUp .4s .3s both' }}>
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
-        {compraLoArregla && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onComprar}>Ver bonos y suscripciones</button>}
+        {compraLoArregla && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onComprar}>Ver opciones</button>}
         {!compraLoArregla && (state === 'error' || state === 'offline') && onRetry && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onRetry}>Intentar de nuevo</button>}
         {onClose && <button type="button" className={'btn btn--full ' + (ok ? 'btn--primary' : 'btn--ghost')} style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onClose}>{apuntada ? (contexto === 'fila' ? 'Seguir en el horario' : 'Ver mis reservas') : state === 'session-expired' ? 'Iniciar sesión' : contexto === 'ficha' ? 'Volver a la clase' : 'Volver al horario'}</button>}
         {contexto === 'fila' && apuntada && onVerReservas && <button type="button" className="btn btn--full btn--ghost" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onVerReservas}>Ver mis reservas</button>}
