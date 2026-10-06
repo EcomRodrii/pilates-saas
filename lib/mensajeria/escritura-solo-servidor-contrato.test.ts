@@ -166,5 +166,7 @@ test('las apps no leen lo que el estudio retiró; el panel sí', () => {
     assert.match(f, new RegExp(`ocultarRetirados: ${ocultar}`), `${r}: ocultarRetirados debería ser ${ocultar}`);
   }
   // Tablón: lo retirado solo le llega a quien lo escribió.
-  assert.match(fuente('app/api/public/comunidad/comentarios/route.ts'), /\.filter\(c => !c\.oculto \|\| c\.esMio\)/);
+  // El tablón: lo retirado solo le llega a quien lo escribió (la regla vive en comentarios-reglas.ts).
+  assert.match(fuente('app/api/public/comunidad/comentarios/route.ts'), /filtrarComentariosParaSocia\(/);
+  assert.match(fuente('lib/comunidad/comentarios-reglas.ts'), /\.filter\(\(f\) => !f\.oculto_en \|\| f\.esMio\)/);
 });

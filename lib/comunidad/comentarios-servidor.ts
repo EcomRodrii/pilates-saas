@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { uid } from '@/lib/utils';
 import { registrarDenuncia } from '@/lib/moderacion/denuncias-servidor';
 import { audienciaDelPost, socioEnLaAudiencia } from './audiencia';
-import { esSuyo, nombreEnElTablon } from './comentarios-reglas';
+import { esSuyo, filtrarComentariosParaSocia, nombreEnElTablon } from './comentarios-reglas';
 
 // Lo que la alumna puede hacer con los comentarios del tablón, en el servidor
 // (App Store 1.2). Service-role: la RLS no actúa, así que cada función parte de
@@ -16,11 +16,14 @@ export interface ComentarioDeLaSocia {
 }
 
 /**
- * El comentario, si es de este estudio y la socia puede ver su publicación.
- * `null` si no (misma respuesta para «no existe» y «no es para ti»).
+ * El comentario, si es de este estudio y la socia lo puede VER: su publicación
+ * va dirigida a ella y el comentario pasa el mismo filtro que la lista
+ * (`filtrarComentariosParaSocia`: lo retirado, lo de un bloqueo y, en una
+ * publicación para un grupo, lo de otras alumnas, no). `null` si no (misma
+ * respuesta para «no existe» y «no es para ti»).
  */
 export async function comentarioVisible(
-  admin: SupabaseClient, p: { studioId: string; socioId: string; comentarioId: string },
+  admin: SupabaseClient, p: { studioId: string; socioId: string; authUserId: string; comentarioId: string },
 ): Promise<ComentarioDeLaSocia | null> {
   const { data, error } = await admin.from('comentarios_comunidad')
     .select('id, post_id, socio_id, autor_id, oculto_en')
@@ -30,7 +33,9 @@ export async function comentarioVisible(
   const audiencia = await audienciaDelPost(admin, { postId: data.post_id as string, studioId: p.studioId });
   if (!audiencia) return null;
   if (!await socioEnLaAudiencia(admin, { studioId: p.studioId, socioId: p.socioId, audiencia })) return null;
-  return data as ComentarioDeLaSocia;
+  const c = data as ComentarioDeLaSocia;
+  const bloqueadas = c.socio_id && !esSuyo(c, p) ? await bloqueadasConmigo(admin, p.studioId, p.socioId) : new Set<string>();
+  return filtrarComentariosParaSocia([c], { socioId: p.socioId, authUserId: p.authUserId, audiencia, bloqueadas })[0] ?? null;
 }
 
 /** Las socias con las que hay un bloqueo, en cualquiera de los dos sentidos: ni las ve ni la ven. */

@@ -108,7 +108,7 @@ export function DenunciasPorRevisar({ onToast }: { onToast: (m: string) => void 
                 )}
                 {d.detalle && <p className="mt-1 text-[12px] italic text-foreground/80">«{d.detalle}»</p>}
                 {contexto && (
-                  <Link href={contexto} className="mt-1 inline-block text-[11.5px] font-medium text-brand underline-offset-2 hover:underline">
+                  <Link href={contexto} className="mt-1 inline-block text-[11.5px] font-medium text-brand-medio underline-offset-2 hover:underline">
                     Ver {d.ambito === 'TABLON' ? 'el tablón' : 'la conversación'}
                   </Link>
                 )}
