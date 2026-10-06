@@ -350,6 +350,8 @@ export default function CentroDeControlPage() {
         // un ejemplo rotulado de qué aparecerá aquí cuando lo haya.
         sinHistorial={socios.filter(s => s.activo).length < 5}
         bandejaHoy={<BandejaHoy />}
+        // Tenti piensa mientras dura el análisis (y no el POST: eso es «Analizando…» del botón).
+        analisis={analisis}
       />
 
       <button

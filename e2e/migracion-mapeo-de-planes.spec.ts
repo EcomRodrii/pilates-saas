@@ -192,7 +192,9 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
 // ── Tenti en «Analizar» (releva al Orb, 5-oct-2026) ─────────────────────────
 // Aquí Tentare lee unos archivos que no ha visto nunca y decide qué es cada
 // columna, y el resultado vuelve a esta pantalla: Tenti piensa mientras dura,
-// solo mientras dura. Importar las filas es trabajo mecánico: ahí no va.
+// solo mientras dura. Importar las filas lo hace Tentare solo, sin decidir
+// nada: 'trabajando' (5-oct por la noche, lib/tenti/momentos.ts), y el acta
+// dice con su cara si entró todo ('hecho') o algo se paró ('error').
 
 /** Una ruta que no contesta hasta `soltar()`, con su contador de intentos. */
 function retenida(cuerpo: unknown) {
@@ -229,7 +231,7 @@ test.describe('Tenti en Analizar: piensa solo mientras analiza', () => {
     await expect(page.getByText(/Bonos y membresías/i).first()).toBeVisible({ timeout: 30_000 });
   });
 
-  test('importar las filas no es Tentare decidiendo: en ese paso no hay ningún Tenti', async ({ page }) => {
+  test('importando, Tenti trabaja (sin spinner); con todo dentro, el acta lo celebra', async ({ page }) => {
     await mockBackend(page);
     await seedSesionDeDuena(page);
     const importacion = retenida({ total: 2, importadas: 2, duplicadas: 0, errores: [] });
@@ -244,7 +246,36 @@ test.describe('Tenti en Analizar: piensa solo mientras analiza', () => {
     await page.getByRole('button', { name: /^Importar \d+ registros?/ }).click();
     await expect.poll(() => importacion.estado.intentos, { timeout: 10_000 }).toBeGreaterThan(0);
     await expect(page.getByText(/Importando/)).toBeVisible();
-    await expect(page.locator('[data-tenti-icono]')).toHaveCount(0);
+    // Un solo Tenti, trabajando, y ni rastro del spinner de antes.
+    await expect(page.locator('[data-tenti-icono]')).toHaveCount(1);
+    await expect(page.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'trabajando');
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
     importacion.estado.soltar();
+
+    await expect(page.getByText('Acta de migración')).toBeVisible({ timeout: 30_000 });
+    const acta = page.getByText('Acta de migración').locator('xpath=..');
+    await expect(acta.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'hecho');
+    await expect(page.locator('[data-tenti-icono]')).toHaveCount(1);
+  });
+
+  test('si una entidad falla, el acta lo dice con su cara: error, y la caja no es verde', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    let intentos = 0;
+    await page.route('**/api/suscripciones/import**', route => { intentos++; return json(route, { error: 'No se pudo guardar' }, 500); });
+    await subirYRevisar(page, [
+      'email,membershipName,creditsRemaining',
+      'maria@example.com,Bono 10 Reformer,4',
+    ].join('\n'));
+
+    await page.getByRole('button', { name: /^Importar \d+ registros?/ }).click();
+    await expect(page.getByText('Acta de migración')).toBeVisible({ timeout: 30_000 });
+    // Un test de camino de fallo sin contador es hueco: que de verdad lo intentó.
+    expect(intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/el proceso se detuvo ahí/)).toBeVisible();
+    const acta = page.getByText('Acta de migración').locator('xpath=..');
+    await expect(acta.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'error');
+    const caja = acta.locator('xpath=..');
+    await expect(caja).not.toHaveClass(/bg-success/);
   });
 });
