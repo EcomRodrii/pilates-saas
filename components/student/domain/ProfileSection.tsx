@@ -37,12 +37,15 @@ export function ProfileSection({ titulo, items }: { titulo?: string; items: Fila
           };
           const inner = (
             <>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              {/* Con un valor al lado, el que cede es el VALOR (se recorta con «…»), nunca el rótulo: un email largo
+                  partía «Datos personales» en dos líneas y el propio email por su guion. */}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: it.valor ? 0 : 1 }}>
                 {it.icono && <BaldosaIcono nombre={it.icono} />}
-                <span>{it.label}</span>
+                <span style={it.valor ? { whiteSpace: 'nowrap' } : undefined}>{it.label}</span>
               </span>
-              <span style={{ color: 'var(--subtle-foreground)', fontSize: 'var(--t-small)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {it.valor}<Icono nombre="chevron-derecha" tamano={conIcono ? 16 : 18} style={{ flexShrink: 0 }} />
+              <span style={{ color: 'var(--subtle-foreground)', fontSize: 'var(--t-small)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                {it.valor && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{it.valor}</span>}
+                <Icono nombre="chevron-derecha" tamano={conIcono ? 16 : 18} style={{ flexShrink: 0 }} />
               </span>
             </>
           );

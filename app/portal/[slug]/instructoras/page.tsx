@@ -48,7 +48,7 @@ export default function InstructorasPage() {
 
   return (
     <StudentShell>
-      <PageHeader titulo="Instructoras" />
+      <PageHeader titulo="Instructoras" back />
 
       <div className="px" style={{ marginTop: 4 }}>
         {estado === 'loading' && <ListSkeleton />}
