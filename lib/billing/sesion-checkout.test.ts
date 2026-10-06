@@ -234,7 +234,7 @@ test('rama de recibo: una sesión ya pagada da 409, nunca otra sesión', () => {
   const s = rutaCheckout();
   assert.match(s, /decidirSesionCheckout\(previa, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout\)/);
   assert.match(s, /if \(decision === 'ya-pagada'\) \{\s*return conCorsWidget\(req, NextResponse\.json\(\{ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE \}, \{ status: 409 \}\)\);/);
-  assert.match(s, /claveCheckoutRecibo\(body\.reciboId, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout\)/);
+  assert.match(s, /claveCheckoutRecibo\(body\.reciboId, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout, ahoraMs\)/);
 });
 
 test('rama de recibo: el UPDATE que guarda la sesión vuelve a exigir todo lo comprobado', () => {
@@ -315,5 +315,31 @@ test('la repetición de Stripe se mira antes de entregar su URL, y la segunda pe
   const cero = s.indexOf('if (reciboDesaparecido) {', guarda);
   const caduca = s.indexOf('await stripe.checkout.sessions.expire(session.id', guarda);
   assert.ok(cero > 0 && caduca > cero, 'antes de caducar se relee');
-  assert.match(s.slice(cero, caduca), /ahora\?\.checkout_session_id === session\.id[\s\S]{0,120}url: session\.url/);
+  assert.match(s.slice(cero, caduca), /ahora\?\.checkout_session_id === session\.id[\s\S]{0,120}return responderSesion\(session\);/);
+});
+
+// ── RECIBOS (6-oct-2026): la sesión INCRUSTADA de la app ────────────────────
+import { expiraSesionIncrustada, respuestaIncrustada } from './sesion-checkout.ts';
+
+test('la incrustada caduca a los 31 min del minuto de su clave: igual dentro del minuto, y siempre ≥30 min', () => {
+  const inicioMinuto = Date.UTC(2026, 9, 6, 10, 15, 0);
+  const a = expiraSesionIncrustada(inicioMinuto + 1_000);
+  const b = expiraSesionIncrustada(inicioMinuto + 59_000);
+  assert.equal(a, b, 'dos peticiones del mismo minuto mandan el mismo expires_at (misma clave, mismos parámetros)');
+  assert.equal(a, inicioMinuto / 1000 + 31 * 60);
+  for (const dentro of [0, 1_000, 59_999]) {
+    const ahora = inicioMinuto + dentro;
+    assert.ok(expiraSesionIncrustada(ahora) * 1000 - ahora >= 30 * 60_000, 'Stripe exige ≥30 min desde que se crea');
+  }
+  // Y la clave de ese mismo minuto es la misma: van juntas.
+  const I: PeticionCheckout = { modo: 'incrustado', pagadorVerificado: true };
+  assert.equal(
+    claveCheckoutRecibo('rec-1', ['card'], 5000, I, inicioMinuto + 1_000),
+    claveCheckoutRecibo('rec-1', ['card'], 5000, I, inicioMinuto + 59_000),
+  );
+});
+
+test('la respuesta de la app: el client_secret y la sesión; sin client_secret no hay nada que montar', () => {
+  assert.deepEqual(respuestaIncrustada({ id: 'cs_test_1', client_secret: 'cs_test_1_secret_x' }), { clientSecret: 'cs_test_1_secret_x', checkoutSessionId: 'cs_test_1' });
+  assert.equal(respuestaIncrustada({ id: 'cs_test_1', client_secret: null }), null);
 });

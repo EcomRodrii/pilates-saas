@@ -11,8 +11,9 @@ import { idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import {
   avisoDeYaTenia, compraDeSuscripcion, elegirAvisoDelPago, emailsCoinciden, modoDeIdentidad, reservaPreviaDe,
-  resolverEstadoPago, type AvisoSinPlaza, type CompraEntregada, type ReservaPrevia, type RespuestaEstadoPago,
+  reciboIdValido, resolverEstadoPago, type AvisoSinPlaza, type CompraEntregada, type ReservaPrevia, type RespuestaEstadoPago,
 } from '@/lib/billing/estado-pago-publico';
+import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 
 // P1-3 — estado REAL de la reserva tras «pagar y reservar sin login» (Modo A).
 //
@@ -74,9 +75,12 @@ export async function GET(req: NextRequest) {
 
   const pi = req.nextUrl.searchParams.get('pi') ?? '';
   const studioIdParam = req.nextUrl.searchParams.get('studioId');
+  // RECIBOS: por recibo (pagar un recibo desde la app). Solo con sesión.
+  const reciboIdParam = req.nextUrl.searchParams.get('reciboId');
+  const porRecibo = modo === 'sesion' && reciboIdValido(reciboIdParam);
   // Forma de id de PaymentIntent (pi_ + alfanumérico, con test_/live_
   // opcional que idsDe() ya sabe recortar). Cualquier otra cosa ni toca BD.
-  if (!/^pi_(test_|live_)?[A-Za-z0-9]{8,64}$/.test(pi)) return respuesta(req, { estado: 'en_proceso' });
+  if (!porRecibo && !/^pi_(test_|live_)?[A-Za-z0-9]{8,64}$/.test(pi)) return respuesta(req, { estado: 'en_proceso' });
 
   const admin = getSupabaseAdmin();
   if (!admin) return respuesta(req, { estado: 'en_proceso' });
@@ -102,6 +106,30 @@ export async function GET(req: NextRequest) {
     const porSocia = { max: 30, windowSeconds: 60 };
     const lim = await rateLimit(`estado-pago-socia:${socioId}`, porSocia);
     if (!lim.allowed) return tooManyRequestsResponse(retryAfterSeconds(lim.resetAt, porSocia.windowSeconds));
+
+    if (porRecibo) {
+      // SU recibo, de ESTE estudio. Lo de otra socia o inexistente: la respuesta neutra.
+      const { data: r } = await admin
+        .from('recibos')
+        .select('estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, es_renovacion, suscripcion_id')
+        .eq('id', reciboIdParam)
+        .eq('studio_id', studioIdParam)
+        .eq('socio_id', socioId)
+        .maybeSingle();
+      if (!r) return respuesta(req, { estado: 'en_proceso' });
+      const situacion = situacionRecibo({
+        estado: r.estado as string, importe: r.importe as number, importeDevuelto: (r.importe_devuelto as number | null) ?? 0,
+        reembolsoStripeId: (r.reembolso_stripe_id as string | null) ?? null,
+        reembolsoSolicitadoEn: (r.reembolso_solicitado_en as string | null) ?? null,
+      });
+      let renovadoHasta: string | null = null;
+      if (situacion === 'COBRADO' && r.es_renovacion === true && r.suscripcion_id) {
+        const { data: sus } = await admin.from('suscripciones').select('fecha_fin')
+          .eq('id', r.suscripcion_id as string).eq('studio_id', studioIdParam).eq('socio_id', socioId).maybeSingle();
+        renovadoHasta = (sus?.fecha_fin as string | null | undefined) ?? null;
+      }
+      return respuesta(req, { estado: 'en_proceso', recibo: { situacion, ...(renovadoHasta ? { renovadoHasta } : {}) } });
+    }
 
     // El recibo del pago, y tiene que ser SUYO y de ESTE estudio. Si no (pi
     // ajeno, webhook aún sin llegar): la respuesta neutra de siempre.

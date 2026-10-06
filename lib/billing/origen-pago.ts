@@ -64,8 +64,12 @@ export function urlsDeRetorno(p: {
       const plan = p.planId ? `&plan=${encodeURIComponent(p.planId)}` : '';
       return { successUrl: `${base}?compra=ok${plan}`, cancelUrl: `${base}?compra=cancelada` };
     }
+    // Con el recibo (RECIBOS · 6-oct-2026): `?pago=ok` tampoco significa «pagado»
+    // —lo confirma el webhook—, y sin saber qué recibo era, Pagos solo podía
+    // felicitar a ciegas. Con él, lo comprueba antes de decir nada.
     const base = `${p.appUrl}/portal/${p.slug}/pagos`;
-    return { successUrl: `${base}?pago=ok`, cancelUrl: `${base}?pago=cancelado` };
+    const recibo = p.reciboId ? `&recibo=${encodeURIComponent(p.reciboId)}` : '';
+    return { successUrl: `${base}?pago=ok${recibo}`, cancelUrl: `${base}?pago=cancelado` };
   }
   if (p.esCompraDePlan) {
     const base = `${p.appUrl}/reservar/${p.slug ?? ''}`;

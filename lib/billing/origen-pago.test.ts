@@ -8,7 +8,7 @@ test('la socia que paga desde su portal vuelve a su portal, no al panel', () => 
   // El bug: pagaba 175 € y aterrizaba en /login del panel de staff, con un
   // "¿Eres del equipo?" y sin confirmación de su pago.
   const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: 'mar', esCompraDePlan: false, reciboId: 'rec-1' });
-  assert.equal(u.successUrl, `${APP}/portal/mar/pagos?pago=ok`);
+  assert.equal(u.successUrl, `${APP}/portal/mar/pagos?pago=ok&recibo=rec-1`);
   assert.equal(u.cancelUrl, `${APP}/portal/mar/pagos?pago=cancelado`);
   assert.doesNotMatch(u.successUrl, /\/cobros/);
 });
@@ -25,7 +25,7 @@ test('pagar un RECIBO desde el portal sigue yendo al historial: una factura no e
   const r = urlsDeRetorno({
     origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: false, reciboId: 'r1',
   });
-  assert.equal(r.successUrl, 'https://x.app/portal/estudio/pagos?pago=ok');
+  assert.equal(r.successUrl, 'https://x.app/portal/estudio/pagos?pago=ok&recibo=r1');
 });
 
 test('sin planId no se compone un `&plan=` vacío que la pantalla tendría que descartar', () => {

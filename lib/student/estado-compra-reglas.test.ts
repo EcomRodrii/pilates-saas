@@ -48,3 +48,19 @@ test('el resumen dice qué tiene, sin inventar sesiones a una cuota', () => {
   assert.equal(resumenDeCompra({ ...compra, plan: 'Mensual', sesionesRestantes: null, fechaFin: null }), 'Mensual activo · clases ilimitadas');
   assert.equal(resumenDeCompra(compra, () => '31 dic'), 'Bono 8 sesiones activo · te quedan 8 clases hasta el 31 dic');
 });
+
+// ── RECIBOS: pagar un recibo desde la app ──
+import { leerEstadoRecibo } from './estado-compra-reglas.ts';
+
+test('recibo: «pagado» solo con el recibo COBRADO leído por el servidor', () => {
+  assert.deepEqual(leerEstadoRecibo(200, null, { estado: 'en_proceso', recibo: { situacion: 'COBRADO', renovadoHasta: '2026-11-06' } }), { tipo: 'pagado', renovadoHasta: '2026-11-06' });
+  assert.deepEqual(leerEstadoRecibo(200, null, { recibo: { situacion: 'COBRADO' } }), { tipo: 'pagado', renovadoHasta: null });
+  for (const situacion of ['POR_COBRAR', 'EN_CURSO', 'IMPAGADO', 'REEMBOLSADO']) {
+    assert.deepEqual(leerEstadoRecibo(200, null, { recibo: { situacion } }), { tipo: 'en_proceso' }, situacion);
+  }
+  assert.deepEqual(leerEstadoRecibo(200, null, { estado: 'en_proceso' }), { tipo: 'en_proceso' });
+  assert.deepEqual(leerEstadoRecibo(500, null, { recibo: { situacion: 'COBRADO' } }), { tipo: 'en_proceso' });
+  assert.deepEqual(leerEstadoRecibo(429, '4', {}), { tipo: 'en_proceso', esperaMinMs: 4000 });
+  assert.deepEqual(leerEstadoRecibo(401, null, {}), { tipo: 'sesion' });
+  assert.deepEqual(leerEstadoRecibo(401, null, { codigo: 'doble_factor_requerido' }), { tipo: 'dos-pasos' });
+});

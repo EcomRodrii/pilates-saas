@@ -161,7 +161,8 @@ test('Modo A (Checkout hospedado): lo del formulario tampoco va al crear la sesi
   }
   const crea = s.indexOf('= await crearSesion(claveSesion);');
   const update = s.indexOf('await stripe.checkout.sessions.update(session.id, { metadata: recortarMetadata(metadataVolatil) }', crea);
-  const responde = s.lastIndexOf('NextResponse.json({ url: session.url })');
+  // La respuesta sale de `responderSesion` (el enlace, o lo que monta la app incrustada).
+  const responde = s.lastIndexOf('return responderSesion(session);');
   assert.ok(crea > 0 && update > crea && responde > update);
   // La descripción de una compra de plan no lleva el nombre del formulario.
   assert.match(s, /description: body\.reciboId && body\.socioNombre \? `Tentare · \$\{body\.socioNombre\}` : 'Tentare'/);

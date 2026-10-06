@@ -36,6 +36,17 @@ export interface RespuestaEstadoPago {
    * Es lo único que deja a la app decir «tu bono está activo» (P01).
    */
   compra?: CompraEntregada;
+  /**
+   * Solo con la sesión de la socia y `?reciboId=` (RECIBOS · pagar un recibo desde
+   * la app): en qué situación está SU recibo, leída con `situacionRecibo`. «Pagado»
+   * solo cuando dice COBRADO; la renovación, hasta cuándo deja su plan.
+   */
+  recibo?: { situacion: string; renovadoHasta?: string | null };
+}
+
+/** Forma de un id de recibo que se acepta en la URL (los de la casa: letras, números y guiones). */
+export function reciboIdValido(id: string | null | undefined): id is string {
+  return !!id && /^[A-Za-z0-9_-]{1,120}$/.test(id);
 }
 
 /** Lo que entregó el pago, leído de la suscripción que creó el servidor. */

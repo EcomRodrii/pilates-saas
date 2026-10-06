@@ -4,7 +4,9 @@
 // está en `estado-compra-reglas.ts`; aquí solo la red.
 
 import { portalAuthHeader } from '@/lib/student/api-publica';
-import { esperaAntesDe, leerEstadoCompra, type CompraEntregada, type LecturaEstadoCompra } from '@/lib/student/estado-compra-reglas';
+import {
+  esperaAntesDe, leerEstadoCompra, leerEstadoRecibo, type CompraEntregada, type LecturaEstadoCompra, type LecturaEstadoRecibo,
+} from '@/lib/student/estado-compra-reglas';
 
 /** Una consulta. Nunca lanza: sin red, «en proceso». */
 export async function consultarEstadoCompra(studioId: string, pi: string): Promise<LecturaEstadoCompra> {
@@ -45,6 +47,41 @@ export async function esperarCompraEntregada(
     const l = await consultarEstadoCompra(studioId, pi);
     if (!sigueVivo()) return { tipo: 'cancelado' };
     if (l.tipo === 'entregada' || l.tipo === 'sesion' || l.tipo === 'dos-pasos') return l;
+    espera = l.esperaMinMs;
+  }
+}
+
+/** Una consulta del recibo. Nunca lanza: sin red, «en proceso». */
+export async function consultarEstadoRecibo(studioId: string, reciboId: string): Promise<LecturaEstadoRecibo> {
+  try {
+    const res = await fetch(
+      `/api/public/estado-pago?reciboId=${encodeURIComponent(reciboId)}&studioId=${encodeURIComponent(studioId)}`,
+      { headers: await portalAuthHeader(), cache: 'no-store' },
+    );
+    const cuerpo = await res.json().catch(() => null);
+    return leerEstadoRecibo(res.status, res.headers.get('retry-after'), cuerpo);
+  } catch {
+    return { tipo: 'en_proceso' };
+  }
+}
+
+export type DesenlaceRecibo =
+  | { tipo: 'pagado'; renovadoHasta: string | null }
+  | { tipo: 'tarda' } | { tipo: 'sesion' } | { tipo: 'dos-pasos' } | { tipo: 'cancelado' };
+
+/** Pregunta hasta que el servidor lea el recibo COBRADO, o se agote la espera razonable. */
+export async function esperarReciboPagado(
+  studioId: string, reciboId: string, sigueVivo: () => boolean,
+): Promise<DesenlaceRecibo> {
+  let espera: number | undefined;
+  for (let intento = 0; ; intento++) {
+    const ms = esperaAntesDe(intento, espera);
+    if (ms == null) return { tipo: 'tarda' };
+    await new Promise((r) => setTimeout(r, ms));
+    if (!sigueVivo()) return { tipo: 'cancelado' };
+    const l = await consultarEstadoRecibo(studioId, reciboId);
+    if (!sigueVivo()) return { tipo: 'cancelado' };
+    if (l.tipo !== 'en_proceso') return l;
     espera = l.esperaMinMs;
   }
 }

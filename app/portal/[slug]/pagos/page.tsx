@@ -12,6 +12,7 @@ import { agruparPorMes, pagosPendientes, totalPendiente } from '@/lib/student/pa
 import { euros } from '@/lib/student/formato';
 import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno } from '@/lib/student/retorno-pago';
+import { esperarReciboPagado } from '@/lib/student/estado-compra';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
 // Pagos (§A.14). Es la primera vez que una alumna de Tentare puede ver sus
@@ -34,13 +35,27 @@ function Pagos() {
   const sp = useSearchParams();
   const { toast } = useToast();
   const yaTratado = useRef(false);
+  // Solo para dejar de preguntar si se sale de la pantalla (no se reinicia con el efecto de abajo).
+  const montada = useRef(true);
+  useEffect(() => {
+    montada.current = true;
+    return () => { montada.current = false; };
+  }, []);
   useEffect(() => {
     if (yaTratado.current) return;
     const aviso = avisoDeRetorno(sp);
     if (!aviso) return;
     yaTratado.current = true;
+    const recibo = sp.get('recibo');
+    if (!aviso.comprobar || !recibo) { toast(aviso.mensaje); return; }
+    // Vuelta de Stripe con el recibo: se pregunta al servidor antes de decir «pagado».
     toast(aviso.mensaje);
-  }, [sp, toast]);
+    void esperarReciboPagado(estudio.id, recibo, () => montada.current).then((r) => {
+      if (r.tipo === 'cancelado') return;
+      toast(r.tipo === 'pagado' ? 'Pago recibido ✓' : 'Tu pago está hecho; lo estamos confirmando. No vuelvas a pagar.');
+      if (r.tipo === 'pagado') reintentar();
+    });
+  }, [sp, toast, estudio.id, reintentar]);
 
   return (
     <StudentShell>

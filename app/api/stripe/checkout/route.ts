@@ -14,8 +14,9 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import {
-  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, MENSAJE_COMPRA_YA_PAGADA,
-  MENSAJE_SESION_PREVIA_SIN_COMPROBAR, queHacerConSesionRepetida, type PeticionCheckout,
+  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, expiraSesionIncrustada,
+  MENSAJE_COMPRA_YA_PAGADA, MENSAJE_SESION_PREVIA_SIN_COMPROBAR, queHacerConSesionRepetida, respuestaIncrustada,
+  type PeticionCheckout,
 } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
@@ -167,10 +168,23 @@ export async function POST(req: NextRequest) {
     codigoPostal?: string | null;
     /** ISO `yyyy-mm-dd`. */
     fechaNacimiento?: string | null;
+    /**
+     * RECIBOS (6-oct-2026): `'incrustado'` = la app de la alumna paga el recibo SIN
+     * salir (Checkout de Stripe incrustado). Solo para un recibo, solo la titular con
+     * su sesión, sin Bizum, y la respuesta es `{ clientSecret, checkoutSessionId }` en
+     * vez de `{ url }`. Sin él, todo como siempre (panel, enlaces, web).
+     */
+    modo?: string;
   } | null;
 
   if (!body?.studioId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
+  }
+  const incrustado = body.modo === 'incrustado';
+  // El incrustado es solo para pagar un recibo que ya existe: una compra de plan
+  // incrustada va por /api/public/checkout-embebido (Payment Element).
+  if (incrustado && !body.reciboId) {
+    return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo a pagar' }, { status: 400 }));
   }
   // Normalizado UNA vez y el MISMO en la clave de idempotencia (`claveCheckoutPlanModoA`
   // ya lo normalizaba) y en los parámetros de la sesión (`customer_email`): con otras
@@ -331,12 +345,22 @@ export async function POST(req: NextRequest) {
     metadata.reciboId = body.reciboId;
     // PAY-3: sin exigir sesión (a diferencia de la rama de plan de abajo),
     // comprueba si la hay y si resuelve a la MISMA socia dueña del recibo.
+    let haySesion = false;
     if (socioId) {
       const usuarioRecibo = await verificarUsuarioSupabase(req);
       if (usuarioRecibo) {
+        haySesion = true;
         const socioIdDeSesion = await socioAutenticado(usuarioRecibo.userId, body.studioId);
         pagadorVerificado = !!socioIdDeSesion && socioIdDeSesion === socioId;
       }
+    }
+    // Incrustado = dentro de la app de la TITULAR: con su sesión y su recibo, o
+    // nada. Una sesión anónima no se monta en la app de nadie (PAY-3): quien solo
+    // conoce el reciboId sigue pudiendo pagarlo por el enlace de siempre.
+    if (incrustado && !pagadorVerificado) {
+      return conCorsWidget(req, haySesion
+        ? NextResponse.json({ error: 'Este recibo no es tuyo.' }, { status: 403 })
+        : NextResponse.json({ error: 'Tu sesión ha caducado. Vuelve a entrar: no se te ha cobrado nada.' }, { status: 401 }));
     }
     // ¿Es el recibo de una CUOTA? `entrega_tipo` se escribe DESPUÉS de cobrar,
     // así que un pendiente casi nunca lo trae y se mira el plan de su
@@ -616,7 +640,8 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   const slugEstudio = studio.slug as string | null;
   const retorno = urlsDeRetorno({
-    origen: parsearOrigenPago(body.origen),
+    // La incrustada vive en la app de la alumna: su vuelta (si un método redirige) es su app.
+    origen: incrustado ? 'portal' : parsearOrigenPago(body.origen),
     appUrl,
     slug: slugEstudio,
     esCompraDePlan: !!body.planId && !body.reciboId,
@@ -662,7 +687,9 @@ export async function POST(req: NextRequest) {
   // Sin `bizum`, la sesión ofrece solo tarjeta y pide el guardado GLOBAL, que es
   // justo lo que la renovación necesita. Es la cerradura; las pantallas además
   // ocultan el botón (lib/billing/bizum-permitido.ts).
-  const conBizum = ofrecerBizum(body.bizum === true, tipoPlanCobrado);
+  // En la hoja incrustada no va Bizum: exige salir a la app del banco, y la hoja
+  // es justo para no salir. Quien quiera Bizum tiene el enlace de siempre.
+  const conBizum = !incrustado && ofrecerBizum(body.bizum === true, tipoPlanCobrado);
   // Pedir Bizum sin comprobar que la cuenta CONECTADA lo tiene `active` tumba
   // la sesión ENTERA (Stripe rechaza el `create` si cualquier método pedido
   // no está activo) -- también la tarjeta, que sí funcionaría. Confirmado en
@@ -698,7 +725,18 @@ export async function POST(req: NextRequest) {
   // cálculo que hace el webhook al comprobar el importe cobrado.
   // Quién pide esta sesión y cómo se enseña (hoy siempre la página de Stripe):
   // solo hereda la sesión abierta quien la abrió (ver `decidirSesionCheckout`).
-  const peticionCheckout: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
+  const peticionCheckout: PeticionCheckout = { modo: incrustado ? 'incrustado' : 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
+  // Lo que se devuelve de una sesión: el enlace, o lo que monta la app.
+  const responderSesion = (sesion: Stripe.Checkout.Session) => {
+    if (!incrustado) return conCorsWidget(req, NextResponse.json({ url: sesion.url }));
+    const r = respuestaIncrustada(sesion);
+    return conCorsWidget(req, r
+      ? NextResponse.json(r)
+      : NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo: no se te ha cobrado nada.' }, { status: 500 }));
+  };
+  // Un solo «ahora» para la clave y el `expires_at` de la incrustada: los dos salen
+  // del mismo minuto, y así dos peticiones del mismo intento mandan lo mismo.
+  const ahoraMs = Date.now();
   if (sesionAbiertaId) {
     // ⚠️ Si no se puede revisar ni cerrar la sesión guardada, NO se crea otra
     // (5-oct-2026). Antes un fallo aquí solo se anotaba y se seguía: con la sesión
@@ -721,8 +759,8 @@ export async function POST(req: NextRequest) {
     }
     if (previa) {
       const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout);
-      if (decision === 'reutilizar' && previa.url) {
-        return conCorsWidget(req, NextResponse.json({ url: previa.url }));
+      if (decision === 'reutilizar' && (incrustado ? previa.client_secret : previa.url)) {
+        return responderSesion(previa);
       }
       // Ya se pagó por esa sesión y el recibo aún no consta cobrado (el webhook
       // no ha llegado, o lo rechazó): otra sesión sería cobrarlo dos veces.
@@ -851,12 +889,24 @@ export async function POST(req: NextRequest) {
         ...(body.reciboId ? { metadata: { reciboId: body.reciboId, origen: 'tarjeta_recibo', studioId: body.studioId } } : {}),
       },
       metadata,
-      // A dónde vuelve la persona: lo resuelve `urlsDeRetorno` a partir de
-      // `origen` (lista blanca) + si es compra de plan. Antes esto asumía que
-      // todo lo que llevara `reciboId` lo iniciaba el estudio desde su panel, y
-      // dejaba a la socia que paga desde el portal en el login del staff.
-      success_url: retorno.successUrl,
-      cancel_url: retorno.cancelUrl,
+      ...(incrustado ? {
+        // La app: Stripe pinta el pago DENTRO de la hoja. Con tarjeta no sale de la
+        // app (`if_required`); solo un método con redirección vuelve a `return_url`,
+        // que lleva el recibo para que la pantalla COMPRUEBE antes de afirmar nada.
+        ui_mode: 'embedded_page' as const,
+        redirect_on_completion: 'if_required' as const,
+        return_url: `${retorno.successUrl}&session_id={CHECKOUT_SESSION_ID}`,
+        // 31 min desde el minuto de la clave (`expiraSesionIncrustada`): abandonada,
+        // caduca pronto y el conciliador suelta el recibo para su cobro de siempre.
+        expires_at: expiraSesionIncrustada(ahoraMs),
+      } : {
+        // A dónde vuelve la persona: lo resuelve `urlsDeRetorno` a partir de
+        // `origen` (lista blanca) + si es compra de plan. Antes esto asumía que
+        // todo lo que llevara `reciboId` lo iniciaba el estudio desde su panel, y
+        // dejaba a la socia que paga desde el portal en el login del staff.
+        success_url: retorno.successUrl,
+        cancel_url: retorno.cancelUrl,
+      }),
       locale: 'es',
       // Con plaza reservada la sesión caduca con ella (31 min): así Stripe
       // confirma el abandono con `checkout.session.expired` y la plaza vuelve.
@@ -881,7 +931,7 @@ export async function POST(req: NextRequest) {
       // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
       // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
       // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
-      ? claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout)
+      ? claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout, ahoraMs)
       : clavePlan
         // Con plaza de cupo, la clave lleva su intento: un intento liberado y
         // vuelto a reservar necesita otra sesión, no la caducada.
@@ -1043,7 +1093,7 @@ export async function POST(req: NextRequest) {
         const { data: ahora } = await admin.from('recibos').select('checkout_session_id')
           .eq('id', body.reciboId).eq('studio_id', body.studioId).maybeSingle();
         if (ahora?.checkout_session_id === session.id) {
-          return conCorsWidget(req, NextResponse.json({ url: session.url }));
+          return responderSesion(session);
         }
       }
       if (errGuardar || reciboDesaparecido) {
@@ -1076,7 +1126,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return conCorsWidget(req, NextResponse.json({ url: session.url }));
+    return responderSesion(session);
   } catch (err) {
     // Stripe ya tiene una sesión con ESTA clave y otros parámetros: el mismo
     // intento reabierto con datos distintos. Esa sesión sigue viva y la plaza de

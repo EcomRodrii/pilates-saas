@@ -17,6 +17,8 @@
 //  · otro      → no (falla cerrado): un estado nuevo no se renueva solo por la app.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { esReciboCobrable, type ReciboParaDeuda } from './deuda-recibo.ts';
+
 /** El código que la app traduce (y el texto, por si no lo traduce). */
 export const CODIGO_CUOTA_EN_PAUSA = 'cuota-en-pausa';
 export const MENSAJE_CUOTA_EN_PAUSA = 'Tu cuota está en pausa. Habla con tu estudio para reanudarla.';
@@ -55,4 +57,72 @@ export function renovacionPorLaAlumna(
  */
 export function pagoOnlineDeRenovacionPermitido(recibo: { es_renovacion: boolean | null }, estadoCuota: string | null | undefined): boolean {
   return !(recibo.es_renovacion === true && estadoCuota === 'PAUSADA');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECIBOS (6-oct-2026): renovar ESE plan, desde la app y sin salir de ella.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SuscripcionRenovable { id: string; estado: string | null; plan_id: string | null }
+
+/**
+ * Las suscripciones que la alumna puede renovar ella misma, con la regla de
+ * siempre: las ACTIVA; si no tiene ninguna, la más reciente. `filas` llegan
+ * ordenadas de más reciente a más antigua (por `fecha_inicio`).
+ */
+export function suscripcionesRenovables<T extends SuscripcionRenovable>(filas: readonly T[]): T[] {
+  const activas = filas.filter((s) => s.estado === 'ACTIVA');
+  return activas.length > 0 ? activas : filas.slice(0, 1);
+}
+
+export const CODIGO_PLAN_NO_ES_TUYO = 'plan-no-renovable-aqui';
+
+/**
+ * Cuál renueva. Con `pedida` (la app dice cuál): tiene que ser suya y estar entre
+ * las que admite la regla — no se renueva por esta puerta un bono viejo mientras
+ * tiene otro activo. Sin `pedida`, la primera admitida (lo de siempre).
+ */
+export function elegirSuscripcionARenovar<T extends SuscripcionRenovable>(
+  filas: readonly T[], pedida?: string | null,
+): { ok: true; sus: T } | { ok: false; status: 404 | 409; codigo?: string; error: string } {
+  const admitidas = suscripcionesRenovables(filas);
+  if (pedida) {
+    const sus = admitidas.find((s) => s.id === pedida);
+    if (sus) return { ok: true, sus };
+    return filas.some((s) => s.id === pedida)
+      ? { ok: false, status: 409, codigo: CODIGO_PLAN_NO_ES_TUYO, error: 'Ese plan no se renueva desde aquí. Habla con tu estudio.' }
+      : { ok: false, status: 404, error: 'No encontramos ese plan.' };
+  }
+  const sus = admitidas[0];
+  return sus ? { ok: true, sus } : { ok: false, status: 404, error: 'No tienes ningún plan que renovar' };
+}
+
+export const CODIGO_PLAN_YA_NO_SE_VENDE = 'plan-ya-no-se-vende';
+
+/**
+ * Un plan que el estudio ya no vende (`activo: false`) solo se renueva si es su
+ * cuota ACTIVA (el estudio sigue cobrándosela): a quien ya lo dejó no se le vuelve
+ * a vender algo que el estudio retiró.
+ */
+export function planSeRenueva(estadoSuscripcion: string | null | undefined, plan: { activo?: boolean | null }): RenovacionPorLaAlumna {
+  if (plan.activo === false && estadoSuscripcion !== 'ACTIVA') {
+    return { ok: false, codigo: CODIGO_PLAN_YA_NO_SE_VENDE, error: 'Ese plan ya no se vende. Mira los planes de tu estudio.' };
+  }
+  return { ok: true };
+}
+
+export const CODIGO_RENOVACION_COBRANDOSE = 'renovacion-cobrandose';
+export const MENSAJE_RENOVACION_COBRANDOSE = 'Tu renovación se está cobrando ahora mismo. Mira tus pagos en un momento: no hace falta que la pagues.';
+
+/**
+ * Un recibo que ya hay para esa suscripción, ¿se paga ESE? Solo uno de renovación
+ * (`es_renovacion`) y que se pueda cobrar; uno que está en el banco o con un cobro
+ * con su tarjeta en vuelo NO se le da para pagar otra vez.
+ */
+export function reciboPrevioDeRenovacion(
+  r: ReciboParaDeuda & { es_renovacion?: boolean | null; cobro_off_session_clave?: string | null },
+): 'reutilizar' | 'cobrandose' | 'ignorar' {
+  if (r.es_renovacion !== true) return 'ignorar';
+  if (r.estado === 'EN_CURSO' || r.cobro_off_session_clave) return 'cobrandose';
+  return esReciboCobrable(r) ? 'reutilizar' : 'ignorar';
 }

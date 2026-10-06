@@ -78,3 +78,26 @@ export function resumenDeCompra(c: CompraEntregada, fechaLegible?: (iso: string)
   const hasta = c.fechaFin && fechaLegible ? ` hasta el ${fechaLegible(c.fechaFin)}` : '';
   return `${c.plan} activo · ${sesiones}${hasta}`;
 }
+
+// ── RECIBOS (6-oct-2026): pagar un recibo desde la app ──────────────────────
+
+export type LecturaEstadoRecibo =
+  | { tipo: 'pagado'; renovadoHasta: string | null }
+  | { tipo: 'en_proceso'; esperaMinMs?: number }
+  | { tipo: 'sesion' }
+  | { tipo: 'dos-pasos' };
+
+/**
+ * «Pagado» SOLO cuando el servidor lee el recibo COBRADO (`situacionRecibo`). Que
+ * Stripe haya cerrado el Checkout no basta: lo confirma el webhook.
+ */
+export function leerEstadoRecibo(status: number, retryAfter: string | null, cuerpo: unknown): LecturaEstadoRecibo {
+  const base = leerEstadoCompra(status, retryAfter, cuerpo);
+  if (base.tipo === 'sesion' || base.tipo === 'dos-pasos') return base;
+  if (base.tipo === 'en_proceso' && base.esperaMinMs) return base;
+  const r = (cuerpo && typeof cuerpo === 'object' ? (cuerpo as { recibo?: { situacion?: unknown; renovadoHasta?: unknown } }).recibo : undefined);
+  if (status >= 200 && status < 300 && r?.situacion === 'COBRADO') {
+    return { tipo: 'pagado', renovadoHasta: typeof r.renovadoHasta === 'string' ? r.renovadoHasta : null };
+  }
+  return { tipo: 'en_proceso' };
+}

@@ -71,7 +71,14 @@ export interface AvisoRetorno {
 export function avisoDeRetorno(params: URLSearchParams): AvisoRetorno | null {
   if (params.get('tarjeta') === 'ok') return { mensaje: 'Tarjeta guardada ✓' };
   if (params.get('tarjeta') === 'cancel') return { mensaje: 'No se ha guardado ninguna tarjeta' };
-  if (params.get('pago') === 'ok') return { mensaje: 'Pago recibido ✓' };
+  // `?pago=ok` dice que Stripe cerró el pago, no que el recibo conste cobrado (lo
+  // confirma el webhook). Con el recibo en la URL se comprueba antes de decir nada;
+  // sin él (un enlace viejo), no se afirma lo que no se ha mirado.
+  if (params.get('pago') === 'ok') {
+    return params.get('recibo')
+      ? { mensaje: 'Comprobando tu pago…', comprobar: true }
+      : { mensaje: 'Pago enviado. Lo verás aquí en cuanto el estudio lo reciba.' };
+  }
   if (params.get('pago') === 'cancelado') return { mensaje: 'Pago cancelado — no se ha hecho ningún cargo' };
   if (params.get('compra') === 'cancelada') return { mensaje: 'Compra cancelada — no se ha hecho ningún cargo' };
   if (params.get('compra') === 'ok') return { mensaje: 'Confirmando tu compra…', comprobar: true };

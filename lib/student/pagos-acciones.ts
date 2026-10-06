@@ -86,3 +86,49 @@ export async function pagarRenovacion(studioId: string, reciboId: string): Promi
     return { ok: false, error: 'No hemos podido conectar. Comprueba tu conexión y vuelve a intentarlo.' };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECIBOS (6-oct-2026): pagar SIN salir de la app, con el Checkout de Stripe
+// incrustado. Misma rama de recibo de `/api/stripe/checkout` y mismas guardias
+// (doble cobro con el mostrador, la cuota en pausa, la sesión abierta); lo único
+// distinto es que el servidor contesta lo que monta la hoja en vez de un enlace.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InicioPagoRecibo =
+  | { ok: true; clientSecret: string }
+  | { ok: false; error: string; codigo?: string; sesionCaducada?: boolean };
+
+/** Nunca lanza: cualquier fallo es un estado que la hoja sabe pintar. */
+export async function abrirPagoDeRecibo(studioId: string, reciboId: string): Promise<InicioPagoRecibo> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ studioId, reciboId, origen: 'portal', modo: 'incrustado' }),
+    });
+    if (res.status === 401) {
+      return { ok: false, sesionCaducada: true, error: 'Tu sesión ha caducado. Vuelve a entrar: no se te ha cobrado nada.' };
+    }
+    const cuerpo = (await res.json().catch(() => null)) as { clientSecret?: string; error?: string; codigo?: string } | null;
+    // Una avería del servidor no explica nada a la alumna: lo único cierto (aquí aún no hay sesión de pago) es que no
+    // se ha cobrado. Si el propio servidor ya lo dice (la sesión previa sin comprobar), su texto.
+    if (res.status >= 500) {
+      const texto = cuerpo?.error;
+      return { ok: false, error: texto && /cobrad/i.test(texto) ? texto : 'No hemos podido iniciar el pago. No se te ha cobrado nada: inténtalo en un momento.' };
+    }
+    if (!res.ok || !cuerpo?.clientSecret) {
+      return { ok: false, error: mensajeDe(cuerpo?.codigo, cuerpo?.error ?? 'No se ha podido iniciar el pago. No se te ha cobrado nada.'), codigo: cuerpo?.codigo };
+    }
+    return { ok: true, clientSecret: cuerpo.clientSecret };
+  } catch {
+    return { ok: false, error: 'No hemos podido conectar. Comprueba tu conexión: no se te ha cobrado nada.' };
+  }
+}
+
+/** «Renovar mi plan»: prepara (o reutiliza) el recibo de renovación y devuelve su id. */
+export async function prepararRenovacion(studioId: string): Promise<{ ok: true; reciboId: string } | { ok: false; error: string; codigo?: string }> {
+  const prep = await prepararRenovacionPlan(studioId);
+  if ('error' in prep) return { ok: false, error: mensajeDe(prep.codigo, prep.error), codigo: prep.codigo };
+  return { ok: true, reciboId: prep.reciboId };
+}
