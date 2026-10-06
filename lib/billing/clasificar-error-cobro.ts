@@ -44,9 +44,28 @@ import Stripe from 'stripe';
 // hay ningún cargo).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ClaseErrorCobro = 'FALLO_COBRO' | 'ERROR_TRANSITORIO';
+//
+// · CLAVE_CON_OTROS_DATOS (6-oct-2026) — `idempotency_error`: Stripe NO ejecutó esta
+//   petición porque la clave ya se usó con OTROS parámetros. Antes caía en
+//   «transitorio» sin más, y como la clave no cambiaba hasta el siguiente nº de
+//   intento, el recibo quedaba ~24 h sin poder cobrarse y sin que nadie lo viera
+//   (pasaba al cambiar de tarjeta: la clave no llevaba el método). La clave lleva
+//   hoy método e importe (`claveCobroOffSession`), así que esto no debería volver a
+//   pasar; si pasa, es un fallo nuestro y se dice FUERTE, no se reintenta a ciegas.
+//   Para el dinero se trata como un transitorio (no sube el contador, no suelta la
+//   marca: lo que hizo el primer uso de esa clave no se sabe desde aquí y lo
+//   resuelve el conciliador preguntando a Stripe), pero con su propio desenlace.
+//
+// · `idempotency_key_in_use` (otra petición con la MISMA clave sigue en vuelo) es
+//   un transitorio de verdad, venga con el tipo que venga: el cargo de la otra puede
+//   estar entrando. Leerlo como veredicto soltaba la marca y subía el contador.
+
+export type ClaseErrorCobro = 'FALLO_COBRO' | 'ERROR_TRANSITORIO' | 'CLAVE_CON_OTROS_DATOS';
 
 export function clasificarErrorCobro(err: unknown): ClaseErrorCobro {
+  const e = err as { code?: unknown; type?: unknown; rawType?: unknown } | null | undefined;
+  if (e?.code === 'idempotency_key_in_use') return 'ERROR_TRANSITORIO';
+  if (err instanceof Stripe.errors.StripeIdempotencyError || e?.rawType === 'idempotency_error') return 'CLAVE_CON_OTROS_DATOS';
   const esVeredicto = err instanceof Stripe.errors.StripeCardError
     || err instanceof Stripe.errors.StripeInvalidRequestError;
   return esVeredicto ? 'FALLO_COBRO' : 'ERROR_TRANSITORIO';

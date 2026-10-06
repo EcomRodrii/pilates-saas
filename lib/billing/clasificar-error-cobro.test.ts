@@ -48,9 +48,19 @@ test('clave de API mal puesta: transitorio — es fallo nuestro, no de la tarjet
   assert.equal(clasificarErrorCobro(err), 'ERROR_TRANSITORIO');
 });
 
-test('colisión de idempotencia: transitorio (hay otro intento en vuelo con la misma clave)', () => {
+test('⚠️ idempotency_error (la clave ya se usó con otros datos): su propio desenlace, no un transitorio en silencio', () => {
+  // Stripe no ejecutó ESTA petición. Antes se leía como transitorio y el recibo
+  // quedaba ~24 h sin poder cobrarse (pasaba al cambiar la tarjeta).
   const err = new Stripe.errors.StripeIdempotencyError(raw('idempotency_error') as never);
-  assert.equal(clasificarErrorCobro(err), 'ERROR_TRANSITORIO');
+  assert.equal(clasificarErrorCobro(err), 'CLAVE_CON_OTROS_DATOS');
+});
+
+test('⚠️ la misma clave todavía en vuelo (idempotency_key_in_use): transitorio, nunca un veredicto', () => {
+  // Leído como veredicto soltaba la marca y subía el contador con el otro cargo entrando.
+  const comoPeticion = new Stripe.errors.StripeInvalidRequestError({ ...raw('invalid_request_error'), code: 'idempotency_key_in_use' } as never);
+  assert.equal(clasificarErrorCobro(comoPeticion), 'ERROR_TRANSITORIO');
+  const comoIdempotencia = new Stripe.errors.StripeIdempotencyError({ ...raw('idempotency_error'), code: 'idempotency_key_in_use' } as never);
+  assert.equal(clasificarErrorCobro(comoIdempotencia), 'ERROR_TRANSITORIO');
 });
 
 test('un error que ni siquiera es de Stripe (fetch caído, bug nuestro): transitorio', () => {

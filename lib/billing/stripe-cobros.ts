@@ -12,7 +12,7 @@ import { MINUTOS_COBRO_MOSTRADOR_ABANDONADO } from '@/lib/billing/pago-online-al
 import { cerrarCobroOffSession, registrarIntentoCobro } from '@/lib/billing/confirmar-cobro';
 import {
   claveCobroOffSession, clasificarReservaPerdida, COLUMNAS_RELECTURA_RESERVA, desenlaceDeEstadoPi, marcarAdeudoEnCurso, MENSAJE_COBRO_EN_MARCHA,
-  MENSAJE_RESERVA_SIN_CONFIRMAR, reservarCobroOffSession, soltarMarcaCobroOffSession,
+  MENSAJE_CLAVE_CON_OTROS_DATOS, MENSAJE_RESERVA_SIN_CONFIRMAR, reservarCobroOffSession, soltarMarcaCobroOffSession,
   type FilaReciboReserva, type MarcaCobroOffSession,
 } from '@/lib/billing/cobro-off-session-marca';
 import { soltarCobroDeMostradorDelRecibo, soltarPagosEnMarchaAntesDeCobrar } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
@@ -139,10 +139,7 @@ export async function cobrarReciboOffSession(params: {
     params.via ?? 'STAFF',
   );
   if (!permiso.ok) return resultadoSinPermiso(permiso.motivo);
-  // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio). Es
-  // también el valor de la marca de «cobro en marcha» (cobro-off-session-marca.ts).
   const intentosLeidos = (recibo.intentos_reintento as number | null) ?? null;
-  const idempotencyKey = claveCobroOffSession(params.reciboId, intentosLeidos);
   // Se distingue "no existe / no es de este estudio" de "existe pero sin método":
   // con el filtro por studio_id, una socia de otro tenant llega aquí como null y
   // decir "no tiene método de pago" sería engañoso.
@@ -177,6 +174,14 @@ export async function cobrarReciboOffSession(params: {
   }
 
   const amountCents = Math.round(recibo.importe * 100);
+  // Idempotency-Key: recibo + nº de intento + método + importe (ver nota al inicio y
+  // `claveCobroOffSession`). Es también el valor de la marca de «cobro en marcha».
+  // Con el método dentro, cobrar con la tarjeta que la alumna acaba de cambiar es
+  // otro intento (otra clave) y no un `idempotency_error`; lo que impide cobrar dos
+  // veces mientras el de antes siga sin saberse es la marca (`reservarCobroOffSession`).
+  const idempotencyKey = claveCobroOffSession(params.reciboId, intentosLeidos, {
+    paymentMethodId: metodo.paymentMethodId, importeCentimos: amountCents,
+  });
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(amountCents);
   const esSepa = metodo.metodo === 'SEPA';
@@ -397,7 +402,23 @@ export async function cobrarReciboOffSession(params: {
     // tests. El dunning ya trata cualquier código distinto de FALLO_COBRO como
     // "omitido, se reintenta el siguiente barrido sin contar intento" — que
     // con la MISMA clave de idempotencia es exactamente el reintento seguro.
-    if (clasificarErrorCobro(err) === 'ERROR_TRANSITORIO') {
+    const clase = clasificarErrorCobro(err);
+    // `idempotency_error`: Stripe NO ha hecho nada con ESTA petición; la clave ya se
+    // usó con otros datos. La clave lleva método e importe, así que esto es un fallo
+    // nuestro y no puede quedar en silencio (antes se leía como transitorio y el
+    // recibo se quedaba ~24 h sin poder cobrarse). Para el dinero, igual que un
+    // desenlace desconocido: la marca SE QUEDA (lo que hizo el primer uso de la clave
+    // no se sabe desde aquí; lo resuelve el conciliador preguntando a Stripe) y el
+    // contador no sube.
+    if (clase === 'CLAVE_CON_OTROS_DATOS') {
+      Sentry.captureMessage('[cobrarReciboOffSession] idempotency_error: la clave de este intento ya se usó con otros datos', {
+        level: 'error',
+        tags: { area: 'cobros', tipo: 'idempotencia' },
+        extra: { reciboId: params.reciboId, socioId: params.socioId, studioId: params.studioId, idempotencyKey, detalle },
+      });
+      return { ok: false, errorCode: 'COBRO_EN_MARCHA', error: MENSAJE_CLAVE_CON_OTROS_DATOS };
+    }
+    if (clase === 'ERROR_TRANSITORIO') {
       Sentry.captureMessage('[cobrarReciboOffSession] fallo transitorio: el desenlace del cargo es DESCONOCIDO', {
         level: 'warning',
         tags: { area: 'cobros', tipo: 'cobro-transitorio' },

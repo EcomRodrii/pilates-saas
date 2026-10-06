@@ -53,13 +53,35 @@ export const VENTANA_PI_ANTES_MS = 2 * 60_000;
 export const VENTANA_PI_DESPUES_MS = 15 * 60_000;
 
 /**
- * Idempotency-Key de un intento: recibo + nº de intento (`intentos_reintento`).
+ * Idempotency-Key de un intento: recibo + nº de intento (`intentos_reintento`)
+ * + el MÉTODO con el que se cobra + el importe.
+ *
  * Anclarla solo al recibo rompía el dunning (cada reintento devolvía el mismo
  * PaymentIntent fallido); con el nº, cada reintento es un cargo nuevo y dos
  * disparadores del mismo intento siguen deduplicados.
+ *
+ * El método y el importe (6-oct-2026, «Cambiar tarjeta» en la app): con la misma
+ * clave Stripe exige los MISMOS parámetros. Un cargo rechazado a mano no sube el
+ * nº de intento; la alumna cambia la tarjeta, el estudio reintenta, y la clave de
+ * antes con otro `payment_method` daba `idempotency_error`, que se leía como
+ * transitorio: el recibo no se podía cobrar con la tarjeta nueva en ~24 h. Ahora
+ * cambiar de tarjeta (o de importe) es OTRO intento, como dice la regla de la casa
+ * (la clave identifica el intento; cambiar lo que se manda a media operación es un
+ * intento nuevo).
+ *
+ * ⚠️ Lo que impide cobrar dos veces NO es la clave, es la marca: una clave nueva
+ * solo llega a Stripe si `reservarCobroOffSession` gana, y no gana mientras la
+ * marca de un intento anterior siga puesta (`EN_MARCHA`): un desenlace desconocido
+ * la deja puesta hasta que el conciliador pregunta a Stripe. Un rechazo o un 3DS la
+ * sueltan sin dinero de por medio, y un cobro hecho deja el recibo COBRADO, que ya
+ * no se intenta.
  */
-export function claveCobroOffSession(reciboId: string, intentos: number | null | undefined): string {
-  return `offsession-cobro-${reciboId}-i${intentos ?? 0}`;
+export function claveCobroOffSession(
+  reciboId: string,
+  intentos: number | null | undefined,
+  cargo: { paymentMethodId: string; importeCentimos: number },
+): string {
+  return `offsession-cobro-${reciboId}-i${intentos ?? 0}-${cargo.paymentMethodId}-${cargo.importeCentimos}`;
 }
 
 export interface MarcaCobroOffSession {
@@ -156,6 +178,10 @@ export const MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO =
 /** Para la clienta que vuelve a abrir el pago de un recibo que ya pagó online y aún no consta cobrado. */
 export const MENSAJE_RECIBO_YA_PAGADO_ONLINE =
   'Este recibo ya está pagado: lo estamos confirmando. No hace falta que lo pagues otra vez.';
+
+/** `idempotency_error` en el cargo: no se ha cobrado y el recibo queda reservado hasta que el conciliador lo mire. */
+export const MENSAJE_CLAVE_CON_OTROS_DATOS =
+  'Este recibo tuvo hace poco otro intento de cobro con otros datos y no se ha vuelto a cobrar. Se comprueba solo con Stripe en la próxima hora o dos; vuelve a intentarlo después.';
 
 export const MENSAJE_RESERVA_SIN_CONFIRMAR =
   'No se ha podido preparar el cobro: no se ha cobrado nada. Vuelve a intentarlo en un momento.';
