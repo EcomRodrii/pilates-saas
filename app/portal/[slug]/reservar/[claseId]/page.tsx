@@ -258,8 +258,9 @@ export default function FichaClasePage() {
               : aunNoAbre
                 ? <span data-se-abre="" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{ahoraMs === null ? etiquetaSeAbre(aunNoAbre) : `La reserva se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date(ahoraMs))}`}</span>
                 : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
-            {/* Lo que ya dice «Cómo vienes» justo debajo no se repite aquí (`pagoCortoSobra`). */}
-            {!pagoCortoSobra(vienes) && (
+            {/* Lo que ya dice «Cómo vienes» justo debajo no se repite aquí (`pagoCortoSobra`). Sin plan exigido y sin nada
+                que cobrar (`RESERVA_SIN_PAGAR`) tampoco: «Solo con bono» mentiría, y la tarjeta ya dice que no lo necesita. */}
+            {!pagoCortoSobra(vienes) && sinBono?.caso.caso !== 'RESERVA_SIN_PAGAR' && (
               <span data-testid="pago-corto" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)', textAlign: 'right' }}>
                 {textoPagoCorto(clase, bono)}
               </span>

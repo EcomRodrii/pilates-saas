@@ -43,8 +43,9 @@ test.describe('Student PWA · resto de la auditoría', () => {
     await montar(page, bonoQueNoCubre);
     await page.goto(`${base}/reservar/${SESION_ID}`);
     await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 30_000 });
-    // El bono es de Mat y la clase es Reformer: se dice, en vez de prometer.
-    await expect(page.getByText(/tu bono no incluye este tipo de clase/i)).toBeVisible();
+    // El bono es de Mat y la clase es Reformer: se dice, en vez de prometer. En la HOJA: con «exigir plan» en el payload
+    // (como en producción) la tarjeta «Cómo vienes» de detrás trae la misma nota (`notaSinBono`).
+    await expect(page.getByLabel('Reservar clase').getByText(/tu bono no incluye este tipo de clase/i)).toBeVisible();
     await expect(page.getByText(/no pagas nada hoy/i)).toHaveCount(0);
   });
 

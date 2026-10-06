@@ -32,15 +32,16 @@ test('las tres cifras de quien tiene de todo: clases, bono y recuperación', () 
   assert.equal(r.sinCifras, null);
   assert.deepEqual(r.cifras.map((c) => [c.valor, c.texto, c.destino]), [
     ['3', 'clases contigo', null],
-    ['5', 'te quedan · hasta 12 nov', '/portal/e/bonos'],
-    ['1', 'recuperación', '/portal/e/bonos'],
+    ['5', 'sesiones de tu bono · hasta 12 nov', '/portal/e/bonos'],
+    ['1', 'clase por recuperar', '/portal/e/bonos'],
   ]);
-  assert.equal(r.cifras[1].etiqueta, '5 te quedan, hasta 12 nov');
+  assert.equal(r.cifras[1].etiqueta, '5 sesiones de tu bono, hasta 12 nov');
+  assert.equal(r.cifras[2].etiqueta, '1 clase por recuperar');
 });
 
-test('singulares: 1 clase contigo, te queda, 2 recuperaciones', () => {
+test('singulares: 1 clase contigo, 1 sesión de tu bono, 2 clases por recuperar', () => {
   const r = cifrasDeLaSocia(base({ reservas: [reserva('1', 'asistida')], bonos: [bono({ creditosUsados: 9 })], recuperacionesDisponibles: 2 }));
-  assert.deepEqual(r.cifras.map((c) => c.texto), ['clase contigo', 'te queda · hasta 12 nov', 'recuperaciones']);
+  assert.deepEqual(r.cifras.map((c) => c.texto), ['clase contigo', 'sesión de tu bono · hasta 12 nov', 'clases por recuperar']);
 });
 
 test('nunca una cifra en cero, y como mucho tres (los puntos solo si queda hueco)', () => {
@@ -51,17 +52,20 @@ test('nunca una cifra en cero, y como mucho tres (los puntos solo si queda hueco
   assert.ok(!llena.cifras.some((c) => c.destino?.endsWith('/logros')));
   const conHueco = cifrasDeLaSocia(base({ bonos: [bono()], puntos: 40, nombreCreditos: 'pétalos' }));
   assert.deepEqual(conHueco.cifras.map((c) => [c.valor, c.texto, c.destino]), [
-    ['5', 'te quedan · hasta 12 nov', '/portal/e/bonos'],
+    ['5', 'sesiones de tu bono · hasta 12 nov', '/portal/e/bonos'],
     ['40', 'pétalos', '/portal/e/logros'],
   ]);
   for (const c of [...vacia.cifras, ...llena.cifras, ...conHueco.cifras]) assert.notEqual(c.valor, '0');
 });
 
-test('cuota con tope semanal: «Cuota · 2 clases a la semana»; sin tope, el NOMBRE del plan, nunca «sin límite»', () => {
+test('la cuota dice lo mismo que «Lo tuyo»: su tope, «con máximo por actividad» o «sin máximo semanal», nunca «sin límite»', () => {
   const conTope = cifrasDeLaSocia(base({ bonos: [cuota()] }));
-  assert.deepEqual([conTope.cifras[0].valor, conTope.cifras[0].texto], ['Cuota', '2 clases a la semana']);
+  assert.deepEqual([conTope.cifras[0].valor, conTope.cifras[0].texto, conTope.cifras[0].etiqueta], ['Cuota', '2 clases a la semana', 'Cuota, 2 clases a la semana']);
+  const porActividad = cifrasDeLaSocia(base({ bonos: [cuota({ limiteSemanal: null, limitePorTipo: { 'tc-r': 1 } })] }));
+  assert.equal(porActividad.cifras[0].texto, 'con máximo por actividad');
+  // Sin tope: antes salía el NOMBRE del plan («Tarifa plana»), que no dice qué es; ahora la frase de «Lo tuyo».
   const sinTope = cifrasDeLaSocia(base({ bonos: [cuota({ limiteSemanal: null, nombre: 'Tarifa plana' })] }));
-  assert.deepEqual([sinTope.cifras[0].valor, sinTope.cifras[0].texto], ['Cuota', 'Tarifa plana']);
+  assert.deepEqual([sinTope.cifras[0].valor, sinTope.cifras[0].texto], ['Cuota', 'sin máximo semanal']);
   assert.ok(!JSON.stringify(sinTope).includes('sin límite'));
 });
 
@@ -72,13 +76,13 @@ test('cuota y bono a la vez: manda la cuota (la mensual gana)', () => {
 });
 
 test('bono sin caducidad, y de otro año', () => {
-  assert.equal(cifrasDeLaSocia(base({ bonos: [bono({ expiraEn: null })] })).cifras[0].texto, 'te quedan');
-  assert.equal(cifrasDeLaSocia(base({ bonos: [bono({ expiraEn: '2027-01-15' })] })).cifras[0].texto, 'te quedan · hasta 15 ene 2027');
+  assert.equal(cifrasDeLaSocia(base({ bonos: [bono({ expiraEn: null })] })).cifras[0].texto, 'sesiones de tu bono');
+  assert.equal(cifrasDeLaSocia(base({ bonos: [bono({ expiraEn: '2027-01-15' })] })).cifras[0].texto, 'sesiones de tu bono · hasta 15 ene 2027');
 });
 
 test('dos bonos con sesiones: se suman y se dice en cuántos', () => {
   const r = cifrasDeLaSocia(base({ bonos: [bono(), bono({ id: 'b2', creditosUsados: 7 }), bono({ id: 'b3', creditosUsados: 10 })] }));
-  assert.deepEqual([r.cifras[0].valor, r.cifras[0].texto], ['8', 'te quedan · en 2 bonos']);
+  assert.deepEqual([r.cifras[0].valor, r.cifras[0].texto, r.cifras[0].etiqueta], ['8', 'sesiones en tus 2 bonos', '8 sesiones en tus 2 bonos']);
 });
 
 test('un bono caducado o en pausa no cuenta', () => {
@@ -116,4 +120,18 @@ test('«Aún no has venido a ninguna clase» SOLO con la regla de la recién lle
   assert.equal(falto.sinCifras?.tipo, 'reservar');
   assert.equal(falto.sinCifras?.texto, 'Reserva tu próxima clase');
   assert.ok(!JSON.stringify(falto).includes('Aún no has venido'));
+});
+
+test('ninguna cifra dice «te quedan» a secas: cada una dice de qué es (decisión del fundador, 6-oct-2026)', () => {
+  const casos = [
+    base({ bonos: [bono()], recuperacionesDisponibles: 2 }),
+    base({ bonos: [bono(), bono({ id: 'b2' })] }),
+    base({ bonos: [cuota()], recuperacionesDisponibles: 1 }),
+  ];
+  for (const c of casos) {
+    for (const cifra of cifrasDeLaSocia(c).cifras) {
+      assert.doesNotMatch(cifra.texto, /^te quedan?\b/);
+      assert.match(cifra.texto, /bono|cuota|clase|sesi|semana|actividad/);
+    }
+  }
 });

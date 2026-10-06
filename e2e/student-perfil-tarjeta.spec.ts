@@ -41,10 +41,30 @@ test('con clases, bono y una recuperación: las tres cifras, cada una a su sitio
   const tarjeta = page.getByTestId('tarjeta-socia');
   await expect(tarjeta).toBeVisible({ timeout: 45_000 });
   await expect(tarjeta).toContainText(/3\s*clases contigo/);
-  await expect(tarjeta.getByRole('link', { name: /^5 te quedan/ })).toHaveAttribute('href', `/portal/${SLUG}/bonos`);
-  await expect(tarjeta.getByRole('link', { name: '1 recuperación' })).toHaveAttribute('href', `/portal/${SLUG}/bonos`);
+  // Cada cifra dice DE QUÉ es (6-oct-2026): «5 · te quedan» no decía si eran sesiones, clases o días.
+  await expect(tarjeta.getByRole('link', { name: '5 sesiones de tu bono, hasta 31 dic' })).toHaveAttribute('href', `/portal/${SLUG}/bonos`);
+  await expect(tarjeta).toContainText(/5\s*sesiones de tu bono · hasta 31 dic/);
+  await expect(tarjeta.getByRole('link', { name: '1 clase por recuperar' })).toHaveAttribute('href', `/portal/${SLUG}/bonos`);
+  await expect(tarjeta.getByText(/^te quedan?/)).toHaveCount(0);
   // Las clases no llevan a ninguna parte (el Historial aún no las enseña todas).
   await expect(tarjeta.getByRole('link', { name: /clases contigo/ })).toHaveCount(0);
+  expect(pedidas()).toBeGreaterThan(0);
+  expect(a.sinMockear()).toEqual([]);
+});
+
+test('con cuota: la cifra dice lo mismo que «Lo tuyo» de la cuota, y las recuperaciones de qué son', async ({ page }) => {
+  const { a, pedidas } = await montar(page, {
+    bono: null, cuota: { limiteSemanal: 2 },
+    payload: (f) => {
+      socia(f).recuperaciones = [
+        { id: 'rec-1', socioId: SOCIO_ID, estado: 'DISPONIBLE', caducaEl: '2026-09-30' },
+        { id: 'rec-2', socioId: SOCIO_ID, estado: 'DISPONIBLE', caducaEl: '2026-10-15' },
+      ];
+    },
+  });
+  const tarjeta = page.getByTestId('tarjeta-socia');
+  await expect(tarjeta.getByRole('link', { name: 'Cuota, 2 clases a la semana' })).toHaveAttribute('href', `/portal/${SLUG}/bonos`, { timeout: 45_000 });
+  await expect(tarjeta.getByRole('link', { name: '2 clases por recuperar' })).toHaveAttribute('href', `/portal/${SLUG}/bonos`);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);
 });
@@ -100,6 +120,6 @@ test('studio-data falla: ni cifras ni frases de ausencia, y las filas siguen', a
   await expect.poll(pedidas).toBeGreaterThan(0);
   await expect(page.getByTestId('tarjeta-socia-cargando')).toHaveCount(0, { timeout: 45_000 });
   await expect(page.getByTestId('tarjeta-socia')).toHaveCount(0);
-  await expect(page.getByText(/clases contigo|Aún no has venido|te quedan/)).toHaveCount(0);
+  await expect(page.getByText(/clases contigo|Aún no has venido|sesiones? de tu bono|por recuperar/)).toHaveCount(0);
   await expect(page.getByRole('main').getByRole('link', { name: 'Seguridad' })).toBeVisible();
 });
