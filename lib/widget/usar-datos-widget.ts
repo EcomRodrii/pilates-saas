@@ -291,7 +291,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   }, [socia, datos.studioId, recargar, baseUrl]);
 
   const logout = useCallback(async () => {
-    await supabasePortal.auth.signOut();
+    await supabasePortal.auth.signOut({ scope: 'local' });
     refrescarSesion();
   }, [refrescarSesion]);
 

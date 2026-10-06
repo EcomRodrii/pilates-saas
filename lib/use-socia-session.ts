@@ -147,7 +147,7 @@ export function useSociaSession(slug: string) {
   }, []);
 
   const logout = useCallback(async () => {
-    await supabasePortal.auth.signOut();
+    await supabasePortal.auth.signOut({ scope: 'local' });
     try { localStorage.removeItem('ps_portal_socia'); } catch { /* ignore */ }
     setSocia(null); setUsuarioEmail(null); setSegundoPaso(false);
   }, []);

@@ -277,7 +277,7 @@ export function useAuthStudent(slug: string) {
     // Antes de cerrar sesión (después el servidor no sabría de quién es): este
     // dispositivo deja de recibir los avisos de esta cuenta.
     await soltarPushStudent(slug);
-    invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut();
+    invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut({ scope: 'local' });
   }, [slug]);
 
   // Tras «Borrar mi cuenta»: lo mismo que `logout` sin hablar con el servidor de

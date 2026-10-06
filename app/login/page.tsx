@@ -299,7 +299,7 @@ export default function LoginPage() {
       if (resultado?.tipo === 'cuenta-de-otro-producto') {
         // No se deja una sesión válida abierta mostrando un mensaje de
         // bloqueo: eso es justo el estado ambiguo que se quiere evitar.
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         setCuentaDeNetwork(true);
         return;
       }

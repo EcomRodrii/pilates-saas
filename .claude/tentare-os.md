@@ -147,6 +147,12 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `sesionPideCodigo` (nunca `nextLevel === 'aal2'` a secas: lo pone cualquier factor). `/interno`
   sigue exigiendo `aal2` con cualquier factor. «No volver a pedirlo en este dispositivo» viene
   MARCADO: un código por sesión del mismo móvil era «me lo pide mil veces».
+  ⚠️ **«Cerrar sesión» es `signOut({ scope: 'local' })`, nunca `signOut()` a secas** (6-oct-2026):
+  auth-js lo hace 'global' por defecto y revoca la sesión de la cuenta en TODOS los dispositivos
+  (panel, app del estudio, Network: la cuenta es una), que caían en su siguiente renovación. Lo
+  fija `lib/auth/cerrar-sesion-local.test.ts`. Y la recuperación del panel (`lib/recuperar-sesion.ts`)
+  solo manda a entrar si el refresco falla con un 4xx de GoTrue: sin red o con un 5xx
+  (`esFalloTransitorioDeRefresh`) la sesión sigue viva y no se toca.
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
   migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`

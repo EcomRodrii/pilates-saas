@@ -131,7 +131,7 @@ export function useAuthWidget(slug: string, baseUrl: string) {
     }, { studioId });
   }, [baseUrl]);
 
-  const logout = useCallback(async () => { await supabasePortal.auth.signOut(); }, []);
+  const logout = useCallback(async () => { await supabasePortal.auth.signOut({ scope: 'local' }); }, []);
 
   return { loginConPassword, nuevoIntentoEnlace, enviarEnlace, registrar, logout };
 }
