@@ -1,5 +1,6 @@
 'use client';
 
+import { spotsActivosDeLaSala } from '@/lib/student/huecos-sala';
 import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
 import { OCUPA_PLAZA } from '@/lib/student/mapeo';
 
@@ -28,7 +29,7 @@ export interface AforoMin { sesion_id: string; estado: string; spot_id: string |
  * vacía.
  */
 export function huecosDeClase(spots: SpotMin[] | undefined, aforo: AforoMin[] | undefined, salaId: string, sesionId: string) {
-  const deLaSala = (spots ?? []).filter((s) => s.salaId === salaId && s.activo !== false);
+  const deLaSala = spotsActivosDeLaSala(spots, salaId);
   if (deLaSala.length === 0) return null;
   const ocupados = new Set(
     (aforo ?? [])

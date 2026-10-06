@@ -24,6 +24,7 @@ import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/decision/especialista-cartera';
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
+import { BarraPreguntar } from '@/components/asistente/barra-preguntar';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
 
@@ -327,6 +328,10 @@ export default function CentroDeControlPage() {
         </div>
       </div>
 
+      {/* «Pregúntale a Tentare»: abre el panel del asistente. El veredicto sigue
+          siendo lo primero de la pantalla: la barra no empuja nada. */}
+      <BarraPreguntar />
+
       <ContratoDecisionOS hayAnalisis={!modoAprendizaje} />
 
       {/* 1. Estado global */}
@@ -350,6 +355,8 @@ export default function CentroDeControlPage() {
         // un ejemplo rotulado de qué aparecerá aquí cuando lo haya.
         sinHistorial={socios.filter(s => s.activo).length < 5}
         bandejaHoy={<BandejaHoy />}
+        // Tenti piensa mientras dura el análisis (y no el POST: eso es «Analizando…» del botón).
+        analisis={analisis}
       />
 
       <button

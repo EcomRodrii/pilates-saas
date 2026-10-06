@@ -11,9 +11,14 @@
 // ⚠️ Haiku 4.5 NO cachea prefijos de menos de 4.096 tokens, y no avisa
 // (`cache_creation_input_tokens: 0`). Herramientas + este texto tienen que
 // pasar de ahí: se mide con `node scripts/asistente-contar-prefijo.mjs`
-// (`messages.countTokens`, gratis) para los dos juegos de herramientas
-// (propietaria y gerencia). Si alguna vez no llega, se amplía el glosario con
-// algo útil, nunca con relleno.
+// (`messages.countTokens`, gratis). El juego de herramientas es UNO para todos
+// los roles (`HERRAMIENTAS_DEL_ASISTENTE`): un solo prefijo, una sola caché. Si
+// alguna vez no llega, se amplía el glosario con algo útil, nunca con relleno.
+//
+// TTL de una hora en ese punto (la ruta): el prefijo es idéntico en todos los
+// estudios, y con pocas preguntas al día los huecos de 5 a 60 minutos son lo
+// normal; la escritura cuesta 2× en vez de 1,25×, pero se escribe muchas menos
+// veces.
 //
 // Puro: se prueba con `node --test` (prompt.test.ts).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,7 +134,7 @@ Buena respuesta: «Eso vive en la ficha de la alumna, con su consentimiento; no 
  */
 export function contextoDelDia({ hoy, rol }: { hoy: string; rol: Rol }): string {
   const quien = rol === 'MANAGER'
-    ? 'Hablas con la gerente del estudio. No ve el dinero: no tienes herramientas de cobros ni de facturación con ella, y si te pregunta por dinero dile que eso lo ve la propietaria.'
+    ? 'Hablas con la gerente del estudio. No ve el dinero: con ella no uses facturacion_del_periodo ni pagos_pendientes (le darían error), y si te pregunta por cobros, facturación o deudas, dile en una frase que eso lo ve la propietaria.'
     : 'Hablas con la propietaria del estudio.';
   return `Hoy es ${diaLargo(hoy)} de ${hoy.slice(0, 4)} (${hoy}), hora de Madrid. ${quien}`;
 }

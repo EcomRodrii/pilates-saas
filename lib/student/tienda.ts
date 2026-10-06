@@ -27,6 +27,7 @@ import { cicloInicialDe, nombrePeriodo } from '../bono-logic.ts';
 import { ahorroPorcentaje } from '../reservar/ahorro-plan.ts';
 import { precioSueltaParaTipos, type PlanPrecio } from './precio-suelta.ts';
 import { precioEnEuros } from '../reservar/tarjeta-plan.ts';
+import { cubreTipo } from './bono-cubre.ts';
 
 export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio' | 'producto';
 
@@ -244,6 +245,21 @@ export function catalogoTienda(
   return [...dePlanes, ...deServicios, ...deProductos].sort(
     (a, b) => orden[a.familia] - orden[b.familia] || a.precio - b.precio,
   );
+}
+
+/**
+ * ¿Hay algo A LA VENTA que dé derecho a ESTA clase? Una sola regla para toda la app: la ficha de la clase, Inicio y
+ * Bonos la usan para no mandar a la tienda («Ver bonos y cuotas», «Ver precios») a quien no va a encontrar ahí lo que se
+ * le promete.
+ *
+ * Sale del MISMO escaparate que pinta /comprar (`catalogoTienda`: activos, sin la clase de prueba, con precio) y de la
+ * misma cobertura que aplica el servidor (`cubreTipo`). Solo planes —cuota, bono o clase suelta—: un servicio de cita o
+ * un producto físico no reservan una clase del horario. Sin tipo de clase, cualquier plan vale.
+ */
+export function hayALaVentaQueCubra(planes: readonly PlanTienda[] | null | undefined, tipoClaseId: string | null | undefined): boolean {
+  return catalogoTienda(planes, [], []).some((p) =>
+    (p.familia === 'suscripcion' || p.familia === 'bono' || p.familia === 'suelta')
+    && cubreTipo(p, tipoClaseId));
 }
 
 /** Títulos de sección, en el mismo orden que `catalogoTienda`. */

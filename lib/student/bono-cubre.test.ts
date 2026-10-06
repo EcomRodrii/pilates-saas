@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonoParaClase, cubreTipo, tieneBonoQueNoCubre } from './bono-cubre.ts';
+import { bonoParaClase, cubreTipo, esCuota, tieneBonoQueNoCubre, type BonoMin } from './bono-cubre.ts';
 
-const bono = (o: Partial<Parameters<typeof cubreTipo>[0]> = {}) => ({ estado: 'activo', creditosUsados: 0, creditosTotales: 10, ...o });
+const bono = (o: Partial<BonoMin> = {}): BonoMin => ({ estado: 'activo', creditosUsados: 0, creditosTotales: 10, ...o });
 
 test('sin tipos declarados, el bono vale para cualquier clase', () => {
   assert.equal(cubreTipo(bono(), 'tc-reformer'), true);
@@ -118,4 +118,92 @@ test('el comparador es copia del que usa el servidor, en TypeScript y en SQL', (
   assert.ok(orden.indexOf('plan_tipos_clase') < orden.indexOf("coalesce(s.fecha_fin, '9999-12-31'::date)"),
     'En SQL el bono acotado tiene que ir ANTES que la caducidad, como en TypeScript.');
   assert.ok(orden.indexOf("coalesce(s.fecha_fin, '9999-12-31'::date)") < orden.indexOf('s.id collate "C"'));
+});
+
+// ── La mensual gana (5-oct-2026) ──────────────────────────────────────────────
+// El servidor no descuenta ningún bono si una cuota vigente cubre la clase (`elegirBono`, `cubiertaPorMensual`). La app
+// anunciaba igualmente el bono —«Con tu bono · 1 sesión»— a quien tenía cuota y un bono acotado a Reformer.
+
+const cuota = (o: Partial<BonoMin> = {}): BonoMin => bono({ id: 'c-mes', tipoPlan: 'MENSUAL', creditosTotales: Infinity, ...o });
+
+test('esCuota: manda el tipo del plan; sin tipo, el contador', () => {
+  assert.equal(esCuota(cuota()), true);
+  assert.equal(esCuota(bono({ tipoPlan: 'MENSUAL', creditosTotales: 10 })), true, 'una mensual con contador sigue siendo cuota');
+  assert.equal(esCuota(bono({ tipoPlan: 'BONO', creditosTotales: Infinity })), false, 'un bono sin límite NO es una cuota');
+  assert.equal(esCuota(bono({ creditosTotales: Infinity })), true, 'sin tipo, el ilimitado se lee como cuota (lo de antes)');
+  assert.equal(esCuota(bono()), false);
+  assert.equal(esCuota(null), false);
+});
+
+test('cuota general + bono acotado a Reformer: en un Reformer paga la CUOTA', () => {
+  const reformer = bono({ id: 'b-ref', tipoPlan: 'BONO', tiposClaseIds: ['tc-reformer'] });
+  assert.equal(bonoParaClase([reformer, cuota()], 'tc-reformer')?.id, 'c-mes');
+});
+
+test('cuota acotada a Mat + bono general: en un Reformer paga el BONO', () => {
+  const general = bono({ id: 'b-gen', tipoPlan: 'BONO' });
+  assert.equal(bonoParaClase([cuota({ tiposClaseIds: ['tc-mat'] }), general], 'tc-reformer')?.id, 'b-gen');
+  assert.equal(bonoParaClase([cuota({ tiposClaseIds: ['tc-mat'] }), general], 'tc-mat')?.id, 'c-mes');
+});
+
+test('una cuota caducada, en pausa o cancelada no gana: paga el bono', () => {
+  const general = bono({ id: 'b-gen', tipoPlan: 'BONO' });
+  for (const estado of ['expirado', 'pausado', 'cancelado']) {
+    assert.equal(bonoParaClase([cuota({ estado }), general], 'tc-reformer')?.id, 'b-gen', estado);
+  }
+});
+
+test('el contador de una cuota no cuenta: una mensual a 0 sigue cubriendo (el motor no lo gasta)', () => {
+  const mensualA0 = cuota({ creditosTotales: 4, creditosUsados: 4 });
+  assert.equal(bonoParaClase([mensualA0], 'tc-reformer')?.id, 'c-mes');
+});
+
+test('sin tipo de clase, la cuota no se da por buena antes que el bono (igual que el servidor)', () => {
+  const general = bono({ id: 'b-gen', tipoPlan: 'BONO', expiraEn: '2026-10-01' });
+  // Sin saber de qué clase hablamos, el servidor no afirma que la cuota la cubra (`tipoClaseId == null` → no).
+  assert.equal(bonoParaClase([general, cuota({ expiraEn: '2026-12-31' })], null)?.id, 'b-gen');
+});
+
+// ── Paridad con el servidor, ejecutándolo ─────────────────────────────────────
+// No contra el texto de la fuente: se llama a `bonoConsumible` (lib/bono-logic.ts) y a la proyección de la app
+// (`bonoDeSuscripcion` + `bonoParaClase`) con las mismas suscripciones, y tienen que decir lo mismo: el servidor
+// descuenta el bono X ⇔ la app anuncia el bono X; el servidor no descuenta nada ⇔ la app anuncia una cuota o nada.
+import { bonoConsumible } from '../bono-logic.ts';
+import { bonoDeSuscripcion, type PlanMin, type SuscripcionMin } from './mapeo.ts';
+
+test('paridad ejecutada: la app anuncia lo mismo que descontaría el servidor', () => {
+  const HOY = '2026-10-07';
+  const ahora = Date.parse(`${HOY}T09:00:00Z`);
+  const planes: (PlanMin & { studioId: string; tipo: string; sesiones: number | null })[] = [
+    { id: 'p-mes', studioId: 'st', nombre: 'Mensual', tipo: 'MENSUAL', sesiones: null, precio: 69 },
+    { id: 'p-mes-mat', studioId: 'st', nombre: 'Mensual Mat', tipo: 'MENSUAL', sesiones: null, precio: 49, tiposClaseIds: ['tc-mat'] },
+    { id: 'p-bono', studioId: 'st', nombre: 'Bono 8', tipo: 'BONO', sesiones: 8, precio: 96 },
+    { id: 'p-bono-ref', studioId: 'st', nombre: 'Bono Reformer', tipo: 'BONO', sesiones: 10, precio: 120, tiposClaseIds: ['tc-reformer'] },
+    { id: 'p-suelta', studioId: 'st', nombre: 'Clase suelta', tipo: 'PUNTUAL', sesiones: 1, precio: 20 },
+  ];
+  const sus = (id: string, planId: string, o: Partial<SuscripcionMin> = {}) =>
+    ({ id, socioId: 'so-1', studioId: 'st', planId, estado: 'ACTIVA', fechaInicio: '2026-09-01', fechaFin: '2026-12-31', sesionesRestantes: 5, ...o });
+  const escenarios: { nombre: string; subs: ReturnType<typeof sus>[] }[] = [
+    { nombre: 'solo bono', subs: [sus('s-bono', 'p-bono')] },
+    { nombre: 'cuota + bono acotado', subs: [sus('s-mes', 'p-mes', { sesionesRestantes: null }), sus('s-ref', 'p-bono-ref')] },
+    { nombre: 'cuota de Mat + bono general', subs: [sus('s-mes-mat', 'p-mes-mat', { sesionesRestantes: null }), sus('s-bono', 'p-bono')] },
+    { nombre: 'cuota caducada + bono', subs: [sus('s-mes', 'p-mes', { sesionesRestantes: null, fechaFin: '2026-10-01' }), sus('s-bono', 'p-bono')] },
+    { nombre: 'cuota en pausa + bono', subs: [sus('s-mes', 'p-mes', { sesionesRestantes: null, estado: 'PAUSADA' }), sus('s-bono', 'p-bono')] },
+    { nombre: 'bono agotado + suelta', subs: [sus('s-bono', 'p-bono', { sesionesRestantes: 0 }), sus('s-suelta', 'p-suelta', { sesionesRestantes: 1 })] },
+    { nombre: 'bono acotado + general', subs: [sus('s-bono', 'p-bono', { fechaFin: '2026-10-20' }), sus('s-ref', 'p-bono-ref', { fechaFin: '2027-01-31' })] },
+    { nombre: 'renovado con saldo acumulado', subs: [sus('s-bono', 'p-bono', { sesionesRestantes: 11 })] },
+    { nombre: 'sin nada', subs: [] },
+  ];
+  for (const { nombre, subs } of escenarios) {
+    for (const tipo of ['tc-reformer', 'tc-mat']) {
+      const servidor = bonoConsumible('so-1', subs as never, planes as never, HOY, tipo);
+      const bonos = subs.map((s) => bonoDeSuscripcion(s, planes.find((p) => p.id === s.planId), ahora));
+      const app = bonoParaClase(bonos, tipo);
+      if (servidor) {
+        assert.equal(app?.id, servidor.suscripcion.id, `${nombre} · ${tipo}: el servidor descuenta ${servidor.suscripcion.id}`);
+      } else {
+        assert.ok(!app || esCuota(app), `${nombre} · ${tipo}: el servidor no descuenta nada y la app anuncia ${app?.id}`);
+      }
+    }
+  }
 });

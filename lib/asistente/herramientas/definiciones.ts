@@ -241,7 +241,8 @@ export function definicionDe(nombre: string): DefinicionHerramienta<unknown> | u
   return DEFINICIONES.find(d => d.nombre === nombre);
 }
 
-/** Las que se le OFRECEN al modelo para este rol, en el orden fijo del registro. */
+/** Las que este rol puede EJECUTAR, en el orden fijo del registro (la puerta es
+ *  `ejecutarHerramienta`, que lo vuelve a mirar con `permitida`). */
 export function herramientasDelRol(rol: Rol): DefinicionHerramienta<unknown>[] {
   return DEFINICIONES.filter(d => d.permitida(rol));
 }
@@ -250,5 +251,23 @@ export function herramientasDelRol(rol: Rol): DefinicionHerramienta<unknown>[] {
 export function aHerramientasAnthropic(defs: readonly DefinicionHerramienta<unknown>[]): Anthropic.Tool[] {
   return defs.map(d => ({ name: d.nombre, description: d.descripcion, input_schema: d.esquema, strict: true }));
 }
+
+/**
+ * Lo que se le ENSEÑA al modelo, el MISMO juego para la propietaria y para la
+ * gerente: las doce, en el orden fijo, serializadas una sola vez.
+ *
+ * Por qué no `herramientasDelRol(rol)`: las herramientas van las PRIMERAS en el
+ * prompt, así que dos juegos son dos prefijos de caché distintos (~5.000
+ * tokens cada uno, que se escriben por separado y caducan por separado). Con
+ * uno solo, la pregunta de una gerente lee de caché lo que escribió la
+ * propietaria de cualquier estudio, y al revés. La gerente sigue SIN dinero:
+ * `ejecutarHerramienta` mira `permitida(rol)` antes de ejecutar (NO_PERMITIDA,
+ * sin leer nada) y las dos de dinero lo vuelven a mirar dentro; el contexto del
+ * día le dice al modelo que con ella no las use. Lo peor que pasa si las pide
+ * es una vuelta más, barata, que acaba en «eso lo ve la propietaria».
+ */
+export const HERRAMIENTAS_DEL_ASISTENTE: readonly Anthropic.Tool[] = aHerramientasAnthropic(
+  DEFINICIONES.filter(d => ROLES_ASISTENTE.some(r => d.permitida(r))),
+);
 
 export const NOMBRES_DEFINIDOS: readonly NombreHerramienta[] = DEFINICIONES.map(d => d.nombre);

@@ -161,7 +161,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `aal2`: regla de negocio, no de reloj). El código va HMAC con `secretoRateLimit` (sin secreto,
   no se envía), atado a cuenta+sesión, 10 min, 5 intentos contados en SQL con candado.
   **La alumna y la instructora en la app del estudio** (4-oct-2026, opcional: solo quien la activa
-  en Perfil → Contraseña y verificación; sin factor, cero peticiones de más). Misma regla
+  en Perfil → Seguridad; sin factor, cero peticiones de más). Misma regla
   (`faltaSegundoPaso`), la pone el SERVIDOR: `verificarUsuarioSupabase` corta a la sesión con factor
   sin verificar (ni `aal2` ni confiada). ⚠️ Una ruta de arranque contesta `doble_factor_requerido`
   (`usuarioSupabaseConPaso`), nunca un 401 a secas: el cliente lo leería como «sin sesión» y la
@@ -340,7 +340,10 @@ esa lista con su motivo, no un import de paso.
   buscador ('open'/'close'), el saludo ('greet') y el logo guardado ('love'),
   Listo ('finish'), la IA que termina CON resultado ('pop', lo pide quien
   llama con `sonarTenti`; empezar a pensar no suena) y tocarlo ('slap',
-  'annoyed', 'dizzy'). Encendido por defecto; el interruptor «Sonidos de
+  'annoyed', 'dizzy'). Un cambio de ESTADO solo suena si responde a algo que
+  acabas de pedir en esa pantalla y no lleva ya su `pop` (`sonarCambios`: Listo
+  y la migración, `SUENAN_AL_CAMBIAR` en la guardia); las emociones que llegan
+  sin gesto (amor, orgullo, guiño, bostezo, sorpresa), nunca. Encendido por defecto; el interruptor «Sonidos de
   Tenti» (Configuración › Tu panel › Solo para ti, de este navegador, como
   claro u oscuro) lo apaga, y todos los Tentis le hacen caso sin recargar
   (`lib/tenti/preferencia-sonido.ts`). Quién suena y con qué lo cierra la
@@ -363,18 +366,52 @@ esa lista con su motivo, no un import de paso.
   fotogramas y 1,1–1,5 %. En mini la cabeza gira más deprisa porque las
   miradas eran casi todo lo que se pintaba. `e2e/tenti-vivo.spec.ts` lo anota
   en cada pasada.
-- **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
-  aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
-  cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,
-  Analizar), con la forma `X ? 'pensando' : 'reposo'` y el botón en `aria-busy`
-  (ocupado no es deshabilitado: no se atenúa); es el 'pensando' del motor (mira
-  arriba a la derecha) sin la insignia de puntos, y respira por CSS mientras
-  dura la petición.
-  `hecho`, solo Listo. El resto de estados y emociones viven en
-  `/interno/tenti`. Con «reducir movimiento», quieto.
+  **Regla del movimiento sin fin** (`movimiento` del motor, 5-oct por la
+  noche): en lo diario un estado solo se mueve sin fin mientras dure algo que
+  tiene fin y que la pantalla espera. Lo que describe una situación
+  (`esperaTuOk` bota, `dormido` respira, `agobiado` suda, `trabajando`) entra
+  con su gesto, oscila como mucho **4 s** y se queda en su pose; una petición
+  con fin (la herramienta del asistente, `buscando`), **30 s**; solo el
+  catálogo, `sinFin` (lo vigila la guardia). Un `esperaTuOk` botando todo el
+  día en el iPad de recepción serían 60 fps sin fin.
+- **Cada estado, una cosa (`lib/tenti/momentos.ts`)** (fundador, 5-oct por la
+  noche: «que use todos sus estados y emociones, cada uno en su momento»).
+  `SIGNIFICADO` dice qué es cada uno y `MAPA` dónde sale y con qué dato; la
+  guardia y `/interno/tenti` leen esos dos objetos. **Las pantallas no escriben
+  estados: los piden con su dato** (`estadoDeLaBandeja`, `estadoDelAutonomo`,
+  `estadoDeHoy`, `estadoDeLaMigracion`, `estadoDelVeredicto`), salvo los literales que `MAPA` da a
+  ese fichero.
+  `reposo` la firma (nunca «todo bien»: lo dice el texto) · `pensando` una
+  petición tuya en vuelo, con la forma `X ? 'pensando' : 'reposo'` y
+  `aria-busy`, respirando por CSS · `trabajando` Tentare hace un proceso solo
+  («Tentare lo está haciendo», importar en la migración) · `hecho` algo que
+  veías acaba de terminar y el servidor lo confirma: con celebración en los
+  hitos (Listo, el acta de la migración), breve en lo diario (el veredicto al
+  terminar el análisis o al responder, `HECHO_BREVE_MS`) · `error` algo que
+  Tentare hizo por ti no salió (nunca un error de formulario) · `esperaTuOk`
+  algo no avanza sin tu sí · `agobiado` la bandeja llega a `UMBRAL_AGOBIO` (10,
+  **sin medir todavía**: mirar el p90 antes de fiarse) · `pregunta` te pregunta
+  y puedes no contestar (el mensaje del día del Centro de Control, la
+  bienvenida de apertura) · `dormido` el ESTUDIO
+  descansa (hoy ya no quedan clases, o no hay) · `mareado` solo al tocarlo ·
+  `buscando`, con el asistente. Emociones, una vez y sin sonido: `amor` (alguien
+  viene hoy por primera vez), `orgullo` (el día con más alumnas, con ≥ 56 días
+  de historia y ≥ 10 alumnas), `guino` (lo único es un hueco), una vez al día
+  por dispositivo; `bostezo` al volver tras 30 min fuera; `sorpresa` si la
+  bandeja sube con la pantalla delante.
+  ⚠️ `esperaTuOk` es SIEMPRE la cifra de la bandeja única (`nDecidir` o su
+  línea), nunca un recuento propio; sin la bandeja, `reposo`. Nunca en el Centro
+  de Control: sus sugerencias no bloquean nada.
+  ⚠️ `dormido` va SIEMPRE con «Tentare sigue atento…» (`FRASE_DORMIDO`) y nunca
+  donde se firma trabajo autónomo (piloto, Automatizaciones, «lo está
+  haciendo»): se leería «Tentare apagado».
+  ⚠️ `amor` excluye a quien trae historial importado (`tieneHistorialPrevio`) y
+  a quien no tiene ficha: mejor sin `amor` que uno falso con una socia migrada.
+  Con «reducir movimiento», quieto.
 - **El icono es cerrado por tipo**: anchos 18|20|22|24|28 (el 16 no existe: los
   ojos no se leen), siempre `aria-hidden`, sin `titulo`, y la misma API de
-  siempre (vivo o no, los doce sitios no cambian). Lo comprueba tsc en
+  siempre (vivo o no, los sitios no cambian), con los estados de `MAPA` salvo
+  `buscando` y `mareado`, y las emociones del panel salvo `feliz` y `molesto`. Lo comprueba tsc en
   `components/tenti/tenti-icono.tipos.ts`. La silueta (`--tenti-silueta`, ≥ 3:1
   en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
   claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del
@@ -407,8 +444,12 @@ esa lista con su motivo, no un import de paso.
 - **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
   soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
-  (el veredicto, el Contrato, las filas del Centro de Control, el resultado de
-  una adaptación o de una nota). En la web comercial se propone, no se pone.
+  (el Contrato, las filas del Centro de Control, el resultado de una adaptación
+  o de una nota). En la web comercial se propone, no se pone.
+  ⚠️ El veredicto del día SÍ lleva a Tenti desde el 5-oct (fundador: en lugar
+  del anillo; el veto de «la IA que te habla» cae con el asistente), pero
+  nunca junto a un cobro: si aprobar el mensaje cobra, `estadoDelVeredicto`
+  devuelve `null` y no hay cara, ni pensando.
 
 ## Brand System: `brand/` es la fuente de verdad visual (fase 1, 5-oct-2026)
 
@@ -1551,6 +1592,30 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
 - **Fuera de alcance, por decidir:** B2 (el panel apunta a una alumna a las próximas N), reservas por semanas/días,
   autoservicio de la clase fija con nombre por estudio, y que lo automático cubra también pausas (hoy las decide siempre el
   estudio).
+
+## «Pregúntale a Tentare» — el asistente (fase 1, solo lectura, 6-oct-2026)
+
+Servidor en `lib/asistente/` + `app/api/asistente/**`; interfaz: un CHAT a pantalla completa en
+`/asistente` (fundador, 6-oct: «como ChatGPT, Gemini, Claude»), `components/asistente/vista-chat.tsx`,
+con las conversaciones a la izquierda (cajón en móvil) y las tarjetas dentro de la respuesta.
+Puertas en `lib/asistente-context.tsx`. Lo que no se reabre:
+
+- **Interruptor** `ASISTENTE_IA`: `on`, `estudios:<id1>,<id2>` (solo esos) o apagado
+  (`lib/asistente/interruptor.ts`). Las puertas (barra del Centro de Control, fila de ⌘K, ⌘J)
+  preguntan UNA vez por sesión con `GET /api/asistente/saldo?solo=disponible` y no se pintan
+  si el rol (`ROLES_ASISTENTE`), el plan (feature `asistente`) o el servidor dicen que no.
+- **Nada del asistente en el chunk del panel**: el chat es el chunk de la ruta `/asistente`
+  (lo mide `e2e/asistente.spec.ts`). Salir desmonta la vista y corta el stream. La pregunta que
+  trae una puerta viaja en memoria, NUNCA en la URL (puede llevar un nombre).
+- **Tokens**: un solo juego de herramientas para todos los roles (una sola caché; la puerta
+  por rol es `ejecutarHerramienta`), prefijo con TTL de 1 h, historial compactado a
+  pregunta + respuesta (`lib/asistente/historial.ts`), resultados sin repetir el glosario.
+  ⚠️ Cualquier byte que cambie en el prompt o en las herramientas parte la caché de TODOS
+  los estudios: el prompt es una constante y el orden de herramientas es fijo.
+- **Tenti** va solo en el chat (`components/tenti/tenti-asistente.tsx`): grande en el saludo y
+  de avatar VIVO solo en la respuesta en curso (las terminadas, el dibujo quieto, sin canvas),
+  con momentos que traduce `lib/tenti/asistente.ts`; nunca en una tarjeta. Suena una vez
+  ('pop') al terminar una respuesta con datos.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

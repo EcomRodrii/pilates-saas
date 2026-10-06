@@ -115,3 +115,17 @@ test('los archivos por defecto existen de verdad en public/', () => {
     assert.ok(existsSync(join(raiz, ruta)), `falta el archivo ${ruta}`);
   }
 });
+
+// ── La foto PROPIA de la fila del horario (P11, 5-oct-2026) ───────────────────
+
+import { fotoPropia } from './imagenes-por-defecto.ts';
+
+test('fotoPropia: la primera propia; nunca una de por defecto ni una vacía', () => {
+  assert.equal(fotoPropia('https://cdn/tipo.webp', 'https://cdn/sala.webp'), 'https://cdn/tipo.webp');
+  assert.equal(fotoPropia(null, 'https://cdn/sala.webp'), 'https://cdn/sala.webp');
+  assert.equal(fotoPropia('   ', 'https://cdn/sala.webp'), 'https://cdn/sala.webp');
+  // Una de /por-defecto/ en el tipo (la propietaria la eligió como banner) no tapa la propia de la sala.
+  assert.equal(fotoPropia('/por-defecto/clase-reformer.webp', 'https://cdn/sala.webp'), 'https://cdn/sala.webp');
+  assert.equal(fotoPropia('/por-defecto/clase-reformer.webp', '/por-defecto/estudio-hero.webp'), null);
+  assert.equal(fotoPropia(null, undefined), null);
+});

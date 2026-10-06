@@ -50,7 +50,7 @@ test.describe('Student PWA · el andamiaje hace lo que dice', () => {
     // 6 de otras + la suya = 7 de 10 → quedan 3.
     await sembrarSociaCompleta(page, { reservada: true, ocupadas: 6 });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('10 personas · 3 libres')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('[data-fila="plazas"]')).toHaveText('10 plazas · 3 libres', { timeout: 30_000 });
   });
 
   test('`avisos` llegan a la bandeja con su cara', async ({ page }) => {

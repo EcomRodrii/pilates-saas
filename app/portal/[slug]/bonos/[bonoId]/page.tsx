@@ -10,8 +10,11 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getPagos } from '@/lib/student/datos';
 import { euros, fechaCorta, unir } from '@/lib/student/formato';
+import { saldoBono } from '@/lib/student/saldo-bono';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
+import { MovimientosBono } from '@/components/student/domain/MovimientosBono';
+import { esCuota } from '@/lib/student/bono-cubre';
 
 // Detalle de bono (§A.13): qué compró, cuánto le queda y en qué se ha ido.
 //
@@ -64,6 +67,9 @@ export default function DetalleBonoPage() {
   }
 
   const { b, pago } = data;
+  // «Usadas / total» solo cuando es verdad: un bono de UN ciclo (sin renovar) y con no más de las que trae su plan. Con
+  // el saldo real, un bono renovado de 8 con 11 habría dicho «0 / 11»; antes decía «0 / 8» y la tarjeta «Te quedan 8».
+  const saldo = saldoBono(b);
 
   return (
     <StudentShell>
@@ -80,9 +86,9 @@ export default function DetalleBonoPage() {
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
           <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
           {/* Un mensual ilimitado trae `creditosTotales: Infinity`: «0 / Infinity» no es un dato, es un fallo. */}
-          {Number.isFinite(b.creditosTotales)
-            ? <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
-            : <Fila k="Sesiones" v="Sin límite" />}
+          {saldo.ilimitado
+            ? <Fila k="Sesiones" v="Sin límite" />
+            : saldo.de != null && <Fila k="Usadas / total" v={`${saldo.de - saldo.quedan} / ${saldo.de}`} />}
           <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
           {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
               WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un
@@ -96,6 +102,12 @@ export default function DetalleBonoPage() {
           )}
         </div>
 
+        {/* En qué se ha ido y de dónde ha venido cada sesión (P4-D): el ledger de derechos, que sí sabe con qué se pagó
+            cada reserva (`bono_suscripcion_id`). Una cuota no gasta sesiones: no hay lista que enseñar. */}
+        {(b.tipoPlan === 'BONO' || b.tipoPlan === 'PUNTUAL') && Number.isFinite(b.creditosTotales)
+          ? <MovimientosBono slug={estudio.slug} bonoId={b.id} compacta={false} />
+          : esCuota(b) && <p className="t-meta" data-testid="cuota-sin-movimientos">Tu cuota no gasta sesiones.</p>}
+
         {/* ⚠️ Aquí había una sección «Sesiones usadas» que listaba las clases
             pagadas con este bono filtrando `reservas` por `r.bonoId`. Ese campo
             NO LO ESCRIBE NADIE: el único sitio del repo que pone un `bonoId` es
@@ -107,7 +119,8 @@ export default function DetalleBonoPage() {
             Y no es que faltara conectarlo: `proyectarReservas` ya documenta que
             `reservas` no guarda con qué se pagó (consumir el bono es un paso
             aparte y no deja columna). O sea que el dato no existe. Se quita la
-            promesa en vez de fingirla. */}
+            promesa en vez de fingirla. (5-oct-2026: el dato ya existe —el motor de derechos escribe
+            `bono_suscripcion_id` y el ledger—, y la lista de arriba sale de ahí.) */}
       </div>
     </StudentShell>
   );

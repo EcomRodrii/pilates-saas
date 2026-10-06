@@ -5,7 +5,7 @@
 
 import { cargarClientasServidor } from '@/lib/clientas/estado-servidor';
 import {
-  contarPorEstado, DEFINICION_ESTADO, DIAS_SIN_VENIR, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir,
+  contarPorEstado, DIAS_SIN_VENIR, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir,
 } from '@/lib/clientas/estado';
 import { leerBonosPorCaducar } from '@/lib/notificaciones/bonos-inactivas-cron';
 import type { ContextoHerramienta, ResultadoHerramienta } from '../tipos.ts';
@@ -13,7 +13,7 @@ import { marca } from '../referencias.ts';
 import { campo } from '../recorte.ts';
 import { MAX_FILAS } from '../limites.ts';
 import { diaLargo, sumarDiasYmd, type EntradaBonos, type EntradaSinVenir } from './definiciones.ts';
-import { diasDesde, exigir } from './comun.ts';
+import { diasDesde, exigir, sinVacios } from './comun.ts';
 
 
 export async function contarAlumnas(_input: unknown, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> {
@@ -22,8 +22,9 @@ export async function contarAlumnas(_input: unknown, ctx: ContextoHerramienta): 
   const conAlguna = ESTADOS_CLIENTA.filter(e => c[e] > 0);
   return {
     paraModelo: {
+      // Qué significa cada estado ya lo dice el glosario del prompt (en caché): aquí solo los números.
       total: c.TOTAL,
-      porEstado: conAlguna.map(e => ({ estado: ETIQUETA_ESTADO[e], alumnas: c[e], significa: DEFINICION_ESTADO[e] })),
+      porEstado: Object.fromEntries(conAlguna.map(e => [ETIQUETA_ESTADO[e], c[e]])),
       conPlanOBonoParaReservar: c.CON_DERECHO,
     },
     bloques: [{
@@ -54,9 +55,9 @@ export async function alumnasSinVenir(input: EntradaSinVenir, ctx: ContextoHerra
     f.dias === null ? 'Sin fecha' : `${f.dias} días ${f.vino ? 'sin venir' : 'desde el alta, sin venir nunca'}`;
   return {
     paraModelo: {
-      criterio: `Más de ${DIAS_SIN_VENIR} días desde su última clase, o desde su alta si nunca ha venido`,
+      // El criterio («más de 30 días…») está en el glosario del prompt.
       total: filas.length,
-      alumnas: primeras.map(f => ({ alumna: marca(f.ref), dias: f.dias, haVenidoAlgunaVez: f.vino, estado: ETIQUETA_ESTADO[f.estado] })),
+      alumnas: primeras.map(f => sinVacios({ alumna: marca(f.ref), dias: f.dias, estado: ETIQUETA_ESTADO[f.estado], nuncaHaVenido: !f.vino })),
     },
     bloques: [{
       tipo: 'alumnas',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { disponibilidad, avisoCancelacion, transicionValida, COPY } from './maquina-reserva.ts';
+import { disponibilidad, avisoCancelacion, inicioEnEstudio, transicionValida, COPY } from './maquina-reserva.ts';
 import type { Clase, Reserva } from './tipos.ts';
 
 const clase = (over: Partial<Clase> = {}): Clase => ({
@@ -101,7 +101,7 @@ test('la ventana del TIPO de clase manda sobre la del estudio', () => {
   // Estudio con 12 h y clase con 24: a 18 h vista, el estudio diría «gratis» y
   // el tipo dice que ya no. Manda el tipo, que es lo que aplica el servidor.
   const c = clase({ ventanaCancelacionHoras: 24 });
-  const a18h = new Date(new Date(c.fecha + 'T' + c.hora + ':00').getTime() - 18 * 36e5);
+  const a18h = new Date(inicioEnEstudio(c.fecha, c.hora) - 18 * 36e5);
   assert.equal(avisoCancelacion(c, 12, a18h).devolveriaCredito, false);
   assert.equal(avisoCancelacion(clase({ ventanaCancelacionHoras: null }), 12, a18h).devolveriaCredito, true);
 });
@@ -113,7 +113,7 @@ test('el aviso dice CON QUÉ ventana ha decidido, no la del estudio', () => {
   // cancelar 18 h antes pintaba el aviso ámbar (correcto) y a la vez decía
   // «quedan menos de 12 h», que es falso y se contradice solo.
   const c = clase({ ventanaCancelacionHoras: 24 });
-  const a18h = new Date(new Date(c.fecha + 'T' + c.hora + ':00').getTime() - 18 * 36e5);
+  const a18h = new Date(inicioEnEstudio(c.fecha, c.hora) - 18 * 36e5);
   const a = avisoCancelacion(c, 12, a18h);
   assert.equal(a.devolveriaCredito, false);
   assert.equal(a.horasVentana, 24, 'la frase tiene que citar las 24 del tipo, no las 12 del estudio');
@@ -128,6 +128,6 @@ test('una ventana de 0 h del tipo NO cae al valor del estudio', () => {
   // `??` y no `||`: un estudio que deja cancelar hasta el último minuto pone 0,
   // y con `||` se habría leído como «usa las 12 del estudio».
   const c = clase({ ventanaCancelacionHoras: 0 });
-  const a1h = new Date(new Date(c.fecha + 'T' + c.hora + ':00').getTime() - 1 * 36e5);
+  const a1h = new Date(inicioEnEstudio(c.fecha, c.hora) - 1 * 36e5);
   assert.equal(avisoCancelacion(c, 12, a1h).devolveriaCredito, true);
 });

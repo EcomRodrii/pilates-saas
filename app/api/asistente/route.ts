@@ -12,7 +12,7 @@ import { codificarEvento, type EventoAsistente } from '@/lib/asistente/protocolo
 import { PROMPT_SISTEMA, contextoDelDia } from '@/lib/asistente/prompt';
 import { marcarPersonasEnPregunta, tablaReferencias } from '@/lib/asistente/referencias';
 import { puedeUsarAsistente } from '@/lib/asistente/roles';
-import { aHerramientasAnthropic, definicionDe, herramientasDelRol } from '@/lib/asistente/herramientas/definiciones';
+import { HERRAMIENTAS_DEL_ASISTENTE, definicionDe } from '@/lib/asistente/herramientas/definiciones';
 import { ejecutarHerramienta } from '@/lib/asistente/herramientas';
 import { COSTE_MAX_PREGUNTA_USD, MAX_CONTEXTO_TOKENS } from '@/lib/asistente/limites';
 import { MODELO_ASISTENTE } from '@/lib/asistente/modelo';
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const sesionStaff = await verificarSesionStaff(req);
   if (!sesionStaff) return json({ error: 'No autorizado' }, 401);
   if (!puedeUsarAsistente(sesionStaff.rol)) return json({ error: 'No tienes permiso para esto', codigo: 'SIN_PERMISO' }, 403);
-  if (!asistenteEncendido()) return json({ error: 'El asistente no está disponible', codigo: 'NO_DISPONIBLE' }, 404);
+  if (!asistenteEncendido(sesionStaff.studioId)) return json({ error: 'El asistente no está disponible', codigo: 'NO_DISPONIBLE' }, 404);
   const bloqueo = await bloqueoPorFeature(sesionStaff.studioId, 'asistente');
   if (bloqueo) return bloqueo;
   const rafaga = await enforceRateLimit(req, 'asistente', { max: 12, windowSeconds: 60 }, sesionStaff.userId);
@@ -108,7 +108,6 @@ export async function POST(req: NextRequest) {
   const corte = new AbortController();
   req.signal.addEventListener('abort', () => corte.abort(), { once: true });
   const ctx: ContextoHerramienta = { admin, studioId: sesion.studioId, userId: sesion.userId, rol: sesion.rol, ahora, hoy, refs, personas, plan: { decisiones } };
-  const herramientas = herramientasDelRol(sesion.rol);
   const codificador = new TextEncoder();
 
   const cuerpoStream = new ReadableStream<Uint8Array>({
@@ -144,9 +143,14 @@ export async function POST(req: NextRequest) {
         }, {
           historial: historial ? historial.historial : [],
           pregunta: marcada.texto,
-          herramientas: aHerramientasAnthropic(herramientas),
+          // El mismo juego para todos los roles (una sola caché); la puerta por rol es ejecutarHerramienta.
+          herramientas: [...HERRAMIENTAS_DEL_ASISTENTE],
           sistema: [
-            { type: 'text', text: PROMPT_SISTEMA, cache_control: { type: 'ephemeral' } },
+            // Herramientas + prompt: idénticos en todos los estudios y roles. TTL de una
+            // hora (lib/asistente/prompt.ts): con pocas preguntas al día, se reescribe
+            // muchas menos veces. Va ANTES del punto de 5 minutos del historial, como
+            // exige la API (los TTL largos primero).
+            { type: 'text', text: PROMPT_SISTEMA, cache_control: { type: 'ephemeral', ttl: '1h' } },
             { type: 'text', text: contextoDelDia({ hoy, rol: sesion.rol }) },
           ],
           signal: corte.signal,

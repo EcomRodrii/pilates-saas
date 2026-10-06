@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const sesionStaff = await verificarSesionStaff(req);
   if (!sesionStaff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeUsarAsistente(sesionStaff.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
-  if (!asistenteEncendido()) return NextResponse.json({ error: 'El asistente no está disponible', codigo: 'NO_DISPONIBLE' }, { status: 404 });
+  if (!asistenteEncendido(sesionStaff.studioId)) return NextResponse.json({ error: 'El asistente no está disponible', codigo: 'NO_DISPONIBLE' }, { status: 404 });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Conversación no válida' }, { status: 400 });
   const admin = getSupabaseAdmin();

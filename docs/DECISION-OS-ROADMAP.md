@@ -70,6 +70,7 @@ Calibración de porcentajes reales agrupada por `algorithm_version` mayor (≥30
 
 ### FASE G — BUSINESS INTELLIGENCE LAYER (P3 · exploratoria)
 El "CEO Agent": capa conversacional que responde preguntas de causa-raíz cruzando especialistas ("¿por qué cayó la ocupación?" → analiza Agenda + Profesores + Cancelaciones + Pagos + Marketing y sintetiza). La idea más ambiciosa de todo el proyecto — y la más peligrosa de construir pronto: sin especialistas maduros y meses de outcomes reales (Fase E-F completas), sería un agente conversando sobre una base de datos vacía. Entrada a G condicionada a que F esté produciendo calibración real.
+> **6-oct-2026:** el asistente «Pregúntale a Tentare» (`lib/asistente/`, `components/asistente/`) **no es esta Fase G**: responde con herramientas de lectura acotadas (una o dos por pregunta), sin cruzar especialistas ni buscar causas. La causa-raíz sigue siendo G y sigue condicionada a F.
 
 ---
 

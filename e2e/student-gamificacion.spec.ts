@@ -398,10 +398,9 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     f.rewardRules = [REGLA_ASISTENCIA];
     await montar(page, f);
     await page.goto(`${base}/reservar/${SESION_ID}`);
-    await expect(page.getByText('+10 al asistir')).toBeVisible({ timeout: 30_000 });
-    // La etiqueta de la fila es el nombre de la moneda del estudio (aquí, el de
-    // por defecto). El nombre propio llega por otra petición, no por este payload.
-    await expect(page.getByText('Créditos', { exact: true })).toBeVisible();
+    // La fila con icono dice la cifra con el nombre de la moneda del estudio (aquí, el de por defecto). El nombre propio
+    // llega por otra petición, no por este payload.
+    await expect(page.locator('[data-fila="creditos"]')).toHaveText('+10 créditos al asistir', { timeout: 30_000 });
   });
 
   test('sin regla de asistencia ACTIVA, la ficha de la clase no promete créditos', async ({ page }) => {
@@ -409,7 +408,7 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     f.rewardRules = [{ ...REGLA_ASISTENCIA, activa: false }];
     await montar(page, f);
     await page.goto(`${base}/reservar/${SESION_ID}`);
-    await expect(page.getByText('Cancelación', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('[data-fila="cancelacion"]')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/al asistir/)).toHaveCount(0);
   });
 });

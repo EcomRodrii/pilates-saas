@@ -13,7 +13,23 @@ import { Sello } from '@/components/student/ui/Sello';
  * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
  * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
  */
-export function BookingStatus({ state, titulo, mensaje, acciones, onRetry, onWaitlist, onClose, onComprar, oferta }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; /** Qué se le puede ofrecer según el CÓDIGO del rechazo (`lib/student/reserva-acciones.ts`). */ acciones?: TipoAccion[]; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void; /** Algo que ofrecerle justo al terminar (p. ej. hacer fija la clase), entre el mensaje y los botones. */ oferta?: ReactNode }) {
+export function BookingStatus({ state, titulo, mensaje, acciones, onRetry, onWaitlist, onClose, onComprar, oferta, contexto, onVerReservas }: {
+  state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string;
+  /** Qué se le puede ofrecer según el CÓDIGO del rechazo (`lib/student/reserva-acciones.ts`). */
+  acciones?: TipoAccion[];
+  onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void;
+  /** Algo que ofrecerle justo al terminar (p. ej. hacer fija la clase), entre el mensaje y los botones. */
+  oferta?: ReactNode;
+  /**
+   * Desde dónde se abrió la hoja, para que el botón diga a dónde lleva DE VERDAD (`onClose` cierra la hoja):
+   *  · 'ficha': lo que no es una reserva hecha dice «Volver a la clase» (decía «Volver al horario» y no salía de la ficha).
+   *  · 'fila' (el horario): con la reserva hecha, «Seguir en el horario» cierra y «Ver mis reservas» (`onVerReservas`)
+   *    navega; lo demás, «Volver al horario», que desde el horario sí es verdad.
+   * Sin él, todo como siempre (/reservar/confirmacion).
+   */
+  contexto?: 'ficha' | 'fila';
+  onVerReservas?: () => void;
+}) {
   const c = COPY[state];
   const ok = state === 'confirmed';
   // ⚠️ `ok` decide el CONFETI, no el botón. Estar en la lista de espera no es
@@ -49,7 +65,8 @@ export function BookingStatus({ state, titulo, mensaje, acciones, onRetry, onWai
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
         {compraLoArregla && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onComprar}>Ver bonos y suscripciones</button>}
         {!compraLoArregla && (state === 'error' || state === 'offline') && onRetry && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onRetry}>Intentar de nuevo</button>}
-        {onClose && <button type="button" className={'btn btn--full ' + (ok ? 'btn--primary' : 'btn--ghost')} style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onClose}>{apuntada ? 'Ver mis reservas' : state === 'session-expired' ? 'Iniciar sesión' : 'Volver al horario'}</button>}
+        {onClose && <button type="button" className={'btn btn--full ' + (ok ? 'btn--primary' : 'btn--ghost')} style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onClose}>{apuntada ? (contexto === 'fila' ? 'Seguir en el horario' : 'Ver mis reservas') : state === 'session-expired' ? 'Iniciar sesión' : contexto === 'ficha' ? 'Volver a la clase' : 'Volver al horario'}</button>}
+        {contexto === 'fila' && apuntada && onVerReservas && <button type="button" className="btn btn--full btn--ghost" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onVerReservas}>Ver mis reservas</button>}
       </div>
     </div>
   );

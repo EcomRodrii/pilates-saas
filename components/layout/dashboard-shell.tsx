@@ -14,6 +14,7 @@ import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
+import { AsistenteProvider } from '@/lib/asistente-context';
 import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
@@ -379,6 +380,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <PanelPrivacyProvider>
       <PanelThemeProvider className="min-h-dvh bg-background">
         <TourProvider>
+          {/* «Pregúntale a Tentare»: el panel llega aparte, al abrirlo por primera vez. */}
+          <AsistenteProvider>
           <Sidebar />
           {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
               idéntico salvo por los datos: esto es lo único que confirma el salto. */}
@@ -417,7 +420,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </PanelPageTransition>
             </div>
           </main>
-          <WhatsAppFab />
+          {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
+              soporte sigue en el menú de ayuda, no encima del campo. */}
+          {pathname !== '/asistente' && <WhatsAppFab />}
+          </AsistenteProvider>
         </TourProvider>
       </PanelThemeProvider>
     </PanelPrivacyProvider>

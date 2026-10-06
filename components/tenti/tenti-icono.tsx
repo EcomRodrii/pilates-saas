@@ -35,7 +35,11 @@
 // se sale de ella por arriba y por los lados, centrado en el cuerpo: así el
 // cuerpo mide `ancho`, como el icono, y la pantalla no se mueve un píxel.
 //
-// Dos estados, y ninguno más:
+// Sus estados (desde el 5-oct-2026 por la noche, fundador: «que use todos sus
+// estados y emociones, cada uno en su momento»): cada uno significa UNA cosa, y
+// cada sitio lo pide a una función de lib/tenti/momentos.ts con el dato que lo
+// decide (`MAPA`). Fuera quedan 'buscando' (el asistente) y 'mareado' (solo al
+// tocarlo). Dos que conviene recordar:
 //   · 'reposo' — la firma. No es un aviso ni un «todo bien»: si hay algo que
 //     avisar, lo dice el texto de al lado.
 //   · 'pensando' — una petición de verdad en vuelo (un botón de IA, Analizar),
@@ -44,6 +48,10 @@
 //     (`tenti-respira`, globals.css) mientras dura la petición.
 //     Empezar a pensar no suena; terminar con resultado lo suena quien llama
 //     (`sonarTenti('pop')`), porque solo él sabe si hubo resultado.
+// Lo que describe una situación (espera tu visto bueno, dormido…) oscila como
+// mucho 4 s y se queda en su pose (`movimiento`, lib/tenti/motor.ts). Los
+// cambios de estado no suenan salvo con `sonarCambios`, y dentro de un control
+// nunca. Las emociones, una vez por `clave` y en silencio.
 // Con «reducir movimiento», quieto (sin respirar, parpadear ni mirar).
 // En reposo no respira, como en el catálogo: medido, una respiración CSS sin fin
 // en cada icono costaba más hilo principal que los tres canvas juntos.
@@ -78,7 +86,11 @@ import type { PropsTenti } from './tenti';
 /** Anchos cerrados. Por debajo de 18 los ojos miden menos de 2 px y a DPR 1 se
  *  leen como manchas: el 16 no existe a propósito. */
 export type AnchoTentiIcono = 18 | 20 | 22 | 24 | 28;
-export type EstadoTentiIcono = 'reposo' | 'pensando';
+export type EstadoTentiIcono =
+  | 'reposo' | 'pensando' | 'trabajando' | 'hecho' | 'error' | 'esperaTuOk' | 'pregunta' | 'agobiado' | 'dormido';
+/** Las emociones que el icono puede tener; 'feliz' es del logo guardado y
+ *  'molesto' solo sale al tocarlo. */
+export type EmocionTentiIcono = 'amor' | 'orgullo' | 'guino' | 'bostezo' | 'sorpresa';
 /** `invertida`: la superficie de debajo es la tinta del texto (bg-primary,
  *  bg-brand). En oscuro --primary es casi el color del cuerpo (1,34:1), así que
  *  ahí la silueta toma el color del texto de esa superficie (currentColor). */
@@ -89,6 +101,12 @@ export interface PropsTentiIcono {
   ancho: AnchoTentiIcono;
   estado?: EstadoTentiIcono;
   sobre?: SuperficieTentiIcono;
+  /** Una vez por `clave`, sin sonido y cuando ya se ve. */
+  emocion?: { tipo: EmocionTentiIcono; clave: string } | null;
+  /** 'hecho' con celebración (los hitos) en vez de breve. */
+  celebra?: boolean;
+  /** Sus cambios de estado suenan (y el estado con el que aparece). Dentro de un control, nunca. */
+  sonarCambios?: boolean;
   className?: string;
 }
 
@@ -127,7 +145,9 @@ const TentiCanvas = dynamic<PropsTenti>(
 /** Lo que hace de un sitio «el clic es de otro»: ahí Tenti no se toca. */
 const DENTRO_DE_UN_CONTROL = 'a, button, label, summary, [role="button"], [role="link"], [role="switch"], [role="menuitem"], [role="tab"]';
 
-export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', className }: PropsTentiIcono) {
+export function TentiIcono({
+  ancho, estado = 'reposo', sobre = 'normal', emocion = null, celebra = false, sonarCambios = false, className,
+}: PropsTentiIcono) {
   const caja = useRef<HTMLSpanElement>(null);
   // Se sabe después de montar (hay que mirar el DOM): hasta entonces, no tocable.
   const [tocable, setTocable] = useState(false);
@@ -171,6 +191,9 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
             saludaUnaVez={tocable}
             // El traje, solo donde se toca: la misma regla.
             conTraje={tocable}
+            celebra={celebra}
+            sonarCambios={tocable && sonarCambios}
+            emocion={emocion}
             reserva={reserva}
             className="block"
           />
@@ -181,7 +204,7 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
 }
 
 /** El dibujo quieto, en SVG: la reserva mientras llega el motor o si no puede pintarse. */
-function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
+export function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
   const propio = useId();
   const id = (n: string) => `tenti-${n}-${propio}`;
   return (

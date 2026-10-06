@@ -71,17 +71,73 @@ test.describe('Student PWA · compartir', () => {
     expect(copiado).toContain('/acceso/registro?ref=socio-e2e-1');
   });
 
-  test('«Compartir esta clase» manda la frase de la clase y la página pública del estudio', async ({ page }) => {
+  test('«Compartir esta clase» manda la frase de la clase y ESA clase en la página pública, con quién invita', async ({ page }) => {
     await conHojaDelNavegador(page);
     await sembrarSociaCompleta(page);
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    // Es un icono sobre la foto (P04): su nombre accesible es la frase que antes llevaba el botón.
     const boton = page.getByTestId('compartir-clase');
-    await expect(boton).toHaveText(/Compartir esta clase/, { timeout: 45_000 });
+    await expect(boton).toHaveAccessibleName('Compartir esta clase', { timeout: 45_000 });
     await boton.click();
 
     await expect.poll(async () => (await compartidos(page)).length).toBeGreaterThan(0);
     const [d] = await compartidos(page);
     expect(d.text).toMatch(/^¿Te vienes a Reformer (hoy|mañana|el .+) a las \d{2}:\d{2}\?$/);
-    expect(new URL(d.url ?? '').pathname).toBe(`/reservar/${SLUG}`);
+    const url = new URL(d.url ?? '');
+    expect(url.pathname).toBe(`/reservar/${SLUG}`);
+    expect(url.searchParams.get('sesion')).toBe(SESION_ID);
+    expect(url.searchParams.get('invita')).toBe('socio-e2e-1');
+  });
+
+  test('«Compartir esta clase» sin hoja: copia el enlace y lo dice solo si de verdad se copió', async ({ page }) => {
+    await sinHojaDelNavegador(page);
+    await sembrarSociaCompleta(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const boton = page.getByTestId('compartir-clase');
+    await expect(boton).toHaveAccessibleName('Copiar el enlace de esta clase', { timeout: 45_000 });
+    await boton.click();
+    await expect(page.getByText('Enlace copiado. Pégalo donde quieras.')).toBeVisible();
+    const copiado = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copiado).toContain(`/reservar/${SLUG}?sesion=${SESION_ID}&invita=socio-e2e-1`);
+  });
+
+  test('«Compartir esta clase» sin hoja y con el portapapeles roto: lo dice, no «copiado»', async ({ page }) => {
+    await sinHojaDelNavegador(page);
+    // El portapapeles rechaza la escritura (Safari sin gesto, permisos…): contador de intentos, o el test no prueba nada.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __intentosCopia: number };
+      w.__intentosCopia = 0;
+      Object.defineProperty(navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async () => { w.__intentosCopia += 1; throw new Error('denegado'); },
+      });
+    });
+    await sembrarSociaCompleta(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('compartir-clase').click({ timeout: 45_000 });
+    await expect(page.getByText('No hemos podido copiarlo. Inténtalo de nuevo.')).toBeVisible();
+    await expect(page.getByText(/Enlace copiado/)).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __intentosCopia: number }).__intentosCopia)).toBeGreaterThan(0);
+  });
+
+  test('«Invita a una amiga a esta clase» sale con lo que gana, solo si el estudio premia invitar', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page, { reglasCreditos: [{ trigger: 'REFERIDO_AMIGO', creditos: 100, topeMensual: 3 }] });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const fila = page.getByTestId('invitar-a-clase');
+    await expect(fila).toContainText('Invita a una amiga a esta clase', { timeout: 45_000 });
+    await expect(fila).toContainText('ganas 100 créditos cuando venga a su primera clase · hasta 3 amigas al mes');
+    await fila.click();
+    await expect.poll(async () => (await compartidos(page)).length).toBeGreaterThan(0);
+    const [d] = await compartidos(page);
+    expect(new URL(d.url ?? '').searchParams.get('invita')).toBe('socio-e2e-1');
+  });
+
+  test('sin la regla de invitar, no hay fila de premio (y el icono de compartir sigue)', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('compartir-clase')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId('invitar-a-clase')).toHaveCount(0);
   });
 });

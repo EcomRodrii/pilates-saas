@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // alias y descarta el fichero entero SIN fallar, así que el test dejaría de
 // existir sin que nadie se entere. Los `import type` sí pueden usar `@/`
 // porque se borran al compilar.
-import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, proyectarClases, tiposDeLasClases, OCUPA_PLAZA } from './mapeo.ts';
+import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, proyectarBonos, proyectarClases, tiposDeLasClases, OCUPA_PLAZA } from './mapeo.ts';
 
 // Los mapeos entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -175,28 +175,83 @@ test('la vigencia usa el día del ESTUDIO, no el de UTC', () => {
   assert.equal(b.estado, 'expirado');
 });
 
-test('bono de una suscripción no activa: expirado', () => {
-  for (const estado of ['PAUSADA', 'CANCELADA', 'EXPIRADA']) {
-    const b = bonoDeSuscripcion(
-      { id: 's5', planId: 'p1', estado, fechaInicio: '2026-08-01', fechaFin: '2026-12-01', sesionesRestantes: 4 },
-      PLAN_BONO,
-      Date.parse('2026-09-03'),
-    );
-    assert.equal(b.estado, 'expirado', `estado ${estado}`);
-  }
+test('una suscripción no activa dice lo que le pasa: en pausa, cancelada o expirada', () => {
+  // Antes las tres caían en «expirado»: una cuota en PAUSA salía «Expirado» y una CANCELADA con fecha futura decía
+  // «caducó <fecha que aún no ha llegado>».
+  const con = (estado: string, fechaFin = '2026-12-01') => bonoDeSuscripcion(
+    { id: 's5', planId: 'p1', estado, fechaInicio: '2026-08-01', fechaFin, sesionesRestantes: 4 },
+    PLAN_BONO,
+    Date.parse('2026-09-03'),
+  ).estado;
+  assert.equal(con('PAUSADA'), 'pausado');
+  assert.equal(con('CANCELADA'), 'cancelado');
+  assert.equal(con('EXPIRADA'), 'expirado');
+  // La FECHA sigue mandando: ya caducada, es expirada aunque esté en pausa.
+  assert.equal(con('PAUSADA', '2026-06-01'), 'expirado');
 });
 
-test('bono sin plan: no revienta, cuenta a cero', () => {
-  // Un plan borrado deja la suscripción huérfana. La pantalla tiene que pintar
-  // algo, no caerse.
+test('bono sin plan: no revienta y enseña su saldo REAL, sin «de cuántas»', () => {
+  // Un plan borrado deja la suscripción huérfana. La pantalla tiene que pintar algo, no caerse. Antes llegaba con
+  // `creditosTotales: 0` —«bono activo sin contador»—, y la hoja decía «Sin bono activo» al lado de «Con tu bono».
   const b = bonoDeSuscripcion(
     { id: 's6', planId: 'fantasma', estado: 'ACTIVA', fechaInicio: '2026-08-01', fechaFin: null, sesionesRestantes: 2 },
     undefined,
     Date.parse('2026-09-03'),
   );
   assert.equal(b.nombre, 'Bono');
-  assert.equal(b.creditosTotales, 0);
+  assert.equal(b.creditosTotales - b.creditosUsados, 2);
+  assert.equal(b.sesionesDelPlan, null);
+  assert.equal(b.tipoPlan, null);
   assert.equal(b.precio, 0);
+});
+
+test('saldo REAL: un bono renovado de 8 con 11 dice 11, no 8', () => {
+  // `renovar_bono_idempotente` SUMA al mismo bono. Con «totales = sesiones del plan» la app pintaba 8.
+  const b = bonoDeSuscripcion(
+    { id: 's7', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-08-01', fechaFin: '2026-12-01', sesionesRestantes: 11 },
+    PLAN_BONO,
+    Date.parse('2026-09-03'),
+  );
+  assert.equal(b.creditosTotales - b.creditosUsados, 11);
+  assert.equal(b.sesionesDelPlan, 8);
+  assert.equal(b.estado, 'activo');
+});
+
+test('el bono lleva el tipo de su plan, sus sesiones y sus topes por actividad (solo los de verdad)', () => {
+  const sus = { id: 's8', planId: 'p2', estado: 'ACTIVA', fechaInicio: '2026-09-01', fechaFin: null, sesionesRestantes: null };
+  const b = bonoDeSuscripcion(sus, { ...PLAN_MENSUAL, tipo: 'MENSUAL', limitePorTipo: { 'tc-ref': 2, 'tc-mat': null } }, Date.parse('2026-09-03'));
+  assert.equal(b.tipoPlan, 'MENSUAL');
+  assert.equal(b.sesionesDelPlan, null);
+  assert.deepEqual(b.limitePorTipo, { 'tc-ref': 2 });
+  assert.equal(bonoDeSuscripcion(sus, { ...PLAN_BONO, tipo: 'BONO' }, Date.parse('2026-09-03')).tipoPlan, 'BONO');
+  // Un tipo que la app no conoce no se adivina.
+  assert.equal(bonoDeSuscripcion(sus, { ...PLAN_BONO, tipo: 'RARO' }, Date.parse('2026-09-03')).tipoPlan, null);
+});
+
+test('una CUOTA con contador a 0 no se agota: el servidor la sigue dando por buena', () => {
+  // `socio_tiene_entitlement_activo` acepta una MENSUAL sin mirar el saldo, y el motor no gasta ese contador.
+  const sus = { id: 's9', planId: 'p2', estado: 'ACTIVA', fechaInicio: '2026-09-01', fechaFin: '2026-12-01', sesionesRestantes: 0 };
+  assert.equal(bonoDeSuscripcion(sus, { ...PLAN_MENSUAL, tipo: 'MENSUAL', sesiones: 8 }, Date.parse('2026-09-03')).estado, 'activo');
+  assert.equal(bonoDeSuscripcion({ ...sus, planId: 'p1' }, { ...PLAN_BONO, tipo: 'BONO' }, Date.parse('2026-09-03')).estado, 'agotado');
+});
+
+test('proyectarBonos: «renovado» sale de SUS recibos de renovación, uno por suscripción', () => {
+  const d = {
+    planesTarifa: [{ ...PLAN_BONO, tipo: 'BONO' }],
+    socia: {
+      suscripciones: [
+        { id: 's-ren', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-08-01', fechaFin: null, sesionesRestantes: 7 },
+        { id: 's-uno', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-08-01', fechaFin: null, sesionesRestantes: 3 },
+      ],
+      recibos: [
+        { id: 'r1', estado: 'COBRADO', suscripcionId: 's-ren', esRenovacion: true },
+        { id: 'r2', estado: 'COBRADO', suscripcionId: 's-uno', esRenovacion: false },
+      ],
+    },
+  };
+  const [ren, uno] = proyectarBonos(d as never, Date.parse('2026-09-03'));
+  assert.equal(ren.renovado, true);
+  assert.equal(uno.renovado, false);
 });
 
 // ── La foto de la clase nunca puede quedar vacía ────────────────────────────
@@ -273,4 +328,29 @@ test('un reembolso del estudio no le sale como deuda, ni un recibo anulado', asy
   const pago = (estado: 'reimbursed' | 'cancelled' | 'refunded') => ({ id: estado, concepto: 'x', importe: 50, fecha: '2026-09-01', estado, metodo: '' });
   assert.equal(totalPendiente([pago('reimbursed'), pago('cancelled')]), 0);
   assert.equal(totalPendiente([pago('refunded')]), 50);
+});
+
+// ── Antelación mínima: cuándo se CIERRA la reserva ──────────────────────────
+// La app no la usaba aunque viaja en el payload: ofrecía reservar una clase que el servidor ya había cerrado.
+
+test('cierraEl: el del tipo manda, null hereda el del estudio y 0 es sin cierre', () => {
+  const base = {
+    salas: [{ id: 's1', nombre: 'Sala 1' }],
+    instructores: [{ id: 'i1', nombre: 'Ana', activo: true }],
+    sesiones: [{ id: 'x1', tipoClaseId: 't1', salaId: 's1', instructorId: 'i1', inicio: '2026-09-06T10:00:00+02:00', fin: '2026-09-06T10:50:00+02:00', aforoMaximo: 10 }],
+    planesTarifa: [],
+  };
+  const cierre = (minTipo: number | null, minEstudio: number | null | undefined) => proyectarClases({
+    ...base,
+    studio: minEstudio === undefined ? null : { reservaVentanaMinimaMinutos: minEstudio },
+    tiposClase: [{ id: 't1', nombre: 'Reformer', reservaVentanaMinimaMinutos: minTipo }],
+  } as never)[0].cierraEl;
+  // 60 min del tipo: se cierra a las 09:00 de Madrid (07:00 UTC).
+  assert.equal(cierre(60, 120), '2026-09-06T07:00:00.000Z');
+  // El tipo no lo fija: el del estudio.
+  assert.equal(cierre(null, 120), '2026-09-06T06:00:00.000Z');
+  // 0 (en el tipo o en el estudio) y nada: sin cierre.
+  assert.equal(cierre(0, 120), null);
+  assert.equal(cierre(null, 0), null);
+  assert.equal(cierre(null, undefined), null);
 });

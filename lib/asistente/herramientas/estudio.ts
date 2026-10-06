@@ -55,9 +55,8 @@ export async function queRevisarHoy(_input: unknown, ctx: ContextoHerramienta): 
       esperaTuDecision: estado.decidir.map(l => ({ que: l.texto, cuantas: l.n })),
       totalPorDecidir: estado.nDecidir,
       tentareLoTieneEnMarcha: estado.enMarcha.map(l => ({ que: l.texto, cuantas: l.n })),
-      resueltoHoy: estado.resuelto.map(l => ({ que: l.texto, cuantas: l.n })),
-      mensajeDelDia: veredicto,
-      nota: 'Las líneas que dependen de un permiso que este rol no tiene no se cuentan.',
+      ...(estado.resuelto.length ? { resueltoHoy: estado.resuelto.map(l => ({ que: l.texto, cuantas: l.n })) } : {}),
+      ...(veredicto ? { mensajeDelDia: veredicto } : {}),
     },
     bloques: [{
       tipo: 'revisar',
@@ -106,7 +105,6 @@ export async function resumenDelEstudio(_input: unknown, ctx: ContextoHerramient
       clasesDeHoy: { clases: dia.clases, alumnasApuntadas: dia.alumnas, huecosLibres: dia.huecos, quePidenAtencion: dia.problemas },
       cosasQueEsperanTuDecision: nDecidir,
       dinero: dinero ?? 'no disponible para este rol',
-      notaDinero: dinero ? 'Bruto, con IVA y antes de comisiones; lo cobrado es neto de devoluciones.' : undefined,
     },
     bloques: [{
       tipo: 'metricas',

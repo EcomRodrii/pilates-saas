@@ -198,6 +198,8 @@ export interface FormaDeGanar {
   creditos: number;
   /** Solo compras: cada cuántos euros se dan los `creditos`. */
   porCadaEuros: number | null;
+  /** Solo «traer a una amiga»: cuántas amigas al mes premia como mucho (`decidirPremioReferido`). `null` = sin tope. */
+  topeMensual: number | null;
 }
 
 const euros = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
@@ -245,8 +247,27 @@ export function formasDeGanar(reglas: ReadonlyArray<ReglaDef>): FormaDeGanar[] {
     return [{
       trigger, titulo, detalle: detalle(r), creditos: r.creditos,
       porCadaEuros: trigger === 'COMPRA' ? (r.unidadEuros && r.unidadEuros > 0 ? r.unidadEuros : 1) : null,
+      topeMensual: trigger === 'REFERIDO_AMIGO' && r.topeMensual && r.topeMensual > 0 ? r.topeMensual : null,
     }];
   });
+}
+
+/**
+ * Lo que gana por invitar, en UNA frase para toda la app (la ficha de la clase y Perfil). `null` si el estudio no
+ * premia invitar (sin `REFERIDO_AMIGO` activa).
+ *
+ * ⚠️ La condición va en la frase porque es la de verdad, no adorno: el premio lo paga el check-in de la PRIMERA clase
+ * a la que viene la amiga, y solo si su ficha ya lleva `referido_por` —que se escribe al crear su cuenta con el
+ * enlace— y es nueva en el estudio (`decidirPremioReferido`), con el tope mensual de la regla. «Si se apunta, ganas»
+ * prometía un premio a quien paga sin crear cuenta, y ese no llega.
+ *
+ * `moneda`: el nombre de los créditos del estudio YA resuelto (`nombreCreditos`), para no meter imports aquí.
+ */
+export function premioPorInvitar(formas: ReadonlyArray<FormaDeGanar>, moneda: string): string | null {
+  const f = formas.find((x) => x.trigger === 'REFERIDO_AMIGO');
+  if (!f) return null;
+  const tope = f.topeMensual ? ` · hasta ${f.topeMensual} ${f.topeMensual === 1 ? 'amiga' : 'amigas'} al mes` : '';
+  return `Si es nueva y crea su cuenta con tu enlace, ganas ${f.creditos} ${moneda} cuando venga a su primera clase${tope}`;
 }
 
 /** Lo que da asistir a una clase; `null` = el estudio no premia la asistencia. */

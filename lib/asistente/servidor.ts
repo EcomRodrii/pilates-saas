@@ -5,6 +5,8 @@ import { todasLasFilas, type Pagina } from '../clientas/estado-servidor.ts';
 import type { Rol } from '../types.ts';
 import type { BloqueAsistente } from './tipos.ts';
 import type { TablaReferencias, PersonaDelEstudio } from './referencias.ts';
+import { asistenteEncendidoPara } from './interruptor.ts';
+import { historialParaElModelo } from './historial.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La parte del asistente que toca la base de datos: conversaciones, mensajes,
@@ -21,12 +23,14 @@ export interface SesionAsistente {
 }
 
 /**
- * Interruptor: APAGADO salvo `ASISTENTE_IA=on` (y con clave de Anthropic). Así
- * el servidor puede estar en producción antes que la interfaz, y se apaga en el
- * acto si hace falta, sin desplegar código.
+ * Interruptor: APAGADO salvo `ASISTENTE_IA=on` o `ASISTENTE_IA=estudios:<id>,…`
+ * (solo en esos estudios), y siempre con clave de Anthropic
+ * (lib/asistente/interruptor.ts). Así el servidor puede estar en producción
+ * antes que la interfaz, el fundador lo prueba en su estudio antes que nadie, y
+ * se apaga en el acto si hace falta.
  */
-export function asistenteEncendido(): boolean {
-  return process.env.ASISTENTE_IA === 'on' && !!process.env.ANTHROPIC_API_KEY;
+export function asistenteEncendido(studioId: string): boolean {
+  return asistenteEncendidoPara(process.env.ASISTENTE_IA, !!process.env.ANTHROPIC_API_KEY, studioId);
 }
 
 // ── Conversaciones ──────────────────────────────────────────────────────────
@@ -35,6 +39,7 @@ export interface ConversacionCargada {
   id: string;
   referencias: unknown;
   tokensContexto: number;
+  /** Compactado para el modelo: pregunta y respuesta de cada turno, sin herramientas. */
   historial: Anthropic.MessageParam[];
   siguienteOrden: number;
 }
@@ -58,7 +63,8 @@ export async function cargarConversacion(admin: SupabaseClient, sesion: SesionAs
     id: conv.id as string,
     referencias: conv.referencias,
     tokensContexto: (conv.tokens_contexto as number) ?? 0,
-    historial: mensajes.data.map(m => ({ role: m.rol, content: m.contenido })),
+    // Al modelo, de los turnos pasados, solo pregunta y respuesta (lib/asistente/historial.ts).
+    historial: historialParaElModelo(mensajes.data.map(m => ({ role: m.rol, content: m.contenido }))),
     siguienteOrden: mensajes.data.length ? mensajes.data[mensajes.data.length - 1].orden + 1 : 0,
   };
 }

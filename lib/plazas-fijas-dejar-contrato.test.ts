@@ -41,10 +41,11 @@ test('la ruta tiene la acción, con el límite de peticiones y sin más identida
 });
 
 test('el botón solo sale si el estudio lo permite y la plaza es suya (id), y el diálogo cuenta lo que pasa', () => {
-  const tarjeta = leer('components/student/domain/PlazaFijaCard.tsx');
+  // «Mis clases → Fija» (rediseño del 5-oct-2026): la fila «Dejar mi clase fija» de `MiClaseFija`.
+  const tarjeta = leer('components/student/domain/MiClaseFija.tsx');
   // El botón sale en la tarjeta; el diálogo (con su petición y su aviso) es UNA pieza que usan la tarjeta y el interruptor de «Auto reservable».
   const dialogo = leer('components/student/domain/DialogoDejarClaseFija.tsx');
-  assert.match(tarjeta, /\(estudio\.puedePedirPlazaFija === true \|\| plaza\.deClaseFija\) && !!plaza\.id/);
+  assert.match(tarjeta, /\(estudio\.puedePedirPlazaFija === true \|\| p\.deClaseFija\) && !!p\.id/);
   assert.match(tarjeta, /<DialogoDejarClaseFija plaza=\{dejando\}/, 'la tarjeta usa el diálogo compartido, no una copia');
   assert.match(dialogo, /dejarPlazaFija\(estudio\.slug, estudio\.id, plaza\.id\)/);
   assert.match(dialogo, /if \(!r\.ok\) \{[\s\S]*?setError\(r\.error\);[\s\S]*?return;/, 'si falla, la plaza SIGUE y el diálogo queda abierto');

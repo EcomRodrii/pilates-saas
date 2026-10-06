@@ -1,4 +1,5 @@
 // ¿Qué bono sirve para ESTA clase? Sin imports ni `@/` (ver push-estado.ts).
+// Y ¿es una cuota? (`esCuota`): una sola definición para toda la app.
 //
 // Un plan puede estar acotado a ciertos tipos de clase (`plan_tipos_clase`), y
 // el servidor lo aplica al reservar (`planCubreTipoClase`, lib/bono-logic.ts).
@@ -16,17 +17,40 @@ export interface BonoMin {
   expiraEn?: string | null;
   /** Desempate estable, igual que el servidor. */
   id?: string;
+  /**
+   * El tipo de su plan (`planes_tarifa.tipo`): `MENSUAL` es una cuota; `BONO` y `PUNTUAL`, sesiones que se gastan.
+   * Ausente o `null` = no se sabe (sin plan, o un tipo que la app no conoce).
+   */
+  tipoPlan?: string | null;
+}
+
+/**
+ * ¿Es una CUOTA? Una sola definición para toda la app (la fila corta, la del horario, la hoja, «Cómo vienes»…).
+ *
+ * Manda el tipo del plan, como en el servidor (`elegirBono`, lib/bono-logic.ts): una `MENSUAL` es cuota tenga o no
+ * contador, y un bono sin límite que NO es mensual no lo es. Solo cuando el tipo no se sabe se deduce del contador
+ * (ilimitado = cuota), que es lo único que la app miraba antes.
+ */
+export function esCuota(b: Pick<BonoMin, 'creditosTotales' | 'tipoPlan'> | null | undefined): boolean {
+  if (!b) return false;
+  if (b.tipoPlan != null) return b.tipoPlan === 'MENSUAL';
+  return !Number.isFinite(b.creditosTotales);
 }
 
 /** La regla del servidor: sin tipos declarados, el plan vale para todo. */
-export function cubreTipo(b: BonoMin, tipoClaseId: string | null | undefined): boolean {
+export function cubreTipo(b: Pick<BonoMin, 'tiposClaseIds'>, tipoClaseId: string | null | undefined): boolean {
   const tipos = b.tiposClaseIds;
   if (!tipos || tipos.length === 0) return true;
   if (!tipoClaseId) return true;
   return tipos.includes(tipoClaseId);
 }
 
-/** ¿Le queda saldo? Un bono ilimitado tiene `creditosTotales` a 0 y nunca se agota. */
+/**
+ * ¿Le queda saldo? El ilimitado llega con `creditosTotales: Infinity` (`bonoDeSuscripcion`) y pasa por la comparación.
+ *
+ * La rama `creditosTotales === 0` es solo DEFENSA: desde que el bono lleva su saldo real (`max(plan, restantes)`), uno
+ * activo con sesiones nunca llega con 0. Si llegara (un bono construido a mano), se trata como antes: sin contador.
+ */
 function tieneSaldo(b: BonoMin): boolean {
   return b.creditosTotales === 0 || b.creditosUsados < b.creditosTotales;
 }
@@ -46,9 +70,26 @@ function tieneSaldo(b: BonoMin): boolean {
  * Aquí solo puede haber una regla.
  */
 export function bonoParaClase<T extends BonoMin>(bonos: T[], tipoClaseId: string | null | undefined): T | null {
+  const cuota = cuotaQueCubre(bonos, tipoClaseId);
+  if (cuota) return cuota;
   const validos = bonos.filter((b) => b.estado === 'activo' && tieneSaldo(b) && cubreTipo(b, tipoClaseId));
   if (validos.length === 0) return null;
   return [...validos].sort(compararPorElegibilidad)[0] ?? null;
+}
+
+/**
+ * LA MENSUAL GANA: si una cuota vigente cubre esta clase, la paga ella y no se descuenta ningún bono. Es la regla de
+ * `elegirBono` (lib/bono-logic.ts, `cubiertaPorMensual`) y de su gemela en SQL, y no una tercera: misma vigencia (la
+ * proyección ya la deja en `activo`), misma cobertura y el mismo silencio sin tipo de clase — sin saber DE QUÉ clase se
+ * habla, el servidor no afirma que la cuota la cubra (así no regala una sesión al devolverla).
+ *
+ * Sin esto, con una cuota y un bono acotado a Reformer, la app anunciaba «Con tu bono · 1 sesión» y el servidor no
+ * descontaba nada. El saldo no cuenta: el motor no gasta el contador de una cuota.
+ */
+function cuotaQueCubre<T extends BonoMin>(bonos: T[], tipoClaseId: string | null | undefined): T | null {
+  if (!tipoClaseId) return null;
+  const cuotas = bonos.filter((b) => b.estado === 'activo' && esCuota(b) && cubreTipo(b, tipoClaseId));
+  return [...cuotas].sort(compararPorElegibilidad)[0] ?? null;
 }
 
 /**

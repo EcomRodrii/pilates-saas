@@ -6,32 +6,21 @@ import { Foto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 
 /**
- * La cabecera con foto de una clase: la comparten la ficha de una clase del
- * horario (`/reservar/[claseId]`) y la de una clase fija (`/clases-fijas/[sesionId]`),
- * que enseñan la misma clase para dos cosas distintas.
+ * La cabecera con foto de la ficha de una clase (`/reservar/[claseId]`; `/clases-fijas/[sesionId]` ya solo redirige
+ * aquí). P10 (5-oct-2026): SOLO la foto, entera, con volver y lo de la derecha (favorita y compartir) encima. El título,
+ * el nivel y el logo van debajo, en la página: sobre la foto tapaban justo lo que la foto enseña, y su legibilidad
+ * dependía de la foto que subiera cada estudio.
  *
- * Va con `StudentShell headerTransparente`: la foto sube hasta arriba y la
- * cabecera flota encima (el `marginTop: -56` de la página compensa su hueco).
+ * Va con `StudentShell headerTransparente`: la foto sube hasta arriba y la cabecera del estudio flota encima.
  */
-export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips: string[]; derecha?: React.ReactNode }) {
+export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl'>; derecha?: React.ReactNode }) {
   const volver = useVolver();
   return (
-    // ⚠️ `background`: `clase.fotoUrl` puede no existir, y sin tinta detrás el
-    // héroe degradaba a crema — título y cabecera en blanco sobre claro,
-    // ilegibles. `#0F0F0C` es la misma tinta que el kit pone bajo la foto del
-    // layout de acceso (`.st-auth-hero`).
-    // ⚠️ `minHeight` y el texto EN FLUJO, no una altura fija con el bloque
-    // anclado abajo. Con 290 px fijos y el logo apilado encima de la etiqueta,
-    // el bloque crecía hacia ARRIBA hasta pisar el botón de volver (visto en un
-    // iPhone el 30-sep: el logo tapaba la flecha y cortaba «MAT + CIRCUITO»).
-    // El `paddingTop` reserva la cabecera flotante + el botón de volver, así
-    // que un título de dos líneas empuja la foto hacia abajo en vez de subir.
+    // ⚠️ `background`: `clase.fotoUrl` puede no cargar, y sin tinta detrás el hueco quedaba crema. `#0F0F0C` es la misma
+    // tinta que el kit pone bajo la foto del layout de acceso (`.st-auth-hero`).
     <section
-      style={{
-        position: 'relative', minHeight: 290, overflow: 'hidden', background: '#0F0F0C',
-        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-        padding: 'calc(56px + var(--safe-top) + 34px + 18px) 16px 13px',
-      }}
+      data-testid="ficha-heroe"
+      style={{ position: 'relative', height: 'calc(290px + var(--safe-top))', overflow: 'hidden', background: '#0F0F0C' }}
     >
       <Foto
         src={clase.fotoUrl}
@@ -41,9 +30,10 @@ export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips:
         prioritaria
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
       />
+      {/* Solo el velo de ARRIBA: el que necesitan la cabecera flotante y los círculos. Abajo ya no hay texto que leer. */}
       <div
         aria-hidden
-        style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,15,15,.36), rgba(15,15,15,0) 36%, rgba(15,15,15,0) 55%, rgba(15,15,15,.64))' }}
+        style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(15,15,15,.36), rgba(15,15,15,0) 40%)' }}
       />
       <button
         type="button"
@@ -55,35 +45,6 @@ export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips:
         <Icono nombre="flecha-izquierda" tamano={18} />
       </button>
       {derecha && <div style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}>{derecha}</div>}
-      <div style={{ position: 'relative', color: '#fff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* El LOGO de la clase: el banner HEREDA (tipo → sala → estudio), así
-              que a menudo es la misma foto para todas y el logo es lo único que
-              la identifica. No hereda a propósito: sin logo propio no se pinta
-              nada. Al lado del título y no encima: apilado subía el bloque. */}
-          {clase.logoUrl && (
-            <span
-              aria-hidden
-              data-testid="logo-clase"
-              style={{
-                display: 'block', flexShrink: 0, width: 48, height: 48, borderRadius: 13,
-                background: `url(${clase.logoUrl}) center/cover`,
-                border: '1.5px solid rgba(255,255,255,.7)',
-                boxShadow: '0 4px 14px rgba(0,0,0,.28)',
-              }}
-            />
-          )}
-          <div style={{ minWidth: 0 }}>
-            <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
-            <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {chips.map((t) => (
-            <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }

@@ -60,8 +60,8 @@ export async function facturacionDelPeriodo(input: EntradaFacturacion, ctx: Cont
   ];
   return {
     paraModelo: {
+      // Bruto, con IVA, neto de devoluciones: lo dice el prompt (en caché), no cada resultado.
       periodo: p.texto,
-      nota: NOTA_DINERO,
       cobrado: euros(actual.neto),
       cobros: actual.nCobros,
       clientasQuePagaron: actual.clientasQuePagaron,
@@ -95,7 +95,7 @@ export async function pagosPendientes(input: EntradaPendientes, ctx: ContextoHer
   const pendiente = r.porCobrar + r.impagado;
   return {
     paraModelo: {
-      nota: 'Pendiente = por cobrar + impagado. Lo que está en el banco sin confirmar va aparte y todavía no es deuda.',
+      // Pendiente = por cobrar + impagado; lo del banco va aparte: en el glosario del prompt.
       pendiente: euros(pendiente),
       porCobrar: euros(r.porCobrar),
       impagado: euros(r.impagado),

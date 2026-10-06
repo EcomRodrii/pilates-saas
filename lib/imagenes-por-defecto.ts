@@ -28,7 +28,11 @@
 //   · Miniaturas de los listados de clases. La misma foto ocho veces en una
 //     pantalla se lee como un error; el color del tipo de clase distingue
 //     mejor. La foto de clase se pinta grande (detalle, sesión guiada) y ahí
-//     sí lleva default.
+//     sí lleva default. Desde el 5-oct-2026 (P11, decisión del fundador) la fila
+//     del horario lleva foto, pero SOLO la PROPIA que el estudio subió para ese
+//     tipo de clase o esa sala (`fotoPropia`): nunca una de `/por-defecto/`
+//     —aunque la propietaria la eligiera como banner— ni la del estudio. Sin
+//     foto propia, el color del tipo, como siempre.
 
 /** Los huecos de imagen de un estudio. Uno por forma, no por pantalla. */
 export type HuecoImagen = 'portada' | 'vertical' | 'banda' | 'banner' | 'correo';
@@ -149,6 +153,21 @@ type Candidata = string | null | undefined;
 /** `true` para `null`, `undefined`, `''` y para una cadena de solo espacios. */
 function vacia(url: Candidata): boolean {
   return !(url ?? '').trim();
+}
+
+/**
+ * La foto PROPIA para la miniatura de una clase en el horario: la primera candidata que no esté vacía y que no sea una
+ * de las de Tentare (`/por-defecto/`), o `null`. El orden lo pone quien llama (el tipo de clase antes que la sala). La
+ * del estudio no se pasa nunca: repetida en cada fila se lee como un error (ver la nota de arriba).
+ */
+export function fotoPropia(...candidatas: Candidata[]): string | null {
+  for (const c of candidatas) {
+    if (vacia(c)) continue;
+    const url = (c as string).trim();
+    if (url.includes('/por-defecto/')) continue;
+    return url;
+  }
+  return null;
 }
 
 /**

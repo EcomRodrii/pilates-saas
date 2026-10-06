@@ -17,6 +17,7 @@
 import { createPrivateKey, sign as firmar } from 'node:crypto';
 
 import { leerEndpointApns } from './apns-endpoint.ts';
+import { categoriaIos } from './acciones-ios.ts';
 export { PREFIJO_APNS, endpointApns, esEndpointApns, leerEndpointApns } from './apns-endpoint.ts';
 
 export interface ConfigApns {
@@ -57,17 +58,23 @@ export function jwtApns(cfg: Pick<ConfigApns, 'keyId' | 'teamId' | 'clavePrivada
  * título, texto, enlace e id de recibo), para que los dos caminos digan lo mismo.
  */
 export function payloadApns(payloadWeb: string): string {
-  let p: { title?: string; body?: string; url?: string; tag?: string; nid?: string } = {};
+  let p: { title?: string; body?: string; url?: string; tag?: string; nid?: string; ev?: string; sid?: string | null } = {};
   try { p = JSON.parse(payloadWeb) as typeof p; } catch { /* payload vacío: aviso sin texto */ }
+  // Los botones al mantener pulsado el aviso («Aceptar la plaza», «No puedo ir»):
+  // la categoría tiene que existir en la app (AppDelegate.swift), ver `acciones-ios.ts`.
+  const categoria = categoriaIos(p.ev);
   return JSON.stringify({
     aps: {
       alert: { title: p.title ?? '', body: p.body ?? '' },
       sound: 'default',
       ...(p.tag ? { 'thread-id': p.tag } : {}),
+      ...(categoria ? { category: categoria } : {}),
     },
     // Lo lee la app al pulsar el aviso (`alPulsarAviso`): ruta interna y recibo.
     url: p.url ?? '/',
     nid: p.nid ?? null,
+    // Para los botones: qué aviso es y de qué clase. Nunca datos de la alumna.
+    ...(categoria ? { ev: p.ev, sid: p.sid ?? null } : {}),
   });
 }
 

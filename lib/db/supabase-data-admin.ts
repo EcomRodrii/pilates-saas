@@ -3,7 +3,7 @@ import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/ren
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
-import { configLegalDeFila } from '@/lib/legal-textos';
+import { configLegalDeFila, tieneTextoPropio } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tokenCoincideConHash } from '@/lib/token-hash';
 import { exigirLectura } from '@/lib/exigir-lectura';
@@ -422,6 +422,14 @@ function studioPublico(r: RowStudios) {
     // enseñan (arriba); viaja también suelto para que quien recomponga el texto
     // en el cliente con `configLegalDe(studio, …)` tenga los mismos datos.
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
+    // Si el estudio cobra las cancelaciones tardías («Cobrar si cancela tarde»), como
+    // `cancelar_reserva_plaza` (`coalesce(…, true)`): sin esto la app de la alumna
+    // avisaba de un cargo por cancelar tarde que el estudio había apagado.
+    penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
+    // Con términos de servicio propios el guardia de cobro nunca deja cobrar una
+    // penalización (`terminos_propios`): la app no debe avisar de un cargo. Del
+    // texto GUARDADO, no del compuesto de arriba (que nunca está vacío).
+    terminosPropios: tieneTextoPropio(r.terminos_servicio as string | null | undefined),
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
@@ -431,6 +439,10 @@ function studioPublico(r: RowStudios) {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     reservaAntelacionHora: horaHHMM(r.reserva_antelacion_hora),
     permiteListaEspera: r.permite_lista_espera ?? true,
+    // El estudio aprueba cada reserva (migr 20260730192445). Solo decide si la fila del horario de la alumna ENSEÑA el
+    // atajo de «Reservar»: quien decide es `crearReservaPublica` con `heredaOverride`. Sin esta línea llegaría
+    // `undefined` y la fila ofrecería el atajo en un estudio que aprueba a mano.
+    requiereAprobacion: r.requiere_aprobacion ?? false,
     // Plaza fija desde la app (migr 20260915231920): la app solo enseña «pedir
     // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
     // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.
@@ -1121,6 +1133,16 @@ export async function fetchPublicStudioData(
         .in('tipo', ['CREAR', 'PAUSAR']),
     ]);
 
+  // ⚠️ Si falla alguna de las lecturas de las que sale «no tiene nada» (suscripciones, reservas, clases fijas,
+  // recuperaciones, citas), se dice: la app daría la bienvenida —«Bienvenida a X», «Aún no has venido a ninguna clase»—
+  // a una alumna de años por un 504 suelto (cada lectura se traga su error y devuelve una lista vacía). No cambia el modo
+  // de fallo de nadie más: /reservar y el widget reciben lo de siempre. Una lectura nueva de la que salga «no tiene
+  // nada» se añade a esta lista.
+  const lecturaIncompleta = [susRes, resRes, plazasRes, recupRes, citasRes].some((r) => r.error);
+  if (lecturaIncompleta) {
+    reportDbError('[fetchPublicStudioData] lectura de la socia incompleta', [susRes, resRes, plazasRes, recupRes, citasRes].find((r) => r.error)?.error);
+  }
+
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
   const misReciboIds = misRecibos.map(r => r.id);
   // Facturas no tiene socio_id directo, pero SÍ recibo_id: antes se traía la
@@ -1169,6 +1191,8 @@ export async function fetchPublicStudioData(
         diaSemana: p.dia_semana ?? null, horaInicio: p.hora_inicio ?? null, salaId: p.sala_id ?? null,
         desde: p.desde_propuesta ?? null, hasta: p.hasta_propuesta ?? null, creadaEn: p.creada_en,
       })),
+      // Ver `lecturaIncompleta` arriba: con esto la app no afirma «no tiene nada» por un fallo de lectura.
+      incompleta: lecturaIncompleta,
     },
   };
 }
@@ -4396,15 +4420,22 @@ export async function ejecutarCancelacionReserva(
   // `socio_id` sale de la RESERVA (no de params.socioId, que puede ser null si
   // lo dispara el sistema) — es a ELLA a quien hay que devolverle el bono.
   const { data: cancelada } = await admin
-    .from('reservas').select('sesion_id, socio_id').eq('id', params.reservaId).maybeSingle();
+    .from('reservas').select('sesion_id, socio_id, cancelada_tardia').eq('id', params.reservaId).maybeSingle();
   let bonoDevuelto = false;
-  let tardia = false;
   // Las plazas fijas materializadas (res-pf-) las inserta el cron CONFIRMADAS sin
   // consumir bono (materializar_plazas_fijas no toca el bono). Por tanto cancelarlas
   // NO debe devolver una sesión que nunca se descontó: su compensación es la
   // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
   // fija regalaba una sesión de bono + una recuperación (doble compensación).
   const esPlazaFija = params.reservaId.startsWith('res-pf-');
+  // Una clase fija también se cancela tarde, y entonces no hay recuperación y
+  // puede haber penalización (la detecta `cancelar_reserva_plaza`, que no
+  // distingue `res-pf-`). Antes `tardia` solo se calculaba en el bloque de
+  // devolver el bono, así que para una clase fija llegaba SIEMPRE `false` y su app
+  // la trataba como cancelada a tiempo. Es solo el DATO que se informa: lo que se
+  // devuelve y lo que se penaliza no cambia. Se lee de la reserva, donde lo dejó el
+  // trigger con la ventana del tipo de clase por encima de la del estudio.
+  let tardia = esPlazaFija && row?.era_confirmada === true && cancelada?.cancelada_tardia === true;
   if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id && !esPlazaFija) {
     const pol = await cargarPoliticaEstudio(admin, params.studioId);
     const { data: ses } = await admin
