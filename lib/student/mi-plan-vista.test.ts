@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   deudaDeLaCuota, etiquetaCaducidad, lineaRecibo, recibosPagables, recibosQueDebe, resumenClaseFija, subtituloTienda, textoCobro, textoHasta,
   hayDeudaQueNoSePagaAqui, porPagarEnLaApp, textoQuedaSemana, textoRecuperaciones, textoRenovacionCuota, textoSaldoDe, verLoQueEs,
+  cuotaConTope, topeDeCuota,
 } from './mi-plan-vista.ts';
 import type { Bono, Pago, PlazaFijaVista } from './tipos.ts';
 
@@ -152,4 +153,15 @@ test('la línea de la cuota: «pendiente» solo si lo paga ella; si lo cobra otr
   // De otra cuota, o ya cobrado: nada.
   assert.equal(deudaDeLaCuota([pago({ bonoId: 'otra', cobro: { como: 'APP' } })], 'q1', HOY), null);
   assert.equal(deudaDeLaCuota([pago({ bonoId: 'q1', estado: 'success' })], 'q1', HOY), null);
+});
+
+test('el tope de la cuota, UNA frase para «Lo tuyo» y la tarjeta de Perfil', () => {
+  assert.equal(topeDeCuota({ limiteSemanal: 2 }), '2 clases a la semana');
+  assert.equal(topeDeCuota({ limiteSemanal: 1 }), '1 clase a la semana');
+  // Por actividad: «Lo tuyo» no tiene los nombres de los tipos, y no nombra uno con su id.
+  assert.equal(topeDeCuota({ limiteSemanal: null, limitePorTipo: { 'tc-r': 1 } }), 'con máximo por actividad');
+  assert.equal(topeDeCuota({ limiteSemanal: null }), 'sin máximo semanal');
+  assert.equal(topeDeCuota({ limiteSemanal: 0, limitePorTipo: {} }), 'sin máximo semanal');
+  assert.equal(cuotaConTope({ limiteSemanal: 0, limitePorTipo: { 'tc-r': 2 } }), true);
+  assert.equal(cuotaConTope({}), false);
 });

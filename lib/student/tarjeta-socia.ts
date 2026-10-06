@@ -3,16 +3,17 @@
 
 import { loQueTengo } from './lo-que-tengo.ts';
 import { fechaCorta } from './formato.ts';
+import { topeDeCuota } from './mi-plan-vista.ts';
 import type { Bono, Clase, Reserva } from './tipos.ts';
 
 export interface CifraSocia {
   /** La cifra («3») o la palabra («Cuota»). */
   valor: string;
-  /** Lo que la explica: «clases contigo», «te quedan · hasta 12 nov». */
+  /** Lo que la explica, diciendo DE QUÉ es la cifra: «clases contigo», «sesiones de tu bono · hasta 12 nov». */
   texto: string;
   /** A dónde lleva. Sin destino, no es un enlace (las clases asistidas: el Historial aún no las enseña todas). */
   destino: string | null;
-  /** El nombre accesible del enlace («5 te quedan, hasta 12 nov»). */
+  /** El nombre accesible del enlace («5 sesiones de tu bono, hasta 12 nov»). */
   etiqueta: string;
 }
 
@@ -60,22 +61,29 @@ export function cifrasDeLaSocia({
   // 2. Lo que tiene: la cuota delante (la mensual gana, como el servidor); si no, la suma de sus bonos con sesiones.
   // Lo que tiene sale del MISMO selector que Inicio y Mi plan (`loQueTengo`): la cuota que manda y lo que le queda en sus
   // bonos con `saldoBono`. Antes esta tarjeta lo decidía a su manera.
+  //
+  // ⚠️ La cifra dice DE QUÉ es (decisión del fundador, 6-oct-2026): «10 · te quedan · hasta 31 dic» no decía si eran
+  // sesiones, clases o días. Con las palabras fijas de la app: «sesiones de tu bono», la cuota con la MISMA frase que
+  // «Lo tuyo» (`topeDeCuota`) y «clases por recuperar» como su línea de recuperaciones.
   const t = loQueTengo({ bonos });
   if (t.cuota) {
-    const tope = t.cuota.limiteSemanal && t.cuota.limiteSemanal > 0 ? `${t.cuota.limiteSemanal} ${t.cuota.limiteSemanal === 1 ? 'clase' : 'clases'} a la semana` : t.cuota.nombre;
+    const tope = topeDeCuota(t.cuota);
     cifras.push({ valor: 'Cuota', texto: tope, destino: href('/bonos'), etiqueta: `Cuota, ${tope}` });
   } else if (t.sesionesEnBonos > 0 && t.bono) {
     const quedan = t.sesionesEnBonos;
-    const verbo = quedan === 1 ? 'te queda' : 'te quedan';
-    const detalle = t.bonosConSesiones > 1
-      ? `en ${t.bonosConSesiones} bonos`
-      : t.bono.expiraEn ? `hasta ${diaMes(t.bono.expiraEn, hoy)}` : '';
-    const texto = detalle ? `${verbo} · ${detalle}` : verbo;
-    cifras.push({ valor: String(quedan), texto, destino: href('/bonos'), etiqueta: `${quedan} ${verbo}${detalle ? `, ${detalle}` : ''}` });
+    const sesiones = quedan === 1 ? 'sesión' : 'sesiones';
+    const deQue = t.bonosConSesiones > 1 ? `${sesiones} en tus ${t.bonosConSesiones} bonos` : `${sesiones} de tu bono`;
+    const hasta = t.bonosConSesiones === 1 && t.bono.expiraEn ? `hasta ${diaMes(t.bono.expiraEn, hoy)}` : '';
+    cifras.push({
+      valor: String(quedan),
+      texto: hasta ? `${deQue} · ${hasta}` : deQue,
+      destino: href('/bonos'),
+      etiqueta: `${quedan} ${deQue}${hasta ? `, ${hasta}` : ''}`,
+    });
   }
 
   if (recuperacionesDisponibles > 0) {
-    const texto = recuperacionesDisponibles === 1 ? 'recuperación' : 'recuperaciones';
+    const texto = recuperacionesDisponibles === 1 ? 'clase por recuperar' : 'clases por recuperar';
     cifras.push({
       valor: String(recuperacionesDisponibles), texto,
       // Las recuperaciones viven en Mi plan (decisión del fundador, 6-oct-2026): la cifra lleva SIEMPRE allí.

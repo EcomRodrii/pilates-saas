@@ -13,6 +13,7 @@ import type { FamiliaProducto } from './tienda.ts';
 import type { Bono, Pago, PlazaFijaVista } from './tipos.ts';
 import { nombreDia } from './plaza-fija.ts';
 import { pagosPendientes } from './pagos-agrupados.ts';
+import { textoTopes } from './saldo-bono.ts';
 
 /** «31 oct», sin el día de la semana. */
 export function diaMes(iso: string): string {
@@ -46,6 +47,19 @@ export function textoRenovacionCuota(c: Pick<Bono, 'expiraEn' | 'bajaAlVencer' |
 /** «Próxima renovación: 1 nov» sin importe, para la línea corta de Inicio. */
 export function textoRenovacionCorto(c: Pick<Bono, 'expiraEn' | 'bajaAlVencer' | 'tipoPlan' | 'precio' | 'estado'>): string {
   return textoRenovacionCuota({ ...c, precio: 0 });
+}
+
+/** ¿La cuota tiene tope? En total o por actividad: el criterio de su tarjeta, de «Lo tuyo» y de Perfil. */
+export function cuotaConTope(c: Pick<Bono, 'limiteSemanal' | 'limitePorTipo'>): boolean {
+  return (c.limiteSemanal ?? 0) > 0 || Object.keys(c.limitePorTipo ?? {}).length > 0;
+}
+
+/**
+ * Lo que «Lo tuyo» dice de la cuota sin la cuenta de la semana: «2 clases a la semana», «con máximo por actividad» o
+ * «sin máximo semanal». Lo dice también la tarjeta de Perfil (6-oct-2026): una sola frase para la misma cuota.
+ */
+export function topeDeCuota(c: Pick<Bono, 'limiteSemanal' | 'limitePorTipo'>): string {
+  return textoTopes(c, {}) ?? (cuotaConTope(c) ? 'con máximo por actividad' : 'sin máximo semanal');
 }
 
 /**

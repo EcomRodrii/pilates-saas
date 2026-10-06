@@ -565,11 +565,16 @@ function HeroProxima({ r, c, instructora, hrefDetalle, enCurso, esFija, puedeCan
       <div style={{ position: 'relative', padding: '15px 16px 14px' }}>
         <Link href={hrefDetalle} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>
-              {/* «Hoy»/«Mañana» ya los dice el titular: cuánto falta solo se
-                  añade cuando aporta («En 5 días»). */}
-              {enCurso ? 'Tu clase, en curso' : unirMeta('Tu próxima clase', falta.startsWith('En ') ? falta : undefined)}
-            </p>
+            {/* En curso, el badge («En curso · hasta 10:50») ES el rótulo: «Tu clase, en curso» al lado decía lo mismo
+                dos veces y, con el badge comiéndose la fila, se partía en dos líneas (decisión del fundador, 6-oct-2026).
+                La región sigue llamándose «Tu clase de ahora». */}
+            {!enCurso && (
+              <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>
+                {/* «Hoy»/«Mañana» ya los dice el titular: cuánto falta solo se
+                    añade cuando aporta («En 5 días»). */}
+                {unirMeta('Tu próxima clase', falta.startsWith('En ') ? falta : undefined)}
+              </p>
+            )}
             <Estado r={r} c={c} enCurso={enCurso} esFija={esFija} />
           </div>
           <p className="t-num" style={{ margin: '10px 0 0', fontSize: 'var(--t-h2)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05, color: 'var(--on-dark)' }}>

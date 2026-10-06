@@ -143,6 +143,11 @@ test.describe('Student PWA · la clase que se está dando ahora', () => {
 
     await expect(badgeEnCurso(page).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Reservada ✓', { exact: true })).toHaveCount(0);
+    // Una sola vez y con la hora de fin (6-oct-2026): el rótulo «Tu clase, en curso» al lado del badge decía lo mismo.
+    const heroe = page.getByRole('region', { name: 'Tu clase de ahora' });
+    await expect(heroe.getByTestId('badge-en-curso')).toHaveText(/En curso\s*·\s*hasta 10:50/);
+    await expect(heroe.getByText(/en curso/i)).toHaveCount(1);
+    await expect(rotuloEnCurso(page)).toHaveCount(0);
   });
 
   // RES-11: antes, al terminar la clase el badge de «en curso» se iba y volvía

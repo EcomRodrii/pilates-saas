@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { LoQueTengo } from '@/lib/student/lo-que-tengo';
-import { lineaRecibo, resumenClaseFija, textoHasta, textoRecuperaciones, textoRenovacionCorto, textoSaldoDe, type PorPagar } from '@/lib/student/mi-plan-vista';
-import { textoTopes } from '@/lib/student/saldo-bono';
+import { cuotaConTope, lineaRecibo, resumenClaseFija, textoHasta, textoRecuperaciones, textoRenovacionCorto, textoSaldoDe, topeDeCuota, type PorPagar } from '@/lib/student/mi-plan-vista';
 import { euros } from '@/lib/student/formato';
 import { useSemanaCuota } from '@/components/student/domain/SemanaCuota';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
@@ -51,7 +50,7 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
   hrefRecibos?: string;
 }) {
   // El MISMO criterio que la tarjeta de la cuota: hay tope si lo hay en total o por actividad.
-  const conTope = !!t.cuota && ((t.cuota.limiteSemanal ?? 0) > 0 || Object.keys(t.cuota.limitePorTipo ?? {}).length > 0);
+  const conTope = !!t.cuota && cuotaConTope(t.cuota);
   const { semana } = useSemanaCuota(slug, t.cuota?.id ?? null, conTope);
   // «X de Y» de la cuota son las que USA y del bono las que le QUEDAN: aquí, en una línea, se dice con palabras.
   const queda = semana && semana.limite !== null ? Math.max(0, semana.limite - semana.cuentan) : null;
@@ -62,7 +61,7 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
   const pagar = porPagar.length > 0 && hrefRecibos ? { total: porPagar.reduce((s, p) => s + p.importe, 0), n: porPagar.length } : null;
   if (!t.cuota && !t.bono && !fija && !recup && !hrefTienda && !pagar) return null;
 
-  const tope = t.cuota ? (textoTopes(t.cuota, {}) ?? (conTope ? 'con máximo por actividad' : 'sin máximo semanal')) : '';
+  const tope = t.cuota ? topeDeCuota(t.cuota) : '';
   return (
     <section className="card" data-testid="lo-tuyo" aria-label="Lo tuyo" style={{ padding: '14px 16px 4px' }}>
       <div className="row row--between" style={{ marginBottom: 6 }}>
