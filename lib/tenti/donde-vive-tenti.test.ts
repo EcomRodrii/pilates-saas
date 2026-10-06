@@ -12,19 +12,28 @@
 // Un solo dibujo (lib/tenti/geometria.ts), y desde el 5-oct-2026 por la tarde
 // (decisión del fundador: «no se mueve en ningún lado… tampoco hace el
 // sonido»; «en /interno/tenti está perfecto») VIVO en todos sus sitios, como en
-// el catálogo: parpadea, mira alrededor, sigue el cursor, se deja tocar (se
-// aplasta y suena, se molesta, se marea) y suena en sus momentos.
+// el catálogo: parpadea, mira alrededor, sigue el cursor y se deja tocar (se
+// aplasta, se molesta, se marea).
+//
+// SIN SONIDO (fundador, 6-oct-2026: «quítale el sonido a Tenti»). Se quitó, no
+// se apagó: ni la síntesis (lib/tenti/sonidos.ts), ni la preferencia «Sonidos de
+// Tenti», ni `sonido`/`sonarCambios`, ni el 'pop' del asistente, ni el catálogo
+// de /interno. «5b · Tenti no suena» falla si vuelve cualquiera.
 //   · el ICONO (components/tenti/tenti-icono.tsx): el canvas a tamaño de icono,
 //     con el SVG quieto de reserva mientras llega el motor. Lo ve quien veía el
 //     Orb en cada sitio, también recepción y gerencia. Dentro de un botón o un
-//     enlace no se toca ni suena: el clic es del botón.
+//     enlace no se toca: el clic es del botón.
 //   · el PERSONAJE (components/tenti/tenti.tsx): el canvas grande, en las
-//     primeras veces de la propietaria (la pantalla del logo y Listo) y en dos
-//     sitios de lo diario por TentiDecorativo: el buscador ⌘K y el resumen de
-//     Automatizaciones.
+//     primeras veces de la propietaria (la pantalla del logo y Listo) y en un
+//     sitio de lo diario por TentiDecorativo: el buscador ⌘K.
+//
+// Automatizaciones, SIN Tenti (fundador, 6-oct-2026: «En Automatizaciones quita
+// a Tenti»): ni el canvas del resumen del día (vuelve la baldosa del Zap) ni los
+// dos iconos que había donde estuvo el Orb. Que vuelva es otra decisión: no
+// está en CON_TENTI ni en IMPORTAN_EL_DECORATIVO, y estas listas fallan si
+// alguien lo importa ahí.
 // El motor llega SIEMPRE en un chunk aparte (dynamic()) y duerme entre
-// parpadeos y miradas. Suena solo si «Sonidos de Tenti» está encendido en el
-// dispositivo (lib/tenti/preferencia-sonido.ts, encendido por defecto).
+// parpadeos y miradas.
 //
 // Desde el 5-oct-2026 (fundador: «ahora, que viene Halloween») Tenti lleva
 // trajes de temporada (lib/tenti/trajes.ts): el gorro de bruja del 5-oct al
@@ -41,8 +50,7 @@
 // decide (`MAPA`): ninguna pantalla escribe un estado a mano, salvo los
 // literales que `MAPA` le da. Esta guardia IMPORTA `MAPA` en vez de copiar sus
 // listas. Lo que describe una situación oscila como mucho 4 s
-// (`movimiento`, lib/tenti/motor.ts), y un cambio de estado solo suena donde
-// responde a algo que acabas de pedir (`SUENAN_AL_CAMBIAR`).
+// (`movimiento`, lib/tenti/motor.ts).
 //
 // Estructural a propósito: el motor dibuja once estados y siete emociones, y la
 // tentación de «ponerle cara» a una pantalla más es constante. Cada sitio nuevo
@@ -167,7 +175,8 @@ const AVISO_MIT = 'Copyright (c) 2026 Louis Raillé';
 
 /**
  * Cada sitio con Tenti de icono, con cuántos lleva. Son exactamente los sitios
- * donde estaba el Orb (12 en 11 ficheros), con el tamaño de icono que tenía el
+ * donde estaba el Orb (eran 12 en 11 ficheros; desde el 6-oct, sin los dos de
+ * Automatizaciones, que el fundador quitó), con el tamaño de icono que tenía el
  * Orb: ninguno sale ni entra sin editar esta lista. Ya no hay «uno por
  * pantalla»: donde el Orb salía tres veces (Resumen), Tenti también; la
  * densidad es la que ya había.
@@ -179,7 +188,9 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // Dos desde el 5-oct (fundador: «cada estado en su momento»): el titular de
   // «Decidir» solo lleva a Tenti si algo espera tu visto bueno (si no, el Check).
   'components/dashboard/estado-del-estudio.tsx': { usos: 2, motivo: '«Tentare lo está haciendo» (trabajando) y el titular de «Decidir» (espera tu visto bueno / agobiado)' },
-  'app/(dashboard)/automatizaciones/page.tsx': { usos: 2, motivo: '«Esto ya lo hace Tentare…» (lo que hace solo y de serie) y la fila «Sistema autónomo» del resumen del día' },
+  // Automatizaciones, fuera desde el 6-oct-2026 (fundador: «En
+  // Automatizaciones quita a Tenti»): «Esto ya lo hace Tentare…» y la fila
+  // «Sistema autónomo» se quedan sin icono.
   'components/decision/piloto-automatico.tsx': { usos: 1, motivo: 'el piloto automático: ejecuta solo lo de alta confianza' },
   // Tres, cada uno en su paso (nunca dos a la vez): analizar, importar y el acta.
   'app/(dashboard)/migracion/page.tsx': { usos: 3, motivo: '«Analizar» (pensando), importando (trabajando, sin spinner) y el acta (hecho o error)' },
@@ -197,7 +208,7 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
 
 /** Los únicos props del icono. El tipo cierra el resto (titulo incluido), y
  *  components/tenti/tenti-icono.tipos.ts lo comprueba con tsc. */
-const PROPS_DEL_ICONO = new Set(['ancho', 'estado', 'sobre', 'className', 'emocion', 'celebra', 'sonarCambios']);
+const PROPS_DEL_ICONO = new Set(['ancho', 'estado', 'sobre', 'className', 'emocion', 'celebra']);
 const ANCHOS_DEL_ICONO = new Set(['18', '20', '22', '24', '28']);
 
 /**
@@ -230,7 +241,7 @@ const IMPORTAN_EL_COMPONENTE = new Set([
   // es su reserva), como los otros dos envoltorios.
   'components/tenti/tenti-icono.tsx',
   // El catálogo de Tentare-empresa: el único sitio donde se enciende todo
-  // (sonido, toques, insignias, los once estados).
+  // (toques, insignias, los once estados; sonido, ni aquí).
   'app/interno/tenti/page.tsx',
   // La bienvenida del logo. Import ESTÁTICO a propósito: el fichero ya viaja en
   // el chunk diferido de PantallaBienvenida, y el ref de saludar()/emocion() no
@@ -275,15 +286,13 @@ const IMPORTAN_EL_DECORATIVO: Record<string, { tamano: number; motivo: string }>
   // tres roles del panel. Solo vive con la hoja abierta. 40 px: la fila del
   // input no crece (el cuerpo mide unos 27 px).
   'components/search/global-search.tsx': { tamano: 40, motivo: 'el buscador ⌘K: Tentare te ayuda a encontrar lo que quieres hacer' },
-  // El resumen del día de Automatizaciones, en el sitio de la baldosa del Zap
-  // (56 px, la misma caja): la cara de lo que Tentare hace solo. Pantalla solo
-  // de la propietaria.
-  'app/(dashboard)/automatizaciones/page.tsx': { tamano: 56, motivo: 'el resumen del día de Automatizaciones: lo que Tentare hace solo' },
+  // El resumen del día de Automatizaciones lo tuvo a 56 px del 5 al 6-oct; el
+  // fundador lo quitó («En Automatizaciones quita a Tenti») y vuelve el Zap.
 };
 
-/** Los únicos props de <TentiDecorativo>. El tipo cierra el resto: `estado`
- *  solo 'reposo' | 'esperaTuOk' | 'error', y solo lo pasa Automatizaciones. */
-const PROPS_DEL_DECORATIVO = new Set(['tamano', 'reserva', 'mira', 'className', 'estado']);
+/** Los únicos props de <TentiDecorativo>. Sin `estado`: siempre en reposo (el
+ *  que decía lo que Tentare hace solo era de Automatizaciones, y se fue). */
+const PROPS_DEL_DECORATIVO = new Set(['tamano', 'reserva', 'mira', 'className']);
 
 /** Donde 'hecho' va CON celebración (`celebra`, giro y chispas): "hecho" es que
  *  algo que veías acaba de terminar y el servidor lo confirma, y se celebra
@@ -291,23 +300,14 @@ const PROPS_DEL_DECORATIVO = new Set(['tamano', 'reserva', 'mira', 'className', 
  *  breve (sin `celebra`) llega con el veredicto y el asistente. */
 const DONDE_SE_CELEBRA = new Set(['components/onboarding/listo-para-reservar.tsx', 'app/(dashboard)/migracion/page.tsx']);
 
-/** Donde un cambio de estado SUENA (`sonarCambios`): un cambio suena solo si
- *  responde a algo que acabas de pedir en esa pantalla y no lleva ya su
- *  `pop`. Listo, a través de TentiDiferido. */
-const SUENAN_AL_CAMBIAR: Record<string, string> = {
-  'components/onboarding/listo-para-reservar.tsx': 'la celebración de la primera clase («finish»), vía TentiDiferido',
-  'app/(dashboard)/migracion/page.tsx': 'el clic en «Importar»: «work» al empezar, «finish» o «error» en el acta',
-};
-
 /** Donde se saluda: el primer contacto, en la pantalla del logo. */
 const DONDE_SE_SALUDA = new Set(['components/onboarding/pantallas-valor.tsx']);
 
 /** Lo que el catálogo enciende y nadie más. Tocarlo (`interactivo`) ya no
  *  está aquí: desde el 5-oct se toca en todos sus sitios salvo dentro de un
- *  botón o un enlace. `sonido` sí: fuera del catálogo lo decide la preferencia
- *  del dispositivo, nunca la pantalla. */
+ *  botón o un enlace. El sonido, tampoco: ya no existe (ver «5b»). */
 const PROPS_SOLO_DEL_CATALOGO = [
-  'sonido', 'saludaAlAparecer', 'insignias', 'titulo', 'catalogo',
+  'saludaAlAparecer', 'insignias', 'titulo', 'catalogo',
   // El traje lo decide la temporada (lib/tenti/trajes.ts), nunca la pantalla;
   // y la pose fija es la hoja de Coucou del catálogo.
   'traje', 'pose',
@@ -326,22 +326,11 @@ const ESTADOS_DE_USO_COMUN = new Set(['reposo', 'pensando', 'hecho', 'error']);
  *  <Tenti> suelto en una pantalla va de 64 para arriba. */
 const TAMANO_MINIMO = 64;
 
-/**
- * Quién hace sonar a Tenti por su cuenta (`sonarTenti`), con qué sonidos y por
- * qué. Lo demás suena desde el propio Tenti: el saludo y el logo guardado en la
- * bienvenida, la celebración de Listo y tocarlo. Parpadear y mirar no suenan.
- */
-const SUENAN: Record<string, { sonidos: string[]; motivo: string }> = {
-  'components/search/global-search.tsx': { sonidos: ['open', 'close'], motivo: 'abrir y cerrar el buscador ⌘K' },
-  'components/calendario/adaptaciones-clase.tsx': { sonidos: ['pop'], motivo: '«Preparar clase con IA» ha terminado con resultado' },
-  'components/socios/ficha-salud.tsx': { sonidos: ['pop'], motivo: '«Adaptar ejercicios con IA» ha terminado con resultado' },
-  'components/socios/modal-nota-voz.tsx': { sonidos: ['pop'], motivo: '«Estructurar con IA» ha terminado con resultado' },
-  'app/(dashboard)/migracion/page.tsx': { sonidos: ['pop'], motivo: '«Analizar» ha terminado con resultado' },
-  'components/configuracion/secciones/seccion-panel.tsx': { sonidos: [], motivo: 'el interruptor «Sonidos de Tenti» (lee y escribe la preferencia, no suena)' },
-  'components/asistente/vista-chat.tsx': { sonidos: ['pop'], motivo: 'el asistente ha respondido con datos a una pregunta que acabas de hacer (una vez; su Tenti va con sonido={false})' },
-};
-const PREFERENCIA = 'lib/tenti/preferencia-sonido';
-const SONIDOS = 'lib/tenti/sonidos';
+/** Lo que hace ruido en un navegador. Ninguno puede aparecer en el código de
+ *  Tenti (lib/tenti, components/tenti) ni en el de sus sitios. */
+const SUENA_EN_EL_NAVEGADOR = /\b(AudioContext|webkitAudioContext|OfflineAudioContext|HTMLAudioElement|createOscillator|AudioBuffer\w*)\b|\bnew\s+Audio\s*\(|\bspeechSynthesis\b|\.play\s*\(\s*\)|\bnavigator\.vibrate\b/;
+/** Los nombres del sonido que se quitó: ni como función, ni como prop, ni como módulo. */
+const NOMBRES_DEL_SONIDO = /\b(sonarTenti|prepararSonidos|useSonidosDeTenti|ponerSonidosDeTenti|sonidosDeTentiActivos|sonarEstado|sonarCambios|conSonido|cargarSonidos)\b|\bsuena\s*\(/;
 
 /**
  * Donde no entra ningún Tenti, ni directo ni de rebote, con su motivo. Los
@@ -617,7 +606,6 @@ test('el icono vivo trae el motor aparte: dynamic() sin SSR, el SVG quieto de re
   assert.match(icono, /closest\(\s*DENTRO_DE_UN_CONTROL\s*\)/, 'El icono mira si va dentro de un control antes de dejarse tocar.');
   const [lienzo] = etiquetas(`${ICONO}.tsx`, icono, ['TentiCanvas']);
   assert.equal(lienzo.props.get('interactivo'), 'tocable');
-  assert.equal(lienzo.props.get('sonido'), 'tocable ? undefined : false', 'Dentro de un control, el icono no suena por su cuenta.');
   // Ni lleva traje: un disfraz junto a la lesión de una alumna (los botones de
   // IA de salud) es frívolo, y en un enlace pequeño compite con la etiqueta.
   assert.equal(lienzo.props.get('conTraje'), 'tocable', 'Dentro de un control, el canvas del icono va sin traje.');
@@ -627,12 +615,10 @@ test('el icono vivo trae el motor aparte: dynamic() sin SSR, el SVG quieto de re
   assert.doesNotMatch(leerCodigo(`${ICONO}.tsx`), /data-gorro|dibujoDelTraje|trajes-coucou/, 'el SVG de reserva vuelve a llevar traje.');
   assert.ok(!lienzo.props.has('traje'), 'El icono no fija un traje: lo decide la temporada.');
   assert.ok(!lienzo.props.has('insignias'), 'Sin insignias: el estado lo dice el texto.');
-  // Dentro de un control tampoco suena al cambiar; fuera, solo si se lo piden.
-  assert.equal(lienzo.props.get('sonarCambios'), 'tocable && sonarCambios', 'Dentro de un control, sus cambios no suenan.');
   assert.ok(!lienzo.props.has('movimiento'), 'El icono no decide cuánto oscila: la regla del motor (4 s una situación).');
   assert.ok(importsValor.get(`${ICONO}.tsx`)!.includes(GEOMETRIA), 'El icono se dibuja con lib/tenti/geometria.');
   const cierre = cierreDeValor(`${ICONO}.tsx`);
-  for (const m of [MOTOR, COMPONENTE, 'lib/tenti/sonidos']) {
+  for (const m of [MOTOR, COMPONENTE]) {
     assert.ok(![...cierre].some(f => sinExt(f) === m), `El icono mete ${m} en el chunk de cada pantalla que lo usa.`);
   }
   assert.ok(importsValor.get(`${MOTOR}.ts`)!.includes(GEOMETRIA), 'motor.ts dibuja con la misma geometría que el icono.');
@@ -758,14 +744,12 @@ test('TentiDecorativo trae el motor por dynamic(), sin SSR, con la reserva mient
   const lienzos = etiquetas(`${DECORATIVO}.tsx`, src, ['TentiCanvas']);
   assert.equal(lienzos.length, 1);
   const [lienzo] = lienzos;
-  assert.equal(lienzo.props.get('estado'), 'estado', 'El estado que le pasan, cerrado por tipo.');
+  assert.equal(lienzo.props.get('estado'), '"reposo"', 'Siempre en reposo: es decorativo.');
   assert.deepEqual([...lienzo.props.keys()].sort(), ['className', 'estado', 'interactivo', 'mira', 'reserva', 'sigueCursor', 'tamano'],
-    'Vivo como en el catálogo (sigue el cursor, se toca), pero sin forzar el sonido, sin que sus cambios suenen, sin saludo, sin insignias y sin nombre accesible.');
+    'Vivo como en el catálogo (sigue el cursor, se toca), pero sin saludo, sin insignias y sin nombre accesible.');
   const props = src.slice(src.indexOf('interface PropsTentiDecorativo'), src.indexOf('const ReservaCtx'));
-  assert.match(props, /tamano\s*:\s*40\s*\|\s*56\s*;/, 'Los tamaños del decorativo son cerrados (40 | 56): así lo vigila también tsc.');
-  assert.match(props, /estado\?\s*:\s*'reposo'\s*\|\s*'esperaTuOk'\s*\|\s*'error'\s*;/,
-    "El estado del decorativo es cerrado ('reposo' | 'esperaTuOk' | 'error'): lo que dice de lo que Tentare hace solo.");
-  for (const p of [...PROPS_SOLO_DEL_CATALOGO, 'sigueCursor', 'sonarCambios', 'celebra', 'emocion', 'movimiento']) {
+  assert.match(props, /tamano\s*:\s*40\s*;/, 'El tamaño del decorativo es cerrado (40, el buscador): así lo vigila también tsc.');
+  for (const p of [...PROPS_SOLO_DEL_CATALOGO, 'estado', 'sigueCursor', 'celebra', 'emocion', 'movimiento']) {
     assert.doesNotMatch(props, new RegExp(`\\b${p}\\b`), `TentiDecorativo no expone \`${p}\`.`);
   }
 });
@@ -781,17 +765,12 @@ for (const [fichero, { tamano, motivo }] of Object.entries(IMPORTAN_EL_DECORATIV
     for (const p of e.props.keys()) assert.ok(PROPS_DEL_DECORATIVO.has(p), `<TentiDecorativo ${p}> no es un prop del decorativo.`);
     assert.equal(e.props.get('tamano'), String(tamano), `tamano={${tamano}}, literal: cambiarlo recrea el motor.`);
     assert.ok(e.props.get('reserva'), 'Con la reserva de siempre (la lupa, el Zap) para mientras carga o si falla.');
-    const estado = e.props.get('estado');
-    if (estado != null) {
-      assert.ok(MAPA[fichero] && origenValido(src, estado, MAPA[fichero]),
-        `${fichero}: <TentiDecorativo estado={${estado}}> sale de la función de MAPA para este sitio, o no se pasa (reposo).`);
-    }
   });
 }
 
 // ── 4b · La cara del asistente ───────────────────────────────────────────────
 
-test('TentiAsistente: el motor por dynamic() sin SSR, tamaños cerrados, sin sonido propio, y solo `momento`, `tamano` y `className`', () => {
+test('TentiAsistente: el motor por dynamic() sin SSR, tamaños cerrados, y solo `momento`, `tamano` y `className`', () => {
   const src = leerCodigo(`${ASISTENTE}.tsx`);
   for (const m of src.matchAll(/import\s+([^;]*?)\s+from\s*['"]\.\/tenti['"]/g)) {
     assert.match(m[1], /^type\s/, 'De ./tenti solo el tipo: un import de valor mete el motor en el chunk del panel del asistente.');
@@ -802,13 +781,12 @@ test('TentiAsistente: el motor por dynamic() sin SSR, tamaños cerrados, sin son
   assert.equal(lienzos.length, 1);
   const [l] = lienzos;
   assert.equal(l.props.get('tamano'), 'tamano', 'El tamaño que le pasan, cerrado por tipo (40 | 96).');
-  assert.equal(l.props.get('sonido'), 'false', 'Sin sonido propio: el motor sonaría en cada cambio (pensar, buscar, terminar). Suena el panel, una vez.');
   for (const p of ['insignias', 'titulo', 'saludaAlAparecer', 'saludaUnaVez', 'interactivo', 'sigueCursor']) {
     assert.ok(!l.props.has(p), `TentiAsistente no pide \`${p}\`.`);
   }
   assert.match(src, /estadoParaPintar\(momento,/, 'El estado sale de la tabla de momentos (lib/tenti/asistente.ts), con su tope de animación.');
   assert.match(src, /export function TentiAsistente\(\{ momento, tamano, className \}: \{ momento: MomentoAsistente; tamano: 40 \| 96; className\?: string \}\)/,
-    'Props cerrados: el momento del asistente, un tamaño de dos y la clase. Nada de estado ni sonido desde fuera.');
+    'Props cerrados: el momento del asistente, un tamaño de dos y la clase. Nada de estado desde fuera.');
   // Las respuestas terminadas: el SVG quieto del icono, sin motor.
   const quieto = src.slice(src.indexOf('export function TentiAsistenteQuieto'));
   assert.match(quieto, /<SvgTenti\b/);
@@ -913,7 +891,7 @@ function origenValido(src: string, valor: string, sitio: (typeof MAPA)[string]):
 
 const CONSUMIDORES = TODAS.filter(f => !FUERA_DE_LAS_REGLAS(f) && imports.get(f)!.some(esTenti));
 
-test('fuera de /interno, el canvas no fuerza el sonido, no saluda solo, no lleva insignia y es decorativo', () => {
+test('fuera de /interno, el canvas no saluda solo, no lleva insignia y es decorativo', () => {
   const vistas = CONSUMIDORES.flatMap(f => etiquetas(f, leerCodigo(f)));
   assert.ok(vistas.length >= 3, 'La guardia tiene que ver las etiquetas de la bienvenida (2) y de Listo (1).');
   for (const e of vistas) {
@@ -942,19 +920,15 @@ test("fuera de /interno, el canvas grande solo en los estados que MAPA da a su s
   }
 });
 
-test('celebra solo donde se celebra, y sonarCambios solo donde un cambio responde a lo que acabas de pedir', () => {
+test('celebra solo donde se celebra', () => {
   for (const f of CONSUMIDORES) {
     for (const e of etiquetas(f, leerCodigo(f), ['TentiDiferido', 'Tenti', 'TentiIcono', 'TentiDecorativo'])) {
       if (e.props.has('celebra')) assert.ok(DONDE_SE_CELEBRA.has(f), `${f}: <${e.nombre} celebra> — 'hecho' se celebra solo en los hitos.`);
-      if (e.props.has('sonarCambios')) assert.ok(f in SUENAN_AL_CAMBIAR, `${f}: <${e.nombre} sonarCambios> — un cambio de estado suena solo si responde a algo que acabas de pedir aquí.`);
     }
   }
-  // Listo celebra y suena por el diferido, que lo fija para su único sitio.
+  // Listo celebra por el diferido, que lo fija para su único sitio.
   const [diferido] = etiquetas(`${DIFERIDO}.tsx`, leerCodigo(`${DIFERIDO}.tsx`), ['TentiCanvas']);
-  assert.ok(diferido.props.has('celebra') && diferido.props.has('sonarCambios'), 'Listo celebra y suena (finish) al confirmarse.');
-  for (const f of Object.keys(SUENAN_AL_CAMBIAR)) {
-    assert.ok(DONDE_SE_CELEBRA.has(f), `${f}: lo que suena al cambiar es un hito, y se celebra.`);
-  }
+  assert.ok(diferido.props.has('celebra'), 'Listo celebra al confirmarse.');
 });
 
 test('fuera de /interno, un nombre de estado del motor solo lo escribe el fichero al que MAPA se lo da', () => {
@@ -1008,37 +982,46 @@ test(`cada canvas tiene un tamaño fijo de ${TAMANO_MINIMO} px o más`, () => {
   }
 });
 
-// ── 5b · Cuándo suena ────────────────────────────────────────────────────────
+// ── 5b · Tenti no suena ──────────────────────────────────────────────────────
+//
+// Fundador, 6-oct-2026: «quítale el sonido a Tenti». En TODO el producto: el
+// panel, ⌘K, el asistente, el veredicto, la migración, la bienvenida y Listo, y
+// también el catálogo de /interno. Se quitó entero; si algún día vuelve, es una
+// decisión nueva y empieza por cambiar estas pruebas con su motivo.
 
-test('la preferencia de sonido la usan exactamente los sitios de SUENAN, con sus sonidos', () => {
-  const usan = TODAS.filter(f => !f.startsWith('lib/tenti/') && !f.startsWith('components/tenti/') && imports.get(f)!.includes(PREFERENCIA)).sort();
-  assert.deepEqual(usan, Object.keys(SUENAN).sort(), 'Un sitio nuevo que suena es una decisión de producto: añádelo a SUENAN con su motivo.');
-  for (const [f, { sonidos }] of Object.entries(SUENAN)) {
+test('Tenti no suena: ni sonidos, ni su preferencia, ni nada que haga ruido en su código', () => {
+  for (const f of ['lib/tenti/sonidos.ts', 'lib/tenti/preferencia-sonido.ts']) {
+    assert.ok(!existsSync(join(raiz, f)), `${f} ha vuelto: Tenti no suena.`);
+  }
+  const deTenti = TODAS.filter(f => f.startsWith('lib/tenti/') || f.startsWith('components/tenti/') || f.startsWith('app/interno/tenti/'));
+  assert.ok(deTenti.length > 10, 'La guardia tiene que ver el código de Tenti.');
+  for (const f of deTenti) {
     const src = leerCodigo(f);
-    const pedidos = [...src.matchAll(/\bsonarTenti\s*\(([^)]*)\)/g)].map(m => m[1].trim());
-    for (const p of pedidos) {
-      const l = literales(p);
-      assert.ok(l.length === 1 && sonidos.includes(l[0]) || (sonidos.includes('open') && /^open \? 'open' : 'close'$/.test(p)),
-        `${f}: sonarTenti(${p}) — aquí solo ${sonidos.join(', ') || 'ninguno'}.`);
+    assert.doesNotMatch(src, SUENA_EN_EL_NAVEGADOR, `${f}: algo que suena en el código de Tenti.`);
+    assert.doesNotMatch(src, NOMBRES_DEL_SONIDO, `${f}: vuelve el sonido de Tenti.`);
+  }
+  // Ningún fichero importa un módulo de sonido de Tenti, ni llama a sus nombres.
+  for (const f of TODAS) {
+    for (const m of imports.get(f)!) {
+      assert.ok(!(m && /^(lib|components)\/tenti\/.*(sonid|sonar|audio)/i.test(m)), `${f} importa ${m}: Tenti no suena.`);
     }
-    assert.equal(pedidos.length > 0, sonidos.length > 0, `${f}: ${sonidos.length ? 'tendría que sonar' : 'no suena'}.`);
+    if (!FUERA_DE_LAS_REGLAS(f) && imports.get(f)!.some(esTenti)) {
+      assert.doesNotMatch(leerCodigo(f), NOMBRES_DEL_SONIDO, `${f}: vuelve el sonido de Tenti.`);
+    }
   }
 });
 
-test('la síntesis de los sonidos nunca viaja en el chunk de una pantalla: se pide aparte', () => {
-  const llevan = TODAS.filter(f => !f.startsWith('lib/tenti/') && [...cierreDeValor(f)].some(g => sinExt(g) === SONIDOS));
-  assert.deepEqual(llevan, [], 'Estas pantallas descargan lib/tenti/sonidos nada más entrar.');
-  assert.ok(!importsValor.get(`${PREFERENCIA}.ts`)!.some(m => m === SONIDOS), 'preferencia-sonido.ts pide los sonidos con import().');
-});
-
-test('parpadear y mirar alrededor no suenan: el motor solo suena en estados, emociones, el saludo y al tocarlo', () => {
-  const motor = leerCodigo(`${MOTOR}.ts`);
-  const llamadas = [...motor.matchAll(/this\.suena\(([^)]*)\)/g)].map(m => m[1].trim()).sort();
-  // `this.cfg.sonido`: sonarEstado(), el estado actual, solo con `sonarCambios`.
-  assert.deepEqual(llamadas, ["'greet'", "'slap'", 'c.sonido', 'em.sonido', 'this.cfg.sonido'],
-    'Un sonido nuevo en el motor (y menos en parpadear() o en las miradas) es una decisión: cámbialo aquí con su motivo.');
-  const parpadear = motor.slice(motor.indexOf('parpadear() {'), motor.indexOf('aplastar() {'));
-  assert.doesNotMatch(parpadear, /suena/);
+test('ningún Tenti acepta ni recibe `sonido` o `sonarCambios`', () => {
+  for (const f of [`${COMPONENTE}.tsx`, `${ICONO}.tsx`, `${DECORATIVO}.tsx`, `${DIFERIDO}.tsx`, `${ASISTENTE}.tsx`, `${ICONO}.tipos.ts`]) {
+    assert.doesNotMatch(leerCodigo(f), /\bsonido\s*\??\s*:|\bsonarCambios\b/, `${f}: Tenti ya no tiene sonido que encender.`);
+  }
+  const usos = TODAS.filter(f => imports.get(f)!.some(esTenti) || f.startsWith('components/tenti/'));
+  for (const f of usos) {
+    for (const e of etiquetas(f, leerCodigo(f), ['TentiDiferido', 'Tenti', 'TentiIcono', 'TentiDecorativo', 'TentiAsistente', 'TentiCanvas'])) {
+      assert.ok(!e.props.has('sonido') && !e.props.has('sonarCambios'), `${f}: <${e.nombre}> con sonido: Tenti no suena.`);
+    }
+  }
+  assert.ok(!PROPS_DEL_ICONO.has('sonarCambios') && !PROPS_DEL_DECORATIVO.has('sonido'));
 });
 
 // ── 6 · Donde no entra ningún Tenti ──────────────────────────────────────────

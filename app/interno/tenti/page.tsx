@@ -6,8 +6,9 @@
 //
 // Vive en /interno a propósito: es una maqueta para el fundador, no algo que
 // vea un estudio. Por eso aquí, y solo aquí, se encienden a mano el toque, el
-// sonido, el saludo al aparecer, las insignias y el nombre accesible: en el
-// componente vienen apagados. Y el traje: aquí se elige a mano (todos los de
+// saludo al aparecer, las insignias y el nombre accesible: en el componente
+// vienen apagados. Sin sonido, tampoco aquí: Tenti no suena en ningún sitio
+// (fundador, 6-oct-2026: «quítale el sonido a Tenti»). Y el traje: aquí se elige a mano (todos los de
 // Coucou, lib/tenti/trajes-coucou.ts); en el panel lo decide la temporada
 // (lib/tenti/trajes.ts), salvo que este navegador pida otra cosa en «En este
 // navegador, el panel lleva». La hoja del traje repite las seis vistas de
@@ -47,7 +48,6 @@ function textoTemporada(t: Traje): string {
 
 export default function TentiPagina() {
   const [estado, setEstado] = useState<EstadoTenti>('reposo');
-  const [sonido, setSonido] = useState(false);
   const [traje, setTraje] = useState<Traje | null>('bruja');
   const control = useRef<TentiControl>(null);
 
@@ -65,7 +65,7 @@ export default function TentiPagina() {
         {/* Arriba, el aire que el traje ocupa por encima del cuadro. */}
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6" style={traje ? { paddingTop: 24 + 240 * MARGEN_TRAJE.arriba } : undefined}>
           <Tenti
-            ref={control} estado={estado} tamano={240} sonido={sonido} traje={traje} movimiento="sinFin" sonarCambios celebra
+            ref={control} estado={estado} tamano={240} traje={traje} movimiento="sinFin" celebra
             interactivo saludaAlAparecer insignias sigueCursor titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
           />
           <p className="text-[13px] font-semibold text-foreground">{ESTADOS[estado].etiqueta}</p>
@@ -101,10 +101,6 @@ export default function TentiPagina() {
               ))}
             </div>
           </div>
-          <label className="flex items-center gap-2 text-[13px] text-foreground">
-            <input type="checkbox" checked={sonido} onChange={(e) => setSonido(e.target.checked)} />
-            Con sonido
-          </label>
         </div>
       </section>
 
@@ -132,8 +128,7 @@ export default function TentiPagina() {
       <section>
         <p className={rotulo}>Las primeras veces en el panel (solo la propietaria)</p>
         <p className="mb-3 max-w-3xl text-[12.5px] text-muted-foreground">
-          Sin insignia y decorativo. Suenan (el saludo, el logo guardado, la celebración) si «Sonidos de Tenti» está
-          encendido en este dispositivo (Configuración › Tu panel); en el panel, además, se dejan tocar.
+          Sin insignia, decorativo y sin sonido; en el panel, además, se dejan tocar.
         </p>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <MaquetaBienvenida />
@@ -201,7 +196,7 @@ function MaquetaListo() {
         {(['claro', 'oscuro'] as const).map((modo) => (
           <div key={modo} className={`${modo === 'oscuro' ? 'dark ' : ''}rounded-xl border border-border bg-background px-4 py-5 text-center`}>
             <div className="mx-auto mb-2 grid size-20 place-items-center">
-              <Tenti estado={estadoListo} tamano={80} sigueCursor={false} celebra sonarCambios />
+              <Tenti estado={estadoListo} tamano={80} sigueCursor={false} celebra />
             </div>
             <h3 className="text-[17px] font-bold leading-tight tracking-tight text-foreground">Tu estudio ya puede recibir reservas</h3>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
@@ -234,7 +229,7 @@ function CadaEstadoEnSuSitio() {
       <p className={rotulo}>Cada estado, en su sitio</p>
       <p className="mb-3 max-w-3xl text-[12.5px] text-muted-foreground">
         Cada estado significa una sola cosa en todo el producto, y cada sitio lo pide con el dato que lo decide. En el panel,
-        lo que describe una situación oscila 4 s y se queda quieto; los cambios solo suenan si responden a algo que se acaba de pedir.
+        lo que describe una situación oscila 4 s y se queda quieto. Tenti no suena en ningún sitio.
       </p>
       <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
         {(Object.keys(ESTADOS) as EstadoTenti[]).map((e) => {
@@ -259,7 +254,7 @@ function CadaEstadoEnSuSitio() {
   );
 }
 
-// El traje del PANEL en este navegador (localStorage, como «Sonidos de Tenti»):
+// El traje del PANEL en este navegador (localStorage):
 // así el fundador ve el panel entero con el gorro antes de su temporada, y solo
 // él lo ve. Para los estudios manda la temporada.
 const OPCIONES_NAVEGADOR: { valor: PreferenciaTraje; etiqueta: string }[] = [

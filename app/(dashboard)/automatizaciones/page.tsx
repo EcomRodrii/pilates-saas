@@ -17,9 +17,6 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
-import { TentiIcono } from '@/components/tenti/tenti-icono';
-import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
-import { estadoDelAutonomo } from '@/lib/tenti/momentos';
 import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarAutomatizaciones } from '@/lib/permisos-reglas';
@@ -165,13 +162,7 @@ const HECHO_DE_SERIE: string[] = [
 function HechoPorTentare() {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2">
-        {/* La firma más literal de Tenti: seis cosas que Tentare hace solo y de
-            serie. Fijo, sin depender de las reglas; el ✓ de cada línea no es
-            Tenti celebrando nada. */}
-        <TentiIcono ancho={18} />
-        <h2 className="text-sm font-semibold text-foreground">Esto ya lo hace Tentare, sin que configures nada</h2>
-      </div>
+      <h2 className="text-sm font-semibold text-foreground">Esto ya lo hace Tentare, sin que configures nada</h2>
       <ul className="mt-2.5 space-y-1.5">
         {HECHO_DE_SERIE.map(t => (
           <li key={t} className="flex gap-2 text-xs text-muted-foreground">
@@ -189,15 +180,6 @@ function HechoPorTentare() {
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
 
-/** El Zap de siempre: lo que se ve mientras llega Tenti, o si no puede pintarse. */
-function BaldosaZap() {
-  return (
-    <div className="size-14 rounded-2xl bg-card/10 flex items-center justify-center">
-      <Zap size={28} aria-hidden="true" className="text-primary-foreground/80" />
-    </div>
-  );
-}
-
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
   const ahora = new Date();
@@ -214,14 +196,11 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // Cuántas esperan tu visto bueno: la cifra de la BANDEJA, la misma que
   // «Sistema autónomo» de Resumen (#1401: la bandeja es la dueña de ese
   // número). Solo para quien la bandeja cuenta; para el resto, o mientras no
-  // contesta, el recuento local, que es el único que hay. La cara de Tenti, en
-  // cambio, solo con la cifra de la bandeja (lib/tenti/momentos.ts): sin ella,
-  // reposo.
+  // contesta, el recuento local, que es el único que hay.
   const rol = useRol();
   const enBandeja = useConteoDecidir('automatizacionesEsperando');
   const esperandoEnBandeja = puedeGestionarAutomatizaciones(rol) ? enBandeja : null;
   const esperando = esperandoEnBandeja ?? pendingAdmin.length;
-  const estadoTenti = estadoDelAutonomo({ esperandoEnBandeja, fallidasHoy: fallidas });
 
   const greeting = saludoDelEstudio(ahora);
 
@@ -230,12 +209,6 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            {/* Tenti, como en el Piloto automático: aquí Tentare trabaja solo.
-                En reposo: la cara de lo que pasa es la del canvas grande de
-                la derecha, y dos caras distintas en la misma tarjeta no dicen
-                nada. Sobre bg-primary, con la silueta del color del texto (en
-                oscuro el fondo es casi el del cuerpo). */}
-            <TentiIcono ancho={24} sobre="invertida" />
             {/* ⚠️ Tinta `primary-foreground`, nunca `white`: en oscuro la
                 tarjeta `bg-primary` es CLARA y el blanco fijo se quedaba en
                 1,17:1. Las opacidades bajan como mucho a /70 — a /50 la letra
@@ -269,15 +242,10 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             </p>
           )}
         </div>
-        {/* Tenti en el sitio de la baldosa del Zap: la cara de lo que Tentare
-            hace solo, con la misma regla y la misma cifra que «Sistema
-            autónomo» de Resumen: espera tu visto bueno si la bandeja cuenta
-            algo; si no, error si algo falló hoy; si no, reposo. El texto dice
-            lo mismo. Decorativo y sin sonido: llega sin que pidas nada. La
-            baldosa de siempre mientras llega su chunk, si no llega o si no hay
-            canvas 2D, en la misma caja de 56 px: nada salta. */}
-        <div className="shrink-0 size-14">
-          <TentiDecorativo tamano={56} reserva={<BaldosaZap />} estado={estadoTenti} />
+        {/* Sin Tenti en Automatizaciones (fundador, 6-oct-2026: «en
+            Automatizaciones quita a Tenti»): la baldosa del Zap de siempre. */}
+        <div className="shrink-0 size-14 rounded-2xl bg-card/10 flex items-center justify-center">
+          <Zap size={28} aria-hidden="true" className="text-primary-foreground/80" />
         </div>
       </div>
 

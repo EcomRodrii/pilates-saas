@@ -22,9 +22,10 @@
 // donde antes iba el Orb. Desde el 5-oct-2026 (decisión del fundador: «no se
 // mueve en ningún lado») va VIVO: el canvas del motor, el mismo que en
 // /interno/tenti, a tamaño de icono. Parpadea, mira alrededor y sigue el cursor
-// con los ojos, y si no va dentro de un botón o un enlace se deja tocar: se aplasta y suena, se molesta
+// con los ojos, y si no va dentro de un botón o un enlace se deja tocar: se aplasta, se molesta
 // si insistes y se marea si insistes mucho. Dentro de un botón o un enlace el
-// clic es del botón: ahí no es tocable ni suena por su cuenta.
+// clic es del botón: ahí no es tocable. Sin sonido: Tenti no suena (fundador,
+// 6-oct-2026).
 //
 // El motor llega en su propio chunk (el mismo que el del buscador y Listo, por
 // dynamic()): ninguna pantalla lo lleva en su chunk inicial. Mientras llega, si
@@ -46,12 +47,9 @@
 //     siempre junto a un gerundio en el texto. Es el 'pensando' del motor (mira
 //     arriba a la derecha, sin la insignia de puntos), y además respira por CSS
 //     (`tenti-respira`, globals.css) mientras dura la petición.
-//     Empezar a pensar no suena; terminar con resultado lo suena quien llama
-//     (`sonarTenti('pop')`), porque solo él sabe si hubo resultado.
 // Lo que describe una situación (espera tu visto bueno, dormido…) oscila como
-// mucho 4 s y se queda en su pose (`movimiento`, lib/tenti/motor.ts). Los
-// cambios de estado no suenan salvo con `sonarCambios`, y dentro de un control
-// nunca. Las emociones, una vez por `clave` y en silencio.
+// mucho 4 s y se queda en su pose (`movimiento`, lib/tenti/motor.ts). Las
+// emociones, una vez por `clave`.
 // Con «reducir movimiento», quieto (sin respirar, parpadear ni mirar).
 // En reposo no respira, como en el catálogo: medido, una respiración CSS sin fin
 // en cada icono costaba más hilo principal que los tres canvas juntos.
@@ -101,12 +99,10 @@ export interface PropsTentiIcono {
   ancho: AnchoTentiIcono;
   estado?: EstadoTentiIcono;
   sobre?: SuperficieTentiIcono;
-  /** Una vez por `clave`, sin sonido y cuando ya se ve. */
+  /** Una vez por `clave` y cuando ya se ve. */
   emocion?: { tipo: EmocionTentiIcono; clave: string } | null;
   /** 'hecho' con celebración (los hitos) en vez de breve. */
   celebra?: boolean;
-  /** Sus cambios de estado suenan (y el estado con el que aparece). Dentro de un control, nunca. */
-  sonarCambios?: boolean;
   className?: string;
 }
 
@@ -146,7 +142,7 @@ const TentiCanvas = dynamic<PropsTenti>(
 const DENTRO_DE_UN_CONTROL = 'a, button, label, summary, [role="button"], [role="link"], [role="switch"], [role="menuitem"], [role="tab"]';
 
 export function TentiIcono({
-  ancho, estado = 'reposo', sobre = 'normal', emocion = null, celebra = false, sonarCambios = false, className,
+  ancho, estado = 'reposo', sobre = 'normal', emocion = null, celebra = false, className,
 }: PropsTentiIcono) {
   const caja = useRef<HTMLSpanElement>(null);
   // Se sabe después de montar (hay que mirar el DOM): hasta entonces, no tocable.
@@ -183,16 +179,12 @@ export function TentiIcono({
             estado={estado}
             tamano={lado}
             silueta={sobre}
-            // Fuera de un botón suena al tocarlo y al saludar; dentro, nunca por
-            // su cuenta (empezar a pensar no suena: ver arriba).
-            sonido={tocable ? undefined : false}
             sigueCursor
             interactivo={tocable}
             saludaUnaVez={tocable}
             // El traje, solo donde se toca: la misma regla.
             conTraje={tocable}
             celebra={celebra}
-            sonarCambios={tocable && sonarCambios}
             emocion={emocion}
             reserva={reserva}
             className="block"

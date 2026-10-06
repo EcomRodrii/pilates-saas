@@ -1,8 +1,7 @@
 'use client';
 
-import { Check, LayoutDashboard, Menu, Moon, PanelLeft, PanelTop, Volume2 } from 'lucide-react';
+import { Check, LayoutDashboard, Menu, Moon, PanelLeft, PanelTop } from 'lucide-react';
 import { usePanelTheme } from '@/lib/panel-theme';
-import { ponerSonidosDeTenti, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { cn } from '@/lib/utils';
 import { type MenuPosicion } from '@/lib/layout-runtime';
 import { resumenInicioPanel, resumenMenuPanel, resumenPosicionMenu } from '@/lib/configuracion/resumenes';
@@ -14,7 +13,8 @@ import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configurac
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tu panel: el menú, el Inicio, dónde va el menú, claro u oscuro y los sonidos de Tenti.
+// Tu panel: el menú, el Inicio, dónde va el menú y claro u oscuro. Los sonidos
+// de Tenti ya no están: Tenti no suena (fundador, 6-oct-2026).
 //
 // Vivía en «Personalizar tu panel» (/configuracion/apariencia/panel), que hoy
 // redirige aquí. Mismo hook y mismo guardado sobre `studio_layout`; el color de
@@ -44,7 +44,6 @@ const POSICIONES: { id: MenuPosicion; label: string; pista: string; Icon: typeof
 
 export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) {
   const { dark, setDark } = usePanelTheme();
-  const sonidosTenti = useSonidosDeTenti();
   const p = usePersonalizacionPanel();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
   // Solo con el layout leído se cuenta algo: con la lectura fallida se enseñan
@@ -110,9 +109,6 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
         {/* De este navegador y de nadie más: no pasa por el servidor, así que no
             hay respuesta que esperar y nunca falla. */}
         <FilaInterruptor id="claro-u-oscuro" icono={Moon} on={dark} onCambiar={async v => { setDark(v); return null; }} />
-        {/* Igual que claro u oscuro: de este navegador, y todos los Tentis lo
-            oyen al momento (lib/tenti/preferencia-sonido.ts). */}
-        <FilaInterruptor id="sonidos-de-tenti" icono={Volume2} on={sonidosTenti} onCambiar={async v => { ponerSonidosDeTenti(v); return null; }} />
       </GrupoFilas>
 
       <CajonAjuste id="menu-del-panel" abierto={cajon === 'menu-del-panel'} onCerrar={cerrarCajon}>

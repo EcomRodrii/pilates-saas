@@ -153,7 +153,7 @@ test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y
   assert.deepEqual(seccionPorId('avisos').tarjetas.map(t => t.id), ['tus-avisos']);
   // La tabla de avisos se abre en su pantalla: en su sección solo queda su fila.
   assert.equal(herramientaDeTarjeta('tus-avisos'), 'tus-avisos');
-  assert.deepEqual(seccionPorId('panel').tarjetas.map(t => t.id), ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu', 'claro-u-oscuro', 'sonidos-de-tenti']);
+  assert.deepEqual(seccionPorId('panel').tarjetas.map(t => t.id), ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu', 'claro-u-oscuro']);
   // Ni el logo ni los textos se quedan también en «Mi app y mi web».
   assert.equal(seccionDeTarjeta('textos-de-tu-app'), 'marca');
   const cuenta = GRUPOS.find(g => g.id === 'tu-cuenta')!;
@@ -162,8 +162,6 @@ test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y
   assert.deepEqual(GRUPOS.find(g => g.id === 'tu-imagen')!.secciones, ['marca', 'web']);
   // Claro u oscuro es de este navegador: se guarda al pulsar, nunca con la barra del menú.
   assert.equal(tarjetaPorId('claro-u-oscuro').guardado, 'al-pulsar');
-  // Los sonidos de Tenti, igual: de este navegador, al pulsar.
-  assert.equal(tarjetaPorId('sonidos-de-tenti').guardado, 'al-pulsar');
   for (const id of ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
 });
 

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { Mic, Square, CheckCircle2 } from 'lucide-react';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
-import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
@@ -42,8 +41,6 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
     try {
       const r = await estructurarNotaIA({ texto: transcripcion, socioId, instructorId, sesionId });
       setResultado(r);
-      // Tenti avisa de que ha terminado (si suena en este dispositivo).
-      sonarTenti('pop');
     } catch (err) {
       setErrorAccion(err instanceof Error && err.message ? err.message : 'No se pudo procesar la nota. Inténtalo de nuevo.');
       Sentry.captureMessage('piloto-voz: fallo al estructurar nota', { tags: { motivo: 'estructurar-ia' } });

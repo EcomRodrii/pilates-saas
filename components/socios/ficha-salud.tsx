@@ -29,7 +29,6 @@ import type { FirmanteConsentimiento } from '@/lib/datos-salud/consentimiento';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
-import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -587,8 +586,6 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     try {
       const r = await sugerirAdaptacionesSocio(socioId, activas);
       setAdaptacionIA(r);
-      // Tenti avisa de que ha terminado (si suena en este dispositivo).
-      sonarTenti('pop');
     } catch {
       setAdaptacionIAError(true);
     } finally {

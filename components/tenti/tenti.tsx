@@ -8,7 +8,6 @@ import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
 import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
 import type { Traje } from '@/lib/tenti/trajes';
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
-import { prepararSonidos, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 
 // La mascota de Tentare. El dibujo y las animaciones viven en lib/tenti/motor.ts;
@@ -16,12 +15,12 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 //
 // Desde el 5-oct-2026 (decisión del fundador: «en /interno/tenti está
 // perfecto») Tenti se comporta en el panel como en el catálogo: parpadea, mira
-// alrededor, sigue el cursor con los ojos, se aplasta y suena al tocarlo, se
+// alrededor, sigue el cursor con los ojos, se aplasta al tocarlo, se
 // molesta si insistes y se marea si insistes mucho. Lo que cada sitio enciende
 // lo deciden sus envoltorios (TentiIcono, TentiDecorativo, TentiDiferido) y la
-// guardia lib/tenti/donde-vive-tenti.test.ts. Por defecto, aquí:
-//   · `sonido` sigue la preferencia del dispositivo («Sonidos de Tenti»,
-//     encendida salvo que la apaguen) y cambia al momento si la cambian;
+// guardia lib/tenti/donde-vive-tenti.test.ts. Tenti NO suena (fundador,
+// 6-oct-2026: «quítale el sonido a Tenti»): ni sus estados, ni sus emociones,
+// ni al tocarlo. Por defecto, aquí:
 //   · `miradas` encendidas: en reposo mira alrededor de vez en cuando;
 //   · no se toca, no saluda solo, no sigue al cursor, sin insignia y decorativo.
 //
@@ -52,13 +51,9 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 //   · `movimiento` ('situacion' por defecto): lo que oscila (botar, respirar,
 //     escanear) dura como mucho 4 s y se queda en su pose; el catálogo pide
 //     'sinFin'. Un 'esperaTuOk' botando todo el día serían 60 fps sin fin.
-//   · Los cambios de estado NO suenan, salvo con `sonarCambios`: solo donde
-//     el cambio responde a algo que acabas de pedir en esa pantalla (Listo, la
-//     migración). Con él suena también el estado con el que aparece, porque
-//     aparecer ya es la respuesta (el acta de la migración).
 //   · `celebra`: 'hecho' con giro y chispas (los hitos) o breve (lo diario).
 //   · `emocion`: declarativa, porque el ref no atraviesa next/dynamic. Sale una
-//     vez por `clave`, en silencio y cuando ya se ve (si llega fuera de
+//     vez por `clave` y cuando ya se ve (si llega fuera de
 //     pantalla o con la pestaña oculta, espera). Se ve en data-emocion.
 
 export interface TentiControl {
@@ -76,15 +71,12 @@ export interface PropsTenti {
   /** Hacia dónde mira en horizontal, de -1 (izquierda) a 1 (derecha), cuando
    *  no sigue al cursor. Con «reducir movimiento» mira siempre al frente. */
   mira?: number;
-  /** Sonidos de sus reacciones. Sin él, la preferencia del dispositivo
-   *  («Sonidos de Tenti», lib/tenti/preferencia-sonido.ts). */
-  sonido?: boolean;
   /** Mira alrededor de vez en cuando, en reposo. */
   miradas?: boolean;
   /** La silueta por dentro del cuerpo, la del icono: 'normal' con
    *  --tenti-silueta, 'invertida' con el color del texto (sobre bg-primary). */
   silueta?: 'normal' | 'invertida';
-  /** Saluda (con la mano y su sonido) la primera vez que se ve en esta sesión
+  /** Saluda (con la mano) la primera vez que se ve en esta sesión
    *  del navegador: uno solo por sesión, entre todos los Tentis que lo pidan. */
   saludaUnaVez?: boolean;
   /** Se aplasta al tocarlo, y se marea si insistes. */
@@ -101,11 +93,9 @@ export interface PropsTenti {
   traje?: Traje | null;
   /** Cuánto oscila un estado (ver `Movimiento` en el motor). 'sinFin', solo el catálogo. */
   movimiento?: Movimiento;
-  /** Si sus cambios de estado suenan (y el estado con el que aparece). */
-  sonarCambios?: boolean;
   /** 'hecho' con celebración (giro y chispas) en vez de breve. */
   celebra?: boolean;
-  /** Una emoción, una vez por `clave`, sin sonido y cuando ya se ve. */
+  /** Una emoción, una vez por `clave` y cuando ya se ve. */
   emocion?: { tipo: EmocionTenti; clave: string } | null;
   /** Una pose fija (la hoja de /interno/tenti, como sheet.html de Coucou): solo el catálogo. */
   pose?: PoseTenti;
@@ -130,13 +120,11 @@ const VENTANA_TOQUES_MS = 1700;
 const MAREO_MS = 2200;
 
 export function Tenti({
-  estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido: sonidoPedido, miradas = true, silueta,
+  estado = 'reposo', tamano = 120, sigueCursor = false, mira, miradas = true, silueta,
   saludaUnaVez = false, interactivo = false, saludaAlAparecer = false, insignias = false, titulo, reserva = null,
-  conTraje = true, traje: trajePedido, pose, movimiento = 'situacion', sonarCambios = false, celebra = false, emocion = null,
+  conTraje = true, traje: trajePedido, pose, movimiento = 'situacion', celebra = false, emocion = null,
   className, ref,
 }: PropsTenti) {
-  const preferencia = useSonidosDeTenti();
-  const sonido = sonidoPedido ?? preferencia;
   const deTemporada = useTrajeDeTenti();
   const traje = trajePedido !== undefined ? trajePedido : conTraje ? deTemporada : null;
   const trajeRef = useRef(traje);
@@ -150,8 +138,6 @@ export function Tenti({
   const estadoRef = useRef(estado);
   const movimientoRef = useRef(movimiento);
   const celebraRef = useRef(celebra);
-  // El último estado que ha sonado (con `sonarCambios`), para no repetirlo.
-  const sonadoRef = useRef<EstadoTenti | null>(null);
   // La emoción pedida que aún no ha salido, y la clave de la última que salió.
   const emocionPendiente = useRef<{ tipo: EmocionTenti; clave: string } | null>(null);
   const emocionHecha = useRef<string | null>(null);
@@ -190,12 +176,12 @@ export function Tenti({
     try {
       const paleta = leerPaleta();
       creado = new Motor(canvas, {
-        mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
+        mini: tamano < 64, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
         traje: trajeRef.current, pose: poseRef.current ?? null,
         movimiento: movimientoRef.current,
       });
       creado.medir(tamano);
-      creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true, celebra: celebraRef.current });
+      creado.ponerEstado(estadoRef.current, { forzar: true, celebra: celebraRef.current });
       marcarPaleta(paleta);
       marcarQuieto(creado.quieto);
     } catch (e) {
@@ -250,7 +236,7 @@ export function Tenti({
       if (!p || !visto || !visible || document.hidden) return;
       emocionPendiente.current = null;
       emocionHecha.current = p.clave;
-      try { motor.emocion(p.tipo, DURACION_EMOCION_MS, true); } catch (err) { fallar(err); return; }
+      try { motor.emocion(p.tipo, DURACION_EMOCION_MS); } catch (err) { fallar(err); return; }
       canvas.dataset.emocion = p.tipo;
       arrancar();
     };
@@ -308,11 +294,6 @@ export function Tenti({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tamano, fallo]);
 
-  useEffect(() => {
-    if (motorRef.current) motorRef.current.sonido = sonido;
-    if (sonido) prepararSonidos();
-  }, [sonido, tamano, fallo]);
-
   useEffect(() => { if (motorRef.current) { motorRef.current.miradas = miradas; despertarRef.current(); } }, [miradas, tamano, fallo]);
 
   useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
@@ -336,25 +317,12 @@ export function Tenti({
   useEffect(() => { movimientoRef.current = movimiento; if (motorRef.current) motorRef.current.movimiento = movimiento; }, [movimiento]);
   useEffect(() => { celebraRef.current = celebra; }, [celebra]);
 
-  // Los cambios de estado, en silencio: si suenan lo decide el efecto de abajo.
   useEffect(() => {
     estadoRef.current = estado;
     if (performance.now() < mareadoHasta.current) return;
-    try { motorRef.current?.ponerEstado(estado, { silencio: true, celebra: celebraRef.current }); } catch (e) { fallarRef.current(e); return; }
+    try { motorRef.current?.ponerEstado(estado, { celebra: celebraRef.current }); } catch (e) { fallarRef.current(e); return; }
     despertarRef.current();
   }, [estado]);
-
-  // Con `sonarCambios`, suena cada estado nuevo, y el primero con el que se le
-  // ve (aparecer ya responde a lo que se acaba de pedir). Aparte del de arriba
-  // porque `sonarCambios` puede llegar un render después (el icono sabe si va
-  // dentro de un control cuando ya se ha montado).
-  useEffect(() => {
-    const m = motorRef.current;
-    if (!sonarCambios || !m || sonadoRef.current === estado) return;
-    sonadoRef.current = estado;
-    if (performance.now() < mareadoHasta.current) return;
-    try { m.sonarEstado(); } catch (e) { fallarRef.current(e); }
-  }, [estado, sonarCambios, tamano, fallo]);
 
   // Una emoción por clave: se apunta y sale cuando se vea.
   const claveEmocion = emocion?.clave ?? null;

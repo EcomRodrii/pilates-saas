@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { MarcaEnPortales } from '@/components/layout/marca-en-portales';
+import { ViewportIOS } from '@/components/layout/viewport-ios';
 import { variablesTipografiaPanel } from '../_fuentes/fuentes-panel';
 
 // El manifest raíz (app/manifest.ts) es el de la PLATAFORMA — landing +
@@ -27,6 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className={`${variablesTipografiaPanel} marca-panel contents`}>
       <MarcaEnPortales />
+      <ViewportIOS />
       <DashboardShell>{children}</DashboardShell>
     </div>
   );
