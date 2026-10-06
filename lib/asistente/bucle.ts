@@ -82,11 +82,22 @@ export interface ResultadoTurno {
 
 export const AVISO_LIMITE = 'Límite de 5 consultas por pregunta: responde con lo que ya tienes.';
 
-/** El texto de todo lo que vino de los datos o de la propietaria: la base de las cifras permitidas. */
-function textosDeConfianza(mensajes: readonly Anthropic.MessageParam[]): string[] {
+/**
+ * El texto de todo lo que vino de los datos o de la propietaria: la base de las
+ * cifras permitidas. Con `respuestasPasadas`, también lo que se le respondió en
+ * turnos anteriores: el historial llega compactado (lib/asistente/historial.ts,
+ * sin los resultados de herramientas de antes) y ese texto ya pasó este mismo
+ * filtro, así que repetir una cifra suya («como te decía, 84») está respaldado.
+ */
+function textosDeConfianza(mensajes: readonly Anthropic.MessageParam[], respuestasPasadas = false): string[] {
   const out: string[] = [];
   for (const m of mensajes) {
-    if (m.role !== 'user') continue;
+    if (m.role !== 'user') {
+      if (!respuestasPasadas) continue;
+      if (typeof m.content === 'string') out.push(m.content);
+      else for (const b of m.content) if (b.type === 'text') out.push(b.text);
+      continue;
+    }
     if (typeof m.content === 'string') { out.push(m.content); continue; }
     for (const b of m.content) {
       if (b.type === 'text') out.push(b.text);
@@ -136,7 +147,8 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
   const usadas: NombreHerramienta[] = [];
   const filtro = filtroDeCifras([
     ...entrada.sistema.slice(1).map(s => s.text), // el contexto del día (fecha); el prompt estático no
-    ...textosDeConfianza(mensajes),
+    ...textosDeConfianza(entrada.historial, true),
+    ...textosDeConfianza([preguntaMsg]),
   ]);
   let uso: UsoAcumulado = USO_CERO;
   let tokensContexto = 0;

@@ -26,7 +26,10 @@ import type { Rol } from './types';
 // marketing, automatizaciones, informes o gestión del equipo.
 // '/centro-de-control' (Decision OS, MVP): solo PROPIETARIO — la apertura
 // parcial a RECEPCION se decidirá post-MVP (DECISION-OS-ANALISIS.md §8).
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones'];
+// '/asistente' («Pregúntale a Tentare»): propietaria y gerencia (fundador,
+// 5-oct-2026); recepción no. Lo que el plan incluye y si está encendido lo
+// decide la propia pantalla (feature `asistente`) y, de verdad, el servidor.
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente'];
 
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque

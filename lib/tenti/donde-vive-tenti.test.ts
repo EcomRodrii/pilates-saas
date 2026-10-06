@@ -4,8 +4,10 @@
 // Tenti es Tentare. Donde Tentare interviene —lo hace solo, lo vigila o te lo
 // ofrece— va Tenti, y desde el 5-oct-2026 (decisión del fundador) va en TODOS
 // los sitios donde antes iba el Orb, que ya no existe. `Sparkles` sigue
-// queriendo decir «novedad» (el changelog), y el robot sigue fuera: Tentare no
-// es un bot que responde.
+// queriendo decir «novedad» (el changelog), y el robot sigue fuera. Desde el
+// asistente (fundador, 5-oct-2026) Tentare SÍ responde preguntas: responde
+// Tenti, con los datos del estudio y su cara. Un robot genérico es justo lo
+// contrario.
 //
 // Un solo dibujo (lib/tenti/geometria.ts), y desde el 5-oct-2026 por la tarde
 // (decisión del fundador: «no se mueve en ningún lado… tampoco hace el
@@ -63,6 +65,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import ts from 'typescript';
 import { ESTADOS, EMOCIONES } from './motor.ts';
+import { ESTADO_DEL_MOMENTO } from './asistente.ts';
 import { MAPA } from './momentos.ts';
 
 const raiz = join(import.meta.dirname, '..', '..');
@@ -155,6 +158,7 @@ const COMPONENTE = 'components/tenti/tenti';
 const DIFERIDO = 'components/tenti/tenti-diferido';
 const DECORATIVO = 'components/tenti/tenti-decorativo';
 const ICONO = 'components/tenti/tenti-icono';
+const ASISTENTE = 'components/tenti/tenti-asistente';
 const MOTOR = 'lib/tenti/motor';
 const GEOMETRIA = 'lib/tenti/geometria';
 const AVISO_MIT = 'Copyright (c) 2026 Louis Raillé';
@@ -235,7 +239,23 @@ const IMPORTAN_EL_COMPONENTE = new Set([
   // Los dos envoltorios diferidos, que solo importan el TIPO y el módulo dentro de dynamic().
   'components/tenti/tenti-diferido.tsx',
   'components/tenti/tenti-decorativo.tsx',
+  // La cara del asistente: igual, solo el TIPO y el módulo dentro de dynamic().
+  'components/tenti/tenti-asistente.tsx',
 ]);
+
+/**
+ * Los únicos que importan `components/tenti/tenti-asistente`: la cara del
+ * asistente («Pregúntale a Tentare»), solo en su chat (/asistente). Habla en
+ * «momentos» del asistente (lib/asistente/estado-ui.ts) y el envoltorio los
+ * traduce a estados del motor (lib/tenti/asistente.ts): quien lo usa nunca
+ * escribe un estado del catálogo. Dos usos que nunca están a la vez: el
+ * saludo del chat vacío (96) y el avatar de la respuesta en curso (40); las
+ * respuestas ya terminadas llevan el dibujo quieto (TentiAsistenteQuieto, sin
+ * canvas).
+ */
+const IMPORTAN_EL_ASISTENTE: Record<string, { usos: number; motivo: string }> = {
+  'components/asistente/vista-chat.tsx': { usos: 2, motivo: 'el saludo del chat vacío y el avatar de la respuesta en curso' },
+};
 
 /** Los únicos que importan `components/tenti/tenti-diferido`. */
 const IMPORTAN_EL_DIFERIDO = new Set([
@@ -318,6 +338,7 @@ const SUENAN: Record<string, { sonidos: string[]; motivo: string }> = {
   'components/socios/modal-nota-voz.tsx': { sonidos: ['pop'], motivo: '«Estructurar con IA» ha terminado con resultado' },
   'app/(dashboard)/migracion/page.tsx': { sonidos: ['pop'], motivo: '«Analizar» ha terminado con resultado' },
   'components/configuracion/secciones/seccion-panel.tsx': { sonidos: [], motivo: 'el interruptor «Sonidos de Tenti» (lee y escribe la preferencia, no suena)' },
+  'components/asistente/vista-chat.tsx': { sonidos: ['pop'], motivo: 'el asistente ha respondido con datos a una pregunta que acabas de hacer (una vez; su Tenti va con sonido={false})' },
 };
 const PREFERENCIA = 'lib/tenti/preferencia-sonido';
 const SONIDOS = 'lib/tenti/sonidos';
@@ -375,6 +396,11 @@ const VETADOS: { grupo: string; motivo: string; rutas: string[]; deRebote: boole
       'contrato-decision-os', 'empty-state', 'while-you-slept', 'fila-situacion', 'fila-especialista',
       'activity-list', 'bandeja-hoy', 'action-center', 'riesgo-planton', 'especialista-cartera', 'codigos-descuento',
     ].map((f) => `components/decision/${f}.tsx`),
+  },
+  {
+    grupo: 'tarjetas del asistente', deRebote: false,
+    motivo: 'la cara del asistente va en la cabecera de su panel, nunca dentro de una tarjeta (y menos en la de dinero)',
+    rutas: ['components/asistente/bloques'],
   },
 ];
 
@@ -528,7 +554,7 @@ for (const [fichero, { usos, motivo }] of Object.entries(CON_TENTI)) {
     assert.equal(src.match(/\bTentiIcono\b/g)?.length ?? 0, usos + 1,
       `${fichero}: TentiIcono solo puede aparecer en su import y en sus ${usos} etiqueta(s); nada de alias.`);
     assert.doesNotMatch(src, /\bSparkles\b/, '`Sparkles` significa «novedad» (el changelog). Para «esto lo hace Tentare», Tenti.');
-    assert.doesNotMatch(src, /<Bot\b/, 'El robot tampoco: Tentare no es un bot que responde, es un sistema que decide.');
+    assert.doesNotMatch(src, /<Bot\b/, 'El robot tampoco: Tentare SÍ responde (el asistente), pero responde Tenti, con los datos del estudio y su cara; un robot genérico es lo contrario.');
   });
 }
 
@@ -642,7 +668,7 @@ test('los trajes son los de Coucou: el motor los pinta desde OUTFITS, y el rende
 
 // ── 3 · El personaje (canvas): quién lo importa ──────────────────────────────
 
-test('solo cinco ficheros importan el componente de Tenti, solo Listo el diferido y los sitios de lo diario el decorativo', () => {
+test('solo seis ficheros importan el componente de Tenti, solo Listo el diferido y los sitios de lo diario el decorativo', () => {
   const delComponente = TODAS.filter(f => imports.get(f)!.includes(COMPONENTE)).sort();
   assert.deepEqual(delComponente, [...IMPORTAN_EL_COMPONENTE].sort(),
     'Un sitio nuevo para el canvas es una decisión de producto: añádelo a IMPORTAN_EL_COMPONENTE con su motivo. ' +
@@ -654,8 +680,11 @@ test('solo cinco ficheros importan el componente de Tenti, solo Listo el diferid
   assert.deepEqual(delDecorativo, Object.keys(IMPORTAN_EL_DECORATIVO).sort(),
     'El canvas en una pantalla de todos los días es una decisión de producto: añádelo a IMPORTAN_EL_DECORATIVO con su motivo.');
   const otros = TODAS.filter(f => !f.startsWith('components/tenti/')
-    && imports.get(f)!.some(m => esTenti(m) && m !== COMPONENTE && m !== DIFERIDO && m !== DECORATIVO && m !== ICONO));
-  assert.deepEqual(otros, [], 'components/tenti solo expone el componente, sus dos versiones diferidas y el icono.');
+    && imports.get(f)!.some(m => esTenti(m) && m !== COMPONENTE && m !== DIFERIDO && m !== DECORATIVO && m !== ICONO && m !== ASISTENTE));
+  assert.deepEqual(otros, [], 'components/tenti solo expone el componente, sus dos versiones diferidas, el icono y la cara del asistente.');
+  const delAsistente = TODAS.filter(f => imports.get(f)!.includes(ASISTENTE)).sort();
+  assert.deepEqual(delAsistente, Object.keys(IMPORTAN_EL_ASISTENTE).sort(),
+    'La cara del asistente va en la cabecera de su panel y en ningún otro sitio: añádelo a IMPORTAN_EL_ASISTENTE con su motivo.');
 });
 
 test('el motor solo lo importan Tenti por dentro y el catálogo', () => {
@@ -756,6 +785,53 @@ for (const [fichero, { tamano, motivo }] of Object.entries(IMPORTAN_EL_DECORATIV
     if (estado != null) {
       assert.ok(MAPA[fichero] && origenValido(src, estado, MAPA[fichero]),
         `${fichero}: <TentiDecorativo estado={${estado}}> sale de la función de MAPA para este sitio, o no se pasa (reposo).`);
+    }
+  });
+}
+
+// ── 4b · La cara del asistente ───────────────────────────────────────────────
+
+test('TentiAsistente: el motor por dynamic() sin SSR, tamaños cerrados, sin sonido propio, y solo `momento`, `tamano` y `className`', () => {
+  const src = leerCodigo(`${ASISTENTE}.tsx`);
+  for (const m of src.matchAll(/import\s+([^;]*?)\s+from\s*['"]\.\/tenti['"]/g)) {
+    assert.match(m[1], /^type\s/, 'De ./tenti solo el tipo: un import de valor mete el motor en el chunk del panel del asistente.');
+  }
+  assert.match(src, /^const\s+\w+\s*=\s*dynamic\s*(<[^>]*>)?\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"]\.\/tenti['"]\s*\)[\s\S]*?\.catch\([\s\S]*?\{[^}]*\bssr\s*:\s*false/m,
+    "dynamic(() => import('./tenti').then(…).catch(…), { ssr: false }) a nivel de módulo.");
+  const lienzos = etiquetas(`${ASISTENTE}.tsx`, src, ['TentiCanvas']);
+  assert.equal(lienzos.length, 1);
+  const [l] = lienzos;
+  assert.equal(l.props.get('tamano'), 'tamano', 'El tamaño que le pasan, cerrado por tipo (40 | 96).');
+  assert.equal(l.props.get('sonido'), 'false', 'Sin sonido propio: el motor sonaría en cada cambio (pensar, buscar, terminar). Suena el panel, una vez.');
+  for (const p of ['insignias', 'titulo', 'saludaAlAparecer', 'saludaUnaVez', 'interactivo', 'sigueCursor']) {
+    assert.ok(!l.props.has(p), `TentiAsistente no pide \`${p}\`.`);
+  }
+  assert.match(src, /estadoParaPintar\(momento,/, 'El estado sale de la tabla de momentos (lib/tenti/asistente.ts), con su tope de animación.');
+  assert.match(src, /export function TentiAsistente\(\{ momento, tamano, className \}: \{ momento: MomentoAsistente; tamano: 40 \| 96; className\?: string \}\)/,
+    'Props cerrados: el momento del asistente, un tamaño de dos y la clase. Nada de estado ni sonido desde fuera.');
+  // Las respuestas terminadas: el SVG quieto del icono, sin motor.
+  const quieto = src.slice(src.indexOf('export function TentiAsistenteQuieto'));
+  assert.match(quieto, /<SvgTenti\b/);
+  assert.doesNotMatch(quieto, /TentiCanvas/, 'El avatar quieto no lleva canvas.');
+});
+
+test('la tabla momento → estado del asistente es exactamente la de su spec (§5.3)', () => {
+  assert.deepEqual({ ...ESTADO_DEL_MOMENTO }, {
+    listo: 'reposo', esperando: 'pensando', consultando: 'buscando', respondiendo: 'pensando',
+    terminado: 'hecho', aclarando: 'pregunta', fallo: 'error',
+  });
+});
+
+for (const [fichero, { usos, motivo }] of Object.entries(IMPORTAN_EL_ASISTENTE)) {
+  test(`${fichero}: ${usos} TentiAsistente (${motivo}), solo con su momento y un tamaño literal`, () => {
+    const src = leerCodigo(fichero);
+    const vistas = etiquetas(fichero, src, ['TentiAsistente']);
+    assert.equal(vistas.length, usos, 'Si cambia, cambia IMPORTAN_EL_ASISTENTE con su motivo.');
+    assert.equal(src.match(/\bTentiAsistente\b/g)?.length ?? 0, usos + 1, 'TentiAsistente solo en su import y en sus etiquetas: nada de alias.');
+    for (const e of vistas) {
+      assert.ok(!e.esparce);
+      assert.deepEqual([...e.props.keys()].filter(p => p !== 'className').sort(), ['momento', 'tamano']);
+      assert.match(e.props.get('tamano') ?? '', /^(40|96)$/, 'tamano literal: cambiarlo recrea el motor.');
     }
   });
 }

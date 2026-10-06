@@ -12,7 +12,7 @@ import type { ContextoHerramienta, ResultadoHerramienta } from '../tipos.ts';
 import { marca } from '../referencias.ts';
 import { campo } from '../recorte.ts';
 import { diaLargo, sumarDiasYmd, type EntradaActividad, type EntradaEvento, type EntradaFranja } from './definiciones.ts';
-import { exigir, pct, tramosDelPeriodo } from './comun.ts';
+import { exigir, pct, sinVacios, tramosDelPeriodo } from './comun.ts';
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
@@ -52,8 +52,8 @@ export async function ocupacionPorFranja(input: EntradaFranja, ctx: ContextoHerr
       periodo: p.texto,
       ocupacionGlobal: pct(total.pct),
       clasesDadas: total.nClases,
-      nota: 'Ocupación = plazas reservadas (vinieran o no) sobre el aforo, solo clases ya empezadas. Solo franjas con 2 clases o más.',
-      franjas: comparables.map(f => ({ franja: f.texto, tipoClase: tipo(f.tipoClaseId), ocupacion: pct(f.pct), clases: f.nClases, enListaDeEspera: f.enEspera })),
+      // Qué es la ocupación y por qué solo franjas con 2 clases o más: en el glosario del prompt.
+      franjas: comparables.map(f => sinVacios({ franja: f.texto, tipoClase: tipo(f.tipoClaseId), ocupacion: pct(f.pct), clases: f.nClases, enListaDeEspera: f.enEspera }, ['enListaDeEspera'])),
     },
     bloques: [{
       tipo: 'franjas',
@@ -143,14 +143,14 @@ export async function datosParaUnEvento(input: EntradaEvento, ctx: ContextoHerra
     };
   });
   const abiertos = dias.filter(d => d.abierto !== false).sort((a, b) => a.clasesProgramadas - b.clasesProgramadas);
-  const fila = (f: FranjaConTipo) => ({ franja: f.texto, tipoClase: tipo(f.tipoClaseId), ocupacion: pct(f.pct), clases: f.nClases, enListaDeEspera: f.enEspera });
+  const fila = (f: FranjaConTipo) => sinVacios({ franja: f.texto, tipoClase: tipo(f.tipoClaseId), ocupacion: pct(f.pct), clases: f.nClases, enListaDeEspera: f.enEspera }, ['enListaDeEspera']);
   return {
     paraModelo: {
       demandaMirada: `del ${diaLargo(historial.desde)} al ${diaLargo(historial.hasta)}`,
       programadoMirado: `del ${diaLargo(vista.desde)} al ${diaLargo(vista.hasta)}`,
       franjasConMasDemanda: demanda.map(fila),
       franjasMasFlojas: flojas.map(fila),
-      diasConMenosClasesProgramadas: abiertos.slice(0, 4),
+      diasConMenosClasesProgramadas: abiertos.slice(0, 4).map(d => sinVacios(d)),
       horarioConocido: horario.size > 0,
     },
     bloques: [{

@@ -113,7 +113,7 @@ test('las conversaciones se leen siempre con el estudio Y el usuario de la sesi�
 test('la ruta corta antes de abrir el stream: sesión, rol, interruptor, plan, ráfaga y libro', () => {
   const src = leer('app/api/asistente/route.ts');
   const orden = [
-    'verificarSesionStaff(req)', 'puedeUsarAsistente(sesionStaff.rol)', 'asistenteEncendido()',
+    'verificarSesionStaff(req)', 'puedeUsarAsistente(sesionStaff.rol)', 'asistenteEncendido(sesionStaff.studioId)',
     "bloqueoPorFeature(sesionStaff.studioId, 'asistente')", "enforceRateLimit(req, 'asistente'", 'validarCuerpo(',
     'reservarConsulta(', 'new ReadableStream',
   ].map(t => [t, src.indexOf(t)] as const);
@@ -134,7 +134,14 @@ test('ni a la Sentry ni al log va el texto de la pregunta o de la respuesta', ()
   }
 });
 
-test('el interruptor está APAGADO salvo ASISTENTE_IA=on', () => {
+test('el interruptor está APAGADO salvo ASISTENTE_IA=on o estudios:<ids> (lib/asistente/interruptor.test.ts), y con clave', () => {
   const src = leer('lib/asistente/servidor.ts');
-  assert.match(src, /process\.env\.ASISTENTE_IA === 'on' && !!process\.env\.ANTHROPIC_API_KEY/);
+  assert.match(src, /asistenteEncendidoPara\(process\.env\.ASISTENTE_IA, !!process\.env\.ANTHROPIC_API_KEY, studioId\)/);
+  // Las tres rutas preguntan por el estudio de la SESIÓN, nunca por uno que venga de fuera.
+  for (const ruta of ['app/api/asistente/route.ts', 'app/api/asistente/saldo/route.ts', 'app/api/asistente/conversaciones/[id]/route.ts']) {
+    const r = leer(ruta);
+    const llamadas = [...r.matchAll(/asistenteEncendido\(([^)]*)\)/g)].map(m => m[1]);
+    assert.ok(llamadas.length > 0, ruta);
+    for (const a of llamadas) assert.match(a, /^sesion(Staff)?\.studioId$/, `${ruta}: asistenteEncendido(${a})`);
+  }
 });
