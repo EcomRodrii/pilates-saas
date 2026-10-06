@@ -138,8 +138,15 @@ export function comoVieneSinBono({ exigePlan, pagosOnline, desde, precioEspecial
   return { caso: 'RESERVA_SIN_PAGAR' };
 }
 
-/** La nota de la hoja para cada caso (el tono es el de `CARA`). `null`: la de `comoSePaga` de siempre. */
-export function notaSinBono(c: ComoVieneSinBono, bonoNoCubre: boolean): { texto: string; tono: TonoPago } | null {
+/**
+ * Lo que se dice cuando el estudio no exige plan y no hay precio que cobrar (`RESERVA_SIN_PAGAR`). Antes no había frase
+ * propia: la hoja y la ficha caían en la de `comoSePaga` y, en una clase sin precio suelto, decían «Esta clase solo se
+ * reserva con bono o cuota» encima de «Confirmar 10:00», con el servidor reservándola sin cobrar (6-oct-2026).
+ */
+const TEXTO_RESERVA_SIN_PAGAR = 'Reservas sin pagar nada ahora';
+
+/** La nota de la hoja para cada caso (el tono es el de `CARA`). */
+export function notaSinBono(c: ComoVieneSinBono, bonoNoCubre: boolean): { texto: string; tono: TonoPago } {
   const necesita = bonoNoCubre ? 'Tu bono no incluye este tipo de clase.' : 'Para esta clase necesitas un bono.';
   switch (c.caso) {
     case 'PIDE_BONO_EN_ESTUDIO':
@@ -152,7 +159,7 @@ export function notaSinBono(c: ComoVieneSinBono, bonoNoCubre: boolean): { texto:
     case 'PAGA_EN_ESTUDIO':
       return { texto: `Pagas ${euros(c.importe)} en el estudio, el día de la clase.`, tono: 'coste' };
     case 'RESERVA_SIN_PAGAR':
-      return null;
+      return { texto: `${TEXTO_RESERVA_SIN_PAGAR}.`, tono: 'ok' };
   }
 }
 

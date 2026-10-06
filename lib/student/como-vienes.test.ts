@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { comoVienes } from './como-vienes.ts';
+import { notaSinBono } from './como-se-paga.ts';
 import type { Bono } from './tipos.ts';
 
 // «Cómo vienes» (P02): con SUS datos, con qué viene a esta clase. Solo informa: no vende ni cobra.
@@ -71,6 +72,19 @@ test('bono que no cubre: lo dice (uno o varios) y lo que costaría, con la tiend
   assert.equal(muro.tono, 'bloqueo');
 });
 
+test('sin plan exigido y sin nada que cobrar (RESERVA_SIN_PAGAR): ni muro ni precio, el servidor la reserva sin cobrar', () => {
+  const sinPagar = { caso: 'RESERVA_SIN_PAGAR' as const };
+  const sinPrecio = vista({ clase: { ...clase, sinPrecioSuelto: true }, sinBono: sinPagar })!;
+  assert.deepEqual([sinPrecio.titulo, sinPrecio.tono], ['Esta clase no necesita bono', 'ok']);
+  const conPrecioSinCobro = vista({ sinBono: sinPagar })!;
+  assert.deepEqual([conPrecioSinCobro.titulo, conPrecioSinCobro.tono], ['Esta clase no necesita bono', 'ok']);
+  // Gratis sigue diciéndolo así.
+  assert.equal(vista({ clase: { ...clase, precioSuelto: 0 }, sinBono: sinPagar })!.titulo, 'Esta clase es gratis');
+  // Con un bono que no cubre, tampoco se le dice lo que costaría.
+  const noCubre = vista({ clase: { ...clase, sinPrecioSuelto: true }, bonos: [bono({ tiposClaseIds: ['tc-mat'] })], sinBono: sinPagar })!;
+  assert.equal(noCubre.detalle, 'Esta clase no necesita bono');
+});
+
 test('sin nada: suelta con su precio, gratis o solo con bono o cuota', () => {
   assert.equal(vista()!.titulo, 'Clase suelta · 20 €');
   assert.equal(vista()!.tono, 'coste');
@@ -109,15 +123,40 @@ test('en lista de espera, llena con lista o aún sin abrir: dice con qué vendr�
   assert.equal(vista({ disp: 'completa', bonos: [bono()] })!.caso, 'bono');
 });
 
+test('el estudio exige plan y aquí no se vende (PIDE_BONO_EN_ESTUDIO): con sus palabras, nunca la nota de la hoja', () => {
+  const sinOnline = { caso: 'PIDE_BONO_EN_ESTUDIO' as const, motivo: 'sin-pagos-online' as const };
+  const sinNada = vista({ clase: { ...clase, sinPrecioSuelto: true }, sinBono: sinOnline })!;
+  assert.deepEqual([sinNada.titulo, sinNada.detalle, sinNada.tono], ['Esta clase necesita bono', 'Se consigue en recepción', 'bloqueo']);
+  const noCubre = vista({ bonos: [bono({ tiposClaseIds: ['tc-mat'] })], sinBono: sinOnline })!;
+  assert.equal(noCubre.caso, 'bono-no-cubre');
+  assert.match(noCubre.titulo, /no sirve para Reformer$/);
+  const especial = vista({ sinBono: { caso: 'PIDE_BONO_EN_ESTUDIO', motivo: 'precio-especial' } })!;
+  assert.deepEqual([especial.titulo, especial.detalle], ['Esta clase se reserva en el estudio', 'Tiene precio especial']);
+});
+
 test('guardia: ningún texto repite las frases de la hoja (saldrían dos veces y romperían a getByText)', () => {
   const casos = [
     vista({ bonos: [cuota()] }), vista({ bonos: [bono()] }), vista({ bonos: [bono({ tiposClaseIds: ['tc-mat'] })] }),
     vista(), vista({ clase: { ...clase, sinPrecioSuelto: true } }), vista({ clase: { ...clase, precioSuelto: 0 } }),
     vista({ bonos: [bono({ creditosTotales: Infinity, creditosUsados: 0 })] }),
+    vista({ clase: { ...clase, sinPrecioSuelto: true }, sinBono: { caso: 'RESERVA_SIN_PAGAR' } }),
+    ...(['sin-pagos-online', 'nada-a-la-venta', 'precio-especial'] as const).flatMap((motivo) => [
+      vista({ sinBono: { caso: 'PIDE_BONO_EN_ESTUDIO', motivo } }),
+      vista({ bonos: [bono({ tiposClaseIds: ['tc-mat'] })], sinBono: { caso: 'PIDE_BONO_EN_ESTUDIO', motivo } }),
+    ]),
+    vista({ sinBono: { caso: 'PAGA_AQUI', desde: 12 } }),
+    vista({ sinBono: { caso: 'PAGA_EN_ESTUDIO', importe: 15 } }),
   ];
   for (const v of casos) {
     const texto = `${v?.titulo ?? ''} ${v?.detalle ?? ''}`.toLowerCase();
     assert.doesNotMatch(texto, /no pagas nada hoy/);
     assert.doesNotMatch(texto, /tu bono no incluye este tipo de clase/);
+    assert.doesNotMatch(texto, /reservas sin pagar nada ahora/);
+    // Ninguna nota entera de la hoja (`notaSinBono`) cabe dentro de la tarjeta.
+    for (const motivo of ['sin-pagos-online', 'nada-a-la-venta', 'precio-especial'] as const) {
+      for (const noCubre of [false, true]) {
+        assert.ok(!texto.includes(notaSinBono({ caso: 'PIDE_BONO_EN_ESTUDIO', motivo }, noCubre).texto.toLowerCase()));
+      }
+    }
   }
 });

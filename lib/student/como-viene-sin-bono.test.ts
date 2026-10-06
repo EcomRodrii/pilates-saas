@@ -32,7 +32,9 @@ test('la nota de cada caso: muro, coste o la de siempre', () => {
   assert.match(notaSinBono({ caso: 'PIDE_BONO_EN_ESTUDIO', motivo: 'precio-especial' }, false)!.texto, /precio especial/);
   assert.equal(notaSinBono({ caso: 'PAGA_EN_ESTUDIO', importe: 15 }, false)?.texto, 'Pagas 15 € en el estudio, el día de la clase.');
   assert.match(notaSinBono({ caso: 'PAGA_AQUI', desde: 12 }, false)!.texto, /desde 12 €/);
-  assert.equal(notaSinBono({ caso: 'RESERVA_SIN_PAGAR' }, false), null);
+  // Antes `null`, y la hoja caía en «Esta clase solo se reserva con bono o cuota» sobre «Confirmar 10:00» (6-oct-2026).
+  assert.deepEqual(notaSinBono({ caso: 'RESERVA_SIN_PAGAR' }, false), { texto: 'Reservas sin pagar nada ahora.', tono: 'ok' });
+  assert.deepEqual(notaSinBono({ caso: 'RESERVA_SIN_PAGAR' }, true), { texto: 'Reservas sin pagar nada ahora.', tono: 'ok' });
 });
 
 const SUELTA = { id: 'suelta', studioId: 'st', nombre: 'Clase suelta', tipo: 'PUNTUAL', sesiones: 1, precio: 15, activo: true } as PlanTarifa;

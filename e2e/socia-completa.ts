@@ -156,6 +156,9 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   }));
 
   // ── 2. El payload del estudio, coherente consigo mismo. ──
+  // ⚠️ Hereda `studio.reservaExigirPlan: true` de `fixtureSociaLista` (lo que manda producción). Con `conTienda` hay
+  // planes a la venta, así que una alumna SIN nada que cubra la clase la ve exigida: la hoja dice «necesitas un bono»
+  // (sin Stripe, «pídelo en recepción»). Una spec que quiera el respaldo sin el dato lo pone a `null` en `ajustar`.
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const socia = f.socio as Record<string, unknown> ?? (f.socia as Record<string, unknown>);
   const s = f.socia as Record<string, unknown>;

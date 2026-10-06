@@ -10,7 +10,7 @@ import { bonoParaClase, esCuota, tieneBonoQueNoCubre } from './bono-cubre.ts';
 import { euros } from './formato.ts';
 import { textoSaldoBono, textoTopes } from './saldo-bono.ts';
 import { hayALaVentaQueCubra, type PlanTienda } from './tienda.ts';
-import { notaSinBono, type ComoVieneSinBono, type TonoPago } from './como-se-paga.ts';
+import { type ComoVieneSinBono, type TonoPago } from './como-se-paga.ts';
 import type { Bono, Clase, Disponibilidad, Reserva } from './tipos.ts';
 
 export type CasoComoVienes = 'clase-fija' | 'cuota' | 'ilimitado' | 'bono' | 'bono-no-cubre' | 'sin-nada';
@@ -78,7 +78,12 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
   const tienda = hayALaVentaQueCubra(planesTarifa, clase.tipoClaseId)
     ? { texto: 'Ver opciones', destino: 'tienda' as const }
     : undefined;
-  const precio = clase.sinPrecioSuelto
+  // Sin plan exigido y sin nada que cobrar (`RESERVA_SIN_PAGAR`): «solo se reserva con bono o cuota» o «clase suelta ·
+  // 15 €» mentirían, el servidor la reserva sin cobrar (6-oct-2026). Otra frase que la de la hoja («Reservas sin pagar
+  // nada ahora», `notaSinBono`): las dos en la misma pantalla romperían a getByText (ver la guardia del test).
+  const precio = sinBono?.caso === 'RESERVA_SIN_PAGAR' && (clase.sinPrecioSuelto || clase.precioSuelto !== 0)
+    ? { texto: 'Esta clase no necesita bono', tono: 'ok' as const }
+    : clase.sinPrecioSuelto
     ? { texto: 'Esta clase solo se reserva con bono o cuota', tono: 'bloqueo' as const }
     : clase.precioSuelto === 0
       ? { texto: 'Esta clase es gratis', tono: 'ok' as const }
@@ -86,8 +91,17 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
 
   // El bloque de dinero (P01): la tarjeta y la hoja salen de la MISMA decisión. «Clase suelta · 15 €» con un enlace a
   // la tienda, en un estudio que no vende online, era invitarla a comprar algo que aquí no se puede comprar.
+  const conSaldo = bonos.filter((b) => b.estado === 'activo');
+  // «Tu Bono Mat no sirve para Reformer»: no es lo mismo que «no tienes bono». Nunca la frase de la hoja («tu bono no
+  // incluye este tipo de clase»): saldría dos veces en la misma pantalla.
+  const tituloNoCubre = () => {
+    const conCredito = conSaldo.filter((b) => !Number.isFinite(b.creditosTotales) || b.creditosUsados < b.creditosTotales);
+    return conCredito.length === 1
+      ? `Tu ${conCredito[0].nombre} no sirve para ${clase.tipo}`
+      : `Ninguno de tus bonos sirve para ${clase.tipo}`;
+  };
+
   if (sinBono && sinBono.caso !== 'RESERVA_SIN_PAGAR') {
-    const nota = notaSinBono(sinBono, tieneBonoQueNoCubre(bonos, clase.tipoClaseId));
     if (sinBono.caso === 'PAGA_AQUI') {
       return {
         caso: tieneBonoQueNoCubre(bonos, clase.tipoClaseId) ? 'bono-no-cubre' : 'sin-nada',
@@ -100,18 +114,17 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
     if (sinBono.caso === 'PAGA_EN_ESTUDIO') {
       return { caso: 'sin-nada', titulo: `Pagas ${euros(sinBono.importe)} en el estudio`, detalle: 'El día de la clase', tono: 'coste' };
     }
-    return { caso: 'sin-nada', titulo: 'Esta clase necesita bono', detalle: nota?.texto ?? null, tono: 'bloqueo' };
+    // PIDE_BONO_EN_ESTUDIO. Con sus palabras, no con la nota de la hoja (`notaSinBono`): la llevaba de detalle y, con la
+    // hoja abierta, la misma frase salía dos veces (lo destapó la fixture con «exigir plan», como en producción).
+    const noCubre = tieneBonoQueNoCubre(bonos, clase.tipoClaseId);
+    if (sinBono.motivo === 'precio-especial') {
+      return { caso: noCubre ? 'bono-no-cubre' : 'sin-nada', titulo: noCubre ? tituloNoCubre() : 'Esta clase se reserva en el estudio', detalle: noCubre ? 'Tiene precio especial: se reserva en el estudio' : 'Tiene precio especial', tono: 'bloqueo' };
+    }
+    return { caso: noCubre ? 'bono-no-cubre' : 'sin-nada', titulo: noCubre ? tituloNoCubre() : 'Esta clase necesita bono', detalle: 'Se consigue en recepción', tono: 'bloqueo' };
   }
 
-  const conSaldo = bonos.filter((b) => b.estado === 'activo');
   if (tieneBonoQueNoCubre(bonos, clase.tipoClaseId)) {
-    // «Tu Bono Mat no sirve para Reformer»: no es lo mismo que «no tienes bono». Nunca la frase de la hoja («tu bono no
-    // incluye este tipo de clase»): saldría dos veces en la misma pantalla.
-    const conCredito = conSaldo.filter((b) => !Number.isFinite(b.creditosTotales) || b.creditosUsados < b.creditosTotales);
-    const titulo = conCredito.length === 1
-      ? `Tu ${conCredito[0].nombre} no sirve para ${clase.tipo}`
-      : `Ninguno de tus bonos sirve para ${clase.tipo}`;
-    return { caso: 'bono-no-cubre', titulo, detalle: precio.texto, enlace: tienda, tono: precio.tono };
+    return { caso: 'bono-no-cubre', titulo: tituloNoCubre(), detalle: precio.texto, enlace: tienda, tono: precio.tono };
   }
   return { caso: 'sin-nada', titulo: precio.texto, detalle: null, enlace: tienda, tono: precio.tono };
 }

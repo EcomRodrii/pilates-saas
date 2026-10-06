@@ -44,6 +44,11 @@ export function fixtureSociaLista() {
       id: STUDIO_ID, nombre: 'Estudio Alma', slug: SLUG, ciudad: 'Marbella',
       direccion: 'Calle Larios 1', email: 'hola@alma.es', telefono: '+34 600 111 222',
       cancelacionVentanaHoras: 12,
+      // Lo que manda producción (`studioPublico`: `reserva_exigir_plan ?? true`). Sin el campo la app no sabe si la clase
+      // exige plan y la hoja cae en su respaldo («Confirmar … igualmente»), una pantalla que ninguna alumna ve. Una spec
+      // que necesite ese respaldo lo pone a `null` ella misma. Con `planesTarifa: []` no bloquea (no hay nada que
+      // contratar, `exigePlanAlReservar`), igual que en el servidor.
+      reservaExigirPlan: true,
     },
     tiposClase: [{ id: 'tc-r', studioId: STUDIO_ID, nombre: 'Reformer', color: '#7C6A52', nivel: 'TODOS', ventanaCancelacionHoras: null }],
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala 1', capacidad: 10 }],
