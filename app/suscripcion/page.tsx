@@ -18,6 +18,7 @@ import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudi
 import { BorrarDatosEstudio } from '@/components/billing/borrar-datos-estudio';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
+import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 
 // Suscripción del estudio a Tentare.
 //
@@ -336,6 +337,12 @@ export default function SuscripcionPage() {
             </p>
           </>
         )}
+
+        {/* Las consultas del asistente y sus packs. Solo con el producto activo
+            (en prueba o pagando): con la prueba agotada no se venden consultas
+            de algo que no se puede usar. La sección se oculta sola si quien
+            mira no usa el asistente o no está encendido para el estudio. */}
+        {!cargando && activo && <ConsultasDeTentare className="mt-9" />}
 
         {/* Con la prueba agotada el panel entero redirige aquí, así que esta es
             la única puerta a la exportación que prometen los avisos de borrado
