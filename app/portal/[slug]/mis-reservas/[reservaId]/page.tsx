@@ -17,6 +17,13 @@ import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ValorarClase } from '@/components/student/domain/ValorarClase';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { useToast } from '@/components/student/ui/Toast';
+import { InvitarAClaseFila } from '@/components/student/domain/CompartirClase';
+import { getGamificacion } from '@/lib/student/gamificacion-datos';
+import { premioPorInvitar } from '@/lib/student/gamificacion';
+import { nombreCreditos } from '@/lib/creditos-nombre';
+import { useSesionStudent } from '@/lib/student/sesion';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 
 // Detalle de reserva + su QR de acceso (§A.10).
 //
@@ -32,12 +39,13 @@ export default function DetalleReservaPage() {
   const { estudio } = useEstudio();
 
   const cargar = useCallback(async () => {
-    const [reservas, clases, instructoras] = await Promise.all([
-      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug),
+    // `getGamificacion` sale del mismo payload: el premio de invitar no cuesta ninguna petición.
+    const [reservas, clases, instructoras, gamificacion] = await Promise.all([
+      getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getGamificacion(estudio.slug),
     ]);
     const res = reservas.find((x) => x.id === reservaId);
     const c = res ? clases.find((x) => x.id === res.claseId) : undefined;
-    return res && c ? { res, c, i: instructoras.find((x) => x.id === c.instructoraId) } : null;
+    return res && c ? { res, c, i: instructoras.find((x) => x.id === c.instructoraId), gamificacion } : null;
   }, [estudio.slug, reservaId]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d);
@@ -58,6 +66,10 @@ export default function DetalleReservaPage() {
   const conQr = activa && estudio.qrAcceso === true && qrAcceso.estado !== 'apagado';
   // En la app de iOS, brillo al máximo mientras el QR está en pantalla.
   useBrilloAlMaximo(conQr && qrAcceso.estado === 'listo');
+  // P04 en Mis clases: «Invita a una amiga a esta clase», con el MISMO enlace y la MISMA frase que la ficha
+  // (`premioPorInvitar`, con su condición real). Solo si el estudio premia invitar y la clase aún no ha empezado.
+  const { socia } = useSesionStudent(estudio.slug);
+  const ahoraMs = useAhoraMs();
 
   if (estado === 'loading') {
     return (
@@ -82,6 +94,8 @@ export default function DetalleReservaPage() {
   }
 
   const { res, c, i } = data;
+  const premio = data.gamificacion?.hay ? premioPorInvitar(data.gamificacion.formasDeGanar, nombreCreditos(estudio.creditosNombre)) : null;
+  const invitar = activa && premio && ahoraMs !== null && !estaEnCurso(c, ahoraMs) && !yaTermino(c, ahoraMs);
   return (
     <StudentShell>
       <PageHeader titulo="Tu reserva" back />
@@ -155,6 +169,8 @@ export default function DetalleReservaPage() {
             </Button>
           </div>
         )}
+
+        {invitar && premio && <InvitarAClaseFila clase={c} socioId={socia?.socioId ?? null} premio={premio} />}
 
         {/* Solo tras asistir. El servidor lo vuelve a comprobar: la tarjeta
             no se pinta si él dice que no. */}

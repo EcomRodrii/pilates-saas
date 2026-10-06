@@ -133,6 +133,30 @@ test.describe('Student PWA · compartir', () => {
     expect(new URL(d.url ?? '').searchParams.get('invita')).toBe('socio-e2e-1');
   });
 
+  test('en Mis clases, «Tu reserva» también invita a ESA clase con lo que gana', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page, { reservada: true, reglasCreditos: [{ trigger: 'REFERIDO_AMIGO', creditos: 100, topeMensual: 3 }] });
+    await page.goto(`${base}/mis-reservas/res-1`, { waitUntil: 'domcontentloaded' });
+    const fila = page.getByTestId('invitar-a-clase');
+    await expect(fila).toContainText('ganas 100 créditos cuando venga a su primera clase', { timeout: 45_000 });
+    await fila.click();
+    await expect.poll(async () => (await compartidos(page)).length).toBeGreaterThan(0);
+    const [d] = await compartidos(page);
+    const url = new URL(d.url ?? '');
+    expect(url.pathname).toBe(`/reservar/${SLUG}`);
+    expect(url.searchParams.get('sesion')).toBe(SESION_ID);
+    expect(url.searchParams.get('invita')).toBe('socio-e2e-1');
+  });
+
+  test('en Mis clases, sin la regla de invitar no hay fila (no se promete nada)', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page, { reservada: true });
+    await page.goto(`${base}/mis-reservas/res-1`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Tu reserva' })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText('Reformer').first()).toBeVisible();
+    await expect(page.getByTestId('invitar-a-clase')).toHaveCount(0);
+  });
+
   test('sin la regla de invitar, no hay fila de premio (y el icono de compartir sigue)', async ({ page }) => {
     await conHojaDelNavegador(page);
     await sembrarSociaCompleta(page);
