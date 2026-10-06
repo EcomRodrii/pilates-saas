@@ -6,7 +6,8 @@ import { cerrarReciboPos, cerrarVentaPos } from '@/lib/pos/cerrar-cobro-pos';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
-import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
+import { caducidadDe } from '@/lib/billing/caducidad-tarjeta';
+import { debeSoltarTarjetaSustituida, filaTarjetaDeCobros } from '@/lib/billing/tarjetas-guardadas';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
@@ -513,22 +514,65 @@ async function procesarEvento(
             level: 'warning', extra: { socioId, sessionId: session.id },
           });
         } else if (pmId && esTarjeta) {
-          const update: Record<string, string> = { stripe_payment_method_id: pmId };
-          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
-          const { error } = await admin.from('socios')
-            .update(update).eq('id', socioId).eq('studio_id', studioId);
-          if (error) {
-            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+          // También «Cambiar tarjeta» / «Añadir tarjeta» de la app (Checkout incrustado,
+          // 6-oct-2026): la misma rama, la misma escritura.
+          const fallo = (detalle: string) => {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, detalle);
             Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta autorizada', {
-              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle },
             });
             return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
+          };
+          // Lo que había, para el compare-and-set y para soltar la que se sustituye.
+          const { data: antes, error: errAntes } = await admin.from('socios')
+            .select('stripe_payment_method_id, sepa_payment_method_id, stripe_customer_id')
+            .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+          if (errAntes) return fallo(errAntes.message);
+          const anterior = (antes?.stripe_payment_method_id as string | null | undefined) ?? null;
+          // El método y su marca, últimos cuatro y caducidad en el MISMO update: al
+          // cambiar de tarjeta, la ficha nunca enseña los dígitos de la vieja con el
+          // método de la nueva (antes los datos iban después y solo «si se podía»).
+          const update = filaTarjetaDeCobros(
+            pmId, caducidadDe(typeof pm === 'string' ? null : pm), typeof session.customer === 'string' ? session.customer : null,
+          );
+          let cas = admin.from('socios').update(update).eq('id', socioId).eq('studio_id', studioId);
+          cas = anterior === null ? cas.is('stripe_payment_method_id', null) : cas.eq('stripe_payment_method_id', anterior);
+          const { data: tocadas, error } = await cas.select('id');
+          if (error) return fallo(error.message);
+          // Si la ficha cambió entre la lectura y el update, la tarjeta que se acaba de
+          // autorizar se escribe igual (es la última que dio), pero no se suelta nada:
+          // ya no se sabe cuál se sustituye.
+          let sustituida: string | null = anterior;
+          if ((tocadas?.length ?? 0) === 0 && antes) {
+            const { error: e2 } = await admin.from('socios').update(update).eq('id', socioId).eq('studio_id', studioId);
+            if (e2) return fallo(e2.message);
+            sustituida = null;
           }
-          // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
-          // importa (poder cobrar) ya está escrito.
-          await guardarCaducidadTarjeta(admin, stripe, {
-            socioId, studioId, paymentMethodId: pmId, stripeAccount: event.account,
-          });
+          // «Cambiar tarjeta»: la de antes se suelta en Stripe si era SOLO de cobros
+          // (`debeSoltarTarjetaSustituida`). Best-effort: lo que importa, poder cobrar
+          // con la nueva, ya está escrito; una vieja colgada no le cobra nada a nadie.
+          if (sustituida && sustituida !== pmId && antes) {
+            try {
+              const cuenta = event.account ? { stripeAccount: event.account } : undefined;
+              const viejo = await stripe.paymentMethods.retrieve(sustituida, {}, cuenta);
+              if (debeSoltarTarjetaSustituida({
+                sustituida, nueva: pmId,
+                sepaDeLaFicha: (antes.sepa_payment_method_id as string | null) ?? null,
+                customerDeLaFicha: typeof session.customer === 'string' ? session.customer : ((antes.stripe_customer_id as string | null) ?? null),
+                pmSustituido: viejo,
+              })) {
+                await stripe.paymentMethods.detach(sustituida, {}, cuenta);
+              }
+            } catch (e) {
+              // Ya no existía (la quitó ella, o el estudio): no hay nada que soltar.
+              if ((e as { code?: string })?.code !== 'resource_missing') {
+                Sentry.captureMessage('[stripe webhook] no se pudo soltar la tarjeta sustituida', {
+                  level: 'warning', tags: { area: 'cobros' },
+                  extra: { socioId, studioId, sessionId: session.id, detalle: e instanceof Error ? e.message : String(e) },
+                });
+              }
+            }
+          }
         }
       }
     } else if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {

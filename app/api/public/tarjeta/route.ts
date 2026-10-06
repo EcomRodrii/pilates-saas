@@ -5,7 +5,12 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
-import { idDeTarjetaValido, puedeQuitarseDesdeLaApp, tarjetaEsSuya, tarjetasVisibles, type PaymentMethodMin } from '@/lib/billing/tarjetas-guardadas';
+import {
+  confirmacionTarjetaGuardada, idDeSesionCheckoutValido, idDeTarjetaValido, parametrosSesionGuardarTarjeta, puedeQuitarseDesdeLaApp,
+  tarjetaEsSuya, tarjetasVisibles, type PaymentMethodMin,
+} from '@/lib/billing/tarjetas-guardadas';
+import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
+import { expiraSesionIncrustada, respuestaIncrustada } from '@/lib/billing/sesion-checkout';
 
 const claveStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -20,6 +25,8 @@ const claveStripe = () => {
 // Stripe), lista vacía.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  // «Cambiar / Añadir tarjeta»: ¿está ya en la ficha la tarjeta de esta sesión? (lo pregunta la hoja tras el Checkout)
+  if (req.nextUrl.searchParams.has('sesion')) return confirmarTarjetaGuardada(req);
   const limited = await enforceRateLimit(req, 'public-tarjeta-listar', { max: 30, windowSeconds: 60 });
   if (limited) return limited;
   const studioId = req.nextUrl.searchParams.get('studioId');
@@ -55,6 +62,192 @@ export async function GET(req: NextRequest) {
     return errorInterno('public/tarjeta:GET', err, 'No hemos podido cargar tus tarjetas.');
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Cambiar tarjeta» / «Añadir tarjeta» desde la app de la alumna (6-oct-2026).
+//
+// Abre un Checkout de Stripe INCRUSTADO en `mode: 'setup'` (no se cobra nada) y
+// devuelve lo que la hoja monta (`clientSecret`). Incrustado y no la página de
+// Stripe porque la app de iOS carga esta web y una página de fuera se abriría en
+// Safari: el botón se quedaba cargando y la vuelta acababa fuera de la app. Es la
+// misma pieza con la que la app ya paga un recibo (`HojaPagarRecibo`).
+//
+// ⚠️ Quién y dónde lo decide el SERVIDOR: la alumna sale de SU JWT
+// (`socioAutenticado`), y la cuenta de Stripe del estudio y su Customer, de la base
+// de datos. El body solo dice en cuál de SUS estudios está (una cuenta puede ser
+// alumna de varios), y eso se comprueba contra su sesión. Connect con cargo
+// directo: la tarjeta queda en la cuenta del estudio, en el Customer de su ficha,
+// que es donde la buscan los cobros off-session.
+//
+// La escribe en la ficha el webhook (`purpose: 'tarjeta'`, la rama del enlace del
+// panel), y la pantalla solo dice «Tarjeta guardada» cuando el GET con `sesion`
+// lee en la ficha la tarjeta de ESTA sesión. Nada optimista.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, 'public-tarjeta-guardar', { max: 10, windowSeconds: 60 });
+  if (limited) return limited;
+
+  const body = (await req.json().catch(() => null)) as { studioId?: unknown } | null;
+  const studioId = typeof body?.studioId === 'string' && body.studioId ? body.studioId : null;
+  if (!studioId) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+
+  const user = await verificarUsuarioSupabase(req);
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const socioId = await socioAutenticado(user.userId, studioId);
+  if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+  const NO_DISPONIBLE = 'Ahora mismo no se pueden guardar tarjetas. Inténtalo más tarde.';
+  const key = claveStripe();
+  if (!key) return NextResponse.json({ error: NO_DISPONIBLE }, { status: 503 });
+  // Las dos guardias de siempre: una clave live fuera de producción (o test en
+  // producción) no guarda tarjetas, y el incrustado se monta con la publicable, que
+  // tiene que ser del mismo modo. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  const par = comprobarParDeClaves();
+  if (!modo.puedeCobrar || !par.ok) {
+    console.error('[public/tarjeta:POST] modo de Stripe', modo.motivo ?? (par.ok ? null : par.motivo));
+    return NextResponse.json({ error: NO_DISPONIBLE }, { status: 503 });
+  }
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  try {
+    const [{ data: socio, error: errSocio }, { data: studio, error: errStudio }] = await Promise.all([
+      admin.from('socios').select('id, nombre, email, stripe_customer_id').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
+      admin.from('studios').select('stripe_account_id, slug').eq('id', studioId).maybeSingle(),
+    ]);
+    if (errSocio || errStudio) throw new Error(errSocio?.message ?? errStudio?.message);
+    if (!socio) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const stripeAccount = (studio?.stripe_account_id as string | null) ?? null;
+    const slug = (studio?.slug as string | null) ?? null;
+    if (!stripeAccount || !slug) {
+      return NextResponse.json({ error: 'Tu estudio todavía no acepta tarjetas desde la app.' }, { status: 409 });
+    }
+    const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+
+    // El Customer de SU ficha en la cuenta del estudio: el mismo que usan los cobros.
+    // Si aún no tiene, se crea; el UPDATE solo lo apunta si sigue sin tener (dos toques
+    // a la vez no dejan la ficha cambiando de Customer: el que pierde usa el del otro).
+    const crearCustomer = async (sustituye: string | null): Promise<string> => {
+      const c = await stripe.customers.create(
+        {
+          name: (socio.nombre as string | null) ?? undefined,
+          email: (socio.email as string | null) ?? undefined,
+          metadata: { socioId, studioId },
+        },
+        { stripeAccount },
+      );
+      let q = admin.from('socios').update({ stripe_customer_id: c.id }).eq('id', socioId).eq('studio_id', studioId);
+      q = sustituye === null ? q.is('stripe_customer_id', null) : q.eq('stripe_customer_id', sustituye);
+      const { data: escrito, error } = await q.select('id');
+      if (error) throw new Error(error.message);
+      if ((escrito?.length ?? 0) > 0) return c.id;
+      const { data: ahora, error: e2 } = await admin.from('socios').select('stripe_customer_id')
+        .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+      if (e2 || !ahora?.stripe_customer_id) throw new Error(e2?.message ?? 'Sin Customer tras crearlo');
+      return ahora.stripe_customer_id as string;
+    };
+    let customer = (socio.stripe_customer_id as string | null) ?? await crearCustomer(null);
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+    const crearSesion = (cus: string) => stripe.checkout.sessions.create(
+      parametrosSesionGuardarTarjeta({
+        customer: cus,
+        studioId,
+        socioId,
+        // Una tarjeta no redirige; si algo lo hiciera, vuelve a esta pantalla, que comprueba antes de afirmar nada.
+        returnUrl: `${appUrl}/portal/${encodeURIComponent(slug)}/perfil/pago?tarjeta=vuelta&session_id={CHECKOUT_SESSION_ID}`,
+        // Abandonada, caduca en ~31 min: una sesión vieja no se completa días después.
+        expiresAt: expiraSesionIncrustada(Date.now()),
+      }),
+      { stripeAccount },
+    );
+    let sesion: Stripe.Checkout.Session;
+    try {
+      sesion = await crearSesion(customer);
+    } catch (e) {
+      // El Customer de la ficha ya no existe en esa cuenta (el estudio reconectó
+      // Stripe): uno nuevo, sustituyendo SOLO a ese.
+      const err = e as { code?: string; param?: string };
+      if (err?.code !== 'resource_missing' || err?.param !== 'customer') throw e;
+      customer = await crearCustomer(customer);
+      sesion = await crearSesion(customer);
+    }
+    const r = respuestaIncrustada(sesion);
+    if (!r) throw new Error('Sesión sin client_secret');
+    return NextResponse.json(r, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (err) {
+    // El mensaje de Stripe (en inglés) no se le enseña a la alumna.
+    console.error('[public/tarjeta:POST]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'No hemos podido abrir el formulario de la tarjeta. Inténtalo de nuevo.' }, { status: 502 });
+  }
+}
+
+/**
+ * ¿Ya está en su ficha la tarjeta de esta sesión? `guardada` solo cuando la ficha (lo
+ * que usan los cobros) apunta al método que autorizó ESA sesión; entonces devuelve
+ * los datos de la tarjeta que hay en la ficha, que es lo que la pantalla enseña.
+ */
+async function confirmarTarjetaGuardada(req: NextRequest) {
+  // La hoja pregunta cada pocos segundos durante ~35 s tras el Checkout.
+  const limited = await enforceRateLimit(req, 'public-tarjeta-confirmar', { max: 40, windowSeconds: 60 });
+  if (limited) return limited;
+  const studioId = req.nextUrl.searchParams.get('studioId');
+  const sesionId = req.nextUrl.searchParams.get('sesion');
+  if (!studioId) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+  if (!idDeSesionCheckoutValido(sesionId)) return NextResponse.json({ error: 'Sesión no válida' }, { status: 400 });
+  const user = await verificarUsuarioSupabase(req);
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  const socioId = await socioAutenticado(user.userId, studioId);
+  if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const admin = getSupabaseAdmin();
+  const key = claveStripe();
+  if (!admin || !key) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+  try {
+    const { data: studio, error: errStudio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+    if (errStudio) throw new Error(errStudio.message);
+    const stripeAccount = (studio?.stripe_account_id as string | null) ?? null;
+    if (!stripeAccount) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+    let sesion: Stripe.Checkout.Session;
+    try {
+      sesion = await stripe.checkout.sessions.retrieve(sesionId, { expand: ['setup_intent'] }, { stripeAccount });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'resource_missing') return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+      throw e;
+    }
+    const si = sesion.setup_intent && typeof sesion.setup_intent === 'object' ? sesion.setup_intent : null;
+    // La ficha DESPUÉS de leer la sesión: si el webhook escribe entre las dos lecturas, ya se ve.
+    const { data: ficha, error: errFicha } = await admin.from('socios')
+      .select('stripe_payment_method_id, tarjeta_marca, tarjeta_ultimos4, tarjeta_exp_mes, tarjeta_exp_anio')
+      .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+    if (errFicha) throw new Error(errFicha.message);
+    const confirmacion = confirmacionTarjetaGuardada(
+      {
+        mode: sesion.mode, status: sesion.status, metadata: sesion.metadata,
+        setupIntent: si
+          ? { status: si.status, paymentMethodId: typeof si.payment_method === 'string' ? si.payment_method : (si.payment_method?.id ?? null) }
+          : null,
+      },
+      { socioId, studioId, metodoDeLaFicha: (ficha?.stripe_payment_method_id as string | null) ?? null },
+    );
+    // La sesión de otra persona (u otra cosa): lo mismo que si no existiera.
+    if (confirmacion === 'ajena') return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    const mes = (ficha?.tarjeta_exp_mes as number | null) ?? null;
+    const anio = (ficha?.tarjeta_exp_anio as number | null) ?? null;
+    return NextResponse.json({
+      confirmacion,
+      tarjeta: confirmacion === 'guardada' ? {
+        marca: (ficha?.tarjeta_marca as string | null) ?? null,
+        ultimos4: (ficha?.tarjeta_ultimos4 as string | null) ?? null,
+        caducidad: mes && anio ? `${String(mes).padStart(2, '0')}/${anio}` : null,
+      } : null,
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (err) {
+    return errorInterno('public/tarjeta:confirmar', err, 'No hemos podido comprobar tu tarjeta.');
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quitar la tarjeta guardada, desde el portal de la socia.

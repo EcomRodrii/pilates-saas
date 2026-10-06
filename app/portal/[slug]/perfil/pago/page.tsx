@@ -1,13 +1,18 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
-import { useEstudio } from '@/components/student/contexto';
+import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getMetodoPago, getTarjetasApp, quitarTarjeta, quitarTarjetaApp } from '@/lib/student/pago';
+import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
+import { clavePublicableStripe } from '@/lib/student/comprar';
+import { lineaConsentimiento } from '@/lib/student/guardar-tarjeta-reglas';
+import { HojaGuardarTarjeta } from '@/components/student/domain/HojaGuardarTarjeta';
 import type { TarjetaGuardada } from '@/lib/billing/tarjetas-guardadas';
 import { Button } from '@/components/student/ui/Button';
 import { Sheet } from '@/components/student/ui/Sheet';
@@ -25,20 +30,47 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 // cobra cada renovación exactamente como una tarjeta, así que tiene que verse y
 // poder quitarse.
 
+// «Cambiar tarjeta» y «Añadir tarjeta» (6-oct-2026): el formulario de Stripe va DENTRO
+// de la app (`HojaGuardarTarjeta`, Checkout incrustado en modo setup), y «Tarjeta
+// guardada» solo lo dice cuando el servidor la lee en su ficha. Cambiar es la acción
+// principal; quitar, la secundaria.
+
 export default function PagoPage() {
   const { estudio } = useEstudio();
+  const href = usePortalHref();
+  const router = useRouter();
   const { online } = useOnline();
   const { toast } = useToast();
   const [confirmando, setConfirmando] = useState(false);
   const [quitando, setQuitando] = useState(false);
+  // La hoja de guardar tarjeta; `sesion` = volvió de Stripe con su sesión (un método que redirige).
+  const [hojaTarjeta, setHojaTarjeta] = useState<{ sesion: string | null } | null>(null);
 
   // P16: además de la de cobros automáticos, las que aceptó guardar para pagar en la app.
   const cargar = useCallback(async () => {
-    const [metodo, app] = await Promise.all([getMetodoPago(estudio.slug), getTarjetasApp(estudio.id)]);
-    return { ...metodo, app };
+    const [metodo, app, d] = await Promise.all([getMetodoPago(estudio.slug), getTarjetasApp(estudio.id), catalogo(estudio.slug)]);
+    return { ...metodo, app, stripeAccountId: d?.studio?.stripeAccountId ?? null };
   }, [estudio.slug, estudio.id]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.tieneTarjeta && (d.app?.filter((t) => !t.paraCobros).length ?? 0) === 0);
   const esLink = data?.esLink === true;
+  // Sin la cuenta de Stripe del estudio o sin la clave pública no hay formulario que montar: no se ofrece.
+  const stripeAccountId = data?.stripeAccountId ?? null;
+  const puedeGuardar = !!stripeAccountId && !!clavePublicableStripe();
+  const consentimiento = lineaConsentimiento(estudio.nombre);
+  const abrirHojaTarjeta = () => {
+    if (!online) { toast('Necesitas conexión para guardar una tarjeta.'); return; }
+    setHojaTarjeta({ sesion: null });
+  };
+  // Vuelta de Stripe con `session_id` (una tarjeta no redirige; si algo lo hiciera): a comprobar ESA sesión, sin
+  // afirmar nada. Se quita de la URL para que recargar no la vuelva a abrir.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const sesion = q.get('session_id');
+    if (q.get('tarjeta') !== 'vuelta' || !sesion) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    void Promise.resolve().then(() => setHojaTarjeta({ sesion }));
+  }, []);
+  const trasGuardar = useCallback(() => { invalidarCatalogo(estudio.slug); void refrescar(); }, [estudio.slug, refrescar]);
   const delApp = (data?.app ?? []).filter((t) => !t.paraCobros);
   const [quitandoApp, setQuitandoApp] = useState<TarjetaGuardada | null>(null);
   const [quitandoAppEnVuelo, setQuitandoAppEnVuelo] = useState(false);
@@ -71,12 +103,24 @@ export default function PagoPage() {
         {estado === 'loading' && <ListSkeleton n={1} h={110} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver tu método de pago." />}
-        {estado === 'empty' && (
-          <EmptyState
-            ilustracion="tarjeta"
-            titulo="No tienes ninguna tarjeta guardada"
-            cuerpo="Cuando pagues online podrás guardarla para las próximas veces."
-          />
+        {(estado === 'empty' || (estado === 'ready' && data && !data.tieneTarjeta)) && (
+          puedeGuardar ? (
+            <div data-testid="sin-tarjeta">
+              <EmptyState
+                ilustracion="tarjeta"
+                titulo="No tienes ninguna tarjeta guardada"
+                cuerpo={consentimiento}
+                accion="Añadir tarjeta"
+                onAccion={abrirHojaTarjeta}
+              />
+            </div>
+          ) : (
+            <EmptyState
+              ilustracion="tarjeta"
+              titulo="No tienes ninguna tarjeta guardada"
+              cuerpo="Cuando pagues online podrás guardarla para las próximas veces."
+            />
+          )
         )}
 
         {estado === 'ready' && data?.tieneTarjeta && (
@@ -95,7 +139,15 @@ export default function PagoPage() {
               </p>
             </div>
 
-            <Button variant="danger" full disabled={!online} onClick={() => setConfirmando(true)}>
+            {puedeGuardar && (
+              <>
+                <Button full disabled={!online} onClick={abrirHojaTarjeta}>
+                  {esLink ? 'Usar una tarjeta' : 'Cambiar tarjeta'}
+                </Button>
+                <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>{consentimiento}</p>
+              </>
+            )}
+            <Button variant={puedeGuardar ? 'secondary' : 'danger'} full disabled={!online} onClick={() => setConfirmando(true)}>
               {esLink ? 'Quitar Link' : 'Quitar tarjeta'}
             </Button>
             <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
@@ -124,11 +176,25 @@ export default function PagoPage() {
         )}
       </div>
 
+      {hojaTarjeta && stripeAccountId && (
+        <HojaGuardarTarjeta
+          studioId={estudio.id}
+          stripeAccountId={stripeAccountId}
+          cambiar={!!data?.tieneTarjeta}
+          consentimiento={consentimiento}
+          sesionDeVuelta={hojaTarjeta.sesion}
+          onCerrar={() => { setHojaTarjeta(null); void refrescar(); }}
+          onGuardada={trasGuardar}
+          onSesionCaducada={() => router.push(href('/acceso/login'))}
+        />
+      )}
       <Sheet open={confirmando} onClose={() => setConfirmando(false)} label={esLink ? 'Quitar Link' : 'Quitar la tarjeta'}>
         <h3 className="t-h2" style={{ margin: 0 }}>{esLink ? '¿Quitar Link?' : '¿Quitar tu tarjeta?'}</h3>
         <p style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>
-          Tus renovaciones dejarán de cobrarse solas. Podrás volver a {esLink ? 'guardar un método' : 'guardarla'} la
-          próxima vez que pagues.
+          Tus renovaciones dejarán de cobrarse solas.{' '}
+          {puedeGuardar
+            ? 'Podrás guardar otra tarjeta cuando quieras desde aquí.'
+            : <>Podrás volver a {esLink ? 'guardar un método' : 'guardarla'} la próxima vez que pagues.</>}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           <Button variant="danger" full disabled={quitando} onClick={() => void confirmar()}>
