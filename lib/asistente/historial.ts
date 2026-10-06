@@ -38,6 +38,19 @@ const textos = (m: Anthropic.MessageParam): string[] =>
     ? [m.content]
     : m.content.filter((b): b is Anthropic.TextBlockParam => b.type === 'text').map(b => b.text);
 
+/** Qué propuso el asistente en un turno pasado, en una línea corta (sin personas): así no la retoma ni la da por pendiente. */
+const marcaDePropuesta = (b: Anthropic.ToolUseBlock): string | null => {
+  const i = (b.input ?? {}) as Record<string, unknown>;
+  const t = (k: string) => (typeof i[k] === 'string' ? (i[k] as string).replace(/[«»\[\]]/g, '').trim().slice(0, 60) : '');
+  switch (b.name) {
+    case 'proponer_sala': return `[acción ya propuesta y resuelta: sala «${t('nombre')}»]`;
+    case 'proponer_clase': return `[acción ya propuesta y resuelta: clase ${t('tipo_clase')} ${t('fecha')} ${t('hora')}]`;
+    case 'proponer_evento': return `[acción ya propuesta y resuelta: evento ${t('fecha')} ${t('hora')}]`;
+    case 'proponer_cita': return `[acción ya propuesta y resuelta: cita ${t('fecha')} ${t('hora')}]`;
+    default: return null;
+  }
+};
+
 /** Un mensaje `user` que abre turno: lleva texto (no es solo una tanda de `tool_result`). */
 const abreTurno = (m: Anthropic.MessageParam) => m.role === 'user' && textos(m).some(t => t.trim());
 
@@ -48,7 +61,9 @@ export function turnosDe(mensajes: readonly Anthropic.MessageParam[]): Turno[] {
     if (abreTurno(m)) { turnos.push({ pregunta: textos(m).join('\n').trim(), respuesta: '' }); continue; }
     const actual = turnos[turnos.length - 1];
     if (!actual || m.role !== 'assistant') continue;
-    const t = textos(m).map(x => x.trim()).filter(Boolean).join(' ');
+    const marcas = typeof m.content === 'string' ? [] : m.content
+      .filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use').map(marcaDePropuesta).filter((x): x is string => !!x);
+    const t = [...textos(m).map(x => x.trim()).filter(Boolean), ...marcas].join(' ');
     if (t) actual.respuesta = actual.respuesta ? `${actual.respuesta} ${t}` : t;
   }
   return turnos;

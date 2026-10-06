@@ -6,6 +6,8 @@ import { puedeEjecutarAccion } from './permisos.ts';
 import { tablaReferencias } from '../referencias.ts';
 import type { ContextoHerramienta } from '../tipos.ts';
 import { adminFalso } from './pruebas-admin.ts';
+import { zClase, zSala } from './esquemas.ts';
+import { mensajeDeFaltantes } from '../herramientas/faltantes.ts';
 
 const AHORA = new Date('2026-10-06T10:00:00Z');
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -219,4 +221,31 @@ test('proponer: una sala de otro estudio no existe para este', async () => {
   const { admin } = adminFalso(d);
   const r = await proponerClase(entrada, ctx(admin));
   assert.ok(!r.ok);
+});
+
+// ── Una propuesta viva por conversación; nada de relleno con ceros (bug real del 6-oct) ──
+test('una propuesta nueva cancela las pendientes anteriores de SU conversación (y solo de esa)', async () => {
+  const vieja = (id: string, conv: string) => fila({ id, conversacion_id: conv });
+  const { admin, tablas } = adminFalso({ ...datos(), asistente_acciones: [vieja('a1', 'conv-1'), vieja('a2', 'conv-2'), fila({ id: 'a3', conversacion_id: 'conv-1', estado: 'EJECUTADA' })] });
+  const c = ctx(admin, { conversacionId: 'conv-1' });
+  const prep = await proponerClase(entrada, c);
+  assert.ok(prep.ok);
+  await guardarPropuesta(c, prep);
+  const estado = (id: string) => tablas.asistente_acciones.find(f => f.id === id)?.estado;
+  assert.equal(estado('a1'), 'CANCELADA');
+  assert.equal(estado('a2'), 'PROPUESTA');
+  assert.equal(estado('a3'), 'EJECUTADA');
+  assert.equal(tablas.asistente_acciones.length, 4); // la nueva (estado PROPUESTA por defecto en la BD)
+});
+
+test('capacidad 0, aforo 0, nombre o campos vacíos: no pasan el esquema y el error dice qué falta (la puerta no llega a crear fila)', () => {
+  const dice = (r: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) => { assert.equal(r.success, false); return mensajeDeFaltantes(r.error!.issues); };
+  assert.match(dice(zSala.safeParse({ nombre: 'Reformer avanzado', capacidad: 0 })), /capacidad de la sala: pregunta cuántas plazas/);
+  assert.match(dice(zSala.safeParse({ nombre: '  ', capacidad: 8 })), /nombre/);
+  assert.match(dice(zClase.safeParse({ ...entrada, aforo: 0 })), /aforo.*se omite/);
+  const vacia = dice(zClase.safeParse({ ...entrada, sala: '', tipo_clase: '' }));
+  assert.match(vacia, /sala/); assert.match(vacia, /tipo_clase/); assert.match(vacia, /NO rellenes con 0/);
+  // Omitir el aforo sí vale: el servidor pone el del tipo/sala.
+  const { aforo: _a, ...sinAforo } = entrada;
+  assert.equal(zClase.safeParse(sinAforo).success, true);
 });

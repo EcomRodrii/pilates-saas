@@ -80,6 +80,7 @@ export interface ResultadoTurno {
   texto: string;
 }
 
+export const AVISO_UNA_PROPUESTA = 'Ya hay una propuesta en este turno; espera a que la confirme o la cancele. No propongas nada más: responde en una frase.';
 export const AVISO_LIMITE = 'Límite de 5 consultas por pregunta: responde con lo que ya tienes.';
 
 /**
@@ -155,6 +156,7 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
   let nLlamadas = 0;
   let nHerramientas = 0;
   let sinHerramientas = false;
+  let hayPropuesta = false;
   let texto = '';
   let avisadoCifras = false;
   // Entre el texto de una vuelta y el de la siguiente («Voy a mirarlo.» + «Tienes…»).
@@ -247,16 +249,27 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
       const quedan = MAX_HERRAMIENTAS - nHerramientas;
       const aEjecutar = pedidas.slice(0, Math.max(0, quedan));
       const sobrantes = pedidas.slice(aEjecutar.length);
-      const resultados = await Promise.all(aEjecutar.map(async (t): Promise<Anthropic.ToolResultBlockParam> => {
+      // Una sola propuesta por turno de la persona: la primera que llegue a tarjeta. Las demás
+      // `proponer_*` no se ejecutan (Haiku retoma peticiones viejas y rellena lo que no sabe).
+      const esPropuesta = (n: string) => n.startsWith('proponer_');
+      const una = async (t: Anthropic.ToolUseBlock): Promise<Anthropic.ToolResultBlockParam> => {
         deps.emitir({ t: 'herramienta', id: t.id, nombre: t.name as NombreHerramienta, etiqueta: deps.etiqueta(t.name, t.input) });
         const s = await deps.ejecutar(t.name, t.input);
         s.bloques.forEach((b, i) => {
           bloques.push(b);
           deps.emitir({ t: 'bloque', id: `${t.id}-${i}`, bloque: b });
+          if (b.tipo === 'propuesta') hayPropuesta = true;
         });
         filtro.permitir(s.contenido);
         return { type: 'tool_result', tool_use_id: t.id, content: s.contenido, ...(s.esError ? { is_error: true } : {}) };
-      }));
+      };
+      const rechazada = (t: Anthropic.ToolUseBlock): Anthropic.ToolResultBlockParam =>
+        ({ type: 'tool_result', tool_use_id: t.id, content: JSON.stringify({ error: AVISO_UNA_PROPUESTA }), is_error: true });
+      const lecturas = Promise.all(aEjecutar.filter(t => !esPropuesta(t.name)).map(una));
+      const porId = new Map<string, Anthropic.ToolResultBlockParam>();
+      for (const t of aEjecutar.filter(t => esPropuesta(t.name))) porId.set(t.id, hayPropuesta ? rechazada(t) : await una(t));
+      const porLectura = new Map((await lecturas).map(r => [r.tool_use_id, r]));
+      const resultados = aEjecutar.map(t => (porLectura.get(t.id) ?? porId.get(t.id)) as Anthropic.ToolResultBlockParam);
       nHerramientas += aEjecutar.length;
       usadas.push(...aEjecutar.map(t => t.name as NombreHerramienta));
       for (const t of sobrantes) resultados.push({ type: 'tool_result', tool_use_id: t.id, content: AVISO_LIMITE, is_error: true });

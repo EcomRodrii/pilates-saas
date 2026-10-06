@@ -55,10 +55,10 @@ const TEXTO_PERIODO = {
 } as const;
 
 type Esquema = Anthropic.Tool['input_schema'];
-const objeto = (properties: Record<string, unknown>): Esquema => ({
+const objeto = (properties: Record<string, unknown>, opcionales: readonly string[] = []): Esquema => ({
   type: 'object',
   properties,
-  required: Object.keys(properties),
+  required: Object.keys(properties).filter(k => !opcionales.includes(k)),
   additionalProperties: false,
 });
 const enumerado = (valores: readonly (string | number)[], description: string) =>
@@ -241,15 +241,15 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'proponer_clase',
     clase: 'accion',
-    descripcion: 'Prepara (no crea) UNA clase suelta para que la propietaria la confirme. Nombres de tipo de clase y sala tal como los dice ella; instructora con su marca [EQUIPO_n] o "" si no dice ninguna; aforo 0 = el habitual. Errores: dilos y pregunta lo que falte.',
+    descripcion: 'Prepara (no crea) UNA clase suelta para que la propietaria la confirme. Nombres de tipo de clase y sala tal como los dice ella; instructora con su marca [EQUIPO_n] o "" si no dice ninguna; aforo solo si lo dice (si no, omítelo). Si falta tipo, sala, fecha u hora: pregunta, no llames. Errores: dilos y pregunta lo que falte.',
     esquema: objeto({
       tipo_clase: { type: 'string', description: 'Nombre del tipo de clase.' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
       sala: { type: 'string', description: 'Nombre de la sala.' },
       instructora: { type: 'string', description: '[EQUIPO_n] o "".' },
-      aforo: { type: 'integer', description: 'Plazas; 0 = el habitual.' },
-    }),
+      aforo: { type: 'integer', minimum: 1, description: 'Plazas; omítelo si no lo dice.' },
+    }, ['aforo']),
     zod: zClase,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
     etiqueta: () => 'Preparando la clase…',
@@ -258,7 +258,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     nombre: 'proponer_sala',
     clase: 'accion',
     descripcion: 'Prepara (no crea) una sala nueva para que la propietaria la confirme.',
-    esquema: objeto({ nombre: { type: 'string' }, capacidad: { type: 'integer', description: 'Plazas.' } }),
+    esquema: objeto({ nombre: { type: 'string', minLength: 1 }, capacidad: { type: 'integer', minimum: 1, description: 'Plazas que dice la persona; si no las dijo, pregunta (no pongas 0).' } }),
     zod: zSala,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_SALA'),
     etiqueta: () => 'Preparando la sala…',
@@ -266,14 +266,14 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'proponer_evento',
     clase: 'accion',
-    descripcion: 'Prepara (no publica) un evento o taller para la Comunidad de la app (avisa a las alumnas al confirmar). texto = el anuncio, sin nombres de alumnas; aforo 0 = sin límite; lugar "" si no hay.',
+    descripcion: 'Prepara (no publica) un evento o taller para la Comunidad de la app (avisa a las alumnas al confirmar). texto = el anuncio, sin nombres de alumnas; aforo y lugar solo si los dice (si no, omítelos).',
     esquema: objeto({
       texto: { type: 'string', description: 'El anuncio.' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
-      aforo: { type: 'integer', description: '0 = sin límite.' },
+      aforo: { type: 'integer', minimum: 1, description: 'Plazas; omítelo si no hay límite.' },
       lugar: { type: 'string' },
-    }),
+    }, ['aforo', 'lugar']),
     zod: zEventoPublicado,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_EVENTO'),
     etiqueta: () => 'Preparando el evento…',
@@ -281,15 +281,15 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'proponer_cita',
     clase: 'accion',
-    descripcion: 'Prepara (no crea) una cita 1:1, sin precio ni cobro, para que la propietaria la confirme. alumna e instructora con su marca exacta ([ALUMNA_n], [EQUIPO_n]); duracion_min 0 = 60.',
+    descripcion: 'Prepara (no crea) una cita 1:1, sin precio ni cobro, para que la propietaria la confirme. alumna e instructora con su marca exacta ([ALUMNA_n], [EQUIPO_n]); duracion_min solo si la dice (si no, omítela: 60).',
     esquema: objeto({
       alumna: { type: 'string', description: '[ALUMNA_n].' },
       instructora: { type: 'string', description: '[EQUIPO_n].' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
-      duracion_min: { type: 'integer', description: '0 = 60.' },
+      duracion_min: { type: 'integer', minimum: 1, description: 'Minutos; omítela si no la dice.' },
       tipo: enumerado(Object.keys(TIPOS_CITA), 'Tipo de cita.'),
-    }),
+    }, ['duracion_min']),
     zod: zCita,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CITA'),
     etiqueta: () => 'Preparando la cita…',

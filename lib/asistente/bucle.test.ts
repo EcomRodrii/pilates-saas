@@ -219,3 +219,31 @@ test('una cifra de una respuesta pasada (ya filtrada) está respaldada; una nuev
   assert.equal(textoEmitido(m.eventos).trim(), 'Como te decía, tienes 84 activas.');
   assert.ok(m.eventos.some(e => e.t === 'aviso' && e.codigo === 'CIFRA_SIN_RESPALDO'));
 });
+
+test('una sola propuesta por turno: la segunda proponer_* del mismo turno NO se ejecuta (caso real: sala + clase vieja)', async () => {
+  const ejecutadas: string[] = [];
+  const m = montar([
+    { herramientas: [
+      { id: 'p1', name: 'proponer_sala', input: { nombre: 'Reformer avanzado', capacidad: 8 } },
+      { id: 'p2', name: 'proponer_clase', input: { tipo_clase: 'Reformer' } },
+      { id: 'l1', name: 'contar_alumnas', input: {} },
+    ] },
+    { herramientas: [{ id: 'p3', name: 'proponer_cita', input: {} }] },
+    { texto: 'Te propongo la sala; confirma.' },
+  ], async (nombre) => {
+    ejecutadas.push(nombre);
+    return nombre.startsWith('proponer_')
+      ? { contenido: '{"propuesta":"ok"}', esError: false, bloques: [{ tipo: 'propuesta', propuesta: { id: 'x', accion: 'CREAR_SALA', titulo: 't', lineas: [], avisos: [], efecto: null, expiraEn: '', destino: { href: '/', texto: '' } } }] }
+      : { contenido: '{}', esError: false, bloques: [] };
+  });
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.deepEqual(ejecutadas.sort(), ['contar_alumnas', 'proponer_sala']);
+  assert.ok(ejecutadas.length > 0);
+  const res1 = r.mensajesNuevos[2].content as Anthropic.ToolResultBlockParam[];
+  assert.deepEqual(res1.map(b => b.tool_use_id), ['p1', 'p2', 'l1']);
+  assert.equal(res1[1].is_error, true);
+  assert.match(String(res1[1].content), /ya hay una propuesta|Ya hay una propuesta/);
+  const res2 = r.mensajesNuevos[4].content as Anthropic.ToolResultBlockParam[];
+  assert.equal(res2[0].is_error, true);
+  assert.equal(m.eventos.filter(e => e.t === 'bloque').length, 1);
+});

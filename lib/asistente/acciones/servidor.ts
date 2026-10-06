@@ -122,6 +122,13 @@ export async function guardarPropuesta(ctx: ContextoHerramienta, p: PropuestaPre
   // Higiene: las de este estudio con más de 30 días (ya resueltas o caducadas) se van.
   const limpieza = await ctx.admin.from('asistente_acciones').delete().eq('studio_id', ctx.studioId).lt('creada_en', new Date(ctx.ahora.getTime() - 30 * 86_400_000).toISOString());
   if (limpieza.error) console.error('[asistente] purga de acciones', limpieza.error.code);
+  // Una conversación tiene a lo sumo UNA propuesta viva: la nueva sustituye a las anteriores sin
+  // resolver (más simple que cancelar al confirmar: la tarjeta vieja no se puede pulsar por error).
+  if (ctx.conversacionId) {
+    const sust = await ctx.admin.from('asistente_acciones').update({ estado: 'CANCELADA', resuelta_en: ctx.ahora.toISOString() })
+      .eq('studio_id', ctx.studioId).eq('auth_user_id', ctx.userId).eq('conversacion_id', ctx.conversacionId).eq('estado', 'PROPUESTA');
+    if (sust.error) console.error('[asistente] sustituir propuestas', sust.error.code);
+  }
   const { data, error } = await ctx.admin.from('asistente_acciones')
     .insert({
       studio_id: ctx.studioId, auth_user_id: ctx.userId, conversacion_id: ctx.conversacionId ?? null,

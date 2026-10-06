@@ -65,7 +65,9 @@ test('ninguna herramienta acepta un estudio ni una sede del modelo; todas strict
     const props = Object.keys(e.properties ?? {});
     for (const p of props) assert.doesNotMatch(p, /studio|estudio|sede/i, `${d.nombre}.${p}`);
     assert.equal(e.additionalProperties, false, d.nombre);
-    assert.deepEqual([...(e.required ?? [])].sort(), [...props].sort(), `${d.nombre}: todas las propiedades en required`);
+    // Solo las de PROPONER pueden dejar opcional lo que el modelo no sabe (aforo, lugar, duración): omitir, no rellenar con 0.
+    const opcionales = d.clase === 'accion' ? ['aforo', 'lugar', 'duracion_min'] : [];
+    assert.deepEqual([...(e.required ?? [])].sort(), props.filter(p => !opcionales.includes(p)).sort(), `${d.nombre}: todas las propiedades en required salvo las opcionales de propuesta`);
     // Y lo que no está en el esquema, zod lo rechaza.
     assert.equal(d.zod.safeParse({ studioId: 'otro' }).success, false, `${d.nombre}: zod deja pasar un estudio`);
   }
@@ -152,7 +154,7 @@ test('el interruptor está APAGADO salvo ASISTENTE_IA=on o estudios:<ids> (lib/a
 test('las herramientas de acción solo escriben la propuesta: ni una tabla del estudio, ni una RPC', () => {
   const src = leer('lib/asistente/acciones/servidor.ts');
   const escrituras = [...src.matchAll(/\.from\('(\w+)'\)[^;]*?\.(insert|update|delete|upsert)\(/g)].map(m => `${m[2]}:${m[1]}`);
-  assert.deepEqual([...new Set(escrituras)].sort(), ['delete:asistente_acciones', 'insert:asistente_acciones']);
+  assert.deepEqual([...new Set(escrituras)].sort(), ['delete:asistente_acciones', 'insert:asistente_acciones', 'update:asistente_acciones']);
   assert.doesNotMatch(src, /\.rpc\(/);
   // El registro: una herramienta de acción solo pasa por `proponiendo`, que guarda la propuesta.
   const reg = leer('lib/asistente/herramientas/index.ts');

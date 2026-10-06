@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { enOscuro } from './panel-sembrado';
-import { ACCION_ID, PROPUESTAS, conAcciones, json, pedirAlAsistente, type TipoPropuesta } from './asistente-andamiaje';
+import { ACCION_ID, PROPUESTAS, conAcciones, conAsistente, respuestaPropuesta, chat, ndjson, json, pedirAlAsistente, type TipoPropuesta } from './asistente-andamiaje';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Pregúntale a Tentare», Fase 2: crear clases, salas, eventos y citas CON
@@ -186,3 +186,23 @@ for (const tema of ['claro', 'oscuro'] as const) {
     }
   }
 }
+
+test('sala + clase vieja en el mismo turno: el servidor atiende una sola y el panel pinta UNA tarjeta (la de lo pedido)', async ({ page }) => {
+  // El modelo pidió las dos; el bucle del servidor (lib/asistente/bucle.ts, cubierto en bucle.test.ts) solo
+  // ejecuta la primera. Aquí se mockea ESE contrato: la rechazada no emite ni línea de estado ni tarjeta.
+  const [inicio, , refs, bloque, , fin] = respuestaPropuesta('CREAR_SALA');
+  const n = await conAsistente(page, {
+    responder: (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson([
+      inicio,
+      { t: 'herramienta', id: 'tu_a', nombre: 'proponer_sala', etiqueta: 'Preparando la sala…' },
+      refs, bloque,
+      { t: 'texto', delta: PROPUESTAS.CREAR_SALA.texto },
+      fin,
+    ]) }),
+  });
+  const tarjeta = await pedirAlAsistente(page, 'Créame una sala llamada reformer avanzado');
+  expect(n.preguntas, 'el chat sí llegó a preguntar').toBeGreaterThan(0);
+  await expect(chat(page).locator('[data-bloque="propuesta"]')).toHaveCount(1);
+  await expect(tarjeta).toContainText('Crear una sala');
+  await expect(chat(page)).not.toContainText('Crear una clase');
+});

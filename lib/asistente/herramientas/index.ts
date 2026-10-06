@@ -13,6 +13,7 @@ import { agendaDelDia, clasesProximasConHuecos } from './agenda.ts';
 import { actividadDelPeriodo, datosParaUnEvento, ocupacionPorFranja } from './informes.ts';
 import { facturacionDelPeriodo, pagosPendientes } from './dinero.ts';
 import { queRevisarHoy, resumenDelEstudio } from './estudio.ts';
+import { mensajeDeFaltantes } from './faltantes.ts';
 import { LecturaFallida, fallo } from './comun.ts';
 import { proponerCita, proponerClase, proponerEvento, proponerSala } from '../acciones/servidor.ts';
 import { guardarPropuesta } from '../acciones/servidor.ts';
@@ -89,7 +90,12 @@ export async function ejecutarHerramienta(
   if (!h) return salidaDeError('DESCONOCIDA', 'Esa consulta no existe.');
   if (!h.permitida(ctx.rol)) return salidaDeError('NO_PERMITIDA', 'Esa consulta no está disponible para tu rol.');
   const entrada = h.zod.safeParse(input);
-  if (!entrada.success) return salidaDeError('ENTRADA_INVALIDA', 'Los parámetros de la consulta no son válidos.');
+  if (!entrada.success) {
+    if (h.clase === 'accion') {
+      return salidaDeError('ENTRADA_INVALIDA', mensajeDeFaltantes(entrada.error.issues));
+    }
+    return salidaDeError('ENTRADA_INVALIDA', 'Los parámetros de la consulta no son válidos.');
+  }
   try {
     const r = await conTope(h.ejecutar(entrada.data, ctx), TIMEOUT_HERRAMIENTA_MS);
     return { contenido: recortarResultado(r.paraModelo), esError: r.esError === true, bloques: r.bloques, codigo: r.esError ? 'SIN_RESPUESTA' : 'OK' };
