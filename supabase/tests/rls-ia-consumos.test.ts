@@ -9,6 +9,7 @@ import {
   clienteAdminLocal, crearInstructora, crearStudioConPropietaria, limpiarFixtures, limpiarInstructora, sqlLocal,
   type StudioFixture,
 } from '../../lib/db/rls-test-helpers.ts';
+import { acreditarPack, retirarPackPorPago } from '../../lib/asistente/packs-libro.ts';
 
 const admin = clienteAdminLocal();
 const sql = sqlLocal();
@@ -218,6 +219,35 @@ test('RLS: la gerente solo ve lo suyo, recepción nada, los packs solo la propie
   } finally {
     await limpiarInstructora(admin, gerente);
     await limpiarInstructora(admin, recepcion);
+    await limpiarFixtures(admin, [f]);
+  }
+});
+
+// La compra (fase 3, 6-oct-2026): las dos escrituras de ia_packs con el cliente
+// de verdad (PostgREST + el UNIQUE por sesión), no con un doble.
+test('packs: acreditar es idempotente por sesión de Checkout; el reembolso retira lo que quede y lo gastado no vuelve', async () => {
+  const f = await crearStudioConPropietaria(admin);
+  try {
+    await conPlan(f, 'BASE', 'active', 'sub_x');
+    const sid = `cs_test_${f.studioId}`;
+    const pack = { studioId: f.studioId, unidades: 100 as const, precioEur: 9, sessionId: sid, paymentIntentId: `pi_${f.studioId}` };
+    assert.equal(await acreditarPack(admin, pack), 'creado');
+    assert.equal(await acreditarPack(admin, pack), 'ya_estaba');
+    const filas = await sql<{ n: number }[]>`select count(*)::int as n from public.ia_packs where stripe_checkout_session_id = ${sid}`;
+    assert.equal(filas[0].n, 1);
+    assert.equal((await saldo(f.studioId)).disponibles, 150, '50 del plan + 100 del pack');
+    assert.equal(await acreditarPack(admin, { ...pack, studioId: 'no-existe', sessionId: `${sid}_b`, paymentIntentId: null }), 'estudio_inexistente');
+
+    await consumidas(f.studioId, 50);
+    const r = await reservar(f.studioId);
+    await cerrar(f.studioId, r.consumo_id!, 'CONSUMIDA', 0.09);
+    assert.equal((await saldo(f.studioId)).disponibles, 97, 'agotada la cuota, gasta del pack');
+    assert.equal(await retirarPackPorPago(admin, pack.paymentIntentId), 'retirado');
+    assert.equal(await retirarPackPorPago(admin, pack.paymentIntentId), 'ya_retirado');
+    assert.equal((await saldo(f.studioId)).disponibles, 0);
+    const [p] = await sql<{ estado: string; unidades_usadas: number }[]>`select estado, unidades_usadas from public.ia_packs where stripe_checkout_session_id = ${sid}`;
+    assert.deepEqual({ ...p }, { estado: 'REEMBOLSADO', unidades_usadas: 3 });
+  } finally {
     await limpiarFixtures(admin, [f]);
   }
 });

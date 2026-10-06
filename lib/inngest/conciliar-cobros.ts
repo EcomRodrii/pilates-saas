@@ -38,6 +38,7 @@ import {
   decidirMarcaHuerfana, marcarAdeudoEnCurso, MINUTOS_HUERFANA, soltarMarcaCobroOffSession, ventanaDelIntento,
 } from '../billing/cobro-off-session-marca.ts';
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
+import { barrerPacksSinAcreditar } from '../asistente/packs-conciliar.ts';
 import { reservarClasePagada } from '../billing/reservar-clase-pagada.ts';
 import { barrerPagosDeClase } from '../billing/barrido-pagos-clase.ts';
 import { selloDelCobro } from '../billing/sello-del-cobro.ts';
@@ -1110,9 +1111,30 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
           .is('suspendido_en', null)
           .range(from, to),
       );
-      if (!studios.length) return { entregados: 0, sumup };
-
       const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+
+      // Los packs de consultas del asistente (cuenta de PLATAFORMA, no Connect):
+      // si el webhook de facturación no los entregó, se acreditan aquí. Va antes
+      // de mirar los estudios con cuenta Connect: no depende de ellos.
+      let packs: { acreditados: number; sinTocar: number } | null = null;
+      try {
+        const b = await barrerPacksSinAcreditar(admin, stripe);
+        packs = { acreditados: b.acreditados.length, sinTocar: b.sinTocar.length };
+        if (b.acreditados.length || b.sinTocar.length || b.techo) {
+          Sentry.captureMessage('[conciliador] packs de consultas que el webhook no entregó', {
+            level: b.sinTocar.length || b.techo ? 'error' : 'warning', tags: { area: 'cobros', tipo: 'ia-pack-conciliado' },
+            extra: {
+              acreditados: b.acreditados, sinTocar: b.sinTocar, techo: b.techo,
+              queHacer: 'Si hay acreditados, mira el destino del webhook de facturación (secreto y eventos). Los «sinTocar» tienen el cargo devuelto o disputado: decide a mano.',
+            },
+          });
+        }
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('barrerPacksSinAcreditar'), { level: 'error', tags: { area: 'cobros', tipo: 'ia-pack-conciliado' } });
+      }
+
+      if (!studios.length) return { entregados: 0, sumup, packs };
+
       let entregados = 0;
       for (const s of studios) {
         try {
@@ -1137,7 +1159,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
         });
       }
 
-      return { estudios: studios.length, entregados, facturasSelladas, sumup };
+      return { estudios: studios.length, entregados, facturasSelladas, sumup, packs };
     });
   },
 );

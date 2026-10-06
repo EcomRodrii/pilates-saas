@@ -205,6 +205,16 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   Claves de cadena (`lib/api-publica/cadena.ts`): una clave para todas las sedes de la dueña, pero
   cada petición sigue yendo a UNA sede, la de la cabecera `Tentare-Estudio`, que comprueba la
   puerta. Nunca un endpoint que lea varias sedes de golpe: rompería el filtro por `ctx.studioId`.
+- **Packs de consultas del asistente** (6-oct-2026): Tentare cobrando al estudio, así que van
+  por la cuenta de PLATAFORMA (como la suscripción SaaS), nunca por Connect. Catálogo en
+  `lib/asistente/packs.ts` (`price_data`, sin productos en Stripe). El pack lo crea SOLO
+  `/api/billing/webhook` (`lib/asistente/packs-libro.ts`, idempotente por sesión de Checkout)
+  y, si el webhook no entrega, el conciliador de cobros; la página de vuelta solo lee.
+  `/api/stripe/webhook` los ignora por `origen: 'ia_pack'`. Reembolso TOTAL o disputa perdida →
+  `REEMBOLSADO` (lo gastado no vuelve); un reembolso que llega antes que el alta deja una
+  lápida. ⚠️ Ese destino necesita `checkout.session.completed` aunque Sentry avise de ruido:
+  sin él no se acredita ningún pack. Quién gasta qué lo decide `ia_cerrar_consulta` (cuota
+  del mes → packs por caducidad), no la ruta.
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live

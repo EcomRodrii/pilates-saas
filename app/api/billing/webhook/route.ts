@@ -11,6 +11,8 @@ import { cancelarSuscripcionAnteriorSiToca } from '@/lib/billing/cancelar-suscri
 import { desplazadaPorSuCadena } from '@/lib/billing/suscripcion-desplazada-por-cadena';
 import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { decidirAcreditacion, disputaRetiraElPack, efectoDelReembolso, esDePack, idDeReferencia } from '@/lib/asistente/packs-stripe';
+import { acreditarPack, retirarPackPorPago } from '@/lib/asistente/packs-libro';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
 // webhook de Connect (pagos de socias). Fuente de verdad del estado de la
@@ -99,6 +101,17 @@ export async function POST(req: NextRequest) {
   try {
     if (event.type.startsWith('customer.subscription.')) {
       await actualizarSuscripcion(admin, stripe, event.data.object as Stripe.Subscription, event.created);
+    } else if (
+      (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded')
+      && esDePack(event.data.object as Stripe.Checkout.Session)
+    ) {
+      // Un pack de consultas del asistente (pago ÚNICO en esta misma cuenta de
+      // plataforma). Va ANTES de la rama de suscripción y de la de «pago de una
+      // socia»: no es ninguna de las dos. Idempotente por sesión de Checkout.
+      await acreditarCompraDePack(admin, event.data.object as Stripe.Checkout.Session, event.type, event.created);
+    } else if (event.type === 'charge.refunded' || event.type === 'charge.dispute.created' || event.type === 'charge.dispute.closed') {
+      // Solo lo que es de un pack; los cargos de la suscripción SaaS no se tocan aquí.
+      await retirarPackSiToca(admin, stripe, event);
     } else if (event.type === 'checkout.session.completed') {
       const s = event.data.object as Stripe.Checkout.Session;
       if (s.mode === 'subscription' && typeof s.subscription === 'string') {
@@ -141,10 +154,10 @@ export async function POST(req: NextRequest) {
             // de la persona (nombre, email, teléfono…) y a Sentry no van.
             metadataClaves: Object.keys(s.metadata ?? {}),
             origen: s.metadata?.origen ?? null,
-            pista: 'Ruido esperado mientras este destino siga suscrito a checkout.session.completed: '
-              + 'lo entrega /api/stripe/webhook. Para silenciarlo del todo, quita ese tipo de evento '
-              + 'de la suscripción del destino del SaaS en Stripe. Si además el bono NO llega, entonces '
-              + 'el problema no es este aviso: mira el destino de Connect.',
+            pista: 'Ruido esperado: lo entrega /api/stripe/webhook. ⚠️ NO quites checkout.session.completed '
+              + 'de este destino para silenciarlo: con él se acreditan los packs de consultas del asistente '
+              + '(lib/asistente/packs-stripe.ts). Si además el bono NO llega, el problema no es este aviso: '
+              + 'mira el destino de Connect.',
           },
         });
       }
@@ -173,6 +186,92 @@ export async function POST(req: NextRequest) {
   // M10: marcar procesado solo si llegó aquí sin error (el catch devuelve 500 antes).
   await marcarWebhookProcesado(admin, claveEvento);
   return NextResponse.json({ received: true });
+}
+
+// ── Packs de consultas del asistente ────────────────────────────────────────
+// El pack se crea SOLO aquí, cuando Stripe confirma el pago (la página de vuelta
+// solo lee). Ver lib/asistente/packs-stripe.ts (qué hacer) y packs-libro.ts
+// (las dos escrituras de ia_packs). Un fallo de escritura LANZA → 500 → Stripe
+// reintenta; lo que ningún reintento arregla se avisa a Sentry y no se reintenta.
+async function acreditarCompraDePack(admin: SupabaseClient, s: Stripe.Checkout.Session, tipo: string, eventoCreado: number) {
+  const d = decidirAcreditacion(s);
+  if (d.accion === 'esperar' || d.accion === 'no_es_pack') return;
+  if (d.accion === 'invalido') {
+    Sentry.captureMessage('[billing webhook] pack de consultas pagado que no se puede acreditar', {
+      level: 'error', tags: { area: 'cobros', tipo: 'ia-pack-invalido' },
+      extra: { sessionId: s.id, motivo: d.motivo, eventType: tipo, paymentStatus: s.payment_status,
+        queHacer: 'Revisa la sesión en Stripe: si se cobró, reembólsala (el reembolso deja el pack retirado y no reintenta).' },
+    });
+    return;
+  }
+  if (d.importeDistinto) {
+    Sentry.captureMessage('[billing webhook] pack de consultas cobrado por encima del catálogo', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'ia-pack-importe' },
+      extra: { sessionId: s.id, unidades: d.unidades, cobradoEur: d.precioEur },
+    });
+  }
+  if (!d.paymentIntentId) {
+    Sentry.captureMessage('[billing webhook] pack de consultas sin PaymentIntent: un reembolso no podrá retirarlo solo', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'ia-pack-sin-pi' }, extra: { sessionId: s.id },
+    });
+  }
+  // La caducidad cuenta desde que Stripe confirmó el pago, no desde que esto se procesa.
+  const r = await acreditarPack(admin, d, new Date(eventoCreado * 1000));
+  if (r === 'estudio_inexistente') {
+    Sentry.captureMessage('[billing webhook] pack de consultas pagado por un estudio que ya no existe', {
+      level: 'error', tags: { area: 'cobros', tipo: 'ia-pack-sin-estudio' },
+      extra: { sessionId: s.id, queHacer: 'Reembolsa el pago desde Stripe.' },
+    });
+    return;
+  }
+  if (r === 'creado') capturar(d.studioId, { nombre: 'ia_pack_comprado', props: { unidades: d.unidades } });
+}
+
+async function retirarPackSiToca(admin: SupabaseClient, stripe: Stripe, event: Stripe.Event) {
+  let piId: string | null;
+  let metadata: Stripe.Metadata | null | undefined;
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge;
+    const efecto = efectoDelReembolso(charge);
+    if (efecto === 'nada') return;
+    piId = idDeReferencia(charge.payment_intent);
+    metadata = charge.metadata;
+    if (efecto === 'parcial') {
+      // Puede ser una cortesía: el pack sigue vivo y lo decide una persona.
+      if (esDePack({ metadata }) || (piId && esDePack(await stripe.paymentIntents.retrieve(piId)))) {
+        Sentry.captureMessage('[billing webhook] reembolso PARCIAL de un pack de consultas: el pack sigue activo', {
+          level: 'warning', tags: { area: 'cobros', tipo: 'ia-pack-reembolso-parcial' },
+          extra: { paymentIntentId: piId, devueltoCentimos: charge.amount_refunded, cobradoCentimos: charge.amount,
+            queHacer: 'Si el reembolso era para retirar el pack, devuelve el resto (un reembolso total lo retira solo).' },
+        });
+      }
+      return;
+    }
+  } else {
+    const dispute = event.data.object as Stripe.Dispute;
+    if (!disputaRetiraElPack(dispute)) return;
+    piId = idDeReferencia(dispute.payment_intent);
+    metadata = dispute.metadata;
+  }
+  if (!piId) return;
+  const r = await retirarPackPorPago(admin, piId);
+  if (r !== 'sin_pack') return;
+
+  // No hay pack con ese pago. O no es de un pack (un cargo de la suscripción
+  // SaaS → nada que hacer), o el pack aún no está: su alta llegará tarde, o no
+  // llegará nunca (se quedó inválida). En vez de reintentar, se deja una LÁPIDA:
+  // el pack nace REEMBOLSADO y un `completed` tardío choca con el UNIQUE y no lo
+  // resucita. Así no depende del orden en que Stripe entregue los eventos.
+  const pi = await stripe.paymentIntents.retrieve(piId);
+  if (!esDePack({ metadata }) && !esDePack(pi)) return;
+  const { data: sesiones } = await stripe.checkout.sessions.list({ payment_intent: piId, limit: 1 });
+  const sesion = sesiones[0];
+  const d = sesion ? decidirAcreditacion({ ...sesion, payment_status: 'paid' }) : null;
+  if (d?.accion !== 'acreditar' || (await acreditarPack(admin, d, new Date(pi.created * 1000), 'REEMBOLSADO')) === 'estudio_inexistente') {
+    Sentry.captureMessage('[billing webhook] reembolso o disputa de un pack que no se pudo acreditar: nada que retirar', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'ia-pack-reembolso-sin-pack' }, extra: { paymentIntentId: piId, eventType: event.type },
+    });
+  }
 }
 
 // M-4: resultado de intentar aplicar la actualización a una fila candidata —
