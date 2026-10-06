@@ -19,6 +19,8 @@ export type EventoAnalitica =
   | { nombre: 'pago_completado'; props: { importe_centimos: number; via: 'checkout' | 'off_session' | 'terminal' | 'sepa' | 'bizum' } }
   // El estado de la suscripción del estudio al SaaS cambió (alta/renovación/impago/baja).
   | { nombre: 'suscripcion_cambiada'; props: { plan: string | null; estado: string } }
+  // Un pack de consultas del asistente pagado y acreditado (100/300/1000).
+  | { nombre: 'ia_pack_comprado'; props: { unidades: number } }
   // Una reserva quedó CONFIRMADA (nunca lista de espera/pendiente). Señal de
   // conversión del embudo de reserva — sin socioId ni sesionId: eso ya
   // identificaría a una socia/clase concreta, y el distinct_id es el tenant.

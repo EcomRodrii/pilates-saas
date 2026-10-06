@@ -27,6 +27,7 @@ import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
 import { plazaDePICancelado, plazaDeSesionCaducada } from '@/lib/billing/cupo-matricula-abandonado';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
+import { eventoDePack } from '@/lib/asistente/packs-stripe';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -391,6 +392,17 @@ async function procesarEvento(
   const marcarProcesado = async () => {
     if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
   };
+
+  // Los packs de consultas del asistente son dinero de Tentare en la cuenta de
+  // PLATAFORMA (como la suscripción SaaS) y los procesa SOLO
+  // /api/billing/webhook. Este destino también recibe eventos de la plataforma
+  // (el estudio de demostración cobra en ella), y sin esta salida un pack pagado
+  // entraría en la rama de «pago de una socia» atribuido a ese estudio. Solo sin
+  // `event.account`: un pack nunca vive en una cuenta conectada.
+  if (!event.account && eventoDePack(event)) {
+    await marcarProcesado();
+    return NextResponse.json({ received: true, ignorado: 'ia_pack' });
+  }
 
   // Esta es la fuente de verdad real del pago — el redirect al navegador
   // (success_url) solo actualiza la UI de forma optimista, pero si el

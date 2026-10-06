@@ -25,6 +25,10 @@ export interface SaldoAsistente {
   usadas: number;
   disponibles: number;
   renuevaEl: string | null;
+  /** Lo que queda en packs vigentes (ya va sumado en `disponibles`). */
+  packsQuedan?: number;
+  /** Solo la propietaria compra packs. */
+  puedeComprar?: boolean;
 }
 
 export interface ConversacionListada { id: string; titulo: string; ultimaEn: string }

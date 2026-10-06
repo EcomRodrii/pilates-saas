@@ -7,6 +7,7 @@ import { TentiAsistente, TentiAsistenteQuieto } from '@/components/tenti/tenti-a
 import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { MS_HECHO } from '@/lib/tenti/asistente';
 import { enVuelo, sugerenciasPara, type EstadoAsistente, type TurnoUI } from '@/lib/asistente/estado-ui';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { areaConTeclado } from '@/lib/asistente/teclado';
 import {
@@ -16,6 +17,8 @@ import {
 import { ReferenciasCtx } from './referencias-ui';
 import { TextoConReferencias, textoPlano } from './texto-con-referencias';
 import { Bloque } from './bloques';
+import { TarjetaSinConsultas } from './packs-consultas';
+import { saldoBajo, textoQuedan } from '@/lib/asistente/packs';
 
 // «Pregúntale a Tentare» como un chat (fundador, 6-oct-2026: «como ChatGPT,
 // Gemini, Claude…»): la columna de conversaciones a la izquierda (un cajón en
@@ -34,13 +37,6 @@ const AVISOS: Record<string, string> = {
   DEMASIADO_AMPLIA: 'La pregunta era muy amplia: te respondo con lo que he mirado. Si concretas, afino.',
   RECHAZADA: 'Eso no lo puedo responder.',
 };
-
-function textoSaldo(disponibles: number | null, saldo: SaldoAsistente | null): string | null {
-  if (disponibles === null) return null;
-  if (disponibles <= 0) return saldo?.enPrueba ? 'No te quedan consultas de prueba' : 'No te quedan consultas este mes';
-  const n = `${disponibles} ${disponibles === 1 ? 'consulta' : 'consultas'}`;
-  return saldo?.enPrueba ? `Te ${disponibles === 1 ? 'queda' : 'quedan'} ${n} de prueba` : `Te ${disponibles === 1 ? 'queda' : 'quedan'} ${n} este mes`;
-}
 
 export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
   studioId: string;
@@ -268,6 +264,7 @@ function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null
         <div className="mt-7">
           <Compositor estado={estado} saldo={saldo} grande />
         </div>
+        {estado.disponibles === 0 && <TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} />}
         <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Preguntas de ejemplo">
           {sugerencias.map(s => (
             <li key={s}>
@@ -314,8 +311,12 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
       <div ref={lista} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="chat-mensajes">
         <div className="mx-auto w-full max-w-[760px] px-4 pt-6 pb-10 sm:px-6">
           {estado.turnos.map((t, i) => (
-            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} />
+            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} puedeComprar={!!saldo?.puedeComprar} />
           ))}
+          {/* Se acaban con esta respuesta: la tarjeta aparece ya, antes de que la siguiente pregunta choque con el «sin saldo». */}
+          {estado.disponibles === 0 && ultimo?.fase === 'hecho' && (
+            <div className="sm:pl-14"><TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} /></div>
+          )}
         </div>
       </div>
       <div className="shrink-0 bg-background px-3 pt-2 pb-2 sm:px-6 sm:pb-3">
@@ -327,8 +328,8 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
   );
 }
 
-function Turno({ t, ultimo, momento, referencias }: {
-  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias'];
+function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
+  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias']; puedeComprar: boolean;
 }) {
   const trabajando = t.fase === 'enviando' || t.fase === 'recibiendo';
   return (
@@ -384,6 +385,8 @@ function Turno({ t, ultimo, momento, referencias }: {
               )}
             </div>
           )}
+          {/* Sin consultas: dentro de la conversación, comprar un pack (propietaria) o pedírselo (gerente). */}
+          {t.error?.codigo === 'SIN_SALDO' && ultimo && <TarjetaSinConsultas puedeComprar={puedeComprar} />}
           {!trabajando && t.texto && <Acciones texto={textoPlano(t.texto, referencias)} />}
         </div>
       </div>
@@ -442,7 +445,9 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
   const onKeyDown = (e: KeyboardEventReact<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviar(); }
   };
-  const saldoTexto = textoSaldo(estado.disponibles, saldo);
+  const saldoTexto = textoQuedan(estado.disponibles, saldo);
+  // Quedan menos del 10 % de la cuota del mes: un aviso discreto en la misma línea.
+  const bajo = saldoBajo(estado.disponibles, saldo?.cuota);
 
   return (
     <form onSubmit={e => { e.preventDefault(); enviar(); }}>
@@ -474,9 +479,15 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
         )}
       </div>
       <p className="mt-1.5 text-center text-[12px] leading-snug text-muted-foreground sm:mt-2" data-testid="asistente-saldo">
-        {saldoTexto && <>{saldoTexto}<span className="hidden sm:inline"> · </span></>}
-        {/* En el móvil, una sola línea bajo el campo: el saldo. */}
-        <span className={saldoTexto ? 'hidden sm:inline' : undefined}>Tentare consulta tus datos; todavía no hace cambios.</span>
+        {saldoTexto && <>{saldoTexto}<span className={bajo ? undefined : 'hidden sm:inline'}> · </span></>}
+        {bajo ? (
+          saldo?.puedeComprar
+            ? <Link href="/suscripcion#consultas" className="font-medium text-foreground underline underline-offset-2" data-testid="saldo-bajo">Comprar más</Link>
+            : <span className="font-medium text-foreground" data-testid="saldo-bajo">Pídele más a la propietaria</span>
+        ) : (
+          /* En el móvil, una sola línea bajo el campo: el saldo. */
+          <span className={saldoTexto ? 'hidden sm:inline' : undefined}>Tentare consulta tus datos; todavía no hace cambios.</span>
+        )}
       </p>
     </form>
   );

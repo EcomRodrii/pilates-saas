@@ -7,6 +7,7 @@ import type { BloqueAsistente } from './tipos.ts';
 import type { TablaReferencias, PersonaDelEstudio } from './referencias.ts';
 import { asistenteEncendidoPara } from './interruptor.ts';
 import { historialParaElModelo } from './historial.ts';
+import { puedeComprarPacks } from './packs.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La parte del asistente que toca la base de datos: conversaciones, mensajes,
@@ -168,19 +169,39 @@ export async function cerrarConsulta(admin: SupabaseClient, sesion: SesionAsiste
   return { unidades: fila.unidades_cobradas, disponibles: fila.disponibles };
 }
 
+export interface PackVivo { id: string; quedan: number; caducaEn: string }
+
 export interface Saldo {
   enPrueba: boolean;
   cuota: number;
   usadas: number;
+  /** Ya suma lo que queda de la cuota y lo que queda de los packs (menos lo que está en vuelo). */
   disponibles: number;
   renuevaEl: string | null;
+  /** Consultas que quedan en packs vigentes (para no decir «este mes» cuando no es verdad). */
+  packsQuedan: number;
+  /** Los packs vivos, el que antes caduca primero. Solo a quien puede comprarlos (la propietaria): es dinero. */
+  packs?: PackVivo[];
+  /** Solo la propietaria compra; a la gerente se le dice que se lo pida. */
+  puedeComprar: boolean;
 }
 
 export async function leerSaldo(admin: SupabaseClient, sesion: SesionAsistente): Promise<Saldo | null> {
   const { data, error } = await admin.rpc('ia_saldo_consultas', { p_studio_id: sesion.studioId });
-  const fila = Array.isArray(data) ? (data[0] as { en_prueba: boolean; cuota: number; usadas: number; disponibles: number; renueva_el: string | null } | undefined) : undefined;
+  const fila = Array.isArray(data)
+    ? (data[0] as { en_prueba: boolean; cuota: number; usadas: number; disponibles: number; renueva_el: string | null; packs: unknown } | undefined)
+    : undefined;
   if (error || !fila) return null;
-  return { enPrueba: fila.en_prueba, cuota: fila.cuota, usadas: fila.usadas, disponibles: fila.disponibles, renuevaEl: fila.renueva_el };
+  const packs: PackVivo[] = (Array.isArray(fila.packs) ? fila.packs as { id?: unknown; quedan?: unknown; caduca_en?: unknown }[] : [])
+    .filter(p => typeof p.id === 'string' && typeof p.quedan === 'number' && typeof p.caduca_en === 'string')
+    .map(p => ({ id: p.id as string, quedan: p.quedan as number, caducaEn: p.caduca_en as string }));
+  const puedeComprar = puedeComprarPacks(sesion.rol);
+  return {
+    enPrueba: fila.en_prueba, cuota: fila.cuota, usadas: fila.usadas, disponibles: fila.disponibles, renuevaEl: fila.renueva_el,
+    packsQuedan: packs.reduce((s, p) => s + p.quedan, 0),
+    ...(puedeComprar ? { packs } : {}),
+    puedeComprar,
+  };
 }
 
 // ── Nombres: solo para el navegador ─────────────────────────────────────────
