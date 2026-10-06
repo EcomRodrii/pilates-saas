@@ -135,6 +135,10 @@ const articulo: Articulo = {
           ],
         },
         { t: 'p', texto: 'Cuando tengas la escalera decidida, llevarla a un programa evita errores en recepción. En Tentare configuras [bonos, cuotas mensuales y clases sueltas](/funcionalidades/bonos-y-membresias), con la caducidad de cada bono y reglas distintas por tipo de clase, y tus alumnas reservan y cancelan solas desde el móvil.' },
+        {
+          t: 'llamada',
+          texto: 'Con el precio decidido, queda ofrecerlo en bonos, cuotas y clases sueltas: en Tentare los configuras con su caducidad y reglas por tipo de clase.',
+        },
       ],
     },
     {

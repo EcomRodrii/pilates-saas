@@ -326,6 +326,10 @@ const articulo: Articulo = {
           texto:
             'Con el nombre y el dominio asegurados, lleva las reservas a tu web: con el widget de Tentare pegas un código y tus alumnas reservan desde tu propia página ([reservas en tu web](/recursos/reservas-en-tu-web)). Si estás en plena apertura, sigue con [cómo abrir un estudio de pilates](/recursos/como-abrir-un-estudio-de-pilates) y con [los requisitos para abrir un estudio de pilates](/recursos/requisitos-para-abrir-un-estudio-de-pilates). Y si dudas entre marca propia o franquicia, compáralo en [franquicia de pilates](/recursos/franquicia-de-pilates).',
         },
+        {
+          t: 'llamada',
+          texto: 'Con el nombre elegido, tus alumnas reservan desde el móvil e instalan la app de tu estudio con tu nombre y tu icono.',
+        },
       ],
     },
   ],

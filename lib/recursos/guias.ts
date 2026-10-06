@@ -187,6 +187,7 @@ export const GUIAS: Guia[] = [
     seccion: 'Elegir software',
     lectura: 8,
     publicado: '2026-08-06',
+    actualizado: '2026-10-07',
     portada: portada('portatil-checklist-elegir-software', '07-elegir-software-estudio.jpg',
       'Escena ilustrativa: un portátil con una lista de comprobación para elegir el software del estudio, junto a una libreta y una taza',
       505, 253, [4, 0, 4, 0]),

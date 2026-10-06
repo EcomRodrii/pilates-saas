@@ -91,7 +91,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/lista-de-espera',
-    titulo: 'Lista de espera automática para clases de Pilates | Tentare',
+    titulo: 'Lista de espera para clases de Pilates: cómo funciona | Tentare',
     descripcion:
       'Cuando alguien cancela, la plaza se ofrece sola a la siguiente de la lista — con un plazo de aceptación configurable por tipo de clase. El hueco no se pierde.',
     grupo: 'funcionalidades',

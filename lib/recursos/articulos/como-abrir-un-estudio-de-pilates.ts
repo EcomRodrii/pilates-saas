@@ -216,6 +216,10 @@ const articulo: Articulo = {
           t: 'p',
           texto: 'Es lo que hace [Tentare](/funcionalidades/reservas-online): tus alumnas reservan y cancelan desde el móvil e instalan la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática; hay bonos con caducidad, cuotas mensuales y clases sueltas, con reglas por tipo de clase; y los cobros recurrentes con Stripe (tarjeta y SEPA) se reintentan dos veces si fallan y te avisan. Cuesta 29, 59 o 149 € al mes con IVA según el plan, sin permanencia ([precios](/precios)). Si ya tienes web, las reservas se ponen dentro con un widget: [reservas en tu web](/recursos/reservas-en-tu-web).',
         },
+        {
+          t: 'llamada',
+          texto: 'Que tus alumnas reserven, tengan su bono y paguen desde el móvil el día que abres es cosa de dejarlo configurado antes: Tentare lo trae de serie, desde 29 €/mes y sin permanencia.',
+        },
       ],
     },
     {

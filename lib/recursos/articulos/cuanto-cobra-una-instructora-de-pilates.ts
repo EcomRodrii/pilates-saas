@@ -154,6 +154,10 @@ const articulo: Articulo = {
           texto:
             'La cuenta que de verdad importa es cuánto te deja cada clase después de pagar a quien la da: la misma hora de instructora no pesa igual en una clase llena que en una a medias. Lo desarrollamos en [rentabilidad de un estudio de pilates](/recursos/rentabilidad-estudio-de-pilates) y en [precio de una clase de pilates](/recursos/precio-clase-de-pilates). En Tentare, el [informe de rentabilidad por clase](/funcionalidades/informes-y-rentabilidad) resta a lo que ingresa cada clase lo que cuesta su instructora.',
         },
+        {
+          t: 'llamada',
+          texto: 'Si quieres ver lo que ingresa cada clase menos lo que cuesta su instructora, Tentare lo calcula por ti.',
+        },
       ],
     },
     {

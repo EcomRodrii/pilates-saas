@@ -194,6 +194,10 @@ const articulo: Articulo = {
             '**Aplícala igual a todas:** la excepción de hoy es la queja de mañana de quien sí cumplió. Si perdonas, que sea por fuerza mayor, no a ojo.',
           ],
         },
+        {
+          t: 'llamada',
+          texto: 'Para que la política se aplique sola, tus alumnas cancelan desde el móvil dentro de la ventana que fijas para cada tipo de clase.',
+        },
       ],
     },
     {

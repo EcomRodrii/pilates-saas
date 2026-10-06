@@ -148,6 +148,10 @@ const articulo: Articulo = {
           t: 'p',
           texto: '**Marketing de apertura.** Web con reservas, fotos de la sala, perfil en Google, anuncios locales y preventa de bonos. No hay una cifra estándar: fija un presupuesto cerrado y mide qué canal te trae alumnas que se quedan.',
         },
+        {
+          t: 'llamada',
+          texto: 'El software de gestión es de las partidas más pequeñas del presupuesto: Tentare cuesta desde 29 €/mes con IVA y sin permanencia, y lleva reservas, bonos y cobros desde la primera clase.',
+        },
       ],
     },
     {

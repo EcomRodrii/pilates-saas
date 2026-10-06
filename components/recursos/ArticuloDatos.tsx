@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { ACC } from '@/components/landing/theme';
 import { ArticleShell, type TocItem } from '@/components/recursos/ArticleShell';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
@@ -79,6 +81,16 @@ function BloqueArticulo({ b }: { b: Bloque }) {
       return <Callout title={b.titulo}><TextoMarcado texto={b.texto} /></Callout>;
     case 'producto':
       return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta="Probar 7 días gratis →" />;
+    case 'llamada':
+      return (
+        <aside style={{ borderLeft: `3px solid ${ACC}`, padding: '2px 0 2px 18px', margin: '26px 0' }}>
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: '#33332D' }}>
+            {b.texto}{' '}
+            <Link href="/crear-estudio" style={{ color: ACC, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Prueba Tentare 7 días gratis</Link>
+            {' '}o <Link href="/precios" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>mira los precios</Link>.
+          </p>
+        </aside>
+      );
     case 'cifras':
       return <StatBlock eyebrow={b.titulo} stats={b.cifras.map((c) => ({ value: c.valor, label: c.etiqueta }))} note={textoPlano(b.nota)} />;
     case 'herramienta':

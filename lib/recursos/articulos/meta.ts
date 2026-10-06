@@ -23,7 +23,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precios-reformer-mat",
       "/precios"
     ],
-    "palabras": 2789
+    "palabras": 2822
   },
   {
     "slug": "como-abrir-un-estudio-de-yoga",
@@ -41,13 +41,13 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/recursos/politica-de-cancelacion-de-clases"
     ],
-    "palabras": 2470
+    "palabras": 2493
   },
   {
     "slug": "mejor-software-para-estudios-de-pilates",
     "titulo": "Mejor software para estudios y centros de Pilates en 2026",
     "tituloSeo": "Mejor software para estudios de pilates 2026: 13 comparados",
-    "descripcion": "Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para estudios de pilates, comparados con lo que dice la web de cada uno.",
+    "descripcion": "¿Cuál te conviene? Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para pilates, con lo que dice la web de cada uno.",
     "resumen": "Guía comparativa escrita por Tentare: lo que necesita un estudio de pilates, una tabla con 13 programas según su web pública y una ficha breve de cada uno.",
     "categoria": "software",
     "seccion": "Elegir software",
@@ -133,7 +133,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2262
+    "palabras": 2294
   },
   {
     "slug": "precio-clase-de-pilates",
@@ -150,7 +150,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/funcionalidades/bonos-y-membresias"
     ],
-    "palabras": 2388
+    "palabras": 2413
   },
   {
     "slug": "rentabilidad-estudio-de-pilates",
@@ -167,7 +167,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates",
       "/funcionalidades/informes-y-rentabilidad"
     ],
-    "palabras": 2375
+    "palabras": 2408
   },
   {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
@@ -203,7 +203,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/bonos-y-membresias",
       "/funcionalidades/cancelaciones-y-politicas"
     ],
-    "palabras": 2000
+    "palabras": 2022
   },
   {
     "slug": "politica-de-cancelacion-de-clases",
@@ -221,7 +221,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/lista-de-espera",
       "/recursos/como-abrir-un-estudio-de-yoga"
     ],
-    "palabras": 2394
+    "palabras": 2418
   },
   {
     "slug": "cuanto-cobra-una-instructora-de-pilates",
@@ -239,7 +239,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cubrir-baja-instructora",
       "/recursos/iva-clases-de-pilates"
     ],
-    "palabras": 2153
+    "palabras": 2172
   },
   {
     "slug": "como-ser-instructora-de-pilates",
@@ -343,6 +343,6 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/app-para-alumnas",
       "/recursos/reservas-en-tu-web"
     ],
-    "palabras": 1750
+    "palabras": 1773
   }
 ];
