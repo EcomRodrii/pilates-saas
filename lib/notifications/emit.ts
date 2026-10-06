@@ -19,7 +19,10 @@ import { quienEscribeALaAlumna } from './aviso-mensaje.ts';
 import {
   avisoLlevaALaFicha, dedupKeyPagadaSinPlaza, SITUACION_PAGADA_SIN_PLAZA, type SituacionPagadaSinPlaza,
 } from './pagada-sin-plaza.ts';
-import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
+import { cuandoEstudio, horaEstudio, fechaCortaEstudio, hoyEnEstudio, TZ_ESTUDIO } from '@/lib/utils';
+import { leTocaPagarlaAElla } from '@/lib/billing/cobro-recibo-alumna';
+import { cobroDeReciboEnServidor } from '@/lib/billing/cobro-recibo-alumna-servidor';
+import { capturarMensaje } from '@/lib/sentry-cliente';
 
 function cuandoLargo(iso: string): string {
   try {
@@ -413,6 +416,10 @@ export async function emitirPagoFallido(
 
 // Su renovación no se va a cobrar sola (sin tarjeta guardada): a la socia, una vez
 // por recibo. El estudio no recibe aviso: lo cuenta su bandeja «por decidir».
+// ⚠️ Solo si le toca pagarla a ELLA (`leTocaPagarlaAElla`, la misma regla con la que su
+// app pinta Recibos): una domiciliada sin tarjeta pero con mandato, en un estudio que
+// hace remesas, la cobra el banco, y su app le dice «No tienes que hacer nada». Sin
+// poder saberlo, no se avisa.
 export async function emitirRenovacionSinTarjeta(
   admin: SupabaseClient, p: { studioId: string; reciboId: string },
 ): Promise<void> {
@@ -420,6 +427,16 @@ export async function emitirRenovacionSinTarjeta(
     const { data: recibo } = await admin.from('recibos')
       .select('concepto, importe, socio_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (!recibo?.socio_id) return;
+    const quien = await cobroDeReciboEnServidor(admin, { studioId: p.studioId, reciboId: p.reciboId, hoy: hoyEnEstudio() });
+    if (!quien.ok) {
+      // El cron solo avisa justo tras crear el recibo: este aviso no se reintenta. A Sentry, para que se vea (la app
+      // sigue enseñándole la renovación por pagar).
+      capturarMensaje('emitirRenovacionSinTarjeta: no se ha podido saber quién cobra el recibo; no se avisa', 'warning', {
+        tags: { area: 'cobros' }, extra: { studioId: p.studioId, reciboId: p.reciboId },
+      });
+      return;
+    }
+    if (!leTocaPagarlaAElla(quien.cobro)) return;
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
     await publish({
       type: EVENTOS.RENOVACION_SIN_TARJETA, studioId: p.studioId,

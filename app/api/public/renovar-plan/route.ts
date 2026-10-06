@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { cobroDeReciboEnServidor } from '@/lib/billing/cobro-recibo-alumna-servidor';
+import { hoyEnEstudio } from '@/lib/utils';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -8,7 +11,7 @@ import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import {
   CODIGO_RENOVACION_COBRANDOSE, elegirSuscripcionARenovar, MENSAJE_RENOVACION_COBRANDOSE, planSeRenueva,
-  reciboPrevioDeRenovacion, renovacionPorLaAlumna,
+  reciboPrevioDeRenovacion, renovacionPorLaAlumna, renovacionQuePagaElla,
 } from '@/lib/billing/renovar-plan-reglas';
 
 // "Renovar en un toque" desde el portal: garantiza que exista el recibo de
@@ -121,7 +124,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: MENSAJE_RENOVACION_COBRANDOSE, codigo: CODIGO_RENOVACION_COBRANDOSE }, { status: 409 });
     }
     const reutilizable = decisiones.find((d) => d.que === 'reutilizar');
-    if (reutilizable) return NextResponse.json({ reciboId: reutilizable.id });
+    // ⚠️ Reutilizarla es dársela a pagar con tarjeta: solo si le toca pagarla a ELLA, con la MISMA regla con la que su
+    // app decide qué ofrecer (`lib/billing/cobro-recibo-alumna.ts`). Si va en la remesa, la cobra su tarjeta guardada con
+    // el reintento programado o se está cobrando, 409 y no se crea nada (otro recibo del mismo ciclo sería el doble cobro).
+    if (reutilizable) return await respuestaReutilizar(admin, body.studioId, reutilizable.id);
 
     const hoy = new Date().toISOString().slice(0, 10);
     // ⚠️ 26ª pasada. El id determinista POR MES viene de `lib/inngest/
@@ -185,10 +191,24 @@ export async function POST(req: NextRequest) {
           { status: 409 },
         );
       }
+      // El que ya estaba (el cron lo creó en paralelo) también es reutilizar: la misma regla que arriba.
+      return await respuestaReutilizar(admin, body.studioId, id);
     }
 
     return NextResponse.json({ reciboId: id });
   } catch (err) {
     return errorInterno('public/renovar-plan:POST', err, 'No se ha podido preparar la renovación.');
   }
+}
+
+/**
+ * Devuelve para pagar una renovación que YA existía solo si le toca pagarla a ella. Sin poder saberlo (una lectura
+ * fallida), se lanza y contesta el 500 de siempre: con dinero de por medio, no saber no es «págala tú».
+ */
+async function respuestaReutilizar(admin: SupabaseClient, studioId: string, reciboId: string): Promise<NextResponse> {
+  const leido = await cobroDeReciboEnServidor(admin, { studioId, reciboId, hoy: hoyEnEstudio() });
+  if (!leido.ok) throw new Error(`no se ha podido saber quién cobra la renovación ${reciboId}`);
+  const quien = renovacionQuePagaElla(leido.cobro);
+  if (!quien.ok) return NextResponse.json({ error: quien.error, codigo: quien.codigo, cobro: leido.cobro }, { status: 409 });
+  return NextResponse.json({ reciboId });
 }

@@ -110,3 +110,67 @@ test('recibo previo: solo uno de renovación y cobrable se reutiliza; en el banc
   assert.equal(reciboPrevioDeRenovacion(r({ estado: 'COBRADO' })), 'ignorar');
   assert.equal(reciboPrevioDeRenovacion(r({ estado: 'DEVUELTO', importe_devuelto: 60 })), 'ignorar', 'reembolsado: no es deuda');
 });
+
+// ── Quién cobra la renovación que ya hay (6-oct-2026): la regla de la app, también en el servidor ──────────────
+import { CODIGO_RENOVACION_COBRANDOSE, CODIGO_RENOVACION_LA_COBRA_OTRO, renovacionQuePagaElla } from './renovar-plan-reglas.ts';
+
+test('reutilizar la renovación: solo si le toca a ella (app, o en el estudio sin pago online)', () => {
+  assert.deepEqual(renovacionQuePagaElla({ como: 'APP' }), { ok: true });
+  assert.deepEqual(renovacionQuePagaElla({ como: 'ESTUDIO', motivo: 'sin-pago-online' }), { ok: true });
+});
+
+test('reutilizar la renovación: el banco, su tarjeta, un cobro en vuelo o la pausa contestan 409 con su código', () => {
+  const no = (c: Parameters<typeof renovacionQuePagaElla>[0]) => {
+    const r = renovacionQuePagaElla(c);
+    assert.equal(r.ok, false);
+    return r as { ok: false; codigo: string; error: string };
+  };
+  assert.equal(no({ como: 'BANCO', via: 'remesa', desde: null }).codigo, CODIGO_RENOVACION_LA_COBRA_OTRO);
+  assert.match(no({ como: 'BANCO', via: 'remesa', desde: null, cuandoVenza: true }).error, /banco/);
+  assert.equal(no({ como: 'BANCO', via: 'sepa', desde: '2026-11-01' }).codigo, CODIGO_RENOVACION_LA_COBRA_OTRO);
+  assert.match(no({ como: 'TARJETA', desde: '2026-11-01' }).error, /tarjeta guardada/);
+  assert.equal(no({ como: 'TARJETA', desde: '2026-11-01' }).codigo, CODIGO_RENOVACION_LA_COBRA_OTRO);
+  assert.equal(no({ como: 'EN_MARCHA' }).codigo, CODIGO_RENOVACION_COBRANDOSE);
+  assert.equal(no({ como: 'ESTUDIO', motivo: 'cuota-en-pausa' }).codigo, CODIGO_CUOTA_EN_PAUSA);
+  assert.equal(no({ como: 'ESTUDIO', motivo: 'pendiente-estudio' }).codigo, CODIGO_RENOVACION_LA_COBRA_OTRO);
+  // La regla dice que no es deuda (0 €…): tampoco se le da a pagar.
+  assert.equal(no(null).codigo, CODIGO_RENOVACION_LA_COBRA_OTRO);
+});
+
+test('/api/public/renovar-plan: toda renovación que ya existía pasa por quién la cobra ANTES de devolver su id', () => {
+  const s = leer('app/api/public/renovar-plan/route.ts');
+  // Nada devuelve a pelo el id de un recibo que ya estaba: solo el recién creado sale sin la regla.
+  const devuelveId = [...s.matchAll(/NextResponse\.json\(\{\s*reciboId(?:\s*:\s*([\w.]+))?\s*\}\)/g)].map((m) => m[1] ?? 'reciboId');
+  assert.deepEqual(devuelveId.sort(), ['id', 'reciboId'], 'un `return NextResponse.json({ reciboId })` nuevo tiene que pasar por respuestaReutilizar');
+  const fn = s.slice(s.indexOf('async function respuestaReutilizar('));
+  const lee = fn.indexOf('cobroDeReciboEnServidor(admin');
+  const decide = fn.indexOf('renovacionQuePagaElla(leido.cobro)');
+  const corta = fn.indexOf('{ status: 409 }');
+  const devuelve = fn.indexOf('NextResponse.json({ reciboId })');
+  assert.ok(lee > 0 && decide > lee && corta > decide && devuelve > corta);
+  assert.match(fn.slice(0, decide), /if \(!leido\.ok\) throw/, 'sin poder saberlo, falla cerrado');
+  // La reutilizable de la consulta y la que chocó por PK (el cron la creó en paralelo) usan esa puerta.
+  assert.match(s, /if \(reutilizable\) return await respuestaReutilizar\(admin, body\.studioId, reutilizable\.id\);/);
+  const choque = s.indexOf("insErr.code !== '23505'");
+  assert.ok(s.indexOf('return await respuestaReutilizar(admin, body.studioId, id);', choque) > choque);
+  // Y antes de crear nada.
+  assert.ok(s.indexOf('if (reutilizable) return await respuestaReutilizar') < s.indexOf("await admin.from('recibos').insert("));
+});
+
+test('el aviso «renovación sin tarjeta» solo sale si le toca pagarla a ella (la misma regla)', () => {
+  const s = leer('lib/notifications/emit.ts');
+  const fn = s.slice(s.indexOf('export async function emitirRenovacionSinTarjeta('));
+  const cuerpo = fn.slice(0, fn.indexOf('\n}\n'));
+  const lee = cuerpo.indexOf('cobroDeReciboEnServidor(admin');
+  const corta = cuerpo.indexOf('if (!leTocaPagarlaAElla(quien.cobro)) return;');
+  const avisa = cuerpo.indexOf('await publish(');
+  assert.ok(lee > 0 && corta > lee && avisa > corta);
+  assert.match(cuerpo.slice(lee, corta), /if \(!quien\.ok\) \{[\s\S]*?return;/, 'sin poder saberlo, no se avisa');
+});
+
+test('la renovación que ofrece la app (fetchPublicStudioData) decide con la misma regla y las mismas lecturas', () => {
+  const s = leer('lib/db/supabase-data-admin.ts');
+  assert.match(s, /return ren && leTocaPagarlaAElla\(cobrosDeSusRecibos\[ren\.reciboId\]\) \? ren : null;/);
+  assert.match(s, /await contextoCobroAlumna\(admin, \{/);
+  assert.doesNotMatch(s, /from\('mandatos_sepa'\)\.select\('socio_id'\)\.eq\('studio_id', studioId\)\.eq\('socio_id', sid\)/, 'las lecturas viven en contextoCobroAlumna');
+});

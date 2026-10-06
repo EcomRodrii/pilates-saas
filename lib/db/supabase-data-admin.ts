@@ -1,7 +1,8 @@
 import 'server-only';
 import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/renovacion-sin-tarjeta';
-import { cobrosDeRecibosAlumna, type FilaReciboAlumna } from '@/lib/billing/cobro-recibo-alumna';
-import { tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
+import { cobrosDeRecibosAlumna, leTocaPagarlaAElla, type FilaReciboAlumna } from '@/lib/billing/cobro-recibo-alumna';
+import { contextoCobroAlumna, type EstudioCobroAlumna } from '@/lib/billing/cobro-recibo-alumna-servidor';
+import type { SocioMetodoPago } from '@/lib/billing/metodo-cobro';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
@@ -1154,37 +1155,15 @@ export async function fetchPublicStudioData(
   // falta y no viene ya leído se lee SOLO si debe algo: el mandato (solo si el estudio hace remesas), la cuota de cada
   // recibo con su tipo de plan (para las exclusiones de la remesa) y el estado de sus penalizaciones. Un fallo en
   // cualquiera de esas lecturas no tumba la app: ningún recibo lleva entrada y la app no ofrece pagar nada (y la
-  // renovación sin tarjeta tampoco, ver `renovacionPorPagar` abajo), que es lo seguro con dinero de por medio.
-  const studioSepa = studioRow as unknown as { sepa_acreedor_id?: string | null; sepa_iban?: string | null; sepa_titular?: string | null };
-  const haceRemesas = !!(studioSepa.sepa_acreedor_id && studioSepa.sepa_iban && studioSepa.sepa_titular);
-  const deudas = (recRes.data ?? []).filter((r) => ['PENDIENTE', 'FALLIDO', 'DEVUELTO'].includes(r.estado as string));
-  const idsPenalizacion = deudas.map((r) => r.id as string).filter((id) => id.startsWith('rec-penaliz-'));
-  const vacio = { data: [] as Record<string, unknown>[], error: null };
-  const [mandatoRes, cuotasRes, penalizacionesRes] = deudas.length === 0
-    ? [vacio, vacio, vacio]
-    : await Promise.all([
-      haceRemesas
-        ? admin.from('mandatos_sepa').select('socio_id').eq('studio_id', studioId).eq('socio_id', sid).eq('estado', 'VIGENTE').limit(1)
-        : Promise.resolve(vacio),
-      admin.from('suscripciones').select('id, estado, fecha_fin, planes_tarifa(tipo)').eq('studio_id', studioId).eq('socio_id', sid),
-      idsPenalizacion.length > 0
-        ? admin.from('penalizaciones').select('recibo_id, estado').eq('studio_id', studioId).in('recibo_id', idsPenalizacion)
-        : Promise.resolve(vacio),
-    ]);
-  const lecturaCobroOk = !recRes.error && !mandatoRes.error && !cuotasRes.error && !penalizacionesRes.error;
-  const cobrosDeSusRecibos = lecturaCobroOk
-    ? cobrosDeRecibosAlumna((recRes.data ?? []) as unknown as FilaReciboAlumna[], {
-      pagableOnline: Boolean(studioRow.stripe_account_id),
-      socio: socioRow as unknown as { metodo_pago_preferido?: string | null; stripe_payment_method_id?: string | null; sepa_payment_method_id?: string | null },
-      domiciliadaEnRemesa: (mandatoRes.data ?? []).length > 0,
-      cuotas: new Map(((cuotasRes.data ?? []) as Record<string, unknown>[]).map((c) => [c.id as string, {
-        estado: (c.estado as string | null) ?? null, fechaFin: (c.fecha_fin as string | null) ?? null, tipoPlan: tipoPlanEmbebido(c.planes_tarifa),
-      }])),
-      penalizaciones: new Map(((penalizacionesRes.data ?? []) as Record<string, unknown>[])
-        .filter((x) => typeof x.recibo_id === 'string').map((x) => [x.recibo_id as string, x.estado as string])),
-      hoy: hoyEnEstudio(),
-    })
-    : {};
+  // renovación sin tarjeta tampoco, ver `renovacionPorPagar` abajo), que es lo seguro con dinero de por medio. Las
+  // lecturas viven en `contextoCobroAlumna`: las mismas que usan `/api/public/renovar-plan` y el aviso del cron.
+  const recibosAlumna = (recRes.data ?? []) as unknown as FilaReciboAlumna[];
+  const ctxCobro = recRes.error ? null : await contextoCobroAlumna(admin, {
+    studioId, socioId: sid, estudio: studioRow as unknown as EstudioCobroAlumna,
+    socio: socioRow as unknown as SocioMetodoPago, recibos: recibosAlumna, hoy: hoyEnEstudio(),
+  });
+  const lecturaCobroOk = ctxCobro !== null;
+  const cobrosDeSusRecibos = ctxCobro ? cobrosDeRecibosAlumna(recibosAlumna, ctxCobro) : {};
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
   const misReciboIds = misRecibos.map(r => r.id);
@@ -1220,8 +1199,7 @@ export async function fetchPublicStudioData(
       renovacionPorPagar: (() => {
         if (!lecturaCobroOk) return null;
         const ren = renovacionPorPagar((recRes.data ?? []) as unknown as FilaReciboRenovacion[], Boolean(studioRow.stripe_account_id));
-        const como = ren ? (cobrosDeSusRecibos as Record<string, { como: string; motivo?: string }>)[ren.reciboId] : undefined;
-        return ren && (como?.como === 'APP' || (como?.como === 'ESTUDIO' && como.motivo === 'sin-pago-online')) ? ren : null;
+        return ren && leTocaPagarlaAElla(cobrosDeSusRecibos[ren.reciboId]) ? ren : null;
       })(),
       // Quién cobra cada recibo que debe y si puede pagarlo ella (`lib/billing/cobro-recibo-alumna.ts`). Sin el método
       // guardado ni el mandato, que no salen del servidor (`socioPropio`).
