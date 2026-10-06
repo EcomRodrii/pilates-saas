@@ -2039,6 +2039,10 @@ export default function ReservarPage() {
           // continuar): el servidor lo cancela antes de crear el nuevo, para que
           // nunca queden dos pagables de la misma clase. Ver lib/billing/pago-anterior.ts.
           pagoAnterior: datosClientSecret ?? undefined,
+          // La casilla de condiciones, que el servidor exige con clase concreta si el estudio
+          // reescribió sus condiciones (P06): ya se comprueba arriba (`if (!privacidadAceptada)`),
+          // pero quien tiene que exigirlo es el servidor.
+          aceptaCondiciones: privacidadAceptada,
         }),
       });
       const data = await res.json() as { clientSecret?: string; error?: string };

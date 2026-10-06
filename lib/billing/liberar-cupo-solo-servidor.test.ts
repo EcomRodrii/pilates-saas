@@ -66,7 +66,10 @@ test('⚠️ quien la usa lo hace desde una ruta de servidor, no desde una panta
     // Cron de Inngest con service_role, nunca en el navegador: devuelve las
     // plazas de checkouts abandonados, porque el endpoint de producción no está
     // suscrito a los eventos que las devolverían (ver cupo-matricula-abandonado.ts).
-    .filter(ruta => ruta !== 'lib/inngest/conciliar-cobros.ts');
+    .filter(ruta => ruta !== 'lib/inngest/conciliar-cobros.ts')
+    // El dueño del pago de una clase (P06): `server-only`, lo llaman las rutas de cobro con
+    // service_role para devolver el cupo del pago anterior que cancela.
+    .filter(ruta => ruta !== 'lib/billing/pago-de-clase-servidor.ts');
 
   assert.deepEqual(culpables, [],
     'devolver un cupo es una compensación de servidor. Si una pantalla necesita '

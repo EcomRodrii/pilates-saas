@@ -49,9 +49,10 @@ export interface DatosClaveCheckoutEmbebido {
 
 /**
  * Quién paga. El email NO viaja en claro: la clave de idempotencia acaba en los
- * logs de Stripe, y un email es un dato personal.
+ * logs de Stripe, y un email es un dato personal. Es también el `pagador` de
+ * `pagos_clase` (un pago vivo por persona y clase, P06).
  */
-function quienPaga(socioId: string | null, socioEmail: string | null): string {
+export function quienPaga(socioId: string | null, socioEmail: string | null): string {
   if (socioId) return socioId;
   if (socioEmail) {
     return `e${createHash('sha256').update(socioEmail.trim().toLowerCase()).digest('hex').slice(0, 16)}`;

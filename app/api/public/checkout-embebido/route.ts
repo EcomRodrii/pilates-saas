@@ -9,7 +9,12 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { claveDePagoDeClase, type FilaPagoClase } from '@/lib/billing/pago-de-clase';
+import { anclarCobroDePago, anotarMatriculaDePago, prepararPagoDeClase } from '@/lib/billing/pago-de-clase-servidor';
+import { IMPORTE_MINIMO_EUR, tienePrecioEspecial } from '@/lib/reservar/opciones-de-clase';
+import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
 import {
@@ -37,6 +42,7 @@ import {
   recuperarPlazasCaducadas, reservarPlazaEtapa, type PlazaReservada,
 } from '@/lib/opening/cupo';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
+import type { RowPlanesTarifa } from '@/lib/db-types';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
@@ -175,6 +181,13 @@ export async function POST(req: NextRequest) {
     // continuar). Si sigue pagable y es de esta persona, estudio y clase, se
     // cancela antes de crear el nuevo: un cobro por pantalla. Ver lib/billing/pago-anterior.ts.
     pagoAnterior?: string | null;
+    /**
+     * P06 (6-oct-2026): prueba de que marcó la casilla de condiciones ANTES de pagar. Con clase
+     * concreta se exige si el estudio reescribió sus condiciones (`exigeAceptacionExplicita`),
+     * como ya hacía su gemela /api/stripe/checkout: sin ella se sellaba un consentimiento que
+     * nadie había dado.
+     */
+    aceptaCondiciones?: boolean;
   } | null;
 
   if (!body?.studioId) {
@@ -263,7 +276,10 @@ export async function POST(req: NextRequest) {
   //  - "pagar y reservar sin login" (app/reservar/[slug]/page.tsx) no manda
   //    socioId, solo email + sesionId → camino de invitada, intacto.
   let socioId: string | null = null;
-  if (body.socioId) {
+  // Con cabecera Authorization la identidad sale SIEMPRE del token, aunque el body no traiga
+  // `socioId` (P06): quien entra con su sesión nunca paga como invitada (ni su compra acaba en
+  // otra ficha por el email). Sin cabecera, el camino de invitada de siempre.
+  if (body.socioId || req.headers.get('authorization')) {
     const usuario = await verificarUsuarioSupabase(req);
     if (!usuario) {
       return conCorsWidget(req, NextResponse.json({ error: 'Inicia sesión para comprar.' }, { status: 401 }));
@@ -383,6 +399,16 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     ));
   }
+  // Por debajo de 0,50 € Stripe no cobra: el error salía después, ya creado el intento. Se dice antes.
+  if (importe < IMPORTE_MINIMO_EUR) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Ese importe es demasiado bajo para pagarlo online. Pide a tu estudio que te lo dé directamente.', codigo: 'importe-minimo' },
+      { status: 409 },
+    ));
+  }
+
+  // Cuándo se comprobó la plaza (P06): la prioridad en la cola solo se da a quien pagó poco después.
+  let plazaComprobadaEn: Date | null = null;
 
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
   // si viene sesionId, comprobar que la clase sigue viva y que el plan la
@@ -396,7 +422,7 @@ export async function POST(req: NextRequest) {
       return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
     }
     const { data: sesion } = await admin
-      .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+      .from('sesiones').select('inicio, cancelada, tipo_clase_id, precio_puntual')
       .eq('id', body.sesionId).eq('studio_id', body.studioId).maybeSingle();
     if (!sesion) return conCorsWidget(req, NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 }));
     if (sesion.cancelada) return conCorsWidget(req, NextResponse.json({ error: 'Esta clase está cancelada' }, { status: 409 }));
@@ -419,6 +445,39 @@ export async function POST(req: NextRequest) {
     // porque la reserva tras el pago (`reservarPlazaTrasPagoPublico`) la rechaza.
     const ventana = await comprobarVentanaReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string });
     if (ventana) return conCorsWidget(req, NextResponse.json({ error: ventana.error, codigo: ventana.codigo }, { status: 409 }));
+    // Fase A (P06): una clase con precio propio distinto de su tarifa (un taller) no se vende
+    // online — la MISMA regla con que la app decide qué ofrecer (`opcionesDeClase`).
+    const precioPuntual = sesion.precio_puntual as number | null;
+    if (typeof precioPuntual === 'number' && precioPuntual > 0) {
+      const { data: planRows } = await admin.from('planes_tarifa').select('*').eq('studio_id', body.studioId);
+      const planesEstudio = await hidratarTiposDePlanes(admin as never, body.studioId, ((planRows ?? []) as RowPlanesTarifa[]).map(mapPlanTarifa));
+      if (tienePrecioEspecial(precioPuntual, planDeClaseSuelta(planesEstudio, (sesion.tipo_clase_id as string | null) ?? null))) {
+        return conCorsWidget(req, NextResponse.json(
+          { error: 'Esta clase tiene un precio especial: resérvala en el estudio. No te hemos cobrado nada.', codigo: 'precio-especial' },
+          { status: 409 },
+        ));
+      }
+    }
+    // La casilla de condiciones: con clase concreta, la misma regla que su gemela.
+    const { exigeAceptacionExplicita } = await import('@/lib/legal-aceptacion');
+    if (await exigeAceptacionExplicita(admin, body.studioId) && body.aceptaCondiciones !== true) {
+      return conCorsWidget(req, NextResponse.json(
+        { error: 'Debes aceptar las condiciones del servicio y la política de privacidad.', codigo: 'acepta-condiciones' },
+        { status: 409 },
+      ));
+    }
+    // ¿Hay plaza para ella? Lo MISMO que preguntará la reserva tras pagar, ANTES de reservar
+    // matrícula, crear Customer o PaymentIntent (P06 · Fase A). Si no, 409 sin nada creado.
+    const plazaClase = await comprobarPlazaAntesDeCobrar(admin, {
+      studioId: body.studioId, sesionId: body.sesionId, socioId, email: socioEmail, spotId: body.spotId ?? null,
+    });
+    if (!plazaClase.ok) {
+      return conCorsWidget(req, NextResponse.json(
+        { error: plazaClase.error, codigo: plazaClase.codigo, ...(plazaClase.posicionEspera != null ? { posicionEspera: plazaClase.posicionEspera } : {}) },
+        { status: plazaClase.codigo === 'error' ? 503 : 409 },
+      ));
+    }
+    plazaComprobadaEn = new Date();
   }
 
   const { data: studio } = await admin
@@ -431,12 +490,89 @@ export async function POST(req: NextRequest) {
   }
   const stripeAccount = studio.stripe_account_id;
 
+  // Qué condiciones estaban vigentes AHORA, cuando la clienta decide pagar (ver más abajo).
+  const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
+  const sello = await sellarCondicionesVigentes(admin, body.studioId);
+
+  // ── Un solo pago VIVO por persona y clase (P06 · Fase A) ──────────────────
+  // Con clase concreta, el dueño del pago es su fila de `pagos_clase`: reabrir la hoja, el
+  // doble toque o dos dispositivos reutilizan el MISMO cobro (ni otra matrícula ni otro cupo);
+  // otro contenido (plan, código, sitio) cancela el anterior antes de abrir otro. La clave de
+  // Stripe es el id de la fila. Sin la tabla todavía (código antes que la migración), como antes.
+  let pagoClase: FilaPagoClase | null = null;
+  let pagoClaseRecreado = false;
+  if (body.sesionId) {
+    const prep = await prepararPagoDeClase(admin, stripe, stripeAccount, {
+      studioId: body.studioId, socioId, email: socioEmail, sesionId: body.sesionId,
+      contenido: {
+        planId: body.planId, codigoDescuentoId, spotId: body.spotId ?? null,
+        importeCentimos: Math.round(importe * 100), via: 'pi',
+      },
+      terminosHash: sello?.hash ?? null,
+      plazaComprobadaEn: plazaComprobadaEn ?? new Date(),
+    });
+    if (prep.tipo === 'rechazo') {
+      return conCorsWidget(req, NextResponse.json({ error: prep.error, codigo: prep.codigo, ...(prep.pi ? { pi: prep.pi } : {}) }, { status: prep.status }));
+    }
+    if (prep.tipo === 'reutilizar') {
+      // El mismo cobro, todavía pagable: su client_secret, con lo que el formulario haya
+      // cambiado (teléfono, nombre…) escrito antes de devolverlo.
+      const volatil = metadataVolatilEmbebida({
+        studioId: body.studioId, planId: body.planId, planNombre: plan.nombre, terminosHash: sello?.hash ?? null,
+        cupoMatriculaReservado: prep.fila.cupo_matricula, plazaEtapaId: null, socioId, socioEmail,
+        socioNombre: body.socioNombre ?? null, socioTelefono, origenLead: body.origenLead ?? null, sesionId: body.sesionId,
+        widgetSesion: sesionWidgetValida(body.widgetSesion), spotId: body.spotId ?? null, codigoDescuentoId,
+        matriculaCentimos: prep.fila.matricula_centimos, genero: body.genero ?? null, comoConociste: body.comoConociste ?? null,
+        codigoPostal: body.codigoPostal ?? null, fechaNacimiento: body.fechaNacimiento ?? null,
+        amountCentimos: prep.pi.amount, usoFuturo, customerId: null, fee: undefined,
+      });
+      if (Object.keys(volatil).length > 0) {
+        await stripe.paymentIntents.update(prep.pi.id, { metadata: volatil }, { stripeAccount }).catch((errDatos: unknown) => {
+          Sentry.captureException(errDatos instanceof Error ? errDatos : new Error('actualizar datos del cobro reutilizado'), {
+            level: 'warning', tags: { modulo: 'checkout-embebido', paso: 'reutilizar' }, extra: { studioId: body.studioId, pagoClaseId: prep.fila.id },
+          });
+        });
+      }
+      return conCorsWidget(req, NextResponse.json({
+        clientSecret: prep.pi.client_secret,
+        importe: prep.fila.importe_centimos / 100,
+        descuento: descuentoAplicado,
+        codigoAplicado: codigoDescuentoId !== null,
+        matricula: prep.fila.matricula_centimos / 100,
+        pagoClaseId: prep.fila.id,
+      }));
+    }
+    if (prep.tipo === 'crear' || prep.tipo === 'recrear') {
+      pagoClase = prep.fila;
+      pagoClaseRecreado = prep.tipo === 'recrear';
+    }
+  }
+  // Si este pago no llega a tener cobro, su fila se cierra: el siguiente intento abre otra limpia.
+  // Solo si sigue SIN cobro anclado: una fila con cobro (de otra pestaña) no se toca.
+  // Al cerrar un pago RECREADO, su plaza de matrícula gratis (la que reservó la petición que lo
+  // empezó) vuelve: ya no hay pago al que pertenezca.
+  const cerrarPagoClaseSinCobro = async (soltarMatricula = true): Promise<void> => {
+    if (!pagoClase) return;
+    const { data, error } = await admin.from('pagos_clase')
+      .update({ estado: 'CANCELADO', actualizado_en: new Date().toISOString() })
+      .eq('id', pagoClase.id).eq('estado', 'ABIERTO').is('payment_intent_id', null)
+      .select('id');
+    if (error) {
+      console.error('[checkout-embebido] no se pudo cerrar el pago de clase sin cobro', pagoClase.id, error.message);
+      return;
+    }
+    if (soltarMatricula && (data?.length ?? 0) > 0 && pagoClaseRecreado && pagoClase.cupo_matricula) {
+      await liberarCupoMatricula(admin, pagoClase.plan_id, body.studioId!);
+    }
+  };
+
   // El cobro que esta misma pantalla creó antes (5-oct-2026). Va ANTES de reservar
   // la matrícula y el cupo: si se cancela, lo que retenía vuelve y este intento lo
   // puede volver a usar. Solo se toca si quien lo manda tiene su client_secret y es
   // de este estudio, esta clase y esta persona (`decidirPagoAnterior`).
   let cobroSustituido: string | null = null;
-  const secretoAnterior = typeof body.pagoAnterior === 'string' ? body.pagoAnterior : null;
+  // Con fila de `pagos_clase`, el pago anterior ya lo ha resuelto ella (`prepararPagoDeClase`).
+  const secretoAnterior = !pagoClase && typeof body.pagoAnterior === 'string' ? body.pagoAnterior : null;
   const piAnteriorId = piDeClientSecret(secretoAnterior);
   if (secretoAnterior && piAnteriorId) {
     let anterior: Stripe.PaymentIntent | null = null;
@@ -502,10 +638,18 @@ export async function POST(req: NextRequest) {
   // que diga. Es el último punto en que la compra puede fallar sin haber
   // gastado nada: de aquí en adelante, lo único que no crea el cobro es el
   // `catch` — que sí devuelve la plaza.
-  if (matriculaBase > 0 && await primeraVezConPlan(admin, body.studioId, socioId, socioEmail)) {
+  if (pagoClase && pagoClaseRecreado) {
+    // El MISMO pago que otra petición empezó y no terminó: su matrícula ya se decidió (y su
+    // plaza gratis, si la llevaba, ya está gastada para ÉL). No se vuelve a gastar.
+    matriculaCentimos = pagoClase.matricula_centimos;
+    if (pagoClase.cupo_matricula) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
+  } else if (matriculaBase > 0 && await primeraVezConPlan(admin, body.studioId, socioId, socioEmail)) {
     const aCobrar = await reservarMatricula(admin, body.planId, body.studioId, matriculaBase);
     matriculaCentimos = Math.round(aCobrar * 100);
     if (aCobrar === 0) cupoMatriculaReservado = { planId: body.planId, studioId: body.studioId };
+  }
+  if (pagoClase && !pagoClaseRecreado) {
+    await anotarMatriculaDePago(admin, pagoClase.id, matriculaCentimos, cupoMatriculaReservado !== null);
   }
   // Base de idempotencia de ESTE intento — la reutiliza el PaymentIntent de
   // abajo. La creación del Customer usa un sufijo propio: Stripe scopea las
@@ -513,7 +657,9 @@ export async function POST(req: NextRequest) {
   // coincidan, así que compartir la MISMA clave entre dos llamadas con forma
   // distinta (customers.create vs paymentIntents.create) rompería en el
   // segundo reintento legítimo del mismo intento.
-  const idemKey = claveCheckoutEmbebido({
+  // Con fila de `pagos_clase`, la clave es su id (P06): un reintento del mismo pago, el mismo
+  // cobro; un pago nuevo (tras cancelar el anterior), otra fila y otra clave.
+  const idemKey = pagoClase ? claveDePagoDeClase(pagoClase.id) : claveCheckoutEmbebido({
     studioId: body.studioId, planId: body.planId, socioId,
     socioEmail, sesionId: body.sesionId ?? null,
     codigoDescuentoId,
@@ -529,9 +675,10 @@ export async function POST(req: NextRequest) {
     await recuperarPlazasCaducadas(admin, stripe, body.planId, body.studioId, stripeAccount);
     plaza = await reservarPlazaEtapa(admin, body.planId, body.studioId, idemKey);
   } catch (err) {
-    if (cupoMatriculaReservado) {
+    if (cupoMatriculaReservado && !pagoClaseRecreado) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }
+    await cerrarPagoClaseSinCobro();
     if (esEtapaAgotada(err)) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_ETAPA_AGOTADA }, { status: 409 }));
     }
@@ -650,8 +797,6 @@ export async function POST(req: NextRequest) {
   // CUÁNDO se aceptaron no viaja en el cobro: es `pi.created` (ver
   // lib/billing/sello-del-cobro.ts). Ninguno de los parámetros de abajo puede
   // depender del reloj: con la misma clave, Stripe exige que sean idénticos.
-  const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
-  const sello = await sellarCondicionesVigentes(admin, body.studioId);
   const datosCompra: DatosCompraEmbebida = {
     studioId: body.studioId,
     planId: body.planId,
@@ -677,10 +822,11 @@ export async function POST(req: NextRequest) {
     usoFuturo,
     customerId,
     fee,
+    pagoClaseId: pagoClase?.id ?? null,
   };
   // Solo lo ESTABLE del intento: lo que el formulario puede cambiar va después
   // (`metadataVolatilEmbebida`, por `update`). Ver lib/billing/pago-embebido-parametros.ts.
-  const parametros = parametrosPaymentIntentEmbebido(datosCompra);
+  let parametros = parametrosPaymentIntentEmbebido(datosCompra);
   // Mejora respecto al camino existente (Checkout Session no la lleva): dos
   // pestañas del mismo intento legítimo no generan dos PaymentIntents cobrables
   // — ver §1/§9.4 del diseño y `claveIdempotencia` arriba. Con plaza de cupo, la
@@ -693,10 +839,31 @@ export async function POST(req: NextRequest) {
   // las pestañas usan la misma; si la ocupa el cobro cancelado, la repetición lo
   // dice y el camino 'nuevo' deriva la siguiente igual para todas.
   const claveBase = plaza ? claveStripe(idemKey, plaza.intento) : idemKey;
-  const crearCobro = (clave: string) => stripe.paymentIntents.create(parametros, { stripeAccount, idempotencyKey: clave });
+  const crearCobro = async (clave: string): Promise<Stripe.PaymentIntent> => {
+    try {
+      return await stripe.paymentIntents.create(parametros, { stripeAccount, idempotencyKey: clave });
+    } catch (e) {
+      // El Customer guardado en la ficha es de OTRA cuenta de Stripe (el estudio reconectó la
+      // suya): el cobro no puede llevarlo. Se olvida (solo si sigue siendo ese) y se cobra sin
+      // él, con otra clave: el Customer nunca provoca un 500.
+      const err = e as { code?: string; param?: string };
+      if (err?.code === 'resource_missing' && err.param === 'customer' && parametros.customer && socioId) {
+        const viejo = parametros.customer as string;
+        await admin.from('socios').update({ stripe_customer_id: null })
+          .eq('id', socioId).eq('studio_id', body.studioId).eq('stripe_customer_id', viejo);
+        const { customer: _sinCliente, ...resto } = parametros;
+        void _sinCliente;
+        parametros = resto;
+        return await stripe.paymentIntents.create(parametros, { stripeAccount, idempotencyKey: `${clave}:sin-cliente` });
+      }
+      throw e;
+    }
+  };
   // La plaza de matrícula gratis que reservó ESTA petición y que no va con ningún cobro.
+  // Al RECREAR un pago (`pagoClaseRecreado`) esta petición no ha reservado ninguna: la que hay es
+  // la de ese pago, y no se suelta desde aquí.
   const devolverMatriculaPropia = async () => {
-    if (cupoMatriculaReservado) await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+    if (cupoMatriculaReservado && !pagoClaseRecreado) await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
   };
   // La de un cobro que ya existe con la marca: con SU clave, la misma del conciliador,
   // que la vería otra vez en el PI cancelado. Sin clave se devolvía dos veces (−1 neto
@@ -792,7 +959,8 @@ export async function POST(req: NextRequest) {
     if (!paymentIntent) {
       // Cobrado, a medias o sin poder saberlo: ni su client_secret ni otro cobro. La
       // plaza de cupo es la de ese cobro (misma clave): no se suelta. La de matrícula
-      // gratis la reservó esta petición para sí: vuelve.
+      // gratis la reservó esta petición para sí: vuelve. (La fila de `pagos_clase` se deja:
+      // su cobro es el que está a medias, y el barrido del conciliador la resuelve.)
       await devolverMatriculaPropia();
       if (final.tipo === 'pagado') return respuestaYaPagado(req, admin, final.pi, body.studioId, !!body.sesionId);
       return conCorsWidget(req, final.tipo === 'en-curso'
@@ -823,7 +991,28 @@ export async function POST(req: NextRequest) {
       } else {
         await devolverMatriculaPropia();
       }
+      // La matrícula ya se ha devuelto con la clave del cobro (`devolverMatriculaDe`) si tocaba.
+      await cerrarPagoClaseSinCobro(false);
       return conCorsWidget(req, NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
+    }
+
+    // El cobro queda anclado a SU fila de `pagos_clase` (compare-and-set). Si la fila ya no es
+    // de este cobro (otra petición la cerró o la ancló a otro), este client_secret no se da.
+    if (pagoClase && !(await anclarCobroDePago(admin, pagoClase.id, paymentIntent.id, pagoClase.payment_intent_id))) {
+      if (creadoAqui) {
+        try {
+          const c = await stripe.paymentIntents.cancel(paymentIntent.id, undefined, { stripeAccount, idempotencyKey: `pago-clase-sin-fila-${paymentIntent.id}` });
+          if (c.status === 'canceled') {
+            if (plaza) await liberarPlazaPorRef(admin, paymentIntent.id);
+            await devolverMatriculaDe(paymentIntent.id);
+          }
+        } catch (errCancelar) {
+          console.error('[checkout-embebido] no se pudo cancelar el cobro sin fila', paymentIntent.id, errCancelar);
+        }
+      } else {
+        await devolverMatriculaPropia();
+      }
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_A_MEDIAS, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
 
     // Mismo intento que ya creó este PaymentIntent (doble clic, dos pestañas):
@@ -884,6 +1073,7 @@ export async function POST(req: NextRequest) {
       // vez de un total mudo — el desglose real, con el que se ha creado el
       // cobro, nunca una resta hecha en el cliente.
       matricula: matriculaCentimos / 100,
+      ...(pagoClase ? { pagoClaseId: pagoClase.id } : {}),
     }));
   } catch (err) {
     // Stripe ya tiene un cobro con ESTA clave y otros parámetros: el mismo intento
@@ -893,6 +1083,7 @@ export async function POST(req: NextRequest) {
     // para sí sola. Ver lib/billing/pago-en-curso.ts.
     if (esErrorDeIdempotencia(err)) {
       await devolverMatriculaPropia();
+      await cerrarPagoClaseSinCobro();
       // La plaza de cupo solo si ningún cobro la tiene: si la etapa empezó entre las
       // dos peticiones, el cobro de antes no la lleva (ver lib/billing/pago-en-curso.ts).
       if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
@@ -906,6 +1097,7 @@ export async function POST(req: NextRequest) {
     // la tiene ligada, es suya y no se toca).
     if (plaza) await liberarPlazaSinCobro(admin, plaza.id);
     await devolverMatriculaPropia();
+    await cerrarPagoClaseSinCobro();
     return conCorsWidget(req, errorInterno('public/checkout-embebido:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }
 }

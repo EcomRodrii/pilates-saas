@@ -21,7 +21,8 @@ test('⚠️ checkout embebido: si Stripe repite el PaymentIntent del mismo inte
   assert.match(src, /if \(!esRespuestaRepetida\(pi\)\) \{ paymentIntent = pi; creadoAqui = true; break; \}/);
   assert.match(src, /if \(!creadoAqui\) await devolverMatriculaPropia\(\);/,
     'dos peticiones del mismo intento reservan dos plazas y Stripe crea UN cobro: la segunda tiene que devolverse');
-  assert.match(src, /const devolverMatriculaPropia = async \(\) => \{\s*if \(cupoMatriculaReservado\) await liberarCupoMatricula\(/);
+  // Salvo al RECREAR un pago de clase (P06): esa petición no reservó ninguna, la de la fila es de ese pago.
+  assert.match(src, /const devolverMatriculaPropia = async \(\) => \{\s*if \(cupoMatriculaReservado && !pagoClaseRecreado\) await liberarCupoMatricula\(/);
   assert.ok(src.indexOf('esRespuestaRepetida(pi)') > src.indexOf('stripe.paymentIntents.create('),
     'la comprobación tiene que ir DESPUÉS de crear el cobro');
 });

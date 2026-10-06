@@ -90,8 +90,10 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 
 test('checkout-embebido crea el cobro con los parámetros de este módulo, sin nada del reloj por en medio', () => {
   const s = sinComentarios(leer('app/api/public/checkout-embebido/route.ts'));
-  assert.match(s, /const parametros = parametrosPaymentIntentEmbebido\(datosCompra\);/);
+  // `let`: con un Customer de otra cuenta de Stripe se cobra sin él (P06), con otra clave.
+  assert.match(s, /let parametros = parametrosPaymentIntentEmbebido\(datosCompra\);/);
   assert.match(s, /stripe\.paymentIntents\.create\(parametros, \{ stripeAccount, idempotencyKey: clave \}\)/);
+  assert.match(s, /stripe\.paymentIntents\.create\(parametros, \{ stripeAccount, idempotencyKey: `\$\{clave\}:sin-cliente` \}\)/);
   const desde = s.indexOf('const datosCompra: DatosCompraEmbebida = {');
   assert.ok(desde > 0);
   const bloque = s.slice(desde, s.indexOf('};', desde));

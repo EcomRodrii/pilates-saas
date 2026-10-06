@@ -35,7 +35,12 @@ import {
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { cierreDeReserva, comprobarPlazaAntesDeCobrar, comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { caducidadCheckoutDeClase } from '@/lib/billing/bizum-clase';
+import { IMPORTE_MINIMO_EUR, tienePrecioEspecial } from '@/lib/reservar/opciones-de-clase';
+import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
+import type { RowPlanesTarifa } from '@/lib/db-types';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
@@ -249,6 +254,8 @@ export async function POST(req: NextRequest) {
   // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
   let tipoPlanCobrado: string | null = null;
+  // Con clase concreta (P06): cuándo caduca la sesión, sacado del cierre de la reserva de la clase.
+  let expiraPorClase: number | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
   // Lo que el formulario puede cambiar sin ser otro intento (teléfono, sitio, la
   // pestaña del widget, el `?ref=`…). NO va al crear la sesión: con la misma clave
@@ -507,7 +514,7 @@ export async function POST(req: NextRequest) {
         return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
       }
       const { data: sesion } = await admin
-        .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+        .from('sesiones').select('inicio, cancelada, tipo_clase_id, precio_puntual')
         .eq('id', body.sesionId).eq('studio_id', body.studioId).maybeSingle();
       if (!sesion) return conCorsWidget(req, NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 }));
       if (sesion.cancelada) return conCorsWidget(req, NextResponse.json({ error: 'Esta clase está cancelada' }, { status: 409 }));
@@ -527,6 +534,36 @@ export async function POST(req: NextRequest) {
       // porque la reserva tras el pago (`reservarPlazaTrasPagoPublico`) la rechaza.
       const ventana = await comprobarVentanaReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string });
       if (ventana) return conCorsWidget(req, NextResponse.json({ error: ventana.error, codigo: ventana.codigo }, { status: 409 }));
+      // Fase A (P06): una clase con precio propio distinto de su tarifa no se vende online.
+      const precioPuntual = sesion.precio_puntual as number | null;
+      if (typeof precioPuntual === 'number' && precioPuntual > 0) {
+        const { data: planRows } = await admin.from('planes_tarifa').select('*').eq('studio_id', body.studioId);
+        const planesEstudio = await hidratarTiposDePlanes(admin as never, body.studioId, ((planRows ?? []) as RowPlanesTarifa[]).map(mapPlanTarifa));
+        if (tienePrecioEspecial(precioPuntual, planDeClaseSuelta(planesEstudio, (sesion.tipo_clase_id as string | null) ?? null))) {
+          return conCorsWidget(req, NextResponse.json(
+            { error: 'Esta clase tiene un precio especial: resérvala en el estudio. No te hemos cobrado nada.', codigo: 'precio-especial' },
+            { status: 409 },
+          ));
+        }
+      }
+      // ¿Hay plaza para ella? Lo mismo que preguntará la reserva tras pagar, ANTES de reservar
+      // matrícula o crear la sesión de Stripe (P06 · Fase A).
+      const plazaClase = await comprobarPlazaAntesDeCobrar(admin, {
+        studioId: body.studioId, sesionId: body.sesionId, socioId, email: socioEmail, spotId: body.spotId ?? null,
+      });
+      if (!plazaClase.ok) {
+        return conCorsWidget(req, NextResponse.json(
+          { error: plazaClase.error, codigo: plazaClase.codigo, ...(plazaClase.posicionEspera != null ? { posicionEspera: plazaClase.posicionEspera } : {}) },
+          { status: plazaClase.codigo === 'error' ? 503 : 409 },
+        ));
+      }
+      // La sesión caduca cuando se cierra la reserva: pagada después, no habría plaza.
+      const caducidad = caducidadCheckoutDeClase(
+        await cierreDeReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string }),
+        Date.now(),
+      );
+      if (!caducidad.ok) return conCorsWidget(req, NextResponse.json({ error: caducidad.error, codigo: caducidad.codigo }, { status: 409 }));
+      expiraPorClase = caducidad.expiresAt;
     }
 
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout
@@ -564,6 +601,13 @@ export async function POST(req: NextRequest) {
 
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
+  }
+  // Por debajo de 0,50 € Stripe no cobra: se dice antes de crear nada (P06).
+  if (body.planId && !body.reciboId && importe < IMPORTE_MINIMO_EUR) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Ese importe es demasiado bajo para pagarlo online. Pide a tu estudio que te lo dé directamente.', codigo: 'importe-minimo' },
+      { status: 409 },
+    ));
   }
   if (socioId) metadata.socioId = socioId;
   // PAY-3: solo se marca cuando el JWT de esta petición resolvió a la MISMA
@@ -913,6 +957,9 @@ export async function POST(req: NextRequest) {
       // Sale de la plaza, no de Date.now(): un reintento del mismo intento
       // manda los mismos parámetros y la idempotencia de Stripe no protesta.
       ...(plaza ? { expires_at: Math.floor(new Date(plaza.expiraEn).getTime() / 1000) } : {}),
+      // Con clase concreta y sin plaza de etapa: caduca al cerrarse la reserva de la clase
+      // (`caducidadCheckoutDeClase`, de la clase y no del reloj: misma clave, mismos parámetros).
+      ...(!plaza && !incrustado && expiraPorClase ? { expires_at: expiraPorClase } : {}),
     };
     // Cinturón además de los tirantes: la reutilización de arriba no cubre la
     // carrera de dos peticiones que entran ANTES de que ninguna haya llegado a
