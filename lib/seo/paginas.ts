@@ -321,23 +321,18 @@ const FUNCIONALIDADES: PaginaSeo[] = [
 
 export const PAGINAS: PaginaSeo[] = [
   {
-    // ⚠️ El title/description REALES de esta página no salen de aquí — `/`
-    // no tiene `page.tsx` propio con `metadata`, así que hereda el de
-    // `app/layout.tsx` (obligatorio: es el layout raíz, no hay otro sitio
-    // donde Next resuelva la metadata de `/`). Tocar ese fichero para leer
-    // de `paginaDe('/')` tiene mucho más radio de impacto que el resto de
-    // páginas (afecta al fallback de TODA la app), así que aquí solo se
-    // mantiene el texto EN SYNC a mano — verificado que coincide
-    // literalmente con `app/layout.tsx`. Llevó la coletilla "en Barcelona"
-    // desde el 2026-08-18 (reposicionamiento deliberado, ba4c8134);
-    // retirada el 2026-09-10 tras la auditoría SEO (hallazgo 2) — quedaba
-    // incoherente con el propio JSON-LD de la home (siempre nacional) y con
-    // /funcionalidades y /comparativa. La intención local la cubre ahora
-    // /network/instructoras/ciudad/barcelona.
+    // Título y descripción de la home (6-oct-2026): `app/page.tsx` los lee de
+    // aquí (`paginaDe('/')`), igual que el sitemap y los tests. Título ≤ 60 y
+    // descripción ≤ 155 para que Google no los recorte; la keyword principal
+    // («software para estudios de Pilates») va delante y la variante («programa
+    // para centros de Pilates») en la descripción, en frase natural. Sin «Nº1»:
+    // es una afirmación comparativa y la home habla sin compararse. Antes
+    // llevó la coletilla «en Barcelona» (retirada el 2026-09-10, auditoría SEO:
+    // la intención local la cubre /network/instructoras/ciudad/barcelona).
     path: '/',
-    titulo: 'Software y programa de gestión para estudios de Pilates | Tentare',
+    titulo: 'Software para estudios de Pilates: reservas y app | Tentare',
     descripcion:
-      'El software Nº1 para estudios y centros de Pilates: reservas, bonos, cobros y sustituciones en un solo programa. Desde 29 €/mes, 7 días gratis.',
+      'Programa para centros de Pilates: reservas, app con tu marca, bonos, cobros y sustituciones de instructora. 7 días gratis sin tarjeta, desde 29 €/mes.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,

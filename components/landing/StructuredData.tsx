@@ -1,5 +1,6 @@
 import { FAQ_ITEMS, PLANS } from './data';
 import { BASE_URL } from '@/lib/seo/paginas';
+import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 
 function planPriceToNumber(price: string): number {
@@ -19,7 +20,22 @@ export function StructuredData() {
     url: BASE_URL,
     publisher: { '@id': ID_ORGANIZACION },
     description:
-      'Software para estudios de Pilates en España: reservas, cobros, calendario, alumnas e instructoras, y sustituciones automáticas ante bajas.',
+      'Software para estudios y centros de Pilates en España: reservas y lista de espera, app con la marca del estudio, bonos y cobros, calendario por salas, equipo y sustituciones cuando una instructora no puede dar su clase.',
+    inLanguage: 'es-ES',
+    // Lo que el producto hace hoy, en las palabras de la página (nada congelado
+    // ni «próximamente»; ver lib/frozen-features.ts).
+    featureList: [
+      'Reservas online por clase y por reformer, con lista de espera',
+      'App con el nombre, el logo y los colores del estudio',
+      'Bonos, cuotas mensuales y cobros con tarjeta o SEPA, con reintento de cobros',
+      'Facturas con numeración legal',
+      'Calendario por salas',
+      'Gestión de instructoras, disponibilidad y sustituciones',
+      'Importación desde Excel y otros programas, con acta y botón de deshacer',
+      'Asistente «Pregúntale a Tentare»: consulta datos y prepara clases, salas, eventos y citas con confirmación',
+    ],
+    audience: { '@type': 'Audience', audienceType: 'Estudios y centros de Pilates' },
+
     // TODO: añadir `aggregateRating` ({ '@type': 'AggregateRating', ratingValue,
     // reviewCount }) en cuanto haya reseñas reales del SOFTWARE Tentare
     // (p. ej. G2/Capterra, o un módulo de testimonios propio) — nunca un valor
@@ -35,7 +51,8 @@ export function StructuredData() {
         name: plan.name,
         price,
         priceCurrency: 'EUR',
-        description: plan.desc,
+        // La prueba (7 días, sin tarjeta) va en cada oferta, tal cual en /precios.
+        description: `${plan.desc} Prueba gratuita de ${TRIAL_DIAS} días, sin tarjeta.`,
         url: `${BASE_URL}/precios`,
         availability: 'https://schema.org/InStock',
         eligibleRegion: { '@type': 'Country', name: 'ES' },

@@ -38,8 +38,10 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
  * `guias`: la sección de guías de /recursos, que llega ya pintada desde el
  * servidor (app/page.tsx) para que el texto de los artículos no entre en el
  * JavaScript de la home. Ver components/landing/SeccionGuias.tsx.
+ * `bento` y `frase` van igual (SeccionBento, SeccionEnUnaFrase): son texto
+ * puro y miniaturas en CSS, sin ningún motivo para pesar en el cliente.
  */
-export function LandingCliente({ guias }: { guias?: ReactNode } = {}) {
+export function LandingCliente({ guias, bento, frase }: { guias?: ReactNode; bento?: ReactNode; frase?: ReactNode } = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -109,12 +111,17 @@ export function LandingCliente({ guias }: { guias?: ReactNode } = {}) {
             de la promesa, encima de «¿Te suena?» (el fundador, 23-sep). */}
         <VideoProducto />
         <SeccionTeSuena />
+        {/* La definición citable (GEO/AEO), justo tras el primer bloque. */}
+        {frase}
         <SeccionTuEstudio />
         <SeccionReservas />
         <SeccionSustituciones />
         {/* La noche y su mañana: mismo fondo, se leen como un solo bloque. */}
         <SeccionParteNoche />
         <SeccionCalendarioReservas />
+        {/* El resumen de TODO lo que hace Tentare (encargo 6-oct): tras la
+            historia en profundidad y antes de pedir confianza. */}
+        {bento}
         <SeccionConfianza />
         <SeccionFuncionalidades />
         <SeccionPrecio />
