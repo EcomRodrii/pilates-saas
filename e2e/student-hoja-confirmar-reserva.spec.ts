@@ -37,7 +37,9 @@ async function montar(page: Page, o: {
   bonoALaVenta?: boolean;
 } = {}) {
   const { precioPuntual = null, ventanaTipo = null, ventanaEstudio = 12, conBono = false, llena = false, exigirPlan, bonoALaVenta = false } = o;
-  await sembrarSociaLista(page);
+  // Reloj y navegador en hora de MADRID: con `TZ=UTC` (el CI) las 08:00 sin zona eran las 10:00 de Madrid, la clase ya
+  // había empezado y el botón se llamaba de otra manera. Verde en local, rojo en CI ([[e2e-nuevos-repetir-con-tz-utc]]).
+  await sembrarSociaLista(page, { relojMadrid: true });
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   (f.studio as Record<string, unknown>).cancelacionVentanaHoras = ventanaEstudio;
   if (exigirPlan !== undefined) (f.studio as Record<string, unknown>).reservaExigirPlan = exigirPlan;
@@ -92,7 +94,7 @@ async function abrirHoja(page: Page) {
 
 test.describe('Student PWA · hoja de confirmar la reserva', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
 
   test('el estudio exige plan y no tiene nada que la cubra: un MURO, no un ✓ verde, y sin botón de reservar', async ({ page }) => {
     // Lo que llega en producción: `reservaExigirPlan` siempre viaja, y con un bono a la venta la clase lo exige. Sin
