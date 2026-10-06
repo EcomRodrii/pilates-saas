@@ -157,7 +157,7 @@ function Comprar() {
           <EmptyState
             ilustracion="tienda"
             titulo="Todavía no hay nada a la venta"
-            cuerpo={`${estudio.nombre} aún no ha publicado bonos ni suscripciones. Escríbeles y te lo cuentan.`}
+            cuerpo={`${estudio.nombre} aún no ha publicado cuotas ni bonos. Escríbeles y te lo cuentan.`}
             accion="Ver contacto"
             href={href('/ayuda')}
           />
@@ -337,8 +337,11 @@ function TarjetaProducto({ p, nombresTipo, planesTarifa, ahora, delay, onComprar
 
       {/* Sin botón en lo físico: se compra en el estudio. Un «Comprar» que
           abriera un cobro sería mentira, y uno que no hiciera nada, peor. */}
+      {/* Botón PRINCIPAL: es la acción de la tarjeta, y con contorno pesaba menos que el precio y que el texto. Alto
+          medio y sin la sombra de la llamada a la acción de la pantalla: con varias tarjetas seguidas, cinco sombras
+          grandes se leerían como cinco pantallas distintas. */}
       {boton && (
-        <Button variant="secondary" full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
+        <Button variant="primary" full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)', boxShadow: 'none' }}>
           {boton}
         </Button>
       )}
