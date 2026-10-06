@@ -405,14 +405,20 @@
   .student-app .card--tap:hover { box-shadow: var(--shadow-lift); border-color: var(--border-strong); }
 }
 
-/* ── Botones ──
+/* ── Botones, badges y píldoras: SIEMPRE con la fuente de texto ──
+   Nunca con la de títulos (decisión del fundador, 6-oct-2026). Con una
+   tipografía de títulos fina (Cormorant en «Elegante» o «Romántica») un botón
+   de 13 px quedaba en trazos de pelo y los badges no se leían. Los títulos
+   siguen con la suya; lo que se TOCA o lo que marca un estado, con la de texto.
+
+   ── Botones ──
    Tres tamaños (`--h-control-*`) y cinco tonos. Antes cada variante traía su
    propia altura y su propio tamaño de letra pegados, así que «secundario» y
    «pequeño» no eran combinables: había que elegir uno de los dos. Ahora el
    TONO dice de qué color es y el TAMAÑO dice cuánto ocupa. */
 .student-app .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-  border: none; border-radius: var(--radius-pill); font-family: var(--font-heading); font-weight: 800; white-space: nowrap;
+  border: none; border-radius: var(--radius-pill); font-family: var(--font-sans); font-weight: 800; white-space: nowrap;
   height: var(--h-control-md); font-size: var(--t-small); padding: 0 var(--s-4);
   transition: transform .15s var(--ease), background .2s, box-shadow .25s, border-color .2s, opacity .2s;
 }
@@ -500,7 +506,7 @@
 }
 
 /* ── Badges de plazas ── */
-.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-heading); font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
+.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-sans); font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
 .student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .badge--few { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--full { background: var(--destructive-soft); color: var(--destructive-foreground); }
@@ -567,7 +573,7 @@
 }
 
 /* ── Pills (filtros / días) ── */
-.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-family: var(--font-heading); font-size: var(--t-meta); font-weight: 700; transition: all .2s; }
+.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-family: var(--font-sans); font-size: var(--t-meta); font-weight: 700; transition: all .2s; }
 .student-app .pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-foreground); }
 /* `min-height` y no `height`: con el texto del iPhone más grande, sus dos líneas no caben en 44 px. */
 .student-app .day { flex-shrink: 0; min-width: 64px; min-height: var(--h-control-md); padding-block: 4px !important; border: 1.5px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 13px; padding: 0 var(--s-3); font-size: var(--t-small); font-weight: 800; transition: all .22s; }
