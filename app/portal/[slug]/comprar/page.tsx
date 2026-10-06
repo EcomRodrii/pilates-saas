@@ -185,12 +185,17 @@ export default function ComprarPage() {
         textosLegales={data?.textosLegales ?? null}
         onCerrar={() => setComprando(null)}
         onComprado={() => {
-          // El bono ya está en su cuenta: el catálogo cacheado ya no vale.
+          // El servidor ya ha confirmado el bono (la hoja no llega aquí antes):
+          // el catálogo cacheado ya no vale. `?compra=ok&plan=` hace que Bonos
+          // vuelva a comprobarlo al cargar, en vez de fiarse de esta pantalla.
           invalidarCatalogo(estudio.slug);
+          const planId = comprando?.id;
           setComprando(null);
-          router.push(href('/bonos'));
+          router.push(planId ? `${href('/bonos')}?compra=ok&plan=${encodeURIComponent(planId)}` : href('/bonos'));
         }}
         onSesionCaducada={() => router.push(href('/acceso/login'))}
+        onSegundoPaso={() => router.push(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(href('/bonos'))}`)}
+        enlaceEstudio={href('/mensajes')}
       />
     </StudentShell>
   );

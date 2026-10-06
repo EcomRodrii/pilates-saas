@@ -29,6 +29,53 @@ export interface RespuestaEstadoPago {
   clase?: { nombre: string; inicio: string };
   /** Solo con `ya_tenia_plaza`: lo que ya tenía en la clase. */
   previa?: ReservaPrevia;
+  /**
+   * Solo con la sesión de la socia (Bearer): lo que este pago le ha entregado.
+   * Existe en cuanto el servidor ha creado la suscripción `sus-web-…` del pago,
+   * o sea cuando el bono YA está en su cuenta — no cuando Stripe dice que cobró.
+   * Es lo único que deja a la app decir «tu bono está activo» (P01).
+   */
+  compra?: CompraEntregada;
+}
+
+/** Lo que entregó el pago, leído de la suscripción que creó el servidor. */
+export interface CompraEntregada {
+  entregada: true;
+  /** Nombre del plan comprado. */
+  plan: string;
+  /** Sesiones que le quedan; `null` = ilimitado (una cuota). */
+  sesionesRestantes: number | null;
+  /** Hasta cuándo vale (YYYY-MM-DD), si caduca. */
+  fechaFin: string | null;
+}
+
+/**
+ * La suscripción que creó la entrega, traducida. `null` si todavía no existe
+ * (el webhook no ha llegado) o no es una suscripción viva: un bono cancelado
+ * (reembolso) no se anuncia como «activo».
+ */
+export function compraDeSuscripcion(
+  sus: { estado?: string | null; sesiones_restantes?: number | null; fecha_fin?: string | null } | null | undefined,
+  nombrePlan: string | null | undefined,
+): CompraEntregada | null {
+  if (!sus || sus.estado !== 'ACTIVA') return null;
+  return {
+    entregada: true,
+    plan: nombrePlan?.trim() || 'Tu bono',
+    sesionesRestantes: typeof sus.sesiones_restantes === 'number' ? sus.sesiones_restantes : null,
+    fechaFin: sus.fecha_fin ?? null,
+  };
+}
+
+/**
+ * Cómo se identifica quien pregunta. Con cabecera `Authorization` es la app de
+ * la alumna y se la identifica SOLO por su sesión: un Bearer que no vale nunca
+ * cae a la comprobación por email (sería una puerta trasera: quien conoce el pi
+ * y el email de otra preguntaría como invitada). Sin cabecera, el modo email de
+ * siempre (/reservar sin cuenta).
+ */
+export function modoDeIdentidad(authorization: string | null | undefined): 'sesion' | 'email' {
+  return authorization && authorization.trim() ? 'sesion' : 'email';
 }
 
 // El cliente guarda el clientSecret (`pi_xxx_secret_yyy`); el id del

@@ -180,3 +180,110 @@ test.describe('Student PWA · hoja de compra', () => {
     expect(google).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P01 (6-oct-2026): después de pagar, la hoja NO dice «ya está en tu cuenta»
+// hasta que el servidor lo confirma (`estado-pago` con `compra.entregada`).
+// Antes salía «Compra realizada · Ya está en tu cuenta» en cuanto Stripe
+// contestaba, con el bono todavía sin entregar (lo hace el webhook).
+// Contador de `estado-pago` en todos: «no dijo ✓» solo vale si preguntó.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PI = 'pi_3AbcDEF1234567';
+const ENTREGADA = { estado: 'en_proceso', compra: { entregada: true, plan: 'Bono 8 sesiones', sesionesRestantes: 8, fechaFin: '2026-12-31' } };
+
+type Respuesta = { status: number; body?: unknown; headers?: Record<string, string>; abortar?: boolean };
+
+/** Monta la hoja hasta el botón de pagar, con `estado-pago` contestando lo que diga `responder(n)`. */
+async function pagarYEsperar(page: Page, responder: (n: number) => Respuesta) {
+  await montar(page);
+  await page.route('https://js.stripe.com/**', (r) =>
+    r.fulfill({ status: 200, contentType: 'application/javascript', body: STRIPE_STUB }));
+  await page.route((u) => u.pathname === '/api/public/checkout-embebido', (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: `${PI}_secret_x`, importe: 96 }) }));
+  const peticiones: { url: string; auth: string | null }[] = [];
+  await page.route((u) => u.pathname === '/api/public/estado-pago', (r) => {
+    peticiones.push({ url: r.request().url(), auth: r.request().headers()['authorization'] ?? null });
+    const res = responder(peticiones.length);
+    if (res.abortar) return r.abort();
+    return r.fulfill({ status: res.status, contentType: 'application/json', headers: res.headers, body: JSON.stringify(res.body ?? {}) });
+  });
+  await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Continuar al pago' }).click();
+  await page.getByRole('button', { name: /^Pagar 96/ }).click({ timeout: 30_000 });
+  return peticiones;
+}
+
+/** Adelanta el reloj de la página para no esperar los ~35 s del sondeo de verdad. */
+async function adelantar(page: Page, veces: number) {
+  for (let i = 0; i < veces; i++) {
+    await page.clock.fastForward(9_000);
+    await page.waitForTimeout(150);
+  }
+}
+
+test.describe('Student PWA · hoja de compra · después de pagar (P01)', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('mientras el servidor no lo confirma: «Activando tu bono…», nunca «Compra realizada»', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, () => ({ status: 200, body: { estado: 'en_proceso' } }));
+    await expect(page.getByText('Pago recibido. Activando tu bono…')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => peticiones.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+    await expect(page.getByText('Compra realizada')).toHaveCount(0);
+    // Pregunta con SU sesión y por su pago, no por email.
+    expect(peticiones[0].auth).toMatch(/^Bearer /);
+    expect(peticiones[0].url).toContain(`pi=${PI}`);
+    expect(peticiones[0].url).not.toContain('email=');
+  });
+
+  test('cuando el servidor dice que está: «activo · te quedan N», y a Mis bonos comprobando', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, (n) => (n < 2 ? { status: 200, body: { estado: 'en_proceso' } } : { status: 200, body: ENTREGADA }));
+    await expect(page.getByText('Compra realizada')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('compra-entregada')).toContainText('Bono 8 sesiones activo · te quedan 8 clases');
+    expect(peticiones.length).toBeGreaterThanOrEqual(2);
+    await page.getByRole('button', { name: 'Ver mis bonos' }).click();
+    await expect(page).toHaveURL(/\/bonos\?compra=ok&plan=plan-bono8/, { timeout: 30_000 });
+  });
+
+  test('si el servidor falla siempre: el texto de «tarda», sin ✓ y sin «vuelve a pagar»', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, () => ({ status: 500, body: { error: 'x' } }));
+    await expect(page.getByText('Pago recibido. Activando tu bono…')).toBeVisible({ timeout: 15_000 });
+    await adelantar(page, 8);
+    await expect(page.getByText('El pago está hecho')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/No vuelvas a pagar/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Escribir al estudio' })).toHaveAttribute('href', /\/mensajes$/);
+    await expect(page.getByText('Compra realizada')).toHaveCount(0);
+    expect(peticiones.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('un 429 se lee como «en proceso»: sigue preguntando y respeta el Retry-After', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, (n) => (n === 1
+      ? { status: 429, headers: { 'retry-after': '2' }, body: { error: 'Demasiadas peticiones' } }
+      : n < 4 ? { status: 200, body: { estado: 'en_proceso' } } : { status: 200, body: ENTREGADA }));
+    await expect(page.getByText('Pago recibido. Activando tu bono…')).toBeVisible({ timeout: 15_000 });
+    // Ni error ni ✓ por el 429.
+    // (El `alert` vacío de la página es el anunciador de rutas de Next: se mira solo dentro de la hoja.)
+    await expect(page.locator('[role="dialog"] [role="alert"]')).toHaveCount(0);
+    await adelantar(page, 3);
+    await expect(page.getByText('Compra realizada')).toBeVisible({ timeout: 20_000 });
+    expect(peticiones.length - 1, 'después del 429 siguió preguntando').toBeGreaterThanOrEqual(2);
+  });
+
+  test('sin red a mitad del sondeo: sigue preguntando hasta que el servidor contesta', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, (n) => (n <= 2 ? { status: 0, abortar: true } : { status: 200, body: ENTREGADA }));
+    await adelantar(page, 2);
+    await expect(page.getByText('Compra realizada')).toBeVisible({ timeout: 20_000 });
+    expect(peticiones.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('sesión caducada al confirmar: vuelve a entrar, y el pago no se da por perdido', async ({ page }) => {
+    const peticiones = await pagarYEsperar(page, () => ({ status: 401, body: { error: 'Tu sesión ha caducado' } }));
+    await expect(page.getByText(/tu pago está hecho y no se pierde/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: 'Volver a entrar' })).toBeVisible();
+    // Nunca «Intentar de nuevo»: crearía otro cobro.
+    await expect(page.getByRole('button', { name: 'Intentar de nuevo' })).toHaveCount(0);
+    expect(peticiones.length).toBe(1);
+  });
+});

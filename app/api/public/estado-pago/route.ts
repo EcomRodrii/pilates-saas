@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { enforceRateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
+import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
+import { usuarioSupabaseConPaso } from '@/lib/auth-server';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import {
-  avisoDeYaTenia, elegirAvisoDelPago, emailsCoinciden, reservaPreviaDe, resolverEstadoPago,
-  type AvisoSinPlaza, type ReservaPrevia, type RespuestaEstadoPago,
+  avisoDeYaTenia, compraDeSuscripcion, elegirAvisoDelPago, emailsCoinciden, modoDeIdentidad, reservaPreviaDe,
+  resolverEstadoPago, type AvisoSinPlaza, type CompraEntregada, type ReservaPrevia, type RespuestaEstadoPago,
 } from '@/lib/billing/estado-pago-publico';
 
 // P1-3 — estado REAL de la reserva tras «pagar y reservar sin login» (Modo A).
@@ -27,6 +32,15 @@ import {
 // ajeno, un email que no corresponde o un pi inexistente reciben TODOS la
 // misma respuesta neutra 'en_proceso' — nunca se filtra si un pago o un
 // email existen.
+//
+// Con la SESIÓN de la socia (app de la alumna, P01 · 6-oct-2026): cabecera
+// `Authorization` + ?pi=&studioId=. La identidad sale SOLO del token
+// (`usuarioSupabaseConPaso` + `socioAutenticado`): con cabecera nunca se cae al
+// modo email, y el recibo del pago tiene que ser de esa socia y de ese estudio.
+// Esa respuesta añade `compra` (lo que el pago le ha entregado), que es lo que
+// deja a la hoja de compra decir «tu bono está activo» en vez de suponerlo en
+// cuanto Stripe contesta. Límites: 60/min por IP (la wifi del estudio es una
+// IP para todas) y 30/min por socia.
 //
 // Detección de 'fallida': cuando reservarPlazaTrasPagoPublico devuelve
 // !ok, el webhook NO deja fila en `reservas` — la única traza consultable es
@@ -49,22 +63,68 @@ function respuesta(req: NextRequest, body: RespuestaEstadoPago) {
 
 export async function GET(req: NextRequest) {
   // El polling legítimo hace ~8 peticiones en ~35s por pago; 30/min deja
-  // margen a un reintento sin abrir la puerta a enumerar PaymentIntents.
-  const limited = await enforceRateLimit(req, 'estado-pago', { max: 30, windowSeconds: 60 });
+  // margen a un reintento sin abrir la puerta a enumerar PaymentIntents. Con
+  // sesión el cubo por IP es más holgado (toda la wifi del estudio comparte
+  // IP) porque detrás va el de cada socia.
+  const modo = modoDeIdentidad(req.headers.get('authorization'));
+  const limited = modo === 'sesion'
+    ? await enforceRateLimit(req, 'estado-pago-app', { max: 60, windowSeconds: 60 })
+    : await enforceRateLimit(req, 'estado-pago', { max: 30, windowSeconds: 60 });
   if (limited) return limited;
 
   const pi = req.nextUrl.searchParams.get('pi') ?? '';
-  const email = req.nextUrl.searchParams.get('email') ?? '';
+  const studioIdParam = req.nextUrl.searchParams.get('studioId');
   // Forma de id de PaymentIntent (pi_ + alfanumérico, con test_/live_
   // opcional que idsDe() ya sabe recortar). Cualquier otra cosa ni toca BD.
-  if (!/^pi_(test_|live_)?[A-Za-z0-9]{8,64}$/.test(pi) || !email.trim()) {
-    return respuesta(req, { estado: 'en_proceso' });
-  }
+  if (!/^pi_(test_|live_)?[A-Za-z0-9]{8,64}$/.test(pi)) return respuesta(req, { estado: 'en_proceso' });
 
   const admin = getSupabaseAdmin();
   if (!admin) return respuesta(req, { estado: 'en_proceso' });
-
   const ids = idsDe(pi);
+
+  if (modo === 'sesion') {
+    // ── Con la sesión de la socia ─────────────────────────────────────────
+    if (!studioIdParam) return respuesta(req, { estado: 'en_proceso' });
+    const r = await usuarioSupabaseConPaso(req);
+    if (!r) {
+      return conCorsWidget(req, NextResponse.json(
+        { error: 'Tu sesión ha caducado. Vuelve a entrar: tu pago no se pierde.' }, { status: 401, headers: NO_STORE },
+      ));
+    }
+    if (r.paso === 'doble_factor') {
+      return conCorsWidget(req, NextResponse.json(
+        { error: 'Falta el segundo paso de la verificación', codigo: CODIGO_SEGUNDO_PASO }, { status: 401, headers: NO_STORE },
+      ));
+    }
+    const socioId = await socioAutenticado(r.usuario.userId, studioIdParam);
+    if (!socioId) return respuesta(req, { estado: 'en_proceso' });
+    // Por socia, no por IP: el cubo de arriba lo comparte toda una wifi.
+    const porSocia = { max: 30, windowSeconds: 60 };
+    const lim = await rateLimit(`estado-pago-socia:${socioId}`, porSocia);
+    if (!lim.allowed) return tooManyRequestsResponse(retryAfterSeconds(lim.resetAt, porSocia.windowSeconds));
+
+    // El recibo del pago, y tiene que ser SUYO y de ESTE estudio. Si no (pi
+    // ajeno, webhook aún sin llegar): la respuesta neutra de siempre.
+    const { data: recibo } = await admin
+      .from('recibos')
+      .select('fecha_cobro')
+      .eq('id', ids.reciboId)
+      .eq('stripe_payment_intent_id', pi)
+      .eq('studio_id', studioIdParam)
+      .eq('socio_id', socioId)
+      .maybeSingle();
+    if (!recibo) return respuesta(req, { estado: 'en_proceso' });
+
+    const [cuerpo, compra] = await Promise.all([
+      estadoDeLaReserva(admin, { pi, studioId: studioIdParam, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null }),
+      compraDelPago(admin, ids.suscripcionId, studioIdParam, socioId),
+    ]);
+    return respuesta(req, compra ? { ...cuerpo, compra } : cuerpo);
+  }
+
+  // ── Sin sesión: pi + email (/reservar sin cuenta) ─────────────────────────
+  const email = req.nextUrl.searchParams.get('email') ?? '';
+  if (!email.trim()) return respuesta(req, { estado: 'en_proceso' });
 
   // 1. El recibo que entregarPlanComprado crea al procesar el webhook — con
   //    el PaymentIntent verificado también por columna, no solo por el id
@@ -82,7 +142,6 @@ export async function GET(req: NextRequest) {
 
   // Si la URL trae studioId (obligatorio para CORS desde el bundle), tiene
   // que ser EL del recibo — defensa extra, misma respuesta neutra.
-  const studioIdParam = req.nextUrl.searchParams.get('studioId');
   if (studioIdParam && studioIdParam !== studioId) return respuesta(req, { estado: 'en_proceso' });
 
   // 2. La guardia de identidad: el email tiene que ser el de la ficha del
@@ -96,6 +155,48 @@ export async function GET(req: NextRequest) {
   if (!emailsCoinciden(email, socio?.email as string | null | undefined)) {
     return respuesta(req, { estado: 'en_proceso' });
   }
+
+  return respuesta(req, await estadoDeLaReserva(admin, {
+    pi, studioId, socioId, fechaCobro: (recibo.fecha_cobro as string | null) ?? null,
+  }));
+}
+
+/**
+ * Lo que este pago ha entregado (la suscripción `sus-web-…`), solo para la
+ * socia con sesión. `null` mientras no exista: la app sigue en «Activando…».
+ */
+async function compraDelPago(
+  admin: SupabaseClient, suscripcionId: string, studioId: string, socioId: string,
+): Promise<CompraEntregada | null> {
+  const { data: sus } = await admin
+    .from('suscripciones')
+    .select('estado, sesiones_restantes, fecha_fin, plan_id')
+    .eq('id', suscripcionId)
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId)
+    .maybeSingle();
+  if (!sus) return null;
+  let nombre: string | null = null;
+  if (sus.plan_id) {
+    const { data: plan } = await admin
+      .from('planes_tarifa').select('nombre').eq('id', sus.plan_id as string).eq('studio_id', studioId).maybeSingle();
+    nombre = (plan?.nombre as string | null | undefined) ?? null;
+  }
+  return compraDeSuscripcion(
+    sus as { estado: string | null; sesiones_restantes: number | null; fecha_fin: string | null },
+    nombre,
+  );
+}
+
+/**
+ * El estado de la RESERVA nacida del pago (si el pago llevaba clase), ya con la
+ * identidad comprobada por uno de los dos modos. Solo lectura.
+ */
+async function estadoDeLaReserva(
+  admin: SupabaseClient,
+  { pi, studioId, socioId, fechaCobro }: { pi: string; studioId: string; socioId: string; fechaCobro: string | null },
+): Promise<RespuestaEstadoPago> {
+  const ids = idsDe(pi);
 
   // 3. La reserva derivada del MISMO PaymentIntent (res-web-…), acotada a
   //    estudio y socia propios.
@@ -114,8 +215,8 @@ export async function GET(req: NextRequest) {
   //    otro pago de la misma clase no vale para este.
   let aviso: AvisoSinPlaza | null = null;
   if (!reserva) {
-    const desde = recibo.fecha_cobro
-      ? new Date(new Date(recibo.fecha_cobro as string).getTime() - 5 * 60_000).toISOString()
+    const desde = fechaCobro
+      ? new Date(new Date(fechaCobro).getTime() - 5 * 60_000).toISOString()
       : new Date(Date.now() - 60 * 60_000).toISOString();
     const { data: avisos } = await admin
       .from('notification')
@@ -147,7 +248,7 @@ export async function GET(req: NextRequest) {
   }
 
   const estado = previa ? 'ya_tenia_plaza' : resolverEstadoPago(reserva?.estado as string | null | undefined, !!aviso);
-  if (estado === 'en_proceso' || estado === 'fallida') return respuesta(req, { estado });
+  if (estado === 'en_proceso' || estado === 'fallida') return { estado };
 
   // Con reserva (confirmada / lista de espera / pendiente, o la que ya tenía): los
   // datos de la clase PROPIA para que la pantalla los enseñe con la respuesta real.
@@ -173,5 +274,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return respuesta(req, { estado, clase, ...(previa ? { previa } : {}) });
+  return { estado, clase, ...(previa ? { previa } : {}) };
 }

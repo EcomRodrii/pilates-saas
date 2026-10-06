@@ -65,10 +65,13 @@ test('identificar SIN cortar por el segundo paso es una lista cerrada', () => {
   ]);
   // `usuarioSupabaseConPaso`: las de arranque, que contestan `doble_factor_requerido`
   // en vez de datos; cada una mira `paso` antes de dar nada. La de la entrada de la
-  // app de iOS (/app) lo es por lo mismo: con un 401 la mandaría a entrar, en bucle.
+  // app de iOS (/app) lo es por lo mismo: con un 401 la mandaría a entrar, en bucle. Y la
+  // comprobación de un pago desde la app (estado-pago con sesión, P01): la alumna acaba de
+  // pagar y un 401 a secas la mandaría a entrar sin decirle que el pago no se pierde.
   const arranque = usan('usuarioSupabaseConPaso');
   assert.deepEqual(arranque, [
-    'app/api/app/mis-estudios/route.ts', 'app/api/public/session/route.ts', 'app/api/public/studio-data/route.ts',
+    'app/api/app/mis-estudios/route.ts', 'app/api/public/estado-pago/route.ts', 'app/api/public/session/route.ts',
+    'app/api/public/studio-data/route.ts',
   ]);
   for (const r of arranque) assert.match(readFileSync(join(RAIZ, r), 'utf8'), /paso\s*===\s*'doble_factor'/, `${r}: no mira el paso`);
 });
