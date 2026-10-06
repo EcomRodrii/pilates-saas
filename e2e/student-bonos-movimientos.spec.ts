@@ -90,7 +90,7 @@ test('cuota con tope: «Esta semana 2 de 2» cuenta también la de recuperación
     semanas: (c.semanaDe as string[]).map((id) => ({ suscripcionId: id, limite: 2, cuentan: 2, conRecuperacion: 1, porTipo: [], desde: '2026-08-09T22:00:00.000Z', hasta: '2026-08-16T22:00:00.000Z' })),
   })));
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
-  const semana = page.getByTestId('cuota-semana');
+  const semana = page.getByTestId('cuota-hero');
   await expect(semana.getByTestId('semana-cifra')).toHaveText('2 de 2', { timeout: 60_000 });
   await expect(semana).toContainText('2 clases a la semana');
   await expect(semana).toContainText('1 de ellas, con recuperación');
@@ -103,7 +103,7 @@ test('cuota con tope: «Esta semana 2 de 2» cuenta también la de recuperación
 test('si no se puede contar la semana, se dice; nunca un «0 de 2»', async ({ page }) => {
   const { cuerpos } = await montar(page, { bono: null, cuota: { limiteSemanal: 2 } }, (_c, r) => r.fulfill(json({ error: 'fallo' }, 500)));
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
-  await expect(page.getByTestId('cuota-semana')).toContainText('No hemos podido contar tu semana', { timeout: 60_000 });
+  await expect(page.getByTestId('cuota-hero')).toContainText('No hemos podido contar tu semana', { timeout: 60_000 });
   expect(cuerpos.length).toBeGreaterThan(0);
   await expect(page.getByText(/0 de 2/)).toHaveCount(0);
 });
@@ -112,8 +112,8 @@ test('una cuota sin tope no pregunta nada ni pinta la semana', async ({ page }) 
   const { a, cuerpos } = await montar(page, { bono: null, cuota: true }, (_c, r) => r.fulfill(json({ movimientos: null, semanas: [] })));
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId('bono-restantes').or(page.getByText('Clases sin límite')).first()).toBeVisible();
-  await expect(page.getByTestId('cuota-semana')).toHaveCount(0);
+  await expect(page.getByTestId('cuota-hero')).toBeVisible();
+  await expect(page.getByTestId('semana-cuota')).toHaveCount(0);
   expect(cuerpos).toEqual([]);
   expect(a.sinMockear()).toEqual([]);
 });

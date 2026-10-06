@@ -32,7 +32,8 @@ test.describe('Student PWA · lo que la app no debe decir', () => {
   test('un plan ilimitado no se pinta como «Infinity de Infinity»', async ({ page }) => {
     await montar(page, { ajustar: conIlimitado });
     await page.goto(`${base}/bonos`);
-    await expect(page.getByText('Clases sin límite')).toBeVisible({ timeout: 30_000 });
+    // Es una cuota: su cabecera (P4-E), sin ninguna cifra de sesiones.
+    await expect(page.getByTestId('cuota-hero')).toContainText('Mensual ilimitado', { timeout: 30_000 });
     await expect(page.getByText(/Infinity/)).toHaveCount(0);
     await expect(page.getByText(/NaN/)).toHaveCount(0);
   });

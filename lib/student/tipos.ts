@@ -208,6 +208,8 @@ export type EstadoReserva = 'confirmada' | 'cancelada' | 'asistida' | 'no-asisti
 export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
   creadaEn: string;
+  /** El bono que la pagó (`reservas.bono_suscripcion_id`); `null`/ausente = no se sabe (ver la nota de abajo). */
+  bonoId?: string | null;
   /**
    * ⚠️ Con qué se pagó: lo guarda `reservas.bono_suscripcion_id`, que escribe `reservar_plaza` al consumir el bono en
    * su misma transacción (motor de derechos, 2-oct-2026), y viaja en el payload (`mapReserva.bonoSuscripcionId`).
@@ -259,7 +261,10 @@ export interface Bono {
    * Se ha renovado alguna vez (tiene un recibo `es_renovacion`). Renovar SUMA al mismo bono, así que desde la primera
    * renovación «de M» ya no es verdad: con 3 del ciclo anterior y 8 nuevas no quedan «11 de 8».
    */
-  renovado?: boolean;
+  renovado?: boolean;  /** Termina en su fecha de fin y NO se renueva (`suscripciones.baja_al_vencer`). Sin él, no se afirma ninguna de las dos. */
+  bajaAlVencer?: boolean;
+  /** Lo que pagó por clase, solo cuando es verdad (`precioPorClaseDe`, lib/student/mapeo.ts). `null`/ausente = no se dice. */
+  precioPorClase?: number | null;
 }
 
 /**
