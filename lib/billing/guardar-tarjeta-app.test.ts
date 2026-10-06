@@ -68,6 +68,9 @@ test('la sesión: setup, INCRUSTADA (no sale de la app), solo tarjeta, con la me
   assert.deepEqual(p.setup_intent_data.metadata, p.metadata);
   assert.ok(!('success_url' in p) && !('cancel_url' in p), 'una página alojada se abriría en Safari en la app de iOS');
   assert.match(p.return_url, /\{CHECKOUT_SESSION_ID\}/);
+  // Desde el 6-oct la app no enseña ninguna línea propia de autorización (va en los términos): el texto de Stripe para
+  // cobros futuros, dentro del formulario, es lo que la alumna ve. Fijado, nunca oculto.
+  assert.deepEqual(p.consent_collection, { payment_method_reuse_agreement: { position: 'auto' } });
 });
 
 test('la ficha: método y sus datos en UN update; sin datos, a null (nunca los cuatro dígitos de la tarjeta vieja)', () => {

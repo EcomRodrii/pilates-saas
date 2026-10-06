@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esperaAntesDe, leerConfirmacionTarjeta, lineaConsentimiento, textoTarjeta } from './guardar-tarjeta-reglas.ts';
+import { esperaAntesDe, leerConfirmacionTarjeta, textoTarjeta } from './guardar-tarjeta-reglas.ts';
 
 // «Tarjeta guardada» SOLO cuando el servidor lee en la ficha la tarjeta de esa sesión.
 
@@ -47,16 +47,4 @@ test('lo que se enseña: marca y cuatro dígitos de la ficha', () => {
   assert.equal(textoTarjeta({ marca: 'mastercard', ultimos4: '4444', caducidad: null }), 'Mastercard •••• 4444');
   assert.equal(textoTarjeta({ marca: null, ultimos4: '4444', caducidad: null }), '•••• 4444');
   assert.equal(textoTarjeta({ marca: 'visa', ultimos4: null, caducidad: null }), 'Tu tarjeta');
-});
-
-test('el consentimiento en una línea: dice que el estudio cobrará solas sus cuotas y lo pendiente', () => {
-  const l = lineaConsentimiento('Estudio Alma');
-  assert.match(l, /^Al guardarla, Estudio Alma podrá cobrarte en ella tus cuotas y lo que tengas pendiente/);
-  assert.match(lineaConsentimiento(''), /el estudio podrá cobrarte/);
-});
-
-test('⚠️ con sus cuotas por domiciliación, no promete cobrarlas con la tarjeta', () => {
-  const l = lineaConsentimiento('Estudio Alma', { domiciliacion: true });
-  assert.match(l, /domiciliación bancaria/);
-  assert.doesNotMatch(l, /podrá cobrarte en ella tus cuotas/);
 });

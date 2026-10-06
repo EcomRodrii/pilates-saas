@@ -119,8 +119,6 @@ export async function esperarTarjetaGuardada(studioId: string, sesion: string, s
 export interface CobrosDeLaFicha {
   /** Hay método de cobros en su ficha, aunque falten su marca y sus cuatro dígitos. */
   hayMetodo: boolean;
-  /** Sus cuotas se cobran por domiciliación (SEPA), no con la tarjeta. */
-  domiciliacion: boolean;
 }
 
 /**
@@ -134,7 +132,7 @@ export async function getTarjetasApp(studioId: string): Promise<{ tarjetas: Tarj
     const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[]; cobros?: Partial<CobrosDeLaFicha> | null } | null;
     if (!Array.isArray(c?.tarjetas)) return null;
     const cobros = c.cobros && typeof c.cobros === 'object'
-      ? { hayMetodo: c.cobros.hayMetodo === true, domiciliacion: c.cobros.domiciliacion === true }
+      ? { hayMetodo: c.cobros.hayMetodo === true }
       : null;
     return { tarjetas: c.tarjetas, cobros };
   } catch {

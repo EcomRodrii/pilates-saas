@@ -131,7 +131,7 @@ export function idDeSesionCheckoutValido(id: unknown): id is string {
  * sale del SERVIDOR (estudio, alumna y Customer resueltos con su sesión): nada del body.
  *  - `mode: 'setup'`: no se cobra nada. Checkout crea el SetupIntent con
  *    `usage=off_session`, que es lo que deja cobrar sus cuotas sin ella delante, y
- *    pinta él el texto de autorización (mismo criterio que el enlace del panel).
+ *    pinta él el texto de autorización (`consent_collection`, fijado abajo).
  *  - `ui_mode: 'embedded_page'` + `redirect_on_completion: 'if_required'`: DENTRO
  *    de la app; una tarjeta nunca redirige, y si algo redirigiera vuelve a su app.
  *  - Solo tarjeta: es el hueco de cobros (`stripe_payment_method_id`).
@@ -158,6 +158,12 @@ export function parametrosSesionGuardarTarjeta(p: {
     setup_intent_data: { metadata },
     expires_at: p.expiresAt,
     locale: 'es' as const,
+    // El texto de autorización de Stripe para cobros futuros («permites a … cobrar
+    // en tu tarjeta…»), DENTRO del formulario. Es su comportamiento por defecto en
+    // `mode: 'setup'`; se fija a 'auto' a propósito: desde el 6-oct la app no enseña
+    // ninguna línea propia (lo que permite guardarla va en los términos del estudio),
+    // así que este texto es el consentimiento que la alumna ve al guardarla. Nunca 'hidden'.
+    consent_collection: { payment_method_reuse_agreement: { position: 'auto' as const } },
   };
 }
 

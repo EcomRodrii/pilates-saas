@@ -43,22 +43,17 @@ export async function GET(req: NextRequest) {
   try {
     const [{ data: socio, error: errSocio }, { data: studio, error: errStudio }] = await Promise.all([
       admin.from('socios')
-        .select('stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_payment_method_id')
+        .select('stripe_customer_id, stripe_payment_method_id')
         .eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
       admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
     ]);
     if (errSocio || errStudio) throw new Error(errSocio?.message ?? errStudio?.message);
-    // Lo que la pantalla necesita para no mentir y que el payload no trae:
-    //  · `hayMetodo`: hay método de cobros aunque falten su marca y sus cuatro dígitos
-    //    (los rellena el cron por goteo). Sin esto la pantalla decía «No tienes ninguna
-    //    tarjeta» y ofrecía AÑADIR, que soltaría en silencio la que se estaba cobrando.
-    //  · `domiciliacion`: sus cuotas se cobran por SEPA (`elegirMetodoCobro`), así que la
-    //    tarjeta no es con lo que se le cobran.
+    // Lo que la pantalla necesita para no mentir y que el payload no trae: hay método
+    // de cobros aunque falten su marca y sus cuatro dígitos (los rellena el cron por
+    // goteo). Sin esto la pantalla decía «No tienes ninguna tarjeta» y ofrecía AÑADIR,
+    // que soltaría en silencio la que se estaba cobrando.
     const metodoCobros = (socio?.stripe_payment_method_id as string | null) ?? null;
-    const cobros = {
-      hayMetodo: !!metodoCobros,
-      domiciliacion: socio?.metodo_pago_preferido === 'SEPA' && !!socio?.sepa_payment_method_id,
-    };
+    const cobros = { hayMetodo: !!metodoCobros };
     const customer = (socio?.stripe_customer_id as string | null) ?? null;
     const stripeAccount = (studio?.stripe_account_id as string | null) ?? null;
     const key = claveStripe();

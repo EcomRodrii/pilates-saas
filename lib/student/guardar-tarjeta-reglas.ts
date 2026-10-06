@@ -46,20 +46,3 @@ export function textoTarjeta(t: TarjetaConfirmada): string {
   const marca = t.marca ? `${t.marca.charAt(0).toUpperCase()}${t.marca.slice(1)} ` : '';
   return t.ultimos4 ? `${marca}•••• ${t.ultimos4}` : 'Tu tarjeta';
 }
-
-/**
- * La línea de consentimiento, en una frase y diciendo la verdad: con la tarjeta
- * guardada, el estudio cobra solas las renovaciones de su cuota (y adopta la que esté
- * pendiente: `adoptarRecibosCliente`), y desde el mostrador puede cobrar en ella lo que
- * tenga pendiente. El texto de autorización de Stripe (`usage=off_session`) sale además
- * dentro del Checkout.
- */
-export function lineaConsentimiento(nombreEstudio: string | null | undefined, o: { domiciliacion?: boolean } = {}): string {
-  const quien = nombreEstudio?.trim() || 'el estudio';
-  // Con la domiciliación lista y preferida, sus cuotas van por el banco (`elegirMetodoCobro`): la tarjeta no es
-  // con lo que se le cobran, y decirlo sería falso.
-  if (o.domiciliacion) {
-    return 'Tus cuotas se cobran por domiciliación bancaria. La tarjeta quedará guardada y se usará si dejan de cobrarse así.';
-  }
-  return `Al guardarla, ${quien} podrá cobrarte en ella tus cuotas y lo que tengas pendiente, sin que tengas que pagarlo a mano.`;
-}

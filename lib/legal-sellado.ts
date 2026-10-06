@@ -42,7 +42,7 @@ export async function componerTextoLegalVigente(
 ): Promise<string | null> {
   const { data: s, error } = await admin
     .from('studios')
-    .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur')
+    .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur, stripe_account_id')
     .eq('id', studioId)
     .maybeSingle();
   if (error || !s) return null;

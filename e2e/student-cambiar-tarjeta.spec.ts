@@ -52,7 +52,7 @@ async function montar(page: Page, o: {
       c.borrar.push(req.postDataJSON());
       const socio = ((fixture?.socia as Record<string, unknown>).socio as Record<string, unknown>);
       Object.assign(socio, { tarjetaUltimos4: null, tarjetaMarca: null, tarjetaExpMes: null, tarjetaExpAnio: null });
-      o.lista = { tarjetas: [], cobros: { hayMetodo: false, domiciliacion: false } };
+      o.lista = { tarjetas: [], cobros: { hayMetodo: false } };
       return r.fulfill(json({ ok: true }));
     }
     if (url.searchParams.has('sesion')) {
@@ -69,7 +69,7 @@ async function montar(page: Page, o: {
       return r.fulfill(json(res.body ?? {}, res.status));
     }
     c.lista += 1;
-    return r.fulfill(json(o.lista ?? { tarjetas: [], cobros: { hayMetodo: !!o.conTarjeta, domiciliacion: false } }));
+    return r.fulfill(json(o.lista ?? { tarjetas: [], cobros: { hayMetodo: !!o.conTarjeta } }));
   });
   await page.goto(PAGO, { waitUntil: 'domcontentloaded' });
   return { a, c };
@@ -90,7 +90,8 @@ test.describe('Student PWA · cambiar y añadir tarjeta sin salir de la app', ()
     await page.getByRole('button', { name: 'Cambiar tarjeta' }).click();
 
     await expect(page.getByTestId('checkout-incrustado')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('consentimiento-tarjeta')).toContainText('podrá cobrarte en ella tus cuotas');
+    // Lo que permite guardarla vive en los términos del estudio, no a la vista (decisión del fundador, 6-oct).
+    await expect(page.getByText(/podrá cobrarte|domiciliación bancaria/)).toHaveCount(0);
     expect(c.abrir).toEqual([{ studioId: STUDIO_ID }]);
     await expect.poll(async () => (await embebidos(page)).filter((e) => e.montado).length).toBe(1);
     const init = await page.evaluate(() => (window as unknown as { __TENTARE_STRIPE_INIT?: { stripeAccount: string | null }[] }).__TENTARE_STRIPE_INIT ?? []);
@@ -112,11 +113,11 @@ test.describe('Student PWA · cambiar y añadir tarjeta sin salir de la app', ()
     expect(a.sinMockear()).toEqual([]);
   });
 
-  test('añadir: sin tarjeta, «Añadir tarjeta» con la línea de lo que permite, y la misma hoja', async ({ page }) => {
+  test('añadir: sin tarjeta, «Añadir tarjeta» y la misma hoja', async ({ page }) => {
     const { a, c } = await montar(page, { conTarjeta: false, confirmar: () => ({ status: 200, body: { confirmacion: 'guardada', tarjeta: MASTER } }) });
     const vacio = page.getByTestId('sin-tarjeta');
     await expect(vacio).toBeVisible({ timeout: 60_000 });
-    await expect(vacio).toContainText('podrá cobrarte en ella tus cuotas y lo que tengas pendiente');
+    await expect(vacio).not.toContainText('podrá cobrarte');
     await vacio.getByRole('button', { name: 'Añadir tarjeta' }).click();
     await expect(page.getByRole('dialog', { name: 'Añadir tarjeta' })).toBeVisible({ timeout: 30_000 });
     await expect.poll(async () => (await embebidos(page)).filter((e) => e.montado).length, { timeout: 30_000 }).toBe(1);
@@ -133,19 +134,11 @@ test.describe('Student PWA · cambiar y añadir tarjeta sin salir de la app', ()
   test('⚠️ método de cobros sin sus cuatro dígitos en el payload: se enseña con lo de Stripe y se ofrece CAMBIAR, no añadir', async ({ page }) => {
     const { c } = await montar(page, {
       conTarjeta: false,
-      lista: { tarjetas: [{ id: 'pm_cobros', marca: 'visa', ultimos4: '1111', caducidad: '01/29', paraCobros: true }], cobros: { hayMetodo: true, domiciliacion: false } },
+      lista: { tarjetas: [{ id: 'pm_cobros', marca: 'visa', ultimos4: '1111', caducidad: '01/29', paraCobros: true }], cobros: { hayMetodo: true } },
     });
     await expect(page.getByTestId('tarjeta')).toContainText('1111', { timeout: 60_000 });
     await expect(page.getByRole('button', { name: 'Cambiar tarjeta' })).toBeVisible();
     await expect(page.getByTestId('sin-tarjeta')).toHaveCount(0);
-    expect(c.lista).toBeGreaterThan(0);
-  });
-
-  test('con sus cuotas por domiciliación, la línea no promete cobrarlas con la tarjeta', async ({ page }) => {
-    const { c } = await montar(page, { lista: { tarjetas: [], cobros: { hayMetodo: true, domiciliacion: true } } });
-    await expect(page.getByTestId('tarjeta')).toContainText('4242', { timeout: 60_000 });
-    await expect(page.getByText(/Tus cuotas se cobran por domiciliación bancaria/)).toBeVisible();
-    await expect(page.getByText(/podrá cobrarte en ella tus cuotas/)).toHaveCount(0);
     expect(c.lista).toBeGreaterThan(0);
   });
 

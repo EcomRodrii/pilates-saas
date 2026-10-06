@@ -30,14 +30,12 @@ type Fase =
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean };
 
 export function HojaGuardarTarjeta({
-  studioId, stripeAccountId, cambiar, consentimiento, sesionDeVuelta, onCerrar, onGuardada, onSesionCaducada,
+  studioId, stripeAccountId, cambiar, sesionDeVuelta, onCerrar, onGuardada, onSesionCaducada,
 }: {
   studioId: string;
   stripeAccountId: string;
   /** Ya tiene una: «Cambiar tarjeta». */
   cambiar: boolean;
-  /** La línea que dice qué permite guardarla. */
-  consentimiento: string;
   /** Volvió de Stripe con `session_id` (un método que redirige): directo a comprobar ESA sesión. */
   sesionDeVuelta?: string | null;
   onCerrar: () => void;
@@ -96,9 +94,7 @@ export function HojaGuardarTarjeta({
         <h2 className="t-title" style={{ marginBottom: 6 }}>{titulo}</h2>
 
         {(f.fase === 'preparando' || f.fase === 'formulario') && (
-          <p className="t-meta" style={{ margin: '0 0 12px', lineHeight: 1.5 }} data-testid="consentimiento-tarjeta">
-            No se te cobra nada ahora. {consentimiento}
-          </p>
+          <p className="t-meta" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>No se te cobra nada ahora.</p>
         )}
 
         {f.fase === 'preparando' && <p className="t-meta" role="status">Preparando el formulario…</p>}

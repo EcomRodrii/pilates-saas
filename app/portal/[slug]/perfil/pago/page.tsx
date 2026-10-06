@@ -11,7 +11,6 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getMetodoPago, getTarjetasApp, quitarTarjeta, quitarTarjetaApp } from '@/lib/student/pago';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { clavePublicableStripe } from '@/lib/student/comprar';
-import { lineaConsentimiento } from '@/lib/student/guardar-tarjeta-reglas';
 import { HojaGuardarTarjeta } from '@/components/student/domain/HojaGuardarTarjeta';
 import type { TarjetaGuardada } from '@/lib/billing/tarjetas-guardadas';
 import { Button } from '@/components/student/ui/Button';
@@ -57,7 +56,7 @@ export default function PagoPage() {
       ...metodo, tieneTarjeta: true, marca: deCobros?.marca ?? null, ultimos4: deCobros?.ultimos4 ?? null, caducidad: deCobros?.caducidad ?? null,
     };
     return {
-      ...vista, app: lista?.tarjetas ?? null, domiciliacion: cobros?.domiciliacion === true,
+      ...vista, app: lista?.tarjetas ?? null,
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
     };
   }, [estudio.slug, estudio.id]);
@@ -66,7 +65,6 @@ export default function PagoPage() {
   // Sin la cuenta de Stripe del estudio o sin la clave pública no hay formulario que montar: no se ofrece.
   const stripeAccountId = data?.stripeAccountId ?? null;
   const puedeGuardar = !!stripeAccountId && !!clavePublicableStripe();
-  const consentimiento = lineaConsentimiento(estudio.nombre, { domiciliacion: data?.domiciliacion === true });
   const abrirHojaTarjeta = () => {
     if (!online) { toast('Necesitas conexión para guardar una tarjeta.'); return; }
     setHojaTarjeta({ sesion: null });
@@ -119,7 +117,7 @@ export default function PagoPage() {
               <EmptyState
                 ilustracion="tarjeta"
                 titulo="No tienes ninguna tarjeta guardada"
-                cuerpo={consentimiento}
+                cuerpo="No se te cobra nada al guardarla."
                 accion="Añadir tarjeta"
                 onAccion={abrirHojaTarjeta}
               />
@@ -150,12 +148,9 @@ export default function PagoPage() {
             </div>
 
             {puedeGuardar && (
-              <>
-                <Button full disabled={!online} onClick={abrirHojaTarjeta}>
-                  {esLink ? 'Usar una tarjeta' : 'Cambiar tarjeta'}
-                </Button>
-                <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>{consentimiento}</p>
-              </>
+              <Button full disabled={!online} onClick={abrirHojaTarjeta}>
+                {esLink ? 'Usar una tarjeta' : 'Cambiar tarjeta'}
+              </Button>
             )}
             <Button variant={puedeGuardar ? 'secondary' : 'danger'} full disabled={!online} onClick={() => setConfirmando(true)}>
               {esLink ? 'Quitar Link' : 'Quitar tarjeta'}
@@ -191,7 +186,6 @@ export default function PagoPage() {
           studioId={estudio.id}
           stripeAccountId={stripeAccountId}
           cambiar={!!data?.tieneTarjeta}
-          consentimiento={consentimiento}
           sesionDeVuelta={hojaTarjeta.sesion}
           onCerrar={() => { setHojaTarjeta(null); void refrescar(); }}
           onGuardada={trasGuardar}
