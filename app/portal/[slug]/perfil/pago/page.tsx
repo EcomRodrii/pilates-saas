@@ -89,8 +89,8 @@ export default function PagoPage() {
               {data.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {data.caducidad}</p>}
               <p className="t-meta" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
                 {esLink
-                  ? 'Se usa para los cobros de tus bonos y suscripciones. Tus datos de pago los guarda Link, no el estudio.'
-                  : <>Se usa para los cobros de tus bonos y suscripciones. El número completo
+                  ? 'Se usa para los cobros de tus cuotas y bonos. Tus datos de pago los guarda Link, no el estudio.'
+                  : <>Se usa para los cobros de tus cuotas y bonos. El número completo
                     lo guarda la pasarela de pago, no el estudio.</>}
               </p>
             </div>
