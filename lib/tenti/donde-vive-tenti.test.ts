@@ -227,13 +227,16 @@ const IMPORTAN_EL_COMPONENTE = new Set([
 
 /**
  * Los únicos que importan `components/tenti/tenti-asistente`: la cara del
- * asistente («Pregúntale a Tentare»), una sola, en la cabecera de su panel.
- * Habla en «momentos» del asistente (lib/asistente/estado-ui.ts) y el
- * envoltorio los traduce a estados del motor (lib/tenti/asistente.ts): quien
- * lo usa nunca escribe un estado del catálogo.
+ * asistente («Pregúntale a Tentare»), solo en su chat (/asistente). Habla en
+ * «momentos» del asistente (lib/asistente/estado-ui.ts) y el envoltorio los
+ * traduce a estados del motor (lib/tenti/asistente.ts): quien lo usa nunca
+ * escribe un estado del catálogo. Dos usos que nunca están a la vez: el
+ * saludo del chat vacío (96) y el avatar de la respuesta en curso (40); las
+ * respuestas ya terminadas llevan el dibujo quieto (TentiAsistenteQuieto, sin
+ * canvas).
  */
-const IMPORTAN_EL_ASISTENTE: Record<string, string> = {
-  'components/asistente/panel-asistente.tsx': 'la cara del asistente, en la cabecera del panel',
+const IMPORTAN_EL_ASISTENTE: Record<string, { usos: number; motivo: string }> = {
+  'components/asistente/vista-chat.tsx': { usos: 2, motivo: 'el saludo del chat vacío y el avatar de la respuesta en curso' },
 };
 
 /** Los únicos que importan `components/tenti/tenti-diferido`. */
@@ -312,7 +315,7 @@ const SUENAN: Record<string, { sonidos: string[]; motivo: string }> = {
   'components/socios/modal-nota-voz.tsx': { sonidos: ['pop'], motivo: '«Estructurar con IA» ha terminado con resultado' },
   'app/(dashboard)/migracion/page.tsx': { sonidos: ['pop'], motivo: '«Analizar» ha terminado con resultado' },
   'components/configuracion/secciones/seccion-panel.tsx': { sonidos: [], motivo: 'el interruptor «Sonidos de Tenti» (lee y escribe la preferencia, no suena)' },
-  'components/asistente/panel-asistente.tsx': { sonidos: ['pop'], motivo: 'el asistente ha respondido con datos a una pregunta que acabas de hacer (una vez; su Tenti va con sonido={false})' },
+  'components/asistente/vista-chat.tsx': { sonidos: ['pop'], motivo: 'el asistente ha respondido con datos a una pregunta que acabas de hacer (una vez; su Tenti va con sonido={false})' },
 };
 const PREFERENCIA = 'lib/tenti/preferencia-sonido';
 const SONIDOS = 'lib/tenti/sonidos';
@@ -750,7 +753,7 @@ for (const [fichero, { tamano, motivo }] of Object.entries(IMPORTAN_EL_DECORATIV
 
 // ── 4b · La cara del asistente ───────────────────────────────────────────────
 
-test('TentiAsistente: el motor por dynamic() sin SSR, 56 px, sin sonido propio, y solo `momento` y `className`', () => {
+test('TentiAsistente: el motor por dynamic() sin SSR, tamaños cerrados, sin sonido propio, y solo `momento`, `tamano` y `className`', () => {
   const src = leerCodigo(`${ASISTENTE}.tsx`);
   for (const m of src.matchAll(/import\s+([^;]*?)\s+from\s*['"]\.\/tenti['"]/g)) {
     assert.match(m[1], /^type\s/, 'De ./tenti solo el tipo: un import de valor mete el motor en el chunk del panel del asistente.');
@@ -760,14 +763,18 @@ test('TentiAsistente: el motor por dynamic() sin SSR, 56 px, sin sonido propio, 
   const lienzos = etiquetas(`${ASISTENTE}.tsx`, src, ['TentiCanvas']);
   assert.equal(lienzos.length, 1);
   const [l] = lienzos;
-  assert.equal(l.props.get('tamano'), '56', 'Tamaño fijo de 56 (la caja de la cabecera).');
+  assert.equal(l.props.get('tamano'), 'tamano', 'El tamaño que le pasan, cerrado por tipo (40 | 96).');
   assert.equal(l.props.get('sonido'), 'false', 'Sin sonido propio: el motor sonaría en cada cambio (pensar, buscar, terminar). Suena el panel, una vez.');
   for (const p of ['insignias', 'titulo', 'saludaAlAparecer', 'saludaUnaVez', 'interactivo', 'sigueCursor']) {
     assert.ok(!l.props.has(p), `TentiAsistente no pide \`${p}\`.`);
   }
   assert.match(src, /estadoParaPintar\(momento,/, 'El estado sale de la tabla de momentos (lib/tenti/asistente.ts), con su tope de animación.');
-  assert.match(src, /export function TentiAsistente\(\{ momento, className \}: \{ momento: MomentoAsistente; className\?: string \}\)/,
-    'Props cerrados: el momento del asistente y la clase. Nada de estado, tamaño ni sonido desde fuera.');
+  assert.match(src, /export function TentiAsistente\(\{ momento, tamano, className \}: \{ momento: MomentoAsistente; tamano: 40 \| 96; className\?: string \}\)/,
+    'Props cerrados: el momento del asistente, un tamaño de dos y la clase. Nada de estado ni sonido desde fuera.');
+  // Las respuestas terminadas: el SVG quieto del icono, sin motor.
+  const quieto = src.slice(src.indexOf('export function TentiAsistenteQuieto'));
+  assert.match(quieto, /<SvgTenti\b/);
+  assert.doesNotMatch(quieto, /TentiCanvas/, 'El avatar quieto no lleva canvas.');
 });
 
 test('la tabla momento → estado del asistente es exactamente la de su spec (§5.3)', () => {
@@ -777,15 +784,17 @@ test('la tabla momento → estado del asistente es exactamente la de su spec (§
   });
 });
 
-for (const [fichero, motivo] of Object.entries(IMPORTAN_EL_ASISTENTE)) {
-  test(`${fichero}: un TentiAsistente (${motivo}), solo con su momento`, () => {
+for (const [fichero, { usos, motivo }] of Object.entries(IMPORTAN_EL_ASISTENTE)) {
+  test(`${fichero}: ${usos} TentiAsistente (${motivo}), solo con su momento y un tamaño literal`, () => {
     const src = leerCodigo(fichero);
     const vistas = etiquetas(fichero, src, ['TentiAsistente']);
-    assert.equal(vistas.length, 1, 'Uno, en la cabecera del panel.');
-    assert.equal(src.match(/\bTentiAsistente\b/g)?.length ?? 0, 2, 'TentiAsistente solo en su import y en su etiqueta: nada de alias.');
-    const [e] = vistas;
-    assert.ok(!e.esparce);
-    assert.deepEqual([...e.props.keys()].filter(p => p !== 'className'), ['momento']);
+    assert.equal(vistas.length, usos, 'Si cambia, cambia IMPORTAN_EL_ASISTENTE con su motivo.');
+    assert.equal(src.match(/\bTentiAsistente\b/g)?.length ?? 0, usos + 1, 'TentiAsistente solo en su import y en sus etiquetas: nada de alias.');
+    for (const e of vistas) {
+      assert.ok(!e.esparce);
+      assert.deepEqual([...e.props.keys()].filter(p => p !== 'className').sort(), ['momento', 'tamano']);
+      assert.match(e.props.get('tamano') ?? '', /^(40|96)$/, 'tamano literal: cambiarlo recrea el motor.');
+    }
   });
 }
 

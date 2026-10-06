@@ -28,8 +28,8 @@ test.describe.configure({ timeout: 120_000 });
 const STUDIO_ID = 'studio-test';
 const UID = 'auth-e2e-duena';
 const CONVERSACION = '4f1d2c3b-7a8e-4b9c-9d0e-1f2a3b4c5d6e';
-/** Un literal que solo está en components/asistente/panel-asistente.tsx. */
-const HUELLA_DEL_PANEL = 'Todavía no hago cambios: te digo dónde se hacen';
+/** Un literal que solo está en components/asistente/vista-chat.tsx. */
+const HUELLA_DEL_CHAT = 'Tentare consulta tus datos; todavía no hace cambios.';
 
 const json = (r: Route, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) });
 const ndjson = (eventos: unknown[]) => eventos.map(e => JSON.stringify(e)).join('\n') + '\n';
@@ -95,6 +95,7 @@ async function conAsistente(page: Page, o: {
     n.saldo++;
     return json(r, SALDO);
   });
+  await page.route((u) => u.pathname === '/api/asistente/conversaciones', (r) => json(r, { conversaciones: [] }));
   await page.route((u) => u.pathname === '/api/asistente', async (r) => {
     n.preguntas++;
     n.cuerpos.push(r.request().postDataJSON());
@@ -104,16 +105,18 @@ async function conAsistente(page: Page, o: {
   return n;
 }
 
-const panel = (page: Page) => page.getByRole('dialog', { name: 'Tentare' });
+const chat = (page: Page) => page.getByTestId('chat-asistente');
 const barra = (page: Page) => page.getByTestId('barra-preguntar');
-const tenti = (page: Page) => panel(page).locator('[data-tenti-asistente]');
+const tenti = (page: Page) => chat(page).locator('[data-tenti-asistente]').last();
+const sugerencia = (page: Page, texto: string) => chat(page).getByLabel('Preguntas de ejemplo').getByRole('button', { name: texto });
+const campoChat = (page: Page) => chat(page).getByLabel('Pregunta sobre tu estudio');
 
 async function abrirDesdeLaBarra(page: Page) {
   await ir(page, 'centro-de-control');
   await expect(barra(page)).toBeVisible({ timeout: 30_000 });
   await barra(page).click();
-  await expect(panel(page)).toBeVisible({ timeout: 30_000 });
-  await expect(panel(page).getByText('¿Qué quieres saber de tu estudio?')).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/asistente$/, { timeout: 30_000 });
+  await expect(chat(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 60_000 });
 }
 
 const CAPTURAS = process.env.ASISTENTE_CAPTURAS;
@@ -124,64 +127,65 @@ async function captura(page: Page, nombre: string) {
   await page.screenshot({ path: join(CAPTURAS, nombre.startsWith('chat-') ? `${nombre}.png` : `asistente-${nombre}.png`) });
 }
 
-test('propietaria: la barra del Centro de Control abre el panel; una pregunta trae texto, métricas y clases', async ({ page }) => {
+test('propietaria: la barra del Centro de Control lleva al chat; una pregunta trae texto, métricas y clases', async ({ page }) => {
   const scripts = recolectarScripts(page);
   const n = await conAsistente(page);
   await ir(page, 'centro-de-control');
   await expect(barra(page)).toBeVisible({ timeout: 30_000 });
-  // El panel no viaja con el Centro de Control: llega al abrirlo.
-  expect(await scripts.contiene(HUELLA_DEL_PANEL)).toBe(false);
+  // El chat no viaja con el Centro de Control: llega al entrar en /asistente.
+  expect(await scripts.contiene(HUELLA_DEL_CHAT)).toBe(false);
   expect(n.disponible).toBe(1);
   expect(n.saldo).toBe(0);
 
   await barra(page).click();
-  await expect(panel(page).getByText('¿Qué quieres saber de tu estudio?')).toBeVisible({ timeout: 30_000 });
-  expect(await scripts.contiene(HUELLA_DEL_PANEL)).toBe(true);
-  await expect(panel(page).getByTestId('asistente-saldo')).toHaveText('Te quedan 182 consultas este mes');
-  await expect(panel(page).getByRole('button', { name: '¿Cuánto he facturado este mes?' })).toBeVisible();
+  await expect(chat(page).getByText('¿En qué te ayudo hoy, Cloe?')).toBeVisible({ timeout: 60_000 });
+  expect(await scripts.contiene(HUELLA_DEL_CHAT)).toBe(true);
+  await expect(chat(page).getByTestId('asistente-saldo')).toContainText('Te quedan 182 consultas este mes');
+  await expect(sugerencia(page, '¿Cuánto he facturado este mes?')).toBeVisible();
 
-  await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
-  expect(n.preguntas).toBeGreaterThan(0);
+  await sugerencia(page, '¿Qué clases hay mañana?').click();
+  await expect.poll(() => n.preguntas).toBe(1);
   expect(n.cuerpos[0]).toEqual({ pregunta: '¿Qué clases hay mañana?' });
-  await expect(panel(page).getByTestId('asistente-texto')).toContainText('Mañana tienes 5 clases con 30 alumnas apuntadas.');
+  await expect(chat(page).getByTestId('chat-pregunta')).toHaveText('¿Qué clases hay mañana?');
+  const respuesta = chat(page).getByTestId('chat-respuesta');
+  await expect(respuesta).toContainText('Mañana tienes 5 clases con 30 alumnas apuntadas.');
   // El nombre llegó aparte y se pinta donde iba la marca.
-  await expect(panel(page).getByTestId('asistente-texto')).toContainText('con Marta Ruiz: está llena');
-  await expect(panel(page).getByTestId('asistente-texto')).not.toContainText('[EQUIPO_1]');
-  const metricas = panel(page).locator('[data-bloque="metricas"]');
+  await expect(respuesta).toContainText('con Marta Ruiz: está llena');
+  await expect(respuesta).not.toContainText('[EQUIPO_1]');
+  const metricas = chat(page).locator('[data-bloque="metricas"]');
   await expect(metricas.locator('[data-metrica="Alumnas apuntadas"]')).toContainText('30');
   await expect(metricas.locator('[data-metrica="Cobrado este mes"]')).toContainText('frente a septiembre');
-  const clases = panel(page).locator('[data-bloque="clases"]');
+  const clases = chat(page).locator('[data-bloque="clases"]');
   await expect(clases.locator('[data-clase]')).toHaveCount(5);
   await expect(clases.locator('[data-clase="ses-e"]')).toHaveAttribute('href', '/calendario?sesion=ses-e');
   await expect(clases.locator('[data-clase="ses-e"]')).toContainText('+3 esp.');
   await expect(clases.getByText('Sin instructora')).toBeVisible();
   // Tenti terminó (y a los 1,5 s vuelve a reposo); el saldo, con lo que dijo el servidor.
-  await expect(tenti(page)).toHaveAttribute('data-momento', /terminado|listo/);
   await expect(tenti(page)).toHaveAttribute('data-momento', 'listo', { timeout: 5_000 });
-  await expect(panel(page).getByTestId('asistente-saldo')).toHaveText('Te quedan 181 consultas este mes');
+  await expect(chat(page).getByTestId('asistente-saldo')).toContainText('Te quedan 181 consultas este mes');
+  await expect(chat(page).getByRole('button', { name: 'Copiar respuesta' })).toBeVisible();
 
-  // La siguiente pregunta sigue en la misma conversación.
-  await panel(page).getByLabel('Pregunta sobre tu estudio').fill('¿Y pasado mañana?');
-  await panel(page).getByRole('button', { name: 'Preguntar' }).click();
+  // La siguiente pregunta, con Intro, sigue en la misma conversación.
+  await campoChat(page).fill('¿Y pasado mañana?');
+  await campoChat(page).press('Enter');
   await expect.poll(() => n.preguntas).toBe(2);
   expect(n.cuerpos[1]).toEqual({ pregunta: '¿Y pasado mañana?', conversacionId: CONVERSACION });
-
-  // Escape cierra; reabrir trae la conversación tal cual, sin pedir nada nuevo a la IA.
-  await page.keyboard.press('Escape');
-  await expect(panel(page)).toHaveCount(0);
-  await barra(page).click();
-  await expect(panel(page).locator('[data-turno]')).toHaveCount(2);
+  await expect(chat(page).locator('[data-turno]')).toHaveCount(2);
+  // Mayúsculas+Intro es un salto de línea, no un envío.
+  await campoChat(page).fill('una');
+  await campoChat(page).press('Shift+Enter');
+  await expect(campoChat(page)).toHaveValue('una\n');
   expect(n.preguntas).toBe(2);
 });
 
 test('sin saldo: el texto exacto, y Tenti en fallo', async ({ page }) => {
   const n = await conAsistente(page, { responder: (r) => json(r, { error: 'Sin consultas disponibles', codigo: 'SIN_SALDO', disponibles: 0 }, 429) });
   await abrirDesdeLaBarra(page);
-  await panel(page).getByRole('button', { name: '¿Cuántas alumnas activas tengo?' }).click();
-  await expect(panel(page).getByRole('alert')).toHaveText('Has usado las consultas de este mes. Vuelven el 1 de noviembre.');
+  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await expect(chat(page).getByRole('alert')).toHaveText('Has usado las consultas de este mes. Vuelven el 1 de noviembre.');
   expect(n.preguntas).toBeGreaterThan(0);
   await expect(tenti(page)).toHaveAttribute('data-momento', 'fallo');
-  await expect(panel(page).getByRole('button', { name: 'Reintentar' })).toHaveCount(0);
+  await expect(chat(page).getByRole('button', { name: 'Reintentar' })).toHaveCount(0);
 });
 
 test('la IA no responde (500) y la red se cae: el texto exacto y «Reintentar», que vuelve a preguntar', async ({ page }) => {
@@ -192,18 +196,18 @@ test('la IA no responde (500) y la red se cae: el texto exacto y «Reintentar»,
       : r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson(RESPUESTA) }),
   });
   await abrirDesdeLaBarra(page);
-  await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
-  await expect(panel(page).getByRole('alert')).toContainText('No he podido responder ahora. No se ha descontado ninguna consulta.');
+  await sugerencia(page, '¿Qué clases hay mañana?').click();
+  await expect(chat(page).getByRole('alert')).toContainText('No he podido responder ahora. No se ha descontado ninguna consulta.');
   expect(n.preguntas).toBe(1);
 
   caso = 'red';
-  await panel(page).getByRole('button', { name: 'Reintentar' }).click();
-  await expect(panel(page).getByRole('alert').last()).toContainText('Se ha cortado la conexión.');
+  await chat(page).getByRole('button', { name: 'Reintentar' }).click();
+  await expect(chat(page).getByRole('alert').last()).toContainText('Se ha cortado la conexión.');
   expect(n.preguntas).toBe(2);
 
   caso = 'bien';
-  await panel(page).getByRole('button', { name: 'Reintentar' }).last().click();
-  await expect(panel(page).getByTestId('asistente-texto')).toContainText('Mañana tienes 5 clases');
+  await chat(page).getByRole('button', { name: 'Reintentar' }).last().click();
+  await expect(chat(page).getByTestId('chat-respuesta').last()).toContainText('Mañana tienes 5 clases');
   expect(n.preguntas).toBe(3);
 });
 
@@ -212,13 +216,13 @@ test('un aviso de cifra quitada se ve bajo el texto; con privacidad, los importe
   const n = await conAsistente(page, { responder: (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson(conAviso) }) });
   await page.addInitScript(() => localStorage.setItem('panel-privacidad', '1'));
   await abrirDesdeLaBarra(page);
-  await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
-  await expect(panel(page).getByText('He quitado una cifra que no salía de tus datos.')).toBeVisible();
+  await sugerencia(page, '¿Qué clases hay mañana?').click();
+  await expect(chat(page).getByText('He quitado una cifra que no salía de tus datos.')).toBeVisible();
   expect(n.preguntas).toBeGreaterThan(0);
-  await expect(panel(page).locator('[data-metrica="Cobrado este mes"] .blur-sm')).toHaveCount(1);
+  await expect(chat(page).locator('[data-metrica="Cobrado este mes"] .blur-sm')).toHaveCount(1);
 });
 
-test('servidor apagado para el estudio: ni barra, ni fila en ⌘K, ni ⌘J', async ({ page }) => {
+test('servidor apagado para el estudio: ni barra, ni fila en ⌘K, ni ⌘J; /asistente lo dice y no pregunta', async ({ page }) => {
   const n = await conAsistente(page, { disponible: false });
   await ir(page, 'centro-de-control');
   await expect(page.getByRole('heading', { name: 'Centro de Control' })).toBeVisible({ timeout: 30_000 });
@@ -226,17 +230,22 @@ test('servidor apagado para el estudio: ni barra, ni fila en ⌘K, ni ⌘J', asy
   await expect(barra(page)).toHaveCount(0);
   await page.keyboard.press('Control+j');
   await page.waitForTimeout(500);
-  await expect(panel(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/centro-de-control/);
   await page.keyboard.press('Control+k');
   const buscador = page.getByRole('dialog', { name: 'Buscar' });
   await expect(buscador).toBeVisible({ timeout: 30_000 });
   await buscador.getByRole('textbox').fill('¿cuántas alumnas activas tengo?');
-  await expect(buscador.getByText('Sin resultados', { exact: false }).or(buscador.getByText('Acciones'))).toBeVisible();
+  await page.waitForTimeout(400);
   await expect(page.getByTestId('buscador-preguntar')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await ir(page, 'asistente');
+  await expect(page.getByText('El asistente no está disponible para tu estudio.')).toBeVisible({ timeout: 30_000 });
+  await expect(chat(page)).toHaveCount(0);
   expect(n.preguntas).toBe(0);
+  expect(n.saldo).toBe(0);
 });
 
-test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y abre el panel ya preguntando; sus sugerencias no son de dinero', async ({ page }) => {
+test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y lleva al chat ya preguntando; sus sugerencias no son de dinero', async ({ page }) => {
   const n = await conAsistente(page, { rol: 'MANAGER' });
   await ir(page, 'clientas');
   await expect(barra(page)).toHaveCount(0);
@@ -250,20 +259,19 @@ test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y a
   const fila = page.getByTestId('buscador-preguntar');
   await expect(fila).toBeVisible();
   // La primera de todas las filas del buscador.
-  const primera = buscador.locator('.overflow-y-auto button').first();
-  await expect(primera).toHaveAttribute('data-testid', 'buscador-preguntar');
+  await expect(buscador.locator('.overflow-y-auto button').first()).toHaveAttribute('data-testid', 'buscador-preguntar');
   await fila.click();
-  await expect(panel(page)).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => n.preguntas).toBe(1);
+  await expect(page).toHaveURL(/\/asistente$/, { timeout: 30_000 });
+  await expect.poll(() => n.preguntas, { timeout: 60_000 }).toBe(1);
   expect(n.cuerpos[0]).toEqual({ pregunta: '¿cuántas alumnas activas tengo?' });
-  await expect(panel(page).locator('[data-turno]').first()).toContainText('¿cuántas alumnas activas tengo?');
+  await expect(chat(page).getByTestId('chat-pregunta')).toHaveText('¿cuántas alumnas activas tengo?');
+  // La pregunta no viaja en la URL (puede llevar el nombre de una alumna).
+  expect(page.url()).not.toContain('alumnas');
   // Una búsqueda que no es pregunta deja la fila al final (no le roba la navegación).
-  await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
   await buscador.getByRole('textbox').fill('Calendario');
   await expect(buscador.getByText('Secciones')).toBeVisible();
-  const botones = buscador.locator('button[data-testid="buscador-preguntar"], button:has-text("Calendario")');
-  await expect(botones.last()).toHaveAttribute('data-testid', 'buscador-preguntar');
+  await expect(buscador.locator('.overflow-y-auto button').last()).toHaveAttribute('data-testid', 'buscador-preguntar');
 });
 
 test('recepción: ni barra ni fila, y nunca pregunta al servidor', async ({ page }) => {
@@ -278,20 +286,20 @@ test('recepción: ni barra ni fila, y nunca pregunta al servidor', async ({ page
   expect(n.disponible).toBe(0);
 });
 
-test('móvil y oscuro: hoja desde abajo, el campo dentro de la ventana', async ({ page }) => {
+test('móvil y oscuro: el chat a pantalla completa, el campo encima de la barra de abajo, y la lista en un cajón', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await enOscuro(page);
   const n = await conAsistente(page);
   await abrirDesdeLaBarra(page);
-  // Cuando acaba de subir (la hoja entra deslizándose desde abajo).
-  await expect.poll(async () => { const b = await panel(page).boundingBox(); return b ? Math.round(b.y + b.height) : 9999; }).toBeLessThanOrEqual(844);
-  const caja = await panel(page).boundingBox();
-  expect(caja!.y).toBeGreaterThan(30); // hoja, no pantalla completa
-  await panel(page).getByRole('button', { name: '¿Qué clases hay mañana?' }).click();
-  await expect(panel(page).locator('[data-bloque="clases"]')).toBeVisible();
-  const campo = await panel(page).getByLabel('Pregunta sobre tu estudio').boundingBox();
-  expect(campo!.y + campo!.height).toBeLessThanOrEqual(844);
+  await sugerencia(page, '¿Qué clases hay mañana?').click();
+  await expect(chat(page).locator('[data-bloque="clases"]')).toBeVisible();
+  const campo = await campoChat(page).boundingBox();
+  // Por encima de la barra de navegación de abajo (56 px).
+  expect(campo!.y + campo!.height).toBeLessThanOrEqual(844 - 56);
   expect(n.preguntas).toBeGreaterThan(0);
+  await chat(page).getByRole('button', { name: 'Tus conversaciones' }).click();
+  await expect(page.getByRole('dialog', { name: 'Tus conversaciones' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Tus conversaciones' }).getByRole('button', { name: 'Nueva conversación' })).toBeVisible();
 });
 
 // ── Capturas para revisar a ojo (solo con ASISTENTE_CAPTURAS=<carpeta>) ─────
@@ -317,8 +325,6 @@ const LISTA = [
   { id: '3b0c0d0e-1111-4222-8333-944445555666', titulo: 'Quiero hacer un taller: ¿qué día me conviene?', ultimaEn: new Date(Date.now() - 12 * 86_400_000).toISOString() },
   { id: '4b0c0d0e-1111-4222-8333-944445555666', titulo: '¿Cuánto cobré con Laura Martín el mes pasado?', ultimaEn: new Date(Date.now() - 40 * 86_400_000).toISOString() },
 ];
-
-const chat = (page: Page) => page.getByTestId('chat-asistente');
 
 for (const tema of ['claro', 'oscuro'] as const) {
   for (const ancho of [1280, 390] as const) {

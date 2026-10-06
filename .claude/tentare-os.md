@@ -1552,6 +1552,30 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
   autoservicio de la clase fija con nombre por estudio, y que lo automático cubra también pausas (hoy las decide siempre el
   estudio).
 
+## «Pregúntale a Tentare» — el asistente (fase 1, solo lectura, 6-oct-2026)
+
+Servidor en `lib/asistente/` + `app/api/asistente/**`; interfaz: un CHAT a pantalla completa en
+`/asistente` (fundador, 6-oct: «como ChatGPT, Gemini, Claude»), `components/asistente/vista-chat.tsx`,
+con las conversaciones a la izquierda (cajón en móvil) y las tarjetas dentro de la respuesta.
+Puertas en `lib/asistente-context.tsx`. Lo que no se reabre:
+
+- **Interruptor** `ASISTENTE_IA`: `on`, `estudios:<id1>,<id2>` (solo esos) o apagado
+  (`lib/asistente/interruptor.ts`). Las puertas (barra del Centro de Control, fila de ⌘K, ⌘J)
+  preguntan UNA vez por sesión con `GET /api/asistente/saldo?solo=disponible` y no se pintan
+  si el rol (`ROLES_ASISTENTE`), el plan (feature `asistente`) o el servidor dicen que no.
+- **Nada del asistente en el chunk del panel**: el chat es el chunk de la ruta `/asistente`
+  (lo mide `e2e/asistente.spec.ts`). Salir desmonta la vista y corta el stream. La pregunta que
+  trae una puerta viaja en memoria, NUNCA en la URL (puede llevar un nombre).
+- **Tokens**: un solo juego de herramientas para todos los roles (una sola caché; la puerta
+  por rol es `ejecutarHerramienta`), prefijo con TTL de 1 h, historial compactado a
+  pregunta + respuesta (`lib/asistente/historial.ts`), resultados sin repetir el glosario.
+  ⚠️ Cualquier byte que cambie en el prompt o en las herramientas parte la caché de TODOS
+  los estudios: el prompt es una constante y el orden de herramientas es fijo.
+- **Tenti** va solo en el chat (`components/tenti/tenti-asistente.tsx`): grande en el saludo y
+  de avatar VIVO solo en la respuesta en curso (las terminadas, el dibujo quieto, sin canvas),
+  con momentos que traduce `lib/tenti/asistente.ts`; nunca en una tarjeta. Suena una vez
+  ('pop') al terminar una respuesta con datos.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
