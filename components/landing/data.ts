@@ -65,55 +65,68 @@ export const PLANS = [
   },
 ];
 
-// Las 8 preguntas de la home (rediseño 23-sep; eran 14). Alimentan también el
-// JSON-LD FAQPage de StructuredData, así que lo que se lee aquí es lo que
-// Google ve. Cada respuesta está cruzada con el código — registro de
-// afirmaciones de la Fase 1: la prueba es del plan que eliges (no «todo
-// abierto»), la migración no tiene plazo garantizado, WhatsApp solo con la
-// cuenta de Meta del estudio y la exportación son CSV.
+// Las 10 preguntas de la home (6-oct-2026; eran 11, y antes 14). Alimentan
+// también el JSON-LD FAQPage de StructuredData, así que lo que se lee aquí es
+// lo que Google ve. Formato citable: la respuesta va PRIMERO y el matiz después.
+// Cada respuesta está cruzada con el código:
+//  · los precios y los topes salen de PLANS (arriba), no se escriben dos veces;
+//  · el asistente (lib/asistente): consulta y PROPONE clases, salas, eventos y
+//    citas, nada se crea sin confirmar; no cobra, no borra, no edita, no
+//    escribe a nadie; lo usan propietaria y gerencia; límite mensual por plan;
+//  · (va la última: no es lo que más busca un estudio) la sustitución espera el visto bueno en el modo por defecto (asistido) y
+//    nunca cancela la clase sola; el autónomo es del plan Estudio;
+//  · varias sedes = plan Cadena, un acceso con selector de sede, sin vista que
+//    las sume; la prueba es del plan que eliges (no «todo abierto»); la
+//    migración no tiene plazo garantizado; las tarjetas guardadas no se migran;
+//    la exportación son CSV.
+// Se quitaron las dos preguntas que nombraban otras marcas y la que repetía
+// «Nº1»: la home habla a quien ya tiene programa sin compararse (la comparativa
+// vive en /comparativa).
+const PRECIOS_FAQ = PLANS.map((p) => `${p.name} (${p.price.replace('€', ' €')})`);
+
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
-    q: '¿Qué programa necesito para gestionar un centro de Pilates?',
-    a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer, los bonos y las cuotas, los cobros con tarjeta o SEPA y las bajas de las instructoras. Tentare, el software Nº1 para estudios y centros de Pilates, hace todo eso desde 29 €/mes con IVA, sin permanencia.',
+    q: '¿Qué programa necesito para gestionar un centro de Pilates o yoga?',
+    a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer con su lista de espera, los bonos y las cuotas, los cobros y el calendario. Tentare es un software hecho para estudios y centros de Pilates que reúne todo eso en un panel, con una app con tu marca para las alumnas. Interfaz y soporte en español.',
   },
   {
-    q: '¿Qué software de reservas es mejor para Pilates?',
-    a: 'Uno que reserve por plaza de reformer, con lista de espera automática y app para las alumnas. Es lo que hace Tentare: cada alumna elige su reformer y reserva y cancela sola desde el móvil.',
+    q: '¿Puedo traer mis alumnas desde Excel u otro programa?',
+    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Si prefieres, lo hacemos contigo; las tarjetas guardadas no se pueden pasar de una plataforma a otra y te ayudamos con ese paso.',
   },
   {
-    q: '¿Qué software utilizan los estudios de Pilates?',
-    a: 'En España, los más usados son bsport, TIMP, Eversports, Momence, Mindbody y Tentare. Tentare está hecho para estudios de Pilates, con precio público y sin permanencia. Los tienes comparados en nuestra comparativa.',
-  },
-  {
-    q: '¿La prueba pide tarjeta?',
-    a: 'No. Son 7 días gratis del plan que elijas y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada; si no eliges plan, se pausa y tus datos siguen ahí.',
-  },
-  {
-    q: '¿Cuánto tarda ponerlo en marcha?',
-    a: 'Tu horario y tu página de reservas quedan listos en tu primera sesión: el asistente te propone la semana con tus salas y tus clases, y tú la confirmas. Los cobros online se activan al conectar tu cuenta de Stripe, y el resto lo vas activando a tu ritmo.',
-  },
-  {
-    q: '¿Puedo traer mis datos de otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Si prefieres, lo hacemos contigo. Las tarjetas guardadas no se pueden pasar de una plataforma a otra: te ayudamos con ese paso.',
-  },
-  {
-    q: '¿Mis alumnas tienen que descargar algo?',
-    a: 'No. Reservan desde tu página de reservas o desde la app de tu estudio, que se añade a la pantalla de inicio del móvil con tu nombre y tu icono, sin pasar por la App Store. Reciben los avisos de cada cambio en el móvil y por email.',
-  },
-  {
-    q: '¿Y si ninguna instructora acepta la sustitución?',
-    a: 'Te avisa enseguida para que decidas: volver a buscar, reprogramar la clase o cancelarla avisando a las alumnas. La clase nunca se cancela sola.',
-  },
-  {
-    q: '¿Cómo cobro a mis alumnas?',
-    a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. Tentare no se queda comisión de tus cobros. También puedes apuntar pagos en efectivo o por transferencia.',
+    q: '¿Cuánto cuesta Tentare?',
+    a: `Desde ${PLANS[0].price.replace('€', ' €')} al mes con IVA. Hay tres planes públicos: ${PRECIOS_FAQ.join(', ')}; el de Cadena es para varias sedes. Pagas mes a mes, Tentare no se queda comisión de lo que cobras a tus alumnas y la prueba de 7 días no pide tarjeta.`,
   },
   {
     q: '¿Hay permanencia?',
     a: 'Ninguna. Pagas mes a mes y te vas cuando quieras. Tus datos son tuyos: exportas alumnas, reservas, suscripciones, recibos y pagos cuando lo necesites.',
   },
   {
+    q: '¿Sirve también para estudios de yoga?',
+    a: 'Sí. Las clases, las salas, las reservas con lista de espera, los bonos, las cuotas y los cobros funcionan igual para yoga, para Pilates o para un centro que combine las dos disciplinas: tú das nombre a cada tipo de clase. Lo que es propio del Pilates reformer, como el mapa para elegir máquina, es opcional y no hace falta en una sala de yoga.',
+  },
+  {
+    q: '¿Mis alumnas tienen una app?',
+    a: 'Sí: una app con el nombre, el logo y los colores de tu estudio. Se añade a la pantalla de inicio del móvil, y desde ella reservan, cancelan, ven su bono y pagan sus recibos; reciben los avisos en el móvil y por email. Si prefieren no instalar nada, también pueden reservar desde tu página de reservas.',
+  },
+  {
+    q: '¿Cómo cobro a mis alumnas?',
+    a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. También puedes apuntar pagos en efectivo o por transferencia, y cada cobro genera su recibo y su factura.',
+  },
+  {
+    q: '¿Sirve para varios centros o sedes?',
+    a: 'Sí, con el plan Cadena: varias sedes con un solo acceso y un selector de sede, y los datos de cada una separados. Todavía no hay una vista que sume todas las sedes a la vez.',
+  },
+  {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',
-    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. Tentare está diseñado con el RGPD en mente.',
+    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. Los datos se alojan en la Unión Europea y Tentare está diseñado con el RGPD en mente.',
+  },
+  {
+    q: '¿Qué es «Pregúntale a Tentare»?',
+    a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia, y viene en todos los planes con un límite de consultas al mes.',
+  },
+  {
+    q: '¿Qué pasa si una instructora cancela su clase?',
+    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. El plan Estudio añade un modo autónomo.',
   },
 ];

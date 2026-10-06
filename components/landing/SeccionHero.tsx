@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, RefreshCw, UserCheck, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, Hourglass, RefreshCw, type LucideIcon } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { ALTA, NAV_V5 } from './enlaces';
@@ -10,6 +10,7 @@ import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
 import { FIN_MONTAJE } from './IntroLogo';
 import { PLANS } from './data';
+import { useIslaCompacta } from './use-isla-compacta';
 
 // El precio más bajo, del mismo sitio que la sección de precios: si cambia la
 // tarifa, no se queda una cifra vieja en el primer pantallazo.
@@ -72,13 +73,16 @@ const PROPORCION_ESCRITORIO = proporcion(FOTOS.heroe.recortes.escritorio);
 const PROPORCION_MOVIL = proporcion(FOTOS.heroe.recortes.movil);
 
 const TARJETAS: Tarjeta[] = [
-  { Icono: UserCheck, etiqueta: 'Sustitución', estado: 'Cubierta', texto: 'Julia da la clase de las 19:00', nota: 'Aceptó tras tu visto bueno' },
+  { Icono: Hourglass, etiqueta: 'Lista de espera', estado: 'Plaza ocupada', texto: 'Carmen entra en Reformer 19:00', nota: 'Se liberó una plaza y pasó sola' },
   { Icono: CalendarCheck, etiqueta: 'Reserva nueva', estado: 'Confirmada', texto: 'Reformer 3 · mar 09:00', nota: 'Lucía reservó desde la app', arena: true, soloEscritorio: true },
   { Icono: RefreshCw, etiqueta: 'Recibo reintentado', estado: 'Cobrado', texto: 'Cuota mensual de Ana', nota: 'Con su tarjeta guardada' },
 ];
 
 export function SeccionHero() {
   const [menuAbierto, setMenuAbierto] = useState(false);
+  // La isla se encoge al bajar y se alarga al subir (use-isla-compacta.ts).
+  const isla = useRef<HTMLElement>(null);
+  useIslaCompacta(isla);
 
   // Con el menú a pantalla completa abierto, la página de detrás no debe
   // desplazarse (en iOS el scroll "atraviesa" el overlay si no se bloquea).
@@ -91,20 +95,25 @@ export function SeccionHero() {
 
   return (
     <>
-      <nav className="v5-nav" aria-label="Principal">
+      <nav ref={isla} className="v5-nav" aria-label="Principal">
         <a href="#top" className="v5-nav-logo" aria-label="Tentare — inicio">
           <LogoTentare formato="isotipo" tinta="color" alto={30} decorativo />
         </a>
-        <div className="v5-nav-links">
-          {NAV_V5.map((l) => (
-            <a key={l.href} href={l.href}>{l.label}</a>
-          ))}
-          <Link href="/recursos">Recursos</Link>
+        {/* Lo que se esconde al encogerse va dentro de un envoltorio de rejilla
+            que pasa de 1fr a 0fr: así el ancho de la isla (fit-content) se
+            anima sin medir nada con JavaScript. */}
+        <div className="v5-nav-col v5-nav-col-links">
+          <div className="v5-nav-links">
+            {NAV_V5.map((l) => (
+              <a key={l.href} href={l.href}>{l.label}</a>
+            ))}
+            <Link href="/recursos">Recursos</Link>
+          </div>
         </div>
-        <div className="v5-nav-acciones">
+        <div className="v5-nav-col v5-nav-col-entrar">
           <Link href="/login" className="v5-nav-entrar">Entrar</Link>
-          <Link href={ALTA} className="v5-nav-cta">Probar Tentare</Link>
         </div>
+        <Link href={ALTA} className="v5-nav-cta">Probar Tentare</Link>
         <button
           type="button"
           className="v5-nav-burger"
@@ -148,7 +157,7 @@ export function SeccionHero() {
               <span className="v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
             </h1>
             <p className="v5-hero-lead">
-              Tus alumnas reservan y cancelan desde tu app, las bajas encuentran quien las cubra y los cobros
+              Tus alumnas reservan desde tu app, la lista de espera llena las plazas que se liberan y los cobros
               se reintentan solos. Tú solo decides lo que necesita tu criterio.
             </p>
             <div className="v5-hero-acciones">
@@ -190,7 +199,7 @@ export function SeccionHero() {
               ))}
             </div>
             <figcaption className="v5-hero-oculto">
-              Ejemplos de avisos de Tentare sobre una clase de Pilates: una sustitución cubierta tras tu visto bueno,
+              Ejemplos de avisos de Tentare sobre una clase de Pilates: una plaza de la lista de espera ocupada,
               una reserva confirmada y un recibo cobrado al reintentarlo.
             </figcaption>
           </figure>
@@ -198,19 +207,50 @@ export function SeccionHero() {
       </header>
 
       <style>{`
-        .v5-nav { position: sticky; top: 14px; z-index: 60; display: flex; align-items: center; gap: clamp(10px,1.6vw,22px);
+        /* LA ISLA. Cristal de verdad (blur + saturación sobre lo que pasa por
+           detrás) con borde fino y un reflejo arriba; si el navegador no sabe
+           de backdrop-filter, fondo sólido (abajo). Encogida (data-compacta,
+           al bajar) deja el logo y el botón; al subir recupera todo. El alto no
+           cambia nunca: la barra va en el flujo (sticky) y el héroe sube por
+           debajo de ella, así que encoger NO mueve nada de la página. */
+        .v5-nav { position: sticky; top: 14px; z-index: 60; display: flex; align-items: center;
           width: fit-content; max-width: calc(100vw - 28px); margin: 0 auto; padding: 8px 8px 8px 18px;
-          border-radius: 999px; background: rgba(255,255,255,.72); backdrop-filter: blur(20px) saturate(1.6);
-          border: 1px solid rgba(255,255,255,.6); box-shadow: 0 14px 44px rgba(26,26,26,.16); white-space: nowrap; }
-        .v5-nav-logo { display: flex; align-items: center; flex-shrink: 0; }
-        .v5-nav-links { display: flex; gap: clamp(10px,1.6vw,20px); }
+          border-radius: 999px; background: rgba(255,255,255,.62);
+          -webkit-backdrop-filter: blur(22px) saturate(1.7); backdrop-filter: blur(22px) saturate(1.7);
+          border: 1px solid rgba(255,255,255,.7);
+          box-shadow: 0 14px 44px rgba(26,26,26,.14), inset 0 1px 0 rgba(255,255,255,.8);
+          white-space: nowrap;
+          transition: box-shadow .4s var(--motion-ease), background-color .4s var(--motion-ease); }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .v5-nav { background: #F6F5EF; }
+        }
+        .v5-nav[data-compacta] { box-shadow: 0 10px 30px rgba(26,26,26,.16), inset 0 1px 0 rgba(255,255,255,.8); background: rgba(255,255,255,.7); }
+        .v5-nav-logo { display: flex; align-items: center; flex-shrink: 0; margin-right: 6px; }
+
+        /* Envoltorio que se pliega: 1fr → 0fr. Al alargarse, un resorte ligero
+           (rebasa un pelo y se asienta); al encogerse, una curva limpia y más
+           corta. Los enlaces plegados quedan fuera del orden de tabulación
+           (visibility) una vez terminada la transición. */
+        .v5-nav-col { display: grid; grid-template-columns: 1fr; min-width: 0; opacity: 1; visibility: visible;
+          transition: grid-template-columns .55s cubic-bezier(.34,1.32,.5,1), opacity .3s ease .08s, visibility 0s; }
+        .v5-nav-col > * { min-width: 0; overflow: hidden; }
+        .v5-nav[data-compacta] .v5-nav-col { grid-template-columns: 0fr; opacity: 0; visibility: hidden;
+          transition: grid-template-columns .4s cubic-bezier(.4,0,.2,1), opacity .18s ease, visibility 0s .4s; }
+
+        .v5-nav-links { display: flex; gap: clamp(10px,1.6vw,20px); padding: 0 clamp(10px,1.6vw,22px) 0 clamp(8px,1.2vw,16px); }
         .v5-nav-links a { font-size: 14px; font-weight: 600; color: #3B3B34; }
         .v5-nav-links a:hover { color: #1A1A1A; }
-        .v5-nav-acciones { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-        .v5-nav-entrar { font-size: 14px; font-weight: 600; color: #1A1A1A; padding: 9px 8px; }
+        .v5-nav-entrar { display: block; font-size: 14px; font-weight: 600; color: #1A1A1A; padding: 9px 12px; }
         .v5-nav-cta { flex-shrink: 0; background: #343825; color: #D9C29E; padding: 9px 18px; border-radius: 999px;
           font-weight: 700; font-size: 14px; transition: background .2s; }
         .v5-nav-cta:hover { background: #22251A; }
+
+        /* Sin animación de ancho para quien pidió menos movimiento: la isla
+           cambia de golpe (sigue encogiéndose, que es información de layout,
+           pero sin transición). */
+        @media (prefers-reduced-motion: reduce) {
+          .v5-nav, .v5-nav-col, .v5-nav[data-compacta] .v5-nav-col { transition: none; }
+        }
 
         .v5-nav-burger { display: none; width: 40px; height: 40px; flex-shrink: 0; border-radius: 999px;
           border: 1px solid rgba(26,26,26,.12); background: rgba(255,255,255,.6); cursor: pointer;
@@ -218,10 +258,12 @@ export function SeccionHero() {
         .v5-nav-burger span { display: block; width: 16px; height: 2px; border-radius: 2px; background: #1A1A1A; }
         .v5-nav-burger:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
         @media (max-width: 760px) {
-          .v5-nav-links { display: none; }
-          .v5-nav-burger { display: flex; }
+          .v5-nav-col-links { display: none; }
+          .v5-nav-burger { display: flex; margin-left: 8px; }
+          .v5-nav-cta { margin-left: 8px; transition: background .2s, padding .4s var(--motion-ease); }
+          .v5-nav[data-compacta] .v5-nav-cta { padding: 9px 14px; }
         }
-        @media (max-width: 420px) { .v5-nav-entrar { display: none; } }
+        @media (max-width: 420px) { .v5-nav-col-entrar { display: none; } }
 
         .v5-menu { position: fixed; inset: 0; z-index: 120; background: #0F0F0F; color: #fff;
           display: flex; flex-direction: column; overflow-y: auto;

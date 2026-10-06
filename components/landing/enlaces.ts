@@ -41,7 +41,7 @@ export const WHATSAPP_SOPORTE = '+34603556580';
 /** Menú superior. Anclas: el recorrido de la landing es la propia página. */
 export const NAV_V5: EnlaceNav[] = [
   { href: '#funcionalidades', label: 'Funcionalidades' },
-  { href: '#sustituciones', label: 'Sustituciones' },
+  { href: '#app', label: 'App para alumnas' },
   { href: '#precio', label: 'Precios' },
   { href: '#faq', label: 'FAQ' },
 ];

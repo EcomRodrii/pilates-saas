@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
 import { SeccionGuias } from '@/components/landing/SeccionGuias';
+import { SeccionBento } from '@/components/landing/SeccionBento';
+import { SeccionEnUnaFrase } from '@/components/landing/SeccionEnUnaFrase';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 // La home tiene sus PROPIOS metadatos (fase 5 del SEO, 23-sep). Hasta entonces
@@ -15,8 +17,8 @@ import { paginaDe, urlDe } from '@/lib/seo/paginas';
 const pagina = paginaDe('/')!;
 
 const COMPARTIR = {
-  titulo: 'El software que lleva tu estudio de Pilates.',
-  descripcion: 'Reservas, cobros y equipo en un panel — y el único que cubre una baja de instructor solo.',
+  titulo: 'El software que lleva tu estudio de Pilates y yoga.',
+  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Pruébalo 7 días gratis, sin tarjeta.',
   imagen: '/og-image.png',
   alt: 'Tentare',
 };
@@ -54,5 +56,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <LandingCliente guias={<SeccionGuias />} />;
+  return <LandingCliente guias={<SeccionGuias />} bento={<SeccionBento />} frase={<SeccionEnUnaFrase />} />;
 }

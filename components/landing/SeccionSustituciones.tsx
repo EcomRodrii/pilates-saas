@@ -94,7 +94,7 @@ export function SeccionSustituciones() {
     >
       <div className="v5-sust-wrap">
         <header className="v5-sust-head lp-rv">
-          <h2 id="v5-sust-h" className="v5-sust-h2">La baja se cubre sola.</h2>
+          <h2 id="v5-sust-h" className="v5-sust-h2">Si una instructora falla, tú das el visto bueno.</h2>
           <p className="v5-sust-lead">
             Una instructora cancela a las 16:42: Tentare sabe quién puede dar esa clase, te la propone y, con tu
             visto bueno, la contacta, insiste por ti y te lo trae resuelto. Si nadie puede, te avisa y decides tú.
@@ -180,7 +180,7 @@ export function SeccionSustituciones() {
       </div>
 
       <style>{`
-        .v5-sust { background: #131313; padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); }
+        .v5-sust { background: #131313; padding: clamp(40px,5vw,64px) clamp(20px,4vw,48px); }
         .v5-sust-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-sust-head { max-width: 820px; margin-bottom: clamp(36px,4.5vw,56px); }
         .v5-sust-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800;
