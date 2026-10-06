@@ -41,8 +41,11 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
   hrefClaseFija: string;
   /** Sin cuota ni bono, la tienda (solo si el estudio vende algo). */
   hrefTienda: string | null;
-  /** Un recibo de su cuota sin pagar: se dice en la línea de la cuota, en vez de la próxima renovación. */
-  debe?: { importe: number } | null;
+  /**
+   * Un recibo de su cuota sin pagar (`deudaDeLaCuota`): se dice en la línea de la cuota, en vez de la próxima renovación.
+   * Con `aviso` (lo cobra su banco, su tarjeta o el estudio), esa frase, no «Pago pendiente».
+   */
+  debe?: { importe: number; aviso: string | null } | null;
   /** Otros recibos que puede pagar ella en la app (`porPagarEnLaApp`, sin el de la cuota): una línea, a Recibos. */
   porPagar?: readonly PorPagar[];
   hrefRecibos?: string;
@@ -83,7 +86,7 @@ export function LoTuyo({ slug, t, hoy, racha, hrefMiPlan, hrefClaseFija, hrefTie
         <Linea
           icono="bono" href={hrefMiPlan} testId="lo-tuyo-cuota"
           titulo={<><b>Tu cuota</b> · {semanaTexto ?? tope}</>}
-          sub={debe ? `Pago pendiente · ${euros(debe.importe)}` : textoRenovacionCorto(t.cuota)}
+          sub={debe ? (debe.aviso ?? `Pago pendiente · ${euros(debe.importe)}`) : textoRenovacionCorto(t.cuota)}
         />
       )}
       {t.bono && t.saldo && (

@@ -10,8 +10,7 @@ import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getPagos, getPlazaFija, getMinimoRacha, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
-import { porPagarEnLaApp } from '@/lib/student/mi-plan-vista';
-import { pagosPendientes } from '@/lib/student/pagos-agrupados';
+import { deudaDeLaCuota, porPagarEnLaApp } from '@/lib/student/mi-plan-vista';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
@@ -196,10 +195,12 @@ export default function InicioPage() {
   // «Lo tuyo»: con algo que contar (cuota, bono, clase fija o recuperaciones). Sin nada de eso, la línea «Sin cuota ni
   // bono» solo a quien ya ha venido y solo si su estudio vende algo: a la recién llegada ya le habla su bienvenida.
   const yaVino = !!data && data.reservas.some((r) => r.estado === 'asistida');
-  const debeCuota = data && loTengo?.cuota ? pagosPendientes(data.pagos).find((p) => p.bonoId === loTengo.cuota?.id) ?? null : null;
-  // Lo que puede pagar ELLA desde la app (la regla del servidor, `cobro-recibo-alumna`, la misma que Mi plan y Recibos):
-  // lo que cobrará su banco o su estudio no se le pide aquí. El recibo de su cuota ya lo dice la línea de la cuota.
-  const porPagar = data ? porPagarEnLaApp(data.pagos, data.renovacion).filter((p) => p.reciboId !== debeCuota?.id) : [];
+  // El recibo de su cuota lo dice la línea de la cuota, con la regla del servidor (`deudaDeLaCuota`): «Pago pendiente» si
+  // lo paga ella, y si lo cobra su banco o su tarjeta, la frase de Recibos («No tienes que hacer nada»).
+  const debeCuota = data && loTengo?.cuota ? deudaDeLaCuota(data.pagos, loTengo.cuota.id, hoy) : null;
+  // Lo demás que puede pagar ELLA desde la app (`cobro-recibo-alumna`, la misma regla que Mi plan y Recibos): lo que
+  // cobrará su banco o su estudio no se le pide aquí.
+  const porPagar = data ? porPagarEnLaApp(data.pagos, data.renovacion).filter((p) => !(debeCuota?.pagaElla && p.reciboId === debeCuota.reciboId)) : [];
   const loTuyo = data && loTengo && (tieneAlgo(loTengo) || porPagar.length > 0 || (yaVino && data.hayAlgoALaVenta)) ? (
     <LoTuyo
       slug={estudio.slug} t={loTengo} hoy={hoy} racha={racha}

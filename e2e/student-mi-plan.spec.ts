@@ -336,4 +336,21 @@ test.describe('Inicio y Perfil · lo que tiene por pagar', () => {
     await expect(page.getByTestId('lo-tuyo-cuota')).toContainText('Pago pendiente · 89 €', { timeout: 45_000 });
     await expect(page.getByTestId('lo-tuyo-pago')).toHaveCount(0);
   });
+
+  test('si el recibo de su cuota lo cobra su banco, la línea de la cuota lo dice así (Inicio y Mi plan), sin «pendiente»', async ({ page }) => {
+    await montar(page, {
+      bono: null, cuota: true,
+      payload: (f) => {
+        socia(f).recibos = [{ ...RECIBO, id: 'rec-cuota', concepto: 'Cuota de agosto', importe: 89, suscripcionId: 'sus-mes' }];
+        socia(f).cobroRecibos = { 'rec-cuota': { como: 'BANCO', via: 'sepa', desde: '2026-08-20' } };
+      },
+    });
+    await abrir(page, '');
+    const cuota = page.getByTestId('lo-tuyo-cuota');
+    await expect(cuota).toContainText('Lo cobrará tu banco el 20 ago. No tienes que hacer nada.', { timeout: 45_000 });
+    await expect(cuota).not.toContainText('Pago pendiente');
+    await expect(page.getByTestId('lo-tuyo-pago')).toHaveCount(0);
+    await abrir(page, '/bonos');
+    await expect(page.getByTestId('cuota-vigencia')).toHaveText('Cuota de agosto · 89 €. Lo cobrará tu banco el 20 ago. No tienes que hacer nada.', { timeout: 30_000 });
+  });
 });

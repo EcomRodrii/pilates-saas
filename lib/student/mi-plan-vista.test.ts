@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  etiquetaCaducidad, lineaRecibo, recibosPagables, recibosQueDebe, resumenClaseFija, subtituloTienda, textoCobro, textoHasta,
+  deudaDeLaCuota, etiquetaCaducidad, lineaRecibo, recibosPagables, recibosQueDebe, resumenClaseFija, subtituloTienda, textoCobro, textoHasta,
   hayDeudaQueNoSePagaAqui, porPagarEnLaApp, textoQuedaSemana, textoRecuperaciones, textoRenovacionCuota, textoSaldoDe, verLoQueEs,
 } from './mi-plan-vista.ts';
 import type { Bono, Pago, PlazaFijaVista } from './tipos.ts';
@@ -134,4 +134,22 @@ test('«Renovar mi plan» no se ofrece si hay una deuda que no se paga aquí (o 
   assert.equal(hayDeudaQueNoSePagaAqui([app, banco], [app, banco]), true);
   assert.equal(hayDeudaQueNoSePagaAqui([sinDato], [sinDato]), true);
   assert.equal(hayDeudaQueNoSePagaAqui([], []), false);
+});
+
+test('la línea de la cuota: «pendiente» solo si lo paga ella; si lo cobra otro, la frase de Recibos', () => {
+  const banco = pago({ id: 'b', bonoId: 'q1', cobro: { como: 'BANCO', via: 'sepa', desde: '2026-11-01' } });
+  const app = pago({ id: 'a', bonoId: 'q1', importe: 45, cobro: { como: 'APP' } });
+  // Lo del banco no es «Pago pendiente»: es «Lo cobrará tu banco…».
+  assert.deepEqual(deudaDeLaCuota([banco], 'q1', HOY), {
+    reciboId: 'b', concepto: 'Cuota de octubre', importe: 89, pagaElla: false,
+    aviso: 'Lo cobrará tu banco el 1 nov. No tienes que hacer nada.',
+  });
+  // Con uno del banco y otro que paga ella, manda el suyo (y así no salen dos «Pago pendiente» distintos en Inicio).
+  assert.equal(deudaDeLaCuota([banco, app], 'q1', HOY)?.reciboId, 'a');
+  assert.equal(deudaDeLaCuota([banco, app], 'q1', HOY)?.aviso, null);
+  // Sin saber quién lo cobra: «pendiente», sin frase inventada.
+  assert.equal(deudaDeLaCuota([pago({ id: 's', bonoId: 'q1' })], 'q1', HOY)?.aviso, null);
+  // De otra cuota, o ya cobrado: nada.
+  assert.equal(deudaDeLaCuota([pago({ bonoId: 'otra', cobro: { como: 'APP' } })], 'q1', HOY), null);
+  assert.equal(deudaDeLaCuota([pago({ bonoId: 'q1', estado: 'success' })], 'q1', HOY), null);
 });

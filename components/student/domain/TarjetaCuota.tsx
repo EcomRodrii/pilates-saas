@@ -25,8 +25,11 @@ export function TarjetaCuota({ slug, cuota, pagos, fijas, nombresTipo, hoy, href
   nombresTipo: Record<string, string>;
   hoy: string;
   hrefClaseFija: string;
-  /** Un recibo de ESTA cuota sin pagar: se dice en vez de «Próxima renovación» (no se anuncia la siguiente con una debida). */
-  debe?: { concepto: string; importe: number } | null;
+  /**
+   * Un recibo de ESTA cuota sin pagar (`deudaDeLaCuota`): se dice en vez de «Próxima renovación» (no se anuncia la
+   * siguiente con una debida). Con `aviso`, lo cobra otro (su banco, su tarjeta, el estudio) y se dice así, sin alarma.
+   */
+  debe?: { concepto: string; importe: number; aviso: string | null } | null;
 }) {
   const pagosEtiqueta = etiquetaPagos(pagos, cuota.id);
   const topes = textoTopes(cuota, nombresTipo);
@@ -49,7 +52,9 @@ export function TarjetaCuota({ slug, cuota, pagos, fijas, nombresTipo, hoy, href
         {!conTope && <p className="t-meta" style={{ margin: '3px 0 0' }}>{topes ?? 'Sin máximo semanal'}</p>}
       </div>
       {conTope && <SemanaCuota slug={slug} suscripcionId={cuota.id} nombresTipo={nombresTipo} />}
-      {debe
+      {debe?.aviso
+        ? <p className="t-meta" data-testid="cuota-vigencia" style={{ margin: 0 }}>{debe.concepto} · {euros(debe.importe)}. {debe.aviso}</p>
+        : debe
         // `.note--warn`: su pareja de tokens está calibrada a 4,5:1 también en los estilos oscuros (Carbón).
         ? <p className="note note--warn" data-testid="cuota-vigencia" style={{ margin: 0, fontWeight: 700 }}>Pendiente de pago: {debe.concepto} · {euros(debe.importe)}</p>
         : <p className="t-meta" data-testid="cuota-vigencia" style={{ margin: 0 }}>{textoRenovacionCuota(cuota)}</p>}

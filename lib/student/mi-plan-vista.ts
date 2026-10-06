@@ -12,6 +12,7 @@ import type { CobroDeReciboAlumna } from '../billing/cobro-recibo-alumna.ts';
 import type { FamiliaProducto } from './tienda.ts';
 import type { Bono, Pago, PlazaFijaVista } from './tipos.ts';
 import { nombreDia } from './plaza-fija.ts';
+import { pagosPendientes } from './pagos-agrupados.ts';
 
 /** «31 oct», sin el día de la semana. */
 export function diaMes(iso: string): string {
@@ -204,6 +205,22 @@ export function lineaRecibo(p: Pick<Pago, 'concepto' | 'vence'>, hoy: string): s
 /** «Ver tu cuota» o «Ver tu bono» según lo que es (la palabra de cada cosa, nunca «bono» para una cuota). */
 export function verLoQueEs(b: Pick<Bono, 'creditosTotales' | 'tipoPlan'> | null | undefined): string {
   return esCuota(b) ? 'Ver tu cuota' : 'Ver tu bono';
+}
+
+/**
+ * El recibo que debe de SU cuota, para la línea de la cuota (Inicio y Mi plan), y cómo se dice. Primero el que puede pagar
+ * ella; si lo cobra otro (su banco, su tarjeta guardada, el estudio), `aviso` es la MISMA frase que Recibos
+ * (`textoCobro`): «Pendiente de pago» al lado de «Lo cobrará tu banco… No tienes que hacer nada» era decirle dos cosas.
+ * Sin `cobro` del servidor (no se pudo leer), `aviso` es `null` y se dice «pendiente», que es lo único seguro.
+ */
+export function deudaDeLaCuota(
+  pagos: readonly Pago[], cuotaId: string, hoy: string,
+): { reciboId: string; concepto: string; importe: number; pagaElla: boolean; aviso: string | null } | null {
+  const suyos = pagosPendientes(pagos).filter((p) => p.bonoId === cuotaId);
+  const p = suyos.find((x) => x.cobro?.como === 'APP') ?? suyos[0];
+  if (!p) return null;
+  const pagaElla = p.cobro?.como === 'APP';
+  return { reciboId: p.id, concepto: p.concepto, importe: p.importe, pagaElla, aviso: p.cobro && !pagaElla ? textoCobro(p.cobro, hoy) : null };
 }
 
 export interface PorPagar {
