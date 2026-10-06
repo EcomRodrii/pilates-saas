@@ -11,7 +11,7 @@ export const STUDIO_ID = 'studio-test';
 export const UID = 'auth-e2e-duena';
 export const CONVERSACION = '4f1d2c3b-7a8e-4b9c-9d0e-1f2a3b4c5d6e';
 /** Un literal que solo está en components/asistente/vista-chat.tsx. */
-export const HUELLA_DEL_CHAT = 'Tentare consulta tus datos; todavía no hace cambios.';
+export const HUELLA_DEL_CHAT = 'Tentare consulta tus datos y crea clases, salas, eventos y citas si tú confirmas.';
 
 export const json = (r: Route, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) });
 export const ndjson = (eventos: unknown[]) => eventos.map(e => JSON.stringify(e)).join('\n') + '\n';
@@ -122,3 +122,95 @@ export const LISTA = [
   { id: '3b0c0d0e-1111-4222-8333-944445555666', titulo: 'Quiero hacer un taller: ¿qué día me conviene?', ultimaEn: new Date(Date.now() - 12 * 86_400_000).toISOString() },
   { id: '4b0c0d0e-1111-4222-8333-944445555666', titulo: '¿Cuánto cobré con Laura Martín el mes pasado?', ultimaEn: new Date(Date.now() - 40 * 86_400_000).toISOString() },
 ];
+
+// ── Fase 2: acciones con confirmación ───────────────────────────────────────
+
+export const ACCION_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+const EN_15_MIN = () => new Date(Date.now() + 15 * 60_000).toISOString();
+
+export const PROPUESTAS = {
+  CREAR_CLASE: {
+    texto: 'Propongo un Reformer el miércoles 7 de octubre, de 18:00 a 18:55, en Sala Grande con [EQUIPO_1], con 8 plazas. Pulsa Confirmar para crearlo.',
+    titulo: 'Crear una clase', href: '/calendario', ver: 'Ver en Calendario',
+    lineas: [['Clase', 'Reformer'], ['Día', 'miércoles 7 de octubre'], ['Hora', '18:00–18:55'], ['Sala', 'Sala Grande'], ['Instructora', '[EQUIPO_1]'], ['Plazas', '8']],
+    avisos: [], efecto: null,
+  },
+  CREAR_SALA: {
+    texto: 'Propongo una sala nueva, Terraza, con 6 plazas. Pulsa Confirmar para crearla.',
+    titulo: 'Crear una sala', href: '/configuracion?tab=estudio&abrir=salas', ver: 'Ver en Configuración',
+    lineas: [['Sala', 'Terraza'], ['Aforo', '6 plazas']], avisos: [], efecto: null,
+  },
+  CREAR_EVENTO: {
+    texto: 'Propongo publicar el taller de respiración el sábado 10 de octubre a las 11:00, con 12 plazas. Pulsa Confirmar para publicarlo.',
+    titulo: 'Publicar un evento', href: '/comunidad', ver: 'Ver en Comunidad',
+    lineas: [['Anuncio', 'Taller de respiración con Marta'], ['Día', 'sábado 10 de octubre'], ['Hora', '11:00'], ['Lugar', 'Terraza'], ['Plazas', '12']],
+    avisos: [], efecto: 'Se publica en la Comunidad de la app y se avisa a todas las alumnas con una notificación.',
+  },
+  CREAR_CITA: {
+    texto: 'Propongo una valoración de [ALUMNA_1] con [EQUIPO_1] el jueves 8 de octubre de 10:00 a 11:00. Pulsa Confirmar para crearla.',
+    titulo: 'Crear una cita', href: '/citas', ver: 'Ver en Citas',
+    lineas: [['Alumna', '[ALUMNA_1]'], ['Con', '[EQUIPO_1]'], ['Tipo', 'Valoración'], ['Día', 'jueves 8 de octubre'], ['Hora', '10:00–11:00']],
+    avisos: ['La cita se crea sin precio ni cobro.'], efecto: null,
+  },
+} as const;
+export type TipoPropuesta = keyof typeof PROPUESTAS;
+
+export function respuestaPropuesta(tipo: TipoPropuesta, o: { expiraEn?: string; id?: string } = {}) {
+  const p = PROPUESTAS[tipo];
+  return [
+    { t: 'inicio', conversacionId: CONVERSACION, disponibles: 182 },
+    { t: 'herramienta', id: 'tu_a', nombre: 'proponer_clase', etiqueta: 'Preparando la clase…' },
+    { t: 'referencias', refs: { EQUIPO_1: { nombre: 'Marta Ruiz', href: null }, ALUMNA_1: { nombre: 'Laura Martín', href: '/clientas/soc-2' } } },
+    { t: 'bloque', id: 'tu_a-0', bloque: {
+      tipo: 'propuesta',
+      propuesta: {
+        id: o.id ?? ACCION_ID, accion: tipo, titulo: p.titulo, lineas: p.lineas.map(([etiqueta, valor]) => ({ etiqueta, valor })),
+        avisos: p.avisos, efecto: p.efecto, expiraEn: o.expiraEn ?? EN_15_MIN(), destino: { href: p.href, texto: p.ver },
+      },
+    } },
+    { t: 'texto', delta: p.texto },
+    { t: 'fin', unidades: 1, disponibles: 181, motivo: 'OK' },
+  ];
+}
+
+/**
+ * El asistente con acciones: el chat devuelve una propuesta y confirmar/cancelar
+ * van mockeados con CONTADORES (un camino de fallo sin contador es hueco).
+ * `confirmar` decide la respuesta de cada intento.
+ */
+export async function conAcciones(page: Page, o: {
+  tipo?: TipoPropuesta;
+  rol?: 'PROPIETARIO' | 'MANAGER' | 'RECEPCION';
+  expiraEn?: string;
+  confirmar?: (r: Route, intento: number) => Promise<void> | void;
+} = {}) {
+  const tipo = o.tipo ?? 'CREAR_CLASE';
+  const n = await conAsistente(page, {
+    rol: o.rol,
+    responder: (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson(respuestaPropuesta(tipo, { expiraEn: o.expiraEn })) }),
+  });
+  const acc = { confirmar: 0, cancelar: 0, cuerposConfirmar: [] as unknown[], cuerposCancelar: [] as unknown[] };
+  await page.route((u) => u.pathname === '/api/asistente/acciones/confirmar', async (r) => {
+    acc.confirmar++;
+    acc.cuerposConfirmar.push(r.request().postDataJSON());
+    if (o.confirmar) return o.confirmar(r, acc.confirmar);
+    return json(r, { estado: 'EJECUTADA', resultado: { href: PROPUESTAS[tipo].href, texto: PROPUESTAS[tipo].ver }, yaCreada: false });
+  });
+  await page.route((u) => u.pathname === '/api/asistente/acciones/cancelar', (r) => {
+    acc.cancelar++;
+    acc.cuerposCancelar.push(r.request().postDataJSON());
+    return json(r, { estado: 'CANCELADA' });
+  });
+  return { ...n, acc, tipo };
+}
+
+/** Abre el chat y pide algo: la propuesta llega como tarjeta dentro de la respuesta. */
+export async function pedirAlAsistente(page: Page, texto = 'Crea una clase de Reformer el miércoles a las 18:00') {
+  await ir(page, 'asistente');
+  await expect(chat(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 60_000 });
+  await campoChat(page).fill(texto);
+  await campoChat(page).press('Enter');
+  const tarjeta = chat(page).locator('[data-bloque="propuesta"]');
+  await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+  return tarjeta;
+}

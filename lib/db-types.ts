@@ -4099,6 +4099,21 @@ export interface RowPagosClase {
   actualizado_en: string;
 }
 
+export interface RowAsistenteAcciones {
+  id: string;
+  studio_id: string;
+  auth_user_id: string;
+  conversacion_id: string | null;
+  tipo: string;
+  estado: string;
+  payload: any;
+  resultado: any | null;
+  creada_en: string;
+  caduca_en: string;
+  reclamada_en: string | null;
+  resuelta_en: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11338,6 +11353,36 @@ export type PagosClaseUpdate = {
   actualizado_en?: string | null;
 }
 
+export type AsistenteAccionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null;
+  conversacion_id?: string | null | null;
+  tipo?: string | null;
+  estado?: string | null;
+  payload?: any | null;
+  resultado?: any | null | null;
+  creada_en?: string | null;
+  caduca_en?: string | null;
+  reclamada_en?: string | null | null;
+  resuelta_en?: string | null | null;
+}
+
+export type AsistenteAccionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null;
+  conversacion_id?: string | null | null;
+  tipo?: string | null;
+  estado?: string | null;
+  payload?: any | null;
+  resultado?: any | null | null;
+  creada_en?: string | null;
+  caduca_en?: string | null;
+  reclamada_en?: string | null | null;
+  resuelta_en?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12595,6 +12640,11 @@ export type Database = {
         Row: RowPagosClase;
         Insert: PagosClaseInsert;
         Update: PagosClaseUpdate;
+      };
+      asistente_acciones: {
+        Row: RowAsistenteAcciones;
+        Insert: AsistenteAccionesInsert;
+        Update: AsistenteAccionesUpdate;
       };
     };
   };

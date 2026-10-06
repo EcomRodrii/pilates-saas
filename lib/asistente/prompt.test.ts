@@ -17,7 +17,9 @@ test('el prompt es una constante: sin fechas, sin estudio y sin nada que cambie 
 });
 
 test('la fecha va DESPUÉS del punto de caché, en contextoDelDia', () => {
-  assert.equal(contextoDelDia({ hoy: '2026-10-05', rol: 'PROPIETARIO' }), 'Hoy es lunes 5 de octubre de 2026 (2026-10-05), hora de Madrid. Hablas con la propietaria del estudio.');
+  const c = contextoDelDia({ hoy: '2026-10-05', rol: 'PROPIETARIO' });
+  assert.match(c, /^Hoy es lunes 5 de octubre de 2026 \(2026-10-05\), hora de Madrid\. Próximos días: martes 2026-10-06; miércoles 2026-10-07;/);
+  assert.match(c, /jueves 2026-10-15\. Hablas con la propietaria del estudio\.$/);
   assert.match(contextoDelDia({ hoy: '2026-10-05', rol: 'MANAGER' }), /gerente.*No ve el dinero/);
 });
 
@@ -38,7 +40,7 @@ test('el nombre del estudio es un dato: sin saltos, sin comillas que cierren y c
   assert.equal((c.match(/«/g) ?? []).length, 1);
   assert.equal((c.match(/»/g) ?? []).length, 1);
   const largo = contextoDelDia({ hoy: '2026-10-06', rol: 'PROPIETARIO', estudio: { nombre: 'a'.repeat(300), ciudad: null, plan: null, enPrueba: false } });
-  assert.ok(largo.length < 200);
+  assert.ok(largo.length < 500);
 });
 
 test('quien escribe: su referencia va en el contexto, nunca su nombre', () => {
@@ -95,7 +97,7 @@ test('el prefijo cacheable (herramientas + prompt) pasa de 4.096 tokens también
 });
 
 test('al modelo se le enseña UN solo juego de herramientas, el mismo para propietaria y gerente (una sola caché)', () => {
-  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 12);
+  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 16);
   assert.equal(JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE), JSON.stringify(aHerramientasAnthropic(herramientasDelRol('PROPIETARIO'))));
   const chars = JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE).length + PROMPT_SISTEMA.length;
   assert.ok(chars / 4 > 4096, `~${Math.round(chars / 4)} tokens (cota baja)`);

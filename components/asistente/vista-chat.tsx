@@ -484,7 +484,7 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
             : <span className="font-medium text-foreground" data-testid="saldo-bajo">Pídele más a la propietaria</span>
         ) : (
           /* En el móvil, una sola línea bajo el campo: el saldo. */
-          <span className={saldoTexto ? 'hidden sm:inline' : undefined}>Tentare consulta tus datos; todavía no hace cambios.</span>
+          <span className={saldoTexto ? 'hidden sm:inline' : undefined}>Tentare consulta tus datos y crea clases, salas, eventos y citas si tú confirmas.</span>
         )}
       </p>
     </form>

@@ -8,6 +8,7 @@ import { asistenteEncendido, nombresDeReferencias, type SesionAsistente } from '
 import { todasLasFilas, type Pagina } from '@/lib/clientas/estado-servidor';
 import type { BloqueAsistente } from '@/lib/asistente/tipos';
 import { MAX_CONTEXTO_TOKENS } from '@/lib/asistente/limites';
+import { estadosDePropuestas } from '@/lib/asistente/acciones/servidor';
 
 // GET /api/asistente/conversaciones/[id] — reabrir una conversación: cada turno
 // como lo vio la propietaria (su pregunta, el texto y las tarjetas), sin la
@@ -45,6 +46,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!actual) continue;
     if (m.rol === 'assistant' && textos.length) actual.texto = [actual.texto, ...textos].filter(Boolean).join(' ');
     if (Array.isArray(m.bloques)) actual.bloques.push(...m.bloques);
+  }
+  // Las propuestas, como están AHORA (creada, cancelada, caducada): la tarjeta no puede ofrecer «Confirmar» de lo ya hecho.
+  const ids = turnos.flatMap(t => t.bloques).flatMap(b => (b.tipo === 'propuesta' ? [b.propuesta.id] : []));
+  const estados = await estadosDePropuestas(admin, sesion, ids);
+  for (const b of turnos.flatMap(t => t.bloques)) {
+    if (b.tipo !== 'propuesta') continue;
+    const e = estados[b.propuesta.id];
+    b.propuesta.estado = (e?.estado as typeof b.propuesta.estado) ?? 'CADUCADA';
+    if (e?.resultado && typeof e.resultado === 'object') b.propuesta.resultado = e.resultado as { href: string; texto: string };
   }
   const refs = tablaReferencias(conv.referencias);
   const nombres = await nombresDeReferencias(admin, sesion, refs, Object.keys(refs.aJson()));

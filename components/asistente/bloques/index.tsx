@@ -6,10 +6,12 @@ import { BloqueClases } from './clases';
 import { BloqueAlumnas, BloqueBonos, BloqueRecibos } from './personas';
 import { BloqueFranjas } from './franjas';
 import { BloqueRevisar } from './revisar';
+import { BloquePropuesta } from './propuesta';
 
 /** Una tarjeta del asistente, según su tipo. Un tipo desconocido (fase 2) no se pinta. */
 export function Bloque({ bloque }: { bloque: BloqueAsistente }) {
   switch (bloque.tipo) {
+    case 'propuesta': return <BloquePropuesta propuesta={bloque.propuesta} />;
     case 'metricas': return <BloqueMetricas bloque={bloque} />;
     case 'clases': return <BloqueClases bloque={bloque} />;
     case 'alumnas': return <BloqueAlumnas bloque={bloque} />;

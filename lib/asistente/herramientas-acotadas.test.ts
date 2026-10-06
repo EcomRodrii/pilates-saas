@@ -25,7 +25,7 @@ function ficheros(dir: string): string[] {
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const leer = (f: string) => sinComentarios(readFileSync(join(RAIZ, f), 'utf8'));
 
-const CON_SERVICE_ROLE = [...ficheros('lib/asistente/herramientas'), 'lib/asistente/servidor.ts', ...ficheros('app/api/asistente')];
+const CON_SERVICE_ROLE = [...ficheros('lib/asistente/herramientas'), 'lib/asistente/servidor.ts', ...ficheros('app/api/asistente'), ...ficheros('lib/asistente/acciones').filter(f => !f.endsWith('pruebas-admin.ts'))];
 
 test('toda consulta va acotada al estudio de la sesión (nº de .from ≤ nº de filtros por estudio)', () => {
   for (const f of CON_SERVICE_ROLE) {
@@ -35,7 +35,7 @@ test('toda consulta va acotada al estudio de la sesión (nº de .from ≤ nº de
       (src.match(/\.eq\('studio_id', (ctx|sesion)\.studioId\)/g) ?? []).length +
       (src.match(/\.from\('studios'\)[^;]*?\.eq\('id', (ctx|sesion)\.studioId\)/g) ?? []).length +
       // Un insert acotado por construcción: la fila lleva el estudio de la sesión.
-      (src.match(/\.insert\(\{ studio_id: sesion\.studioId/g) ?? []).length +
+      (src.match(/\.insert\(\{[^}]*?\bstudio_id: (sesion|ctx)\.studioId/g) ?? []).length +
       (src.match(/\.insert\(filas\)/g) && /studio_id: sesion\.studioId/.test(src) ? 1 : 0);
     assert.ok(froms <= acotadas, `${f}: ${froms} consultas y solo ${acotadas} acotadas al estudio de la sesión`);
     assert.doesNotMatch(src, /select\(\s*['"`]\*['"`]/, `${f}: nada de select('*')`);
@@ -71,11 +71,12 @@ test('ninguna herramienta acepta un estudio ni una sede del modelo; todas strict
   }
 });
 
-test('fase 1: todas de lectura y con permiso; las de dinero, solo con puedeVerFinanzas', () => {
+test('doce de lectura y cuatro que PROPONEN, todas con permiso; las de dinero, solo con puedeVerFinanzas', () => {
   for (const d of DEFINICIONES) {
-    assert.equal(d.clase, 'lectura', d.nombre);
+    assert.equal(d.clase, d.nombre.startsWith('proponer_') ? 'accion' : 'lectura', d.nombre);
     assert.equal(typeof d.permitida, 'function', d.nombre);
   }
+  assert.equal(DEFINICIONES.filter(d => d.clase === 'accion').length, 4);
   const src = leer('lib/asistente/herramientas/definiciones.ts');
   for (const n of ['facturacion_del_periodo', 'pagos_pendientes']) {
     const bloque = src.slice(src.indexOf(`nombre: '${n}'`), src.indexOf('etiqueta:', src.indexOf(`nombre: '${n}'`)));
@@ -144,4 +145,44 @@ test('el interruptor está APAGADO salvo ASISTENTE_IA=on o estudios:<ids> (lib/a
     assert.ok(llamadas.length > 0, ruta);
     for (const a of llamadas) assert.match(a, /^sesion(Staff)?\.studioId$/, `${ruta}: asistenteEncendido(${a})`);
   }
+});
+
+// ── Fase 2: el modelo PROPONE, nunca ejecuta ──
+
+test('las herramientas de acción solo escriben la propuesta: ni una tabla del estudio, ni una RPC', () => {
+  const src = leer('lib/asistente/acciones/servidor.ts');
+  const escrituras = [...src.matchAll(/\.from\('(\w+)'\)[^;]*?\.(insert|update|delete|upsert)\(/g)].map(m => `${m[2]}:${m[1]}`);
+  assert.deepEqual([...new Set(escrituras)].sort(), ['delete:asistente_acciones', 'insert:asistente_acciones']);
+  assert.doesNotMatch(src, /\.rpc\(/);
+  // El registro: una herramienta de acción solo pasa por `proponiendo`, que guarda la propuesta.
+  const reg = leer('lib/asistente/herramientas/index.ts');
+  for (const n of ['proponer_clase', 'proponer_sala', 'proponer_evento', 'proponer_cita']) assert.match(reg, new RegExp(`${n}: proponiendo\\(`), n);
+  assert.doesNotMatch(reg, /confirmarAccion|acciones\/ejecutar/);
+});
+
+test('el modelo no puede confirmar: no hay herramienta que confirme, y la confirmación no viaja por el chat', () => {
+  assert.ok(!DEFINICIONES.some(d => /confirm|ejecut|crear_|cancelar/.test(d.nombre)));
+  // Quien ejecuta es la ruta de confirmar; el bucle y la ruta del chat no la importan.
+  for (const f of ['lib/asistente/bucle.ts', 'app/api/asistente/route.ts', ...ficheros('lib/asistente/herramientas')]) {
+    assert.doesNotMatch(leer(f), /confirmarAccion|acciones\/ejecutar/, f);
+  }
+  const ruta = leer('app/api/asistente/acciones/confirmar/route.ts');
+  // Solo el id del cuerpo; estudio, persona y rol, de la sesión.
+  assert.match(ruta, /\(body as \{ id\?: unknown \}/);
+  assert.doesNotMatch(ruta, /body\.(studio|payload|tipo|rol)|cuerpo\./);
+  const orden = ['verificarSesionStaff(req)', 'puedeUsarAsistente(sesionStaff.rol)', 'asistenteEncendido(sesionStaff.studioId)', "bloqueoPorFeature(sesionStaff.studioId, 'asistente')", 'enforceRateLimit(', 'confirmarAccion(']
+    .map(t => [t, ruta.indexOf(t)] as const);
+  for (const [t, i] of orden) assert.ok(i > 0, `falta ${t}`);
+  for (let k = 1; k < orden.length; k++) assert.ok(orden[k][1] > orden[k - 1][1], `${orden[k][0]} va antes que ${orden[k - 1][0]}`);
+  // Confirmar no llama al modelo ni gasta consulta.
+  assert.doesNotMatch(ruta, /clienteAnthropic|reservarConsulta|cerrarConsulta/);
+});
+
+test('el payload que se ejecuta sale de la fila guardada y se lee con el estudio Y la persona de la sesión', () => {
+  const src = leer('lib/asistente/acciones/ejecutar.ts');
+  for (const m of src.matchAll(/\.from\('asistente_acciones'\)[^;]*;/g)) {
+    assert.match(m[0], /\.eq\('studio_id', sesion\.studioId\)/);
+    if (/\.select\(/.test(m[0]) || /\.update\(/.test(m[0])) assert.match(m[0], /\.eq\('(auth_user_id', sesion\.userId|id', id)\)/);
+  }
+  assert.match(src, /const p = fila\.payload/);
 });
