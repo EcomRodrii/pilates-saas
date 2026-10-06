@@ -22,6 +22,8 @@ import {
 
 const admin = clienteAdminLocal();
 const sql = sqlLocal();
+// Sin cerrarla, el proceso no termina y el job de RLS se queda colgado hasta su límite de 15 min.
+test.after(async () => { await sql.end(); });
 
 /** Una alumna CON cuenta y sesión iniciada: su JWT es lo que se prueba. */
 async function alumnaConSesion(studioId: string): Promise<{ socioId: string; authUserId: string; cliente: SupabaseClient }> {

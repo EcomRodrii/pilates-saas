@@ -8,6 +8,8 @@ import { clienteAdminLocal, crearStudioConPropietaria, limpiarFixtures, sqlLocal
 
 const admin = clienteAdminLocal();
 const sql = sqlLocal();
+// Sin cerrarla, el proceso no termina y el job de RLS se queda colgado hasta su límite de 15 min.
+test.after(async () => { await sql.end(); });
 
 async function post(studioId: string, autorId: string): Promise<string> {
   const id = `post-${randomUUID()}`;
