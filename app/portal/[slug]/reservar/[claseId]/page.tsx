@@ -320,6 +320,7 @@ export default function FichaClasePage() {
 
       {/* CTA persistente sobre la nav */}
       <div
+        className="cta-flotante"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
           zIndex: 39, padding: '10px 16px 12px',
