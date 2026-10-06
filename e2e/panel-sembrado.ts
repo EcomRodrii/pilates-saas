@@ -327,6 +327,8 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/equipo/tarjetas', (r) => json(r, { tarjetas: [] }));
   await page.route((u) => u.pathname === '/api/ingresos-manuales', (r) => json(r, { ingresos: [] }));
   await page.route((u) => u.pathname === '/api/comunidad/comentarios', (r) => json(r, { comentarios: [] }));
+  // Denuncias por revisar (moderación, #2562): la bandeja del estudio sin nada pendiente.
+  await page.route((u) => u.pathname === '/api/moderacion/denuncias', (r) => json(r, { denuncias: [] }));
   await page.route((u) => u.pathname === '/api/notifications/admin', (r) => json(r, { items: [], unread: 0 }));
   await page.route((u) => u.pathname === '/api/sustituciones', (r) => json(r, { sustituciones: [] }));
   await page.route((u) => u.pathname === '/api/valoraciones', (r) => json(r, { valoraciones: [] }));
