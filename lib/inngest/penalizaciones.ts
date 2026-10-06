@@ -174,7 +174,7 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // `step.run` que envuelve el bucle entero), la fila seguía DETECTADA y el
   // barrido de 10 minutos después creaba OTRO recibo con OTRO id — y por tanto
   // otra `idempotencyKey` en `cobrarReciboOffSession`
-  // (`offsession-cobro-<reciboId>-i<intento>`), que Stripe no puede deduplicar.
+  // (`offsession-cobro-<reciboId>-i<intento>-<método>-<importe>`), que Stripe no puede deduplicar.
   // Cargo repetido a la socia.
   //
   // Con el id derivado, el reintento reinserta la MISMA fila (23505, que se

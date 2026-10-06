@@ -20,14 +20,18 @@ test('cobrarReciboOffSession: comprueba la cuenta, RESERVA el recibo y solo ento
   const cargo = s.indexOf('paymentIntents.create(');
   assert.ok(cuenta > 0 && reserva > cuenta && cargo > reserva, 'el orden tiene que ser cuenta → reserva → cargo');
   // La misma clave en la marca y en Stripe.
-  assert.match(s, /claveCobroOffSession\(params\.reciboId, intentosLeidos\)/);
+  assert.match(s, /claveCobroOffSession\(params\.reciboId, intentosLeidos, \{\s*paymentMethodId: metodo\.paymentMethodId, importeCentimos: amountCents,\s*\}\)/,
+    'la clave lleva el método con el que se cobra y el importe que se manda');
+  // Y se calcula con el MISMO método y el mismo importe que van a Stripe.
+  assert.match(s, /payment_method: metodo\.paymentMethodId,/);
+  assert.match(s, /amount: amountCents,/);
   assert.match(s, /clave: idempotencyKey/);
   assert.match(s, /\{ stripeAccount: studio\.stripe_account_id, idempotencyKey \}/);
 });
 
 test('cobrarReciboOffSession: suelta la marca en el rechazo y en el 3DS, y la MANTIENE en un desenlace desconocido', () => {
   const s = sinComentarios(leer('lib/billing/stripe-cobros.ts'));
-  const transitorio = s.slice(s.indexOf("if (clasificarErrorCobro(err) === 'ERROR_TRANSITORIO')"));
+  const transitorio = s.slice(s.indexOf("if (clase === 'ERROR_TRANSITORIO')"));
   const finTransitorio = transitorio.indexOf("errorCode: 'ERROR_TRANSITORIO'");
   assert.ok(finTransitorio > 0);
   assert.equal(transitorio.slice(0, finTransitorio).includes('soltarMarca('), false, 'un transitorio no suelta: el cargo pudo entrar');
@@ -83,4 +87,18 @@ test('el conciliador resuelve las marcas colgadas en cada barrido, preguntando a
   // Nunca se suelta sin decidir: el único `soltar` cuelga de la decisión SOLTAR.
   assert.equal((resolver.match(/soltarMarcaCobroOffSession\(/g) ?? []).length, 1);
   assert.match(resolver, /case 'SOLTAR':\s*await soltarMarcaCobroOffSession\(/);
+});
+
+test('⚠️ cobrarReciboOffSession: un idempotency_error solo suelta la marca que puso ESTA llamada, NO cuenta como rechazo y se avisa a Sentry como error', () => {
+  const s = sinComentarios(leer('lib/billing/stripe-cobros.ts'));
+  const ini = s.indexOf("if (clase === 'CLAVE_CON_OTROS_DATOS')");
+  const fin = s.indexOf("if (clase === 'ERROR_TRANSITORIO')");
+  assert.ok(ini > 0 && fin > ini, 'se mira ANTES que el transitorio');
+  const rama = s.slice(ini, fin);
+  assert.match(rama, /if \(reservadaAhora\) await soltarMarca\(\);/,
+    'la de un intento anterior que vuelve a entrar (REENTRANTE) pudo cobrar: esa se queda para el conciliador');
+  assert.equal((rama.match(/soltarMarca\(/g) ?? []).length, 1);
+  assert.match(s, /marca = reserva\.marca;\s*reservadaAhora = true;/, 'solo la reserva ganada ahora cuenta como suya');
+  assert.match(rama, /level: 'error'/, 'no en silencio');
+  assert.match(rama, /errorCode: 'COBRO_EN_MARCHA'/, 'ni FALLO_COBRO (subiría el contador y avisaría de un rechazo que no hubo) ni un transitorio mudo');
 });

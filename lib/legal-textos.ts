@@ -31,6 +31,11 @@ export interface DatosEstudioLegal {
   // Fase 3: importe fijo en € de la penalización por cancelación tardía/no-show.
   // NULL/0 = el estudio no tiene la regla activa, no se añade la cláusula.
   penalizacionImporteEur?: number | null;
+  // El estudio cobra online (tiene su cuenta de Stripe conectada): solo entonces
+  // existe un método de pago guardado con el que cobrar, y solo entonces sale la
+  // cláusula de cobros con método guardado. Mismo nombre que en `Studio` y en el
+  // payload público, para que el panel y el portal compongan el MISMO texto que se sella.
+  stripeAccountId?: string | null;
 }
 
 const vacio = (s?: string | null) => !s || s.trim() === '';
@@ -106,6 +111,21 @@ export function horasCancelacionContrato(e: Pick<DatosEstudioLegal, 'cancelacion
     : 12;
 }
 
+/**
+ * La cláusula de cobros con el método de pago guardado, o '' si el estudio no cobra
+ * online. Exportada para poder anclarla en un test.
+ */
+export function clausulaCobrosConMetodoGuardado(e: Pick<DatosEstudioLegal, 'stripeAccountId'>): string {
+  if (vacio(e.stripeAccountId)) return '';
+  // Cada frase, con lo que la hace verdad (revisión de tentare-stripe, 6-oct):
+  //  · «tiene guardada», sin decir por dónde: también el enlace que manda el panel.
+  //  · «quitar la tarjeta» desde la app (tarjeta y Link se quitan; su SEPA, no).
+  //  · domiciliación: solo la de la pasarela, elegida para sus cuotas, manda sobre la
+  //    tarjeta (`elegirMetodoCobro`); con la remesa del banco, una tarjeta guardada se
+  //    cobra igual (el cron la arma y la remesa la deja fuera), así que no se promete.
+  return ' Si el socio tiene guardada una tarjeta u otro método de pago, autoriza al Estudio a cobrar en él sus cuotas y renovaciones y los importes que tenga pendientes, sin necesidad de pagarlos a mano. Puede quitar la tarjeta en cualquier momento desde la app o pedírselo al Estudio. Si ha elegido para sus cuotas la domiciliación bancaria a través de la pasarela de pago, se cobrarán por domiciliación.';
+}
+
 export function terminosServicioPorDefecto(e: DatosEstudioLegal = {}): string {
   const responsable = identificacionResponsable(e);
   const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
@@ -118,6 +138,14 @@ export function terminosServicioPorDefecto(e: DatosEstudioLegal = {}): string {
   const clausulaPenalizacion = typeof e.penalizacionImporteEur === 'number' && e.penalizacionImporteEur > 0
     ? ` Adicionalmente, las cancelaciones dentro de dicha ventana y las inasistencias sin cancelación previa ("no-show") podrán conllevar un cargo de ${e.penalizacionImporteEur.toFixed(2)} € a la tarjeta u otro método de pago guardado, siempre que exista uno asociado a la cuenta. Este cargo se notificará por correo electrónico en el momento en que se produzca.`
     : '';
+  // Cobros con el método de pago guardado (6-oct-2026, decisión del fundador: esto
+  // va en los términos, no a la vista en la app). Solo en los estudios que cobran
+  // online: sin cuenta de Stripe no hay método guardado con el que cobrar. Verdad
+  // de lo que hace el producto: las renovaciones se cobran solas (dunning) y el cron
+  // adopta la que esté pendiente; desde el mostrador se puede cobrar lo pendiente; la
+  // alumna lo quita en Perfil → Método de pago; y con la domiciliación lista y
+  // preferida, se cobra por el banco (`elegirMetodoCobro`).
+  const clausulaMetodoGuardado = clausulaCobrosConMetodoGuardado(e);
 
   return `TÉRMINOS Y CONDICIONES DE SERVICIO
 
@@ -128,7 +156,7 @@ ${responsable ?? SIN_DATOS_FISCALES}
 El presente contrato regula las condiciones de acceso y uso de los servicios ofrecidos por ${nombreEstudio} (en adelante, "el Estudio").
 
 2. PLANES Y TARIFAS
-El socio abona la tarifa correspondiente al plan seleccionado. Los precios incluyen IVA. El Estudio se reserva el derecho de modificar tarifas con un preaviso mínimo de 30 días.
+El socio abona la tarifa correspondiente al plan seleccionado. Los precios incluyen IVA. El Estudio se reserva el derecho de modificar tarifas con un preaviso mínimo de 30 días.${clausulaMetodoGuardado}
 
 3. RESERVAS Y CANCELACIONES
 Las reservas deben realizarse con antelación a través de los canales habilitados. Las cancelaciones efectuadas con menos de ${horas} ${horas === 1 ? 'hora' : 'horas'} de antelación serán descontadas del bono.${clausulaPenalizacion}
@@ -263,6 +291,7 @@ export function datosLegalesDeFila(fila: Record<string, unknown>): DatosEstudioL
     email: t('email'),
     cancelacionVentanaHoras: n('cancelacion_ventana_horas'),
     penalizacionImporteEur: n('penalizacion_importe_eur'),
+    stripeAccountId: t('stripe_account_id'),
   };
 }
 

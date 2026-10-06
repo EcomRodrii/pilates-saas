@@ -6,7 +6,7 @@ import { cerrarReciboPos, cerrarVentaPos } from '@/lib/pos/cerrar-cobro-pos';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
-import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
+import { guardarTarjetaDeSesion } from '@/lib/billing/guardar-tarjeta-de-sesion';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
@@ -492,43 +492,45 @@ async function procesarEvento(
     }
 
     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
-      // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
-      // Es el único camino por el que una socia que paga en mostrador, por
-      // Bizum o importada de otra plataforma llega a tener método cobrable.
-      // Mismo trato que el guardado tras un pago: si no se puede persistir se
-      // devuelve 5xx y Stripe reintenta (idempotente, mismos ids).
+      // La socia autorizó una tarjeta sin pagar nada: el enlace del panel
+      // (/api/stripe/setup-tarjeta) o «Cambiar / Añadir tarjeta» de la app
+      // (POST /api/public/tarjeta). Es el único camino por el que una socia que paga
+      // en mostrador, por Bizum o importada de otra plataforma llega a tener método
+      // cobrable. La escritura tiene UN dueño (`guardarTarjetaDeSesion`), que comparte
+      // con la confirmación de la app: si esto no llega a escribir, la app la completa.
       if (socioId && typeof session.setup_intent === 'string') {
         const si = await stripe.setupIntents.retrieve(
           session.setup_intent,
           { expand: ['payment_method'] },
           event.account ? { stripeAccount: event.account } : undefined,
         );
-        const pm = si.payment_method;
-        const pmId = typeof pm === 'string' ? pm : (pm?.id ?? null);
-        const esTarjeta = typeof pm === 'string' ? true : pm?.type === 'card';
         if (!studioId) {
           // Mismo criterio que el guardado tras pago: sin studioId no se acota
           // el UPDATE al estudio dueño de la socia, y no se escribe.
           Sentry.captureMessage('[stripe webhook] setup de tarjeta sin studioId: no se guarda', {
             level: 'warning', extra: { socioId, sessionId: session.id },
           });
-        } else if (pmId && esTarjeta) {
-          const update: Record<string, string> = { stripe_payment_method_id: pmId };
-          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
-          const { error } = await admin.from('socios')
-            .update(update).eq('id', socioId).eq('studio_id', studioId);
-          if (error) {
-            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+        } else {
+          try {
+            const r = await guardarTarjetaDeSesion(admin, stripe, {
+              socioId, studioId, stripeAccount: event.account ?? null,
+              customerDeLaSesion: typeof session.customer === 'string' ? session.customer : null,
+              metodo: si.payment_method,
+            });
+            if (r.tipo === 'SIN_FICHA' || r.tipo === 'CAMBIO_CONCURRENTE' || r.tipo === 'DESCARTADA') {
+              Sentry.captureMessage('[stripe webhook] tarjeta autorizada que no se escribe en la ficha', {
+                level: 'warning', tags: { area: 'cobros' },
+                extra: { socioId, studioId, sessionId: session.id, resultado: r.tipo, motivo: r.tipo === 'DESCARTADA' ? r.motivo : null },
+              });
+            }
+          } catch (e) {
+            const detalle = e instanceof Error ? e.message : String(e);
+            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, detalle);
             Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta autorizada', {
-              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle },
             });
             return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
           }
-          // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
-          // importa (poder cobrar) ya está escrito.
-          await guardarCaducidadTarjeta(admin, stripe, {
-            socioId, studioId, paymentMethodId: pmId, stripeAccount: event.account,
-          });
         }
       }
     } else if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {

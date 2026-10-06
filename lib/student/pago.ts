@@ -3,6 +3,7 @@
 import { borrarTarjetaPublica, portalAuthHeader } from '@/lib/student/api-publica';
 import type { TarjetaGuardada } from '@/lib/billing/tarjetas-guardadas';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
+import { esperaAntesDe, leerConfirmacionTarjeta, type LecturaTarjeta, type TarjetaConfirmada } from '@/lib/student/guardar-tarjeta-reglas';
 
 // El método de pago guardado de la alumna. Sale del payload que ya se pide
 // (los datos son suyos: marca, últimos cuatro y caducidad; el número completo
@@ -54,15 +55,86 @@ export async function quitarTarjeta(slug: string, studioId: string): Promise<str
   return error;
 }
 
+// ── «Cambiar tarjeta» / «Añadir tarjeta» (6-oct-2026) ────────────────────────
+
+export type InicioGuardarTarjeta =
+  | { ok: true; clientSecret: string; checkoutSessionId: string }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/** Abre el Checkout incrustado para guardar la tarjeta de sus cobros. Nunca lanza. */
+export async function abrirGuardarTarjeta(studioId: string): Promise<InicioGuardarTarjeta> {
+  try {
+    const res = await fetch('/api/public/tarjeta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId }),
+    });
+    if (res.status === 401) return { ok: false, sesionCaducada: true, error: 'Tu sesión ha caducado. Vuelve a entrar.' };
+    const c = (await res.json().catch(() => null)) as { clientSecret?: string; checkoutSessionId?: string; error?: string } | null;
+    if (res.ok && c?.clientSecret && c.checkoutSessionId) return { ok: true, clientSecret: c.clientSecret, checkoutSessionId: c.checkoutSessionId };
+    // Un 4xx con su texto (el estudio no acepta tarjetas, no es suya…) se dice tal cual; una avería, en general.
+    if (res.status < 500 && c?.error) return { ok: false, error: c.error };
+    return { ok: false, error: 'No hemos podido abrir el formulario de la tarjeta. Inténtalo de nuevo.' };
+  } catch {
+    return { ok: false, error: 'No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
+/** Una consulta de «¿está ya en mi ficha la tarjeta de esta sesión?». Nunca lanza: sin red, «en proceso». */
+export async function consultarTarjetaGuardada(studioId: string, sesion: string): Promise<LecturaTarjeta> {
+  try {
+    const res = await fetch(
+      `/api/public/tarjeta?studioId=${encodeURIComponent(studioId)}&sesion=${encodeURIComponent(sesion)}`,
+      { headers: await portalAuthHeader(), cache: 'no-store' },
+    );
+    const cuerpo = await res.json().catch(() => null);
+    return leerConfirmacionTarjeta(res.status, res.headers.get('retry-after'), cuerpo);
+  } catch {
+    return { tipo: 'en_proceso' };
+  }
+}
+
+export type DesenlaceTarjeta =
+  | { tipo: 'guardada'; tarjeta: TarjetaConfirmada }
+  | { tipo: 'tarda' } | { tipo: 'sesion' } | { tipo: 'dos-pasos' } | { tipo: 'cancelado' };
+
+/** Pregunta hasta que el servidor la lea en su ficha, o se agote la espera razonable. */
+export async function esperarTarjetaGuardada(studioId: string, sesion: string, sigueVivo: () => boolean): Promise<DesenlaceTarjeta> {
+  let espera: number | undefined;
+  for (let intento = 0; ; intento++) {
+    const ms = esperaAntesDe(intento, espera);
+    if (ms == null) return { tipo: 'tarda' };
+    await new Promise((r) => setTimeout(r, ms));
+    if (!sigueVivo()) return { tipo: 'cancelado' };
+    const l = await consultarTarjetaGuardada(studioId, sesion);
+    if (!sigueVivo()) return { tipo: 'cancelado' };
+    if (l.tipo !== 'en_proceso') return l;
+    espera = l.esperaMinMs;
+  }
+}
+
 // ── P16: las tarjetas que guardó para pagar en la app ───────────────────────
 
-/** Las que aceptó guardar («Guárdala para la próxima»). `null` = no se han podido leer (no se inventa una lista). */
-export async function getTarjetasApp(studioId: string): Promise<TarjetaGuardada[] | null> {
+/** Lo que el servidor sabe de sus cobros y el payload no trae (`GET /api/public/tarjeta`). */
+export interface CobrosDeLaFicha {
+  /** Hay método de cobros en su ficha, aunque falten su marca y sus cuatro dígitos. */
+  hayMetodo: boolean;
+}
+
+/**
+ * Las que aceptó guardar («Guárdala para la próxima») y la de cobros, más `cobros`.
+ * `null` = no se han podido leer (no se inventa una lista).
+ */
+export async function getTarjetasApp(studioId: string): Promise<{ tarjetas: TarjetaGuardada[]; cobros: CobrosDeLaFicha | null } | null> {
   try {
     const res = await fetch(`/api/public/tarjeta?studioId=${encodeURIComponent(studioId)}`, { headers: await portalAuthHeader(), cache: 'no-store' });
     if (!res.ok) return null;
-    const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[] } | null;
-    return Array.isArray(c?.tarjetas) ? c.tarjetas : null;
+    const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[]; cobros?: Partial<CobrosDeLaFicha> | null } | null;
+    if (!Array.isArray(c?.tarjetas)) return null;
+    const cobros = c.cobros && typeof c.cobros === 'object'
+      ? { hayMetodo: c.cobros.hayMetodo === true }
+      : null;
+    return { tarjetas: c.tarjetas, cobros };
   } catch {
     return null;
   }

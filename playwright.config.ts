@@ -168,6 +168,10 @@ const SPECS_WEBKIT = [
   // y PAGAR un recibo desde Recibos con la hoja de Stripe incrustada (dinero: el Checkout embebido y el `Sheet` que lo
   // monta son justo lo que cada motor resuelve distinto). La sufre la socia desde su móvil. 14 pruebas con mocks.
   '**/student-mi-plan.spec.ts',
+  // «Cambiar / Añadir tarjeta» (6-oct-2026): el Checkout incrustado en modo setup dentro de un `Sheet`, en la app que la
+  // alumna abre desde su iPhone (en la de iOS, una página de Stripe se iba a Safari). Dinero: guardar la tarjeta de sus
+  // cobros. Ocho pruebas con mocks.
+  '**/student-cambiar-tarjeta.spec.ts',
   // EXCEPCIÓN al criterio de arriba, pedida por el fundador (6-oct-2026): el
   // chat de Tentare es panel, pero lo abrió desde su iPhone y «le das a escribir
   // y se hace zoom, es 0 responsive». Lo que se prueba —anchos que obligan a

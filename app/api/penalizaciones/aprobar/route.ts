@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     .from('studios')
     .select(`
       nombre, razon_social, nif, direccion, ciudad, codigo_postal, email,
-      cancelacion_ventana_horas, penalizacion_importe_eur, politica_privacidad, terminos_servicio
+      cancelacion_ventana_horas, penalizacion_importe_eur, politica_privacidad, terminos_servicio, stripe_account_id
     `)
     .eq('id', sesion.studioId).maybeSingle();
   const { data: socio, error: errSocio } = await admin

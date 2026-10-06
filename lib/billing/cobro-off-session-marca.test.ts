@@ -49,15 +49,45 @@ const tiene = (filtros: Filtro[], op: string, col: string, val?: unknown) =>
 
 // ── La clave ─────────────────────────────────────────────────────────────────
 
-test('la clave es la Idempotency-Key del intento: recibo + nº de intento (sin intento = 0)', () => {
-  assert.equal(claveCobroOffSession('rec-1', 3), 'offsession-cobro-rec-1-i3');
-  assert.equal(claveCobroOffSession('rec-1', null), 'offsession-cobro-rec-1-i0');
-  assert.notEqual(claveCobroOffSession('rec-1', 1), claveCobroOffSession('rec-1', 2), 'cada reintento es un cargo nuevo');
+const VISA = { paymentMethodId: 'pm_visa', importeCentimos: 6000 };
+const MASTER = { paymentMethodId: 'pm_master', importeCentimos: 6000 };
+
+test('la clave es la Idempotency-Key del intento: recibo + nº de intento (sin intento = 0) + método + importe', () => {
+  assert.equal(claveCobroOffSession('rec-1', 3, VISA), 'offsession-cobro-rec-1-i3-pm_visa-6000');
+  assert.equal(claveCobroOffSession('rec-1', null, VISA), 'offsession-cobro-rec-1-i0-pm_visa-6000');
+  assert.notEqual(claveCobroOffSession('rec-1', 1, VISA), claveCobroOffSession('rec-1', 2, VISA), 'cada reintento es un cargo nuevo');
+});
+
+test('⚠️ el mismo intento con el mismo método repite la clave (Stripe deduplica): un reintento tras un corte no cobra dos veces', () => {
+  assert.equal(claveCobroOffSession('rec-1', 2, VISA), claveCobroOffSession('rec-1', 2, { ...VISA }));
+});
+
+test('⚠️ rechazada, cambia la tarjeta y se reintenta SIN subir el nº: otra clave (antes, idempotency_error ~24 h)', () => {
+  // Stripe exige los mismos parámetros con la misma clave: con la de antes y otro
+  // `payment_method`, contestaba idempotency_error y el recibo no se podía cobrar.
+  assert.notEqual(claveCobroOffSession('rec-1', 0, VISA), claveCobroOffSession('rec-1', 0, MASTER));
+  // Lo mismo si cambió el importe del recibo: otro cargo, otros parámetros.
+  assert.notEqual(claveCobroOffSession('rec-1', 0, VISA), claveCobroOffSession('rec-1', 0, { ...VISA, importeCentimos: 5500 }));
+});
+
+test('⚠️ con la tarjeta nueva NO se cobra mientras el intento de antes siga sin saberse: lo para la marca, no la clave', () => {
+  // El cargo con la Visa quedó con desenlace desconocido (la marca sigue puesta) y
+  // ella cambia a la Master: la clave nueva no gana la reserva → EN_MARCHA, sin cargo.
+  const desde = new Date(AHORA.getTime() - 60_000).toISOString();
+  const r = clasificarReservaPerdida(
+    {
+      estado: 'PENDIENTE', intentos_reintento: 0, proximo_reintento: null, tras_cancelar_cuota: null,
+      cobro_off_session_clave: claveCobroOffSession('rec-1', 0, VISA), cobro_off_session_desde: desde,
+      cobro_mostrador_pi: null, checkout_session_id: null, reembolso_stripe_id: null, reembolso_solicitado_en: null,
+    },
+    { clave: claveCobroOffSession('rec-1', 0, MASTER), via: 'STAFF', cuota: null, ahora: AHORA },
+  );
+  assert.deepEqual(r, { tipo: 'EN_MARCHA', por: 'OFF_SESSION' });
 });
 
 // ── Reservar ─────────────────────────────────────────────────────────────────
 
-const RESERVA = { studioId: 'st-1', reciboId: 'rec-1', clave: 'offsession-cobro-rec-1-i2', intentos: 2, ahoraISO: AHORA.toISOString() } as const;
+const RESERVA = { studioId: 'st-1', reciboId: 'rec-1', clave: 'offsession-cobro-rec-1-i2-pm_visa-6000', intentos: 2, ahoraISO: AHORA.toISOString() } as const;
 
 test('reservar (a mano): PENDIENTE o FALLIDO, sin marca, sin datáfono, sin reembolso, con el mismo nº de intento', async () => {
   const { admin, llamadas } = fakeAdmin({ data: [{ id: 'rec-1', cobro_off_session_desde: '2026-10-02T12:00:00+00:00' }] });
@@ -129,7 +159,7 @@ test('reserva perdida: pasada la reentrada, el mismo intento ya no entra (decide
 });
 
 test('reserva perdida: otro intento, el datáfono o (en el cobro diario) un pago online en marcha', () => {
-  assert.deepEqual(perdida(fila({ cobro_off_session_clave: 'offsession-cobro-rec-1-i1', cobro_off_session_desde: haceMin(1) })),
+  assert.deepEqual(perdida(fila({ cobro_off_session_clave: 'offsession-cobro-rec-1-i1-pm_visa-6000', cobro_off_session_desde: haceMin(1) })),
     { tipo: 'EN_MARCHA', por: 'OFF_SESSION' });
   assert.deepEqual(perdida(fila({ cobro_mostrador_pi: 'pi_tpv' })), { tipo: 'EN_MARCHA', por: 'MOSTRADOR' });
   assert.deepEqual(perdida(fila({ checkout_session_id: 'cs_1' }), 'AUTOMATICO'), { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' });

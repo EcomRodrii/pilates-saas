@@ -99,6 +99,7 @@ test('el sello se compone con los MISMOS datos que ve la compradora en el portal
     email: 'hola@ejemplo.es',
     cancelacion_ventana_horas: 24,
     penalizacion_importe_eur: 8,
+    stripe_account_id: 'acct_1',
     politica_privacidad: null,
     terminos_servicio: null,
   };
@@ -106,7 +107,7 @@ test('el sello se compone con los MISMOS datos que ve la compradora en el portal
   const comoLoVeLaCompradora = {
     nombre: 'Pilates Boutique', razonSocial: 'Pilates Boutique SL', nif: 'B12345678',
     direccion: 'Calle Larios 1', ciudad: 'Málaga', codigoPostal: '29005',
-    email: 'hola@ejemplo.es', cancelacionVentanaHoras: 24, penalizacionImporteEur: 8,
+    email: 'hola@ejemplo.es', cancelacionVentanaHoras: 24, penalizacionImporteEur: 8, stripeAccountId: 'acct_1',
   };
   assert.deepEqual(datosLegalesDeFila(fila), comoLoVeLaCompradora);
 
@@ -176,7 +177,7 @@ test('`studioPublico` y `componerTextoLegalVigente` componen con el mismo dueño
   const funcion = sellado.slice(desde, sellado.indexOf('\n}\n', desde));
   assert.ok(desde > 0);
   assert.match(funcion, /return textoLegalVigenteDeFila\(/);
-  for (const col of ['razon_social', 'codigo_postal', 'cancelacion_ventana_horas', 'penalizacion_importe_eur', 'politica_privacidad', 'terminos_servicio']) {
+  for (const col of ['razon_social', 'codigo_postal', 'cancelacion_ventana_horas', 'penalizacion_importe_eur', 'stripe_account_id', 'politica_privacidad', 'terminos_servicio']) {
     assert.ok(funcion.includes(col), `el select del sello tiene que traer ${col}`);
   }
 });
