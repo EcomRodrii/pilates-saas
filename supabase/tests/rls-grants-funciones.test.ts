@@ -70,12 +70,12 @@ const CASOS: Caso[] = [
   { firma: 'dar_plaza_fija_con_cupo(text, jsonb, integer)', anon: false, authenticated: false, serviceRole: true },
   // Anular una recuperación (migr 20261002144936): la llama el panel con su sesión (la propia función comprueba estudio y rol).
   { firma: 'anular_recuperacion(text, text)', anon: false, authenticated: true, serviceRole: true },
-  // Moderación de la app (migr 20261005150100): el trigger de hilo cerrado o bloqueado y las dos
+  // Moderación de la app (migr 20261006014051): el trigger de hilo cerrado o bloqueado y las dos
   // funciones que deciden y aplican una denuncia. Solo el servidor (la ruta comprueba el rol).
   { firma: 'mensajes_conversacion_abierta()', anon: false, authenticated: false, serviceRole: true },
   { firma: 'ocultar_comentario_comunidad(text, text, boolean, uuid, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'resolver_denuncia(text, text, text, text, uuid)', anon: false, authenticated: false, serviceRole: true },
-  // La usan las políticas del panel (authenticated), nunca anon (migr 20261005150000: ya solo cuenta filas STAFF).
+  // La usan las políticas del panel (authenticated), nunca anon (migr 20261006013928: ya solo cuenta filas STAFF).
   { firma: 'es_participante_conversacion(text)', anon: false, authenticated: true, serviceRole: true },
   // El libro de consumos del asistente (migr 20261005213749): solo el servidor reserva, cierra y lee
   // el saldo. Con EXECUTE en `authenticated`, una sesión cualquiera se daría consultas.

@@ -58,7 +58,7 @@ function adminOLanza(): Admin {
 /**
  * ¿Es un hilo instructora–alumna de este estudio en el que ella es la parte
  * STAFF? `null` si no. Si lo es, trae además si admite mensajes (cerrado por el
- * estudio o con un bloqueo, migr 20261005150100).
+ * estudio o con un bloqueo, migr 20261006014051).
  */
 async function esHiloSuyo(admin: Admin, p: InstructoraDelHilo, conversacionId: string): Promise<{ estado: EstadoHilo } | null> {
   const [conv, parte] = await Promise.all([

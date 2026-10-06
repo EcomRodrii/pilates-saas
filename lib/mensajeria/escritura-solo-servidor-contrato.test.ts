@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Guardia de contrato: la mensajería y el tablón de la app solo pasan por el
-// servidor (migr 20261005150000 y 20261005150100). El efecto en la base de datos
+// servidor (migr 20261006013928 y 20261006014051). El efecto en la base de datos
 // lo prueba `supabase/tests/rls-moderacion.test.ts`; aquí, que el cierre no se
 // deshaga sin querer y que ninguna pantalla vuelva a escribir por PostgREST lo
 // que ya no puede (fallaría en producción con 42501).

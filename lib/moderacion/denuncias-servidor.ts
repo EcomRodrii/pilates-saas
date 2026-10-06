@@ -10,7 +10,7 @@ import {
 
 // Denuncias de la app, en el servidor: registrarlas, listarlas para quien revisa
 // en el estudio, resolverlas y avisar a cada parte. Todo con service-role: la
-// tabla `denuncias` no tiene políticas para el navegador (migr 20261005150100),
+// tabla `denuncias` no tiene políticas para el navegador (migr 20261006014051),
 // así que cada función acota por `studio_id` y las rutas comprueban el rol.
 // La decisión la toman y la aplican las RPC (`resolver_denuncia`,
 // `ocultar_comentario_comunidad`); aquí solo se prepara y se avisa.

@@ -277,7 +277,7 @@ test('nombre de archivo apto para una cabecera', () => {
   assert.equal(nombreArchivoExportacion('mis-datos Pilates Luz Ñ', AHORA), 'mis-datos-pilates-luz-n-2026-09-13.json');
 });
 
-// ── Moderación de la app (migr 20261005150100) ──────────────────────────────
+// ── Moderación de la app (migr 20261006014051) ──────────────────────────────
 
 /** El fixture con su hilo con la instructora, comentarios del tablón y denuncias. */
 function fixtureModeracion(): Record<string, Fila[]> {

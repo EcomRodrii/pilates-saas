@@ -2,7 +2,7 @@
 // antes de publicar, con tolerancia cero para el contenido ofensivo»).
 //
 // Se aceptan UNA vez por cuenta y versión, y lo guarda el servidor
-// (`normas_comunidad_aceptaciones`, migr 20261005150100): sin aceptarlas, las
+// (`normas_comunidad_aceptaciones`, migr 20261006014051): sin aceptarlas, las
 // rutas que escriben en el chat o en el tablón responden 409
 // `NORMAS_PENDIENTES` y la app enseña estas normas antes de enviar.
 //

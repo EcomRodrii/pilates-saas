@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 // Lista las conversaciones de la socia autenticada. La socia SÍ tiene un JWT
 // `authenticated` de Supabase, pero la mensajería no se le abre por PostgREST:
 // `es_participante_conversacion` solo cuenta filas del equipo (migr
-// 20261005150000), así que todo lo suyo pasa por aquí. Esta ruta usa
+// 20261006013928), así que todo lo suyo pasa por aquí. Esta ruta usa
 // service-role y filtra EXPLÍCITAMENTE por su socio_id: la RLS no la protege.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

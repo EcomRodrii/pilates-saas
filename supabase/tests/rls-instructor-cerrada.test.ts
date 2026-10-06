@@ -83,7 +83,7 @@ test('INSTRUCTOR no ve recuperaciones ajenas, aunque sean de su propio estudio',
   }
 });
 
-// Comunidad (migr 20261005150000): el tablón no lo usa en ningún sitio por
+// Comunidad (migr 20261006013928): el tablón no lo usa en ningún sitio por
 // PostgREST (Comunidad es una de las pérdidas aceptadas al retirar Tentare Core).
 test('INSTRUCTOR no lee los comentarios ni los «me gusta» del tablón; la propietaria sí', async () => {
   const studio = await crearStudioConPropietaria(admin);

@@ -1,5 +1,5 @@
 // Borrar una publicación del tablón es solo del servidor, que borra también su
-// foto del bucket público (migr 20261005150400_posts_comunidad_borrar_y_foto_solo_servidor.sql).
+// foto del bucket público (migr 20261006014416_posts_comunidad_borrar_y_foto_solo_servidor.sql).
 // Contra Postgres de verdad (job `calidad-rls`), como el resto de supabase/tests.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

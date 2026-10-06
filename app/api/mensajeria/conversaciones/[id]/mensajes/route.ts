@@ -97,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) {
     // Hilo cerrado por el estudio, o un bloqueo entre quien escribe y esa alumna
     // (también si lo intenta por el hilo del estudio): lo decide el trigger de la
-    // base de datos (migr 20261005150100), y aquí solo se traduce.
+    // base de datos (migr 20261006014051), y aquí solo se traduce.
     const moderacion = errorDeModeracion(error, { panel: true });
     if (moderacion) return NextResponse.json({ error: moderacion.error }, { status: 409 });
     // RLS deniega el INSERT (no participa en la conversación, o no es su

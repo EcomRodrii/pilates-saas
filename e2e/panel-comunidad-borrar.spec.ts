@@ -4,7 +4,7 @@ import { ir, montar } from './panel-sembrado';
 // ─────────────────────────────────────────────────────────────────────────────
 // Panel › Comunidad › «Borrar» una publicación.
 //
-// Desde 20261005150400 el navegador ya no borra la fila por PostgREST: lo hace
+// Desde 20261006014416 el navegador ya no borra la fila por PostgREST: lo hace
 // `DELETE /api/comunidad/posts/[id]`, que borra también la foto del bucket
 // público. Aquí se prueba la pantalla:
 //   1. un borrado bueno pide ESA ruta (una vez) y la publicación desaparece;

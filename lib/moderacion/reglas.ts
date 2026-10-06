@@ -2,7 +2,7 @@
 // rutas de las apps y del panel. Sin I/O, sin React, sin `@/`: se prueban con
 // `node --test` (imports relativos con `.ts`).
 //
-// La cerradura real está en la base de datos (migr 20261005150100):
+// La cerradura real está en la base de datos (migr 20261006014051):
 //   · el trigger `trg_mensajes_conversacion_abierta` impide escribir en un hilo
 //     cerrado o bloqueado, venga por donde venga, y lanza
 //     CONVERSACION_CERRADA / CONVERSACION_BLOQUEADA;

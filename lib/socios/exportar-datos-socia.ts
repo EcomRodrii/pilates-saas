@@ -68,7 +68,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   challenge_progress: { seccion: 'creditos' },
   reto_participaciones: { seccion: 'creditos' },
   conversacion_participantes: { seccion: 'mensajesEnviados' },
-  // Sus comentarios en el tablón (migr 20261005150100 les pone su ficha).
+  // Sus comentarios en el tablón (migr 20261006014051 les pone su ficha).
   comentarios_comunidad: { seccion: 'otros' },
   // Lo que denunció o bloqueó en la app. Solo por la puerta de la alumna: el
   // estudio no se lleva en un archivo quién denunció qué.

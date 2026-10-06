@@ -1,6 +1,6 @@
 // Denuncias de la app: quién las revisa, qué se puede decidir y qué se le dice
 // a cada parte. Las reglas puras; la cerradura está en la base de datos
-// (`resolver_denuncia`, migr 20261005150100), que vuelve a comprobar a quién le
+// (`resolver_denuncia`, migr 20261006014051), que vuelve a comprobar a quién le
 // toca y que quien revisa no es quien escribió lo denunciado.
 //
 // Decisión del fundador (5-oct-2026): las denuncias las atiende el ESTUDIO en su

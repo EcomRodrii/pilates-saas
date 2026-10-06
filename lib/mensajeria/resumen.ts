@@ -20,7 +20,7 @@ export interface FilaUltimoMensaje {
   cuerpo: string;
   remitente_auth_user_id: string;
   creado_en: string;
-  /** Retirado por el estudio (migr 20261005150100). Las tres bandejas lo piden. */
+  /** Retirado por el estudio (migr 20261006014051). Las tres bandejas lo piden. */
   oculto_en?: string | null;
 }
 

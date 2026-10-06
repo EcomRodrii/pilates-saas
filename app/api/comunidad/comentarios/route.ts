@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   // Mismo corte que el POST: lee con service-role todos los comentarios del
   // estudio, también los retirados por moderación. INSTRUCTOR no modera el tablón
-  // (ni tiene panel) y por PostgREST ya no los lee (migr 20261005150000).
+  // (ni tiene panel) y por PostgREST ya no los lee (migr 20261006013928).
   if (!puedeModerarComunidad(sesion.rol)) {
     return NextResponse.json({ error: 'No tienes permiso para ver los comentarios de la comunidad' }, { status: 403 });
   }

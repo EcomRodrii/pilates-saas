@@ -6,7 +6,7 @@ import { join } from 'node:path';
 // ─────────────────────────────────────────────────────────────────────────────
 // Guardia de contrato: borrar una publicación del tablón es solo del servidor,
 // que borra también su foto del bucket público (migr
-// 20261005150400_posts_comunidad_borrar_y_foto_solo_servidor). El efecto en la
+// 20261006014416_posts_comunidad_borrar_y_foto_solo_servidor). El efecto en la
 // base de datos lo prueba `supabase/tests/rls-posts-comunidad-solo-servidor.test.ts`.
 // ─────────────────────────────────────────────────────────────────────────────
 

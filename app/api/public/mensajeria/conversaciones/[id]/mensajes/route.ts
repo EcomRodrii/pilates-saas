@@ -19,7 +19,7 @@ const LIMITE_MAXIMO = 100;
 
 // La socia tiene un JWT `authenticated` de Supabase, pero la mensajería no se
 // le abre por PostgREST (`es_participante_conversacion` solo cuenta filas del
-// equipo, migr 20261005150000): todo pasa por aquí, con service-role, y la RLS
+// equipo, migr 20261006013928): todo pasa por aquí, con service-role, y la RLS
 // no la protege. Por eso esta ruta comprueba a mano, ANTES de leer o escribir
 // nada, que la socia de la sesión es participante de esta conversación exacta,
 // de este estudio.
@@ -27,7 +27,7 @@ const LIMITE_MAXIMO = 100;
 // Dos consultas a la vez: que su ficha (`socio_id`, la misma clave con la que
 // `abrir_conversacion` reutiliza el hilo) es la parte alumna, y el hilo de ESTE
 // estudio con sus participantes, que dice además si admite mensajes (cerrado o
-// bloqueado, migr 20261005150100).
+// bloqueado, migr 20261006014051).
 async function hiloDeLaSocia(
   admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   conversacionId: string, socioId: string, studioId: string, authUserId: string,

@@ -9,7 +9,7 @@ import { authUserIdsParaNotificar } from './destinatarios.ts';
 // Guardián: la baja de alguien del equipo cierra también su mensajería.
 //
 // Las policies de conversaciones, participantes, mensajes y Realtime autorizan
-// a quien participa con `es_participante_conversacion()` (desde 20261005150000,
+// a quien participa con `es_participante_conversacion()` (desde 20261006013928,
 // solo el equipo: la alumna va por rutas de servidor). Una fila STAFF de
 // `conversacion_participantes` no se borra con la baja, así que si la función
 // vuelve a mirar solo esa fila, la baja deja de llegar a la mensajería sin que
@@ -37,7 +37,7 @@ test('es_participante_conversacion exige ficha activa en el estudio para una fil
   const { fichero, sql } = ultimaDefinicion();
   const inicio = sql.indexOf('function public.es_participante_conversacion');
   const cuerpo = sql.slice(inicio, sql.indexOf('$function$;', inicio));
-  // Desde 20261005150000 la alumna ya no entra por PostgREST: su app va por rutas
+  // Desde 20261006013928 la alumna ya no entra por PostgREST: su app va por rutas
   // de servidor, y su fila SOCIO no le abre nada con su JWT.
   assert.match(cuerpo, /cp\.rol_en_conversacion\s*=\s*'STAFF'/, `${fichero}: solo cuenta la fila del equipo`);
   assert.doesNotMatch(cuerpo, /'SOCIO'/, `${fichero}: la fila SOCIO no debe abrir la mensajería por PostgREST`);

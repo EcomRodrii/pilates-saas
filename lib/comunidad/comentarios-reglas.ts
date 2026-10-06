@@ -16,7 +16,7 @@ export function esPublicacionDeGrupo(audiencia: string | null | undefined): bool
  * Con qué nombre sale una alumna en el tablón: nombre e inicial del primer
  * apellido («Lucía M.»), lo mismo que ve su instructora en la lista de clase.
  * Lo mínimo: las compañeras no necesitan sus apellidos. La migración
- * `20261005150500_comentarios_nombre_corto` recorta con la MISMA regla lo que ya
+ * `20261006014428_comentarios_nombre_corto` recorta con la MISMA regla lo que ya
  * estaba guardado; un test cruza las dos.
  */
 export function nombreEnElTablon(p: { nombre: string | null; apellidos: string | null }): { nombre: string; inicial: string } {

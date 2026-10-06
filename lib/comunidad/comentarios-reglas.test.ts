@@ -8,7 +8,7 @@ const RAIZ = join(import.meta.dirname, '..', '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 
 test('nombre en el tablón: nombre e inicial del primer apellido, lo mismo que la migración', () => {
-  // Los mismos casos se pasaron por la migración 20261005150500 en una base local
+  // Los mismos casos se pasaron por la migración 20261006014428 en una base local
   // y dieron exactamente esto: si cambia una regla, cambia la otra.
   const casos: [string | null, string | null, string, string][] = [
     ['Lucía', 'Martínez Gómez', 'Lucía M.', 'LM'],
@@ -20,7 +20,7 @@ test('nombre en el tablón: nombre e inicial del primer apellido, lo mismo que l
   for (const [nombre, apellidos, esperado, inicial] of casos) {
     assert.deepEqual(nombreEnElTablon({ nombre, apellidos }), { nombre: esperado, inicial }, `${nombre} ${apellidos}`);
   }
-  const sql = leer('supabase/migrations/20261005150500_comentarios_nombre_corto.sql');
+  const sql = leer('supabase/migrations/20261006014428_comentarios_nombre_corto.sql');
   assert.match(sql, /split_part\(btrim\(coalesce\(s\.apellidos, ''\)\), ' ', 1\)/, 'el primer apellido');
   assert.match(sql, /then 'Clienta'/);
   assert.match(sql, /where cc\.socio_id is not null/, 'solo las filas de una alumna');

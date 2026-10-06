@@ -1,6 +1,6 @@
 // Moderación de la app (App Store 1.2) y cierre de la mensajería al navegador
-// (migr 20261005150000_chat_y_tablon_solo_por_el_servidor.sql y
-// 20261005150100_moderacion_esquema.sql). Contra Postgres de verdad (job
+// (migr 20261006013928_chat_y_tablon_solo_por_el_servidor.sql y
+// 20261006014051_moderacion_esquema.sql). Contra Postgres de verdad (job
 // `calidad-rls`), como el resto de supabase/tests.
 //
 // Lo que se prueba, en la base de datos y no en la ruta:

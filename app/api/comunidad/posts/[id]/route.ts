@@ -11,7 +11,7 @@ import { BUCKET_COMUNIDAD, rutaFotoComunidad } from '@/lib/comunidad/foto';
 // El bucket `comunidad-media` es público: si la fila se borraba por RLS desde el
 // navegador (como hasta ahora), la foto se quedaba servida en su URL para
 // siempre. Ahora el borrado es SOLO de servidor (migr
-// 20261005150400_posts_comunidad_borrar_y_foto_solo_servidor, que quita al
+// 20261006014416_posts_comunidad_borrar_y_foto_solo_servidor, que quita al
 // navegador el DELETE de `posts_comunidad` y el UPDATE de `imagen_url`).
 //
 // Orden: primero la foto y después la fila. Al revés, si fallara la foto, la fila

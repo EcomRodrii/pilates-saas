@@ -196,7 +196,7 @@ test('las listas por cuenta borran lo personal de ESA cuenta en ESTE estudio (nu
   assert.match(funcion, /recipient_user_id = v_uid\s+and \(not v_es_socia or recipient_role <> 'SOCIA'\)/);
   assert.match(funcion, /delete from public\.conversacion_participantes cp\s+where cp\.auth_user_id = v_uid and cp\.rol_en_conversacion = 'STAFF'/);
   assert.match(funcion, /delete from public\.post_likes where studio_id = p_studio_id and user_id = v_uid;/);
-  // Denuncias de la app (20261005150100): lo que contó y su cuenta fuera; la fila queda como constancia.
+  // Denuncias de la app (20261006014051): lo que contó y su cuenta fuera; la fila queda como constancia.
   // Su lado de socia (las que llevan su ficha) no se toca.
   assert.match(funcion, /update public\.denuncias dn set denunciante_auth_user_id = null, detalle = null\s+where dn\.studio_id = p_studio_id and dn\.denunciante_auth_user_id = v_uid\s+and \(not v_es_socia or dn\.socio_id is null\);/);
   assert.match(funcion, /update public\.denuncias dn set autor_auth_user_id = null, detalle = null\s+where dn\.studio_id = p_studio_id and dn\.autor_auth_user_id = v_uid and not v_es_socia;/);

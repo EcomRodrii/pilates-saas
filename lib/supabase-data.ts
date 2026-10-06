@@ -4517,7 +4517,7 @@ export async function dbMisLikesComunidad(): Promise<string[]> {
 //
 // Por el servidor (`DELETE /api/comunidad/posts/[id]`): borra también la foto del
 // bucket público, que por RLS se quedaba servida en su URL. El navegador ya no
-// puede borrar la fila (migr 20261005150400). Solo `204` cuenta como borrado: un
+// puede borrar la fila (migr 20261006014416). Solo `204` cuenta como borrado: un
 // DELETE por RLS que no tocaba ninguna fila también decía «sin error».
 export async function dbDeletePostComunidad(id: string): Promise<boolean> {
   try {
