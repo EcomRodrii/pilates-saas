@@ -80,6 +80,20 @@ export interface PersonaDelEstudio {
   id: string;
   nombre: string | null;
   apellidos?: string | null;
+  /** La ficha del equipo de quien está preguntando (su `auth_user_id`). Solo en el servidor. */
+  propia?: boolean;
+}
+
+/**
+ * La referencia de quien pregunta, si tiene ficha en el equipo de ESTE estudio
+ * (`null` si no: una propietaria que no da clases no está en la lista, y su
+ * nombre tampoco se seudonimiza). Se crea ANTES de marcar la pregunta para que
+ * sea estable desde el primer turno: el contexto del día la nombra, y si
+ * cambiara entre turnos se perdería la caché del historial.
+ */
+export function refDeQuienEscribe(personas: readonly PersonaDelEstudio[], refs: TablaReferencias): string | null {
+  const yo = personas.find(p => p.propia && p.tipo === 'instructora');
+  return yo ? refs.equipo(yo.id) : null;
 }
 
 export interface PreguntaMarcada {

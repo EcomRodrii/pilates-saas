@@ -23,8 +23,17 @@ const prefijo = await contar([{ type: 'text', text: PROMPT_SISTEMA }], [{ role: 
 const ok = prefijo >= MINIMO;
 console.log(`Prefijo (${tools.length} herramientas + prompt): ${prefijo} tokens ${ok ? '✔ cachea' : `✖ (< ${MINIMO}: NO cachea)`}`);
 
+// El contexto del día con lo que lleva en producción: estudio (inventado) y quien escribe.
+const contexto = contextoDelDia({
+  hoy: '2026-10-06', rol: 'PROPIETARIO', quienEscribe: 'EQUIPO_1',
+  estudio: { nombre: 'Estudio de ejemplo', ciudad: 'Ciudad', plan: 'ESTUDIO', enPrueba: false },
+});
+const sistema = [{ type: 'text', text: PROMPT_SISTEMA }, { type: 'text', text: contexto }];
+// Una charla (sin herramientas, no gasta consulta desde migr 20261006014513): una llamada.
+const charla = await contar(sistema, [{ role: 'user', content: '¿Cómo creo una clase?' }]);
+console.log(`Charla «¿Cómo creo una clase?»: ${charla} tokens de entrada (contexto del día: ${charla - prefijo - 10} aprox.)`);
+
 // Una pregunta trivial: dos llamadas (pide la herramienta, responde).
-const sistema = [{ type: 'text', text: PROMPT_SISTEMA }, { type: 'text', text: contextoDelDia({ hoy: '2026-10-06', rol: 'PROPIETARIO' }) }];
 const pregunta = [{ role: 'user', content: '¿Cuántas alumnas activas tengo?' }];
 const resultado = JSON.stringify({ total: 212, porEstado: { Activa: 84, 'De prueba': 6, 'Sin renovar': 9, Inactiva: 113 }, conPlanOBonoParaReservar: 90 });
 const conResultado = [

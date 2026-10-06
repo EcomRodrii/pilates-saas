@@ -72,11 +72,15 @@ export async function cargarConversacion(admin: SupabaseClient, sesion: SesionAs
 /** Una conversación nueva (y, de paso, la purga de las de más de 90 días de este estudio). */
 export async function crearConversacion(admin: SupabaseClient, sesion: SesionAsistente, titulo: string): Promise<string | null> {
   const limite = new Date(Date.now() - RETENCION_DIAS * 86_400_000).toISOString();
-  const purga = await admin.from('asistente_conversaciones').delete().eq('studio_id', sesion.studioId).lt('ultima_en', limite);
+  // A la vez: la purga solo toca conversaciones de hace más de 90 días, nunca la que se crea ahora,
+  // y esperar a una antes de la otra era un viaje más a la base de datos antes de la primera respuesta.
+  const [purga, { data, error }] = await Promise.all([
+    admin.from('asistente_conversaciones').delete().eq('studio_id', sesion.studioId).lt('ultima_en', limite),
+    admin.from('asistente_conversaciones')
+      .insert({ studio_id: sesion.studioId, auth_user_id: sesion.userId, rol: sesion.rol, titulo: titulo.slice(0, 120), en_curso_desde: new Date().toISOString() })
+      .select('id').single(),
+  ]);
   if (purga.error) console.error('[asistente] purga de conversaciones', purga.error.code);
-  const { data, error } = await admin.from('asistente_conversaciones')
-    .insert({ studio_id: sesion.studioId, auth_user_id: sesion.userId, rol: sesion.rol, titulo: titulo.slice(0, 120), en_curso_desde: new Date().toISOString() })
-    .select('id').single();
   if (error || !data) return null;
   return data.id as string;
 }
@@ -181,20 +185,21 @@ export async function leerSaldo(admin: SupabaseClient, sesion: SesionAsistente):
 
 // ── Nombres: solo para el navegador ─────────────────────────────────────────
 
-/** Las personas del estudio, para quitar sus nombres de la pregunta. Solo id y nombre. */
+/** Las personas del estudio, para quitar sus nombres de la pregunta. Solo id y nombre (y cuál es quien pregunta). */
 export async function personasDelEstudio(admin: SupabaseClient, sesion: SesionAsistente): Promise<PersonaDelEstudio[] | null> {
   type FSocia = { id: string; nombre: string | null; apellidos: string | null };
-  type FEquipo = { id: string; nombre: string | null };
+  type FEquipo = { id: string; nombre: string | null; auth_user_id: string | null };
   const [socias, equipo] = await Promise.all([
     todasLasFilas<FSocia>((d, h) => admin.from('socios').select('id, nombre, apellidos')
       .eq('studio_id', sesion.studioId).is('borrado_en', null).order('id').range(d, h) as unknown as Pagina<FSocia>),
-    todasLasFilas<FEquipo>((d, h) => admin.from('instructores').select('id, nombre')
+    todasLasFilas<FEquipo>((d, h) => admin.from('instructores').select('id, nombre, auth_user_id')
       .eq('studio_id', sesion.studioId).order('id').range(d, h) as unknown as Pagina<FEquipo>),
   ]);
   if (socias.error || equipo.error) return null;
   return [
     ...socias.data.map(s => ({ tipo: 'socia' as const, id: s.id, nombre: s.nombre, apellidos: s.apellidos })),
-    ...equipo.data.map(e => ({ tipo: 'instructora' as const, id: e.id, nombre: e.nombre })),
+    // `propia`: la ficha de quien pregunta (el contexto del día le dice al modelo quién es). El id de usuario no sale de aquí.
+    ...equipo.data.map(e => ({ tipo: 'instructora' as const, id: e.id, nombre: e.nombre, ...(e.auth_user_id === sesion.userId ? { propia: true } : {}) })),
   ];
 }
 
