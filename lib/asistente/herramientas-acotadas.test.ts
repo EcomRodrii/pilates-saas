@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { DEFINICIONES, herramientasDelRol } from './herramientas/definiciones.ts';
+import { DEFINICIONES, aHerramientasAnthropic, herramientasDelRol } from './herramientas/definiciones.ts';
 
 const RAIZ = new URL('../../', import.meta.url).pathname;
 
@@ -187,4 +187,20 @@ test('el payload que se ejecuta sale de la fila guardada y se lee con el estudio
     if (/\.select\(/.test(m[0]) || /\.update\(/.test(m[0])) assert.match(m[0], /\.eq\('(auth_user_id', sesion\.userId|id', id)\)/);
   }
   assert.match(src, /const p = fila\.payload/);
+});
+
+test('los esquemas con strict:true no llevan palabras clave que Anthropic rechaza con 400 (minimum, minLength…)', () => {
+  const prohibidas = ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'minItems', 'maxItems', 'pattern', 'format', 'uniqueItems'];
+  const recorre = (n: unknown, ruta: string) => {
+    if (!n || typeof n !== 'object') return;
+    for (const [k, v] of Object.entries(n)) {
+      // `properties` tiene nombres de campo como claves: se mira dentro, no la clave.
+      if (k !== 'properties') assert.ok(!prohibidas.includes(k), `${ruta}.${k} no se admite en strict`);
+      recorre(v, `${ruta}.${k}`);
+    }
+  };
+  for (const t of aHerramientasAnthropic(DEFINICIONES)) {
+    assert.equal(t.strict, true);
+    recorre(t.input_schema, t.name);
+  }
 });

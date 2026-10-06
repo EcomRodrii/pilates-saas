@@ -50,7 +50,7 @@ export interface DepsTurno {
   etiqueta: (nombre: string, input: unknown) => string;
   emitir: (e: EventoAsistente) => void;
   /** Para la Sentry: solo códigos, nunca el texto de la pregunta ni de la respuesta. */
-  avisar?: (codigo: string, nivel: 'error' | 'fatal') => void;
+  avisar?: (codigo: string, nivel: 'error' | 'fatal', detalle?: Record<string, string | number | undefined>) => void;
 }
 
 export interface EntradaTurno {
@@ -81,6 +81,21 @@ export interface ResultadoTurno {
 }
 
 export const AVISO_UNA_PROPUESTA = 'Ya hay una propuesta en este turno; espera a que la confirme o la cancele. No propongas nada más: responde en una frase.';
+/**
+ * Lo estructural de un error de Anthropic para Sentry: status, tipo y mensaje recortado.
+ * Los 400 citan la ruta («tools.3.custom.input_schema: …») y a veces el valor: se quitan
+ * los textos entre comillas y se corta, para que nunca viaje lo que escribió la persona.
+ */
+export function detalleDeErrorAnthropic(e: { status?: number; error?: unknown }): Record<string, string | number | undefined> {
+  const cuerpo = (e.error ?? {}) as { type?: string; error?: { type?: string; message?: string } };
+  const msg = cuerpo.error?.message;
+  return {
+    status: e.status,
+    tipo: cuerpo.error?.type ?? cuerpo.type,
+    mensaje: typeof msg === 'string' ? msg.replace(/(["'«“`]).*?\1/g, '$1…$1').slice(0, 300) : undefined,
+  };
+}
+
 export const AVISO_LIMITE = 'Límite de 5 consultas por pregunta: responde con lo que ya tienes.';
 
 /**
@@ -290,7 +305,7 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
     if (e instanceof Anthropic.APIError) {
       // APIConnectionError, RateLimitError, InternalServerError, AuthenticationError… todos lo son.
       const fatal = e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError;
-      deps.avisar?.(`ASISTENTE_ANTHROPIC_${e.status ?? 'RED'}`, fatal ? 'fatal' : 'error');
+      deps.avisar?.(`ASISTENTE_ANTHROPIC_${e.status ?? 'RED'}`, fatal ? 'fatal' : 'error', detalleDeErrorAnthropic(e));
       deps.emitir({ t: 'error', codigo: 'IA_NO_DISPONIBLE', mensaje: 'No he podido responder ahora. No se ha descontado ninguna consulta.' });
       return fin('IA_NO_DISPONIBLE');
     }

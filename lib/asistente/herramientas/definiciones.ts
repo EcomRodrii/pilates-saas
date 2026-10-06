@@ -9,6 +9,8 @@
 // Reglas para todas (spec §2):
 //   - NINGUNA acepta un estudio, una sede ni nada parecido: el estudio sale de la
 //     sesión (`ctx.studioId`). Lo vigila herramientas-acotadas.test.ts.
+//   - NUNCA `minimum`/`maximum`/`minLength`/`maxLength`… en un esquema: con `strict: true`
+//     Anthropic los rechaza con un 400 (pasó con #2571). Ese límite va en zod, en servidor.
 //   - `strict: true`, `additionalProperties: false` y TODAS las propiedades en
 //     `required`: lo que sería un «por defecto» es un valor explícito del enum.
 //   - El ORDEN de este array es el de la caché (las herramientas van las primeras
@@ -248,7 +250,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
       sala: { type: 'string', description: 'Nombre de la sala.' },
       instructora: { type: 'string', description: '[EQUIPO_n] o "".' },
-      aforo: { type: 'integer', minimum: 1, description: 'Plazas; omítelo si no lo dice.' },
+      aforo: { type: 'integer', description: 'Plazas (al menos 1); omítelo si no lo dice.' },
     }, ['aforo']),
     zod: zClase,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
@@ -258,7 +260,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     nombre: 'proponer_sala',
     clase: 'accion',
     descripcion: 'Prepara (no crea) una sala nueva para que la propietaria la confirme.',
-    esquema: objeto({ nombre: { type: 'string', minLength: 1 }, capacidad: { type: 'integer', minimum: 1, description: 'Plazas que dice la persona; si no las dijo, pregunta (no pongas 0).' } }),
+    esquema: objeto({ nombre: { type: 'string', description: 'No vacío.' }, capacidad: { type: 'integer', description: 'Plazas (al menos 1) que dice la persona; si no las dijo, pregunta (no pongas 0).' } }),
     zod: zSala,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_SALA'),
     etiqueta: () => 'Preparando la sala…',
@@ -271,7 +273,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
       texto: { type: 'string', description: 'El anuncio.' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
-      aforo: { type: 'integer', minimum: 1, description: 'Plazas; omítelo si no hay límite.' },
+      aforo: { type: 'integer', description: 'Plazas (al menos 1); omítelo si no hay límite.' },
       lugar: { type: 'string' },
     }, ['aforo', 'lugar']),
     zod: zEventoPublicado,
@@ -287,7 +289,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
       instructora: { type: 'string', description: '[EQUIPO_n].' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
       hora: { type: 'string', description: 'HH:MM, hora de Madrid.' },
-      duracion_min: { type: 'integer', minimum: 1, description: 'Minutos; omítela si no la dice.' },
+      duracion_min: { type: 'integer', description: 'Minutos (al menos 1); omítela si no la dice.' },
       tipo: enumerado(Object.keys(TIPOS_CITA), 'Tipo de cita.'),
     }, ['duracion_min']),
     zod: zCita,

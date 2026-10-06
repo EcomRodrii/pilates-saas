@@ -247,3 +247,18 @@ test('una sola propuesta por turno: la segunda proponer_* del mismo turno NO se 
   assert.equal(res2[0].is_error, true);
   assert.equal(m.eventos.filter(e => e.t === 'bloque').length, 1);
 });
+
+test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje sin valores) y nunca la pregunta', async () => {
+  const cuerpo = { type: 'error', error: { type: 'invalid_request_error', message: 'tools.9.custom.input_schema: "minimum" not supported; got "¿Cuántas alumnas activas tengo?"' } };
+  const m = montar([() => { throw Anthropic.APIError.generate(400, cuerpo, 'x', new Headers()); }]);
+  const detalles: unknown[] = [];
+  m.deps.avisar = (_c, _n, d) => { detalles.push(d); };
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.motivo, 'IA_NO_DISPONIBLE');
+  const d = detalles[0] as Record<string, unknown>;
+  assert.equal(d.status, 400);
+  assert.equal(d.tipo, 'invalid_request_error');
+  assert.match(String(d.mensaje), /tools\.9\.custom\.input_schema/);
+  assert.doesNotMatch(JSON.stringify(d), /Cuántas alumnas/);
+  assert.ok(String(d.mensaje).length <= 303);
+});
