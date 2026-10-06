@@ -10,7 +10,9 @@ import {
   tarjetaEsSuya, tarjetasVisibles, type PaymentMethodMin,
 } from '@/lib/billing/tarjetas-guardadas';
 import { comprobarModoStripe, comprobarParDeClaves } from '@/lib/billing/modo-stripe';
-import { expiraSesionIncrustada, respuestaIncrustada } from '@/lib/billing/sesion-checkout';
+import { respuestaIncrustada } from '@/lib/billing/sesion-checkout';
+import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
+import { guardarTarjetaDeSesion } from '@/lib/billing/guardar-tarjeta-de-sesion';
 
 const claveStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -36,16 +38,30 @@ export async function GET(req: NextRequest) {
   const socioId = await socioAutenticado(user.userId, studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   const admin = getSupabaseAdmin();
-  const key = claveStripe();
-  if (!admin || !key) return NextResponse.json({ tarjetas: [] }, { headers: { 'Cache-Control': 'no-store' } });
+  if (!admin) return NextResponse.json({ tarjetas: [], cobros: null }, { headers: { 'Cache-Control': 'no-store' } });
   try {
-    const [{ data: socio }, { data: studio }] = await Promise.all([
-      admin.from('socios').select('stripe_customer_id, stripe_payment_method_id').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
+    const [{ data: socio, error: errSocio }, { data: studio, error: errStudio }] = await Promise.all([
+      admin.from('socios')
+        .select('stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_payment_method_id')
+        .eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
       admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
     ]);
+    if (errSocio || errStudio) throw new Error(errSocio?.message ?? errStudio?.message);
+    // Lo que la pantalla necesita para no mentir y que el payload no trae:
+    //  · `hayMetodo`: hay método de cobros aunque falten su marca y sus cuatro dígitos
+    //    (los rellena el cron por goteo). Sin esto la pantalla decía «No tienes ninguna
+    //    tarjeta» y ofrecía AÑADIR, que soltaría en silencio la que se estaba cobrando.
+    //  · `domiciliacion`: sus cuotas se cobran por SEPA (`elegirMetodoCobro`), así que la
+    //    tarjeta no es con lo que se le cobran.
+    const metodoCobros = (socio?.stripe_payment_method_id as string | null) ?? null;
+    const cobros = {
+      hayMetodo: !!metodoCobros,
+      domiciliacion: socio?.metodo_pago_preferido === 'SEPA' && !!socio?.sepa_payment_method_id,
+    };
     const customer = (socio?.stripe_customer_id as string | null) ?? null;
     const stripeAccount = (studio?.stripe_account_id as string | null) ?? null;
-    if (!customer || !stripeAccount) return NextResponse.json({ tarjetas: [] }, { headers: { 'Cache-Control': 'no-store' } });
+    const key = claveStripe();
+    if (!customer || !stripeAccount || !key) return NextResponse.json({ tarjetas: [], cobros }, { headers: { 'Cache-Control': 'no-store' } });
     const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
     let pms: PaymentMethodMin[] = [];
     try {
@@ -55,7 +71,7 @@ export async function GET(req: NextRequest) {
       if ((e as { code?: string })?.code !== 'resource_missing') throw e;
     }
     return NextResponse.json(
-      { tarjetas: tarjetasVisibles(pms, (socio?.stripe_payment_method_id as string | null) ?? null) },
+      { tarjetas: tarjetasVisibles(pms, metodoCobros), cobros },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (err) {
@@ -83,6 +99,8 @@ export async function GET(req: NextRequest) {
 // panel), y la pantalla solo dice «Tarjeta guardada» cuando el GET con `sesion`
 // lee en la ficha la tarjeta de ESTA sesión. Nada optimista.
 // ─────────────────────────────────────────────────────────────────────────────
+const MINUTOS_SESION_TARJETA = 35;
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-tarjeta-guardar', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
@@ -124,6 +142,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tu estudio todavía no acepta tarjetas desde la app.' }, { status: 409 });
     }
     const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+    // Una cuenta que aún no puede cobrar (onboarding a medias): guardar la tarjeta
+    // prometería cobros que no van a ocurrir. Sin respuesta de Stripe, tampoco.
+    const cuenta = await estadoCobroCuenta(stripe, stripeAccount);
+    if (cuenta !== 'PUEDE') {
+      return NextResponse.json(
+        cuenta === 'NO_PUEDE'
+          ? { error: 'Tu estudio todavía no puede cobrar con tarjeta. Pregúntale en el estudio.' }
+          : { error: 'No hemos podido abrir el formulario de la tarjeta. Inténtalo de nuevo.' },
+        { status: cuenta === 'NO_PUEDE' ? 409 : 502 },
+      );
+    }
 
     // El Customer de SU ficha en la cuenta del estudio: el mismo que usan los cobros.
     // Si aún no tiene, se crea; el UPDATE solo lo apunta si sigue sin tener (dos toques
@@ -157,8 +186,9 @@ export async function POST(req: NextRequest) {
         socioId,
         // Una tarjeta no redirige; si algo lo hiciera, vuelve a esta pantalla, que comprueba antes de afirmar nada.
         returnUrl: `${appUrl}/portal/${encodeURIComponent(slug)}/perfil/pago?tarjeta=vuelta&session_id={CHECKOUT_SESSION_ID}`,
-        // Abandonada, caduca en ~31 min: una sesión vieja no se completa días después.
-        expiresAt: expiraSesionIncrustada(Date.now()),
+        // Abandonada, caduca en 35 min: una sesión vieja no se completa días después. Sin
+        // clave de idempotencia no hace falta redondear al minuto (Stripe exige ≥30 min).
+        expiresAt: Math.floor(Date.now() / 1000) + MINUTOS_SESION_TARJETA * 60,
       }),
       { stripeAccount },
     );
@@ -217,22 +247,43 @@ async function confirmarTarjetaGuardada(req: NextRequest) {
       throw e;
     }
     const si = sesion.setup_intent && typeof sesion.setup_intent === 'object' ? sesion.setup_intent : null;
+    const customerDeLaSesion = typeof sesion.customer === 'string' ? sesion.customer : (sesion.customer?.id ?? null);
     // La ficha DESPUÉS de leer la sesión: si el webhook escribe entre las dos lecturas, ya se ve.
-    const { data: ficha, error: errFicha } = await admin.from('socios')
-      .select('stripe_payment_method_id, tarjeta_marca, tarjeta_ultimos4, tarjeta_exp_mes, tarjeta_exp_anio')
-      .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
-    if (errFicha) throw new Error(errFicha.message);
-    const confirmacion = confirmacionTarjetaGuardada(
-      {
-        mode: sesion.mode, status: sesion.status, metadata: sesion.metadata,
-        setupIntent: si
-          ? { status: si.status, paymentMethodId: typeof si.payment_method === 'string' ? si.payment_method : (si.payment_method?.id ?? null) }
-          : null,
-      },
-      { socioId, studioId, metodoDeLaFicha: (ficha?.stripe_payment_method_id as string | null) ?? null },
-    );
+    const leer = async () => {
+      const { data: ficha, error: errFicha } = await admin.from('socios')
+        .select('stripe_payment_method_id, stripe_customer_id, tarjeta_marca, tarjeta_ultimos4, tarjeta_exp_mes, tarjeta_exp_anio')
+        .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
+      if (errFicha) throw new Error(errFicha.message);
+      const confirmacion = confirmacionTarjetaGuardada(
+        {
+          mode: sesion.mode, status: sesion.status, metadata: sesion.metadata,
+          setupIntent: si
+            ? { status: si.status, paymentMethodId: typeof si.payment_method === 'string' ? si.payment_method : (si.payment_method?.id ?? null) }
+            : null,
+        },
+        { socioId, studioId, metodoDeLaFicha: (ficha?.stripe_payment_method_id as string | null) ?? null },
+      );
+      return { ficha, confirmacion };
+    };
+    let { ficha, confirmacion } = await leer();
     // La sesión de otra persona (u otra cosa): lo mismo que si no existiera.
     if (confirmacion === 'ajena') return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    // Stripe la autorizó y la ficha aún no la tiene: el webhook contesta antes de
+    // procesar y Stripe no lo reintenta, así que si no llegó a escribir no lo haría
+    // nadie. Se escribe aquí con el MISMO dueño (compare-and-set, nunca vuelve a una
+    // tarjeta anterior). Solo con el Customer de SU ficha: la sesión la abrió su POST.
+    const customerDeLaFicha = (ficha?.stripe_customer_id as string | null) ?? null;
+    if (confirmacion === 'confirmando' && si && (!customerDeLaFicha || customerDeLaFicha === customerDeLaSesion)) {
+      try {
+        const r = await guardarTarjetaDeSesion(admin, stripe, {
+          socioId, studioId, stripeAccount, customerDeLaSesion, metodo: si.payment_method,
+        });
+        if (r.tipo === 'ESCRITA' || r.tipo === 'YA_ESTA') ({ ficha, confirmacion } = await leer());
+      } catch (e) {
+        // No se dice nada que no se sepa: se sigue preguntando.
+        console.error('[public/tarjeta:confirmar] no se pudo completar el guardado', e instanceof Error ? e.message : e);
+      }
+    }
     const mes = (ficha?.tarjeta_exp_mes as number | null) ?? null;
     const anio = (ficha?.tarjeta_exp_anio as number | null) ?? null;
     return NextResponse.json({

@@ -6,8 +6,7 @@ import { cerrarReciboPos, cerrarVentaPos } from '@/lib/pos/cerrar-cobro-pos';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
-import { caducidadDe } from '@/lib/billing/caducidad-tarjeta';
-import { debeSoltarTarjetaSustituida, filaTarjetaDeCobros } from '@/lib/billing/tarjetas-guardadas';
+import { guardarTarjetaDeSesion } from '@/lib/billing/guardar-tarjeta-de-sesion';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
@@ -493,85 +492,44 @@ async function procesarEvento(
     }
 
     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
-      // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
-      // Es el único camino por el que una socia que paga en mostrador, por
-      // Bizum o importada de otra plataforma llega a tener método cobrable.
-      // Mismo trato que el guardado tras un pago: si no se puede persistir se
-      // devuelve 5xx y Stripe reintenta (idempotente, mismos ids).
+      // La socia autorizó una tarjeta sin pagar nada: el enlace del panel
+      // (/api/stripe/setup-tarjeta) o «Cambiar / Añadir tarjeta» de la app
+      // (POST /api/public/tarjeta). Es el único camino por el que una socia que paga
+      // en mostrador, por Bizum o importada de otra plataforma llega a tener método
+      // cobrable. La escritura tiene UN dueño (`guardarTarjetaDeSesion`), que comparte
+      // con la confirmación de la app: si esto no llega a escribir, la app la completa.
       if (socioId && typeof session.setup_intent === 'string') {
         const si = await stripe.setupIntents.retrieve(
           session.setup_intent,
           { expand: ['payment_method'] },
           event.account ? { stripeAccount: event.account } : undefined,
         );
-        const pm = si.payment_method;
-        const pmId = typeof pm === 'string' ? pm : (pm?.id ?? null);
-        const esTarjeta = typeof pm === 'string' ? true : pm?.type === 'card';
         if (!studioId) {
           // Mismo criterio que el guardado tras pago: sin studioId no se acota
           // el UPDATE al estudio dueño de la socia, y no se escribe.
           Sentry.captureMessage('[stripe webhook] setup de tarjeta sin studioId: no se guarda', {
             level: 'warning', extra: { socioId, sessionId: session.id },
           });
-        } else if (pmId && esTarjeta) {
-          // También «Cambiar tarjeta» / «Añadir tarjeta» de la app (Checkout incrustado,
-          // 6-oct-2026): la misma rama, la misma escritura.
-          const fallo = (detalle: string) => {
+        } else {
+          try {
+            const r = await guardarTarjetaDeSesion(admin, stripe, {
+              socioId, studioId, stripeAccount: event.account ?? null,
+              customerDeLaSesion: typeof session.customer === 'string' ? session.customer : null,
+              metodo: si.payment_method,
+            });
+            if (r.tipo === 'SIN_FICHA' || r.tipo === 'CAMBIO_CONCURRENTE' || r.tipo === 'DESCARTADA') {
+              Sentry.captureMessage('[stripe webhook] tarjeta autorizada que no se escribe en la ficha', {
+                level: 'warning', tags: { area: 'cobros' },
+                extra: { socioId, studioId, sessionId: session.id, resultado: r.tipo, motivo: r.tipo === 'DESCARTADA' ? r.motivo : null },
+              });
+            }
+          } catch (e) {
+            const detalle = e instanceof Error ? e.message : String(e);
             console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, detalle);
             Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta autorizada', {
               level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle },
             });
             return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
-          };
-          // Lo que había, para el compare-and-set y para soltar la que se sustituye.
-          const { data: antes, error: errAntes } = await admin.from('socios')
-            .select('stripe_payment_method_id, sepa_payment_method_id, stripe_customer_id')
-            .eq('id', socioId).eq('studio_id', studioId).maybeSingle();
-          if (errAntes) return fallo(errAntes.message);
-          const anterior = (antes?.stripe_payment_method_id as string | null | undefined) ?? null;
-          // El método y su marca, últimos cuatro y caducidad en el MISMO update: al
-          // cambiar de tarjeta, la ficha nunca enseña los dígitos de la vieja con el
-          // método de la nueva (antes los datos iban después y solo «si se podía»).
-          const update = filaTarjetaDeCobros(
-            pmId, caducidadDe(typeof pm === 'string' ? null : pm), typeof session.customer === 'string' ? session.customer : null,
-          );
-          let cas = admin.from('socios').update(update).eq('id', socioId).eq('studio_id', studioId);
-          cas = anterior === null ? cas.is('stripe_payment_method_id', null) : cas.eq('stripe_payment_method_id', anterior);
-          const { data: tocadas, error } = await cas.select('id');
-          if (error) return fallo(error.message);
-          // Si la ficha cambió entre la lectura y el update, la tarjeta que se acaba de
-          // autorizar se escribe igual (es la última que dio), pero no se suelta nada:
-          // ya no se sabe cuál se sustituye.
-          let sustituida: string | null = anterior;
-          if ((tocadas?.length ?? 0) === 0 && antes) {
-            const { error: e2 } = await admin.from('socios').update(update).eq('id', socioId).eq('studio_id', studioId);
-            if (e2) return fallo(e2.message);
-            sustituida = null;
-          }
-          // «Cambiar tarjeta»: la de antes se suelta en Stripe si era SOLO de cobros
-          // (`debeSoltarTarjetaSustituida`). Best-effort: lo que importa, poder cobrar
-          // con la nueva, ya está escrito; una vieja colgada no le cobra nada a nadie.
-          if (sustituida && sustituida !== pmId && antes) {
-            try {
-              const cuenta = event.account ? { stripeAccount: event.account } : undefined;
-              const viejo = await stripe.paymentMethods.retrieve(sustituida, {}, cuenta);
-              if (debeSoltarTarjetaSustituida({
-                sustituida, nueva: pmId,
-                sepaDeLaFicha: (antes.sepa_payment_method_id as string | null) ?? null,
-                customerDeLaFicha: typeof session.customer === 'string' ? session.customer : ((antes.stripe_customer_id as string | null) ?? null),
-                pmSustituido: viejo,
-              })) {
-                await stripe.paymentMethods.detach(sustituida, {}, cuenta);
-              }
-            } catch (e) {
-              // Ya no existía (la quitó ella, o el estudio): no hay nada que soltar.
-              if ((e as { code?: string })?.code !== 'resource_missing') {
-                Sentry.captureMessage('[stripe webhook] no se pudo soltar la tarjeta sustituida', {
-                  level: 'warning', tags: { area: 'cobros' },
-                  extra: { socioId, studioId, sessionId: session.id, detalle: e instanceof Error ? e.message : String(e) },
-                });
-              }
-            }
           }
         }
       }

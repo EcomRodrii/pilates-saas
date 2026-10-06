@@ -110,16 +110,18 @@ test('la ruta: identidad del JWT, Stripe del estudio en servidor, guardias de mo
   assert.match(post, /parametrosSesionGuardarTarjeta\(/);
   assert.match(post, /\{ stripeAccount \}/, 'la sesión vive en la cuenta del estudio (cargo directo)');
 
-  const get = r.slice(r.indexOf('export async function GET'), r.indexOf('export async function DELETE'));
+  assert.match(post, /estadoCobroCuenta\(stripe, stripeAccount\)/, 'una cuenta que no puede cobrar no guarda tarjetas que prometen cobros');
+
+  const get = r.slice(r.indexOf('async function confirmarTarjetaGuardada'), r.indexOf('export async function DELETE'));
   assert.match(get, /idDeSesionCheckoutValido\(/);
   assert.match(get, /confirmacionTarjetaGuardada\(/);
+  // Si el webhook no llegó a escribir (contesta antes de procesar y Stripe no reintenta), la confirmación lo completa
+  // con el MISMO dueño, y solo con el Customer de su ficha.
+  assert.match(get, /confirmacion === 'confirmando' && si && \(!customerDeLaFicha \|\| customerDeLaFicha === customerDeLaSesion\)/);
+  assert.match(get, /guardarTarjetaDeSesion\(admin, stripe,/);
 
   const w = sinComentarios(leer('app/api/stripe/webhook/route.ts'));
   const rama = w.slice(w.indexOf("session.metadata?.purpose === 'tarjeta'"), w.indexOf("session.metadata?.purpose === 'sepa_mandate'"));
-  assert.match(rama, /filaTarjetaDeCobros\(/, 'método y datos de la tarjeta en el mismo update');
-  assert.match(rama, /\.eq\('stripe_payment_method_id', anterior\)/, 'compare-and-set: solo se suelta la que de verdad se sustituyó');
-  assert.match(rama, /debeSoltarTarjetaSustituida\(/);
-  const escritura = rama.indexOf('filaTarjetaDeCobros(');
-  const suelta = rama.indexOf('paymentMethods.detach(');
-  assert.ok(escritura > 0 && suelta > escritura, 'primero la ficha, después (y solo si se puede) soltar la vieja');
+  assert.match(rama, /guardarTarjetaDeSesion\(admin, stripe,/, 'un solo dueño para escribir la tarjeta en la ficha');
+  assert.equal(/from\('socios'\)/.test(rama), false, 'la rama no escribe la ficha por su cuenta');
 });

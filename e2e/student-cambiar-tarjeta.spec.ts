@@ -25,6 +25,8 @@ async function montar(page: Page, o: {
   abrir?: (n: number) => Resp;
   /** Respuesta de cada consulta de confirmación (por defecto: dos «confirmando» y luego «guardada»). */
   confirmar?: (n: number) => Resp;
+  /** Lo que contesta la lista (`GET /api/public/tarjeta`). */
+  lista?: unknown;
 } = {}) {
   let fixture: Record<string, unknown> | null = null;
   const a: Andamiaje = await sembrarSociaCompleta(page, {
@@ -50,6 +52,7 @@ async function montar(page: Page, o: {
       c.borrar.push(req.postDataJSON());
       const socio = ((fixture?.socia as Record<string, unknown>).socio as Record<string, unknown>);
       Object.assign(socio, { tarjetaUltimos4: null, tarjetaMarca: null, tarjetaExpMes: null, tarjetaExpAnio: null });
+      o.lista = { tarjetas: [], cobros: { hayMetodo: false, domiciliacion: false } };
       return r.fulfill(json({ ok: true }));
     }
     if (url.searchParams.has('sesion')) {
@@ -66,7 +69,7 @@ async function montar(page: Page, o: {
       return r.fulfill(json(res.body ?? {}, res.status));
     }
     c.lista += 1;
-    return r.fulfill(json({ tarjetas: [] }));
+    return r.fulfill(json(o.lista ?? { tarjetas: [], cobros: { hayMetodo: !!o.conTarjeta, domiciliacion: false } }));
   });
   await page.goto(PAGO, { waitUntil: 'domcontentloaded' });
   return { a, c };
@@ -125,6 +128,25 @@ test.describe('Student PWA · cambiar y añadir tarjeta sin salir de la app', ()
     expect(c.abrir).toHaveLength(1);
     expect(c.confirmar.length).toBeGreaterThan(0);
     expect(a.sinMockear()).toEqual([]);
+  });
+
+  test('⚠️ método de cobros sin sus cuatro dígitos en el payload: se enseña con lo de Stripe y se ofrece CAMBIAR, no añadir', async ({ page }) => {
+    const { c } = await montar(page, {
+      conTarjeta: false,
+      lista: { tarjetas: [{ id: 'pm_cobros', marca: 'visa', ultimos4: '1111', caducidad: '01/29', paraCobros: true }], cobros: { hayMetodo: true, domiciliacion: false } },
+    });
+    await expect(page.getByTestId('tarjeta')).toContainText('1111', { timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Cambiar tarjeta' })).toBeVisible();
+    await expect(page.getByTestId('sin-tarjeta')).toHaveCount(0);
+    expect(c.lista).toBeGreaterThan(0);
+  });
+
+  test('con sus cuotas por domiciliación, la línea no promete cobrarlas con la tarjeta', async ({ page }) => {
+    const { c } = await montar(page, { lista: { tarjetas: [], cobros: { hayMetodo: true, domiciliacion: true } } });
+    await expect(page.getByTestId('tarjeta')).toContainText('4242', { timeout: 60_000 });
+    await expect(page.getByText(/Tus cuotas se cobran por domiciliación bancaria/)).toBeVisible();
+    await expect(page.getByText(/podrá cobrarte en ella tus cuotas/)).toHaveCount(0);
+    expect(c.lista).toBeGreaterThan(0);
   });
 
   test('quitar sigue funcionando igual: confirma y la quita cuando el servidor dice que sí', async ({ page }) => {

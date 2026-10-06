@@ -181,7 +181,7 @@ export const MENSAJE_RECIBO_YA_PAGADO_ONLINE =
 
 /** `idempotency_error` en el cargo: no se ha cobrado y el recibo queda reservado hasta que el conciliador lo mire. */
 export const MENSAJE_CLAVE_CON_OTROS_DATOS =
-  'Este recibo tuvo hace poco otro intento de cobro con otros datos y no se ha vuelto a cobrar. Se comprueba solo con Stripe en la próxima hora o dos; vuelve a intentarlo después.';
+  'Stripe no ha aceptado este cobro porque hace poco hubo otro intento del mismo recibo con otros datos: no se ha cobrado. Si vuelve a pasar, cóbralo de otra forma y avísanos.';
 
 export const MENSAJE_RESERVA_SIN_CONFIRMAR =
   'No se ha podido preparar el cobro: no se ha cobrado nada. Vuelve a intentarlo en un momento.';

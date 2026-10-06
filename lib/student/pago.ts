@@ -115,13 +115,28 @@ export async function esperarTarjetaGuardada(studioId: string, sesion: string, s
 
 // ── P16: las tarjetas que guardó para pagar en la app ───────────────────────
 
-/** Las que aceptó guardar («Guárdala para la próxima»). `null` = no se han podido leer (no se inventa una lista). */
-export async function getTarjetasApp(studioId: string): Promise<TarjetaGuardada[] | null> {
+/** Lo que el servidor sabe de sus cobros y el payload no trae (`GET /api/public/tarjeta`). */
+export interface CobrosDeLaFicha {
+  /** Hay método de cobros en su ficha, aunque falten su marca y sus cuatro dígitos. */
+  hayMetodo: boolean;
+  /** Sus cuotas se cobran por domiciliación (SEPA), no con la tarjeta. */
+  domiciliacion: boolean;
+}
+
+/**
+ * Las que aceptó guardar («Guárdala para la próxima») y la de cobros, más `cobros`.
+ * `null` = no se han podido leer (no se inventa una lista).
+ */
+export async function getTarjetasApp(studioId: string): Promise<{ tarjetas: TarjetaGuardada[]; cobros: CobrosDeLaFicha | null } | null> {
   try {
     const res = await fetch(`/api/public/tarjeta?studioId=${encodeURIComponent(studioId)}`, { headers: await portalAuthHeader(), cache: 'no-store' });
     if (!res.ok) return null;
-    const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[] } | null;
-    return Array.isArray(c?.tarjetas) ? c.tarjetas : null;
+    const c = (await res.json().catch(() => null)) as { tarjetas?: TarjetaGuardada[]; cobros?: Partial<CobrosDeLaFicha> | null } | null;
+    if (!Array.isArray(c?.tarjetas)) return null;
+    const cobros = c.cobros && typeof c.cobros === 'object'
+      ? { hayMetodo: c.cobros.hayMetodo === true, domiciliacion: c.cobros.domiciliacion === true }
+      : null;
+    return { tarjetas: c.tarjetas, cobros };
   } catch {
     return null;
   }

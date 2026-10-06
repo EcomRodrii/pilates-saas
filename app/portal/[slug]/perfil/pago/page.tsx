@@ -48,15 +48,25 @@ export default function PagoPage() {
 
   // P16: además de la de cobros automáticos, las que aceptó guardar para pagar en la app.
   const cargar = useCallback(async () => {
-    const [metodo, app, d] = await Promise.all([getMetodoPago(estudio.slug), getTarjetasApp(estudio.id), catalogo(estudio.slug)]);
-    return { ...metodo, app, stripeAccountId: d?.studio?.stripeAccountId ?? null };
+    const [metodo, lista, d] = await Promise.all([getMetodoPago(estudio.slug), getTarjetasApp(estudio.id), catalogo(estudio.slug)]);
+    const cobros = lista?.cobros ?? null;
+    // Hay método de cobros aunque el payload aún no traiga su marca y sus cuatro dígitos (los rellena el cron): se
+    // enseña con lo que da Stripe. Decir «No tienes ninguna tarjeta» y ofrecer AÑADIR soltaría la que se cobra.
+    const deCobros = lista?.tarjetas.find((t) => t.paraCobros) ?? null;
+    const vista = metodo.tieneTarjeta || !cobros?.hayMetodo ? metodo : {
+      ...metodo, tieneTarjeta: true, marca: deCobros?.marca ?? null, ultimos4: deCobros?.ultimos4 ?? null, caducidad: deCobros?.caducidad ?? null,
+    };
+    return {
+      ...vista, app: lista?.tarjetas ?? null, domiciliacion: cobros?.domiciliacion === true,
+      stripeAccountId: d?.studio?.stripeAccountId ?? null,
+    };
   }, [estudio.slug, estudio.id]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.tieneTarjeta && (d.app?.filter((t) => !t.paraCobros).length ?? 0) === 0);
   const esLink = data?.esLink === true;
   // Sin la cuenta de Stripe del estudio o sin la clave pública no hay formulario que montar: no se ofrece.
   const stripeAccountId = data?.stripeAccountId ?? null;
   const puedeGuardar = !!stripeAccountId && !!clavePublicableStripe();
-  const consentimiento = lineaConsentimiento(estudio.nombre);
+  const consentimiento = lineaConsentimiento(estudio.nombre, { domiciliacion: data?.domiciliacion === true });
   const abrirHojaTarjeta = () => {
     if (!online) { toast('Necesitas conexión para guardar una tarjeta.'); return; }
     setHojaTarjeta({ sesion: null });
@@ -128,7 +138,7 @@ export default function PagoPage() {
             <div className="card" data-testid="tarjeta" style={{ padding: '15px 16px' }}>
               <p className="t-label" style={{ margin: 0 }}>{esLink ? 'Método guardado' : 'Tarjeta guardada'}</p>
               <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.01em' }}>
-                {esLink ? 'Link' : <>{data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}</>}
+                {esLink ? 'Link' : data.ultimos4 ? <>{data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}</> : 'Método guardado'}
               </p>
               {data.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {data.caducidad}</p>}
               <p className="t-meta" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>

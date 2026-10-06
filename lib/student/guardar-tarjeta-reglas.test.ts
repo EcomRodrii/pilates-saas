@@ -54,3 +54,9 @@ test('el consentimiento en una línea: dice que el estudio cobrará solas sus cu
   assert.match(l, /^Al guardarla, Estudio Alma podrá cobrarte en ella tus cuotas y lo que tengas pendiente/);
   assert.match(lineaConsentimiento(''), /el estudio podrá cobrarte/);
 });
+
+test('⚠️ con sus cuotas por domiciliación, no promete cobrarlas con la tarjeta', () => {
+  const l = lineaConsentimiento('Estudio Alma', { domiciliacion: true });
+  assert.match(l, /domiciliación bancaria/);
+  assert.doesNotMatch(l, /podrá cobrarte en ella tus cuotas/);
+});

@@ -54,7 +54,12 @@ export function textoTarjeta(t: TarjetaConfirmada): string {
  * tenga pendiente. El texto de autorización de Stripe (`usage=off_session`) sale además
  * dentro del Checkout.
  */
-export function lineaConsentimiento(nombreEstudio: string | null | undefined): string {
+export function lineaConsentimiento(nombreEstudio: string | null | undefined, o: { domiciliacion?: boolean } = {}): string {
   const quien = nombreEstudio?.trim() || 'el estudio';
+  // Con la domiciliación lista y preferida, sus cuotas van por el banco (`elegirMetodoCobro`): la tarjeta no es
+  // con lo que se le cobran, y decirlo sería falso.
+  if (o.domiciliacion) {
+    return 'Tus cuotas se cobran por domiciliación bancaria. La tarjeta quedará guardada y se usará si dejan de cobrarse así.';
+  }
   return `Al guardarla, ${quien} podrá cobrarte en ella tus cuotas y lo que tengas pendiente, sin que tengas que pagarlo a mano.`;
 }

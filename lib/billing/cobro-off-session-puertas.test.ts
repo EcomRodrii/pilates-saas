@@ -89,13 +89,16 @@ test('el conciliador resuelve las marcas colgadas en cada barrido, preguntando a
   assert.match(resolver, /case 'SOLTAR':\s*await soltarMarcaCobroOffSession\(/);
 });
 
-test('⚠️ cobrarReciboOffSession: un idempotency_error NO suelta la marca, NO cuenta como rechazo y se avisa a Sentry como error', () => {
+test('⚠️ cobrarReciboOffSession: un idempotency_error solo suelta la marca que puso ESTA llamada, NO cuenta como rechazo y se avisa a Sentry como error', () => {
   const s = sinComentarios(leer('lib/billing/stripe-cobros.ts'));
   const ini = s.indexOf("if (clase === 'CLAVE_CON_OTROS_DATOS')");
   const fin = s.indexOf("if (clase === 'ERROR_TRANSITORIO')");
   assert.ok(ini > 0 && fin > ini, 'se mira ANTES que el transitorio');
   const rama = s.slice(ini, fin);
-  assert.equal(rama.includes('soltarMarca('), false, 'el primer uso de esa clave pudo cobrar: la marca se queda para el conciliador');
+  assert.match(rama, /if \(reservadaAhora\) await soltarMarca\(\);/,
+    'la de un intento anterior que vuelve a entrar (REENTRANTE) pudo cobrar: esa se queda para el conciliador');
+  assert.equal((rama.match(/soltarMarca\(/g) ?? []).length, 1);
+  assert.match(s, /marca = reserva\.marca;\s*reservadaAhora = true;/, 'solo la reserva ganada ahora cuenta como suya');
   assert.match(rama, /level: 'error'/, 'no en silencio');
   assert.match(rama, /errorCode: 'COBRO_EN_MARCHA'/, 'ni FALLO_COBRO (subiría el contador y avisaría de un rechazo que no hubo) ni un transitorio mudo');
 });
