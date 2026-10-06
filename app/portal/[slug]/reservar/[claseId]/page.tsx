@@ -153,7 +153,7 @@ export default function FichaClasePage() {
 
   if (estado === 'loading') {
     return (
-      <StudentShell headerTransparente>
+      <StudentShell headerTransparente sinCabecera>
         {/* La misma geometría que la ficha: la foto a sangre, el título debajo y las filas. */}
         <Skeleton h={290} r={0} style={{ height: 'calc(290px + var(--safe-top))' }} />
         <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 18 }}>
@@ -198,10 +198,11 @@ export default function FichaClasePage() {
   const premio = premioPorInvitar(data?.formasDeGanar ?? [], nombreCreditos(estudio.creditosNombre));
 
   return (
-    // `headerTransparente`, igual que Inicio: esta pantalla también abre con
-    // una foto a sangre y la cabecera del estudio flota encima (campana y Perfil
-    // siguen ahí). El velo va DENTRO de `StudioHeader`.
-    <StudentShell headerTransparente>
+    // La foto sube hasta arriba (`headerTransparente`) y SIN la barra del
+    // estudio (decisión del fundador, 6-oct-2026): encima de la foto solo va
+    // una fila, volver · favorita · compartir. Antes eran dos filas de botones
+    // flotando sobre la misma foto. Inicio y Perfil siguen en la barra de abajo.
+    <StudentShell headerTransparente sinCabecera>
       <FichaClaseHero
         clase={clase}
         derecha={(
@@ -320,6 +321,7 @@ export default function FichaClasePage() {
 
       {/* CTA persistente sobre la nav */}
       <div
+        className="cta-flotante"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
           zIndex: 39, padding: '10px 16px 12px',

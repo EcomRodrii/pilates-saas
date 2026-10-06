@@ -173,7 +173,7 @@ export default function FichaClaseInstructoraPage() {
           onClick={volver}
           aria-label="Volver"
           className="tap tap--icono"
-          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--on-dark-tinta)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Icono nombre="flecha-izquierda" tamano={18} />
         </button>

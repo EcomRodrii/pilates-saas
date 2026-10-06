@@ -263,7 +263,9 @@ export default function HorarioPage() {
         )}
       </div>
 
-      <p className="t-label px" style={{ margin: '12px 0 0' }}>
+      {/* Sin datos (error, o sin conexión antes de la primera carga) no hay cifra que dar: «0 clases · hoy» encima del
+          aviso de error decía que no hay clases cuando lo que pasa es que no se han podido leer. */}
+      {(data || estado === 'loading') && estado !== 'error' && <p className="t-label px" style={{ margin: '12px 0 0' }}>
         {estado === 'loading'
           ? 'Cargando…'
           // Con búsqueda activa la lista abarca TODO el horario, así que
@@ -271,7 +273,7 @@ export default function HorarioPage() {
           : consulta
             ? `${lista.length} ${lista.length === 1 ? 'clase' : 'clases'} · todo el horario`
             : `${lista.length} ${lista.length === 1 ? 'clase' : 'clases'} · ${etiquetaDia(dia)}`}
-      </p>
+      </p>}
       {aviso && <p className="t-meta px" role="status" data-testid="aviso-salto" style={{ margin: '4px 0 0' }}>{aviso}</p>}
       <div style={{ height: 9 }} />
 

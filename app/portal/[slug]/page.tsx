@@ -506,7 +506,10 @@ export default function InicioPage() {
             // «…o activid». Quitando el verbo caben las tres palabras que de
             // verdad dicen qué se puede buscar (223 px), que es lo que importa
             // de esa frase. El icono de la lupa ya dice «buscar».
-            placeholder="Clases, instructoras o actividades…"
+            // ⚠️ Y desde que el botón de filtros vive a su lado, ni eso: a 390 px
+            // se cortaba en «…o actividade» (auditoría del 6-oct). Lo que se
+            // busca de verdad son clases e instructoras.
+            placeholder="Clases o instructoras…"
             aria-label="Buscar clases o instructoras"
             style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
           />

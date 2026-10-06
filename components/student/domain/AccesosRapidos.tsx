@@ -87,7 +87,9 @@ export function FilaAccesos({ accesos, enLinea = false }: { accesos: Acceso[]; e
                 // impide: un flex/grid item no encoge por debajo de su
                 // contenido mínimo si no se le dice.
                 minWidth: 0,
-                padding: '13px 5px 12px', borderRadius: 16,
+                // 3 px a los lados y no 5: con 5, «Instructoras» seguía partiendo
+                // («Instructo-ras») a 390 px, el ancho de un iPhone (auditoría del 6-oct).
+                padding: '13px 3px 12px', borderRadius: 16,
                 background: 'var(--card)', color: 'var(--foreground)',
                 border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)',
                 textAlign: 'center',

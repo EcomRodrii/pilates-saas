@@ -55,7 +55,7 @@ export function FavoritoButton({ slug, studioId, tipoClaseId, marcada, onCambio,
           barra y las baldosas de Inicio: esto era el de Feather, con otra
           silueta, y a un toque de distancia se veían dos corazones distintos. */}
       <Icono nombre="favorito"
-        fill={marcada ? 'var(--destructive)' : 'none'} stroke={marcada ? 'var(--destructive)' : 'var(--foreground)'}
+        fill={marcada ? 'var(--destructive)' : 'none'} stroke={marcada ? 'var(--destructive)' : 'var(--on-dark-tinta)'}
         onAnimationEnd={() => setLatiendo(false)}
         style={{
           transition: 'transform .25s var(--ease-spring)',

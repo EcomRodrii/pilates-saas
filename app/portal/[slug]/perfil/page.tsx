@@ -10,6 +10,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { ErrorState } from '@/components/student/ui/States';
 import { getAlumna, getBonos, getClases, getHuella, getPlazaFija, getReservas } from '@/lib/student/datos';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { getMetodoPago } from '@/lib/student/pago';
@@ -48,7 +49,7 @@ export default function PerfilPage() {
     ]);
     return { alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago };
   }, [estudio.slug]);
-  const { data, estado } = useAsync(cargar, (d) => !d.alumna, `alumna:${estudio.slug}:perfil`);
+  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.alumna, `alumna:${estudio.slug}:perfil`);
   const socia = data?.alumna ?? null;
   const hoy = hoyISO();
   const ahoraMs = useAhoraMs();
@@ -92,6 +93,9 @@ export default function PerfilPage() {
   return (
     <StudentShell>
       <PageHeader titulo="Perfil" />
+      {/* Sin sus datos la cabecera se quedaba en «Tu perfil» con un «?» y nada decía que algo había fallado. Las filas de
+          abajo siguen: cerrar sesión, la ayuda o la privacidad no dependen de esta lectura. */}
+      {estado === 'error' && <div className="px" style={{ marginTop: 14 }}><ErrorState cuerpo="No hemos podido cargar tus datos. Lo demás de esta pantalla sigue funcionando." onRetry={reintentar} /></div>}
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
         {/* ⚠️ Aquí estaba el bug de la foto: este bloque pintaba SIEMPRE las
             iniciales, sin mirar `socia.fotoUrl` ni una vez. La alumna subía su

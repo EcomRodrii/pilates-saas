@@ -41,7 +41,7 @@ export function CompartirClase({ clase, socioId }: { clase: ClaseCompartida; soc
       onClick={() => void alPulsar()}
       aria-label={hayHoja ? 'Compartir esta clase' : 'Copiar el enlace de esta clase'}
       data-testid="compartir-clase"
-      style={{ width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+      style={{ width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--on-dark-tinta)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
     >
       <Icono nombre="compartir" tamano={18} />
     </button>

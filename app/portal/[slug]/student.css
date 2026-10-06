@@ -44,6 +44,12 @@
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  /* Números de altura de mayúscula en TODA la app, sea cual sea la tipografía
+     del estudio. Algunas de las que puede elegir (Cormorant en «Elegante»)
+     traen por defecto números de estilo antiguo, que bajan y suben como
+     minúsculas: el «10» del saldo se leía «IO» (auditoría del 6-oct). Un
+     número que no se lee es un fallo, no un estilo. */
+  font-variant-numeric: lining-nums;
 
   /* ── Marca del estudio ── */
   --primary: #1A1A1A;             /* CTA principal, tabs activos */
@@ -352,7 +358,9 @@
 .student-app .t-faint { color: var(--subtle-foreground); }
 /* Cifras en columna (importes, saldos, contadores): sin esto un «1» ocupa menos
    que un «0» y una lista de precios queda con las comas bailando. */
-.student-app .t-num { font-variant-numeric: tabular-nums; }
+/* `lining-nums` otra vez: `font-variant-numeric` no suma, sustituye, y sin él
+   aquí la cifra volvería a los números de estilo antiguo de la tipografía. */
+.student-app .t-num { font-variant-numeric: lining-nums tabular-nums; }
 
 /* ── Primitivas de composición ──
    Una columna con hueco y una fila con hueco son el grueso de los `style={{}}`
@@ -397,20 +405,31 @@
   .student-app .card--tap:hover { box-shadow: var(--shadow-lift); border-color: var(--border-strong); }
 }
 
-/* ── Botones ──
+/* ── Botones, badges y píldoras: SIEMPRE con la fuente de texto ──
+   Nunca con la de títulos (decisión del fundador, 6-oct-2026). Con una
+   tipografía de títulos fina (Cormorant en «Elegante» o «Romántica») un botón
+   de 13 px quedaba en trazos de pelo y los badges no se leían. Los títulos
+   siguen con la suya; lo que se TOCA o lo que marca un estado, con la de texto.
+
+   ── Botones ──
    Tres tamaños (`--h-control-*`) y cinco tonos. Antes cada variante traía su
    propia altura y su propio tamaño de letra pegados, así que «secundario» y
    «pequeño» no eran combinables: había que elegir uno de los dos. Ahora el
    TONO dice de qué color es y el TAMAÑO dice cuánto ocupa. */
 .student-app .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-  border: none; border-radius: var(--radius-pill); font-family: var(--font-heading); font-weight: 800; white-space: nowrap;
+  border: none; border-radius: var(--radius-pill); font-family: var(--font-sans); font-weight: 800; white-space: nowrap;
   height: var(--h-control-md); font-size: var(--t-small); padding: 0 var(--s-4);
   transition: transform .15s var(--ease), background .2s, box-shadow .25s, border-color .2s, opacity .2s;
 }
 .student-app .btn:active:not(:disabled) { transform: scale(.97); }
 /* Sin sombra: un botón apagado que sigue «flotando» promete que se puede pulsar. */
 .student-app .btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+/* El botón que FLOTA sobre el contenido (la ficha de la clase) no puede ser
+   translúcido: desactivado, con la opacidad de arriba se leía a través de él
+   el texto que pasaba por debajo («Sin conexión — no se puede reservar» encima
+   de «10 plazas · 4 libres», auditoría del 6-oct). Opaco y en tono apagado. */
+.student-app .cta-flotante .btn:disabled { opacity: 1; background: var(--muted); color: var(--muted-foreground); border-color: transparent; }
 /* Estado de espera: el botón sigue leyéndose, pero deja claro que ya se pulsó.
    Antes cada pantalla lo resolvía con su propio `opacity` en línea. */
 .student-app .btn[aria-busy="true"] { cursor: progress; }
@@ -487,7 +506,7 @@
 }
 
 /* ── Badges de plazas ── */
-.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-heading); font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
+.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-sans); font-size: var(--t-label); font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
 .student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .badge--few { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--full { background: var(--destructive-soft); color: var(--destructive-foreground); }
@@ -554,7 +573,7 @@
 }
 
 /* ── Pills (filtros / días) ── */
-.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-family: var(--font-heading); font-size: var(--t-meta); font-weight: 700; transition: all .2s; }
+.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-family: var(--font-sans); font-size: var(--t-meta); font-weight: 700; transition: all .2s; }
 .student-app .pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-foreground); }
 /* `min-height` y no `height`: con el texto del iPhone más grande, sus dos líneas no caben en 44 px. */
 .student-app .day { flex-shrink: 0; min-width: 64px; min-height: var(--h-control-md); padding-block: 4px !important; border: 1.5px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 13px; padding: 0 var(--s-3); font-size: var(--t-small); font-weight: 800; transition: all .22s; }

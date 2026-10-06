@@ -259,9 +259,15 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
 
   // Avisos y preferencias.
   await ruta((p) => p === '/api/notifications', (r) => r.fulfill(json({
+    // La forma de `mapRow` en app/api/notifications/route.ts. `eventType` es el
+    // `event_type` de la base, en minúsculas y con punto (`reserva.cancelada`):
+    // con otro formato el aviso cae en «Del estudio» y con el icono de megáfono.
     items: avisos.map((a) => ({
-      id: a.id, title: a.title, body: a.body, category: a.category, eventType: a.eventType,
+      id: a.id, title: a.title, body: a.body, deepLink: null,
+      category: a.category, priority: 'NORMAL', eventType: a.eventType,
+      resourceType: null, resourceId: null,
       createdAt: '2026-08-11T18:00:00Z', readAt: a.leido ? '2026-08-11T19:00:00Z' : null,
+      studioId: STUDIO_ID,
     })),
     unread: avisos.filter((a) => !a.leido).length,
   })));
@@ -354,11 +360,18 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
 
   // Mensajería.
   await ruta((p) => p === '/api/public/mensajeria/conversaciones', (r) => r.fulfill(json({
+    // La forma de GET app/api/public/mensajeria/conversaciones (la fila +
+    // `resumirConversaciones` + `interlocutor`). Antes llevaba un tipo que no
+    // existe (`ALUMNA_ESTUDIO`) y campos viejos (`ultimoMensaje`, `sinLeer`):
+    // la lista salía, pero con «Sin mensajes todavía» en cada conversación.
     conversaciones: Array.from({ length: conversaciones }, (_, i) => ({
-      id: `conv-${i}`, studio_id: STUDIO_ID, tipo: 'ALUMNA_ESTUDIO', socio_id: SOCIO_ID,
-      instructor_id: null, creada_en: '2026-08-01T10:00:00Z', actualizada_en: '2026-08-10T10:00:00Z',
-      ultimoMensaje: 'Hola, ¿en qué podemos ayudarte?', ultimoMensajeEn: '2026-08-10T10:00:00Z',
-      sinLeer: 0, participantes: [],
+      id: `conv-${i}`, studio_id: STUDIO_ID, tipo: 'ALUMNA_MOSTRADOR', titulo: null,
+      ancla_sesion_id: null, ancla_reserva_id: null,
+      creado_en: '2026-08-01T10:00:00Z', ultimo_mensaje_en: '2026-08-10T10:00:00Z',
+      leido_hasta: '2026-08-10T10:00:00Z', leido_hasta_otros: null,
+      ultimo_cuerpo: 'Hola, ¿en qué podemos ayudarte?', ultimo_oculto: false,
+      ultimo_remitente_auth_user_id: null, solo_lectura: false, sin_leer: false,
+      interlocutor: null,
     })),
   })));
 

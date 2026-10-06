@@ -168,9 +168,15 @@ export function Sheet({ open, onClose, children, label }: {
           boxShadow: 'var(--shadow-sheet)',
           paddingBottom: 'var(--safe-bottom)',
           transform: open ? `translateY(${desplazamiento}px)` : 'translateY(110%)',
+          // Cerrada, además de desplazada, OCULTA (cuando termina de salir): solo
+          // desplazada asomaba en cualquier captura de página entera —y en las
+          // que se le enseñan al fundador— como una hoja fantasma a media
+          // pantalla («Filtrar clases», «¿Cerrar sesión?») (auditoría del 6-oct).
+          visibility: open ? 'visible' : 'hidden',
           // Mientras se arrastra no hay transición: el panel tiene que seguir al
-          // dedo. Al soltar vuelve el spring.
-          transition: arrastrando ? 'none' : 'transform var(--dur-sheet) var(--ease-spring)',
+          // dedo. Al soltar vuelve el spring. La visibilidad cambia al instante
+          // al abrir y al FINAL de la salida al cerrar.
+          transition: arrastrando ? 'none' : `transform var(--dur-sheet) var(--ease-spring), visibility 0s linear ${open ? '0s' : 'var(--dur-sheet)'}`,
           outline: 'none',
         }}
       >
