@@ -110,6 +110,12 @@ const SPECS_WEBKIT = [
   // plataforma y no nos enteramos. Además llega casi siempre desde el móvil
   // (un enlace de Instagram, un WhatsApp), o sea Safari de iPhone.
   '**/alta-estudio.spec.ts',
+  // La isla de la landing (la barra flotante que se encoge al bajar y se
+  // alarga al subir): pública, y quien llega desde Google la mira casi siempre
+  // en un iPhone. Lo que cambia de un motor a otro es justo lo que prueba —el
+  // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y
+  // el rebote de iOS—. Siete tests de unos segundos, todo local.
+  '**/landing-isla.spec.ts',
 
   // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
   // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto
