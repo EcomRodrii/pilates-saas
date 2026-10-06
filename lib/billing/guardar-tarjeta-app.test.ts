@@ -110,6 +110,10 @@ test('la ruta: identidad del JWT, Stripe del estudio en servidor, guardias de mo
   assert.match(post, /parametrosSesionGuardarTarjeta\(/);
   assert.match(post, /\{ stripeAccount \}/, 'la sesión vive en la cuenta del estudio (cargo directo)');
 
+  // Probar tarjetas robadas: topes por alumna y por estudio DESPUÉS de autenticar (los de IP se saltan con varias IP).
+  const auth = post.indexOf('socioAutenticado(');
+  assert.ok(auth > 0 && post.indexOf('public-tarjeta-guardar-socia:') > auth && post.indexOf('public-tarjeta-guardar-estudio:') > auth);
+  assert.ok(post.indexOf('public-tarjeta-guardar-estudio:') < post.indexOf('checkout.sessions.create'), 'antes de abrir ninguna sesión');
   assert.match(post, /estadoCobroCuenta\(stripe, stripeAccount\)/, 'una cuenta que no puede cobrar no guarda tarjetas que prometen cobros');
 
   const get = r.slice(r.indexOf('async function confirmarTarjetaGuardada'), r.indexOf('export async function DELETE'));
@@ -117,7 +121,10 @@ test('la ruta: identidad del JWT, Stripe del estudio en servidor, guardias de mo
   assert.match(get, /confirmacionTarjetaGuardada\(/);
   // Si el webhook no llegó a escribir (contesta antes de procesar y Stripe no reintenta), la confirmación lo completa
   // con el MISMO dueño, y solo con el Customer de su ficha.
-  assert.match(get, /confirmacion === 'confirmando' && si && \(!customerDeLaFicha \|\| customerDeLaFicha === customerDeLaSesion\)/);
+  assert.match(get, /confirmacion === 'confirmando' && si && reciente && \(!customerDeLaFicha \|\| customerDeLaFicha === customerDeLaSesion\)/);
+  assert.match(get, /const reciente = sesion\.metadata\?\.origen === 'app' && Date\.now\(\) \/ 1000 - sesion\.created < SEGUNDOS_COMPLETAR_SESION;/,
+    'reenviar una sesión vieja no vuelve a poner una tarjeta que ella quitó');
+  assert.match(get, /tope\(`public-tarjeta-confirmar-socia:\$\{socioId\}`/);
   assert.match(get, /guardarTarjetaDeSesion\(admin, stripe,/);
 
   const w = sinComentarios(leer('app/api/stripe/webhook/route.ts'));

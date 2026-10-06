@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { enforceRateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
+import { retryAfterSeconds, tooManyRequestsResponse, type RateLimitOptions } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
 import {
   confirmacionTarjetaGuardada, idDeSesionCheckoutValido, idDeTarjetaValido, parametrosSesionGuardarTarjeta, puedeQuitarseDesdeLaApp,
@@ -101,6 +102,22 @@ export async function GET(req: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 const MINUTOS_SESION_TARJETA = 35;
 
+// Topes por PERSONA y por ESTUDIO, después de autenticar: `enforceRateLimit` mete la
+// IP en la clave, y con varias IP (o varias cuentas) un formulario de tarjeta sin
+// coste deja probar tarjetas robadas contra la cuenta del estudio (rechazos que
+// acaban en restricciones de Stripe para el estudio). Holgados para un uso real:
+// nadie cambia de tarjeta más de unas pocas veces en una hora.
+const TOPE_GUARDAR_POR_SOCIA: RateLimitOptions = { max: 6, windowSeconds: 3600 };
+const TOPE_GUARDAR_POR_ESTUDIO: RateLimitOptions = { max: 60, windowSeconds: 86_400 };
+const TOPE_CONFIRMAR_POR_SOCIA: RateLimitOptions = { max: 60, windowSeconds: 600 };
+/** La confirmación solo COMPLETA el guardado de una sesión reciente de la app (no una vieja reenviada). */
+const SEGUNDOS_COMPLETAR_SESION = 60 * 60;
+
+async function tope(clave: string, opts: RateLimitOptions): Promise<Response | null> {
+  const r = await rateLimit(clave, opts);
+  return r.allowed ? null : tooManyRequestsResponse(retryAfterSeconds(r.resetAt, opts.windowSeconds));
+}
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-tarjeta-guardar', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
@@ -113,6 +130,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const socioId = await socioAutenticado(user.userId, studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const porSocia = await tope(`public-tarjeta-guardar-socia:${socioId}`, TOPE_GUARDAR_POR_SOCIA);
+  if (porSocia) return porSocia;
+  const porEstudio = await tope(`public-tarjeta-guardar-estudio:${studioId}`, TOPE_GUARDAR_POR_ESTUDIO);
+  if (porEstudio) return porEstudio;
 
   const NO_DISPONIBLE = 'Ahora mismo no se pueden guardar tarjetas. Inténtalo más tarde.';
   const key = claveStripe();
@@ -219,31 +240,36 @@ export async function POST(req: NextRequest) {
  * los datos de la tarjeta que hay en la ficha, que es lo que la pantalla enseña.
  */
 async function confirmarTarjetaGuardada(req: NextRequest) {
+  // Una GET que puede escribir: nada de esto se guarda en ninguna caché.
+  const sinCache = { 'Cache-Control': 'no-store' };
+  const responder = (cuerpo: unknown, status = 200) => NextResponse.json(cuerpo, { status, headers: sinCache });
   // La hoja pregunta cada pocos segundos durante ~35 s tras el Checkout.
   const limited = await enforceRateLimit(req, 'public-tarjeta-confirmar', { max: 40, windowSeconds: 60 });
   if (limited) return limited;
   const studioId = req.nextUrl.searchParams.get('studioId');
   const sesionId = req.nextUrl.searchParams.get('sesion');
-  if (!studioId) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
-  if (!idDeSesionCheckoutValido(sesionId)) return NextResponse.json({ error: 'Sesión no válida' }, { status: 400 });
+  if (!studioId) return responder({ error: 'Falta el estudio' }, 400);
+  if (!idDeSesionCheckoutValido(sesionId)) return responder({ error: 'Sesión no válida' }, 400);
   const user = await verificarUsuarioSupabase(req);
-  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!user) return responder({ error: 'No autorizado' }, 401);
   const socioId = await socioAutenticado(user.userId, studioId);
-  if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  if (!socioId) return responder({ error: 'No autorizado' }, 403);
+  const porSocia = await tope(`public-tarjeta-confirmar-socia:${socioId}`, TOPE_CONFIRMAR_POR_SOCIA);
+  if (porSocia) return porSocia;
   const admin = getSupabaseAdmin();
   const key = claveStripe();
-  if (!admin || !key) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+  if (!admin || !key) return responder({ error: 'Servidor no configurado' }, 503);
   try {
     const { data: studio, error: errStudio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
     if (errStudio) throw new Error(errStudio.message);
     const stripeAccount = (studio?.stripe_account_id as string | null) ?? null;
-    if (!stripeAccount) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    if (!stripeAccount) return responder({ error: 'No encontrada' }, 404);
     const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
     let sesion: Stripe.Checkout.Session;
     try {
       sesion = await stripe.checkout.sessions.retrieve(sesionId, { expand: ['setup_intent'] }, { stripeAccount });
     } catch (e) {
-      if ((e as { code?: string })?.code === 'resource_missing') return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+      if ((e as { code?: string })?.code === 'resource_missing') return responder({ error: 'No encontrada' }, 404);
       throw e;
     }
     const si = sesion.setup_intent && typeof sesion.setup_intent === 'object' ? sesion.setup_intent : null;
@@ -267,13 +293,16 @@ async function confirmarTarjetaGuardada(req: NextRequest) {
     };
     let { ficha, confirmacion } = await leer();
     // La sesión de otra persona (u otra cosa): lo mismo que si no existiera.
-    if (confirmacion === 'ajena') return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    if (confirmacion === 'ajena') return responder({ error: 'No encontrada' }, 404);
     // Stripe la autorizó y la ficha aún no la tiene: el webhook contesta antes de
     // procesar y Stripe no lo reintenta, así que si no llegó a escribir no lo haría
     // nadie. Se escribe aquí con el MISMO dueño (compare-and-set, nunca vuelve a una
     // tarjeta anterior). Solo con el Customer de SU ficha: la sesión la abrió su POST.
     const customerDeLaFicha = (ficha?.stripe_customer_id as string | null) ?? null;
-    if (confirmacion === 'confirmando' && si && (!customerDeLaFicha || customerDeLaFicha === customerDeLaSesion)) {
+    // Y solo una sesión RECIENTE abierta por la app: reenviar el `cs_` de una vieja no
+    // vuelve a poner en la ficha una tarjeta que ella quitó después.
+    const reciente = sesion.metadata?.origen === 'app' && Date.now() / 1000 - sesion.created < SEGUNDOS_COMPLETAR_SESION;
+    if (confirmacion === 'confirmando' && si && reciente && (!customerDeLaFicha || customerDeLaFicha === customerDeLaSesion)) {
       try {
         const r = await guardarTarjetaDeSesion(admin, stripe, {
           socioId, studioId, stripeAccount, customerDeLaSesion, metodo: si.payment_method,
