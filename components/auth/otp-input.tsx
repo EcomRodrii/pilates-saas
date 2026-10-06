@@ -122,6 +122,8 @@ export function OtpInput({ valor, onCambiar, disabled, error, autoFocus, aparien
           autoFocus={autoFocus && i === 0}
           aria-label={`Dígito ${i + 1} de ${LONGITUD_OTP}`}
           aria-invalid={error || undefined}
+          // Ya pasa de 16 px: la regla del panel con el dedo (app/globals.css) no lo encoge.
+          data-campo-grande=""
           data-testid={i === 0 ? testIdPrimera : undefined}
           onChange={e => escribirEn(i, e.target.value)}
           onPaste={e => alPegar(i, e)}

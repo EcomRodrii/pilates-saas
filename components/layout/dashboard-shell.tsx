@@ -206,7 +206,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
             <div className="pt-14 lg:pt-2 pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
@@ -237,7 +237,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (!session) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
             <div className="pt-14 lg:pt-2 pb-[calc(9rem+env(safe-area-inset-bottom,0px))] lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
@@ -253,7 +253,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (estudioTarda) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <main className="min-h-dvh flex items-center justify-center px-4">
             <div className="max-w-sm text-center space-y-3">
               <p className="text-[14px] text-foreground font-medium">Tu estudio está tardando en cargar.</p>
@@ -279,7 +279,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (cuentaSinEstudio) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <main className="min-h-dvh flex items-center justify-center px-4">
             <div className="max-w-sm text-center space-y-3">
               <p className="text-[14px] text-foreground font-medium">Esta cuenta no tiene ningún estudio de Tentare todavía.</p>
@@ -309,7 +309,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (esInstructora && studio) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <PuertaAppInstructora studioId={studio.id} slug={studio.slug ?? null} nombre={studio.nombre} />
         </PanelThemeProvider>
       </PanelPrivacyProvider>
@@ -319,7 +319,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (rolResuelto && !autorizado) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           <Sidebar />
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200" />
         </PanelThemeProvider>
@@ -357,7 +357,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (pathname === '/configuracion/apariencia/editor' || pathname.startsWith('/configuracion/apariencia/editor-zip/')) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-dvh bg-background">
+        <PanelThemeProvider className="panel-app min-h-dvh bg-background">
           {/* ⚠️ Esta ruta NO espera a los datos, a diferencia del resto del panel.
               El `PanelSkeleton` existe para que una página no pinte estados
               vacíos falsos ("Sin recibos", "No hay resultados") en carga fría.
@@ -378,7 +378,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="min-h-dvh bg-background">
+      <PanelThemeProvider className="panel-app min-h-dvh bg-background">
         <TourProvider>
           {/* «Pregúntale a Tentare»: el panel llega aparte, al abrirlo por primera vez. */}
           <AsistenteProvider>

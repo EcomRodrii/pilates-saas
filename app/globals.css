@@ -934,6 +934,32 @@ html[data-vt-ampliar='reducir']::view-transition-new(panel-barra) {
 @keyframes tab-content-in { from { opacity: 0; } to { opacity: 1; } }
 .tab-content-in { animation: tab-content-in var(--motion-fast) var(--motion-ease) both; }
 
+/* El PANEL con el dedo: ningún campo por debajo de 16 px. Safari de iOS amplía
+   la página al enfocar un input, textarea o select de menos de 16 px, y al
+   cerrar el teclado no vuelve sola: el fundador lo vio en el chat de Tentare
+   («le das a escribir y se hace zoom») y pasaba igual en ⌘K (14 px), en los
+   formularios del panel y en sus diálogos. Es la misma regla que ya tenía la
+   app de la alumna (app/portal/[slug]/student.css), y por los mismos motivos:
+   · con el tamaño y NUNCA con `maximum-scale=1` ni `user-scalable=no`, que le
+     quitan el zoom a quien ve poco;
+   · con `!important`, porque hay campos con el tamaño en un `style` en línea y
+     una clase de Tailwind (`text-sm`) gana a una regla de tipo;
+   · acotada a `pointer: coarse`: en escritorio no hay zoom que evitar.
+   `.panel-app` es la raíz del panel (components/layout/dashboard-shell.tsx) y
+   lleva dentro el anfitrión de sus portales (cajones, ⌘K); los diálogos de
+   Base UI se portalean a `body`, por eso van aparte. Fuera, a propósito, los
+   campos que ya son más grandes (`data-campo-grande`: los seis del código de
+   verificación, a 20 px) y los que no llevan texto.
+   ⚠️ `touch-action: manipulation`: quita el doble toque que amplía (un toque
+   rápido en dos botones seguidos) sin quitar el zoom con dos dedos.
+   Lo vigila e2e/asistente-movil.spec.ts en WebKit/iPhone. */
+@media (pointer: coarse) {
+  :is(.panel-app, [data-slot="dialog-content"]) :is(input, textarea, select):not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [data-campo-grande]) {
+    font-size: max(16px, 1rem) !important;
+  }
+  .panel-app, [data-slot="dialog-content"] { touch-action: manipulation; }
+}
+
 /* Configuración con el dedo: todo lo que se pulsa mide al menos 44 px (WCAG
    2.5.8 y la guía de Apple). Se hace aquí y no botón a botón porque son cientos
    repartidos en treinta componentes, y uno nuevo que olvidara la clase volvería
