@@ -13,7 +13,7 @@ import { STRIPE_STUB } from './stripe-stub';
 // móvil de la socia.
 
 test.describe.configure({ timeout: 150_000 });
-test.use({ viewport: { width: 390, height: 844 } });
+test.use({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
 
 const base = `/portal/${SLUG}`;
 const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
