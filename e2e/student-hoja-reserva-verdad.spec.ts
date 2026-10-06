@@ -9,7 +9,7 @@ import { STRIPE_STUB } from './stripe-stub';
 // que dice que no. Ahora hay cuatro casos, con la misma regla de «exigir plan» que el servidor:
 //
 //   · el estudio exige plan y aquí no se vende nada → ni botón de reservar: «pídelo en recepción»;
-//   · exige plan y se vende online → «Ver cómo venir · desde X €», a la tienda CON esta clase;
+//   · exige plan y se vende online → «Ver cómo venir · desde X €», que abre el pago de ESTA clase (P06);
 //   · no exige plan y la clase tiene precio → «Reservar · pagas en el estudio»;
 //   · y la tienda, tras confirmar el SERVIDOR la compra, ofrece volver a reservarla.
 //
@@ -107,9 +107,17 @@ test.describe('Student PWA · la hoja de reserva dice la verdad sin bono (P01)',
     await expect(hoja.getByText(/no se ha hecho ningún cargo|no se ha usado ninguna sesión|conexión/i).first()).toBeVisible({ timeout: 30_000 });
   });
 
-  test('exige plan y se vende online: las opciones con su precio, y «Ver cómo venir» lleva a la tienda con ESTA clase', async ({ page }) => {
+  test('exige plan y se vende online: las opciones con su precio, «Ver cómo venir» abre el pago de ESTA clase, y la tienda con ella', async ({ page }) => {
     const m = await montar(page, { exige: true, stripe: true });
     await m.responder({ cuerpo: { ok: true, estado: 'CONFIRMADA' } });
+    // P06: «Ver cómo venir» ya no sale de la ficha: abre la hoja de pagar y reservar, que pregunta al servidor.
+    const opcionesClase: unknown[] = [];
+    await page.route((u) => u.pathname === '/api/public/opciones-clase', (r) => {
+      opcionesClase.push(r.request().postDataJSON());
+      return r.fulfill(json({ pagosOnline: true, plaza: { ok: true }, precioEspecial: false, opciones: [
+        { tipo: 'suelta', planId: 'plan-suelta', nombre: 'Clase suelta', importe: 15, sesiones: 1, precioPorClase: 15, validezDias: null, quedanTrasEsta: 0 },
+      ] }));
+    });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     // En la ficha, las formas de venir con su precio (sin la cuota: no es «venir a esta clase»).
     const opciones = page.getByTestId('opciones-de-clase');
@@ -122,7 +130,10 @@ test.describe('Student PWA · la hoja de reserva dice la verdad sin bono (P01)',
     const hoja = page.locator('[role="dialog"]').last();
     await expect(hoja.getByRole('button', { name: /^Confirmar/ })).toHaveCount(0);
     await hoja.getByRole('button', { name: 'Ver cómo venir · desde 15 €' }).click();
-    await expect(page).toHaveURL(new RegExp(`/comprar\\?para=${SESION_ID}$`), { timeout: 30_000 });
+    await expect(page.getByTestId('pagar-clase-elegir')).toBeVisible({ timeout: 30_000 });
+    expect(opcionesClase).toHaveLength(1);
+    // La tienda con esta clase sigue existiendo (el «Ver opciones» de «Cómo vienes»).
+    await page.goto(`${base}/comprar?para=${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     // Solo lo que cubre la clase; el resto, a un toque.
     await expect(page.getByTestId('comprar-para-clase')).toContainText('Reformer');
     await expect(page.getByRole('button', { name: /^Comprar · 15/ })).toBeVisible({ timeout: 30_000 });

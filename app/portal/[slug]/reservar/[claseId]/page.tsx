@@ -43,6 +43,8 @@ import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { ComoVienes } from '@/components/student/domain/ComoVienes';
 import { OpcionesDeClaseLista } from '@/components/student/domain/OpcionesDeClaseLista';
+import { HojaPagarYReservar } from '@/components/student/domain/HojaPagarYReservar';
+import { configLegalDe } from '@/lib/legal-textos';
 import { CompartirClase, InvitarAClaseFila } from '@/components/student/domain/CompartirClase';
 import { formasDeGanar, premioPorInvitar } from '@/lib/student/gamificacion';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
@@ -77,6 +79,8 @@ export default function FichaClasePage() {
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
   const [verInstructora, setVerInstructora] = useState(false);
+  // P06 · Fase A: la hoja de pagar y reservar ESTA clase (con el sitio que eligió en la hoja de reserva).
+  const [pagar, setPagar] = useState<{ spotId: string | null } | null>(null);
   // `?reservar=1`: la vuelta desde la tienda tras comprar el bono PARA esta clase (solo cuando el servidor ya confirmó
   // la compra, HojaCompra). Abre la hoja; reservar sigue siendo un toque suyo.
   const reservarAlVolver = useSearchParams().get('reservar') === '1';
@@ -103,6 +107,12 @@ export default function FichaClasePage() {
       planesTarifa: payload?.planesTarifa ?? [],
       // ¿Puede pagar aquí? Cuenta conectada del estudio (la clave pública se mira al pintar).
       stripeAccountId: payload?.studio?.stripeAccountId ?? null,
+      // Las condiciones del estudio SOLO si las reescribió (el mismo criterio que la tienda y que el servidor,
+      // `exigeAceptacionExplicita`): entonces hay que aceptarlas antes de cobrar.
+      textosLegales: (() => {
+        const s2 = payload?.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | undefined;
+        return s2?.politicaPrivacidad || s2?.terminosServicio ? configLegalDe(payload?.studio, payload?.studio) : null;
+      })(),
       nombresTipo: Object.fromEntries((payload?.tiposClase ?? []).map((t) => [t.id, t.nombre])) as Record<string, string>,
     };
   }, [estudio.slug, claseId]);
@@ -355,8 +365,27 @@ export default function FichaClasePage() {
         yaEmpezo={empezada}
         contexto="ficha"
         sinBono={sinBono?.caso ?? null}
-        onVerOpciones={() => router.push(`${href('/comprar')}?para=${encodeURIComponent(clase.id)}`)}
+        onVerOpciones={(spotId) => { hoja.cerrar(); setPagar({ spotId }); }}
       />
+
+      {pagar && (
+        <HojaPagarYReservar
+          studioId={estudio.id}
+          socioId={data?.socioId ?? null}
+          clase={{ id: clase.id, nombre: clase.nombre, fecha: clase.fecha, hora: clase.hora }}
+          spotId={pagar.spotId}
+          planes={data?.planesTarifa ?? []}
+          stripeAccountId={data?.stripeAccountId ?? null}
+          textosLegales={data?.textosLegales ?? null}
+          onCerrar={() => setPagar(null)}
+          onReservada={() => void refrescar()}
+          onSesionCaducada={() => router.push(href('/acceso/login'))}
+          onSegundoPaso={() => router.push(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(href(`/reservar/${clase.id}`))}`)}
+          hrefPagos={href('/pagos')}
+          hrefMisReservas={href('/mis-reservas')}
+          hrefMensajes={href('/mensajes')}
+        />
+      )}
     </StudentShell>
   );
 }

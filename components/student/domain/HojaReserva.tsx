@@ -45,8 +45,11 @@ export function HojaReserva({
    * sin el ajuste de «exigir plan»): la hoja hace lo de siempre y decide el servidor.
    */
   sinBono?: ComoVieneSinBono | null;
-  /** «Ver cómo venir»: a las opciones de pago de ESTA clase (la tienda con `?para=`). */
-  onVerOpciones?: () => void;
+  /**
+   * «Ver cómo venir»: a las opciones de pago de ESTA clase. Lleva el sitio elegido (si la sala tiene mapa): desde la
+   * ficha abre la hoja de pagar y reservar (P06), que comprueba la plaza CON ese sitio antes de cobrar.
+   */
+  onVerOpciones?: (spotId: string | null) => void;
 }) {
   const router = useRouter();
   const href = usePortalHref();
@@ -114,7 +117,7 @@ export function HojaReserva({
             <Button full disabled style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>La clase ya ha empezado</Button>
           ) : caso?.caso === 'PAGA_AQUI' && !enEspera && onVerOpciones ? (
             // No se reserva aquí: sin nada que la cubra y con el plan exigido, primero se paga (la tienda con esta clase).
-            <Button full onClick={onVerOpciones} data-testid="ver-como-venir" style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
+            <Button full onClick={() => onVerOpciones(hueco)} data-testid="ver-como-venir" style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
               {`Ver cómo venir · desde ${euros(caso.desde)}`}
             </Button>
           ) : exigePlanSinBono ? (
