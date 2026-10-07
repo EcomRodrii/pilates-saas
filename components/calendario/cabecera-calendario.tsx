@@ -165,6 +165,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
               <button
                 type="button"
                 onClick={p.onCrear}
+                data-tour="calendario-nueva-clase"
                 title="Crear clase"
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 max-md:absolute max-md:-top-1.5 max-md:right-0 max-md:size-11 max-md:justify-center max-md:rounded-full max-md:px-0 md:min-h-9"
               >

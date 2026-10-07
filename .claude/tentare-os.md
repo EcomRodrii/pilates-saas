@@ -1344,6 +1344,24 @@ cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
 corrió de verdad, no solo que el check está en verde — es el mismo error de
 categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
 
+## La visita guiada por capítulos (7-oct-2026)
+
+Estudio NUEVO + propietaria = visita obligatoria por 10 capítulos (`lib/tour/`,
+`components/tour/visita-guiada.tsx`). «No omitible» = sin X, sin «saltar» y la píldora
+no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
+`pointer-events-none`; con un diálogo abierto la tarjeta pasa a banner de solo texto).
+- **La obligación la fija un trigger al nacer el estudio** (`studios.tour_obligatorio`,
+  migr `20261007211202`), nunca el cliente: false en todos los que ya existían, en sedes
+  de cadena y en demos. `tour_obligatorio` NO se concede a `authenticated`.
+- **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
+  tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
+- **Copy y pantallas en `lib/tour/capitulos.ts`**: solo lo que existe, con los nombres reales
+  del menú y de Configuración, y nada congelado (lo vigila `capitulos.test.ts`, que también
+  comprueba que cada `data-tour` existe). Una pantalla fuera del marco del panel
+  (`/suscripcion`) no puede enseñarse: no monta la visita.
+- Tenti en el cierre de la visita NO está: un sitio nuevo para Tenti es decisión de producto
+  (`lib/tenti/donde-vive-tenti.test.ts`).
+
 ## Arquitectura operativa: cuatro capas (2026-09-14)
 
 Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se reabre:

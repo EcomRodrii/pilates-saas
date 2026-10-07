@@ -85,7 +85,7 @@ export default function PrimerosPasosPage() {
   const minutosEsenciales = esenciales.reduce((t, c) => t + c.capitulo.minutos, 0);
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div data-tour="guia-vista" className="space-y-6 max-w-3xl">
       <PageHeader
         back={{ href: '/dashboard', label: 'Volver al inicio' }}
         title="Aprende a llevar tu estudio con Tentare"
@@ -158,7 +158,7 @@ export default function PrimerosPasosPage() {
           onClick={iniciarTour}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-card text-[13px] font-semibold text-foreground hover:bg-muted transition-colors"
         >
-          <Play size={15} /> Ver un tour del panel (3 min)
+          <Play size={15} /> Ver la visita guiada del panel (por capítulos)
         </button>
         <Link
           href="/explorar-funciones"

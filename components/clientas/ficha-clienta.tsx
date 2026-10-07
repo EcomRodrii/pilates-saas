@@ -1185,7 +1185,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   }
 
   return (
-    <div className={cn(modo === 'pagina' && 'min-h-dvh pb-24')} style={modo === 'pagina' ? { backgroundColor: 'var(--background)' } : undefined}>
+    <div data-tour="ficha-clienta" className={cn(modo === 'pagina' && 'min-h-dvh pb-24')} style={modo === 'pagina' ? { backgroundColor: 'var(--background)' } : undefined}>
       <div className={cn('space-y-4', modo === 'pagina' && 'mx-auto max-w-6xl')}>
         {modo === 'pagina' && (
           <Link href="/clientas" onClick={volverALista} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
@@ -1367,6 +1367,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
                 <TarjetaFicha
                   id="plan"
+                  dataTour="ficha-plan"
                   // Visto en producción (15-sep): decía «PLAN ACTIVO» encima de «Cancelada».
                   titulo={!suscripcion ? 'Plan' : suscripcion.estado === 'CANCELADA' ? 'Plan cancelado' : suscripcion.estado === 'PAUSADA' ? 'Plan pausado' : 'Plan'}
                   icono={<CircleDollarSign size={16} />}

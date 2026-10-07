@@ -638,7 +638,7 @@ export default function Dashboard() {
 
   return (
 
-    <div>
+    <div data-tour="resumen-vista">
       <div className="flex flex-col gap-5">
 
         {/* ── Header (fijo arriba, no reordenable) ───────────────────────────── */}

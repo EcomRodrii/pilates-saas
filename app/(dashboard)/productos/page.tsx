@@ -1074,7 +1074,7 @@ export default function Productos() {
     .filter(p => p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()));
 
   return (
-    <div className="space-y-6">
+    <div data-tour="paquetes-vista" className="space-y-6">
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}

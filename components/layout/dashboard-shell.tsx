@@ -15,7 +15,7 @@ import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
 import { AsistenteProvider } from '@/lib/asistente-context';
-import { Spotlight } from '@/components/tour/spotlight';
+import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
@@ -386,10 +386,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
               idéntico salvo por los datos: esto es lo único que confirma el salto. */}
           <AvisoCambioDeSede />
-          {/* Montado una vez, fuera del árbol de cada página — solo lee el
-              estado del tour y localiza el data-tour="..." real de la ruta
-              actual (ver lib/tour-pasos.ts). */}
-          <Spotlight />
+          {/* Montado una vez, fuera del árbol de cada página: la visita guiada
+              por capítulos (lib/tour/). Solo localiza el data-tour="..." real de
+              la pantalla actual; ver components/tour/visita-guiada.tsx. */}
+          <VisitaGuiada cargando={cargandoDatos} />
           {/* Overlay, NO pantalla completa (a diferencia de PantallaBienvenida
               arriba): no debe bloquear el panel. Se autogobierna con
               debeMostrarModal() — el componente decide si se muestra. */}

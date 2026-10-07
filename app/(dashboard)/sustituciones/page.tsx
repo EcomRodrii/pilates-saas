@@ -297,7 +297,7 @@ export default function SustitucionesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div data-tour="sustituciones-vista" className="space-y-5">
       <PageHeader
         title="Sustituciones"
         description="Cuando alguien falla, aquí tienes la sustituta antes de coger el teléfono"

@@ -378,6 +378,13 @@ export interface Studio {
   // UNA sola vez. NULL = aún no lo ha visto. No bloquea nada — el botón para
   // repetirlo sigue disponible siempre; mismo patrón que decisionContratoVistoEn.
   tourVistoEn: string | null;
+  // La visita guiada por capítulos (lib/tour/). `tourObligatorio` lo fija un
+  // trigger al nacer el estudio (nunca el cliente): false en todos los que ya
+  // existían. `tourProgreso` es el JSON de lib/tour/progreso.ts; `tourCompletadoEn`
+  // NULL mientras le quede algo.
+  tourObligatorio: boolean;
+  tourProgreso: unknown;
+  tourCompletadoEn: string | null;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no

@@ -84,16 +84,18 @@ export function PastillaAviso({ aviso, atendido, ella = 'ella', className }: {
 }
 
 /** Tarjeta de la ficha: borde suave, título pequeño con icono y una acción a la derecha. */
-export function TarjetaFicha({ titulo, icono, accion, children, className, id }: {
+export function TarjetaFicha({ titulo, icono, accion, children, className, id, dataTour }: {
   titulo?: ReactNode;
   icono?: ReactNode;
   accion?: ReactNode;
   children: ReactNode;
   className?: string;
   id?: string;
+  /** Para la visita guiada (lib/tour/): el valor de `data-tour` que la señala. */
+  dataTour?: string;
 }) {
   return (
-    <section id={id} className={cn('rounded-2xl border border-border bg-card shadow-xs', className)}>
+    <section id={id} data-tour={dataTour} className={cn('rounded-2xl border border-border bg-card shadow-xs', className)}>
       {(titulo || accion) && (
         <div className="flex items-center justify-between gap-3 px-4 pt-3.5 pb-2 sm:px-5">
           {titulo && (
