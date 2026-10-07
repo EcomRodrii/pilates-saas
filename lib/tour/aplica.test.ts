@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { pasoAplica, visitaObligatoria, type EstudioParaVisita } from './aplica.ts';
 import { pasoPorId } from './capitulos.ts';
 
-const nuevo: EstudioParaVisita = { tourObligatorio: true, tourCompletadoEn: null, cadenaId: null, bienvenidaVistaEn: '2026-10-07T10:00:00Z' };
+const nuevo: EstudioParaVisita = { tourObligatorio: true, tourCompletadoEn: null, bienvenidaVistaEn: '2026-10-07T10:00:00Z' };
 
 test('se impone a la propietaria de un estudio nuevo', () => {
   assert.equal(visitaObligatoria(nuevo, 'PROPIETARIO'), true);
@@ -15,11 +15,14 @@ test('no se impone a nadie más', () => {
   }
 });
 
-test('no se impone a un estudio existente, a una sede de cadena, ni a quien la terminó', () => {
+test('no se impone a un estudio existente ni a quien la terminó', () => {
   assert.equal(visitaObligatoria({ ...nuevo, tourObligatorio: false }, 'PROPIETARIO'), false);
   assert.equal(visitaObligatoria({ ...nuevo, tourObligatorio: undefined }, 'PROPIETARIO'), false);
-  assert.equal(visitaObligatoria({ ...nuevo, cadenaId: 'cad-1' }, 'PROPIETARIO'), false);
   assert.equal(visitaObligatoria({ ...nuevo, tourCompletadoEn: '2026-10-08T10:00:00Z' }, 'PROPIETARIO'), false);
+});
+
+test('se puede activar a mano en un estudio de una cadena: la exclusión de las sedes la hace el trigger al nacer', () => {
+  assert.equal(visitaObligatoria({ ...nuevo, cadenaId: 'cad-1' } as EstudioParaVisita, 'PROPIETARIO'), true);
 });
 
 test('no empieza encima de la bienvenida: espera a que se haya visto', () => {

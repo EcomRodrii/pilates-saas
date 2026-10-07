@@ -1350,9 +1350,10 @@ Estudio NUEVO + propietaria = visita obligatoria por 10 capítulos (`lib/tour/`,
 `components/tour/visita-guiada.tsx`). «No omitible» = sin X, sin «saltar» y la píldora
 no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
 `pointer-events-none`; con un diálogo abierto la tarjeta pasa a banner de solo texto).
+- ⚠️ **Hoy el trigger NO impone a nadie** (migr `20261007214458`): la visita se activa a mano, estudio a estudio, hasta que el fundador la apruebe tras verla en Pilates Boutique. Después, una migración devuelve la regla de abajo.
 - **La obligación la fija un trigger al nacer el estudio** (`studios.tour_obligatorio`,
   migr `20261007211202`), nunca el cliente: false en todos los que ya existían, en sedes
-  de cadena y en demos. `tour_obligatorio` NO se concede a `authenticated`.
+  de cadena y en demos (el cliente no vuelve a mirar `cadena_id`: se puede activar a mano en cualquiera). `tour_obligatorio` NO se concede a `authenticated`.
 - **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
   tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
 - **Copy y pantallas en `lib/tour/capitulos.ts`**: solo lo que existe, con los nombres reales
