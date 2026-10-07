@@ -3794,6 +3794,8 @@ export interface RowPlataformaEventos {
   huella: string | null;
   // migr 20261001140635.
   ocupadas_enviadas: number | null;
+  // migr 20261007170000.
+  contenedor_externo_id: string | null;
 }
 
 export interface RowApiAccesoEstudios {
@@ -4112,6 +4114,45 @@ export interface RowAsistenteAcciones {
   caduca_en: string;
   reclamada_en: string | null;
   resuelta_en: string | null;
+}
+
+export interface RowPlataformaConexiones {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  id_externo: string;
+  producto_externo_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowPlataformaClases {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  tipo_clase_id: string | null;
+  contenedor_externo_id: string;
+  clase_externa_id: string;
+  visible: boolean;
+  huella: string | null;
+  error: string | null;
+  sincronizado_en: string | null;
+  creado_en: string;
+}
+
+export interface RowPlataformaCheckins {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  id_cliente_externo: string | null;
+  id_reserva_externa: string | null;
+  ocurrido_en: string;
+  expira_en: string | null;
+  estado: string;
+  reserva_id: string | null;
+  intentos: number;
+  resuelto_en: string | null;
+  creado_en: string;
 }
 
 
@@ -10738,6 +10779,7 @@ export type PlataformaEventosInsert = {
   huella_fija?: string | null | null;
   huella?: string | null | null;
   ocupadas_enviadas?: number | null | null;
+  contenedor_externo_id?: string | null | null;
 }
 
 export type PlataformaEventosUpdate = {
@@ -10753,6 +10795,7 @@ export type PlataformaEventosUpdate = {
   huella_fija?: string | null | null;
   huella?: string | null | null;
   ocupadas_enviadas?: number | null | null;
+  contenedor_externo_id?: string | null | null;
 }
 
 export type ApiAccesoEstudiosInsert = {
@@ -11381,6 +11424,84 @@ export type AsistenteAccionesUpdate = {
   caduca_en?: string | null;
   reclamada_en?: string | null | null;
   resuelta_en?: string | null | null;
+}
+
+export type PlataformaConexionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  id_externo?: string | null;
+  producto_externo_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type PlataformaConexionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  id_externo?: string | null;
+  producto_externo_id?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type PlataformaClasesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  tipo_clase_id?: string | null | null;
+  contenedor_externo_id?: string | null;
+  clase_externa_id?: string | null;
+  visible?: boolean | null;
+  huella?: string | null | null;
+  error?: string | null | null;
+  sincronizado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaClasesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  tipo_clase_id?: string | null | null;
+  contenedor_externo_id?: string | null;
+  clase_externa_id?: string | null;
+  visible?: boolean | null;
+  huella?: string | null | null;
+  error?: string | null | null;
+  sincronizado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaCheckinsInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  id_cliente_externo?: string | null | null;
+  id_reserva_externa?: string | null | null;
+  ocurrido_en?: string | null;
+  expira_en?: string | null | null;
+  estado?: string | null;
+  reserva_id?: string | null | null;
+  intentos?: number | null;
+  resuelto_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaCheckinsUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  id_cliente_externo?: string | null | null;
+  id_reserva_externa?: string | null | null;
+  ocurrido_en?: string | null;
+  expira_en?: string | null | null;
+  estado?: string | null;
+  reserva_id?: string | null | null;
+  intentos?: number | null;
+  resuelto_en?: string | null | null;
+  creado_en?: string | null;
 }
 
 export type Database = {
@@ -12645,6 +12766,21 @@ export type Database = {
         Row: RowAsistenteAcciones;
         Insert: AsistenteAccionesInsert;
         Update: AsistenteAccionesUpdate;
+      };
+      plataforma_conexiones: {
+        Row: RowPlataformaConexiones;
+        Insert: PlataformaConexionesInsert;
+        Update: PlataformaConexionesUpdate;
+      };
+      plataforma_clases: {
+        Row: RowPlataformaClases;
+        Insert: PlataformaClasesInsert;
+        Update: PlataformaClasesUpdate;
+      };
+      plataforma_checkins: {
+        Row: RowPlataformaCheckins;
+        Insert: PlataformaCheckinsInsert;
+        Update: PlataformaCheckinsUpdate;
       };
     };
   };
