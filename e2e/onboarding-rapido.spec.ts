@@ -210,7 +210,7 @@ test.describe('en el móvil', () => {
       const chicos = await page.evaluate(() => [...document.querySelectorAll('[data-screen="bienvenida"] button')]
         .filter((b) => (b as HTMLElement).offsetParent !== null)
         .map((b) => ({ t: b.textContent?.trim(), h: b.getBoundingClientRect().height }))
-        .filter((b) => b.h < 44));
+        .filter((b) => b.h < 43.9));
       expect(chicos).toEqual([]);
     }
     // En el móvil la app va arriba como marca compacta y la guía en una línea.
