@@ -9,6 +9,7 @@ const articulo: Articulo = {
   categoria: 'rentabilidad',
   seccion: 'Rentabilidad',
   publicado: '2026-09-25',
+  actualizado: '2026-10-07',
   consultaPrincipal: 'bonos de pilates: cómo diseñarlos',
   consultas: [
     'bono de clases de pilates',
@@ -97,6 +98,8 @@ const articulo: Articulo = {
             '**Pon las condiciones junto al precio.** Caducidad, ventana de cancelación y si es personal e intransferible (como en Tout Suite y True Pilates), igual en la web y en el justificante.',
           ],
         },
+        { t: 'p', texto: 'Haz la cuenta con tus precios: la calculadora parte de las medianas de la muestra y te avisa si un escalón queda por debajo de tu coste o si el bono le quita alumnas a la cuota.' },
+        { t: 'herramienta', id: 'calculadora-bonos' },
         { t: 'p', texto: 'Después, llévalo a tu programa de reservas para no controlar caducidades a mano. En Tentare configuras [bonos, cuotas mensuales y clases sueltas](/funcionalidades/bonos-y-membresias), con la caducidad de cada bono y reglas por tipo de clase; si de momento usas una hoja de cálculo, tienes la [plantilla de control de asistencia](/recursos/plantilla-control-de-asistencia-pilates).' },
         {
           t: 'llamada',

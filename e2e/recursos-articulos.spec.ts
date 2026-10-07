@@ -75,3 +75,37 @@ test('la calculadora de rentabilidad arranca con el ejemplo del artículo y resp
     await expect(calc).toContainText(/2\.?040 €/, { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
 });
+
+test('la calculadora de bonos arranca con las medianas y avisa de lo que el artículo explica', async ({ page }) => {
+  await page.goto('/recursos/bonos-de-pilates', { waitUntil: 'domcontentloaded' });
+  const calc = page.getByRole('region', { name: 'Calculadora de precios de bonos' });
+  // Medianas de la muestra: suelta 25 €, bono de 10 al 21 % → 19,75 € la sesión,
+  // que es MENOS que la cuota de una clase (20 €): sale el aviso de canibalización.
+  await expect(calc).toContainText('19,75 €');
+  await expect(calc).toContainText('más barato por sesión que la cuota');
+  await expect(async () => {
+    await calc.getByLabel(/Tu coste por plaza/).fill('');
+    await calc.getByLabel(/Tu coste por plaza/).fill('20');
+    await expect(calc).toContainText('por debajo de tu coste', { timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  // Con el bono de 10 al 15 % ya no se come la cuota: el aviso desaparece.
+  await calc.getByLabel(/Descuento del bono de 10/).fill('15');
+  await expect(calc).not.toContainText('más barato por sesión que la cuota');
+});
+
+test('en el móvil, una tabla de más de tres columnas se lee como tarjetas, sin deslizarla de lado', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/recursos/reducir-cancelaciones-ultima-hora', { waitUntil: 'domcontentloaded' });
+  const tabla = page.locator('table.art-tabla--ancha').first();
+  await expect(tabla).toBeAttached({ timeout: 60_000 });
+  // Ni la tabla ni su marco se salen del ancho de la pantalla…
+  const { tabla: anchoTabla, marco } = await tabla.evaluate((t) => ({
+    tabla: t.scrollWidth,
+    marco: (t.parentElement as HTMLElement).clientWidth,
+  }));
+  expect(anchoTabla).toBeLessThanOrEqual(marco);
+  // …y cada dato lleva el nombre de su columna, que es lo que se lee en la tarjeta.
+  await expect(tabla.locator('td[data-columna="Con el recordatorio"]').first()).toBeAttached();
+  // El lector de pantalla sigue viendo una tabla con sus celdas.
+  await expect(page.getByRole('table').first()).toBeVisible();
+});
