@@ -43,7 +43,7 @@ export default function AutomatizacionesPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Trabajo que ocurre sin ti"
+      busqueda="Automatizaciones y avisos para estudios de Pilates"
       h1={<>Lo que se te olvida, ya está hecho.</>}
       intro={<>Recordar la clase de mañana, avisar de un bono que se acaba, preguntar por quien lleva un mes sin venir. El recordatorio va de serie, seis reglas las enciendes tú, y un motor de avisos decide por qué canal sale cada cosa.</>}
       chips={['6 reglas configurables', `${Object.keys(REGLAS_AVISOS).length} tipos de aviso`, 'App, push y email']}

@@ -15,6 +15,9 @@ import type { Integracion, TipoIntegracion } from '@/lib/types';
 
 export function useIntegrationsStore() {
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
+  // Los TIPOS encendidos según el servidor (`integraciones_activas()`): lo único
+  // que gerencia y recepción saben de las conexiones. Ver lib/integraciones/activas.ts.
+  const [activasDelServidor, setActivasDelServidor] = useState<string[]>([]);
 
   // ⚠️ Escribía sin `await` sobre un helper que además se tragaba su propio
   // error, así que la pantalla pintaba «conectado» y cantaba éxito aunque el
@@ -70,6 +73,8 @@ export function useIntegrationsStore() {
   return {
     integraciones,
     setIntegraciones,
+    activasDelServidor,
+    setActivasDelServidor,
     upsertIntegracion,
   };
 }

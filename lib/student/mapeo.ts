@@ -13,7 +13,7 @@ import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { exigePlanAlReservar } from '../bono-logic.ts';
 import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
-import { instanteDeApertura } from '../booking-logic.ts';
+import { apartadasPorSesion, instanteDeApertura, plazasLibresParaReservar } from '../booking-logic.ts';
 import {
   plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
   proximasDeUnaPlaza, tieneCuotaQueCubre,
@@ -329,6 +329,8 @@ export interface PayloadMin {
   }[];
   planesTarifa?: PlanMin[];
   aforoReservas?: { sesion_id: string; estado: string }[];
+  /** Plazas apartadas para ClassPass por sesión: no las puede coger la alumna hasta que se liberan. */
+  aforoApartadas?: { sesion_id: string; plazas: number }[];
   socia?: {
     // La ficha entera de `socios` (lib/db/supabase-data-admin.ts:768 hace
     // `select('*')`). `SociaSesion` solo trae socioId/nombre/email, que no
@@ -441,6 +443,9 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     if (!OCUPA_PLAZA.has(r.estado)) continue;
     ocupadas.set(r.sesion_id, (ocupadas.get(r.sesion_id) ?? 0) + 1);
   }
+  // Y las apartadas para ClassPass, que la RPC también resta (a la alumna nunca
+  // se le nombra ClassPass: ve «completa» o la lista de espera).
+  const apartadas = apartadasPorSesion(d.aforoApartadas);
 
   // Una vez para todo el horario: hoy es la misma cantidad para todas las clases.
   const porAsistir = creditosPorAsistir(d.rewardRules ?? []);
@@ -485,7 +490,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       salaId: s.salaId ?? '',
       color: tipo?.color ?? '',
       capacidad: s.aforoMaximo,
-      plazasLibres: Math.max(0, s.aforoMaximo - (ocupadas.get(s.id) ?? 0)),
+      plazasLibres: plazasLibresParaReservar(s.aforoMaximo, ocupadas.get(s.id) ?? 0, apartadas.get(s.id) ?? 0),
       // ⚠️ Antes: `s.precioPuntual ?? 0`. `sesiones.precio_puntual` es un
       // OVERRIDE por sesión y está a NULL en la inmensa mayoría, así que la
       // app enseñaba «0 €» a quien no tiene bono. La clase no es gratis: el

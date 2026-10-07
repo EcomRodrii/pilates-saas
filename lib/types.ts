@@ -1804,7 +1804,10 @@ export type TipoActividad =
   | 'WIDGET_APLICADO'
   // El estudio quitó la verificación en dos pasos de una alumna que perdió el
   // acceso. Solo lib/auth/quitar-doble-factor.ts.
-  | 'DOBLE_FACTOR_QUITADO';
+  | 'DOBLE_FACTOR_QUITADO'
+  // Recepción liberó una plaza apartada para ClassPass («La he cerrado en
+  // ClassPass»). Solo /api/plataformas/liberar-apartada.
+  | 'PLAZA_PLATAFORMA_LIBERADA';
 
 export interface ActividadReciente {
   id: string;

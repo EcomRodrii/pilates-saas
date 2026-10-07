@@ -169,7 +169,15 @@ export async function POST(req: NextRequest) {
     // WhatsApp de un hueco que en realidad no existe porque la sala tiene
     // reformers de baja, y la socia llegaba a una clase ya llena.
     const { data: aforoEfectivo } = await admin.rpc('aforo_efectivo', { p_sesion_id: sesionId });
-    const sesionParaGuardia = typeof aforoEfectivo === 'number' ? { ...sesionObj, aforoMaximo: aforoEfectivo } : sesionObj;
+    // Y sin las plazas apartadas para ClassPass: tampoco se pueden reservar desde
+    // Tentare hasta que se liberan. Sin poder leerlas, no se avisa a nadie.
+    const { data: apartadas, error: errApartadas } = await admin.rpc('plazas_apartadas', { p_sesion_id: sesionId });
+    if (errApartadas) {
+      return NextResponse.json({ error: 'No se ha podido comprobar el hueco de esta clase. Inténtalo de nuevo.' }, { status: 503 });
+    }
+    const apartadasN = typeof apartadas === 'number' ? apartadas : 0;
+    const aforoParaAvisar = typeof aforoEfectivo === 'number' ? Math.max(0, aforoEfectivo - apartadasN) : null;
+    const sesionParaGuardia = aforoParaAvisar != null ? { ...sesionObj, aforoMaximo: aforoParaAvisar } : sesionObj;
 
     const ahora = new Date();
     // ⚠️ `umbral: 1` = «cualquier clase con al menos una plaza libre», y es

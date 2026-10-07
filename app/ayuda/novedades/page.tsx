@@ -87,7 +87,7 @@ export default async function NovedadesPage() {
         </div>
       </div>
 
-      <SiteFooter links={[{ href: '/ayuda', label: 'Centro de Ayuda' }]} />
+      <SiteFooter />
     </PageShell>
   );
 }

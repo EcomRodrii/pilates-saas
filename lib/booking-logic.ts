@@ -215,6 +215,27 @@ export function plazasOcupadas(sesionId: string, reservas: readonly Pick<Reserva
   ).length;
 }
 
+// Plazas APARTADAS para una plataforma que vende a mano (ClassPass, decisión del
+// fundador del 7-oct-2026): no son de los canales de Tentare hasta que se
+// liberan X horas antes de la clase. Las calcula la base de datos
+// (`plazas_apartadas_de`) y llegan en el aforo público como `aforoApartadas`;
+// quien enseña plazas libres las resta, igual que la RPC al reservar.
+export interface AforoApartado { sesion_id: string; plazas: number }
+
+export function apartadasPorSesion(filas: readonly AforoApartado[] | null | undefined): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const f of filas ?? []) {
+    if (typeof f?.sesion_id !== 'string' || !Number.isFinite(f.plazas) || f.plazas <= 0) continue;
+    m.set(f.sesion_id, (m.get(f.sesion_id) ?? 0) + Math.floor(f.plazas));
+  }
+  return m;
+}
+
+/** Lo que se puede reservar desde Tentare: el aforo, menos las ocupadas y menos las apartadas. */
+export function plazasLibresParaReservar(aforo: number, ocupadas: number, apartadas = 0): number {
+  return Math.max(0, aforo - ocupadas - Math.max(0, apartadas));
+}
+
 // Fase 2c (mínimo de asistentes): solo CONFIRMADA, no ASISTIDA — el chequeo
 // ocurre 2h ANTES de que la clase empiece, así que ASISTIDA no puede existir
 // todavía. A diferencia de plazasOcupadas, que sirve para decidir aforo en

@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { avisoCupoTrasApuntar, leerPeticionReservaExterna, mensajeErrorReservaExterna } from './reserva-externa.ts';
+import { motivoDeErrorRpcUsc } from './usc-reserva.ts';
+import { rechazoWellhub } from './wellhub-eventos.ts';
 
 const base = { sesionId: 'ses-1', reservaId: 'res-abc123', plataforma: 'CLASSPASS', nombre: '  Ana   García ' };
 
@@ -41,6 +43,13 @@ test('cada código de la RPC llega a recepción en su idioma, nunca el SQL crudo
   assert.equal(lleno?.status, 409);
   assert.match(lleno?.error ?? '', /ClassPass/);
   assert.equal(mensajeErrorReservaExterna('CUPO_PLATAFORMA_AGOTADO', 'URBAN_SPORTS_CLUB')?.status, 409);
+  // Contiene AFORO_LLENO: tiene que leerse antes, o diría «completa» sin decir por qué.
+  const apartadas = mensajeErrorReservaExterna('ERROR: AFORO_LLENO_APARTADAS', 'URBAN_SPORTS_CLUB');
+  assert.equal(apartadas?.status, 409);
+  assert.match(apartadas?.error ?? '', /apartadas para ClassPass/);
+  // Por API, su socia ve «completa», nunca un error técnico (que USC y Wellhub reintentarían).
+  assert.equal(motivoDeErrorRpcUsc('ERROR: AFORO_LLENO_APARTADAS'), 'completa');
+  assert.equal(rechazoWellhub('ERROR: AFORO_LLENO_APARTADAS').reason_category, 'CLASS_IS_FULL');
   assert.equal(mensajeErrorReservaExterna('SESION_TERMINADA', 'WELLHUB')?.status, 400);
   assert.equal(mensajeErrorReservaExterna('TIPO_REQUIERE_AUTORIZACION', 'CLASSPASS')?.status, 400);
   assert.equal(mensajeErrorReservaExterna('relation "x" does not exist', 'CLASSPASS'), null);

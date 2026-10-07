@@ -1,5 +1,58 @@
 # SEO Keyword → URL Map — tentare.app
 
+> **Revisión del 7-oct-2026 (vigente).** Arriba, el mapa actual con los datos
+> reales de Search Console (3 meses hasta el 7-oct) y lo que se cambió ese día.
+> Debajo se conserva el mapa del 13-ago como histórico: donde se contradigan,
+> manda esta revisión.
+
+## Regla de oro
+
+Una intención = una URL primaria. Antes de crear una URL nueva se comprueba si
+una existente ya la cubre. El 7-oct se evaluaron y **descartaron** cinco URLs
+nuevas que se proponían (`/software-para-estudios-de-pilates`,
+`/software-reservas-pilates`, `/software-pilates-reformer`, una de pagos y una
+de app): cada intención ya tenía su página, y la home ya posiciona en la 2 para
+«software gestión pilates» y en la 8,7 para «software para estudios de pilates»
+con todo el enlazado interno y externo del dominio. Duplicarlas habría sido
+canibalizar la página con más autoridad.
+
+## Mapa vigente (7-oct-2026)
+
+Posición = media de Search Console, últimos 3 meses. «—» = sin impresiones aún.
+
+| Cluster | Búsquedas que cubre | URL primaria | Posición hoy | Qué se hizo el 7-oct |
+|---|---|---|---|---|
+| Software Pilates (core) | software / programa / sistema de gestión para estudios y centros de Pilates, gestión pilates | `/` | 2,2 («software gestión pilates»), 8,7, 9,8; 45 («gestión pilates») | Title con «de gestión» y marca; FAQ visible en el HTML |
+| Pilates reformer | software Pilates reformer, reservas por máquina, aforo reformer, plazas, lista de espera reformer | `/soluciones/estudio-de-pilates-reformer` | — | Página rehecha: respuesta directa, capturas reales, calculadora de plazas vacías, tabla reformer/mat |
+| Yoga | software para estudios de yoga, reservas yoga, bonos y mensualidades yoga, talleres | `/soluciones/estudio-de-yoga` | 7 | Página rehecha con semántica propia de yoga |
+| Reservas | software / sistema / app de reservas para Pilates | `/funcionalidades/reservas-online` | 41 (consultas de consumidora) | H1 con la búsqueda |
+| Lista de espera | lista de espera clases de Pilates | `/funcionalidades/lista-de-espera` | 3,9 | H1 con la búsqueda |
+| Bonos y cuotas | gestión / control / vencimiento de bonos, cuotas, membresías | `/funcionalidades/bonos-y-membresias` | 12,6 | Title «Gestión de bonos y cuotas…» y H1 |
+| Pagos | cobros automáticos, pagos online, SEPA, impagos | `/funcionalidades/cobros-recurrentes` | 6,3 | Title «Cobros automáticos y SEPA…» y H1 |
+| Alumnas / CRM | CRM estudio Pilates, gestión de alumnas, ficha | `/funcionalidades/ficha-de-clienta` | 8,4 | H1 con la búsqueda |
+| Asistencia | control de asistencia Pilates/yoga | `/funcionalidades/control-de-asistencia` | 6 | Title y H1 |
+| Profesoras | gestión de instructoras / profesores, horarios, tarifas | `/funcionalidades/gestion-de-instructoras` | 7,7 | Title con «instructoras y profesores» |
+| Sustituciones | sustituciones de instructoras, cubrir clases | `/funcionalidades/sustituciones` | 6,8 | H1 con la búsqueda |
+| App | app para estudios de Pilates / yoga, app con tu marca | `/funcionalidades/app-para-alumnas` | 4,5 | Title «App para estudios de Pilates y yoga…» |
+| Varias sedes | software varios centros / cadena | `/funcionalidades/multi-centro` | 7,2 | H1 con la búsqueda |
+| Precio | precio / cuánto cuesta software de Pilates | `/precios` | 6 | H1 con la búsqueda |
+| Comparativa (hub) | comparativa software Pilates, precios de programas | `/comparativa` | 8,5 | Title e H1 con intención propia (precios de 14 programas); enlaza a la lista editorial |
+| Mejor software (lista) | mejor software / programa para estudios de Pilates | `/recursos/mejor-software-para-estudios-de-pilates` | 10,5 | Ya no compite con `/comparativa` (antes los dos decían «13 comparados») |
+| Competidor X | X precios, ¿X merece la pena?, alternativa a X, X opiniones | `/comparativa/tentare-vs-X` | lorari 5,7 · timp 7,8 · bsport 7,6 | Title «¿X merece la pena? Precios y alternativa para Pilates», H1 «X: precios, funciones y la alternativa…», resumen con respuesta directa, análisis propio en 7 |
+| Cambiar de programa | migrar desde bsport/TIMP…, cambiar de software | `/soluciones/cambiar-de-software` | 8,6 | Enlazada desde cada comparativa y cada solución |
+
+### Lo que NO se ha hecho a propósito
+
+- **Sin páginas por ciudad** («software pilates madrid»): serían doorways.
+- **Sin «opiniones» en los títulos de las comparativas**: la página no recoge
+  reseñas de usuarios del competidor y el título no puede prometer lo que no hay.
+- **Sin `aggregateRating`** en el JSON-LD: solo con reseñas reales y suficientes.
+
+---
+
+## Histórico: mapa del 13-ago-2026
+
+
 Fecha: 2026-08-13. Ninguna acción de este documento se ha ejecutado — es mapa,
 no cambio. Volúmenes son **juicio direccional**, no datos medidos (no hay acceso
 a una herramienta real de volumen de búsqueda en esta fase) — marcados

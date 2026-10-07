@@ -4716,6 +4716,29 @@ export async function dbGuardarCupoPlataformaTipo(tipoClaseId: string, plataform
   return ESCRITURA_OK;
 }
 
+// ─── Cuándo se liberan las plazas apartadas (ClassPass) ──────────────────────
+// `plataforma_ajustes` (migr 20261007164222): las plazas cedidas a una plataforma
+// que vende a mano se APARTAN y se liberan X horas antes de la clase. Sin fila,
+// 0 (apartadas hasta que empieza). RLS: lee el personal, escribe `puede_gestionar_sede()`.
+
+/** `undefined` = no se ha podido leer (no es lo mismo que «sin configurar», que es `null`). */
+export async function dbLeerLiberarHorasPlataforma(plataforma: Plataforma): Promise<number | null | undefined> {
+  const { data, error } = await supabase.from('plataforma_ajustes').select('liberar_horas_antes')
+    .eq('studio_id', getCurrentStudioId()).eq('plataforma', plataforma).maybeSingle();
+  if (error) { reportDbError('[dbLeerLiberarHorasPlataforma]', error); return undefined; }
+  return data ? (data.liberar_horas_antes as number) : null;
+}
+
+export async function dbGuardarLiberarHorasPlataforma(plataforma: Plataforma, horas: number): Promise<ResultadoEscritura> {
+  const { data, error } = await supabase.from('plataforma_ajustes')
+    .upsert({ studio_id: getCurrentStudioId(), plataforma, liberar_horas_antes: horas, actualizado_en: new Date().toISOString() },
+      { onConflict: 'studio_id,plataforma' })
+    .select('plataforma');
+  if (error) return falloEscritura('[dbGuardarLiberarHorasPlataforma]', error);
+  if (!data?.length) return sinFilasTocadas('plataforma_ajustes', plataforma, 'No tienes permiso para cambiar esto. Pídeselo a la propietaria o a la responsable de sede.');
+  return ESCRITURA_OK;
+}
+
 export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura> {
   const { data: borradas, error } = await supabase.from('tipos_clase').delete().eq('id', id).select('id');
   if (!error) {
@@ -5722,6 +5745,8 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // largo de la consulta de automation_logs más arriba). Va al final del
     // desestructurado por el mismo motivo que sus vecinas de encima.
     automationLogsHistoricoRes,
+    // Al final por lo mismo: qué conexiones están encendidas, para todo el equipo.
+    integracionesActivasRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -5847,6 +5872,12 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
             .select('rule_id, automatizacion_id, socio_id, accion, resultado')
             .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to))
       : Promise.resolve({ data: [] as Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>[], error: null }),
+    // `integraciones` solo la lee la propietaria: gerencia y recepción reciben de
+    // aquí los TIPOS encendidos (lib/integraciones/activas.ts). El servidor
+    // (service_role, sin sesión) ya ve las filas: no la necesita.
+    opciones.privadas === 'rpc'
+      ? db.rpc('integraciones_activas')
+      : Promise.resolve({ data: [] as string[], error: null }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -5915,6 +5946,11 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     condicionesSalud: [], // Sprint 1: lazy-load
     respuestasSesion: [], // Sprint 1: lazy-load
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
+    // Si la función falla (o aún no está), vacío: la propietaria sigue con sus
+    // filas y el resto del equipo, como antes.
+    integracionesActivas: Array.isArray(integracionesActivasRes.data)
+      ? (integracionesActivasRes.data as unknown[]).filter((t): t is string => typeof t === 'string')
+      : [],
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
     rewardRules: [], // Sprint 1: lazy-load
     rewardActions: [], // Sprint 1: lazy-load

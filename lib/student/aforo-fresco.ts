@@ -13,3 +13,12 @@ export function aplicarAforo<T extends FilaAforoMin>(previas: T[], sesionIds: st
   const fuera = previas.filter((r) => !enVentana.has(r.sesion_id));
   return [...fuera, ...frescas];
 }
+
+/**
+ * Lo mismo para las plazas apartadas para ClassPass (`aforoApartadas`): las de la
+ * ventana se sustituyen por las frescas (una que se ha liberado desaparece), las
+ * de fuera se quedan.
+ */
+export function aplicarApartadas<T extends { sesion_id: string }>(previas: T[], sesionIds: string[], frescas: T[]): T[] {
+  return aplicarAforo(previas as unknown as (T & FilaAforoMin)[], sesionIds, frescas as unknown as (T & FilaAforoMin)[]) as unknown as T[];
+}

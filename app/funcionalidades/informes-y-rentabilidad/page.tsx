@@ -46,7 +46,7 @@ export default function InformesPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Números que se pueden usar"
+      busqueda="Informes de ocupación y rentabilidad por clase"
       h1={<>¿Qué clases te dan dinero?</>}
       intro={<>Piensas en meses porque tu software te da informes mensuales. Pero tu negocio ocurre por clases — y hay franjas que llevan un año costándote dinero sin que nadie lo haya mirado.</>}
       chips={['Margen por clase concreta', 'Ocupación por tipo', 'Retención por cohorte']}

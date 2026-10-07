@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-bsport';
@@ -59,17 +60,60 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Plataforma europea de gestión para estudios boutique de fitness',
+  precio: 'No lo publica: hay que pedir presupuesto',
+  permanencia: 'No consta en su web pública',
+  prueba: 'Sin prueba por tu cuenta; habla de un periodo inicial gratuito dentro del contrato',
+  respuesta: <>bsport está pensado para estudios boutique y cadenas, pero no publica sus precios: para saber cuánto pagarías tienes que pedir presupuesto, y su web no aclara la permanencia. Si tienes un estudio de Pilates o yoga en España y quieres saber lo que pagas antes de hablar con nadie, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días para probarlo sin tarjeta.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: '¿Cuánto cuesta bsport en 2026?',
+    cuerpo: (
+      <>
+        <p>bsport no publica cifras. Su página de precios describe varios planes con funciones distintas —la app propia del estudio, por ejemplo, va en los superiores— y para conocer el precio hay que pedir una propuesta. Para varias sedes o franquicias tiene un plan a medida, también sin precio público.</p>
+        <p>En la práctica, eso significa que no puedes comparar sin pasar antes por una llamada comercial. Si estás valorándolo, pide por escrito tres cosas: la cuota mensual con IVA, la duración mínima del contrato y lo que cuesta darse de baja.</p>
+        <p>En Tentare los tres planes están en la web: Founding Studio a 29 €/mes (hasta 150 alumnas activas, con la app con tu marca), Estudio a 59 €/mes y Cadena a 149 €/mes, todos con IVA y sin permanencia. <Link href="/precios">Qué incluye cada plan</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Cómo resuelve Tentare lo que más pesa en un estudio de Pilates',
+    cuerpo: (
+      <>
+        <p>En un estudio de reformer no vendes clases: vendes una máquina a una hora. Tentare lo gestiona así: cada sala con su aforo, cada reformer con su plaza, plazas fijas para las alumnas de siempre y una <Link href="/funcionalidades/lista-de-espera">lista de espera</Link> que ofrece sola la plaza que se libera.</p>
+        <p>Cuando una instructora avisa de que no puede, Tentare busca quién la cubre según su disponibilidad, la contacta y avisa a las alumnas del cambio: <Link href="/funcionalidades/sustituciones">así funcionan las sustituciones</Link>. Y los cobros entran directos a tu cuenta, con tarjeta o domiciliación SEPA, con reintentos cuando una tarjeta falla.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Cómo cambiarte de bsport a Tentare',
+    cuerpo: (
+      <>
+        <p>El importador de Tentare reconoce las exportaciones de bsport: clientas, bonos, clases y reservas. Antes de guardar nada te enseña un acta con lo que va a entrar, y si algo no cuadra lo deshaces con un botón. Si prefieres no hacerlo tú, lo hacemos nosotros: <Link href="/soluciones/cambiar-de-software">cómo es el cambio</Link>.</p>
+        <p>Lo único que ninguna plataforma puede pasarte son las tarjetas guardadas de tus alumnas: cada una la vuelve a introducir la primera vez que paga.</p>
+      </>
+    ),
+  },
+];
+
 export default function TentareVsBsportPage() {
   return (
     <CompetitorPage
       name="bsport"
       slug="tentare-vs-bsport"
       logo={{ src: '/comparativa/logos/bsport.svg', alt: 'Logo de bsport', height: 24, width: 69 }}
-      h1={<>¿bsport o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>bsport es una plataforma europea de fitness boutique que no publica sus precios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te deja saber lo que pagas antes de hablar con nadie, sin contrato y con todo lo que necesita tu estudio.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de bsport.</>}
-      footnote="Basado en la información pública de bsport (pro.bsport.io) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de bsport (pro.bsport.io) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

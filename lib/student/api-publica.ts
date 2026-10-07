@@ -69,7 +69,12 @@ export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boole
 // dejara de ser compartida entre socias del mismo estudio.
 export async function cargarAforoPublico(
   slug: string,
-): Promise<{ sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null> {
+): Promise<{
+  sesionIds: string[];
+  aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
+  /** Plazas apartadas para ClassPass por sesión (ver lib/booking-logic.ts); puede faltar en una respuesta vieja de la CDN. */
+  aforoApartadas?: { sesion_id: string; plazas: number }[];
+} | null> {
   const res = await fetch(`/api/public/aforo?slug=${encodeURIComponent(slug)}`);
   if (!res.ok) return null;
   return res.json();

@@ -1,6 +1,6 @@
 import { OG_IMAGE_CONTENT_TYPE, OG_IMAGE_SIZE, generarOgImage } from '@/lib/og-image';
 
-export const alt = 'Gestión de instructoras: disponibilidad, horas y tarifas — Tentare';
+export const alt = 'Gestión de instructoras y profesores de Pilates — Tentare';
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 

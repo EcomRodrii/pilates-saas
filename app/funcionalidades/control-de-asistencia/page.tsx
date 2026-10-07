@@ -42,7 +42,7 @@ export default function AsistenciaPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Quién vino de verdad"
+      busqueda="Control de asistencia para clases de Pilates y yoga"
       h1={<>Reservar no es venir.</>}
       intro={<>Cada alumna lleva su QR en la app: lo escaneáis en la puerta y Tentare comprueba en ese momento si tiene plaza en su clase. O no escaneáis nada y la asistencia se marca sola. Y entérate de quién reserva y falla antes de que se te note en el aforo.</>}
       chips={['QR de acceso de cada alumna', 'Marcado automático al terminar', 'Riesgo de plantón graduado']}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-flowstark';
@@ -46,15 +47,38 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Herramienta de cobros recurrentes y suscripciones',
+  precio: 'Gratis hasta 50 clientes o 19 €/mes + impuestos',
+  permanencia: 'Cancelas cuando quieras',
+  destacado: { etiqueta: 'Reservas de clases', suyo: 'No consta: es una herramienta de cobros', nuestro: 'Reservas con plaza por reformer y lista de espera' },
+  respuesta: <>Flowstark resuelve los cobros recurrentes, pero un estudio de Pilates necesita además reservas con sala y reformer, bonos, plazas fijas y alguien que cubra la clase cuando falla una instructora. Si quieres todo eso en un solo programa, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: 'Cobrar es una parte; gestionar el estudio es todo lo demás',
+    cuerpo: (
+      <>
+        <p>Con una herramienta solo de cobros, las reservas, el horario y las bajas de las instructoras siguen en otro sitio, y casi siempre en WhatsApp. Tentare junta las reservas con plaza por reformer, los bonos y cuotas, las plazas fijas y los cobros automáticos con reintentos y remesa SEPA. <Link href="/funcionalidades">Ver todo lo que hace</Link>.</p>
+      </>
+    ),
+  },
+];
+
 export default function TentareVsFlowstarkPage() {
   return (
     <CompetitorPage
       name="Flowstark"
       slug="tentare-vs-flowstark"
       logo={{ src: '/comparativa/logos/flowstark.svg', alt: 'Logo de Flowstark', height: 20, width: 120 }}
-      h1={<>¿Flowstark o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Flowstark es una herramienta de cobros recurrentes y suscripciones. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es el software completo: reservas con sala y reformer, bonos, plazas fijas, sustituciones y cobros en un solo sitio.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para gestionar tu estudio de Pilates entero: reservas con plaza por reformer, plazas fijas, bonos, sustituciones y cobros en un solo programa. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de Flowstark (flowstark.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Flowstark es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

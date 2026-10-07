@@ -42,7 +42,7 @@ export default function CalendarioPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Horario y capacidad"
+      busqueda="Calendario de clases y aforo por reformer"
       h1={<>Tu semana cuadrada, puesto a puesto.</>}
       intro={<>Series recurrentes, varias salas a la vez y capacidad contada por máquina — no un número de aforo que hay que corregir a mano cada vez que algo se rompe.</>}
       chips={['Series recurrentes', 'Multi-sala', 'Capacidad por reformer']}

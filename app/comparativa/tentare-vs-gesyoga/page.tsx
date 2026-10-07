@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-gesyoga';
@@ -45,15 +46,39 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Software de gestión para estudios de yoga, pilates y similares',
+  precio: 'De 12 a 65 €/mes + IVA según el plan',
+  permanencia: 'No consta en su web pública',
+  destacado: { etiqueta: 'Elegir reformer', suyo: 'No consta: asigna sala según la capacidad de la clase', nuestro: 'Sí: cada alumna elige su máquina' },
+  respuesta: <>GesYoga es un software de gestión para estudios de yoga y pilates con planes desde 12 €/mes sin IVA. Para un estudio de Pilates con reformers, la diferencia está en lo que hace solo: plaza por máquina, plazas fijas, cobros que se reintentan y sustituciones de instructoras. Eso es Tentare: desde 29 €/mes con IVA y sin permanencia.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: 'Para un estudio de Pilates con máquinas',
+    cuerpo: (
+      <>
+        <p>GesYoga asigna una sala según la capacidad que pide cada clase, pero su web no habla de elegir aparato. En Tentare cada reformer es una plaza: la alumna elige el suyo y una máquina averiada baja el aforo de esa clase sola. <Link href="/funcionalidades/calendario-y-salas">Calendario y salas</Link>.</p>
+        <p>Y cuando una instructora no puede, Tentare busca quién la cubre y avisa a las alumnas, algo que la web de GesYoga no menciona. <Link href="/funcionalidades/sustituciones">Sustituciones</Link>.</p>
+      </>
+    ),
+  },
+];
+
 export default function TentareVsGesYogaPage() {
   return (
     <CompetitorPage
       name="GesYoga"
       slug="tentare-vs-gesyoga"
       logo={{ src: '/comparativa/logos/gesyoga.svg', alt: 'Logo de GesYoga', height: 20, width: 110 }}
-      h1={<>¿GesYoga o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>GesYoga es un software de gestión para estudios de yoga, pilates y similares. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare va más allá: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público y sin permanencia. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de GesYoga.</>}
       footnote="Basado en la información pública de GesYoga (gesyoga.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

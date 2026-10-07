@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ACC, MUTED } from '@/components/landing/theme';
+import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
@@ -122,8 +123,10 @@ export default function PreciosPage() {
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(26px,3.5vw,38px)', textAlign: 'center' }}>
         <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 620, height: 620, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.14), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Precios</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 18px' }}>Precio público.<br />Sin permanencia.</h1>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 18px' }}>
+            <PildoraBusqueda centrada>Precios del software para estudios de Pilates</PildoraBusqueda>
+            Precio público.<br />Sin permanencia.
+          </h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, margin: '0 auto', maxWidth: 560 }}>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
             contrato anual.
@@ -243,7 +246,7 @@ export default function PreciosPage() {
         </section>
       </div>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter />
 
       <style>{`
         .pre-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; align-items: start; }

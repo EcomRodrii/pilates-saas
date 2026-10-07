@@ -50,7 +50,7 @@ export default function CancelacionesPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Plazas que se pierden"
+      busqueda="Política de cancelación y no-shows en clases de Pilates"
       h1={<>La plaza vacía de las 19:00.</>}
       intro={<>Alguien cancela veinte minutos antes y esa plaza ya no la ocupa nadie. Aquí decides qué pasa con su sesión, con el hueco y —si quieres— con su tarjeta.</>}
       chips={['Ventana por tipo de clase', 'Devolución de bono configurable', 'Penalización opcional']}

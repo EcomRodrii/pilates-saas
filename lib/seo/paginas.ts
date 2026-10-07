@@ -80,7 +80,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/reservas-online',
     titulo: 'Software de reservas para estudios de Pilates | Tentare',
     descripcion:
-      'Tus alumnas reservan y cancelan desde el móvil, 24/7. Antelación mínima y máxima, exigir bono activo y aprobación manual — reglas por tipo de clase, no solo del estudio.',
+      'Tus alumnas reservan y cancelan desde el móvil, 24/7. Antelación mínima y máxima, bono obligatorio y aprobación manual, con reglas por tipo de clase.',
     grupo: 'funcionalidades',
     etiqueta: 'Reservas online',
     resumen: 'Reservan solas desde el móvil, con las reglas que tú pongas.',
@@ -117,7 +117,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/gestion-de-instructoras',
-    titulo: 'Gestión de instructoras: disponibilidad, horas y tarifas | Tentare',
+    titulo: 'Gestión de instructoras y profesores de Pilates | Tentare',
     descripcion:
       'Disponibilidad semanal, vacaciones y bajas, tarifa por hora y liquidación mensual. Y un aviso cuando tu estudio depende demasiado de una sola persona.',
     grupo: 'funcionalidades',
@@ -132,7 +132,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/sustituciones',
     titulo: 'Sustituciones de instructoras automáticas | Tentare',
     descripcion:
-      'Una instructora avisa de que no puede y el sistema busca sustituta, la contacta con tu visto bueno —o sola, en modo autónomo—, insiste si no responde y avisa a las alumnas.',
+      'Una instructora avisa de que no puede y Tentare busca sustituta, la contacta con tu visto bueno (o sola, en modo autónomo) y avisa a las alumnas.',
     grupo: 'funcionalidades',
     etiqueta: 'Sustituciones',
     resumen: 'La baja se cubre sola: candidatas, contacto, escalado y aviso.',
@@ -143,9 +143,9 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/bonos-y-membresias',
-    titulo: 'Bonos, cuotas y plazas fijas para tu estudio | Tentare',
+    titulo: 'Gestión de bonos y cuotas para estudios de Pilates | Tentare',
     descripcion:
-      'Bonos de sesiones, cuotas mensuales, planes limitados a un tipo de clase y plazas fijas con recuperaciones. Los cuatro modelos con los que cobra un estudio de Pilates.',
+      'Bonos de sesiones con caducidad, cuotas mensuales, planes por tipo de clase y plazas fijas con recuperaciones: los cuatro modelos de cobro de un estudio.',
     grupo: 'funcionalidades',
     etiqueta: 'Bonos y membresías',
     resumen: 'Bonos, cuotas, planes por tipo de clase y plazas fijas.',
@@ -158,7 +158,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/plazas-fijas',
     titulo: 'Plazas fijas: el sitio semanal de tus alumnas | Tentare',
     descripcion:
-      'Da a una alumna su plaza en la clase de cada semana y Tentare se la reserva sola. Pausa con fechas para vacaciones, reglas para cuando se queda sin cuota y peticiones desde su app.',
+      'Da a una alumna su plaza en la clase de cada semana y Tentare se la reserva sola. Con pausa para vacaciones y peticiones desde su propia app.',
     grupo: 'funcionalidades',
     etiqueta: 'Plazas fijas',
     resumen: 'Su hueco semanal, reservado solo, con pausa y reglas propias.',
@@ -171,7 +171,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/clases-recurrentes',
     titulo: 'Clases recurrentes y renovación del horario | Tentare',
     descripcion:
-      'Programa las clases que se repiten cada semana, edítalas o cancélalas en bloque, y renueva la serie antes de que se acabe. Con aviso previo y sin crear clases en días de cierre.',
+      'Programa las clases que se repiten cada semana, edítalas o cancélalas en bloque y renueva la serie antes de que se acabe, sin crear clases en días de cierre.',
     grupo: 'funcionalidades',
     etiqueta: 'Clases recurrentes',
     resumen: 'Tu horario semanal, con aviso antes de acabarse y renovación sin sorpresas.',
@@ -182,7 +182,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/cobros-recurrentes',
-    titulo: 'Cobro recurrente y recuperación de impagos | Tentare',
+    titulo: 'Cobros automáticos y SEPA para estudios de Pilates | Tentare',
     descripcion:
       'Cobro automático con la tarjeta guardada, tres intentos escalonados cuando falla, reembolsos desde el panel y remesa SEPA 19.14 para tu banco de siempre.',
     grupo: 'funcionalidades',
@@ -215,7 +215,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/ficha-de-clienta',
     titulo: 'CRM y ficha de alumna para estudios de Pilates | Tentare',
     descripcion:
-      'Historial, bonos, asistencia y notas de progreso de cada alumna en un sitio. Con ficha de salud operativa —lesiones, zonas y adaptaciones— visible solo para quien debe verla.',
+      'Historial, bonos, asistencia y notas de cada alumna en un sitio, con ficha de salud (lesiones y adaptaciones) visible solo para quien debe verla.',
     grupo: 'funcionalidades',
     etiqueta: 'Ficha de clienta',
     resumen: 'Todo lo de cada alumna en una ficha, incluida su ficha de salud.',
@@ -252,7 +252,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/informes-y-rentabilidad',
     titulo: 'Informes de rentabilidad y ocupación de clases | Tentare',
     descripcion:
-      'Ingresos, ocupación por tipo de clase, retención por cohorte y el margen de cada clase concreta, cruzando lo que pagó cada asistente con la tarifa real de la instructora.',
+      'Ingresos, ocupación por tipo de clase, retención y el margen de cada clase: lo que pagó cada asistente menos la tarifa real de la instructora.',
     grupo: 'funcionalidades',
     etiqueta: 'Informes y rentabilidad',
     resumen: 'Qué clases dan dinero de verdad, clase por clase.',
@@ -266,7 +266,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/cancelaciones-y-politicas',
     titulo: 'Política de cancelación y no-shows para tu estudio | Tentare',
     descripcion:
-      'Ventana de cancelación por tipo de clase, quién recupera su sesión y quién no, y penalización económica por cancelar tarde o no presentarse — con consentimiento comprobado antes de cobrar.',
+      'Ventana de cancelación por tipo de clase, qué pasa con el bono y, si quieres, penalización por cancelar tarde o no presentarse, con consentimiento previo.',
     grupo: 'funcionalidades',
     etiqueta: 'Cancelaciones y no-shows',
     resumen: 'Qué pasa con la plaza, con el bono y —si quieres— con el cobro.',
@@ -277,7 +277,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/app-para-alumnas',
-    titulo: 'App de marca para las alumnas de tu estudio | Tentare',
+    titulo: 'App para estudios de Pilates y yoga, con tu marca | Tentare',
     descripcion:
       'Tus alumnas reservan, compran y ven su progreso desde una app con tu nombre, tu logo y tus colores, que se instala en su móvil sin pasar por ninguna tienda.',
     grupo: 'funcionalidades',
@@ -291,9 +291,9 @@ const FUNCIONALIDADES: PaginaSeo[] = [
 
   {
     path: '/funcionalidades/control-de-asistencia',
-    titulo: 'Control de asistencia y no-shows en tu estudio | Tentare',
+    titulo: 'Control de asistencia para clases de Pilates y yoga | Tentare',
     descripcion:
-      'Marca quién vino con el QR de cada alumna, que comprueba su reserva al escanearlo, o sin hacer nada — y detecta a quien reserva y falla, con un riesgo de plantón que pesa lo reciente.',
+      'Marca quién vino con el QR de cada alumna o sin hacer nada, y detecta a quien reserva y falla con un riesgo de plantón que pesa lo reciente.',
     grupo: 'funcionalidades',
     etiqueta: 'Control de asistencia',
     resumen: 'Quién vino y quién falló, con o sin escanear nada.',
@@ -306,7 +306,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/multi-centro',
     titulo: 'Software para cadenas con varios centros de Pilates | Tentare',
     descripcion:
-      'Varias sedes bajo un mismo acceso, con datos separados, menú compartido por cadena e instructoras que trabajan en más de un centro con rol y tarifa propios en cada uno.',
+      'Varias sedes con un solo acceso y datos separados, menú compartido por cadena e instructoras en varios centros con rol y tarifa propios en cada uno.',
     grupo: 'funcionalidades',
     etiqueta: 'Varias sedes',
     resumen: 'Dos o más centros, con datos separados y un solo acceso.',
@@ -316,6 +316,13 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     relacionadas: ['/funcionalidades/gestion-de-instructoras', '/precios', '/seguridad'],
   },
 ];
+
+/**
+ * Comparativas cuyos datos se volvieron a comprobar en la web pública del
+ * competidor el 7-oct-2026 (precios, prueba, permanencia). El resto conserva la
+ * revisión del 29-sep-2026: su fecha no se toca sin revisarlas de verdad.
+ */
+const REVISADAS_7_OCT = new Set<string>(['tentare-vs-bsport', 'tentare-vs-eversports', 'tentare-vs-momence', 'tentare-vs-mindbody', 'tentare-vs-lorari', 'tentare-vs-bonsai', 'tentare-vs-timp']);
 
 // ─── Registro completo ───────────────────────────────────────────────────────
 
@@ -329,8 +336,14 @@ export const PAGINAS: PaginaSeo[] = [
     // es una afirmación comparativa y la home habla sin compararse. Antes
     // llevó la coletilla «en Barcelona» (retirada el 2026-09-10, auditoría SEO:
     // la intención local la cubre /network/instructoras/ciudad/barcelona).
+    // 7-oct-2026: «de gestión» entra en el título. Search Console (3 meses):
+    // «gestión pilates» y «gestión centros de pilates» suman 75 impresiones en
+    // las posiciones 45 y 89, mientras «software gestión pilates» ya está en la
+    // 2: la palabra que falta en el título es justo la que más se busca. El h1
+    // ya decía «Software de gestión para estudios de Pilates». La marca vuelve
+    // al final: unos dos de cada tres clics de la home llegan buscando «tentare».
     path: '/',
-    titulo: 'Software para estudios de Pilates y yoga: reservas y cobros',
+    titulo: 'Software de gestión para estudios de Pilates y yoga | Tentare',
     descripcion:
       'Programa para centros de Pilates y yoga: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
     grupo: 'home',
@@ -341,9 +354,9 @@ export const PAGINAS: PaginaSeo[] = [
   },
   {
     path: '/precios',
-    titulo: 'Precios de Tentare — Software para estudios de Pilates desde 29€/mes',
+    titulo: 'Precios de Tentare: software para estudios de Pilates desde 29 €',
     descripcion:
-      'Tres planes con precio público y sin permanencia: Founding Studio 29€, Estudio 59€ y Cadena 149€ al mes. Qué incluye cada uno, qué límites tiene y qué se cobra aparte.',
+      'Tres planes con precio público y sin permanencia: Founding Studio 29 €, Estudio 59 € y Cadena 149 € al mes. Qué incluye cada uno y qué se cobra aparte.',
     grupo: 'software',
     etiqueta: 'Precios',
     resumen: 'Tres planes, precio público, sin permanencia y con prueba de 7 días sin tarjeta.',
@@ -354,9 +367,9 @@ export const PAGINAS: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades',
-    titulo: 'Funcionalidades de Tentare para estudios de Pilates | Tentare',
+    titulo: 'Funcionalidades del software para estudios de Pilates | Tentare',
     descripcion:
-      'Todo lo que hace Tentare, área por área: reservas, lista de espera, calendario y salas, asistencia, instructoras, sustituciones, bonos, cobros, facturación, fichas, avisos e informes.',
+      'Todo lo que hace Tentare, área por área: reservas, lista de espera, salas, instructoras, sustituciones, bonos, cobros, facturación, fichas e informes.',
     grupo: 'funcionalidades',
     etiqueta: 'Funcionalidades',
     resumen: 'El mapa completo del producto, área por área.',
@@ -447,9 +460,13 @@ export const PAGINAS: PaginaSeo[] = [
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa de software para estudios de Pilates (2026) | Tentare',
+    // Intención propia (7-oct-2026): el hub de «Tentare frente a cada uno» y la
+    // tabla de precios de los 14. La lista editorial («el mejor software…») es de
+    // /recursos/mejor-software-para-estudios-de-pilates; antes los dos títulos
+    // decían «13 comparados» y competían por la misma búsqueda.
+    titulo: 'Comparativa de software para Pilates: precios de 14 programas',
     descripcion:
-      'Precio, permanencia, Veri*Factu y sustituciones de bsport, Eversports, Mindbody, TIMP, Lorari y 8 más frente a Tentare, con lo que publica cada uno.',
+      'bsport, Eversports, Mindbody, TIMP, Lorari, Bonsai y 7 más frente a Tentare: precio publicado, permanencia, sustituciones y Veri*Factu, con fuente y fecha.',
     grupo: 'software',
     etiqueta: 'Comparativa',
     resumen: 'Tentare frente a las trece plataformas con las que más se compara.',
@@ -501,13 +518,16 @@ export const PAGINAS: PaginaSeo[] = [
       'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
-    // bsport es la comparación que más se busca («bsport precio», «alternativa
-    // a bsport»): su título lo dice. El resto sigue la plantilla.
     // Lo que se busca de un competidor es su precio y su alternativa («bsport
     // precios», «timp precios», «alternativa a mindbody»), no «Tentare vs X»:
-    // nadie busca aún la marca. El título lo dice y la descripción responde el
-    // precio con el dato verificado de su fila (revisión del 23-sep-2026).
-    titulo: `${nombre}: precios y alternativa para estudios de Pilates | Tentare`,
+    // nadie busca aún la marca. La descripción responde el precio con el dato
+    // verificado de su fila. Y desde el 7-oct-2026 el título hace la pregunta que hace quien evalúa: «¿merece la
+    // pena?». La página la responde arriba del todo («En resumen»), así que el
+    // título no promete nada que no esté. Sin «opiniones»: la página no recoge
+    // reseñas de usuarios del competidor, y prometerlas sería engañar al clic.
+    // Sin «| Tentare»: con él pasaban de 60 caracteres y Google ya enseña el
+    // nombre del sitio encima del título.
+    titulo: `¿${nombre} merece la pena? Precios y alternativa para Pilates`,
     // Desde el 23-sep las descripciones no prometen un cruce de datos que la
     // página ya no hace (dónde alojan los datos, comisiones…): dicen que se
     // compara con lo que consta en la web pública del competidor. bsport,
@@ -519,10 +539,10 @@ export const PAGINAS: PaginaSeo[] = [
     // en pantalla y en el JSON-LD). Se pone SOLO si se ha revisado de verdad:
     // una fecha inventada es peor que ninguna (ver `actualizado`). Las 12
     // comparativas de esta plantilla se revisaron el 23-sep-2026, y de nuevo
-    // el 29-sep-2026 (ampliación de filas, PRs #2349-#2352) — las 12 se
-    // revisaron ese día, así que la fecha compartida sigue siendo exacta para
-    // todas y no hace falta partir esta entrada.
-    actualizado: '2026-09-29',
+    // el 29-sep-2026 (ampliación de filas, PRs #2349-#2352). El 7-oct-2026 se
+    // volvieron a comprobar siete (REVISADAS_7_OCT): solo esas llevan la fecha
+    // nueva.
+    actualizado: REVISADAS_7_OCT.has(slug) ? '2026-10-07' : '2026-09-29',
     prioridad: 0.7,
     changeFrequency: 'monthly',
     // /precios sigue alcanzable desde el footer de estas páginas — aquí el
@@ -540,7 +560,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/comparativa/tentare-vs-glofox',
     // El <title> sigue la plantilla del resto («X: precios y alternativa…»),
     // que es la que se pincha; el titular del artículo no cambia.
-    titulo: 'Glofox: precios y alternativa para estudios de Pilates | Tentare',
+    titulo: '¿Glofox merece la pena? Precios y alternativa para Pilates',
     descripcion:
       'Glofox en euros: precio real, permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (desde 29 €/mes con IVA, sin permanencia).',
     grupo: 'software',
@@ -555,7 +575,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/cambiar-de-software',
     titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
     descripcion:
-      'Migración de clientas, bonos, clases, reservas, citas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te ayudamos nosotros.',
+      'Migración de clientas, bonos, clases, reservas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te ayudamos.',
     grupo: 'soluciones',
     etiqueta: 'Cambiarte de software',
     resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.',
@@ -575,16 +595,16 @@ export const PAGINAS: PaginaSeo[] = [
     // demanda real que lo justifique, no antes — mismo criterio que ya se
     // aplicó a `/soluciones/cambiar-de-software`.
     path: '/soluciones/estudio-de-yoga',
-    titulo: 'Tentare para estudios de Yoga — reservas, bonos y sustituciones',
+    titulo: 'Software para estudios de yoga: reservas y bonos | Tentare',
     descripcion:
-      'Nacimos con foco en Pilates. El mismo motor de reservas, bonos, cobros y sustituciones funciona igual para Yoga y centros que combinan ambas disciplinas.',
+      'Reservas online, bonos, mensualidades y cobros automáticos para tu estudio de yoga, con una app con tu marca. Desde 29 €/mes con IVA y sin permanencia.',
     grupo: 'soluciones',
     etiqueta: 'Estudio de Yoga',
     resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.',
     prioridad: 0.6,
     changeFrequency: 'monthly',
-    actualizado: '2026-08-15',
-    relacionadas: ['/funcionalidades/sustituciones', '/soluciones/estudio-de-pilates-reformer', '/precios', '/comparativa', '/recursos/como-abrir-un-estudio-de-yoga'],
+    actualizado: '2026-10-07',
+    relacionadas: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/app-para-alumnas', '/soluciones/estudio-de-pilates-reformer', '/recursos/como-abrir-un-estudio-de-yoga', '/recursos/checklist-elegir-software-estudio'],
   },
   // Página pilar del estudio de REFORMER (fase 5 del rediseño, 23-sep). No
   // compite con la home («software de gestión para estudios de Pilates»): la
@@ -593,31 +613,31 @@ export const PAGINAS: PaginaSeo[] = [
   // página propia.
   {
     path: '/soluciones/estudio-de-pilates-reformer',
-    titulo: 'Software para estudios de Pilates reformer: plaza por máquina | Tentare',
+    titulo: 'Software para Pilates reformer: reservas por máquina | Tentare',
     descripcion:
-      'Reservas con plaza por reformer, aforo por sala, plazas fijas, lista de espera automática y sustituciones de instructoras. Para estudios de Pilates reformer en España, desde 29 €/mes.',
+      'Reservas por reformer, aforo por sala, plazas fijas y lista de espera automática para estudios de Pilates reformer en España. Desde 29 €/mes con IVA.',
     grupo: 'soluciones',
     etiqueta: 'Estudio de Pilates reformer',
     resumen: 'Cada reformer, una plaza: aforo por sala, plazas fijas y lista de espera.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
-    actualizado: '2026-09-23',
-    relacionadas: ['/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/sustituciones', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/soluciones'],
+    actualizado: '2026-10-07',
+    relacionadas: ['/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/plazas-fijas', '/recursos/precios-reformer-mat'],
   },
   // Índice de /soluciones: hasta el 23-sep era un 404 aunque colgaran de él
   // tres páginas.
   {
     path: '/soluciones',
-    titulo: 'Soluciones de Tentare por tipo de estudio | Tentare',
+    titulo: 'Tentare por tipo de estudio: Pilates, reformer y yoga',
     descripcion:
-      'Tentare para cada tipo de estudio: Pilates reformer, Yoga, varios centros o quien viene de otro software. Reservas, cobros y sustituciones con precio público.',
+      'Tentare para cada tipo de estudio: Pilates, Pilates reformer, yoga, varias sedes o quien viene de otro programa. Reservas, bonos y cobros con precio público.',
     grupo: 'soluciones',
     etiqueta: 'Soluciones',
     resumen: 'Tentare según el tipo de estudio.',
     prioridad: 0.6,
     changeFrequency: 'monthly',
-    actualizado: '2026-09-23',
-    relacionadas: ['/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/cambiar-de-software', '/funcionalidades/multi-centro'],
+    actualizado: '2026-10-07',
+    relacionadas: ['/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/funcionalidades/multi-centro', '/soluciones/cambiar-de-software'],
   },
   {
     path: '/recursos',
@@ -677,7 +697,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/sobre-tentare',
     titulo: 'Sobre Tentare: quién hay detrás del software para estudios de Pilates',
     descripcion:
-      'Tentare es un software de gestión para estudios de Pilates y Yoga en España. Quién lo hace, cómo trabajamos (precio público, sin permanencia, soporte por personas) y cómo contactar.',
+      'Tentare es un software de gestión para estudios de Pilates y yoga hecho en España. Quién lo hace, cómo trabajamos y cómo contactar con nosotros.',
     grupo: 'software',
     etiqueta: 'Sobre Tentare',
     resumen: 'Quién hay detrás y cómo trabajamos.',
@@ -690,7 +710,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/seguridad',
     titulo: 'Seguridad y privacidad — Tentare',
     descripcion:
-      'Cómo protege Tentare los datos de tu estudio y tus alumnas: aislamiento por estudio, datos alojados en la UE, RGPD, facturación Veri*factu, pagos con Stripe y copias de seguridad.',
+      'Cómo protege Tentare los datos de tu estudio y de tus alumnas: aislamiento por estudio, datos en la UE, RGPD, pagos con Stripe y copias de seguridad.',
     grupo: 'recursos',
     etiqueta: 'Seguridad',
     resumen: 'Aislamiento por estudio, RGPD y datos en la UE.',

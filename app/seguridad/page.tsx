@@ -161,7 +161,7 @@ export default function SeguridadPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter />
 
       <style>{`
         .sec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }

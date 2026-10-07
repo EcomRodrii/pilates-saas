@@ -7,6 +7,8 @@ import { useStudio } from '@/lib/studio-context';
 import { NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from '@/lib/plataformas/catalogo';
 import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
 import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '@/lib/plataformas/venta-externa';
+import { PLATAFORMAS_QUE_APARTAN } from '@/lib/plataformas/apartadas';
+import { dbGuardarLiberarHorasPlataforma, dbLeerLiberarHorasPlataforma } from '@/lib/supabase-data';
 import { resumenPlataformaVenta } from '@/lib/configuracion/resumenes';
 import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/icons/brand-icons';
 import { LogoConexion } from '@/components/configuracion/canales-comunicacion';
@@ -26,9 +28,11 @@ import { FILA } from '@/components/configuracion/shell/fila-herramienta';
 // ⚠️ Encender/apagar reescribe la config entera: se reenvía la que ya había,
 // o un simple interruptor borraría los IDs de USC.
 
+// Para todo el equipo: recepción y gerencia, que apuntan estas ventas, no leen
+// `integraciones` (solo la propietaria) — ver lib/integraciones/activas.ts.
 export function usePlataformasActivas(): Plataforma[] {
-  const { integraciones } = useStudio();
-  return PLATAFORMAS.filter(p => integraciones.some(i => i.tipo === p && i.activo));
+  const { integracionActiva } = useStudio();
+  return PLATAFORMAS.filter(p => integracionActiva(p));
 }
 
 const USC: Plataforma = 'URBAN_SPORTS_CLUB';
@@ -122,6 +126,8 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
   const { upsertIntegracion } = useStudio();
   const activas = usePlataformasActivas();
   const [guardando, setGuardando] = useState<Plataforma | null>(null);
+  // La que se acaba de encender: si aparta plazas, su pregunta sale con el foco.
+  const [recienActivada, setRecienActivada] = useState<Plataforma | null>(null);
   const { usc, setUsc, errorUsc } = useEstadoUsc();
 
   async function cambiar(p: Plataforma, activo: boolean) {
@@ -132,6 +138,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
     const res = await upsertIntegracion(p, activo, config, anterior);
     setGuardando(null);
     if (!res.ok) { showToast(res.error); return; }
+    setRecienActivada(activo ? p : null);
     showToast(activo
       ? `${NOMBRE_PLATAFORMA[p]} activada: ya puedes apuntar sus reservas desde la clase`
       : `${NOMBRE_PLATAFORMA[p]} desactivada`);
@@ -186,6 +193,9 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
                 />
               </button>
             </div>
+            {activa && !porApi && (PLATAFORMAS_QUE_APARTAN as readonly Plataforma[]).includes(p) && (
+              <LiberarApartadas plataforma={p} preguntar={recienActivada === p} showToast={showToast} />
+            )}
             {p === USC && activa && usc?.apiDisponible && (
               <ConexionUsc
                 config={usc.config}
@@ -202,6 +212,108 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
         <p className="text-xs text-muted-foreground">
           Cuando llegue la conexión automática, las reservas de cada plataforma entrarán solas en la clase. Hasta entonces, apúntalas tú.
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ClassPass vende a mano: las plazas que se le ceden quedan APARTADAS (tus
+ * alumnas no pueden cogerlas mientras ClassPass no las venda) y las que no venda
+ * se liberan X horas antes de la clase. Se pregunta al encenderla (decisión del
+ * fundador, 7-oct-2026); sin respuesta, quedan apartadas hasta que empieza la
+ * clase: nunca sobreventa. La regla la aplica la base de datos (`plazas_apartadas`).
+ */
+function LiberarApartadas({ plataforma, preguntar, showToast }: {
+  plataforma: Plataforma; preguntar: boolean; showToast: (m: string) => void;
+}) {
+  const nombre = NOMBRE_PLATAFORMA[plataforma];
+  // `undefined`: cargando o sin poder leer; `null`: sin configurar.
+  const [horas, setHoras] = useState<number | null | undefined>(undefined);
+  const [cargado, setCargado] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    void dbLeerLiberarHorasPlataforma(plataforma).then(h => {
+      if (!vivo) return;
+      setHoras(h);
+      setTexto(h == null ? '' : String(h));
+      setCargado(true);
+    });
+    return () => { vivo = false; };
+  }, [plataforma]);
+
+  const valor = Number(texto);
+  const valido = texto.trim() !== '' && Number.isInteger(valor) && valor >= 0 && valor <= 72;
+
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    if (!valido || guardando) return;
+    setGuardando(true);
+    const res = await dbGuardarLiberarHorasPlataforma(plataforma, valor);
+    setGuardando(false);
+    if (!res.ok) { showToast(res.error); return; }
+    setHoras(valor);
+    setEditando(false);
+    showToast(valor === 0
+      ? `Las plazas de ${nombre} se quedan apartadas hasta que empieza la clase`
+      : `Las plazas que ${nombre} no venda se liberarán ${valor} ${valor === 1 ? 'hora' : 'horas'} antes de la clase`);
+  }
+
+  if (!cargado) return null;
+  const sinConfigurar = horas === null;
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl bg-muted/60 px-3 py-3" data-testid={`liberar-apartadas-${plataforma.toLowerCase()}`}>
+      <p className="text-xs text-muted-foreground">
+        Las plazas que cedes a {nombre} quedan apartadas: tus alumnas no pueden reservarlas mientras {nombre} no las venda.
+      </p>
+      {horas === undefined ? (
+        <p className="text-xs text-warning">No hemos podido leer cuándo se liberan. Vuelve a abrir esta pantalla en un momento.</p>
+      ) : !sinConfigurar && !editando ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-foreground">
+            {horas === 0
+              ? 'Se quedan apartadas hasta que empieza la clase.'
+              : `Las que no venda se liberan ${horas} ${horas === 1 ? 'hora' : 'horas'} antes de la clase.`}
+          </p>
+          <button type="button" onClick={() => setEditando(true)} className="text-xs font-semibold text-brand-medio underline-offset-2 hover:underline">
+            Cambiar
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={guardar} className="space-y-2">
+          <label className="block text-sm font-semibold text-foreground" htmlFor={`liberar-horas-${plataforma}`}>
+            ¿Hasta cuántas horas antes de la clase se puede reservar en {nombre}?
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id={`liberar-horas-${plataforma}`}
+              inputMode="numeric"
+              autoFocus={preguntar || editando}
+              value={texto}
+              onChange={e => setTexto(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+              className="h-10 w-20 rounded-lg border border-foreground/30 bg-background px-3 text-base text-foreground focus:outline-none pointer-fine:text-sm"
+              aria-describedby={`liberar-horas-ayuda-${plataforma}`}
+            />
+            <span className="text-sm text-muted-foreground">horas</span>
+            <button
+              type="submit"
+              disabled={!valido || guardando}
+              aria-busy={guardando}
+              className="ml-auto min-h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              Guardar
+            </button>
+          </div>
+          <p id={`liberar-horas-ayuda-${plataforma}`} className="text-xs text-muted-foreground">
+            Pon las mismas que tengas en {nombre}: a esa hora, las plazas que no haya vendido pasan a tus alumnas (entre 0 y 72).
+            {sinConfigurar && ' Mientras no lo pongas, se quedan apartadas hasta que empieza la clase.'}
+          </p>
+        </form>
       )}
     </div>
   );

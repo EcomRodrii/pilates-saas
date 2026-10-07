@@ -131,6 +131,32 @@ class Ctx {
     return id;
   }
 
+  /** ClassPass encendida y vendiendo a mano: sus plazas cedidas quedan APARTADAS (migr 20261007164222). */
+  async classpass(tipoId: string, p: { plazas: number; liberarHorasAntes?: number; activa?: boolean }) {
+    const { error: e1 } = await admin.from('integraciones').insert({
+      id: idUnico('intg'), studio_id: this.studioId, tipo: 'CLASSPASS', activo: p.activa ?? true,
+    });
+    assert.ok(!e1, `integración: ${e1?.message}`);
+    const { error: e2 } = await admin.from('plataforma_cupos').insert({
+      studio_id: this.studioId, plataforma: 'CLASSPASS', tipo_clase_id: tipoId, plazas: p.plazas,
+    });
+    assert.ok(!e2, `cupo: ${e2?.message}`);
+    if (p.liberarHorasAntes != null) {
+      const { error: e3 } = await admin.from('plataforma_ajustes').insert({
+        studio_id: this.studioId, plataforma: 'CLASSPASS', liberar_horas_antes: p.liberarHorasAntes,
+      });
+      assert.ok(!e3, `ajuste: ${e3?.message}`);
+    }
+  }
+
+  /** Una venta de ClassPass apuntada (sin socia), por la RPC de siempre. */
+  async ventaClasspass(sesionId: string) {
+    const { error } = await admin.rpc('reservar_plaza_externa', {
+      p_studio_id: this.studioId, p_sesion_id: sesionId, p_reserva_id: idUnico('res-cp'), p_origen: 'CLASSPASS', p_nombre: 'Venta ClassPass',
+    });
+    assert.ok(!error, `venta de ClassPass: ${error?.message}`);
+  }
+
   async autorizar(socioId: string, tipoId: string) {
     const { error } = await admin.from('socio_tipos_clase_autorizados').insert({ socio_id: socioId, tipo_clase_id: tipoId, studio_id: this.studioId });
     assert.ok(!error, `autorización: ${error?.message}`);
@@ -151,6 +177,77 @@ async function saldoDe(id: string) {
 }
 
 const escenarios: { nombre: string; preparar: (c: Ctx) => Promise<Preparado> }[] = [
+  // ── Plazas apartadas para ClassPass (migr 20261007164222) ────────────────────
+  {
+    nombre: 'apartadas para ClassPass llenan la clase: entra en lista de espera',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 2 });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 3 });
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      return { sesionId: sesion, socioId: await c.socia(), opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'LISTA_ESPERA', posicion: 1 } };
+    },
+  },
+  {
+    nombre: 'apartadas para ClassPass llenan la clase y no hay lista de espera → aforo-lleno',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 2 });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 3 });
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      return {
+        sesionId: sesion, socioId: await c.socia(),
+        opciones: { exigir_entitlement: false, permite_lista_espera: false }, esperado: { puede: false, codigo: 'aforo-lleno' },
+      };
+    },
+  },
+  {
+    nombre: 'ClassPass ya vendió una de sus dos: queda UNA apartada, la otra plaza es libre',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 2 });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 3 });
+      await c.ventaClasspass(sesion);
+      return { sesionId: sesion, socioId: await c.socia(), opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'CONFIRMADA', pagador: 'ninguno' } };
+    },
+  },
+  {
+    nombre: 'ya liberadas (dentro de las X horas): la plaza es de quien llegue',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 2, liberarHorasAntes: 24 });
+      const sesion = await c.sesion(new Date(Date.now() + 3 * 3_600_000), { tipo, aforo: 3 });
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      return { sesionId: sesion, socioId: await c.socia(), opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'CONFIRMADA' } };
+    },
+  },
+  {
+    nombre: 'ClassPass apagada: no aparta nada',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 2, activa: false });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 3 });
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      return { sesionId: sesion, socioId: await c.socia(), opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'CONFIRMADA' } };
+    },
+  },
+  {
+    // Si apartara, las dos plazas serían de ClassPass y entraría en lista de espera.
+    nombre: 'tipo que exige autorización (ClassPass no puede venderlo): no aparta nada',
+    async preparar(c) {
+      const tipo = await c.tipo({ requiereAutorizacion: true }); await c.classpass(tipo, { plazas: 2 });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 2 });
+      const socio = await c.socia(); await c.autorizar(socio, tipo);
+      return { sesionId: sesion, socioId: socio, opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'CONFIRMADA' } };
+    },
+  },
+  {
+    // En manual Tentare no frena a ClassPass por su cupo (lo vende allí). Lo vendido de más NO devuelve plazas:
+    // sin el `greatest(0, …)` las apartadas saldrían negativas y la clase llena aceptaría a una más.
+    nombre: 'ClassPass vendió MÁS que su cupo: la clase llena no gana plazas, lista de espera',
+    async preparar(c) {
+      const tipo = await c.tipo(); await c.classpass(tipo, { plazas: 1 });
+      const sesion = await c.sesion(enDias(3), { tipo, aforo: 3 });
+      await c.ventaClasspass(sesion); await c.ventaClasspass(sesion);
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      return { sesionId: sesion, socioId: await c.socia(), opciones: { exigir_entitlement: false }, esperado: { puede: true, estado: 'LISTA_ESPERA', posicion: 1 } };
+    },
+  },
   {
     nombre: 'sin plan exigido (el estudio no lo pide): entra, no paga nadie',
     async preparar(c) {
