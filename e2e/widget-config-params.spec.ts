@@ -34,7 +34,7 @@ function fx() {
     spots: [],
     // PUNTUAL activo: sin socia, cada clase enseña «Reservar por 15 €» — la
     // materia prima de `ocultar-precio`.
-    planesTarifa: [{ id: 'p1', studioId: S, tipo: 'PUNTUAL', activo: true, precio: 15, nombre: 'Clase suelta' }],
+    planesTarifa: [{ id: 'p1', studioId: S, tipo: 'PUNTUAL', activo: true, precio: 15, sesiones: 1, nombre: 'Clase suelta' }],
     // s1 (Reformer hoy 10:00) la da Ana sustituyendo a Bea — la materia prima
     // de `ocultar-sustituta`.
     sustitucionesConfirmadas: [{ sesionId: 's1', instructorOriginalId: 'ins-2' }],

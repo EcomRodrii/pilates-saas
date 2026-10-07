@@ -1106,6 +1106,12 @@ export interface RowStudios {
   exigir_doble_factor: boolean | null;
   // migr 20261004125559.
   sumup_reader_id: string | null;
+  // migr 20261007122300.
+  cancelacion_tardia_devuelve_recuperacion: boolean | null;
+  // migr 20261007122300.
+  lista_espera_reserva_plaza_ofrecida: boolean | null;
+  // migr 20261007122300.
+  reserva_pendiente_cuenta_para_tope: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -5610,6 +5616,9 @@ export type StudiosInsert = {
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
   sumup_reader_id?: string | null | null;
+  cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
+  lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
+  reserva_pendiente_cuenta_para_tope?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5760,6 +5769,9 @@ export type StudiosUpdate = {
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
   sumup_reader_id?: string | null | null;
+  cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
+  lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
+  reserva_pendiente_cuenta_para_tope?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

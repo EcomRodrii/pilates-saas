@@ -49,17 +49,21 @@ export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ 
   let avisados = 0;
   let sinReservas = 0;
   for (const studio of studios as { id: string; creado_en: string; subscription_status: string | null }[]) {
-    const { count: sesiones } = await admin.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', studio.id);
-    // Las reservas solo se cuentan si hay horario: sin él no puede haberlas.
-    let reservas = 0;
-    if ((sesiones ?? 0) > 0) {
-      const { count } = await admin.from('reservas').select('id', { count: 'exact', head: true }).eq('studio_id', studio.id);
-      reservas = count ?? 0;
+    // `avisoDeEmbudo` solo distingue «ninguna» de «alguna»: una fila basta. Un
+    // `count: 'exact'` recorría todas las de cada estudio, hasta 1000 consultas
+    // seguidas en este paso.
+    const { data: unaSesion } = await admin.from('sesiones').select('id').eq('studio_id', studio.id).limit(1);
+    const haySesiones = (unaSesion?.length ?? 0) > 0;
+    // Las reservas solo se miran si hay horario: sin él no puede haberlas.
+    let hayReservas = false;
+    if (haySesiones) {
+      const { data: unaReserva } = await admin.from('reservas').select('id').eq('studio_id', studio.id).limit(1);
+      hayReservas = (unaReserva?.length ?? 0) > 0;
     }
     const aviso = avisoDeEmbudo({
       creadoHaceHoras: (ahora - new Date(studio.creado_en).getTime()) / MS_HORA,
-      sesiones: sesiones ?? 0,
-      reservas,
+      sesiones: haySesiones ? 1 : 0,
+      reservas: hayReservas ? 1 : 0,
       pruebaExpirada: studio.subscription_status === 'trial_expirado',
     });
     if (aviso === 'SIN_CLASES') { await emitirEmbudoSinClasesProgramadas({ studioId: studio.id }); avisados++; }

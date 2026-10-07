@@ -33,7 +33,10 @@ const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPau
   // 30-sep: el tope de recuperaciones sin usar (antes un 4 fijo), con su propia tarjeta.
   'recuperacionMaxVivas',
   // 3-oct: quién da las plazas fijas sueltas que pide la alumna (manual o automática) y hasta qué % del aforo.
-  'plazaFijaAprobacion', 'plazaFijaAutoTopePct'];
+  'plazaFijaAprobacion', 'plazaFijaAutoTopePct',
+  // 7-oct: tres decisiones que eran del código y son de cada estudio (devolver la recuperación en una cancelación tardía,
+  // guardar la plaza ofrecida a la lista de espera, contar las reservas pendientes de aprobar para el tope).
+  'cancelacionTardiaDevuelveRecuperacion', 'listaEsperaReservaPlazaOfrecida', 'reservaPendienteCuentaParaTope'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -50,10 +53,10 @@ test('cada columna vive en UNA tarjeta, y entre todas están todas', () => {
 test('sin dato del servidor, los mismos valores por defecto que el formulario de antes', () => {
   assert.deepEqual(reglasGuardadas(null), {
     reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null,
-    reservaMaxSimultaneas: null, reservaMaxPorDia: null, bloquearReservaImpago: false, requiereAprobacion: false,
-    cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
+    reservaMaxSimultaneas: null, reservaMaxPorDia: null, reservaPendienteCuentaParaTope: false, bloquearReservaImpago: false, requiereAprobacion: false,
+    cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionTardiaDevuelveRecuperacion: true, cancelacionClaseDevuelveBono: true,
     minimoAsistentesPorClase: 0, recuperacionMaxVivas: 4, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
-    recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
+    recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0, listaEsperaReservaPlazaOfrecida: false,
     requiereCheckinQr: true, controlAccesoQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
     // Sin elegir: como siempre (decisión del fundador, 16-sep).
@@ -141,12 +144,37 @@ test('el «Guardar» de un cajón manda SOLO las columnas de su tarjeta (#2027)'
   const cancelar = reglasDeTarjetaAGuardar('cancelar-y-recuperar', { ...form, cancelacionVentanaHoras: 6 }, guardado);
   assert.deepEqual(cancelar, {
     ok: true,
-    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false },
+    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false, cancelacionTardiaDevuelveRecuperacion: true },
   });
   // «Sin lista» conserva el plazo guardado, también desde su cajón.
   assert.deepEqual(reglasDeTarjetaAGuardar('lista-de-espera', { ...form, listaEspera: { modo: 'sin-lista', minutos: '' } }, guardado), {
-    ok: true, cambios: { permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 20 },
+    ok: true, cambios: { permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 20, listaEsperaReservaPlazaOfrecida: false },
   });
+});
+
+test('las tres decisiones de la propietaria (7-oct) nacen como siempre, se guardan por su tarjeta y se notan como cambio', () => {
+  const guardado = reglasGuardadas(null);
+  // De serie reproducen el comportamiento de antes: recuperación sí, plaza ofrecida no, pendientes no.
+  assert.equal(guardado.cancelacionTardiaDevuelveRecuperacion, true);
+  assert.equal(guardado.listaEsperaReservaPlazaOfrecida, false);
+  assert.equal(guardado.reservaPendienteCuentaParaTope, false);
+  const form = formularioReglas(guardado);
+  assert.deepEqual(tarjetasConCambios(form, guardado), []);
+
+  const casos = [
+    ['cancelar-y-recuperar', 'cancelacionTardiaDevuelveRecuperacion', false],
+    ['lista-de-espera', 'listaEsperaReservaPlazaOfrecida', true],
+    ['reservar', 'reservaPendienteCuentaParaTope', true],
+  ] as const;
+  for (const [tarjeta, columna, valor] of casos) {
+    const cambiado = { ...form, [columna]: valor };
+    // Solo esa tarjeta sale con cambios…
+    assert.deepEqual(tarjetasConCambios(cambiado, guardado), [tarjeta], columna);
+    // …y su «Guardar» manda la columna (la lista de espera, que es un control aparte, también).
+    const r = reglasDeTarjetaAGuardar(tarjeta, cambiado, guardado);
+    assert.ok(r.ok, columna);
+    assert.equal((r.cambios as Record<string, unknown>)[columna], valor, columna);
+  }
 });
 
 test('un cajón solo se bloquea por lo suyo', () => {

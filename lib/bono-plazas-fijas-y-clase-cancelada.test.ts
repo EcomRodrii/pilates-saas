@@ -72,7 +72,7 @@ test('⚠️ I-1 · «Eliminar clase» no devuelve bono a las plazas fijas, ni a
     'si alguna devolución falla, la clase no se borra: se queda cancelada con sus reservas a la vista');
   // Y el servidor sigue sin tocar las plazas fijas.
   const ruta = readFileSync(join(import.meta.dirname, '..', 'app/api/reservas/devolver-bonos/route.ts'), 'utf8');
-  assert.match(ruta, /!\(r\.id as string\)\.startsWith\('res-pf-'\)/, '/api/reservas/devolver-bonos dejó de excluir las plazas fijas');
+  assert.match(ruta, /!esReservaPlazaFija\(r\.id as string\)/, '/api/reservas/devolver-bonos dejó de excluir las plazas fijas');
 });
 
 test('⚠️ I-2 · el panel no deja apuntar a nadie a una clase cancelada', () => {

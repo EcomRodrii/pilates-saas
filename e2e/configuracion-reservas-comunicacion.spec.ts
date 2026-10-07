@@ -47,7 +47,7 @@ const TIPOS = [
 ];
 
 const COLUMNAS_CANCELAR = [
-  'cancelacion_devolver_bono_tardia', 'cancelacion_ventana_horas',
+  'cancelacion_devolver_bono_tardia', 'cancelacion_tardia_devuelve_recuperacion', 'cancelacion_ventana_horas',
 ];
 
 const json = (r: Route, b: unknown, s = 200) =>

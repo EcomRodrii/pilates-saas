@@ -8,7 +8,9 @@
 // Lo que se compensa es el hueco que se quedó SIN USAR habiendo cancelado a
 // tiempo: eso es exactamente «cancelé el martes y ya no me cupo otra».
 //
-// Sin imports: la lógica que decide quién gana qué se prueba sola.
+// Sin imports de la app: la lógica que decide quién gana qué se prueba sola (solo la constante del prefijo de clase fija).
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
+
 export function derechoDeRecuperaciones(
   limiteSemanal: number,
   usadas: number,
@@ -57,7 +59,7 @@ export interface ReservaDeLaSemana {
  * caminos que no cobran).
  */
 export function llegoAOcuparPlaza(r: ReservaDeLaSemana): boolean {
-  if (String(r.id).startsWith('res-pf-')) return true;
+  if (esReservaPlazaFija(String(r.id))) return true;
   if (r.bono_consumo_rastreado !== true) return true;
   return r.bono_decidido_en != null;
 }

@@ -5642,6 +5642,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }), [cargarUnaVez]);
 
   const cargarFichaClienta = useCallback(() => cargarUnaVez('ficha-clienta', async sid => {
+    // Se lanza ya, en paralelo: es un fetch HTTP independiente y esperar a que
+    // acabe el primero para empezarlo sumaba las dos latencias al abrir una ficha.
+    // El `.catch` vacío solo marca la promesa como atendida mientras el otro
+    // fetch corre; el `await` de abajo sigue lanzando si falla, como antes.
+    const rebotes = fetchEmailsRebotados();
+    rebotes.catch(() => {});
     const f = await fetchFichaClientaStudio(sid);
     setNotasInternas(f.notasInternas);
     setValoracionesSocias(f.valoracionesSocias);
@@ -5652,7 +5658,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // pregunta). Va detrás porque un fallo aquí no puede costar las notas ni la
     // valoración: si no llega, la ficha se pinta sin el aviso, que es
     // exactamente como estaba antes.
-    setEmailsRebotados(await fetchEmailsRebotados());
+    setEmailsRebotados(await rebotes);
   }), [cargarUnaVez]);
 
   // Se saca el setter del store en vez de depender del objeto entero: es un

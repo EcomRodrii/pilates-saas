@@ -13,6 +13,7 @@ import { hayALaVentaQueCubra, type PlanTienda } from './tienda.ts';
 import { type ComoVieneSinBono, type TonoPago } from './como-se-paga.ts';
 import type { Bono, Clase, Disponibilidad, Reserva } from './tipos.ts';
 
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 export type CasoComoVienes = 'clase-fija' | 'cuota' | 'ilimitado' | 'bono' | 'bono-no-cubre' | 'sin-nada';
 
 export interface ComoVienesVista {
@@ -24,8 +25,6 @@ export interface ComoVienesVista {
   tono: TonoPago;
 }
 
-/** El prefijo de las reservas de una clase fija: es CONTRATO, no un nombre (lib/plazas-fijas-cancelacion.ts). */
-const PREFIJO_CLASE_FIJA = 'res-pf-';
 
 export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planesTarifa, nombresTipo, hoy, sinBono }: {
   clase: Pick<Clase, 'id' | 'tipo' | 'tipoClaseId' | 'precioSuelto' | 'sinPrecioSuelto'>;
@@ -50,7 +49,7 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
   if (mia?.estado === 'confirmada') {
     // De una reserva YA hecha solo se sabe con certeza con qué viene si es de su clase fija. «Incluida en tu cuota»,
     // solo si hay una cuota que la cubre: sin ella, el barrido nocturno cancela las `res-pf-` (no se promete nada).
-    if (mia.id.startsWith(PREFIJO_CLASE_FIJA)) {
+    if (esReservaPlazaFija(mia.id)) {
       // UNA vez, en una línea (la ficha ya no repite «Incluida en tu cuota» en la fila corta: ver `pagoCortoSobra`).
       return { caso: 'clase-fija', titulo: esCuota(pagaria) ? 'Tu clase fija · incluida en tu cuota' : 'Tu clase fija', detalle: null, tono: 'ok' };
     }

@@ -95,6 +95,7 @@ import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-cl
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 import type {
   RowCitasServicios,
   RowCitasDisponibilidad,
@@ -179,6 +180,7 @@ import {
   dbUpdateAutomationRuleCon,
   dbUpdateAutomatizacionCon,
 } from '@/lib/supabase-data';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 function dbEscritura(): SupabaseClient {
   return getSupabaseAdmin() ?? supabase;
@@ -1890,7 +1892,7 @@ export async function completarConfirmacionTrasReintento(admin: SupabaseClient, 
 }): Promise<void> {
   // Las plazas fijas materializadas no se cobran nunca (nacen no rastreadas);
   // esto cubre también las anteriores a la migración.
-  if (p.reservaId.startsWith('res-pf-')) return;
+  if (esReservaPlazaFija(p.reservaId)) return;
   const { data: res } = await admin.from('reservas').select('estado, sesion_id, socio_id')
     .eq('id', p.reservaId).eq('studio_id', p.studioId).maybeSingle();
   if (!res || res.estado !== 'CONFIRMADA' || !res.sesion_id || !res.socio_id) return;
@@ -2468,7 +2470,7 @@ export async function barrerEsperasDeClasesPasadas(nowISO: string) {
 async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   const { data, error } = await admin
     .from('studios')
-    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_max_por_dia, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, permite_lista_espera, requiere_aprobacion')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_max_por_dia, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, permite_lista_espera, requiere_aprobacion, reserva_pendiente_cuenta_para_tope')
     .eq('id', studioId).maybeSingle();
   // ⚠️ Un fallo aquí NO es «sin reglas»: con una columna que aún no existe (código
   // desplegado antes que su migración), `data` llega `null` y TODAS las reglas de
@@ -2487,6 +2489,8 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
     antelacionHora: horaHHMM(data?.reserva_antelacion_hora as string | null | undefined),
     permiteListaEspera: (data?.permite_lista_espera ?? true) as boolean,
     requiereAprobacion: (data?.requiere_aprobacion ?? false) as boolean,
+    // ¿Las reservas pendientes de aprobar cuentan para «reservas a la vez»? De serie no.
+    pendientesCuentanParaTope: (data?.reserva_pendiente_cuenta_para_tope ?? false) as boolean,
   };
 }
 
@@ -2702,6 +2706,8 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 export async function topesDeReservaTS(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string; inicioISO: string;
   maxSimultaneas: number | null; maxPorDia: number | null;
+  /** Ver `contarReservasActivasFuturas`: elección del estudio, de serie no. */
+  pendientesCuentan?: boolean;
 }): Promise<{ excede: 'max-simultaneas'; activas: number; tope: number } | { excede: 'max-por-dia'; tiene: number; tope: number } | null> {
   if (p.maxSimultaneas != null) {
     const [{ data: resRows }, { data: sesRows }] = await Promise.all([
@@ -2719,6 +2725,7 @@ export async function topesDeReservaTS(admin: SupabaseClient, p: {
       // de contarReservasActivasFuturas es inerte (el campo es opcional y TS no avisa).
       (sesRows ?? []).map(r => ({ id: r.id as string, inicio: r.inicio as string, cancelada: (r.cancelada as boolean | null) ?? false })),
       new Date(),
+      { pendientesCuentan: p.pendientesCuentan },
     );
     if (activas >= p.maxSimultaneas) return { excede: 'max-simultaneas', activas, tope: p.maxSimultaneas };
   }
@@ -2819,7 +2826,7 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
       evaluar({ exigir_entitlement: false, saltar_gate_impago: false, permite_lista_espera: permiteListaEspera, spot_id: p.spotId ?? null, requiere_aprobacion: false }),
       topesDeReservaTS(admin, {
         studioId: p.studioId, socioId, sesionId: p.sesionId, inicioISO: ses.inicio as string,
-        maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+        maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia, pendientesCuentan: pol.pendientesCuentanParaTope,
       }),
     ]);
     return decidirPlazaAntesDeCobrar({
@@ -2967,7 +2974,7 @@ export async function crearReservaPublica(params: {
   {
     const tope = await topesDeReservaTS(admin, {
       studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, inicioISO,
-      maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+      maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia, pendientesCuentan: pol.pendientesCuentanParaTope,
     });
     if (tope?.excede === 'max-simultaneas') {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
@@ -4212,6 +4219,10 @@ export async function aceptarOfertaListaEspera(params: {
           : resultado === 'SIN_ENTITLEMENT' ? 'sin_entitlement_propio'
             : 'limite_semanal_propio',
       });
+      // La RPC ha cancelado su reserva y la plaza que tenía reservada está libre,
+      // pero no la ofrece a nadie: sin esto la siguiente de la cola esperaba hasta
+      // que alguien cancelara otra cosa. Mismo helper que al cancelar o caducar.
+      await promocionarEsperaTrasRechazoPropio(admin, { studioId: params.studioId, sesionId });
     }
     return {
       error: resultado === 'CONFLICTO_HORARIO'
@@ -4268,6 +4279,34 @@ export async function aceptarOfertaListaEspera(params: {
     await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId: params.socioId, sesionId, reservaId: params.reservaId });
   }
   return { ok: true, estado: 'CONFIRMADA' };
+}
+
+/**
+ * La plaza que dejó libre una oferta rechazada por un motivo de quien la tenía
+ * (su horario, su límite o su plan) se ofrece a la siguiente de la cola. Nunca
+ * falla hacia fuera: la aceptación ya se resolvió y la socia ya tiene su
+ * respuesta; si esto no llega, se avisa y el siguiente movimiento de la clase
+ * (o el cron de ofertas) la recoge.
+ */
+async function promocionarEsperaTrasRechazoPropio(admin: SupabaseClient, p: { studioId: string; sesionId: string }): Promise<void> {
+  try {
+    const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('promocionar_espera_de_sesion', {
+      p_studio_id: p.studioId, p_sesion_id: p.sesionId,
+    }));
+    if (error) throw new Error(error.message);
+    const fila = (Array.isArray(data) ? data[0] : data) as
+      { promovida_socio_id?: string | null; oferta_socio_id?: string | null; oferta_expira_en?: string | null } | null | undefined;
+    await seguirPromocionDeEspera(admin, {
+      studioId: p.studioId, sesionId: p.sesionId,
+      promovidaSocioId: fila?.promovida_socio_id ?? null,
+      ofertaSocioId: fila?.oferta_socio_id ?? null,
+      ofertaExpiraEn: fila?.oferta_expira_en ?? null,
+    });
+  } catch (e) {
+    Sentry.captureException(e instanceof Error ? e : new Error('No se pudo ofrecer la plaza libre tras un rechazo propio'), {
+      level: 'error', tags: { area: 'reservas', tipo: 'lista-espera' }, extra: { sesionId: p.sesionId, studioId: p.studioId },
+    });
+  }
 }
 
 // Fase 2b: cancela (pierde el sitio) la reserva cuya oferta caducó sin
@@ -4485,7 +4524,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
   params: { studioId: string; socioId: string; reservaId: string; eraConfirmada: boolean },
 ): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null; recuperacionAlCerrarSemana: boolean }> {
   const nada = { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
-  if (!params.reservaId.startsWith('res-pf-') || !params.eraConfirmada) return nada;
+  if (!esReservaPlazaFija(params.reservaId) || !params.eraConfirmada) return nada;
 
   // `cancelada_tardia` la escribe el trigger al cancelar, con la ventana del
   // tipo de clase por encima de la del estudio. NULL = no se sabe: no se da.
@@ -4621,7 +4660,7 @@ export async function ejecutarCancelacionReserva(
   // NO debe devolver una sesión que nunca se descontó: su compensación es la
   // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
   // fija regalaba una sesión de bono + una recuperación (doble compensación).
-  const esPlazaFija = params.reservaId.startsWith('res-pf-');
+  const esPlazaFija = esReservaPlazaFija(params.reservaId);
   // Una clase fija también se cancela tarde, y entonces no hay recuperación y
   // puede haber penalización (la detecta `cancelar_reserva_plaza`, que no
   // distingue `res-pf-`). Antes `tardia` solo se calculaba en el bloque de

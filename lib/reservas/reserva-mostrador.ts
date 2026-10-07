@@ -4,6 +4,7 @@
 // se acepta y quién puede apuntar a alguien en qué clase.
 import { puedeMoverDinero, puedeOperarClase } from '../permisos-reglas.ts';
 import type { Rol } from '../types.ts';
+import { esReservaPlazaFija } from './plaza-fija-id.ts';
 
 export interface PeticionReservaMostrador {
   sesionId: string;
@@ -76,7 +77,7 @@ export function leerPeticionReservaMostrador(body: unknown):
   const socioId = idValido(b.socioId);
   if (!socioId) return { ok: false, error: 'Falta la clienta' };
   const reservaId = typeof b.reservaId === 'string' ? b.reservaId : '';
-  if (!RESERVA_ID.test(reservaId) || reservaId.startsWith('res-pf-')) {
+  if (!RESERVA_ID.test(reservaId) || esReservaPlazaFija(reservaId)) {
     return { ok: false, error: 'Identificador de reserva no válido' };
   }
   // Mismo criterio que `avisar === false` en app/api/sustituciones (acción

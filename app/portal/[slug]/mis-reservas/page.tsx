@@ -35,6 +35,7 @@ import { vibrar } from '@/lib/nativo/puente';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 import { alLlegarAccionPendiente, decidirOrdenAviso, hayAccionPendiente, tomarAccionPendiente } from '@/lib/student/accion-pendiente';
 import type { AccionPendiente } from '@/lib/notifications/acciones-ios';
+import { esReservaPlazaFija } from '@/lib/reservas/plaza-fija-id';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
 // podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
@@ -46,7 +47,7 @@ import type { AccionPendiente } from '@/lib/notifications/acciones-ios';
 // fija», y el aviso de cancelar le prometía «seguirás apuntada cada semana» a
 // quien no lo estaba por ese camino. Misma regla que el panel
 // (`marcaReserva`, lib/plazas-fijas-cancelacion.ts).
-const esClaseFija = (reservaId: string) => reservaId.startsWith('res-pf-');
+const esClaseFija = (reservaId: string) => esReservaPlazaFija(reservaId);
 
 // Mis clases (§A.9): próximas / historial, con cancelación y salida de la lista
 // de espera.

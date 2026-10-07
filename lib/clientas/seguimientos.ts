@@ -19,13 +19,10 @@ export interface SeguimientoValido {
   recomendacionId: string | null;
 }
 
+import { diasEntre } from './estado.ts';
+
 const ES_DIA = /^\d{4}-\d{2}-\d{2}$/;
 export const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function diasEntre(desde: string, hasta: string): number {
-  const ms = (ymd: string) => Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
-  return Math.round((ms(hasta) - ms(desde)) / 86_400_000);
-}
 
 /** Un día real ('2026-02-30' no lo es) entre hoy y dentro de un año. */
 export function validarFechaSeguimiento(venceEl: unknown, hoyISO: string): { ok: true; venceEl: string } | { ok: false; error: string } {
