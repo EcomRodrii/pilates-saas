@@ -806,6 +806,9 @@ export async function POST(req: NextRequest) {
   // Un solo «ahora» para la clave y el `expires_at` de la incrustada: los dos salen
   // del mismo minuto, y así dos peticiones del mismo intento mandan lo mismo.
   const ahoraMs = Date.now();
+  // La sesión guardada ya no se puede pagar (no existe, caducó o la cierra esta
+  // petición): al guardar la nueva, también vale la columna vacía (ver `exigirSesionLeidaOEsta`).
+  let sesionLeidaMuerta = false;
   if (sesionAbiertaId) {
     // ⚠️ Si no se puede revisar ni cerrar la sesión guardada, NO se crea otra
     // (5-oct-2026). Antes un fallo aquí solo se anotaba y se seguía: con la sesión
@@ -825,9 +828,11 @@ export async function POST(req: NextRequest) {
         }
         return conCorsWidget(req, NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
       }
+      sesionLeidaMuerta = true;
     }
+    if (previa?.status === 'expired') sesionLeidaMuerta = true;
     if (previa) {
-      const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout);
+      const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout, ahoraMs);
       if (decision === 'reutilizar' && (incrustado ? previa.client_secret : previa.url)) {
         return responderSesion(previa);
       }
@@ -848,6 +853,7 @@ export async function POST(req: NextRequest) {
         if (cierre.tipo === 'NO_SE_SABE') {
           return conCorsWidget(req, NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
         }
+        sesionLeidaMuerta = true;
       }
     }
   }
@@ -1152,7 +1158,7 @@ export async function POST(req: NextRequest) {
         : guardar.is('cobro_mostrador_pi', null);
       // …o ya es ESTA misma: dos peticiones del mismo intento reciben de Stripe la
       // misma sesión, y la segunda en escribir no puede tomarla por otra.
-      guardar = exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id);
+      guardar = exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id, { leidaMuerta: sesionLeidaMuerta });
       const { data: guardadas, error: errGuardar } = await guardar.select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
