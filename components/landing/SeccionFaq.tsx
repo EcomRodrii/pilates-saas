@@ -1,6 +1,3 @@
-'use client';
-
-import { useState } from 'react';
 import { FAQ_ITEMS } from '@/components/landing/data';
 
 // Sección 12 de la landing v5 — "FAQ". El diseño traía una selección de 7
@@ -11,22 +8,20 @@ import { FAQ_ITEMS } from '@/components/landing/data';
 // Desde el 6-oct son 10, en formato citable (respuesta primero) y cruzadas con
 // el código (ver data.ts).
 //
-// ⚠️ Están TODAS y a la vista (plegadas, pero en la página): alimentan el
-// JSON-LD `FAQPage` de StructuredData, y Google pide que ese contenido se vea.
+// ⚠️ Están TODAS en el HTML, con su respuesta: alimentan el JSON-LD `FAQPage`
+// de StructuredData, y Google pide que ese contenido esté en la página. Hasta el
+// 7-oct-2026 la respuesta solo se pintaba al pulsar (un estado de React), así que
+// el HTML llevaba las preguntas sin ninguna respuesta. Ahora es un <details>:
+// el navegador pliega y despliega, y sin JavaScript también funciona.
 //
-// Acordeón real: un índice abierto a la vez, como el original
-// (`f.toggle`/`f.open`/`f.sign`). En escritorio va en dos columnas (al aligerar
-// la home: en una sola eran 13 filas seguidas); cada columna es su propia
-// lista, así que abrir una pregunta no estira la fila de al lado.
+// En escritorio va en dos columnas (al aligerar la home: en una sola eran 13
+// filas seguidas); cada columna es su propia lista, así que abrir una pregunta
+// no estira la fila de al lado.
 
 const MITAD = Math.ceil(FAQ_ITEMS.length / 2);
-const COLUMNAS = [FAQ_ITEMS.slice(0, MITAD), FAQ_ITEMS.slice(MITAD)].map((items, c) =>
-  items.map((f, i) => ({ ...f, indice: c === 0 ? i : MITAD + i })),
-);
+const COLUMNAS = [FAQ_ITEMS.slice(0, MITAD), FAQ_ITEMS.slice(MITAD)];
 
 export function SeccionFaq() {
-  const [abierta, setAbierta] = useState(-1);
-
   return (
     <section id="faq" className="v5-faq" aria-labelledby="v5-faq-h">
       <div className="v5-faq-wrap">
@@ -34,23 +29,15 @@ export function SeccionFaq() {
         <div className="v5-faq-columnas lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           {COLUMNAS.map((columna, c) => (
             <div key={c} className="v5-faq-lista">
-              {columna.map((f) => {
-                const open = abierta === f.indice;
-                return (
-                  <div key={f.q} className="v5-faq-item">
-                    <button
-                      type="button"
-                      className="v5-faq-pregunta"
-                      onClick={() => setAbierta(open ? -1 : f.indice)}
-                      aria-expanded={open}
-                    >
-                      <span>{f.q}</span>
-                      <span className="v5-faq-signo" aria-hidden>{open ? '−' : '+'}</span>
-                    </button>
-                    {open && <p className="v5-faq-respuesta">{f.a}</p>}
-                  </div>
-                );
-              })}
+              {columna.map((f) => (
+                <details key={f.q} className="v5-faq-item">
+                  <summary className="v5-faq-pregunta">
+                    <span>{f.q}</span>
+                    <span className="v5-faq-signo" aria-hidden>+</span>
+                  </summary>
+                  <p className="v5-faq-respuesta">{f.a}</p>
+                </details>
+              ))}
             </div>
           ))}
         </div>
@@ -65,17 +52,18 @@ export function SeccionFaq() {
           align-items: start; }
         .v5-faq-lista { border-bottom: 1px solid #DEDED6; }
         .v5-faq-item { border-top: 1px solid #DEDED6; }
-        .v5-faq-pregunta { width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 20px;
-          padding: 18px 4px; cursor: pointer; background: none; border: none; text-align: left; font-family: inherit; }
+        .v5-faq-pregunta { list-style: none; width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 20px;
+          padding: 18px 4px; cursor: pointer; }
+        .v5-faq-pregunta::-webkit-details-marker { display: none; }
         .v5-faq-pregunta span:first-child { font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #1A1A1A; }
         .v5-faq-pregunta:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
         .v5-faq-signo { font-size: 20px; font-weight: 600; color: #6B6B63; flex-shrink: 0; }
+        .v5-faq-item[open] .v5-faq-signo { transform: rotate(45deg); }
         .v5-faq-respuesta { font-size: 15px; line-height: 1.7; color: #5A5A52; margin: 0; padding: 0 4px 22px; max-width: 64ch; }
         @keyframes v5-faq-abre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: no-preference) {
           .v5-faq-respuesta { animation: v5-faq-abre var(--motion-slow) var(--motion-ease) both; }
           .v5-faq-signo { transition: transform var(--motion-medium) var(--motion-ease); }
-          .v5-faq-pregunta[aria-expanded="true"] .v5-faq-signo { transform: rotate(180deg); }
         }
 
         @media (max-width: 860px) {

@@ -1,9 +1,9 @@
 import { OG_IMAGE_CONTENT_TYPE, OG_IMAGE_SIZE, generarOgImage } from '@/lib/og-image';
 
-export const alt = 'App para estudios de Pilates y yoga, con tu marca — Tentare';
+export const alt = 'Tentare por tipo de estudio — Pilates, reformer y yoga';
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Tu estudio, en su pantalla de inicio.', 'Reservar, comprar y ver su progreso en una app con tu nombre.');
+  return generarOgImage('Tentare, según tu estudio.', 'Pilates, Pilates reformer, yoga, varias sedes o quien viene de otro programa.');
 }

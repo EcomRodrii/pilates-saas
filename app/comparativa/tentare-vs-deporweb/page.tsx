@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-deporweb';
@@ -46,15 +47,39 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Software de gestión para centros deportivos con muchas disciplinas',
+  precio: 'No lo publica: hay que contactar con ellos',
+  permanencia: 'No consta en su web pública',
+  prueba: 'No consta en su web pública',
+  respuesta: <>DeporWeb está pensado para centros deportivos con muchas disciplinas y no publica sus precios. Para un estudio de Pilates o yoga que quiere saber lo que paga sin pedir una demo, y un producto hecho para clases con reformer, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: 'Un gimnasio y un estudio de Pilates no se gestionan igual',
+    cuerpo: (
+      <>
+        <p>Un centro deportivo vende accesos, zonas y muchas actividades. Un estudio de Pilates vende plazas en una máquina a una hora concreta, con alumnas que repiten cada semana. Por eso Tentare trae plaza por reformer, aforo por sala, plazas fijas y lista de espera automática. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
+        <p>Y el precio está publicado: Founding Studio 29 €/mes, Estudio 59 €/mes y Cadena 149 €/mes, con IVA. <Link href="/precios">Ver los planes</Link>.</p>
+      </>
+    ),
+  },
+];
+
 export default function TentareVsDeporWebPage() {
   return (
     <CompetitorPage
       name="DeporWeb"
       slug="tentare-vs-deporweb"
       logo={{ src: '/comparativa/logos/deporweb.svg', alt: 'Logo de DeporWeb', height: 20, width: 130 }}
-      h1={<>¿DeporWeb o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>DeporWeb es un software de gestión para centros deportivos con muchas disciplinas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es un producto hecho para tu estudio, con precios públicos desde el primer día.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

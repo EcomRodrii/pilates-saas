@@ -126,7 +126,7 @@ export default function AyudaHomePage() {
         </div>
       )}
 
-      <SiteFooter links={[{ href: '/ayuda/novedades', label: 'Novedades' }, { href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }]} />
+      <SiteFooter />
 
       <style>{`
         .ayuda-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }

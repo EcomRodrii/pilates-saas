@@ -48,7 +48,7 @@ export interface CapturaHero {
 
 export function FeatureShell({
   path,
-  eyebrow,
+  busqueda,
   h1,
   intro,
   chips,
@@ -59,7 +59,15 @@ export function FeatureShell({
 }: {
   /** Path en lib/seo/paginas.ts. De ahí salen miga de pan, JSON-LD y relacionadas. */
   path: string;
-  eyebrow: string;
+  /**
+   * La búsqueda que responde la página, en palabras de quien la escribe
+   * («Software de reservas para estudios de Pilates»). Va DENTRO del h1, con
+   * la letra pequeña del antetítulo: el titular grande es una frase con gancho
+   * («Reservan solas, a las siete de la mañana») y, sin esta línea, ningún h1
+   * de las funcionalidades decía de qué trataba la página (rastreo del
+   * 7-oct-2026). Mismo patrón que el h1 de la home.
+   */
+  busqueda: string;
   h1: React.ReactNode;
   intro: React.ReactNode;
   /** 2-4 etiquetas cortas con lo concreto que hace. Nada de adjetivos. */
@@ -119,8 +127,10 @@ export function FeatureShell({
             <span className="ft-miga-aqui">{pagina?.etiqueta ?? ''}</span>
           </nav>
 
-          <p className="lp-mono ft-seccion">{eyebrow}</p>
-          <h1 className="ft-titular">{h1}</h1>
+          <h1 className="ft-titular">
+            <span className="lp-mono ft-seccion">{busqueda}</span>{' '}
+            {h1}
+          </h1>
           <p className="ft-entrada">{intro}</p>
 
           <div className="ft-acciones">
@@ -185,7 +195,7 @@ export function FeatureShell({
         </section>
       )}
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter />
 
       <style>{`
         /* ── Portada: foto a sangre ──────────────────────────────────────── */
@@ -209,8 +219,8 @@ export function FeatureShell({
         .ft-miga a:hover { color: #fff; }
         .ft-miga-aqui { color: #fff; }
 
-        .ft-seccion { margin: 0 0 14px; font-size: 11px; letter-spacing: .2em;
-          text-transform: uppercase; color: #D9C29E; }
+        .ft-seccion { display: block; margin: 0 0 16px; max-width: 64ch; font-size: 11.5px; font-weight: 500;
+          line-height: 1.5; letter-spacing: .18em; text-transform: uppercase; color: #D9C29E; text-wrap: pretty; }
         /* Escala grande y una sola: el titular es lo único que compite con la
            foto. Todo lo demás de la portada va deliberadamente pequeño. */
         .ft-titular { margin: 0 0 18px; max-width: 16ch;

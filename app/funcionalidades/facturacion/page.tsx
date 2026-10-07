@@ -46,7 +46,7 @@ export default function FacturacionPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="España · Ley Antifraude"
+      busqueda="Facturación con Veri*Factu para estudios de Pilates"
       h1={<>Cada cobro, su factura, si la quieres. Sin que tengas que saber cómo.</>}
       intro={<>Actívalo y cada cobro —salvo el efectivo— genera su factura con número correlativo y huella encadenada, calculada como fija la AEAT. Sin que abras nada. Si tus facturas las lleva tu gestoría, déjalo apagado: tus alumnas reciben su justificante de pago.</>}
       chips={['Huella encadenada', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}

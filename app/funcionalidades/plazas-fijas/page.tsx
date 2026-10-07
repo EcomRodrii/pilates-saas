@@ -50,7 +50,7 @@ export default function PlazasFijasPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Clases fijas"
+      busqueda="Plazas fijas para las alumnas de tu estudio de Pilates"
       h1={<>Su sitio de los martes, reservado sin que nadie lo pida.</>}
       intro={<>La alumna que viene siempre a la misma clase no debería tener que reservarla cada semana. Le das su plaza una vez y Tentare se la reserva, la pausa cuando se va de vacaciones y la suelta si deja de tener cuota.</>}
       chips={['Reserva automática cada semana', 'Pausa con fechas', 'Reglas que eliges tú']}

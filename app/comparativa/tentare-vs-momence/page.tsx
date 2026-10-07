@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-momence';
@@ -47,17 +48,56 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Plataforma internacional para estudios, del grupo Xplor; su web está en inglés',
+  precio: 'No lo publica: pide hablar con ellos',
+  permanencia: 'No consta en su web pública',
+  destacado: { etiqueta: 'Varias sedes', suyo: 'Panel corporativo solo para franquicias de 6 sedes o más', nuestro: 'Plan Cadena, sin mínimo de sedes' },
+  respuesta: <>Momence es una plataforma internacional para estudios, con reservas por plaza y sustituciones, pero no publica precios: hay que hablar con su equipo para saber cuánto cuesta. Para un estudio de Pilates o yoga en España que quiere el precio a la vista, soporte en español y una app con su marca desde el primer plan, la alternativa es Tentare: desde 29 €/mes con IVA y sin permanencia.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: '¿Cuánto cuesta Momence?',
+    cuerpo: (
+      <>
+        <p>Momence no publica cifras en su web: para conocer el precio hay que hablar con ellos. Sí deja empezar sin tarjeta.</p>
+        <p>Tentare publica sus tres planes: Founding Studio 29 €/mes (hasta 150 alumnas activas, con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, con IVA y sin permanencia. <Link href="/precios">Qué incluye cada uno</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Si tienes dos o tres estudios',
+    cuerpo: (
+      <>
+        <p>Según su centro de ayuda, el panel corporativo de Momence es para franquicias: pide un documento de franquicia firmado y un mínimo de seis sedes. Un estudio que abre su segundo o tercer local en España no suele ser una franquicia ni tener seis sedes.</p>
+        <p>En Tentare, el plan Cadena reúne todas tus sedes con un solo acceso y una sola suscripción, sin mínimo de centros. Cada sede tiene sus datos separados, y una instructora puede trabajar en dos con un rol y una tarifa distintos en cada una. <Link href="/funcionalidades/multi-centro">Cómo funciona con varias sedes</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Cómo cambiarte de Momence a Tentare',
+    cuerpo: (
+      <p>El importador de Tentare reconoce las exportaciones de Momence: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+    ),
+  },
+];
+
 export default function TentareVsMomencePage() {
   return (
     <CompetitorPage
       name="Momence"
       slug="tentare-vs-momence"
       logo={{ src: '/comparativa/logos/momence.svg', alt: 'Logo de Momence', height: 15, width: 122, cardBg: '#171717' }}
-      h1={<>¿Momence o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Momence es una plataforma internacional de reservas para estudios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare tiene precio público, soporte en español y un producto pensado para ti.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: precio público, soporte en español y un producto hecho para estudios como el tuyo. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Momence.</>}
-      footnote="Basado en la información pública de Momence (momence.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de Momence (momence.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

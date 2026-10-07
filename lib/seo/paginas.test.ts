@@ -6,6 +6,7 @@ import {
   BASE_URL, PAGINAS, PREFIJOS_NO_INDEXABLES, RUTAS_REDIRECCION, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
 } from './paginas.ts';
 import { LEGAL } from '../legal-info.ts';
+import { MENU_PUBLICO, PIE_PUBLICO } from './navegacion-publica.ts';
 import { ARTICULOS, urlArticulo } from '../recursos/articulos/index.ts';
 
 // ─── Recorrido del árbol de rutas ────────────────────────────────────────────
@@ -127,10 +128,16 @@ test('ninguna página queda huérfana', () => {
   //  1. estar en las `relacionadas` de otra página,
   //  2. colgar de un hub que sí está en el registro — /comparativa lista sus 7
   //     hijas, /recursos sus guías y /funcionalidades sus 10 áreas,
-  //  3. estar en la navegación o el footer, que es el caso de la home y las
-  //     páginas legales.
+  //  3. estar en la navegación o el footer, que es el caso de la home, las
+  //     páginas legales y lo que enlazan el menú y el pie públicos
+  //     (lib/seo/navegacion-publica.ts, presentes en todas las páginas interiores).
   const entrantes = new Set(PAGINAS.flatMap((p) => p.relacionadas ?? []));
-  const enNavegacion = new Set(['/', ...PAGINAS.filter((p) => p.grupo === 'legal').map((p) => p.path)]);
+  const enNavegacion = new Set([
+    '/',
+    ...PAGINAS.filter((p) => p.grupo === 'legal').map((p) => p.path),
+    ...MENU_PUBLICO.map((e) => e.href),
+    ...PIE_PUBLICO.flatMap((c) => c.enlaces.map((e) => e.href)),
+  ]);
   const padreDe = (path: string) => path.slice(0, path.lastIndexOf('/')) || '/';
 
   const huerfanas = PAGINAS

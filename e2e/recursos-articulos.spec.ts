@@ -67,7 +67,10 @@ test('la calculadora de rentabilidad arranca con el ejemplo del artículo y resp
   // El escenario A de la tabla: equilibrio hacia el 53 %.
   await expect(calc).toContainText('53 %');
   // Rellenar antes de hidratar se pierde: se reintenta hasta que React lo recoge.
+  // Vaciando antes: si el «70» llegó antes de hidratar, volver a escribir «70»
+  // no es un cambio y React no se entera (fallaba así en local, 7-oct-2026).
   await expect(async () => {
+    await calc.getByLabel(/Ocupación media/).fill('');
     await calc.getByLabel(/Ocupación media/).fill('70');
     await expect(calc).toContainText(/2\.?040 €/, { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });

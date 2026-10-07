@@ -42,7 +42,7 @@ export default function ReservasPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Reservas de alumnas"
+      busqueda="Software de reservas para estudios de Pilates"
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
