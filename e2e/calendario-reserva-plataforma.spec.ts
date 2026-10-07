@@ -66,8 +66,21 @@ function reservaApi(r: typeof RESERVAS[number]) {
   };
 }
 
-async function montarCalendario(page: Page, respuesta: { status: number; body: unknown }, plataformasActivas: string[] = ['CLASSPASS']) {
+// `rol`: con RECEPCION la dueña es OTRA persona y la sesión es de su ficha de
+// equipo; `integraciones` le llega VACÍA (la RLS solo deja leerla a la
+// propietaria) y lo encendido sale de `integraciones_activas()`. Hasta el
+// 7-oct todo este fichero entraba como propietaria y no veía que a recepción
+// —quien apunta estas ventas— le faltaba la pestaña.
+// Aparte de `peticiones`: esas son solo las reservas que se mandan, y los
+// contadores de los caminos de fallo no pueden contar el arranque del panel.
+let llamadasActivas = 0;
+async function montarCalendario(
+  page: Page, respuesta: { status: number; body: unknown }, plataformasActivas: string[] = ['CLASSPASS'],
+  rol: 'PROPIETARIO' | 'RECEPCION' = 'PROPIETARIO',
+) {
   const peticiones: Record<string, unknown>[] = [];
+  const recepcion = rol === 'RECEPCION';
+  llamadasActivas = 0;
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -89,11 +102,13 @@ async function montarCalendario(page: Page, respuesta: { status: number; body: u
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
-    json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
+    json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: recepcion ? 'auth-otra-duena' : AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
-  await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
+  await page.route('**/rest/v1/instructores**', route => json(route, recepcion
+    ? [...INSTRUCTORES, { ...INSTRUCTORES[0], id: 'ins-rec', nombre: 'Recepción', rol: 'RECEPCION', auth_user_id: AUTH_UID }]
+    : INSTRUCTORES));
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
   await page.route('**/rest/v1/suscripciones**', route =>
     json(route, [suscripcion('sus-1', 's1'), suscripcion('sus-2', 's2')]));
@@ -109,17 +124,21 @@ async function montarCalendario(page: Page, respuesta: { status: number; body: u
       id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono,
       color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol, authUserId: r.auth_user_id,
     })),
-    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol,
   }));
   // Si el navegador volviera a llamar a la RPC directo, esto lo delataría.
   await page.route('**/rest/v1/rpc/reservar_plaza', route => {
     peticiones.push({ rpcDirecta: true });
     return json(route, [{ estado: 'CONFIRMADA', posicion_espera: null }]);
   });
-  await page.route('**/rest/v1/integraciones**', route => json(route, plataformasActivas.map(tipo => ({
+  await page.route('**/rest/v1/integraciones**', route => json(route, recepcion ? [] : plataformasActivas.map(tipo => ({
     id: `intg-${tipo}`, studio_id: STUDIO_ID, tipo, activo: true, config: null, actualizado_en: `${HOY}T08:00:00+00:00`,
     ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null,
   }))));
+  await page.route('**/rest/v1/rpc/integraciones_activas', route => {
+    llamadasActivas++;
+    return json(route, plataformasActivas);
+  });
   await page.route('**/api/reservas/crear-externa', route => {
     peticiones.push(JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>);
     return json(route, respuesta.body, respuesta.status);
@@ -150,6 +169,24 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
     expect(String(p.reservaId)).toMatch(/^res-/);
     expect(p).not.toHaveProperty('studioId');
     expect(p).not.toHaveProperty('socioId');
+    await expect(page.getByText(/Lucía Pérez apuntada \(ClassPass\)/)).toBeVisible();
+  });
+
+  test('como RECEPCIÓN (la tabla de conexiones le llega vacía): ve ClassPass y apunta la venta', async ({ page }) => {
+    const peticiones = await montarCalendario(
+      page, { status: 200, body: { ok: true, reservaId: 'res-x', repetida: false, cupo: null, cupoUsado: 1, plazasLibres: 2, aviso: null } },
+      ['CLASSPASS'], 'RECEPCION',
+    );
+    await abrirAnadir(page);
+    await page.getByRole('tab', { name: 'ClassPass' }).click();
+    const nombre = page.getByLabel('Nombre de quien reservó en ClassPass');
+    await nombre.fill('Lucía Pérez');
+    await nombre.press('Enter');
+
+    // Lo encendido salió de la función (la tabla venía vacía), y la reserva fue al servidor.
+    expect(llamadasActivas).toBeGreaterThan(0);
+    await expect.poll(() => peticiones.length).toBeGreaterThan(0);
+    expect(peticiones[0]).toMatchObject({ sesionId: 'ses-1', plataforma: 'CLASSPASS', nombre: 'Lucía Pérez' });
     await expect(page.getByText(/Lucía Pérez apuntada \(ClassPass\)/)).toBeVisible();
   });
 

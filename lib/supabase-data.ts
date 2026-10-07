@@ -5722,6 +5722,8 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // largo de la consulta de automation_logs más arriba). Va al final del
     // desestructurado por el mismo motivo que sus vecinas de encima.
     automationLogsHistoricoRes,
+    // Al final por lo mismo: qué conexiones están encendidas, para todo el equipo.
+    integracionesActivasRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -5847,6 +5849,12 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
             .select('rule_id, automatizacion_id, socio_id, accion, resultado')
             .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to))
       : Promise.resolve({ data: [] as Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>[], error: null }),
+    // `integraciones` solo la lee la propietaria: gerencia y recepción reciben de
+    // aquí los TIPOS encendidos (lib/integraciones/activas.ts). El servidor
+    // (service_role, sin sesión) ya ve las filas: no la necesita.
+    opciones.privadas === 'rpc'
+      ? db.rpc('integraciones_activas')
+      : Promise.resolve({ data: [] as string[], error: null }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -5915,6 +5923,11 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     condicionesSalud: [], // Sprint 1: lazy-load
     respuestasSesion: [], // Sprint 1: lazy-load
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
+    // Si la función falla (o aún no está), vacío: la propietaria sigue con sus
+    // filas y el resto del equipo, como antes.
+    integracionesActivas: Array.isArray(integracionesActivasRes.data)
+      ? (integracionesActivasRes.data as unknown[]).filter((t): t is string => typeof t === 'string')
+      : [],
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
     rewardRules: [], // Sprint 1: lazy-load
     rewardActions: [], // Sprint 1: lazy-load

@@ -40,6 +40,9 @@ const CASOS: Caso[] = [
   // queda ningún llamador fuera de `admin.rpc(...)` — solo service_role.
   { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'mis_estudios()', anon: false, authenticated: true, serviceRole: true },
+  // Qué conexiones están encendidas, solo el tipo (migr 20261007144207): la llama
+  // el panel con la sesión del equipo, porque `integraciones` solo la lee la propietaria.
+  { firma: 'integraciones_activas()', anon: false, authenticated: true, serviceRole: true },
   // Función de TRIGGER (un tipo de clase archivado no programa clases nuevas,
   // migr 20260930215125): solo la dispara `sesiones`, nadie la llama. El
   // permiso se comprueba al crear el trigger, no al dispararse.
