@@ -1,5 +1,6 @@
 import { test, type Page } from '@playwright/test';
-import { montarAlta, saltarLogo } from './onboarding-andamio';
+import { montarAlta, saltarLogo, json } from './onboarding-andamio';
+import { montarPortal } from './portal-mock';
 
 // Capturas del alta nueva. NO es un test: solo corre con
 // CAPTURAS_ONBOARDING=<carpeta> y deja allí los PNG (a 1280 y a 390). Datos de
@@ -14,8 +15,29 @@ const LOGO_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(
 
 const TAMANOS = [{ n: 1280, w: 1280, h: 800 }, { n: 390, w: 390, h: 844 }] as const;
 
+/** La app REAL del iframe, con los datos de muestra del andamiaje de la app de la alumna:
+ *  sin clases hasta que el asistente las crea (como en la base de datos de verdad). */
+async function appReal(page: Page) {
+  const lector = await page.context().newPage();
+  await montarPortal(lector, { conSesion: false });
+  await lector.goto('/icon-192.png');
+  const datos = await lector.evaluate(() => fetch('/api/public/studio-data').then((r) => r.json()));
+  await lector.close();
+  const estado = { creadas: false };
+  await page.route('**/api/onboarding/configurar', (route) => { estado.creadas = true; return json(route, { ok: true, salas: 1, tiposClase: 2, planes: 0 }); });
+  await page.route('**/api/public/studio-data', (route) => json(route, {
+    ...datos,
+    studio: { ...datos.studio, nombre: 'Estudio Alma', slug: 'tentare', logoUrl: LOGO_SVG, fotoUrl: null, imagenBienvenidaUrl: null },
+    ...(estado.creadas ? {} : { sesiones: [], tiposClase: [] }),
+  }));
+}
+
 async function foto(page: Page, nombre: string) {
-  await page.waitForTimeout(700);
+  // La app real tarda en cargar en dev: se espera a que el pie diga que ya está.
+  if (await page.locator('[data-testid="app-alumna-real"]:visible').count() > 0) {
+    await page.getByText('Así verán tus alumnas tu app').locator('visible=true').first().waitFor({ timeout: 60_000 }).catch(() => {});
+  }
+  await page.waitForTimeout(800);
   await page.screenshot({ path: `${DESTINO}/onboarding-${nombre}-${page.viewportSize()!.width}.png`, fullPage: false });
 }
 
@@ -24,7 +46,8 @@ for (const t of TAMANOS) {
     test.use({ viewport: { width: t.w, height: t.h } });
 
     test('logo, tres pantallas y pantalla final', async ({ page }) => {
-      await montarAlta(page, { estudio: { nombre: 'Estudio Alma', slug: 'estudio-alma', logo_url: LOGO_SVG } });
+      test.setTimeout(300_000);
+      await montarAlta(page, { estudio: { nombre: 'Estudio Alma', slug: 'tentare', logo_url: LOGO_SVG }, antes: appReal });
       await page.getByRole('button', { name: 'Saltar', exact: true }).waitFor({ timeout: 30_000 });
       await foto(page, '01-logo');
       await saltarLogo(page);
@@ -36,6 +59,7 @@ for (const t of TAMANOS) {
       await foto(page, '04-clases-y-sala');
       await page.getByRole('radio', { name: '2 salas' }).click();
       await foto(page, '05-clases-dos-salas');
+      if (t.n === 390) { await page.getByText('Ver tu app de verdad').click(); await foto(page, '05b-movil-ver-tu-app'); }
       await page.getByRole('radio', { name: '1 sala' }).click();
       await page.getByRole('button', { name: 'Continuar' }).click();
       await page.getByRole('heading', { name: 'Antes de entrar' }).waitFor();

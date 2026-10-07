@@ -43,7 +43,8 @@ import { eventoAlLlegar } from '@/lib/onboarding/embudo-wizard';
 import { AYUDA_LLAMADA, AYUDA_POR_MI, OPCIONES_AYUDA } from '@/lib/llamada/solicitud';
 import { CampoLlamada, LLAMADA_VACIA, errorLlamada, type DatosLlamada } from './campo-llamada';
 import { GuiaRapidaLista, useGuiaRapida } from './guia-rapida-lista';
-import { MarcaCompacta, VistaPreviaApp, useColorMarca } from './vista-previa-app';
+import { MarcaCompacta, useColorMarca } from './vista-previa-app';
+import { AppAlumnaReal } from './app-alumna-real';
 
 export interface ResultadoConfigurar { tiposClase: number; salas: number }
 
@@ -147,9 +148,15 @@ export function AsistenteRapido({
   const [errorFin, setErrorFin] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState(false);
   const [avisoTope, setAvisoTope] = useState(false);
+  // Las clases se crean al confirmar la pantalla 2 (y no solo al final) para que
+  // la app real que se ve al lado las tenga. `version` recarga esa app.
+  const creadoRef = useRef<ResultadoConfigurar>({ tiposClase: 0, salas: 0 });
+  const [creadoAhora, setCreadoAhora] = useState<ResultadoConfigurar>({ tiposClase: 0, salas: 0 });
+  const [versionApp, setVersionApp] = useState(0);
+  const [verApp, setVerApp] = useState(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const vistas = useRef(new Set<string>());
-  const guia = useGuiaRapida();
+  const guia = useGuiaRapida(creadoAhora);
   const colorMarca = useColorMarca();
 
   const pantalla = PANTALLAS[i];
@@ -250,18 +257,49 @@ export function AsistenteRapido({
           } catch { /* best-effort: el equipo lo ve igualmente en /interno por la columna */ }
         })();
       }
-      onTerminado(ans, conf ?? { tiposClase: 0, salas: 0 });
+      const fin = conf ?? { tiposClase: 0, salas: 0 };
+      onTerminado(ans, {
+        tiposClase: Math.max(fin.tiposClase, creadoRef.current.tiposClase),
+        salas: Math.max(fin.salas, creadoRef.current.salas),
+      });
     } finally {
       setTrabajando(false);
     }
   }, [ans, llamada, trabajando, updateStudio, onTerminado]);
 
+  // Monta salas y clases al confirmar la pantalla 2: el servidor es idempotente
+  // (por nombre), así que repetirlo al final no duplica nada. Fallo suave: la
+  // app se queda como estaba y el montaje se reintenta al terminar.
+  const crearClases = useCallback(async (respuestas: RespuestasWizard) => {
+    const operativa = interpretarRespuestasWizard(respuestas);
+    if (planVacio(planificarConfiguracion(operativa))) return;
+    try {
+      const r = await fetch('/api/onboarding/configurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify(operativa),
+      });
+      if (!r.ok) { capturarExcepcion(new Error(`[onboarding/configurar] HTTP ${r.status}`), { tags: { area: 'onboarding' } }); return; }
+      const d = await r.json().catch(() => ({})) as { tiposClase?: number; salas?: number };
+      const nuevo = {
+        tiposClase: Math.max(creadoRef.current.tiposClase, d.tiposClase ?? 0),
+        salas: Math.max(creadoRef.current.salas, d.salas ?? 0),
+      };
+      creadoRef.current = nuevo;
+      setCreadoAhora(nuevo);
+      setVersionApp((v) => v + 1);
+    } catch (e) {
+      capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'onboarding' } });
+    }
+  }, []);
+
   const avanzar = useCallback(() => {
     if (i >= PANTALLAS.length - 1) { void terminar(); return; }
+    if (PANTALLAS[i].id === 'espacio') void crearClases(ans);
     const sig = i + 1;
     setI(sig);
     guardarProgresoWizard(studio.id, sig, ans);
-  }, [i, terminar, studio.id, ans]);
+  }, [i, terminar, crearClases, studio.id, ans]);
 
   const horarioEtiquetas = useMemo(() => OPCIONES_HORARIO.map((o) => o.label), []);
 
@@ -307,6 +345,12 @@ export function AsistenteRapido({
           {/* En el móvil la app va arriba, pequeña, y la guía en una línea. */}
           <div className="mt-4 space-y-2 lg:hidden">
             <MarcaCompacta nombre={studio.nombre || 'Tu estudio'} logoUrl={studio.logoUrl} color={colorMarca} />
+            <details className="rounded-2xl border border-border bg-card px-3.5 py-2" onToggle={(e) => setVerApp((e.currentTarget as HTMLDetailsElement).open)}>
+              <summary className="flex min-h-11 cursor-pointer items-center text-[13.5px] font-semibold">Ver tu app de verdad</summary>
+              {verApp && studio.slug && (
+                <div className="pb-3 pt-1"><AppAlumnaReal slug={studio.slug} ancho={250} version={versionApp} /></div>
+              )}
+            </details>
             {guia && (
               <p className="px-1 text-[12.5px] text-muted-foreground" data-testid="guia-linea">
                 <span className="font-semibold text-foreground">Guía rápida {guia.hechos} de {guia.total}</span>
@@ -460,15 +504,11 @@ export function AsistenteRapido({
 
         {/* Escritorio: SU app tomando forma y la guía, siempre a la vista. */}
         <aside className="hidden lg:block" aria-label="Vista previa de tu app y guía rápida">
-          <div className="sticky top-6 flex flex-col gap-5">
-            <VistaPreviaApp
-              nombre={studio.nombre || 'Tu estudio'}
-              logoUrl={studio.logoUrl}
-              color={colorMarca}
-              clases={clasesElegidas}
-              duracion={ans.duracion}
-              plazas={(ans.aforos ?? [])[0]}
-            />
+          <div className="flex flex-col gap-5 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1">
+            {studio.slug && <AppAlumnaReal slug={studio.slug} ancho={232} version={versionApp} />}
+            {i === 1 && creadoAhora.tiposClase === 0 && (
+              <p className="-mt-2 text-center text-[12px] text-muted-foreground">Tus clases saldrán aquí en cuanto pulses «Continuar».</p>
+            )}
             {guia && <GuiaRapidaLista guia={guia} />}
           </div>
         </aside>

@@ -30,7 +30,7 @@ import type { Studio } from '@/lib/types';
 import type { RespuestasWizard } from '@/lib/onboarding/borrador-wizard';
 import { vieneDeOtraPlataforma } from '@/lib/onboarding/asistente-rapido';
 import { GuiaRapidaLista, useGuiaRapida } from './guia-rapida-lista';
-import { VistaPreviaApp, useColorMarca } from './vista-previa-app';
+import { AppAlumnaReal } from './app-alumna-real';
 import type { ResultadoConfigurar } from './asistente-rapido';
 
 // El cartel/QR trae su propio diálogo y su generador: solo se descarga al llegar aquí.
@@ -47,7 +47,6 @@ export function EstudioListo({
 }) {
   const nombre = studio.nombre || 'Tu estudio';
   const guia = useGuiaRapida(creado);
-  const colorMarca = useColorMarca();
   const [saliendo, setSaliendo] = useState<string | null>(null);
   const [errorSalida, setErrorSalida] = useState(false);
   const [copiado, setCopiado] = useState<'ok' | 'fallo' | null>(null);
@@ -128,10 +127,7 @@ export function EstudioListo({
 
         <div className="mt-7 grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-12">
           <div className="ob-sube lg:sticky lg:top-6 lg:self-start">
-            <VistaPreviaApp
-              nombre={nombre} logoUrl={studio.logoUrl} color={colorMarca}
-              clases={ans.clases ?? []} duracion={ans.duracion} plazas={(ans.aforos ?? [])[0]}
-            />
+            {studio.slug && <AppAlumnaReal slug={studio.slug} ancho={280} version={creado.tiposClase} />}
           </div>
 
           <div className="flex flex-col gap-5">

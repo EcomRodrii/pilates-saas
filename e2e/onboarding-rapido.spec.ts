@@ -18,8 +18,18 @@ test.describe('el asistente rápido', () => {
     for (const id of ['marca', 'clase', 'clientes', 'horario']) {
       await expect(guia.locator(`[data-paso="${id}"]`)).toHaveAttribute('data-hecho', 'no');
     }
-    // Y su app, con su nombre.
-    await expect(page.getByTestId('vista-previa-app')).toContainText('Studio Carmen');
+    // Y su app, la REAL: un marco a /portal/<slug>, no un dibujo, y sin ser un
+    // control más del asistente (inert, sin clics, sin lectores de pantalla).
+    const marco = page.getByTestId('app-alumna-real').locator('iframe');
+    await expect(marco).toHaveAttribute('src', '/portal/studio-carmen', { timeout: 15_000 });
+    await expect(marco).toHaveAttribute('aria-hidden', 'true');
+    await expect(marco).toHaveAttribute('inert', '');
+    await expect(marco).toHaveAttribute('title', /app de tus alumnas/);
+    expect(await marco.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe('none');
+    // Ninguna maqueta dibujada a mano.
+    await expect(page.getByTestId('vista-previa-app')).toHaveCount(0);
+    // Y la pantalla del móvil mide lo que el iPhone 17 Pro: 402×874.
+    expect(await marco.evaluate((e) => [e.clientWidth, e.clientHeight])).toEqual([402, 874]);
   });
 
   test('alta → pantalla final con sus alumnas como siguiente paso → sella y lleva a importar', async ({ page }) => {
@@ -40,6 +50,7 @@ test.describe('el asistente rápido', () => {
     // El servidor creó 2 clases: la guía lo ve como hecho (no se marca a mano).
     await expect(page.getByTestId('guia-progreso')).toHaveText('2 de 5');
     await expect(page.locator('[data-paso="clase"]')).toHaveAttribute('data-hecho', 'si');
+    await expect(page.getByTestId('app-alumna-real').locator('iframe')).toHaveAttribute('src', '/portal/studio-carmen');
     expect(pet.configurar.length).toBeGreaterThan(0);
 
     // Hasta que se sale, el alta NO está sellada: recargar aquí no pierde nada.
@@ -47,6 +58,17 @@ test.describe('el asistente rápido', () => {
     await traer.getByRole('button', { name: 'Subir mi archivo' }).click();
     await expect.poll(() => pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(true);
     await expect(page).toHaveURL(/\/migracion/);
+  });
+
+  test('las clases se crean al confirmar la pantalla 2, para que la app real las tenga', async ({ page }) => {
+    const pet = await montarAlta(page);
+    await saltarLogo(page);
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByRole('heading', { name: 'Tus clases y tu sala' })).toBeVisible();
+    expect(pet.configurar).toHaveLength(0);
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect.poll(() => pet.configurar.length).toBeGreaterThan(0);
+    expect(pet.configurar[0].tiposClase).toEqual(['Reformer', 'Mat']);
   });
 
   test('viniendo de otro programa, la pantalla final dice de cuál', async ({ page }) => {

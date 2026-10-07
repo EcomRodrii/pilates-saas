@@ -16,7 +16,7 @@ export type RespuestaAyuda = (route: Route, cuerpo: Record<string, unknown>) => 
 
 export async function montarAlta(
   page: Page,
-  { estudio = {}, ayuda }: { estudio?: Record<string, unknown>; ayuda?: RespuestaAyuda } = {},
+  { estudio = {}, ayuda, antes }: { estudio?: Record<string, unknown>; ayuda?: RespuestaAyuda; antes?: (page: Page) => Promise<void> } = {},
 ) {
   const peticiones = {
     /** Cada POST a /api/onboarding/ayuda-alta, con su cuerpo. */
@@ -69,6 +69,7 @@ export async function montarAlta(
     return json(route, { ok: true, guardada: cuerpo.ayuda === 'Prefiero que me llamen' });
   });
 
+  if (antes) await antes(page);
   await page.goto('/dashboard');
   return peticiones;
 }
