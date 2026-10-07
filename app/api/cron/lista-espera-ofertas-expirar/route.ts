@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { secretoValido } from '@/lib/salud/secreto';
 import { barrerOfertasListaEsperaExpiradas } from '@/lib/lista-espera/expirar-ofertas';
+import { barrerColasConPlazaLiberada } from '@/lib/lista-espera/plazas-liberadas';
 import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
@@ -23,12 +24,15 @@ export async function POST(req: NextRequest) {
   }
   try {
     const resumen = await barrerOfertasListaEsperaExpiradas();
+    // Y las plazas apartadas para ClassPass que se acaban de liberar (el job de
+    // pg_cron también llama por ellas: migr 20261007164222).
+    const liberadas = await barrerColasConPlazaLiberada();
     // Mismo criterio que /api/cron/backups: un barrido que deja fallos detrás
     // no es un éxito. Aquí cada fallo es una plaza que sigue reservada para
     // quien ya no la quiere mientras otra socia está en lista de espera.
     return NextResponse.json(
-      { ejecutadoEn: new Date().toISOString(), ...resumen },
-      resumen.fallos > 0 ? { status: 500 } : undefined,
+      { ejecutadoEn: new Date().toISOString(), ...resumen, liberadas },
+      resumen.fallos > 0 || liberadas.fallos > 0 ? { status: 500 } : undefined,
     );
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'lista-espera-ofertas-expirar' } });

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapSesion, mapReserva, mapSala, mapInstructor } from '@/lib/supabase-data';
 import {
   enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol, completarSesiones, flojaDeRecomendacion,
+  type ApartadasDeClase,
   type FlojaDeClase,
 } from '@/lib/calendario-datos';
 import { diaLocalDe, type BloqueoAgenda } from '@/lib/calendario/ausencias';
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
   const instructorIds = [...new Set(sesionesRaw.map(s => s.instructor_id).filter((id): id is string => !!id))];
   const verFlojas = puedeVer(sesion.rol, '/centro-de-control');
 
-  const [{ data: reservasRows }, { data: sustitucionesRows }, bloqueosRes, inactivasRes, flojasRes] = await Promise.all([
+  const [{ data: reservasRows }, { data: sustitucionesRows }, bloqueosRes, inactivasRes, flojasRes, apartadasRes] = await Promise.all([
     sesionIds.length > 0
       ? admin.from('reservas').select('*').in('sesion_id', sesionIds)
       : Promise.resolve({ data: [] as RowReservas[] }),
@@ -79,6 +80,11 @@ export async function GET(req: NextRequest) {
           .eq('studio_id', studioId).eq('tipo', 'LLENAR_PLAZAS').eq('estado', 'PENDIENTE')
           .in('sesion_id', sesionIds).gt('expira_en', new Date().toISOString())
       : Promise.resolve({ data: [], error: null }),
+    // Plazas apartadas para ClassPass (migr 20261007164222): la hoja de la clase
+    // dice cuántas y hasta cuándo, y que quien se apunte irá a la lista de espera.
+    sesionIds.length > 0
+      ? admin.rpc('plazas_apartadas_de', { p_studio_id: studioId, p_sesion_ids: sesionIds })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   // No saber no es lo mismo que «no hay»: si los bloqueos no llegan, el payload
@@ -93,6 +99,11 @@ export async function GET(req: NextRequest) {
     ? bloqueosRows.map(b => ({ instructorId: b.instructor_id, fecha: b.fecha, horaInicio: b.hora_inicio, horaFin: b.hora_fin, ausenciaId: b.ausencia_id }))
     : [];
   const ausencias = new Map(((ausenciasRes.data ?? []) as { id: string; tipo: string; desde: string; hasta: string }[]).map(a => [a.id, a]));
+  if (apartadasRes.error) console.error('[calendario] no se pudieron leer las plazas apartadas', apartadasRes.error.message);
+  const apartadas = new Map<string, ApartadasDeClase>();
+  for (const f of (apartadasRes.data ?? []) as { sesion_id: string; plazas: number; liberan_en: string | null }[]) {
+    if (f.plazas > 0 && f.liberan_en) apartadas.set(f.sesion_id, { plazas: f.plazas, hasta: f.liberan_en });
+  }
   const flojas = new Map<string, FlojaDeClase>();
   for (const r of (flojasRes.data ?? []) as { id: string; sesion_id: string | null; datos_usados: unknown }[]) {
     const floja = r.sesion_id ? flojaDeRecomendacion(r) : null;
@@ -106,7 +117,7 @@ export async function GET(req: NextRequest) {
   const sustitucionesVisibles = (sustitucionesRows ?? []).map(s => (verMotivo ? s : { ...s, motivo: null }));
 
   const enriquecidas = completarSesiones(enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesVisibles), {
-    rol: sesion.rol, bloqueos, ausencias, flojas,
+    rol: sesion.rol, bloqueos, ausencias, flojas, apartadas,
     instructorasInactivas: new Set(((inactivasRes.data ?? []) as { id: string }[]).map(i => i.id)),
   });
   // Todo el estudio: la instructora ya no llega aquí (403 arriba) y el resto de

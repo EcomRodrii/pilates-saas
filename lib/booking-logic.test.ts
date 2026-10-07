@@ -9,6 +9,8 @@ import {
   instanteDeApertura,
   mensajeMaxPorDia,
   plazasOcupadas,
+  plazasLibresParaReservar,
+  apartadasPorSesion,
   confirmadasParaMinimo,
   debeCancelarPorMinimoNoAlcanzado,
   decidirReservaNueva,
@@ -670,4 +672,25 @@ test('aperturaPendiente: solo mientras falta para abrirse', () => {
   assert.equal(aperturaPendiente(clase, new Date('2026-09-29T19:00:00+02:00'), 2, '20:00'), '2026-09-29T18:00:00.000Z');
   assert.equal(aperturaPendiente(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), null);
   assert.equal(aperturaPendiente(clase, new Date('2026-09-20T10:00:00+02:00'), null, '20:00'), null, 'sin días, siempre abierta');
+});
+
+// ── Plazas apartadas para ClassPass (7-oct-2026) ─────────────────────────────
+
+test('plazas libres para Tentare: aforo − ocupadas − apartadas, nunca por debajo de 0', () => {
+  assert.equal(plazasLibresParaReservar(10, 3), 7);
+  assert.equal(plazasLibresParaReservar(10, 3, 2), 5);
+  assert.equal(plazasLibresParaReservar(4, 2, 2), 0, 'las apartadas llenan la clase para la app');
+  assert.equal(plazasLibresParaReservar(4, 3, 2), 0, 'ni negativo');
+  assert.equal(plazasLibresParaReservar(4, 1, -3), 3, 'un dato malo no regala plazas');
+});
+
+test('apartadas del aforo público, por sesión; lo que no es un número positivo no cuenta', () => {
+  const m = apartadasPorSesion([
+    { sesion_id: 's1', plazas: 2 }, { sesion_id: 's2', plazas: 0 },
+    { sesion_id: 's3', plazas: Number.NaN }, { sesion_id: 's1', plazas: 1 },
+  ]);
+  assert.equal(m.get('s1'), 3);
+  assert.equal(m.has('s2'), false);
+  assert.equal(m.has('s3'), false);
+  assert.equal(apartadasPorSesion(undefined).size, 0);
 });

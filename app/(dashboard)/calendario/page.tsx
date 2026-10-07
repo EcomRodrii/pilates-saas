@@ -567,7 +567,7 @@ interface DatosVista {
   // Lo nuevo de /api/calendario va opcional: un payload antiguo (o un mock) no lo
   // trae, y entonces la clase no está ni sin cubrir ni floja.
   sesiones: (Sesion & { sustitucionAbierta: boolean; motivoBaja: string | null; sustitucionId: string | null }
-    & Partial<Pick<SesionCalendario, 'sustitucionEstado' | 'ausencia' | 'instructoraInactiva' | 'floja'>>)[];
+    & Partial<Pick<SesionCalendario, 'sustitucionEstado' | 'ausencia' | 'instructoraInactiva' | 'floja' | 'apartadas'>>)[];
   reservas: import('@/lib/types').Reserva[];
   sustituciones: SustitucionVista[];
   salas: import('@/lib/types').Sala[];
@@ -1684,7 +1684,11 @@ export default function Calendario() {
 
   function anadirOPreguntarEspera(sesionId: string, socioId: string) {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
+    // Sin las plazas apartadas para ClassPass: el servidor tampoco las da, así
+    // que se pregunta por la lista de espera antes, como con la clase llena.
+    const apartadas = datosVista?.sesiones.find(s => s.id === sesionId)?.apartadas?.plazas ?? 0;
+    const aforoParaTentare = sesion?.aforoMaximo != null ? Math.max(0, sesion.aforoMaximo - apartadas) : sesion?.aforoMaximo;
+    const { estado, posicionEspera } = decidirReservaNueva(aforoParaTentare, sesionId, reservas);
     if (estado === 'LISTA_ESPERA') {
       const socio = socios.find(s => s.id === socioId);
       setConfirmarEspera({
@@ -1961,6 +1965,28 @@ export default function Calendario() {
 
   // Tras cualquier mutación: invalida la caché del rango actual y vuelve a
   // pedirlo — mismo patrón que ya usaba resolverPendiente con resetDatosPilates.
+  // «La he cerrado en ClassPass: liberar 1» (hoja de la clase): lo hace el
+  // servidor (app/api/plataformas/liberar-apartada) y la vista se vuelve a pedir.
+  async function liberarApartada(sesionId: string): Promise<boolean> {
+    try {
+      const res = await fetch('/api/plataformas/liberar-apartada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId }),
+      });
+      const j = await res.json().catch(() => null) as { error?: string; apartadas?: number } | null;
+      if (!res.ok) { showToast(j?.error ?? 'No se ha podido liberar la plaza. Inténtalo de nuevo.'); return false; }
+      showToast(j?.apartadas
+        ? `Plaza liberada. Siguen ${j.apartadas} apartadas para ClassPass.`
+        : 'Plaza liberada: ya no queda ninguna apartada para ClassPass.');
+      await refrescarVista();
+      return true;
+    } catch {
+      showToast('No se ha podido liberar la plaza. Inténtalo de nuevo.');
+      return false;
+    }
+  }
+
   const refrescarVista = useCallback(async () => {
     cacheVistaRef.current.delete(claveRango(rango));
     await cargarDatosVista(rango);
@@ -3178,6 +3204,10 @@ export default function Calendario() {
                   hrefQr={studio?.controlAccesoQr !== false ? `/calendario/pase?sesion=${encodeURIComponent(sesionActual.id)}` : null}
                   showToast={showToast}
                   onPlazaPlataforma={refrescarVista}
+                  // Las apartadas para ClassPass (de /api/calendario) y, para quien
+                  // gestiona el calendario, «La he cerrado en ClassPass: liberar 1».
+                  apartadas={datosVista?.sesiones.find(s => s.id === sesionActual.id)?.apartadas ?? null}
+                  onLiberarApartada={puedeGestionarCalendario(rolActual) ? (() => liberarApartada(sesionActual.id)) : null}
                   // Con qué viene cada una: la MISMA regla que ve la alumna al
                   // reservar y que sigue el servidor para elegir bono.
                   coberturaDe={socioId => lineaCoberturaMostrador(coberturaDeClase({

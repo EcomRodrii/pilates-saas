@@ -125,13 +125,12 @@ La propietaria necesita, de su propia cuenta de Mailchimp:
 con consentimiento de marketing dado → verificar en el panel de Mailchimp
 que llegaron a esa audiencia.
 
-## Agregadores (ClassPass, Urban Sports Club, Wellhub, EGYM Wellpass, myclubs)
+## Agregadores (ClassPass, Urban Sports Club, Wellhub)
 
-No se conectan por API pública: requieren **alta como partner** (contrato) con
-cada agregador, que da acceso a su API privada. En la app, el botón
-**Solicitar acceso** registra el interés del estudio (tabla de soporte) para que
-el equipo gestione el alta. No hay variables de entorno que configurar hasta
-tener el acuerdo de partner.
+Cómo está montado cada uno, sus variables de entorno y qué falta para encenderlo:
+`docs/integraciones/` (`classpass.md`, `urban-sports-club.md`, `wellhub.md`).
+Mientras no haya credenciales de partner, el estudio las enciende en
+Configuración → Conexiones y recepción apunta las ventas en la clase.
 
 ## Integraciones de plataforma (WhatsApp, PayPal, Zoom, Kisi)
 

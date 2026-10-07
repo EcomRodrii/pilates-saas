@@ -4716,6 +4716,29 @@ export async function dbGuardarCupoPlataformaTipo(tipoClaseId: string, plataform
   return ESCRITURA_OK;
 }
 
+// ─── Cuándo se liberan las plazas apartadas (ClassPass) ──────────────────────
+// `plataforma_ajustes` (migr 20261007164222): las plazas cedidas a una plataforma
+// que vende a mano se APARTAN y se liberan X horas antes de la clase. Sin fila,
+// 0 (apartadas hasta que empieza). RLS: lee el personal, escribe `puede_gestionar_sede()`.
+
+/** `undefined` = no se ha podido leer (no es lo mismo que «sin configurar», que es `null`). */
+export async function dbLeerLiberarHorasPlataforma(plataforma: Plataforma): Promise<number | null | undefined> {
+  const { data, error } = await supabase.from('plataforma_ajustes').select('liberar_horas_antes')
+    .eq('studio_id', getCurrentStudioId()).eq('plataforma', plataforma).maybeSingle();
+  if (error) { reportDbError('[dbLeerLiberarHorasPlataforma]', error); return undefined; }
+  return data ? (data.liberar_horas_antes as number) : null;
+}
+
+export async function dbGuardarLiberarHorasPlataforma(plataforma: Plataforma, horas: number): Promise<ResultadoEscritura> {
+  const { data, error } = await supabase.from('plataforma_ajustes')
+    .upsert({ studio_id: getCurrentStudioId(), plataforma, liberar_horas_antes: horas, actualizado_en: new Date().toISOString() },
+      { onConflict: 'studio_id,plataforma' })
+    .select('plataforma');
+  if (error) return falloEscritura('[dbGuardarLiberarHorasPlataforma]', error);
+  if (!data?.length) return sinFilasTocadas('plataforma_ajustes', plataforma, 'No tienes permiso para cambiar esto. Pídeselo a la propietaria o a la responsable de sede.');
+  return ESCRITURA_OK;
+}
+
 export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura> {
   const { data: borradas, error } = await supabase.from('tipos_clase').delete().eq('id', id).select('id');
   if (!error) {

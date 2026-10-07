@@ -28,6 +28,7 @@ import {
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { horarioDeSesion } from '@/lib/reservar/construir-slots';
 import { franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { apartadasPorSesion } from '@/lib/booking-logic';
 import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { mensajeTodaviaNoSeAbre } from '@/lib/reservar/apertura-texto';
@@ -336,7 +337,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales, dataLoaded, errorPublico, recargarPublico,
-    refrescarAforo,
+    refrescarAforo, aforoApartadas,
     addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, darConsentimientoMarketingPublico, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -1245,6 +1246,10 @@ export default function ReservarPage() {
       if (r.estado === 'CANCELADA') continue;
       ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
     }
+    // Las apartadas para ClassPass, como ocupadas: la RPC tampoco las da.
+    for (const [sesionId, n] of apartadasPorSesion(aforoApartadas)) {
+      ocupadasPorSesion.set(sesionId, (ocupadasPorSesion.get(sesionId) ?? 0) + n);
+    }
     // P1 auditoría Momence: qué instructora daba originalmente cada sesión,
     // solo para las que tienen una sustitución YA confirmada.
     const originalPorSesion = new Map(
@@ -1258,7 +1263,7 @@ export default function ReservarPage() {
       instructorOriginalNombre: instrById.get(originalPorSesion.get(s.id) ?? '')?.nombre ?? null,
       ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
     }));
-  }, [sesiones, tiposClase, salas, instructores, reservas, sustitucionesConfirmadas]);
+  }, [sesiones, tiposClase, salas, instructores, reservas, sustitucionesConfirmadas, aforoApartadas]);
 
   // La banda de cifras. Solo se cuentan datos que YA viajan en la carga
   // pública — nada se escribe a mano, y lo que no se puede contar no se pinta
@@ -1305,8 +1310,11 @@ export default function ReservarPage() {
         mia.set(r.sesionId, r);
       }
     }
+    for (const [sesionId, n] of apartadasPorSesion(aforoApartadas)) {
+      ocupadas.set(sesionId, (ocupadas.get(sesionId) ?? 0) + n);
+    }
     return { ocupadasPorSesion: ocupadas, spotsOcupadosPorSesion: spotsOcup, miReservaPorSesion: mia };
-  }, [reservas, socia]);
+  }, [reservas, socia, aforoApartadas]);
 
   const spotsActivosPorSala = useMemo(() => {
     const m = new Map<string, typeof spots>();
