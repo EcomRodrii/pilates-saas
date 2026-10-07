@@ -582,6 +582,7 @@ export function Sidebar() {
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
+        data-tour="menu-principal"
         className="lg:hidden fixed bottom-0 z-30 flex items-center justify-around px-2 border-t"
         style={{ width: '100%', backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
@@ -630,6 +631,7 @@ export function Sidebar() {
       <aside
         ref={barraRef}
         data-panel-menu
+        data-tour="menu-principal"
         className={cn(
           'hidden lg:flex fixed z-20 transition-[width] duration-200',
           // Recortar solo tiene sentido en la columna: tumbada, la barra CRECE

@@ -689,7 +689,7 @@ export default function MarketingPage() {
   if (!MARKETING_MODULE_ENABLED) return null
 
   return (
-    <div className="min-h-dvh bg-background p-6">
+    <div data-tour="marketing-vista" className="min-h-dvh bg-background p-6">
       <PageHeader className="mb-6" title="Marketing" />
 
       {/* Tabs */}

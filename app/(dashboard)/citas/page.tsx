@@ -603,7 +603,7 @@ export default function CitasPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div data-tour="citas-vista" className="space-y-6">
       <PageHeader
         title="Citas"
         description={`${upcoming.length} próximas · ${thisMonth.length} este mes`}

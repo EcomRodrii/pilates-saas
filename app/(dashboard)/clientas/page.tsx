@@ -1166,6 +1166,7 @@ export default function Socios() {
             <button
               onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
               aria-label="Nueva clienta"
+              data-tour="clientas-nueva"
               className="flex size-11 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm sm:size-auto sm:min-h-10 sm:rounded-xl sm:px-3.5"
             >
               <Plus size={18} className="sm:size-[15px]" aria-hidden />

@@ -1112,6 +1112,12 @@ export interface RowStudios {
   lista_espera_reserva_plaza_ofrecida: boolean | null;
   // migr 20261007122300.
   reserva_pendiente_cuenta_para_tope: boolean | null;
+  // migr 20261007170000.
+  tour_obligatorio: boolean | null;
+  // migr 20261007170000.
+  tour_progreso: any | null;
+  // migr 20261007170000.
+  tour_completado_en: string | null;
 }
 
 export interface RowSuscripciones {
@@ -5667,6 +5673,9 @@ export type StudiosInsert = {
   cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
   lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
   reserva_pendiente_cuenta_para_tope?: boolean | null | null;
+  tour_obligatorio?: boolean | null | null;
+  tour_progreso?: any | null | null;
+  tour_completado_en?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5820,6 +5829,9 @@ export type StudiosUpdate = {
   cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
   lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
   reserva_pendiente_cuenta_para_tope?: boolean | null | null;
+  tour_obligatorio?: boolean | null | null;
+  tour_progreso?: any | null | null;
+  tour_completado_en?: string | null | null;
 }
 
 export type SuscripcionesInsert = {

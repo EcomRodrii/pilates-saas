@@ -91,6 +91,7 @@ export function Topbar() {
       <div className="flex items-center gap-2 flex-1 max-w-[440px]">
         <button
           onClick={() => abrirBuscador(true)}
+          data-tour="buscador"
           className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />

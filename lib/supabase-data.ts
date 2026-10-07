@@ -5117,6 +5117,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
+  if ('tourProgreso' in changes) db.tour_progreso = changes.tourProgreso;
+  if ('tourCompletadoEn' in changes) db.tour_completado_en = changes.tourCompletadoEn;
   if ('gestoriaEnvioAutomatico' in changes) db.gestoria_envio_automatico = changes.gestoriaEnvioAutomatico;
   if ('reviewBoostMostradoEn' in changes) db.review_boost_mostrado_en = changes.reviewBoostMostradoEn;
   if ('reviewBoostPospuestoEn' in changes) db.review_boost_pospuesto_en = changes.reviewBoostPospuestoEn;
@@ -5547,6 +5549,9 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
     tourVistoEn: r.tour_visto_en ?? null,
+    tourObligatorio: r.tour_obligatorio ?? false,
+    tourProgreso: r.tour_progreso ?? {},
+    tourCompletadoEn: r.tour_completado_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
     reviewBoostElegibleEn: r.review_boost_elegible_en ?? null,
     reviewBoostMostradoEn: r.review_boost_mostrado_en ?? null,

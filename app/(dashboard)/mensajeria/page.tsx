@@ -484,7 +484,7 @@ export default function Mensajeria() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div data-tour="mensajeria-vista" className="space-y-6">
       <Suspense fallback={null}><ConversacionDeLaUrl onPedida={abrirPedida} /></Suspense>
       <PageHeader
         title="Mensajería"

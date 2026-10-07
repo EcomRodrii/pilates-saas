@@ -1,0 +1,210 @@
+import { expect, test, type Page } from '@playwright/test';
+import { STUDIO_ID, json, montarAlta } from './onboarding-andamio';
+import { CAPITULOS } from '../lib/tour/capitulos.ts';
+
+// La visita guiada por capítulos (lib/tour/, components/tour/).
+//
+// Mismo andamiaje que el alta (sesión sembrada y `**/api/**` → `{}`), con un
+// estudio NUEVO (`tour_obligatorio`) que ya selló la bienvenida. Los demás specs
+// del panel no traen esa columna: valen `false` y la visita nunca arranca, así que
+// no hace falta ningún flag de E2E que la apague (y por eso aquí NO se enmascara).
+//
+// ⚠️ Cada test de un camino de fallo cuenta sus intentos: `expect(intentos)
+// .toBeGreaterThan(0)`. Un «no mintió» sin contador puede ser verdad porque nunca
+// se intentó nada (test-4xx-necesita-contador-de-intentos).
+const BIENVENIDA = '2026-10-07T10:00:00Z';
+
+interface Servidor { patches: Record<string, unknown>[]; progreso: unknown; fallar: boolean; intentos: number }
+
+async function montarVisita(
+  page: Page,
+  opciones: { nuevo?: boolean; progreso?: unknown; fallar?: boolean; extra?: (p: Page) => Promise<void> } = {},
+) {
+  const s: Servidor = { patches: [], progreso: opciones.progreso ?? {}, fallar: opciones.fallar ?? false, intentos: 0 };
+  await montarAlta(page, {
+    estudio: { bienvenida_vista_en: BIENVENIDA },
+    antes: async (p) => {
+      // Después de las rutas por defecto del andamiaje: la última registrada gana.
+      await p.route('**/rest/v1/studios**', route => {
+        const req = route.request();
+        if (req.method() === 'PATCH') {
+          s.intentos += 1;
+          if (s.fallar) return json(route, { message: 'boom' }, 500);
+          const cuerpo = (req.postDataJSON() ?? {}) as Record<string, unknown>;
+          s.patches.push(cuerpo);
+          if ('tour_progreso' in cuerpo) s.progreso = cuerpo.tour_progreso;
+          return json(route, [{ id: STUDIO_ID }]);
+        }
+        return json(route, {
+          id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', color_primario: '#4F46E5',
+          owner_auth_user_id: 'auth-e2e-duena', bienvenida_vista_en: BIENVENIDA,
+          tour_obligatorio: opciones.nuevo ?? true, tour_progreso: s.progreso, tour_completado_en: null,
+        });
+      });
+      if (opciones.extra) await opciones.extra(p);
+    },
+  });
+  return s;
+}
+
+const inicio = (page: Page) => page.getByRole('heading', { name: 'Vamos a recorrer Tentare juntas' });
+const tarjeta = (page: Page, titulo: string) => page.getByRole('region', { name: `Visita guiada: ${titulo}` });
+
+test.describe('La visita guiada por capítulos', () => {
+  test('arranca sola en un estudio nuevo, y no se puede cerrar ni saltar', async ({ page }) => {
+    await montarVisita(page);
+    await expect(inicio(page)).toBeVisible({ timeout: 30_000 });
+    const pantalla = page.getByRole('dialog', { name: 'Visita guiada de Tentare' });
+    await expect(pantalla).toContainText(/\d+ capítulos, unos \d+ minutos/);
+    await expect(pantalla).toContainText('El mapa');
+    await expect(pantalla).toContainText('Tarifas: qué vendes, a quién y para qué clases');
+    // Sin salida: ni «Ahora no», ni «Saltar», ni «Cerrar».
+    for (const nombre of [/ahora no/i, /saltar/i, /cerrar/i, /salir/i]) {
+      await expect(pantalla.getByRole('button', { name: nombre })).toHaveCount(0);
+    }
+    await page.keyboard.press('Escape');
+    await expect(inicio(page)).toBeVisible();
+  });
+
+  test('en un estudio que ya existía NO arranca (con control positivo de que el panel cargó)', async ({ page }) => {
+    await montarVisita(page, { nuevo: false });
+    await expect(page.getByRole('link', { name: 'Calendario' }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(inicio(page)).toHaveCount(0);
+    await expect(page.getByRole('region', { name: /Visita guiada/ })).toHaveCount(0);
+  });
+
+  test('«Empezar» guarda el progreso en el servidor y enseña el primer paso sin X', async ({ page }) => {
+    const s = await montarVisita(page);
+    await inicio(page).waitFor({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Empezar/ }).click();
+
+    const paso = tarjeta(page, 'Tu menú');
+    await expect(paso).toBeVisible();
+    await expect(paso).toContainText(/Capítulo 1 de \d+ · Paso 1 de 3/);
+    await expect(paso.getByRole('button', { name: /saltar|cerrar|salir/i })).toHaveCount(0);
+    // Ocultar la tarjeta no es omitir: queda la píldora, y se vuelve a abrir.
+    await paso.getByRole('button', { name: /Ocultar la tarjeta/ }).click();
+    const pildora = page.getByRole('button', { name: /Visita guiada · Cap\. 1 de \d+ · Continuar/ });
+    await expect(pildora).toBeVisible();
+    await pildora.click();
+    await expect(paso).toBeVisible();
+
+    await expect.poll(() => s.patches.some(p => (p.tour_progreso as { inicio?: boolean } | undefined)?.inicio === true)).toBe(true);
+  });
+
+  test('«Entendido» avanza, y al recargar sigue en el paso exacto', async ({ page }) => {
+    const s = await montarVisita(page);
+    await inicio(page).waitFor({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Empezar/ }).click();
+    await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await expect.poll(() => JSON.stringify(s.progreso)).toContain('c1.1');
+
+    await page.reload();
+    // No vuelve a la bienvenida: reanuda en el paso 2 del capítulo 1.
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible({ timeout: 30_000 });
+    await expect(inicio(page)).toHaveCount(0);
+  });
+
+  test('si te vas a otra pantalla, no te persigue: dice dónde está el paso y ofrece «Llévame»', async ({ page }) => {
+    await montarVisita(page);
+    await inicio(page).waitFor({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Empezar/ }).click();
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible();
+
+    await page.goto('/calendario');
+    const paso = tarjeta(page, 'Tu menú');
+    await expect(paso).toBeVisible({ timeout: 30_000 });
+    await expect(paso).toContainText('Este paso está en el Resumen');
+    // No hay redirección forzada: ni al cargar ni después. Se espera un momento y se
+    // comprueba que seguimos en el calendario.
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveURL(/\/calendario/);
+    await paso.getByRole('button', { name: /Llévame/ }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test('si no se puede guardar el progreso, la visita sigue (y se intentó guardar)', async ({ page }) => {
+    const s = await montarVisita(page, { fallar: true });
+    await inicio(page).waitFor({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Empezar/ }).click();
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible();
+    await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await expect.poll(() => s.intentos).toBeGreaterThan(0);
+  });
+
+  test('al cerrar el último paso de un capítulo sale su resumen, y «Seguir otro día» deja solo la píldora', async ({ page }) => {
+    const s = await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: CAPITULOS[0].pasos.map(p => p.id), aplazados: [], vistos: [] } });
+    const pantalla = page.getByRole('dialog', { name: /Capítulo 1 completado/ });
+    await expect(pantalla).toBeVisible({ timeout: 30_000 });
+    await expect(pantalla).toContainText('Ahora sabes');
+    await expect(pantalla).toContainText('El mapa');
+    await expect(pantalla.getByRole('button', { name: /Siguiente: Tu estudio y tus clases/ })).toBeVisible();
+
+    await pantalla.getByRole('button', { name: 'Seguir otro día' }).click();
+    await expect(pantalla).toHaveCount(0);
+    // Sin tarjeta, pero la píldora sigue: la visita no se ha cerrado, solo se ha parado.
+    await expect(page.getByRole('button', { name: /Visita guiada · Cap\. 2 de \d+ · Continuar/ })).toBeVisible();
+    await expect.poll(() => JSON.stringify(s.progreso)).toContain('"vistos":["c1"]');
+  });
+
+  test('un paso «hacer» se cierra solo cuando los datos cambian: el caso de la clienta con 4 tarifas', async ({ page }) => {
+    // Capítulos 1–4 cerrados y 5.1 visto: toca 5.2, «una tarifa en borrador no existe».
+    const hasta4 = CAPITULOS.slice(0, 4);
+    const progreso = {
+      v: 1, inicio: true,
+      hechos: [...hasta4.flatMap(c => c.pasos.map(p => p.id)), 'c5.1'], aplazados: [], vistos: hasta4.map(c => c.id),
+    };
+    const tarifa = (id: string, precio: number, activo: boolean) => ({
+      id, studio_id: STUDIO_ID, nombre: `Tarifa ${id}`, tipo: 'MENSUAL', precio, activo, periodicidad_meses: 1,
+    });
+    // Primero solo borradores (activo:false y a 0 €): NO cuentan.
+    let planes = [tarifa('a', 0, false), tarifa('b', 0, false)];
+    await montarVisita(page, { progreso, extra: async p => { await p.route('**/rest/v1/planes_tarifa**', r => json(r, planes)); } });
+    await page.goto('/productos');
+    const paso = page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador no existe para tus clientas/ });
+    await expect(paso).toBeVisible({ timeout: 30_000 });
+    await expect(paso).toContainText('Esperando a que lo hagas');
+    await expect(paso).not.toContainText('Ya lo tienes');
+
+    // Activa una con precio y recarga los datos: el paso se da por hecho y pasa al siguiente.
+    planes = [tarifa('a', 35, true), tarifa('b', 0, false)];
+    await page.reload();
+    await expect(page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador/ })).toContainText('Ya lo tienes', { timeout: 30_000 });
+    await expect(page.getByRole('region', { name: /Visita guiada: ¿Qué clases cubre cada tarifa\?/ })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('con un diálogo abierto, la tarjeta se vuelve un banner de solo texto que no tapa nada', async ({ page }) => {
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [] } });
+    const paso = tarjeta(page, 'Tu menú');
+    await expect(paso).toBeVisible({ timeout: 30_000 });
+    // Un diálogo de la app (aquí uno cualquiera): la tarjeta cede el sitio.
+    await page.evaluate(() => {
+      const d = document.createElement('div');
+      d.setAttribute('role', 'dialog'); d.id = 'dialogo-de-prueba'; d.textContent = 'Asignar plan';
+      document.body.appendChild(d);
+    });
+    await expect(paso).toHaveCount(0);
+    const banner = page.getByRole('status').filter({ hasText: 'Tu menú' });
+    await expect(banner).toBeVisible();
+    await expect(banner).toHaveCSS('pointer-events', 'none');
+    expect(await banner.getByRole('button').count()).toBe(0);
+    // Al cerrarlo, vuelve la tarjeta.
+    await page.evaluate(() => document.getElementById('dialogo-de-prueba')?.remove());
+    await expect(paso).toBeVisible();
+  });
+
+  test('la visita opcional (estudios existentes) se puede cerrar: «Ahora no» y «Salir»', async ({ page }) => {
+    await montarVisita(page, { nuevo: false });
+    await expect(page.getByRole('link', { name: 'Calendario' }).first()).toBeVisible({ timeout: 30_000 });
+    await page.goto('/primeros-pasos');
+    await page.getByRole('button', { name: /Ver la visita guiada del panel/ }).click();
+    const pantalla = page.getByRole('dialog', { name: 'Visita guiada de Tentare' });
+    await expect(pantalla).toBeVisible();
+    await pantalla.getByRole('button', { name: 'Ahora no' }).click();
+    await expect(pantalla).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Visita guiada · Cap\./ })).toHaveCount(0);
+  });
+});
+

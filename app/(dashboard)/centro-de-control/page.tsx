@@ -302,7 +302,7 @@ export default function CentroDeControlPage() {
   const modoAprendizaje = !data.resumen;
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
+    <div data-tour="centro-de-control-vista" className="flex flex-col gap-6 pb-10">
       {/* La pantalla no tenía h1 (auditoría de arquitectura, 22-sep-2026):
           "Centro de Control" solo existía en el menú lateral. "Analizar ahora"
           se mueve aquí desde dentro del desplegable — era el único CTA real

@@ -296,7 +296,7 @@ export default function CierreDeAnoPage() {
   const totalAnual = cierre.totales.numFacturas + cierre.totales.numManuales;
 
   return (
-    <div className="space-y-6" style={{ minHeight: '100%', padding: '0 0 40px' }}>
+    <div data-tour="cierre-vista" className="space-y-6" style={{ minHeight: '100%', padding: '0 0 40px' }}>
       <PageHeader
         title="Cierre de año"
         description="Todo lo facturado y el IVA que repercutiste en el año, cuadrado y listo para tu gestoría. Sale de las facturas emitidas desde Tentare y de los ingresos que añades a mano — no tienes que rehacer ningún Excel."
