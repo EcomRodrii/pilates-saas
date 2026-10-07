@@ -27,7 +27,10 @@ function sinComentarios(src: string): string {
 }
 
 const servidor = [...ficheros(join(RAIZ, 'app')), ...ficheros(join(RAIZ, 'lib'))]
-  .filter((p) => !readFileSync(p, 'utf8').slice(0, 200).includes("'use client'"));
+  .filter((p) => !readFileSync(p, 'utf8').slice(0, 200).includes("'use client'"))
+  // El arnés de stripe-mock (lib/billing/stripe-mock.integracion.test.ts) no es una puerta: es
+  // código de PRUEBA que sustituye estas funciones por una alumna fija. Nada de app/ lo importa.
+  .filter((p) => !p.endsWith('lib/billing/stripe-mock-arnes.ts'));
 
 test('nadie identifica a una persona con getUser sin pasar por el segundo paso', () => {
   const sueltos = servidor

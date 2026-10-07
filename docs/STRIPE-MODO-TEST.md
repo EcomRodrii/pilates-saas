@@ -260,6 +260,69 @@ pagos.
 
 ---
 
+## Sin claves: las llamadas del servidor contra `stripe-mock`
+
+Todo lo de arriba necesita una cuenta de Stripe en modo test. Esto no: comprueba
+que **cada petición que el servidor le hace a Stripe en los flujos de la alumna**
+es una petición que Stripe aceptaría (parámetros que existen, tipos, valores de
+los enums), sin clave, sin cuenta y sin red. Lo hace
+[`stripe-mock`](https://github.com/stripe/stripe-mock), el simulador oficial de
+Stripe, que valida cada petición contra su especificación OpenAPI.
+
+```bash
+brew install stripe/stripe-mock/stripe-mock      # una vez
+stripe-mock -http-port 12191 -https-port 12192    # en otra terminal
+node --import ./scripts/register-test-hooks.mjs --test --experimental-strip-types \
+  lib/billing/stripe-mock.integracion.test.ts
+```
+
+Con `STRIPE_MOCK_DETALLE=1` cada prueba lista lo que le pidió a Stripe y qué
+contestó. Otro puerto: `STRIPE_MOCK_PORT=…`. **Sin stripe-mock en marcha, las
+pruebas se saltan solas** (así `npm test` y la CI no dependen de él).
+
+Llama a las rutas y funciones **reales** (`/api/stripe/checkout`,
+`/api/public/checkout-embebido`, `/api/public/tarjeta`, `/api/reembolsos`,
+`/api/stripe/webhook`, `cobrarReciboOffSession`), no a copias. El arnés
+(`lib/billing/stripe-mock-arnes.ts`) solo sustituye lo que no puede correr fuera
+de Next: la base de datos (una en memoria), quién es la alumna, el límite de
+peticiones y `after()`. Los webhooks se firman con
+`stripe.webhooks.generateTestHeaderString`, con objetos con la forma que
+devuelve stripe-mock.
+
+- **Nada sale de la máquina**: todo `new Stripe(...)` del proceso se apunta a
+  stripe-mock y su cliente HTTP reescribe cualquier URL a él; además el `fetch`
+  global corta (y apunta, y la prueba falla) cualquier petición fuera de
+  localhost — p. ej. el `fetch` directo a `api.stripe.com/v1/account` del webhook,
+  Resend o Supabase. El arnés se niega a arrancar en producción o con una clave
+  `sk_live_` en el entorno.
+- **stripe-mock no guarda estado**: contesta siempre con su fixture. Para seguir
+  un flujo (un cobro `succeeded`, una sesión `complete`) la prueba RETOCA la
+  respuesta, siempre después de que stripe-mock haya validado la petición.
+- ⚠️ **Versión de la API.** stripe-mock 0.206.0 valida contra
+  `2026-09-30.endive`; el SDK fija `2026-06-24.dahlia`. En endive Stripe **quitó
+  `payment_method_types`** al crear PaymentIntents, SetupIntents y sesiones de
+  Checkout ([cambio](https://docs.stripe.com/changelog/endive/2026-09-30/remove-payment-method-types-checkout-sessions),
+  [y este](https://docs.stripe.com/changelog/endive/2026-09-30/removes-the-payment-method-types-parameter-from-payment-intents-and-setup-intents)).
+  En nuestra versión es válido, así que el arnés lo manda a validar como
+  `allowed_payment_method_types` (mismo tipo). **El día que se suba el
+  `apiVersion` a endive, eso deja de ser un falso positivo**: hay que migrar las
+  llamadas que lo usan (Checkout de recibos y de Bizum, guardar tarjeta, adeudo
+  SEPA off-session…) antes de subir.
+- ⚠️ **El otro lado del desfase:** un parámetro que exista en endive y no en
+  dahlia pasaría stripe-mock y Stripe lo rechazaría con nuestra versión. Hoy lo
+  tapa `tsc` (los tipos del SDK son los de dahlia), salvo en objetos con cast. Si
+  hace falta validar la versión exacta, stripe-mock acepta `-spec` y `-fixtures`
+  con la OpenAPI de dahlia del repo `stripe/openapi`.
+
+**Lo que stripe-mock NO comprueba:** reglas que no están en el esquema (el
+`expires_at` entre 30 min y 24 h, combinaciones de parámetros incompatibles,
+que el Customer sea de esa cuenta), 3D Secure de verdad, Apple Pay / Google Pay,
+el Checkout incrustado dentro del WKWebView de la app de iOS, ni los tiempos y
+reintentos reales de los webhooks. Eso sigue necesitando el modo test de arriba
+o mirarlo a mano.
+
+---
+
 ## Lo que este montaje NO cubre
 
 - **SEPA.** El adeudo domiciliado es asíncrono (tarda días y puede devolverse
