@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-mindbody';
@@ -48,17 +49,59 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Plataforma internacional de fitness y bienestar, con marketplace de clientas',
+  precio: 'Desde 99 €/mes + IVA por local; el resto de planes, a consultar',
+  permanencia: 'Depende del plan; la baja puede pedir preaviso',
+  prueba: 'No consta en su web pública',
+  respuesta: <>Mindbody es una plataforma grande, con marketplace propio, pero su precio arranca en 99 € al mes por ubicación, la app con tu marca es un complemento de pago y se queda una comisión en la primera compra de cada clienta nueva que llega por su marketplace. Para un estudio de Pilates o yoga en España, la alternativa es Tentare: desde 29 €/mes con IVA, la app con tu marca incluida y ninguna comisión sobre tus cobros.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: 'Lo que cuesta Mindbody de verdad',
+    cuerpo: (
+      <>
+        <p>Su página de precios indica «a partir de 99 € al mes por local», sin IVA (119,79 € con IVA), y el resto de planes se consultan con ellos. A eso hay que sumar dos cosas que no están en la cuota:</p>
+        <ul>
+          <li><strong>La comisión del marketplace.</strong> Cuando una clienta nueva te encuentra en el marketplace de Mindbody y compra, se queda el 20 % de esa primera compra, con un tope de 30 $. Si vende tu bono de 10 clases a 120 €, son 24 € para Mindbody.</li>
+          <li><strong>La app con tu marca.</strong> Es un complemento de pago, sin precio publicado.</li>
+        </ul>
+        <p>En Tentare la app con tu nombre, tu logo y tus colores va incluida en todos los planes, y Tentare no se queda nada de tus cobros: solo pagas la comisión de Stripe por cobrar con tarjeta. <Link href="/funcionalidades/app-para-alumnas">Cómo es la app de tus alumnas</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Elegir reformer y aforo por sala',
+    cuerpo: (
+      <>
+        <p>En Mindbody, elegir sitio al reservar («Pick-a-Spot») va en el plan Accelerate, y el aforo se fija por clase. En Tentare, si defines los puestos de una sala, la alumna elige su reformer al reservar en cualquier plan, y cada sala tiene su propio aforo: una máquina averiada baja la capacidad de esa clase sin tocar las demás. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Cómo cambiarte de Mindbody a Tentare',
+    cuerpo: (
+      <p>El importador de Tentare reconoce las exportaciones de Mindbody: clientas, bonos, clases y reservas, con un acta para revisarlo antes de guardar y un botón para deshacerlo. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+    ),
+  },
+];
+
 export default function TentareVsMindbodyPage() {
   return (
     <CompetitorPage
       name="Mindbody"
       slug="tentare-vs-mindbody"
       logo={{ src: '/comparativa/logos/mindbody.svg', alt: 'Logo de Mindbody', height: 24, width: 115 }}
-      h1={<>¿Mindbody o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Mindbody es una plataforma internacional de fitness y bienestar con su propio marketplace de consumidores. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te da lo que necesitas sin comisiones por clienta nueva ni sobre tus cobros.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros, y con un producto hecho para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Mindbody.</>}
-      footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

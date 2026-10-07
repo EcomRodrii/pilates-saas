@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
@@ -121,9 +122,9 @@ const ROWS: {
   {
     feature: 'Facturación España (Veri*factu)',
     tentare: ['partial', 'Sí; envío a la AEAT en desarrollo'],
-    bsport: ['partial', 'No consta'],
+    bsport: ['yes', 'Sí, activándolo con su gestor de cuenta'],
     momence: ['partial', 'No consta'],
-    eversports: ['yes', 'Extensión con fiskaly'],
+    eversports: ['yes', 'Sí, por 10 €/mes más por centro'],
     mindbody: ['partial', 'No consta'],
     timp: ['yes', 'Sí, con TicketBAI'],
     lorari: ['partial', 'No consta'],
@@ -189,7 +190,7 @@ const ROWS: {
   {
     feature: 'Elegir plaza o reformer al reservar',
     tentare: ['yes', 'Si la sala tiene sus puestos definidos'],
-    bsport: ['partial', 'No consta'],
+    bsport: ['yes', 'Selección de plazas'], // pro.bsport.io, revisado el 7-oct-2026
     momence: ['yes', 'Spot scheduling'],
     eversports: ['yes', 'Spot booking'],
     mindbody: ['yes', 'Pick-a-Spot (plan Accelerate)'],
@@ -216,8 +217,18 @@ export default function ComparativaPage() {
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>★ El software Nº1 para estudios de Pilates</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 13 software con los que más se compara.</h1>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>
+            {/* La búsqueda de esta página es la comparativa y los precios de los
+                14; «el mejor software» (la lista editorial) es de
+                /recursos/mejor-software-para-estudios-de-pilates. */}
+            <span className="lp-mono" style={{ display: 'block', fontSize: 12, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5A5A52', margin: '0 0 14px', lineHeight: 1.5 }}>Comparativa de software para estudios de Pilates: precios y funciones</span>{' '}
+            Tentare frente a los 13 software con los que más se compara.
+          </h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare gana donde se nota cada día y cada fin de mes: precio público, sin comisión sobre tus cobros, sustituciones de instructoras y plazas fijas. Compáralo tú misma.</p>
+          <p style={{ fontSize: 15, lineHeight: 1.55, color: MUTED, margin: '16px 0 0' }}>
+            ¿Prefieres una guía con criterios para elegir, programa por programa? Lee{' '}
+            <Link href="/recursos/mejor-software-para-estudios-de-pilates" style={{ color: ACC, fontWeight: 700 }}>el mejor software para estudios de Pilates en 2026</Link>.
+          </p>
         </div>
       </header>
 
@@ -309,7 +320,7 @@ export default function ComparativaPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/recursos', label: 'Recursos' }, { href: '/seguridad', label: 'Seguridad' }]} />
+      <SiteFooter />
 
       <style>{`
         .cmp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
+import Link from 'next/link';
+import { CompetitorPage, type ComparativaRow, type ResumenCompetidor, type SeccionAnalisis } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-timp';
@@ -59,17 +60,56 @@ const FAQ = [
   },
 ];
 
+// El resumen y el análisis propios de esta comparativa (7-oct-2026): lo que
+// responde a «¿merece la pena?» y a «cuánto cuesta», con los mismos datos
+// verificados de la tabla. Nada aquí sale de lo que «se dice» del competidor.
+const RESUMEN: ResumenCompetidor = {
+  queEs: 'Software de reservas y citas para muchos tipos de negocio',
+  precio: 'Por centro y por profesionales: de 50 €/mes (1) a 170 €/mes (15)',
+  permanencia: 'Mínimo de 3 meses en la mayoría de planes',
+  destacado: { etiqueta: 'Instructoras', suyo: 'El precio sube con cada profesional del centro', nuestro: 'El precio no cuenta instructoras' },
+  respuesta: <>TIMP sirve para muchos negocios de citas y clases, y su precio depende de cuántos profesionales trabajan en tu centro, con un mínimo de 3 meses en la mayoría de planes. Un estudio de Pilates con cuatro instructoras ya entra en su plan de 130 €/mes. Si quieres un precio que no cuente instructoras y sin compromiso, la alternativa es Tentare: desde 29 €/mes con IVA, mes a mes.</>,
+};
+
+const ANALISIS: SeccionAnalisis[] = [
+  {
+    titulo: 'Cuánto cuesta TIMP según tu equipo',
+    cuerpo: (
+      <>
+        <p>TIMP cotiza por centro y al mes, según los profesionales: Starter 50 € (1), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con pago mensual y algo menos en planes semestrales y anuales. Su web no aclara si el precio incluye IVA, y la contratación mínima en la mayoría de planes es de 3 meses.</p>
+        <p>En un estudio de Pilates el equipo crece pronto: con cuatro instructoras ya no vale el plan Basic y pasas a Pro, 130 € al mes. En Tentare el precio no depende de cuántas instructoras tengas: Founding Studio 29 €/mes hasta 150 alumnas activas y Estudio 59 €/mes sin límite, IVA incluido y sin permanencia. <Link href="/precios">Ver los planes</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Hecho para estudios de Pilates y yoga',
+    cuerpo: (
+      <>
+        <p>TIMP sirve para negocios muy distintos: fisioterapia, estética, academias, yoga o pilates. Tentare está hecho para estudios de clases: plaza por reformer, aforo por sala, plazas fijas, bonos por tipo de clase y lista de espera que se gestiona sola. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
+        <p>Su web tampoco menciona sustituciones de instructoras. En Tentare, si una instructora no puede, el sistema busca quién la cubre, la contacta y avisa a las alumnas. <Link href="/funcionalidades/sustituciones">Así funcionan</Link>.</p>
+      </>
+    ),
+  },
+  {
+    titulo: 'Cómo cambiarte de TIMP a Tentare',
+    cuerpo: (
+      <p>El importador de Tentare reconoce las exportaciones de TIMP: clientas, bonos, clases y reservas, con un acta para revisarlo y un botón para deshacerlo. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>. Y si aún estás comparando, tenemos una guía con <Link href="/recursos/alternativas-a-timp">las alternativas a TIMP</Link>.</p>
+    ),
+  },
+];
+
 export default function TentareVsTimpPage() {
   return (
     <CompetitorPage
       name="TIMP"
       slug="tentare-vs-timp"
       logo={{ src: '/comparativa/logos/timp.webp', alt: 'Logo de TIMP', height: 24, width: 89 }}
-      h1={<>¿TIMP o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>TIMP es un software de gestión para muchos tipos de negocio de citas y clases. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare cuesta menos para empezar, no te pide compromiso mínimo y no cobra comisión por captar clientas.</>}
+      resumen={RESUMEN}
       rows={ROWS}
+      analisis={ANALISIS}
       veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas, y un producto hecho para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de TIMP.</>}
-      footnote="Basado en la información pública de TIMP (timp.pro) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de TIMP (timp.pro) revisada el 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
