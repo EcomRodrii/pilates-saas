@@ -217,7 +217,7 @@ export default function PerfilPage() {
             // ya se llegaba desde aquí.
             { label: 'Escribir al estudio', href: href('/mensajes'), icono: 'mensaje' },
             { label: 'Notificaciones', href: href('/notificaciones'), icono: 'campana' },
-            { label: 'Comunidad', href: href('/comunidad'), icono: 'personas' },
+            { label: 'Comunidad', href: href('/comunidad'), icono: 'feed' },
             { label: 'Logros y recompensas', href: href('/logros'), icono: 'trofeo' },
             // Descargar, retirar el consentimiento de salud y pedir que borren
             // sus datos viven en su propia pantalla. Antes eran dos bloques

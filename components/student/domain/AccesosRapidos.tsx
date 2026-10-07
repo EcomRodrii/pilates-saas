@@ -31,7 +31,7 @@ import { abrirConversacionConEstudio } from '@/lib/student/mensajeria';
 // Los iconos son del mismo set que la barra (HugeIcons stroke-rounded) y al
 // mismo grosor. Mezclar familias en la misma pantalla se nota aunque no se
 // sepa por qué. Comunidad y Chat llevan los MISMOS que sus filas de Perfil
-// (`personas`, `mensaje`): un destino, un icono en toda la app.
+// (`feed`, `mensaje`): un destino, un icono en toda la app.
 //
 // ⚠️ Tres de estos cuatro estaban dibujados a mano «a lo HugeIcons» y se
 // notaba: el hombro de la segunda persona de Instructoras volvía sobre sí mismo
@@ -88,7 +88,7 @@ export function AccesosRapidos({ studioId, hrefComunidad, hrefInstructoras, href
   const accesos: Acceso[] = [
     {
       href: hrefComunidad, titulo: 'Comunidad', pie: 'Lo que pasa en tu estudio',
-      icono: 'personas',
+      icono: 'feed',
     },
     {
       href: hrefInstructoras, titulo: 'Instructoras', pie: 'Conoce al equipo',
