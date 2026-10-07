@@ -4,7 +4,7 @@ import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { escaparLike } from '@/lib/escapar-like';
-import { iconoDelEstudio } from '@/lib/app-nativa/icono-estudio';
+import { marcaDelEstudio } from '@/lib/app-nativa/icono-estudio';
 import {
   estudiosComoAlumna, estudiosDeLaCuenta, nombreDePila, type FilaEstudioCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     const porId = new Map(filas.map((f) => [f.slug, f]));
     const estudios = await Promise.all(estudiosDeLaCuenta(filas, comoAlumna, comoInstructora).map(async ({ logo, color, ...e }) => {
       const fila = porId.get(e.slug)!;
-      return { ...e, icono: await iconoDelEstudio({ id: fila.id, nombre: e.nombre, logo_url: logo, color_primario: color }) };
+      return { ...e, ...await marcaDelEstudio({ id: fila.id, nombre: e.nombre, logo_url: logo, color_primario: color }) };
     }));
     return NextResponse.json({ estudios, nombre }, { headers: SIN_CACHE });
   } catch (err) {

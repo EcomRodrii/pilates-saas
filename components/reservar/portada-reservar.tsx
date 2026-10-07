@@ -19,7 +19,7 @@
 // `reservarCta` de su tema) y vacíos dejan los de siempre. Aquí no se escribe
 // copy de marca.
 
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { alFallarImagenServida, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { srcSetPorAncho, urlServida } from '@/lib/student/imagen-servida';
@@ -28,8 +28,9 @@ import {
   ANCHO_PAGINA, COLUMNA_HORARIO, FONDO_SIN_FOTO, TINTA_SOBRE_CREMA, TINTA_SOBRE_FOTO, veloPortadaCss,
 } from '@/lib/reservar/portada';
 import { MARGEN_PAGINA } from '@/components/reservar/cabecera-reservar';
+import { useTintaSobreFoto } from '@/lib/nativo/use-tinta-sobre-foto';
 
-export function PortadaReservar({ foto, titular, subtitulo, cta, onCta, cabecera }: {
+export function PortadaReservar({ foto, titular, subtitulo, cta, onCta, cabecera, fondoOscuro = false }: {
   /** `null` mientras no se sabe qué foto es (el estudio aún no ha llegado): mejor el fondo oscuro que la de por defecto y un salto a la suya. */
   foto: string | null;
   titular: string;
@@ -38,9 +39,18 @@ export function PortadaReservar({ foto, titular, subtitulo, cta, onCta, cabecera
   onCta: () => void;
   /** La barra de la marca, que flota sobre la foto. */
   cabecera: ReactNode;
+  /** El fondo de la página es oscuro (Carbón, o un widget de noche): la barra de estado de iOS sigue clara al bajar. */
+  fondoOscuro?: boolean;
 }) {
+  // La portada sube hasta arriba, por detrás de la hora y la batería de iOS: en
+  // la app, letras claras mientras se vea, y las de la página al bajar o al
+  // salir (abrir una clase desmonta la portada). Lo mismo que la ficha de una
+  // clase en la app de la alumna (`FichaClaseHero`).
+  const ref = useRef<HTMLDivElement>(null);
+  useTintaSobreFoto(ref, fondoOscuro);
   return (
     <div
+      ref={ref}
       className="reservar-portada"
       style={{
         position: 'relative', overflow: 'hidden',

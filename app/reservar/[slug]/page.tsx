@@ -3286,6 +3286,7 @@ export default function ReservarPage() {
             cta={textosReservar.cta || 'Ver el horario'}
             onCta={() => { setTab('clases'); irAlHorario(); }}
             cabecera={cabeceraPagina(true)}
+            fondoOscuro={esNoche}
           />
         ) : cabeceraPagina(false))}
 

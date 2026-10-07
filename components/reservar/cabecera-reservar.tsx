@@ -35,6 +35,7 @@ import {
 } from '@/lib/reservar/portada';
 import { alFallarImagenServida } from '@/lib/imagenes-por-defecto';
 import { urlServida } from '@/lib/student/imagen-servida';
+import { caraDeLaMarca, esLogoApaisado, type LogoMedido } from '@/lib/reservar/marca-cabecera';
 
 /** El margen lateral de la página: el mismo que las pestañas, el contenido y el pie. */
 export const MARGEN_PAGINA = cq(20, 3.8, 48);
@@ -208,56 +209,79 @@ function insignia(sobreFoto: boolean): CSSProperties {
   };
 }
 
-/** A partir de esta proporción un logo es un lockup apaisado (el mismo umbral que la app de la alumna). */
-const PROPORCION_LOGO_APAISADO = 3.2;
 const LADO_MARCA = 36;
 
 /**
  * Su logo, o su inicial sobre el color de su marca. Un logo apaisado (el
  * logotipo con el nombre al lado) se pinta como una raya a este tamaño y
  * además repetiría el nombre, que va escrito justo al lado: pasa a la inicial,
- * igual que en la app (`MarcaEstudio` de StudioHeader.tsx). La proporción solo
- * se sabe al cargar, así que hasta entonces se pinta el logo.
+ * igual que en la app (`MarcaEstudio` de StudioHeader.tsx).
+ *
+ * ⚠️ Mientras el logo llega se ve la INICIAL, no el logo con su fondo blanco:
+ * eso era un cuadrado blanco vacío sobre la foto durante el segundo largo que
+ * tarda Storage en servirlo redimensionado (ver lib/reservar/marca-cabecera.ts).
+ * El logo se monta desde el principio, encima e invisible, y aparece al cargar.
  */
 function MarcaEstudio({ logoUrl, nombre, sobreFoto }: { logoUrl: string | null; nombre: string; sobreFoto: boolean }) {
-  const [apaisado, setApaisado] = useState<{ src: string; si: boolean } | null>(null);
-  const esApaisado = apaisado?.src === logoUrl && apaisado.si;
-  if (logoUrl && !esApaisado) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        // Al doble de su lado (pantallas retina), no el original de 1.280 px.
-        src={urlServida(logoUrl, LADO_MARCA * 2)}
-        onError={alFallarImagenServida(logoUrl)}
-        // Decorativo: el nombre va escrito justo al lado. Con `alt` se leía dos veces.
-        alt=""
-        decoding="async"
-        width={LADO_MARCA}
-        height={LADO_MARCA}
-        onLoad={(e) => {
-          const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-          setApaisado({ src: logoUrl, si: h > 0 && w / h > PROPORCION_LOGO_APAISADO });
-        }}
-        style={{
-          width: LADO_MARCA, height: LADO_MARCA, flexShrink: 0, padding: 3, borderRadius: 10,
-          // Un logo se diseña sobre blanco: su propio fondo, en los ocho estilos.
-          objectFit: 'contain', background: '#FFFFFF',
-          boxShadow: sobreFoto ? '0 1px 4px rgba(0,0,0,.28)' : '0 0 0 1px var(--portal-line)',
-        }}
-      />
-    );
-  }
+  const [medido, setMedido] = useState<LogoMedido | null>(null);
+  const [fallo, setFallo] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const cara = caraDeLaMarca({ logoUrl, medido, fallo });
+  const alCargar = (img: HTMLImageElement) => {
+    if (!logoUrl) return;
+    setMedido({ src: logoUrl, apaisado: esLogoApaisado(img.naturalWidth, img.naturalHeight) });
+  };
+  // Si llegó antes de que React se enganchara (caché, página que hidrata tarde), su `load` ya pasó.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) alCargar(img);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de logo
+  }, [logoUrl]);
+
+  const logo = cara === 'logo';
   return (
-    <span aria-hidden="true" style={{
-      width: LADO_MARCA, height: LADO_MARCA, flexShrink: 0, borderRadius: 999,
+    <span aria-hidden="true" data-marca-estudio={cara} style={{
+      position: 'relative', overflow: 'hidden',
+      width: LADO_MARCA, height: LADO_MARCA, flexShrink: 0,
+      // Con logo (o llegando), el cuadrado redondeado del logo: así no cambia de forma al aparecer.
+      borderRadius: cara === 'inicial' ? 999 : 10,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+      // Un logo se diseña sobre blanco: su propio fondo, en los ocho estilos.
+      background: logo ? '#FFFFFF' : 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
       fontFamily: sans, fontSize: 15, fontWeight: 800,
-      boxShadow: sobreFoto ? `0 0 0 1.5px ${BORDE_CRISTAL_SOBRE_FOTO}` : 'none',
+      boxShadow: logo
+        ? (sobreFoto ? '0 1px 4px rgba(0,0,0,.28)' : '0 0 0 1px var(--portal-line)')
+        : (sobreFoto ? `0 0 0 1.5px ${BORDE_CRISTAL_SOBRE_FOTO}` : 'none'),
     }}>
       {/* Mientras llega el estudio el nombre está vacío, y `inicialDe` daría
           «?»: el disco se queda liso ese instante. */}
-      {nombre.trim() ? inicialDe(nombre) : null}
+      {!logo && (nombre.trim() ? inicialDe(nombre) : null)}
+      {logoUrl && cara !== 'inicial' && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={imgRef}
+          // `key`: un logo nuevo es otra imagen, con sus propios reintentos.
+          key={logoUrl}
+          // Al doble de su lado (pantallas retina), no el original de 1.280 px.
+          src={urlServida(logoUrl, LADO_MARCA * 2)}
+          // Decorativo: el nombre va escrito justo al lado. Con `alt` se leía dos veces.
+          alt=""
+          decoding="async"
+          width={LADO_MARCA}
+          height={LADO_MARCA}
+          onLoad={(e) => alCargar(e.currentTarget)}
+          // Primero el original sin redimensionar; si tampoco carga, se queda la inicial.
+          onError={(e) => {
+            if (e.currentTarget.dataset.originalPuesto === '1') setFallo(logoUrl);
+            else alFallarImagenServida(logoUrl)(e);
+          }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%', padding: 3,
+            objectFit: 'contain', background: '#FFFFFF',
+            opacity: logo ? 1 : 0, transition: 'opacity .18s ease-out',
+          }}
+        />
+      )}
     </span>
   );
 }

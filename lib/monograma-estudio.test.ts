@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   inicialDe, coloresMonograma, tamanoValido, urlMonograma, urlIconoEstudio, iconosDeEstudio, logoServible, VERSION_ICONO,
-  COLOR_MONOGRAMA_POR_DEFECTO,
+  COLOR_MONOGRAMA_POR_DEFECTO, monogramaDeEstudio,
 } from './monograma-estudio.ts';
 
 test('la inicial se pone en mayúscula', () => {
@@ -124,4 +124,22 @@ test('la metadata declara 64 para la pestaña, 192 y 180 de iOS, todos del estud
   assert.deepEqual(m.icon.map(i => i.sizes), ['64x64', '192x192']);
   assert.deepEqual(m.apple.map(i => i.sizes), ['180x180']);
   for (const i of [...m.icon, ...m.apple]) assert.ok(i.url.startsWith('/icono-estudio?') && i.url.includes('icono='), i.url);
+});
+
+test('monogramaDeEstudio: la inicial sobre el color del tema, con el texto que se lee', () => {
+  assert.deepEqual(monogramaDeEstudio('alma pilates', '#343825'), { inicial: 'A', fondo: '#343825', texto: '#FFFFFF' });
+  // Un tema claro (el beige de un estudio real) lleva la inicial oscura, no blanca sobre crema.
+  assert.deepEqual(monogramaDeEstudio('Pilates Boutique', '#e9daaf'), { inicial: 'P', fondo: '#e9daaf', texto: '#131313' });
+});
+
+test('monogramaDeEstudio: sin color válido, el oliva; sin nombre, el interrogante — nunca un hueco vacío', () => {
+  assert.deepEqual(monogramaDeEstudio(null, undefined), { inicial: '?', fondo: COLOR_MONOGRAMA_POR_DEFECTO, texto: coloresMonograma(null).texto });
+  assert.equal(monogramaDeEstudio('Núcleo', 'no-es-un-color').fondo, COLOR_MONOGRAMA_POR_DEFECTO);
+});
+
+test('monogramaDeEstudio pinta lo mismo que el PNG del icono: sin salto al cargar', () => {
+  const m = monogramaDeEstudio('estudio aurora', '#B4537E');
+  const q = new URLSearchParams(urlMonograma('estudio aurora', '#B4537E', 192).split('?')[1]);
+  assert.equal(q.get('inicial'), m.inicial);
+  assert.equal(q.get('color'), m.fondo);
 });

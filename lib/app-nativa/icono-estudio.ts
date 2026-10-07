@@ -16,12 +16,19 @@ export interface EstudioParaIcono {
   color_primario: string | null;
 }
 
-export async function iconoDelEstudio(e: EstudioParaIcono, size: 192 | 512 = 192): Promise<string> {
+/**
+ * El icono y el color de marca con el que se pinta su inicial. La lista los
+ * necesita los dos: el icono es una imagen que tarda en llegar (o no llega), y
+ * mientras tanto el hueco enseña la inicial sobre ESTE color (`AvatarEstudio`),
+ * no un cuadrado vacío.
+ */
+export async function marcaDelEstudio(e: EstudioParaIcono, size: 192 | 512 = 192): Promise<{ icono: string; color: string | null }> {
   const tema = await getThemePublicado(e.id).catch(() => null);
   const color = colorMarcaDelEstudio(tema?.primary, null, e.color_primario);
-  return urlIconoEstudio(
+  const icono = urlIconoEstudio(
     e.nombre, color, size,
     { iconoUrl: tema?.faviconUrl ?? null, logoUrl: e.logo_url },
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? null,
   );
+  return { icono, color };
 }
