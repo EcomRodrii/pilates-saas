@@ -107,7 +107,7 @@ test('cancelar aquí: una sola puerta (marca y después cancela), por el dueño 
 test('cambio de gym: la clase se guarda por tipo Y gym (la vieja no se pisa) y las reservas se contestan con el gym de su clase', () => {
   const horario = leer('lib/plataformas/wellhub/horario-servidor.ts');
   assert.match(horario, /onConflict: 'plataforma,studio_id,tipo_clase_id,contenedor_externo_id'/);
-  const migracion = readFileSync(join(raiz, 'supabase/migrations/20261007170000_wellhub_por_api.sql'), 'utf8');
+  const migracion = readFileSync(join(raiz, 'supabase/migrations/20261007133136_wellhub_por_api.sql'), 'utf8');
   assert.match(migracion, /plataforma_clases_tipo\s+on public\.plataforma_clases \(plataforma, studio_id, tipo_clase_id, contenedor_externo_id\)/);
   const s = leer('lib/plataformas/wellhub/servidor.ts');
   assert.match(s, /const gym = await gymDeLaReserva\(admin, r\);/);

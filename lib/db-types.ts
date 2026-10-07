@@ -3800,7 +3800,7 @@ export interface RowPlataformaEventos {
   huella: string | null;
   // migr 20261001140635.
   ocupadas_enviadas: number | null;
-  // migr 20261007170000.
+  // migr 20261007133136.
   contenedor_externo_id: string | null;
 }
 

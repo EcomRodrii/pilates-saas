@@ -10,7 +10,7 @@ integración, un estudio solo recibe check-ins sueltos que valida a mano en su p
 
 | Pieza | Dónde |
 |---|---|
-| Gym de Wellhub de cada estudio, único por gym | `plataforma_conexiones` (migr `20261007170000`), se vincula desde /interno |
+| Gym de Wellhub de cada estudio, único por gym | `plataforma_conexiones` (migr `20261007133136`), se vincula desde /interno |
 | Clase de Wellhub de cada tipo de clase y gym, con el gym en que se publicó | `plataforma_clases` |
 | Slot de Wellhub de cada sesión | `plataforma_eventos` (+ `contenedor_externo_id` = su clase) |
 | Check-ins pendientes de validar | `plataforma_checkins` (el Wellhub ID solo mientras está pendiente) |

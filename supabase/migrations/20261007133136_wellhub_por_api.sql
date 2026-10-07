@@ -136,7 +136,7 @@ grant all on public.plataforma_checkins to service_role;
 create policy exige_doble_factor on public.plataforma_checkins as restrictive for all to authenticated
   using ((select public.nivel_acceso_suficiente())) with check ((select public.nivel_acceso_suficiente()));
 
--- ── 5) reservas.estado_externo: 'Requested' ──────────────────────────────────
+-- ── 5) reservas.estado_externo: 'Requested' y 'Confirming' ───────────────────
 alter table public.reservas drop constraint if exists reservas_estado_externo_valido;
 alter table public.reservas
   add constraint reservas_estado_externo_valido check (
