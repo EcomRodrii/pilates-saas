@@ -105,3 +105,34 @@ test('el prefijo `res-pf-` de una reserva de clase fija se lee en UN sitio (lib/
   assert.deepEqual(sueltos, [],
     'Usa esReservaPlazaFija(id) de lib/reservas/plaza-fija-id.ts: es un contrato, no un nombre, y un literal suelto no lo ve quien lo cambie.');
 });
+
+test('las tres decisiones del estudio: el valor de serie reproduce el comportamiento de antes y las columnas se pueden guardar', () => {
+  const nombre = MIGRACIONES.find(n => n.includes('tres_decisiones_del_estudio_reservas'));
+  assert.ok(nombre, 'falta la migración de las tres decisiones');
+  const sql = readFileSync(join(DIR, nombre!), 'utf8');
+  assert.match(sql, /cancelacion_tardia_devuelve_recuperacion boolean not null default true/, 'la recuperación vuelve, como siempre');
+  assert.match(sql, /lista_espera_reserva_plaza_ofrecida boolean not null default false/, 'la plaza ofrecida cuenta como libre, como siempre');
+  assert.match(sql, /reserva_pendiente_cuenta_para_tope boolean not null default false/, 'las pendientes no cuentan para el tope, como siempre');
+  // Sin el grant de columna, «Guardar» desde Configuración da 42501.
+  assert.match(sql, /grant update \([^)]*cancelacion_tardia_devuelve_recuperacion[^)]*lista_espera_reserva_plaza_ofrecida[^)]*reserva_pendiente_cuenta_para_tope[^)]*\)\s+on public\.studios to authenticated;/);
+});
+
+test('cancelar_reserva_plaza: la recuperación de una cancelación tardía solo se retiene si el estudio lo elige', () => {
+  const c = cuerpoVigente('cancelar_reserva_plaza').replace(/\s+/g, ' ');
+  const i = c.indexOf("set estado = 'DISPONIBLE'");
+  assert.ok(i > 0);
+  assert.match(c.slice(i, i + 220), /and \(v_devuelve_recuperacion or not v_tardia\)/);
+  assert.match(c, /coalesce\(st\.cancelacion_tardia_devuelve_recuperacion, true\)/, 'sin dato, sí vuelve');
+});
+
+test('evaluar_reserva: la plaza ofrecida solo cuenta como ocupada si el estudio lo elige, y solo mientras corre su plazo', () => {
+  const c = cuerpoVigente('evaluar_reserva').replace(/\s+/g, ' ');
+  assert.match(c, /coalesce\(st\.lista_espera_reserva_plaza_ofrecida, false\)/, 'sin dato, no');
+  const i = c.indexOf('if v_ofertas_reservan then');
+  assert.ok(i > 0);
+  const trozo = c.slice(i, i + 420);
+  assert.match(trozo, /r\.estado = 'LISTA_ESPERA'/);
+  assert.match(trozo, /r\.oferta_expira_en > now\(\)/, 'una oferta caducada vuelve a ser plaza libre');
+  // Y es la ÚNICA decisión de aforo: `reservar_plaza` decide con esta función, no con otra cuenta.
+  assert.match(cuerpoVigente('reservar_plaza').replace(/\s+/g, ' '), /evaluar_reserva\(/);
+});

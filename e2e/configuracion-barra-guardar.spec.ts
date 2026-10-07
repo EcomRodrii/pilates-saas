@@ -44,6 +44,9 @@ const FILA: Record<string, unknown> = {
   requiere_aprobacion: false,
   cancelacion_ventana_horas: 24,
   cancelacion_devolver_bono_tardia: false,
+  cancelacion_tardia_devuelve_recuperacion: true,
+  lista_espera_reserva_plaza_ofrecida: false,
+  reserva_pendiente_cuenta_para_tope: false,
   cancelacion_clase_devuelve_bono: true,
   minimo_asistentes_por_clase: 2,
   recuperacion_caducidad_tipo: 'DIAS',
@@ -63,9 +66,9 @@ const FILA: Record<string, unknown> = {
 };
 
 // Las columnas de cada cajón (lib/configuracion/reglas-reserva.ts).
-const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia'];
+const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'cancelacion_tardia_devuelve_recuperacion'];
 const RECUPERACIONES = ['recuperacion_max_vivas', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
-const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_antelacion_hora', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'bloquear_reserva_impago', 'requiere_aprobacion'];
+const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_antelacion_hora', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'reserva_pendiente_cuenta_para_tope', 'bloquear_reserva_impago', 'requiere_aprobacion'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 
 // Cómo está montado el panel: lo lee Tu panel al abrirse y lo devuelve al guardar.
@@ -185,6 +188,51 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText(/^Hasta 6 h antes/);
   });
 
+  test('«Cancelar y recuperar»: devolver la recuperación en una cancelación tardía se elige en su tarjeta y viaja con sus columnas', async ({ page }) => {
+    // Recuperación: si la cancela tarde, ¿la pierde? (de serie la recupera).
+    {
+      const { patches } = await cajonDe(page, 'cancelar-y-recuperar', 'Cancelar y recuperar');
+      const sw = page.getByRole('switch', { name: /Devolver la recuperación en cancelaciones tardías/ });
+      await expect(sw).toHaveAttribute('aria-checked', 'true');
+      await sw.click();
+      await guardar(page).click();
+      await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
+      expect(patches).toHaveLength(1);
+      expect(patches[0]).toEqual({ ...deFila(CANCELAR), cancelacion_tardia_devuelve_recuperacion: false });
+    }
+  });
+
+  test('«Reservar»: contar las pendientes de aprobar solo se ofrece con un tope de reservas a la vez, y viaja con su tarjeta', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'reservar', 'Reservar');
+    const sw = page.getByRole('switch', { name: /Contar las reservas pendientes de aprobar/ });
+    const tope = page.getByLabel('Reservas a la vez por alumna');
+    // Con tope (la fila de prueba trae 4) se ofrece, apagado de serie…
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    // …y sin tope no tiene nada que contar.
+    await tope.fill('');
+    await expect(sw).toHaveCount(0);
+    await tope.fill('4');
+    await sw.click();
+    await guardar(page).click();
+    await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_pendiente_cuenta_para_tope: true });
+  });
+
+  test('lista de espera: guardar la plaza ofrecida solo se ofrece cuando hay plazo para aceptarla', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'lista-de-espera', 'Lista de espera');
+    const sw = page.getByRole('switch', { name: /Guardar la plaza ofrecida mientras corre el plazo/ });
+    // La fila de prueba trae 15 minutos de plazo: hay ofertas.
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await page.getByRole('radio', { name: /Se da a la primera al momento/ }).check();
+    await expect(sw).toHaveCount(0);
+    await page.getByRole('radio', { name: /Se le ofrece/ }).check();
+    await sw.click();
+    await guardar(page).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    expect(patches[0]).toMatchObject({ permite_lista_espera: true, lista_espera_reserva_plaza_ofrecida: true });
+  });
+
   test('«Reservar»: el tope de clases al día viaja con sus columnas, y un 0 no se guarda', async ({ page }) => {
     const { patches } = await cajonDe(page, 'reservar', 'Reservar');
     const alDia = page.getByLabel('Clases al día por alumna');
@@ -259,21 +307,21 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     {
       nombre: 'sin lista (conserva el plazo guardado)',
       elegir: page => page.getByRole('radio', { name: /Sin lista de espera/ }).check(),
-      columnas: { permite_lista_espera: false, lista_espera_plazo_aceptacion_minutos: 15 },
+      columnas: { permite_lista_espera: false, lista_espera_plazo_aceptacion_minutos: 15, lista_espera_reserva_plaza_ofrecida: false },
     },
     {
       nombre: 'se da a la primera al momento',
       elegir: page => page.getByRole('radio', { name: /Se da a la primera al momento/ }).check(),
-      columnas: { permite_lista_espera: true, lista_espera_plazo_aceptacion_minutos: 0 },
+      columnas: { permite_lista_espera: true, lista_espera_plazo_aceptacion_minutos: 0, lista_espera_reserva_plaza_ofrecida: false },
     },
     {
       nombre: 'se le ofrece durante 30 minutos',
       elegir: page => page.getByLabel('Minutos para aceptar la plaza').fill('30'),
-      columnas: { permite_lista_espera: true, lista_espera_plazo_aceptacion_minutos: 30 },
+      columnas: { permite_lista_espera: true, lista_espera_plazo_aceptacion_minutos: 30, lista_espera_reserva_plaza_ofrecida: false },
     },
   ];
   for (const caso of LISTA) {
-    test(`lista de espera, «${caso.nombre}»: sus dos columnas de siempre, y solo esas`, async ({ page }) => {
+    test(`lista de espera, «${caso.nombre}»: sus columnas, y solo esas`, async ({ page }) => {
       const { patches } = await cajonDe(page, 'lista-de-espera', 'Lista de espera');
       await caso.elegir(page);
       await expect(barra(page)).toContainText('Cambios sin guardar en: Lista de espera');

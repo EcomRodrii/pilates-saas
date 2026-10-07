@@ -144,6 +144,15 @@ export function contarReservasActivasFuturas(
   reservas: Reserva[],
   sesiones: { id: string; inicio: string; cancelada?: boolean | null }[],
   ahora: Date,
+  /**
+   * Elección del estudio (`reserva_pendiente_cuenta_para_tope`): ¿una reserva que
+   * espera la aprobación del estudio gasta cupo de «reservas a la vez»? Por
+   * defecto NO, como siempre: todavía no tiene plaza, igual que la lista de espera
+   * no la tiene y sí cuenta —por eso el tope por día, que cuenta todo lo no
+   * cancelado, y este no coinciden—. Activarlo evita que una alumna acumule
+   * peticiones pendientes por encima de su máximo.
+   */
+  opciones: { pendientesCuentan?: boolean } = {},
 ): number {
   const t = ahora.getTime();
   const futuras = new Set(
@@ -151,7 +160,7 @@ export function contarReservasActivasFuturas(
   );
   return reservas.filter(
     r => r.socioId === socioId &&
-      (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA') &&
+      (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA' || (opciones.pendientesCuentan === true && r.estado === 'PENDIENTE_APROBACION')) &&
       futuras.has(r.sesionId),
   ).length;
 }

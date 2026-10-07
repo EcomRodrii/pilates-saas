@@ -2470,7 +2470,7 @@ export async function barrerEsperasDeClasesPasadas(nowISO: string) {
 async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
   const { data, error } = await admin
     .from('studios')
-    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_max_por_dia, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, permite_lista_espera, requiere_aprobacion')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_max_por_dia, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, permite_lista_espera, requiere_aprobacion, reserva_pendiente_cuenta_para_tope')
     .eq('id', studioId).maybeSingle();
   // ⚠️ Un fallo aquí NO es «sin reglas»: con una columna que aún no existe (código
   // desplegado antes que su migración), `data` llega `null` y TODAS las reglas de
@@ -2489,6 +2489,8 @@ async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
     antelacionHora: horaHHMM(data?.reserva_antelacion_hora as string | null | undefined),
     permiteListaEspera: (data?.permite_lista_espera ?? true) as boolean,
     requiereAprobacion: (data?.requiere_aprobacion ?? false) as boolean,
+    // ¿Las reservas pendientes de aprobar cuentan para «reservas a la vez»? De serie no.
+    pendientesCuentanParaTope: (data?.reserva_pendiente_cuenta_para_tope ?? false) as boolean,
   };
 }
 
@@ -2704,6 +2706,8 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 export async function topesDeReservaTS(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string; inicioISO: string;
   maxSimultaneas: number | null; maxPorDia: number | null;
+  /** Ver `contarReservasActivasFuturas`: elección del estudio, de serie no. */
+  pendientesCuentan?: boolean;
 }): Promise<{ excede: 'max-simultaneas'; activas: number; tope: number } | { excede: 'max-por-dia'; tiene: number; tope: number } | null> {
   if (p.maxSimultaneas != null) {
     const [{ data: resRows }, { data: sesRows }] = await Promise.all([
@@ -2721,6 +2725,7 @@ export async function topesDeReservaTS(admin: SupabaseClient, p: {
       // de contarReservasActivasFuturas es inerte (el campo es opcional y TS no avisa).
       (sesRows ?? []).map(r => ({ id: r.id as string, inicio: r.inicio as string, cancelada: (r.cancelada as boolean | null) ?? false })),
       new Date(),
+      { pendientesCuentan: p.pendientesCuentan },
     );
     if (activas >= p.maxSimultaneas) return { excede: 'max-simultaneas', activas, tope: p.maxSimultaneas };
   }
@@ -2821,7 +2826,7 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
       evaluar({ exigir_entitlement: false, saltar_gate_impago: false, permite_lista_espera: permiteListaEspera, spot_id: p.spotId ?? null, requiere_aprobacion: false }),
       topesDeReservaTS(admin, {
         studioId: p.studioId, socioId, sesionId: p.sesionId, inicioISO: ses.inicio as string,
-        maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+        maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia, pendientesCuentan: pol.pendientesCuentanParaTope,
       }),
     ]);
     return decidirPlazaAntesDeCobrar({
@@ -2969,7 +2974,7 @@ export async function crearReservaPublica(params: {
   {
     const tope = await topesDeReservaTS(admin, {
       studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, inicioISO,
-      maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia,
+      maxSimultaneas: pol.maxSimultaneas, maxPorDia: pol.maxPorDia, pendientesCuentan: pol.pendientesCuentanParaTope,
     });
     if (tope?.excede === 'max-simultaneas') {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });

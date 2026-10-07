@@ -366,6 +366,14 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
             />
           )}
         </Campo>
+        {form.reservaMaxSimultaneas != null && (
+          <InterruptorCampo
+            titulo="Contar las reservas pendientes de aprobar"
+            detalle="Con «Aprobar cada reserva» activado, las que esperan tu visto bueno cuentan para el límite de reservas a la vez. Desactivado: no cuentan (como hasta ahora)."
+            on={form.reservaPendienteCuentaParaTope}
+            onChange={v => cambiar('reservaPendienteCuentaParaTope', v)}
+          />
+        )}
         <InterruptorCampo
           titulo="No dejar reservar con un pago fallido"
           detalle="Solo con un cobro rechazado o devuelto. Desde mostrador nunca bloquea."
@@ -424,6 +432,12 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           detalle="Desactivado: pierde la sesión, y la plaza se libera igual (recomendado)."
           on={form.cancelacionDevolverBonoTardia}
           onChange={v => cambiar('cancelacionDevolverBonoTardia', v)}
+        />
+        <InterruptorCampo
+          titulo="Devolver la recuperación en cancelaciones tardías"
+          detalle="Si la clase se pagó con una recuperación y se cancela tarde. Activado: la recupera (como hasta ahora). Desactivado: la pierde."
+          on={form.cancelacionTardiaDevuelveRecuperacion}
+          onChange={v => cambiar('cancelacionTardiaDevuelveRecuperacion', v)}
         />
 <Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
         <EjemploConHoras
@@ -552,7 +566,7 @@ const OPCIONES_LISTA: { modo: ModoListaEspera; titulo: (minutos: number | null) 
 /** Un control para dos columnas (lib/configuracion/lista-espera-modo.ts). */
 export function FormListaEspera({ excepciones, ...props }: PropsCajonRegla) {
   const r = useRegla('lista-de-espera', props);
-  const { form, setForm } = r;
+  const { form, setForm, cambiar } = r;
   const lista = valoresDeListaEspera(form.listaEspera, r.guardado);
   const minutosLista = lista.ok && lista.valores.listaEsperaPlazoAceptacionMinutos > 0 ? lista.valores.listaEsperaPlazoAceptacionMinutos : null;
   return (
@@ -596,6 +610,14 @@ export function FormListaEspera({ excepciones, ...props }: PropsCajonRegla) {
               />
             )}
           </Campo>
+        )}
+        {form.listaEspera.modo === 'con-plazo' && (
+          <InterruptorCampo
+            titulo="Guardar la plaza ofrecida mientras corre el plazo"
+            detalle="Activado: quien reserva en ese momento no se la quita a quien la tiene ofrecida, y pasa a la lista de espera. Desactivado: la toma la primera persona que reserve (como hasta ahora)."
+            on={form.listaEsperaReservaPlazaOfrecida}
+            onChange={v => cambiar('listaEsperaReservaPlazaOfrecida', v)}
+          />
         )}
         {lista.ok && <Consecuencia texto={consecuenciaRegla('lista-de-espera', r.enPantalla)} />}
         <NotaDeSerie>la plaza que se libera va a la primera de la lista, por orden de llegada.</NotaDeSerie>

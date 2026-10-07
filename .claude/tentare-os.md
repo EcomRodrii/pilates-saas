@@ -905,6 +905,18 @@ como un efecto más; no hay que copiar nada.
 Con Fase 3 cerrada, las 13 reglas de reserva/cancelación pedidas
 originalmente están **completas**.
 
+### Tres decisiones que son de cada estudio (7-oct-2026, migr `20261007122300`)
+
+Salieron de una auditoría y el fundador las dejó como **elección de la propietaria**, no como regla del código:
+`studios.cancelacion_tardia_devuelve_recuperacion` (de serie **sí**: la recuperación que pagó una reserva vuelve aunque se
+cancele tarde; apagado, la consume), `studios.lista_espera_reserva_plaza_ofrecida` (de serie **no**: una plaza ofrecida a
+la lista de espera cuenta como libre para quien reserva ahora; encendido, cuenta como ocupada mientras corre su plazo y
+quien llega entra en la espera) y `studios.reserva_pendiente_cuenta_para_tope` (de serie **no**: una reserva pendiente de
+aprobar no gasta cupo de «reservas a la vez»; el tope por día sí cuenta todo lo no cancelado). Los tres valores de serie
+son el comportamiento de antes: no se cambian por iniciativa propia, se ofrecen en Configuración (`reglas-reserva.ts`).
+⚠️ Los dos primeros viven en SQL (`cancelar_reserva_plaza`, `evaluar_reserva`: la elegibilidad se decide ahí y en ningún
+otro sitio) y el tercero en `contarReservasActivasFuturas`; ninguno por tipo de clase (no hay override).
+
 ## P2-5 — rediseño de los especialistas del Decision OS (completo)
 
 Feedback de una cadena de 2 sedes señaló 4 puntos ciegos estructurales en
