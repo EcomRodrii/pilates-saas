@@ -94,15 +94,15 @@ export default function EstudioDePilatesReformerPage() {
         }}
         avisos={[
           { etiqueta: 'Reserva · Reformer 4', estado: 'Confirmada', texto: 'Lucía reservó el martes a las 19:00' },
-          { etiqueta: 'Lista de espera', estado: 'Plaza ocupada', texto: 'Carmen entra en el Reformer 2' },
+          { etiqueta: 'Lista de espera', estado: 'Plaza ocupada', texto: 'Carmen entra en la clase de las 19:00' },
         ]}
-        pieFoto="Sala de reformers con dos avisos de ejemplo de Tentare: una reserva confirmada en el reformer 4 y una plaza de la lista de espera ocupada."
+        pieFoto="Sala de reformers con dos avisos de ejemplo de Tentare: una reserva confirmada en el reformer 4 y una alumna de la lista de espera que entra en la clase de las 19:00."
       />
 
       <ResumenSolucion
         pregunta="¿Qué software necesita un estudio de Pilates reformer?"
         datos={[
-          { cifra: '25 €', texto: 'Precio mediano de una clase suelta de reformer en 32 estudios españoles' },
+          { cifra: '25 €', texto: 'Precio mediano de una clase suelta de reformer, de una muestra de 32 estudios españoles' },
           { cifra: '18,75 €', texto: 'Lo que sale cada sesión con una cuota de una clase a la semana' },
           { cifra: '29 €/mes', texto: 'Tentare Founding Studio, IVA incluido y sin permanencia' },
         ]}
@@ -172,7 +172,7 @@ export default function EstudioDePilatesReformerPage() {
         lado={<CalculadoraPlazasVacias />}
       >
         <p>Un reformer que sale a la venta y no se reserva no vuelve: la clase de las 19:00 de este martes no se puede vender el miércoles. Pon los números de tu estudio y mira cuánto vale lo que se queda sin vender cada mes.</p>
-        <p>El precio de partida, 18,75 €, es la mediana de una sesión de reformer con cuota de una clase semanal en nuestro <Link href="/recursos/precio-clase-de-pilates">estudio de precios de 32 estudios españoles</Link>. Para las cuentas completas, con costes, usa la <Link href="/recursos/rentabilidad-estudio-de-pilates">calculadora de rentabilidad</Link>.</p>
+        <p>El precio de partida, 18,75 €, es la mediana de una sesión de reformer con cuota de una clase semanal en nuestro <Link href="/recursos/precio-clase-de-pilates">estudio de precios de una muestra de 32 estudios españoles</Link>. Para las cuentas completas, con costes, usa la <Link href="/recursos/rentabilidad-estudio-de-pilates">calculadora de rentabilidad</Link>.</p>
       </BandaOscura>
 
       <TablaSolucion
@@ -182,7 +182,7 @@ export default function EstudioDePilatesReformerPage() {
         filas={[
           ['Cancelar sin perder la sesión', 'Hasta 24 h antes', 'Hasta 2 h antes'],
           ['Reservar con antelación', 'Hasta 14 días', 'Hasta 7 días'],
-          ['Exige bono o cuota', 'Sí', 'No: admite clase suelta'],
+          ['Exige bono o cuota', 'Sí', 'No: se puede reservar sin bono'],
           ['Lista de espera', 'Con 30 minutos para aceptar', 'Plaza al instante'],
           ['Mínimo para dar la clase', '3 alumnas', 'Sin mínimo'],
         ]}
@@ -195,11 +195,11 @@ export default function EstudioDePilatesReformerPage() {
         puntos={[
           'Ocupación por tipo de clase',
           'Retención de tus alumnas mes a mes',
-          'El margen de cada clase, con la tarifa real de la instructora',
+          'El margen de cada clase sobre el coste real de la instructora',
         ]}
         enlace={{ href: '/funcionalidades/informes-y-rentabilidad', texto: 'Informes y rentabilidad' }}
       >
-        <p>El informe cruza lo que pagó cada asistente con la tarifa de la instructora que dio la clase y te dice cuánto deja cada una. Así sabes qué franjas merece la pena abrir y cuáles no.</p>
+        <p>El informe cruza lo que pagó cada asistente con la tarifa de la instructora que dio la clase y te da el margen de cada una sobre ese coste (el alquiler y el resto de gastos no entran). Así ves qué franjas merece la pena abrir y cuáles no.</p>
       </FilaProducto>
 
       <FilaProducto

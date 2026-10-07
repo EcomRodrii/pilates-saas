@@ -7,8 +7,9 @@ import { capturarEvento } from '@/lib/posthog-cliente';
 // Lo que cuestan las plazas de reformer que se quedan vacías
 // (lib/recursos/calculadora-plazas-vacias.ts). Los valores de partida son un
 // EJEMPLO y la pantalla lo dice. Los 18,75 € son la mediana de una sesión de
-// reformer con cuota de una clase semanal en nuestro estudio de precios de 32
-// estudios españoles (/recursos/precio-clase-de-pilates y bonos-de-pilates).
+// reformer con cuota de una clase semanal en nuestro estudio de precios (de una
+// muestra de 32 estudios, esa mediana sale de 23; /recursos/precio-clase-de-pilates
+// y bonos-de-pilates).
 
 const EJEMPLO: EntradaPlazasVacias = { reformers: 8, clasesPorSemana: 30, ocupacionPct: 80, ingresoPorPlaza: 18.75 };
 

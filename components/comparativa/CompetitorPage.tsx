@@ -20,7 +20,9 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
   const color = v === 'yes' ? '#3F8A6C' : v === 'no' ? '#B8472F' : '#A9801F';
   const symbol = v === 'yes' ? '✓' : v === 'no' ? '✗' : '≈';
   const lectura = v === 'yes' ? 'Sí' : v === 'no' ? 'No' : 'En parte';
-  return <><span style={{ color, fontWeight: 800 }} aria-label={lectura}>{symbol}</span> {label}</>;
+  // El símbolo se oculta a los lectores de pantalla y se lee la palabra: un
+  // aria-label en un <span> sin rol no lo anuncia casi ningún lector.
+  return <><span style={{ color, fontWeight: 800 }} aria-hidden>{symbol}</span><span className="cmp1-oculto">{lectura}:</span> {label}</>;
 }
 
 // La nota pública de G2 (lib/seo/g2.ts): se enseña porque cualquiera puede comprobarla.
@@ -194,12 +196,13 @@ export function CompetitorPage({
             <h2 className="cmp1-resumen-h2">¿Merece la pena {name} para un estudio de Pilates?</h2>
             <p className="cmp1-resumen-resp">{resumen.respuesta}</p>
           </div>
+          {/* La cabecera va fuera del <dl>: dentro, un <div> solo puede envolver dt/dd. */}
+          <div className="cmp1-cifras-cab" aria-hidden>
+            <span />
+            <span>{name}</span>
+            <span className="cmp1-cifras-nuestro">Tentare</span>
+          </div>
           <dl className="cmp1-cifras">
-            <div className="cmp1-cifras-cab" aria-hidden>
-              <span />
-              <span>{name}</span>
-              <span className="cmp1-cifras-nuestro">Tentare</span>
-            </div>
             {filasResumen.map((f) => (
               <div key={f.etiqueta} className="cmp1-cifra">
                 <dt>{f.etiqueta}</dt>
@@ -322,7 +325,8 @@ export function CompetitorPage({
           font-size: 11.5px; letter-spacing: .06em; color: #8A8A80; }
         .cmp1-miga a { color: #5A5A52; text-decoration: none; }
         .cmp1-miga a:hover { color: #1A1A1A; text-decoration: underline; text-underline-offset: 3px; }
-        .cmp1-logos { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+        .cmp1-logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 24px; }
+        .cmp1-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
         .cmp1-logo { background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 13px 19px; display: flex;
           align-items: center; box-shadow: 0 14px 30px -18px rgba(26,26,26,.22); }
         .cmp1-vs { font-size: 13px; color: #A8A89F; }
@@ -356,7 +360,8 @@ export function CompetitorPage({
         .cmp1-resumen-cab { padding: clamp(24px,3.4vw,38px) clamp(22px,3.4vw,40px) clamp(20px,2.6vw,28px); }
         .cmp1-resumen-h2 { font-weight: 800; font-size: clamp(22px,2.6vw,28px); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 12px; }
         .cmp1-resumen-resp { margin: 0; max-width: 70ch; font-size: 16.5px; line-height: 1.62; color: #2E2E29; }
-        .cmp1-cifras { margin: 0; border-top: 1px solid #ECECE5; }
+        .cmp1-cifras { margin: 0; }
+        .cmp1-cifras-cab { border-top: 1px solid #ECECE5; }
         .cmp1-cifras-cab, .cmp1-cifra { display: grid; grid-template-columns: 150px minmax(0,1fr) minmax(0,1fr); }
         .cmp1-cifras-cab span { padding: 12px clamp(14px,2vw,22px); font-size: 12px; font-weight: 700; color: #5A5A52; background: #F6F6F2; }
         .cmp1-cifras-cab .cmp1-cifras-nuestro { color: #fff; background: ${ACC}; }
