@@ -72,7 +72,7 @@ export const estilosMockupIphone = `
     background: linear-gradient(145deg,#4A5A7A 0%,#1F2A44 30%,#2E3C5E 55%,#18203A 80%,#4F5F80 100%);
     box-shadow: 0 0 0 .06em #7F8EAD inset, 0 0 0 .04em rgba(0,0,0,.55), 0 2.6em 4em -1.6em rgba(20,28,50,.5); }
   .iph-c .iph-pantalla { aspect-ratio: 402 / 874; border-radius: 3em; background: #fff; }
-  .iph-c .iph-estado { position: absolute; inset: 0 0 auto 0; height: 3.2em; padding: 1.15em 2.1em 0 2.7em; background: transparent !important; color: #fff !important; mix-blend-mode: difference; font-size: .95em; pointer-events: none; }
+  .iph-c .iph-estado { position: absolute; inset: 0 0 auto 0; height: 3.2em; padding: 1.15em 2.1em 0 2.7em; background: transparent !important; color: #fff !important; text-shadow: 0 0 .35em rgba(0,0,0,.5); font-size: .95em; pointer-events: none; }
   .iph-c .iph-isla { top: .6em; width: 6.9em; height: 2em; }
   .iph-c .iph-home { bottom: .45em; width: 7.3em; height: .27em; }
   .iph-c .iph-b-accion { top: 5.6em; height: 1.1em; } .iph-c .iph-b-sube { top: 7.6em; height: 2.1em; } .iph-c .iph-b-baja { top: 10.2em; height: 2.1em; }

@@ -69,7 +69,18 @@ export function AppAlumnaReal({ slug, ancho, version = 0, className = '' }: {
               key={version}
               title="La app de tus alumnas, tal y como la ven"
               src={`/portal/${encodeURIComponent(slug)}`}
-              onLoad={() => setCargado(true)}
+              onLoad={(e) => {
+                // La zona segura de un iPhone 17 Pro (54 pt arriba, 34 pt del
+                // indicador abajo): la app ya la respeta con --safe-top/--safe-bottom
+                // (student.css), así que empieza por debajo de la barra de estado.
+                const doc = e.currentTarget.contentDocument;
+                if (doc?.head) {
+                  const st = doc.createElement('style');
+                  st.textContent = '.student-app.student-app{--safe-top:54px;--safe-bottom:34px}';
+                  doc.head.appendChild(st);
+                }
+                setCargado(true);
+              }}
               // `inert`: ni foco ni clics ni lectores de pantalla. Un marco más
               // en la cadena de tabulación del asistente sería una trampa.
               {...({ inert: true } as object)}
