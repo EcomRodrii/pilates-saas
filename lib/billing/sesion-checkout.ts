@@ -10,6 +10,8 @@
  * creaba otra (`crear`). Mismo criterio que el mostrador
  * (`cerrarPagoOnlineAntesDeCobrarAMano`: pagada → no se cobra).
  */
+import { claveTras } from './clave-derivada.ts';
+
 export type DecisionCheckout = 'crear' | 'reutilizar' | 'expirar-y-crear' | 'ya-pagada';
 
 /** Cómo se enseña la sesión: página de Stripe (enlace) o incrustada en la app. */
@@ -204,8 +206,11 @@ export function queHacerConSesionRepetida(actual: { status: string | null } | nu
   return 'no-se-sabe';
 }
 
-/** Clave para una sesión nueva del mismo intento cuando la de su clave ya no sirve. */
-export const claveTrasSesion = (clave: string, sesionMuerta: string) => `${clave}:tras-${sesionMuerta}`;
+/**
+ * Clave para una sesión nueva del mismo intento cuando la de su clave ya no sirve.
+ * Nunca pasa de los 255 caracteres de Stripe, por muchas vueltas que dé (`claveTras`).
+ */
+export const claveTrasSesion = (clave: string, sesionMuerta: string) => claveTras(clave, sesionMuerta);
 
 const ID_SESION_SEGURO = /^cs_[A-Za-z0-9_]+$/;
 

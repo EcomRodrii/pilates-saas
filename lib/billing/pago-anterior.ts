@@ -22,6 +22,8 @@
 //     pantalla, nunca dos pagables.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { claveTras } from './clave-derivada.ts';
+
 export type CobroRepetido = 'usar' | 'nuevo' | 'cancelar-y-nuevo' | 'pagado' | 'en-curso' | 'no-se-sabe';
 
 /**
@@ -73,8 +75,11 @@ export function queHacerConCobroRepetido(statusActual: string | null | undefined
   }
 }
 
-/** Clave de un cobro nuevo del mismo intento cuando el de su clave ya no sirve. */
-export const claveTrasCobro = (clave: string, cobroMuerto: string) => `${clave}:tras-${cobroMuerto}`;
+/**
+ * Clave de un cobro nuevo del mismo intento cuando el de su clave ya no sirve.
+ * Nunca pasa de los 255 caracteres de Stripe, por muchas vueltas que dé (`claveTras`).
+ */
+export const claveTrasCobro = (clave: string, cobroMuerto: string) => claveTras(clave, cobroMuerto);
 
 export interface CobroAnterior {
   id: string;
