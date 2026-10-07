@@ -44,6 +44,23 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 2493
   },
   {
+    "slug": "como-gestionar-un-estudio-de-pilates",
+    "titulo": "Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen",
+    "tituloSeo": "Cómo gestionar un estudio de Pilates: el sistema completo",
+    "descripcion": "Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.",
+    "resumen": "Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.",
+    "categoria": "operacion",
+    "seccion": "Operación",
+    "publicado": "2026-10-07",
+    "relacionadas": [
+      "/recursos/rentabilidad-estudio-de-pilates",
+      "/recursos/bonos-de-pilates",
+      "/recursos/politica-de-cancelacion-de-clases",
+      "/funcionalidades"
+    ],
+    "palabras": 2052
+  },
+  {
     "slug": "mejor-software-para-estudios-de-pilates",
     "titulo": "Mejor software para estudios y centros de Pilates en 2026",
     "tituloSeo": "Mejor software para estudios de pilates 2026: 13 comparados",
@@ -77,7 +94,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1983
+    "palabras": 1981,
+    "actualizado": "2026-10-07"
   },
   {
     "slug": "alternativas-a-bsport",
@@ -170,6 +188,42 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 2408
   },
   {
+    "slug": "precios-reformer-mat",
+    "titulo": "Reformer vs. mat: cuánto cuesta cada plaza, cuánto factura una máquina y qué precio ponerle",
+    "tituloSeo": "Reformer vs mat: coste por plaza y cuánto factura un reformer",
+    "descripcion": "Cuánto cuesta ofrecer una plaza de reformer y una de mat, cuánto factura una máquina al mes y qué diferencia de precio cobran 32 estudios españoles.",
+    "resumen": "La cuenta de una plaza de reformer frente a una de suelo, lo que factura cada máquina según la ocupación y la diferencia de precio que cobran los estudios españoles.",
+    "categoria": "rentabilidad",
+    "seccion": "Rentabilidad",
+    "publicado": "2026-07-01",
+    "relacionadas": [
+      "/recursos/precio-clase-de-pilates",
+      "/recursos/rentabilidad-estudio-de-pilates",
+      "/recursos/bonos-de-pilates",
+      "/soluciones/estudio-de-pilates-reformer"
+    ],
+    "palabras": 1594,
+    "actualizado": "2026-10-07"
+  },
+  {
+    "slug": "ocupacion-clases-valle",
+    "titulo": "Clases valle: cómo llenar las franjas flojas de tu estudio (y cuándo quitarlas)",
+    "tituloSeo": "Clases valle: cómo llenar las franjas flojas de tu estudio",
+    "descripcion": "Cuántas alumnas necesita una clase para no perder dinero, por qué fallan las franjas flojas y ocho formas de llenarlas antes de bajar el precio.",
+    "resumen": "La cuenta para saber si una clase valle te cuesta dinero, cómo averiguar por qué no se llena y qué hacer con ella: cambiarla, avisar a quien puede venir, ponerle precio de franja o quitarla.",
+    "categoria": "rentabilidad",
+    "seccion": "Rentabilidad",
+    "publicado": "2026-08-06",
+    "relacionadas": [
+      "/recursos/rentabilidad-estudio-de-pilates",
+      "/recursos/precios-reformer-mat",
+      "/funcionalidades/informes-y-rentabilidad",
+      "/recursos/bonos-de-pilates"
+    ],
+    "palabras": 1931,
+    "actualizado": "2026-10-07"
+  },
+  {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
     "titulo": "Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación",
     "tituloSeo": "Requisitos para abrir un estudio de pilates: lista en orden",
@@ -203,7 +257,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/bonos-y-membresias",
       "/funcionalidades/cancelaciones-y-politicas"
     ],
-    "palabras": 2022
+    "palabras": 2059,
+    "actualizado": "2026-10-07"
   },
   {
     "slug": "politica-de-cancelacion-de-clases",
@@ -224,6 +279,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 2418
   },
   {
+    "slug": "reducir-cancelaciones-ultima-hora",
+    "titulo": "Cómo reducir las cancelaciones de última hora y los plantones en tus clases",
+    "tituloSeo": "Cómo reducir cancelaciones de última hora y no-shows",
+    "descripcion": "Lo que miden los estudios sobre recordatorios, las ventanas que usan SoulCycle, Barry's o CorePower y seis medidas para que no se pierda ninguna plaza.",
+    "resumen": "Por qué se falta a una clase, lo que dicen cinco estudios sobre los recordatorios, las reglas de las cadenas grandes y un plan en seis pasos para perder menos plazas.",
+    "categoria": "operacion",
+    "seccion": "Operación",
+    "publicado": "2026-08-06",
+    "relacionadas": [
+      "/recursos/politica-de-cancelacion-de-clases",
+      "/funcionalidades/cancelaciones-y-politicas",
+      "/funcionalidades/lista-de-espera",
+      "/funcionalidades/automatizaciones-y-avisos"
+    ],
+    "palabras": 1904,
+    "actualizado": "2026-10-07"
+  },
+  {
     "slug": "cuanto-cobra-una-instructora-de-pilates",
     "titulo": "Cuánto cobra una instructora de pilates en España: convenio, precio por hora y coste real",
     "tituloSeo": "Cuánto cobra una instructora de pilates en 2026",
@@ -240,6 +313,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/iva-clases-de-pilates"
     ],
     "palabras": 2172
+  },
+  {
+    "slug": "cubrir-baja-instructora",
+    "titulo": "Cómo cubrir la baja de una instructora: protocolo, plazos y lo que dice la ley",
+    "tituloSeo": "Cómo cubrir la baja de una instructora de pilates",
+    "descripcion": "Qué preparar antes de la primera baja, cuánto esperar a cada sustituta, qué decir a las alumnas y quién paga una baja médica en España.",
+    "resumen": "El protocolo para cubrir una clase cuando una instructora no puede darla: lo que hay que tener preparado, el orden para avisar, cuánto esperar y lo que dice la Seguridad Social.",
+    "categoria": "sustituciones",
+    "seccion": "Sustituciones y equipo",
+    "publicado": "2026-07-01",
+    "relacionadas": [
+      "/funcionalidades/sustituciones",
+      "/recursos/cuanto-cobra-una-instructora-de-pilates",
+      "/funcionalidades/gestion-de-instructoras",
+      "/recursos/como-gestionar-un-estudio-de-pilates"
+    ],
+    "palabras": 1917,
+    "actualizado": "2026-10-07"
   },
   {
     "slug": "como-ser-instructora-de-pilates",

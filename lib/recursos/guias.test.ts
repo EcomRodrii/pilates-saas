@@ -7,6 +7,7 @@ import {
   anchoUtil, altoUtil, anchosPortada, derivadosPortada, rutaPortada, todasLasPortadas, fechaModificada, mesCorto, metaTarjeta,
   PRESUPUESTO_PORTADA_CABECERA_KB,
 } from './guias.ts';
+import { ARTICULOS_META } from './articulos/meta.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El registro de guías de /recursos y sus portadas en public/.
@@ -83,7 +84,7 @@ test('el listado enseña todas las guías y tarjetas, una vez cada una', () => {
   const claves = [...GUIAS.map((g) => g.slug), ...TARJETAS_SIN_GUIA.map((t) => t.clave)];
   assert.equal(new Set(ORDEN_LISTADO).size, ORDEN_LISTADO.length, 'claves repetidas');
   for (const c of ORDEN_LISTADO) assert.ok(claves.includes(c), `ORDEN_LISTADO: «${c}» no existe`);
-  assert.ok(GUIAS.some((g) => g.slug === DESTACADA), 'la destacada no es una guía');
+  assert.ok(ARTICULOS_META.some((a) => a.slug === DESTACADA), 'la destacada no es ningún artículo de datos');
   assert.ok(!ORDEN_LISTADO.includes(DESTACADA), 'la destacada va aparte, no repetida en la rejilla');
   for (const c of claves) if (c !== DESTACADA) assert.ok(ORDEN_LISTADO.includes(c), `«${c}» no sale en el listado`);
 });

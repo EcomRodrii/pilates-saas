@@ -87,7 +87,24 @@ const TERMINOS: Termino[] = [
     name: 'Pilates reformer',
     description:
       'Modalidad de pilates que se practica sobre una máquina con muelles y una plataforma deslizante — el "reformer" — que añade resistencia variable al ejercicio. Se diferencia del pilates mat (en el suelo, sin máquina) en el coste de la clase y el aforo por sala.',
-    guia: { href: '/recursos/precios-reformer-mat', label: 'Cómo poner precio a reformer y mat' },
+    guia: { href: '/recursos/precios-reformer-mat', label: 'Reformer vs. mat: coste por plaza y precio' },
+  },
+  {
+    slug: 'pilates-mat',
+    categoria: 'modelo',
+    name: 'Pilates mat (suelo)',
+    description:
+      'Modalidad de pilates que se practica en el suelo, sobre una esterilla y a veces con accesorios pequeños (aro, pelota, banda). El aforo lo limita el espacio de la sala, no el número de máquinas, por eso la plaza cuesta menos que en reformer.',
+    extra: 'En los estudios españoles que venden los dos formatos con la misma tarifa, el reformer cuesta de 1,27 a 2,2 veces el suelo.',
+    guia: { href: '/recursos/precio-clase-de-pilates', label: 'Precio de una clase de pilates' },
+  },
+  {
+    slug: 'punto-de-equilibrio',
+    categoria: 'modelo',
+    name: 'Punto de equilibrio de un estudio',
+    description:
+      'Ocupación media a partir de la cual los ingresos de un estudio cubren sus costes fijos (local, suministros, seguros, software) y los variables (la instructora de cada clase). Por debajo, el estudio pierde dinero aunque sus clases parezcan llenas a ciertas horas.',
+    guia: { href: '/recursos/rentabilidad-estudio-de-pilates', label: 'Calcula el punto de equilibrio de tu estudio' },
   },
   {
     slug: 'comision-por-reserva-marketplace',
@@ -103,6 +120,23 @@ const TERMINOS: Termino[] = [
     name: 'Lista de espera automática',
     description:
       'Función de un software de reservas que, cuando una clase está completa y alguien cancela, ofrece automáticamente la plaza liberada a la siguiente persona apuntada en la lista de espera, sin que el estudio tenga que intervenir a mano.',
+    guia: { href: '/funcionalidades/lista-de-espera', label: 'Cómo funciona la lista de espera automática' },
+  },
+  {
+    slug: 'tasa-de-ocupacion',
+    categoria: 'reservas',
+    name: 'Tasa de ocupación de una clase',
+    description:
+      'Porcentaje de plazas reservadas sobre las plazas que se ofrecen, por clase, por franja o en todo el horario. Es el número que más mueve la rentabilidad de un estudio, porque los costes de una clase son casi los mismos esté llena o a medias.',
+    guia: { href: '/recursos/precios-reformer-mat', label: 'Cuánto factura un reformer según la ocupación' },
+  },
+  {
+    slug: 'clase-valle',
+    categoria: 'reservas',
+    name: 'Clase valle',
+    description:
+      'Clase en una franja de poca demanda —a menudo media mañana o primera hora de la tarde entre semana— que se llena menos que las de primera hora o la tarde. Cuesta casi lo mismo darla que una clase llena.',
+    guia: { href: '/recursos/ocupacion-clases-valle', label: 'Clases valle: cómo llenarlas y cuándo quitarlas' },
   },
   {
     slug: 'aforo-por-puesto',
@@ -149,7 +183,7 @@ const TERMINOS: Termino[] = [
     description:
       'Proceso por el que un estudio cubre una clase cuando la instructora asignada avisa de que no puede darla: encontrar a alguien disponible con el formato adecuado, actualizar el calendario y avisar a las alumnas ya reservadas.',
     extra: 'Puede hacerse a mano (llamadas y mensajes) o de forma automatizada por el software, que ya sabe qué instructoras pueden cubrir cada clase.',
-    guia: { href: '/recursos/cubrir-baja-instructora', label: 'Cómo cubrir una baja sin hacer una llamada' },
+    guia: { href: '/recursos/cubrir-baja-instructora', label: 'Cómo cubrir la baja de una instructora' },
   },
   {
     slug: 'riesgo-dependencia-instructora',
@@ -157,6 +191,7 @@ const TERMINOS: Termino[] = [
     name: 'Riesgo de dependencia de una instructora',
     description:
       'Indicador que mide qué parte de las clases de un estudio dependen de una sola instructora. Un estudio con dependencia alta sufre más si esa persona causa una baja larga, porque hay pocas alternativas reales para cubrir sus clases.',
+    guia: { href: '/recursos/cubrir-baja-instructora#no-depender', label: 'Que una baja no pare el estudio' },
   },
   {
     slug: 'autonomia-en-sustituciones',
@@ -173,6 +208,22 @@ const TERMINOS: Termino[] = [
     description:
       'Dos modelos de cobro habituales en un estudio. Un bono es un paquete cerrado de sesiones que se consumen y caducan; una suscripción es un cobro recurrente —normalmente mensual— que da acceso a un número de clases o ilimitado mientras esté activa.',
     extra: 'Difieren en cómo se comporta la caja del estudio (ingreso puntual vs. recurrente) y en el nivel de compromiso que asume la alumna.',
+  },
+  {
+    slug: 'caducidad-del-bono',
+    categoria: 'cobros',
+    name: 'Caducidad de un bono de clases',
+    description:
+      'Plazo en el que la alumna tiene que gastar las sesiones de un bono; pasado ese plazo, las que queden se pierden. Tiene que constar por escrito antes de la venta. En 8 de cada 10 estudios españoles revisados que publican el plazo, el bono de 10 sesiones caduca entre los 2 y los 4 meses.',
+    guia: { href: '/recursos/bonos-de-pilates', label: 'Qué caducidad poner a un bono de pilates' },
+  },
+  {
+    slug: 'clase-suelta',
+    categoria: 'cobros',
+    name: 'Clase suelta',
+    description:
+      'Una sola sesión que se paga sin bono ni cuota, para quien viene de forma puntual o a probar. Es la opción más cara por sesión: en reformer en grupo, 25 € de mediana en los estudios españoles revisados, frente a 18,75 € con una cuota de una clase semanal.',
+    guia: { href: '/recursos/precio-clase-de-pilates', label: 'Precio de una clase de pilates' },
   },
   {
     slug: 'cobro-recurrente-sepa',

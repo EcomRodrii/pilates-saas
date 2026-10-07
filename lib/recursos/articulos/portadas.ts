@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { PortadaRecursos } from '../guias.ts';
+import { LEGAL } from '../../legal-info.ts';
 
 export const ANCHOS_PORTADA_ARTICULO = [360, 480, 720, 1200] as const;
 
@@ -35,6 +36,20 @@ const portada = (id: string, original: string, alt: string, autor: string, foto:
   },
   consentimiento: 'no-aplica',
   anchos: ANCHOS_PORTADA_ARTICULO,
+});
+
+// Las del 7-oct-2026 (el pilar de gestión y las cuatro guías antiguas pasadas a
+// datos) salen de los originales grandes de la landing (components/landing/
+// fotos.ts), recortados a 1600×800, y de una captura del propio panel. Con su
+// fuente real, que no siempre es Unsplash.
+const conCredito = (
+  id: string, original: string, alt: string, credito: PortadaRecursos['credito'],
+): PortadaRecursos => ({
+  id, original, alt, ancho: 1600, alto: 800, recorte: [0, 0, 0, 0], credito, consentimiento: 'no-aplica', anchos: ANCHOS_PORTADA_ARTICULO,
+});
+
+const PAULINA_VARGAS = (foto: string): PortadaRecursos['credito'] => ({
+  autor: 'Paulina Vargas', fuente: 'Pexels', url: `https://www.pexels.com/photo/${foto}/`, licencia: 'Licencia de Pexels', fechaDescarga: '2026-09-16',
 });
 
 export const PORTADAS_ARTICULOS: Record<string, PortadaRecursos> = {
@@ -79,6 +94,24 @@ export const PORTADAS_ARTICULOS: Record<string, PortadaRecursos> = {
     'Un cartel de «Open» en la puerta de un comercio', 'WindowSeat Photography', 'wzBiUDmhf-U'),
   'nombres-para-estudio-de-pilates': portada('libreta-boligrafo-nombres-estudio-pilates', '28-nombres-para-estudio-de-pilates.jpg',
     'Una libreta en blanco con un bolígrafo sobre una mesa de madera', 'Kelly Sikkema', 'e0djo08-Ev8'),
+  // Captura del calendario del panel (la misma de /funcionalidades/calendario-y-salas,
+  // con datos de demostración). `fuente: 'Tentare'` hace que el pie diga «Captura
+  // del panel de Tentare» en vez de «Foto: … en …».
+  'como-gestionar-un-estudio-de-pilates': conCredito('calendario-semanal-panel-gestionar-estudio-pilates', '29-como-gestionar-un-estudio-de-pilates.jpg',
+    'Calendario semanal de un estudio de pilates en el panel de Tentare, con la ocupación media de la semana y las clases de reformer, mat y prenatal',
+    { autor: 'Tentare', fuente: 'Tentare', url: `${LEGAL.url}/funcionalidades/calendario-y-salas`, licencia: 'Captura propia', fechaDescarga: '2026-10-07' }),
+  'precios-reformer-mat': conCredito('reformers-tapizado-negro-precios-reformer-mat', '30-precios-reformer-mat.jpg',
+    'Fila de reformers de madera con tapizado negro en un estudio de pilates con columnas iluminadas',
+    PAULINA_VARGAS('modern-pilates-studio-with-reformers-36833354')),
+  'reducir-cancelaciones-ultima-hora': conCredito('sala-reformers-vacia-reducir-cancelaciones', '31-reducir-cancelaciones-ultima-hora.jpg',
+    'Sala de pilates vacía con reformers de madera y espejos en arco iluminados con luz cálida',
+    PAULINA_VARGAS('modern-pilates-studio-with-reformers-36833355')),
+  'cubrir-baja-instructora': conCredito('alumna-reformer-cubrir-baja-instructora', '32-cubrir-baja-instructora.jpg',
+    'Una mujer hace un ejercicio de plancha en un reformer, en un estudio en tonos crema con más reformers al fondo',
+    { autor: 'Roxana Popovici', fuente: 'Unsplash', url: 'https://unsplash.com/photos/5JQxj-zc5ng', licencia: 'Licencia de Unsplash', fechaDescarga: '2026-09-16' }),
+  'ocupacion-clases-valle': conCredito('sala-reformers-madera-ocupacion-clases-valle', '33-ocupacion-clases-valle.jpg',
+    'Sala de pilates luminosa y vacía, con una fila de reformers de madera clara y cortinas blancas al fondo',
+    { autor: 'Lê Đức', fuente: 'Pexels', url: 'https://www.pexels.com/photo/a-modern-fitness-studio-18499500/', licencia: 'Licencia de Pexels', fechaDescarga: '2026-09-16' }),
 };
 
 export const portadaArticulo = (slug: string): PortadaRecursos | undefined => PORTADAS_ARTICULOS[slug];
