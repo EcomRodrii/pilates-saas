@@ -4114,6 +4114,17 @@ export interface RowAsistenteAcciones {
   resuelta_en: string | null;
 }
 
+export interface RowSolicitudesLlamada {
+  id: string;
+  studio_id: string;
+  telefono: string | null;
+  hora_preferida: string | null;
+  consentimiento_en: string;
+  estado: string;
+  creada_en: string;
+  atendida_en: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11383,6 +11394,28 @@ export type AsistenteAccionesUpdate = {
   resuelta_en?: string | null | null;
 }
 
+export type SolicitudesLlamadaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  telefono?: string | null | null;
+  hora_preferida?: string | null | null;
+  consentimiento_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+}
+
+export type SolicitudesLlamadaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  telefono?: string | null | null;
+  hora_preferida?: string | null | null;
+  consentimiento_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12645,6 +12678,11 @@ export type Database = {
         Row: RowAsistenteAcciones;
         Insert: AsistenteAccionesInsert;
         Update: AsistenteAccionesUpdate;
+      };
+      solicitudes_llamada: {
+        Row: RowSolicitudesLlamada;
+        Insert: SolicitudesLlamadaInsert;
+        Update: SolicitudesLlamadaUpdate;
       };
     };
   };
