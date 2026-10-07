@@ -325,7 +325,7 @@ export default function GlosarioPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/recursos', label: 'Recursos' }, { href: '/comparativa', label: 'Comparativa' }]} />
+      <SiteFooter />
 
       <style>{`
         .glo-portada { position: relative; isolation: isolate; overflow: hidden; background: #14150F;

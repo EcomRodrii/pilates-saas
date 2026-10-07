@@ -115,7 +115,7 @@ export default function SobreTentarePage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/seguridad', label: 'Seguridad' }, { href: '/legal', label: 'Aviso legal' }]} />
+      <SiteFooter />
     </PageShell>
   );
 }

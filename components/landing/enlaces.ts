@@ -88,8 +88,34 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
+      // Hasta el 7-oct ninguna página enlazaba /sobre-tentare (rastreo de ese día).
+      { href: '/sobre-tentare', label: 'Sobre Tentare' },
       // Tentare Network salió del pie y del menú el 2-oct-2026: está congelado
       // (lib/frozen-features.ts). Su web pública sigue viva, sin enlazar.
+    ],
+  },
+  {
+    // Las páginas por tipo de estudio no tenían ningún enlace desde la home
+    // (7-oct-2026): /soluciones recibía un solo enlace interno en todo el sitio.
+    titulo: 'Para tu estudio',
+    enlaces: [
+      { href: '/soluciones/estudio-de-pilates-reformer', label: 'Pilates reformer' },
+      { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga' },
+      { href: '/funcionalidades/multi-centro', label: 'Varias sedes' },
+      { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software' },
+      { href: '/soluciones', label: 'Todas las soluciones →' },
+    ],
+  },
+  {
+    // La home es la página con más autoridad del dominio: que reparta un poco
+    // hacia las comparativas, que son las de búsqueda de compra.
+    titulo: 'Comparar',
+    enlaces: [
+      { href: '/comparativa/tentare-vs-bsport', label: 'Alternativa a bsport' },
+      { href: '/comparativa/tentare-vs-eversports', label: 'Alternativa a Eversports' },
+      { href: '/comparativa/tentare-vs-mindbody', label: 'Alternativa a Mindbody' },
+      { href: '/comparativa/tentare-vs-timp', label: 'Alternativa a TIMP' },
+      { href: '/recursos/mejor-software-para-estudios-de-pilates', label: 'Mejor software de Pilates' },
     ],
   },
   {

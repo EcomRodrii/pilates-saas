@@ -52,7 +52,7 @@ export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda;
         <AyudaFeedback categoria={articulo.categoria} articulo={articulo.slug} />
       </article>
 
-      <SiteFooter links={[{ href: '/ayuda', label: 'Centro de Ayuda' }, { href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }]} />
+      <SiteFooter />
     </PageShell>
   );
 }

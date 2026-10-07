@@ -87,7 +87,7 @@ export default async function CategoriaPage({ params }: { params: Promise<{ cate
         <AyudaCTASoporte />
       </div>
 
-      <SiteFooter links={[{ href: '/ayuda', label: 'Centro de Ayuda' }, { href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }]} />
+      <SiteFooter />
 
       <style>{`.ayuda-cat-item{transition:border-color .15s,transform .15s}.ayuda-cat-item:hover{border-color:${ACC};transform:translateY(-2px)}`}</style>
     </PageShell>

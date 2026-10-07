@@ -146,7 +146,7 @@ export default function CambiarDeSoftwarePage() {
         </section>
       )}
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }]} />
+      <SiteFooter />
 
       <style>{`
         .sol-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
