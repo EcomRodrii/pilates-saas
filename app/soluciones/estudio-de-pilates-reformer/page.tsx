@@ -1,28 +1,34 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MUTED } from '@/components/landing/theme';
-import { Reveal } from '@/components/landing/Reveal';
-import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
-import { Callout, Checklist, CtaBlock } from '@/components/recursos/ArticlePrimitives';
-import { ArticleFaq } from '@/components/recursos/ArticleFaq';
-import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
+import {
+  BandaOscura,
+  CierreSolucion,
+  FaqSolucion,
+  FilaProducto,
+  HeroSolucion,
+  PlanesSolucion,
+  ResumenSolucion,
+  Situaciones,
+  SolucionShell,
+  TablaSolucion,
+} from '@/components/soluciones/LandingSolucion';
+import { CalculadoraPlazasVacias } from '@/components/soluciones/CalculadoraPlazasVacias';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
-// Página pilar del estudio de Pilates REFORMER (fase 5 del rediseño, 23-sep).
+// Página pilar del estudio de Pilates REFORMER (fase 5 del rediseño, 23-sep;
+// rehecha el 7-oct-2026 como página de producto, no como artículo).
 //
-// No compite con la home —que se queda la búsqueda genérica «software de
-// gestión para estudios de Pilates»—: responde a quien busca cómo gestionar un
-// estudio de máquinas, donde lo que se vende es un reformer a una hora.
+// No compite con la home —que se queda la búsqueda genérica «software para
+// estudios de Pilates»—: responde a quien busca cómo gestionar un estudio de
+// máquinas, donde lo que se vende es un reformer a una hora.
 //
 // ⚠️ Cada frase está cruzada con el código (registro de afirmaciones de la
-// fase 1 del rediseño). En particular: elegir reformer funciona cuando la sala
-// tiene sus puestos definidos; la plaza fija la PIDE la alumna y el estudio la
-// aprueba; la penalización por cancelación tardía o no-show es opcional y
-// exige tarjeta guardada y consentimiento; los bonos online, Stripe conectado.
-// No prometer más de lo que hay.
+// fase 1 del rediseño y páginas de funcionalidad). En particular: elegir
+// reformer funciona cuando la sala tiene sus puestos definidos; la plaza fija la
+// PIDE la alumna y el estudio la aprueba; la penalización por cancelación tardía
+// o no-show es opcional y exige tarjeta guardada y consentimiento; los bonos
+// online, Stripe conectado. La calculadora NO promete cuántas plazas recupera
+// Tentare: solo pone precio a las que se quedan vacías. No prometer más de lo que hay.
 
 const PATH = '/soluciones/estudio-de-pilates-reformer';
 const pagina = paginaDe(PATH)!;
@@ -39,16 +45,6 @@ export const metadata: Metadata = {
     url: urlDe(PATH),
   },
 };
-
-const LO_QUE_CUBRE = [
-  'Cada sala con su aforo, y cada reformer con su plaza: la alumna ve qué máquinas quedan libres y elige la suya',
-  'Plazas fijas: la alumna pide su hueco de cada semana desde la app y tú lo apruebas',
-  'Lista de espera automática: la plaza que se libera pasa sola a la primera de la cola',
-  'Bonos y cuotas por tipo de clase: el reformer y el mat pueden tener precio distinto',
-  'Cancelaciones con tu ventana por tipo de clase y, si lo activas, penalización por no-show',
-  'Si una instructora no puede, Tentare busca quién cubre la clase y avisa a las alumnas',
-  'Qué deja cada clase: ingresos menos lo que cuesta la instructora, clase por clase',
-];
 
 const FAQ = [
   {
@@ -71,99 +67,159 @@ const FAQ = [
     q: '¿Y si mi estudio combina reformer con mat o con yoga?',
     a: 'Es lo más habitual. Cada disciplina es su propio tipo de clase, con su horario, su sala, su aforo y su precio, dentro del mismo estudio.',
   },
+  {
+    q: '¿Mis alumnas tienen que descargarse una app?',
+    a: 'No hace falta. Reservan desde el navegador del móvil con el enlace de tu estudio. Si quieren, lo añaden a su pantalla de inicio y se comporta como una app, con tu nombre, tu icono y tus colores.',
+  },
+  {
+    q: '¿Puedo cambiarme a Tentare desde otro programa?',
+    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. Si prefieres, lo hacemos nosotros.',
+  },
 ];
 
 export default function EstudioDePilatesReformerPage() {
-  const relacionadas = relacionadasDe(PATH);
   return (
-    <PageShell>
-      <OrganizationStructuredData />
-      <FaqStructuredData items={FAQ} />
-      <PageBreadcrumb path={PATH} name="Estudio de Pilates reformer" />
-      <SiteNav backHref="/" backLabel="Inicio" />
+    <SolucionShell path={PATH}>
+      <HeroSolucion
+        miga="Pilates reformer"
+        busqueda="Software para estudios de Pilates reformer"
+        titular={<>Vendes reformers a una hora. Tentare los gestiona así.</>}
+        entrada={<>Cada sala con su aforo, cada máquina con su plaza, las alumnas de siempre con su sitio fijo y una lista de espera que ofrece sola la plaza que se libera. Para estudios de Pilates reformer en España.</>}
+        foto={{
+          src: '/landing/fotos/reformers-madera-tapizado-negro-plazas-movil-1170.webp',
+          srcAvif: '/landing/fotos/reformers-madera-tapizado-negro-plazas-movil-1170.avif',
+          alt: 'Fila de reformers con tapizado negro delante de una pared crema con columnas iluminadas',
+          ancho: 1170,
+          alto: 1463,
+        }}
+        avisos={[
+          { etiqueta: 'Reserva · Reformer 4', estado: 'Confirmada', texto: 'Lucía reservó el martes a las 19:00' },
+          { etiqueta: 'Lista de espera', estado: 'Plaza ocupada', texto: 'Carmen entra en el Reformer 2' },
+        ]}
+        pieFoto="Sala de reformers con dos avisos de ejemplo de Tentare: una reserva confirmada en el reformer 4 y una plaza de la lista de espera ocupada."
+      />
 
-      <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
-        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Para estudios de reformer</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Software para estudios de Pilates reformer.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Un estudio de reformer no vende clases: vende <strong style={{ color: '#1A1A1A' }}>máquinas a una hora</strong>. Tentare lo gestiona así: cada sala con sus reformers, cada alumna con su plaza, y cada hueco que se libera, ocupado antes de que tengas que escribir a nadie.</p>
-        </div>
-      </header>
+      <ResumenSolucion
+        pregunta="¿Qué software necesita un estudio de Pilates reformer?"
+        datos={[
+          { cifra: '25 €', texto: 'Precio mediano de una clase suelta de reformer en 32 estudios españoles' },
+          { cifra: '18,75 €', texto: 'Lo que sale cada sesión con una cuota de una clase a la semana' },
+          { cifra: '29 €/mes', texto: 'Tentare Founding Studio, IVA incluido y sin permanencia' },
+        ]}
+      >
+        Uno que trate cada reformer como una plaza: que la alumna reserve su máquina desde el móvil, que el aforo de
+        cada sala se respete solo, que la plaza que se libera pase a la lista de espera sin escribir un WhatsApp y que
+        el reformer y el mat puedan tener reglas y precios distintos. Tentare hace todo eso, junto con los cobros, los
+        bonos y las sustituciones de instructoras, desde 29 €/mes con IVA y sin permanencia.
+      </ResumenSolucion>
 
-      <section style={{ padding: 'clamp(8px,2vw,20px) clamp(20px,4vw,44px) clamp(24px,4vw,40px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal>
-            <Checklist eyebrow="Lo que cubre en un estudio de reformer" items={LO_QUE_CUBRE} />
-          </Reveal>
-        </div>
-      </section>
+      <Situaciones
+        titulo="Tres momentos que se repiten en cualquier estudio de reformer"
+        items={[
+          { hora: 'Martes · 18:40', titulo: 'Una cancelación a última hora', texto: 'Una alumna cancela su reformer de las 19:00. La plaza pasa a la primera de la lista de espera, que recibe el aviso en el móvil. Tú no haces nada.' },
+          { hora: 'Lunes · 9:00', titulo: 'El reformer 6 no funciona', texto: 'Lo marcas como averiado y la capacidad de esa clase baja sola: nadie puede reservar una máquina que no está.' },
+          { hora: 'Septiembre', titulo: 'Las de siempre vuelven', texto: 'Cada alumna con plaza fija tiene su reformer de los martes reservado cada semana, sin pedirlo cada vez.' },
+        ]}
+      />
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto', display: 'grid', gap: 16 }}>
-          <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>Una clase llena no debería tener huecos</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>En un estudio de máquinas, un reformer vacío es dinero que no vuelve. Cuando alguien cancela, la plaza pasa a la lista de espera sin que tú hagas nada, y la alumna recibe el aviso en su móvil. Las plazas fijas aseguran el hueco de cada semana a quien viene siempre, sin reservar a mano.</p>
-          </Reveal>
-          <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>La baja de la instructora, cubierta</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>Si una instructora no puede dar su clase, Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo también sin esperar a que lo apruebes. <Link href="/funcionalidades/sustituciones" style={{ color: '#343825', fontWeight: 700 }}>Cómo funcionan las sustituciones</Link>.</p>
-          </Reveal>
-        </div>
-      </section>
+      <FilaProducto
+        eyebrow="Reservas por máquina"
+        titulo="Reservas por reformer y aforo por sala"
+        captura={{ src: '/producto/calendario-dia.png', alt: 'Calendario de Tentare en vista de día, con la sala de reformer y la de mat en columnas, sus plazas y la ocupación del día', ancho: 2880, alto: 1624, pie: 'Un día por salas: cada clase con sus plazas y la ocupación del día arriba.' }}
+        puntos={[
+          'La ocupación del día, sala por sala, en el propio calendario',
+          'Reglas distintas para el reformer y para el mat',
+          'Dos alumnas nunca se quedan la misma plaza: el aforo se comprueba al reservar, con bloqueo',
+        ]}
+        enlace={{ href: '/funcionalidades/calendario-y-salas', texto: 'Cómo funcionan el calendario y las salas' }}
+      >
+        <p>En Tentare el aforo no es un número que escribes en cada clase: sale de la sala. Si defines los puestos, la alumna ve qué reformers quedan libres al reservar y elige el suyo; si no, reserva por aforo.</p>
+        <p>Cada tipo de clase tiene sus reglas: con cuánta antelación se reserva, hasta cuándo se cancela, si exige bono y si admite lista de espera.</p>
+      </FilaProducto>
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal>
-            <Callout title="Lo que conviene saber antes" iconColor="#C79A2E" bg="#FBF6EA" border="#EEDFB8">
-              Para que la alumna elija su reformer, la sala tiene que tener sus puestos definidos; si no, se reserva por aforo. Vender bonos y cuotas online exige conectar tu cuenta de Stripe, y la penalización por no-show solo se cobra a quien tiene tarjeta guardada y ha aceptado esa condición.
-            </Callout>
-          </Reveal>
-        </div>
-      </section>
+      <FilaProducto
+        invertida
+        eyebrow="Lista de espera"
+        titulo="La plaza que se libera no se pierde"
+        captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
+        puntos={[
+          'Avisos en el móvil de la alumna, desde la app con tu marca',
+          'Plazo para aceptar la plaza, si lo quieres, por tipo de clase',
+          'Penalización opcional por cancelar tarde o no venir, con tarjeta guardada y consentimiento',
+        ]}
+        enlace={{ href: '/funcionalidades/lista-de-espera', texto: 'Cómo funciona la lista de espera' }}
+      >
+        <p>Cuando alguien cancela, la plaza pasa sola a la primera de la cola: al instante o con un plazo para aceptarla que eliges tú. Si no la acepta a tiempo, se ofrece a la siguiente.</p>
+      </FilaProducto>
 
-      <section style={{ background: '#0F0F0F', color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Preguntas frecuentes</Reveal>
-          <ArticleFaq items={FAQ} />
-        </div>
-      </section>
+      <FilaProducto
+        eyebrow="Bonos, cuotas y plazas fijas"
+        titulo="El reformer y el mat, cada uno con su precio"
+        captura={{ src: '/producto/clientas.png', alt: 'Lista de clientas de Tentare con el plan de cada una, sus sesiones restantes y su estado', ancho: 2880, alto: 1624, pie: 'Cada alumna con su plan, sus sesiones y su última visita.' }}
+        puntos={[
+          'Bonos con caducidad y recuperaciones',
+          'Cuotas mensuales, con o sin límite de clases a la semana',
+          'Cobro automático con tarjeta o domiciliación SEPA',
+        ]}
+        enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
+      >
+        <p>Los bonos y las cuotas pueden ser de un tipo de clase concreto, así que un bono de reformer y una cuota de mat conviven en la misma alumna. Las <Link href="/funcionalidades/plazas-fijas">plazas fijas</Link> reservan solas el sitio semanal de quien viene siempre, y se pausan cuando se va de vacaciones.</p>
+      </FilaProducto>
 
-      <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Pruébalo con tu estudio de verdad." body="7 días gratis, sin tarjeta. Tu horario y tu página de reservas, listos en tu primera sesión." cta="Probar 7 días gratis" />
-        </div>
-      </section>
+      <BandaOscura
+        eyebrow="Calculadora"
+        titulo="¿Cuánto te cuestan las plazas de reformer vacías?"
+        lado={<CalculadoraPlazasVacias />}
+      >
+        <p>Un reformer que sale a la venta y no se reserva no vuelve: la clase de las 19:00 de este martes no se puede vender el miércoles. Pon los números de tu estudio y mira cuánto vale lo que se queda sin vender cada mes.</p>
+        <p>El precio de partida, 18,75 €, es la mediana de una sesión de reformer con cuota de una clase semanal en nuestro <Link href="/recursos/precio-clase-de-pilates">estudio de precios de 32 estudios españoles</Link>. Para las cuentas completas, con costes, usa la <Link href="/recursos/rentabilidad-estudio-de-pilates">calculadora de rentabilidad</Link>.</p>
+      </BandaOscura>
 
-      {relacionadas.length > 0 && (
-        <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 18px' }}>Sigue por aquí</h2>
-            <div className="ref-rel">
-              {relacionadas.map((r) => (
-                <Link key={r.path} href={r.path} className="ref-rel-card">
-                  <span className="ref-rel-nombre">{r.etiqueta}</span>
-                  <span className="ref-rel-resumen">{r.resumen ?? r.descripcion}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <TablaSolucion
+        titulo="Reformer y mat en el mismo estudio, con reglas distintas"
+        intro={<p>Cada tipo de clase puede cambiar las reglas del estudio; lo que no cambias, lo hereda. Así lo configuraría un estudio que tiene las dos:</p>}
+        cabeceras={['Regla', 'Reformer (ejemplo)', 'Mat (ejemplo)']}
+        filas={[
+          ['Cancelar sin perder la sesión', 'Hasta 24 h antes', 'Hasta 2 h antes'],
+          ['Reservar con antelación', 'Hasta 14 días', 'Hasta 7 días'],
+          ['Exige bono o cuota', 'Sí', 'No: admite clase suelta'],
+          ['Lista de espera', 'Con 30 minutos para aceptar', 'Plaza al instante'],
+          ['Mínimo para dar la clase', '3 alumnas', 'Sin mínimo'],
+        ]}
+      />
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/soluciones', label: 'Soluciones' }]} />
+      <FilaProducto
+        eyebrow="Ocupación y rentabilidad"
+        titulo="Qué clases te dan dinero, clase por clase"
+        captura={{ src: '/producto/informes.png', alt: 'Informes de Tentare con los ingresos del periodo, el ticket medio, la retención y la evolución de ingresos por día', ancho: 2880, alto: 1624 }}
+        puntos={[
+          'Ocupación por tipo de clase',
+          'Retención de tus alumnas mes a mes',
+          'El margen de cada clase, con la tarifa real de la instructora',
+        ]}
+        enlace={{ href: '/funcionalidades/informes-y-rentabilidad', texto: 'Informes y rentabilidad' }}
+      >
+        <p>El informe cruza lo que pagó cada asistente con la tarifa de la instructora que dio la clase y te dice cuánto deja cada una. Así sabes qué franjas merece la pena abrir y cuáles no.</p>
+      </FilaProducto>
 
-      <style>{`
-        .ref-rel { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 16px; }
-        .ref-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0;
-          border-radius: 16px; padding: 20px; text-decoration: none;
-          transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
-        .ref-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
-        .ref-rel-nombre { display: block; font-size: 15.5px; font-weight: 700; color: #1A1A1A; margin-bottom: 6px; }
-        .ref-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
-        @media (max-width: 760px) { .ref-rel { grid-template-columns: 1fr; } }
-        @media (prefers-reduced-motion: reduce) { .ref-rel-card { transition: none; } }
-      `}</style>
-    </PageShell>
+      <FilaProducto
+        invertida
+        eyebrow="Instructoras"
+        titulo="Si una instructora no puede, la clase no se cae"
+        captura={{ src: '/landing/fotos-aportadas/instructora-y-alumna-reformers-estudio-pilates.webp', alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', ancho: 434, alto: 600, foto: true }}
+        enlace={{ href: '/funcionalidades/sustituciones', texto: 'Cómo funcionan las sustituciones' }}
+      >
+        <p>Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo sola, sin esperar a que lo apruebes.</p>
+      </FilaProducto>
+
+      <PlanesSolucion titulo="Lo que cuesta Tentare para un estudio de reformer" />
+
+      <FaqSolucion titulo="Preguntas sobre Tentare para estudios de reformer" items={FAQ} />
+
+      <CierreSolucion
+        titulo="Tu estudio de reformer, funcionando solo."
+        texto="Monta tu horario y tu página de reservas en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+      />
+    </SolucionShell>
   );
 }

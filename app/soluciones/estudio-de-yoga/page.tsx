@@ -1,15 +1,29 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MUTED } from '@/components/landing/theme';
-import { Reveal } from '@/components/landing/Reveal';
-import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
-import { Callout, Checklist, CtaBlock } from '@/components/recursos/ArticlePrimitives';
-import { ArticleFaq } from '@/components/recursos/ArticleFaq';
-import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
+import {
+  CierreSolucion,
+  FaqSolucion,
+  FilaProducto,
+  HeroSolucion,
+  PlanesSolucion,
+  ResumenSolucion,
+  Situaciones,
+  SolucionShell,
+  TablaSolucion,
+} from '@/components/soluciones/LandingSolucion';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+// Tentare para estudios de YOGA (rehecha el 7-oct-2026: desde el 6-oct el
+// producto se presenta para Pilates y yoga, decisión del fundador). Ya no se
+// disculpa de «haber nacido para Pilates»: habla el idioma de un estudio de
+// yoga —estilos, mensualidades, bonos, talleres, profesoras— con el mismo motor.
+//
+// ⚠️ Nada de esto es específico de yoga en el código: es el motor genérico
+// (`tipos_clase`, reservas, bonos, cobros). Por eso no se promete nada «solo
+// para yoga». En particular: un taller es una clase con su propio precio
+// (`sesiones.precio_puntual`), que NO se vende online (se apunta en el estudio,
+// lib/reservar/opciones-de-clase.ts), así que aquí no se dice que se venda desde
+// la app; y la clase fija semanal va con mensualidad, no con bono.
 
 const PATH = '/soluciones/estudio-de-yoga';
 const pagina = paginaDe(PATH)!;
@@ -20,136 +34,164 @@ export const metadata: Metadata = {
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
+    locale: 'es_ES',
     title: pagina.titulo,
-    description: 'Nacimos con foco en Pilates. Reservas, bonos, cobros y sustituciones funcionan igual para Yoga y centros que combinan ambas disciplinas.',
+    description: pagina.descripcion,
     url: urlDe(PATH),
   },
 };
 
-// Lo que ya funciona hoy, en vocabulario de yoga — nada de esto es
-// específico de yoga en el código: es el mismo motor genérico (`tipos_clase`,
-// reservas, bonos, cobros) que ya usan los estudios de Pilates. Verificado
-// antes de escribir esto: components/configuracion/tab-clases.tsx permite
-// renombrar cualquier tipo de clase (el ejemplo del propio código es
-// justamente pasar de "Clase abierta" a "Yoga").
-const SE_LLEVA = [
-  'Series y talleres con su propio horario y aforo de sala',
-  'Bonos de sesiones y cuotas mensuales, a la vez si hace falta',
-  'Reservas online 24/7, con lista de espera automática',
-  'Cobro recurrente con reintentos si una cuota falla',
-  'Ficha de cada alumna: asistencia, bonos e historial',
-  'Facturación con Veri*factu, sin pasarte una tarde al mes',
-];
-
 const FAQ = [
   {
-    q: '¿Tentare está pensado para yoga o para pilates?',
-    a: 'Nació con foco en Pilates, y ese sigue siendo su posicionamiento principal. Pero al hablar con estudios reales vimos que muchos combinan Pilates con Yoga y otras disciplinas wellness bajo el mismo techo — así que el producto está evolucionando para dar servicio también ahí, no como una categoría añadida por marketing sino porque es como funciona el sector de verdad. Por dentro, un tipo de clase es un nombre que tú pones: funciona igual para una serie de Hatha que para una clase de reformer.',
+    q: '¿Tentare sirve para un estudio de yoga?',
+    a: 'Sí. Las reservas, los bonos, las mensualidades, la lista de espera, los cobros y la app con tu marca funcionan igual para el yoga que para el Pilates: cada estilo es un tipo de clase con su nombre, su horario, su aforo y su precio.',
   },
   {
-    q: '¿Tentare sirve para un centro que combina Pilates y Yoga?',
-    a: 'Sí — es exactamente el caso que motivó esta página. Cada disciplina es su propio tipo de clase, con su propio horario, aforo y precio, dentro del mismo estudio y la misma cuenta.',
+    q: '¿Sirve para un centro que combina yoga y Pilates?',
+    a: 'Sí, es de lo más habitual. Cada disciplina es su propio tipo de clase, con su horario, su sala, su aforo y su precio, dentro del mismo estudio y la misma cuenta.',
   },
   {
-    q: '¿Puedo tener talleres puntuales y clases semanales a la vez?',
-    a: 'Sí. Un taller de fin de semana y una serie fija de martes y jueves son dos tipos de clase distintos, cada uno con su propio aforo, precio y reglas de reserva — no hay que forzar todo al mismo molde.',
+    q: '¿Puedo tener talleres y clases semanales a la vez?',
+    a: 'Sí. Las clases semanales se programan una vez como una serie, y un taller puede ser una clase con su propio precio y su propio aforo, en el mismo calendario.',
   },
   {
-    q: '¿Cómo funcionan las sustituciones si una profesora no puede dar su clase?',
-    a: 'El mismo motor que ya usan los estudios de Pilates: busca quién puede cubrir esa clase, contacta y avisa a las alumnas si hace falta.',
+    q: '¿Qué pasa si una profesora no puede dar su clase?',
+    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo sola, sin esperar a que lo apruebes.',
   },
   {
-    q: '¿Hay algo de Tentare pensado específicamente para yoga que no exista para pilates?',
-    a: 'No, hoy no. Es la misma plataforma, sin funciones exclusivas para ninguna de las dos disciplinas. Si eso cambia, esta página se actualiza para reflejarlo — no antes.',
+    q: '¿Hay funciones pensadas solo para yoga?',
+    a: 'No: es la misma plataforma para yoga y Pilates. Lo que cambia es cómo la configuras tú: los nombres de tus clases, tus bonos, tus mensualidades y tus reglas de reserva.',
+  },
+  {
+    q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
+    a: 'Founding Studio cuesta 29 €/mes con IVA, hasta 150 alumnas activas y con la app con tu marca; Estudio, 59 €/mes sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y con 7 días de prueba sin tarjeta.',
   },
 ];
 
 export default function EstudioDeYogaPage() {
-  const relacionadas = relacionadasDe(PATH);
   return (
-    <PageShell>
-      <OrganizationStructuredData />
-      <FaqStructuredData items={FAQ} />
-      <PageBreadcrumb path={PATH} name="Estudio de Yoga" />
-      <SiteNav backHref="/" backLabel="Inicio" />
+    <SolucionShell path={PATH}>
+      <HeroSolucion
+        miga="Estudio de yoga"
+        busqueda="Software para estudios de yoga"
+        titular={<>Tu estudio de yoga, sin perseguir reservas ni cuotas.</>}
+        entrada={<>Tus alumnas reservan desde una app con el nombre de tu estudio, los bonos y las mensualidades se cobran solos y la lista de espera llena el hueco de quien cancela. Hatha, vinyasa, yin o prenatal: cada estilo con su horario, su aforo y su precio.</>}
+        foto={{
+          src: '/landing/fotos-aportadas/alumna-con-movil-y-esterilla-de-yoga-864.webp',
+          srcAvif: '/landing/fotos-aportadas/alumna-con-movil-y-esterilla-de-yoga-864.avif',
+          alt: 'Alumna sonriendo con el móvil y una esterilla de yoga',
+          ancho: 864,
+          alto: 1080,
+          encuadre: '50% 20%',
+        }}
+        avisos={[
+          { etiqueta: 'Reserva · Vinyasa 19:30', estado: 'Confirmada', texto: 'Ana reservó desde la app' },
+          { etiqueta: 'Mensualidad de octubre', estado: 'Cobrada', texto: 'Con su tarjeta guardada' },
+        ]}
+        pieFoto="Alumna con el móvil y una esterilla de yoga, con dos avisos de ejemplo de Tentare: una reserva confirmada en una clase de vinyasa y una mensualidad cobrada."
+      />
 
-      <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
-        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Para estudios de Yoga</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare, también para estudios de Yoga.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tentare nació con foco en <strong style={{ color: '#1A1A1A' }}>Pilates</strong>. Hablando con estudios reales vimos que muchos combinan Pilates con Yoga y otras disciplinas wellness bajo el mismo techo — así que el producto está evolucionando para dar servicio también ahí: reservas, bonos, cobros y sustituciones, funcionando igual sea cual sea la disciplina.</p>
-        </div>
-      </header>
+      <ResumenSolucion
+        pregunta="¿Qué software necesita un estudio de yoga?"
+        datos={[
+          { cifra: '24/7', texto: 'Reservas y cancelaciones desde el móvil, con tus reglas' },
+          { cifra: '0 %', texto: 'Comisión de Tentare sobre lo que cobras' },
+          { cifra: '29 €/mes', texto: 'Founding Studio, con la app con tu marca e IVA incluido' },
+        ]}
+      >
+        Uno que te quite el trabajo de mostrador: reservas online con lista de espera, bonos y mensualidades que se
+        cobran y se renuevan solos, una app con la marca de tu estudio para tus alumnas y un sitio donde ver quién viene
+        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, desde 29 €/mes con IVA y sin
+        permanencia.
+      </ResumenSolucion>
 
-      <section style={{ padding: 'clamp(8px,2vw,20px) clamp(20px,4vw,44px) clamp(24px,4vw,40px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal>
-            <Checklist eyebrow="Lo que ya cubre, sin adaptar nada" items={SE_LLEVA} />
-          </Reveal>
-        </div>
-      </section>
+      <Situaciones
+        titulo="Una semana normal en un estudio de yoga"
+        items={[
+          { hora: 'Domingo · 22:10', titulo: 'Reservan sin escribirte', texto: 'La alumna abre la app de tu estudio, ve la clase de vinyasa del lunes con plazas libres y reserva. Tú no contestas ningún mensaje.' },
+          { hora: 'Día 1 del mes', titulo: 'Las mensualidades se cobran solas', texto: 'La cuota se cobra con la tarjeta guardada y, si una falla, Tentare vuelve a intentarlo antes de avisarte.' },
+          { hora: 'Sábado', titulo: 'Un taller con su propio precio', texto: 'El taller de inversiones va en el mismo calendario que tus clases semanales, con su aforo y su precio.' },
+        ]}
+      />
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>Sustituciones, también aquí</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>Cuando una profesora avisa de que no puede dar su clase, el mismo motor busca quién puede cubrirla y avisa a las alumnas si hace falta.</p>
-          </Reveal>
-        </div>
-      </section>
+      <FilaProducto
+        eyebrow="Horario por estilos"
+        titulo="Cada estilo con su horario, su aforo y sus reglas"
+        captura={{ src: '/producto/calendario-semana.png', alt: 'Calendario semanal de Tentare con las clases de la semana por salas, su ocupación y las que necesitan una decisión', ancho: 2880, alto: 1624, pie: 'La semana entera, con la ocupación de cada clase.' }}
+        puntos={[
+          'Series semanales que programas una vez',
+          'Talleres y clases especiales con su propio precio',
+          'Lista de espera automática cuando una clase se llena',
+        ]}
+        enlace={{ href: '/funcionalidades/clases-recurrentes', texto: 'Clases recurrentes' }}
+      >
+        <p>Hatha, vinyasa, yin o prenatal son tipos de clase: les pones nombre, sala, aforo y precio, y cada uno puede tener sus propias reglas de reserva y cancelación. Si tu estudio también da Pilates, conviven en el mismo calendario.</p>
+      </FilaProducto>
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal>
-            <Callout title="Con honestidad, de dónde viene esto" iconColor="#C79A2E" bg="#FBF6EA" border="#EEDFB8">
-              Pilates sigue siendo el foco principal del producto y del posicionamiento de Tentare — no es un cambio de rumbo. Yoga no se ha añadido por marketing: es lo que vimos al hablar con estudios reales, donde combinar Pilates y Yoga bajo el mismo techo es habitual, no una excepción. Hoy no hay ninguna función pensada solo para yoga — sin certificaciones (RYT o similares), sin vocabulario de posturas integrado — porque el motor real es el mismo para las dos disciplinas. Si eso cambia, esta página se actualiza para contarlo.
-            </Callout>
-          </Reveal>
-        </div>
-      </section>
+      <FilaProducto
+        invertida
+        eyebrow="Bonos y mensualidades"
+        titulo="Clase suelta, bono y mensualidad, a la vez"
+        captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado este mes, lo pendiente y los recibos de cada alumna', ancho: 2880, alto: 1624, pie: 'Lo cobrado, lo pendiente y quién te debe, en una pantalla.' }}
+        puntos={[
+          'Mensualidades con o sin límite de clases a la semana',
+          'Bonos con caducidad, que puedes ampliar en lote si cierras en agosto',
+          'Cobro con tarjeta o domiciliación SEPA, con reintentos cuando falla',
+        ]}
+        enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
+      >
+        <p>Un estudio de yoga vende de todo: la clase suelta para quien viene de paso, el bono para quien viene a ratos y la mensualidad para las de siempre. En Tentare conviven en la misma alumna, cada uno con su caducidad, y se cobran sin que tengas que perseguir a nadie.</p>
+      </FilaProducto>
 
-      <section style={{ background: '#0F0F0F', color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Preguntas frecuentes</Reveal>
-          <ArticleFaq items={FAQ} />
-        </div>
-      </section>
+      <TablaSolucion
+        titulo="Cómo vende un estudio de yoga, y cómo se monta en Tentare"
+        cabeceras={['Lo que vendes', 'Para quién', 'En Tentare']}
+        filas={[
+          ['Clase suelta', 'Quien viene de paso o a probar', 'Una tarifa puntual que gasta una sesión'],
+          ['Bono de 10 clases', 'Quien viene a ratos', 'Bono con caducidad, de un estilo o de todos'],
+          ['Mensualidad', 'Las alumnas de siempre', 'Cuota mensual con o sin límite semanal'],
+          ['Clase fija semanal', 'Quien quiere su sitio de los martes', 'Plaza fija que se reserva sola, con mensualidad'],
+          ['Taller', 'Un sábado con un tema propio', 'Una clase con su propio precio y aforo'],
+        ]}
+      />
 
-      <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Pruébalo con tu propio estudio." body="Sin permanencia. Migramos tus datos por ti." />
-        </div>
-      </section>
+      <FilaProducto
+        eyebrow="App con tu marca"
+        titulo="Tu estudio, en la pantalla de inicio de tus alumnas"
+        captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
+        puntos={[
+          'En todos los planes, también en el de 29 €',
+          'Avisos de sus reservas y de la lista de espera',
+          'Sin comisión de Tentare sobre lo que venden',
+        ]}
+        enlace={{ href: '/funcionalidades/app-para-alumnas', texto: 'Cómo es la app de tus alumnas' }}
+      >
+        <p>Tus alumnas instalan la app de tu estudio desde el navegador, sin pasar por ninguna tienda: tu nombre, tu icono y tus colores. Desde ahí reservan, compran su bono y ven sus próximas clases.</p>
+      </FilaProducto>
 
-      {relacionadas.length > 0 && (
-        <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
-          <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 18px' }}>Sigue por aquí</h2>
-            <div className="yog-rel">
-              {relacionadas.map((r) => (
-                <Link key={r.path} href={r.path} className="yog-rel-card">
-                  <span className="yog-rel-nombre">{r.etiqueta}</span>
-                  <span className="yog-rel-resumen">{r.resumen ?? r.descripcion}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <FilaProducto
+        invertida
+        eyebrow="Tus alumnas"
+        titulo="Saber quién viene y qué necesita"
+        captura={{ src: '/producto/clientas.png', alt: 'Lista de clientas de Tentare con el plan de cada una, sus sesiones restantes y su estado', ancho: 2880, alto: 1624 }}
+        puntos={[
+          'Asistencia, bono e historial de cada alumna',
+          'Ficha de salud con lesiones y adaptaciones, visible solo para quien debe verla',
+          'Una regla, si la enciendes, que pregunta por quien lleva tiempo sin venir',
+        ]}
+        enlace={{ href: '/funcionalidades/ficha-de-clienta', texto: 'La ficha de cada alumna' }}
+      >
+        <p>En una clase prenatal o con alumnas que vienen de una lesión, saber lo que cada una necesita importa. La ficha lo reúne, y la parte de salud solo la ve quien la tiene que ver. Si una profesora no puede dar su clase, Tentare <Link href="/funcionalidades/sustituciones">busca quién la cubre</Link> y avisa a las alumnas.</p>
+      </FilaProducto>
 
-      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }]} />
+      <PlanesSolucion titulo="Lo que cuesta Tentare para un estudio de yoga" />
 
-      <style>{`
-        .yog-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        .yog-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0;
-          border-radius: 16px; padding: 20px; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease; }
-        .yog-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
-        .yog-rel-nombre { display: block; font-size: 15.5px; font-weight: 700; color: #1A1A1A; margin-bottom: 6px; }
-        .yog-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
-        @media (max-width: 760px) { .yog-rel { grid-template-columns: 1fr; } }
-        @media (prefers-reduced-motion: reduce) { .yog-rel-card { transition: none; } }
-      `}</style>
-    </PageShell>
+      <FaqSolucion titulo="Preguntas sobre Tentare para estudios de yoga" items={FAQ} />
+
+      <CierreSolucion
+        titulo="Pruébalo con tu estudio de yoga."
+        texto="Monta tu horario, tus bonos y tu app en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+      />
+    </SolucionShell>
   );
 }
