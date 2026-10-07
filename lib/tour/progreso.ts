@@ -28,9 +28,11 @@ export interface ProgresoVisita {
   aplazados: string[];
   /** Capítulos cuya pantalla de «completado» ya se vio. */
   vistos: string[];
+  /** Capítulos cuya pantalla de apertura («para qué sirve») ya se vio. */
+  abiertos: string[];
 }
 
-export const PROGRESO_VACIO: ProgresoVisita = { v: VERSION_PROGRESO, inicio: false, hechos: [], aplazados: [], vistos: [] };
+export const PROGRESO_VACIO: ProgresoVisita = { v: VERSION_PROGRESO, inicio: false, hechos: [], aplazados: [], vistos: [], abiertos: [] };
 
 const MAX_ELEMENTOS = 100;
 
@@ -58,11 +60,17 @@ export function parseProgreso(raw: unknown): ProgresoVisita {
     hechos: lista(r.hechos, s => !!pasoPorId(s)),
     aplazados: lista(r.aplazados, s => !!pasoPorId(s)),
     vistos: lista(r.vistos, s => CAPITULOS.some(c => c.id === s)),
+    // Un progreso guardado antes de que existieran las aperturas no las tiene: se dan por vistas
+    // en los capítulos que ya se empezaron, para no volver a abrirle uno a medias.
+    abiertos: Array.isArray(r.abiertos)
+      ? lista(r.abiertos, s => CAPITULOS.some(c => c.id === s))
+      : CAPITULOS.filter(c => c.pasos.some(p => (Array.isArray(r.hechos) && r.hechos.includes(p.id)) || (Array.isArray(r.aplazados) && r.aplazados.includes(p.id)))).map(c => c.id),
   };
 }
 
 export function empezar(p: ProgresoVisita): ProgresoVisita {
-  return p.inicio ? p : { ...p, inicio: true };
+  // La bienvenida ya explica el primer capítulo: no se le abre otra pantalla encima.
+  return p.inicio ? p : { ...p, inicio: true, abiertos: p.abiertos.includes('c1') ? p.abiertos : [...p.abiertos, 'c1'] };
 }
 
 export function cerrarPaso(p: ProgresoVisita, id: string, como: 'hecho' | 'aplazado'): ProgresoVisita {
@@ -77,6 +85,10 @@ export function verCapitulo(p: ProgresoVisita, id: string): ProgresoVisita {
   return p.vistos.includes(id) ? p : { ...p, vistos: [...p.vistos, id] };
 }
 
+export function abrirCapitulo(p: ProgresoVisita, id: string): ProgresoVisita {
+  return p.abiertos.includes(id) ? p : { ...p, abiertos: [...p.abiertos, id] };
+}
+
 export function pasoCerrado(p: ProgresoVisita, id: string): boolean {
   return p.hechos.includes(id) || p.aplazados.includes(id);
 }
@@ -87,6 +99,7 @@ export type Aplica = (paso: PasoVisita) => boolean;
 /** Lo que toca enseñar. */
 export type EstadoVisita =
   | { fase: 'inicio' }
+  | { fase: 'apertura'; capitulo: CapituloVisita; numero: number }
   | { fase: 'paso'; capitulo: CapituloVisita; paso: PasoVisita; numero: number; de: number }
   | { fase: 'capitulo'; capitulo: CapituloVisita }
   | { fase: 'fin' };
@@ -103,6 +116,9 @@ export function estadoVisita(p: ProgresoVisita, aplica: Aplica): EstadoVisita {
     const propios = capitulo.pasos.filter(aplica);
     if (propios.length === 0) continue;
     const pendiente = propios.find(s => !pasoCerrado(p, s.id));
+    if (pendiente && !p.abiertos.includes(capitulo.id)) {
+      return { fase: 'apertura', capitulo, numero: CAPITULOS.filter(c => c.pasos.some(aplica)).indexOf(capitulo) + 1 };
+    }
     if (pendiente) {
       return { fase: 'paso', capitulo, paso: pendiente, numero: propios.indexOf(pendiente) + 1, de: propios.length };
     }

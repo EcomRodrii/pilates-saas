@@ -75,6 +75,34 @@ export function PantallaInicioVisita({ capitulos, obligatoria, onEmpezar, onSali
   );
 }
 
+export function PantallaAperturaCapitulo({ capitulo, numero, total, pasos, onEmpezar }: {
+  capitulo: CapituloVisita;
+  numero: number;
+  total: number;
+  /** Los pasos que de verdad se le van a enseñar (según su rol y su menú). */
+  pasos: readonly PasoVisita[];
+  onEmpezar: () => void;
+}) {
+  return (
+    <Marco etiqueta={`Capítulo ${numero}: ${capitulo.titulo}`}>
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Capítulo {numero} de {total} · ≈ {capitulo.minutos} min</p>
+      <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground text-balance">{capitulo.titulo}</h2>
+      <p className="mt-3 text-[14.5px] leading-relaxed text-muted-foreground text-pretty">{capitulo.paraQue}</p>
+      <p className="mt-5 text-[13px] font-semibold text-foreground">Lo que vas a ver:</p>
+      <ol className="mt-2 space-y-1.5">
+        {pasos.map((p, i) => (
+          <li key={p.id} className="flex items-start gap-2.5 text-[14px] leading-snug text-foreground">
+            <span className="mt-px grid size-5 shrink-0 place-items-center rounded-full bg-muted text-[11px] font-semibold tabular-nums text-muted-foreground" aria-hidden>{i + 1}</span>
+            <span className="min-w-0 flex-1">{p.titulo}</span>
+            {p.tipo === 'hacer' && <span className="shrink-0 rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-semibold text-brand-medio">lo haces tú</span>}
+          </li>
+        ))}
+      </ol>
+      <div className="mt-6"><BotonPrincipal onClick={onEmpezar}>Empezar el capítulo <ArrowRight size={16} aria-hidden /></BotonPrincipal></div>
+    </Marco>
+  );
+}
+
 export function PantallaCapituloVisita({ capitulo, numero, total, siguiente, onSiguiente, onOtroDia }: {
   capitulo: CapituloVisita;
   numero: number;

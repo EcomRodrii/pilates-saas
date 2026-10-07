@@ -37,6 +37,8 @@ export function visitaObligatoria(studio: EstudioParaVisita | null | undefined, 
 export interface ContextoAplica {
   puedeVer: (ruta: string) => boolean;
   esRutaCongelada: (ruta: string) => boolean;
+  /** La ruta es una entrada del menú que hoy no se enseña (Marketing apagado…): no se explica. */
+  fueraDelMenu: (ruta: string) => boolean;
   /** Pantalla ancha (≥ lg): el buscador de arriba y poco más solo existen ahí. */
   escritorio: boolean;
 }
@@ -44,7 +46,7 @@ export interface ContextoAplica {
 /** ¿Se le enseña este paso a esta persona ahora? Falso = se salta sin ruido. */
 export function pasoAplica(paso: PasoVisita, c: ContextoAplica): boolean {
   const base = rutaBase(paso.ruta);
-  if (c.esRutaCongelada(base)) return false;
+  if (c.esRutaCongelada(base) || c.fueraDelMenu(base)) return false;
   if (!c.puedeVer(base)) return false;
   if (paso.soloEscritorio && !c.escritorio) return false;
   return true;

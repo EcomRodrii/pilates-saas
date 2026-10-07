@@ -176,7 +176,7 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('con un diálogo abierto, la tarjeta se vuelve un banner de solo texto que no tapa nada', async ({ page }) => {
-    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [] } });
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
     const paso = tarjeta(page, 'Tu menú');
     await expect(paso).toBeVisible({ timeout: 30_000 });
     // Un diálogo de la app (aquí uno cualquiera): la tarjeta cede el sitio.
@@ -205,6 +205,37 @@ test.describe('La visita guiada por capítulos', () => {
     await pantalla.getByRole('button', { name: 'Ahora no' }).click();
     await expect(pantalla).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Visita guiada · Cap\./ })).toHaveCount(0);
+  });
+
+  test('cada capítulo se abre diciendo para qué sirve y qué se va a ver, y cada paso dice qué hacer', async ({ page }) => {
+    const hechosC1 = CAPITULOS[0].pasos.map(p => p.id);
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: hechosC1, aplazados: [], vistos: ['c1'] } });
+    const apertura = page.getByRole('dialog', { name: /Capítulo 2: Tu estudio y tus clases/ });
+    await expect(apertura).toBeVisible({ timeout: 30_000 });
+    await expect(apertura).toContainText('Para dejar listo el sitio donde darás clase');
+    await expect(apertura).toContainText('Lo que vas a ver');
+    await expect(apertura).toContainText('Tus salas');
+    // Lo que hace la persona se distingue de lo que solo mira.
+    await expect(apertura.getByText('lo haces tú').first()).toBeVisible();
+    await apertura.getByRole('button', { name: /Empezar el capítulo/ }).click();
+
+    const paso = tarjeta(page, 'Configuración, por preguntas');
+    await expect(paso).toBeVisible({ timeout: 30_000 });
+    await expect(paso).toContainText('Las tarifas no están aquí');
+  });
+
+  test('una sección que no existe en el menú (Marketing, apagado) no se enseña', async ({ page }) => {
+    // Capítulos 1–7 cerrados: toca el 8, que trae Marketing como último paso.
+    const previos = CAPITULOS.slice(0, 7);
+    const progreso = {
+      v: 1, inicio: true, hechos: previos.flatMap(c => c.pasos.map(p => p.id)), aplazados: [],
+      vistos: previos.map(c => c.id), abiertos: previos.map(c => c.id),
+    };
+    await montarVisita(page, { progreso });
+    const apertura = page.getByRole('dialog', { name: /Capítulo \d+: Que el estudio trabaje solo/ });
+    await expect(apertura).toBeVisible({ timeout: 30_000 });
+    await expect(apertura).toContainText('Automatizaciones');
+    await expect(apertura).not.toContainText('Marketing');
   });
 });
 

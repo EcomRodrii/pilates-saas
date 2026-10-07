@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CAPITULOS, TODOS_LOS_PASOS } from './capitulos.ts';
 import {
-  PROGRESO_VACIO, cerrarPaso, empezar, estadoVisita, parseProgreso, pasoAnteriorA, pasoCerrado, verCapitulo,
+  PROGRESO_VACIO, abrirCapitulo, cerrarPaso, empezar, estadoVisita, parseProgreso, pasoAnteriorA, pasoCerrado, verCapitulo,
   type ProgresoVisita,
 } from './progreso.ts';
 
@@ -44,9 +44,27 @@ test('al cerrar el último paso de un capítulo sale su pantalla, UNA vez, y lue
   let e = estadoVisita(p, todo);
   assert.equal(e.fase, 'capitulo');
   p = verCapitulo(p, 'c1');
+  // Cada capítulo nuevo se abre con su «para qué sirve» antes de su primer paso.
+  e = estadoVisita(p, todo);
+  assert.equal(e.fase, 'apertura');
+  if (e.fase === 'apertura') { assert.equal(e.capitulo.id, 'c2'); assert.equal(e.numero, 2); }
+  p = abrirCapitulo(p, 'c2');
   e = estadoVisita(p, todo);
   assert.equal(e.fase, 'paso');
   if (e.fase === 'paso') assert.equal(e.paso.id, 'c2.1');
+});
+
+test('el primer capítulo no se abre dos veces: la bienvenida ya lo explica', () => {
+  const e = estadoVisita(empezar(PROGRESO_VACIO), todo);
+  assert.equal(e.fase, 'paso');
+});
+
+test('un progreso guardado antes de las aperturas no reabre los capítulos ya empezados', () => {
+  const viejo = parseProgreso({ v: 1, inicio: true, hechos: ['c1.1', 'c1.2', 'c1.3', 'c2.1'], aplazados: [], vistos: ['c1'] });
+  assert.ok(viejo.abiertos.includes('c1') && viejo.abiertos.includes('c2'));
+  const e = estadoVisita(viejo, todo);
+  assert.equal(e.fase, 'paso');
+  if (e.fase === 'paso') assert.equal(e.paso.id, 'c2.2');
 });
 
 test('cerrar un paso dos veces, o uno que no existe, no cambia nada', () => {
@@ -64,8 +82,8 @@ test('un paso aplazado cuenta como cerrado: no atrapa a nadie', () => {
 test('un capítulo sin ningún paso aplicable se salta sin pantalla', () => {
   const sinC1 = (s: { id: string }) => !s.id.startsWith('c1.');
   const e = estadoVisita(empezar(PROGRESO_VACIO), sinC1);
-  assert.equal(e.fase, 'paso');
-  if (e.fase === 'paso') assert.equal(e.paso.id, 'c2.1');
+  assert.equal(e.fase, 'apertura');
+  if (e.fase === 'apertura') assert.equal(e.capitulo.id, 'c2');
 });
 
 test('con todo cerrado y visto, la visita termina', () => {

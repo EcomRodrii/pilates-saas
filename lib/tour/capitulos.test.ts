@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, rutaBase, rutaCoincide } from './capitulos.ts';
+import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, rutaBase, rutaCoincide, selectorCss } from './capitulos.ts';
+import { rutaFueraDelMenu } from '../nav-config.ts';
 import { esRutaCongelada } from '../frozen-features.ts';
 
 const RAIZ = join(import.meta.dirname, '..', '..');
@@ -47,9 +48,16 @@ test('toda ruta existe como pantalla del panel y no está congelada', () => {
 });
 
 test('todo selector es un data-tour que existe en el código', () => {
+  const secciones = readFileSync(join(RAIZ, 'lib/configuracion/secciones.ts'), 'utf8');
   const codigo = [...ficheros('app'), ...ficheros('components')]
     .map(f => readFileSync(join(RAIZ, f), 'utf8')).join('\n');
   for (const p of TODOS_LOS_PASOS) {
+    if (p.selector.startsWith('#')) {
+      // Una fila de Configuración: su id es el de la sección/herramienta (fila-herramienta-<id>) o el de la tarjeta.
+      const id = p.selector.slice(1).replace(/^fila-herramienta-/, '');
+      assert.ok(secciones.includes(`id: '${id}'`), `${p.id}: ${p.selector} no es una fila de Configuración (lib/configuracion/secciones.ts)`);
+      continue;
+    }
     // `dataTour="…"` es la prop que algunas piezas (TarjetaFicha) pasan a su `data-tour`.
     const esta = codigo.includes(`data-tour="${p.selector}"`) || codigo.includes(`dataTour="${p.selector}"`);
     assert.ok(esta, `${p.id}: no hay data-tour="${p.selector}" en el código`);
@@ -77,6 +85,16 @@ test('el copy no manda a pestañas de antes ni promete lo que no hay', () => {
   }
 });
 
+test('cada paso dice qué hacer, y cada capítulo para qué sirve', () => {
+  for (const c of CAPITULOS) {
+    assert.ok(c.paraQue.length >= 30 && c.paraQue.length <= 200, `${c.id}: «para qué» de ${c.paraQue.length} caracteres`);
+  }
+  for (const p of TODOS_LOS_PASOS) {
+    assert.ok(p.accion.length >= 10 && p.accion.length <= 130, `${p.id}: acción de ${p.accion.length} caracteres`);
+    if (p.tipo === 'hacer') assert.match(p.accion, /^(Pulsa|Abre|Añade|En la tarjeta)/, `${p.id}: un paso «hacer» empieza por un verbo de acción`);
+  }
+});
+
 test('un texto no se pasa de largo: se lee en una tarjeta', () => {
   for (const p of TODOS_LOS_PASOS) {
     assert.ok(p.texto.length <= 330, `${p.id} tiene ${p.texto.length} caracteres`);
@@ -90,4 +108,16 @@ test('rutaCoincide: la ficha casa con cualquier clienta, no con el listado', () 
   assert.equal(rutaCoincide('/clientas/*', '/clientas/'), false);
   assert.equal(rutaCoincide('/calendario', '/calendario'), true);
   assert.equal(rutaCoincide('/calendario', '/calendario/x'), false);
+});
+
+test('selectorCss: un id tal cual, un data-tour como atributo', () => {
+  assert.equal(selectorCss('#salas'), '#salas');
+  assert.equal(selectorCss('menu-principal'), '[data-tour="menu-principal"]');
+});
+
+test('lo que el menú de hoy no enseña (Marketing apagado) se detecta, y lo que no es del menú no', () => {
+  assert.equal(rutaFueraDelMenu('/marketing'), true, 'Marketing está apagado por flag: no existe para la propietaria');
+  assert.equal(rutaFueraDelMenu('/ondemand'), true);
+  assert.equal(rutaFueraDelMenu('/calendario'), false);
+  assert.equal(rutaFueraDelMenu('/primeros-pasos'), false, 'no es del menú: no cuenta como oculta');
 });
