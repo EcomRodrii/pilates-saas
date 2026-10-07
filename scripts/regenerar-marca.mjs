@@ -50,15 +50,23 @@ const TRABAJOS = [
   ['public/logo-horizontal.png', 'horizontal/tentare-horizontal-degradado.svg', CAJA.horizontal, 1200],
   // Iconos de app y de notificación push (app/manifest.ts, panel.webmanifest,
   // portal/[slug]/manifest.webmanifest, public/sw.js): placa completa.
-  ['public/icon-192.png', 'icono-app/tentare-icono-color.svg', CAJA.placa, 192],
-  ['public/icon-512.png', 'icono-app/tentare-icono-color.svg', CAJA.placa, 512],
-  ['app/apple-icon.png', 'icono-app/tentare-icono-color.svg', CAJA.placa, 180],
-  // Favicons por convención de fichero de Next. Regla 5 del kit: por debajo de
-  // 24 px la separación de la «t» cae del píxel, así que ahí va la de una tinta.
-  ['app/icon1.png', 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, 256],
-  ['app/icon2.png', 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, 48],
-  ['app/icon3.png', 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, 32],
-  ['app/icon4.png', 'favicon/tentare-favicon.svg', CAJA.isotipoCuadrado, 16],
+  //
+  // 7-oct-2026: placa OSCURA del kit, no la de color. El fundador: el icono
+  // «parece hecho con IA con ese fondo» (el degradado turquesa→magenta a toda la
+  // placa). La oscura es del mismo kit y deja el color solo en el tallo.
+  ['public/icon-192.png', 'icono-app/tentare-icono-oscuro.svg', CAJA.placa, 192],
+  ['public/icon-512.png', 'icono-app/tentare-icono-oscuro.svg', CAJA.placa, 512],
+  ['app/apple-icon.png', 'icono-app/tentare-icono-oscuro.svg', CAJA.placa, 180],
+  // Favicons por convención de fichero de Next (más `app/icon.svg`, la versión
+  // vectorial, que copia este mismo SVG). Regla 5 del kit: por debajo de 24 px
+  // a una tinta. Hasta el 7-oct eran el isotipo suelto, sin placa: borroso a
+  // 16 px y, con la pestaña en modo oscuro, las hojas color tinta desaparecían
+  // y quedaba solo el tallo. La placa oscura con la «t» en blanco se lee igual
+  // sobre una pestaña clara que sobre una oscura.
+  ['app/icon1.png', 'favicon/tentare-favicon-placa.svg', CAJA.placa, 256],
+  ['app/icon2.png', 'favicon/tentare-favicon-placa.svg', CAJA.placa, 48],
+  ['app/icon3.png', 'favicon/tentare-favicon-placa.svg', CAJA.placa, 32],
+  ['app/icon4.png', 'favicon/tentare-favicon-placa.svg', CAJA.placa, 16],
 ];
 
 /** Las cuatro piezas de la intro de la landing (components/landing/IntroLogo.tsx):
@@ -145,7 +153,7 @@ for (const [nombre, clase] of PIEZAS) {
 
 const ico = empaquetaIco(await Promise.all(TAMANOS_ICO.map(async px => ({
   px,
-  datos: (await pinta(px < 24 ? 'favicon/tentare-favicon.svg' : 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, px)).datos,
+  datos: (await pinta('favicon/tentare-favicon-placa.svg', CAJA.placa, px)).datos,
 }))));
 // En `public/` y NO en `app/`: Next inyecta el `favicon.ico` de `app/` en TODAS
 // las rutas y una ruta hija no puede quitarlo, así que la marca de Tentare
@@ -153,6 +161,10 @@ const ico = empaquetaIco(await Promise.all(TAMANOS_ICO.map(async px => ({
 // siguen teniendo sus iconos (`app/icon1..4.png`, `app/apple-icon.png`), que sí
 // ceden ante los `icons` de una ruta hija.
 fs.writeFileSync(path.join(REPO, 'public/favicon.ico'), ico);
+// La versión vectorial: nítida a cualquier densidad de pantalla (Chrome y
+// Firefox la prefieren; Safari usa los PNG de arriba).
+fs.copyFileSync(path.join(KIT, 'favicon/tentare-favicon-placa.svg'), path.join(REPO, 'app/icon.svg'));
+hechos.push('app/icon.svg'.padEnd(38) + ' vectorial');
 hechos.push(`public/favicon.ico`.padEnd(38) + ` ${TAMANOS_ICO.join('/')}  ${(ico.length / 1024).toFixed(0)} KB`);
 
 await navegador.close();
