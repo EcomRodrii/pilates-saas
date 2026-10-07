@@ -27,7 +27,7 @@ const articulo: Articulo = {
     'rentabilidad de un reformer',
   ],
   respuesta:
-    'Una plaza de reformer cuesta más que una de mat porque el aforo lo fijan las máquinas: los mismos costes de instructora y local se reparten entre seis reformers en lugar de entre doce esterillas. Por eso, en los estudios españoles que venden los dos formatos, la máquina cuesta entre 1,27 y 2,2 veces el suelo (mediana: 1,6). Con 25 clases a la semana y un 70 % de ocupación, cada reformer ingresa unos 1.420 € al mes a 18,75 € la sesión.',
+    'Una plaza de reformer cuesta más que una de mat porque el aforo lo fijan las máquinas: los mismos costes de instructora y local se reparten entre seis reformers en lugar de entre doce esterillas. En los seis estudios de nuestra muestra que venden los dos formatos con la misma tarifa, la máquina cuesta entre 1,27 y 2,2 veces el suelo (mediana: 1,6). Con 25 clases a la semana, un 70 % de ocupación y 18,75 € de precio medio por sesión, cada reformer ingresa unos 1.420 € al mes.',
   entradilla:
     'Muchos estudios ponen al reformer el precio de la competencia y al suelo, lo que queda. Funciona hasta que haces la cuenta: son dos negocios con costes y techos de ingresos distintos bajo el mismo techo. Aquí está la cuenta de cada plaza, lo que factura una máquina y lo que cobran de verdad 32 estudios españoles.',
   secciones: [
@@ -37,7 +37,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'En suelo, otra alumna cabe casi gratis: una esterilla de estudio cuesta 20,70 € con IVA en la tienda oficial de Elina Pilates. En reformer, el aforo queda fijado el día que compras las máquinas, y cada una cuesta entre 2.891,90 y 6.037,90 € con IVA en la misma tienda. La instructora y el local cuestan lo mismo con seis alumnas que con doce, así que cada plaza de reformer carga con una parte más grande de esos costes.',
+          texto: 'En suelo, otra alumna cabe casi gratis: una esterilla de estudio cuesta 20,70 € con IVA en la tienda oficial de Elina Pilates. En reformer, el aforo queda fijado el día que compras las máquinas, y un reformer profesional cuesta en la misma tienda entre 2.891,90 y 6.037,90 € con IVA. La instructora y el local cuestan lo mismo con seis alumnas que con doce, así que cada plaza de reformer carga con una parte más grande de esos costes.',
         },
         {
           t: 'lista',
@@ -45,7 +45,7 @@ const articulo: Articulo = {
             '**Menos plazas por clase.** Los estudios de la muestra van de 4 a 12 reformers por clase; en suelo, el límite es el espacio.',
             '**Más inversión por plaza.** Una máquina cuesta lo que entre 140 y 290 esterillas.',
             '**Más mantenimiento.** Muelles, cuerdas y tapicería se cambian; una esterilla se repone.',
-            '**Más demanda.** El reformer es el formato con más oferta: 26 de los 32 estudios lo venden en grupo, y es el que suele tener lista de espera.',
+            '**Más estudios lo venden.** El reformer en grupo es el formato más extendido de la muestra: lo venden 26 de los 32 estudios.',
           ],
         },
       ],
@@ -68,11 +68,11 @@ const articulo: Articulo = {
             ['Coste por plaza, con la clase llena', '8,02 €', '3,62 €'],
             ['Coste por plaza, al 70 % de ocupación', '11,45 €', '5,17 €'],
           ],
-          nota: 'Ejemplo: 2.400 € de local, 604 € al mes de reserva para renovar máquinas (solo en reformer) y 30 clases a la semana (130 al mes). Son los costes del escenario A de la calculadora de rentabilidad; cámbialos por los tuyos.',
+          nota: 'Ejemplo: 2.400 € de local, 604 € al mes de reserva para renovar máquinas (solo en reformer) y 30 clases a la semana (130 al mes). Son los costes del escenario A de la calculadora de rentabilidad (en suelo, sin la reserva para máquinas); cámbialos por los tuyos.',
         },
         {
           t: 'p',
-          texto: 'La plaza de reformer cuesta algo más del doble que la de suelo con los mismos costes. Y lo que más mueve la cifra no es el alquiler: es la ocupación. Del 100 % al 70 %, el coste de cada plaza ocupada sube un 43 %.',
+          texto: 'La plaza de reformer cuesta algo más del doble que la de suelo: el doble por tener la mitad de plazas para los mismos costes, y algo más por la reserva para las máquinas. Y lo que más mueve la cifra no es el alquiler: es la ocupación. Del 100 % al 70 %, el coste de cada plaza ocupada sube un 43 %.',
         },
       ],
     },
@@ -82,7 +82,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Lo que ingresa una máquina al mes es: clases a la semana × 4,33 × ocupación × precio por sesión. Con 25 clases a la semana y 18,75 € por sesión, la mediana de la cuota de una clase semanal de reformer en la muestra:',
+          texto: 'Lo que ingresa una máquina al mes es: clases a la semana × 4,33 × ocupación × precio medio por sesión. Si la máquina se usa en 25 clases a la semana y cada sesión sale de media a 18,75 € (lo que cuesta cada clase de la cuota mediana de una clase semanal de reformer, 75 €, contando cuatro al mes, como hacen los estudios en su web):',
         },
         {
           t: 'tabla',
@@ -94,7 +94,7 @@ const articulo: Articulo = {
             ['80 %', '87', '1.625 €', '1.343 €'],
             ['90 %', '98', '1.828 €', '1.511 €'],
           ],
-          nota: 'Cálculo: 25 clases × 52/12 semanas × ocupación × 18,75 € (mediana por sesión de la cuota de una clase semanal de reformer en 32 estudios, 25-sep-2026). Sin IVA, al 21 %. Sesiones redondeadas.',
+          nota: 'Cálculo: 25 clases × 52/12 semanas × ocupación × 18,75 € (cuota mediana de una clase semanal de reformer en 32 estudios, 25-sep-2026, entre cuatro clases). Sin IVA, al 21 %. Sesiones redondeadas. Si todas tus alumnas pagan esa cuota, el mes tiene de media 4,33 semanas y cada sesión sale a 17,31 €: los ingresos son un 8 % más bajos.',
         },
         {
           t: 'p',
@@ -123,7 +123,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'La regla práctica: el precio mínimo de cada formato es su coste por plaza a tu ocupación real más el margen que quieras. A partir de ahí, compárate con los estudios de tu zona y tu formato, no con una media nacional.',
+          texto: 'La regla práctica: el precio mínimo de cada formato es su coste por plaza a tu ocupación real, más el margen que quieras y el 21 % de IVA. A partir de ahí, compárate con los estudios de tu zona y tu formato, no con una media nacional.',
         },
       ],
     },
@@ -160,13 +160,13 @@ const articulo: Articulo = {
           items: [
             '**Una ventana de cancelación clara**, más larga en reformer que en suelo si quieres: quien cancela tarde pierde la sesión. Plantilla y ley, en [política de cancelación de clases](/recursos/politica-de-cancelacion-de-clases).',
             '**Lista de espera que da la plaza sola** a la siguiente en cuanto alguien cancela a tiempo.',
-            '**Recordatorio de la clase** el día antes: buena parte de las faltas son olvidos. Más tácticas, en [cómo reducir las cancelaciones y los no-shows](/recursos/reducir-cancelaciones-ultima-hora).',
+            '**Recordatorio de la clase** el día antes: buena parte de las faltas son olvidos. Más tácticas, en [cómo reducir las cancelaciones y los plantones](/recursos/reducir-cancelaciones-ultima-hora).',
           ],
         },
         {
           t: 'producto',
           titulo: 'El reformer y el mat, cada uno con su precio y sus reglas',
-          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, cada reformer es una plaza que la alumna elige al reservar, y la plaza que se libera pasa sola a la lista de espera. Desde 29 €/mes con IVA y sin permanencia.',
+          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, si defines los puestos de la sala la alumna elige su reformer al reservar, y la plaza que se libera pasa sola a la primera de la lista de espera. Desde 29 €/mes con IVA y sin permanencia.',
         },
       ],
     },
@@ -174,15 +174,15 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Cuántas veces más caro tiene que ser el reformer que el suelo?',
-      a: 'En los seis estudios de nuestra muestra que venden los dos formatos con la misma tarifa, el reformer cuesta entre 1,27 y 2,2 veces el suelo, con una mediana de 1,6. Tu cifra depende de tu coste por plaza: con seis máquinas frente a doce esterillas y los mismos costes, la plaza de reformer cuesta algo más del doble.',
+      a: 'En los seis estudios de nuestra muestra que venden los dos formatos con la misma tarifa, el reformer cuesta entre 1,27 y 2,2 veces el suelo, con una mediana de 1,6. Tu cifra depende de tu coste por plaza: con seis máquinas frente a doce esterillas y los mismos costes, la plaza de reformer cuesta el doble, y algo más con la reserva para renovar las máquinas.',
     },
     {
       q: '¿Cuánto factura un reformer al mes?',
-      a: 'Con 25 clases a la semana y 18,75 € por sesión, unos 1.016 € al mes al 50 % de ocupación, 1.422 € al 70 % y 1.828 € al 90 %, con IVA. Sin IVA, 839, 1.175 y 1.511 €.',
+      a: 'Con 25 clases a la semana y 18,75 € de precio medio por sesión, unos 1.016 € al mes al 50 % de ocupación, 1.422 € al 70 % y 1.828 € al 90 %, con IVA. Sin IVA, 839, 1.175 y 1.511 €.',
     },
     {
       q: '¿Cuánto cuesta un reformer?',
-      a: 'En la tienda oficial europea de Elina Pilates, de 2.891,90 a 6.037,90 € con IVA según el modelo. Una esterilla de estudio cuesta 20,70 €.',
+      a: 'En la tienda oficial europea de Elina Pilates, un reformer profesional cuesta de 2.891,90 a 6.037,90 € con IVA según el modelo, y el Nubium, para casa y para estudio, 2.407,90 €. Una esterilla de estudio cuesta 20,70 €.',
     },
     {
       q: '¿Puedo cobrar el reformer y el suelo con el mismo bono?',

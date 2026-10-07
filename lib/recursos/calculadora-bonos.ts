@@ -1,15 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Calculadora de la escalera de precios de un estudio (/recursos/bonos-de-pilates).
 //
-// Parte del precio de la clase suelta y de un descuento por escalón, y devuelve
-// el precio de cada producto, lo que sale cada sesión y el ahorro frente a la
-// suelta. Avisa de los dos errores que explica el artículo: un escalón por
-// debajo de tu coste por plaza, y un bono de 10 más barato por sesión que la
-// cuota (empuja a las alumnas fuera de la cuota).
+// Parte del precio de la clase suelta y de un descuento por escalón (todos por
+// sesión y frente a la suelta), y devuelve el precio de cada producto, lo que
+// sale cada sesión y el ahorro. Avisa de los dos errores que explica el
+// artículo: un escalón por debajo de tu coste por plaza, y un bono de 10 más
+// barato por sesión que la cuota (empuja a las alumnas fuera de la cuota).
 //
-// Los descuentos de partida son las medianas de nuestra muestra de 32 estudios
-// (25-sep-2026): bono de 5, 14 %; bono de 10, 21 %; cuota de una clase semanal,
-// 20 % por sesión frente a la suelta; y pasar a dos clases, otro 16 %.
+// Los precios llevan IVA (es lo que publican los estudios) y el coste por plaza
+// no (es lo que calcula la guía de rentabilidad): para comparar, al precio se le
+// quita el 21 % antes. Comparar los dos tal cual daba por bueno un escalón que
+// no cubre el coste.
+//
+// Los valores de partida son el ejemplo de la tabla del artículo (medianas de
+// reformer en grupo, 25-sep-2026): 25 € la suelta, bonos al 12 % y al 20 %,
+// cuotas de 75 € y 130 € al mes.
 // Pura y sin `@/`: se prueba con node --test.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -20,16 +25,15 @@ export interface EntradaBonos {
   descuentoBono5: number;
   descuentoBono10: number;
   descuentoCuota1: number;
-  /** Rebaja adicional por sesión al pasar de 1 a 2 clases a la semana, en %. */
   descuentoCuota2: number;
-  /** Lo que te cuesta una plaza ocupada (€). 0 = no avisar. */
+  /** Lo que te cuesta una plaza ocupada, SIN IVA (€). 0 = no avisar. */
   costePorPlaza: number;
 }
 
 export interface Escalon {
   id: 'suelta' | 'bono5' | 'bono10' | 'cuota1' | 'cuota2';
   nombre: string;
-  /** Precio del producto (€; en las cuotas, al mes). */
+  /** Precio del producto, con IVA (€; en las cuotas, al mes). */
   precio: number;
   sesiones: number;
   porSesion: number;
@@ -47,6 +51,8 @@ export interface ResultadoBonos {
 /** Semanas de cuatro clases al mes: la cuenta que enseñan los propios estudios (80 €/mes = 20 €/clase). */
 const SESIONES_CUOTA_1 = 4;
 const SESIONES_CUOTA_2 = 8;
+/** IVA de una clase en un estudio privado (lib/recursos/articulos/iva-clases-de-pilates.ts). */
+export const IVA_CLASES = 0.21;
 
 const pct = (n: number) => Math.min(95, Math.max(0, Number.isFinite(n) ? n : 0)) / 100;
 const positivo = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
@@ -60,7 +66,7 @@ export function calcularBonos(e: EntradaBonos): ResultadoBonos {
     bono5: suelta * (1 - pct(e.descuentoBono5)),
     bono10: suelta * (1 - pct(e.descuentoBono10)),
     cuota1: suelta * (1 - pct(e.descuentoCuota1)),
-    cuota2: suelta * (1 - pct(e.descuentoCuota1)) * (1 - pct(e.descuentoCuota2)),
+    cuota2: suelta * (1 - pct(e.descuentoCuota2)),
   };
   const fila = (id: Escalon['id'], nombre: string, sesiones: number): Escalon => {
     const ps = redondea(porSesion[id]);
@@ -71,7 +77,7 @@ export function calcularBonos(e: EntradaBonos): ResultadoBonos {
       porSesion: ps,
       precio: redondea(ps * sesiones),
       ahorro: suelta > 0 ? Math.round((1 - ps / suelta) * 100) : 0,
-      porDebajoDelCoste: coste > 0 && ps < coste,
+      porDebajoDelCoste: coste > 0 && ps / (1 + IVA_CLASES) < coste,
     };
   };
   const escalones = [

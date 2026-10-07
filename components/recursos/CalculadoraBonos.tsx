@@ -5,20 +5,20 @@ import { calcularBonos, type EntradaBonos } from '@/lib/recursos/calculadora-bon
 import { capturarEvento } from '@/lib/posthog-cliente';
 
 // Calculadora de la escalera de precios (lib/recursos/calculadora-bonos.ts).
-// Los valores de partida son un EJEMPLO con las medianas de la muestra de 32
-// estudios (25-sep-2026), y la pantalla lo dice. Mismo aspecto que la
-// calculadora de rentabilidad, para que las herramientas de /recursos se lean
-// como una familia.
+// Arranca con el ejemplo de la tabla que tiene justo encima en el artículo
+// (medianas de reformer en grupo, 25-sep-2026), y la pantalla lo dice. Mismo
+// aspecto que la calculadora de rentabilidad, para que las herramientas de
+// /recursos se lean como una familia.
 
-const EJEMPLO: EntradaBonos = { suelta: 25, descuentoBono5: 14, descuentoBono10: 21, descuentoCuota1: 20, descuentoCuota2: 16, costePorPlaza: 0 };
+const EJEMPLO: EntradaBonos = { suelta: 25, descuentoBono5: 12, descuentoBono10: 20, descuentoCuota1: 25, descuentoCuota2: 35, costePorPlaza: 0 };
 
 const CAMPOS: { clave: keyof EntradaBonos; etiqueta: string; ayuda: string; paso: number; sufijo: string }[] = [
-  { clave: 'suelta', etiqueta: 'Precio de la clase suelta', ayuda: 'Lo que cobras por venir un día', paso: 0.5, sufijo: '€' },
-  { clave: 'descuentoBono5', etiqueta: 'Descuento del bono de 5', ayuda: 'Por sesión, frente a la suelta (mediana: 14 %)', paso: 1, sufijo: '%' },
-  { clave: 'descuentoBono10', etiqueta: 'Descuento del bono de 10', ayuda: 'Por sesión, frente a la suelta (mediana: 21 %)', paso: 1, sufijo: '%' },
-  { clave: 'descuentoCuota1', etiqueta: 'Descuento de la cuota de 1 clase', ayuda: 'Por sesión, frente a la suelta (mediana: 20 %)', paso: 1, sufijo: '%' },
-  { clave: 'descuentoCuota2', etiqueta: 'Rebaja al pasar a 2 clases', ayuda: 'Por sesión, frente a la cuota de 1 (mediana: 16 %)', paso: 1, sufijo: '%' },
-  { clave: 'costePorPlaza', etiqueta: 'Tu coste por plaza ocupada', ayuda: 'Opcional: para avisarte si un escalón no lo cubre', paso: 0.5, sufijo: '€' },
+  { clave: 'suelta', etiqueta: 'Precio de la clase suelta', ayuda: 'Lo que cobras por venir un día, con IVA', paso: 0.5, sufijo: '€' },
+  { clave: 'descuentoBono5', etiqueta: 'Descuento del bono de 5', ayuda: 'Por sesión, frente a la suelta (en la muestra, del 7 % al 20 %)', paso: 1, sufijo: '%' },
+  { clave: 'descuentoBono10', etiqueta: 'Descuento del bono de 10', ayuda: 'Por sesión, frente a la suelta (en la muestra, del 7 % al 33 %)', paso: 1, sufijo: '%' },
+  { clave: 'descuentoCuota1', etiqueta: 'Descuento de la cuota de 1 clase', ayuda: 'Por sesión, frente a la suelta: 4 clases al mes', paso: 1, sufijo: '%' },
+  { clave: 'descuentoCuota2', etiqueta: 'Descuento de la cuota de 2 clases', ayuda: 'Por sesión, frente a la suelta: 8 clases al mes', paso: 1, sufijo: '%' },
+  { clave: 'costePorPlaza', etiqueta: 'Tu coste por plaza ocupada, sin IVA', ayuda: 'Opcional: para avisarte si un escalón no lo cubre', paso: 0.5, sufijo: '€' },
 ];
 
 const euros = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
@@ -37,7 +37,7 @@ export function CalculadoraBonos() {
   return (
     <section aria-labelledby={`${id}-t`} style={{ background: '#fff', border: '1px solid #E0E5D0', borderRadius: 20, padding: 'clamp(18px,3vw,26px)', margin: '26px 0' }}>
       <h3 id={`${id}-t`} style={{ margin: '0 0 4px', fontSize: 19, fontWeight: 800, letterSpacing: '-.02em' }}>Calculadora de precios de bonos</h3>
-      <p style={{ margin: '0 0 18px', fontSize: 13.5, color: '#5A5A52' }}>Los números de partida son las <strong>medianas</strong> de 32 estudios españoles: cámbialos por los tuyos.</p>
+      <p style={{ margin: '0 0 18px', fontSize: 13.5, color: '#5A5A52' }}>Los números de partida son los del ejemplo de arriba (medianas de reformer en grupo en 32 estudios españoles): cámbialos por los tuyos.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
         {CAMPOS.map((c) => (
           <label key={c.clave} htmlFor={`${id}-${c.clave}`} style={{ display: 'block' }}>
@@ -63,7 +63,7 @@ export function CalculadoraBonos() {
             <tr style={{ background: '#0F0F0F', color: '#fff', textAlign: 'left' }}>
               <th scope="col" style={{ padding: '10px 12px', fontWeight: 700 }}>Producto</th>
               <th scope="col" style={{ padding: '10px 12px', fontWeight: 700 }}>Precio</th>
-              <th scope="col" style={{ padding: '10px 12px', fontWeight: 700 }}>Por sesión</th>
+              <th scope="col" style={{ padding: '10px 12px', fontWeight: 700 }}>Por sesión (con IVA)</th>
               <th scope="col" style={{ padding: '10px 12px', fontWeight: 700 }}>Ahorro</th>
             </tr>
           </thead>
@@ -85,7 +85,7 @@ export function CalculadoraBonos() {
         </p>
       )}
       <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6B6B63', lineHeight: 1.5 }}>
-        Cuotas con 4 y 8 sesiones al mes, la cuenta que enseñan los propios estudios. Precios redondeados al céntimo: redondéalos tú a una cifra fácil de recordar.
+        Cuotas con 4 y 8 sesiones al mes, la cuenta que enseñan los propios estudios. Para compararlo con tu coste se le quita al precio el 21 % de IVA. Precios redondeados al céntimo: redondéalos tú a una cifra fácil de recordar.
       </p>
     </section>
   );

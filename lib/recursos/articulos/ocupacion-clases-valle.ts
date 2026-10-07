@@ -29,7 +29,7 @@ const articulo: Articulo = {
     'precio por franja horaria en clases',
   ],
   respuesta:
-    'Una clase valle es una franja que se queda medio vacía casi todas las semanas, normalmente a media mañana o a primera hora de la tarde. Se llena antes cambiándola que bajándole el precio: primero averigua quién podría venir a esa hora, después prueba otro formato, otra hora o fusionarla con otra, y solo al final un precio distinto para esa franja. Con los costes de nuestro ejemplo, un reformer necesita 2 alumnas para pagar a la instructora y 4 para cubrir todo lo que cuesta.',
+    'Una clase valle es una franja que se queda medio vacía casi todas las semanas, normalmente a media mañana o a primera hora de la tarde. Se llena antes cambiándola que bajándole el precio: primero averigua quién podría venir a esa hora, después prueba otro formato, otra hora o fusionarla con otra, y solo al final un precio distinto para esa franja. Con los costes de nuestro ejemplo, una clase de reformer necesita 2 alumnas para pagar a la instructora y 4 para cubrir también el local y las máquinas.',
   entradilla:
     'Todo estudio tiene una clase que nunca se llena. La sala, la luz y la instructora cuestan lo mismo con dos alumnas que con seis, así que esa franja o se llena o se cambia. Aquí está la cuenta para saber cuánto te cuesta, cómo averiguar por qué falla y qué hacer con ella antes de tocar el precio.',
   secciones: [
@@ -39,7 +39,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Hay dos líneas, y conviene no mezclarlas. La primera es **lo que cuesta dar la clase**: lo que le pagas a la instructora por darla. Si quitas la clase, eso te lo ahorras; el alquiler lo pagas igual. La segunda es **todo lo que cuesta**: la instructora más la parte del local y del resto de gastos que le toca a esa hora.',
+          texto: 'Hay dos líneas, y conviene no mezclarlas. La primera es **lo que pagas a la instructora** por darla: si quitas la clase, eso te lo ahorras; el alquiler lo pagas igual. La segunda es **lo que cuesta la clase entera**: la instructora más la parte del local (y, en reformer, de las máquinas) que le toca a esa hora.',
         },
         {
           t: 'tabla',
@@ -47,10 +47,9 @@ const articulo: Articulo = {
           filas: [
             ['Precio por sesión (cuota de 1 clase a la semana)', '18,75 € (15,50 € sin IVA)', '13,75 € (11,36 € sin IVA)'],
             ['Alumnas para pagar a la instructora (25 €)', '2', '3'],
-            ['Alumnas para cubrir todo su coste', '4 (48,11 €)', '4 (43,46 €)'],
-            ['Ocupación para cubrir todo su coste', '67 %', '33 %'],
+            ['Alumnas para cubrir la clase entera', '4 de 6 (cuesta 48,11 €)', '4 de 12 (cuesta 43,46 €)'],
           ],
-          nota: 'Costes del escenario A de la calculadora de rentabilidad (25 € de instructora por clase, 2.400 € de local, 30 clases a la semana) y mediana de la cuota de una clase semanal en 32 estudios españoles (25-sep-2026). Ingresos sin IVA, al 21 %. Cambia los números por los tuyos.',
+          nota: 'Costes del ejemplo de la calculadora de rentabilidad: 25 € de instructora por clase y 2.400 € de local al mes, más 604 € de reserva para renovar las máquinas en reformer, repartidos entre 30 clases a la semana. Precio: mediana de la cuota de una clase semanal en 32 estudios españoles (25-sep-2026). Ingresos sin IVA, al 21 %. Cambia los números por los tuyos.',
         },
         {
           t: 'p',
@@ -60,9 +59,13 @@ const articulo: Articulo = {
           t: 'lista',
           items: [
             '**Por debajo de la primera línea**, la clase no paga ni a la instructora: cada semana que sigue igual te cuesta dinero. Cambiarla o quitarla.',
-            '**Entre las dos líneas**, paga a la instructora y ayuda con el alquiler, aunque no lo cubra entero. Quitarla te haría perder ese poco. Es la que hay que llenar.',
+            '**Entre las dos líneas**, paga a la instructora y ayuda con el alquiler, aunque no lo cubra entero. Quitarla te haría perder ese poco, salvo que sus alumnas puedan pasarse a otra clase con sitio. Es la que hay que llenar.',
             '**Por encima de la segunda**, deja beneficio. No es una clase valle, aunque no se llene.',
           ],
+        },
+        {
+          t: 'p',
+          texto: 'De media en todo el horario, cubrir instructora, local y máquinas son algo más de 3 alumnas por clase de reformer; con el resto de gastos del estudio (suministros, seguros, gestoría…), el punto de equilibrio de la [calculadora de rentabilidad](/recursos/rentabilidad-estudio-de-pilates) sale hacia el 53 % de ocupación.',
         },
         {
           t: 'p',
@@ -92,7 +95,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Los datos de fuera ayudan a no culparte de lo que es normal. En el informe de Xplor Mariana Tek sobre 236 estudios boutique del noreste de Estados Unidos y Canadá (junio de 2023 a mayo de 2025), las clases con más asistencia empiezan entre las 17:00 y las 18:00, después entre las 19:00 y las 20:00 y después entre las 6:00 y las 7:00. La hora con menos asistencia fue las 14:00. Y según ClassPass, el 85 % de las clases de fitness de los estudios que trabajan con ella no se llenan.',
+          texto: 'Los datos de fuera ayudan a no culparte de lo que es normal. En el informe de Xplor Mariana Tek sobre 236 estudios boutique del noreste de Estados Unidos y Canadá (junio de 2023 a mayo de 2025), las clases con más asistencia empiezan entre las 17:00 y las 18:00, después entre las 19:00 y las 20:00 y después entre las 6:00 y las 7:00. La hora con menos asistencia fue las 14:00. Y según ClassPass, el 85 % de las clases de fitness de los estudios que trabajan con ella no se llenan (datos de 2025).',
         },
       ],
     },
@@ -145,7 +148,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'ClassPass lleva años haciendo precios por demanda. Según su propia FAQ para estudios, su herramienta SmartRate cambia cuántos créditos cuesta una clase según lo que ha pasado otras semanas y lo llena que va esa clase y lo que falta para que empiece, y cada estudio tiene un precio mínimo confidencial, que es un porcentaje de su precio directo. ClassPass dice que en 2024 los estudios de Estados Unidos que la usaban llenaron un 14 % más sus clases que los que no.',
+          texto: 'ClassPass lleva años haciendo precios por demanda. Según su propia FAQ para estudios, su herramienta SmartRate cambia cuántos créditos cuesta una clase según la demanda de semanas anteriores, lo llena que va la clase y el tiempo que falta para que empiece, y cada estudio tiene un precio mínimo confidencial, que es un porcentaje de su precio directo. ClassPass dice que en 2024 los estudios de Estados Unidos que la usaban llenaron un 14 % más sus clases que los que no.',
         },
         {
           t: 'p',
@@ -155,7 +158,7 @@ const articulo: Articulo = {
           t: 'lista',
           items: [
             '**El descuento va en la franja, no en la marca.** Una cuota de mañanas más barata no rebaja tu precio: es otro producto, con sus horarios. Un descuento del 30 % en todo, sí.',
-            '**Siempre con un precio mínimo.** El suelo es lo que te cuesta dar la clase dividido entre las alumnas que vienen de verdad: con 25 € de instructora y tres alumnas, 8,33 € por plaza sin IVA, unos 10,08 € con IVA. Por debajo, cada alumna más te cuesta dinero.',
+            '**Siempre con un precio mínimo.** El suelo es lo que pagas a la instructora por la clase dividido entre las alumnas que vienen de verdad: con 25 € de instructora y tres alumnas, 8,33 € por plaza sin IVA, unos 10,08 € con IVA. Por debajo, aunque vengan esas tres alumnas, la clase no paga ni a la instructora.',
           ],
         },
         {
@@ -222,15 +225,15 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuántas alumnas necesita una clase de pilates para ser rentable?',
-      a: 'Depende de tus costes y de tu precio. Con 25 € de instructora, 18,75 € por sesión y los gastos de nuestro ejemplo, una clase de reformer necesita 2 alumnas para pagar a la instructora y 4 para cubrir todo su coste. Pon tus números en la calculadora de rentabilidad.',
+      a: 'Depende de tus costes y de tu precio. Con 25 € de instructora, 18,75 € por sesión y los gastos de nuestro ejemplo, una clase de reformer necesita 2 alumnas para pagar a la instructora y 4 para cubrir también el local y las máquinas. Pon tus números en la calculadora de rentabilidad.',
     },
     {
       q: '¿Bajar el precio de una clase valle devalúa el estudio?',
-      a: 'Un descuento en todo, sí. Una cuota o un bono solo para esa franja, no: es otro producto, con sus horarios, y tu precio normal sigue siendo la referencia. Pon siempre un precio mínimo que cubra lo que cuesta dar la clase.',
+      a: 'Un descuento en todo, sí. Una cuota o un bono solo para esa franja, no: es otro producto, con sus horarios, y tu precio normal sigue siendo la referencia. Pon siempre un precio mínimo que, con las alumnas que vienen de verdad, pague al menos a la instructora.',
     },
     {
       q: '¿Cuándo hay que quitar una clase?',
-      a: 'Cuando, después de cambiar el formato o la hora y darle cuatro a seis semanas, sigue sin pagar a la instructora. Mientras pague a la instructora y ayude con el alquiler, quitarla te hace perder dinero.',
+      a: 'Cuando, después de cambiar el formato o la hora y darle cuatro a seis semanas, sigue sin pagar a la instructora. Mientras pague a la instructora y ayude con el alquiler, quitarla te hace perder dinero, salvo que sus alumnas puedan pasarse a otra clase con sitio.',
     },
     {
       q: '¿Sirve ClassPass para llenar las clases valle?',
@@ -253,7 +256,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Mira el margen de cada clase antes de cambiar el horario',
-    texto: 'Prueba Tentare 7 días sin tarjeta: pon las tarifas de tu equipo, mira la ocupación por franja y avisa solo a quien puede venir.',
+    texto: 'Prueba Tentare 7 días sin tarjeta: pon las tarifas de tu equipo, mira la ocupación por tipo de clase y el margen de cada clase, y avisa solo a quien puede venir.',
   },
   revision: [
     'Costes y precios: escenario A de rentabilidad-estudio-de-pilates y mediana de cuotas de precio-clase-de-pilates (25-sep-2026); si cambian, rehacer la tabla de las dos líneas.',

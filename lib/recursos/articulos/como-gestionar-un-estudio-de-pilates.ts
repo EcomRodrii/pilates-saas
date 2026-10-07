@@ -9,7 +9,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-gestionar-un-estudio-de-pilates',
   titulo: 'Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen',
-  tituloSeo: 'Cómo gestionar un estudio de Pilates: el sistema completo',
+  tituloSeo: 'Cómo gestionar un estudio de Pilates: 5 sistemas y una rutina',
   descripcion: 'Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.',
   resumen: 'Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.',
   categoria: 'operacion',
@@ -20,7 +20,6 @@ const articulo: Articulo = {
     'gestión de un estudio de pilates',
     'cómo organizar un estudio de pilates',
     'cómo administrar un centro de pilates',
-    'gestión de centros de pilates',
     'cómo llevar las reservas de un estudio de pilates',
     'qué hay que controlar en un estudio de pilates',
   ],
@@ -78,21 +77,21 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'La reserva es el momento en que la alumna se compromete, y la cancelación es donde se pierde el dinero. Una plaza cancelada a última hora es peor que una que nunca se reservó: ya no hay tiempo de dársela a otra. Tres decisiones lo resuelven casi todo:',
+          texto: 'La reserva es el momento en que la alumna se compromete, y la cancelación es donde se pierden plazas. Una plaza cancelada a última hora es peor que una que nunca se reservó: ya no hay tiempo de dársela a otra. Tres decisiones lo resuelven casi todo:',
         },
         {
           t: 'tabla',
           cabecera: ['Decisión', 'Qué fijar', 'Referencia'],
           filas: [
             ['Ventana de cancelación', 'Con cuántas horas se cancela sin perder la sesión', 'Entre 2 y 24 horas en los estudios españoles revisados'],
-            ['Lista de espera', 'Si la plaza se da sola a la siguiente y con qué plazo para aceptarla', 'Más estricta donde hay cola; más flexible donde sobra sitio'],
+            ['Lista de espera', 'Si la plaza se da sola a la siguiente y con qué plazo para aceptarla', 'Sin plazo, la plaza se confirma sola; con plazo, la alumna la acepta (corto si la clase empieza pronto)'],
             ['Faltas sin avisar', 'Si se pierde la sesión y si cobras algo más', 'Perder la sesión es lo habitual; una penalización tiene que ser moderada'],
           ],
           nota: 'Ventanas publicadas por seis estudios de pilates y yoga, consultadas el 25-sep-2026: ver nuestra guía de la política de cancelación de clases.',
         },
         {
           t: 'p',
-          texto: 'La política tiene que estar por escrito y aceptarla la alumna antes de pagar: lo que dice la ley y una plantilla, en [política de cancelación de clases](/recursos/politica-de-cancelacion-de-clases). Y para que se cancele menos, en [cómo reducir las cancelaciones y los no-shows](/recursos/reducir-cancelaciones-ultima-hora).',
+          texto: 'La política tiene que estar por escrito y aceptarla la alumna antes de pagar: lo que dice la ley y una plantilla, en [política de cancelación de clases](/recursos/politica-de-cancelacion-de-clases). Y para que se cancele menos, en [cómo reducir las cancelaciones y los plantones](/recursos/reducir-cancelaciones-ultima-hora).',
         },
       ],
     },
@@ -128,7 +127,7 @@ const articulo: Articulo = {
         },
         {
           t: 'llamada',
-          texto: 'Tentare cobra bonos y cuotas con tarjeta o domiciliación, reintenta lo que falla y te avisa de lo que queda pendiente.',
+          texto: 'Con Stripe conectado, Tentare cobra las cuotas solas con tarjeta o domiciliación, reintenta lo que falla y te avisa de lo que queda pendiente; los bonos los compra la alumna desde su app.',
         },
       ],
     },
@@ -138,7 +137,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'El equipo es el coste más grande después del local, y el que más imprevistos genera. Contratada, una monitora de una sola disciplina cobra como mínimo lo que marca el convenio estatal de instalaciones deportivas y gimnasios (16.279,89 € brutos al año en las tablas de 2025), y en 2026 manda el salario mínimo, 17.094 € al año a jornada completa, porque es más alto. Por horas, las ofertas activas en septiembre de 2026 iban de 8 a 30 € la hora, con 20 € como cifra más repetida.',
+          texto: 'El equipo suele ser el coste más grande, por delante del local, y el que más imprevistos genera. Contratada, una monitora de una sola disciplina cobra como mínimo lo que marca el convenio estatal de instalaciones deportivas y gimnasios (16.279,89 € brutos al año en las tablas de 2025), y en 2026 manda el salario mínimo, 17.094 € al año a jornada completa, porque es más alto. Por horas, las ofertas activas en septiembre de 2026 iban de 8 a 30 € la hora, con 20 € como cifra más repetida.',
         },
         {
           t: 'lista',
@@ -221,15 +220,15 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Tentare lleva los cinco sistemas en un solo panel',
-          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, los bonos y cuotas con cobro automático, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
+          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, las cuotas con cobro automático y los bonos que la alumna compra desde su app, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
         },
       ],
     },
   ],
   faq: [
     {
-      q: '¿Qué programa necesito para gestionar un estudio de Pilates?',
-      a: 'Uno que reserve con el aforo de cada clase o de cada máquina, que cobre bonos y cuotas solo (con tarjeta o domiciliación), que dé a tus alumnas una app para reservar y cancelar, y que lleve el horario de tu equipo. Comprueba también que publique su precio y si tiene permanencia.',
+      q: '¿Qué tiene que hacer el programa con el que llevas el estudio?',
+      a: 'Uno que reserve con el aforo de cada clase o de cada máquina, que cobre bonos y cuotas solo (con tarjeta o domiciliación), que dé a tus alumnas una app para reservar y cancelar, y que lleve el horario de tu equipo. Comprueba también que publique su precio y si tiene permanencia; los programas comparados, en la guía del mejor software para estudios de pilates.',
     },
     {
       q: '¿A partir de qué ocupación es rentable un estudio de Pilates?',
@@ -237,11 +236,11 @@ const articulo: Articulo = {
     },
     {
       q: '¿Con cuántas horas se puede cancelar una clase?',
-      a: 'Lo decide cada estudio. En los estudios españoles que revisamos, la ventana va de 2 a 24 horas, a veces distinta para el reformer y para el suelo. Lo importante es que esté por escrito y que la alumna la acepte antes de pagar.',
+      a: 'Lo decide cada estudio. En los estudios españoles que revisamos, la ventana va de 2 a 24 horas, a veces más larga para las clases individuales. Lo importante es que esté por escrito y que la alumna la acepte antes de pagar.',
     },
     {
       q: '¿Cuánto cuesta una instructora de Pilates?',
-      a: 'Contratada, el mínimo del convenio estatal de gimnasios para una monitora de una disciplina era de 16.279,89 € brutos al año en 2025, y en 2026 manda el salario mínimo, 17.094 €. Por horas, las ofertas de septiembre de 2026 iban de 8 a 30 €, con 20 € como cifra más repetida.',
+      a: 'Contratada, el mínimo del convenio estatal de gimnasios para una monitora de una disciplina era de 16.279,89 € brutos al año en 2025, y en 2026 manda el salario mínimo, 17.094 €; al estudio, con las cotizaciones, le cuesta unos 22.846 € al año. Por horas, las ofertas de septiembre de 2026 iban de 8 a 30 €, con 20 € como cifra más repetida.',
     },
     {
       q: '¿Qué IVA llevan las clases de Pilates?',
@@ -249,7 +248,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Tengo que adaptar la facturación a Veri*Factu?',
-      a: 'Si facturas con un programa, sí. Tiene que estar adaptado antes del 1 de enero de 2027 si eres una sociedad y antes del 1 de julio de 2027 si eres autónoma. Quien tributa por módulos y en el régimen simplificado del IVA, con carácter general, no.',
+      a: 'Si facturas con un programa, sí. Tiene que estar adaptado antes del 1 de enero de 2027 si eres una sociedad y antes del 1 de julio de 2027 si eres autónoma. Quien tributa por módulos y en el régimen simplificado del IVA, con carácter general, no; y en el País Vasco y Navarra rige el sistema de su hacienda foral.',
     },
   ],
   fuentes: [

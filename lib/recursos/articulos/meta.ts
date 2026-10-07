@@ -46,7 +46,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-gestionar-un-estudio-de-pilates",
     "titulo": "Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen",
-    "tituloSeo": "Cómo gestionar un estudio de Pilates: el sistema completo",
+    "tituloSeo": "Cómo gestionar un estudio de Pilates: 5 sistemas y una rutina",
     "descripcion": "Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.",
     "resumen": "Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.",
     "categoria": "operacion",
@@ -58,7 +58,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/politica-de-cancelacion-de-clases",
       "/funcionalidades"
     ],
-    "palabras": 2052
+    "palabras": 2122
   },
   {
     "slug": "mejor-software-para-estudios-de-pilates",
@@ -185,7 +185,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates",
       "/funcionalidades/informes-y-rentabilidad"
     ],
-    "palabras": 2408
+    "palabras": 2426,
+    "actualizado": "2026-10-08"
   },
   {
     "slug": "precios-reformer-mat",
@@ -202,7 +203,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/soluciones/estudio-de-pilates-reformer"
     ],
-    "palabras": 1594,
+    "palabras": 1710,
     "actualizado": "2026-10-07"
   },
   {
@@ -220,7 +221,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/recursos/bonos-de-pilates"
     ],
-    "palabras": 1931,
+    "palabras": 2039,
     "actualizado": "2026-10-07"
   },
   {
@@ -257,7 +258,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/bonos-y-membresias",
       "/funcionalidades/cancelaciones-y-politicas"
     ],
-    "palabras": 2059,
+    "palabras": 2063,
     "actualizado": "2026-10-07"
   },
   {
@@ -293,7 +294,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/lista-de-espera",
       "/funcionalidades/automatizaciones-y-avisos"
     ],
-    "palabras": 1904,
+    "palabras": 1994,
     "actualizado": "2026-10-07"
   },
   {
@@ -329,7 +330,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/gestion-de-instructoras",
       "/recursos/como-gestionar-un-estudio-de-pilates"
     ],
-    "palabras": 1917,
+    "palabras": 1994,
     "actualizado": "2026-10-07"
   },
   {

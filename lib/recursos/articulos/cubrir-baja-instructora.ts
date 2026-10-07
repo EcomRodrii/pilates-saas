@@ -108,11 +108,11 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Un plazo fijo no sirve: media hora es muy poco para una clase de pasado mañana y demasiado para una que empieza dentro de una hora. La regla que seguimos en el motor de sustituciones de Tentare es dar a cada candidata **un tercio del tiempo que falta para la clase, con un mínimo de 2 minutos y un máximo de 45**. Si no contesta en ese plazo, se le recuerda; si en otro plazo igual sigue sin contestar, se pasa a la siguiente.',
+          texto: 'Un plazo fijo no sirve: media hora es muy poco para una clase de pasado mañana y demasiado para una que empieza dentro de una hora. La regla que seguimos en el motor de sustituciones de Tentare es dar a cada candidata **un tercio del tiempo que falta para la clase, con un mínimo de 2 minutos y un máximo de 45**. Si no contesta en ese plazo, se le recuerda; si en otro plazo igual sigue sin contestar, se pasa a la siguiente (en Tentare, eso lo hace solo el modo autónomo; en el asistido, te avisa a ti para que decidas).',
         },
         {
           t: 'tabla',
-          cabecera: ['Falta para la clase', 'Plazo para contestar', 'Hasta pasar a la siguiente'],
+          cabecera: ['Falta para la clase', 'Plazo para contestar', 'Hasta pasar a otra'],
           filas: [
             ['24 horas', '45 min', '1 h 30 min'],
             ['6 horas', '45 min', '1 h 30 min'],
@@ -120,7 +120,7 @@ const articulo: Articulo = {
             ['1 hora', '20 min', '40 min'],
             ['30 minutos', '10 min', '20 min'],
           ],
-          nota: 'El plazo es un tercio de lo que falta, con un mínimo de 2 y un máximo de 45 minutos; se vuelve a calcular con cada candidata. Así siempre queda margen para avisar a las alumnas.',
+          nota: 'El plazo es un tercio de lo que falta, con un mínimo de 2 y un máximo de 45 minutos; se vuelve a calcular con cada candidata. Así queda margen para avisar a las alumnas, salvo en una baja de último minuto.',
         },
       ],
     },
@@ -141,7 +141,7 @@ const articulo: Articulo = {
             ['Del 16 al 20', '60 %, que paga el INSS o la mutua', '60 %, su mutua'],
             ['Del 21 en adelante', '75 %, que paga el INSS o la mutua', '75 %, su mutua'],
           ],
-          nota: 'Seguridad Social, incapacidad temporal por enfermedad común (régimen general y autónomos), consultado el 7-oct-2026. La base reguladora es la base de cotización del mes anterior dividida entre sus días. Dura como máximo 365 días, prorrogables 180.',
+          nota: 'Seguridad Social, incapacidad temporal por enfermedad común (régimen general y autónomos), consultado el 7-oct-2026. La base reguladora es la base de cotización del mes anterior dividida entre sus días. Con una empleada, desde el día 16 el estudio lo sigue pagando en la nómina y se lo descuenta de las cotizaciones (pago delegado). Dura como máximo 365 días, prorrogables 180.',
         },
         {
           t: 'p',
@@ -205,7 +205,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'En Tentare, la instructora avisa desde la app del estudio o desde un enlace en el móvil, sin instalar nada. El sistema mira quién da ese formato, su disponibilidad, sus vacaciones y bajas y las clases que ya tiene, y te propone la candidata. En el modo asistido, el que viene puesto, no escribe a nadie hasta que das el visto bueno; después la avisa por correo, con un enlace para aceptar o rechazar, se lo recuerda con los plazos de arriba (también por WhatsApp si lo conectaste) y pasa a la siguiente si no contesta. En el modo autónomo (planes Estudio y Cadena) lo hace todo solo.',
+          texto: 'En Tentare, la instructora avisa desde la app del estudio o desde un enlace en el móvil, sin instalar nada. El sistema mira quién da ese formato, su disponibilidad, sus vacaciones y bajas y las clases que ya tiene, y te propone la candidata. En el modo asistido, el que viene puesto, no escribe a nadie hasta que das el visto bueno; después la avisa por correo, con un enlace para aceptar o rechazar, se lo recuerda con los plazos de arriba (también por WhatsApp si lo conectaste) y, si sigue sin contestar, te avisa para que decidas a quién escribir. En el modo autónomo (planes Estudio y Cadena) pasa sola a la siguiente y lo hace todo sin ti.',
         },
         {
           t: 'p',
@@ -222,7 +222,7 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Quién paga la baja médica de una instructora?',
-      a: 'Si es empleada y la baja es por enfermedad común, los tres primeros días no hay subsidio; del 4 al 15 el estudio le paga el 60 % de su base reguladora, y desde el 16 lo paga el INSS o la mutua. Si es autónoma, cobra de su mutua desde el día 4 y el estudio no paga nada.',
+      a: 'Si es empleada y la baja es por enfermedad común, los tres primeros días no hay subsidio; del 4 al 15 el estudio le paga el 60 % de su base reguladora, y desde el 16 lo paga el INSS o la mutua (el estudio lo adelanta en la nómina y se lo descuenta de las cotizaciones). Si es autónoma, cobra de su mutua desde el día 4 y el estudio no paga nada.',
     },
     {
       q: '¿Puedo contratar a alguien mientras una instructora está de baja?',
@@ -230,7 +230,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuánto hay que esperar a que conteste una sustituta?',
-      a: 'Depende de lo que falte para la clase. Una regla que funciona: un tercio del tiempo que queda, entre 2 y 45 minutos. Si no contesta, se le recuerda, y si sigue sin contestar en otro plazo igual, se pasa a la siguiente.',
+      a: 'Depende de lo que falte para la clase. Una regla que funciona: un tercio del tiempo que queda, entre 2 y 45 minutos. Si no contesta, se le recuerda, y si sigue sin contestar en otro plazo igual, se pasa a la siguiente o decides tú.',
     },
     {
       q: '¿Es mejor escribir a todas las instructoras a la vez?',

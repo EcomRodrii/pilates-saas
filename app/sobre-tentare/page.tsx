@@ -48,7 +48,7 @@ const METODO = [
   'Si no hemos podido comprobar un dato, no lo escribimos.',
   'De otros programas solo contamos lo que consta en su web pública, con la fecha de la revisión. Si un dato no aparece, lo decimos así: «no consta».',
   'Los precios de los estudios salen de las tarifas que publican en su web: 32 estudios de 8 ciudades, revisados el 25 de septiembre de 2026.',
-  'Cada guía dice cuándo se publicó y cuándo se actualizó.',
+  'Cada guía dice cuándo se revisó por última vez.',
   'Somos parte interesada: Tentare es un software para estudios. Cuando una guía o una comparativa habla de Tentare, lo dice.',
   'Antes de publicarse, esas guías pasan una comprobación automática: que cada tabla de cifras diga de dónde salen, que cada fuente lleve su fecha, que sus enlaces existan y que no usen ninguna de las frases sobre Tentare que tenemos marcadas como no ciertas.',
 ];

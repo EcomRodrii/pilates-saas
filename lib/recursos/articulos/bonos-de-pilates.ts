@@ -92,13 +92,13 @@ const articulo: Articulo = {
         {
           t: 'lista',
           items: [
-            '**Nunca por debajo de tu coste por plaza.** El escalón más barato tiene que cubrir lo que te cuesta una plaza ocupada; cómo calcularlo, en [¿es rentable un estudio de pilates?](/recursos/rentabilidad-estudio-de-pilates).',
+            '**Nunca por debajo de tu coste por plaza.** El escalón más barato, una vez quitado el IVA, tiene que cubrir lo que te cuesta una plaza ocupada; cómo calcularlo, en [¿es rentable un estudio de pilates?](/recursos/rentabilidad-estudio-de-pilates).',
             '**Premia el compromiso más que el volumen.** Si el bono de 10 sale más barato por sesión que la cuota de una clase semanal, empujas a tus alumnas fuera de la cuota.',
             '**Enseña el precio por sesión.** Varios estudios de la muestra lo ponen junto a cada tarifa («24,75 €/clase», «20 €/clase»): la alumna compara sin hacer cuentas.',
             '**Pon las condiciones junto al precio.** Caducidad, ventana de cancelación y si es personal e intransferible (como en Tout Suite y True Pilates), igual en la web y en el justificante.',
           ],
         },
-        { t: 'p', texto: 'Haz la cuenta con tus precios: la calculadora parte de las medianas de la muestra y te avisa si un escalón queda por debajo de tu coste o si el bono le quita alumnas a la cuota.' },
+        { t: 'p', texto: 'Haz la cuenta con tus precios: la calculadora parte del ejemplo de la tabla y te avisa si un escalón queda por debajo de tu coste o si el bono le quita alumnas a la cuota.' },
         { t: 'herramienta', id: 'calculadora-bonos' },
         { t: 'p', texto: 'Después, llévalo a tu programa de reservas para no controlar caducidades a mano. En Tentare configuras [bonos, cuotas mensuales y clases sueltas](/funcionalidades/bonos-y-membresias), con la caducidad de cada bono y reglas por tipo de clase; si de momento usas una hoja de cálculo, tienes la [plantilla de control de asistencia](/recursos/plantilla-control-de-asistencia-pilates).' },
         {
