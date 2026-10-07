@@ -156,18 +156,26 @@ export function claveCheckoutRecibo(
 
 /**
  * Cuándo caduca una sesión INCRUSTADA (la de la app, RECIBOS · 6-oct-2026), en
- * segundos epoch: el inicio del minuto de la clave + 31 min. Sale del MISMO
+ * segundos epoch: el inicio del minuto de la clave + 32 min. Sale del MISMO
  * minuto que `claveCheckoutRecibo`, así que dos peticiones del mismo intento
- * mandan los mismos parámetros (sin `idempotency_error`), y cumple el mínimo de
- * Stripe (30 min desde que se crea, que cae dentro de ese minuto).
+ * mandan los mismos parámetros (sin `idempotency_error`).
+ *
+ * ⚠️ 32 y no 31 (7-oct-2026): Stripe documenta que `expires_at` va de 30 min a
+ * 24 h desde que CREA la sesión, no desde que se calculó. Con +31 desde el inicio
+ * del minuto, una petición en el último segundo del minuto mandaba 30 min y pocos
+ * milisegundos; tras leer y cerrar la sesión anterior y el viaje, llegaría por
+ * debajo de 30 y Stripe la rechazaría (la alumna vería «No se pudo iniciar el
+ * cobro»). Deducido de la documentación, no observado: no hay un rechazo medido.
+ * Con +32 sobra siempre más de un minuto. stripe-mock no lo ve: no está en el
+ * esquema (ver docs/STRIPE-MODO-TEST.md).
  *
  * Corta a propósito (la hospedada vive 24 h): una sesión abandonada deja
  * `checkout_session_id` puesto, y mientras viva el recibo no se cobra por otra
- * vía (dunning, remesa). A los 30 min el conciliador la ve caducada y la suelta
- * (`queHacerConSesionCaducada`).
+ * vía (dunning, remesa). Cuando caduca (32 min), el conciliador la ve caducada en
+ * su siguiente pasada y la suelta (`queHacerConSesionCaducada`).
  */
 export function expiraSesionIncrustada(ahoraMs: number = Date.now()): number {
-  return Math.floor(ahoraMs / 60000) * 60 + 31 * 60;
+  return Math.floor(ahoraMs / 60000) * 60 + 32 * 60;
 }
 
 /** La respuesta para la app: lo que monta el Checkout incrustado. */

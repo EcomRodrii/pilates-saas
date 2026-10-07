@@ -966,7 +966,7 @@ export async function POST(req: NextRequest) {
         ui_mode: 'embedded_page' as const,
         redirect_on_completion: 'if_required' as const,
         return_url: `${retorno.successUrl}&session_id={CHECKOUT_SESSION_ID}`,
-        // 31 min desde el minuto de la clave (`expiraSesionIncrustada`): abandonada,
+        // 32 min desde el minuto de la clave (`expiraSesionIncrustada`): abandonada,
         // caduca pronto y el conciliador suelta el recibo para su cobro de siempre.
         expires_at: expiraSesionIncrustada(ahoraMs),
       } : {
