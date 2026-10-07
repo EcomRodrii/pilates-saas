@@ -91,3 +91,17 @@ test('el precio de la clase suelta que se enseña sale con el tipo de la clase, 
   assert.match(leer('app/reservar/[slug]/page.tsx'), /precioPorTipo: \(t\) => precioSueltaDe\(planesTarifa, t\)/);
   assert.match(leer('lib/reservar/construir-slots.ts'), /precioPorTipo: \(t\) => precioSueltaDe\(planesTarifa, t\)/);
 });
+
+test('el prefijo `res-pf-` de una reserva de clase fija se lee en UN sitio (lib/reservas/plaza-fija-id.ts)', () => {
+  const recorrer = (dir: string): string[] => readdirSync(join(RAIZ, dir), { withFileTypes: true }).flatMap(e => {
+    const ruta = `${dir}/${e.name}`;
+    if (e.isDirectory()) return e.name === 'node_modules' ? [] : recorrer(ruta);
+    return /\.(ts|tsx)$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) ? [ruta] : [];
+  });
+  const sueltos = ['lib', 'app', 'components']
+    .flatMap(recorrer)
+    .filter(f => f !== 'lib/reservas/plaza-fija-id.ts')
+    .filter(f => /startsWith\(\s*['"]res-pf-['"]\s*\)/.test(readFileSync(join(RAIZ, f), 'utf8')));
+  assert.deepEqual(sueltos, [],
+    'Usa esReservaPlazaFija(id) de lib/reservas/plaza-fija-id.ts: es un contrato, no un nombre, y un literal suelto no lo ve quien lo cambie.');
+});

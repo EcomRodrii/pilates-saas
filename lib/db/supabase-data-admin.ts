@@ -180,6 +180,7 @@ import {
   dbUpdateAutomationRuleCon,
   dbUpdateAutomatizacionCon,
 } from '@/lib/supabase-data';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 function dbEscritura(): SupabaseClient {
   return getSupabaseAdmin() ?? supabase;
@@ -1891,7 +1892,7 @@ export async function completarConfirmacionTrasReintento(admin: SupabaseClient, 
 }): Promise<void> {
   // Las plazas fijas materializadas no se cobran nunca (nacen no rastreadas);
   // esto cubre también las anteriores a la migración.
-  if (p.reservaId.startsWith('res-pf-')) return;
+  if (esReservaPlazaFija(p.reservaId)) return;
   const { data: res } = await admin.from('reservas').select('estado, sesion_id, socio_id')
     .eq('id', p.reservaId).eq('studio_id', p.studioId).maybeSingle();
   if (!res || res.estado !== 'CONFIRMADA' || !res.sesion_id || !res.socio_id) return;
@@ -4518,7 +4519,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
   params: { studioId: string; socioId: string; reservaId: string; eraConfirmada: boolean },
 ): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null; recuperacionAlCerrarSemana: boolean }> {
   const nada = { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
-  if (!params.reservaId.startsWith('res-pf-') || !params.eraConfirmada) return nada;
+  if (!esReservaPlazaFija(params.reservaId) || !params.eraConfirmada) return nada;
 
   // `cancelada_tardia` la escribe el trigger al cancelar, con la ventana del
   // tipo de clase por encima de la del estudio. NULL = no se sabe: no se da.
@@ -4654,7 +4655,7 @@ export async function ejecutarCancelacionReserva(
   // NO debe devolver una sesión que nunca se descontó: su compensación es la
   // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
   // fija regalaba una sesión de bono + una recuperación (doble compensación).
-  const esPlazaFija = params.reservaId.startsWith('res-pf-');
+  const esPlazaFija = esReservaPlazaFija(params.reservaId);
   // Una clase fija también se cancela tarde, y entonces no hay recuperación y
   // puede haber penalización (la detecta `cancelar_reserva_plaza`, que no
   // distingue `res-pf-`). Antes `tardia` solo se calculaba en el bloque de

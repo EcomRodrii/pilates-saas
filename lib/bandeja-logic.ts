@@ -26,6 +26,7 @@ import { aforoEfectivoSesion } from './aforo-logic.ts';
 import { sociosConExcepcion } from './excepciones.ts';
 import { situacionRecibo } from './billing/situacion-recibo.ts';
 import { plazasFijasSinSesion, nombreDiaSemana } from './plazas-fijas-slot.ts';
+import { esReservaPlazaFija } from './reservas/plaza-fija-id.ts';
 
 // Euro en formato ES, idéntico a formatEuro de utils; inline para no arrastrar
 // clsx/tailwind-merge a un módulo de lógica pura (y su test con node --test).
@@ -249,7 +250,7 @@ function plazasSinClase(
   const sesionById = new Map(e.sesiones.map(s => [s.id, s]));
   const conPlazaFutura = new Set<string>();
   for (const r of e.reservas) {
-    if (r.estado !== 'CONFIRMADA' || !r.id.startsWith('res-pf-')) continue;
+    if (r.estado !== 'CONFIRMADA' || !esReservaPlazaFija(r.id)) continue;
     const s = sesionById.get(r.sesionId);
     if (!s || s.cancelada || Date.parse(s.inicio) <= e.ahoraMs) continue;
     conPlazaFutura.add(r.socioId);

@@ -9,6 +9,7 @@
 // Puro: se prueba con `node --test`.
 import { hoyEnEstudio } from '../utils.ts';
 
+import { euros } from './euros.ts';
 export type GrupoHistoria = 'CONTACTOS' | 'CLASES' | 'PAGOS' | 'AVISOS' | 'NOTAS';
 
 export interface EventoHistoria {
@@ -91,7 +92,6 @@ export interface ContactoParaHistoria {
   autor: string | null;
 }
 
-const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')} €`;
 
 // Con el género de la persona: «la llamó» / «lo llamó», «con ella» / «con él».
 const COMO_CONTACTO: Record<ContactoParaHistoria['canal'], (hombre: boolean) => string> = {

@@ -6,6 +6,7 @@
 // aquí para probarlo sin Supabase: qué petición se acepta y qué se le dice a
 // recepción cuando la base de datos no la admite.
 import { esPlataforma, NOMBRE_PLATAFORMA, type Plataforma } from './catalogo.ts';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 export interface PeticionReservaExterna {
   sesionId: string;
@@ -37,7 +38,7 @@ export function leerPeticionReservaExterna(body: unknown):
   const sesionId = idValido(b.sesionId);
   if (!sesionId) return { ok: false, error: 'Falta la clase' };
   const reservaId = typeof b.reservaId === 'string' ? b.reservaId : '';
-  if (!RESERVA_ID.test(reservaId) || reservaId.startsWith('res-pf-')) {
+  if (!RESERVA_ID.test(reservaId) || esReservaPlazaFija(reservaId)) {
     return { ok: false, error: 'Identificador de reserva no válido' };
   }
   if (!esPlataforma(b.plataforma)) return { ok: false, error: 'Plataforma no válida' };

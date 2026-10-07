@@ -175,7 +175,12 @@ async function cerrarPagoAnterior(
   if (error) return 'no-se-sabe';
   // Sin cobro no hay metadata de la que leer la matrícula retenida: la dice la fila (misma clave «una vez»).
   if (!cancelado && fila.cupo_matricula) {
-    await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(fila.id), fila.plan_id, studioId).catch(() => {});
+    await liberarCupoMatriculaUnaVez(admin, claveMatriculaDePagoClase(fila.id), fila.plan_id, studioId).catch((e: unknown) => {
+      // Mismo criterio que la rama con cobro de abajo: no tumba el cierre, pero no se calla.
+      Sentry.captureException(e instanceof Error ? e : new Error('liberar matrícula del pago de clase sin cobro'), {
+        level: 'warning', tags: { modulo: 'pago-de-clase', paso: 'cancelar-anterior' }, extra: { studioId, pagoClaseId: fila.id },
+      });
+    });
   }
   if (cancelado) {
     await liberarPlazaPorRef(admin, cancelado.id);

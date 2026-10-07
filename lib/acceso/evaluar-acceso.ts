@@ -24,6 +24,8 @@
 //
 // Import relativo con extensión `.ts`: lo prueba `node --test`.
 
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
+
 /** Minutos antes del inicio en que una clase ya es «la de ahora» en la puerta.
  *  Los mismos que abren la lista de la instructora y la puerta de Kisi. */
 export const MINUTOS_ANTES_DE_EMPEZAR = 60;
@@ -124,7 +126,7 @@ export function reservaEnClase(reservas: readonly ReservaEnPuerta[], sesionId: s
 export function tipoDeAcceso(r: Pick<ReservaEnPuerta, 'id' | 'esRecuperacion' | 'esPrueba'>): TipoAcceso {
   // El único rastro de que viene de una plaza fija es el id (`reservas` no
   // guarda el origen): lo pone `materializar_plazas_fijas_interno`.
-  if (r.id.startsWith('res-pf-')) return 'PLAZA_FIJA';
+  if (esReservaPlazaFija(r.id)) return 'PLAZA_FIJA';
   if (r.esRecuperacion) return 'RECUPERACION';
   if (r.esPrueba) return 'CLASE_DE_PRUEBA';
   return 'RESERVA';
