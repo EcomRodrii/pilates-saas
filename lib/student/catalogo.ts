@@ -1,7 +1,7 @@
 'use client';
 
 import { cargarAforoPublico, cargarDatosPublicos } from '@/lib/student/api-publica';
-import { aplicarAforo } from '@/lib/student/aforo-fresco';
+import { aplicarAforo, aplicarApartadas } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { memoriaVistas } from '@/lib/student/memoria-vistas';
@@ -97,6 +97,8 @@ export interface PayloadPublico {
    */
   productosFisicos?: { id: string; nombre: string; precio: number; descripcion: string | null; imagenUrl: string | null }[];
   aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
+  /** Plazas apartadas para ClassPass por sesión: no se pueden reservar hasta que se liberan. */
+  aforoApartadas?: { sesion_id: string; plazas: number }[];
   /**
    * Los huecos (camas, reformers, esterillas) de cada sala. El servidor los
    * manda desde siempre; esta frontera no los declaraba, así que la app de la
@@ -246,7 +248,11 @@ export async function refrescarAforo(slug: string): Promise<Payload | null> {
   try {
     const a = await cargarAforoPublico(slug);
     if (!a) return guardado.datos;
-    const datos: Payload = { ...guardado.datos, aforoReservas: aplicarAforo(guardado.datos.aforoReservas ?? [], a.sesionIds, a.aforoReservas) };
+    const datos: Payload = {
+      ...guardado.datos,
+      aforoReservas: aplicarAforo(guardado.datos.aforoReservas ?? [], a.sesionIds, a.aforoReservas),
+      aforoApartadas: aplicarApartadas(guardado.datos.aforoApartadas ?? [], a.sesionIds, a.aforoApartadas ?? []),
+    };
     // Solo si la entrada sigue siendo la misma: entre la petición y la
     // respuesta pudo haber una reserva (invalidarCatalogo) o un cierre de
     // sesión, y volver a meterla resucitaría un payload ya obsoleto.

@@ -43,6 +43,15 @@ const CASOS: Caso[] = [
   // Qué conexiones están encendidas, solo el tipo (migr 20261007144207): la llama
   // el panel con la sesión del equipo, porque `integraciones` solo la lee la propietaria.
   { firma: 'integraciones_activas()', anon: false, authenticated: true, serviceRole: true },
+  // Plazas apartadas para ClassPass (migr 20261007164222): la regla y lo que la lee, solo el servidor
+  // (las funciones del motor la llaman como su dueño). «Liberar 1» la llama la ruta del mostrador, que
+  // comprueba el rol y deja el rastro: el navegador nunca.
+  { firma: 'plataformas_que_apartan()', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'apartados_de_sesion(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'plazas_apartadas(text, text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'plazas_apartadas_de(text, text[], text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'sesiones_con_plazas_liberadas(interval)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'liberar_plaza_apartada(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Función de TRIGGER (un tipo de clase archivado no programa clases nuevas,
   // migr 20260930215125): solo la dispara `sesiones`, nadie la llama. El
   // permiso se comprueba al crear el trigger, no al dispararse.

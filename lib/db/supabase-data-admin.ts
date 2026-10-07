@@ -89,7 +89,7 @@ import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
-import { decidirPremioReferido } from '@/lib/booking-logic';
+import { decidirPremioReferido, type AforoApartado } from '@/lib/booking-logic';
 import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { planMasElegido } from '@/lib/estudio-publico';
@@ -556,8 +556,30 @@ export const AFORO_VENTANA_DIAS = 60;
  * lista de sesiones, el cliente no podría distinguir "sin reservas" de "fuera
  * de la ventana" y se quedaría enseñando el aforo viejo.
  */
+/**
+ * Las plazas APARTADAS para una plataforma que vende a mano (ClassPass) en estas
+ * sesiones: desde Tentare no las coge nadie hasta que se liberan
+ * (`plazas_apartadas_de`, migr 20261007164222). Solo números, ni personas ni el
+ * nombre de la plataforma: vale para la respuesta pública y cacheada. Si falla,
+ * vacío y aviso: la base de datos sigue decidiendo al reservar, así que lo peor
+ * es enseñar una plaza que acaba en «completa».
+ */
+async function aforoApartadasDe(admin: SupabaseClient, studioId: string, sesionIds: string[]): Promise<AforoApartado[]> {
+  if (sesionIds.length === 0) return [];
+  const { data, error } = await admin.rpc('plazas_apartadas_de', { p_studio_id: studioId, p_sesion_ids: sesionIds });
+  if (error) {
+    Sentry.captureMessage('[aforo] no se pudieron leer las plazas apartadas', {
+      level: 'warning', tags: { area: 'plataformas' }, extra: { studioId, error: error.message }, fingerprint: ['aforo-apartadas'],
+    });
+    return [];
+  }
+  return ((data ?? []) as { sesion_id: string; plazas: number }[])
+    .map(f => ({ sesion_id: f.sesion_id, plazas: Number(f.plazas) }))
+    .filter(f => typeof f.sesion_id === 'string' && f.plazas > 0);
+}
+
 export async function fetchAforoPublico(slug: string): Promise<
-  { sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null
+  { sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[]; aforoApartadas: AforoApartado[] } | null
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
@@ -578,7 +600,7 @@ export async function fetchAforoPublico(slug: string): Promise<
     .lte('inicio', hasta.toISOString());
 
   const sesionIds = (sesionesData ?? []).map((s) => s.id as string);
-  if (sesionIds.length === 0) return { sesionIds: [], aforoReservas: [] };
+  if (sesionIds.length === 0) return { sesionIds: [], aforoReservas: [], aforoApartadas: [] };
 
   // Paginado: PostgREST corta en 1000 filas EN SILENCIO, y un estudio lleno
   // puede pasar de mil reservas en 60 días. Sin esto el aforo de las clases
@@ -589,14 +611,18 @@ export async function fetchAforoPublico(slug: string): Promise<
   // el mismo resultado y peor: con un 504 del pooler, `aforoReservas` queda
   // vacío y TODAS las clases del portal se pintan libres. Mejor un fallo
   // visible que vender plazas que no existen.
-  const { data: aforoReservas, error: errAforo } = await fetchAllRows(studioId, 'reservas', (from, to) =>
-    admin.from('reservas').select('id, sesion_id, estado, spot_id')
-      .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to));
+  const [{ data: aforoReservas, error: errAforo }, aforoApartadas] = await Promise.all([
+    fetchAllRows(studioId, 'reservas', (from, to) =>
+      admin.from('reservas').select('id, sesion_id, estado, spot_id')
+        .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to)),
+    aforoApartadasDe(admin as never, studioId, sesionIds),
+  ]);
   exigirLectura(errAforo, 'leyendo el aforo de las clases');
 
   return {
     sesionIds,
     aforoReservas: (aforoReservas ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
+    aforoApartadas,
   };
 }
 
@@ -1071,6 +1097,7 @@ export async function fetchPublicStudioData(
     ...camposTema,
     ...camposLayout,
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
+    aforoApartadas: await aforoApartadasDe(admin as never, studioId, sesionIdsVigentes),
   };
 
   if (!member) return { ...base, socia: null };
@@ -2790,14 +2817,17 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
     }
 
     if (!socioId) {
-      // Sin ficha: solo la clase. Lo mismo que cuenta `evaluar_reserva`.
-      const [{ data: aforo }, { count: ocupadas }, { count: enEspera }] = await Promise.all([
+      // Sin ficha: solo la clase. Lo mismo que cuenta `evaluar_reserva`, con las
+      // plazas apartadas para ClassPass. Sin poder leerlas, no se cobra.
+      const [{ data: aforo }, { count: ocupadas }, { count: enEspera }, apartadasRes] = await Promise.all([
         admin.rpc('aforo_efectivo', { p_sesion_id: p.sesionId }),
         admin.from('reservas').select('id', { count: 'exact', head: true })
           .eq('sesion_id', p.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']),
         admin.from('reservas').select('id', { count: 'exact', head: true })
           .eq('sesion_id', p.sesionId).eq('estado', 'LISTA_ESPERA'),
+        admin.rpc('plazas_apartadas', { p_sesion_id: p.sesionId }),
       ]);
+      if (apartadasRes.error) throw new Error(`plazas_apartadas: ${apartadasRes.error.message}`);
       let spot: 'libre' | 'ocupado' | 'no-disponible' | null = null;
       if (p.spotId) {
         const { data: sp } = await admin.from('spots').select('id, activo').eq('id', p.spotId).eq('studio_id', p.studioId).maybeSingle();
@@ -2811,6 +2841,7 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
       return decidirPlazaInvitadaSinFicha({
         requiereAprobacion, aforo: typeof aforo === 'number' ? aforo : null, ocupadas: ocupadas ?? 0,
         permiteListaEspera, spot, enEspera: enEspera ?? 0,
+        apartadas: typeof apartadasRes.data === 'number' ? apartadasRes.data : 0,
       });
     }
 
@@ -4094,14 +4125,26 @@ export async function ofrecerPlazaLibre(params: {
     reportDbError('[ofrecerPlazaLibre] no se pudo calcular el aforo efectivo', errAforo);
     return { error: 'No se ha podido comprobar el aforo de esta clase' };
   }
-  const { count: confirmadas } = await admin.from('reservas')
-    .select('id', { count: 'exact', head: true })
-    .eq('sesion_id', params.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']);
+  const [{ count: confirmadas }, apartadasRes] = await Promise.all([
+    admin.from('reservas')
+      .select('id', { count: 'exact', head: true })
+      .eq('sesion_id', params.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']),
+    // Las apartadas para ClassPass no se ofrecen (la RPC tampoco las daría).
+    admin.rpc('plazas_apartadas', { p_sesion_id: params.sesionId }),
+  ]);
+  if (apartadasRes.error) {
+    reportDbError('[ofrecerPlazaLibre] no se pudieron leer las plazas apartadas', apartadasRes.error);
+    return { error: 'No se ha podido comprobar el aforo de esta clase' };
+  }
+  const apartadas = typeof apartadasRes.data === 'number' ? apartadasRes.data : 0;
   // `null` = sesión sin aforo definido, mismo criterio que reservar_plaza: no
   // hay límite que respetar.
   const limite = aforo as number | null;
   if (limite != null && (confirmadas ?? 0) >= limite) {
     return { error: 'No hay ningún hueco libre en esta clase ahora mismo' };
+  }
+  if (limite != null && (confirmadas ?? 0) + apartadas >= limite) {
+    return { error: 'Las plazas que quedan están apartadas para ClassPass: se liberan si no las vende a tiempo.' };
   }
 
   // Mismo patrón "hereda" que el resto de reglas de reserva (heredaOverride):
@@ -4307,6 +4350,31 @@ async function promocionarEsperaTrasRechazoPropio(admin: SupabaseClient, p: { st
       level: 'error', tags: { area: 'reservas', tipo: 'lista-espera' }, extra: { sesionId: p.sesionId, studioId: p.studioId },
     });
   }
+}
+
+/**
+ * Da la siguiente plaza libre de una clase a su lista de espera (subida directa
+ * u oferta con plazo, según el estudio), con lo que sigue en el servidor
+ * (`seguirPromocionDeEspera`: bono, correo, push). Para el barrido de plazas
+ * apartadas para ClassPass que se acaban de liberar
+ * (lib/lista-espera/plazas-liberadas.ts). Devuelve si ha subido u ofrecido a
+ * alguien; un fallo de la base de datos se lanza (lo cuenta el barrido).
+ */
+export async function promocionarEsperaDeSesion(admin: SupabaseClient, p: { studioId: string; sesionId: string }): Promise<boolean> {
+  const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('promocionar_espera_de_sesion', {
+    p_studio_id: p.studioId, p_sesion_id: p.sesionId,
+  }));
+  if (error) throw new Error(error.message);
+  const fila = (Array.isArray(data) ? data[0] : data) as
+    { promovida_socio_id?: string | null; oferta_socio_id?: string | null; oferta_expira_en?: string | null } | null | undefined;
+  if (!fila?.promovida_socio_id && !fila?.oferta_socio_id) return false;
+  await seguirPromocionDeEspera(admin, {
+    studioId: p.studioId, sesionId: p.sesionId,
+    promovidaSocioId: fila.promovida_socio_id ?? null,
+    ofertaSocioId: fila.oferta_socio_id ?? null,
+    ofertaExpiraEn: fila.oferta_expira_en ?? null,
+  });
+  return true;
 }
 
 // Fase 2b: cancela (pierde el sitio) la reserva cuya oferta caducó sin

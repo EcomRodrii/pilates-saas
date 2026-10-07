@@ -127,16 +127,18 @@ function decidir(p: Parameters<typeof decidirPlazaAntesDeCobrar>[0]): PlazaAntes
 /**
  * La invitada SIN ficha: no hay socia que evaluar, solo la clase (aforo y sitio).
  * `ocupadas`/`aforo` como los cuenta `evaluar_reserva` (CONFIRMADA + ASISTIDA
- * frente a `aforo_efectivo`); `aforo` null = sin tope.
+ * frente a `aforo_efectivo`); `aforo` null = sin tope. `apartadas`: las plazas
+ * apartadas para ClassPass (`plazas_apartadas`), que `evaluar_reserva` también
+ * suma: sin ellas se le cobraría una plaza que no puede tener.
  */
 export function decidirPlazaInvitadaSinFicha(p: {
   requiereAprobacion: boolean; aforo: number | null; ocupadas: number; permiteListaEspera: boolean;
-  spot?: 'libre' | 'ocupado' | 'no-disponible' | null; enEspera?: number;
+  spot?: 'libre' | 'ocupado' | 'no-disponible' | null; enEspera?: number; apartadas?: number;
 }): PlazaAntesDeCobrar {
   if (p.requiereAprobacion) return no('requiere-aprobacion');
   if (p.spot === 'no-disponible') return no('spot-no-disponible');
   if (p.spot === 'ocupado') return no('spot-ocupado');
-  if (p.aforo != null && p.ocupadas >= p.aforo) {
+  if (p.aforo != null && p.ocupadas + Math.max(0, p.apartadas ?? 0) >= p.aforo) {
     return p.permiteListaEspera ? no('llena-con-espera', (p.enEspera ?? 0) + 1) : no('aforo-lleno');
   }
   return { ok: true };

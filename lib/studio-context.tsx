@@ -231,6 +231,7 @@ import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
+import { aplicarApartadas } from '@/lib/student/aforo-fresco';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -258,6 +259,7 @@ import { MENSAJE_TEMA_PREVIEW, resolveTemaJs, type TemaJs } from '@/lib/theme-pr
 import {
   decidirReservaNueva,
   decidirPremioReferido,
+  type AforoApartado,
 } from '@/lib/booking-logic';
 import { calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
@@ -314,6 +316,8 @@ interface StudioContextValue {
   // (llega ya agregado del servidor, no se calcula en el cliente).
   retosApuntados: string[];
   retoConteos: Record<string, number>;
+  /** Modo público: plazas apartadas para ClassPass por sesión (lib/booking-logic.ts), que cuentan como ocupadas. */
+  aforoApartadas: AforoApartado[];
   toggleReto: (retoKey: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
   // Nota agregada del ESTUDIO entero (todas sus instructoras), para "Tu
   // estudio" en Inicio — `null` bajo el mínimo de valoraciones para enseñar
@@ -970,6 +974,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
+  const [aforoApartadas, setAforoApartadas] = useState<AforoApartado[]>([]);
   const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [camposPersonalizadosCargados, setCamposPersonalizadosCargados] = useState(false);
@@ -1277,6 +1282,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;
       setOrdenReservar({ orden: listaStr(ordRes?.orden), ocultos: listaStr(ordRes?.ocultos) });
       setRetoConteos(pub.retoConteos ?? {});
+      setAforoApartadas(Array.isArray(pub.aforoApartadas) ? pub.aforoApartadas : []);
       setValoracionEstudio((pub as { valoracionEstudio?: { media: number; total: number } | null }).valoracionEstudio ?? null);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
@@ -1358,6 +1364,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // se considerase vacía y se borrasen reservas que sí existen.
       if (!res || !Array.isArray(res.sesionIds) || !Array.isArray(res.aforoReservas)) return;
       setReservas(prev => fusionarAforo(prev, res.sesionIds, res.aforoReservas, studioIdOverride ?? ''));
+      // Una respuesta vieja de la CDN (sin el campo) no borra las que había.
+      if (Array.isArray(res.aforoApartadas)) {
+        const frescas = res.aforoApartadas;
+        setAforoApartadas(prev => aplicarApartadas(prev, res.sesionIds, frescas));
+      }
     }).catch(err => { console.error('Error refrescando aforo:', err); });
   }
 
@@ -5722,6 +5733,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleFavorito,
     retosApuntados,
     retoConteos,
+    aforoApartadas,
     valoracionEstudio,
     toggleReto,
     updateMensajeDestacado,
@@ -5992,7 +6004,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, aforoApartadas, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa, estadoMandatosSepa,
     camposPersonalizados, camposPersonalizadosCargados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,

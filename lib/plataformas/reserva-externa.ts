@@ -63,6 +63,10 @@ export function leerPeticionReservaExterna(body: unknown):
  */
 export function mensajeErrorReservaExterna(mensaje: string, plataforma: Plataforma): { status: 400 | 404 | 409; error: string } | null {
   const nombre = NOMBRE_PLATAFORMA[plataforma];
+  // Antes que AFORO_LLENO, que también está dentro de este código.
+  if (mensaje.includes('AFORO_LLENO_APARTADAS')) {
+    return { status: 409, error: `Las plazas que quedan están apartadas para ClassPass hasta que se liberan: aquí no hay sitio para ${nombre}.` };
+  }
   if (mensaje.includes('AFORO_LLENO')) {
     return { status: 409, error: `La clase está completa. Si ${nombre} ya se la ha vendido, cancélala allí: aquí no queda plaza.` };
   }

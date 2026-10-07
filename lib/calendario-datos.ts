@@ -40,6 +40,16 @@ export interface SesionCalendario extends Sesion {
   /** La regla A4 del Decision OS la da por floja, con las cifras que lo
    *  sostienen. Solo para quien ve el Centro de Control; sin recomendación, null. */
   floja: FlojaDeClase | null;
+  /** Plazas apartadas para ClassPass y hasta cuándo (migr 20261007164222):
+   *  desde Tentare no se pueden coger. Sin ninguna, null o ausente. */
+  apartadas?: ApartadasDeClase | null;
+}
+
+/** Las plazas de una clase apartadas para una plataforma que vende a mano (hoy, ClassPass). */
+export interface ApartadasDeClase {
+  plazas: number;
+  /** ISO: cuándo se liberan las que no haya vendido. */
+  hasta: string;
 }
 
 /** Lo que dice A4 de una clase que va floja (`recomendaciones.datos_usados`). */
@@ -104,6 +114,7 @@ export function completarSesiones(
     ausencias: ReadonlyMap<string, { tipo: string; desde: string; hasta: string }>;
     instructorasInactivas: ReadonlySet<string>;
     flojas: ReadonlyMap<string, FlojaDeClase>;
+    apartadas?: ReadonlyMap<string, ApartadasDeClase>;
   },
 ): SesionCalendario[] {
   const verTipo = puedeVerDetalleAusencias(datos.rol);
@@ -115,6 +126,7 @@ export function completarSesiones(
       ausencia: ausencia && !verTipo ? { ...ausencia, tipo: 'OTRO' } : ausencia,
       instructoraInactiva: !!s.instructorId && datos.instructorasInactivas.has(s.instructorId),
       floja: verFlojas ? datos.flojas.get(s.id) ?? null : null,
+      apartadas: datos.apartadas?.get(s.id) ?? null,
     };
   });
 }

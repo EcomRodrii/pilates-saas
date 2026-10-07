@@ -5,12 +5,15 @@ import { dbGuardarCupoPlataformaTipo, dbListarCuposPlataformaTipo } from '@/lib/
 import { NOMBRE_PLATAFORMA, type Plataforma } from '@/lib/plataformas/catalogo';
 import { leerPlazasCedidas } from '@/lib/plataformas/cupo';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
+import { PLATAFORMAS_QUE_APARTAN } from '@/lib/plataformas/apartadas';
 
 // Cuántas plazas de cada clase de este tipo cede el estudio a cada plataforma.
 //
-// Es un TECHO compartido, no plazas apartadas: si la plataforma no las vende,
-// las socias del estudio pueden ocuparlas. En blanco = sin límite propio (manda
-// el aforo de la clase). Se guarda al salir del campo, igual que se guarda en
+// En las que venden a mano (ClassPass) son plazas APARTADAS (migr
+// 20261007164222): las alumnas no pueden cogerlas hasta que se liberan. En las
+// que van por API son un TECHO compartido: si no las venden, las socias del
+// estudio pueden ocuparlas. En blanco = sin límite propio (manda el aforo de la
+// clase). Se guarda al salir del campo, igual que se guarda en
 // la plataforma: no forma parte del formulario del tipo de clase porque vive en
 // otra tabla (`plataforma_cupos`) y no tiene nada que ver con su «Guardar».
 export function PlazasPlataformasTipo({
@@ -22,6 +25,8 @@ export function PlazasPlataformasTipo({
   aforoPorDefecto: number | null;
 }) {
   const activas = usePlataformasActivas();
+  const apartan = activas.filter(p => (PLATAFORMAS_QUE_APARTAN as readonly Plataforma[]).includes(p));
+  const techo = activas.filter(p => !apartan.includes(p));
   const [guardadas, setGuardadas] = useState<Partial<Record<Plataforma, number>>>({});
   const [texto, setTexto] = useState<Partial<Record<Plataforma, string>>>({});
   const [cargado, setCargado] = useState(false);
@@ -69,8 +74,9 @@ export function PlazasPlataformasTipo({
   return (
     <div className="space-y-3" data-testid="plazas-plataformas">
       <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-        Las plazas que cedes son un máximo, no plazas reservadas: si la plataforma no las vende, tus alumnas pueden ocuparlas.
-        En blanco, sin límite (manda el aforo de la clase). Pon la misma cifra que tienes publicada en la plataforma.
+        Pon la misma cifra que tienes publicada en la plataforma. En blanco, sin límite (manda el aforo de la clase).
+        {apartan.length > 0 && ` Las de ${apartan.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} quedan apartadas: tus alumnas no pueden reservarlas mientras no las venda (se liberan cuando digas en Conexiones).`}
+        {techo.length > 0 && ` Las de ${techo.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} son un máximo: si no las vende, tus alumnas pueden ocuparlas.`}
       </p>
       {activas.map(p => (
         <label key={p} className="flex items-center justify-between gap-3">

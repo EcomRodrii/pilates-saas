@@ -4172,6 +4172,13 @@ export interface RowPlataformaCheckins {
   creado_en: string;
 }
 
+export interface RowPlataformaAjustes {
+  studio_id: string;
+  plataforma: string;
+  liberar_horas_antes: number;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11549,6 +11556,20 @@ export type PlataformaCheckinsUpdate = {
   creado_en?: string | null;
 }
 
+export type PlataformaAjustesInsert = {
+  studio_id?: string | null;
+  plataforma?: string | null;
+  liberar_horas_antes?: number | null;
+  actualizado_en?: string | null;
+}
+
+export type PlataformaAjustesUpdate = {
+  studio_id?: string | null;
+  plataforma?: string | null;
+  liberar_horas_antes?: number | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12831,6 +12852,11 @@ export type Database = {
         Row: RowPlataformaCheckins;
         Insert: PlataformaCheckinsInsert;
         Update: PlataformaCheckinsUpdate;
+      };
+      plataforma_ajustes: {
+        Row: RowPlataformaAjustes;
+        Insert: PlataformaAjustesInsert;
+        Update: PlataformaAjustesUpdate;
       };
     };
   };

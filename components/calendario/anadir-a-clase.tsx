@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Banknote, CreditCard, Gift, QrCode, Search, Smartphone, Ticket, UserPlus } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { NOMBRE_PLATAFORMA, type Plataforma } from '@/lib/plataformas/catalogo';
+import { hastaCuandoApartadas } from '@/lib/plataformas/apartadas';
+import type { ApartadasDeClase } from '@/lib/calendario-datos';
 import type { LineaCobertura } from '@/lib/calendario/cobertura-mostrador';
 import { AnadirReservaPlataforma } from './anadir-reserva-plataforma';
 
@@ -37,12 +39,16 @@ export interface ClientaElegible {
 }
 
 export function AnadirAClase({
-  sesionId, confirmadas, aforo, plataformas, clientas, avisar, onAvisar, hrefQr, showToast, onPlazaPlataforma,
+  sesionId, confirmadas, aforo, apartadas, onLiberarApartada, plataformas, clientas, avisar, onAvisar, hrefQr, showToast, onPlazaPlataforma,
   coberturaDe, precio, sinPrecio, onAnadir, onCobrarYAnadir, onAnadirYCobrarDespues, onCortesia, hrefVenderBono,
 }: {
   sesionId: string;
   confirmadas: number;
   aforo: number;
+  /** Plazas apartadas para ClassPass (no se dan desde aquí hasta que se liberan); null si ninguna. */
+  apartadas: ApartadasDeClase | null;
+  /** «La he cerrado en ClassPass: liberar 1»; null si quien mira no gestiona el calendario. `true` si se liberó. */
+  onLiberarApartada: (() => Promise<boolean>) | null;
   plataformas: Plataforma[];
   /** Activas y que no están ya en la clase. */
   clientas: ClientaElegible[];
@@ -78,7 +84,12 @@ export function AnadirAClase({
   // cambiar) y descuadra la caja y la factura (el efectivo no factura solo).
   const [metodo, setMetodo] = useState<MetodoSuelta | null>(null);
   const [cobrando, setCobrando] = useState(false);
-  const llena = confirmadas >= aforo;
+  const [liberando, setLiberando] = useState(false);
+  // Las apartadas para ClassPass cuentan como ocupadas, como en el servidor: con
+  // ellas la clase puede estar «llena» para Tentare aunque queden sitios.
+  const enApartadas = apartadas?.plazas ?? 0;
+  const llena = confirmadas + enApartadas >= aforo;
+  const llenaPorApartadas = llena && confirmadas < aforo;
   const q = texto.trim().toLowerCase();
   const encontradas = useMemo(
     () => clientas.filter(c => !q || `${c.nombre} ${c.apellidos}`.toLowerCase().includes(q) || (c.email ?? '').toLowerCase().includes(q)),
@@ -172,7 +183,31 @@ export function AnadirAClase({
         </>
       ) : (
         <>
-          {llena && (
+          {apartadas && enApartadas > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2" data-testid="apartadas-classpass">
+              <p className="min-w-0 flex-1 text-[12.5px] text-foreground">
+                {llenaPorApartadas
+                  ? `${aforo - confirmadas === 1 ? 'Queda 1 plaza, apartada' : `Quedan ${aforo - confirmadas}, apartadas`} para ClassPass ${hastaCuandoApartadas(apartadas.hasta)}: quien añadas entrará en lista de espera, y te lo preguntamos antes.`
+                  : `${enApartadas === 1 ? '1 plaza apartada' : `${enApartadas} plazas apartadas`} para ClassPass ${hastaCuandoApartadas(apartadas.hasta)}.`}
+              </p>
+              {onLiberarApartada && (
+                <button
+                  type="button"
+                  disabled={liberando}
+                  aria-busy={liberando}
+                  className="min-h-9 shrink-0 rounded-lg border border-foreground/20 bg-background px-3 text-[12.5px] font-medium text-foreground disabled:opacity-60"
+                  onClick={async () => {
+                    if (liberando) return;
+                    setLiberando(true);
+                    try { await onLiberarApartada(); } finally { setLiberando(false); }
+                  }}
+                >
+                  La he cerrado en ClassPass: liberar 1
+                </button>
+              )}
+            </div>
+          )}
+          {llena && !llenaPorApartadas && (
             <p className="text-[12.5px] font-medium text-warning">
               Clase llena ({confirmadas}/{aforo}): quien añadas entrará en lista de espera, y te lo preguntamos antes.
             </p>

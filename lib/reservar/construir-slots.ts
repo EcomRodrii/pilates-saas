@@ -57,6 +57,8 @@ export interface EntradaConstruirSlots {
   salas: Sala[];
   instructores: Instructor[];
   reservas: Reserva[];
+  /** Plazas apartadas para ClassPass por sesión (`apartadasPorSesion`): cuentan como ocupadas, como en la RPC. */
+  apartadas?: ReadonlyMap<string, number>;
   spots: Spot[];
   sustitucionesConfirmadas: SustitucionConfirmadaPublica[];
   suscripciones: Suscripcion[];
@@ -76,7 +78,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   const {
     sesiones, tiposClase, salas, instructores, reservas, spots,
     sustitucionesConfirmadas, suscripciones, planesTarifa, socia,
-    nowMs, filtros = {}, apertura,
+    nowMs, filtros = {}, apertura, apartadas,
   } = entrada;
 
   const tiposById = new Map(tiposClase.map(t => [t.id, t]));
@@ -170,7 +172,9 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
         instructorOriginalNombre: s.instructorOriginalNombre,
         salaNombre: s.sala?.nombre ?? null,
         aforoMaximo: s.aforoMaximo,
-        ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
+        // Las apartadas para ClassPass, como ocupadas: aquí `ocupadas` solo decide
+        // libres, «completa» y el color, nunca un «N apuntadas».
+        ocupadas: (ocupadasPorSesion.get(s.id) ?? 0) + (apartadas?.get(s.id) ?? 0),
         spots: s.salaId ? (spotsActivosPorSala.get(s.salaId) ?? []) : [],
         spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
         miReservaId: mia?.id ?? null,

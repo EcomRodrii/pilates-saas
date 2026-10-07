@@ -191,6 +191,13 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   si una conexión está encendida, `integracionActiva(tipo)` del contexto (tipos de
   `integraciones_activas()`, migr 20261007144207), nunca `integraciones.some(...)` a pelo: así
   se les escondió «Añadir → ClassPass» y el check-in de recepción no abría con Kisi (7-oct-2026).
+- **Plazas apartadas para ClassPass** (7-oct-2026, decisión del fundador; `docs/integraciones/classpass.md`): lo
+  que el estudio cede a ClassPass, que vende a mano, no lo coge nadie desde Tentare hasta X horas antes de la clase
+  (se pregunta al encenderla; sin respuesta, hasta que empieza). La regla vive UNA vez, en `plazas_apartadas()`
+  (migr 20261007164222). ⚠️ Una función nueva que decida plaza suma las apartadas a las ocupadas antes de comparar
+  con el aforo, y una pantalla nueva que enseñe plazas libres las resta (`plazasLibresParaReservar`): lo vigila
+  `lib/plataformas/apartadas-contrato.test.ts`. Si no se pueden leer antes de cobrar, no se cobra. Las clases fijas
+  no se tocan (derecho preaprobado) y recepción no usa una apartada: la cierra en ClassPass y la libera.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.

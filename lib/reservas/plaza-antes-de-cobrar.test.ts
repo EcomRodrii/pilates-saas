@@ -91,3 +91,13 @@ test('invitada sin ficha: solo la clase', () => {
 test('todos los mensajes dicen que no se ha cobrado nada', () => {
   for (const [codigo, texto] of Object.entries(MENSAJES_PLAZA)) assert.match(texto, /no te hemos cobrado nada/i, codigo);
 });
+
+test('⚠️ invitada sin ficha: las plazas apartadas para ClassPass también llenan la clase (no se le cobra una plaza que no puede tener)', () => {
+  const b = { requiereAprobacion: false, aforo: 4, ocupadas: 2, permiteListaEspera: true };
+  assert.deepEqual(decidirPlazaInvitadaSinFicha({ ...b, apartadas: 1 }), { ok: true });
+  const llena = decidirPlazaInvitadaSinFicha({ ...b, apartadas: 2, enEspera: 0 });
+  assert.equal(llena.ok, false);
+  assert.equal(!llena.ok && llena.codigo, 'llena-con-espera');
+  const sinEspera = decidirPlazaInvitadaSinFicha({ ...b, permiteListaEspera: false, apartadas: 2 });
+  assert.equal(!sinEspera.ok && sinEspera.codigo, 'aforo-lleno');
+});

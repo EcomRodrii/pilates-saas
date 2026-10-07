@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cargarDatosPublicos } from '@/lib/api-client';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
+import { apartadasPorSesion, type AforoApartado } from '@/lib/booking-logic';
 import { construirSlots, type FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useSesionWidget } from '@/lib/widget/usar-sesion-widget';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -24,6 +25,8 @@ import { leerDatosEstiloNativa, type DatosEstiloNativa } from '@/lib/widget/esti
 // cableado de estado de un componente que vive fuera del árbol de contexto.
 interface DatosCrudos {
   studioId: string;
+  /** Plazas apartadas para ClassPass por sesión (lib/booking-logic.ts). */
+  aforoApartadas: AforoApartado[];
   sesiones: Sesion[];
   tiposClase: TipoClase[];
   salas: Sala[];
@@ -69,7 +72,7 @@ interface DatosCrudos {
 }
 
 const VACIO: DatosCrudos = {
-  studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
+  studioId: '', aforoApartadas: [], sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
   politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null, colorEstudio: null,
   apertura: { dias: null, hora: null },
@@ -129,6 +132,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
       const miasById = new Map<string, Reserva>((pub.socia?.reservas ?? []).map((r: Reserva) => [r.id, r]));
       setDatos({
         studioId: pub.studio?.id ?? '',
+        aforoApartadas: Array.isArray(pub.aforoApartadas) ? pub.aforoApartadas : [],
         sesiones: pub.sesiones ?? [],
         tiposClase: pub.tiposClase ?? [],
         salas: pub.salas ?? [],
@@ -231,7 +235,8 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
 
   const slots = useMemo<ReservaSlot[]>(() => construirSlots({
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
-    reservas: datos.reservas, spots: datos.spots, sustitucionesConfirmadas: datos.sustitucionesConfirmadas,
+    reservas: datos.reservas, apartadas: apartadasPorSesion(datos.aforoApartadas),
+    spots: datos.spots, sustitucionesConfirmadas: datos.sustitucionesConfirmadas,
     suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socia,
     nowMs, filtros, apertura: datos.apertura,
   }), [datos, socia, filtros, nowMs]);
