@@ -141,13 +141,13 @@ solo demuestra que Release compila. El de verdad sale de Xcode con la firma
 | Requisito | Estado | Dónde |
 |---|---|---|
 | Manifiesto de privacidad (obligatorio desde mayo de 2024 para las API «required reason») | ✅ | `ios/App/App/PrivacyInfo.xcprivacy` (ver abajo) |
-| Texto de cada permiso que la app puede pedir | ✅ | `Info.plist`: cámara (QR de la clase y foto de perfil), fotos (elegir y guardar), calendario (los tres `NSCalendars*`). Los avisos no llevan texto |
+| Texto de cada permiso que la app puede pedir | ✅ | `Info.plist`: cámara (foto de perfil y, la instructora, el QR de sus alumnas al pasar lista), fotos (elegir y guardar), calendario (los tres `NSCalendars*`). Los avisos no llevan texto |
 | `ITSAppUsesNonExemptEncryption = NO` | ✅ | `Info.plist`. Solo el HTTPS del sistema y un SHA-256 para el nonce de Apple: exento |
 | Icono 1024×1024 sin canal alfa | ✅ | `Assets.xcassets/AppIcon.appiconset` (icono de un solo tamaño: Xcode saca los demás). `npm run iconos:ios` lo regenera |
 | Solo iPhone, versión 1.0 (1) | ✅ | `TARGETED_DEVICE_FAMILY = 1`, `MARKETING_VERSION = 1.0`, `CURRENT_PROJECT_VERSION = 1`, en Debug y Release |
 | Push, Iniciar sesión con Apple, dominios asociados | ✅ en el proyecto, ⏳ en el portal | `App.entitlements`. Falta activarlos en el App ID (paso 3) |
 | Universal Links (`/.well-known/apple-app-site-association`) | ⏳ | Formato correcto (`applinks.details[].appIDs` + `components`, y `webcredentials`), JSON y sin redirección en `www`. Hoy responde **404** porque falta `APPLE_TEAM_ID` en Vercel (paso 4) |
-| 4.2 Funcionalidad mínima | ✅ | Push, Iniciar sesión con Apple, «+ Calendario» nativo, QR con la cámara, brillo al máximo con el QR, Texto más grande, gesto de volver. Ver «Revisión» |
+| 4.2 Funcionalidad mínima | ✅ | Push, Iniciar sesión con Apple, «+ Calendario» nativo, la instructora pasa lista escaneando con la cámara el QR de sus alumnas, brillo al máximo al enseñar el QR, Texto más grande, gesto de volver. Ver «Revisión» |
 | 4.8 Iniciar sesión con Apple si hay Google | ✅ | `/app` y el acceso de cada estudio, Apple siempre delante |
 | 5.1.1(v) Borrar la cuenta desde la app | ✅ | Perfil › Privacidad y datos › «Borrar mi cuenta de Tentare» (#2512): borra la cuenta al momento |
 | Revocar el token de Apple al borrar la cuenta (TN3194) | ⚠️ alternativa | No guardamos el token de Apple, así que la hoja de «cuenta borrada» le dice cómo quitar Tentare de «Iniciar sesión con Apple» en Ajustes, que es la salida que da Apple cuando no hay token |
@@ -169,9 +169,15 @@ solo demuestra que Release compila. El de verdad sale de Xcode con la firma
 - **Datos que se recogen** (todos para que la app funcione, ninguno para
   seguimiento, `NSPrivacyTracking = false`): nombre, email, teléfono, salud (la
   ficha de salud), datos de pago (Stripe), compras, fotos (la de perfil),
-  contenido de la usuaria (chat y tablón), soporte, id de usuario e id de
-  dispositivo (el token de push), vinculados a la persona; diagnóstico de fallos
-  y rendimiento (Sentry), sin vincular. **«App Privacy» en App Store Connect
+  contenido de la usuaria (chat y tablón), mensajes (el chat), forma física
+  (nivel, ejercicio y objetivos de la valoración), otros datos (su fecha de
+  nacimiento, en la valoración), soporte, id de usuario e id de dispositivo (el
+  token de push), vinculados a la persona; diagnóstico de fallos y rendimiento
+  (Sentry), sin vincular. PostHog no se carga en ninguna pantalla de la app
+  (`/app` y `/portal` están en `PREFIJOS_EXCLUIDOS_DE_ANALITICA`,
+  `lib/posthog-privacidad.ts`): por eso no se declaran «interacción con el
+  producto» ni «ubicación aproximada». Si se mide algo dentro de la app, hay que
+  declararlo. **«App Privacy» en App Store Connect
   tiene que decir lo mismo**: si cambia uno, cambia el otro.
 
 ### Permisos: qué se pide y qué no
@@ -180,8 +186,10 @@ Un permiso que se pide sin su texto en `Info.plist` cierra la app, y App Store
 Connect rechaza la subida si el binario usa una API de permiso sin texto
 (ITMS-90683). Los que hay son los que la app puede pedir:
 
-- **Cámara**: el lector del QR de la clase (`EscanerQrClase`) y «Hacer foto» al
-  cambiar la foto de perfil.
+- **Cámara**: «Hacer foto» al cambiar la foto de perfil y, si es instructora,
+  el lector con el que pasa lista escaneando el QR de sus alumnas
+  (`EscanerQrClase`, en `/portal/<slug>/equipo/clase/<id>/lista`). La alumna no
+  escanea nada: enseña su QR.
 - **Fotos**: elegir la foto de perfil, y «Guardar imagen» desde la hoja de
   compartir (sin `NSPhotoLibraryAddUsageDescription` esa opción cierra la app).
 - **Calendario**: ver «+ Calendario» más abajo (la app no pide acceso, pero el
@@ -344,7 +352,7 @@ necesita la cuenta de Apple Developer:
    internos (hasta 100 del equipo de App Store Connect) al momento; externos,
    tras una revisión beta. Probar en un iPhone: que carga `/app`, el modo avión
    (página de «Sin conexión»), Iniciar sesión con Apple, el permiso de avisos y
-   que llega uno, un Universal Link desde Notas, el QR con la cámara y la
+   que llega uno, un Universal Link desde Notas, pasar lista con la cámara (con una cuenta de instructora) y la
    cuenta de revisión con su código fijo.
 10. **Enviar a revisión**: en la versión 1.0, elegir el build, rellenar «App
     Review Information» (la cuenta de revisión) y «Submit for Review».
@@ -391,8 +399,8 @@ Puntos de la revisión que tocan a esta app:
 
 - **4.2 (funcionalidad mínima)**: una web metida en una app se rechaza si no
   aporta nada. Aquí aportan push, Iniciar sesión con Apple, «+ Calendario» con la
-  hoja de iOS, la cámara para el QR de la clase, el brillo al máximo al enseñar
-  el QR, «Texto más grande» y el gesto de volver (ver «Lo de la app de la alumna
+  hoja de iOS, la cámara con la que la instructora pasa lista escaneando el QR de
+  sus alumnas, el brillo al máximo cuando la alumna enseña su QR, «Texto más grande» y el gesto de volver (ver «Lo de la app de la alumna
   que solo existe en el iPhone»). Conviene decírselo al revisor en las notas.
 - **4.8**: si se ofrece Google, hay que ofrecer también Iniciar sesión con Apple.
 - **3.1.3(e)**: clases y cuotas son servicios que se consumen fuera de la app,
