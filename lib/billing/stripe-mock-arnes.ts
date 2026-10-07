@@ -31,7 +31,7 @@ const BASE_STRIPE_MOCK = `http://localhost:${PUERTO_STRIPE_MOCK}`;
 const fetchOriginal: typeof fetch = globalThis.fetch.bind(globalThis);
 
 // ── ¿Está stripe-mock en marcha? ─────────────────────────────────────────────
-export async function stripeMockEnMarcha(): Promise<boolean> {
+async function contesta(): Promise<boolean> {
   try {
     const r = await fetch(`${BASE_STRIPE_MOCK}/v1/balance`, {
       headers: { Authorization: 'Bearer sk_test_123' }, signal: AbortSignal.timeout(1500),
@@ -40,6 +40,22 @@ export async function stripeMockEnMarcha(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * En local, si no está, las pruebas se saltan. En la CI (`STRIPE_MOCK_OBLIGATORIO=1`,
+ * con stripe-mock como servicio del job) saltárselas sería un verde que no ha
+ * comprobado nada: se le espera un poco (el contenedor puede tardar en arrancar) y,
+ * si no contesta, se falla.
+ */
+export async function stripeMockEnMarcha(): Promise<boolean> {
+  if (await contesta()) return true;
+  if (process.env.STRIPE_MOCK_OBLIGATORIO !== '1') return false;
+  for (let intento = 0; intento < 30; intento++) {
+    await new Promise(r => setTimeout(r, 1000));
+    if (await contesta()) return true;
+  }
+  throw new Error(`STRIPE_MOCK_OBLIGATORIO=1 y stripe-mock no contesta en ${BASE_STRIPE_MOCK}`);
 }
 
 // ── Peticiones apuntadas ─────────────────────────────────────────────────────
@@ -259,15 +275,25 @@ async function fetchAStripeMock(url: string | URL | Request, init?: RequestInit)
     idempotencia: cabeceras.get('idempotency-key'), cuerpo: metodo === 'GET' ? u.search.slice(1) : cuerpo,
     estado: r.status, error, traducido: paraValidar.traducido,
   });
+  let status = r.status;
   if (r.status < 400) {
     for (const ret of estado().retoques) {
       const otro = ret({ metodo, ruta: u.pathname, params }, json);
       if (otro) json = otro;
     }
+    // Un retoque puede simular que Stripe contesta con error (p. ej. no deja cerrar una
+    // sesión que se está pagando): `{ __estado: 400, error: {…} }`. La petición ya pasó
+    // la validación de stripe-mock y queda apuntada como válida.
+    if (typeof json.__estado === 'number') {
+      status = json.__estado;
+      const { __estado: _e, ...resto } = json;
+      void _e;
+      json = resto;
+    }
   }
   const h = new Headers(r.headers);
   h.delete('content-length');
-  return new Response(JSON.stringify(json), { status: r.status, headers: h });
+  return new Response(JSON.stringify(json), { status, headers: h });
 }
 
 function apuntarAStripeMock(Stripe: StripeCtor): void {

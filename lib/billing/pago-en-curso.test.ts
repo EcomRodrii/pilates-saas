@@ -46,3 +46,30 @@ for (const ruta of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe
     assert.match(cuerpo, /liberarCupoMatricula\(|devolverMatriculaPropia\(\)/);
   });
 }
+
+// ── 7-oct-2026: el texto dice la verdad de lo que se paga ──────────────────
+import { mensajePagoEnCurso } from './pago-en-curso.ts';
+
+test('pagar un recibo: ni matrícula ni «reservar», y reintentar en un minuto (su clave lleva el minuto)', () => {
+  const m = mensajePagoEnCurso('recibo');
+  assert.match(m, /recibo/);
+  assert.doesNotMatch(m, /matr[ií]cula|reservar/i);
+  assert.match(m, /dentro de un minuto/);
+  assert.match(m, /no se te ha cobrado nada/);
+});
+
+test('una compra suelta reintenta en un minuto; una clase concreta (clave sin tiempo) va al estudio', () => {
+  assert.match(mensajePagoEnCurso('compra'), /dentro de un minuto/);
+  assert.doesNotMatch(mensajePagoEnCurso('clase'), /dentro de un minuto/);
+  assert.match(mensajePagoEnCurso('clase'), /escribe al estudio y te ayudará a reservar/);
+  for (const q of ['recibo', 'compra', 'clase'] as const) assert.match(mensajePagoEnCurso(q), /no se te ha cobrado nada/);
+});
+
+test('cada ruta elige el texto por lo que se paga', () => {
+  const checkout = sinComentarios(readFileSync(join(raiz, 'app/api/stripe/checkout/route.ts'), 'utf8'));
+  assert.match(checkout, /const que = body\.reciboId \? 'recibo' : body\.sesionId \? 'clase' : 'compra';\s*return conCorsWidget\(req, NextResponse\.json\(\{ error: mensajePagoEnCurso\(que\)/);
+  const embebido = sinComentarios(readFileSync(join(raiz, 'app/api/public/checkout-embebido/route.ts'), 'utf8'));
+  // Con fila de `pagos_clase` la clave es la de la fila, que se cierra en este 409: reintentar
+  // abre otra, así que no se manda a nadie al estudio sin necesidad.
+  assert.match(embebido, /error: mensajePagoEnCurso\(body\.sesionId && !pagoClase \? 'clase' : 'compra'\)/);
+});

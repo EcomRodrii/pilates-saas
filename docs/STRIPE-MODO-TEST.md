@@ -276,9 +276,16 @@ node --import ./scripts/register-test-hooks.mjs --test --experimental-strip-type
   lib/billing/stripe-mock.integracion.test.ts
 ```
 
+**Para la CI** está preparado, pero el job aún no existe (tocar `.github/workflows`
+exige un permiso que esta sesión no tenía): en el job «Tests unitarios», la imagen
+`stripe/stripe-mock:v0.206.0` como `services` en el puerto 12111 y, en el paso de
+`npm test`, `STRIPE_MOCK_PORT=12111` y `STRIPE_MOCK_OBLIGATORIO=1`. Con esa
+variable, si stripe-mock no contesta en 30 s la prueba FALLA en vez de saltarse
+(en la CI un salto sería un verde sin comprobar nada).
+
 Con `STRIPE_MOCK_DETALLE=1` cada prueba lista lo que le pidió a Stripe y qué
-contestó. Otro puerto: `STRIPE_MOCK_PORT=…`. **Sin stripe-mock en marcha, las
-pruebas se saltan solas** (así `npm test` y la CI no dependen de él).
+contestó. Otro puerto: `STRIPE_MOCK_PORT=…`. **En local, sin stripe-mock en marcha, las
+pruebas se saltan solas** (así `npm test` no depende de él).
 
 Llama a las rutas y funciones **reales** (`/api/stripe/checkout`,
 `/api/public/checkout-embebido`, `/api/public/tarjeta`, `/api/reembolsos`,

@@ -15,6 +15,8 @@ const abierta = (p: Partial<Parameters<typeof decidirSesionCheckout>[0]> = {}) =
   url: 'https://checkout.stripe.com/c/pay/cs_test_1',
   payment_method_types: ['card'],
   amount_total: IMPORTE,
+  // Recién creada: le quedan horas.
+  expires_at: Math.floor(Date.now() / 1000) + 23 * 3600,
   ...p,
 });
 
@@ -232,7 +234,7 @@ test('rama de recibo: con un cobro de la Caja guardado se PREGUNTA, antes de toc
 
 test('rama de recibo: una sesión ya pagada da 409, nunca otra sesión', () => {
   const s = rutaCheckout();
-  assert.match(s, /decidirSesionCheckout\(previa, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout\)/);
+  assert.match(s, /decidirSesionCheckout\(previa, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout, ahoraMs\)/);
   assert.match(s, /if \(decision === 'ya-pagada'\) \{\s*return conCorsWidget\(req, NextResponse\.json\(\{ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE \}, \{ status: 409 \}\)\);/);
   assert.match(s, /claveCheckoutRecibo\(body\.reciboId, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout, ahoraMs\)/);
 });
@@ -247,7 +249,7 @@ test('rama de recibo: el UPDATE que guarda la sesión vuelve a exigir todo lo co
     // El cobro de la Caja leído (muerto) o ninguno: uno nuevo entre medias, no se guarda.
     'guar' + 'dar.or(`cobro_mostrador_pi.is.null,cobro_mostrador_pi.eq."${cobroCajaLeido}"`)', ".is('cobro_mostrador_pi', null)",
     ".is('reembolso_stripe_id', null)", ".is('reembolso_solicitado_en', null)", ".or('estado.neq.DEVUELTO,importe_devuelto.eq.0')",
-    'exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id)',
+    'exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id, { leidaMuerta: sesionLeidaMuerta })',
   ]) assert.ok(bloque.includes(cond), `falta ${cond} en el UPDATE`);
 });
 
@@ -289,6 +291,22 @@ test('guardar la sesión: la leída, o ya ESTA (la guardó la otra petición del
   const raro = builderSesion();
   exigirSesionLeidaOEsta(raro.b, 'cs_vieja', 'cs_x,id.neq.y');
   assert.deepEqual(raro.filtros, [['eq', 'checkout_session_id', 'cs_vieja']]);
+  // La leída ya está muerta: también vale vacía (el conciliador la soltó entre medias).
+  const muerta = builderSesion();
+  exigirSesionLeidaOEsta(muerta.b, 'cs_vieja', 'cs_nueva', { leidaMuerta: true });
+  assert.deepEqual(muerta.filtros, [['or', '', 'checkout_session_id.is.null,checkout_session_id.eq.cs_vieja,checkout_session_id.eq.cs_nueva']]);
+  const muertaRara = builderSesion();
+  exigirSesionLeidaOEsta(muertaRara.b, 'cs_vieja', 'cs_x,id.neq.y', { leidaMuerta: true });
+  assert.deepEqual(muertaRara.filtros, [['eq', 'checkout_session_id', 'cs_vieja']], 'con un id raro, estricto igual');
+});
+
+test('la leída solo cuenta como muerta si no existe, caducó o la cerró esta petición', () => {
+  const s = rutaCheckout();
+  const ini = s.indexOf('if (sesionAbiertaId) {');
+  const bloque = s.slice(ini, s.indexOf('const clavePlan', ini));
+  assert.equal((bloque.match(/sesionLeidaMuerta = true;/g) ?? []).length, 3);
+  // Tras un cierre que NO dice SEGUIR (pagada o sin saber) nunca se llega a marcarla.
+  assert.match(bloque, /cierre\.tipo === 'NO_SE_SABE'[\s\S]{0,200}\}\s*sesionLeidaMuerta = true;/);
 });
 
 test('rama de recibo: si no se puede revisar la sesión guardada, NO se crea otra (salvo que no exista)', () => {
@@ -345,4 +363,34 @@ test('la incrustada caduca a los 32 min del minuto de su clave: igual dentro del
 test('la respuesta de la app: el client_secret y la sesión; sin client_secret no hay nada que montar', () => {
   assert.deepEqual(respuestaIncrustada({ id: 'cs_test_1', client_secret: 'cs_test_1_secret_x' }), { clientSecret: 'cs_test_1_secret_x', checkoutSessionId: 'cs_test_1' });
   assert.equal(respuestaIncrustada({ id: 'cs_test_1', client_secret: null }), null);
+});
+
+// ── 7-oct-2026: una sesión a punto de caducar no se devuelve ────────────────
+import { MINUTOS_MINIMOS_PARA_REUTILIZAR } from './sesion-checkout.ts';
+
+test('a una sesión abierta le tiene que quedar margen para reutilizarla; si no, se cierra y se abre otra', () => {
+  const ahora = Date.UTC(2026, 9, 7, 10, 0, 0);
+  const quedan = (min: number) => abierta({ expires_at: Math.floor(ahora / 1000) + min * 60 });
+  const I: PeticionCheckout = { modo: 'incrustado', pagadorVerificado: true };
+  const incrustada = (min: number) => ({ ...quedan(min), ui_mode: 'embedded_page', url: null, client_secret: 'cs_x_secret', metadata: { pagadorVerificado: '1' } });
+  assert.equal(decidirSesionCheckout(quedan(30), ['card'], IMPORTE, H, ahora), 'reutilizar');
+  assert.equal(decidirSesionCheckout(quedan(MINUTOS_MINIMOS_PARA_REUTILIZAR), ['card'], IMPORTE, H, ahora), 'reutilizar', 'justo el margen, sí');
+  assert.equal(decidirSesionCheckout(quedan(MINUTOS_MINIMOS_PARA_REUTILIZAR - 1), ['card'], IMPORTE, H, ahora), 'expirar-y-crear');
+  // El caso de verdad: la hoja incrustada vive 32 min; abierta hace 25, le quedan 7.
+  assert.equal(decidirSesionCheckout(incrustada(7), ['card'], IMPORTE, I, ahora), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(incrustada(20), ['card'], IMPORTE, I, ahora), 'reutilizar');
+  // Sin saber cuándo caduca, no se arriesga.
+  assert.equal(decidirSesionCheckout(abierta({ expires_at: null }), ['card'], IMPORTE, H, ahora), 'expirar-y-crear');
+  // Pagada sigue siendo pagada, le quede lo que le quede: nunca otra sesión (ni dos cobros).
+  assert.equal(decidirSesionCheckout({ ...quedan(1), status: 'complete' }, ['card'], IMPORTE, H, ahora), 'ya-pagada');
+});
+
+test('la ruta cierra la vieja con el MISMO cierre que mira antes si se pagó (nunca dos cobros)', () => {
+  const s = readFileSync(new URL('../../app/api/stripe/checkout/route.ts', import.meta.url), 'utf8');
+  const desde = s.indexOf("if (decision === 'expirar-y-crear') {");
+  assert.ok(desde > 0);
+  const rama = s.slice(desde, desde + 900);
+  assert.match(rama, /cerrarPagoOnlineAntesDeCobrarAMano\(previa\.id/);
+  assert.match(rama, /cierre\.tipo === 'YA_PAGADO'/);
+  assert.match(rama, /cierre\.tipo === 'NO_SE_SABE'/);
 });

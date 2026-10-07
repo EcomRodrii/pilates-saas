@@ -24,8 +24,29 @@ import Stripe from 'stripe';
 
 export const CODIGO_PAGO_EN_CURSO = 'pago-en-curso';
 
-export const MENSAJE_PAGO_EN_CURSO =
-  'No podemos preparar este pago: hace poco hubo otro intento de pago de esta misma compra con datos distintos (por ejemplo, otro precio o la matrícula). En este intento no se te ha cobrado nada. Si tienes ese pago abierto en otra pantalla, termínalo allí; si no, escribe al estudio y te ayudará a reservar.';
+/** Qué se está pagando: el texto tiene que decir la verdad de ESO. */
+export type QueSePaga = 'recibo' | 'compra' | 'clase';
+
+/**
+ * El 409 «pago en curso», según lo que se paga (7-oct-2026). Antes era un solo texto
+ * que hablaba de «la matrícula» y de «reservar» también al pagar un recibo.
+ *  · recibo y compra suelta: su clave lleva el MINUTO, así que reintentar en un
+ *    minuto es otro intento y funciona. Eso es lo que se le dice.
+ *  · una clase concreta: su clave NO lleva tiempo (pagar esa clase no se repite),
+ *    así que reintentar da lo mismo: la salida es el estudio.
+ */
+export function mensajePagoEnCurso(que: QueSePaga): string {
+  const nada = 'En este intento no se te ha cobrado nada.';
+  const otraPantalla = 'Si lo tienes abierto en otra pantalla, termínalo allí';
+  switch (que) {
+    case 'recibo':
+      return `No podemos preparar este pago: hace un momento se abrió otro pago de este mismo recibo con otros datos. ${nada} ${otraPantalla}; si no, vuelve a intentarlo dentro de un minuto.`;
+    case 'compra':
+      return `No podemos preparar este pago: hace un momento hubo otro intento de esta misma compra con otros datos (por ejemplo, otro precio o la matrícula). ${nada} ${otraPantalla}; si no, vuelve a intentarlo dentro de un minuto.`;
+    case 'clase':
+      return `No podemos preparar este pago: hace poco hubo otro intento de pagar esta misma clase con otros datos (por ejemplo, otro precio o la matrícula). ${nada} ${otraPantalla}; si no, escribe al estudio y te ayudará a reservar.`;
+  }
+}
 
 export function esErrorDeIdempotencia(err: unknown): boolean {
   if (err instanceof Stripe.errors.StripeIdempotencyError) return true;

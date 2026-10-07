@@ -10,6 +10,8 @@
  * creaba otra (`crear`). Mismo criterio que el mostrador
  * (`cerrarPagoOnlineAntesDeCobrarAMano`: pagada → no se cobra).
  */
+import { claveTras } from './clave-derivada.ts';
+
 export type DecisionCheckout = 'crear' | 'reutilizar' | 'expirar-y-crear' | 'ya-pagada';
 
 /** Cómo se enseña la sesión: página de Stripe (enlace) o incrustada en la app. */
@@ -54,7 +56,23 @@ export type SesionPrevia = {
   client_secret?: string | null;
   /** `pagadorVerificado: '1'` si la abrió la titular con su sesión (PAY-3). */
   metadata?: Record<string, string> | null;
+  /** Segundos epoch en que Stripe la caduca. `null` = no se sabe: no se reutiliza. */
+  expires_at?: number | null;
 };
+
+/**
+ * Lo que tiene que quedarle a una sesión abierta para devolvérsela a alguien
+ * (7-oct-2026). Una incrustada vive 32 min: reutilizar una creada hace 30 era darle
+ * a la alumna una hoja que caduca mientras escribe la tarjeta, y el pago fallaba
+ * sin que hubiera hecho nada mal. Con menos de esto se cierra (comprobando antes si
+ * ya se pagó, como siempre) y se abre otra.
+ *
+ * Precio aceptado: si la misma alumna tiene la hoja abierta en OTRO dispositivo,
+ * a medias de un 3DS, y la abre aquí con menos de esto, la de allí se cierra y ese
+ * 3DS falla (o, si Stripe no deja cerrarla, aquí sale «no hemos podido comprobar»).
+ * Nunca son dos cobros; la app solo pide sesión al abrir la hoja.
+ */
+export const MINUTOS_MINIMOS_PARA_REUTILIZAR = 10;
 
 const mismosMetodos = (a: readonly string[], b: readonly string[]) =>
   [...a].sort().join(',') === [...b].sort().join(',');
@@ -76,6 +94,7 @@ export function decidirSesionCheckout(
   metodosPedidos: readonly string[],
   importeEsperadoCentimos: number,
   peticion: PeticionCheckout,
+  ahoraMs: number = Date.now(),
 ): DecisionCheckout {
   // Ya pagada por esa sesión: ni se reutiliza ni se crea otra.
   if (previa?.status === 'complete') return 'ya-pagada';
@@ -99,6 +118,11 @@ export function decidirSesionCheckout(
   // El importe cambió (o no se pudo leer) desde que se creó esta sesión: no es
   // segura para reutilizar, aunque los métodos de pago coincidan.
   if (previa.amount_total !== importeEsperadoCentimos) return 'expirar-y-crear';
+  // Le queda poco (o no se sabe cuánto): caducaría mientras se paga. Se cierra y se
+  // abre otra; `expirar-y-crear` mira antes si ya se pagó, así que nunca son dos cobros.
+  if (previa.expires_at == null || previa.expires_at * 1000 - ahoraMs < MINUTOS_MINIMOS_PARA_REUTILIZAR * 60_000) {
+    return 'expirar-y-crear';
+  }
   return mismosMetodos(previa.payment_method_types ?? [], metodosPedidos)
     ? 'reutilizar'
     : 'expirar-y-crear';
@@ -204,8 +228,11 @@ export function queHacerConSesionRepetida(actual: { status: string | null } | nu
   return 'no-se-sabe';
 }
 
-/** Clave para una sesión nueva del mismo intento cuando la de su clave ya no sirve. */
-export const claveTrasSesion = (clave: string, sesionMuerta: string) => `${clave}:tras-${sesionMuerta}`;
+/**
+ * Clave para una sesión nueva del mismo intento cuando la de su clave ya no sirve.
+ * Nunca pasa de los 255 caracteres de Stripe, por muchas vueltas que dé (`claveTras`).
+ */
+export const claveTrasSesion = (clave: string, sesionMuerta: string) => claveTras(clave, sesionMuerta);
 
 const ID_SESION_SEGURO = /^cs_[A-Za-z0-9_]+$/;
 
@@ -221,11 +248,23 @@ interface ConFiltrosSesion<Q> {
  * que se leyó… o ya es ESTA misma. Lo segundo pasa cuando dos peticiones del mismo
  * intento reciben de Stripe la misma sesión (la repetición idempotente): la que
  * llega segunda no puede tomarlo por «otra sesión» y caducar la que ya se entregó.
+ *
+ * `leidaMuerta` (7-oct-2026): la leída ya no se puede pagar (caducada, cerrada por
+ * esta petición o inexistente en Stripe). Entonces también vale la columna VACÍA:
+ * el conciliador suelta las sesiones caducadas (`soltarSesionCaducada`) y, si lo
+ * hacía entre el cierre y este UPDATE, el compare-and-set fallaba y la alumna leía
+ * «Este recibo ya no está pendiente de cobro», que era falso. Vacía con la leída
+ * muerta es «no hay ninguna sesión pagable»: lo mismo que se comprobó.
  */
-export function exigirSesionLeidaOEsta<Q extends ConFiltrosSesion<Q>>(q: Q, leida: string | null, esta: string): Q {
+export function exigirSesionLeidaOEsta<Q extends ConFiltrosSesion<Q>>(
+  q: Q, leida: string | null, esta: string, opciones: { leidaMuerta?: boolean } = {},
+): Q {
   const seguro = ID_SESION_SEGURO.test(esta) && (leida === null || ID_SESION_SEGURO.test(leida));
   if (!seguro) return leida === null ? q.is('checkout_session_id', null) : q.eq('checkout_session_id', leida);
   if (leida === null) return q.or(`checkout_session_id.is.null,checkout_session_id.eq.${esta}`);
+  if (opciones.leidaMuerta) {
+    return q.or(`checkout_session_id.is.null,checkout_session_id.eq.${leida},checkout_session_id.eq.${esta}`);
+  }
   return q.in('checkout_session_id', [leida, esta]);
 }
 
