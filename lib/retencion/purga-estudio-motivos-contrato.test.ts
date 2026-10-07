@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Guardia de contrato: la purga de un estudio vencido no deja vivo nada de sus
-// instructoras fuera de lo que se conserva a propósito.
+// instructoras fuera de lo que se conserva a propósito, ni el nombre o el id de
+// quien reservó desde otra plataforma (ClassPass, USC, Wellhub).
 //
 // `purgar_estudio_vencido` anonimiza `instructores` con UPDATE, así que el
 // `on delete cascade` de sus tablas hijas no actúa nunca: lo que no borre o
@@ -28,6 +29,10 @@ const cuerpo = ultima.sql.slice(ultima.sql.indexOf('function public.purgar_estud
 const funcion = cuerpo.slice(0, cuerpo.indexOf('\n$$;'));
 const cBorrar = funcion.match(/c_borrar constant text\[\] := array\[([\s\S]*?)\];/)?.[1] ?? '';
 const tablasBorradas = [...cBorrar.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+// Las que se borran solo si existen (pueden faltar en una base hecha desde el repo).
+const cBorrarSiExiste = funcion.match(/c_borrar_si_existe constant text\[\] := array\[([^\]]*)\]/)?.[1] ?? '';
+const tablasBorradasSiExisten = [...cBorrarSiExiste.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+const seBorra = (tabla: string) => tablasBorradas.includes(tabla) || tablasBorradasSiExisten.includes(tabla);
 const cConservar = funcion.match(/c_conservar constant text\[\] := array\[([\s\S]*?)\];/)?.[1] ?? '';
 const tablasConservadas = new Set([...cConservar.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
 const cVaciar = funcion.match(/c_vaciar constant text\[\]\[\] := array\[([\s\S]*?)\n\s*\];/)?.[1] ?? '';
@@ -64,9 +69,27 @@ const DESTINO: Record<string, { destino: Destino; motivo: string }> = {
   plataforma_instructoras: { destino: 'fuera', motivo: 'solo ids; el cron de USC la necesita para reescribir allí el nombre anonimizado (renombrarTrainers)' },
 };
 
+// Qué hace la purga con cada tabla `plataforma_*` de un estudio (ClassPass, USC,
+// Wellhub). Los crons de las plataformas siguen recorriendo un estudio apagado
+// o sin conexión para quitar allí lo publicado: se borra lo que le hace
+// publicar, y se conservan los ids con los que lo quita.
+// Puede nombrar tablas que existen en producción antes de que su migración
+// llegue al repo (las de Wellhub): no se exige que estén en las migraciones.
+const DESTINO_PLATAFORMA: Record<string, { destino: 'borrar' | 'fuera'; motivo: string }> = {
+  plataforma_cupos: { destino: 'borrar', motivo: 'plazas cedidas: sin ellas, el cron de USC cancela allí lo que siga publicado' },
+  plataforma_conexiones: { destino: 'borrar', motivo: 'el gym de Wellhub: sin él deja de publicar, y el webhook de check-in ya no lleva a este estudio' },
+  plataforma_checkins: { destino: 'borrar', motivo: 'guarda el Wellhub ID mientras está pendiente; un estudio purgado ya no valida visitas' },
+  plataforma_eventos: { destino: 'fuera', motivo: 'ids de lo publicado: sin ellos no se puede cancelar en USC/Wellhub y quedan clases reservables de un estudio que no existe' },
+  plataforma_clases: { destino: 'fuera', motivo: 'ids de las clases de Wellhub: sin ellos no se pueden ocultar allí' },
+  plataforma_lead: { destino: 'fuera', motivo: 'CRM de Tentare (quien abrió el estudio), no datos del estudio' },
+};
+
 // Tablas con FK a instructores según las migraciones (create table y alter table).
 const tablasQueCuelgan = new Map<string, string>();
 const columnasDeTexto = new Map<string, Set<string>>();
+// La persona que reservó desde otra plataforma: su nombre y su id allí.
+const columnasDePersonaExterna = new Map<string, Set<string>>();
+const tablasPlataforma = new Map<string, string>();
 for (const { nombre, sql } of migraciones) {
   for (const sentencia of sql.split(/;\s*\n/)) {
     const tabla = sentencia.match(/^\s*(?:create table(?: if not exists)?|alter table(?: if exists)?(?: only)?)\s+(?:public\.)?"?([a-z_]+)"?/m)?.[1];
@@ -76,6 +99,13 @@ for (const { nombre, sql } of migraciones) {
     }
     for (const [, columna] of sentencia.matchAll(/(?:^|,|add column(?: if not exists)?)\s*"?(motivo|nota_estudio|notas?|incidencia_texto|comentario)"?\s+text\b/gm)) {
       columnasDeTexto.set(tabla, (columnasDeTexto.get(tabla) ?? new Set()).add(columna));
+    }
+    for (const [, columna] of sentencia.matchAll(/(?:^|,|add column(?: if not exists)?)\s*"?(nombre_externo|id_cliente_externo)"?\s+text\b/gm)) {
+      columnasDePersonaExterna.set(tabla, (columnasDePersonaExterna.get(tabla) ?? new Set()).add(columna));
+    }
+    if (tabla.startsWith('plataforma_') && !tablasPlataforma.has(tabla)
+        && /(?:^|,|add column(?: if not exists)?)\s*"?studio_id"?\s+text\b/m.test(sentencia)) {
+      tablasPlataforma.set(tabla, nombre);
     }
   }
 }
@@ -146,4 +176,44 @@ test('ninguna tabla que se conserva guarda un motivo o nota libre sin vaciar', (
     }
   }
   assert.deepEqual(quedan, [], 'texto libre sobre la instructora o la clase que sobrevive a la purga');
+});
+
+test('el nombre y el id de quien reservó desde otra plataforma no sobreviven a la purga', () => {
+  assert.ok(columnasDePersonaExterna.get('reservas')?.has('nombre_externo'), 'el parser no ve reservas.nombre_externo');
+  // `anonimizar_socio` no las toca (no hay socia): o la tabla se borra, o la columna se vacía.
+  const quedan: string[] = [];
+  for (const [tabla, columnas] of columnasDePersonaExterna) {
+    if (seBorra(tabla)) continue;
+    for (const columna of columnas) {
+      if (!columnasVaciadas.has(`${tabla}.${columna}`)) quedan.push(`${tabla}.${columna}`);
+    }
+  }
+  assert.deepEqual(quedan, [], `${ultima.nombre}: la purga deja el nombre o el id de una persona de otra plataforma; vacíalo en c_vaciar`);
+
+  // reservas_origen_coherente exige nombre en toda externa y lo prohíbe en las de
+  // Tentare: un 'null' tumbaría la purga entera, y un texto a secas también (lo
+  // escribiría en las de Tentare). Solo vale sustituirlo donde ya lo hay.
+  const valor = (cVaciar.match(/\[\s*'reservas',\s*'nombre_externo',\s*'((?:[^']|'')*)'\s*\]/)?.[1] ?? '').replace(/''/g, "'");
+  assert.match(valor, /^case when nombre_externo is not null then '[^']{1,200}' end$/,
+    `${ultima.nombre}: reservas.nombre_externo tiene que vaciarse con un case que deje null lo que ya es null`);
+});
+
+test('toda tabla de plataformas externas tiene un destino decidido en la purga', () => {
+  assert.ok(tablasPlataforma.has('plataforma_cupos') && tablasPlataforma.has('plataforma_eventos'),
+    'el parser no ve las tablas plataforma_* de las migraciones');
+  const decidida = (tabla: string) => DESTINO_PLATAFORMA[tabla] ?? DESTINO[tabla];
+  const sinDecidir = [...new Set([...tablasPlataforma.keys(), ...tablasBorradasSiExisten])].filter((t) => !decidida(t))
+    .map((t) => `${t} (${tablasPlataforma.get(t) ?? 'c_borrar_si_existe'})`);
+  assert.deepEqual(sinDecidir, [], 'tablas plataforma_* con studio_id sin destino en DESTINO_PLATAFORMA: decide borrar o conservar');
+
+  for (const [tabla, { destino }] of Object.entries(DESTINO_PLATAFORMA)) {
+    if (destino === 'borrar') assert.ok(seBorra(tabla), `${ultima.nombre}: ${tabla} tiene destino borrar y no está en c_borrar ni en c_borrar_si_existe`);
+    else assert.ok(!seBorra(tabla), `${ultima.nombre}: ${tabla} se conserva a propósito y la purga la borra`);
+  }
+
+  // Solo las de c_borrar_si_existe se saltan si no existen: en c_borrar, una tabla
+  // que falta tiene que seguir tumbando la purga.
+  for (const t of tablasBorradasSiExisten) assert.ok(!tablasBorradas.includes(t), `${t} está en c_borrar y en c_borrar_si_existe`);
+  assert.match(funcion, /foreach v_tabla in array c_borrar \|\| c_borrar_si_existe loop\s+continue when v_tabla = any\(c_borrar_si_existe\) and to_regclass\(format\('public\.%i', v_tabla\)\) is null;\s+if p_ejecutar then/,
+    `${ultima.nombre}: el bucle de borrado ya no salta solo las tablas de c_borrar_si_existe que no existen`);
 });
