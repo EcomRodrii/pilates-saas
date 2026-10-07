@@ -20,12 +20,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // motivo NO se importa `@sentry/nextjs` aquí (el SDK no se inicializa fuera
 // del runtime de Next, ver el comentario de
 // `lib/billing/procesar-reembolso.test.ts`): los fallos best-effort de este
-// fichero avisan con `console.error`, como ya hacía el snapshot de entrega.
+// fichero avisan con `console.error` y, los que dejan dinero sin anotar, también
+// por `sentrySeguro` (el mismo Sentry de `confirmar-cobro.ts`, que no lanza fuera de Next).
 import { hoyEnEstudio } from '../utils.ts';
 import { escaparLike } from '../escapar-like.ts';
 import { cicloInicialDe } from '../bono-logic.ts';
 import type { PlanTarifa } from '../types.ts';
-import { aplicarEfectosCobro, type DependenciasEfectos, type FuenteConfirmacion } from './confirmar-cobro.ts';
+import { aplicarEfectosCobro, sentrySeguro, type DependenciasEfectos, type FuenteConfirmacion } from './confirmar-cobro.ts';
 import { facturaIdCheckout } from './cobro-confirmado-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import { confirmarPlazaPorRef } from '../opening/cupo.ts';
@@ -549,6 +550,12 @@ export async function entregarPlanComprado(
       // entrega — pero la propietaria tiene que enterarse de que falta anotar
       // un dinero que ya cobró.
       console.error('[entregarPlanComprado] matrícula cobrada pero no anotada:', errMat.message);
+      // `console.error` no llega a Sentry (no hay captureConsole): sin esto nadie
+      // se enteraba de un dinero cobrado y sin anotar.
+      sentrySeguro.captureMessage('[entregarPlanComprado] matrícula cobrada pero no anotada', {
+        level: 'error', tags: { area: 'cobros', tipo: 'matricula' },
+        extra: { studioId: compra.studioId, reciboMatriculaId: ids.reciboMatriculaId, error: errMat.message },
+      });
     } else {
       const { error: errConciliadoMat } = await admin.from('recibos').update({
         conciliado_en: ahora, conciliado_por: compra.fuente,

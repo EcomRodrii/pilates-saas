@@ -659,15 +659,15 @@ que su clase haya empezado — la guardia vive DENTRO de la RPC (si
 `p_aprobar`), no en el cron. El cron `app/api/cron/reservas-pendientes`
 (pg_cron, `*/10`, sin fan-out por estudio — es una query global; corregido en
 la auditoría del 2026-09-16: este texto decía `lib/inngest/reservas-pendientes.ts`
-cada 5 min y ese fichero no existe, la cadencia real la fija
-`lib/inngest/crons-cadencia.test.ts`) solo hace el
+cada 5 min; ese fichero existió y se retiró al pasar a pg_cron (#934), y la
+cadencia real la fija `lib/inngest/crons-cadencia.test.ts`) solo hace el
 aviso proactivo a la socia vía `expirarReservaPendiente()`; si el cron se
 retrasara o no corriera un tick, la regla de negocio seguiría siendo
 correcta, solo el aviso llegaría tarde. Corría cada minuto; se bajó a 5 min
-porque eran ~87.600 invocaciones de Vercel al mes (el 70 % de las de todos
-los crons juntos) para una tabla en la que casi siempre no hay nada que
-expirar — decisión de producto explícita del fundador, el precio es que el
-aviso puede tardar hasta 4 minutos más.
+(#758) y hoy es `*/10`, porque eran ~87.600 invocaciones de Vercel al mes (el
+70 % de las de todos los crons juntos) para una tabla en la que casi siempre
+no hay nada que expirar — decisión de producto explícita del fundador, el
+precio es que el aviso puede tardar hasta 9 minutos más.
 
 **Cero eventos de notificación nuevos salvo uno** (petición explícita del
 usuario: reusar antes que crear estado/evento nuevo). `RESERVA_APROBADA` y
@@ -743,8 +743,9 @@ consume el bono en TS al confirmar (no en la RPC), mismo criterio que
 
 **Regla de negocio, no de reloj** (mismo patrón que Fase 2a): el cron
 `app/api/cron/lista-espera-ofertas-expirar` (pg_cron) corre cada 5 min — la
-cadencia es correcta, el fichero no: `lib/inngest/lista-espera-ofertas.ts`
-nunca existió (corregido el 2026-09-16) — (no cada minuto como
+cadencia es correcta, el fichero ya no: `lib/inngest/lista-espera-ofertas.ts`
+existió y se retiró al pasar a pg_cron (#930; corregido el 2026-09-16 y de
+nuevo el 2026-10-07) — (no cada minuto como
 Fase 2a — aquí no hay una regla de seguridad de "clase ya empezada" en juego,
 solo UX de cuánto tarda en enterarse la siguiente persona de la cola).
 
@@ -776,8 +777,8 @@ es opt-in, el estudio ya sabe lo que implica al activarla.
 ⚠️ **Única regla de "Fase 2" cuyo override se resuelve con `heredaOverride()`
 en TS, no en SQL directo** — a diferencia de Fase 2b. Motivo: el chequeo
 ocurre solo dentro del cron server-side (`app/api/cron/minimo-asistentes`
-por pg_cron —no `lib/inngest/minimo-asistentes.ts`, que no existe; corregido
-el 2026-09-16—, cada 15 min, sin fan-out — query global de sesiones en la próxima ventana de
+por pg_cron —no `lib/inngest/minimo-asistentes.ts`, que se retiró al pasar a
+pg_cron (#934); corregido el 2026-09-16—, cada 15 min, sin fan-out — query global de sesiones en la próxima ventana de
 2h, mismo patrón de doble filtro SQL+JS que `confirmacion-riesgo`), nunca en
 una RPC invocable por `authenticated`, así que no aplica la restricción que
 forzó SQL directo en `cancelar_reserva_plaza`.

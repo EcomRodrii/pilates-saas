@@ -5,7 +5,7 @@
 // La política `manager_gestiona_equipo` deja a un manager escribir `instructores.rol`
 // también por la API de Supabase, sin pasar por el servidor (que ya lo comprueba en
 // `puedeActivarAccesoDelRol`). La cerradura real es el trigger
-// `instructores_rol_dinero_exige_permiso` (20260930100000), y este fichero la
+// `instructores_rol_dinero_exige_permiso` (20260930085216), y este fichero la
 // comprueba contra una base de datos real. Si cambia la lista de roles que mueven
 // dinero (`puede_mover_dinero()`), este es el test que avisa de que el trigger, que
 // la lleva copiada, hay que ajustarlo.

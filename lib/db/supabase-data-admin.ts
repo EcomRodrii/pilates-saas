@@ -95,6 +95,7 @@ import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-cl
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 import type {
   RowCitasServicios,
   RowCitasDisponibilidad,
@@ -4212,6 +4213,10 @@ export async function aceptarOfertaListaEspera(params: {
           : resultado === 'SIN_ENTITLEMENT' ? 'sin_entitlement_propio'
             : 'limite_semanal_propio',
       });
+      // La RPC ha cancelado su reserva y la plaza que tenía reservada está libre,
+      // pero no la ofrece a nadie: sin esto la siguiente de la cola esperaba hasta
+      // que alguien cancelara otra cosa. Mismo helper que al cancelar o caducar.
+      await promocionarEsperaTrasRechazoPropio(admin, { studioId: params.studioId, sesionId });
     }
     return {
       error: resultado === 'CONFLICTO_HORARIO'
@@ -4268,6 +4273,34 @@ export async function aceptarOfertaListaEspera(params: {
     await trasPlazaConfirmada(admin, { studioId: params.studioId, socioId: params.socioId, sesionId, reservaId: params.reservaId });
   }
   return { ok: true, estado: 'CONFIRMADA' };
+}
+
+/**
+ * La plaza que dejó libre una oferta rechazada por un motivo de quien la tenía
+ * (su horario, su límite o su plan) se ofrece a la siguiente de la cola. Nunca
+ * falla hacia fuera: la aceptación ya se resolvió y la socia ya tiene su
+ * respuesta; si esto no llega, se avisa y el siguiente movimiento de la clase
+ * (o el cron de ofertas) la recoge.
+ */
+async function promocionarEsperaTrasRechazoPropio(admin: SupabaseClient, p: { studioId: string; sesionId: string }): Promise<void> {
+  try {
+    const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('promocionar_espera_de_sesion', {
+      p_studio_id: p.studioId, p_sesion_id: p.sesionId,
+    }));
+    if (error) throw new Error(error.message);
+    const fila = (Array.isArray(data) ? data[0] : data) as
+      { promovida_socio_id?: string | null; oferta_socio_id?: string | null; oferta_expira_en?: string | null } | null | undefined;
+    await seguirPromocionDeEspera(admin, {
+      studioId: p.studioId, sesionId: p.sesionId,
+      promovidaSocioId: fila?.promovida_socio_id ?? null,
+      ofertaSocioId: fila?.oferta_socio_id ?? null,
+      ofertaExpiraEn: fila?.oferta_expira_en ?? null,
+    });
+  } catch (e) {
+    Sentry.captureException(e instanceof Error ? e : new Error('No se pudo ofrecer la plaza libre tras un rechazo propio'), {
+      level: 'error', tags: { area: 'reservas', tipo: 'lista-espera' }, extra: { sesionId: p.sesionId, studioId: p.studioId },
+    });
+  }
 }
 
 // Fase 2b: cancela (pierde el sitio) la reserva cuya oferta caducó sin

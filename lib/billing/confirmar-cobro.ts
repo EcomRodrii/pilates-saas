@@ -71,6 +71,8 @@ const Sentry = {
   captureMessage: (...a: Parameters<typeof SentryNext.captureMessage>) => { sentry.captureMessage?.(...a); },
   captureException: (...a: Parameters<typeof SentryNext.captureException>) => { sentry.captureException?.(...a); },
 };
+/** El mismo Sentry a prueba de `node --test`, para los demás ficheros de lib/billing que avisan best-effort. */
+export const sentrySeguro = Sentry;
 
 // 'tpv' = el mostrador cobrando un recibo por datáfono o Bizum. Se distingue
 // de 'manual' a propósito: 'manual' es alguien marcándolo sin que nadie lo
@@ -275,11 +277,21 @@ export async function aplicarEfectosCobro(
 
   const marcarFacturaPendiente = async (detalle: unknown, opciones: { faltaNif?: boolean } = {}) => {
     selladoOk = false;
+    // Sin la marca, el conciliador que reintenta los sellados no ve este recibo y
+    // se queda COBRADO sin factura para siempre: ese fallo se avisa aparte. Y
+    // supabase-js devuelve `{ error }`, no lanza: el try/catch solo no lo veía.
+    const avisarMarcaNoEscrita = (e: unknown) => {
+      Sentry.captureMessage('[confirmarCobro] no se pudo marcar la factura pendiente de sellar', {
+        level: 'error', tags: { area: 'cobros', tipo: 'facturacion' },
+        extra: { reciboId: p.reciboId, studioId: p.studioId, error: String(e) },
+      });
+    };
     try {
-      await admin.from('recibos').update({ factura_pendiente_sellar: true })
+      const { error: errMarca } = await admin.from('recibos').update({ factura_pendiente_sellar: true })
         .eq('id', p.reciboId).eq('studio_id', p.studioId);
+      if (errMarca) avisarMarcaNoEscrita(errMarca.message);
     } catch (e) {
-      console.error('[aplicarEfectosCobro] no se pudo marcar la factura pendiente', p.reciboId, e);
+      avisarMarcaNoEscrita(e);
     }
     // Sin NIF del estudio no es una avería: la propietaria lo ve en «por decidir»
     // («Falta tu NIF») y la factura sale cuando lo pone. Avisar a Sentry por cada

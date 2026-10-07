@@ -251,13 +251,23 @@ export function resolutorCobertura(base: {
   planesTarifa: PlanTarifa[];
   hoyISO: string;
   precioClaseSuelta: number | null;
+  /**
+   * El precio de la suelta PARA ese tipo de clase. Sin él, todas las filas
+   * enseñan `precioClaseSuelta` (el mínimo del estudio), que puede ser el de una
+   * suelta acotada a otro tipo. Con él, cada tipo enseña lo que se le cobraría.
+   */
+  precioPorTipo?: (tipoClaseId: string | null) => number | null;
 }): (tipoClaseId: string | null) => Cobertura {
   const cache = new Map<string, Cobertura>();
+  const { precioPorTipo, ...resto } = base;
   return (tipoClaseId) => {
     const clave = tipoClaseId ?? '';
     const yaEsta = cache.get(clave);
     if (yaEsta) return yaEsta;
-    const c = coberturaDeClase({ ...base, tipoClaseId });
+    const c = coberturaDeClase({
+      ...resto, tipoClaseId,
+      precioClaseSuelta: precioPorTipo ? precioPorTipo(tipoClaseId) : base.precioClaseSuelta,
+    });
     cache.set(clave, c);
     return c;
   };
