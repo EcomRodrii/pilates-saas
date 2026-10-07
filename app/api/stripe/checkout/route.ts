@@ -21,7 +21,7 @@ import {
   type PeticionCheckout,
 } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
-import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
+import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, mensajePagoEnCurso } from '@/lib/billing/pago-en-curso';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
@@ -1224,7 +1224,8 @@ export async function POST(req: NextRequest) {
         level: 'warning', tags: { area: 'stripe-checkout', tipo: 'pago-en-curso' },
         extra: { studioId: body.studioId, conRecibo: !!body.reciboId, conClase: !!body.sesionId, conPlaza: !!plaza },
       });
-      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
+      const que = body.reciboId ? 'recibo' : body.sesionId ? 'clase' : 'compra';
+      return conCorsWidget(req, NextResponse.json({ error: mensajePagoEnCurso(que), codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
     // Si el cobro no llegó a nacer, la plaza que se reservó para decidir su
     // precio no se ha usado. Devolverla antes de contestar el error (si una sesión

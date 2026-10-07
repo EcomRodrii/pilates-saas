@@ -30,7 +30,7 @@ import { idsDe } from '@/lib/billing/ids-compra';
 import { piDeClientSecret } from '@/lib/billing/estado-pago-publico';
 import { sesionNoExisteEnStripe } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { claveMatriculaDePagoClase, plazaDePICancelado } from '@/lib/billing/cupo-matricula-abandonado';
-import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
+import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, mensajePagoEnCurso } from '@/lib/billing/pago-en-curso';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
 import { telefonoValido } from '@/lib/csv';
 import type { TipoPlan } from '@/lib/types';
@@ -1170,7 +1170,7 @@ export async function POST(req: NextRequest) {
         level: 'warning', tags: { modulo: 'checkout-embebido', tipo: 'pago-en-curso' },
         extra: { studioId: body.studioId, conClase: !!body.sesionId, conPlaza: !!plaza, ...detalleErrorStripe(err) },
       });
-      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
+      return conCorsWidget(req, NextResponse.json({ error: mensajePagoEnCurso(body.sesionId && !pagoClase ? 'clase' : 'compra'), codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
     }
     // Si el cobro no llegó a nacer, la plaza no se ha usado (si un cobro anterior ya
     // la tiene ligada, es suya y no se toca).
