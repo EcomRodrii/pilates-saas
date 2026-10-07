@@ -402,7 +402,7 @@ export default function InicioPage() {
               porque esta línea ya existía antes de ser configurable. Ver
               `lib/student/subtitulo-heroe.ts`. */}
           {/* Compacta (maqueta): fecha y saludo, nada más. «Reservar clase»
-              sigue a un toque en las baldosas de debajo. */}
+              sigue a un toque en la barra de abajo y en el buscador. */}
           {!compacta && (
           <p className="a-up" style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 600, color: 'rgba(250,249,245,.9)', animationDelay: '120ms' }}>
             {subtituloDelHeroe(estudio.subtituloHeroe)}
@@ -527,9 +527,10 @@ export default function InicioPage() {
       </form>
 
       <AccesosRapidos
-        hrefReservar={href('/reservar')}
+        studioId={estudio.id}
+        hrefComunidad={href('/comunidad')}
         hrefInstructoras={href('/instructoras')}
-        hrefBonos={href('/bonos')}
+        hrefMensajes={href('/mensajes')}
         hrefFavoritas={`${href('/reservar')}?filtro=Favoritas`}
       />
 
@@ -621,7 +622,9 @@ export default function InicioPage() {
                 bloque de contenido del estudio en la misma pantalla.
                 ⚠️ `/mensajes` NO tenía otra puerta en toda la app: entra en
                 Perfil → «Escribir al estudio» en este mismo cambio. Comunidad
-                ya se alcanzaba desde ahí. */}
+                ya se alcanzaba desde ahí. Desde el 7-oct las dos vuelven a
+                Inicio como baldosas (Comunidad y Chat, `AccesosRapidos`), sin
+                pedir nada al cargar: el chat se abre al tocarlo. */}
 
             {/* ── DESCUBRE ─────────────────────────────────────────────────
                 Las tarjetas con foto que publica el estudio. Va ANTES de

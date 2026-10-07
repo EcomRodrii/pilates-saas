@@ -187,8 +187,8 @@ export default function PerfilPage() {
         <ProfileSection
           titulo="Comprar y pagar"
           items={[
-            // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba y por la
-            // baldosa de Inicio. Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
+            // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra y por la cifra de la tarjeta de arriba (la
+            // baldosa de Inicio pasó a ser «Chat» el 7-oct). Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
             { label: 'Tienda', href: href('/comprar'), icono: 'bolsa' },
             { label: 'Recibos', href: href('/pagos'), icono: 'recibo', valor: valorRecibos, valorDestacado: !!valorRecibos },
             { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },

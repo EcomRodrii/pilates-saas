@@ -172,6 +172,10 @@ const SPECS_WEBKIT = [
   // alumna abre desde su iPhone (en la de iOS, una página de Stripe se iba a Safari). Dinero: guardar la tarjeta de sus
   // cobros. Ocho pruebas con mocks.
   '**/student-cambiar-tarjeta.spec.ts',
+  // Las baldosas de Inicio (7-oct-2026): «Chat» es un enlace que se para (`preventDefault`) para abrir la conversación
+  // con el estudio y entrar en ella. Lo toca la alumna desde su iPhone, y un toque que se queda en nada no se cuenta.
+  // Cuatro pruebas con mocks.
+  '**/student-inicio-baldosas.spec.ts',
   // EXCEPCIÓN al criterio de arriba, pedida por el fundador (6-oct-2026): el
   // chat de Tentare es panel, pero lo abrió desde su iPhone y «le das a escribir
   // y se hace zoom, es 0 responsive». Lo que se prueba —anchos que obligan a
