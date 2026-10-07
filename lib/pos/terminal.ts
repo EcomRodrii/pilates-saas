@@ -342,7 +342,10 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
           // el mostrador. 30 min es el mínimo que admite Stripe — de sobra
           // para un cobro de mostrador, y muy por debajo de las 24h que
           // duraba antes (el QR "seguía válido" al día siguiente).
-          expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+          // ⚠️ 32 y no 30 (7-oct-2026): los 30 min de Stripe cuentan desde que CREA
+          // la sesión, que llega después de este `Date.now()`; con 30 justos llegaría
+          // por debajo del mínimo (deducido de su documentación, no medido).
+          expires_at: Math.floor(Date.now() / 1000) + 32 * 60,
         }, {
           stripeAccount: ctx.stripeAccount,
           ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-cs` } : {}),
