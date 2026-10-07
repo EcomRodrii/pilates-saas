@@ -38,10 +38,11 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
  * `guias`: la sección de guías de /recursos, que llega ya pintada desde el
  * servidor (app/page.tsx) para que el texto de los artículos no entre en el
  * JavaScript de la home. Ver components/landing/SeccionGuias.tsx.
- * `bento` y `frase` van igual (SeccionBento, SeccionEnUnaFrase): son texto
- * puro y miniaturas en CSS, sin ningún motivo para pesar en el cliente.
+ * `bento`, `frase` y `cambiarte` van igual (SeccionBento, SeccionEnUnaFrase,
+ * SeccionCambiarte): son texto puro y miniaturas en CSS, sin ningún motivo
+ * para pesar en el cliente.
  */
-export function LandingCliente({ guias, bento, frase }: { guias?: ReactNode; bento?: ReactNode; frase?: ReactNode } = {}) {
+export function LandingCliente({ guias, bento, frase, cambiarte }: { guias?: ReactNode; bento?: ReactNode; frase?: ReactNode; cambiarte?: ReactNode } = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -125,6 +126,10 @@ export function LandingCliente({ guias, bento, frase }: { guias?: ReactNode; ben
         <SeccionSustituciones />
         <SeccionConfianza />
         <SeccionFuncionalidades />
+        {/* Para quien ya paga otro programa (la mayoría, fundador 1-oct): por
+            qué cambiar es poco arriesgado y la puerta a cada comparativa, justo
+            antes del precio (7-oct). */}
+        {cambiarte}
         <SeccionPrecio />
         <SeccionFaq />
         {guias}

@@ -94,7 +94,7 @@ export function SeccionSustituciones() {
     >
       <div className="v5-sust-wrap">
         <header className="v5-sust-head lp-rv">
-          <h2 id="v5-sust-h" className="v5-sust-h2">Si una instructora falla, tú das el visto bueno.</h2>
+          <h2 id="v5-sust-h" className="v5-sust-h2"><span className="lp-ante">Sustituciones de instructoras</span>{' '}Si una instructora falla, tú das el visto bueno.</h2>
           <p className="v5-sust-lead">
             Una instructora cancela a las 16:42: Tentare sabe quién puede dar esa clase, te la propone y, con tu
             visto bueno, la contacta, insiste por ti y te lo trae resuelto. Si nadie puede, te avisa y decides tú.

@@ -22,7 +22,7 @@ Posición = media de Search Console, últimos 3 meses. «—» = sin impresiones
 
 | Cluster | Búsquedas que cubre | URL primaria | Posición hoy | Qué se hizo el 7-oct |
 |---|---|---|---|---|
-| Software Pilates (core) | software / programa / sistema de gestión para estudios y centros de Pilates, gestión pilates | `/` | 2,2 («software gestión pilates»), 8,7, 9,8; 45 («gestión pilates») | Title con «de gestión» y marca; FAQ visible en el HTML |
+| Software Pilates (core) | software / programa / sistema de gestión para estudios y centros de Pilates, gestión pilates | `/` | 2,2 («software gestión pilates»), 8,7, 9,8; 45 («gestión pilates») | Title con «de gestión» y marca; h1 «…de Pilates y yoga»; la búsqueda dentro de cada h2; «¿Qué es Tentare?»; sección «¿Ya usas otro programa?» que enlaza las comparativas; nota de G2 bajo el botón; FAQ visible en el HTML |
 | Pilates reformer | software Pilates reformer, reservas por máquina, aforo reformer, plazas, lista de espera reformer | `/soluciones/estudio-de-pilates-reformer` | — | Página rehecha: respuesta directa, capturas reales, calculadora de plazas vacías, tabla reformer/mat |
 | Yoga | software para estudios de yoga, reservas yoga, bonos y mensualidades yoga, talleres | `/soluciones/estudio-de-yoga` | 7 | Página rehecha con semántica propia de yoga |
 | Reservas | software / sistema / app de reservas para Pilates | `/funcionalidades/reservas-online` | 41 (consultas de consumidora) | H1 con la búsqueda |

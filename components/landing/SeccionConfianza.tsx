@@ -50,7 +50,7 @@ export function SeccionConfianza() {
     <section id="confianza" className="v5-conf" aria-labelledby="v5-conf-h">
       <div className="v5-conf-wrap">
         <header className="v5-conf-head lp-rv">
-          <h2 id="v5-conf-h" className="v5-conf-h2">Detrás de Tentare hay personas.</h2>
+          <h2 id="v5-conf-h" className="v5-conf-h2"><span className="lp-ante">Soporte en español y migración incluida</span>{' '}Detrás de Tentare hay personas.</h2>
           <p className="v5-conf-lead">
             Hecho en España para estudios de Pilates y Yoga, por un equipo que contesta cuando escribes.
           </p>
