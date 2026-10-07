@@ -187,8 +187,8 @@ export default function PerfilPage() {
         <ProfileSection
           titulo="Comprar y pagar"
           items={[
-            // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra, por la cifra de la tarjeta de arriba y por la
-            // baldosa de Inicio. Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
+            // Sin fila «Mi plan» (P14): se llega por su pestaña de la barra y por la cifra de la tarjeta de arriba (la
+            // baldosa de Inicio pasó a ser «Chat» el 7-oct). Un nombre para cada cosa: «Tienda» y «Recibos», los mismos que en Mi plan.
             { label: 'Tienda', href: href('/comprar'), icono: 'bolsa' },
             { label: 'Recibos', href: href('/pagos'), icono: 'recibo', valor: valorRecibos, valorDestacado: !!valorRecibos },
             { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },
@@ -217,7 +217,7 @@ export default function PerfilPage() {
             // ya se llegaba desde aquí.
             { label: 'Escribir al estudio', href: href('/mensajes'), icono: 'mensaje' },
             { label: 'Notificaciones', href: href('/notificaciones'), icono: 'campana' },
-            { label: 'Comunidad', href: href('/comunidad'), icono: 'personas' },
+            { label: 'Comunidad', href: href('/comunidad'), icono: 'feed' },
             { label: 'Logros y recompensas', href: href('/logros'), icono: 'trofeo' },
             // Descargar, retirar el consentimiento de salud y pedir que borren
             // sus datos viven en su propia pantalla. Antes eran dos bloques
