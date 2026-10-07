@@ -3,7 +3,7 @@
 //
 // OBLIGATORIA solo si se cumple TODO:
 //   · `tourObligatorio`: lo fija un TRIGGER al nacer el estudio (migración
-//     20261007170000), nunca el cliente. Nace false en todos los que ya existían:
+//     20261007211202), nunca el cliente. Nace false en todos los que ya existían:
 //     ni Rítmica La Luna ni ninguna sede de cadena se entera.
 //   · no la ha completado ya,
 //   · quien mira es la PROPIETARIA (MANAGER y RECEPCION no la ven obligatoria: no

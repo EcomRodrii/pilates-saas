@@ -1112,11 +1112,11 @@ export interface RowStudios {
   lista_espera_reserva_plaza_ofrecida: boolean | null;
   // migr 20261007122300.
   reserva_pendiente_cuenta_para_tope: boolean | null;
-  // migr 20261007170000.
+  // migr 20261007211202.
   tour_obligatorio: boolean | null;
-  // migr 20261007170000.
+  // migr 20261007211202.
   tour_progreso: any | null;
-  // migr 20261007170000.
+  // migr 20261007211202.
   tour_completado_en: string | null;
 }
 
