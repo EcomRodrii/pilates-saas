@@ -41,6 +41,23 @@ Posición = media de Search Console, últimos 3 meses. «—» = sin impresiones
 | Competidor X | X precios, ¿X merece la pena?, alternativa a X, X opiniones | `/comparativa/tentare-vs-X` | lorari 5,7 · timp 7,8 · bsport 7,6 | Title «¿X merece la pena? Precios y alternativa para Pilates», H1 «X: precios, funciones y la alternativa…», resumen con respuesta directa, análisis propio en 7 |
 | Cambiar de programa | migrar desde bsport/TIMP…, cambiar de software | `/soluciones/cambiar-de-software` | 8,6 | Enlazada desde cada comparativa y cada solución |
 
+### El clúster de contenido que alimenta esas páginas (2.ª tanda, 8-oct)
+
+Cada artículo responde a una búsqueda de PROBLEMA y enlaza a la página de
+producto que lo resuelve. Ninguno compite con la home por «software de gestión».
+
+| Búsqueda | URL | Alimenta a | Qué se hizo |
+|---|---|---|---|
+| cómo gestionar un estudio de Pilates | `/recursos/como-gestionar-un-estudio-de-pilates` | casi todas las funcionalidades | **Nuevo pilar**: los cinco sistemas, números que mirar cada semana y qué automatizar. Es la guía destacada de `/recursos` y sale en las guías de la home |
+| precio reformer vs mat, cuánto factura un reformer | `/recursos/precios-reformer-mat` | `/soluciones/estudio-de-pilates-reformer` | Guía antigua (TSX, cifras «ilustrativas») rehecha con datos: coste por plaza, facturación por ocupación, diferencia de precio en 32 estudios |
+| reducir cancelaciones de última hora, no-shows | `/recursos/reducir-cancelaciones-ultima-hora` | `/funcionalidades/cancelaciones-y-politicas`, `/funcionalidades/lista-de-espera` | Rehecha: 5 estudios sobre recordatorios citados (son citas médicas y se dice), reglas de SoulCycle/Barry's/CorePower/ClassPass de sus propias páginas, cómo medirlo. La regla y la ley siguen en `politica-de-cancelacion-de-clases` |
+| cubrir baja instructora, quién paga la baja | `/recursos/cubrir-baja-instructora` | `/funcionalidades/sustituciones` | Rehecha: protocolo, plazo por candidata (la regla del motor), incapacidad temporal (Seguridad Social) y contrato de sustitución (art. 15.3 ET) |
+| clases valle, cuántas alumnas para ser rentable | `/recursos/ocupacion-clases-valle` | `/funcionalidades/informes-y-rentabilidad` | Rehecha: las dos líneas (pagar a la instructora / cubrir todo), ocho formas de llenarla y cuándo quitarla. Fuera la cifra de ClassPass que no tenía fuente |
+| precio de un bono de pilates | `/recursos/bonos-de-pilates` | `/funcionalidades/bonos-y-membresias` | Calculadora de bonos (escalones y avisos de canibalización y de precio por debajo del coste) |
+
+Las cuatro guías rehechas conservan su URL y ya no son TSX: pasan por el
+validador de artículos (fuentes, frases prohibidas, enlaces que existen).
+
 ### Lo que NO se ha hecho a propósito
 
 - **Sin páginas por ciudad** («software pilates madrid»): serían doorways.
