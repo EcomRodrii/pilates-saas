@@ -58,47 +58,24 @@ async function montar(page: Page) {
   return { configurar };
 }
 
-/** Recorre el asistente hasta el final. En cada paso, si una de las opciones
- *  que nos interesan está en pantalla la pulsa; si no, avanza con Enter — el
- *  asistente permite pasar sin contestar, que es el criterio de «todo
- *  saltable» y lo que hace que este recorrido no dependa del orden exacto de
- *  las preguntas. */
-async function recorrer(page: Page, aElegir: string[]) {
-  const pendientes = new Set(aElegir);
-  for (let i = 0; i < 40; i++) {
-    let pulsado = false;
-    for (const etiqueta of [...pendientes]) {
-      // Sin `exact`: cada opción se pinta con su número delante («3 Clase
-      // suelta»), así que el nombre accesible NO es solo la etiqueta.
-      const b = page.getByRole('button', { name: etiqueta });
-      if (await b.count() > 0) {
-        await b.first().click();
-        pendientes.delete(etiqueta);
-        pulsado = true;
-        break;
-      }
-    }
-    if (!pulsado) await page.keyboard.press('Enter');
-    await page.waitForTimeout(140);
+/** Pantalla 1 → 2 → 3 del asistente rápido, pulsando «Continuar». */
+async function aPantalla(page: Page, n: 2 | 3) {
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: 'Tus clases y tu sala' })).toBeVisible();
+  if (n === 3) {
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByRole('heading', { name: 'Antes de entrar' })).toBeVisible();
   }
-
-  // ⚠️ El resumen NO se cierra con Enter. El manejador de teclado del asistente
-  // sale antes si `fase !== 'wizard'`, así que en la última pantalla las teclas
-  // no hacen nada y hay que PULSAR. Sin esto, `finalizar()` nunca corre: no se
-  // guarda la bienvenida, no se llama al ejecutor, y el test se lee como «el
-  // asistente no manda las respuestas» cuando lo que pasa es que no ha
-  // terminado. Costó un rato descubrirlo.
-  await page.getByRole('button', { name: 'Entrar al panel' }).click({ timeout: 15_000 });
 }
 
 test('«Clase suelta» y «doy clases» llegan al ejecutor, no se quedan por el camino', async ({ page }) => {
   const { configurar } = await montar(page);
-
-  // El asistente ya NO abre con una intro tecleada: las pantallas de valor
-  // hacen esa función, y tener las dos era darle dos bienvenidas seguidas.
-  // Arranca directamente en la primera pregunta.
-  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
-  await recorrer(page, ['Clase suelta', 'Sí, yo doy clases']);
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible({ timeout: 30_000 });
+  await aPantalla(page, 2);
+  await page.getByRole('radio', { name: 'Sí, yo doy clases' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Clase suelta' }).click();
+  await page.getByRole('button', { name: 'Ver mi estudio' }).click();
 
   await expect.poll(() => configurar.length, { timeout: 15_000 }).toBeGreaterThan(0);
   const cuerpo = configurar.at(-1)!;
@@ -106,43 +83,40 @@ test('«Clase suelta» y «doy clases» llegan al ejecutor, no se quedan por el 
   expect(cuerpo.imparteClases).toBe(true);
 });
 
-// Las tres últimas preguntas (cobro, prioridad, ayuda) no configuran lo que hace
-// falta para programar una clase, así que van al final y se pueden saltar. Con
-// contador: saltar NO puede significar «no guardar lo que ya contestó».
-test('«Saltar lo que queda» guarda lo contestado y no exige cobro, prioridad ni ayuda', async ({ page }) => {
+// El asistente son tres pantallas con lo más común ya marcado: con solo
+// «Continuar» el estudio queda MONTADO (una sala, ocho plazas, 55 minutos,
+// Reformer y Mat), y lo que no se contestó no se inventa. Con contador: saltar
+// NO puede significar «no guardar lo que ya contestó».
+test('«Saltar y ver mi estudio» monta lo marcado por defecto y no inventa cobro, horario ni ficha', async ({ page }) => {
   const { configurar } = await montar(page);
-  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible({ timeout: 30_000 });
 
-  const aElegir = ['1 sala', '8 plazas', '50 minutos', 'Reformer'];
-  for (let i = 0; i < 40; i++) {
-    if (await page.getByText('¿Cómo cobras a tus alumnas?').count() > 0) break;
-    let pulsado = false;
-    for (const etiqueta of aElegir) {
-      const b = page.getByRole('button', { name: etiqueta });
-      if (await b.count() > 0) { await b.first().click(); aElegir.splice(aElegir.indexOf(etiqueta), 1); pulsado = true; break; }
-    }
-    if (!pulsado) await page.keyboard.press('Enter');
-    await page.waitForTimeout(140);
-  }
-  await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Saltar lo que queda' }).click();
+  await page.getByRole('button', { name: 'Saltar y ver mi estudio' }).click();
 
   await expect.poll(() => configurar.length, { timeout: 15_000 }).toBeGreaterThan(0);
   const cuerpo = configurar.at(-1)!;
-  expect(cuerpo.tiposClase).toEqual(['Reformer']);
+  expect(cuerpo.tiposClase).toEqual(['Reformer', 'Mat']);
   expect(cuerpo.numSalas).toBe(1);
-  // Lo que se saltó no se inventa.
+  expect(cuerpo.aforosPorSala).toEqual([8]);
+  expect(cuerpo.duracionMinutos).toBe(55);
+  // Lo que no se contestó no se inventa.
   expect(cuerpo.usaBonos).toBe(false);
   expect(cuerpo.usaMembresias).toBe(false);
   expect(cuerpo.usaClaseSuelta).toBe(false);
+  expect(cuerpo.imparteClases).toBe(false);
+  expect(cuerpo.horaApertura).toBeUndefined();
+  // Y llega a la pantalla final, con su app.
+  await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
 });
 
-test('«Saltar lo que queda» solo aparece en las tres preguntas opcionales del final', async ({ page }) => {
+test('lo opcional (cobro, prioridad, ayuda) solo está en la última pantalla y se deja en blanco', async ({ page }) => {
   await montar(page);
-  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Saltar lo que queda' })).toHaveCount(0);
-  await page.keyboard.press('Enter');
-  await expect(page.getByText('¿Cuántas salas tienes?')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Saltar lo que queda' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toHaveCount(0);
+  await aPantalla(page, 3);
+  await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toBeVisible();
+  await expect(page.getByText('¿Cómo prefieres que te ayudemos?')).toBeVisible();
+  // En blanco también vale: se llega a la pantalla final sin contestar nada.
+  await page.getByRole('button', { name: 'Ver mi estudio' }).click();
+  await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
 });
