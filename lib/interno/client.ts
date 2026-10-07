@@ -113,6 +113,8 @@ export interface FichaEstudio {
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
   /** API pública (F1): se activa estudio a estudio desde aquí. */
   apiPublica?: { activa: boolean; activadaEn: string | null; clavesActivas: number };
+  /** Wellhub por API: el gym y el producto vinculados, y si Tentare tiene sus credenciales. */
+  wellhub?: { gymId: string | null; productoId: string | null; credenciales: boolean };
   reviewBoost: {
     elegibleEn: string | null;
     mostradoEn: string | null;

@@ -30,6 +30,9 @@ test('rechaza lo que no es una reserva de plataforma bien formada', () => {
 
 test('el id de reserva sigue el formato del panel y nunca el de plaza fija', () => {
   assert.equal(leerPeticionReservaExterna({ ...base, reservaId: 'res-pf-123' }).ok, false);
+  // Los de las reservas que entran por API: el servidor los usa para saber qué confirmar a la plataforma.
+  assert.equal(leerPeticionReservaExterna({ ...base, reservaId: 'res-wh-BK_A1B2C3' }).ok, false);
+  assert.equal(leerPeticionReservaExterna({ ...base, reservaId: 'res-usc-123' }).ok, false);
   assert.equal(leerPeticionReservaExterna({ ...base, reservaId: 'otra-cosa' }).ok, false);
 });
 

@@ -72,7 +72,9 @@ export function BorrarCuenta({ slug, nombreEstudio, hrefLogin }: {
           open={abierta}
           onClose={cerrar}
           titulo="Tu cuenta de Tentare se ha borrado"
-          cuerpo="Ya no podrás entrar con ella en ningún estudio."
+          // Apple (TN3194): si entró con Apple y no guardamos su token para
+          // revocarlo, se le dice cómo quitarle el acceso a Tentare ella misma.
+          cuerpo="Ya no podrás entrar con ella en ningún estudio. Si alguna vez entraste con Apple, quita también Tentare en los Ajustes del iPhone, en tu cuenta de Apple › Iniciar sesión con Apple."
           confirmar="Entendido"
           cancelar={null}
           loading={saliendo}

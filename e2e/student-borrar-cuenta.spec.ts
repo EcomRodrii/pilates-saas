@@ -129,6 +129,8 @@ test.describe('Student PWA · borrar mi cuenta de Tentare', () => {
     // Primero se le dice, y hasta que no lo lee no se cierra nada.
     const hecha = page.getByRole('dialog', { name: 'Tu cuenta de Tentare se ha borrado' });
     await expect(hecha).toBeVisible({ timeout: 15_000 });
+    // Sin token de Apple que revocar, se le dice cómo quitar el acceso ella misma (Apple TN3194).
+    await expect(hecha.getByText(/Iniciar sesión con Apple/)).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('sb-portal-auth'))).not.toBeNull();
     await hecha.getByRole('button', { name: 'Entendido', exact: true }).click();
 

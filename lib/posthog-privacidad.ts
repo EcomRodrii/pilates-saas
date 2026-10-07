@@ -28,8 +28,10 @@ import type { CaptureResult } from 'posthog-js';
  * SEGMENTO completo: `/interno` excluye `/interno/estudios/x`, no `/internos`.
  */
 export const PREFIJOS_EXCLUIDOS_DE_ANALITICA = [
-  // App de la alumna (marca blanca del estudio) y su vista previa.
-  '/portal', '/portal-preview',
+  // App de la alumna (marca blanca del estudio) y su vista previa, y `/app`, la
+  // entrada de la app de iOS: dentro de la app no se mide nada (si se midiera,
+  // habría que declararlo en su manifiesto de privacidad y en «App Privacy»).
+  '/portal', '/portal-preview', '/app',
   // Reserva pública del estudio — también se sirve incrustada en su web —, el
   // enlace público de instructora freelance (reexporta /reservar) y el puente
   // del enlace mágico del widget.

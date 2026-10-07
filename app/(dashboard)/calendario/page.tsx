@@ -2310,9 +2310,11 @@ export default function Calendario() {
       // el del otro (en pantalla solo quedaba marcada la última).
       let foto = reservas;
       const okVino: string[] = [];
+      let sinValidarWellhub = 0;
       for (const id of plan.vinieron) {
         const res = await checkin(id, foto);
         if (!res.ok) continue;
+        if (res.aviso) sinValidarWellhub++;
         okVino.push(id);
         foto = foto.map(r => (r.id === id ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r));
       }
@@ -2327,6 +2329,8 @@ export default function Calendario() {
         `${okVino.length} ${okVino.length === 1 ? 'vino' : 'vinieron'}`,
         ...(okNoVino.length ? [`${okNoVino.length} no`] : []),
         ...(fallidas ? [`${fallidas} sin marcar: inténtalo otra vez`] : []),
+        // Marcadas aquí, pero Wellhub no ha validado su check-in: el motivo sale al marcarla en su fila.
+        ...(sinValidarWellhub ? [`${sinValidarWellhub} sin validar en Wellhub`] : []),
       ];
       showToast(`Lista pasada · ${partes.join(', ')}`, {
         texto: 'Deshacer',
@@ -2346,9 +2350,10 @@ export default function Calendario() {
   // Las acciones de una fila esperan al servidor y dicen si no la aceptó (la
   // RLS, o la reserva ya no estaba como se veía): si no, el botón no hacía nada
   // y nadie sabía por qué.
-  function conAviso(accion: (reservaId: string) => Promise<ResultadoEscritura>) {
+  function conAviso(accion: (reservaId: string) => Promise<ResultadoEscritura & { aviso?: string | null }>) {
     return (reservaId: string) => {
-      void accion(reservaId).then(res => { if (!res.ok) showToast(res.error); });
+      // `aviso`: hecho aquí, pero la plataforma ha dicho algo (Wellhub no validó su check-in).
+      void accion(reservaId).then(res => { if (!res.ok) showToast(res.error); else if (res.aviso) showToast(res.aviso); });
     };
   }
 

@@ -38,7 +38,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Para escanear el código QR de tu clase al llegar al estudio.</string>
+	<string>Para hacerte la foto de tu perfil y, si das clases, escanear el QR de tus alumnas al pasar lista.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Para añadir tus clases reservadas a tu calendario.</string>
 	<key>NSCalendarsUsageDescription</key>
