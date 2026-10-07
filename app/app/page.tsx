@@ -20,6 +20,7 @@ import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import { navegoDesdeFueraHaceNada } from '@/lib/nativo/navegacion-desde-fuera';
 import { BotonApple } from '@/components/nativo/BotonApple';
 import { BotonGoogle } from '@/components/nativo/BotonGoogle';
+import { AvatarEstudio } from '@/components/nativo/AvatarEstudio';
 import {
   CLAVE_ULTIMO_ESTUDIO, conElUltimoPrimero, entradaDirecta, rutaDeEntrada, type EstudioDeLaCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -43,8 +44,9 @@ import {
  * y si aún no la tiene, a darse de alta en él.
  */
 
-type Estudio = EstudioDeLaCuenta & { icono: string };
-type Encontrado = { slug: string; nombre: string; ciudad: string | null; icono: string };
+// `color`: el de su tema, para la inicial que se ve mientras llega el icono (`AvatarEstudio`).
+type Estudio = EstudioDeLaCuenta & { icono: string; color?: string | null };
+type Encontrado = { slug: string; nombre: string; ciudad: string | null; icono: string; color?: string | null };
 type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error';
 
 const leerUltimo = () => { try { return localStorage.getItem(CLAVE_ULTIMO_ESTUDIO); } catch { return null; } };
@@ -323,8 +325,7 @@ export default function EntradaApp() {
                     <button type="button" onClick={() => ir(e)} className="card tap" data-estudio={e.slug}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: 12, textAlign: 'left', border: `1.5px solid ${ultimo ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 18, background: 'var(--card)', color: 'inherit' }}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- icono servido por nuestra propia ruta */}
-                      <img src={e.icono} alt="" width={48} height={48} style={{ borderRadius: 13, flexShrink: 0 }} />
+                      <AvatarEstudio icono={e.icono} nombre={e.nombre} color={e.color} lado={48} radio={13} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'block', fontWeight: 800 }}>{e.nombre}</span>
                         {e.ciudad && <span className="t-meta" style={{ display: 'block' }}>{e.ciudad}</span>}
@@ -426,8 +427,7 @@ function BuscarEstudio({ autoFocus = false }: { autoFocus?: boolean }) {
                 className="tap" data-encontrado={e.slug}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 16, background: 'var(--card)', color: 'inherit', textDecoration: 'none' }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- icono servido por nuestra propia ruta */}
-                <img src={e.icono} alt="" width={42} height={42} style={{ borderRadius: 11, flexShrink: 0 }} />
+                <AvatarEstudio icono={e.icono} nombre={e.nombre} color={e.color} lado={42} radio={11} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontWeight: 800 }}>{e.nombre}</span>
                   {e.ciudad && <span className="t-meta">{e.ciudad}</span>}

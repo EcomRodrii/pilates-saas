@@ -34,6 +34,20 @@ export function coloresMonograma(colorPrimario: string | null | undefined): { fo
 }
 
 /**
+ * El monograma pintado en la pantalla, no en un PNG: lo que se ve en el hueco
+ * del icono mientras la imagen llega, o si no llega nunca. Mismas reglas que la
+ * ruta del icono (`inicialDe` + `coloresMonograma`), así que cuando el PNG es
+ * la propia inicial no hay salto al cargar. Lo usa `AvatarEstudio`, en la
+ * entrada de la app de iOS (buscador, lista de sus estudios y ficha).
+ */
+export function monogramaDeEstudio(
+  nombre: string | null | undefined,
+  colorPrimario: string | null | undefined,
+): { inicial: string; fondo: string; texto: string } {
+  return { inicial: inicialDe(nombre), ...coloresMonograma(colorPrimario) };
+}
+
+/**
  * Tamaños que sirve la ruta. Cualquier otro valor cae a 512.
  *
  * 64 es el favicon de la pestaña (el navegador lo reduce a 16/32); 180 el de
