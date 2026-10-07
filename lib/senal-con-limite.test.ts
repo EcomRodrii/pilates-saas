@@ -36,6 +36,8 @@ const SERVIDOR = new Set([
   'lib/fetch-externo.ts',
   'lib/sustituciones/email.ts',
   'lib/senal-con-limite.ts',
+  // Solo para la prueba de stripe-mock (`node --test`): nunca llega al navegador.
+  'lib/billing/stripe-mock-arnes.ts',
 ]);
 
 function ficheros(dir: string): string[] {

@@ -321,15 +321,18 @@ test('la repetición de Stripe se mira antes de entregar su URL, y la segunda pe
 // ── RECIBOS (6-oct-2026): la sesión INCRUSTADA de la app ────────────────────
 import { expiraSesionIncrustada, respuestaIncrustada } from './sesion-checkout.ts';
 
-test('la incrustada caduca a los 31 min del minuto de su clave: igual dentro del minuto, y siempre ≥30 min', () => {
+test('la incrustada caduca a los 32 min del minuto de su clave: igual dentro del minuto, y con margen sobre los 30 de Stripe', () => {
   const inicioMinuto = Date.UTC(2026, 9, 6, 10, 15, 0);
   const a = expiraSesionIncrustada(inicioMinuto + 1_000);
   const b = expiraSesionIncrustada(inicioMinuto + 59_000);
   assert.equal(a, b, 'dos peticiones del mismo minuto mandan el mismo expires_at (misma clave, mismos parámetros)');
-  assert.equal(a, inicioMinuto / 1000 + 31 * 60);
+  assert.equal(a, inicioMinuto / 1000 + 32 * 60);
   for (const dentro of [0, 1_000, 59_999]) {
     const ahora = inicioMinuto + dentro;
-    assert.ok(expiraSesionIncrustada(ahora) * 1000 - ahora >= 30 * 60_000, 'Stripe exige ≥30 min desde que se crea');
+    // Stripe cuenta los 30 min desde que CREA la sesión, que llega después (leer la
+    // sesión anterior, cerrarla, el viaje): al menos un minuto de holgura, también
+    // en el último milisegundo del minuto (con +31 quedaban 30 min y 1 ms).
+    assert.ok(expiraSesionIncrustada(ahora) * 1000 - ahora > 31 * 60_000 - 1, 'Stripe exige ≥30 min desde que se crea, y llega después');
   }
   // Y la clave de ese mismo minuto es la misma: van juntas.
   const I: PeticionCheckout = { modo: 'incrustado', pagadorVerificado: true };
