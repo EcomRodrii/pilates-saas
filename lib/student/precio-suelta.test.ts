@@ -78,3 +78,37 @@ test('⚠️ una «clase de prueba» más barata NO es el precio de la clase sue
   // Con solo la prueba, este estudio no vende clases sueltas: null, no 10.
   assert.equal(precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 10, activo: true, esPrueba: true }]), null);
 });
+
+test('con la clase delante, el precio es el que cobra el mostrador: el plan que sirve para ese tipo', () => {
+  const planes = [
+    { tipo: 'PUNTUAL', precio: 18, activo: true, sesiones: 1, tiposClaseIds: ['reformer'] },
+    { tipo: 'PUNTUAL', precio: 12, activo: true, sesiones: 1, tiposClaseIds: [] },
+  ];
+  // Escaparate sin clase: el mínimo (comportamiento de siempre).
+  assert.equal(precioClaseSuelta(planes), 12);
+  // Reformer: sirven las dos y el mostrador elige la más barata, 12 (no 18).
+  assert.equal(precioClaseSuelta(planes, 'reformer'), 12);
+  // Mat: solo sirve la general.
+  assert.equal(precioClaseSuelta(planes, 'mat'), 12);
+});
+
+test('con la clase delante, una suelta acotada a otro tipo no es el precio de esta clase', () => {
+  const soloReformer = [{ tipo: 'PUNTUAL', precio: 18, activo: true, sesiones: 1, tiposClaseIds: ['reformer'] }];
+  assert.equal(precioClaseSuelta(soloReformer, 'reformer'), 18);
+  // Sin suelta que sirva para Mat, no se vende clase suelta de Mat: null, no 18.
+  assert.equal(precioClaseSuelta(soloReformer, 'mat'), null);
+  // Sin tipo conocido no se puede descartar (misma semántica que planCubreTipoClase).
+  assert.equal(precioClaseSuelta(soloReformer, null), 18);
+});
+
+test('con la clase delante, una suelta que no es de UNA sesión no se enseña (el mostrador no la vende)', () => {
+  assert.equal(precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 30, activo: true, sesiones: 3 }], 'mat'), null);
+  assert.equal(precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 30, activo: true }], 'mat'), null);
+});
+
+test('precioDeSesion: el override de la sesión sigue mandando y el tipo solo cuenta sin él', () => {
+  const planes = [{ tipo: 'PUNTUAL', precio: 18, activo: true, sesiones: 1, tiposClaseIds: ['reformer'] }];
+  assert.equal(precioDeSesion(25, planes, 'mat'), 25);
+  assert.equal(precioDeSesion(null, planes, 'mat'), null);
+  assert.equal(precioDeSesion(null, planes, 'reformer'), 18);
+});

@@ -354,7 +354,7 @@ test('⚠️ los reintentos del mostrador y del pago completan el bono en vez de
 
 test('⚠️ completar tras un reintento nunca toca una plaza fija', () => {
   const cuerpo = cuerpoDe(ADMIN, 'completarConfirmacionTrasReintento');
-  const guardia = cuerpo.indexOf("startsWith('res-pf-')");
+  const guardia = cuerpo.indexOf('esReservaPlazaFija(');
   assert.ok(guardia > 0, 'falta la guardia de plaza fija');
   assert.ok(guardia < cuerpo.indexOf('trasPlazaConfirmada('), 'la guardia va antes de llamar al dueño');
 });

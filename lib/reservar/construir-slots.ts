@@ -136,6 +136,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   const cobertura = resolutorCobertura({
     socioId: socia?.socioId, suscripciones, planesTarifa,
     hoyISO: diaEnEstudio(nowMs), precioClaseSuelta,
+    precioPorTipo: (t) => precioSueltaDe(planesTarifa, t),
   });
 
   return sesionesRich

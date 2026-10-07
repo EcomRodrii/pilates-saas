@@ -12,7 +12,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
+import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, Phone, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
 import { EVENTO_MFA_REQUERIDO, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
 import { useAuth } from '@/lib/auth-context';
 import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
@@ -33,6 +33,7 @@ const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2
   { href: '/interno/verifactu', etiqueta: 'Veri*Factu', icono: FileCheck2, permisos: ['admin.full'] },
   { href: '/interno/sales', etiqueta: 'Sales OS', icono: Zap, permisos: ['crm.update'] },
   { href: '/interno/crecimiento', etiqueta: 'Crecimiento', icono: Sprout, permisos: ['crm.update'] },
+  { href: '/interno/llamadas', etiqueta: 'Llamadas', icono: Phone, permisos: ['crm.update'] },
   { href: '/interno/actualizaciones', etiqueta: 'Actualizaciones', icono: Megaphone, permisos: ['content.write'] },
   { href: '/interno/ayuda', etiqueta: 'Ayuda', icono: LifeBuoy, permisos: ['content.write'] },
   // El catálogo de la mascota: el único sitio con toques a mano, insignias, la

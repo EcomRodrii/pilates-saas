@@ -1,16 +1,14 @@
 // Cómo se cuenta en pantalla el «desde cuándo» de cada estado y las fechas
 // relativas de la lista. Puro: se prueba con `node --test`.
 import type { EstadoClienta, ResultadoEstado } from './estado.ts';
+import { diasEntre } from './estado.ts';
 import { ETIQUETA_MOTIVO_BAJA, esMotivoBaja } from '../socios/baja.ts';
 import { hoyEnEstudio } from '../utils.ts';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-/** Días de calendario entre dos 'YYYY-MM-DD' (o el principio de dos fechas ISO). */
-export function diasEntre(desde: string, hasta: string): number {
-  const ms = (ymd: string) => Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
-  return Math.round((ms(hasta) - ms(desde)) / 86_400_000);
-}
+// Una sola `diasEntre` (lib/clientas/estado.ts): tres copias idénticas son tres sitios donde arreglar lo mismo.
+export { diasEntre } from './estado.ts';
 
 /** «12 sep», o «12 sep 2025» si no es de este año. */
 export function fechaCorta(ymd: string, hoyISO: string): string {

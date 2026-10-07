@@ -30,6 +30,7 @@ import { idSuscripcionPrueba } from '@/lib/billing/clase-prueba';
 import { nombresParaLista } from '@/lib/student/agenda-instructora';
 import { resolverReservaPendiente } from '@/lib/db/supabase-data-admin';
 import type { PlazaFija } from '@/lib/types';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 export type Origen = 'PANEL' | 'APP_INSTRUCTORA';
 export type AccionAcceso = 'APROBAR' | 'DEJAR_PASAR' | 'NO_PERMITIR';
@@ -463,7 +464,7 @@ export async function decidirEscaneo(
     // Igual que en el escaneo: la puerta se ofrece, no se abre sola.
     const puerta: EstadoPuerta = m.tienePuerta && await m.tienePuerta() ? 'disponible' : 'sin-kisi';
     return {
-      veredicto: 'PERMITIDO', motivo: reservaId.startsWith('res-pf-') ? 'PLAZA_FIJA' : 'RESERVA_CONFIRMADA',
+      veredicto: 'PERMITIDO', motivo: esReservaPlazaFija(reservaId) ? 'PLAZA_FIJA' : 'RESERVA_CONFIRMADA',
       asistenciaMarcada, asistenciaAlTerminar: !seLista, errorAsistencia, puerta,
     };
   };

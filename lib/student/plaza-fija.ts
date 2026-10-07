@@ -7,6 +7,8 @@
 // cuándo caduca la primera. NADA de aquí decide una reserva: eso lo hace el
 // servidor con su propia regla.
 
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
+
 export interface PlazaFijaMin {
   /** Hace falta para pedir una pausa de ESTA plaza. */
   id?: string;
@@ -160,7 +162,7 @@ export function proximasDeUnaPlaza(
   const porId = new Map(sesiones.map((s) => [s.id, s]));
   const salida: ProximaClaseFija[] = [];
   for (const r of reservas) {
-    if (!r.id.startsWith('res-pf-') || r.estado !== 'CONFIRMADA') continue;
+    if (!esReservaPlazaFija(r.id) || r.estado !== 'CONFIRMADA') continue;
     const s = porId.get(r.sesionId);
     if (!s || s.cancelada || s.salaId !== plaza.salaId || s.hora !== plaza.hora || dow(s.fecha) !== plaza.diaSemana) continue;
     if (s.fecha < hoyISO || (s.fecha === hoyISO && s.hora < horaAhora)) continue;
@@ -186,7 +188,7 @@ export function acotarFijasProximas<T extends { r: { id: string }; c: { fecha: s
   items: T[],
   max: number = FIJAS_VISIBLES_EN_PROXIMAS,
 ): { visibles: T[]; ocultas: number } {
-  const esFija = (x: T) => x.r.id.startsWith('res-pf-');
+  const esFija = (x: T) => esReservaPlazaFija(x.r.id);
   const fijas = items.filter(esFija)
     .sort((a, b) => `${a.c.fecha} ${a.c.hora}`.localeCompare(`${b.c.fecha} ${b.c.hora}`));
   const quedan = new Set(fijas.slice(0, max).map((x) => x.r.id));

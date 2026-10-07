@@ -221,6 +221,12 @@ export interface Studio {
   /** Clases que cada alumna puede tener el mismo día (migr 20260930215029).
    *  null = sin tope. Opcional: los fixtures de antes no la traen. */
   reservaMaxPorDia?: number | null;
+  /** Una cancelación TARDÍA de una reserva pagada con una recuperación, ¿la devuelve? Sin dato, sí (como siempre). */
+  cancelacionTardiaDevuelveRecuperacion?: boolean;
+  /** Una plaza OFRECIDA a la lista de espera, dentro de su plazo, ¿cuenta como ocupada para quien reserva ahora? Sin dato, no. */
+  listaEsperaReservaPlazaOfrecida?: boolean;
+  /** Una reserva pendiente de aprobar, ¿cuenta para el máximo de reservas a la vez? Sin dato, no. */
+  reservaPendienteCuentaParaTope?: boolean;
   // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
   // DEFAULTS de estudio; tipos_clase puede sobrescribirlos con NULL = hereda,
   // mismo patrón que cancelacionVentanaHoras/TipoClase.ventanaCancelacionHoras.

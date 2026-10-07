@@ -273,6 +273,9 @@ const IMPORTAN_EL_DIFERIDO = new Set([
   // «Tu estudio ya puede recibir reservas»: cuelga sin diferir de /calendario y
   // de PrimerHorario, así que el motor solo puede llegar por el diferido.
   'components/onboarding/listo-para-reservar.tsx',
+  // Hito «tu estudio ya está en marcha», al terminar el alta (7-oct-2026): cuelga
+  // del panel que se carga siempre, así que el motor solo llega por el diferido.
+  'components/onboarding/estudio-listo.tsx',
 ]);
 
 /**
@@ -298,7 +301,7 @@ const PROPS_DEL_DECORATIVO = new Set(['tamano', 'reserva', 'mira', 'className'])
  *  algo que veías acaba de terminar y el servidor lo confirma, y se celebra
  *  solo en los hitos. Listo celebra a través de TentiDiferido. El 'hecho'
  *  breve (sin `celebra`) llega con el veredicto y el asistente. */
-const DONDE_SE_CELEBRA = new Set(['components/onboarding/listo-para-reservar.tsx', 'app/(dashboard)/migracion/page.tsx']);
+const DONDE_SE_CELEBRA = new Set(['components/onboarding/listo-para-reservar.tsx', 'components/onboarding/estudio-listo.tsx', 'app/(dashboard)/migracion/page.tsx']);
 
 /** Donde se saluda: el primer contacto, en la pantalla del logo. */
 const DONDE_SE_SALUDA = new Set(['components/onboarding/pantallas-valor.tsx']);
@@ -661,7 +664,7 @@ test('solo seis ficheros importan el componente de Tenti, solo Listo el diferido
     'Y si cuelga de algo que se carga siempre, que use TentiDiferido.');
   const delDiferido = TODAS.filter(f => imports.get(f)!.includes(DIFERIDO)).sort();
   assert.deepEqual(delDiferido, [...IMPORTAN_EL_DIFERIDO].sort(),
-    'TentiDiferido solo está en «Tu estudio ya puede recibir reservas».');
+    'TentiDiferido solo está en «Tu estudio ya puede recibir reservas» y en «tu estudio ya está en marcha».');
   const delDecorativo = TODAS.filter(f => imports.get(f)!.includes(DECORATIVO)).sort();
   assert.deepEqual(delDecorativo, Object.keys(IMPORTAN_EL_DECORATIVO).sort(),
     'El canvas en una pantalla de todos los días es una decisión de producto: añádelo a IMPORTAN_EL_DECORATIVO con su motivo.');

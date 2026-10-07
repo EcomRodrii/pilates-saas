@@ -34,6 +34,7 @@
 import type { CobroErrorCode, ResultadoCobro } from './stripe-cobros.ts';
 import type { AvisoCobro } from './resultado-cobro.ts';
 import type { MotivoSinConsentimiento } from './penalizacion-consentimiento.ts';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 /** `penalizaciones.estado` (CHECK de las migraciones 20260730225253 y 20260909220851). */
 export type EstadoPenalizacion =
@@ -727,7 +728,7 @@ export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
  */
 export function omitirPorPlazaFijaSinCuota(p: { politica: string | null | undefined; reservaId: string; cubre: boolean }): boolean {
   const politicaNoCobra = p.politica === 'LIBERAR' || p.politica === 'MANTENER_SIN_PENALIZAR';
-  return politicaNoCobra && p.reservaId.startsWith('res-pf-') && !p.cubre;
+  return politicaNoCobra && esReservaPlazaFija(p.reservaId) && !p.cubre;
 }
 
 /**

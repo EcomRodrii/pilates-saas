@@ -147,6 +147,39 @@ test('el buscador: resultados con su ciudad que llevan a la ficha, y un fallo no
   await expect(page.getByText('No sale ningún estudio con ese nombre')).toHaveCount(0);
 });
 
+test('el buscador: mientras el icono llega, o si no llega, se ve la inicial sobre el color de su tema — nunca un hueco vacío', async ({ page }) => {
+  await montar(page);
+  await page.route('**/api/public/app/estudios?*', (r) => r.fulfill(json({ estudios: [
+    { slug: 'nucleo-reformer', nombre: 'Núcleo Reformer', ciudad: 'Madrid', icono: '/icono-estudio?inicial=N&color=%23B4537E&size=192&e2e=lento', color: '#B4537E' },
+    { slug: 'brisa', nombre: 'brisa pilates', ciudad: null, icono: '/icono-estudio?inicial=B&size=192&e2e=roto', color: null },
+  ] })));
+  // Uno que tarda (el PNG se genera en el servidor la primera vez) y otro que falla.
+  const iconos: string[] = [];
+  await page.route('**/icono-estudio?*', (r) => {
+    const cual = new URL(r.request().url()).searchParams.get('e2e') ?? '';
+    iconos.push(cual);
+    return cual === 'roto' ? r.fulfill({ status: 500, body: '' }) : new Promise<void>(() => {});
+  });
+
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Buscar mi estudio' }).click({ timeout: 60_000 });
+  await page.getByLabel('Nombre del estudio').fill('pilates');
+  const lento = page.locator('[data-encontrado="nucleo-reformer"] [data-avatar-estudio]');
+  const roto = page.locator('[data-encontrado="brisa"] [data-avatar-estudio]');
+  await expect(lento).toHaveText('N', { timeout: 30_000 });
+  await expect(lento).toHaveCSS('background-color', 'rgb(180, 83, 126)');
+  await expect(lento).toHaveCSS('color', 'rgb(255, 255, 255)');
+  // Sin color del tema, el oliva de marca, como el PNG; y la imagen rota se quita.
+  await expect(roto).toHaveText('B');
+  await expect(roto).toHaveCSS('background-color', 'rgb(52, 56, 37)');
+  await expect(roto.locator('img')).toHaveCount(0);
+  await expect(lento.locator('img')).toHaveCount(1);
+  // Ha llegado a pedir los dos iconos: la inicial no está ahí por no haberlo intentado.
+  await expect.poll(() => [...new Set(iconos)].sort()).toEqual(['lento', 'roto']);
+  const lado = await lento.boundingBox();
+  expect(Math.round(lado!.width)).toBe(42);
+});
+
 test('la búsqueda pública no busca con menos de 3 letras', async ({ request }) => {
   const res = await request.get('/api/public/app/estudios?q=ab');
   expect(res.status()).toBe(200);

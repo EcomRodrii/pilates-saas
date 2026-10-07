@@ -10,11 +10,12 @@ import { uid } from '@/lib/utils';
 import { contextoCobroDe } from '@/lib/pos/terminal';
 import { proveedorDeReferencia } from '@/lib/pos/sumup';
 import { devolverEnSumup } from '@/lib/pos/sumup-devolucion';
-import { fallarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { fallarWebhookEvent, marcarWebhookProcesado, reclamarOperacion } from '@/lib/webhook-idempotencia';
 import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
 import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 export const dynamic = 'force-dynamic';
@@ -146,20 +147,51 @@ export async function POST(req: NextRequest) {
     sumup = { transaccionId: r.transaccionId, candado: r.candado, yaEstaba: r.yaEstaba };
   }
 
+  // El candado y la clave de Stripe cuelgan del ESTADO de la venta (lo que el
+  // libro lleva ya devuelto) y no de un id nuevo por petición: dos peticiones a
+  // la vez (un doble clic, dos pestañas) ven el mismo estado, así que la segunda
+  // se para aquí y, si llegara a Stripe, recibiría el MISMO reembolso. Una
+  // devolución parcial legítima posterior ve un estado distinto y pasa.
+  const devueltoCentimos = Math.round(Number(venta.importe_devuelto ?? 0) * 100);
+  const candadoStripe = `pos-devol:${ventaId}:${devueltoCentimos}`;
+  let candadoStripeTomado = false;
   if (porStripe && importe > 0) {
+    // Mismo guardia que /api/reembolsos: clave live fuera de producción
+    // devolvería dinero real desde un `npm run dev`, y clave test en producción
+    // dejaría una devolución apuntada que nunca salió.
+    const modo = comprobarModoStripe();
+    if (!modo.puedeCobrar) {
+      return NextResponse.json({ error: modo.motivo, importe, dineroDevuelto: false }, { status: 503 });
+    }
     const ctx = await contextoCobroDe(admin, sesion.studioId);
     if (!ctx.ok) {
       return NextResponse.json({ error: ctx.motivo, importe, dineroDevuelto: false }, { status: ctx.status });
     }
+    const reclamo = await reclamarOperacion(admin, candadoStripe, 'pos.devolucion', 600);
+    if (reclamo.estado === 'error') {
+      return NextResponse.json({
+        error: 'No hemos podido comprobar si hay otra devolución en marcha. No se ha devuelto nada: inténtalo en un momento.',
+        importe, dineroDevuelto: false,
+      }, { status: 503 });
+    }
+    if (reclamo.estado === 'ocupada') {
+      return NextResponse.json({
+        error: 'Ya hay una devolución de esta venta en marcha. Espera unos segundos y vuelve a abrirla antes de repetirla.',
+        importe, dineroDevuelto: false,
+      }, { status: 409 });
+    }
+    candadoStripeTomado = true;
     try {
       await ctx.ctx.stripe.refunds.create({
         payment_intent: venta.stripe_payment_intent_id!,
         amount: Math.round(importe * 100),
         metadata: { studioId: sesion.studioId, ventaId, devolucionId, origen: 'pos_devolucion' },
-        // Un doble clic no puede devolver dos veces. La clave lleva el id de la
-        // devolución, distinto en cada parcial legítima.
-      }, { stripeAccount: ctx.ctx.stripeAccount, idempotencyKey: `pos-devol-${devolucionId}` });
+      }, {
+        stripeAccount: ctx.ctx.stripeAccount,
+        idempotencyKey: `pos-devol-${ventaId}-${devueltoCentimos}-${Math.round(importe * 100)}`,
+      });
     } catch (err) {
+      await fallarWebhookEvent(admin, candadoStripe);
       const msg = err instanceof Stripe.errors.StripeError ? err.message : String(err);
       Sentry.captureException(err instanceof Error ? err : new Error('Fallo al reembolsar venta POS'), {
         level: 'error', tags: { area: 'cobros' },
@@ -214,6 +246,7 @@ export async function POST(req: NextRequest) {
     if (!porStripe) return traducirFallo(errAplicar, 'pos:devolucion');
   }
   if (sumup) await marcarWebhookProcesado(admin, sumup.candado);
+  if (candadoStripeTomado) await marcarWebhookProcesado(admin, candadoStripe);
 
   const fila = Array.isArray(aplicado) ? aplicado[0] : aplicado;
   const esTotal = fila?.r_es_total === true;

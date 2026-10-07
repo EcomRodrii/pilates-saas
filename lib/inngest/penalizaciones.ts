@@ -26,6 +26,7 @@ import {
 import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 import { aplicarConsentimientoEnCron, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number; detectada_en: string }) {
   // Compare-and-set: toda salida de DETECTADA exige que la fila siga DETECTADA
@@ -69,7 +70,7 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // Plaza fija sin cuota: el estudio eligió no cobrar (LIBERAR o
   // MANTENER_SIN_PENALIZAR). Antes que el consentimiento, para no avisar de un
   // «cargo bloqueado» que nunca se iba a cobrar.
-  if (sesion && pen.reserva_id.startsWith('res-pf-')
+  if (sesion && esReservaPlazaFija(pen.reserva_id)
     && (studio.plaza_fija_sin_cuota === 'LIBERAR' || studio.plaza_fija_sin_cuota === 'MANTENER_SIN_PENALIZAR')) {
     const fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(sesion.inicio as string));
     const { data: cubre, error: errCuota } = await admin.rpc('cuota_cubre_plaza_fija', {

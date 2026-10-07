@@ -405,6 +405,16 @@ export interface AyudaFeedbackFila { id: string; articulo_slug: string; categori
 export const fetchAyudaFeedback = () =>
   pedir<{ resumen: AyudaFeedbackResumen; articulos: AyudaFeedbackArticulo[]; recientes: AyudaFeedbackFila[] }>('/ayuda-feedback');
 
+// Llamadas de puesta en marcha (ver app/api/interno/llamadas).
+export interface LlamadaInterna {
+  id: string; studioId: string; estudio: string; telefono: string | null;
+  horaPreferida: 'manana' | 'tarde' | null; estado: 'pendiente' | 'hecha';
+  creadaEn: string; atendidaEn: string | null;
+}
+export const fetchLlamadas = () => pedir<{ llamadas: LlamadaInterna[] }>('/llamadas');
+export const marcarLlamadaHecha = (id: string) =>
+  pedir<{ ok: true }>(`/llamadas/${encodeURIComponent(id)}`, { method: 'POST', body: '{}' });
+
 // Veri*Factu — declaración responsable del SIF (ver app/api/interno/verifactu).
 export interface DeclaracionVerifactuInterna {
   titulo: string;

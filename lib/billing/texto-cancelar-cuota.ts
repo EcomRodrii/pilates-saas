@@ -7,6 +7,8 @@
 //
 // Puro: se prueba con `node --test`.
 
+import { euros } from '../clientas/euros.ts';
+
 export type PoliticaRecibosAlCancelar = 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
 
 export interface ReciboPendienteDeLaCuota {
@@ -17,7 +19,6 @@ export interface ReciboPendienteDeLaCuota {
   pagoEnMarcha: boolean;
 }
 
-const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')} €`;
 const recibos = (n: number) => (n === 1 ? '1 recibo pendiente' : `${n} recibos pendientes`);
 
 /**

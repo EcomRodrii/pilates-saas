@@ -494,7 +494,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // `null` (el estudio no vende sueltas) se pinta como 0 aquí solo
       // porque `Clase.precioSuelto` es `number`; quien decide qué enseñar es
       // `etiquetaPrecio()`, que distingue los dos casos.
-      precioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) ?? 0,
+      precioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa, s.tipoClaseId ?? null) ?? 0,
       // El precio PROPIO de la sesión, en crudo (un taller): la app no vende online una clase con precio especial
       // (`opcionesDeClase`, Fase A del bloque de dinero).
       precioPuntual: s.precioPuntual ?? null,
@@ -502,7 +502,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // solo se exige si hay algo que contratar. `null` si el payload no trae el ajuste: decide el servidor.
       exigePlan: exigePlanDe(d, tipo),
       /** `true` si el estudio NO vende clases sueltas: no es «gratis». */
-      sinPrecioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) === null,
+      sinPrecioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa, s.tipoClaseId ?? null) === null,
       // ⚠️ Herencia del BANNER, y el orden importa.
       //
       // Era `sala ?? tipo ?? studio` por un motivo que sigue siendo válido:

@@ -135,8 +135,8 @@ test('las tres preguntas de perfil caben en una sola pantalla', async ({ page })
   for (const etiqueta of ['¿Cuántos centros tienes?', '¿Con qué lo llevas ahora?', '¿Cuántas alumnas activas tienes?']) {
     await expect(page.getByLabel(etiqueta)).toBeVisible();
   }
-  // Y ya no son tres pasos: el asistente encoge.
-  await expect(page.getByText('01 — 11')).toBeVisible();
+  // Y ya no son tres pasos: el asistente son TRES pantallas, no once preguntas.
+  await expect(page.getByText('Paso 1 de 3 · Tu estudio')).toBeVisible();
 });
 
 // Las tres son opcionales: «Prefiero no decirlo» es una respuesta. Dejar el
@@ -146,12 +146,12 @@ test('se puede pasar del perfil sin contestar nada', async ({ page }) => {
   await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuar' }).click();
-  // Pasa a la siguiente pregunta, que ya es de las que SÍ configuran algo.
+  // Pasa a la siguiente pantalla, que ya es de las que SÍ configuran algo.
   await expect(page.getByText('¿Cuántas salas tienes?')).toBeVisible();
 });
 
-// El asistente permite elegir con las teclas 1-N. Sobre un desplegable, teclear
-// un número disparaba la elección de una opción que no existe.
+// Los desplegables no responden a atajos numéricos (el asistente anterior sí los
+// tenía en sus botones): teclear un número no elige nada.
 test('los atajos numéricos no disparan nada en la pantalla de perfil', async ({ page }) => {
   await montarBienvenida(page);
   await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
@@ -210,7 +210,7 @@ const YA_SE_CONOCEN: Array<{ caso: string; preparar: (page: Page) => Promise<voi
     caso: 'con el asistente a medias en este navegador',
     preparar: async (page) => {
       await page.addInitScript((studioId) => {
-        localStorage.setItem('tentare-onboarding-wizard-v2', JSON.stringify({ studioId, paso: 1, ans: {}, guardadoEn: Date.now() }));
+        localStorage.setItem('tentare-onboarding-wizard-v3', JSON.stringify({ studioId, paso: 1, ans: {}, guardadoEn: Date.now() }));
       }, STUDIO_ID);
     },
   },

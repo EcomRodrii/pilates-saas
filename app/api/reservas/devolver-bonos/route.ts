@@ -4,6 +4,7 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { liberarReservaCancelada } from '@/lib/db/supabase-data-admin';
 import { esMotivoLiberacion, type MotivoLiberacion } from '@/lib/reservas/liberacion';
+import { esReservaPlazaFija } from '@/lib/reservas/plaza-fija-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   //    que es lo único que este endpoint sirve. Sin esto, un POST con ids de
   //    reservas canceladas hace meses sube el saldo de una socia hasta el tope
   //    del plan, tantas veces como se llame.
-  const candidatas = (reservas ?? []).filter(r => r.estado === 'CANCELADA' && !(r.id as string).startsWith('res-pf-'));
+  const candidatas = (reservas ?? []).filter(r => r.estado === 'CANCELADA' && !esReservaPlazaFija(r.id as string));
   if (candidatas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
 
   const sesionIds = [...new Set(candidatas.map(r => r.sesion_id as string))];

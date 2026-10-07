@@ -172,7 +172,9 @@ export default function VentanaCalendarioCuerpo({ estado, saliendo, alSalir }: {
   useEffect(() => {
     const alVolver = () => { if (document.visibilityState === 'visible') refrescar(); };
     document.addEventListener('visibilitychange', alVolver);
-    const t = setInterval(refrescar, REFRESCO_MS);
+    // Con la pestaña oculta no se pide nada (el panel se deja abierto en el iPad
+    // de recepción todo el día); al volver, `visibilitychange` ya refresca.
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
     return () => { document.removeEventListener('visibilitychange', alVolver); clearInterval(t); };
   }, [refrescar]);
 

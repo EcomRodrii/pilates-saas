@@ -346,6 +346,47 @@ export function calcularOnboarding(d: DatosOnboarding): {
 }
 
 /**
+ * La guía rápida: los cinco pasos que llevan de «estudio creado» a «mis alumnas
+ * dentro y mis clases programadas». Se enseña desde el primer segundo del
+ * asistente de bienvenida y, al terminar, junto a la vista previa de su app.
+ *
+ * ⚠️ NO es una segunda lista. Cada paso es el MISMO `PasoOnboarding` de
+ * `calcularOnboarding` (mismo `done`, mismo enlace), elegido por id: si mañana
+ * cambia cómo se sabe que hay clientas, cambia aquí también sin tocar nada. El
+ * único que no sale de ahí es «Crea tu estudio», que es verdad por construcción
+ * (quien lo ve ya tiene estudio) y da el «1 de 5» con el que se empieza.
+ */
+export const PASOS_GUIA_RAPIDA = ['marca', 'clase', 'clientes', 'horario'] as const;
+
+export interface GuiaRapida {
+  pasos: PasoOnboarding[];
+  hechos: number;
+  total: number;
+  pct: number;
+  /** El primer paso pendiente EN ORDEN, o `null` si está todo. */
+  siguiente: PasoOnboarding | null;
+}
+
+export function guiaRapida(categorias: readonly CategoriaOnboarding[]): GuiaRapida {
+  const todos = new Map<string, PasoOnboarding>();
+  for (const c of categorias) for (const p of c.pasos) todos.set(p.id, p);
+  const creado: PasoOnboarding = {
+    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel, tu página de reservas y tu prueba de 7 días.',
+    minutos: 1, done: true, href: '/dashboard',
+  };
+  const pasos = [
+    creado,
+    ...PASOS_GUIA_RAPIDA.map((id) => todos.get(id)).filter((p): p is PasoOnboarding => p !== undefined),
+  ];
+  const hechos = pasos.filter((p) => p.done).length;
+  return {
+    pasos, hechos, total: pasos.length,
+    pct: Math.round((hechos / pasos.length) * 100),
+    siguiente: pasos.find((p) => !p.done) ?? null,
+  };
+}
+
+/**
  * Avisos que solo aparecen cuando de verdad falta algo importante — mismas
  * señales que ya calculan "done" arriba, para que nunca puedan divergir
  * (nunca "recomienda" algo que la lista de pasos ya marca como hecho).

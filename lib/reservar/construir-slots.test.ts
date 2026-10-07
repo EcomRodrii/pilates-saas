@@ -63,7 +63,7 @@ test('sin socia autenticada, nunca cubierta — siempre precio de clase suelta',
   const slots = construirSlots({
     sesiones: [sesion()], tiposClase: [tipo()], salas: [], instructores: [], reservas: [],
     spots: [], sustitucionesConfirmadas: [], suscripciones: [],
-    planesTarifa: [{ id: 'p1', studioId: 's1', tipo: 'PUNTUAL', activo: true, precio: 15 } as never],
+    planesTarifa: [{ id: 'p1', studioId: 's1', tipo: 'PUNTUAL', activo: true, precio: 15, sesiones: 1 } as never],
     socia: null, nowMs: NOW,
   });
   assert.equal(slots[0].precio, 15);

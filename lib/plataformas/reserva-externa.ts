@@ -6,6 +6,7 @@
 // aquí para probarlo sin Supabase: qué petición se acepta y qué se le dice a
 // recepción cuando la base de datos no la admite.
 import { esPlataforma, NOMBRE_PLATAFORMA, type Plataforma } from './catalogo.ts';
+import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 export interface PeticionReservaExterna {
   sesionId: string;
@@ -22,11 +23,11 @@ const MAX_ID = 200;
 const MAX_NOMBRE = 120;
 const MAX_CODIGO = 80;
 // Mismo formato que la reserva de mostrador, y por el mismo motivo se rechaza
-// `res-pf-`: es el prefijo de las plazas fijas y cambia cómo se cancela. Y los de
-// las reservas que entran por API (`res-wh-` de Wellhub, `res-usc-` de USC): el
-// servidor los usa para saber qué reservas tiene que confirmar a la plataforma.
+// una de clase fija (`res-pf-`: cambia cómo se cancela). Y los de las reservas
+// que entran por API (`res-wh-` de Wellhub, `res-usc-` de USC): el servidor los
+// usa para saber qué reservas tiene que confirmar a la plataforma.
 const RESERVA_ID = /^res-[A-Za-z0-9_-]{1,96}$/;
-const PREFIJOS_RESERVADOS = ['res-pf-', 'res-wh-', 'res-usc-'];
+const PREFIJOS_DE_API = ['res-wh-', 'res-usc-'];
 
 function idValido(v: unknown): string | null {
   return typeof v === 'string' && v.length > 0 && v.length <= MAX_ID && v.trim() === v ? v : null;
@@ -40,7 +41,7 @@ export function leerPeticionReservaExterna(body: unknown):
   const sesionId = idValido(b.sesionId);
   if (!sesionId) return { ok: false, error: 'Falta la clase' };
   const reservaId = typeof b.reservaId === 'string' ? b.reservaId : '';
-  if (!RESERVA_ID.test(reservaId) || PREFIJOS_RESERVADOS.some(p => reservaId.startsWith(p))) {
+  if (!RESERVA_ID.test(reservaId) || esReservaPlazaFija(reservaId) || PREFIJOS_DE_API.some(p => reservaId.startsWith(p))) {
     return { ok: false, error: 'Identificador de reserva no válido' };
   }
   if (!esPlataforma(b.plataforma)) return { ok: false, error: 'Plataforma no válida' };

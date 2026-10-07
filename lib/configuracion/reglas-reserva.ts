@@ -40,10 +40,14 @@ export interface ReglasReserva {
   reservaMaxSimultaneas: number | null;
   /** Clases al día por alumna (hora del estudio). null = sin tope. */
   reservaMaxPorDia: number | null;
+  /** Una reserva que espera la aprobación del estudio, ¿cuenta para «reservas a la vez»? De serie no. */
+  reservaPendienteCuentaParaTope: boolean;
   bloquearReservaImpago: boolean;
   requiereAprobacion: boolean;
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
+  /** Si cancela tarde una reserva que pagó con una recuperación, ¿la recupera? De serie sí. */
+  cancelacionTardiaDevuelveRecuperacion: boolean;
   cancelacionClaseDevuelveBono: boolean;
   minimoAsistentesPorClase: number;
   /** Recuperaciones sin usar que puede tener a la vez cada alumna (1–20; 4 = lo de siempre). */
@@ -53,6 +57,8 @@ export interface ReglasReserva {
   recuperacionAutoSemanal: boolean;
   permiteListaEspera: boolean;
   listaEsperaPlazoAceptacionMinutos: number;
+  /** Una plaza ofrecida a la lista de espera, dentro de su plazo, ¿es de quien la tiene o de quien llega antes? De serie, de quien llega antes. */
+  listaEsperaReservaPlazaOfrecida: boolean;
   requiereCheckinQr: boolean;
   /** Control de acceso con QR (migr 20260927235435). Sin override por tipo: es de la puerta, no de la clase. */
   controlAccesoQr: boolean;
@@ -71,13 +77,13 @@ export interface ReglasReserva {
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
 export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (keyof ReglasReserva)[]>> = {
-  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaAntelacionHora', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
-  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia'],
+  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaAntelacionHora', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'reservaPendienteCuentaParaTope', 'bloquearReservaImpago', 'requiereAprobacion'],
+  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'cancelacionTardiaDevuelveRecuperacion'],
   // 30-sep: la caducidad y el reparto semanal se mudaron aquí desde «Cancelar y
   // recuperar», junto al tope, que antes era un 4 fijo.
   recuperaciones: ['recuperacionMaxVivas', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
-  'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
+  'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos', 'listaEsperaReservaPlazaOfrecida'],
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
   'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
   'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
@@ -103,10 +109,12 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     reservaAntelacionHora: s?.reservaAntelacionHora ?? null,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     reservaMaxPorDia: s?.reservaMaxPorDia ?? null,
+    reservaPendienteCuentaParaTope: s?.reservaPendienteCuentaParaTope ?? false,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
     requiereAprobacion: s?.requiereAprobacion ?? false,
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
+    cancelacionTardiaDevuelveRecuperacion: s?.cancelacionTardiaDevuelveRecuperacion ?? true,
     cancelacionClaseDevuelveBono: s?.cancelacionClaseDevuelveBono ?? true,
     minimoAsistentesPorClase: s?.minimoAsistentesPorClase ?? 0,
     recuperacionMaxVivas: s?.recuperacionMaxVivas ?? 4,
@@ -115,6 +123,7 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
     permiteListaEspera: s?.permiteListaEspera ?? true,
     listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
+    listaEsperaReservaPlazaOfrecida: s?.listaEsperaReservaPlazaOfrecida ?? false,
     requiereCheckinQr: s?.requiereCheckinQr ?? true,
     // Encendido de serie: el QR ya se enseñaba en todos los estudios (el pase por reserva).
     controlAccesoQr: s?.controlAccesoQr ?? true,
@@ -220,7 +229,11 @@ export function reglasDeTarjetaAGuardar(
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);
-    return lista.ok ? { ok: true, cambios: lista.valores } : { ok: false, texto: lista.error };
+    // La lista de espera es un solo control (sin lista / sin plazo / con plazo) MÁS el interruptor de las ofertas:
+    // las dos columnas del control salen de `valoresDeListaEspera` y la tercera va tal cual.
+    return lista.ok
+      ? { ok: true, cambios: { ...lista.valores, listaEsperaReservaPlazaOfrecida: form.listaEsperaReservaPlazaOfrecida } }
+      : { ok: false, texto: lista.error };
   }
   const enPantalla = form as unknown as Record<keyof ReglasReserva, unknown>;
   return { ok: true, cambios: Object.fromEntries(COLUMNAS_POR_TARJETA[tarjeta].map(k => [k, enPantalla[k]])) as Partial<ReglasReserva> };
@@ -240,7 +253,8 @@ export function tarjetasConCambios(form: ReglasReservaForm, guardado: ReglasRese
       // un error en pantalla y nada que guardar.
       return !lista.ok
         || lista.valores.permiteListaEspera !== guardado.permiteListaEspera
-        || lista.valores.listaEsperaPlazoAceptacionMinutos !== guardado.listaEsperaPlazoAceptacionMinutos;
+        || lista.valores.listaEsperaPlazoAceptacionMinutos !== guardado.listaEsperaPlazoAceptacionMinutos
+        || form.listaEsperaReservaPlazaOfrecida !== guardado.listaEsperaReservaPlazaOfrecida;
     }
     return COLUMNAS_POR_TARJETA[t].some(k => !igual(enPantalla[k as keyof typeof enPantalla], guardado[k]));
   });

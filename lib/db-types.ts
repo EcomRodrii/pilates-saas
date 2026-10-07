@@ -1106,6 +1106,12 @@ export interface RowStudios {
   exigir_doble_factor: boolean | null;
   // migr 20261004125559.
   sumup_reader_id: string | null;
+  // migr 20261007122300.
+  cancelacion_tardia_devuelve_recuperacion: boolean | null;
+  // migr 20261007122300.
+  lista_espera_reserva_plaza_ofrecida: boolean | null;
+  // migr 20261007122300.
+  reserva_pendiente_cuenta_para_tope: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4116,6 +4122,17 @@ export interface RowAsistenteAcciones {
   resuelta_en: string | null;
 }
 
+export interface RowSolicitudesLlamada {
+  id: string;
+  studio_id: string;
+  telefono: string | null;
+  hora_preferida: string | null;
+  consentimiento_en: string;
+  estado: string;
+  creada_en: string;
+  atendida_en: string | null;
+}
+
 export interface RowPlataformaConexiones {
   id: string;
   studio_id: string;
@@ -5640,6 +5657,9 @@ export type StudiosInsert = {
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
   sumup_reader_id?: string | null | null;
+  cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
+  lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
+  reserva_pendiente_cuenta_para_tope?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5790,6 +5810,9 @@ export type StudiosUpdate = {
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
   sumup_reader_id?: string | null | null;
+  cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
+  lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
+  reserva_pendiente_cuenta_para_tope?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -11426,6 +11449,28 @@ export type AsistenteAccionesUpdate = {
   resuelta_en?: string | null | null;
 }
 
+export type SolicitudesLlamadaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  telefono?: string | null | null;
+  hora_preferida?: string | null | null;
+  consentimiento_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+}
+
+export type SolicitudesLlamadaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  telefono?: string | null | null;
+  hora_preferida?: string | null | null;
+  consentimiento_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+}
+
 export type PlataformaConexionesInsert = {
   id?: string | null;
   studio_id?: string | null;
@@ -12766,6 +12811,11 @@ export type Database = {
         Row: RowAsistenteAcciones;
         Insert: AsistenteAccionesInsert;
         Update: AsistenteAccionesUpdate;
+      };
+      solicitudes_llamada: {
+        Row: RowSolicitudesLlamada;
+        Insert: SolicitudesLlamadaInsert;
+        Update: SolicitudesLlamadaUpdate;
       };
       plataforma_conexiones: {
         Row: RowPlataformaConexiones;

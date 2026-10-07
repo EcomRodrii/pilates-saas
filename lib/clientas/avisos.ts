@@ -8,6 +8,8 @@
 //
 // Puro: se prueba con `node --test`.
 
+import { euros } from './euros.ts';
+
 export interface AvisoClienta {
   /** Dos o tres palabras para la fila: «Viene menos», «Prueba sin comprar». */
   etiqueta: string;
@@ -79,7 +81,6 @@ export interface ReciboParaAviso {
   fechaVencimiento: string | null;
 }
 
-const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')} €`;
 
 /**
  * Recibos suyos que ya deberían estar cobrados: FALLIDO, o PENDIENTE con el

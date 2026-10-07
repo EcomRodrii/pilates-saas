@@ -125,17 +125,24 @@ export async function registrarFalloCobro(params: {
   // así que un reintento del webhook/cron sobre un recibo ya FALLIDO es un
   // no-op silencioso, nunca un segundo efecto ni un error.
   if (debeAutoCancelarSuscripcion(plan, rec.suscripcion_id)) {
+    // supabase-js NO lanza ante un 5xx de PostgREST: devuelve `{ error }`. Con solo
+    // el try/catch, un fallo aquí dejaba la suscripción ACTIVA con el recibo ya
+    // FALLIDO y no avisaba a nadie.
+    const avisarFalloAutoCancelar = (e: unknown) => {
+      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al auto-cancelar suscripción tras impago definitivo'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
+      });
+    };
     try {
-      await admin
+      const { error: errCancelar } = await admin
         .from('suscripciones')
         .update({ estado: 'CANCELADA' })
         .eq('id', rec.suscripcion_id)
         .eq('studio_id', studioId)
         .eq('estado', 'ACTIVA');
+      if (errCancelar) avisarFalloAutoCancelar(new Error(errCancelar.message));
     } catch (e) {
-      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al auto-cancelar suscripción tras impago definitivo'), {
-        level: 'error', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
-      });
+      avisarFalloAutoCancelar(e);
     }
     // Sin cuota: si el estudio eligió «Liberar sus clases», fuera las de su plaza
     // fija ya (con las otras políticas la BD no lista ninguna). El cron nocturno

@@ -1349,6 +1349,7 @@ export default function ReservarPage() {
   const cobertura = useMemo(() => resolutorCobertura({
     socioId: socia?.socioId, suscripciones, planesTarifa,
     hoyISO: hoyEnEstudio(now), precioClaseSuelta,
+    precioPorTipo: (t) => precioSueltaDe(planesTarifa, t),
   }), [socia?.socioId, suscripciones, planesTarifa, now, precioClaseSuelta]);
 
   // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
@@ -3286,6 +3287,7 @@ export default function ReservarPage() {
             cta={textosReservar.cta || 'Ver el horario'}
             onCta={() => { setTab('clases'); irAlHorario(); }}
             cabecera={cabeceraPagina(true)}
+            fondoOscuro={esNoche}
           />
         ) : cabeceraPagina(false))}
 

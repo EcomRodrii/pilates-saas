@@ -10,11 +10,14 @@
 // una alumna sin bono. No es que la clase sea gratis: es que ahí no estaba el
 // precio.
 //
-// DÓNDE SÍ ESTÁ. `app/api/public/checkout-embebido/route.ts` calcula el importe
-// con `Number(plan.precio)` leyendo `planes_tarifa` EN SERVIDOR, exigiendo
-// `plan.activo`, y sin aceptar nunca un importe del cliente. El precio de una
-// clase suelta es, por tanto, el del plan `tipo: 'PUNTUAL'` activo del estudio.
-// Esta función lee ESE mismo dato — no crea un segundo sistema de precios.
+// DÓNDE SÍ ESTÁ. En el plan `tipo: 'PUNTUAL'` activo del estudio, leído en
+// servidor (`planes_tarifa`), sin aceptar nunca un importe del cliente. Esta
+// función lee ESE mismo dato — no crea un segundo sistema de precios.
+//
+// QUIÉN COBRA y con qué regla: `planDeClaseSuelta` (lib/reservas/clase-suelta.ts),
+// la que usan el mostrador y `opcionesDeClase`. Con la clase delante
+// (`tipoClaseId`), esta función aplica esa misma regla; sin ella, es el
+// escaparate del estudio (el mínimo de todas las sueltas).
 
 /** Lo que hace falta de un plan para decidir el precio de una clase suelta. */
 export interface PlanPrecio {
@@ -42,13 +45,32 @@ export interface PlanPrecio {
  * más BARATO: entre dos precios verdaderos, cobrar de más es peor que cobrar de
  * menos, y es el que la alumna esperaría de un escaparate.
  */
-export function precioClaseSuelta(planes: readonly PlanPrecio[] | null | undefined): number | null {
+export function precioClaseSuelta(
+  planes: readonly PlanPrecio[] | null | undefined,
+  /**
+   * La clase CONCRETA de la que se pregunta el precio. Con ella (aunque sea
+   * `null`: clase sin tipo) se aplica la misma regla que el mostrador cuando la
+   * vende, `planDeClaseSuelta` (lib/reservas/clase-suelta.ts): una sola sesión y
+   * que el plan sirva para ese tipo de clase. Sin ella (`undefined`) se mira el
+   * escaparate del estudio, sin clase delante: el mínimo de todas las sueltas.
+   * Una suelta de Reformer a 18 € y una general a 12 € no cuestan lo mismo para
+   * una clase de Reformer que para una de Mat, y enseñar 12 € en las dos dejaba
+   * a la alumna pagando 18 € donde se le había dicho 12.
+   */
+  tipoClaseId?: string | null,
+): number | null {
   if (!planes || planes.length === 0) return null;
   const candidatos = planes
     .filter((p) => p.tipo === 'PUNTUAL')
     .filter((p) => p.activo !== false)
     // Una «clase de prueba» a 10 € no es el precio de la suelta para todo el mundo.
     .filter((p) => p.esPrueba !== true)
+    .filter((p) => {
+      if (tipoClaseId === undefined) return true;
+      if (p.sesiones !== 1) return false;
+      const tipos = p.tiposClaseIds ?? [];
+      return tipos.length === 0 || !tipoClaseId || tipos.includes(tipoClaseId);
+    })
     .map((p) => Number(p.precio))
     .filter((n) => Number.isFinite(n) && n > 0);
   if (candidatos.length === 0) return null;
@@ -67,11 +89,13 @@ export function precioClaseSuelta(planes: readonly PlanPrecio[] | null | undefin
 export function precioDeSesion(
   precioPuntualSesion: number | null | undefined,
   planes: readonly PlanPrecio[] | null | undefined,
+  /** El tipo de la sesión: ver `precioClaseSuelta`. */
+  tipoClaseId?: string | null,
 ): number | null {
   if (typeof precioPuntualSesion === 'number' && Number.isFinite(precioPuntualSesion)) {
     return precioPuntualSesion;
   }
-  return precioClaseSuelta(planes);
+  return precioClaseSuelta(planes, tipoClaseId);
 }
 
 /**

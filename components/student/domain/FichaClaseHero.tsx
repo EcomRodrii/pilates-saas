@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useEstudio } from '@/components/student/contexto';
 import { useVolver } from '@/components/student/shell/volver';
 import { estiloBarraDeEstado } from '@/lib/nativo/puente';
-import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
+import { vigilarTintaSobreFoto } from '@/lib/nativo/barra-de-estado';
 import { estiloPorId } from '@/lib/student/apariencia';
 import type { Clase } from '@/lib/student/tipos';
 import { Foto } from '@/components/student/ui/Foto';
@@ -26,21 +26,12 @@ export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl
   const fondoOscuro = estiloPorId(estudio.apariencia.estilo).oscuro === true;
   // Letras claras mientras la foto (con su velo) está bajo la barra de estado; al bajar, las del fondo. Mismo criterio
   // que `StudioHeader` sobre la portada de Inicio. Solo hace algo dentro de la app.
-  useEffect(() => {
-    let sobreFoto: boolean | null = null;
-    const mirar = () => {
-      const ahora = window.scrollY < 240;
-      if (ahora === sobreFoto) return;
-      sobreFoto = ahora;
-      void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro, sobreFoto: ahora }));
-    };
-    mirar();
-    window.addEventListener('scroll', mirar, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', mirar);
-      void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro }));
-    };
-  }, [fondoOscuro]);
+  useEffect(() => vigilarTintaSobreFoto({
+    fondoOscuro,
+    sobreFoto: () => window.scrollY < 240,
+    aplicar: (tinta) => { void estiloBarraDeEstado(tinta); },
+    ventana: window,
+  }), [fondoOscuro]);
   return (
     // ⚠️ `background`: `clase.fotoUrl` puede no cargar, y sin tinta detrás el hueco quedaba crema. `#0F0F0C` es la misma
     // tinta que el kit pone bajo la foto del layout de acceso (`.st-auth-hero`).

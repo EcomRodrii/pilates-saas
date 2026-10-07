@@ -313,6 +313,31 @@ test('contarReservasActivasFuturas: cuenta CONFIRMADA y LISTA_ESPERA en clases f
   assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 2);
 });
 
+test('contarReservasActivasFuturas: las pendientes de aprobar solo cuentan si el estudio lo elige', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [
+    { id: 'fut1', inicio: '2026-07-11T08:00:00.000Z' },
+    { id: 'fut2', inicio: '2026-07-12T08:00:00.000Z' },
+  ];
+  const rs: Reserva[] = [
+    res({ sesionId: 'fut1', socioId: 'a', estado: 'CONFIRMADA' }),
+    res({ sesionId: 'fut2', socioId: 'a', estado: 'PENDIENTE_APROBACION' }),
+  ];
+  // De serie NO cuentan (todavía no tiene plaza): como siempre.
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 1);
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora, {}), 1);
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora, { pendientesCuentan: false }), 1);
+  // Si el estudio lo elige, sí.
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora, { pendientesCuentan: true }), 2);
+  // Y una pendiente en una clase cancelada o de otra socia no cuenta nunca.
+  const otras: Reserva[] = [
+    res({ sesionId: 'fut2', socioId: 'b', estado: 'PENDIENTE_APROBACION' }),
+    res({ sesionId: 'fut1', socioId: 'a', estado: 'CANCELADA' }),
+  ];
+  assert.equal(contarReservasActivasFuturas('a', otras, sesiones, ahora, { pendientesCuentan: true }), 0);
+  assert.equal(contarReservasActivasFuturas('a', rs, [{ id: 'fut1', inicio: '2026-07-11T08:00:00.000Z' }, { id: 'fut2', inicio: '2026-07-12T08:00:00.000Z', cancelada: true }], ahora, { pendientesCuentan: true }), 1);
+});
+
 // Regresión R-1 (auditoría 20-ago): cancelar una clase dejaba sus reservas en
 // CONFIRMADA. Esas reservas fantasma le comían a la socia el tope de reservas
 // simultáneas de forma permanente: no puede cancelarlas desde su portal (la

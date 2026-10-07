@@ -9,6 +9,7 @@
 
 import { fechaCortaEstudio } from './utils.ts';
 import type { EstadoReserva, Recuperacion, Reserva } from './types.ts';
+import { esReservaPlazaFija } from './reservas/plaza-fija-id.ts';
 
 export type MarcaReserva = 'fija' | 'recuperacion' | null;
 
@@ -24,7 +25,7 @@ export function marcaReserva(
   recuperaciones: Pick<Recuperacion, 'usadaEnReservaId' | 'estado'>[],
 ): MarcaReserva {
   if (recuperaciones.some(x => x.estado === 'USADA' && x.usadaEnReservaId === r.id)) return 'recuperacion';
-  if (r.id.startsWith('res-pf-')) return 'fija';
+  if (esReservaPlazaFija(r.id)) return 'fija';
   return null;
 }
 
