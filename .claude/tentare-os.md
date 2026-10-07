@@ -1351,7 +1351,7 @@ Estudio NUEVO + propietaria = visita obligatoria por 10 capítulos (`lib/tour/`,
 no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
 `pointer-events-none`; con un diálogo abierto la tarjeta pasa a banner de solo texto).
 - **La obligación la fija un trigger al nacer el estudio** (`studios.tour_obligatorio`,
-  migr `20261007170000`), nunca el cliente: false en todos los que ya existían, en sedes
+  migr `20261007211202`), nunca el cliente: false en todos los que ya existían, en sedes
   de cadena y en demos. `tour_obligatorio` NO se concede a `authenticated`.
 - **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
   tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
