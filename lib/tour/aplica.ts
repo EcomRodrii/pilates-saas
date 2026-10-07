@@ -8,8 +8,11 @@
 //   · no la ha completado ya,
 //   · quien mira es la PROPIETARIA (MANAGER y RECEPCION no la ven obligatoria: no
 //     son quienes montan el estudio),
-//   · no es una sede de cadena, y ya vio la bienvenida (la visita empieza después
-//     de ella, no encima).
+//   · ya vio la bienvenida (la visita empieza después de ella, no encima).
+//
+// Las sedes de cadena y las demos se excluyen en el TRIGGER, al nacer (no hay
+// regla de `cadenaId` aquí): así `tour_obligatorio` se puede activar a mano en
+// cualquier estudio, también en uno que pertenece a una cadena.
 //
 // Para todos los demás hay una visita OPCIONAL con las mismas pantallas y su «Salir»
 // (desde «Primeros pasos»).
@@ -20,7 +23,6 @@ import { rutaBase, type PasoVisita } from './capitulos.ts';
 export interface EstudioParaVisita {
   tourObligatorio?: boolean | null;
   tourCompletadoEn?: string | null;
-  cadenaId?: string | null;
   bienvenidaVistaEn?: string | null;
 }
 
@@ -29,7 +31,6 @@ export function visitaObligatoria(studio: EstudioParaVisita | null | undefined, 
   return studio.tourObligatorio === true
     && !studio.tourCompletadoEn
     && rol === 'PROPIETARIO'
-    && !studio.cadenaId
     && !!studio.bienvenidaVistaEn;
 }
 
