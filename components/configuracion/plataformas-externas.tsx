@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from '@/lib/plataformas/catalogo';
 import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
+import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '@/lib/plataformas/venta-externa';
 import { PLATAFORMAS_QUE_APARTAN } from '@/lib/plataformas/apartadas';
 import { dbGuardarLiberarHorasPlataforma, dbLeerLiberarHorasPlataforma } from '@/lib/supabase-data';
 import { resumenPlataformaVenta } from '@/lib/configuracion/resumenes';
@@ -48,7 +49,12 @@ function LogoPlataforma({ p }: { p: Plataforma }) {
   return <LogoConexion><Icono size={20} /></LogoConexion>;
 }
 
-interface EstadoUsc { config: Record<string, string>; apiDisponible: boolean }
+interface EstadoUsc {
+  config: Record<string, string>;
+  apiDisponible: boolean;
+  /** Sin contrato o suspendido: aunque esté conectada, ni publica ni entran reservas. */
+  ventaCortada: MotivoSinVentaExterna | null;
+}
 
 /**
  * La config de USC y si Tentare tiene sus credenciales de integrador. `usc`
@@ -62,8 +68,8 @@ function useEstadoUsc() {
     let vivo = true;
     fetch('/api/integrations/config?tipo=URBAN_SPORTS_CLUB')
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((j: { config?: Record<string, string>; apiDisponible?: boolean }) => {
-        if (vivo) setUsc({ config: j.config ?? {}, apiDisponible: j.apiDisponible === true });
+      .then((j: { config?: Record<string, string>; apiDisponible?: boolean; ventaCortada?: MotivoSinVentaExterna | null }) => {
+        if (vivo) setUsc({ config: j.config ?? {}, apiDisponible: j.apiDisponible === true, ventaCortada: j.ventaCortada ?? null });
       })
       .catch(() => { if (vivo) setError(true); });
     return () => { vivo = false; };
@@ -89,7 +95,10 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
     <>
       {PLATAFORMAS.map((p, i) => {
         const c = conexionDe(p, usc);
-        const resumen = resumenPlataformaVenta({ activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada });
+        const resumen = resumenPlataformaVenta({
+          activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada,
+          ventaCortada: p === USC ? usc?.ventaCortada : null,
+        });
         return (
           <li key={p}>
             <button
@@ -147,6 +156,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
           const activa = activas.includes(p);
           const { disponible: conexionDisponible, conectada: porApi } = conexionDe(p, usc);
           const esperandoUsc = p === USC && !usc && !errorUsc;
+          const cortada = p === USC ? usc?.ventaCortada ?? null : null;
           return (
             <li key={p} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -161,7 +171,10 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {!activa ? 'No vendo aquí' : porApi ? 'Vendo aquí · conectada: el horario y las reservas van solos' : 'Vendo aquí · apunto yo las reservas'}
+                  {!activa ? 'No vendo aquí'
+                    : porApi && cortada ? `Vendo aquí · en pausa: ${porQueSinVentaExterna(cortada)}`
+                    : porApi ? 'Vendo aquí · conectada: el horario y las reservas van solos'
+                    : 'Vendo aquí · apunto yo las reservas'}
                 </p>
               </div>
               <button
@@ -186,6 +199,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
             {p === USC && activa && usc?.apiDisponible && (
               <ConexionUsc
                 config={usc.config}
+                ventaCortada={usc.ventaCortada}
                 onGuardada={config => setUsc({ ...usc, config })}
                 showToast={showToast}
               />
@@ -307,8 +321,9 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
 
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function ConexionUsc({ config, onGuardada, showToast }: {
+function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
   config: Record<string, string>;
+  ventaCortada: MotivoSinVentaExterna | null;
   onGuardada: (config: Record<string, string>) => void;
   showToast: (m: string) => void;
 }) {
@@ -344,7 +359,9 @@ function ConexionUsc({ config, onGuardada, showToast }: {
   return (
     <form onSubmit={guardar} className="mt-3 space-y-2 rounded-xl bg-muted/50 p-3" data-testid="conexion-usc">
       <p className="text-xs text-muted-foreground">
-        {conectada
+        {conectada && ventaCortada
+          ? `En pausa: ${porQueSinVentaExterna(ventaCortada)}. Mientras tanto no se publica nada en Urban Sports Club ni entran sus reservas, y lo que estaba publicado se retira.`
+          : conectada
           ? 'Conectada. Las clases cuyo tipo tiene plazas cedidas a Urban Sports Club se publican solas en su app (dos semanas vista), y sus reservas entran solas en la clase.'
           : 'Pega los dos IDs que te da Urban Sports Club al activar la conexión con Tentare. Se publicarán solas las clases cuyo tipo tenga plazas cedidas a Urban Sports Club.'}
       </p>

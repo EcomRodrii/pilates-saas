@@ -7,6 +7,10 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // borraría los IDs — y sin ellos el cron no puede cancelar en USC lo que ya
 // estaba publicado: clases fantasma en su app. Eso es lo que se prueba aquí,
 // con contador de peticiones (un «no borró nada» sin petición no prueba nada).
+//
+// Y que la pantalla no mienta: un estudio sin contrato o suspendido no publica
+// aunque esté conectado (lib/plataformas/venta-externa.ts), así que no puede
+// decir «el horario y las reservas van solos».
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -19,7 +23,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opts: { apiDisponible: boolean }) {
+async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?: string }) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -57,6 +61,7 @@ async function montar(page: Page, opts: { apiDisponible: boolean }) {
     return json(route, {
       config: { modo: 'api', providerId: PROVEEDOR, locationId: UBICACION },
       apiDisponible: opts.apiDisponible,
+      ventaCortada: opts.ventaCortada ?? null,
     });
   });
 
@@ -123,5 +128,27 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
       await expect(page.locator(id)).toContainText('Próximamente');
     }
     await expect(page.locator('#plataformas-externas')).toContainText('ClassPass');
+  });
+});
+
+test.describe('Urban Sports Club: sin contrato o suspendido, la pantalla no dice que va sola', () => {
+  test('suspendido: «En pausa» y por qué, en la fila, en el cajón y junto a los IDs', async ({ page }) => {
+    await montar(page, { apiDisponible: true, ventaCortada: 'suspendido' });
+    const fila = page.locator('#plataformas-externas-urban_sports_club');
+    await expect(fila).toContainText('En pausa');
+    await expect(fila).toContainText('Sin publicar · tu cuenta está suspendida');
+    await expect(fila).not.toContainText('Conectado');
+    await expect(page.getByText('Vendo aquí · en pausa: tu cuenta está suspendida')).toBeVisible();
+    await expect(page.getByTestId('conexion-usc')).toContainText('En pausa: tu cuenta está suspendida');
+    await expect(page.getByText(/van solos/)).toHaveCount(0);
+    // Los IDs siguen ahí y se pueden tocar: los necesita el cron para retirar lo publicado.
+    await expect(page.getByTestId('conexion-usc').getByLabel('ID de proveedor')).toHaveValue(PROVEEDOR);
+  });
+
+  test('con contrato, lo de siempre: conectada y «van solos»', async ({ page }) => {
+    await montar(page, { apiDisponible: true });
+    await expect(page.locator('#plataformas-externas-urban_sports_club')).toContainText('Conectado');
+    await expect(page.getByText('Vendo aquí · conectada: el horario y las reservas van solos')).toBeVisible();
+    await expect(page.getByText('En pausa')).toHaveCount(0);
   });
 });

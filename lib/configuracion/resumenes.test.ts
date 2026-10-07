@@ -922,6 +922,17 @@ test('plataformas que venden: «Próximamente» mientras no haya conexión autom
   assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: true, conectada: true }).estado?.etiqueta, 'Sin conectar');
 });
 
+test('plataformas que venden: sin contrato o suspendida, conectada no dice «van solos» (ni publica ni entran reservas)', () => {
+  assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: true, ventaCortada: 'suspendido' }),
+    { valor: 'Sin publicar · tu cuenta está suspendida', estado: { tono: 'problema', etiqueta: 'En pausa' } });
+  assert.equal(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: true, ventaCortada: 'baja' }).valor,
+    'Sin publicar · tu suscripción ha terminado');
+  // En manual sigue siendo verdad: recepción apunta lo que ya se vendió allí.
+  assert.equal(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: false, ventaCortada: 'prueba_vencida' }).valor,
+    'Vendo aquí · apunto yo las reservas');
+  assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: true, conectada: true, ventaCortada: 'baja' }).valor, 'No vendo aquí');
+});
+
 test('datáfono: sin Stripe, un SumUp Solo se ve como cualquier datáfono; sin nada que conectar, como siempre', () => {
   const solo = { etiqueta: 'Mostrador', modelo: 'SumUp Solo', estado: 'online' as const };
   assert.deepEqual(resumenDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: solo }),

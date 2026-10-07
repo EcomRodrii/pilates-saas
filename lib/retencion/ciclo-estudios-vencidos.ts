@@ -19,6 +19,11 @@
 // El borrado real va apagado hasta que el abogado lo valide
 // (`PURGA_ESTUDIOS_VENCIDOS=activa`), para los dos motivos.
 //
+// Desde el ancla (vence la prueba o termina el contrato), y no desde el primer
+// aviso, el estudio deja de vender por Urban Sports Club y Wellhub, como si
+// apagara la integración (lib/plataformas/venta-externa.ts, que usa
+// `cicloDelEstudio` para que «sin contrato» sea lo mismo en los dos sitios).
+//
 // Aquí solo fechas y la máquina de fases, sin BD, para poder probarlas. Quien
 // ejecuta es `avanzar-ciclo-estudios-vencidos.ts`; la guardia final vive en la
 // BD (`purgar_estudio_vencido`).

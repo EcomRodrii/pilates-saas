@@ -28,6 +28,7 @@ import { urlAppInstructora } from '../avisos/app-instructora.ts';
 import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
+import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '../plataformas/venta-externa.ts';
 
 export const MAX_RESUMEN = 44;
 /** Las filas de «Cómo reservan mis alumnas»: a dos líneas (ver `resumenRegla`). */
@@ -1147,7 +1148,14 @@ export function resumenConexion(e: {
  * (decisión del fundador, 1-oct-2026) y el valor dice si el estudio apunta sus
  * ventas a mano, que funciona igual.
  */
-export function resumenPlataformaVenta(p: { activa: boolean; conexionDisponible: boolean; conectada: boolean }): ResumenFila {
+export function resumenPlataformaVenta(p: {
+  activa: boolean; conexionDisponible: boolean; conectada: boolean;
+  /** Sin contrato o suspendido: conectada, pero ni publica ni entran reservas. */
+  ventaCortada?: MotivoSinVentaExterna | null;
+}): ResumenFila {
+  if (p.activa && p.conectada && p.ventaCortada) {
+    return { valor: `Sin publicar · ${porQueSinVentaExterna(p.ventaCortada)}`, estado: { tono: 'problema', etiqueta: 'En pausa' } };
+  }
   const uso = !p.activa ? 'No vendo aquí'
     : p.conectada ? 'Vendo aquí · el horario y las reservas van solos'
     : 'Vendo aquí · apunto yo las reservas';

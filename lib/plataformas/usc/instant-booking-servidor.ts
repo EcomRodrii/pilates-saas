@@ -10,6 +10,7 @@
 // mismo recuento de aforo que una reserva de socia.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { motivoDeErrorRpcUsc, type PeticionReservaUsc, type RechazoReservaExterna } from '../usc-reserva.ts';
+import { motivoSinVentaExternaDe } from '../venta-externa.ts';
 
 export type ResultadoInstantBooking =
   | { ok: true; studioId: string; sesionId: string; reservaId: string; repetida: boolean }
@@ -27,12 +28,16 @@ export async function procesarInstantBookingUsc(admin: SupabaseClient, p: Petici
   // Sin sesión: la borraron en Tentare y el cron aún no ha cancelado el evento.
   if (evento.estado_sync === 'CANCELADO' || !evento.sesion_id) return { ok: false, motivo: 'clase-cancelada' };
 
-  // El estudio tiene que seguir vendiendo en USC: si lo ha apagado, sus eventos
-  // ya no admiten reservas aunque USC no se haya enterado todavía.
-  const { data: integracion } = await admin
-    .from('integraciones').select('activo')
-    .eq('studio_id', evento.studio_id).eq('tipo', 'URBAN_SPORTS_CLUB').maybeSingle();
-  if (!integracion?.activo) return { ok: false, motivo: 'clase-no-existe' };
+  // El estudio tiene que seguir vendiendo en USC: si lo ha apagado, o se ha
+  // quedado sin contrato o está suspendido, sus eventos ya no admiten reservas
+  // aunque USC no se haya enterado todavía (el cron los retira en su pasada).
+  const [{ data: integracion }, sinVenta] = await Promise.all([
+    admin.from('integraciones').select('activo')
+      .eq('studio_id', evento.studio_id).eq('tipo', 'URBAN_SPORTS_CLUB').maybeSingle(),
+    motivoSinVentaExternaDe(admin, evento.studio_id as string),
+  ]);
+  if (sinVenta === 'error') return { ok: false, motivo: 'error-interno', detalle: 'no se pudo leer el estudio' };
+  if (!integracion?.activo || sinVenta) return { ok: false, motivo: 'clase-no-existe' };
 
   // Id determinista por reserva de USC: si este mismo intento llegara dos
   // veces, la RPC lo reconoce también por el id externo.
