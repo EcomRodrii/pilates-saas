@@ -21,7 +21,7 @@ import { tienePermiso } from '@/lib/interno/permisos';
 const dia = (iso: string) =>
   new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
 
-export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, apiPublica, prueba, alTerminar }: {
+export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, apiPublica, wellhub, prueba, alTerminar }: {
   id: string; plan: string; suspendido: boolean; motivo: string | null;
   prueba: FichaEstudio['prueba'];
   /** Recarga la ficha: es de cliente, así que `router.refresh()` no la repinta. */
@@ -29,6 +29,7 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
   reviewBoost: { elegibleEn: string | null; mostradoEn: string | null; feedback: { rating: number; creadoEn: string } | null; recompensaCanjeada: boolean };
   /** Opcional: sin el dato (respuesta de una versión anterior) el bloque no se pinta, en vez de tumbar la ficha. */
   apiPublica?: FichaEstudio['apiPublica'] | null;
+  wellhub?: FichaEstudio['wellhub'] | null;
 }) {
   const sesion = useSesionInterna();
   const router = useRouter();
@@ -39,6 +40,8 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
   const [suspendiendo, setSuspendiendo] = useState(false);
   // Ampliar la prueba es dar acceso gratis: pide un segundo clic, como suspender.
   const [confirmandoPrueba, setConfirmandoPrueba] = useState(false);
+  const [gymWellhub, setGymWellhub] = useState(wellhub?.gymId ?? '');
+  const [productoWellhub, setProductoWellhub] = useState(wellhub?.productoId ?? '');
 
   // Quien no tenga studios.update no ve esto siquiera.
   if (!tienePermiso(sesion.permisos, 'studios.update')) return null;
@@ -222,6 +225,38 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
               : 'px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50'}>
             {apiPublica.activa ? 'Desactivar la API' : 'Activar la API'}
           </button>
+        </div>
+        )}
+
+        {wellhub && (
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-1">Wellhub por API</p>
+          <p className="text-[12px] text-muted-foreground mb-2">
+            {wellhub.gymId
+              ? `Vinculado al gym ${wellhub.gymId}${wellhub.productoId ? `, producto ${wellhub.productoId}` : ' (sin producto: no publica hasta tenerlo)'}. `
+              : 'Sin vincular. '}
+            {wellhub.credenciales
+              ? 'Publica las clases con plazas cedidas a Wellhub si el estudio tiene activado «Vendo en Wellhub».'
+              : 'Tentare aún no tiene las credenciales de Wellhub: se puede vincular, pero no se publica nada hasta tenerlas.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={gymWellhub} onChange={e => setGymWellhub(e.target.value)} placeholder="Gym" inputMode="numeric"
+              aria-label="Gym de Wellhub" className="w-32 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-mono" />
+            <input value={productoWellhub} onChange={e => setProductoWellhub(e.target.value)} placeholder="Producto" inputMode="numeric"
+              aria-label="Producto de Wellhub" className="w-32 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-mono" />
+            <button type="button" disabled={ocupado || !gymWellhub.trim()}
+              onClick={() => ejecutar({ accion: 'vincular-wellhub', gymId: gymWellhub, productoId: productoWellhub }, 'Wellhub vinculado.')}
+              className="px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50">
+              {wellhub.gymId ? 'Guardar' : 'Vincular'}
+            </button>
+            {wellhub.gymId && (
+              <button type="button" disabled={ocupado}
+                onClick={() => ejecutar({ accion: 'desvincular-wellhub' }, 'Wellhub desvinculado: lo publicado se retira en la próxima pasada.')}
+                className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border border-border text-foreground hover:bg-muted disabled:opacity-50">
+                Desvincular
+              </button>
+            )}
+          </div>
         </div>
         )}
 

@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { checkinPublico } from '@/lib/db/supabase-data-admin';
+import { credencialesWellhub } from '@/lib/plataformas/wellhub/cliente';
+import { validarAsistenciaWellhub } from '@/lib/plataformas/wellhub/servidor';
 import {
   estadoEnLista, fechaEnZona, horaEnZona, nombresParaLista, ordenarLista, puedePasarLista,
   type AlumnaEnLista, type EstadoEnLista, type ListaDeClase,
@@ -109,7 +111,8 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
 
 export type ResultadoMarcar =
   /** `clase` solo al marcar «Asistió»: con eso la ruta da la clase por dada. */
-  | { ok: true; estado: EstadoEnLista; clase?: { id: string; inicio: string } }
+  /** `aviso`: marcada, pero Wellhub no ha validado el check-in de su socia (el motivo, para enseñarlo). */
+  | { ok: true; estado: EstadoEnLista; clase?: { id: string; inicio: string }; aviso?: string }
   | { ok: false; status: 404 | 409; error: string };
 
 /** Marca «Asistió» o lo deshace. Solo eso: nunca escribe `NO_ASISTIO`. */
@@ -126,7 +129,7 @@ export async function marcarAsistencia(
     return { ok: false, status: 409, error: cancelada ? 'Esta clase está cancelada.' : 'La lista de esta clase no está abierta ahora.' };
   }
 
-  const { data: reserva, error } = await admin.from('reservas').select('id, estado')
+  const { data: reserva, error } = await admin.from('reservas').select('id, estado, origen')
     .eq('id', p.reservaId).eq('studio_id', p.studioId).eq('sesion_id', clase.id).maybeSingle();
   if (error) throw error;
   if (!reserva) return { ok: false, status: 404, error: 'Esta reserva ya no está en la clase.' };
@@ -140,7 +143,12 @@ export async function marcarAsistencia(
     }
     const r = await checkinPublico({ studioId: p.studioId, reservaId: p.reservaId });
     if ('error' in r) return { ok: false, status: 409, error: r.error ?? 'No se ha podido marcar la asistencia.' };
-    return { ok: true, estado: 'asistio', clase: { id: clase.id, inicio: clase.inicio } };
+    // Socia de Wellhub: pasar lista valida su check-in allí, que es lo que hace que
+    // Wellhub pague la visita. El mismo dueño que el panel (lib/plataformas/wellhub/servidor.ts).
+    const aviso = reserva.origen === 'WELLHUB'
+      ? await validarAsistenciaWellhub(admin, credencialesWellhub(), { studioId: p.studioId, reservaId: p.reservaId })
+      : null;
+    return { ok: true, estado: 'asistio', clase: { id: clase.id, inicio: clase.inicio }, ...(aviso ? { aviso } : {}) };
   }
 
   if (actual === 'CONFIRMADA') return { ok: true, estado: 'por-marcar' };

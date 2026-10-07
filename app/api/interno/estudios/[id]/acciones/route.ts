@@ -6,6 +6,7 @@ import { PLANES } from '@/lib/billing/entitlements';
 import { DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
 import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
+import { credencialesWellhub, productosWellhub } from '@/lib/plataformas/wellhub/cliente';
 
 export const runtime = 'nodejs';
 
@@ -26,7 +27,9 @@ type Accion =
   | { accion: 'activar-review-boost' }
   | { accion: 'ampliar-prueba' }
   | { accion: 'activar-api'; nota?: string }
-  | { accion: 'desactivar-api' };
+  | { accion: 'desactivar-api' }
+  | { accion: 'vincular-wellhub'; gymId?: string; productoId?: string }
+  | { accion: 'desvincular-wellhub' };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -176,6 +179,64 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       despues: { trialEndsAt: r.hasta, subscriptionStatus: 'trialing' },
     });
     return NextResponse.json({ ok: true, pruebaHasta: r.hasta });
+  }
+
+  // Wellhub por API: qué gym de Wellhub es este estudio (`plataforma_conexiones`,
+  // único por gym). Se vincula desde aquí mientras se prueba en su sandbox; la
+  // propietaria tendrá su propio formulario cuando esté probado. Vincular no
+  // pone a vender: eso lo deciden «Vendo en Wellhub» y las plazas que cede.
+  if (cuerpo.accion === 'vincular-wellhub' || cuerpo.accion === 'desvincular-wellhub') {
+    const { data: antesW } = await db.from('plataforma_conexiones')
+      .select('id_externo, producto_externo_id').eq('studio_id', id).eq('plataforma', 'WELLHUB').maybeSingle();
+    if (cuerpo.accion === 'desvincular-wellhub') {
+      if (!antesW) return NextResponse.json({ error: 'No tiene Wellhub vinculado.' }, { status: 409 });
+      // Lo publicado allí lo retira el cron con el gym de entonces (plataforma_clases).
+      const { error } = await db.from('plataforma_conexiones').delete().eq('studio_id', id).eq('plataforma', 'WELLHUB');
+      if (error) return NextResponse.json({ error: 'No se ha podido desvincular.' }, { status: 500 });
+      await registrar(db, req, {
+        actor: g.admin, accion: 'estudio.wellhub.desvinculado', objetivoTipo: 'studio', objetivoId: id,
+        resumen: `${nombre}: Wellhub desvinculado (gym ${antesW.id_externo})`,
+        antes: { gymId: antesW.id_externo, productoId: antesW.producto_externo_id }, despues: { gymId: null },
+      });
+      return NextResponse.json({ ok: true, wellhub: null });
+    }
+
+    const gymId = String(cuerpo.gymId ?? '').trim();
+    let productoId = String(cuerpo.productoId ?? '').trim();
+    if (!/^\d{1,18}$/.test(gymId)) return NextResponse.json({ error: 'El gym de Wellhub es un número (lo ve el estudio en su portal de Wellhub).' }, { status: 400 });
+    if (productoId && !/^\d{1,18}$/.test(productoId)) return NextResponse.json({ error: 'El producto de Wellhub es un número.' }, { status: 400 });
+    // Con credenciales, el producto se comprueba contra los del gym (y si hay uno solo, se elige solo).
+    const cred = credencialesWellhub();
+    if (cred) {
+      const productos = await productosWellhub(cred, gymId);
+      if (productos.ok) {
+        const presenciales = productos.valor.filter(x => !x.virtual);
+        if (productoId && !productos.valor.some(x => String(x.id) === productoId)) {
+          return NextResponse.json({ error: `Ese producto no es de ese gym. Son: ${productos.valor.map(x => `${x.id} (${x.nombre})`).join(', ') || 'ninguno'}.` }, { status: 400 });
+        }
+        if (!productoId && presenciales.length === 1) productoId = String(presenciales[0].id);
+        if (!productoId) {
+          return NextResponse.json({ error: `Elige el producto: ${productos.valor.map(x => `${x.id} (${x.nombre})`).join(', ') || 'ese gym no tiene ninguno'}.` }, { status: 400 });
+        }
+      } else if (!productoId) {
+        return NextResponse.json({ error: `No se han podido leer los productos de Wellhub (${productos.error}): pon el producto a mano.` }, { status: 502 });
+      }
+    }
+    const { error } = await db.from('plataforma_conexiones').upsert({
+      studio_id: id, plataforma: 'WELLHUB', id_externo: gymId, producto_externo_id: productoId || null,
+      actualizado_en: new Date().toISOString(),
+    }, { onConflict: 'plataforma,studio_id' });
+    if (error) {
+      if (error.code === '23505') return NextResponse.json({ error: 'Ese gym de Wellhub ya está vinculado a otro estudio.' }, { status: 409 });
+      return NextResponse.json({ error: 'No se ha podido vincular.' }, { status: 500 });
+    }
+    await registrar(db, req, {
+      actor: g.admin, accion: 'estudio.wellhub.vinculado', objetivoTipo: 'studio', objetivoId: id,
+      resumen: `${nombre}: Wellhub vinculado al gym ${gymId}${productoId ? ` (producto ${productoId})` : ' (sin producto: no publica hasta tenerlo)'}`,
+      antes: { gymId: antesW?.id_externo ?? null, productoId: antesW?.producto_externo_id ?? null },
+      despues: { gymId, productoId: productoId || null },
+    });
+    return NextResponse.json({ ok: true, wellhub: { gymId, productoId: productoId || null } });
   }
 
   // API pública (F1, 1-oct-2026): se activa estudio a estudio. Decisión del

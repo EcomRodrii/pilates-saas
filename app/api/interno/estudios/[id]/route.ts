@@ -5,6 +5,7 @@ import { registrar } from '@/lib/interno/auditoria';
 import { esDePago } from '@/lib/interno/salud-estudio';
 import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
+import { credencialesWellhub } from '@/lib/plataformas/wellhub/cliente';
 
 export const runtime = 'nodejs';
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
 
-  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth, reviewBoostFeedback, reviewBoostRecompensa, apiAcceso, apiClaves] = await Promise.all([
+  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth, reviewBoostFeedback, reviewBoostRecompensa, apiAcceso, apiClaves, wellhub] = await Promise.all([
     db.from('instructores').select('id, nombre, rol, activo, auth_user_id').eq('studio_id', id),
     db.from('socios').select('id', { count: 'exact', head: true }).eq('studio_id', id),
     db.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', id),
@@ -63,6 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Las que llegan a la sede: las suyas y las de su cadena.
     db.from('api_claves').select('id', { count: 'exact', head: true })
       .or(filtroClavesQueLleganA({ studioId: id, cadenaId: (studio.cadena_id as string | null) ?? null })).is('revocada_en', null),
+    db.from('plataforma_conexiones').select('id_externo, producto_externo_id').eq('studio_id', id).eq('plataforma', 'WELLHUB').maybeSingle(),
   ]);
 
   // Facturación DEL ESTUDIO a sus socias (su negocio), no lo que nos paga a
@@ -143,6 +145,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       activa: !!apiAcceso.data && !apiAcceso.data.desactivada_en,
       activadaEn: (apiAcceso.data?.activada_en as string | null) ?? null,
       clavesActivas: apiClaves.count ?? 0,
+    },
+    // Wellhub por API: el gym se vincula desde aquí mientras se prueba en su sandbox.
+    wellhub: {
+      gymId: (wellhub.data?.id_externo as string | null) ?? null,
+      productoId: (wellhub.data?.producto_externo_id as string | null) ?? null,
+      credenciales: credencialesWellhub() !== null,
     },
     reviewBoost: {
       elegibleEn: (studio.review_boost_elegible_en as string | null) ?? null,

@@ -544,7 +544,8 @@ interface StudioContextValue {
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
-  checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura>;
+  /** `aviso`: lo que Wellhub contestó al validar a una socia suya (null = todo bien). */
+  checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura & { aviso?: string | null }>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
   marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -4024,7 +4025,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
-  async function checkin(reservaId: string, snapshotOverride?: Reserva[]): Promise<ResultadoEscritura> {
+  // Valida en Wellhub a una socia suya a la que se acaba de pasar lista. Sin
+  // conexión con nuestro servidor no se sabe nada: sin aviso (el webhook de su
+  // check-in la valida igualmente por su lado).
+  async function validarEnWellhub(reservaId: string): Promise<string | null> {
+    try {
+      const r = await fetch('/api/plataformas/wellhub/validar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reservaId }),
+      });
+      const j = await r.json().catch(() => null) as { aviso?: string | null } | null;
+      return r.ok ? (j?.aviso ?? null) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function checkin(reservaId: string, snapshotOverride?: Reserva[]): Promise<ResultadoEscritura & { aviso?: string | null }> {
     // Doble check-in (I-alta pilar 6): la UI ya oculta el botón en cuanto una
     // reserva pasa a ASISTIDA (ListaClientas solo lo pinta sobre CONFIRMADA),
     // pero "marcar todas" (barrido de confirmadasSinCheckin) puede llamar a
@@ -4085,6 +4103,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     const reserva = base.find(r => r.id === reservaId);
     if (!reserva) return res;
+    // Socia de Wellhub: pasar lista valida su check-in allí, que es lo que hace
+    // que Wellhub pague la visita (lib/plataformas/wellhub/servidor.ts). Se
+    // espera para poder decirle a recepción el motivo si Wellhub dice que no.
+    if (reserva.origen === 'WELLHUB') return { ok: true, aviso: await validarEnWellhub(reservaId) };
     // Reserva de ClassPass/USC: no hay socia a la que premiar. Créditos, logros,
     // retos, racha y referido son cosas de las socias del estudio; llamar a sus
     // RPC con `socioId` null solo daría errores.

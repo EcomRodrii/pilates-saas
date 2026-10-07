@@ -33,6 +33,7 @@ const SERVIDOR = new Set([
   'lib/analytics.ts',
   'lib/notifications/engine.ts',
   'lib/plataformas/usc/cliente.ts',
+  'lib/plataformas/wellhub/cliente.ts',
   'lib/fetch-externo.ts',
   'lib/sustituciones/email.ts',
   'lib/senal-con-limite.ts',
