@@ -3,6 +3,7 @@ import { LandingCliente } from '@/components/landing/LandingCliente';
 import { SeccionGuias } from '@/components/landing/SeccionGuias';
 import { SeccionBento } from '@/components/landing/SeccionBento';
 import { SeccionEnUnaFrase } from '@/components/landing/SeccionEnUnaFrase';
+import { SeccionCambiarte } from '@/components/landing/SeccionCambiarte';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 // La home tiene sus PROPIOS metadatos (fase 5 del SEO, 23-sep). Hasta entonces
@@ -56,5 +57,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <LandingCliente guias={<SeccionGuias />} bento={<SeccionBento />} frase={<SeccionEnUnaFrase />} />;
+  return <LandingCliente guias={<SeccionGuias />} bento={<SeccionBento />} frase={<SeccionEnUnaFrase />} cambiarte={<SeccionCambiarte />} />;
 }

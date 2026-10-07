@@ -22,7 +22,7 @@ export function SeccionPrecio() {
     <section id="precio" className="v5-pre" aria-labelledby="v5-pre-h">
       <div className="v5-pre-wrap">
         <div className="v5-pre-cabecera lp-rv">
-          <h2 id="v5-pre-h" className="v5-pre-h2">Precio público. Sin permanencia. Sin sorpresas.</h2>
+          <h2 id="v5-pre-h" className="v5-pre-h2"><span className="lp-ante">Precios del software para estudios de Pilates</span>{' '}Precio público. Sin permanencia. Sin sorpresas.</h2>
           <p className="v5-pre-lead">Sustituciones incluidas desde el primer plan. Sin comisión sobre tus cobros.</p>
           {/* La promesa que quita el freno, justo encima de los importes: es
               donde se decide si se sigue leyendo o se cierra la pestaña. */}

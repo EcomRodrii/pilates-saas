@@ -14,6 +14,7 @@ import { test, expect } from '@playwright/test';
 test.setTimeout(180_000);
 
 const PAGINAS = [
+  { path: '/', h1: /^Software de gestión para estudios de Pilates y yoga/, resumen: false },
   { path: '/comparativa/tentare-vs-bsport', h1: /^bsport: precios, funciones y la alternativa/, resumen: true },
   { path: '/comparativa/tentare-vs-eversports', h1: /^Eversports: precios/, resumen: true },
   { path: '/soluciones/estudio-de-pilates-reformer', h1: /^Software para estudios de Pilates reformer/, resumen: true },
@@ -65,4 +66,13 @@ test('la calculadora de plazas vacías responde a los números', async ({ page }
     await calc.getByLabel(/Reformers por clase/).fill('10');
     await expect(calc).toContainText(/4\.?875 €/, { timeout: 1_000 });
   }).toPass({ timeout: 20_000 });
+});
+
+test('la home enlaza cada comparativa desde «¿Ya usas otro programa?»', async ({ request }) => {
+  const html = await (await request.get('/', { timeout: 120_000 })).text();
+  const seccion = html.slice(html.indexOf('id="cambiarte"'), html.indexOf('id="v5-pre-h"'));
+  for (const slug of ['bsport', 'eversports', 'mindbody', 'timp', 'momence', 'lorari']) {
+    expect(seccion, slug).toContain(`href="/comparativa/tentare-vs-${slug}"`);
+  }
+  expect(seccion).toContain('href="/soluciones/cambiar-de-software"');
 });
