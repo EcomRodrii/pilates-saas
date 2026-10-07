@@ -36,12 +36,21 @@ export default function Soporte() {
         teléfono y, si puedes, una captura de pantalla.
       </p>
 
-      <h2>Borrar tu cuenta y tus datos</h2>
+      <h2>Borrar tu cuenta</h2>
       <p>
-        Desde la app: <strong>Perfil → Privacidad y datos → Solicitar la eliminación de mis datos</strong>. La
-        solicitud le llega a tu estudio, que es el responsable de tus datos y la gestiona en un plazo máximo de
-        30 días. También puedes escribir a <a href={`mailto:${LEGAL.emailPrivacidad}`}>{LEGAL.emailPrivacidad}</a>.
-        Más detalle en la <a href="/privacidad">política de privacidad</a>.
+        Desde la app: <strong>Perfil → Privacidad y datos → Borrar mi cuenta de Tentare</strong>. Se borra al
+        momento y ya no podrás entrar con ella en ningún estudio. Cada estudio conserva tu ficha y lo que la ley le
+        obliga a guardar, como facturas y pagos. Si alguna vez entraste con Apple, quita también {LEGAL.marca} en
+        los Ajustes del iPhone, en tu cuenta de Apple → Iniciar sesión con Apple.
+      </p>
+
+      <h2>Que un estudio borre tus datos</h2>
+      <p>
+        Si además quieres que tu estudio borre los datos que tiene de ti, pídeselo desde la app:{' '}
+        <strong>Perfil → Privacidad y datos → Solicitar la eliminación de mis datos</strong>. La solicitud le llega a
+        tu estudio, que es el responsable de tus datos y la gestiona en un plazo máximo de 30 días. También puedes
+        escribir a <a href={`mailto:${LEGAL.emailPrivacidad}`}>{LEGAL.emailPrivacidad}</a>. Más detalle en la{' '}
+        <a href="/privacidad">política de privacidad</a>.
       </p>
 
       <h2>Si tienes un estudio</h2>

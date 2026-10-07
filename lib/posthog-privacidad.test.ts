@@ -90,12 +90,14 @@ test('rutas excluidas: coincidencia por segmento completo, nunca por trozo de pa
     '/portal/estudio/perfil', '/portal/', '/PORTAL/estudio', '//portal/estudio', '/reservar/estudio?embed=1',
     '/i/maria', '/interno/estudios/9b2c4e1a-3f5d-4c6b-8a7e-1d2f3a4b5c6d', '/network/acceso',
     '/network/alumna/inicio', '/network/referencia/token', '/valorar/token', '/tema-publicado/estudio/index.html',
+    '/app', '/app/', '/app?estudio=luz', '/app/estudio/luz',
   ]) {
     assert.equal(rutaExcluidaDeAnalitica(ruta), true, ruta);
   }
   for (const ruta of [
     '/', '/precios', '/dashboard', '/clientas/soc-1', '/crear-estudio', '/network', '/network/instructoras/maria',
     '/network/mi-perfil', '/internos-x', '/interno-x', '/portales', '/ideas', '/login-equipo', '/reservaria',
+    '/apps', '/app-alumnas', '/aplicacion',
   ]) {
     assert.equal(rutaExcluidaDeAnalitica(ruta), false, ruta);
   }
@@ -235,6 +237,9 @@ test('solo se carga fuera de rutas excluidas y fuera de vistas incrustadas', () 
   assert.equal(debeCargarseAnalitica('/precios', false), true);
   assert.equal(debeCargarseAnalitica('/precios', true), false);
   assert.equal(debeCargarseAnalitica('/portal/estudio', false), false);
+  // La entrada de la app de iOS y sus subrutas: dentro de la app no se mide nada.
+  assert.equal(debeCargarseAnalitica('/app', false), false);
+  assert.equal(debeCargarseAnalitica('/app/estudio/luz', false), false);
 
   const ventana = {};
   assert.equal(esVistaIncrustada(undefined), false); // Node: no hay `window`
