@@ -7,7 +7,8 @@
 // hacen falta; esto solo lee de la base de datos, las ejecuta y guarda lo
 // enviado. Un estudio entra si tiene USC activa Y en su config el `providerId`
 // y el `locationId` que da USC al darle de alta — sin ellos sigue en modo
-// manual (apuntar a mano desde la clase), como hasta ahora.
+// manual (apuntar a mano desde la clase), como hasta ahora. Sin contrato o
+// suspendido, se le retira todo como si la hubiera apagado (venta-externa.ts).
 import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -20,6 +21,7 @@ import {
   crearTrainerUsc, renombrarTrainerUsc, fechaAltaUsc, type CredencialesUsc,
 } from './cliente.ts';
 import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
+import { estudiosSinVentaExterna } from '../venta-externa.ts';
 
 const PLATAFORMA = 'URBAN_SPORTS_CLUB';
 /** Tope de llamadas por pasada: el cron tiene 60 s y cada llamada ~0,3-1 s. */
@@ -284,6 +286,8 @@ export async function sincronizarHorarioUsc(admin: SupabaseClient, ahora: number
   const { data: integraciones, error } = await admin.from('integraciones')
     .select('studio_id, activo, config').eq('tipo', PLATAFORMA);
   if (error) throw new Error(error.message);
+  // Sin contrato o suspendido: como apagada (lib/plataformas/venta-externa.ts).
+  const sinVenta = await estudiosSinVentaExterna(admin, (integraciones ?? []).map(i => i.studio_id as string), ahora);
 
   const presupuesto = { quedan: MAX_LLAMADAS };
   for (const intg of integraciones ?? []) {
@@ -294,7 +298,7 @@ export async function sincronizarHorarioUsc(admin: SupabaseClient, ahora: number
       // Primero los nombres: si la instructora se ha anonimizado, su nombre
       // tiene que salir de USC aunque el estudio ya no publique nada.
       await renombrarTrainers(admin, cred, cfg, intg.studio_id, presupuesto, r);
-      if (!intg.activo || !uscPublicaPorApi(config)) {
+      if (!intg.activo || !uscPublicaPorApi(config) || sinVenta.has(intg.studio_id)) {
         await retirarTodo(admin, cred, cfg, intg.studio_id, presupuesto, r);
         continue;
       }

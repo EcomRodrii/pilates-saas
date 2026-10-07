@@ -3,6 +3,8 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { dbGetIntegracionConfig, dbGuardarIntegracion } from '@/lib/db/supabase-data-admin';
 import type { TipoIntegracion } from '@/lib/types';
 import { credencialesUsc } from '@/lib/plataformas/usc/cliente';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { motivoSinVentaExternaDe } from '@/lib/plataformas/venta-externa';
 
 // Las credenciales de UNA integración, solo cuando de verdad hacen falta.
 //
@@ -46,9 +48,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ config: resto });
   }
   // USC por API solo existe cuando Tentare tiene sus credenciales de
-  // integrador: hasta entonces la pantalla no pide datos que no servirían.
+  // integrador: hasta entonces la pantalla no pide datos que no servirían. Y un
+  // estudio sin contrato o suspendido no publica aunque esté conectado: la
+  // pantalla tiene que decirlo en vez de «van solos» (lib/plataformas/venta-externa.ts).
   if (tipo === 'URBAN_SPORTS_CLUB') {
-    return NextResponse.json({ config, apiDisponible: credencialesUsc() !== null });
+    const admin = getSupabaseAdmin();
+    const corte = admin ? await motivoSinVentaExternaDe(admin, sesion.studioId) : null;
+    return NextResponse.json({
+      config, apiDisponible: credencialesUsc() !== null, ventaCortada: corte === 'error' ? null : corte,
+    });
   }
   return NextResponse.json({ config });
 }

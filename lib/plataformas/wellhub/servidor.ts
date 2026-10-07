@@ -32,6 +32,7 @@ import {
   reservaDelCheckinWellhub, reservaPedidaCaducada, trasConfirmarWellhub, type EventoWellhub, type ResultadoValidacionWellhub,
 } from '../wellhub-eventos.ts';
 import { responderReservaWellhub, validarCheckinWellhub, type CredencialesWellhub } from './cliente.ts';
+import { motivoSinVentaExternaDe } from '../venta-externa.ts';
 
 const PLATAFORMA = 'WELLHUB';
 /** Si Wellhub no dice hasta cuándo se puede validar un check-in, su doc habla de 20 min. */
@@ -95,13 +96,15 @@ export async function registrarReservaPedidaWellhub(admin: SupabaseClient, e: Re
   if (evento.estado_sync === 'CANCELADO' || !evento.sesion_id) return { tipo: 'rechazada', rechazo: rechazoWellhub('SESION_CANCELADA') };
 
   // El gym del evento tiene que ser el del estudio dueño de esa clase, y el
-  // estudio tiene que seguir vendiendo en Wellhub.
-  const [conexion, integracion] = await Promise.all([
+  // estudio tiene que seguir vendiendo en Wellhub: encendida, con contrato y sin
+  // suspender (el cron retira sus slots en su pasada; esto no la espera).
+  const [conexion, integracion, sinVenta] = await Promise.all([
     conexionWellhubDeEstudio(admin, evento.studio_id as string),
     admin.from('integraciones').select('activo').eq('studio_id', evento.studio_id).eq('tipo', PLATAFORMA).maybeSingle(),
+    motivoSinVentaExternaDe(admin, evento.studio_id as string, ahora),
   ]);
-  if (conexion === 'error' || integracion.error) return { tipo: 'error', detalle: 'no se pudo leer la conexión del estudio' };
-  if (!conexion || conexion.gymId !== e.gymId || !integracion.data?.activo) {
+  if (conexion === 'error' || integracion.error || sinVenta === 'error') return { tipo: 'error', detalle: 'no se pudo leer la conexión del estudio' };
+  if (!conexion || conexion.gymId !== e.gymId || !integracion.data?.activo || sinVenta) {
     return { tipo: 'rechazada', rechazo: rechazoWellhub('SESION_NO_ENCONTRADA') };
   }
 
