@@ -51,7 +51,7 @@ test('olvidarProgresoWizard borra el borrador', () => {
 
 test('borrador manipulado con basura no rompe la lectura', () => {
   conStorageFalso(() => {
-    window.localStorage.setItem('tentare-onboarding-wizard-v2', JSON.stringify({
+    window.localStorage.setItem('tentare-onboarding-wizard-v3', JSON.stringify({
       studioId: 'studio-1', paso: -1, ans: { centros: 'x'.repeat(999) }, guardadoEn: Date.now(),
     }));
     assert.equal(leerProgresoWizard('studio-1'), null); // paso negativo: descartado entero
@@ -60,7 +60,7 @@ test('borrador manipulado con basura no rompe la lectura', () => {
 
 test('valores fuera de las listas conocidas (localStorage editado a mano) se filtran, no rompen', () => {
   conStorageFalso(() => {
-    window.localStorage.setItem('tentare-onboarding-wizard-v2', JSON.stringify({
+    window.localStorage.setItem('tentare-onboarding-wizard-v3', JSON.stringify({
       studioId: 'studio-1', paso: 1,
       ans: { centros: 123, clases: ['ok', 456, 'x'.repeat(999)] },
       guardadoEn: Date.now(),
