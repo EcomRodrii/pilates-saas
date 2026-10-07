@@ -403,6 +403,11 @@ export const MAPA: Record<string, SitioDeTenti> = {
     funcion: null, literales: ['hecho'], estados: ['reposo', 'hecho'], emociones: [],
     motivo: 'el servidor confirma que una alumna nueva ya puede reservar: un hito, con celebración',
   },
+  'components/onboarding/estudio-listo.tsx': {
+    sitio: 'Bienvenida › «tu estudio ya está en marcha»',
+    funcion: null, literales: ['hecho'], estados: ['reposo', 'hecho'], emociones: [],
+    motivo: 'el alta termina y el estudio queda montado: un hito, con celebración (fundador, 7-oct-2026)',
+  },
   'components/onboarding/pantallas-valor.tsx': {
     sitio: 'Bienvenida › el logo',
     funcion: null, literales: [], estados: ['reposo'], emociones: ['feliz'],

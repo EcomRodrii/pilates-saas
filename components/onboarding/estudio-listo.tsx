@@ -13,16 +13,16 @@
 //   · Su enlace de reservas, para copiar, y su QR descargable (el mismo que
 //     Configuración → Estudio).
 //
-// La celebración es sobria a propósito: un check que entra y se asienta, sin
-// sonido, sin confeti y sin mascota (Tenti tiene sus sitios en
-// lib/tenti/momentos.ts y este no es uno). Con «reducir movimiento» no hay
-// animación. La pantalla no sella el alta hasta que se sale por cualquiera de
+// La celebración: Tenti en 'hecho' con su celebración breve (lib/tenti/momentos.ts,
+// decisión del fundador del 7-oct-2026). Sin sonido (Tenti no suena) y con el
+// traje que ya le toque por temporada. Con «reducir movimiento», solo ojos felices. La pantalla no sella el alta hasta que se sale por cualquiera de
 // sus botones, así que recargar aquí no pierde nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowRight, CheckCircle2, Copy, FileSpreadsheet, Link2, Loader2, UserPlus } from 'lucide-react';
+import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { copiarAlPortapapeles } from '@/lib/utils';
@@ -111,9 +111,10 @@ export function EstudioListo({
 
       <div className="mx-auto w-full max-w-[1040px] px-5 pb-12 pt-4 sm:px-8">
         <div className="flex items-center gap-4" role="status">
-          <span className="relative flex size-14 shrink-0 items-center justify-center">
-            <span className="ob-aro absolute inset-0 rounded-full bg-brand-medio/25" aria-hidden />
-            <CheckCircle2 size={44} className="ob-check relative text-brand-medio" aria-hidden />
+          {/* Caja FIJA de 80×80 con Tenti celebrando (hito «tu estudio está en
+              marcha»), o el check si el motor no llega: el titular no se mueve. */}
+          <span className="grid size-20 shrink-0 place-items-center">
+            <TentiDiferido estado="hecho" tamano={80} reserva={<CheckCircle2 size={44} className="text-brand-medio" aria-hidden />} />
           </span>
           <div>
             <h1 ref={titulo} tabIndex={-1} className="text-[clamp(24px,4.4vw,34px)] font-bold leading-tight outline-none">
