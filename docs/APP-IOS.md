@@ -114,56 +114,240 @@ actualizar un plugin, o cambiar la identidad de la app.
 
 - `App/App/` — el código nativo: `AppDelegate.swift` (token de push),
   `SceneDelegate.swift` (enlaces que abren la app), `TentareBridgeViewController`
-  y el plugin de Apple, `Info.plist`, `App.entitlements`, iconos y arranque.
+  y el plugin de Apple, `Info.plist`, `App.entitlements`, `PrivacyInfo.xcprivacy`,
+  iconos y arranque.
 - `App/CapApp-SPM/Package.swift` — lo regenera `cap sync`; no se edita.
 - `tentare.xcconfig` — bundle id, nombre y equipo por defecto (ver abajo).
 - Generado y fuera de git (`ios/.gitignore`): `App/App/public/`,
   `capacitor.config.json`, `identidad.local.xcconfig`.
 
-## Firmar con la cuenta de Apple
+### Comprobar que compila para la App Store (sin cuenta de Apple)
 
-1. Darse de alta en el Apple Developer Program (99 $/año). Con una cuenta de
-   **persona física**, el vendedor que sale en la App Store es esa persona.
-2. El **Team ID** está en developer.apple.com → Account → Membership details.
-3. Pasarlo al compilar, sin tocar ficheros versionados:
+```sh
+npm run cap:sync
+cd ios/App
+xcodebuild archive -project App.xcodeproj -scheme App -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/Tentare.xcarchive \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+Tiene que acabar en `** ARCHIVE SUCCEEDED **` sin avisos (pasó así el
+7-oct-2026, Xcode 26.6, SDK iOS 26.5). El archivo sin firmar no se puede subir:
+solo demuestra que Release compila. El de verdad sale de Xcode con la firma
+(paso 8 de «Primer envío»).
+
+## Lo que ya cumple la app (requisitos de Apple, revisado el 7-oct-2026)
+
+| Requisito | Estado | Dónde |
+|---|---|---|
+| Manifiesto de privacidad (obligatorio desde mayo de 2024 para las API «required reason») | ✅ | `ios/App/App/PrivacyInfo.xcprivacy` (ver abajo) |
+| Texto de cada permiso que la app puede pedir | ✅ | `Info.plist`: cámara (QR de la clase y foto de perfil), fotos (elegir y guardar), calendario (los tres `NSCalendars*`). Los avisos no llevan texto |
+| `ITSAppUsesNonExemptEncryption = NO` | ✅ | `Info.plist`. Solo el HTTPS del sistema y un SHA-256 para el nonce de Apple: exento |
+| Icono 1024×1024 sin canal alfa | ✅ | `Assets.xcassets/AppIcon.appiconset` (icono de un solo tamaño: Xcode saca los demás). `npm run iconos:ios` lo regenera |
+| Solo iPhone, versión 1.0 (1) | ✅ | `TARGETED_DEVICE_FAMILY = 1`, `MARKETING_VERSION = 1.0`, `CURRENT_PROJECT_VERSION = 1`, en Debug y Release |
+| Push, Iniciar sesión con Apple, dominios asociados | ✅ en el proyecto, ⏳ en el portal | `App.entitlements`. Falta activarlos en el App ID (paso 3) |
+| Universal Links (`/.well-known/apple-app-site-association`) | ⏳ | Formato correcto (`applinks.details[].appIDs` + `components`, y `webcredentials`), JSON y sin redirección en `www`. Hoy responde **404** porque falta `APPLE_TEAM_ID` en Vercel (paso 4) |
+| 4.2 Funcionalidad mínima | ✅ | Push, Iniciar sesión con Apple, «+ Calendario» nativo, QR con la cámara, brillo al máximo con el QR, Texto más grande, gesto de volver. Ver «Revisión» |
+| 4.8 Iniciar sesión con Apple si hay Google | ✅ | `/app` y el acceso de cada estudio, Apple siempre delante |
+| 5.1.1(v) Borrar la cuenta desde la app | ✅ | Perfil › Privacidad y datos › «Borrar mi cuenta de Tentare» (#2512): borra la cuenta al momento |
+| Revocar el token de Apple al borrar la cuenta (TN3194) | ⚠️ alternativa | No guardamos el token de Apple, así que la hoja de «cuenta borrada» le dice cómo quitar Tentare de «Iniciar sesión con Apple» en Ajustes, que es la salida que da Apple cuando no hay token |
+| 1.2 Contenido generado por usuarios | ✅ | Ver la tabla de la guía 1.2, más abajo |
+| Cuenta de prueba para el revisor | ⏳ | El código está; la cuenta la crea el fundador («Acceso para la revisión de Apple») |
+
+### Manifiesto de privacidad
+
+`ios/App/App/PrivacyInfo.xcprivacy`, dentro del bundle de la app (fase Resources).
+
+- **API «required reason»**: solo la fecha de los ficheros
+  (`NSPrivacyAccessedAPICategoryFileTimestamp`, razón `C617.1`: ficheros dentro
+  del contenedor de la app). La usa `IONFilesystemLib`, la librería de
+  `@capacitor/filesystem`, que no trae manifiesto propio. Capacitor y Cordova
+  traen el suyo (vacío). Comprobado contra el binario archivado (`nm -u App`):
+  ni `UserDefaults`, ni tiempo de arranque, ni espacio en disco.
+  ⚠️ Si se añade un plugin, repetir la comprobación: puede traer otra API, y
+  App Store Connect rechaza la subida si falta su razón.
+- **Datos que se recogen** (todos para que la app funcione, ninguno para
+  seguimiento, `NSPrivacyTracking = false`): nombre, email, teléfono, salud (la
+  ficha de salud), datos de pago (Stripe), compras, fotos (la de perfil),
+  contenido de la usuaria (chat y tablón), soporte, id de usuario e id de
+  dispositivo (el token de push), vinculados a la persona; diagnóstico de fallos
+  y rendimiento (Sentry), sin vincular. **«App Privacy» en App Store Connect
+  tiene que decir lo mismo**: si cambia uno, cambia el otro.
+
+### Permisos: qué se pide y qué no
+
+Un permiso que se pide sin su texto en `Info.plist` cierra la app, y App Store
+Connect rechaza la subida si el binario usa una API de permiso sin texto
+(ITMS-90683). Los que hay son los que la app puede pedir:
+
+- **Cámara**: el lector del QR de la clase (`EscanerQrClase`) y «Hacer foto» al
+  cambiar la foto de perfil.
+- **Fotos**: elegir la foto de perfil, y «Guardar imagen» desde la hoja de
+  compartir (sin `NSPhotoLibraryAddUsageDescription` esa opción cierra la app).
+- **Calendario**: ver «+ Calendario» más abajo (la app no pide acceso, pero el
+  binario del plugin hace referencia a las API de permiso).
+
+No se piden, y por eso no llevan texto: micrófono y ubicación (el dictado de
+notas y el «cerca de mí» de Network son del panel, que se usa en Safari; si
+alguna vez se abrieran en la app, WebKit deniega sin cerrarla), contactos,
+Face ID y seguimiento (ATT). Los textos van en español en `Info.plist`
+(`CFBundleDevelopmentRegion = es`), sin `InfoPlist.strings`, porque la app solo
+está en español. Si se traduce, se crea `<idioma>.lproj/InfoPlist.strings`.
+
+## Acceso para la revisión de Apple
+
+El revisor de Apple no puede leer nuestro correo, y Apple pide unas
+credenciales que funcionen. Hay **una** cuenta de demo que entra con un código
+fijo en vez del código del correo:
+
+- **Tres variables de entorno del servidor**, solo en Vercel → **Production**
+  (las previews comparten la base de datos de producción): `APP_REVIEW_EMAIL`
+  (el email exacto de la cuenta), `APP_REVIEW_CODIGO` (6 cifras; uno trivial,
+  como `000000` o `123456`, se ignora) y `APP_REVIEW_STUDIO_ID` (el id del
+  estudio donde está su ficha). **Sin las tres, no existe.**
+- La única puerta es `/api/auth/otp/verificar`, la misma del código del correo,
+  después de sus límites (30 intentos/5 min por IP y 6/15 min por email).
+  Además, el email de demo tiene un tope de **20 intentos al día**; agotado, o
+  si el contador no puede contar, el código fijo deja de valer (el del correo
+  sigue valiendo) y se contesta igual que a un código equivocado. Quien conozca
+  el email puede gastar esos 20 intentos y dejar al revisor fuera hasta el día
+  siguiente: por eso el email solo se da en App Store Connect.
+- Comparación en tiempo constante. Solo para ese email exacto (sin distinguir
+  mayúsculas).
+- Solo para una cuenta que ya existe y que es **solo alumna** (ni equipo, ni
+  dueña, ni Tentare, ni Network: el mismo criterio que «Borrar mi cuenta»), con
+  ficha en el estudio de `APP_REVIEW_STUDIO_ID` y **sin verificación en dos
+  pasos**. Si alguien pusiera
+  en la variable el email de una propietaria o de una cuenta con 2FA, el código
+  fijo no abre nada. La sesión que emite es la normal de un código de correo,
+  así que las guardias de siempre la tratan igual.
+- Quien tenga el código no se queda la cuenta: en cada entrada con el código
+  fijo se le pone una contraseña al azar (borra la que alguien le hubiera
+  puesto) y se cierran sus demás sesiones.
+- Cada entrada y cada rechazo quedan en Sentry (`area: acceso-revision`), sin el
+  email ni el código. Al cliente, un rechazo le dice lo mismo que un código
+  equivocado.
+- Código: `lib/auth/acceso-revision.ts` (reglas, con tests) y
+  `lib/auth/acceso-revision-servidor.ts`.
+
+**Lo que tiene que crear el fundador** (nada de esto está creado):
+
+1. Un email suyo que no use para nada más (por ejemplo un alias de su dominio).
+   No el de su cuenta de propietaria: la regla de «solo alumna» lo rechazaría, y
+   es lo que queremos.
+2. **Una alumna de demo** con ese email, dada de alta desde el panel. Mejor en
+   un **estudio de demostración** (sin alumnas reales) que en el estudio real:
+   el revisor, y cualquiera que tuviera el código, vería la comunidad y el
+   nombre de las demás alumnas. Con un plan o bono activo para que pueda
+   reservar, alguna clase en los próximos días, un mensaje del estudio en su
+   chat y una publicación del tablón con un comentario de otra alumna (lo que
+   pide la guía 1.2, ver su tabla). El id del estudio (`APP_REVIEW_STUDIO_ID`)
+   se ve en /interno o en la tabla `studios`.
+3. Entrar una vez en la app con ese email y el código que le llega, y comprobar
+   que se ve bien. La cuenta la crea ese primer acceso (el código fijo no crea
+   cuentas).
+4. En Vercel → Settings → Environment Variables (solo Production):
+   `APP_REVIEW_EMAIL`, `APP_REVIEW_CODIGO` (6 cifras al azar) y
+   `APP_REVIEW_STUDIO_ID`. Desplegar un
+   cambio de **código** para que las recoja (un merge de solo `.md` no
+   despliega).
+5. Probarlo: en la app, el email, «Continuar» y, en la pantalla del código, el
+   código fijo.
+6. En App Store Connect → la versión → «App Review Information» → «Sign-in
+   required»: ese email como usuario y el código fijo como contraseña, con una
+   nota del estilo: «Escribe el email, pulsa Continuar y, cuando pida el código
+   de 6 cifras, escribe el de arriba (no hace falta abrir el correo)».
+
+⚠️ Si el revisor prueba «Borrar mi cuenta» con la demo, se borra la cuenta pero
+la ficha del estudio se queda: el siguiente acceso con el email vuelve a crear la
+cuenta y la vincula, y el código fijo vuelve a valer. Si crea un estudio con esa
+cuenta, deja de ser «solo alumna» y el código fijo deja de valer (avisa Sentry):
+hay que borrar ese estudio. Lo mismo si activa la verificación en dos pasos:
+hay que quitársela desde la ficha.
+
+**Retirar la demo tras la aprobación** (y volver a montarla en el siguiente
+envío): quitar las tres variables de Vercel **y** bloquear la cuenta (Supabase
+→ Authentication → Users → la cuenta → «Ban user») o borrarla. Quitar las
+variables no cierra las sesiones que ya se abrieron; bloquearla, sí (y al volver a montarla hay que desbloquearla: bloqueada, el código fijo no entra).
+
+## Primer envío: los pasos del fundador, en orden
+
+Todo lo que es código y configuración del proyecto ya está. Lo que queda
+necesita la cuenta de Apple Developer:
+
+1. **Alta en el Apple Developer Program** (99 $/año). Con una cuenta de persona
+   física, el vendedor que sale en la App Store es esa persona; con una de
+   empresa (pide número D-U-N-S), la empresa.
+2. **Xcode con su Apple ID**: Xcode → Settings → Accounts → «+» → Apple ID. Su
+   **Team ID** está en developer.apple.com → Account → Membership details (10
+   caracteres). Se pasa al proyecto sin tocar ficheros versionados:
    ```sh
    TENTARE_APPLE_TEAM_ID=XXXXXXXXXX npm run cap:sync
    ```
-   Se guarda en `ios/identidad.local.xcconfig` (fuera de git). También se puede
-   elegir en Xcode → target App → Signing & Capabilities, pero eso lo escribe en
-   `project.pbxproj`: no se commitea (el repo es público).
-4. Firma automática: Xcode crea el App ID y los perfiles.
+   Se guarda en `ios/identidad.local.xcconfig` (fuera de git; el repo es
+   público). No elegirlo en Xcode → Signing & Capabilities: eso lo escribe en
+   `project.pbxproj`, que sí se versiona.
+3. **El App ID**: developer.apple.com → Certificates, Identifiers & Profiles →
+   Identifiers → «+» → App IDs → App → descripción «Tentare», Bundle ID
+   **explícito** `app.tentare`, y marcar **Associated Domains**, **Push
+   Notifications** y **Sign in with Apple** («Enable as a primary App ID»).
+   Con firma automática Xcode lo crearía solo, pero así se ve que están las
+   tres.
+4. **Universal Links**: en Vercel (Production), `APPLE_TEAM_ID` = el Team ID.
+   Tras desplegar,
+   `curl -i https://www.tentare.app/.well-known/apple-app-site-association`
+   tiene que dar `200`, `content-type: application/json` y
+   `"appIDs":["XXXXXXXXXX.app.tentare"]`. ⚠️ `tentare.app` (sin `www`) redirige
+   con un 308 y Apple no sigue redirecciones: los enlaces al dominio sin `www`
+   no abrirán la app (los que manda Tentare llevan `www`). Para que valgan
+   también, ese fichero tendría que servirse en el dominio sin `www` sin
+   redirigir (ajuste de dominios de Vercel, no de código).
+5. **Avisos push (APNs)**: developer.apple.com → Keys → «+» → un nombre, marcar
+   **Apple Push Notifications service (APNs)** → Continue → Register →
+   **Download** (el `AuthKey_XXXXXXXXXX.p8` se descarga **una sola vez**:
+   guardarlo fuera del repo). En Vercel (Production):
+   - `APNS_KEY_ID`: el Key ID de esa clave
+   - `APNS_TEAM_ID`: el Team ID
+   - `APNS_PRIVATE_KEY`: el contenido entero del `.p8` (con
+     `-----BEGIN PRIVATE KEY-----`; los saltos de línea pueden ir como `\n`)
+   - `APNS_ENTORNO`: `production` (TestFlight y App Store). Solo una
+     compilación de Xcode instalada en un iPhone usa `sandbox`.
 
-### Capacidades en el portal de Apple
-
-En developer.apple.com → Identifiers → `app.tentare`, activar (Xcode lo hace
-solo con firma automática si los entitlements ya están, pero conviene mirarlo):
-
-- **Push Notifications**
-- **Sign in with Apple**
-- **Associated Domains**
-
-`App.entitlements` ya los pide: `aps-environment`, `applinks:www.tentare.app` y
-`applinks:tentare.app`, y Sign in with Apple (`Default`).
-
-### Clave de APNs (.p8)
-
-Para que el servidor mande avisos push:
-
-1. developer.apple.com → Keys → «+» → marcar **Apple Push Notifications
-   service (APNs)**. Se descarga **una sola vez** un `AuthKey_XXXXXXXXXX.p8`.
-2. Apuntar el **Key ID** y el **Team ID**.
-3. Guardarlos como variables de entorno en Vercel (el envío lo programa otro
-   carril). **Nunca** el `.p8` en el repo.
-
-Una clave vale para todas las apps del mismo equipo; el aviso va a una app u
-otra por el `apns-topic`, que es su bundle id (por eso `RegistroTokenNativo`
-lleva `bundleId`).
-
-⚠️ `aps-environment` es `development` en el repo. Una compilación desde Xcode a
-un iPhone recibe por el APNs de **sandbox** (`api.sandbox.push.apple.com`); al
-archivar para TestFlight/App Store el perfil lo cambia a `production` y hay que
-mandar por `api.push.apple.com`. Un token de uno no vale en el otro.
+   Una clave vale para todas las apps del equipo; el aviso va a una u otra por
+   el `apns-topic` (su bundle id).
+6. **Iniciar sesión con Apple en Supabase**: Dashboard → Authentication →
+   Sign In / Providers → Apple → activar, y en **Client IDs** poner
+   `app.tentare`. Para la app basta con eso: el login es nativo
+   (`signInWithIdToken`), así que **no hace falta Service ID ni clave secreta**.
+   Solo harían falta para un «Iniciar sesión con Apple» en la WEB, que hoy no
+   existe; si algún día se quiere: Identifiers → «+» → Services IDs, con
+   `www.tentare.app` como dominio y
+   `https://<proyecto>.supabase.co/auth/v1/callback` como Return URL, una clave
+   de «Sign in with Apple» en Keys, y los dos en ese mismo proveedor de Supabase
+   (la clave secreta caduca cada 6 meses). De paso, en Authentication → URL
+   Configuration → Redirect URLs, comprobar que está `app.tentare://auth/vuelta`
+   (Google en la app). Y la cuenta de revisión: «Acceso para la revisión de
+   Apple», arriba.
+7. **App Store Connect**: Apps → «+» → New App: iOS, nombre «Tentare», idioma
+   principal Español (España), bundle id `app.tentare`, un SKU (p. ej.
+   `tentare-ios`). La ficha, las capturas y la privacidad van en su propia guía;
+   «App Privacy» tiene que cuadrar con el manifiesto (arriba).
+8. **Archivar y subir**: en Xcode, destino «Any iOS Device (arm64)» → Product →
+   Archive. En el Organizer: Distribute App → **App Store Connect** → Upload,
+   con firma automática. Al firmar para distribución, Xcode pone
+   `aps-environment = production` (en el repo es `development`). Cada subida
+   necesita un **build nuevo**: subir `CURRENT_PROJECT_VERSION` (1, 2, 3…) en
+   Debug y Release de `project.pbxproj`; `MARKETING_VERSION` (1.0) solo cambia
+   con una versión nueva en la tienda. Si a la subida le falta algo (un texto
+   de permiso, una razón del manifiesto), App Store Connect lo dice por correo.
+9. **TestFlight**: el build aparece tras unos minutos de proceso. Probadores
+   internos (hasta 100 del equipo de App Store Connect) al momento; externos,
+   tras una revisión beta. Probar en un iPhone: que carga `/app`, el modo avión
+   (página de «Sin conexión»), Iniciar sesión con Apple, el permiso de avisos y
+   que llega uno, un Universal Link desde Notas, el QR con la cámara y la
+   cuenta de revisión con su código fijo.
+10. **Enviar a revisión**: en la versión 1.0, elegir el build, rellenar «App
+    Review Information» (la cuenta de revisión) y «Submit for Review».
 
 ## Lo que la web tiene que tener para que esto funcione
 
@@ -178,12 +362,14 @@ En el servidor (PR #2487):
   se guarda como `apns://<bundleId>/<token>` y lo envía el canal PUSH por APNs
   (`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_ENTORNO`).
 
-Pendiente:
+- **Borrar la cuenta desde la app** (guía 5.1.1(v)): Perfil › Privacidad y datos ›
+  «Borrar mi cuenta de Tentare» (#2512, `app/api/public/cuenta/borrar`).
+- **Acceso de la revisión de Apple**: `/api/auth/otp/verificar` con las variables
+  `APP_REVIEW_*` (ver su sección).
 
-- **Supabase Auth**: proveedor Apple con el bundle id (`app.tentare`) entre sus
-  Client IDs; `app.tentare://auth/vuelta` en Redirect URLs para Google.
-- **Borrar la cuenta desde la app** (guía 5.1.1(v)): hoy la alumna lo solicita desde
-  Perfil → Privacidad y datos y lo ejecuta su estudio en 30 días.
+Pendiente (lo hace el fundador, pasos 4–6 de «Primer envío»): `APPLE_TEAM_ID` y
+las cuatro `APNS_*` en Vercel, y el proveedor Apple de Supabase con `app.tentare`
+en sus Client IDs.
 
 ## Iconos y pantalla de arranque
 
@@ -195,23 +381,19 @@ Sale del kit de marca (`docs/marca/`), como `scripts/regenerar-marca.mjs`: icono
 de 1024 px a sangre y **sin canal alfa** (App Store Connect rechaza un icono con
 transparencia) y arranque claro y oscuro de 2732 px.
 
-## TestFlight y revisión
+## Revisión
 
-1. App Store Connect → Apps → «+»: plataforma iOS, nombre, idioma principal
-   español, bundle id `app.tentare`, un SKU.
-2. Xcode: destino «Any iOS Device» → Product → Archive → Distribute App → App
-   Store Connect → Upload. Subir `CURRENT_PROJECT_VERSION` (build) en cada
-   subida.
-3. TestFlight: probadores internos al momento; externos, tras una revisión beta.
-4. Para la App Store: capturas de iPhone 6,9" (la app es solo de iPhone:
-   `TARGETED_DEVICE_FAMILY = 1`), URL de privacidad y de soporte, la ficha de privacidad
-   («App Privacy») y una cuenta de prueba para el revisor.
+Los pasos para subir y enviar están en «Primer envío», arriba. Para la ficha:
+capturas de iPhone 6,9" (la app es solo de iPhone), URL de privacidad y de
+soporte, «App Privacy» y la cuenta de prueba.
 
 Puntos de la revisión que tocan a esta app:
 
 - **4.2 (funcionalidad mínima)**: una web metida en una app se rechaza si no
-  aporta nada. Aquí aportan push, Iniciar sesión con Apple, compartir al
-  Calendario y la cámara para el QR de la clase.
+  aporta nada. Aquí aportan push, Iniciar sesión con Apple, «+ Calendario» con la
+  hoja de iOS, la cámara para el QR de la clase, el brillo al máximo al enseñar
+  el QR, «Texto más grande» y el gesto de volver (ver «Lo de la app de la alumna
+  que solo existe en el iPhone»). Conviene decírselo al revisor en las notas.
 - **4.8**: si se ofrece Google, hay que ofrecer también Iniciar sesión con Apple.
 - **3.1.3(e)**: clases y cuotas son servicios que se consumen fuera de la app,
   así que se cobran con Stripe, sin compras dentro de la app.
@@ -353,8 +535,10 @@ WKWebView (la salida es el plugin nativo de Stripe, no la web).
 
 ## Qué no se ha podido comprobar
 
-Este proyecto se preparó sin Xcode: no se ha compilado ni ejecutado nunca. Lo
-primero al abrirlo es compilar en el simulador y probar, por este orden: que
-carga `/app`, la página de «Sin conexión» en modo avión, Iniciar sesión con
-Apple (el plugin propio), el registro de push (en un iPhone real; el simulador
-solo da token en un Mac con Apple silicon) y un Universal Link desde Notas.
+Compila en el simulador (Debug) y se archiva en Release sin firmar (7-oct-2026),
+y en el simulador carga producción. Lo que solo se puede probar con la cuenta de
+Apple y un iPhone (paso 9 de «Primer envío»): la firma y la subida, Iniciar
+sesión con Apple (el plugin propio, necesita la capacidad en el App ID), el
+registro de push y que llegue un aviso (APNs de producción), un Universal Link
+desde Notas (necesita `APPLE_TEAM_ID`), y la cuenta de revisión contra
+producción (necesita la alumna de demo y las variables).

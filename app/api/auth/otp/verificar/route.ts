@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { claveRateLimit, enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { accesoRevision } from '@/lib/auth/acceso-revision-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,12 @@ export const dynamic = 'force-dynamic';
 // caducó — a propósito, para no dar a quien prueba una pista de "casi
 // aciertas". No se fabrica aquí una distinción que gotrue niega
 // deliberadamente por seguridad: un único mensaje honesto cubre ambos casos.
+async function soltarCerrojo(email: string) {
+  const admin = getSupabaseAdmin();
+  const claveCerrojo = await claveRateLimit(`otp-verify-email:${email}`);
+  if (admin && claveCerrojo) await admin.from('rate_limits').delete().eq('bucket_key', claveCerrojo);
+}
+
 export async function POST(req: NextRequest) {
   const porIp = await enforceRateLimit(req, 'otp-verify', { max: 30, windowSeconds: 300 });
   if (porIp) return porIp;
@@ -48,6 +55,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const errorCodigo = () => NextResponse.json(
+    {
+      error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.',
+      errorCode: 'INVALIDO',
+      // Los intentos que le quedan, para que la pantalla pueda decirlo. Solo
+      // con un recuento de verdad (`resetAt`): si el limitador no ha podido
+      // contar (fail-open), «te quedan 6» sería un número inventado.
+      ...(porEmail.resetAt ? { intentosRestantes: porEmail.remaining } : {}),
+    },
+    { status: 400 },
+  );
+
+  // La cuenta de demo de la revisión de Apple, con su código fijo (docs/APP-IOS.md,
+  // lib/auth/acceso-revision.ts). Va DESPUÉS de los dos límites de arriba. Para
+  // cualquier otro email, o sin las variables APP_REVIEW_*, no hace nada.
+  const revision = await accesoRevision(email, token);
+  if (revision.tipo === 'rechazado') return errorCodigo();
+  if (revision.tipo === 'ok') {
+    await soltarCerrojo(email);
+    return NextResponse.json({ ok: true, session: revision.session });
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
@@ -63,19 +92,7 @@ export async function POST(req: NextRequest) {
   // alta, luego el de entrar— (gotrue `verify.go`, verificación de OTP por correo).
   // El límite de intentos por email de arriba es el mismo para los dos.
   const { data, error } = await auth.auth.verifyOtp({ email, token, type: 'email' });
-  if (error || !data.session) {
-    return NextResponse.json(
-      {
-        error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.',
-        errorCode: 'INVALIDO',
-        // Los intentos que le quedan, para que la pantalla pueda decirlo. Solo
-        // con un recuento de verdad (`resetAt`): si el limitador no ha podido
-        // contar (fail-open), «te quedan 6» sería un número inventado.
-        ...(porEmail.resetAt ? { intentosRestantes: porEmail.remaining } : {}),
-      },
-      { status: 400 },
-    );
-  }
+  if (error || !data.session) return errorCodigo();
 
   // Auditoría 22ª pasada (3-sep-2026), S-1: único sitio seguro para resetear
   // el cerrojo de intentos. Antes existía `/api/auth/otp/reenviado`, un
@@ -88,9 +105,7 @@ export async function POST(req: NextRequest) {
   // siga en pie unos minutos más para un email que ya no lo necesita.
   // La fila se guarda con la clave opaca (HMAC), no con el email en claro: hay
   // que recomponerla igual que la compuso `rateLimit` o el DELETE no toca nada.
-  const admin = getSupabaseAdmin();
-  const claveCerrojo = await claveRateLimit(`otp-verify-email:${email}`);
-  if (admin && claveCerrojo) await admin.from('rate_limits').delete().eq('bucket_key', claveCerrojo);
+  await soltarCerrojo(email);
 
   // Solo lo estrictamente necesario para que el navegador rehidrate la
   // sesión con `setSession()` — nunca se registra el token en logs (Next.js
