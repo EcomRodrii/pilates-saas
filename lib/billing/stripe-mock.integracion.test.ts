@@ -149,6 +149,88 @@ test('1b · Mi plan: renovar el plan (Checkout de Stripe, con Bizum pedido en un
   assert.equal(peticiones('GET', `/v1/accounts/${CUENTA}`).length, 0, 'ni siquiera pregunta si Bizum está activo');
 });
 
+test('1d · Recibos: una hoja abierta a punto de caducar no se devuelve; se cierra (mirando antes si se pagó) y se abre otra', { skip: omitir }, async () => {
+  const db = baseEstudio({
+    recibos: [{ id: 'rec-arnes-vieja', studio_id: STUDIO, socio_id: SOCIA, importe: 45, concepto: 'Cuota', estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: null, checkout_session_id: 'cs_test_ArnesCasiCaducada' }],
+  });
+  preparar(db);
+  // La misma que se pediría (incrustada, de la titular, mismo importe y método)… con 5 min de vida.
+  retocar((p, j) => (p.metodo === 'GET' && p.ruta === '/v1/checkout/sessions/cs_test_ArnesCasiCaducada' ? {
+    ...j, status: 'open', payment_status: 'unpaid', amount_total: 4500, ui_mode: 'embedded_page', payment_method_types: ['card'],
+    client_secret: 'cs_test_ArnesCasiCaducada_secret_x', expires_at: Math.floor(Date.now() / 1000) + 5 * 60,
+    metadata: { studioId: STUDIO, reciboId: 'rec-arnes-vieja', pagadorVerificado: '1' },
+  } : undefined));
+  retocar((p, j) => (p.metodo === 'POST' && p.ruta === '/v1/checkout/sessions/cs_test_ArnesCasiCaducada/expire' ? { ...j, status: 'expired', payment_status: 'unpaid' } : undefined));
+  const { POST } = await import('../../app/api/stripe/checkout/route.ts');
+  const r = await llamar(POST as Manejador, '/api/stripe/checkout', {
+    method: 'POST', body: { studioId: STUDIO, reciboId: 'rec-arnes-vieja', origen: 'portal', modo: 'incrustado' }, headers: BEARER,
+  });
+  sinRechazos(r, db);
+  assert.equal(r.status, 200, contexto(r, db));
+  assert.notEqual(r.json.clientSecret, 'cs_test_ArnesCasiCaducada_secret_x', 'no le da la que caduca en 5 min');
+  // La ruta la lee, y el cierre la vuelve a mirar ANTES de cerrarla (por si se acaba de pagar).
+  assert.equal(peticiones('GET', '/v1/checkout/sessions/cs_test_ArnesCasiCaducada').length, 2, contexto(r, db));
+  unaPeticion('POST', '/v1/checkout/sessions/cs_test_ArnesCasiCaducada/expire', r, db);
+  unaPeticion('POST', '/v1/checkout/sessions', r, db);
+});
+
+test('1e · Recibos: la que caducaba se acaba de pagar mientras se cerraba: ni se cierra ni se abre otra (nunca dos cobros)', { skip: omitir }, async () => {
+  const db = baseEstudio({
+    recibos: [{ id: 'rec-arnes-carrera', studio_id: STUDIO, socio_id: SOCIA, importe: 45, concepto: 'Cuota', estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: null, checkout_session_id: 'cs_test_ArnesCarrera' }],
+  });
+  preparar(db);
+  // Abierta y a punto de caducar en las dos primeras lecturas; pagada en la de después del intento de cierre.
+  let lecturas = 0;
+  retocar((p, j) => {
+    if (p.metodo !== 'GET' || p.ruta !== '/v1/checkout/sessions/cs_test_ArnesCarrera') return undefined;
+    lecturas++;
+    return {
+      ...j, status: lecturas <= 2 ? 'open' : 'complete', payment_status: lecturas <= 2 ? 'unpaid' : 'paid', amount_total: 4500,
+      ui_mode: 'embedded_page', payment_method_types: ['card'], client_secret: 'cs_test_ArnesCarrera_secret_x',
+      expires_at: Math.floor(Date.now() / 1000) + 3 * 60, metadata: { studioId: STUDIO, reciboId: 'rec-arnes-carrera', pagadorVerificado: '1' },
+    };
+  });
+  // Stripe no deja cerrarla: se está pagando.
+  retocar((p) => (p.metodo === 'POST' && p.ruta === '/v1/checkout/sessions/cs_test_ArnesCarrera/expire'
+    ? { __estado: 400, error: { type: 'invalid_request_error', message: 'This Checkout Session is not in an expirable state.' } } : undefined));
+  const { POST } = await import('../../app/api/stripe/checkout/route.ts');
+  const r = await llamar(POST as Manejador, '/api/stripe/checkout', {
+    method: 'POST', body: { studioId: STUDIO, reciboId: 'rec-arnes-carrera', origen: 'portal', modo: 'incrustado' }, headers: BEARER,
+  });
+  sinRechazos(r, db);
+  assert.equal(r.status, 409, contexto(r, db));
+  assert.equal(peticiones('POST', '/v1/checkout/sessions').length, 0, 'no se abre otra sesión');
+  assert.equal(db.tablas.recibos[0].checkout_session_id, 'cs_test_ArnesCarrera');
+});
+
+test('1f · Recibos: el conciliador suelta la sesión caducada entre el cierre y el guardado: se guarda la nueva igual', { skip: omitir }, async () => {
+  const db = baseEstudio({
+    recibos: [{ id: 'rec-arnes-concil', studio_id: STUDIO, socio_id: SOCIA, importe: 45, concepto: 'Cuota', estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: null, checkout_session_id: 'cs_test_ArnesConcil' }],
+  });
+  preparar(db);
+  retocar((p, j) => (p.metodo === 'GET' && p.ruta === '/v1/checkout/sessions/cs_test_ArnesConcil' ? {
+    ...j, status: 'open', payment_status: 'unpaid', amount_total: 4500, ui_mode: 'embedded_page', payment_method_types: ['card'],
+    client_secret: 'cs_test_ArnesConcil_secret_x', expires_at: Math.floor(Date.now() / 1000) + 2 * 60,
+    metadata: { studioId: STUDIO, reciboId: 'rec-arnes-concil', pagadorVerificado: '1' },
+  } : undefined));
+  // Al cerrarla, el conciliador (en paralelo) ya la ha soltado del recibo.
+  retocar((p, j) => {
+    if (p.metodo !== 'POST' || p.ruta !== '/v1/checkout/sessions/cs_test_ArnesConcil/expire') return undefined;
+    db.tablas.recibos[0].checkout_session_id = null;
+    return { ...j, status: 'expired', payment_status: 'unpaid' };
+  });
+  const { POST } = await import('../../app/api/stripe/checkout/route.ts');
+  const r = await llamar(POST as Manejador, '/api/stripe/checkout', {
+    method: 'POST', body: { studioId: STUDIO, reciboId: 'rec-arnes-concil', origen: 'portal', modo: 'incrustado' }, headers: BEARER,
+  });
+  sinRechazos(r, db);
+  assert.equal(r.status, 200, contexto(r, db));
+  const nueva = unaPeticion('POST', '/v1/checkout/sessions', r, db);
+  assert.ok(nueva);
+  assert.equal(r.json.checkoutSessionId, db.tablas.recibos[0].checkout_session_id, 'la nueva queda guardada en el recibo');
+  assert.equal(peticiones('POST', /\/expire$/).length, 1, 'y no se cierra la nueva');
+});
+
 test('1c · Recibos: con una sesión anterior abierta por otro importe, la cierra antes de abrir otra', { skip: omitir }, async () => {
   const db = baseEstudio({
     recibos: [{ id: 'rec-arnes-previa', studio_id: STUDIO, socio_id: SOCIA, importe: 45, concepto: 'Cuota', estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: null, checkout_session_id: 'cs_test_ArnesPrevia' }],
