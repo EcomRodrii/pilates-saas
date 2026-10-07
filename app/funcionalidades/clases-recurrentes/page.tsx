@@ -46,7 +46,7 @@ export default function ClasesRecurrentesPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Agenda"
+      busqueda="Clases recurrentes y horario semanal del estudio"
       h1={<>Tu horario de siempre, programado una vez.</>}
       intro={<>Las clases que se repiten se crean en bloque, se editan en bloque y avisan antes de acabarse. Para que no descubras en octubre que tu horario se terminó la semana pasada.</>}
       chips={['Series de varias semanas', 'Aviso antes del final', 'Renovación sin sorpresas']}

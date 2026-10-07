@@ -48,7 +48,7 @@ export default function SustitucionesPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="El corazón de Tentare"
+      busqueda="Sustituciones automáticas de instructoras de Pilates"
       h1={<>La baja se cubre sola.</>}
       intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y te la propone. Con tu visto bueno —o solo, si lo dejas en autónomo— le escribe y le insiste.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}

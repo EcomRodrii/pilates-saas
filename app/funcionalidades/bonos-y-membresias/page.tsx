@@ -42,7 +42,7 @@ export default function BonosPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Lo que vendes"
+      busqueda="Gestión de bonos y cuotas para estudios de Pilates"
       h1={<>Cuatro formas de cobrar, en el mismo estudio.</>}
       intro={<>Cuota mensual, bono de sesiones, clase suelta y plaza fija semanal. Con caducidades, topes y planes que solo valen para ciertas clases.</>}
       chips={['Planes por tipo de clase', 'Plaza fija y recuperaciones', 'Congelación de cuotas']}

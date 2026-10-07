@@ -42,7 +42,7 @@ export default function ListaEsperaPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Clases llenas"
+      busqueda="Lista de espera automática para clases de Pilates"
       h1={<>El hueco que deja una cancelación no se pierde.</>}
       intro={<>Cuando alguien cancela, la plaza se ofrece sola a la siguiente de la cola. Y si le das un plazo para aceptar, no acabas metiendo a nadie en una clase de la que no se ha enterado.</>}
       chips={['Promoción automática', 'Oferta con plazo', 'Sin consumir bono hasta confirmar']}

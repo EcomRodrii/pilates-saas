@@ -46,7 +46,7 @@ export default function AppAlumnasPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Lo que ve tu alumna"
+      busqueda="App para estudios de Pilates y yoga, con tu marca"
       h1={<>Tu estudio, en su pantalla de inicio.</>}
       intro={<>Reservar, comprar su bono, ver cuántas sesiones le quedan y su progreso — en una app con tu nombre y tu logo, instalada en su móvil sin pasar por ninguna tienda.</>}
       chips={['Icono y nombre de tu estudio', 'Avisos al móvil', 'Sin App Store']}

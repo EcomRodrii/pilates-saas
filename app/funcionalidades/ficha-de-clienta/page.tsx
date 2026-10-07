@@ -46,7 +46,7 @@ export default function FichaPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="CRM del estudio"
+      busqueda="CRM y ficha de alumna para estudios de Pilates"
       h1={<>Saber quién es antes de que entre por la puerta.</>}
       intro={<>Historial, bonos, asistencia y notas de progreso de cada alumna. Y sus limitaciones físicas donde tienen que estar: delante de quien le va a dar la clase.</>}
       chips={['Historial completo', 'Ficha de salud operativa', 'Consentimiento trazable']}

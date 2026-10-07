@@ -42,7 +42,7 @@ export default function InstructorasPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Tu equipo"
+      busqueda="Gestión de instructoras y profesores de Pilates"
       h1={<>Quién puede dar qué, y cuándo.</>}
       intro={<>Disponibilidad, vacaciones, horas y tarifas de cada instructora en un sitio. Los mismos datos con los que cuadras el horario son los que cubren una baja sola.</>}
       chips={['Disponibilidad y bloqueos', 'Tarifa por hora y liquidación', 'Aviso de dependencia']}

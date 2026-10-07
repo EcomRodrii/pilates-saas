@@ -42,7 +42,7 @@ export default function CobrosPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Cobros y morosidad"
+      busqueda="Cobros automáticos y domiciliación SEPA para estudios de Pilates"
       h1={<>Cobra sin perseguir a nadie.</>}
       intro={<>La cuota se cobra sola el día que toca. Y cuando una tarjeta falla —que fallará—, el sistema lo reintenta con cabeza en vez de dejarte una lista de impagos a fin de mes.</>}
       chips={['Cobro con tarjeta guardada', 'Tres intentos escalonados', 'Remesa SEPA 19.14']}

@@ -42,7 +42,7 @@ export default function MultiCentroPage() {
   return (
     <FeatureShell
       path={PATH}
-      eyebrow="Dos centros o más"
+      busqueda="Software para varios centros de Pilates"
       h1={<>Varias sedes, un solo acceso.</>}
       intro={<>Cada centro con sus alumnas, su horario y su facturación separados — y tu equipo entrando una sola vez, con el rol que le toca en cada sitio.</>}
       chips={['Datos aislados por sede', 'Rol distinto en cada centro', 'Una sola suscripción']}

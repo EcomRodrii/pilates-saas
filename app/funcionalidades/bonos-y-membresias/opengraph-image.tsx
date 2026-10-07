@@ -1,6 +1,6 @@
 import { OG_IMAGE_CONTENT_TYPE, OG_IMAGE_SIZE, generarOgImage } from '@/lib/og-image';
 
-export const alt = 'Bonos, cuotas y plazas fijas para tu estudio — Tentare';
+export const alt = 'Gestión de bonos y cuotas para estudios de Pilates — Tentare';
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
