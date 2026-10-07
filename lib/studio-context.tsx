@@ -263,6 +263,7 @@ import { calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bo
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
+import { integracionActiva } from '@/lib/integraciones/activas';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
 import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
@@ -669,6 +670,8 @@ interface StudioContextValue {
   updatePost: (postId: string, texto: string, opts?: OpcionesAddPost) => void;
   deletePost: (postId: string) => void;
   integraciones: Integracion[];
+  /** ¿Está encendida esta conexión? Vale para todo el equipo: `integraciones` solo la ve la propietaria. */
+  integracionActiva: (tipo: TipoIntegracion) => boolean;
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => Promise<ResultadoEscritura>;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
@@ -1516,6 +1519,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
+      integrationsStore.setActivasDelServidor(data.integracionesActivas ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setMemberCredits(data.memberCredits ?? []);
@@ -4090,7 +4094,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Control de acceso: con Kisi conectado, el check-in abre la puerta del
     // estudio. Fire-and-forget — un fallo de la cerradura no debe bloquear el
     // check-in (la recepcionista está delante y puede abrir a mano).
-    if (integrationsStore.integraciones.some(i => i.tipo === 'KISI' && i.activo)) {
+    // Con cualquiera del equipo, no solo la propietaria (la que pasa lista suele ser recepción).
+    if (integracionActiva('KISI', integrationsStore.integraciones, integrationsStore.activasDelServidor)) {
       authHeader()
         // Con la reserva: el servidor solo abre si esa asistencia existe y es
         // de una clase en curso que quien la marca puede pasar lista.
@@ -5900,6 +5905,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updatePost: content.updatePost,
     deletePost: content.deletePost,
     integraciones,
+    integracionActiva: (tipo: TipoIntegracion) =>
+      integracionActiva(tipo, integrationsStore.integraciones, integrationsStore.activasDelServidor),
     upsertIntegracion: integrationsStore.upsertIntegracion,
     rewardRules,
     rewardActions,
@@ -5995,7 +6002,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     discountCodes.codigosDescuento,
     actividadReciente,
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
-    integrationsStore.integraciones,
+    integrationsStore.integraciones, integrationsStore.activasDelServidor,
     rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
     rewardCatalog, rewardRedemptions, gamificacionCargada, plantillasEmailCargadas,
     achievementDefinitions, achievementProgress, achievementHistory,
@@ -6045,6 +6052,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
+      integrationsStore.setActivasDelServidor(data.integracionesActivas ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setRewardHistory(data.rewardHistory ?? []);

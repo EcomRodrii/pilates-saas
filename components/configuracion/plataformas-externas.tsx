@@ -25,9 +25,11 @@ import { FILA } from '@/components/configuracion/shell/fila-herramienta';
 // ⚠️ Encender/apagar reescribe la config entera: se reenvía la que ya había,
 // o un simple interruptor borraría los IDs de USC.
 
+// Para todo el equipo: recepción y gerencia, que apuntan estas ventas, no leen
+// `integraciones` (solo la propietaria) — ver lib/integraciones/activas.ts.
 export function usePlataformasActivas(): Plataforma[] {
-  const { integraciones } = useStudio();
-  return PLATAFORMAS.filter(p => integraciones.some(i => i.tipo === p && i.activo));
+  const { integracionActiva } = useStudio();
+  return PLATAFORMAS.filter(p => integracionActiva(p));
 }
 
 const USC: Plataforma = 'URBAN_SPORTS_CLUB';
