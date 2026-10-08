@@ -17,6 +17,7 @@ import { TourProvider } from '@/lib/tour-context';
 import { AsistenteProvider } from '@/lib/asistente-context';
 import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
+import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
@@ -423,6 +424,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
               soporte sigue en el menú de ayuda, no encima del campo. */}
           {pathname !== '/asistente' && <WhatsAppFab />}
+          {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
+          <AsistenteFlotante />
           </AsistenteProvider>
         </TourProvider>
       </PanelThemeProvider>
