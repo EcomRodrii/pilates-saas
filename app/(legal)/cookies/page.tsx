@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LEGAL } from '@/lib/legal-info';
+import { PreferenciasPublicidad } from '@/components/analitica/meta-pixel';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/cookies';
@@ -66,6 +67,17 @@ export default function Cookies() {
             <td>No instala cookies ni almacenamiento en tu dispositivo</td>
           </tr>
           <tr>
+            <td>De terceros — publicidad (Meta)</td>
+            <td>
+              Si aceptas, el píxel de Meta Platforms Ireland mide qué anuncios de Tentare en Facebook e Instagram
+              traen visitas y altas de estudios. Guarda las cookies <code>_fbp</code> y <code>_fbc</code> y envía
+              a Meta la página visitada y el hecho de que has completado el alta, sin tu correo ni los datos de
+              tu estudio. Solo se carga en la web comercial y en el alta, nunca dentro de la aplicación, ni en la
+              app de alumnas, ni en las páginas de reservas de los estudios.
+            </td>
+            <td>Sí. No se carga hasta que aceptas, y puedes retirarlo abajo cuando quieras</td>
+          </tr>
+          <tr>
             <td>De terceros — diagnóstico</td>
             <td>Monitorización de errores (Sentry) para detectar y corregir fallos del servicio. No usa cookies.</td>
             <td>No instala cookies</td>
@@ -73,10 +85,11 @@ export default function Cookies() {
         </tbody>
       </table>
       <p>
-        <strong>No utilizamos cookies de publicidad ni de perfilado con fines comerciales de terceros.</strong>{' '}
-        Si en el futuro incorporásemos cookies o almacenamiento con fines analíticos o de marketing que no sean
-        necesarios, te pediríamos antes tu consentimiento mediante un mecanismo de gestión de cookies.
+        <strong>La única cookie de publicidad es la de Meta, y solo si la aceptas.</strong> No hacemos perfilado
+        con fines comerciales de terceros. Si aceptas, la cookie dura hasta 90 días. Si la rechazas, no se carga
+        nada y te volvemos a preguntar pasados seis meses; sin decidir, tampoco se carga nada.
       </p>
+      <PreferenciasPublicidad />
 
       <h2>3. Cómo gestionarlas</h2>
       <p>

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
 import { ProveedoresRaiz } from '@/components/raiz/proveedores-raiz';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
+import { MetaPixel } from '@/components/analitica/meta-pixel';
+import { VERIFICACION_DOMINIO_META } from '@/lib/meta-pixel-reglas';
 import { LogSetup } from '@/components/log-setup';
 import { variablesDeFuente } from './_fuentes/fuentes';
 import './globals.css';
@@ -51,6 +53,9 @@ export const metadata: Metadata = {
   ...(process.env.GOOGLE_SITE_VERIFICATION
     ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
     : {}),
+  // Verificación del dominio en el Business Manager de Meta (anuncios). Lo
+  // piden en el HTML de la home; las páginas que no declaran `other` lo heredan.
+  other: { 'facebook-domain-verification': VERIFICACION_DOMINIO_META },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -63,6 +68,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             reevalúa. Decide por sí mismo en qué rutas mide — ver
             lib/ahrefs-cliente.ts. */}
         <AhrefsAnalytics />
+        {/* Píxel de Meta: solo web comercial y alta, solo en producción y solo
+            con el sí de la visitante — ver lib/meta-pixel-reglas.ts. */}
+        <MetaPixel />
         {/* `AuthProvider` + `StudioProvider`, salvo en la app de la alumna, que
             no los usa y se ahorra su código. Ver proveedores-raiz.tsx. */}
         <ProveedoresRaiz>{children}</ProveedoresRaiz>
