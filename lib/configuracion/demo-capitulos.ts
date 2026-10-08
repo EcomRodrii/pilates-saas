@@ -13,374 +13,374 @@ export interface CapituloDemo {
   readonly momentos: readonly MomentoDemo[];
 }
 
-export const DURACION_DEMO_SEG: number | null = 1787;
+export const DURACION_DEMO_SEG: number | null = 1897;
 
 export const CAPITULOS_DEMO: readonly CapituloDemo[] = [
   {
     seccion: 'estudio',
-    inicioSeg: 4,
+    inicioSeg: 0,
     momentos: [
       {
         tarjeta: 'nombre-y-direccion',
-        inicioSeg: 33
+        inicioSeg: 26
       },
       {
         tarjeta: 'contacto',
-        inicioSeg: 54
+        inicioSeg: 46
       },
       {
         tarjeta: 'horario',
-        inicioSeg: 65
+        inicioSeg: 58
       },
       {
         tarjeta: 'cerrar-el-centro',
-        inicioSeg: 91
+        inicioSeg: 83
       },
       {
         tarjeta: 'salas',
-        inicioSeg: 127
+        inicioSeg: 119
       },
       {
         tarjeta: 'certificado',
-        inicioSeg: 179
+        inicioSeg: 173
       }
     ]
   },
   {
     seccion: 'clases',
-    inicioSeg: 198,
+    inicioSeg: 197,
     momentos: [
       {
         tarjeta: 'tipos-de-clase',
-        inicioSeg: 211
+        inicioSeg: 210
       },
       {
         tarjeta: 'servicios-de-cita',
-        inicioSeg: 260
+        inicioSeg: 257
       },
       {
         tarjeta: 'horario-de-citas',
-        inicioSeg: 283
+        inicioSeg: 280
       }
     ]
   },
   {
     seccion: 'reservas',
-    inicioSeg: 303,
+    inicioSeg: 305,
     momentos: [
       {
         tarjeta: 'reservar',
-        inicioSeg: 334
+        inicioSeg: 335
       },
       {
         tarjeta: 'lista-de-espera',
-        inicioSeg: 391
+        inicioSeg: 392
       },
       {
         tarjeta: 'cancelar-y-recuperar',
-        inicioSeg: 412
+        inicioSeg: 413
       },
       {
         tarjeta: 'recuperaciones',
-        inicioSeg: 437
+        inicioSeg: 438
       },
       {
         tarjeta: 'si-cancela-tarde-o-no-viene',
-        inicioSeg: 457
+        inicioSeg: 458
       },
       {
         tarjeta: 'asistencia',
-        inicioSeg: 481
+        inicioSeg: 482
       },
       {
         tarjeta: 'si-se-cancela-una-clase',
-        inicioSeg: 501
+        inicioSeg: 502
       },
       {
         tarjeta: 'si-se-queda-sin-cuota',
-        inicioSeg: 519
+        inicioSeg: 520
       },
       {
         tarjeta: 'plaza-fija-desde-la-app',
-        inicioSeg: 534
+        inicioSeg: 535
       },
       {
         tarjeta: 'si-pausa-su-plaza-fija',
-        inicioSeg: 551
+        inicioSeg: 552
       },
       {
         tarjeta: 'ajuste-avisar-alumnas',
-        inicioSeg: 566
+        inicioSeg: 567
       }
     ]
   },
   {
     seccion: 'cobros',
-    inicioSeg: 592,
+    inicioSeg: 606,
     momentos: [
       {
         tarjeta: 'datos-fiscales',
-        inicioSeg: 608
+        inicioSeg: 623
       },
       {
         tarjeta: 'facturacion',
-        inicioSeg: 641
+        inicioSeg: 655
       },
       {
         tarjeta: 'integracion-stripe',
-        inicioSeg: 669
+        inicioSeg: 683
       },
       {
         tarjeta: 'datafono',
-        inicioSeg: 684
+        inicioSeg: 698
       },
       {
         tarjeta: 'cuando-se-cobra-la-cuota',
-        inicioSeg: 697
+        inicioSeg: 711
       },
       {
         tarjeta: 'domiciliaciones',
-        inicioSeg: 717
+        inicioSeg: 731
       },
       {
         tarjeta: 'devoluciones',
-        inicioSeg: 734
+        inicioSeg: 749
       },
       {
         tarjeta: 'si-se-cancela-una-cuota',
-        inicioSeg: 750
+        inicioSeg: 765
       }
     ]
   },
   {
     seccion: 'altas',
-    inicioSeg: 782,
+    inicioSeg: 812,
     momentos: [
       {
         tarjeta: 'contrato-y-privacidad',
-        inicioSeg: 793
+        inicioSeg: 823
       },
       {
         tarjeta: 'compra-desde-tu-enlace',
-        inicioSeg: 810
+        inicioSeg: 840
       },
       {
         tarjeta: 'datos-extra-de-la-ficha',
-        inicioSeg: 830
+        inicioSeg: 860
       },
       {
         tarjeta: 'preguntas-en-su-app',
-        inicioSeg: 850
+        inicioSeg: 882
       },
       {
         tarjeta: 'valoracion-inicial',
-        inicioSeg: 861
+        inicioSeg: 893
       },
       {
         tarjeta: 'cuestionario-de-salud',
-        inicioSeg: 872
+        inicioSeg: 904
       }
     ]
   },
   {
     seccion: 'comunicacion',
-    inicioSeg: 887,
+    inicioSeg: 922,
     momentos: [
       {
         tarjeta: 'correos-automaticos',
-        inicioSeg: 898
+        inicioSeg: 933
       },
       {
         tarjeta: 'avisos-del-movil',
-        inicioSeg: 948
+        inicioSeg: 983
       },
       {
         tarjeta: 'integracion-resend',
-        inicioSeg: 990
+        inicioSeg: 1025
       },
       {
         tarjeta: 'integracion-whatsapp',
-        inicioSeg: 1005
+        inicioSeg: 1040
       }
     ]
   },
   {
     seccion: 'motivacion',
-    inicioSeg: 1035,
+    inicioSeg: 1080,
     momentos: [
       {
         tarjeta: 'reglas',
-        inicioSeg: 1054
+        inicioSeg: 1095
       },
       {
         tarjeta: 'creditos-por-accion',
-        inicioSeg: 1070
+        inicioSeg: 1111
       },
       {
         tarjeta: 'recompensas',
-        inicioSeg: 1099
+        inicioSeg: 1139
       },
       {
         tarjeta: 'canjes',
-        inicioSeg: 1126
+        inicioSeg: 1166
       },
       {
         tarjeta: 'logros',
-        inicioSeg: 1135
+        inicioSeg: 1175
       },
       {
         tarjeta: 'niveles',
-        inicioSeg: 1146
+        inicioSeg: 1186
       },
       {
         tarjeta: 'retos',
-        inicioSeg: 1155
+        inicioSeg: 1196
       },
       {
         tarjeta: 'codigos-descuento',
-        inicioSeg: 1166
+        inicioSeg: 1206
       }
     ]
   },
   {
     seccion: 'marca',
-    inicioSeg: 1185,
+    inicioSeg: 1231,
     momentos: [
       {
         tarjeta: 'logo-y-favicon',
-        inicioSeg: 1199
-      },
-      {
-        tarjeta: 'textos-de-tu-app',
-        inicioSeg: 1220
-      },
-      {
-        tarjeta: 'textos-de-bienvenida',
         inicioSeg: 1243
       },
       {
+        tarjeta: 'textos-de-tu-app',
+        inicioSeg: 1264
+      },
+      {
+        tarjeta: 'textos-de-bienvenida',
+        inicioSeg: 1286
+      },
+      {
         tarjeta: 'color-de-marca',
-        inicioSeg: 1255
+        inicioSeg: 1298
       }
     ]
   },
   {
     seccion: 'web',
-    inicioSeg: 1302,
+    inicioSeg: 1345,
     momentos: [
       {
         tarjeta: 'direccion-y-enlaces',
-        inicioSeg: 1315
+        inicioSeg: 1358
       },
       {
         tarjeta: 'pagina-publica',
-        inicioSeg: 1348
+        inicioSeg: 1391
       },
       {
         tarjeta: 'contenido-de-tu-app',
-        inicioSeg: 1371
+        inicioSeg: 1414
       },
       {
         tarjeta: 'widgets',
-        inicioSeg: 1398
+        inicioSeg: 1441
       }
     ]
   },
   {
     seccion: 'equipo',
-    inicioSeg: 1433,
+    inicioSeg: 1490,
     momentos: [
       {
         tarjeta: 'ajuste-instructoras-crean-clases',
-        inicioSeg: 1445
+        inicioSeg: 1502
       },
       {
         tarjeta: 'app-de-tus-instructoras',
-        inicioSeg: 1458
+        inicioSeg: 1515
       }
     ]
   },
   {
     seccion: 'conexiones',
-    inicioSeg: 1503,
+    inicioSeg: 1572,
     momentos: [
       {
         tarjeta: 'integracion-google_calendar',
-        inicioSeg: 1520
+        inicioSeg: 1589
       },
       {
         tarjeta: 'integracion-zoom',
-        inicioSeg: 1528
+        inicioSeg: 1597
       },
       {
         tarjeta: 'integracion-kisi',
-        inicioSeg: 1532
+        inicioSeg: 1601
       },
       {
         tarjeta: 'integracion-klaviyo',
-        inicioSeg: 1544
+        inicioSeg: 1613
       },
       {
         tarjeta: 'plataformas-externas',
-        inicioSeg: 1554
+        inicioSeg: 1623
       },
       {
         tarjeta: 'integracion-zapier',
-        inicioSeg: 1566
+        inicioSeg: 1635
       },
       {
         tarjeta: 'api-publica',
-        inicioSeg: 1577
+        inicioSeg: 1646
       }
     ]
   },
   {
     seccion: 'datos',
-    inicioSeg: 1590,
+    inicioSeg: 1673,
     momentos: [
       {
         tarjeta: 'exportar',
-        inicioSeg: 1601
+        inicioSeg: 1683
       },
       {
         tarjeta: 'doble-factor-equipo',
-        inicioSeg: 1632
+        inicioSeg: 1715
       },
       {
         tarjeta: 'redaccion-ia',
-        inicioSeg: 1649
+        inicioSeg: 1731
       }
     ]
   },
   {
     seccion: 'avisos',
-    inicioSeg: 1666,
+    inicioSeg: 1765,
     momentos: [
       {
         tarjeta: 'tus-avisos',
-        inicioSeg: 1675
+        inicioSeg: 1775
       }
     ]
   },
   {
     seccion: 'panel',
-    inicioSeg: 1710,
+    inicioSeg: 1809,
     momentos: [
       {
         tarjeta: 'menu-del-panel',
-        inicioSeg: 1721
+        inicioSeg: 1821
       },
       {
         tarjeta: 'inicio-del-panel',
-        inicioSeg: 1741
+        inicioSeg: 1840
       },
       {
         tarjeta: 'posicion-del-menu',
-        inicioSeg: 1752
+        inicioSeg: 1851
       },
       {
         tarjeta: 'claro-u-oscuro',
-        inicioSeg: 1763
+        inicioSeg: 1862
       }
     ]
   }

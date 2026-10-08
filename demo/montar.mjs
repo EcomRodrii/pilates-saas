@@ -9,8 +9,8 @@
 //   · demo/salida/capitulos.vtt           — el índice, en el formato que lee cualquier reproductor
 //   · demo/salida/ffmetadata.txt          — los capítulos dentro del propio mp4
 //   · lib/configuracion/demo-capitulos.ts — lo que enseña el apartado «Demo» (con -- --escribir-indice)
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,7 +38,9 @@ if (cronologias.length === 0) { console.error('No hay capítulos grabados en dem
 
 const partes = [];
 for (const c of cronologias) {
-  const salida = join(PARTES, `${String(c.numero).padStart(2, '0')}-${c.capitulo}.mp4`);
+  // Matroska con el audio SIN comprimir (PCM): la voz se comprime UNA sola vez, al final, y no en
+  // cada capítulo. El vídeo ya viene codificado de la grabación (nucleo.ts): aquí se copia tal cual.
+  const salida = join(PARTES, `${String(c.numero).padStart(2, '0')}-${c.capitulo}.mkv`);
   const voces = c.voces.filter(v => existsSync(v.archivo));
   const entradas = ['-i', c.video, ...voces.flatMap(v => ['-i', v.archivo])];
   const retardos = voces.map((v, i) => {
@@ -50,40 +52,42 @@ for (const c of cronologias) {
   console.log(`▶ ${c.capitulo}: ${dur.toFixed(1)} s, ${voces.length} frases`);
   ffmpeg([
     ...entradas,
-    '-filter_complex', `${retardos.join(';')};${mezcla};[mezcla]apad[audio];[0:v]fps=25,format=yuv420p[video]`,
-    '-map', '[video]', '-map', '[audio]', '-t', String(dur),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '29', '-c:a', 'aac', '-b:a', '56k', '-ar', '44100', '-ac', '1',
-    '-movflags', '+faststart', salida,
+    '-filter_complex', `${retardos.join(';')};${mezcla};[mezcla]apad[audio]`,
+    '-map', '0:v', '-map', '[audio]', '-t', String(dur),
+    '-c:v', 'copy', '-c:a', 'pcm_s16le', '-ar', '44100', '-ac', '1', salida,
   ]);
   partes.push({ c, archivo: salida, dur: duracion(salida) });
 }
 
-// ── La portada: la imagen que eligió el fundador, 4 s al principio, sin voz ──
-// Con la imagen ancha (1,9:1) en el centro y ella misma desenfocada de fondo, para llenar 1440×900.
-const PORTADA = join(RAIZ, 'public/demo/portada-demo-configuracion.jpg');
-const INTRO_SEG = existsSync(PORTADA) && soloEstos.length === 0 ? 4 : 0;
-const intro = join(PARTES, '00-portada.mp4');
-if (INTRO_SEG > 0) {
-  ffmpeg([
-    '-loop', '1', '-framerate', '25', '-t', String(INTRO_SEG), '-i', PORTADA,
-    '-f', 'lavfi', '-t', String(INTRO_SEG), '-i', 'anullsrc=r=44100:cl=mono',
-    '-filter_complex', '[0:v]split[a][b];[a]scale=1440:900:force_original_aspect_ratio=increase,crop=1440:900,boxblur=40:5[bg];[b]scale=1440:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,fps=25,format=yuv420p[v]',
-    '-map', '[v]', '-map', '1:a', '-t', String(INTRO_SEG),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '26', '-c:a', 'aac', '-b:a', '56k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', intro,
-  ]);
-}
-
 // ── Pegarlos ──
 const lista = join(SALIDA, 'partes.txt');
-writeFileSync(lista, [...(INTRO_SEG > 0 ? [intro] : []), ...partes.map(p => p.archivo)].map(f => `file '${f}'`).join('\n'));
-const final = join(SALIDA, soloEstos.length ? `prueba-${soloEstos.join('-')}.mp4` : 'demo-configuracion.mp4');
-const sinNormalizar = join(SALIDA, 'sin-normalizar.mp4');
-ffmpeg(['-f', 'concat', '-safe', '0', '-i', lista, '-c', 'copy', sinNormalizar]);
-// La voz de ElevenLabs sale baja (≈ −32 dB de media): se lleva a −16 LUFS, lo normal en vídeo hablado.
-ffmpeg(['-i', sinNormalizar, '-c:v', 'copy', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '56k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', final]);
+writeFileSync(lista, partes.map(p => `file '${p.archivo}'`).join('\n'));
+const final = join(SALIDA, soloEstos.length ? `prueba-${soloEstos.join('-')}.mp4` : 'master.mp4');
+const unido = join(SALIDA, 'unido.mkv');
+ffmpeg(['-f', 'concat', '-safe', '0', '-i', lista, '-c', 'copy', unido]);
+
+// ── La voz: una ganancia FIJA hasta dejar el pico en −2 dB. Nada de `loudnorm`: en una sola pasada,
+// con tanto silencio entre frases, sube la ganancia a lo bestia y el limitador distorsiona la voz
+// (así salió el v2: picos de +4 dB). Con ganancia fija no hay nada que distorsionar. ──
+const analisis = spawnSync('ffmpeg', ['-hide_banner', '-i', unido, '-af', 'volumedetect', '-vn', '-f', 'null', '-'], { encoding: 'utf8' });
+const pico = Number(`${analisis.stderr}`.match(/max_volume: (-?[\d.]+) dB/)?.[1] ?? 'NaN');
+if (Number.isNaN(pico)) throw new Error('no he podido medir el pico de la voz');
+const ganancia = Math.min(Math.max(-2 - pico, 0), 12);
+console.log(`Pico de la voz: ${pico} dB → ganancia fija de ${ganancia.toFixed(1)} dB`);
+ffmpeg(['-i', unido, '-c:v', 'copy', '-af', `volume=${ganancia.toFixed(2)}dB`, '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', final]);
+rmSync(unido, { force: true });
+
+// ── La versión WEB: Supabase Storage (plan gratuito) no admite ficheros de más de 50 MB y el master pesa
+// ~80 MB. Se recomprime desde el master (UI limpia: a crf 26 no se distingue) para quedar por debajo.
+const web = join(SALIDA, 'demo-configuracion.mp4');
+if (soloEstos.length === 0) {
+  ffmpeg(['-i', final, '-c:v', 'libx264', '-preset', 'slow', '-crf', '26', '-tune', 'stillimage', '-c:a', 'aac', '-b:a', '64k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', web]);
+  const mb = statSync(web).size / 1e6;
+  console.log(`Versión web: ${mb.toFixed(1)} MB${mb > 52 ? ' ⚠️ MÁS DE 50 MB: Supabase la rechazará' : ''}`);
+}
 
 // ── El índice ──
-let t = INTRO_SEG;
+let t = 0;
 const capitulos = partes.map(p => {
   const inicio = t;
   t += p.dur;
@@ -125,4 +129,4 @@ export const CAPITULOS_DEMO: readonly CapituloDemo[] = ${JSON.stringify(capitulo
   writeFileSync(join(RAIZ, 'lib/configuracion/demo-capitulos.ts'), ts);
   console.log('Índice escrito en lib/configuracion/demo-capitulos.ts');
 }
-console.log(`Hecho: ${final} (${(t / 60).toFixed(1)} min)`);
+console.log(`Hecho: ${soloEstos.length ? final : web} (${(t / 60).toFixed(1)} min); master sin recomprimir: ${final}`);

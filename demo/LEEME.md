@@ -40,7 +40,8 @@ datos `@example.com`) vive en memoria (`demo/datos.ts`, `demo/backend.ts`).
    npm run demo:montar
    ```
 
-   Sale `demo/salida/demo-configuracion.mp4`.
+   Sale `demo/salida/demo-configuracion.mp4` (versión web, < 50 MB: el plan gratuito de Supabase no admite más) y
+   `master.mp4` (máxima calidad, ~80 MB, para guardar).
 
 ## Cómo está hecho
 
@@ -51,7 +52,8 @@ datos `@example.com`) vive en memoria (`demo/datos.ts`, `demo/backend.ts`).
   `ELEVENLABS_API_KEY` (p. ej. en `~/.zshenv`); sin clave cae a `say` (macOS), que solo sirve para
   probar el guion. Una vez por frase, cacheada en `demo/salida/voz` (≈ 26 000 caracteres de cuota
   por grabación completa). `montar.mjs` la mezcla con ffmpeg en el instante exacto en que el guion
-  la dijo, la normaliza a −16 LUFS y antepone 4 s de portada (`public/demo/portada-demo-configuracion.jpg`).
+  la dijo, le sube la ganancia hasta dejar el pico en −2 dB (fija: nada de `loudnorm`, que la distorsiona). La portada
+  (`public/demo/portada-demo-configuracion.jpg`) es solo el póster del reproductor, no va dentro del vídeo.
 - **Rótulos y cursor**: se pintan en la página (`SCRIPT_PÁGINA` en `nucleo.ts`).
 - **Lo que no se ejecuta**: nada que mueva dinero o pida credenciales de verdad (Stripe,
   datáfono, WhatsApp, Kisi, cobros con cargo, Veri*Factu). Se explica sin pulsar.

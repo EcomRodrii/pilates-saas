@@ -1,7 +1,7 @@
 import { chromium, type Browser, type Locator, type Page, type BrowserContext } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { montarBackend, type Backend, type Tablas } from './backend.ts';
 import { montarApi } from './api.ts';
@@ -319,6 +319,50 @@ export class Grabador {
   }
 }
 
+interface Captura { arrancar(): void; terminar(salida: string, duracionMs: number): Promise<string> }
+
+/** Captura de pantalla de calidad: cada fotograma del navegador, en JPEG al 100 %, con su instante. */
+async function iniciarCaptura(contexto: BrowserContext, page: Page, dir: string): Promise<Captura> {
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const cdp = await contexto.newCDPSession(page);
+  const marcas: { ms: number; archivo: string }[] = [];
+  let t0 = 0;
+  cdp.on('Page.screencastFrame', ev => {
+    void cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
+    if (t0 === 0) return;
+    const archivo = join(dir, `${String(marcas.length).padStart(6, '0')}.jpg`);
+    writeFileSync(archivo, Buffer.from(ev.data, 'base64'));
+    marcas.push({ ms: Date.now() - t0, archivo });
+  });
+  return {
+    arrancar() {
+      t0 = Date.now();
+      void cdp.send('Page.startScreencast', { format: 'jpeg', quality: 100, maxWidth: 1440, maxHeight: 900, everyNthFrame: 1 });
+    },
+    async terminar(salida, duracionMs) {
+      await cdp.send('Page.stopScreencast').catch(() => {});
+      if (marcas.length === 0) throw new Error('la captura no recogió ni un fotograma');
+      // El primero vale desde el instante 0 (todavía no había pintado nada que enseñar antes).
+      const lista: string[] = [];
+      marcas.forEach((m, i) => {
+        const hasta = i + 1 < marcas.length ? marcas[i + 1].ms : Math.max(duracionMs, m.ms + 40);
+        const desde = i === 0 ? 0 : m.ms;
+        lista.push(`file '${m.archivo}'`, `duration ${Math.max((hasta - desde) / 1000, 0.001).toFixed(3)}`);
+      });
+      lista.push(`file '${marcas[marcas.length - 1].archivo}'`);
+      const archivoLista = join(dir, 'lista.txt');
+      writeFileSync(archivoLista, lista.join('\n'));
+      execFileSync('ffmpeg', [
+        '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', archivoLista,
+        '-vf', 'fps=25,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '17', '-g', '250', '-movflags', '+faststart', salida,
+      ]);
+      rmSync(dir, { recursive: true, force: true });
+      return salida;
+    },
+  };
+}
+
 export interface OpcionesCapitulo {
   id: string;
   titulo: string;
@@ -335,6 +379,7 @@ export async function grabarCapitulo(
 ): Promise<Cronologia> {
   const dirVideo = join(SALIDA, 'video', opciones.id);
   mkdirSync(dirVideo, { recursive: true });
+  const dirFotogramas = join(SALIDA, 'fotogramas', opciones.id);
   const navegador = await chromium.launch({ args: ['--lang=es-ES'] });
   const contexto = await navegador.newContext({
     baseURL,
@@ -342,7 +387,6 @@ export async function grabarCapitulo(
     locale: 'es-ES',
     timezoneId: 'Europe/Madrid',
     permissions: ['clipboard-read', 'clipboard-write'],
-    ...(RAPIDO ? {} : { recordVideo: { dir: dirVideo, size: { width: 1440, height: 900 } } }),
   });
   const page = await contexto.newPage();
   const paginaCreada = Date.now();
@@ -370,26 +414,27 @@ export async function grabarCapitulo(
   });
   const g = new Grabador(page, contexto, backend, opciones.id, opciones.titulo);
   let error: unknown = null;
+  // La captura es PROPIA y no `recordVideo` de Playwright: este va a ~0,6 Mbps en VP8 y el texto
+  // sale borroso. Aquí cada fotograma que pinta el navegador se guarda en JPEG al 100 % y se
+  // codifica después, así el texto se lee. El reloj del vídeo ES el del guion (`g.reloj()`).
+  const captura = RAPIDO ? null : await iniciarCaptura(contexto, page, dirFotogramas);
   try {
     g.reloj();
+    captura?.arrancar();
     g.numero = opciones.numero;
-    g.inicioGuionMs = Date.now() - paginaCreada;
+    g.inicioGuionMs = 0;
     void g0;
+    void paginaCreada;
     await guion(g);
   } catch (e) {
     error = e;
     await page.screenshot({ path: join(SALIDA, `fallo-${opciones.id}.png`) }).catch(() => {});
   }
   const crono = g.cronologia(null);
-  const video = RAPIDO ? null : page.video();
+  let ruta: string | null = null;
+  if (captura) ruta = await captura.terminar(join(dirVideo, `${opciones.id}.mp4`), crono.duracionMs);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await contexto.close();
-  let ruta: string | null = null;
-  if (video) {
-    const bruto = await video.path();
-    ruta = join(dirVideo, `${opciones.id}.webm`);
-    renameSync(bruto, ruta);
-  }
   await navegador.close();
   const final: Cronologia = { ...crono, video: ruta };
   if (!RAPIDO && opciones.numero > 0) writeFileSync(join(SALIDA, `cronologia-${opciones.id}.json`), JSON.stringify(final, null, 1));
