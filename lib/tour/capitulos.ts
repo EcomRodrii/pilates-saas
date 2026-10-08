@@ -56,6 +56,11 @@ export interface PasoVisita {
   hecho?: ClaveHecho;
   /** El paso solo tiene sentido si ya existe esto; si no, se ofrece el paso previo. */
   requiere?: 'socios';
+  /**
+   * El paso solo existe mientras haya prueba gratuita en marcha (la píldora de los días que quedan no
+   * se pinta en un estudio que ya paga). Sin esto, a quien ya paga se le señalaría algo que no está.
+   */
+  soloEnPrueba?: true;
   /** Con pantalla estrecha el elemento no existe (el buscador de arriba): se omite. */
   soloEscritorio?: true;
   titulo: string;
@@ -198,7 +203,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         accion: 'Mira la lista y los filtros de arriba.',
       },
       {
-        id: 'c4.2', ruta: '/clientas', href: '/clientas?nuevo=1', selector: 'clientas-nueva', tipo: 'hacer', hecho: 'socios',
+        id: 'c4.2', ruta: '/clientas', selector: 'clientas-nueva', tipo: 'hacer', hecho: 'socios',
         titulo: 'Añade una clienta de verdad',
         texto: 'Nombre y email bastan. Mejor una clienta real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
         accion: 'Pulsa «Nueva clienta» y rellena su nombre y su email.',
@@ -426,7 +431,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         accion: 'Mira el resumen del año.',
       },
       {
-        id: 'c10.3', ruta: '/dashboard', selector: 'pildora-prueba', tipo: 'mira',
+        id: 'c10.3', ruta: '/dashboard', selector: 'pildora-prueba', tipo: 'mira', soloEnPrueba: true,
         titulo: 'Tu prueba de 7 días',
         texto: 'Esta píldora de arriba cuenta los días que te quedan. Al pulsarla ves tu plan y desde ahí pasas a pago cuando quieras: sin prisas y sin sorpresas.',
         accion: 'Mira la píldora de arriba: al pulsarla ves tu plan.',

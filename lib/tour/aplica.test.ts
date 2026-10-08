@@ -31,7 +31,7 @@ test('no empieza encima de la bienvenida: espera a que se haya visto', () => {
 });
 
 const ctx = (c: Partial<Parameters<typeof pasoAplica>[1]> = {}) => ({
-  puedeVer: () => true, esRutaCongelada: () => false, fueraDelMenu: () => false, escritorio: true, ...c,
+  puedeVer: () => true, esRutaCongelada: () => false, fueraDelMenu: () => false, enPrueba: true, escritorio: true, ...c,
 });
 
 test('un paso se salta si la persona no ve esa pantalla, si está congelada, o si es solo de escritorio', () => {
@@ -50,6 +50,14 @@ test('lo que no existe en el menú no se enseña: Marketing apagado se salta', (
   assert.equal(pasoAplica(marketing, ctx({ fueraDelMenu: r => r === '/marketing' })), false);
   // y lo demás del mismo capítulo sigue en pie
   assert.equal(pasoAplica(pasoPorId('c8.1')!, ctx({ fueraDelMenu: r => r === '/marketing' })), true);
+});
+
+test('«Tu prueba de 7 días» solo se enseña a quien tiene una prueba en marcha', () => {
+  const prueba = pasoPorId('c10.3')!;
+  assert.equal(pasoAplica(prueba, ctx({ enPrueba: true })), true);
+  assert.equal(pasoAplica(prueba, ctx({ enPrueba: false })), false, 'quien ya paga no tiene la píldora');
+  // y no afecta a los demás pasos
+  assert.equal(pasoAplica(pasoPorId('c10.1')!, ctx({ enPrueba: false })), true);
 });
 
 test('la ficha de una clienta se comprueba contra /clientas, no contra el comodín', () => {

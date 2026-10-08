@@ -39,6 +39,8 @@ export interface ContextoAplica {
   esRutaCongelada: (ruta: string) => boolean;
   /** La ruta es una entrada del menú que hoy no se enseña (Marketing apagado…): no se explica. */
   fueraDelMenu: (ruta: string) => boolean;
+  /** Hay una prueba gratuita en marcha (la píldora de los días que quedan existe). */
+  enPrueba: boolean;
   /** Pantalla ancha (≥ lg): el buscador de arriba y poco más solo existen ahí. */
   escritorio: boolean;
 }
@@ -49,5 +51,6 @@ export function pasoAplica(paso: PasoVisita, c: ContextoAplica): boolean {
   if (c.esRutaCongelada(base) || c.fueraDelMenu(base)) return false;
   if (!c.puedeVer(base)) return false;
   if (paso.soloEscritorio && !c.escritorio) return false;
+  if (paso.soloEnPrueba && !c.enPrueba) return false;
   return true;
 }
