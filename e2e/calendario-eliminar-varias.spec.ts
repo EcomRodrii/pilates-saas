@@ -108,8 +108,12 @@ async function montar(page: Page, borrados: string[], patches: string[]) {
       return json(route, [{ id: 'x' }], 200);
     }
     if (m === 'DELETE') {
-      borrados.push(decodeURIComponent(route.request().url().match(/id=eq\.([^&]+)/)?.[1] ?? ''));
-      return json(route, [{ id: 'x' }], 200);
+      // Una (`id=eq.x`) o varias de golpe (`id=in.(x,y)`); responde con las filas
+      // que «borró», como PostgREST con `select`.
+      const url = decodeURIComponent(route.request().url());
+      const ids = url.match(/id=in\.\(([^)]*)\)/)?.[1]?.split(',') ?? [url.match(/id=eq\.([^&]+)/)?.[1] ?? ''];
+      borrados.push(...ids);
+      return json(route, ids.map(id => ({ id })), 200);
     }
     return json(route, SESIONES);
   });
@@ -143,6 +147,7 @@ test('confirmar borra cada clase de verdad, una por una', async ({ page }) => {
   await montar(page, borrados, []);
   await marcarLasTres(page);
   await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  await page.getByLabel(/Para confirmar, escribe/).fill('BORRAR');
   await page.getByTestId('eliminar-lote').getByRole('button', { name: 'Eliminar 3 clases' }).click();
 
   await expect.poll(() => borrados.length, { timeout: 30_000 }).toBe(3);
@@ -169,4 +174,39 @@ test('«Marcar todas las de esta vista» marca las tres sin tocarlas', async ({ 
   await expect(page.getByText('Toca las clases que quieras cambiar')).toBeVisible();
   await page.getByRole('button', { name: 'Marcar todas las de esta vista' }).click();
   await expect(page.getByText('3 clases marcadas')).toBeVisible();
+});
+
+test('sin escribir BORRAR el botón no se puede pulsar, y no se borra nada', async ({ page }) => {
+  const borrados: string[] = [];
+  const patches: string[] = [];
+  await montar(page, borrados, patches);
+  await marcarLasTres(page);
+  await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  const boton = page.getByTestId('eliminar-lote').getByRole('button', { name: 'Eliminar 3 clases' });
+  await expect(boton).toBeDisabled();
+  await page.getByLabel(/Para confirmar, escribe/).fill('borra');
+  await expect(boton).toBeDisabled();
+  await page.getByLabel(/Para confirmar, escribe/).fill('borrar');
+  await expect(boton).toBeEnabled();
+  expect(borrados).toEqual([]);
+  expect(patches).toEqual([]);
+});
+
+test('«Todas las del calendario» marca todas, no solo las de la vista', async ({ page }) => {
+  await montar(page, [], []);
+  await page.getByRole('button', { name: 'Todas las del calendario' }).click();
+  await expect(page.getByText('3 clases marcadas')).toBeVisible();
+});
+
+test('la que no tiene a nadie apuntada se borra de golpe y las demás avisando', async ({ page }) => {
+  const borrados: string[] = [];
+  await montar(page, borrados, []);
+  await page.getByRole('button', { name: 'Todas las del calendario' }).click();
+  await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  await page.getByLabel(/Para confirmar, escribe/).fill('BORRAR');
+  await page.getByTestId('eliminar-lote').getByRole('button', { name: 'Eliminar 3 clases' }).click();
+  await expect.poll(() => borrados.length, { timeout: 30_000 }).toBe(3);
+  // ses-2 no tiene reservas: sale en el primer DELETE, sola y antes que las otras.
+  expect(borrados[0]).toBe('ses-2');
+  await expect(page.getByText('3 clases eliminadas')).toBeVisible({ timeout: 20_000 });
 });

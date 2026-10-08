@@ -29,7 +29,7 @@ import {
   dbRegistrarConsentimientoMarketing,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
-  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
+  dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbDeleteSesionesBatch, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
@@ -511,6 +511,12 @@ interface StudioContextValue {
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
   deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
+  /**
+   * Borra de golpe las clases que NO tienen a nadie apuntada ni en espera (no hay
+   * a quién avisar ni bono que devolver). Las que ya empezaron no se tocan.
+   * Devuelve las que de verdad se borraron.
+   */
+  deleteSesionesSinReservas: (ids: string[]) => Promise<ResultadoEscritura & { borradas?: number }>;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura & { serieId?: string }>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
@@ -3471,6 +3477,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ...res, ...aviso, enApp };
   }
 
+  // Una clase sin nadie apuntada ni en espera se borra en lote: no hay aviso que
+  // mandar ni sesión de bono que devolver, y hacerlo clase a clase (marcar,
+  // avisar, liberar, borrar: cinco llamadas) tardaba minutos con 100 clases.
+  // Se vuelve a comprobar AQUÍ que no tiene reservas vivas: quien llama puede
+  // haber decidido con datos viejos, y borrar se llevaría por delante la reserva.
+  async function deleteSesionesSinReservas(ids: string[]): Promise<ResultadoEscritura & { borradas?: number }> {
+    const vivas = new Set(['CONFIRMADA', 'ASISTIDA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+    const conReservaViva = new Set(reservas.filter(r => vivas.has(r.estado)).map(r => r.sesionId));
+    const aBorrar = sesiones
+      .filter(s => ids.includes(s.id) && !sesionYaEmpezada(s.inicio) && !conReservaViva.has(s.id))
+      .map(s => s.id);
+    if (aBorrar.length === 0) return { ok: true, borradas: 0 };
+    const res = await dbDeleteSesionesBatch(aBorrar);
+    const hechas = new Set(res.borradas ?? []);
+    if (hechas.size > 0) {
+      setSesiones(prev => prev.filter(s => !hechas.has(s.id)));
+      setReservas(prev => prev.filter(r => !hechas.has(r.sesionId)));
+    }
+    if (!res.ok) return { ok: false, error: res.error };
+    return { ok: true, borradas: hechas.size };
+  }
+
   // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
 
   // Crea una serie: todas las sesiones comparten un serie_id y se insertan en UNA
@@ -5839,6 +5867,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addSesion,
     updateSesion,
     deleteSesion,
+    deleteSesionesSinReservas,
     addSesionesSerie,
     editarSerieDesde,
     reasignarInstructora,

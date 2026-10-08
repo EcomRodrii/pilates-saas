@@ -596,7 +596,7 @@ export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     suscripciones, planesTarifa, studio, plazasFijas, recuperaciones,
-    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
+    addSesion, updateSesion, deleteSesion, deleteSesionesSinReservas, addSesionesSerie, editarSerieDesde,
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
@@ -696,12 +696,15 @@ export default function Calendario() {
   // Borrar las marcadas: `null` = diálogo cerrado; el progreso se enseña
   // mientras dura porque cada clase avisa a sus alumnas antes de borrarse.
   const [eliminarLote, setEliminarLote] = useState<{ hechas: number; total: number } | 'confirmar' | null>(null);
+  // Para borrar en lote hay que escribir BORRAR: es lo único que no se deshace.
+  const [palabraBorrar, setPalabraBorrar] = useState('');
 
   function salirDeSeleccion() {
     setModoSeleccion(false);
     setMarcadas(new Set());
     setReasignarLote(null);
     setEliminarLote(null);
+    setPalabraBorrar('');
   }
 
   function alternarMarcada(id: string) {
@@ -1355,18 +1358,34 @@ export default function Calendario() {
 
   async function aplicarEliminacionLote() {
     if (typeof eliminarLote === 'object' && eliminarLote !== null) return;
+    if (palabraBorrar.trim().toUpperCase() !== 'BORRAR') return;
     const { borran } = loteEliminable();
     if (borran.length === 0) { setEliminarLote(null); return; }
+    // Las que no tienen a nadie apuntada ni en espera se borran de golpe (no hay
+    // a quién avisar); las demás, una por una por `deleteSesion`, que avisa,
+    // devuelve el bono y solo entonces borra.
+    const vivas = new Set(['CONFIRMADA', 'ASISTIDA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+    const conReserva = new Set(reservas.filter(r => vivas.has(r.estado)).map(r => r.sesionId));
+    const sinReservas = borran.filter(x => !conReserva.has(x.id));
+    const conAlumnas = borran.filter(x => conReserva.has(x.id));
     let hechas = 0;
     const fallos: string[] = [];
     setEliminarLote({ hechas: 0, total: borran.length });
-    for (const ses of borran) {
+    if (sinReservas.length > 0) {
+      const r = await deleteSesionesSinReservas(sinReservas.map(x => x.id));
+      hechas += r.borradas ?? 0;
+      // Las que no se borraron (la base de datos las rechazó) se cuentan como fallo.
+      const noBorradas = sinReservas.length - (r.borradas ?? 0);
+      if (noBorradas > 0) fallos.push(r.ok ? 'la base de datos rechazó borrar alguna clase' : r.error);
+      setEliminarLote({ hechas: hechas + Math.max(noBorradas, 0), total: borran.length });
+    }
+    for (const ses of conAlumnas) {
       const res = await deleteSesion(ses.id);
       if (res.ok) hechas++; else fallos.push(res.error);
       setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
     }
     showToast(fallos.length
-      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}`
+      ? `${hechas} de ${borran.length} clases eliminadas. ${borran.length - hechas} no se pudieron borrar: ${fallos[0]}`
       : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
     salirDeSeleccion();
     invalidarHorario();
@@ -3647,6 +3666,12 @@ export default function Calendario() {
             >
               Marcar todas las de esta vista
             </button>
+            <button
+              onClick={() => setMarcadas(new Set(sesionesEnriquecidas.filter(x => !sesionYaEmpezada(x.inicio)).map(x => x.id)))}
+              className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Todas las del calendario
+            </button>
             {marcadas.size > 0 && !esInstructor && (
               <button
                 onClick={() => setEliminarLote('confirmar')}
@@ -4156,17 +4181,33 @@ export default function Calendario() {
                     <> {descartadas} de las marcadas no se {descartadas === 1 ? 'borra' : 'borran'}: ya {descartadas === 1 ? 'empezó' : 'empezaron'}.</>
                   )}
                 </p>
-                {!enCurso && <p className="mt-2 text-[12px] text-muted-foreground">No se puede deshacer.</p>}
+                {!enCurso && (
+                  <>
+                    <p className="mt-2 text-[12px] text-muted-foreground">No se puede deshacer.</p>
+                    <label htmlFor="palabra-borrar" className="mt-3 block text-[13px] text-foreground">
+                      Para confirmar, escribe <strong>BORRAR</strong>
+                    </label>
+                    <input
+                      id="palabra-borrar"
+                      value={palabraBorrar}
+                      onChange={e => setPalabraBorrar(e.target.value)}
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      className="mt-1.5 w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px] text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    />
+                  </>
+                )}
                 <div className="mt-4 flex gap-2">
                   <button
                     disabled={!!enCurso}
                     className="flex-1 justify-center rounded-xl border border-border py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                    onClick={() => setEliminarLote(null)}
+                    onClick={() => { setEliminarLote(null); setPalabraBorrar(''); }}
                   >
                     Cancelar
                   </button>
                   <button
-                    disabled={!!enCurso || n === 0}
+                    disabled={!!enCurso || n === 0 || palabraBorrar.trim().toUpperCase() !== 'BORRAR'}
                     className="flex-1 justify-center rounded-xl bg-destructive py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                     onClick={() => void aplicarEliminacionLote()}
                   >

@@ -3247,6 +3247,24 @@ export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbDeleteSesion]', error) : ESCRITURA_OK;
 }
 
+/**
+ * Borra varias clases de una vez y dice cuáles SE BORRARON de verdad.
+ *
+ * `.select('id')` devuelve las filas que el DELETE tocó: si la RLS rechaza
+ * alguna, no salen en la respuesta y no se cuentan (un `error` vacío no
+ * significa «borrado»). En trozos de 100 para no pasar el largo de la URL.
+ */
+export async function dbDeleteSesionesBatch(ids: string[]): Promise<ResultadoEscritura & { borradas?: string[] }> {
+  const borradas: string[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const trozo = ids.slice(i, i + 100);
+    const { data, error } = await supabase.from('sesiones').delete().in('id', trozo).select('id');
+    if (error) return { ...falloEscritura('[dbDeleteSesionesBatch]', error), borradas };
+    borradas.push(...(data ?? []).map(r => r.id as string));
+  }
+  return { ...ESCRITURA_OK, borradas };
+}
+
 // Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
 // aforo/lista de espera con bloqueo de fila y aísla por estudio. Sustituye al
 // insert directo (read-decide-insert no atómico → sobreventa).
