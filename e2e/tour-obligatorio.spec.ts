@@ -107,6 +107,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('si te vas a otra pantalla, no te persigue: dice dónde está el paso y ofrece «Llévame»', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     await montarVisita(page);
     await inicio(page).waitFor({ timeout: 30_000 });
     await page.getByRole('button', { name: /Empezar/ }).click();
@@ -150,6 +152,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('un paso «hacer» se cierra solo cuando los datos cambian: el caso de la clienta con 4 tarifas', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     // Capítulos 1–4 cerrados y 5.1 visto: toca 5.2, «una tarifa en borrador no existe».
     const hasta4 = CAPITULOS.slice(0, 4);
     const progreso = {
@@ -208,6 +212,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('cada capítulo se abre diciendo para qué sirve y qué se va a ver, y cada paso dice qué hacer', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     const hechosC1 = CAPITULOS[0].pasos.map(p => p.id);
     await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: hechosC1, aplazados: [], vistos: ['c1'] } });
     const apertura = page.getByRole('dialog', { name: /Capítulo 2: Tu estudio y tus clases/ });
@@ -239,6 +245,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('estar en Configuración no es estar en el sitio: la pestaña cuenta, y «Llévame» lleva a la buena', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     // Toca «Correos automáticos» (pestaña «Cómo me comunico»), pero estamos en la pestaña «Marca».
     const previos = CAPITULOS.slice(0, 8);
     const hechos = [...previos.flatMap(c => c.pasos.map(p => p.id)), 'c9.1', 'c9.2'];
@@ -255,6 +263,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('al empezar un capítulo te lleva solo a su pantalla (sin recargar y sin esperar a que lo pidas)', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     const previos = CAPITULOS.slice(0, 2);
     const progreso = { v: 1, inicio: true, hechos: previos.flatMap(c => c.pasos.map(p => p.id)), aplazados: [], vistos: previos.map(c => c.id), abiertos: previos.map(c => c.id) };
     await montarVisita(page, { progreso });
