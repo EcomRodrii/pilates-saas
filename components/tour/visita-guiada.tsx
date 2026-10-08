@@ -23,15 +23,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTour } from '@/lib/tour-context';
 import { useStudio } from '@/lib/studio-context';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
-import { CAPITULOS, pasoPorId, rutaBase, rutaCoincide, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
+import { CAPITULOS, pasoPorId, rutaBase, rutaCoincide, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
 import { datosHecho, type DatosHecho } from '@/lib/tour/hecho';
 import { aplazadosEnOrden, capitulosConPasos, pasoAnteriorA, pasoCerrado } from '@/lib/tour/progreso';
-import { PantallaCapituloVisita, PantallaFinVisita, PantallaInicioVisita } from '@/components/tour/pantallas-visita';
+import { PantallaAperturaCapitulo, PantallaCapituloVisita, PantallaFinVisita, PantallaInicioVisita } from '@/components/tour/pantallas-visita';
 
 const ESPERA_OBJETIVO_MS = 8_000;
 const ESPERA_APLAZAR_MS = 60_000;
@@ -42,7 +42,7 @@ const MARGEN = 12;
 
 /** El primer elemento con ese `data-tour` que se VE (la barra de móvil y la de escritorio conviven en el DOM). */
 function elementoVisible(selector: string): HTMLElement | null {
-  for (const el of document.querySelectorAll<HTMLElement>(`[data-tour="${selector}"]`)) {
+  for (const el of document.querySelectorAll<HTMLElement>(selectorCss(selector))) {
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) return el;
   }
@@ -97,9 +97,16 @@ function useObjetivo(paso: PasoVisita, enRuta: boolean, cargando: boolean) {
     };
     medir();
     const id = window.setInterval(medir, 250);
-    window.addEventListener('resize', medir);
-    window.addEventListener('scroll', medir, true);
-    return () => { window.clearInterval(id); window.removeEventListener('resize', medir); window.removeEventListener('scroll', medir, true); };
+    // Scroll y resize van a un fotograma como mucho: medir en cada evento de scroll con
+    // `capture` (cualquier contenedor) metía lecturas de layout a cientos por segundo.
+    let pendiente = 0;
+    const alMover = () => { if (!pendiente) pendiente = requestAnimationFrame(() => { pendiente = 0; medir(); }); };
+    window.addEventListener('resize', alMover);
+    window.addEventListener('scroll', alMover, { capture: true, passive: true });
+    return () => {
+      window.clearInterval(id); if (pendiente) cancelAnimationFrame(pendiente);
+      window.removeEventListener('resize', alMover); window.removeEventListener('scroll', alMover, true);
+    };
   }, [paso.id, paso.selector, paso.tipo, enRuta, cargando]);
 
   return { rect, sinFoco, dialogo, puedeAplazar: segundosHaciendo >= ESPERA_APLAZAR_MS };
@@ -245,7 +252,7 @@ function ContenidoPaso({
     return (
       <div data-visita role="status" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center p-2">
         <p className="max-w-xl rounded-2xl bg-foreground px-4 py-2.5 text-[13px] leading-snug text-background shadow-xl">
-          <span className="font-semibold">{paso.titulo}.</span> {paso.texto}
+          <span className="font-semibold">{paso.titulo}.</span> {paso.accion}
         </p>
       </div>
     );
@@ -290,6 +297,10 @@ function ContenidoPaso({
         </div>
         <p className="mt-3 text-[15px] font-bold leading-snug text-foreground text-balance">{paso.titulo}</p>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">{paso.texto}</p>
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-brand/10 px-3 py-2.5 text-[13.5px] font-semibold leading-snug text-foreground">
+          <MousePointerClick size={16} className="mt-0.5 shrink-0 text-brand-medio" aria-hidden />
+          <span className="min-w-0">{paso.accion}</span>
+        </p>
 
         {!enRuta && (
           <p className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12.5px] text-muted-foreground">
@@ -397,12 +408,22 @@ export function VisitaGuiada({ cargando }: { cargando: boolean }) {
   const etiquetaPildora = (id: string) => `Visita guiada · Cap. ${Math.max(1, numeroDe(id))} de ${capitulos.length} · Continuar`;
 
   if (t.pausada) {
-    const id = estado.fase === 'paso' ? estado.capitulo.id : estado.fase === 'capitulo' ? estado.capitulo.id : CAPITULOS[0].id;
+    const id = estado.fase === 'paso' || estado.fase === 'capitulo' || estado.fase === 'apertura' ? estado.capitulo.id : CAPITULOS[0].id;
     return <Pildora escritorio={t.escritorio} onClick={t.reanudar} texto={etiquetaPildora(id)} />;
   }
 
   if (estado.fase === 'inicio') {
     return <PantallaInicioVisita capitulos={capitulos} obligatoria={t.obligatoria} onEmpezar={t.empezarVisita} onSalir={t.salir} />;
+  }
+
+  if (estado.fase === 'apertura') {
+    return (
+      <PantallaAperturaCapitulo
+        capitulo={estado.capitulo} numero={estado.numero} total={capitulos.length}
+        pasos={estado.capitulo.pasos.filter(t.aplica)}
+        onEmpezar={() => t.abrirCapitulo(estado.capitulo.id)}
+      />
+    );
   }
 
   if (estado.fase === 'capitulo') {

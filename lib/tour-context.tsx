@@ -25,10 +25,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useCore } from '@/lib/core-context';
 import { usePermisos } from '@/lib/permisos';
 import { esRutaCongelada } from '@/lib/frozen-features';
+import { rutaFueraDelMenu } from '@/lib/nav-config';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { pasoAplica, visitaObligatoria } from '@/lib/tour/aplica';
 import {
-  PROGRESO_VACIO, cerrarPaso, empezar, estadoVisita, parseProgreso, verCapitulo,
+  PROGRESO_VACIO, abrirCapitulo, cerrarPaso, empezar, estadoVisita, parseProgreso, verCapitulo,
   type EstadoVisita, type ProgresoVisita,
 } from '@/lib/tour/progreso';
 import type { PasoVisita } from '@/lib/tour/capitulos';
@@ -54,6 +55,7 @@ interface TourValue {
   empezarVisita: () => void;
   cerrar: (paso: PasoVisita, como: 'hecho' | 'aplazado') => void;
   cerrarCapitulo: (id: string, seguirOtroDia: boolean) => void;
+  abrirCapitulo: (id: string) => void;
   reanudar: () => void;
   /** Solo la visita opcional. */
   salir: () => void;
@@ -83,7 +85,7 @@ function escribirLocal(clave: string, p: ProgresoVisita | null) {
   } catch { /* sin almacenamiento: la visita sigue igual */ }
 }
 
-const CERRADOS = (p: ProgresoVisita) => p.hechos.length + p.aplazados.length + p.vistos.length + (p.inicio ? 1 : 0);
+const CERRADOS = (p: ProgresoVisita) => p.hechos.length + p.aplazados.length + p.vistos.length + p.abiertos.length + (p.inicio ? 1 : 0);
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const { studio, updateStudio } = useCore();
@@ -129,7 +131,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const hayVisita = obligatoria ? local !== null : opcional !== null;
 
   const aplica = useCallback(
-    (paso: PasoVisita) => pasoAplica(paso, { puedeVer, esRutaCongelada, escritorio }),
+    (paso: PasoVisita) => pasoAplica(paso, { puedeVer, esRutaCongelada, fueraDelMenu: rutaFueraDelMenu, escritorio }),
     [puedeVer, escritorio],
   );
   const estado = useMemo(() => estadoVisita(progreso, aplica), [progreso, aplica]);
@@ -181,6 +183,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       capturarEvento('tour_capitulo_completado', { capitulo: id });
       if (seguirOtroDia) setPausada(true);
     },
+    abrirCapitulo: id => aplicar(abrirCapitulo(progreso, id)),
     reanudar: () => setPausada(false),
     salir: () => {
       if (obligatoria) return; // nunca
