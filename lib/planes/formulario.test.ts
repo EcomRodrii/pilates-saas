@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable, caducaPorDias,
   type FormularioPlan,
-  erroresPlan, resumenCondicionesPlan,
+  erroresPlan, resumenCondicionesPlan, tipoSugeridoPorNombre, tarifaDuplicada,
 } from './formulario.ts';
 import type { PlanTarifa } from '../types.ts';
 
@@ -407,4 +407,39 @@ test('clase de prueba: las mismas reglas que el CHECK de la base, dichas antes d
 test('clase de prueba: una cuota nunca sale marcada, aunque la casilla lo estuviera', () => {
   assert.equal(formularioAPlan({ ...planVacio(), nombre: 'X', precio: '50', tipo: 'MENSUAL', esPrueba: true }).esPrueba, false);
   assert.equal(formularioAPlan({ ...planVacio(), nombre: 'X', precio: '10', tipo: 'PUNTUAL', sesiones: '1', validezDias: '30', esPrueba: true }).esPrueba, true);
+});
+
+// ── El nombre dice una cosa y el tipo otra ──────────────────────────────────
+
+test('una cuota que se llama «Clase suelta» avisa: cobraría cada mes', () => {
+  assert.equal(tipoSugeridoPorNombre('Tarifa Clase Suelta', 'MENSUAL'), 'PUNTUAL');
+  assert.equal(tipoSugeridoPorNombre('Drop-in', 'MENSUAL'), 'PUNTUAL');
+  assert.equal(tipoSugeridoPorNombre('Sesión única', 'MENSUAL'), 'PUNTUAL');
+});
+
+test('un «Bono» que no es bono avisa, sea cuota o clase suelta', () => {
+  assert.equal(tipoSugeridoPorNombre('Bono 10 clases', 'MENSUAL'), 'BONO');
+  assert.equal(tipoSugeridoPorNombre('Bono 10 clases', 'PUNTUAL'), 'BONO');
+});
+
+test('sin contradicción no avisa (incluida una cuota «8 clases al mes»)', () => {
+  assert.equal(tipoSugeridoPorNombre('Mensual ilimitado', 'MENSUAL'), null);
+  assert.equal(tipoSugeridoPorNombre('8 clases al mes', 'MENSUAL'), null);
+  assert.equal(tipoSugeridoPorNombre('Clase suelta', 'PUNTUAL'), null);
+  assert.equal(tipoSugeridoPorNombre('Bono 10 clases', 'BONO'), null);
+  assert.equal(tipoSugeridoPorNombre('', 'MENSUAL'), null);
+});
+
+// ── Dos tarifas iguales ─────────────────────────────────────────────────────
+
+test('crear «Tarifa Clase Suelta» otra vez encuentra la que ya existe', () => {
+  const existentes = [{ id: 'a', nombre: 'Tarifa Clase Suelta', tipo: 'PUNTUAL' as const }];
+  assert.equal(tarifaDuplicada('  tarifa  clase suelta ', 'PUNTUAL', existentes)?.id, 'a');
+});
+
+test('mismo nombre pero otro tipo, o la propia tarifa al editarla, no es duplicado', () => {
+  const existentes = [{ id: 'a', nombre: 'Bono 10', tipo: 'BONO' as const }];
+  assert.equal(tarifaDuplicada('Bono 10', 'MENSUAL', existentes), null);
+  assert.equal(tarifaDuplicada('Bono 10', 'BONO', existentes, 'a'), null);
+  assert.equal(tarifaDuplicada('', 'BONO', existentes), null);
 });

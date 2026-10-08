@@ -151,7 +151,14 @@ export async function GET(req: NextRequest) {
   // convención local 0=lunes..6=domingo (mismo mapeo que ya hace el cliente
   // en app/(dashboard)/calendario/page.tsx para `dia`: `d === 0 ? 6 : d - 1`).
   const horarioRaw = (horarioRows ?? []) as RowStudioHorario[];
-  const horarioSemana = horarioRaw.map(h => ({ dia: (h.dia_semana + 6) % 7, abierto: h.abierto }));
+  const horarioSemana = horarioRaw.map(h => ({
+    dia: (h.dia_semana + 6) % 7, abierto: h.abierto,
+    // El eje de la rejilla es uno solo (la apertura más temprana de la semana);
+    // las horas de CADA día viajan aparte para poder marcar como cerrado lo que
+    // cae fuera del suyo.
+    apertura: h.abierto ? h.hora_apertura : null,
+    cierre: h.abierto ? h.hora_cierre : null,
+  }));
 
   // Eje de horas de la rejilla: la ventana más amplia entre los días
   // realmente abiertos, no un horario único ficticio. Si el estudio no

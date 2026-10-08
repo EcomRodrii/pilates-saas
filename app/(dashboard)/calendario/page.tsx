@@ -32,7 +32,6 @@ import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
-import { colorPorIndice } from '@/lib/onboarding/plan-configuracion';
 import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
@@ -85,8 +84,9 @@ import { estadoDeFicha, porQueSinCubrir } from '@/lib/calendario/estado-ficha';
 import { claseDelMostrador, siguienteClase, vecinas } from '@/lib/calendario/mostrador';
 import type { ClaseEnFranja } from '@/lib/calendario/franjas';
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
+import { minutosDeHora } from '@/lib/calendario/horas-cerradas';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
-import { PrimerHorario } from '@/components/calendario/primer-horario';
+import { CalendarioSinClases } from '@/components/calendario/calendario-sin-clases';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
@@ -574,7 +574,7 @@ interface DatosVista {
   instructores: import('@/lib/types').Instructor[];
   horaApertura: string;
   horaCierre: string;
-  horarioSemana: { dia: number; abierto: boolean }[];
+  horarioSemana: { dia: number; abierto: boolean; apertura?: string | null; cierre?: string | null }[];
   /** false = no se pudieron leer las ausencias: ninguna clase se da por cubierta por ello. */
   ausenciasCargadas?: boolean;
   rol: string;
@@ -599,7 +599,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded, addInstructor,
+    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -692,11 +692,15 @@ export default function Calendario() {
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [reasignarLote, setReasignarLote] = useState<{ instructorId: string; nombre: string } | null>(null);
   const [reasignando, setReasignando] = useState(false);
+  // Borrar las marcadas: `null` = diálogo cerrado; el progreso se enseña
+  // mientras dura porque cada clase avisa a sus alumnas antes de borrarse.
+  const [eliminarLote, setEliminarLote] = useState<{ hechas: number; total: number } | 'confirmar' | null>(null);
 
   function salirDeSeleccion() {
     setModoSeleccion(false);
     setMarcadas(new Set());
     setReasignarLote(null);
+    setEliminarLote(null);
   }
 
   function alternarMarcada(id: string) {
@@ -1326,6 +1330,46 @@ export default function Calendario() {
     } finally {
       setReasignando(false);
     }
+  }
+
+  // ── Eliminar en lote ───────────────────────────────────────────────────────
+  //
+  // Cada clase pasa por `deleteSesion`, el MISMO camino que «Eliminar» de una
+  // suelta: la marca cancelada, avisa a sus alumnas, les devuelve el bono según
+  // la política del estudio y solo entonces borra. Un borrado «en masa» por otra
+  // vía se saltaría justo lo que evita que una alumna pierda una sesión sin
+  // enterarse. Va de una en una (no en paralelo) porque cada una espera a su
+  // aviso, y se cuenta lo que de verdad se borró.
+  function loteEliminable() {
+    const candidatas = sesionesEnriquecidas.filter(x => marcadas.has(x.id));
+    const borran = candidatas.filter(x => !sesionYaEmpezada(x.inicio));
+    const descartadas = candidatas.length - borran.length;
+    const ids = new Set(borran.map(x => x.id));
+    const alumnas = new Set<string>();
+    for (const r of reservas) {
+      if (ids.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && r.socioId) alumnas.add(r.socioId);
+    }
+    return { borran, descartadas, alumnas: alumnas.size };
+  }
+
+  async function aplicarEliminacionLote() {
+    if (typeof eliminarLote === 'object' && eliminarLote !== null) return;
+    const { borran } = loteEliminable();
+    if (borran.length === 0) { setEliminarLote(null); return; }
+    let hechas = 0;
+    const fallos: string[] = [];
+    setEliminarLote({ hechas: 0, total: borran.length });
+    for (const ses of borran) {
+      const res = await deleteSesion(ses.id);
+      if (res.ok) hechas++; else fallos.push(res.error);
+      setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
+    }
+    showToast(fallos.length
+      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}`
+      : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
+    salirDeSeleccion();
+    invalidarHorario();
+    void refrescarVista();
   }
 
   async function avisarCambioHorarioSala(
@@ -2282,13 +2326,20 @@ export default function Calendario() {
       }];
     });
   }, [datosVista, columnasSemana, dias, todayStr, datosPorSesionId]);
+  // El horario del día elegido: en la rejilla del Día, lo que cae fuera sale como
+  // «Cerrado» (el eje es uno solo para toda la semana).
+  const horarioDiaElegido = useMemo(() => {
+    const h = datosVista?.horarioSemana?.find(x => x.dia === (diaSeleccionado.getDay() + 6) % 7);
+    return h ? { abierto: h.abierto, aperturaMin: minutosDeHora(h.apertura), cierreMin: minutosDeHora(h.cierre) } : undefined;
+  }, [datosVista, diaSeleccionado]);
   const agendaDia = useMemo<DiaDeAgenda[]>(() => {
     if (!datosVista) return [];
     return [{
-      clave: localDate(diaSeleccionado), fecha: diaSeleccionado, esHoy: localDate(diaSeleccionado) === todayStr, cerrado: false,
+      clave: localDate(diaSeleccionado), fecha: diaSeleccionado, esHoy: localDate(diaSeleccionado) === todayStr,
+      cerrado: horarioDiaElegido ? !horarioDiaElegido.abierto : false,
       sesiones: clasesDeAgenda(agendaDeDia(columnasDia), datosPorSesionId, datosVista.salas),
     }];
-  }, [datosVista, columnasDia, diaSeleccionado, todayStr, datosPorSesionId]);
+  }, [datosVista, columnasDia, diaSeleccionado, todayStr, datosPorSesionId, horarioDiaElegido]);
 
   // ⚠️ Una clase que la cabecera cuenta y la rejilla no pinta.
   //
@@ -3461,31 +3512,12 @@ export default function Calendario() {
           // ⚠️ CERO sesiones en TODO el estudio, no «cero esta semana»: una
           // semana vacía en un estudio en marcha es normal (vacaciones) y aquí
           // sería ruido.
-          <PrimerHorario
-            horaApertura={datosVista.horaApertura}
-            horaCierre={datosVista.horaCierre}
-            tiposClase={tiposProgramables.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
-            salas={salas.map(x => ({ nombre: x.nombre, capacidad: x.capacidad }))}
-            // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
-            // doy clases»): con más gente, repartir clases es decisión suya.
-            instructora={instructoresActivos.length === 1 ? instructoresActivos[0].nombre : null}
-            // Con el equipo vacío las clases nacían sin instructora: se pregunta quién.
-            sinEquipo={instructoresActivos.length === 0}
-            onCrearInstructora={async (nombre) => {
-              const res = await addInstructor({
-                nombre, email: null, telefono: null, color: colorPorIndice(instructores.length),
-                activo: true, rol: 'INSTRUCTOR', authUserId: null,
-              });
-              return res.ok ? { ok: true } : { ok: false, error: res.error };
-            }}
+          <CalendarioSinClases
             puedeCrear={gestionaClientas}
-            slug={studio?.slug ?? null}
-            nombreEstudio={studio?.nombre ?? 'tu estudio'}
-            onCreado={(n) => {
-              showToast(`Horario creado: ${n} clases en las próximas semanas`);
-              invalidarHorario();
-              void cargarDatosVista(rango);
-            }}
+            hayTiposDeClase={tiposProgramables.length > 0}
+            // El mismo camino que el botón de la cabecera: quien gestiona elige
+            // entre «Clase» y «Clase fija» (no se salta esa pregunta).
+            onCrearClase={gestionaClientas ? () => setElegirQueCrear(true) : () => openNueva()}
           />
         ) : enMovil ? (
           <VistaAgenda
@@ -3508,6 +3540,7 @@ export default function Calendario() {
                 tarjetas={tarjetasPorId}
                 aperturaMin={aperturaMin}
                 cierreMin={cierreMin}
+                horarioDia={horarioDiaElegido}
                 pxPorHora={fichaLateral ? 80 : 88}
                 ahoraMin={esHoyEnDia ? minutosEnEstudio(now) : null}
                 seleccionadaId={sesionId}
@@ -3584,6 +3617,23 @@ export default function Calendario() {
                   <option key={i.id} value={i.id}>{i.nombre}</option>
                 ))}
               </select>
+            )}
+            <button
+              onClick={() => setMarcadas(new Set([...datosPorSesionId.keys()].filter(id => {
+                const d = datosPorSesionId.get(id);
+                return d && !sesionYaEmpezada(d.sesion.inicio);
+              })))}
+              className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Marcar todas las de esta vista
+            </button>
+            {marcadas.size > 0 && !esInstructor && (
+              <button
+                onClick={() => setEliminarLote('confirmar')}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-destructive/40 px-3 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 size={14} aria-hidden />Eliminar
+              </button>
             )}
             <button
               onClick={salirDeSeleccion}
@@ -4063,6 +4113,52 @@ export default function Calendario() {
           una vez por clase.
           El recuento de arriba sí es de PERSONAS distintas, no de reservas:
           «2 alumnas» con una apuntada a las dos clases, no «3». */}
+      <Dialog open={eliminarLote !== null} onOpenChange={open => { if (!open && eliminarLote === 'confirmar') setEliminarLote(null); }}>
+        <DialogContent className="max-w-md" data-testid="eliminar-lote">
+          {(() => {
+            const { borran, descartadas, alumnas } = loteEliminable();
+            const enCurso = typeof eliminarLote === 'object' && eliminarLote !== null ? eliminarLote : null;
+            const n = borran.length;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-[15px] font-semibold text-foreground">
+                    {enCurso ? `Eliminando ${enCurso.hechas} de ${enCurso.total}…` : `¿Eliminar ${n} clase${n === 1 ? '' : 's'}?`}
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="mt-2 text-[13px] text-muted-foreground">
+                  {enCurso
+                    ? 'No cierres esta ventana: cada clase avisa a sus alumnas antes de borrarse.'
+                    : alumnas === 0
+                      ? 'Ninguna tiene alumnas apuntadas.'
+                      : <><strong className="text-foreground">{alumnas} alumna{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} se quedará{alumnas === 1 ? '' : 'n'} sin plaza{(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá{alumnas === 1 ? '' : 'n'} un aviso por cada clase suya que se borre.</>}
+                  {!enCurso && descartadas > 0 && (
+                    <> {descartadas} de las marcadas no se {descartadas === 1 ? 'borra' : 'borran'}: ya {descartadas === 1 ? 'empezó' : 'empezaron'}.</>
+                  )}
+                </p>
+                {!enCurso && <p className="mt-2 text-[12px] text-muted-foreground">No se puede deshacer.</p>}
+                <div className="mt-4 flex gap-2">
+                  <button
+                    disabled={!!enCurso}
+                    className="flex-1 justify-center rounded-xl border border-border py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    onClick={() => setEliminarLote(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    disabled={!!enCurso || n === 0}
+                    className="flex-1 justify-center rounded-xl bg-destructive py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    onClick={() => void aplicarEliminacionLote()}
+                  >
+                    {enCurso ? 'Eliminando…' : `Eliminar ${n} clase${n === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={reasignarLote !== null} onOpenChange={open => !open && setReasignarLote(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>

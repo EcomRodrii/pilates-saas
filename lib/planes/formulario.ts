@@ -45,6 +45,44 @@ export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
 };
 
 /**
+ * ¿El nombre dice una cosa y el tipo otra? Devuelve el tipo que el nombre
+ * sugiere, o `null` si no hay nada que avisar.
+ *
+ * POR QUÉ: una dueña llamó «Clase suelta» a una tarifa que el formulario había
+ * dejado en «Cuota» (se abre en Cuota si se pulsa «Añadir» desde Suscripciones).
+ * Resultado: a sus alumnas les cobraría 23 € cada mes. El formulario se calla
+ * porque ambos valores son válidos. Solo se avisa en estos dos sentidos, que
+ * son los que cuestan dinero: una cuota que se llama suelta/puntual, y una
+ * cuota o clase suelta que se llama bono. «8 clases al mes» NO cuenta: es una
+ * cuota legítima con límite semanal.
+ */
+export function tipoSugeridoPorNombre(nombre: string, tipo: TipoPlan): TipoPlan | null {
+  const n = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (tipo === 'MENSUAL' && /\b(suelta|sueltas|suelto|puntual|puntuales|drop[- ]?in|sesion unica|clase unica)\b/.test(n)) {
+    return 'PUNTUAL';
+  }
+  if (tipo !== 'BONO' && /\bbonos?\b/.test(n)) return 'BONO';
+  return null;
+}
+
+/**
+ * ¿Ya hay una tarifa con este nombre y este tipo? Devuelve la existente.
+ *
+ * POR QUÉ: una dueña creó «Tarifa Clase Suelta» dos veces seguidas (79 s entre
+ * una y otra, probablemente creyó que la primera no había salido) y el TPV le
+ * enseñó la clase suelta repetida. No bloquea —dos tarifas con el mismo nombre
+ * pueden ser deliberadas—, solo avisa antes de crear la segunda.
+ */
+export function tarifaDuplicada<T extends { id: string; nombre: string; tipo: TipoPlan }>(
+  nombre: string, tipo: TipoPlan, existentes: readonly T[], ignorarId?: string,
+): T | null {
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const buscado = norm(nombre);
+  if (!buscado) return null;
+  return existentes.find(p => p.id !== ignorarId && p.tipo === tipo && norm(p.nombre) === buscado) ?? null;
+}
+
+/**
  * Cada cuánto se puede cobrar una cuota, para el desplegable.
  *
  * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`

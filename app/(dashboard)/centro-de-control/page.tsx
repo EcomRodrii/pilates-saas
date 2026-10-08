@@ -27,6 +27,8 @@ import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { BarraPreguntar } from '@/components/asistente/barra-preguntar';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
+import { CentroNoIncluido } from '@/components/decision/centro-no-incluido';
+import { SIN_PLAN_DECISIONES } from '@/lib/decision/plan-decisiones';
 
 // Centro de Control — reorganizado como sistema de decisiones, no como lista
 // de todo lo que Tentare sabe (petición explícita 2026-08-18). Jerarquía fija
@@ -286,6 +288,9 @@ export default function CentroDeControlPage() {
       </div>
     );
   }
+
+  // Plan sin Centro de Control o prueba vencida: una puerta con salida, no un fallo.
+  if (error === SIN_PLAN_DECISIONES) return <CentroNoIncluido pruebaVencida={studio?.subscriptionStatus === 'trial_expirado'} />;
 
   if (error) {
     return (
