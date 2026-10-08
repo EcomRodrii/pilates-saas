@@ -8,11 +8,11 @@ const STORAGE_KEY = 'sb-example-auth-token';
 type Estado = 'desactivada' | 'sin-empezar' | 'en-curso' | 'completada';
 interface Fila {
   id: string; nombre: string; slug: string; plan: string; creadoEn: string;
-  esDemo: boolean; deCadena: boolean; suspendido: boolean; obligatorio: boolean;
+  esDemo: boolean; deCadena: boolean; suspendido: boolean; paga: boolean; obligatorio: boolean;
   resumen: { estado: Estado; texto: string; porcentaje: number };
 }
 const fila = (id: string, nombre: string, extra: Partial<Fila> = {}): Fila => ({
-  id, nombre, slug: id, plan: 'BASE', creadoEn: '2026-10-01T10:00:00Z', esDemo: false, deCadena: false, suspendido: false, obligatorio: false,
+  id, nombre, slug: id, plan: 'BASE', creadoEn: '2026-10-01T10:00:00Z', esDemo: false, deCadena: false, suspendido: false, paga: false, obligatorio: false,
   resumen: { estado: 'desactivada', texto: 'Desactivada', porcentaje: 0 }, ...extra,
 });
 
@@ -27,6 +27,7 @@ async function montar(page: Page, opciones: { permisos?: string[]; fallar?: bool
     estudios: [
       fila('boutique', 'Pilates Boutique', { obligatorio: true, resumen: { estado: 'en-curso', texto: 'Capítulo 3 de 10 · Tu horario', porcentaje: 22 } }),
       fila('alya', 'Alya Pilates'),
+      fila('ritmica', 'Rítmica La Luna', { paga: true }),
       fila('hecha', 'Estudio que ya la hizo', { resumen: { estado: 'completada', texto: 'Completada el 7 oct', porcentaje: 100 } }),
       fila('demo', 'Estudio demo', { esDemo: true }),
     ],
@@ -77,7 +78,8 @@ test.describe('/interno → Visita guiada', () => {
     await expect(lista(page, 'Alya Pilates')).toContainText('Desactivada');
     await expect(lista(page, 'Estudio que ya la hizo')).toContainText('Completada el 7 oct');
     await expect(lista(page, 'Estudio demo')).toContainText('demo');
-    await expect(page.getByText('Ahora la tienen activada 1 de 4')).toBeVisible();
+    await expect(page.getByText('Ahora la tienen activada 1 de 5')).toBeVisible();
+    await expect(lista(page, 'Rítmica La Luna')).toContainText('paga');
   });
 
   test('activar un estudio lo pide al servidor y cambia su estado', async ({ page }) => {
@@ -109,31 +111,41 @@ test.describe('/interno → Visita guiada', () => {
     await expect(demo.getByRole('button', { name: 'Activar desde cero' })).toBeDisabled();
   });
 
-  test('«Activar en todos» pide un segundo clic y no toca demos ni completadas', async ({ page }) => {
+  test('«Activar en todos» enseña QUIÉNES serán afectados, avisa de los que pagan y no toca demos ni completadas', async ({ page }) => {
     const peticiones = await montar(page);
-    // Activables: Alya (la demo y la ya completada no cuentan; Boutique ya la tiene).
-    const boton = page.getByRole('button', { name: 'Activar en todos (1)', exact: true });
-    await boton.click({ timeout: 30_000 });
+    // Activables: Alya y Rítmica (la demo y la ya completada no cuentan; Boutique ya la tiene).
+    await page.getByRole('button', { name: 'Activar en todos (2)', exact: true }).click({ timeout: 30_000 });
     expect(peticiones).toHaveLength(0);
-    await page.getByRole('button', { name: /¿Activar en 1\? Pulsa otra vez/ }).click();
+    const panel = page.getByRole('group', { name: 'Confirmar acción en todos los estudios' });
+    await expect(panel).toContainText('Se activará la visita en 2 estudios');
+    await expect(panel.getByRole('listitem').filter({ hasText: 'Alya Pilates' })).toBeVisible();
+    await expect(panel.getByRole('listitem').filter({ hasText: 'Rítmica La Luna · paga' })).toBeVisible();
+    await expect(panel).not.toContainText('Estudio demo');
+    await expect(panel).not.toContainText('Estudio que ya la hizo');
+    await expect(panel).toContainText('1 de ellos ya pagan');
+    await panel.getByRole('button', { name: 'Sí, activar en 2' }).click();
     await expect.poll(() => peticiones.length).toBe(1);
     expect(peticiones[0]).toEqual({ accion: 'todos', activar: true });
-    await expect(page.getByRole('status')).toContainText('Visita activada en 1 estudio.');
+    await expect(page.getByRole('status')).toContainText('Visita activada en 2 estudios.');
     await expect(lista(page, 'Alya Pilates')).toContainText('Activa ·');
     await expect(lista(page, 'Estudio demo')).not.toContainText('Activa ·');
     await expect(lista(page, 'Estudio que ya la hizo')).toContainText('Completada');
   });
 
-  test('«Desactivar en todos» también pide confirmación y se puede cancelar', async ({ page }) => {
+  test('«Desactivar en todos» también enseña a quién y se puede cancelar', async ({ page }) => {
     const peticiones = await montar(page);
     await page.getByRole('button', { name: 'Desactivar en todos (1)', exact: true }).click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    const panel = page.getByRole('group', { name: 'Confirmar acción en todos los estudios' });
+    await expect(panel).toContainText('Se desactivará la visita en 1 estudio');
+    await expect(panel.getByRole('listitem').filter({ hasText: 'Pilates Boutique' })).toBeVisible();
+    await panel.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(panel).toHaveCount(0);
     expect(peticiones).toHaveLength(0);
     await page.getByRole('button', { name: 'Desactivar en todos (1)', exact: true }).click();
-    await page.getByRole('button', { name: /¿Desactivar en 1\? Pulsa otra vez/ }).click();
+    await page.getByRole('button', { name: 'Sí, desactivar en 1' }).click();
     await expect.poll(() => peticiones.length).toBe(1);
     expect(peticiones[0]).toEqual({ accion: 'todos', activar: false });
-    await expect(lista(page, 'Pilates Boutique')).toContainText('Desactivada');
+    await expect(page.getByTestId('estudio-boutique')).toContainText('Desactivada');
   });
 
   test('el interruptor de estudios nuevos se guarda y se lee', async ({ page }) => {

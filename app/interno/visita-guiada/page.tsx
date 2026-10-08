@@ -65,8 +65,12 @@ export default function VisitaGuiadaInterno() {
   if (!datos && !error) return <p className="text-[13.5px] text-muted-foreground">Cargando…</p>;
 
   const estudios = datos?.estudios ?? [];
-  const activables = estudios.filter(e => !e.esDemo && !e.obligatorio && e.resumen.estado !== 'completada').length;
-  const activas = estudios.filter(e => e.obligatorio).length;
+  const aActivar = estudios.filter(e => !e.esDemo && !e.obligatorio && e.resumen.estado !== 'completada');
+  const aDesactivar = estudios.filter(e => e.obligatorio);
+  const activables = aActivar.length;
+  const activas = aDesactivar.length;
+  // Lo que se va a tocar si se confirma: se ENSEÑA, no se resume en un número.
+  const afectados = confirmando === 'activar-todos' ? aActivar : confirmando === 'desactivar-todos' ? aDesactivar : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -116,27 +120,46 @@ export default function VisitaGuiadaInterno() {
             </p>
             {puedeEditar && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <BotonMasivo
-                  etiqueta={`Activar en todos (${activables})`} confirmar={`¿Activar en ${activables}? Pulsa otra vez`}
-                  esperando={confirmando === 'activar-todos'} deshabilitado={ocupado !== null || activables === 0}
-                  alPulsar={() => setConfirmando('activar-todos')}
-                  alConfirmar={() => void ejecutar('todos', async () => {
-                    const r = await accionVisitaGuiada({ accion: 'todos', activar: true });
-                    return `Visita activada en ${r.cambiados ?? 0} estudio${r.cambiados === 1 ? '' : 's'}.`;
-                  })}
-                />
-                <BotonMasivo
-                  etiqueta={`Desactivar en todos (${activas})`} confirmar={`¿Desactivar en ${activas}? Pulsa otra vez`}
-                  esperando={confirmando === 'desactivar-todos'} deshabilitado={ocupado !== null || activas === 0}
-                  alPulsar={() => setConfirmando('desactivar-todos')}
-                  alConfirmar={() => void ejecutar('todos', async () => {
-                    const r = await accionVisitaGuiada({ accion: 'todos', activar: false });
-                    return `Visita desactivada en ${r.cambiados ?? 0} estudio${r.cambiados === 1 ? '' : 's'}.`;
-                  })}
-                />
-                {confirmando && (
-                  <button type="button" onClick={() => setConfirmando(null)} className="min-h-10 rounded-xl px-3 text-[12.5px] text-muted-foreground underline underline-offset-2">Cancelar</button>
+                <button type="button" disabled={ocupado !== null || activables === 0} onClick={() => setConfirmando('activar-todos')}
+                  className="min-h-10 rounded-xl border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50">
+                  Activar en todos ({activables})
+                </button>
+                <button type="button" disabled={ocupado !== null || activas === 0} onClick={() => setConfirmando('desactivar-todos')}
+                  className="min-h-10 rounded-xl border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50">
+                  Desactivar en todos ({activas})
+                </button>
+              </div>
+            )}
+            {confirmando && (
+              <div role="group" aria-label="Confirmar acción en todos los estudios" className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
+                <p className="text-[13px] font-semibold text-foreground">
+                  {confirmando === 'activar-todos' ? 'Se activará la visita en' : 'Se desactivará la visita en'} {afectados.length} estudio{afectados.length === 1 ? '' : 's'}:
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {afectados.map(e => (
+                    <li key={e.id} className={`rounded-full px-2.5 py-0.5 text-[12px] ${e.paga ? 'bg-warning/20 font-semibold text-foreground' : 'bg-muted text-muted-foreground'}`}>
+                      {e.nombre}{e.paga ? ' · paga' : ''}
+                    </li>
+                  ))}
+                </ul>
+                {confirmando === 'activar-todos' && afectados.some(e => e.paga) && (
+                  <p className="mt-2 text-[12.5px] leading-relaxed text-foreground">
+                    Ojo: {afectados.filter(e => e.paga).length} de ellos <span className="font-semibold">ya pagan</span>. La visita son ~53 minutos que la propietaria no puede cerrar;
+                    para quien ya trabaja con Tentare puede resultar pesado. Si prefieres, actívala estudio a estudio.
+                  </p>
                 )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" disabled={ocupado !== null}
+                    onClick={() => void ejecutar('todos', async () => {
+                      const activar = confirmando === 'activar-todos';
+                      const r = await accionVisitaGuiada({ accion: 'todos', activar });
+                      return `Visita ${activar ? 'activada' : 'desactivada'} en ${r.cambiados ?? 0} estudio${r.cambiados === 1 ? '' : 's'}.`;
+                    })}
+                    className="min-h-10 rounded-xl bg-destructive px-4 text-[13px] font-semibold text-white disabled:opacity-50">
+                    Sí, {confirmando === 'activar-todos' ? 'activar' : 'desactivar'} en {afectados.length}
+                  </button>
+                  <button type="button" onClick={() => setConfirmando(null)} className="min-h-10 rounded-xl px-3 text-[12.5px] text-muted-foreground underline underline-offset-2">Cancelar</button>
+                </div>
               </div>
             )}
           </section>
@@ -163,6 +186,7 @@ export default function VisitaGuiadaInterno() {
                       {e.esDemo && <Etiqueta>demo</Etiqueta>}
                       {e.deCadena && <Etiqueta>sede de cadena</Etiqueta>}
                       {e.suspendido && <Etiqueta>suspendido</Etiqueta>}
+                      {e.paga && <Etiqueta>paga</Etiqueta>}
                     </p>
                     <p className="text-[11.5px] text-muted-foreground">/{e.slug} · {e.plan} · alta el {fecha(e.creadoEn)}</p>
                     <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[12.5px]">
@@ -206,17 +230,6 @@ function Boton({ children, onClick, deshabilitado, principal }: { children: Reac
     <button type="button" onClick={onClick} disabled={deshabilitado}
       className={`min-h-9 rounded-lg px-3 text-[12.5px] font-semibold transition-colors disabled:opacity-50 ${principal ? 'bg-brand text-brand-foreground hover:brightness-95' : 'border border-border bg-card text-foreground hover:bg-muted'}`}>
       {children}
-    </button>
-  );
-}
-
-function BotonMasivo({ etiqueta, confirmar, esperando, deshabilitado, alPulsar, alConfirmar }: {
-  etiqueta: string; confirmar: string; esperando: boolean; deshabilitado: boolean; alPulsar: () => void; alConfirmar: () => void;
-}) {
-  return (
-    <button type="button" disabled={deshabilitado} onClick={esperando ? alConfirmar : alPulsar}
-      className={`min-h-10 rounded-xl px-4 text-[13px] font-semibold transition-colors disabled:opacity-50 ${esperando ? 'bg-destructive text-white' : 'border border-border bg-card text-foreground hover:bg-muted'}`}>
-      {esperando ? confirmar : etiqueta}
     </button>
   );
 }
