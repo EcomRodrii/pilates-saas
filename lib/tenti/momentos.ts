@@ -155,10 +155,11 @@ export function estadoDeHoy({ esHoy, cargando, fallo, clases }: {
  * texto ya dice «el proceso se detuvo ahí»). Deshecha, sin Tenti.
  */
 export function estadoDeLaMigracion({ resultados, deshecho }: {
-  resultados: readonly { error?: string | null }[]; deshecho: boolean;
+  resultados: readonly { error?: string | null; estado?: string }[]; deshecho: boolean;
 }): 'hecho' | 'error' | null {
   if (deshecho) return null;
-  return resultados.some(r => r.error) ? 'error' : 'hecho';
+  // Una entidad saltada («no_importada») no lleva error propio pero tampoco es éxito.
+  return resultados.some(r => r.error || (r.estado !== undefined && r.estado !== 'importada')) ? 'error' : 'hecho';
 }
 
 /** Lo que dura el 'hecho' breve de lo diario (el veredicto, el asistente). */

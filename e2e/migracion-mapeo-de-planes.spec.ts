@@ -272,7 +272,10 @@ test.describe('Tenti en Analizar: piensa solo mientras analiza', () => {
     await expect(page.getByText('Acta de migración')).toBeVisible({ timeout: 30_000 });
     // Un test de camino de fallo sin contador es hueco: que de verdad lo intentó.
     expect(intentos).toBeGreaterThan(0);
-    await expect(page.getByText(/el proceso se detuvo ahí/)).toBeVisible();
+    // El acta dice QUÉ falló y qué hacer, junto a su entidad (ya no una línea global).
+    await expect(page.getByText('No se pudo guardar')).toBeVisible();
+    await expect(page.getByText(/Lo que sí entró está guardado/)).toBeVisible();
+    await expect(page.getByText(/¿Todo cuadra\? Ya está/)).toHaveCount(0);
     const acta = page.getByText('Acta de migración').locator('xpath=..');
     await expect(acta.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'error');
     const caja = acta.locator('xpath=..');

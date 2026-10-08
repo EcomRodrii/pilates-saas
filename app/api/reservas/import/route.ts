@@ -8,6 +8,7 @@ import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
+import { resumirSobreAforo, type SesionAforo } from '@/lib/migracion/reservas-aforo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esColumnaInexistente } from '@/lib/reservas/consumo-bono-reserva';
 
@@ -98,9 +99,15 @@ export async function POST(req: NextRequest) {
 
   // Índice de sesiones por (tipo de clase, instante de inicio).
   const sesionPorClave = new Map<string, { id: string; aforo: number }>();
+  // Y por id, para el aviso de sobreaforo (antes un `find` sobre todo el catálogo
+  // por cada clase tocada: O(n·m) con miles de clases).
+  const nombreTipo = new Map((tipos ?? []).map(t => [t.id, t.nombre]));
+  const sesionPorId = new Map<string, SesionAforo>();
   for (const s of sesiones ?? []) {
-    const clave = `${s.tipo_clase_id}|${new Date(s.inicio as string).toISOString()}`;
+    const inicioISO = new Date(s.inicio as string).toISOString();
+    const clave = `${s.tipo_clase_id}|${inicioISO}`;
     sesionPorClave.set(clave, { id: s.id, aforo: s.aforo_maximo ?? 0 });
+    sesionPorId.set(s.id, { aforo: s.aforo_maximo ?? 0, inicioMs: Date.parse(inicioISO), nombre: nombreTipo.get(s.tipo_clase_id ?? '') ?? 'Clase' });
   }
 
   // Reservas activas ya existentes: el índice único uq_reserva_activa_socio_sesion
@@ -221,11 +228,13 @@ export async function POST(req: NextRequest) {
   for (const p of pendientes) {
     if (OCUPA_PLAZA.includes(p.estado)) ocupadas.set(p.sesionId, (ocupadas.get(p.sesionId) ?? 0) + 1);
   }
-  let sobreAforo = 0;
-  for (const [sesionId, n] of ocupadas) {
-    const s = [...sesionPorClave.values()].find(x => x.id === sesionId);
-    if (s && s.aforo > 0 && n > s.aforo) sobreAforo++;
-  }
+  // Solo las clases que toca ESTE archivo (una que ya venía pasada de aforo no es
+  // culpa suya), separando las futuras —que hay que resolver— de las históricas.
+  const fmtCuando = (ms: number) => new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ,
+  }).format(new Date(ms));
+  const sobre = resumirSobreAforo(ocupadas, sesionPorId, new Set(pendientes.map(p => p.sesionId)), Date.now(), fmtCuando);
+  const sobreAforo = sobre.futuras + sobre.pasadas;
 
   return NextResponse.json({
     ok: true,
@@ -234,7 +243,10 @@ export async function POST(req: NextRequest) {
     duplicadas,     // ya estaban: reimportar no duplica
     sinSocia,       // email que no existe en el estudio
     sinSesion,      // no se encontró la clase a esa fecha/hora
-    sobreAforo,     // clases que quedan por encima de su aforo
+    sobreAforo,     // clases (de este archivo) que quedan por encima de su aforo
+    sobreAforoFuturas: sobre.futuras,
+    sobreAforoPasadas: sobre.pasadas,
+    detalleSobreAforo: sobre.detalle,
     errores: errores.slice(0, 50),
   });
 }

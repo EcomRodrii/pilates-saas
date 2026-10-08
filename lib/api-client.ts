@@ -1379,6 +1379,8 @@ export interface ResultadoImport {
   total: number;
   importadas: number;
   duplicadas: number;
+  /** Membresías que entraron ya caducadas por su fecha de fin (solo bonos y membresías). */
+  caducadas?: number;
   errores: { fila: number; email: string; motivo: string }[];
   error?: string;
 }
@@ -2268,6 +2270,7 @@ export interface ResultadoImportClases {
   creadas: number;
   omitidas: number;       // ya existían: reimportar no duplica
   tiposCreados: number;
+  omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;
   errores: { fila: number; motivo: string }[];
@@ -2302,6 +2305,9 @@ export interface ResultadoImportReservas {
   sinSocia: number;     // email que no existe en el estudio
   sinSesion: number;    // no se encontró la clase a esa fecha/hora
   sobreAforo: number;   // clases que quedan por encima de su aforo
+  sobreAforoFuturas?: number;   // de ellas, las que aún no han pasado (hay que resolverlas)
+  sobreAforoPasadas?: number;
+  detalleSobreAforo?: string[]; // las peores futuras, en frase
   errores: { fila: number; motivo: string }[];
   error?: string;
 }
