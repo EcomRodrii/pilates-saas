@@ -4,7 +4,7 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn, uid, formatFechaLarga } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -18,7 +18,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   planVacio, planAFormulario, formularioAPlan, erroresPlan, precioANumero,
-  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
+  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
@@ -300,6 +300,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
   }
 
   const esBono = form.tipo === 'BONO';
+  const tipoSugerido = tipoSugeridoPorNombre(form.nombre, form.tipo);
   const tituloAccion = initial
     ? 'Guardar cambios'
     : `Crear ${NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}`;
@@ -368,6 +369,26 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                       placeholder={esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado'} />
                   )}
                 </Campo>
+                {!initial && tipoSugerido && (
+                  <div role="alert" data-testid="aviso-nombre-tipo"
+                    className="rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <p className="flex items-start gap-1.5 font-semibold">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                      <span>
+                        Has puesto «{form.nombre.trim()}», pero esta tarifa es una {NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}.
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                      {tipoSugerido === 'PUNTUAL'
+                        ? 'Una cuota se cobra sola a la clienta cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
+                        : 'Un bono es un puñado de sesiones que se gastan al reservar y caduca. Si es lo que quieres, cámbiala; si no, ignora este aviso.'}
+                    </p>
+                    <button type="button" onClick={() => cambiarTipo(tipoSugerido)}
+                      className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted">
+                      Hacerla {NOMBRE_TIPO_PLAN[tipoSugerido].toLowerCase()}
+                    </button>
+                  </div>
+                )}
                 <Campo
                   id={`${uid}-desc`} etiqueta="Descripción"
                   ayuda="El argumento de venta, no las condiciones: esas las redacta Tentare sola ahí al lado.">
