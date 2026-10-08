@@ -99,6 +99,9 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => JSON.stringify(s.progreso)).toContain('c1.1');
+    // Guardado en el servidor: NO queda copia en el navegador (si quedara, ganaría al servidor y no se
+    // podría reiniciar la visita desde la base de datos).
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')))).toEqual([]);
 
     await page.reload();
     // No vuelve a la bienvenida: reanuda en el paso 2 del capítulo 1.
@@ -132,6 +135,8 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => s.intentos).toBeGreaterThan(0);
+    // Con el servidor caído SÍ queda la copia, para no perder el avance.
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')).length)).toBe(1);
   });
 
   test('al cerrar el último paso de un capítulo sale su resumen, y «Seguir otro día» deja solo la píldora', async ({ page }) => {
