@@ -56,7 +56,7 @@ export function PantallaInicioVisita({ capitulos, obligatoria, onEmpezar, onSali
       <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground text-balance">Vamos a recorrer Tentare juntas</h2>
       <p className="mt-3 text-[14.5px] leading-relaxed text-muted-foreground text-pretty">
         {capitulos.length} capítulos, unos {minutos} minutos en total. Cada uno dura entre {Math.min(...capitulos.map(c => c.minutos))} y {Math.max(...capitulos.map(c => c.minutos))} minutos
-        y puedes parar al acabar cualquiera y seguir otro día: te esperamos donde lo dejaste. Lo que ya tienes hecho lo damos por visto.
+        y puedes parar al acabar cualquiera y seguir otro día: te esperamos donde lo dejaste. Lo que ya tienes hecho te lo marcamos con un ✓.
       </p>
       <ol className="mt-4 space-y-1.5 text-[13.5px] text-foreground">
         {capitulos.map((c, i) => (
