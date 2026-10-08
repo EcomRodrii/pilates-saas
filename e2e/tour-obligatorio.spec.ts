@@ -99,6 +99,9 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => JSON.stringify(s.progreso)).toContain('c1.1');
+    // Guardado en el servidor: NO queda copia en el navegador (si quedara, ganaría al servidor y no se
+    // podría reiniciar la visita desde la base de datos).
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')))).toEqual([]);
 
     await page.reload();
     // No vuelve a la bienvenida: reanuda en el paso 2 del capítulo 1.
@@ -134,6 +137,8 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => s.intentos).toBeGreaterThan(0);
+    // Con el servidor caído SÍ queda la copia, para no perder el avance.
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')).length)).toBe(1);
   });
 
   test('al cerrar el último paso de un capítulo sale su resumen, y «Seguir otro día» deja solo la píldora', async ({ page }) => {
@@ -300,6 +305,17 @@ test.describe('La visita guiada por capítulos', () => {
     // Misma esquina (el menú y el Resumen no se tapan con ella): mismo borde derecho y mismo suelo.
     expect(Math.abs((a.x + a.width) - (b.x + b.width))).toBeLessThan(2);
     expect(Math.abs((a.y + a.height) - (b.y + b.height))).toBeLessThan(2);
+  });
+
+  test('si se recarga justo después de un paso (antes de que se guarde), no se pierde el avance', async ({ page }) => {
+    const s = await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('region', { name: /Visita guiada: Tu menú/ }).getByRole('button', { name: /Entendido/ }).click();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    // Recarga inmediata: el servidor (con su pausa de guardado) aún no ha recibido nada.
+    expect(s.patches.some(p => 'tour_progreso' in p)).toBe(false);
+    await page.reload();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible({ timeout: 30_000 });
   });
 });
 

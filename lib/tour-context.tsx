@@ -18,7 +18,9 @@
 //
 // ⚠️ Guardar el progreso NUNCA bloquea la visita. Si la escritura falla, la
 // visita sigue y se guarda una copia en el navegador (por estudio, para no
-// mezclar cuentas); se reintenta con el paso siguiente.
+// mezclar cuentas); se reintenta con el paso siguiente. La copia existe SOLO
+// mientras el servidor no tiene lo último: si se guardara siempre, ganaría al
+// servidor y no se podría reiniciar la visita desde la base de datos.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -140,14 +142,22 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardarEnServidor = useCallback((p: ProgresoVisita, completada: boolean) => {
     if (!studioId) return;
-    escribirLocal(`${CLAVE_RESPALDO}:${studioId}`, p);
+    const clave = `${CLAVE_RESPALDO}:${studioId}`;
+    // La copia se escribe AL INSTANTE (si se recarga o se cierra la pestaña dentro de la pausa del
+    // guardado, el avance no se pierde)...
+    escribirLocal(clave, p);
     if (temporizador.current) clearTimeout(temporizador.current);
     temporizador.current = setTimeout(() => {
       const cambios = completada
         ? { tourProgreso: p, tourCompletadoEn: new Date().toISOString(), tourVistoEn: new Date().toISOString() }
         : { tourProgreso: p };
-      // Si falla, la visita sigue: queda la copia del navegador y se reintenta en el paso siguiente.
-      void Promise.resolve(updateStudio(cambios)).catch(() => undefined);
+      // ...y se BORRA en cuanto el servidor confirma. ⚠️ Si se quedara, al hidratar ganaría al servidor
+      // (CERRADOS(copia) > CERRADOS(servidor)) y reiniciar la visita desde la base de datos no tendría
+      // efecto. Así, la copia solo existe mientras el servidor no tiene lo último (escritura en vuelo o
+      // fallida), que es justo cuando hace falta.
+      Promise.resolve(updateStudio(cambios)).then(res => {
+        if ((res as { ok?: boolean } | undefined)?.ok !== false) escribirLocal(clave, null);
+      }).catch(() => undefined);
     }, completada ? 0 : PAUSA_GUARDADO_MS);
   }, [studioId, updateStudio]);
 
