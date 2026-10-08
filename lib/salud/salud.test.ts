@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { secretoValido } from './secreto.ts';
 import {
   avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_DENUNCIAS_ESPERANDO_A_TENTARE, ID_DENUNCIAS_SIN_REVISAR_48H,
+  ID_DEVOLUCION_POS_SIN_REFLEJAR,
   ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
 } from './comprobaciones.ts';
 import { HORAS_REVISION_ESTUDIO } from '../moderacion/reglas.ts';
@@ -235,4 +236,55 @@ test('la alarma de denuncias la manda a Sentry un cron que ya existe (el digest 
   assert.ok(vigiladas.includes('ID_DENUNCIAS_ESPERANDO_A_TENTARE'));
   assert.ok(vigiladas.includes('ID_DENUNCIAS_SIN_REVISAR_48H'));
   assert.ok(fuente.includes('await vigilarDenuncias()'));
+});
+
+// ── Devolución del TPV sin reflejar en el recibo ────────────────────────────
+
+/** Un cliente falso que contesta distinto por tabla y graba las llamadas de cada una. */
+function adminPorTabla(respuestas: Record<string, unknown>) {
+  const llamadas: Array<[string, string, ...unknown[]]> = [];
+  const admin = {
+    from: (tabla: string) => {
+      const self: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'gte', 'not', 'limit', 'in']) {
+        self[m] = (...args: unknown[]) => { llamadas.push([tabla, m, ...args]); return self; };
+      }
+      self.then = (res: (v: unknown) => unknown) => Promise.resolve(respuestas[tabla]).then(res);
+      return self;
+    },
+  } as unknown as SupabaseClient;
+  return { admin, llamadas };
+}
+
+test('devolución del TPV sin reflejar: cuenta los recibos aún COBRADOS de las ventas devueltas, sin repetir ids', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_DEVOLUCION_POS_SIN_REFLEJAR)!;
+  const { admin, llamadas } = adminPorTabla({
+    ventas_pos: { data: [{ recibo_id: 'r1' }, { recibo_id: 'r1' }, { recibo_id: 'r2' }], error: null },
+    recibos: { count: 1, error: null },
+  });
+  const r = await def.contar(admin, new Date('2026-10-08T12:00:00Z'));
+  assert.equal(r.count, 1);
+  assert.deepEqual(llamadas.find(l => l[0] === 'recibos' && l[1] === 'in'), ['recibos', 'in', 'id', ['r1', 'r2']]);
+  assert.deepEqual(llamadas.find(l => l[0] === 'recibos' && l[1] === 'eq'), ['recibos', 'eq', 'estado', 'COBRADO']);
+  // Solo ventas devueltas y con recibo, de los últimos 60 días.
+  assert.ok(llamadas.some(l => l[0] === 'ventas_pos' && l[1] === 'not' && l[2] === 'devuelta_en'));
+  assert.ok(llamadas.some(l => l[0] === 'ventas_pos' && l[1] === 'gte' && l[2] === 'devuelta_en'));
+});
+
+test('devolución del TPV sin reflejar: sin ventas devueltas no pregunta por recibos, y un error se propaga', async () => {
+  const def = DEFINICIONES.find(d => d.id === ID_DEVOLUCION_POS_SIN_REFLEJAR)!;
+  const vacia = adminPorTabla({ ventas_pos: { data: [], error: null } });
+  assert.deepEqual(await def.contar(vacia.admin, new Date()), { count: 0, error: null });
+  assert.ok(!vacia.llamadas.some(l => l[0] === 'recibos'), 'sin ventas, ni se mira la tabla de recibos');
+
+  const rota = adminPorTabla({ ventas_pos: { data: null, error: { message: 'boom' } } });
+  const r = await def.contar(rota.admin, new Date());
+  assert.equal(r.count, null);
+  assert.equal(r.error?.message, 'boom', 'un fallo de lectura no se lee como «0 sin reflejar»');
+});
+
+test('devolución del TPV sin reflejar: un solo caso ya es un fallo (el dinero ya salió)', () => {
+  const def = DEFINICIONES.find(d => d.id === ID_DEVOLUCION_POS_SIN_REFLEJAR)!;
+  assert.equal(def.umbralAviso, 1);
+  assert.equal(def.umbralFallo, 1);
 });
