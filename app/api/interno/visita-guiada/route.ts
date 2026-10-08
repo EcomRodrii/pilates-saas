@@ -7,7 +7,7 @@ import { leerAccion, resumenVisita } from '@/lib/interno/visita-guiada';
 export const runtime = 'nodejs';
 
 // Quién recibe la visita guiada, decidido desde /interno (lib/tour/, migración
-// 20261008020000). Tres cosas se pueden decidir:
+// 20261008010535). Tres cosas se pueden decidir:
 //
 //   · un estudio: activar (conserva lo que lleva), activar desde cero (la reinicia y
 //     empieza ya) o desactivar;
