@@ -1,5 +1,5 @@
 // Tests de la lógica de consumo de bono. Runner nativo de Node: `npm test`.
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
@@ -835,4 +835,31 @@ test('el natural ya cae en día 1: no hace falta redondear más', () => {
   // 2026-11-01 + 1 mes natural = 2026-12-01, que ya es día 1: el objetivo es
   // ese mismo día, sin saltar al mes siguiente.
   assert.equal(proximoFinAlineadoDia1('2026-11-01', { periodicidadMeses: 1 }), '2026-11-30');
+});
+
+// ── El «hoy» por defecto es el de Madrid, no el de UTC (8-oct-2026) ───────────
+//
+// 2026-10-07T22:30Z son las 00:30 del 8 de octubre en Madrid. Un bono con fecha_fin = 7 de octubre YA CADUCÓ para el estudio
+// (y para el panel y el cron de las 08:00), pero con el día UTC por defecto seguía sirviendo hasta las 02:00.
+test('sin hoyISO, un bono que caducó «ayer» en Madrid ya no se puede usar (00:30 del día 8, 22:30Z del 7)', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-07T22:30:00Z') });
+  try {
+    const suscripciones = [sus({ socioId: 'a', planId: 'p1', fechaFin: '2026-10-07', sesionesRestantes: 3 })];
+    const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+    assert.equal(bonoConsumible('a', suscripciones, planes), null, 'caducó el 7: a las 00:30 del 8 ya no sirve');
+    assert.equal(saldoSesionesBono('a', suscripciones, planes), null, 'ni cuenta en su saldo');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('y a esa misma hora, un bono que caduca HOY (el 8) sigue sirviendo', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-07T22:30:00Z') });
+  try {
+    const suscripciones = [sus({ socioId: 'a', planId: 'p1', fechaFin: '2026-10-08', sesionesRestantes: 3 })];
+    const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+    assert.equal(bonoConsumible('a', suscripciones, planes)?.sesionesRestantes, 3);
+  } finally {
+    mock.timers.reset();
+  }
 });

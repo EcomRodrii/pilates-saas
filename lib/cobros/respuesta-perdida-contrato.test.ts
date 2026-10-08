@@ -80,3 +80,22 @@ test('cancelar una reserva desde el mostrador: sin respuesta NO se devuelve a «
   assert.ok(iNulo > 0 && iJson > iNulo, 'el caso «no llegó» se trata antes de leer el cuerpo');
   assert.match(c.slice(iNulo, iJson), /resetDatosPilates\(\);[\s\S]*puede haberse hecho/);
 });
+
+test('cancelar una reserva desde el panel es idempotente: una ya cancelada contesta «ya estaba» sin efectos', () => {
+  const f = leer('app/api/reservas/cancelar/route.ts');
+  const iPrevia = f.indexOf("previa?.estado === 'CANCELADA'");
+  const iEjecutar = f.indexOf('await ejecutarCancelacionReserva(');
+  assert.ok(iPrevia > 0 && iEjecutar > iPrevia, 'la comprobación va ANTES de ejecutar la cancelación (y de sus avisos)');
+  assert.match(f.slice(iPrevia, iEjecutar), /yaCancelada: true/);
+});
+
+test('«no puede venir» (baja con recuperación): repite si se pierde la respuesta y no deshace la recuperación a ciegas', () => {
+  const f = leer('lib/studio-context.tsx');
+  const c = f.slice(f.indexOf('async function bajaConRecuperacion('), f.indexOf('// ── Citas: servicios y horario fino'));
+  assert.match(c, /for \(let intento = 0; intento < 3 && respuesta === null; intento\+\+\)/, 'hasta tres intentos');
+  const iSin = c.indexOf("recuperacion: 'SIN_CONFIRMAR'");
+  const iAnular = c.indexOf('await dbAnularRecuperacion(');
+  assert.ok(iSin > 0 && iAnular > iSin, 'sin respuesta tras repetir → «sin confirmar», y solo un rechazo DEFINITIVO anula la recuperación');
+  assert.match(c.slice(0, iSin + 40), /resetDatosPilates\(\);\s*return \{ recuperacion: 'SIN_CONFIRMAR'/, 'releyendo el estado antes de avisar');
+  assert.match(leer('components/socios/boton-baja-recuperacion.tsx'), /res\.recuperacion === 'SIN_CONFIRMAR'/);
+});

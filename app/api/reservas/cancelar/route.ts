@@ -36,6 +36,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 
+  // IDEMPOTENTE: una reserva que ya está cancelada contesta «ya estaba», sin tocar nada y sin avisar otra vez a la alumna.
+  // Hace falta para que el panel pueda REPETIR la petición cuando se le pierde la respuesta (red caída, 502): sin saber si la
+  // primera llegó, la única forma honesta de resolverlo es preguntar de nuevo, y eso solo es seguro si repetir no tiene efectos.
+  const { data: previa } = await admin.from('reservas')
+    .select('estado').eq('id', body.reservaId).eq('studio_id', sesion.studioId).maybeSingle();
+  if (previa?.estado === 'CANCELADA') {
+    return NextResponse.json({
+      ok: true, yaCancelada: true, tardia: false, bonoDevuelto: false, eraConfirmada: false,
+      promovidaSocioId: null, ofertaSocioId: null, ofertaExpiraEn: null,
+      recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false,
+    });
+  }
+
   const r = await ejecutarCancelacionReserva(admin, {
     studioId: sesion.studioId, reservaId: body.reservaId, socioId: null,
   });

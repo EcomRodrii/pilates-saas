@@ -548,7 +548,7 @@ interface StudioContextValue {
   valorarExperienciaReserva: (reservaId: string, valoracion: number) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
-  bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
+  bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR' | 'SIN_CONFIRMAR'; caduca: string | null }>;
   /** `aviso`: lo que Wellhub contestó al validar a una socia suya (null = todo bien). */
   checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura & { aviso?: string | null }>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -2043,7 +2043,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // vivas, no se cancela nada. Devuelve el resultado + la caducidad para el wa.me.
   async function bajaConRecuperacion(
     reservaId: string, motivo: string | null,
-  ): Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }> {
+  ): Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR' | 'SIN_CONFIRMAR'; caduca: string | null }> {
     const cancelada = reservas.find(r => r.id === reservaId);
     if (!cancelada) return { recuperacion: 'ERROR', caduca: null };
     const socioId = cancelada.socioId;
@@ -2068,12 +2068,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // recibía la oferta, que se quedaba sin saber que la tuvo hasta que
     // caducaba sola).
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
-    const respuesta = await fetch('/api/reservas/cancelar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ reservaId }),
-    }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    // Cancelar es IDEMPOTENTE en el servidor (una reserva ya cancelada contesta «ya estaba» sin efectos), así que si la respuesta
+    // se pierde (red caída, un 502) se REPITE antes de dar nada por hecho ni por deshecho: es la única forma honesta de saber si
+    // la primera llegó. Con la recuperación ya concedida, adivinar mal en cualquier sentido deja a la alumna con una
+    // compensación de más o de menos.
+    let respuesta: Response | null = null;
+    for (let intento = 0; intento < 3 && respuesta === null; intento++) {
+      if (intento > 0) await new Promise(resolver => setTimeout(resolver, 700 * intento));
+      respuesta = await fetch('/api/reservas/cancelar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reservaId }),
+      }).catch(() => null);
+    }
+    // Tres intentos sin ninguna respuesta: no se sabe en qué estado quedó. NO se deshace la recuperación (si la reserva sí se
+    // canceló, la alumna la merece) ni se devuelve la reserva a «confirmada»: se relee lo que hay de verdad y se avisa.
+    if (respuesta === null) {
+      resetDatosPilates();
+      return { recuperacion: 'SIN_CONFIRMAR', caduca };
+    }
+    const datos = await respuesta.json().catch(() => null) as {
       promovidaSocioId?: string | null;
     } | null;
     // Si el servidor rechaza la cancelación hay que deshacer las DOS cosas que
@@ -2084,7 +2098,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // lista de espera) y la pantalla pintándola cancelada. La propietaria
     // además le mandaba el WhatsApp de «Recuperación guardada» por algo que no
     // había ocurrido.
-    if (!respuesta?.ok || !datos) {
+    if (!respuesta.ok || !datos) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
       // La recuperación se identifica por `origenReservaId`, que es justo el
       // `reservaId` con el que se creó arriba. `lista` ya está cargada.
@@ -4200,7 +4214,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
   useEffect(() => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    // El día de Madrid (que es el de la cuota y el del cron), no el UTC: una cuota que vence «ayer» no se detectaba hasta las 02:00.
+    const hoy = hoyEnEstudio();
     suscripciones.forEach(sus => {
       if (sus.estado !== 'ACTIVA' || !sus.fechaFin) return;
       if (sus.fechaFin >= hoy) return;
