@@ -1118,7 +1118,7 @@ export interface RowStudios {
   tour_progreso: any | null;
   // migr 20261007211202.
   tour_completado_en: string | null;
-  // migr 20261009100000.
+  // migr 20261008231750.
   facturar_automatico: boolean | null;
 }
 

@@ -288,7 +288,7 @@ export interface Studio {
   // 'sin_facturas': estado de sistema que nadie elige; no emite. Solo el
   // servidor cambia el modo (la columna no la escribe el navegador).
   modoFacturacion: ModoFacturacion;
-  // «Facturar automáticamente» (migr 20261009100000): si la factura sale sola al
+  // «Facturar automáticamente» (migr 20261008231750): si la factura sale sola al
   // cobrar (salvo en efectivo). Independiente de Veri*Factu. Solo la cambia la
   // propietaria, por /api/facturacion/automatica. De serie true.
   facturarAutomatico: boolean;
