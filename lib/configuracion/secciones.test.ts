@@ -16,8 +16,8 @@ import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
 const todas = SECCIONES.flatMap(s => s.tarjetas as readonly TarjetaConfiguracion[]);
 
-test('catorce secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
-  assert.equal(SECCIONES.length, 14);
+test('quince secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
+  assert.equal(SECCIONES.length, 15);
   const ids = [...SECCIONES.map(s => s.id), ...todas.map(t => t.id)];
   assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'ids repetidos');
   for (const t of todas) assert.match(t.id, /^[a-z0-9][a-z0-9_-]*$/, `«${t.id}» no sirve como ancla de URL`);
@@ -52,9 +52,9 @@ test('la propietaria ve todas las secciones y todas las tarjetas', () => {
 
 // Una tarjeta sin `roles` es de la propietaria: lo nuevo nace cerrado, y abrir
 // algo a otro rol es una decisión que se escribe. La cerradura es la RLS.
-test('lo que ve la gerencia son las cinco tarjetas de la operación de su sede, y nada más', () => {
+test('lo que ve la gerencia son las cinco tarjetas de la operación de su sede y la demo en vídeo, y nada más', () => {
   const suyas = todas.filter(t => rolesDeTarjeta(t).includes('MANAGER')).map(t => t.id);
-  assert.deepEqual(suyas, ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas']);
+  assert.deepEqual(suyas, ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas', 'video-de-la-demo']);
   // Ni recepción ni la instructora entran en ninguna.
   for (const rol of ['RECEPCION', 'INSTRUCTOR'] as const) {
     assert.deepEqual(todas.filter(t => rolesDeTarjeta(t).includes(rol)), [], rol);
@@ -175,8 +175,8 @@ test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y
   }
 });
 
-test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
-  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Tu cuenta']);
+test('siete grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
+  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Aprende', 'Tu cuenta']);
   const enGrupos = GRUPOS.flatMap(g => g.secciones);
   // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
   // pueden contar dos órdenes distintos.

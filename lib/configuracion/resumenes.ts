@@ -391,6 +391,7 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
     case 'motivacion':
     case 'avisos':
     case 'datos':
+    case 'demo':
       return null;
   }
 }
