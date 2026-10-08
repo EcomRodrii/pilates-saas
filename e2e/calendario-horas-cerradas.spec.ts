@@ -26,8 +26,12 @@ function json(route: Route, body: unknown, status = 200) {
 
 /** Tres clases futuras el mismo día, sin solaparse. */
 function sesiones() {
-  const base = new Date(Date.now() + 3 * 3600_000);
-  base.setSeconds(0, 0);
+  // Fijas a media mañana de HOY (9:00 UTC = 11:00 o 10:00 en Madrid), no a «ahora
+  // + 3 h»: según la hora a la que corriera el test, la tercera caía pasadas las
+  // 22:00, ampliaba el eje y salía una franja «Cerrado» legítima que el test
+  // «el horario cubre todo el eje» no esperaba (falló en CI).
+  const base = new Date();
+  base.setUTCHours(9, 0, 0, 0);
   const iso = (d: Date) => d.toISOString().slice(0, 19);
   const hacer = (i: number, instructor: string) => {
     const ini = new Date(base.getTime() + i * 90 * 60_000);
