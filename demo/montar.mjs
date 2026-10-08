@@ -58,14 +58,32 @@ for (const c of cronologias) {
   partes.push({ c, archivo: salida, dur: duracion(salida) });
 }
 
+// ── La portada: la imagen que eligió el fundador, 4 s al principio, sin voz ──
+// Con la imagen ancha (1,9:1) en el centro y ella misma desenfocada de fondo, para llenar 1440×900.
+const PORTADA = join(RAIZ, 'public/demo/portada-demo-configuracion.jpg');
+const INTRO_SEG = existsSync(PORTADA) && soloEstos.length === 0 ? 4 : 0;
+const intro = join(PARTES, '00-portada.mp4');
+if (INTRO_SEG > 0) {
+  ffmpeg([
+    '-loop', '1', '-framerate', '25', '-t', String(INTRO_SEG), '-i', PORTADA,
+    '-f', 'lavfi', '-t', String(INTRO_SEG), '-i', 'anullsrc=r=44100:cl=mono',
+    '-filter_complex', '[0:v]split[a][b];[a]scale=1440:900:force_original_aspect_ratio=increase,crop=1440:900,boxblur=40:5[bg];[b]scale=1440:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,fps=25,format=yuv420p[v]',
+    '-map', '[v]', '-map', '1:a', '-t', String(INTRO_SEG),
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '26', '-c:a', 'aac', '-b:a', '56k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', intro,
+  ]);
+}
+
 // ── Pegarlos ──
 const lista = join(SALIDA, 'partes.txt');
-writeFileSync(lista, partes.map(p => `file '${p.archivo}'`).join('\n'));
+writeFileSync(lista, [...(INTRO_SEG > 0 ? [intro] : []), ...partes.map(p => p.archivo)].map(f => `file '${f}'`).join('\n'));
 const final = join(SALIDA, soloEstos.length ? `prueba-${soloEstos.join('-')}.mp4` : 'demo-configuracion.mp4');
-ffmpeg(['-f', 'concat', '-safe', '0', '-i', lista, '-c', 'copy', '-movflags', '+faststart', final]);
+const sinNormalizar = join(SALIDA, 'sin-normalizar.mp4');
+ffmpeg(['-f', 'concat', '-safe', '0', '-i', lista, '-c', 'copy', sinNormalizar]);
+// La voz de ElevenLabs sale baja (≈ −32 dB de media): se lleva a −16 LUFS, lo normal en vídeo hablado.
+ffmpeg(['-i', sinNormalizar, '-c:v', 'copy', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '56k', '-ar', '44100', '-ac', '1', '-movflags', '+faststart', final]);
 
 // ── El índice ──
-let t = 0;
+let t = INTRO_SEG;
 const capitulos = partes.map(p => {
   const inicio = t;
   t += p.dur;

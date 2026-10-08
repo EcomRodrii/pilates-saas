@@ -4,7 +4,7 @@
 //
 // ⚠️ El binario NO vive en el repo (pesa decenas de MB y el repo es público): la
 // dirección va en `VIDEO_DEMO.url` (bucket público de lectura `demo-configuracion`,
-// fichero `demo-configuracion-v1.mp4`). Si fuera `null`, la sección enseña el índice
+// fichero `demo-configuracion-v2.mp4`). Si fuera `null`, la sección enseña el índice
 // de capítulos y lo dice, en vez de un reproductor vacío.
 // Para cambiar el vídeo se sube con otro nombre (`-v2`): la URL pública se cachea.
 //
@@ -32,8 +32,8 @@ export interface VideoDemo {
 }
 
 export const VIDEO_DEMO: VideoDemo = {
-  url: 'https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/demo-configuracion/demo-configuracion-v1.mp4',
-  portada: null,
+  url: 'https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/demo-configuracion/demo-configuracion-v2.mp4',
+  portada: '/demo/portada-demo-configuracion.jpg',
 };
 
 /** `83` → `1:23`; `3725` → `1:02:05`. */

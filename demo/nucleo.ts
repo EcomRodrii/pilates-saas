@@ -34,21 +34,53 @@ export const RAPIDO = process.env.DEMO_RAPIDO === '1';
 const VOZ_NOMBRE = process.env.DEMO_VOZ ?? 'Mónica';
 const VOZ_PALABRAS_MINUTO = process.env.DEMO_VOZ_RITMO ?? '168';
 
+// La voz buena es ElevenLabs (la de macOS suena a robot: el fundador la descartó). Se usa en
+// cuanto hay clave en `ELEVENLABS_API_KEY`; sin ella, `say` (solo sirve para probar el guion).
+// Modelo multilingüe y voz fijados aquí: cambiar de voz regenera todas las frases.
+const ELEVEN_CLAVE = process.env.ELEVENLABS_API_KEY ?? '';
+const ELEVEN_VOZ = process.env.DEMO_VOZ_ELEVEN ?? '1CeqBeXMOqCleeQjfYfO';
+const ELEVEN_MODELO = process.env.DEMO_ELEVEN_MODELO ?? 'eleven_multilingual_v2';
+export const USA_ELEVEN = ELEVEN_CLAVE !== '' && process.env.DEMO_VOZ_MAC !== '1';
+
 export const dormir = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 interface Voz { archivo: string; durMs: number }
 
+/** Una frase con ElevenLabs → mp3. La clave va por stdin de curl: nunca en los argumentos (`ps`). */
+function sintetizarEleven(texto: string, mp3: string) {
+  const cuerpo = JSON.stringify({
+    text: texto,
+    model_id: ELEVEN_MODELO,
+    voice_settings: { stability: 0.5, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+  });
+  for (let intento = 1; ; intento++) {
+    try {
+      execFileSync('curl', [
+        '-sS', '-f', '-X', 'POST', `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOZ}?output_format=mp3_44100_128`,
+        '-H', 'Content-Type: application/json', '-K', '-', '-d', cuerpo, '-o', mp3,
+      ], { input: `header = "xi-api-key: ${ELEVEN_CLAVE}"\n`, stdio: ['pipe', 'inherit', 'inherit'] });
+      return;
+    } catch (e) {
+      // 429 (demasiadas a la vez) y fallos de red: se reintenta; un 401/402/422 no se arregla esperando.
+      if (intento >= 4) throw new Error(`ElevenLabs no contesta bien tras ${intento} intentos: ${String((e as Error).message).split('\n')[0]}`);
+      execFileSync('sleep', [String(intento * 2)]);
+    }
+  }
+}
+
 /** Sintetiza un texto (o lo reutiliza si ya se hizo) y dice cuánto dura. */
 export function sintetizar(texto: string): Voz {
   mkdirSync(VOZ, { recursive: true });
-  const hash = createHash('sha1').update(`${VOZ_NOMBRE}|${VOZ_PALABRAS_MINUTO}|${texto}`).digest('hex').slice(0, 16);
+  const motor = USA_ELEVEN ? `eleven|${ELEVEN_VOZ}|${ELEVEN_MODELO}` : `mac|${VOZ_NOMBRE}|${VOZ_PALABRAS_MINUTO}`;
+  const hash = createHash('sha1').update(`${motor}|${texto}`).digest('hex').slice(0, 16);
   const wav = join(VOZ, `${hash}.wav`);
   const meta = join(VOZ, `${hash}.json`);
   if (existsSync(wav) && existsSync(meta)) return JSON.parse(readFileSync(meta, 'utf8')) as Voz;
-  const aiff = join(VOZ, `${hash}.aiff`);
-  execFileSync('say', ['-v', VOZ_NOMBRE, '-r', VOZ_PALABRAS_MINUTO, '-o', aiff, texto]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', aiff, '-ar', '44100', '-ac', '1', wav]);
-  rmSync(aiff, { force: true });
+  const crudo = join(VOZ, USA_ELEVEN ? `${hash}.mp3` : `${hash}.aiff`);
+  if (USA_ELEVEN) sintetizarEleven(texto, crudo);
+  else execFileSync('say', ['-v', VOZ_NOMBRE, '-r', VOZ_PALABRAS_MINUTO, '-o', crudo, texto]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', crudo, '-ar', '44100', '-ac', '1', wav]);
+  rmSync(crudo, { force: true });
   const dur = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', wav]).toString().trim());
   const voz: Voz = { archivo: wav, durMs: Math.round(dur * 1000) };
   writeFileSync(meta, JSON.stringify(voz));

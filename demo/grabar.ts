@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { SALIDA, grabarCapitulo, RAPIDO, type Cronologia } from './nucleo.ts';
 import { CAPITULOS } from './capitulos/indice.ts';
 import { TABLAS_DEMO } from './datos.ts';
@@ -21,7 +22,13 @@ if (aGrabar.length === 0) { console.error(`Ningún capítulo coincide con ${pedi
 
 mkdirSync(SALIDA, { recursive: true });
 // Las tablas se comparten entre capítulos: lo guardado en uno lo ve el siguiente.
-const tablas = structuredClone(TABLAS_DEMO);
+// Y se guardan en disco tras cada capítulo: regrabar de uno en adelante (`-- motivacion marca …`)
+// retoma el estudio como lo dejó el anterior (para ponerlo al día sin grabar, se pasan antes los
+// capítulos previos con DEMO_RAPIDO=1: esa pasada solo mueve el estado, no escribe vídeo).
+const ESTADO = join(SALIDA, 'estado.json');
+const retoma = pedidos.length > 0 && CAPITULOS.indexOf(aGrabar[0]) > 0 && existsSync(ESTADO);
+const tablas = retoma ? JSON.parse(readFileSync(ESTADO, 'utf8')) as typeof TABLAS_DEMO : structuredClone(TABLAS_DEMO);
+if (retoma) console.log('↻ retomo el estudio como lo dejó el capítulo anterior');
 const inicio = Date.now();
 const resultados: Cronologia[] = [];
 const fallos: string[] = [];
@@ -31,6 +38,7 @@ for (const c of aGrabar) {
   try {
     const crono = await grabarCapitulo({ id: c.id, titulo: c.titulo, tablas, numero: CAPITULOS.indexOf(c) + 1 }, g => c.guion(g, { numero: CAPITULOS.indexOf(c) + 1, total: CAPITULOS.length }), baseURL);
     resultados.push(crono);
+    writeFileSync(ESTADO, JSON.stringify(tablas));
     console.log(`  ✓ ${c.id}: ${(crono.duracionMs / 1000).toFixed(0)} s de vídeo, ${crono.voces.length} frases, ${((Date.now() - t) / 1000).toFixed(0)} s reales`);
   } catch (e) {
     // Un capítulo roto no tira los demás: se cuenta y se sigue (se regraba solo con `-- <id>`).
