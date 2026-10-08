@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const [estudios, ajuste] = await Promise.all([
     db.from('studios')
-      .select('id, nombre, slug, plan, creado_en, es_demo, cadena_id, suspendido_en, tour_obligatorio, tour_progreso, tour_completado_en')
+      .select('id, nombre, slug, plan, creado_en, es_demo, cadena_id, suspendido_en, subscription_status, tour_obligatorio, tour_progreso, tour_completado_en')
       .order('creado_en', { ascending: false }),
     db.from('ajustes_plataforma').select('valor').eq('clave', CLAVE_NUEVOS).maybeSingle(),
   ]);
@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
       esDemo: e.es_demo === true,
       deCadena: !!e.cadena_id,
       suspendido: !!e.suspendido_en,
+      // Paga hoy (suscripción de Stripe activa): imponerle una visita de ~50 min es otra conversación.
+      paga: e.subscription_status === 'active',
       obligatorio: e.tour_obligatorio === true,
       resumen: resumenVisita({
         obligatorio: e.tour_obligatorio === true,

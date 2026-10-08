@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { STUDIO_ID, json, montarAlta } from './onboarding-andamio';
+import { STUDIO_ID, json, montarAlta, saltarLogo } from './onboarding-andamio';
 import { CAPITULOS } from '../lib/tour/capitulos.ts';
 
 // La visita guiada por capítulos (lib/tour/, components/tour/).
@@ -321,6 +321,35 @@ test.describe('La visita guiada por capítulos', () => {
     expect(s.patches.some(p => 'tour_progreso' in p)).toBe(false);
     await page.reload();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('el camino real de un estudio nuevo: alta → «Configurar luego» → empieza la visita (sin encimarse a la bienvenida)', async ({ page }) => {
+    test.slow();
+    let bienvenida: string | null = null;
+    await montarAlta(page, {
+      estudio: {},
+      antes: async (p) => {
+        await p.route('**/rest/v1/studios**', route => {
+          const req = route.request();
+          if (req.method() === 'PATCH') {
+            const cuerpo = (req.postDataJSON() ?? {}) as Record<string, unknown>;
+            if (typeof cuerpo.bienvenida_vista_en === 'string') bienvenida = cuerpo.bienvenida_vista_en;
+            return json(route, [{ id: STUDIO_ID }]);
+          }
+          return json(route, {
+            id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', color_primario: '#4F46E5', owner_auth_user_id: 'auth-e2e-duena',
+            bienvenida_vista_en: bienvenida, tour_obligatorio: true, tour_progreso: {}, tour_completado_en: null,
+          });
+        });
+      },
+    });
+    // Mientras la bienvenida no se haya visto, la visita NO aparece (no se encima).
+    await saltarLogo(page);
+    await expect(inicio(page)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Configurar luego' }).click();
+    await expect.poll(() => bienvenida).not.toBeNull();
+    // Ya sellada: la visita empieza.
+    await expect(inicio(page)).toBeVisible({ timeout: 60_000 });
   });
 });
 

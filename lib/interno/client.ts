@@ -239,7 +239,7 @@ export const accionEstudio = (id: string, cuerpo: Record<string, unknown>) =>
 // Visita guiada: quién la recibe (la decide el fundador desde /interno/visita-guiada).
 export interface EstudioVisita {
   id: string; nombre: string; slug: string; plan: string; creadoEn: string;
-  esDemo: boolean; deCadena: boolean; suspendido: boolean; obligatorio: boolean;
+  esDemo: boolean; deCadena: boolean; suspendido: boolean; paga: boolean; obligatorio: boolean;
   resumen: ResumenVisita;
 }
 
