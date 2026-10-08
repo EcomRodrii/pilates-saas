@@ -1,7 +1,7 @@
 import { chromium, type Browser, type Locator, type Page, type BrowserContext } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { montarBackend, type Backend, type Tablas } from './backend.ts';
 import { montarApi } from './api.ts';
@@ -34,21 +34,53 @@ export const RAPIDO = process.env.DEMO_RAPIDO === '1';
 const VOZ_NOMBRE = process.env.DEMO_VOZ ?? 'Mónica';
 const VOZ_PALABRAS_MINUTO = process.env.DEMO_VOZ_RITMO ?? '168';
 
+// La voz buena es ElevenLabs (la de macOS suena a robot: el fundador la descartó). Se usa en
+// cuanto hay clave en `ELEVENLABS_API_KEY`; sin ella, `say` (solo sirve para probar el guion).
+// Modelo multilingüe y voz fijados aquí: cambiar de voz regenera todas las frases.
+const ELEVEN_CLAVE = process.env.ELEVENLABS_API_KEY ?? '';
+const ELEVEN_VOZ = process.env.DEMO_VOZ_ELEVEN ?? '1CeqBeXMOqCleeQjfYfO';
+const ELEVEN_MODELO = process.env.DEMO_ELEVEN_MODELO ?? 'eleven_multilingual_v2';
+export const USA_ELEVEN = ELEVEN_CLAVE !== '' && process.env.DEMO_VOZ_MAC !== '1';
+
 export const dormir = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 interface Voz { archivo: string; durMs: number }
 
+/** Una frase con ElevenLabs → mp3. La clave va por stdin de curl: nunca en los argumentos (`ps`). */
+function sintetizarEleven(texto: string, mp3: string) {
+  const cuerpo = JSON.stringify({
+    text: texto,
+    model_id: ELEVEN_MODELO,
+    voice_settings: { stability: 0.5, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true },
+  });
+  for (let intento = 1; ; intento++) {
+    try {
+      execFileSync('curl', [
+        '-sS', '-f', '-X', 'POST', `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOZ}?output_format=mp3_44100_128`,
+        '-H', 'Content-Type: application/json', '-K', '-', '-d', cuerpo, '-o', mp3,
+      ], { input: `header = "xi-api-key: ${ELEVEN_CLAVE}"\n`, stdio: ['pipe', 'inherit', 'inherit'] });
+      return;
+    } catch (e) {
+      // 429 (demasiadas a la vez) y fallos de red: se reintenta; un 401/402/422 no se arregla esperando.
+      if (intento >= 4) throw new Error(`ElevenLabs no contesta bien tras ${intento} intentos: ${String((e as Error).message).split('\n')[0]}`);
+      execFileSync('sleep', [String(intento * 2)]);
+    }
+  }
+}
+
 /** Sintetiza un texto (o lo reutiliza si ya se hizo) y dice cuánto dura. */
 export function sintetizar(texto: string): Voz {
   mkdirSync(VOZ, { recursive: true });
-  const hash = createHash('sha1').update(`${VOZ_NOMBRE}|${VOZ_PALABRAS_MINUTO}|${texto}`).digest('hex').slice(0, 16);
+  const motor = USA_ELEVEN ? `eleven|${ELEVEN_VOZ}|${ELEVEN_MODELO}` : `mac|${VOZ_NOMBRE}|${VOZ_PALABRAS_MINUTO}`;
+  const hash = createHash('sha1').update(`${motor}|${texto}`).digest('hex').slice(0, 16);
   const wav = join(VOZ, `${hash}.wav`);
   const meta = join(VOZ, `${hash}.json`);
   if (existsSync(wav) && existsSync(meta)) return JSON.parse(readFileSync(meta, 'utf8')) as Voz;
-  const aiff = join(VOZ, `${hash}.aiff`);
-  execFileSync('say', ['-v', VOZ_NOMBRE, '-r', VOZ_PALABRAS_MINUTO, '-o', aiff, texto]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', aiff, '-ar', '44100', '-ac', '1', wav]);
-  rmSync(aiff, { force: true });
+  const crudo = join(VOZ, USA_ELEVEN ? `${hash}.mp3` : `${hash}.aiff`);
+  if (USA_ELEVEN) sintetizarEleven(texto, crudo);
+  else execFileSync('say', ['-v', VOZ_NOMBRE, '-r', VOZ_PALABRAS_MINUTO, '-o', crudo, texto]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', crudo, '-ar', '44100', '-ac', '1', wav]);
+  rmSync(crudo, { force: true });
   const dur = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', wav]).toString().trim());
   const voz: Voz = { archivo: wav, durMs: Math.round(dur * 1000) };
   writeFileSync(meta, JSON.stringify(voz));
@@ -287,6 +319,50 @@ export class Grabador {
   }
 }
 
+interface Captura { arrancar(): void; terminar(salida: string, duracionMs: number): Promise<string> }
+
+/** Captura de pantalla de calidad: cada fotograma del navegador, en JPEG al 100 %, con su instante. */
+async function iniciarCaptura(contexto: BrowserContext, page: Page, dir: string): Promise<Captura> {
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const cdp = await contexto.newCDPSession(page);
+  const marcas: { ms: number; archivo: string }[] = [];
+  let t0 = 0;
+  cdp.on('Page.screencastFrame', ev => {
+    void cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
+    if (t0 === 0) return;
+    const archivo = join(dir, `${String(marcas.length).padStart(6, '0')}.jpg`);
+    writeFileSync(archivo, Buffer.from(ev.data, 'base64'));
+    marcas.push({ ms: Date.now() - t0, archivo });
+  });
+  return {
+    arrancar() {
+      t0 = Date.now();
+      void cdp.send('Page.startScreencast', { format: 'jpeg', quality: 100, maxWidth: 1440, maxHeight: 900, everyNthFrame: 1 });
+    },
+    async terminar(salida, duracionMs) {
+      await cdp.send('Page.stopScreencast').catch(() => {});
+      if (marcas.length === 0) throw new Error('la captura no recogió ni un fotograma');
+      // El primero vale desde el instante 0 (todavía no había pintado nada que enseñar antes).
+      const lista: string[] = [];
+      marcas.forEach((m, i) => {
+        const hasta = i + 1 < marcas.length ? marcas[i + 1].ms : Math.max(duracionMs, m.ms + 40);
+        const desde = i === 0 ? 0 : m.ms;
+        lista.push(`file '${m.archivo}'`, `duration ${Math.max((hasta - desde) / 1000, 0.001).toFixed(3)}`);
+      });
+      lista.push(`file '${marcas[marcas.length - 1].archivo}'`);
+      const archivoLista = join(dir, 'lista.txt');
+      writeFileSync(archivoLista, lista.join('\n'));
+      execFileSync('ffmpeg', [
+        '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', archivoLista,
+        '-vf', 'fps=25,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '17', '-g', '250', '-movflags', '+faststart', salida,
+      ]);
+      rmSync(dir, { recursive: true, force: true });
+      return salida;
+    },
+  };
+}
+
 export interface OpcionesCapitulo {
   id: string;
   titulo: string;
@@ -303,6 +379,7 @@ export async function grabarCapitulo(
 ): Promise<Cronologia> {
   const dirVideo = join(SALIDA, 'video', opciones.id);
   mkdirSync(dirVideo, { recursive: true });
+  const dirFotogramas = join(SALIDA, 'fotogramas', opciones.id);
   const navegador = await chromium.launch({ args: ['--lang=es-ES'] });
   const contexto = await navegador.newContext({
     baseURL,
@@ -310,7 +387,6 @@ export async function grabarCapitulo(
     locale: 'es-ES',
     timezoneId: 'Europe/Madrid',
     permissions: ['clipboard-read', 'clipboard-write'],
-    ...(RAPIDO ? {} : { recordVideo: { dir: dirVideo, size: { width: 1440, height: 900 } } }),
   });
   const page = await contexto.newPage();
   const paginaCreada = Date.now();
@@ -338,26 +414,27 @@ export async function grabarCapitulo(
   });
   const g = new Grabador(page, contexto, backend, opciones.id, opciones.titulo);
   let error: unknown = null;
+  // La captura es PROPIA y no `recordVideo` de Playwright: este va a ~0,6 Mbps en VP8 y el texto
+  // sale borroso. Aquí cada fotograma que pinta el navegador se guarda en JPEG al 100 % y se
+  // codifica después, así el texto se lee. El reloj del vídeo ES el del guion (`g.reloj()`).
+  const captura = RAPIDO ? null : await iniciarCaptura(contexto, page, dirFotogramas);
   try {
     g.reloj();
+    captura?.arrancar();
     g.numero = opciones.numero;
-    g.inicioGuionMs = Date.now() - paginaCreada;
+    g.inicioGuionMs = 0;
     void g0;
+    void paginaCreada;
     await guion(g);
   } catch (e) {
     error = e;
     await page.screenshot({ path: join(SALIDA, `fallo-${opciones.id}.png`) }).catch(() => {});
   }
   const crono = g.cronologia(null);
-  const video = RAPIDO ? null : page.video();
+  let ruta: string | null = null;
+  if (captura) ruta = await captura.terminar(join(dirVideo, `${opciones.id}.mp4`), crono.duracionMs);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await contexto.close();
-  let ruta: string | null = null;
-  if (video) {
-    const bruto = await video.path();
-    ruta = join(dirVideo, `${opciones.id}.webm`);
-    renameSync(bruto, ruta);
-  }
   await navegador.close();
   const final: Cronologia = { ...crono, video: ruta };
   if (!RAPIDO && opciones.numero > 0) writeFileSync(join(SALIDA, `cronologia-${opciones.id}.json`), JSON.stringify(final, null, 1));
