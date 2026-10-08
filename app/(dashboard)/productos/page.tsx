@@ -4,7 +4,7 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn, uid, formatFechaLarga } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -18,7 +18,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   planVacio, planAFormulario, formularioAPlan, erroresPlan, precioANumero,
-  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
+  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
@@ -218,8 +218,10 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendida = false }: {
+function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false }: {
   initial?: PlanTarifa;
+  /** Las tarifas que ya hay, para avisar de una repetida. */
+  otrasTarifas: readonly Pick<PlanTarifa, 'id' | 'nombre' | 'tipo' | 'precio' | 'activo'>[];
   /**
    * Ya hay alguien con esta tarifa. Entonces «clase de prueba» no se puede
    * cambiar: cambiaría hacia atrás quién ha pagado ya matrícula y quién puede
@@ -300,6 +302,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
   }
 
   const esBono = form.tipo === 'BONO';
+  const tipoSugerido = tipoSugeridoPorNombre(form.nombre, form.tipo);
+  const repetida = initial ? null : tarifaDuplicada(form.nombre, form.tipo, otrasTarifas);
   const tituloAccion = initial
     ? 'Guardar cambios'
     : `Crear ${NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}`;
@@ -368,6 +372,36 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                       placeholder={esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado'} />
                   )}
                 </Campo>
+                {repetida && (
+                  <p role="status" data-testid="aviso-tarifa-repetida"
+                    className="flex items-start gap-1.5 rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                    <span>
+                      Ya tienes «{repetida.nombre}» ({fmt(repetida.precio)} €{repetida.activo ? '' : ', sin poner a la venta'}).
+                      Si quieres cambiarla, edítala en vez de crear otra igual.
+                    </span>
+                  </p>
+                )}
+                {!initial && tipoSugerido && (
+                  <div role="alert" data-testid="aviso-nombre-tipo"
+                    className="rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <p className="flex items-start gap-1.5 font-semibold">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                      <span>
+                        Has puesto «{form.nombre.trim()}», pero esta tarifa es una {NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}.
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                      {tipoSugerido === 'PUNTUAL'
+                        ? 'Una cuota se cobra sola a la clienta cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
+                        : 'Un bono es un puñado de sesiones que se gastan al reservar y caduca. Si es lo que quieres, cámbiala; si no, ignora este aviso.'}
+                    </p>
+                    <button type="button" onClick={() => cambiarTipo(tipoSugerido)}
+                      className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted">
+                      Hacerla {NOMBRE_TIPO_PLAN[tipoSugerido].toLowerCase()}
+                    </button>
+                  </div>
+                )}
                 <Campo
                   id={`${uid}-desc`} etiqueta="Descripción"
                   ayuda="El argumento de venta, no las condiciones: esas las redacta Tentare sola ahí al lado.">
@@ -1017,7 +1051,13 @@ export default function Productos() {
     const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
     if (!res.ok) { setAviso(res.error); return; }
     setPlanModal(null);
-    setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
+    // Lo que se dice tiene que ser lo que pasa: una tarifa guardada con
+    // «Disponible para vender» apagado NO sale en la Caja ni en la web, y
+    // «ya está a la venta» fue justo lo que dejó a una dueña sin su cuota en la
+    // Caja sin saber por qué.
+    setAviso(!datos.activo
+      ? `"${datos.nombre}" guardada, pero NO está a la venta: no sale en la Caja ni en la web`
+      : editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
   }
 
   async function savePos(d: PosFormData, foto: File | null | undefined) {
@@ -1248,12 +1288,33 @@ export default function Productos() {
                   <p className="text-xs text-muted-foreground border-t border-muted pt-3">{plan.descripcion}</p>
                 )}
 
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
-                  <span className="text-xs font-medium" style={{ color: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
-                    {plan.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
+                {plan.activo ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>A la venta</span>
+                  </div>
+                ) : (
+                  // Un borrador (el que crea el alta, con precio 0) y una tarifa
+                  // retirada se ven igual en la lista, pero en la Caja y en la web
+                  // NO existen. Con un «Inactivo» pequeño y gris nadie lo notaba.
+                  <div data-testid="plan-sin-vender" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted px-3 py-2">
+                    <span className="text-xs font-medium text-foreground">
+                      {plan.precio > 0 ? 'No está a la venta: no sale en la Caja ni en la web' : 'Borrador: ponle precio y ponla a la venta'}
+                    </span>
+                    {mueveDinero && plan.precio > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await updatePlan(plan.id, { activo: true });
+                          setAviso(res.ok ? `"${plan.nombre}" ya está a la venta` : res.error);
+                        }}
+                        className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-brand-foreground hover:opacity-90"
+                      >
+                        Ponerla a la venta
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1376,6 +1437,7 @@ export default function Productos() {
           initial={planModal !== 'new' ? planModal : undefined}
           tipoInicial={tipoTab}
           tiposClase={tiposClase}
+          otrasTarifas={planesTarifa}
           // Sin cast: el `as Parameters<...>` que había aquí silenciaba
           // cualquier desajuste futuro entre el formulario y el guardado —
           // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
