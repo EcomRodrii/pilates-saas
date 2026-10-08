@@ -37,8 +37,10 @@ const AVISOS: Record<string, string> = {
   RECHAZADA: 'Eso no lo puedo responder.',
 };
 
-export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
+export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotante = false }: {
   studioId: string;
+  /** Dentro del panel flotante (asistente-flotante.tsx): llena a su contenedor, sin columna de conversaciones. */
+  flotante?: boolean;
   veDinero: boolean;
   /** Para el saludo: «¿En qué te ayudo hoy, Cloe?». */
   nombre: string | null;
@@ -72,7 +74,7 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
     return () => clearTimeout(t);
   }, [estado.momento]);
 
-  const teclado = useAreaConTeclado();
+  const teclado = useAreaConTeclado(!flotante);
 
   const vacio = estado.turnos.length === 0;
   const elegir = (id: string) => { setListaMovil(false); void abrirConversacion(id); };
@@ -81,22 +83,27 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
   return (
     <ReferenciasCtx.Provider value={estado.referencias}>
       <div
-        data-testid="chat-asistente"
+        data-testid={flotante ? 'chat-asistente-flotante' : 'chat-asistente'}
         data-teclado={teclado ? '' : undefined}
-        className={cn(
-          'fixed inset-x-0 flex bg-background lg:top-[calc(var(--panel-top,0.5rem)+4rem)] lg:bottom-0 lg:left-[var(--sidebar-w,0px)]',
-          // Con el teclado abierto (móvil), justo sobre lo visible y por encima de las barras del panel.
-          // En el móvil tapa la barra de arriba del panel: una sola cabecera, la del chat
-          // (como ChatGPT o Claude), y la barra de abajo sigue para salir.
-          teclado ? 'z-40' : 'top-0 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-[35] lg:z-20',
-        )}
-        style={teclado ? { top: teclado.top, height: teclado.height } : undefined}
+        className={flotante
+          ? 'flex h-full min-h-0 bg-card'
+          : cn(
+            'fixed inset-x-0 flex bg-background lg:top-[calc(var(--panel-top,0.5rem)+4rem)] lg:bottom-0 lg:left-[var(--sidebar-w,0px)]',
+            // Con el teclado abierto (móvil), justo sobre lo visible y por encima de las barras del panel.
+            // En el móvil tapa la barra de arriba del panel: una sola cabecera, la del chat
+            // (como ChatGPT o Claude), y la barra de abajo sigue para salir.
+            teclado ? 'z-40' : 'top-0 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-[35] lg:z-20',
+          )}
+        style={!flotante && teclado ? { top: teclado.top, height: teclado.height } : undefined}
       >
+        {!flotante && (
         <aside className="hidden w-[272px] shrink-0 flex-col border-r border-border lg:flex" aria-label="Tus conversaciones">
           <ListaConversaciones conversaciones={conversaciones} activa={estado.conversacionId} onElegir={elegir} onNueva={nueva} />
         </aside>
+        )}
 
         <main className="relative flex min-w-0 flex-1 flex-col">
+          {!flotante && (
           <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/60 px-1.5 lg:hidden">
             <button type="button" onClick={() => setListaMovil(true)} aria-label="Tus conversaciones" className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
               <MessagesSquare size={19} aria-hidden="true" />
@@ -106,12 +113,14 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
               <SquarePen size={18} aria-hidden="true" />
             </button>
           </header>
+          )}
 
           {vacio
             ? <Bienvenida nombre={nombre} veDinero={veDinero} estado={estado} saldo={saldo} />
             : <Conversacion estado={estado} saldo={saldo} />}
         </main>
 
+        {!flotante && (
         <DashboardDrawer
           open={listaMovil}
           onClose={() => setListaMovil(false)}
@@ -123,6 +132,7 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
           <span aria-hidden="true" className="mx-auto mt-2 block h-1 w-9 shrink-0 rounded-full bg-border" />
           <ListaConversaciones conversaciones={conversaciones} activa={estado.conversacionId} onElegir={elegir} onNueva={nueva} />
         </DashboardDrawer>
+        )}
       </div>
     </ReferenciasCtx.Provider>
   );
@@ -134,9 +144,10 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial }: {
  * de iOS corría la página y el chat se quedaba a medias, y un deslizamiento
  * fuera de la lista movía el documento entero que hay detrás.
  */
-function useAreaConTeclado() {
+function useAreaConTeclado(activo: boolean) {
   const [area, setArea] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
+    if (!activo) return;
     const vv = window.visualViewport;
     const movil = window.matchMedia('(max-width: 1023px)');
     const html = document.documentElement;
@@ -164,7 +175,7 @@ function useAreaConTeclado() {
       html.style.overflow = antes.overflow;
       html.style.overscrollBehavior = antes.overscroll;
     };
-  }, []);
+  }, [activo]);
   return area;
 }
 

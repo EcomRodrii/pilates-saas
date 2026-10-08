@@ -203,6 +203,7 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // veto («la IA que te habla») se cae con el asistente; el de dinero no
   // (estadoDelVeredicto → sin Tenti si aprobar cobra).
   'components/decision/veredicto-del-dia.tsx': { usos: 1, motivo: 'el veredicto del día: analizando, recién hecho, el mensaje que te pregunta o lo que el piloto no pudo; nunca junto a un cobro' },
+  'components/asistente/asistente-flotante.tsx': { usos: 1, motivo: 'el botón flotante del chat «Pregúntale a Tentare»: la puerta del asistente en todas las pantallas del panel (fundador, 8-oct-2026)' },
   'app/(dashboard)/bienvenido-apertura/page.tsx': { usos: 1, motivo: 'las tres preguntas de apertura, donde estaba el Orb (ningún enlace trae aquí desde #2270)' },
 };
 
