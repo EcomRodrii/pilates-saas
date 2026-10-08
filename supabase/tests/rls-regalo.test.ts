@@ -15,6 +15,8 @@ import { huellaCodigo } from '../../lib/regalo/reglas.ts';
 
 const admin = clienteAdminLocal();
 const sql = sqlLocal();
+// Sin cerrar la conexión el proceso no termina y el job de CI se queda colgado hasta que lo cancelan.
+test.after(async () => { await sql.end(); });
 let n = 0;
 const sesion = () => `cs_test_regalo_${process.pid}_${Date.now()}_${n++}`;
 
