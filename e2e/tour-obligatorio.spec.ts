@@ -177,10 +177,15 @@ test.describe('La visita guiada por capítulos', () => {
     await expect(paso).toContainText('Esperando a que lo hagas');
     await expect(paso).not.toContainText('Ya lo tienes');
 
-    // Activa una con precio y recarga los datos: el paso se da por hecho y pasa al siguiente.
+    // Activa una con precio y recarga: ya lo tenía al llegar, así que lo LEE a su ritmo (sin saltar solo).
     planes = [tarifa('a', 35, true), tarifa('b', 0, false)];
     await page.reload();
-    await expect(page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador/ })).toContainText('Ya lo tienes', { timeout: 30_000 });
+    const leyendo = page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador/ });
+    await expect(leyendo).toContainText('Ya lo tienes hecho', { timeout: 30_000 });
+    await expect(leyendo).toContainText('Ya tienes tarifas activas. Para crear otra, usa «Crear».');
+    await page.waitForTimeout(2500);
+    await expect(leyendo).toBeVisible();
+    await leyendo.getByRole('button', { name: /Entendido/ }).click();
     await expect(page.getByRole('region', { name: /Visita guiada: ¿Qué clases cubre cada tarifa\?/ })).toBeVisible({ timeout: 10_000 });
   });
 

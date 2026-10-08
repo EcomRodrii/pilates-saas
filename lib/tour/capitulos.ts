@@ -63,6 +63,11 @@ export interface PasoVisita {
   texto: string;
   /** Lo que hay que HACER o MIRAR ahora, en una línea. Es lo que mueve a la persona. */
   accion: string;
+  /**
+   * Solo en los «hacer»: qué se le dice a quien YA lo tiene hecho al llegar. Pedirle «añade tu primera
+   * sala» a quien tiene cuatro es absurdo; se le explica dónde está y se le deja leer a su ritmo.
+   */
+  accionSiYaLoTienes?: string;
 }
 
 export interface CapituloVisita {
@@ -122,6 +127,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tus salas',
         texto: 'Una sala es un espacio donde das clase. Su aforo es el tope de plazas de cada clase que se dé en ella, así que ponle la cifra real: es lo que impide que se reserve de más.',
         accion: 'Pulsa «Salas» y añade tu primera sala, con su aforo.',
+        accionSiYaLoTienes: 'Ya tienes salas. Para cambiarlas o añadir otra, esta es la fila «Salas».',
       },
       {
         id: 'c2.3', ruta: '/configuracion', href: '/configuracion?tab=estudio', selector: '#horario', tipo: 'mira',
@@ -134,6 +140,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tus tipos de clase',
         texto: 'Reformer, Suelo, Embarazadas… Cada tipo lleva su duración y sus plazas. Son el catálogo del que sale tu horario: sin tipos de clase no se puede programar nada.',
         accion: 'Pulsa «Tipos de clase» y crea el primero: nombre, duración y plazas.',
+        accionSiYaLoTienes: 'Ya tienes tipos de clase. Para cambiarlos o crear otro, esta es la fila «Tipos de clase».',
       },
     ],
   },
@@ -155,6 +162,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Programa tus clases',
         texto: 'Una alumna solo puede reservar lo que está en el calendario. Si la clase se repite cada semana, márcalo y se crean todas de golpe, sin repetir el trabajo.',
         accion: 'Pulsa «Crear clase» → «Clase» y elige tipo, sala, día y hora.',
+        accionSiYaLoTienes: 'Ya tienes clases programadas. Para crear más, usa «Crear clase».',
       },
       {
         id: 'c3.3', ruta: '/calendario', selector: 'calendario-vista', tipo: 'mira',
@@ -194,6 +202,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Añade una clienta de verdad',
         texto: 'Nombre y email bastan. Mejor una clienta real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
         accion: 'Pulsa «Nueva clienta» y rellena su nombre y su email.',
+        accionSiYaLoTienes: 'Ya tienes clientas. Para añadir otra, usa «Nueva clienta».',
       },
       {
         id: 'c4.3', ruta: '/clientas/*', selector: 'ficha-clienta', tipo: 'mira', requiere: 'socios',
@@ -221,6 +230,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Una tarifa en borrador no existe para tus clientas',
         texto: 'Hasta que no tenga precio y esté activa, nadie puede comprarla ni tú asignársela. Si el asistente de alta te dejó tarifas a 0 €, son borradores: ábrelas y termínalas.',
         accion: 'Abre una tarifa (o pulsa «Crear»), ponle precio y márcala como activa.',
+        accionSiYaLoTienes: 'Ya tienes tarifas activas. Para crear otra, usa «Crear».',
       },
       {
         id: 'c5.3', ruta: '/productos', selector: 'paquetes-vista', tipo: 'mira',
@@ -233,6 +243,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Asígnale una tarifa a una clienta',
         texto: 'Es lo que une todo: la clienta, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
         accion: 'En la tarjeta «Plan», pulsa «Asignar plan» y elige la tarifa.',
+        accionSiYaLoTienes: 'Ya has asignado alguna tarifa. Para asignar otra, usa «Asignar plan» en la tarjeta «Plan».',
       },
       {
         id: 'c5.5', ruta: '/clientas/*', selector: 'ficha-plan', tipo: 'mira', requiere: 'socios',
@@ -284,6 +295,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tus datos fiscales',
         texto: 'Sin razón social y NIF no sale ninguna factura. Si ahora no los tienes a mano, puedes aplazarlo y te lo recordamos al final.',
         accion: 'Pulsa «Datos fiscales e IVA» y rellena razón social y NIF.',
+        accionSiYaLoTienes: 'Ya tienes tus datos fiscales. Para cambiarlos, esta es la fila «Datos fiscales e IVA».',
       },
       {
         id: 'c6.6', ruta: '/pos', selector: 'pos-vista', tipo: 'mira',
@@ -311,6 +323,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Date de alta si das clase tú',
         texto: 'Toda clase necesita a alguien asignado. Si das clase tú, añádete como instructora; si tienes equipo, invítalas con su email.',
         accion: 'Pulsa «Nuevo miembro» y añade a tu primera instructora (tú, si das clase).',
+        accionSiYaLoTienes: 'Ya tienes equipo. Para añadir a alguien, usa «Nuevo miembro».',
       },
       {
         id: 'c7.3', ruta: '/equipo', selector: 'equipo-vista', tipo: 'mira',
@@ -371,6 +384,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tu logo y tu color',
         texto: 'Es lo primero que ve una alumna: su app y tu página de reservas llevan tu marca. Se aplica al momento.',
         accion: 'Pulsa «Logo y favicon» y sube tu logo.',
+        accionSiYaLoTienes: 'Ya tienes tu logo. Para cambiarlo, esta es la fila «Logo y favicon».',
       },
       {
         id: 'c9.2', ruta: '/configuracion', href: '/configuracion?tab=marca', selector: '#color-de-marca', tipo: 'mira',

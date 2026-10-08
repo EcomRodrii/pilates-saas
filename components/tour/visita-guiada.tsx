@@ -218,6 +218,17 @@ function ContenidoPaso({
 
   const hacer = paso.tipo === 'hacer';
   const yaHecho = hacer && !!paso.hecho && !!datos?.hecho[paso.hecho];
+  // ¿Lo tenía ya al llegar, o lo acaba de hacer? Los datos del estudio tardan un momento en cargar, así
+  // que lo que aparece en los primeros segundos cuenta como «ya lo tenía». Quien ya lo tiene LEE el paso
+  // a su ritmo (con su «Entendido»); quien lo acaba de hacer ve el ✓ y pasa solo.
+  const montadoEn = useRef(0);
+  useEffect(() => { montadoEn.current = Date.now(); }, []);
+  const [preexistente, setPreexistente] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (yaHecho && preexistente === null) setPreexistente(Date.now() - montadoEn.current < 4000);
+  }, [yaHecho, preexistente]);
+  const lee = hacer && yaHecho && preexistente === true;
+  const comoMira = !hacer || lee;
   const faltaClienta = !!paso.requiere && !!datos && !datos.hecho.socios;
   const destino = destinoDe(paso, datos);
   const anterior = pasoAnteriorA(t.progreso, paso.id, t.aplica);
@@ -240,21 +251,21 @@ function ContenidoPaso({
     if (dialogo) return;
     const alPulsar = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.activeElement !== document.body) return;
-      if ((e.key === 'Enter' || e.key === 'ArrowRight') && !hacer && !repaso && !faltaClienta && enRuta) { e.preventDefault(); t.cerrar(paso, 'hecho'); }
+      if ((e.key === 'Enter' || e.key === 'ArrowRight') && comoMira && !repaso && !faltaClienta && enRuta) { e.preventDefault(); t.cerrar(paso, 'hecho'); }
       else if (e.key === 'ArrowLeft' && anterior && !repaso) { e.preventDefault(); onAnterior(anterior.id); }
     };
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialogo, hacer, repaso, faltaClienta, enRuta, anterior?.id, paso.id]);
+  }, [dialogo, comoMira, repaso, faltaClienta, enRuta, anterior?.id, paso.id]);
 
   // Un «hacer» cumplido (ya lo tenías, o lo acabas de hacer) se da por bueno.
   useEffect(() => {
-    if (!yaHecho || repaso) return;
+    if (!yaHecho || repaso || preexistente !== false) return;
     const id = window.setTimeout(() => t.cerrar(paso, 'hecho'), AVANCE_AUTOMATICO_MS);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yaHecho, repaso, paso.id]);
+  }, [yaHecho, repaso, preexistente, paso.id]);
 
   // Colocación en escritorio: SIEMPRE en una esquina (la tarjeta no salta de un sitio a otro paso tras
   // paso, que desorienta), y la primera esquina que no tape lo que se está señalando. La tarjeta se MIDE,
@@ -288,7 +299,7 @@ function ContenidoPaso({
     return (
       <div data-visita role="status" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center p-2">
         <p className="max-w-xl rounded-2xl bg-foreground px-4 py-2.5 text-[13px] leading-snug text-background shadow-xl">
-          <span className="font-semibold">{paso.titulo}.</span> {paso.accion}
+          <span className="font-semibold">{paso.titulo}.</span> {lee ? paso.accionSiYaLoTienes : paso.accion}
         </p>
       </div>
     );
@@ -335,7 +346,7 @@ function ContenidoPaso({
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">{paso.texto}</p>
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-brand/10 px-3 py-2.5 text-[13.5px] font-semibold leading-snug text-foreground">
           <MousePointerClick size={16} className="mt-0.5 shrink-0 text-brand-medio" aria-hidden />
-          <span className="min-w-0">{paso.accion}</span>
+          <span className="min-w-0">{lee && paso.accionSiYaLoTienes ? paso.accionSiYaLoTienes : paso.accion}</span>
         </p>
 
         {!enRuta && (
@@ -367,7 +378,7 @@ function ContenidoPaso({
 
         {hacer && !repaso && (
           yaHecho ? (
-            <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-success"><Check size={15} aria-hidden /> Ya lo tienes</p>
+            <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-success"><Check size={15} aria-hidden /> {lee ? 'Ya lo tienes hecho' : 'Hecho. Pasamos al siguiente…'}</p>
           ) : (
             <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden /> Esperando a que lo hagas…</p>
           )
@@ -395,7 +406,7 @@ function ContenidoPaso({
                 Seguir donde iba <ArrowRight size={13} aria-hidden />
               </button>
             )}
-            {!repaso && !hacer && !faltaClienta && (
+            {!repaso && comoMira && !faltaClienta && (
               <button type="button" onClick={() => t.cerrar(paso, 'hecho')} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-brand px-3 text-[13px] font-semibold text-brand-foreground hover:brightness-95">
                 Entendido <ArrowRight size={13} aria-hidden />
               </button>

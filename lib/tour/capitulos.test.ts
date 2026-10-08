@@ -96,6 +96,15 @@ test('cada paso dice qué hacer, y cada capítulo para qué sirve', () => {
   }
 });
 
+test('todo paso «hacer» dice qué hacer si ya lo tienes hecho (y ningún «mira» lo dice)', () => {
+  for (const p of TODOS_LOS_PASOS) {
+    if (p.tipo === 'hacer') {
+      assert.ok(p.accionSiYaLoTienes && p.accionSiYaLoTienes.startsWith('Ya '), `${p.id}: falta «accionSiYaLoTienes» (empieza por «Ya …»)`);
+      assert.ok(p.accionSiYaLoTienes.length <= 130, `${p.id}: demasiado largo`);
+    } else assert.equal(p.accionSiYaLoTienes, undefined, `${p.id}: un «mira» no lleva accionSiYaLoTienes`);
+  }
+});
+
 test('un texto no se pasa de largo: se lee en una tarjeta', () => {
   for (const p of TODOS_LOS_PASOS) {
     assert.ok(p.texto.length <= 330, `${p.id} tiene ${p.texto.length} caracteres`);
@@ -155,7 +164,7 @@ test('todo nombre entre « » de la visita existe como texto de la aplicación',
     .map(f => readFileSync(join(RAIZ, f), 'utf8')).join('\n');
   const inventados: string[] = [];
   for (const p of TODOS_LOS_PASOS) {
-    for (const m of `${p.titulo} ${p.texto} ${p.accion}`.matchAll(/«([^»]+)»/g)) {
+    for (const m of `${p.titulo} ${p.texto} ${p.accion} ${p.accionSiYaLoTienes ?? ''}`.matchAll(/«([^»]+)»/g)) {
       if (!codigo.includes(m[1])) inventados.push(`${p.id}: «${m[1]}»`);
     }
   }
