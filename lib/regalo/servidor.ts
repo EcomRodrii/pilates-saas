@@ -1,5 +1,5 @@
 // Tarjeta regalo — operaciones de servidor. Todo pasa por las RPC de la migración
-// 20261009120000 (solo `service_role`): la app comprueba rol, captcha, límite y, en la
+// 20261008231136 (solo `service_role`): la app comprueba rol, captcha, límite y, en la
 // compra, que Stripe confirme el cobro; la base de datos decide saldo, caducidad e
 // idempotencia con candado de fila. Nunca se calcula un saldo aquí.
 import type { SupabaseClient } from '@supabase/supabase-js';

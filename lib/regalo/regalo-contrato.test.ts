@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 const RAIZ = join(import.meta.dirname, '..', '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
-const sql = leer('supabase/migrations/20261009120000_tarjetas_regalo.sql');
+const sql = leer('supabase/migrations/20261008231136_tarjetas_regalo.sql');
 
 test('la migración se leyó de verdad', () => {
   assert.ok(sql.length > 5000);

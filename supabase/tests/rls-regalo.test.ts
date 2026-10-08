@@ -1,4 +1,4 @@
-// Tarjeta regalo (migración 20261009120000), contra Postgres de verdad (job `calidad-rls`).
+// Tarjeta regalo (migración 20261008231136), contra Postgres de verdad (job `calidad-rls`).
 //
 //  · el libro suma el saldo y la vista de conciliación sale vacía tras cada camino;
 //  · gastar es atómico e idempotente (misma clave = una sola vez), nunca deja saldo negativo
