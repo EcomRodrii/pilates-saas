@@ -53,7 +53,7 @@ export function bonoConsumible(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   // Tipo de clase que se está reservando. Sin él se mantiene el comportamiento
   // de siempre; con él, un bono que no cubra esa clase no es candidato — si no,
   // con un "Bono Reformer" y un "Bono Mat" a la vez se descontaría del que
@@ -80,7 +80,7 @@ export function bonoDevolvible(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   tipoClaseId?: string | null,
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
   return elegirBono(socioId, suscripciones, planesTarifa, hoyISO, tipoClaseId,
@@ -253,7 +253,7 @@ export function saldoSesionesBono(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   // Con una clase concreta delante solo cuentan los bonos que la cubren: sumar
   // un bono de Reformer y otro de Mat en "te quedarán N" para una clase de Mat
   // sería el mismo tipo de mentira, en la otra dirección.

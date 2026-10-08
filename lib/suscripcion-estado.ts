@@ -27,6 +27,7 @@
 // para esta bifurcación.
 
 import type { Suscripcion, PlanTarifa } from './types.ts';
+import { hoyEnEstudio } from './utils.ts';
 
 export type EstadoSuscripcionUI =
   | {
@@ -58,7 +59,7 @@ const UMBRAL_SESIONES_URGENTE = 2;
 export function calcularEstadoSuscripcion(
   suscripcion: Suscripcion | null | undefined,
   plan: PlanTarifa | null | undefined,
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
 ): EstadoSuscripcionUI {
   if (!suscripcion || !plan) return { kind: 'sin_plan' };
   if (suscripcion.estado === 'PAUSADA') return { kind: 'pausada' };
