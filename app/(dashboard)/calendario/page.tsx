@@ -85,7 +85,7 @@ import { estadoDeFicha, porQueSinCubrir } from '@/lib/calendario/estado-ficha';
 import { claseDelMostrador, siguienteClase, vecinas } from '@/lib/calendario/mostrador';
 import type { ClaseEnFranja } from '@/lib/calendario/franjas';
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
-import { tramosCerrados, minutosDeHora } from '@/lib/calendario/horas-cerradas';
+import { minutosDeHora } from '@/lib/calendario/horas-cerradas';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { PrimerHorario } from '@/components/calendario/primer-horario';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
