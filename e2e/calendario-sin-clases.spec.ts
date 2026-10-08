@@ -22,25 +22,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-/** Tres clases futuras el mismo día, sin solaparse. */
-function sesiones() {
-  const base = new Date(Date.now() + 3 * 3600_000);
-  base.setSeconds(0, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 19);
-  const hacer = (i: number, instructor: string) => {
-    const ini = new Date(base.getTime() + i * 90 * 60_000);
-    const fin = new Date(ini.getTime() + 55 * 60_000);
-    return {
-      id: `ses-${i}`, studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-      instructor_id: instructor, inicio: iso(ini), fin: iso(fin),
-      aforo_maximo: 10, cancelada: false, notas: null, serie_id: null, precio_puntual: null,
-    };
-  };
-  // La tercera YA la da Laura: no debe contar como movida.
-  return [hacer(0, 'ins-1'), hacer(1, 'ins-1'), hacer(2, 'ins-2')];
-}
-
-const SESIONES: ReturnType<typeof sesiones> = [];
+const SESIONES: Record<string, unknown>[] = [];
 
 // Ana está en las DOS clases que se mueven: tiene que contar UNA vez.
 const RESERVAS = [
