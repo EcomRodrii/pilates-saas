@@ -34,7 +34,7 @@ export function SeccionCalendarioReservas() {
     <section id="calendario" className="v5-cal" aria-labelledby="v5-cal-h">
       <div className="v5-cal-wrap">
         <header className="v5-cal-head lp-rv">
-          <h2 id="v5-cal-h" className="v5-cal-h2">Y por la mañana, solo lo que necesita tu decisión.</h2>
+          <h2 id="v5-cal-h" className="v5-cal-h2"><span className="lp-ante">Calendario de clases con aforo por reformer</span>{' '}Y por la mañana, solo lo que necesita tu decisión.</h2>
           <p className="v5-cal-lead">
             Semana, día o mes, con capacidad por reformer. Cuando una clase necesita algo de ti, el calendario te
             lo dice; lo demás ya está resuelto.

@@ -42,7 +42,7 @@ export function SeccionParteNoche() {
     <section id="noche" className="v5-noche" aria-labelledby="v5-noche-h">
       <div className="v5-noche-wrap">
         <div className="v5-noche-texto lp-rv">
-          <h2 id="v5-noche-h" className="v5-noche-h2">Mientras cerrabas, Tentare siguió trabajando.</h2>
+          <h2 id="v5-noche-h" className="v5-noche-h2"><span className="lp-ante">Lista de espera, recordatorios y cobros automáticos</span>{' '}Mientras cerrabas, Tentare siguió trabajando.</h2>
           <p className="v5-noche-lead">
             Las alumnas reservan y cancelan, la lista de espera ocupa la plaza que se libera y los cobros que
             fallan se reintentan. No es una bandeja de avisos esperando a que la leas: es trabajo hecho.

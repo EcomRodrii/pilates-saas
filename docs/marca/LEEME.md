@@ -10,7 +10,7 @@ isotipo/         6 · la marca sola, en sus seis tintas
 horizontal/      3 · isotipo + palabra, en línea
 vertical/        3 · isotipo arriba, palabra debajo
 icono-app/       3 · placa redondeada para iOS, Android y escritorio
-favicon/         1 · una sola tinta, para 16–24 px
+favicon/         2 · una sola tinta para 16–24 px, y la placa oscura de la pestaña del navegador
 productos/       30 · Core, Manager, Studio, Network e Interno (6 cada uno)
 aplicaciones/    4 · avatar, sello, firma de correo y marca de agua
 animaciones/     tentare-motion.css · las diez animaciones

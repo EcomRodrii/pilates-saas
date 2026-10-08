@@ -703,7 +703,7 @@ export const PAGINAS: PaginaSeo[] = [
     resumen: 'Quién hay detrás y cómo trabajamos.',
     prioridad: 0.5,
     changeFrequency: 'yearly',
-    actualizado: '2026-09-23',
+    actualizado: '2026-10-07',
     relacionadas: ['/seguridad', '/precios', '/comparativa'],
   },
   {

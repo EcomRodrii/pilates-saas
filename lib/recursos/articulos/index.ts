@@ -33,10 +33,16 @@ import alternativasTimp from './alternativas-a-timp.ts';
 import abrirYoga from './como-abrir-un-estudio-de-yoga.ts';
 import politicaCancelacion from './politica-de-cancelacion-de-clases.ts';
 import serInstructora from './como-ser-instructora-de-pilates.ts';
+import comoGestionar from './como-gestionar-un-estudio-de-pilates.ts';
+import reformerMat from './precios-reformer-mat.ts';
+import cancelaciones from './reducir-cancelaciones-ultima-hora.ts';
+import bajaInstructora from './cubrir-baja-instructora.ts';
+import clasesValle from './ocupacion-clases-valle.ts';
 
 export const ARTICULOS: Articulo[] = [
   comoAbrir,
   abrirYoga,
+  comoGestionar,
   mejorSoftware,
   bsportVsTimp,
   alternativasBsport,
@@ -44,10 +50,14 @@ export const ARTICULOS: Articulo[] = [
   cuantoCuesta,
   precioClase,
   rentabilidad,
+  reformerMat,
+  clasesValle,
   requisitos,
   bonos,
   politicaCancelacion,
+  cancelaciones,
   instructora,
+  bajaInstructora,
   serInstructora,
   iva,
   softwareGratis,
