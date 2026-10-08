@@ -30,6 +30,7 @@ import { useStudio } from '@/lib/studio-context';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { CAPITULOS, lugarCoincide, pasoPorId, rutaBase, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
 import { datosHecho, type DatosHecho } from '@/lib/tour/hecho';
+import { MARGEN_SUPERIOR, modoDeDesplazamiento } from '@/lib/tour/desplazar';
 import { aplazadosEnOrden, capitulosConPasos, pasoAnteriorA, pasoCerrado } from '@/lib/tour/progreso';
 import { PantallaAperturaCapitulo, PantallaCapituloVisita, PantallaFinVisita, PantallaInicioVisita } from '@/components/tour/pantallas-visita';
 
@@ -98,8 +99,14 @@ function useObjetivo(paso: PasoVisita, enRuta: boolean, cargando: boolean) {
     const medir = () => {
       const el = elementoVisible(paso.selector);
       if (el) {
-        if (!centrado) { centrado = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         const r = el.getBoundingClientRect();
+        if (!centrado) {
+          centrado = true;
+          // Una fila se centra; una pantalla entera no (saltaría a la mitad): se lleva su inicio, si hace falta.
+          const modo = modoDeDesplazamiento(r, window.innerHeight);
+          if (modo === 'centro') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          else if (modo === 'inicio') window.scrollTo({ top: window.scrollY + r.top - MARGEN_SUPERIOR, behavior: 'smooth' });
+        }
         setRect(prev => (mismoRect(prev, r) ? prev : r));
         setSinFoco(false);
       } else if (Date.now() - inicio > ESPERA_OBJETIVO_MS) {

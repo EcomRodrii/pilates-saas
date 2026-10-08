@@ -351,5 +351,20 @@ test.describe('La visita guiada por capítulos', () => {
     // Ya sellada: la visita empieza.
     await expect(inicio(page)).toBeVisible({ timeout: 60_000 });
   });
+
+  test('una pantalla entera muy alta no hace saltar la página a su mitad al señalarla', async ({ page }) => {
+    // El Resumen se hace altísimo (como Cobros o Clientas con cientos de filas).
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        const el = document.querySelector<HTMLElement>('[data-tour="resumen-vista"]');
+        if (el && el.style.minHeight !== '4000px') el.style.minHeight = '4000px';
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: ['c1.1'], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(1500);
+    // Centrar su punto medio la habría llevado ~1.700 px abajo; con la regla nueva se queda arriba.
+    expect(await page.evaluate(() => window.scrollY)).toBeLessThan(150);
+  });
 });
 
