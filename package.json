@@ -22,7 +22,9 @@
     "spacemail:check": "node --experimental-strip-types scripts/spacemail-check.ts",
     "cap:sync": "node scripts/identidad-ios.mjs && cap sync ios",
     "cap:open": "cap open ios",
-    "iconos:ios": "node scripts/iconos-ios.mjs"
+    "iconos:ios": "node scripts/iconos-ios.mjs",
+    "demo:grabar": "node --experimental-strip-types demo/grabar.ts",
+    "demo:montar": "node demo/montar.mjs --escribir-indice"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",

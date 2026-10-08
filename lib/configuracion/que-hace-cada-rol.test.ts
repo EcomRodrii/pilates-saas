@@ -35,8 +35,8 @@ test('propietaria: todo, cobros incluidos, única en Informes y Automatizaciones
   }
   // Configuración ya no es una puerta de sí/no: la gerencia entra a la operación
   // de su sede, y «toda» sigue siendo solo de la propietaria.
-  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
-  assert.deepEqual(seccionesVisibles('MANAGER').map(s => s.id), ['estudio', 'clases']);
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 15);
+  assert.deepEqual(seccionesVisibles('MANAGER').map(s => s.id), ['estudio', 'clases', 'demo']);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
 });
 
