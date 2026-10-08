@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { leerAccion, resumenVisita } from '@/lib/interno/visita-guiada';
+import { aplicarATodos, cambiosDeEstudio, type BaseEscribible } from '@/lib/interno/visita-guiada-servidor';
 
 export const runtime = 'nodejs';
 
@@ -83,19 +84,14 @@ export async function POST(req: NextRequest) {
 
   // ── Todos a la vez ─────────────────────────────────────────────────────────
   if (accion.accion === 'todos') {
-    // Nunca a una demo. «Activar» solo a los que aún no la han completado: quien ya la hizo no
-    // la repite por un clic masivo (para eso está «activar desde cero», estudio a estudio).
-    let q = db.from('studios').update(accion.activar ? { tour_obligatorio: true } : { tour_obligatorio: false })
-      .eq('es_demo', false);
-    q = accion.activar ? q.is('tour_completado_en', null).eq('tour_obligatorio', false) : q.eq('tour_obligatorio', true);
-    const { data, error } = await q.select('id');
+    const { ids, error } = await aplicarATodos(db as unknown as BaseEscribible, accion.activar);
     if (error) return NextResponse.json({ error: 'No se ha podido aplicar a todos.' }, { status: 500 });
-    const cambiados = (data ?? []).length;
+    const cambiados = ids.length;
     await registrar(db, req, {
       actor: g.admin, accion: accion.activar ? 'visita-guiada.todos.activada' : 'visita-guiada.todos.desactivada',
       objetivoTipo: 'studio',
       resumen: `Visita guiada ${accion.activar ? 'activada' : 'desactivada'} en ${cambiados} estudio${cambiados === 1 ? '' : 's'}`,
-      despues: { estudios: (data ?? []).map(d => d.id) },
+      despues: { estudios: ids },
     });
     return NextResponse.json({ ok: true, cambiados });
   }
@@ -109,10 +105,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Un estudio de demo no recibe la visita guiada.' }, { status: 409 });
   }
 
-  const cambios =
-    accion.operacion === 'desactivar' ? { tour_obligatorio: false }
-    : accion.operacion === 'activar' ? { tour_obligatorio: true, tour_completado_en: null }
-    : { tour_obligatorio: true, tour_completado_en: null, tour_progreso: {} };
+  const cambios = cambiosDeEstudio(accion.operacion);
   const { error } = await db.from('studios').update(cambios).eq('id', accion.id);
   if (error) return NextResponse.json({ error: 'No se ha podido cambiar el estudio.' }, { status: 500 });
 
