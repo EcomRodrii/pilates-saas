@@ -532,7 +532,7 @@ export default function EquipoPage() {
                 </Link>
               </>
             )}
-            <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
+            <button onClick={openNuevo} data-tour="equipo-nuevo" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
               <Plus size={16} /> Nuevo miembro
             </button>
           </div>

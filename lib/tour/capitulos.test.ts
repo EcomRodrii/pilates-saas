@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, rutaBase, rutaCoincide, selectorCss } from './capitulos.ts';
+import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, lugarCoincide, rutaBase, rutaCoincide, selectorCss, tabDe } from './capitulos.ts';
+import { SECCIONES } from '../configuracion/secciones.ts';
 import { rutaFueraDelMenu } from '../nav-config.ts';
 import { esRutaCongelada } from '../frozen-features.ts';
 
@@ -120,4 +121,66 @@ test('lo que el menú de hoy no enseña (Marketing apagado) se detecta, y lo que
   assert.equal(rutaFueraDelMenu('/ondemand'), true);
   assert.equal(rutaFueraDelMenu('/calendario'), false);
   assert.equal(rutaFueraDelMenu('/primeros-pasos'), false, 'no es del menú: no cuenta como oculta');
+});
+
+// ── Los nombres que se citan son los de la pantalla, y están donde se dice ───────────────────
+
+const FILAS = new Map<string, { tab: string; titulo: string }>();
+for (const sec of SECCIONES) for (const t of sec.tarjetas) FILAS.set(t.id, { tab: sec.id, titulo: t.titulo });
+
+function filaDe(selector: string) {
+  return FILAS.get(selector.slice(1).replace(/^fila-herramienta-/, ''));
+}
+
+test('un paso que señala una fila de Configuración lleva a SU pestaña (estar en /configuracion no basta)', () => {
+  for (const p of TODOS_LOS_PASOS) {
+    if (!p.selector.startsWith('#')) continue;
+    const fila = filaDe(p.selector);
+    assert.ok(fila, `${p.id}: ${p.selector} no es una fila de Configuración`);
+    assert.equal(tabDe(p), fila.tab, `${p.id}: «${fila.titulo}» está en la pestaña «${fila.tab}», pero el paso lleva a «${tabDe(p)}»`);
+  }
+});
+
+test('el nombre de la fila que se cita es el que pone en pantalla', () => {
+  for (const p of TODOS_LOS_PASOS) {
+    if (!p.selector.startsWith('#')) continue;
+    const fila = filaDe(p.selector)!;
+    assert.ok(p.accion.includes(`«${fila.titulo}»`), `${p.id}: la acción debe nombrar la fila «${fila.titulo}» tal cual aparece en pantalla`);
+  }
+});
+
+test('todo nombre entre « » de la visita existe como texto de la aplicación', () => {
+  const codigo = [...ficheros('app'), ...ficheros('components'), 'lib/nav-config.ts', 'lib/configuracion/secciones.ts']
+    .filter(f => !f.startsWith('components/tour'))
+    .map(f => readFileSync(join(RAIZ, f), 'utf8')).join('\n');
+  const inventados: string[] = [];
+  for (const p of TODOS_LOS_PASOS) {
+    for (const m of `${p.titulo} ${p.texto} ${p.accion}`.matchAll(/«([^»]+)»/g)) {
+      if (!codigo.includes(m[1])) inventados.push(`${p.id}: «${m[1]}»`);
+    }
+  }
+  assert.deepEqual(inventados, [], 'estos nombres no aparecen en ninguna pantalla');
+});
+
+test('«mira» no pide pulsar nada que abra un diálogo; «hacer» sí empieza por la acción', () => {
+  for (const p of TODOS_LOS_PASOS) {
+    if (p.tipo === 'mira') assert.doesNotMatch(p.accion, /^(Pulsa|Abre|Añade|Escribe|Prueba)/, `${p.id}: un paso «mira» no manda pulsar (el diálogo taparía su botón «Entendido»)`);
+  }
+});
+
+test('lugarCoincide: la ruta no basta si el paso vive en una pestaña', () => {
+  const horario = TODOS_LOS_PASOS.find(p => p.id === 'c2.3')!;
+  assert.equal(lugarCoincide(horario, '/configuracion', 'estudio'), true);
+  assert.equal(lugarCoincide(horario, '/configuracion', null), false, 'en el inicio de Configuración no está «Horario»');
+  assert.equal(lugarCoincide(horario, '/configuracion', 'marca'), false);
+  assert.equal(lugarCoincide(horario, '/calendario', 'estudio'), false);
+  // un paso sin pestaña solo mira la ruta
+  const calendario = TODOS_LOS_PASOS.find(p => p.id === 'c3.1')!;
+  assert.equal(lugarCoincide(calendario, '/calendario', null), true);
+});
+
+test('tabDe lee la pestaña del href, con o sin ancla', () => {
+  assert.equal(tabDe({ href: '/configuracion?tab=cobros#datos-fiscales' }), 'cobros');
+  assert.equal(tabDe({ href: '/configuracion' }), null);
+  assert.equal(tabDe({ href: undefined }), null);
 });

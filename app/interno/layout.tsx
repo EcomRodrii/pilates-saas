@@ -12,7 +12,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, Phone, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
+import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, Phone, Route, ScrollText, ShieldAlert, Smile, Sprout, Users, Zap } from 'lucide-react';
 import { EVENTO_MFA_REQUERIDO, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
 import { useAuth } from '@/lib/auth-context';
 import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
@@ -27,6 +27,7 @@ export const useSesionInterna = (): SesionInterna => {
 const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2; permisos: Permiso[] }> = [
   { href: '/interno', etiqueta: 'Resumen', icono: LayoutDashboard, permisos: ['studios.read'] },
   { href: '/interno/estudios', etiqueta: 'Estudios', icono: Building2, permisos: ['studios.read'] },
+  { href: '/interno/visita-guiada', etiqueta: 'Visita guiada', icono: Route, permisos: ['studios.read'] },
   { href: '/interno/facturacion', etiqueta: 'Facturación', icono: CreditCard, permisos: ['billing.read'] },
   // Veri*Factu: la declaración responsable y los poderes IZ860 los gestiona el
   // productor/apoderado en persona, así que solo `admin.full`.

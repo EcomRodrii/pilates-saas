@@ -237,5 +237,59 @@ test.describe('La visita guiada por capítulos', () => {
     await expect(apertura).toContainText('Automatizaciones');
     await expect(apertura).not.toContainText('Marketing');
   });
+
+  test('estar en Configuración no es estar en el sitio: la pestaña cuenta, y «Llévame» lleva a la buena', async ({ page }) => {
+    // Toca «Correos automáticos» (pestaña «Cómo me comunico»), pero estamos en la pestaña «Marca».
+    const previos = CAPITULOS.slice(0, 8);
+    const hechos = [...previos.flatMap(c => c.pasos.map(p => p.id)), 'c9.1', 'c9.2'];
+    const progreso = { v: 1, inicio: true, hechos, aplazados: [], vistos: previos.map(c => c.id), abiertos: [...previos.map(c => c.id), 'c9'] };
+    await montarVisita(page, { progreso });
+    await page.goto('/configuracion?tab=marca');
+    const paso = tarjeta(page, 'Correos automáticos');
+    await expect(paso).toBeVisible({ timeout: 60_000 });
+    // La ruta es la misma (/configuracion), pero la pestaña no: el paso lo dice y ofrece llevarte.
+    await expect(paso).toContainText('Este paso está en Configuración');
+    await expect(paso).not.toContainText('No encuentro el recuadro');
+    await paso.getByRole('button', { name: /Llévame/ }).click();
+    await expect(page).toHaveURL(/tab=comunicacion/);
+  });
+
+  test('al empezar un capítulo te lleva solo a su pantalla (sin recargar y sin esperar a que lo pidas)', async ({ page }) => {
+    const previos = CAPITULOS.slice(0, 2);
+    const progreso = { v: 1, inicio: true, hechos: previos.flatMap(c => c.pasos.map(p => p.id)), aplazados: [], vistos: previos.map(c => c.id), abiertos: previos.map(c => c.id) };
+    await montarVisita(page, { progreso });
+    const apertura = page.getByRole('dialog', { name: /Capítulo 3: Tu horario/ });
+    await expect(apertura).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/dashboard/);
+    await apertura.getByRole('button', { name: /Empezar el capítulo/ }).click();
+    await expect(page).toHaveURL(/\/calendario/, { timeout: 30_000 });
+    await expect(tarjeta(page, 'El calendario')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('con la tecla → se pasa al siguiente paso y con ← se vuelve', async ({ page }) => {
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.keyboard.press('ArrowRight');
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await page.keyboard.press('ArrowLeft');
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Seguir donde iba/ })).toBeVisible();
+  });
+
+  test('la tarjeta se queda en una esquina y no salta de un paso a otro', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    const caja = async () => (await tarjeta(page, 'Tu menú').boundingBox())!;
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(800);
+    const a = await caja();
+    await page.keyboard.press('ArrowRight');
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await page.waitForTimeout(800);
+    const b = (await tarjeta(page, 'Tu Resumen').boundingBox())!;
+    // Misma esquina (el menú y el Resumen no se tapan con ella): mismo borde derecho y mismo suelo.
+    expect(Math.abs((a.x + a.width) - (b.x + b.width))).toBeLessThan(2);
+    expect(Math.abs((a.y + a.height) - (b.y + b.height))).toBeLessThan(2);
+  });
 });
 
