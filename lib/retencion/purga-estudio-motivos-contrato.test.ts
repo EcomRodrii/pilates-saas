@@ -81,6 +81,7 @@ const DESTINO_PLATAFORMA: Record<string, { destino: 'borrar' | 'fuera'; motivo: 
   plataforma_checkins: { destino: 'borrar', motivo: 'guarda el Wellhub ID mientras está pendiente; un estudio purgado ya no valida visitas' },
   plataforma_eventos: { destino: 'fuera', motivo: 'ids de lo publicado: sin ellos no se puede cancelar en USC/Wellhub y quedan clases reservables de un estudio que no existe' },
   plataforma_clases: { destino: 'fuera', motivo: 'ids de las clases de Wellhub: sin ellos no se pueden ocultar allí' },
+  plataforma_ajustes: { destino: 'fuera', motivo: 'solo las horas antes de la clase en que se liberan plazas apartadas: sin nombres, ids ni nada que cancelar fuera' },
   plataforma_lead: { destino: 'fuera', motivo: 'CRM de Tentare (quien abrió el estudio), no datos del estudio' },
 };
 
