@@ -4437,7 +4437,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
       // Con el método: el efectivo no lleva factura automática, y la actividad
       // no puede decir «generó una factura» que no existe.
-      const sacaFactura = (conFactura && emiteFacturas(studio?.modoFacturacion)) || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
+      const sacaFactura = (conFactura && emiteFacturas(studio?.modoFacturacion)) || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null, studio?.facturarAutomatico ?? true);
       addActividadReciente(
         'COBRO_MANUAL',
         sacaFactura

@@ -783,10 +783,12 @@ export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' 
  * Sin prometer el envío a la AEAT, que depende de algo que no está en su mano:
  * su estado se ve en Cobros → Facturas.
  */
-export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>>): string | null {
+export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion' | 'facturarAutomatico'>>): string | null {
   if (s.modoFacturacion === undefined) return null;
-  if (s.modoFacturacion === 'verifactu') return 'Facturas con Veri*Factu';
-  if (s.modoFacturacion === 'facturas') return 'Facturas sin envío a la AEAT (Veri*Factu desactivado)';
+  // «Facturar automáticamente» apagado: se dice primero, es lo que cambia lo que pasa al cobrar.
+  const manual = s.facturarAutomatico === false ? ' · a mano' : '';
+  if (s.modoFacturacion === 'verifactu') return `Facturas con Veri*Factu${manual}`;
+  if (s.modoFacturacion === 'facturas') return `Facturas sin envío a la AEAT (Veri*Factu desactivado)${manual}`;
   return 'Hoy no emite facturas';
 }
 

@@ -67,3 +67,13 @@ test('leerImporte: coma o punto, positivo y con dos decimales como mucho', () =>
   assert.equal(leerImporte('abc'), null);
   assert.equal(leerImporte(''), null);
 });
+
+test('«Facturar automáticamente» apagado: no sale sola y se dice cómo hacerla; en efectivo, la casilla de siempre', () => {
+  const t = queVaAPasar({ ...base, metodo: 'TARJETA', facturarAutomatico: false });
+  assert.equal(t.saleFactura, false);
+  assert.equal(t.ofrecerHacerFactura, false);
+  assert.match(t.factura ?? '', /No sale factura sola.*Facturar automáticamente/);
+  const e = queVaAPasar({ ...base, metodo: 'EFECTIVO', facturarAutomatico: false });
+  assert.equal(e.ofrecerHacerFactura, true);
+  assert.equal(queVaAPasar({ ...base, metodo: 'EFECTIVO', facturarAutomatico: false, hacerFactura: true }).saleFactura, true);
+});

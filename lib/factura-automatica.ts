@@ -45,7 +45,16 @@ export function emiteFacturaAutomatica(
    * servidor lo resuelven en `sellarFacturaDeRecibo`, que lee el estudio.
    */
   modo: ModoFacturacion | null = 'verifactu',
+  /**
+   * El ajuste del estudio «Facturar automáticamente» (`Studio.facturarAutomatico`,
+   * 9-oct-2026). Apagado, no sale ninguna factura sola, se cobre como se cobre;
+   * la manual sigue disponible. Independiente de Veri*Factu. `undefined` = como
+   * de serie (encendido): así un servidor desplegado antes que la migración
+   * sigue haciendo lo de siempre.
+   */
+  facturarAutomatico: boolean | null | undefined = true,
 ): boolean {
+  if (facturarAutomatico === false) return false;
   if (!emiteFacturas(modo)) return false;
   if (!metodo) return true;
   return !SIN_FACTURA_AUTOMATICA.has(metodo.toUpperCase());

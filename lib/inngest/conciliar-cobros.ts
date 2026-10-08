@@ -711,7 +711,16 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   // avisar de un cobro en efectivo sin factura: 3 en producción, invisibles
   // dos pasadas seguidas.
   const sinFactura: ReciboCobrado[] = recibosCobradosSinFactura(filas, idsConFactura);
-  const averia: ReciboCobrado[] = recibosConFacturaAutomaticaAusente(filas, idsConFactura);
+  // Un estudio con «Facturar automáticamente» apagado no espera facturas solas:
+  // sus cobros sin factura son decisión suya, no avería. Consulta tolerante: si
+  // la columna aún no existe, nadie la tiene apagada.
+  const { data: apagadosRows } = await fetchAllRows<{ id: string }>(
+    '(global)', 'studios',
+    (from, to) => admin.from('studios').select('id').eq('facturar_automatico', false).range(from, to),
+  );
+  const apagados = new Set(apagadosRows.map(s => s.id));
+  const averia: ReciboCobrado[] = recibosConFacturaAutomaticaAusente(filas, idsConFactura)
+    .filter(r => !apagados.has(r.studioId));
   if (sinFactura.length > 0) {
     const porEstudio: Record<string, number> = {};
     for (const r of sinFactura) porEstudio[r.studioId] = (porEstudio[r.studioId] ?? 0) + 1;
