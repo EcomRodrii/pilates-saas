@@ -99,6 +99,9 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => JSON.stringify(s.progreso)).toContain('c1.1');
+    // Guardado en el servidor: NO queda copia en el navegador (si quedara, ganaría al servidor y no se
+    // podría reiniciar la visita desde la base de datos).
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')))).toEqual([]);
 
     await page.reload();
     // No vuelve a la bienvenida: reanuda en el paso 2 del capítulo 1.
@@ -107,6 +110,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('si te vas a otra pantalla, no te persigue: dice dónde está el paso y ofrece «Llévame»', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     await montarVisita(page);
     await inicio(page).waitFor({ timeout: 30_000 });
     await page.getByRole('button', { name: /Empezar/ }).click();
@@ -132,6 +137,8 @@ test.describe('La visita guiada por capítulos', () => {
     await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
     await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
     await expect.poll(() => s.intentos).toBeGreaterThan(0);
+    // Con el servidor caído SÍ queda la copia, para no perder el avance.
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('panel-tour-respaldo')).length)).toBe(1);
   });
 
   test('al cerrar el último paso de un capítulo sale su resumen, y «Seguir otro día» deja solo la píldora', async ({ page }) => {
@@ -150,6 +157,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('un paso «hacer» se cierra solo cuando los datos cambian: el caso de la clienta con 4 tarifas', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     // Capítulos 1–4 cerrados y 5.1 visto: toca 5.2, «una tarifa en borrador no existe».
     const hasta4 = CAPITULOS.slice(0, 4);
     const progreso = {
@@ -168,10 +177,15 @@ test.describe('La visita guiada por capítulos', () => {
     await expect(paso).toContainText('Esperando a que lo hagas');
     await expect(paso).not.toContainText('Ya lo tienes');
 
-    // Activa una con precio y recarga los datos: el paso se da por hecho y pasa al siguiente.
+    // Activa una con precio y recarga: ya lo tenía al llegar, así que lo LEE a su ritmo (sin saltar solo).
     planes = [tarifa('a', 35, true), tarifa('b', 0, false)];
     await page.reload();
-    await expect(page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador/ })).toContainText('Ya lo tienes', { timeout: 30_000 });
+    const leyendo = page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador/ });
+    await expect(leyendo).toContainText('Ya lo tienes hecho', { timeout: 30_000 });
+    await expect(leyendo).toContainText('Ya tienes tarifas activas. Para crear otra, usa «Crear».');
+    await page.waitForTimeout(2500);
+    await expect(leyendo).toBeVisible();
+    await leyendo.getByRole('button', { name: /Entendido/ }).click();
     await expect(page.getByRole('region', { name: /Visita guiada: ¿Qué clases cubre cada tarifa\?/ })).toBeVisible({ timeout: 10_000 });
   });
 
@@ -208,6 +222,8 @@ test.describe('La visita guiada por capítulos', () => {
   });
 
   test('cada capítulo se abre diciendo para qué sirve y qué se va a ver, y cada paso dice qué hacer', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
     const hechosC1 = CAPITULOS[0].pasos.map(p => p.id);
     await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: hechosC1, aplazados: [], vistos: ['c1'] } });
     const apertura = page.getByRole('dialog', { name: /Capítulo 2: Tu estudio y tus clases/ });
@@ -236,6 +252,75 @@ test.describe('La visita guiada por capítulos', () => {
     await expect(apertura).toBeVisible({ timeout: 30_000 });
     await expect(apertura).toContainText('Automatizaciones');
     await expect(apertura).not.toContainText('Marketing');
+  });
+
+  test('estar en Configuración no es estar en el sitio: la pestaña cuenta, y «Llévame» lleva a la buena', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
+    // Toca «Correos automáticos» (pestaña «Cómo me comunico»), pero estamos en la pestaña «Marca».
+    const previos = CAPITULOS.slice(0, 8);
+    const hechos = [...previos.flatMap(c => c.pasos.map(p => p.id)), 'c9.1', 'c9.2'];
+    const progreso = { v: 1, inicio: true, hechos, aplazados: [], vistos: previos.map(c => c.id), abiertos: [...previos.map(c => c.id), 'c9'] };
+    await montarVisita(page, { progreso });
+    await page.goto('/configuracion?tab=marca');
+    const paso = tarjeta(page, 'Correos automáticos');
+    await expect(paso).toBeVisible({ timeout: 60_000 });
+    // La ruta es la misma (/configuracion), pero la pestaña no: el paso lo dice y ofrece llevarte.
+    await expect(paso).toContainText('Este paso está en Configuración');
+    await expect(paso).not.toContainText('No encuentro el recuadro');
+    await paso.getByRole('button', { name: /Llévame/ }).click();
+    await expect(page).toHaveURL(/tab=comunicacion/);
+  });
+
+  test('al empezar un capítulo te lleva solo a su pantalla (sin recargar y sin esperar a que lo pidas)', async ({ page }) => {
+    // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
+    test.slow();
+    const previos = CAPITULOS.slice(0, 2);
+    const progreso = { v: 1, inicio: true, hechos: previos.flatMap(c => c.pasos.map(p => p.id)), aplazados: [], vistos: previos.map(c => c.id), abiertos: previos.map(c => c.id) };
+    await montarVisita(page, { progreso });
+    const apertura = page.getByRole('dialog', { name: /Capítulo 3: Tu horario/ });
+    await expect(apertura).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/dashboard/);
+    await apertura.getByRole('button', { name: /Empezar el capítulo/ }).click();
+    await expect(page).toHaveURL(/\/calendario/, { timeout: 30_000 });
+    await expect(tarjeta(page, 'El calendario')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('con la tecla → se pasa al siguiente paso y con ← se vuelve', async ({ page }) => {
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.keyboard.press('ArrowRight');
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await page.keyboard.press('ArrowLeft');
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Seguir donde iba/ })).toBeVisible();
+  });
+
+  test('la tarjeta se queda en una esquina y no salta de un paso a otro', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    const caja = async () => (await tarjeta(page, 'Tu menú').boundingBox())!;
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(800);
+    const a = await caja();
+    await page.keyboard.press('ArrowRight');
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    await page.waitForTimeout(800);
+    const b = (await tarjeta(page, 'Tu Resumen').boundingBox())!;
+    // Misma esquina (el menú y el Resumen no se tapan con ella): mismo borde derecho y mismo suelo.
+    expect(Math.abs((a.x + a.width) - (b.x + b.width))).toBeLessThan(2);
+    expect(Math.abs((a.y + a.height) - (b.y + b.height))).toBeLessThan(2);
+  });
+
+  test('si se recarga justo después de un paso (antes de que se guarde), no se pierde el avance', async ({ page }) => {
+    const s = await montarVisita(page, { progreso: { v: 1, inicio: true, hechos: [], aplazados: [], vistos: [], abiertos: ['c1'] } });
+    await expect(tarjeta(page, 'Tu menú')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('region', { name: /Visita guiada: Tu menú/ }).getByRole('button', { name: /Entendido/ }).click();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible();
+    // Recarga inmediata: el servidor (con su pausa de guardado) aún no ha recibido nada.
+    expect(s.patches.some(p => 'tour_progreso' in p)).toBe(false);
+    await page.reload();
+    await expect(tarjeta(page, 'Tu Resumen')).toBeVisible({ timeout: 30_000 });
   });
 });
 

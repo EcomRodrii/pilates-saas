@@ -63,6 +63,11 @@ export interface PasoVisita {
   texto: string;
   /** Lo que hay que HACER o MIRAR ahora, en una línea. Es lo que mueve a la persona. */
   accion: string;
+  /**
+   * Solo en los «hacer»: qué se le dice a quien YA lo tiene hecho al llegar. Pedirle «añade tu primera
+   * sala» a quien tiene cuatro es absurdo; se le explica dónde está y se le deja leer a su ritmo.
+   */
+  accionSiYaLoTienes?: string;
 }
 
 export interface CapituloVisita {
@@ -100,7 +105,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c1.3', ruta: '/dashboard', selector: 'buscador', tipo: 'mira', soloEscritorio: true,
         titulo: 'El buscador',
         texto: 'Cuando no sepas dónde está algo, empieza por aquí. Escribe dos palabras —«IVA», «bono», el nombre de una clienta— y te lleva directa.',
-        accion: 'Pruébalo: pulsa la barra de arriba (o ⌘K / Ctrl+K) y escribe «tarifas».',
+        accion: 'Mira la barra de arriba: ahí escribes lo que buscas. El atajo es ⌘K (Ctrl+K en Windows).',
       },
     ],
   },
@@ -122,18 +127,20 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tus salas',
         texto: 'Una sala es un espacio donde das clase. Su aforo es el tope de plazas de cada clase que se dé en ella, así que ponle la cifra real: es lo que impide que se reserve de más.',
         accion: 'Pulsa «Salas» y añade tu primera sala, con su aforo.',
+        accionSiYaLoTienes: 'Ya tienes salas. Para cambiarlas o añadir otra, esta es la fila «Salas».',
       },
       {
         id: 'c2.3', ruta: '/configuracion', href: '/configuracion?tab=estudio', selector: '#horario', tipo: 'mira',
         titulo: 'Tu horario de apertura',
         texto: 'No crea clases: le dice al calendario qué días abres y cuáles cierras, para que un lunes sin clases se lea «cerrado» y no «libre».',
-        accion: 'Pulsa «Horario» para ver cómo se marca. Si ahora no quieres cambiarlo, ciérralo.',
+        accion: 'Mira la fila «Horario»: ahí marcas los días que cierras.',
       },
       {
         id: 'c2.4', ruta: '/configuracion', href: '/configuracion?tab=clases', selector: '#fila-herramienta-tipos-de-clase', tipo: 'hacer', hecho: 'tiposClase',
         titulo: 'Tus tipos de clase',
         texto: 'Reformer, Suelo, Embarazadas… Cada tipo lleva su duración y sus plazas. Son el catálogo del que sale tu horario: sin tipos de clase no se puede programar nada.',
         accion: 'Pulsa «Tipos de clase» y crea el primero: nombre, duración y plazas.',
+        accionSiYaLoTienes: 'Ya tienes tipos de clase. Para cambiarlos o crear otro, esta es la fila «Tipos de clase».',
       },
     ],
   },
@@ -155,18 +162,19 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Programa tus clases',
         texto: 'Una alumna solo puede reservar lo que está en el calendario. Si la clase se repite cada semana, márcalo y se crean todas de golpe, sin repetir el trabajo.',
         accion: 'Pulsa «Crear clase» → «Clase» y elige tipo, sala, día y hora.',
+        accionSiYaLoTienes: 'Ya tienes clases programadas. Para crear más, usa «Crear clase».',
       },
       {
         id: 'c3.3', ruta: '/calendario', selector: 'calendario-vista', tipo: 'mira',
         titulo: 'Abre una clase',
         texto: 'Al pulsar una clase ves quién viene, apuntas a alguien, pasas lista, cambias de instructora o la cancelas. Es la ficha de la clase.',
-        accion: 'Pulsa una de tus clases para abrirla.',
+        accion: 'Mira una clase en el calendario: al pulsarla se abre su ficha.',
       },
       {
         id: 'c3.4', ruta: '/calendario', selector: 'calendario-vista', tipo: 'mira',
         titulo: 'Muévela arrastrando',
         texto: 'En el ordenador o la tablet puedes cambiar una clase de hora o de día arrastrándola. En el móvil se cambia abriéndola. Si tienes los avisos activados, a quien ya estaba apuntada se le avisa.',
-        accion: 'Prueba a arrastrar una clase a otra hora.',
+        accion: 'Mira una clase: se coge con el ratón y se suelta en otra hora. No hace falta que lo hagas ahora.',
       },
       {
         id: 'c3.5', ruta: '/citas', selector: 'citas-vista', tipo: 'mira',
@@ -194,6 +202,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Añade una clienta de verdad',
         texto: 'Nombre y email bastan. Mejor una clienta real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
         accion: 'Pulsa «Nueva clienta» y rellena su nombre y su email.',
+        accionSiYaLoTienes: 'Ya tienes clientas. Para añadir otra, usa «Nueva clienta».',
       },
       {
         id: 'c4.3', ruta: '/clientas/*', selector: 'ficha-clienta', tipo: 'mira', requiere: 'socios',
@@ -221,18 +230,20 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Una tarifa en borrador no existe para tus clientas',
         texto: 'Hasta que no tenga precio y esté activa, nadie puede comprarla ni tú asignársela. Si el asistente de alta te dejó tarifas a 0 €, son borradores: ábrelas y termínalas.',
         accion: 'Abre una tarifa (o pulsa «Crear»), ponle precio y márcala como activa.',
+        accionSiYaLoTienes: 'Ya tienes tarifas activas. Para crear otra, usa «Crear».',
       },
       {
         id: 'c5.3', ruta: '/productos', selector: 'paquetes-vista', tipo: 'mira',
         titulo: '¿Qué clases cubre cada tarifa?',
         texto: 'Cada tarifa dice qué clases se pueden reservar con ella: todas, o solo algunas. Así un bono de Reformer no vale para Suelo. Si no marcas nada, vale para todas.',
-        accion: 'Abre una tarifa y baja hasta «Clases incluidas».',
+        accion: 'Al abrir una tarifa verás «Clases incluidas»: ahí eliges cuáles cubre.',
       },
       {
         id: 'c5.4', ruta: '/clientas/*', selector: 'ficha-plan', tipo: 'hacer', hecho: 'planAsignado', requiere: 'socios',
         titulo: 'Asígnale una tarifa a una clienta',
         texto: 'Es lo que une todo: la clienta, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
         accion: 'En la tarjeta «Plan», pulsa «Asignar plan» y elige la tarifa.',
+        accionSiYaLoTienes: 'Ya has asignado alguna tarifa. Para asignar otra, usa «Asignar plan» en la tarjeta «Plan».',
       },
       {
         id: 'c5.5', ruta: '/clientas/*', selector: 'ficha-plan', tipo: 'mira', requiere: 'socios',
@@ -244,7 +255,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c5.6', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#reservar', tipo: 'mira',
         titulo: 'Lo que lo une todo',
         texto: 'Aquí decides quién puede reservar. Si exiges plan, una clienta solo reserva las clases que cubre su tarifa. Si alguna no puede reservar, mira primero su plan y sus «Clases incluidas».',
-        accion: 'Pulsa «Reservar» y mira las opciones. Después ciérralo sin cambiar nada.',
+        accion: 'Mira la fila «Reservar»: ahí decides quién puede reservar.',
       },
     ],
   },
@@ -259,13 +270,13 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c6.1', ruta: '/configuracion', href: '/configuracion?tab=web', selector: '#direccion-y-enlaces', tipo: 'mira',
         titulo: 'Tu página de reservas',
         texto: 'Es por donde reservarán tus alumnas. Tienes un enlace y un QR: ponlos en tu Instagram, en WhatsApp o en la puerta del estudio.',
-        accion: 'Pulsa «Dirección y enlaces» y mira tu enlace.',
+        accion: 'Mira la fila «Dirección y enlaces»: ahí está tu enlace de reservas.',
       },
       {
         id: 'c6.2', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#cancelar-y-recuperar', tipo: 'mira',
         titulo: 'Las reglas del juego',
         texto: 'Con cuánta antelación se reserva, hasta cuándo se cancela sin perder la sesión y qué pasa si la clase está llena. Cada tipo de clase puede tener las suyas.',
-        accion: 'Pulsa «Cancelar y recuperar» y mira hasta cuándo se puede cancelar.',
+        accion: 'Mira la fila «Cancelar y recuperar»: ahí fijas hasta cuándo se puede cancelar.',
       },
       {
         id: 'c6.3', ruta: '/cobros', selector: 'cobros-vista', tipo: 'mira',
@@ -277,13 +288,14 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c6.4', ruta: '/configuracion', href: '/configuracion?tab=cobros', selector: '#integracion-stripe', tipo: 'mira',
         titulo: 'Stripe, cuando quieras',
         texto: 'Sirve para cobrar con tarjeta por internet. No lo necesitas para recibir reservas: puedes cobrar en el mostrador y apuntarlo. Conéctalo cuando quieras que las cuotas se cobren solas.',
-        accion: 'Mira esta fila. No hace falta que lo conectes ahora.',
+        accion: 'Mira la fila «Cobro con tarjeta (Stripe)». No hace falta que la conectes ahora.',
       },
       {
         id: 'c6.5', ruta: '/configuracion', href: '/configuracion?tab=cobros', selector: '#datos-fiscales', tipo: 'hacer', hecho: 'datosFiscales',
         titulo: 'Tus datos fiscales',
         texto: 'Sin razón social y NIF no sale ninguna factura. Si ahora no los tienes a mano, puedes aplazarlo y te lo recordamos al final.',
         accion: 'Pulsa «Datos fiscales e IVA» y rellena razón social y NIF.',
+        accionSiYaLoTienes: 'Ya tienes tus datos fiscales. Para cambiarlos, esta es la fila «Datos fiscales e IVA».',
       },
       {
         id: 'c6.6', ruta: '/pos', selector: 'pos-vista', tipo: 'mira',
@@ -307,10 +319,11 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         accion: 'Mira a quién tienes ahora en el equipo.',
       },
       {
-        id: 'c7.2', ruta: '/equipo', selector: 'equipo-vista', tipo: 'hacer', hecho: 'instructores',
+        id: 'c7.2', ruta: '/equipo', selector: 'equipo-nuevo', tipo: 'hacer', hecho: 'instructores',
         titulo: 'Date de alta si das clase tú',
         texto: 'Toda clase necesita a alguien asignado. Si das clase tú, añádete como instructora; si tienes equipo, invítalas con su email.',
-        accion: 'Añade a tu primera instructora (tú, si das clase).',
+        accion: 'Pulsa «Nuevo miembro» y añade a tu primera instructora (tú, si das clase).',
+        accionSiYaLoTienes: 'Ya tienes equipo. Para añadir a alguien, usa «Nuevo miembro».',
       },
       {
         id: 'c7.3', ruta: '/equipo', selector: 'equipo-vista', tipo: 'mira',
@@ -371,18 +384,19 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         titulo: 'Tu logo y tu color',
         texto: 'Es lo primero que ve una alumna: su app y tu página de reservas llevan tu marca. Se aplica al momento.',
         accion: 'Pulsa «Logo y favicon» y sube tu logo.',
+        accionSiYaLoTienes: 'Ya tienes tu logo. Para cambiarlo, esta es la fila «Logo y favicon».',
       },
       {
         id: 'c9.2', ruta: '/configuracion', href: '/configuracion?tab=marca', selector: '#color-de-marca', tipo: 'mira',
         titulo: 'La app de tus alumnas',
         texto: 'El estilo, la tipografía y la portada de la app que instalan tus alumnas desde tu enlace. Lo ves en un móvil antes de publicar.',
-        accion: 'Pulsa «Apariencia de tu app» y mira cómo queda.',
+        accion: 'Mira la fila «Apariencia de tu app»: ahí eliges estilo, color y portada.',
       },
       {
         id: 'c9.3', ruta: '/configuracion', href: '/configuracion?tab=comunicacion', selector: '#fila-herramienta-correos-automaticos', tipo: 'mira',
         titulo: 'Correos automáticos',
         texto: 'Bienvenida, reserva, recordatorio, cancelación… salen solos. Apaga los que no quieras o cambia lo que dicen.',
-        accion: 'Pulsa «Correos automáticos» y mira la lista.',
+        accion: 'Mira la fila «Correos automáticos»: ahí apagas los que no quieras.',
       },
       {
         id: 'c9.4', ruta: '/configuracion', href: '/configuracion?tab=motivacion', selector: 'configuracion-vista', tipo: 'mira',
@@ -415,7 +429,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c10.3', ruta: '/dashboard', selector: 'pildora-prueba', tipo: 'mira',
         titulo: 'Tu prueba de 7 días',
         texto: 'Esta píldora de arriba cuenta los días que te quedan. Al pulsarla ves tu plan y desde ahí pasas a pago cuando quieras: sin prisas y sin sorpresas.',
-        accion: 'Pulsa la píldora para ver tu plan.',
+        accion: 'Mira la píldora de arriba: al pulsarla ves tu plan.',
       },
       {
         id: 'c10.4', ruta: '/primeros-pasos', selector: 'guia-vista', tipo: 'mira',
@@ -435,6 +449,22 @@ export function capituloDe(pasoId: string): CapituloVisita | undefined {
 
 export function pasoPorId(id: string): PasoVisita | undefined {
   return TODOS_LOS_PASOS.find(p => p.id === id);
+}
+
+/**
+ * La pestaña de Configuración (`?tab=`) donde está el paso, si la hay. Estar en
+ * `/configuracion` NO es estar en el sitio: cada pestaña es otra pantalla.
+ */
+export function tabDe(paso: Pick<PasoVisita, 'href'>): string | null {
+  const q = paso.href?.split('?')[1]?.split('#')[0];
+  return q ? new URLSearchParams(q).get('tab') : null;
+}
+
+/** ¿Estoy en el sitio del paso? Ruta Y, si el paso vive en una pestaña, esa pestaña. */
+export function lugarCoincide(paso: Pick<PasoVisita, 'ruta' | 'href'>, pathname: string, tabActual: string | null): boolean {
+  if (!rutaCoincide(paso.ruta, pathname)) return false;
+  const tab = tabDe(paso);
+  return tab === null || tab === tabActual;
 }
 
 /** ¿Esta ruta del navegador es la del paso? `/clientas/*` casa con cualquier ficha. */

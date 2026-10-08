@@ -4185,6 +4185,13 @@ export interface RowPlataformaAjustes {
   actualizado_en: string;
 }
 
+export interface RowAjustesPlataforma {
+  clave: string;
+  valor: any;
+  actualizado_en: string;
+  actualizado_por: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11582,6 +11589,20 @@ export type PlataformaAjustesUpdate = {
   actualizado_en?: string | null;
 }
 
+export type AjustesPlataformaInsert = {
+  clave?: string | null;
+  valor?: any | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
+export type AjustesPlataformaUpdate = {
+  clave?: string | null;
+  valor?: any | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12869,6 +12890,11 @@ export type Database = {
         Row: RowPlataformaAjustes;
         Insert: PlataformaAjustesInsert;
         Update: PlataformaAjustesUpdate;
+      };
+      ajustes_plataforma: {
+        Row: RowAjustesPlataforma;
+        Insert: AjustesPlataformaInsert;
+        Update: AjustesPlataformaUpdate;
       };
     };
   };

@@ -4,6 +4,7 @@
 // muy distinta.
 import { authHeader } from '../api-client.ts';
 import type { SaludEstudio } from './salud-estudio.ts';
+import type { AccionVisita, ResumenVisita } from './visita-guiada.ts';
 
 export class SinAcceso extends Error {
   constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso' | 'mfa-requerido', mensaje: string) {
@@ -234,6 +235,19 @@ export const accionEstudio = (id: string, cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; avisoStripe?: boolean; reviewBoostElegible?: boolean; pruebaHasta?: string }>(`/estudios/${id}/acciones`, {
     method: 'POST', body: JSON.stringify(cuerpo),
   });
+
+// Visita guiada: quién la recibe (la decide el fundador desde /interno/visita-guiada).
+export interface EstudioVisita {
+  id: string; nombre: string; slug: string; plan: string; creadoEn: string;
+  esDemo: boolean; deCadena: boolean; suspendido: boolean; obligatorio: boolean;
+  resumen: ResumenVisita;
+}
+
+export const fetchVisitaGuiada = () =>
+  pedir<{ nuevos: boolean; estudios: EstudioVisita[] }>('/visita-guiada');
+
+export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
+  pedir<{ ok: true; cambiados?: number; nuevos?: boolean }>('/visita-guiada', { method: 'POST', body: JSON.stringify(cuerpo) });
 
 // Changelog de "Actualizaciones" — antes lib/novedades.ts hardcodeado.
 export type EtiquetaCambio = 'NUEVA_FUNCIONALIDAD' | 'MEJORA' | 'RENDIMIENTO' | 'ARREGLO';

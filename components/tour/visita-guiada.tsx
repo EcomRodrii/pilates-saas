@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { useTour } from '@/lib/tour-context';
 import { useStudio } from '@/lib/studio-context';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
-import { CAPITULOS, pasoPorId, rutaBase, rutaCoincide, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
+import { CAPITULOS, lugarCoincide, pasoPorId, rutaBase, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
 import { datosHecho, type DatosHecho } from '@/lib/tour/hecho';
 import { aplazadosEnOrden, capitulosConPasos, pasoAnteriorA, pasoCerrado } from '@/lib/tour/progreso';
 import { PantallaAperturaCapitulo, PantallaCapituloVisita, PantallaFinVisita, PantallaInicioVisita } from '@/components/tour/pantallas-visita';
@@ -52,6 +52,25 @@ function elementoVisible(selector: string): HTMLElement | null {
 /** ¿Hay un diálogo de la app abierto? (los nuestros llevan `data-visita` y no cuentan.) */
 function hayDialogoAbierto(): boolean {
   return !!document.querySelector('[role="dialog"]:not([data-visita]), [role="alertdialog"]:not([data-visita])');
+}
+
+/**
+ * La pestaña (`?tab=`) en la que está la pantalla ahora mismo. Se lee del navegador
+ * y no de `useSearchParams`: Configuración cambia de pestaña con `pushState`, que Next
+ * tarda un render en enterarse, y `useSearchParams` obliga a un Suspense en todas las
+ * páginas del panel. Un intervalo corto es barato y siempre dice la verdad.
+ */
+function useTabActual(): string | null {
+  // Lectura inicial perezosa: esta pieza solo se monta con la visita ya activa (después de hidratar).
+  const [tab, setTab] = useState<string | null>(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('tab')));
+  useEffect(() => {
+    const leer = () => setTab(prev => { const t = new URLSearchParams(window.location.search).get('tab'); return prev === t ? prev : t; });
+    leer();
+    const id = window.setInterval(leer, 300);
+    window.addEventListener('popstate', leer);
+    return () => { window.clearInterval(id); window.removeEventListener('popstate', leer); };
+  }, []);
+  return tab;
 }
 
 function mismoRect(a: DOMRect | null, b: DOMRect): boolean {
@@ -163,7 +182,9 @@ function TarjetaPaso({ capitulo, paso, numero, de, numeroCapitulo, totalCapitulo
 }) {
   const t = useTour();
   const pathname = usePathname();
-  const enRuta = rutaCoincide(paso.ruta, pathname);
+  const tabActual = useTabActual();
+  // Estar en `/configuracion` NO es estar en el sitio: cada pestaña es otra pantalla.
+  const enRuta = lugarCoincide(paso, pathname, tabActual);
   const [minimizada, setMinimizada] = useState(false);
   const { rect, sinFoco, dialogo, puedeAplazar } = useObjetivo(paso, enRuta, cargando);
 
@@ -197,6 +218,17 @@ function ContenidoPaso({
 
   const hacer = paso.tipo === 'hacer';
   const yaHecho = hacer && !!paso.hecho && !!datos?.hecho[paso.hecho];
+  // ¿Lo tenía ya al llegar, o lo acaba de hacer? Los datos del estudio tardan un momento en cargar, así
+  // que lo que aparece en los primeros segundos cuenta como «ya lo tenía». Quien ya lo tiene LEE el paso
+  // a su ritmo (con su «Entendido»); quien lo acaba de hacer ve el ✓ y pasa solo.
+  const montadoEn = useRef(0);
+  useEffect(() => { montadoEn.current = Date.now(); }, []);
+  const [preexistente, setPreexistente] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (yaHecho && preexistente === null) setPreexistente(Date.now() - montadoEn.current < 4000);
+  }, [yaHecho, preexistente]);
+  const lee = hacer && yaHecho && preexistente === true;
+  const comoMira = !hacer || lee;
   const faltaClienta = !!paso.requiere && !!datos && !datos.hecho.socios;
   const destino = destinoDe(paso, datos);
   const anterior = pasoAnteriorA(t.progreso, paso.id, t.aplica);
@@ -213,36 +245,51 @@ function ContenidoPaso({
     router.push(destino);
   }, [llevar, enRuta, destino, paso.id, router]);
 
+  // Teclado: → o Intro pasan al siguiente paso, ← vuelve al anterior. Solo si no se está escribiendo
+  // en ningún sitio (el foco está en la página, no en un campo ni en un botón).
+  useEffect(() => {
+    if (dialogo) return;
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.activeElement !== document.body) return;
+      if ((e.key === 'Enter' || e.key === 'ArrowRight') && comoMira && !repaso && !faltaClienta && enRuta) { e.preventDefault(); t.cerrar(paso, 'hecho'); }
+      else if (e.key === 'ArrowLeft' && anterior && !repaso) { e.preventDefault(); onAnterior(anterior.id); }
+    };
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogo, comoMira, repaso, faltaClienta, enRuta, anterior?.id, paso.id]);
+
   // Un «hacer» cumplido (ya lo tenías, o lo acabas de hacer) se da por bueno.
   useEffect(() => {
-    if (!yaHecho || repaso) return;
+    if (!yaHecho || repaso || preexistente !== false) return;
     const id = window.setTimeout(() => t.cerrar(paso, 'hecho'), AVANCE_AUTOMATICO_MS);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yaHecho, repaso, paso.id]);
+  }, [yaHecho, repaso, preexistente, paso.id]);
 
-  // Colocación en escritorio: junto al elemento y recortada a lo que cabe (la tarjeta se MIDE, no se estima).
+  // Colocación en escritorio: SIEMPRE en una esquina (la tarjeta no salta de un sitio a otro paso tras
+  // paso, que desorienta), y la primera esquina que no tape lo que se está señalando. La tarjeta se MIDE,
+  // no se estima. Si el elemento ocupa tanto que las tres esquinas lo tapan algo, gana la que menos.
   useEffect(() => {
     const el = tarjeta.current;
-    if (!el || !t.escritorio || !rect || dialogo) { setPos(null); return; }
+    if (!el || !t.escritorio || dialogo) { setPos(null); return; }
     const alto = el.offsetHeight, ancho = el.offsetWidth;
-    const topMax = window.innerHeight - alto - MARGEN;
-    const leftMax = window.innerWidth - ancho - MARGEN;
-    const cabeAbajo = rect.bottom + MARGEN * 2 + alto <= window.innerHeight;
-    const cabeArriba = rect.top - MARGEN * 2 - alto >= 0;
-    const cabeDerecha = rect.right + MARGEN * 2 + ancho <= window.innerWidth;
-    const cabeIzquierda = rect.left - MARGEN * 2 - ancho >= 0;
-    // Debajo, si cabe; si no, encima; y si el elemento es alto (el menú, el calendario),
-    // al lado. Solo si nada cabe se recorta contra el borde, tapando algo del elemento.
-    let top: number, left: number;
-    if (cabeAbajo) { top = rect.bottom + MARGEN; left = rect.left; }
-    else if (cabeArriba) { top = rect.top - MARGEN - alto; left = rect.left; }
-    else if (cabeDerecha) { top = rect.top; left = rect.right + MARGEN; }
-    else if (cabeIzquierda) { top = rect.top; left = rect.left - MARGEN - ancho; }
-    else { top = topMax; left = leftMax; }
-    top = Math.min(Math.max(top, MARGEN), topMax);
-    left = Math.min(Math.max(left, MARGEN), leftMax);
-    setPos(prev => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
+    const W = window.innerWidth, H = window.innerHeight;
+    const lateral = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
+    const izq = (Number.isFinite(lateral) && lateral > 0 ? lateral : 0) + 16;
+    const candidatas = [
+      { top: H - alto - MARGEN, left: W - ancho - MARGEN },            // abajo a la derecha
+      { top: 76, left: W - ancho - MARGEN },                            // arriba a la derecha
+      { top: H - alto - MARGEN, left: izq },                            // abajo a la izquierda del contenido
+    ];
+    const tapa = (c: { top: number; left: number }) => {
+      if (!rect) return 0;
+      const x = Math.max(0, Math.min(c.left + ancho, rect.right + 12) - Math.max(c.left, rect.left - 12));
+      const y = Math.max(0, Math.min(c.top + alto, rect.bottom + 12) - Math.max(c.top, rect.top - 12));
+      return x * y;
+    };
+    const mejor = candidatas.reduce((m, c) => (tapa(c) < tapa(m) ? c : m), candidatas[0]);
+    setPos(prev => (prev && prev.top === mejor.top && prev.left === mejor.left ? prev : mejor));
   }, [t.escritorio, rect, dialogo, yaHecho, faltaClienta, sinFoco, enRuta]);
 
   const progreso = Math.round(((numero - (yaHecho || repaso ? 0 : 1)) / de) * 100);
@@ -252,7 +299,7 @@ function ContenidoPaso({
     return (
       <div data-visita role="status" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center p-2">
         <p className="max-w-xl rounded-2xl bg-foreground px-4 py-2.5 text-[13px] leading-snug text-background shadow-xl">
-          <span className="font-semibold">{paso.titulo}.</span> {paso.accion}
+          <span className="font-semibold">{paso.titulo}.</span> {lee ? paso.accionSiYaLoTienes : paso.accion}
         </p>
       </div>
     );
@@ -275,8 +322,8 @@ function ContenidoPaso({
   const estilo: React.CSSProperties = movil
     ? { left: 8, right: 8, bottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 8px)', maxHeight: '45dvh' }
     : pos
-      ? { top: pos.top, left: pos.left, width: 320 }
-      : { right: 16, bottom: 16, width: 320 };
+      ? { top: pos.top, left: pos.left, width: 340 }
+      : { right: 16, bottom: 16, width: 340 };
 
   return (
     <>
@@ -299,17 +346,21 @@ function ContenidoPaso({
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">{paso.texto}</p>
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-brand/10 px-3 py-2.5 text-[13.5px] font-semibold leading-snug text-foreground">
           <MousePointerClick size={16} className="mt-0.5 shrink-0 text-brand-medio" aria-hidden />
-          <span className="min-w-0">{paso.accion}</span>
+          <span className="min-w-0">{lee && paso.accionSiYaLoTienes ? paso.accionSiYaLoTienes : paso.accion}</span>
         </p>
 
         {!enRuta && (
-          <p className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12.5px] text-muted-foreground">
-            Este paso está en <span className="font-semibold text-foreground">{nombrePantalla(paso)}</span>.
-          </p>
+          llevar && destino ? (
+            <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden /> Te llevo a {nombrePantalla(paso)}…</p>
+          ) : (
+            <p className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12.5px] text-muted-foreground">
+              Este paso está en <span className="font-semibold text-foreground">{nombrePantalla(paso)}</span>.
+            </p>
+          )
         )}
         {enRuta && sinFoco && (
           <p className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12.5px] text-muted-foreground">
-            No puedo señalarte el recuadro en esta pantalla, pero el paso es este.
+            No encuentro el recuadro en esta pantalla. Pulsa «Llévame» y lo intento de nuevo.
           </p>
         )}
         {enRuta && !rect && !sinFoco && (
@@ -327,7 +378,7 @@ function ContenidoPaso({
 
         {hacer && !repaso && (
           yaHecho ? (
-            <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-success"><Check size={15} aria-hidden /> Ya lo tienes</p>
+            <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-success"><Check size={15} aria-hidden /> {lee ? 'Ya lo tienes hecho' : 'Hecho. Pasamos al siguiente…'}</p>
           ) : (
             <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden /> Esperando a que lo hagas…</p>
           )
@@ -345,7 +396,7 @@ function ContenidoPaso({
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            {!enRuta && destino && (
+            {(!enRuta || sinFoco) && destino && (
               <button type="button" onClick={ir} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-brand px-3 text-[13px] font-semibold text-brand-foreground hover:brightness-95">
                 Llévame <ArrowRight size={13} aria-hidden />
               </button>
@@ -355,7 +406,7 @@ function ContenidoPaso({
                 Seguir donde iba <ArrowRight size={13} aria-hidden />
               </button>
             )}
-            {!repaso && !hacer && !faltaClienta && (
+            {!repaso && comoMira && !faltaClienta && (
               <button type="button" onClick={() => t.cerrar(paso, 'hecho')} className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-brand px-3 text-[13px] font-semibold text-brand-foreground hover:brightness-95">
                 Entendido <ArrowRight size={13} aria-hidden />
               </button>
@@ -393,6 +444,9 @@ export function VisitaGuiada({ cargando }: { cargando: boolean }) {
   const [repasoId, setRepasoId] = useState<string | null>(null);
   // El último paso que se enseñó en esta sesión: solo si CAMBIA se lleva a su pantalla.
   const [ultimoPaso, setUltimoPaso] = useState<string | null>(null);
+  // Si la persona acaba de pulsar «Empezar» o «Empezar el capítulo», el primer paso la lleva a su
+  // pantalla aunque no haya habido un paso anterior en esta sesión.
+  const [conIntencion, setConIntencion] = useState(false);
   const idEnPantalla = t.estado.fase === 'paso' ? t.estado.paso.id : null;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Recuerda qué paso se acaba de enseñar para no arrastrar al recargar.
@@ -413,7 +467,7 @@ export function VisitaGuiada({ cargando }: { cargando: boolean }) {
   }
 
   if (estado.fase === 'inicio') {
-    return <PantallaInicioVisita capitulos={capitulos} obligatoria={t.obligatoria} onEmpezar={t.empezarVisita} onSalir={t.salir} />;
+    return <PantallaInicioVisita capitulos={capitulos} obligatoria={t.obligatoria} onEmpezar={() => { setConIntencion(true); t.empezarVisita(); }} onSalir={t.salir} />;
   }
 
   if (estado.fase === 'apertura') {
@@ -421,7 +475,7 @@ export function VisitaGuiada({ cargando }: { cargando: boolean }) {
       <PantallaAperturaCapitulo
         capitulo={estado.capitulo} numero={estado.numero} total={capitulos.length}
         pasos={estado.capitulo.pasos.filter(t.aplica)}
-        onEmpezar={() => t.abrirCapitulo(estado.capitulo.id)}
+        onEmpezar={() => { setConIntencion(true); t.abrirCapitulo(estado.capitulo.id); }}
       />
     );
   }
@@ -463,7 +517,7 @@ export function VisitaGuiada({ cargando }: { cargando: boolean }) {
       numeroCapitulo={Math.max(1, numeroDe(capituloMostrado.id))} totalCapitulos={capitulos.length}
       cargando={cargando} repaso={enRepaso}
       onVolver={() => setRepasoId(null)} onAnterior={setRepasoId}
-      llevar={ultimoPaso !== null && ultimoPaso !== mostrado.id}
+      llevar={conIntencion || (ultimoPaso !== null && ultimoPaso !== mostrado.id)}
     />
   );
 }
