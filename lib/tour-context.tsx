@@ -29,6 +29,7 @@ import { usePermisos } from '@/lib/permisos';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { rutaFueraDelMenu } from '@/lib/nav-config';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import { estadoBilling } from '@/lib/api-client';
 import { pasoAplica, visitaObligatoria } from '@/lib/tour/aplica';
 import {
   PROGRESO_VACIO, abrirCapitulo, cerrarPaso, empezar, estadoVisita, parseProgreso, verCapitulo,
@@ -103,6 +104,17 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const hidratado = useRef<string | null>(null);
   const [pausada, setPausada] = useState(false);
   const [escritorio, setEscritorio] = useState(true);
+  // ¿Hay una prueba gratuita en marcha? Es lo que decide si existe la píldora de los días que quedan
+  // (una sola petición compartida con el marco del panel). Sin saberlo, se asume que no.
+  const [enPrueba, setEnPrueba] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void estadoBilling().then(e => {
+      const fase = e?.trial?.fase;
+      if (vivo) setEnPrueba(!!fase && fase !== 'SIN_PRUEBA' && fase !== 'SUSCRITO');
+    });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -133,8 +145,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const hayVisita = obligatoria ? local !== null : opcional !== null;
 
   const aplica = useCallback(
-    (paso: PasoVisita) => pasoAplica(paso, { puedeVer, esRutaCongelada, fueraDelMenu: rutaFueraDelMenu, escritorio }),
-    [puedeVer, escritorio],
+    (paso: PasoVisita) => pasoAplica(paso, { puedeVer, esRutaCongelada, fueraDelMenu: rutaFueraDelMenu, enPrueba, escritorio }),
+    [puedeVer, escritorio, enPrueba],
   );
   const estado = useMemo(() => estadoVisita(progreso, aplica), [progreso, aplica]);
 

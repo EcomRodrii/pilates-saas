@@ -306,7 +306,7 @@ function ContenidoPaso({
   }
 
   const anillo = rect && enRuta ? (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[44]">
+    <div aria-hidden data-testid="visita-anillo" className="pointer-events-none fixed inset-0 z-[44]">
       <div
         className={cn('absolute rounded-xl transition-all duration-200', hacer && 'animate-pulse motion-reduce:animate-none')}
         style={{
