@@ -4192,6 +4192,59 @@ export interface RowAjustesPlataforma {
   actualizado_por: string | null;
 }
 
+export interface RowRegaloAjustes {
+  studio_id: string;
+  activo: boolean;
+  importes_eur: number[];
+  permite_importe_libre: boolean;
+  importe_min_eur: number;
+  importe_max_eur: number;
+  caducidad_meses: number;
+  terminos: string | null;
+  actualizado_en: string;
+}
+
+export interface RowTarjetasRegalo {
+  id: string;
+  studio_id: string;
+  codigo: string;
+  codigo_hash: string;
+  importe_inicial: number;
+  origen: string;
+  checkout_session_id: string | null;
+  payment_intent_id: string | null;
+  metodo_manual: string | null;
+  comprador_nombre: string | null;
+  comprador_email: string | null;
+  destinatario_nombre: string | null;
+  destinatario_email: string | null;
+  mensaje: string | null;
+  caduca_en: string;
+  estado: string;
+  anulada_motivo: string | null;
+  anulada_en: string | null;
+  socio_id: string | null;
+  vinculada_en: string | null;
+  correo_enviado_en: string | null;
+  creada_en: string;
+  or: string;
+}
+
+export interface RowMovimientosRegalo {
+  id: string;
+  studio_id: string;
+  tarjeta_id: string;
+  tipo: string;
+  delta: number;
+  idem_key: string | null;
+  actor_tipo: string;
+  actor_id: string | null;
+  motivo: string | null;
+  nota: string | null;
+  recibo_id: string | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11603,6 +11656,112 @@ export type AjustesPlataformaUpdate = {
   actualizado_por?: string | null | null;
 }
 
+export type RegaloAjustesInsert = {
+  studio_id?: string | null;
+  activo?: boolean | null;
+  importes_eur?: number[] | null;
+  permite_importe_libre?: boolean | null;
+  importe_min_eur?: number | null;
+  importe_max_eur?: number | null;
+  caducidad_meses?: number | null;
+  terminos?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type RegaloAjustesUpdate = {
+  studio_id?: string | null;
+  activo?: boolean | null;
+  importes_eur?: number[] | null;
+  permite_importe_libre?: boolean | null;
+  importe_min_eur?: number | null;
+  importe_max_eur?: number | null;
+  caducidad_meses?: number | null;
+  terminos?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type TarjetasRegaloInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  codigo_hash?: string | null;
+  importe_inicial?: number | null;
+  origen?: string | null;
+  checkout_session_id?: string | null | null;
+  payment_intent_id?: string | null | null;
+  metodo_manual?: string | null | null;
+  comprador_nombre?: string | null | null;
+  comprador_email?: string | null | null;
+  destinatario_nombre?: string | null | null;
+  destinatario_email?: string | null | null;
+  mensaje?: string | null | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  anulada_motivo?: string | null | null;
+  anulada_en?: string | null | null;
+  socio_id?: string | null | null;
+  vinculada_en?: string | null | null;
+  correo_enviado_en?: string | null | null;
+  creada_en?: string | null;
+  or?: string | null;
+}
+
+export type TarjetasRegaloUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  codigo_hash?: string | null;
+  importe_inicial?: number | null;
+  origen?: string | null;
+  checkout_session_id?: string | null | null;
+  payment_intent_id?: string | null | null;
+  metodo_manual?: string | null | null;
+  comprador_nombre?: string | null | null;
+  comprador_email?: string | null | null;
+  destinatario_nombre?: string | null | null;
+  destinatario_email?: string | null | null;
+  mensaje?: string | null | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  anulada_motivo?: string | null | null;
+  anulada_en?: string | null | null;
+  socio_id?: string | null | null;
+  vinculada_en?: string | null | null;
+  correo_enviado_en?: string | null | null;
+  creada_en?: string | null;
+  or?: string | null;
+}
+
+export type MovimientosRegaloInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tarjeta_id?: string | null;
+  tipo?: string | null;
+  delta?: number | null;
+  idem_key?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  nota?: string | null | null;
+  recibo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type MovimientosRegaloUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tarjeta_id?: string | null;
+  tipo?: string | null;
+  delta?: number | null;
+  idem_key?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  nota?: string | null | null;
+  recibo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12895,6 +13054,21 @@ export type Database = {
         Row: RowAjustesPlataforma;
         Insert: AjustesPlataformaInsert;
         Update: AjustesPlataformaUpdate;
+      };
+      regalo_ajustes: {
+        Row: RowRegaloAjustes;
+        Insert: RegaloAjustesInsert;
+        Update: RegaloAjustesUpdate;
+      };
+      tarjetas_regalo: {
+        Row: RowTarjetasRegalo;
+        Insert: TarjetasRegaloInsert;
+        Update: TarjetasRegaloUpdate;
+      };
+      movimientos_regalo: {
+        Row: RowMovimientosRegalo;
+        Insert: MovimientosRegaloInsert;
+        Update: MovimientosRegaloUpdate;
       };
     };
   };
