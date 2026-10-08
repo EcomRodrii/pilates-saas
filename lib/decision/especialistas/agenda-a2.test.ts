@@ -67,3 +67,29 @@ test('AGENDA A2: estudio recién arrancado (pocas clases) NO dispara ruido', () 
   const c = agenda.detectar(snap, new Map() as MemoriaEstudio, NOW);
   assert.equal(c.filter(x => x.dedupeKey.startsWith('AGENDA:OCUPACION_BAJA')).length, 0);
 });
+
+function snapA2(sesiones: Sesion[], reservas: Reserva[], antiguedadDatosDias: number): SnapshotEstudio {
+  const socios = Array.from({ length: 5 }, (_, i) => socio(`z${i}`));
+  return {
+    studioId: 'e1', socios, reservas, sesiones, salas: [{ id: 's1', studioId: 'e1', nombre: 'Sala', capacidad: 8, color: '#000' } as Sala],
+    recibos: [], suscripciones: socios.map(s => suscripcion(s.id)), planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], contexto: { nSociasActivas: 0, antiguedadDatosDias, cadenaId: null, nSedesCadena: 1 },
+  };
+}
+const hayA2 = (snap: SnapshotEstudio) =>
+  agenda.detectar(snap, new Map() as MemoriaEstudio, NOW).some(x => x.dedupeKey.startsWith('AGENDA:OCUPACION_BAJA'));
+
+test('AGENDA A2: estudio de hace 1 día con 35 clases empezadas y sin reservas NO dispara (sin datos ≠ vacías)', () => {
+  const sesiones = Array.from({ length: 35 }, (_, i) => clasePasada(i, 0.5));
+  assert.equal(hayA2(snapA2(sesiones, [], 0)), false);
+});
+
+test('AGENDA A2: estudio antiguo con clases pasadas pero CERO reservas registradas en la ventana NO dispara', () => {
+  const sesiones = Array.from({ length: 12 }, (_, i) => clasePasada(i, 2 + i * 2));
+  assert.equal(hayA2(snapA2(sesiones, [], 400)), false);
+});
+
+test('AGENDA A2: con antigüedad suficiente y algo de historial, sigue disparando', () => {
+  const sesiones = Array.from({ length: 12 }, (_, i) => clasePasada(i, 2 + i * 2));
+  const reservas = [reserva('z0', 'ses-0'), reserva('z1', 'ses-1')];
+  assert.equal(hayA2(snapA2(sesiones, reservas, 60)), true);
+});

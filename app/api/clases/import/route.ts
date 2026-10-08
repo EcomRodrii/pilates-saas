@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { errorInterno } from '@/lib/errores-servidor';
+import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { catalogo } from '@/lib/migracion/catalogo';
+import { detectarSolapes, textoConflicto } from '@/lib/migracion/solapes-horario';
 import { puedeGestionarClientas, puedeGestionarSede } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
@@ -162,20 +163,12 @@ export async function POST(req: NextRequest) {
       error: `Estas clases no existen todavía en tu estudio: ${nombres}. Solo la propietaria o la gerencia pueden crearlas: pídeselo o usa el nombre de una clase que ya tengas.`,
     }, { status: 403 });
   }
-  if (nuevosTipos.length > 0) {
-    const { error } = await admin.from('tipos_clase').insert(nuevosTipos);
-    if (error) return errorInterno('clases:import:tipos', error,
-      'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
-    if (batchId) {
-      // El contrato de registrarIdsBatch dice que el llamante DEBE avisar si
-      // falla. Aquí se tragaba el false y los tipos creados quedaban fuera del
-      // deshacer sin que nadie lo supiera: se propaga al acta como los demás.
-      tiposFueraDelDeshacer = !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: nuevosTipos.map(t => t.id as string) }));
-    }
-  }
+  // Los tipos nuevos se insertan más abajo, ya con las clases validadas: antes se
+  // creaban primero y, si luego fallaba el insert de sesiones o se descartaban
+  // las filas, quedaban tipos sueltos («Mat Pilates») sin ninguna clase.
 
   // ── Expansión de filas → sesiones concretas ────────────────────────────────
-  interface Pendiente { tipoId: string; salaId: string | null; instructorId: string | null; inicio: string; fin: string; aforo: number; serieId: string | null }
+  interface Pendiente { tipoId: string; salaId: string | null; instructorId: string | null; inicio: string; fin: string; aforo: number; serieId: string | null; fila: number; clase: string }
   const pendientes: Pendiente[] = [];
   const ahoraMs = Date.now();
   const errores: { fila: number; motivo: string }[] = [];
@@ -212,12 +205,18 @@ export async function POST(req: NextRequest) {
     for (const fecha of fechas) {
       if (pendientes.length >= MAX_SESIONES) break;
       const inicio = horaParedAInstante(fecha, f.horaInicio, TZ);
+      // Una clase que cruza la medianoche (o con la hora de fin antes que la de
+      // inicio) la rechaza la base de datos y tumbaba el lote entero.
+      if (horaParedAInstante(fecha, horaFin, TZ).getTime() <= inicio.getTime()) {
+        if (!errores.some(e => e.fila === i + 1)) errores.push({ fila: i + 1, motivo: `«${nombre}»: la hora de fin (${horaFin}) no es posterior a la de inicio (${f.horaInicio}). No se ha creado.` });
+        continue;
+      }
       if (tipo.archivado && inicio.getTime() > ahoraMs) { futurasDeArchivado++; continue; }
       pendientes.push({
         tipoId: tipo.id, salaId: sala?.id ?? null, instructorId,
         inicio: inicio.toISOString(),
         fin: horaParedAInstante(fecha, horaFin, TZ).toISOString(),
-        aforo, serieId,
+        aforo, serieId, fila: i + 1, clase: nombre,
       });
     }
     if (futurasDeArchivado > 0) {
@@ -234,35 +233,82 @@ export async function POST(req: NextRequest) {
 
   // ── Dedup contra lo que ya existe (reimportar no duplica el horario) ───────
   const inicios = pendientes.map(p => p.inicio);
-  const desdeVentana = inicios.reduce((a, b) => (a < b ? a : b));
-  const hastaVentana = inicios.reduce((a, b) => (a > b ? a : b));
+  const desdeVentana = new Date(inicios.reduce((a, b) => (a < b ? a : b)).slice(0, 10) + 'T00:00:00Z');
+  // Un día antes: una clase existente que EMPIEZA antes que ninguna del archivo
+  // pero acaba dentro de su rango también se pisa con ella.
+  desdeVentana.setUTCDate(desdeVentana.getUTCDate() - 1);
+  const hastaVentana = pendientes.map(p => p.fin).reduce((a, b) => (a > b ? a : b));
   // Paginado: la ventana del dedup abarca hasta 12 semanas. Un estudio con 10
   // clases al día pasa de 1000 sesiones y, sin `.range()`, PostgREST devolvía
   // solo las 1000 primeras sin avisar → el dedup no veía el resto y reimportar
   // DUPLICABA el horario entero, que es justo lo que este bloque evita.
-  const { data: existentes, error: eDedup } = await catalogo<{ tipo_clase_id: string; inicio: string }>(
+  const { data: existentes, error: eDedup } = await catalogo<{ tipo_clase_id: string; inicio: string; fin: string; sala_id: string | null; instructor_id: string | null; cancelada: boolean }>(
     (d, h) => admin
-      .from('sesiones').select('tipo_clase_id, inicio')
+      .from('sesiones').select('tipo_clase_id, inicio, fin, sala_id, instructor_id, cancelada')
       .eq('studio_id', sesion.studioId)
-      .gte('inicio', desdeVentana)
+      .gte('inicio', desdeVentana.toISOString())
       .lte('inicio', hastaVentana)
       .order('id').range(d, h),
   );
   // Un fallo aquí NO puede seguir adelante: sin dedup fiable se duplica el
-  // horario del estudio, que es peor que no importar. El mensaje NO puede decir
-  // "no se ha importado nada": los tipos de clase nuevos ya se insertaron
-  // arriba. Y va por `errorInterno` para que llegue a Sentry, como sus gemelos.
+  // horario del estudio, que es peor que no importar. Y va por `errorInterno`
+  // para que llegue a Sentry, como sus gemelos.
   if (eDedup) {
     return errorInterno('clases:import:dedup', eDedup,
       'No se ha podido comprobar qué clases tienes ya, así que no se ha creado ninguna clase '
-      + `para no duplicarte el horario${nuevosTipos.length > 0 ? ` (los ${nuevosTipos.length} tipos de clase del archivo sí se han creado)` : ''}. `
-      + 'Vuelve a intentarlo.',
-      500, { tiposCreados: nuevosTipos.length, batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
+      + 'para no duplicarte el horario. Vuelve a intentarlo.',
+      500, { tiposCreados: 0 });
   }
   const yaExiste = new Set((existentes ?? []).map(e => `${e.tipo_clase_id}|${new Date(e.inicio).toISOString()}`));
 
-  const aInsertar = pendientes.filter(p => !yaExiste.has(`${p.tipoId}|${p.inicio}`));
-  const omitidas = pendientes.length - aInsertar.length;
+  const sinDuplicar = pendientes.filter(p => !yaExiste.has(`${p.tipoId}|${p.inicio}`));
+  const omitidas = pendientes.length - sinDuplicar.length;
+
+  // Solapes ANTES de escribir: la base de datos no admite dos clases a la vez en
+  // la misma sala ni con la misma instructora, y un lote de 500 es atómico, así
+  // que una fila que se pisa tumbaba todas. Aquí se aparta y se cuenta.
+  const { validas: aInsertar, conflictos } = detectarSolapes(sinDuplicar, (existentes ?? []).map(e => ({
+    salaId: e.sala_id, instructorId: e.instructor_id, inicio: e.inicio, fin: e.fin, cancelada: e.cancelada,
+  })));
+  const nombreSala = (id: string) => salas?.find(x => x.id === id)?.nombre;
+  const nombreInstructora = (id: string) => instructores?.find(x => x.id === id)?.nombre;
+  const fmtCuando = (iso: string) => new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ,
+  }).format(new Date(iso));
+  // Una fila semanal que se pisa lo hace en cada semana: un aviso por fila y
+  // recurso (con cuántas semanas afecta), no doce idénticos.
+  const porFilaYRecurso = new Map<string, { c: (typeof conflictos)[number]; n: number }>();
+  for (const c of conflictos) {
+    const k = `${c.fila}|${c.recurso}`;
+    const previo = porFilaYRecurso.get(k);
+    if (previo) previo.n++; else porFilaYRecurso.set(k, { c, n: 1 });
+  }
+  const erroresSolape = [...porFilaYRecurso.values()].map(({ c, n }) => ({
+    fila: c.fila,
+    motivo: textoConflicto(c, { sala: nombreSala, instructora: nombreInstructora }, fmtCuando)
+      + (n > 1 ? ` Pasa en ${n} semanas; no se han creado.` : ' No se ha creado.'),
+  }));
+  const omitidasPorSolape = new Set(conflictos.map(c => `${c.fila}|${c.inicio}`)).size;
+  errores.push(...erroresSolape);
+
+  if (aInsertar.length === 0 && omitidasPorSolape > 0) {
+    return errorPeticion(
+      `No se ha creado ninguna clase: las ${omitidasPorSolape} se pisan con otras en la misma sala o con la misma instructora. Corrige esas filas y vuelve a subir el archivo.`,
+      422, { errores: errores.slice(0, 50), omitidasPorSolape, tiposCreados: 0 },
+    );
+  }
+
+  // Tipos nuevos: solo los que de verdad van a tener clases.
+  const tipoUsados = new Set(aInsertar.map(p => p.tipoId));
+  const tiposAcrear = nuevosTipos.filter(t => tipoUsados.has(t.id as string));
+  if (tiposAcrear.length > 0) {
+    const { error } = await admin.from('tipos_clase').insert(tiposAcrear);
+    if (error) return errorInterno('clases:import:tipos', error,
+      'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
+  }
+  // Los tipos que se quedan solo se registran en el lote de deshacer cuando se
+  // sabe cuáles (abajo, al terminar o al fallar): `registrarIdsBatch` solo añade.
+  const tiposCreadosIds = new Set<string>();
 
   let creadas = 0;
   const idsCreados: string[] = [];
@@ -275,20 +321,34 @@ export async function POST(req: NextRequest) {
     }));
     const { error } = await admin.from('sesiones').insert(lote);
     if (error) {
-      if (batchId && idsCreados.length > 0) {
-        await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados });
+      // Los tipos nuevos sin ninguna clase creada no se quedan sueltos.
+      const sueltos = tiposAcrear.map(t => t.id as string).filter(id => !tiposCreadosIds.has(id));
+      if (sueltos.length > 0) await admin.from('tipos_clase').delete().in('id', sueltos).eq('studio_id', sesion.studioId);
+      if (batchId) {
+        if (idsCreados.length > 0) await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados });
+        if (tiposCreadosIds.size > 0) await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: [...tiposCreadosIds] });
       }
+      // La causa real, no «revisa sala y hora»: casi siempre es que otra clase se
+      // ha cruzado mientras se importaba (los solapes del archivo ya se apartaron).
+      const motivo = error.code === '23P01'
+        ? 'Otra clase ha ocupado esa sala o esa instructora a la misma hora mientras importábamos. Vuelve a subir el archivo: las ya creadas no se duplican.'
+        : error.code === '23503'
+          ? 'Una sala, instructora o tipo de clase del archivo ya no existe en tu estudio. Revísalos y vuelve a subir el archivo: las ya creadas no se duplican.'
+          : 'Vuelve a subir el archivo: las ya creadas no se duplican.';
       return errorInterno('clases:import:sesiones', error,
-        `Se han creado ${creadas} clases y el proceso se ha detenido ahí. `
-        + 'Revisa que todas las filas tengan sala y hora, y vuelve a subir el archivo.',
-        500, { creadas });
+        `Se han creado ${creadas} clases y el proceso se ha detenido ahí. ${motivo}`,
+        500, { creadas, omitidasPorSolape, errores: errores.slice(0, 50), batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
     }
     idsCreados.push(...lote.map(l => l.id));
+    for (const l of lote) tiposCreadosIds.add(l.tipo_clase_id);
     creadas += lote.length;
   }
   const sesionesFueraDelDeshacer = batchId && idsCreados.length > 0
     ? !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados }))
     : false;
+  if (batchId && tiposCreadosIds.size > 0) {
+    tiposFueraDelDeshacer = !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: [...tiposCreadosIds] }));
+  }
   const batchAviso = sesionesFueraDelDeshacer || tiposFueraDelDeshacer
     ? 'No se pudo registrar el lote para deshacer'
     : null;
@@ -308,7 +368,8 @@ export async function POST(req: NextRequest) {
     batchAviso,
     creadas,
     omitidas,            // ya existían (reimportación)
-    tiposCreados: nuevosTipos.length,
+    tiposCreados: tiposCreadosIds.size,
+    omitidasPorSolape,   // se pisaban con otra clase (sala o instructora): no se crearon
     sinInstructor,       // filas cuya instructora no se encontró por nombre
     sinSala,
     errores: errores.slice(0, 50),

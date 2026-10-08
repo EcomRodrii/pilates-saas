@@ -244,6 +244,55 @@ test.describe('Que no se pueda guardar un disparate', () => {
   });
 });
 
+test.describe('Errores que se ven y precios que se revisan', () => {
+  test('pulsar «Crear» con un error lejos del botón lleva el foco al campo', async ({ page }) => {
+    const { planes } = await mockBackend(page);
+    await seedSesionDeDuena(page);
+    await abrirFormulario(page);
+    const d = dialogo(page);
+
+    // Una clase de prueba sin caducidad: el error cae en «Caducidad», que con el
+    // modal desplazado queda fuera de vista mientras «Crear» está fijo abajo.
+    await d.getByRole('radio', { name: /Bono de sesiones/ }).click();
+    await d.getByLabel('Nombre', { exact: false }).first().fill('Clase de prueba');
+    await d.getByLabel('Precio', { exact: false }).first().fill('10');
+    await d.getByLabel('Sesiones que incluye').fill('1');
+    await d.getByRole('switch', { name: /clase de prueba/i }).click();
+
+    await d.getByRole('button', { name: /^Crear/ }).click();
+    expect(planes).toHaveLength(0);
+    await expect(d.getByLabel('Caducidad')).toBeFocused();
+    await expect(d.getByRole('alert').filter({ hasText: /necesita caducidad/ })).toBeVisible();
+  });
+
+  test('un precio absurdo frente a las otras tarifas avisa, pero no impide guardar', async ({ page }) => {
+    const base = { studio_id: STUDIO_ID, tipo: 'BONO', sesiones: 10, validez_dias: null, activo: true, descripcion: null };
+    const { planes } = await mockBackend(page, [
+      { ...base, id: 'p1', nombre: 'Bono 10 Mat', precio: 90 },
+      { ...base, id: 'p2', nombre: 'Bono 10 Reformer', precio: 150 },
+    ]);
+    await seedSesionDeDuena(page);
+    await abrirFormulario(page);
+    const d = dialogo(page);
+
+    await d.getByRole('radio', { name: /Bono de sesiones/ }).click();
+    await d.getByLabel('Nombre', { exact: false }).first().fill('Bono nuevo');
+    await d.getByLabel('Sesiones que incluye').fill('10');
+    const precio = d.getByLabel('Precio', { exact: false }).first();
+
+    await precio.fill('160');
+    await expect(d.getByTestId('aviso-precio-sospechoso')).toHaveCount(0);
+
+    await precio.fill('1010');
+    await expect(d.getByTestId('aviso-precio-sospechoso')).toContainText('Tu tarifa más cara de este tipo cuesta');
+
+    // Solo avisa: si de verdad es ese precio, se crea.
+    await d.getByRole('button', { name: /^Crear/ }).click();
+    await expect.poll(() => planes.length).toBe(3); // las 2 de partida + la nueva
+    expect(planes[2].precio).toBe(1010);
+  });
+});
+
 test.describe('Lo que la clienta va a ver', () => {
   test('el resumen se escribe solo mientras se rellena', async ({ page }) => {
     await mockBackend(page);
@@ -372,7 +421,7 @@ test.describe('Editar una tarifa que ya existe', () => {
     }]);
     await seedSesionDeDuena(page);
     await page.goto('/productos');
-    await page.getByRole('button', { name: 'Bajo demanda' }).click();
+    await page.getByRole('button', { name: 'Clases sueltas' }).click();
     await page.getByRole('button', { name: /Editar/ }).first().click();
 
     const d = page.getByRole('dialog', { name: 'Editar tarifa' });

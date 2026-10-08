@@ -228,7 +228,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c5.1', ruta: '/productos', selector: 'paquetes-vista', tipo: 'mira',
         titulo: 'Aquí viven tus tarifas',
         texto: 'En «Paquetes» está todo lo que vendes. Una suscripción se cobra sola cada mes; un bono es un puñado de sesiones que se gastan; una clase suelta se compra de una en una.',
-        accion: 'Mira las pestañas: «Suscripciones», «Bonos» y «Bajo demanda».',
+        accion: 'Mira las pestañas: «Suscripciones», «Bonos» y «Clases sueltas».',
       },
       {
         id: 'c5.2', ruta: '/productos', selector: 'paquetes-vista', tipo: 'hacer', hecho: 'tarifaActiva',

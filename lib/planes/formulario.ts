@@ -83,6 +83,46 @@ export function tarifaDuplicada<T extends { id: string; nombre: string; tipo: Ti
 }
 
 /**
+ * ¿Este precio es una errata probable? Compara con las tarifas del MISMO tipo que
+ * ya cobran algo: si pide más de `FACTOR_PRECIO_SOSPECHOSO` veces la más cara
+ * (y hay al menos dos de referencia) devuelve esa más cara. Solo avisa: un bono
+ * de lujo puede ser deliberado, pero 10 € → 1010 € por teclear de más no.
+ */
+export const FACTOR_PRECIO_SOSPECHOSO = 5;
+export function precioSospechoso<T extends { id: string; tipo: TipoPlan; precio: number; activo: boolean }>(
+  precioTexto: string, tipo: TipoPlan, otras: readonly T[], ignorarId?: string,
+): { maxOtras: number } | null {
+  const precio = precioANumero(precioTexto);
+  if (!Number.isFinite(precio) || precio <= 0) return null;
+  const referencia = otras.filter(p => p.id !== ignorarId && p.tipo === tipo && p.activo && p.precio > 0);
+  if (referencia.length < 2) return null;
+  const maxOtras = Math.max(...referencia.map(p => p.precio));
+  return precio > maxOtras * FACTOR_PRECIO_SOSPECHOSO ? { maxOtras } : null;
+}
+
+/**
+ * Agrupa tipos de clase por familia (la primera palabra del nombre: «Reformer
+ * Fundamental» y «Reformer Avanzado» son «Reformer») para elegir de golpe. Los
+ * grupos de uno quedan en «Otras». Conserva el orden original.
+ */
+export function agruparTiposClase<T extends { id: string; nombre: string }>(tipos: readonly T[]): { clave: string; titulo: string; tipos: T[] }[] {
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const porPalabra = new Map<string, T[]>();
+  for (const t of tipos) {
+    const k = norm(t.nombre.trim().split(/\s+/)[0] ?? '');
+    porPalabra.set(k, [...(porPalabra.get(k) ?? []), t]);
+  }
+  const grupos: { clave: string; titulo: string; tipos: T[] }[] = [];
+  const otras: T[] = [];
+  for (const [clave, lista] of porPalabra) {
+    if (lista.length >= 2) grupos.push({ clave, titulo: lista[0].nombre.trim().split(/\s+/)[0], tipos: lista });
+    else otras.push(...lista);
+  }
+  if (otras.length > 0) grupos.push({ clave: '_otras', titulo: 'Otras', tipos: otras });
+  return grupos;
+}
+
+/**
  * Cada cuánto se puede cobrar una cuota, para el desplegable.
  *
  * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`

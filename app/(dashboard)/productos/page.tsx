@@ -18,7 +18,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   planVacio, planAFormulario, formularioAPlan, erroresPlan, precioANumero,
-  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada,
+  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada, precioSospechoso, agruparTiposClase,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
@@ -28,7 +28,7 @@ type Tab = 'planes' | 'pos';
 // plan ya existentes (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por
 // nombre de negocio en vez de una rejilla única sin filtrar — mismo dato,
 // mejor organizado.
-// "Bajo demanda" = PUNTUAL: se paga sesión a sesión, sin compromiso fijo, que
+// "Clases sueltas" = PUNTUAL (antes «Bajo demanda», que sonaba a vídeo bajo demanda): se paga sesión a sesión, sin compromiso fijo, que
 // es justo lo que ya significa ese tipo aquí.
 //
 // ⚠️ La pestaña de BONO se llamaba "Paquetes", que es ahora el nombre de la
@@ -41,7 +41,7 @@ type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
   { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
   { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
-  { v: 'PUNTUAL', label: 'Bajo demanda', singular: 'plan bajo demanda', icon: Tag },
+  { v: 'PUNTUAL', label: 'Clases sueltas', singular: 'clase suelta', icon: Tag },
 ];
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
@@ -229,7 +229,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
    */
   yaVendida?: boolean;
   tiposClase: { id: string; nombre: string; archivadoEn?: string | null }[];
-  // Al crear desde una pestaña concreta (Suscripciones/Paquetes/Bajo demanda),
+  // Al crear desde una pestaña concreta (Suscripciones/Bonos/Clases sueltas),
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
   // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
   tipoInicial?: PlanTarifa['tipo'];
@@ -297,13 +297,29 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
 
   function guardar() {
     setIntentado(true);
-    if (!guardable) return;
+    if (!guardable) {
+      // El error se pinta pegado a su campo, que con el modal desplazado queda
+      // fuera de vista mientras el botón «Crear» está fijo abajo: se pulsaba y
+      // «no pasaba nada». Se lleva el foco (y la vista) al primer campo con error.
+      const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal', 'matricula', 'esPrueba'];
+      const sufijo: Partial<Record<CampoPlan, string>> = { nombre: 'nombre', precio: 'precio', sesiones: 'sesiones', validezDias: 'validez', limiteSemanal: 'limite', matricula: 'matricula', esPrueba: 'validez' };
+      const primero = orden.find(c => errores[c] && enPantalla[c]);
+      if (primero) {
+        setTimeout(() => {
+          const el = document.getElementById(`${uid}-${sufijo[primero]}`);
+          el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          el?.focus({ preventScroll: true });
+        }, 0);
+      }
+      return;
+    }
     onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form);
   }
 
   const esBono = form.tipo === 'BONO';
   const tipoSugerido = tipoSugeridoPorNombre(form.nombre, form.tipo);
   const repetida = initial ? null : tarifaDuplicada(form.nombre, form.tipo, otrasTarifas);
+  const precioRaro = precioSospechoso(form.precio, form.tipo, otrasTarifas, initial?.id);
   const tituloAccion = initial
     ? 'Guardar cambios'
     : `Crear ${NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}`;
@@ -438,6 +454,16 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </div>
                   )}
                 </Campo>
+                {precioRaro && (
+                  <p role="status" data-testid="aviso-precio-sospechoso"
+                    className="flex items-start gap-1.5 rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                    <span>
+                      ¿Seguro que son {fmt(precioANumero(form.precio))} €? Tu tarifa más cara de este tipo cuesta {fmt(precioRaro.maxOtras)} €.
+                      Si es correcto, sigue; si es una errata, corrígela antes de ponerla a la venta.
+                    </span>
+                  </p>
+                )}
                 {/* Una cuota no tiene por qué ser mensual: cobrar por
                     trimestres de septiembre a junio es lo normal en un estudio
                     de Pilates, y hasta ahora había que fingirlo con un bono sin
@@ -634,23 +660,45 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                   </div>
 
                   {modoClases === 'algunas' && (
-                    <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+                    <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
                       {/* Los activos, y un archivado solo si este plan ya lo
-                          tenía: se ve (y se puede quitar), pero no se ofrece. */}
-                      {tiposClase.filter(tc => !tc.archivadoEn || inicial.tiposClaseIds.includes(tc.id)).map(tc => {
-                        const puesto = form.tiposClaseIds.includes(tc.id);
+                          tenía: se ve (y se puede quitar), pero no se ofrece.
+                          Agrupados por familia («Reformer», «Mat», «Yoga»…): con
+                          15 tipos, marcar los cuatro Reformer eran cuatro clics. */}
+                      {agruparTiposClase(tiposClase.filter(tc => !tc.archivadoEn || inicial.tiposClaseIds.includes(tc.id))).map(g => {
+                        const ids = g.tipos.map(t => t.id);
+                        const todosPuestos = ids.every(id => form.tiposClaseIds.includes(id));
                         return (
-                          <label key={tc.id}
-                            className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
-                            <input
-                              type="checkbox" checked={puesto}
-                              onChange={() => set('tiposClaseIds', puesto
-                                ? form.tiposClaseIds.filter(x => x !== tc.id)
-                                : [...form.tiposClaseIds, tc.id])}
-                              className="w-4 h-4 rounded accent-[var(--brand)] shrink-0" />
-                            <span className="text-sm text-foreground">{tc.nombre}</span>
-                            {tc.archivadoEn && <span className="text-[12px] text-muted-foreground">archivado</span>}
-                          </label>
+                          <div key={g.clave} role="group" aria-label={g.titulo} className="divide-y divide-border">
+                            {g.tipos.length >= 2 && g.clave !== '_otras' && (
+                              <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
+                                <span className="text-[12px] font-semibold text-muted-foreground">{g.titulo}</span>
+                                <button type="button"
+                                  onClick={() => set('tiposClaseIds', todosPuestos
+                                    ? form.tiposClaseIds.filter(x => !ids.includes(x))
+                                    : [...new Set([...form.tiposClaseIds, ...ids])])}
+                                  className="text-[12px] font-semibold text-brand-medio hover:underline">
+                                  {todosPuestos ? `Quitar todo ${g.titulo}` : `Marcar todo ${g.titulo}`}
+                                </button>
+                              </div>
+                            )}
+                            {g.tipos.map(tc => {
+                              const puesto = form.tiposClaseIds.includes(tc.id);
+                              return (
+                                <label key={tc.id}
+                                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
+                                  <input
+                                    type="checkbox" checked={puesto}
+                                    onChange={() => set('tiposClaseIds', puesto
+                                      ? form.tiposClaseIds.filter(x => x !== tc.id)
+                                      : [...form.tiposClaseIds, tc.id])}
+                                    className="w-4 h-4 rounded accent-[var(--brand)] shrink-0" />
+                                  <span className="text-sm text-foreground">{tc.nombre}</span>
+                                  {tc.archivadoEn && <span className="text-[12px] text-muted-foreground">archivado</span>}
+                                </label>
+                              );
+                            })}
+                          </div>
                         );
                       })}
                     </div>
@@ -1144,7 +1192,7 @@ export default function Productos() {
         </div>
       )}
 
-      {/* ── PLANES: Suscripciones / Paquetes / Bajo demanda ── */}
+      {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
       {tab === 'planes' && (
         <>
           <div className="flex items-center gap-2 flex-wrap">

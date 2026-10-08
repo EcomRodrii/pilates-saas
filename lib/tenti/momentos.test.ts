@@ -208,3 +208,8 @@ test('estadoDelVeredicto: las reglas en orden, y nunca una cara junto a un cobro
   assert.equal(estadoDelVeredicto({ ...base, fallidasHoy: 1 }), 'error');
   assert.equal(estadoDelVeredicto(base), 'reposo', '«Hoy no te interrumpo con nada»: la firma, no un «todo bien»');
 });
+
+test('estadoDeLaMigracion: una entidad saltada (no_importada) sin error propio NO es «hecho»', () => {
+  assert.equal(estadoDeLaMigracion({ resultados: [{ estado: 'importada' }, { estado: 'no_importada' }], deshecho: false }), 'error');
+  assert.equal(estadoDeLaMigracion({ resultados: [{ estado: 'importada' }], deshecho: false }), 'hecho');
+});

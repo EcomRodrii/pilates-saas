@@ -1440,7 +1440,10 @@ function NuevaBajaDialog({
   onCreada: () => Promise<void>;
 }) {
   const uid = useId();
-  const [sesionId, setSesionId] = useState<string | null>(null);
+  // Varias clases a la vez: una instructora enferma suele dejar cinco al día, y
+  // marcarlas una a una (cinco aperturas del diálogo) era el momento en que
+  // la propietaria cogía el teléfono.
+  const [seleccion, setSeleccion] = useState<string[]>([]);
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1478,19 +1481,41 @@ function NuevaBajaDialog({
 
   // Reset al abrir (patrón estándar de diálogo controlado).
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); setBusquedaClase(''); setAhoraMs(Date.now()); } }, [open]);
+  useEffect(() => { if (open) { setSeleccion([]); setMotivo(''); setError(null); setBusquedaClase(''); setAhoraMs(Date.now()); } }, [open]);
+
+  const alternar = (id: string) => setSeleccion(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  // «Todas las que coinciden»: con «Irene» en el buscador, un toque marca su jornada entera.
+  const todasLasVisibles = proximas.length > 0 && proximas.every(s => seleccion.includes(s.id));
+  const alternarVisibles = () => setSeleccion(prev => todasLasVisibles
+    ? prev.filter(id => !proximas.some(s => s.id === id))
+    : [...new Set([...prev, ...proximas.map(s => s.id)])]);
 
   async function crear() {
     // La guarda no es cosmética: `crearBaja` ya ha escrito cuando empieza la
     // recarga, así que un segundo clic aquí crea una baja duplicada.
-    if (!sesionId || guardando) return;
+    if (seleccion.length === 0 || guardando) return;
     setGuardando(true); setError(null);
     try {
-      const r = await crearBaja(sesionId, motivo.trim() || undefined);
-      if ('error' in r) { setError(r.error); return; }
+      // Una a una y en orden: cada baja arranca su propio motor de sustitución
+      // (idempotente por clase) y el servidor no tiene una vía por lotes.
+      const fallos: string[] = [];
+      const hechasIds: string[] = [];
+      for (const id of seleccion) {
+        const r = await crearBaja(id, motivo.trim() || undefined);
+        if ('error' in r) fallos.push(r.error); else hechasIds.push(id);
+      }
+      const hechas = hechasIds.length;
       // onCreada() recarga la lista y es lo que de verdad tarda: el botón tiene
       // que seguir bloqueado hasta que termine, no soltarse al volver crearBaja.
-      await onCreada();
+      if (hechas > 0) await onCreada();
+      if (fallos.length > 0) {
+        // Quedan marcadas solo las que fallaron, para reintentarlas con un clic.
+        setSeleccion(prev => prev.filter(id => !hechasIds.includes(id)));
+        setError(hechas > 0
+          ? `Se han marcado ${hechas} baja${hechas === 1 ? '' : 's'}; ${fallos.length} no se ${fallos.length === 1 ? 'ha' : 'han'} podido marcar: ${[...new Set(fallos)].join(' · ')}`
+          : fallos[0]);
+        return;
+      }
       onClose();
     } finally {
       setGuardando(false);
@@ -1504,7 +1529,7 @@ function NuevaBajaDialog({
           <DialogTitle>Marcar una baja</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Elige la clase que se queda sin instructora. Te propondremos a quién avisar al instante.</p>
+          <p className="text-sm text-muted-foreground">Elige las clases que se quedan sin instructora (puedes marcar varias: busca su nombre y pulsa «Elegir todas»). Te propondremos a quién avisar al instante.</p>
           {proximasTodas.length > 8 && (
             <input
               type="search"
@@ -1514,6 +1539,14 @@ function NuevaBajaDialog({
               aria-label="Buscar la clase que se queda sin instructora"
               className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all"
             />
+          )}
+          {proximas.length > 1 && (
+            <div className="flex items-center justify-between text-[12px]">
+              <button type="button" onClick={alternarVisibles} className="font-semibold text-brand-medio hover:underline">
+                {todasLasVisibles ? 'Quitar las de esta lista' : `Elegir todas${busquedaClase.trim() ? ' las que coinciden' : ' las de esta lista'} (${proximas.length})`}
+              </button>
+              {seleccion.length > 0 && <span className="text-muted-foreground">{seleccion.length} elegida{seleccion.length === 1 ? '' : 's'}</span>}
+            </div>
           )}
           <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
             {proximas.length === 0 ? (
@@ -1525,10 +1558,10 @@ function NuevaBajaDialog({
             ) : proximas.map(s => {
               const t = tiposClase.find(x => x.id === s.tipoClaseId);
               const ins = instructores.find(i => i.id === s.instructorId);
-              const sel = sesionId === s.id;
+              const sel = seleccion.includes(s.id);
               return (
                 <button
-                  key={s.id} onClick={() => setSesionId(s.id)}
+                  key={s.id} onClick={() => alternar(s.id)} aria-pressed={sel}
                   className={`w-full flex items-center gap-2.5 text-left px-3 py-2.5 rounded-xl border transition-colors ${sel ? 'border-brand bg-brand/10' : 'border-border hover:bg-muted'}`}
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t?.color ?? '#94A3B8' }} />
@@ -1556,8 +1589,8 @@ function NuevaBajaDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={onClose} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-            <button onClick={crear} disabled={!sesionId || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
-              <Clock size={14} /> {guardando ? 'Buscando…' : 'Buscar sustituta'}
+            <button onClick={crear} disabled={seleccion.length === 0 || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+              <Clock size={14} /> {guardando ? 'Buscando…' : seleccion.length > 1 ? `Buscar sustitutas (${seleccion.length})` : 'Buscar sustituta'}
             </button>
           </div>
         </div>

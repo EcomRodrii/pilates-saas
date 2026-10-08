@@ -443,3 +443,34 @@ test('mismo nombre pero otro tipo, o la propia tarifa al editarla, no es duplica
   assert.equal(tarifaDuplicada('Bono 10', 'BONO', existentes, 'a'), null);
   assert.equal(tarifaDuplicada('', 'BONO', existentes), null);
 });
+
+import { precioSospechoso, agruparTiposClase } from './formulario.ts';
+
+const tar = (id: string, tipo: 'MENSUAL' | 'BONO' | 'PUNTUAL', precio: number, activo = true) => ({ id, tipo, precio, activo });
+
+test('precioSospechoso: 1010 € con bonos de 90 y 150 € → avisa con la más cara', () => {
+  assert.deepEqual(precioSospechoso('1010', 'BONO', [tar('a', 'BONO', 90), tar('b', 'BONO', 150)]), { maxOtras: 150 });
+});
+test('precioSospechoso: un precio razonable, o poca referencia, o otro tipo, no avisa', () => {
+  assert.equal(precioSospechoso('260', 'BONO', [tar('a', 'BONO', 90), tar('b', 'BONO', 150)]), null);
+  assert.equal(precioSospechoso('1010', 'BONO', [tar('a', 'BONO', 90)]), null);
+  assert.equal(precioSospechoso('1010', 'BONO', [tar('a', 'MENSUAL', 90), tar('b', 'MENSUAL', 150)]), null);
+  assert.equal(precioSospechoso('1010', 'BONO', [tar('a', 'BONO', 0), tar('b', 'BONO', 150, false)]), null);
+  assert.equal(precioSospechoso('', 'BONO', [tar('a', 'BONO', 90), tar('b', 'BONO', 150)]), null);
+});
+test('precioSospechoso: al editar no se compara consigo misma y entiende la coma', () => {
+  assert.equal(precioSospechoso('1010,50', 'BONO', [tar('a', 'BONO', 90), tar('b', 'BONO', 150), tar('yo', 'BONO', 1010)], 'yo')?.maxOtras, 150);
+});
+
+test('agruparTiposClase: agrupa por primera palabra y manda los sueltos a «Otras»', () => {
+  const g = agruparTiposClase([
+    { id: '1', nombre: 'Reformer' }, { id: '2', nombre: 'Reformer Fundamental' }, { id: '3', nombre: 'Mat' },
+    { id: '4', nombre: 'Mat Suave' }, { id: '5', nombre: 'Prenatal' }, { id: '6', nombre: 'Taller' },
+  ]);
+  assert.deepEqual(g.map(x => [x.titulo, x.tipos.map(t => t.id)]), [['Reformer', ['1', '2']], ['Mat', ['3', '4']], ['Otras', ['5', '6']]]);
+});
+test('agruparTiposClase: sin grupos de 2+, todo va en «Otras»', () => {
+  const g = agruparTiposClase([{ id: '1', nombre: 'Yoga' }, { id: '2', nombre: 'Taller' }]);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].clave, '_otras');
+});

@@ -98,7 +98,10 @@ export async function entregarVentaPOS(
   for (const linea of lineas ?? []) {
     if (linea.tipo !== 'PLAN' || !linea.referencia_id || linea.suscripcion_id) continue;
     if (!venta.socio_id) {
-      avisos.push(`«${linea.nombre}» no se pudo entregar: la venta no tiene clienta.`);
+      // Vender un bono sin ficha es a propósito (decisión del fundador, 14-sep): queda
+      // «por asignar». Antes decía «no se pudo entregar», que suena a fallo del cobro
+      // y no dice qué hacer. Ahora dice que está cobrado, que falta darle dueña, y dónde.
+      avisos.push(`«${linea.nombre}» está cobrado pero sin entregar: no tiene clienta. Asígnalo desde «Ventas» (verás «Bono por asignar») y se le entrega a su ficha.`);
       continue;
     }
 

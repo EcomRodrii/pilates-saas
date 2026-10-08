@@ -29,6 +29,10 @@ const A2_DIAS = 28;             // ventana de clases pasadas a evaluar
 const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arrancado
 const A2_MIN_VACIAS = 6;        // nº de clases casi vacías para que valga la pena avisar
 const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la confianza
+// «Sin datos» no es «vacía»: un estudio que acaba de importar su horario (o que
+// se dio de alta hoy) tiene decenas de clases ya empezadas y cero reservas
+// registradas, y el motor decía con «confianza alta» que todas iban vacías.
+const A2_MIN_ANTIGUEDAD_DIAS = 14; // el estudio lleva al menos esto en Tentare
 
 // Día y hora de una franja: `etiquetaFranja` (senales.ts), en hora del estudio,
 // compartida con Ingresos.
@@ -218,6 +222,10 @@ function reglaA2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | 
     return t <= now.getTime() && t >= desde;
   });
   if (pasadas.length < A2_MIN_CLASES) return null;
+  if (s.contexto.antiguedadDatosDias < A2_MIN_ANTIGUEDAD_DIAS) return null;
+  // Ni una sola reserva en toda la ventana: no hay historial que juzgar (horario
+  // recién importado, o reservas aún sin traer), no clases vacías.
+  if (!pasadas.some(se => (idx.ocupadasPorSesion.get(se.id) ?? 0) > 0)) return null;
 
   const vacias = pasadas.filter(se => (idx.ocupadasPorSesion.get(se.id) ?? 0) / se.aforoMaximo <= UMBRAL_VACIA);
   const nVacias = vacias.length;

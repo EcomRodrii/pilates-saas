@@ -13,6 +13,7 @@ import {
 import type { AlCompletar, EtapaVista, TipoEtapa } from './etapas.ts';
 import type { AlertaApertura } from './alertas.ts';
 import { leerRespuestas, type RespuestasOnboarding } from './onboarding.ts';
+import { CLIENTAS_QUE_DELATAN_UN_ESTUDIO_ABIERTO } from './visibilidad.ts';
 import { cargarEstadosClientas } from '../clientas/estado-servidor.ts';
 
 // Cargas de Opening OS con cliente service-role, compartidas por la API de la
@@ -48,19 +49,21 @@ export interface EstadoAperturaServidor {
   fase: string | null;
   estudioCreadoEn: string | null;
   tieneAsistencias: boolean;
+  muchasClientas: boolean;
   config: ConfigCompleta;
   /** null = onboarding sin hacer (o guardado a medias). */
   respuestas: RespuestasOnboarding | null;
 }
 
 export async function cargarEstadoApertura(admin: SupabaseClient, studioId: string): Promise<EstadoAperturaServidor | null> {
-  const [studioR, progresoR, configR, asistenciaR] = await Promise.all([
+  const [studioR, progresoR, configR, asistenciaR, clientasR] = await Promise.all([
     admin.from('studios').select('fecha_apertura, creado_en').eq('id', studioId).maybeSingle(),
     admin.from('opening_progreso').select('fase, objetivos').eq('studio_id', studioId).maybeSingle(),
     admin.from('opening_config').select('*').eq('studio_id', studioId).maybeSingle(),
     admin.from('reservas').select('id').eq('studio_id', studioId).eq('estado', 'ASISTIDA').limit(1),
+    admin.from('socios').select('id').eq('studio_id', studioId).is('borrado_en', null).limit(CLIENTAS_QUE_DELATAN_UN_ESTUDIO_ABIERTO),
   ]);
-  const error = studioR.error ?? progresoR.error ?? configR.error ?? asistenciaR.error;
+  const error = studioR.error ?? progresoR.error ?? configR.error ?? asistenciaR.error ?? clientasR.error;
   if (error) throw error;
   if (!studioR.data) return null;
   return {
@@ -68,6 +71,7 @@ export async function cargarEstadoApertura(admin: SupabaseClient, studioId: stri
     fase: (progresoR.data?.fase as string | undefined) ?? null,
     estudioCreadoEn: (studioR.data.creado_en as string | null) ?? null,
     tieneAsistencias: (asistenciaR.data?.length ?? 0) > 0,
+    muchasClientas: (clientasR.data?.length ?? 0) >= CLIENTAS_QUE_DELATAN_UN_ESTUDIO_ABIERTO,
     config: configDesdeFila(configR.data),
     respuestas: leerRespuestas(progresoR.data?.objetivos),
   };

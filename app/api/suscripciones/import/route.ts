@@ -3,11 +3,12 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha, normalizarEstadoMembresia } from '@/lib/csv';
-import { uid } from '@/lib/utils';
+import { uid, hoyEnEstudio } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { normalizarNombrePlan } from '@/lib/migracion/planes';
 import { catalogo } from '@/lib/migracion/catalogo';
+import { cicloDeMembresiaImportada } from '@/lib/migracion/membresias-ciclo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
@@ -65,8 +66,8 @@ export async function POST(req: NextRequest) {
   // Catálogo del estudio para emparejar: socias por email + planes por nombre.
   const [{ data: socios, error: errS }, { data: planes, error: errP }, { data: susExist, error: errX }] = await Promise.all([
     catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).order('id').range(d, h)),
-    catalogo<{ id: string; nombre: string; tipo: string; sesiones: number | null }>((d, h) => admin.from('planes_tarifa').select('id, nombre, tipo, sesiones').eq('studio_id', sesion.studioId).order('id').range(d, h)),
-    catalogo<{ socio_id: string; plan_id: string; estado: string }>((d, h) => admin.from('suscripciones').select('socio_id, plan_id, estado').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string; tipo: string; sesiones: number | null; validez_dias: number | null }>((d, h) => admin.from('planes_tarifa').select('id, nombre, tipo, sesiones, validez_dias').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ socio_id: string; plan_id: string; estado: string; fecha_inicio: string | null }>((d, h) => admin.from('suscripciones').select('socio_id, plan_id, estado, fecha_inicio').eq('studio_id', sesion.studioId).order('id').range(d, h)),
   ]);
   if (errS || errP || errX) {
     return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
@@ -84,19 +85,25 @@ export async function POST(req: NextRequest) {
   if (errE) return errorInterno('suscripciones:import:etapas', errE, 'No se ha podido comprobar el catálogo. Inténtalo de nuevo.');
   const planesConCupo = new Set((etapasCupo ?? []).map(e => e.plan_id as string));
 
-  const planPorNombre = new Map<string, { id: string; tipo: string; sesiones: number | null }>();
-  for (const p of planes ?? []) planPorNombre.set(normPlan(p.nombre), { id: p.id, tipo: p.tipo, sesiones: p.sesiones });
+  const planPorNombre = new Map<string, { id: string; tipo: string; sesiones: number | null; validezDias: number | null }>();
+  for (const p of planes ?? []) planPorNombre.set(normPlan(p.nombre), { id: p.id, tipo: p.tipo, sesiones: p.sesiones, validezDias: p.validez_dias });
 
   // Dedup: no recrear una membresía ACTIVA que ya existe (socia + plan). Permite
   // reimportar sin duplicar y no bloquea planes distintos para la misma socia.
   const activasExistentes = new Set<string>();
   for (const s of susExist ?? []) if (s.estado === 'ACTIVA' && s.socio_id && s.plan_id) activasExistentes.add(`${s.socio_id}|${s.plan_id}`);
+  // Las ya CADUCADAS no están «activas», pero reimportar el mismo archivo no debe
+  // recrearlas: se reconocen por socia + plan + fecha de inicio, en cualquier estado.
+  const yaConEseInicio = new Set<string>();
+  for (const s of susExist ?? []) if (s.socio_id && s.plan_id && s.fecha_inicio) yaConEseInicio.add(`${s.socio_id}|${s.plan_id}|${s.fecha_inicio}`);
 
   const errores: { fila: number; email: string; motivo: string }[] = [];
   const paraInsertar: Record<string, unknown>[] = [];
   const vistosEnLote = new Set<string>();
-  const hoy = new Date().toISOString().slice(0, 10);
+  // El día del estudio (Madrid), no el de UTC: entre las 00:00 y las 02:00 era ayer.
+  const hoy = hoyEnEstudio();
   let duplicadas = 0;
+  let caducadas = 0;
 
   filas.forEach((f, i) => {
     const numFila = i + 1;
@@ -127,19 +134,13 @@ export async function POST(req: NextRequest) {
       return;
     }
 
+    const fechaInicio = parsearFecha(f.fechaInicio) ?? hoy;
     const clave = `${socioId}|${plan.id}`;
-    if (activasExistentes.has(clave) || vistosEnLote.has(clave)) {
+    if (activasExistentes.has(clave) || vistosEnLote.has(clave) || yaConEseInicio.has(`${clave}|${fechaInicio}`)) {
       duplicadas++;
       return;
     }
 
-    const estado = (f.estado ? normalizarEstadoMembresia(f.estado) : null) ?? 'ACTIVA';
-    // Solo dedup-tracking de las que quedarán ACTIVA (una socia sí puede tener
-    // varias históricas canceladas del mismo plan).
-    if (estado === 'ACTIVA') vistosEnLote.add(clave);
-
-    const fechaInicio = parsearFecha(f.fechaInicio) ?? hoy;
-    const fechaFin = parsearFecha(f.fechaFin);
     // Saldo de bono: el del CSV si viene; si la celda venía VACÍA y el plan es
     // BONO, el del plan.
     //
@@ -156,7 +157,23 @@ export async function POST(req: NextRequest) {
       return;
     }
     const sesionesCsv = typeof saldoBruto === 'number' ? Math.max(0, Math.trunc(saldoBruto)) : null;
-    const sesionesRestantes = sesionesCsv ?? (plan.tipo === 'BONO' ? plan.sesiones : null);
+
+    // Fecha de fin por la validez de la tarifa y estado: un bono que ya caducó
+    // entra EXPIRADA (antes: «Activa, quedan 20 de 20» para siempre).
+    const ciclo = cicloDeMembresiaImportada({
+      plan: { tipo: plan.tipo as 'MENSUAL' | 'BONO' | 'PUNTUAL', sesiones: plan.sesiones, validezDias: plan.validezDias },
+      fechaInicio,
+      fechaFinArchivo: parsearFecha(f.fechaFin),
+      estadoArchivo: f.estado ? normalizarEstadoMembresia(f.estado) : null,
+      saldoArchivo: sesionesCsv,
+      hoy,
+    });
+    const { estado, fechaFin, sesionesRestantes } = ciclo;
+    if (ciclo.caducada) caducadas++;
+    // Solo dedup-tracking de las que quedarán ACTIVA (una socia sí puede tener
+    // varias históricas canceladas del mismo plan); y el mismo inicio nunca dos veces.
+    if (estado === 'ACTIVA') vistosEnLote.add(clave);
+    yaConEseInicio.add(`${clave}|${fechaInicio}`);
 
     paraInsertar.push({
       id: `sus-${uid()}`,
@@ -182,7 +199,7 @@ export async function POST(req: NextRequest) {
         `Se han importado ${importadas} membresías y el proceso se ha detenido ahí. `
         + 'Comprueba que las socias y los planes del archivo existan ya en tu cuenta, y vuelve a subirlo.',
         500,
-        { importadas, duplicadas, errores },
+        { importadas, duplicadas, caducadas, errores },
       );
     }
     importadas += lote.length;
@@ -192,5 +209,5 @@ export async function POST(req: NextRequest) {
     ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'suscripciones', ids: paraInsertar.map(r => r.id as string) })) ? null : 'No se pudo registrar el lote para deshacer'
     : null;
 
-  return NextResponse.json({ batchAviso, total: filas.length, importadas, duplicadas, errores });
+  return NextResponse.json({ batchAviso, total: filas.length, importadas, duplicadas, caducadas, errores });
 }

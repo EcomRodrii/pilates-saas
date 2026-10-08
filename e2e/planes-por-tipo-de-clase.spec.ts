@@ -245,7 +245,7 @@ test.describe('El tipo de tarifa se dice en castellano', () => {
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    for (const nombre of [/^Suscripciones/, /^Bonos/, /^Bajo demanda/]) {
+    for (const nombre of [/^Suscripciones/, /^Bonos/, /^Clases sueltas/]) {
       await expect(page.getByRole('button', { name: nombre })).toBeVisible();
     }
     for (const constante of ['MENSUAL', 'BONO', 'PUNTUAL']) {
