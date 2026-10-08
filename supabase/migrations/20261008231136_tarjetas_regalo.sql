@@ -17,6 +17,9 @@
 --   · El código se guarda en claro (hay que poder reenviar el correo) pero la
 --     búsqueda va por su huella SHA-256; el navegador no lee ninguna de las dos
 --     columnas (grant por columnas, abajo).
+--   · Supresión (RGPD): CONSERVAR. `tarjetas_regalo` y `movimientos_regalo` son el pasivo y su libro; `anonimizar_socio`
+--     no los toca. ⚠️ Llevan nombres y emails de terceros: lo que se anonimiza al suprimir a una socia lo decide la
+--     asesoría legal (ver docs/tarjeta-regalo.md).
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1. Ajustes del estudio ──────────────────────────────────────────────────────
@@ -39,7 +42,7 @@ comment on table public.regalo_ajustes is
   'Producto «Tarjeta regalo» de cada estudio (uno por estudio). Apagado de serie: se vende solo si la propietaria lo activa. Solo lo escribe el servidor.';
 
 -- 2. Tarjetas ─────────────────────────────────────────────────────────────────
-create table public.tarjetas_regalo (
+create table if not exists public.tarjetas_regalo (
   id                  uuid primary key default gen_random_uuid(),
   studio_id           text not null references public.studios(id) on delete cascade,
   codigo              text not null,

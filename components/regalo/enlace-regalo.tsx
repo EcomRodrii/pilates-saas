@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Gift } from 'lucide-react';
 
 // «Regala una tarjeta» en el pie de la página pública. Solo aparece si el estudio la vende de
 // verdad (ajustes encendidos, cobro listo, captcha de servidor listo): un enlace a una página
@@ -19,7 +20,12 @@ export function EnlaceRegalo({ slug }: { slug: string }) {
   if (!aLaVenta) return null;
   return (
     <Link href={`/reservar/${slug}/regalo`} data-testid="enlace-regalo"
-      style={{ color: 'var(--portal-ink)', fontWeight: 700, fontSize: 13, textDecoration: 'underline' }}>
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '0 18px', borderRadius: 999,
+        border: '1.5px solid var(--portal-line)', background: 'var(--portal-surface)', color: 'var(--portal-ink)',
+        fontWeight: 700, fontSize: 14, textDecoration: 'none',
+      }}>
+      <Gift size={17} aria-hidden />
       Regala una tarjeta
     </Link>
   );

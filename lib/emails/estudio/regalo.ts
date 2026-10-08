@@ -25,11 +25,12 @@ export function correoRegaloDestinataria(p: DatosCorreoRegalo): string {
     titular: `${p.compradorNombre} te ha hecho un regalo`,
     parrafos: [
       `Hola ${p.destinatarioNombre}, ${p.compradorNombre} te regala una tarjeta de ${p.importeTexto} para usar en ${estudio}.`,
-      p.mensaje ? `«${p.mensaje}»` : null,
       'Para canjearla, entra en la app del estudio, abre tu perfil y escribe el código. También puedes dárselo al equipo en recepción. El saldo se puede gastar en varias veces.',
     ],
+    // Sus palabras van aparte, en cita y con su firma: no se leen como una frase del estudio.
+    cita: p.mensaje?.trim() ? { texto: p.mensaje, autor: p.compradorNombre } : null,
     detalle: { filas: [
-      { label: 'Código', value: p.codigo, destacado: true },
+      { label: 'Tu código', value: p.codigo, destacado: true, codigo: true },
       { label: 'Saldo', value: p.importeTexto },
       { label: 'Válida hasta', value: p.caducaTexto },
     ] },
@@ -52,7 +53,7 @@ export function correoRegaloJustificante(p: Omit<DatosCorreoRegalo, 'mensaje' | 
       'Te dejamos aquí el código por si prefieres dárselo en mano o imprimir este correo.',
     ],
     detalle: { filas: [
-      { label: 'Código', value: p.codigo, destacado: true },
+      { label: 'Código', value: p.codigo, destacado: true, codigo: true },
       { label: 'Importe', value: p.importeTexto },
       { label: 'Válida hasta', value: p.caducaTexto },
     ] },
