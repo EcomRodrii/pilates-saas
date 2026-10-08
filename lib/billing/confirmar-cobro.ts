@@ -44,6 +44,7 @@
 // sellar HOY una factura de hace semanas tiene implicación fiscal real (en qué
 // trimestre se declara), y eso lo decide una persona, no un cron.
 // ─────────────────────────────────────────────────────────────────────────────
+import { emiteFacturaAutomatica } from '../factura-automatica.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as SentryNext from '@sentry/nextjs';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
@@ -154,7 +155,7 @@ export type ResultadoConfirmarCobro =
 /** Los efectos, inyectables para poder probar el orden sin red ni BD. */
 export interface DependenciasEfectos {
   renovar: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<unknown>;
-  sellar: (admin: SupabaseClient, p: { studioId: string; reciboId: string; facturaId: string }) => Promise<ResultadoSellado>;
+  sellar: (admin: SupabaseClient, p: { studioId: string; reciboId: string; facturaId: string; origen?: 'automatica' | 'manual' }) => Promise<ResultadoSellado>;
   apuntarCaja: (admin: SupabaseClient, p: { studioId: string; reciboId: string; actor: ActorCobro | null }) => Promise<void>;
   otorgarCreditos: (admin: SupabaseClient, p: { studioId: string; reciboId: string; socioId: string }) => Promise<void>;
   notificar: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<void>;
@@ -329,7 +330,7 @@ export async function aplicarEfectosCobro(
           break;
         }
         case 'factura': {
-          const r = await d.sellar(admin, { ...base, facturaId: p.facturaId });
+          const r = await d.sellar(admin, { ...base, facturaId: p.facturaId, origen: p.conFactura === true ? 'manual' : 'automatica' });
           if (r.ok) {
             const n = r.factura?.numeroCompleto;
             if (typeof n === 'string') numeroFactura = n;
@@ -794,6 +795,9 @@ export async function reintentarFacturasPendientesDeSellar(
     // El id del canal que lo intentó primero, no `fac-checkout-` para todos.
     const res = await sellarFacturaDeRecibo(admin, {
       studioId: rec.studio_id, reciboId: rec.id, facturaId: facturaIdParaReintento(rec),
+      // Una pendiente de un método que no factura sola (efectivo) está ahí porque
+      // alguien pidió la factura: ese deseo no lo borra apagar el ajuste.
+      origen: emiteFacturaAutomatica(rec.metodo_cobro) ? 'automatica' : 'manual',
     });
     if (res.ok || res.desactivada) {
       // Apagado después del cobro: ya no hay factura que emitir, y la marca se

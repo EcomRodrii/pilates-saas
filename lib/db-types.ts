@@ -1118,6 +1118,8 @@ export interface RowStudios {
   tour_progreso: any | null;
   // migr 20261007211202.
   tour_completado_en: string | null;
+  // migr 20261009100000.
+  facturar_automatico: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -5683,6 +5685,7 @@ export type StudiosInsert = {
   tour_obligatorio?: boolean | null | null;
   tour_progreso?: any | null | null;
   tour_completado_en?: string | null | null;
+  facturar_automatico?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5839,6 +5842,7 @@ export type StudiosUpdate = {
   tour_obligatorio?: boolean | null | null;
   tour_progreso?: any | null | null;
   tour_completado_en?: string | null | null;
+  facturar_automatico?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

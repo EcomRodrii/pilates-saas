@@ -53,3 +53,23 @@ test('factura siempre (2-oct-2026): «facturas» y «verifactu» emiten; «sin_f
   assert.equal(emiteFacturaAutomatica('TARJETA', 'facturas'), true);
   assert.equal(emiteFacturaAutomatica('EFECTIVO', 'facturas'), false, 'el efectivo sigue siendo a elección');
 });
+
+test('«Facturar automáticamente» apagado: no sale ninguna sola, sea cual sea el método ni el modo', () => {
+  for (const m of ['TARJETA', 'BIZUM', 'TRANSFERENCIA', 'SEPA', 'DATAFONO', 'EFECTIVO', null, undefined]) {
+    for (const modo of ['facturas', 'verifactu'] as const) {
+      assert.equal(emiteFacturaAutomatica(m, modo, false), false, `${String(m)}/${modo}`);
+    }
+  }
+});
+
+test('«Facturar automáticamente» encendido o sin saber: igual que siempre', () => {
+  for (const f of [true, undefined, null]) {
+    assert.equal(emiteFacturaAutomatica('TARJETA', 'facturas', f), true);
+    assert.equal(emiteFacturaAutomatica('BIZUM', 'verifactu', f), true);
+    assert.equal(emiteFacturaAutomatica('EFECTIVO', 'facturas', f), false);
+  }
+});
+
+test('el ajuste no depende de Veri*Factu: con cualquiera de los dos modos sale igual', () => {
+  assert.equal(emiteFacturaAutomatica('TARJETA', 'facturas', true), emiteFacturaAutomatica('TARJETA', 'verifactu', true));
+});

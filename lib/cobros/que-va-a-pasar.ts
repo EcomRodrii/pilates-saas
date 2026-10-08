@@ -5,7 +5,8 @@
 //   · la caja solo apunta un cobro en efectivo, tarjeta o Bizum, y solo con una
 //     caja ABIERTA (`apuntar_cobro_en_caja`, efecto `caja` de `confirmarCobro`);
 //     sin caja abierta no apunta, y no es un error;
-//   · la factura sale sola si el cobro no es en efectivo (`emiteFacturaAutomatica`;
+//   · la factura sale sola si el cobro no es en efectivo y el estudio no ha apagado
+//     «Facturar automáticamente» (`emiteFacturaAutomatica`;
 //     desde el 2-oct-2026 todo estudio factura). En efectivo, solo si se marca
 //     «Hacerle factura» (decisión del fundador, 2-oct-2026). Sin NIF válido del
 //     estudio (`nifEmisorValido`, la guarda del sellado) queda pendiente y sale
@@ -41,6 +42,8 @@ export function queVaAPasar(p: {
   nifEstudio: string | null;
   /** «Hacerle factura» marcado (solo cuenta en efectivo). */
   hacerFactura: boolean;
+  /** El ajuste del estudio «Facturar automáticamente». Sin pasarlo, encendido (lo de siempre). */
+  facturarAutomatico?: boolean | null;
 }): QueVaAPasar {
   let caja: string | null = null;
   if (p.metodo && PASAN_POR_CAJA.has(p.metodo) && p.cajaAbierta !== null) {
@@ -50,7 +53,11 @@ export function queVaAPasar(p: {
     return { caja, factura: null, saleFactura: false, ofrecerHacerFactura: false };
   }
   const efectivo = p.metodo === 'EFECTIVO';
-  const quiereFactura = emiteFacturaAutomatica(p.metodo, p.modoFacturacion) || (efectivo && p.hacerFactura);
+  const quiereFactura = emiteFacturaAutomatica(p.metodo, p.modoFacturacion, p.facturarAutomatico) || (efectivo && p.hacerFactura);
+  if (!quiereFactura && !efectivo && p.facturarAutomatico === false) {
+    // Ajuste apagado: la factura se hace a mano desde el recibo cobrado (⋯).
+    return { caja, factura: 'No sale factura sola (tienes apagado «Facturar automáticamente»). Si te la piden, hazla desde el recibo cobrado.', saleFactura: false, ofrecerHacerFactura: false };
+  }
   if (!quiereFactura) {
     return { caja, factura: 'En efectivo no sale factura sola: marca «Hacerle factura» si te la pide.', saleFactura: false, ofrecerHacerFactura: true };
   }
