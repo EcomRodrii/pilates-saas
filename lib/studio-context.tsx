@@ -3939,7 +3939,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ reservaId }),
     }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    // Sin respuesta (red caída, corte a medias) NO es lo mismo que «el servidor dijo que no»: la cancelación, con su devolución
+    // de bono o su penalización, PUEDE haberse hecho. Devolver la reserva a «confirmada» y decir «no se pudo» mentiría en ese
+    // caso: se relee lo que hay de verdad y se avisa de que se mire antes de repetir.
+    if (respuesta === null) {
+      resetDatosPilates();
+      return { ok: false, error: 'No hemos podido confirmar la cancelación. Mira cómo ha quedado la reserva antes de repetirla: puede haberse hecho.' };
+    }
+    const datos = await respuesta.json().catch(() => null) as {
       promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
       recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean;
       bonoDevuelto?: boolean; tardia?: boolean;

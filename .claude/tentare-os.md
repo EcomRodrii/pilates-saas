@@ -98,6 +98,14 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   (lo que hizo #567 con `20260731103000` → `20260730155339`): si no, un `supabase db push`
   desde limpio la ve pendiente y la reaplica con OTRO timestamp, y la divergencia se
   multiplica en vez de cerrarse.
+- **El «hoy» de un estudio es el de Madrid, nunca el de UTC** (8-oct-2026). El servidor y la base de datos corren en UTC:
+  entre las 00:00 y las 02:00 de Madrid, `current_date` y `new Date().toISOString().slice(0, 10)` siguen en el día anterior.
+  En TypeScript, `hoyEnEstudio()` (`lib/utils.ts`); en SQL, `public.hoy_estudio()`. Lo que ya lo usa: `crear_recuperacion`
+  (una recuperación `FIN_MES` creada el día 1 a las 00:30 nacía caducada), el recibo de renovación de `/api/public/renovar-plan`
+  (el id lleva el MES), el vencimiento del recibo de penalización y el gate de vigencia de `crearReservaPublica`. ⚠️ Siguen en
+  `current_date` las comparaciones de vigencia de bonos, cuotas y recuperaciones (`elegir_bono_consumible`,
+  `socio_tiene_entitlement_activo`, `evaluar_reserva`…): solo se equivocan en sentido indulgente durante esas dos horas, y
+  cambiarlas es una pasada propia, función a función, no un buscar y reemplazar.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.

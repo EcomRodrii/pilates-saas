@@ -2983,10 +2983,10 @@ export async function crearReservaPublica(params: {
     // Cerrado, no abierto.
     exigirPlanEnRpc = errorPlanes ? exigirPlanResuelto : exigirPlan;
     if (exigirPlan && !tieneEntitlementActivo(
-      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10), tipoDeLaClase,
+      params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(), tipoDeLaClase,
     )) {
       const tieneAlgunPlan = tieneEntitlementActivo(
-        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, new Date().toISOString().slice(0, 10),
+        params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(),
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
       return tieneAlgunPlan

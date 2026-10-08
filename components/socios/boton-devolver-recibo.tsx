@@ -73,9 +73,16 @@ export function BotonDevolverRecibo({
 
   async function confirmar() {
     setEnviando(true);
-    const res = await reembolsarRecibo(recibo.id);
-    setEnviando(false);
-    setAbierto(false);
+    let res: Awaited<ReturnType<typeof reembolsarRecibo>>;
+    try {
+      res = await reembolsarRecibo(recibo.id);
+    } catch {
+      // `reembolsarRecibo` no lanza, pero este botón mueve dinero: si alguna vez lo hiciera, no se queda en «enviando» y se dice.
+      res = { error: 'No hemos podido confirmar la devolución. Mira el recibo antes de repetirla: puede haber salido.' };
+    } finally {
+      setEnviando(false);
+      setAbierto(false);
+    }
     if ('ok' in res) {
       // Marca local para que la fila cambie YA, sin esperar a recargar. El dato
       // de verdad queda guardado en el recibo (`reembolso_solicitado_en`), así

@@ -136,3 +136,20 @@ test('evaluar_reserva: la plaza ofrecida solo cuenta como ocupada si el estudio 
   // Y es la ÚNICA decisión de aforo: `reservar_plaza` decide con esta función, no con otra cuenta.
   assert.match(cuerpoVigente('reservar_plaza').replace(/\s+/g, ' '), /evaluar_reserva\(/);
 });
+
+// ── 8-oct: el «hoy» de Madrid y reanudar solo lo pausado ─────────────────────
+
+test('crear_recuperacion calcula la caducidad desde el «hoy» de Madrid, no desde current_date (UTC)', () => {
+  const c = cuerpoVigente('crear_recuperacion').replace(/\s+/g, ' ');
+  assert.match(c, /v_hoy date := public\.hoy_estudio\(\)/);
+  assert.doesNotMatch(c, /current_date/, 'ni en la caducidad, ni en el tope de vivas, ni en la comprobación de pasado');
+  assert.match(c, /calcular_caduca_recuperacion\(v_hoy,/);
+  const h = cuerpoVigente('hoy_estudio').replace(/\s+/g, ' ');
+  assert.match(h, /now\(\) at time zone 'Europe\/Madrid'/);
+});
+
+test('descongelar_suscripcion solo reanuda una PAUSADA y reanudar dos veces seguidas no falla', () => {
+  const c = cuerpoVigente('descongelar_suscripcion').replace(/\s+/g, ' ');
+  assert.match(c, /where id = p_suscripcion_id and studio_id = p_studio_id and estado = 'PAUSADA'/);
+  assert.match(c, /if not found then select fecha_fin into v_fin from suscripciones/, 'idempotente: devuelve su fecha de fin sin tocarla');
+});
