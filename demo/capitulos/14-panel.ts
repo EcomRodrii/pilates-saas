@@ -1,5 +1,5 @@
 import type { Capitulo } from './tipos.ts';
-import { abrirCajon, abrirSeccion, cajon, cerrarCajon, guardarYCerrar, interruptor } from './ayudas.ts';
+import { abrirCajon, abrirSeccion, cajon, cerrarCajon, interruptor } from './ayudas.ts';
 
 export const panel: Capitulo = {
   id: 'panel',

@@ -1,5 +1,5 @@
 import type { Capitulo } from './tipos.ts';
-import { abrirCajon, abrirSeccion, cajon, cerrarCajon, fila } from './ayudas.ts';
+import { abrirCajon, abrirSeccion, cerrarCajon, fila } from './ayudas.ts';
 
 export const conexiones: Capitulo = {
   id: 'conexiones',

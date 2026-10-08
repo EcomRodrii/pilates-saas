@@ -1,5 +1,5 @@
 import type { Capitulo } from './tipos.ts';
-import { abrirCajon, abrirSeccion, cajon, guardarYCerrar, volverDeHerramienta } from './ayudas.ts';
+import { abrirSeccion, volverDeHerramienta } from './ayudas.ts';
 
 export const clases: Capitulo = {
   id: 'clases',
