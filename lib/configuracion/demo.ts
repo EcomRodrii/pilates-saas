@@ -3,8 +3,10 @@
 // y por qué. Está pensado para enseñar a una propietaria nueva.
 //
 // ⚠️ El binario NO vive en el repo (pesa decenas de MB y el repo es público): la
-// dirección va en `VIDEO_DEMO.url`. Mientras sea `null` la sección enseña el
-// índice de capítulos y lo dice, en vez de un reproductor vacío.
+// dirección va en `VIDEO_DEMO.url` (bucket público de lectura `demo-configuracion`,
+// fichero `demo-configuracion-v1.mp4`). Si fuera `null`, la sección enseña el índice
+// de capítulos y lo dice, en vez de un reproductor vacío.
+// Para cambiar el vídeo se sube con otro nombre (`-v2`): la URL pública se cachea.
 //
 // ⚠️ Los capítulos y sus minutos NO se escriben a mano: los genera
 // `npm run demo:montar` (demo/montar.mjs) al unir el vídeo, a partir de lo que
@@ -29,7 +31,10 @@ export interface VideoDemo {
   readonly portada: string | null;
 }
 
-export const VIDEO_DEMO: VideoDemo = { url: null, portada: null };
+export const VIDEO_DEMO: VideoDemo = {
+  url: 'https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/demo-configuracion/demo-configuracion-v1.mp4',
+  portada: null,
+};
 
 /** `83` → `1:23`; `3725` → `1:02:05`. */
 export function formatoMinuto(seg: number): string {
