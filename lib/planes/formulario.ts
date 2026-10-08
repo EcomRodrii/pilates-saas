@@ -66,6 +66,23 @@ export function tipoSugeridoPorNombre(nombre: string, tipo: TipoPlan): TipoPlan 
 }
 
 /**
+ * ¿Ya hay una tarifa con este nombre y este tipo? Devuelve la existente.
+ *
+ * POR QUÉ: una dueña creó «Tarifa Clase Suelta» dos veces seguidas (79 s entre
+ * una y otra, probablemente creyó que la primera no había salido) y el TPV le
+ * enseñó la clase suelta repetida. No bloquea —dos tarifas con el mismo nombre
+ * pueden ser deliberadas—, solo avisa antes de crear la segunda.
+ */
+export function tarifaDuplicada<T extends { id: string; nombre: string; tipo: TipoPlan }>(
+  nombre: string, tipo: TipoPlan, existentes: readonly T[], ignorarId?: string,
+): T | null {
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const buscado = norm(nombre);
+  if (!buscado) return null;
+  return existentes.find(p => p.id !== ignorarId && p.tipo === tipo && norm(p.nombre) === buscado) ?? null;
+}
+
+/**
  * Cada cuánto se puede cobrar una cuota, para el desplegable.
  *
  * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`

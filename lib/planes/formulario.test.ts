@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable, caducaPorDias,
   type FormularioPlan,
-  erroresPlan, resumenCondicionesPlan, tipoSugeridoPorNombre,
+  erroresPlan, resumenCondicionesPlan, tipoSugeridoPorNombre, tarifaDuplicada,
 } from './formulario.ts';
 import type { PlanTarifa } from '../types.ts';
 
@@ -428,4 +428,18 @@ test('sin contradicción no avisa (incluida una cuota «8 clases al mes»)', () 
   assert.equal(tipoSugeridoPorNombre('Clase suelta', 'PUNTUAL'), null);
   assert.equal(tipoSugeridoPorNombre('Bono 10 clases', 'BONO'), null);
   assert.equal(tipoSugeridoPorNombre('', 'MENSUAL'), null);
+});
+
+// ── Dos tarifas iguales ─────────────────────────────────────────────────────
+
+test('crear «Tarifa Clase Suelta» otra vez encuentra la que ya existe', () => {
+  const existentes = [{ id: 'a', nombre: 'Tarifa Clase Suelta', tipo: 'PUNTUAL' as const }];
+  assert.equal(tarifaDuplicada('  tarifa  clase suelta ', 'PUNTUAL', existentes)?.id, 'a');
+});
+
+test('mismo nombre pero otro tipo, o la propia tarifa al editarla, no es duplicado', () => {
+  const existentes = [{ id: 'a', nombre: 'Bono 10', tipo: 'BONO' as const }];
+  assert.equal(tarifaDuplicada('Bono 10', 'MENSUAL', existentes), null);
+  assert.equal(tarifaDuplicada('Bono 10', 'BONO', existentes, 'a'), null);
+  assert.equal(tarifaDuplicada('', 'BONO', existentes), null);
 });

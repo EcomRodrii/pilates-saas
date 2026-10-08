@@ -117,8 +117,15 @@ async function mockBackend(page: Page, opts: {
 }
 
 
-async function abrirFormulario(page: Page) {
-  await mockBackend(page);
+function filaPlan(id: string, nombre: string, tipo: string, precio: number, activo: boolean): Record<string, unknown> {
+  return {
+    id, studio_id: STUDIO_ID, nombre, descripcion: null, precio, tipo,
+    sesiones: tipo === 'BONO' ? 10 : tipo === 'PUNTUAL' ? 1 : null, validez_dias: null, limite_semanal: null, activo,
+  };
+}
+
+async function abrirFormulario(page: Page, planesIniciales: Record<string, unknown>[] = []) {
+  await mockBackend(page, { planesIniciales });
   await seedSesionDeDuena(page);
   await page.goto('/productos');
   await expect(page.getByRole('button', { name: 'Crear', exact: true })).toBeVisible({ timeout: 30_000 });
@@ -144,5 +151,38 @@ test.describe('El nombre de la tarifa no contradice su tipo', () => {
     await abrirFormulario(page);
     await page.getByPlaceholder('Ej. Mensual ilimitado').fill('Mensual ilimitado');
     await expect(page.getByTestId('aviso-nombre-tipo')).toHaveCount(0);
+  });
+});
+
+test.describe('Lo que no se vende se ve, y una repetida avisa', () => {
+  test('crear otra «Clase suelta» igual avisa de la que ya existe', async ({ page }) => {
+    await abrirFormulario(page, [filaPlan('p1', 'Tarifa Clase Suelta', 'PUNTUAL', 23, true)]);
+    await page.getByRole('radio', { name: /Clase suelta/ }).click();
+    await page.getByPlaceholder('Ej. Mensual ilimitado').fill('tarifa clase suelta');
+    await expect(page.getByTestId('aviso-tarifa-repetida')).toContainText('Ya tienes «Tarifa Clase Suelta»');
+  });
+
+  test('una cuota con precio pero sin poner a la venta lo dice y se pone a la venta de un clic', async ({ page }) => {
+    const { planes } = await mockBackend(page, { planesIniciales: [filaPlan('p1', 'Cuota mensual', 'MENSUAL', 75, false)] });
+    await seedSesionDeDuena(page);
+    await page.goto('/productos');
+    await expect(page.getByRole('button', { name: 'Crear', exact: true })).toBeVisible({ timeout: 30_000 });
+
+    const aviso = page.getByTestId('plan-sin-vender');
+    await expect(aviso).toContainText('No está a la venta');
+    await aviso.getByRole('button', { name: 'Ponerla a la venta' }).click();
+
+    // Llegó a la base de datos, no solo a la pantalla (contador, no «no pasó nada»).
+    await expect.poll(() => planes.find(p => p.id === 'p1')?.activo, { timeout: 15_000 }).toBe(true);
+    await expect(page.getByTestId('plan-sin-vender')).toHaveCount(0);
+  });
+
+  test('el borrador del alta (precio 0) se dice borrador, sin botón de vender', async ({ page }) => {
+    await mockBackend(page, { planesIniciales: [filaPlan('p1', 'Cuota mensual', 'MENSUAL', 0, false)] });
+    await seedSesionDeDuena(page);
+    await page.goto('/productos');
+    const aviso = page.getByTestId('plan-sin-vender');
+    await expect(aviso).toContainText('Borrador', { timeout: 30_000 });
+    await expect(aviso.getByRole('button')).toHaveCount(0);
   });
 });
