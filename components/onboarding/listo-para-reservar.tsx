@@ -35,7 +35,7 @@ import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { capturarEvento } from '@/lib/posthog-cliente';
 // ⚠️ TentiDiferido y NUNCA '@/components/tenti/tenti': este componente lo
-// importan sin diferir /calendario y PrimerHorario, y un import directo metería
+// importa sin diferir /calendario, y un import directo metería
 // el motor de la mascota en cada carga del calendario, para todos los roles.
 import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 

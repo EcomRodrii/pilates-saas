@@ -271,8 +271,8 @@ const IMPORTAN_EL_ASISTENTE: Record<string, { usos: number; motivo: string }> = 
 
 /** Los únicos que importan `components/tenti/tenti-diferido`. */
 const IMPORTAN_EL_DIFERIDO = new Set([
-  // «Tu estudio ya puede recibir reservas»: cuelga sin diferir de /calendario y
-  // de PrimerHorario, así que el motor solo puede llegar por el diferido.
+  // «Tu estudio ya puede recibir reservas»: cuelga sin diferir de /calendario,
+  // así que el motor solo puede llegar por el diferido.
   'components/onboarding/listo-para-reservar.tsx',
   // Hito «tu estudio ya está en marcha», al terminar el alta (7-oct-2026): cuelga
   // del panel que se carga siempre, así que el motor solo llega por el diferido.

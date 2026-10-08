@@ -1,12 +1,10 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Si digo que el lunes abre a las 9, a las 8 tiene que poner cerrado.»
-//
-// El horario se guarda por día pero la rejilla del Día tiene un solo eje (el de
-// la apertura más temprana de la semana): el lunes, las 8:00 se veían como una
-// hora libre cualquiera. Ahora lo que cae fuera del horario de ESE día sale
-// como «Cerrado». Andamiaje copiado de calendario-reasignar-varias.spec.ts.
+// El calendario de un estudio sin ninguna clase. El asistente «Te lo montamos
+// nosotros» se retiró (confundía y generaba clases que nadie había pedido);
+// queda un estado vacío con las dos salidas reales.
+// Andamiaje copiado de calendario-reasignar-varias.spec.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -24,29 +22,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-/** Tres clases futuras el mismo día, sin solaparse. */
-function sesiones() {
-  // Fijas a media mañana de HOY (9:00 UTC = 11:00 o 10:00 en Madrid), no a «ahora
-  // + 3 h»: según la hora a la que corriera el test, la tercera caía pasadas las
-  // 22:00, ampliaba el eje y salía una franja «Cerrado» legítima que el test
-  // «el horario cubre todo el eje» no esperaba (falló en CI).
-  const base = new Date();
-  base.setUTCHours(9, 0, 0, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 19);
-  const hacer = (i: number, instructor: string) => {
-    const ini = new Date(base.getTime() + i * 90 * 60_000);
-    const fin = new Date(ini.getTime() + 55 * 60_000);
-    return {
-      id: `ses-${i}`, studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-      instructor_id: instructor, inicio: iso(ini), fin: iso(fin),
-      aforo_maximo: 10, cancelada: false, notas: null, serie_id: null, precio_puntual: null,
-    };
-  };
-  // La tercera YA la da Laura: no debe contar como movida.
-  return [hacer(0, 'ins-1'), hacer(1, 'ins-1'), hacer(2, 'ins-2')];
-}
-
-const SESIONES = sesiones();
+const SESIONES: Record<string, unknown>[] = [];
 
 // Ana está en las DOS clases que se mueven: tiene que contar UNA vez.
 const RESERVAS = [
@@ -67,7 +43,7 @@ const reservaApi = (r: Record<string, unknown>) => ({
   checkInEn: null, creadoEn: '2026-01-01T00:00:00',
 });
 
-async function montar(page: Page, horarioSemana: Record<string, unknown>[]) {
+async function montar(page: Page, tipos = TIPOS) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -90,14 +66,14 @@ async function montar(page: Page, horarioSemana: Record<string, unknown>[]) {
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
-  await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
+  await page.route('**/rest/v1/tipos_clase**', route => json(route, tipos));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
   await page.route('**/api/calendario**', route => json(route, {
     sesiones: SESIONES.map(sesionApi), reservas: RESERVAS.map(reservaApi), sustituciones: [],
     salas: SALAS.map(s => ({ id: s.id, studioId: s.studio_id, nombre: s.nombre, capacidad: s.capacidad, color: s.color })),
     instructores: INSTRUCTORES.map(i => ({ id: i.id, studioId: i.studio_id, nombre: i.nombre, email: i.email, telefono: i.telefono, color: i.color, activo: i.activo, avatar: i.avatar, fotoUrl: i.foto_url, rol: i.rol, authUserId: i.auth_user_id })),
-    horaApertura: '08:00:00', horaCierre: '22:00:00', horarioSemana, rol: 'PROPIETARIO',
+    horaApertura: '08:00:00', horaCierre: '22:00:00', horarioSemana: [], rol: 'PROPIETARIO',
   }));
   await page.route('**/rest/v1/sesiones**', route => {
     return json(route, SESIONES);
@@ -105,34 +81,30 @@ async function montar(page: Page, horarioSemana: Record<string, unknown>[]) {
   await page.route('**/rest/v1/reservas**', route => json(route, RESERVAS));
 
   await page.goto('/calendario');
-  await page.getByRole('button', { name: 'Día', exact: true }).click({ timeout: 30_000 });
-  await expect(page.getByTestId('grid-dia-scroll')).toBeVisible({ timeout: 20_000 });
 }
 
 
 
-const TODOS_LOS_DIAS = [0, 1, 2, 3, 4, 5, 6];
-const abiertos = (apertura: string, cierre: string) =>
-  TODOS_LOS_DIAS.map(dia => ({ dia, abierto: true, apertura, cierre }));
 
-test('un día que abre a las 10 y cierra a las 20 marca cerrado antes y después', async ({ page }) => {
-  await montar(page, abiertos('10:00:00', '20:00:00'));
-  // Una sala, dos tramos: de 8 a 10 y de 20 a 22.
-  await expect(page.getByTestId('tramo-cerrado')).toHaveCount(2);
-  await expect(page.getByTestId('tramo-cerrado').first()).toHaveText('Cerrado');
+test('sin clases dice qué falta y da las dos salidas, y el asistente ya no existe', async ({ page }) => {
+  await montar(page);
+  const vacio = page.getByTestId('calendario-sin-clases');
+  await expect(vacio.getByText('Tu horario todavía está vacío')).toBeVisible({ timeout: 30_000 });
+  await expect(vacio.getByRole('link', { name: /Importar mi horario/ })).toHaveAttribute('href', '/calendario/importar');
+  await expect(page.getByText('Te lo montamos nosotros')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Ver el horario propuesto/ })).toHaveCount(0);
 });
 
-test('un día en que el estudio no abre queda cerrado entero', async ({ page }) => {
-  await montar(page, TODOS_LOS_DIAS.map(dia => ({ dia, abierto: false, apertura: null, cierre: null })));
-  await expect(page.getByTestId('tramo-cerrado')).toHaveCount(1);
+test('«Crear mi primera clase» abre la misma pregunta que el botón de la cabecera', async ({ page }) => {
+  await montar(page);
+  await page.getByTestId('calendario-sin-clases').getByRole('button', { name: 'Crear mi primera clase' }).click({ timeout: 30_000 });
+  // Quien gestiona elige entre Clase y Clase fija: no se salta esa pregunta.
+  await expect(page.getByRole('dialog')).toBeVisible();
 });
 
-test('si el horario cubre todo el eje, no marca nada', async ({ page }) => {
-  await montar(page, abiertos('08:00:00', '22:00:00'));
-  await expect(page.getByTestId('tramo-cerrado')).toHaveCount(0);
-});
-
-test('sin horas por día (respuesta antigua) no se afirma que esté cerrado', async ({ page }) => {
-  await montar(page, TODOS_LOS_DIAS.map(dia => ({ dia, abierto: true })));
-  await expect(page.getByTestId('tramo-cerrado')).toHaveCount(0);
+test('sin tipos de clase, lo primero es crearlos', async ({ page }) => {
+  await montar(page, []);
+  const vacio = page.getByTestId('calendario-sin-clases');
+  await expect(vacio.getByRole('link', { name: 'Primero, crea tus tipos de clase' })).toBeVisible({ timeout: 30_000 });
+  await expect(vacio.getByRole('button', { name: 'Crear mi primera clase' })).toHaveCount(0);
 });

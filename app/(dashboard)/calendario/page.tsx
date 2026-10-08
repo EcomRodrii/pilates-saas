@@ -32,7 +32,6 @@ import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
-import { colorPorIndice } from '@/lib/onboarding/plan-configuracion';
 import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
@@ -87,7 +86,7 @@ import type { ClaseEnFranja } from '@/lib/calendario/franjas';
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { minutosDeHora } from '@/lib/calendario/horas-cerradas';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
-import { PrimerHorario } from '@/components/calendario/primer-horario';
+import { CalendarioSinClases } from '@/components/calendario/calendario-sin-clases';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
@@ -600,7 +599,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded, addInstructor,
+    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -3513,31 +3512,12 @@ export default function Calendario() {
           // ⚠️ CERO sesiones en TODO el estudio, no «cero esta semana»: una
           // semana vacía en un estudio en marcha es normal (vacaciones) y aquí
           // sería ruido.
-          <PrimerHorario
-            horaApertura={datosVista.horaApertura}
-            horaCierre={datosVista.horaCierre}
-            tiposClase={tiposProgramables.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
-            salas={salas.map(x => ({ nombre: x.nombre, capacidad: x.capacidad }))}
-            // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
-            // doy clases»): con más gente, repartir clases es decisión suya.
-            instructora={instructoresActivos.length === 1 ? instructoresActivos[0].nombre : null}
-            // Con el equipo vacío las clases nacían sin instructora: se pregunta quién.
-            sinEquipo={instructoresActivos.length === 0}
-            onCrearInstructora={async (nombre) => {
-              const res = await addInstructor({
-                nombre, email: null, telefono: null, color: colorPorIndice(instructores.length),
-                activo: true, rol: 'INSTRUCTOR', authUserId: null,
-              });
-              return res.ok ? { ok: true } : { ok: false, error: res.error };
-            }}
+          <CalendarioSinClases
             puedeCrear={gestionaClientas}
-            slug={studio?.slug ?? null}
-            nombreEstudio={studio?.nombre ?? 'tu estudio'}
-            onCreado={(n) => {
-              showToast(`Horario creado: ${n} clases en las próximas semanas`);
-              invalidarHorario();
-              void cargarDatosVista(rango);
-            }}
+            hayTiposDeClase={tiposProgramables.length > 0}
+            // El mismo camino que el botón de la cabecera: quien gestiona elige
+            // entre «Clase» y «Clase fija» (no se salta esa pregunta).
+            onCrearClase={gestionaClientas ? () => setElegirQueCrear(true) : () => openNueva()}
           />
         ) : enMovil ? (
           <VistaAgenda
