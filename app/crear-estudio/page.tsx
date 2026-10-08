@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 import { capturarEvento, identificar, vincularEstudio } from '@/lib/posthog-cliente';
+import { registrarAltaCompletada } from '@/lib/meta-pixel-cliente';
 import { CLAVE_ORIGEN_ALTA, nombrePasoAlta } from '@/lib/landing/medicion';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
@@ -291,6 +292,8 @@ export default function CrearEstudioPage() {
       // reserva_completada…). Así el embudo va de la visita a la primera reserva.
       vincularEstudio(estudio.id);
       capturarEvento('alta_estudio_creada', { plan: datos.plan });
+      // La conversión de la campaña de Meta. Sin el sí de la visitante es un no-op.
+      registrarAltaCompletada(datos.plan);
       setFase('listo');
     } finally {
       setMontando(false);
