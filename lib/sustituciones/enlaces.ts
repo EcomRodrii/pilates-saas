@@ -52,8 +52,14 @@ export async function obtenerOFirmarEnlace(
     .from('instructor_enlaces_vigentes')
     .select('token').eq('instructor_id', instructorId).eq('scope', scope).maybeSingle();
 
-  const token = vigente?.token && verificarTokenInstructora(vigente.token as string, scope as ScopeToken)
-    ? (vigente.token as string)
+  const valido = vigente?.token ? verificarTokenInstructora(vigente.token as string, scope as ScopeToken) : null;
+  // ⚠️ Una INVITACIÓN lleva grabado el rol de quien la emitió (`ref`), y `reclamar-reglas.ts` decide con él si se puede activar
+  // una ficha que mueve dinero. Reutilizar la vigente sin mirarlo le hacía llegar a un MANAGER el enlace que firmó la
+  // propietaria, con el permiso de la propietaria. Solo se reutiliza si lo emitió el mismo rol que lo pide; si no, se firma
+  // uno nuevo a su nombre (y el anterior queda revocado, como en cualquier reenvío).
+  const reutilizable = !!valido && (scope !== 'invitacion' || valido.ref === ref);
+  const token = reutilizable
+    ? (vigente!.token as string)
     : firmarTokenInstructora(instructorId, studioId, scope as ScopeToken, ref);
 
   if (token !== vigente?.token) {

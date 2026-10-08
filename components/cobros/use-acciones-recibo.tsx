@@ -24,7 +24,7 @@ import type { MetodoCobro, Recibo } from '@/lib/types';
 import type { IdAccionRecibo } from '@/lib/cobros/acciones-de-recibo';
 import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 import { MOTIVOS_ELIMINAR_RECIBO } from '@/lib/recibos-eliminar';
-import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
+import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo, CODIGO_RESPUESTA_PERDIDA } from '@/lib/api-client';
 import { copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { fechaCorta } from '@/lib/clientas/textos';
 import { anfitrionPortal } from '@/lib/panel-portal';
@@ -102,7 +102,11 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
     const socio = r?.socioId ? socios.find(s => s.id === r.socioId) : null;
     if (marcado.ok) avisos.ok(r ? `Cobro registrado: ${formatEuro(r.importe)} de ${nombre(r.socioId)}.` : 'Cobro registrado.');
     else avisos.error(`${marcado.error} Si no aparece, hazle la factura desde «Lo que he cobrado».`);
-    if (socio?.email && r) enviarEmailRecibo({ to: socio.email, toName: `${socio.nombre} ${socio.apellidos}`, reciboId });
+    if (socio?.email && r) {
+      void enviarEmailRecibo({ to: socio.email, toName: `${socio.nombre} ${socio.apellidos}`, reciboId }).then(salio => {
+        if (!salio) avisos.error('El cobro está registrado, pero el justificante no ha salido hacia la clienta.');
+      });
+    }
   }
 
   // Con la tarjeta o la domiciliación que la clienta ya tiene guardada, sin ella delante.
@@ -112,6 +116,8 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
     if ('error' in result) {
       if (result.errorCode === 'SIN_TARJETA') { abrirPedirTarjeta(r.socioId); return; }
       avisos.error(result.error);
+      // Sin respuesta: el cobro puede haberse hecho. Se relee el estudio para que el recibo muestre lo que hay de verdad.
+      if (result.errorCode === CODIGO_RESPUESTA_PERDIDA) resetDatosPilates();
       return;
     }
     if (result.aviso === 'COBRADO_SIN_PERSISTIR') {
@@ -128,6 +134,7 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
   // clave de idempotencia), parando en el primero que no entra, y releyendo el estudio UNA vez.
   async function cobrarSinEllaVarios(rs: Recibo[]) {
     let cobrados = 0;
+    let relectura = false;
     let fallo: string | null = null;
     for (const r of rs) {
       if (!r.socioId) continue;
@@ -135,12 +142,14 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
       if ('error' in result) {
         if (result.errorCode === 'SIN_TARJETA') { abrirPedirTarjeta(r.socioId); fallo = ''; break; }
         fallo = result.error;
+        // Sin respuesta: puede haberse cobrado ese recibo, así que se relee aunque no haya constancia de ninguno.
+        if (result.errorCode === CODIGO_RESPUESTA_PERDIDA) relectura = true;
         break;
       }
       if (result.aviso === 'COBRADO_SIN_PERSISTIR') { fallo = result.detalle ?? 'Cobrado en Stripe, pero sin guardarlo aquí: revísalo.'; break; }
       cobrados++;
     }
-    if (cobrados > 0) resetDatosPilates();
+    if (cobrados > 0 || relectura) resetDatosPilates();
     if (fallo) avisos.error(cobrados > 0 ? `${cobrados} cobrado${cobrados === 1 ? '' : 's'}; el siguiente no: ${fallo}` : fallo);
     else if (fallo === null) avisos.ok(cobrados === 1 ? 'Cobro intentado con lo que tiene guardado. Actualizando…' : `${cobrados} cobros intentados con lo que tiene guardado. Actualizando…`);
   }
