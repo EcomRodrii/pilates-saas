@@ -17,6 +17,8 @@ export const NOMBRES_HERRAMIENTAS = [
   'proponer_clase', 'proponer_sala', 'proponer_evento', 'proponer_cita',
   // Varias clases en una sola propuesta (9-oct-2026). Al final: el orden de las anteriores no cambia.
   'proponer_clases',
+  // Dos lecturas más (9-oct-2026), pedidas por lo que las dueñas preguntaban de verdad. Al final: el orden de las anteriores no cambia.
+  'ocupacion_por_tipo_de_clase', 'eventos_proximos',
 ] as const;
 export type NombreHerramienta = typeof NOMBRES_HERRAMIENTAS[number];
 
