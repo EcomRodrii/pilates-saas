@@ -228,6 +228,26 @@ async function detectarPendientes(
   };
 }
 
+// Las sesiones de TARJETA REGALO pagadas de la ventana: `activarRegaloDesdeSesion` es idempotente por sesión
+// (si la tarjeta ya existe y su correo salió, no hace nada), así que repetirla es seguro. Import dinámico: ese módulo
+// usa el alias `@/` y este fichero se carga también desde `node --test`.
+async function rescatarRegalos(
+  admin: SupabaseClient, stripe: Stripe, studio: { id: string; stripe_account_id: string }, sesiones: Stripe.Checkout.Session[],
+): Promise<void> {
+  const regalos = sesiones.filter(s => s.metadata?.origen === 'regalo' && s.status === 'complete' && s.payment_status === 'paid');
+  if (regalos.length === 0) return;
+  const { activarRegaloDesdeSesion } = await import('../regalo/stripe');
+  for (const s of regalos) {
+    const r = await activarRegaloDesdeSesion(admin, s, studio.id, stripe, studio.stripe_account_id);
+    if (!r.ok) {
+      Sentry.captureMessage('[conciliador] no se pudo crear la tarjeta regalo de una sesión pagada', {
+        level: 'error', tags: { area: 'cobros', tipo: 'regalo-rescate' },
+        extra: { sessionId: s.id, studioId: studio.id, motivo: r.motivo, detalle: r.detalle },
+      });
+    }
+  }
+}
+
 async function conciliarEstudio(
   admin: SupabaseClient,
   stripe: Stripe,
@@ -240,6 +260,12 @@ async function conciliarEstudio(
   for (const p of pendientes) {
     await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId), piPorId.get(p.sesionId));
   }
+  // Tarjetas regalo cobradas y sin acuñar (el webhook ya respondió 200 y no reintenta). Su fallo no corta nada.
+  await rescatarRegalos(admin, stripe, studio, [...sesionPorId.values()]).catch((e) => {
+    Sentry.captureException(e instanceof Error ? e : new Error('rescate de tarjetas regalo'), {
+      level: 'warning', tags: { area: 'cobros', tipo: 'regalo-rescate' }, extra: { studioId: studio.id },
+    });
+  });
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
   await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
   await soltarSesionesCaducadasDeRecibos(admin, studio, [...sesionPorId.values()]);

@@ -9,6 +9,7 @@ import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { EnlaceRegalo } from '@/components/regalo/enlace-regalo';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
@@ -4110,6 +4111,7 @@ export default function ReservarPage() {
       {!enVistaReserva && !vistaUnica && !apariencia.ocultarPie && seccionVisible('contacto') && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
+          <EnlaceRegalo slug={slug} />
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
               existe: una fila de contacto con huecos vacíos, o peor, con un
               teléfono de ejemplo, es un desvío a ninguna parte justo cuando

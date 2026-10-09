@@ -67,6 +67,16 @@ en Informes. El 1-oct-2026 eran 7 ventas de la primera versión de la caja
 (667,50 €), sin nada con lo que enlazarlas. Otras 12 tenían su recibo gemelo y se
 enlazaron (migración `…_ventas_pos_enlaza_recibos_gemelos`).
 
+## Tarjetas regalo: pasivo, no ingreso (9-oct-2026)
+
+Una tarjeta regalo vendida **no crea recibo** y **no suma en ninguna cifra de ingresos**
+(Inicio, Cobros, Informes, API). Vive en `tarjetas_regalo` / `movimientos_regalo`; su
+saldo es la suma del libro (`tarjetas_regalo_estado.saldo`) y se enseña como «saldo
+pendiente de usar» en Paquetes → Tarjeta regalo. Es dinero cobrado por un servicio aún
+no prestado. Detalle y decisiones fiscales pendientes en `docs/tarjeta-regalo.md`.
+Cuando se gasta saldo en el mostrador, el cobro de esa compra sigue su flujo normal
+(recibo, caja…): la tarjeta solo anota el descuento. Nunca sumar `importe_inicial`.
+
 ## Lo que el modelo no tiene (no inventarlo)
 
 - **Moneda.** Todo es EUR por construcción.

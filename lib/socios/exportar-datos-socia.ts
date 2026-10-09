@@ -50,6 +50,9 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   ventas_pos: { seccion: 'pagos' },
   devoluciones: { seccion: 'pagos' },
   penalizaciones: { seccion: 'pagos' },
+  // Tarjeta regalo: la alumna solo figura como quien la canjeó (socio_id); lo demás (comprador, destinatario) son datos
+  // de terceros. Se excluye hasta decidir con la asesoría qué debe salir en una solicitud de derechos.
+  tarjetas_regalo: { excluida: 'datos de la compra y del regalo (terceros); pendiente de decidir con la asesoría legal cómo entra en un acceso a datos' },
   mandatos_sepa: { seccion: 'pagos' },
   codigos_descuento_consumos: { seccion: 'pagos' },
   citas: { seccion: 'citas' },

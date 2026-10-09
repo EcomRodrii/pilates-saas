@@ -91,8 +91,8 @@ test('las filas: una baldosa por fila, «Seguridad», sin «Mi plan», y el mét
   await expect(main.getByRole('link', { name: /Escribir al estudio/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Privacidad y datos/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Método de pago/ })).toContainText('Visa ··4242');
-  // Una baldosa por fila: 4 de cuenta, 3 de pagos, 6 del estudio y cerrar sesión.
-  await expect(main.locator('[data-baldosa]')).toHaveCount(14);
+  // Una baldosa por fila: 4 de cuenta, 4 de comprar y pagar (con «Tarjeta regalo»), 6 del estudio y cerrar sesión.
+  await expect(main.locator('[data-baldosa]')).toHaveCount(15);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);
 });

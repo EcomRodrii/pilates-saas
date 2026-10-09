@@ -156,6 +156,11 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     documentadaEn: '20261006052737_pagos_clase.sql',
     detalle: 'El registro de cada pago de una clase (ids, importes, estados y fechas): cuadra con el recibo fiscal que ya se conserva, con el mismo seudónimo por socio_id. `pagador` es su socio_id o un hash de su email, nunca el email.',
   },
+  tarjetas_regalo: {
+    accion: 'CONSERVAR',
+    documentadaEn: '20261008231136_tarjetas_regalo.sql',
+    detalle: 'Pasivo del estudio (saldo de una tarjeta regalo vendida y aún no gastada) con su libro: se conserva seudónimo por socio_id. ⚠️ Lleva nombres y emails de terceros (quien compró y quien recibió, que puede ser la propia socia): PENDIENTE de la asesoría legal si deben anonimizarse al suprimirla (hoy se conservan mientras haya saldo vivo o por obligación contable).',
+  },
   movimientos_derecho: {
     accion: 'CONSERVAR',
     detalle: 'Libro de movimientos de su saldo de sesiones y recuperaciones (ids, cifras y fechas, y un motivo redactado por el sistema o el equipo, nunca por ella). Es el registro que explica cada sesión cobrada o devuelta y cuadra con los recibos y reservas que ya se conservan, con el mismo seudónimo por socio_id.',

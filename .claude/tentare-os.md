@@ -1753,6 +1753,14 @@ reglas siempre cargadas, y un loop de calidad disciplinado — construido nativa
 que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 <!-- END:tentare-development-os -->
 
+## Tarjeta regalo (9-oct-2026, `docs/tarjeta-regalo.md`)
+
+Saldo en € con su propio libro (`movimientos_regalo`, solo inserción) — **pasivo, no ingreso**: no crea `recibos` ni
+toca `confirmarCobro` ni las cifras. La tarjeta solo nace cuando el webhook (`lib/regalo/stripe.ts`) o la página de
+vuelta ven el cobro pagado, idempotente por sesión. El código no lo lee el navegador (grant por columnas).
+⚠️ El IVA y la caducidad mínima están **pendientes de gestoría**: no activar la venta en estudios reales sin cerrarlos.
+Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar online con saldo).
+
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día

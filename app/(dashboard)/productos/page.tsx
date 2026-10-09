@@ -3,7 +3,7 @@
 import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
-import { useRol, puedeMoverDinero } from '@/lib/permisos';
+import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
 import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn, uid, formatFechaLarga } from '@/lib/utils';
@@ -13,6 +13,7 @@ import { HojaStock } from '@/components/pos/hoja-stock';
 import { subirFotoProducto, eliminarFotoProducto } from '@/lib/portal-storage';
 import { FOTO_PRODUCTO_TIPOS as FOTO_TIPOS, FOTO_PRODUCTO_MAX_BYTES as FOTO_MAX_BYTES } from '@/lib/portal-storage';
 import { PageHeader } from '@/components/ui/page-header';
+import { PanelRegalo } from '@/components/regalo/panel-regalo';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -22,7 +23,7 @@ import {
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
-type Tab = 'planes' | 'pos';
+type Tab = 'planes' | 'pos' | 'regalo';
 
 // Paquetes (antes "Membresías", y antes de eso "Productos"): los 3 tipos de
 // plan ya existentes (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por
@@ -1085,8 +1086,10 @@ export default function Productos() {
   // está en BLOQUEADO_MANAGER) vería la pestaña POS el día que se reactive y
   // sus altas/ediciones fallarían en silencio contra la RLS.
   const mueveDinero = puedeMoverDinero(useRol());
-  const TABS = ([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const)
-    .filter(([v]) => v !== 'pos' || (!posCongelado && mueveDinero));
+  // «Tarjeta regalo» la ve quien ve finanzas (la RLS de sus tablas lo exige); el POS, quien mueve dinero.
+  const verFinanzas = puedeVerFinanzas(useRol());
+  const TABS = ([['planes', 'Planes de suscripción'], ['regalo', 'Tarjeta regalo'], ['pos', 'Productos POS']] as const)
+    .filter(([v]) => (v !== 'pos' || (!posCongelado && mueveDinero)) && (v !== 'regalo' || verFinanzas));
 
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
@@ -1166,7 +1169,7 @@ export default function Productos() {
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
-        actions={mueveDinero && (
+        actions={mueveDinero && tab !== 'regalo' && (
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-colors"
@@ -1380,6 +1383,9 @@ export default function Productos() {
           )}
         </>
       )}
+
+      {/* ── TARJETA REGALO ── */}
+      {tab === 'regalo' && <PanelRegalo />}
 
       {/* ── PRODUCTOS POS ── */}
       {tab === 'pos' && (
