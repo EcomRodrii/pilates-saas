@@ -171,6 +171,39 @@ test.describe('Cuando algo va mal', () => {
     await expect(page.getByRole('heading', { name: 'Tu cuenta' })).toBeVisible();
   });
 
+  // El fallo del 9-oct-2026, medido en los registros del servicio de cuentas: la
+  // protección contra contraseñas filtradas rechazaba una contraseña larga con un
+  // 422 («Password is known to be weak and easy to guess…») y la pantalla decía
+  // «al menos 6 caracteres» —un comodín sobre la palabra «password»—, así que
+  // quien lo veía no podía adivinar qué cambiar. Con el contador, porque sin él
+  // «no sale el texto malo» también sería cierto si no se hubiera enviado nada.
+  test('contraseña rechazada por filtrada: lo dice, y NO dice que sea corta', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/auth/v1/signup**', route => {
+      intentos += 1;
+      return json(route, {
+        code: 422,
+        error_code: 'weak_password',
+        msg: 'Password is known to be weak and easy to guess, please choose a different one.',
+        weak_password: { reasons: ['pwned'] },
+      }, 422);
+    });
+
+    await page.goto('/crear-estudio');
+    await rellenarPaso1(page);
+    await pasarDelPlan(page);
+    await rellenarPaso3(page);
+    await page.getByRole('button', { name: /días gratis/ }).click();
+
+    await expect.poll(() => intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/filtraciones de datos/)).toBeVisible();
+    await expect(page.getByText(/al menos 6 caracteres/)).toHaveCount(0);
+    await expect(page.getByText(/demasiado corta/)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toHaveCount(0);
+    // Y el botón vuelve a estar disponible para probar con otra.
+    await expect(page.getByRole('button', { name: /días gratis/ })).toBeEnabled();
+  });
+
   test('con la red caída tampoco anuncia éxito', async ({ page }) => {
     let intentos = 0;
     await page.route('**/auth/v1/signup**', route => { intentos += 1; return route.abort('failed'); });
