@@ -15,7 +15,7 @@ import { facturacionDelPeriodo, pagosPendientes } from './dinero.ts';
 import { queRevisarHoy, resumenDelEstudio } from './estudio.ts';
 import { mensajeDeFaltantes } from './faltantes.ts';
 import { LecturaFallida, fallo } from './comun.ts';
-import { proponerCita, proponerClase, proponerEvento, proponerSala } from '../acciones/servidor.ts';
+import { proponerCita, proponerClase, proponerClases, proponerEvento, proponerSala } from '../acciones/servidor.ts';
 import { guardarPropuesta } from '../acciones/servidor.ts';
 import type { Preparada } from '../acciones/nucleo.ts';
 
@@ -56,6 +56,7 @@ const EJECUTORES: Record<NombreHerramienta, Ejecutor> = {
   proponer_sala: proponiendo(proponerSala),
   proponer_evento: proponiendo(proponerEvento),
   proponer_cita: proponiendo(proponerCita),
+  proponer_clases: proponiendo(proponerClases),
 };
 
 export const REGISTRO: readonly Herramienta<unknown>[] = DEFINICIONES.map(d => ({

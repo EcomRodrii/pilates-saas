@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumirSobreAforo, type SesionAforo } from './reservas-aforo.ts';
+import { aforoNecesario, resumirSobreAforo, type SesionAforo } from './reservas-aforo.ts';
 
 const AHORA = Date.parse('2026-10-09T10:00:00Z');
 const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 16);
@@ -37,4 +37,16 @@ test('el detalle ordena por exceso y se acota', () => {
   assert.equal(r.futuras, 8);
   assert.equal(r.detalle.length, 3);
   assert.ok(r.detalle[0].startsWith('C7'));
+});
+
+test('aforoNecesario: solo las clases del archivo que no caben, con el aforo que harían falta', () => {
+  const sesiones = new Map([
+    ['a', { aforo: 12, inicioMs: 1, nombre: 'Mat' }],
+    ['b', { aforo: 10, inicioMs: 1, nombre: 'Yoga' }],
+    ['c', { aforo: 0, inicioMs: 1, nombre: 'Sin aforo' }],
+    ['d', { aforo: 5, inicioMs: 1, nombre: 'Ya pasada de antes' }],
+  ]);
+  const ocupadas = new Map([['a', 16], ['b', 10], ['c', 30], ['d', 9]]);
+  const r = aforoNecesario(ocupadas, sesiones, new Set(['a', 'b', 'c']));
+  assert.deepEqual(r, [{ sesionId: 'a', nuevoAforo: 16 }]);
 });

@@ -7,7 +7,7 @@
 // su tarifa (la misma regla que una venta: `cicloInicialDe`) y, si ya pasó, la
 // membresía entra como EXPIRADA, sin consumir nada.
 
-import { cicloInicialDe } from '../bono-logic.ts';
+import { cicloInicialDe, mesesDeCiclo } from '../bono-logic.ts';
 import type { PlanTarifa } from '../types.ts';
 
 export interface ResultadoCicloImportado {
@@ -17,6 +17,8 @@ export interface ResultadoCicloImportado {
   sesionesRestantes: number | null;
   /** Se ha dado por caducada por su fecha de fin (para contarlo en el acta). */
   caducada: boolean;
+  /** Cuota a la que se le puso el final de su ciclo vigente: desde ahí se renueva sola. */
+  cuotaConRenovacion: boolean;
 }
 
 export function cicloDeMembresiaImportada(args: {
@@ -32,13 +34,20 @@ export function cicloDeMembresiaImportada(args: {
 }): ResultadoCicloImportado {
   const { plan, fechaInicio, fechaFinArchivo, estadoArchivo, saldoArchivo, hoy } = args;
 
-  // Cuotas (MENSUAL) sin fecha de fin: no se inventa. `cicloInicialDe` daría
-  // «inicio + 1 mes», que para una cuota de 2024 ya es pasado y la mataría; la
-  // renovación de una cuota importada es otro asunto (lo lleva el cobro).
-  const fechaFin = fechaFinArchivo
-    ?? (plan.tipo !== 'MENSUAL' ? cicloInicialDe(plan, `${fechaInicio}T12:00:00.000Z`).fechaFin : null);
-
   const estadoBase = estadoArchivo ?? 'ACTIVA';
+
+  // Cuotas (MENSUAL) sin fecha de fin. `cicloInicialDe` daría «inicio + 1 mes»,
+  // que para una cuota de 2024 ya es pasado y la mataría; pero dejarla en NULL
+  // tampoco vale: la renovación (`renovaciones.ts`) solo mira cuotas con fecha de
+  // fin vencida, así que una cuota importada sin ella NO se renovaba nunca. Una
+  // cuota ACTIVA que viene sin fecha entra con el final de SU ciclo vigente: el
+  // primer aniversario de su inicio que no ha pasado (ciclos de `mesesDeCiclo`).
+  // Las pausadas o canceladas no se tocan: no deben renovarse.
+  const fechaFin = fechaFinArchivo
+    ?? (plan.tipo !== 'MENSUAL'
+      ? cicloInicialDe(plan, `${fechaInicio}T12:00:00.000Z`).fechaFin
+      : estadoBase === 'ACTIVA' ? finDelCicloVigente(fechaInicio, hoy, mesesDeCiclo(plan)) : null);
+
   const caducada = estadoBase === 'ACTIVA' && fechaFin !== null && fechaFin < hoy;
   const estado = caducada ? 'EXPIRADA' : estadoBase;
 
@@ -47,5 +56,32 @@ export function cicloDeMembresiaImportada(args: {
   const saldoPlan = plan.tipo === 'BONO' && !caducada ? plan.sesiones : null;
   const sesionesRestantes = saldoArchivo ?? saldoPlan;
 
-  return { fechaFin, estado, sesionesRestantes, caducada };
+  const cuotaConRenovacion = plan.tipo === 'MENSUAL' && fechaFinArchivo == null && fechaFin !== null;
+  return { fechaFin, estado, sesionesRestantes, caducada, cuotaConRenovacion };
+}
+
+/** `YYYY-MM-DD` + n meses, sin desbordar al mes siguiente (31-ene + 1 mes = 28/29-feb). */
+function sumarMesesISO(fecha: string, n: number): string {
+  const [y, m, d] = fecha.split('-').map(Number);
+  const total = (m - 1) + n;
+  const anio = y + Math.floor(total / 12);
+  const mes = ((total % 12) + 12) % 12;
+  const ultimo = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  return `${anio}-${String(mes + 1).padStart(2, '0')}-${String(Math.min(d, ultimo)).padStart(2, '0')}`;
+}
+
+/**
+ * El primer final de ciclo (inicio + k·meses, k ≥ 1) que no ha pasado: hasta ahí
+ * llega lo ya pagado de una cuota que viene de otra plataforma. Si aún no ha
+ * empezado, es el final de su primer ciclo.
+ */
+export function finDelCicloVigente(fechaInicio: string, hoy: string, meses: number): string {
+  const paso = Math.max(1, meses);
+  let k = 1;
+  let fin = sumarMesesISO(fechaInicio, paso);
+  while (fin < hoy && k < 1200) {
+    k++;
+    fin = sumarMesesISO(fechaInicio, paso * k);
+  }
+  return fin;
 }

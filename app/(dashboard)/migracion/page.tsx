@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
 import {
   analizarMigracion, deshacerMigracion, migracionesRecientes,
-  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos,
+  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos, type ResultadoImportReservas,
   importarRecuperaciones,
 } from '@/lib/api-client';
 import {
@@ -111,6 +111,13 @@ async function xlsxACsv(file: File): Promise<ArchivoLocal[]> {
   return salida;
 }
 
+function avisosDeMembresias(r: { caducadas?: number; conRenovacion?: number }): string[] | undefined {
+  const avisos: string[] = [];
+  if (r.caducadas) avisos.push(`${r.caducadas} entraron ya caducadas: su fecha de fin (por la validez de la tarifa) ya pasó. No cuentan como clientas activas.`);
+  if (r.conRenovacion) avisos.push(`${r.conRenovacion} cuota${r.conRenovacion === 1 ? '' : 's'} sin fecha de fin en el archivo: entraron con el final de su ciclo actual y se renovarán solas desde esa fecha (generan su recibo).`);
+  return avisos.length ? avisos : undefined;
+}
+
 export default function MigracionPage() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +148,10 @@ export default function MigracionPage() {
   // segundos — sin esto, un archivo mal clasificado era un callejón sin salida.
   const [overrides, setOverrides] = useState<Record<string, { entidad: EntidadMigracion | null; mapeo: Record<string, number> }>>({});
   const [editando, setEditando] = useState<string | null>(null);
+  // Reservas que no caben en el aforo: la importación espera aquí el OK (o el no) de quien migra.
+  const [preguntaAforo, setPreguntaAforo] = useState<{ info: ResultadoImportReservas; resolver: (ok: boolean) => void } | null>(null);
+  const preguntarAmpliarAforo = (info: ResultadoImportReservas) =>
+    new Promise<boolean>(resolver => setPreguntaAforo({ info, resolver }));
   const [paso, setPaso] = useState<Paso>('subir');
   const [arrastrando, setArrastrando] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoLocal[]>([]);
@@ -297,7 +308,7 @@ export default function MigracionPage() {
         const r = await importarMembresias(filas as FilaMembresia[], id);
         out.push({
           entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso,
-          avisos: r.caducadas ? [`${r.caducadas} entraron ya caducadas: su fecha de fin (por la validez de la tarifa) ya pasó. No cuentan como clientas activas.`] : undefined,
+          avisos: avisosDeMembresias(r),
         });
       } else if (entidad === 'clases') {
         const r = await importarClases(filas as FilaClase[], { semanas: 4, desde: hoy }, id);
@@ -306,13 +317,19 @@ export default function MigracionPage() {
           avisos: r.omitidasPorSolape ? [`${r.omitidasPorSolape} clases no se han creado porque se pisaban con otra en la misma sala o con la misma instructora Para ver cuáles, sube ese archivo en Calendario → Importar horario: te las lista fila a fila.`] : undefined,
         });
       } else if (entidad === 'reservas') {
-        const r = await importarReservas(filas as FilaReserva[], id);
+        let r = await importarReservas(filas as FilaReserva[], id);
+        let rechazoAforo = false;
+        if (r.necesitaConfirmacion === 'aforo') {
+          // Nada se ha escrito: se pregunta y, con el OK, se amplía el aforo y se importa.
+          const ok = await preguntarAmpliarAforo(r);
+          if (ok) r = await importarReservas(filas as FilaReserva[], id, true);
+          else rechazoAforo = true;
+        }
         out.push({
-          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinSesion + r.errores.length, error: r.error, batchAviso: r.batchAviso,
-          // El importador no bloquea por aforo (decisión suya), pero el acta SÍ lo cuenta.
-          avisos: r.sobreAforoFuturas
-            ? [`${r.sobreAforoFuturas} clase${r.sobreAforoFuturas === 1 ? '' : 's'} futura${r.sobreAforoFuturas === 1 ? '' : 's'} quedan por encima de su aforo (las reservas se importaron tal cual). ${(r.detalleSobreAforo ?? []).slice(0, 3).join(' · ')}`]
-            : undefined,
+          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinSesion + r.errores.length,
+          error: rechazoAforo ? 'No se han importado: había clases por encima de su aforo y no se ha ampliado.' : r.error,
+          batchAviso: r.batchAviso,
+          avisos: r.aforoAmpliado ? [`Se amplió el aforo de ${r.aforoAmpliado} clase${r.aforoAmpliado === 1 ? '' : 's'} para que cupieran todas las reservas.`] : undefined,
         });
       } else if (entidad === 'citas') {
         const r = await importarCitas(filas as FilaCita[], id);
@@ -859,6 +876,19 @@ export default function MigracionPage() {
         textoConfirmar="Deshacer migración"
         destructivo
         onConfirm={() => { const id = confirmarReciente; setConfirmarReciente(null); if (id) void deshacerReciente(id); }}
+      />
+      <ConfirmDialog
+        open={preguntaAforo !== null}
+        onOpenChange={v => { if (!v && preguntaAforo) { preguntaAforo.resolver(false); setPreguntaAforo(null); } }}
+        titulo="Hay clases que no caben"
+        descripcion={preguntaAforo
+          ? `${preguntaAforo.info.clasesSobreAforo ?? 0} ${(preguntaAforo.info.clasesSobreAforo ?? 0) === 1 ? 'clase se quedaría' : 'clases se quedarían'} por encima de su aforo`
+            + `${preguntaAforo.info.detalleSobreAforo?.length ? ` (${preguntaAforo.info.detalleSobreAforo.slice(0, 3).join(' · ')})` : ''}. `
+            + 'Si sigues, se amplía su aforo para que quepan todas las reservas. Si no, las reservas no se importan.'
+          : undefined}
+        textoConfirmar="Ampliar aforo e importar"
+        textoCancelar="No importar reservas"
+        onConfirm={() => { if (preguntaAforo) { preguntaAforo.resolver(true); setPreguntaAforo(null); } }}
       />
     </div>
   );

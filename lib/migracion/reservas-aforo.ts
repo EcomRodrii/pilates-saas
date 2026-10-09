@@ -42,3 +42,23 @@ export function resumirSobreAforo(
   peores.sort((a, b) => b.exceso - a.exceso);
   return { futuras, pasadas, detalle: peores.slice(0, maxDetalle).map(p => p.frase) };
 }
+
+/**
+ * Clases del archivo que no caben en su aforo y a cuánto habría que subirlo
+ * (las reservas que ocuparían plaza). Solo las que toca el archivo: una que ya
+ * venía pasada de aforo antes de importar no es cosa suya.
+ */
+export function aforoNecesario(
+  ocupadas: ReadonlyMap<string, number>,
+  sesiones: ReadonlyMap<string, SesionAforo>,
+  tocadas: ReadonlySet<string>,
+): { sesionId: string; nuevoAforo: number }[] {
+  const out: { sesionId: string; nuevoAforo: number }[] = [];
+  for (const id of tocadas) {
+    const s = sesiones.get(id);
+    const n = ocupadas.get(id) ?? 0;
+    if (!s || s.aforo <= 0 || n <= s.aforo) continue;
+    out.push({ sesionId: id, nuevoAforo: n });
+  }
+  return out;
+}

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  prepararCita, prepararClase, prepararEvento, prepararSala, resolverPorNombre, zCita, zClase, zEvento, zSala,
-  type CatalogoClase, type CatalogoCita,
+  prepararCita, prepararClase, prepararClases, prepararEvento, prepararSala, resolverPorNombre, zCita, zClase, zClases, zEvento, zSala,
+  type CatalogoClase, type CatalogoCita, type CatalogoClases,
 } from './nucleo.ts';
 
 // 2026-10-06 12:00 en Madrid (UTC+2): martes.
@@ -126,4 +126,49 @@ test('resolverPorNombre ignora tildes y mayúsculas, y distingue ambiguo de ning
   assert.equal(resolverPorNombre(l, 'sala'), 'ambiguo');
   assert.equal(resolverPorNombre(l, 'azotea'), null);
   assert.equal(zClase.safeParse({ ...clase, aforo: -1 }).success, false);
+});
+
+const catLote = (o: Partial<CatalogoClases> = {}): CatalogoClases => {
+  const { bloqueosInstructora: _b, ...resto } = cat();
+  return { ...resto, bloqueosPorFecha: new Map(), ...o };
+};
+const lote = (fechas: string[], extra: Record<string, unknown> = {}) => ({
+  tipo_clase: 'Reformer', sala: 'sala grande', instructora: '[EQUIPO_1]', horarios: fechas.map(fecha => ({ fecha, hora: '18:00' })), ...extra,
+}) as Parameters<typeof prepararClases>[0];
+
+test('lote: varias clases en una sola propuesta, ordenadas, con las líneas comunes y la lista de días', () => {
+  const r = prepararClases(lote(['2026-10-14', '2026-10-07', '2026-10-21']), catLote(), AHORA, HOY);
+  assert.ok(r.ok);
+  assert.equal(r.payload.clases.length, 3);
+  assert.deepEqual(r.payload.clases.map(c => c.inicio), ['2026-10-07T16:00:00.000Z', '2026-10-14T16:00:00.000Z', '2026-10-21T16:00:00.000Z']);
+  assert.equal(r.titulo, 'Crear 3 clases');
+  assert.ok(r.lineas.some(l => l.etiqueta === 'Días (3)'));
+  assert.match(r.resumen, /^3 clases de Reformer/);
+});
+
+test('lote: todo o nada — si una no se puede, no se propone ninguna y se dice cuál', () => {
+  const cierre = { id: 'c', desde: '2026-10-14', hasta: '2026-10-14', motivo: 'Festivo' };
+  const r = prepararClases(lote(['2026-10-07', '2026-10-14', '2026-10-21']), catLote({ cierres: [cierre] }), AHORA, HOY);
+  assert.ok(!r.ok);
+  assert.match(r.error, /miércoles 14 de octubre a las 18:00: .*cerrado.*No he propuesto ninguna de las 3/);
+});
+
+test('lote: los bloqueos son por día, y un duplicado en la lista se rechaza', () => {
+  const bloqueo = new Map([['2026-10-14', [{ horaInicio: null, horaFin: null }]]]);
+  const r = prepararClases(lote(['2026-10-07', '2026-10-14']), catLote({ bloqueosPorFecha: bloqueo }), AHORA, HOY);
+  assert.ok(!r.ok && /14 de octubre.*no está disponible/.test(r.error));
+  const dup = prepararClases(lote(['2026-10-07', '2026-10-07']), catLote(), AHORA, HOY);
+  assert.ok(!dup.ok && /repetido/.test(dup.error));
+});
+
+test('lote: dos horarios que se pisan entre sí chocan aunque la agenda esté vacía', () => {
+  const r = prepararClases({ ...lote(['2026-10-07']), horarios: [{ fecha: '2026-10-07', hora: '18:00' }, { fecha: '2026-10-07', hora: '18:30' }] }, catLote(), AHORA, HOY);
+  assert.ok(!r.ok && /ya está ocupada/.test(r.error));
+});
+
+test('lote: el esquema pide entre 2 y 24 horarios', () => {
+  assert.ok(!zClases.safeParse({ ...lote(['2026-10-07']) }).success);
+  assert.ok(zClases.safeParse(lote(['2026-10-07', '2026-10-14'])).success);
+  const muchos = Array.from({ length: 25 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`);
+  assert.ok(!zClases.safeParse(lote(muchos)).success);
 });
