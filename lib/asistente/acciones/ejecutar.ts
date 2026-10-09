@@ -3,7 +3,7 @@ import type { Rol } from '../../types.ts';
 import { cierreDeFecha } from '../../calendario/nueva-clase.ts';
 import { mensajeSolapeNuevaClase } from '../../student/nueva-clase.ts';
 import { hoyEnEstudio } from '../../utils.ts';
-import { bloqueada, normalizar, type PayloadCita, type PayloadClase, type PayloadEvento, type PayloadSala, type TipoAccion } from './nucleo.ts';
+import { bloqueada, esLote, normalizar, type PayloadCita, type PayloadClase, type PayloadClases, type PayloadEvento, type PayloadSala, type TipoAccion } from './nucleo.ts';
 import { puedeEjecutarAccion } from './permisos.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +32,8 @@ export type ResultadoConfirmar =
 
 /** Un fallo que se le puede decir tal cual a la persona (algo cambió): la propuesta sigue viva. */
 class Cambio extends Error {}
+/** Un lote que se quedó a medias: lo creado se queda (cada clase tiene su id) y reintentar crea solo las que faltan. */
+class CambioParcial extends Cambio {}
 
 const TOMA_MUERTA_MS = 120_000;
 const TEXTO_ERROR = 'No he podido crearla ahora y no se ha creado nada. Puedes volver a intentarlo.';
@@ -103,6 +105,22 @@ async function crearClase(admin: Admin, sesion: SesionConfirmar, id: string, p: 
     if (error.code === '23P01') throw new Cambio(mensajeSolapeNuevaClase(error.message));
     if (error.message?.includes('TIPO_ARCHIVADO')) throw new Cambio('Ese tipo de clase ya no está disponible.');
     throw error;
+  }
+  return hecho;
+}
+
+async function crearClases(admin: Admin, sesion: SesionConfirmar, id: string, p: PayloadClases, ahora: Date): Promise<Hecho> {
+  let hecho: Hecho = { href: '/calendario', texto: 'Ver en Calendario' };
+  for (let i = 0; i < p.clases.length; i++) {
+    try {
+      hecho = await crearClase(admin, sesion, `${id}-${i}`, p.clases[i], ahora);
+    } catch (e) {
+      // Las que ya se crearon se quedan (reintentar las salta por su id). Se dice cuántas y qué falló.
+      if (e instanceof Cambio && i > 0) {
+        throw new CambioParcial(`${e.message} Se han creado ${i} de ${p.clases.length}: pulsa Confirmar otra vez para crear las que faltan, o pídele otro cambio.`);
+      }
+      throw e;
+    }
   }
   return hecho;
 }
@@ -205,7 +223,7 @@ export async function confirmarAccion(admin: Admin, sesion: SesionConfirmar, id:
   try {
     let hecho: Hecho;
     switch (fila.tipo) {
-      case 'CREAR_CLASE': hecho = await crearClase(admin, sesion, id, p as PayloadClase, deps.ahora); break;
+      case 'CREAR_CLASE': hecho = esLote(p) ? await crearClases(admin, sesion, id, p, deps.ahora) : await crearClase(admin, sesion, id, p as PayloadClase, deps.ahora); break;
       case 'CREAR_SALA': hecho = await crearSala(admin, sesion, id, p as PayloadSala); break;
       case 'CREAR_EVENTO': hecho = await crearEvento(admin, sesion, id, p as PayloadEvento, deps.ahora, deps.despues, (postId, texto) => deps.avisarEvento(postId, texto, sesion)); break;
       case 'CREAR_CITA': hecho = await crearCita(admin, sesion, id, p as PayloadCita, deps.ahora); break;
@@ -220,6 +238,7 @@ export async function confirmarAccion(admin: Admin, sesion: SesionConfirmar, id:
     // Vuelve a PROPUESTA: la persona puede reintentar o pedir un cambio.
     await admin.from('asistente_acciones').update({ estado: 'PROPUESTA', reclamada_en: null })
       .eq('studio_id', sesion.studioId).eq('id', id).eq('estado', 'EJECUTANDO');
+    if (e instanceof CambioParcial) return { ok: false, status: 409, codigo: 'CONFLICTO', error: e.message };
     if (e instanceof Cambio) return { ok: false, status: 409, codigo: 'CONFLICTO', error: `${e.message} No se ha creado nada.` };
     console.error('[asistente] confirmando una acción', { id, tipo: fila.tipo, codigo: (e as { code?: string })?.code ?? 'ERROR' });
     return { ok: false, status: 500, codigo: 'ERROR', error: TEXTO_ERROR };

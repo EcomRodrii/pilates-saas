@@ -45,6 +45,7 @@ const marcaDePropuesta = (b: Anthropic.ToolUseBlock): string | null => {
   switch (b.name) {
     case 'proponer_sala': return `[acción ya propuesta y resuelta: sala «${t('nombre')}»]`;
     case 'proponer_clase': return `[acción ya propuesta y resuelta: clase ${t('tipo_clase')} ${t('fecha')} ${t('hora')}]`;
+    case 'proponer_clases': return `[acción ya propuesta y resuelta: ${Array.isArray(i.horarios) ? i.horarios.length : 'varias'} clases ${t('tipo_clase')}]`;
     case 'proponer_evento': return `[acción ya propuesta y resuelta: evento ${t('fecha')} ${t('hora')}]`;
     case 'proponer_cita': return `[acción ya propuesta y resuelta: cita ${t('fecha')} ${t('hora')}]`;
     default: return null;

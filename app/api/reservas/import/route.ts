@@ -8,7 +8,7 @@ import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
-import { resumirSobreAforo, type SesionAforo } from '@/lib/migracion/reservas-aforo';
+import { aforoNecesario, resumirSobreAforo, type SesionAforo } from '@/lib/migracion/reservas-aforo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esColumnaInexistente } from '@/lib/reservas/consumo-bono-reserva';
 
@@ -31,9 +31,11 @@ export const maxDuration = 60;
 // venían del programa anterior, así que ya reflejan lo consumido; descontar otra
 // vez al importar las reservas cobraría dos veces la misma clase.
 //
-// El aforo NO bloquea: si el histórico trae una clase por encima de su aforo, se
-// importa igual y se avisa. Descartar en silencio la reserva de alguien es peor
-// que un aviso.
+// Aforo (decisión del fundador, 9-oct-2026): si el archivo deja una clase por
+// encima de su aforo, NO se escribe nada y se contesta 409 `necesitaConfirmacion:
+// 'aforo'` con el detalle. Si quien importa da el OK (`aforo: 'ampliar'`), se
+// sube el aforo de esas clases hasta las reservas que traen y entonces se importa.
+// Descartar en silencio la reserva de alguien sigue siendo peor que ampliar.
 
 const MAX_FILAS = 5000;
 const LOTE = 500;
@@ -69,7 +71,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tienes permiso para importar reservas' }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: FilaReserva[]; batchId?: string } | null;
+  const body = (await req.json().catch(() => null)) as { rows?: FilaReserva[]; batchId?: string; aforo?: unknown } | null;
+  const ampliarAforo = body?.aforo === 'ampliar';
   // Migración Mágica: registrar los ids creados para poder deshacer el lote.
   const batchId = typeof body?.batchId === 'string' && RE_BATCH_ID.test(body.batchId) ? body.batchId : null;
   const filas = body?.rows;
@@ -190,6 +193,38 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Aforo: se avisa ANTES de escribir, y solo con el OK se amplía ──────────
+  const fmtCuando = (ms: number) => new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ,
+  }).format(new Date(ms));
+  const tocadas = new Set(pendientes.map(p => p.sesionId));
+  const ocupadasTras = new Map(ocupadas);
+  for (const p of pendientes) {
+    if (OCUPA_PLAZA.includes(p.estado)) ocupadasTras.set(p.sesionId, (ocupadasTras.get(p.sesionId) ?? 0) + 1);
+  }
+  const ampliaciones = aforoNecesario(ocupadasTras, sesionPorId, tocadas);
+  if (ampliaciones.length > 0 && !ampliarAforo) {
+    const sobre = resumirSobreAforo(ocupadasTras, sesionPorId, tocadas, Date.now(), fmtCuando);
+    return NextResponse.json({
+      necesitaConfirmacion: 'aforo',
+      error: 'Hay clases que se quedarían por encima de su aforo. No se ha importado nada todavía.',
+      clasesSobreAforo: ampliaciones.length,
+      sobreAforoFuturas: sobre.futuras,
+      sobreAforoPasadas: sobre.pasadas,
+      detalleSobreAforo: sobre.detalle,
+    }, { status: 409 });
+  }
+  let aforoAmpliado = 0;
+  for (const a of ampliaciones) {
+    const { error: errAforo } = await admin.from('sesiones')
+      .update({ aforo_maximo: a.nuevoAforo }).eq('id', a.sesionId).eq('studio_id', studioId);
+    if (errAforo) {
+      return errorInterno('reservas:import:aforo', errAforo,
+        `No se ha podido ampliar el aforo de una clase (${aforoAmpliado} ampliadas) y no se ha importado ninguna reserva. Vuelve a intentarlo.`);
+    }
+    aforoAmpliado++;
+  }
+
   // ── Inserción por lotes ────────────────────────────────────────────────────
   let importadas = 0;
   const idsCreados: string[] = [];
@@ -224,18 +259,6 @@ export async function POST(req: NextRequest) {
     ? (await registrarIdsBatch(admin, { studioId, batchId, entidad: 'reservas', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
     : null;
 
-  // Aviso de sobreaforo: se importa igual, pero el estudio debe saberlo.
-  for (const p of pendientes) {
-    if (OCUPA_PLAZA.includes(p.estado)) ocupadas.set(p.sesionId, (ocupadas.get(p.sesionId) ?? 0) + 1);
-  }
-  // Solo las clases que toca ESTE archivo (una que ya venía pasada de aforo no es
-  // culpa suya), separando las futuras —que hay que resolver— de las históricas.
-  const fmtCuando = (ms: number) => new Intl.DateTimeFormat('es-ES', {
-    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ,
-  }).format(new Date(ms));
-  const sobre = resumirSobreAforo(ocupadas, sesionPorId, new Set(pendientes.map(p => p.sesionId)), Date.now(), fmtCuando);
-  const sobreAforo = sobre.futuras + sobre.pasadas;
-
   return NextResponse.json({
     ok: true,
     batchAviso,
@@ -243,10 +266,7 @@ export async function POST(req: NextRequest) {
     duplicadas,     // ya estaban: reimportar no duplica
     sinSocia,       // email que no existe en el estudio
     sinSesion,      // no se encontró la clase a esa fecha/hora
-    sobreAforo,     // clases (de este archivo) que quedan por encima de su aforo
-    sobreAforoFuturas: sobre.futuras,
-    sobreAforoPasadas: sobre.pasadas,
-    detalleSobreAforo: sobre.detalle,
+    aforoAmpliado,  // clases a las que se subió el aforo con el OK de quien importa
     errores: errores.slice(0, 50),
   });
 }

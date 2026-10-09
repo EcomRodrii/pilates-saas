@@ -29,7 +29,7 @@ import {
 import type { Rol } from '../../types.ts';
 import type { DefinicionHerramienta, NombreHerramienta } from '../tipos.ts';
 import { ROLES_ASISTENTE } from '../roles.ts';
-import { zCita, zClase, zEvento as zEventoPublicado, zSala, TIPOS_CITA } from '../acciones/esquemas.ts';
+import { zCita, zClase, zClases, MAX_CLASES_LOTE, zEvento as zEventoPublicado, zSala, TIPOS_CITA } from '../acciones/esquemas.ts';
 import { puedeEjecutarAccion } from '../acciones/permisos.ts';
 
 const delAsistente = (rol: Rol) => (ROLES_ASISTENTE as readonly Rol[]).includes(rol);
@@ -295,6 +295,25 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     zod: zCita,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CITA'),
     etiqueta: () => 'Preparando la cita…',
+  }),
+  // Al final: el orden de las anteriores no cambia (orden = caché).
+  def({
+    nombre: 'proponer_clases',
+    clase: 'accion',
+    descripcion: `Prepara (no crea) VARIAS clases del mismo tipo, sala e instructora en días y horas distintos (entre 2 y ${MAX_CLASES_LOTE}), para que la propietaria las confirme de una vez. Úsala para «todos los lunes de octubre a las 18:00»: tú calculas cada fecha con la lista de días de hoy. Una sola clase: proponer_clase. Todo o nada: si una no se puede, no propone ninguna y te dice cuál.`,
+    esquema: objeto({
+      tipo_clase: { type: 'string', description: 'Nombre del tipo de clase.' },
+      sala: { type: 'string', description: 'Nombre de la sala.' },
+      instructora: { type: 'string', description: '[EQUIPO_n] o "".' },
+      aforo: { type: 'integer', description: 'Plazas (al menos 1); omítelo si no lo dice.' },
+      horarios: {
+        type: 'array', description: `Entre 2 y ${MAX_CLASES_LOTE} días y horas.`,
+        items: objeto({ fecha: { type: 'string', description: 'AAAA-MM-DD.' }, hora: { type: 'string', description: 'HH:MM, hora de Madrid.' } }),
+      },
+    }, ['aforo']),
+    zod: zClases,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
+    etiqueta: () => 'Preparando las clases…',
   }),
 ];
 

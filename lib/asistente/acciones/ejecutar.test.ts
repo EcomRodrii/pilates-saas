@@ -249,3 +249,31 @@ test('capacidad 0, aforo 0, nombre o campos vacíos: no pasan el esquema y el er
   const { aforo: _a, ...sinAforo } = entrada;
   assert.equal(zClase.safeParse(sinAforo).success, true);
 });
+
+const LOTE = { clases: [0, 1, 2].map(i => ({ ...PAYLOAD_CLASE, inicio: `2026-10-${7 + i * 7 < 10 ? '0' : ''}${7 + i * 7}T16:00:00.000Z`, fin: `2026-10-${7 + i * 7 < 10 ? '0' : ''}${7 + i * 7}T17:00:00.000Z` })) };
+
+test('lote: confirmar crea todas, cada una con su id derivado, y es idempotente', async () => {
+  const { admin, llamadas, tablas } = adminFalso(base({ asistente_acciones: [fila({ payload: LOTE })] }));
+  const r = await confirmarAccion(admin, YO, ID, deps());
+  assert.ok(r.ok && !r.yaCreada);
+  assert.equal(creaciones(llamadas, 'sesiones'), 3);
+  assert.deepEqual(tablas.sesiones.map(s => s.id), [`ses-asist-${ID}-0`, `ses-asist-${ID}-1`, `ses-asist-${ID}-2`]);
+  const otra = await confirmarAccion(admin, YO, ID, deps());
+  assert.ok(otra.ok && otra.yaCreada);
+  assert.equal(creaciones(llamadas, 'sesiones'), 3);
+});
+
+test('lote: si una falla a medias se dice cuántas se crearon, la propuesta sigue viva y reintentar crea solo las que faltan', async () => {
+  let n = 0;
+  const { admin, tablas } = adminFalso(base({ asistente_acciones: [fila({ payload: LOTE })] }), {
+    falla: (t) => (t === 'sesiones' && ++n === 3 ? { code: '23P01', message: 'conflicting key value violates exclusion constraint "sesiones_sala_sin_solape"' } : null),
+  });
+  const r = await confirmarAccion(admin, YO, ID, deps());
+  assert.ok(!r.ok && r.status === 409 && r.codigo === 'CONFLICTO');
+  assert.match(r.error, /Se han creado 2 de 3/);
+  assert.equal(tablas.sesiones.length, 2);
+  assert.equal(tablas.asistente_acciones[0].estado, 'PROPUESTA');
+  const otra = await confirmarAccion(admin, YO, ID, deps());
+  assert.ok(otra.ok);
+  assert.equal(tablas.sesiones.length, 3);
+});

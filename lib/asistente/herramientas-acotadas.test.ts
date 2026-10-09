@@ -73,12 +73,12 @@ test('ninguna herramienta acepta un estudio ni una sede del modelo; todas strict
   }
 });
 
-test('doce de lectura y cuatro que PROPONEN, todas con permiso; las de dinero, solo con puedeVerFinanzas', () => {
+test('doce de lectura y cinco que PROPONEN, todas con permiso; las de dinero, solo con puedeVerFinanzas', () => {
   for (const d of DEFINICIONES) {
     assert.equal(d.clase, d.nombre.startsWith('proponer_') ? 'accion' : 'lectura', d.nombre);
     assert.equal(typeof d.permitida, 'function', d.nombre);
   }
-  assert.equal(DEFINICIONES.filter(d => d.clase === 'accion').length, 4);
+  assert.equal(DEFINICIONES.filter(d => d.clase === 'accion').length, 5);
   const src = leer('lib/asistente/herramientas/definiciones.ts');
   for (const n of ['facturacion_del_periodo', 'pagos_pendientes']) {
     const bloque = src.slice(src.indexOf(`nombre: '${n}'`), src.indexOf('etiqueta:', src.indexOf(`nombre: '${n}'`)));
@@ -158,7 +158,7 @@ test('las herramientas de acción solo escriben la propuesta: ni una tabla del e
   assert.doesNotMatch(src, /\.rpc\(/);
   // El registro: una herramienta de acción solo pasa por `proponiendo`, que guarda la propuesta.
   const reg = leer('lib/asistente/herramientas/index.ts');
-  for (const n of ['proponer_clase', 'proponer_sala', 'proponer_evento', 'proponer_cita']) assert.match(reg, new RegExp(`${n}: proponiendo\\(`), n);
+  for (const n of ['proponer_clase', 'proponer_sala', 'proponer_evento', 'proponer_cita', 'proponer_clases']) assert.match(reg, new RegExp(`${n}: proponiendo\\(`), n);
   assert.doesNotMatch(reg, /confirmarAccion|acciones\/ejecutar/);
 });
 

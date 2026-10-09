@@ -39,5 +39,8 @@ test('suscripciones/import: pide la validez de la tarifa y calcula el ciclo con 
 test('reservas/import: el aviso de sobreaforo cuenta solo lo que toca el archivo y separa futuras de pasadas', () => {
   const s = leer('app/api/reservas/import/route.ts');
   assert.match(s, /resumirSobreAforo\(/);
+  assert.match(s, /necesitaConfirmacion: 'aforo'/, 'sin OK no se escribe: contesta 409 con el detalle');
+  assert.match(s, /aforo === 'ampliar'/, 'solo con el OK se amplía el aforo');
+  assert.ok(s.indexOf("necesitaConfirmacion: 'aforo'") < s.indexOf("from('reservas').insert"), 'el aviso va ANTES de escribir');
   assert.ok(!s.includes('[...sesionPorClave.values()].find('), 'el find dentro del bucle era O(n·m)');
 });

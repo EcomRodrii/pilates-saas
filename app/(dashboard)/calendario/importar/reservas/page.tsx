@@ -12,6 +12,8 @@ import {
 } from '@/lib/csv';
 import { importarReservas, type ResultadoImportReservas } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import type { FilaReserva } from '@/lib/csv';
 
 // Asistente de importación de RESERVAS — cuarta pieza de la migración asistida.
 // Requiere haber importado antes las socias y el horario: cada fila se empareja
@@ -52,6 +54,8 @@ export default function ImportarReservasPage() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportReservas | null>(null);
+  // El archivo deja clases por encima de su aforo: nada se ha importado hasta que dé el OK.
+  const [pendienteAforo, setPendienteAforo] = useState<{ filas: FilaReserva[]; info: ResultadoImportReservas } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(
@@ -96,7 +100,23 @@ export default function ImportarReservasPage() {
   async function importar() {
     setImportando(true);
     const filas = validadas.filter(f => f.estado === 'ok').map(f => f.datos);
-    setResultado(await importarReservas(filas));
+    const r = await importarReservas(filas);
+    if (r.necesitaConfirmacion === 'aforo') {
+      setPendienteAforo({ filas, info: r });
+      setImportando(false);
+      return;
+    }
+    setResultado(r);
+    setImportando(false);
+    setPaso(3);
+  }
+
+  async function importarAmpliandoAforo() {
+    if (!pendienteAforo) return;
+    const { filas } = pendienteAforo;
+    setPendienteAforo(null);
+    setImportando(true);
+    setResultado(await importarReservas(filas, undefined, true));
     setImportando(false);
     setPaso(3);
   }
@@ -275,16 +295,16 @@ export default function ImportarReservasPage() {
             </div>
           )}
 
-          {resultado && (resultado.duplicadas > 0 || resultado.sinSocia > 0 || resultado.sinSesion > 0 || resultado.sobreAforo > 0) && (
+          {resultado && (resultado.duplicadas > 0 || resultado.sinSocia > 0 || resultado.sinSesion > 0 || (resultado.aforoAmpliado ?? 0) > 0) && (
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
                 {resultado.duplicadas > 0 && <p>{resultado.duplicadas} ya estaban y no se han duplicado</p>}
                 {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin clienta: ese email no está en tus clientas</p>}
                 {resultado.sinSesion > 0 && <p>{resultado.sinSesion} sin clase: no hay ninguna a esa fecha y hora</p>}
-                {resultado.sobreAforo > 0 && (
+                {(resultado.aforoAmpliado ?? 0) > 0 && (
                   <p className="text-warning">
-                    {resultado.sobreAforo} {resultado.sobreAforo === 1 ? 'clase queda' : 'clases quedan'} por encima de su aforo —
-                    se han importado igual para no quitarle el sitio a nadie, pero revísalas.
+                    Se ha ampliado el aforo de {resultado.aforoAmpliado} {resultado.aforoAmpliado === 1 ? 'clase' : 'clases'} para
+                    que quepan todas las reservas importadas. Puedes volver a bajarlo desde cada clase.
                   </p>
                 )}
               </div>
@@ -303,6 +323,19 @@ export default function ImportarReservasPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={pendienteAforo !== null}
+        onOpenChange={v => { if (!v) setPendienteAforo(null); }}
+        titulo="Hay clases que no caben"
+        descripcion={pendienteAforo
+          ? `${pendienteAforo.info.clasesSobreAforo ?? 0} ${(pendienteAforo.info.clasesSobreAforo ?? 0) === 1 ? 'clase se quedaría' : 'clases se quedarían'} por encima de su aforo`
+            + `${pendienteAforo.info.detalleSobreAforo?.length ? ` (${pendienteAforo.info.detalleSobreAforo.slice(0, 3).join(' · ')})` : ''}. `
+            + 'Si sigues, se amplía su aforo para que quepan todas las reservas. Si no, no se importa nada.'
+          : undefined}
+        textoConfirmar="Ampliar aforo e importar"
+        textoCancelar="No importar"
+        onConfirm={() => void importarAmpliandoAforo()}
+      />
     </div>
   );
 }

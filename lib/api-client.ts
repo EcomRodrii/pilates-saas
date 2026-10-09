@@ -1381,6 +1381,8 @@ export interface ResultadoImport {
   duplicadas: number;
   /** Membresías que entraron ya caducadas por su fecha de fin (solo bonos y membresías). */
   caducadas?: number;
+  /** Cuotas activas sin fecha de fin en el archivo: entraron con el final de su ciclo y se renuevan solas desde ahí. */
+  conRenovacion?: number;
   errores: { fila: number; email: string; motivo: string }[];
   error?: string;
 }
@@ -2304,8 +2306,15 @@ export interface ResultadoImportReservas {
   duplicadas: number;   // ya estaban: reimportar no duplica
   sinSocia: number;     // email que no existe en el estudio
   sinSesion: number;    // no se encontró la clase a esa fecha/hora
-  sobreAforo: number;   // clases que quedan por encima de su aforo
-  sobreAforoFuturas?: number;   // de ellas, las que aún no han pasado (hay que resolverlas)
+  /** Clases a las que se subió el aforo con el OK de quien importa. */
+  aforoAmpliado?: number;
+  /**
+   * 'aforo': el archivo deja clases por encima de su aforo y NO se ha importado
+   * nada; hay que preguntar y, con el OK, repetir con `ampliarAforo: true`.
+   */
+  necesitaConfirmacion?: 'aforo';
+  clasesSobreAforo?: number;
+  sobreAforoFuturas?: number;
   sobreAforoPasadas?: number;
   detalleSobreAforo?: string[]; // las peores futuras, en frase
   errores: { fila: number; motivo: string }[];
@@ -2315,13 +2324,13 @@ export interface ResultadoImportReservas {
 // Importa reservas. Empareja socia por email y sesión por clase+fecha+hora en el
 // servidor; el studio_id sale del JWT. No consume bonos (los saldos ya vienen
 // importados del programa anterior).
-export async function importarReservas(rows: FilaReserva[], batchId?: string): Promise<ResultadoImportReservas> {
-  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, sobreAforo: 0, errores: [] };
+export async function importarReservas(rows: FilaReserva[], batchId?: string, ampliarAforo = false): Promise<ResultadoImportReservas> {
+  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, errores: [] };
   try {
     const res = await fetch('/api/reservas/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows, batchId }),
+      body: JSON.stringify({ rows, batchId, ...(ampliarAforo ? { aforo: 'ampliar' } : {}) }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };

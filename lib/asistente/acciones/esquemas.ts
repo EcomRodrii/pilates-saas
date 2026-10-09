@@ -12,6 +12,12 @@ const HORA = z.string().regex(/^\d{2}:\d{2}$/);
 export const zClase = z.object({
   tipo_clase: obligado(80), fecha: FECHA, hora: HORA, sala: obligado(80), instructora: texto(20), aforo: z.number().int().min(1).max(MAX_CAPACIDAD).optional(),
 }).strict();
+/** Tope de clases en una sola propuesta: más largo es un horario, no una confirmación que se lea. */
+export const MAX_CLASES_LOTE = 24;
+export const zClases = z.object({
+  tipo_clase: obligado(80), sala: obligado(80), instructora: texto(20), aforo: z.number().int().min(1).max(MAX_CAPACIDAD).optional(),
+  horarios: z.array(z.object({ fecha: FECHA, hora: HORA }).strict()).min(2).max(MAX_CLASES_LOTE),
+}).strict();
 export const zSala = z.object({ nombre: obligado(60), capacidad: z.number().int().min(1).max(MAX_CAPACIDAD) }).strict();
 export const zEvento = z.object({
   texto: obligado(280), fecha: FECHA, hora: HORA, aforo: z.number().int().min(1).max(1000).optional(), lugar: texto(80).optional(),
@@ -23,6 +29,7 @@ export const zCita = z.object({
 }).strict();
 
 export type EntradaClase = z.infer<typeof zClase>;
+export type EntradaClases = z.infer<typeof zClases>;
 export type EntradaSala = z.infer<typeof zSala>;
 export type EntradaEvento = z.infer<typeof zEvento>;
 export type EntradaCita = z.infer<typeof zCita>;

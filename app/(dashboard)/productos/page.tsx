@@ -1456,7 +1456,7 @@ export default function Productos() {
                         <ShoppingBag size={14} style={{ color: c.text }} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground text-[13px] truncate">{p.nombre}</p>
+                        <p className="font-semibold text-foreground text-[13px] truncate" title={p.nombre}>{p.nombre}</p>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
                             {CAT_LABEL[p.categoria]}

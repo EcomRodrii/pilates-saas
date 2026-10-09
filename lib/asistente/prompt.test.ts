@@ -97,7 +97,7 @@ test('el prefijo cacheable (herramientas + prompt) pasa de 4.096 tokens también
 });
 
 test('al modelo se le enseña UN solo juego de herramientas, el mismo para propietaria y gerente (una sola caché)', () => {
-  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 16);
+  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 17);
   assert.equal(JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE), JSON.stringify(aHerramientasAnthropic(herramientasDelRol('PROPIETARIO'))));
   const chars = JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE).length + PROMPT_SISTEMA.length;
   assert.ok(chars / 4 > 4096, `~${Math.round(chars / 4)} tokens (cota baja)`);

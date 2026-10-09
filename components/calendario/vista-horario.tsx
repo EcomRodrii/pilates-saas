@@ -71,9 +71,9 @@ function Tarjeta({ t, p }: { t: TarjetaHorario; p: VistaHorarioProps }) {
           producción). Toda tarjeta de esta vista se repite: el ↻ sobraba. */}
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-foreground flex items-baseline gap-1.5">
             <span className="tabular-nums">{t.hora}</span>
-            <span className="truncate">{p.nombreTipo(t.tipoClaseId) ?? 'Clase'}</span>
+            <span className="min-w-0 line-clamp-2 break-words" title={p.nombreTipo(t.tipoClaseId) ?? 'Clase'}>{p.nombreTipo(t.tipoClaseId) ?? 'Clase'}</span>
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {p.nombreSala(t.salaId) ?? 'Sala'} · {instructora ?? 'Sin instructora'} · aforo {t.aforo}

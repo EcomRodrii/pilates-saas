@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
   const hoy = hoyEnEstudio();
   let duplicadas = 0;
   let caducadas = 0;
+  let conRenovacion = 0;
 
   filas.forEach((f, i) => {
     const numFila = i + 1;
@@ -170,6 +171,7 @@ export async function POST(req: NextRequest) {
     });
     const { estado, fechaFin, sesionesRestantes } = ciclo;
     if (ciclo.caducada) caducadas++;
+    if (ciclo.cuotaConRenovacion && ciclo.estado === 'ACTIVA') conRenovacion++;
     // Solo dedup-tracking de las que quedarán ACTIVA (una socia sí puede tener
     // varias históricas canceladas del mismo plan); y el mismo inicio nunca dos veces.
     if (estado === 'ACTIVA') vistosEnLote.add(clave);
@@ -199,7 +201,7 @@ export async function POST(req: NextRequest) {
         `Se han importado ${importadas} membresías y el proceso se ha detenido ahí. `
         + 'Comprueba que las socias y los planes del archivo existan ya en tu cuenta, y vuelve a subirlo.',
         500,
-        { importadas, duplicadas, caducadas, errores },
+        { importadas, duplicadas, caducadas, conRenovacion, errores },
       );
     }
     importadas += lote.length;
@@ -209,5 +211,5 @@ export async function POST(req: NextRequest) {
     ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'suscripciones', ids: paraInsertar.map(r => r.id as string) })) ? null : 'No se pudo registrar el lote para deshacer'
     : null;
 
-  return NextResponse.json({ batchAviso, total: filas.length, importadas, duplicadas, caducadas, errores });
+  return NextResponse.json({ batchAviso, total: filas.length, importadas, duplicadas, caducadas, conRenovacion, errores });
 }

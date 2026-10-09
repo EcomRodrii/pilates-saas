@@ -83,7 +83,7 @@ function Contenido(p: FichaClaseProps) {
         <div className="flex items-center gap-2">
           <span className="size-3 shrink-0 rounded-full" style={{ background: p.color }} aria-hidden />
           {/* tabIndex -1: recibe el foco al abrir la ficha al lado (no es un control). */}
-          <h2 tabIndex={-1} className="min-w-0 truncate text-[19px] font-semibold text-foreground outline-none">{p.titulo}</h2>
+          <h2 tabIndex={-1} title={p.titulo} className="min-w-0 line-clamp-2 break-words text-[19px] font-semibold leading-snug text-foreground outline-none">{p.titulo}</h2>
           <span className="ml-auto flex shrink-0 items-center gap-0.5">
             <button type="button" className={BOTON_CABEZA} onClick={p.onAnterior} disabled={!p.onAnterior} aria-label="Clase anterior" title="Clase anterior">
               <ChevronLeft size={18} />
