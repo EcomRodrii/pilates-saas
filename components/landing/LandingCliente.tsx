@@ -22,6 +22,7 @@ import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
+import { BandaPrueba } from '@/components/landing/BandaPrueba';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { MedicionLanding } from '@/components/landing/MedicionLanding';
 import { AnclasSuaves } from '@/components/landing/AnclasSuaves';
@@ -103,6 +104,8 @@ export function LandingCliente({ guias, bento, frase, cambiarte }: { guias?: Rea
           (detectado verificando en móvil real: "Contáctanos por correo..."
           se veía a través del propio nav). El pie va FUERA a propósito. */}
       <div style={{ position: 'relative' }}>
+        {/* Una línea con la oferta, en el flujo y sin popup (fundador, 9-oct). */}
+        <BandaPrueba />
         <SeccionHero />
         {/* Rediseño por fases (23-sep): ATENCIÓN → IDENTIFICACIÓN → PERFIL →
             VISUALIZACIÓN → SOLUCIÓN → RESULTADO → CONFIANZA → PRECIO → DUDAS.
