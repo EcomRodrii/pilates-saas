@@ -19,7 +19,12 @@
 // ⚠️ Sin `@/` en los imports: este fichero lo leen `node --test` y el script
 // `.mjs`, y ninguno de los dos resuelve el alias de TypeScript.
 
-export type Consentimiento = 'no-aplica' | 'firmado';
+// · `no-aplica`: no sale nadie reconocible (o es de banco y no respalda nada).
+// · `firmado`: sale alguien con permiso nuestro y su documento firmado existe
+//   (vive fuera del repo).
+// · `propia`: sale quien la sube y la autoriza, la propia persona al frente de
+//   Tentare. No hay documento: es su propia imagen y lo decide ella.
+export type Consentimiento = 'no-aplica' | 'firmado' | 'propia';
 
 export interface CreditoFoto {
   autor: string;
@@ -92,28 +97,33 @@ export const CARPETA_PUBLICA = 'landing/fotos';
 export const FOTOS = {
   heroe: {
     id: 'estudio-pilates-reformer-heroe',
-    original: 'heroe-reformer-roxana-popovici-unsplash-5JQxj-zc5ng.jpg',
-    alt: 'Mujer haciendo Pilates en un reformer, con una mano en la barra y los pies en el carro, en un estudio en tonos crema con más reformers al fondo',
-    ancho: 5963,
-    alto: 3354,
-    // Su cuerpo ocupa del 18,5 % (la mano en la barra) al 77,5 % (los dedos del
-    // pie de atrás) del ancho del original: el 59 %. Un 4:5 de una foto 16:9 solo
-    // abarca el 45 %, así que en móvil cortaría la mano o los pies; 6:5 abarca el
-    // 67,5 % y la deja entera con algo de aire. El foco horizontal centra ese tramo.
+    original: 'heroe-selfie-espejo-reformers.jpg',
+    alt: 'Mujer en un estudio de Pilates con reformers de madera y espejos en arco, apoyada en un reformer con una pelota en la mano, haciéndose un selfie en el espejo',
+    ancho: 1090,
+    alto: 1370,
+    // Foto vertical (selfie de espejo) en un hueco apaisado: el recorte deja el
+    // móvil con el que se hace la foto, el torso y las piernas hasta la pelota
+    // (el foco baja al 56 % de la altura para que no se corte por la cintura).
+    // ⚠️ El original mide 1090 px de ancho y el script no amplía: ningún ancho
+    // puede pasar de eso, así que el máximo es 1090 y en pantallas retina de
+    // escritorio sale algo blanda. Con el original sin recomprimir se suben los
+    // anchos (hasta 1600) y se vuelve a ejecutar el script.
     recortes: {
-      escritorio: { proporcion: [5, 4], foco: { x: 0.48, y: 0.5 }, anchos: [640, 960, 1280, 1600] },
-      movil: { proporcion: [6, 5], foco: { x: 0.48, y: 0.5 }, anchos: [480, 828, 1170] },
+      escritorio: { proporcion: [5, 4], foco: { x: 0.5, y: 0.56 }, anchos: [640, 960, 1090] },
+      movil: { proporcion: [6, 5], foco: { x: 0.5, y: 0.55 }, anchos: [480, 828, 1090] },
     },
+    // Propia: sin crédito visible en la web (esto es solo el registro interno).
     credito: {
-      autor: 'Roxana Popovici',
-      fuente: 'Unsplash',
-      url: 'https://unsplash.com/es/fotos/la-mujer-hace-pilates-en-una-maquina-en-un-estudio-5JQxj-zc5ng',
-      licencia: 'Unsplash License',
-      fechaDescarga: '2026-09-16',
+      autor: 'Propia',
+      fuente: 'Sesión propia',
+      url: '',
+      licencia: 'Propia',
+      fechaDescarga: '2026-10-09',
     },
-    presupuesto: { ancho: 1280, kb: 140 },
-    // Sin cara visible (la foto la corta por arriba) y de banco: no respalda nada.
-    consentimiento: 'no-aplica',
+    presupuesto: { ancho: 960, kb: 140 },
+    // Sale la propia persona al frente de Tentare, con la cara tapada por el
+    // móvil, y ella decide usarla.
+    consentimiento: 'propia',
   },
   // Sección final, antes del pie (SeccionCtaFinal). Sustituye a
   // `public/disciplinas/pilates.jpg`, vertical y de 900 px, que ahí se ampliaba
