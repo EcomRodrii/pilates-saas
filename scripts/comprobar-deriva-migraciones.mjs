@@ -36,6 +36,19 @@ const ACEPTADAS = {
   // (`select statements from supabase_migrations.schema_migrations`).
   sinFichero: [
     'res1_lista_espera_respeta_limite_y_solape',
+    // «Segundo paso por correo» (#2506): UN fichero en el repo
+    // (`20261003160000_doble_factor_por_correo`) que en producción se aplicó en
+    // SEIS trozos con otros nombres el 4-oct. Es solo de NOMBRES: el 9-oct se
+    // comprobó contra la BD que existe todo lo que crea el fichero (las dos tablas,
+    // las siete funciones, los triggers de `auth.users`, las dos políticas
+    // `exige_doble_factor` y la restricción `sesiones_confiadas_origen_valido`).
+    // No hay `_6`: no se aplicó con ese nombre y su efecto está en los otros.
+    'doble_factor_por_correo_1_sesiones',
+    'doble_factor_por_correo_2_tablas',
+    'doble_factor_por_correo_3_permisos_tablas',
+    'doble_factor_por_correo_4_politicas',
+    'doble_factor_por_correo_5_funciones',
+    'doble_factor_por_correo_7_en_pausa',
   ],
   // Salieron de aquí el 2026-09-22 quince que el check dio por «arregladas» y no
   // lo estaban: el `supabase migration repair` del 2026-09-20 BORRÓ sus filas
@@ -75,6 +88,9 @@ const ACEPTADAS = {
   // borrado_en, default de reserva_exigir_plan, tiene_consentimiento_salud).
   sinAplicar: [
     'cadenas_current_rol_fix',
+    // El fichero único de «segundo paso por correo»; su efecto vive en producción
+    // bajo los seis nombres de `sinFichero` (ver allí).
+    'doble_factor_por_correo',
     'ficha_clinica',
     'marca_e_iva',
     'res1_reservar_plaza_respeta_limite_y_solape',
