@@ -10,7 +10,8 @@ import { TIMEOUT_HERRAMIENTA_MS } from '../limites.ts';
 import { DEFINICIONES } from './definiciones.ts';
 import { alumnasSinVenir, bonosPorCaducar, contarAlumnas } from './clientas.ts';
 import { agendaDelDia, clasesProximasConHuecos } from './agenda.ts';
-import { actividadDelPeriodo, datosParaUnEvento, ocupacionPorFranja } from './informes.ts';
+import { actividadDelPeriodo, datosParaUnEvento, ocupacionPorFranja, ocupacionPorTipoDeClase } from './informes.ts';
+import { eventosProximos } from './comunidad.ts';
 import { facturacionDelPeriodo, pagosPendientes } from './dinero.ts';
 import { queRevisarHoy, resumenDelEstudio } from './estudio.ts';
 import { mensajeDeFaltantes } from './faltantes.ts';
@@ -57,6 +58,8 @@ const EJECUTORES: Record<NombreHerramienta, Ejecutor> = {
   proponer_evento: proponiendo(proponerEvento),
   proponer_cita: proponiendo(proponerCita),
   proponer_clases: proponiendo(proponerClases),
+  ocupacion_por_tipo_de_clase: ocupacionPorTipoDeClase,
+  eventos_proximos: eventosProximos,
 };
 
 export const REGISTRO: readonly Herramienta<unknown>[] = DEFINICIONES.map(d => ({

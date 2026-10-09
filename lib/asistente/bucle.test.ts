@@ -262,3 +262,14 @@ test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje s
   assert.doesNotMatch(JSON.stringify(d), /Cuántas alumnas/);
   assert.ok(String(d.mensaje).length <= 303);
 });
+
+test('un corte de red sin status deja pista de qué fue (antes «ASISTENTE_ANTHROPIC_RED» a secas)', async () => {
+  const { detalleDeErrorAnthropic } = await import('./bucle.ts');
+  const d = detalleDeErrorAnthropic({ name: 'APIConnectionError', message: 'Connection error.', cause: { code: 'ECONNRESET' } });
+  assert.equal(d.clase, 'APIConnectionError');
+  assert.equal(d.causa, 'ECONNRESET');
+  // Con status, el detalle sigue siendo el del cuerpo y no añade clase ni causa.
+  const e = detalleDeErrorAnthropic({ status: 400, error: { type: 'error', error: { type: 'invalid_request_error', message: 'x' } } });
+  assert.equal(e.status, 400);
+  assert.equal(e.clase, undefined);
+});
