@@ -2650,7 +2650,7 @@ export interface RowCodigosDescuentoConsumos {
 
 export interface RowReviewBoostFeedback {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   rating: number;
   comentario: string | null;
   fuente: string;
@@ -2660,7 +2660,7 @@ export interface RowReviewBoostFeedback {
 
 export interface RowReviewBoostRecompensas {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   feedback_id: string;
   stripe_coupon_id: string;
   concedida_en: string;
@@ -8646,7 +8646,7 @@ export type CodigosDescuentoConsumosUpdate = {
 
 export type ReviewBoostFeedbackInsert = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   rating?: number | null;
   comentario?: string | null | null;
   fuente?: string | null;
@@ -8656,7 +8656,7 @@ export type ReviewBoostFeedbackInsert = {
 
 export type ReviewBoostFeedbackUpdate = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   rating?: number | null;
   comentario?: string | null | null;
   fuente?: string | null;
@@ -8666,7 +8666,7 @@ export type ReviewBoostFeedbackUpdate = {
 
 export type ReviewBoostRecompensasInsert = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   feedback_id?: string | null;
   stripe_coupon_id?: string | null;
   concedida_en?: string | null;
@@ -8676,7 +8676,7 @@ export type ReviewBoostRecompensasInsert = {
 
 export type ReviewBoostRecompensasUpdate = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   feedback_id?: string | null;
   stripe_coupon_id?: string | null;
   concedida_en?: string | null;
