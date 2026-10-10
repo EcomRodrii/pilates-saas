@@ -1534,7 +1534,7 @@ export async function analizarMigracion(
 // Deshace un lote de migración: borra exactamente lo que creó ese lote.
 export async function deshacerMigracion(
   batchId: string,
-): Promise<{ ok: true; borrados: Record<string, number> } | { error: string; borrados?: Record<string, number> }> {
+): Promise<{ ok: true; borrados: Record<string, number>; instructorasConservadas?: number } | { error: string; borrados?: Record<string, number> }> {
   try {
     const res = await fetch('/api/migracion/deshacer', {
       method: 'POST',
@@ -2289,6 +2289,8 @@ export interface ResultadoImportClases {
   tiposCreados: number;
   /** Instructoras del archivo que no existían y se dieron de alta al importar (sin email). */
   instructorasCreadas?: string[];
+  /** Errores en total: `errores` se corta en 500, este es el número real. */
+  totalErrores?: number;
   omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;

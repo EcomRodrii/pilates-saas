@@ -59,12 +59,17 @@ test('clases/import: las instructoras que faltan se crean tras los solapes, ante
   assert.match(s, /from\('instructores'\)\.delete\(\)/, 'si falla el insert de sesiones, la instructora sin clases se borra');
 });
 
-test('deshacer: las instructoras importadas se borran después de las clases que las usan y antes de los tipos', async () => {
+test('deshacer: las instructoras importadas se borran las últimas (la tarifa que se les pone luego no bloquea a mitad)', async () => {
   const { ORDEN_DESHACER } = await import('./batches.ts');
   const i = ORDEN_DESHACER.indexOf('instructores');
-  assert.ok(i > ORDEN_DESHACER.indexOf('sesiones'));
+  assert.equal(i, ORDEN_DESHACER.length - 1);
+  assert.ok(i > ORDEN_DESHACER.indexOf('sesiones'), 'las clases que las usan, fuera antes');
   assert.ok(i > ORDEN_DESHACER.indexOf('citas'));
-  assert.ok(i < ORDEN_DESHACER.indexOf('socios'));
+});
+
+test('clases/import: un marcador de «nadie» en la columna de instructora no crea una instructora', () => {
+  const s = leer('app/api/clases/import/route.ts');
+  assert.match(s, /esNombreDeInstructora\(nombre\)/);
 });
 
 test('los importadores devuelven hasta MAX_ERRORES_DEVUELTOS errores por fila, no 50: el acta los lista', () => {
@@ -73,4 +78,17 @@ test('los importadores devuelven hasta MAX_ERRORES_DEVUELTOS errores por fila, n
     assert.ok(!s.includes('errores.slice(0, 50)'), `${r}: el tope de 50 dejaba incidencias sin listar`);
     assert.match(s, /MAX_ERRORES_DEVUELTOS/);
   }
+});
+
+test('recuperaciones/import: lo que YA existía es una duplicada, no una incidencia', () => {
+  const s = leer('app/api/recuperaciones/import/route.ts');
+  assert.match(s, /yaExistian\+\+/);
+  assert.ok(!s.includes("'Ya la tenía importada'"), 'reimportar un archivo correcto no puede llenar el acta de incidencias');
+  assert.match(s, /duplicadas: tope \+ yaExistian/);
+});
+
+test('clases/import: una instructora de nombre de pila se empareja con la única ficha que empieza así, antes de crear', () => {
+  const s = leer('app/api/clases/import/route.ts');
+  assert.ok(s.indexOf('emparejarPorNombreDePila(') < s.indexOf('nuevasInstructoras.push('));
+  assert.match(s, /MAX_INSTRUCTORAS_NUEVAS/);
 });

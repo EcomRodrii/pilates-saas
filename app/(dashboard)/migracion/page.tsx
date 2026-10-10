@@ -186,6 +186,7 @@ export default function MigracionPage() {
   const [confirmDeshacer, setConfirmDeshacer] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
+  const [instructorasConservadas, setInstructorasConservadas] = useState(0);
   // El Tenti del acta (lib/tenti/momentos.ts): 'hecho' o 'error'; deshecha, ninguno.
   const estadoActa = estadoDeLaMigracion({ resultados, deshecho: !!deshecho });
   const hayIncidencias = resultados.some(r => r.incidencias > 0);
@@ -403,6 +404,7 @@ export default function MigracionPage() {
       return;
     }
     setDeshecho(r.borrados);
+    setInstructorasConservadas(r.instructorasConservadas ?? 0);
     // Lo deshecho también debe desaparecer de los listados sin recargar a mano.
     resetDatosPilates();
     void cargarRecientes();
@@ -846,6 +848,12 @@ export default function MigracionPage() {
                 </div>
               ))}
             </div>
+            {deshecho && instructorasConservadas > 0 && (
+              <p className="mt-3 text-[13px] text-foreground">
+                {instructorasConservadas === 1 ? 'Se ha conservado 1 instructora' : `Se han conservado ${instructorasConservadas} instructoras`} que
+                {' '}creó la importación: ya {instructorasConservadas === 1 ? 'la' : 'las'} habías completado (email, cuenta o rol) y borrarlas se llevaría su acceso. Si no las quieres, bórralas desde Equipo.
+              </p>
+            )}
             {!deshecho && resultados.flatMap(r => (r.avisos ?? []).map(a => ({ r, a }))).map(({ r, a }) => (
               <p key={`aviso-${r.entidad}`} className="mt-3 text-[13px] text-foreground">
                 <span className="font-bold">{r.etiqueta}:</span> {a}
@@ -854,7 +862,9 @@ export default function MigracionPage() {
             {!deshecho && resultados.filter(r => r.detalle && (r.detalle.grupos.length > 0 || r.detalle.notas.length > 0)).map(r => (
               <details key={`inc-${r.entidad}`} className="mt-3 rounded-xl border border-border bg-card/60 px-3 py-2 text-[13px]" open={r.incidencias > 0 && r.incidencias <= 5}>
                 <summary className="cursor-pointer font-bold text-foreground">
-                  {r.etiqueta}: {r.incidencias} {r.incidencias === 1 ? 'fila con incidencia' : 'filas con incidencias'} — ver cuáles y por qué
+                  {r.incidencias > 0
+                    ? `${r.etiqueta}: ${r.incidencias} ${r.incidencias === 1 ? 'fila con incidencia' : 'filas con incidencias'} — ver cuáles y por qué`
+                    : `${r.etiqueta}: avisos — ver cuáles`}
                 </summary>
                 <ul className="mt-2 space-y-2">
                   {r.detalle!.grupos.map(g => (
@@ -911,7 +921,7 @@ export default function MigracionPage() {
               </button>
             )}
             <button
-              onClick={() => { setPaso('subir'); setArchivos([]); setPlan(null); setResultados([]); setBatchId(null); setDeshecho(null); setError(null); }}
+              onClick={() => { setPaso('subir'); setArchivos([]); setPlan(null); setResultados([]); setBatchId(null); setDeshecho(null); setInstructorasConservadas(0); setError(null); }}
               className="flex-1 py-3 rounded-2xl bg-brand text-brand-foreground text-[13px] font-extrabold hover:brightness-95 transition"
             >
               {deshecho ? 'Empezar de nuevo' : 'Hacer otra importación'}
