@@ -683,7 +683,7 @@ export default function CrearEstudioPage() {
               valor={datos.contrasena}
               onCambio={(v) => setDatos({ ...datos, contrasena: v })}
               autoComplete="new-password"
-              ayuda="Mínimo 8 caracteres."
+              ayuda="Mínimo 8 caracteres. No aceptamos las muy comunes ni las que han salido en filtraciones: una frase larga funciona bien."
             />
 
             {/* ⚠️ Aquí NO va campo trampa (honeypot), y es deliberado. El
