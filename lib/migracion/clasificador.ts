@@ -307,8 +307,10 @@ const normCabecera = (h: string) => h.toLowerCase().normalize('NFD').replace(/[�
  */
 export function pareceReservaDeClase(headers: string[]): boolean {
   const h = headers.map(normCabecera);
-  const dicenClase = h.some(x => /^(clase|class|actividad|nombre clase|class name|tipo de clase|nombre de la clase)$/.test(x));
-  const dicenCita = h.some(x => /(cita|appointment|terapeuta|fisio)/.test(x));
+  // Palabras ENTERAS: «Clase reservada», «Class type», «Nombre de la actividad»…; y «cita»
+  // no puede salir de dentro de «Solicitada» o «Capacitación».
+  const dicenClase = h.some(x => /\b(clase|clases|class|classes|actividad|activity)\b/.test(x));
+  const dicenCita = h.some(x => /\b(cita|citas|appointment|appointments|terapeuta|fisio\w*)\b/.test(x));
   return dicenClase && !dicenCita;
 }
 

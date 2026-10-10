@@ -12,6 +12,7 @@ import { puedeGestionarClientas, puedeGestionarEquipo, puedeGestionarSede } from
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
 import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
+import { emparejarPorNombreDePila, esNombreDeInstructora, MAX_INSTRUCTORAS_NUEVAS } from '@/lib/migracion/instructoras';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -49,7 +50,8 @@ const COLORES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444
 const COLORES_INSTRUCTORA = ['#F7A6C4', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#14B8A6', '#EC4899', '#A855F7'];
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
-const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim();
+// Sin acentos ni mayúsculas y con los espacios interiores colapsados: «Ana  García» = «Ana García».
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').replace(/\s+/g, ' ').trim();
 
 interface Cuerpo {
   rows?: FilaClase[];
@@ -178,12 +180,27 @@ export async function POST(req: NextRequest) {
   // ── Instructoras que faltan: se crean (si quien importa gestiona el equipo) ──
   // Se apuntan aquí y se insertan más abajo, ya con las clases validadas, solo las
   // que de verdad van a tener alguna (misma regla que los tipos de clase).
+  // Antes de crear nada: «Ana» en el archivo y «Ana García» en Equipo son la misma
+  // persona si solo hay una Ana. Es la forma de un export de Bsport o Timp (nombre
+  // de pila), y sin esto cada importación duplicaba fichas.
+  for (const f of filas) {
+    const nombre = typeof f.instructor === 'string' ? f.instructor.trim() : '';
+    if (!nombre || instructorPorNombre.has(norm(nombre))) continue;
+    const id = emparejarPorNombreDePila(norm(nombre), instructorPorNombre);
+    if (id) instructorPorNombre.set(norm(nombre), id);
+  }
   const nuevasInstructoras: { id: string; nombre: string; color: string }[] = [];
   if (puedeGestionarEquipo(sesion.rol)) {
     for (const f of filas) {
       const nombre = (f.instructor ?? '').trim();
-      if (nombre.length < 2 || instructorPorNombre.has(norm(nombre))) continue;
+      // «-», «N/A», «Sin asignar»…: la clase entra sin instructora, no se inventa una.
+      if (!esNombreDeInstructora(nombre) || instructorPorNombre.has(norm(nombre))) continue;
       const id = `inst-${uid()}`;
+      if (nuevasInstructoras.length >= MAX_INSTRUCTORAS_NUEVAS) {
+        return NextResponse.json({
+          error: `El archivo trae más de ${MAX_INSTRUCTORAS_NUEVAS} instructoras que no existen en tu estudio: casi seguro la columna de instructora no es la que crees (¿lleva otro dato?). Revisa el archivo, o dalas de alta en Equipo y vuelve a subirlo.`,
+        }, { status: 422 });
+      }
       nuevasInstructoras.push({ id, nombre, color: COLORES_INSTRUCTORA[(instructorPorNombre.size + nuevasInstructoras.length) % COLORES_INSTRUCTORA.length] });
       instructorPorNombre.set(norm(nombre), id);
     }
@@ -384,7 +401,7 @@ export async function POST(req: NextRequest) {
           : 'Vuelve a subir el archivo: las ya creadas no se duplican.';
       return errorInterno('clases:import:sesiones', error,
         `Se han creado ${creadas} clases y el proceso se ha detenido ahí. ${motivo}`,
-        500, { creadas, omitidasPorSolape, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
+        500, { creadas, omitidasPorSolape, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), batchAviso: tiposFueraDelDeshacer || instructorasFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
     }
     idsCreados.push(...lote.map(l => l.id));
     for (const l of lote) tiposCreadosIds.add(l.tipo_clase_id);
@@ -421,5 +438,6 @@ export async function POST(req: NextRequest) {
     sinInstructor,       // filas cuya instructora no se encontró por nombre (y no se pudo crear)
     sinSala,
     errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
+    totalErrores: errores.length, // la lista de arriba se corta; este es el número real
   });
 }

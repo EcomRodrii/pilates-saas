@@ -38,15 +38,37 @@ test('si el tope de errores devueltos deja filas fuera, vale el contador', () =>
   assert.equal(r.total, 40);
 });
 
-test('instructora o sala inexistentes: no son errores, pero se cuentan y se dicen', () => {
+test('instructora o sala inexistentes: se dicen, pero NO son filas que no han entrado', () => {
   const r = incidenciasDeImportacion({ errores: [], sinInstructor: 8, sinSala: 1 });
-  assert.equal(r.total, 9);
+  assert.equal(r.total, 0, 'entraron: no impiden dar el acta por buena');
   assert.equal(r.notas.length, 2);
   assert.match(r.notas[0], /8 filas con una instructora que no existe/);
+});
+
+test('una fila que se pisa por sala Y por instructora cuenta UNA vez', () => {
+  const r = incidenciasDeImportacion({ errores: [
+    { fila: 4, motivo: 'se pisa con otra clase en la misma sala' },
+    { fila: 4, motivo: 'se pisa con otra clase con la misma instructora' },
+    { fila: 9, motivo: 'otra cosa' },
+  ] });
+  assert.equal(r.total, 2);
+});
+
+test('si la lista devuelta se cortó, vale el total real de errores', () => {
+  const errores = Array.from({ length: 500 }, (_, i) => ({ fila: i + 1, motivo: 'x' }));
+  assert.equal(incidenciasDeImportacion({ errores, totalErrores: 612 }).total, 612);
 });
 
 test('el CSV lleva archivo, fila y motivo, y escapa las comillas', () => {
   const csv = incidenciasACsv([{ etiqueta: 'Reservas', filas: [{ fila: 7, motivo: 'No hay ninguna clase de "Yoga"' }] }]);
   assert.equal(csv.split('\r\n')[0], '"Archivo","Fila","Motivo"');
   assert.equal(csv.split('\r\n')[1], '"Reservas","7","No hay ninguna clase de ""Yoga"""');
+});
+
+test('el CSV no deja que una celda se ejecute como fórmula en Excel', () => {
+  const csv = incidenciasACsv([{ etiqueta: 'Reservas', filas: [{ fila: 1, motivo: '=HYPERLINK("http://x")' }, { fila: 2, motivo: '@SUMA(A1)' }, { fila: 3, motivo: 'normal' }] }]);
+  const l = csv.split('\r\n');
+  assert.equal(l[1], '"Reservas","1","\'=HYPERLINK(""http://x"")"');
+  assert.equal(l[2], '"Reservas","2","\'@SUMA(A1)"');
+  assert.equal(l[3], '"Reservas","3","normal"');
 });

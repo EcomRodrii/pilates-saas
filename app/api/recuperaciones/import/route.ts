@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
 
   const creadas: string[] = [];
   let tope = 0;
+  let yaExistian = 0;
   let falloRpc: unknown = null;
 
   const resultados = await mapLimit(aCrear, CONCURRENCIA, async (r) => {
@@ -125,11 +126,18 @@ export async function POST(req: NextRequest) {
       tope++;
       continue;
     }
+    if (res.estado === 'YA_EXISTE') {
+      // Reimportar el mismo archivo: lo que ya estaba NO es una incidencia (los demás
+      // importadores lo cuentan como «ya existían»; si no, el acta cerraba con
+      // «Ojo: hay filas que no han entrado» al repetir una importación correcta).
+      yaExistian++;
+      continue;
+    }
     if (res.error) falloRpc = res.error;
     errores.push({
       fila: res.r.fila,
       email: res.r.email,
-      motivo: res.estado === 'YA_EXISTE' ? 'Ya la tenía importada' : 'No se pudo crear',
+      motivo: 'No se pudo crear',
     });
   }
 
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
     batchAviso,
     total: filas.length,
     importadas: creadas.length,
-    duplicadas: tope,
+    duplicadas: tope + yaExistian,
     errores,
   });
 }

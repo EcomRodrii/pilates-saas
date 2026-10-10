@@ -35,6 +35,13 @@ test('un archivo de citas con servicio y duración sigue siendo de citas', () =>
   if (r.tipo === 'ok') assert.equal(r.analisis.entidad, 'citas');
 });
 
+test('cabeceras más libres: «Class Type», «Clase reservada»; y «Solicitada» no es una cita', () => {
+  assert.equal(pareceReservaDeClase(['Email', 'Class Type', 'Date', 'Time']), true);
+  assert.equal(pareceReservaDeClase(['Email', 'Clase reservada', 'Fecha', 'Hora']), true);
+  assert.equal(pareceReservaDeClase(['Email', 'Nombre de la actividad', 'Fecha', 'Hora', 'Solicitada']), true);
+  assert.equal(pareceReservaDeClase(['Email', 'Clase', 'Fecha', 'Hora', 'Cita previa']), false);
+});
+
 test('pareceReservaDeClase: habla de clase y no de citas', () => {
   assert.equal(pareceReservaDeClase(['Email', 'Clase', 'Fecha', 'Hora', 'Instructora']), true);
   assert.equal(pareceReservaDeClase(['Email', 'Class', 'Date', 'Time', 'Teacher']), true);
