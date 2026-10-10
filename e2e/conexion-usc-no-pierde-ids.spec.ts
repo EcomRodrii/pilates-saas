@@ -129,6 +129,15 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
     }
     await expect(page.locator('#plataformas-externas')).toContainText('ClassPass');
   });
+
+  test('Wellhub enseña cómo pedirle la conexión, y solo Wellhub', async ({ page }) => {
+    await montar(page, { apiDisponible: false });
+    const pasos = page.getByText('Cómo pedir la conexión automática a Wellhub');
+    await expect(pasos).toHaveCount(1);
+    await pasos.click();
+    await expect(page.getByText('«Request integration»')).toBeVisible();
+    await expect(page.getByText('«Others»')).toBeVisible();
+  });
 });
 
 test.describe('Urban Sports Club: sin contrato o suspendido, la pantalla no dice que va sola', () => {

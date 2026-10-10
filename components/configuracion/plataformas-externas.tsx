@@ -84,6 +84,34 @@ function conexionDe(p: Plataforma, usc: EstadoUsc | null): { disponible: boolean
 }
 
 /**
+ * Los pasos para pedir la conexión a Wellhub. Es SU trámite, no el nuestro:
+ * Wellhub activa la integración de un software cuando sus estudios se la piden
+ * desde su portal (su ayuda: «How to set up your CMS integration?»), y mientras
+ * no lo hagan Tentare no tiene a quién pedir credenciales para esa sede. Por eso
+ * el estudio lo ve aquí, sin buscarlo. No promete plazo: lo que ocurre después
+ * lo decide Wellhub.
+ */
+function PedirConexionWellhub() {
+  return (
+    <details className="mt-3 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-semibold text-foreground">
+        Cómo pedir la conexión automática a Wellhub
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-4">
+        <li>Entra en tu <span className="font-semibold text-foreground">Partner Portal</span> de Wellhub.</li>
+        <li>En el menú, abre <span className="font-semibold text-foreground">Integraciones</span> y elige tu sede.</li>
+        <li>En el sistema de gestión elige <span className="font-semibold text-foreground">«Others»</span> y escribe <span className="font-semibold text-foreground">Tentare</span>.</li>
+        <li>Pulsa <span className="font-semibold text-foreground">«Request integration»</span>.</li>
+      </ol>
+      <p className="mt-2">
+        Wellhub se pone en contacto con Tentare para activarla. Hasta entonces, apunta tú sus reservas desde la clase.
+        Cuantos más estudios la pidan, antes la abren.
+      </p>
+    </details>
+  );
+}
+
+/**
  * Una fila por plataforma en Conexiones, como el resto de conexiones: su logo,
  * su estado y lo que hace el estudio con ella. Las tres abren el mismo cajón.
  * La primera lleva el ancla de siempre (`#plataformas-externas`).
@@ -204,6 +232,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
                 showToast={showToast}
               />
             )}
+            {p === 'WELLHUB' && !porApi && <PedirConexionWellhub />}
             </li>
           );
         })}
