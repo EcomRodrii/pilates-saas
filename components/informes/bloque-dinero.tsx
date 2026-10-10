@@ -15,10 +15,12 @@ import type { ResumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { diferencia, type DineroDelTramo, type PuntoDelGrafico } from '@/lib/informes/dinero';
 import { NOTA_OTROS, ORDEN_MOTIVOS, TEXTO_MOTIVO } from '@/lib/informes/motivo-cobro';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import type { ResumenPagosHistoricos } from '@/lib/cobros/pagos-historicos';
+import { ImportadoDelSoftwareAnterior } from '@/components/cobros/importado-anterior';
 import { GraficoDinero } from './grafico-dinero';
 import { CabeceraBloque, conSignoEuros, Euros, frenteA, tonoDiferencia, type PeriodoInforme } from './piezas';
 
-export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, plataformas, onDescargarPlataformas }: {
+export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, importado, plataformas, onDescargarPlataformas }: {
   periodo: PeriodoInforme;
   actual: DineroDelTramo;
   anterior: DineroDelTramo | null;
@@ -26,6 +28,8 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
   /** «septiembre a estas alturas», o `null`. */
   comparacion: string | null;
   ventasSinRecibo: ResumenVentasSinRecibo;
+  /** Lo importado del software anterior en el tramo y en el anterior; `null` si no hay o no se pudo leer. */
+  importado: { actual: ResumenPagosHistoricos; anterior: ResumenPagosHistoricos | null; completo: boolean } | null;
   plataformas: ResumenPlataforma[];
   onDescargarPlataformas: () => void;
 }) {
@@ -38,6 +42,10 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
       </CabeceraBloque>
 
       <GraficoDinero periodo={periodo} puntos={puntos} textoAnterior={comparacion ? `Mismo tramo: ${comparacion}` : null} />
+
+      {importado && (
+        <ImportadoDelSoftwareAnterior actual={importado.actual} anterior={importado.anterior} comparacion={comparacion} completo={importado.completo} />
+      )}
 
       {ventasSinRecibo.n > 0 && (
         <p role="note" className="text-[12px] text-muted-foreground">

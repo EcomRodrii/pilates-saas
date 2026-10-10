@@ -1889,6 +1889,21 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   }
 }
 
+// Pagos importados de la plataforma anterior, agregados por día (Cobros e
+// Informes los enseñan aparte del «Cobrado»). `null` si no se pudo leer o no
+// hay permiso: callar es lo correcto, la línea simplemente no sale — y un
+// array vacío querría decir «no importó ninguno», que es otra respuesta.
+export async function obtenerResumenPagosHistoricos(): Promise<{ dias: Array<{ fecha: string; n: number; total: number }>; completo: boolean } | null> {
+  try {
+    const res = await fetch('/api/pagos-historicos/resumen', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { dias?: unknown; completo?: unknown };
+    return Array.isArray(data.dias) ? { dias: data.dias as Array<{ fecha: string; n: number; total: number }>, completo: data.completo !== false } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Buzón de documentos (Community & Messaging OS, P2) — lado STAFF. Mismo
 // criterio de `null` en fallo que las dos funciones de arriba: un array
 // vacío significa "sin documentos", no "no se pudo comprobar".
@@ -2272,6 +2287,8 @@ export interface ResultadoImportClases {
   creadas: number;
   omitidas: number;       // ya existían: reimportar no duplica
   tiposCreados: number;
+  /** Instructoras del archivo que no existían y se dieron de alta al importar (sin email). */
+  instructorasCreadas?: string[];
   omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;

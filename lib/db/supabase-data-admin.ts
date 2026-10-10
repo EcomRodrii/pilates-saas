@@ -12,6 +12,7 @@ import { tokenCoincideConHash } from '@/lib/token-hash';
 import { exigirLectura } from '@/lib/exigir-lectura';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
+import { agruparPorDia, type PagosHistoricosDelDia } from '@/lib/cobros/pagos-historicos';
 import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina';
@@ -315,6 +316,25 @@ export async function dbListPagosHistoricosSocio(studioId: string, socioId: stri
     importe: Number(r.importe),
     medioPago: r.medio_pago as string | null,
   }));
+}
+
+// Lo importado de la plataforma anterior, AGREGADO por día, para Cobros e
+// Informes (`lib/cobros/pagos-historicos.ts`). Un estudio que migra trae miles
+// de pagos: se agrega aquí y se responde con un puñado de filas por día. Mismo
+// gate que la ficha (el caller comprueba `puedeVerFinanzas`) y filtrado
+// explícito por estudio aunque se use service-role.
+export async function dbResumenPagosHistoricosPorDia(studioId: string): Promise<{ dias: PagosHistoricosDelDia[]; completo: boolean } | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  try {
+    const { filas, truncado } = await leerCatalogoCompleto<{ fecha: string; importe: number | string }>(
+      (d, h) => admin.from('pagos_historicos').select('fecha, importe').eq('studio_id', studioId).order('id').range(d, h),
+    );
+    return { dias: agruparPorDia(filas), completo: !truncado };
+  } catch (e) {
+    reportDbError('[dbResumenPagosHistoricosPorDia]', e);
+    return null;
+  }
 }
 
 

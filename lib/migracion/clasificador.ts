@@ -120,6 +120,12 @@ export interface ContextoEstudio {
   instructores: string[];
   salas: string[];
   servicios: string[];
+  /**
+   * Quien importa puede dar de alta instructoras (propietaria o gerencia): el
+   * horario las crea al importar. Sin permiso (recepción) las clases entran sin
+   * instructora. Ausente = sí (la demo pública de la landing no tiene rol).
+   */
+  crearInstructoras?: boolean;
 }
 export const CTX_VACIO: ContextoEstudio = { planes: [], instructores: [], salas: [], servicios: [] };
 
@@ -205,7 +211,9 @@ function avisosDeContexto(entidad: EntidadMigracion, validadas: FilaValidadaComu
   };
   if (entidad === 'membresias') contar('plan', ctx.planes, 'Planes', 'crea esos planes antes de ejecutar o esas filas fallarán');
   if (entidad === 'clases') {
-    contar('instructor', ctx.instructores, 'Instructoras', 'esas clases entrarán sin instructora asignada');
+    contar('instructor', ctx.instructores, 'Instructoras', ctx.crearInstructoras === false
+      ? 'esas clases entrarán sin instructora asignada (solo la propietaria o la gerencia pueden darlas de alta)'
+      : 'se darán de alta al importar, sin email ni invitación; las completas luego en Equipo');
     contar('sala', ctx.salas, 'Salas', 'esas clases entrarán sin sala');
   }
   if (entidad === 'citas') {
@@ -272,14 +280,36 @@ export interface MejorDeterminista {
 // los campos obligatorios.
 export function mejorMapeoDeterminista(headers: string[], rows: string[][]): MejorDeterminista | null {
   let mejor: MejorDeterminista | null = null;
+  let reservas: MejorDeterminista | null = null;
   for (const [id, def] of Object.entries(ENTIDADES) as [EntidadMigracion, DefEntidad][]) {
     const mapeo = def.mapear(headers);
     const ev = evaluarMapeo(def, headers, rows, mapeo);
     if (!ev.obligatoriosCubiertos) continue;
     const puntua = (x: { tasaOk: number; columnasReconocidas: number }) => x.tasaOk * 0.6 + x.columnasReconocidas * 0.4;
+    if (id === 'reservas') reservas = { entidad: id, mapeo, ...ev };
     if (!mejor || puntua(ev) > puntua(mejor)) mejor = { entidad: id, mapeo, ...ev };
   }
+  // Reservas de clase frente a citas 1:1: comparten email, fecha y hora, y las
+  // citas aceptan «instructora» (y duración, precio…), así que una lista de
+  // reservas con instructora ganaba como CITAS por reconocer más columnas, y
+  // 1.100 reservas de clase se importaban como sesiones privadas (o fallaban).
+  // Si el archivo habla de una CLASE y no dice nada de citas, son reservas.
+  if (mejor?.entidad === 'citas' && reservas && pareceReservaDeClase(headers)) return reservas;
   return mejor;
+}
+
+const normCabecera = (h: string) => h.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+/**
+ * ¿Las cabeceras hablan de una CLASE («Clase», «Class», «Actividad»…) y de
+ * ninguna cita («Cita», «Appointment», «Terapeuta», «Fisio»)? Entonces lo que
+ * trae el archivo son reservas de clase, no sesiones 1:1.
+ */
+export function pareceReservaDeClase(headers: string[]): boolean {
+  const h = headers.map(normCabecera);
+  const dicenClase = h.some(x => /^(clase|class|actividad|nombre clase|class name|tipo de clase|nombre de la clase)$/.test(x));
+  const dicenCita = h.some(x => /(cita|appointment|terapeuta|fisio)/.test(x));
+  return dicenClase && !dicenCita;
 }
 
 // Resultado de clasificar UN archivo por la vía determinista:

@@ -44,6 +44,8 @@ import { useDescargaCobrado } from '@/components/cobros/use-descarga-cobrado';
 import type { AvisosCobros } from '@/components/cobros/use-acciones-recibo';
 import { Hecho, SelectorPeriodo, conSigno, conSignoEuros, frenteA, tonoDiferencia, type PeriodoInforme } from '@/components/informes/piezas';
 import { BloqueDinero } from '@/components/informes/bloque-dinero';
+import { pagosHistoricosEnTramo } from '@/lib/cobros/pagos-historicos';
+import { usePagosHistoricos } from '@/lib/cobros/use-pagos-historicos';
 import { BloqueClases } from '@/components/informes/bloque-clases';
 import { BloqueClientas } from '@/components/informes/bloque-clientas';
 
@@ -116,6 +118,17 @@ export default function Informes() {
       return dia >= desde && dia <= hasta;
     }));
   }, [ventasPOS, tramos]);
+
+  // Lo importado del software anterior, AL LADO del cobrado (no son recibos).
+  const importado = usePagosHistoricos();
+  const importadoDelTramo = useMemo(() => {
+    if (!tramos || !importado) return null;
+    return {
+      actual: pagosHistoricosEnTramo(importado.dias, tramos.visible),
+      anterior: tramos.anterior ? pagosHistoricosEnTramo(importado.dias, tramos.anterior) : null,
+      completo: importado.completo,
+    };
+  }, [importado, tramos]);
 
   // ── Clases ──
   const clases = useMemo(() => {
@@ -281,7 +294,7 @@ export default function Informes() {
 
       <BloqueDinero
         periodo={periodo} actual={dinero.actual} anterior={dinero.anterior} puntos={dinero.puntos} comparacion={comparacion}
-        ventasSinRecibo={ventasSinRecibo} plataformas={plataformas} onDescargarPlataformas={descargarPlataformas}
+        ventasSinRecibo={ventasSinRecibo} importado={importadoDelTramo} plataformas={plataformas} onDescargarPlataformas={descargarPlataformas}
       />
       <BloqueClases
         clases={clases.actual} anterior={clases.anterior} comparacion={comparacion} margenes={margenes}

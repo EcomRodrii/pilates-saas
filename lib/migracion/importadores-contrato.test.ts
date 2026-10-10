@@ -44,3 +44,33 @@ test('reservas/import: el aviso de sobreaforo cuenta solo lo que toca el archivo
   assert.ok(s.indexOf("necesitaConfirmacion: 'aforo'") < s.indexOf("from('reservas').insert"), 'el aviso va ANTES de escribir');
   assert.ok(!s.includes('[...sesionPorClave.values()].find('), 'el find dentro del bucle era O(n·m)');
 });
+
+test('clases/import: las instructoras que faltan se crean tras los solapes, antes de las sesiones, y solo si quien importa gestiona el equipo', () => {
+  const s = leer('app/api/clases/import/route.ts');
+  const iSolapes = s.indexOf('detectarSolapes(');
+  const iInstr = s.indexOf(".from('instructores').insert(");
+  const iSesiones = s.indexOf(".from('sesiones').insert(");
+  assert.ok(iSolapes > 0 && iInstr > 0 && iSesiones > 0);
+  assert.ok(iSolapes < iInstr, 'no se da de alta a nadie que luego se quede sin ninguna clase por un solape');
+  assert.ok(iInstr < iSesiones, 'la instructora debe existir antes de las sesiones (FK)');
+  assert.match(s, /if \(puedeGestionarEquipo\(sesion\.rol\)\)/, 'dar de alta equipo es de la propietaria o la gerencia');
+  assert.match(s, /entidad: 'instructores'/, 'entran en el lote: «Deshacer migración» las borra');
+  assert.match(s, /email: null/, 'sin email no se invita a nadie desde un import');
+  assert.match(s, /from\('instructores'\)\.delete\(\)/, 'si falla el insert de sesiones, la instructora sin clases se borra');
+});
+
+test('deshacer: las instructoras importadas se borran después de las clases que las usan y antes de los tipos', async () => {
+  const { ORDEN_DESHACER } = await import('./batches.ts');
+  const i = ORDEN_DESHACER.indexOf('instructores');
+  assert.ok(i > ORDEN_DESHACER.indexOf('sesiones'));
+  assert.ok(i > ORDEN_DESHACER.indexOf('citas'));
+  assert.ok(i < ORDEN_DESHACER.indexOf('socios'));
+});
+
+test('los importadores devuelven hasta MAX_ERRORES_DEVUELTOS errores por fila, no 50: el acta los lista', () => {
+  for (const r of ['reservas', 'clases', 'citas', 'pagos-historicos']) {
+    const s = leer(`app/api/${r}/import/route.ts`);
+    assert.ok(!s.includes('errores.slice(0, 50)'), `${r}: el tope de 50 dejaba incidencias sin listar`);
+    assert.match(s, /MAX_ERRORES_DEVUELTOS/);
+  }
+});

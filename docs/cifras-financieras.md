@@ -54,6 +54,22 @@ Ninguna cifra va a coincidir con el banco sin restar esas comisiones.
 | Cobros pendientes | Centro de Control (bandeja) | `POR_COBRAR` (se resuelve cobrando) |
 | Cobros sin cobrar | Bandeja única («decidir») | `IMPAGADO` |
 
+## Pagos históricos importados: se enseñan aparte, no suman (10-oct-2026)
+
+Al migrar, el estudio trae sus pagos (`pagos_historicos`, tabla aparte a propósito: no es
+`recibos`, sin Stripe, sin factura, sin NIF verificado, ya declarado por la gestoría anterior).
+**No suman en «Cobrado»**: esa cifra cuadra con las facturas y el cierre, y un ingreso sin
+factura la rompería. Pero tampoco pueden quedarse fuera de vista: tras migrar 3 meses de pagos,
+Cobros e Informes decían «Cobrado 0 €» para agosto y septiembre y el comparativo «frente a
+septiembre» salía vacío (medido el 10-oct con 568 pagos de prueba).
+
+Por eso **Cobros › Lo que he cobrado** e **Informes › Dinero** enseñan debajo del titular una
+línea propia, «De tu software anterior: X € en N pagos importados» (con la del mismo tramo del
+periodo anterior), que dice que no suma en «Cobrado» y por qué. La lee `GET /api/pagos-historicos/resumen`
+(agregado por día en servidor, mismo gate `puedeVerFinanzas`) y la calcula
+`lib/cobros/pagos-historicos.ts`. Una pantalla nueva con dinero que quiera «contarlos» debe
+seguir enseñándolos aparte, nunca sumarlos a recibos.
+
 ## Ventas del TPV
 
 Desde el TPV de servidor, cada venta pagada crea su recibo `rec-pos-*` y lo enlaza en

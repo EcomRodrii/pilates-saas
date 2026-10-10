@@ -307,9 +307,15 @@ export default function ImportarHorarioPage() {
                 {resultado.creadas} clases creadas en el calendario
                 {resultado.tiposCreados > 0 && ` · ${resultado.tiposCreados} tipos de clase nuevos`}
               </p>
-              {(resultado.omitidas > 0 || resultado.sinInstructor > 0 || resultado.sinSala > 0) && (
+              {(resultado.omitidas > 0 || resultado.sinInstructor > 0 || resultado.sinSala > 0 || (resultado.instructorasCreadas?.length ?? 0) > 0) && (
                 <div className="mt-1 flex flex-col gap-0.5 text-[12.5px] text-muted-foreground">
                   {resultado.omitidas > 0 && <p>{resultado.omitidas} ya existían y no se han duplicado</p>}
+                  {(resultado.instructorasCreadas?.length ?? 0) > 0 && (
+                    <p>
+                      {resultado.instructorasCreadas!.length === 1 ? 'Se dio de alta 1 instructora' : `Se dieron de alta ${resultado.instructorasCreadas!.length} instructoras`} que no estaban en tu equipo
+                      {' '}({resultado.instructorasCreadas!.slice(0, 6).join(', ')}{resultado.instructorasCreadas!.length > 6 ? '…' : ''}), sin email ni invitación: complétalas en Equipo
+                    </p>
+                  )}
                   {resultado.sinInstructor > 0 && <p>{resultado.sinInstructor} sin instructora: no se encontró ese nombre en tu equipo</p>}
                   {resultado.sinSala > 0 && <p>{resultado.sinSala} sin sala: no se encontró ese nombre</p>}
                 </div>

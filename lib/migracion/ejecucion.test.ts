@@ -36,3 +36,8 @@ test('un acta con una entidad no importada NO está completa aunque ninguna llev
   assert.equal(actaIncompleta([{ estado: 'importada' }]), false);
   assert.equal(actaIncompleta([{ error: 'x' }]), true);
 });
+
+test('un acta con filas con incidencia tampoco está completa aunque nada falle', () => {
+  assert.equal(actaIncompleta([{ estado: 'importada', incidencias: 76 }]), true);
+  assert.equal(actaIncompleta([{ estado: 'importada', incidencias: 0 }]), false);
+});
