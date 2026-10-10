@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'iva-clases-de-pilates',
   titulo: '¿Las clases de pilates llevan IVA? El tipo que se aplica y cuándo están exentas',
-  tituloSeo: '¿Las clases de pilates llevan IVA? Tipo y exenciones',
+  tituloSeo: '¿Llevan IVA las clases de pilates? Exenciones',
   descripcion:
     'Sí: un estudio privado cobra el 21 %. Cuándo el pilates está exento (fisioterapia, asociaciones), qué dice Hacienda y cómo ponerlo en tus facturas.',
   resumen:

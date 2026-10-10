@@ -12,8 +12,8 @@ import type { Articulo } from './tipos.ts';
 
 const articulo: Articulo = {
   slug: 'ocupacion-clases-valle',
-  titulo: 'Clases valle: cómo llenar las franjas flojas de tu estudio (y cuándo quitarlas)',
-  tituloSeo: 'Clases valle: cómo llenar las franjas flojas de tu estudio',
+  titulo: 'Clases valle: cómo llenar las franjas flojas (y cuándo quitarlas)',
+  tituloSeo: 'Clases valle: cómo llenar las franjas flojas',
   descripcion: 'Cuántas alumnas necesita una clase para no perder dinero, por qué fallan las franjas flojas y ocho formas de llenarlas antes de bajar el precio.',
   resumen: 'La cuenta para saber si una clase valle te cuesta dinero, cómo averiguar por qué no se llena y qué hacer con ella: cambiarla, avisar a quien puede venir, ponerle precio de franja o quitarla.',
   categoria: 'rentabilidad',

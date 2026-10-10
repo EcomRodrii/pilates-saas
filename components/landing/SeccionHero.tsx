@@ -8,7 +8,6 @@ import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { ALTA, NAV_V5 } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
-import { FIN_MONTAJE } from './IntroLogo';
 import { PLANS } from './data';
 import { useIslaCompacta } from './use-isla-compacta';
 import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
@@ -43,7 +42,7 @@ const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
 // Van `aria-hidden` dentro de un <figure> con su descripción, para que un lector
 // de pantalla no lea datos de muestra como si fueran de su estudio.
 //
-// ⚠️ El <h1> empieza por TEXTO, sin marcado delante: e2e/intro-logo.spec.ts
+// ⚠️ El <h1> empieza por TEXTO, sin marcado delante: e2e/landing-h1-texto.spec.ts
 // comprueba en el HTML crudo que `<h1 …>` va seguido de letras. La categoría
 // («Software de gestión para estudios de Pilates», titular de SEO de #1200) va
 // primero y en pequeño; la promesa (Dirección A del rediseño de 23-sep, «Tu
@@ -372,19 +371,16 @@ export function SeccionHero() {
           clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
         /* Entrada suave de las tarjetas, solo para quien no pidió menos
-           movimiento. Esperan a que se vaya la cortina del logo (IntroLogo):
-           si entraran a la vez que la página, lo harían detrás de ella y nadie
-           las vería llegar. Si la cortina se salta con un gesto, entran ya. */
+           movimiento. Entran nada más pintar la página: la cortina del logo
+           se retiró (11-oct, auditoría SEO: retrasaba el primer pintado y el
+           LCP móvil rondaba los 4 s). */
         @keyframes v5-hero-tarjeta-entra {
           from { opacity: 0; transform: translateY(16px) scale(.97); }
           to { opacity: 1; transform: none; }
         }
         @media (prefers-reduced-motion: no-preference) {
           .v5-hero-tarjeta { animation: v5-hero-tarjeta-entra .8s var(--motion-ease) both;
-            animation-delay: calc(${FIN_MONTAJE.toFixed(2)}s + var(--orden) * .14s); }
-          :root:has(.tnt-intro[data-saltada]) .v5-hero-tarjeta { animation-delay: calc(.1s + var(--orden) * .14s); }
-          /* Sin cortina (visitas siguientes), el retardo lo adelanta el estilo
-             que mete IntroLogo antes de pintar. */
+            animation-delay: calc(.1s + var(--orden) * .14s); }
         }
 
         /* Portátil pequeño y tablet apaisada: la foto encoge y las tarjetas con ella. */

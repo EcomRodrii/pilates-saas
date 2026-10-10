@@ -16,7 +16,7 @@ const GUIA = guia('facturacion-electronica-verifactu');
 const DESCRIPCION = 'Veri*Factu en tu estudio de Pilates: si es una sociedad, el programa debe estar adaptado antes del 1 de enero de 2027; si eres autónoma, antes del 1 de julio.';
 
 export const metadata: Metadata = {
-  title: 'Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu',
+  title: 'Veri*Factu para estudios de Pilates: qué cambia en 2026',
   description: DESCRIPCION,
   alternates: { canonical: urlDe('/recursos/facturacion-electronica-verifactu') },
   openGraph: {

@@ -10,7 +10,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-abrir-un-estudio-de-pilates",
     "titulo": "Cómo abrir un estudio de pilates: guía paso a paso, de la idea a la primera semana abierta",
-    "tituloSeo": "Cómo abrir un estudio de pilates en 2026: guía paso a paso",
+    "tituloSeo": "Cómo abrir un estudio de pilates en 2026: guía",
     "descripcion": "De la idea a la primera clase: inversión, local, máquinas, trámites, precios y equipo para abrir tu estudio de pilates en España. Con checklist.",
     "resumen": "La guía completa para montar un estudio de pilates en España: concepto, números, local, reformers, trámites, precios, equipo, reservas y los primeros 90 días, con una checklist de todo el proceso.",
     "categoria": "abrir",
@@ -28,7 +28,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-abrir-un-estudio-de-yoga",
     "titulo": "Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios",
-    "tituloSeo": "Cómo abrir un estudio de yoga en 2026: requisitos y costes",
+    "tituloSeo": "Abrir un estudio de yoga: requisitos y costes",
     "descripcion": "Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.",
     "resumen": "Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.",
     "categoria": "abrir",
@@ -46,7 +46,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-gestionar-un-estudio-de-pilates",
     "titulo": "Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen",
-    "tituloSeo": "Cómo gestionar un estudio de Pilates: 5 sistemas y una rutina",
+    "tituloSeo": "Cómo gestionar un estudio de Pilates: 5 sistemas",
     "descripcion": "Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.",
     "resumen": "Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.",
     "categoria": "operacion",
@@ -81,7 +81,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "bsport-vs-timp",
     "titulo": "bsport vs TIMP: diferencias para un estudio de pilates boutique",
-    "tituloSeo": "bsport vs TIMP en 2026: precio, app y diferencias reales",
+    "tituloSeo": "bsport vs TIMP en 2026: precio, app y diferencias",
     "descripcion": "bsport o TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.",
     "resumen": "bsport y TIMP comparados para un estudio boutique de pilates con lo que publica hoy la web de cada uno: tabla lado a lado, para quién encaja cada uno y qué preguntar en la demo.",
     "categoria": "software",
@@ -138,7 +138,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
     "titulo": "Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales",
-    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates: presupuesto 2026",
+    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates en 2026",
     "descripcion": "Precio real de un reformer con y sin IVA, fianza del local, cuota de autónoma, seguro, marca, software y un presupuesto de ejemplo con 6 reformers.",
     "resumen": "Lo que cuesta cada partida de un estudio de pilates en España, con precios publicados por fabricantes, tiendas y organismos oficiales, y un presupuesto de ejemplo para seis reformers.",
     "categoria": "abrir",
@@ -156,7 +156,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "precio-clase-de-pilates",
     "titulo": "Precio de una clase de pilates en 2026: lo que cobran 32 estudios en España",
-    "tituloSeo": "Precio de una clase de pilates: reformer 25 €, suelo 16 €",
+    "tituloSeo": "Precio clase de pilates: reformer 25 €, suelo 16 €",
     "descripcion": "¿Cuánto cuesta una clase de pilates? Reformer suelta: 25 € de mediana; suelo: 16 €; privada: 53,50 €. Precios reales de 32 estudios de 8 ciudades.",
     "resumen": "Lo que cobran 32 estudios de Madrid, Barcelona, Valencia, Sevilla, Bilbao, Málaga, Zaragoza y Alicante: clase suelta, cuotas y bonos de reformer, suelo y privada, con medianas y rangos.",
     "categoria": "rentabilidad",
@@ -173,7 +173,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "rentabilidad-estudio-de-pilates",
     "titulo": "¿Es rentable un estudio de pilates? Cómo calcularlo con tus números",
-    "tituloSeo": "¿Es rentable un estudio de pilates? Números y calculadora",
+    "tituloSeo": "¿Es rentable un estudio de pilates? Calculadora",
     "descripcion": "Cuánto gana un estudio de pilates: ingresos, costes y punto de equilibrio con 3 escenarios, precios de 32 estudios y una calculadora gratis.",
     "resumen": "La cuenta que dice si tu estudio gana dinero: plazas, clases, ocupación y precio medio por plaza, costes fijos y variables, punto de equilibrio y tres escenarios de ejemplo.",
     "categoria": "rentabilidad",
@@ -191,7 +191,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "precios-reformer-mat",
     "titulo": "Reformer vs. mat: cuánto cuesta cada plaza, cuánto factura una máquina y qué precio ponerle",
-    "tituloSeo": "Reformer vs mat: coste por plaza y cuánto factura un reformer",
+    "tituloSeo": "Reformer vs mat: coste por plaza y facturación",
     "descripcion": "Cuánto cuesta ofrecer una plaza de reformer y una de mat, cuánto factura una máquina al mes y qué diferencia de precio cobran 32 estudios españoles.",
     "resumen": "La cuenta de una plaza de reformer frente a una de suelo, lo que factura cada máquina según la ocupación y la diferencia de precio que cobran los estudios españoles.",
     "categoria": "rentabilidad",
@@ -208,8 +208,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   },
   {
     "slug": "ocupacion-clases-valle",
-    "titulo": "Clases valle: cómo llenar las franjas flojas de tu estudio (y cuándo quitarlas)",
-    "tituloSeo": "Clases valle: cómo llenar las franjas flojas de tu estudio",
+    "titulo": "Clases valle: cómo llenar las franjas flojas (y cuándo quitarlas)",
+    "tituloSeo": "Clases valle: cómo llenar las franjas flojas",
     "descripcion": "Cuántas alumnas necesita una clase para no perder dinero, por qué fallan las franjas flojas y ocho formas de llenarlas antes de bajar el precio.",
     "resumen": "La cuenta para saber si una clase valle te cuesta dinero, cómo averiguar por qué no se llena y qué hacer con ella: cambiarla, avisar a quien puede venir, ponerle precio de franja o quitarla.",
     "categoria": "rentabilidad",
@@ -221,13 +221,13 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/recursos/bonos-de-pilates"
     ],
-    "palabras": 2039,
+    "palabras": 2036,
     "actualizado": "2026-10-07"
   },
   {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
     "titulo": "Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación",
-    "tituloSeo": "Requisitos para abrir un estudio de pilates: lista en orden",
+    "tituloSeo": "Requisitos para abrir un estudio de pilates",
     "descripcion": "Licencia o declaración responsable, epígrafe IAE, Seguridad Social, seguro, datos de salud y titulación: los 9 trámites en orden y con su norma oficial.",
     "resumen": "Todos los trámites para abrir un estudio de pilates en España, en orden y con su norma: Hacienda, Seguridad Social, ayuntamiento, seguro, protección de datos y titulación de quien da clase.",
     "categoria": "abrir",
@@ -246,7 +246,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "bonos-de-pilates",
     "titulo": "Bonos de pilates: cómo diseñarlos (tipos, precio, caducidad y cancelaciones)",
-    "tituloSeo": "Bonos de pilates: cómo diseñarlos y ponerles precio",
+    "tituloSeo": "Bonos de pilates: cómo diseñarlos y su precio",
     "descripcion": "Bono de sesiones, cuota o clase suelta: cuánto descontar, qué caducidad ponen los estudios (de un mes a un año) y qué hacer con las cancelaciones tardías.",
     "resumen": "Tipos de bono, cuánto descontar por volumen, caducidades reales de estudios españoles, cancelaciones tardías y congelaciones: lo que decide si un bono te da caja o problemas.",
     "categoria": "rentabilidad",
@@ -264,7 +264,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "politica-de-cancelacion-de-clases",
     "titulo": "Política de cancelación de clases: plantilla para tu estudio y lo que dice la ley",
-    "tituloSeo": "Política de cancelación de clases: plantilla gratis y ley",
+    "tituloSeo": "Política de cancelación de clases: plantilla y ley",
     "descripcion": "Plantilla de política de cancelación lista para copiar en tu estudio de pilates o yoga: ventanas reales, no-shows y qué penalizaciones permite la ley.",
     "resumen": "Qué tiene que decir la política de cancelación de tu estudio, cuántas horas piden estudios reales, qué permite la ley (penalizaciones y desistimiento) y una plantilla lista para adaptar.",
     "categoria": "operacion",
@@ -282,7 +282,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "reducir-cancelaciones-ultima-hora",
     "titulo": "Cómo reducir las cancelaciones de última hora y los plantones en tus clases",
-    "tituloSeo": "Cómo reducir cancelaciones de última hora y no-shows",
+    "tituloSeo": "Reducir cancelaciones de última hora y no-shows",
     "descripcion": "Lo que miden los estudios sobre recordatorios, las ventanas que usan SoulCycle, Barry's o CorePower y seis medidas para que no se pierda ninguna plaza.",
     "resumen": "Por qué se falta a una clase, lo que dicen cinco estudios sobre los recordatorios, las reglas de las cadenas grandes y un plan en seis pasos para perder menos plazas.",
     "categoria": "operacion",
@@ -336,7 +336,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-ser-instructora-de-pilates",
     "titulo": "Cómo ser instructora de pilates en España: formación, cualificación oficial y trabajo",
-    "tituloSeo": "Cómo ser instructora de pilates: cursos, horas y precios",
+    "tituloSeo": "Cómo ser instructora de pilates: cursos y precios",
     "descripcion": "La cualificación oficial de 510 horas, las formaciones de Polestar, STOTT, BASI y Balanced Body con horas y precio, suelo o reformer y cómo encontrar trabajo.",
     "resumen": "El camino para ser instructora de pilates en España: qué es la cualificación oficial AFD805_3, qué formaciones hay con sus horas y precios, suelo o reformer y cómo encontrar trabajo.",
     "categoria": "sustituciones",
@@ -353,7 +353,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "iva-clases-de-pilates",
     "titulo": "¿Las clases de pilates llevan IVA? El tipo que se aplica y cuándo están exentas",
-    "tituloSeo": "¿Las clases de pilates llevan IVA? Tipo y exenciones",
+    "tituloSeo": "¿Llevan IVA las clases de pilates? Exenciones",
     "descripcion": "Sí: un estudio privado cobra el 21 %. Cuándo el pilates está exento (fisioterapia, asociaciones), qué dice Hacienda y cómo ponerlo en tus facturas.",
     "resumen": "Qué IVA lleva una clase de pilates en un estudio privado, en una clínica de fisioterapia o en una asociación, con la ley y las consultas de Hacienda que lo deciden.",
     "categoria": "espana",
@@ -370,7 +370,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "software-pilates-gratis",
     "titulo": "Software de pilates gratis: qué puedes montar sin pagar y qué pierdes",
-    "tituloSeo": "Software de pilates gratis: qué sirve y qué pierdes",
+    "tituloSeo": "Software de pilates gratis: qué sirve y límites",
     "descripcion": "Google, WhatsApp, Excel y planes a 0 €: qué puedes montar gratis en tu estudio de pilates, qué pierdes por el camino y cuándo compensa empezar a pagar.",
     "resumen": "Lo que de verdad puedes usar sin pagar en un estudio de pilates, con los límites que publica cada herramienta, el coste oculto de hacerlo a mano y cuándo compensa pagar.",
     "categoria": "software",
@@ -387,7 +387,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "plantilla-control-de-asistencia-pilates",
     "titulo": "Plantilla de control de asistencia para clases de pilates (Excel gratis)",
-    "tituloSeo": "Plantilla de control de asistencia para clases (Excel)",
+    "tituloSeo": "Plantilla de control de asistencia (Excel)",
     "descripcion": "Descarga gratis la plantilla en Excel para llevar la asistencia y los bonos de tu estudio: cómo usarla paso a paso, qué calcula sola y dónde se queda corta.",
     "resumen": "Una plantilla gratuita de Excel con alumnas, clases y asistencia que descuenta sola las sesiones de cada bono, con instrucciones paso a paso y sus límites dichos claro.",
     "categoria": "operacion",
@@ -422,7 +422,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "nombres-para-estudio-de-pilates",
     "titulo": "Nombres para estudio de pilates: más de 100 ideas y cómo comprobar que están libres",
-    "tituloSeo": "Nombres para estudio de pilates: 100+ ideas y cómo registrarlo",
+    "tituloSeo": "Nombres para estudio de pilates: 100+ ideas",
     "descripcion": "Más de 100 nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar gratis en la OEPM y en los .es que nadie los tiene ya.",
     "resumen": "Ideas de nombres para un estudio de pilates o de barre agrupadas por estilo, criterios para elegir y los pasos para comprobar que el nombre está libre antes de pagar el logotipo.",
     "categoria": "abrir",

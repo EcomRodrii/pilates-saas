@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'politica-de-cancelacion-de-clases',
   titulo: 'Política de cancelación de clases: plantilla para tu estudio y lo que dice la ley',
-  tituloSeo: 'Política de cancelación de clases: plantilla gratis y ley',
+  tituloSeo: 'Política de cancelación de clases: plantilla y ley',
   descripcion: 'Plantilla de política de cancelación lista para copiar en tu estudio de pilates o yoga: ventanas reales, no-shows y qué penalizaciones permite la ley.',
   resumen: 'Qué tiene que decir la política de cancelación de tu estudio, cuántas horas piden estudios reales, qué permite la ley (penalizaciones y desistimiento) y una plantilla lista para adaptar.',
   categoria: 'operacion',

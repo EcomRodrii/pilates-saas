@@ -127,7 +127,7 @@ export function SeccionCtaFinal() {
               <span>Diseñado con el RGPD en mente · Tus datos son tuyos</span>
               <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" className="v5-pie-badge">
                 {/* eslint-disable-next-line @next/next/no-img-element -- badge externo, no un asset propio */}
-                <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} />
+                <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} loading="lazy" decoding="async" />
               </a>
             </div>
           </div>
