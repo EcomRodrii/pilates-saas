@@ -46,6 +46,48 @@ export const RECURSOS_DESCARGABLES = {
     llamada: 'Descárgala en Word, lista para rellenar',
     promesa: 'Te la mandamos por email: las cláusulas de esta guía en un documento de Word, con lo que tienes que cambiar marcado en amarillo.',
   },
+  'modelo-estudio-12-meses': {
+    titulo: 'el modelo de tu estudio a 12 meses',
+    formato: 'Excel',
+    // scripts/generar-excels-imanes.py lo genera; scripts/verificar-excels-imanes.py comprueba sus fórmulas.
+    archivo: '/recursos/descargas/modelo-estudio-12-meses-f3b8c33e96.xlsx',
+    guia: '/recursos/rentabilidad-estudio-de-pilates',
+    asunto: 'Tu modelo de estudio a 12 meses',
+    consejo: 'Cambia las celdas crema de la hoja «Supuestos» por tus números y mira «12 meses» y «Equilibrio». Los números que trae son un ejemplo, no una recomendación.',
+    llamada: 'Descárgalo en Excel y juega con tus números',
+    promesa: 'Te lo mandamos por email: tu año mes a mes, con la ocupación que necesitas para cubrir costes y tu propio sueldo. Funciona en Excel y en Hojas de cálculo de Google.',
+  },
+  'simulador-escalera-bonos': {
+    titulo: 'el simulador de tu escalera de bonos',
+    formato: 'Excel',
+    archivo: '/recursos/descargas/simulador-escalera-bonos-e2c9139d21.xlsx',
+    guia: '/recursos/bonos-de-pilates',
+    asunto: 'Tu simulador de escalera de bonos',
+    consejo: 'Pon tu clase suelta, tus descuentos y lo que te cuesta una plaza en la hoja «Escalera», y prueba otros precios en «Escenarios».',
+    llamada: 'Descarga el simulador en Excel',
+    promesa: 'Te lo mandamos por email: compara hasta tres escenarios de precios con lo que vendes al mes y avisa si un escalón queda por debajo de tu coste.',
+  },
+  'mensajes-llenar-clases-recuperar-alumnas': {
+    titulo: '12 mensajes para llenar clases y recuperar alumnas',
+    formato: 'Word',
+    // scripts/generar-docx-imanes.mjs lo genera.
+    archivo: '/recursos/descargas/mensajes-llenar-clases-recuperar-alumnas-ff41be5e83.docx',
+    guia: '/recursos/ocupacion-clases-valle',
+    asunto: 'Tus 12 mensajes para llenar clases y recuperar alumnas',
+    consejo: 'Cambia lo que va entre corchetes, escríbelos con tu voz y mándalos solo a quien te ha dado permiso para escribirle.',
+    llamada: 'Descarga los 12 mensajes, listos para copiar',
+    promesa: 'Te los mandamos por email, en un documento de Word con lo que tienes que cambiar marcado en amarillo.',
+  },
+  'checklist-mensual-estudio-de-pilates': {
+    titulo: 'el checklist mensual de gestión de un estudio',
+    formato: 'Word',
+    archivo: '/recursos/descargas/checklist-mensual-estudio-de-pilates-272b8a5c2e.docx',
+    guia: '/recursos/como-gestionar-un-estudio-de-pilates',
+    asunto: 'Tu checklist mensual de gestión',
+    consejo: 'Imprímelo o cópialo cada mes y ve marcando; no hace falta hacerlo todo el mismo día.',
+    llamada: 'Descarga el checklist del cierre de mes',
+    promesa: 'Te lo mandamos por email: lo que revisar cada mes en alumnas, clases, equipo, dinero y local, en un documento de Word.',
+  },
 } as const satisfies Record<string, RecursoDescargable>;
 
 export type SlugDescarga = keyof typeof RECURSOS_DESCARGABLES;
