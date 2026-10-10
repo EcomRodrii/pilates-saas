@@ -5,7 +5,7 @@ import * as Sentry from '@sentry/nextjs';
 // los IDs que crean cuando la petición trae un batchId; deshacer borra
 // exactamente esos IDs, en orden inverso de dependencias, y nada más.
 
-export type EntidadBatch = 'socios' | 'suscripciones' | 'tipos_clase' | 'sesiones' | 'reservas' | 'citas' | 'plazas_fijas' | 'pagos_historicos' | 'recuperaciones';
+export type EntidadBatch = 'socios' | 'suscripciones' | 'tipos_clase' | 'instructores' | 'sesiones' | 'reservas' | 'citas' | 'plazas_fijas' | 'pagos_historicos' | 'recuperaciones';
 
 // El cliente genera el batchId; se valida el formato para no aceptar basura.
 export const RE_BATCH_ID = /^mig-[A-Za-z0-9-]{6,48}$/;
@@ -13,10 +13,10 @@ export const RE_BATCH_ID = /^mig-[A-Za-z0-9-]{6,48}$/;
 // Orden de BORRADO: primero lo que referencia, después lo referenciado.
 // pagos_historicos no referencia nada más que socios, así que va indiferente
 // respecto a citas/reservas/plazas_fijas — se pone junto a ellas por claridad.
-export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'pagos_historicos', 'recuperaciones', 'suscripciones', 'sesiones', 'tipos_clase', 'socios'];
+export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'pagos_historicos', 'recuperaciones', 'suscripciones', 'sesiones', 'instructores', 'tipos_clase', 'socios'];
 
 const TABLA: Record<EntidadBatch, string> = {
-  socios: 'socios', suscripciones: 'suscripciones', tipos_clase: 'tipos_clase',
+  socios: 'socios', suscripciones: 'suscripciones', tipos_clase: 'tipos_clase', instructores: 'instructores',
   sesiones: 'sesiones', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas_fijas',
   recuperaciones: 'recuperaciones',
   pagos_historicos: 'pagos_historicos',
@@ -98,7 +98,7 @@ const RASTRO_DEL_SISTEMA = [
 
 // Cómo se llama cada entidad en el mensaje que lee la propietaria.
 const ETIQUETA: Record<EntidadBatch, string> = {
-  socios: 'clientas', suscripciones: 'membresías', tipos_clase: 'tipos de clase',
+  socios: 'clientas', suscripciones: 'membresías', tipos_clase: 'tipos de clase', instructores: 'instructoras',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'clases fijas',
   recuperaciones: 'recuperaciones', pagos_historicos: 'pagos históricos',
 };

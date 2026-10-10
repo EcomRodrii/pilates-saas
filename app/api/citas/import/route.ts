@@ -9,6 +9,7 @@ import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas, puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
 
   if (pendientes.length === 0) {
     return NextResponse.json(
-      { error: 'Ninguna fila se pudo emparejar', sinSocia, duplicadas, errores: errores.slice(0, 50) },
+      { error: 'Ninguna fila se pudo emparejar', sinSocia, duplicadas, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS) },
       { status: 400 },
     );
   }
@@ -235,6 +236,6 @@ export async function POST(req: NextRequest) {
     sinSocia,               // email que no existe en el estudio
     sinInstructor,          // nombre de instructora que no cuadra
     sinServicioCatalogo,    // servicio no está en el catálogo: se dedujo el tipo del texto
-    errores: errores.slice(0, 50),
+    errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
   });
 }

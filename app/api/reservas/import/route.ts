@@ -11,6 +11,7 @@ import { catalogo } from '@/lib/migracion/catalogo';
 import { aforoNecesario, resumirSobreAforo, type SesionAforo } from '@/lib/migracion/reservas-aforo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esColumnaInexistente } from '@/lib/reservas/consumo-bono-reserva';
+import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -188,7 +189,7 @@ export async function POST(req: NextRequest) {
 
   if (pendientes.length === 0) {
     return NextResponse.json(
-      { error: 'Ninguna fila se pudo emparejar', sinSocia, sinSesion, duplicadas, errores: errores.slice(0, 50) },
+      { error: 'Ninguna fila se pudo emparejar', sinSocia, sinSesion, duplicadas, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS) },
       { status: 400 },
     );
   }
@@ -267,6 +268,6 @@ export async function POST(req: NextRequest) {
     sinSocia,       // email que no existe en el estudio
     sinSesion,      // no se encontró la clase a esa fecha/hora
     aforoAmpliado,  // clases a las que se subió el aforo con el OK de quien importa
-    errores: errores.slice(0, 50),
+    errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
   });
 }

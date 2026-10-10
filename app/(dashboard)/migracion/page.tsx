@@ -14,6 +14,8 @@ import {
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import {
   analizarMigracion, deshacerMigracion, migracionesRecientes,
   importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos, type ResultadoImportReservas,
@@ -39,6 +41,7 @@ import {
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { estadoDeLaMigracion } from '@/lib/tenti/momentos';
 import { bloqueadaPor, estadoDeEntidad, actaIncompleta, type EstadoEntidad } from '@/lib/migracion/ejecucion';
+import { incidenciasACsv, incidenciasDeImportacion, type IncidenciasDeEntidad, type ResultadoParaIncidencias } from '@/lib/migracion/incidencias';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -49,7 +52,9 @@ interface ResultadoEntidad {
   etiqueta: string;
   importadas: number;
   duplicadas: number;
-  incidencias: number; // sinSocia/sinSesion/errores... agregado
+  incidencias: number; // filas que no entraron del todo (sin contar dos veces sinSocia/sinSesion y su error)
+  /** Cuáles y por qué: agrupadas por motivo, con ejemplos y las filas completas para descargar. */
+  detalle?: IncidenciasDeEntidad;
   error?: string;
   batchAviso?: string | null;
   /** Cómo quedó: importada, parcial, fallida o saltada porque lo que necesita falló. */
@@ -75,10 +80,26 @@ const ENTIDADES_QUE_ACEPTA = (() => {
 })();
 
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
-  socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
+  socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase', instructores: 'instructoras',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'clases fijas',
   pagos_historicos: 'pagos históricos', recuperaciones: 'recuperaciones',
 };
+
+/** Incidencias de un importador: el número y el detalle salen de la MISMA cuenta. */
+function conDetalle(r: ResultadoParaIncidencias): { incidencias: number; detalle: IncidenciasDeEntidad } {
+  const detalle = incidenciasDeImportacion(r);
+  return { incidencias: detalle.total, detalle };
+}
+
+/** Descarga todas las incidencias del acta en un CSV (archivo, fila, motivo). */
+function descargarIncidencias(resultados: readonly ResultadoEntidad[]) {
+  const csv = incidenciasACsv(resultados.map(r => ({ etiqueta: r.etiqueta, filas: r.detalle?.filas ?? [] })));
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'incidencias-migracion.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
 
 function resumenBatch(conteos: Record<string, number>): string {
   const partes = Object.entries(conteos)
@@ -133,6 +154,7 @@ export default function MigracionPage() {
   // si no, las clientas/reservas recién creadas NO aparecen en sus listados
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
   const { resetDatosPilates, planesTarifa, instructores, salas, citasServicios } = useStudio();
+  const rol = useRol();
   // Contexto del estudio para reanalizar mapeos manuales con los mismos avisos
   // (planes/instructoras/salas/servicios inexistentes) que la vía automática.
   const ctxEstudio: ContextoEstudio = {
@@ -140,6 +162,7 @@ export default function MigracionPage() {
     instructores: instructores.map(i => i.nombre),
     salas: salas.map(s => s.nombre),
     servicios: citasServicios.map(s => s.nombre),
+    crearInstructoras: puedeGestionarEquipo(rol),
   };
 
   // Correcciones manuales de la propietaria en el paso de revisión: por archivo,
@@ -165,6 +188,7 @@ export default function MigracionPage() {
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
   // El Tenti del acta (lib/tenti/momentos.ts): 'hecho' o 'error'; deshecha, ninguno.
   const estadoActa = estadoDeLaMigracion({ resultados, deshecho: !!deshecho });
+  const hayIncidencias = resultados.some(r => r.incidencias > 0);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   // Mapeo "plan del CSV → tarifa mía", por nombre normalizado. El importador
   // casa por nombre, así que un estudio que YA tiene su catálogo montado no
@@ -303,18 +327,26 @@ export default function MigracionPage() {
 
       if (entidad === 'socias') {
         const r = await importarSocias(filas as FilaSocia[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else if (entidad === 'membresias') {
         const r = await importarMembresias(filas as FilaMembresia[], id);
         out.push({
-          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso,
+          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso,
           avisos: avisosDeMembresias(r),
         });
       } else if (entidad === 'clases') {
         const r = await importarClases(filas as FilaClase[], { semanas: 4, desde: hoy }, id);
+        const avisosClases: string[] = [];
+        if (r.instructorasCreadas?.length) {
+          const n = r.instructorasCreadas.length;
+          avisosClases.push(`Se ${n === 1 ? 'dio de alta 1 instructora' : `dieron de alta ${n} instructoras`} que no estaban en tu estudio (${r.instructorasCreadas.slice(0, 6).join(', ')}${n > 6 ? '…' : ''}), sin email ni invitación. Complétalas en Equipo.`);
+        }
+        if (r.omitidasPorSolape) {
+          avisosClases.push(`${r.omitidasPorSolape} ${r.omitidasPorSolape === 1 ? 'clase no se ha creado porque se pisaba' : 'clases no se han creado porque se pisaban'} con otra en la misma sala o con la misma instructora. Abajo ves cuáles y con qué; corrígelas en el calendario o en tu archivo.`);
+        }
         out.push({
-          entidad, etiqueta, importadas: r.creadas, duplicadas: r.omitidas, incidencias: r.sinInstructor + r.sinSala + r.errores.length, error: r.error, batchAviso: r.batchAviso,
-          avisos: r.omitidasPorSolape ? [`${r.omitidasPorSolape} clases no se han creado porque se pisaban con otra en la misma sala o con la misma instructora Para ver cuáles, sube ese archivo en Calendario → Importar horario: te las lista fila a fila.`] : undefined,
+          entidad, etiqueta, importadas: r.creadas, duplicadas: r.omitidas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso,
+          avisos: avisosClases.length ? avisosClases : undefined,
         });
       } else if (entidad === 'reservas') {
         let r = await importarReservas(filas as FilaReserva[], id);
@@ -326,23 +358,23 @@ export default function MigracionPage() {
           else rechazoAforo = true;
         }
         out.push({
-          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinSesion + r.errores.length,
+          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r),
           error: rechazoAforo ? 'No se han importado: había clases por encima de su aforo y no se ha ampliado.' : r.error,
           batchAviso: r.batchAviso,
           avisos: r.aforoAmpliado ? [`Se amplió el aforo de ${r.aforoAmpliado} clase${r.aforoAmpliado === 1 ? '' : 's'} para que cupieran todas las reservas.`] : undefined,
         });
       } else if (entidad === 'citas') {
         const r = await importarCitas(filas as FilaCita[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinInstructor + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else if (entidad === 'pagos') {
         const r = await importarPagosHistoricos(filas as FilaPago[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas ?? 0, incidencias: r.sinSocia + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas ?? 0, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else {
         // `duplicadas` aquí son las que no caben: la socia ya tenía el máximo
         // de recuperaciones vivas del estudio. No es un error del archivo, así que no
         // puede contarse como incidencia.
         const r = await importarRecuperaciones(filas as FilaRecuperacion[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       }
       const ultima = out[out.length - 1];
       ultima.estado = estadoDeEntidad(ultima);
@@ -819,6 +851,36 @@ export default function MigracionPage() {
                 <span className="font-bold">{r.etiqueta}:</span> {a}
               </p>
             ))}
+            {!deshecho && resultados.filter(r => r.detalle && (r.detalle.grupos.length > 0 || r.detalle.notas.length > 0)).map(r => (
+              <details key={`inc-${r.entidad}`} className="mt-3 rounded-xl border border-border bg-card/60 px-3 py-2 text-[13px]" open={r.incidencias > 0 && r.incidencias <= 5}>
+                <summary className="cursor-pointer font-bold text-foreground">
+                  {r.etiqueta}: {r.incidencias} {r.incidencias === 1 ? 'fila con incidencia' : 'filas con incidencias'} — ver cuáles y por qué
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {r.detalle!.grupos.map(g => (
+                    <li key={g.motivo}>
+                      <p className="text-foreground"><b className="tabular-nums">{g.cuantas}</b> · {g.motivo}</p>
+                      <p className="text-[12px] text-muted-foreground">
+                        {g.ejemplos.map(e => `fila ${e.fila}`).join(', ')}{g.cuantas > g.ejemplos.length ? ` y ${g.cuantas - g.ejemplos.length} más` : ''}
+                        {g.cuantas > 1 && g.ejemplos[0] ? ` · p. ej. ${g.ejemplos[0].motivo}` : ''}
+                      </p>
+                    </li>
+                  ))}
+                  {r.detalle!.notas.map(n => <li key={n} className="text-foreground">{n}</li>)}
+                </ul>
+                {r.detalle!.filas.length < r.incidencias && (
+                  <p className="mt-2 text-[12px] text-muted-foreground">El detalle fila a fila llega hasta {r.detalle!.filas.length}; el resto sigue el mismo patrón.</p>
+                )}
+              </details>
+            ))}
+            {!deshecho && hayIncidencias && resultados.some(r => (r.detalle?.filas.length ?? 0) > 0) && (
+              <button
+                type="button" onClick={() => descargarIncidencias(resultados)}
+                className="mt-3 rounded-xl border border-border bg-card px-3 py-2 text-[13px] font-bold text-foreground hover:bg-muted"
+              >
+                Descargar las incidencias (CSV)
+              </button>
+            )}
             {!deshecho && resultados.filter(r => r.error || r.motivo).map(r => (
               <p key={`msg-${r.entidad}`} className="mt-3 text-[13px] text-destructive">
                 <span className="font-bold">{r.etiqueta}:</span> {r.error ?? r.motivo}
@@ -835,7 +897,7 @@ export default function MigracionPage() {
           </div>
 
           <p className="text-[13px] text-muted-foreground">
-            Comprueba los números contra tu software anterior (nº de clientas, bonos activos, clases de la semana).{!deshecho && actaIncompleta(resultados) ? ' Ojo: hay partes que no han entrado (arriba).' : ' ¿Todo cuadra? Ya está — no había más que hacer.'}
+            Comprueba los números contra tu software anterior (nº de clientas, bonos activos, clases de la semana).{!deshecho && (actaIncompleta(resultados) || hayIncidencias) ? ' Ojo: hay filas que no han entrado del todo; arriba tienes cuáles y por qué.' : ' ¿Todo cuadra? Ya está — no había más que hacer.'}
           </p>
 
           <div className="flex gap-3">

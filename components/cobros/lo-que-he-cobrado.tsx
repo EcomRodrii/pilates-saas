@@ -21,7 +21,10 @@ import {
   textoDeLaComparacion, textoDelDia, textoDelPeriodo, tramoVisible, type Periodo,
 } from '@/lib/cobros/lo-cobrado';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { pagosHistoricosEnTramo } from '@/lib/cobros/pagos-historicos';
+import { usePagosHistoricos } from '@/lib/cobros/use-pagos-historicos';
 import { Buscador, normalizar } from './piezas';
+import { ImportadoDelSoftwareAnterior } from './importado-anterior';
 import { MenuRecibo } from './menu-recibo';
 import type { AccionesRecibo, AvisosCobros } from './use-acciones-recibo';
 import type { DatosCobros } from './use-datos-cobros';
@@ -54,6 +57,13 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
   }, [recibos, periodo, visible]);
   const comparacion = textoDeLaComparacion(periodo, visible, hoy);
   const ventasSinRecibo = useMemo(() => resumenVentasSinRecibo(ventasPOS), [ventasPOS]);
+  // Lo importado del software anterior: aparte del «Cobrado» (no son recibos).
+  const importado = usePagosHistoricos();
+  const importadoActual = useMemo(() => (importado ? pagosHistoricosEnTramo(importado.dias, visible) : null), [importado, visible]);
+  const importadoAnterior = useMemo(() => {
+    const t = mismoTramoAnterior(periodo, visible);
+    return importado && t ? pagosHistoricosEnTramo(importado.dias, t) : null;
+  }, [importado, periodo, visible]);
 
   // La lista: por día, del más reciente al más antiguo; dentro del día, por hora.
   const dias = useMemo(() => {
@@ -142,6 +152,10 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
           {actual.nConDevolucion > 0 && ` · ${actual.nConDevolucion} con devolución`}
         </p>
       </div>
+
+      {importadoActual && (
+        <ImportadoDelSoftwareAnterior actual={importadoActual} anterior={importadoAnterior} comparacion={comparacion} completo={importado?.completo} />
+      )}
 
       {ventasSinRecibo.n > 0 && (
         <p role="note" className="m-0 px-1 text-xs text-muted-foreground">

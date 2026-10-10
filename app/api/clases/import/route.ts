@@ -8,9 +8,10 @@ import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { catalogo } from '@/lib/migracion/catalogo';
 import { detectarSolapes, textoConflicto } from '@/lib/migracion/solapes-horario';
-import { puedeGestionarClientas, puedeGestionarSede } from '@/lib/permisos-reglas';
+import { puedeGestionarClientas, puedeGestionarEquipo, puedeGestionarSede } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
+import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -28,8 +29,13 @@ export const maxDuration = 60;
 //   · fila con DÍA DE SEMANA → se expande a `semanas` semanas desde `desde`.
 //
 // Los tipos de clase que no existan se CREAN (sin ellos no hay nada que importar).
-// Instructora y sala solo se EMPAREJAN por nombre: si no cuadran se deja el hueco
-// vacío y se informa, en vez de inventar personas o salas que no existen.
+// Las INSTRUCTORAS que no existan también se crean, si quien importa puede gestionar
+// el equipo (propietaria o gerencia): sin ellas el horario entraba con cientos de
+// clases «sin instructora» y la propietaria tenía que darlas de alta una a una
+// antes de migrar. Se crean SIN email y sin invitar a nadie (una ficha de equipo,
+// no una cuenta) y entran en el lote, así que «Deshacer migración» las borra.
+// La sala solo se EMPAREJA por nombre: si no cuadra se deja el hueco vacío y se
+// informa, en vez de inventar una sala que no existe.
 
 const MAX_FILAS = 2000;
 const MAX_SESIONES = 5000;   // techo duro de sesiones generadas
@@ -39,6 +45,8 @@ const TZ = TZ_ESTUDIO;
 
 // Paleta para los tipos de clase creados al vuelo (el estudio los puede recolorear).
 const COLORES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#A855F7'];
+// Y para las instructoras creadas al vuelo (la de la ficha de Equipo es la rosa de siempre).
+const COLORES_INSTRUCTORA = ['#F7A6C4', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#14B8A6', '#EC4899', '#A855F7'];
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim();
@@ -167,6 +175,20 @@ export async function POST(req: NextRequest) {
   // creaban primero y, si luego fallaba el insert de sesiones o se descartaban
   // las filas, quedaban tipos sueltos («Mat Pilates») sin ninguna clase.
 
+  // ── Instructoras que faltan: se crean (si quien importa gestiona el equipo) ──
+  // Se apuntan aquí y se insertan más abajo, ya con las clases validadas, solo las
+  // que de verdad van a tener alguna (misma regla que los tipos de clase).
+  const nuevasInstructoras: { id: string; nombre: string; color: string }[] = [];
+  if (puedeGestionarEquipo(sesion.rol)) {
+    for (const f of filas) {
+      const nombre = (f.instructor ?? '').trim();
+      if (nombre.length < 2 || instructorPorNombre.has(norm(nombre))) continue;
+      const id = `inst-${uid()}`;
+      nuevasInstructoras.push({ id, nombre, color: COLORES_INSTRUCTORA[(instructorPorNombre.size + nuevasInstructoras.length) % COLORES_INSTRUCTORA.length] });
+      instructorPorNombre.set(norm(nombre), id);
+    }
+  }
+
   // ── Expansión de filas → sesiones concretas ────────────────────────────────
   interface Pendiente { tipoId: string; salaId: string | null; instructorId: string | null; inicio: string; fin: string; aforo: number; serieId: string | null; fila: number; clase: string }
   const pendientes: Pendiente[] = [];
@@ -294,7 +316,7 @@ export async function POST(req: NextRequest) {
   if (aInsertar.length === 0 && omitidasPorSolape > 0) {
     return errorPeticion(
       `No se ha creado ninguna clase: las ${omitidasPorSolape} se pisan con otras en la misma sala o con la misma instructora. Corrige esas filas y vuelve a subir el archivo.`,
-      422, { errores: errores.slice(0, 50), omitidasPorSolape, tiposCreados: 0 },
+      422, { errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), omitidasPorSolape, tiposCreados: 0 },
     );
   }
 
@@ -305,6 +327,27 @@ export async function POST(req: NextRequest) {
     const { error } = await admin.from('tipos_clase').insert(tiposAcrear);
     if (error) return errorInterno('clases:import:tipos', error,
       'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
+  }
+  // Instructoras nuevas: solo las que de verdad van a tener clases. Entran en el
+  // lote ANTES de las clases para que «Deshacer» las borre aunque algo falle luego.
+  const instructorasUsadas = new Set(aInsertar.map(p => p.instructorId).filter((x): x is string => !!x));
+  const instructorasAcrear = nuevasInstructoras.filter(i => instructorasUsadas.has(i.id));
+  let instructorasFueraDelDeshacer = false;
+  if (instructorasAcrear.length > 0) {
+    const { error } = await admin.from('instructores').insert(instructorasAcrear.map(i => ({
+      id: i.id, studio_id: sesion.studioId, nombre: i.nombre, color: i.color,
+      activo: true, rol: 'INSTRUCTOR', email: null, telefono: null, avatar: null, foto_url: null, bio: null, auth_user_id: null,
+    })));
+    if (error) {
+      // Los tipos nuevos que ya se crearon tampoco se quedan sueltos.
+      const sueltosT = tiposAcrear.map(t => t.id as string);
+      if (sueltosT.length > 0) await admin.from('tipos_clase').delete().in('id', sueltosT).eq('studio_id', sesion.studioId);
+      return errorInterno('clases:import:instructoras', error,
+        'No se han podido crear las instructoras del archivo. Dalas de alta en Equipo y vuelve a subirlo.');
+    }
+    if (batchId) {
+      instructorasFueraDelDeshacer = !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'instructores', ids: instructorasAcrear.map(i => i.id) }));
+    }
   }
   // Los tipos que se quedan solo se registran en el lote de deshacer cuando se
   // sabe cuáles (abajo, al terminar o al fallar): `registrarIdsBatch` solo añade.
@@ -324,6 +367,10 @@ export async function POST(req: NextRequest) {
       // Los tipos nuevos sin ninguna clase creada no se quedan sueltos.
       const sueltos = tiposAcrear.map(t => t.id as string).filter(id => !tiposCreadosIds.has(id));
       if (sueltos.length > 0) await admin.from('tipos_clase').delete().in('id', sueltos).eq('studio_id', sesion.studioId);
+      // Y las instructoras creadas que se quedaron sin ninguna clase.
+      const conClase = new Set(aInsertar.slice(0, creadas).map(p => p.instructorId));
+      const sinClase = instructorasAcrear.map(i => i.id).filter(id => !conClase.has(id));
+      if (sinClase.length > 0) await admin.from('instructores').delete().in('id', sinClase).eq('studio_id', sesion.studioId);
       if (batchId) {
         if (idsCreados.length > 0) await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados });
         if (tiposCreadosIds.size > 0) await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: [...tiposCreadosIds] });
@@ -337,7 +384,7 @@ export async function POST(req: NextRequest) {
           : 'Vuelve a subir el archivo: las ya creadas no se duplican.';
       return errorInterno('clases:import:sesiones', error,
         `Se han creado ${creadas} clases y el proceso se ha detenido ahí. ${motivo}`,
-        500, { creadas, omitidasPorSolape, errores: errores.slice(0, 50), batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
+        500, { creadas, omitidasPorSolape, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
     }
     idsCreados.push(...lote.map(l => l.id));
     for (const l of lote) tiposCreadosIds.add(l.tipo_clase_id);
@@ -349,7 +396,7 @@ export async function POST(req: NextRequest) {
   if (batchId && tiposCreadosIds.size > 0) {
     tiposFueraDelDeshacer = !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: [...tiposCreadosIds] }));
   }
-  const batchAviso = sesionesFueraDelDeshacer || tiposFueraDelDeshacer
+  const batchAviso = sesionesFueraDelDeshacer || tiposFueraDelDeshacer || instructorasFueraDelDeshacer
     ? 'No se pudo registrar el lote para deshacer'
     : null;
 
@@ -369,9 +416,10 @@ export async function POST(req: NextRequest) {
     creadas,
     omitidas,            // ya existían (reimportación)
     tiposCreados: tiposCreadosIds.size,
+    instructorasCreadas: instructorasAcrear.map(i => i.nombre), // dadas de alta desde el archivo
     omitidasPorSolape,   // se pisaban con otra clase (sala o instructora): no se crearon
-    sinInstructor,       // filas cuya instructora no se encontró por nombre
+    sinInstructor,       // filas cuya instructora no se encontró por nombre (y no se pudo crear)
     sinSala,
-    errores: errores.slice(0, 50),
+    errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
   });
 }
