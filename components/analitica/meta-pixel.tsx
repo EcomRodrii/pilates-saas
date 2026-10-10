@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { guardarDecision, decisionGuardada, seguirRuta } from '@/lib/meta-pixel-cliente';
@@ -44,9 +44,32 @@ export function MetaPixel() {
 
   useEffect(() => { seguirRuta(pathname); }, [pathname, estado]);
 
-  if (estado !== 'pendiente' || !rutaConPixel(pathname)) return null;
+  const visible = estado === 'pendiente' && rutaConPixel(pathname);
+  const aviso = useRef<HTMLDivElement>(null);
+
+  // ⚠️ El aviso es `fixed` y se pintaba ENCIMA del contenido: en un iPhone dentro
+  // del navegador de un anuncio (390×664) quedaba justo sobre el botón
+  // «Continuar» del paso 1 del alta (medido con `elementFromPoint`: devolvía el
+  // aviso, no el botón). Mientras se ve, la página reserva su alto al final para
+  // que todo se pueda subir por encima de él; al decidir, se devuelve.
+  useEffect(() => {
+    const el = aviso.current;
+    if (!visible || !el) return;
+    const previo = document.body.style.paddingBottom;
+    const ajustar = () => { document.body.style.paddingBottom = `${el.offsetHeight + 24}px`; };
+    ajustar();
+    const observador = new ResizeObserver(ajustar);
+    observador.observe(el);
+    return () => {
+      observador.disconnect();
+      document.body.style.paddingBottom = previo;
+    };
+  }, [visible]);
+
+  if (!visible) return null;
   return (
     <div
+      ref={aviso}
       role="region"
       aria-label="Cookies de publicidad"
       className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-xl rounded-t-card border border-border bg-card p-4 shadow-lg sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[26rem]"
