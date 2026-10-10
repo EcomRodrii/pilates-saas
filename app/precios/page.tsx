@@ -179,7 +179,24 @@ export default function PreciosPage() {
           })}
         </div>
 
+        {/* Respuesta directa a la pregunta que se hace quien compara: pasaje
+            autocontenido de ~130 palabras, con las cifras de entitlements.ts
+            (nunca escritas a mano). Lo lee igual una persona que un buscador. */}
         <section style={{ marginTop: 'clamp(48px,6vw,72px)' }}>
+          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
+            Tentare cuesta {PLAN_INFO.BASE.precioMes} € al mes en el plan {PLAN_INFO.BASE.nombre} (una sala, una o dos
+            instructoras y {tope('BASE').toLowerCase()}), {PLAN_INFO.ESTUDIO.precioMes} € en el plan{' '}
+            {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
+            {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
+            Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
+            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. La prueba
+            dura {TRIAL_DIAS} días del plan que elijas, sin tarjeta, y traer tus datos desde otra plataforma no se cobra
+            aparte.
+          </p>
+        </section>
+
+        <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
           <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño y cuánto

@@ -78,9 +78,9 @@ const ACTUALIZADO_1_03 = '2026-09-16';
 const FUNCIONALIDADES: PaginaSeo[] = [
   {
     path: '/funcionalidades/reservas-online',
-    titulo: 'Software de reservas para estudios de Pilates | Tentare',
+    titulo: 'Software de reservas y pagos para estudios de Pilates | Tentare',
     descripcion:
-      'Tus alumnas reservan y cancelan desde el móvil, 24/7. Antelación mínima y máxima, bono obligatorio y aprobación manual, con reglas por tipo de clase.',
+      'Tus alumnas reservan y pagan desde el móvil, 24/7: bono, clase suelta o cuota con tarjeta o SEPA. Reglas por tipo de clase y precio público desde 29 €/mes con IVA.',
     grupo: 'funcionalidades',
     etiqueta: 'Reservas online',
     resumen: 'Reservan solas desde el móvil, con las reglas que tú pongas.',
@@ -343,7 +343,7 @@ export const PAGINAS: PaginaSeo[] = [
     // ya decía «Software de gestión para estudios de Pilates». La marca vuelve
     // al final: unos dos de cada tres clics de la home llegan buscando «tentare».
     path: '/',
-    titulo: 'Software de gestión para estudios de Pilates y yoga | Tentare',
+    titulo: 'Software de gestión para estudios de Pilates y yoga en España | Tentare',
     descripcion:
       'Programa para centros de Pilates y yoga: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
     grupo: 'home',
