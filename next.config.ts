@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // Solo en DESARROLLO (producción la ignora): deja que el navegador de un e2e
+  // abra la app bajo `www.tentare.app` (`--host-resolver-rules` hacia localhost).
+  // Hace falta porque el aviso de cookies de Meta solo se pinta en ese host
+  // (lib/meta-pixel-reglas.ts) y sin él no hay forma de probar que no tapa el
+  // botón del alta (e2e/aviso-cookies-no-tapa.spec.ts). Next bloquea los
+  // recursos de dev de cualquier otro origen y la página salía sin CSS ni JS.
+  allowedDevOrigins: ['www.tentare.app'],
   // El desarrollo usa un tsconfig más ligero (sin `strict`, sin
   // `skipLibCheck` de más, sin incremental): eso es lo que baja de verdad la
   // memoria que gasta tsc mientras se programa. La comprobación de tipos
