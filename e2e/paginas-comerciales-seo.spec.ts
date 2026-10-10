@@ -19,6 +19,7 @@ const PAGINAS = [
   { path: '/comparativa/tentare-vs-eversports', h1: /^Eversports: precios/, resumen: true },
   { path: '/comparativa/tentare-vs-glofox', h1: /^Glofox: precios/, resumen: true },
   { path: '/soluciones/estudio-de-pilates-reformer', h1: /^Software para estudios de Pilates reformer/, resumen: true },
+  { path: '/soluciones/programa-de-gestion-para-estudio-de-pilates', h1: /^Programa de gestión para un estudio de Pilates/, resumen: true },
   { path: '/soluciones/estudio-de-yoga', h1: /^Software para estudios de yoga/, resumen: true },
   { path: '/funcionalidades/reservas-online', h1: /^Software de reservas y pagos para estudios de Pilates/, resumen: false },
   { path: '/precios', h1: /^Precios del software para estudios de Pilates/, resumen: false },

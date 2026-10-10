@@ -99,6 +99,7 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
     // (7-oct-2026): /soluciones recibía un solo enlace interno en todo el sitio.
     titulo: 'Para tu estudio',
     enlaces: [
+      { href: '/soluciones/programa-de-gestion-para-estudio-de-pilates', label: 'Programa de gestión' },
       { href: '/soluciones/estudio-de-pilates-reformer', label: 'Pilates reformer' },
       { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga' },
       { href: '/funcionalidades/multi-centro', label: 'Varias sedes' },

@@ -52,6 +52,7 @@ export const PIE_PUBLICO: { titulo: string; enlaces: EnlacePublico[] }[] = [
     titulo: 'Para tu estudio',
     enlaces: [
       { href: '/', label: 'Estudio de Pilates' },
+      { href: '/soluciones/programa-de-gestion-para-estudio-de-pilates', label: 'Programa de gestión' },
       { href: '/soluciones/estudio-de-pilates-reformer', label: 'Pilates reformer' },
       { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga' },
       { href: '/funcionalidades/multi-centro', label: 'Varias sedes' },

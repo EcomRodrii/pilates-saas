@@ -87,7 +87,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: '2026-10-11',
-    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas', '/funcionalidades/plazas-fijas'],
+    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas', '/funcionalidades/plazas-fijas', '/soluciones/programa-de-gestion-para-estudio-de-pilates'],
   },
   {
     path: '/funcionalidades/lista-de-espera',
@@ -350,7 +350,7 @@ export const PAGINAS: PaginaSeo[] = [
     etiqueta: 'Inicio',
     prioridad: 1,
     changeFrequency: 'weekly',
-    relacionadas: ['/funcionalidades', '/precios', '/comparativa'],
+    relacionadas: ['/funcionalidades', '/precios', '/comparativa', '/soluciones/programa-de-gestion-para-estudio-de-pilates'],
     actualizado: '2026-10-11',
   },
   {
@@ -619,6 +619,22 @@ export const PAGINAS: PaginaSeo[] = [
     actualizado: '2026-10-07',
     relacionadas: ['/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/plazas-fijas', '/recursos/precios-reformer-mat'],
   },
+  {
+    // La búsqueda «programa de gestión para un estudio de pilates en España»
+    // (11-oct-2026): hasta entonces ninguna página la respondía; la home se
+    // queda «software para estudios de Pilates».
+    path: '/soluciones/programa-de-gestion-para-estudio-de-pilates',
+    titulo: 'Programa de gestión para estudios de Pilates en España',
+    descripcion:
+      'Reservas, calendario con salas, bonos, cobros con tarjeta o SEPA, facturas y sustituciones en un programa para estudios de Pilates en España. Desde 29 €/mes.',
+    grupo: 'soluciones',
+    etiqueta: 'Programa de gestión',
+    resumen: 'El programa que lleva el estudio entero: reservas, bonos, cobros, facturas y equipo.',
+    prioridad: 0.8,
+    changeFrequency: 'monthly',
+    actualizado: '2026-10-11',
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion', '/recursos/checklist-elegir-software-estudio'],
+  },
   // Índice de /soluciones: hasta el 23-sep era un 404 aunque colgaran de él
   // tres páginas.
   {
@@ -632,7 +648,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-10-07',
-    relacionadas: ['/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/funcionalidades/multi-centro', '/soluciones/cambiar-de-software'],
+    relacionadas: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/funcionalidades/multi-centro', '/soluciones/cambiar-de-software'],
   },
   {
     path: '/recursos',
