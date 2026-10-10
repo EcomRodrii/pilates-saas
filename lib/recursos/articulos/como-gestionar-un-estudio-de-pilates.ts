@@ -9,7 +9,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-gestionar-un-estudio-de-pilates',
   titulo: 'Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen',
-  tituloSeo: 'Cómo gestionar un estudio de Pilates: 5 sistemas y una rutina',
+  tituloSeo: 'Cómo gestionar un estudio de Pilates: 5 sistemas',
   descripcion: 'Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.',
   resumen: 'Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.',
   categoria: 'operacion',

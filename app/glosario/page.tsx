@@ -12,7 +12,7 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
 import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
-  title: 'Glosario del software de gestión para estudios de Pilates — Tentare',
+  title: 'Glosario de software para estudios de Pilates — Tentare',
   description: 'Definiciones claras y neutrales de los términos del sector: software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio y más.',
   alternates: { canonical: urlDe('/glosario') },
   openGraph: {

@@ -6,12 +6,12 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
-import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
-import { LEGAL } from '@/lib/legal-info';
+import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
+import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 const PATH = '/precios';
@@ -86,32 +86,10 @@ const FAQ = [
 ];
 
 export default function PreciosPage() {
-  // SoftwareApplication + Offer viven aquí y en la home, y en ningún otro sitio:
-  // es una sola entidad, y repetirla en cada página de funcionalidad la
-  // convertiría en once declaraciones del mismo producto. Mismo `@id` que la
-  // home (components/landing/StructuredData.tsx) para que Google la lea como
-  // la MISMA entidad en las dos páginas, no como dos productos distintos.
-  const ofertaLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    '@id': `${BASE_URL}/#software`,
-    name: LEGAL.marca,
-    applicationCategory: 'BusinessApplication',
-    // «Web» y no «iOS, Android»: no hay app nativa en las tiendas (igual que
-    // en la home) — la app de la alumna es una PWA, el panel es web.
-    operatingSystem: 'Web',
-    url: BASE_URL,
-    publisher: { '@id': ID_ORGANIZACION },
-    description: pagina.descripcion,
-    offers: PLANES.map((p) => ({
-      '@type': 'Offer',
-      name: PLAN_INFO[p].nombre,
-      price: PLAN_INFO[p].precioMes,
-      priceCurrency: 'EUR',
-      url: urlDe(PATH),
-      description: PLAN_INFO[p].resumen,
-    })),
-  };
+  // SoftwareApplication + Offer: el MISMO nodo (`/#software`) que pinta la home,
+  // construido en lib/seo/software-application.ts. Una sola entidad, un solo
+  // objeto: repetirlo con datos distintos en cada página la hace contradecirse.
+  const ofertaLd = softwareApplicationLd();
 
   return (
     <PageShell>

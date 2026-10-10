@@ -59,7 +59,7 @@ const DATOS_PROPIOS = [
   { href: '/recursos/rentabilidad-estudio-de-pilates', titulo: 'Rentabilidad de un estudio', texto: 'La cuenta completa y una calculadora del punto de equilibrio.' },
   { href: '/recursos/precios-reformer-mat', titulo: 'Reformer vs. mat', texto: 'Coste por plaza y cuánto factura un reformer según la ocupación.' },
   { href: '/soluciones/estudio-de-pilates-reformer', titulo: 'Calculadora de plazas vacías', texto: 'Lo que cuestan al mes las plazas de reformer que no se reservan.' },
-  { href: '/comparativa', titulo: 'Comparativa de 14 programas', texto: 'Precio, permanencia y funciones, con lo que consta en la web de cada uno.' },
+  { href: '/comparativa', titulo: 'Comparativa de 13 programas', texto: 'Precio, permanencia y funciones, con lo que consta en la web de cada uno.' },
 ];
 
 export default function SobreTentarePage() {
@@ -81,7 +81,7 @@ export default function SobreTentarePage() {
         '@id': ID_FUNDADOR,
         name: 'Marcos Roca',
         jobTitle: 'Fundador de Tentare',
-        url: `${urlDe(PATH)}#quien`,
+        url: urlDe(PATH),
         worksFor: { '@id': ID_ORGANIZACION },
         knowsAbout: ['Software de gestión para estudios de Pilates y yoga', 'Gestión de estudios de Pilates', 'Precios y bonos de clases de Pilates en España'],
       },

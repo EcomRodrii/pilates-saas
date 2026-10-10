@@ -222,7 +222,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'sustituciones', categoria: 'instructores', tipo: 'guia',
     titulo: 'Cómo funcionan las sustituciones',
-    descripcion: 'Una instructora avisa desde la app de que no puede dar su clase y Tentare busca sustituta, dentro de tu equipo o en Tentare Network, con el grado de autonomía que elijas.',
+    descripcion: 'Una instructora avisa desde la app de que no puede dar su clase y Tentare busca sustituta en tu equipo, con el grado de autonomía que elijas.',
     terminos: ['baja', 'no puedo asistir', 'candidatas', 'autonomía'],
     actualizado: '2026-09-15',
     relacionados: ['instructores/disponibilidad-y-tarifas', 'reservas/editar-o-cancelar-una-clase'],
@@ -405,7 +405,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'plazas-fijas', categoria: 'bonos', tipo: 'guia',
     titulo: 'Clases fijas: su hueco de cada semana',
-    descripcion: 'Ana viene todos los martes a las 10. Cómo se marca una alumna, qué ve ella en su app, cómo se pausa unas semanas, qué pasa si se queda sin cuota, cómo te la piden, cómo ofrecer una clase fija con nombre, aprobarla sola y dejar que la amplíe.',
+    descripcion: 'Ana viene todos los martes a las 10. Cómo marcar a una alumna en una clase fija, qué ve ella en su app, cómo se pausa y qué pasa si se queda sin cuota.',
     terminos: ['clase fija', 'plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar clase fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir clase fija', 'marcarse en una clase fija', 'plazas fijas', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
     actualizado: '2026-09-22',
     relacionados: ['bonos/recuperaciones', 'reservas/editar-o-cancelar-una-clase', 'reservas/clases-que-se-repiten'],

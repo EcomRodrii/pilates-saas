@@ -219,7 +219,7 @@ export default function ComparativaPage() {
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>★ El software Nº1 para estudios de Pilates</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>
             {/* La búsqueda de esta página es la comparativa y los precios de los
-                14; «el mejor software» (la lista editorial) es de
+                13 rivales; «el mejor software» (la lista editorial) es de
                 /recursos/mejor-software-para-estudios-de-pilates. */}
             <span className="lp-mono" style={{ display: 'block', fontSize: 12, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5A5A52', margin: '0 0 14px', lineHeight: 1.5 }}>Comparativa de software para estudios de Pilates: precios y funciones</span>{' '}
             Tentare frente a los 13 software con los que más se compara.

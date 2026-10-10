@@ -21,8 +21,8 @@ const GUIA = guia('reservas-en-tu-web');
 export const metadata: Metadata = {
   // El <title> responde a lo que se busca (cómo poner reservas en la web); el
   // titular de la página sigue siendo el de la guía.
-  title: 'Reservas en la web de tu estudio: widget, plugin o API — Tentare',
-  description: 'Cuando la alumna sale de tu web para reservar, casi siempre no vuelve. Qué se pierde con la redirección y qué opciones tienes: widget, plugin de WordPress o API.',
+  title: 'Reservas en tu web: widget, plugin o API — Tentare',
+  description: 'Cuando la alumna sale de tu web para reservar, casi siempre no vuelve. Qué pierdes con la redirección y qué opciones hay: widget, plugin de WordPress o API.',
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
     type: 'article',

@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-abrir-un-estudio-de-yoga',
   titulo: 'Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios',
-  tituloSeo: 'Cómo abrir un estudio de yoga en 2026: requisitos y costes',
+  tituloSeo: 'Abrir un estudio de yoga: requisitos y costes',
   descripcion: 'Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.',
   resumen: 'Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.',
   categoria: 'abrir',

@@ -33,6 +33,7 @@ export const metadata: Metadata = {
 /** La foto de cada tarjeta, si su tipo de estudio tiene una real (fotos.ts / fotos aportadas). */
 const FOTO: Record<string, { src: string; alt: string; pos?: string }> = {
   '/soluciones/estudio-de-pilates-reformer': { src: '/landing/fotos/reformers-madera-tapizado-negro-plazas-640.webp', alt: 'Fila de reformers con tapizado negro en un estudio de Pilates' },
+  '/soluciones/programa-de-gestion-para-estudio-de-pilates': { src: '/landing/fotos/sala-pilates-espejos-arco-anoche-560.webp', alt: 'Sala de un estudio de Pilates con espejos y un arco iluminado por la noche' },
   '/soluciones/estudio-de-yoga': { src: '/landing/fotos-aportadas/alumna-con-movil-y-esterilla-de-yoga-432.webp', alt: 'Alumna sonriendo con el móvil y una esterilla de yoga', pos: '50% 22%' },
   '/funcionalidades/multi-centro': { src: '/landing/fotos/sala-pilates-reformers-madera-cierre-768.webp', alt: 'Sala de un estudio de Pilates con una fila de reformers de madera clara' },
 };

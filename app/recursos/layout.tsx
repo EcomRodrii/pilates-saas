@@ -6,7 +6,7 @@ import { urlDe } from '@/lib/seo/paginas';
 // /recursos/<slug> tiene su propio `export const metadata` más específico,
 // que Next.js fusiona por encima de este (gana el campo del hijo).
 export const metadata: Metadata = {
-  title: 'Centro de Recursos — Guías para tu estudio de Pilates | Tentare',
+  title: 'Guías para gestionar tu estudio de Pilates | Tentare',
   description:
     'Guías prácticas para propietarias de estudios de Pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó.',
   alternates: { canonical: urlDe('/recursos') },
