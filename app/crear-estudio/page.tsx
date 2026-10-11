@@ -154,7 +154,7 @@ export default function CrearEstudioPage() {
   //     que la trajo ('hero', 'precio'…; 'directo' si llegó de otro sitio);
   //   · alta_estudio_paso { paso }: la PRIMERA vez que alcanza cada paso.
   // El ref los hace de una sola vez aunque el efecto corra dos veces (dev).
-  const embudo = useRef({ iniciada: false, pasos: new Set<number>() });
+  const embudo = useRef({ iniciada: false, escribio: false, pasos: new Set<number>() });
   useEffect(() => {
     if (embudo.current.iniciada) return;
     embudo.current.iniciada = true;
@@ -216,6 +216,9 @@ export default function CrearEstudioPage() {
 
   function siguiente() {
     setTocado(true);
+    // Dentro del paso 1 no se veía nada: este evento y `alta_estudio_escribe`
+    // dicen si quien llega pulsa «Continuar» y si lo hace con algo escrito.
+    capturarEvento('alta_estudio_continuar', { paso, valido: puedeSeguir });
     if (!puedeSeguir) return;
     setTocado(false);
     setError('');
@@ -597,7 +600,13 @@ export default function CrearEstudioPage() {
               id={`${uid}-estudio`}
               etiqueta="Nombre de tu estudio"
               valor={datos.estudio}
-              onCambio={(v) => setDatos({ ...datos, estudio: v })}
+              onCambio={(v) => {
+                if (v && !embudo.current.escribio) {
+                  embudo.current.escribio = true;
+                  capturarEvento('alta_estudio_escribe', { paso: 1 });
+                }
+                setDatos({ ...datos, estudio: v });
+              }}
               placeholder="Ej. Estudio Tentare"
               autoFocus
               autoComplete="organization"
