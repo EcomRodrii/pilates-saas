@@ -39,7 +39,7 @@ import {
 import { COLUMNA_HORARIO } from '@/lib/reservar/portada';
 import { HeroeClase, estiloBotonSobreFoto } from './heroe-clase';
 import {
-  localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
+  localDayKey, addDays, diasSemana, contarSlotsPorDia, diaInicialConClases, slotsDelDia,
   agruparPorDia, etiquetaDiaClave, fechaDeClave,
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
@@ -675,6 +675,21 @@ export function ReservaCalendario({
   // Las de hoy que ya pasaron (`finalizadasHoy`) solo cuentan si el día
   // elegido es HOY — el mismo criterio que ya usaba la cabecera del feed.
   const totalDiaSel = slotsDia.length + (selectedDayKey === hoyKey ? (finalizadasHoy?.length ?? 0) : 0);
+  // Una sola vez, cuando llegan las clases: si hoy no hay nada que enseñar, la
+  // reserva abre en el primer día que sí tiene. Se ajusta durante el render (como
+  // `irADia`, arriba) para no pintar antes el día vacío. Tras esa primera vez
+  // manda quien elige: volver a hoy a mano no se corrige.
+  const [saltoInicialHecho, setSaltoInicialHecho] = useState(false);
+  if (!saltoInicialHecho && !loading && slots.length > 0) {
+    setSaltoInicialHecho(true);
+    if (vistaInicial === 'todo' && selectedDayKey === hoyKey) {
+      const inicial = diaInicialConClases(conteoPorDia, diez.map(localDayKey), hoyKey, (finalizadasHoy?.length ?? 0) > 0);
+      if (inicial !== hoyKey) {
+        setSelectedDayKey(inicial);
+        setWeekAnchor(fechaDeClave(inicial));
+      }
+    }
+  }
   // Agrupación Mañana/Tarde/Noche del rediseño (diseño "Tentare Portal
   // Reservas", 2026-08-26) — en hora LOCAL del estudio (`franjaLocalDe`,
   // lib/utils.ts), no la del navegador de quien reserva: el mismo motivo por

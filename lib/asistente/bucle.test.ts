@@ -159,6 +159,18 @@ test('una cifra inventada no llega a la pantalla, se avisa, y no se guarda para 
   assert.doesNotMatch(JSON.stringify(r.mensajesNuevos), /12 %/);
 });
 
+test('«Pulsa Confirmar» sin ninguna tarjeta: se avisa de que no hay nada que confirmar', async () => {
+  const m = montar([{ texto: 'Propongo una clase de Secret Burn Pilates el viernes a las 20:00. Pulsa Confirmar para crearla.' }]);
+  await ejecutarTurno(m.deps, m.entrada);
+  assert.ok(m.eventos.some(e => e.t === 'aviso' && e.codigo === 'PROPUESTA_SIN_TARJETA'));
+});
+
+test('una respuesta normal no dispara el aviso de propuesta sin tarjeta', async () => {
+  const m = montar([{ texto: 'Tienes 84 alumnas activas.' }]);
+  await ejecutarTurno(m.deps, m.entrada);
+  assert.ok(!m.eventos.some(e => e.t === 'aviso' && e.codigo === 'PROPUESTA_SIN_TARJETA'));
+});
+
 test('sin herramientas y acabando en «?»: es una aclaración', async () => {
   const m = montar([{ texto: '¿De qué mes quieres saberlo?' }]);
   assert.equal((await ejecutarTurno(m.deps, m.entrada)).motivo, 'ACLARACION');

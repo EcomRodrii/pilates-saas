@@ -422,7 +422,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       const res = await addTipoClase({ ...fields, fotoUrl: null, logoUrl: null });
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
-      showToast(`"${fields.nombre}" ya está guardado`);
+      showToast(`"${fields.nombre}" ya está guardado. Para su logo y su banner, pulsa «Editar»`);
     } else if (editId) {
       setGuardando(true);
       setErrorGuardar(null);
