@@ -15,6 +15,7 @@ import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { portalAuthHeader } from '@/lib/api-client';
+import { comprobarCodigo } from '@/lib/student/comprar';
 import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
@@ -802,6 +803,12 @@ export default function ReservarPage() {
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §3/§4).
   const [datosPlan, setDatosPlan] = useState<PlanTarifa | null>(null);
   const [datosClientSecret, setDatosClientSecret] = useState<string | null>(null);
+  // Lo que el servidor dice que se cobra (con el código ya resuelto, y la
+  // matrícula si la hay) y, si se escribió un código que no entró, por qué.
+  // Antes el botón decía `datosPlan.precio`: con un código aplicado, la
+  // pantalla pedía el precio entero y Stripe cobraba menos; con uno que no
+  // valía, se ignoraba sin decir nada.
+  const [datosCobro, setDatosCobro] = useState<{ total: number | null; motivoCodigo: string | null }>({ total: null, motivoCodigo: null });
   const [datosError, setDatosError] = useState('');
   const [datosCargando, setDatosCargando] = useState(false);
   // "Información adicional" (diseño "Tentare Portal Reservas"): datos de perfil
@@ -2055,9 +2062,13 @@ export default function ReservarPage() {
           aceptaCondiciones: privacidadAceptada,
         }),
       });
-      const data = await res.json() as { clientSecret?: string; error?: string };
+      const data = await res.json() as { clientSecret?: string; error?: string; total?: number; motivoCodigo?: string };
       if (!data.clientSecret) { setDatosError(data.error ?? 'No se ha podido iniciar el pago.'); return; }
       setDatosClientSecret(data.clientSecret);
+      setDatosCobro({
+        total: typeof data.total === 'number' && Number.isFinite(data.total) ? data.total : null,
+        motivoCodigo: codigoDescuento.trim() && typeof data.motivoCodigo === 'string' ? data.motivoCodigo : null,
+      });
       trackEventoWidget(studio.id, 'checkout_started', { origen: searchParams.get('ref'), socioId: null });
       setLoginStep('pago');
     } catch {
@@ -2413,6 +2424,18 @@ export default function ReservarPage() {
     setStripeError(null);
     setStripeLoading(plan.id);
     try {
+      // Un código escrito se comprueba ANTES de ir a Stripe, con la misma regla
+      // que el cobro: el checkout lo ignora en silencio si no vale, y la alumna
+      // pagaba el precio entero creyendo que llevaba descuento. Si no vale, se
+      // le dice por qué y no se sale de aquí; borrándolo, paga sin él.
+      const codigo = codigoDescuento.trim();
+      if (codigo && studio?.id && plan.esPrueba !== true) {
+        const r = await comprobarCodigo(studio.id, codigo, Number(plan.precio), socia?.socioId ?? null);
+        if (!r.ok) {
+          setStripeError(`${r.motivo}. Corrígelo o bórralo para pagar sin descuento.`);
+          return;
+        }
+      }
       // Con `socioId` el servidor exige el JWT del portal (auditoría 21-ago,
       // C-1): si `socia` está resuelta es porque /api/public/studio-data ya
       // validó su token, así que la sesión existe. Sin esta cabecera, toda
@@ -4727,7 +4750,11 @@ export default function ReservarPage() {
                   ventanaCancelacionHoras: bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0,
                   // El importe nunca detrás de la flecha: "→ 1 €" se leía
                   // como "-1 €" (queja literal del fundador).
-                  textoBoton: `Pagar ${datosPlan.precio} € y reservar`,
+                  textoBoton: `Pagar ${datosCobro.total ?? datosPlan.precio} € y reservar`,
+                  // El total que de verdad cobra Stripe (descuento y matrícula
+                  // incluidos), y el motivo si el código escrito no entró.
+                  importeTotal: datosCobro.total ?? undefined,
+                  avisoCodigo: datosCobro.motivoCodigo,
                   // La fuente REAL del widget para dentro del iframe de Stripe
                   // (appearance no resuelve var(--font-ui)), por su nombre: el
                   // componente la saca de la hoja de Tentare si la servimos

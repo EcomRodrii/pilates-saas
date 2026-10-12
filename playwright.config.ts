@@ -103,6 +103,10 @@ const SPECS_WEBKIT = [
   // visitante nueva abre casi siempre desde el enlace del estudio en Instagram
   // o su propia web, o sea Safari de iPhone la primera vez que prueba Tentare.
   '**/reservar-pagar-sin-cuenta.spec.ts',
+  // P0.4 (12-oct-2026): el código de descuento en /reservar. Pública y con dinero
+  // delante: el botón de pagar tiene que decir lo que cobra Stripe también en el
+  // iPhone. Cinco tests, mismo andamiaje que el de arriba.
+  '**/reservar-codigo-descuento.spec.ts',
   '**/reservar-pago-confirmacion.spec.ts',
   // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
   // sufre un fallo es alguien de fuera —una propietaria que todavía no es

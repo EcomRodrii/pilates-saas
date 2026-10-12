@@ -34,6 +34,8 @@ export type InicioCobro =
       descuento: number;
       /** `false` con un código que el servidor no pudo aplicar. */
       codigoAplicado: boolean;
+      /** Por qué no se aplicó el código escrito («ya ha caducado»…). `null` si entró o no había código. */
+      motivoCodigo: string | null;
       /**
        * P-1 (auditoría 26ª pasada): cuánto de `importe` es matrícula de
        * alta — 0 si no aplica (no es su primer plan, o el plan no la tiene).
@@ -110,7 +112,7 @@ export async function iniciarCompra(
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string; codigo?: string;
       importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number; total?: number;
-      customerSessionClientSecret?: string;
+      customerSessionClientSecret?: string; motivoCodigo?: string;
     } | null;
 
     if (res.status === 401) {
@@ -144,6 +146,8 @@ export async function iniciarCompra(
       importe: typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN,
       descuento: typeof cuerpo.descuento === 'number' ? cuerpo.descuento : 0,
       codigoAplicado: cuerpo.codigoAplicado === true,
+      // Por qué no entró el código, si no entró (el servidor lo dice con la misma regla que el cobro).
+      motivoCodigo: typeof cuerpo.motivoCodigo === 'string' ? cuerpo.motivoCodigo : null,
       matricula: typeof cuerpo.matricula === 'number' ? cuerpo.matricula : 0,
     };
   } catch {

@@ -154,6 +154,10 @@ export function PantallaReserva({
     stripeAccountId: string;
     ventanaCancelacionHoras: number;
     textoBoton: string;
+    /** El total con el que el servidor creó el cobro. Sin él, el del plan. */
+    importeTotal?: number;
+    /** Si se escribió un código que no se aplicó, por qué. */
+    avisoCodigo?: string | null;
     /** El nombre de la letra del widget (`?fuente=`), para el iframe de Stripe. */
     fuentePago?: string;
     radioInput?: number;
@@ -719,6 +723,13 @@ export function PantallaReserva({
                 {datosError && (
                   <p role="alert" style={{ color: colorError, fontSize: 13, margin: 0 }}>{datosError}</p>
                 )}
+                {/* El código no se ha aplicado: se dice aquí, antes de pagar, y el
+                    botón ya enseña el precio sin descuento. */}
+                {pago.avisoCodigo && (
+                  <p role="status" style={{ color: colorError, fontSize: 13, margin: 0 }}>
+                    {`${pago.avisoCodigo}. Pagas el precio normal.`}
+                  </p>
+                )}
                 <CheckoutEmbebido
                   t={t}
                   plan={pago.plan}
@@ -733,6 +744,7 @@ export function PantallaReserva({
                   }}
                   ventanaCancelacionHoras={pago.ventanaCancelacionHoras}
                   textoBoton={pago.textoBoton}
+                  importeTotal={pago.importeTotal}
                   datosPago={{
                     nombre: loginForm.nombre.trim(),
                     email: loginForm.email.trim(),
