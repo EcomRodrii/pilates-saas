@@ -53,3 +53,20 @@ test('reserva_completada: sin socioId ni sesionId, solo la señal de negocio', (
 // documenta que un evento válido compila con la forma esperada.
 const _muestra: EventoAnalitica = { nombre: 'pago_completado', props: { importe_centimos: 0, via: 'checkout' } };
 void _muestra;
+
+test('una prop que no está en PROPS_PERMITIDAS no sale, aunque llegue con un `as`', () => {
+  const colado = { nombre: 'reserva_completada', props: { con_spot_elegido: true, email: 'alguien@example.com', socioId: 'soc-1' } } as unknown as EventoAnalitica;
+  const e = construirEvento('studio-x', colado);
+  assert.deepEqual(Object.keys(e.properties).sort(), ['$lib', 'con_spot_elegido', 'studio_id']);
+});
+
+test('primer_tipo_clase y stripe_conectado: solo lo de negocio', () => {
+  assert.deepEqual(
+    construirEvento('studio-x', { nombre: 'primer_tipo_clase', props: { origen: 'asistente' } }).properties,
+    { origen: 'asistente', studio_id: 'studio-x', $lib: 'tentare-server' },
+  );
+  assert.deepEqual(
+    construirEvento('studio-x', { nombre: 'stripe_conectado', props: {} }).properties,
+    { studio_id: 'studio-x', $lib: 'tentare-server' },
+  );
+});

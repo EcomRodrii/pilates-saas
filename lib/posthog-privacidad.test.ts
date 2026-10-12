@@ -150,7 +150,7 @@ test('fuera el texto y la estructura del DOM y los ids de clic de anuncios', () 
     $session_entry_gclid: 'ghi',
     plan: 'pro',
   };
-  const p = props(sanearEventoPosthog(evento('network_contactar', original)));
+  const p = props(sanearEventoPosthog(evento('network_contacto_enviado', original)));
   assert.deepEqual(Object.keys(p).sort(), ['$current_url', 'plan']);
   assert.equal(p.$current_url, 'https://tentare.app/network/instructoras/maria');
   // No muta lo que recibe.
@@ -281,4 +281,13 @@ test('contrato: posthog-cliente no guarda nada en el dispositivo y deja apagado 
   // La puerta de ruta se pregunta al programar la carga, al cargar y al encolar.
   assert.ok((sinComentarios.match(/!analiticaPermitidaAqui\(\)/g) ?? []).length >= 3, 'falta la puerta de ruta');
   assert.doesNotMatch(sinComentarios, /startSessionRecording|stopSessionRecording/);
+});
+
+test('un evento propio que no está en la lista cerrada no sale; los del SDK ($) sí', () => {
+  const url = { $current_url: 'https://tentare.app/precios', $pathname: '/precios' };
+  assert.equal(sanearEventoPosthog(evento('evento_inventado', url)), null);
+  assert.equal(sanearEventoPosthog(evento('network_contactar', url)), null);
+  assert.notEqual(sanearEventoPosthog(evento('landing_precio_visto', url)), null);
+  assert.notEqual(sanearEventoPosthog(evento('$pageview', url)), null);
+  assert.notEqual(sanearEventoPosthog(evento('$identify', url)), null);
 });
