@@ -15,9 +15,11 @@
 
 /**
  * Se abre SOLO en estudios creados desde este día; en los que ya trabajan, solo
- * con el «?». Es la opción que no cambia nada a quien ya usa Tentare.
+ * con el «?». Es la opción que no cambia nada a quien ya usa Tentare. Es el día
+ * en que salió a producción la guía (el despliegue de P0, 12-oct-2026): mover
+ * esta fecha hacia atrás le cambiaría la pantalla a estudios que ya trabajan.
  */
-export const TUTORIALES_DESDE = '2026-10-13';
+export const TUTORIALES_DESDE = '2026-10-12';
 
 /**
  * Las 00:00 de ese día en MADRID, como instante. `creado_en` viene en UTC, y
