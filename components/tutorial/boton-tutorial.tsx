@@ -15,29 +15,40 @@ import { ayudaDePantalla, tutorialDePantalla } from '@/lib/ayuda/pantallas';
 //
 // ⚠️ La etiqueta no puede llevar «ver» ni «volver»: hay e2e que buscan
 // `getByLabel('Ver')` y ya chocaron con otra etiqueta así (primera-vez-aqui.tsx).
+//
+// Mientras está montado, le dice al contexto «sigo en esta pantalla» (`presente`):
+// al desmontarse, si el tutorial abierto era el suyo, se cierra sin anotar nada.
+// Con la visita guiada en marcha no se pinta: un «?» que no responde es peor que ninguno.
 export function BotonTutorial({ ruta }: { ruta?: string }) {
   const pathname = usePathname();
   const tutorial = useTutorial();
   const clave = ruta ?? pathname;
   const t = tutorialDePantalla(clave);
   const pedir = tutorial?.pedirAbrirSolo;
+  const presente = tutorial?.presente;
+  const visible = !!t && !!tutorial && !tutorial.visitaActiva;
+
+  useEffect(() => {
+    if (t && presente && visible) return presente(t.ruta);
+  }, [t?.ruta, presente, visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (t && pedir) pedir(t.ruta);
   }, [t?.ruta, pedir]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!t || !tutorial) return null;
+  if (!t || !tutorial || !visible) return null;
   const nombre = ayudaDePantalla(t.ruta)?.titulo ?? 'esta pantalla';
   return (
     <button
       type="button"
       onClick={() => tutorial.abrir(t.ruta)}
-      aria-label={`Enséñame cómo funciona ${nombre}`}
-      title={`Enséñame cómo funciona ${nombre}`}
+      aria-label={`Enséñame «${nombre}» paso a paso`}
+      title={`Enséñame «${nombre}» paso a paso`}
       data-testid="boton-tutorial"
-      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      // 40 px de zona táctil en el móvil sin estirar la fila del título (-my-1); 32 en escritorio.
+      className="-my-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:my-0 lg:size-8"
     >
-      <CircleHelp size={17} aria-hidden />
+      <CircleHelp size={16} aria-hidden />
     </button>
   );
 }

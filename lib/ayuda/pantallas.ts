@@ -64,6 +64,7 @@ export const AYUDA_POR_PANTALLA = {
       'Tu semana entera: cada clase con su instructora, su sala y las alumnas que han reservado. Creas una clase, la repites cada semana si quieres, y cualquier cambio les llega a ellas sin que avises una por una.',
     ahorra: 'El cuadrante en papel y el «¿quién viene hoy?» de cada mañana.',
     destino: { categoria: 'reservas', slug: 'crear-una-clase' },
+    tutorial: { version: 1 },
   },
 
   '/citas': {
@@ -80,6 +81,7 @@ export const AYUDA_POR_PANTALLA = {
       'Todas tus alumnas en una lista: qué le queda a cada una, cuándo vino por última vez y quién lleva semanas sin aparecer. Abres una ficha y tienes su historial entero, sus bonos y tus notas.',
     ahorra: 'La libreta, y preguntar por WhatsApp «¿a esta le quedaban clases?».',
     destino: { categoria: 'clientes', slug: 'ficha-de-clienta' },
+    tutorial: { version: 1 },
   },
 
   '/mensajeria': {
@@ -104,6 +106,7 @@ export const AYUDA_POR_PANTALLA = {
       'El dinero en un solo sitio: quién te debe, lo que ya ha entrado y, según cómo factures, tus facturas o lo que necesita tu gestoría. Si una tarjeta falla, aparece aquí con el motivo y cómo volver a cobrarlo.',
     ahorra: 'Perseguir pagos uno a uno y encontrarte el descuadre a fin de mes.',
     destino: { categoria: 'pagos', slug: 'la-pantalla-de-cobros' },
+    tutorial: { version: 1 },
   },
 
   '/pos': {
@@ -120,6 +123,7 @@ export const AYUDA_POR_PANTALLA = {
       'Lo que vendes: cuotas mensuales, bonos de sesiones y clases sueltas. Aquí pones el precio, cuánto dura, si se renueva solo y a qué clases da derecho.',
     ahorra: 'Explicar por WhatsApp qué incluye cada bono y llevar las caducidades a mano.',
     destino: { categoria: 'bonos', slug: 'tipos-de-bono' },
+    tutorial: { version: 1 },
   },
 
   '/equipo': {
@@ -168,6 +172,26 @@ export const AYUDA_POR_PANTALLA = {
       'Trae tu estudio desde el programa que usabas antes: arrastras lo que tengas, repasas el plan y confirmas. No se aplica nada hasta que lo apruebas, y se puede deshacer.',
     ahorra: 'Volver a teclear tus clientas y sus bonos una por una.',
     destino: { categoria: 'clientes', slug: 'importar-clientes' },
+  },
+
+  // Vistas de Configuración con tutorial: su clave es su URL canónica
+  // (`hrefDeLugar`). El ⓘ no las ve (busca por pathname); el «?», sí.
+  '/configuracion?tab=clases&abrir=tipos-de-clase': {
+    titulo: 'Tipos de clase',
+    resumen:
+      'Lo que ofreces: Reformer, Suelo, Embarazadas… con su duración y sus plazas. De aquí sale tu horario, y cada tipo puede tener sus propias reglas de reserva.',
+    ahorra: 'Repetir la duración y las plazas cada vez que programas una clase.',
+    destino: { categoria: 'reservas', slug: 'reglas-de-reserva-por-clase' },
+    tutorial: { version: 1 },
+  },
+
+  '/configuracion?tab=reservas': {
+    titulo: 'Cómo reservan mis alumnas',
+    resumen:
+      'Las reglas de tu estudio para reservar, cancelar y la lista de espera. Valen para todas las clases, salvo las que cambie un tipo de clase.',
+    ahorra: 'Explicar a cada alumna, una por una, hasta cuándo puede cancelar.',
+    destino: { categoria: 'reservas', slug: 'reglas-de-reserva-por-clase' },
+    tutorial: { version: 1 },
   },
 
   '/configuracion': {

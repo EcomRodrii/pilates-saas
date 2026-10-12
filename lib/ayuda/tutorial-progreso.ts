@@ -19,6 +19,20 @@
  */
 export const TUTORIALES_DESDE = '2026-10-13';
 
+/**
+ * Las 00:00 de ese día en MADRID, como instante. `creado_en` viene en UTC, y
+ * comparar su fecha (`slice(0, 10)`) dejaba fuera a un estudio creado el 13 entre
+ * las 00:00 y las 02:00 de Madrid. ⚠️ El +02:00 es el horario de verano: si
+ * `TUTORIALES_DESDE` pasa a una fecha de invierno, es +01:00 (lo comprueba el test).
+ */
+export const TUTORIALES_DESDE_INSTANTE = Date.parse(`${TUTORIALES_DESDE}T00:00:00+02:00`);
+
+/** ¿Nació este estudio con la guía nueva (tutoriales, lista de arranque, siguiente paso)? */
+export function nacioConTutoriales(creadoEn: string | null | undefined): boolean {
+  const t = creadoEn ? Date.parse(creadoEn) : NaN;
+  return Number.isFinite(t) && t >= TUTORIALES_DESDE_INSTANTE;
+}
+
 export type ComoTermino = 'completado' | 'saltado';
 export type ProgresoTutoriales = Record<string, { version: number; como: ComoTermino }>;
 
@@ -73,7 +87,9 @@ export function yaVisto(progreso: ProgresoTutoriales, ruta: string, version: num
 /**
  * ¿Se abre solo ahora? Todo tiene que cumplirse:
  *  · la propietaria (el resto, con el «?»);
- *  · sin la visita guiada en marcha (nunca dos guías a la vez);
+ *  · sin la visita guiada en marcha (nunca dos guías a la vez), y nunca en un
+ *    estudio con la visita obligatoria: ya se lo enseña ella, y al terminarla
+ *    los tutoriales le repetirían lo mismo;
  *  · ningún diálogo de la app abierto;
  *  · una sede de cadena no (la monta quien ya conoce Tentare);
  *  · un estudio creado desde `TUTORIALES_DESDE` (nada nuevo a quien ya trabaja);
@@ -82,16 +98,18 @@ export function yaVisto(progreso: ProgresoTutoriales, ruta: string, version: num
 export function debeAbrirseSolo(p: {
   rol: string | null;
   visitaActiva: boolean;
+  visitaObligatoria: boolean;
   dialogoAbierto: boolean;
   esSedeDeCadena: boolean;
   creadoEn: string | null | undefined;
   ruta: string;
   version: number;
   progreso: ProgresoTutoriales;
-  vistosEnSesion: ReadonlySet<string>;
+  /** Ya se abrió (o se cerró) en esta sesión, para esta persona y este estudio. */
+  vistoEnSesion: boolean;
 }): boolean {
-  if (p.rol !== 'PROPIETARIO' || p.visitaActiva || p.dialogoAbierto || p.esSedeDeCadena) return false;
-  if (!p.creadoEn || p.creadoEn.slice(0, 10) < TUTORIALES_DESDE) return false;
-  if (p.vistosEnSesion.has(p.ruta)) return false;
+  if (p.rol !== 'PROPIETARIO' || p.visitaActiva || p.visitaObligatoria || p.dialogoAbierto || p.esSedeDeCadena) return false;
+  if (!nacioConTutoriales(p.creadoEn)) return false;
+  if (p.vistoEnSesion) return false;
   return !yaVisto(p.progreso, p.ruta, p.version);
 }

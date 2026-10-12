@@ -14,6 +14,7 @@ import type { Studio, TipoClase } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
 import { PlazasPlataformasTipo } from '@/components/configuracion/plazas-plataformas-tipo';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
+import type { Ejemplo } from '@/lib/ayuda/ejemplos';
 import {
   DURACIONES_HABITUALES,
   NIVEL_LABELS,
@@ -442,6 +443,7 @@ export function PanelTipoClase({
   onCambiarLogo,
   onGuardar,
   onCerrar,
+  ejemplo,
 }: {
   open: boolean;
   modo: 'nueva' | 'editar';
@@ -463,6 +465,8 @@ export function PanelTipoClase({
   onSubirLogo: (file: File) => Promise<{ url: string } | { error: string }>;
   onCambiarLogo: (url: string | null) => Promise<void>;
   onGuardar: () => void;
+  /** «Hazlo conmigo» (P1.3): la banda y el texto en gris; el estado inicial es el de siempre. */
+  ejemplo?: Ejemplo;
   onCerrar: () => void;
 }) {
   // Los errores no saltan mientras se escribe: aparecen al intentar guardar y,
@@ -538,6 +542,11 @@ export function PanelTipoClase({
 
       {/* ─── Cuerpo ─── */}
       <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">
+        {ejemplo && (
+          <p data-testid="banda-ejemplo" className="mb-5 rounded-xl border border-dashed border-border bg-muted/50 px-3.5 py-2.5 text-[13px] leading-snug text-foreground">
+            {ejemplo.banda}
+          </p>
+        )}
         <Previsualizacion
           form={form}
           fotoUrl={editando?.fotoUrl}
@@ -557,7 +566,7 @@ export function PanelTipoClase({
               className={cn(inputCls, errorNombre && 'border-destructive')}
               value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-              placeholder="Ej: Reformer Avanzado"
+              placeholder={ejemplo?.placeholders.nombre ?? 'Ej: Reformer Avanzado'}
               aria-label="Nombre de la clase"
               aria-invalid={!!errorNombre}
             />

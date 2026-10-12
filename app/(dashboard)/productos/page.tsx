@@ -2,6 +2,8 @@
 
 import { useState, useId, useEffect, useRef } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
+import { useTutorial } from '@/lib/tutorial-context';
+import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
@@ -220,7 +222,7 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false }: {
+function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false, ejemplo }: {
   initial?: PlanTarifa;
   /** Las tarifas que ya hay, para avisar de una repetida. */
   otrasTarifas: readonly Pick<PlanTarifa, 'id' | 'nombre' | 'tipo' | 'precio' | 'activo'>[];
@@ -238,6 +240,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   /** Devuelve el error del servidor (el formulario lo enseña dentro y no se cierra) o `null` si se guardó. */
   onSave: (f: FormularioPlan) => Promise<string | null>;
   onClose: () => void;
+  /** «Hazlo conmigo» (P1.3): la banda y el texto en gris; el estado inicial es el de siempre. */
+  ejemplo?: Ejemplo;
 }) {
   const uid = useId();
   // P0.3: se espera al servidor antes de cerrar, el botón no deja guardar dos
@@ -375,6 +379,11 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
+          {ejemplo && (
+            <p data-testid="banda-ejemplo" className="mb-5 rounded-xl border border-dashed border-border bg-muted/50 px-3.5 py-2.5 text-[13px] leading-snug text-foreground">
+              {ejemplo.banda}
+            </p>
+          )}
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-8">
             <div className="space-y-6 min-w-0">
 
@@ -406,7 +415,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                   {p => (
                     <input {...p} value={form.nombre} onChange={e => set('nombre', e.target.value)}
                       onBlur={() => tocar('nombre')} className={cajaCls(visible('nombre'))}
-                      placeholder={esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado'} />
+                      placeholder={ejemplo?.placeholders.nombre ?? (esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado')} />
                   )}
                 </Campo>
                 {repetida && (
@@ -468,7 +477,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                       <input {...p} value={form.precio} onChange={e => set('precio', e.target.value)}
                         onBlur={() => tocar('precio')} type="text" inputMode="decimal"
                         className={cn(cajaCls(visible('precio')), 'pl-7 pr-14 tabular-nums')}
-                        placeholder="0,00" />
+                        placeholder={ejemplo?.placeholders.precio ?? '0,00'} />
                       {form.tipo === 'MENSUAL' && (
                         <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/ {periodoDe(form)}</span>
                       )}
@@ -527,7 +536,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                           <div className="flex items-center gap-2">
                             <input {...p} value={form.sesiones} onChange={e => set('sesiones', e.target.value)}
                               onBlur={() => tocar('sesiones')} type="number" min="1" inputMode="numeric"
-                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder="4" />
+                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder={ejemplo?.placeholders.sesiones ?? '4'} />
                             <span className="text-sm text-muted-foreground shrink-0">sesiones</span>
                           </div>
                         )}
@@ -1112,6 +1121,21 @@ export default function Productos() {
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
+  // «Hazlo conmigo» (P1.3): el tutorial pide un ejemplo de bono y esta pantalla
+  // abre su «Nuevo» de siempre, en la pestaña de bonos, con el ejemplo en gris.
+  const tutorial = useTutorial();
+  const [conEjemplo, setConEjemplo] = useState(false);
+  const ejemploPedido = tutorial?.ejemplo === 'bono';
+  const soltarEjemplo = tutorial?.soltarEjemplo;
+  useEffect(() => {
+    if (!ejemploPedido || !soltarEjemplo) return;
+    soltarEjemplo();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responde a una petición del tutorial, que vive en otro sitio.
+    setTab('planes');
+    setTipoTab('BONO');
+    setConEjemplo(true);
+    setPlanModal('new');
+  }, [ejemploPedido, soltarEjemplo]);
   // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
   // destructiva, dos comportamientos.
@@ -1154,6 +1178,7 @@ export default function Productos() {
     // El error lo enseña el formulario, que se queda abierto con lo escrito.
     if (!res.ok) return res.error;
     setPlanModal(null);
+    setConEjemplo(false);
     // Lo que se dice tiene que ser lo que pasa: una tarifa guardada con
     // «Disponible para vender» apagado NO sale en la Caja ni en la web, y
     // «ya está a la venta» fue justo lo que dejó a una dueña sin su cuota en la
@@ -1227,6 +1252,7 @@ export default function Productos() {
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
         actions={mueveDinero && tab !== 'regalo' && (
           <button
+            data-tour={tab === 'planes' ? 'paquetes-crear' : undefined}
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-colors"
             style={{ backgroundColor: 'var(--brand)' }}
@@ -1254,7 +1280,7 @@ export default function Productos() {
       {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
       {tab === 'planes' && (
         <>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div data-tour="paquetes-tipos" className="flex items-center gap-2 flex-wrap">
             {TIPO_TABS.map(t => {
               const activo = tipoTab === t.v;
               const Icon = t.icon;
@@ -1282,6 +1308,7 @@ export default function Productos() {
           </div>
 
           {planesTarifa.filter(p => p.tipo === tipoTab).length === 0 ? (
+            <div data-tour="paquetes-lista">
             <EmptyState
               icono={Package}
               titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
@@ -1292,10 +1319,11 @@ export default function Productos() {
                 ? { label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }
                 : undefined}
             />
+            </div>
           ) : planesFiltrados.length === 0 ? (
             <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div data-tour="paquetes-lista" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {planesFiltrados.map(plan => {
             const c = TIPO_COLOR[plan.tipo] ?? TIPO_COLOR.MENSUAL;
             const Icon = PLAN_ICONS[plan.tipo] ?? Tag;
@@ -1552,7 +1580,8 @@ export default function Productos() {
           // cualquier desajuste futuro entre el formulario y el guardado —
           // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
           onSave={savePlan}
-          onClose={() => setPlanModal(null)}
+          onClose={() => { setPlanModal(null); setConEjemplo(false); }}
+          ejemplo={conEjemplo && planModal === 'new' ? EJEMPLOS.bono : undefined}
           yaVendida={planModal !== 'new' && !!planModal && suscripciones.some(s => s.planId === planModal.id)}
         />
       )}

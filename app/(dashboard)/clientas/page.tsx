@@ -1163,6 +1163,7 @@ export default function Socios() {
               </button>
             )}
             <button
+              data-tour="clientas-importar"
               onClick={() => router.push('/clientas/importar')}
               className="hidden sm:flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
             >
@@ -1185,7 +1186,7 @@ export default function Socios() {
 
       {/* Dos vistas: las clientas y quienes todavía están entrando (preguntaron,
           tienen su prueba o vinieron a ella). Con la URL, para volver a la misma. */}
-      <div role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
+      <div data-tour="clientas-interesadas" role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
         {([['clientas', 'Clientas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
           <button
             key={id}
@@ -1229,7 +1230,7 @@ export default function Socios() {
       <>
       {/* ── Estado: un chip por estado con su recuento ──────────────────────── */}
       <div className="space-y-2">
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
+        <div data-tour="clientas-estados" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
           {(['TODAS', ...ESTADOS_CLIENTA] as const)
             .filter((e) => e === 'TODAS' || e === filtroEstado || (conteos?.[e] ?? 0) > 0 || e === 'ACTIVA')
             .map((e) => {
