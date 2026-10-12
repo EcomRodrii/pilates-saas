@@ -350,3 +350,26 @@ test.describe('Ficha · quitar la verificación en dos pasos', () => {
     await expect(dialogo.getByRole('button', { name: 'Quitar la verificación' })).toHaveCount(0);
   });
 });
+
+// ── P0.3: cambiar el plan (dinero) dice la verdad ───────────────────────────
+
+test('ficha · cambiar el plan cuando el servidor dice que no: aviso en ROJO, nunca «asignado»', async ({ page }) => {
+  await montar(page);
+  let altas = 0;
+  await page.route('**/rest/v1/suscripciones**', (r) => {
+    // Las lecturas, las del andamiaje: solo el alta del plan nuevo falla.
+    if (r.request().method() !== 'POST') return r.fallback();
+    altas++;
+    return json(r, { message: 'new row violates row-level security policy for table "suscripciones"', code: '42501' }, 403);
+  });
+  await abrirFicha(page);
+  await (await menu(page)).getByRole('menuitem', { name: /Cambiar su plan|Asignarle un plan/ }).click();
+  const dialogoPlan = page.getByRole('dialog', { name: /Cambiar plan|Asignar plan/ });
+  await dialogoPlan.getByRole('button', { name: /Mensual ilimitado/ }).click();
+
+  await expect.poll(() => altas, { timeout: 15_000 }).toBeGreaterThan(0);
+  // El toast de ERROR (`components/ui/toast.tsx`, `alert` + `assertive`) con el motivo de un 403 de permisos.
+  // Filtrado por texto: el anunciador de rutas de Next también es `alert` + `assertive`.
+  await expect(page.locator('[role="alert"][aria-live="assertive"]').filter({ hasText: 'No tienes permiso' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Plan "Mensual ilimitado" asignado')).toHaveCount(0);
+});

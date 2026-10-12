@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, UserX } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -50,8 +51,8 @@ export function resumenDeBaja(nombre: string, r: RespuestaBaja): string {
   if (canceladas > 0) partes.push(canceladas === 1 ? '1 reserva cancelada.' : `${canceladas} reservas canceladas.`);
   if (r.reservasSinCancelar > 0) {
     partes.push(r.reservasSinCancelar === 1
-      ? '1 reserva no se ha podido cancelar: revísala en su ficha.'
-      : `${r.reservasSinCancelar} reservas no se han podido cancelar: revísalas en su ficha.`);
+      ? '1 reserva no se ha podido cancelar: revísala en sus reservas.'
+      : `${r.reservasSinCancelar} reservas no se han podido cancelar: revísalas en sus reservas.`);
   }
   return partes.join(' ');
 }
@@ -61,13 +62,14 @@ export function DialogoDarDeBaja({ socio, abierto, onCerrar, onHecho }: {
   abierto: boolean;
   onCerrar: () => void;
   /** Con el texto de lo que ha pasado de verdad, para el aviso. */
-  onHecho: (resumen: string) => void;
+  /** El resumen; con reservas sin cancelar, en rojo (`{ variant: 'error' }`). */
+  onHecho: MostrarToast;
 }) {
   if (!abierto) return null;
   return <ContenidoBaja socio={socio} onCerrar={onCerrar} onHecho={onHecho} />;
 }
 
-function ContenidoBaja({ socio, onCerrar, onHecho }: { socio: Socio; onCerrar: () => void; onHecho: (resumen: string) => void }) {
+function ContenidoBaja({ socio, onCerrar, onHecho }: { socio: Socio; onCerrar: () => void; onHecho: MostrarToast }) {
   const { suscripciones, planesTarifa, plazasFijas, reservas, sesiones, studio, darDeBajaSocia } = useStudio();
   const rol = useRol();
   // La hora se fija al abrir: no puede leerse en cada render (React Compiler).
@@ -119,7 +121,8 @@ function ContenidoBaja({ socio, onCerrar, onHecho }: { socio: Socio; onCerrar: (
     try {
       const r = await darDeBajaSocia(socio.id, { cancelarReservas: puedeCancelarReservas && futuras.length > 0 && cancelarReservas, motivo });
       if (r.ok !== true) { setError(r.error); return; }
-      onHecho(resumenDeBaja(socio.nombre, r));
+      // Una reserva que sigue viva es una alumna que puede venir: eso se arregla, en rojo.
+      onHecho(resumenDeBaja(socio.nombre, r), r.reservasSinCancelar > 0 ? { variant: 'error' } : undefined);
     } finally {
       setEnviando(false);
     }

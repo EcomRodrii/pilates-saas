@@ -390,6 +390,10 @@ export async function POST(req: NextRequest) {
   // Cuánto se ha descontado, para poder DECÍRSELO a quien paga. Ver el
   // comentario de la respuesta, al final de esta función.
   let descuentoAplicado = 0;
+  // Y si se escribió un código que NO se ha aplicado, por qué («ya ha caducado»,
+  // «solo para clientas nuevas»…): la pantalla se lo dice a quien paga en vez de
+  // cobrarle el precio entero en silencio. No cambia el importe: solo el mensaje.
+  let motivoCodigo: string | null = null;
   // Sin códigos sobre una prueba: ya es la oferta de bienvenida, no se apila otra.
   if (body.codigoDescuento && plan.es_prueba !== true) {
     const { data: codigosRaw } = await admin
@@ -408,6 +412,8 @@ export async function POST(req: NextRequest) {
       importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
+    } else {
+      motivoCodigo = resultado.motivo;
     }
   }
 
@@ -590,6 +596,7 @@ export async function POST(req: NextRequest) {
         importe: prep.fila.importe_centimos / 100,
         descuento: descuentoAplicado,
         codigoAplicado: codigoDescuentoId !== null,
+        ...(motivoCodigo ? { motivoCodigo } : {}),
         matricula: prep.fila.matricula_centimos / 100,
         // Lo que de verdad se cobra (cuota + matrícula, un solo cargo): el importe del cobro de Stripe.
         total: prep.pi.amount / 100,
@@ -1146,6 +1153,7 @@ export async function POST(req: NextRequest) {
       importe,
       descuento: descuentoAplicado,
       codigoAplicado: codigoDescuentoId !== null,
+      ...(motivoCodigo ? { motivoCodigo } : {}),
       // P-1: para que la pantalla pueda decir "Cuota X € + Matrícula Y €" en
       // vez de un total mudo — el desglose real, con el que se ha creado el
       // cobro, nunca una resta hecha en el cliente.

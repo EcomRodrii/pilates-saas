@@ -22,6 +22,7 @@
 //      reducidos a `:id`.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CaptureResult } from 'posthog-js';
+import { esEventoNavegador } from './analytics-navegador.ts';
 
 /**
  * Prefijos donde PostHog no se carga ni captura nada. Coincidencia por
@@ -260,6 +261,9 @@ function limpiarPropiedades(propiedades: Propiedades): Propiedades {
 export function sanearEventoPosthog(evento: CaptureResult | null): CaptureResult | null {
   if (!evento) return null;
   if (EVENTOS_DESCARTADOS.has(String(evento.event))) return null;
+  // Los eventos propios (sin `$`) solo de la lista cerrada. `capturarEvento` ya
+  // los filtra; esto es la red por si algo llama al SDK por otro camino.
+  if (!String(evento.event).startsWith('$') && !esEventoNavegador(evento.event)) return null;
   const propiedades: Propiedades = esObjeto(evento.properties) ? evento.properties : {};
   for (const valor of [propiedades.$pathname, propiedades.$current_url]) {
     const ruta = rutaDe(valor);

@@ -54,6 +54,7 @@ import type { PlanTarifa } from '@/lib/types';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { serif, sans, cq, radius as R, shadow as SH, EASE, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
+import { euros } from '@/lib/student/formato';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { hoyEnEstudio } from '@/lib/utils';
 import { cuandoCorto, filasFicha, rolInstructora } from '@/lib/reservar/ficha-clase';
@@ -154,6 +155,10 @@ export function PantallaReserva({
     stripeAccountId: string;
     ventanaCancelacionHoras: number;
     textoBoton: string;
+    /** El total con el que el servidor creó el cobro. Sin él, el del plan. */
+    importeTotal?: number;
+    /** Si se escribió un código que no se aplicó, por qué. */
+    avisoCodigo?: string | null;
     /** El nombre de la letra del widget (`?fuente=`), para el iframe de Stripe. */
     fuentePago?: string;
     radioInput?: number;
@@ -269,6 +274,9 @@ export function PantallaReserva({
   // fijados para fondo claro (sobre Carbón no llegaban a AA).
   const colorOk = textoSemantico('success', t);
   const colorError = textoSemantico('danger', t);
+  // Un aviso (el código no entró: se paga el precio normal), no un error: en
+  // ámbar, como en la app de la alumna.
+  const colorAviso = textoSemantico('warning', t);
   const precioConDescuento = codigoEstadoMostrado === 'valido' && codigoDescuentoEur != null
     ? Math.max(0, Math.round((precio - codigoDescuentoEur) * 100) / 100)
     : null;
@@ -625,7 +633,7 @@ export function PantallaReserva({
                     </div>
                     {codigoEstadoMostrado === 'valido' && (
                       <p role="status" style={{ margin: '6px 0 0', fontSize: 12.5, color: colorOk, fontWeight: 700 }}>
-                        Código aplicado: −{codigoDescuentoEur} €
+                        Código aplicado: −{euros(codigoDescuentoEur ?? 0)}
                       </p>
                     )}
                     {codigoEstadoMostrado === 'invalido' && (
@@ -664,10 +672,10 @@ export function PantallaReserva({
                     <span style={{ fontSize: 13, color: 'var(--portal-muted)', fontWeight: 700 }}>Total a pagar</span>
                     <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       {precioConDescuento !== null && (
-                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
+                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{euros(precio)}</span>
                       )}
                       <span style={{ fontFamily: serif, fontWeight: pesoTitular(800), fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
-                        {precioConDescuento ?? precio} €
+                        {euros(precioConDescuento ?? precio)}
                       </span>
                     </span>
                   </div>
@@ -719,6 +727,13 @@ export function PantallaReserva({
                 {datosError && (
                   <p role="alert" style={{ color: colorError, fontSize: 13, margin: 0 }}>{datosError}</p>
                 )}
+                {/* El código no se ha aplicado: se dice aquí, antes de pagar, y el
+                    botón ya enseña el precio sin descuento. */}
+                {pago.avisoCodigo && (
+                  <p role="status" style={{ color: colorAviso, fontSize: 13, margin: 0 }}>
+                    {`${pago.avisoCodigo.replace(/\.$/, '')}. Pagas el precio normal.`}
+                  </p>
+                )}
                 <CheckoutEmbebido
                   t={t}
                   plan={pago.plan}
@@ -733,6 +748,7 @@ export function PantallaReserva({
                   }}
                   ventanaCancelacionHoras={pago.ventanaCancelacionHoras}
                   textoBoton={pago.textoBoton}
+                  importeTotal={pago.importeTotal}
                   datosPago={{
                     nombre: loginForm.nombre.trim(),
                     email: loginForm.email.trim(),

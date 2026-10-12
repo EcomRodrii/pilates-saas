@@ -652,8 +652,10 @@ export default function Socios() {
       // Las que sí han salido dejan de estar seleccionadas: reintentar no debe
       // volver a cobrárselas.
       setSelected(new Set([...selected].filter((id) => !conseguidas.has(id))));
+      // Cuántas SÍ: son cobros, y «no se ha podido» a secas hacía pensar que no salió ninguno.
+      const total = conseguidas.size + fallidas.length;
       setErrorAsignar(
-        `No se ha podido asignar el plan a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}. ${ultimoError}`,
+        `${conseguidas.size > 0 ? `Asignado a ${conseguidas.size} de ${total}. ` : ''}No se ha podido asignar a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}: ${ultimoError.replace(/\.$/, '')}. Siguen marcadas para reintentarlo.`,
       );
       return;
     }
@@ -661,6 +663,10 @@ export default function Socios() {
     setSelected(new Set());
     setShowAsignarPlan(false);
     setAsignarPlanId('');
+    // Antes se cerraba sin decir nada (P0.3): son N cobros, y lo que ha pasado
+    // se dice con su número.
+    const nombrePlan = planesTarifa.find((p) => p.id === asignarPlanId)?.nombre ?? 'el plan';
+    setAvisoPlazaFija(`Plan «${nombrePlan}» asignado a ${conseguidas.size === 1 ? '1 clienta' : `${conseguidas.size} clientas`}`);
   }
 
   async function handleAmpliarCaducidades() {
@@ -2203,7 +2209,7 @@ export default function Socios() {
               );
             })()}
             {errorAsignar && (
-              <p className="text-[12.5px] text-destructive">{errorAsignar}</p>
+              <p role="alert" className="text-[12.5px] text-destructive">{errorAsignar}</p>
             )}
             <div className="flex gap-2">
               <button

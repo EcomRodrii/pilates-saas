@@ -7,6 +7,7 @@ import { ponerFaviconSiNoHay } from '@/lib/theme-data';
 import { uid } from '@/lib/utils';
 import {
   planificarConfiguracion, planVacio, HORARIO_POR_DEFECTO, type RespuestasOperativa,
+  faseDeConfigurar, montadoTrasConfigurar,
 } from '@/lib/onboarding/plan-configuracion';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,6 +143,13 @@ export async function POST(req: NextRequest) {
       const { error } = await admin.from('tipos_clase').insert(tiposNuevos);
       if (error) return errorInterno('onboarding:configurar:tipos', error,
         'No se han podido crear tus tipos de clase. Puedes crearlos en Configuración → Mis clases y citas.');
+      // El primer tipo de clase del estudio, si no tenía ninguno. Lo cuenta el
+      // servidor porque el panel no ve estos tipos hasta recargar (el asistente
+      // no recarga el contexto); los que crea la propietaria a mano los cuenta
+      // el panel (components/analitica/hitos-activacion.tsx).
+      if ((tiposExist ?? []).length === 0) {
+        capturar(studioId, { nombre: 'primer_tipo_clase', props: { origen: 'asistente' } });
+      }
     }
     if (planesNuevos.length) {
       const { error } = await admin.from('planes_tarifa').insert(planesNuevos);
@@ -201,6 +209,10 @@ export async function POST(req: NextRequest) {
     // reintenta— le pisaría un horario que ella ya hubiera ajustado, que es
     // justo lo que la idempotencia por nombre evita en el resto del plan.
     let horarioAjustado = false;
+    // La franja con la que queda el estudio, para el evento: si la puso una
+    // llamada anterior del mismo asistente, esta ya no la «ajusta», pero la
+    // tiene igual.
+    let horarioFinal: { apertura: string; cierre: string } | null = null;
     if (plan.horario) {
       const { data: actual } = await admin
         .from('studios')
@@ -221,25 +233,30 @@ export async function POST(req: NextRequest) {
         if (error) console.error('[onboarding:configurar:horario]', error);
         else horarioAjustado = true;
       }
+      horarioFinal = horarioAjustado
+        ? plan.horario
+        : actual ? { apertura: String(actual.hora_apertura), cierre: String(actual.hora_cierre) } : null;
     }
 
     // Cierra el primer tramo del embudo de activación. Va aquí y no en el
     // cliente porque `capturar()` usa `after()` de Next, que solo vale en
     // ámbito de petición — y porque este es el punto donde de verdad se sabe
     // QUÉ quedó montado, no solo que la propietaria pulsó «terminar».
-    capturar(studioId, {
-      nombre: 'onboarding_completado',
-      props: {
-        salas: salasNuevas.length,
-        tipos_clase: tiposNuevos.length,
-        planes: planesNuevos.length,
-        instructora: instructoraCreada,
-        horario: horarioAjustado,
-        // Desde dónde se montó: el asistente de bienvenida o el calendario vacío.
-        // Lista cerrada — el body es del cliente.
-        origen: (body as { origen?: unknown }).origen === 'calendario' ? 'calendario' : 'asistente',
-      },
-    });
+    //
+    // Solo en la llamada FINAL del asistente: la de la pantalla «espacio» es
+    // parcial y emitirlo ahí daba el asistente por terminado a medias (ver
+    // `faseDeConfigurar` en plan-configuracion.ts).
+    if (faseDeConfigurar(body) === 'final') {
+      capturar(studioId, {
+        nombre: 'onboarding_completado',
+        props: {
+          ...montadoTrasConfigurar(plan, { instructora: instructoraNombre !== null, horario: horarioFinal }),
+          // Desde dónde se montó: el asistente de bienvenida o el calendario vacío.
+          // Lista cerrada — el body es del cliente.
+          origen: (body as { origen?: unknown }).origen === 'calendario' ? 'calendario' : 'asistente',
+        },
+      });
+    }
 
     return NextResponse.json({
       ok: true,

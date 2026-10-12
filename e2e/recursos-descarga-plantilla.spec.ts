@@ -24,6 +24,14 @@ async function abrir(page: Page, responder: (route: Route) => Promise<void>) {
   await page.goto(RUTA);
   const recuadro = page.getByRole('region', { name: 'Descárgala en Word, lista para rellenar' });
   await expect(recuadro).toBeVisible();
+  // Que React haya tomado ya el formulario. Si no, con varias pestañas a la vez
+  // (CPU compartida) el clic llegaba antes de hidratar, el formulario se enviaba
+  // a la antigua —recarga, sin petición— y el test caía sin que el producto
+  // fallara: pasaba en local con un solo worker y fallaba con cuatro.
+  await page.waitForFunction(() => {
+    const form = document.querySelector('form');
+    return !!form && Object.keys(form).some((k) => k.startsWith('__reactProps'));
+  });
   return { recuadro, peticiones };
 }
 

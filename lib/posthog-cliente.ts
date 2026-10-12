@@ -41,6 +41,7 @@
 import { crearCola, type Destino } from '@/lib/sentry-cola';
 import { debeCargarseAnalitica, esVistaIncrustada, sanearEventoPosthog } from '@/lib/posthog-privacidad';
 import { aparcarEvento, recogerEventos } from '@/lib/posthog-diferidos';
+import { filtrarEventoNavegador, type NombreEventoNavegador, type PropsEventoNavegador } from '@/lib/analytics-navegador';
 
 type PostHogSDK = typeof import('posthog-js').default;
 
@@ -141,9 +142,14 @@ function encolar(metodo: string, args: unknown[]) {
   if (!cola.conectada) void forzarCarga();
 }
 
-/** Evento de producto manual — nunca autocapture. */
-export function capturarEvento(nombre: string, props?: Record<string, unknown>): void {
-  encolar('capture', props === undefined ? [nombre] : [nombre, props]);
+/**
+ * Evento de producto manual — nunca autocapture. Solo los de la lista cerrada
+ * (`lib/analytics-navegador.ts`) y solo con sus props: lo demás no sale.
+ */
+export function capturarEvento<N extends NombreEventoNavegador>(nombre: N, props?: PropsEventoNavegador<N>): void {
+  const evento = filtrarEventoNavegador(nombre, props);
+  if (!evento) return;
+  encolar('capture', evento.props === undefined ? [evento.nombre] : [evento.nombre, evento.props]);
 }
 
 /**
@@ -151,7 +157,7 @@ export function capturarEvento(nombre: string, props?: Record<string, unknown>):
  * en esta pestaña y lo envía la primera vista permitida al identificar a la
  * persona (el panel, tras redirigir). Ver `lib/posthog-diferidos.ts`.
  */
-export function capturarAlLlegar(nombre: string): void {
+export function capturarAlLlegar(nombre: NombreEventoNavegador): void {
   if (!enNavegador || !process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
   if (analiticaPermitidaAqui()) { capturarEvento(nombre); return; }
   try { aparcarEvento(window.sessionStorage, nombre); } catch { /* sin sessionStorage */ }

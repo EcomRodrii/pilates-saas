@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
+import { avisoTrasCancelar } from '@/lib/calendario/aviso-tras-cancelar';
 import { cn, cuandoEstudio, fechaLargaEstudio, formatEuro, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
@@ -621,7 +622,7 @@ export default function Calendario() {
     setResolviendoReserva(reservaId);
     try {
       const r = resultadoDecisionReserva(aprobar, await decidirReservaPendiente(reservaId, aprobar));
-      showToast(r.mensaje);
+      (r.quitar && !r.error ? showToast : showToastError)(r.mensaje);
       if (r.quitar) {
         invalidarEstadoEstudio();
         resetDatosPilates();
@@ -1253,7 +1254,7 @@ export default function Calendario() {
       instructora: aviso.datos.instructora, instructorActual: aviso.datos.instructora,
       fecha: aviso.email.fecha, hora: aviso.email.hora, instructorAnterior: aviso.email.anterior,
     });
-    if (!r) { showToast('No se ha podido avisar. Inténtalo otra vez.'); return; }
+    if (!r) { showToastError('No se ha podido avisar. Inténtalo otra vez.'); return; }
 
     const faltan = r.sinEmail > 0 ? ` · ${r.sinEmail} sin email guardado` : '';
     if (r.enviados > 0) {
@@ -1261,7 +1262,7 @@ export default function Calendario() {
     } else if (r.enApp > 0) {
       showToast(`Aviso puesto en la app${faltan}`);
     } else {
-      showToast('No se ha podido avisar. Inténtalo otra vez.');
+      showToastError('No se ha podido avisar. Inténtalo otra vez.');
     }
   }
 
@@ -1321,7 +1322,7 @@ export default function Calendario() {
       // «6 clases» cuando dos fallaron es justo la escritura optimista que
       // este repo no se permite en ningún sitio.
       if (fallos.length) {
-        showToast(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
+        showToastError(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
       } else {
         showToast(`${hechas} clase${hechas === 1 ? '' : 's'} ${hechas === 1 ? 'pasada' : 'pasadas'} a ${nueva}${avisar ? ' · alumnas avisadas' : ''}`);
       }
@@ -1358,15 +1359,29 @@ export default function Calendario() {
     if (borran.length === 0) { setEliminarLote(null); return; }
     let hechas = 0;
     const fallos: string[] = [];
+    // Lo que queda a medias en las que SÍ se borraron (P0.3): sesiones que no
+    // volvieron al bono y alumnas sin avisar. Antes el lote decía «N clases
+    // eliminadas» y se lo callaba.
+    let bonosSinDevolver = 0, sinAvisar = 0;
     setEliminarLote({ hechas: 0, total: borran.length });
     for (const ses of borran) {
       const res = await deleteSesion(ses.id);
-      if (res.ok) hechas++; else fallos.push(res.error);
+      if (res.ok) {
+        hechas++;
+        if (res.avisoBono) bonosSinDevolver++;
+        sinAvisar += res.sinAvisar ?? 0;
+      } else fallos.push(res.error);
       setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
     }
-    showToast(fallos.length
-      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}`
-      : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
+    const pendiente = [
+      bonosSinDevolver > 0 ? `En ${bonosSinDevolver === 1 ? '1 clase' : `${bonosSinDevolver} clases`} no hemos podido devolver la sesión al bono de alguna clienta: revísalo a mano.` : null,
+      sinAvisar > 0 ? `A ${sinAvisar === 1 ? '1 clienta no le ha' : `${sinAvisar} clientas no les ha`} llegado el aviso: escríbeles o llámalas.` : null,
+    ].filter(Boolean).join(' ');
+    (fallos.length || pendiente ? showToastError : showToast)(fallos.length
+      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}${pendiente ? ` ${pendiente}` : ''}`
+      : pendiente
+        ? `${pendiente} ${hechas === 1 ? 'La clase sí se ha eliminado.' : `Las ${hechas} clases sí se han eliminado.`}`
+        : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
     salirDeSeleccion();
     invalidarHorario();
     void refrescarVista();
@@ -1391,7 +1406,7 @@ export default function Calendario() {
   async function editarSesion() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     if (sesionActual && sesionYaEmpezada(sesionActual.inicio)) {
-      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      showToastError(MENSAJE_CLASE_YA_EMPEZADA);
       return;
     }
     setGuardandoSesion(true);
@@ -1399,7 +1414,7 @@ export default function Calendario() {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     const mismoInstante = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
     const cambioHora = !!sesionActual && !mismoInstante(sesionActual.inicio, nuevoInicio);
-    if (cambioHora && sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (cambioHora && sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
     const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
     const cambioInstructora = !!sesionActual && sesionActual.instructorId !== form.instructorId;
     const guardado = await updateSesion(sesionId, {
@@ -1411,7 +1426,7 @@ export default function Calendario() {
       aforoMaximo: form.aforoMaximo,
       notas: form.notas || null,
     });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     const apuntadas = cuantasApuntadas(sesionId);
 
     if (sesionActual && (cambioHora || cambioSala || cambioInstructora)) {
@@ -1487,7 +1502,7 @@ export default function Calendario() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);
     if (!base) return;
-    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (serieAlPasado()) { showToastError(MENSAJE_HORA_PASADA); return; }
     const edicion = edicionDelFormulario();
     const impacto = calcularImpactoEdicionSerie({
       tramo: tramoDeLaSerie(), edicion, reservas, plazasFijas, recuperaciones,
@@ -1508,7 +1523,7 @@ export default function Calendario() {
   async function editarSerie() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     // Otra vez al confirmar: entre pedir la confirmación y darle pueden pasar minutos.
-    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (serieAlPasado()) { showToastError(MENSAJE_HORA_PASADA); return; }
     setGuardandoSesion(true);
     try {
     // Se calcula ANTES de guardar: es lo que había, no lo que queda.
@@ -1524,14 +1539,14 @@ export default function Calendario() {
       horaInicio: form.horaInicio,
       horaFin: form.horaFin,
     });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     invalidarHorario();
     if (guardado.count != null && guardado.count !== n) {
       Sentry.captureMessage('[calendario] editar_serie_desde: filas afectadas no coinciden con las esperadas', {
         level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
         extra: { sesionId, esperadas: n, afectadas: guardado.count },
       });
-      showToast(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
+      showToastError(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
       setShowForm(null);
       void refrescarVista();
       return;
@@ -1609,9 +1624,9 @@ export default function Calendario() {
   async function cancelarSesion() {
     if (!sesionId) return;
     const aCancelar = sesionesEnriquecidas.find(s => s.id === sesionId);
-    if (aCancelar && sesionYaEmpezada(aCancelar.inicio)) { showToast(MENSAJE_CLASE_DADA); return; }
+    if (aCancelar && sesionYaEmpezada(aCancelar.inicio)) { showToastError(MENSAJE_CLASE_DADA); return; }
     const guardado = await updateSesion(sesionId, { cancelada: true });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     let avisadas = 0;
     let sinAvisar = 0;
@@ -1651,12 +1666,13 @@ export default function Calendario() {
     // F-32: si alguna socia no recuperó su sesión de bono, el toast base
     // ("clientas avisadas") ya no puede quedarse tan tranquilo — se añade el
     // mismo aviso que ya usa cancelarReserva (una sola reserva).
-    const base = !resReservas.ok
-      ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
-      : sinAvisar > 0
-        ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-        : 'Clase cancelada · clientas avisadas';
-    showToast(resReservas.avisoBono ? `${base} · ${resReservas.avisoBono}` : base);
+    // Lo que quede por arreglar (bono sin devolver, alumnas sin avisar) va
+    // primero y en rojo: ver lib/calendario/aviso-tras-cancelar.ts.
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase cancelada', confirmacion: 'La clase sí está cancelada',
+      reservasCanceladas: resReservas.ok, avisadas, sinAvisar, avisoBono: resReservas.ok ? resReservas.avisoBono : null,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1672,18 +1688,19 @@ export default function Calendario() {
     const n = sesionesSerieRestantes.length;
     const res = await cancelarSerieDesde(sesionId);
     setSesionId(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     invalidarHorario();
     // El toast cuenta lo que de verdad salió. Antes decía «clientas avisadas»
     // siempre: `notificarCancelacionSesiones` disparaba los emails sin esperar
     // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
     // (clase suelta) y que su gemelo de serie se había quedado sin heredar.
     const avisadas = res.avisadas ?? 0, sinAvisar = res.sinAvisar ?? 0;
-    const aviso = sinAvisar > 0
-      ? `${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-      : avisadas > 0 ? 'clientas avisadas' : 'sin clientas a las que avisar';
-    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · ${aviso}${res.enApp === false ? ' · sin aviso en la app' : ''}`;
-    showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+    const aviso = avisoTrasCancelar({
+      hecho: `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''}`,
+      confirmacion: `La serie sí está cancelada (${n} clase${n !== 1 ? 's' : ''})`,
+      avisadas, sinAvisar, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1695,26 +1712,24 @@ export default function Calendario() {
     // varios segundos la clase seguía visible en el calendario aunque el
     // toast ya dijera "eliminada".
     const res = await deleteSesion(sesionId);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     setSesionId(null);
     // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
     // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
     // Igual que "Cancelar": eliminar también avisa por email e in-app, así que
     // el toast tiene que poder decir que ese aviso no salió.
-    const sinAvisar = res.sinAvisar ?? 0;
-    const pegas = [
-      sinAvisar > 0 ? `${sinAvisar} sin avisar` : null,
-      res.enApp === false ? 'sin aviso en la app' : null,
-      res.avisoBono ?? null,
-    ].filter(Boolean);
-    showToast(['Clase eliminada', ...pegas].join(' · '));
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase eliminada', confirmacion: 'La clase sí se ha eliminado',
+      avisadas: res.avisadas ?? 0, sinAvisar: res.sinAvisar ?? 0, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
     const eraLaPrimera = sinNingunaClase;
     const res = await addSesionesSerie(sesionesFields);
-    if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
+    if (!res.ok) { showToastError(`No se ha creado la serie. ${res.error}`); return; }
     if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(sesionesFields.length);
     invalidarHorario();
     setShowRecurrentes(false);
@@ -1759,7 +1774,7 @@ export default function Calendario() {
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
     const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna });
     if (!res.ok) {
-      showToast(res.error);
+      showToastError(res.error);
       return false;
     }
     // Si recepción decidió no avisarla, el toast lo recuerda: es la única
@@ -1858,8 +1873,9 @@ export default function Calendario() {
     } else if (res.ok) {
       showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
-      // El dinero entró; falta sellar la factura (se reintenta sola).
-      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`);
+      // El dinero entró; falta sellar la factura (se reintenta sola): no es
+      // algo que ella tenga que arreglar, así que no va en rojo.
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`); // toast-no-es-error: el cobro entró y la factura se reintenta sola
     } else {
       // El recibo existe, pendiente: queda en «Quién me debe». En rojo y más
       // rato: recepción puede tener ya el dinero en la mano.
@@ -2019,14 +2035,14 @@ export default function Calendario() {
         body: JSON.stringify({ sesionId }),
       });
       const j = await res.json().catch(() => null) as { error?: string; apartadas?: number } | null;
-      if (!res.ok) { showToast(j?.error ?? 'No se ha podido liberar la plaza. Inténtalo de nuevo.'); return false; }
+      if (!res.ok) { showToastError(j?.error ?? 'No se ha podido liberar la plaza. Inténtalo de nuevo.'); return false; }
       showToast(j?.apartadas
         ? `Plaza liberada. Siguen ${j.apartadas} apartadas para ClassPass.`
         : 'Plaza liberada: ya no queda ninguna apartada para ClassPass.');
       await refrescarVista();
       return true;
     } catch {
-      showToast('No se ha podido liberar la plaza. Inténtalo de nuevo.');
+      showToastError('No se ha podido liberar la plaza. Inténtalo de nuevo.');
       return false;
     }
   }
@@ -2401,7 +2417,7 @@ export default function Calendario() {
       }
       const fallidas = plan.vinieron.length + plan.noVinieron.length - okVino.length - okNoVino.length;
       await refrescarVista();
-      if (okVino.length + okNoVino.length === 0) { showToast('No se ha podido pasar lista. Inténtalo de nuevo.'); return; }
+      if (okVino.length + okNoVino.length === 0) { showToastError('No se ha podido pasar lista. Inténtalo de nuevo.'); return; }
       const partes = [
         `${okVino.length} ${okVino.length === 1 ? 'vino' : 'vinieron'}`,
         ...(okNoVino.length ? [`${okNoVino.length} no`] : []),
@@ -2416,7 +2432,7 @@ export default function Calendario() {
           for (const id of okVino) if (!(await deshacerCheckin(id)).ok) sinDeshacer++;
           for (const id of okNoVino) if (!(await revertirNoShow(id)).ok) sinDeshacer++;
           await refrescarVista();
-          if (sinDeshacer > 0) showToast(`${sinDeshacer} ${sinDeshacer === 1 ? 'no se ha podido deshacer' : 'no se han podido deshacer'}: cámbialas en su fila`);
+          if (sinDeshacer > 0) showToastError(`${sinDeshacer} ${sinDeshacer === 1 ? 'no se ha podido deshacer' : 'no se han podido deshacer'}: cámbialas en su fila`);
         },
       });
     } finally {
@@ -2430,7 +2446,7 @@ export default function Calendario() {
   function conAviso(accion: (reservaId: string) => Promise<ResultadoEscritura & { aviso?: string | null }>) {
     return (reservaId: string) => {
       // `aviso`: hecho aquí, pero la plataforma ha dicho algo (Wellhub no validó su check-in).
-      void accion(reservaId).then(res => { if (!res.ok) showToast(res.error); else if (res.aviso) showToast(res.aviso); });
+      void accion(reservaId).then(res => { if (!res.ok) showToastError(res.error); else if (res.aviso) showToast(res.aviso); });
     };
   }
 
@@ -2438,13 +2454,13 @@ export default function Calendario() {
     const r = reservasActuales.find(x => x.id === reservaId);
     if (!r || !sesionActual) return;
     const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
-    if (!destino) { showToast('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    if (!destino) { showToastError('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
     // Sin casilla aquí, y se la avisa: es una clase FUTURA que no ha reservado
     // ella, así que si no se le cuenta no tiene forma de saber que va apuntada
     // (ni de cancelarla a tiempo). Es la regla general de las reservas del
     // mostrador; la casilla solo existe donde la clienta suele estar delante.
     const res = await addReserva(destino.id, r.socioId, undefined, { avisar: true });
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
@@ -2475,7 +2491,7 @@ export default function Calendario() {
     const { sesionId, texto } = dialogoIncidencia;
     setDialogoIncidencia(null);
     const guardado = await updateSesion(sesionId, { incidenciaTexto: texto.trim() || null });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     await refrescarVista();
     showToast(texto.trim() ? 'Incidencia registrada' : 'Incidencia borrada');
   }
@@ -2483,26 +2499,34 @@ export default function Calendario() {
   async function ejecutarResolverIncidencia(sesionId: string) {
     const prevTexto = datosVista?.sesiones.find(s => s.id === sesionId)?.incidenciaTexto ?? null;
     const guardado = await updateSesion(sesionId, { incidenciaTexto: null });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     await refrescarVista();
     showToast('Incidencia resuelta', {
       texto: 'Deshacer',
       onClick: async () => {
         const vuelta = await updateSesion(sesionId, { incidenciaTexto: prevTexto });
-        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        if (!vuelta.ok) { showToastError(vuelta.error); return; }
         await refrescarVista();
       },
     });
   }
 
   async function ejecutarOfrecerPlaza(sesionId: string) {
-    const res = await fetch('/api/reservas/ofrecer-plaza', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ sesionId }),
-    });
+    // Sin red, `fetch` rechaza: sin este catch la promesa se perdía, el diálogo
+    // se quedaba abierto y nadie decía nada.
+    let res: Response;
+    try {
+      res = await fetch('/api/reservas/ofrecer-plaza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId }),
+      });
+    } catch {
+      showToastError('Sin conexión: no se ha ofrecido la plaza. Revisa tu red e inténtalo de nuevo.');
+      return;
+    }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { showToast(data?.error ?? 'No se ha podido ofrecer la plaza'); return; }
+    if (!res.ok) { showToastError(data?.error ?? 'No se ha podido ofrecer la plaza'); return; }
     setDialogoAccion(null);
     await refrescarVista();
     showToast(data.resultado === 'confirmada' ? 'Plaza confirmada a la siguiente en la lista' : 'Oferta de plaza enviada');
@@ -2512,14 +2536,14 @@ export default function Calendario() {
     const s = datosVista?.sesiones.find(x => x.id === sesionId);
     const prevAforo = s?.aforoMaximo ?? nuevoAforo;
     const guardado = await updateSesion(sesionId, { aforoMaximo: nuevoAforo });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     setDialogoAccion(null);
     await refrescarVista();
     showToast(`Aforo ajustado a ${nuevoAforo}`, {
       texto: 'Deshacer',
       onClick: async () => {
         const vuelta = await updateSesion(sesionId, { aforoMaximo: prevAforo });
-        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        if (!vuelta.ok) { showToastError(vuelta.error); return; }
         await refrescarVista();
       },
     });
@@ -2544,12 +2568,12 @@ export default function Calendario() {
     // Se vuelve a mirar al ejecutar, no solo al soltar: con gente apuntada hay un
     // diálogo de por medio, y mientras está abierto la hora puede pasar (o la
     // clase empezar).
-    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
-    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (sesionYaEmpezada(sesion.inicio)) { showToastError(MENSAJE_CLASE_YA_EMPEZADA); return; }
+    if (sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
     const cambioHora = new Date(sesion.inicio).getTime() !== new Date(nuevoInicio).getTime();
     const cambioSala = sesion.salaId !== nuevoSalaId;
     const guardado = await updateSesion(sesionId, { salaId: nuevoSalaId, inicio: nuevoInicio, fin: nuevoFin });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     if (cambioHora || cambioSala) {
       const d = new Date(nuevoInicio);
       void avisarCambioHorarioSala(
@@ -2582,14 +2606,14 @@ export default function Calendario() {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion || sesion.cancelada) return;
     if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
-    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
+    if (sesionYaEmpezada(sesion.inicio)) { showToastError(MENSAJE_CLASE_YA_EMPEZADA); return; }
 
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
     const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
     const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, destino.inicioMin);
     if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
-      showToast('Fuera del horario del estudio');
+      showToastError('Fuera del horario del estudio');
       return;
     }
 
@@ -2603,14 +2627,14 @@ export default function Calendario() {
     // Por instante, no por texto: `toISO` da «…00.000Z» y la base de datos
     // «…00+00:00», así que comparar las cadenas nunca daba «no se ha movido».
     if (new Date(nuevoInicio).getTime() === new Date(sesion.inicio).getTime() && nuevoSalaId === sesion.salaId) return;
-    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
 
     const conflicto = detectarConflictos(
       { salaId: nuevoSalaId, instructorId: sesion.instructorId, inicio: nuevoInicio, fin: nuevoFin },
       existentesSlot, sesionId,
     );
     if (hayConflicto(conflicto)) {
-      showToast(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
+      showToastError(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
       return;
     }
 
@@ -3074,7 +3098,7 @@ export default function Calendario() {
       if (!r.ok) { showToastError(r.error ?? 'No se ha podido empezar a buscar. Inténtalo otra vez.'); return; }
       const sust = r.data?.sustitucion as { estado?: string } | undefined;
       if (r.data?.yaExistia && sust?.estado === 'confirmada') {
-        showToast('A esta clase ya la cubrió una sustituta: para cambiar quién la da, edita la clase');
+        showToastError('A esta clase ya la cubrió una sustituta: para cambiar quién la da, edita la clase');
         return;
       }
       showToast(sust?.estado === 'contactando' ? 'Buscando sustituta: avisada la que mejor encaja'
@@ -3298,12 +3322,12 @@ export default function Calendario() {
               // El aviso de bono no devuelto, y lo que decidió el servidor sobre
               // la plaza fija, la recuperación y la clase suelta (su política).
               void cancelarReserva(id).then(async res => {
-                if (!res.ok) showToast(res.error);
+                if (!res.ok) showToastError(res.error);
                 else {
                   const texto = [textoTrasQuitar(res, marca), res.avisoBono,
                     avisoClaseSueltaAlQuitar({ recibo: suelta, reservaId: id, bonoDevuelto: !!res.bonoDevuelto, tardia: !!res.tardia })]
                     .filter(Boolean).join(' · ');
-                  if (texto) showToast(texto);
+                  if (texto) (res.avisoBono ? showToastError : showToast)(texto);
                 }
                 // ⚠️ Sin esto el contador se quedaba en «8/8» con la clienta ya
                 // fuera de la lista: `cancelarReserva` actualiza `reservas` del
@@ -3344,7 +3368,7 @@ export default function Calendario() {
                         disabled={!tieneConsentimiento}
                         onClick={async () => {
                           const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                          if (!res.ok) showToast(res.error);
+                          if (!res.ok) showToastError(res.error);
                         }}
                         title={tieneConsentimiento ? rm.label : 'Pide primero el consentimiento de datos de salud desde su ficha'}
                         aria-label={rm.label}
@@ -3374,7 +3398,7 @@ export default function Calendario() {
           onQuitarSpot={conAviso(liberarSpot)}
           onAsignarSpot={async (spotId, socioId) => {
             const res = await asignarSpot(sesionActual.id, socioId, spotId);
-            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
+            if (!res.ok) showToastError(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
           }}
         />
       ) : undefined}

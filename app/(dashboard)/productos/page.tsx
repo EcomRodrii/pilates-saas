@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useId, useEffect } from 'react';
+import { useState, useId, useEffect, useRef } from 'react';
+import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
@@ -234,10 +235,19 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
   // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
   tipoInicial?: PlanTarifa['tipo'];
-  onSave: (f: FormularioPlan) => void;
+  /** Devuelve el error del servidor (el formulario lo enseña dentro y no se cierra) o `null` si se guardó. */
+  onSave: (f: FormularioPlan) => Promise<string | null>;
   onClose: () => void;
 }) {
   const uid = useId();
+  // P0.3: se espera al servidor antes de cerrar, el botón no deja guardar dos
+  // veces (un doble clic creaba dos tarifas) y el error sale AQUÍ, a la vista,
+  // no en una píldora que el panel lateral tapaba.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  // El estado llega un render tarde: con un doble clic, el segundo veía
+  // `guardando` en falso. El ref corta en el acto (mismo criterio que BarraGuardar).
+  const enVuelo = useRef(false);
   const [inicial] = useState<FormularioPlan>(() => {
     const base = initial ? planAFormulario(initial) : { ...planVacio(), tipo: tipoInicial ?? 'MENSUAL' };
     // Una clase suelta es UNA sesión y aquí ya no se pregunta, así que el campo
@@ -292,6 +302,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   }
 
   function intentarCerrar() {
+    // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+    if (enVuelo.current) return;
     if (sucio) setConfirmandoCierre(true);
     else onClose();
   }
@@ -314,7 +326,15 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
       }
       return;
     }
-    onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form);
+    if (enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    void onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form)
+      .then(error => { if (error) setErrorGuardar(error); })
+      // Una promesa rota no puede dejar el botón en «Guardando…» para siempre.
+      .catch(() => setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.'))
+      .finally(() => { enVuelo.current = false; setGuardando(false); });
   }
 
   const esBono = form.tipo === 'BONO';
@@ -751,15 +771,21 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
             {Object.values(errores)[0]}
           </p>
         )}
+        {errorGuardar && (
+          <p role="alert" className="px-5 sm:px-6 pb-1 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="px-5 sm:px-6 py-4 border-t border-border shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <button onClick={intentarCerrar}
-            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <button onClick={intentarCerrar} disabled={guardando}
+            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">
             Cancelar
           </button>
-          <button onClick={guardar}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+          {/* Guardando se lee entero (no al 40 %): es un estado, no un botón apagado. */}
+          <button onClick={guardar} disabled={guardando} aria-busy={guardando}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
-            {tituloAccion}
+            {guardando ? 'Guardando…' : tituloAccion}
           </button>
         </div>
       </>
@@ -808,7 +834,8 @@ type PosFormData = {
 function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   initial?: ProductoPOS;
   /** `foto` es el fichero recién elegido; `null` = quitar la que hubiera. */
-  onSave: (d: PosFormData, foto: File | null | undefined) => void;
+  /** Devuelve el error del servidor (se enseña dentro) o `null` si se guardó. */
+  onSave: (d: PosFormData, foto: File | null | undefined) => Promise<string | null>;
   onClose: () => void;
   onDelete?: () => void;
   /** Solo al EDITAR: abre el libro de existencias. Al crear no hay qué mover. */
@@ -829,6 +856,28 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   });
   const set = (k: keyof PosFormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
+  // Mismo criterio que el formulario de tarifas (P0.3): esperar, no dejar
+  // guardar dos veces y enseñar el error aquí dentro.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  const enVuelo = useRef(false);
+  async function guardarProducto() {
+    if (!valid || enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    try {
+      const error = await onSave(form, foto);
+      if (error) setErrorGuardar(error);
+    } catch {
+      setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      enVuelo.current = false;
+      setGuardando(false);
+    }
+  }
+  // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+  const cerrar = () => { if (!enVuelo.current) onClose(); };
   const controlaStock = form.stock.trim() !== '';
 
   // `undefined` = no se ha tocado la foto; `null` = quitarla; File = subir esa.
@@ -865,7 +914,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
     // dar de alta un artículo. El modal de planes de esta misma página ya lo
     // hacía bien; este se quedó con el default.
     <DashboardSheet
-      open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
+      open onClose={cerrar} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
       // ⚠️ `portal`, por lo mismo que el modal de tarifas de esta misma página
       // (ver el comentario de arriba): el contenedor del panel lleva la
       // animación `.panel-page-in`, cuyo `transform` crea un "containing block"
@@ -877,7 +926,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
       <>
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={cerrar} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
@@ -1027,6 +1076,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
             <span className="text-sm font-medium text-foreground">Producto activo</span>
           </div>
         </div>
+        {errorGuardar && (
+          <p role="alert" className="shrink-0 px-6 pt-3 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="shrink-0 flex gap-3 px-6 pb-6 pt-4 border-t border-border">
           {initial && onDelete && (
             // `border-destructive/30`, no un `#FECACA` fijo: ese rosa claro se
@@ -1038,11 +1092,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
               <Trash2 size={15} />
             </button>
           )}
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
-          <button onClick={() => valid && onSave(form, foto)} disabled={!valid}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40"
+          <button onClick={cerrar} disabled={guardando} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
+          <button onClick={() => void guardarProducto()} disabled={!valid || guardando} aria-busy={guardando}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)' }}>
-            {initial ? 'Guardar cambios' : 'Crear producto'}
+            {guardando ? 'Guardando…' : initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
       </>
@@ -1062,15 +1116,12 @@ export default function Productos() {
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
   // destructiva, dos comportamientos.
   const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
-  // El aviso se borra solo a los 4 s. Antes colgaba de `onAnimationEnd` sobre un
-  // elemento SIN animación: el callback no se disparaba nunca y el mensaje se
-  // quedaba fijo en pantalla para siempre, contando algo que ya había pasado.
-  useEffect(() => {
-    if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 4000);
-    return () => clearTimeout(t);
-  }, [aviso]);
+  // El aviso de la pantalla, con su variante: un fallo en rojo y 8 s, no en la
+  // píldora neutra de antes (P0.3). Lo pinta el `<Toast>` de siempre, que se
+  // cierra solo.
+  const [aviso, setAvisoEstado] = useState<{ mensaje: string; variant: ToastVariante } | null>(null);
+  const setAviso = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'exito' });
+  const setAvisoError = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'error' });
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
   // Libro de existencias del artículo abierto. Va aparte del modal para que
   // cerrar la hoja no cierre también la ficha del producto.
@@ -1094,13 +1145,14 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  async function savePlan(f: FormularioPlan) {
+  async function savePlan(f: FormularioPlan): Promise<string | null> {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
     const datos = formularioAPlan(f);
     const editando = planModal && planModal !== 'new';
     const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
-    if (!res.ok) { setAviso(res.error); return; }
+    // El error lo enseña el formulario, que se queda abierto con lo escrito.
+    if (!res.ok) return res.error;
     setPlanModal(null);
     // Lo que se dice tiene que ser lo que pasa: una tarifa guardada con
     // «Disponible para vender» apagado NO sale en la Caja ni en la web, y
@@ -1109,9 +1161,10 @@ export default function Productos() {
     setAviso(!datos.activo
       ? `"${datos.nombre}" guardada, pero NO está a la venta: no sale en la Caja ni en la web`
       : editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
+    return null;
   }
 
-  async function savePos(d: PosFormData, foto: File | null | undefined) {
+  async function savePos(d: PosFormData, foto: File | null | undefined): Promise<string | null> {
     // Campo vacío → `null`, no `0`. En existencias y en IVA los dos valores
     // significan cosas distintas: null es "no controla / hereda", 0 es
     // "agotado / exento". El formulario deja vacío a propósito y aquí NO se
@@ -1143,19 +1196,22 @@ export default function Productos() {
     const res = editandoPos
       ? await updateProductoPOS(id, fields)
       : await addProductoPOS(fields, id);
-    if (!res.ok) { setAviso(res.error); return; }
+    if (!res.ok) return res.error;
 
     // La foto va aparte y DESPUÉS: si falla, el artículo ya existe y se avisa
     // de lo que ha fallado de verdad — no se pierde el alta entera por una
     // imagen, ni se anuncia un éxito que no ha ocurrido.
     if (foto !== undefined) {
       const r = foto === null ? await eliminarFotoProducto(id) : await subirFotoProducto(id, foto);
-      if ('error' in r) { setAviso(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return; }
+      if ('error' in r) { setAvisoError(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return null; }
       const url = 'url' in r ? r.url : null;
       const resFoto = await updateProductoPOS(id, { imagenUrl: url });
-      if (!resFoto.ok) { setAviso(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return; }
+      if (!resFoto.ok) { setAvisoError(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return null; }
     }
     setPosModal(null);
+    // Antes guardar un producto no decía nada: se cerraba y ya.
+    setAviso(editandoPos ? 'Producto guardado' : `"${fields.nombre}" creado`);
+    return null;
   }
 
   const PLAN_ICONS: Record<string, React.ElementType> = { MENSUAL: Repeat, BONO: Zap, PUNTUAL: Tag };
@@ -1357,7 +1413,7 @@ export default function Productos() {
                         type="button"
                         onClick={async () => {
                           const res = await updatePlan(plan.id, { activo: true });
-                          setAviso(res.ok ? `"${plan.nombre}" ya está a la venta` : res.error);
+                          if (res.ok) setAviso(`"${plan.nombre}" ya está a la venta`); else setAvisoError(res.error);
                         }}
                         className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-brand-foreground hover:opacity-90"
                       >
@@ -1517,17 +1573,12 @@ export default function Productos() {
         onConfirm={async () => {
           if (borrando) {
             const res = await deletePlan(borrando.id);
-            setAviso(res.ok ? `"${borrando.nombre}" ya no está a la venta` : res.error);
+            if (res.ok) setAviso(`"${borrando.nombre}" ya no está a la venta`); else setAvisoError(res.error);
           }
           setBorrando(null);
         }}
       />
-      {aviso && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-[13px] font-medium shadow-lg"
-          role="status">
-          {aviso}
-        </div>
-      )}
+      {aviso && <Toast message={aviso.mensaje} variant={aviso.variant} onDismiss={() => setAvisoEstado(null)} />}
       {stockDe && (
         <HojaStock
           productoId={stockDe}
@@ -1543,7 +1594,7 @@ export default function Productos() {
           onMoverStock={posModal !== 'new' && posModal ? () => setStockDe(posModal.id) : undefined}
           onDelete={posModal !== 'new' && posModal ? async () => {
             const res = await deleteProductoPOS(posModal.id);
-            if (!res.ok) { setAviso(res.error); return; }
+            if (!res.ok) { setAvisoError(res.error); return; }
             setPosModal(null);
           } : undefined}
         />

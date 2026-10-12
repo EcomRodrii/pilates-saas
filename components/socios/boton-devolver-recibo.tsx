@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useState } from 'react';
 import { Undo2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -25,7 +26,8 @@ export function BotonDevolverRecibo({
 }: {
   recibo: ReciboParaReembolso & { id: string };
   politica: PoliticaReembolso;
-  onHecho: (mensaje: string) => void;
+  /** Avisa con el toast de la pantalla: el fallo, en rojo (`{ variant: 'error' }`). */
+  onHecho: MostrarToast;
   /** Se llama al enviarla, para que la fila cambie sin esperar a recargar. */
   onEnviada?: () => void;
   /**
@@ -94,7 +96,7 @@ export function BotonDevolverRecibo({
       // escritura optimista que ya ha costado bugs en este repo.
       onHecho('Devolución enviada. En unos segundos el recibo quedará como devuelto; el dinero tarda entre 5 y 10 días en llegar a su banco.');
     } else {
-      onHecho(res.error);
+      onHecho(res.error, { variant: 'error' });
     }
   }
 
