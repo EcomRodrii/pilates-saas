@@ -116,6 +116,10 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
+import dynamic from 'next/dynamic';
+import { repetirMesDisponible } from '@/lib/series/repetir-mes-cliente';
+import { nombreMes, textoTrasRepetir, type ResultadoRepetir } from '@/lib/series/repetir-mes';
+import { señalarClasesCreadas } from '@/components/calendario/huella-de-creacion';
 import { VistaHorario } from '@/components/calendario/vista-horario';
 import { ElegirClienta } from '@/components/calendario/elegir-clienta';
 import { pedirHorario } from '@/lib/horario-fijo-cliente';
@@ -134,6 +138,13 @@ const FALLBACK = new Date('2026-01-01T12:00:00');
 const SIN_CIERRES: CierreGuardado[] = [];
 /** El ajuste «Peticiones desde su app», al que lleva el aviso de la vista Horario. */
 const HREF_PETICIONES_PLAZA_FIJA = '/configuracion?tab=reservas#plaza-fija-desde-la-app';
+
+// «Repetir este mes» (P1.7): fuera del chunk del Calendario; solo se carga si
+// está encendido para el estudio y alguien lo abre.
+const DialogoRepetirMes = dynamic(
+  () => import('@/components/calendario/dialogo-repetir-mes').then(m => m.DialogoRepetirMes),
+  { ssr: false },
+);
 
 function addDays(date: Date, n: number) {
   const d = new Date(date);
@@ -1028,6 +1039,11 @@ export default function Calendario() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitialRecurrente(undefined);
       setShowRecurrentes(true);
+      window.history.replaceState({}, '', '/calendario');
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(params.get('fecha') ?? '')) {
+      // «Ver ese día en el calendario» del aviso de festivos: el día, en vista Día.
+      irAFecha(params.get('fecha') as string);
+      setVista('dia');
       window.history.replaceState({}, '', '/calendario');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2079,6 +2095,48 @@ export default function Calendario() {
     setErrorHorario(null);
     setVersionHorario(v => v + 1);
   }, []);
+
+  // ── «Repetir este mes» (P1.7) ────────────────────────────────────────────────
+  // Apagado salvo que el servidor diga que está disponible para este estudio
+  // (interruptor `CALENDARIO_REPETIR_MES` + migración aplicada). Mismo permiso
+  // que renovar una serie. El mes es el de lo que se está viendo.
+  const [repetirOk, setRepetirOk] = useState(false);
+  const [repetirAbierto, setRepetirAbierto] = useState<string | null>(null);
+  const gestionaCalendarioTop = puedeGestionarCalendario(rolActual);
+  useEffect(() => {
+    if (!mounted || !gestionaCalendarioTop) return;
+    let vivo = true;
+    void repetirMesDisponible().then(d => { if (vivo) setRepetirOk(d); });
+    return () => { vivo = false; };
+  }, [mounted, gestionaCalendarioTop]);
+  // El del primer día visible: el 30 de octubre, con la semana empezando ese día,
+  // lo natural es repetir octubre, no noviembre.
+  const mesVisible = localDate(vista === 'dia' ? diaSeleccionado : semana).slice(0, 7);
+
+  function trasRepetirMes(r: ResultadoRepetir, destino: string) {
+    setRepetirAbierto(null);
+    invalidarHorario();
+    // Las clases las ha creado el servidor: se olvida la caché de todas las semanas.
+    cacheVistaRef.current.clear();
+    const texto = textoTrasRepetir(r, destino);
+    if (r.creadas === 0 || !r.primeraFecha) {
+      void refrescarVista();
+      showToastError(texto);
+      return;
+    }
+    const primeraFecha = r.primeraFecha;
+    // HuellaDeCreacion: a la semana de la primera clase creada, y se señalan.
+    const ir = () => {
+      const primera = new Date(`${primeraFecha}T12:00:00`);
+      if (vista === 'horario') setVista('semana');
+      setDiaSeleccionado(primera);
+      const { navego } = invalidarCacheSerieYNavegarSiHaceFalta([primera]);
+      if (!navego) void refrescarVista();
+      señalarClasesCreadas(r.ids);
+    };
+    ir();
+    showToast(texto, { texto: 'Ver', onClick: ir });
+  }
 
   const nombreTipoDe = (id: string) => tiposClase.find(t => t.id === id)?.nombre;
   const nombreSalaDe = (id: string) => salas.find(x => x.id === id)?.nombre;
@@ -3438,6 +3496,7 @@ export default function Calendario() {
           buscador={<BuscadorCalendario candidatas={candidatasBusqueda} texto={busqueda} onTexto={setBusqueda} onSeleccionar={saltarAClase} compacto={!herramientasConNombre} />}
           hrefEscanear={puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false ? '/calendario/pase' : null}
           hrefImportar={gestionaClientas ? '/calendario/importar' : null}
+          repetirMes={repetirOk ? { texto: `Repetir ${nombreMes(mesVisible)}`, onAbrir: () => setRepetirAbierto(mesVisible) } : null}
           seleccion={gestionaClientas && vista !== 'horario' ? { activa: modoSeleccion, onAlternar: () => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true)) } : null}
           // Quien gestiona el estudio elige primero qué crea; la instructora que
           // crea sus clases va directa a la suya (no tiene clases fijas).
@@ -4074,6 +4133,10 @@ export default function Calendario() {
         initial={initialRecurrente}
         studio={studio}
       />
+
+      {repetirAbierto && (
+        <DialogoRepetirMes mes={repetirAbierto} onCerrar={() => setRepetirAbierto(null)} onHecho={trasRepetirMes} />
+      )}
 
       {renovarSerieDe && (
         <DialogoRenovarSerie
