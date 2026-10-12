@@ -14,17 +14,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  fechaDMY, MAX_SEMANAS_RENOVACION, semanasValidas, textoTrasRenovar,
+  fechaDMY, MAX_SEMANAS_RENOVACION, semanasValidas, TEXTO_MOTIVO_OMITIDA, textoTrasRenovar,
   type MotivoOmitida, type ResultadoRenovarSerie,
 } from '@/lib/series-renovacion';
 import { marcarRenovacionAutomatica, renovarSerie, simularRenovacion } from '@/lib/series-renovacion-cliente';
 
 const inputCls = 'w-24 text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring';
-const MOTIVO: Record<MotivoOmitida, string> = {
-  sala_ocupada: 'la sala está ocupada a esa hora',
-  ya_existe: 'ya hay una clase igual en el calendario',
-  cierre: 'el centro está cerrado ese día',
-};
+const MOTIVO: Record<MotivoOmitida, string> = TEXTO_MOTIVO_OMITIDA;
 const OMITIDAS_VISIBLES = 5;
 
 export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
