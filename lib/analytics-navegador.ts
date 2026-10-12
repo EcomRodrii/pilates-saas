@@ -67,10 +67,11 @@ export const EVENTOS_NAVEGADOR = {
 
   // ── Embudo de activación (hitos que se ven en el panel) ───────────────────
   // Los emite `components/analitica/hitos-activacion.tsx` cuando el dato pasa
-  // de no existir a existir, ya confirmado por el servidor. `origen` dice si lo
-  // montó el asistente o la propietaria a mano en el panel.
-  primer_tipo_clase: ['origen'],
-  primera_clase_programada: ['origen'],
+  // de no existir a existir, ya confirmado por el servidor (lib/analitica/hitos.ts).
+  // Sin props: el panel ve que el dato llegó, no por qué camino. Lo que monta el
+  // asistente lo cuenta el servidor, con `origen` (lib/analytics-eventos.ts).
+  primer_tipo_clase: [],
+  primera_clase_programada: [],
   primera_tarifa_activa: [],
 } as const satisfies Record<string, readonly string[]>;
 

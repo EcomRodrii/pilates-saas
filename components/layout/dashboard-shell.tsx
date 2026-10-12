@@ -27,6 +27,7 @@ import { estadoBilling } from '@/lib/api-client';
 import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
+import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { navSections } from '@/lib/nav-config';
 
@@ -41,6 +42,10 @@ const PantallaBienvenida = dynamic(
   { loading: () => <PanelSkeleton /> },
 );
 const PrimeraVezAqui = dynamic(() => import('@/components/guia/primera-vez-aqui').then(m => m.PrimeraVezAqui), { ssr: false });
+// Los hitos de activación (primer tipo de clase, primera clase, primera tarifa)
+// para el embudo de PostHog. No pinta nada y solo se carga para la propietaria
+// de un estudio de su primer mes: ver `debeObservar` (lib/analitica/hitos.ts).
+const HitosActivacion = dynamic(() => import('@/components/analitica/hitos-activacion').then(m => m.HitosActivacion), { ssr: false });
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
 // archivo necesita exportar `metadata` (manifest del panel instalable) y eso
@@ -183,6 +188,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (estudioId) asociarEstudio(estudioId);
   }, [estudioId]);
+  const [arranque] = useState(() => new Date());
+  const observarHitos = rolResuelto && debeObservar({ rol, creadoEn: studio?.creadoEn, ahora: arranque });
 
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
@@ -391,6 +398,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               por capítulos (lib/tour/). Solo localiza el data-tour="..." real de
               la pantalla actual; ver components/tour/visita-guiada.tsx. */}
           <VisitaGuiada cargando={cargandoDatos} />
+          {observarHitos && <HitosActivacion />}
           {/* Overlay, NO pantalla completa (a diferencia de PantallaBienvenida
               arriba): no debe bloquear el panel. Se autogobierna con
               debeMostrarModal() — el componente decide si se muestra. */}

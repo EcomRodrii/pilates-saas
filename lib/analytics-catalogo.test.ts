@@ -76,6 +76,7 @@ const NOMBRE_DINAMICO_PERMITIDO: Record<string, string> = {
   'components/onboarding/asistente-rapido.tsx': '`EventoWizard.nombre` es una unión de nombres del catálogo',
   'components/network-v2/EnlaceRastreo.tsx': 'la prop `evento` es `NombreEventoNavegador`',
   'lib/posthog-cliente.ts': 'la puerta misma: `capturarAlLlegar` reenvía su `nombre`, que es `NombreEventoNavegador`',
+  'components/analitica/hitos-activacion.tsx': '`EVENTO_DEL_HITO[hito]`: sus tres nombres los cruza con el catálogo lib/analitica/hitos.test.ts',
 };
 
 test('1a · cada evento que emite el navegador está en EVENTOS_NAVEGADOR', () => {

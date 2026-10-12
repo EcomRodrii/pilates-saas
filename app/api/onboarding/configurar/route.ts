@@ -143,6 +143,13 @@ export async function POST(req: NextRequest) {
       const { error } = await admin.from('tipos_clase').insert(tiposNuevos);
       if (error) return errorInterno('onboarding:configurar:tipos', error,
         'No se han podido crear tus tipos de clase. Puedes crearlos en Configuración → Mis clases y citas.');
+      // El primer tipo de clase del estudio, si no tenía ninguno. Lo cuenta el
+      // servidor porque el panel no ve estos tipos hasta recargar (el asistente
+      // no recarga el contexto); los que crea la propietaria a mano los cuenta
+      // el panel (components/analitica/hitos-activacion.tsx).
+      if ((tiposExist ?? []).length === 0) {
+        capturar(studioId, { nombre: 'primer_tipo_clase', props: { origen: 'asistente' } });
+      }
     }
     if (planesNuevos.length) {
       const { error } = await admin.from('planes_tarifa').insert(planesNuevos);
