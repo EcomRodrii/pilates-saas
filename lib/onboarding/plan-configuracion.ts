@@ -243,6 +243,57 @@ export function planVacio(p: PlanConfiguracion): boolean {
     && p.planes.length === 0 && !p.instructoraPropia && !p.horario;
 }
 
+// ─── El evento que cierra el asistente ───────────────────────────────────────
+//
+// El asistente llama al ejecutor DOS veces: al confirmar la pantalla «espacio»
+// (para que el panel de detrás ya tenga sus salas y sus clases) y al terminar.
+// Las dos emitían `onboarding_completado`, así que el embudo daba el asistente
+// por terminado en la pantalla 2 —antes de las preguntas de cobro— y contaba
+// dos veces a cada estudio. Y como la segunda llamada ya no crea lo que creó la
+// primera, sus cifras decían «0 tipos de clase» a quien sí los tenía.
+//
+// Ahora solo emite la llamada final, y cuenta lo que QUEDÓ MONTADO del plan, no
+// lo que creó esa petición en concreto.
+
+export type FaseConfigurar = 'parcial' | 'final';
+
+/** Sin `fase`, final: un llamador que no la mande sigue cerrando el embudo. */
+export function faseDeConfigurar(body: unknown): FaseConfigurar {
+  return (body as { fase?: unknown } | null)?.fase === 'parcial' ? 'parcial' : 'final';
+}
+
+export interface MontadoTrasConfigurar {
+  salas: number;
+  tipos_clase: number;
+  planes: number;
+  instructora: boolean;
+  horario: boolean;
+}
+
+/**
+ * Lo que le quedó montado tras una llamada que ha ido BIEN. Las salas, los
+ * tipos de clase y los planes del plan existen todos al terminar sin error: los
+ * que ya había con ese nombre se respetan, los demás se acaban de crear, y si un
+ * insert falla el ejecutor corta antes de llegar aquí. Por eso cuentan enteros.
+ *
+ * `despues` es lo que el ejecutor ve al final: si tiene su ficha de instructora
+ * (creada ahora o antes) y la franja que tiene el estudio.
+ */
+export function montadoTrasConfigurar(
+  plan: PlanConfiguracion,
+  despues: { instructora: boolean; horario: { apertura: string; cierre: string } | null },
+): MontadoTrasConfigurar {
+  return {
+    salas: plan.salas.length,
+    tipos_clase: plan.tiposClase.length,
+    planes: plan.planes.length,
+    instructora: plan.instructoraPropia && despues.instructora,
+    horario: plan.horario !== null && despues.horario !== null
+      && despues.horario.apertura === plan.horario.apertura
+      && despues.horario.cierre === plan.horario.cierre,
+  };
+}
+
 // ─── Etiquetas del asistente → respuestas ────────────────────────────────────
 //
 // El asistente guarda lo que la propietaria TOCÓ, es decir la etiqueta literal
