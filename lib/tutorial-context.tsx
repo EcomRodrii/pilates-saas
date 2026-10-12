@@ -95,10 +95,12 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       if (n > 0) return;
       // Un respiro: una cabecera que se vuelve a montar (otra vista de la misma
       // pantalla) no es salir de ella.
+      // Solo SU tutorial: el ejemplo de «Hazlo conmigo» no se toca aquí (lo pide
+      // y lo atiende la misma pantalla en el acto; borrarlo desde la limpieza de
+      // otra se lo quitaba a la que sí lo esperaba).
       window.setTimeout(() => {
         if ((presentes.current.get(ruta) ?? 0) > 0) return;
         setAbierto(prev => (prev?.ruta === ruta ? null : prev));
-        setEjemplo(null);
       }, 400);
     };
   }, []);

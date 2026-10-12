@@ -9,6 +9,7 @@ import { listaDeArranque } from '@/lib/onboarding/arranque';
 import { nacioConTutoriales } from '@/lib/ayuda/tutorial-progreso';
 import { cn } from '@/lib/utils';
 import { usePermisos } from '@/lib/permisos';
+import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 
 // Resumen compacto para el dashboard — el asistente completo (categorías,
 // ayuda contextual, enlaces) vive en su propia página, /primeros-pasos. Antes
@@ -26,7 +27,7 @@ export function OnboardingChecklist() {
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
     reservas,
   } = useStudio();
-  const { puedeVer } = usePermisos();
+  const { rol, puedeVer } = usePermisos();
 
   if (!studio || studio.onboardingDescartadoEn) return null;
 
@@ -63,10 +64,12 @@ export function OnboardingChecklist() {
   if (nacioConTutoriales(studio.creadoEn) && !studio.cadenaId) {
     const filas = listaDeArranque(progreso);
     const primeraPendiente = filas.find(f => !f.done)?.id;
-    // «Hacer» solo hacia donde este rol puede entrar (recepción no abre Salas).
-    // La página pública no es del panel: se abre aparte, sin sacarla de él.
+    // «Hacer» solo hacia donde este rol puede entrar: la pantalla (`puedeVer`) y,
+    // en Configuración, la sección y la herramienta (recepción no abre Salas): la
+    // misma regla que ⌘K. La página pública no es del panel: se abre aparte.
     const publica = (href: string) => href.startsWith('/reservar/');
-    const puedeIr = (href: string) => publica(href) || puedeVer(href.split(/[?#]/)[0]);
+    const puedeIr = (href: string) => publica(href)
+      || (puedeVer(href.split(/[?#]/)[0]) && puedeAbrirEnConfiguracion(rol ?? '', href));
     return (
       <div className="rounded-t-card border border-border bg-card p-4" data-testid="lista-arranque">
         <div className="flex items-start justify-between gap-3">

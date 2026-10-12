@@ -61,7 +61,7 @@ export function SiguientePaso() {
   const { user } = useAuth();
   const {
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, datosIncompletos,
   } = useStudio();
   const tour = useTour();
   const tutorial = useTutorial();
@@ -70,7 +70,10 @@ export function SiguientePaso() {
   // Sin storage, lo descartado se recuerda mientras dure la sesión del panel.
   const [descartados, setDescartados] = useState(() => (clave ? leerDescartados(almacen(), clave) : new Set<string>()));
 
-  if (!studio || !clave) return null;
+  // Con la carga a medias, una lista vacía no quiere decir «no lo tiene»: ni línea
+  // base ni banda (si no, al recargar se celebraría algo que ya existía). Mismo
+  // criterio que los hitos de activación (components/analitica/hitos-activacion.tsx).
+  if (!studio || !clave || datosIncompletos.length > 0) return null;
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
