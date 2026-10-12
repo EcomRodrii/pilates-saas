@@ -315,8 +315,10 @@ function Segmentado<T extends string | number>({
 }
 
 /** "Así la verá tu alumna" — lo que se está configurando, con su forma real. */
-function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes }: {
+function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes, esNueva }: {
   form: ClaseForm; fotoUrl?: string | null; logoUrl?: string | null;
+  /** Al crear no hay dónde subir imágenes (hace falta el id de la clase): se dice, en vez de dejar una foto de muestra que parece elegida. */
+  esNueva?: boolean;
   /** Sin esto la previsualización enseña dos imágenes y no dice cómo se ponen. */
   onEditarImagenes?: () => void;
 }) {
@@ -361,7 +363,11 @@ function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes }: {
           menciona ninguna imagen. Quien mira esta previsualización tiene ya la
           intención delante — el sitio del botón es aquí. */}
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <p className="text-[10.5px] text-muted-foreground">Arriba, en el horario. Abajo, al abrir la clase.</p>
+        <p className="text-[10.5px] text-muted-foreground">
+          {esNueva
+            ? 'La foto de abajo es de muestra, no la de tu clase. Cuando la crees, ábrela con «Editar» para poner tu logo y tu banner.'
+            : 'Arriba, en el horario. Abajo, al abrir la clase.'}
+        </p>
         {onEditarImagenes && (
           <button
             type="button"
@@ -537,6 +543,7 @@ export function PanelTipoClase({
           fotoUrl={editando?.fotoUrl}
           logoUrl={editando?.logoUrl}
           onEditarImagenes={modo === 'editar' ? abrirImagenes : undefined}
+          esNueva={modo === 'nueva'}
         />
 
         {/* NIVEL 1 — lo básico, siempre a la vista */}
