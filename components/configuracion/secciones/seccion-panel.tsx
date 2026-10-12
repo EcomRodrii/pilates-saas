@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Check, LayoutDashboard, Menu, Moon, PanelLeft, PanelTop } from 'lucide-react';
 import { usePanelTheme } from '@/lib/panel-theme';
 import { cn } from '@/lib/utils';
@@ -11,6 +13,11 @@ import { usePersonalizacionPanel } from '@/components/panel/use-personalizacion-
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
+import { tuTentareActivo } from '@/lib/tu-tentare/cliente';
+
+// «Tu Tentare» (P2.5): solo se carga si el servidor lo enciende para el estudio
+// (interruptor `TU_TENTARE`). Apagado, esta sección es exactamente la de antes.
+const TusModulos = dynamic(() => import('@/components/configuracion/tu-tentare/tus-modulos').then(m => m.TusModulos), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tu panel: el menú, el Inicio, dónde va el menú y claro u oscuro. Los sonidos
@@ -49,6 +56,12 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
   // Solo con el layout leído se cuenta algo: con la lectura fallida se enseñan
   // los módulos de fábrica, y decir «ninguno escondido» sobre eso sería mentira.
   const listo = p.estado === 'listo';
+  const [tuTentare, setTuTentare] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void tuTentareActivo().then(a => { if (vivo) setTuTentare(a); });
+    return () => { vivo = false; };
+  }, []);
 
   function cerrarCajon() {
     // Cerrar sin guardar tiene que dejar el hook como estaba: si no, el
@@ -110,6 +123,11 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
             hay respuesta que esperar y nunca falla. */}
         <FilaInterruptor id="claro-u-oscuro" icono={Moon} on={dark} onCambiar={async v => { setDark(v); return null; }} />
       </GrupoFilas>
+
+      {/* «Tu Tentare», después de lo de siempre: diecinueve filas delante
+          enterrarían «Claro u oscuro». Tras cada cambio el hook vuelve a leer:
+          el cajón «Tu menú» no puede quedarse con datos viejos y deshacerlo. */}
+      {tuTentare && <TusModulos onCambio={() => { if (!p.sucio) p.descartar(); }} />}
 
       <CajonAjuste id="menu-del-panel" abierto={cajon === 'menu-del-panel'} onCerrar={cerrarCajon}>
         {p.estado === 'cargando' ? cargando : (

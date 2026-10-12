@@ -23,6 +23,7 @@ import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentar
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
+import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
 
 export function useNavMode() {
   // Por defecto 'esencial' (los módulos del día a día, ESSENTIAL_HREFS): un
@@ -31,14 +32,19 @@ export function useNavMode() {
   const [mode, setMode] = useState<'esencial' | 'avanzado'>('esencial');
 
   useEffect(() => {
-    const stored = localStorage.getItem('nav-mode');
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage. No es accesible durante el render (ni en servidor ni en la hidratación): leerlo en render rompería la hidratación.
-    if (stored === 'avanzado') setMode('avanzado');
+    if (leerModoMenu() === 'avanzado') setMode('avanzado');
+    // «Ver el menú entero» de «Tu Tentare» (Configuración) cambia el modo desde
+    // fuera: el menú se pone al día sin recargar. Sin ese evento, nada cambia.
+    const alCambiar = (e: Event) => setMode(modoDelEvento(e));
+    window.addEventListener(EVENTO_MODO_MENU, alCambiar);
+    return () => window.removeEventListener(EVENTO_MODO_MENU, alCambiar);
   }, []);
 
   function setNavMode(next: 'esencial' | 'avanzado') {
     setMode(next);
-    localStorage.setItem('nav-mode', next);
+    // Guarda y avisa: «Tu Tentare» (Configuración) dice qué se ve en cada modo.
+    guardarModoMenu(next);
   }
 
   return { mode, setNavMode };

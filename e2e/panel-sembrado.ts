@@ -333,6 +333,8 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/sustituciones', (r) => json(r, { sustituciones: [] }));
   await page.route((u) => u.pathname === '/api/valoraciones', (r) => json(r, { valoraciones: [] }));
   await page.route((u) => u.pathname === '/api/migracion/recientes', (r) => json(r, { importaciones: [] }));
+  // «Tu Tentare» (P2.5): apagado de serie (interruptor `TU_TENTARE`). Su spec lo enciende.
+  await page.route((u) => u.pathname === '/api/configuracion/tu-tentare', (r) => json(r, { activo: false }));
 
   await page.route('**/api/layout**', (r) => json(r, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', (r) => json(r, { bloqueado: false }));

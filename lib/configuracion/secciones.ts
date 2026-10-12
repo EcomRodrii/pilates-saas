@@ -372,7 +372,7 @@ export const SECCIONES = [
     // (`studio_layout`), así que cada cajón manda solo el suyo gracias a que solo
     // se abre uno a la vez y cerrar sin guardar descarta (seccion-panel.tsx).
     tarjetas: [
-      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Inicio, Configuración y Suscripción siempre se ven.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
+      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Resumen, Configuración y Suscripción no se esconden.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
       { id: 'inicio-del-panel', titulo: 'Tu Resumen', frase: 'Ordena y esconde las secciones de tu pantalla de Resumen. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal', 'inicio'] },
       { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
       { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
