@@ -110,7 +110,8 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   automático, un límite de IA). En TypeScript lo vigila `lib/hoy-de-madrid.test.ts`: un `new Date()`/`Date.now()` con
   `.toISOString().slice(0, 10)` solo vale en `CON_DIA_UTC_A_PROPOSITO`, con su motivo (un nombre de fichero, una ruta); para
   sumar días, `masDias()` sobre el día del estudio, nunca `Date.now() + N días`. ⚠️ No ve otras formas del mismo error
-  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `hoyISO: new Date().toISOString()`): esas se miran a mano.
+  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `nowISO.slice(0, 10)`): esas se miran a mano. Una función que
+  reciba «ahora» como instante saca el día con `hoyEnEstudio(new Date(…))`, como `validarCodigoCanjeable`.
   ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa `::timestamp at time zone 'Europe/Madrid'`.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
