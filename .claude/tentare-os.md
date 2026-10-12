@@ -107,8 +107,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   recibo de `/api/public/renovar-plan`, el vencimiento del recibo de penalización y los `hoyISO` por defecto de `bono-logic`,
   `suscripcion-estado`, `socio-resumen` y `cobro-permitido`. ⚠️ Una función de vigencia NUEVA no usa `current_date`: lo vigila
   `supabase/tests/hoy-de-madrid.test.ts` contra Postgres real (la única excepción, con su motivo, es el tope diario del piloto
-  automático, un límite de IA). ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa
-  `::timestamp at time zone 'Europe/Madrid'`.
+  automático, un límite de IA). En TypeScript lo vigila `lib/hoy-de-madrid.test.ts`: un `new Date()`/`Date.now()` con
+  `.toISOString().slice(0, 10)` solo vale en `CON_DIA_UTC_A_PROPOSITO`, con su motivo (un nombre de fichero, una ruta); para
+  sumar días, `masDias()` sobre el día del estudio, nunca `Date.now() + N días`. ⚠️ No ve otras formas del mismo error
+  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `hoyISO: new Date().toISOString()`): esas se miran a mano.
+  ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa `::timestamp at time zone 'Europe/Madrid'`.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.

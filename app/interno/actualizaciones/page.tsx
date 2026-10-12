@@ -18,6 +18,7 @@ import {
   subirImagenCambio,
   type EtiquetaCambio, type NovedadMenuInterna, type VersionChangelog,
 } from '@/lib/interno/client';
+import { hoyEnEstudio } from '@/lib/utils';
 
 const ETIQUETA_LABEL: Record<EtiquetaCambio, string> = {
   NUEVA_FUNCIONALIDAD: 'Nueva funcionalidad',
@@ -259,7 +260,8 @@ function NuevaVersion({ onCreada }: { onCreada: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const [version, setVersion] = useState('');
   const [titulo, setTitulo] = useState('');
-  const [fechaPub, setFechaPub] = useState(() => new Date().toISOString().slice(0, 10));
+  // La fecha que verán los estudios y desde la que cuenta «Nuevo»: la de Madrid.
+  const [fechaPub, setFechaPub] = useState(() => hoyEnEstudio());
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

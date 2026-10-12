@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CodigoDescuento } from './types.ts';
+import { hoyEnEstudio, masDias } from './utils.ts';
 
 // Alfabeto sin caracteres ambiguos (sin O/0, I/1) — los códigos se dictan por
 // teléfono y se teclean en el mostrador.
@@ -44,6 +45,18 @@ export const PREFIJO_CODIGO_REACTIVACION = 'VUELVE-';
 /** Código de reactivación (win-back). Determinista por `semilla` → idempotente. */
 export function generarCodigoReactivacion(semilla: string): string {
   return `${PREFIJO_CODIGO_REACTIVACION}${sufijoCodigo(semilla)}`;
+}
+
+/** Días que vale un código de reactivación desde el día en que se crea. */
+export const DIAS_VIGENCIA_CODIGO_REACTIVACION = 30;
+
+/**
+ * El `expira` ('YYYY-MM-DD') de un código de reactivación creado en `ahora`: el
+ * día del ESTUDIO más 30. Con `Date.now() + 30 días` en UTC, uno creado entre
+ * las 00:00 y las 02:00 de Madrid caducaba un día antes de lo prometido.
+ */
+export function caducidadCodigoReactivacion(ahora: Date = new Date()): string {
+  return masDias(hoyEnEstudio(ahora), DIAS_VIGENCIA_CODIGO_REACTIVACION);
 }
 
 /** ¿Lo generó el Decision OS (win-back) o lo creó una persona a mano? */
