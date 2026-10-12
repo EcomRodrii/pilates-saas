@@ -10,6 +10,9 @@
 //    pedida se crea o se omite con un motivo que no es 'excluida'.
 //  · La hora local se mantiene al cruzar el cambio de hora.
 //  · Solo la puede ejecutar el servidor.
+//  · (migr 20261012220000) Una fecha saltada al final de un período, por el
+//    motivo que sea, cuenta como la última de su día de la semana: la
+//    renovación siguiente no pierde ese día ni vuelve a intentar la fecha.
 //
 // Se llama con `admin` (service_role) porque es como la llama la app.
 import { test, after } from 'node:test';
@@ -235,4 +238,91 @@ test('solo el servidor la puede ejecutar', async () => {
     select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname = 'renovar_serie'`;
   assert.equal(vieja.n, 1, 'una sola firma: con dos, PostgREST no sabría a cuál llamar');
+});
+
+// Migr 20261012220000: cada fecha que el último período saltó cuenta como la
+// última de su día de la semana, sea cual sea el motivo (no solo 'excluida').
+// Sin eso, el día de la semana cuya última fecha se saltó desaparecía de la
+// serie, o la renovación siguiente volvía a intentar esa fecha.
+
+async function cerrar(studioId: string, fecha: string) {
+  const { error } = await admin.from('cierres_estudio').insert({ id: idUnico('cie'), studio_id: studioId, desde: fecha, hasta: fecha, motivo: 'Festivo' });
+  assert.ok(!error, error?.message);
+}
+
+test('un cierre en el último viernes no borra los viernes aunque la serie acabe en lunes', async () => {
+  await conEstudio(async ({ studioId }, salaId) => {
+    // Serie viernes+lunes: el último día de cada semana es el lunes.
+    const viernes = await proximo(5, 3);
+    const serieId = await crearSerie(studioId, salaId, [viernes, await masDias(viernes, 3)]);
+    const cerrado = await masDias(viernes, 14);
+    await cerrar(studioId, cerrado);
+
+    // Dos semanas: viernes +7 y +14 (cerrado), lunes +10 y +17.
+    const r = await renovar(studioId, serieId, { p_semanas: 2, p_simular: false });
+    assert.equal(r.creadas, 3);
+    assert.deepEqual(r.omitidas, [{ fecha: cerrado, motivo: 'cierre' }]);
+
+    // La siguiente: el viernes después del cierre y el lunes. Antes, solo el lunes.
+    const r2 = await renovar(studioId, serieId, { p_semanas: 1, p_simular: false });
+    assert.equal(r2.creadas, 2, 'lunes Y viernes');
+    assert.deepEqual(r2.omitidas, [], 'no vuelve a intentar el día cerrado');
+    const fechas = await fechasDeLaSerie(serieId);
+    assert.ok(fechas.includes(await masDias(viernes, 21)), 'los viernes siguen');
+    assert.ok(fechas.includes(await masDias(viernes, 24)), 'y los lunes');
+    assert.ok(!fechas.includes(cerrado));
+  });
+});
+
+test('un cierre en el último día de la serie no se vuelve a intentar ni le quita una clase al siguiente período', async () => {
+  await conEstudio(async ({ studioId }, salaId) => {
+    // Serie lunes+viernes: el último día de cada semana es el viernes.
+    const lunes = await proximo(1, 3);
+    const serieId = await crearSerie(studioId, salaId, [lunes, await masDias(lunes, 4)]);
+    const cerrado = await masDias(lunes, 18);
+    await cerrar(studioId, cerrado);
+
+    const r = await renovar(studioId, serieId, { p_semanas: 2, p_simular: false });
+    assert.equal(r.creadas, 3);
+    // Aunque el centro vuelva a abrir ese día, la serie no vuelve atrás: igual que
+    // al quitar un cierre, las clases no vuelven solas.
+    await sql`delete from public.cierres_estudio where studio_id = ${studioId}`;
+
+    const r2 = await renovar(studioId, serieId, { p_semanas: 1, p_simular: false });
+    assert.equal(r2.creadas, 2);
+    assert.deepEqual(r2.omitidas, []);
+    const fechas = await fechasDeLaSerie(serieId);
+    assert.ok(fechas.includes(await masDias(lunes, 21)) && fechas.includes(await masDias(lunes, 25)));
+    assert.ok(!fechas.includes(cerrado), 'la fecha que se saltó no la crea la renovación siguiente');
+  });
+});
+
+test('dos fechas saltadas por motivos distintos al final: no se pierde ningún día', async () => {
+  await conEstudio(async ({ studioId }, salaId) => {
+    // Lunes+viernes. Último lunes: ya hay otra clase a esa hora en la sala
+    // ('ya_existe'). Último viernes: cerrado. Contando solo el cierre, la última
+    // semana se movía al viernes y los lunes se perdían.
+    const lunes = await proximo(1, 3);
+    const serieId = await crearSerie(studioId, salaId, [lunes, await masDias(lunes, 4)]);
+    const ocupado = await masDias(lunes, 14);
+    await sql`
+      insert into public.sesiones (id, studio_id, sala_id, inicio, fin, aforo_maximo, cancelada)
+      values (${idUnico('ses')}, ${studioId}, ${salaId},
+              (${ocupado}::date + '18:30'::time) at time zone 'Europe/Madrid',
+              (${ocupado}::date + '18:30'::time) at time zone 'Europe/Madrid' + interval '50 minutes', 8, false)`;
+    const cerrado = await masDias(lunes, 18);
+    await cerrar(studioId, cerrado);
+
+    const r = await renovar(studioId, serieId, { p_semanas: 2, p_simular: false });
+    assert.equal(r.creadas, 2);
+    const motivo = (f: string) => r.omitidas.find((o) => o.fecha === f)?.motivo;
+    assert.equal(motivo(ocupado), 'ya_existe');
+    assert.equal(motivo(cerrado), 'cierre');
+
+    const r2 = await renovar(studioId, serieId, { p_semanas: 1, p_simular: false });
+    assert.equal(r2.creadas, 2, 'lunes Y viernes');
+    assert.deepEqual(r2.omitidas, []);
+    const fechas = await fechasDeLaSerie(serieId);
+    assert.ok(fechas.includes(await masDias(lunes, 21)) && fechas.includes(await masDias(lunes, 25)));
+  });
 });
