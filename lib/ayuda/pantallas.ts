@@ -15,6 +15,17 @@ import type { GrupoAyuda } from './registro.ts';
 // La clave es la RUTA EXACTA. Las subpantallas de un flujo (los importadores,
 // las liquidaciones) no llevan icono a propósito: ya se llega a ellas desde
 // una pantalla que sí lo explica, y repetirlo ahí sería ruido.
+//
+// Las vistas de Configuración no tienen ruta propia: su clave es su URL
+// canónica, la que construye `lib/configuracion/destino.ts` (`hrefDeLugar`):
+// `/configuracion?tab=reservas`, `/configuracion?tab=clases&abrir=tipos-de-clase`.
+// El ⓘ las busca por `pathname` y no las ve; el «?» del tutorial, sí.
+//
+// Y es también el ÚNICO catálogo de los tutoriales de pantalla (P1.1, decisión
+// del fundador del 12-oct-2026: «un único catálogo por pantalla, con la ruta como
+// clave»). Una ficha con `tutorial` tiene sus pasos en `tutoriales-pasos.ts`, que
+// solo carga el tutorial (`dynamic()`): sus textos no viajan en el chunk de cada
+// pantalla. tsc exige que estén los pasos de cada ficha con tutorial, y nada más.
 
 /** Adónde lleva "Ver la guía completa". Sin `slug`, a la categoría entera. */
 export interface DestinoAyuda {
@@ -30,9 +41,15 @@ export interface AyudaPantalla {
   /** Qué te quita de encima. Una sola línea, en concreto y sin adornos. */
   ahorra: string;
   destino: DestinoAyuda;
+  /**
+   * Esta pantalla tiene tutorial de 3–4 pasos (`components/tutorial/`). Subir la
+   * `version` lo vuelve a abrir solo a quien ya lo vio: para cuando su contenido
+   * cambie de verdad, no por una errata.
+   */
+  tutorial?: { version: number };
 }
 
-export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
+export const AYUDA_POR_PANTALLA = {
   '/dashboard': {
     titulo: 'Resumen',
     resumen:
@@ -199,15 +216,32 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     ahorra: 'Pedirle a otra persona que te cambie tus propios datos.',
     destino: { categoria: 'instructores', slug: 'disponibilidad-y-tarifas' },
   },
-};
+} satisfies Record<string, AyudaPantalla>;
+
+type Catalogo = typeof AYUDA_POR_PANTALLA;
+
+/** Las pantallas con tutorial: las claves del catálogo cuya ficha lleva `tutorial`. */
+export type RutaConTutorial = { [K in keyof Catalogo]: Catalogo[K] extends { tutorial: unknown } ? K : never }[keyof Catalogo];
+
+const CATALOGO: Record<string, AyudaPantalla> = AYUDA_POR_PANTALLA;
+
+/** Sin la barra final: Next entrega '/equipo' y '/equipo/' según de dónde venga la navegación, y no son dos pantallas. */
+function sinBarraFinal(ruta: string): string {
+  return ruta.length > 1 && ruta.endsWith('/') ? ruta.slice(0, -1) : ruta;
+}
 
 /** La ayuda de una ruta EXACTA. `undefined` si esa pantalla no tiene ficha. */
 export function ayudaDePantalla(ruta: string | null | undefined): AyudaPantalla | undefined {
   if (!ruta) return undefined;
-  // Sin la barra final: Next entrega '/equipo' y '/equipo/' según de dónde
-  // venga la navegación, y no son dos pantallas.
-  const limpia = ruta.length > 1 && ruta.endsWith('/') ? ruta.slice(0, -1) : ruta;
-  return AYUDA_POR_PANTALLA[limpia];
+  return CATALOGO[sinBarraFinal(ruta)];
+}
+
+/** La versión del tutorial de esa pantalla (ruta o URL canónica de Configuración). `null` = no tiene. */
+export function tutorialDePantalla(ruta: string | null | undefined): { ruta: RutaConTutorial; version: number } | null {
+  if (!ruta) return null;
+  const clave = sinBarraFinal(ruta);
+  const t = CATALOGO[clave]?.tutorial;
+  return t ? { ruta: clave as RutaConTutorial, version: t.version } : null;
 }
 
 export function urlDeAyuda(destino: DestinoAyuda): string {

@@ -1,0 +1,111 @@
+'use client';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El tutorial de cada pantalla (P1.1): cuál está abierto, cuándo se abre solo y
+// qué se guarda al terminar. Se monta una vez en DashboardShell, dentro de
+// TourProvider: con la visita guiada en marcha, el tutorial se calla (nunca dos
+// guías a la vez) y, si la visita arranca con uno abierto, se cierra.
+//
+// La tarjeta (`components/tutorial/tutorial-de-pantalla.tsx`) llega con
+// `dynamic()`: nada del tutorial viaja en el chunk inicial del panel. Lo único
+// que se ve en cada pantalla es el «?» (`BotonTutorial`), y solo si su ficha de
+// `lib/ayuda/pantallas.ts` lleva `tutorial`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
+import { useAuth } from '@/lib/auth-context';
+import { useCore } from '@/lib/core-context';
+import { usePermisos } from '@/lib/permisos';
+import { useTour } from '@/lib/tour-context';
+import { capturarEvento } from '@/lib/posthog-cliente';
+import { tutorialDePantalla, type RutaConTutorial } from '@/lib/ayuda/pantallas';
+import { anotar, claveProgreso, debeAbrirseSolo, guardarProgreso, leerProgreso, type ComoTermino } from '@/lib/ayuda/tutorial-progreso';
+import { hayDialogoAbierto } from '@/components/tour/foco';
+
+const TutorialDePantalla = dynamic(
+  () => import('@/components/tutorial/tutorial-de-pantalla').then(m => m.TutorialDePantalla),
+  { ssr: false },
+);
+
+export type OrigenTutorial = 'auto' | 'boton';
+
+interface ValorTutorial {
+  /** La pantalla cuyo tutorial está abierto. */
+  abierto: RutaConTutorial | null;
+  /** Con el «?»: cualquier rol que vea la pantalla. */
+  abrir: (ruta: string) => void;
+  /** Al llegar a la pantalla: solo si `debeAbrirseSolo`. */
+  pedirAbrirSolo: (ruta: string) => void;
+}
+
+const ContextoTutorial = createContext<ValorTutorial | null>(null);
+
+/** `null` fuera del panel (no hay tutoriales): el «?» no se pinta. */
+export function useTutorial(): ValorTutorial | null {
+  return useContext(ContextoTutorial);
+}
+
+/** localStorage, o `null` si el navegador no deja tocarlo (el tutorial se ve igual). */
+function almacen(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
+}
+
+export function TutorialProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { studio } = useCore();
+  const { rol } = usePermisos();
+  const tour = useTour();
+  const [abierto, setAbierto] = useState<{ ruta: RutaConTutorial; version: number; origen: OrigenTutorial } | null>(null);
+  // Sin storage, esto evita reabrirlo en cada navegación de la misma sesión.
+  const vistosEnSesion = useRef(new Set<string>());
+  const clave = user?.id && studio?.id ? claveProgreso(user.id, studio.id) : null;
+
+  // Si la visita arranca con un tutorial abierto, la visita manda.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reacciona a otra guía que acaba de empezar.
+    if (tour.activo && abierto) setAbierto(null);
+  }, [tour.activo, abierto]);
+
+  const abrir = useCallback((ruta: string) => {
+    const t = tutorialDePantalla(ruta);
+    if (!t || tour.activo) return;
+    setAbierto({ ...t, origen: 'boton' });
+  }, [tour.activo]);
+
+  const pedirAbrirSolo = useCallback((ruta: string) => {
+    const t = tutorialDePantalla(ruta);
+    if (!t || !clave || abierto) return;
+    const abre = debeAbrirseSolo({
+      rol, visitaActiva: tour.activo, dialogoAbierto: hayDialogoAbierto(), esSedeDeCadena: !!studio?.cadenaId,
+      creadoEn: studio?.creadoEn, ruta: t.ruta, version: t.version,
+      progreso: leerProgreso(almacen(), clave), vistosEnSesion: vistosEnSesion.current,
+    });
+    if (!abre) return;
+    vistosEnSesion.current.add(t.ruta);
+    setAbierto({ ...t, origen: 'auto' });
+  }, [clave, abierto, rol, tour.activo, studio?.cadenaId, studio?.creadoEn]);
+
+  const terminar = useCallback((como: ComoTermino, paso: number) => {
+    if (!abierto) return;
+    vistosEnSesion.current.add(abierto.ruta);
+    if (clave) {
+      const a = almacen();
+      guardarProgreso(a, clave, anotar(leerProgreso(a, clave), abierto.ruta, abierto.version, como));
+    }
+    if (como === 'completado') capturarEvento('tutorial_completado', { pantalla: abierto.ruta, origen: abierto.origen });
+    else capturarEvento('tutorial_saltado', { pantalla: abierto.ruta, paso, origen: abierto.origen });
+    setAbierto(null);
+  }, [abierto, clave]);
+
+  const valor = useMemo<ValorTutorial>(() => ({ abierto: abierto?.ruta ?? null, abrir, pedirAbrirSolo }), [abierto?.ruta, abrir, pedirAbrirSolo]);
+
+  return (
+    <ContextoTutorial.Provider value={valor}>
+      {children}
+      {abierto && (
+        <TutorialDePantalla key={abierto.ruta} ruta={abierto.ruta} escritorio={tour.escritorio} onTerminar={terminar} />
+      )}
+    </ContextoTutorial.Provider>
+  );
+}

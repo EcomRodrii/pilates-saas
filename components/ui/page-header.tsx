@@ -3,6 +3,7 @@ import Link from "next/link"
 import * as React from "react"
 
 import { AyudaDePantalla } from "@/components/ayuda/AyudaDePantalla"
+import { BotonTutorial } from "@/components/tutorial/boton-tutorial"
 import { BotonAmpliar } from "@/components/layout/boton-ampliar"
 import { cn } from "@/lib/utils"
 
@@ -97,6 +98,8 @@ function PageHeader({
                 que es lo que de verdad cuesta— y las subpantallas de un flujo
                 (los importadores) no lo pintan porque no tienen ficha. */}
             <AyudaDePantalla />
+            {/* El «?» del tutorial de la pantalla (P1.1): como el ⓘ, por la ruta. */}
+            <BotonTutorial />
             {badge}
             {/* «Ampliar a toda la pantalla»: como el ⓘ, se resuelve por la ruta
                 (lib/panel/ampliar.ts, PANTALLAS_AMPLIABLES) y no por prop. */}

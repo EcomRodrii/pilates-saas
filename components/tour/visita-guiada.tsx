@@ -28,7 +28,8 @@ import { cn } from '@/lib/utils';
 import { useTour } from '@/lib/tour-context';
 import { useStudio } from '@/lib/studio-context';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
-import { CAPITULOS, lugarCoincide, pasoPorId, rutaBase, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
+import { CAPITULOS, lugarCoincide, pasoPorId, rutaBase, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
+import { elementoVisible, hayDialogoAbierto, mismoRect } from '@/components/tour/foco';
 import { datosHecho, type DatosHecho } from '@/lib/tour/hecho';
 import { MARGEN_SUPERIOR, modoDeDesplazamiento } from '@/lib/tour/desplazar';
 import { aplazadosEnOrden, capitulosConPasos, pasoAnteriorA, pasoCerrado } from '@/lib/tour/progreso';
@@ -41,19 +42,8 @@ const MARGEN = 12;
 
 // ── Lo que se ve en pantalla ─────────────────────────────────────────────────
 
-/** El primer elemento con ese `data-tour` que se VE (la barra de móvil y la de escritorio conviven en el DOM). */
-function elementoVisible(selector: string): HTMLElement | null {
-  for (const el of document.querySelectorAll<HTMLElement>(selectorCss(selector))) {
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) return el;
-  }
-  return null;
-}
-
-/** ¿Hay un diálogo de la app abierto? (los nuestros llevan `data-visita` y no cuentan.) */
-function hayDialogoAbierto(): boolean {
-  return !!document.querySelector('[role="dialog"]:not([data-visita]), [role="alertdialog"]:not([data-visita])');
-}
+// `elementoVisible`, `hayDialogoAbierto` y `mismoRect` viven en `foco.tsx`, que
+// comparte con el tutorial de cada pantalla (P1.1). El resto de este fichero, igual.
 
 /**
  * La pestaña (`?tab=`) en la que está la pantalla ahora mismo. Se lee del navegador
@@ -72,10 +62,6 @@ function useTabActual(): string | null {
     return () => { window.clearInterval(id); window.removeEventListener('popstate', leer); };
   }, []);
   return tab;
-}
-
-function mismoRect(a: DOMRect | null, b: DOMRect): boolean {
-  return !!a && Math.abs(a.top - b.top) < 1 && Math.abs(a.left - b.left) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
 }
 
 /**

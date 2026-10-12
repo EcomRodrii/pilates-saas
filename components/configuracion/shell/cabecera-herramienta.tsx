@@ -3,6 +3,8 @@
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { HerramientaConfiguracion, SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { hrefDeLugar } from '@/lib/configuracion/destino';
+import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
 // La cabecera de una herramienta abierta: volver a su sección, su nombre y una
 // frase.
@@ -44,6 +46,7 @@ export function CabeceraHerramienta({
         >
           {herramienta.titulo}
         </h2>
+        <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id, abrir: herramienta.id })} />
       </div>
       <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{herramienta.frase}</p>
     </>

@@ -14,6 +14,7 @@ import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
+import { TutorialProvider } from '@/lib/tutorial-context';
 import { AsistenteProvider } from '@/lib/asistente-context';
 import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
@@ -388,6 +389,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <PanelPrivacyProvider>
       <PanelThemeProvider className="panel-app min-h-dvh bg-background">
         <TourProvider>
+          {/* El tutorial de cada pantalla (P1.1): dentro de la visita, que manda sobre él. */}
+          <TutorialProvider>
           {/* «Pregúntale a Tentare»: el panel llega aparte, al abrirlo por primera vez. */}
           <AsistenteProvider>
           <Sidebar />
@@ -435,6 +438,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
           <AsistenteFlotante />
           </AsistenteProvider>
+          </TutorialProvider>
         </TourProvider>
       </PanelThemeProvider>
     </PanelPrivacyProvider>
