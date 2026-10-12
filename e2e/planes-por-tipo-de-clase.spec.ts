@@ -191,8 +191,12 @@ test.describe('Un bono que solo vale para ciertas clases', () => {
     // Sin «Solo algunas clases» no se enseña la lista de clases: no excluye nada.
     await expect(page.getByRole('checkbox', { name: 'Reformer' })).toHaveCount(0);
 
+    await expect(page.getByRole('dialog', { name: 'Editar tarifa' })).toBeVisible();
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0, { timeout: 15_000 });
+    // Que el formulario se CIERRE (guardado de verdad), no que el botón cambie de
+    // texto: mientras guarda dice «Guardando…», y `toHaveCount(0)` se cumplía en
+    // el acto, antes de que saliera ninguna petición.
+    await expect(page.getByRole('dialog', { name: 'Editar tarifa' })).toBeHidden({ timeout: 15_000 });
     expect(vinculos).toHaveLength(0);
   });
 });

@@ -149,7 +149,7 @@ export function BarraGuardar({
             : 'sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4'}
         >
           <p className={cn(
-            'inline-flex items-center gap-2 rounded-xl border border-border bg-card/95 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg backdrop-blur toast-in',
+            'inline-flex items-center gap-2 rounded-xl border border-border bg-card/95 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg backdrop-blur animate-in fade-in-0 duration-150 motion-reduce:animate-none',
           )}>
             <span className="size-2 rounded-full bg-success" />
             Guardado

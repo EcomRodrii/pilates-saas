@@ -81,7 +81,7 @@ type PropsDe<N extends EventoAnalitica['nombre']> = Extract<EventoAnalitica, { n
  * aquí. tsc exige una entrada por evento, así que uno nuevo no compila hasta
  * decir qué lleva.
  */
-export const PROPS_PERMITIDAS: { readonly [N in EventoAnalitica['nombre']]: readonly (keyof PropsDe<N>)[] } = {
+export const PROPS_PERMITIDAS = {
   pago_completado: ['importe_centimos', 'via'],
   suscripcion_cambiada: ['plan', 'estado'],
   ia_pack_comprado: ['unidades'],
@@ -100,7 +100,17 @@ export const PROPS_PERMITIDAS: { readonly [N in EventoAnalitica['nombre']]: read
   horario_propuesto_descartado: [],
   primer_tipo_clase: ['origen'],
   stripe_conectado: [],
-};
+} as const satisfies { readonly [N in EventoAnalitica['nombre']]: readonly (keyof PropsDe<N>)[] };
+
+// Y que no FALTE ninguna: una prop nueva en el tipo que no se añade aquí se tiraría
+// en silencio en `construirEvento`. Si esto no compila, añádela arriba.
+// (Un evento sin props es `Record<string, never>`, cuyo `keyof` es `string`: no tiene nada que olvidar.)
+type PropsOlvidadas = {
+  [N in EventoAnalitica['nombre']]: string extends keyof PropsDe<N>
+    ? never
+    : Exclude<keyof PropsDe<N>, (typeof PROPS_PERMITIDAS)[N][number]>
+}[EventoAnalitica['nombre']];
+export const _sinPropsOlvidadas: [PropsOlvidadas] extends [never] ? true : PropsOlvidadas = true;
 
 /** ¿Está configurada la analítica? (POSTHOG_KEY presente). */
 export function analyticsHabilitado(): boolean {
@@ -116,7 +126,7 @@ export function construirEvento(
   evento: EventoAnalitica,
   timestampISO?: string,
 ): { event: string; distinct_id: string; properties: Record<string, unknown>; timestamp?: string } {
-  const permitidas: readonly string[] = PROPS_PERMITIDAS[evento.nombre] ?? [];
+  const permitidas: readonly string[] = PROPS_PERMITIDAS[evento.nombre];
   const props = Object.fromEntries(
     Object.entries(evento.props as Record<string, unknown>).filter(([clave]) => permitidas.includes(clave)),
   );

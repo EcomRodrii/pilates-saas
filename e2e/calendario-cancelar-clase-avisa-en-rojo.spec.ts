@@ -22,6 +22,6 @@ test('la sesión no vuelve al bono: «Clase cancelada» sale en rojo y dice qué
   await expect.poll(() => cuerposDevolver.length, { timeout: 20_000 }).toBeGreaterThan(0);
   const aviso = page.getByRole('alert').filter({ hasText: 'No hemos podido devolver la sesión al bono' });
   await expect(aviso).toBeVisible({ timeout: 15_000 });
-  await expect(aviso).toContainText('Clase cancelada');
+  await expect(aviso).toContainText('La clase sí está cancelada');
   await expect(page.getByRole('status').filter({ hasText: 'No hemos podido devolver' })).toHaveCount(0);
 });

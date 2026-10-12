@@ -57,7 +57,10 @@ export function debeObservar(p: { rol: string | null; creadoEn: string | null | 
   const alta = Date.parse(p.creadoEn);
   if (Number.isNaN(alta)) return false;
   const dias = (p.ahora.getTime() - alta) / 86_400_000;
-  return dias >= 0 && dias <= DIAS_OBSERVACION;
+  // Un día de margen hacia atrás: un dispositivo con el reloj unos minutos por
+  // detrás del servidor veía su estudio recién creado «en el futuro» y no lo
+  // observaba en su primera sesión, que es justo la que importa.
+  return dias >= -1 && dias <= DIAS_OBSERVACION;
 }
 
 /** Los hitos que estaban en NO en la línea base y ahora están en SÍ. */

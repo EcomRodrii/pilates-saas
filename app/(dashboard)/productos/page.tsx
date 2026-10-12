@@ -302,6 +302,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   }
 
   function intentarCerrar() {
+    // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+    if (enVuelo.current) return;
     if (sucio) setConfirmandoCierre(true);
     else onClose();
   }
@@ -328,11 +330,11 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
     enVuelo.current = true;
     setGuardando(true);
     setErrorGuardar(null);
-    void onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form).then(error => {
-      enVuelo.current = false;
-      setGuardando(false);
-      if (error) setErrorGuardar(error);
-    });
+    void onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form)
+      .then(error => { if (error) setErrorGuardar(error); })
+      // Una promesa rota no puede dejar el botón en «Guardando…» para siempre.
+      .catch(() => setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.'))
+      .finally(() => { enVuelo.current = false; setGuardando(false); });
   }
 
   const esBono = form.tipo === 'BONO';
@@ -770,17 +772,18 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
           </p>
         )}
         {errorGuardar && (
-          <p role="alert" className="px-5 sm:px-6 pb-1 text-[12px] font-medium" style={{ color: 'var(--destructive)' }}>
+          <p role="alert" className="px-5 sm:px-6 pb-1 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
             No se ha guardado: {errorGuardar}
           </p>
         )}
         <div className="px-5 sm:px-6 py-4 border-t border-border shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <button onClick={intentarCerrar}
-            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <button onClick={intentarCerrar} disabled={guardando}
+            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">
             Cancelar
           </button>
+          {/* Guardando se lee entero (no al 40 %): es un estado, no un botón apagado. */}
           <button onClick={guardar} disabled={guardando} aria-busy={guardando}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
             {guardando ? 'Guardando…' : tituloAccion}
           </button>
@@ -863,11 +866,18 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
     enVuelo.current = true;
     setGuardando(true);
     setErrorGuardar(null);
-    const error = await onSave(form, foto);
-    enVuelo.current = false;
-    setGuardando(false);
-    if (error) setErrorGuardar(error);
+    try {
+      const error = await onSave(form, foto);
+      if (error) setErrorGuardar(error);
+    } catch {
+      setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      enVuelo.current = false;
+      setGuardando(false);
+    }
   }
+  // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+  const cerrar = () => { if (!enVuelo.current) onClose(); };
   const controlaStock = form.stock.trim() !== '';
 
   // `undefined` = no se ha tocado la foto; `null` = quitarla; File = subir esa.
@@ -904,7 +914,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
     // dar de alta un artículo. El modal de planes de esta misma página ya lo
     // hacía bien; este se quedó con el default.
     <DashboardSheet
-      open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
+      open onClose={cerrar} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
       // ⚠️ `portal`, por lo mismo que el modal de tarifas de esta misma página
       // (ver el comentario de arriba): el contenedor del panel lleva la
       // animación `.panel-page-in`, cuyo `transform` crea un "containing block"
@@ -916,7 +926,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
       <>
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={cerrar} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
@@ -1067,7 +1077,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
           </div>
         </div>
         {errorGuardar && (
-          <p role="alert" className="shrink-0 px-6 pt-3 text-[12px] font-medium" style={{ color: 'var(--destructive)' }}>
+          <p role="alert" className="shrink-0 px-6 pt-3 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
             No se ha guardado: {errorGuardar}
           </p>
         )}
@@ -1082,9 +1092,9 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
               <Trash2 size={15} />
             </button>
           )}
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
+          <button onClick={cerrar} disabled={guardando} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
           <button onClick={() => void guardarProducto()} disabled={!valid || guardando} aria-busy={guardando}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)' }}>
             {guardando ? 'Guardando…' : initial ? 'Guardar cambios' : 'Crear producto'}
           </button>

@@ -1019,8 +1019,10 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo
    (sheet-pop-out, drawer-*-out): cerrar debe sentirse inmediato. */
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
-@keyframes toast-out { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 4px) scale(.98); } }
+/* Solo vertical: el toast se centra con márgenes (`inset-x-4 mx-auto`), no con
+   `translate(-50%)` — con él, en móvil el texto se quedaba en media pantalla. */
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(.98); } }
 .toast-in { animation: toast-in var(--motion-medium) var(--motion-ease) both; }
 .toast-out { animation: toast-out var(--motion-fast) var(--motion-ease-in) both; }
 

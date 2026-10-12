@@ -18,11 +18,13 @@ import { EVENTO_DEL_HITO, avanzarBase, estadoHitos, faltaAlguno, hitosNuevos, ty
 // pero si alguna vez dejara de hacerlo, un estudio distinto toma su propia base
 // en vez de compararse con el anterior.
 export function HitosActivacion() {
-  const { studio, dataLoaded, salas, tiposClase, sesiones, socios, instructores, planesTarifa, suscripciones } = useStudio();
+  const { studio, dataLoaded, datosIncompletos, salas, tiposClase, sesiones, socios, instructores, planesTarifa, suscripciones } = useStudio();
   const base = useRef<{ studioId: string; hitos: EstadoHitos } | null>(null);
 
   const studioId = studio?.id ?? null;
-  const ahora = dataLoaded && studio
+  // Con la carga a medias (`datosIncompletos`), una lista vacía no quiere decir
+  // «no tiene»: ni se toma línea base ni se emite nada en esta sesión.
+  const ahora = dataLoaded && studio && datosIncompletos.length === 0
     ? estadoHitos(datosHecho({
       studio: { nif: studio.nif ?? null, razonSocial: studio.razonSocial ?? null, logoUrl: studio.logoUrl ?? null },
       salas, tiposClase, sesiones, socios, instructores, planesTarifa, suscripciones,

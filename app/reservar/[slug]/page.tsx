@@ -16,6 +16,7 @@ import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { comprobarCodigo } from '@/lib/student/comprar';
+import { euros } from '@/lib/student/formato';
 import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
@@ -808,6 +809,8 @@ export default function ReservarPage() {
   // Antes el botón decía `datosPlan.precio`: con un código aplicado, la
   // pantalla pedía el precio entero y Stripe cobraba menos; con uno que no
   // valía, se ignoraba sin decir nada.
+  // El campo del código de la pestaña de planes: si el código no vale, se lleva ahí la vista.
+  const campoCodigoRef = useRef<HTMLInputElement>(null);
   const [datosCobro, setDatosCobro] = useState<{ total: number | null; motivoCodigo: string | null }>({ total: null, motivoCodigo: null });
   const [datosError, setDatosError] = useState('');
   const [datosCargando, setDatosCargando] = useState(false);
@@ -1848,6 +1851,7 @@ export default function ReservarPage() {
     // la selección de una clase concreta.
     if (sesionId) trackEventoWidget(studio?.id, 'class_selected', { sesionClaseId: sesionId });
     setBookingSesionId(sesionId);
+    setDatosCobro({ total: null, motivoCodigo: null });
     setTerminosAceptados(false);
     setMarketingAceptado(false);
     setPrivacidadAceptada(false);
@@ -2428,11 +2432,18 @@ export default function ReservarPage() {
       // que el cobro: el checkout lo ignora en silencio si no vale, y la alumna
       // pagaba el precio entero creyendo que llevaba descuento. Si no vale, se
       // le dice por qué y no se sale de aquí; borrándolo, paga sin él.
+      // Si la comprobación no llega a hacerse (sin red, límite, servidor caído),
+      // se sigue a pagar como siempre: el cobro decide el código igual que antes.
+      // Bloquear ahí costaría ventas por un fallo que no es de la alumna.
       const codigo = codigoDescuento.trim();
       if (codigo && studio?.id && plan.esPrueba !== true) {
         const r = await comprobarCodigo(studio.id, codigo, Number(plan.precio), socia?.socioId ?? null);
-        if (!r.ok) {
-          setStripeError(`${r.motivo}. Corrígelo o bórralo para pagar sin descuento.`);
+        if (!r.ok && !r.sinRespuesta) {
+          setStripeError(`${r.motivo.replace(/\.$/, '')}. Bórralo para pagar sin descuento o prueba otro.`);
+          // En el móvil el error sale arriba, lejos del plan que se pulsó: se lleva
+          // la vista (y el foco) al campo del código.
+          campoCodigoRef.current?.focus();
+          campoCodigoRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
           return;
         }
       }
@@ -2832,6 +2843,7 @@ export default function ReservarPage() {
         ) : (
           <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
             <input
+              ref={campoCodigoRef}
               type="text"
               value={codigoDescuento}
               onChange={e => setCodigoDescuento(e.target.value)}
@@ -4750,7 +4762,7 @@ export default function ReservarPage() {
                   ventanaCancelacionHoras: bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0,
                   // El importe nunca detrás de la flecha: "→ 1 €" se leía
                   // como "-1 €" (queja literal del fundador).
-                  textoBoton: `Pagar ${datosCobro.total ?? datosPlan.precio} € y reservar`,
+                  textoBoton: `Pagar ${euros(datosCobro.total ?? datosPlan.precio)} y reservar`,
                   // El total que de verdad cobra Stripe (descuento y matrícula
                   // incluidos), y el motivo si el código escrito no entró.
                   importeTotal: datosCobro.total ?? undefined,

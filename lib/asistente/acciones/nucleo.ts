@@ -84,9 +84,11 @@ export const normalizarParaBuscar = (s: string) => normalizar(s.replace(EMOJI, '
  * último el único que lo contiene.
  */
 export function resolverPorNombre<T extends { nombre: string }>(lista: readonly T[], pedido: string): T | null | 'ambiguo' {
-  const q = normalizar(pedido);
+  // Tal cual, salvo el selector de variante (U+FE0F): «🔥» y «🔥︎» son el mismo emoji.
+  const exacto = (s: string) => normalizar(s.replace(/\u{FE0F}/gu, ''));
+  const q = exacto(pedido);
   if (!q) return null;
-  const exactos = lista.filter(x => normalizar(x.nombre) === q);
+  const exactos = lista.filter(x => exacto(x.nombre) === q);
   if (exactos.length === 1) return exactos[0];
   if (exactos.length > 1) return 'ambiguo';
   const qb = normalizarParaBuscar(pedido);

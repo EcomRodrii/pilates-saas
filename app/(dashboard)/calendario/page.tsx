@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
+import { avisoTrasCancelar } from '@/lib/calendario/aviso-tras-cancelar';
 import { cn, cuandoEstudio, fechaLargaEstudio, formatEuro, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
@@ -621,7 +622,7 @@ export default function Calendario() {
     setResolviendoReserva(reservaId);
     try {
       const r = resultadoDecisionReserva(aprobar, await decidirReservaPendiente(reservaId, aprobar));
-      (r.quitar ? showToast : showToastError)(r.mensaje);
+      (r.quitar && !r.error ? showToast : showToastError)(r.mensaje);
       if (r.quitar) {
         invalidarEstadoEstudio();
         resetDatosPilates();
@@ -1358,15 +1359,29 @@ export default function Calendario() {
     if (borran.length === 0) { setEliminarLote(null); return; }
     let hechas = 0;
     const fallos: string[] = [];
+    // Lo que queda a medias en las que SÍ se borraron (P0.3): sesiones que no
+    // volvieron al bono y alumnas sin avisar. Antes el lote decía «N clases
+    // eliminadas» y se lo callaba.
+    let bonosSinDevolver = 0, sinAvisar = 0;
     setEliminarLote({ hechas: 0, total: borran.length });
     for (const ses of borran) {
       const res = await deleteSesion(ses.id);
-      if (res.ok) hechas++; else fallos.push(res.error);
+      if (res.ok) {
+        hechas++;
+        if (res.avisoBono) bonosSinDevolver++;
+        sinAvisar += res.sinAvisar ?? 0;
+      } else fallos.push(res.error);
       setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
     }
-    (fallos.length ? showToastError : showToast)(fallos.length
-      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}`
-      : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
+    const pendiente = [
+      bonosSinDevolver > 0 ? `En ${bonosSinDevolver === 1 ? '1 clase' : `${bonosSinDevolver} clases`} no hemos podido devolver la sesión al bono de alguna clienta: revísalo a mano.` : null,
+      sinAvisar > 0 ? `A ${sinAvisar === 1 ? '1 clienta no le ha' : `${sinAvisar} clientas no les ha`} llegado el aviso: escríbeles o llámalas.` : null,
+    ].filter(Boolean).join(' ');
+    (fallos.length || pendiente ? showToastError : showToast)(fallos.length
+      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}${pendiente ? ` ${pendiente}` : ''}`
+      : pendiente
+        ? `${pendiente} ${hechas === 1 ? 'La clase sí se ha eliminado.' : `Las ${hechas} clases sí se han eliminado.`}`
+        : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
     salirDeSeleccion();
     invalidarHorario();
     void refrescarVista();
@@ -1531,7 +1546,7 @@ export default function Calendario() {
         level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
         extra: { sesionId, esperadas: n, afectadas: guardado.count },
       });
-      showToast(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
+      showToastError(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
       setShowForm(null);
       void refrescarVista();
       return;
@@ -1651,12 +1666,13 @@ export default function Calendario() {
     // F-32: si alguna socia no recuperó su sesión de bono, el toast base
     // ("clientas avisadas") ya no puede quedarse tan tranquilo — se añade el
     // mismo aviso que ya usa cancelarReserva (una sola reserva).
-    const base = !resReservas.ok
-      ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
-      : sinAvisar > 0
-        ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-        : 'Clase cancelada · clientas avisadas';
-    (!resReservas.ok || resReservas.avisoBono ? showToastError : showToast)(resReservas.avisoBono ? `${base} · ${resReservas.avisoBono}` : base);
+    // Lo que quede por arreglar (bono sin devolver, alumnas sin avisar) va
+    // primero y en rojo: ver lib/calendario/aviso-tras-cancelar.ts.
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase cancelada', confirmacion: 'La clase sí está cancelada',
+      reservasCanceladas: resReservas.ok, avisadas, sinAvisar, avisoBono: resReservas.ok ? resReservas.avisoBono : null,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1679,11 +1695,12 @@ export default function Calendario() {
     // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
     // (clase suelta) y que su gemelo de serie se había quedado sin heredar.
     const avisadas = res.avisadas ?? 0, sinAvisar = res.sinAvisar ?? 0;
-    const aviso = sinAvisar > 0
-      ? `${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-      : avisadas > 0 ? 'clientas avisadas' : 'sin clientas a las que avisar';
-    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · ${aviso}${res.enApp === false ? ' · sin aviso en la app' : ''}`;
-    (res.avisoBono ? showToastError : showToast)(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+    const aviso = avisoTrasCancelar({
+      hecho: `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''}`,
+      confirmacion: `La serie sí está cancelada (${n} clase${n !== 1 ? 's' : ''})`,
+      avisadas, sinAvisar, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1701,13 +1718,11 @@ export default function Calendario() {
     // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
     // Igual que "Cancelar": eliminar también avisa por email e in-app, así que
     // el toast tiene que poder decir que ese aviso no salió.
-    const sinAvisar = res.sinAvisar ?? 0;
-    const pegas = [
-      sinAvisar > 0 ? `${sinAvisar} sin avisar` : null,
-      res.enApp === false ? 'sin aviso en la app' : null,
-      res.avisoBono ?? null,
-    ].filter(Boolean);
-    (res.avisoBono ? showToastError : showToast)(['Clase eliminada', ...pegas].join(' · '));
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase eliminada', confirmacion: 'La clase sí se ha eliminado',
+      avisadas: res.avisadas ?? 0, sinAvisar: res.sinAvisar ?? 0, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1858,8 +1873,9 @@ export default function Calendario() {
     } else if (res.ok) {
       showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
-      // El dinero entró; falta sellar la factura (se reintenta sola).
-      showToastError(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`);
+      // El dinero entró; falta sellar la factura (se reintenta sola): no es
+      // algo que ella tenga que arreglar, así que no va en rojo.
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`); // toast-no-es-error: el cobro entró y la factura se reintenta sola
     } else {
       // El recibo existe, pendiente: queda en «Quién me debe». En rojo y más
       // rato: recepción puede tener ya el dinero en la mano.

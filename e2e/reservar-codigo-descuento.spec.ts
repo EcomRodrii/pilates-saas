@@ -97,7 +97,7 @@ test('planes: un código caducado se dice ANTES de ir a Stripe, y no se sale a p
 
   await expect.poll(() => comprobaciones.length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(comprobaciones[0]).toMatchObject({ studioId: STUDIO_ID, codigo: 'VERANO' });
-  await expect(page.getByText('Ese código ya ha caducado. Corrígelo o bórralo para pagar sin descuento.')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Ese código ya ha caducado. Bórralo para pagar sin descuento o prueba otro.')).toBeVisible({ timeout: 15_000 });
   expect(checkouts).toBe(0);
 });
 
@@ -118,4 +118,32 @@ test('planes: con un código válido se va a pagar como siempre', async ({ page 
 
   await expect.poll(() => checkouts.length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(checkouts[0].codigoDescuento).toBe('VERANO');
+});
+
+test('planes: si el código no se puede comprobar (límite, servidor caído), se va a pagar como antes', async ({ page }) => {
+  await abrirPlanes(page);
+  let comprobaciones = 0;
+  await page.route('**/api/public/validar-codigo-descuento', (r) => {
+    comprobaciones++;
+    return r.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Demasiadas peticiones' }) });
+  });
+  const checkouts: Record<string, unknown>[] = [];
+  await page.route('**/api/stripe/checkout', (r) => {
+    checkouts.push(r.request().postDataJSON() as Record<string, unknown>);
+    return r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Stripe de prueba' }) });
+  });
+
+  await page.getByRole('button', { name: '¿Tienes un código de descuento?' }).click();
+  await page.getByPlaceholder('Código de descuento').fill('VERANO');
+  await page.getByRole('button', { name: 'Contratar' }).first().click();
+
+  await expect.poll(() => comprobaciones, { timeout: 15_000 }).toBeGreaterThan(0);
+  // No se bloquea la venta por un fallo que no es de la alumna: el cobro decide, como siempre.
+  await expect.poll(() => checkouts.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(checkouts[0].codigoDescuento).toBe('VERANO');
+});
+
+test('el importe con céntimos se escribe a la española', async ({ page }) => {
+  await hastaElPago(page, { importe: 15.3, descuento: 2.7, codigoAplicado: true, matricula: 0, total: 15.3 });
+  await expect(page.getByRole('button', { name: 'Pagar 15,3 € y reservar' })).toBeVisible({ timeout: 15_000 });
 });

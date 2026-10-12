@@ -2704,7 +2704,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       <DialogoNuevoCobro
         abierto={showAddRecibo && puedeCobrar}
         onCerrar={() => setShowAddRecibo(false)}
-        avisos={{ ok: setToast, error: setToast }}
+        avisos={{ ok: setToast, error: setToastError }}
         socioId={id}
       />
 
@@ -2822,7 +2822,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         socio={socio}
         abierto={showBaja && gestionaClientas}
         onCerrar={() => setShowBaja(false)}
-        onHecho={resumen => { setShowBaja(false); setToast(resumen); }}
+        onHecho={(resumen, opciones) => { setShowBaja(false); setToast(resumen, opciones); }}
       />
       <DialogoBorrarDatos
         socio={socio}

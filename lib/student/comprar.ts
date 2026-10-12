@@ -53,7 +53,8 @@ export type InicioCobro =
 /** Lo que dice el servidor de un código ANTES de pagar. */
 export type ComprobacionCodigo =
   | { ok: true; descuento: number }
-  | { ok: false; motivo: string };
+  /** `sinRespuesta`: no se ha podido COMPROBAR (sin red, límite de peticiones, servidor caído), que no es lo mismo que «no vale». */
+  | { ok: false; motivo: string; sinRespuesta?: true };
 
 /**
  * Comprueba un código con el servidor.
@@ -76,12 +77,16 @@ export async function comprobarCodigo(
     });
     const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; descuento?: number; motivo?: string } | null;
     if (cuerpo?.ok && typeof cuerpo.descuento === 'number') return { ok: true, descuento: cuerpo.descuento };
+    // 429 (límite), 5xx o una respuesta sin motivo: no se sabe si el código vale.
+    if (res.status === 429 || res.status >= 500 || !cuerpo?.motivo) {
+      return { ok: false, motivo: cuerpo?.motivo ?? 'No hemos podido comprobar el código.', sinRespuesta: true };
+    }
     // El motivo del servidor es el bueno: distingue «no existe» de «caducado»,
     // «agotado» o «solo para clientas nuevas», y ese matiz es justo lo que
     // evita que lo intente otras cinco veces.
     return { ok: false, motivo: cuerpo?.motivo ?? 'No hemos podido comprobar el código.' };
   } catch {
-    return { ok: false, motivo: 'No hemos podido comprobar el código. Revisa tu conexión.' };
+    return { ok: false, motivo: 'No hemos podido comprobar el código. Revisa tu conexión.', sinRespuesta: true };
   }
 }
 

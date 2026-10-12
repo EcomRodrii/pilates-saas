@@ -62,6 +62,8 @@ test('se observa a la propietaria durante su primer mes, a nadie más', () => {
   // Sin fecha legible, no: mejor un hueco que contar a un veterano como nuevo.
   assert.equal(debeObservar({ rol: 'PROPIETARIO', creadoEn: null, ahora }), false);
   assert.equal(debeObservar({ rol: 'PROPIETARIO', creadoEn: 'ayer', ahora }), false);
-  // Una fecha futura (reloj del dispositivo mal) tampoco.
+  // Un reloj unos minutos atrasado no deja fuera a un estudio recién creado…
+  assert.equal(debeObservar({ rol: 'PROPIETARIO', creadoEn: '2026-10-12T10:05:00Z', ahora }), true);
+  // …pero una fecha de semanas en el futuro (algo roto) no se observa.
   assert.equal(debeObservar({ rol: 'PROPIETARIO', creadoEn: '2026-11-01T00:00:00Z', ahora }), false);
 });

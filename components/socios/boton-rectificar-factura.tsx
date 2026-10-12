@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useId, useState } from 'react';
 import { FileWarning } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,7 +27,8 @@ export function BotonRectificarFactura({
 }: {
   factura: Factura;
   facturas: Factura[];
-  onHecho: (mensaje: string) => void;
+  /** Avisa con el toast de la pantalla: el fallo, en rojo (`{ variant: 'error' }`). */
+  onHecho: MostrarToast;
 }) {
   const uid = useId();
   const [abierto, setAbierto] = useState(false);
@@ -67,7 +69,7 @@ export function BotonRectificarFactura({
     if ('ok' in res) {
       onHecho(res.aviso ?? 'Rectificativa emitida.');
     } else {
-      onHecho(res.error);
+      onHecho(res.error, { variant: 'error' });
     }
   }
 

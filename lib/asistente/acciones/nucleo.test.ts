@@ -184,8 +184,9 @@ test('resolverPorNombre: un nombre con emoji casa aunque el modelo lo quite o se
 
 test('resolverPorNombre: dos tipos que solo se distinguen por el emoji', () => {
   const tipos = [{ nombre: 'Burn 🔥' }, { nombre: 'Burn 💧' }];
-  // Con el emoji, cada uno el suyo.
+  // Con el emoji, cada uno el suyo (también con el selector de variante U+FE0F).
   assert.equal(resolverPorNombre(tipos, 'Burn 🔥'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'Burn \u{1F525}\u{FE0F}'), tipos[0]);
   assert.equal(resolverPorNombre(tipos, 'Burn 💧'), tipos[1]);
   // Sin el emoji no se puede saber: se pregunta, no se elige uno.
   assert.equal(resolverPorNombre(tipos, 'Burn'), 'ambiguo');
