@@ -109,7 +109,7 @@ const etiqueta: CSSProperties = {
 };
 
 export function PantallaReserva({
-  t, onVolver, estudioNombre, ocultarNombreEstudio, estudioDireccion, studioId, clase, precio, fase,
+  t, onVolver, estudioNombre, ocultarNombreEstudio, estudioDireccion, studioId, clase, precio, matricula = 0, fase,
   loginForm, onChangeLoginForm, datosError, datosCargando,
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
@@ -134,6 +134,14 @@ export function PantallaReserva({
   studioId: string;
   clase: ClaseParaPantallaReserva;
   precio: number;
+  /**
+   * La matrícula de alta del plan (`plan.matricula`), 0 si no tiene. Se suma al
+   * «Total a pagar» del paso de datos: ahí decía solo el precio y el botón del
+   * paso siguiente, el cargo real, llevaba además la matrícula. Si al final no
+   * toca (no es su primera vez o hay promoción), el paso de pago enseña lo exacto,
+   * que lo dice el servidor: la pantalla se equivoca por arriba, nunca por abajo.
+   */
+  matricula?: number;
   fase: 'datos' | 'pago';
   loginForm: DatosContacto;
   onChangeLoginForm: (patch: Partial<DatosContacto>) => void;
@@ -280,6 +288,10 @@ export function PantallaReserva({
   const precioConDescuento = codigoEstadoMostrado === 'valido' && codigoDescuentoEur != null
     ? Math.max(0, Math.round((precio - codigoDescuentoEur) * 100) / 100)
     : null;
+  // El código no toca la matrícula («es del plan, no de esta venta»): se suma
+  // después del descuento, igual que hace el cobro (checkout-embebido, `amountCentimos`).
+  const matriculaAlta = Number.isFinite(matricula) && matricula > 0 ? Math.round(matricula * 100) / 100 : 0;
+  const totalConMatricula = (base: number) => Math.round((base + matriculaAlta) * 100) / 100;
 
   // La clase, contada igual que en su ficha (lib/reservar/ficha-clase.ts). «Hoy»
   // es el del estudio, una vez: no cambia mientras se rellena el formulario.
@@ -665,20 +677,36 @@ export function PantallaReserva({
                       Checkout/Bsport: el precio se recuerda justo donde se
                       paga. Con código válido, el precio tachado deja claro que
                       el descuento ya cuenta, no solo que "se aplicará". */}
+                  {matriculaAlta > 0 && (
+                    <div data-testid="linea-matricula" style={{
+                      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
+                      paddingTop: 14, borderTop: '1px solid var(--portal-line)',
+                    }}>
+                      <span style={{ fontSize: 13, color: 'var(--portal-muted)' }}>Matrícula de alta</span>
+                      <span style={{ fontSize: 13, color: 'var(--portal-ink)', fontWeight: 700 }}>+{euros(matriculaAlta)}</span>
+                    </div>
+                  )}
                   <div style={{
                     display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                    paddingTop: 14, borderTop: '1px solid var(--portal-line)',
+                    paddingTop: matriculaAlta > 0 ? 8 : 14, borderTop: matriculaAlta > 0 ? 'none' : '1px solid var(--portal-line)',
                   }}>
                     <span style={{ fontSize: 13, color: 'var(--portal-muted)', fontWeight: 700 }}>Total a pagar</span>
                     <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       {precioConDescuento !== null && (
-                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{euros(precio)}</span>
+                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{euros(totalConMatricula(precio))}</span>
                       )}
-                      <span style={{ fontFamily: serif, fontWeight: pesoTitular(800), fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
-                        {euros(precioConDescuento ?? precio)}
+                      <span data-testid="total-a-pagar" style={{ fontFamily: serif, fontWeight: pesoTitular(800), fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
+                        {euros(totalConMatricula(precioConDescuento ?? precio))}
                       </span>
                     </span>
                   </div>
+                  {matriculaAlta > 0 && (
+                    // La regla de `primeraVezConPlan` (lib/billing/matricula-online.ts): se
+                    // cobra hasta su primer bono o cuota; las sueltas y la prueba no cuentan.
+                    <p style={{ margin: '6px 0 0', fontSize: 12, lineHeight: 1.4, color: 'var(--portal-muted)' }}>
+                      Se cobra si aún no has tenido un bono o una cuota en este estudio (las clases sueltas y la de prueba no cuentan), salvo que haya una promoción. Antes de pagar verás el importe exacto.
+                    </p>
+                  )}
 
                   <div style={{ marginTop: 14 }}>
                     <button type="button" onClick={onContinuar} disabled={!ctaActivo}

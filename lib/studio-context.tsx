@@ -19,7 +19,7 @@ import {
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
-  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
+  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa, type ResultadoTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbSocioTieneAlgunPlan,
   dbReservarMatricula,
@@ -717,8 +717,8 @@ interface StudioContextValue {
   deleteDashboardChart: (id: string) => Promise<ResultadoEscritura>;
   backups: BackupMeta[];
   // Planes (mutable)
-  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
-  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoTarifa>;
+  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoTarifa>;
   deletePlan: (id: string) => Promise<ResultadoEscritura & { archivado?: boolean }>;
 
   // Salas (mutable)
@@ -1687,17 +1687,41 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Planes ────────────────────────────────────────────────────────────────────
 
-  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoTarifa> {
     const nuevo: PlanTarifa = { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() };
     const res = await dbInsertPlanTarifa(nuevo);
+    if (!res.ok && 'filaEscrita' in res) {
+      // La tarifa EXISTE aunque su cobertura no se guardara: se pinta como quedó
+      // (sin tipos = todas; fuera de la venta si se pudo retirar). Sin esto no
+      // salía en la lista y un segundo «Crear» hacía otra igual.
+      const quedo: PlanTarifa = { ...nuevo, tiposClaseIds: undefined, limitePorTipo: undefined, activo: res.desactivada ? false : nuevo.activo };
+      setPlanesTarifa(prev => [...prev, quedo]);
+      addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
+      return res;
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => [...prev, nuevo]);
     addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
     return res;
   }
-  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoTarifa> {
     const anterior = planesTarifa.find(p => p.id === id);
     const res = await dbUpdatePlanTarifa(id, changes);
+    if (!res.ok && 'filaEscrita' in res) {
+      // Lo de la fila (precio, nombre…) SÍ se guardó: se pinta. La cobertura se
+      // queda como estaba en pantalla; la de la base la dice la próxima carga.
+      // Si esta edición la PONÍA a la venta y su cobertura no se guardó, se vuelve
+      // a retirar: es justo lo que pide el aviso tras un alta fallida («elige sus
+      // clases y vuelve a ponerla a la venta»), y si fallara otra vez quedaría a
+      // la venta valiendo para todas las clases. Una que ya se vendía, no se toca.
+      let desactivada = false;
+      if (changes.activo === true && anterior && !anterior.activo) {
+        desactivada = (await dbUpdatePlanTarifa(id, { activo: false })).ok;
+      }
+      const { tiposClaseIds: _tipos, limitePorTipo: _limites, ...fila } = changes;
+      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...fila, ...(desactivada ? { activo: false } : {}) } : p));
+      return { ...res, desactivada };
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
     if (anterior) {
