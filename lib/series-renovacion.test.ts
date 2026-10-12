@@ -95,3 +95,28 @@ test('semanasValidas: de 1 a 104, enteras', () => {
   assert.equal(semanasValidas(105), false);
   assert.equal(semanasValidas(4.5), false);
 });
+
+test('«Repetir este mes»: lee las fechas, las clases creadas y los motivos nuevos; sin ellos, la forma de siempre', () => {
+  const r = resultadoDeRpc({
+    estado: 'renovada', periodo_actual: 1, periodo: 2, semanas: 4, desde: '2026-11-03', hasta: '2026-11-24',
+    creadas: 2, omitidas: [
+      { fecha: '2026-11-10', motivo: 'excluida' }, { fecha: '2026-11-03', motivo: 'pasada' },
+      { fecha: '2026-11-11', motivo: 'fuera_de_serie' },
+    ],
+    fechas: ['2026-11-03', '2026-11-10', '2026-11-17', '2026-11-24'], creadas_ids: ['ses-a', 'ses-b', 7],
+  });
+  assert.deepEqual(r?.omitidas.map((o) => o.motivo), ['excluida', 'pasada', 'fuera_de_serie']);
+  assert.deepEqual(r?.fechas, ['2026-11-03', '2026-11-10', '2026-11-17', '2026-11-24']);
+  assert.deepEqual(r?.creadasIds, ['ses-a', 'ses-b']);
+  // La renovación de siempre no trae esas claves y su resultado no las gana.
+  const viejo = resultadoDeRpc({ estado: 'renovada', creadas: 1, omitidas: [] });
+  assert.ok(viejo && !('fechas' in viejo) && !('creadasIds' in viejo));
+});
+
+test('cada motivo de omisión tiene su texto para la propietaria', async () => {
+  const { TEXTO_MOTIVO_OMITIDA } = await import('./series-renovacion.ts');
+  for (const m of ['ya_existe', 'sala_ocupada', 'cierre', 'excluida', 'pasada', 'fuera_de_serie'] as const) {
+    assert.ok(TEXTO_MOTIVO_OMITIDA[m].length > 5, m);
+  }
+  assert.match(mensajeErrorRenovar('HASTA_INVALIDO'), /pasado|lejos/);
+});
