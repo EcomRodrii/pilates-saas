@@ -75,6 +75,14 @@ export function BarraGuardar({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anuncio, setAnuncio] = useState('');
+  // «Guardado» A LA VISTA unos segundos (P0.3): la barra desaparecía al guardar
+  // y solo un lector de pantalla se enteraba de que había ido bien.
+  const [guardadoVisible, setGuardadoVisible] = useState(false);
+  useEffect(() => {
+    if (!guardadoVisible) return;
+    const t = setTimeout(() => setGuardadoVisible(false), 3000);
+    return () => clearTimeout(t);
+  }, [guardadoVisible]);
   const [preguntando, setPreguntando] = useState(false);
 
   // Salir de la sección con cambios: el shell pregunta antes de cambiar de
@@ -108,7 +116,7 @@ export function BarraGuardar({
     try {
       const fallo = await onGuardar();
       if (fallo) setError(fallo);
-      else setAnuncio('Guardado');
+      else { setAnuncio('Guardado'); setGuardadoVisible(true); }
     } catch {
       setError('No hemos podido hablar con el servidor');
     } finally {
@@ -133,6 +141,21 @@ export function BarraGuardar({
       {/* Fuera de la barra: cuando se guarda, la barra desaparece y esto es lo
           que le dice a un lector de pantalla que ha ido bien. */}
       <p role="status" className="sr-only">{visible ? '' : anuncio}</p>
+      {!visible && guardadoVisible && (
+        // Lo que se ve; lo que se oye es el `status` de arriba (por eso aria-hidden).
+        <div aria-hidden data-guardado-visible=""
+          className={cajon
+            ? 'sticky bottom-0 z-10 -mx-4 mt-auto px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6'
+            : 'sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4'}
+        >
+          <p className={cn(
+            'inline-flex items-center gap-2 rounded-xl border border-border bg-card/95 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg backdrop-blur toast-in',
+          )}>
+            <span className="size-2 rounded-full bg-success" />
+            Guardado
+          </p>
+        </div>
+      )}
       {visible && (
         <div
           data-barra-guardar=""

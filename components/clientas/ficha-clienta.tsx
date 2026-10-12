@@ -83,7 +83,7 @@ import {
 import type { AccionMenu } from '@/components/ui/menu-acciones';
 import { ReservarClase } from '@/components/clientas/ficha/reservar-clase';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { Toast } from '@/components/ui/toast';
+import { Toast, type MostrarToast, type ToastVariante } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
 import { repartirHistorial } from '@/lib/valoracion-inicial';
@@ -306,7 +306,11 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToastEstado] = useState<{ mensaje: string; variant: ToastVariante } | null>(null);
+  // Un fallo en ROJO y 8 s, no con el ✓ verde del éxito (P0.3): para que se vea,
+  // quien avisa de un error lo dice con `setToastError` (o `{ variant: 'error' }`).
+  const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
+  const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
@@ -456,7 +460,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setReactivandoBuzon(true);
     try {
       const r = await reactivarBuzonRoto(emailNormalizadoSocio);
-      if (!r.ok) { setToast(r.error); return; }
+      if (!r.ok) { setToastError(r.error); return; }
       setBuzonesReactivados(prev => new Set(prev).add(emailNormalizadoSocio));
       setToast('Buzón reactivado — volverá a recibir correos');
     } finally {
@@ -645,7 +649,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     }, { puedeVerPrivados: veDatosPrivados, original: socio }));
     // El diálogo solo se cierra si de verdad se guardó: cerrarlo con el error
     // detrás deja a la propietaria creyendo que cambió el email de una clienta.
-    if (!res.ok) { setToast(res.error); return; }
+    if (!res.ok) { setToastError(res.error); return; }
     setShowEdit(false);
     // Con el género que se acaba de guardar, no con el de antes de abrir el diálogo.
     const nuevo = trato(editForm.genero || null);
@@ -681,7 +685,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setDandoDeAlta(true);
     try {
       const r = await volverADarDeAlta(id);
-      if (!r.ok) { setToast(r.error); return; }
+      if (!r.ok) { setToastError(r.error); return; }
       setToast(r.cuotasSinRenovar > 0
         ? `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta. Su cuota sigue sin renovarse: si quieres que siga, quita la baja programada en su plan.`
         : `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta.`);
@@ -732,7 +736,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       setToast(`Plan "${nombrePlan}" asignado`);
       ofrecerPlazaFijaSiCuota(planId, nombrePlan);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : ERROR_GENERICO);
+      setToastError(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
       setCambiandoPlan(false);
     }
@@ -745,7 +749,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setAsignandoVenta(true);
     try {
       const r = await asignarVentaAClienta(venta.id, id);
-      if (esError(r)) { setToast(r.error); return; }
+      if (esError(r)) { setToastError(r.error); return; }
       const entregado = ventaPorAsignar;
       setVentaPorAsignar(null);
       setToast(`Venta nº ${venta.numero} asignada: plan entregado sin cobrarlo otra vez`);
@@ -777,7 +781,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setCambiandoPlan(true);
     try {
       const res = await cancelarSuscripcion(suscripcion.id);
-      setToast(res.ok ? 'Suscripción cancelada' : res.error);
+      if (res.ok) setToast('Suscripción cancelada'); else setToastError(res.error);
       if (res.ok) setConfirmarCancelarSus(null);
     } finally {
       setCambiandoPlan(false);
@@ -791,7 +795,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setCambiandoPlan(true);
     try {
       const res = await programarBajaSuscripcion(suscripcion.id, programar);
-      if (!res.ok) { setToast(res.error); return; }
+      if (!res.ok) { setToastError(res.error); return; }
       setToast(programar
         ? `Se dará de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`
         : 'Baja programada quitada: seguirá renovando');
@@ -806,7 +810,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     // Mismo gate que la RLS de `notas_progreso` y que la ruta de IA: sin
     // consentimiento de salud vigente el servidor dirá que no, así que se
     // explica antes en vez de dejar que el guardado falle con un «sin permiso».
-    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
+    if (!socio?.consentimientoSalud) { setToastError(SIN_CONSENTIMIENTO_SALUD); return; }
     setAiLoading(true);
     setAiResult(null);
     try {
@@ -817,7 +821,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       });
       setAiResult(resultado);
     } catch (err) {
-      setToast(err instanceof Error && err.message ? err.message : 'Error al procesar con IA');
+      setToastError(err instanceof Error && err.message ? err.message : 'Error al procesar con IA');
     } finally {
       setAiLoading(false);
     }
@@ -825,7 +829,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
   async function handleSaveAiNote() {
     if (!aiResult) return;
-    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
+    if (!socio?.consentimientoSalud) { setToastError(SIN_CONSENTIMIENTO_SALUD); return; }
     const res = await addNotaProgreso({
       socioId: id,
       instructorId: yo?.id ?? null,
@@ -836,7 +840,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       planProximaSesion: aiResult.planProximaSesion,
       ejerciciosCasa: aiResult.ejerciciosCasa,
     });
-    if (!res.ok) { setToast('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
+    if (!res.ok) { setToastError('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
     setAiNoteText('');
     setAiResult(null);
     setToast('Nota guardada');
@@ -845,13 +849,13 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   async function handleSendMessage() {
     if (!socio) return;
     if (!msgForm.asunto.trim() || !msgForm.cuerpo.trim()) return;
-    if (!socio.email) { setToast(`${mayuscula(t.la)} ${t.clienta} no tiene email registrado`); return; }
+    if (!socio.email) { setToastError(`${mayuscula(t.la)} ${t.clienta} no tiene email registrado`); return; }
     // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
     // Ahora manda el email de verdad por Resend (/api/emails/send).
     setEnviandoMsg(true);
     const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim(), socioId: socio.id });
     setEnviandoMsg(false);
-    if (!ok) { setToast('No se pudo enviar el email'); return; }
+    if (!ok) { setToastError('No se pudo enviar el email'); return; }
     // El registro real lo crea el servidor (/api/emails/send); se recarga el
     // historial en vez de simularlo aquí para reflejar el estado que la BD
     // acaba de guardar, no una suposición optimista.
@@ -1159,7 +1163,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setEnviandoAcceso(true);
     const ok = await enviarEmailBienvenida({ to: socio.email, toName: nombreCompleto, socioId: socio.id });
     setEnviandoAcceso(false);
-    setToast(ok ? `Le hemos mandado a ${socio.nombre} el enlace para entrar en su app` : 'No se ha podido mandar el acceso. Vuelve a intentarlo.');
+    (ok ? setToast : setToastError)(ok ? `Le hemos mandado a ${socio.nombre} el enlace para entrar en su app` : 'No se ha podido mandar el acceso. Vuelve a intentarlo.');
   }
 
   // Borrar un contacto apuntado por error: solo quien lo apuntó o la propietaria
@@ -1170,7 +1174,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     const r = await borrarContacto(id, contactoId);
     setBorrandoContacto(null);
     setContactoABorrar(null);
-    if (!r.ok) { setToast(r.error); return; }
+    if (!r.ok) { setToastError(r.error); return; }
     await recargarComunicaciones();
     setToast('Contacto borrado');
   }
@@ -1252,7 +1256,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
         {showAvatarPicker && (
           <div className="rounded-2xl border border-border bg-card p-4">
-            <AvatarPicker value={socio.avatar ?? null} onChange={nuevo => { void updateSocio(socio.id, { avatar: nuevo }).then(res => { if (!res.ok) setToast(res.error); }); }} />
+            <AvatarPicker value={socio.avatar ?? null} onChange={nuevo => { void updateSocio(socio.id, { avatar: nuevo }).then(res => { if (!res.ok) setToastError(res.error); }); }} />
           </div>
         )}
 
@@ -1377,10 +1381,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           estaban fuera de `verFinanzas`: una instructora las veía y
                           podía cancelarle el plan a una clienta. */}
                       {puedeCobrar && suscripcion.estado === 'ACTIVA' && (
-                        <BotonTarjeta icono={Pause} onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToast(res.error); }}>Pausar</BotonTarjeta>
+                        <BotonTarjeta icono={Pause} onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Pausar</BotonTarjeta>
                       )}
                       {puedeCobrar && suscripcion.estado === 'PAUSADA' && (
-                        <BotonTarjeta icono={Play} onClick={async () => { const res = await reanudarSuscripcion(suscripcion.id); if (!res.ok) setToast(res.error); }}>Reanudar</BotonTarjeta>
+                        <BotonTarjeta icono={Play} onClick={async () => { const res = await reanudarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Reanudar</BotonTarjeta>
                       )}
                       {/* Hallazgo B (auditoría dunning 2026-08-10): reactiva ESTA misma
                           suscripción (mismo id, con su histórico) — distinto de
@@ -1393,7 +1397,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                             setReactivando(true);
                             try {
                               const res = await reactivarSuscripcion(suscripcion.id);
-                              setToast(res.ok ? 'Suscripción reactivada' : res.error);
+                              if (res.ok) setToast('Suscripción reactivada'); else setToastError(res.error);
                             } finally {
                               setReactivando(false);
                             }
@@ -1584,7 +1588,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                       <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-[12.5px] font-medium text-foreground">
                         {tag}
                         {gestionaClientas && (
-                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToast(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                             <X size={12} />
                           </button>
                         )}
@@ -1956,7 +1960,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                         <BotonCobrarConMetodo
                           detalle={<>{pendientes.length} {pendientes.length === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientes.reduce((t, r) => t + r.importe, 0))}</span></>}
                           onCobrar={metodo => cobrarTodosPendientes(id, metodo).then(res => {
-                            setToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
+                            (res.ok ? setToast : setToastError)(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
                           })}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
@@ -2038,7 +2042,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                     <BotonCobrarConMetodo
                                       detalle={<>{r.concepto} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span></>}
                                       onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                                        setToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)}`) : res.error);
+                                        (res.ok ? setToast : setToastError)(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)}`) : res.error);
                                       })}
                                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors"
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
@@ -2361,7 +2365,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                 setRetirandoMkt(true);
                 void updateSocio(id, { consentimientoMarketing: undefined }).then(res => {
                   setRetirandoMkt(false);
-                  if (!res.ok) { setToast(res.error); return; }
+                  if (!res.ok) { setToastError(res.error); return; }
                   setConfirmarRetiroMkt(false);
                   setToast('Consentimiento de marketing retirado');
                 });
@@ -2412,7 +2416,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   },
                 });
                 setGuardandoConsentimientoMkt(false);
-                if (!res.ok) { setToast(res.error); return; }
+                if (!res.ok) { setToastError(res.error); return; }
                 setConfirmarConsentimientoMkt(false);
               }}
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
@@ -2435,7 +2439,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
             {tagsDisponibles.map(t => (
               <button
                 key={t.label}
-                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToast(res.error); return; } setShowAddTag(false); }}
+                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToastError(res.error); return; } setShowAddTag(false); }}
                 className="px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105"
                 style={{ backgroundColor: t.bg, color: t.text }}
               >
@@ -2830,7 +2834,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       />
 
       {/* Toast */}
-      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      {toast && <Toast message={toast.mensaje} variant={toast.variant} onDismiss={() => setToastEstado(null)} />}
     </div>
   );
 }

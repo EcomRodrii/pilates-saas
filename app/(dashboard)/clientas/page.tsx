@@ -661,6 +661,10 @@ export default function Socios() {
     setSelected(new Set());
     setShowAsignarPlan(false);
     setAsignarPlanId('');
+    // Antes se cerraba sin decir nada (P0.3): son N cobros, y lo que ha pasado
+    // se dice con su número.
+    const nombrePlan = planesTarifa.find((p) => p.id === asignarPlanId)?.nombre ?? 'el plan';
+    setAvisoPlazaFija(`Plan «${nombrePlan}» asignado a ${conseguidas.size === 1 ? '1 clienta' : `${conseguidas.size} clientas`}`);
   }
 
   async function handleAmpliarCaducidades() {

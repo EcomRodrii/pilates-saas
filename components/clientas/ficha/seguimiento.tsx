@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useState } from 'react';
 import { AlertTriangle, Bell, CalendarClock, Check, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -36,7 +37,7 @@ export function TarjetaSeguimiento({ seguimientos, error, hoyISO, uid, equipo, p
   lo?: string;
   onNuevo: () => void;
   onCambio: () => void;
-  onToast: (texto: string) => void;
+  onToast: MostrarToast;
 }) {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [verHechos, setVerHechos] = useState(false);
@@ -52,7 +53,7 @@ export function TarjetaSeguimiento({ seguimientos, error, hoyISO, uid, equipo, p
     setOcupado(s.id);
     const r = await cambiarSeguimiento(s.id, { hecha });
     setOcupado(null);
-    if (!r.ok) { onToast(r.error); return; }
+    if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
     onCambio();
   }
   async function moverAManana(s: Seguimiento) {
@@ -60,7 +61,7 @@ export function TarjetaSeguimiento({ seguimientos, error, hoyISO, uid, equipo, p
     setOcupado(s.id);
     const r = await cambiarSeguimiento(s.id, { venceEl: atajosDeFecha(hoyISO)[0].venceEl });
     setOcupado(null);
-    if (!r.ok) { onToast(r.error); return; }
+    if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
     onToast('Movido a mañana');
     onCambio();
   }
@@ -70,7 +71,7 @@ export function TarjetaSeguimiento({ seguimientos, error, hoyISO, uid, equipo, p
     const r = await borrarSeguimiento(s.id);
     setOcupado(null);
     setBorrando(null);
-    if (!r.ok) { onToast(r.error); return; }
+    if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
     onToast('Recordatorio borrado');
     onCambio();
   }

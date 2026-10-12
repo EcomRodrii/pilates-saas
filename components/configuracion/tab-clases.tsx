@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors,
@@ -276,7 +277,7 @@ function FilaArchivado({ tc, quedan, recuperando, onRecuperar, onEliminar }: {
   );
 }
 
-export function TabClases({ showToast }: { showToast: (m: string) => void }) {
+export function TabClases({ showToast }: { showToast: MostrarToast }) {
   const { studio, dataLoaded, tiposClase, planesTarifa, sesiones, reservas, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
   const estudio = dataLoaded ? reglasGuardadas(studio) : null;
   // En el orden que ve la alumna: el que se guardó al arrastrar, y detrás, por
@@ -355,10 +356,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       setSubiendoFoto(true);
       const result = await eliminarFotoClase(editId);
       setSubiendoFoto(false);
-      if ('error' in result) { showToast(result.error); return; }
+      if ('error' in result) { showToast(result.error, { variant: 'error' }); return; }
     }
     const res = await updateTipoClase(editId, { fotoUrl: url });
-    if (!res.ok) showToast(res.error);
+    if (!res.ok) showToast(res.error, { variant: 'error' });
   }, [editId, updateTipoClase, showToast]);
 
   // El logo va por su propia vía, igual que el banner: mismo par subir/guardar,
@@ -379,10 +380,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       setSubiendoLogo(true);
       const result = await eliminarLogoClase(editId);
       setSubiendoLogo(false);
-      if ('error' in result) { showToast(result.error); return; }
+      if ('error' in result) { showToast(result.error, { variant: 'error' }); return; }
     }
     const res = await updateTipoClase(editId, { logoUrl: url });
-    if (!res.ok) showToast(res.error);
+    if (!res.ok) showToast(res.error, { variant: 'error' });
   }, [editId, updateTipoClase, showToast]);
 
   const openNueva = useCallback(() => {
@@ -455,7 +456,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     guardandoOrden.current = false;
     setOrdenPendiente(null);
     const fallo = resultados.find((r): r is { ok: false; error: string } => !r.ok);
-    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus alumnas');
+    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus alumnas', fallo ? { variant: 'error' } : undefined);
   }, [activos, updateTipoClase, showToast]);
 
   const sensores = useSensors(
@@ -509,7 +510,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setRecuperando(t.id);
     const res = await updateTipoClase(t.id, { archivadoEn: null });
     setRecuperando(null);
-    showToast(res.ok ? `«${t.nombre}» vuelve a estar entre tus tipos de clase` : res.error);
+    showToast(res.ok ? `«${t.nombre}» vuelve a estar entre tus tipos de clase` : res.error, res.ok ? undefined : { variant: 'error' });
   }, [updateTipoClase, showToast]);
 
   const tipoABorrar = confirmDel ? tiposClase.find(t => t.id === confirmDel) ?? null : null;
@@ -519,7 +520,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deleteTipoClase(confirmDel);
-    showToast(res.ok ? 'Tipo de clase eliminado' : res.error);
+    showToast(res.ok ? 'Tipo de clase eliminado' : res.error, res.ok ? undefined : { variant: 'error' });
   }, [confirmDel, deleteTipoClase, showToast]);
 
   return (
