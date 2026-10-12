@@ -65,6 +65,8 @@ import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
 import { cuandoClase, diasEntre, fechaCorta, haceCuanto, proximoCumple, telefonoLegible, textoDesde } from '@/lib/clientas/textos';
 import { compactarHistoria, historiaDeClienta, type GrupoHistoria } from '@/lib/clientas/historia';
 import { clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
+import { usoDe } from '@/lib/clientas/uso';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { contactoTrasElAviso, ETIQUETA_CANAL, ETIQUETA_RESULTADO, type CanalContacto, type ContactoApuntado, type ResultadoContacto } from '@/lib/clientas/contactos';
 import { DialogoApuntarContacto, PreguntaTrasContacto } from '@/components/clientas/ficha/apuntar-contacto';
 import { DialogoDobleFactor } from '@/components/clientas/ficha/dialogo-doble-factor';
@@ -241,6 +243,11 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     refrescarTrasVentaPOS,
     memberCredits,
   } = useStudio();
+  // P2.8: con los filtros nuevos de Clientas encendidos, la media de la ficha es
+  // la MISMA que la de la lista (sin la semana en curso mientras está vacía); si
+  // no, un lunes la lista decía «Alta» y la ficha una media de «Media». Apagado,
+  // la ficha es la de siempre.
+  const mediaComoLaLista = useInterruptor('filtrosClientas', studio?.id);
   // Las notas internas y las respuestas de sesión no vienen en el arranque
   // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
   useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
@@ -1108,10 +1115,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     .filter(c => c.tipo !== 'contacto' && !!c.creadoPorNombre)
     .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0] ?? null;
 
-  const constanciaSuya = constancia(
-    misReservas.filter(r => r.estado === 'ASISTIDA').map(r => sesionById.get(r.sesionId)?.inicio).filter((x): x is string => !!x),
-    now,
-  );
+  const asistenciasSuyas = misReservas.filter(r => r.estado === 'ASISTIDA').map(r => sesionById.get(r.sesionId)?.inicio).filter((x): x is string => !!x);
+  const constanciaSuya = constancia(asistenciasSuyas, now);
+  const mediaSuya = mediaComoLaLista ? usoDe(asistenciasSuyas, now).media : constanciaSuya.media;
 
   const eventosHistoria = historiaDeClienta({
     fechaAlta: socio.fechaAlta,
@@ -1539,9 +1545,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                 <TarjetaFicha titulo="Constancia" icono={<CalendarClock size={16} />} accion={<span className="text-[12px] text-muted-foreground">Últimas 12 semanas</span>}>
                   <BarrasConstancia semanas={constanciaSuya.semanas} />
                   <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
-                    {constanciaSuya.media === null
+                    {mediaSuya === null
                       ? 'Todavía no ha venido a ninguna clase en estas semanas.'
-                      : <><strong className="font-semibold text-foreground">{String(constanciaSuya.media).replace('.', ',')} clases por semana</strong> de media{constanciaSuya.semanasSinVenir >= 2 ? ` · lleva ${constanciaSuya.semanasSinVenir} semanas sin venir` : ''}</>}
+                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{constanciaSuya.semanasSinVenir >= 2 ? ` · lleva ${constanciaSuya.semanasSinVenir} semanas sin venir` : ''}</>}
                   </p>
                   <p className="mt-1 text-[12.5px] text-muted-foreground">
                     {asistidas === 0 ? 'Aún no ha venido a ninguna clase.' : `Ha venido a ${asistidas} ${asistidas === 1 ? 'clase' : 'clases'} en total`}
