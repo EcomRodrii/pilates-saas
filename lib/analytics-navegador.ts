@@ -73,6 +73,13 @@ export const EVENTOS_NAVEGADOR = {
   primer_tipo_clase: [],
   primera_clase_programada: [],
   primera_tarifa_activa: [],
+
+  // ── Tutorial de cada pantalla (P1.1) ──────────────────────────────────────
+  // `pantalla` es la clave del catálogo (`lib/ayuda/pantallas.ts`): una ruta o
+  // la URL canónica de una vista de Configuración, nunca nada de una persona.
+  // `origen`: se abrió solo ('auto') o con el «?» ('boton'). `paso`: en cuál se saltó.
+  tutorial_completado: ['pantalla', 'origen'],
+  tutorial_saltado: ['pantalla', 'paso', 'origen'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type NombreEventoNavegador = keyof typeof EVENTOS_NAVEGADOR;

@@ -1,7 +1,7 @@
 'use client';
 
 import type { MostrarToast } from '@/components/ui/toast';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors,
   type Announcements, type DragEndEvent, type Modifier, type UniqueIdentifier,
@@ -34,6 +34,8 @@ import {
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 import { cn, fechaCortaEstudio } from '@/lib/utils';
 import { AlertTriangle, Archive, ChevronDown, Copy, GripVertical, Pencil, Plus, Ticket, Trash2, Undo2, Video } from 'lucide-react';
+import { useTutorial } from '@/lib/tutorial-context';
+import { EJEMPLOS } from '@/lib/ayuda/ejemplos';
 
 // Las reglas propias de un tipo, dichas como en «Cómo reservan mis alumnas»:
 // UNA fuente (`queCambiaElTipo`), la misma que usa esa pantalla. Solo lo que
@@ -386,10 +388,16 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
     if (!res.ok) showToast(res.error, { variant: 'error' });
   }, [editId, updateTipoClase, showToast]);
 
+  // «Hazlo conmigo» (P1.3): ¿se abrió el «Nuevo» con el ejemplo del tutorial?
+  // Cualquier otra forma de abrir el formulario lo apaga: si no, la banda volvía
+  // en el siguiente «Nuevo» y hasta en «Duplicar», encima de una copia real.
+  const [conEjemplo, setConEjemplo] = useState(false);
+
   const openNueva = useCallback(() => {
     setForm(emptyClaseForm(colorSalaPorDefecto(tiposClase.length)));
     setEditId(null);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('nueva');
   }, [tiposClase.length]);
 
@@ -400,6 +408,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
     setForm({ ...claseToForm(t), nombre: `${t.nombre} (copia)` });
     setEditId(null);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('nueva');
   }, []);
 
@@ -407,10 +416,24 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
     setForm(claseToForm(t));
     setEditId(t.id);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('editar');
   }, []);
 
-  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
+  // «Hazlo conmigo» (P1.3): el tutorial pide un ejemplo y se abre el «Nuevo» de
+  // siempre (mismo estado inicial), con el ejemplo en gris y su banda.
+  const tutorial = useTutorial();
+  const ejemploPedido = tutorial?.ejemplo === 'tipo-clase';
+  const soltarEjemplo = tutorial?.soltarEjemplo;
+  useEffect(() => {
+    if (!ejemploPedido || !soltarEjemplo) return;
+    soltarEjemplo();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responde a una petición del tutorial, que vive en otro sitio.
+    openNueva();
+    setConEjemplo(true);
+  }, [ejemploPedido, soltarEjemplo, openNueva]);
+
+  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); setConEjemplo(false); }, []);
 
   const guardar = useCallback(async () => {
     if (modal === 'nueva') {
@@ -435,6 +458,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
       showToast('Tipo de clase actualizado');
     }
     setModal(null);
+    setConEjemplo(false);
   }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast]);
 
   // Un PATCH por cada tipo cuya posición cambia (`cambiosDeOrden`), en paralelo,
@@ -545,14 +569,14 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
             </p>
           )}
         </div>
-        <button className={btnPrimary} onClick={openNueva}>
+        <button data-tour="tipos-clase-nuevo" className={btnPrimary} onClick={openNueva}>
           <Plus size={14} />
           Nuevo tipo de clase
         </button>
       </div>
 
       {activos.length === 0 && (
-        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
+        <div data-tour="tipos-clase-lista" className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
           {archivados.length > 0
             ? 'Todos tus tipos de clase están archivados. Recupera uno de abajo o crea uno nuevo para volver a programar clases.'
             : 'Aún no tienes tipos de clase. Créalos aquí (Reformer, Suelo, Embarazadas…) y luego los programarás en la agenda.'}
@@ -573,7 +597,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
           }}
         >
           <SortableContext items={enLista.map(t => t.id)} strategy={verticalListSortingStrategy}>
-            <ul aria-label="Tipos de clase, en el orden en que los ve tu alumna" className={cn(cardCls, 'divide-y divide-border')}>
+            <ul data-tour="tipos-clase-lista" aria-label="Tipos de clase, en el orden en que los ve tu alumna" className={cn(cardCls, 'divide-y divide-border')}>
               {enLista.map(tc => (
                 <FilaTipoClase
                   key={tc.id}
@@ -644,6 +668,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
         onCambiarLogo={guardarLogoDeClase}
         onGuardar={guardar}
         onCerrar={closeModal}
+        ejemplo={conEjemplo && modal === 'nueva' ? EJEMPLOS['tipo-clase'] : undefined}
       />
 
       {/* Un tipo con clases no se puede borrar: `sesiones.tipo_clase_id` lo

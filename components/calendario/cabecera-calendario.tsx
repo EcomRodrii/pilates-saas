@@ -196,7 +196,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
             {p.navegacion.fecha}
           </>
         )}
-        <span className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1 max-md:ml-auto" role="group" aria-label="Vista">
+        <span data-tour="calendario-vistas" className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1 max-md:ml-auto" role="group" aria-label="Vista">
           {VISTAS.filter(v => v.id !== 'horario' || p.conHorario).map(v => (
             <button
               key={v.id}

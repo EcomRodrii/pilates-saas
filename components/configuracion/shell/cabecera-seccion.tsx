@@ -3,6 +3,8 @@
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { hrefDeLugar } from '@/lib/configuracion/destino';
+import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
 // La cabecera de una sección abierta.
 //
@@ -42,6 +44,8 @@ export function CabeceraSeccion({
         >
           {seccion.titulo}
         </h2>
+        {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}
+        <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id })} />
       </div>
       <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{seccion.frase}</p>
     </>

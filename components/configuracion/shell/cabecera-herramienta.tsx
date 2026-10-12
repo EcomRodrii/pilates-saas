@@ -3,6 +3,8 @@
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { HerramientaConfiguracion, SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { hrefDeLugar } from '@/lib/configuracion/destino';
+import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
 // La cabecera de una herramienta abierta: volver a su sección, su nombre y una
 // frase.
@@ -36,14 +38,18 @@ export function CabeceraHerramienta({
           <ArrowLeft size={20} aria-hidden />
           <span className="max-md:sr-only">{seccion.titulo}</span>
         </button>
-        <h2
-          id="herramienta-titulo"
-          ref={tituloRef}
-          tabIndex={-1}
-          className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
-        >
-          {herramienta.titulo}
-        </h2>
+        {/* Título y «?» juntos: desde `md` la fila pasa a columna y el «?» caía solo en otra línea. */}
+        <div className="flex min-w-0 items-center gap-1">
+          <h2
+            id="herramienta-titulo"
+            ref={tituloRef}
+            tabIndex={-1}
+            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
+          >
+            {herramienta.titulo}
+          </h2>
+          <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id, abrir: herramienta.id })} />
+        </div>
       </div>
       <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{herramienta.frase}</p>
     </>
