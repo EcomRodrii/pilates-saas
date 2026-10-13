@@ -3,6 +3,7 @@
 // caller (Fase B consulta el snapshot en T+ventanaDias) y decide el
 // resultado — nunca llama a Date.now() ni toca red o DB.
 import type { EventoOutcome, ResultadoOutcome, SenalObservada, TipoRecomendacion, Impacto, ConfianzaMedicion } from './tipos.ts';
+import { precioMensualDeCuota } from '../bono-logic.ts';
 
 /** Resultado inmediato al cambiar de estado — solo EJECUTADA queda pendiente de medir. */
 export function outcomeInmediato(evento: EventoOutcome): ResultadoOutcome {
@@ -50,9 +51,25 @@ export interface SenalMedicion {
   // entró nada), no "sin dato" — por eso siempre se marca MEDIDO para estos
   // dos tipos, aunque el importe sea 0.
   importeCobradoEur: number;
-  // Precio del plan de la suscripción renovada, cuando `suscripcionRenovada`
-  // es true y se pudo resolver el plan. null si no aplica o no se encontró.
+  // Lo que la socia paga AL MES por el plan de la suscripción renovada
+  // (`precioMensualDePlanRenovado`), cuando `suscripcionRenovada` es true y se
+  // pudo resolver el plan. null si no aplica o no se encontró.
   precioMensualPlanEur: number | null;
+}
+
+/**
+ * `precioMensualPlanEur` desde la fila de `planes_tarifa` del plan renovado. Una
+ * cuota cuenta por MES (una trimestral, un tercio de su precio), igual que la
+ * estimó el motor con `valorMensual`: si no, el impacto real de una trimestral
+ * saldría ×3 y descalibraría el Umbral. Un bono o una tarifa suelta, su precio
+ * tal cual: la periodicidad solo significa algo en una cuota.
+ */
+export function precioMensualDePlanRenovado(
+  plan: { precio: number | string | null; tipo?: string | null; periodicidad_meses?: number | null } | null,
+): number | null {
+  if (plan?.precio == null) return null;
+  const precio = Number(plan.precio);
+  return plan.tipo === 'MENSUAL' ? precioMensualDeCuota({ precio, periodicidadMeses: plan.periodicidad_meses }) : precio;
 }
 
 export interface ResultadoMedicion {
@@ -95,7 +112,7 @@ function calcularImpactoReal(
     return {
       impactoReal: {
         valor: senal.precioMensualPlanEur, unidad: 'EUR_MES',
-        formula: 'Precio del plan de la suscripción renovada',
+        formula: 'Precio al mes del plan de la suscripción renovada',
       },
       confianzaMedicion: 'MEDIDO',
     };
