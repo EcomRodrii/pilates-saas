@@ -25,7 +25,7 @@ export const repetirMesEncendido = (studioId: string) => encendidaPara(process.e
 
 /**
  * El mapa de «€ por plaza ofertada» en Informes (pieza E). ⚠️ NO SE ENCIENDE
- * con esta definición (decisión del 14-oct-2026, con producto y arquitectura):
+ * con esta definición (decisión del 13-oct-2026, con producto y arquitectura):
  * repartir lo COBRADO del periodo deja a 0 € las clases de un bono pagado antes
  * y carga entero en sus pocas clases el que se compra al final, y «lo que deja
  * una clase» ya tiene dueño (`lib/decision/margen-clase.ts`, el «Ingreso» de la
@@ -34,3 +34,6 @@ export const repetirMesEncendido = (studioId: string) => encendidaPara(process.e
  * encenderlo; hay que cambiar el código (y su revisión).
  */
 export const euroPorPlazaEncendido = (_studioId: string): boolean => false;
+
+/** «Felicitar el cumpleaños» en Automatizaciones (P3.10). */
+export const felicitarCumpleEncendido = (studioId: string) => encendidaPara(process.env.AUTOMATIZACION_CUMPLEANOS, studioId);

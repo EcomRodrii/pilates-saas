@@ -279,7 +279,7 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
       )}
 
       <Dialog open={confirmando} onOpenChange={setConfirmando}>
-        <DialogContent className="max-w-[min(calc(100%-2rem),28rem)]" showCloseButton={false}>
+        <DialogContent className="max-w-md" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>¿Aplicar este estilo en tu web?</DialogTitle>
             <DialogDescription>
