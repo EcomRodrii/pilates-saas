@@ -54,6 +54,17 @@ export function edadParaFelicitar(fechaNacimiento: unknown, hoy: string): number
   return edad === null || edad > EDAD_MAXIMA_PLAUSIBLE ? null : edad;
 }
 
+/**
+ * ¿Se la felicita hoy? Su cumpleaños es el día de Madrid `hoy` (29-F → 1-M en
+ * año no bisiesto) y es mayor de edad con la fecha completa. La regla vive
+ * aquí UNA vez: la usan este motor y el CUMPLEANOS del motor de Marketing.
+ */
+export function felicitableHoy(s: { cumpleMmDd?: string | null; fechaNacimiento?: string | null }, hoy: string): boolean {
+  if (!esCumpleEn(cumpleMesDia(s), hoy)) return false;
+  const edad = edadParaFelicitar(s.fechaNacimiento, hoy);
+  return edad !== null && edad >= EDAD_MINIMA_FELICITAR;
+}
+
 // Un cumpleaños al año. Mismo número que el CUMPLEANOS del motor de marketing,
 // y dentro de la ventana de logs que carga el panel (330 días, supabase-data.ts).
 const DIAS_ENTRE_FELICITACIONES = 300;
@@ -610,9 +621,7 @@ export function computeAutomationCandidatos(
     // consentimiento de novedades vigente y enlace de baja. No regala nada.
     if (rule.trigger === 'CUMPLEANOS' && opcionales.has('CUMPLEANOS')) {
       socios.filter(s => s.activo && s.email).forEach(socio => {
-        if (!esCumpleEn(cumpleMesDia(socio), hoy)) return;
-        const edad = edadParaFelicitar(socio.fechaNacimiento, hoy);
-        if (edad === null || edad < EDAD_MINIMA_FELICITAR) return;
+        if (!felicitableHoy(socio, hoy)) return;
         // Una vez al año, no una vez al día: el id del log lleva el día de UTC,
         // así que «Ejecutar ahora» a las 00:30 de Madrid y el cron de las 07:00
         // UTC darían dos ids distintos para la misma felicitación.
