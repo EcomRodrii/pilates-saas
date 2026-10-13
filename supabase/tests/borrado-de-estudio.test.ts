@@ -1,4 +1,4 @@
-// Borrar un estudio (migración 20261009120000), contra Postgres de verdad (job `calidad-rls`).
+// Borrar un estudio (migración 20261009173518), contra Postgres de verdad (job `calidad-rls`).
 //
 //  · el «review boost» (valoración y recompensa) NO bloquea el borrado y sobrevive como
 //    histórico con `studio_id` a NULL (antes: 23503 por `review_boost_feedback_studio_id_fkey`);
