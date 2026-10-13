@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clasesMarcadas } from '../calendario/confirmar-fechas.ts';
 import {
-  serieTerminada, seriesQueSeEnsenan, creables, diasDeLaPropuesta, diasMarcadosDeSerie, esMes, mesSiguiente, motivoDesmarcada, nombreSerieRepetir,
+  porQueNoSigue, seriesQueSeEnsenan, creables, diasDeLaPropuesta, diasMarcadosDeSerie, esMes, mesSiguiente, motivoDesmarcada, nombreSerieRepetir,
   planDeCreacion, recuento, seriesMarcadasDeSerie, textoTrasRepetir, tituloRepetir, ultimoDia,
   type PropuestaRepetir, type SerieParaRepetir,
 } from './repetir-mes.ts';
@@ -44,7 +44,7 @@ const propuesta: PropuestaRepetir = {
 test('de serie: marcadas las que siguen; fuera «no renovar», terminadas, con error o ya creadas', () => {
   assert.deepEqual([...seriesMarcadasDeSerie(propuesta)].sort(), ['a', 'b']);
   assert.equal(motivoDesmarcada(propuesta.series[2]), 'Marcada «no renovar»');
-  assert.equal(motivoDesmarcada(propuesta.series[3]), 'Terminó antes de acabar el mes');
+  assert.equal(motivoDesmarcada(propuesta.series[3]), 'Su última clase del mes fue antes del final: márcala si sigue');
   assert.match(motivoDesmarcada(propuesta.series[4]) ?? '', /archivado/);
   assert.equal(motivoDesmarcada(propuesta.series[5]), 'Ya está creada o no se puede crear');
   assert.equal(motivoDesmarcada(propuesta.series[0]), null);
@@ -95,6 +95,9 @@ const res = (o: Partial<Parameters<typeof textoTrasRepetir>[0]>) =>
 
 test('el texto final dice lo que pasó, también a medias', () => {
   assert.equal(textoTrasRepetir(res({ creadas: 16, pedidas: 16, primeraFecha: '2026-12-01' }), '2026-12'), '16 clases creadas en diciembre');
+  // Con una serie marcada a mano que paró antes: también los días que le quedaban.
+  assert.equal(textoTrasRepetir(res({ creadas: 5, pedidas: 5, primeraFecha: '2026-10-30' }), '2026-11'), '5 clases creadas en octubre y noviembre');
+  assert.equal(textoTrasRepetir(res({ creadas: 5, pedidas: 5, primeraFecha: '2026-12-30' }), '2027-01'), '5 clases creadas en diciembre y enero');
   assert.equal(textoTrasRepetir(res({ creadas: 1, pedidas: 1 }), '2026-12'), '1 clase creada en diciembre');
   // Falla una serie de 3 fechas y las 9 creadas son todas las demás: no se inventa un «otras ya estaban».
   assert.equal(textoTrasRepetir(res({ creadas: 9, pedidas: 12, fallidas: 1, pedidasFallidas: 3 }), '2026-12'),
@@ -113,13 +116,30 @@ test('el texto final avisa de las clases que quedan sin instructora', () => {
 test('«terminó antes de acabar el mes» no confunde un festivo o un día cerrado con un final', () => {
   const festivos = new Set(['2026-12-25']);
   // Solo viernes; la última clase el 18 y el 25 es Navidad: no terminó.
-  assert.equal(serieTerminada({ fechas: ['2026-12-25', '2027-01-01'], bloqueadas: [] }, '2026-12-31', festivos), false);
+  assert.equal(porQueNoSigue({ fechas: ['2026-12-25', '2027-01-01'], bloqueadas: [] }, '2026-12-31', festivos), null);
   // El 25 cerrado (cierre) también cuenta como «ese día no hubo clase».
-  assert.equal(serieTerminada({ fechas: ['2026-12-25'], bloqueadas: [{ fecha: '2026-12-25', motivo: 'cierre' }] }, '2026-12-31', new Set()), false);
+  assert.equal(porQueNoSigue({ fechas: ['2026-12-25'], bloqueadas: [{ fecha: '2026-12-25', motivo: 'cierre' }] }, '2026-12-31', new Set()), null);
   // La última clase el 11: falta el 18, que no es festivo. Terminó.
-  assert.equal(serieTerminada({ fechas: ['2026-12-18', '2026-12-25'], bloqueadas: [] }, '2026-12-31', festivos), true);
+  assert.equal(porQueNoSigue({ fechas: ['2026-12-18', '2026-12-25'], bloqueadas: [] }, '2026-12-31', festivos), 'terminada');
   // Sigue hasta fin de mes: sus fechas empiezan en el mes siguiente.
-  assert.equal(serieTerminada({ fechas: ['2027-01-08'], bloqueadas: [] }, '2026-12-31', festivos), false);
+  assert.equal(porQueNoSigue({ fechas: ['2027-01-08'], bloqueadas: [] }, '2026-12-31', festivos), null);
+  // Un día que ya pasó cuenta como libre: ahí pudo haber clase y no la hubo.
+  assert.equal(porQueNoSigue({ fechas: ['2026-12-18'], bloqueadas: [{ fecha: '2026-12-18', motivo: 'pasada' }] }, '2026-12-31', festivos), 'terminada');
+});
+
+test('si otra clase ocupa su hueco a final de mes no dice «terminó»: lo dice como es, y sigue desmarcada', () => {
+  // Viernes 18:30 en la Sala 1; el 30-oct se borró y hay un taller a esa hora.
+  const ocupada = { fechas: ['2026-10-30', '2026-11-06'], bloqueadas: [{ fecha: '2026-10-30', motivo: 'ya_existe' as const }] };
+  assert.equal(porQueNoSigue(ocupada, '2026-10-31', new Set()), 'hueco_ocupado');
+  assert.equal(porQueNoSigue({ ...ocupada, bloqueadas: [{ fecha: '2026-10-30', motivo: 'sala_ocupada' as const }] }, '2026-10-31', new Set()), 'hueco_ocupado');
+  // Ocupada una semana y libre la otra: ahí sí pudo haber clase. Terminó.
+  assert.equal(porQueNoSigue({ fechas: ['2026-10-23', '2026-10-30'], bloqueadas: [{ fecha: '2026-10-23', motivo: 'ya_existe' }] }, '2026-10-31', new Set()), 'terminada');
+  // Ocupada + cierre: lo que falta es otra clase y un día cerrado.
+  assert.equal(porQueNoSigue({ fechas: ['2026-10-23', '2026-10-30'], bloqueadas: [{ fecha: '2026-10-23', motivo: 'cierre' }, { fecha: '2026-10-30', motivo: 'ya_existe' }] }, '2026-10-31', new Set()), 'hueco_ocupado');
+  // El motivo se ve, y no es el de «terminó».
+  const s = serie({ serieId: 'x', fechas: ocupada.fechas, desmarcadaPor: 'hueco_ocupado' });
+  assert.match(motivoDesmarcada(s) ?? '', /otra clase ocupa su hora y su sala/);
+  assert.doesNotMatch(motivoDesmarcada(s) ?? '', /[Tt]ermin/);
 });
 
 test('el botón cuenta exactamente lo que se manda', () => {
