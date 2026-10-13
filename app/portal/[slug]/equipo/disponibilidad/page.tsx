@@ -123,7 +123,7 @@ export default function DisponibilidadInstructoraPage() {
     if (!res.ok) {
       setGuardando(false);
       // Sus cambios se quedan en pantalla: puede reintentar sin volver a marcar.
-      toast(res.error);
+      toast(res.error, { variant: 'error' });
       return;
     }
     if (instructora) recordarDisponibilidad(estudio.slug, instructora.instructorId, editadas.size);

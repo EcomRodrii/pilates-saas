@@ -39,12 +39,6 @@ const TOPES: Record<string, number> = {
   'app/interno/crecimiento/prospeccion.tsx': 1,
   'app/interno/denuncias/page.tsx': 1,
   'app/network/solicitudes/page.tsx': 1,
-  'app/portal/[slug]/equipo/alumnas/[socioId]/page.tsx': 1,
-  'app/portal/[slug]/equipo/ausencias/page.tsx': 1,
-  'app/portal/[slug]/equipo/disponibilidad/page.tsx': 1,
-  'app/portal/[slug]/equipo/fichaje/page.tsx': 1,
-  'app/portal/[slug]/equipo/page.tsx': 2,
-  'app/portal/[slug]/equipo/perfil/page.tsx': 2,
   'components/acceso/accesos-de-la-clienta.tsx': 1,
   'components/apariencia/editor-apariencia-app.tsx': 2,
   'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
@@ -126,9 +120,9 @@ test('las pantallas de P0.3 se quedan a cero', () => {
 
 // Tanda 1 (13-oct-2026): las herramientas de Configuración, enteras. Tanda 2:
 // Inicio (sus tarjetas de «por decidir» y los cobros). Tanda 4: Widgets.
-// Tanda 6: la app de la alumna. Una carpeta a cero se queda a cero aunque
-// alguien añada un fichero nuevo.
-const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/', 'components/widgets/', 'components/student/'];
+// Tandas 6 y 7: la app del estudio (alumna e instructora). Una carpeta a cero
+// se queda a cero aunque alguien añada un fichero nuevo.
+const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/', 'components/widgets/', 'components/student/', 'app/portal/'];
 
 test('las carpetas que ya se pasaron a rojo se quedan a cero', () => {
   for (const c of CARPETAS_A_CERO) {

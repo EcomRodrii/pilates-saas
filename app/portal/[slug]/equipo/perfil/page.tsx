@@ -70,9 +70,9 @@ export default function PerfilInstructoraPage() {
     try {
       if (dispositivo.accion === 'activar') {
         const r = await activarPushStudent(estudio.id, estudio.slug);
-        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.');
+        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.', { variant: 'error' });
       } else if (!(await desactivarPushStudent(estudio.slug))) {
-        toast('No hemos podido desactivar los avisos en este dispositivo.');
+        toast('No hemos podido desactivar los avisos en este dispositivo.', { variant: 'error' });
       }
       await refrescarPush();
     } finally {
