@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  clienteAdminLocal, crearStudioConPropietaria, crearSocia, limpiarFixtures,
+  clienteAdminLocal, crearStudioConPropietaria, crearSocia, crearSesion, limpiarFixtures,
 } from '../../lib/db/rls-test-helpers.ts';
 
 const admin = clienteAdminLocal();
@@ -35,10 +35,15 @@ const admin = clienteAdminLocal();
 test('DB-1: una PROPIETARIA no puede INSERTAR una reserva directa, saltándose reservar_plaza', async () => {
   const studio = await crearStudioConPropietaria(admin);
   try {
+    // Con una clase de SU estudio: así el único motivo para rechazarla es la RLS,
+    // no el trigger que exige que la reserva y su clase sean del mismo estudio
+    // (corre ANTES que el WITH CHECK y también da 42501).
+    const sesionId = await crearSesion(admin, studio.studioId);
     const { error } = await studio.comoPropietaria
       .from('reservas')
-      .insert({ id: `reserva-rls-${Date.now()}`, studio_id: studio.studioId });
+      .insert({ id: `reserva-rls-${Date.now()}`, studio_id: studio.studioId, sesion_id: sesionId });
     assert.ok(error, 'el INSERT directo en reservas debería fallar (RLS), pero no dio ningún error');
+    assert.doesNotMatch(error.message, /SESION_NO_ES_DEL_ESTUDIO/, 'lo ha parado el trigger de la clase, no la RLS: el fixture no prueba DB-1');
     assert.equal(
       error?.code, '42501',
       `se esperaba 42501 (insufficient_privilege / violación de RLS), se obtuvo: ${error?.code} — ${error?.message}`,
@@ -53,7 +58,8 @@ test('DB-1: una PROPIETARIA no puede BORRAR una reserva existente directamente',
   try {
     const reservaId = `reserva-rls-${Date.now()}`;
     // La fila la crea el ADMIN (salta RLS a propósito: es solo el fixture).
-    const { error: errCrear } = await admin.from('reservas').insert({ id: reservaId, studio_id: studio.studioId });
+    const sesionId = await crearSesion(admin, studio.studioId);
+    const { error: errCrear } = await admin.from('reservas').insert({ id: reservaId, studio_id: studio.studioId, sesion_id: sesionId });
     assert.ok(!errCrear, `no se pudo montar el fixture de reserva: ${errCrear?.message}`);
 
     const { error, count } = await studio.comoPropietaria
