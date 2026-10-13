@@ -43,6 +43,7 @@ import {
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
   type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
 } from '@/lib/equipo-tarjetas.ts';
+import { ERROR_RED } from '@/lib/errores';
 
 type FiltroEstadoEquipo = FiltroEstado;
 
@@ -154,7 +155,7 @@ export default function EquipoPage() {
   const [errorFoto, setErrorFoto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState('');
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
   const [invitarAhora, setInvitarAhora] = useState(false);
   const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -363,9 +364,11 @@ export default function EquipoPage() {
   async function enviarInvitacion(i: Instructor) {
     setMenuCardId(null);
     setInvitando(i.id);
-    const res = await invitarAlEquipo(i.id);
+    // Sin red, `fetch` lanza: sin el catch el botón se quedaba en «Enviando…».
+    const res = await invitarAlEquipo(i.id).catch(() => ({ error: ERROR_RED }));
     setInvitando(null);
-    showToast('ok' in res ? `Invitación enviada a ${res.email}` : res.error);
+    if ('ok' in res) showToast(`Invitación enviada a ${res.email}`);
+    else showToastError(res.error);
   }
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
@@ -421,9 +424,9 @@ export default function EquipoPage() {
       if (!res.ok) { setErrorGuardar(res.error); return; }
       if (fields.email && invitarAhora) {
         const inv = await invitarAlEquipo(form.tempId);
-        showToast('ok' in inv
-          ? `${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`
-          : `${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
+        if ('ok' in inv) showToast(`${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`);
+        // Medio fallo: la ficha sí, la invitación no. Hay algo que hacer: en rojo.
+        else showToastError(`${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
       } else if (fields.email && fields.rol === 'INSTRUCTOR') {
         // Desde el 15-sep-2026 una instructora con correo no necesita la
         // invitación: entrando en la app del estudio con ese correo verificado
@@ -443,7 +446,7 @@ export default function EquipoPage() {
       const reinicia = 'email' in cambios && accesoSeReinicia(editId, fields.email);
       if (!sinCambiosFicha) {
         const res = await updateInstructor(editId, cambios);
-        if (!res.ok) { showToast(res.error); setModal(null); return; }
+        if (!res.ok) { showToastError(res.error); setModal(null); return; }
       }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
@@ -955,7 +958,7 @@ export default function EquipoPage() {
               const res = await deleteInstructor(confirmDel.id);
               setEliminando(false);
               setConfirmDel(null);
-              if (!res.ok) showToast(res.error);
+              if (!res.ok) showToastError(res.error);
             }} disabled={eliminando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600 disabled:opacity-40">
               {eliminando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Dar de baja
             </button>
@@ -976,7 +979,7 @@ export default function EquipoPage() {
         }}
       />
 
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
 
       {/* Aviso con Deshacer (5 s) de la acción principal de una tarjeta */}
       {aviso && (
