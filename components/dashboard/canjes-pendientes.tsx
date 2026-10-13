@@ -7,6 +7,7 @@ import { nombreCreditos } from '@/lib/creditos-nombre';
 import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { useStudio } from '@/lib/studio-context';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Canjes que una socia ya ha pagado con sus créditos y espera recoger.
 //
@@ -23,7 +24,7 @@ import { Button } from '@/components/ui/button';
 // ⚠️ NO es una sección de `HOME_SECCIONES`. Un id nuevo ahí se le colocaría al
 // FINAL a todo estudio que ya tenga la home personalizada (`aplicarLayout`), y
 // esto es justamente lo que no puede quedar enterrado.
-export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) {
+export function CanjesPendientes({ onToast }: { onToast: MostrarToast }) {
   const { studio } = useStudio();
   const moneda = nombreCreditos(studio?.creditosNombre);
   const [items, setItems] = useState<CanjePendiente[] | null>(null);
@@ -51,7 +52,7 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
     setEntregando(c.id);
     const r = await dbEntregarCanje(getCurrentStudioId(), { redemptionId: c.id });
     setEntregando(null);
-    if ('error' in r) { onToast(mensajeDeError(r.error)); return; }
+    if ('error' in r) { onToast(mensajeDeError(r.error), { variant: 'error' }); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== c.id));
     invalidarEstadoEstudio();
     onToast(`Entregada: ${c.recompensa}`);
@@ -65,7 +66,7 @@ export function CanjesPendientes({ onToast }: { onToast: (m: string) => void }) 
     setBuscando(true);
     const r = await dbEntregarCanje(getCurrentStudioId(), { codigo: limpio });
     setBuscando(false);
-    if ('error' in r) { onToast(mensajeDeError(r.error)); return; }
+    if ('error' in r) { onToast(mensajeDeError(r.error), { variant: 'error' }); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== r.id));
     invalidarEstadoEstudio();
     setCodigo('');

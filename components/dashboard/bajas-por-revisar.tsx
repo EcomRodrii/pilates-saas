@@ -7,6 +7,7 @@ import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-clie
 import { MAX_NOTA_ESTUDIO, textoAntelacion, type DecisionEstudio } from '@/lib/student/baja-instructora';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Bajas de última hora del equipo (la instructora avisó con menos de 24 h) que
 // esperan que el estudio las revise. Mismo alcance que `PenalizacionesPendientes`:
@@ -29,7 +30,7 @@ function cuando(inicio: string | null): string {
   return Number.isNaN(d.getTime()) ? '' : fmtClase.format(d);
 }
 
-export function BajasPorRevisar({ onToast }: { onToast: (m: string) => void }) {
+export function BajasPorRevisar({ onToast }: { onToast: MostrarToast }) {
   const [items, setItems] = useState<BajaPorRevisar[] | null>(null);
   const [notas, setNotas] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function BajasPorRevisar({ onToast }: { onToast: (m: string) => void }) {
     if ('error' in r) {
       // Ya la revisó otra persona: la fila sobra, pero se dice por qué se va.
       if (r.status === 409) quitar(b.id);
-      onToast(r.error);
+      onToast(r.error, { variant: 'error' });
       return;
     }
     quitar(b.id);
