@@ -25,7 +25,7 @@ import {
   canalesSocia, efectoAlAprobar, emailConfigurado, esEfectoAprobar, FUERA_DE_LA_RECOMENDACION, porQueNoLeLlega, puedeEscribirle,
   recibosACobrar, recibosAprobadosFuera,
 } from '@/lib/decision/efecto-aprobar';
-import { canalesDeSocias, permisoComercial } from '@/lib/decision/canales-socia';
+import { canalesDeSocias, esComercial, permisoComercial } from '@/lib/decision/canales-socia';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import {
   cobroEjecutado, detalleCobro, detalleInterrumpida, lineaActividad, pudoMoverDinero, resumirCobro,
@@ -289,7 +289,10 @@ export const analizarEstudio = inngest.createFunction(
       const canales = await canalesDeSocias(studioId, pendientes);
       const sinPorDonde = (r: Recomendacion) => {
         const c = canales(r);
-        return !!c && efectoAlAprobar(r, c) === 'MARCAR';
+        // Sin poder leer su permiso (`undefined` en una que le escribe), una oferta
+        // tampoco se aprueba sola: el ejecutor la frenaría y acabaría FALLIDA.
+        if (!c) return (r.accion.tipo === 'ENVIAR_EMAIL' || r.accion.tipo === 'CONTACTO_MANUAL') && !!r.socioId && esComercial(r);
+        return efectoAlAprobar(r, c) === 'MARCAR';
       };
       const aprobables = pendientes.filter(r => !sinPorDonde(r));
       return { ids: seleccionarAutonomas(aprobables, config, yaHoy).map(r => ({ id: r.id })), maxDiario: config.maxDiario };
