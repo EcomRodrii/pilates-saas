@@ -5595,6 +5595,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     tourObligatorio: r.tour_obligatorio ?? false,
     tourProgreso: r.tour_progreso ?? {},
     tourCompletadoEn: r.tour_completado_en ?? null,
+    tarjetaClase: r.tarjeta_clase ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
     reviewBoostElegibleEn: r.review_boost_elegible_en ?? null,
     reviewBoostMostradoEn: r.review_boost_mostrado_en ?? null,

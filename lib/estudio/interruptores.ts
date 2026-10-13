@@ -26,6 +26,8 @@ export const INTERRUPTORES = {
   invitarWhatsApp: 'EQUIPO_INVITAR_WHATSAPP',
   /** «Desde una foto o un texto» en Calendario › Importar (P2.1). */
   horarioDesdeImagen: 'HORARIO_DESDE_IMAGEN',
+  /** Qué se ve de cada alumna en la lista de una clase (P3.11). */
+  tarjetaClase: 'TARJETA_CLASE',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

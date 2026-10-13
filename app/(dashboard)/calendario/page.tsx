@@ -12,7 +12,7 @@ import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
 import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
-import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
+import { semaforo, alertaPreClase, adaptacionPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion, Studio, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -73,6 +73,12 @@ import { SustitutaDeClase, type DatosSustitutaClase } from '@/components/calenda
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import { lineaCoberturaMostrador } from '@/lib/calendario/cobertura-mostrador';
+import {
+  DE_SERIE as TARJETA_DE_SERIE, bonoAgotadoQueCubre, conQueVieneFila, esPrimeraVez, notaFijadaPorSocia, pagoConocido,
+  piezasDeTarjeta, saludVisible, tarjetaClaseDe, textoCumpleanos, type Pieza,
+} from '@/lib/calendario/tarjeta-clienta';
+import { hechosDeAsistencia, tieneHistorialPrevio } from '@/lib/clientas/estado';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
 import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
@@ -2856,7 +2862,7 @@ export default function Calendario() {
   const rolCalendario = useRol();
   const verFichaClinica = puedeVerFichaClinica(rolCalendario);
   const verSemaforo = puedeVerSemaforo(rolCalendario);
-  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion, cargarFichaClienta } = useStudio();
+  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion, cargarFichaClienta, notasInternas, datosIncompletos } = useStudio();
 
   // ⚠️ Aquí no es solo que la lista se vea vacía. `registrarRespuestaSesion`
   // decide UPDATE vs INSERT buscando en `respuestasSesion`, y con la lista
@@ -2919,6 +2925,75 @@ export default function Calendario() {
     // que `now` es una instancia nueva cada vez aunque sea el mismo día.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservasActuales, condicionesPorSocio, verFichaClinica, todayStr]);
+
+  // ── Lo que se ve de cada alumna en la lista (P3.11, `TARJETA_CLASE`) ──────
+  // Apagado, o sin nada guardado, es lo de siempre (`TARJETA_DE_SERIE`): solo el
+  // punto de color para quien tiene `verSemaforo`. Todo sale de lo que ESTE rol
+  // ya tiene cargado: no se pide nada nuevo. Lo de salud lo acota además
+  // `saludVisible` (sin la ficha clínica no hay «adaptar», diga lo que diga lo
+  // guardado), y las condiciones solo le llegan a la propietaria (RLS).
+  const tarjetaEncendida = useInterruptor('tarjetaClase', studio?.id);
+  const tarjeta = useMemo(
+    () => (tarjetaEncendida ? tarjetaClaseDe(studio?.tarjetaClase) : TARJETA_DE_SERIE),
+    [tarjetaEncendida, studio?.tarjetaClase],
+  );
+  const saludFila = saludVisible(tarjeta, { verSemaforo, verFichaClinica });
+  // La primera reserva de cada una en todo el histórico: solo si se pide, y
+  // solo con el histórico ENTERO (antes de cargar, o con una página de reservas
+  // o de clases que no llegó, todas parecerían nuevas).
+  const historialEntero = dataLoaded && !datosIncompletos.includes('reservas') && !datosIncompletos.includes('sesiones');
+  const primeraReservaPorSocia = useMemo(
+    () => (tarjeta.primeraVez && historialEntero ? hechosDeAsistencia(reservas, sesiones, new Date(0)) : null),
+    [tarjeta.primeraVez, historialEntero, reservas, sesiones],
+  );
+  const notaFijadaDe = useMemo(
+    () => (tarjeta.notaFijada ? notaFijadaPorSocia(notasInternas) : new Map<string, string>()),
+    [tarjeta.notaFijada, notasInternas],
+  );
+  // Empezada y terminada, como booleanos: `now` cambia en cada render y la lista
+  // no se recalcula por eso, solo cuando cruza el inicio o el fin.
+  // (Por instante, no comparando cadenas: la base devuelve `+00:00`, no `Z`.)
+  const claseEmpezadaTarjeta = sesionActual ? sesionYaEmpezada(sesionActual.inicio, now) : false;
+  const claseTerminadaTarjeta = sesionActual ? sesionYaEmpezada(sesionActual.fin, now) : false;
+  const piezasPorReserva = useMemo(() => {
+    const m = new Map<string, Pieza[]>();
+    if (!tarjetaEncendida || !sesionActual) return m;
+    const fichas = new Map(socios.map(x => [x.id, x]));
+    const diaClase = diaEnEstudio(sesionActual.inicio);
+    for (const r of reservasActuales) {
+      if (!r.socioId) continue;
+      const ficha = fichas.get(r.socioId);
+      const marca = tarjeta.conQueViene ? marcaReserva(r, recuperaciones) : null;
+      m.set(r.id, piezasDeTarjeta(tarjeta, {
+        estado: r.estado,
+        claseEmpezada: claseEmpezadaTarjeta,
+        claseTerminada: claseTerminadaTarjeta,
+        conQueViene: tarjeta.conQueViene
+          ? conQueVieneFila({
+            marca: marca === 'fija' || marca === 'recuperacion' ? marca : null,
+            // La clase suelta del mostrador lleva el id de la reserva (`crearReservaMostrador`).
+            claseSuelta: suscripciones.some(x => x.id === `sus-suelta-${r.id}`),
+            cobertura: coberturaDeClase({ socioId: r.socioId, suscripciones, planesTarifa, hoyISO: todayStr, tipoClaseId: sesionActual.tipoClaseId, precioClaseSuelta: null }),
+            pagoCon: pagoConocido(r.bonoSuscripcionId, suscripciones, planesTarifa, todayStr),
+            bonoAgotado: bonoAgotadoQueCubre({ socioId: r.socioId, suscripciones, planesTarifa, hoyISO: todayStr, tipoClaseId: sesionActual.tipoClaseId }),
+          })
+          : null,
+        confirmacionPedidaEn: r.confirmacionPedidaEn,
+        confirmadoEn: r.confirmadoEn,
+        cumpleanos: tarjeta.cumpleanos ? textoCumpleanos(ficha?.cumpleMmDd, diaClase, todayStr) : null,
+        notaFijada: notaFijadaDe.get(r.socioId) ?? null,
+        primeraVez: tarjeta.primeraVez && esPrimeraVez({
+          historialCargado: primeraReservaPorSocia !== null,
+          historialPrevio: ficha ? tieneHistorialPrevio(ficha) : null,
+          primeraReserva: primeraReservaPorSocia?.get(r.socioId)?.primeraReserva ?? null,
+          inicioClase: sesionActual.inicio,
+        }),
+        adaptacion: saludFila.adaptar ? adaptacionPreClase(condicionesPorSocio.get(r.socioId) ?? [], new Date(`${todayStr}T12:00:00Z`)) : null,
+      }, { verSemaforo, verFichaClinica }));
+    }
+    return m;
+  }, [tarjetaEncendida, tarjeta, sesionActual, reservasActuales, socios, suscripciones, planesTarifa, recuperaciones, notaFijadaDe,
+    primeraReservaPorSocia, saludFila.adaptar, condicionesPorSocio, todayStr, claseEmpezadaTarjeta, claseTerminadaTarjeta, verSemaforo, verFichaClinica]);
 
   const respuestaPorSocio = useMemo(() => {
     const m = new Map<string, (typeof respuestasSesion)[number]>();
@@ -3412,11 +3487,12 @@ export default function Calendario() {
             // la ficha de salud, no solo el piloto (FICHA-CLINICA.md §11, #561).
             onNotaVoz={verFichaClinica && enPiloto && esPropiaClase ? setNotaVozSocioId : undefined}
             marcaDe={r => marcaReserva(r, recuperaciones)}
-            semaforoPorSocio={verSemaforo ? (socioId => {
+            semaforoPorSocio={saludFila.color ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
               return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
             }) : undefined}
             sitioDe={r => (r.spotId ? spots.find(sp => sp.id === r.spotId)?.nombre ?? null : null)}
+            piezasDe={tarjetaEncendida ? (r => piezasPorReserva.get(r.id) ?? []) : undefined}
             onGuardarLista={plan => guardarLista(sesionActual.id, plan)}
             filaExtra={verFichaClinica ? (r => r.estado === 'ASISTIDA' ? (
               <div className="mt-1.5 flex items-center gap-1 pl-[52px]">
