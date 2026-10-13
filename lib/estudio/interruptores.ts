@@ -20,6 +20,10 @@ import { encendidaPara } from '../interruptor-por-estudio.ts';
 export const INTERRUPTORES = {
   /** Filtros y columnas nuevos de Clientas (P2.8). */
   filtrosClientas: 'CLIENTAS_FILTROS',
+  /** Pegar desde una hoja en el importador de Clientas (P3.16). */
+  importarPegando: 'IMPORTAR_PEGANDO',
+  /** «Avisar por WhatsApp» a quien está en el equipo sin acceso (P3.14). */
+  invitarWhatsApp: 'EQUIPO_INVITAR_WHATSAPP',
   /** «Desde una foto o un texto» en Calendario › Importar (P2.1). */
   horarioDesdeImagen: 'HORARIO_DESDE_IMAGEN',
 } as const;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -45,6 +45,8 @@ import {
 } from '@/lib/equipo-tarjetas.ts';
 import { ERROR_RED } from '@/lib/errores';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { enlaceInvitacionWhatsApp } from '@/lib/equipo/invitacion-whatsapp';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 type FiltroEstadoEquipo = FiltroEstado;
 
@@ -138,12 +140,25 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+const sinSuscripcion = () => () => {};
+
 export default function EquipoPage() {
   const miRol = useRol();
   const gestiona = miRol !== 'INSTRUCTOR';
   const uid = useId();
   const router = useRouter();
-  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots } = useStudio();
+  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots, studio } = useStudio();
+  // «Avisar por WhatsApp» a quien está sin acceso (P3.14, opción B), apagado tras
+  // `EQUIPO_INVITAR_WHATSAPP`. El WhatsApp NUNCA lleva el enlace de invitación:
+  // ver `lib/equipo/invitacion-whatsapp.ts`.
+  const avisarPorWhatsApp = useInterruptor('invitarWhatsApp', studio?.id);
+  // El dominio de la app: el de producción (como el correo de invitación) y, si
+  // no está configurado, el de la pestaña ('' al pintar en el servidor).
+  const origenPestana = useSyncExternalStore(sinSuscripcion, () => window.location.origin, () => '');
+  const origen = process.env.NEXT_PUBLIC_APP_URL || origenPestana;
+  // A quién se le ha mandado la invitación por correo en esta pantalla: a gerencia
+  // y recepción solo se les dice «mira tu correo» si es verdad.
+  const [invitadosAhora, setInvitadosAhora] = useState<ReadonlySet<string>>(() => new Set());
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -368,8 +383,21 @@ export default function EquipoPage() {
     // Sin red, `fetch` lanza: sin el catch el botón se quedaba en «Enviando…».
     const res = await invitarAlEquipo(i.id).catch(() => ({ error: ERROR_RED }));
     setInvitando(null);
-    if ('ok' in res) showToast(`Invitación enviada a ${res.email}`);
-    else showToastError(res.error);
+    if ('ok' in res) {
+      showToast(`Invitación enviada a ${res.email}`);
+      setInvitadosAhora((prev) => new Set(prev).add(i.id));
+    } else showToastError(res.error);
+  }
+
+  /** El wa.me del aviso, o null si está apagado o no hay nada cierto que decirle. */
+  function avisoWhatsApp(m: MiembroCompleto): string | null {
+    const slug = studio?.slug?.trim();
+    if (!avisarPorWhatsApp || !puedeGestionarEquipo(miRol) || m.conAcceso || !slug || !origen) return null;
+    return enlaceInvitacionWhatsApp({
+      nombre: m.nombre, rol: m.rol, activo: m.activo, email: m.email, telefono: m.telefono,
+      estudio: studio?.nombre ?? '', urlApp: `${origen}/portal/${encodeURIComponent(slug)}/acceso/elegir`,
+      invitacionEnviada: invitadosAhora.has(m.id),
+    });
   }
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
@@ -668,6 +696,7 @@ export default function EquipoPage() {
               ausente={ausenciaHoy(ausencias, m.id)}
               invitando={invitando === m.id}
               onInvitar={() => { const i = instructorDe(m); if (i) enviarInvitacion(i); }}
+              avisoWhatsApp={avisoWhatsApp(m)}
             />
           ))}
         </div>
@@ -1036,7 +1065,7 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 
 function TarjetaMiembro({
   m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
-  onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion,
+  onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion, avisoWhatsApp,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
   /** Contratada/autónoma (control horario). Solo para quien gestiona el equipo; null = no se enseña. */
@@ -1046,6 +1075,8 @@ function TarjetaMiembro({
   onEditar: () => void; onEliminar: () => void; onEliminarDefinitivo: () => void; onValoraciones: () => void; onHoras: () => void;
   onAusencias: () => void; onEnlaceBaja: () => void; onReasignar: () => void;
   ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
+  /** wa.me para avisarle de que entre (sin enlace de invitación), o null. */
+  avisoWhatsApp?: string | null;
 }) {
   const ahora = new Date();
   const situacion = situacionDe(m, ahora);
@@ -1209,13 +1240,20 @@ function TarjetaMiembro({
       )}
 
       {!m.conAcceso && m.email && gestiona && (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <span className="text-[12px] text-warning font-medium flex items-center gap-1.5"><AlertTriangle size={12} />Todavía sin acceso</span>
-          {onInvitar && (
-            <button onClick={onInvitar} disabled={invitando} className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50">
-              {invitando ? 'Enviando…' : 'Enviar invitación'}
-            </button>
-          )}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {avisoWhatsApp && (
+              <a href={avisoWhatsApp} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2">
+                Avisar por WhatsApp
+              </a>
+            )}
+            {onInvitar && (
+              <button onClick={onInvitar} disabled={invitando} className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50">
+                {invitando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            )}
+          </span>
         </div>
       )}
 

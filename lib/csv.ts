@@ -263,12 +263,25 @@ export function autoMapear(headers: string[]): Record<CampoSocia, number> {
   return mapearColumnas(headers, CAMPOS_SOCIA.map((c) => c.campo), SINONIMOS);
 }
 
+/**
+ * ¿La celda es, TAL CUAL, el nombre de un campo de la clienta («Email»,
+ * «Teléfono», «Fecha de alta»…)? Coincidencia exacta, no parcial: «Calle Mayor 3»
+ * contiene «calle» y no es un título. Para adivinar si lo pegado trae títulos.
+ */
+export function nombraCampoSocia(celda: string): boolean {
+  const n = normaliza(celda);
+  return n !== '' && Object.values(SINONIMOS).some((lista) => lista.some((s) => normaliza(s) === n));
+}
+
 // ─── Validación ──────────────────────────────────────────────────────────────
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function emailValido(email: string): boolean {
-  return RE_EMAIL.test(email.trim());
+  // 254 es el máximo de una dirección. Además corta el coste de la regex, que con
+  // una celda larga llena de «@» y puntos crece al cuadrado.
+  const e = email.trim();
+  return e.length <= 254 && RE_EMAIL.test(e);
 }
 
 /**
