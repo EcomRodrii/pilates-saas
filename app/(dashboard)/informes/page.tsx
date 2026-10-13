@@ -50,6 +50,7 @@ import { usePagosHistoricos } from '@/lib/cobros/use-pagos-historicos';
 import { BloqueClases } from '@/components/informes/bloque-clases';
 import { BloqueClientas } from '@/components/informes/bloque-clientas';
 import { euroPorPlazaDisponible } from '@/lib/informes/euro-plaza-cliente';
+import { pedirPlazasVacias, plazasVaciasDisponible, type EstadoPlazasVacias } from '@/lib/informes/plazas-vacias-cliente';
 
 // El mapa de «€ por plaza» (pieza E) entra APAGADO (interruptor
 // `INFORMES_EURO_PLAZA`): solo se descarga si el servidor dice que sí. Apagado,
@@ -92,6 +93,15 @@ export default function Informes() {
     return () => { vivo = false; };
   }, []);
 
+  // «Plazas que dejaron vacías» (P3.15): apagado tras `INFORMES_PLAZAS_VACIAS`.
+  // La sonda una vez; si dice que no, la pantalla es la de siempre.
+  const [plazasVaciasOn, setPlazasVaciasOn] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void plazasVaciasDisponible().then(d => { if (vivo) setPlazasVaciasOn(d); });
+    return () => { vivo = false; };
+  }, []);
+
   // La tarifa de instructora (dato salarial, su propia RLS): para el margen.
   const [tarifas, setTarifas] = useState<TarifaInstructor[]>([]);
   useEffect(() => {
@@ -114,6 +124,21 @@ export default function Informes() {
       haySiguiente: moverPeriodo(periodo, ref, 1) <= hoy,
     };
   }, [periodo, ref, hoy]);
+
+  // Las cifras del periodo que se ve. Al cambiar de periodo se vuelve a «Calculando…»:
+  // nunca se enseñan las del periodo anterior como si fueran de este.
+  const desdeVisible = tramos?.visible.desde ?? null;
+  const hastaVisible = tramos?.visible.hasta ?? null;
+  const [plazasVacias, setPlazasVacias] = useState<{ clave: string; datos: EstadoPlazasVacias } | null>(null);
+  useEffect(() => {
+    if (!plazasVaciasOn || !desdeVisible || !hastaVisible) return;
+    let vivo = true;
+    const clave = `${desdeVisible}_${hastaVisible}`;
+    void pedirPlazasVacias(desdeVisible, hastaVisible).then(datos => { if (vivo) setPlazasVacias({ clave, datos }); });
+    return () => { vivo = false; };
+  }, [plazasVaciasOn, desdeVisible, hastaVisible]);
+  const estadoPlazasVacias: EstadoPlazasVacias | null = !plazasVaciasOn ? null
+    : plazasVacias && plazasVacias.clave === `${desdeVisible}_${hastaVisible}` ? plazasVacias.datos : { estado: 'cargando' };
 
   const tipoDePlanDe = useMemo(() => tipoDePlanPorSuscripcion(suscripciones, planesTarifa), [suscripciones, planesTarifa]);
   const datosEuroPlaza = useMemo(() => ({ sesiones, reservas, recibos, tipoDePlanDe }), [sesiones, reservas, recibos, tipoDePlanDe]);
@@ -342,6 +367,7 @@ export default function Informes() {
         conteos={conteos}
         cohortes={cohortes}
         cohortesListas={estadosListos}
+        plazasVacias={estadoPlazasVacias}
       />
 
       {toast.message && (

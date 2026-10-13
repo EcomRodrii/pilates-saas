@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import { DIAS_VINO_HACE_POCO, type ConteosEstado } from '@/lib/clientas/estado';
 import { MUESTRA_MINIMA_COHORTE, type FilaCohorte, type TramoCohorte } from '@/lib/informes/cohortes';
 import type { ClientasDelTramo } from '@/lib/informes/clientas';
+import { UMBRAL_PLAZAS_VACIAS, textoPlazasVacias } from '@/lib/informes/plazas-vacias';
+import type { EstadoPlazasVacias } from '@/lib/informes/plazas-vacias-cliente';
 import { CabeceraBloque, conSigno, frenteA, tonoDiferencia } from './piezas';
 
 // «may 26»: el mes de una cohorte ('YYYY-MM'), sin depender de la zona del navegador.
@@ -25,7 +27,7 @@ function CeldaCohorte({ tramo }: { tramo: TramoCohorte | null }) {
   return <span className="tabular-nums text-foreground">{tramo.siguen} <span className="font-semibold">· {tramo.pct} %</span></span>;
 }
 
-export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sinPasarLista, nombreDe, conteos, cohortes, cohortesListas }: {
+export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sinPasarLista, nombreDe, conteos, cohortes, cohortesListas, plazasVacias = null }: {
   clientas: ClientasDelTramo;
   nuevas: number;
   nuevasAntes: number | null;
@@ -35,6 +37,8 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
   conteos: ConteosEstado | null;
   cohortes: FilaCohorte[];
   cohortesListas: boolean;
+  /** «Plazas que dejaron vacías» (P3.15). `null`: apagado, y la pantalla es la de siempre. */
+  plazasVacias?: EstadoPlazasVacias | null;
 }) {
   const max = clientas.lasQueMasVienen[0]?.clases ?? 1;
   const difNuevas = nuevasAntes == null ? null : nuevas - nuevasAntes;
@@ -102,6 +106,7 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
               ))}
             </ol>
           )}
+          {plazasVacias && <PlazasVacias estado={plazasVacias} sinPasarLista={sinPasarLista} nombreDe={nombreDe} />}
         </div>
 
         <div>
@@ -142,5 +147,50 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * «Plazas que dejaron vacías» (P3.15): quién canceló fuera de plazo o no vino a
+ * varias clases en las que tenía plaza. Sin porcentajes ni puntuación: la cifra,
+ * su base, y que puede haber un motivo. Describe el hueco, no juzga a la persona.
+ */
+function PlazasVacias({ estado, sinPasarLista, nombreDe }: {
+  estado: EstadoPlazasVacias;
+  sinPasarLista: boolean;
+  nombreDe: (socioId: string) => string;
+}) {
+  return (
+    <div className="mt-6" data-testid="informe-plazas-vacias">
+      <h3 className="text-[13.5px] font-semibold text-foreground">Plazas que dejaron vacías</h3>
+      <p className="text-[12.5px] text-muted-foreground text-pretty">
+        Quién canceló fuera de plazo o no vino a {UMBRAL_PLAZAS_VACIAS} o más clases del periodo en las que tenía plaza.
+        Puede haber un motivo: mira su ficha antes de decirle nada.
+      </p>
+      {estado.estado === 'cargando' ? (
+        <p className="mt-3 text-[13px] text-muted-foreground">Calculando…</p>
+      ) : estado.estado === 'error' ? (
+        <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-[13px] font-medium text-destructive">
+          No se ha podido calcular. Vuelve a intentarlo en un rato.
+        </p>
+      ) : estado.filas.length === 0 ? (
+        <p className="mt-3 text-[13px] text-muted-foreground">Nadie ha dejado {UMBRAL_PLAZAS_VACIAS} o más plazas vacías en este periodo.</p>
+      ) : (
+        <ol className="mt-3 space-y-2" data-testid="informe-plazas-vacias-lista">
+          {estado.filas.map(f => (
+            <li key={f.socioId} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+              <Link href={`/clientas/${f.socioId}`} className="truncate text-[13px] font-medium text-foreground hover:underline">{nombreDe(f.socioId)}</Link>
+              {/* Sin `tabular-nums`: en esta letra le da a la coma el ancho de una cifra («venir ,»). */}
+              <span className="text-[12.5px] text-muted-foreground">{textoPlazasVacias(f)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {sinPasarLista && estado.estado !== 'error' && (
+        <p className="mt-2 text-[12px] text-muted-foreground text-pretty" role="note">
+          En este periodo no se ha pasado lista: «sin venir» solo cuenta a quien se marcó así, y puede faltar alguien.
+        </p>
+      )}
+    </div>
   );
 }

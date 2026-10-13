@@ -345,6 +345,8 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/calendario/plazas-libres', (r) => json(r, { disponible: false }));
   // El mapa de «€ por plaza» en Informes (pieza E): apagado de serie. Su spec lo enciende.
   await page.route((u) => u.pathname === '/api/informes/euro-plaza', (r) => json(r, { disponible: false }));
+  // «Plazas que dejaron vacías» (P3.15): apagado de serie. Su spec lo enciende.
+  await page.route((u) => u.pathname === '/api/informes/plazas-vacias', (r) => json(r, { disponible: false }));
 
   await page.route('**/api/layout**', (r) => json(r, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', (r) => json(r, { bloqueado: false }));

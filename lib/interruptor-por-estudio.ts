@@ -38,5 +38,8 @@ export const plazasLibresEncendido = (studioId: string) => encendidaPara(process
  */
 export const euroPorPlazaEncendido = (_studioId: string): boolean => false;
 
+/** «Plazas que dejaron vacías» en Informes (P3.15, pieza A). Solo lectura. */
+export const plazasVaciasEncendido = (studioId: string) => encendidaPara(process.env.INFORMES_PLAZAS_VACIAS, studioId);
+
 /** «Felicitar el cumpleaños» en Automatizaciones (P3.10). */
 export const felicitarCumpleEncendido = (studioId: string) => encendidaPara(process.env.AUTOMATIZACION_CUMPLEANOS, studioId);
