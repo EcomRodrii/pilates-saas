@@ -61,7 +61,7 @@ test('todo motivo tiene su texto, y los que no son «ya está» mandan a la app'
 
 test('el motivo de la BD coincide con los que devuelve la migración', async () => {
   const { readFileSync } = await import('node:fs');
-  const sql = readFileSync(new URL('../../supabase/migrations/20261003160000_doble_factor_por_correo.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../../supabase/migrations/20261004183245_doble_factor_por_correo_5_funciones.sql', import.meta.url), 'utf8');
   const cuerpo = sql.slice(sql.indexOf('function public.correo_doble_factor_disponible'), sql.indexOf('comment on function public.correo_doble_factor_disponible'));
   const devueltos = [...cuerpo.matchAll(/then '([a-z_]+)'/g)].map(m => m[1]).sort();
   assert.deepEqual(devueltos, ['bloqueado', 'sin_contrasena', 'sin_sesion', 'sin_verificacion']);

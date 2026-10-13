@@ -16,14 +16,11 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const TTL_DISPONIBILIDAD_MS = 30 * 24 * 60 * 60 * 1000; // 30 días: onboarding sin prisa
 const TTL_ACEPTAR_MS = 3 * 60 * 60 * 1000;             // 3 h: aceptar una sustitución concreta
 // 7 días, no 30: a diferencia de disponibilidad/reportar_baja (enlaces que la
-// propia instructora guarda y reutiliza), este activa una ficha de equipo —
-// mientras esté vivo es un bearer token que cualquiera que lo consiga puede
-// canjear (el diseño delibera lo hace SIN comprobar el email, ver
-// lib/equipo/reclamar-reglas.ts). Acortar la ventana no cambia ese modelo,
-// solo el tiempo que un enlace filtrado (correo reenviado, bandeja compartida)
-// sigue siendo válido. Reenviar la invitación revoca el anterior igualmente
-// (obtenerOFirmarEnlace), así que 7 días no penaliza a quien tarda: solo pide
-// pulsar "reenviar" en Equipo.
+// propia instructora guarda y reutiliza), este activa una ficha de equipo. Desde
+// el 13-oct-2026 solo lo canjea una cuenta con el correo verificado de la ficha
+// (lib/equipo/reclamar-reglas.ts), y reenviar la invitación firma uno nuevo y
+// revoca el anterior (emitirInvitacion), así que 7 días no penaliza a quien
+// tarda: solo pide pulsar «reenviar» en Equipo.
 const TTL_INVITACION_MS = 7 * 24 * 60 * 60 * 1000;
 
 // 'reportar_baja' es un enlace permanente-ish (como el de disponibilidad): la
@@ -53,15 +50,37 @@ export function firmarTokenInstructora(
   ref: string | null = null,
   ahora: number = Date.now(),
 ): string {
+  return firmarPayload({ instructorId, studioId, scope, ref }, ahora);
+}
+
+/**
+ * El enlace de invitación al equipo. Además de quién invita (`ref`), lleva
+ * firmado el ROL que tenía la ficha al invitar: si cambia después, el enlace ya
+ * no vale y hay que reenviarlo (`reclamar-reglas.ts`, ENLACE_DESFASADO).
+ */
+export function firmarTokenInvitacion(
+  instructorId: string,
+  studioId: string,
+  emisor: string,
+  rolFicha: string,
+  ahora: number = Date.now(),
+): string {
+  return firmarPayload({ instructorId, studioId, scope: 'invitacion', ref: emisor, rolFicha }, ahora);
+}
+
+function firmarPayload(
+  datos: { instructorId: string; studioId: string; scope: ScopeToken; ref: string | null; rolFicha?: string },
+  ahora: number,
+): string {
   // 'aceptar_sustitucion' es un enlace de un solo uso y ventana corta;
   // 'invitacion' un bearer token de activación de cuenta (7 días); el resto
   // (disponibilidad, reportar baja) son enlaces que la instructora guarda en el
   // móvil y usa cuando le hace falta → 30 días.
-  const ttl = scope === 'aceptar_sustitucion' ? TTL_ACEPTAR_MS
-    : scope === 'invitacion' ? TTL_INVITACION_MS
+  const ttl = datos.scope === 'aceptar_sustitucion' ? TTL_ACEPTAR_MS
+    : datos.scope === 'invitacion' ? TTL_INVITACION_MS
     : TTL_DISPONIBILIDAD_MS;
   const payloadB64 = Buffer.from(
-    JSON.stringify({ instructorId, studioId, scope, ref, exp: ahora + ttl }),
+    JSON.stringify({ ...datos, exp: ahora + ttl }),
   ).toString('base64url');
   return `${payloadB64}.${firmar(payloadB64)}`;
 }
@@ -70,7 +89,7 @@ export function verificarTokenInstructora(
   token: string | null | undefined,
   scope: ScopeToken,
   ahora: number = Date.now(),
-): { instructorId: string; studioId: string; ref: string | null } | null {
+): { instructorId: string; studioId: string; ref: string | null; rolFicha: string | null } | null {
   if (!token) return null;
   const punto = token.indexOf('.');
   if (punto <= 0) return null;
@@ -84,14 +103,16 @@ export function verificarTokenInstructora(
 
   try {
     const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
-      instructorId?: unknown; studioId?: unknown; scope?: unknown; ref?: unknown; exp?: unknown;
+      instructorId?: unknown; studioId?: unknown; scope?: unknown; ref?: unknown; rolFicha?: unknown; exp?: unknown;
     };
     if (data.scope !== scope) return null;
     if (typeof data.exp !== 'number' || data.exp < ahora) return null;
     if (typeof data.instructorId !== 'string' || data.instructorId.length === 0) return null;
     if (typeof data.studioId !== 'string' || data.studioId.length === 0) return null;
     const ref = typeof data.ref === 'string' && data.ref.length > 0 ? data.ref : null;
-    return { instructorId: data.instructorId, studioId: data.studioId, ref };
+    // Solo lo llevan las invitaciones firmadas desde el 13-oct-2026.
+    const rolFicha = typeof data.rolFicha === 'string' && data.rolFicha.length > 0 ? data.rolFicha : null;
+    return { instructorId: data.instructorId, studioId: data.studioId, ref, rolFicha };
   } catch {
     return null;
   }

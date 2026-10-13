@@ -16,6 +16,9 @@ import type {
 } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
 import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
+import { cumpleMesDia, esCumpleEn } from '../socios/datos-privados.ts';
+import { edadEnFecha, EDAD_MAXIMA_PLAUSIBLE } from '../datos-salud/edad.ts';
+import { hoyEnEstudio, masDias, TZ_ESTUDIO } from '../utils.ts';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
 // ahora" del dashboard (app/api/automatizaciones/run/route.ts) y el cron de
@@ -32,7 +35,39 @@ const TRIGGERS_IMPLEMENTADOS: ReadonlySet<TriggerRule> = new Set<TriggerRule>([
   'BONO_SESIONES_BAJAS',
   'NUEVA_SOCIA',
   'RENOVACION_COBRADA',
+  'CUMPLEANOS',
 ]);
+
+// ⚠️ REVISIÓN LEGAL. Felicitar el cumpleaños es comunicación comercial y no se
+// le manda a una menor: 18 y no los 14 de la LOPDGDD (art. 7) para el
+// consentimiento, a propósito más estricto. Sin fecha COMPLETA no se sabe la
+// edad, así que tampoco se felicita.
+export const EDAD_MINIMA_FELICITAR = 18;
+
+/**
+ * La edad con la que se decide felicitar, o `null` si la fecha no sirve: vacía,
+ * imposible o de relleno (un 1900-01-01 de una importación no es una alumna de
+ * 126 años que cumple el 1 de enero). La comparte la cifra de alcance.
+ */
+export function edadParaFelicitar(fechaNacimiento: unknown, hoy: string): number | null {
+  const edad = edadEnFecha(fechaNacimiento, hoy);
+  return edad === null || edad > EDAD_MAXIMA_PLAUSIBLE ? null : edad;
+}
+
+/**
+ * ¿Se la felicita hoy? Su cumpleaños es el día de Madrid `hoy` (29-F → 1-M en
+ * año no bisiesto) y es mayor de edad con la fecha completa. La regla vive
+ * aquí UNA vez: la usan este motor y el CUMPLEANOS del motor de Marketing.
+ */
+export function felicitableHoy(s: { cumpleMmDd?: string | null; fechaNacimiento?: string | null }, hoy: string): boolean {
+  if (!esCumpleEn(cumpleMesDia(s), hoy)) return false;
+  const edad = edadParaFelicitar(s.fechaNacimiento, hoy);
+  return edad !== null && edad >= EDAD_MINIMA_FELICITAR;
+}
+
+// Un cumpleaños al año. Mismo número que el CUMPLEANOS del motor de marketing,
+// y dentro de la ventana de logs que carga el panel (330 días, supabase-data.ts).
+const DIAS_ENTRE_FELICITACIONES = 300;
 
 export interface AutomationCandidato {
   rule: AutomationRule;
@@ -103,16 +138,25 @@ export interface AutomationEngineInput {
   // Inngest serializando Maps a `{}` en el replay).
   consentimientosMarketing: Map<string, string>;
   textoConsentimientoVigente: string;
+  // P3.10: las reglas opcionales con su interruptor de servidor encendido para
+  // ESTE estudio (lib/engines/reglas-opcionales.ts). Ausente = ninguna: una
+  // regla CUMPLEANOS activa no hace nada sin él. Es la cerradura real; la
+  // pantalla y el dispatcher solo ahorran.
+  reglasOpcionalesEncendidas?: ReadonlySet<TriggerRule>;
 }
 
 export function computeAutomationCandidatos(
   {
     automationRules, automationLogs, automationLogsHistorico, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa,
-    consentimientosMarketing, textoConsentimientoVigente,
+    consentimientosMarketing, textoConsentimientoVigente, reglasOpcionalesEncendidas,
   }: AutomationEngineInput,
   now: Date
 ): AutomationCandidato[] {
   const candidatos: AutomationCandidato[] = [];
+  const opcionales = reglasOpcionalesEncendidas ?? new Set<TriggerRule>();
+  // El día del ESTUDIO: entre las 00:00 y las 02:00 de Madrid, el de UTC es
+  // todavía el anterior.
+  const hoy = hoyEnEstudio(now);
 
   // ── Índices compartidos (P0-19) ────────────────────────────────────────────
   // El motor lo comparten el cron (500k tenants) y el botón "Ejecutar ahora".
@@ -162,6 +206,12 @@ export function computeAutomationCandidatos(
 
   // Planes indexados por id — para BONO_SESIONES_BAJAS (cross-sell).
   const planById = new Map(planesTarifa.map(p => [p.id, p]));
+
+  // CUMPLEANOS: una felicitación por alumna aunque el estudio tenga dos reglas
+  // iguales (dos pestañas, o un INSERT a mano: la base no lo impide). Se mira el
+  // historial de TODAS ellas y lo que ya sale en esta misma pasada.
+  const reglasCumple = automationRules.filter(r => r.trigger === 'CUMPLEANOS').map(r => r.id);
+  const felicitadasEnEstaPasada = new Set<string>();
 
   automationRules.filter(r => r.activa).forEach(rule => {
     if (rule.trigger === 'AUSENCIA_DIAS') {
@@ -337,21 +387,21 @@ export function computeAutomationCandidatos(
     }
 
     if (rule.trigger === 'CLASE_MANANA') {
-      const manana = new Date(now);
-      manana.setDate(manana.getDate() + 1);
-      const mananaStr = manana.toISOString().slice(0, 10);
+      // Mañana y hoy en Madrid, no en UTC (retirado de la oferta, pero corre si
+      // alguien lo tuviera encendido): con UTC, a las 00:30 «mañana» era hoy.
+      const mananaStr = masDias(hoyEnEstudio(now), 1);
       sesiones
-        .filter(s => s.inicio.startsWith(mananaStr) && !s.cancelada)
+        .filter(s => hoyEnEstudio(new Date(s.inicio)) === mananaStr && !s.cancelada)
         .forEach(sesion => {
           const tipo = tipoById.get(sesion.tipoClaseId);
-          const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-          const hoyStr = now.toISOString().slice(0, 10);
+          const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO });
+          const hoyStr = hoyEnEstudio(now);
           reservas
             .filter(r => r.sesionId === sesion.id && r.estado === 'CONFIRMADA')
             .forEach(reserva => {
               const socio = socioById.get(reserva.socioId);
               if (!socio) return;
-              const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.ejecutadoEn.startsWith(hoyStr));
+              const alreadyLogged = logsDe(rule.id, socio.id).some(l => hoyEnEstudio(new Date(l.ejecutadoEn)) === hoyStr);
               if (alreadyLogged) return;
               // WhatsApp tiene muchísima mejor tasa de lectura a tiempo que
               // el email para un "mañana a las X" — se usa si hay teléfono,
@@ -565,6 +615,32 @@ export function computeAutomationCandidatos(
             reciboId: recibo.id,
           });
         });
+    }
+
+    // P3.10 · Felicitar el cumpleaños, el día que cumple en Madrid. Comercial:
+    // consentimiento de novedades vigente y enlace de baja. No regala nada.
+    if (rule.trigger === 'CUMPLEANOS' && opcionales.has('CUMPLEANOS')) {
+      socios.filter(s => s.activo && s.email).forEach(socio => {
+        if (!felicitableHoy(socio, hoy)) return;
+        // Una vez al año, no una vez al día: el id del log lleva el día de UTC,
+        // así que «Ejecutar ahora» a las 00:30 de Madrid y el cron de las 07:00
+        // UTC darían dos ids distintos para la misma felicitación.
+        const yaFelicitada = felicitadasEnEstaPasada.has(socio.id) || reglasCumple.some(id => logsDe(id, socio.id).some(l =>
+          l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO' &&
+          now.getTime() - new Date(l.ejecutadoEn).getTime() < DIAS_ENTRE_FELICITACIONES * 86400000,
+        ));
+        if (yaFelicitada) return;
+        if (!tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
+        felicitadasEnEstaPasada.add(socio.id);
+        candidatos.push({
+          rule, socio,
+          titulo: '¡Feliz cumpleaños!',
+          mensajeCliente: mensajeDe(rule, 'cumpleanos', { nombre: socio.nombre }),
+          proximaAccionEn: null,
+          accion: 'ENVIAR_EMAIL',
+          comercial: true,
+        });
+      });
     }
 
     // La cadena de arriba son `if` independientes sin `else`, y la columna

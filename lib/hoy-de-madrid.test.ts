@@ -30,8 +30,10 @@ const CODIGO = () => ['app', 'lib', 'components'].flatMap(d => ficheros(join(RAI
 
 // El mismo criterio que el `git grep` con el que se hizo la lista (PR del 12-oct-2026): una
 // línea de código (no un comentario) con el día ISO de un `new Date()` o un `Date.now()`.
+// Y del reloj que llega por parámetro (13-oct-2026, revisión de lo mergeado): `now`, `hoy`,
+// `ahora` o `x.hoy`. Sin eso se le escapaban cinco, en Veri*Factu y en el Decision OS.
 const DIA_UTC = /\.toISOString\(\)\.slice\(0,\s*10\)/;
-const RELOJ = /new Date\(\)|Date\.now\(\)/;
+const RELOJ = /new Date\(\)|Date\.now\(\)|\b(now|hoy|ahora)\.toISOString\(\)|\.hoy\.toISOString\(\)/;
 const esComentario = (linea: string) => /^\s*(\/\/|\/\*|\*)/.test(linea);
 
 // Los únicos que pueden seguir con el día de UTC, y por qué. Añadir uno aquí es una
@@ -41,6 +43,8 @@ const CON_DIA_UTC_A_PROPOSITO: Record<string, string> = {
     'el nombre del CSV que se descarga («respuestas-<estudio>-<fecha>.csv»): un nombre de fichero no decide nada',
   'app/api/interno/changelog/imagen/route.ts':
     'la carpeta del bucket donde se guarda una captura del changelog: la ruta es un nombre, nadie la lee como fecha',
+  'lib/socios/exportar-datos-socia.ts':
+    'el nombre del fichero JSON que se descarga con los datos de la socia: un nombre de fichero no decide nada',
   'lib/db/rls-test-helpers.ts':
     'fixture de los tests contra Postgres local: la fecha_inicio de una suscripción de prueba sin fecha de fin, que solo sirve de fila (quién la ve, de quién cuelga un recibo)',
 };
@@ -78,4 +82,20 @@ test('en verano, a las 23:59 aún es el mismo día y a las 00:00 ya el siguiente
   assert.equal(hoyEnEstudio(new Date('2026-07-15T21:59:00Z')), '2026-07-15');
   assert.equal(hoyEnEstudio(new Date('2026-07-15T22:00:00Z')), '2026-07-16');
   assert.equal(masDias(hoyEnEstudio(new Date('2026-07-15T22:00:00Z')), 7), '2026-07-23');
+});
+
+test('la guardia ve también el reloj que llega por parámetro', () => {
+  for (const l of ['const h = now.toISOString().slice(0, 10);', 'const h = s.hoy.toISOString().slice(0, 10);', 'x(hoy.toISOString().slice(0,10))']) {
+    assert.ok(DIA_UTC.test(l) && RELOJ.test(l), l);
+  }
+  // Una fecha cualquiera (el fin de un bono, una sesión) no es «hoy»: no cuenta.
+  assert.equal(RELOJ.test('const d = fin.toISOString().slice(0, 10);'), false);
+});
+
+test('un poder de Veri*Factu vale todo su último día, también pasadas las 02:00', async () => {
+  const { revisionCaducidad } = await import('./verifactu/apoderamiento.ts');
+  // 31-oct a las 23:30 de Madrid (22:30 UTC: desde el 25-oct, Madrid es UTC+1).
+  assert.equal(revisionCaducidad({ vigenteHasta: '2026-10-31', avisoCaducidadEn: 'x' }, new Date('2026-10-31T22:30:00Z')), null);
+  // 1-nov a las 00:30 de Madrid (23:30 UTC del 31): ya caducado, aunque en UTC aún sea 31.
+  assert.equal(revisionCaducidad({ vigenteHasta: '2026-10-31', avisoCaducidadEn: 'x' }, new Date('2026-10-31T23:30:00Z')), 'CADUCADA');
 });

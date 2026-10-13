@@ -64,7 +64,7 @@ function Invitacion() {
       <div>
         <h2 className="t-h1">Te han invitado al equipo</h2>
         <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-          {estudio.nombre} te ha dado de alta como instructora. Entra con tu cuenta y elige «Como instructora».
+          {estudio.nombre} te ha dado de alta como instructora. Entra con el correo en el que has recibido la invitación y elige «Como instructora».
         </p>
       </div>
       <p className="t-meta" style={{ margin: 0, lineHeight: 1.5 }}>

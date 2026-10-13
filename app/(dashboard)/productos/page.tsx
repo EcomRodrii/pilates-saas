@@ -4,6 +4,7 @@ import { useState, useId, useEffect, useRef } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useTutorial } from '@/lib/tutorial-context';
 import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
+import { avisoCoberturaFallida } from '@/lib/planes/cobertura-fallida';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
@@ -1175,6 +1176,15 @@ export default function Productos() {
     const datos = formularioAPlan(f);
     const editando = planModal && planModal !== 'new';
     const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
+    // La tarifa SÍ se guardó pero no a qué clases da acceso: no es «no se ha
+    // guardado». Se cierra el formulario (otro «Crear» haría otra igual) y se
+    // dice lo que pasó, en rojo, porque hay algo que arreglar.
+    if (!res.ok && 'filaEscrita' in res) {
+      setPlanModal(null);
+      setConEjemplo(false);
+      setAvisoError(avisoCoberturaFallida({ nombre: datos.nombre, editando: !!editando, aLaVenta: datos.activo, desactivada: res.desactivada }));
+      return null;
+    }
     // El error lo enseña el formulario, que se queda abierto con lo escrito.
     if (!res.ok) return res.error;
     setPlanModal(null);

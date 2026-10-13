@@ -42,8 +42,14 @@ interface ValorTutorial {
   abierto: RutaConTutorial | null;
   /** Con el «?»: cualquier rol que vea la pantalla. */
   abrir: (ruta: string) => void;
-  /** Al llegar a la pantalla: solo si `debeAbrirseSolo`. */
+  /** Al llegar a la pantalla: solo si `debeAbrirseSolo`, o si se pidió con `abrirAlLlegar`. */
   pedirAbrirSolo: (ruta: string) => void;
+  /**
+   * «Abrir y ver cómo se usa» desde «Tu Tentare» (P2.5): la pantalla aún no
+   * está montada, así que se apunta aquí (en memoria, 10 s) y la atiende su «?»
+   * al llegar. Es una petición de la persona, como pulsar el «?».
+   */
+  abrirAlLlegar: (ruta: string) => void;
   /** El «?» de una pantalla se apunta mientras está montado; devuelve con qué borrarse. */
   presente: (ruta: string) => () => void;
   /** Con la visita guiada en marcha no hay tutoriales: el «?» no se pinta. */
@@ -117,9 +123,25 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     setAbierto({ ...t, origen: 'boton' });
   }, [tour.activo]);
 
+  const alLlegar = useRef<{ ruta: string; hasta: number } | null>(null);
+  const abrirAlLlegar = useCallback((ruta: string) => {
+    const t = tutorialDePantalla(ruta);
+    alLlegar.current = t ? { ruta: t.ruta, hasta: Date.now() + 10_000 } : null;
+  }, []);
+
   const pedirAbrirSolo = useCallback((ruta: string) => {
     const t = tutorialDePantalla(ruta);
-    if (!t || !clave || abierto) return;
+    if (!t || abierto) return;
+    const pedido = alLlegar.current;
+    if (pedido?.ruta === t.ruta) {
+      alLlegar.current = null;
+      if (pedido.hasta > Date.now() && !tour.activo) {
+        vistosEnSesion.current.add(vistoEnSesion(t.ruta));
+        setAbierto({ ...t, origen: 'boton' });
+        return;
+      }
+    }
+    if (!clave) return;
     const abre = debeAbrirseSolo({
       rol, visitaActiva: tour.activo, visitaObligatoria: tour.obligatoria, dialogoAbierto: hayDialogoAbierto(),
       esSedeDeCadena: !!studio?.cadenaId, creadoEn: studio?.creadoEn, ruta: t.ruta, version: t.version,
@@ -144,10 +166,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
 
   const valor = useMemo<ValorTutorial>(
     () => ({
-      abierto: abierto?.ruta ?? null, abrir, pedirAbrirSolo, presente, visitaActiva: tour.activo,
+      abierto: abierto?.ruta ?? null, abrir, pedirAbrirSolo, abrirAlLlegar, presente, visitaActiva: tour.activo,
       ejemplo, pedirEjemplo: setEjemplo, soltarEjemplo,
     }),
-    [abierto?.ruta, abrir, pedirAbrirSolo, presente, tour.activo, ejemplo, soltarEjemplo],
+    [abierto?.ruta, abrir, pedirAbrirSolo, abrirAlLlegar, presente, tour.activo, ejemplo, soltarEjemplo],
   );
 
   return (

@@ -27,7 +27,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // porque decide el texto del aviso a la socia, no la política.
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
-import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
@@ -2472,15 +2472,40 @@ async function sincronizarTiposDePlan(
   return ESCRITURA_OK;
 }
 
-export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEscritura> {
+/**
+ * La fila de la tarifa SÍ se escribió, pero no a qué clases da acceso (su
+ * cobertura, `plan_tipos_clase`). No es «no se ha guardado»: decirlo así dejaba
+ * el formulario abierto y un segundo «Crear» hacía otra tarifa igual.
+ *  · `desactivada`: al crearla, se ha retirado de la venta para que nadie la
+ *    compre valiendo para todas las clases (falla CERRADO).
+ */
+export type FalloCoberturaTarifa = { ok: false; error: string; filaEscrita: true; desactivada: boolean };
+export type ResultadoTarifa = ResultadoEscritura | FalloCoberturaTarifa;
+
+export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoTarifa> {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
   if (error) return falloEscritura('[dbInsertPlanTarifa]', error);
+  // «Todas las clases» es no tener filas, y una tarifa nueva no tiene ninguna.
+  if (!plan.tiposClaseIds?.length) return ESCRITURA_OK;
   // Se propaga: una tarifa creada sin su cobertura vale para TODAS las clases,
   // que es justo lo contrario de lo que acaba de pedir la propietaria.
-  return sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds, plan.limitePorTipo);
+  const cobertura = await sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds, plan.limitePorTipo);
+  if (cobertura.ok) return cobertura;
+  // La tarifa existe y, sin sus filas, vale para TODAS las clases. Si estaba a la
+  // venta se retira (`activo = false`): mejor que nadie la compre a que la compre
+  // para clases que no cubre. Contando filas, como el resto de escrituras.
+  let desactivada = false;
+  if (plan.activo) {
+    const { data: tocadas, error: errRetirar } = await supabase
+      .from('planes_tarifa').update({ activo: false }).eq('id', plan.id).select('id');
+    desactivada = !errRetirar && (tocadas?.length ?? 0) > 0;
+    // Que no se pierda en silencio: la tarifa se queda a la venta para todas las clases.
+    if (errRetirar) reportDbError('[dbInsertPlanTarifa:retirar]', errRetirar);
+  }
+  return { ok: false, error: cobertura.error, filaEscrita: true, desactivada };
 }
 
-export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
+export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoTarifa> {
   const db: Record<string, unknown> = {};
   // Se escribe lo que el llamante trae de verdad. `undefined` se salta (no lo
   // manda, igual que antes: `JSON.stringify` lo tiraba de todas formas), pero
@@ -2505,10 +2530,15 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if (!tocadas?.length) return { ok: false, error: await motivoSinEfecto(id, 'cambiar') };
   if ('tiposClaseIds' in changes) {
     const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
+    // La fila YA está cambiada: lo que falta es su cobertura (`filaEscrita`). Si la
+    // edición la ponía a la venta, quien llama decide si retirarla
+    // (`studio-context` `updatePlan`, que sabe si antes lo estaba): si la cobertura
+    // de antes era «todas», un fallo aquí la dejaría vendiéndose así.
     if (!fila?.studio_id) {
-      return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.' };
+      return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.', filaEscrita: true, desactivada: false };
     }
-    return sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds, changes.limitePorTipo);
+    const cobertura = await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds, changes.limitePorTipo);
+    return cobertura.ok ? cobertura : { ...cobertura, filaEscrita: true, desactivada: false };
   }
   return ESCRITURA_OK;
 }
@@ -4975,20 +5005,30 @@ export async function dbUpdateInstructor(id: string, changes: Partial<Instructor
 // coincidencia de correo dejaba enganchar la cuenta de cualquiera desde un
 // estudio recién creado, sin que la persona aceptara nada (el porqué largo, en
 // lib/equipo/reclamar-reglas.ts). Idempotente: el mismo enlace se puede abrir
-// dos veces y la segunda no hace nada.
-export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
+// dos veces y la segunda no hace nada (`yaEra`).
+//
+// `rechazo` = el servidor ha dicho que NO de forma definitiva (enlace revocado o
+// caducado, otro correo, ficha de baja…: 400/403/404/409), con su motivo para
+// enseñarlo. Lo demás (sin red, 401, 429, 5xx) es pasajero: se reintenta en el
+// siguiente acceso con el token que se conserva.
+export async function dbReclamarAccesoEquipo(
+  token: string,
+): Promise<{ vinculadas: number; yaEra?: boolean; rechazo?: string }> {
   try {
     const res = await fetch('/api/equipo/reclamar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ token }),
     });
-    const cuerpo = await res.json().catch(() => null) as { vinculadas?: number } | null;
-    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return 0; }
-    return cuerpo?.vinculadas ?? 0;
+    const cuerpo = await res.json().catch(() => null) as { vinculadas?: number; yaEra?: boolean; error?: string } | null;
+    if ([400, 403, 404, 409].includes(res.status)) {
+      return { vinculadas: 0, rechazo: mensajeSeguro(cuerpo?.error, 'Esta invitación ya no vale. Pídele a tu estudio que te la envíe de nuevo.') };
+    }
+    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return { vinculadas: 0 }; }
+    return { vinculadas: cuerpo?.vinculadas ?? 0, yaEra: cuerpo?.yaEra === true };
   } catch (e) {
     reportDbError('[dbReclamarAccesoEquipo]', e);
-    return 0;
+    return { vinculadas: 0 };
   }
 }
 

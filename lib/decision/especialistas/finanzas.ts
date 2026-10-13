@@ -14,6 +14,7 @@ import {
 import { estimarProbabilidad, tasaBase } from '../prediccion.ts';
 import { caducaAntesDe } from '../../billing/caducidad-tarjeta.ts';
 import { planCubreTipoClase, precioMensualDeCuota } from '../../bono-logic.ts';
+import { hoyEnEstudio } from '../../utils.ts';
 
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 const MS_DIA = 86400000;
@@ -42,7 +43,7 @@ function reglaF1(sus: Suscripcion, idx: IndicesSenal, now: Date): Candidata | nu
   // 2026-08-18. Es el mismo punto ciego de mirar UNA suscripción que ya
   // corrigió P2-5, un escalón más abajo: ahí era «solo veía la primera», aquí
   // es «mira una y no suma las demás».
-  const hoyISO = now.toISOString().slice(0, 10);
+  const hoyISO = hoyEnEstudio(now);
   let saldoTotal = 0;
   // Y una sola candidata por socia, no una por fila: con dos bonos a cero el
   // especialista devolvía la misma alerta dos veces y solo la salvaba el

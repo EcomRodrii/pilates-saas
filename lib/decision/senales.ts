@@ -5,7 +5,7 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot, ContactoManualSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
-import { diaSemanaEstudio, franjaLocalDe, horaEstudio } from '../utils.ts';
+import { diaSemanaEstudio, franjaLocalDe, horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { tieneEntitlementActivo, precioMensualDeCuota } from '../bono-logic.ts';
 import { PREFIJO_RECIBO_PENALIZACION } from '../billing/penalizacion-aprobar-reglas.ts';
 import { estadosDeClientas, type ResultadoEstado } from '../clientas/estado.ts';
@@ -794,7 +794,7 @@ export function candidatasPorAfinidad(
       .map(r => r.socioId),
   );
   const objetivo = franjaLocalDe(sesion.inicio);
-  const hoyISO = now.toISOString().slice(0, 10);
+  const hoyISO = hoyEnEstudio(now);
   const desde = now.getTime() - VENTANA_COSTUMBRE_DIAS * MS_DIA;
 
   const resultado: CandidataAfinidad[] = [];

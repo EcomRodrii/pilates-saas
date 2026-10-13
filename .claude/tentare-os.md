@@ -169,7 +169,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   solo manda a entrar si el refresco falla con un 4xx de GoTrue: sin red o con un 5xx
   (`esFalloTransitorioDeRefresh`) la sesión sigue viva y no se toca.
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
-  migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
+  migr `20261004141529`…`20261004191152`, `doble_factor_por_correo_1…7`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
   y el servidor la apunta en `sesiones_confiadas` con `origen = 'correo'` (vale lo que viva la
   sesión); `sesion_confiada_de` sigue siendo la única regla y ninguna política cambió.
