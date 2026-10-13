@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { mensajeParaSocia, enlaceWhatsApp, telefonoE164 } from './mensajes-socia.ts';
 
 test('mensajeParaSocia: RECUPERAR_SOCIA usa el nombre y el estudio, tono para la SOCIA', () => {
@@ -105,4 +107,33 @@ test('caduca hoy o mañana: se dice así, no "en 0 días"', () => {
   const manana = mensajeParaSocia('PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 3, diasParaCaducar: 1 }, 'X');
   assert.match(manana!.cuerpo, /caduca mañana/);
   assert.doesNotMatch(`${hoy!.cuerpo}${manana!.cuerpo}`, /en 0 días|en 1 días/);
+});
+
+// ── Comercial o aviso de servicio (decisión del fundador, 13-oct-2026) ──────
+// Comercial = la invita a comprar o a volver: solo con su consentimiento de
+// novedades y con enlace de baja. Servicio = algo que ya tiene. Va por MENSAJE,
+// no por tipo: F1 y F3 comparten `PROPONER_RENOVACION_BONO` y son cada cosa.
+const CLASES: Array<[string, Record<string, string | number | boolean>, boolean, string]> = [
+  ['RECUPERAR_SOCIA', { nombre: 'Ana' }, true, '«Te echamos de menos», también con la cuota activa'],
+  ['ENVIAR_REACTIVACION', { nombre: 'Ana', descuentoPct: 15 }, true, 'una oferta con descuento'],
+  ['CONTACTAR_LEAD', { nombre: 'Ana' }, true, 'una interesada: no es clienta'],
+  ['CONVERTIR_PRUEBA', { nombre: 'Ana' }, true, 'tras la clase de prueba'],
+  ['PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 1 }, true, 'F1: «¿Renovamos tu bono?»'],
+  ['PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 4, diasParaCaducar: 10 }, false, 'F3: clases ya pagadas que caducan'],
+  ['CONGELAR_MEMBRESIA', { nombre: 'Ana' }, false, 'pausar su cuota le ahorra dinero, no le vende nada'],
+  ['COBRAR_PENDIENTE', { nombre: 'Ana', total: 60 }, false, 'una deuda'],
+];
+for (const [tipo, datos, comercial, porQue] of CLASES) {
+  test(`mensajeParaSocia: ${tipo} es ${comercial ? 'comercial' : 'aviso de servicio'} (${porQue})`, () => {
+    assert.equal(mensajeParaSocia(tipo, datos, 'X')?.comercial, comercial);
+  });
+}
+
+test('mensajeParaSocia: todo mensaje dice si es comercial (un tipo nuevo no se cuela sin clase)', () => {
+  const src = readFileSync(join(import.meta.dirname, 'mensajes-socia.ts'), 'utf8');
+  const funcion = src.slice(src.indexOf('export function mensajeParaSocia('), src.indexOf('export function telefonoE164('));
+  const devoluciones = [...funcion.matchAll(/return \{/g)].length;
+  const conClase = [...funcion.matchAll(/return \{\s*comercial: (true|false),/g)].length;
+  assert.ok(devoluciones >= 8);
+  assert.equal(conClase, devoluciones, 'un `return {` de mensajeParaSocia sin `comercial` delante');
 });

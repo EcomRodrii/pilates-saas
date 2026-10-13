@@ -26,6 +26,19 @@ test('AUT-4: los dos motores de automatización cortan el correo comercial a un 
   assert.ok(AUTO.indexOf('correoAutomatizacion({', mkt) > mkt, 'el corte va antes de construir el correo (marketing)');
 });
 
+test('AUT-4: «Ejecutar ahora» corta lo mismo que el cron: le pasa los buzones rotos a procesarCandidato', () => {
+  const RUN = readFileSync(new URL('../../app/api/automatizaciones/run/route.ts', import.meta.url), 'utf8');
+  assert.match(RUN, /rebotesDeEmails\(admin, candidatos\.filter\(c => c\.comercial\)/);
+  assert.match(RUN, /procesarCandidato\(c, \{[^}]*emailsRotos \}\)/);
+});
+
+test('AU-12: «Ejecutar ahora» también cuenta solo lo EJECUTADO', () => {
+  const RUN = readFileSync(new URL('../../app/api/automatizaciones/run/route.ts', import.meta.url), 'utf8');
+  const i = RUN.indexOf('firedPorRegla.set(');
+  assert.ok(i > 0);
+  assert.match(RUN.slice(i - 90, i), /if \(log\.resultado === 'EJECUTADO'\)/);
+});
+
 test('AUT-4: el aviso de servicio NO se corta por un rebote', () => {
   assert.match(AUTO, /c\.comercial && opts\.emailsRotos/, 'el motor clásico solo corta lo comercial');
 });

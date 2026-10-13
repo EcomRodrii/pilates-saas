@@ -40,6 +40,9 @@ export interface RecomendacionAPI {
   /** Qué hace el botón principal (lib/decision/efecto-aprobar.ts), según el
    * servidor. Opcional: una respuesta sin él se resuelve con `efectoDe`. */
   efecto?: EfectoAprobar;
+  /** Su mensaje es una oferta y la socia no ha aceptado recibirlas: por eso el
+   * botón es «Hecho» y no «Enviarle el mensaje» (`CanalesSocia.sinPermisoOfertas`). */
+  sinPermisoOfertas?: boolean;
   /** Lo que pasó al ejecutarla (lib/decision/resultado-ejecucion.ts). Solo en
    * una ya ejecutada: la del veredicto tras recargar, o la que la pantalla
    * acaba de preguntar (`/estado`) tras «Cobrar ahora». */

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 import { escucharToques, nacerDelToque } from "@/lib/panel/ultimo-toque"
+import { DentroDePortal, useDestinoPortal } from "@/components/ui/destino-portal"
 
 // Para que el diálogo nazca del botón que lo abre, hay que saber dónde fue el
 // último clic ANTES de abrirse: se escucha desde que este módulo se carga.
@@ -20,8 +21,11 @@ function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
 }
 
-function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+// Al anfitrión del panel y no a <body>: ahí no llega `.dark` y en modo oscuro
+// el diálogo salía blanco (components/ui/destino-portal.tsx).
+function DialogPortal({ container, ...props }: DialogPrimitive.Portal.Props) {
+  const destino = useDestinoPortal()
+  return <DialogPrimitive.Portal data-slot="dialog-portal" container={container ?? destino} {...props} />
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
@@ -60,13 +64,17 @@ function DialogContent({
         data-slot="dialog-content"
         // Nace del botón que lo abre: el origen de la escala es el último clic.
         ref={nacerDelToque}
+        // ⚠️ El margen del móvil va en el ANCHO (100 % − 2rem), no en el tope:
+        // `cn` sustituye el `max-w-*` de aquí por el de quien lo usa, y con el
+        // margen dentro del tope un `max-w-md` a secas tocaba los dos bordes a
+        // 390 px. Así cada diálogo solo elige cuánto crece en pantallas grandes.
         className={cn(
-          "panel-dialogo fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(calc(100%-2rem),24rem)] max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          "panel-dialogo fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-sm max-h-[85vh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className
         )}
         {...props}
       >
-        {children}
+        <DentroDePortal>{children}</DentroDePortal>
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
