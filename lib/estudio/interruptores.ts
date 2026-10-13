@@ -20,6 +20,8 @@ import { encendidaPara } from '../interruptor-por-estudio.ts';
 export const INTERRUPTORES = {
   /** Filtros y columnas nuevos de Clientas (P2.8). */
   filtrosClientas: 'CLIENTAS_FILTROS',
+  /** «Avisar por WhatsApp» a quien está en el equipo sin acceso (P3.14). */
+  invitarWhatsApp: 'EQUIPO_INVITAR_WHATSAPP',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;
