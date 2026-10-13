@@ -19,7 +19,13 @@ const json = (r: Route, b: unknown, status = 200) =>
 const TZ = 'Europe/Madrid';
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ymdMadrid = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
-const enDias = (n: number) => ymdMadrid(new Date(Date.now() + n * 86_400_000));
+// Aritmética de CALENDARIO sobre el día de Madrid, no `Date.now() + n × 24 h`: entre las 00:00 de Madrid y
+// la medianoche UTC, o al cruzar el cambio de hora (25-oct-2026), sumar horas cae un día antes o después
+// del que cuenta la app («termina en 12 días» sale 11).
+const enDias = (n: number) => {
+  const [a, m, d] = ymdMadrid(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+};
 const dmy = (ymd: string) => ymd.split('-').reverse().join('/');
 const dowMadrid = (d: Date) =>
   ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: TZ }).format(d));
