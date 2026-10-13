@@ -6,7 +6,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
@@ -15,7 +15,7 @@ import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
 import { borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
 import { DialogoBorrarDatos, DialogoDarDeBaja } from '@/components/socios/dar-de-baja';
 import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
@@ -274,14 +274,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     () => semaforo(condicionesSalud.filter(c => c.socioId === id)),
     [condicionesSalud, id],
   );
-  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
-  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo local de arriba nunca produce nada para ese rol.
-  // useSemaforoRecepcion trae el nivel de TODO el estudio en una sola
+  // RECEPCIÓN y la gerencia sí ven el semáforo, pero la RLS de condiciones_salud
+  // no les deja leer las filas — `condicionesSalud` les llega SIEMPRE vacío, así
+  // que el cálculo local de arriba nunca produce nada para esos roles.
+  // useSemaforoServidor trae el nivel de TODO el estudio en una sola
   // llamada; navegar a otra socia solo reindexa el mismo Map por otra
   // clave (sin re-fetch y sin arrastrar el nivel de la socia anterior).
-  const semaforoRecepcion = useSemaforoRecepcion(rol);
-  const semaforoSocio = rol === 'RECEPCION' ? (semaforoRecepcion.get(id) ?? 'VERDE') : semaforoLocal;
+  const semaforoServidor = useSemaforoServidor(rol);
+  const semaforoSocio = semaforoDesdeServidor(rol) ? (semaforoServidor.get(id) ?? 'VERDE') : semaforoLocal;
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);

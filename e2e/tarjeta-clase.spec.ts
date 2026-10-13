@@ -41,7 +41,15 @@ const socia = (id: string, nombre: string, apellidos: string, lead: string, cump
   fecha_alta: '2026-01-10T09:00:00+00:00', lead_stage: lead, campos_extra: {}, tags: [], cumple_mm_dd: cumple,
 });
 
-async function abrirClase(page: Page, o: { encendido: boolean; tarjeta: unknown; recepcion?: boolean }) {
+async function abrirClase(page: Page, o: {
+  encendido: boolean; tarjeta: unknown;
+  // Sin `equipo`, la propietaria.
+  equipo?: 'RECEPCION' | 'MANAGER';
+  // Lo que contesta `semaforo_salud_estudio`.
+  nivelRpc?: 'AMBAR' | 'ROJO';
+  // Lo que de verdad le da la RLS a quien no es la propietaria: ninguna condición.
+  condicionesComoLaRls?: boolean;
+}) {
   await montar(page);
   // Registradas DESPUÉS de `montar`: ganan a sus comodines.
   let preguntas = 0;
@@ -52,18 +60,18 @@ async function abrirClase(page: Page, o: { encendido: boolean; tarjeta: unknown;
     return json(r, { filtrosClientas: false, importarPegando: false, invitarWhatsApp: false, horarioDesdeImagen: false, tarjetaClase: o.encendido });
   });
   await page.route('**/rest/v1/studios**', (r) => json(r, {
-    id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: o.recepcion ? 'otra-cuenta' : UID,
+    id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: o.equipo ? 'otra-cuenta' : UID,
     email: 'cloe@example.com', moneda: 'EUR', tarjeta_clase: o.tarjeta,
   }));
-  if (o.recepcion) {
-    // Recepción: el estudio es de otra cuenta y la ficha del equipo con este usuario tiene rol RECEPCION.
+  if (o.equipo) {
+    // Equipo: el estudio es de otra cuenta y la ficha del equipo con este usuario lleva su rol.
     await page.route('**/rest/v1/instructores**', (r) => json(r, [
-      { id: 'ins-rec', studio_id: STUDIO_ID, nombre: 'Recepción', activo: true, rol: 'RECEPCION', color: '#8B7355', auth_user_id: UID },
+      { id: 'ins-equipo', studio_id: STUDIO_ID, nombre: 'Mostrador', activo: true, rol: o.equipo, color: '#8B7355', auth_user_id: UID },
     ]));
-    // A recepción el color le llega por la RPC, nunca las condiciones.
+    // A recepción y a la gerencia el color les llega por la RPC, nunca las condiciones.
     await page.route('**/rest/v1/rpc/semaforo_salud_estudio**', (r) => {
       semaforos++;
-      return json(r, [{ socio_id: 'soc-1', nivel: 'AMBAR' }]);
+      return json(r, [{ socio_id: 'soc-1', nivel: o.nivelRpc ?? 'AMBAR' }]);
     });
   }
   await page.route('**/rest/v1/socios**', (r) => json(r, [
@@ -85,9 +93,11 @@ async function abrirClase(page: Page, o: { encendido: boolean; tarjeta: unknown;
     id: 'nota-2', studio_id: STUDIO_ID, socio_id: 'soc-2', texto: 'Asunto privado', tipo: 'NOTA',
     creado_en: '2026-09-02T09:00:00Z', autor_uid: 'otra-cuenta', visibilidad: 'PRIVADA', fijada: true, editada_en: null,
   }]));
-  // Llega aunque el rol sea recepción (en producción la RLS se lo quita): así se
-  // prueba que la pantalla tampoco lo pintaría.
-  await page.route('**/rest/v1/condiciones_salud**', (r) => (condiciones++, json(r, [{
+  // Salvo `condicionesComoLaRls`, llega aunque el rol sea del equipo (en
+  // producción la RLS se lo quita): así se prueba que la pantalla tampoco lo
+  // pintaría. Severidad media y sin restricción dura: con ella, el cálculo local
+  // daría ÁMBAR.
+  await page.route('**/rest/v1/condiciones_salud**', (r) => (condiciones++, json(r, o.condicionesComoLaRls ? [] : [{
     id: 'cs-1', studio_id: STUDIO_ID, socio_id: 'soc-1', categoria: 'LESION', etiqueta: 'Lesión de rodilla', zona: 'RODILLA',
     restricciones: ['EVITAR_FLEXION'], severidad: 'MEDIA', estado: 'ACTIVA', inicio: '2026-01-01', fin: null, revisar_en: null,
     notas: null, creado_por: null, creado_en: '2026-01-01T09:00:00Z', actualizado_en: '2026-01-01T09:00:00Z',
@@ -159,9 +169,9 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
   });
 
   test('recepción: el color por su RPC y nunca «qué adaptar», aunque esté guardado y le llegaran los datos', async ({ page }) => {
-    const { condiciones } = await abrirClase(page, { encendido: true, tarjeta: TODO, recepcion: true });
+    const { condiciones } = await abrirClase(page, { encendido: true, tarjeta: TODO, equipo: 'RECEPCION' });
     const maria = filaDe(page, 'María García Fernández');
-    // El punto llega por `semaforo_salud_estudio` (useSemaforoRecepcion), en otra carga.
+    // El punto llega por `semaforo_salud_estudio` (useSemaforoServidor), en otra carga.
     await expect(maria.locator('[data-semaforo]')).toBeVisible({ timeout: 30_000 });
     await expect(maria.locator('[data-pieza="con-que-viene"]')).toHaveText('Bono 10 clases · le quedan 6');
     await expect(maria.locator('[data-pieza="nota"]')).toHaveText('Nota: Trae su propia esterilla', { timeout: 30_000 });
@@ -172,7 +182,7 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
   });
 
   test('recepción con salud «nada»: sin punto de color', async ({ page }) => {
-    const { semaforos } = await abrirClase(page, { encendido: true, tarjeta: { ...TODO, salud: 'nada' }, recepcion: true });
+    const { semaforos } = await abrirClase(page, { encendido: true, tarjeta: { ...TODO, salud: 'nada' }, equipo: 'RECEPCION' });
     const maria = filaDe(page, 'María García Fernández');
     await expect(maria.locator('[data-pieza="con-que-viene"]')).toBeVisible({ timeout: 30_000 });
     // El color se pidió (y llegó): que se pinta cuando toca lo prueba el test de arriba,
@@ -180,6 +190,42 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
     await expect.poll(semaforos, { timeout: 30_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(1_000);
     await expect(maria.locator('[data-semaforo]')).toHaveCount(0);
+  });
+
+  // La gerencia tenía el permiso (`puedeVerSemaforo`) y la RPC la dejaba pasar,
+  // pero la pantalla le pintaba el cálculo local, y la RLS no le da ninguna
+  // condición: el punto salía vacío.
+  test('gerencia: el punto de siempre le llega por su RPC, con lo que de verdad le da la RLS', async ({ page }) => {
+    const { semaforos, condiciones } = await abrirClase(page, {
+      encendido: false, tarjeta: TODO, equipo: 'MANAGER', condicionesComoLaRls: true,
+    });
+    const maria = filaDe(page, 'María García Fernández');
+    await expect(maria.locator('[data-semaforo]')).toBeVisible({ timeout: 30_000 });
+    await expect(maria.locator('[data-semaforo]')).toHaveAttribute('title', 'Adaptar ejercicios');
+    // La RPC se pidió de verdad; las condiciones también, y no trajeron nada.
+    await expect.poll(semaforos, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect.poll(condiciones, { timeout: 30_000 }).toBeGreaterThan(0);
+    // Solo a María: el resto no tiene nada en la RPC.
+    await expect(page.locator('li[data-reserva-id] [data-semaforo]')).toHaveCount(1);
+  });
+
+  test('gerencia: aunque le llegaran las condiciones, solo el color de la RPC y ningún texto clínico', async ({ page }) => {
+    // La propietaria eligió enseñar «qué adaptar», y la RPC dice ROJO donde el
+    // cálculo local sobre la condición filtrada diría ÁMBAR: así se ve de qué
+    // fuente sale el punto.
+    const { semaforos, condiciones } = await abrirClase(page, {
+      encendido: true, tarjeta: TODO, equipo: 'MANAGER', nivelRpc: 'ROJO',
+    });
+    const maria = filaDe(page, 'María García Fernández');
+    await expect(maria.locator('[data-semaforo]')).toHaveAttribute('title', 'Evitar movimientos', { timeout: 30_000 });
+    await expect.poll(semaforos, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect.poll(condiciones, { timeout: 30_000 }).toBeGreaterThan(0);
+    // La tarjeta ya pintó lo suyo: lo que falta no es por no haber llegado.
+    await expect(maria.locator('[data-pieza="nota"]')).toHaveText('Nota: Trae su propia esterilla', { timeout: 30_000 });
+    await page.waitForTimeout(1_000);
+    await expect(maria.locator('[data-pieza="adaptar"]')).toHaveCount(0);
+    await expect(page.getByText(/rodilla/i)).toHaveCount(0);
+    await expect(page.getByText(/notas de salud/i)).toHaveCount(0);
   });
 });
 
