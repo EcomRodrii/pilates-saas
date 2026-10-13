@@ -26,6 +26,8 @@ async function abrir(page: Page, o: {
     activo: 0, gets: 0, puts: [] as Record<string, unknown>[],
     /** Otra pestaña u otro dispositivo cambia el menú en el servidor. */
     otroDispositivo: (nuevos: string[]) => { ocultos = nuevos; },
+    /** Resuelve cuando ha contestado el interruptor: «no se ve» antes de eso no prueba nada. */
+    respondido: page.waitForResponse(r => r.url().includes('/api/configuracion/tu-tentare')).then(() => undefined),
   };
   // Después de `montar`: gana a sus comodines.
   await page.route('**/api/configuracion/tu-tentare', r => { cuenta.activo++; return json(r, o.activo ?? { activo: true }, o.status ?? 200); });
@@ -57,7 +59,10 @@ test.describe('Configuración · Tu Tentare', () => {
     for (const caso of [{ activo: { activo: false } }, { activo: {} }, { activo: { error: 'x' }, status: 500 }]) {
       const cuenta = await abrir(page, caso);
       await expect(page.locator('#menu-del-panel')).toBeVisible({ timeout: 60_000 });
-      expect(cuenta.activo).toBeGreaterThan(0);
+      await cuenta.respondido;
+      await expect.poll(() => cuenta.activo).toBeGreaterThan(0);
+      // Dos fotogramas: lo que la página hace con la respuesta ya está pintado.
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       await expect(page.getByTestId('tu-tentare')).toHaveCount(0);
     }
   });
@@ -109,13 +114,27 @@ test.describe('Configuración · Tu Tentare', () => {
     }
   });
 
-  test('si no se puede leer el menú, lo dice y no deja cambiar nada (ni una escritura)', async ({ page }) => {
+  test('si no se puede leer el menú, lo dice, no afirma qué está puesto y no deja cambiar nada (ni una escritura)', async ({ page }) => {
     const cuenta = await abrir(page, { lecturaFalla: true });
     await expect(page.getByTestId('tu-tentare').getByRole('alert')).toContainText('No hemos podido leer tu menú', { timeout: 60_000 });
-    const interruptor = fila(page, '/informes').getByRole('switch');
+    expect(cuenta.gets).toBeGreaterThan(0);
+    // Sin el menú leído no hay interruptor: un «Informes en el menú, activado»
+    // sobre un módulo que quizá esté escondido sería mentira.
+    await expect(fila(page, '/informes')).toBeVisible();
+    await expect(fila(page, '/informes').getByRole('switch')).toHaveCount(0);
+    await expect(page.getByTestId('tu-tentare').getByRole('switch')).toHaveCount(0);
+    expect(cuenta.puts).toHaveLength(0);
+  });
+
+  test('con el cajón «Tu menú» abierto, los interruptores esperan (escriben el mismo dato)', async ({ page }) => {
+    const cuenta = await abrir(page);
+    const interruptor = fila(page, '/informes').getByRole('switch', { name: 'Informes en el menú' });
+    await expect(interruptor).toBeEnabled({ timeout: 60_000 });
+    await page.locator('#menu-del-panel').click();
     await expect(interruptor).toBeDisabled();
     await interruptor.click({ force: true });
-    expect(cuenta.gets).toBeGreaterThan(0);
+    await page.keyboard.press('Escape');
+    await expect(interruptor).toBeEnabled();
     expect(cuenta.puts).toHaveLength(0);
   });
 
@@ -138,6 +157,8 @@ test.describe('Configuración · Tu Tentare', () => {
     await expect(interruptor).toBeVisible({ timeout: 60_000 });
     await interruptor.click();
     await expect(interruptor).toHaveAttribute('aria-busy', 'true');
+    // El primer PUT ya ha llegado (el `aria-busy` se pone antes de la lectura que lo precede).
+    await expect.poll(() => cuenta.puts.length).toBe(1);
     await interruptor.click({ force: true });
     await fila(page, '/libreta').getByRole('switch').click({ force: true });
     expect(cuenta.puts).toHaveLength(1);

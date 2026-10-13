@@ -1,18 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { tuTentareEncendidoPara, tuTentareVisible } from './interruptor.ts';
+import { tuTentareVisible } from './interruptor.ts';
 
-test('apagado de serie; «on» para todos; «estudios:» solo para esos', () => {
-  assert.equal(tuTentareEncendidoPara(undefined, 'studio-1'), false);
-  assert.equal(tuTentareEncendidoPara('', 'studio-1'), false);
-  assert.equal(tuTentareEncendidoPara('estudios:', 'studio-1'), false);
-  assert.equal(tuTentareEncendidoPara('true', 'studio-1'), false);
-  assert.equal(tuTentareEncendidoPara(' on ', 'studio-1'), true);
-  assert.equal(tuTentareEncendidoPara('estudios:a, studio-1', 'studio-1'), true);
-  assert.equal(tuTentareEncendidoPara('estudios:a', 'studio-1'), false);
-});
-
+// El formato (`on` / `estudios:`) lo prueba lib/interruptor-por-estudio.test.ts.
 test('solo la propietaria, y solo con el interruptor encendido', () => {
   assert.equal(tuTentareVisible('PROPIETARIO', 'on', 's'), true);
   for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR']) assert.equal(tuTentareVisible(rol, 'on', 's'), false, rol);

@@ -57,6 +57,12 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
   // los módulos de fábrica, y decir «ninguno escondido» sobre eso sería mentira.
   const listo = p.estado === 'listo';
   const [tuTentare, setTuTentare] = useState(false);
+  // «Tus módulos» y el cajón «Tu menú» escriben el mismo dato: nunca a la vez.
+  // Con un cajón abierto, sus interruptores esperan; con uno guardando, los
+  // cajones no se abren (si no, el cajón se quedaba con lo de antes y, al
+  // guardar, deshacía el cambio, o lo perdía al reiniciarse).
+  const [modulosGuardando, setModulosGuardando] = useState(false);
+  const abrirSiLibre = (id: Parameters<typeof abrir>[0]) => { if (!modulosGuardando) abrir(id); };
   useEffect(() => {
     let vivo = true;
     void tuTentareActivo().then(a => { if (vivo) setTuTentare(a); });
@@ -102,19 +108,19 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
           id="menu-del-panel"
           icono={Menu}
           valor={resumenMenuPanel(listo ? { total: p.grupos.reduce((n, g) => n + g.items.length, 0), ocultos: p.modulosOcultos.size } : null)}
-          onAbrir={abrir}
+          onAbrir={abrirSiLibre}
         />
         <FilaAjuste
           id="inicio-del-panel"
           icono={LayoutDashboard}
           valor={resumenInicioPanel(listo ? { total: p.seccionesHome.length, ocultos: p.homeOcultos.size } : null)}
-          onAbrir={abrir}
+          onAbrir={abrirSiLibre}
         />
         <FilaAjuste
           id="posicion-del-menu"
           icono={PanelLeft}
           valor={resumenPosicionMenu(listo ? p.posicion : null)}
-          onAbrir={abrir}
+          onAbrir={abrirSiLibre}
         />
       </GrupoFilas>
 
@@ -127,7 +133,13 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
       {/* «Tu Tentare», después de lo de siempre: diecinueve filas delante
           enterrarían «Claro u oscuro». Tras cada cambio el hook vuelve a leer:
           el cajón «Tu menú» no puede quedarse con datos viejos y deshacerlo. */}
-      {tuTentare && <TusModulos onCambio={() => { if (!p.sucio) p.descartar(); }} />}
+      {tuTentare && (
+        <TusModulos
+          bloqueado={cajon !== null}
+          onGuardando={setModulosGuardando}
+          onCambio={() => { if (!p.sucio) p.descartar(); }}
+        />
+      )}
 
       <CajonAjuste id="menu-del-panel" abierto={cajon === 'menu-del-panel'} onCerrar={cerrarCajon}>
         {p.estado === 'cargando' ? cargando : (

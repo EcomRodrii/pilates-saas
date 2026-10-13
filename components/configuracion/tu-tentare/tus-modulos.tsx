@@ -51,7 +51,13 @@ function conRotulos(grupos: GrupoTuTentare[]): { label: string; modulos: ModuloT
   return out;
 }
 
-export function TusModulos({ onCambio }: { onCambio: () => void }) {
+export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
+  onCambio: () => void;
+  /** Hay un cajón de «Tu panel» abierto: escribe el mismo dato, así que aquí se espera. */
+  bloqueado?: boolean;
+  /** Para que la sección no abra un cajón mientras esto guarda. */
+  onGuardando?: (guardando: boolean) => void;
+}) {
   const { puedeVer } = usePermisos();
   const { studio } = useStudio();
   const tutorial = useTutorial();
@@ -91,9 +97,10 @@ export function TusModulos({ onCambio }: { onCambio: () => void }) {
   const cuenta = contar(grupos, vistos);
 
   async function cambiar(m: ModuloTuTentare, enMenu: boolean) {
-    if (enVuelo.current || ocultos === null) return;
+    if (enVuelo.current || ocultos === null || bloqueado) return;
     enVuelo.current = true;
     setGuardando(m.href);
+    onGuardando?.(true);
     setErrores(prev => { const { [m.href]: _, ...resto } = prev; return resto; });
     try {
       // Sobre el menú de AHORA, no el de cuando se abrió la pestaña: otra pestaña
@@ -115,6 +122,7 @@ export function TusModulos({ onCambio }: { onCambio: () => void }) {
     } finally {
       enVuelo.current = false;
       setGuardando(null);
+      onGuardando?.(false);
     }
   }
 
@@ -157,7 +165,9 @@ export function TusModulos({ onCambio }: { onCambio: () => void }) {
             const estadoPlan = m.feature && plan && incluido !== null
               ? estadoDelPlan({ enTuPlan: incluido, activo: plan.activo, planMinimo: minimo })
               : undefined;
-            const nota = estado === 'solo-todo' && modo === 'esencial' ? 'Lo verás al poner el menú en «Todo».' : null;
+            // Sin el menú leído no se sabe si está puesto: ni interruptor ni nota
+            // (un «en el menú, activado» de un módulo escondido sería mentira).
+            const nota = ocultos !== null && estado === 'solo-todo' && modo === 'esencial' ? 'Lo verás al poner el menú en «Todo».' : null;
             return (
               <li key={m.href} data-testid="modulo-tu-tentare" data-modulo={m.href} className="px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -165,11 +175,11 @@ export function TusModulos({ onCambio }: { onCambio: () => void }) {
                   <span className="min-w-0 flex-1"><TituloFila titulo={m.label} estado={estadoPlan} /></span>
                   {m.fijo ? (
                     <EstadoAjuste tono="neutro" className="shrink-0">No se puede quitar</EstadoAjuste>
-                  ) : (
+                  ) : ocultos === null ? null : (
                     <Interruptor
                       on={enMenu}
                       ariaLabel={`${m.label} en el menú`}
-                      disabled={ocultos === null || (guardando !== null && guardando !== m.href)}
+                      disabled={bloqueado || (guardando !== null && guardando !== m.href)}
                       ocupado={guardando === m.href}
                       onChange={v => { void cambiar(m, v); }}
                     />

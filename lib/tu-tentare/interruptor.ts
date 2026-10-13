@@ -9,15 +9,9 @@
 // los ids de estudio viajan al navegador. ⚠️ Cambiarla en Vercel no llega a
 // producción sin un despliegue de código. Puro, sin `@/`.
 
-import { estudiosDelInterruptor } from '../asistente/interruptor.ts';
-
-export function tuTentareEncendidoPara(valor: string | undefined, studioId: string): boolean {
-  if ((valor ?? '').trim() === 'on') return true;
-  const estudios = estudiosDelInterruptor(valor);
-  return !!estudios && !!studioId && estudios.includes(studioId);
-}
+import { encendidaPara } from '../interruptor-por-estudio.ts';
 
 /** ¿Lo ve esta sesión? Solo la propietaria (Tu panel es solo suyo) y con el interruptor encendido. */
 export function tuTentareVisible(rol: string, valor: string | undefined, studioId: string): boolean {
-  return rol === 'PROPIETARIO' && tuTentareEncendidoPara(valor, studioId);
+  return rol === 'PROPIETARIO' && encendidaPara(valor, studioId);
 }
