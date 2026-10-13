@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
+import { reglasOpcionalesEncendidas } from '@/lib/engines/reglas-opcionales';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { dbRedaccionIaActiva } from '@/lib/decision/db';
 import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
@@ -14,6 +15,7 @@ import { mapLimit } from '@/lib/concurrency';
 import type { AutomationLog } from '@/lib/types';
 import { errorInterno } from '@/lib/errores-servidor';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 
 // Un estudio grande puede tener bastantes candidatos (email + redacción IA por
 // cada uno); damos margen sobre el default de Vercel para que no corte a medias.
@@ -147,6 +149,7 @@ export async function POST(req: NextRequest) {
         planesTarifa: data.planesTarifa,
         consentimientosMarketing,
         textoConsentimientoVigente,
+        reglasOpcionalesEncendidas: reglasOpcionalesEncendidas(sesion.studioId),
       },
       new Date(nowISO),
     );
@@ -161,6 +164,11 @@ export async function POST(req: NextRequest) {
       dbRedaccionIaActiva(sesion.studioId),
     ]);
     const whatsapp = whatsappDelEstudio(whatsappConfig);
+    // AUT-4, como el cron: un correo COMERCIAL no sale a una dirección que ya
+    // rebotó, se quejó o el proveedor suprimió. Este botón no lo miraba, así que
+    // pulsarlo escribía a buzones que el cron ya había dejado de tocar. Si la
+    // lectura falla, lanza: el catch de abajo responde 500 y no se manda nada.
+    const emailsRotos = new Set((await rebotesDeEmails(admin, candidatos.filter(c => c.comercial).map(c => c.socio?.email))).keys());
 
     // Concurrencia acotada (como el botón anterior): procesarCandidato es
     // independiente por candidato, escribe su log (dbUpsert, id determinista) y
@@ -168,14 +176,18 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, conIA, marca, nowISO, dry, resend, whatsapp }),
+      (c) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, conIA, marca, nowISO, dry, resend, whatsapp, emailsRotos }),
     );
 
     // En seco no se toca el contador: no ha disparado nada.
     if (!dry) {
-      // Contador de disparos por regla (determinista, como el cron).
+      // Contador de disparos por regla (determinista, como el cron). AU-12: solo
+      // lo que de verdad se ejecutó, no los candidatos; con el corte por rebote
+      // hay más FALLIDO y «Ejecutada N veces» se inflaba más.
       const firedPorRegla = new Map<string, number>();
-      for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
+      logs.forEach((log, i) => {
+        if (log.resultado === 'EJECUTADO') firedPorRegla.set(candidatos[i].rule.id, (firedPorRegla.get(candidatos[i].rule.id) ?? 0) + 1);
+      });
       for (const [ruleId, count] of firedPorRegla) {
         const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
         await dbUpdateAutomationRuleServidor(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });

@@ -100,7 +100,11 @@ export async function GET(req: NextRequest) {
   const canales = await canalesDeSocias(sesion.studioId, [
     ...(recomendacionGanadora ? [recomendacionGanadora] : []), ...pendientes,
   ]);
-  const conEfecto = (r: Recomendacion) => ({ ...r, efecto: efectoAlAprobar(r, canales(r)) });
+  // Y si el «Hecho» es porque su mensaje es una oferta y ella no ha aceptado
+  // recibirlas, la tarjeta lo dice: si no, parecería que falta su email.
+  const conEfecto = (r: Recomendacion) => ({
+    ...r, efecto: efectoAlAprobar(r, canales(r)), sinPermisoOfertas: canales(r)?.sinPermisoOfertas === true,
+  });
   // Callar porque la apertura ya habló no es «una semana tranquila».
   const semanaTranquila = mensajesRecientes.length >= 5
     && mensajesRecientes.every(m => m.tipo === 'SILENCIO' && m.motivoSilencio !== MOTIVO_SILENCIO_APERTURA);

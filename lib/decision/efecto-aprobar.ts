@@ -40,6 +40,11 @@ export interface RecomendacionParaEfecto {
 export interface CanalesSocia {
   whatsapp: boolean;
   email: boolean;
+  /**
+   * El mensaje es comercial y no ha aceptado recibir ofertas: por eso no hay por
+   * dónde, aunque tenga email o teléfono. La tarjeta lo dice junto al «Hecho».
+   */
+  sinPermisoOfertas?: boolean;
 }
 
 /** `RESEND_API_KEY` puesta y que no sea el marcador de ejemplo (`re_XXXX…`). */
@@ -47,20 +52,43 @@ export function emailConfigurado(apiKey: string | null | undefined): boolean {
   return !!apiKey && !apiKey.startsWith('re_XXXX');
 }
 
+/**
+ * Un mensaje COMERCIAL (`MensajeParaSocia.comercial`) solo sale si ha aceptado
+ * recibir ofertas, por email y por WhatsApp —para la LSSI los dos son
+ * comunicación electrónica, y es el mismo consentimiento que exige el motor de
+ * marketing en los dos—, y nunca a un correo marcado como roto (rebote, queja o
+ * baja del proveedor), como en Automatizaciones. Un aviso de servicio sale como
+ * siempre. Decisión del fundador, 13-oct-2026 (docs/decision-os-mensajes-comerciales.md).
+ */
 export function canalesSocia(p: {
   accion: { tipo: string; canal?: unknown };
   socia: { email?: string | null; telefono?: string | null } | null;
   whatsappConectado: boolean;
   emailConfigurado: boolean;
+  comercial: boolean;
+  /** `tieneConsentimientoMarketingVigente`: el texto exacto de hoy, no uno antiguo. */
+  consentimientoVigente: boolean;
+  correoRoto: boolean;
 }): CanalesSocia {
+  if (p.comercial && !p.consentimientoVigente) return { whatsapp: false, email: false, sinPermisoOfertas: true };
   return {
     whatsapp: p.accion.tipo === 'CONTACTO_MANUAL' && p.accion.canal === 'WHATSAPP' && !!p.socia?.telefono && p.whatsappConectado,
-    email: !!p.socia?.email && p.emailConfigurado,
+    email: !!p.socia?.email && p.emailConfigurado && !(p.comercial && p.correoRoto),
   };
 }
 
 export function puedeEscribirle(c: CanalesSocia): boolean {
   return c.whatsapp || c.email;
+}
+
+/** Por qué no ha salido nada, para el detalle que queda en Actividad. Sin punto final. */
+export function porQueNoLeLlega(c: CanalesSocia, p: { tieneEmail: boolean; porWhatsapp: boolean; correoRoto: boolean }): string {
+  if (c.sinPermisoOfertas) return 'no ha aceptado recibir ofertas del estudio';
+  const porQue = [
+    !p.tieneEmail ? 'no tiene email' : p.correoRoto ? 'su correo está marcado como roto' : 'el envío de emails no está configurado',
+    ...(p.porWhatsapp ? ['el WhatsApp del estudio no está conectado'] : []),
+  ];
+  return porQue.join(' y ');
 }
 
 // ─── El efecto y su rótulo ───────────────────────────────────────────────────
