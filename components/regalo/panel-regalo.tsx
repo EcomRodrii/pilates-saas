@@ -122,7 +122,7 @@ export function PanelRegalo() {
     setReenviando(t.id); setAviso(null);
     const r = await llamar(`/api/regalo/${t.id}`, 'POST', { accion: 'reenviar' });
     setReenviando(null);
-    if (!r.ok) { setAvisoError(true); setAviso((r.json.error as string) ?? 'No se ha podido reenviar el correo.'); return; }
+    if (!r.ok) { setAvisoError(true); setAviso((r.json.error as string) ?? 'No se ha podido reenviar el correo.'); return; } // toast-no-es-error: `avisoError` pinta el Toast en rojo
     setAvisoError(false); setAviso(`Correo reenviado a ${t.destinatario_nombre ?? 'quien lo recibe'}.`);
     await cargar();
   }
