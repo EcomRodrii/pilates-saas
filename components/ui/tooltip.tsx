@@ -6,6 +6,7 @@ import { InfoIcon } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { DentroDePortal, useDestinoPortal } from "@/components/ui/destino-portal"
 
 // Dos componentes con la misma pinta y propósitos DISTINTOS. Elegir mal rompe
 // la accesibilidad, así que la diferencia importa:
@@ -38,8 +39,9 @@ function TooltipProvider({ ...props }: TooltipPrimitive.Provider.Props) {
 // del propio diálogo.
 //
 // Glass oscuro de la marca (brand/component-guidelines.md, Tooltip): `.t-glass-dark`
-// pone fondo, desenfoque, borde y tinta, y es oscuro en los dos modos — el
-// portal va a `body`, fuera de `.dark`, así que no depende de él. Radio `sm`
+// pone fondo, desenfoque, borde y tinta, y es oscuro en los dos modos: sus
+// valores no cambian con `.dark`, así que da igual dónde caiga el portal (en el
+// panel, su anfitrión; fuera, `body`). Radio `sm`
 // (8) y 240 de ancho. ⚠️ `.t-glass-dark` va sin capa y gana a las utilidades:
 // aquí no se le añade ningún fondo, borde ni color.
 const tooltipPopupClass =
@@ -58,6 +60,7 @@ function Tooltip({
   side?: "top" | "bottom" | "left" | "right"
   sideOffset?: number
 }) {
+  const destino = useDestinoPortal()
   return (
     <TooltipPrimitive.Root>
       {/* 400 ms con el ratón (la guía); con el teclado, al recibir el foco. */}
@@ -66,13 +69,13 @@ function Tooltip({
         delay={400}
         render={children}
       />
-      <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Portal container={destino}>
         <TooltipPrimitive.Positioner className="z-[60]" side={side} sideOffset={sideOffset}>
           <TooltipPrimitive.Popup
             data-slot="tooltip"
             className={tooltipPopupClass}
           >
-            {content}
+            <DentroDePortal>{content}</DentroDePortal>
           </TooltipPrimitive.Popup>
         </TooltipPrimitive.Positioner>
       </TooltipPrimitive.Portal>
@@ -95,6 +98,7 @@ function InfoTip({
   sideOffset?: number
   className?: string
 }) {
+  const destino = useDestinoPortal()
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger
@@ -109,7 +113,7 @@ function InfoTip({
       >
         <InfoIcon className="size-3.5" aria-hidden="true" />
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={destino}>
         <PopoverPrimitive.Positioner className="z-[60]" side={side} sideOffset={sideOffset}>
           <PopoverPrimitive.Popup
             data-slot="infotip"
@@ -118,7 +122,7 @@ function InfoTip({
               "max-w-72 px-3 py-2 text-xs leading-relaxed"
             )}
           >
-            {children}
+            <DentroDePortal>{children}</DentroDePortal>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>

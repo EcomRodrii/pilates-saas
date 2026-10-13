@@ -14,6 +14,7 @@ import {
 import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { hoyEnEstudio } from '@/lib/utils';
 
 // Asistente de importación del HORARIO — tercera pieza de la migración asistida
 // (tras socias y membresías). Acepta las dos formas en que las plataformas
@@ -56,7 +57,9 @@ export default function ImportarHorarioPage() {
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportClases | null>(null);
   const [semanas, setSemanas] = useState(4);
-  const [desde, setDesde] = useState(() => new Date().toISOString().slice(0, 10));
+  // El día del estudio: con el de UTC, entre las 00:00 y las 02:00 de Madrid el
+  // horario recurrente empezaba AYER y su primera clase nacía en el pasado.
+  const [desde, setDesde] = useState(() => hoyEnEstudio());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(

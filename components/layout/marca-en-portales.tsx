@@ -3,13 +3,14 @@
 import { useEffect } from 'react';
 
 // La marca del panel (`.marca-panel`, app/globals.css: tipografía y brand slot
-// por defecto) también para lo que el panel abre en un portal a `document.body`:
-// los diálogos y tooltips de base-ui van ahí por defecto y quedaban FUERA del
-// envoltorio del layout, con la letra de siempre en mitad de un panel con la nueva.
+// por defecto) también para lo que el panel abra en un portal a `document.body`,
+// FUERA del envoltorio del layout, con la letra de siempre en mitad de un panel
+// con la nueva.
 //
-// No se les cambia el `container` a esos portales: base-ui anida el portal de
-// un popover dentro del de su diálogo, y sacarlo al anfitrión del panel
-// (lib/panel-portal.ts) movería esa jerarquía. Se pone la clase en `body`
+// Ya no es el caso de los diálogos, popovers y tooltips de base-ui: desde
+// octubre de 2026 van al anfitrión del panel (components/ui/destino-portal.tsx),
+// dentro del envoltorio y de `.dark`, y anidados donde base-ui los anida. Esto
+// queda de red para lo que todavía caiga en <body>. Se pone la clase en `body`
 // mientras el panel está montado y se quita al salir, así que la app de la
 // alumna, /reservar y la landing no la ven nunca.
 export function MarcaEnPortales() {
