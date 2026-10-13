@@ -461,15 +461,50 @@ export function pasoPorId(id: string): PasoVisita | undefined {
  * `/configuracion` NO es estar en el sitio: cada pestaña es otra pantalla.
  */
 export function tabDe(paso: Pick<PasoVisita, 'href'>): string | null {
-  const q = paso.href?.split('?')[1]?.split('#')[0];
-  return q ? new URLSearchParams(q).get('tab') : null;
+  return parametroDe(paso, 'tab');
 }
 
-/** ¿Estoy en el sitio del paso? Ruta Y, si el paso vive en una pestaña, esa pestaña. */
-export function lugarCoincide(paso: Pick<PasoVisita, 'ruta' | 'href'>, pathname: string, tabActual: string | null): boolean {
-  if (!rutaCoincide(paso.ruta, pathname)) return false;
+/** La herramienta que el paso quiere abierta (`&abrir=`), si la quiere. */
+export function abrirDe(paso: Pick<PasoVisita, 'href'>): string | null {
+  return parametroDe(paso, 'abrir');
+}
+
+function parametroDe(paso: Pick<PasoVisita, 'href'>, nombre: string): string | null {
+  const q = paso.href?.split('?')[1]?.split('#')[0];
+  return q ? new URLSearchParams(q).get(nombre) : null;
+}
+
+/** El id de la fila de una herramienta de Configuración (`idFilaHerramienta`, components/configuracion/shell/fila-herramienta.tsx). */
+const FILA_HERRAMIENTA = '#fila-herramienta-';
+
+/** La herramienta cuya fila señala el paso (`#fila-herramienta-salas` → `salas`), si señala una. */
+export function herramientaDe(paso: Pick<PasoVisita, 'selector'>): string | null {
+  return paso.selector.startsWith(FILA_HERRAMIENTA) ? paso.selector.slice(FILA_HERRAMIENTA.length) : null;
+}
+
+/**
+ * Dónde está la persona respecto al paso:
+ *  · `sitio`: donde está lo que se señala (ruta y, si la tiene, su pestaña, sin otra herramienta encima);
+ *  · `herramienta`: DENTRO de la herramienta cuya fila señala el paso. Es lo que pasa al hacer lo que
+ *    pide («Pulsa «Tipos de clase» y crea el primero»): la herramienta ocupa el sitio de la sección y la
+ *    fila deja de estar. Está en el paso, pero ya no hay nada que señalar;
+ *  · `fuera`: otra pantalla, otra pestaña u otra herramienta abierta encima de la pestaña (con «Salas»
+ *    abierta, «Horario» no se ve aunque la pestaña sea la suya).
+ */
+export type LugarPaso = 'sitio' | 'herramienta' | 'fuera';
+
+export function lugarDelPaso(
+  paso: Pick<PasoVisita, 'ruta' | 'href' | 'selector'>,
+  pathname: string,
+  tabActual: string | null,
+  abrirActual: string | null,
+): LugarPaso {
+  if (!rutaCoincide(paso.ruta, pathname)) return 'fuera';
   const tab = tabDe(paso);
-  return tab === null || tab === tabActual;
+  if (tab === null) return 'sitio';
+  if (tab !== tabActual) return 'fuera';
+  if (abrirActual === abrirDe(paso)) return 'sitio';
+  return abrirActual !== null && abrirActual === herramientaDe(paso) ? 'herramienta' : 'fuera';
 }
 
 /** ¿Esta ruta del navegador es la del paso? `/clientas/*` casa con cualquier ficha. */
