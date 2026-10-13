@@ -310,6 +310,14 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
+  `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
+  vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
+  `mensajeParaSocia` (`comercial`), no el `tipo` (F1 y F3 comparten `PROPONER_RENOVACION_BONO`), y la
+  puerta es UNA, `canalesSocia`: botón, ejecutores y piloto automático. R6 (congelar la cuota) es
+  servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
+  el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
+  ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso

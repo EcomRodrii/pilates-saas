@@ -272,3 +272,29 @@ test('sin lista de orden (undefined) no revienta: devuelve los items tal cual', 
   const items = [it('/a'), it('/b')];
   assert.deepEqual(ordenarItemsMenu(items, undefined).map(x => x.href), ['/a', '/b']);
 });
+
+// ⚠️ Con zod 4, `.partial()` aplica el `.default()` de `bloques`: un PUT de solo
+// `{ ocultos }` traía bloques DE FÁBRICA y, fusionados encima, borraban los del
+// estudio (su app y /reservar) cada vez que alguien guardaba «Tu menú».
+test('guardar el menú no toca los bloques del estudio (ni el borrador ni lo publicado)', async () => {
+  const { fusionarLayout, layoutConfigSchema, layoutDraftSchema } = await import('./layout-schema.ts');
+  const { DEFAULT_LAYOUT } = await import('./layout-runtime.ts');
+  const base = layoutConfigSchema.parse(DEFAULT_LAYOUT);
+  const conBloques = structuredClone(base);
+  // Un arreglo propio: los bloques de fábrica al revés y sin el último.
+  const propio = [...base.bloques.home.draft].reverse().slice(1);
+  conBloques.bloques.home.draft = propio;
+  conBloques.bloques.reservar.publicado = propio;
+  const actual = { ...conBloques, orden: ['/citas'], home: { orden: ['estado'], ocultos: ['x'] } };
+
+  const parche = layoutDraftSchema.parse({ ocultos: ['/informes'] });
+  const final = fusionarLayout(actual, parche);
+  assert.deepEqual(final.ocultos, ['/informes']);
+  assert.deepEqual(final.orden, ['/citas'], 'el orden se conserva');
+  assert.deepEqual(final.home, { orden: ['estado'], ocultos: ['x'] }, 'el Resumen se conserva');
+  assert.ok(propio.length > 1);
+  assert.deepEqual(final.bloques.home.draft, propio, 'el borrador de la app se conserva');
+  assert.deepEqual(final.bloques.reservar.publicado, propio, 'lo publicado de /reservar se conserva');
+  // Y sin el arreglo (lo de antes) se habría perdido: el parche trae bloques de fábrica.
+  assert.ok('bloques' in parche);
+});

@@ -25,3 +25,6 @@ export const repetirMesEncendido = (studioId: string) => encendidaPara(process.e
 
 /** «Plazas libres» en el Calendario (P3.9, pieza F). */
 export const plazasLibresEncendido = (studioId: string) => encendidaPara(process.env.CALENDARIO_PLAZAS_LIBRES, studioId);
+
+/** «Felicitar el cumpleaños» en Automatizaciones (P3.10). */
+export const felicitarCumpleEncendido = (studioId: string) => encendidaPara(process.env.AUTOMATIZACION_CUMPLEANOS, studioId);

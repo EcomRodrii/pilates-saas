@@ -125,6 +125,26 @@ export function cumpleMesDia(s: { cumpleMmDd?: string | null; fechaNacimiento?: 
   return m ? `${m[1]}-${m[2]}` : null;
 }
 
+/**
+ * ¿Es su cumpleaños el día `hoyISO` ('YYYY-MM-DD', el día del ESTUDIO: quien
+ * llama usa `hoyEnEstudio`, nunca el de UTC)?
+ *
+ * Nacer un 29 de febrero: en un año no bisiesto se celebra el 1 de marzo. Mismo
+ * criterio que `edadEnFecha` (lib/datos-salud/edad.ts): un día más tarde, nunca
+ * antes, así que la felicitación y la mayoría de edad caen el mismo día.
+ */
+export function esCumpleEn(mmdd: string | null | undefined, hoyISO: string): boolean {
+  const c = mmdd?.match(/^(\d{2})-(\d{2})$/);
+  const h = hoyISO.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!c || !h) return false;
+  const cumple = `${c[1]}-${c[2]}`;
+  const hoy = `${h[2]}-${h[3]}`;
+  if (cumple !== '02-29') return cumple === hoy;
+  const anio = Number(h[1]);
+  const bisiesto = (anio % 4 === 0 && anio % 100 !== 0) || anio % 400 === 0;
+  return hoy === (bisiesto ? '02-29' : '03-01');
+}
+
 /** «14 de marzo». Año bisiesto fijo para que el 29 de febrero exista. */
 export function formatearCumple(mmdd: string | null): string | null {
   const m = mmdd?.match(/^(\d{2})-(\d{2})$/);

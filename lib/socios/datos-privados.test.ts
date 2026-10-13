@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUMNAS_PRIVADAS_SOCIA, fusionarDatosPrivados, cambiosSociaPermitidos,
-  cumpleMesDia, formatearCumple, diasHastaCumple, normalizarNifSocia, NIF_SOCIA_MAX,
+  cumpleMesDia, formatearCumple, diasHastaCumple, esCumpleEn, normalizarNifSocia, NIF_SOCIA_MAX,
 } from './datos-privados.ts';
 
 // M1 (auditoría RGPD 2026-09-13): NIF, dirección, fecha de nacimiento, firma y
@@ -123,3 +123,19 @@ test('días hasta el cumpleaños: hoy es 0, mañana 1, ayer da la vuelta al año
   assert.equal(diasHastaCumple('09-13', now), 364);
   assert.equal(diasHastaCumple('xx', now), null);
 });
+
+test('¿es hoy su cumpleaños? El día que se pasa, sin hora; el 29-F cae el 1 de marzo en año no bisiesto', () => {
+  assert.equal(esCumpleEn('03-14', '2026-03-14'), true);
+  assert.equal(esCumpleEn('03-14', '2026-03-13'), false);
+  assert.equal(esCumpleEn('02-29', '2028-02-29'), true, 'bisiesto: su día');
+  assert.equal(esCumpleEn('02-29', '2028-03-01'), false, 'bisiesto: no se felicita dos veces');
+  assert.equal(esCumpleEn('02-29', '2027-03-01'), true, 'no bisiesto: el 1 de marzo');
+  assert.equal(esCumpleEn('02-29', '2027-02-28'), false, 'nunca antes de tiempo');
+  assert.equal(esCumpleEn('02-29', '2100-03-01'), true, '2100 no es bisiesto');
+  assert.equal(esCumpleEn('02-29', '2000-02-29'), true, '2000 sí');
+  assert.equal(esCumpleEn('03-01', '2027-03-01'), true, 'quien nació el 1 de marzo, también');
+  assert.equal(esCumpleEn(null, '2026-03-14'), false);
+  assert.equal(esCumpleEn('basura', '2026-03-14'), false);
+  assert.equal(esCumpleEn('03-14', '14/03/2026'), false);
+});
+
