@@ -21,8 +21,12 @@ export function PiezasFila({ piezas, className }: { piezas: readonly Pieza[]; cl
           data-pieza={p.clave}
           title={p.texto}
           className={cn(
-            'min-w-0 max-w-full break-words rounded-md px-1.5 py-0.5 text-[12px] leading-snug text-foreground line-clamp-2',
-            p.aviso ? 'bg-[color-mix(in_srgb,var(--warning)_16%,var(--card))] font-medium' : 'bg-muted',
+            'min-w-0 max-w-full break-words rounded-md border px-1.5 py-0.5 text-[12px] leading-snug text-foreground line-clamp-2',
+            // En claro, `--muted` ya es beige: con solo un tinte de aviso, «Sin contestar» se
+            // confundía con las demás (visto en captura a 375 px). El borde lo separa en los dos modos.
+            p.aviso
+              ? 'border-[color:color-mix(in_srgb,var(--warning)_55%,transparent)] bg-[color-mix(in_srgb,var(--warning)_20%,var(--card))] font-medium'
+              : 'border-transparent bg-muted',
           )}
         >
           {p.aviso && <span className="sr-only">Atención: </span>}
