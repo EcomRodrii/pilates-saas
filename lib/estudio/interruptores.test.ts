@@ -1,15 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { encendidoPara, interruptoresDe, interruptoresPara } from './interruptores.ts';
+import { interruptoresDe, interruptoresPara } from './interruptores.ts';
 
-test('apagado de serie; «on» para todos; «estudios:» solo para esos', () => {
-  assert.equal(encendidoPara(undefined, 's1'), false);
-  assert.equal(encendidoPara('true', 's1'), false);
-  assert.equal(encendidoPara(' on ', 's1'), true);
-  assert.equal(encendidoPara('estudios:s0, s1', 's1'), true);
-  assert.equal(encendidoPara('estudios:s0', 's1'), false);
+// El formato (`on` / `estudios:`) lo prueba lib/interruptor-por-estudio.test.ts.
+test('apagado de serie; «estudios:» solo para esos', () => {
   assert.deepEqual(interruptoresDe('s1', {}), { filtrosClientas: false });
+  assert.deepEqual(interruptoresDe('s1', { CLIENTAS_FILTROS: 'estudios:s0' }), { filtrosClientas: false });
   assert.deepEqual(interruptoresDe('s1', { CLIENTAS_FILTROS: 'estudios:s1' }), { filtrosClientas: true });
 });
 
@@ -20,10 +17,12 @@ test('guardia: las variables solo se leen en el servidor', () => {
   assert.doesNotMatch(cliente, /process\.env/);
 });
 
-test('si el navegador pregunta por otra sede que la de la sesión, todo apagado', () => {
+test('si el navegador pregunta por otra sede que la de la sesión, no hay respuesta que recordar (409)', () => {
   const entorno = { CLIENTAS_FILTROS: 'estudios:s1' };
   assert.deepEqual(interruptoresPara('s1', 's1', entorno), { filtrosClientas: true });
   assert.deepEqual(interruptoresPara('s1', null, entorno), { filtrosClientas: true });
-  assert.deepEqual(interruptoresPara('s1', 's2', entorno), { filtrosClientas: false });
-  assert.deepEqual(interruptoresPara('s2', 's1', { CLIENTAS_FILTROS: 'on' }), { filtrosClientas: false });
+  assert.equal(interruptoresPara('s1', 's2', entorno), null, 'ni el «sí» de una sede bajo la otra');
+  assert.equal(interruptoresPara('s2', 's1', { CLIENTAS_FILTROS: 'on' }), null, 'ni un «no» falso que se recuerde 30 min');
+  const ruta = readFileSync(new URL('../../app/api/estudio/interruptores/route.ts', import.meta.url), 'utf8');
+  assert.match(ruta, /status: 409/);
 });

@@ -84,7 +84,8 @@ const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
 ];
 // P2.8: solo con el interruptor `CLIENTAS_FILTROS` encendido para el estudio.
 const FILTROS_MAS_NUEVOS: { id: Exclude<FiltroMas, ''>; label: string; definicion: string }[] = [
-  { id: 'nunca_compro', label: 'Nunca ha comprado nada', definicion: DEFINICION_NUNCA_COMPRO },
+  // No «nada»: no mira las citas ni la Caja, solo planes, bonos y clases sueltas.
+  { id: 'nunca_compro', label: 'Nunca ha comprado un plan ni un bono', definicion: DEFINICION_NUNCA_COMPRO },
   { id: 'varios_planes', label: 'Varios planes a la vez', definicion: DEFINICION_VARIOS_PLANES },
 ];
 // Ancho que necesitan las columnas de siempre sin partirse, y cada extra (P2.8).
@@ -602,6 +603,10 @@ export default function Socios() {
   const masNuevo = FILTROS_MAS_NUEVOS.find((f) => f.id === filtroMasEfectivo);
   if (masNuevo) definicionesNuevas.push({ titulo: masNuevo.label, texto: masNuevo.definicion });
   const hayFiltrosActivos = Boolean(busqueda || filtroEstado !== 'TODAS' || filtroMasEfectivo || filtroPlan || filtroEtiqueta || segmentoAplicado || fFrecuencia || fConstancia || fSaldo);
+  // Los filtros nuevos no filtran a nadie con datos a medias (ver el filtro de
+  // arriba): la lista vacía no es «nadie cumple», es «no se sabe».
+  const faltanDatosParaFiltrar = !estados.listo &&
+    Boolean(fFrecuencia || fConstancia || fSaldo || filtroMasEfectivo === 'nunca_compro' || filtroMasEfectivo === 'varios_planes');
   function limpiarFiltros() {
     setBusqueda(''); setFiltroEstado('TODAS'); setFiltroMas(''); setFiltroPlan(''); setFiltroEtiqueta(''); setSegmentoAplicado(null);
     setFiltroFrecuencia(''); setFiltroConstancia(''); setFiltroSaldo('');
@@ -1578,8 +1583,10 @@ export default function Socios() {
           // implementaciones distintas).
           <EmptyState
             icono={Users}
-            titulo={hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
-            descripcion={hayFiltrosActivos
+            titulo={faltanDatosParaFiltrar ? 'Faltan datos para este filtro' : hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
+            descripcion={faltanDatosParaFiltrar
+              ? 'No se han podido cargar todas sus clases o sus planes, y sin ellos este filtro no puede decir quién lo cumple. Recarga la página o quita el filtro.'
+              : hayFiltrosActivos
               ? 'Prueba con otros filtros, o quítalos para ver a todas.'
               : 'Añade tu primera clienta o tráelas de tu programa anterior.'}
             cta={hayFiltrosActivos

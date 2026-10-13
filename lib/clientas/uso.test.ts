@@ -48,10 +48,10 @@ test('lunes a las 00:30 de Madrid (domingo en UTC) ya es la semana nueva', () =>
   const lunes0030 = new Date('2026-11-08T23:30:00Z');
   // Una clase el domingo 8 a las 20:00 de Madrid cuenta en la semana ANTERIOR.
   const u = usoDe([clase(dia(1, 6)).replace('T09:00', 'T19:00')], lunes0030);
-  assert.equal(u.semanasSinVenir, 1, 'la semana en curso (vacía) y nada más');
+  assert.equal(u.semanasSinVenir, 0, 'la semana en curso, vacía, no cuenta hasta que acaba');
 });
 
-test('constancia: «ha dejado de venir» (ni esta semana ni la anterior) y «todas las semanas» (al menos 4)', () => {
+test('constancia: «ha dejado de venir» (2 semanas completas sin venir) y «todas las semanas» (al menos 4)', () => {
   const seguidas = [clase(dia(0)), clase(dia(1)), clase(dia(2)), clase(dia(3))];
   assert.equal(constanciaDe(usoDe(seguidas, AHORA)), 'TODAS');
   assert.equal(textoConstancia(usoDe(seguidas, AHORA)), 'Todas las semanas');
@@ -59,9 +59,12 @@ test('constancia: «ha dejado de venir» (ni esta semana ni la anterior) y «tod
   assert.equal(constanciaDe(usoDe(huecos, AHORA)), null, 'con huecos: en ninguna');
   const recien = [clase(dia(0)), clase(dia(1))];
   assert.equal(constanciaDe(usoDe(recien, AHORA)), null, 'empezó hace dos semanas: aún no «viene siempre»');
-  const paro = [clase(dia(2)), clase(dia(3)), clase(dia(4))];
+  const paro = [clase(dia(3)), clase(dia(4)), clase(dia(5))];
   assert.equal(constanciaDe(usoDe(paro, AHORA)), 'SIN_VENIR');
   assert.equal(textoConstancia(usoDe(paro, AHORA)), 'Lleva 2 semanas sin venir');
+  const unaCompleta = [clase(dia(2)), clase(dia(3)), clase(dia(4))];
+  assert.equal(usoDe(unaCompleta, AHORA).semanasSinVenir, 1, 'faltó la semana pasada; la de ahora aún no ha acabado');
+  assert.equal(constanciaDe(usoDe(unaCompleta, AHORA)), null);
   assert.equal(constanciaDe(usoDe([], AHORA)), null, 'no ha venido nunca: no «ha dejado de venir»');
 });
 
@@ -69,7 +72,8 @@ test('en el borde del cambio de hora: domingo 25-oct a las 23:30 y lunes 26 a la
   // Ya en horario de invierno (UTC+1): 23:30 del domingo es 22:30Z; 00:30 del lunes, 23:30Z del domingo.
   const ahora = new Date('2026-10-28T12:00:00Z');
   const domingo = usoDe(['2026-10-25T22:30:00.000Z'], ahora);
-  assert.equal(domingo.semanasSinVenir, 1, 'la del domingo es de la semana del 19: esta (del 26) va vacía');
+  assert.equal(domingo.semanasSinVenir, 0, 'la del domingo es de la semana del 19; esta (del 26) va vacía, pero no ha acabado');
+  assert.equal(usoDe(['2026-10-25T22:30:00.000Z'], new Date('2026-11-02T08:00:00Z')).semanasSinVenir, 1, 'el lunes siguiente, la del 26 ya es completa');
   const lunes = usoDe(['2026-10-25T23:30:00.000Z'], ahora);
   assert.equal(lunes.semanasSinVenir, 0, 'la de las 00:30 del lunes ya es de esta semana');
 });
@@ -138,7 +142,17 @@ test('con menos de 4 semanas contadas no hay frecuencia ni «todas las semanas»
   assert.equal(constanciaDe(u), null);
 });
 
-test('textos de la columna', () => {
+test('textos de la columna: con menos de 4 semanas contadas, la media lleva sus semanas (no contradice a «Alta»)', () => {
   assert.equal(textoFrecuencia({ media: 1.5, semanasSinVenir: 0, todasLasSemanas: true, semanasContadas: 6 }), '1,5');
+  assert.equal(textoFrecuencia({ media: 2, semanasSinVenir: 0, todasLasSemanas: true, semanasContadas: 2 }), '2,0 (2 sem.)');
   assert.equal(textoFrecuencia(undefined), '—');
+});
+
+test('un lunes a las 08:00, quien faltó UNA semana no «lleva 2 semanas sin venir»', () => {
+  // Semanal: vino el domingo 1-nov (semana del 26-oct) y faltó la del 2-nov. Lunes 9-nov, 08:00 de Madrid.
+  const lunes = new Date('2026-11-09T07:00:00Z');
+  const semanal = [...Array.from({ length: 6 }, (_, i) => clase(dia(i + 2, 6)))];
+  const u = usoDe(semanal, lunes);
+  assert.equal(u.semanasSinVenir, 1);
+  assert.equal(constanciaDe(u), null);
 });

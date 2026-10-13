@@ -1117,7 +1117,11 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
   const asistenciasSuyas = misReservas.filter(r => r.estado === 'ASISTIDA').map(r => sesionById.get(r.sesionId)?.inicio).filter((x): x is string => !!x);
   const constanciaSuya = constancia(asistenciasSuyas, now);
-  const mediaSuya = mediaComoLaLista ? usoDe(asistenciasSuyas, now).media : constanciaSuya.media;
+  // Con los filtros nuevos encendidos, la ficha dice lo mismo que su fila: la
+  // misma media y las mismas semanas sin venir (solo las completas).
+  const usoSuyo = mediaComoLaLista ? usoDe(asistenciasSuyas, now) : null;
+  const mediaSuya = usoSuyo ? usoSuyo.media : constanciaSuya.media;
+  const sinVenirSuyas = usoSuyo ? usoSuyo.semanasSinVenir : constanciaSuya.semanasSinVenir;
 
   const eventosHistoria = historiaDeClienta({
     fechaAlta: socio.fechaAlta,
@@ -1547,7 +1551,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
                     {mediaSuya === null
                       ? 'Todavía no ha venido a ninguna clase en estas semanas.'
-                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{constanciaSuya.semanasSinVenir >= 2 ? ` · lleva ${constanciaSuya.semanasSinVenir} semanas sin venir` : ''}</>}
+                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{sinVenirSuyas >= 2 ? ` · lleva ${sinVenirSuyas} semanas sin venir` : ''}</>}
                   </p>
                   <p className="mt-1 text-[12.5px] text-muted-foreground">
                     {asistidas === 0 ? 'Aún no ha venido a ninguna clase.' : `Ha venido a ${asistidas} ${asistidas === 1 ? 'clase' : 'clases'} en total`}

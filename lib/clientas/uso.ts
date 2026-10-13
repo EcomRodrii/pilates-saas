@@ -45,7 +45,11 @@ export type TramoSaldo = 'UNA_O_NINGUNA' | 'DOS_O_TRES' | 'CUATRO_O_MAS';
 export interface UsoClienta {
   /** Clases por semana de media, en las semanas completas desde que empezó (y la actual si ya vino). null = no ha venido. */
   media: number | null;
-  /** Semanas seguidas sin venir hasta hoy, la actual incluida (como la ficha). */
+  /**
+   * Semanas COMPLETAS seguidas sin venir. La semana en curso no cuenta hasta que
+   * acaba: un lunes a las 8:00 nadie «lleva 2 semanas sin venir» por haber
+   * faltado una sola.
+   */
   semanasSinVenir: number;
   /** Todas las semanas completas desde que empezó tienen al menos una clase. null = no ha venido. */
   todasLasSemanas: boolean | null;
@@ -103,15 +107,17 @@ export function usoDe(asistencias: readonly string[], ahora: Date, vinoAntes = f
   const c = constancia(asistencias, ahora, SEMANAS_USO);
   const actual = c.semanas[c.semanas.length - 1] ?? 0;
   const semanas = actual > 0 ? c.semanas : c.semanas.slice(0, -1);
+  const semanasSinVenir = actual > 0 ? 0 : Math.max(0, c.semanasSinVenir - 1);
   // También vino antes quien tiene clases de la semana justo anterior a las que se miran.
   const enVentana = c.semanas.reduce((a, b) => a + b, 0);
-  const antes = vinoAntes || asistencias.filter(iso => iso <= ahora.toISOString()).length > enVentana;
+  const ahoraIso = ahora.toISOString();
+  const antes = vinoAntes || asistencias.filter(iso => iso <= ahoraIso).length > enVentana;
   const primera = semanas.findIndex(x => x > 0);
   const tramo = primera < 0 ? [] : antes ? semanas : semanas.slice(primera);
-  if (tramo.length === 0) return { media: null, semanasSinVenir: c.semanasSinVenir, todasLasSemanas: null, semanasContadas: 0 };
+  if (tramo.length === 0) return { media: null, semanasSinVenir, todasLasSemanas: null, semanasContadas: 0 };
   return {
     media: redondear(tramo.reduce((a, b) => a + b, 0) / tramo.length),
-    semanasSinVenir: c.semanasSinVenir,
+    semanasSinVenir,
     todasLasSemanas: tramo.every(x => x > 0),
     semanasContadas: tramo.length,
   };
@@ -167,10 +173,16 @@ export function variosPlanes(planesVivos: ReadonlySet<string> | undefined): bool
 
 // Una vez por módulo: construir un Intl por llamada es caro (una por fila).
 const UN_DECIMAL = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-/** «1,4» para la columna «Clases por semana»: siempre con un decimal, para que la columna se lea alineada. */
+/**
+ * «1,4» para la columna «Clases por semana»: siempre con un decimal, para que
+ * la columna se lea alineada. Con menos de `SEMANAS_MINIMAS` contadas lleva sus
+ * semanas («2,0 (2 sem.)»): ningún filtro de frecuencia la incluye todavía, y
+ * un «2,0» a secas contradiría a «Alta».
+ */
 export function textoFrecuencia(uso: UsoClienta | undefined): string {
   if (!uso || uso.media === null) return '—';
-  return UN_DECIMAL.format(uso.media);
+  const media = UN_DECIMAL.format(uso.media);
+  return uso.semanasContadas < SEMANAS_MINIMAS ? `${media} (${uso.semanasContadas} sem.)` : media;
 }
 
 /** Con las palabras de la ficha: «lleva N semanas sin venir». */
@@ -205,7 +217,7 @@ export const DEFINICION_FRECUENCIA =
 export const OPCIONES_CONSTANCIA: { id: Constancia; texto: string; definicion: string }[] = [
   {
     id: 'SIN_VENIR', texto: `Lleva ${SEMANAS_SIN_VENIR} semanas o más sin venir`,
-    definicion: `Vino en las últimas ${SEMANAS_USO} semanas, pero ni esta semana ni la anterior: lo mismo que «lleva N semanas sin venir» en su ficha. Para quien hace más que no viene, «Sin venir en 30 días» en «Más filtros».`,
+    definicion: `Vino en las últimas ${SEMANAS_USO} semanas, pero no en las ${SEMANAS_SIN_VENIR} últimas semanas completas (la semana en curso no cuenta hasta que acaba). Para quien hace más que no viene, «Sin venir en 30 días» en «Más filtros».`,
   },
   {
     id: 'TODAS', texto: 'Viene todas las semanas',

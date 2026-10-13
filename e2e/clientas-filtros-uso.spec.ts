@@ -47,7 +47,8 @@ const socia = (id: string, nombre: string, apellidos: string, extra: Record<stri
 });
 
 // Ana: 2 clases cada semana (alta, todas las semanas), cuota y un bono con 1.
-// Bea: 1 de cada 1-2 semanas hasta hace dos (media, ha dejado de venir), bono con 5.
+// Bea: 1 por semana hasta hace tres (media, 7 en 9 semanas) y nada en las dos últimas completas
+// (ha dejado de venir: la semana en curso no cuenta hasta que acaba), bono con 5.
 // Carla: solo hizo la prueba. Dani: interesada, sin nada. Eva: 1 cada semana (media, todas).
 // Fran: importada de otra plataforma con historial y sin nada aquí: NO es «nunca ha comprado».
 const SOCIOS = [
@@ -87,7 +88,7 @@ function vino(socio: string, inicio: string) {
   RESERVAS.push({ id: `res-${RESERVAS.length + 1}`, studio_id: STUDIO_ID, sesion_id: id, socio_id: socio, estado: 'ASISTIDA', creado_en: inicio });
 }
 for (let s = 1; s <= 6; s++) { vino('s1', dia(s, 1)); vino('s1', dia(s, 3)); }
-for (const s of [2, 3, 4, 5, 7, 8]) vino('s2', dia(s, 2));
+for (const s of [3, 4, 5, 6, 7, 8, 9]) vino('s2', dia(s, 2));
 for (let s = 1; s <= 6; s++) vino('s5', dia(s, 4));
 
 interface RespuestaInterruptores {
@@ -179,6 +180,8 @@ test.describe('Clientas: filtros de cómo viene cada una (P2.8)', () => {
   for (const [caso, respuesta] of [
     ['un 500', { status: 500, body: { error: 'x' } }],
     ['un 401 (sesión sin el segundo paso)', { status: 401, body: { error: 'No autorizado' } }],
+    // La sede de la sesión cambió en otra pestaña: ni se enseña ni se recuerda (ni un «no» falso de 30 min).
+    ['un 409 (la sede ha cambiado)', { status: 409, body: { error: 'La sede ha cambiado' } }],
     ['la red caída', { abortar: true }],
     ['un JSON roto', { crudo: '{"filtrosClientas": tr' }],
   ] as const) {
@@ -232,7 +235,7 @@ test.describe('Clientas: filtros de cómo viene cada una (P2.8)', () => {
     const constancia = page.getByRole('combobox', { name: 'Constancia' });
     await constancia.selectOption('SIN_VENIR');
     await expect.poll(() => nombres(page)).toEqual(['Bea Soto']);
-    await expect(page.getByTestId('definiciones-filtros')).toContainText('ni esta semana ni la anterior');
+    await expect(page.getByTestId('definiciones-filtros')).toContainText('no en las 2 últimas semanas completas');
     await constancia.selectOption('TODAS');
     await expect.poll(() => nombres(page)).toEqual(['Ana Ruiz', 'Eva Gil']);
     await constancia.selectOption('');
