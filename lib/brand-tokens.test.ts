@@ -231,7 +231,7 @@ test('fase 2: la tipografía de la marca solo vive en el panel', () => {
   const sinComentariosTs = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
   const conAmbito = ficherosDe('app', 'components', 'lib').filter(f => f.endsWith('.tsx') && /\bmarca-panel\b/.test(sinComentariosTs(leer(f))));
   // El layout la pone en el envoltorio y `MarcaEnPortales` en `body` mientras
-  // el panel está montado (los diálogos y tooltips de base-ui van a `body`).
+  // el panel está montado (de red para lo que se portalee a `body`).
   assert.deepEqual(conAmbito.sort(), ['app/(dashboard)/layout.tsx', 'components/layout/marca-en-portales.tsx']);
   const cargan = ficherosDe('app', 'components', 'lib').filter(f => /_fuentes\/fuentes-panel['"]/.test(leer(f)));
   assert.deepEqual(cargan, ['app/(dashboard)/layout.tsx']);
