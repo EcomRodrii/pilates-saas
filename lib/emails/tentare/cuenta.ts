@@ -109,22 +109,37 @@ export function correoDatosBorrados(p: { estudioNombre: string; fecha: string })
   });
 }
 
+// Con qué acceso entra, dicho como lo dice Equipo (`ETIQUETA_ROL`). La
+// instructora trabaja en la app del estudio, no en el panel.
+const ACCESO_POR_ROL: Record<string, { como: string; donde: string }> = {
+  PROPIETARIO: { como: 'propietaria', donde: 'al panel' },
+  MANAGER: { como: 'responsable de sede', donde: 'al panel' },
+  RECEPCION: { como: 'recepción', donde: 'al panel' },
+  INSTRUCTOR: { como: 'instructora', donde: 'a la app' },
+};
+
 export function correoAccesoActivado(p: {
   nombre: string;
-  /** Con qué correo ha entrado. Es lo único que delata un email mal tecleado en la ficha. */
+  /** El rol de su ficha: lo que puede ver y hacer desde ahora. */
+  rol: string;
+  /** Con qué correo ha entrado. */
   emailCuenta: string | null;
   estudioNombre: string;
   /** /equipo en el despliegue desde el que se manda. */
   urlEquipo: string;
 }): string {
+  const acceso = ACCESO_POR_ROL[p.rol] ?? { como: null, donde: 'al panel' };
   return correoTentare({
-    preheader: `${p.nombre} ya puede entrar al panel de ${p.estudioNombre}`,
+    preheader: `${p.nombre} ya puede entrar ${acceso.donde} de ${p.estudioNombre}`,
     antetitulo: 'Tu equipo',
     titular: `${p.nombre} ya tiene acceso`,
-    parrafos: [`${p.nombre} ha creado su cuenta y ya puede entrar al panel de ${p.estudioNombre}.`],
-    // No es una notificación de cortesía: el correo con el que ha entrado es lo
-    // único que delata una dirección mal tecleada en la ficha. Por eso va
-    // destacado y no en una línea más.
+    parrafos: [
+      acceso.como
+        ? `${p.nombre} ha creado su cuenta y ya puede entrar ${acceso.donde} de ${p.estudioNombre} como ${acceso.como}.`
+        : `${p.nombre} ha creado su cuenta y ya puede entrar ${acceso.donde} de ${p.estudioNombre}.`,
+    ],
+    // Va destacado para que se vea de un vistazo quién ha entrado. Desde el
+    // 13-oct-2026 solo se entra con el correo de la ficha, así que es el mismo.
     destacado: p.emailCuenta ? { titulo: 'Ha entrado con este correo', texto: p.emailCuenta } : null,
     boton: { href: p.urlEquipo, texto: 'Ver mi equipo' },
     nota: 'Si no esperabas este acceso, entra en Equipo y dale de baja: se le retira al momento.',

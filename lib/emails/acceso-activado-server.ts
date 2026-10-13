@@ -2,14 +2,16 @@ import { Resend } from 'resend';
 import { correoAccesoActivado } from '@/lib/emails/tentare/cuenta';
 import { LEGAL } from '@/lib/legal-info';
 import { remitentePorMarca } from '@/lib/emails/remitente';
+import type { Rol } from '@/lib/types';
 
 // Aviso al estudio cuando alguien del equipo activa su acceso
-// (app/api/equipo/reclamar). Best-effort como el resto de envíos: la
+// (lib/equipo/avisar-acceso-activado.ts). Best-effort como el resto de envíos: la
 // vinculación ya está hecha cuando esto corre, así que un email que no sale no
 // puede tumbarla.
 export async function enviarEmailAccesoActivado(params: {
   to: string;
   nombre: string;
+  rol: Rol;
   emailCuenta: string | null;
   estudioNombre: string;
   // Ya no se usan: este correo lo firma Tentare, no el estudio. Se aceptan para
@@ -23,7 +25,7 @@ export async function enviarEmailAccesoActivado(params: {
 
   try {
     const html = correoAccesoActivado({
-      nombre: params.nombre, emailCuenta: params.emailCuenta, estudioNombre: params.estudioNombre,
+      nombre: params.nombre, rol: params.rol, emailCuenta: params.emailCuenta, estudioNombre: params.estudioNombre,
       urlEquipo: `${process.env.NEXT_PUBLIC_APP_URL || LEGAL.url}/equipo`,
     });
     const resend = new Resend(apiKey);

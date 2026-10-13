@@ -84,6 +84,17 @@ const SIN_PERMISO = rec({
   accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-6', datosUsados: { nombre: 'Nuria' },
 });
 const SIN_PERMISO_TEXTO = 'No ha aceptado recibir ofertas del estudio, así que Tentare no le envía este mensaje.';
+// La misma oferta, a una socia CON teléfono (soc-1 en el panel sembrado): su WhatsApp manual.
+const SIN_PERMISO_CON_TEL = rec({
+  id: 'rec-sin-permiso-tel', tipo: 'RECUPERAR_SOCIA', efecto: 'MARCAR', sinPermisoOfertas: true,
+  titulo: 'María lleva 4 semanas sin venir',
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-1', datosUsados: { nombre: 'María' },
+});
+const CON_PERMISO_CON_TEL = rec({
+  id: 'rec-con-permiso-tel', tipo: 'RECUPERAR_SOCIA', efecto: 'MARCAR',
+  titulo: 'Laura lleva 4 semanas sin venir',
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-2', datosUsados: { nombre: 'Laura' },
+});
 
 type Rec = ReturnType<typeof rec>;
 
@@ -236,6 +247,16 @@ test('una oferta a quien no ha aceptado recibirlas: «Hecho», sin «Ya la he co
   await expect(fila(page, 'rec-sin-canal').getByRole('button', { name: 'Hecho', exact: true })).toBeVisible();
   await expect(fila(page, 'rec-sin-canal').getByText(SIN_PERMISO_TEXTO)).toHaveCount(0);
   await expect(fila(page, 'rec-marcar').getByText(SIN_PERMISO_TEXTO)).toHaveCount(0);
+});
+
+test('una oferta a quien no ha aceptado recibirlas: su WhatsApp manual se abre SIN la oferta escrita', async ({ page }) => {
+  await centro(page, MENSAJE, [MARCAR, SIN_PERMISO_CON_TEL, CON_PERMISO_CON_TEL]);
+  await ir(page, 'centro-de-control');
+  await abrirDetalle(page);
+  const sinPermiso = fila(page, 'rec-sin-permiso-tel').locator('a[href^="https://wa.me/"]');
+  await expect(sinPermiso).toHaveAttribute('href', 'https://wa.me/34600111222');
+  // Con permiso, como siempre: el mensaje va escrito.
+  await expect(fila(page, 'rec-con-permiso-tel').locator('a[href^="https://wa.me/"]')).toHaveAttribute('href', /^https:\/\/wa\.me\/34600333444\?text=/);
 });
 
 test('«Ya la he contactado» la marca por /gestionada y NUNCA pasa por /aprobar', async ({ page }) => {

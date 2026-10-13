@@ -37,7 +37,8 @@ const PROPUESTA = {
   ],
 };
 
-type Respuesta = { status?: number; body: unknown };
+/** `texto`: el cuerpo no es JSON (un 504 de la plataforma al pasar del tiempo máximo). */
+type Respuesta = { status?: number; body: unknown; texto?: string };
 
 async function abrirCalendario(page: Page, o: { disponible?: unknown; crear?: Respuesta } = {}) {
   await montar(page);
@@ -48,6 +49,7 @@ async function abrirCalendario(page: Page, o: { disponible?: unknown; crear?: Re
     if (cuerpo.accion === 'proponer') { cuenta.proponer++; return json(r, { ok: true, propuesta: PROPUESTA }); }
     cuenta.crear.push(cuerpo);
     const resp = o.crear ?? { body: { ok: true, resultado: { creadas: 5, pedidas: 5, fallidas: 0, pedidasFallidas: 0, sinInstructora: 0, ids: ['ses-n1'], primeraFecha: d(1) } } };
+    if (resp.texto !== undefined) return r.fulfill({ status: resp.status ?? 504, contentType: 'text/html', body: resp.texto });
     return json(r, resp.body, resp.status ?? 200);
   });
   await ir(page, 'calendario');
@@ -72,7 +74,7 @@ test.describe('Calendario · Repetir este mes', () => {
     await boton(page).click();
     const dialogo = page.getByTestId('confirmar-fechas');
     await expect(dialogo.getByText(/Las clases sueltas no se copian \(en \p{L}+ hay 4\)/u)).toBeVisible({ timeout: 60_000 });
-    await expect(dialogo.getByText('Los festivos de la Comunidad de Madrid vienen sin marcar.')).toBeVisible();
+    await expect(dialogo.getByText('Los festivos de la Comunidad de Madrid vienen sin marcar; los locales de tu ciudad, no: revisa esos días.')).toBeVisible();
 
     // La serie en «no renovar» viene sin marcar, con su motivo.
     const filas = dialogo.getByTestId('repetir-serie');
@@ -133,6 +135,25 @@ test.describe('Calendario · Repetir este mes', () => {
     await expect(dialogo).toBeVisible();
     await expect(page.getByText(/clases creadas en/)).toHaveCount(0);
     expect(cuenta.crear.length).toBeGreaterThan(0);
+  });
+
+  test('si se corta sin respuesta (504 de la plataforma), no dice «no se ha creado»: avisa de que puede haber parte y vuelve a leer el calendario', async ({ page }) => {
+    const cuenta = await abrirCalendario(page, { crear: { status: 504, body: null, texto: '<html>An error occurred with your deployment</html>' } });
+    let lecturasCalendario = 0;
+    page.on('request', (req) => { if (/\/api\/calendario\?desde=/.test(req.url())) lecturasCalendario++; });
+    await boton(page).click();
+    const dialogo = page.getByTestId('confirmar-fechas');
+    const crear = dialogo.getByTestId('confirmar-fechas-crear');
+    await expect(crear).toHaveText('Crear 6 clases', { timeout: 60_000 });
+    const antes = lecturasCalendario;
+    await crear.click();
+
+    await expect(dialogo.getByRole('alert')).toContainText('puede que parte ya esté creada');
+    await expect(dialogo.getByRole('alert')).toContainText('Volver a intentarlo no duplica nada');
+    await expect(dialogo.getByText('No se ha creado ninguna clase')).toHaveCount(0);
+    expect(cuenta.crear.length).toBeGreaterThan(0);
+    // Lo que se haya creado se ve: el calendario se vuelve a pedir al servidor.
+    await expect.poll(() => lecturasCalendario, { timeout: 20_000 }).toBeGreaterThan(antes);
   });
 
   test('a medias: el texto dice cuántas de cuántas y que una no se pudo repetir', async ({ page }) => {

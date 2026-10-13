@@ -1650,7 +1650,10 @@ export type TriggerRule =
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
   | 'RENOVACION_COBRADA'
-  | 'CLASE_LLENA_RECURRENTE';
+  | 'CLASE_LLENA_RECURRENTE'
+  // P3.10 (13-oct-2026): solo corre donde su interruptor de servidor está
+  // encendido (lib/engines/reglas-opcionales.ts). Apagado, el motor la salta.
+  | 'CUMPLEANOS';
 
 export type AccionAutomatica =
   | 'ENVIAR_EMAIL'
