@@ -5,7 +5,7 @@ import { INSTRUCTORA } from './_muestra';
 const Preview = () => (
   <div dangerouslySetInnerHTML={{
     __html: correoAccesoActivado({
-      nombre: INSTRUCTORA, emailCuenta: 'marta@example.com', estudioNombre: 'Estudio Aravaca',
+      nombre: INSTRUCTORA, rol: 'INSTRUCTOR', emailCuenta: 'marta@example.com', estudioNombre: 'Estudio Aravaca',
       urlEquipo: 'https://www.tentare.app/equipo',
     }),
   }} />

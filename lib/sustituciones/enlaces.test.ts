@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mismoToken, obtenerOFirmarEnlace } from './enlaces.ts';
-import { firmarTokenInstructora, verificarTokenInstructora } from './token.ts';
+import { ENLACE_USADO, emitirInvitacion, enlaceRevocado, gastarInvitacion, mismoToken, obtenerOFirmarEnlace } from './enlaces.ts';
+import { firmarTokenInstructora, firmarTokenInvitacion, verificarTokenInstructora } from './token.ts';
 
 test('el mismo token es igual a sí mismo', () => {
   assert.equal(mismoToken('abc.def', 'abc.def'), true);
@@ -19,39 +19,74 @@ test('cadenas vacías se consideran iguales entre sí', () => {
   assert.equal(mismoToken('', ''), true);
 });
 
-// ── obtenerOFirmarEnlace: una invitación no se reutiliza entre roles ─────────
+// ── Un cliente de Supabase falso ─────────────────────────────────────────────
 
-/** Un cliente de Supabase falso con la fila vigente de `instructor_enlaces_vigentes` y lo que se escribe en ella. */
-function clienteFalso(token: string | null) {
-  const escrito: { token?: string }[] = [];
+/** La fila vigente de `instructor_enlaces_vigentes` y lo que se escribe en ella; `fallo` hace fallar el upsert. */
+function clienteFalso(token: string | null, fallo = false) {
+  const escrito: { token?: string; scope?: string }[] = [];
   const admin = {
     from: () => ({
       select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: token ? { token } : null }) }) }) }),
-      upsert: async (fila: { token: string }) => { escrito.push(fila); return { error: null }; },
+      upsert: async (fila: { token: string; scope: string }) => {
+        if (fallo) return { error: { message: 'caído' } };
+        escrito.push(fila); return { error: null };
+      },
     }),
   };
   return { admin: admin as never, escrito };
 }
 
-test('una invitación firmada por la propietaria NO se le entrega a un MANAGER: se firma una nueva a su nombre', async () => {
+// ── La invitación al equipo (13-oct-2026) ───────────────────────────────────
+
+test('reenviar una invitación firma un enlace NUEVO y deja revocado el anterior', async () => {
   process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
-  const deLaPropietaria = firmarTokenInstructora('ins-1', 'studio-1', 'invitacion', 'PROPIETARIO');
-  const { admin, escrito } = clienteFalso(deLaPropietaria);
-  const token = await obtenerOFirmarEnlace(admin, 'studio-1', 'ins-1', 'invitacion', 'MANAGER');
-  assert.notEqual(token, deLaPropietaria, 'no reutiliza el token de otro rol');
-  assert.equal(verificarTokenInstructora(token, 'invitacion')?.ref, 'MANAGER', 'el nuevo lleva el rol de quien lo pide');
-  assert.equal(escrito.length, 1, 'y queda como el vigente (el anterior, revocado)');
+  const anterior = firmarTokenInvitacion('ins-1', 'studio-1', 'PROPIETARIO', 'INSTRUCTOR', Date.now() - 1000);
+  const { admin, escrito } = clienteFalso(anterior);
+  const nuevo = await emitirInvitacion(admin, 'studio-1', 'ins-1', 'PROPIETARIO', 'INSTRUCTOR');
+  assert.notEqual(nuevo, anterior);
+  assert.equal(escrito.length, 1);
+  assert.equal(escrito[0].token, nuevo, 'el nuevo queda como el vigente');
+  assert.equal(escrito[0].scope, 'invitacion');
+
+  const conElNuevo = clienteFalso(nuevo);
+  assert.equal(await enlaceRevocado(conElNuevo.admin, 'ins-1', 'invitacion', anterior), true, 'el anterior ya no vale');
+  assert.equal(await enlaceRevocado(conElNuevo.admin, 'ins-1', 'invitacion', nuevo), false);
 });
 
-test('la misma persona que ya invitó recibe el mismo enlace (no se regenera por reenviar)', async () => {
+test('el enlace nuevo lleva quién lo pide y el rol de la ficha', async () => {
   process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
-  const suyo = firmarTokenInstructora('ins-1', 'studio-1', 'invitacion', 'PROPIETARIO');
-  const { admin, escrito } = clienteFalso(suyo);
-  assert.equal(await obtenerOFirmarEnlace(admin, 'studio-1', 'ins-1', 'invitacion', 'PROPIETARIO'), suyo);
-  assert.equal(escrito.length, 0, 'sin escribir nada');
+  const { admin } = clienteFalso(null);
+  const token = await emitirInvitacion(admin, 'studio-1', 'ins-1', 'MANAGER', 'RECEPCION');
+  const claim = verificarTokenInstructora(token, 'invitacion');
+  assert.equal(claim?.ref, 'MANAGER');
+  assert.equal(claim?.rolFicha, 'RECEPCION');
 });
 
-test('los enlaces sin rol (disponibilidad, reportar baja) se siguen reutilizando como siempre', async () => {
+test('si no se puede registrar como vigente, la invitación FALLA (no se manda un enlace que no va a valer)', async () => {
+  process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
+  const { admin } = clienteFalso(null, true);
+  await assert.rejects(emitirInvitacion(admin, 'studio-1', 'ins-1', 'PROPIETARIO', 'INSTRUCTOR'));
+});
+
+test('sin fila guardada, una invitación cuenta como revocada; disponibilidad y baja, como siempre', async () => {
+  process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
+  const { admin } = clienteFalso(null);
+  assert.equal(await enlaceRevocado(admin, 'ins-1', 'invitacion', 'x.y'), true);
+  assert.equal(await enlaceRevocado(admin, 'ins-1', 'disponibilidad', 'x.y'), false);
+  assert.equal(await enlaceRevocado(admin, 'ins-1', 'reportar_baja', 'x.y'), false);
+});
+
+test('canjear la invitación la deja gastada: el mismo enlace ya no vale', async () => {
+  process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
+  const token = firmarTokenInvitacion('ins-1', 'studio-1', 'PROPIETARIO', 'INSTRUCTOR');
+  const { admin, escrito } = clienteFalso(token);
+  await gastarInvitacion(admin, 'studio-1', 'ins-1');
+  assert.deepEqual(escrito.map(f => [f.scope, f.token]), [['invitacion', ENLACE_USADO]]);
+  const gastada = clienteFalso(ENLACE_USADO);
+  assert.equal(await enlaceRevocado(gastada.admin, 'ins-1', 'invitacion', token), true);
+});
+
+test('los enlaces de disponibilidad y baja se siguen reutilizando como siempre', async () => {
   process.env.SUSTITUCION_TOKEN_SECRET ||= 'secreto-de-prueba';
   const vigente = firmarTokenInstructora('ins-1', 'studio-1', 'disponibilidad');
   const { admin, escrito } = clienteFalso(vigente);
