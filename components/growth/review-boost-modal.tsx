@@ -179,7 +179,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) cerrar(true); }}>
-      <DialogContent className="max-w-[min(calc(100%-2rem),26rem)]">
+      <DialogContent className="max-w-[26rem]">
         {pantalla === 'rating' && (
           <>
             <DialogHeader>

@@ -44,8 +44,7 @@ export function ConfirmarFechas({
 
   return (
     <Dialog open onOpenChange={abierto => { if (!abierto && !enviando) onCerrar(); }}>
-      {/* El tope del Dialog común (100 % − 2rem) se conserva: con `max-w-lg` a secas tocaba los bordes en el móvil. */}
-      <DialogContent className="max-w-[min(calc(100%-2rem),32rem)]" data-testid="confirmar-fechas">
+      <DialogContent className="max-w-lg" data-testid="confirmar-fechas">
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
           {descripcion && <DialogDescription>{descripcion}</DialogDescription>}
