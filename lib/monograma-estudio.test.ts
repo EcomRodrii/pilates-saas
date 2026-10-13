@@ -35,9 +35,10 @@ test('el texto es el que más contraste hace sobre el fondo', () => {
   assert.equal(coloresMonograma('#131313').texto, '#FFFFFF'); // fondo oscuro → texto claro
 });
 
-test('solo 64, 180, 192 y 512 son tamaños válidos; cualquier otra cosa cae a 512', () => {
-  for (const t of [64, 180, 192, 512]) assert.equal(tamanoValido(String(t)), t);
-  for (const raro of ['1024', '32', '0', '-1', 'nan', null, '']) assert.equal(tamanoValido(raro), 512);
+test('solo 64, 180, 192, 512 y 1024 son tamaños válidos; cualquier otra cosa cae a 512', () => {
+  // 1024 es el de la ficha de la App Store: solo lo pide scripts/app-estudio.mjs.
+  for (const t of [64, 180, 192, 512, 1024]) assert.equal(tamanoValido(String(t)), t);
+  for (const raro of ['2048', '32', '0', '-1', 'nan', null, '']) assert.equal(tamanoValido(raro), 512);
 });
 
 test('la URL cambia si cambia el color: cachear por URL no deja iconos viejos', () => {

@@ -481,9 +481,27 @@ Momence, que Apple acepta en la práctica, pero es lo contrario del texto. **Nad
 esto se envía a revisión de Apple sin decisión expresa del fundador**; el piloto va a
 TestFlight interno. La consulta a App Review sobre este modelo está pendiente de enviar.
 
-⚠️ Hasta que haya script, la identidad (`TENTARE_APP_ID`, `TENTARE_APP_NAME` →
-`ios/identidad.local.xcconfig`) y el icono se ponen a mano; el icono de la tienda
-(1024 px, sin alfa) no sale de la ruta `/icono-estudio` (llega a 512 px).
+**Compilar y subir la app de un estudio** (con la fila ya ACTIVA y el registro creado en
+App Store Connect con el mismo bundle id):
+
+```sh
+TENTARE_APPLE_TEAM_ID=XXXXXXXXXX npm run app:estudio -- <slug>            # icono, compila y sube a TestFlight
+npm run app:estudio -- <slug> --solo-icono                                # deja el icono en build/app-estudio/<slug>/ y para
+npm run app:estudio -- <slug> --sin-subir                                 # compila y comprueba, sin subir
+```
+
+(`scripts/app-estudio.mjs`; el Team ID se lee también de `ios/identidad.local.xcconfig`.)
+Pide al servidor el nombre y el icono del estudio, pinta el icono de 1024 px sin alfa (el
+mismo que ven sus alumnas: favicon › logo › inicial; `/icono-estudio?size=1024`), pone
+la identidad, compila con firma automática (`-allowProvisioningUpdates`, que registra el
+App ID), exporta primero un IPA y **comprueba sus entitlements** (notificaciones en
+producción, Entrar con Apple y enlaces universales; sin ellos no sube; en el archivo las
+notificaciones van en `development`, solo el IPA las lleva en `production`) y entonces lo
+sube a App Store Connect. El número de build es la fecha y hora. Deja los ficheros versionados
+(`Assets.xcassets`), la identidad local y el JSON de Capacitor como estaban, salga bien o
+mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
+
+⚠️ Sube a App Store Connect, **no envía a revisión**.
 
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 
