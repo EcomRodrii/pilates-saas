@@ -59,7 +59,7 @@ export default function PreferenciasPage() {
     const ok = await guardarPreferencia({ studioId: estudio.id, category: 'pagos', email: valor });
     if (!ok) {
       setEmailPagos(antes);
-      toast('No hemos podido guardar ese cambio.');
+      toast('No hemos podido guardar ese cambio.', { variant: 'error' });
     }
   };
 
@@ -71,7 +71,7 @@ export default function PreferenciasPage() {
     const ahora = await guardarConsentimientoMarketing(estudio.id, valor);
     if (ahora === null) {
       setMarketing(antes);
-      toast('No hemos podido guardar ese cambio.');
+      toast('No hemos podido guardar ese cambio.', { variant: 'error' });
       return;
     }
     setMarketing(ahora);
@@ -89,10 +89,10 @@ export default function PreferenciasPage() {
     try {
       if (accion === 'activar') {
         const r = await activarPushStudent(estudio.id, estudio.slug);
-        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.');
+        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.', { variant: 'error' });
       } else {
         const ok = await desactivarPushStudent(estudio.slug);
-        if (!ok) toast('No hemos podido desactivar los avisos en este dispositivo.');
+        if (!ok) toast('No hemos podido desactivar los avisos en este dispositivo.', { variant: 'error' });
       }
       setPush(estadoPush(await contextoPushStudent(estudio.slug, estudio.id)));
     } finally {

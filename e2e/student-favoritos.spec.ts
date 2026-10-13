@@ -48,12 +48,19 @@ test.describe('Student PWA · favoritas', () => {
     await expect(page.getByText(/guardada en tus favoritas/i)).toBeVisible();
   });
 
-  test('si el servidor no lo guarda, el corazón vuelve a estar sin marcar', async ({ page }) => {
-    await montar(page, { respuesta: 500 });
+  test('si el servidor no lo guarda, se dice en rojo y el corazón vuelve a estar sin marcar', async ({ page }) => {
+    const peticiones = await montar(page, { respuesta: 500 });
     await page.goto(`${base}/reservar/${SESION_ID}`);
     await expect(corazon(page)).toHaveAttribute('aria-pressed', 'false', { timeout: 30_000 });
     await corazon(page).click();
-    await expect(page.getByText(/no hemos podido guardar el favorito/i)).toBeVisible();
+    // Se intentó de verdad (sin contador, «no mintió» podría ser no haber llamado),
+    // y el «no» sale como error: `alert`, con el tono de peligro de la app, nunca
+    // con el aspecto del acierto (P0.3, tanda 6).
+    await expect.poll(() => peticiones.length).toBeGreaterThan(0);
+    const aviso = page.getByRole('alert').filter({ hasText: /no hemos podido guardar el favorito/i });
+    await expect(aviso).toBeVisible();
+    await expect(page.locator('[data-variante="error"]')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: /no hemos podido guardar el favorito/i })).toHaveCount(0);
     await expect(corazon(page)).toHaveAttribute('aria-pressed', 'false');
   });
 

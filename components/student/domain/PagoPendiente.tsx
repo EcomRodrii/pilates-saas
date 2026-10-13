@@ -49,7 +49,7 @@ export function usePagarRecibo({ stripeAccountId, onCambio }: {
     if (incrustado) { setHoja({ reciboId: p.reciboId, titulo: p.concepto, importe: p.importe }); return; }
     setPreparando(p.reciboId);
     const r = await pagarRenovacion(estudio.id, p.reciboId);
-    if (!r.ok) { setPreparando(null); toast(r.error); onCambio(); return; }
+    if (!r.ok) { setPreparando(null); toast(r.error, { variant: 'error' }); onCambio(); return; }
     // Redirección real a Stripe: la pantalla se sustituye por el pago, así que no se apaga `preparando`.
     window.location.href = r.url;
   }, [preparando, hoja, confirmando, incrustado, estudio.id, toast, onCambio]);

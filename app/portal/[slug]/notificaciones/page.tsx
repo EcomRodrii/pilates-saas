@@ -89,7 +89,8 @@ export default function NotificacionesPage() {
     setMarcando(false);
     // Solo se dice «marcadas» si el servidor lo confirma: el paquete lo canta
     // sin preguntar, y con la red caída eso es un aviso falso.
-    toast(ok ? 'Marcadas como leídas ✓' : 'No hemos podido marcarlas. Inténtalo otra vez.');
+    if (ok) toast('Marcadas como leídas ✓');
+    else toast('No hemos podido marcarlas. Inténtalo otra vez.', { variant: 'error' });
     if (ok) {
       reintentar();
       // El punto de la campana vive en un caché compartido con TTL de 60 s
@@ -109,7 +110,7 @@ export default function NotificacionesPage() {
     setAceptando(null);
     if (!res.ok) {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
-      toast(res.error);
+      toast(res.error, { variant: 'error' });
       // Un fallo NO deja las cosas como estaban (la RPC puede haber cancelado la
       // oferta y dado una recuperación): se vuelve a leer, como en Mis clases.
       if (online) void contexto.refrescar();
@@ -130,7 +131,7 @@ export default function NotificacionesPage() {
     setCancelando(false);
     if (!res.ok) {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
-      toast(res.error);
+      toast(res.error, { variant: 'error' });
       return;
     }
     const { id, claseId } = saliendo;

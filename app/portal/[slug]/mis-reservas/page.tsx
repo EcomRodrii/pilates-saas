@@ -162,7 +162,7 @@ export default function MisReservasPage() {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
       // La reserva SIGUE ACTIVA: no se toca la lista y se deja el diálogo
       // abierto para que pueda reintentar sin volver a buscarla.
-      toast(res.error);
+      toast(res.error, { variant: 'error' });
       return;
     }
 
@@ -202,7 +202,7 @@ export default function MisReservasPage() {
       if (!vivo) return;
       const orden = tomarAccionPendiente(estudio.slug);
       if (!orden) return;
-      if (!frescos) { toast('No hemos podido comprobar esa clase. Revisa tu conexión y vuelve a intentarlo.'); return; }
+      if (!frescos) { toast('No hemos podido comprobar esa clase. Revisa tu conexión y vuelve a intentarlo.', { variant: 'error' }); return; }
       // La pantalla, con lo mismo que se ha leído (sale del catálogo recién traído: no pide otra vez).
       await refrescar();
       if (vivo) setOrdenAviso({ orden, reservas: frescos.reservas });
@@ -236,7 +236,7 @@ export default function MisReservasPage() {
 
     if (!res.ok) {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
-      toast(res.error);
+      toast(res.error, { variant: 'error' });
       // ⚠️ 26ª pasada: aquí no se recargaba nada, y no era cosmético. El camino
       // de fallo de `aceptarOfertaListaEspera` NO deja las cosas como estaban:
       // la RPC YA canceló la reserva (lo dice su propio comentario, «PIERDE EL

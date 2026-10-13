@@ -116,7 +116,7 @@ export function HiloConversacion({
       // Sin aceptar las normas no hay nada que avisar: la hoja ya lo ha dicho todo.
       // Cerrado o bloqueado entre medias (409): se dice y el borrador se queda a la
       // vista, para que no se pierda; al volver a entrar ya no hay compositor.
-      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error);
+      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error, { variant: 'error' });
       return;
     }
     setExtra((e) => [...e, r.mensaje]);
@@ -130,7 +130,7 @@ export function HiloConversacion({
   const desbloquear = async () => {
     if (!bloquear) return;
     const r = await bloquear(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     setEstadoLocal(r.estado ?? 'ABIERTA');
   };
 
@@ -350,7 +350,7 @@ function HojaMensaje({ mensaje, onClose, denunciar, bloquear, nombreOtraParte, o
     setOcupado('denunciar');
     const r = await denunciar(mensaje.id);
     setOcupado(null);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     toast(r.mensaje ?? TEXTO_GRACIAS_DENUNCIA);
     onClose();
   };
@@ -359,7 +359,7 @@ function HojaMensaje({ mensaje, onClose, denunciar, bloquear, nombreOtraParte, o
     setOcupado('bloquear');
     const r = await bloquear(true);
     setOcupado(null);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     onBloqueado(r.estado ?? 'BLOQUEADA_POR_MI');
     toast(TEXTO_BLOQUEO_HECHO);
     onClose();

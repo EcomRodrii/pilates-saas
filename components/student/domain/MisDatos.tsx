@@ -89,7 +89,8 @@ export function DescargarMisDatos({ slug, nombreEstudio }: { slug: string; nombr
     setDescargando(true);
     const r = await descargarMisDatos(slug);
     setDescargando(false);
-    toast(r.ok ? 'Tus datos se han descargado.' : r.error);
+    if (r.ok) toast('Tus datos se han descargado.');
+    else toast(r.error, { variant: 'error' });
   };
 
   return (
@@ -136,7 +137,7 @@ export function SolicitudesDerechos({ slug, nombreEstudio }: { slug: string; nom
     setEnviando(true);
     const r = await solicitarDerecho(slug, pidiendo, pidiendo === 'supresion' ? frase : undefined);
     setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     cerrar();
     toast(r.yaExistia ? 'Ya tenías esta solicitud en curso.' : `Solicitud enviada a ${nombreEstudio}.`);
     reintentar();
