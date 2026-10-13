@@ -34,3 +34,9 @@ test('días hasta apertura en días naturales, sin depender de la hora', () => {
   assert.equal(diasHastaApertura('2026-09-28', NOW), -3);
   assert.equal(diasHastaApertura(null, NOW), null);
 });
+
+test('Un estudio recién migrado (muchas fichas, sin asistencias ni fecha) NO ve «Preparemos tu apertura»', () => {
+  const base = { fechaApertura: null, fase: null, estudioCreadoEn: '2026-10-08T00:00:00Z', tieneAsistencias: false };
+  assert.equal(debeMostrarApertura({ ...base, muchasClientas: true }, NOW), false);
+  assert.equal(debeMostrarApertura({ ...base, muchasClientas: false }, NOW), true);
+});

@@ -31,7 +31,8 @@ export default function Contenido() {
         Para cobrar algo que no tiene recibo todavía (un bono, un producto, una clase). Te pregunta si ya te lo ha
         pagado: si es ahora, eliges cómo y queda cobrado; si lo paga después, queda en «Quién me debe» con su fecha.
         Antes de cobrar te dice si se apunta en la caja y si sale factura. En efectivo no sale factura sola: si te la
-        pide, marca «Hacerle factura». Es el mismo diálogo que el «Nuevo cobro» de la ficha de la clienta.
+        pide, marca «Hacerle factura». Si has apagado «Facturar automáticamente» (Configuración → Cobros y facturas),
+        ninguna sale sola: la haces desde el recibo cobrado. Es el mismo diálogo que el «Nuevo cobro» de la ficha de la clienta.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que está en el banco</h2>

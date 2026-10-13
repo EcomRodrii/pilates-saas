@@ -9,6 +9,7 @@ import type { AchievementDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Punto de partida opcional (botón "Cargar logros sugeridos") — no se
 // insertan solos, el estudio decide si los quiere y puede editarlos después.
@@ -31,7 +32,7 @@ const emptyForm = (): Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'
   metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', umbral: 5, icono: '🏆', creditosRecompensa: 0, activo: true,
 });
 
-export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
+export function TabLogros({ showToast }: { showToast: MostrarToast }) {
   const { achievementDefinitions, addAchievementDefinition, updateAchievementDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
     setGuardando(true);
     try {
       const res = modal === 'nuevo' ? await addAchievementDefinition(form) : editId ? await updateAchievementDefinition(editId, form) : { ok: true as const };
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
       setModal(null);
       showToast(modal === 'nuevo' ? 'Logro creado' : 'Logro actualizado');
     } finally { setGuardando(false); }

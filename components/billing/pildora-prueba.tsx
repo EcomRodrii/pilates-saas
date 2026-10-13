@@ -134,7 +134,7 @@ export function PildoraPrueba({ className = '' }: { className?: string }) {
     : `${trial.diasRestantes} ${trial.diasRestantes === 1 ? 'día' : 'días'}`;
 
   return (
-    <div ref={contenedor} className={`relative ${className}`}>
+    <div ref={contenedor} data-tour="pildora-prueba" className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}

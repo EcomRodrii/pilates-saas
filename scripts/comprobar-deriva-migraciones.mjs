@@ -36,6 +36,8 @@ const ACEPTADAS = {
   // (`select statements from supabase_migrations.schema_migrations`).
   sinFichero: [
     'res1_lista_espera_respeta_limite_y_solape',
+    // «Segundo paso por correo»: salió de aquí el 14-oct-2026. El fichero único se
+    // partió en los seis trozos con su versión y su nombre de producción.
   ],
   // Salieron de aquí el 2026-09-22 quince que el check dio por «arregladas» y no
   // lo estaban: el `supabase migration repair` del 2026-09-20 BORRÓ sus filas

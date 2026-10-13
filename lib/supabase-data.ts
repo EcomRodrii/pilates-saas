@@ -19,7 +19,7 @@ import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos'
 // de cliente— pero eran una arista latente: bastaba con que alguien usara una
 // de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
 // layout raíz, que es cliente.)
-import { uid, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import { uid, inicioDelDiaEstudio, finDelDiaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { horaHHMM } from '@/lib/booking-logic';
 import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -2472,15 +2472,40 @@ async function sincronizarTiposDePlan(
   return ESCRITURA_OK;
 }
 
-export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEscritura> {
+/**
+ * La fila de la tarifa SÍ se escribió, pero no a qué clases da acceso (su
+ * cobertura, `plan_tipos_clase`). No es «no se ha guardado»: decirlo así dejaba
+ * el formulario abierto y un segundo «Crear» hacía otra tarifa igual.
+ *  · `desactivada`: al crearla, se ha retirado de la venta para que nadie la
+ *    compre valiendo para todas las clases (falla CERRADO).
+ */
+export type FalloCoberturaTarifa = { ok: false; error: string; filaEscrita: true; desactivada: boolean };
+export type ResultadoTarifa = ResultadoEscritura | FalloCoberturaTarifa;
+
+export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoTarifa> {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
   if (error) return falloEscritura('[dbInsertPlanTarifa]', error);
+  // «Todas las clases» es no tener filas, y una tarifa nueva no tiene ninguna.
+  if (!plan.tiposClaseIds?.length) return ESCRITURA_OK;
   // Se propaga: una tarifa creada sin su cobertura vale para TODAS las clases,
   // que es justo lo contrario de lo que acaba de pedir la propietaria.
-  return sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds, plan.limitePorTipo);
+  const cobertura = await sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds, plan.limitePorTipo);
+  if (cobertura.ok) return cobertura;
+  // La tarifa existe y, sin sus filas, vale para TODAS las clases. Si estaba a la
+  // venta se retira (`activo = false`): mejor que nadie la compre a que la compre
+  // para clases que no cubre. Contando filas, como el resto de escrituras.
+  let desactivada = false;
+  if (plan.activo) {
+    const { data: tocadas, error: errRetirar } = await supabase
+      .from('planes_tarifa').update({ activo: false }).eq('id', plan.id).select('id');
+    desactivada = !errRetirar && (tocadas?.length ?? 0) > 0;
+    // Que no se pierda en silencio: la tarifa se queda a la venta para todas las clases.
+    if (errRetirar) reportDbError('[dbInsertPlanTarifa:retirar]', errRetirar);
+  }
+  return { ok: false, error: cobertura.error, filaEscrita: true, desactivada };
 }
 
-export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
+export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoTarifa> {
   const db: Record<string, unknown> = {};
   // Se escribe lo que el llamante trae de verdad. `undefined` se salta (no lo
   // manda, igual que antes: `JSON.stringify` lo tiraba de todas formas), pero
@@ -2505,10 +2530,15 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if (!tocadas?.length) return { ok: false, error: await motivoSinEfecto(id, 'cambiar') };
   if ('tiposClaseIds' in changes) {
     const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
+    // La fila YA está cambiada: lo que falta es su cobertura (`filaEscrita`). Si la
+    // edición la ponía a la venta, quien llama decide si retirarla
+    // (`studio-context` `updatePlan`, que sabe si antes lo estaba): si la cobertura
+    // de antes era «todas», un fallo aquí la dejaría vendiéndose así.
     if (!fila?.studio_id) {
-      return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.' };
+      return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.', filaEscrita: true, desactivada: false };
     }
-    return sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds, changes.limitePorTipo);
+    const cobertura = await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds, changes.limitePorTipo);
+    return cobertura.ok ? cobertura : { ...cobertura, filaEscrita: true, desactivada: false };
   }
   return ESCRITURA_OK;
 }
@@ -3378,8 +3408,10 @@ export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRec
       .in('id', ids);
     if (error) return { ok: false };
     for (const fila of (data ?? []) as unknown as FilaReciboRemesa[]) filas.set(fila.id, fila);
-    // El «hoy» del cron de renovaciones: con él se sabe si una cuota ya venció.
-    return { ok: true, filas, hoy: new Date().toISOString().slice(0, 10) };
+    // El «hoy» con el que se sabe si una cuota ya venció: el del estudio. El cron de
+    // renovaciones corre a las 08:00 UTC, cuando su día UTC ya es el de Madrid; la
+    // remesa se arma a cualquier hora, y de madrugada el de UTC aún era ayer.
+    return { ok: true, filas, hoy: hoyEnEstudio() };
   } catch {
     return { ok: false };
   }
@@ -5117,6 +5149,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
+  if ('tourProgreso' in changes) db.tour_progreso = changes.tourProgreso;
+  if ('tourCompletadoEn' in changes) db.tour_completado_en = changes.tourCompletadoEn;
   if ('gestoriaEnvioAutomatico' in changes) db.gestoria_envio_automatico = changes.gestoriaEnvioAutomatico;
   if ('reviewBoostMostradoEn' in changes) db.review_boost_mostrado_en = changes.reviewBoostMostradoEn;
   if ('reviewBoostPospuestoEn' in changes) db.review_boost_pospuesto_en = changes.reviewBoostPospuestoEn;
@@ -5506,6 +5540,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
     modoFacturacion: r.modo_facturacion === 'sin_facturas' || r.modo_facturacion === 'verifactu' ? r.modo_facturacion : 'facturas',
+    facturarAutomatico: r.facturar_automatico !== false,
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
     // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,
@@ -5547,6 +5582,9 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
     tourVistoEn: r.tour_visto_en ?? null,
+    tourObligatorio: r.tour_obligatorio ?? false,
+    tourProgreso: r.tour_progreso ?? {},
+    tourCompletadoEn: r.tour_completado_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
     reviewBoostElegibleEn: r.review_boost_elegible_en ?? null,
     reviewBoostMostradoEn: r.review_boost_mostrado_en ?? null,

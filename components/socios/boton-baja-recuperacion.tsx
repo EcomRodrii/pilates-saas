@@ -25,7 +25,7 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
   const [open, setOpen] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [waUrl, setWaUrl] = useState<string | null>(null);
-  const [estado, setEstado] = useState<'idle' | 'hecho' | 'sin-tel' | 'tope' | 'error'>('idle');
+  const [estado, setEstado] = useState<'idle' | 'hecho' | 'sin-tel' | 'tope' | 'error' | 'sin-confirmar'>('idle');
 
   async function confirmar() {
     setProcesando(true);
@@ -34,6 +34,7 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
     setOpen(false);
     if (res.recuperacion === 'TOPE') { setEstado('tope'); return; }
     if (res.recuperacion === 'ERROR') { setEstado('error'); return; }
+    if (res.recuperacion === 'SIN_CONFIRMAR') { setEstado('sin-confirmar'); return; }
     const url = enlaceWhatsApp(socio.telefono, mensajeRecuperacion(socio.nombre, res.caduca));
     if (url) { setWaUrl(url); setEstado('hecho'); } else { setEstado('sin-tel'); }
   }
@@ -53,6 +54,7 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
   }
   if (estado === 'tope') return <span className="text-[11px] font-medium text-warning shrink-0">Ya tiene {tope} {tope === 1 ? 'recuperación' : 'recuperaciones'}</span>;
   if (estado === 'sin-tel') return <span className="text-[11px] font-medium text-success shrink-0">Recuperación guardada</span>;
+  if (estado === 'sin-confirmar') return <span role="alert" className="text-[11px] font-medium text-warning shrink-0">Sin confirmar: mira la reserva antes de repetir</span>;
   if (estado === 'error') return <span className="text-[11px] font-medium text-destructive shrink-0">Error, reintenta</span>;
 
   return (

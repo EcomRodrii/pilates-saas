@@ -203,6 +203,7 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // veto («la IA que te habla») se cae con el asistente; el de dinero no
   // (estadoDelVeredicto → sin Tenti si aprobar cobra).
   'components/decision/veredicto-del-dia.tsx': { usos: 1, motivo: 'el veredicto del día: analizando, recién hecho, el mensaje que te pregunta o lo que el piloto no pudo; nunca junto a un cobro' },
+  'components/asistente/asistente-flotante.tsx': { usos: 1, motivo: 'el botón flotante del chat «Pregúntale a Tentare»: la puerta del asistente en todas las pantallas del panel (fundador, 8-oct-2026)' },
   'app/(dashboard)/bienvenido-apertura/page.tsx': { usos: 1, motivo: 'las tres preguntas de apertura, donde estaba el Orb (ningún enlace trae aquí desde #2270)' },
 };
 
@@ -270,8 +271,8 @@ const IMPORTAN_EL_ASISTENTE: Record<string, { usos: number; motivo: string }> = 
 
 /** Los únicos que importan `components/tenti/tenti-diferido`. */
 const IMPORTAN_EL_DIFERIDO = new Set([
-  // «Tu estudio ya puede recibir reservas»: cuelga sin diferir de /calendario y
-  // de PrimerHorario, así que el motor solo puede llegar por el diferido.
+  // «Tu estudio ya puede recibir reservas»: cuelga sin diferir de /calendario,
+  // así que el motor solo puede llegar por el diferido.
   'components/onboarding/listo-para-reservar.tsx',
   // Hito «tu estudio ya está en marcha», al terminar el alta (7-oct-2026): cuelga
   // del panel que se carga siempre, así que el motor solo llega por el diferido.

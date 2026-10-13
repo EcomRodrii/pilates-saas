@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import type { MostrarToast } from '@/components/ui/toast';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors,
   type Announcements, type DragEndEvent, type Modifier, type UniqueIdentifier,
@@ -33,6 +34,8 @@ import {
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 import { cn, fechaCortaEstudio } from '@/lib/utils';
 import { AlertTriangle, Archive, ChevronDown, Copy, GripVertical, Pencil, Plus, Ticket, Trash2, Undo2, Video } from 'lucide-react';
+import { useTutorial } from '@/lib/tutorial-context';
+import { EJEMPLOS } from '@/lib/ayuda/ejemplos';
 
 // Las reglas propias de un tipo, dichas como en «Cómo reservan mis alumnas»:
 // UNA fuente (`queCambiaElTipo`), la misma que usa esa pantalla. Solo lo que
@@ -276,7 +279,7 @@ function FilaArchivado({ tc, quedan, recuperando, onRecuperar, onEliminar }: {
   );
 }
 
-export function TabClases({ showToast }: { showToast: (m: string) => void }) {
+export function TabClases({ showToast }: { showToast: MostrarToast }) {
   const { studio, dataLoaded, tiposClase, planesTarifa, sesiones, reservas, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
   const estudio = dataLoaded ? reglasGuardadas(studio) : null;
   // En el orden que ve la alumna: el que se guardó al arrastrar, y detrás, por
@@ -355,10 +358,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       setSubiendoFoto(true);
       const result = await eliminarFotoClase(editId);
       setSubiendoFoto(false);
-      if ('error' in result) { showToast(result.error); return; }
+      if ('error' in result) { showToast(result.error, { variant: 'error' }); return; }
     }
     const res = await updateTipoClase(editId, { fotoUrl: url });
-    if (!res.ok) showToast(res.error);
+    if (!res.ok) showToast(res.error, { variant: 'error' });
   }, [editId, updateTipoClase, showToast]);
 
   // El logo va por su propia vía, igual que el banner: mismo par subir/guardar,
@@ -379,16 +382,22 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       setSubiendoLogo(true);
       const result = await eliminarLogoClase(editId);
       setSubiendoLogo(false);
-      if ('error' in result) { showToast(result.error); return; }
+      if ('error' in result) { showToast(result.error, { variant: 'error' }); return; }
     }
     const res = await updateTipoClase(editId, { logoUrl: url });
-    if (!res.ok) showToast(res.error);
+    if (!res.ok) showToast(res.error, { variant: 'error' });
   }, [editId, updateTipoClase, showToast]);
+
+  // «Hazlo conmigo» (P1.3): ¿se abrió el «Nuevo» con el ejemplo del tutorial?
+  // Cualquier otra forma de abrir el formulario lo apaga: si no, la banda volvía
+  // en el siguiente «Nuevo» y hasta en «Duplicar», encima de una copia real.
+  const [conEjemplo, setConEjemplo] = useState(false);
 
   const openNueva = useCallback(() => {
     setForm(emptyClaseForm(colorSalaPorDefecto(tiposClase.length)));
     setEditId(null);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('nueva');
   }, [tiposClase.length]);
 
@@ -399,6 +408,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setForm({ ...claseToForm(t), nombre: `${t.nombre} (copia)` });
     setEditId(null);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('nueva');
   }, []);
 
@@ -406,10 +416,24 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setForm(claseToForm(t));
     setEditId(t.id);
     setErrorGuardar(null);
+    setConEjemplo(false);
     setModal('editar');
   }, []);
 
-  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); }, []);
+  // «Hazlo conmigo» (P1.3): el tutorial pide un ejemplo y se abre el «Nuevo» de
+  // siempre (mismo estado inicial), con el ejemplo en gris y su banda.
+  const tutorial = useTutorial();
+  const ejemploPedido = tutorial?.ejemplo === 'tipo-clase';
+  const soltarEjemplo = tutorial?.soltarEjemplo;
+  useEffect(() => {
+    if (!ejemploPedido || !soltarEjemplo) return;
+    soltarEjemplo();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responde a una petición del tutorial, que vive en otro sitio.
+    openNueva();
+    setConEjemplo(true);
+  }, [ejemploPedido, soltarEjemplo, openNueva]);
+
+  const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); setConEjemplo(false); }, []);
 
   const guardar = useCallback(async () => {
     if (modal === 'nueva') {
@@ -422,7 +446,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       const res = await addTipoClase({ ...fields, fotoUrl: null, logoUrl: null });
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
-      showToast(`"${fields.nombre}" ya está guardado`);
+      showToast(`"${fields.nombre}" ya está guardado. Para su logo y su banner, pulsa «Editar»`);
     } else if (editId) {
       setGuardando(true);
       setErrorGuardar(null);
@@ -434,6 +458,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       showToast('Tipo de clase actualizado');
     }
     setModal(null);
+    setConEjemplo(false);
   }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast]);
 
   // Un PATCH por cada tipo cuya posición cambia (`cambiosDeOrden`), en paralelo,
@@ -455,7 +480,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     guardandoOrden.current = false;
     setOrdenPendiente(null);
     const fallo = resultados.find((r): r is { ok: false; error: string } => !r.ok);
-    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus alumnas');
+    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus alumnas', fallo ? { variant: 'error' } : undefined);
   }, [activos, updateTipoClase, showToast]);
 
   const sensores = useSensors(
@@ -509,7 +534,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setRecuperando(t.id);
     const res = await updateTipoClase(t.id, { archivadoEn: null });
     setRecuperando(null);
-    showToast(res.ok ? `«${t.nombre}» vuelve a estar entre tus tipos de clase` : res.error);
+    showToast(res.ok ? `«${t.nombre}» vuelve a estar entre tus tipos de clase` : res.error, res.ok ? undefined : { variant: 'error' });
   }, [updateTipoClase, showToast]);
 
   const tipoABorrar = confirmDel ? tiposClase.find(t => t.id === confirmDel) ?? null : null;
@@ -519,7 +544,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deleteTipoClase(confirmDel);
-    showToast(res.ok ? 'Tipo de clase eliminado' : res.error);
+    showToast(res.ok ? 'Tipo de clase eliminado' : res.error, res.ok ? undefined : { variant: 'error' });
   }, [confirmDel, deleteTipoClase, showToast]);
 
   return (
@@ -544,14 +569,14 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             </p>
           )}
         </div>
-        <button className={btnPrimary} onClick={openNueva}>
+        <button data-tour="tipos-clase-nuevo" className={btnPrimary} onClick={openNueva}>
           <Plus size={14} />
           Nuevo tipo de clase
         </button>
       </div>
 
       {activos.length === 0 && (
-        <div className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
+        <div data-tour="tipos-clase-lista" className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
           {archivados.length > 0
             ? 'Todos tus tipos de clase están archivados. Recupera uno de abajo o crea uno nuevo para volver a programar clases.'
             : 'Aún no tienes tipos de clase. Créalos aquí (Reformer, Suelo, Embarazadas…) y luego los programarás en la agenda.'}
@@ -572,7 +597,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
           }}
         >
           <SortableContext items={enLista.map(t => t.id)} strategy={verticalListSortingStrategy}>
-            <ul aria-label="Tipos de clase, en el orden en que los ve tu alumna" className={cn(cardCls, 'divide-y divide-border')}>
+            <ul data-tour="tipos-clase-lista" aria-label="Tipos de clase, en el orden en que los ve tu alumna" className={cn(cardCls, 'divide-y divide-border')}>
               {enLista.map(tc => (
                 <FilaTipoClase
                   key={tc.id}
@@ -643,6 +668,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         onCambiarLogo={guardarLogoDeClase}
         onGuardar={guardar}
         onCerrar={closeModal}
+        ejemplo={conEjemplo && modal === 'nueva' ? EJEMPLOS['tipo-clase'] : undefined}
       />
 
       {/* Un tipo con clases no se puede borrar: `sesiones.tipo_clase_id` lo

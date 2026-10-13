@@ -43,6 +43,9 @@ import { MENSAJE_SIN_FACTURAS } from '../factura-automatica.ts';
 /** Lo que se le dice a quien pide una factura con el estudio en 'sin_facturas'. */
 export const MENSAJE_FACTURACION_DESACTIVADA = MENSAJE_SIN_FACTURAS;
 
+export const MENSAJE_FACTURA_AUTOMATICA_APAGADA =
+  'Este estudio tiene apagado «Facturar automáticamente»: la factura se hace a mano cuando la piden.';
+
 export interface ResultadoSellado {
   ok: boolean;
   error?: string;
@@ -52,6 +55,13 @@ export interface ResultadoSellado {
    * debe marcar la factura como pendiente ni avisar a Sentry por ello.
    */
   desactivada?: boolean;
+  /**
+   * El estudio tiene apagado «Facturar automáticamente» y esta llamada era la
+   * automática (`origen: 'automatica'`): no se emite nada y tampoco es un fallo.
+   * Va siempre con `desactivada: true` para que quien ya trata ese caso (sin
+   * marca de pendiente, sin Sentry) lo trate igual.
+   */
+  omitida?: boolean;
   /**
    * Falta el NIF fiscal del estudio (vacío o de relleno): la factura no se puede
    * emitir todavía. Es un estado esperado, no una avería: quien llama la deja
@@ -98,7 +108,16 @@ const COLS_SELLO = 'id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verif
 
 export async function sellarFacturaDeRecibo(
   admin: SupabaseClient,
-  params: { studioId: string; reciboId: string; facturaId: string },
+  params: {
+    studioId: string; reciboId: string; facturaId: string;
+    /**
+     * 'automatica' = la emite Tentare sola al cobrar (confirmarCobro, el TPV, el
+     * reintento): respeta el ajuste del estudio «Facturar automáticamente».
+     * 'manual' (por defecto) = alguien la pidió (⋯ del recibo, «Hacerle
+     * factura»): sale siempre. Independiente de Veri*Factu.
+     */
+    origen?: 'automatica' | 'manual';
+  },
 ): Promise<ResultadoSellado> {
   const { studioId, reciboId, facturaId } = params;
 
@@ -150,6 +169,17 @@ export async function sellarFacturaDeRecibo(
   // estado de sistema 'sin_facturas' (sin poder ante la AEAT) no emite.
   if (!existente && studio?.modo_facturacion === 'sin_facturas') {
     return { ok: false, desactivada: true, error: MENSAJE_FACTURACION_DESACTIVADA };
+  }
+  // Ajuste «Facturar automáticamente» (9-oct-2026): solo frena la emisión
+  // AUTOMÁTICA de una factura que aún no ha nacido. Consulta aparte y tolerante:
+  // si la columna aún no existe (código desplegado antes que la migración, que
+  // es el orden previsto) el error se lee como «encendido», que es lo de siempre.
+  if (!existente && params.origen === 'automatica') {
+    const { data: ajuste, error: errAjuste } = await admin
+      .from('studios').select('facturar_automatico').eq('id', studioId).maybeSingle();
+    if (!errAjuste && (ajuste as { facturar_automatico?: boolean | null } | null)?.facturar_automatico === false) {
+      return { ok: false, desactivada: true, omitida: true, error: MENSAJE_FACTURA_AUTOMATICA_APAGADA };
+    }
   }
   const nifEmisor = studio?.nif?.trim() || '';
   // F0 · CFG-1: no sellar con un NIF vacío o de relleno (p. ej. el 'B12345678' del

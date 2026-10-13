@@ -1,5 +1,5 @@
 // Tests de la lógica de consumo de bono. Runner nativo de Node: `npm test`.
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
@@ -8,7 +8,7 @@ import {
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
   saldoSesionesBono, avisaBonoAgotado, cicloInicialDe,
-  mesesDeCiclo, nombrePeriodo, proximoFinAlineadoDia1, proximoFinDesdeVencimiento } from './bono-logic.ts';
+  mesesDeCiclo, nombrePeriodo, precioMensualDeCuota, proximoFinAlineadoDia1, proximoFinDesdeVencimiento } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -738,6 +738,26 @@ test('reactivar una trimestral la reactiva TRES meses, como el alta', () => {
   );
 });
 
+test('una cuota vale al mes su precio entre los meses del ciclo: una trimestral no cuenta ×3', () => {
+  assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: 1 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 240, periodicidadMeses: 3 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 480, periodicidadMeses: 6 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 960, periodicidadMeses: 12 }), 80);
+  // Sin periodicidad (un plan de antes de la columna, o de un backup) es la
+  // mensual de siempre.
+  assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: null }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 80 }), 80);
+});
+
+test('⚠️ el precio al mes divide por los MISMOS meses que extiende la renovación', () => {
+  // Un valor imposible cae a 1 en `mesesDeCiclo`, y la renovación extiende un
+  // mes: si aquí se dividiera por 2, el informe contaría la mitad de lo que se
+  // cobra de verdad cada mes.
+  for (const meses of [0, -3, 2, 99, NaN]) {
+    assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: meses }), 80, `${meses} debería contar como mensual`);
+  }
+});
+
 test('el nombre del periodo se dice en castellano, y uno por cada valor', () => {
   assert.equal(nombrePeriodo({ periodicidadMeses: 1 }), 'mes');
   assert.equal(nombrePeriodo({ periodicidadMeses: 3 }), 'trimestre');
@@ -835,4 +855,31 @@ test('el natural ya cae en día 1: no hace falta redondear más', () => {
   // 2026-11-01 + 1 mes natural = 2026-12-01, que ya es día 1: el objetivo es
   // ese mismo día, sin saltar al mes siguiente.
   assert.equal(proximoFinAlineadoDia1('2026-11-01', { periodicidadMeses: 1 }), '2026-11-30');
+});
+
+// ── El «hoy» por defecto es el de Madrid, no el de UTC (8-oct-2026) ───────────
+//
+// 2026-10-07T22:30Z son las 00:30 del 8 de octubre en Madrid. Un bono con fecha_fin = 7 de octubre YA CADUCÓ para el estudio
+// (y para el panel y el cron de las 08:00), pero con el día UTC por defecto seguía sirviendo hasta las 02:00.
+test('sin hoyISO, un bono que caducó «ayer» en Madrid ya no se puede usar (00:30 del día 8, 22:30Z del 7)', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-07T22:30:00Z') });
+  try {
+    const suscripciones = [sus({ socioId: 'a', planId: 'p1', fechaFin: '2026-10-07', sesionesRestantes: 3 })];
+    const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+    assert.equal(bonoConsumible('a', suscripciones, planes), null, 'caducó el 7: a las 00:30 del 8 ya no sirve');
+    assert.equal(saldoSesionesBono('a', suscripciones, planes), null, 'ni cuenta en su saldo');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('y a esa misma hora, un bono que caduca HOY (el 8) sigue sirviendo', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-07T22:30:00Z') });
+  try {
+    const suscripciones = [sus({ socioId: 'a', planId: 'p1', fechaFin: '2026-10-08', sesionesRestantes: 3 })];
+    const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+    assert.equal(bonoConsumible('a', suscripciones, planes)?.sesionesRestantes, 3);
+  } finally {
+    mock.timers.reset();
+  }
 });

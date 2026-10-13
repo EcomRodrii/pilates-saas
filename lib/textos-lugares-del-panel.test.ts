@@ -18,7 +18,7 @@ const RAIZ = join(import.meta.dirname, '..');
 // tal cual («Conecta tu WhatsApp Business en Configuración → …»).
 const DIRECTORIOS = ['app/(dashboard)', 'components', 'app/portal', 'app/api', 'lib/guia'];
 const FICHEROS = [
-  'lib/onboarding.ts', 'lib/tour-pasos.ts', 'lib/funciones-catalogo.ts',
+  'lib/onboarding.ts', 'lib/tour/capitulos.ts', 'lib/funciones-catalogo.ts',
   'lib/legal-textos.ts', 'lib/kisi-servidor.ts', 'lib/supabase-data.ts',
   'lib/billing/penalizacion-aprobar-reglas.ts', 'lib/inngest/automatizaciones.ts',
 ];

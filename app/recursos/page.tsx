@@ -13,13 +13,13 @@ import { PortadaRecursos } from '@/components/recursos/PortadaRecursos';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import {
   CATEGORIAS_RECURSOS, DESTACADA, GUIAS, ORDEN_LISTADO, TARJETAS_SIN_GUIA,
-  fechaModificada, guia, mesCorto, metaTarjeta, urlGuia,
+  mesCorto, metaTarjeta, urlGuia,
   type CategoriaRecursos, type PortadaRecursos as Portada,
 } from '@/lib/recursos/guias';
 // Página de cliente: solo los metadatos (meta.ts), nunca index.ts, que trae el
 // texto entero de los artículos al bundle.
 import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
-import { minutosLectura, urlArticulo } from '@/lib/recursos/articulos/util';
+import { fechaArticulo, minutosLectura, urlArticulo } from '@/lib/recursos/articulos/util';
 import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
 
 type Category = 'todos' | CategoriaRecursos;
@@ -46,7 +46,7 @@ type Article = {
 // los que responden a lo que más buscan las propietarias. Su portada sale de
 // lib/recursos/articulos/portadas.ts (sin ella, la tarjeta enseña el color de
 // su categoría).
-const ARTICULOS_DATOS: Article[] = ARTICULOS_META.map((a) => ({
+const ARTICULOS_DATOS: Article[] = ARTICULOS_META.filter((a) => a.slug !== DESTACADA).map((a) => ({
   category: a.categoria,
   title: a.titulo,
   body: a.resumen,
@@ -63,14 +63,18 @@ const ARTICLES: Article[] = [...ARTICULOS_DATOS, ...ORDEN_LISTADO.map((clave) =>
   return { category: t.categoria, title: t.titulo, body: t.resumen, href: t.href, meta: t.meta, portada: t.portada };
 })];
 
-const G_DESTACADA = guia(DESTACADA);
+// La destacada es un artículo de datos (el pilar), y sale solo arriba: fuera
+// de la rejilla para no repetirla.
+const A_DESTACADA = ARTICULOS_META.find((a) => a.slug === DESTACADA);
+const P_DESTACADA = A_DESTACADA && portadaArticulo(A_DESTACADA.slug);
+if (!A_DESTACADA || !P_DESTACADA) throw new Error(`DESTACADA: «${DESTACADA}» no es ningún artículo con portada de lib/recursos/articulos`);
 const FEATURED = {
-  category: G_DESTACADA.categoria,
-  title: G_DESTACADA.titulo,
-  body: G_DESTACADA.resumen,
-  href: urlGuia(G_DESTACADA.slug),
-  meta: `${G_DESTACADA.lectura} min de lectura · Actualizado ${mesCorto(fechaModificada(G_DESTACADA))}`,
-  portada: G_DESTACADA.portada,
+  category: A_DESTACADA.categoria,
+  title: A_DESTACADA.titulo,
+  body: A_DESTACADA.resumen,
+  href: urlArticulo(A_DESTACADA.slug),
+  meta: `${minutosLectura(A_DESTACADA.palabras)} min de lectura · ${A_DESTACADA.actualizado ? 'Actualizado' : 'Publicado'} ${mesCorto(fechaArticulo(A_DESTACADA))}`,
+  portada: P_DESTACADA,
 };
 
 // Lo que mide de verdad cada portada (ver .rec-grid y .rec-feat abajo). Nunca
@@ -105,7 +109,7 @@ export default function RecursosPage() {
         <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto' }}>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(36px,5.4vw,62px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>
             <PildoraBusqueda>Guías para gestionar un estudio de Pilates</PildoraBusqueda>
-            Cómo llenar, cobrar y<br />automatizar tu estudio.
+            Cómo llenar, cobrar y<br className="rec-br" /> automatizar tu estudio.
           </h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 560, margin: '0 0 30px' }}>Guías prácticas para propietarias de estudios de pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó. Sin humo.</p>
           <div style={{ position: 'relative', maxWidth: 460 }}>
@@ -240,6 +244,8 @@ export default function RecursosPage() {
            mediría más que los 480 px de la portada y se ampliaría. */
         @media (max-width: 524px) {
           .rec-grid { grid-template-columns: 1fr; }
+          /* En el móvil el salto dejaba la «y» sola en su línea. */
+          .rec-br { display: none; }
         }
       `}</style>
     </PageShell>

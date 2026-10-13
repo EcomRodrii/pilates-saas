@@ -192,6 +192,7 @@ export default function PerfilPage() {
             { label: 'Tienda', href: href('/comprar'), icono: 'bolsa' },
             { label: 'Recibos', href: href('/pagos'), icono: 'recibo', valor: valorRecibos, valorDestacado: !!valorRecibos },
             { label: 'Método de pago', href: href('/perfil/pago'), valor: valorMetodo, icono: 'tarjeta' },
+            { label: 'Tarjeta regalo', href: href('/regalo'), icono: 'tarjeta' },
           ]}
         />
 

@@ -20,7 +20,7 @@
 
 export type SeccionId =
   | 'estudio' | 'clases' | 'reservas' | 'cobros' | 'altas' | 'comunicacion'
-  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'avisos' | 'panel';
+  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'demo' | 'avisos' | 'panel';
 
 /**
  * Cómo se guarda lo que hay dentro. Solo `al-pulsar` se anuncia en pantalla
@@ -326,6 +326,22 @@ export const SECCIONES = [
       { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },
+  // La demo en vídeo (8-oct-2026, petición del fundador): un recorrido por TODA
+  // Configuración, sección por sección, para enseñar a una propietaria nueva.
+  // Es de quien lleva la sede (propietaria y gerencia), y lo que enseña lo ve
+  // cada una con sus secciones. Los capítulos y el vídeo viven en
+  // lib/configuracion/demo.ts; aquí solo hay una fila que dice que existe.
+  {
+    id: 'demo',
+    titulo: 'Demo',
+    resumen: 'Un vídeo que configura todo, paso a paso',
+    frase: 'Mira cómo se configura Tentare entero, sección por sección, con un estudio de ejemplo.',
+    roles: SEDE,
+    palabras: ['vídeo', 'tutorial', 'aprender', 'formación', 'guía'],
+    tarjetas: [
+      { id: 'video-de-la-demo', titulo: 'Vídeo de la demo', frase: 'Cada sección de Configuración explicada con un ejemplo, y un índice para saltar al minuto que te interesa.', guardado: 'lectura', roles: SEDE, palabras: ['capítulos', 'índice', 'paso a paso'] },
+    ],
+  },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
   // (/configuracion/notificaciones) o que se abrían desde Apariencia
   // (/configuracion/apariencia/panel). Sus URLs siguen llevando aquí (destino.ts).
@@ -356,7 +372,7 @@ export const SECCIONES = [
     // (`studio_layout`), así que cada cajón manda solo el suyo gracias a que solo
     // se abre uno a la vez y cerrar sin guardar descarta (seccion-panel.tsx).
     tarjetas: [
-      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Inicio, Configuración y Suscripción siempre se ven.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
+      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Resumen, Configuración y Suscripción no se esconden.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
       { id: 'inicio-del-panel', titulo: 'Tu Resumen', frase: 'Ordena y esconde las secciones de tu pantalla de Resumen. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal', 'inicio'] },
       { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
       { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
@@ -441,6 +457,7 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
   { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
+  { id: 'aprende', titulo: 'Aprende', secciones: ['demo'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 

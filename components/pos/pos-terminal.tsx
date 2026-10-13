@@ -390,6 +390,7 @@ export function PosTerminal() {
 
   return createPortal(
     <div
+      data-tour="pos-vista"
       className={cn(
         'fixed z-40 flex flex-col overflow-hidden bg-background',
         'left-0 right-0 lg:left-[var(--sidebar-w)]',

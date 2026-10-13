@@ -9,6 +9,7 @@ const articulo: Articulo = {
   categoria: 'rentabilidad',
   seccion: 'Rentabilidad',
   publicado: '2026-09-25',
+  actualizado: '2026-10-08',
   consultaPrincipal: '¿es rentable un estudio de pilates?',
   consultas: [
     'cuánto se gana con un estudio de pilates',
@@ -43,7 +44,7 @@ const articulo: Articulo = {
       titulo: 'La fórmula de ingresos de un estudio de pilates',
       bloques: [
         { t: 'nota', titulo: 'La fórmula', texto: '**Ingresos al mes = plazas por clase × clases a la semana × 4,33 × ocupación × precio medio por plaza sin IVA.** 4,33 son las semanas de un mes medio (52 ÷ 12).' },
-        { t: 'p', texto: 'El número más engañoso es el precio medio por plaza. Si casi todas tus alumnas pagan cuota, una de 75 € al mes por una clase semanal son 18,75 € por sesión, no 25 €, y con dos clases baja más. Referencias de mercado de nuestro [estudio de precios de 32 estudios](/recursos/precio-clase-de-pilates):' },
+        { t: 'p', texto: 'El número más engañoso es el precio medio por plaza. Si casi todas tus alumnas pagan cuota, una de 75 € al mes por una clase semanal son 18,75 € por sesión contando cuatro clases al mes (17,31 € si cuentas las 4,33 semanas que tiene un mes de media), no 25 €, y con dos clases baja más. Referencias de mercado de nuestro [estudio de precios de 32 estudios](/recursos/precio-clase-de-pilates):' },
         {
           t: 'tabla',
           cabecera: ['Producto (mediana de la muestra)', 'Por sesión, con IVA', 'Por sesión, sin IVA (÷ 1,21)'],

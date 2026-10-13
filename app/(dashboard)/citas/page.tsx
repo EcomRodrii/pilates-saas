@@ -603,7 +603,7 @@ export default function CitasPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div data-tour="citas-vista" className="space-y-6">
       <PageHeader
         title="Citas"
         description={`${upcoming.length} próximas · ${thisMonth.length} este mes`}
@@ -747,7 +747,7 @@ export default function CitasPage() {
 
       {/* Nueva cita modal */}
       <Dialog open={showModal && gestionaCitas} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">Nueva cita</DialogTitle>
           </DialogHeader>

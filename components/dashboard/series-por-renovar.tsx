@@ -9,6 +9,7 @@ import { nombreSerie, textoFinSerie, type SeriePorRenovar } from '@/lib/series-r
 import { hoyEnEstudio } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Clases que se repiten y se acaban (30 días por delante, o terminadas hace
 // menos de 14) sin renovar, dentro de la bandeja de Inicio. Mismo alcance que
@@ -20,7 +21,7 @@ import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
 
 const VISIBLES = 5;
 
-export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) {
+export function SeriesPorRenovar({ onToast }: { onToast: MostrarToast }) {
   const { salas, tiposClase } = useStudio();
   const [items, setItems] = useState<SeriePorRenovar[] | null>(null);
   const [abierta, setAbierta] = useState<SeriePorRenovar | null>(null);
@@ -46,7 +47,7 @@ export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) 
     setEnviando(s.serieId);
     try {
       const r = await marcarNoRenovar(s.serieId, true);
-      if (!r.ok) { onToast(r.error); return; }
+      if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
       setItems(prev => (prev ?? []).filter(x => x.serieId !== s.serieId));
       invalidarEstadoEstudio();
       onToast('No te lo volveremos a recordar. Si cambias de idea, renuévala desde la clase en el calendario.');

@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, AlertTriangle } from 'lucide-react';
+import { anfitrionPortal } from '@/lib/panel-portal';
 
 export interface ToastAction {
   texto: string;
@@ -46,18 +48,29 @@ export function Toast({
   const dismissConAnimacion = useCallback(() => setCerrando(true), []);
   const esError = variant === 'error';
 
+  // Un error necesita más tiempo del que cuesta leerlo: hay que decidir qué
+  // hacer con él. 3 s bastan para «Guardado», no para «no se ha guardado». Y un
+  // texto largo («Clase cancelada · 2 sin avisar…») necesita lo que se tarda en
+  // leerlo: ~60 ms por carácter, hasta 12 s.
+  const duracion = Math.max(action ? 6000 : esError ? 8000 : 3000, Math.min(12_000, message.length * 60));
   useEffect(() => {
-    // Un error necesita más tiempo del que cuesta leerlo: hay que decidir qué
-    // hacer con él. 3 s bastan para «Guardado», no para «no se ha guardado».
-    const t = setTimeout(dismissConAnimacion, action ? 6000 : esError ? 8000 : 3000);
+    const t = setTimeout(dismissConAnimacion, duracion);
     return () => clearTimeout(t);
-  }, [dismissConAnimacion, action, esError]);
+  }, [dismissConAnimacion, duracion]);
 
-  return (
+  // En un portal y a z-[60] (P0.3): las hojas y los diálogos del panel también
+  // son z-50 pero van en portal, después en el DOM, y tapaban el aviso — un
+  // fallo al pasar lista en la ficha de la clase del móvil no se veía. Al
+  // anfitrión del panel y no a `body`, para no perder el modo oscuro
+  // (lib/panel-portal.ts).
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <div
       // `bottom` esquiva la navegación del móvil (fixed bottom-0, 56 px), igual
       // que hace BarraGuardar: a `bottom-6` el toast caía justo encima de ella.
-      className={`fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6 left-1/2 z-50 flex items-center gap-3 ${esError ? 'bg-destructive text-destructive-foreground' : 'bg-brand text-brand-foreground'} text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg ${cerrando ? 'toast-out' : 'toast-in'}`}
+      // Centrado con márgenes (no con `left-1/2` + translate): así, en un móvil de
+      // 390 px el texto tiene todo el ancho y no se queda en una columna de 160 px.
+      className={`fixed inset-x-4 mx-auto w-fit max-w-md bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6 z-[60] flex items-center gap-3 ${esError ? 'bg-destructive text-destructive-foreground' : 'bg-brand text-brand-foreground'} text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg ${cerrando ? 'toast-out' : 'toast-in'}`}
       // Sin esto el toast no existe para un lector de pantalla: era la ÚNICA
       // señal de error de varias pantallas de Configuración, y era muda.
       role={esError ? 'alert' : 'status'}
@@ -80,7 +93,8 @@ export function Toast({
           {action.texto}
         </button>
       )}
-    </div>
+    </div>,
+    anfitrionPortal(),
   );
 }
 

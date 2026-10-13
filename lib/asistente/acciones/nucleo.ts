@@ -16,7 +16,7 @@ import { diaSemanaLocal, esHoraHHMM } from '../../citas/slots.ts';
 import { cierreDeFecha, avisoHorario, type HorarioDelEstudio } from '../../calendario/nueva-clase.ts';
 import type { CierreGuardado } from '../../cierres/quitar-cierre.ts';
 import { fechaEnZona } from '../../student/agenda-instructora.ts';
-import { horaEstudio, instanteEnEstudio, masDias } from '../../utils.ts';
+import { horaEstudio, hoyEnEstudio, instanteEnEstudio, masDias } from '../../utils.ts';
 import { diaLargo } from '../herramientas/definiciones.ts';
 
 export const TIPOS_ACCION = ['CREAR_CLASE', 'CREAR_SALA', 'CREAR_EVENTO', 'CREAR_CITA'] as const;
@@ -26,16 +26,19 @@ export const MINUTOS_CADUCIDAD = 15;
 /** Una clase, evento o cita se programa como mucho con este margen. */
 export const MAX_DIAS_ANTELACION = 180;
 
-export { zClase, zSala, zEvento, zCita, TIPOS_CITA, MAX_CAPACIDAD } from './esquemas.ts';
-export type { EntradaClase, EntradaSala, EntradaEvento, EntradaCita } from './esquemas.ts';
-import { TIPOS_CITA, type EntradaCita, type EntradaClase, type EntradaEvento, type EntradaSala } from './esquemas.ts';
+export { zClase, zClases, zSala, zEvento, zCita, TIPOS_CITA, MAX_CAPACIDAD, MAX_CLASES_LOTE } from './esquemas.ts';
+export type { EntradaClase, EntradaClases, EntradaSala, EntradaEvento, EntradaCita } from './esquemas.ts';
+import { TIPOS_CITA, type EntradaCita, type EntradaClase, type EntradaClases, type EntradaEvento, type EntradaSala } from './esquemas.ts';
 
 // ── Lo que se guarda y se ejecuta ──
 export interface PayloadClase { tipoClaseId: string; salaId: string; instructorId: string | null; inicio: string; fin: string; aforo: number }
 export interface PayloadSala { nombre: string; capacidad: number; color: string }
 export interface PayloadEvento { texto: string; inicio: string; aforo: number | null; lugar: string | null }
 export interface PayloadCita { socioId: string; instructorId: string; tipo: string; inicio: string; fin: string }
-export type Payload = PayloadClase | PayloadSala | PayloadEvento | PayloadCita;
+/** Varias clases en una sola propuesta (`proponer_clases`): mismo tipo de acción, payload con la lista. */
+export interface PayloadClases { clases: PayloadClase[] }
+export type Payload = PayloadClase | PayloadClases | PayloadSala | PayloadEvento | PayloadCita;
+export const esLote = (p: unknown): p is PayloadClases => !!p && typeof p === 'object' && Array.isArray((p as PayloadClases).clases);
 
 /** Lo que enseña la tarjeta: etiqueta y valor (el valor puede llevar marcas `[ALUMNA_3]`, que el panel pinta con el nombre). */
 export interface LineaPropuesta { etiqueta: string; valor: string }
@@ -62,14 +65,40 @@ const no = (error: string): PropuestaImposible => ({ ok: false, error });
 // ── Nombres ──
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** El elemento que nombra el texto: exacto, o el único que lo contiene. `null` = ninguno; `'ambiguo'` = varios. */
+// Emojis, sus tonos de piel, el selector de variante (U+FE0F), el unidor
+// (U+200D), la tecla (U+20E3) y las letras de las banderas.
+const EMOJI = /[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+
+/**
+ * Para BUSCAR, no para decidir si un nombre ya existe: sin emojis. El modelo
+ * los quita (el prompt le pide no usarlos) o se deja el U+FE0F de «🔥», y un
+ * tipo «Secret 🔥 Burn» pedido como «Secret Burn» no casaba: la herramienta
+ * fallaba y no salía ninguna tarjeta (raíz del aviso de #2633). Un nombre que
+ * solo es un emoji se queda como está, para no volverse «» y casar con todo.
+ */
+export const normalizarParaBuscar = (s: string) => normalizar(s.replace(EMOJI, ' ')) || normalizar(s);
+
+/**
+ * El elemento que nombra el texto: exacto, o el único que lo contiene. `null` = ninguno; `'ambiguo'` = varios.
+ * Primero exacto tal cual (con emojis: «Burn 🔥» y «Burn 💧» se distinguen), después exacto sin emojis y por
+ * último el único que lo contiene.
+ */
 export function resolverPorNombre<T extends { nombre: string }>(lista: readonly T[], pedido: string): T | null | 'ambiguo' {
-  const q = normalizar(pedido);
+  // Tal cual, salvo el selector de variante (U+FE0F): «🔥» y «🔥︎» son el mismo emoji.
+  const exacto = (s: string) => normalizar(s.replace(/\u{FE0F}/gu, ''));
+  const q = exacto(pedido);
   if (!q) return null;
-  const exactos = lista.filter(x => normalizar(x.nombre) === q);
+  const exactos = lista.filter(x => exacto(x.nombre) === q);
   if (exactos.length === 1) return exactos[0];
   if (exactos.length > 1) return 'ambiguo';
-  const parecidos = lista.filter(x => normalizar(x.nombre).includes(q) || q.includes(normalizar(x.nombre)));
+  const qb = normalizarParaBuscar(pedido);
+  const sinEmoji = lista.filter(x => normalizarParaBuscar(x.nombre) === qb);
+  if (sinEmoji.length === 1) return sinEmoji[0];
+  if (sinEmoji.length > 1) return 'ambiguo';
+  const parecidos = lista.filter(x => {
+    const n = normalizarParaBuscar(x.nombre);
+    return n.includes(qb) || qb.includes(n);
+  });
   return parecidos.length === 1 ? parecidos[0] : parecidos.length > 1 ? 'ambiguo' : null;
 }
 
@@ -170,6 +199,56 @@ export function prepararClase(input: EntradaClase, c: CatalogoClase, ahoraMs: nu
     destino: { href: '/calendario', texto: 'Ver en Calendario' },
   };
 }
+
+/** Lo que la lectura aporta para un lote: lo de `CatalogoClase`, con los bloqueos de la instructora por día. */
+export type CatalogoClases = Omit<CatalogoClase, 'bloqueosInstructora'> & {
+  bloqueosPorFecha: ReadonlyMap<string, readonly { horaInicio: string | null; horaFin: string | null }[]>;
+};
+
+/**
+ * Varias clases del mismo tipo, sala e instructora en días y horas distintos. Todo o nada: si una
+ * no se puede (sala ocupada, día cerrado, fecha pasada…) NO se propone ninguna y se dice cuál y por
+ * qué, para que el modelo pregunte. Cada clase se comprueba contra la agenda Y contra las anteriores
+ * del propio lote (dos a la misma hora chocan entre sí).
+ */
+export function prepararClases(input: EntradaClases, c: CatalogoClases, ahoraMs: number, hoy: string): Preparada<PayloadClases> {
+  const claves = new Set<string>();
+  for (const h of input.horarios) {
+    const k = `${h.fecha} ${h.hora}`;
+    if (claves.has(k)) return no(`${dia(h.fecha)} a las ${h.hora} está repetido. Quita el duplicado.`);
+    claves.add(k);
+  }
+  const horarios = [...input.horarios].sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`));
+  const propias: SlotSesion[] = [];
+  const clases: PayloadClase[] = [];
+  const avisos = new Set<string>();
+  let primera: Extract<Preparada<PayloadClase>, { ok: true }> | null = null;
+  for (const h of horarios) {
+    const r = prepararClase(
+      { tipo_clase: input.tipo_clase, fecha: h.fecha, hora: h.hora, sala: input.sala, instructora: input.instructora, aforo: input.aforo },
+      { ...c, bloqueosInstructora: c.bloqueosPorFecha.get(h.fecha) ?? [], existentes: [...c.existentes, ...propias] },
+      ahoraMs, hoy,
+    );
+    if (!r.ok) return no(`${dia(h.fecha)} a las ${h.hora}: ${r.error} No he propuesto ninguna de las ${horarios.length}.`);
+    primera ??= r;
+    clases.push(r.payload);
+    propias.push({ id: `lote-${clases.length}`, salaId: r.payload.salaId, instructorId: r.payload.instructorId, inicio: r.payload.inicio, fin: r.payload.fin, cancelada: false });
+    for (const a of r.avisos) avisos.add(a);
+  }
+  if (!primera) return no('Faltan los días y las horas. Pregunta cuáles.');
+  const base = primera.lineas.filter(l => l.etiqueta === 'Clase' || l.etiqueta === 'Sala' || l.etiqueta === 'Instructora' || l.etiqueta === 'Plazas');
+  const cuando = clases.map(p => `${diaCorto(p.inicio)} ${textoHora(p.inicio, p.fin)}`);
+  return {
+    ok: true, tipo: 'CREAR_CLASE', titulo: `Crear ${clases.length} clases`,
+    payload: { clases },
+    lineas: [...base, { etiqueta: `Días (${clases.length})`, valor: cuando.join(' · ') }],
+    avisos: [...avisos], efecto: null,
+    resumen: `${clases.length} clases de ${primera.lineas[0].valor}: ${cuando.join('; ')}`,
+    destino: { href: '/calendario', texto: 'Ver en Calendario' },
+  };
+}
+
+const diaCorto = (inicioIso: string) => dia(hoyEnEstudio(new Date(inicioIso)));
 
 // ── Sala ──
 export const COLORES_SALA = ['#F7A6C4', '#7FB2E5', '#8FC98A', '#E8B45C', '#B79BE0', '#5FC2C2'];

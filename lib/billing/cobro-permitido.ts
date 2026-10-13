@@ -18,6 +18,7 @@
 // Puro: se prueba con `node --test`.
 
 import { cuotaAunSinVencer } from './renovacion-adoptable.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 /** Quién intenta cobrar. AUTOMATICO = el cobro diario; STAFF = alguien del estudio lo pide a mano. */
 export type ViaCobro = 'AUTOMATICO' | 'STAFF';
@@ -49,7 +50,7 @@ export function puedeIntentarCobro(
   cuota: CuotaParaCobrar | null,
   via: ViaCobro,
   /** `yyyy-mm-dd`, el «hoy» del cron de renovaciones. Solo lo usa la vía AUTOMATICO. */
-  hoy: string = new Date().toISOString().slice(0, 10),
+  hoy: string = hoyEnEstudio(),
 ): { ok: true } | { ok: false; motivo: MotivoSinCobro } {
   if (recibo.estado === 'ANULADO' || recibo.trasCancelarCuota === 'ANULADO') return { ok: false, motivo: 'ANULADO' };
 

@@ -1019,8 +1019,10 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo
    (sheet-pop-out, drawer-*-out): cerrar debe sentirse inmediato. */
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
-@keyframes toast-out { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 4px) scale(.98); } }
+/* Solo vertical: el toast se centra con márgenes (`inset-x-4 mx-auto`), no con
+   `translate(-50%)` — con él, en móvil el texto se quedaba en media pantalla. */
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(.98); } }
 .toast-in { animation: toast-in var(--motion-medium) var(--motion-ease) both; }
 .toast-out { animation: toast-out var(--motion-fast) var(--motion-ease-in) both; }
 
@@ -1508,4 +1510,19 @@ canvas[data-tenti].tenti-entra {
 @media (prefers-reduced-motion: reduce) {
   .asistente-cursor, .asistente-brillo { animation: none; }
   .asistente-brillo { color: var(--muted-foreground); background: none; }
+}
+
+/* HuellaDeCreacion (P2.3, doc 07 §6): las clases recién creadas se señalan con
+   un fondo de la marca que se apaga en 1,2 s (components/calendario/
+   huella-de-creacion.ts pone y quita la clase). Sombra interior y no
+   `background`: la tarjeta de clase ya pinta el suyo y lo taparía. Con
+   «reducir movimiento», un borde quieto el mismo tiempo, sin animación. */
+@keyframes huella-creacion {
+  from { box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--brand) 28%, transparent), 0 0 0 2px var(--ring); }
+  to { box-shadow: inset 0 0 0 999px transparent, 0 0 0 2px transparent; }
+}
+/* 300 ms de espera: el desplazamiento suave hasta la clase va primero. */
+.huella-creacion { animation: huella-creacion 1.2s ease-out 300ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .huella-creacion { animation: none !important; box-shadow: 0 0 0 2px var(--ring); }
 }

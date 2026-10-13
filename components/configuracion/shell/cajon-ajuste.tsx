@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
 import { EstadoAjuste } from './estado-ajuste';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cajón donde se cambia una fila de Configuración (§4.3 de la reorganización).
@@ -50,7 +51,7 @@ export function useCajonAjuste(): Cajon | null {
 
 /** Lo que recibe el formulario de un cajón. */
 export interface PropsFormularioCajon {
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /** Guardado de verdad: quien abrió el cajón lo cierra y lo cuenta. */
   onGuardado: (texto: string) => void;
 }

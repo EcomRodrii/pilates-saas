@@ -92,7 +92,7 @@ export function DialogoCobroEnLote({ ids, metodo, abierto, onCerrar, avisos }: {
               <p className="text-[13px] text-muted-foreground">Te han pagado {ETIQUETA_METODO[metodo]}. Al confirmar, para cada recibo:</p>
               <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
                 <li>se marca <strong className="text-foreground">cobrado</strong>{metodo !== 'TRANSFERENCIA' ? ' y se apunta en la caja si está abierta' : ''};</li>
-                {emiteFacturaAutomatica(metodo, studio?.modoFacturacion ?? null) && (
+                {emiteFacturaAutomatica(metodo, studio?.modoFacturacion ?? null, studio?.facturarAutomatico ?? true) && (
                   <li>se emite una <strong className="text-foreground">factura con número fiscal</strong>, que ya no se puede borrar;</li>
                 )}
                 {cuotas > 0 && (

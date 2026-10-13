@@ -6,7 +6,7 @@ import { useRol } from '@/lib/permisos';
 import type { PropsTenti } from './tenti';
 
 // Tenti para pantallas que cuelgan de algo que se carga siempre (Listo cuelga de
-// /calendario y de PrimerHorario, que la importan sin diferir). Aquí se decide
+// /calendario, que la importa sin diferir). Aquí se decide
 // todo lo que tiene que ser verdad ANTES de descargar el motor:
 //
 //   · Solo la PROPIETARIA lo ve. Con cualquier otro rol se pinta `reserva` y el

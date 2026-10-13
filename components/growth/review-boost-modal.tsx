@@ -92,7 +92,7 @@ async function enviarFeedback(rating: number, comentario?: string): Promise<Resu
 export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: string | null }) {
   // useCore() y no useStudio(): montado en TODAS las páginas del dashboard
   // (DashboardShell) y solo necesita `updateStudio`, ya aislado en
-  // CoreContext (mismo motivo que Spotlight, components/tour/spotlight.tsx).
+  // CoreContext (mismo motivo que la visita guiada, components/tour/visita-guiada.tsx).
   const { updateStudio } = useCore();
   const [open, setOpen] = useState(false);
   const [pantalla, setPantalla] = useState<Pantalla>('rating');
@@ -179,7 +179,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) cerrar(true); }}>
-      <DialogContent className="max-w-[min(calc(100%-2rem),26rem)]">
+      <DialogContent className="max-w-[26rem]">
         {pantalla === 'rating' && (
           <>
             <DialogHeader>

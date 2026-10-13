@@ -6,9 +6,10 @@
 // Qué decide qué: `planificarHorarioWellhub` (puro, con tests) dice qué llamadas
 // hacen falta; esto solo lee de la base de datos, las ejecuta y guarda lo
 // enviado. Un estudio publica si tiene su gym en `plataforma_conexiones` (con
-// producto) Y vende en Wellhub (`integraciones` activa). Si deja de vender, o
-// pierde la conexión, se retira lo publicado con el gym de entonces — nunca
-// con la conexión de hoy, que puede no existir.
+// producto) Y vende en Wellhub (`integraciones` activa, con contrato y sin
+// suspender: venta-externa.ts). Si deja de vender, o pierde la conexión, se
+// retira lo publicado con el gym de entonces — nunca con la conexión de hoy,
+// que puede no existir.
 import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -21,6 +22,7 @@ import {
   editarSlotWellhub, ocultarClaseWellhub, type CredencialesWellhub,
 } from './cliente.ts';
 import { cancelarAquiWellhub, conciliarWellhub, type ResumenConciliacionWellhub } from './servidor.ts';
+import { estudiosSinVentaExterna } from '../venta-externa.ts';
 
 const PLATAFORMA = 'WELLHUB';
 /** Tope de llamadas por pasada: el cron tiene 60 s y cada llamada ~0,3-1 s. */
@@ -298,12 +300,14 @@ export async function sincronizarWellhub(admin: SupabaseClient, ahora: number = 
     ...(conClases.data ?? []).map(c => c.studio_id as string),
     ...(conSlots.data ?? []).map(c => c.studio_id as string),
   ]);
+  // Sin contrato o suspendido: como apagada (lib/plataformas/venta-externa.ts).
+  const sinVenta = await estudiosSinVentaExterna(admin, estudios, ahora);
 
   for (const studioId of estudios) {
     try {
       const c = conexionDe.get(studioId);
       const producto = Number(c?.producto_externo_id);
-      const publicar = !!c && vende.has(studioId) && Number.isSafeInteger(producto) && producto > 0;
+      const publicar = !!c && vende.has(studioId) && !sinVenta.has(studioId) && Number.isSafeInteger(producto) && producto > 0;
       // Sin conexión, el gym de hoy no existe: se pasa uno vacío y el
       // planificador solo retira (con el gym de cada clase).
       const cfg: ConfigWellhub = { gymId: (c?.id_externo as string | undefined) ?? '', productId: publicar ? producto : 0 };

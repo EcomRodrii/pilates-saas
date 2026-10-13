@@ -98,6 +98,21 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   (lo que hizo #567 con `20260731103000` → `20260730155339`): si no, un `supabase db push`
   desde limpio la ve pendiente y la reaplica con OTRO timestamp, y la divergencia se
   multiplica en vez de cerrarse.
+- **El «hoy» de un estudio es el de Madrid, nunca el de UTC** (8-oct-2026). El servidor y la base de datos corren en UTC:
+  entre las 00:00 y las 02:00 de Madrid, `current_date` y `new Date().toISOString().slice(0, 10)` siguen en el día anterior.
+  En TypeScript, `hoyEnEstudio()` (`lib/utils.ts`); en SQL, `public.hoy_estudio()`. Ya lo usan `crear_recuperacion` (una
+  recuperación `FIN_MES` creada el día 1 a las 00:30 nacía caducada), toda la vigencia de bonos, cuotas, recuperaciones y plazas
+  fijas (`evaluar_reserva`, `elegir_bono_consumible`, `socio_tiene_entitlement_activo`, `consumir_bono_interno`… y el `DEFAULT`
+  de su `p_hoy`), los créditos de fidelidad (semana y mes empiezan a las 00:00 de Madrid, también al convertir a instante), el
+  recibo de `/api/public/renovar-plan`, el vencimiento del recibo de penalización y los `hoyISO` por defecto de `bono-logic`,
+  `suscripcion-estado`, `socio-resumen` y `cobro-permitido`. ⚠️ Una función de vigencia NUEVA no usa `current_date`: lo vigila
+  `supabase/tests/hoy-de-madrid.test.ts` contra Postgres real (la única excepción, con su motivo, es el tope diario del piloto
+  automático, un límite de IA). En TypeScript lo vigila `lib/hoy-de-madrid.test.ts`: un `new Date()`/`Date.now()` con
+  `.toISOString().slice(0, 10)` solo vale en `CON_DIA_UTC_A_PROPOSITO`, con su motivo (un nombre de fichero, una ruta); para
+  sumar días, `masDias()` sobre el día del estudio, nunca `Date.now() + N días`. ⚠️ No ve otras formas del mismo error
+  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `nowISO.slice(0, 10)`): esas se miran a mano. Una función que
+  reciba «ahora» como instante saca el día con `hoyEnEstudio(new Date(…))`, como `validarCodigoCanjeable`.
+  ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa `::timestamp at time zone 'Europe/Madrid'`.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
@@ -154,7 +169,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   solo manda a entrar si el refresco falla con un 4xx de GoTrue: sin red o con un 5xx
   (`esFalloTransitorioDeRefresh`) la sesión sigue viva y no se toca.
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
-  migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
+  migr `20261004141529`…`20261004191152`, `doble_factor_por_correo_1…7`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
   y el servidor la apunta en `sesiones_confiadas` con `origen = 'correo'` (vale lo que viva la
   sesión); `sesion_confiada_de` sigue siendo la única regla y ninguna política cambió.
@@ -295,6 +310,14 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
+  `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
+  vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
+  `mensajeParaSocia` (`comercial`), no el `tipo` (F1 y F3 comparten `PROPONER_RENOVACION_BONO`), y la
+  puerta es UNA, `canalesSocia`: botón, ejecutores y piloto automático. R6 (congelar la cuota) es
+  servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
+  el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
+  ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso
@@ -1344,6 +1367,25 @@ cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
 corrió de verdad, no solo que el check está en verde — es el mismo error de
 categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
 
+## La visita guiada por capítulos (7-oct-2026)
+
+Estudio NUEVO + propietaria = visita obligatoria por 10 capítulos (`lib/tour/`,
+`components/tour/visita-guiada.tsx`). «No omitible» = sin X, sin «saltar» y la píldora
+no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
+`pointer-events-none`; con un diálogo abierto la tarjeta pasa a banner de solo texto).
+- ⚠️ **Hoy el trigger NO impone a nadie** (migr `20261007214458`): la visita se activa a mano, estudio a estudio, hasta que el fundador la apruebe tras verla en Pilates Boutique. Después, una migración devuelve la regla de abajo.
+- **La obligación la fija un trigger al nacer el estudio** (`studios.tour_obligatorio`,
+  migr `20261007211202`), nunca el cliente: false en todos los que ya existían, en sedes
+  de cadena y en demos (el cliente no vuelve a mirar `cadena_id`: se puede activar a mano en cualquiera). `tour_obligatorio` NO se concede a `authenticated`.
+- **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
+  tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
+- **Copy y pantallas en `lib/tour/capitulos.ts`**: solo lo que existe, con los nombres reales
+  del menú y de Configuración, y nada congelado (lo vigila `capitulos.test.ts`, que también
+  comprueba que cada `data-tour` existe). Una pantalla fuera del marco del panel
+  (`/suscripcion`) no puede enseñarse: no monta la visita.
+- Tenti en el cierre de la visita NO está: un sitio nuevo para Tenti es decisión de producto
+  (`lib/tenti/donde-vive-tenti.test.ts`).
+
 ## Arquitectura operativa: cuatro capas (2026-09-14)
 
 Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se reabre:
@@ -1722,6 +1764,14 @@ Lo que sí se tomó de la idea de ECC: agentes especializados con propósito muy
 reglas siempre cargadas, y un loop de calidad disciplinado — construido nativamente con lo
 que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 <!-- END:tentare-development-os -->
+
+## Tarjeta regalo (9-oct-2026, `docs/tarjeta-regalo.md`)
+
+Saldo en € con su propio libro (`movimientos_regalo`, solo inserción) — **pasivo, no ingreso**: no crea `recibos` ni
+toca `confirmarCobro` ni las cifras. La tarjeta solo nace cuando el webhook (`lib/regalo/stripe.ts`) o la página de
+vuelta ven el cobro pagado, idempotente por sesión. El código no lo lee el navegador (grant por columnas).
+⚠️ El IVA y la caducidad mínima están **pendientes de gestoría**: no activar la venta en estudios reales sin cerrarlos.
+Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar online con saldo).
 
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 

@@ -14,6 +14,7 @@ import {
 import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { hoyEnEstudio } from '@/lib/utils';
 
 // Asistente de importación del HORARIO — tercera pieza de la migración asistida
 // (tras socias y membresías). Acepta las dos formas en que las plataformas
@@ -56,7 +57,9 @@ export default function ImportarHorarioPage() {
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportClases | null>(null);
   const [semanas, setSemanas] = useState(4);
-  const [desde, setDesde] = useState(() => new Date().toISOString().slice(0, 10));
+  // El día del estudio: con el de UTC, entre las 00:00 y las 02:00 de Madrid el
+  // horario recurrente empezaba AYER y su primera clase nacía en el pasado.
+  const [desde, setDesde] = useState(() => hoyEnEstudio());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(
@@ -307,9 +310,15 @@ export default function ImportarHorarioPage() {
                 {resultado.creadas} clases creadas en el calendario
                 {resultado.tiposCreados > 0 && ` · ${resultado.tiposCreados} tipos de clase nuevos`}
               </p>
-              {(resultado.omitidas > 0 || resultado.sinInstructor > 0 || resultado.sinSala > 0) && (
+              {(resultado.omitidas > 0 || resultado.sinInstructor > 0 || resultado.sinSala > 0 || (resultado.instructorasCreadas?.length ?? 0) > 0) && (
                 <div className="mt-1 flex flex-col gap-0.5 text-[12.5px] text-muted-foreground">
                   {resultado.omitidas > 0 && <p>{resultado.omitidas} ya existían y no se han duplicado</p>}
+                  {(resultado.instructorasCreadas?.length ?? 0) > 0 && (
+                    <p>
+                      {resultado.instructorasCreadas!.length === 1 ? 'Se dio de alta 1 instructora' : `Se dieron de alta ${resultado.instructorasCreadas!.length} instructoras`} que no estaban en tu equipo
+                      {' '}({resultado.instructorasCreadas!.slice(0, 6).join(', ')}{resultado.instructorasCreadas!.length > 6 ? '…' : ''}), sin email ni invitación: complétalas en Equipo
+                    </p>
+                  )}
                   {resultado.sinInstructor > 0 && <p>{resultado.sinInstructor} sin instructora: no se encontró ese nombre en tu equipo</p>}
                   {resultado.sinSala > 0 && <p>{resultado.sinSala} sin sala: no se encontró ese nombre</p>}
                 </div>

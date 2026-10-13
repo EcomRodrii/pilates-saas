@@ -3,7 +3,7 @@
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import {
-  Bell, Building2, Calendar, CalendarCheck, CircleUser, CreditCard, Download, Globe, Mail, Palette, PanelLeft, Plug,
+  Bell, Building2, Calendar, CalendarCheck, CirclePlay, CircleUser, CreditCard, Download, Globe, Mail, Palette, PanelLeft, Plug,
   Receipt, Settings, Trophy, UserCog, UserPlus, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,7 @@ export const ICONOS_SECCION: Record<SeccionId, LucideIcon> = {
   motivacion: Trophy,
   conexiones: Plug,
   datos: Download,
+  demo: CirclePlay,
   avisos: Bell,
   panel: PanelLeft,
 };

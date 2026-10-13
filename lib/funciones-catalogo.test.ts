@@ -25,6 +25,15 @@ test('toda función tiene descripción y ninguna categoría queda vacía', () =>
   }
 });
 
+test('«Explorar todas las funciones» sigue enseñando sus 15 módulos, cada uno con su frase', () => {
+  // Si un módulo pierde su `valor` (lib/ayuda/pantallas.ts), desaparecería de aquí en silencio.
+  const hrefs = calcularCatalogoFunciones().flatMap(c => c.funciones).map(f => f.href);
+  assert.deepEqual(hrefs.sort(), [
+    '/automatizaciones', '/calendario', '/centro-de-control', '/cierre', '/citas', '/clientas', '/cobros', '/configuracion',
+    '/equipo', '/informes', '/libreta', '/mensajeria', '/migracion', '/productos', '/sustituciones',
+  ]);
+});
+
 test('cubre módulos que no aparecen en el onboarding de Fase 1 (sustituciones, informes, cierre)', () => {
   const hrefs = calcularCatalogoFunciones().flatMap(c => c.funciones).map(f => f.href);
   assert.ok(hrefs.includes('/sustituciones'));

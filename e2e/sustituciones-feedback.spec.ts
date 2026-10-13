@@ -89,7 +89,7 @@ async function seedSesionDeDuena(page: Page) {
  * CONTAR las escrituras y RETRASARLAS: sin un retraso la acción termina antes
  * de que dé tiempo a mirar el botón, que es justo lo que hay que comprobar.
  */
-async function mockBackend(page: Page, opts: { retrasoMs?: number } = {}) {
+async function mockBackend(page: Page, opts: { retrasoMs?: number; sesiones?: unknown[] } = {}) {
   const retraso = opts.retrasoMs ?? 1500;
   const escrituras: { metodo: string; body: unknown }[] = [];
 
@@ -108,7 +108,7 @@ async function mockBackend(page: Page, opts: { retrasoMs?: number } = {}) {
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES_ROWS));
   // ses-2 es la clase LIBRE que el diálogo "Marcar una baja" puede elegir: ses-1
   // ya tiene sustitución abierta y el propio diálogo la descarta.
-  await page.route('**/rest/v1/sesiones**', route => json(route, [SESION_CON_BAJA, SESION_LIBRE]));
+  await page.route('**/rest/v1/sesiones**', route => json(route, opts.sesiones ?? [SESION_CON_BAJA, SESION_LIBRE]));
 
   await page.route('**/api/sustituciones**', async route => {
     const req = route.request();
@@ -198,5 +198,22 @@ test.describe('Feedback de carga en sustituciones', () => {
 
     await page.waitForTimeout(2500);
     expect(escrituras.filter(e => e.metodo === 'POST')).toHaveLength(1);
+  });
+
+  test('una instructora con varias clases ese día: se marcan todas de una vez, una baja por clase', async ({ page }) => {
+    const libres = ['ses-2', 'ses-3', 'ses-4'].map((id, i) => sesionRow(id, `2099-08-0${4 + i}T08:00:00+00:00`));
+    const { escrituras } = await mockBackend(page, { retrasoMs: 100, sesiones: [SESION_CON_BAJA, ...libres] });
+    await seedSesionDeDuena(page);
+    await abrirSustituciones(page);
+
+    await page.getByRole('button', { name: 'Marcar una baja' }).first().click();
+    await page.getByRole('button', { name: /Elegir todas las de esta lista \(3\)/ }).click();
+    await expect(page.getByText('3 elegidas')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Buscar sustitutas (3)' }).click();
+    await expect.poll(() => escrituras.filter(e => e.metodo === 'POST').length).toBe(3);
+    // Una baja por clase, sin repetir ninguna.
+    const ids = escrituras.filter(e => e.metodo === 'POST').map(e => (e.body as { sesionId: string }).sesionId);
+    expect(new Set(ids)).toEqual(new Set(['ses-2', 'ses-3', 'ses-4']));
   });
 });

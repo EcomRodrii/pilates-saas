@@ -122,7 +122,7 @@ export default function Cobros() {
               </>
             )}
             <button
-              type="button" onClick={() => setNuevoCobro(true)}
+              type="button" onClick={() => setNuevoCobro(true)} data-tour="cobros-nuevo"
               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:brightness-95"
             >
               <Plus size={15} aria-hidden />Nuevo cobro
@@ -132,7 +132,7 @@ export default function Cobros() {
       />
 
       {/* `max-w-full` + scroll: en un móvil de 375 px las cuatro no caben. */}
-      <nav aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
+      <nav data-tour="cobros-secciones" aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
         {tabs.map(t => (
           <button
             key={t} type="button" aria-current={tab === t ? 'page' : undefined}
@@ -184,7 +184,7 @@ function LineaResumen({ datos }: { datos: DatosCobros }) {
   }, [recibos, datos]);
 
   return (
-    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] text-foreground" data-testid="linea-resumen-cobros">
+    <span data-tour="cobros-resumen" className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] text-foreground" data-testid="linea-resumen-cobros">
       <span>Te deben <b className="font-semibold tabular-nums"><CifraPrivada inline>{formatEuro(r.deben)}</CifraPrivada></b></span>
       {r.clientas > 0 && <span className="text-muted-foreground">· {r.clientas} {r.clientas === 1 ? 'clienta' : 'clientas'}</span>}
       {r.enElBanco > 0 && <span className="text-muted-foreground">· <CifraPrivada inline>{formatEuro(r.enElBanco)}</CifraPrivada> en el banco</span>}

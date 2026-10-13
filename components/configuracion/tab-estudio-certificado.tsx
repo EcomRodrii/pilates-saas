@@ -6,6 +6,7 @@ import { authHeader } from '@/lib/api-client';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { BotonCopiar, useOrigen } from '@/components/configuracion/tab-estudio-enlaces';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // El cajón «Certificado Tentare Verified Studio»: generarlo, descargar su
 // imagen, copiar el enlace de verificación pública y revocarlo. Un estudio
@@ -22,7 +23,7 @@ interface CertificadoApi {
   foundingNumber: number | null;
 }
 
-export function FormCertificado({ showToast }: { showToast: (m: string) => void }) {
+export function FormCertificado({ showToast }: { showToast: MostrarToast }) {
   const origen = useOrigen();
   const [certificado, setCertificado] = useState<CertificadoApi | null | undefined>(undefined);
   const [generando, setGenerando] = useState(false);
@@ -44,9 +45,11 @@ export function FormCertificado({ showToast }: { showToast: (m: string) => void 
     try {
       const res = await fetch('/api/certificados', { method: 'POST', headers: await authHeader() });
       const data = await res.json().catch(() => null);
-      if (!res.ok) { showToast(data?.error ?? 'No se ha podido generar el certificado'); return; }
+      if (!res.ok) { showToast(data?.error ?? 'No se ha podido generar el certificado', { variant: 'error' }); return; }
       setCertificado(data.certificado);
       showToast('Certificado generado');
+    } catch {
+      showToast('No se ha podido generar el certificado: no hemos podido hablar con el servidor', { variant: 'error' });
     } finally {
       setGenerando(false);
     }
@@ -61,9 +64,11 @@ export function FormCertificado({ showToast }: { showToast: (m: string) => void 
         headers: await authHeader(),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) { showToast(data?.error ?? 'No se ha podido revocar el certificado'); return; }
+      if (!res.ok) { showToast(data?.error ?? 'No se ha podido revocar el certificado', { variant: 'error' }); return; }
       setCertificado(prev => (prev ? { ...prev, estado: 'REVOKED' } : prev));
       showToast('Certificado revocado');
+    } catch {
+      showToast('No se ha podido revocar el certificado: no hemos podido hablar con el servidor', { variant: 'error' });
     } finally {
       setRevocando(false);
       setConfirmarRevocar(false);

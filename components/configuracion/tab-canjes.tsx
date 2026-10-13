@@ -7,6 +7,7 @@ import type { EstadoCanje, RewardRedemption } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Los canjes de las socias, y qué hacer con ellos.
 //
@@ -36,7 +37,7 @@ function fechaCorta(iso: string): string {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
+export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
   const { rewardRedemptions, rewardCatalog, socios, updateRewardRedemptionEstado, studio } = useStudio();
   const moneda = nombreCreditos(studio?.creditosNombre);
   const [enCurso, setEnCurso] = useState<string | null>(null);
@@ -79,7 +80,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
     setEnCurso(canje.id);
     const res = await updateRewardRedemptionEstado(canje.id, estado);
     setEnCurso(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     showToast(estado === 'ENTREGADO'
       ? 'Canje marcado como entregado'
       : `Canje cancelado — se han devuelto ${canje.creditosGastados} ${moneda}`);

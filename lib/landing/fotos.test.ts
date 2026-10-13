@@ -18,13 +18,14 @@ import {
 
 const CARPETA = join(import.meta.dirname, '..', '..', 'public', CARPETA_PUBLICA);
 const ENTRADAS = Object.entries(FOTOS) as [string, FotoRegistrada][];
-const CONSENTIMIENTOS: Consentimiento[] = ['no-aplica', 'firmado'];
+const CONSENTIMIENTOS: Consentimiento[] = ['no-aplica', 'firmado', 'propia'];
 
 // Presupuestos. Cada foto declara el suyo en el registro (`presupuesto`); el del
-// héroe además se fija aquí, porque su AVIF de 1280 es la que se descarga un
-// portátil con pantalla retina en el primer pantallazo y no debe poder subirse
-// tocando solo el registro.
-const PRESUPUESTO_HEROE_AVIF_1280_KB = 140;
+// héroe además se fija aquí, porque su AVIF de escritorio más grande es la que se
+// descarga un portátil con pantalla retina en el primer pantallazo y no debe poder
+// subirse tocando solo el registro. (Era la de 1280; con el original actual, de
+// 1090 px de ancho y sin ampliar, la mayor es de 1090.)
+const PRESUPUESTO_HEROE_AVIF_MAYOR_KB = 140;
 // Techos para todo lo demás: no son objetivos, son el aviso de que algo se
 // exportó mal (calidad al 100, sin recortar, en el formato equivocado).
 const TECHO_KB = { avif: 200, webp: 320 } as const;
@@ -136,13 +137,14 @@ for (const [clave, foto] of ENTRADAS) {
   });
 }
 
-test('la AVIF de 1280 del héroe cabe en su presupuesto', () => {
+test('la AVIF de escritorio más grande del héroe cabe en su presupuesto', () => {
   const foto: FotoRegistrada = FOTOS.heroe;
-  assert.ok(foto.recortes.escritorio.anchos.includes(1280), 'el héroe se genera a 1280');
-  const fichero = join(CARPETA, `${foto.id}-1280.avif`);
+  const ancho = Math.max(...foto.recortes.escritorio.anchos);
+  assert.ok(ancho >= 960, `el héroe debe generarse al menos a 960 px de ancho (hoy ${ancho})`);
+  const fichero = join(CARPETA, `${foto.id}-${ancho}.avif`);
   const kb = statSync(fichero).size / 1024;
-  assert.ok(kb <= PRESUPUESTO_HEROE_AVIF_1280_KB, `pesa ${kb.toFixed(1)} KB (presupuesto ${PRESUPUESTO_HEROE_AVIF_1280_KB} KB)`);
-  assert.equal(altoDe(foto.recortes.escritorio, 1280), 1024, 'escritorio 5:4');
+  assert.ok(kb <= PRESUPUESTO_HEROE_AVIF_MAYOR_KB, `pesa ${kb.toFixed(1)} KB (presupuesto ${PRESUPUESTO_HEROE_AVIF_MAYOR_KB} KB)`);
+  assert.equal(altoDe(foto.recortes.escritorio, ancho), Math.round((ancho * 4) / 5), 'escritorio 5:4');
 });
 
 test('no quedan ficheros huérfanos de fotos que ya no están en el registro', () => {

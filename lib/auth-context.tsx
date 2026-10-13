@@ -6,6 +6,7 @@ import { fijarUsuario, capturarMensaje } from '@/lib/sentry-cliente';
 import { identificar as identificarEnPosthog, resetear as resetearPosthog } from '@/lib/posthog-cliente';
 import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
+import { mensajeDePassword } from './auth/password-errores.ts';
 import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { setCurrentStudioId, setJwtCaducadoListener } from './supabase-data';
 import { decidirRecuperacionJwt, esFalloTransitorioDeRefresh } from './recuperar-sesion.ts';
@@ -193,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // frases distintas para el mismo fallo, y desde que el widget se reinicia
   // solo, la de aquí seguía mandando a recargar cuando casi siempre basta con
   // volver a pulsar.
-  function mensajeDeError(error: { message: string; code?: string }): string {
+  function mensajeDeError(error: { message: string; code?: string; reasons?: readonly string[] }): string {
     const m = error.message.toLowerCase();
     // Antes que «password»: el texto de GoTrue también la nombra.
     if (faltaElCodigo(error)) return FALTA_EL_CODIGO;
@@ -209,7 +210,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (m.includes('user already registered')) {
       return 'Ya hay una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña».';
     }
-    if (m.includes('password')) return 'La contraseña debe tener al menos 6 caracteres.';
+    // ⚠️ NO un `m.includes('password')` a secas: tapaba el motivo real. El 9-oct
+    // el alta decía «al menos 6 caracteres» (el servidor exige 8) a quien probaba
+    // una contraseña larga, porque gotrue la rechazaba por filtrada. El motivo se
+    // distingue en lib/auth/password-errores.ts.
+    const contrasena = mensajeDePassword(error);
+    if (contrasena) return contrasena;
     // Fase 9/10: este Google ya es la identidad de OTRA cuenta de Tentare —
     // el caso que linkIdentity rechaza en vez de fusionar en silencio.
     if (m.includes('identity is already linked') || m.includes('already linked to another user')) {

@@ -94,3 +94,7 @@ graphify-out/
 /auditoria-*.md
 /tentare.app-audit/
 *.patch
+
+# La demo de Configuración (demo/): vídeos, voces y fotos de la grabación. El binario
+# NO va al repo (público y pesado): vive en el bucket demo-configuracion de Supabase.
+/demo/salida/

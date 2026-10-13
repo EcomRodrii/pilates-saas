@@ -26,6 +26,7 @@ import {
 import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 import { aplicarConsentimientoEnCron, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hoyEnEstudio } from '@/lib/utils';
 import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number; detectada_en: string }) {
@@ -182,7 +183,8 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // trata como "ya existía") y converge en la misma clave de idempotencia.
   // Mismo patrón que `renovaciones.ts`, que ya usaba `rec-renov-<susId>-<mes>`.
   const reciboId = `rec-penaliz-${pen.id}`;
-  const hoy = new Date().toISOString().slice(0, 10);
+  // Hora del estudio: el cron corre cada hora y el dunning cuenta los reintentos desde este vencimiento.
+  const hoy = hoyEnEstudio();
 
   // El ORDEN y las decisiones viven en `crearReciboYCobrar`
   // (lib/billing/penalizacion-aprobar-reglas.ts), probado sin Supabase ni

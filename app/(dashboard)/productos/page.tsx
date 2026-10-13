@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useId, useEffect } from 'react';
+import { useState, useId, useEffect, useRef } from 'react';
+import { Toast, type ToastVariante } from '@/components/ui/toast';
+import { useTutorial } from '@/lib/tutorial-context';
+import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
+import { avisoCoberturaFallida } from '@/lib/planes/cobertura-fallida';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
-import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, Image as ImageIcon } from 'lucide-react';
+import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn, uid, formatFechaLarga } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -13,22 +17,23 @@ import { HojaStock } from '@/components/pos/hoja-stock';
 import { subirFotoProducto, eliminarFotoProducto } from '@/lib/portal-storage';
 import { FOTO_PRODUCTO_TIPOS as FOTO_TIPOS, FOTO_PRODUCTO_MAX_BYTES as FOTO_MAX_BYTES } from '@/lib/portal-storage';
 import { PageHeader } from '@/components/ui/page-header';
+import { PanelRegalo } from '@/components/regalo/panel-regalo';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   planVacio, planAFormulario, formularioAPlan, erroresPlan, precioANumero,
-  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
+  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada, precioSospechoso, agruparTiposClase,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
-type Tab = 'planes' | 'pos';
+type Tab = 'planes' | 'pos' | 'regalo';
 
 // Paquetes (antes "Membresías", y antes de eso "Productos"): los 3 tipos de
 // plan ya existentes (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por
 // nombre de negocio en vez de una rejilla única sin filtrar — mismo dato,
 // mejor organizado.
-// "Bajo demanda" = PUNTUAL: se paga sesión a sesión, sin compromiso fijo, que
+// "Clases sueltas" = PUNTUAL (antes «Bajo demanda», que sonaba a vídeo bajo demanda): se paga sesión a sesión, sin compromiso fijo, que
 // es justo lo que ya significa ese tipo aquí.
 //
 // ⚠️ La pestaña de BONO se llamaba "Paquetes", que es ahora el nombre de la
@@ -41,7 +46,7 @@ type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
   { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
   { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
-  { v: 'PUNTUAL', label: 'Bajo demanda', singular: 'plan bajo demanda', icon: Tag },
+  { v: 'PUNTUAL', label: 'Clases sueltas', singular: 'clase suelta', icon: Tag },
 ];
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
@@ -218,8 +223,10 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendida = false }: {
+function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false, ejemplo }: {
   initial?: PlanTarifa;
+  /** Las tarifas que ya hay, para avisar de una repetida. */
+  otrasTarifas: readonly Pick<PlanTarifa, 'id' | 'nombre' | 'tipo' | 'precio' | 'activo'>[];
   /**
    * Ya hay alguien con esta tarifa. Entonces «clase de prueba» no se puede
    * cambiar: cambiaría hacia atrás quién ha pagado ya matrícula y quién puede
@@ -227,14 +234,25 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
    */
   yaVendida?: boolean;
   tiposClase: { id: string; nombre: string; archivadoEn?: string | null }[];
-  // Al crear desde una pestaña concreta (Suscripciones/Paquetes/Bajo demanda),
+  // Al crear desde una pestaña concreta (Suscripciones/Bonos/Clases sueltas),
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
   // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
   tipoInicial?: PlanTarifa['tipo'];
-  onSave: (f: FormularioPlan) => void;
+  /** Devuelve el error del servidor (el formulario lo enseña dentro y no se cierra) o `null` si se guardó. */
+  onSave: (f: FormularioPlan) => Promise<string | null>;
   onClose: () => void;
+  /** «Hazlo conmigo» (P1.3): la banda y el texto en gris; el estado inicial es el de siempre. */
+  ejemplo?: Ejemplo;
 }) {
   const uid = useId();
+  // P0.3: se espera al servidor antes de cerrar, el botón no deja guardar dos
+  // veces (un doble clic creaba dos tarifas) y el error sale AQUÍ, a la vista,
+  // no en una píldora que el panel lateral tapaba.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  // El estado llega un render tarde: con un doble clic, el segundo veía
+  // `guardando` en falso. El ref corta en el acto (mismo criterio que BarraGuardar).
+  const enVuelo = useRef(false);
   const [inicial] = useState<FormularioPlan>(() => {
     const base = initial ? planAFormulario(initial) : { ...planVacio(), tipo: tipoInicial ?? 'MENSUAL' };
     // Una clase suelta es UNA sesión y aquí ya no se pregunta, así que el campo
@@ -289,17 +307,45 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
   }
 
   function intentarCerrar() {
+    // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+    if (enVuelo.current) return;
     if (sucio) setConfirmandoCierre(true);
     else onClose();
   }
 
   function guardar() {
     setIntentado(true);
-    if (!guardable) return;
-    onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form);
+    if (!guardable) {
+      // El error se pinta pegado a su campo, que con el modal desplazado queda
+      // fuera de vista mientras el botón «Crear» está fijo abajo: se pulsaba y
+      // «no pasaba nada». Se lleva el foco (y la vista) al primer campo con error.
+      const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal', 'matricula', 'esPrueba'];
+      const sufijo: Partial<Record<CampoPlan, string>> = { nombre: 'nombre', precio: 'precio', sesiones: 'sesiones', validezDias: 'validez', limiteSemanal: 'limite', matricula: 'matricula', esPrueba: 'validez' };
+      const primero = orden.find(c => errores[c] && enPantalla[c]);
+      if (primero) {
+        setTimeout(() => {
+          const el = document.getElementById(`${uid}-${sufijo[primero]}`);
+          el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          el?.focus({ preventScroll: true });
+        }, 0);
+      }
+      return;
+    }
+    if (enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    void onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form)
+      .then(error => { if (error) setErrorGuardar(error); })
+      // Una promesa rota no puede dejar el botón en «Guardando…» para siempre.
+      .catch(() => setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.'))
+      .finally(() => { enVuelo.current = false; setGuardando(false); });
   }
 
   const esBono = form.tipo === 'BONO';
+  const tipoSugerido = tipoSugeridoPorNombre(form.nombre, form.tipo);
+  const repetida = initial ? null : tarifaDuplicada(form.nombre, form.tipo, otrasTarifas);
+  const precioRaro = precioSospechoso(form.precio, form.tipo, otrasTarifas, initial?.id);
   const tituloAccion = initial
     ? 'Guardar cambios'
     : `Crear ${NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}`;
@@ -334,6 +380,11 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
+          {ejemplo && (
+            <p data-testid="banda-ejemplo" className="mb-5 rounded-xl border border-dashed border-border bg-muted/50 px-3.5 py-2.5 text-[13px] leading-snug text-foreground">
+              {ejemplo.banda}
+            </p>
+          )}
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-8">
             <div className="space-y-6 min-w-0">
 
@@ -365,9 +416,39 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                   {p => (
                     <input {...p} value={form.nombre} onChange={e => set('nombre', e.target.value)}
                       onBlur={() => tocar('nombre')} className={cajaCls(visible('nombre'))}
-                      placeholder={esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado'} />
+                      placeholder={ejemplo?.placeholders.nombre ?? (esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado')} />
                   )}
                 </Campo>
+                {repetida && (
+                  <p role="status" data-testid="aviso-tarifa-repetida"
+                    className="flex items-start gap-1.5 rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                    <span>
+                      Ya tienes «{repetida.nombre}» ({fmt(repetida.precio)} €{repetida.activo ? '' : ', sin poner a la venta'}).
+                      Si quieres cambiarla, edítala en vez de crear otra igual.
+                    </span>
+                  </p>
+                )}
+                {!initial && tipoSugerido && (
+                  <div role="alert" data-testid="aviso-nombre-tipo"
+                    className="rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <p className="flex items-start gap-1.5 font-semibold">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                      <span>
+                        Has puesto «{form.nombre.trim()}», pero esta tarifa es una {NOMBRE_TIPO_PLAN[form.tipo].toLowerCase()}.
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground text-pretty">
+                      {tipoSugerido === 'PUNTUAL'
+                        ? 'Una cuota se cobra sola a la clienta cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
+                        : 'Un bono es un puñado de sesiones que se gastan al reservar y caduca. Si es lo que quieres, cámbiala; si no, ignora este aviso.'}
+                    </p>
+                    <button type="button" onClick={() => cambiarTipo(tipoSugerido)}
+                      className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted">
+                      Hacerla {NOMBRE_TIPO_PLAN[tipoSugerido].toLowerCase()}
+                    </button>
+                  </div>
+                )}
                 <Campo
                   id={`${uid}-desc`} etiqueta="Descripción"
                   ayuda="El argumento de venta, no las condiciones: esas las redacta Tentare sola ahí al lado.">
@@ -397,13 +478,23 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                       <input {...p} value={form.precio} onChange={e => set('precio', e.target.value)}
                         onBlur={() => tocar('precio')} type="text" inputMode="decimal"
                         className={cn(cajaCls(visible('precio')), 'pl-7 pr-14 tabular-nums')}
-                        placeholder="0,00" />
+                        placeholder={ejemplo?.placeholders.precio ?? '0,00'} />
                       {form.tipo === 'MENSUAL' && (
                         <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/ {periodoDe(form)}</span>
                       )}
                     </div>
                   )}
                 </Campo>
+                {precioRaro && (
+                  <p role="status" data-testid="aviso-precio-sospechoso"
+                    className="flex items-start gap-1.5 rounded-xl border border-warning/40 bg-card px-3 py-2.5 text-[13px] text-foreground">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                    <span>
+                      ¿Seguro que son {fmt(precioANumero(form.precio))} €? Tu tarifa más cara de este tipo cuesta {fmt(precioRaro.maxOtras)} €.
+                      Si es correcto, sigue; si es una errata, corrígela antes de ponerla a la venta.
+                    </span>
+                  </p>
+                )}
                 {/* Una cuota no tiene por qué ser mensual: cobrar por
                     trimestres de septiembre a junio es lo normal en un estudio
                     de Pilates, y hasta ahora había que fingirlo con un bono sin
@@ -446,7 +537,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                           <div className="flex items-center gap-2">
                             <input {...p} value={form.sesiones} onChange={e => set('sesiones', e.target.value)}
                               onBlur={() => tocar('sesiones')} type="number" min="1" inputMode="numeric"
-                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder="4" />
+                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder={ejemplo?.placeholders.sesiones ?? '4'} />
                             <span className="text-sm text-muted-foreground shrink-0">sesiones</span>
                           </div>
                         )}
@@ -600,23 +691,45 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                   </div>
 
                   {modoClases === 'algunas' && (
-                    <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+                    <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
                       {/* Los activos, y un archivado solo si este plan ya lo
-                          tenía: se ve (y se puede quitar), pero no se ofrece. */}
-                      {tiposClase.filter(tc => !tc.archivadoEn || inicial.tiposClaseIds.includes(tc.id)).map(tc => {
-                        const puesto = form.tiposClaseIds.includes(tc.id);
+                          tenía: se ve (y se puede quitar), pero no se ofrece.
+                          Agrupados por familia («Reformer», «Mat», «Yoga»…): con
+                          15 tipos, marcar los cuatro Reformer eran cuatro clics. */}
+                      {agruparTiposClase(tiposClase.filter(tc => !tc.archivadoEn || inicial.tiposClaseIds.includes(tc.id))).map(g => {
+                        const ids = g.tipos.map(t => t.id);
+                        const todosPuestos = ids.every(id => form.tiposClaseIds.includes(id));
                         return (
-                          <label key={tc.id}
-                            className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
-                            <input
-                              type="checkbox" checked={puesto}
-                              onChange={() => set('tiposClaseIds', puesto
-                                ? form.tiposClaseIds.filter(x => x !== tc.id)
-                                : [...form.tiposClaseIds, tc.id])}
-                              className="w-4 h-4 rounded accent-[var(--brand)] shrink-0" />
-                            <span className="text-sm text-foreground">{tc.nombre}</span>
-                            {tc.archivadoEn && <span className="text-[12px] text-muted-foreground">archivado</span>}
-                          </label>
+                          <div key={g.clave} role="group" aria-label={g.titulo} className="divide-y divide-border">
+                            {g.tipos.length >= 2 && g.clave !== '_otras' && (
+                              <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
+                                <span className="text-[12px] font-semibold text-muted-foreground">{g.titulo}</span>
+                                <button type="button"
+                                  onClick={() => set('tiposClaseIds', todosPuestos
+                                    ? form.tiposClaseIds.filter(x => !ids.includes(x))
+                                    : [...new Set([...form.tiposClaseIds, ...ids])])}
+                                  className="text-[12px] font-semibold text-brand-medio hover:underline">
+                                  {todosPuestos ? `Quitar todo ${g.titulo}` : `Marcar todo ${g.titulo}`}
+                                </button>
+                              </div>
+                            )}
+                            {g.tipos.map(tc => {
+                              const puesto = form.tiposClaseIds.includes(tc.id);
+                              return (
+                                <label key={tc.id}
+                                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
+                                  <input
+                                    type="checkbox" checked={puesto}
+                                    onChange={() => set('tiposClaseIds', puesto
+                                      ? form.tiposClaseIds.filter(x => x !== tc.id)
+                                      : [...form.tiposClaseIds, tc.id])}
+                                    className="w-4 h-4 rounded accent-[var(--brand)] shrink-0" />
+                                  <span className="text-sm text-foreground">{tc.nombre}</span>
+                                  {tc.archivadoEn && <span className="text-[12px] text-muted-foreground">archivado</span>}
+                                </label>
+                              );
+                            })}
+                          </div>
                         );
                       })}
                     </div>
@@ -668,15 +781,21 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
             {Object.values(errores)[0]}
           </p>
         )}
+        {errorGuardar && (
+          <p role="alert" className="px-5 sm:px-6 pb-1 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="px-5 sm:px-6 py-4 border-t border-border shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <button onClick={intentarCerrar}
-            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <button onClick={intentarCerrar} disabled={guardando}
+            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">
             Cancelar
           </button>
-          <button onClick={guardar}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+          {/* Guardando se lee entero (no al 40 %): es un estado, no un botón apagado. */}
+          <button onClick={guardar} disabled={guardando} aria-busy={guardando}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
-            {tituloAccion}
+            {guardando ? 'Guardando…' : tituloAccion}
           </button>
         </div>
       </>
@@ -725,7 +844,8 @@ type PosFormData = {
 function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   initial?: ProductoPOS;
   /** `foto` es el fichero recién elegido; `null` = quitar la que hubiera. */
-  onSave: (d: PosFormData, foto: File | null | undefined) => void;
+  /** Devuelve el error del servidor (se enseña dentro) o `null` si se guardó. */
+  onSave: (d: PosFormData, foto: File | null | undefined) => Promise<string | null>;
   onClose: () => void;
   onDelete?: () => void;
   /** Solo al EDITAR: abre el libro de existencias. Al crear no hay qué mover. */
@@ -746,6 +866,28 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   });
   const set = (k: keyof PosFormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
+  // Mismo criterio que el formulario de tarifas (P0.3): esperar, no dejar
+  // guardar dos veces y enseñar el error aquí dentro.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  const enVuelo = useRef(false);
+  async function guardarProducto() {
+    if (!valid || enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    try {
+      const error = await onSave(form, foto);
+      if (error) setErrorGuardar(error);
+    } catch {
+      setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      enVuelo.current = false;
+      setGuardando(false);
+    }
+  }
+  // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+  const cerrar = () => { if (!enVuelo.current) onClose(); };
   const controlaStock = form.stock.trim() !== '';
 
   // `undefined` = no se ha tocado la foto; `null` = quitarla; File = subir esa.
@@ -782,7 +924,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
     // dar de alta un artículo. El modal de planes de esta misma página ya lo
     // hacía bien; este se quedó con el default.
     <DashboardSheet
-      open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
+      open onClose={cerrar} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
       // ⚠️ `portal`, por lo mismo que el modal de tarifas de esta misma página
       // (ver el comentario de arriba): el contenedor del panel lleva la
       // animación `.panel-page-in`, cuyo `transform` crea un "containing block"
@@ -794,7 +936,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
       <>
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={cerrar} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
@@ -944,6 +1086,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
             <span className="text-sm font-medium text-foreground">Producto activo</span>
           </div>
         </div>
+        {errorGuardar && (
+          <p role="alert" className="shrink-0 px-6 pt-3 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="shrink-0 flex gap-3 px-6 pb-6 pt-4 border-t border-border">
           {initial && onDelete && (
             // `border-destructive/30`, no un `#FECACA` fijo: ese rosa claro se
@@ -955,11 +1102,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
               <Trash2 size={15} />
             </button>
           )}
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
-          <button onClick={() => valid && onSave(form, foto)} disabled={!valid}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40"
+          <button onClick={cerrar} disabled={guardando} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
+          <button onClick={() => void guardarProducto()} disabled={!valid || guardando} aria-busy={guardando}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)' }}>
-            {initial ? 'Guardar cambios' : 'Crear producto'}
+            {guardando ? 'Guardando…' : initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
       </>
@@ -975,19 +1122,31 @@ export default function Productos() {
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
+  // «Hazlo conmigo» (P1.3): el tutorial pide un ejemplo de bono y esta pantalla
+  // abre su «Nuevo» de siempre, en la pestaña de bonos, con el ejemplo en gris.
+  const tutorial = useTutorial();
+  const [conEjemplo, setConEjemplo] = useState(false);
+  const ejemploPedido = tutorial?.ejemplo === 'bono';
+  const soltarEjemplo = tutorial?.soltarEjemplo;
+  useEffect(() => {
+    if (!ejemploPedido || !soltarEjemplo) return;
+    soltarEjemplo();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responde a una petición del tutorial, que vive en otro sitio.
+    setTab('planes');
+    setTipoTab('BONO');
+    setConEjemplo(true);
+    setPlanModal('new');
+  }, [ejemploPedido, soltarEjemplo]);
   // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
   // destructiva, dos comportamientos.
   const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
-  // El aviso se borra solo a los 4 s. Antes colgaba de `onAnimationEnd` sobre un
-  // elemento SIN animación: el callback no se disparaba nunca y el mensaje se
-  // quedaba fijo en pantalla para siempre, contando algo que ya había pasado.
-  useEffect(() => {
-    if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 4000);
-    return () => clearTimeout(t);
-  }, [aviso]);
+  // El aviso de la pantalla, con su variante: un fallo en rojo y 8 s, no en la
+  // píldora neutra de antes (P0.3). Lo pinta el `<Toast>` de siempre, que se
+  // cierra solo.
+  const [aviso, setAvisoEstado] = useState<{ mensaje: string; variant: ToastVariante } | null>(null);
+  const setAviso = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'exito' });
+  const setAvisoError = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'error' });
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
   // Libro de existencias del artículo abierto. Va aparte del modal para que
   // cerrar la hoja no cierre también la ficha del producto.
@@ -1003,24 +1162,44 @@ export default function Productos() {
   // está en BLOQUEADO_MANAGER) vería la pestaña POS el día que se reactive y
   // sus altas/ediciones fallarían en silencio contra la RLS.
   const mueveDinero = puedeMoverDinero(useRol());
-  const TABS = ([['planes', 'Planes de suscripción'], ['pos', 'Productos POS']] as const)
-    .filter(([v]) => v !== 'pos' || (!posCongelado && mueveDinero));
+  // «Tarjeta regalo» la ve quien ve finanzas (la RLS de sus tablas lo exige); el POS, quien mueve dinero.
+  const verFinanzas = puedeVerFinanzas(useRol());
+  const TABS = ([['planes', 'Planes de suscripción'], ['regalo', 'Tarjeta regalo'], ['pos', 'Productos POS']] as const)
+    .filter(([v]) => (v !== 'pos' || (!posCongelado && mueveDinero)) && (v !== 'regalo' || verFinanzas));
 
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  async function savePlan(f: FormularioPlan) {
+  async function savePlan(f: FormularioPlan): Promise<string | null> {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
     const datos = formularioAPlan(f);
     const editando = planModal && planModal !== 'new';
     const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
-    if (!res.ok) { setAviso(res.error); return; }
+    // La tarifa SÍ se guardó pero no a qué clases da acceso: no es «no se ha
+    // guardado». Se cierra el formulario (otro «Crear» haría otra igual) y se
+    // dice lo que pasó, en rojo, porque hay algo que arreglar.
+    if (!res.ok && 'filaEscrita' in res) {
+      setPlanModal(null);
+      setConEjemplo(false);
+      setAvisoError(avisoCoberturaFallida({ nombre: datos.nombre, editando: !!editando, aLaVenta: datos.activo, desactivada: res.desactivada }));
+      return null;
+    }
+    // El error lo enseña el formulario, que se queda abierto con lo escrito.
+    if (!res.ok) return res.error;
     setPlanModal(null);
-    setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
+    setConEjemplo(false);
+    // Lo que se dice tiene que ser lo que pasa: una tarifa guardada con
+    // «Disponible para vender» apagado NO sale en la Caja ni en la web, y
+    // «ya está a la venta» fue justo lo que dejó a una dueña sin su cuota en la
+    // Caja sin saber por qué.
+    setAviso(!datos.activo
+      ? `"${datos.nombre}" guardada, pero NO está a la venta: no sale en la Caja ni en la web`
+      : editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
+    return null;
   }
 
-  async function savePos(d: PosFormData, foto: File | null | undefined) {
+  async function savePos(d: PosFormData, foto: File | null | undefined): Promise<string | null> {
     // Campo vacío → `null`, no `0`. En existencias y en IVA los dos valores
     // significan cosas distintas: null es "no controla / hereda", 0 es
     // "agotado / exento". El formulario deja vacío a propósito y aquí NO se
@@ -1052,19 +1231,22 @@ export default function Productos() {
     const res = editandoPos
       ? await updateProductoPOS(id, fields)
       : await addProductoPOS(fields, id);
-    if (!res.ok) { setAviso(res.error); return; }
+    if (!res.ok) return res.error;
 
     // La foto va aparte y DESPUÉS: si falla, el artículo ya existe y se avisa
     // de lo que ha fallado de verdad — no se pierde el alta entera por una
     // imagen, ni se anuncia un éxito que no ha ocurrido.
     if (foto !== undefined) {
       const r = foto === null ? await eliminarFotoProducto(id) : await subirFotoProducto(id, foto);
-      if ('error' in r) { setAviso(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return; }
+      if ('error' in r) { setAvisoError(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return null; }
       const url = 'url' in r ? r.url : null;
       const resFoto = await updateProductoPOS(id, { imagenUrl: url });
-      if (!resFoto.ok) { setAviso(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return; }
+      if (!resFoto.ok) { setAvisoError(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return null; }
     }
     setPosModal(null);
+    // Antes guardar un producto no decía nada: se cerraba y ya.
+    setAviso(editandoPos ? 'Producto guardado' : `"${fields.nombre}" creado`);
+    return null;
   }
 
   const PLAN_ICONS: Record<string, React.ElementType> = { MENSUAL: Repeat, BONO: Zap, PUNTUAL: Tag };
@@ -1074,12 +1256,13 @@ export default function Productos() {
     .filter(p => p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()));
 
   return (
-    <div className="space-y-6">
+    <div data-tour="paquetes-vista" className="space-y-6">
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
-        actions={mueveDinero && (
+        actions={mueveDinero && tab !== 'regalo' && (
           <button
+            data-tour={tab === 'planes' ? 'paquetes-crear' : undefined}
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-colors"
             style={{ backgroundColor: 'var(--brand)' }}
@@ -1104,10 +1287,10 @@ export default function Productos() {
         </div>
       )}
 
-      {/* ── PLANES: Suscripciones / Paquetes / Bajo demanda ── */}
+      {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
       {tab === 'planes' && (
         <>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div data-tour="paquetes-tipos" className="flex items-center gap-2 flex-wrap">
             {TIPO_TABS.map(t => {
               const activo = tipoTab === t.v;
               const Icon = t.icon;
@@ -1135,6 +1318,7 @@ export default function Productos() {
           </div>
 
           {planesTarifa.filter(p => p.tipo === tipoTab).length === 0 ? (
+            <div data-tour="paquetes-lista">
             <EmptyState
               icono={Package}
               titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
@@ -1145,10 +1329,11 @@ export default function Productos() {
                 ? { label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }
                 : undefined}
             />
+            </div>
           ) : planesFiltrados.length === 0 ? (
             <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div data-tour="paquetes-lista" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {planesFiltrados.map(plan => {
             const c = TIPO_COLOR[plan.tipo] ?? TIPO_COLOR.MENSUAL;
             const Icon = PLAN_ICONS[plan.tipo] ?? Tag;
@@ -1248,12 +1433,33 @@ export default function Productos() {
                   <p className="text-xs text-muted-foreground border-t border-muted pt-3">{plan.descripcion}</p>
                 )}
 
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
-                  <span className="text-xs font-medium" style={{ color: plan.activo ? 'var(--success)' : 'var(--muted-foreground)' }}>
-                    {plan.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
+                {plan.activo ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>A la venta</span>
+                  </div>
+                ) : (
+                  // Un borrador (el que crea el alta, con precio 0) y una tarifa
+                  // retirada se ven igual en la lista, pero en la Caja y en la web
+                  // NO existen. Con un «Inactivo» pequeño y gris nadie lo notaba.
+                  <div data-testid="plan-sin-vender" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted px-3 py-2">
+                    <span className="text-xs font-medium text-foreground">
+                      {plan.precio > 0 ? 'No está a la venta: no sale en la Caja ni en la web' : 'Borrador: ponle precio y ponla a la venta'}
+                    </span>
+                    {mueveDinero && plan.precio > 0 && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await updatePlan(plan.id, { activo: true });
+                          if (res.ok) setAviso(`"${plan.nombre}" ya está a la venta`); else setAvisoError(res.error);
+                        }}
+                        className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-brand-foreground hover:opacity-90"
+                      >
+                        Ponerla a la venta
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1271,6 +1477,9 @@ export default function Productos() {
           )}
         </>
       )}
+
+      {/* ── TARJETA REGALO ── */}
+      {tab === 'regalo' && <PanelRegalo />}
 
       {/* ── PRODUCTOS POS ── */}
       {tab === 'pos' && (
@@ -1341,7 +1550,7 @@ export default function Productos() {
                         <ShoppingBag size={14} style={{ color: c.text }} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground text-[13px] truncate">{p.nombre}</p>
+                        <p className="font-semibold text-foreground text-[13px] truncate" title={p.nombre}>{p.nombre}</p>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
                             {CAT_LABEL[p.categoria]}
@@ -1376,11 +1585,13 @@ export default function Productos() {
           initial={planModal !== 'new' ? planModal : undefined}
           tipoInicial={tipoTab}
           tiposClase={tiposClase}
+          otrasTarifas={planesTarifa}
           // Sin cast: el `as Parameters<...>` que había aquí silenciaba
           // cualquier desajuste futuro entre el formulario y el guardado —
           // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
           onSave={savePlan}
-          onClose={() => setPlanModal(null)}
+          onClose={() => { setPlanModal(null); setConEjemplo(false); }}
+          ejemplo={conEjemplo && planModal === 'new' ? EJEMPLOS.bono : undefined}
           yaVendida={planModal !== 'new' && !!planModal && suscripciones.some(s => s.planId === planModal.id)}
         />
       )}
@@ -1401,17 +1612,12 @@ export default function Productos() {
         onConfirm={async () => {
           if (borrando) {
             const res = await deletePlan(borrando.id);
-            setAviso(res.ok ? `"${borrando.nombre}" ya no está a la venta` : res.error);
+            if (res.ok) setAviso(`"${borrando.nombre}" ya no está a la venta`); else setAvisoError(res.error);
           }
           setBorrando(null);
         }}
       />
-      {aviso && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-[13px] font-medium shadow-lg"
-          role="status">
-          {aviso}
-        </div>
-      )}
+      {aviso && <Toast message={aviso.mensaje} variant={aviso.variant} onDismiss={() => setAvisoEstado(null)} />}
       {stockDe && (
         <HojaStock
           productoId={stockDe}
@@ -1427,7 +1633,7 @@ export default function Productos() {
           onMoverStock={posModal !== 'new' && posModal ? () => setStockDe(posModal.id) : undefined}
           onDelete={posModal !== 'new' && posModal ? async () => {
             const res = await deleteProductoPOS(posModal.id);
-            if (!res.ok) { setAviso(res.error); return; }
+            if (!res.ok) { setAvisoError(res.error); return; }
             setPosModal(null);
           } : undefined}
         />

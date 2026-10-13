@@ -45,6 +45,84 @@ export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
 };
 
 /**
+ * ¿El nombre dice una cosa y el tipo otra? Devuelve el tipo que el nombre
+ * sugiere, o `null` si no hay nada que avisar.
+ *
+ * POR QUÉ: una dueña llamó «Clase suelta» a una tarifa que el formulario había
+ * dejado en «Cuota» (se abre en Cuota si se pulsa «Añadir» desde Suscripciones).
+ * Resultado: a sus alumnas les cobraría 23 € cada mes. El formulario se calla
+ * porque ambos valores son válidos. Solo se avisa en estos dos sentidos, que
+ * son los que cuestan dinero: una cuota que se llama suelta/puntual, y una
+ * cuota o clase suelta que se llama bono. «8 clases al mes» NO cuenta: es una
+ * cuota legítima con límite semanal.
+ */
+export function tipoSugeridoPorNombre(nombre: string, tipo: TipoPlan): TipoPlan | null {
+  const n = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (tipo === 'MENSUAL' && /\b(suelta|sueltas|suelto|puntual|puntuales|drop[- ]?in|sesion unica|clase unica)\b/.test(n)) {
+    return 'PUNTUAL';
+  }
+  if (tipo !== 'BONO' && /\bbonos?\b/.test(n)) return 'BONO';
+  return null;
+}
+
+/**
+ * ¿Ya hay una tarifa con este nombre y este tipo? Devuelve la existente.
+ *
+ * POR QUÉ: una dueña creó «Tarifa Clase Suelta» dos veces seguidas (79 s entre
+ * una y otra, probablemente creyó que la primera no había salido) y el TPV le
+ * enseñó la clase suelta repetida. No bloquea —dos tarifas con el mismo nombre
+ * pueden ser deliberadas—, solo avisa antes de crear la segunda.
+ */
+export function tarifaDuplicada<T extends { id: string; nombre: string; tipo: TipoPlan }>(
+  nombre: string, tipo: TipoPlan, existentes: readonly T[], ignorarId?: string,
+): T | null {
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const buscado = norm(nombre);
+  if (!buscado) return null;
+  return existentes.find(p => p.id !== ignorarId && p.tipo === tipo && norm(p.nombre) === buscado) ?? null;
+}
+
+/**
+ * ¿Este precio es una errata probable? Compara con las tarifas del MISMO tipo que
+ * ya cobran algo: si pide más de `FACTOR_PRECIO_SOSPECHOSO` veces la más cara
+ * (y hay al menos dos de referencia) devuelve esa más cara. Solo avisa: un bono
+ * de lujo puede ser deliberado, pero 10 € → 1010 € por teclear de más no.
+ */
+export const FACTOR_PRECIO_SOSPECHOSO = 5;
+export function precioSospechoso<T extends { id: string; tipo: TipoPlan; precio: number; activo: boolean }>(
+  precioTexto: string, tipo: TipoPlan, otras: readonly T[], ignorarId?: string,
+): { maxOtras: number } | null {
+  const precio = precioANumero(precioTexto);
+  if (!Number.isFinite(precio) || precio <= 0) return null;
+  const referencia = otras.filter(p => p.id !== ignorarId && p.tipo === tipo && p.activo && p.precio > 0);
+  if (referencia.length < 2) return null;
+  const maxOtras = Math.max(...referencia.map(p => p.precio));
+  return precio > maxOtras * FACTOR_PRECIO_SOSPECHOSO ? { maxOtras } : null;
+}
+
+/**
+ * Agrupa tipos de clase por familia (la primera palabra del nombre: «Reformer
+ * Fundamental» y «Reformer Avanzado» son «Reformer») para elegir de golpe. Los
+ * grupos de uno quedan en «Otras». Conserva el orden original.
+ */
+export function agruparTiposClase<T extends { id: string; nombre: string }>(tipos: readonly T[]): { clave: string; titulo: string; tipos: T[] }[] {
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const porPalabra = new Map<string, T[]>();
+  for (const t of tipos) {
+    const k = norm(t.nombre.trim().split(/\s+/)[0] ?? '');
+    porPalabra.set(k, [...(porPalabra.get(k) ?? []), t]);
+  }
+  const grupos: { clave: string; titulo: string; tipos: T[] }[] = [];
+  const otras: T[] = [];
+  for (const [clave, lista] of porPalabra) {
+    if (lista.length >= 2) grupos.push({ clave, titulo: lista[0].nombre.trim().split(/\s+/)[0], tipos: lista });
+    else otras.push(...lista);
+  }
+  if (otras.length > 0) grupos.push({ clave: '_otras', titulo: 'Otras', tipos: otras });
+  return grupos;
+}
+
+/**
  * Cada cuánto se puede cobrar una cuota, para el desplegable.
  *
  * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`

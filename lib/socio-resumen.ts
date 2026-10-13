@@ -8,6 +8,7 @@
 import type { Socio, Reserva, Recibo, Suscripcion, PlanTarifa, Sesion } from '@/lib/types';
 import { cumpleMesDia, formatearCumple } from './socios/datos-privados.ts';
 import { importeIngresado, aCentimos, situacionRecibo } from './billing/situacion-recibo.ts';
+import { hoyEnEstudio } from './utils.ts';
 
 export interface ResumenSocioInput {
   socio: Socio | undefined;
@@ -104,7 +105,7 @@ export function resumenSocio({
   // auto-cancelacion del dunning (que ya deja el estado en CANCELADA hacia
   // adelante, pero este contador no debe fiarse ciegamente de que quedo
   // sincronizado).
-  const hoyISO = now.toISOString().slice(0, 10);
+  const hoyISO = hoyEnEstudio(now);
   const estaVigente = (s: Suscripcion) => !s.fechaFin || s.fechaFin >= hoyISO;
   const suscripcionActiva = suscripciones.find(s => s.socioId === id && s.estado === 'ACTIVA' && estaVigente(s)) ?? null;
   const planActivo = suscripcionActiva ? planesTarifa.find(p => p.id === suscripcionActiva.planId) ?? null : null;

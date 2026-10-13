@@ -109,3 +109,26 @@ export type LayoutConfig = z.infer<typeof layoutConfigSchema>;
 
 export const layoutDraftSchema = layoutConfigSchema.partial();
 export type LayoutDraft = z.infer<typeof layoutDraftSchema>;
+
+/**
+ * El layout tras guardar un parche: lo de antes, con lo del parche encima, por
+ * clave (guardar el MENÚ no pisa la HOME y viceversa). Puro: lo usa
+ * `guardarLayout` (lib/layout-data.ts) y lo prueba layout-schema.test.ts.
+ *
+ * ⚠️ `bloques` NUNCA viene del parche. Con zod 4, `.partial()` sigue aplicando
+ * el `.default()` de `bloques`, así que un PUT de solo `{ ocultos }` traía unos
+ * bloques DE FÁBRICA que pisaban los del estudio (el borrador y lo publicado de
+ * su app y de /reservar) cada vez que alguien guardaba «Tu menú». Los bloques
+ * tienen su propio flujo (guardarBloquesBorrador/publicarBloques).
+ */
+export function fusionarLayout(actual: LayoutConfig, parche: LayoutDraft): LayoutConfig {
+  const { bloques: _bloquesDeFabrica, ...resto } = parche;
+  return layoutConfigSchema.parse({
+    ...actual,
+    ...resto,
+    home: { ...actual.home, ...(resto.home ?? {}) },
+    portalHome: { ...actual.portalHome, ...(resto.portalHome ?? {}) },
+    reservar: { ...actual.reservar, ...(resto.reservar ?? {}) },
+    bloques: actual.bloques,
+  });
+}

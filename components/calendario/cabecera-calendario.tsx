@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CheckSquare, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, Plus, QrCode, Upload, Users, type LucideIcon } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, Plus, QrCode, Repeat, Upload, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -97,6 +97,8 @@ export interface CabeceraCalendarioProps {
   buscador: ReactNode;
   hrefEscanear: string | null;
   hrefImportar: string | null;
+  /** «Repetir este mes» (P1.7): null = apagado (interruptor, migración o rol). */
+  repetirMes?: { texto: string; onAbrir: () => void } | null;
   seleccion: { activa: boolean; onAlternar: () => void } | null;
   onCrear: (() => void) | null;
   /** ‹ Hoy › y la fecha; null en Horario, que no es un rango de fechas. */
@@ -133,6 +135,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
             {p.buscador}
             {p.hrefEscanear && <Herramienta icono={QrCode} texto="Escanear QR" titulo="Escanear el QR de una clienta en la puerta" href={p.hrefEscanear} compacta={p.compacta} />}
             {p.hrefImportar && <Herramienta icono={Upload} texto="Importar horario" titulo="Traer tu horario de un Excel o de otra plataforma" href={p.hrefImportar} compacta={p.compacta} />}
+            {p.repetirMes && <Herramienta icono={Repeat} texto={p.repetirMes.texto} titulo="Crear el mes siguiente con las clases que se repiten cada semana" onClick={p.repetirMes.onAbrir} compacta={p.compacta} />}
             {p.seleccion && (
               <Herramienta
                 icono={CheckSquare}
@@ -165,6 +168,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
               <button
                 type="button"
                 onClick={p.onCrear}
+                data-tour="calendario-nueva-clase"
                 title="Crear clase"
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 max-md:absolute max-md:-top-1.5 max-md:right-0 max-md:size-11 max-md:justify-center max-md:rounded-full max-md:px-0 md:min-h-9"
               >
@@ -195,7 +199,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
             {p.navegacion.fecha}
           </>
         )}
-        <span className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1 max-md:ml-auto" role="group" aria-label="Vista">
+        <span data-tour="calendario-vistas" className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1 max-md:ml-auto" role="group" aria-label="Vista">
           {VISTAS.filter(v => v.id !== 'horario' || p.conHorario).map(v => (
             <button
               key={v.id}

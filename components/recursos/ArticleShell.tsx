@@ -61,7 +61,9 @@ export function ArticleShell({
             E-E-A-T explícita, auditoría GEO 2026-08-20. Mismo nombre que ya
             consta en /legal (Marcos Roca Rodríguez), en su forma pública. */}
         <p className="art-byline">
-          Por <strong>Marcos Roca</strong>, fundador de Tentare · {readTime} · Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'}
+          {/* El nombre lleva a quién hay detrás y a cómo se escriben y se
+              comprueban las guías (7-oct-2026): la autoría con su método. */}
+          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
         </p>
       </header>
 
@@ -78,6 +80,8 @@ export function ArticleShell({
         .art-dek { font-size: clamp(18px,1.7vw,20px); line-height: 1.55; color: #4A4A44; margin: 0 0 22px; }
         .art-byline { font-size: 14px; color: #6B6B63; margin: 0; padding-bottom: 28px; border-bottom: 1px solid #E1E1D9; }
         .art-byline strong { color: #1A1A1A; font-weight: 600; }
+        .art-byline .art-autor { color: inherit; text-decoration: underline; text-decoration-color: #CFCFC6; text-underline-offset: 3px; }
+        .art-byline .art-autor:hover { text-decoration-color: currentColor; }
         .art-body { max-width: 720px; margin: 0 auto; padding: 28px clamp(20px,4vw,24px) clamp(60px,8vw,96px); }
         .art-body h2 { font-weight: 800; font-size: clamp(24px,3vw,30px); line-height: 1.15; letter-spacing: -.025em; color: #1A1A1A; margin: 48px 0 14px; scroll-margin-top: 96px; }
         .art-body h3 { font-weight: 700; font-size: 19px; letter-spacing: -.01em; margin: 28px 0 8px; }
@@ -90,6 +94,19 @@ export function ArticleShell({
         .art-related-card { transition: transform .2s, box-shadow .2s; }
         .art-related-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -30px rgba(26,26,26,.3); }
         @media (max-width: 900px) { .art-cta2 { grid-template-columns: 1fr; } }
+        /* Tablas de más de tres columnas (ArticuloDatos): en escritorio, con su
+           ancho mínimo; en el móvil, una tarjeta por fila con la etiqueta de
+           cada columna, en vez de deslizar la tabla de lado. */
+        .art-tabla--ancha { min-width: 560px; }
+        @media (max-width: 600px) {
+          .art-tabla--ancha { min-width: 0; }
+          .art-tabla--ancha thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+          .art-tabla--ancha, .art-tabla--ancha tbody, .art-tabla--ancha tr, .art-tabla--ancha td { display: block; width: 100%; }
+          .art-tabla--ancha tr { padding: 12px 16px; }
+          .art-tabla--ancha td { padding: 2px 0 !important; font-size: 14.5px; }
+          .art-tabla--ancha td:first-child { font-size: 15.5px; margin-bottom: 6px; }
+          .art-tabla--ancha td[data-columna]:not(:first-child)::before { content: attr(data-columna); display: block; margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6B6B63; }
+        }
       `}</style>
     </>
   );

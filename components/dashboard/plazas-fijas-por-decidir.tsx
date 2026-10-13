@@ -6,6 +6,7 @@ import { listarPeticionesPlazaFija, resolverPeticionPlazaFija, type PeticionPlaz
 import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { textoMotivoVuelta } from '@/lib/plazas-fijas-solicitudes';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Peticiones de plaza fija que esperan al estudio: las de la app de la alumna (una
 // plaza o una pausa) y las vueltas de una pausa que no pudieron volver solas. Mismo
@@ -52,7 +53,7 @@ function detalle(p: PeticionPlazaFija): string | null {
   return null;
 }
 
-export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => void }) {
+export function PlazasFijasPorDecidir({ onToast }: { onToast: MostrarToast }) {
   const [items, setItems] = useState<PeticionPlazaFija[] | null>(null);
   const [motivos, setMotivos] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
       } else if (r.status === 409 && /resuelta|ya no existe/.test(r.error)) {
         quitar(p.id);
       }
-      onToast(r.error);
+      onToast(r.error, { variant: 'error' });
       return;
     }
     quitar(p.id);

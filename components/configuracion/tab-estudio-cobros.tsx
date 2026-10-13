@@ -483,7 +483,7 @@ const MODOS_FACTURACION: { valor: ModoFacturacion; titulo: string; descripcion: 
   {
     valor: 'facturas',
     titulo: 'Facturas, sin envío a la AEAT',
-    descripcion: 'Cada cobro, salvo en efectivo, genera su factura con número correlativo. No lleva huella ni QR y no se envía a la AEAT. Lo ves en Cobros → Facturas.',
+    descripcion: 'Las facturas llevan número correlativo, pero no huella ni QR y no se envían a la AEAT. Las ves en Cobros → Facturas.',
   },
   {
     valor: 'verifactu',
@@ -544,6 +544,58 @@ function useAltaEnvio(): AltaEnvio {
   return alta;
 }
 
+// «Facturar automáticamente» (9-oct-2026): ajuste del estudio, SEPARADO de
+// Veri*Factu. Se guarda al tocarlo y cambia solo con lo que contesta el servidor
+// (solo la propietaria; nada optimista). No es retroactivo: lo ya emitido no se toca.
+function AjusteFacturaAutomatica({ onGuardado }: { onGuardado: (texto: string) => void }) {
+  const { studio, reflejarStudioGuardado } = useStudio();
+  const activo = studio?.facturarAutomatico !== false;
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function cambiar(activo: boolean) {
+    if (guardando) return;
+    setGuardando(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/facturacion/automatica', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ activo }),
+      });
+      const datos = (await res.json().catch(() => null)) as { activo?: boolean; error?: string } | null;
+      if (!res.ok || typeof datos?.activo !== 'boolean') {
+        setError(datos?.error ?? 'No se ha podido guardar. Vuelve a intentarlo.');
+      } else {
+        reflejarStudioGuardado({ facturarAutomatico: datos.activo });
+        onGuardado(datos.activo ? 'Las facturas saldrán solas al cobrar' : 'Las facturas se harán a mano');
+      }
+    } catch {
+      setError('No se ha podido guardar. Revisa la conexión y vuelve a intentarlo.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-border px-4 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Facturar automáticamente</p>
+          <p className="mt-0.5 text-sm text-muted-foreground text-pretty">
+            {activo
+              ? 'Cada cobro, salvo en efectivo, genera su factura al cobrarlo. En efectivo solo si marcas «Hacerle factura».'
+              : 'No sale ninguna factura sola. Cuando te la pidan, la haces desde el recibo cobrado. Lo ya emitido no cambia.'}
+          </p>
+        </div>
+        <Toggle on={activo} onChange={v => void cambiar(v)} ariaLabel="Facturar automáticamente" />
+      </div>
+      {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
+      <p className="mt-2 text-xs text-muted-foreground text-pretty">Es independiente de Veri*Factu: con él desactivado la factura sale igual, sin huella ni QR.</p>
+    </div>
+  );
+}
+
 export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
   const { studio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<FacturacionForm>(() => studioToFacturacion(studio));
@@ -600,6 +652,7 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
       {studio?.modoFacturacion === 'sin_facturas' && (
         <p className="pb-4 text-sm text-muted-foreground text-pretty">Hoy este estudio no emite facturas. Elige una opción y guarda para empezar.</p>
       )}
+      <AjusteFacturaAutomatica onGuardado={onGuardado} />
       <div role="radiogroup" aria-label="Facturación" className="space-y-3 pb-6">
         {MODOS_FACTURACION.map(m => {
           const elegido = form.modo === m.valor;

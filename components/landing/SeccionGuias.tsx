@@ -16,9 +16,9 @@ import { urlArticulo } from '@/lib/recursos/articulos/util';
 // desincronizarse.
 const DESTACADAS = [
   'como-abrir-un-estudio-de-pilates',
+  'como-gestionar-un-estudio-de-pilates',
   'cuanto-cuesta-abrir-un-estudio-de-pilates',
   'requisitos-para-abrir-un-estudio-de-pilates',
-  'precio-clase-de-pilates',
   'rentabilidad-estudio-de-pilates',
   'mejor-software-para-estudios-de-pilates',
 ];

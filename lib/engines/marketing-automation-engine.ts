@@ -1,7 +1,8 @@
 import type { Automatizacion, AutomationLog, AutomationLogHistoricoIndice, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
 import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
-import { cumpleMesDia } from '../socios/datos-privados.ts';
+import { felicitableHoy } from './automation-engine.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 // Motor de las Automatizaciones de MARKETING (tipo `Automatizacion`, con triggers
 // de negocio). Antes la UI las creaba pero NINGÚN proceso las ejecutaba — fachada
@@ -122,7 +123,9 @@ export function computeAutomatizacionMktCandidatos(
     if (!p || r.creadoEn < p) primeraAsistida.set(r.socioId, r.creadoEn);
   }
 
-  const hoyMD = `${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+  // El día del ESTUDIO (no el de UTC: entre las 00:00 y las 02:00 de Madrid es
+  // todavía el anterior). El cumpleaños, con la misma regla que el motor clásico.
+  const hoy = hoyEnEstudio(now);
   const mananaStr = new Date(now.getTime() + MS_DIA).toISOString().slice(0, 10);
   const diasHasta = (iso: string) => Math.floor((new Date(iso).getTime() - now.getTime()) / MS_DIA);
   const diasDesde = (iso: string) => Math.floor((now.getTime() - new Date(iso).getTime()) / MS_DIA);
@@ -151,7 +154,8 @@ export function computeAutomatizacionMktCandidatos(
         for (const s of socios) if (s.activo && diasDesde(s.fechaAlta) <= 1 && diasDesde(s.fechaAlta) >= 0) emitir(a, s);
         break;
       case 'CUMPLEANOS':
-        for (const s of socios) if (s.activo && cumpleMesDia(s) === hoyMD) emitir(a, s);
+        // Mismo criterio que «Felicitar el cumpleaños» (P3.10): día de Madrid y mayoría de edad.
+        for (const s of socios) if (s.activo && felicitableHoy(s, hoy)) emitir(a, s);
         break;
       case 'PRIMERA_CLASE':
         for (const [socioId, fecha] of primeraAsistida) if (diasDesde(fecha) <= 1 && diasDesde(fecha) >= 0) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }

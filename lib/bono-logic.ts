@@ -53,7 +53,7 @@ export function bonoConsumible(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   // Tipo de clase que se está reservando. Sin él se mantiene el comportamiento
   // de siempre; con él, un bono que no cubra esa clase no es candidato — si no,
   // con un "Bono Reformer" y un "Bono Mat" a la vez se descontaría del que
@@ -80,7 +80,7 @@ export function bonoDevolvible(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   tipoClaseId?: string | null,
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
   return elegirBono(socioId, suscripciones, planesTarifa, hoyISO, tipoClaseId,
@@ -253,7 +253,7 @@ export function saldoSesionesBono(
   socioId: string,
   suscripciones: Suscripcion[],
   planesTarifa: PlanTarifa[],
-  hoyISO: string = new Date().toISOString().slice(0, 10),
+  hoyISO: string = hoyEnEstudio(),
   // Con una clase concreta delante solo cuentan los bonos que la cubren: sumar
   // un bono de Reformer y otro de Mat en "te quedarán N" para una clase de Mat
   // sería el mismo tipo de mentira, en la otra dirección.
@@ -378,6 +378,20 @@ export function cicloInicialDe(
 export function mesesDeCiclo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): number {
   const m = plan.periodicidadMeses;
   return m === 3 || m === 6 || m === 12 ? m : 1;
+}
+
+/**
+ * Lo que una cuota ingresa al MES: `precio` es lo que se cobra por ciclo, y el
+ * ciclo dura `mesesDeCiclo`. Una trimestral de 240 € son 80 € al mes, no 240.
+ *
+ * Quien valore una cuota por mes o por clase (el margen de Informes, el valor
+ * mensual de una socia y el precio medio de la sesión del Centro de Control)
+ * parte de aquí, nunca de `precio` a pelo: con `precio` a pelo una trimestral
+ * contaba ×3 y una anual ×12. Solo para `tipo: 'MENSUAL'`: en BONO y PUNTUAL la
+ * periodicidad no significa nada.
+ */
+export function precioMensualDeCuota(plan: Pick<PlanTarifa, 'precio'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): number {
+  return plan.precio / mesesDeCiclo(plan);
 }
 
 /**

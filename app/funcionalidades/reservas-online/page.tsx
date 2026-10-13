@@ -17,6 +17,14 @@ export const metadata: Metadata = {
 
 const FAQ = [
   {
+    q: '¿Cómo pagan mis alumnas al reservar?',
+    a: 'Con tarjeta a través de tu cuenta de Stripe. Si a una alumna le falta bono, lo compra en la propia página y reserva sin salir; Bizum también vale para bonos y pagos sueltos. Las cuotas mensuales se cobran con tarjeta o domiciliación SEPA, y el efectivo se registra como cobro de mostrador.',
+  },
+  {
+    q: '¿Cuánto cuesta un software de reservas y pagos para un estudio de Pilates?',
+    a: 'Tentare cuesta desde 29 € al mes con IVA incluido, sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
+  },
+  {
     q: '¿Mis alumnas tienen que instalarse una app?',
     a: 'No. Reservan desde el navegador del móvil con el enlace de tu estudio. Si quieren, pueden añadirlo a su pantalla de inicio y se comporta como una app, con notificaciones incluidas — pero no es un requisito para reservar.',
   },
@@ -42,7 +50,7 @@ export default function ReservasPage() {
   return (
     <FeatureShell
       path={PATH}
-      busqueda="Software de reservas para estudios de Pilates"
+      busqueda="Software de reservas y pagos para estudios de Pilates"
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
@@ -98,6 +106,25 @@ export default function ReservasPage() {
           puede llegar a ella; mientras la tengas oculta, no se indexa. Pero para aparecer en búsquedas locales lo que más
           pesa sigue siendo tu ficha de negocio y tu propia web, no esta página.
         </Limite>
+      </Seccion>
+
+      <Seccion id="pagos" titulo="Reservar y pagar en el mismo paso">
+        <Entradilla>
+          Un software de reservas y pagos deja que la alumna vea el horario, reserve plaza y pague —con bono, clase suelta
+          o cuota— sin pasar por WhatsApp, y que tú veas quién ha reservado, cuántas plazas quedan y qué se ha cobrado.
+        </Entradilla>
+        <p>
+          En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro va con tarjeta
+          o domiciliación SEPA a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare
+          no añade comisión; lo único aparte es la de Stripe. Las facturas se pueden emitir automáticamente, con numeración
+          legal. Desde 29 € al mes con IVA incluido y sin permanencia: los{' '}
+          <Link href="/precios">planes y límites</Link> están en la página de precios.
+        </p>
+        <p>
+          El detalle de cómo se cobra una cuota, qué pasa cuando una tarjeta falla y cómo se devuelve un pago está en{' '}
+          <Link href="/funcionalidades/cobros-recurrentes">cobros automáticos y SEPA</Link>; cómo se venden y caducan los
+          bonos, en <Link href="/funcionalidades/bonos-y-membresias">bonos y membresías</Link>.
+        </p>
       </Seccion>
 
       <Seccion id="llenas" titulo="Cuando la clase está llena — y cuando se vacía">

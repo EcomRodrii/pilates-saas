@@ -21,12 +21,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { ChevronDown, Download, FileText, Loader2, Printer } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { formatEuro, fechaLargaEstudio, finDelDiaEstudio, horaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
-import { mismoTramoAnterior, moverPeriodo, textoDeLaComparacion, tramoVisible } from '@/lib/cobros/lo-cobrado';
+import { mismoTramoAnterior, moverPeriodo, textoDeLaComparacion, textoDelPeriodo, tramoVisible } from '@/lib/cobros/lo-cobrado';
 import { dineroDelTramo, diferencia, serieDelGrafico } from '@/lib/informes/dinero';
 import { tipoDePlanPorSuscripcion } from '@/lib/informes/motivo-cobro';
 import { clasesDelTramo, puntosDeDiferencia, sesionesDelTramo } from '@/lib/informes/clases';
@@ -44,8 +45,21 @@ import { useDescargaCobrado } from '@/components/cobros/use-descarga-cobrado';
 import type { AvisosCobros } from '@/components/cobros/use-acciones-recibo';
 import { Hecho, SelectorPeriodo, conSigno, conSignoEuros, frenteA, tonoDiferencia, type PeriodoInforme } from '@/components/informes/piezas';
 import { BloqueDinero } from '@/components/informes/bloque-dinero';
+import { pagosHistoricosEnTramo } from '@/lib/cobros/pagos-historicos';
+import { usePagosHistoricos } from '@/lib/cobros/use-pagos-historicos';
 import { BloqueClases } from '@/components/informes/bloque-clases';
 import { BloqueClientas } from '@/components/informes/bloque-clientas';
+import { euroPorPlazaDisponible } from '@/lib/informes/euro-plaza-cliente';
+
+// El mapa de «€ por plaza» (pieza E) entra APAGADO (interruptor
+// `INFORMES_EURO_PLAZA`): solo se descarga si el servidor dice que sí. Apagado,
+// Informes es la de siempre, sin un byte más.
+// Si el trozo no llega (una pestaña abierta antes de un despliegue), no pasa
+// nada: Informes sigue como estaba, sin el bloque.
+const BloqueEuroPlaza = dynamic(
+  () => import('@/components/informes/bloque-euro-plaza').then(m => m.BloqueEuroPlaza).catch(() => function SinBloque() { return null; }),
+  { ssr: false },
+);
 
 export default function Informes() {
   const {
@@ -71,6 +85,13 @@ export default function Informes() {
     return () => clearInterval(t);
   }, []);
 
+  const [euroPlaza, setEuroPlaza] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void euroPorPlazaDisponible().then(d => { if (vivo) setEuroPlaza(d); });
+    return () => { vivo = false; };
+  }, []);
+
   // La tarifa de instructora (dato salarial, su propia RLS): para el margen.
   const [tarifas, setTarifas] = useState<TarifaInstructor[]>([]);
   useEffect(() => {
@@ -94,17 +115,20 @@ export default function Informes() {
     };
   }, [periodo, ref, hoy]);
 
+  const tipoDePlanDe = useMemo(() => tipoDePlanPorSuscripcion(suscripciones, planesTarifa), [suscripciones, planesTarifa]);
+  const datosEuroPlaza = useMemo(() => ({ sesiones, reservas, recibos, tipoDePlanDe }), [sesiones, reservas, recibos, tipoDePlanDe]);
+
   // ── Dinero ──
   const dinero = useMemo(() => {
     if (!tramos) return null;
-    const ctx = { periodo, tipoDePlanDe: tipoDePlanPorSuscripcion(suscripciones, planesTarifa) };
+    const ctx = { periodo, tipoDePlanDe };
     const actual = dineroDelTramo(recibos, tramos.visible, ctx);
     const anterior = tramos.anterior ? dineroDelTramo(recibos, tramos.anterior, ctx) : null;
     return {
       actual, anterior,
       puntos: serieDelGrafico(periodo, tramos.visible, actual, tramos.anterior && anterior ? { tramo: tramos.anterior, dinero: anterior } : null),
     };
-  }, [recibos, suscripciones, planesTarifa, periodo, tramos]);
+  }, [recibos, tipoDePlanDe, periodo, tramos]);
 
   // Ventas de la caja cobradas sin recibo en el periodo: no están en las cifras y se dice.
   const ventasSinRecibo = useMemo(() => {
@@ -116,6 +140,17 @@ export default function Informes() {
       return dia >= desde && dia <= hasta;
     }));
   }, [ventasPOS, tramos]);
+
+  // Lo importado del software anterior, AL LADO del cobrado (no son recibos).
+  const importado = usePagosHistoricos();
+  const importadoDelTramo = useMemo(() => {
+    if (!tramos || !importado) return null;
+    return {
+      actual: pagosHistoricosEnTramo(importado.dias, tramos.visible),
+      anterior: tramos.anterior ? pagosHistoricosEnTramo(importado.dias, tramos.anterior) : null,
+      completo: importado.completo,
+    };
+  }, [importado, tramos]);
 
   // ── Clases ──
   const clases = useMemo(() => {
@@ -281,12 +316,22 @@ export default function Informes() {
 
       <BloqueDinero
         periodo={periodo} actual={dinero.actual} anterior={dinero.anterior} puntos={dinero.puntos} comparacion={comparacion}
-        ventasSinRecibo={ventasSinRecibo} plataformas={plataformas} onDescargarPlataformas={descargarPlataformas}
+        ventasSinRecibo={ventasSinRecibo} importado={importadoDelTramo} plataformas={plataformas} onDescargarPlataformas={descargarPlataformas}
       />
       <BloqueClases
         clases={clases.actual} anterior={clases.anterior} comparacion={comparacion} margenes={margenes}
         nombres={{ tipo: id => tiposPorId.get(id), instructora: id => instructorasPorId.get(id) }}
       />
+      {euroPlaza && (
+        <BloqueEuroPlaza
+          datos={datosEuroPlaza} periodo={periodo} visible={visible} hoy={hoy}
+          textoPeriodo={textoPeriodoEnFrase(periodo, ref, hoy)}
+          datosIncompletos={datosIncompletos.some(t => ['recibos', 'sesiones', 'reservas', 'suscripciones'].includes(t))}
+          importado={importadoDelTramo?.actual ?? null}
+          nombres={{ tipo: id => tiposPorId.get(id), socia: id => { const s = sociosPorId.get(id); return s ? s.nombre : 'una alumna'; } }}
+          onIrA={(p, r) => { setPeriodo(p); setReferencia(r); }}
+        />
+      )}
       <BloqueClientas
         clientas={clientas.actual}
         nuevas={nuevasEnTramo(empezaron, visible)}
@@ -304,4 +349,12 @@ export default function Informes() {
       )}
     </div>
   );
+}
+
+/** «septiembre», «el 3.º trimestre», «2026»: el periodo dentro de una frase («Cobrado en …»). */
+function textoPeriodoEnFrase(periodo: PeriodoInforme, ref: string, hoy: string): string {
+  const t = textoDelPeriodo(periodo, ref, hoy);
+  if (periodo === 'MES') return t.charAt(0).toLowerCase() + t.slice(1);
+  if (periodo === 'TRIMESTRE') return `el ${t}`;
+  return t;
 }

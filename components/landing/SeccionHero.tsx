@@ -11,6 +11,7 @@ import { FotoLanding } from './FotoLanding';
 import { FIN_MONTAJE } from './IntroLogo';
 import { PLANS } from './data';
 import { useIslaCompacta } from './use-isla-compacta';
+import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
 
 // El precio más bajo, del mismo sitio que la sección de precios: si cambia la
 // tarifa, no se queda una cifra vieja en el primer pantallazo.
@@ -153,7 +154,7 @@ export function SeccionHero() {
                 de arriba— y la promesa va en un <span> dentro, así Google lee
                 «Software de gestión para estudios de Pilates» primero y la
                 propietaria lee la promesa primero. */}
-            <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates{' '}
+            <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates y yoga{' '}
               <span className="v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
             </h1>
             <p className="v5-hero-lead">
@@ -164,7 +165,14 @@ export function SeccionHero() {
               <Link href={ALTA} className="v5-hero-cta">Probar {TRIAL_DIAS} días gratis</Link>
               <a href="#producto" className="v5-hero-enlace">Ver cómo funciona <span aria-hidden>↓</span></a>
             </div>
-            <p className="v5-hero-nota">Sin tarjeta · Sin permanencia · Desde {PRECIO_DESDE}/mes</p>
+            {/* La nota pública de G2 (lib/seo/g2.ts), la misma que enseñan las
+                comparativas: es comprobable con un clic, no un sello inventado. */}
+            <p className="v5-hero-nota">
+              <a href={G2_URL} target="_blank" rel="noopener noreferrer" className="v5-hero-g2">
+                <span className="v5-hero-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2
+              </a>
+              <span aria-hidden> · </span>Sin tarjeta · Sin permanencia · Desde {PRECIO_DESDE}/mes
+            </p>
           </div>
 
           <figure className="v5-hero-escena">
@@ -322,6 +330,9 @@ export function SeccionHero() {
         .v5-hero-enlace:hover { text-decoration: underline; text-underline-offset: 4px; }
         .v5-hero-cta:focus-visible, .v5-hero-enlace:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
         .v5-hero-nota { margin: 16px 0 0; font-size: 13.5px; font-weight: 600; color: #5A5E48; }
+        .v5-hero-g2 { color: #1F2216; font-weight: 700; text-decoration: none; white-space: nowrap; }
+        .v5-hero-g2:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .v5-hero-estrellas { color: #C9961E; letter-spacing: 1px; }
 
         /* La foto sube un poco por encima del bloque de texto (el gesto de la
            página de Pilates de Timp) y las tarjetas se salen de su marco. */

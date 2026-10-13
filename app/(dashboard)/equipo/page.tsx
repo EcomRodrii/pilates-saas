@@ -43,6 +43,7 @@ import {
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
   type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
 } from '@/lib/equipo-tarjetas.ts';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 
 type FiltroEstadoEquipo = FiltroEstado;
 
@@ -532,7 +533,7 @@ export default function EquipoPage() {
                 </Link>
               </>
             )}
-            <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
+            <button onClick={openNuevo} data-tour="equipo-nuevo" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
               <Plus size={16} /> Nuevo miembro
             </button>
           </div>
@@ -890,7 +891,14 @@ export default function EquipoPage() {
                     </button>
                   </div>
                   <a
-                    href={`https://wa.me/${(enlace.instructor.telefono ?? '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${enlace.instructor.nombre}, ${TEXTOS_ENLACE[enlace.scope].whatsapp} ${enlace.url}`)}`}
+                    // Con el +34 del móvil español (`enlaceWhatsApp`): quitando lo que no es
+                    // dígito, «612 34 56 78» era wa.me/612345678 —para WhatsApp, Australia— y
+                    // el enlace con su token podía ir a un desconocido. Sin teléfono, que elija
+                    // ella a quién mandarlo.
+                    href={(() => {
+                      const texto = `Hola ${enlace.instructor.nombre}, ${TEXTOS_ENLACE[enlace.scope].whatsapp} ${enlace.url}`;
+                      return enlaceWhatsApp(enlace.instructor.telefono, texto) ?? `https://wa.me/?text=${encodeURIComponent(texto)}`;
+                    })()}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition"
                   >

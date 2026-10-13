@@ -52,6 +52,11 @@ integración, un estudio solo recibe check-ins sueltos que valida a mano en su p
 - Rechazos con su `reason_category` (`CLASS_IS_FULL`, `USER_IS_ALREADY_BOOKED`, `CLASS_HAS_BEEN_CANCELED`,
   `CLASS_NOT_FOUND`, `CHECK_IN_AND_CANCELATION_WINDOWS_CLOSED`, `PREREQUISITES`, `TECHNICAL_ERROR`).
 - El gym del evento tiene que ser el del estudio dueño de esa clase, y el estudio tiene que vender en Wellhub.
+- ⚠️ **Sin contrato o suspendido = apagado** (decisión del fundador, 7-oct-2026; `lib/plataformas/venta-externa.ts`):
+  baja de pago (`contrato_terminado_en`), prueba gratuita vencida (a su hora, sin esperar al barrido) o `suspendido_en`.
+  La reserva nueva se rechaza en cada petición y el cron retira lo publicado como al apagar (lo ya vendido se respeta,
+  y sus check-ins se siguen validando: es lo que paga la visita, hasta que la purga borra la conexión). `past_due` y
+  `unpaid` siguen vendiendo: la suscripción sigue viva. Al reactivar, se vuelve a publicar en la siguiente pasada.
 
 ### Cancelaciones (`booking-canceled`, `booking-late-canceled`)
 

@@ -12,7 +12,7 @@ import type { ContextoHerramienta, ResultadoHerramienta } from '../tipos.ts';
 import { marca } from '../referencias.ts';
 import { campo } from '../recorte.ts';
 import { diaLargo, sumarDiasYmd, type EntradaActividad, type EntradaEvento, type EntradaFranja } from './definiciones.ts';
-import { exigir, pct, sinVacios, tramosDelPeriodo } from './comun.ts';
+import { exigir, pct, sinVacios, tono, tramosDelPeriodo } from './comun.ts';
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
@@ -159,5 +159,49 @@ export async function datosParaUnEvento(input: EntradaEvento, ctx: ContextoHerra
       href: '/informes',
       franjas: demanda.map(f => ({ clave: `${f.clave}-${f.tipoClaseId}`, texto: f.texto, tipoClase: tipo(f.tipoClaseId), ocupacion: f.pct, nClases: f.nClases, enEspera: f.enEspera })),
     }],
+  };
+}
+
+export async function ocupacionPorTipoDeClase(input: EntradaActividad, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> {
+  const p = tramosDelPeriodo(input.periodo, input.cual, ctx.hoy);
+  const r = await rangoDeDias(ctx, p.anterior?.desde ?? p.visible.desde, p.visible.hasta);
+  const { sesiones, reservas } = paraInforme(r);
+  const actual = clasesDelTramo(sesiones, reservas, p.visible, ctx.ahora);
+  const anterior = p.anterior ? clasesDelTramo(sesiones, reservas, p.anterior, ctx.ahora) : null;
+  const antes = new Map((anterior?.tipos ?? []).map(t => [t.tipoClaseId, t]));
+  const nombre = (id: string) => campo(r.tiposClase.get(id)) || 'Clase';
+  const tipos = actual.tipos.filter(t => t.nClases > 0)
+    .sort((a, b) => ((b.pct ?? -1) - (a.pct ?? -1)) || a.tipoClaseId.localeCompare(b.tipoClaseId))
+    .slice(0, 10);
+  // Puntos de diferencia, hechos aquí (el modelo no calcula): «+5 puntos», «−3 puntos» o «igual».
+  const puntos = (t: { tipoClaseId: string; pct: number | null }) => {
+    const a = antes.get(t.tipoClaseId);
+    if (!a || a.pct === null || t.pct === null) return null;
+    const d = t.pct - a.pct;
+    return d === 0 ? 'igual' : `${d > 0 ? '+' : '−'}${Math.abs(d)} puntos`;
+  };
+  return {
+    paraModelo: {
+      periodo: p.texto,
+      ocupacionGlobal: pct(actual.pct),
+      ...(p.frente ? { comparadoCon: p.frente } : {}),
+      tiposDeClase: tipos.map(t => sinVacios({
+        tipoClase: nombre(t.tipoClaseId), ocupacion: pct(t.pct), clasesDadas: t.nClases,
+        frenteAlPeriodoAnterior: puntos(t),
+      })),
+    },
+    bloques: tipos.length ? [{
+      tipo: 'metricas',
+      titulo: `Ocupación por tipo de clase · ${p.texto}`,
+      metricas: tipos.map(t => {
+        const d = puntos(t);
+        const a = antes.get(t.tipoClaseId);
+        return {
+          etiqueta: nombre(t.tipoClaseId), valor: pct(t.pct), tipo: 'pct' as const, href: '/informes',
+          ...(d && a && p.frente && a.pct !== null && t.pct !== null
+            ? { comparacion: { texto: d, tono: tono(t.pct, a.pct), frente: p.frente } } : {}),
+        };
+      }),
+    }] : [],
   };
 }

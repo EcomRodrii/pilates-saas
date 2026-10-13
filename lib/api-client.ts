@@ -858,19 +858,29 @@ export async function aprobarCobroAutonomo(params: {
 // Checkout Session público, pensado para /reservar y el portal, no para un
 // reintento desde el panel). Mismo 202/CobroAprobado que aprobarCobroAutonomo.
 export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string; errorCode?: string }> {
-  const res = await fetch('/api/cobros/cobrar-online', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  // `errorCode` se propaga: sin él, "la socia no tiene método de pago guardado"
-  // llegaba a la pantalla como un texto rojo indistinguible de un fallo de red,
-  // y no había forma de ofrecer la única salida real (pedirle la tarjeta).
-  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), errorCode: data.errorCode };
-  const aviso = leerAvisoCobro(data);
-  return aviso ? { ok: true, ...aviso } : { ok: true };
+  // ⚠️ Es un cobro off-session: si la respuesta no llega (red caída justo después de enviar, un 502 con HTML) el cargo PUEDE
+  // haberse hecho. Sin este try/catch la función lanzaba, el rechazo quedaba sin gestionar y el recibo parecía pendiente: se
+  // volvía a pulsar «Cobrar». Ahora responde con un código aparte para que la pantalla relea el estado antes de repetir.
+  try {
+    const res = await fetch('/api/cobros/cobrar-online', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json().catch(() => ({}));
+    // `errorCode` se propaga: sin él, "la socia no tiene método de pago guardado"
+    // llegaba a la pantalla como un texto rojo indistinguible de un fallo de red,
+    // y no había forma de ofrecer la única salida real (pedirle la tarjeta).
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), errorCode: data.errorCode };
+    const aviso = leerAvisoCobro(data);
+    return aviso ? { ok: true, ...aviso } : { ok: true };
+  } catch {
+    return { error: 'No hemos podido confirmar el cobro. Mira el recibo antes de repetirlo: puede haberse hecho.', errorCode: CODIGO_RESPUESTA_PERDIDA };
+  }
 }
+
+/** `errorCode` de un cobro/devolución cuya respuesta no llegó: el servidor puede haberlo hecho. La pantalla relee el estado. */
+export const CODIGO_RESPUESTA_PERDIDA = 'RESPUESTA_PERDIDA';
 
 // Créditos de «Renovar plan» tras cobrar recibos a mano en el panel. Solo
 // avisa: qué recibo da créditos lo decide el servidor. NUNCA lanza — unos
@@ -1220,16 +1230,22 @@ export async function rectificarFactura(params: RectificarFacturaParams): Promis
 }
 
 export async function reembolsarRecibo(reciboId: string): Promise<{ ok: true } | { error: string }> {
-  const res = await fetch('/api/reembolsos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ reciboId }),
-  });
-  const data = await res.json().catch(() => ({}));
-  // El 409 de política (fuera de plazo, bono empezado…) trae un mensaje escrito
-  // para leerse tal cual, así que se respeta en vez de taparlo con el genérico.
-  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  return { ok: true };
+  // Mismo motivo que `cobrarOnlineDirecto`: si la respuesta se pierde, el reembolso PUEDE haber salido. La clave de
+  // idempotencia del servidor evita el doble reembolso, pero no el no saber qué ha pasado.
+  try {
+    const res = await fetch('/api/reembolsos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    // El 409 de política (fuera de plazo, bono empezado…) trae un mensaje escrito
+    // para leerse tal cual, así que se respeta en vez de taparlo con el genérico.
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No hemos podido confirmar la devolución. Mira el recibo antes de repetirla: puede haber salido.' };
+  }
 }
 
 // Resuelve una devolución: deshace lo que entregó el cobro, o lo descarta.
@@ -1363,6 +1379,10 @@ export interface ResultadoImport {
   total: number;
   importadas: number;
   duplicadas: number;
+  /** Membresías que entraron ya caducadas por su fecha de fin (solo bonos y membresías). */
+  caducadas?: number;
+  /** Cuotas activas sin fecha de fin en el archivo: entraron con el final de su ciclo y se renuevan solas desde ahí. */
+  conRenovacion?: number;
   errores: { fila: number; email: string; motivo: string }[];
   error?: string;
 }
@@ -1514,7 +1534,7 @@ export async function analizarMigracion(
 // Deshace un lote de migración: borra exactamente lo que creó ese lote.
 export async function deshacerMigracion(
   batchId: string,
-): Promise<{ ok: true; borrados: Record<string, number> } | { error: string; borrados?: Record<string, number> }> {
+): Promise<{ ok: true; borrados: Record<string, number>; instructorasConservadas?: number } | { error: string; borrados?: Record<string, number> }> {
   try {
     const res = await fetch('/api/migracion/deshacer', {
       method: 'POST',
@@ -1699,21 +1719,27 @@ export async function consultarRetiroMarketing(socioId: string): Promise<{ retir
 
 // El servidor arma el justificante desde el recibo (concepto, importe, fecha y
 // número de factura): aquí solo se dice cuál.
+/** `true` si el servidor ha aceptado el envío; `false` si lo ha rechazado o no ha llegado (nunca lanza). */
 export async function enviarEmailRecibo(params: {
   to: string;
   toName: string;
   reciboId: string;
-}) {
-  await fetch('/api/emails/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({
-      tipo: 'recibo',
-      to: params.to,
-      toName: params.toName,
-      data: { reciboId: params.reciboId },
-    }),
-  });
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/emails/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({
+        tipo: 'recibo',
+        to: params.to,
+        toName: params.toName,
+        data: { reciboId: params.reciboId },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** `true` si el servidor ha aceptado el envío; `false` si lo ha rechazado o no ha llegado. */
@@ -1863,6 +1889,21 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   }
 }
 
+// Pagos importados de la plataforma anterior, agregados por día (Cobros e
+// Informes los enseñan aparte del «Cobrado»). `null` si no se pudo leer o no
+// hay permiso: callar es lo correcto, la línea simplemente no sale — y un
+// array vacío querría decir «no importó ninguno», que es otra respuesta.
+export async function obtenerResumenPagosHistoricos(): Promise<{ dias: Array<{ fecha: string; n: number; total: number }>; completo: boolean } | null> {
+  try {
+    const res = await fetch('/api/pagos-historicos/resumen', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { dias?: unknown; completo?: unknown };
+    return Array.isArray(data.dias) ? { dias: data.dias as Array<{ fecha: string; n: number; total: number }>, completo: data.completo !== false } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Buzón de documentos (Community & Messaging OS, P2) — lado STAFF. Mismo
 // criterio de `null` en fallo que las dos funciones de arriba: un array
 // vacío significa "sin documentos", no "no se pudo comprobar".
@@ -1985,25 +2026,8 @@ export async function subirVideoAStream(uploadURL: string, file: File): Promise<
   }
 }
 
-// Los emails de clase (reserva, cancelación…) solo dicen de qué clase se trata:
+// Los emails de clase (cancelación…) solo dicen de qué clase se trata:
 // nombre, fecha, hora, sala e instructora los pone el servidor desde la BD.
-export async function enviarEmailReserva(params: {
-  to: string;
-  toName: string;
-  sesionId: string;
-}) {
-  await fetch('/api/emails/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({
-      tipo: 'reserva',
-      to: params.to,
-      toName: params.toName,
-      data: { sesionId: params.sesionId },
-    }),
-  });
-}
-
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
 // ── Ausencias de instructoras (vacaciones / baja médica) ─────────────────────
 export interface AusenciaInstructora {
@@ -2263,6 +2287,11 @@ export interface ResultadoImportClases {
   creadas: number;
   omitidas: number;       // ya existían: reimportar no duplica
   tiposCreados: number;
+  /** Instructoras del archivo que no existían y se dieron de alta al importar (sin email). */
+  instructorasCreadas?: string[];
+  /** Errores en total: `errores` se corta en 500, este es el número real. */
+  totalErrores?: number;
+  omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;
   errores: { fila: number; motivo: string }[];
@@ -2296,7 +2325,17 @@ export interface ResultadoImportReservas {
   duplicadas: number;   // ya estaban: reimportar no duplica
   sinSocia: number;     // email que no existe en el estudio
   sinSesion: number;    // no se encontró la clase a esa fecha/hora
-  sobreAforo: number;   // clases que quedan por encima de su aforo
+  /** Clases a las que se subió el aforo con el OK de quien importa. */
+  aforoAmpliado?: number;
+  /**
+   * 'aforo': el archivo deja clases por encima de su aforo y NO se ha importado
+   * nada; hay que preguntar y, con el OK, repetir con `ampliarAforo: true`.
+   */
+  necesitaConfirmacion?: 'aforo';
+  clasesSobreAforo?: number;
+  sobreAforoFuturas?: number;
+  sobreAforoPasadas?: number;
+  detalleSobreAforo?: string[]; // las peores futuras, en frase
   errores: { fila: number; motivo: string }[];
   error?: string;
 }
@@ -2304,13 +2343,13 @@ export interface ResultadoImportReservas {
 // Importa reservas. Empareja socia por email y sesión por clase+fecha+hora en el
 // servidor; el studio_id sale del JWT. No consume bonos (los saldos ya vienen
 // importados del programa anterior).
-export async function importarReservas(rows: FilaReserva[], batchId?: string): Promise<ResultadoImportReservas> {
-  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, sobreAforo: 0, errores: [] };
+export async function importarReservas(rows: FilaReserva[], batchId?: string, ampliarAforo = false): Promise<ResultadoImportReservas> {
+  const vacio = { importadas: 0, duplicadas: 0, sinSocia: 0, sinSesion: 0, errores: [] };
   try {
     const res = await fetch('/api/reservas/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows, batchId }),
+      body: JSON.stringify({ rows, batchId, ...(ampliarAforo ? { aforo: 'ampliar' } : {}) }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -2426,6 +2465,26 @@ export async function enviarPruebaAutomatizacion(datos: { ruleId: string; clave:
     return data as { ok: true; enviadoA: string };
   } catch {
     return { error: 'No se pudo enviar la prueba' };
+  }
+}
+
+// Reglas opcionales de Automatizaciones (P3.10). `null` = no se ofrecen: el
+// servidor dice que están apagadas para este estudio, o no ha contestado (sin
+// respuesta fiable, la pantalla se queda como siempre). `alcance: null` =
+// encendida pero sin cifras: la confirmación lo dice en vez de inventar un cero.
+export interface AlcanceCumpleCliente { activas: number; conFecha: number; conConsentimiento: number; alcanzables: number }
+export async function pedirAutomatizacionesDisponibles(): Promise<{ cumpleanos: { alcance: AlcanceCumpleCliente | null } } | null> {
+  try {
+    const res = await fetch('/api/automatizaciones/disponibles', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json().catch(() => null)) as { cumpleanos?: { alcance?: unknown } | null } | null;
+    if (!d?.cumpleanos) return null;
+    const a = d.cumpleanos.alcance as Record<string, unknown> | null | undefined;
+    const esCifra = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+    const valido = !!a && esCifra(a.activas) && esCifra(a.conFecha) && esCifra(a.conConsentimiento) && esCifra(a.alcanzables);
+    return { cumpleanos: { alcance: valido ? (a as unknown as AlcanceCumpleCliente) : null } };
+  } catch {
+    return null;
   }
 }
 

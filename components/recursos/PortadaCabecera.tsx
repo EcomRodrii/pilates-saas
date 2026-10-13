@@ -31,7 +31,10 @@ export function PortadaCabecera({ portada }: { portada: Portada }) {
         />
       </picture>
       <figcaption style={{ fontSize: 12, color: '#6B6B63', marginTop: 8 }}>
-        Foto: {url ? <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{autor}</a> : autor} en {fuente}
+        {/* Una captura del producto no es una «foto de Tentare en Tentare». */}
+        {fuente === 'Tentare'
+          ? 'Captura del panel de Tentare, con datos de demostración'
+          : <>Foto: {url ? <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{autor}</a> : autor} en {fuente}</>}
       </figcaption>
     </figure>
   );

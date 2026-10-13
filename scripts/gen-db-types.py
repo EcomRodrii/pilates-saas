@@ -176,6 +176,10 @@ TIPOS_MANUALES = {
     # cuenta (ON DELETE SET NULL), y la PK pasa a `id` (identity, nunca nulo).
     ('conversacion_participantes', 'auth_user_id'): 'string | null',
     ('conversacion_participantes', 'id'): 'number',
+    # Ídem, migr 20261009120000: la valoración del review boost y su recompensa
+    # sobreviven al estudio borrado (ON DELETE SET NULL), como histórico.
+    ('review_boost_feedback', 'studio_id'): 'string | null',
+    ('review_boost_recompensas', 'studio_id'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:

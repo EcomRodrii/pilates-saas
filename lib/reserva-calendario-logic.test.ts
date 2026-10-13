@@ -8,6 +8,7 @@ import {
   addDays,
   diasSemana,
   contarSlotsPorDia,
+  diaInicialConClases,
   slotsDelDia,
   agruparPorDia,
   etiquetaDia,
@@ -91,4 +92,26 @@ test('etiquetaDia: Hoy / Mañana / fecha corta capitalizada', () => {
   const otra = etiquetaDia(new Date(2026, 6, 20), ref);
   assert.equal(otra, otra.charAt(0).toUpperCase() + otra.slice(1));
   assert.notEqual(otra, 'Hoy');
+});
+
+test('diaInicialConClases: hoy con clases se queda en hoy', () => {
+  const c = new Map([['2026-10-11', 2], ['2026-10-12', 3]]);
+  assert.equal(diaInicialConClases(c, ['2026-10-11', '2026-10-12'], '2026-10-11', false), '2026-10-11');
+});
+
+test('diaInicialConClases: hoy vacío salta al primer día con clases', () => {
+  const c = new Map([['2026-10-13', 1], ['2026-10-14', 4]]);
+  assert.equal(
+    diaInicialConClases(c, ['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14'], '2026-10-11', false),
+    '2026-10-13',
+  );
+});
+
+test('diaInicialConClases: hoy sin clases por venir pero con clases ya pasadas se queda en hoy', () => {
+  const c = new Map([['2026-10-12', 3]]);
+  assert.equal(diaInicialConClases(c, ['2026-10-11', '2026-10-12'], '2026-10-11', true), '2026-10-11');
+});
+
+test('diaInicialConClases: sin ninguna clase en la ventana se queda en hoy', () => {
+  assert.equal(diaInicialConClases(new Map(), ['2026-10-11', '2026-10-12'], '2026-10-11', false), '2026-10-11');
 });

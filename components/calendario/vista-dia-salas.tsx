@@ -8,6 +8,7 @@ import type { ColumnaSala } from '@/lib/calendario-columnas';
 import type { EstadoSesion } from '@/lib/calendario-estado';
 import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { tramosCerrados, type HorarioDiaCalendario } from '@/lib/calendario/horas-cerradas';
 import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 
 // El Día: una columna por sala, cada clase del alto de su duración. Es la vista
@@ -32,6 +33,8 @@ export interface VistaDiaSalasProps {
   tarjetas: ReadonlyMap<string, DatosTarjeta>;
   aperturaMin: number;
   cierreMin: number;
+  /** El horario de ESTE día: lo que cae fuera se pinta como «Cerrado». Sin dato, no se pinta nada. */
+  horarioDia?: HorarioDiaCalendario;
   pxPorHora: number;
   /** Minutos desde medianoche de «ahora», solo si el día mostrado es hoy. */
   ahoraMin: number | null;
@@ -48,7 +51,7 @@ export interface VistaDiaSalasProps {
 }
 
 export function VistaDiaSalas({
-  columnas, tarjetas, aperturaMin, cierreMin, pxPorHora, ahoraMin, seleccionadaId, marcadas, enSeleccion,
+  columnas, tarjetas, aperturaMin, cierreMin, horarioDia, pxPorHora, ahoraMin, seleccionadaId, marcadas, enSeleccion,
   atenuada, onSeleccionar, arrastrable, onMover, onCrearEn,
 }: VistaDiaSalasProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,10 @@ export function VistaDiaSalas({
       aperturaMin, cierreMin, pxPorHora, plegarDesdeMin: desplegado ? Number.POSITIVE_INFINITY : undefined,
     }),
     [todas, aperturaMin, cierreMin, pxPorHora, desplegado],
+  );
+  const cerrados = useMemo(
+    () => tramosCerrados(horarioDia, escala.desdeMin, escala.hastaMin),
+    [horarioDia, escala.desdeMin, escala.hastaMin],
   );
   const hayPliegues = useMemo(
     () => escalaDia(todas.map(s => ({ inicioMin: s.inicioMin, finMin: s.finMin })), { aperturaMin, cierreMin, pxPorHora }).tramos.some(t => t.plegado),
@@ -164,6 +171,23 @@ export function VistaDiaSalas({
                   if (d) onCrearEn(d);
                 }}
               >
+                {/* Fuera del horario de este día: no bloquea (se puede crear igualmente,
+                    y el formulario avisa), solo dice la verdad. */}
+                {cerrados.map(t => {
+                  const top = yDeMinuto(escala, t.desdeMin);
+                  const alto = yDeMinuto(escala, t.hastaMin) - top;
+                  if (alto <= 0) return null;
+                  return (
+                    <span
+                      key={t.desdeMin}
+                      data-testid="tramo-cerrado"
+                      className="pointer-events-none absolute inset-x-0 flex items-start justify-center bg-muted/70 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                      style={{ top, height: alto, backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--border) 60%, transparent) 6px 7px)' }}
+                    >
+                      Cerrado
+                    </span>
+                  );
+                })}
                 {escala.horas.map(h => h.y > 0 && (
                   <span key={h.min} className="pointer-events-none absolute inset-x-0 border-t border-border/70" style={{ top: h.y }} />
                 ))}

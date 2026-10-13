@@ -86,13 +86,18 @@ export const AVISO_UNA_PROPUESTA = 'Ya hay una propuesta en este turno; espera a
  * Los 400 citan la ruta («tools.3.custom.input_schema: …») y a veces el valor: se quitan
  * los textos entre comillas y se corta, para que nunca viaje lo que escribió la persona.
  */
-export function detalleDeErrorAnthropic(e: { status?: number; error?: unknown }): Record<string, string | number | undefined> {
+export function detalleDeErrorAnthropic(e: { status?: number; error?: unknown; name?: string; message?: string; cause?: unknown }): Record<string, string | number | undefined> {
   const cuerpo = (e.error ?? {}) as { type?: string; error?: { type?: string; message?: string } };
   const msg = cuerpo.error?.message;
+  // Sin `status` (un corte de red o un tiempo agotado) el cuerpo no existe: lo único que dice
+  // qué pasó es la clase del error y la causa (`ECONNRESET`, `UND_ERR_SOCKET`, `AbortError`…).
+  // Antes salía «ASISTENTE_ANTHROPIC_RED» sin una pista y no había por dónde empezar.
+  const causa = e.cause as { code?: string; name?: string } | undefined;
   return {
     status: e.status,
     tipo: cuerpo.error?.type ?? cuerpo.type,
     mensaje: typeof msg === 'string' ? msg.replace(/(["'«“`]).*?\1/g, '$1…$1').slice(0, 300) : undefined,
+    ...(e.status === undefined ? { clase: e.name, causa: causa?.code ?? causa?.name } : {}),
   };
 }
 
@@ -250,6 +255,10 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
       }
       if (msg.stop_reason !== 'tool_use' || pedidas.length === 0) {
         if (soloTexto.length) nuevos.push({ role: 'assistant', content: soloTexto });
+        // El modelo a veces escribe «Pulsa Confirmar» sin haber llamado a ninguna herramienta de
+        // propuesta (visto con el emoji del nombre de una clase): no hay tarjeta, y la persona
+        // esperaría un botón que no existe. El texto ya salió en directo; se avisa debajo.
+        if (!hayPropuesta && /\bconfirmar\b/i.test(texto)) deps.emitir({ t: 'aviso', codigo: 'PROPUESTA_SIN_TARJETA' });
         const aclara = usadas.length === 0 && texto.trim().endsWith('?');
         return fin(aclara ? 'ACLARACION' : 'OK');
       }

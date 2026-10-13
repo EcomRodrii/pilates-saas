@@ -106,6 +106,7 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
     metodo: ahora ? metodo : null,
     cajaAbierta,
     modoFacturacion: studio?.modoFacturacion ?? null,
+    facturarAutomatico: studio?.facturarAutomatico ?? true,
     nifEstudio: studio?.nif ?? null,
     hacerFactura,
   });

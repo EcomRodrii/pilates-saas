@@ -21,7 +21,8 @@ export type FaseWizard = 'intro' | 'wizard' | 'resumen';
 
 export interface EventoWizard {
   nombre: 'bienvenida_paso' | 'bienvenida_resumen';
-  props?: Record<string, string | number | boolean>;
+  // Las mismas que admite el catálogo (`lib/analytics-navegador.ts`).
+  props?: { paso: string; n: number; total: number; retomado?: true };
 }
 
 /**

@@ -19,7 +19,7 @@ import {
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
-  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
+  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa, type ResultadoTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbSocioTieneAlgunPlan,
   dbReservarMatricula,
@@ -548,7 +548,7 @@ interface StudioContextValue {
   valorarExperienciaReserva: (reservaId: string, valoracion: number) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
-  bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
+  bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR' | 'SIN_CONFIRMAR'; caduca: string | null }>;
   /** `aviso`: lo que Wellhub contestó al validar a una socia suya (null = todo bien). */
   checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura & { aviso?: string | null }>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -717,8 +717,8 @@ interface StudioContextValue {
   deleteDashboardChart: (id: string) => Promise<ResultadoEscritura>;
   backups: BackupMeta[];
   // Planes (mutable)
-  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
-  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoTarifa>;
+  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoTarifa>;
   deletePlan: (id: string) => Promise<ResultadoEscritura & { archivado?: boolean }>;
 
   // Salas (mutable)
@@ -1687,17 +1687,41 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Planes ────────────────────────────────────────────────────────────────────
 
-  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoTarifa> {
     const nuevo: PlanTarifa = { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() };
     const res = await dbInsertPlanTarifa(nuevo);
+    if (!res.ok && 'filaEscrita' in res) {
+      // La tarifa EXISTE aunque su cobertura no se guardara: se pinta como quedó
+      // (sin tipos = todas; fuera de la venta si se pudo retirar). Sin esto no
+      // salía en la lista y un segundo «Crear» hacía otra igual.
+      const quedo: PlanTarifa = { ...nuevo, tiposClaseIds: undefined, limitePorTipo: undefined, activo: res.desactivada ? false : nuevo.activo };
+      setPlanesTarifa(prev => [...prev, quedo]);
+      addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
+      return res;
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => [...prev, nuevo]);
     addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
     return res;
   }
-  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoTarifa> {
     const anterior = planesTarifa.find(p => p.id === id);
     const res = await dbUpdatePlanTarifa(id, changes);
+    if (!res.ok && 'filaEscrita' in res) {
+      // Lo de la fila (precio, nombre…) SÍ se guardó: se pinta. La cobertura se
+      // queda como estaba en pantalla; la de la base la dice la próxima carga.
+      // Si esta edición la PONÍA a la venta y su cobertura no se guardó, se vuelve
+      // a retirar: es justo lo que pide el aviso tras un alta fallida («elige sus
+      // clases y vuelve a ponerla a la venta»), y si fallara otra vez quedaría a
+      // la venta valiendo para todas las clases. Una que ya se vendía, no se toca.
+      let desactivada = false;
+      if (changes.activo === true && anterior && !anterior.activo) {
+        desactivada = (await dbUpdatePlanTarifa(id, { activo: false })).ok;
+      }
+      const { tiposClaseIds: _tipos, limitePorTipo: _limites, ...fila } = changes;
+      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...fila, ...(desactivada ? { activo: false } : {}) } : p));
+      return { ...res, desactivada };
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
     if (anterior) {
@@ -2043,7 +2067,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // vivas, no se cancela nada. Devuelve el resultado + la caducidad para el wa.me.
   async function bajaConRecuperacion(
     reservaId: string, motivo: string | null,
-  ): Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }> {
+  ): Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR' | 'SIN_CONFIRMAR'; caduca: string | null }> {
     const cancelada = reservas.find(r => r.id === reservaId);
     if (!cancelada) return { recuperacion: 'ERROR', caduca: null };
     const socioId = cancelada.socioId;
@@ -2068,12 +2092,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // recibía la oferta, que se quedaba sin saber que la tuvo hasta que
     // caducaba sola).
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
-    const respuesta = await fetch('/api/reservas/cancelar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ reservaId }),
-    }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    // Cancelar es IDEMPOTENTE en el servidor (una reserva ya cancelada contesta «ya estaba» sin efectos), así que si la respuesta
+    // se pierde (red caída, un 502) se REPITE antes de dar nada por hecho ni por deshecho: es la única forma honesta de saber si
+    // la primera llegó. Con la recuperación ya concedida, adivinar mal en cualquier sentido deja a la alumna con una
+    // compensación de más o de menos.
+    let respuesta: Response | null = null;
+    for (let intento = 0; intento < 3 && respuesta === null; intento++) {
+      if (intento > 0) await new Promise(resolver => setTimeout(resolver, 700 * intento));
+      respuesta = await fetch('/api/reservas/cancelar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reservaId }),
+      }).catch(() => null);
+    }
+    // Tres intentos sin ninguna respuesta: no se sabe en qué estado quedó. NO se deshace la recuperación (si la reserva sí se
+    // canceló, la alumna la merece) ni se devuelve la reserva a «confirmada»: se relee lo que hay de verdad y se avisa.
+    if (respuesta === null) {
+      resetDatosPilates();
+      return { recuperacion: 'SIN_CONFIRMAR', caduca };
+    }
+    const datos = await respuesta.json().catch(() => null) as {
       promovidaSocioId?: string | null;
     } | null;
     // Si el servidor rechaza la cancelación hay que deshacer las DOS cosas que
@@ -2084,7 +2122,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // lista de espera) y la pantalla pintándola cancelada. La propietaria
     // además le mandaba el WhatsApp de «Recuperación guardada» por algo que no
     // había ocurrido.
-    if (!respuesta?.ok || !datos) {
+    if (!respuesta.ok || !datos) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
       // La recuperación se identifica por `origenReservaId`, que es justo el
       // `reservaId` con el que se creó arriba. `lista` ya está cargada.
@@ -3939,7 +3977,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ reservaId }),
     }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    // Sin respuesta (red caída, corte a medias) NO es lo mismo que «el servidor dijo que no»: la cancelación, con su devolución
+    // de bono o su penalización, PUEDE haberse hecho. Devolver la reserva a «confirmada» y decir «no se pudo» mentiría en ese
+    // caso: se relee lo que hay de verdad y se avisa de que se mire antes de repetir.
+    if (respuesta === null) {
+      resetDatosPilates();
+      return { ok: false, error: 'No hemos podido confirmar la cancelación. Mira cómo ha quedado la reserva antes de repetirla: puede haberse hecho.' };
+    }
+    const datos = await respuesta.json().catch(() => null) as {
       promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
       recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean;
       bonoDevuelto?: boolean; tardia?: boolean;
@@ -4193,7 +4238,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
   useEffect(() => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    // El día de Madrid (que es el de la cuota y el del cron), no el UTC: una cuota que vence «ayer» no se detectaba hasta las 02:00.
+    const hoy = hoyEnEstudio();
     suscripciones.forEach(sus => {
       if (sus.estado !== 'ACTIVA' || !sus.fechaFin) return;
       if (sus.fechaFin >= hoy) return;
@@ -4415,7 +4461,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
       // Con el método: el efectivo no lleva factura automática, y la actividad
       // no puede decir «generó una factura» que no existe.
-      const sacaFactura = (conFactura && emiteFacturas(studio?.modoFacturacion)) || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
+      const sacaFactura = (conFactura && emiteFacturas(studio?.modoFacturacion)) || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null, studio?.facturarAutomatico ?? true);
       addActividadReciente(
         'COBRO_MANUAL',
         sacaFactura

@@ -27,6 +27,8 @@ import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { BarraPreguntar } from '@/components/asistente/barra-preguntar';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
+import { CentroNoIncluido } from '@/components/decision/centro-no-incluido';
+import { SIN_PLAN_DECISIONES } from '@/lib/decision/plan-decisiones';
 
 // Centro de Control — reorganizado como sistema de decisiones, no como lista
 // de todo lo que Tentare sabe (petición explícita 2026-08-18). Jerarquía fija
@@ -248,7 +250,10 @@ export default function CentroDeControlPage() {
     const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
     if (!mensaje) return null;
     const socia = socios.find(s => s.id === r.socioId);
-    return enlaceWhatsApp(socia?.telefono, mensaje.cuerpo);
+    // Una oferta a quien no ha aceptado recibirlas: el chat se abre SIN la oferta
+    // escrita. La tarjeta dice «Tentare no le envía este mensaje» y redactárselo
+    // para mandarlo en un toque sería lo mismo por otra puerta (LSSI art. 21).
+    return enlaceWhatsApp(socia?.telefono, r.sinPermisoOfertas ? '' : mensaje.cuerpo);
   }
 
   // Las cuatro acciones de una recomendación. Ninguna quita la tarjeta antes de
@@ -287,6 +292,9 @@ export default function CentroDeControlPage() {
     );
   }
 
+  // Plan sin Centro de Control o prueba vencida: una puerta con salida, no un fallo.
+  if (error === SIN_PLAN_DECISIONES) return <CentroNoIncluido pruebaVencida={studio?.subscriptionStatus === 'trial_expirado'} />;
+
   if (error) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center">
@@ -302,7 +310,7 @@ export default function CentroDeControlPage() {
   const modoAprendizaje = !data.resumen;
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
+    <div data-tour="centro-de-control-vista" className="flex flex-col gap-6 pb-10">
       {/* La pantalla no tenía h1 (auditoría de arquitectura, 22-sep-2026):
           "Centro de Control" solo existía en el menú lateral. "Analizar ahora"
           se mueve aquí desde dentro del desplegable — era el único CTA real

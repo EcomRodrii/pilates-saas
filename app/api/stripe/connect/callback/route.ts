@@ -6,6 +6,7 @@ import { borrarCookieOAuth, nombreCookieOAuth, verificarEstadoOAuth } from '@/li
 import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
 import { solicitarCapacidadBizum } from '@/lib/billing/capacidad-bizum';
 import { uid } from '@/lib/utils';
+import { capturar } from '@/lib/analytics';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
 // Configuración → Integraciones). Cambia el `code` de un solo uso por el id
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest) {
     if (!resultado.ok) {
       return redirigir(`stripe_connect_error=${encodeURIComponent(resultado.error)}`);
     }
+    // Paso del embudo de activación: ya puede cobrar. Solo con la cuenta
+    // guardada; sale después de responder (`after()`), así que no retrasa nada.
+    capturar(studioId, { nombre: 'stripe_conectado', props: {} });
 
     // Constancia en Actividad: esta es la vía por la que cambia la cuenta donde
     // caen los cobros. Fail-soft, como lo de abajo: la conexión ya está guardada.

@@ -149,7 +149,7 @@ export function SeccionReservas() {
     <section id="app" className="v5-res" aria-labelledby="v5-res-h">
       <div className="v5-res-wrap">
         <header className="v5-res-head lp-rv">
-          <h2 id="v5-res-h" className="v5-res-h2">Tu estudio, en el móvil de cada alumna.</h2>
+          <h2 id="v5-res-h" className="v5-res-h2"><span className="lp-ante">Reservas online y app para tus alumnas</span>{' '}Tu estudio, en el móvil de cada alumna.</h2>
           <p className="v5-res-lead">
             Con tu nombre y tu icono en su pantalla de inicio, sin pasar por la App Store. Reservan, cancelan y
             compran su bono solas: cada cambio que antes era un mensaje, ahora lo hace ella.

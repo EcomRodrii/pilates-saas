@@ -1112,6 +1112,14 @@ export interface RowStudios {
   lista_espera_reserva_plaza_ofrecida: boolean | null;
   // migr 20261007122300.
   reserva_pendiente_cuenta_para_tope: boolean | null;
+  // migr 20261007211202.
+  tour_obligatorio: boolean | null;
+  // migr 20261007211202.
+  tour_progreso: any | null;
+  // migr 20261007211202.
+  tour_completado_en: string | null;
+  // migr 20261008231750.
+  facturar_automatico: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -1739,7 +1747,7 @@ export interface RowPlazasFijas {
   pausa_hasta: string | null;
   // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   clase_fija_id: string | null;
 }
 
@@ -2642,7 +2650,7 @@ export interface RowCodigosDescuentoConsumos {
 
 export interface RowReviewBoostFeedback {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   rating: number;
   comentario: string | null;
   fuente: string;
@@ -2652,7 +2660,7 @@ export interface RowReviewBoostFeedback {
 
 export interface RowReviewBoostRecompensas {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   feedback_id: string;
   stripe_coupon_id: string;
   concedida_en: string;
@@ -3427,7 +3435,7 @@ export interface RowClasesFijas {
   creada_en: string;
   actualizada_en: string;
   and: string | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   aprobacion_automatica: boolean | null;
 }
 
@@ -3965,7 +3973,7 @@ export interface RowSesionesConfiadas {
   dispositivo_id: string | null;
   creada_en: string;
   references: string | null;
-  // migr 20261003160000.
+  // migr 20261004141529.
   origen: 'dispositivo' | 'correo';
 }
 
@@ -4177,6 +4185,74 @@ export interface RowPlataformaAjustes {
   plataforma: string;
   liberar_horas_antes: number;
   actualizado_en: string;
+}
+
+export interface RowAjustesPlataforma {
+  clave: string;
+  valor: any;
+  actualizado_en: string;
+  actualizado_por: string | null;
+}
+
+export interface RowRegaloAjustes {
+  studio_id: string;
+  activo: boolean;
+  importes_eur: number[];
+  permite_importe_libre: boolean;
+  importe_min_eur: number;
+  importe_max_eur: number;
+  caducidad_meses: number;
+  terminos: string | null;
+  actualizado_en: string;
+}
+
+export interface RowTarjetasRegalo {
+  id: string;
+  studio_id: string;
+  codigo: string;
+  codigo_hash: string;
+  importe_inicial: number;
+  origen: string;
+  checkout_session_id: string | null;
+  payment_intent_id: string | null;
+  metodo_manual: string | null;
+  comprador_nombre: string | null;
+  comprador_email: string | null;
+  destinatario_nombre: string | null;
+  destinatario_email: string | null;
+  mensaje: string | null;
+  caduca_en: string;
+  estado: string;
+  anulada_motivo: string | null;
+  anulada_en: string | null;
+  socio_id: string | null;
+  vinculada_en: string | null;
+  correo_enviado_en: string | null;
+  creada_en: string;
+  or: string;
+}
+
+export interface RowMovimientosRegalo {
+  id: string;
+  studio_id: string;
+  tarjeta_id: string;
+  tipo: string;
+  delta: number;
+  idem_key: string | null;
+  actor_tipo: string;
+  actor_id: string | null;
+  motivo: string | null;
+  nota: string | null;
+  recibo_id: string | null;
+  creado_en: string;
+}
+
+export interface RowFestivosAbiertos {
+  studio_id: string;
+  fecha: string;
+  nombre: string;
+  decidido_por: string | null;
+  decidido_en: string;
 }
 
 
@@ -5667,6 +5743,10 @@ export type StudiosInsert = {
   cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
   lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
   reserva_pendiente_cuenta_para_tope?: boolean | null | null;
+  tour_obligatorio?: boolean | null | null;
+  tour_progreso?: any | null | null;
+  tour_completado_en?: string | null | null;
+  facturar_automatico?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5820,6 +5900,10 @@ export type StudiosUpdate = {
   cancelacion_tardia_devuelve_recuperacion?: boolean | null | null;
   lista_espera_reserva_plaza_ofrecida?: boolean | null | null;
   reserva_pendiente_cuenta_para_tope?: boolean | null | null;
+  tour_obligatorio?: boolean | null | null;
+  tour_progreso?: any | null | null;
+  tour_completado_en?: string | null | null;
+  facturar_automatico?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -8570,7 +8654,7 @@ export type CodigosDescuentoConsumosUpdate = {
 
 export type ReviewBoostFeedbackInsert = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   rating?: number | null;
   comentario?: string | null | null;
   fuente?: string | null;
@@ -8580,7 +8664,7 @@ export type ReviewBoostFeedbackInsert = {
 
 export type ReviewBoostFeedbackUpdate = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   rating?: number | null;
   comentario?: string | null | null;
   fuente?: string | null;
@@ -8590,7 +8674,7 @@ export type ReviewBoostFeedbackUpdate = {
 
 export type ReviewBoostRecompensasInsert = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   feedback_id?: string | null;
   stripe_coupon_id?: string | null;
   concedida_en?: string | null;
@@ -8600,7 +8684,7 @@ export type ReviewBoostRecompensasInsert = {
 
 export type ReviewBoostRecompensasUpdate = {
   id?: string | null;
-  studio_id?: string | null;
+  studio_id?: string | null | null;
   feedback_id?: string | null;
   stripe_coupon_id?: string | null;
   concedida_en?: string | null;
@@ -11570,6 +11654,142 @@ export type PlataformaAjustesUpdate = {
   actualizado_en?: string | null;
 }
 
+export type AjustesPlataformaInsert = {
+  clave?: string | null;
+  valor?: any | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
+export type AjustesPlataformaUpdate = {
+  clave?: string | null;
+  valor?: any | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
+export type RegaloAjustesInsert = {
+  studio_id?: string | null;
+  activo?: boolean | null;
+  importes_eur?: number[] | null;
+  permite_importe_libre?: boolean | null;
+  importe_min_eur?: number | null;
+  importe_max_eur?: number | null;
+  caducidad_meses?: number | null;
+  terminos?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type RegaloAjustesUpdate = {
+  studio_id?: string | null;
+  activo?: boolean | null;
+  importes_eur?: number[] | null;
+  permite_importe_libre?: boolean | null;
+  importe_min_eur?: number | null;
+  importe_max_eur?: number | null;
+  caducidad_meses?: number | null;
+  terminos?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type TarjetasRegaloInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  codigo_hash?: string | null;
+  importe_inicial?: number | null;
+  origen?: string | null;
+  checkout_session_id?: string | null | null;
+  payment_intent_id?: string | null | null;
+  metodo_manual?: string | null | null;
+  comprador_nombre?: string | null | null;
+  comprador_email?: string | null | null;
+  destinatario_nombre?: string | null | null;
+  destinatario_email?: string | null | null;
+  mensaje?: string | null | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  anulada_motivo?: string | null | null;
+  anulada_en?: string | null | null;
+  socio_id?: string | null | null;
+  vinculada_en?: string | null | null;
+  correo_enviado_en?: string | null | null;
+  creada_en?: string | null;
+  or?: string | null;
+}
+
+export type TarjetasRegaloUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  codigo?: string | null;
+  codigo_hash?: string | null;
+  importe_inicial?: number | null;
+  origen?: string | null;
+  checkout_session_id?: string | null | null;
+  payment_intent_id?: string | null | null;
+  metodo_manual?: string | null | null;
+  comprador_nombre?: string | null | null;
+  comprador_email?: string | null | null;
+  destinatario_nombre?: string | null | null;
+  destinatario_email?: string | null | null;
+  mensaje?: string | null | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  anulada_motivo?: string | null | null;
+  anulada_en?: string | null | null;
+  socio_id?: string | null | null;
+  vinculada_en?: string | null | null;
+  correo_enviado_en?: string | null | null;
+  creada_en?: string | null;
+  or?: string | null;
+}
+
+export type MovimientosRegaloInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  tarjeta_id?: string | null;
+  tipo?: string | null;
+  delta?: number | null;
+  idem_key?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  nota?: string | null | null;
+  recibo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type MovimientosRegaloUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  tarjeta_id?: string | null;
+  tipo?: string | null;
+  delta?: number | null;
+  idem_key?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  nota?: string | null | null;
+  recibo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type FestivosAbiertosInsert = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
+export type FestivosAbiertosUpdate = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12857,6 +13077,31 @@ export type Database = {
         Row: RowPlataformaAjustes;
         Insert: PlataformaAjustesInsert;
         Update: PlataformaAjustesUpdate;
+      };
+      ajustes_plataforma: {
+        Row: RowAjustesPlataforma;
+        Insert: AjustesPlataformaInsert;
+        Update: AjustesPlataformaUpdate;
+      };
+      regalo_ajustes: {
+        Row: RowRegaloAjustes;
+        Insert: RegaloAjustesInsert;
+        Update: RegaloAjustesUpdate;
+      };
+      tarjetas_regalo: {
+        Row: RowTarjetasRegalo;
+        Insert: TarjetasRegaloInsert;
+        Update: TarjetasRegaloUpdate;
+      };
+      movimientos_regalo: {
+        Row: RowMovimientosRegalo;
+        Insert: MovimientosRegaloInsert;
+        Update: MovimientosRegaloUpdate;
+      };
+      festivos_abiertos: {
+        Row: RowFestivosAbiertos;
+        Insert: FestivosAbiertosInsert;
+        Update: FestivosAbiertosUpdate;
       };
     };
   };

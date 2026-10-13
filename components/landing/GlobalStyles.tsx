@@ -3,6 +3,14 @@ export function GlobalStyles() {
     <style>{`
       .lp-mono { font-family: var(--font-plex-mono), ui-monospace, monospace; }
 
+      /* Antetítulo DENTRO de un h2 (7-oct-2026): la búsqueda a la que responde
+         la sección, en pequeño, encima de la frase con gancho. Misma voz que la
+         categoría del h1 de la home. Hereda el color del h2 (sirve en fondo
+         claro y oscuro) y lo baja de tono. */
+      .lp-ante { display: block; margin: 0 0 14px; font-size: 12.5px; font-weight: 700; line-height: 1.45;
+        letter-spacing: .14em; text-transform: uppercase; opacity: .62; text-wrap: balance; }
+      @media (max-width: 600px) { .lp-ante { font-size: 11.5px; letter-spacing: .12em; margin-bottom: 10px; } }
+
       /* ── SISTEMA DE MOVIMIENTO DE LA WEB PÚBLICA (fase 4, 23-sep) ──────────
          Mismos tokens que el panel (--motion-* en app/globals.css): nada de
          curvas ni duraciones sueltas. Cada movimiento tiene UN motivo:

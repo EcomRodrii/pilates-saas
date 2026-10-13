@@ -77,6 +77,11 @@ export interface FilaDetalle {
    * tarjeta — con dos ya no destaca ninguno.
    */
   destacado?: boolean;
+  /**
+   * Un código que se va a copiar o dictar (tarjeta regalo): más grande aún, en monoespaciada y con
+   * la fila a todo el ancho para que no se parta en dos líneas. Va con `destacado`.
+   */
+  codigo?: boolean;
 }
 
 export interface CorreoEstudioOpts {
@@ -85,6 +90,8 @@ export interface CorreoEstudioOpts {
   preheader: string;
   titular: string;
   parrafos?: (string | null | undefined)[];
+  /** Unas palabras de una persona («Felices fiestas»), en cita bajo los párrafos. Ausente = no se pinta. */
+  cita?: { texto: string; autor?: string | null } | null;
   detalle?: { titulo?: string | null; filas: FilaDetalle[] };
   boton?: { href: string; texto: string } | null;
   /** La letra pequeña del final (política de cancelación, etc.). */
@@ -234,9 +241,19 @@ function titularYTexto(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string, ar
     .filter((t): t is string => !!t && t.trim() !== '')
     .map((t, i, todos) => `<div style="font-family:${fuente};font-size:14.5px;line-height:1.7;color:${p.tinta};margin:0 0 ${i === todos.length - 1 ? 0 : 14}px;">${escaparHtml(t)}</div>`)
     .join('');
+  // La cita es de otra persona: filete de la marca a la izquierda y serif cursiva, para que no se
+  // lea como una frase más del estudio. Una tabla (no `border-left` suelto) por Outlook.
+  const cita = o.cita?.texto.trim()
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 0;"><tr>
+<td width="3" bgcolor="${p.marca}" style="background:${p.marca};width:3px;font-size:0;line-height:0;">&nbsp;</td>
+<td style="padding:4px 0 4px 16px;">
+<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:17px;line-height:1.55;color:${p.tinta};">«${escaparHtml(o.cita.texto.trim())}»</div>
+${o.cita.autor?.trim() ? `<div style="font-family:${fuente};font-size:12.5px;font-weight:bold;color:${p.tintaSuave};margin-top:6px;">— ${escaparHtml(o.cita.autor.trim())}</div>` : ''}
+</td></tr></table>`
+    : '';
   return `<tr><td class="px-mobile" style="padding:${arriba}px 28px 20px;background:${p.papel};">
 <div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:23px;line-height:1.35;color:${p.tinta};margin:0 0 14px;">${escaparHtml(o.titular)}</div>
-${parrafos}
+${parrafos}${cita}
 </td></tr>`;
 }
 
@@ -249,7 +266,10 @@ function tarjetaDetalle(d: NonNullable<CorreoEstudioOpts['detalle']>, p: PaletaC
 
 /** La tarjeta arena con las filas etiqueta/valor. La comparten el correo de sistema y el cuerpo libre. */
 function filasDetalle(filas: FilaDetalle[], p: PaletaCorreo, fuente: string, margen: string, titulo = '', destaque = p.etiqueta): string {
-  const cuerpo = filas.map(f => `<tr>
+  const cuerpo = filas.map(f => f.codigo ? `<tr><td colspan="2" align="center" style="padding:6px 0 14px;">
+<div style="font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};padding:0 0 8px;">${escaparHtml(f.label)}</div>
+<div style="font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:20px;font-weight:bold;letter-spacing:.04em;line-height:1.4;color:${destaque};background:${p.papel};border:1.5px dashed ${p.borde};border-radius:8px;padding:14px 10px;">${escaparHtml(f.value)}</div>
+</td></tr>` : `<tr>
 <td width="110" valign="top" style="padding:${f.destacado ? '8px' : '6px'} 0 4px;font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(f.label)}</td>
 <td valign="top" style="padding:4px 0;font-family:${fuente};font-size:${f.destacado ? '20px' : '13.5px'};font-weight:${f.destacado ? 'bold' : 'normal'};line-height:1.5;color:${f.destacado ? destaque : p.tinta};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.value)}</td>
 </tr>`).join('');

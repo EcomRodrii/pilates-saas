@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { analizarArchivos, type ArchivoEntrada } from '@/lib/migracion/analizador';
-import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { puedeGestionarClientas, puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 // Migración Mágica · analizar: recibe los archivos tal cual los exportó la
 // propietaria de su software anterior y devuelve el PLAN (entidad detectada,
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       instructores: nombres(instructores),
       salas: nombres(salas),
       servicios: nombres(servicios),
+      crearInstructoras: puedeGestionarEquipo(sesion.rol),
     });
     return NextResponse.json(plan);
   } catch (err) {

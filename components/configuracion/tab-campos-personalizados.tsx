@@ -10,6 +10,7 @@ import { inputCls, btnPrimary, btnSecondary, Field, Toggle } from '@/components/
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useCajonAjuste } from '@/components/configuracion/shell/cajon-ajuste';
 import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // ─── Datos extra de la ficha ──────────────────────────────────────────────────
 //
@@ -34,7 +35,7 @@ const TIPOS_CAMPO: { id: CampoPersonalizado['tipo']; label: string }[] = [
 type CampoForm = { etiqueta: string; tipo: CampoPersonalizado['tipo']; opciones: string; requerido: boolean };
 const emptyCampoForm = (): CampoForm => ({ etiqueta: '', tipo: 'texto', opciones: '', requerido: false });
 
-export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) => void }) {
+export function TabCamposPersonalizados({ showToast }: { showToast: MostrarToast }) {
   const { camposPersonalizados, addCampoPersonalizado, updateCampoPersonalizado, deleteCampoPersonalizado } = useStudio();
   const puedeEditar = puedeGestionarCamposPersonalizados(useRol());
   const uid = useId();
@@ -76,7 +77,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       const res = editId
         ? await updateCampoPersonalizado(editId, { etiqueta, tipo: form.tipo, opciones, requerido: form.requerido })
         : await addCampoPersonalizado({ etiqueta, tipo: form.tipo, opciones, requerido: form.requerido, orden: ordenados.length ? Math.max(...ordenados.map(c => c.orden)) + 1 : 0, activo: true });
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
       showToast(editId ? 'Dato actualizado' : 'Dato añadido');
       setForm(emptyCampoForm());
       setEditId(null);
@@ -99,7 +100,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       updateCampoPersonalizado(a.id, { orden: b.orden }),
       updateCampoPersonalizado(b.id, { orden: a.orden }),
     ]);
-    if (!r1.ok) showToast(r1.error); else if (!r2.ok) showToast(r2.error);
+    if (!r1.ok) showToast(r1.error, { variant: 'error' }); else if (!r2.ok) showToast(r2.error, { variant: 'error' });
   }
 
   return (
@@ -190,7 +191,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                 </div>
                 {puedeEditar && (
                   <>
-                    <Toggle on={c.activo} ariaLabel={`Se pide: ${c.etiqueta}`} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
+                    <Toggle on={c.activo} ariaLabel={`Se pide: ${c.etiqueta}`} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error, { variant: 'error' }); }} />
                     <button type="button" onClick={() => editar(c)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={`Editar ${c.etiqueta}`}>
                       <Pencil size={14} aria-hidden />
                     </button>
@@ -215,7 +216,8 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
         onConfirm={async () => {
           if (confirmDel) {
             const res = await deleteCampoPersonalizado(confirmDel);
-            showToast(res.ok ? 'Dato eliminado' : res.error);
+            if (res.ok) showToast('Dato eliminado');
+            else showToast(res.error, { variant: 'error' });
           }
           setConfirmDel(null);
         }}

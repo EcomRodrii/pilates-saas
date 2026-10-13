@@ -75,6 +75,27 @@ const SIN_CANAL = rec({
   accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-5', datosUsados: { nombre: 'Lucía' },
 });
 
+// Una oferta («Te echamos de menos») a quien no ha aceptado recibir ofertas: el
+// servidor dice MARCAR y además por qué (`sinPermisoOfertas`), para que no
+// parezca que le falta el email (docs/decision-os-mensajes-comerciales.md).
+const SIN_PERMISO = rec({
+  id: 'rec-sin-permiso', tipo: 'RECUPERAR_SOCIA', efecto: 'MARCAR', sinPermisoOfertas: true,
+  titulo: 'Nuria lleva 4 semanas sin venir',
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-6', datosUsados: { nombre: 'Nuria' },
+});
+const SIN_PERMISO_TEXTO = 'No ha aceptado recibir ofertas del estudio, así que Tentare no le envía este mensaje.';
+// La misma oferta, a una socia CON teléfono (soc-1 en el panel sembrado): su WhatsApp manual.
+const SIN_PERMISO_CON_TEL = rec({
+  id: 'rec-sin-permiso-tel', tipo: 'RECUPERAR_SOCIA', efecto: 'MARCAR', sinPermisoOfertas: true,
+  titulo: 'María lleva 4 semanas sin venir',
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-1', datosUsados: { nombre: 'María' },
+});
+const CON_PERMISO_CON_TEL = rec({
+  id: 'rec-con-permiso-tel', tipo: 'RECUPERAR_SOCIA', efecto: 'MARCAR',
+  titulo: 'Laura lleva 4 semanas sin venir',
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: '' }, socioId: 'soc-2', datosUsados: { nombre: 'Laura' },
+});
+
 type Rec = ReturnType<typeof rec>;
 
 /** El desglose que guarda el ejecutor de un cobro (lib/decision/resultado-ejecucion.ts). */
@@ -210,6 +231,32 @@ test('cada botón principal dice lo que hace, en el veredicto y en las filas', a
   await expect(fila(page, 'rec-sin-canal').getByRole('button', { name: 'Ya la he contactado' })).toHaveCount(0);
   // La del veredicto no se repite como fila.
   await expect(fila(page, 'rec-mensaje')).toHaveCount(0);
+});
+
+test('una oferta a quien no ha aceptado recibirlas: «Hecho», sin «Ya la he contactado», y la tarjeta dice por qué', async ({ page }) => {
+  await centro(page, MENSAJE, [MARCAR, SIN_CANAL, SIN_PERMISO]);
+  await ir(page, 'centro-de-control');
+  await abrirDetalle(page);
+
+  const f = fila(page, 'rec-sin-permiso');
+  await expect(f.getByRole('button', { name: 'Hecho', exact: true })).toBeVisible();
+  await expect(f.getByRole('button', { name: 'Enviarle el mensaje' })).toHaveCount(0);
+  await expect(f.getByRole('button', { name: 'Ya la he contactado' })).toHaveCount(0);
+  await expect(f.getByText(SIN_PERMISO_TEXTO)).toBeVisible();
+  // Sin canal por otra razón (sin email), el «Hecho» no se atribuye a las ofertas.
+  await expect(fila(page, 'rec-sin-canal').getByRole('button', { name: 'Hecho', exact: true })).toBeVisible();
+  await expect(fila(page, 'rec-sin-canal').getByText(SIN_PERMISO_TEXTO)).toHaveCount(0);
+  await expect(fila(page, 'rec-marcar').getByText(SIN_PERMISO_TEXTO)).toHaveCount(0);
+});
+
+test('una oferta a quien no ha aceptado recibirlas: su WhatsApp manual se abre SIN la oferta escrita', async ({ page }) => {
+  await centro(page, MENSAJE, [MARCAR, SIN_PERMISO_CON_TEL, CON_PERMISO_CON_TEL]);
+  await ir(page, 'centro-de-control');
+  await abrirDetalle(page);
+  const sinPermiso = fila(page, 'rec-sin-permiso-tel').locator('a[href^="https://wa.me/"]');
+  await expect(sinPermiso).toHaveAttribute('href', 'https://wa.me/34600111222');
+  // Con permiso, como siempre: el mensaje va escrito.
+  await expect(fila(page, 'rec-con-permiso-tel').locator('a[href^="https://wa.me/"]')).toHaveAttribute('href', /^https:\/\/wa\.me\/34600333444\?text=/);
 });
 
 test('«Ya la he contactado» la marca por /gestionada y NUNCA pasa por /aprobar', async ({ page }) => {

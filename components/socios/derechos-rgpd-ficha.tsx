@@ -15,6 +15,7 @@
 //   · si la clienta se ha opuesto al perfilado (lo decide ella en su app);
 //   · «Descargar sus datos» (JSON; la salud solo con permiso clínico).
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,7 +31,7 @@ type Accion = { tipo: 'suprimir' | 'resolver' | 'rechazar'; solicitud: Solicitud
 const ESTADO_TEXTO = { pendiente: 'Pendiente', resuelta: 'Atendida', rechazada: 'Rechazada' } as const;
 
 export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
-  socioId: string; nombreSocia: string; onToast: (mensaje: string) => void;
+  socioId: string; nombreSocia: string; onToast: MostrarToast;
 }) {
   // Ejecutar la supresión borra sus datos para siempre: solo la propietaria
   // (`puedeBorrarDatosClienta`, que la ruta vuelve a comprobar). El resto del
@@ -65,7 +66,7 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
     setDescargando(true);
     const r = await descargarDatosSocia(socioId);
     setDescargando(false);
-    onToast(r.ok ? 'Datos descargados' : r.error);
+    onToast(r.ok ? 'Datos descargados' : r.error, r.ok ? undefined : { variant: 'error' });
   }
 
   function abrir(tipo: Accion['tipo'], solicitud: SolicitudConSocia) {
@@ -81,12 +82,12 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
     try {
       if (accion.tipo === 'suprimir') {
         const sup = await ejecutarSupresionSocia(socioId);
-        if (!sup.ok) { onToast(sup.error); return; }
+        if (!sup.ok) { onToast(sup.error, { variant: 'error' }); return; }
         const cierre = await cerrarSolicitudDerechos(accion.solicitud.id, 'resolver');
         if (!cierre.ok) {
           // La supresión SÍ se hizo: se dice tal cual, sin fingir que todo fue bien.
           setAccion(null);
-          onToast(`Sus datos se han eliminado, pero la solicitud no se ha podido cerrar (${cierre.error}). Ciérrala desde Clientas.`);
+          onToast(`Sus datos se han eliminado, pero la solicitud no se ha podido cerrar (${cierre.error}). Ciérrala desde Clientas.`, { variant: 'error' });
           return;
         }
         // Ya no hay ficha que mostrar: la socia ha quedado anonimizada.
@@ -95,7 +96,7 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
         return;
       }
       const r = await cerrarSolicitudDerechos(accion.solicitud.id, accion.tipo, nota.trim() || undefined);
-      if (!r.ok) { onToast(r.error); return; }
+      if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
       setAccion(null);
       onToast(accion.tipo === 'rechazar' ? 'Solicitud rechazada' : 'Solicitud marcada como atendida');
       await cargar();

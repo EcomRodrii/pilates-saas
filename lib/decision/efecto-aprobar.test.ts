@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   efectoAlAprobar, efectoDe, admiteYaContactada, sigueAbierta, trasDecidir, ROTULO_EFECTO, TONO_TRAS_DECIDIR,
-  canalesSocia, emailConfigurado, puedeEscribirle, recibosDeLaAccion, mismosRecibos, recibosACobrar, recibosAprobadosFuera,
+  canalesSocia, emailConfigurado, porQueNoLeLlega, puedeEscribirle, recibosDeLaAccion, mismosRecibos, recibosACobrar, recibosAprobadosFuera,
   comprobarAprobacion, PANTALLA_DESACTUALIZADA, RECIBOS_CAMBIADOS, TEXTO_COBRO_EN_MARCHA, TEXTO_COBRO_TARDANDO,
   type CanalesSocia, type EfectoAprobar, type RecomendacionParaEfecto, type TipoTrasDecidir,
 } from './efecto-aprobar.ts';
@@ -114,21 +114,69 @@ test('efectoDe: usa el efecto que trae la API y, si no viene o no es uno conocid
 });
 
 // ─── Canales: lo mismo que mira el ejecutor antes de enviar ──────────────────
+/** Un aviso de servicio: ni consentimiento ni correo roto cuentan. */
+const SERVICIO = { comercial: false, consentimientoVigente: false, correoRoto: false };
+
 test('canalesSocia: WhatsApp solo en un contacto de canal WhatsApp, con teléfono y el WhatsApp del estudio conectado', () => {
   const socia = { email: null, telefono: '+34600000000' };
   const wa = { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP' };
-  assert.equal(canalesSocia({ accion: wa, socia, whatsappConectado: true, emailConfigurado: true }).whatsapp, true);
-  assert.equal(canalesSocia({ accion: wa, socia, whatsappConectado: false, emailConfigurado: true }).whatsapp, false);
-  assert.equal(canalesSocia({ accion: wa, socia: { email: null, telefono: null }, whatsappConectado: true, emailConfigurado: true }).whatsapp, false);
-  assert.equal(canalesSocia({ accion: { tipo: 'CONTACTO_MANUAL', canal: 'LLAMADA' }, socia, whatsappConectado: true, emailConfigurado: true }).whatsapp, false);
-  assert.equal(canalesSocia({ accion: { tipo: 'ENVIAR_EMAIL' }, socia, whatsappConectado: true, emailConfigurado: true }).whatsapp, false);
+  assert.equal(canalesSocia({ accion: wa, socia, whatsappConectado: true, emailConfigurado: true, ...SERVICIO }).whatsapp, true);
+  assert.equal(canalesSocia({ accion: wa, socia, whatsappConectado: false, emailConfigurado: true, ...SERVICIO }).whatsapp, false);
+  assert.equal(canalesSocia({ accion: wa, socia: { email: null, telefono: null }, whatsappConectado: true, emailConfigurado: true, ...SERVICIO }).whatsapp, false);
+  assert.equal(canalesSocia({ accion: { tipo: 'CONTACTO_MANUAL', canal: 'LLAMADA' }, socia, whatsappConectado: true, emailConfigurado: true, ...SERVICIO }).whatsapp, false);
+  assert.equal(canalesSocia({ accion: { tipo: 'ENVIAR_EMAIL' }, socia, whatsappConectado: true, emailConfigurado: true, ...SERVICIO }).whatsapp, false);
 });
 
 test('canalesSocia: email con su email y el envío configurado; sin ficha, ningún canal', () => {
   const accion = { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP' };
-  assert.equal(canalesSocia({ accion, socia: { email: 'a@example.com', telefono: null }, whatsappConectado: false, emailConfigurado: true }).email, true);
-  assert.equal(canalesSocia({ accion, socia: { email: 'a@example.com', telefono: null }, whatsappConectado: false, emailConfigurado: false }).email, false);
-  assert.equal(puedeEscribirle(canalesSocia({ accion, socia: null, whatsappConectado: true, emailConfigurado: true })), false);
+  assert.equal(canalesSocia({ accion, socia: { email: 'a@example.com', telefono: null }, whatsappConectado: false, emailConfigurado: true, ...SERVICIO }).email, true);
+  assert.equal(canalesSocia({ accion, socia: { email: 'a@example.com', telefono: null }, whatsappConectado: false, emailConfigurado: false, ...SERVICIO }).email, false);
+  assert.equal(puedeEscribirle(canalesSocia({ accion, socia: null, whatsappConectado: true, emailConfigurado: true, ...SERVICIO })), false);
+});
+
+// ─── Ofertas: solo a quien ha aceptado recibirlas (decisión del fundador, 13-oct) ──
+const CON_TODO = {
+  accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP' },
+  socia: { email: 'a@example.com', telefono: '+34600000000' },
+  whatsappConectado: true, emailConfigurado: true,
+};
+
+test('canalesSocia: un mensaje comercial sin consentimiento vigente no sale por ningún canal, y se dice por qué', () => {
+  const c = canalesSocia({ ...CON_TODO, comercial: true, consentimientoVigente: false, correoRoto: false });
+  assert.deepEqual(c, { whatsapp: false, email: false, sinPermisoOfertas: true });
+  assert.equal(puedeEscribirle(c), false);
+  // Ni por WhatsApp: para la LSSI es comunicación electrónica igual que el correo.
+  assert.equal(c.whatsapp, false);
+});
+
+test('canalesSocia: con consentimiento vigente, el comercial sale como siempre; un aviso de servicio no lo necesita', () => {
+  assert.deepEqual(canalesSocia({ ...CON_TODO, comercial: true, consentimientoVigente: true, correoRoto: false }), { whatsapp: true, email: true });
+  assert.deepEqual(canalesSocia({ ...CON_TODO, comercial: false, consentimientoVigente: false, correoRoto: false }), { whatsapp: true, email: true });
+});
+
+test('canalesSocia: un correo roto corta el email de una oferta (el WhatsApp no), pero no el de un aviso de servicio', () => {
+  assert.deepEqual(canalesSocia({ ...CON_TODO, comercial: true, consentimientoVigente: true, correoRoto: true }), { whatsapp: true, email: false });
+  assert.deepEqual(canalesSocia({ ...CON_TODO, comercial: false, consentimientoVigente: false, correoRoto: true }), { whatsapp: true, email: true });
+});
+
+test('una oferta sin permiso: el botón es «Hecho», sin «Ya la he contactado», y aprobar con el botón de antes es 409', () => {
+  const oferta = rec({ tipo: 'RECUPERAR_SOCIA', accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP' } });
+  const canales = canalesSocia({ ...CON_TODO, comercial: true, consentimientoVigente: false, correoRoto: false });
+  assert.equal(efectoAlAprobar(oferta, canales), 'MARCAR');
+  assert.equal(admiteYaContactada(efectoAlAprobar(oferta, canales)), false);
+  assert.deepEqual(comprobarAprobacion(oferta, { efecto: 'ENVIAR_MENSAJE' }, canales), { ok: false, error: PANTALLA_DESACTUALIZADA });
+  const reactivacion = rec({ tipo: 'ENVIAR_REACTIVACION', accion: { tipo: 'ENVIAR_EMAIL' } });
+  assert.equal(efectoAlAprobar(reactivacion, canalesSocia({ ...CON_TODO, accion: reactivacion.accion, comercial: true, consentimientoVigente: false, correoRoto: false })), 'MARCAR');
+});
+
+test('porQueNoLeLlega: lo que queda en Actividad dice el motivo de verdad', () => {
+  const sinPermiso = canalesSocia({ ...CON_TODO, comercial: true, consentimientoVigente: false, correoRoto: false });
+  assert.equal(porQueNoLeLlega(sinPermiso, { tieneEmail: true, porWhatsapp: true, correoRoto: false }), 'no ha aceptado recibir ofertas del estudio');
+  const nada = { whatsapp: false, email: false };
+  assert.equal(porQueNoLeLlega(nada, { tieneEmail: false, porWhatsapp: false, correoRoto: false }), 'no tiene email');
+  assert.equal(porQueNoLeLlega(nada, { tieneEmail: true, porWhatsapp: false, correoRoto: true }), 'su correo está marcado como roto');
+  assert.equal(porQueNoLeLlega(nada, { tieneEmail: true, porWhatsapp: true, correoRoto: false }),
+    'el envío de emails no está configurado y el WhatsApp del estudio no está conectado');
 });
 
 test('emailConfigurado: sin clave o con el marcador de ejemplo, no', () => {
@@ -348,6 +396,58 @@ test('«Enviarle el mensaje»: tras haber mensaje para ella, todo «ok: true» v
   }
 });
 
+test('las ofertas: los dos ejecutores vuelven a mirar el permiso al enviar y les ponen el enlace de baja', () => {
+  const contacto = cuerpoDe(EJECUTOR, 'async function ejecutarContactoSocia(');
+  const email = cuerpoDe(EJECUTOR, 'async function ejecutarEnvioEmail(');
+  for (const [nombre, cuerpo, clase] of [['contacto', contacto, 'base.comercial'], ['email', email, 'previo.comercial']] as const) {
+    // El consentimiento viene en la misma consulta acotada al estudio.
+    assert.match(cuerpo, /\.from\('socios'\)\.select\('[^']*consentimiento_marketing_texto[^']*'\)/, `${nombre}: sin el consentimiento en la ficha`);
+    // Solo si es comercial, y con la misma puerta que el botón.
+    assert.ok(cuerpo.includes(`const permiso = ${clase}\n    ? (await permisoComercial(r.studioId,`), `${nombre}: no mira el permiso de una oferta`);
+    assert.ok(cuerpo.includes(`comercial: ${clase}, consentimientoVigente: permiso?.consentimientoVigente ?? false, correoRoto,`), `${nombre}: canalesSocia sin la clase del mensaje`);
+    assert.match(cuerpo, /unsubscribeUrl: /, `${nombre}: una oferta sin enlace de baja`);
+  }
+  // La reactivación: el permiso se mira ANTES de crear el código de descuento.
+  assert.ok(email.indexOf('permisoComercial(') < email.indexOf('crearCodigoReactivacion('), 'el código se crea antes de saber si se le puede mandar');
+  assert.ok(email.indexOf('if (!canales.email)') < email.indexOf('crearCodigoReactivacion('));
+  assert.match(email, /\.\.\.\(base\.comercial \? \{ unsubscribeUrl: enlaceBajaOfertas\(r\.studioId, r\.socioId\) \} : \{\}\)/);
+  // El WhatsApp de una oferta lleva la baja al final, después de la IA.
+  assert.match(contacto, /const baja = base\.comercial \? enlaceBajaOfertas\(r\.studioId, r\.socioId\) : null;/);
+  assert.ok(contacto.indexOf('const baja =') > contacto.indexOf('personalizarMensajeSocia('), 'la IA no puede tocar el enlace de baja');
+  assert.match(contacto, /enviarWhatsAppTexto\(whatsapp, socio\.telefono, cuerpo\)/);
+  assert.match(contacto, /\.\.\.\(baja \? \{ unsubscribeUrl: baja \} : \{\}\)/);
+  // El mismo enlace que Automatizaciones y Campañas.
+  assert.match(EJECUTOR, /`\$\{appUrl\(\)\}\/api\/marketing\/baja\?token=\$\{firmarBajaMarketing\(studioId, socioId\)\}`/);
+});
+
+test('el piloto automático no aprueba lo que no podría mandar: lo deja con su «Hecho» para la propietaria', () => {
+  const paso = EJECUTOR.slice(EJECUTOR.indexOf("step.run('seleccionar-autonomas'"), EJECUTOR.indexOf("step.run('seleccionar-autonomas'") + 1500);
+  assert.match(paso, /const canales = await canalesDeSocias\(studioId, pendientes\);/);
+  // Sin poder leer su permiso, una oferta tampoco se aprueba sola.
+  assert.match(paso, /if \(!c\) return \(r\.accion\.tipo === 'ENVIAR_EMAIL' \|\| r\.accion\.tipo === 'CONTACTO_MANUAL'\) && !!r\.socioId && esComercial\(r\);/);
+  assert.match(paso, /return efectoAlAprobar\(r, c\) === 'MARCAR';/);
+  assert.match(paso, /seleccionarAutonomas\(aprobables, config, yaHoy\)/);
+});
+
+test('la mitad de servidor lee el permiso solo de las ofertas, y si no puede leerlo no da nada por bueno', () => {
+  const src = sinComentarios(leer('lib/decision/canales-socia.ts'));
+  assert.match(src, /\.from\('socios'\)\.select\('id, email, telefono, consentimiento_marketing_texto'\)\.eq\('studio_id', studioId\)/);
+  assert.match(src, /conSocia\.filter\(esComercial\)/);
+  assert.match(src, /try \{\s*permisos = await permisoComercial\(studioId, deComerciales\);\s*\} catch \{\s*return \(\) => undefined;\s*\}/);
+  // La vigencia, con el texto exacto de hoy (el nombre del estudio dentro).
+  assert.match(src, /textoConsentimientoVigente\(admin, studioId\)/);
+  assert.match(src, /tieneConsentimientoMarketingVigente\(/);
+  assert.match(src, /rebotesDeEmails\(admin,/);
+});
+
+test('la tarjeta dice por qué una oferta se queda en «Hecho»', () => {
+  const api = sinComentarios(leer('app/api/decisiones/route.ts'));
+  assert.match(api, /sinPermisoOfertas: canales\(r\)\?\.sinPermisoOfertas === true/);
+  const botonera = sinComentarios(leer('components/decision/acciones-recomendacion.tsx'));
+  assert.match(botonera, /efecto === 'MARCAR' && recomendacion\.sinPermisoOfertas &&/);
+  assert.match(botonera, /No ha aceptado recibir ofertas del estudio/);
+});
+
 test('«Cobrar ahora» cobra solo los recibos aprobados y guarda lo que pasó de verdad', () => {
   assert.match(EJECUTOR, /const reciboIds = recibosACobrar\(recomendacion\.accion\.reciboIds, reciboIdsAprobados\);/);
   assert.match(EJECUTOR, /const cobro = resumirCobro\(intentos\);\s*resultado = \{ ok: cobroEjecutado\(cobro\), detalle: detalleCobro\(cobro\), cobro \};/);
@@ -484,4 +584,10 @@ test('la pantalla pregunta cómo terminó un cobro con una ruta acotada a su est
   assert.match(ruta, /dbGetEstadoRecomendacion\(id, sesion\.studioId\)/);
   const db = leer('lib/decision/db.ts');
   assert.match(db, /\.from\('recomendaciones'\)\.select\('estado, resultado'\)\.eq\('id', id\)\.eq\('studio_id', studioId\)/);
+});
+
+test('una oferta a quien no ha aceptado recibirlas: el WhatsApp manual se abre sin la oferta escrita', async () => {
+  const { readFileSync } = await import('node:fs');
+  const pagina = readFileSync(new URL('../../app/(dashboard)/centro-de-control/page.tsx', import.meta.url), 'utf8');
+  assert.match(pagina, /enlaceWhatsApp\(socia\?\.telefono, r\.sinPermisoOfertas \? '' : mensaje\.cuerpo\)/);
 });

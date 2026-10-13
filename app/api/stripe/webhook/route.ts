@@ -29,6 +29,8 @@ import { liberarPlazaPorRef } from '@/lib/opening/cupo';
 import { plazaDePICancelado, plazaDeSesionCaducada } from '@/lib/billing/cupo-matricula-abandonado';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import { eventoDePack } from '@/lib/asistente/packs-stripe';
+import { esSesionDeRegalo } from '@/lib/regalo/sesion';
+import { activarRegaloDesdeSesion, anularRegaloPorPago } from '@/lib/regalo/stripe';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -489,6 +491,24 @@ async function procesarEvento(
         },
       });
       return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+    }
+
+    // Tarjeta regalo (lib/regalo): no es un recibo ni una socia, es una venta a una
+    // persona sin cuenta. Se acuña la tarjeta con la sesión ya pagada y la cuenta Connect
+    // ya autorizada arriba; idempotente por sesión (un reintento devuelve la misma).
+    if (esSesionDeRegalo(session.metadata as Record<string, string> | null)) {
+      const r = await activarRegaloDesdeSesion(admin, session, studioDeCuenta as string, stripe, event.account as string);
+      if (!r.ok) {
+        Sentry.captureMessage('[stripe webhook] no se pudo crear la tarjeta regalo de una sesión pagada', {
+          level: 'error', tags: { area: 'cobros', tipo: 'regalo' },
+          extra: { sessionId: session.id, studioId: studioDeCuenta, motivo: r.motivo, detalle: r.detalle },
+        });
+        // OJO: este código no reintenta nada (el webhook ya respondió 200 antes de procesar). La red es
+        // la página de vuelta y el conciliador de cobros (`rescatarRegalos`), que repiten esta misma función.
+        return NextResponse.json({ error: 'Fallo al crear la tarjeta regalo' }, { status: r.motivo === 'bd' ? 500 : 422 });
+      }
+      await marcarProcesado();
+      return NextResponse.json({ received: true, regalo: r.tarjetaId });
     }
 
     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
@@ -1513,6 +1533,21 @@ async function procesarEvento(
     if (piId) {
       const pi = await recuperarPaymentIntent(stripe, piId, event, 'reembolso-perdido');
       if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
+      // Tarjeta regalo: un reembolso TOTAL anula la tarjeta (lo gastado no vuelve). Uno
+      // parcial no se aplica solo: se avisa para que el estudio decida (anular o no).
+      if (pi.metadata?.origen === 'regalo') {
+        const adminRegalo = getSupabaseAdmin();
+        const studioRegalo = adminRegalo ? await studioDeCuentaConnect(adminRegalo, event.account) : null;
+        if (!adminRegalo || !studioRegalo) return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        if (charge.refunded === true) {
+          const r = await anularRegaloPorPago(adminRegalo, studioRegalo, piId, 'Reembolso total en Stripe');
+          if (!r.ok) return NextResponse.json({ error: 'Fallo al anular la tarjeta regalo' }, { status: 500 });
+        } else {
+          Sentry.captureMessage('[stripe webhook] reembolso parcial de una tarjeta regalo: decide el estudio', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'regalo' }, extra: { paymentIntentId: piId, studioId: studioRegalo },
+          });
+        }
+      }
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       // ⚠️ El parcial SÍ entra aquí (ver `procesarChargeRefunded`). Antes esta
@@ -1646,6 +1681,13 @@ async function procesarEvento(
     if (piId) {
       const pi = await recuperarPaymentIntent(stripe, piId, event, 'disputa-perdida');
       if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
+      if (pi.metadata?.origen === 'regalo' && dispute.status === 'lost') {
+        const adminRegalo = getSupabaseAdmin();
+        const studioRegalo = adminRegalo ? await studioDeCuentaConnect(adminRegalo, event.account) : null;
+        if (!adminRegalo || !studioRegalo) return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        const r = await anularRegaloPorPago(adminRegalo, studioRegalo, piId, 'Disputa perdida');
+        if (!r.ok) return NextResponse.json({ error: 'Fallo al anular la tarjeta regalo' }, { status: 500 });
+      }
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {

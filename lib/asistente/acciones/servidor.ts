@@ -5,8 +5,8 @@ import type { SlotSesion } from '../../calendar-logic.ts';
 import type { CierreGuardado } from '../../cierres/quitar-cierre.ts';
 import type { DiaHorario } from '../../types.ts';
 import {
-  MINUTOS_CADUCIDAD, prepararCita, prepararClase, prepararEvento, prepararSala,
-  type EntradaCita, type EntradaClase, type EntradaEvento, type EntradaSala, type Preparada, type PropuestaPreparada,
+  MINUTOS_CADUCIDAD, prepararCita, prepararClase, prepararClases, prepararEvento, prepararSala,
+  type EntradaCita, type EntradaClase, type EntradaClases, type EntradaEvento, type EntradaSala, type Preparada, type PropuestaPreparada,
 } from './nucleo.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +65,43 @@ export async function proponerClase(input: EntradaClase, ctx: ContextoHerramient
     instructora,
     existentes: (sesiones.data ?? []).map(s => ({ id: s.id as string, salaId: s.sala_id as string | null, instructorId: s.instructor_id as string | null, inicio: s.inicio as string, fin: s.fin as string, cancelada: false } satisfies SlotSesion)),
     bloqueosInstructora: bloqueos, cierres, horario: { semana },
+    marcaInstructora: id => `[${ctx.refs.equipo(id)}]`,
+  }, ctx.ahora.getTime(), ctx.hoy);
+}
+
+/** Varias clases de una vez (todo o nada): se lee la agenda del rango entero UNA vez. */
+export async function proponerClases(input: EntradaClases, ctx: ContextoHerramienta): Promise<Preparada> {
+  const fechas = [...new Set(input.horarios.map(h => h.fecha))].sort();
+  const desde = inicioDelDiaEstudio(fechas[0]), hasta = finDelDiaEstudio(fechas[fechas.length - 1]);
+  const instructora = await instructoraDeMarca(ctx, input.instructora);
+  const iid = instructora && instructora !== 'ambigua' ? instructora.id : null;
+  const [tipos, salas, sesiones, cierres, horario, bloqueos] = await Promise.all([
+    ctx.admin.from('tipos_clase').select('id, nombre, duracion_minutos, aforo_por_defecto, archivado_en').eq('studio_id', ctx.studioId),
+    ctx.admin.from('salas').select('id, nombre, capacidad').eq('studio_id', ctx.studioId),
+    ctx.admin.from('sesiones').select('id, sala_id, instructor_id, inicio, fin, cancelada').eq('studio_id', ctx.studioId).eq('cancelada', false).lt('inicio', hasta).gt('fin', desde).limit(5000),
+    cierresDe(ctx),
+    ctx.admin.from('studio_horario').select('dia_semana, abierto, hora_apertura, hora_cierre').eq('studio_id', ctx.studioId),
+    iid
+      ? ctx.admin.from('instructora_disponibilidad_excepciones').select('fecha, hora_inicio, hora_fin')
+        .eq('studio_id', ctx.studioId).eq('instructor_id', iid).eq('tipo', 'bloqueo').in('fecha', fechas)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  lanza(tipos.error, 'tipos'); lanza(salas.error, 'salas'); lanza(sesiones.error, 'agenda'); lanza(horario.error, 'horario'); lanza(bloqueos.error, 'bloqueos');
+  const semana: DiaHorario[] = (horario.data ?? []).map(h => ({
+    diaSemana: h.dia_semana as number, abierto: h.abierto as boolean, horaApertura: h.hora_apertura as string | null, horaCierre: h.hora_cierre as string | null,
+  }));
+  const bloqueosPorFecha = new Map<string, { horaInicio: string | null; horaFin: string | null }[]>();
+  for (const b of (bloqueos.data ?? []) as { fecha: string; hora_inicio: string | null; hora_fin: string | null }[]) {
+    const l = bloqueosPorFecha.get(b.fecha) ?? [];
+    l.push({ horaInicio: b.hora_inicio ?? null, horaFin: b.hora_fin ?? null });
+    bloqueosPorFecha.set(b.fecha, l);
+  }
+  return prepararClases(input, {
+    tipos: (tipos.data ?? []).map(t => ({ id: t.id as string, nombre: (t.nombre as string) || 'Clase', duracionMin: Number(t.duracion_minutos) || 60, aforo: (t.aforo_por_defecto as number | null) ?? null, archivado: !!t.archivado_en })),
+    salas: (salas.data ?? []).map(s => ({ id: s.id as string, nombre: (s.nombre as string) || 'Sala', capacidad: Number(s.capacidad) || 1 })),
+    instructora,
+    existentes: (sesiones.data ?? []).map(s => ({ id: s.id as string, salaId: s.sala_id as string | null, instructorId: s.instructor_id as string | null, inicio: s.inicio as string, fin: s.fin as string, cancelada: false } satisfies SlotSesion)),
+    bloqueosPorFecha, cierres, horario: { semana },
     marcaInstructora: id => `[${ctx.refs.equipo(id)}]`,
   }, ctx.ahora.getTime(), ctx.hoy);
 }

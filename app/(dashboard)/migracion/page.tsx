@@ -14,9 +14,11 @@ import {
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import {
   analizarMigracion, deshacerMigracion, migracionesRecientes,
-  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos,
+  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos, type ResultadoImportReservas,
   importarRecuperaciones,
 } from '@/lib/api-client';
 import {
@@ -26,7 +28,7 @@ import {
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
   type FilaRecuperacion,
 } from '@/lib/csv';
-import { uid } from '@/lib/utils';
+import { uid, hoyEnEstudio } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
 import type { BatchReciente } from '@/lib/migracion/batches';
 import { planesSinCasar, aplicarMapeoPlanes, normalizarNombrePlan } from '@/lib/migracion/planes';
@@ -38,6 +40,8 @@ import {
 } from '@/lib/migracion/clasificador';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { estadoDeLaMigracion } from '@/lib/tenti/momentos';
+import { bloqueadaPor, estadoDeEntidad, actaIncompleta, type EstadoEntidad } from '@/lib/migracion/ejecucion';
+import { incidenciasACsv, incidenciasDeImportacion, type IncidenciasDeEntidad, type ResultadoParaIncidencias } from '@/lib/migracion/incidencias';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -48,9 +52,18 @@ interface ResultadoEntidad {
   etiqueta: string;
   importadas: number;
   duplicadas: number;
-  incidencias: number; // sinSocia/sinSesion/errores... agregado
+  incidencias: number; // filas que no entraron del todo (sin contar dos veces sinSocia/sinSesion y su error)
+  /** Cuáles y por qué: agrupadas por motivo, con ejemplos y las filas completas para descargar. */
+  detalle?: IncidenciasDeEntidad;
   error?: string;
   batchAviso?: string | null;
+  /** Cómo quedó: importada, parcial, fallida o saltada porque lo que necesita falló. */
+  estado?: EstadoEntidad;
+  /** Si se saltó: cuántas filas quedaron sin importar y por qué. */
+  filasPendientes?: number;
+  motivo?: string;
+  /** Cosas que no son error pero la propietaria tiene que saber (caducadas, omitidas…). */
+  avisos?: string[];
 }
 
 // Etiquetas legibles de lo que crea un lote (claves de ids_creados → nombre de
@@ -67,10 +80,26 @@ const ENTIDADES_QUE_ACEPTA = (() => {
 })();
 
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
-  socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
+  socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase', instructores: 'instructoras',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'clases fijas',
   pagos_historicos: 'pagos históricos', recuperaciones: 'recuperaciones',
 };
+
+/** Incidencias de un importador: el número y el detalle salen de la MISMA cuenta. */
+function conDetalle(r: ResultadoParaIncidencias): { incidencias: number; detalle: IncidenciasDeEntidad } {
+  const detalle = incidenciasDeImportacion(r);
+  return { incidencias: detalle.total, detalle };
+}
+
+/** Descarga todas las incidencias del acta en un CSV (archivo, fila, motivo). */
+function descargarIncidencias(resultados: readonly ResultadoEntidad[]) {
+  const csv = incidenciasACsv(resultados.map(r => ({ etiqueta: r.etiqueta, filas: r.detalle?.filas ?? [] })));
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'incidencias-migracion.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
 
 function resumenBatch(conteos: Record<string, number>): string {
   const partes = Object.entries(conteos)
@@ -103,6 +132,13 @@ async function xlsxACsv(file: File): Promise<ArchivoLocal[]> {
   return salida;
 }
 
+function avisosDeMembresias(r: { caducadas?: number; conRenovacion?: number }): string[] | undefined {
+  const avisos: string[] = [];
+  if (r.caducadas) avisos.push(`${r.caducadas} entraron ya caducadas: su fecha de fin (por la validez de la tarifa) ya pasó. No cuentan como clientas activas.`);
+  if (r.conRenovacion) avisos.push(`${r.conRenovacion} cuota${r.conRenovacion === 1 ? '' : 's'} sin fecha de fin en el archivo: entraron con el final de su ciclo actual y se renovarán solas desde esa fecha (generan su recibo).`);
+  return avisos.length ? avisos : undefined;
+}
+
 export default function MigracionPage() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +154,7 @@ export default function MigracionPage() {
   // si no, las clientas/reservas recién creadas NO aparecen en sus listados
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
   const { resetDatosPilates, planesTarifa, instructores, salas, citasServicios } = useStudio();
+  const rol = useRol();
   // Contexto del estudio para reanalizar mapeos manuales con los mismos avisos
   // (planes/instructoras/salas/servicios inexistentes) que la vía automática.
   const ctxEstudio: ContextoEstudio = {
@@ -125,6 +162,7 @@ export default function MigracionPage() {
     instructores: instructores.map(i => i.nombre),
     salas: salas.map(s => s.nombre),
     servicios: citasServicios.map(s => s.nombre),
+    crearInstructoras: puedeGestionarEquipo(rol),
   };
 
   // Correcciones manuales de la propietaria en el paso de revisión: por archivo,
@@ -133,6 +171,10 @@ export default function MigracionPage() {
   // segundos — sin esto, un archivo mal clasificado era un callejón sin salida.
   const [overrides, setOverrides] = useState<Record<string, { entidad: EntidadMigracion | null; mapeo: Record<string, number> }>>({});
   const [editando, setEditando] = useState<string | null>(null);
+  // Reservas que no caben en el aforo: la importación espera aquí el OK (o el no) de quien migra.
+  const [preguntaAforo, setPreguntaAforo] = useState<{ info: ResultadoImportReservas; resolver: (ok: boolean) => void } | null>(null);
+  const preguntarAmpliarAforo = (info: ResultadoImportReservas) =>
+    new Promise<boolean>(resolver => setPreguntaAforo({ info, resolver }));
   const [paso, setPaso] = useState<Paso>('subir');
   const [arrastrando, setArrastrando] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoLocal[]>([]);
@@ -144,8 +186,10 @@ export default function MigracionPage() {
   const [confirmDeshacer, setConfirmDeshacer] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
+  const [instructorasConservadas, setInstructorasConservadas] = useState(0);
   // El Tenti del acta (lib/tenti/momentos.ts): 'hecho' o 'error'; deshecha, ninguno.
   const estadoActa = estadoDeLaMigracion({ resultados, deshecho: !!deshecho });
+  const hayIncidencias = resultados.some(r => r.incidencias > 0);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   // Mapeo "plan del CSV → tarifa mía", por nombre normalizado. El importador
   // casa por nombre, así que un estudio que YA tiene su catálogo montado no
@@ -255,44 +299,92 @@ export default function MigracionPage() {
     setBatchId(id);
     setPaso('ejecutando');
     const out: ResultadoEntidad[] = [];
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Desde cuándo se expande el horario recurrente: el día del estudio (con el de
+    // UTC, de madrugada la primera clase de la serie caía ayer).
+    const hoy = hoyEnEstudio();
+    // Las entidades cuyo resultado no es completo: bloquean solo a las que dependen de ellas.
+    const falladas = new Set<EntidadMigracion>();
 
     for (const entidad of efectivo.orden) {
       const deEntidad = archivosEfectivos.filter(a => a.entidad === entidad);
       const filas = deEntidad.flatMap(a => filasDe(a));
       if (filas.length === 0) continue;
       const etiqueta = deEntidad[0].entidadEtiqueta ?? entidad;
+
+      // Lo que esta entidad necesita no entró: no se intenta (importar reservas sin
+      // sus clases solo llenaría el acta de incidencias), pero SÍ se anota.
+      const bloqueo = bloqueadaPor(entidad, falladas);
+      if (bloqueo.length > 0) {
+        const nombres = bloqueo.map(b => efectivo.orden.includes(b)
+          ? (archivosEfectivos.find(a => a.entidad === b)?.entidadEtiqueta ?? b).toLowerCase() : b).join(' y ');
+        out.push({
+          entidad, etiqueta, importadas: 0, duplicadas: 0, incidencias: 0, estado: 'no_importada',
+          filasPendientes: filas.length,
+          motivo: `No se ha importado porque no entraron antes: ${nombres}.`,
+        });
+        falladas.add(entidad);
+        setResultados([...out]);
+        continue;
+      }
       setProgreso(`Importando ${etiqueta.toLowerCase()}…`);
 
       if (entidad === 'socias') {
         const r = await importarSocias(filas as FilaSocia[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else if (entidad === 'membresias') {
         const r = await importarMembresias(filas as FilaMembresia[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({
+          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso,
+          avisos: avisosDeMembresias(r),
+        });
       } else if (entidad === 'clases') {
         const r = await importarClases(filas as FilaClase[], { semanas: 4, desde: hoy }, id);
-        out.push({ entidad, etiqueta, importadas: r.creadas, duplicadas: r.omitidas, incidencias: r.sinInstructor + r.sinSala + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        const avisosClases: string[] = [];
+        if (r.instructorasCreadas?.length) {
+          const n = r.instructorasCreadas.length;
+          avisosClases.push(`Se ${n === 1 ? 'dio de alta 1 instructora' : `dieron de alta ${n} instructoras`} que no estaban en tu estudio (${r.instructorasCreadas.slice(0, 6).join(', ')}${n > 6 ? '…' : ''}), sin email ni invitación. Complétalas en Equipo.`);
+        }
+        if (r.omitidasPorSolape) {
+          avisosClases.push(`${r.omitidasPorSolape} ${r.omitidasPorSolape === 1 ? 'clase no se ha creado porque se pisaba' : 'clases no se han creado porque se pisaban'} con otra en la misma sala o con la misma instructora. Abajo ves cuáles y con qué; corrígelas en el calendario o en tu archivo.`);
+        }
+        out.push({
+          entidad, etiqueta, importadas: r.creadas, duplicadas: r.omitidas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso,
+          avisos: avisosClases.length ? avisosClases : undefined,
+        });
       } else if (entidad === 'reservas') {
-        const r = await importarReservas(filas as FilaReserva[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinSesion + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        let r = await importarReservas(filas as FilaReserva[], id);
+        let rechazoAforo = false;
+        if (r.necesitaConfirmacion === 'aforo') {
+          // Nada se ha escrito: se pregunta y, con el OK, se amplía el aforo y se importa.
+          const ok = await preguntarAmpliarAforo(r);
+          if (ok) r = await importarReservas(filas as FilaReserva[], id, true);
+          else rechazoAforo = true;
+        }
+        out.push({
+          entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r),
+          error: rechazoAforo ? 'No se han importado: había clases por encima de su aforo y no se ha ampliado.' : r.error,
+          batchAviso: r.batchAviso,
+          avisos: r.aforoAmpliado ? [`Se amplió el aforo de ${r.aforoAmpliado} clase${r.aforoAmpliado === 1 ? '' : 's'} para que cupieran todas las reservas.`] : undefined,
+        });
       } else if (entidad === 'citas') {
         const r = await importarCitas(filas as FilaCita[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinInstructor + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else if (entidad === 'pagos') {
         const r = await importarPagosHistoricos(filas as FilaPago[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas ?? 0, incidencias: r.sinSocia + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas ?? 0, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       } else {
         // `duplicadas` aquí son las que no caben: la socia ya tenía el máximo
         // de recuperaciones vivas del estudio. No es un error del archivo, así que no
         // puede contarse como incidencia.
         const r = await importarRecuperaciones(filas as FilaRecuperacion[], id);
-        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, ...conDetalle(r), error: r.error, batchAviso: r.batchAviso });
       }
+      const ultima = out[out.length - 1];
+      ultima.estado = estadoDeEntidad(ultima);
+      // Un fallo no borra lo hecho ni para a las entidades que no dependen de ella
+      // (los bonos no esperan al horario): solo se salta lo que de ella cuelga.
+      if (ultima.estado !== 'importada') falladas.add(entidad);
       setResultados([...out]);
-      // Un fallo de una entidad no borra lo hecho, pero paramos: las
-      // siguientes dependen de ella y el acta debe reflejar dónde se quedó.
-      if (out[out.length - 1].error) break;
     }
     setResultados(out);
     setPaso('acta');
@@ -314,6 +406,7 @@ export default function MigracionPage() {
       return;
     }
     setDeshecho(r.borrados);
+    setInstructorasConservadas(r.instructorasConservadas ?? 0);
     // Lo deshecho también debe desaparecer de los listados sin recargar a mano.
     resetDatosPilates();
     void cargarRecientes();
@@ -669,7 +762,11 @@ export default function MigracionPage() {
                         }}
                       >
                         <option value="">Elige una tarifa…</option>
-                        {planesTarifa.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                        {/* Sin los borradores a 0 € (el onboarding los deja) y con el precio al lado: con
+                            dos «Clase suelta» el servidor casa por nombre y el id elegido no desambigua. */}
+                        {planesTarifa.filter(t => t.precio > 0).map(t => (
+                          <option key={t.id} value={t.id}>{t.nombre} · {t.precio.toLocaleString('es-ES')} €{t.activo ? '' : ' (no a la venta)'}</option>
+                        ))}
                         <option value="NO_IMPORTAR">— No importar estas filas —</option>
                       </select>
                     </div>
@@ -743,16 +840,68 @@ export default function MigracionPage() {
               {resultados.map(r => (
                 <div key={r.entidad} className="flex items-baseline justify-between text-[13px]">
                   <span className="text-muted-foreground">{r.etiqueta}</span>
-                  <span className="font-bold text-foreground tabular-nums">
+                  <span className={`font-bold tabular-nums ${r.estado === 'no_importada' || r.estado === 'fallida' ? 'text-destructive' : 'text-foreground'}`}>
                     {deshecho
                       ? `${deshecho[r.entidad === 'socias' ? 'socios' : r.entidad === 'membresias' ? 'suscripciones' : r.entidad === 'clases' ? 'sesiones' : r.entidad === 'pagos' ? 'pagos_historicos' : r.entidad] ?? 0} borrados`
-                      : `${r.importadas} importadas · ${r.duplicadas} ya existían${r.incidencias > 0 ? ` · ${r.incidencias} incidencias` : ''}`}
+                      : r.estado === 'no_importada'
+                        ? `No importadas · ${r.filasPendientes ?? 0} filas pendientes`
+                        : `${r.importadas} importadas · ${r.duplicadas} ya existían${r.incidencias > 0 ? ` · ${r.incidencias} incidencias` : ''}${r.estado === 'fallida' ? ' · falló' : r.estado === 'parcial' ? ' · a medias' : ''}`}
                   </span>
                 </div>
               ))}
             </div>
-            {resultados.some(r => r.error) && (
-              <p className="mt-3 text-[13px] text-destructive">{resultados.find(r => r.error)?.error} — el proceso se detuvo ahí; puedes deshacer y volver a intentarlo.</p>
+            {deshecho && instructorasConservadas > 0 && (
+              <p className="mt-3 text-[13px] text-foreground">
+                {instructorasConservadas === 1 ? 'Se ha conservado 1 instructora' : `Se han conservado ${instructorasConservadas} instructoras`} que
+                {' '}creó la importación: ya {instructorasConservadas === 1 ? 'la' : 'las'} habías completado (email, cuenta o rol) y borrarlas se llevaría su acceso. Si no las quieres, bórralas desde Equipo.
+              </p>
+            )}
+            {!deshecho && resultados.flatMap(r => (r.avisos ?? []).map(a => ({ r, a }))).map(({ r, a }) => (
+              <p key={`aviso-${r.entidad}`} className="mt-3 text-[13px] text-foreground">
+                <span className="font-bold">{r.etiqueta}:</span> {a}
+              </p>
+            ))}
+            {!deshecho && resultados.filter(r => r.detalle && (r.detalle.grupos.length > 0 || r.detalle.notas.length > 0)).map(r => (
+              <details key={`inc-${r.entidad}`} className="mt-3 rounded-xl border border-border bg-card/60 px-3 py-2 text-[13px]" open={r.incidencias > 0 && r.incidencias <= 5}>
+                <summary className="cursor-pointer font-bold text-foreground">
+                  {r.incidencias > 0
+                    ? `${r.etiqueta}: ${r.incidencias} ${r.incidencias === 1 ? 'fila con incidencia' : 'filas con incidencias'} — ver cuáles y por qué`
+                    : `${r.etiqueta}: avisos — ver cuáles`}
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {r.detalle!.grupos.map(g => (
+                    <li key={g.motivo}>
+                      <p className="text-foreground"><b className="tabular-nums">{g.cuantas}</b> · {g.motivo}</p>
+                      <p className="text-[12px] text-muted-foreground">
+                        {g.ejemplos.map(e => `fila ${e.fila}`).join(', ')}{g.cuantas > g.ejemplos.length ? ` y ${g.cuantas - g.ejemplos.length} más` : ''}
+                        {g.cuantas > 1 && g.ejemplos[0] ? ` · p. ej. ${g.ejemplos[0].motivo}` : ''}
+                      </p>
+                    </li>
+                  ))}
+                  {r.detalle!.notas.map(n => <li key={n} className="text-foreground">{n}</li>)}
+                </ul>
+                {r.detalle!.filas.length < r.incidencias && (
+                  <p className="mt-2 text-[12px] text-muted-foreground">El detalle fila a fila llega hasta {r.detalle!.filas.length}; el resto sigue el mismo patrón.</p>
+                )}
+              </details>
+            ))}
+            {!deshecho && hayIncidencias && resultados.some(r => (r.detalle?.filas.length ?? 0) > 0) && (
+              <button
+                type="button" onClick={() => descargarIncidencias(resultados)}
+                className="mt-3 rounded-xl border border-border bg-card px-3 py-2 text-[13px] font-bold text-foreground hover:bg-muted"
+              >
+                Descargar las incidencias (CSV)
+              </button>
+            )}
+            {!deshecho && resultados.filter(r => r.error || r.motivo).map(r => (
+              <p key={`msg-${r.entidad}`} className="mt-3 text-[13px] text-destructive">
+                <span className="font-bold">{r.etiqueta}:</span> {r.error ?? r.motivo}
+              </p>
+            ))}
+            {!deshecho && actaIncompleta(resultados) && (
+              <p className="mt-3 text-[13px] text-foreground">
+                Lo que sí entró está guardado. Corrige lo que falló y vuelve a subir <b>solo esos archivos</b>: lo ya importado no se duplica. Si prefieres empezar de cero, pulsa «Deshacer migración».
+              </p>
             )}
             {resultados.some(r => r.batchAviso) && (
               <p className="mt-3 text-[12px] text-warning">⚠️ Parte del lote no quedó registrado para deshacer. Si necesitas revertir, escríbenos a soporte@tentare.app.</p>
@@ -760,7 +909,7 @@ export default function MigracionPage() {
           </div>
 
           <p className="text-[13px] text-muted-foreground">
-            Comprueba los números contra tu software anterior (nº de clientas, bonos activos, clases de la semana). ¿Todo cuadra? Ya está — no había más que hacer.
+            Comprueba los números contra tu software anterior (nº de clientas, bonos activos, clases de la semana).{!deshecho && (actaIncompleta(resultados) || hayIncidencias) ? ' Ojo: hay filas que no han entrado del todo; arriba tienes cuáles y por qué.' : ' ¿Todo cuadra? Ya está — no había más que hacer.'}
           </p>
 
           <div className="flex gap-3">
@@ -774,7 +923,7 @@ export default function MigracionPage() {
               </button>
             )}
             <button
-              onClick={() => { setPaso('subir'); setArchivos([]); setPlan(null); setResultados([]); setBatchId(null); setDeshecho(null); setError(null); }}
+              onClick={() => { setPaso('subir'); setArchivos([]); setPlan(null); setResultados([]); setBatchId(null); setDeshecho(null); setInstructorasConservadas(0); setError(null); }}
               className="flex-1 py-3 rounded-2xl bg-brand text-brand-foreground text-[13px] font-extrabold hover:brightness-95 transition"
             >
               {deshecho ? 'Empezar de nuevo' : 'Hacer otra importación'}
@@ -801,6 +950,19 @@ export default function MigracionPage() {
         textoConfirmar="Deshacer migración"
         destructivo
         onConfirm={() => { const id = confirmarReciente; setConfirmarReciente(null); if (id) void deshacerReciente(id); }}
+      />
+      <ConfirmDialog
+        open={preguntaAforo !== null}
+        onOpenChange={v => { if (!v && preguntaAforo) { preguntaAforo.resolver(false); setPreguntaAforo(null); } }}
+        titulo="Hay clases que no caben"
+        descripcion={preguntaAforo
+          ? `${preguntaAforo.info.clasesSobreAforo ?? 0} ${(preguntaAforo.info.clasesSobreAforo ?? 0) === 1 ? 'clase se quedaría' : 'clases se quedarían'} por encima de su aforo`
+            + `${preguntaAforo.info.detalleSobreAforo?.length ? ` (${preguntaAforo.info.detalleSobreAforo.slice(0, 3).join(' · ')})` : ''}. `
+            + 'Si sigues, se amplía su aforo para que quepan todas las reservas. Si no, las reservas no se importan.'
+          : undefined}
+        textoConfirmar="Ampliar aforo e importar"
+        textoCancelar="No importar reservas"
+        onConfirm={() => { if (preguntaAforo) { preguntaAforo.resolver(true); setPreguntaAforo(null); } }}
       />
     </div>
   );

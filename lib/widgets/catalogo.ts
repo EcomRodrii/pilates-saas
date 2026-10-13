@@ -206,8 +206,8 @@ export const WIDGETS: readonly Widget[] = [
   {
     id: 'regalo', estado: 'en-preparacion', categoria: 'venta', icono: 'Gift',
     nombre: 'Tarjetas regalo',
-    descripcion: 'Que regalen clases a otra persona.',
-    falta: 'Tentare todavía no emite tarjetas regalo.',
+    descripcion: 'Que regalen saldo para el estudio a otra persona.',
+    falta: 'Ya se vende en tu página de reservas; el widget para incrustarla en tu web llega después.',
   },
   {
     id: 'tienda', estado: 'en-preparacion', categoria: 'venta', icono: 'ShoppingBag',

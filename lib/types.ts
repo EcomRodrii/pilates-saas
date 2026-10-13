@@ -288,6 +288,10 @@ export interface Studio {
   // 'sin_facturas': estado de sistema que nadie elige; no emite. Solo el
   // servidor cambia el modo (la columna no la escribe el navegador).
   modoFacturacion: ModoFacturacion;
+  // «Facturar automáticamente» (migr 20261008231750): si la factura sale sola al
+  // cobrar (salvo en efectivo). Independiente de Veri*Factu. Solo la cambia la
+  // propietaria, por /api/facturacion/automatica. De serie true.
+  facturarAutomatico: boolean;
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
   // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
@@ -378,6 +382,13 @@ export interface Studio {
   // UNA sola vez. NULL = aún no lo ha visto. No bloquea nada — el botón para
   // repetirlo sigue disponible siempre; mismo patrón que decisionContratoVistoEn.
   tourVistoEn: string | null;
+  // La visita guiada por capítulos (lib/tour/). `tourObligatorio` lo fija un
+  // trigger al nacer el estudio (nunca el cliente): false en todos los que ya
+  // existían. `tourProgreso` es el JSON de lib/tour/progreso.ts; `tourCompletadoEn`
+  // NULL mientras le quede algo.
+  tourObligatorio: boolean;
+  tourProgreso: unknown;
+  tourCompletadoEn: string | null;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no
@@ -1639,7 +1650,10 @@ export type TriggerRule =
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
   | 'RENOVACION_COBRADA'
-  | 'CLASE_LLENA_RECURRENTE';
+  | 'CLASE_LLENA_RECURRENTE'
+  // P3.10 (13-oct-2026): solo corre donde su interruptor de servidor está
+  // encendido (lib/engines/reglas-opcionales.ts). Apagado, el motor la salta.
+  | 'CUMPLEANOS';
 
 export type AccionAutomatica =
   | 'ENVIAR_EMAIL'

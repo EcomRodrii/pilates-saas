@@ -10,6 +10,7 @@ const articulo: Articulo = {
   categoria: 'software',
   seccion: 'Elegir software',
   publicado: '2026-09-25',
+  actualizado: '2026-10-07',
   consultaPrincipal: 'bsport vs timp',
   consultas: [
     'bsport o timp',
@@ -18,7 +19,7 @@ const articulo: Articulo = {
     'bsport o timp para un estudio de pilates',
   ],
   respuesta:
-    'bsport vs TIMP: los dos cubren reservas, bonos, cobros y app para tus alumnas. bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes altos. TIMP sirve a muchos negocios de clases y citas: de 50 a 170 € al mes por centro, 3 meses mínimos en la mayoría de planes y 15 días de prueba. Como alternativa con precio publicado, Tentare cuesta desde 29 €/mes con IVA, sin permanencia, y la app con tu marca va desde el plan Estudio (59 €/mes).',
+    'bsport vs TIMP: los dos cubren reservas, bonos, cobros y app para tus alumnas. bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes altos. TIMP sirve a muchos negocios de clases y citas: de 50 a 170 € al mes por centro, 3 meses mínimos en la mayoría de planes y 15 días de prueba. Como alternativa con precio publicado, Tentare cuesta desde 29 €/mes con IVA, sin permanencia, y la app con tu marca va en todos los planes.',
   entradilla:
     'Si estás evaluando bsport para tu estudio de pilates y te han hablado de TIMP, aquí tienes bsport vs TIMP lado a lado, con lo que consta hoy en la web de cada uno, para quién encaja cada uno y qué preguntar en la demo. Lo escribe Tentare, que no es ninguno de los dos.',
   secciones: [

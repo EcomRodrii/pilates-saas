@@ -100,6 +100,7 @@ export function avisoParaSentry(
  * `HORAS_REVISION_ESTUDIO` (lib/moderacion/reglas.ts): duplicadas como número
  * por lo mismo que `VENTANA_ESPERAS_DIAS`; un test las ata.
  */
+export const ID_DEVOLUCION_POS_SIN_REFLEJAR = 'devolucion-pos-sin-reflejar-en-recibo';
 export const ID_DENUNCIAS_ESPERANDO_A_TENTARE = 'denuncias-esperando-a-tentare';
 /** Las mismas, con más de 48 h desde que se hicieron: tampoco las ha revisado Tentare. */
 export const ID_DENUNCIAS_SIN_REVISAR_48H = 'denuncias-sin-revisar-48h';
@@ -269,6 +270,32 @@ export const DEFINICIONES: Definicion[] = [
     contar: (admin) => admin
       .from('ledger_conciliacion')
       .select('derecho_id', { count: 'exact', head: true }),
+  },
+  {
+    id: ID_DEVOLUCION_POS_SIN_REFLEJAR,
+    que: 'Ventas del TPV devueltas por entero cuyo recibo sigue COBRADO.',
+    impacto:
+      'El dinero se devolvió en la caja, pero el recibo de la alumna sigue contando como ingreso: las cifras de Cobros y ' +
+      'Finanzas suman un ingreso que ya no existe. El trigger que lo refleja traga sus errores a propósito (no puede tumbar ' +
+      'la devolución, que ya salió), así que sin esta comprobación el fallo solo quedaría como un aviso en el log de ' +
+      'Postgres. Se arregla mirando el recibo y devolviéndolo desde Cobros.',
+    umbralAviso: 1,
+    umbralFallo: 1,
+    // Dos consultas y no un embed: `ventas_pos.recibo_id` no tiene clave foránea hacia `recibos`. Acotada a los últimos 60 días
+    // y a 1.000 ventas: una devolución sin reflejar no caduca sola, pero esto solo busca las recientes.
+    contar: async (admin, ahora) => {
+      const { data: ventas, error } = await admin
+        .from('ventas_pos')
+        .select('recibo_id')
+        .not('devuelta_en', 'is', null)
+        .not('recibo_id', 'is', null)
+        .gte('devuelta_en', menos(ahora, 60 * 24 * 60))
+        .limit(1000);
+      if (error) return { count: null, error };
+      const ids = [...new Set((ventas ?? []).map(v => v.recibo_id as string))];
+      if (ids.length === 0) return { count: 0, error: null };
+      return admin.from('recibos').select('id', { count: 'exact', head: true }).in('id', ids).eq('estado', 'COBRADO');
+    },
   },
   {
     id: ID_DENUNCIAS_ESPERANDO_A_TENTARE,

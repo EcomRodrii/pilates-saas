@@ -24,12 +24,12 @@
 import { z } from 'zod';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
-  puedeGestionarCalendario, puedeGestionarClientas, puedeVerFinanzas,
+  puedeGestionarCalendario, puedeGestionarClientas, puedeModerarComunidad, puedeVerFinanzas,
 } from '../../permisos-reglas.ts';
 import type { Rol } from '../../types.ts';
 import type { DefinicionHerramienta, NombreHerramienta } from '../tipos.ts';
 import { ROLES_ASISTENTE } from '../roles.ts';
-import { zCita, zClase, zEvento as zEventoPublicado, zSala, TIPOS_CITA } from '../acciones/esquemas.ts';
+import { zCita, zClase, zClases, MAX_CLASES_LOTE, zEvento as zEventoPublicado, zSala, TIPOS_CITA } from '../acciones/esquemas.ts';
 import { puedeEjecutarAccion } from '../acciones/permisos.ts';
 
 const delAsistente = (rol: Rol) => (ROLES_ASISTENTE as readonly Rol[]).includes(rol);
@@ -295,6 +295,46 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     zod: zCita,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CITA'),
     etiqueta: () => 'Preparando la cita…',
+  }),
+  // Al final: el orden de las anteriores no cambia (orden = caché).
+  def({
+    nombre: 'proponer_clases',
+    clase: 'accion',
+    descripcion: `Prepara (no crea) VARIAS clases del mismo tipo, sala e instructora en días y horas distintos (entre 2 y ${MAX_CLASES_LOTE}), para que la propietaria las confirme de una vez. Úsala para «todos los lunes de octubre a las 18:00»: tú calculas cada fecha con la lista de días de hoy. Una sola clase: proponer_clase. Todo o nada: si una no se puede, no propone ninguna y te dice cuál.`,
+    esquema: objeto({
+      tipo_clase: { type: 'string', description: 'Nombre del tipo de clase.' },
+      sala: { type: 'string', description: 'Nombre de la sala.' },
+      instructora: { type: 'string', description: '[EQUIPO_n] o "".' },
+      aforo: { type: 'integer', description: 'Plazas (al menos 1); omítelo si no lo dice.' },
+      horarios: {
+        type: 'array', description: `Entre 2 y ${MAX_CLASES_LOTE} días y horas.`,
+        items: objeto({ fecha: { type: 'string', description: 'AAAA-MM-DD.' }, hora: { type: 'string', description: 'HH:MM, hora de Madrid.' } }),
+      },
+    }, ['aforo']),
+    zod: zClases,
+    permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
+    etiqueta: () => 'Preparando las clases…',
+  }),
+  def({
+    nombre: 'ocupacion_por_tipo_de_clase',
+    clase: 'lectura',
+    descripcion: 'La ocupación de cada TIPO de clase (Reformer, Mat, Yoga…) en un periodo, de la que más se llena a la que menos, con las clases dadas de cada tipo y comparada con el mismo tramo del periodo anterior. Es la misma cifra que Informes › Clases. Úsala para «¿qué tipo de clase funciona mejor?», «¿se llena más el reformer que el mat?», «¿qué clase debería quitar?» o «¿en qué clase invierto mejor mi tiempo?».',
+    esquema: objeto({
+      periodo: enumerado(PERIODO, 'El periodo.'),
+      cual: enumerado(CUAL, 'actual: el periodo en curso, hasta hoy; anterior: el periodo anterior entero.'),
+    }),
+    zod: zActividad,
+    permitida: rol => delAsistente(rol) && puedeGestionarCalendario(rol),
+    etiqueta: (input) => `Comparando los tipos de clase de ${TEXTO_PERIODO[input.periodo][input.cual]}…`,
+  }),
+  def({
+    nombre: 'eventos_proximos',
+    clase: 'lectura',
+    descripcion: 'Los eventos de la comunidad publicados que aún no han pasado (talleres, quedadas, clases especiales): de qué es cada uno, el día y la hora, el lugar, el aforo y cuántas alumnas se han apuntado. Hasta 10, el más próximo primero. Úsala para «¿cuántos eventos tengo?», «¿cómo va el taller del sábado?» o «¿qué eventos hay esta semana?».',
+    esquema: objeto({}),
+    zod: sinEntrada,
+    permitida: rol => delAsistente(rol) && puedeModerarComunidad(rol),
+    etiqueta: () => 'Mirando tus próximos eventos…',
   }),
 ];
 

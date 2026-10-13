@@ -38,6 +38,8 @@ interface Opciones {
   matArchivado?: string | null;
   /** Filas que la base de datos dice haber tocado en el PATCH (vacío = sin permiso). */
   patchTocaFilas?: boolean;
+  /** El DELETE de un tipo contesta 400 (P0.3: el fallo se ve en rojo). */
+  borrarFalla?: boolean;
 }
 
 async function montar(page: Page, o: Opciones = {}) {
@@ -59,6 +61,7 @@ async function montar(page: Page, o: Opciones = {}) {
     { ...TIPO_BASE, id: 'tc-mat', nombre: 'Mat', color: '#c4b5fd', archivado_en: o.matArchivado ?? null },
   ];
   const patches: { id: string | null; body: Record<string, unknown> }[] = [];
+  const deletes: (string | null)[] = [];
 
   // OJO: Playwright resuelve las rutas en orden INVERSO al de registro, así que
   // los comodines van PRIMERO y las específicas después.
@@ -105,6 +108,11 @@ async function montar(page: Page, o: Opciones = {}) {
       if (fila) Object.assign(fila, body);
       return json(route, fila ? [{ id }] : []);
     }
+    if (req.method() === 'DELETE') {
+      deletes.push(new URL(req.url()).searchParams.get('id')?.replace(/^eq\./, '') ?? null);
+      if (o.borrarFalla) return json(route, { message: 'permission denied for table tipos_clase', code: '42501' }, 400);
+      return json(route, []);
+    }
     // Con `?id=eq.X` (al comprobar si la fila sigue existiendo), solo esa.
     const id = new URL(req.url()).searchParams.get('id')?.replace(/^eq\./, '');
     return json(route, id ? tipos.filter(t => t.id === id) : tipos);
@@ -112,7 +120,7 @@ async function montar(page: Page, o: Opciones = {}) {
 
   await page.goto('/configuracion?tab=clases&abrir=tipos-de-clase');
   await expect(page.getByRole('button', { name: 'Nuevo tipo de clase' })).toBeVisible({ timeout: 30_000 });
-  return { patches };
+  return { patches, deletes };
 }
 
 test.describe('Archivar un tipo de clase', () => {
@@ -194,4 +202,23 @@ test.describe('Archivar un tipo de clase', () => {
     await expect(page.getByRole('dialog', { name: 'Archivar «Mat»' })).toBeVisible();
     expect(patches).toHaveLength(0);
   });
+});
+
+// ── P0.3: un fallo se ve como fallo ─────────────────────────────────────────
+
+test('eliminar un tipo que la base de datos no deja borrar: aviso en ROJO y el tipo sigue', async ({ page }) => {
+  const { deletes } = await montar(page, { borrarFalla: true });
+  const tarjeta = page.locator('div').filter({ has: page.getByRole('button', { name: 'Archivar Reformer' }) }).last();
+  await tarjeta.getByRole('button', { name: 'Eliminar' }).click();
+  const confirmar = page.getByRole('alertdialog', { name: '¿Eliminar «Reformer»?' }).or(page.getByRole('dialog', { name: '¿Eliminar «Reformer»?' }));
+  await confirmar.getByRole('button', { name: 'Eliminar' }).click();
+
+  // Se intentó de verdad (contador): sin esto, «no mintió» valdría también sin llamar a nada.
+  await expect.poll(() => deletes.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  // El fallo, en un `alert` (el toast de error), nunca con el ✓ del éxito.
+  // El toast de ERROR (`components/ui/toast.tsx`, `alert` + `assertive`) con el motivo de un 403 de permisos.
+  // Filtrado por texto: el anunciador de rutas de Next también es `alert` + `assertive`.
+  await expect(page.locator('[role="alert"][aria-live="assertive"]').filter({ hasText: 'No tienes permiso' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('status').filter({ hasText: 'Tipo de clase eliminado' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Archivar Reformer' })).toBeVisible();
 });

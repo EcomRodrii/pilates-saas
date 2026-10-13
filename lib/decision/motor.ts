@@ -12,7 +12,7 @@ import { detectarConflictos } from './conflictos.ts';
 import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriorizada } from './prioridad.ts';
 import { construirIndices } from './senales.ts';
 import { sinSociasOpuestas } from './perfilado.ts';
-import { TZ_ESTUDIO } from '../utils.ts';
+import { hoyEnEstudio, TZ_ESTUDIO } from '../utils.ts';
 import { MARKETING_MODULE_ENABLED } from '../feature-flags.ts';
 
 export interface RecomendacionAExpirar {
@@ -161,7 +161,7 @@ export function ejecutarAnalisis(input: EntradaAnalisis): ResultadoAnalisis {
 
   const resumenDiario = construirResumenDiario({
     studioId: snapshot.studioId,
-    fecha: now.toISOString().slice(0, 10),
+    fecha: hoyEnEstudio(now),
     nombrePropietario,
     puntuadas,
     prioridadesHome,

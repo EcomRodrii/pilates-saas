@@ -119,7 +119,7 @@ test.describe('Configuración > Estudio > Horario', () => {
 // no distinguía entre «esta semana no hay nada» y «este estudio nunca ha
 // programado nada», así que pintaba la rejilla igual en los dos casos.
 //
-// Desde que existe el primer horario (PrimerHorario), un estudio con CERO
+// Un estudio con CERO
 // clases en total recibe el estado vacío en vez de la rejilla — y sin rejilla no
 // hay celdas que digan «Cerrado» ni «Sin clases». La distinción que estos tests
 // protegen sigue viva y sigue importando; lo que estaba mal era el escenario.

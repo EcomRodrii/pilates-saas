@@ -25,7 +25,7 @@ export function SeccionFaq() {
   return (
     <section id="faq" className="v5-faq" aria-labelledby="v5-faq-h">
       <div className="v5-faq-wrap">
-        <h2 id="v5-faq-h" className="v5-faq-h2 lp-rv">Lo que se pregunta antes de empezar</h2>
+        <h2 id="v5-faq-h" className="v5-faq-h2 lp-rv"><span className="lp-ante">Preguntas frecuentes</span>{' '}Lo que se pregunta antes de empezar</h2>
         <div className="v5-faq-columnas lp-rv" style={{ ['--lp-r' as string]: 6 }}>
           {COLUMNAS.map((columna, c) => (
             <div key={c} className="v5-faq-lista">

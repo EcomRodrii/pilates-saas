@@ -28,6 +28,7 @@ import { urlAppInstructora } from '../avisos/app-instructora.ts';
 import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
+import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '../plataformas/venta-externa.ts';
 
 export const MAX_RESUMEN = 44;
 /** Las filas de «Cómo reservan mis alumnas»: a dos líneas (ver `resumenRegla`). */
@@ -390,6 +391,7 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
     case 'motivacion':
     case 'avisos':
     case 'datos':
+    case 'demo':
       return null;
   }
 }
@@ -781,10 +783,12 @@ export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' 
  * Sin prometer el envío a la AEAT, que depende de algo que no está en su mano:
  * su estado se ve en Cobros → Facturas.
  */
-export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>>): string | null {
+export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion' | 'facturarAutomatico'>>): string | null {
   if (s.modoFacturacion === undefined) return null;
-  if (s.modoFacturacion === 'verifactu') return 'Facturas con Veri*Factu';
-  if (s.modoFacturacion === 'facturas') return 'Facturas sin envío a la AEAT (Veri*Factu desactivado)';
+  // «Facturar automáticamente» apagado: se dice primero, es lo que cambia lo que pasa al cobrar.
+  const manual = s.facturarAutomatico === false ? ' · a mano' : '';
+  if (s.modoFacturacion === 'verifactu') return `Facturas con Veri*Factu${manual}`;
+  if (s.modoFacturacion === 'facturas') return `Facturas sin envío a la AEAT (Veri*Factu desactivado)${manual}`;
   return 'Hoy no emite facturas';
 }
 
@@ -1147,7 +1151,14 @@ export function resumenConexion(e: {
  * (decisión del fundador, 1-oct-2026) y el valor dice si el estudio apunta sus
  * ventas a mano, que funciona igual.
  */
-export function resumenPlataformaVenta(p: { activa: boolean; conexionDisponible: boolean; conectada: boolean }): ResumenFila {
+export function resumenPlataformaVenta(p: {
+  activa: boolean; conexionDisponible: boolean; conectada: boolean;
+  /** Sin contrato o suspendido: conectada, pero ni publica ni entran reservas. */
+  ventaCortada?: MotivoSinVentaExterna | null;
+}): ResumenFila {
+  if (p.activa && p.conectada && p.ventaCortada) {
+    return { valor: `Sin publicar · ${porQueSinVentaExterna(p.ventaCortada)}`, estado: { tono: 'problema', etiqueta: 'En pausa' } };
+  }
   const uso = !p.activa ? 'No vendo aquí'
     : p.conectada ? 'Vendo aquí · el horario y las reservas van solos'
     : 'Vendo aquí · apunto yo las reservas';

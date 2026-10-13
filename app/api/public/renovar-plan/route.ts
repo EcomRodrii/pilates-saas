@@ -129,7 +129,9 @@ export async function POST(req: NextRequest) {
     // el reintento programado o se está cobrando, 409 y no se crea nada (otro recibo del mismo ciclo sería el doble cobro).
     if (reutilizable) return await respuestaReutilizar(admin, body.studioId, reutilizable.id);
 
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Hora del estudio, no UTC: el id lleva el MES, y entre las 00:00 y las 02:00 del día 1 en Madrid el día UTC aún es el
+    // del mes anterior (el recibo nacería con el id del mes pasado y chocaría con el que el cron ya creó).
+    const hoy = hoyEnEstudio();
     // ⚠️ 26ª pasada. El id determinista POR MES viene de `lib/inngest/
     // renovaciones.ts`: se elige así a propósito para que CHOQUE por PK con el
     // que generaría el cron y no salgan dos recibos del mismo ciclo. Eso es

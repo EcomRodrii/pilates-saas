@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authHeader } from '@/lib/api-client';
 import { otorganteDeducido, tipoEmisorPorNif } from '@/lib/verifactu/alta-sencilla';
+import { hoyEnEstudio } from '@/lib/utils';
 
 type EstadoEstudio = 'SIN_CONFIGURAR' | 'PENDIENTE_AUTORIZACION' | 'AUTORIZACION_EN_REVISION' | 'VERIFICADO' | 'PRODUCCION' | 'PAUSADO' | 'SUSPENDIDO_AEAT';
 type TipoEmisor = 'persona_fisica' | 'sociedad' | 'otra';
@@ -68,7 +69,9 @@ function pasoActual(estado: EstadoEstudio): number | null {
   return null;
 }
 
-const hoyIso = () => new Date().toISOString().slice(0, 10);
+// El día del poder es el de la sede de la AEAT (España): con el de UTC, de
+// madrugada la fecha de otorgamiento salía la de ayer y la de fin, un día corta.
+const hoyIso = () => hoyEnEstudio();
 const masAnos = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCFullYear(d.getUTCFullYear() + n);

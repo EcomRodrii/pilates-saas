@@ -159,6 +159,18 @@ test('una cifra inventada no llega a la pantalla, se avisa, y no se guarda para 
   assert.doesNotMatch(JSON.stringify(r.mensajesNuevos), /12 %/);
 });
 
+test('«Pulsa Confirmar» sin ninguna tarjeta: se avisa de que no hay nada que confirmar', async () => {
+  const m = montar([{ texto: 'Propongo una clase de Secret Burn Pilates el viernes a las 20:00. Pulsa Confirmar para crearla.' }]);
+  await ejecutarTurno(m.deps, m.entrada);
+  assert.ok(m.eventos.some(e => e.t === 'aviso' && e.codigo === 'PROPUESTA_SIN_TARJETA'));
+});
+
+test('una respuesta normal no dispara el aviso de propuesta sin tarjeta', async () => {
+  const m = montar([{ texto: 'Tienes 84 alumnas activas.' }]);
+  await ejecutarTurno(m.deps, m.entrada);
+  assert.ok(!m.eventos.some(e => e.t === 'aviso' && e.codigo === 'PROPUESTA_SIN_TARJETA'));
+});
+
 test('sin herramientas y acabando en «?»: es una aclaración', async () => {
   const m = montar([{ texto: '¿De qué mes quieres saberlo?' }]);
   assert.equal((await ejecutarTurno(m.deps, m.entrada)).motivo, 'ACLARACION');
@@ -261,4 +273,15 @@ test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje s
   assert.match(String(d.mensaje), /tools\.9\.custom\.input_schema/);
   assert.doesNotMatch(JSON.stringify(d), /Cuántas alumnas/);
   assert.ok(String(d.mensaje).length <= 303);
+});
+
+test('un corte de red sin status deja pista de qué fue (antes «ASISTENTE_ANTHROPIC_RED» a secas)', async () => {
+  const { detalleDeErrorAnthropic } = await import('./bucle.ts');
+  const d = detalleDeErrorAnthropic({ name: 'APIConnectionError', message: 'Connection error.', cause: { code: 'ECONNRESET' } });
+  assert.equal(d.clase, 'APIConnectionError');
+  assert.equal(d.causa, 'ECONNRESET');
+  // Con status, el detalle sigue siendo el del cuerpo y no añade clase ni causa.
+  const e = detalleDeErrorAnthropic({ status: 400, error: { type: 'error', error: { type: 'invalid_request_error', message: 'x' } } });
+  assert.equal(e.status, 400);
+  assert.equal(e.clase, undefined);
 });

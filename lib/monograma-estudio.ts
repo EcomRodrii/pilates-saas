@@ -90,7 +90,7 @@ export function urlMonograma(
 //
 // ⚠️ EL FALLO QUE ARREGLA. El manifest del portal ya usaba `logoUrl`… y además
 // declaraba `/icon-192.png` y `/icon-512.png`, que son los de TENTARE
-// (`scripts/regenerar-marca.mjs` los genera de `tentare-icono-color.svg`). Se
+// (`scripts/regenerar-marca.mjs` los genera de `tentare-icono-oscuro.svg`). Se
 // habían añadido «por si el logo no es cuadrado», y ahí está el problema: un
 // instalador de Android que exige un 192/512 exacto descarta el logo —que va
 // como `sizes: 'any'`— y se queda con el único candidato de ese tamaño, que es

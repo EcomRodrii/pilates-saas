@@ -107,18 +107,6 @@ const portada = (
 /** En el orden del registro SEO (y del sitemap). El del listado es ORDEN_LISTADO. */
 export const GUIAS: Guia[] = [
   {
-    slug: 'cubrir-baja-instructora',
-    titulo: 'Cómo cubrir una baja de instructora sin hacer una llamada',
-    resumen: 'El proceso que roba noches a las propietarias — y cómo convertirlo en algo que ocurre solo. Paso a paso, con lo que puedes automatizar hoy.',
-    categoria: 'sustituciones',
-    seccion: 'Sustituciones y equipo',
-    lectura: 8,
-    publicado: '2026-07-01',
-    portada: portada('clase-reformer-sustituciones-instructora', '01-sustituciones-instructora.jpg',
-      'Escena ilustrativa: una alumna de espaldas en una clase de Pilates en reformer, con más alumnas al fondo en una sala luminosa',
-      505, 251, [0, 0, 4, 0]),
-  },
-  {
     slug: 'facturacion-electronica-verifactu',
     titulo: 'Facturación electrónica para estudios en España',
     resumen: 'Qué cambia con Veri*factu, cuándo es obligatorio y cómo dejarlo automatizado desde el primer cobro.',
@@ -132,18 +120,6 @@ export const GUIAS: Guia[] = [
       505, 244, [1, 0, 1, 0]),
   },
   {
-    slug: 'precios-reformer-mat',
-    titulo: 'Reformer vs. mat: cómo poner precio a cada clase',
-    resumen: 'Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa.',
-    categoria: 'rentabilidad',
-    seccion: 'Rentabilidad',
-    lectura: 7,
-    publicado: '2026-07-01',
-    portada: portada('reformers-sala-precio-reformer-mat', '03-reformer-mat-precio.jpg',
-      'Escena ilustrativa: una fila de reformers con torre en una sala luminosa con plantas',
-      508, 251, [0, 0, 4, 3]),
-  },
-  {
     slug: 'estudios-pilates-de-exito',
     titulo: 'Qué puedes aprender de los estudios de pilates que más crecen',
     resumen: 'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
@@ -154,30 +130,6 @@ export const GUIAS: Guia[] = [
     portada: portada('clase-grupo-pilates-estudios-que-crecen', '02-estudios-pilates-crecen.jpg',
       'Escena ilustrativa: una clase de grupo de Pilates en esterilla, con las alumnas en la postura del guerrero en una sala luminosa',
       501, 251, [0, 0, 4, 3]),
-  },
-  {
-    slug: 'ocupacion-clases-valle',
-    titulo: 'Cómo subir la ocupación de tus clases valle',
-    resumen: 'Las 10:00 de un martes vacías cuestan dinero. Lo que hace ClassPass con el precio dinámico, y lo que puedes copiar sin depender de nadie.',
-    categoria: 'rentabilidad',
-    seccion: 'Rentabilidad',
-    lectura: 7,
-    publicado: '2026-08-06',
-    portada: portada('clase-pilates-ocupacion-clases-valle', '05-ocupacion-clases.jpg',
-      'Escena ilustrativa: una clase de Pilates en esterilla con los brazos estirados hacia arriba, en una sala con plantas',
-      501, 244, [1, 0, 1, 3]),
-  },
-  {
-    slug: 'reducir-cancelaciones-ultima-hora',
-    titulo: 'Reduce las cancelaciones de última hora',
-    resumen: 'Lo que cobran de verdad SoulCycle o Barry\'s, y lo que dice la evidencia clínica sobre los recordatorios.',
-    categoria: 'operacion',
-    seccion: 'Operación',
-    lectura: 7,
-    publicado: '2026-08-06',
-    portada: portada('movil-cancelar-reserva-cancelaciones', '06-cancelaciones-ultima-hora.jpg',
-      'Escena ilustrativa: una mano sujeta un móvil con la pantalla para cancelar una reserva de Pilates Reformer',
-      508, 244, [1, 0, 1, 3]),
   },
   {
     slug: 'checklist-elegir-software-estudio',
@@ -220,8 +172,12 @@ export const GUIAS: Guia[] = [
   },
 ];
 
-/** La guía destacada del listado. */
-export const DESTACADA = 'cubrir-baja-instructora';
+/**
+ * La pieza destacada del listado. Desde el 7-oct-2026 es un ARTÍCULO de datos
+ * (lib/recursos/articulos/meta.ts), el pilar «cómo gestionar un estudio», que
+ * enlaza a casi todo lo demás; antes era la guía de bajas, ya pasada a datos.
+ */
+export const DESTACADA = 'como-gestionar-un-estudio-de-pilates';
 
 /** Tarjetas del listado que NO son una guía de /recursos: no entran en el Blog ni en el sitemap. */
 export interface TarjetaSinGuia {
@@ -237,16 +193,6 @@ export interface TarjetaSinGuia {
 
 export const TARJETAS_SIN_GUIA: TarjetaSinGuia[] = [
   {
-    clave: 'dependencia-instructora',
-    titulo: 'Cómo evitar depender de una sola instructora',
-    resumen: 'El riesgo silencioso de todo estudio: cómo repartir el conocimiento y la carga entre tu equipo.',
-    categoria: 'sustituciones',
-    meta: 'En preparación',
-    portada: portada('instructoras-estudio-dependencia-instructora', '08-dependencia-instructora.jpg',
-      'Escena ilustrativa: dos mujeres sonrientes con ropa deportiva, una con una esterilla enrollada, en un estudio de Pilates',
-      501, 253, [4, 0, 4, 3]),
-  },
-  {
     // Es una comparativa (/comparativa), no una guía: sin portada y con su meta propia.
     clave: 'tentare-vs-glofox',
     titulo: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
@@ -260,12 +206,8 @@ export const TARJETAS_SIN_GUIA: TarjetaSinGuia[] = [
 /** Orden de las tarjetas del listado (la destacada va aparte). Slugs de guía o claves de tarjeta. */
 export const ORDEN_LISTADO: string[] = [
   'estudios-pilates-de-exito',
-  'precios-reformer-mat',
   'facturacion-electronica-verifactu',
-  'ocupacion-clases-valle',
-  'reducir-cancelaciones-ultima-hora',
   'checklist-elegir-software-estudio',
-  'dependencia-instructora',
   'reservas-en-tu-web',
   'widget-vs-iframe-reservas-pilates',
   'tentare-vs-glofox',

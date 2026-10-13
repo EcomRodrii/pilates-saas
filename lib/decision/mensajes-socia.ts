@@ -11,30 +11,53 @@ export interface MensajeSocia {
   cuerpo: string; // texto del mensaje (email y WhatsApp comparten cuerpo)
 }
 
+/**
+ * El texto y su clase. COMERCIAL = la invita a comprar o a volver: solo sale si
+ * ha aceptado recibir ofertas (`tieneConsentimientoMarketingVigente`) y siempre
+ * con el enlace de baja. AVISO DE SERVICIO = le habla de algo que ya tiene (una
+ * deuda, lo que ya pagó, su cuota): ni consentimiento ni enlace de baja, que
+ * insinuaría que dejar de recibirlo es opcional. Es el mismo criterio que los
+ * correos de Automatizaciones (`comercial` en automation-engine.ts) y el que
+ * separa el propio texto del consentimiento. Decisión del fundador (13-oct-2026,
+ * docs/decision-os-mensajes-comerciales.md).
+ *
+ * Va aquí y no por `tipo` porque un mismo tipo puede ser las dos cosas: F1 y F3
+ * comparten `PROPONER_RENOVACION_BONO`, y solo esta función sabe cuál escribe.
+ */
+export interface MensajeParaSocia extends MensajeSocia {
+  comercial: boolean;
+}
+
 type Datos = Record<string, string | number | boolean>;
 
 /**
  * Devuelve el mensaje para la socia según el tipo de recomendación, o null si el
  * tipo no es de contacto directo a una socia (p.ej. avisos de horario).
  */
-export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: string): MensajeSocia | null {
+export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: string): MensajeParaSocia | null {
   const nombre = typeof datos.nombre === 'string' && datos.nombre.trim() ? datos.nombre.trim() : null;
   if (!nombre) return null;
   const estudio = estudioNombre.trim() || 'el estudio';
 
   switch (tipo) {
+    // «Te echamos de menos»: comercial también con la cuota activa, como el de
+    // Automatizaciones (decisión del fundador, 13-oct-2026).
     case 'RECUPERAR_SOCIA':
       return {
+        comercial: true,
         asunto: `Te echamos de menos en ${estudio}`,
         cuerpo: `¡Hola ${nombre}! Te hemos echado de menos estas semanas en ${estudio}. ¿Va todo bien? Nos encantaría volver a verte pronto — dime y te guardo sitio en la próxima clase.`,
       };
+    // Una interesada no es clienta: sin su consentimiento no hay excepción que valga.
     case 'CONTACTAR_LEAD':
       return {
+        comercial: true,
         asunto: `¿Te animas a probar ${estudio}?`,
         cuerpo: `¡Hola ${nombre}! Vimos que te interesó ${estudio}. ¿Te apetece que te reserve una clase esta semana para que nos conozcas? Sin compromiso, solo para que lo pruebes.`,
       };
     case 'CONVERTIR_PRUEBA':
       return {
+        comercial: true,
         asunto: `¿Seguimos, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! ¿Qué tal te está resultando la prueba en ${estudio}? Si te apetece seguir, te preparo un plan a tu medida para que no pierdas el ritmo. Cuéntame y lo vemos.`,
       };
@@ -55,12 +78,15 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
       const restantes = typeof datos.sesionesRestantes === 'number' ? datos.sesionesRestantes : null;
       if (dias !== null && restantes !== null && restantes >= 2) {
         const cuando = dias <= 0 ? 'hoy' : dias === 1 ? 'mañana' : `en ${dias} días`;
+        // Le habla de lo que ya pagó, no le vende nada: aviso de servicio.
         return {
+          comercial: false,
           asunto: `Te quedan ${restantes} clases por usar, ${nombre}`,
           cuerpo: `¡Hola ${nombre}! Te quedan ${restantes} clases de tu bono en ${estudio} y caduca ${cuando}. No quiero que las pierdas habiéndolas pagado — dime qué días te vienen bien y te guardo sitio.`,
         };
       }
       return {
+        comercial: true,
         asunto: `¿Renovamos tu bono, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! Se te está acabando el bono en ${estudio}. ¿Te preparo uno nuevo para que no pierdas el ritmo? Dime y lo dejamos listo.`,
       };
@@ -82,18 +108,23 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
           : ` Te guardamos un ${pct}% de descuento para ponértelo fácil.`
         : '';
       return {
+        comercial: true,
         asunto: `Te echamos de menos, ${nombre}`,
         cuerpo: `¡Hola ${nombre}! Hace unas semanas que no te vemos por ${estudio} y nos encantaría que volvieras.${oferta} ¿Te reservo sitio esta semana?`,
       };
     }
+    // Gestiona su cuota y le ahorra dinero, no le vende nada: aviso de servicio
+    // (decisión del fundador, 13-oct-2026).
     case 'CONGELAR_MEMBRESIA':
       return {
+        comercial: false,
         asunto: `¿Te viene bien una pausa, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! Hemos notado que llevas un tiempo sin poder venir a ${estudio}. Si ahora te va mal, podemos congelarte la cuota una temporada — así no pagas de más y retomas cuando quieras, sin perder tu sitio. ¿Te lo preparo?`,
       };
     case 'COBRAR_PENDIENTE': {
       const total = typeof datos.total === 'number' ? datos.total : null;
       return {
+        comercial: false,
         asunto: `Un recordatorio de ${estudio}`,
         cuerpo: `¡Hola ${nombre}! Un recordatorio suave: te quedó un pago pendiente${total ? ` de ${total}€` : ''} en ${estudio}. ¿Lo dejamos resuelto? Si necesitas cualquier cosa, aquí estoy.`,
       };
@@ -119,9 +150,13 @@ export function telefonoE164(telefono: string | null | undefined): string | null
   return `+${digitos}`;
 }
 
-/** Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +, espacios, etc. */
+/**
+ * Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +,
+ * espacios, etc. Con `cuerpo` vacío abre el chat SIN texto: lo que se usa con
+ * una oferta a quien no ha aceptado recibirlas (Tentare no le redacta la oferta).
+ */
 export function enlaceWhatsApp(telefono: string | null | undefined, cuerpo: string): string | null {
   const e164 = telefonoE164(telefono);
   if (!e164) return null;
-  return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(cuerpo)}`;
+  return cuerpo ? `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(cuerpo)}` : `https://wa.me/${e164.slice(1)}`;
 }

@@ -24,6 +24,7 @@ Estado a 1-oct-2026. Documentación de USC: https://docs.urbansportsclub.io
 - **Instructoras:** se crean como trainers la primera vez que salen en un evento.
 - **Idempotencia:** `Idempotency-Key` = sesión + inicio/ubicación/plazo; si la respuesta se perdió, se adopta el id que devuelve USC. Si el evento se crea y no se puede guardar aquí, se cancela allí (mismo motivo que la reunión huérfana de `zoom-sync`).
 - **Tope:** 60 llamadas por pasada (el cron tiene 60 s); lo que no cabe va en la siguiente, primero las cancelaciones.
+- ⚠️ **Sin contrato o suspendido = apagada** (decisión del fundador, 7-oct-2026; `lib/plataformas/venta-externa.ts`): baja de pago (`contrato_terminado_en`), prueba gratuita vencida (a su hora, sin esperar al barrido) o `suspendido_en`. El Instant Booking lo rechaza en cada petición (E002) y el cron cancela en USC todo lo publicado, como al apagar — y USC cancela esas reservas (nos llegan por webhook). `past_due` y `unpaid` siguen vendiendo: la suscripción sigue viva. Al reactivar, se vuelve a publicar en la siguiente pasada. Conexiones lo dice («En pausa») en vez de «van solos».
 
 ## Qué falta (necesita sus credenciales)
 

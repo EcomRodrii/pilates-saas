@@ -174,6 +174,17 @@ export const navSections: NavSection[] = conMarketing
 // Lista plana de todos los módulos, en orden natural.
 export const MODULOS: NavItemDef[] = navSections.flatMap((s) => s.items);
 
+/**
+ * ¿Es una entrada del menú que hoy NO se enseña (flag de Marketing apagado,
+ * ruta congelada)? Una ruta que no es del menú (Primeros pasos, la ficha de una
+ * clienta) no cuenta como oculta. Lo usa la visita guiada: enseñar una sección
+ * que la propietaria no tiene en su menú es mandarla a buscar algo que no existe.
+ */
+export function rutaFueraDelMenu(ruta: string): boolean {
+  return allSections.some((s) => s.items.some((i) => i.href === ruta))
+    && !MODULOS.some((i) => i.href === ruta);
+}
+
 export const bottomNavItems: NavItemDef[] = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },

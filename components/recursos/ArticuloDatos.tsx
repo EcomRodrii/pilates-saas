@@ -8,6 +8,7 @@ import { TextoMarcado } from '@/components/recursos/TextoMarcado';
 import { PortadaCabecera } from '@/components/recursos/PortadaCabecera';
 import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
 import { CalculadoraRentabilidad } from '@/components/recursos/CalculadoraRentabilidad';
+import { CalculadoraBonos } from '@/components/recursos/CalculadoraBonos';
 import { DescargaRecurso } from '@/components/recursos/DescargaRecurso';
 import { RECURSOS_DESCARGABLES } from '@/lib/recursos/descargas';
 import { captchaDeServidorListo } from '@/lib/auth/captcha-servidor';
@@ -51,23 +52,29 @@ function BloqueArticulo({ b }: { b: Bloque }) {
           ))}
         </ol>
       );
-    case 'tabla':
+    case 'tabla': {
+      // Con más de tres columnas, en el móvil cada fila pasa a ser una tarjeta
+      // con la etiqueta de su columna (ArticleShell, `.art-tabla--ancha`): una
+      // tabla que se desliza de lado no se lee en un teléfono. Los `role`
+      // explícitos conservan la tabla para un lector de pantalla aunque el CSS
+      // cambie su `display`.
+      const ancha = b.cabecera.length > 3;
       return (
         <figure style={{ margin: '22px 0' }}>
-          <div style={{ overflowX: 'auto', border: '1px solid #E7E7E0', borderRadius: 16, background: '#fff' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: b.cabecera.length > 3 ? 560 : undefined }}>
-              <thead>
-                <tr style={{ background: '#F5F5F1' }}>
+          <div className="art-tabla-marco" style={{ overflowX: 'auto', border: '1px solid #E7E7E0', borderRadius: 16, background: '#fff' }}>
+            <table role="table" className={ancha ? 'art-tabla art-tabla--ancha' : 'art-tabla'} style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead role="rowgroup">
+                <tr role="row" style={{ background: '#F5F5F1' }}>
                   {b.cabecera.map((c) => (
-                    <th key={c} scope="col" style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, letterSpacing: '.05em', textTransform: 'uppercase', color: '#5A5A52', fontWeight: 700, borderBottom: '1px solid #E7E7E0' }}>{c}</th>
+                    <th key={c} role="columnheader" scope="col" style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, letterSpacing: '.05em', textTransform: 'uppercase', color: '#5A5A52', fontWeight: 700, borderBottom: '1px solid #E7E7E0' }}>{c}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {b.filas.map((f, i) => (
-                  <tr key={i} style={{ borderBottom: i < b.filas.length - 1 ? '1px solid #EDEDE6' : undefined }}>
+                  <tr key={i} role="row" style={{ borderBottom: i < b.filas.length - 1 ? '1px solid #EDEDE6' : undefined }}>
                     {f.map((c, j) => (
-                      <td key={j} style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, fontWeight: j === 0 ? 600 : 400, color: j === 0 ? '#1A1A1A' : '#3A3A34' }}><TextoMarcado texto={c} /></td>
+                      <td key={j} role="cell" data-columna={b.cabecera[j] || undefined} style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, fontWeight: j === 0 ? 600 : 400, color: j === 0 ? '#1A1A1A' : '#3A3A34' }}><TextoMarcado texto={c} /></td>
                     ))}
                   </tr>
                 ))}
@@ -77,6 +84,7 @@ function BloqueArticulo({ b }: { b: Bloque }) {
           {b.nota && <figcaption style={{ fontSize: 12.5, color: '#6B6B63', marginTop: 8, lineHeight: 1.5 }}><TextoMarcado texto={b.nota} /></figcaption>}
         </figure>
       );
+    }
     case 'nota':
       return <Callout title={b.titulo}><TextoMarcado texto={b.texto} /></Callout>;
     case 'producto':
@@ -94,7 +102,7 @@ function BloqueArticulo({ b }: { b: Bloque }) {
     case 'cifras':
       return <StatBlock eyebrow={b.titulo} stats={b.cifras.map((c) => ({ value: c.valor, label: c.etiqueta }))} note={textoPlano(b.nota)} />;
     case 'herramienta':
-      return <CalculadoraRentabilidad />;
+      return b.id === 'calculadora-bonos' ? <CalculadoraBonos /> : <CalculadoraRentabilidad />;
     case 'descarga': {
       // Sin captcha de servidor la ruta responde 503 a todo: mejor no enseñar un
       // formulario que siempre falla. Aparece solo en el primer despliegue que

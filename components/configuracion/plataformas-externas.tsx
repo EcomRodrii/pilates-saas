@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from '@/lib/plataformas/catalogo';
 import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
+import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '@/lib/plataformas/venta-externa';
 import { PLATAFORMAS_QUE_APARTAN } from '@/lib/plataformas/apartadas';
 import { dbGuardarLiberarHorasPlataforma, dbLeerLiberarHorasPlataforma } from '@/lib/supabase-data';
 import { resumenPlataformaVenta } from '@/lib/configuracion/resumenes';
@@ -13,6 +14,7 @@ import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/ic
 import { LogoConexion } from '@/components/configuracion/canales-comunicacion';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import { FILA } from '@/components/configuracion/shell/fila-herramienta';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Qué plataformas venden plazas de este estudio (ClassPass, Urban Sports Club,
 // Wellhub). En modo manual, encenderla deja apuntar sus ventas desde la hoja de
@@ -48,7 +50,12 @@ function LogoPlataforma({ p }: { p: Plataforma }) {
   return <LogoConexion><Icono size={20} /></LogoConexion>;
 }
 
-interface EstadoUsc { config: Record<string, string>; apiDisponible: boolean }
+interface EstadoUsc {
+  config: Record<string, string>;
+  apiDisponible: boolean;
+  /** Sin contrato o suspendido: aunque esté conectada, ni publica ni entran reservas. */
+  ventaCortada: MotivoSinVentaExterna | null;
+}
 
 /**
  * La config de USC y si Tentare tiene sus credenciales de integrador. `usc`
@@ -62,8 +69,8 @@ function useEstadoUsc() {
     let vivo = true;
     fetch('/api/integrations/config?tipo=URBAN_SPORTS_CLUB')
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((j: { config?: Record<string, string>; apiDisponible?: boolean }) => {
-        if (vivo) setUsc({ config: j.config ?? {}, apiDisponible: j.apiDisponible === true });
+      .then((j: { config?: Record<string, string>; apiDisponible?: boolean; ventaCortada?: MotivoSinVentaExterna | null }) => {
+        if (vivo) setUsc({ config: j.config ?? {}, apiDisponible: j.apiDisponible === true, ventaCortada: j.ventaCortada ?? null });
       })
       .catch(() => { if (vivo) setError(true); });
     return () => { vivo = false; };
@@ -117,7 +124,10 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
     <>
       {PLATAFORMAS.map((p, i) => {
         const c = conexionDe(p, usc);
-        const resumen = resumenPlataformaVenta({ activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada });
+        const resumen = resumenPlataformaVenta({
+          activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada,
+          ventaCortada: p === USC ? usc?.ventaCortada : null,
+        });
         return (
           <li key={p}>
             <button
@@ -141,7 +151,7 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
   );
 }
 
-export function DetallePlataformasExternas({ showToast }: { showToast: (m: string) => void }) {
+export function DetallePlataformasExternas({ showToast }: { showToast: MostrarToast }) {
   const { upsertIntegracion } = useStudio();
   const activas = usePlataformasActivas();
   const [guardando, setGuardando] = useState<Plataforma | null>(null);
@@ -156,7 +166,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
     setGuardando(p);
     const res = await upsertIntegracion(p, activo, config, anterior);
     setGuardando(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setRecienActivada(activo ? p : null);
     showToast(activo
       ? `${NOMBRE_PLATAFORMA[p]} activada: ya puedes apuntar sus reservas desde la clase`
@@ -175,6 +185,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
           const activa = activas.includes(p);
           const { disponible: conexionDisponible, conectada: porApi } = conexionDe(p, usc);
           const esperandoUsc = p === USC && !usc && !errorUsc;
+          const cortada = p === USC ? usc?.ventaCortada ?? null : null;
           return (
             <li key={p} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -189,7 +200,10 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {!activa ? 'No vendo aquí' : porApi ? 'Vendo aquí · conectada: el horario y las reservas van solos' : 'Vendo aquí · apunto yo las reservas'}
+                  {!activa ? 'No vendo aquí'
+                    : porApi && cortada ? `Vendo aquí · en pausa: ${porQueSinVentaExterna(cortada)}`
+                    : porApi ? 'Vendo aquí · conectada: el horario y las reservas van solos'
+                    : 'Vendo aquí · apunto yo las reservas'}
                 </p>
               </div>
               <button
@@ -214,6 +228,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
             {p === USC && activa && usc?.apiDisponible && (
               <ConexionUsc
                 config={usc.config}
+                ventaCortada={usc.ventaCortada}
                 onGuardada={config => setUsc({ ...usc, config })}
                 showToast={showToast}
               />
@@ -240,7 +255,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
  * clase: nunca sobreventa. La regla la aplica la base de datos (`plazas_apartadas`).
  */
 function LiberarApartadas({ plataforma, preguntar, showToast }: {
-  plataforma: Plataforma; preguntar: boolean; showToast: (m: string) => void;
+  plataforma: Plataforma; preguntar: boolean; showToast: MostrarToast;
 }) {
   const nombre = NOMBRE_PLATAFORMA[plataforma];
   // `undefined`: cargando o sin poder leer; `null`: sin configurar.
@@ -270,7 +285,7 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
     setGuardando(true);
     const res = await dbGuardarLiberarHorasPlataforma(plataforma, valor);
     setGuardando(false);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setHoras(valor);
     setEditando(false);
     showToast(valor === 0
@@ -336,10 +351,11 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
 
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function ConexionUsc({ config, onGuardada, showToast }: {
+function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
   config: Record<string, string>;
+  ventaCortada: MotivoSinVentaExterna | null;
   onGuardada: (config: Record<string, string>) => void;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   const { upsertIntegracion } = useStudio();
   const conectada = uscPublicaPorApi(config);
@@ -373,7 +389,9 @@ function ConexionUsc({ config, onGuardada, showToast }: {
   return (
     <form onSubmit={guardar} className="mt-3 space-y-2 rounded-xl bg-muted/50 p-3" data-testid="conexion-usc">
       <p className="text-xs text-muted-foreground">
-        {conectada
+        {conectada && ventaCortada
+          ? `En pausa: ${porQueSinVentaExterna(ventaCortada)}. Mientras tanto no se publica nada en Urban Sports Club ni entran sus reservas, y lo que estaba publicado se retira.`
+          : conectada
           ? 'Conectada. Las clases cuyo tipo tiene plazas cedidas a Urban Sports Club se publican solas en su app (dos semanas vista), y sus reservas entran solas en la clase.'
           : 'Pega los dos IDs que te da Urban Sports Club al activar la conexión con Tentare. Se publicarán solas las clases cuyo tipo tenga plazas cedidas a Urban Sports Club.'}
       </p>

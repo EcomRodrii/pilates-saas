@@ -11,7 +11,13 @@ export interface EstadoApertura {
   estudioCreadoEn: string | null;
   /** Ya hay alguna reserva ASISTIDA: el estudio da clases. */
   tieneAsistencias: boolean;
+  /** Ya tiene `CLIENTAS_QUE_DELATAN_UN_ESTUDIO_ABIERTO` fichas o más (p. ej. recién
+   *  migradas, sin historial de asistencia aún): no está «preparando» nada. */
+  muchasClientas?: boolean;
 }
+
+/** Un estudio que entra con tantas fichas ya está abierto, venga o no con asistencias. */
+export const CLIENTAS_QUE_DELATAN_UN_ESTUDIO_ABIERTO = 25;
 
 /**
  * La sección de apertura es un aviso que desaparece solo. Un estudio que ya
@@ -27,7 +33,7 @@ export function debeMostrarApertura(e: EstadoApertura, now: Date): boolean {
     const fin = new Date(`${e.fechaApertura}T00:00:00Z`).getTime() + DIAS_TRAS_APERTURA * MS_DIA;
     return now.getTime() < fin;
   }
-  if (e.tieneAsistencias) return false;
+  if (e.tieneAsistencias || e.muchasClientas) return false;
   if (!e.estudioCreadoEn) return false;
   return now.getTime() - new Date(e.estudioCreadoEn).getTime() < DIAS_ALTA_RECIENTE * MS_DIA;
 }

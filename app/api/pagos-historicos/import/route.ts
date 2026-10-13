@@ -8,6 +8,7 @@ import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
 
 export const maxDuration = 60;
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, batchAviso: null, importadas: 0, duplicadas, sinSocia, errores: [] });
     }
     return NextResponse.json(
-      { error: 'Ninguna fila se pudo emparejar', sinSocia, duplicadas, errores: errores.slice(0, 50) },
+      { error: 'Ninguna fila se pudo emparejar', sinSocia, duplicadas, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS) },
       { status: 400 },
     );
   }
@@ -169,6 +170,6 @@ export async function POST(req: NextRequest) {
     importadas,
     duplicadas,          // ya estaban: reimportar no duplica
     sinSocia,
-    errores: errores.slice(0, 50),
+    errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
   });
 }

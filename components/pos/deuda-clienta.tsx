@@ -55,7 +55,7 @@ type Fase =
   | { f: 'quieto' }
   | { f: 'efectivo'; reciboId: string }
   // `referencia`: el cobro que se espera; `null` mientras se manda (aún no hay a quién preguntar).
-  | { f: 'esperando'; reciboId: string; metodo: 'DATAFONO' | 'BIZUM'; estado: EstadoPagoPOS; url: string | null; intentos: number; referencia: string | null }
+  | { f: 'esperando'; reciboId: string; metodo: 'DATAFONO' | 'BIZUM'; estado: EstadoPagoPOS; url: string | null; intentos: number; referencia: string | null; aviso?: string }
   | { f: 'hecho'; reciboId: string };
 
 export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrado: () => void }) {
@@ -170,8 +170,23 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
     const { reciboId, metodo, referencia } = fase;
     // Sin tope aquí: agotado el sondeo es justo CUANDO más falta hace poder
     // salir de la pantalla de espera.
-    setFase({ f: 'quieto' });
-    await confirmarCobroRecibo(reciboId, metodo, 'cancelar', referencia);
+    const r = await confirmarCobroRecibo(reciboId, metodo, 'cancelar', referencia);
+    if (!esError(r)) {
+      // Si entre el clic y la cancelación la tarjeta llegó a pasarse, manda lo que diga el servidor.
+      if (r.cobrado) { setFase({ f: 'hecho', reciboId }); onCobrado(); return; }
+      if (esEstadoFinal(r.pagoEstado)) { setFase({ f: 'quieto' }); return; }
+    }
+    // Sin la cancelación confirmada (el datáfono sigue con el cobro —p. ej. pidiendo el PIN— o no se ha podido preguntar), el
+    // cobro puede seguir vivo: volver a ofrecer cobrar sería abrir la puerta a cobrar dos veces. Se sigue esperando y se dice
+    // (igual que la Caja, hoja-cobro.tsx).
+    setFase(prev => (prev.f === 'esperando'
+      ? {
+        ...prev,
+        aviso: esError(r)
+          ? 'No hemos podido confirmar la cancelación. Espera: no cobres con otro método hasta que se aclare.'
+          : 'No se ha podido cancelar: el cobro sigue en marcha. Espera a que termine; no cobres con otro método.',
+      }
+      : prev));
   }
 
   if (fase.f === 'esperando') {
@@ -186,6 +201,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
             ? 'Llevamos un rato sin respuesta. El recibo sigue pendiente; si el pago llega, se cerrará solo.'
             : 'No lo damos por cobrado hasta que lo confirme el banco.'}
         </p>
+        {fase.aviso && <p role="alert" className="text-[12px] font-semibold text-warning">{fase.aviso}</p>}
         {fase.url && (
           <a href={fase.url} target="_blank" rel="noopener noreferrer"
             className="inline-block text-[12.5px] font-semibold text-brand-medio underline">
