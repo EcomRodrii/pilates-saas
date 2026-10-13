@@ -118,6 +118,7 @@ import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
 import dynamic from 'next/dynamic';
 import { repetirMesDisponible } from '@/lib/series/repetir-mes-cliente';
+import { plazasLibresDisponible } from '@/lib/calendario/plazas-libres-cliente';
 import { nombreMes, textoTrasRepetir, type ResultadoRepetir } from '@/lib/series/repetir-mes';
 import { señalarClasesCreadas } from '@/components/calendario/huella-de-creacion';
 import { VistaHorario } from '@/components/calendario/vista-horario';
@@ -2109,6 +2110,15 @@ export default function Calendario() {
     void repetirMesDisponible().then(d => { if (vivo) setRepetirOk(d); });
     return () => { vivo = false; };
   }, [mounted, gestionaCalendarioTop]);
+  // «Plazas libres» (P3.9): igual, apagado salvo que el servidor diga que sí (interruptor
+  // `CALENDARIO_PLAZAS_LIBRES`). El enlace va en la línea de cifras, no en la cabecera.
+  const [plazasLibresOk, setPlazasLibresOk] = useState(false);
+  useEffect(() => {
+    if (!mounted || !gestionaCalendarioTop) return;
+    let vivo = true;
+    void plazasLibresDisponible().then(d => { if (vivo) setPlazasLibresOk(d); });
+    return () => { vivo = false; };
+  }, [mounted, gestionaCalendarioTop]);
   // El del primer día visible: el 30 de octubre, con la semana empezando ese día,
   // lo natural es repetir octubre, no noviembre.
   const mesVisible = localDate(vista === 'dia' ? diaSeleccionado : semana).slice(0, 7);
@@ -3542,6 +3552,7 @@ export default function Calendario() {
             resumen={resumen}
             activo={filtroResumenVivo}
             onFiltro={setFiltroResumen}
+            enlace={plazasLibresOk ? { href: '/calendario/plazas-libres', texto: 'Plazas libres', titulo: 'Cuántas plazas quedan en cada clase y dónde cabe otra alumna con clase fija' } : null}
             extra={esHoyEnDia && siguienteHoyId ? (() => {
               const t = tarjetasPorId.get(siguienteHoyId);
               if (!t) return null;
