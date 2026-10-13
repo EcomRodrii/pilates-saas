@@ -47,5 +47,8 @@ export const felicitarCumpleEncendido = (studioId: string) => encendidaPara(proc
 /** Leer el horario desde una captura o un texto (P2.1). Lo mira `/api/horario/leer`; la pantalla, el catálogo del navegador (misma variable). */
 export const horarioDesdeImagenEncendido = (studioId: string) => encendidaPara(process.env.HORARIO_DESDE_IMAGEN, studioId);
 
+/** Niveles con ritmo y equivalencias en clases (P3.8). Lo mira `/api/estudio/niveles`; la pantalla, el catálogo del navegador (misma variable). */
+export const nivelesConRitmoEncendido = (studioId: string) => encendidaPara(process.env.GAMIFICACION_NIVELES_RITMO, studioId);
+
 /** Qué se ve de cada alumna en la lista de una clase (P3.11). Lo mira `PUT /api/estudio/tarjeta-clase`; el Calendario y Configuración, el catálogo del navegador (misma variable). */
 export const tarjetaClaseEncendida = (studioId: string) => encendidaPara(process.env.TARJETA_CLASE, studioId);

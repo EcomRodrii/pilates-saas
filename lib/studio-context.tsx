@@ -705,6 +705,8 @@ interface StudioContextValue {
   addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
   updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteLevelDefinition: (id: string) => Promise<ResultadoEscritura>;
+  /** La escala entera que ha guardado el servidor (`PUT /api/estudio/niveles`, P3.8). */
+  reemplazarNiveles: (niveles: LevelDefinition[]) => void;
   challengeDefinitions: ChallengeDefinition[];
   challengeProgress: ChallengeProgress[];
   challengeHistory: ChallengeHistory[];
@@ -5994,6 +5996,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addLevelDefinition,
     updateLevelDefinition,
     deleteLevelDefinition,
+    reemplazarNiveles: setLevelDefinitions,
     challengeDefinitions,
     challengeProgress,
     challengeHistory,
