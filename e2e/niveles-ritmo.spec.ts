@@ -97,8 +97,9 @@ test('encendido: aplicar un ritmo y guardar manda la escala entera (con nombres 
   await expect(page.getByTestId('editor-niveles')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('vista-previa-niveles')).toContainText('Respiración: 2');
   // Relajado: 0/10/25/50/100 clases × 25 = 0/250/630/1250/2500 → con 300 «Centro»(250) y con 700 «Control»(630): nadie baja.
-  await page.getByRole('radio', { name: /Relajado/ }).click();
-  await expect(page.getByRole('radio', { name: /Relajado/ })).toHaveAttribute('aria-checked', 'true');
+  // Botones con `aria-pressed` (no un radiogroup): «A medida» no es un botón, es lo que queda al editar a mano.
+  await page.getByRole('button', { name: /Relajado/ }).click();
+  await expect(page.getByRole('button', { name: /Relajado/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Guardar niveles' }).click();
   await expect.poll(() => guardados.length, { timeout: 20_000 }).toBe(1);
   const cuerpo = guardados[0] as { niveles: { id?: string; nombre: string; umbralCreditos: number }[] };
