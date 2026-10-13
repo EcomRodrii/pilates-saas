@@ -39,41 +39,12 @@ const TOPES: Record<string, number> = {
   'app/interno/crecimiento/prospeccion.tsx': 1,
   'app/interno/denuncias/page.tsx': 1,
   'app/network/solicitudes/page.tsx': 1,
-  'app/portal/[slug]/bonos/page.tsx': 1,
-  'app/portal/[slug]/equipo/alumnas/[socioId]/page.tsx': 1,
-  'app/portal/[slug]/equipo/ausencias/page.tsx': 1,
-  'app/portal/[slug]/equipo/disponibilidad/page.tsx': 1,
-  'app/portal/[slug]/equipo/fichaje/page.tsx': 1,
-  'app/portal/[slug]/equipo/page.tsx': 2,
-  'app/portal/[slug]/equipo/perfil/page.tsx': 2,
-  'app/portal/[slug]/logros/page.tsx': 2,
-  'app/portal/[slug]/mensajes/page.tsx': 1,
-  'app/portal/[slug]/mis-reservas/page.tsx': 3,
-  'app/portal/[slug]/notificaciones/page.tsx': 3,
-  'app/portal/[slug]/perfil/datos/page.tsx': 1,
-  'app/portal/[slug]/perfil/preferencias/page.tsx': 4,
-  'app/portal/[slug]/perfil/qr/page.tsx': 1,
-  'app/portal/[slug]/valoracion/page.tsx': 1,
   'components/acceso/accesos-de-la-clienta.tsx': 1,
   'components/apariencia/editor-apariencia-app.tsx': 2,
   'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
   'components/decision/codigos-descuento.tsx': 1,
   'components/network/boton-favorito-alumna.tsx': 1,
   'components/regalo/panel-regalo.tsx': 1,
-  'components/student/domain/AnadirAWallet.tsx': 2,
-  'components/student/domain/CompartirClase.tsx': 1,
-  'components/student/domain/FavoritoButton.tsx': 1,
-  'components/student/domain/HiloConversacion.tsx': 4,
-  'components/student/domain/MiClaseFija.tsx': 1,
-  'components/student/domain/MisDatos.tsx': 2,
-  'components/student/domain/NormasComunidad.tsx': 1,
-  'components/student/domain/OposicionPerfilado.tsx': 1,
-  'components/student/domain/PagoPendiente.tsx': 1,
-  'components/student/domain/PersonasBloqueadas.tsx': 1,
-  'components/student/domain/PostCard.tsx': 5,
-  'components/student/domain/PushPorTipo.tsx': 1,
-  'components/student/domain/QueTalLaClase.tsx': 2,
-  'components/student/domain/ValorarClase.tsx': 1,
   'components/theme/contenido-portal-editor.tsx': 8,
 };
 
@@ -148,9 +119,10 @@ test('las pantallas de P0.3 se quedan a cero', () => {
 });
 
 // Tanda 1 (13-oct-2026): las herramientas de Configuración, enteras. Tanda 2:
-// Inicio (sus tarjetas de «por decidir» y los cobros). Tanda 4: Widgets. Una
-// carpeta a cero se queda a cero aunque alguien añada un fichero nuevo.
-const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/', 'components/widgets/'];
+// Inicio (sus tarjetas de «por decidir» y los cobros). Tanda 4: Widgets.
+// Tandas 6 y 7: la app del estudio (alumna e instructora). Una carpeta a cero
+// se queda a cero aunque alguien añada un fichero nuevo.
+const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/', 'components/widgets/', 'components/student/', 'app/portal/'];
 
 test('las carpetas que ya se pasaron a rojo se quedan a cero', () => {
   for (const c of CARPETAS_A_CERO) {

@@ -128,13 +128,16 @@ test.describe('Fichaje de la instructora', () => {
     for (const cuerpo of c.cuerpos) assert(Object.keys(cuerpo).sort().join() === 'accion,slug', `cuerpo inesperado: ${JSON.stringify(cuerpo)}`);
   });
 
-  test('si el servidor dice que no, la pantalla no da por hecha la entrada', async ({ page }) => {
+  test('si el servidor dice que no, la pantalla no da por hecha la entrada, y lo dice en rojo', async ({ page }) => {
     const c = await montar(page, { entradaFalla: true });
     await page.goto(URL_FICHAR);
     await expect(page.getByTestId('fichaje-estado')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Fichar entrada', exact: true }).click();
-    await expect(page.getByText('No hemos podido registrarlo. Inténtalo de nuevo.')).toBeVisible();
+    // El «no» sale como error (`alert`, tono de peligro), nunca con el aspecto
+    // del acierto (P0.3, tanda 7).
+    await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido registrarlo. Inténtalo de nuevo.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'No hemos podido registrarlo' })).toHaveCount(0);
     await expect(page.getByTestId('fichaje-estado')).toHaveAttribute('data-abierta', 'false');
     await expect(page.getByRole('button', { name: 'Fichar entrada', exact: true })).toBeEnabled();
     expect(c.entrada).toBeGreaterThan(0);

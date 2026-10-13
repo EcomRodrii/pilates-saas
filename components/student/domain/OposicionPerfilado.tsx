@@ -41,7 +41,7 @@ export function OposicionPerfilado({ slug }: { slug: string }) {
     setGuardando(false);
     if (guardado === null) {
       setLocal(antes);
-      toast('No hemos podido guardar ese cambio.');
+      toast('No hemos podido guardar ese cambio.', { variant: 'error' });
       return;
     }
     setLocal(guardado);

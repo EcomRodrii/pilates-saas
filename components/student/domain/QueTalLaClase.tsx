@@ -71,7 +71,7 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
     // servidor no pisa su nota ni su comentario y lo dice.
     const r = await enviarValoracion(studioId, p.sesionId, puntuacion, '', { soloSiNueva: true });
     setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     if (r.yaValorada) {
       setYaValorada(true);
       setEnviada(puntuacion);
@@ -90,7 +90,7 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
     setEnviando(false);
     // Si el servidor dice que no, se dice y el texto se queda escrito para
     // reintentarlo: nunca «enviado» sin que lo esté.
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     setComentada(true);
     setAnuncio('Comentario enviado. ¡Gracias!');
   };

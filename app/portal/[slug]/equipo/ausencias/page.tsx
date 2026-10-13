@@ -87,7 +87,7 @@ export default function AusenciasInstructoraPage() {
     if (!r.ok) {
       setQuitando(false);
       if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
-      toast(r.error);
+      toast(r.error, { variant: 'error' });
       return;
     }
     await refrescar();

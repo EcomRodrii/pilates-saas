@@ -36,7 +36,7 @@ export function FavoritoButton({ slug, studioId, tipoClaseId, marcada, onCambio,
     setOcupado(false);
     if (!ok) {
       onCambio?.(marcada);
-      toast('No hemos podido guardar el favorito.');
+      toast('No hemos podido guardar el favorito.', { variant: 'error' });
       return;
     }
     toast(siguiente ? 'Guardada en tus favoritas' : 'Quitada de tus favoritas');

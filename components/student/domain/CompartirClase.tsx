@@ -25,7 +25,7 @@ function useCompartirClase(clase: ClaseCompartida, socioId: string | null) {
     const url = enlaceCompartirClase(window.location.origin, estudio.slug, { sesionId: clase.id, invita: socioId });
     const r = await compartir({ titulo: `${clase.nombre} · ${estudio.nombre}`, texto: textoCompartirClase(clase, hoyISO()), url });
     if (r === 'copiado') toast('Enlace copiado. Pégalo donde quieras.');
-    else if (r === 'no-copiado') toast('No hemos podido copiarlo. Inténtalo de nuevo.');
+    else if (r === 'no-copiado') toast('No hemos podido copiarlo. Inténtalo de nuevo.', { variant: 'error' });
   };
   return { hayHoja, alPulsar };
 }
