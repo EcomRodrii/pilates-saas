@@ -19,6 +19,7 @@ import {
   resolveLayout,
   layoutConfigSchema,
   layoutDraftSchema,
+  fusionarLayout,
   bloqueHomeSchema,
   type LayoutConfig,
   type LayoutDraft,
@@ -117,13 +118,8 @@ export async function guardarLayout(studioId: string, parche: LayoutDraft): Prom
   const alcance = await alcanceDe(admin, studioId);
   const actual = resolveLayout(await leerConfig(admin, alcance));
 
-  const final = layoutConfigSchema.parse({
-    ...actual,
-    ...validado,
-    home: { ...actual.home, ...(validado.home ?? {}) },
-    portalHome: { ...actual.portalHome, ...(validado.portalHome ?? {}) },
-    reservar: { ...actual.reservar, ...(validado.reservar ?? {}) },
-  });
+  // `bloques` se conserva siempre: ver fusionarLayout (lib/layout-schema.ts).
+  const final = fusionarLayout(actual, validado);
 
   await escribirConfig(admin, alcance, final);
   // Se aplica en vivo (este esquema no tiene borrador), así que el catálogo
