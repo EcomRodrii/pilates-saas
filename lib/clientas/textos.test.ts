@@ -1,8 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoClase, cuandoSera, diasEntre, fechaCorta, haceCuanto, proximoCumple, telefonoLegible, textoDesde } from './textos.ts';
+import { cuandoClase, cuandoSera, diasEntre, fechaCorta, haceCuanto, mesYAnio, proximoCumple, telefonoLegible, textoDesde } from './textos.ts';
 
 const HOY = '2026-10-01';
+
+test('mes y año, siempre con el año', () => {
+  assert.equal(mesYAnio('2025-11-05'), 'nov 2025');
+  assert.equal(mesYAnio('2026-01-31'), 'ene 2026');
+});
 
 test('fechas cortas: el año solo si no es este', () => {
   assert.equal(fechaCorta('2026-09-12', HOY), '12 sep');

@@ -423,7 +423,9 @@ test('las ofertas: los dos ejecutores vuelven a mirar el permiso al enviar y les
 test('el piloto automático no aprueba lo que no podría mandar: lo deja con su «Hecho» para la propietaria', () => {
   const paso = EJECUTOR.slice(EJECUTOR.indexOf("step.run('seleccionar-autonomas'"), EJECUTOR.indexOf("step.run('seleccionar-autonomas'") + 1500);
   assert.match(paso, /const canales = await canalesDeSocias\(studioId, pendientes\);/);
-  assert.match(paso, /return !!c && efectoAlAprobar\(r, c\) === 'MARCAR';/);
+  // Sin poder leer su permiso, una oferta tampoco se aprueba sola.
+  assert.match(paso, /if \(!c\) return \(r\.accion\.tipo === 'ENVIAR_EMAIL' \|\| r\.accion\.tipo === 'CONTACTO_MANUAL'\) && !!r\.socioId && esComercial\(r\);/);
+  assert.match(paso, /return efectoAlAprobar\(r, c\) === 'MARCAR';/);
   assert.match(paso, /seleccionarAutonomas\(aprobables, config, yaHoy\)/);
 });
 
@@ -582,4 +584,10 @@ test('la pantalla pregunta cómo terminó un cobro con una ruta acotada a su est
   assert.match(ruta, /dbGetEstadoRecomendacion\(id, sesion\.studioId\)/);
   const db = leer('lib/decision/db.ts');
   assert.match(db, /\.from\('recomendaciones'\)\.select\('estado, resultado'\)\.eq\('id', id\)\.eq\('studio_id', studioId\)/);
+});
+
+test('una oferta a quien no ha aceptado recibirlas: el WhatsApp manual se abre sin la oferta escrita', async () => {
+  const { readFileSync } = await import('node:fs');
+  const pagina = readFileSync(new URL('../../app/(dashboard)/centro-de-control/page.tsx', import.meta.url), 'utf8');
+  assert.match(pagina, /enlaceWhatsApp\(socia\?\.telefono, r\.sinPermisoOfertas \? '' : mensaje\.cuerpo\)/);
 });

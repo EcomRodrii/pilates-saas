@@ -478,3 +478,103 @@ test('RENOVACION_COBRADA: recibo cobrado sin fechaCobro → no genera candidato 
   const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
   assert.equal(c.length, 0);
 });
+
+// ── P3.10 · CUMPLEANOS (regla opcional) ──────────────────────────────────────
+// Solo corre con su interruptor de servidor encendido: el motor es la
+// cerradura, la pantalla y el dispatcher solo ahorran.
+const ENCENDIDAS = new Set(['CUMPLEANOS'] as const);
+
+test('CUMPLEANOS: apagada por interruptor no felicita aunque la regla esté activa; encendida, sí (comercial, por correo)', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const s = socio({ id: 'a', nombre: 'Elena', fechaNacimiento: '1990-07-10', cumpleMmDd: '07-10' });
+  assert.equal(computeAutomationCandidatos(input({ automationRules: [r], socios: [s] }), NOW).length, 0);
+  assert.equal(computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: new Set() }), NOW).length, 0);
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].accion, 'ENVIAR_EMAIL');
+  assert.equal(c[0].comercial, true, 'comercial: consentimiento y enlace de baja');
+  assert.equal(c[0].titulo, '¡Feliz cumpleaños!');
+  assert.match(c[0].mensajeCliente ?? '', /Elena/);
+  assert.equal(c[0].notaInterna, undefined);
+});
+
+test('CUMPLEANOS: el día es el de Madrid — a las 00:30 de Madrid ya es su cumpleaños aunque en UTC sea la víspera', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const madrugada = new Date('2026-03-13T23:30:00.000Z'); // 00:30 del 14 en Madrid (CET)
+  const hoy = socio({ id: 'a', fechaNacimiento: '1990-03-14', cumpleMmDd: '03-14' });
+  const ayer = socio({ id: 'b', fechaNacimiento: '1990-03-13', cumpleMmDd: '03-13' });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [hoy, ayer], reglasOpcionalesEncendidas: ENCENDIDAS }), madrugada);
+  assert.deepEqual(c.map(x => x.socio?.id), ['a']);
+});
+
+test('CUMPLEANOS: quien nació un 29 de febrero, en año no bisiesto, el 1 de marzo', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const s = socio({ id: 'a', fechaNacimiento: '1992-02-29', cumpleMmDd: '02-29' });
+  const unoDeMarzo = new Date('2027-03-01T10:00:00.000Z');
+  const veintiocho = new Date('2027-02-28T10:00:00.000Z');
+  assert.equal(computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), unoDeMarzo).length, 1);
+  assert.equal(computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), veintiocho).length, 0);
+});
+
+test('CUMPLEANOS: en horario de verano también — a las 00:30 de Madrid del 10-jul (22:30 UTC del 9) ya es su día', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const s = socio({ id: 'a', fechaNacimiento: '1990-07-10', cumpleMmDd: '07-10' });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), new Date('2026-07-09T22:30:00.000Z'));
+  assert.equal(c.length, 1);
+});
+
+test('CUMPLEANOS: una fecha de relleno (1900-01-01, de una importación) no es un cumpleaños', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const s = socio({ id: 'a', fechaNacimiento: '1900-01-01', cumpleMmDd: '01-01' });
+  assert.equal(computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), new Date('2026-01-01T10:00:00.000Z')).length, 0);
+});
+
+test('CUMPLEANOS: a una menor no se le escribe; sin fecha completa tampoco (no se sabe su edad); el día que cumple 18, sí', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const menor = socio({ id: 'menor', fechaNacimiento: '2010-07-10', cumpleMmDd: '07-10' });
+  const diecisiete = socio({ id: 'casi', fechaNacimiento: '2008-07-11', cumpleMmDd: '07-10' }); // dato incoherente: manda la fecha completa
+  const sinAnio = socio({ id: 'sin-anio', fechaNacimiento: null, cumpleMmDd: '07-10' });
+  const dieciocho = socio({ id: 'dieciocho', fechaNacimiento: '2008-07-10', cumpleMmDd: '07-10' });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [menor, diecisiete, sinAnio, dieciocho], reglasOpcionalesEncendidas: ENCENDIDAS }), NOW);
+  assert.deepEqual(c.map(x => x.socio?.id), ['dieciocho']);
+});
+
+test('CUMPLEANOS: sin consentimiento vigente, de baja o sin email, no sale', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const base = { fechaNacimiento: '1990-07-10', cumpleMmDd: '07-10' };
+  const sinConsentimiento = socio({ id: 'a', ...base });
+  const deBaja = socio({ id: 'b', ...base, activo: false });
+  const sinEmail = socio({ id: 'c', ...base, email: '' });
+  const conTextoViejo = socio({ id: 'd', ...base });
+  const c = computeAutomationCandidatos(input({
+    automationRules: [r], socios: [sinConsentimiento, deBaja, sinEmail, conTextoViejo], reglasOpcionalesEncendidas: ENCENDIDAS,
+    consentimientosMarketing: new Map([['b', TEXTO_CONSENTIMIENTO_TEST], ['c', TEXTO_CONSENTIMIENTO_TEST], ['d', 'otro texto']]),
+  }), NOW);
+  assert.equal(c.length, 0);
+});
+
+test('CUMPLEANOS: una vez al año — lo enviado ayer (en UTC) cuenta; un fallo o lo de hace un año, no', () => {
+  const r = rule({ trigger: 'CUMPLEANOS' });
+  const s = socio({ id: 'a', fechaNacimiento: '1990-07-10', cumpleMmDd: '07-10' });
+  const correr = (logs: AutomationLog[]) =>
+    computeAutomationCandidatos(input({ automationRules: [r], socios: [s], automationLogs: logs, reglasOpcionalesEncendidas: ENCENDIDAS }), NOW).length;
+  // «Ejecutar ahora» a las 00:30 de Madrid deja un log con el día de UTC anterior.
+  assert.equal(correr([log({ ruleId: r.id, socioId: 'a', resultado: 'EJECUTADO', ejecutadoEn: '2026-07-09T22:30:00.000Z' })]), 0);
+  assert.equal(correr([log({ ruleId: r.id, socioId: 'a', resultado: 'FALLIDO', ejecutadoEn: '2026-07-10T07:00:00.000Z' })]), 1);
+  assert.equal(correr([log({ ruleId: r.id, socioId: 'a', resultado: 'EJECUTADO', ejecutadoEn: diasAntes(365) })]), 1);
+  assert.equal(correr([log({ ruleId: 'otra-regla', socioId: 'a', resultado: 'EJECUTADO' })]), 1);
+});
+
+test('CUMPLEANOS: con dos reglas iguales en el estudio, una sola felicitación (ni en la misma pasada ni al día siguiente de otra)', () => {
+  const r1 = rule({ trigger: 'CUMPLEANOS', id: 'cumple-1' });
+  const r2 = rule({ trigger: 'CUMPLEANOS', id: 'cumple-2' });
+  const s = socio({ id: 'a', fechaNacimiento: '1990-07-10', cumpleMmDd: '07-10' });
+  const misma = computeAutomationCandidatos(input({ automationRules: [r1, r2], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS }), NOW);
+  assert.equal(misma.length, 1);
+  const otraYaEnvio = computeAutomationCandidatos(input({
+    automationRules: [r1, r2], socios: [s], reglasOpcionalesEncendidas: ENCENDIDAS,
+    automationLogs: [log({ ruleId: 'cumple-1', socioId: 'a', resultado: 'EJECUTADO', ejecutadoEn: '2026-07-10T07:00:00.000Z' })],
+  }), NOW);
+  assert.equal(otraYaEnvio.length, 0);
+});
+

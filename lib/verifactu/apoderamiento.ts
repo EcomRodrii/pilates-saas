@@ -6,7 +6,7 @@
 // vida. Fuentes en la migración 20260930020000.
 
 import type { Habilitacion } from './habilitacion.ts';
-import { hoyEnEstudio } from '../utils.ts';
+import { hoyEnEstudio, masDias } from '../utils.ts';
 
 /** El trámite del Registro de apoderamientos (relación oficial de trámites apoderables). */
 export const TRAMITE_IZ860 = {
@@ -142,7 +142,9 @@ export function erroresAutorizacion(
     const maximo = new Date(otorgado);
     maximo.setUTCFullYear(maximo.getUTCFullYear() + VIGENCIA_MAXIMA_ANOS);
     if (vigente.getTime() > maximo.getTime()) e.push(`Un poder del Registro dura como máximo ${VIGENCIA_MAXIMA_ANOS} años.`);
-    if (vigente.getTime() < hoy.getTime()) e.push('Ese poder ya ha caducado.');
+    // Día contra día de Madrid: un poder vale TODO su último día. Contra el instante,
+    // la medianoche UTC de ese día ya quedaba atrás a las 02:00 y se rechazaba.
+    if (a.vigenteHasta < hoyEnEstudio(hoy)) e.push('Ese poder ya ha caducado.');
   }
   if (a.tramite !== 'IZ860' && a.tramite !== 'GENERAL_46_2') e.push('El trámite tiene que ser el IZ860 o el poder general.');
   if (!a.otorgante.nombre.trim()) e.push('Falta el nombre de quien otorgó el poder.');
@@ -214,16 +216,16 @@ export function habilitacionDe(s: SituacionEstudio): Habilitacion {
   const nif = s.nifActual.trim().toUpperCase();
   if (nif !== s.estudio.nif || nif !== s.representacion.nifRepresentado) return { habilitado: false, motivo: 'SIN_AUTORIZACION_VERIFICADA' };
   if (!s.apoderadoNif || s.apoderadoNif !== s.representacion.apoderadoNif) return { habilitado: false, motivo: 'SIN_AUTORIZACION_VERIFICADA' };
-  const hoy = s.hoy.toISOString().slice(0, 10);
+  const hoy = hoyEnEstudio(s.hoy);
   if (s.representacion.vigenteHasta < hoy) return { habilitado: false, motivo: 'PODER_CADUCADO' };
   return { habilitado: true };
 }
 
 /** Qué hacer hoy con una representación verificada, según su fecha de fin. */
 export function revisionCaducidad(r: { vigenteHasta: string; avisoCaducidadEn: string | null }, hoy: Date): 'CADUCADA' | 'AVISAR' | null {
-  const hoyIso = hoy.toISOString().slice(0, 10);
+  const hoyIso = hoyEnEstudio(hoy);
   if (r.vigenteHasta < hoyIso) return 'CADUCADA';
-  const limite = new Date(hoy.getTime() + AVISO_CADUCIDAD_DIAS * 86_400_000).toISOString().slice(0, 10);
+  const limite = masDias(hoyIso, AVISO_CADUCIDAD_DIAS);
   if (r.vigenteHasta <= limite && !r.avisoCaducidadEn) return 'AVISAR';
   return null;
 }

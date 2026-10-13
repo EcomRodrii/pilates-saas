@@ -231,3 +231,18 @@ test('sin consentimiento de marketing → NOTIFICACION (aviso interno) SÍ dispa
   assert.equal(c.length, 1);
   assert.equal(c[0].canal, 'NOTIFICACION');
 });
+
+// Mismo criterio que «Felicitar el cumpleaños» (P3.10, `felicitableHoy`): el día de
+// Madrid y solo mayores de edad con la fecha completa.
+test('CUMPLEANOS: a una menor o sin fecha completa no; el día es el de Madrid', () => {
+  const menor = socio({ id: 'm', fechaNacimiento: '2012-07-13' });
+  const sinAnio = socio({ id: 'x', fechaNacimiento: null, cumpleMmDd: '07-13' });
+  assert.equal(run({ automatizaciones: [auto('CUMPLEANOS')], socios: [menor, sinAnio] }).length, 0);
+  // 23:30 UTC del 12-jul = 01:30 del 13-jul en Madrid: ya es su día.
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const madrugada = computeAutomatizacionMktCandidatos({
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], automationLogsHistorico: [], socios: [s], suscripciones: [], reservas: [], citas: [] as Cita[],
+    consentimientosMarketing: consentirTodas([s]), textoConsentimientoVigente: TEXTO_CONSENTIMIENTO_TEST,
+  }, new Date('2026-07-12T23:30:00.000Z'));
+  assert.equal(madrugada.length, 1);
+});

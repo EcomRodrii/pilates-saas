@@ -8,7 +8,13 @@
 // lista aparte a mano: así nunca puede enseñar un módulo congelado ni
 // resucitar marketing por otra puerta, y se actualiza sola si algún día se
 // reactiva algo.
+//
+// La frase de cada módulo vive UNA vez, en la ficha de su pantalla
+// (lib/ayuda/pantallas.ts, `valor`: «un único catálogo por pantalla, con la ruta
+// como clave», decisión del fundador del 12-oct-2026). La usan esta pantalla y
+// «Tu Tentare». El nombre sale siempre del menú, nunca escrito a mano.
 import { MODULOS } from './nav-config.ts';
+import { valorDeModulo } from './ayuda/pantallas.ts';
 
 export interface FuncionCatalogo {
   href: string;
@@ -21,62 +27,29 @@ export interface CategoriaFunciones {
   funciones: FuncionCatalogo[];
 }
 
-const CATEGORIAS_BASE: CategoriaFunciones[] = [
-  {
-    id: 'reservas', label: 'Reservas y calendario',
-    funciones: [
-      { href: '/calendario', label: 'Calendario', descripcion: 'Crea clases, muévelas de hora (arrastrando, en el ordenador o la tablet) y gestiona el horario completo del estudio.' },
-      { href: '/citas', label: 'Citas', descripcion: 'Servicios con hora concreta: valoraciones, sesiones 1 a 1, lo que no encaja en una clase colectiva.' },
-      { href: '/sustituciones', label: 'Sustituciones', descripcion: 'Cuando una instructora avisa de que no puede, Tentare busca sustituta sola y avisa a las alumnas antes de que cuelgues el teléfono.' },
-    ],
-  },
-  {
-    id: 'clientas', label: 'Clientas',
-    funciones: [
-      { href: '/clientas', label: 'Clientas', descripcion: 'Ficha completa: bonos, asistencia, notas de progreso y quién lleva tiempo sin venir.' },
-      { href: '/mensajeria', label: 'Mensajería', descripcion: 'Conversaciones con tus clientas centralizadas, sin depender de WhatsApp personal.' },
-      { href: '/libreta', label: 'Libreta de clientas', descripcion: 'Vista rápida de contacto y notas, pensada para mostrador.' },
-    ],
-  },
-  {
-    id: 'cobros', label: 'Cobros y pagos',
-    funciones: [
-      { href: '/cobros', label: 'Cobros', descripcion: 'Qué está pendiente y qué ya se cobró — con Stripe conectado, la mayoría se cobra sola.' },
-      { href: '/productos', label: 'Paquetes', descripcion: 'Suscripciones, bonos y clases sueltas que tus clientas pueden contratar.' },
-      { href: '/cierre', label: 'Cierre de año', descripcion: 'Resumen de ingresos e IVA listo para tu gestoría — no presenta impuestos, los prepara.' },
-    ],
-  },
-  {
-    id: 'equipo', label: 'Equipo',
-    funciones: [
-      { href: '/equipo', label: 'Equipo', descripcion: 'Instructoras, permisos por rol y estadísticas de cada una.' },
-    ],
-  },
-  {
-    id: 'automatizaciones', label: 'Automatizaciones',
-    funciones: [
-      { href: '/automatizaciones', label: 'Automatizaciones', descripcion: 'Recuperación de clientas ausentes, seguimiento de las nuevas y más, funcionando solas una vez activas. Los recordatorios de clase ya salen de serie.' },
-    ],
-  },
-  {
-    id: 'datos', label: 'Informes y decisiones',
-    funciones: [
-      { href: '/informes', label: 'Informes', descripcion: 'Ingresos, ocupación y qué clases dan dinero de verdad.' },
-      { href: '/centro-de-control', label: 'Centro de Control', descripcion: 'Recomendaciones para tu estudio calculadas a partir de tus propios datos, no un panel de números sueltos.' },
-    ],
-  },
-  {
-    id: 'configuracion', label: 'Configuración y marca',
-    funciones: [
-      { href: '/configuracion', label: 'Configuración', descripcion: 'Marca, salas, integraciones y todo lo que define cómo funciona tu estudio. Las tarifas están en Paquetes.' },
-      { href: '/migracion', label: 'Traer mis datos', descripcion: 'Importa clientas y bonos desde Bsport, Momence u otra plataforma.' },
-    ],
-  },
+// Qué enseña «Explorar todas las funciones», por lo que resuelve. Solo hrefs:
+// el nombre sale del menú y la frase, de la ficha de su pantalla.
+const CATEGORIAS_BASE: { id: string; label: string; hrefs: string[] }[] = [
+  { id: 'reservas', label: 'Reservas y calendario', hrefs: ['/calendario', '/citas', '/sustituciones'] },
+  { id: 'clientas', label: 'Clientas', hrefs: ['/clientas', '/mensajeria', '/libreta'] },
+  { id: 'cobros', label: 'Cobros y pagos', hrefs: ['/cobros', '/productos', '/cierre'] },
+  { id: 'equipo', label: 'Equipo', hrefs: ['/equipo'] },
+  { id: 'automatizaciones', label: 'Automatizaciones', hrefs: ['/automatizaciones'] },
+  { id: 'datos', label: 'Informes y decisiones', hrefs: ['/informes', '/centro-de-control'] },
+  { id: 'configuracion', label: 'Configuración y marca', hrefs: ['/configuracion', '/migracion'] },
 ];
 
 export function calcularCatalogoFunciones(): CategoriaFunciones[] {
-  const hrefsVisibles = new Set(MODULOS.map(m => m.href));
+  const porHref = new Map(MODULOS.map(m => [m.href, m]));
   return CATEGORIAS_BASE
-    .map(cat => ({ ...cat, funciones: cat.funciones.filter(f => hrefsVisibles.has(f.href)) }))
+    .map(cat => ({
+      id: cat.id,
+      label: cat.label,
+      funciones: cat.hrefs.flatMap(href => {
+        const m = porHref.get(href);
+        const descripcion = valorDeModulo(href);
+        return m && descripcion ? [{ href, label: m.label, descripcion }] : [];
+      }),
+    }))
     .filter(cat => cat.funciones.length > 0);
 }

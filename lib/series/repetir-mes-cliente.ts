@@ -39,13 +39,26 @@ export async function proponerRepetirMes(mes: string): Promise<{ ok: true; propu
   return error(r.datos, 'No se ha podido preparar el mes.');
 }
 
+/**
+ * Sin respuesta legible (la red se cae, o el servidor pasa de su tiempo máximo
+ * y la plataforma contesta un 504 sin JSON) NO es «no se ha creado nada»: las
+ * series se crean una a una y alguna puede haberse creado ya. `incierto` le dice
+ * a la pantalla que vuelva a leer el calendario. Reintentar es seguro: una serie
+ * ya repetida contesta «ya renovada» por su `periodoVisto`, no se duplica.
+ */
 export async function crearRepetirMes(
   mes: string, series: { serieId: string; periodoVisto: number; fechas: string[] }[],
-): Promise<{ ok: true; resultado: ResultadoRepetir } | { ok: false; error: string }> {
+): Promise<{ ok: true; resultado: ResultadoRepetir } | { ok: false; error: string; incierto: boolean }> {
   const r = await post({ accion: 'crear', mes, series });
   const res = r.datos?.resultado as ResultadoRepetir | undefined;
   if (r.ok && r.datos?.ok === true && res && typeof res.creadas === 'number' && Array.isArray(res.ids)) {
     return { ok: true, resultado: res };
   }
-  return error(r.datos, 'No se ha creado ninguna clase. Inténtalo de nuevo.');
+  if (r.datos === null) {
+    return {
+      ok: false, incierto: true,
+      error: 'Se ha cortado antes de terminar y puede que parte ya esté creada: míralo en el calendario. Volver a intentarlo no duplica nada.',
+    };
+  }
+  return { ...error(r.datos, 'No se ha creado ninguna clase. Inténtalo de nuevo.'), incierto: false };
 }

@@ -4,6 +4,7 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { dbUpsertAutomationLog, fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbUpdateAutomatizacionServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
+import { reglaEjecutable, reglasOpcionalesEncendidas } from '@/lib/engines/reglas-opcionales';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
 import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
@@ -20,7 +21,7 @@ import { dbRedaccionIaActiva } from '@/lib/decision/db';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 import { normalizarEmail } from '@/lib/emails/rebotes';
-import type { AutomationLog, ResultadoLog } from '@/lib/types';
+import type { AutomationLog, ResultadoLog, TriggerRule } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
 
@@ -521,14 +522,18 @@ export const automatizacionesDispatcher = inngest.createFunction(
       // x.activa …)`), así que un estudio sin ninguna activa gastaba su run y dos
       // steps cada día —incluida la carga pesada de `fetch-data`— para no hacer nada.
       const [reglas, automatizaciones] = await Promise.all([
-        fetchAllRows<{ studio_id: string }>('(global)', 'automation_rules',
-          (from, to) => requireSupabaseAdmin().from('automation_rules').select('studio_id').eq('activa', true).order('id').range(from, to)),
+        fetchAllRows<{ studio_id: string; trigger: TriggerRule }>('(global)', 'automation_rules',
+          (from, to) => requireSupabaseAdmin().from('automation_rules').select('studio_id, trigger').eq('activa', true).order('id').range(from, to)),
         fetchAllRows<{ studio_id: string }>('(global)', 'automatizaciones',
           (from, to) => requireSupabaseAdmin().from('automatizaciones').select('studio_id').eq('activa', true).order('id').range(from, to)),
       ]);
       if (reglas.error) throw new Error(reglas.error.message);
       if (automatizaciones.error) throw new Error(automatizaciones.error.message);
-      const conAlgoActivo = new Set([...reglas.data, ...automatizaciones.data].map(r => r.studio_id));
+      // Una regla opcional (P3.10) con su interruptor apagado para ese estudio
+      // no hace nada: el motor la salta. Sin esto, encenderla abriría un run
+      // diario para nada.
+      const reglasQueHacenAlgo = reglas.data.filter(r => reglaEjecutable(r.trigger, reglasOpcionalesEncendidas(r.studio_id)));
+      const conAlgoActivo = new Set([...reglasQueHacenAlgo, ...automatizaciones.data].map(r => r.studio_id));
       return { nowISO, studios: data.filter(s => conAlgoActivo.has(s.id)) };
     });
 
@@ -626,6 +631,10 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         tiposClase: d.tiposClase,
         suscripciones: d.suscripciones,
         planesTarifa: d.planesTarifa,
+        // P3.10: el interruptor se guarda con el paso. Si un despliegue lo cambia
+        // a mitad de un run, al reintentar la lista de candidatos seguiría siendo
+        // la misma, y los pasos `candidato-${i}` no se cruzarían de alumna.
+        reglasOpcionales: [...reglasOpcionalesEncendidas(studioId)],
       };
     });
 
@@ -693,6 +702,9 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         planesTarifa: data.planesTarifa,
         consentimientosMarketing,
         textoConsentimientoVigente,
+        // Memorizado en `fetch-data` (lista: un Set no sobrevive a Inngest). Un
+        // run que empezó antes de este despliegue no lo trae: se lee ahora.
+        reglasOpcionalesEncendidas: new Set(data.reglasOpcionales ?? reglasOpcionalesEncendidas(studioId)),
       },
       now
     );

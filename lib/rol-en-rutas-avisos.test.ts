@@ -50,6 +50,8 @@ test('emails/send: rol por tipo, y recibo y clase armados desde la BD', () => {
 
 const GUARDIAS: Array<[ruta: string, guardia: string]> = [
   ['app/api/automatizaciones/run/route.ts', 'puedeGestionarAutomatizaciones(sesion.rol)'],
+  // P3.10: lee fecha de nacimiento y consentimientos con service-role (solo cifras, pero solo la propietaria).
+  ['app/api/automatizaciones/disponibles/route.ts', 'puedeGestionarAutomatizaciones(sesion.rol)'],
   ['app/api/integrations/kisi/abrir/route.ts', 'puedeOperarClase('],
   ['app/api/valoraciones/route.ts', 'puedeVerValoracionesDe('],
 ];
