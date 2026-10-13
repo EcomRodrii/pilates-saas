@@ -59,6 +59,8 @@ const CASOS: Caso[] = [
   // Función de TRIGGER (la hora del cobro, el envío al banco y el día de cargo,
   // migr recibos_marcas_de_tiempo, 2-oct-2026): solo la dispara `recibos`.
   { firma: 'recibos_marcas_de_tiempo()', anon: false, authenticated: false, serviceRole: true },
+  // Función de TRIGGER (una reserva y su clase, del mismo estudio, migr 20261013152427): solo la dispara `reservas`.
+  { firma: 'reservas_sesion_del_mismo_estudio()', anon: false, authenticated: false, serviceRole: true },
   // 20260930215106 la redefine (tope configurable) con la misma firma: la llama
   // el panel (ficha, importación) con su sesión y el servidor con service_role.
   { firma: 'crear_recuperacion(text, text, text, text, text, date)', anon: false, authenticated: true, serviceRole: true },
