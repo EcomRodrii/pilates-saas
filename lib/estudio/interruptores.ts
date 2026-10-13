@@ -20,6 +20,8 @@ import { encendidaPara } from '../interruptor-por-estudio.ts';
 export const INTERRUPTORES = {
   /** Filtros y columnas nuevos de Clientas (P2.8). */
   filtrosClientas: 'CLIENTAS_FILTROS',
+  /** Pegar desde una hoja en el importador de Clientas (P3.16). */
+  importarPegando: 'IMPORTAR_PEGANDO',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;
