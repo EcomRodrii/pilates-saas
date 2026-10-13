@@ -105,10 +105,10 @@ for (const oscuro of [false, true]) {
       expect((await anillo(plan)).sombra).toBe('none');
     });
 
-    test('pinchar con el ratón no enciende el anillo; seguir con Tab, sí', async ({ page }) => {
+    test('pinchar con el ratón no enciende el anillo; volver con el teclado, sí', async ({ page }) => {
       await montar(page, oscuro);
+      const buscador = page.getByRole('searchbox', { name: 'Buscar clientas' });
       const plan = page.getByRole('combobox', { name: 'Plan', exact: true });
-      const mas = page.getByRole('combobox', { name: 'Más filtros', exact: true });
       await expect(plan).toBeAttached({ timeout: 30_000 });
 
       await plan.click();
@@ -119,10 +119,14 @@ for (const oscuro of [false, true]) {
       expect(tras.sombra).toBe('none');
       expect(tras.borde).not.toBe(tras.ring);
 
-      // Si después sigue con el teclado, el anillo vuelve.
+      // El pinchazo no se queda apuntado: volviendo con el teclado, el anillo sale.
+      // ⚠️ No con un Tab desde el select pinchado: el clic abre la lista nativa y
+      // en Linux (CI) esa lista se come el Tab, el foco no se mueve. Llevar el foco
+      // al buscador cierra la lista y hace saltar el blur, que es lo que se prueba.
+      await buscador.focus();
       await page.keyboard.press('Tab');
-      await expect(mas).toBeFocused();
-      expect((await anillo(mas)).sombra).toMatch(/0px 0px 0px 3px/);
+      await expect(plan).toBeFocused();
+      expect((await anillo(plan)).sombra).toMatch(/0px 0px 0px 3px/);
     });
   });
 }
