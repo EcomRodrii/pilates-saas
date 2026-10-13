@@ -94,3 +94,11 @@ test('el mostrador no usa una apartada: la libera antes, por el servidor y con r
   // Solo lo apartado AHORA (la misma regla que `plazas_apartadas`), nunca por debajo de lo vendido.
   assert.match(fn, /from public\.apartados_de_sesion\(p_sesion_id\) as a\s+where a\.plataforma = p_plataforma and a\.cupo is not null and a\.cupo > a\.vendidas and now\(\) < a\.liberan_en;\s+if v_cupo is null then\s+raise exception 'NADA_APARTADO'/);
 });
+
+test('«Plazas libres» del Calendario (P3.9) resta las apartadas y, si no las puede leer, no enseña números', () => {
+  assert.match(leer('lib/calendario/plazas-libres.ts'), /plazasLibresParaReservar\(aforo, ocupadas, apartadas\)/);
+  const ruta = leer('app/api/calendario/plazas-libres/route.ts');
+  assert.match(ruta, /admin\.rpc\('plazas_apartadas_de', \{ p_studio_id: sesion\.studioId, p_sesion_ids: ids \}\)/, 'el estudio sale de la sesión');
+  assert.match(ruta, /return error \? null :/, 'un fallo es `null`…');
+  assert.match(leer('lib/calendario/plazas-libres-servidor.ts'), /if \(!a\) throw new Error\('No se han podido leer las plazas apartadas'\)/, '…y `null` es error, nunca 0 apartadas');
+});

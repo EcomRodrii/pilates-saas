@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, Hourglass, TrendingDown, UserX, Users, Wrench, X, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ChevronRight, CheckCircle2, Hourglass, TrendingDown, UserX, Users, Wrench, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FiltroResumen, ResumenVista } from '@/lib/calendario/marca-clase';
 import { textoResumen } from '@/lib/calendario/marca-clase';
@@ -24,18 +25,32 @@ const ESTILO: Record<FiltroResumen, { icono: LucideIcon; tono: string }> = {
   sobreaforo: { icono: Users, tono: 'border-warning/35 bg-warning/10 text-foreground' },
 };
 
-export function ResumenCalendario({ resumen, activo, onFiltro, extra }: {
+export function ResumenCalendario({ resumen, activo, onFiltro, extra, enlace }: {
   resumen: ResumenVista;
   activo: FiltroResumen | null;
   onFiltro: (f: FiltroResumen | null) => void;
   /** A la derecha (en el Día de hoy: cuál es la siguiente clase). */
   extra?: ReactNode;
+  /**
+   * Un enlace con su nombre justo después de la ocupación («Plazas libres ›»,
+   * P3.9): va aquí y no en la cabecera, que ya está llena y en el móvil lo
+   * dejaría en un icono que no se reconoce.
+   */
+  enlace?: { href: string; texto: string; titulo?: string } | null;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2" data-testid="resumen-calendario">
       {/* En una fila que se desliza hasta tener sitio de sobra; desde ahí, la que haga falta. */}
       <div className="-mx-4 -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
         <span className="mr-1 shrink-0 text-[13px] tabular-nums text-muted-foreground">{textoResumen(resumen)}</span>
+        {enlace && (
+          <Link
+            href={enlace.href} title={enlace.titulo}
+            className="inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full px-2 text-[13px] font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {enlace.texto}<ChevronRight size={14} aria-hidden />
+          </Link>
+        )}
         {resumen.cifras.map(c => {
           const e = ESTILO[c.filtro];
           const pulsada = activo === c.filtro;

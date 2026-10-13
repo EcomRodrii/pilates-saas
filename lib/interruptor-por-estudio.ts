@@ -22,3 +22,6 @@ export const avisoFestivosEncendido = (studioId: string) => encendidaPara(proces
 
 /** «Repetir este mes» en el Calendario (P1.7). */
 export const repetirMesEncendido = (studioId: string) => encendidaPara(process.env.CALENDARIO_REPETIR_MES, studioId);
+
+/** «Plazas libres» en el Calendario (P3.9, pieza F). */
+export const plazasLibresEncendido = (studioId: string) => encendidaPara(process.env.CALENDARIO_PLAZAS_LIBRES, studioId);
