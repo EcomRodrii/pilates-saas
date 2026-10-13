@@ -71,7 +71,7 @@ test('las claves de mensaje no se repiten', () => {
 });
 
 test('cada regla que escribe a clientas tiene al menos un mensaje que leer', () => {
-  for (const trigger of ['AUSENCIA_DIAS', 'PAGO_PENDIENTE_DIAS', 'CLASE_MANANA', 'NUEVA_SOCIA', 'RENOVACION_COBRADA'] as const) {
+  for (const trigger of ['AUSENCIA_DIAS', 'PAGO_PENDIENTE_DIAS', 'CLASE_MANANA', 'NUEVA_SOCIA', 'RENOVACION_COBRADA', 'CUMPLEANOS'] as const) {
     assert.ok(mensajesDeTrigger(trigger).length > 0, trigger);
   }
 });
