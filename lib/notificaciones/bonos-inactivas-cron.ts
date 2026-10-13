@@ -12,7 +12,7 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { idsEstudios } from '@/lib/inngest/estudios.ts';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
-import { fechaCortaEstudio } from '@/lib/utils';
+import { fechaCortaEstudio, hoyEnEstudio, masDias } from '@/lib/utils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const fecha = (d: string) => fechaCortaEstudio(new Date(d + 'T12:00:00Z'));
@@ -97,11 +97,12 @@ export async function leerBonosPorCaducar(
 }
 
 async function bonos(admin: SupabaseClient, studioId: string) {
-  // ⚠️ `hoy` en UTC, no con hoyEnEstudio(): entre las 00:00 y las 02:00 de
-  // Madrid es el día anterior. Se anota y no se cambia aquí (sería otro
-  // comportamiento del aviso); la herramienta del asistente sí usa el día del estudio.
-  const hoy = new Date().toISOString().slice(0, 10);
-  const en7 = new Date(Date.now() + 7 * 24 * 3600_000).toISOString().slice(0, 10);
+  // La ventana [hoy, hoy + 7] en días del ESTUDIO, como la herramienta del
+  // asistente. Con el de UTC, un barrido entre las 00:00 y las 02:00 de Madrid
+  // avisaba de un bono que caducó ayer. A las 09:00 UTC del cron no cambia nada:
+  // ahí los dos días coinciden.
+  const hoy = hoyEnEstudio();
+  const en7 = masDias(hoy, 7);
   const [subs, studioR] = await Promise.all([
     leerBonosPorCaducar(admin, studioId, { desde: hoy, hasta: en7 }),
     admin.from('studios').select('slug').eq('id', studioId).maybeSingle(),

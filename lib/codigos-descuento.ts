@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CodigoDescuento } from './types.ts';
+import { hoyEnEstudio, masDias } from './utils.ts';
 
 // Alfabeto sin caracteres ambiguos (sin O/0, I/1) — los códigos se dictan por
 // teléfono y se teclean en el mostrador.
@@ -46,6 +47,18 @@ export function generarCodigoReactivacion(semilla: string): string {
   return `${PREFIJO_CODIGO_REACTIVACION}${sufijoCodigo(semilla)}`;
 }
 
+/** Días que vale un código de reactivación desde el día en que se crea. */
+export const DIAS_VIGENCIA_CODIGO_REACTIVACION = 30;
+
+/**
+ * El `expira` ('YYYY-MM-DD') de un código de reactivación creado en `ahora`: el
+ * día del ESTUDIO más 30. Con `Date.now() + 30 días` en UTC, uno creado entre
+ * las 00:00 y las 02:00 de Madrid caducaba un día antes de lo prometido.
+ */
+export function caducidadCodigoReactivacion(ahora: Date = new Date()): string {
+  return masDias(hoyEnEstudio(ahora), DIAS_VIGENCIA_CODIGO_REACTIVACION);
+}
+
 /** ¿Lo generó el Decision OS (win-back) o lo creó una persona a mano? */
 export function esCodigoReactivacion(codigo: { codigo: string }): boolean {
   return codigo.codigo.trim().toUpperCase().startsWith(PREFIJO_CODIGO_REACTIVACION);
@@ -62,12 +75,25 @@ export function calcularDescuento(codigo: CodigoDescuento, subtotal: number): nu
 }
 
 /**
+ * El día ('YYYY-MM-DD') con el que se mira si un código ha caducado: el del
+ * ESTUDIO. `hoyISO` llega como instante (`new Date().toISOString()`: el TPV y los
+ * tres checkouts) o ya como día. Con `.slice(0, 10)` salía el día UTC, y entre las
+ * 00:00 y las 02:00 de Madrid un código caducado ayer se seguía canjeando: los
+ * checkouts cobraban con el descuento, y en el TPV la pantalla lo aplicaba y la
+ * venta fallaba después (`registrar_venta_pos` ya lo mira con `hoy_estudio()`).
+ */
+function diaDelEstudio(hoyISO: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(hoyISO) ? hoyISO : hoyEnEstudio(new Date(hoyISO));
+}
+
+/**
  * ¿Se puede canjear este código sobre este subtotal, hoy? Devuelve el descuento
  * o el motivo del rechazo (para enseñárselo a quien cobra).
  */
 export function validarCodigoCanjeable(
   codigo: CodigoDescuento | null | undefined,
   opts: {
+    /** Ahora (instante ISO) o el día del estudio ('YYYY-MM-DD'); ver `diaDelEstudio`. */
     hoyISO: string; subtotal: number;
     /** P-5 (auditoría 26ª pasada): cada código es como mucho una vez por
      *  socia, tenga o no `usosMax` — antes solo había tope GLOBAL, así que un
@@ -80,7 +106,7 @@ export function validarCodigoCanjeable(
   if (!codigo) return { ok: false, motivo: 'Ese código no existe' };
   if (!codigo.activo) return { ok: false, motivo: 'Ese código está desactivado' };
   if (opts.yaUsadoPorEstaSocia) return { ok: false, motivo: 'Ya has usado este código antes' };
-  if (codigo.expira && codigo.expira < opts.hoyISO.slice(0, 10)) {
+  if (codigo.expira && codigo.expira < diaDelEstudio(opts.hoyISO)) {
     return { ok: false, motivo: 'Ese código ya ha caducado' };
   }
   if (codigo.usosMax != null && codigo.usos >= codigo.usosMax) {

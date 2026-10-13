@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   generarCodigoReactivacion, sufijoCodigo, calcularDescuento,
   validarCodigoCanjeable, buscarCodigo, esCodigoReactivacion, PREFIJO_CODIGO_REACTIVACION,
-  utilizacionCodigos,
+  utilizacionCodigos, caducidadCodigoReactivacion, DIAS_VIGENCIA_CODIGO_REACTIVACION,
 } from './codigos-descuento.ts';
 import type { CodigoDescuento } from './types.ts';
 
@@ -155,3 +155,57 @@ test('todo gastado es 100, y nada gastado es 0 — con límite SÍ es un 0 real'
   // Aquí el 0 sí significa algo: hay 10 emitidos y no se ha usado ninguno.
   assert.equal(utilizacionCodigos([{ usos: 0, usosMax: 10 }]).pct, 0);
 });
+
+// ── Caducidad del código de reactivación: 30 días del ESTUDIO ───────────────
+// Con `Date.now() + 30 días` en UTC, uno creado entre las 00:00 y las 02:00 de Madrid
+// caducaba un día antes de lo prometido. (Se corre también con TZ=UTC.)
+
+test('creado a las 00:30 de Madrid del 17-nov, caduca el 17-dic (en UTC salía el 16)', () => {
+  const ahora = new Date('2026-11-16T23:30:00Z'); // invierno, +01:00
+  assert.equal(DIAS_VIGENCIA_CODIGO_REACTIVACION, 30);
+  assert.equal(caducidadCodigoReactivacion(ahora), '2026-12-17');
+  assert.equal(new Date(ahora.getTime() + 30 * 86_400_000).toISOString().slice(0, 10), '2026-12-16', 'lo de antes');
+});
+
+test('en verano la franja es de dos horas: a las 01:30 de Madrid ya cuenta el día nuevo', () => {
+  assert.equal(caducidadCodigoReactivacion(new Date('2026-07-15T23:30:00Z')), '2026-08-15');
+  assert.equal(caducidadCodigoReactivacion(new Date('2026-07-15T21:59:00Z')), '2026-08-14', 'a las 23:59 aún es el 15');
+});
+
+test('cruzar el cambio de hora no le quita ni le da un día', () => {
+  // 00:30 del 25-oct-2026 en Madrid (aún +02:00; a las 03:00 pasa a +01:00).
+  assert.equal(caducidadCodigoReactivacion(new Date('2026-10-24T22:30:00Z')), '2026-11-24');
+});
+
+test('el día en que caduca todavía se canjea; el siguiente, no', () => {
+  const expira = caducidadCodigoReactivacion(new Date('2026-11-16T23:30:00Z'));
+  const c = cod({ expira });
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-12-17', subtotal: 50 }).ok, true);
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-12-18', subtotal: 50 }).ok, false);
+});
+
+// ── Canje: el día que cuenta es el del ESTUDIO ──────────────────────────────
+// El TPV y los tres checkouts pasan `new Date().toISOString()`. Con `.slice(0, 10)`
+// salía el día UTC: entre las 00:00 y las 02:00 de Madrid un código caducado ayer
+// se seguía canjeando. (Se corre también con TZ=UTC.)
+
+test('a las 00:30 de Madrid (23:30Z del día antes), un código que caducó ayer ya no se canjea', () => {
+  const ahora = '2026-11-16T23:30:00.000Z'; // 00:30 del 17 en Madrid (+01:00)
+  const r = validarCodigoCanjeable(cod({ expira: '2026-11-16' }), { hoyISO: ahora, subtotal: 50 });
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.motivo, 'Ese código ya ha caducado');
+  assert.equal(validarCodigoCanjeable(cod({ expira: '2026-11-17' }), { hoyISO: ahora, subtotal: 50 }).ok, true, 'el que caduca hoy, sí');
+});
+
+test('en verano el corte es a las 22:00 UTC', () => {
+  const c = cod({ expira: '2026-07-15' });
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-07-15T21:59:00.000Z', subtotal: 50 }).ok, true, '23:59 del 15');
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-07-15T22:00:00.000Z', subtotal: 50 }).ok, false, '00:00 del 16');
+});
+
+test('si ya llega el día, se usa tal cual (no se corre a otro día)', () => {
+  const c = cod({ expira: '2026-11-16' });
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-11-16', subtotal: 50 }).ok, true);
+  assert.equal(validarCodigoCanjeable(c, { hoyISO: '2026-11-17', subtotal: 50 }).ok, false);
+});
+

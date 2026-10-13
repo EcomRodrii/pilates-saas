@@ -25,6 +25,7 @@ import { emitirMensajeDigestNoLeido } from '../notifications/emit.ts';
 import type { Recipient } from '../notifications/types.ts';
 import { equipoDelResumen } from './destinatarios.ts';
 import { sufijoDedupDelResumen } from './digest-reglas.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 // Una fila por cuenta, estudio y LADO: la misma cuenta puede ser alumna en unos
 // hilos y equipo (instructora) en otros del mismo estudio, y cada resumen lleva
@@ -54,7 +55,8 @@ export async function barrerDigestMensajesNoLeidos(): Promise<{ avisos: number }
   }
 
   const filas = (data ?? []) as FilaDigest[];
-  const hoy = new Date().toISOString().slice(0, 10);
+  // «Un resumen al día» (la fecha va en la clave de dedupe): el día del estudio.
+  const hoy = hoyEnEstudio();
   let avisos = 0;
   for (const fila of filas) {
     let destinatario: Recipient | null = null;

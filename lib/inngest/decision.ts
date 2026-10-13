@@ -18,7 +18,7 @@ import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot-cache';
 import { ejecutarAnalisis } from '@/lib/decision/motor';
 import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
-import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
+import { ventanaDiasDe, medirOutcome, precioMensualDePlanRenovado, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@/lib/decision/resultado-ejecucion';
 import { importeIngresado, situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
-import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
+import { generarCodigoReactivacion, caducidadCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarWhatsAppTexto } from '@/lib/whatsapp';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
@@ -421,8 +421,8 @@ export const analizarEstudio = inngest.createFunction(
 // Next-best-offer: crea un código de descuento REAL y canjeable para la socia
 // (antes el `descuentoPct` era solo texto en el email: prometíamos algo que el
 // sistema no sabía canjear). Determinista por recomendación → reintentar el envío
-// no crea códigos nuevos. Un solo uso y caduca en 30 días.
-const DIAS_VIGENCIA_CODIGO = 30;
+// no crea códigos nuevos. Un solo uso y caduca en 30 días del estudio
+// (`caducidadCodigoReactivacion`).
 
 async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null> {
   const pct = typeof r.datosUsados.descuentoPct === 'number' ? r.datosUsados.descuentoPct : 0;
@@ -437,7 +437,7 @@ async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null>
   if (existente) return codigo;
 
   const nombre = typeof r.datosUsados.nombre === 'string' ? r.datosUsados.nombre : 'socia';
-  const expira = new Date(Date.now() + DIAS_VIGENCIA_CODIGO * MS_DIA).toISOString().slice(0, 10);
+  const expira = caducidadCodigoReactivacion();
   const { error } = await admin.from('codigos_descuento').insert({
     id: uid(), studio_id: r.studioId, codigo,
     descripcion: `Reactivación de ${nombre} (Centro de Control)`,
@@ -905,14 +905,14 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     s.estado === 'ACTIVA' && new Date(s.fecha_inicio).getTime() >= new Date(resueltoEnISO).getTime()
   ) as { plan_id: string } | undefined;
 
-  // Precio del plan de la suscripción renovada — solo se consulta cuando hace
+  // Precio al mes del plan de la suscripción renovada — solo se consulta cuando hace
   // falta (no en cada medición), para no pagar una query extra en el caso
   // mayoritario (sin renovación).
   let precioMensualPlanEur: number | null = null;
   if (renovada?.plan_id) {
     const { data: plan } = await requireSupabaseAdmin()
-      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
-    precioMensualPlanEur = plan?.precio != null ? Number(plan.precio) : null;
+      .from('planes_tarifa').select('precio, tipo, periodicidad_meses').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
+    precioMensualPlanEur = precioMensualDePlanRenovado(plan);
   }
 
   return {
