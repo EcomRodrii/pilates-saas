@@ -73,10 +73,17 @@ export async function GET(req: NextRequest) {
       const { data, error } = await admin.rpc('plazas_apartadas_de', { p_studio_id: sesion.studioId, p_sesion_ids: ids });
       return error ? null : ((data ?? []) as { sesion_id: string; plazas: number }[]).map(f => ({ sesion_id: f.sesion_id, plazas: Number(f.plazas) }));
     },
+    // Paginadas: los trozos de 100 sesiones solo acortan la URL; PostgREST corta a mil filas.
     retiradas: async (ids) => {
-      const { data, error } = await admin.from('reservas').select('id')
-        .eq('studio_id', studioId).in('sesion_id', ids).eq('estado', 'CANCELADA').eq('cancelada_motivo', 'plaza_fija_retirada');
-      return error ? null : ((data ?? []) as { id: string }[]).map(x => x.id);
+      const r = await fetchAllRows<{ id: string }>(studioId, 'reservas', (from, to) => admin.from('reservas').select('id')
+        .eq('studio_id', studioId).in('sesion_id', ids).eq('estado', 'CANCELADA').eq('cancelada_motivo', 'plaza_fija_retirada')
+        .order('id').range(from, to));
+      return r.error ? null : r.data.map(x => x.id);
+    },
+    cierres: async (desde, hasta) => {
+      const { data, error } = await admin.from('cierres_estudio').select('desde, hasta')
+        .eq('studio_id', studioId).lte('desde', hasta).gte('hasta', desde);
+      return error ? null : ((data ?? []) as { desde: string; hasta: string }[]);
     },
     averias: async (desde, hasta) => {
       const { data, error } = await admin.from('bloqueos_maquina').select('id, sala_id, spot_id, desde, hasta')

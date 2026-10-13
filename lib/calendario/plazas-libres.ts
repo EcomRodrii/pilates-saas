@@ -12,7 +12,10 @@
 //      corre su plazo (`studios.lista_espera_reserva_plaza_ofrecida`, la misma
 //      regla que `evaluar_reserva`): entonces esa oferta ocupa. Las apartadas para ClassPass se restan
 //      (contrato de `lib/plataformas/apartadas-contrato.test.ts`). El aforo es el
-//      nominal, el mismo número que la tarjeta de la clase (`hoy-agenda.ts`).
+//      EFECTIVO (averías descontadas, lo pone el servidor): con una máquina
+//      averiada aquí puede decir «6 de 7» donde la tarjeta dice «6/8», y la
+//      leyenda lo explica. En un día de CIERRE del centro no hay nada libre:
+//      `evaluar_reserva` lo rechaza y el motor no reserva clases fijas.
 //
 //  B · Para una clase fija = Libres − las clases fijas que encajan en la clase
 //      (`sesionEncajaEnPlaza`, el mismo emparejamiento que el motor) y aún no
@@ -42,6 +45,8 @@ export interface SesionParaHuecos {
   tipoClaseId: string;
   aforoMaximo: number;
   cancelada: boolean;
+  /** Cae en un cierre del centro (`fecha_en_cierre`): nadie puede reservarla. */
+  cerrado?: boolean;
 }
 
 export interface ReservaParaHuecos {
@@ -59,6 +64,8 @@ export interface HuecoSesion {
   salaId: string;
   tipoClaseId: string;
   cancelada: boolean;
+  /** Día de cierre del centro: ni libres ni sitio para clase fija. */
+  cerrado: boolean;
   aforo: number;
   ocupadas: number;
   apartadas: number;
@@ -116,21 +123,25 @@ export function huecosDeSesiones(p: {
         !!p.ofertaOcupa && r.estado === 'LISTA_ESPERA' && !!r.ofertaExpiraEn && Date.parse(r.ofertaExpiraEn) > p.ahoraMs;
       const ocupadas = rs.filter(r => OCUPA.has(r.estado) || ofertaViva(r)).length;
       const conFila = new Set(rs.map(r => r.socioId).filter((x): x is string => !!x));
-      let fijasPorVenir = 0, vuelvenDePausa = 0;
-      // Una clase cancelada no guarda el sitio de nadie.
-      for (const pf of s.cancelada ? [] : vivas) {
+      const cerrado = !!s.cerrado;
+      // Cada alumna una vez, como el motor (`rn_dup`): dos clases fijas suyas que
+      // encajan en la misma clase son UNA reserva.
+      const porVenir = new Map<string, 'activa' | 'vuelve'>();
+      // Una clase cancelada, o en un día de cierre, no guarda el sitio de nadie.
+      for (const pf of s.cancelada || cerrado ? [] : vivas) {
         if (conFila.has(pf.socioId)) continue;
         const c = fijaPorVenir(pf, s);
         if (!c) continue;
-        fijasPorVenir++;
-        if (c === 'vuelve') vuelvenDePausa++;
+        if (porVenir.get(pf.socioId) !== 'activa') porVenir.set(pf.socioId, c);
       }
+      const fijasPorVenir = porVenir.size;
+      const vuelvenDePausa = [...porVenir.values()].filter(c => c === 'vuelve').length;
       const aforo = Math.max(0, s.aforoMaximo ?? 0);
       const apartadas = Math.max(0, p.apartadas.get(s.id) ?? 0);
-      const libres = s.cancelada ? 0 : plazasLibresParaReservar(aforo, ocupadas, apartadas);
+      const libres = s.cancelada || cerrado ? 0 : plazasLibresParaReservar(aforo, ocupadas, apartadas);
       return {
         id: s.id, inicio: s.inicio, fin: s.fin, salaId: s.salaId, tipoClaseId: s.tipoClaseId,
-        cancelada: s.cancelada, aforo, ocupadas, apartadas,
+        cancelada: s.cancelada, cerrado, aforo, ocupadas, apartadas,
         enEspera: rs.filter(r => r.estado === 'LISTA_ESPERA' && !ofertaViva(r)).length,
         ofrecidas: rs.filter(r => r.estado === 'LISTA_ESPERA' && !!r.ofertaExpiraEn && Date.parse(r.ofertaExpiraEn) > p.ahoraMs).length,
         porAprobar: rs.filter(r => r.estado === 'PENDIENTE_APROBACION').length,
@@ -152,8 +163,8 @@ export interface FranjaResumen {
   hora: string;
   salaId: string;
   tipoClaseId: string;
-  /** Todas las clases de la franja en el rango, en orden (las canceladas, marcadas). */
-  clases: { id: string; fecha: string; paraFija: number; cancelada: boolean }[];
+  /** Todas las clases de la franja en el rango, en orden (las canceladas y las de un día de cierre, marcadas). */
+  clases: { id: string; fecha: string; paraFija: number; cancelada: boolean; cerrado: boolean }[];
   estado: EstadoFranja;
   /** DESDE: la primera fecha a partir de la cual todas tienen sitio. */
   desde: string | null;
@@ -182,7 +193,8 @@ export function resumirFranjas(huecos: readonly HuecoSesion[], rango: { hasta: s
   for (const [clave, lista] of grupos) {
     const orden = [...lista].sort((a, b) => a.inicio.localeCompare(b.inicio));
     const { dow, hora, minuto } = franjaLocalDe(orden[0].inicio);
-    const vivas = orden.filter(h => !h.cancelada);
+    // Un día de cierre (un festivo) no cuenta: no hace que la franja «no tenga sitio».
+    const vivas = orden.filter(h => !h.cancelada && !h.cerrado);
     const con = vivas.filter(h => h.paraFija >= 1).length;
     // X: la primera clase viva desde la que TODAS las siguientes tienen sitio.
     let desdeIdx = vivas.length;
@@ -195,7 +207,7 @@ export function resumirFranjas(huecos: readonly HuecoSesion[], rango: { hasta: s
     const ultima = hoyEnEstudio(new Date(orden[orden.length - 1].inicio));
     resumen.push({
       clave, dow, hora: `${dosCifras(hora)}:${dosCifras(minuto)}`, salaId: orden[0].salaId, tipoClaseId: orden[0].tipoClaseId,
-      clases: orden.map(h => ({ id: h.id, fecha: hoyEnEstudio(new Date(h.inicio)), paraFija: h.paraFija, cancelada: h.cancelada })),
+      clases: orden.map(h => ({ id: h.id, fecha: hoyEnEstudio(new Date(h.inicio)), paraFija: h.paraFija, cancelada: h.cancelada, cerrado: h.cerrado })),
       estado, desde: estado === 'DESDE' ? desdeFecha : null,
       hasta: vivas.length > 0 ? hoyEnEstudio(new Date(vivas[vivas.length - 1].inicio)) : null,
       minSitios, con, n: vivas.length,
@@ -250,7 +262,8 @@ export const MAX_DIAS_RANGO = 31;
 export const MAX_DIAS_ADELANTE = 400;
 
 // Ojo: «2026-13-01» pasa la expresión y da una fecha inválida; `toISOString()` lanzaría.
-const esFecha = (f: unknown): f is string => {
+// La usa también la página para el `?ref=` de la URL.
+export const esFecha = (f: unknown): f is string => {
   if (typeof f !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return false;
   const d = new Date(`${f}T12:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === f;

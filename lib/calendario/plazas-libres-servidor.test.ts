@@ -25,17 +25,31 @@ function lecturas(extra: Partial<LecturasPlazasLibres> = {}, datos?: { sesiones?
     apartadas: async (ids) => { llamadas.apartadas.push(ids); return []; },
     retiradas: async (ids) => { llamadas.retiradas.push(ids); return []; },
     averias: async () => [],
+    cierres: async () => [],
     ...extra,
   };
   return { l, llamadas };
 }
 
 test('falla cerrado: si cualquiera de las lecturas falla, lanza (nunca un número)', async () => {
-  const fallos: (keyof LecturasPlazasLibres)[] = ['rango', 'plazasFijas', 'ofertaOcupa', 'apartadas', 'retiradas', 'averias'];
+  const fallos: (keyof LecturasPlazasLibres)[] = ['rango', 'plazasFijas', 'ofertaOcupa', 'apartadas', 'retiradas', 'averias', 'cierres'];
   for (const f of fallos) {
     const { l } = lecturas({ [f]: async () => null } as Partial<LecturasPlazasLibres>);
     await assert.rejects(contarPlazasLibres(l, P), Error, f);
   }
+});
+
+test('un día de cierre del centro no tiene nada libre ni sitio para clase fija (el día de Madrid de la clase)', async () => {
+  // La clase del martes 3-nov a las 18:00 de Madrid; el cierre, ese día.
+  const pedidos: string[][] = [];
+  const { l } = lecturas({
+    cierres: async (d, h) => { pedidos.push([d, h]); return [{ desde: '2026-11-03', hasta: '2026-11-03' }]; },
+    plazasFijas: async () => [fija('ana')],
+  }, { sesiones: [sesion('a'), sesion('b', { inicio: '2026-11-10T17:00:00.000Z', fin: '2026-11-10T17:50:00.000Z' })] });
+  const [cerrada, abierta] = (await contarPlazasLibres(l, P)).sesiones;
+  assert.deepEqual([cerrada.cerrado, cerrada.libres, cerrada.paraFija, cerrada.fijasPorVenir], [true, 0, 0, 0]);
+  assert.deepEqual([abierta.cerrado, abierta.libres, abierta.paraFija], [false, 8, 7]);
+  assert.deepEqual(pedidos, [['2026-11-01', '2026-12-01']], 'pide los cierres de los días del rango, en hora de Madrid');
 });
 
 test('las apartadas y las retiradas, por trozos de 100 sesiones (PostgREST corta a mil filas)', async () => {

@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, DoorOpen, Layers } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn, horaEstudio, hoyEnEstudio, masDias } from '@/lib/utils';
-import { fechaEnFrase, MAX_DIAS_ADELANTE, mesDe, semanaDe } from '@/lib/calendario/plazas-libres';
+import { esFecha, fechaEnFrase, MAX_DIAS_ADELANTE, mesDe, semanaDe } from '@/lib/calendario/plazas-libres';
 import { pedirPlazasLibres, type DatosPlazasLibres } from '@/lib/calendario/plazas-libres-cliente';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,6 @@ import { MesPlazasLibres, SemanaPlazasLibres } from '@/components/calendario/vis
 type Modo = 'semana' | 'mes';
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const nombreMes = (ymd: string) => MESES[Number(ymd.slice(5, 7)) - 1];
-const esFecha = (f: string | null): f is string => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f);
 
 function textoRango(modo: Modo, r: { desde: string; hasta: string }): string {
   if (modo === 'mes') return `${nombreMes(r.desde).replace(/^./, c => c.toUpperCase())} de ${r.desde.slice(0, 4)}`;
@@ -48,6 +47,9 @@ export default function PlazasLibresPage() {
   const [estado, setEstado] = useState<'cargando' | 'error' | 'listo'>('cargando');
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [datos, setDatos] = useState<DatosPlazasLibres | null>(null);
+  // De qué periodo PEDIDO son: el servidor recorta `desde` a hoy, y una semana y
+  // un mes pueden acabar el mismo día.
+  const [datosDe, setDatosDe] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const urlLeida = useRef(false);
 
@@ -93,6 +95,7 @@ export default function PlazasLibresPage() {
       if (ctrl.signal.aborted) return;
       if (r.ok) {
         setDatos(r.datos);
+        setDatosDe(`${rango.desde}|${rango.hasta}`);
         setEstado('listo');
         // «Hoy» manda el del servidor: un iPad abierto toda la noche ya no está en ayer.
         setHoy(h => (h === r.datos.hoy ? h : r.datos.hoy));
@@ -106,7 +109,7 @@ export default function PlazasLibresPage() {
   }, [rango?.desde, rango?.hasta, intento, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Solo los datos de ESTE periodo: al cambiar, no se pintan un instante los del anterior.
-  const datosAlDia = datos && rango && datos.hasta === rango.hasta ? datos : null;
+  const datosAlDia = datos && rango && datosDe === `${rango.desde}|${rango.hasta}` ? datos : null;
   const filtrando = !!filtroSala || !!filtroTipo;
   const sesiones = useMemo(
     () => (datosAlDia?.sesiones ?? []).filter(s => (!filtroSala || s.salaId === filtroSala) && (!filtroTipo || s.tipoClaseId === filtroTipo)),

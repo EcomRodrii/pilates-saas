@@ -75,8 +75,9 @@ function FilaClase({ s, nombres, ofertaOcupa }: { s: HuecoSesion; nombres: Nombr
           </span>
           {porque.length > 0 && <span className="block text-[12px] text-muted-foreground text-pretty">{porque.join(' · ')}</span>}
         </span>
-        {s.cancelada ? (
-          <span className="shrink-0 text-[12.5px] text-muted-foreground">Cancelada</span>
+        {s.cancelada || s.cerrado ? (
+          // Un día de cierre: nadie puede reservarla (lo rechaza la reserva y el motor no da clases fijas).
+          <span className="shrink-0 text-[12.5px] text-muted-foreground">{s.cancelada ? 'Cancelada' : 'Centro cerrado'}</span>
         ) : (
           <span className="shrink-0 text-right">
             <span className={cn('block text-[14px] font-semibold tabular-nums', s.libres > 0 ? 'text-foreground' : 'text-muted-foreground')}>
@@ -142,7 +143,7 @@ function FilaFranja({ f, nombres }: { f: FranjaResumen; nombres: NombresPlazasLi
       <ul className="flex flex-wrap gap-1.5" aria-label="Sus clases">
         {f.clases.map(c => {
           const dia = Number(c.fecha.slice(8, 10));
-          const texto = c.cancelada ? 'cancelada' : c.paraFija > 0 ? plural(c.paraFija, 'sitio para clase fija', 'sitios para clase fija') : 'sin sitio para clase fija';
+          const texto = c.cancelada ? 'cancelada' : c.cerrado ? 'centro cerrado' : c.paraFija > 0 ? plural(c.paraFija, 'sitio para clase fija', 'sitios para clase fija') : 'sin sitio para clase fija';
           return (
             <li key={c.id}>
               <Link
@@ -151,7 +152,7 @@ function FilaFranja({ f, nombres }: { f: FranjaResumen; nombres: NombresPlazasLi
                 title={`${diaMes(c.fecha)}: ${texto}`}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-full border text-[12px] font-semibold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  c.cancelada ? 'border-dashed border-muted-foreground text-muted-foreground line-through'
+                  c.cancelada || c.cerrado ? 'border-dashed border-muted-foreground text-muted-foreground line-through'
                     : c.paraFija > 0 ? 'border-foreground bg-foreground text-background'
                       : 'border-muted-foreground text-muted-foreground',
                 )}

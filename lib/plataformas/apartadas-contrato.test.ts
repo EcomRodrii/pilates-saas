@@ -99,6 +99,7 @@ test('«Plazas libres» del Calendario (P3.9) resta las apartadas y, si no las p
   assert.match(leer('lib/calendario/plazas-libres.ts'), /plazasLibresParaReservar\(aforo, ocupadas, apartadas\)/);
   const ruta = leer('app/api/calendario/plazas-libres/route.ts');
   assert.match(ruta, /admin\.rpc\('plazas_apartadas_de', \{ p_studio_id: sesion\.studioId, p_sesion_ids: ids \}\)/, 'el estudio sale de la sesión');
-  assert.match(ruta, /return error \? null :/, 'un fallo es `null`…');
+  // Anclado a la lectura de las apartadas: otras lecturas de la ruta también devuelven `null` al fallar.
+  assert.match(ruta, /apartadas: async \(ids\) => \{\s*const \{ data, error \} = await admin\.rpc\('plazas_apartadas_de'[^\n]*\n\s*return error \? null :/, 'un fallo de las apartadas es `null`…');
   assert.match(leer('lib/calendario/plazas-libres-servidor.ts'), /if \(!a\) throw new Error\('No se han podido leer las plazas apartadas'\)/, '…y `null` es error, nunca 0 apartadas');
 });

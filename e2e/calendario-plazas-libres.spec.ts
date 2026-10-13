@@ -30,23 +30,25 @@ function a18(ymd: string): string {
 }
 
 /** Los martes a las 18:00 del rango, en Reformer y sala 1: los dos primeros sin sitio para clase fija, el resto con. */
-function respuesta(desde: string, hasta: string) {
+function respuesta(desde: string, hasta: string, cierre = false) {
   const sesiones: Record<string, unknown>[] = [];
   let k = 0;
   for (let d = desde; d <= hasta; d = masDias(d, 1)) {
     if (dowDe(d) !== 2) continue;
     const sinSitio = k < 2;
+    // Con `cierre`, el primer martes de cada periodo cae en un día de cierre del centro.
+    const cerrado = cierre && k === 0;
     sesiones.push({
-      id: `ses-pl-${d}`, inicio: a18(d), fin: a18(d), salaId: 'sala-1', tipoClaseId: 'tc-reformer', instructorId: 'ins-cloe', cancelada: false,
+      id: `ses-pl-${d}`, inicio: a18(d), fin: a18(d), salaId: 'sala-1', tipoClaseId: 'tc-reformer', instructorId: 'ins-cloe', cancelada: false, cerrado,
       aforo: 8, ocupadas: sinSitio ? 6 : 5, apartadas: 2, enEspera: sinSitio ? 2 : 0, porAprobar: 0, ofrecidas: 0,
-      libres: sinSitio ? 0 : 1, paraFija: sinSitio ? 0 : 1, fijasPorVenir: 0, vuelvenDePausa: 0,
+      libres: sinSitio || cerrado ? 0 : 1, paraFija: sinSitio || cerrado ? 0 : 1, fijasPorVenir: 0, vuelvenDePausa: 0,
     });
     k++;
   }
   return { disponible: true, hoy: hoyMadrid(), desde, hasta, ofertaOcupa: false, contadoEn: new Date().toISOString(), sesiones };
 }
 
-async function preparar(page: Page, opciones: { encendido?: boolean; datos?: 'ok' | '500' | 'red' | '403' } = {}) {
+async function preparar(page: Page, opciones: { encendido?: boolean; datos?: 'ok' | '500' | 'red' | '403'; cierre?: boolean } = {}) {
   const peticiones = { sonda: 0, datos: 0 };
   await montar(page);
   await page.route((u) => u.pathname === '/api/calendario/plazas-libres', (route) => {
@@ -60,7 +62,7 @@ async function preparar(page: Page, opciones: { encendido?: boolean; datos?: 'ok
     if (opciones.datos === '403') return json(route, { error: 'No tienes permiso para esto' }, 403);
     if (opciones.datos === '500') return json(route, { error: 'x' }, 500);
     if (opciones.datos === 'red') return route.abort('failed');
-    return json(route, respuesta(url.searchParams.get('desde')!, url.searchParams.get('hasta')!));
+    return json(route, respuesta(url.searchParams.get('desde')!, url.searchParams.get('hasta')!, opciones.cierre));
   });
   return peticiones;
 }
@@ -105,6 +107,32 @@ test.describe('Calendario: plazas libres (P3.9)', () => {
     await expect(fila).toContainText('6 de 8 ocupadas');
     await expect(fila).toContainText('2 apartadas para ClassPass');
     await expect(page.getByTestId('plazas-libres-contado')).toContainText('Contado a las');
+  });
+
+  test('un día de cierre del centro: «Centro cerrado», sin cifras, y en el mes su chip tachado', async ({ page }) => {
+    await preparar(page, { cierre: true });
+    await page.goto('/calendario/plazas-libres');
+    await expect(page.getByTestId('plazas-libres')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Semana siguiente' }).click();
+    const fila = page.getByTestId('plazas-libres-semana').locator('[data-plazas-sesion]').first();
+    await expect(fila).toContainText('Centro cerrado');
+    await expect(fila).not.toContainText('Completa');
+    await page.getByRole('button', { name: 'Mes', exact: true }).click();
+    const mes = page.getByTestId('plazas-libres-mes');
+    await expect(mes.getByRole('link', { name: /: centro cerrado$/ }).first()).toBeVisible();
+  });
+
+  test('una fecha imposible en la URL no tumba la pantalla: se queda en hoy', async ({ page }) => {
+    const peticiones = await preparar(page);
+    const errores: string[] = [];
+    page.on('pageerror', e => errores.push(e.message));
+    for (const url of ['/calendario/plazas-libres?ref=2026-12-32', '/calendario/plazas-libres?modo=mes&ref=2026-13-01']) {
+      await page.goto(url);
+      await expect(page.getByTestId('plazas-libres')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('plazas-libres-rango')).toBeVisible();
+    }
+    await expect.poll(() => peticiones.datos).toBeGreaterThan(0);
+    expect(errores).toEqual([]);
   });
 
   test('el mes: una fila por franja con «sitio del… al…» (sus dos extremos)', async ({ page }) => {

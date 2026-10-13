@@ -6,8 +6,12 @@
 //  · Falla CERRADO: si cualquier lectura falla (también las apartadas para
 //    ClassPass, las averías o el ajuste de la lista de espera), lanza. Recepción
 //    promete con esta pantalla: mejor un error que un número de más.
-//  · Las apartadas y las reservas retiradas, por trozos de 100 sesiones:
-//    PostgREST corta en silencio a mil filas.
+//  · Las apartadas y las reservas retiradas, por trozos de 100 sesiones (la
+//    URL de PostgREST no admite más ids); y las retiradas, además, paginadas
+//    por la ruta: PostgREST corta en silencio a mil filas.
+//  · Un día de CIERRE del centro no tiene nada libre (`fecha_en_cierre`, el día
+//    de Madrid de la clase): `evaluar_reserva` rechaza la reserva y el motor no
+//    reserva clases fijas.
 //  · El aforo es el EFECTIVO (`aforoEfectivoSesion`, espejo de `aforo_efectivo()`):
 //    con una máquina averiada, el mostrador y la app ya no dejan reservar esa
 //    plaza, y esta pantalla tampoco la ofrece.
@@ -22,6 +26,7 @@
 import { apartadasPorSesion } from '../booking-logic.ts';
 import { aforoEfectivoSesion } from '../aforo-logic.ts';
 import { huecosDeSesiones, type HuecoSesion, type ReservaParaHuecos, type SesionParaHuecos } from './plazas-libres.ts';
+import { hoyEnEstudio } from '../utils.ts';
 import type { BloqueoMaquina, PlazaFija } from '../types.ts';
 
 export const IDS_POR_CONSULTA = 100;
@@ -39,6 +44,8 @@ export interface LecturasPlazasLibres {
   retiradas(sesionIds: string[]): Promise<string[] | null>;
   /** Averías de máquina que solapan [desdeIso, hastaIso); `null` si falla. */
   averias(desdeIso: string, hastaIso: string): Promise<BloqueoMaquina[] | null>;
+  /** Cierres del centro (días 'YYYY-MM-DD', ambos incluidos) que solapan esos días; `null` si falla. */
+  cierres(desdeDia: string, hastaDia: string): Promise<{ desde: string; hasta: string }[] | null>;
 }
 
 const trozos = <T>(xs: readonly T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
@@ -47,13 +54,17 @@ export async function contarPlazasLibres(
   l: LecturasPlazasLibres,
   p: { desdeIso: string; hastaIso: string; ahoraMs: number },
 ): Promise<{ ofertaOcupa: boolean; sesiones: HuecoSesion[] }> {
-  const [rango, plazas, ofertaOcupa, averias] = await Promise.all([
+  const diaDe = (iso: string) => hoyEnEstudio(new Date(iso));
+  const [rango, plazas, ofertaOcupa, averias, cierres] = await Promise.all([
     l.rango(p.desdeIso, p.hastaIso), l.plazasFijas(), l.ofertaOcupa(), l.averias(p.desdeIso, p.hastaIso),
+    l.cierres(diaDe(p.desdeIso), diaDe(p.hastaIso)),
   ]);
   if (!rango) throw new Error('No se han podido leer las clases del rango');
   if (!plazas) throw new Error('No se han podido leer las clases fijas');
   if (ofertaOcupa === null) throw new Error('No se ha podido leer el ajuste de la lista de espera');
   if (!averias) throw new Error('No se han podido leer las averías');
+  if (!cierres) throw new Error('No se han podido leer los cierres del centro');
+  const enCierre = (iso: string) => { const d = diaDe(iso); return cierres.some(c => d >= c.desde && d <= c.hasta); };
 
   const ids = rango.sesiones.map(s => s.id);
   const filasApartadas: { sesion_id: string; plazas: number }[] = [];
@@ -69,7 +80,9 @@ export async function contarPlazasLibres(
   return {
     ofertaOcupa,
     sesiones: huecosDeSesiones({
-      sesiones: rango.sesiones.map(s => ({ ...s, aforoMaximo: aforoEfectivoSesion(s.aforoMaximo, s.salaId, s.inicio, s.fin, averias) })),
+      sesiones: rango.sesiones.map(s => ({
+        ...s, aforoMaximo: aforoEfectivoSesion(s.aforoMaximo, s.salaId, s.inicio, s.fin, averias), cerrado: enCierre(s.inicio),
+      })),
       // Una reserva retirada por el sistema no es «su fila»: se pasa sin alumna.
       reservas: rango.reservas.map(r => (retiradas.has(r.id) ? { ...r, socioId: null } : r)),
       plazas,
