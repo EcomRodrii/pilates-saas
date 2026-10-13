@@ -90,9 +90,9 @@ test.describe('Canjes pendientes en la home', () => {
     expect(llamadas[0]).toContain('tnt-ah6ydd');
   });
 
-  test('un código ya usado se dice, y la fila NO desaparece', async ({ page }) => {
+  test('un código ya usado se dice en rojo, y la fila NO desaparece', async ({ page }) => {
     // Lo contrario sería lo peor: quitar la fila haría creer que se entregó.
-    await conCanjePendiente(page, { rpc: () => 'ERROR' });
+    const llamadas = await conCanjePendiente(page, { rpc: () => 'ERROR' });
     await ir(page, 'dashboard');
     const tarjeta = page.getByTestId('canjes-pendientes');
     await expect(tarjeta).toContainText('Marcos Roca', { timeout: 30_000 });
@@ -100,7 +100,12 @@ test.describe('Canjes pendientes en la home', () => {
     await page.getByLabel('Código de canje').fill('TNT-AH6YDD');
     await tarjeta.getByRole('button', { name: 'Entregar' }).last().click();
 
-    await expect(page.getByText(/ya se ha utilizado/i)).toBeVisible({ timeout: 15_000 });
+    // El intento llegó al servidor (sin contador, «no mintió» podría ser no haber
+    // llamado), y el «no» sale como error: `alert` en rojo, nunca el ✓ verde
+    // (`status`) del éxito, que es como salía hasta el 13-oct (P0.3, tanda 2).
+    await expect.poll(() => llamadas.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.getByRole('alert').filter({ hasText: /ya se ha utilizado/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('status').filter({ hasText: /ya se ha utilizado/i })).toHaveCount(0);
     await expect(tarjeta).toContainText('Marcos Roca');
   });
 });

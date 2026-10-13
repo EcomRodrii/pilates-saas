@@ -35,7 +35,6 @@ const raiz = join(import.meta.dirname, '..');
 const TOPES: Record<string, number> = {
   'app/(dashboard)/automatizaciones/page.tsx': 2,
   'app/(dashboard)/cierre/page.tsx': 3,
-  'app/(dashboard)/dashboard/page.tsx': 2,
   'app/(dashboard)/equipo/liquidaciones/page.tsx': 6,
   'app/(dashboard)/equipo/page.tsx': 4,
   'app/(dashboard)/equipo/tiempo-trabajado/page.tsx': 1,
@@ -63,14 +62,6 @@ const TOPES: Record<string, number> = {
   'components/acceso/accesos-de-la-clienta.tsx': 1,
   'components/apariencia/editor-apariencia-app.tsx': 2,
   'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
-  'components/dashboard/bajas-por-revisar.tsx': 1,
-  'components/dashboard/canjes-pendientes.tsx': 2,
-  'components/dashboard/clases-sin-instructora.tsx': 2,
-  'components/dashboard/denuncias-por-revisar.tsx': 1,
-  'components/dashboard/devoluciones-pendientes.tsx': 1,
-  'components/dashboard/dobles-cobros-por-revisar.tsx': 1,
-  'components/dashboard/plazas-fijas-por-decidir.tsx': 1,
-  'components/dashboard/series-por-renovar.tsx': 1,
   'components/decision/codigos-descuento.tsx': 1,
   'components/network/boton-favorito-alumna.tsx': 1,
   'components/regalo/panel-regalo.tsx': 1,
@@ -97,6 +88,7 @@ const TOPES: Record<string, number> = {
 // Las pantallas de P0.3: a 0, y que no vuelvan a subir aunque alguien toque TOPES.
 const A_CERO = [
   'app/(dashboard)/calendario/page.tsx',
+  'app/(dashboard)/dashboard/page.tsx',
   'components/clientas/ficha-clienta.tsx',
   'app/(dashboard)/productos/page.tsx',
   'app/(dashboard)/clientas/page.tsx',
@@ -158,9 +150,10 @@ test('las pantallas de P0.3 se quedan a cero', () => {
   for (const f of A_CERO) assert.ok(!(f in TOPES), `${f} no puede tener tope: está a 0`);
 });
 
-// Tanda 1 (14-oct-2026): las herramientas de Configuración, enteras. Una
-// carpeta a cero se queda a cero aunque alguien añada un fichero nuevo.
-const CARPETAS_A_CERO = ['components/configuracion/'];
+// Tanda 1 (13-oct-2026): las herramientas de Configuración, enteras. Tanda 2:
+// Inicio (sus tarjetas de «por decidir» y los cobros). Una carpeta a cero se
+// queda a cero aunque alguien añada un fichero nuevo.
+const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/'];
 
 test('las carpetas que ya se pasaron a rojo se quedan a cero', () => {
   for (const c of CARPETAS_A_CERO) {

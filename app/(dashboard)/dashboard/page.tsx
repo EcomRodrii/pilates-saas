@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -35,7 +35,7 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero, puedeGestionarCalendario } from '@/lib/permisos';
-import { Toast, useToast } from '@/components/ui/toast';
+import { Toast, useToast, type MostrarToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
@@ -600,7 +600,13 @@ export default function Dashboard() {
     return { esperando, ejecutadas, fallidas };
   }, [automationLogs, hoyStr, rolActual, esperandoEnBandeja]);
 
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
+  // Las dos mitades de un error en rojo: el `{ variant: 'error' }` de quien avisa
+  // (las tarjetas de «por decidir» y los cobros) y el `variant` del <Toast>.
+  const showToast: MostrarToast = useCallback(
+    (mensaje, opciones) => { if (opciones?.variant === 'error') showError(mensaje); else show(mensaje); },
+    [show, showError],
+  );
   const [cobrandoTodos, setCobrandoTodos] = useState(false);
 
   // ── "10 segundos": lo que el negocio necesita ver hoy sin navegar ───────────
@@ -1053,7 +1059,10 @@ export default function Dashboard() {
                         if (cobrandoTodos) return;
                         setCobrandoTodos(true);
                         return cobrarTodosPendientes(undefined, metodo)
-                          .then(res => { showToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error); })
+                          .then(res => {
+                            if (res.ok) showToast(textoLoteCobrado(res, res.saltados));
+                            else showToast(res.error, { variant: 'error' });
+                          })
                           .finally(() => setCobrandoTodos(false));
                       }}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1085,7 +1094,8 @@ export default function Dashboard() {
                         <BotonCobrarConMetodo
                           detalle={<>{r.socio!.nombre} {r.socio!.apellidos} — <span className="font-semibold text-foreground">{r.importe} €</span></>}
                           onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                            showToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${r.importe} €`) : res.error);
+                            if (res.ok) showToast(res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${r.importe} €`);
+                            else showToast(res.error, { variant: 'error' });
                           })}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         />
@@ -1281,7 +1291,7 @@ export default function Dashboard() {
         </div>
         </div>
       </div>
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }
