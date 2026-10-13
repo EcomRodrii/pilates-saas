@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emailValido, parsearFecha } from '@/lib/csv';
-import { uid } from '@/lib/utils';
+import { uid, hoyEnEstudio } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
   const errores: { fila: number; email: string; motivo: string }[] = [];
   const paraInsertar: Record<string, unknown>[] = [];
   const vistosEnLote = new Set<string>();
-  const hoy = new Date().toISOString().slice(0, 10);
+  // «Vigente desde» por defecto: el día del estudio, nunca el de UTC.
+  const hoy = hoyEnEstudio();
   let duplicadas = 0;
 
   filas.forEach((f, i) => {

@@ -3,9 +3,10 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Recibo, PlanTarifa } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, agruparFranjasRecurrentes, demandaInsatisfecha, pagosEnRiesgo,
-  impagosManualesPorSocio, etiquetaFranja,
+  impagosManualesPorSocio, etiquetaFranja, precioMedioSesion,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
+import { precioMensualDeCuota } from '../../bono-logic.ts';
 import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendienteManual, confianzaRevisarPrecio } from '../confianza.ts';
 
 const MS_DIA = 86400000;
@@ -26,31 +27,6 @@ function hayCapacidadFisica(franja: FranjaRecurrente, s: SnapshotEstudio): boole
   const salasUsadas = new Set(franja.sesionesOrdenadas.map(se => se.salaId));
   const aforoReferencia = franja.sesionesOrdenadas[0]?.aforoMaximo ?? 0;
   return s.salas.some(sala => !salasUsadas.has(sala.id) && sala.capacidad >= aforoReferencia);
-}
-
-/**
- * Precio medio por sesión, ponderado por socias activas (Especialistas §2.2):
- * MENSUAL → precio/(frecuenciaHabitual×4.33) · BONO → precio/sesiones · PUNTUAL → precio.
- */
-function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
-  const precios: number[] = [];
-  for (const socio of s.socios) {
-    if (!socio.activo) continue;
-    const sus = idx.suscripcionActivaPorSocio.get(socio.id);
-    if (!sus) continue;
-    const plan = idx.planPorId.get(sus.planId);
-    if (!plan) continue;
-    if (plan.tipo === 'MENSUAL') {
-      const freq = frecuenciaHabitual(socio.id, idx);
-      if (freq !== null && freq > 0) precios.push(plan.precio / (freq * 4.33));
-    } else if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
-      precios.push(plan.precio / plan.sesiones);
-    } else if (plan.tipo === 'PUNTUAL') {
-      precios.push(plan.precio);
-    }
-  }
-  if (precios.length === 0) return 0;
-  return precios.reduce((a, b) => a + b, 0) / precios.length;
 }
 
 /** I1 · Demanda desbordada → ABRIR_SESION. */
@@ -215,8 +191,8 @@ function reglaI3(socioId: string, recibos: Recibo[], idx: IndicesSenal, now: Dat
 
 /**
  * I4 · Plan MENSUAL infravalorado → REVISAR_PRECIO. Para cada plan mensual con
- * varias socias activas, se calcula su precio REAL por sesión (cuota ÷ clases que
- * de verdad dan al mes). Si queda muy por debajo de la media del estudio, hay
+ * varias socias activas, se calcula su precio REAL por sesión (cuota al mes ÷
+ * clases que de verdad dan al mes). Si queda muy por debajo de la media del estudio, hay
  * margen de subida — pero el precio es decisión del propietario, así que es una
  * OPORTUNIDAD suave (confianza topada en MEDIA, sin cifra de impacto inventada).
  */
@@ -238,7 +214,7 @@ function reglaI4(s: SnapshotEstudio, idx: IndicesSenal): Candidata | null {
     const freq = frecuenciaHabitual(socio.id, idx);
     if (freq === null || freq <= 0) continue; // sin frecuencia fiable no se puede valorar
     const arr = porSesionPorPlan.get(plan.id) ?? [];
-    arr.push(plan.precio / (freq * 4.33));
+    arr.push(precioMensualDeCuota(plan) / (freq * 4.33));
     porSesionPorPlan.set(plan.id, arr);
   }
 

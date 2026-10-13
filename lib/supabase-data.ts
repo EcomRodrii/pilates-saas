@@ -19,7 +19,7 @@ import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos'
 // de cliente— pero eran una arista latente: bastaba con que alguien usara una
 // de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
 // layout raíz, que es cliente.)
-import { uid, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import { uid, inicioDelDiaEstudio, finDelDiaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { horaHHMM } from '@/lib/booking-logic';
 import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -3378,8 +3378,10 @@ export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRec
       .in('id', ids);
     if (error) return { ok: false };
     for (const fila of (data ?? []) as unknown as FilaReciboRemesa[]) filas.set(fila.id, fila);
-    // El «hoy» del cron de renovaciones: con él se sabe si una cuota ya venció.
-    return { ok: true, filas, hoy: new Date().toISOString().slice(0, 10) };
+    // El «hoy» con el que se sabe si una cuota ya venció: el del estudio. El cron de
+    // renovaciones corre a las 08:00 UTC, cuando su día UTC ya es el de Madrid; la
+    // remesa se arma a cualquier hora, y de madrugada el de UTC aún era ayer.
+    return { ok: true, filas, hoy: hoyEnEstudio() };
   } catch {
     return { ok: false };
   }

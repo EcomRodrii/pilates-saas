@@ -14,6 +14,7 @@ import { idsEstudios } from '@/lib/inngest/estudios.ts';
 import { emitirClaseFijaTerminaPronto } from '@/lib/notifications/emit';
 import { agruparTerminanPronto, DIAS_AVISO_CLASE_FIJA_TERMINA, type PlazaSueltaQueTermina } from '@/lib/clases-fijas-reglas';
 import { nombreDeOferta } from '@/lib/db/clases-fijas';
+import { hoyEnEstudio, masDias } from '@/lib/utils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 function exigir(error: { message: string } | null, que: string): void {
@@ -34,8 +35,9 @@ export async function barrerClasesFijasTerminanPronto(): Promise<{ estudios: num
 }
 
 async function unEstudio(admin: SupabaseClient, studioId: string) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const limite = new Date(Date.now() + DIAS_AVISO_CLASE_FIJA_TERMINA * 24 * 3600_000).toISOString().slice(0, 10);
+  // En días del ESTUDIO: con los de UTC, de madrugada la ventana empezaba ayer.
+  const hoy = hoyEnEstudio();
+  const limite = masDias(hoy, DIAS_AVISO_CLASE_FIJA_TERMINA);
   const deOfertas = await avisarOfertasConNombre(admin, studioId, hoy, limite);
   const sueltas = await avisarPlazasSueltas(admin, studioId, hoy, limite);
   return { publicados: deOfertas.publicados + sueltas.publicados };

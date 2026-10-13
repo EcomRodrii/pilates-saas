@@ -97,6 +97,20 @@ test('evidencia correcta: sin errores', () => {
   assert.deepEqual(erroresAutorizacion(AUT, { tipoEmisor: 'persona_fisica' }, HOY), []);
 });
 
+// La pantalla propone como fecha de otorgamiento el día de hoy EN MADRID. Comparada con el
+// instante (UTC), entre las 00:00 y las 02:00 de Madrid esa fecha salía «futura» y no se
+// podía guardar. (Se corre también con TZ=UTC.)
+test('evidencia: a las 00:30 de Madrid, un poder otorgado hoy no es «futuro»', () => {
+  const ahora = new Date('2026-11-16T23:30:00Z'); // 00:30 del 17 en Madrid (+01:00)
+  const f = (otorgadoEn: string) =>
+    erroresAutorizacion({ ...AUT, otorgadoEn, vigenteHasta: '2031-11-16' }, { tipoEmisor: 'persona_fisica' }, ahora);
+  assert.deepEqual(f('2026-11-17'), []);
+  assert.ok(f('2026-11-18').some(e => e.includes('futura')), 'mañana sí es futura');
+  // Verano (+02:00): a las 01:30 del 16-jul ya es el 16.
+  const verano = new Date('2026-07-15T23:30:00Z');
+  assert.deepEqual(erroresAutorizacion({ ...AUT, otorgadoEn: '2026-07-16', vigenteHasta: '2031-07-15' }, { tipoEmisor: 'persona_fisica' }, verano), []);
+});
+
 test('evidencia: el simple «acepto» no basta — sin CSV no hay autorización', () => {
   assert.ok(erroresAutorizacion({ ...AUT, csv: '' }, { tipoEmisor: 'persona_fisica' }, HOY).length > 0);
   assert.ok(erroresAutorizacion({ ...AUT, csv: 'con espacios y ñ' }, { tipoEmisor: 'persona_fisica' }, HOY).length > 0);

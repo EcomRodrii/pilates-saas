@@ -46,7 +46,7 @@ test('medirOutcome ENVIAR_REACTIVACION: renovación con precio resuelto → POSI
   const r = medirOutcome('ENVIAR_REACTIVACION', senal({ suscripcionRenovada: true, precioMensualPlanEur: 39 }));
   assert.deepEqual(r, {
     outcome: 'POSITIVO', senalObservada: 'RENOVO', confianzaMedicion: 'MEDIDO',
-    impactoReal: { valor: 39, unidad: 'EUR_MES', formula: 'Precio del plan de la suscripción renovada' },
+    impactoReal: { valor: 39, unidad: 'EUR_MES', formula: 'Precio al mes del plan de la suscripción renovada' },
   });
 });
 
@@ -96,7 +96,7 @@ test('medirOutcome COBRAR_PENDIENTE: si la socia paga → POSITIVO (ya no siempr
 test('medirOutcome CONTACTAR_LEAD / CONVERTIR_PRUEBA cierran el bucle (antes siempre NEUTRO)', () => {
   assert.deepEqual(medirOutcome('CONTACTAR_LEAD', senal({ suscripcionRenovada: true, precioMensualPlanEur: 29 })), {
     outcome: 'POSITIVO', senalObservada: 'RENOVO', confianzaMedicion: 'MEDIDO',
-    impactoReal: { valor: 29, unidad: 'EUR_MES', formula: 'Precio del plan de la suscripción renovada' },
+    impactoReal: { valor: 29, unidad: 'EUR_MES', formula: 'Precio al mes del plan de la suscripción renovada' },
   });
   const neutro = medirOutcome('CONVERTIR_PRUEBA', senal({ reservaAsistidaPosterior: true }));
   assert.equal(neutro.outcome, 'NEUTRO');

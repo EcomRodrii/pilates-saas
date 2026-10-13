@@ -14,6 +14,7 @@ import { sellarAceptacionMostrador } from '@/lib/aceptacion-contrato-cliente';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import { saldoBonosPorSocia } from '@/lib/clientas/saldo-bonos';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
@@ -351,22 +352,13 @@ export default function Socios() {
   // diseño, no una anomalía) la columna «Sesiones rest.» enseñaba el saldo de
   // uno cualquiera de ellos, y no se movía al venderle otro.
   //
-  // Mismos criterios que `saldoSesionesBono` (lib/bono-logic), pero en UNA
-  // pasada y no una por socia: esta tabla lista el estudio entero y el resto de
-  // índices de aquí arriba existen justo por eso. No es duplicación a la que
-  // haya que "sacar factor común" — si cambian los criterios, cambian los dos.
-  const saldoBonosPorSocio = useMemo(() => {
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    const m = new Map<string, number>();
-    for (const s of suscripciones) {
-      if (s.estado !== 'ACTIVA' || s.sesionesRestantes === null) continue;
-      if (s.fechaFin && s.fechaFin < hoyISO) continue;
-      const plan = planesTarifa.find((p) => p.id === s.planId);
-      if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) continue;
-      m.set(s.socioId, (m.get(s.socioId) ?? 0) + s.sesionesRestantes);
-    }
-    return m;
-  }, [suscripciones, planesTarifa]);
+  // El criterio es el de `saldoSesionesBono`, con el «hoy» del estudio: con el
+  // de UTC, entre las 00:00 y las 02:00 de Madrid un bono caducado ayer seguía
+  // sumando (lib/clientas/saldo-bonos.ts).
+  const saldoBonosPorSocio = useMemo(
+    () => saldoBonosPorSocia(suscripciones, planesTarifa, hoyEnEstudio()),
+    [suscripciones, planesTarifa],
+  );
   const ultimaVisitaPorSocio = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of reservas) {
@@ -2389,9 +2381,14 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
   const filtrando = todos !== undefined && !!valor;
   // Sin filtrar dice solo qué filtra («Plan»); filtrando, lo elegido («Plan: Mensual»).
   const conValor = todos === undefined || filtrando;
+  // Chrome y Safari dan `:focus-visible` también a un select pinchado con el ratón
+  // (medido): sin apuntarlo, el anillo de teclado salía en cada clic.
+  const [conPuntero, setConPuntero] = useState(false);
   return (
     <label className={cn(
       'relative inline-flex min-h-10 shrink-0 items-center rounded-xl border bg-card pl-3 pr-8 text-[13px] font-medium text-foreground transition-colors hover:border-muted-foreground [@media(pointer:fine)]:min-h-9',
+      // El foco lo tiene el select, que es invisible: el anillo lo pinta la etiqueta.
+      !conPuntero && 'has-[select:focus-visible]:border-ring has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50',
       filtrando ? 'border-foreground bg-muted/60' : 'border-border',
     )}>
       {conValor ? (
@@ -2406,6 +2403,9 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
       <select
         value={valor}
         onChange={(e) => onCambiar(e.target.value)}
+        onPointerDown={() => setConPuntero(true)}
+        onKeyDown={() => setConPuntero(false)}
+        onBlur={() => setConPuntero(false)}
         aria-label={etiqueta}
         className="absolute inset-0 cursor-pointer appearance-none opacity-0"
       >

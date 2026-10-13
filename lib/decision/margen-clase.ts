@@ -12,6 +12,7 @@
 import type { Reserva, Sesion, Suscripcion } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
 import { PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA } from '../reservas/clase-suelta.ts';
+import { precioMensualDeCuota } from '../bono-logic.ts';
 import { construirIndices, frecuenciaHabitual, precioMedioSesion, type IndicesSenal } from './senales.ts';
 
 export interface MargenSesion {
@@ -60,8 +61,8 @@ function suscripcionParaClase(reserva: Reserva, tipoClaseId: string, s: Snapshot
 }
 
 /** Ingreso real imputado a UN asistente de una sesión, por su plan real (no
- *  el promedio de estudio) — MENSUAL por su frecuencia real, BONO por
- *  precio/sesiones de su plan, PUNTUAL por el precio del plan.
+ *  el promedio de estudio) — MENSUAL por lo que paga al mes y su frecuencia
+ *  real, BONO por precio/sesiones de su plan, PUNTUAL por el precio del plan.
  *
  *  La clase suelta del mostrador es, desde el 2-oct-2026, la tarifa PUNTUAL
  *  que gasta la reserva (lib/reservas/clase-suelta.ts), igual que la que se
@@ -77,7 +78,7 @@ function ingresoAsistente(reserva: Reserva, tipoClaseId: string, sesion: Sesion,
     if (plan) {
       if (plan.tipo === 'MENSUAL') {
         const freq = frecuenciaHabitual(reserva.socioId, idx);
-        return freq !== null && freq > 0 ? plan.precio / (freq * 4.33) : 0;
+        return freq !== null && freq > 0 ? precioMensualDeCuota(plan) / (freq * 4.33) : 0;
       }
       if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) return plan.precio / plan.sesiones;
       if (plan.tipo === 'PUNTUAL') return plan.precio;

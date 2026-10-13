@@ -58,6 +58,11 @@ export interface ConteosEstudio {
   canjesPorEntregar?: number | null;
   /** Bajas de última hora del equipo esperando «Todo en orden» / «Lo hablamos». */
   bajasPorRevisar?: number | null;
+  /**
+   * Festivos oficiales de la zona del estudio, de mañana a 21 días, con clases y
+   * sin decidir (ni cerrados ni «abrimos igualmente»). Nada se cierra solo.
+   */
+  festivosPorDecidir?: number | null;
   /** Clases que se repiten y terminan en 30 días (o terminaron hace menos de 14) sin renovar. */
   seriesPorRenovar?: number | null;
   /** Peticiones de plaza fija (plaza, pausa o la vuelta de una pausa) que esperan al estudio. */
@@ -118,6 +123,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   devolucionesPorRevisar: 'decidir-devoluciones',
   canjesPorEntregar: 'decidir-canjes',
   bajasPorRevisar: 'decidir-bajas-equipo',
+  festivosPorDecidir: 'decidir-festivos',
   seriesPorRenovar: 'decidir-series',
   plazasFijasPorDecidir: 'decidir-plazas-fijas',
   reconciliacionesPorRevisar: 'decidir-reconciliaciones',
@@ -191,6 +197,11 @@ const LINEAS: DefLinea[] = [
     uno: 'Una devolución por revisar', varios: n => `${n} devoluciones por revisar` },
   { id: 'automatizacionesEsperando', bandeja: 'decidir', href: '/automatizaciones',
     uno: 'Una automatización espera tu visto bueno', varios: n => `${n} automatizaciones esperan tu visto bueno` },
+  // Un festivo con clases: si nadie decide, las alumnas van a una puerta
+  // cerrada o el estudio cancela con prisa la víspera. Se decide en su tarjeta.
+  // «abres o cierras», no «si cierras»: abrir es tan válido como cerrar.
+  { id: 'festivosPorDecidir', bandeja: 'decidir', href: null,
+    uno: 'Un festivo con clases: decide si abres o cierras', varios: n => `${n} festivos con clases: decide si abres o cierras` },
   // Una clase que se repite y se acaba: si nadie la renueva, ese hueco se queda
   // sin clase y sus plazas fijas sin reserva. Se revisa y renueva en su tarjeta.
   { id: 'seriesPorRenovar', bandeja: 'decidir', href: null,
