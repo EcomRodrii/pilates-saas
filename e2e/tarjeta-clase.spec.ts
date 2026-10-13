@@ -224,7 +224,9 @@ test.describe('Configuración · Quién viene a cada clase (P3.11)', () => {
   test('si el servidor dice que no, lo dice y no da nada por guardado', async ({ page }) => {
     const { tarjeta, envios } = await abrirConfiguracion(page, { status: 403, body: { error: 'Solo la propietaria puede cambiar esto' } });
 
-    await tarjeta.getByRole('radio', { name: /Qué adaptar/ }).check();
+    // Como una persona: se pulsa la etiqueta visible (el radio nativo va oculto, `sr-only`).
+    await tarjeta.getByText('Qué adaptar', { exact: true }).click();
+    await expect(tarjeta.getByRole('radio', { name: /Qué adaptar/ })).toBeChecked();
     await tarjeta.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(tarjeta.getByRole('alert')).toHaveText('Solo la propietaria puede cambiar esto');
