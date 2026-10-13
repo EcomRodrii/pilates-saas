@@ -2571,9 +2571,14 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
   const filtrando = todos !== undefined && !!valor;
   // Sin filtrar dice solo qué filtra («Plan»); filtrando, lo elegido («Plan: Mensual»).
   const conValor = todos === undefined || filtrando;
+  // Chrome y Safari dan `:focus-visible` también a un select pinchado con el ratón
+  // (medido): sin apuntarlo, el anillo de teclado salía en cada clic.
+  const [conPuntero, setConPuntero] = useState(false);
   return (
     <label className={cn(
       'relative inline-flex min-h-10 shrink-0 items-center rounded-xl border bg-card pl-3 pr-8 text-[13px] font-medium text-foreground transition-colors hover:border-muted-foreground [@media(pointer:fine)]:min-h-9',
+      // El foco lo tiene el select, que es invisible: el anillo lo pinta la etiqueta.
+      !conPuntero && 'has-[select:focus-visible]:border-ring has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50',
       filtrando ? 'border-foreground bg-muted/60' : 'border-border',
     )}>
       {conValor ? (
@@ -2588,6 +2593,9 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
       <select
         value={valor}
         onChange={(e) => onCambiar(e.target.value)}
+        onPointerDown={() => setConPuntero(true)}
+        onKeyDown={() => setConPuntero(false)}
+        onBlur={() => setConPuntero(false)}
         aria-label={etiqueta}
         className="absolute inset-0 cursor-pointer appearance-none opacity-0"
       >

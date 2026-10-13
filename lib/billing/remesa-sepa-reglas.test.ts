@@ -174,8 +174,10 @@ test('⚠️ marcar exige PENDIENTE y sin cobro en marcha en el UPDATE; deshacer
   assert.ok(lectura.includes('.select(SELECT_RECIBOS_REMESA)'), 'la lectura trae las columnas de «cobro en marcha» y la cuota');
   for (const col of COLUMNAS_COBRO_EN_MARCHA) assert.ok(SELECT_RECIBOS_REMESA.includes(col), col);
   assert.ok(SELECT_RECIBOS_REMESA.includes('suscripciones(estado, fecha_fin, planes_tarifa(tipo))'));
-  // Con el «hoy» con el que se decide si una cuota ya venció.
-  assert.match(lectura, /return \{ ok: true, filas, hoy: new Date\(\)\.toISOString\(\)\.slice\(0, 10\) \};/);
+  // Con el «hoy» con el que se decide si una cuota ya venció: el del ESTUDIO, como el
+  // cron de renovaciones. Con el de UTC, entre las 00:00 y las 02:00 de Madrid una
+  // cuota vencida ayer seguía «sin vencer» y la remesa la dejaba fuera.
+  assert.match(lectura, /return \{ ok: true, filas, hoy: hoyEnEstudio\(\) \};/);
   assert.match(lectura, /if \(error\) return \{ ok: false \};/);
   assert.match(lectura, /catch \{\s*return \{ ok: false \};/);
 });

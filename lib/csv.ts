@@ -5,6 +5,8 @@
 // (coma, punto y coma —Excel en español— o tabulador). Puro y testeable.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { hoyEnEstudio } from './utils.ts';
+
 export interface ParsedCsv {
   headers: string[];
   rows: string[][];
@@ -793,8 +795,9 @@ export const MAX_RECUPERACIONES_POR_FILA = 20;
 export function validarFilasRecuperacion(
   rows: string[][],
   mapeo: Record<CampoRecuperacion, number>,
-  /** Hoy en 'YYYY-MM-DD'. Se pasa para que la validación sea determinista. */
-  hoy: string = new Date().toISOString().slice(0, 10),
+  /** Hoy en 'YYYY-MM-DD'. Se pasa para que la validación sea determinista. Por defecto,
+   *  el día del ESTUDIO: con el de UTC, de madrugada entraba una que caducó ayer. */
+  hoy: string = hoyEnEstudio(),
 ): FilaRecuperacionValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
   // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
