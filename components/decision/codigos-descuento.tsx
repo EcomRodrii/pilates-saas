@@ -5,6 +5,7 @@ import { Ticket, Plus, Sparkles, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { esCodigoReactivacion, buscarCodigo } from '@/lib/codigos-descuento';
 import type { CodigoDescuento } from '@/lib/types';
+import { hoyEnEstudio } from '@/lib/utils';
 
 // Gestor mínimo de códigos de descuento (Configuración → Motivación).
 //
@@ -36,7 +37,7 @@ const inputCls = 'rounded-lg border border-border px-2.5 py-1.5 text-[13px] w-fu
 
 export function CodigosDescuento({ onToast }: { onToast: (mensaje: string) => void }) {
   const { codigosDescuento, addCodigoDescuento, toggleCodigoDescuento } = useStudio();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyEnEstudio(); // «Caducado» desde el día siguiente al de `expira`, en Madrid
 
   const [abierto, setAbierto] = useState(false);
   const [errorAlta, setErrorAlta] = useState<string | null>(null);

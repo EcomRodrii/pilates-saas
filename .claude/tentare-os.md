@@ -107,8 +107,12 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   recibo de `/api/public/renovar-plan`, el vencimiento del recibo de penalización y los `hoyISO` por defecto de `bono-logic`,
   `suscripcion-estado`, `socio-resumen` y `cobro-permitido`. ⚠️ Una función de vigencia NUEVA no usa `current_date`: lo vigila
   `supabase/tests/hoy-de-madrid.test.ts` contra Postgres real (la única excepción, con su motivo, es el tope diario del piloto
-  automático, un límite de IA). ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa
-  `::timestamp at time zone 'Europe/Madrid'`.
+  automático, un límite de IA). En TypeScript lo vigila `lib/hoy-de-madrid.test.ts`: un `new Date()`/`Date.now()` con
+  `.toISOString().slice(0, 10)` solo vale en `CON_DIA_UTC_A_PROPOSITO`, con su motivo (un nombre de fichero, una ruta); para
+  sumar días, `masDias()` sobre el día del estudio, nunca `Date.now() + N días`. ⚠️ No ve otras formas del mismo error
+  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `nowISO.slice(0, 10)`): esas se miran a mano. Una función que
+  reciba «ahora» como instante saca el día con `hoyEnEstudio(new Date(…))`, como `validarCodigoCanjeable`.
+  ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa `::timestamp at time zone 'Europe/Madrid'`.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
@@ -306,6 +310,14 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
+  `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
+  vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
+  `mensajeParaSocia` (`comercial`), no el `tipo` (F1 y F3 comparten `PROPONER_RENOVACION_BONO`), y la
+  puerta es UNA, `canalesSocia`: botón, ejecutores y piloto automático. R6 (congelar la cuota) es
+  servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
+  el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
+  ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso

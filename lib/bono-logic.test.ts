@@ -8,7 +8,7 @@ import {
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
   saldoSesionesBono, avisaBonoAgotado, cicloInicialDe,
-  mesesDeCiclo, nombrePeriodo, proximoFinAlineadoDia1, proximoFinDesdeVencimiento } from './bono-logic.ts';
+  mesesDeCiclo, nombrePeriodo, precioMensualDeCuota, proximoFinAlineadoDia1, proximoFinDesdeVencimiento } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -736,6 +736,26 @@ test('reactivar una trimestral la reactiva TRES meses, como el alta', () => {
     calcularReactivacion(plan, '2026-09-06T10:00:00Z'),
     cicloInicialDe(plan, '2026-09-06T10:00:00Z'),
   );
+});
+
+test('una cuota vale al mes su precio entre los meses del ciclo: una trimestral no cuenta ×3', () => {
+  assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: 1 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 240, periodicidadMeses: 3 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 480, periodicidadMeses: 6 }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 960, periodicidadMeses: 12 }), 80);
+  // Sin periodicidad (un plan de antes de la columna, o de un backup) es la
+  // mensual de siempre.
+  assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: null }), 80);
+  assert.equal(precioMensualDeCuota({ precio: 80 }), 80);
+});
+
+test('⚠️ el precio al mes divide por los MISMOS meses que extiende la renovación', () => {
+  // Un valor imposible cae a 1 en `mesesDeCiclo`, y la renovación extiende un
+  // mes: si aquí se dividiera por 2, el informe contaría la mitad de lo que se
+  // cobra de verdad cada mes.
+  for (const meses of [0, -3, 2, 99, NaN]) {
+    assert.equal(precioMensualDeCuota({ precio: 80, periodicidadMeses: meses }), 80, `${meses} debería contar como mensual`);
+  }
 });
 
 test('el nombre del periodo se dice en castellano, y uno por cada valor', () => {

@@ -978,7 +978,7 @@ export async function emitirEmailFallido(
   admin: SupabaseClient, p: { studioId: string; error: string },
 ): Promise<void> {
   try {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyEnEstudio(); // «al día» es el día del estudio, no el de UTC
     await publish({
       type: EVENTOS.SISTEMA_EMAIL_FALLIDO, studioId: p.studioId,
       data: { error: p.error.slice(0, 200) },
@@ -1537,7 +1537,7 @@ export async function emitirVerifactuEnvioPausado(
       type: EVENTOS.VERIFACTU_ENVIO_PAUSADO, studioId: p.studioId,
       data: { motivo: p.motivo },
       resource: { type: 'verifactu_estudio', id: p.studioId },
-      dedupKey: `verifactu-pausado:${p.studioId}:${new Date().toISOString().slice(0, 10)}`,
+      dedupKey: `verifactu-pausado:${p.studioId}:${hoyEnEstudio()}`,
     });
   } catch (e) {
     console.error('[notifications] emitirVerifactuEnvioPausado:', e instanceof Error ? e.message : e);

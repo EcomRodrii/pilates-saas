@@ -79,3 +79,16 @@ test('P-5: una invitada sin socioId (codigosYaUsados vacío) no se bloquea aquí
   const r = resolverDescuentoCheckout([c], 'AMIGAS20', { hoyISO: HOY, subtotal: 50, esNueva: true, codigosYaUsados: SIN_USOS });
   assert.equal(r.ok, true);
 });
+
+// Los checkouts (`/api/stripe/checkout`, `/api/public/checkout-embebido`,
+// `/api/public/validar-codigo-descuento`) pasan el instante de ahora. A las 00:30 de
+// Madrid el día UTC aún es ayer: un código caducado ayer se cobraba con descuento.
+test('a las 00:30 de Madrid no se cobra con un código que caducó ayer', () => {
+  const c = codigo({ codigo: 'OTONO10', expira: '2026-11-16' });
+  const opts = { hoyISO: '2026-11-16T23:30:00.000Z', subtotal: 50, esNueva: false, codigosYaUsados: SIN_USOS };
+  const r = resolverDescuentoCheckout([c], 'OTONO10', opts);
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.motivo, 'Ese código ya ha caducado');
+  assert.equal(resolverDescuentoCheckout([{ ...c, expira: '2026-11-17' }], 'OTONO10', opts).ok, true);
+});
+
