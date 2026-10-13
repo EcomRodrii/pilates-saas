@@ -1,11 +1,12 @@
 # Mensajes del Centro de Control a la alumna: comerciales y avisos de servicio
 
-Fecha: 2026-10-13. **PROPUESTA, sin aplicar.** Elegir entre la salida A y la B
-cambia lo que reciben las alumnas de estudios que ya trabajan con Tentare, así
-que lo decide el fundador. Leído el código, no supuesto. La parte legal es mi
-lectura de la norma: la tiene que confirmar la asesoría antes de elegir B.
+Fecha: 2026-10-13. **DECIDIDO por el fundador el mismo día: salida A**, R6
+(`CONGELAR_MEMBRESIA`) es aviso de servicio y `RECUPERAR_SOCIA` es comercial
+también con la cuota activa. Implementado junto a este documento (ver «Cómo
+quedó»). Lo de abajo es la propuesta tal como se decidió; se conserva B y su
+razonamiento para no reabrirlo sin motivo.
 
-## Qué hay hoy
+## Qué había antes
 
 Al aprobar una recomendación del Centro de Control (con «Enviarle el mensaje»,
 «Enviar email» o el piloto automático), le llega un mensaje a la alumna por uno
@@ -187,15 +188,34 @@ al recoger los datos que hoy no existe para nadie y que no se puede dar a las ya
 dadas de alta. El precio de A es el alcance: casi todas las recomendaciones
 comerciales pasan a ser «escríbele tú».
 
-## La pregunta
+## La decisión
 
-> **¿A o B?** Y, sea cual sea, confirma dos casos dudosos:
-> - **`CONGELAR_MEMBRESIA` (R6)**: ¿aviso de servicio (propuesta: sí) o comercial?
-> - **`RECUPERAR_SOCIA` a una alumna con la cuota activa**: ¿comercial, como el
->   «Te echamos de menos» de Automatizaciones (propuesta: sí)?
+> **A.** `CONGELAR_MEMBRESIA` (R6) es aviso de servicio. `RECUPERAR_SOCIA` es
+> comercial también con la cuota activa, como el «Te echamos de menos» de
+> Automatizaciones.
 
-Con la respuesta se hace un solo PR: los siete puntos comunes más la salida
-elegida, con sus tests.
+## Cómo quedó
+
+- **La clase vive en `mensajeParaSocia`** (`MensajeParaSocia.comercial`), en el
+  mismo `case` que escribe el texto. Un test exige que cada `return` la declare.
+- **Una sola puerta, `canalesSocia`** (`efecto-aprobar.ts`). Una oferta sin
+  consentimiento vigente no tiene canal (`sinPermisoOfertas`), y un correo roto
+  corta el email de una oferta. La usan el botón (`canalesDeSocias`, que lee el
+  permiso solo de las ofertas y, si no puede leerlo, no da nada por bueno), los
+  dos ejecutores al enviar (`permisoComercial`) y el piloto automático.
+- **Los ejecutores vuelven a mirarlo al enviar** y le ponen a la oferta el
+  enlace de baja (`/api/marketing/baja`, el mismo que Automatizaciones y
+  Campañas): `unsubscribeUrl` en el correo y una línea al final del WhatsApp,
+  añadida después de la IA para que no la toque. La reactivación lo mira antes
+  de crear el código de descuento.
+- **El piloto automático no aprueba lo que no podría mandar**: se queda para la
+  propietaria con su «Hecho», en vez de acabar FALLIDA y contar como no seguida
+  para el Umbral.
+- **La tarjeta lo dice**: con `sinPermisoOfertas`, debajo del «Hecho», «No ha
+  aceptado recibir ofertas del estudio, así que Tentare no le envía este
+  mensaje.» El enlace de WhatsApp para escribirle a mano sigue ahí.
+- **Los avisos de servicio no cambian**: ni consentimiento ni enlace de baja.
+- **Fuera de este cambio**: el texto de F4/F5 (abajo).
 
 ## Aparte (otro PR, sin decisión pendiente)
 
