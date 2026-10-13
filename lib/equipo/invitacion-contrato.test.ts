@@ -94,3 +94,9 @@ test('/invitacion guarda el enlace al PULSAR, no al abrirla', () => {
   assert.match(continuar, /recordarTokenInvitacion\(tokenPulsado\)/);
   assert.doesNotMatch(pantalla, /con este correo o con otro/, 'ya no vale con otro correo');
 });
+
+test('invitar no manda una invitación que al abrirla no serviría (gerencia → recepción)', () => {
+  // Lo que comprueba la puerta al reclamar (`ROL_POR_ENCIMA_DE_QUIEN_INVITA`)
+  // se comprueba también al invitar: si no, salía un correo que no valía.
+  assert.match(invitar, /!puedeActivarAccesoDelRol\(sesion\.rol, instructor\.rol as Rol\)/);
+});

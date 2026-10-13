@@ -2,7 +2,8 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeActivarAccesoDelRol, puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
 import { emitirInvitacion } from '@/lib/sustituciones/enlaces';
 import * as Sentry from '@sentry/nextjs';
@@ -41,8 +42,12 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
     throw new ErrorAccion('Esa persona ya no está en tu equipo.', 404);
   }
 
+  // Y lo que la invitación no podría dar al abrirla (`ROL_POR_ENCIMA_DE_QUIEN_INVITA`,
+  // lib/equipo/reclamar-reglas.ts): gerencia puede asignar recepción, pero no
+  // activar el acceso de quien mueve dinero. Antes salía un correo que no servía.
   if (sesion.rol !== 'PROPIETARIO'
-      && !rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)) {
+      && (!rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)
+        || !puedeActivarAccesoDelRol(sesion.rol, instructor.rol as Rol))) {
     throw new ErrorAccion('No puedes invitar a esta persona. Pídeselo a la propietaria.', 403);
   }
 

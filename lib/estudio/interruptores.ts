@@ -22,6 +22,8 @@ export const INTERRUPTORES = {
   filtrosClientas: 'CLIENTAS_FILTROS',
   /** Pegar desde una hoja en el importador de Clientas (P3.16). */
   importarPegando: 'IMPORTAR_PEGANDO',
+  /** «Avisar por WhatsApp» a quien está en el equipo sin acceso (P3.14). */
+  invitarWhatsApp: 'EQUIPO_INVITAR_WHATSAPP',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;
