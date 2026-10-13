@@ -30,6 +30,13 @@ export const INTERRUPTORES = {
   nivelesConRitmo: 'GAMIFICACION_NIVELES_RITMO',
   /** Qué se ve de cada alumna en la lista de una clase (P3.11). */
   tarjetaClase: 'TARJETA_CLASE',
+  /**
+   * El panel rehecho al nivel de Bonsai (14-oct-2026): la guía en tres capas
+   * (Primeros pasos, «Cómo funciona», ayuda «?»), las piezas base y las
+   * pantallas que se van rehaciendo. Primero solo en el estudio de prueba del
+   * fundador; a todos cuando él dé el sí.
+   */
+  panelNuevo: 'PANEL_NUEVO',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

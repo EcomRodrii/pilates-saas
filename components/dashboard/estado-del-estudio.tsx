@@ -43,7 +43,8 @@ import { estadoDeLaBandeja, subio } from '@/lib/tenti/momentos';
 //     pestaña o tras resolver algo), una 'sorpresa' sin sonido;
 //   · en «Tentare lo está haciendo», 'trabajando': ese bloque solo existe si
 //     hay algo en marcha, así que la cara dice literalmente su título.
-export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.ReactNode }) {
+/** `nueva`: con la forma de las tarjetas de la home nueva (panel nuevo). Lo de dentro no cambia. */
+export function EstadoDelEstudio({ accionesEnLinea, nueva = false }: { accionesEnLinea?: React.ReactNode; nueva?: boolean }) {
   const e = useEstadoEstudio();
   // Sin datos (cargando, error o un rol que no ve ninguna fuente) no se afirma
   // nada, pero las tarjetas se pintan igual: su dinero no puede depender de que
@@ -60,7 +61,9 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
   const ocultaSiHayTarjeta = 'group-has-[[data-acciones-en-linea]>*]/estado:hidden';
 
   return (
-    <div className="group/estado flex flex-col gap-3">
+    // En la home nueva, sin nada que decir (ni línea ni tarjeta), no ocupa sitio:
+    // un envoltorio vacío seguía contando para el hueco entre tarjetas.
+    <div className={`group/estado flex flex-col gap-3 ${nueva && !datos ? 'has-[[data-acciones-en-linea]:empty]:hidden' : ''}`}>
       {datos && !conBandeja && (
         <p className={`flex items-center gap-2 px-1 text-[13px] text-muted-foreground ${ocultaSiHayTarjeta}`}>
           <Check size={15} style={{ color: 'var(--success)' }} aria-hidden />
@@ -72,7 +75,7 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
         aria-label="Lo que espera tu visto bueno"
         // Sin bandeja, el marco solo existe si alguna tarjeta tiene algo: nunca
         // una caja vacía (y, oculta, tampoco cuenta como región).
-        className={`flex flex-col gap-3 rounded-xl border p-4 ${conBandeja ? '' : 'has-[>[data-acciones-en-linea]:empty]:hidden'}`}
+        className={`flex flex-col gap-3 border ${nueva ? 'rounded-t-card p-5 shadow-t-card' : 'rounded-xl p-4'} ${conBandeja ? '' : 'has-[>[data-acciones-en-linea]:empty]:hidden'}`}
         style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)' }}
       >
         {datos && conBandeja && (

@@ -30,6 +30,7 @@ import { esRutaCongelada } from '@/lib/frozen-features';
 import { rutaFueraDelMenu } from '@/lib/nav-config';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { estadoBilling } from '@/lib/api-client';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { pasoAplica, visitaObligatoria } from '@/lib/tour/aplica';
 import {
   PROGRESO_VACIO, abrirCapitulo, cerrarPaso, empezar, estadoVisita, parseProgreso, verCapitulo,
@@ -94,7 +95,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const { studio, updateStudio } = useCore();
   const { rol, puedeVer } = usePermisos();
 
-  const obligatoria = visitaObligatoria(studio, rol);
+  // Con el panel nuevo (14-oct-2026, decisión del fundador) la visita deja de ser
+  // obligatoria: se puede saltar y se vuelve a abrir desde Primeros pasos, como
+  // en Bonsai. Apagado el interruptor, la regla de siempre.
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
+  const obligatoria = visitaObligatoria(studio, rol) && !panelNuevo;
 
   // La visita opcional: encendida por el botón de Primeros pasos, con su progreso
   // en el navegador. `null` = no hay visita opcional en marcha.

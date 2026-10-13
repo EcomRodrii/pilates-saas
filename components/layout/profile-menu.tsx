@@ -14,10 +14,18 @@ import { HelpWidget } from '@/components/layout/help-widget';
 import { usePermisos } from '@/lib/permisos';
 import { usePanelTheme } from '@/lib/panel-theme';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { WhatsAppIcon } from '@/components/icons/brand-icons';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const { studio, instructores } = useCore();
+  // Con el panel nuevo no flota el botón de WhatsApp (dashboard-shell.tsx): el
+  // soporte vive aquí, a un clic, y en «Pon en marcha tu estudio».
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
+  const enlaceSoporte = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${studio?.nombre ?? 'mi estudio'} y tengo una duda con Tentare:`);
   const { rol } = usePermisos();
   const { dark, setDark } = usePanelTheme();
   const router = useRouter();
@@ -135,6 +143,18 @@ export function ProfileMenu() {
               <HelpCircle size={15} className="text-muted-foreground" />
               Preguntas frecuentes
             </button>
+            {panelNuevo && enlaceSoporte && (
+              <a
+                href={enlaceSoporte}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
+              >
+                <WhatsAppIcon size={15} className="[&_path]:fill-muted-foreground" />
+                Hablar con una persona
+              </a>
+            )}
             {/* ⚠️ Esto abría una hoja intermedia («Apariencia · Beta») cuyo
                 único contenido propio era este interruptor: el enlace de dentro
                 llevaba a «Personalizar tu panel» y ya no había marca que editar
