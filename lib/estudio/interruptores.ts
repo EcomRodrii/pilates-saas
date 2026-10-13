@@ -20,6 +20,8 @@ import { encendidaPara } from '../interruptor-por-estudio.ts';
 export const INTERRUPTORES = {
   /** Filtros y columnas nuevos de Clientas (P2.8). */
   filtrosClientas: 'CLIENTAS_FILTROS',
+  /** «Desde una foto o un texto» en Calendario › Importar (P2.1). */
+  horarioDesdeImagen: 'HORARIO_DESDE_IMAGEN',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

@@ -917,8 +917,11 @@ export function parsearHora(celda: string | null | undefined): string | null {
   if (!celda) return null;
   const s = celda.trim().toLowerCase();
   if (!s) return null;
-  const pm = /\bp\.?m\.?\b/.test(s);
-  const am = /\ba\.?m\.?\b/.test(s);
+  // Detrás de una cifra no hay «límite de palabra» (`\b`): con él, «7:00pm» y
+  // «7:00 p. m.» se leían como las 07:00. Se busca la marca pegada a la cifra o
+  // tras un espacio, con o sin puntos («pm», «p.m.», «p. m.»).
+  const pm = /(?:^|[\d\s])p\.?\s?m(?![a-z])/.test(s);
+  const am = /(?:^|[\d\s])a\.?\s?m(?![a-z])/.test(s);
   const m = s.match(/(\d{1,2})\s*[:.h]\s*(\d{2})?/);
   if (!m) return null;
   let h = Number(m[1]);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LONGITUD_HMAC_CLAVE, aplicarRateLimit, claveOpaca, clientIp, rateLimitKey, retryAfterSeconds,
+  LONGITUD_HMAC_CLAVE, aplicarRateLimit, aplicarTopeEstricto, claveOpaca, clientIp, rateLimitKey, retryAfterSeconds,
   secretoRateLimit, tooManyRequestsResponse,
 } from './rate-limit-core.ts';
 
@@ -145,4 +145,31 @@ test('aplicarRateLimit: avisa con `alFallar` cuando la RPC falla o lanza, no cua
   await aplicarRateLimit(null, SECRETO, 'r:1', opts, avisar);
   await aplicarRateLimit(async () => ({ data: null, error: null }), '', 'r:1', opts, avisar);
   assert.deepEqual(motivos, ['rpc-sin-resultado', 'excepcion']);
+});
+
+test('aplicarTopeEstricto: CERRADO si el contador no responde (es un tope de gasto)', async () => {
+  const opts = { max: 10, windowSeconds: 3600 };
+  assert.equal((await aplicarTopeEstricto(null, SECRETO, 'horario-leer-dia:s1:2026-10-13', opts)).allowed, false, 'sin RPC');
+  const nunca = async () => { throw new Error('no debería llamarse'); };
+  assert.equal((await aplicarTopeEstricto(nunca, '', 'horario-leer-dia:s1:2026-10-13', opts)).allowed, false, 'sin secreto');
+  const conError = async () => ({ data: null, error: { message: 'x' } });
+  assert.equal((await aplicarTopeEstricto(conError, SECRETO, 'k:1', opts)).allowed, false, 'con error');
+  const lanza = async () => { throw new Error('red'); };
+  assert.equal((await aplicarTopeEstricto(lanza, SECRETO, 'k:1', opts)).allowed, false, 'si lanza');
+  const rara = async () => ({ data: [{ allowed: 'true', remaining: 3, reset_at: '2026-10-14T00:00:00Z' }], error: null });
+  assert.equal((await aplicarTopeEstricto(rara, SECRETO, 'k:1', opts)).allowed, false, 'un «true» que no es booleano');
+});
+
+test('aplicarTopeEstricto: con el contador respondiendo, manda su veredicto (y la clave va opaca)', async () => {
+  const claves: string[] = [];
+  const rpc = async (clave: string) => {
+    claves.push(clave);
+    return { data: [{ allowed: true, remaining: 9, reset_at: '2026-10-14T12:00:00Z' }], error: null };
+  };
+  const r = await aplicarTopeEstricto(rpc, SECRETO, 'horario-leer-dia:studio-1:2026-10-13', { max: 10, windowSeconds: 3600 });
+  assert.equal(r.allowed, true);
+  assert.equal(r.remaining, 9);
+  assert.doesNotMatch(claves[0], /studio-1/);
+  const lleno = async () => ({ data: [{ allowed: false, remaining: 0, reset_at: '2026-10-14T12:00:00Z' }], error: null });
+  assert.equal((await aplicarTopeEstricto(lleno, SECRETO, 'k:1', { max: 10, windowSeconds: 3600 })).allowed, false);
 });

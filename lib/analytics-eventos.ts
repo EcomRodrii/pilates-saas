@@ -59,7 +59,7 @@ export type EventoAnalitica =
   // superan). `origen` distingue el horario propuesto por Tentare del que la
   // propietaria importa de un Excel: son dos caminos con conversiones muy
   // distintas y mezclarlos oculta cuál funciona.
-  | { nombre: 'horario_creado'; props: { origen: 'onboarding' | 'importacion'; sesiones: number } }
+  | { nombre: 'horario_creado'; props: { origen: 'onboarding' | 'importacion' | 'imagen'; sesiones: number } }
   // Vio la propuesta y dijo que no. Es la señal de que el horario propuesto no
   // le encajaba — y sin ella, «no lo creó» y «ni lo vio» se confunden.
   | { nombre: 'horario_propuesto_descartado'; props: Record<string, never> }
