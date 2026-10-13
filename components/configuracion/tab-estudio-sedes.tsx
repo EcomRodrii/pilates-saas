@@ -48,7 +48,7 @@ export function FormSedes({
         body: JSON.stringify({ studioId: sedeId }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) { setAviso({ texto: `No se ha aplicado el catálogo: ${data?.error ?? 'inténtalo otra vez'}`, esError: true }); return; }
+      if (!res.ok) { setAviso({ texto: `No se ha aplicado el catálogo: ${data?.error ?? 'inténtalo otra vez'}`, esError: true }); return; } // toast-no-es-error: el aviso lleva esError y se pinta en rojo con role="alert"
       setAviso({
         texto: data?.aplicados > 0
           ? `${data.aplicados} tipo(s) de clase añadidos a «${nombreSede}»`

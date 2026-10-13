@@ -11,6 +11,7 @@ import {
   inputCls, labelCls, btnPrimary, btnSecondary, ColorInput, ColorSwatch, NivelBadge,
 } from '@/components/configuracion/estilos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // «Catálogo de la cadena», en Mis clases y citas. Vivía dentro de la tarjeta de
 // Sedes (Mi estudio): es un catálogo de tipos de clase y se busca junto a ellos.
@@ -25,7 +26,7 @@ const formVacio = { nombre: '', color: '#4F46E5', duracionMinutos: '60', nivel: 
 // sede (al crearla, o con el botón "Aplicar catálogo" de Sedes), nunca es un
 // vínculo vivo: editar o borrar algo aquí no toca los tipos de clase que ya
 // tenga una sede.
-export function TabCatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: (m: string) => void }) {
+export function TabCatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: MostrarToast }) {
   const [items, setItems] = useState<CadenaTipoClase[]>([]);
   const idCat = useId();
   const [cargando, setCargando] = useState(true);
@@ -59,12 +60,12 @@ export function TabCatalogoCadena({ cadenaId, showToast }: { cadenaId: string; s
       };
       if (editId) {
         const res = await dbUpdateCadenaTipoClase(editId, cambios);
-        if (!res.ok) { showToast(res.error); return; }
+        if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
         setItems(prev => prev.map(t => t.id === editId ? { ...t, ...cambios } : t));
       } else {
         const nuevo: CadenaTipoClase = { id: `ctc-${uid()}`, cadenaId, creadoEn: new Date().toISOString(), actualizadoEn: new Date().toISOString(), ...cambios };
         const res = await dbInsertCadenaTipoClase(nuevo);
-        if (!res.ok) { showToast(res.error); return; }
+        if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
         setItems(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       }
       cancelar();
@@ -75,7 +76,7 @@ export function TabCatalogoCadena({ cadenaId, showToast }: { cadenaId: string; s
 
   async function borrar(id: string) {
     const res = await dbDeleteCadenaTipoClase(id);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setItems(prev => prev.filter(t => t.id !== id));
     if (editId === id) cancelar();
   }

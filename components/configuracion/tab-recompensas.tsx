@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
   nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL',
@@ -26,7 +27,7 @@ const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creado
  * los créditos y cuántos se ganan con cada cosa se cambian en los cajones de la
  * sección Motivación (creditos.tsx, 15-sep, v2).
  */
-export function TabRecompensas({ showToast }: { showToast: (m: string) => void }) {
+export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
   const {
     rewardRules,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
@@ -56,7 +57,8 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
       limitePorSocia: null, disponibleDesde: null, disponibleHasta: null,
     });
     setAnadiendo(null);
-    showToast(res.ok ? `«${sg.nombre}» añadida al catálogo` : res.error);
+    if (res.ok) showToast(`«${sg.nombre}» añadida al catálogo`);
+    else showToast(res.error, { variant: 'error' });
   }
 
   function reglaDe(trigger: string) {
@@ -85,7 +87,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     // que nadie entiende. Mejor no llegar.
     if (ventanaInvertida) { showToast('La fecha de fin no puede ser anterior a la de inicio.'); return; }
     const res = modal === 'nuevo' ? await addRewardCatalogItem(form) : editId ? await updateRewardCatalogItem(editId, form) : { ok: true as const };
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setModal(null);
     showToast(modal === 'nuevo' ? 'Recompensa creada' : 'Recompensa actualizada');
   }
@@ -314,7 +316,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               onClick={async () => {
                 if (confirmDel) {
                   const res = await deleteRewardCatalogItem(confirmDel.id);
-                  if (!res.ok) showToast(res.error);
+                  if (!res.ok) showToast(res.error, { variant: 'error' });
                 }
                 setConfirmDel(null);
               }}

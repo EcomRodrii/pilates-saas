@@ -8,6 +8,7 @@ import type { LevelDefinition } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Punto de partida opcional — el estudio decide si le sirve esta progresión
 // o prefiere otros nombres/umbrales/colores. Nunca se inserta solo.
@@ -23,7 +24,7 @@ const emptyForm = (siguienteOrden: number): Omit<LevelDefinition, 'id' | 'studio
   nombre: '', orden: siguienteOrden, umbralCreditos: 0, color: '#B08D57', icono: '🏅', beneficios: '', activo: true,
 });
 
-export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
+export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
   const { levelDefinitions, addLevelDefinition, updateLevelDefinition, deleteLevelDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
     setGuardando(true);
     try {
       const res = modal === 'nuevo' ? await addLevelDefinition(form) : editId ? await updateLevelDefinition(editId, form) : { ok: true as const };
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
       setModal(null);
       showToast(modal === 'nuevo' ? 'Nivel creado' : 'Nivel actualizado');
     } finally { setGuardando(false); }
@@ -68,7 +69,8 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
     if (!borrarId) return;
     const res = await deleteLevelDefinition(borrarId);
     setBorrarId(null);
-    showToast(res.ok ? 'Nivel eliminado' : res.error);
+    if (res.ok) showToast('Nivel eliminado');
+    else showToast(res.error, { variant: 'error' });
   }
 
   return (
