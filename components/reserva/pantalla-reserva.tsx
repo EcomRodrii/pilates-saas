@@ -139,7 +139,10 @@ export function PantallaReserva({
    * «Total a pagar» del paso de datos: ahí decía solo el precio y el botón del
    * paso siguiente, el cargo real, llevaba además la matrícula. Si al final no
    * toca (no es su primera vez o hay promoción), el paso de pago enseña lo exacto,
-   * que lo dice el servidor: la pantalla se equivoca por arriba, nunca por abajo.
+   * que lo dice el servidor. La matrícula sola solo puede equivocarla por arriba;
+   * por abajo, solo un código que el servidor acaba rechazando (sin sesión, el
+   * validador en vivo no sabe si eres nueva) o un precio que cambia con la página
+   * abierta. En los dos casos el BOTÓN de pago ya dice el importe real, con aviso.
    */
   matricula?: number;
   fase: 'datos' | 'pago';
