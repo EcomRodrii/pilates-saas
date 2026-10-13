@@ -19,8 +19,9 @@ const json = (r: Route, b: unknown, status = 200) =>
 const TZ = 'Europe/Madrid';
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ymdMadrid = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
-// Días de CALENDARIO en Madrid, no bloques de 24 h: cruzando el cambio de hora
-// (25-oct) «hoy + 12 × 24 h» pasada la medianoche cae en el día anterior.
+// Días de CALENDARIO desde hoy en Madrid, no n × 24 h: con un cambio de hora por
+// medio, entre las 00:00 y la 01:00 de Madrid los milisegundos caían un día antes
+// (el 14-oct a las 00:15, «en 12 días» daba el 25 y la pantalla, bien, contaba 11).
 const enDias = (n: number) => {
   const [a, m, d] = ymdMadrid(new Date()).split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);

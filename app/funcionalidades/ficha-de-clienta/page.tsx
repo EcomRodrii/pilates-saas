@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: '¿Quién puede ver las condiciones de salud?',
-    a: 'Solo quien las necesita para dar la clase. Recepción, que gestiona reservas y cobros, no ve ese detalle. La separación se aplica en la base de datos, no solo escondiendo un botón.',
+    a: 'La propietaria y, de sus alumnas, cada instructora. Recepción y gerencia solo ven el color del semáforo, nunca el detalle. La separación se aplica en la base de datos, no solo escondiendo un botón.',
   },
   {
     q: '¿El cuestionario de salud es el mismo para todos los estudios?',
@@ -97,8 +97,8 @@ export default function FichaPage() {
         </p>
         <Rejilla
           items={[
-            { titulo: 'Lo ve quien da la clase', body: 'Instructoras, propietaria y gerencia. Es información operativa para atender bien.' },
-            { titulo: 'No lo ve recepción', body: 'Y no es que se le esconda el botón: la restricción está en la base de datos.' },
+            { titulo: 'Lo ve quien da la clase', body: 'La propietaria y, de sus alumnas, cada instructora. Es información operativa para atender bien.' },
+            { titulo: 'Recepción y gerencia, solo el color', body: 'Ven el punto del semáforo, nunca el motivo. Y no es que se les esconda el botón: la restricción está en la base de datos.' },
           ]}
         />
         <p>
