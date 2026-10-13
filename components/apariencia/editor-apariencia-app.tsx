@@ -291,7 +291,7 @@ export function EditorAparienciaApp() {
     if (url === null) await eliminarImagenBienvenida(studio!.id);
     const res = await updateStudio({ imagenBienvenidaUrl: url });
     setSubiendo(false);
-    setAviso(res.ok
+    setAviso(res.ok // toast-no-es-error: el aviso lleva `tipo` y el error se pinta como alert en rojo
       ? { tipo: 'ok', texto: url ? 'Portada cambiada. Ya la ven tus alumnas.' : 'Portada quitada: vuelve la foto por defecto.' }
       : { tipo: 'error', texto: res.error });
     if (res.ok) setRecarga(n => n + 1);
@@ -459,7 +459,7 @@ export function EditorAparienciaApp() {
                     setGuardandoTitulo(true);
                     const res = await updateStudio({ tituloAcceso: tituloAcceso.trim() || null });
                     setGuardandoTitulo(false);
-                    setAviso(res.ok
+                    setAviso(res.ok // toast-no-es-error: el aviso lleva `tipo` y el error se pinta como alert en rojo
                       ? { tipo: 'ok', texto: 'Titular guardado. Ya se lee en tu entrada.' }
                       : { tipo: 'error', texto: res.error });
                     if (res.ok) { setTituloAcceso(null); setPantalla('entrada'); setRecarga(n => n + 1); }

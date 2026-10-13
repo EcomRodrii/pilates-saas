@@ -40,12 +40,10 @@ const TOPES: Record<string, number> = {
   'app/interno/denuncias/page.tsx': 1,
   'app/network/solicitudes/page.tsx': 1,
   'components/acceso/accesos-de-la-clienta.tsx': 1,
-  'components/apariencia/editor-apariencia-app.tsx': 2,
   'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
   'components/decision/codigos-descuento.tsx': 1,
   'components/network/boton-favorito-alumna.tsx': 1,
   'components/regalo/panel-regalo.tsx': 1,
-  'components/theme/contenido-portal-editor.tsx': 8,
 };
 
 // Las pantallas de P0.3: a 0, y que no vuelvan a subir aunque alguien toque TOPES.
