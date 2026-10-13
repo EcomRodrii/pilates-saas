@@ -11,6 +11,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { ServicioCita, TipoCita } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash2, Check } from 'lucide-react';
+import type { MostrarToast } from '@/components/ui/toast';
 
 const TIPOS: { id: TipoCita; label: string }[] = [
   { id: 'PRIVADA', label: 'Privada' },
@@ -54,7 +55,7 @@ function servicioToForm(s: ServicioCita): ServicioForm {
   };
 }
 
-export function TabServiciosCita({ showToast }: { showToast: (m: string) => void }) {
+export function TabServiciosCita({ showToast }: { showToast: MostrarToast }) {
   const { citasServicios, addServicioCita, updateServicioCita, deleteServicioCita, cargarAgendaCitas } = useStudio();
   // Estas tablas no vienen en el arranque del panel: #1375 las sacó y nadie
   // escribió la carga posterior, así que esta pantalla leía un estado que nadie
@@ -97,7 +98,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
     const res = modal === 'nueva'
       ? await addServicioCita(fields)
       : editId ? await updateServicioCita(editId, fields) : { ok: true as const };
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     showToast(modal === 'nueva' ? 'Servicio creado' : 'Servicio actualizado');
     setModal(null);
   }, [modal, editId, form, addServicioCita, updateServicioCita, showToast]);
@@ -105,7 +106,8 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deleteServicioCita(confirmDel);
-    showToast(res.ok ? 'Servicio eliminado' : res.error);
+    if (res.ok) showToast('Servicio eliminado');
+    else showToast(res.error, { variant: 'error' });
   }, [confirmDel, deleteServicioCita, showToast]);
 
   const canGuardar = form.nombre.trim() && form.duracionMin;

@@ -333,10 +333,14 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/sustituciones', (r) => json(r, { sustituciones: [] }));
   await page.route((u) => u.pathname === '/api/valoraciones', (r) => json(r, { valoraciones: [] }));
   await page.route((u) => u.pathname === '/api/migracion/recientes', (r) => json(r, { importaciones: [] }));
+  // Los interruptores por estudio, apagados (como en cualquier estudio que ya trabaja).
+  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { filtrosClientas: false }));
   // Festivos (P1.6) y «Repetir este mes» (P1.7): apagados de serie (interruptor
   // y migraciones), que es lo que ve hoy cualquier estudio. Sus specs los encienden.
   await page.route((u) => u.pathname === '/api/festivos', (r) => json(r, { disponible: false }));
   await page.route((u) => u.pathname === '/api/series/repetir-mes', (r) => json(r, { disponible: false }));
+  // «Plazas libres» (P3.9): apagado de serie. Su spec lo enciende.
+  await page.route((u) => u.pathname === '/api/calendario/plazas-libres', (r) => json(r, { disponible: false }));
   // El mapa de «€ por plaza» en Informes (pieza E): apagado de serie. Su spec lo enciende.
   await page.route((u) => u.pathname === '/api/informes/euro-plaza', (r) => json(r, { disponible: false }));
 

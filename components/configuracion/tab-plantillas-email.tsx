@@ -17,6 +17,7 @@ import { paletaCorreoEstudio } from '@/lib/emails/estudio/paleta';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // ─── Plantillas de email transaccional ───────────────────────────────────────
 //
@@ -244,7 +245,7 @@ function BloquePortada({
   meta: Meta;
   b: Borrador;
   set: <K extends keyof Borrador>(k: K, v: Borrador[K]) => void;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   const { studio } = useStudio();
   const [subiendo, setSubiendo] = useState(false);
@@ -398,7 +399,7 @@ function EditorPlantilla({
   plantilla: PlantillaEmail | undefined;
   /** `null` = guardado de verdad; un texto = no se ha guardado, y por qué. */
   onGuardar: (cambios: Partial<PlantillaEmail>) => Promise<string | null>;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   onCerrar: () => void;
   /** Hay algo escrito que no está guardado: cerrar tiene que preguntar. */
   onSucio: (sucio: boolean) => void;
@@ -514,7 +515,8 @@ function EditorPlantilla({
       pie: oNulo(b.pie), fuente: oNulo(b.fuente),
     });
     setEnviando(false);
-    showToast('error' in r ? r.error : `Prueba enviada a ${r.enviadoA}`);
+    if ('error' in r) showToast(r.error, { variant: 'error' });
+    else showToast(`Prueba enviada a ${r.enviadoA}`);
   }
 
   // Editar un correo apagado es legítimo (dejarlo listo para cuando se vuelva a
@@ -750,7 +752,7 @@ function EditorPlantilla({
 
 // ─── Lista ───────────────────────────────────────────────────────────────────
 
-export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => void }) {
+export function TabPlantillasEmail({ showToast }: { showToast: MostrarToast }) {
   const { plantillasEmail, upsertPlantillaEmail } = useStudio();
   const nav = useNavegacionConfig();
   const [abierta, setAbierta] = useState<TipoPlantillaEmail | null>(null);
@@ -788,7 +790,7 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
     setCambiando(meta.tipo);
     const res = await upsertPlantillaEmail(meta.tipo, { enviar });
     setCambiando(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     showToast(enviar
       ? `«${meta.label}» vuelve a enviarse.`
       : `«${meta.label}» ya no se envía. ${meta.avisoAlApagar}`);

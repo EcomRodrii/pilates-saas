@@ -13,8 +13,9 @@ import { inputCls, labelCls, cardCls } from '@/components/configuracion/estilos'
 import { useCuenta } from '@/components/auth/use-cuenta';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import { BloqueDobleFactor } from '@/components/auth/bloque-doble-factor';
+import type { MostrarToast } from '@/components/ui/toast';
 
-export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
+export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
   const { user, updateProfile } = useAuth();
   // P-10 (auditoría 21ª pasada): email/contraseña/Google salen de useCuenta(),
@@ -131,13 +132,14 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   // esta prop no es estable entre renders.
   const onAvatarChange = useCallback(async (id: string | null) => {
     const res = yo ? await updateInstructor(yo.id, { avatar: id }) : await updateAvatarAdmin(id);
-    showToast(res.ok ? 'Avatar actualizado' : res.error);
+    if (res.ok) showToast('Avatar actualizado');
+    else showToast(res.error, { variant: 'error' });
   }, [yo, updateInstructor, updateAvatarAdmin, showToast]);
 
   async function guardar() {
     if (!yo) return;
     const res = await updateInstructor(yo.id, { nombre: form.nombre.trim(), email: form.email.trim() || null, telefono: form.telefono.trim() || null });
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setGuardado(true);
     showToast('Perfil actualizado');
     setTimeout(() => setGuardado(false), 2000);

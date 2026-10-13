@@ -78,7 +78,7 @@ export async function usarDispositivo(db: Db, p: {
 
   const { data: ya, error: errorYa } = await db.from('sesiones_confiadas')
     // `*` y no `origen` a pelo: con el código desplegado antes que la migración
-    // 20261003160000 la columna no existe, y pedirla por nombre tumbaba también los
+    // doble_factor_por_correo_1_sesiones (20261004141529) la columna no existe, y pedirla por nombre tumbaba también los
     // dispositivos recordados. Sin columna, `origen` llega undefined: dispositivo.
     .select('*').eq('session_id', p.sessionId).eq('auth_user_id', p.userId).maybeSingle();
   if (errorYa) throw new Error(`leer sesión confiada: ${errorYa.message}`);

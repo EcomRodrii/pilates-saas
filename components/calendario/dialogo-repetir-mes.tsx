@@ -17,11 +17,13 @@ import type { FechaParaConfirmar } from '@/lib/calendario/confirmar-fechas';
 
 const mayuscula = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
 
-export function DialogoRepetirMes({ mes, onCerrar, onHecho }: {
+export function DialogoRepetirMes({ mes, onCerrar, onHecho, onIncierto }: {
   /** 'YYYY-MM': el mes que se repite. */
   mes: string;
   onCerrar: () => void;
   onHecho: (r: ResultadoRepetir, destino: string) => void;
+  /** Se cortó sin saber qué se creó: el calendario se vuelve a leer. */
+  onIncierto?: () => void;
 }) {
   const { tiposClase, salas } = useStudio();
   const [propuesta, setPropuesta] = useState<PropuestaRepetir | null>(null);
@@ -62,7 +64,11 @@ export function DialogoRepetirMes({ mes, onCerrar, onHecho }: {
     setError(null);
     try {
       const r = await crearRepetirMes(mes, plan);
-      if (!r.ok) { setError(r.error); return; }
+      if (!r.ok) {
+        setError(r.error);
+        if (r.incierto) onIncierto?.();
+        return;
+      }
       onHecho(r.resultado, propuesta.destino);
     } finally {
       enviandoRef.current = false;
@@ -144,7 +150,7 @@ export function DialogoRepetirMes({ mes, onCerrar, onHecho }: {
               ? `Las clases sueltas no se copian (en ${nombreMes(mes)} hay ${propuesta.sueltas}). `
               : 'Las clases sueltas no se copian. '}
             {propuesta.zona
-              ? `Los festivos de ${propuesta.zona} vienen sin marcar.`
+              ? `Los festivos de ${propuesta.zona} vienen sin marcar; los locales de tu ciudad, no: revisa esos días.`
               : 'No sabemos tu comunidad por la dirección del estudio, así que no marcamos festivos.'}
             {propuesta.zona && (propuesta.aniosSinFestivos ?? []).length > 0 &&
               ` Aún no tenemos los festivos de ${(propuesta.aniosSinFestivos ?? []).join(' y ')}: revisa tú esos días.`}

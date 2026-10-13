@@ -1747,7 +1747,7 @@ export interface RowPlazasFijas {
   pausa_hasta: string | null;
   // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   clase_fija_id: string | null;
 }
 
@@ -3435,7 +3435,7 @@ export interface RowClasesFijas {
   creada_en: string;
   actualizada_en: string;
   and: string | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   aprobacion_automatica: boolean | null;
 }
 
@@ -3973,7 +3973,7 @@ export interface RowSesionesConfiadas {
   dispositivo_id: string | null;
   creada_en: string;
   references: string | null;
-  // migr 20261003160000.
+  // migr 20261004141529.
   origen: 'dispositivo' | 'correo';
 }
 

@@ -28,7 +28,12 @@ test('un @handle se convierte en enlace en vez de desaparecer en silencio', () =
 
 test('un teléfono suelto vale como WhatsApp', () => {
   assert.equal(hrefCanal('whatsapp', '+34 600 00 00 00'), 'https://wa.me/34600000000');
-  assert.equal(hrefCanal('whatsapp', '600-00-00-00'), 'https://wa.me/600000000');
+  // Sin prefijo: un móvil español lleva el +34. «wa.me/600000000» lo leía WhatsApp como otro país.
+  assert.equal(hrefCanal('whatsapp', '600-00-00-00'), 'https://wa.me/34600000000');
+  assert.equal(hrefCanal('whatsapp', '612 34 56 78'), 'https://wa.me/34612345678');
+  assert.equal(hrefCanal('whatsapp', '0034 612 34 56 78'), 'https://wa.me/34612345678');
+  // Con su prefijo, se respeta (un número de fuera).
+  assert.equal(hrefCanal('whatsapp', '+351 912 345 678'), 'https://wa.me/351912345678');
   assert.equal(hrefCanal('whatsapp', 'llámame'), null);
 });
 

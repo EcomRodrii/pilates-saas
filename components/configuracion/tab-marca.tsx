@@ -9,6 +9,7 @@ import {
 } from '@/lib/portal-storage';
 import { publicarThemeApi } from '@/lib/api-client';
 import { labelCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // «Logo y favicon»: el cajón de su fila, en la sección Marca.
 //
@@ -33,7 +34,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
   favicon: string | null | undefined;
   puedeEditarFavicon: boolean;
   soyPropietaria: boolean;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /** Lo que quedó publicado, para que la fila de la sección lo cuente. */
   onFavicon: (url: string | null) => void;
 }) {
@@ -66,7 +67,8 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
       setSubiendo(null);
     }
     const res = await updateStudio({ logoUrl: url });
-    showToast(res.ok ? (url ? 'Logo actualizado' : 'Logo quitado') : res.error);
+    if (res.ok) showToast(url ? 'Logo actualizado' : 'Logo quitado');
+    else showToast(res.error, { variant: 'error' });
   }
 
   // ── Favicon: vive en el tema, y se aplica publicando SOLO ese campo ──
@@ -90,7 +92,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
     try {
       const res = await publicarThemeApi({ faviconUrl: url });
       if (!res.ok) {
-        showToast(res.errores[0]?.mensaje ?? 'No se ha podido aplicar el favicon.');
+        showToast(res.errores[0]?.mensaje ?? 'No se ha podido aplicar el favicon.', { variant: 'error' });
         return;
       }
       onFavicon(res.theme.faviconUrl ?? null);
@@ -99,7 +101,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
       // publicar: si publicar fallara, el de antes seguiría intacto.
       if (url === null) await eliminarFaviconEstudio(studio.id);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'No se ha podido aplicar el favicon.');
+      showToast(e instanceof Error ? e.message : 'No se ha podido aplicar el favicon.', { variant: 'error' });
     } finally {
       setSubiendo(null);
     }

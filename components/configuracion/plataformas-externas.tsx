@@ -14,6 +14,7 @@ import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/ic
 import { LogoConexion } from '@/components/configuracion/canales-comunicacion';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import { FILA } from '@/components/configuracion/shell/fila-herramienta';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Qué plataformas venden plazas de este estudio (ClassPass, Urban Sports Club,
 // Wellhub). En modo manual, encenderla deja apuntar sus ventas desde la hoja de
@@ -122,7 +123,7 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
   );
 }
 
-export function DetallePlataformasExternas({ showToast }: { showToast: (m: string) => void }) {
+export function DetallePlataformasExternas({ showToast }: { showToast: MostrarToast }) {
   const { upsertIntegracion } = useStudio();
   const activas = usePlataformasActivas();
   const [guardando, setGuardando] = useState<Plataforma | null>(null);
@@ -137,7 +138,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
     setGuardando(p);
     const res = await upsertIntegracion(p, activo, config, anterior);
     setGuardando(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setRecienActivada(activo ? p : null);
     showToast(activo
       ? `${NOMBRE_PLATAFORMA[p]} activada: ya puedes apuntar sus reservas desde la clase`
@@ -225,7 +226,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
  * clase: nunca sobreventa. La regla la aplica la base de datos (`plazas_apartadas`).
  */
 function LiberarApartadas({ plataforma, preguntar, showToast }: {
-  plataforma: Plataforma; preguntar: boolean; showToast: (m: string) => void;
+  plataforma: Plataforma; preguntar: boolean; showToast: MostrarToast;
 }) {
   const nombre = NOMBRE_PLATAFORMA[plataforma];
   // `undefined`: cargando o sin poder leer; `null`: sin configurar.
@@ -255,7 +256,7 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
     setGuardando(true);
     const res = await dbGuardarLiberarHorasPlataforma(plataforma, valor);
     setGuardando(false);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setHoras(valor);
     setEditando(false);
     showToast(valor === 0
@@ -325,7 +326,7 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
   config: Record<string, string>;
   ventaCortada: MotivoSinVentaExterna | null;
   onGuardada: (config: Record<string, string>) => void;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   const { upsertIntegracion } = useStudio();
   const conectada = uscPublicaPorApi(config);

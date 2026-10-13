@@ -63,26 +63,6 @@ const TOPES: Record<string, number> = {
   'components/acceso/accesos-de-la-clienta.tsx': 1,
   'components/apariencia/editor-apariencia-app.tsx': 2,
   'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
-  'components/configuracion/canales-comunicacion.tsx': 3,
-  'components/configuracion/formulario-estudio.tsx': 1,
-  'components/configuracion/herramientas/herramienta-avisos-del-movil.tsx': 1,
-  'components/configuracion/plataformas-externas.tsx': 2,
-  'components/configuracion/tab-campos-personalizados.tsx': 5,
-  'components/configuracion/tab-canjes.tsx': 1,
-  'components/configuracion/tab-catalogo-cadena.tsx': 3,
-  'components/configuracion/tab-cuestionario-salud.tsx': 5,
-  'components/configuracion/tab-estudio-certificado.tsx': 2,
-  'components/configuracion/tab-estudio-enlaces.tsx': 1,
-  'components/configuracion/tab-estudio-sedes.tsx': 1,
-  'components/configuracion/tab-logros.tsx': 1,
-  'components/configuracion/tab-marca.tsx': 3,
-  'components/configuracion/tab-niveles.tsx': 2,
-  'components/configuracion/tab-perfil.tsx': 2,
-  'components/configuracion/tab-plantillas-email.tsx': 2,
-  'components/configuracion/tab-recompensas.tsx': 3,
-  'components/configuracion/tab-retos.tsx': 2,
-  'components/configuracion/tab-salas.tsx': 3,
-  'components/configuracion/tab-servicios-cita.tsx': 2,
   'components/dashboard/bajas-por-revisar.tsx': 1,
   'components/dashboard/canjes-pendientes.tsx': 2,
   'components/dashboard/clases-sin-instructora.tsx': 2,
@@ -119,7 +99,6 @@ const A_CERO = [
   'app/(dashboard)/calendario/page.tsx',
   'components/clientas/ficha-clienta.tsx',
   'app/(dashboard)/productos/page.tsx',
-  'components/configuracion/tab-clases.tsx',
   'app/(dashboard)/clientas/page.tsx',
 ];
 
@@ -177,6 +156,17 @@ test('ningún fichero tiene más errores en verde que su tope (los nuevos, 0)', 
 test('las pantallas de P0.3 se quedan a cero', () => {
   for (const f of A_CERO) assert.equal(MEDIDO[f] ?? 0, 0, f);
   for (const f of A_CERO) assert.ok(!(f in TOPES), `${f} no puede tener tope: está a 0`);
+});
+
+// Tanda 1 (14-oct-2026): las herramientas de Configuración, enteras. Una
+// carpeta a cero se queda a cero aunque alguien añada un fichero nuevo.
+const CARPETAS_A_CERO = ['components/configuracion/'];
+
+test('las carpetas que ya se pasaron a rojo se quedan a cero', () => {
+  for (const c of CARPETAS_A_CERO) {
+    assert.deepEqual(Object.keys(MEDIDO).filter((f) => f.startsWith(c)), [], `${c}: errores en verde`);
+    assert.ok(!Object.keys(TOPES).some((f) => f.startsWith(c)), `${c} no puede tener topes: está a 0`);
+  }
 });
 
 test('el trinquete solo baja: un tope por encima de lo medido se baja', () => {

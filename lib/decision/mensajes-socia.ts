@@ -150,9 +150,13 @@ export function telefonoE164(telefono: string | null | undefined): string | null
   return `+${digitos}`;
 }
 
-/** Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +, espacios, etc. */
+/**
+ * Enlace wa.me con el mensaje prerrellenado. `telefono` puede venir con +,
+ * espacios, etc. Con `cuerpo` vacío abre el chat SIN texto: lo que se usa con
+ * una oferta a quien no ha aceptado recibirlas (Tentare no le redacta la oferta).
+ */
 export function enlaceWhatsApp(telefono: string | null | undefined, cuerpo: string): string | null {
   const e164 = telefonoE164(telefono);
   if (!e164) return null;
-  return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(cuerpo)}`;
+  return cuerpo ? `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(cuerpo)}` : `https://wa.me/${e164.slice(1)}`;
 }
