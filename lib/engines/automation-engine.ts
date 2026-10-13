@@ -18,7 +18,7 @@ import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-
 import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
 import { cumpleMesDia, esCumpleEn } from '../socios/datos-privados.ts';
 import { edadEnFecha, EDAD_MAXIMA_PLAUSIBLE } from '../datos-salud/edad.ts';
-import { hoyEnEstudio } from '../utils.ts';
+import { hoyEnEstudio, masDias, TZ_ESTUDIO } from '../utils.ts';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
 // ahora" del dashboard (app/api/automatizaciones/run/route.ts) y el cron de
@@ -387,21 +387,21 @@ export function computeAutomationCandidatos(
     }
 
     if (rule.trigger === 'CLASE_MANANA') {
-      const manana = new Date(now);
-      manana.setDate(manana.getDate() + 1);
-      const mananaStr = manana.toISOString().slice(0, 10);
+      // Mañana y hoy en Madrid, no en UTC (retirado de la oferta, pero corre si
+      // alguien lo tuviera encendido): con UTC, a las 00:30 «mañana» era hoy.
+      const mananaStr = masDias(hoyEnEstudio(now), 1);
       sesiones
-        .filter(s => s.inicio.startsWith(mananaStr) && !s.cancelada)
+        .filter(s => hoyEnEstudio(new Date(s.inicio)) === mananaStr && !s.cancelada)
         .forEach(sesion => {
           const tipo = tipoById.get(sesion.tipoClaseId);
-          const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-          const hoyStr = now.toISOString().slice(0, 10);
+          const hora = new Date(sesion.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO });
+          const hoyStr = hoyEnEstudio(now);
           reservas
             .filter(r => r.sesionId === sesion.id && r.estado === 'CONFIRMADA')
             .forEach(reserva => {
               const socio = socioById.get(reserva.socioId);
               if (!socio) return;
-              const alreadyLogged = logsDe(rule.id, socio.id).some(l => l.ejecutadoEn.startsWith(hoyStr));
+              const alreadyLogged = logsDe(rule.id, socio.id).some(l => hoyEnEstudio(new Date(l.ejecutadoEn)) === hoyStr);
               if (alreadyLogged) return;
               // WhatsApp tiene muchísima mejor tasa de lectura a tiempo que
               // el email para un "mañana a las X" — se usa si hay teléfono,
