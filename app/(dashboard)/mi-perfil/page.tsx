@@ -8,18 +8,25 @@
 // La instructora ya no: Tentare Core se retiró (14-sep-2026) y su perfil,
 // disponibilidad, ausencias y estudios están en la app del estudio.
 
+import { useCallback } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
-import { Toast, useToast } from '@/components/ui/toast';
+import { Toast, useToast, type MostrarToast } from '@/components/ui/toast';
 import { TabPerfil } from '@/components/configuracion/tab-perfil';
 
 export default function MiPerfilPage() {
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
+  // Las dos mitades de un error en rojo: el `{ variant: 'error' }` de quien
+  // avisa y el `variant` del <Toast>. Con solo la primera, sigue saliendo verde.
+  const showToast: MostrarToast = useCallback(
+    (mensaje, opciones) => { if (opciones?.variant === 'error') showError(mensaje); else show(mensaje); },
+    [show, showError],
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader title="Mi perfil" description="Tu nombre, tu foto y cómo accedes a tu cuenta." />
       <TabPerfil showToast={showToast} />
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

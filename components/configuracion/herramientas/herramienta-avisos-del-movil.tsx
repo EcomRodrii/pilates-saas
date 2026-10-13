@@ -13,6 +13,7 @@ import {
   textoEnLista, validarTexto, variablesPermitidas, type TextoAviso,
 } from '@/lib/notifications/textos-estudio';
 import { dbGuardarTextoAviso, dbListTextosAviso, dbRestaurarTextoAviso, enviarPruebaPush } from '@/lib/notifications/textos-estudio-db';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Avisos en el móvil de las alumnas: CUÁNDO les llega el recordatorio de clase
 // y QUÉ dicen los avisos, con las palabras del estudio. Solo la propietaria (la
@@ -32,7 +33,7 @@ function useDatosDe() {
 
 const minutos = (m: number) => (m < 60 ? `${m} minutos` : m === 60 ? '1 hora' : `${m / 60} horas`);
 
-export function HerramientaAvisosDelMovil({ showToast }: { showToast: (m: string) => void }) {
+export function HerramientaAvisosDelMovil({ showToast }: { showToast: MostrarToast }) {
   return (
     <TarjetaAjuste id="avisos-del-movil" marco={false}>
       <div className="flex flex-col gap-6">
@@ -43,7 +44,7 @@ export function HerramientaAvisosDelMovil({ showToast }: { showToast: (m: string
   );
 }
 
-function Antelacion({ showToast }: { showToast: (m: string) => void }) {
+function Antelacion({ showToast }: { showToast: MostrarToast }) {
   const { studio, updateStudio } = useStudio();
   const [largo, setLargo] = useState(studio?.recordatorioLargoHoras ?? 24);
   const [corto, setCorto] = useState(studio?.recordatorioCortoMinutos ?? 60);
@@ -60,7 +61,7 @@ function Antelacion({ showToast }: { showToast: (m: string) => void }) {
       // Dejarlo elegido sin haberse guardado sería prometer un recordatorio que no sale a esa hora.
       setLargo(antes.largo);
       setCorto(antes.corto);
-      showToast(res.error);
+      showToast(res.error, { variant: 'error' });
       return;
     }
     showToast('Recordatorio guardado');
@@ -99,7 +100,7 @@ function Antelacion({ showToast }: { showToast: (m: string) => void }) {
   );
 }
 
-function Textos({ showToast }: { showToast: (m: string) => void }) {
+function Textos({ showToast }: { showToast: MostrarToast }) {
   const { studio } = useStudio();
   const studioId = studio?.id;
   const [propios, setPropios] = useState<Record<string, TextoAviso> | null>(null);
