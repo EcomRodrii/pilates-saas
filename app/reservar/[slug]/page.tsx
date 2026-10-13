@@ -4709,6 +4709,7 @@ export default function ReservarPage() {
                 radios={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: 14 })}
                 densidadEsc={escalaDensidad(apariencia)}
                 precio={datosPlan.precio}
+                matricula={Number(datosPlan.matricula) || 0}
                 fase={loginStep === 'pago' ? 'pago' : 'datos'}
                 loginForm={loginForm}
                 onChangeLoginForm={patch => { setLoginForm(f => ({ ...f, ...patch })); if (patch.email !== undefined) setDatosError(''); }}

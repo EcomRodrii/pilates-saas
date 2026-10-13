@@ -1,4 +1,4 @@
-// El segundo paso por correo (migr 20261003160000_doble_factor_por_correo.sql):
+// El segundo paso por correo (migr 20261004141529…20261004191152, doble_factor_por_correo_1…7):
 // verificar el código deja la sesión en `aal1` y la apunta en
 // `sesiones_confiadas` con origen 'correo'; `sesion_confiada_de` la acepta y,
 // con ella, todas las políticas. Contra Postgres de verdad (job `calidad-rls`).

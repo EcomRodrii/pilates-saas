@@ -137,3 +137,7 @@ test('mensajeParaSocia: todo mensaje dice si es comercial (un tipo nuevo no se c
   assert.ok(devoluciones >= 8);
   assert.equal(conClase, devoluciones, 'un `return {` de mensajeParaSocia sin `comercial` delante');
 });
+
+test('enlaceWhatsApp sin texto: abre el chat sin mensaje (oferta a quien no ha aceptado recibirlas)', () => {
+  assert.equal(enlaceWhatsApp('612 34 56 78', ''), 'https://wa.me/34612345678');
+});

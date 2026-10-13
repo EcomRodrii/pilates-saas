@@ -17,6 +17,11 @@ export function fechaCorta(ymd: string, hoyISO: string): string {
   return ymd.slice(0, 4) === hoyISO.slice(0, 4) ? `${d} ${m}` : `${d} ${m} ${ymd.slice(0, 4)}`;
 }
 
+/** «nov 2025»: mes y año, como el «desde ago 2026» del estado. */
+export function mesYAnio(ymd: string): string {
+  return `${MESES[Number(ymd.slice(5, 7)) - 1]} ${ymd.slice(0, 4)}`;
+}
+
 /** «hoy», «ayer», «hace 5 días», «hace 3 semanas», «hace 4 meses», «hace más de un año». */
 export function haceCuanto(ymd: string, hoyISO: string): string {
   const n = diasEntre(ymd, hoyISO);

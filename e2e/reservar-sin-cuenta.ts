@@ -47,11 +47,12 @@ export function fixtureClaseConPlanPuntual() {
   };
 }
 
-export async function abrirClaseSinSesion(page: Page) {
+/** `fixture`: otro `studio-data` (por ejemplo, el mismo plan con matrícula). Sin él, el de siempre. */
+export async function abrirClaseSinSesion(page: Page, fixture: object = fixtureClaseConPlanPuntual()) {
   await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
-  await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureClaseConPlanPuntual()) }));
+  await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }));
   await page.route('**/api/public/session', (r) => r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'sin sesión' }) }));
 
   for (let intento = 0; intento < 3; intento++) {

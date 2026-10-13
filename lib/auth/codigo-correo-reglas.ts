@@ -6,7 +6,7 @@
 //
 // Cómo encaja: Supabase no tiene el correo como factor, así que verificarlo NO
 // sube la sesión a `aal2`. La sesión se queda en `aal1` y el servidor la apunta
-// en `sesiones_confiadas` con origen 'correo' (migr 20261003160000): la misma
+// en `sesiones_confiadas` con origen 'correo' (migr 20261004141529…20261004191152, doble_factor_por_correo_*): la misma
 // regla única que ya usan los dispositivos recordados (`sesion_confiada_de`),
 // así que la base de datos y `verificarSesionStaff` la aceptan sin tocar una
 // sola política.

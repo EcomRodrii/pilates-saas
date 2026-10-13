@@ -21,7 +21,7 @@ import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 import { festivosEntre, hayCalendario, NOMBRE_ZONA } from '../festivos/oficiales.ts';
 import { zonaDelEstudio } from '../festivos/zona-del-estudio.ts';
 import {
-  mesSiguiente, primerDia, serieTerminada, ultimoDia,
+  mesSiguiente, porQueNoSigue, primerDia, ultimoDia,
   type PropuestaRepetir, type ResultadoRepetir, type SerieParaRepetir,
 } from './repetir-mes.ts';
 
@@ -154,8 +154,7 @@ export async function proponerRepetir(
       // Todas sus clases del mes canceladas: o el centro cerró (y entonces se
       // marca a mano) o se cancelaron a propósito. No se resucita sola.
       : vivas.length === 0 ? 'canceladas' as const
-        : serieTerminada({ fechas, bloqueadas }, finMes, festivosOrigen) ? 'terminada' as const
-          : null;
+        : porQueNoSigue({ fechas, bloqueadas }, finMes, festivosOrigen);
     return {
       ...base,
       periodoVisto: r.periodoActual ?? r.periodo - 1,

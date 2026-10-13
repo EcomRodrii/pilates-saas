@@ -2468,6 +2468,26 @@ export async function enviarPruebaAutomatizacion(datos: { ruleId: string; clave:
   }
 }
 
+// Reglas opcionales de Automatizaciones (P3.10). `null` = no se ofrecen: el
+// servidor dice que están apagadas para este estudio, o no ha contestado (sin
+// respuesta fiable, la pantalla se queda como siempre). `alcance: null` =
+// encendida pero sin cifras: la confirmación lo dice en vez de inventar un cero.
+export interface AlcanceCumpleCliente { activas: number; conFecha: number; conConsentimiento: number; alcanzables: number }
+export async function pedirAutomatizacionesDisponibles(): Promise<{ cumpleanos: { alcance: AlcanceCumpleCliente | null } } | null> {
+  try {
+    const res = await fetch('/api/automatizaciones/disponibles', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json().catch(() => null)) as { cumpleanos?: { alcance?: unknown } | null } | null;
+    if (!d?.cumpleanos) return null;
+    const a = d.cumpleanos.alcance as Record<string, unknown> | null | undefined;
+    const esCifra = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+    const valido = !!a && esCifra(a.activas) && esCifra(a.conFecha) && esCifra(a.conConsentimiento) && esCifra(a.alcanzables);
+    return { cumpleanos: { alcance: valido ? (a as unknown as AlcanceCumpleCliente) : null } };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Plantillas de email: vista previa + envío de prueba (P2-11) ─────────────
 
 // El borrador del formulario, sin guardar: la vista previa y el envío de

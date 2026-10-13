@@ -63,7 +63,7 @@ export interface SerieParaRepetir {
   /** Las que no se pueden crear, con su motivo (cierre, ya existe, sala ocupada, pasada). */
   bloqueadas: { fecha: string; motivo: MotivoOmitida }[];
   /** Por qué viene desmarcada de serie; null = viene marcada. */
-  desmarcadaPor: 'no_renovar' | 'terminada' | 'canceladas' | null;
+  desmarcadaPor: 'no_renovar' | 'terminada' | 'hueco_ocupado' | 'canceladas' | null;
   /** Fechas que se crearían sin instructora (la de siempre tiene otra clase a esa hora). */
   sinInstructora: number;
   /** La instructora de la serie ya no está en el equipo: se crearía sin instructora. */
@@ -169,22 +169,33 @@ export function seriesQueSeEnsenan(p: PropuestaRepetir): { visibles: SerieParaRe
 }
 
 /**
- * ¿La serie terminó antes de acabar el mes de origen? Sí si le falta alguna
- * fecha DENTRO de ese mes (después de su última clase) que no sea un festivo
- * ni un día cerrado: un viernes 25 de diciembre cerrado o desmarcado no es
- * «terminó», es «ese día no hubo clase».
+ * ¿La serie sigue hasta el final del mes de origen? Mira las fechas que le
+ * faltan DENTRO de ese mes (después de su última clase):
+ * - ninguna, o solo festivos y días cerrados → `null`, sigue: un viernes 25 de
+ *   diciembre cerrado o desmarcado no es «terminó», es «ese día no hubo clase»;
+ * - alguna libre (o ya pasada) → `'terminada'`: ahí podría haber habido clase y
+ *   no la hubo;
+ * - las demás, ocupadas por OTRA clase a su hora (`ya_existe`, `sala_ocupada`)
+ *   → `'hueco_ocupado'`. No se sabe si terminó: puede ser un taller puesto en su
+ *   hueco un día o una clase nueva que la sustituye (otro tipo, misma hora y
+ *   sala). Viene desmarcada igual —repetir no resucita sola una serie que quizá
+ *   se sustituyó—, pero diciendo lo que pasa, no «terminó».
  */
-export function serieTerminada(
+export function porQueNoSigue(
   s: Pick<SerieParaRepetir, 'fechas' | 'bloqueadas'>, finMes: string, festivos: ReadonlySet<string>,
-): boolean {
-  const cerrados = new Set(s.bloqueadas.filter((b) => b.motivo === 'cierre').map((b) => b.fecha));
-  return s.fechas.some((f) => f <= finMes && !festivos.has(f) && !cerrados.has(f));
+): 'terminada' | 'hueco_ocupado' | null {
+  const motivo = new Map(s.bloqueadas.map((b) => [b.fecha, b.motivo]));
+  const faltan = s.fechas.filter((f) => f <= finMes && !festivos.has(f) && motivo.get(f) !== 'cierre');
+  if (faltan.length === 0) return null;
+  const ocupada = (f: string) => motivo.get(f) === 'ya_existe' || motivo.get(f) === 'sala_ocupada';
+  return faltan.every(ocupada) ? 'hueco_ocupado' : 'terminada';
 }
 
 export function motivoDesmarcada(s: SerieParaRepetir): string | null {
   if (s.error) return s.error;
   if (s.desmarcadaPor === 'no_renovar') return 'Marcada «no renovar»';
-  if (s.desmarcadaPor === 'terminada') return 'Terminó antes de acabar el mes';
+  if (s.desmarcadaPor === 'terminada') return 'Su última clase del mes fue antes del final: márcala si sigue';
+  if (s.desmarcadaPor === 'hueco_ocupado') return 'Al final del mes otra clase ocupa su hora y su sala: márcala si sigue';
   if (s.desmarcadaPor === 'canceladas') return 'Sus clases de este mes están canceladas';
   if (creables(s).length === 0) return 'Ya está creada o no se puede crear';
   return null;
@@ -205,7 +216,13 @@ export interface ResultadoRepetir {
 
 /** «16 clases creadas en noviembre» y, si hace falta, lo que no salió. */
 export function textoTrasRepetir(r: ResultadoRepetir, destino: string): string {
-  const mes = nombreMes(destino);
+  // Si se marcó a mano una serie que paró antes de fin de mes, también se crean
+  // los días que le quedaban en el mes de origen: «en octubre y noviembre».
+  const [a, m] = destino.split('-').map(Number);
+  const origen = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`;
+  const mes = r.primeraFecha !== null && r.primeraFecha < `${destino}-01`
+    ? `${nombreMes(origen)} y ${nombreMes(destino)}`
+    : nombreMes(destino);
   const sinInstr = (r.sinInstructora ?? 0) > 0
     ? [r.sinInstructora === 1 ? '1 queda sin instructora: asígnala en el calendario' : `${r.sinInstructora} quedan sin instructora: asígnalas en el calendario`]
     : [];

@@ -109,6 +109,14 @@ export const MENSAJES_AUTOMATIZACION: MensajeAutomatizacion[] = [
     plantilla: '{nombre}, hemos cobrado tu renovación de {concepto} por {importe}€. Aquí tienes tu recibo desde tu área de socia.{cierre}',
     variables: [V.nombre, V.concepto, V.importe, V.cierre],
   },
+  {
+    clave: 'cumpleanos',
+    trigger: 'CUMPLEANOS',
+    cuando: 'El día de su cumpleaños',
+    asunto: '¡Feliz cumpleaños!',
+    plantilla: '¡Feliz cumpleaños, {nombre}! Desde el estudio te deseamos un día estupendo. Gracias por estar con nosotros.',
+    variables: [V.nombre],
+  },
 ];
 
 export function mensajesDeTrigger(trigger: AutomationRule['trigger']): MensajeAutomatizacion[] {

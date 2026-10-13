@@ -20,8 +20,8 @@ test.setTimeout(180_000);
 
 const SECRETO = 'pi_3QeXaMPLe000000000000_secret_ExAmPle0000000000000000';
 
-async function hastaElPago(page: Page, respuesta: Record<string, unknown>) {
-  await abrirClaseSinSesion(page);
+async function hastaElPago(page: Page, respuesta: Record<string, unknown>, fixture?: object) {
+  await abrirClaseSinSesion(page, fixture);
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
   // La comprobación en vivo del campo (permisiva para quien aún no tiene cuenta).
   await page.route('**/api/public/validar-codigo-descuento', (r) =>
@@ -147,3 +147,63 @@ test('el importe con céntimos se escribe a la española', async ({ page }) => {
   await hastaElPago(page, { importe: 15.3, descuento: 2.7, codigoAplicado: true, matricula: 0, total: 15.3 });
   await expect(page.getByRole('button', { name: 'Pagar 15,3 € y reservar' })).toBeVisible({ timeout: 15_000 });
 });
+
+// ── El «Total a pagar» del paso de datos, con matrícula (seguimiento de P0.4) ──
+// Antes decía solo el precio y el botón del paso siguiente (el cargo real) llevaba
+// además la matrícula: «18 €» y luego «Pagar 38 €». El código no toca la matrícula.
+
+function conMatricula(matricula: number) {
+  const f = fixtureClaseConPlanPuntual();
+  const planes = f.planesTarifa.map((p) => ({ ...p, matricula }));
+  return { ...f, planesTarifa: planes };
+}
+
+test('con matrícula, el «Total a pagar» de tus datos la suma, y un código válido solo rebaja el precio', async ({ page }) => {
+  await abrirClaseSinSesion(page, conMatricula(20));
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('linea-matricula')).toContainText('Matrícula de alta');
+  await expect(page.getByTestId('linea-matricula')).toContainText('+20 €');
+  await expect(page.getByTestId('total-a-pagar')).toHaveText('38 €');
+  await expect(page.getByText('Se cobra si aún no has tenido un bono o una cuota en este estudio')).toBeVisible();
+
+  let validaciones = 0;
+  await page.route('**/api/public/validar-codigo-descuento', (r) => {
+    validaciones++;
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, descuento: 3 }) });
+  });
+  await page.getByRole('button', { name: '¿Tienes un código promocional?' }).click();
+  await page.getByPlaceholder('Código promocional').fill('VERANO');
+  await expect.poll(() => validaciones, { timeout: 15_000 }).toBeGreaterThan(0);
+  // 18 − 3 + 20: el descuento sale del precio, la matrícula se suma entera.
+  await expect(page.getByTestId('total-a-pagar')).toHaveText('35 €');
+  await expect(page.getByText('38 €', { exact: true })).toBeVisible();
+});
+
+test('sin matrícula, el paso de datos se queda como estaba', async ({ page }) => {
+  await abrirClaseSinSesion(page);
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('total-a-pagar')).toHaveText('18 €');
+  await expect(page.getByTestId('linea-matricula')).toHaveCount(0);
+  await expect(page.getByText('Se cobra si aún no has tenido un bono o una cuota')).toHaveCount(0);
+});
+
+// ── El botón de pago, con matrícula: dice lo que cobra el PaymentIntent (condición del fundador) ──
+// La estimación del paso de datos puede ir por encima (si al final no toca la matrícula), pero el
+// botón que inicia el cobro enseña el `total` del servidor, que es el importe del PaymentIntent.
+test('con matrícula: el botón de pago es el cargo, al céntimo, toque o no toque la matrícula', async ({ page }) => {
+  // Primera vez: precio 18 − código 3 + matrícula 20 = 35, en los dos pasos.
+  await hastaElPago(page, { importe: 15, descuento: 3, codigoAplicado: true, matricula: 20, total: 35 }, conMatricula(20));
+  await expect(page.getByRole('button', { name: 'Pagar 35 € y reservar' })).toBeVisible({ timeout: 15_000 });
+});
+
+test('con matrícula que al final no toca (ya tuvo un bono): el botón dice lo que se cobra, no la estimación', async ({ page }) => {
+  await hastaElPago(page, { importe: 15, descuento: 3, codigoAplicado: true, matricula: 0, total: 15 }, conMatricula(20));
+  await expect(page.getByRole('button', { name: 'Pagar 15 € y reservar' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /Pagar 35/ })).toHaveCount(0);
+});
+
+test('con matrícula y céntimos: el botón es el total del servidor (33,76 €)', async ({ page }) => {
+  await hastaElPago(page, { importe: 13.77, descuento: 1.53, codigoAplicado: true, matricula: 19.99, total: 33.76 }, conMatricula(19.99));
+  await expect(page.getByRole('button', { name: 'Pagar 33,76 € y reservar' })).toBeVisible({ timeout: 15_000 });
+});
+

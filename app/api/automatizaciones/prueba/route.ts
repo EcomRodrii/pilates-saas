@@ -9,6 +9,7 @@ import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverContextoEstudio } from '@/lib/emails/plantillas-preview';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { definicionMensaje, plantillaDe, renderMensaje } from '@/lib/engines/mensajes-automatizacion';
+import { reglaEjecutable, reglasOpcionalesEncendidas } from '@/lib/engines/reglas-opcionales';
 
 // «Enviarme una prueba» de un mensaje de automatización (evaluación del
 // 13-sep). La pantalla ya enseñaba el texto con datos de ejemplo, pero cómo
@@ -34,7 +35,11 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as { ruleId?: string; clave?: string; texto?: string | null } | null;
   const def = body?.clave ? definicionMensaje(body.clave) : undefined;
-  if (!def) return NextResponse.json({ error: 'Mensaje desconocido' }, { status: 400 });
+  // Lo de una regla opcional apagada para este estudio no existe (P3.10): ni
+  // se ofrece en la pantalla ni se prueba desde aquí.
+  if (!def || !reglaEjecutable(def.trigger, reglasOpcionalesEncendidas(sesion.studioId))) {
+    return NextResponse.json({ error: 'Mensaje desconocido' }, { status: 400 });
+  }
 
   // El texto: el borrador que se está escribiendo (se prueba ANTES de guardar)
   // o, si no hay, el guardado en la regla de ESTE estudio.
