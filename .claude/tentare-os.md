@@ -1379,6 +1379,10 @@ no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
   de cadena y en demos (el cliente no vuelve a mirar `cadena_id`: se puede activar a mano en cualquiera). `tour_obligatorio` NO se concede a `authenticated`.
 - **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
   tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
+- ⚠️ **Dónde está la persona lo decide `lugarDelPaso`, y una herramienta abierta (`&abrir=`) cuenta**:
+  dentro de la del propio paso (pulsó la fila que se le pedía) lo está HACIENDO, no se busca la fila;
+  dentro de otra, está fuera. A Sentry solo va lo que NUNCA apareció (`lib/tour/objetivo.ts`): lo que
+  se vio y se fue lo movió ella (JAVASCRIPT-NEXTJS-3J, 13-oct, todo falsos).
 - **Copy y pantallas en `lib/tour/capitulos.ts`**: solo lo que existe, con los nombres reales
   del menú y de Configuración, y nada congelado (lo vigila `capitulos.test.ts`, que también
   comprueba que cada `data-tour` existe). Una pantalla fuera del marco del panel

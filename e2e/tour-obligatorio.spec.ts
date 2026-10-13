@@ -352,6 +352,104 @@ test.describe('La visita guiada por capítulos', () => {
     await expect(inicio(page)).toBeVisible({ timeout: 60_000 });
   });
 
+  // ── Hacer lo que pide el paso no es «no encontrar» lo que señala (Sentry JAVASCRIPT-NEXTJS-3J) ──
+  // c2.4 dice «Pulsa «Tipos de clase» y crea el primero». Al pulsar la fila, la herramienta se abre EN
+  // SU SITIO y la fila deja de estar: la visita esperaba 8 s, decía «No encuentro el recuadro… pulsa
+  // «Llévame»» (que la sacaba de la herramienta) y avisaba a Sentry. Visto en un iPhone el 13-oct.
+  const ESPERA_OBJETIVO_MS = 8_000;
+  const hastaC2 = (hechos: string[]) => ({ v: 1, inicio: true, hechos: [...CAPITULOS[0].pasos.map(p => p.id), ...hechos], aplazados: [], vistos: ['c1'], abiertos: ['c1', 'c2'] });
+
+  for (const vista of [{ nombre: 'escritorio', ancho: 1280, alto: 800 }, { nombre: 'móvil', ancho: 390, alto: 844 }] as const) {
+    test(`${vista.nombre}: pulsar la fila que pide un paso «hacer» abre su herramienta y el paso sigue esperando, sin «no encuentro»`, async ({ page }) => {
+      test.slow();
+      await page.setViewportSize({ width: vista.ancho, height: vista.alto });
+      await montarVisita(page, { progreso: hastaC2(['c2.1', 'c2.2', 'c2.3']) });
+      await page.goto('/configuracion?tab=clases');
+      const paso = tarjeta(page, 'Tus tipos de clase');
+      await expect(paso).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByTestId('visita-anillo')).toBeVisible({ timeout: 30_000 });
+      const montado = Date.now();
+
+      // En el móvil la tarjeta tapa la mitad de abajo: la persona la oculta y pulsa la fila (lo que hizo
+      // quien lo destapó, según sus migas). En escritorio va en una esquina y la fila se pulsa sin más.
+      if (vista.nombre === 'móvil') await paso.getByRole('button', { name: /Ocultar la tarjeta/ }).click();
+      await page.locator('#fila-herramienta-tipos-de-clase').click();
+      await expect(page).toHaveURL(/abrir=tipos-de-clase/);
+      await expect(page.locator('#herramienta-titulo')).toHaveText('Tipos de clase');
+
+      // Que pase de verdad el plazo de «no encontrado» con la herramienta abierta (si no, el test no prueba nada).
+      await page.waitForTimeout(Math.max(1_500, ESPERA_OBJETIVO_MS + 1_500 - (Date.now() - montado)));
+      expect(Date.now() - montado).toBeGreaterThan(ESPERA_OBJETIVO_MS);
+      if (vista.nombre === 'móvil') await page.getByRole('button', { name: /Visita guiada · Cap\. 2 de \d+ · Continuar/ }).click();
+
+      await expect(paso).toBeVisible();
+      await expect(paso).toContainText('Esperando a que lo hagas');
+      await expect(paso).not.toContainText('No encuentro el recuadro');
+      await expect(paso).not.toContainText('Buscando el sitio');
+      await expect(paso.getByRole('button', { name: /Llévame/ })).toHaveCount(0);
+      // Ni un anillo encima de la herramienta en el sitio donde estaba la fila.
+      await expect(page.getByTestId('visita-anillo')).toHaveCount(0);
+
+      // Control positivo: de vuelta en la sección, la visita vuelve a buscar la fila y la señala.
+      await page.getByRole('button', { name: 'Volver a Mis clases y citas' }).click();
+      await expect(page).not.toHaveURL(/abrir=/);
+      await expect(page.getByTestId('visita-anillo')).toBeVisible({ timeout: 10_000 });
+    });
+  }
+
+  test('un paso que empieza con OTRA herramienta abierta encima de su pestaña lleva a la pestaña, no dice «no encuentro»', async ({ page }) => {
+    test.slow();
+    // c2.3 señala «Horario», en «Mi estudio». Se llega con «Salas» abierta, como quien acaba de crear su sala.
+    await montarVisita(page, { progreso: hastaC2(['c2.1', 'c2.2']) });
+    await page.goto('/configuracion?tab=estudio&abrir=salas');
+    await expect(page.locator('#herramienta-titulo')).toHaveText('Salas', { timeout: 60_000 });
+    const paso = tarjeta(page, 'Tu horario de apertura');
+    await expect(paso).toBeVisible({ timeout: 60_000 });
+    await expect(paso).toContainText('Este paso está en Configuración');
+    await expect(paso).not.toContainText('No encuentro el recuadro');
+    await paso.getByRole('button', { name: /Llévame/ }).click();
+    await expect(page).not.toHaveURL(/abrir=/);
+    await expect(page.getByTestId('visita-anillo')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('al cerrar un paso con su herramienta abierta, el siguiente te saca de ella y lleva a lo suyo', async ({ page }) => {
+    test.slow();
+    // Ya hay una sala: c2.2 se LEE («Ya lo tienes hecho») aunque se esté dentro de «Salas».
+    await montarVisita(page, {
+      progreso: hastaC2(['c2.1']),
+      extra: async p => { await p.route('**/rest/v1/salas**', r => json(r, [{ id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 10, color: '#4F46E5' }])); },
+    });
+    await page.goto('/configuracion?tab=estudio&abrir=salas');
+    const salas = tarjeta(page, 'Tus salas');
+    await expect(salas).toContainText('Ya lo tienes hecho', { timeout: 60_000 });
+    await expect(salas).not.toContainText('Este paso está en');
+    await salas.getByRole('button', { name: /Entendido/ }).click();
+    const horario = tarjeta(page, 'Tu horario de apertura');
+    await expect(horario).toBeVisible();
+    await expect(page).not.toHaveURL(/abrir=/, { timeout: 15_000 });
+    await expect(page.getByTestId('visita-anillo')).toBeVisible({ timeout: 30_000 });
+    await expect(horario).not.toContainText('No encuentro el recuadro');
+  });
+
+  test('si te vas tú del paso en el que ya estabas, no te devuelve a su pantalla', async ({ page }) => {
+    test.slow();
+    // Visto en las migas del 13-oct: un enlace del Resumen llevó a /calendario y, 46 ms después, la visita
+    // la devolvió al Resumen. «Llevar» es al ENTRAR en un paso, no cada vez que una se va.
+    await montarVisita(page);
+    await inicio(page).waitFor({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Empezar/ }).click();
+    await tarjeta(page, 'Tu menú').getByRole('button', { name: /Entendido/ }).click();
+    const paso = tarjeta(page, 'Tu Resumen');
+    await expect(paso).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard/);
+    // Navegación del propio panel (sin recargar), como el enlace del Resumen que se pulsó aquel día.
+    await page.getByRole('link', { name: 'Calendario' }).first().click();
+    await expect(page).toHaveURL(/\/calendario/, { timeout: 30_000 });
+    await expect(paso).toContainText('Este paso está en el Resumen', { timeout: 30_000 });
+    await page.waitForTimeout(1_500);
+    await expect(page).toHaveURL(/\/calendario/);
+  });
+
   test('una pantalla entera muy alta no hace saltar la página a su mitad al señalarla', async ({ page }) => {
     // El Resumen se hace altísimo (como Cobros o Clientas con cientos de filas).
     await page.addInitScript(() => {
