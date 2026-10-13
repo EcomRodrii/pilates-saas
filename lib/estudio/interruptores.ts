@@ -28,6 +28,8 @@ export const INTERRUPTORES = {
   horarioDesdeImagen: 'HORARIO_DESDE_IMAGEN',
   /** Niveles con ritmo y equivalencias en clases, en Motivación (P3.8). */
   nivelesConRitmo: 'GAMIFICACION_NIVELES_RITMO',
+  /** Qué se ve de cada alumna en la lista de una clase (P3.11). */
+  tarjetaClase: 'TARJETA_CLASE',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

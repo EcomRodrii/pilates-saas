@@ -49,3 +49,6 @@ export const horarioDesdeImagenEncendido = (studioId: string) => encendidaPara(p
 
 /** Niveles con ritmo y equivalencias en clases (P3.8). Lo mira `/api/estudio/niveles`; la pantalla, el catálogo del navegador (misma variable). */
 export const nivelesConRitmoEncendido = (studioId: string) => encendidaPara(process.env.GAMIFICACION_NIVELES_RITMO, studioId);
+
+/** Qué se ve de cada alumna en la lista de una clase (P3.11). Lo mira `PUT /api/estudio/tarjeta-clase`; el Calendario y Configuración, el catálogo del navegador (misma variable). */
+export const tarjetaClaseEncendida = (studioId: string) => encendidaPara(process.env.TARJETA_CLASE, studioId);

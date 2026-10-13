@@ -12,6 +12,8 @@ import { avisoQuitarReserva, type MarcaReserva } from '@/lib/plazas-fijas-cancel
 import { avisoQuitarExterna, filaReserva } from '@/lib/plataformas/fila-reserva';
 import { planPasarLista } from '@/lib/calendario-decisiones';
 import { MENSAJE_CLASE_AUN_NO_EMPEZADA } from '@/lib/calendario-estado';
+import type { Pieza } from '@/lib/calendario/tarjeta-clienta';
+import { PiezasFila } from '@/components/calendario/piezas-fila';
 
 // Quién viene a la clase, en la ficha del Calendario.
 //
@@ -53,6 +55,8 @@ export interface ClientasDeClaseProps {
   filaExtra?: (r: Reserva) => ReactNode;
   /** El nombre de su máquina o sitio, si lo tiene. */
   sitioDe?: (r: Reserva) => string | null;
+  /** Lo que la propietaria eligió ver de cada alumna (P3.11). Sin esto, nada: lo de siempre. */
+  piezasDe?: (r: Reserva) => Pieza[];
   /** Pasar lista: escribe y dice cómo ha ido. */
   onGuardarLista?: (plan: { vinieron: string[]; noVinieron: string[] }) => Promise<void>;
 }
@@ -197,7 +201,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5 text-[14px] font-medium text-foreground">
-                    {semaforo && <span className="size-2 shrink-0 rounded-full" title={semaforo.label} style={{ background: semaforo.color }} />}
+                    {semaforo && <span data-semaforo className="size-2 shrink-0 rounded-full" title={semaforo.label} style={{ background: semaforo.color }} />}
                     {fila.enlaceFicha
                       ? <Link href={fila.enlaceFicha} className="truncate hover:underline">{fila.nombre}</Link>
                       : <span className="truncate">{fila.nombre}</span>}
@@ -271,6 +275,9 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                   />
                 )}
               </div>
+              {/* Debajo de la fila y a todo su ancho (alineado con el nombre): al lado del
+                  botón de check-in, en la hoja de 375 px, se cortaba antes del número. */}
+              {!fila.plataforma && p.piezasDe && <PiezasFila piezas={p.piezasDe(r)} className="pl-[52px]" />}
               {!fila.plataforma && p.filaExtra?.(r)}
             </li>
           );

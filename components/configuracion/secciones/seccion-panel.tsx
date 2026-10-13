@@ -14,10 +14,14 @@ import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/c
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import { tuTentareActivo } from '@/lib/tu-tentare/cliente';
+import { useStudio } from '@/lib/studio-context';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // «Tu Tentare» (P2.5): solo se carga si el servidor lo enciende para el estudio
 // (interruptor `TU_TENTARE`). Apagado, esta sección es exactamente la de antes.
 const TusModulos = dynamic(() => import('@/components/configuracion/tu-tentare/tus-modulos').then(m => m.TusModulos), { ssr: false });
+// «Quién viene a cada clase» (P3.11): igual, solo con `TARJETA_CLASE` encendido.
+const QuienVieneACadaClase = dynamic(() => import('@/components/configuracion/tarjeta-clase/quien-viene-a-cada-clase').then(m => m.QuienVieneACadaClase), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tu panel: el menú, el Inicio, dónde va el menú y claro u oscuro. Los sonidos
@@ -57,6 +61,8 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
   // los módulos de fábrica, y decir «ninguno escondido» sobre eso sería mentira.
   const listo = p.estado === 'listo';
   const [tuTentare, setTuTentare] = useState(false);
+  const { studio } = useStudio();
+  const tarjetaClase = useInterruptor('tarjetaClase', studio?.id);
   // «Tus módulos» y el cajón «Tu menú» escriben el mismo dato: nunca a la vez.
   // Con un cajón abierto, sus interruptores esperan; con uno guardando, los
   // cajones no se abren (si no, el cajón se quedaba con lo de antes y, al
@@ -129,6 +135,10 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
             hay respuesta que esperar y nunca falla. */}
         <FilaInterruptor id="claro-u-oscuro" icono={Moon} on={dark} onCambiar={async v => { setDark(v); return null; }} />
       </GrupoFilas>
+
+      {/* Lo ve todo el equipo en el Calendario; lo decide la propietaria (esta
+          sección ya es solo suya, y el servidor lo vuelve a comprobar). */}
+      {tarjetaClase && <QuienVieneACadaClase key={studio?.id} showToast={showToast} />}
 
       {/* «Tu Tentare», después de lo de siempre: diecinueve filas delante
           enterrarían «Claro u oscuro». Tras cada cambio el hook vuelve a leer:
