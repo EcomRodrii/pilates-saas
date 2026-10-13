@@ -46,7 +46,7 @@ export function DialogoArchivarTipo({ archivando, onArchivar, onCerrar }: {
       open={!!archivando}
       onOpenChange={open => { if (!open && !enCurso.current) { setError(null); onCerrar(); } }}
     >
-      <DialogContent className="max-w-[min(calc(100%-2rem),28rem)]" showCloseButton={false}>
+      <DialogContent className="max-w-md" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Archivar «{archivando?.nombre}»</DialogTitle>
           <DialogDescription className="text-pretty">

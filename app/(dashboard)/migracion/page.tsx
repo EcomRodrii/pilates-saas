@@ -28,7 +28,7 @@ import {
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
   type FilaRecuperacion,
 } from '@/lib/csv';
-import { uid } from '@/lib/utils';
+import { uid, hoyEnEstudio } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
 import type { BatchReciente } from '@/lib/migracion/batches';
 import { planesSinCasar, aplicarMapeoPlanes, normalizarNombrePlan } from '@/lib/migracion/planes';
@@ -299,7 +299,9 @@ export default function MigracionPage() {
     setBatchId(id);
     setPaso('ejecutando');
     const out: ResultadoEntidad[] = [];
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Desde cuándo se expande el horario recurrente: el día del estudio (con el de
+    // UTC, de madrugada la primera clase de la serie caía ayer).
+    const hoy = hoyEnEstudio();
     // Las entidades cuyo resultado no es completo: bloquean solo a las que dependen de ellas.
     const falladas = new Set<EntidadMigracion>();
 

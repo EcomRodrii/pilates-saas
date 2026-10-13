@@ -12,6 +12,10 @@
 // usa backdrop-blur, y `.panel-page-in` anima con transform). Lo que cambia es
 // el DESTINO: un anfitrión que cuelga directo del contenedor del tema —dentro
 // de `.dark`, fuera de lo transformado—, en vez de `document.body`.
+//
+// Los diálogos, popovers y tooltips de Base UI no llaman a esto directamente:
+// van por `useDestinoPortal()` (components/ui/destino-portal.tsx), que respeta
+// el anidado de Base UI.
 
 export const ID_ANFITRION_PANEL = 'panel-portal-host';
 
