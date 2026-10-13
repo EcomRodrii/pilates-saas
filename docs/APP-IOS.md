@@ -450,8 +450,14 @@ TENTARE_APP_ID=app.tentare.luz TENTARE_APP_NAME="Luz" npm run cap:sync
 
 `capacitor.config.ts` las lee, y `scripts/identidad-ios.mjs` las escribe en
 `ios/identidad.local.xcconfig`, que `project.pbxproj` e `Info.plist` usan como
-`$(TENTARE_BUNDLE_ID)` y `$(TENTARE_APP_NAME)`. La URL de arranque es la misma:
-`/app` sabe qué app la abre por su bundle id (`bundleIdDeLaApp()`).
+`$(TENTARE_BUNDLE_ID)` y `$(TENTARE_APP_NAME)`. La URL de arranque es la misma.
+
+⚠️ **`/app` NO sabe qué estudio es esa app** (comprobado el 13-oct-2026; esta
+frase decía lo contrario): `bundleIdDeLaApp()` solo se usa para el token de push,
+el esquema de URL y Google, y no hay ningún mapa bundle id → estudio. Una app
+compilada con otro nombre abre igualmente el selector de estudios de «Tentare».
+Mientras no exista ese mapa, esto cambia el nombre y el icono del binario, no a
+qué estudio entra.
 
 Cada app de estudio necesita además: su App ID con las tres capacidades, su
 ficha en App Store Connect, su `<TEAMID>.<bundle id>` en el fichero de Universal
