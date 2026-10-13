@@ -494,9 +494,10 @@ npm run app:estudio -- <slug> --sin-subir                                 # comp
 Pide al servidor el nombre y el icono del estudio, pinta el icono de 1024 px sin alfa (el
 mismo que ven sus alumnas: favicon › logo › inicial; `/icono-estudio?size=1024`), pone
 la identidad, compila con firma automática (`-allowProvisioningUpdates`, que registra el
-App ID), **comprueba los entitlements de la app firmada** (notificaciones en producción,
-Entrar con Apple y enlaces universales; sin ellos no sube) y exporta subiendo a App
-Store Connect. El número de build es la fecha y hora. Deja los ficheros versionados
+App ID), exporta primero un IPA y **comprueba sus entitlements** (notificaciones en
+producción, Entrar con Apple y enlaces universales; sin ellos no sube; en el archivo las
+notificaciones van en `development`, solo el IPA las lleva en `production`) y entonces lo
+sube a App Store Connect. El número de build es la fecha y hora. Deja los ficheros versionados
 (`Assets.xcassets`), la identidad local y el JSON de Capacitor como estaban, salga bien o
 mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 

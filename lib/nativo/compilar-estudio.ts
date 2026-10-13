@@ -36,7 +36,7 @@ export function pngSinAlfa(png: Uint8Array, lado: number): boolean {
   return ancho === lado && alto === lado && tipoColor !== 4 && tipoColor !== 6;
 }
 
-/** ¿El `codesign -d --entitlements :-` de la app archivada lleva lo que la app necesita? */
+/** ¿El `codesign -d --entitlements :-` del IPA exportado lleva lo que la app necesita? */
 export function entitlementsCompletos(texto: string): { ok: boolean; faltan: string[] } {
   const requeridos: [string, RegExp][] = [
     ['notificaciones en producción (aps-environment = production)', /aps-environment[\s\S]*?production/],
@@ -47,15 +47,18 @@ export function entitlementsCompletos(texto: string): { ok: boolean; faltan: str
   return { ok: faltan.length === 0, faltan };
 }
 
-/** `ExportOptions.plist` para exportar y SUBIR a App Store Connect con la firma automática. */
-export function opcionesDeExport(equipo: string): string {
+/**
+ * `ExportOptions.plist` para exportar con la firma automática. `destino`: `export` deja el
+ * IPA en disco (para comprobarlo) y `upload` lo sube a App Store Connect.
+ */
+export function opcionesDeExport(equipo: string, destino: 'export' | 'upload' = 'upload'): string {
   if (!/^[A-Z0-9]{10}$/.test(equipo)) throw new Error(`Team ID de Apple no válido: «${equipo}»`);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>method</key><string>app-store-connect</string>
-  <key>destination</key><string>upload</string>
+  <key>destination</key><string>${destino}</string>
   <key>signingStyle</key><string>automatic</string>
   <key>teamID</key><string>${equipo}</string>
 </dict>

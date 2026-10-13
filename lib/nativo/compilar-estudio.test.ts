@@ -53,6 +53,8 @@ test('el ExportOptions sube a App Store Connect con el equipo dado', () => {
   assert.match(x, /<string>app-store-connect<\/string>/);
   assert.match(x, /<key>destination<\/key><string>upload<\/string>/);
   assert.match(x, /<key>teamID<\/key><string>ABCDE12345<\/string>/);
+  // `export` deja el IPA en disco para comprobarlo antes de subir.
+  assert.match(opcionesDeExport('ABCDE12345', 'export'), /<key>destination<\/key><string>export<\/string>/);
   assert.throws(() => opcionesDeExport(''));
   assert.throws(() => opcionesDeExport('</string><x>'));
 });

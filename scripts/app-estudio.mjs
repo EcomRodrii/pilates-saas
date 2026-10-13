@@ -16,11 +16,12 @@
 // para TestFlight. Enviarla a revisión es otra decisión (guía 4.2.6).
 //
 // ⚠️ Nunca `CODE_SIGNING_ALLOWED=NO`: exporta sin entitlements (sin notificaciones, sin
-// Entrar con Apple, sin enlaces universales) y la app sale rota. Aquí se comprueba el
-// resultado firmado antes de subir.
+// Entrar con Apple, sin enlaces universales) y la app sale rota. Aquí se exporta primero a un
+// IPA, se comprueba lo firmado y solo entonces se sube.
 //
 // Toca ficheros VERSIONADOS (el icono y el arranque de `ios/App/App/Assets.xcassets`), y
-// los deja como estaban al terminar, salga bien o mal.
+// los deja como estaban al terminar, salga bien o mal. Necesita `node_modules` al día
+// (`npm ci`): los plugins nativos que entran en la app salen de ahí.
 
 import { chromium } from 'playwright';
 import fs from 'node:fs';
@@ -36,6 +37,8 @@ import {
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = 'ios/App/App/Assets.xcassets';
+// `cap sync` reescribe este fichero (versionado) con los plugins que haya en node_modules.
+const PAQUETE_SPM = 'ios/App/CapApp-SPM/Package.swift';
 const XCCONFIG = path.join(REPO, 'ios/identidad.local.xcconfig');
 const LADO_ICONO = 1024;
 const LADO_SPLASH = 2732;
@@ -149,8 +152,8 @@ if (SOLO_ICONO) { console.log('\n--solo-icono: no se toca nada más. Mira el ico
 
 // Los ficheros versionados que se van a pisar tienen que estar limpios: si no, el
 // `git checkout` del final se llevaría un cambio ajeno.
-const sucio = spawnSync('git', ['status', '--porcelain', '--', ASSETS], { cwd: REPO, encoding: 'utf8' }).stdout.trim();
-if (sucio) parar(`Hay cambios sin guardar en ${ASSETS}; guárdalos o descártalos antes:\n${sucio}`);
+const sucio = spawnSync('git', ['status', '--porcelain', '--', ASSETS, PAQUETE_SPM], { cwd: REPO, encoding: 'utf8' }).stdout.trim();
+if (sucio) parar(`Hay cambios sin guardar en ${ASSETS} o ${PAQUETE_SPM}; guárdalos o descártalos antes:\n${sucio}`);
 
 const xcconfigAnterior = fs.existsSync(XCCONFIG) ? fs.readFileSync(XCCONFIG, 'utf8') : null;
 const equipo = process.env.TENTARE_APPLE_TEAM_ID || equipoDeXcconfig(xcconfigAnterior ?? '');
@@ -170,24 +173,38 @@ try {
   ejecutar('node', ['scripts/identidad-ios.mjs'], { env });
   ejecutar('npx', ['cap', 'sync', 'ios'], { env });
 
+  // `cap sync` arma la lista de plugins nativos con lo que hay en node_modules. Si cambia el
+  // fichero versionado, a este árbol le faltan (o le sobran) plugins respecto a `main` y la
+  // app saldría incompleta, sin brillo de pantalla o sin calendario, sin ningún error.
+  const cambioSpm = spawnSync('git', ['diff', '--stat', '--', PAQUETE_SPM], { cwd: REPO, encoding: 'utf8' }).stdout.trim();
+  if (cambioSpm) throw new Error(`node_modules no coincide con package.json: «cap sync» ha cambiado ${PAQUETE_SPM}. Haz «npm ci» y vuelve a empezar.\n${cambioSpm}`);
+
   ejecutar('xcodebuild', [
     'archive', '-project', 'ios/App/App.xcodeproj', '-scheme', 'App', '-configuration', 'Release',
     '-destination', 'generic/platform=iOS', '-archivePath', archivo, '-allowProvisioningUpdates',
     `CURRENT_PROJECT_VERSION=${build}`,
   ]);
 
-  // Lo firmado, no lo intentado: sin estos tres permisos la app sale rota en silencio.
-  const firma = spawnSync('codesign', ['-d', '--entitlements', ':-', path.join(archivo, 'Products/Applications/App.app')], { encoding: 'utf8' });
+  // Primero a un IPA en disco, y se COMPRUEBA lo firmado antes de subir. En el archivo las
+  // notificaciones van en `development`: solo el IPA para App Store las lleva en `production`.
+  const exportacion = path.join(tmp, 'export');
+  const opcionesExport = path.join(tmp, 'ExportOptions.plist');
+  fs.writeFileSync(opcionesExport, opcionesDeExport(equipo, 'export'));
+  ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', exportacion, '-allowProvisioningUpdates']);
+  const ipa = fs.readdirSync(exportacion).find((f) => f.endsWith('.ipa'));
+  if (!ipa) throw new Error('La exportación no dejó ningún .ipa.');
+  const descomprimido = path.join(tmp, 'ipa');
+  ejecutar('unzip', ['-q', path.join(exportacion, ipa), '-d', descomprimido]);
+  const firma = spawnSync('codesign', ['-d', '--entitlements', ':-', path.join(descomprimido, 'Payload/App.app')], { encoding: 'utf8' });
   const { ok, faltan } = entitlementsCompletos(`${firma.stdout}\n${firma.stderr}`);
-  if (!ok) throw new Error(`La app archivada no lleva: ${faltan.join('; ')}. No se sube.`);
-  console.log('\n✔ Entitlements: notificaciones en producción, Entrar con Apple y enlaces universales.');
+  if (!ok) throw new Error(`El IPA no lleva: ${faltan.join('; ')}. No se sube.`);
+  console.log('\n✔ Entitlements del IPA: notificaciones en producción, Entrar con Apple y enlaces universales.');
 
   if (SIN_SUBIR) {
-    console.log(`\n--sin-subir: archivo en ${archivo}`);
+    console.log(`\n--sin-subir: IPA comprobado en ${path.join(exportacion, ipa)}`);
   } else {
-    const opciones = path.join(tmp, 'ExportOptions.plist');
-    fs.writeFileSync(opciones, opcionesDeExport(equipo));
-    ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opciones, '-exportPath', path.join(tmp, 'export'), '-allowProvisioningUpdates']);
+    fs.writeFileSync(opcionesExport, opcionesDeExport(equipo, 'upload'));
+    ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', path.join(tmp, 'subida'), '-allowProvisioningUpdates']);
     console.log(`\n✔ Subida a App Store Connect: ${app.bundleId} · build ${build}. Aparece en TestFlight tras procesarse.`);
   }
   terminadoBien = true;
@@ -195,11 +212,13 @@ try {
   console.error(`\n✖ ${e.message}`);
 } finally {
   // Deja el árbol como estaba: los ficheros versionados, la identidad local y el JSON de Capacitor.
-  spawnSync('git', ['checkout', '--', ASSETS], { cwd: REPO, stdio: 'inherit' });
+  spawnSync('git', ['checkout', '--', ASSETS, PAQUETE_SPM], { cwd: REPO, stdio: 'inherit' });
   if (xcconfigAnterior !== null) fs.writeFileSync(XCCONFIG, xcconfigAnterior); else fs.rmSync(XCCONFIG, { force: true });
   const envLimpio = { ...process.env };
   delete envLimpio.TENTARE_APP_ID; delete envLimpio.TENTARE_APP_NAME;
   spawnSync('npx', ['cap', 'sync', 'ios'], { cwd: REPO, stdio: 'ignore', env: envLimpio });
+  // Este `cap sync` también reescribe el fichero de plugins; se vuelve a dejar el de `main`.
+  spawnSync('git', ['checkout', '--', PAQUETE_SPM], { cwd: REPO, stdio: 'ignore' });
   console.log('\nÁrbol restaurado: icono, arranque, identidad y configuración de Capacitor como estaban.');
 }
 process.exit(terminadoBien ? 0 : 1);
