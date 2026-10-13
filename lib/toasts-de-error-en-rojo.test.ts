@@ -77,9 +77,6 @@ const TOPES: Record<string, number> = {
   'components/student/domain/QueTalLaClase.tsx': 2,
   'components/student/domain/ValorarClase.tsx': 1,
   'components/theme/contenido-portal-editor.tsx': 8,
-  'components/widgets/constructor-widgets.tsx': 1,
-  'components/widgets/dominios.tsx': 2,
-  'components/widgets/paso-ponlo.tsx': 3,
 };
 
 // Las pantallas de P0.3: a 0, y que no vuelvan a subir aunque alguien toque TOPES.
@@ -151,9 +148,9 @@ test('las pantallas de P0.3 se quedan a cero', () => {
 });
 
 // Tanda 1 (13-oct-2026): las herramientas de Configuración, enteras. Tanda 2:
-// Inicio (sus tarjetas de «por decidir» y los cobros). Una carpeta a cero se
-// queda a cero aunque alguien añada un fichero nuevo.
-const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/'];
+// Inicio (sus tarjetas de «por decidir» y los cobros). Tanda 4: Widgets. Una
+// carpeta a cero se queda a cero aunque alguien añada un fichero nuevo.
+const CARPETAS_A_CERO = ['components/configuracion/', 'components/dashboard/', 'components/widgets/'];
 
 test('las carpetas que ya se pasaron a rojo se quedan a cero', () => {
   for (const c of CARPETAS_A_CERO) {
