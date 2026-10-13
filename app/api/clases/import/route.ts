@@ -60,7 +60,7 @@ interface Cuerpo {
   /** De dónde viene el horario. El propuesto por Tentare al empezar y el que
    *  la propietaria importa de un Excel son dos caminos con conversiones muy
    *  distintas, y mezclarlos en la misma métrica oculta cuál funciona. */
-  origen?: 'onboarding' | 'importacion';
+  origen?: 'onboarding' | 'importacion' | 'imagen';
 }
 
 /** Suma días a una fecha local 'YYYY-MM-DD' sin tocar zonas horarias. */
@@ -110,9 +110,32 @@ export async function POST(req: NextRequest) {
   }
 
   const semanas = Math.max(1, Math.min(MAX_SEMANAS, Math.trunc(body?.semanas ?? 4)));
-  const desde = /^\d{4}-\d{2}-\d{2}$/.test(body?.desde ?? '')
+  let desde = /^\d{4}-\d{2}-\d{2}$/.test(body?.desde ?? '')
     ? (body!.desde as string)
     : hoyEnEstudio(); // el día del estudio, no el de UTC: si no, la serie empezaba ayer
+  // El horario leído de una captura (P2.1) nunca se crea en el pasado ni en un
+  // cierre del centro: solo clases semanales, desde hoy o después (una pestaña
+  // abierta desde la semana pasada empieza hoy, no da error), sin las que ya
+  // hayan empezado y saltando los cierres, como `renovar_serie` y «Clase
+  // semanal». Un Excel puede traer historial a propósito; una foto, no.
+  const desdeCaptura = body?.origen === 'imagen';
+  let cierresCaptura: { desde: string; hasta: string }[] = [];
+  if (desdeCaptura) {
+    if (filas.some((f) => f?.fecha || f?.diaSemana == null)) {
+      return NextResponse.json({ error: 'Desde una captura solo se crean clases semanales.' }, { status: 400 });
+    }
+    const hoy = hoyEnEstudio();
+    if (desde < hoy) desde = hoy;
+    const { data: cierres, error: eCierres } = await admin
+      .from('cierres_estudio').select('desde, hasta')
+      .eq('studio_id', sesion.studioId)
+      .lte('desde', sumarDias(desde, semanas * 7))
+      .gte('hasta', desde);
+    // Sin saber los cierres no se crea: una clase en un día cerrado no la puede reservar nadie.
+    if (eCierres) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
+    cierresCaptura = (cierres ?? []) as { desde: string; hasta: string }[];
+  }
+  let saltadasPorCierre = 0;
 
   // ── Catálogo del estudio para emparejar ────────────────────────────────────
   // Paginado con `catalogo()` como los otros siete importadores: sin `.range()`
@@ -251,6 +274,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
       if (tipo.archivado && inicio.getTime() > ahoraMs) { futurasDeArchivado++; continue; }
+      if (desdeCaptura) {
+        if (inicio.getTime() <= ahoraMs) continue; // ya empezó: nunca en el pasado
+        if (cierresCaptura.some((c) => c.desde <= fecha && fecha <= c.hasta)) { saltadasPorCierre++; continue; }
+      }
       pendientes.push({
         tipoId: tipo.id, salaId: sala?.id ?? null, instructorId,
         inicio: inicio.toISOString(),
@@ -267,7 +294,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (pendientes.length === 0) {
-    return NextResponse.json({ error: 'Ninguna fila generó sesiones', errores }, { status: 400 });
+    return NextResponse.json({ error: 'Ninguna fila generó sesiones', errores, saltadasPorCierre }, { status: 400 });
   }
 
   // ── Dedup contra lo que ya existe (reimportar no duplica el horario) ───────
@@ -423,7 +450,7 @@ export async function POST(req: NextRequest) {
   if (creadas > 0) {
     capturar(sesion.studioId, {
       nombre: 'horario_creado',
-      props: { origen: body?.origen === 'onboarding' ? 'onboarding' : 'importacion', sesiones: creadas },
+      props: { origen: body?.origen === 'onboarding' || body?.origen === 'imagen' ? body.origen : 'importacion', sesiones: creadas },
     });
   }
 
@@ -439,5 +466,6 @@ export async function POST(req: NextRequest) {
     sinSala,
     errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
     totalErrores: errores.length, // la lista de arriba se corta; este es el número real
+    saltadasPorCierre,   // desde una captura: caían en un cierre del centro y no se crearon
   });
 }

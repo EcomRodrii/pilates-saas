@@ -43,3 +43,6 @@ export const plazasVaciasEncendido = (studioId: string) => encendidaPara(process
 
 /** «Felicitar el cumpleaños» en Automatizaciones (P3.10). */
 export const felicitarCumpleEncendido = (studioId: string) => encendidaPara(process.env.AUTOMATIZACION_CUMPLEANOS, studioId);
+
+/** Leer el horario desde una captura o un texto (P2.1). Lo mira `/api/horario/leer`; la pantalla, el catálogo del navegador (misma variable). */
+export const horarioDesdeImagenEncendido = (studioId: string) => encendidaPara(process.env.HORARIO_DESDE_IMAGEN, studioId);

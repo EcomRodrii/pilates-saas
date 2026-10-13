@@ -24,6 +24,8 @@ export const INTERRUPTORES = {
   importarPegando: 'IMPORTAR_PEGANDO',
   /** «Avisar por WhatsApp» a quien está en el equipo sin acceso (P3.14). */
   invitarWhatsApp: 'EQUIPO_INVITAR_WHATSAPP',
+  /** «Desde una foto o un texto» en Calendario › Importar (P2.1). */
+  horarioDesdeImagen: 'HORARIO_DESDE_IMAGEN',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

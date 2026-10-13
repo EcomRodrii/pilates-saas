@@ -2292,6 +2292,8 @@ export interface ResultadoImportClases {
   /** Errores en total: `errores` se corta en 500, este es el número real. */
   totalErrores?: number;
   omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
+  /** Desde una captura: caían en un cierre del centro y no se crearon. */
+  saltadasPorCierre?: number;
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;
   errores: { fila: number; motivo: string }[];
@@ -2301,14 +2303,14 @@ export interface ResultadoImportClases {
 // Importa el horario. Las filas recurrentes (por día de la semana) se expanden a
 // `semanas` semanas desde `desde`; el studio_id sale del JWT, nunca del body.
 export async function importarClases(
-  rows: FilaClase[], opciones: { semanas: number; desde: string }, batchId?: string,
+  rows: FilaClase[], opciones: { semanas: number; desde: string; origen?: 'imagen' }, batchId?: string,
 ): Promise<ResultadoImportClases> {
   const vacio = { creadas: 0, omitidas: 0, tiposCreados: 0, sinInstructor: 0, sinSala: 0, errores: [] };
   try {
     const res = await fetch('/api/clases/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde, batchId }),
+      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde, batchId, origen: opciones.origen }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
