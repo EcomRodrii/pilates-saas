@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { firmarTokenInstructora, verificarTokenInstructora, type ScopeToken } from './token.ts';
+import { firmarTokenInstructora, firmarTokenInvitacion, verificarTokenInstructora, type ScopeToken } from './token.ts';
 
 // Un solo enlace "vigente" por instructora+scope a la vez (tabla
 // instructor_enlaces_vigentes, migración 0057). Comparación en tiempo
@@ -18,9 +18,14 @@ export function mismoToken(recibido: string, almacenado: string): boolean {
 // verificarTokenInstructora ya haya validado firma+scope+caducidad — esto
 // comprueba, además, que sea el enlace que reconocemos como el vigente.
 //
-// Sin fila guardada → false (no revocado): los enlaces emitidos antes de que
-// existiera esta tabla no tienen con qué compararse, y tratarlos como
-// revocados rompería de golpe cualquier enlace ya entregado a una instructora.
+// Sin fila guardada: una INVITACIÓN cuenta como revocada (13-oct-2026). Desde
+// el 5-sep cada invitación se registra al emitirla (`emitirInvitacion`, que falla
+// si no puede), y las firmadas antes de esa fecha caducaron como tarde el 5-oct.
+// Disponibilidad y «No puedo asistir» siguen como siempre (sin fila → vale): son
+// enlaces de 30 días que la instructora guarda, y tratarlos como revocados
+// rompería de golpe alguno ya entregado.
+// ⚠️ Nunca DELETE de esta tabla para revocar: un centinela (`ENLACE_USADO`, el de
+// la purga), porque en los otros scopes una fila borrada reabre el enlace.
 export async function enlaceRevocado(
   admin: SupabaseClient,
   instructorId: string,
@@ -30,7 +35,7 @@ export async function enlaceRevocado(
   const { data } = await admin
     .from('instructor_enlaces_vigentes')
     .select('token').eq('instructor_id', instructorId).eq('scope', scope).maybeSingle();
-  if (!data?.token) return false;
+  if (!data?.token) return scope === 'invitacion';
   return !mismoToken(tokenRecibido, data.token);
 }
 
@@ -39,28 +44,21 @@ export async function enlaceRevocado(
 // a la vez) generen y revoquen el enlace exactamente igual — dos caminos que
 // decidieran esto por separado podrían acabar reconociendo como "vigentes" dos
 // enlaces distintos para la misma instructora.
+//
+// La invitación al equipo NO pasa por aquí: va por `emitirInvitacion`, que nunca
+// reutiliza.
 export async function obtenerOFirmarEnlace(
   admin: SupabaseClient,
   studioId: string,
   instructorId: string,
-  scope: 'disponibilidad' | 'reportar_baja' | 'invitacion',
-  // Solo lo usa 'invitacion' (el rol de quien invita, ver equipoInvitarAction).
-  // 'disponibilidad'/'reportar_baja' no llevan ref — se deja null como siempre.
-  ref: string | null = null,
+  scope: 'disponibilidad' | 'reportar_baja',
 ): Promise<string> {
   const { data: vigente } = await admin
     .from('instructor_enlaces_vigentes')
     .select('token').eq('instructor_id', instructorId).eq('scope', scope).maybeSingle();
 
-  const valido = vigente?.token ? verificarTokenInstructora(vigente.token as string, scope as ScopeToken) : null;
-  // ⚠️ Una INVITACIÓN lleva grabado el rol de quien la emitió (`ref`), y `reclamar-reglas.ts` decide con él si se puede activar
-  // una ficha que mueve dinero. Reutilizar la vigente sin mirarlo le hacía llegar a un MANAGER el enlace que firmó la
-  // propietaria, con el permiso de la propietaria. Solo se reutiliza si lo emitió el mismo rol que lo pide; si no, se firma
-  // uno nuevo a su nombre (y el anterior queda revocado, como en cualquier reenvío).
-  const reutilizable = !!valido && (scope !== 'invitacion' || valido.ref === ref);
-  const token = reutilizable
-    ? (vigente!.token as string)
-    : firmarTokenInstructora(instructorId, studioId, scope as ScopeToken, ref);
+  const valido = vigente?.token ? verificarTokenInstructora(vigente.token as string, scope) : null;
+  const token = valido ? (vigente!.token as string) : firmarTokenInstructora(instructorId, studioId, scope);
 
   if (token !== vigente?.token) {
     const { error } = await admin.from('instructor_enlaces_vigentes').upsert(
@@ -72,6 +70,51 @@ export async function obtenerOFirmarEnlace(
     if (error) console.error('[sustituciones] no se pudo registrar el enlace vigente', error);
   }
   return token;
+}
+
+// La invitación al equipo: cada envío firma un enlace NUEVO y revoca el anterior
+// (13-oct-2026; antes se reutilizaba el vigente). Corregir el correo de la ficha
+// y reenviar deja sin valor el enlace anterior. Lleva firmados quién invita y el
+// rol de la ficha (`firmarTokenInvitacion`).
+//
+// A diferencia de `obtenerOFirmarEnlace`, si no se puede registrar como vigente
+// FALLA: sin fila, `enlaceRevocado` da la invitación por revocada, y mandar un
+// enlace que no va a funcionar es peor que decir que no se ha podido.
+export async function emitirInvitacion(
+  admin: SupabaseClient,
+  studioId: string,
+  instructorId: string,
+  emisor: string,
+  rolFicha: string,
+): Promise<string> {
+  const token = firmarTokenInvitacion(instructorId, studioId, emisor, rolFicha);
+  const { error } = await admin.from('instructor_enlaces_vigentes').upsert(
+    { instructor_id: instructorId, studio_id: studioId, scope: 'invitacion', token },
+    { onConflict: 'instructor_id,scope' },
+  );
+  if (error) throw error;
+  return token;
+}
+
+/** Lo que queda como «vigente» cuando una invitación ya se ha canjeado: ningún token firmado coincide con esto. */
+export const ENLACE_USADO = 'usado-al-vincular';
+
+// Una invitación se canjea una vez (13-oct-2026): aunque la ficha vuelva a
+// quedarse sin cuenta (cambio de correo, baja y vuelta), ese enlace ya no vale.
+// La llaman las dos puertas que unen una cuenta a su ficha (`equipoReclamarAction`
+// y `unirse`, por enlace o por correo); el alta entre sedes de `equipoAction` no
+// pasa por aquí. Se llama DESPUÉS de vincular: si falla, el acceso ya está dado y
+// no se deshace; quien llama lo apunta.
+export async function gastarInvitacion(
+  admin: SupabaseClient,
+  studioId: string,
+  instructorId: string,
+): Promise<void> {
+  const { error } = await admin.from('instructor_enlaces_vigentes').upsert(
+    { instructor_id: instructorId, studio_id: studioId, scope: 'invitacion', token: ENLACE_USADO },
+    { onConflict: 'instructor_id,scope' },
+  );
+  if (error) throw error;
 }
 
 /** Marca cuándo se mandó por email el enlace vigente de una instructora+scope. */

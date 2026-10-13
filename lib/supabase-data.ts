@@ -27,7 +27,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // porque decide el texto del aviso a la socia, no la política.
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
-import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
@@ -5005,20 +5005,30 @@ export async function dbUpdateInstructor(id: string, changes: Partial<Instructor
 // coincidencia de correo dejaba enganchar la cuenta de cualquiera desde un
 // estudio recién creado, sin que la persona aceptara nada (el porqué largo, en
 // lib/equipo/reclamar-reglas.ts). Idempotente: el mismo enlace se puede abrir
-// dos veces y la segunda no hace nada.
-export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
+// dos veces y la segunda no hace nada (`yaEra`).
+//
+// `rechazo` = el servidor ha dicho que NO de forma definitiva (enlace revocado o
+// caducado, otro correo, ficha de baja…: 400/403/404/409), con su motivo para
+// enseñarlo. Lo demás (sin red, 401, 429, 5xx) es pasajero: se reintenta en el
+// siguiente acceso con el token que se conserva.
+export async function dbReclamarAccesoEquipo(
+  token: string,
+): Promise<{ vinculadas: number; yaEra?: boolean; rechazo?: string }> {
   try {
     const res = await fetch('/api/equipo/reclamar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ token }),
     });
-    const cuerpo = await res.json().catch(() => null) as { vinculadas?: number } | null;
-    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return 0; }
-    return cuerpo?.vinculadas ?? 0;
+    const cuerpo = await res.json().catch(() => null) as { vinculadas?: number; yaEra?: boolean; error?: string } | null;
+    if ([400, 403, 404, 409].includes(res.status)) {
+      return { vinculadas: 0, rechazo: mensajeSeguro(cuerpo?.error, 'Esta invitación ya no vale. Pídele a tu estudio que te la envíe de nuevo.') };
+    }
+    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return { vinculadas: 0 }; }
+    return { vinculadas: cuerpo?.vinculadas ?? 0, yaEra: cuerpo?.yaEra === true };
   } catch (e) {
     reportDbError('[dbReclamarAccesoEquipo]', e);
-    return 0;
+    return { vinculadas: 0 };
   }
 }
 

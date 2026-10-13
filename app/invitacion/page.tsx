@@ -3,11 +3,14 @@
 // Pantalla de invitación al equipo.
 //
 // Existe porque el correo llevaba un `/login` pelado: quien lo abría con otra
-// sesión iniciada acababa en SU panel sin enterarse de que le habían invitado, y
-// quien se registraba con otro correo se creaba una cuenta suelta que no
-// quedaba vinculada a nada. Aquí se dice quién invita y a qué estudio, y sobre
-// todo se GUARDA el token: es él, y no el correo que se teclee después, lo que
-// vincula la ficha (app/api/equipo/reclamar).
+// sesión iniciada acababa en SU panel sin enterarse de que le habían invitado.
+// Aquí se dice quién invita y a qué estudio, y al pulsar se GUARDA el token, que
+// es lo que vincula la ficha (app/api/equipo/reclamar) — junto con el correo de
+// la ficha: desde el 13-oct-2026 solo vale una cuenta con ese correo verificado
+// (lib/equipo/reclamar-reglas.ts).
+//
+// Esta pantalla es el consentimiento: el token se guarda al PULSAR, no al abrir.
+// Abrir la invitación no es aceptarla.
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
@@ -41,11 +44,6 @@ export default function PaginaInvitacion() {
   const cargar = useCallback(async () => {
     const token = new URLSearchParams(window.location.search).get('token');
     if (!token) { setError('Falta el enlace de invitación.'); return; }
-    // Se guarda ANTES de saber si la invitación es válida: el alta ocurre en
-    // otra pantalla, y sin esto el token se pierde al salir de aquí. Es lo que
-    // permite vincular la ficha aunque la persona se registre con un correo
-    // distinto al que la dueña le puso.
-    recordarTokenInvitacion(token);
     try {
       const res = await fetch(`/api/public/invitacion?token=${encodeURIComponent(token)}`);
       const cuerpo = await res.json();
@@ -70,8 +68,11 @@ export default function PaginaInvitacion() {
     // Si hay otra sesión abierta (el caso que rompía el flujo), se cierra antes
     // de mandar al alta: si no, el login rebota al panel de esa otra persona.
     if (user) await signOut();
-    // El token viaja TAMBIÉN por la URL, no solo en sessionStorage (que
-    // `cargar()` ya guardó al entrar). Detectado en producción: una
+    // El alta ocurre en otra pantalla, y sin esto el token se pierde al salir.
+    const tokenPulsado = new URLSearchParams(window.location.search).get('token');
+    if (tokenPulsado) recordarTokenInvitacion(tokenPulsado);
+    // El token viaja TAMBIÉN por la URL, no solo en sessionStorage (que se
+    // acaba de guardar). Detectado en producción: una
     // propietaria invitó a alguien como PROPIETARIO, el alta y el código OTP
     // fueron perfectos, pero la cuenta acabó sin vincular a ningún estudio
     // (recayó en el enrutado de Tentare Network) — sessionStorage se había
@@ -153,7 +154,10 @@ export default function PaginaInvitacion() {
             {inv.nombre}, te han dado de alta en {inv.estudio}
           </h1>
           <p className="text-[13.5px] text-muted-foreground">
-            Tu agenda, tus alumnas y tus horarios están en la app de {inv.estudio}. Entra con la cuenta que ya tengas, o créala allí, y elige «Como instructora».
+            Tu agenda, tus alumnas y tus horarios están en la app de {inv.estudio}.
+            {inv.email
+              ? <> Entra con tu correo <strong className="text-foreground break-all">{inv.email}</strong> (o crea allí tu cuenta con él) y elige «Como instructora».</>
+              : ' Entra con tu correo, o crea allí tu cuenta, y elige «Como instructora».'}
           </p>
           <button
             type="button" onClick={() => irALaApp(app)} data-testid="invitacion-ir-a-la-app"
@@ -181,13 +185,11 @@ export default function PaginaInvitacion() {
           <div className="rounded-xl bg-accent px-3.5 py-2.5 text-left">
             <p className="text-[11.5px] text-muted-foreground">Tu estudio te tiene apuntada como:</p>
             <p className="text-[13.5px] font-bold text-foreground break-all">{inv.email}</p>
-            {/* Antes esto decía "regístrate con este email EXACTO, con otro no
-                quedarás vinculada". Era verdad cuando el enlace se resolvía por
-                coincidencia de correo, y ya no lo es: ahora vincula el propio
-                enlace. Mantener el aviso solo asustaba a quien prefiere entrar
-                con otra cuenta. */}
+            {/* Desde el 13-oct-2026 el enlace solo vale con el correo de la
+                ficha (lib/equipo/reclamar-reglas.ts). El correo llega tapado de
+                la ruta pública; a quien es suyo le basta para reconocerlo. */}
             <p className="text-[11.5px] text-muted-foreground mt-1">
-              Puedes crear tu cuenta con este correo o con otro: este enlace te vincula igual.
+              Entra o crea tu cuenta con este correo. Si quieres usar otro, pídele a tu estudio que lo cambie en tu ficha y te reenvíe la invitación.
             </p>
           </div>
         )}
