@@ -4,7 +4,7 @@ import { comprobarCodigo, hashCodigo, pedirCodigo } from './codigo-correo.ts';
 import { MAX_INTENTOS_CODIGO_CORREO } from './codigo-correo-reglas.ts';
 
 // ── Una base de datos en memoria con lo justo ───────────────────────────────
-// Las RPC imitan las de la migración 20261003160000; las de verdad las prueba
+// Las RPC imitan las de la migración doble_factor_por_correo_5_funciones (20261004183245); las de verdad las prueba
 // supabase/tests/rls-doble-factor-correo.test.ts contra Postgres.
 type Fila = Record<string, unknown>;
 const ANA = '11111111-1111-4111-8111-111111111111';
