@@ -5,6 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { renovarSuscripcionPush } from '@/lib/student/push';
 import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 import { esAppNativa } from '@/lib/nativo/puente';
+import { capturarInstalacion } from '@/lib/student/instalar-prompt';
 
 /**
  * Registra el service worker para la app de la alumna.
@@ -23,6 +24,13 @@ import { esAppNativa } from '@/lib/nativo/puente';
  * panel y la landing, que no lo esperan.
  */
 export function RegistroSW({ slug, studioId }: { slug: string; studioId: string }) {
+  // Guarda el aviso de «instalar» del navegador desde que se abre la app (Chrome lo
+  // lanza una vez y pronto; ver `lib/student/instalar-prompt.ts`). No pide nada a la alumna.
+  useEffect(() => {
+    if (esAppNativa() || enVistaPreviaDelPanel()) return;
+    return capturarInstalacion();
+  }, []);
+
   useEffect(() => {
     // En la app de iOS no hay service worker (ni hace falta caché): los avisos van
     // por APNs y se renuevan aquí igual que en la web.

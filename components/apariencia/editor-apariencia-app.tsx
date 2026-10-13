@@ -41,6 +41,7 @@ import {
 } from '@/lib/student/apariencia';
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
 import { MuestraEstilo } from './muestra-estilo';
+import { AppEnElMovil } from './app-en-el-movil';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
@@ -530,6 +531,22 @@ export function EditorAparienciaApp() {
               </ul>
             </div>
           </Seccion>
+
+          {studio.slug && (
+            <Seccion
+              titulo="Instalar en el móvil"
+              orden={5}
+              detalle="Cómo se instala la app de tu estudio y cómo hacérselo llegar a tus alumnas."
+            >
+              <AppEnElMovil
+                nombre={studio.nombre}
+                slug={studio.slug}
+                colorPrimario={studio.colorPrimario}
+                faviconUrl={publicado.faviconUrl ?? null}
+                logoUrl={studio.logoUrl}
+              />
+            </Seccion>
+          )}
         </div>
 
         <div className="order-1 lg:sticky lg:top-20 lg:order-2">
