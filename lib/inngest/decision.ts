@@ -18,7 +18,7 @@ import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot-cache';
 import { ejecutarAnalisis } from '@/lib/decision/motor';
 import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
-import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
+import { ventanaDiasDe, medirOutcome, precioMensualDePlanRenovado, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import {
@@ -905,14 +905,14 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     s.estado === 'ACTIVA' && new Date(s.fecha_inicio).getTime() >= new Date(resueltoEnISO).getTime()
   ) as { plan_id: string } | undefined;
 
-  // Precio del plan de la suscripción renovada — solo se consulta cuando hace
+  // Precio al mes del plan de la suscripción renovada — solo se consulta cuando hace
   // falta (no en cada medición), para no pagar una query extra en el caso
   // mayoritario (sin renovación).
   let precioMensualPlanEur: number | null = null;
   if (renovada?.plan_id) {
     const { data: plan } = await requireSupabaseAdmin()
-      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
-    precioMensualPlanEur = plan?.precio != null ? Number(plan.precio) : null;
+      .from('planes_tarifa').select('precio, tipo, periodicidad_meses').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
+    precioMensualPlanEur = precioMensualDePlanRenovado(plan);
   }
 
   return {

@@ -4247,6 +4247,14 @@ export interface RowMovimientosRegalo {
   creado_en: string;
 }
 
+export interface RowFestivosAbiertos {
+  studio_id: string;
+  fecha: string;
+  nombre: string;
+  decidido_por: string | null;
+  decidido_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11766,6 +11774,22 @@ export type MovimientosRegaloUpdate = {
   creado_en?: string | null;
 }
 
+export type FestivosAbiertosInsert = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
+export type FestivosAbiertosUpdate = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13073,6 +13097,11 @@ export type Database = {
         Row: RowMovimientosRegalo;
         Insert: MovimientosRegaloInsert;
         Update: MovimientosRegaloUpdate;
+      };
+      festivos_abiertos: {
+        Row: RowFestivosAbiertos;
+        Insert: FestivosAbiertosInsert;
+        Update: FestivosAbiertosUpdate;
       };
     };
   };

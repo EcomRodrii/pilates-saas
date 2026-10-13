@@ -6,9 +6,24 @@
 
 export const MAX_SEMANAS_RENOVACION = 104;
 
-/** `cierre`: ese día el centro está cerrado (`cierres_estudio`), no se crea la clase. */
-export type MotivoOmitida = 'ya_existe' | 'sala_ocupada' | 'cierre';
-const MOTIVOS: readonly MotivoOmitida[] = ['ya_existe', 'sala_ocupada', 'cierre'];
+/**
+ * `cierre`: ese día el centro está cerrado (`cierres_estudio`), no se crea la clase.
+ * Los tres últimos solo los da «Repetir este mes» (`p_hasta`, migr 20261012210100):
+ * `excluida` = la propietaria la desmarcó; `pasada` = ese día ya pasó;
+ * `fuera_de_serie` = se pidió una fecha que esta serie no tiene.
+ */
+export type MotivoOmitida = 'ya_existe' | 'sala_ocupada' | 'cierre' | 'excluida' | 'pasada' | 'fuera_de_serie';
+const MOTIVOS: readonly MotivoOmitida[] = ['ya_existe', 'sala_ocupada', 'cierre', 'excluida', 'pasada', 'fuera_de_serie'];
+
+/** Por qué no se crea una fecha, dicho a la propietaria. */
+export const TEXTO_MOTIVO_OMITIDA: Record<MotivoOmitida, string> = {
+  sala_ocupada: 'la sala está ocupada a esa hora',
+  ya_existe: 'ya hay una clase igual en el calendario',
+  cierre: 'el centro está cerrado ese día',
+  excluida: 'la has quitado de la lista',
+  pasada: 'ese día ya ha pasado',
+  fuera_de_serie: 'esta clase no se da ese día',
+};
 
 export interface ResultadoRenovarSerie {
   estado: 'renovada' | 'ya_renovada' | 'simulacion' | 'sin_cambios';
@@ -26,6 +41,10 @@ export interface ResultadoRenovarSerie {
   plazasFijas: number;
   /** Si la serie se renueva sola cuando se va a acabar. */
   renovacionAutomatica: boolean;
+  /** Solo «Repetir este mes»: las fechas que la serie tiene en el rango. */
+  fechas?: string[];
+  /** Solo «Repetir este mes»: las clases creadas, para señalarlas. */
+  creadasIds?: string[];
 }
 
 export interface SeriePorRenovar {
@@ -76,6 +95,8 @@ export function resultadoDeRpc(raw: unknown): ResultadoRenovarSerie | null {
     instructoraInactiva: r.instructora_inactiva === true,
     plazasFijas: num(r.plazas_fijas),
     renovacionAutomatica: r.renovacion_automatica === true,
+    ...(Array.isArray(r.fechas) ? { fechas: r.fechas.filter((f): f is string => typeof f === 'string').map(f => f.slice(0, 10)) } : {}),
+    ...(Array.isArray(r.creadas_ids) ? { creadasIds: r.creadas_ids.filter((f): f is string => typeof f === 'string') } : {}),
   };
 }
 
@@ -170,6 +191,7 @@ const ERRORES: Record<string, string> = {
   // El trigger de `sesiones` (migr 20260930215125): una serie de un tipo
   // archivado no crea clases nuevas. Al recuperarlo, la renovación vuelve sola.
   TIPO_ARCHIVADO: 'El tipo de esta clase está archivado: recupéralo en Configuración → Mis clases y citas para renovarla.',
+  HASTA_INVALIDO: 'Esas fechas ya han pasado o quedan demasiado lejos.',
 };
 
 /** El código que lanza la RPC, traducido. Cualquier otro error, un mensaje genérico. */

@@ -1511,3 +1511,18 @@ canvas[data-tenti].tenti-entra {
   .asistente-cursor, .asistente-brillo { animation: none; }
   .asistente-brillo { color: var(--muted-foreground); background: none; }
 }
+
+/* HuellaDeCreacion (P2.3, doc 07 §6): las clases recién creadas se señalan con
+   un fondo de la marca que se apaga en 1,2 s (components/calendario/
+   huella-de-creacion.ts pone y quita la clase). Sombra interior y no
+   `background`: la tarjeta de clase ya pinta el suyo y lo taparía. Con
+   «reducir movimiento», un borde quieto el mismo tiempo, sin animación. */
+@keyframes huella-creacion {
+  from { box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--brand) 28%, transparent), 0 0 0 2px var(--ring); }
+  to { box-shadow: inset 0 0 0 999px transparent, 0 0 0 2px transparent; }
+}
+/* 300 ms de espera: el desplazamiento suave hasta la clase va primero. */
+.huella-creacion { animation: huella-creacion 1.2s ease-out 300ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .huella-creacion { animation: none !important; box-shadow: 0 0 0 2px var(--ring); }
+}

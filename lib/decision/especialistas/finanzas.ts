@@ -13,7 +13,7 @@ import {
 } from '../confianza.ts';
 import { estimarProbabilidad, tasaBase } from '../prediccion.ts';
 import { caducaAntesDe } from '../../billing/caducidad-tarjeta.ts';
-import { planCubreTipoClase } from '../../bono-logic.ts';
+import { planCubreTipoClase, precioMensualDeCuota } from '../../bono-logic.ts';
 
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 const MS_DIA = 86400000;
@@ -125,7 +125,7 @@ function reglaF2(sus: Suscripcion, idx: IndicesSenal, s: SnapshotEstudio, now: D
   if (freq === null || freq <= 0) return null;
 
   const costeEfectivoPorSesion = plan.precio / plan.sesiones;
-  const costeMensualPorSesion = planMensual.precio / (freq * 4.33);
+  const costeMensualPorSesion = precioMensualDeCuota(planMensual) / (freq * 4.33);
   if (costeMensualPorSesion >= costeEfectivoPorSesion) return null;
   const ahorroRelativo = (costeEfectivoPorSesion - costeMensualPorSesion) / costeEfectivoPorSesion;
 
@@ -324,7 +324,7 @@ function reglaF4(sus: Suscripcion, idx: IndicesSenal, now: Date): Candidata | nu
     },
     riesgo: 'PERDIDA',
     impacto: plan.precio > 0
-      ? { valor: redondear2(plan.precio), unidad: 'EUR_MES', formula: `cuota de ${plan.nombre} que no se podrá cobrar` }
+      ? { valor: redondear2(precioMensualDeCuota(plan)), unidad: 'EUR_MES', formula: `cuota de ${plan.nombre} que no se podrá cobrar` }
       : undefined,
     confianza,
     accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
@@ -403,7 +403,7 @@ function reglaF5(sus: Suscripcion, idx: IndicesSenal, s: SnapshotEstudio, now: D
       probabilidadFalloPct: pctFallo,
     },
     riesgo: 'PERDIDA',
-    impacto: { valor: redondear2(plan.precio), unidad: 'EUR_MES', formula: `cuota de ${plan.nombre} en riesgo` },
+    impacto: { valor: redondear2(precioMensualDeCuota(plan)), unidad: 'EUR_MES', formula: `cuota de ${plan.nombre} en riesgo` },
     confianza,
     prediccion,
     // Avisar, nunca cobrar: COBRAR_RECIBOS sigue fuera de todo lo automático.

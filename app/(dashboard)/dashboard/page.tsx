@@ -49,7 +49,8 @@ import { ClasesSinInstructora } from '@/components/dashboard/clases-sin-instruct
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
-import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { FestivosPorDecidir } from '@/components/dashboard/festivos-por-decidir';
+import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo, puedeGestionarSede } from '@/lib/permisos-reglas';
 import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
@@ -735,6 +736,8 @@ export default function Dashboard() {
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {/* Clases con alumnas apuntadas que nadie va a dar (RES-8): nada las cancela solo. */}
               {gestionaCalendario && <ClasesSinInstructora onToast={showToast} />}
+              {/* Un festivo con clases: abrir o cerrar ese día. Quien puede cerrar el centro (propietaria y gerencia). */}
+              {puedeGestionarSede(rolActual) && <FestivosPorDecidir onToast={showToast} />}
               {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
               {/* Aprobar da, pausa o devuelve una plaza y reserva o cancela clases: los dos permisos. */}
               {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
