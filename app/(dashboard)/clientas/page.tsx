@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { useRol, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
@@ -238,12 +238,12 @@ export default function Socios() {
     return porSocio;
   }, [condicionesSalud, verSemaforo]);
 
-  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
-  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo de arriba nunca produce nada para ese rol. useSemaforoRecepcion
-  // pide el nivel ya calculado por RPC (sin condiciones ni motivo).
-  const semaforoRecepcion = useSemaforoRecepcion(rol);
-  const semaforoParaMostrar = rol === 'RECEPCION' ? semaforoRecepcion : semaforoPorSocio;
+  // RECEPCIÓN y la gerencia sí ven el semáforo, pero la RLS de condiciones_salud
+  // no les deja leer las filas — `condicionesSalud` les llega SIEMPRE vacío, así
+  // que el cálculo de arriba nunca produce nada para esos roles.
+  // useSemaforoServidor pide el nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoServidor = useSemaforoServidor(rol);
+  const semaforoParaMostrar = semaforoDesdeServidor(rol) ? semaforoServidor : semaforoPorSocio;
 
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');

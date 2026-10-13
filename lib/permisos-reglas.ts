@@ -106,6 +106,20 @@ export function puedeVerSemaforo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
+// De DÓNDE sale ese color en el panel. La RLS de `condiciones_salud` solo le da
+// filas a la PROPIETARIA (migr 20260914220613): para el resto de roles que ven
+// el semáforo, el cálculo local sobre `condicionesSalud` da siempre vacío, y el
+// color tiene que llegar por la RPC `semaforo_salud_estudio`, que devuelve solo
+// el nivel (sin condiciones ni motivo). La gerencia se quedó fuera de esto: el
+// permiso se le abrió (arriba), pero las pantallas solo pedían la RPC para
+// RECEPCIÓN y a MANAGER le pintaban el cálculo local, vacío — nunca vio un punto.
+// INSTRUCTOR fuera a propósito: no tiene panel, y `useRol()` la devuelve como
+// valor por defecto mientras carga la sesión, así que incluirla haría la llamada
+// en cada arranque del panel, también el de la propietaria.
+export function semaforoDesdeServidor(rol: Rol): boolean {
+  return puedeVerSemaforo(rol) && (rol === 'RECEPCION' || rol === 'MANAGER');
+}
+
 // ⚠️ `puedeVerFichaClinica` dice si el ROL es clínico en el panel, no si ve la
 // ficha de UNA socia concreta. La instructora ve la salud de sus alumnas (reserva
 // o cita con ella en ±30 días) solo en la app del estudio: la regla vive en

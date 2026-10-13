@@ -9,9 +9,9 @@ import { useStudio } from '@/lib/studio-context';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
+import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
 import { semaforo, alertaPreClase, adaptacionPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion, Studio, TipoClase } from '@/lib/types';
@@ -2907,8 +2907,8 @@ export default function Calendario() {
     return m;
   }, [condicionesSalud, verSemaforo]);
 
-  const semaforoRecepcion = useSemaforoRecepcion(rolCalendario);
-  const semaforoParaMostrar = rolCalendario === 'RECEPCION' ? semaforoRecepcion : nivelSemaforoPorSocio;
+  const semaforoServidor = useSemaforoServidor(rolCalendario);
+  const semaforoParaMostrar = semaforoDesdeServidor(rolCalendario) ? semaforoServidor : nivelSemaforoPorSocio;
 
   const alertasClase = useMemo(() => {
     if (!verFichaClinica) return [] as string[];
