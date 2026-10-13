@@ -4257,6 +4257,14 @@ export interface RowFestivosAbiertos {
   decidido_en: string;
 }
 
+export interface RowAppsEstudio {
+  studio_id: string;
+  bundle_id: string;
+  nombre_app: string;
+  activa: boolean;
+  creada_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11794,6 +11802,22 @@ export type FestivosAbiertosUpdate = {
   decidido_en?: string | null;
 }
 
+export type AppsEstudioInsert = {
+  studio_id?: string | null;
+  bundle_id?: string | null;
+  nombre_app?: string | null;
+  activa?: boolean | null;
+  creada_en?: string | null;
+}
+
+export type AppsEstudioUpdate = {
+  studio_id?: string | null;
+  bundle_id?: string | null;
+  nombre_app?: string | null;
+  activa?: boolean | null;
+  creada_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13106,6 +13130,11 @@ export type Database = {
         Row: RowFestivosAbiertos;
         Insert: FestivosAbiertosInsert;
         Update: FestivosAbiertosUpdate;
+      };
+      apps_estudio: {
+        Row: RowAppsEstudio;
+        Insert: AppsEstudioInsert;
+        Update: AppsEstudioUpdate;
       };
     };
   };

@@ -442,33 +442,48 @@ este resumen se escribió sin poder abrirlas.
 
 ## Apps por estudio
 
-Salen de este mismo proyecto cambiando la identidad al compilar:
+Cada estudio puede tener su propia app de tienda (nombre, icono y color suyos),
+publicada desde la cuenta de Apple de **Tentare**, con el mismo código: una variante
+de binario por estudio (el modelo de Momence). Un solo equipo de Apple significa
+una sola clave de notificaciones y un solo «Entrar con Apple» para todas.
 
-```sh
-TENTARE_APP_ID=app.tentare.luz TENTARE_APP_NAME="Luz" npm run cap:sync
-```
+**Cómo sabe la app de qué estudio es** (14-oct-2026, piloto):
 
-`capacitor.config.ts` las lee, y `scripts/identidad-ios.mjs` las escribe en
-`ios/identidad.local.xcconfig`, que `project.pbxproj` e `Info.plist` usan como
-`$(TENTARE_BUNDLE_ID)` y `$(TENTARE_APP_NAME)`. La URL de arranque es la misma.
+- La tabla `apps_estudio` (`studio_id`, `bundle_id`, `nombre_app`, `activa`) es el
+  mapa, y `activa` el único interruptor. Solo la lee y escribe el servidor.
+- Al abrirse, `/app` pregunta `GET /api/public/app/app-estudio?bundle=<bundle id>`
+  (el bundle lo da la carcasa, `bundleIdDeLaApp()`). Con fila activa se fija en ese
+  estudio: su icono y nombre en la puerta, sin buscador, y entra directa en él (o a
+  darse de alta, si aún no es suyo). Sin fila activa (404), o en la web y en
+  `app.tentare`, es la entrada de siempre. Si la consulta falla, dice que no hay
+  conexión: no cae al selector de «Tentare».
+- «Cambiar de estudio» solo existe en `app.tentare`.
+- `subscribe` solo guarda un token de una app de estudio bajo ESE estudio (bundle de
+  una app activa de su `studio_id`); `app.tentare` sirve a cualquiera.
+- El fichero de enlaces universales añade, por cada app activa, una entrada con
+  `TEAMID.bundle` que reclama solo `/portal/<slug>` y `/portal/<slug>/*`, antes de la
+  entrada general (iOS toma la primera que encaja). Si no se pueden leer, 503 y no un
+  fichero recortado.
 
-⚠️ **`/app` NO sabe qué estudio es esa app** (comprobado el 13-oct-2026; esta
-frase decía lo contrario): `bundleIdDeLaApp()` solo se usa para el token de push,
-el esquema de URL y Google, y no hay ningún mapa bundle id → estudio. Una app
-compilada con otro nombre abre igualmente el selector de estudios de «Tentare».
-Mientras no exista ese mapa, esto cambia el nombre y el icono del binario, no a
-qué estudio entra.
+⚠️ El bundle id es un dato del cliente y se puede falsear: solo sirve para estrechar
+(abrir en un estudio), nunca para dar acceso; la sesión y la pertenencia al estudio las
+decide el servidor.
 
-Cada app de estudio necesita además: su App ID con las tres capacidades, su
-ficha en App Store Connect, su `<TEAMID>.<bundle id>` en el fichero de Universal
-Links, su bundle id en los Client IDs de Apple de Supabase, su
-`<bundle id>://auth/vuelta` en las Redirect URLs, y su icono (hoy `iconos:ios`
-pinta el de Tentare).
+Lo que sigue siendo a mano por estudio: la fila en `apps_estudio`; añadir el bundle a
+los Client IDs de Apple en Supabase; el registro de la app en App Store Connect
+(Apple no permite crearlo por API; el nombre ha de ser único en toda la App Store);
+y, cuando se envíe a revisión, App Privacy y la ficha.
 
-⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si
-no las publica el propio dueño del contenido. Una app por estudio tendría que
-publicarse desde la cuenta de desarrollador **del estudio**, no desde la de
-Tentare. Decidirlo antes de prometerlo.
+⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si no las
+publica el propio dueño del contenido, y dice que estos servicios «no deben enviar
+apps en nombre de sus clientes». Publicar desde la cuenta de Tentare es el modelo de
+Momence, que Apple acepta en la práctica, pero es lo contrario del texto. **Nada de
+esto se envía a revisión de Apple sin decisión expresa del fundador**; el piloto va a
+TestFlight interno. La consulta a App Review sobre este modelo está pendiente de enviar.
+
+⚠️ Hasta que haya script, la identidad (`TENTARE_APP_ID`, `TENTARE_APP_NAME` →
+`ios/identidad.local.xcconfig`) y el icono se ponen a mano; el icono de la tienda
+(1024 px, sin alfa) no sale de la ruta `/icono-estudio` (llega a 512 px).
 
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 
