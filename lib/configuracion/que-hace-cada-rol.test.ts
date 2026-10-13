@@ -49,7 +49,8 @@ test('responsable de sede: agenda, alumnas, sustituciones y equipo, y en Configu
   assert.equal(puedeMoverDinero('MANAGER'), false);
   assert.equal(puedeVerSemaforo('MANAGER'), true);
   assert.equal(puedeVerFichaClinica('MANAGER'), false);
-  assert.match(detalle('MANAGER'), /No ve cobros ni informes/);
+  assert.match(detalle('MANAGER'), /De la salud solo ve el color del semáforo/);
+  assert.match(detalle('MANAGER'), /no ve cobros ni informes/);
   // Lo que la frase promete de Configuración, tarjeta a tarjeta.
   assert.match(detalle('MANAGER'), /en Configuración su horario, sus salas y sus clases/);
   for (const id of ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas'] as const) {

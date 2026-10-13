@@ -4,7 +4,7 @@ import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeBorrarDatosClienta, puedeVerNotasInternas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
-  puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
+  puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
   puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte, puedeVerDatosPrivadosSocia,
   puedeVerAuditoriaFinanciera, puedeActivarAccesoDelRol,
@@ -486,6 +486,27 @@ test('puedeVerFichaClinica: en el panel solo la propietaria ve el detalle clíni
   assert.equal(puedeVerFichaClinica('INSTRUCTOR'), false);
   assert.equal(puedeVerFichaClinica('RECEPCION'), false);
   assert.equal(puedeVerFichaClinica('MANAGER'), false);
+});
+
+// El permiso no basta: el color tiene que llegarle a cada rol por una fuente que
+// le dé filas. La RLS de condiciones_salud solo se las da a la propietaria, así
+// que el resto va por la RPC. A la gerencia se le abrió el permiso y se le dejó
+// el cálculo local, que con la RLS le da siempre vacío: nunca vio un punto.
+test('semaforoDesdeServidor: gerencia y recepción por la RPC; la propietaria, cálculo local', () => {
+  assert.equal(semaforoDesdeServidor('MANAGER'), true);
+  assert.equal(semaforoDesdeServidor('RECEPCION'), true);
+  assert.equal(semaforoDesdeServidor('PROPIETARIO'), false);
+  // Sin panel, y es el rol que `useRol()` da mientras carga: con ella dentro,
+  // cada arranque del panel pediría la RPC antes de saber quién es.
+  assert.equal(semaforoDesdeServidor('INSTRUCTOR'), false);
+});
+
+test('semaforoDesdeServidor: todo rol del panel que ve el semáforo sin poder leer las condiciones va por la RPC', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    // Lee condiciones_salud ⇔ ve la ficha clínica (la RLS y la regla de UI dicen lo mismo).
+    const necesitaRpc = puedeVerSemaforo(rol) && !puedeVerFichaClinica(rol);
+    assert.equal(semaforoDesdeServidor(rol), necesitaRpc, rol);
+  }
 });
 
 // ── Retribución del equipo: los LISTADOS también distinguen fila ────────────
