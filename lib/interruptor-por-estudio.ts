@@ -23,5 +23,14 @@ export const avisoFestivosEncendido = (studioId: string) => encendidaPara(proces
 /** «Repetir este mes» en el Calendario (P1.7). */
 export const repetirMesEncendido = (studioId: string) => encendidaPara(process.env.CALENDARIO_REPETIR_MES, studioId);
 
-/** El mapa de «€ por plaza ofertada» en Informes (pieza E). */
-export const euroPorPlazaEncendido = (studioId: string) => encendidaPara(process.env.INFORMES_EURO_PLAZA, studioId);
+/**
+ * El mapa de «€ por plaza ofertada» en Informes (pieza E). ⚠️ NO SE ENCIENDE
+ * con esta definición (decisión del 14-oct-2026, con producto y arquitectura):
+ * repartir lo COBRADO del periodo deja a 0 € las clases de un bono pagado antes
+ * y carga entero en sus pocas clases el que se compra al final, y «lo que deja
+ * una clase» ya tiene dueño (`lib/decision/margen-clase.ts`, el «Ingreso» de la
+ * tabla Clases). Antes, una E2 de € por USO sobre ese dueño. Por eso devuelve
+ * `false` fijo: cambiar `INFORMES_EURO_PLAZA` en Vercel no basta para
+ * encenderlo; hay que cambiar el código (y su revisión).
+ */
+export const euroPorPlazaEncendido = (_studioId: string): boolean => false;

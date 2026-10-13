@@ -12,6 +12,17 @@ test('apagada de serie; «on» para todos; «estudios:» solo para esos', () => 
   assert.equal(encendidaPara('estudios:studio-1', ''), false);
 });
 
+test('el mapa de € por plaza no se enciende con la variable: está apagado en el código hasta su E2', async () => {
+  const { euroPorPlazaEncendido } = await import('./interruptor-por-estudio.ts');
+  const antes = process.env.INFORMES_EURO_PLAZA;
+  try {
+    process.env.INFORMES_EURO_PLAZA = 'on';
+    assert.equal(euroPorPlazaEncendido('studio-1'), false);
+  } finally {
+    if (antes === undefined) delete process.env.INFORMES_EURO_PLAZA; else process.env.INFORMES_EURO_PLAZA = antes;
+  }
+});
+
 test('guardia: el mapa de € por plaza lee su variable solo en el servidor', async () => {
   const { readFileSync } = await import('node:fs');
   const ruta = readFileSync(new URL('../app/api/informes/euro-plaza/route.ts', import.meta.url), 'utf8');

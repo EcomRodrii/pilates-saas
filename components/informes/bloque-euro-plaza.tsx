@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { EnlaceExplicador, TarjetaPrimeraVez, useExplicador } from '@/components/explicador/enlace-explicador';
+import { EXPLICADORES } from '@/lib/ayuda/explicadores';
 import { CabeceraBloque, type PeriodoInforme } from './piezas';
 import { VerCalculo, type LineaCalculo } from './ver-calculo';
 
@@ -134,11 +135,13 @@ export function BloqueEuroPlaza({ datos, periodo, visible, textoPeriodo, hoy, da
           {/* Solo cuando hay algo que mirar: con el aviso delante no tiene sentido. */}
           {visto === false && mapa.celdas.length > 0 && (
             <TarjetaPrimeraVez
-              texto="Antes de mirarlo: cómo se calcula, en 5 pasos (1 minuto)."
+              texto={`Antes de mirarlo: cómo se calcula, en ${EXPLICADORES.euroPorPlaza.pasos.length} pasos (1 minuto).`}
               onVer={abrir} onYaLoSe={() => { terminar('saltado'); enlaceRef.current?.focus(); }}
             />
           )}
-          <Mapa mapa={mapa} textoPeriodo={textoPeriodo} importado={importado} nombres={nombres} />
+          {/* Una por periodo: la casilla abierta no sobrevive a cambiar de periodo
+              (enseñaba la misma franja de otro periodo sin decirlo). */}
+          <Mapa key={textoPeriodo} mapa={mapa} textoPeriodo={textoPeriodo} importado={importado} nombres={nombres} />
         </>
       )}
 
@@ -401,7 +404,8 @@ function Detalle({ ref, celda: c, textoPeriodo, nombres, onCerrar }: {
               detalle: 'Pagó antes del periodo, pagó en la Caja (el ticket no se reparte), es cortesía o le falta el recibo: cuentan 0 €.',
               valor: c.sinCobro,
             }] : []),
-            { etiqueta: 'Repartido a estas clases', detalle: 'Lo que pagaron sus alumnas en el periodo, en la parte que toca a estas clases.', valor: euros(c.repartido), resultado: true },
+            // Sin `resultado`: no es la suma de las líneas de arriba (clases, plazas, ocupadas).
+            { etiqueta: 'Repartido a estas clases', detalle: 'Lo que pagaron sus alumnas en el periodo, repartido entre todas las clases a las que vinieron en él.', valor: euros(c.repartido) },
             { signo: '÷', etiqueta: 'Plazas a la venta', valor: c.plazas },
             {
               signo: '=', etiqueta: '€ por plaza', resultado: true,

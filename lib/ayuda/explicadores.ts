@@ -7,7 +7,8 @@
 //   · de 3 a 9 pasos, cada uno con 1 a 5 líneas;
 //   · al menos un paso con un ejemplo en euros (con números, no con fórmulas);
 //   · las «recetas» y dónde vive cada ajuste, siempre;
-//   · los números del ejemplo salen IGUAL de la función real (su test lo calcula).
+//   · los números del ejemplo salen IGUAL de la función real (su test calcula
+//     los pasos 1 a 3; el 4 es una comparación con números redondos).
 //
 // «Visto» se guarda por persona (no por estudio: el concepto es el mismo en todas
 // las sedes de una cadena), con el mismo almacén que los tutoriales.
@@ -80,7 +81,7 @@ export const EXPLICADORES: Record<IdExplicador, Explicador> = {
           'Cada casilla es un día y una hora. No resta lo que te cuesta dar cada clase.',
           'Cuanto más marcada la casilla, más € por plaza que tus otras horas: no hay un número bueno en general.',
           '«—» son menos de 4 clases: muy pocas para fiarse. Cada casilla abre su cálculo.',
-          'Se lee mejor con un trimestre ya cerrado: un bono pagado antes cuenta 0 € y un festivo pesa menos.',
+          'Se lee mejor con un trimestre ya cerrado: un bono pagado antes cuenta 0 €, uno comprado al final carga su precio entero en sus pocas clases, y un festivo pesa menos.',
         ],
       },
     ],

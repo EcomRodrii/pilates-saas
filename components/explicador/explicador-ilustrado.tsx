@@ -39,10 +39,13 @@ export function ExplicadorIlustrado({ id, abierto, onTerminar, focoAlCerrar }: {
   const paso = e.pasos[i];
   const Dibujo = DIBUJOS[paso.dibujo];
 
-  // Cada vez que se abre, desde el principio.
+  // Al cerrarse vuelve al primer paso, para que la siguiente vez abra desde el
+  // principio. Al CERRAR y no al abrir: al abrir, el primer pintado era el
+  // último paso, con «Entendido» y el foco en él (un Intro rápido lo daba por
+  // visto).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Volver al primer paso al reabrir.
-    if (abierto) setI(0);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Volver al primer paso al cerrar.
+    if (!abierto) setI(0);
   }, [abierto]);
 
   const siguiente = () => (ultimo ? onTerminar('completado') : setI(i + 1));
@@ -56,7 +59,8 @@ export function ExplicadorIlustrado({ id, abierto, onTerminar, focoAlCerrar }: {
         initialFocus={siguienteRef}
         finalFocus={focoAlCerrar ?? true}
         onKeyDown={ev => {
-          if (ev.key === 'ArrowRight' && !ultimo) { ev.preventDefault(); setI(i + 1); }
+          // Al llegar al último, «Saltar» se oculta: si tenía el foco, pasa a «Entendido».
+          if (ev.key === 'ArrowRight' && !ultimo) { ev.preventDefault(); setI(i + 1); if (i + 1 === total - 1) siguienteRef.current?.focus(); }
           else if (ev.key === 'ArrowLeft' && i > 0) { ev.preventDefault(); setI(i - 1); if (i === 1) siguienteRef.current?.focus(); }
         }}
       >
@@ -92,9 +96,11 @@ export function ExplicadorIlustrado({ id, abierto, onTerminar, focoAlCerrar }: {
               {e.pasos.map((_, k) => <span key={k} className={cn('size-1.5 rounded-full', k === i ? 'bg-foreground' : 'bg-muted-foreground/40')} />)}
             </div>
             <div className="flex items-center gap-1.5">
-              {!ultimo && (
-                <Button variant="ghost" onClick={() => onTerminar('saltado')} className="px-2 text-muted-foreground max-lg:h-10">Saltar</Button>
-              )}
+              {/* En el último paso, presente pero invisible (como «Anterior»): si el
+                  foco estaba en él, no se pierde al desmontarse. */}
+              <Button variant="ghost" onClick={() => onTerminar('saltado')}
+                className={cn('px-2 text-muted-foreground max-lg:h-10', ultimo && 'invisible')}
+                tabIndex={ultimo ? -1 : undefined} aria-hidden={ultimo || undefined}>Saltar</Button>
               {/* En el primer paso, presente pero invisible: el foco no se pierde al volver del 2 al 1, y nada se mueve. */}
               <Button
                 variant="outline"
