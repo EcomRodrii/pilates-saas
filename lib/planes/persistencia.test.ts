@@ -212,12 +212,16 @@ test('⚠️ un fallo al guardar la cobertura NO se canta como éxito', () => {
   assert.match(sincro, /Promise<ResultadoEscritura>/, 'tiene que poder decir que falló');
   assert.match(sincro, /return falloEscritura/, 'y devolverlo, no solo reportarlo');
 
+  // Se propaga tal cual o envuelto en `filaEscrita` (la fila de la tarifa SÍ se
+  // escribió: no es «no se ha guardado», y la pantalla lo dice distinto). Lo que
+  // no vale es llamarla y seguir como si nada.
   for (const fn of ['export async function dbInsertPlanTarifa', 'export async function dbUpdatePlanTarifa']) {
     const cuerpo = cuerpoDe(fn);
-    assert.match(
-      cuerpo,
-      /return sincronizarTiposDePlan\(/,
-      `${fn.replace('export async function ', '')} se traga el fallo de la cobertura en vez de propagarlo`,
-    );
+    const nombre = fn.replace('export async function ', '');
+    const talCual = /return sincronizarTiposDePlan\(/.test(cuerpo);
+    const envuelto = /const cobertura = await sincronizarTiposDePlan\(/.test(cuerpo)
+      && /filaEscrita: true/.test(cuerpo)
+      && /cobertura\.error|\.\.\.cobertura/.test(cuerpo);
+    assert.ok(talCual || envuelto, `${nombre} se traga el fallo de la cobertura en vez de propagarlo`);
   }
 });

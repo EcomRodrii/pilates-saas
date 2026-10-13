@@ -4135,7 +4135,12 @@ export default function Calendario() {
       />
 
       {repetirAbierto && (
-        <DialogoRepetirMes mes={repetirAbierto} onCerrar={() => setRepetirAbierto(null)} onHecho={trasRepetirMes} />
+        <DialogoRepetirMes
+          mes={repetirAbierto}
+          onCerrar={() => setRepetirAbierto(null)}
+          onHecho={trasRepetirMes}
+          onIncierto={() => { invalidarHorario(); cacheVistaRef.current.clear(); void refrescarVista(); }}
+        />
       )}
 
       {renovarSerieDe && (

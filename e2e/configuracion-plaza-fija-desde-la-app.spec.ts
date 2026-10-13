@@ -10,7 +10,7 @@ import { montar, ir } from './panel-sembrado';
 // venía APAGADO de serie en los 7 estudios de producción, sin ningún motivo de
 // negocio para tenerlo así — con eso apagado, ninguna alumna veía NUNCA la opción
 // de quedarse fija. Ahora viene ENCENDIDO de serie (migr
-// `20260922151000_plaza_fija_desde_app_por_defecto`); el estudio lo sigue pudiendo
+// `20260922152315_plaza_fija_desde_app_por_defecto`); el estudio lo sigue pudiendo
 // apagar si prefiere seguir dándolas a mano en recepción. Debajo del interruptor
 // se enseña el cartel que ve la alumna con las MISMAS palabras que su app
 // (`TEXTOS_PLAZA_FIJA`), atenuado mientras esté apagado.

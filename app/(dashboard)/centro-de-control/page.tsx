@@ -250,7 +250,10 @@ export default function CentroDeControlPage() {
     const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
     if (!mensaje) return null;
     const socia = socios.find(s => s.id === r.socioId);
-    return enlaceWhatsApp(socia?.telefono, mensaje.cuerpo);
+    // Una oferta a quien no ha aceptado recibirlas: el chat se abre SIN la oferta
+    // escrita. La tarjeta dice «Tentare no le envía este mensaje» y redactárselo
+    // para mandarlo en un toque sería lo mismo por otra puerta (LSSI art. 21).
+    return enlaceWhatsApp(socia?.telefono, r.sinPermisoOfertas ? '' : mensaje.cuerpo);
   }
 
   // Las cuatro acciones de una recomendación. Ninguna quita la tarjeta antes de

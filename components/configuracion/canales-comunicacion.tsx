@@ -21,6 +21,7 @@ import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import { FILA } from '@/components/configuracion/shell/fila-herramienta';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los canales de «Cómo me comunico» (15-sep, v2): el remitente de tus correos,
@@ -126,7 +127,7 @@ export function FilaCanal({ id, logo, resumen, accion, onAbrir, title }: {
 }
 
 /** La vuelta de una conexión trae su aviso en la URL: se enseña y se limpia. */
-export function useAvisoDeVuelta(tarjeta: TarjetaId, avisos: Record<string, (valor: string) => string>, showToast: (m: string) => void) {
+export function useAvisoDeVuelta(tarjeta: TarjetaId, avisos: Record<string, (valor: string) => string>, showToast: MostrarToast) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     for (const [param, texto] of Object.entries(avisos)) {
@@ -231,7 +232,7 @@ export interface CanalWhatsapp {
   script: ReactNode;
 }
 
-export function useWhatsapp(showToast: (m: string) => void): CanalWhatsapp {
+export function useWhatsapp(showToast: MostrarToast): CanalWhatsapp {
   const { integraciones, dataLoaded } = useStudio();
   // WhatsApp Embedded Signup (ver WHATSAPP_AUDIT.md/META_SETUP.md): solo con
   // NEXT_PUBLIC_META_APP_ID/CONFIG_ID; sin ellos, los datos se pegan a mano.
@@ -246,7 +247,7 @@ export function useWhatsapp(showToast: (m: string) => void): CanalWhatsapp {
   async function conectarConMeta() {
     const r = await signup.conectar();
     if (!r.ok) {
-      if (r.error) showToast(r.error);
+      if (r.error) showToast(r.error, { variant: 'error' });
       return;
     }
     // El aviso viaja en la URL: recargar tira la página antes de que React
@@ -337,9 +338,10 @@ export function DetalleWhatsapp({ w, showToast, onGuardado }: { w: CanalWhatsapp
     try {
       const res = await fetch('/api/integrations/whatsapp/probar', { method: 'POST', headers: await authHeader() });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      showToast(res.ok && data.ok ? 'Conexión con WhatsApp correcta' : `No funciona: ${data.error ?? 'no se ha podido conectar'}`);
+      if (res.ok && data.ok) showToast('Conexión con WhatsApp correcta');
+      else showToast(`No funciona: ${data.error ?? 'no se ha podido conectar'}`, { variant: 'error' });
     } catch {
-      showToast('No hemos podido hablar con el servidor');
+      showToast('No hemos podido hablar con el servidor', { variant: 'error' });
     } finally {
       enVuelo.current = false;
       setProbando(false);
