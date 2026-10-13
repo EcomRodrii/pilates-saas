@@ -45,6 +45,7 @@ import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type Forma
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
 import { estaArchivado, tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // «Tentare Widgets»: el constructor, en el orden en que lo piensa la dueña de
 // un estudio —con qué está hecha su web (una vez), qué pone y dónde, cómo se
@@ -124,7 +125,7 @@ const hayCopias = (copiados: Readonly<Record<string, Copiado>>) => Object.keys(c
 
 export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   slug: string;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /**
    * Lleva a «Cómo le va a tu página», centrada en la fila de esa etiqueta
    * (`null`: sin etiqueta que medir, se abre sin centrar en ninguna).
@@ -276,7 +277,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setAplicando(true);
     const r = await publicacion.publicar(w.id, configEfectiva);
     setAplicando(false);
-    if (!r.ok) { showToast(opc?.alFallar ?? r.error); return false; }
+    if (!r.ok) { showToast(opc?.alFallar ?? r.error, { variant: 'error' }); return false; }
     const base = opc?.copiados ?? copiados;
     const pegada = base[w.id];
     if (pegada?.pieza) {

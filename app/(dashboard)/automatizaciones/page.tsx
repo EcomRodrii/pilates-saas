@@ -841,7 +841,7 @@ export default function AutomatizacionesPage() {
       setConfirmarEncender(rule);
       return;
     }
-    toggleAutomationRule(rule.id).then(res => { if (!res.ok) showToast(res.error); });
+    toggleAutomationRule(rule.id).then(res => { if (!res.ok) showError(res.error); });
   }
 
   const filteredLogs = useMemo(() => {
@@ -1243,7 +1243,7 @@ export default function AutomatizacionesPage() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) showToast(res.error); });
+                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) showError(res.error); });
                 setConfirmarEncender(null);
               }}
             >
