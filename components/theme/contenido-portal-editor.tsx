@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Plus, Trash2, Upload, MessageSquare, Image as ImageIcon, Megaphone } from 'lucide-react';
 import { inputCls, labelCls, btnPrimary, Field, Toggle } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -9,6 +9,7 @@ import { usePermisos } from '@/lib/permisos';
 import { subirBannerEstudio, eliminarBannerEstudio } from '@/lib/portal-storage';
 import type { BannerPortal, NovedadEstudio } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Id fijo de la fila "Mensaje destacado" en la lista de Secciones — no es un
 // banner real, así que no puede colisionar con un id de BannerPortal (uuid).
@@ -39,13 +40,17 @@ export function useContenidoPortalEditor() {
   const { contenidoPortal, bannersPortal, novedadesEstudio, updateMensajeDestacado, addBannerPortal, addNovedadEstudio } = useStudio();
   const [mensaje, setMensaje] = useState(contenidoPortal?.mensajeDestacado ?? '');
   const [guardandoMensaje, setGuardandoMensaje] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
+  // El aviso en línea distingue el acierto del fallo (P0.3): el fallo, en rojo y
+  // como `alert`. Misma firma que el toast del panel, para que las piezas avisen igual.
+  const [aviso, setAvisoEstado] = useState<{ texto: string; error: boolean } | null>(null);
+  const setAviso: MostrarToast = useCallback((texto, opciones) => setAvisoEstado({ texto, error: opciones?.variant === 'error' }), []);
 
   async function handleGuardarMensaje() {
     setGuardandoMensaje(true);
     const res = await updateMensajeDestacado(mensaje.trim() || null);
     setGuardandoMensaje(false);
-    setAviso(res.ok ? 'Mensaje destacado guardado.' : res.error);
+    if (res.ok) setAviso('Mensaje destacado guardado.');
+    else setAviso(res.error, { variant: 'error' });
   }
 
   async function handleNuevoBanner(): Promise<boolean> {
@@ -55,7 +60,7 @@ export function useContenidoPortalEditor() {
       linkTipo: 'interno', linkValor: '/bonos', ubicacion: ['home'],
       activo: false, orden, fechaInicio: null, fechaFin: null,
     });
-    if (!res.ok) { setAviso(res.error); return false; }
+    if (!res.ok) { setAviso(res.error, { variant: 'error' }); return false; }
     return true;
   }
 
@@ -64,7 +69,7 @@ export function useContenidoPortalEditor() {
       titulo: 'Nuevo aviso', texto: null, emoji: null,
       activo: false, fechaInicio: null, fechaFin: null,
     });
-    if (!res.ok) { setAviso(res.error); return false; }
+    if (!res.ok) { setAviso(res.error, { variant: 'error' }); return false; }
     return true;
   }
 
@@ -151,7 +156,8 @@ export function ContenidoPortalList({
       >
         <Plus size={14} /> Añadir aviso
       </button>
-      {hook.aviso && <p className="text-[12.5px] text-muted-foreground">{hook.aviso}</p>}
+      {/* El aviso lo pinta UNA vez quien monta la lista (tab-descubre), encima de
+          lista y panel: aquí salía repetido en la misma pantalla. */}
     </div>
   );
 }
@@ -177,7 +183,7 @@ function MensajeDestacadoPanel({ hook }: { hook: ReturnType<typeof useContenidoP
   );
 }
 
-function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: string) => void }) {
+function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: MostrarToast }) {
   const { updateBannerPortal, deleteBannerPortal } = useStudio();
   const [subiendo, setSubiendo] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -190,7 +196,7 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
     setSubiendo(true);
     const r = await subirBannerEstudio(banner.id, file);
     setSubiendo(false);
-    if ('error' in r) { onToast(r.error); return; }
+    if ('error' in r) { onToast(r.error, { variant: 'error' }); return; }
     await updateBannerPortal(banner.id, { imagenUrl: r.url });
   }
 
@@ -198,14 +204,14 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
     setConfirmDel(false);
     await eliminarBannerEstudio(banner.id);
     const res = await deleteBannerPortal(banner.id);
-    if (!res.ok) onToast(res.error);
+    if (!res.ok) onToast(res.error, { variant: 'error' });
   }
 
   // Guardado de campo suelto: sin esto, un fallo de red/RLS al teclear se
   // perdía en silencio (updateBannerPortal sin await ni comprobar el
   // resultado) y el manager creía que se había guardado.
   function guardarCampo(changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) {
-    void updateBannerPortal(banner.id, changes).then(res => { if (!res.ok) onToast(res.error); });
+    void updateBannerPortal(banner.id, changes).then(res => { if (!res.ok) onToast(res.error, { variant: 'error' }); });
   }
 
   return (
@@ -295,20 +301,20 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
   );
 }
 
-function NovedadPanel({ novedad, onToast }: { novedad: NovedadEstudio; onToast: (m: string) => void }) {
+function NovedadPanel({ novedad, onToast }: { novedad: NovedadEstudio; onToast: MostrarToast }) {
   const { updateNovedadEstudio, deleteNovedadEstudio } = useStudio();
   const [confirmDel, setConfirmDel] = useState(false);
 
   // Guardado de campo suelto: mismo criterio que BannerPanel — un fallo de
   // red/RLS al teclear no puede perderse en silencio.
   function guardarCampo(changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) {
-    void updateNovedadEstudio(novedad.id, changes).then(res => { if (!res.ok) onToast(res.error); });
+    void updateNovedadEstudio(novedad.id, changes).then(res => { if (!res.ok) onToast(res.error, { variant: 'error' }); });
   }
 
   async function handleEliminar() {
     setConfirmDel(false);
     const res = await deleteNovedadEstudio(novedad.id);
-    if (!res.ok) onToast(res.error);
+    if (!res.ok) onToast(res.error, { variant: 'error' });
   }
 
   return (

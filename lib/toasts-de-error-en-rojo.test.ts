@@ -36,16 +36,8 @@ const TOPES: Record<string, number> = {
   'app/(dashboard)/equipo/verificaciones-network/page.frozen.tsx': 1,
   'app/(dashboard)/marketing/page.tsx': 14,
   'app/(dashboard)/ondemand/page.frozen.tsx': 1,
-  'app/interno/crecimiento/prospeccion.tsx': 1,
-  'app/interno/denuncias/page.tsx': 1,
   'app/network/solicitudes/page.tsx': 1,
-  'components/acceso/accesos-de-la-clienta.tsx': 1,
-  'components/apariencia/editor-apariencia-app.tsx': 2,
-  'components/clientas/ficha/dialogo-doble-factor.tsx': 1,
-  'components/decision/codigos-descuento.tsx': 1,
   'components/network/boton-favorito-alumna.tsx': 1,
-  'components/regalo/panel-regalo.tsx': 1,
-  'components/theme/contenido-portal-editor.tsx': 8,
 };
 
 // Las pantallas de P0.3: a 0, y que no vuelvan a subir aunque alguien toque TOPES.
@@ -100,10 +92,32 @@ function erroresEnVerde(codigo: string, nombre = 'x.tsx'): number {
   return n;
 }
 
+/** Cuántas llamadas a un avisador ve, y cuántas piden el rojo: si esto se
+ * desploma, la guardia se ha quedado ciega (los toasts cambiaron de nombre). */
+function llamadasAvisador(codigo: string, nombre: string): { todas: number; rojas: number } {
+  const sf = ts.createSourceFile(nombre, codigo, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let todas = 0;
+  let rojas = 0;
+  const visita = (nodo: ts.Node) => {
+    if (ts.isCallExpression(nodo) && ts.isIdentifier(nodo.expression) && AVISADORES.has(nodo.expression.text) && nodo.arguments.length > 0) {
+      todas++;
+      if (nodo.arguments.slice(1).some((a) => a.getText(sf).includes("variant: 'error'"))) rojas++;
+    }
+    nodo.forEachChild(visita);
+  };
+  visita(sf);
+  return { todas, rojas };
+}
+
 const MEDIDO: Record<string, number> = {};
+const VISTAS = { todas: 0, rojas: 0 };
 for (const f of [...ficheros(join(raiz, 'app')), ...ficheros(join(raiz, 'components'))]) {
-  const n = erroresEnVerde(readFileSync(f, 'utf8'), f);
+  const codigo = readFileSync(f, 'utf8');
+  const n = erroresEnVerde(codigo, f);
   if (n > 0) MEDIDO[relative(raiz, f).split('\\').join('/')] = n;
+  const v = llamadasAvisador(codigo, f);
+  VISTAS.todas += v.todas;
+  VISTAS.rojas += v.rojas;
 }
 
 test('ningún fichero tiene más errores en verde que su tope (los nuevos, 0)', () => {
@@ -152,5 +166,9 @@ test('la guardia no está ciega', () => {
   assert.equal(erroresEnVerde("if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }"), 0);
   assert.equal(erroresEnVerde("if (!res.ok) { showToastError(res.error); return; }"), 0);
   assert.equal(erroresEnVerde("showToast('Guardado');"), 0);
-  assert.ok(Object.keys(MEDIDO).length > 10, 'La guardia no ve casi nada: ¿ha cambiado cómo se llaman los toasts?');
+  // Con el trinquete casi vacío (13-oct-2026) ya no vale «ve más de 10 ficheros
+  // con errores»: se mira que siga viendo los avisos del producto (~510 llamadas,
+  // ~150 en rojo ese día).
+  assert.ok(VISTAS.todas > 300, `La guardia ve ${VISTAS.todas} avisos: ¿han cambiado de nombre los toasts?`);
+  assert.ok(VISTAS.rojas > 100, `La guardia ve ${VISTAS.rojas} avisos en rojo: ¿ha cambiado cómo se pide el rojo?`);
 });

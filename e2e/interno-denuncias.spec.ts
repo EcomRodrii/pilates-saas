@@ -93,8 +93,9 @@ test.describe('Denuncias de la app en /interno', () => {
     await expect(filas).toHaveCount(2, { timeout: 30_000 });
     await filas.first().getByRole('button', { name: 'Mantener' }).click();
     await expect.poll(() => decisiones.length).toBeGreaterThan(0);
-    await expect(page.getByRole('status')).toContainText('Otra persona ya ha decidido');
-    await expect(page.getByRole('status')).not.toContainText('Mantenido');
+    // El «no» sale como error (P0.3, tanda 9): `alert` en rojo, y nada lo da por hecho.
+    await expect(page.getByRole('alert').filter({ hasText: 'Otra persona ya ha decidido' })).toBeVisible();
+    await expect(page.getByText('Mantenido. Avisamos a quien la hizo.')).toHaveCount(0);
   });
 
   test('sin el permiso de moderar la app, la sección no aparece', async ({ page }) => {

@@ -268,7 +268,8 @@ export function Prospeccion() {
       setGenerando({ hechos: i + 1, total: pendientes.length });
     }
     setGenerando(null);
-    if (fallos > 0) setAviso(`${fallos} de ${pendientes.length} no se han podido generar. Vuelve a intentarlo con esos.`);
+    // Un fallo, aunque sea parcial, va a la caja roja de errores, no al aviso verde.
+    if (fallos > 0) setError(`${fallos} de ${pendientes.length} no se han podido generar. Vuelve a intentarlo con esos.`);
     await cargar();
   }
 

@@ -51,7 +51,9 @@ export function TabDescubre() {
       </p>
 
       {hook.aviso && (
-        <p className="text-[12.5px] text-muted-foreground" role="status">{hook.aviso}</p>
+        <p className={cn('text-[12.5px]', hook.aviso.error ? 'font-medium text-destructive' : 'text-muted-foreground')} role={hook.aviso.error ? 'alert' : 'status'}>
+          {hook.aviso.texto}
+        </p>
       )}
 
       {/* Maestro–detalle, como en Apariencia: la lista elige y el panel
