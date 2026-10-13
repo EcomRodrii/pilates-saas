@@ -43,8 +43,6 @@ const CON_DIA_UTC_A_PROPOSITO: Record<string, string> = {
     'la carpeta del bucket donde se guarda una captura del changelog: la ruta es un nombre, nadie la lee como fecha',
   'lib/db/rls-test-helpers.ts':
     'fixture de los tests contra Postgres local: la fecha_inicio de una suscripción de prueba sin fecha de fin, que solo sirve de fila (quién la ve, de quién cuelga un recibo)',
-  // Lo corrige #2640 (`saldoBonosPorSocia`, el «Quedan N» de la lista de Clientas). Fuera en cuanto entre.
-  'app/(dashboard)/clientas/page.tsx': 'pendiente de #2640',
 };
 
 test('ningún «hoy» que decide algo sale del día de UTC', () => {
