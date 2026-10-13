@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
-import { uid, TZ_ESTUDIO } from '@/lib/utils';
+import { uid, TZ_ESTUDIO, hoyEnEstudio } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { catalogo } from '@/lib/migracion/catalogo';
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   const semanas = Math.max(1, Math.min(MAX_SEMANAS, Math.trunc(body?.semanas ?? 4)));
   const desde = /^\d{4}-\d{2}-\d{2}$/.test(body?.desde ?? '')
     ? (body!.desde as string)
-    : new Date().toISOString().slice(0, 10);
+    : hoyEnEstudio(); // el día del estudio, no el de UTC: si no, la serie empezaba ayer
 
   // ── Catálogo del estudio para emparejar ────────────────────────────────────
   // Paginado con `catalogo()` como los otros siete importadores: sin `.range()`

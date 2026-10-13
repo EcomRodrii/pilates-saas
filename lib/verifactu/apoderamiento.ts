@@ -6,6 +6,7 @@
 // vida. Fuentes en la migración 20260930020000.
 
 import type { Habilitacion } from './habilitacion.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 /** El trámite del Registro de apoderamientos (relación oficial de trámites apoderables). */
 export const TRAMITE_IZ860 = {
@@ -132,7 +133,10 @@ export function erroresAutorizacion(
   const vigente = fechaIso(a.vigenteHasta);
   if (!otorgado) e.push('La fecha en que se otorgó el poder no es válida.');
   if (!vigente) e.push('La fecha de fin del poder no es válida.');
-  if (otorgado && otorgado.getTime() > hoy.getTime()) e.push('La fecha de otorgamiento no puede ser futura.');
+  // «Futura» en días de España, no contra el instante (UTC): entre las 00:00 y las
+  // 02:00 de Madrid, un poder otorgado hoy —la fecha que propone la pantalla— salía
+  // «futuro».
+  if (otorgado && a.otorgadoEn > hoyEnEstudio(hoy)) e.push('La fecha de otorgamiento no puede ser futura.');
   if (otorgado && vigente) {
     if (vigente.getTime() <= otorgado.getTime()) e.push('El poder tiene que terminar después de otorgarse.');
     const maximo = new Date(otorgado);
