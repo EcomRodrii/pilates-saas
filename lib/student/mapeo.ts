@@ -613,7 +613,9 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   const c = d.socia?.memberCredits?.[0];
   const saldo = c?.saldo ?? 0;
   const totalGanado = c?.totalGanado ?? 0;
-  const niveles = d.levelDefinitions ?? [];
+  // Solo los activos: un nivel que el estudio desactivó no lo ve la alumna (el
+  // panel ya lo ignoraba; aquí no, y salía «Inactivo» en el panel y vivo en la app).
+  const niveles = (d.levelDefinitions ?? []).filter((n) => n.activo !== false);
   const logros = logrosDe(d.achievementDefinitions ?? [], d.socia?.achievementProgress ?? []);
   const retos = retosDe(d.challengeDefinitions ?? [], d.socia?.challengeProgress ?? [], d.socia?.retosApuntados ?? [], hoyISO);
   // Cuántas veces ha canjeado ya cada recompensa. Los CANCELADOS no cuentan,
