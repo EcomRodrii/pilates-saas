@@ -24,6 +24,8 @@
 // editor de temas como el render del portal como los correos del servidor.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { telefonoE164 } from './decision/mensajes-socia.ts';
+
 /**
  * Redes sociales del estudio. Fuente de verdad del catálogo: `theme-schema.ts`
  * lo REEXPORTA en vez de tener su propia lista, para que añadir una red sea un
@@ -82,9 +84,13 @@ export function hrefCanal(id: CanalId, valor: string | null | undefined): string
   if (absoluta) return absoluta;
 
   if (id === 'whatsapp') {
-    // «600 00 00 00», «+34 600 000 000» → wa.me quiere solo dígitos con prefijo.
+    // «600 00 00 00», «+34 600 000 000» → wa.me quiere solo dígitos CON prefijo de
+    // país. Quitar lo que no es dígito dejaba «600000000», que WhatsApp lee como
+    // otro país: el móvil español sin prefijo lleva el +34 (`telefonoE164`).
     const digitos = v.replace(/[\s().-]/g, '').replace(/^\+/, '');
-    return /^\d{6,15}$/.test(digitos) ? `https://wa.me/${digitos}` : null;
+    if (!/^\d{6,15}$/.test(digitos)) return null;
+    const e164 = telefonoE164(v);
+    return e164 ? `https://wa.me/${e164.slice(1)}` : null;
   }
 
   if (id === 'web') {
