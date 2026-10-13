@@ -333,6 +333,8 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/sustituciones', (r) => json(r, { sustituciones: [] }));
   await page.route((u) => u.pathname === '/api/valoraciones', (r) => json(r, { valoraciones: [] }));
   await page.route((u) => u.pathname === '/api/migracion/recientes', (r) => json(r, { importaciones: [] }));
+  // «Tu Tentare» (P2.5): apagado de serie (interruptor `TU_TENTARE`). Su spec lo enciende.
+  await page.route((u) => u.pathname === '/api/configuracion/tu-tentare', (r) => json(r, { activo: false }));
   // Los interruptores por estudio, apagados (como en cualquier estudio que ya trabaja).
   await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { filtrosClientas: false }));
   // Festivos (P1.6) y «Repetir este mes» (P1.7): apagados de serie (interruptor
