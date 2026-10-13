@@ -33,8 +33,6 @@ const raiz = join(import.meta.dirname, '..');
 
 /** Lo que queda por pasar a rojo, medido el 12-oct-2026. Solo puede bajar. */
 const TOPES: Record<string, number> = {
-  'app/(dashboard)/automatizaciones/page.tsx': 2,
-  'app/(dashboard)/cierre/page.tsx': 3,
   'app/(dashboard)/equipo/verificaciones-network/page.frozen.tsx': 1,
   'app/(dashboard)/marketing/page.tsx': 14,
   'app/(dashboard)/ondemand/page.frozen.tsx': 1,
@@ -86,6 +84,8 @@ const A_CERO = [
   'app/(dashboard)/equipo/page.tsx',
   'app/(dashboard)/equipo/liquidaciones/page.tsx',
   'app/(dashboard)/equipo/tiempo-trabajado/page.tsx',
+  'app/(dashboard)/automatizaciones/page.tsx',
+  'app/(dashboard)/cierre/page.tsx',
   'components/clientas/ficha-clienta.tsx',
   'app/(dashboard)/productos/page.tsx',
   'app/(dashboard)/clientas/page.tsx',

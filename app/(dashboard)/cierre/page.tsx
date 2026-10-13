@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Toast, useToast } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { serializeCsv } from '@/lib/csv';
 import { csvLoCobrado, descargarCsv as descargarFichero } from '@/lib/billing/export-cobrado';
@@ -81,12 +82,9 @@ export default function CierreDeAnoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<IngresoManual | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  // El aviso compartido del panel: verde y `status` si salió, rojo y `alert` si
+  // no. El de antes era SIEMPRE rojo, también «Envío automático activado».
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   // Envío a la gestoría
   const [envOpen, setEnvOpen] = useState(false);
@@ -187,11 +185,11 @@ export default function CierreDeAnoPage() {
       });
       if (!res.ok) {
         setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
-        setToast('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
+        showToastError('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
       }
     } catch {
       setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
-      setToast('Error de red: no se ha podido eliminar el ingreso.');
+      showToastError('Error de red: no se ha podido eliminar el ingreso.');
     }
   };
 
@@ -286,7 +284,8 @@ export default function CierreDeAnoPage() {
     setGuardandoAuto(true);
     try {
       const res = await updateStudio({ gestoriaEnvioAutomatico: activar ? 'trimestral' : 'desactivado' });
-      setToast(res.ok ? (activar ? 'Envío automático activado' : 'Envío automático desactivado') : res.error);
+      if (res.ok) showToast(activar ? 'Envío automático activado' : 'Envío automático desactivado');
+      else showToastError(res.error);
     } finally {
       setGuardandoAuto(false);
     }
@@ -782,11 +781,7 @@ export default function CierreDeAnoPage() {
         </DialogContent>
       </Dialog>
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 bg-destructive text-destructive-foreground px-5 py-3 rounded-full shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
-          {toast}
-        </div>
-      )}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }
