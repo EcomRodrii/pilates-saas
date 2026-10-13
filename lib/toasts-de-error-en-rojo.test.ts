@@ -35,9 +35,6 @@ const raiz = join(import.meta.dirname, '..');
 const TOPES: Record<string, number> = {
   'app/(dashboard)/automatizaciones/page.tsx': 2,
   'app/(dashboard)/cierre/page.tsx': 3,
-  'app/(dashboard)/equipo/liquidaciones/page.tsx': 6,
-  'app/(dashboard)/equipo/page.tsx': 4,
-  'app/(dashboard)/equipo/tiempo-trabajado/page.tsx': 1,
   'app/(dashboard)/equipo/verificaciones-network/page.frozen.tsx': 1,
   'app/(dashboard)/marketing/page.tsx': 14,
   'app/(dashboard)/ondemand/page.frozen.tsx': 1,
@@ -89,6 +86,9 @@ const TOPES: Record<string, number> = {
 const A_CERO = [
   'app/(dashboard)/calendario/page.tsx',
   'app/(dashboard)/dashboard/page.tsx',
+  'app/(dashboard)/equipo/page.tsx',
+  'app/(dashboard)/equipo/liquidaciones/page.tsx',
+  'app/(dashboard)/equipo/tiempo-trabajado/page.tsx',
   'components/clientas/ficha-clienta.tsx',
   'app/(dashboard)/productos/page.tsx',
   'app/(dashboard)/clientas/page.tsx',

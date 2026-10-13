@@ -41,7 +41,7 @@ const ACCION: Record<CambioJornada['accion'], string> = { CHECK_IN: 'Fichó la e
 export default function TiempoTrabajadoPage() {
   const rol = useRol();
   const { instructores } = useStudio();
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   const ahora = useMemo(() => new Date(), []);
   const [anio, setAnio] = useState(ahora.getFullYear());
@@ -100,7 +100,7 @@ export default function TiempoTrabajadoPage() {
     if (motivo === null) return;
     if (!motivo.trim()) { showToast('Indica el motivo del cambio'); return; }
     const r = await corregirClasesEquipo(pendientes.map((c) => ({ sesionId: c.sesionId, estado: 'DADA' as const })), motivo.trim());
-    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    if (!r.ok) { showToastError(r.error ?? 'No se pudo guardar'); return; }
     await recargar();
     showToast(pendientes.length === 1 ? 'Clase dada por buena' : 'Clases dadas por buenas');
   }
@@ -340,7 +340,7 @@ export default function TiempoTrabajadoPage() {
           </details>
         </div>
       )}
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

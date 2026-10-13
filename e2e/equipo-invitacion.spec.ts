@@ -147,6 +147,25 @@ test.describe('Invitación al equipo', () => {
     expect(invitaciones[0]).toContain('ins-marta');
     await expect(page.getByText(/invitación enviada a/i)).toBeVisible();
   });
+
+  test('si la invitación no sale, se dice en rojo, nunca con el ✓ del éxito', async ({ page }) => {
+    await montarEquipo(page);
+    // Gana la ruta registrada después. Con contador: «no dijo que se envió»
+    // podría ser verdad por no haberlo intentado.
+    const intentos: string[] = [];
+    await page.route('**/api/equipo/invitar**', route => {
+      intentos.push(route.request().postData() ?? '');
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'No hemos podido mandar el correo de invitación. Inténtalo en un rato.' }) });
+    });
+    await expect(page.getByText('Todavía sin acceso').first()).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Enviar invitación' }).first().click();
+
+    await expect.poll(() => intentos.length).toBeGreaterThan(0);
+    await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido mandar el correo de invitación' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'No hemos podido mandar' })).toHaveCount(0);
+    await expect(page.getByText(/invitación enviada a/i)).toHaveCount(0);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
