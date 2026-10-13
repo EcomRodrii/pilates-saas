@@ -19,7 +19,12 @@ const json = (r: Route, b: unknown, status = 200) =>
 const TZ = 'Europe/Madrid';
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ymdMadrid = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
-const enDias = (n: number) => ymdMadrid(new Date(Date.now() + n * 86_400_000));
+// Días de CALENDARIO en Madrid, no bloques de 24 h: cruzando el cambio de hora
+// (25-oct) «hoy + 12 × 24 h» pasada la medianoche cae en el día anterior.
+const enDias = (n: number) => {
+  const [a, m, d] = ymdMadrid(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+};
 const dmy = (ymd: string) => ymd.split('-').reverse().join('/');
 const dowMadrid = (d: Date) =>
   ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: TZ }).format(d));
