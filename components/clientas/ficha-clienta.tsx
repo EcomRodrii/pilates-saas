@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useAuth } from '@/lib/auth-context';
 import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
@@ -164,8 +165,9 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  const panelNuevo = usePanelNuevo();
   return (
-    <div className={cn('bg-card border border-border rounded-xl p-5', className)}>
+    <div className={cn('bg-card border border-border p-5', panelNuevo ? 'rounded-t-card shadow-t-card' : 'rounded-xl', className)}>
       {children}
     </div>
   );
@@ -207,6 +209,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   modo?: 'pagina' | 'panel';
 }) {
   const rol = useRol();
+  const panelNuevo = usePanelNuevo();
   // Sin esto, una instructora veía «Cobrar» y «Cancelar suscripción»: botones que
   // desde la 0112 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
@@ -1353,14 +1356,26 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         )}
 
         {/* Pestañas: con su URL en la página (?pestana=pagos), para volver a la misma. */}
-        <div role="tablist" aria-label="Secciones de la ficha" className="-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+        <div
+          role="tablist"
+          aria-label="Secciones de la ficha"
+          // Panel nuevo: en píldora, como las pestañas del resto del panel.
+          className={panelNuevo
+            ? '-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:w-fit sm:max-w-full sm:rounded-full sm:bg-muted sm:p-1'
+            : '-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0'}
+        >
           {pestanas.map(p => (
             <button
               key={p.id}
               role="tab"
               aria-selected={activeTab === p.id}
               onClick={() => setActiveTab(p.id)}
-              className={cn(
+              className={panelNuevo
+                ? cn(
+                  'min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
+                  activeTab === p.id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground',
+                )
+                : cn(
                 '-mb-px min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 text-[14px] font-medium transition-colors',
                 activeTab === p.id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
