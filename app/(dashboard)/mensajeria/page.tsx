@@ -13,6 +13,9 @@ import {
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo, TONOS, fondoTenido, type Tono } from '@/components/dashboard/vivo';
+import { cn } from '@/lib/utils';
 import type { Socio, DestinatariosCampana, TipoCampana } from '@/lib/types';
 import { ESTADOS_CLIENTA, ETIQUETA_ESTADO, estadosDeEtapa, type EstadoClienta } from '@/lib/clientas/estado';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
@@ -482,6 +485,15 @@ export default function Mensajeria() {
     { id: 'conversaciones' as Tab, label: 'Conversaciones', icon: Inbox, count: 0 },
     ...(escribeAClientas ? [{ id: 'enviar' as Tab, label: 'Enviar mensaje', icon: Send, count: 0 }] : []),
   ];
+  // Panel nuevo: cada pestaña dice qué hay dentro (la auditoría: «nada explica
+  // qué llega a cada sitio»), con su color, como las tarjetas de Bonsai.
+  const panelNuevo = usePanelNuevo();
+  const QUE_HAY: Record<Tab, { tono: Tono; texto: string }> = {
+    notificaciones: { tono: 'azul', texto: 'Reservas, bajas, cobros y lo que necesita tu atención' },
+    comunidad: { tono: 'magenta', texto: 'El tablón de tu estudio, que ven tus alumnas en su app' },
+    conversaciones: { tono: 'indigo', texto: 'Lo que te escriben tus alumnas, una a una' },
+    enviar: { tono: 'verde', texto: 'Un mensaje a una alumna o a un grupo, por email o WhatsApp' },
+  } as Record<Tab, { tono: Tono; texto: string }>;
 
   return (
     <div data-tour="mensajeria-vista" className="space-y-6">
@@ -490,15 +502,52 @@ export default function Mensajeria() {
         title="Mensajería"
         description="Notificaciones, comunidad y conversaciones con tus alumnas"
         actions={
+          <>
           <Link href="/clientas"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
+            className={panelNuevo
+              ? 'inline-flex h-9 items-center gap-2 rounded-full border border-border px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted'
+              : 'flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors'}>
             <Users size={14} />
             Ver alumnas
           </Link>
+          {panelNuevo && escribeAClientas && (
+            <BotonVivo label="Enviar un mensaje" Icono={Send} onClick={() => { setTab('enviar'); setBusqueda(''); setPedida(null); }} />
+          )}
+          </>
         }
       />
 
       {/* Tabs */}
+      {panelNuevo ? (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" role="tablist" aria-label="Mensajería">
+          {TABS.map(t => {
+            const activa = tab === t.id;
+            const que = QUE_HAY[t.id];
+            const c = TONOS[que.tono];
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={activa}
+                onClick={() => { setTab(t.id); setBusqueda(''); setPedida(null); }}
+                className={cn('flex items-start gap-3 rounded-t-card border p-4 text-left shadow-t-card transition-[transform,box-shadow] hover:-translate-y-0.5', activa && 'ring-2')}
+                style={{ ...(activa ? fondoTenido(que.tono, 18) : { backgroundColor: 'var(--card)', borderColor: 'var(--border)' }), ...(activa ? { ['--tw-ring-color' as string]: c } : {}) }}
+              >
+                <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: c, color: 'var(--card)' }}>
+                  <t.icon size={18} strokeWidth={2.2} />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-[14.5px] font-semibold text-foreground">
+                    {t.label}
+                    {t.count > 0 && <span className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold text-white" style={{ backgroundColor: 'var(--destructive)' }}>{t.count}</span>}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{que.texto}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
       <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
         {TABS.map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); setPedida(null); }}
@@ -516,10 +565,11 @@ export default function Mensajeria() {
           </button>
         ))}
       </div>
+      )}
 
       {/* ── NOTIFICACIONES ── */}
       {tab === 'notificaciones' && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'bg-card rounded-2xl border border-border overflow-hidden'}>
           <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
             <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
               <Search size={14} className="text-muted-foreground shrink-0" />
@@ -536,7 +586,15 @@ export default function Mensajeria() {
             )}
           </div>
           {notifFiltradas.length === 0 ? (
+            panelNuevo && !busqueda ? (
+              <div className="flex flex-col items-center px-6 py-12 text-center">
+                <span aria-hidden className="flex size-14 items-center justify-center rounded-[18px]" style={{ backgroundColor: TONOS.azul, color: 'var(--card)' }}><Bell size={24} /></span>
+                <p className="mt-4 text-[17px] font-bold text-foreground">Estás al día</p>
+                <p className="mt-1 max-w-sm text-[13.5px] text-muted-foreground text-pretty">Aquí te avisamos de cada reserva, baja y cobro, y de lo que necesita tu atención. También te llega al móvil si activas los avisos.</p>
+              </div>
+            ) : (
             <EmptyState compacto icono={Inbox} titulo="No hay notificaciones" />
+            )
           ) : (
             <ul className="divide-y divide-muted">
               {notifFiltradas.map(n => {

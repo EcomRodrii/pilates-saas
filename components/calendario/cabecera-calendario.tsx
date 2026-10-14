@@ -2,9 +2,13 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CheckSquare, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, Plus, QrCode, Repeat, Upload, Users, type LucideIcon } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, MoreHorizontal, Plus, QrCode, Repeat, Upload, Users, type LucideIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_VIVO } from '@/components/dashboard/vivo';
 
 // La cabecera del Calendario, en dos filas (aprobada el 1-oct-2026):
 //   1. La pantalla y sus herramientas: título, ayuda, ventana flotante y ampliar
@@ -124,6 +128,17 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
   const [verFiltros, setVerFiltros] = useState(false);
   const hayFiltros = p.salas.length > 1 || p.instructoras.length > 1;
   const filtrando = p.filtroSala !== 'todas' || p.filtroInstructora !== '';
+  // Panel nuevo (14-oct-2026): como en Bonsai, una sola acción principal a la
+  // vista («Crear clase», con el degradado del logo) y las herramientas en «Más».
+  // Seleccionar varias sigue fuera mientras está activa: hay que poder salir.
+  const panelNuevo = usePanelNuevo();
+  const router = useRouter();
+  const herramientas: AccionMenu[] = [
+    ...(p.hrefEscanear ? [{ texto: 'Escanear QR', icono: QrCode, nota: 'El QR de una clienta en la puerta', onClick: () => router.push(p.hrefEscanear!) }] : []),
+    ...(p.hrefImportar ? [{ texto: 'Importar horario', icono: Upload, nota: 'De un Excel o de otra plataforma', onClick: () => router.push(p.hrefImportar!) }] : []),
+    ...(p.repetirMes ? [{ texto: p.repetirMes.texto, icono: Repeat, nota: 'Crear el mes siguiente con las clases que se repiten', onClick: p.repetirMes.onAbrir }] : []),
+    ...(p.seleccion && !p.seleccion.activa ? [{ texto: 'Seleccionar varias', icono: CheckSquare, nota: 'Para cambiarles la instructora de una vez', onClick: p.seleccion.onAlternar }] : []),
+  ];
   return (
     <div className="relative space-y-2.5 escritorio-bajo:space-y-2">
       <PageHeader
@@ -133,10 +148,21 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
         actions={
           <>
             {p.buscador}
-            {p.hrefEscanear && <Herramienta icono={QrCode} texto="Escanear QR" titulo="Escanear el QR de una clienta en la puerta" href={p.hrefEscanear} compacta={p.compacta} />}
-            {p.hrefImportar && <Herramienta icono={Upload} texto="Importar horario" titulo="Traer tu horario de un Excel o de otra plataforma" href={p.hrefImportar} compacta={p.compacta} />}
-            {p.repetirMes && <Herramienta icono={Repeat} texto={p.repetirMes.texto} titulo="Crear el mes siguiente con las clases que se repiten cada semana" onClick={p.repetirMes.onAbrir} compacta={p.compacta} />}
-            {p.seleccion && (
+            {panelNuevo && herramientas.length > 0 && (
+              <MenuAcciones
+                etiqueta="Más herramientas"
+                claseBoton="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:min-h-9"
+                boton={<><MoreHorizontal size={16} aria-hidden /><span className={p.compacta ? 'sr-only' : ''}>Más</span></>}
+                acciones={herramientas}
+              />
+            )}
+            {panelNuevo && p.seleccion?.activa && (
+              <Herramienta icono={CheckSquare} texto="Salir de selección" activa onClick={p.seleccion.onAlternar} compacta={false} />
+            )}
+            {!panelNuevo && p.hrefEscanear && <Herramienta icono={QrCode} texto="Escanear QR" titulo="Escanear el QR de una clienta en la puerta" href={p.hrefEscanear} compacta={p.compacta} />}
+            {!panelNuevo && p.hrefImportar && <Herramienta icono={Upload} texto="Importar horario" titulo="Traer tu horario de un Excel o de otra plataforma" href={p.hrefImportar} compacta={p.compacta} />}
+            {!panelNuevo && p.repetirMes && <Herramienta icono={Repeat} texto={p.repetirMes.texto} titulo="Crear el mes siguiente con las clases que se repiten cada semana" onClick={p.repetirMes.onAbrir} compacta={p.compacta} />}
+            {!panelNuevo && p.seleccion && (
               <Herramienta
                 icono={CheckSquare}
                 texto={p.seleccion.activa ? 'Salir de selección' : 'Seleccionar varias'}
@@ -170,7 +196,9 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
                 onClick={p.onCrear}
                 data-tour="calendario-nueva-clase"
                 title="Crear clase"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 max-md:absolute max-md:-top-1.5 max-md:right-0 max-md:size-11 max-md:justify-center max-md:rounded-full max-md:px-0 md:min-h-9"
+                className={panelNuevo
+                  ? cn(BOTON_VIVO, 'min-h-11 px-4 text-[13.5px] max-md:absolute max-md:-top-1.5 max-md:right-0 max-md:size-11 max-md:px-0 md:min-h-9')
+                  : 'inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-[13.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 max-md:absolute max-md:-top-1.5 max-md:right-0 max-md:size-11 max-md:justify-center max-md:rounded-full max-md:px-0 md:min-h-9'}
               >
                 <Plus size={16} aria-hidden className="max-md:size-5" /><span className="max-md:sr-only">Crear clase</span>
               </button>

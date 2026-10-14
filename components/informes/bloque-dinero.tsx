@@ -19,6 +19,7 @@ import type { ResumenPagosHistoricos } from '@/lib/cobros/pagos-historicos';
 import { ImportadoDelSoftwareAnterior } from '@/components/cobros/importado-anterior';
 import { GraficoDinero } from './grafico-dinero';
 import { CabeceraBloque, conSignoEuros, Euros, frenteA, tonoDiferencia, type PeriodoInforme } from './piezas';
+import { useClaseBloque } from './piezas';
 
 export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, importado, plataformas, onDescargarPlataformas }: {
   periodo: PeriodoInforme;
@@ -35,8 +36,9 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
 }) {
   const maxMotivo = Math.max(1, ...ORDEN_MOTIVOS.map(m => actual.porMotivo[m].neto));
 
+  const claseBloque = useClaseBloque();
   return (
-    <section aria-labelledby="informe-dinero" className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section aria-labelledby="informe-dinero" className={`space-y-4 ${claseBloque}`}>
       <CabeceraBloque id="informe-dinero" titulo="Dinero">
         Lo cobrado, neto de lo devuelto y en el día en que se cobró: la misma cifra que «Lo que he cobrado» en Cobros.
       </CabeceraBloque>
