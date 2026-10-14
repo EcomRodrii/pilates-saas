@@ -913,21 +913,39 @@ function CifrasAutomatizaciones({ logs, reglas }: { logs: AutomationLog[]; regla
   );
 }
 
-function PasoFlujo({ numero, etiqueta, texto, Icono, color, ultimo }: {
-  numero: number; etiqueta: string; texto: string; Icono: React.ElementType; color: string; ultimo?: boolean;
+// Cada paso del flujo, como el «Flujo de Automatización» de Bonsai (b-22): su
+// etiqueta (CUÁNDO / ACCIÓN) y su número, el tick de que está listo, la baldosa
+// con el icono, el título y la explicación, y la flecha hasta el siguiente.
+function PasoFlujo({ numero, tipo, titulo, texto, Icono, color, ultimo }: {
+  numero: number; tipo: 'cuando' | 'accion'; titulo: string; texto: string; Icono: React.ElementType; color: string; ultimo?: boolean;
 }) {
+  const pastilla = tipo === 'cuando'
+    ? { texto: 'Cuándo', estilo: { color: 'color-mix(in srgb, var(--warning) 80%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--warning) 16%, var(--card))' } }
+    : { texto: 'Acción', estilo: { color: 'color-mix(in srgb, var(--cat-5) 85%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--cat-5) 14%, var(--card))' } };
   return (
-    <li className="flex flex-col items-stretch">
-      <div className="flex items-start gap-3 rounded-2xl border p-3" style={{ borderColor: `color-mix(in srgb, ${color} 30%, var(--border))`, backgroundColor: `color-mix(in srgb, ${color} 6%, var(--card))` }}>
-        <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: color, color: 'var(--card)' }}>
-          <Icono size={15} strokeWidth={2.2} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color }}>{numero}. {etiqueta}</p>
-          <p className="mt-0.5 text-[13px] leading-snug text-foreground">{texto}</p>
+    <li className="flex flex-col items-center">
+      <div className="w-full rounded-[14px] border-[1.5px] bg-card p-3.5" style={{ borderColor: 'color-mix(in srgb, var(--success) 80%, var(--border))' }}>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.06em]" style={pastilla.estilo}>{pastilla.texto}</span>
+          <span className="flex size-5 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: 'var(--t-blue-500)' }}>{numero}</span>
+          <CheckCircle2 aria-hidden size={17} className="ml-auto" style={{ color: 'var(--success)' }} />
+        </div>
+        <div className="mt-2.5 flex items-start gap-3">
+          <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, var(--card))`, color }}>
+            <Icono size={17} strokeWidth={2.1} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold leading-snug text-foreground">{titulo}</p>
+            <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground text-pretty">{texto}</p>
+          </div>
         </div>
       </div>
-      {!ultimo && <ArrowDown aria-hidden size={15} className="mx-auto my-1 text-muted-foreground" />}
+      {!ultimo && (
+        <span aria-hidden className="flex flex-col items-center py-1" style={{ color: 'var(--success)' }}>
+          <span className="h-2.5 w-px bg-current" />
+          <ArrowDown size={14} />
+        </span>
+      )}
     </li>
   );
 }
@@ -993,13 +1011,14 @@ function RuleCardNueva({
 
       {expanded && (
         <div className="grid gap-5 border-t border-border px-4 py-4 sm:px-5 lg:grid-cols-2">
-          <div>
-            <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Flujo de la automatización</p>
+          <div className="rounded-[16px] border border-border bg-muted/40 p-4">
+            <p className="text-center text-[15px] font-semibold text-foreground">Flujo de la automatización</p>
+            <p className="text-center text-[12px] text-muted-foreground">Qué pasa, y en qué orden</p>
             <ol className="mt-3">
-              <PasoFlujo numero={1} etiqueta="Cuándo" texto={cuando} Icono={Zap} color={TONOS.indigo} ultimo={pasos.length === 0} />
+              <PasoFlujo numero={1} tipo="cuando" titulo={cuando} texto="Se pone en marcha sola cuando pasa esto." Icono={Zap} color={TONOS.indigo} ultimo={pasos.length === 0} />
               {pasos.map((paso, i) => {
                 const cfg = accionConfig[paso.accion];
-                return <PasoFlujo key={i} numero={i + 2} etiqueta={cfg.label} texto={paso.cuando} Icono={cfg.icon} color={cfg.color} ultimo={i === pasos.length - 1} />;
+                return <PasoFlujo key={i} numero={i + 2} tipo="accion" titulo={cfg.label} texto={paso.cuando} Icono={cfg.icon} color={cfg.color} ultimo={i === pasos.length - 1} />;
               })}
             </ol>
             {pasos.length === 0 && (
