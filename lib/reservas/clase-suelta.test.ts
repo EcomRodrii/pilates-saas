@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 import {
-  avisoDeVentaSuelta, conceptoDeClaseSuelta, cuotaQueYaTiene, cuotasQueCubren, desenlaceVentaSuelta, idReciboDeSuscripcionDeClaseSuelta, idSuscripcionDeClaseSuelta,
+  avisoClaseSueltaAlQuitar, avisoDeVentaSuelta, clasesSueltasQueCubreSuCuota, conceptoDeClaseSuelta, cuotaQueCubreLaClase, cuotaQueYaTiene, cuotasQueCubren,
+  desenlaceVentaSuelta, puedeAnularSueltaPorCuota, cabeEnElTopeSemanal, semanaEnEstudio, idReciboDeSuscripcionDeClaseSuelta, idSuscripcionDeClaseSuelta,
   idSuscripcionDeReciboDeClaseSuelta, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta,
 } from './clase-suelta.ts';
 
@@ -171,4 +172,144 @@ test('si ya tiene cuota (vencida, en pausa o que no incluye la clase), no se le 
   assert.deepEqual(cuotaQueYaTiene('ana', [sus({})], planes, hoy, 'tc-reformer'), { nombre: '2 días Semana Mensual', motivo: 'OTRO' });
   // Con varias, manda la vencida: hay un cobro esperando.
   assert.equal(cuotaQueYaTiene('ana', [sus({ planId: 'cuota-mat' }), sus({ fechaFin: '2026-10-01' })], planes, hoy, 'tc-reformer')?.motivo, 'VENCIDA');
+});
+
+// ── La clase suelta de una clase que ya cubre su cuota ─────────────────────────
+const cuotaPlan = plan({ id: 'cuota', nombre: '2 días Semana Mensual', tipo: 'MENSUAL', precio: 115, sesiones: null });
+const cuotaMat = plan({ id: 'cuota-mat', nombre: 'Mat Mensual', tipo: 'MENSUAL', precio: 60, sesiones: null, tiposClaseIds: ['tc-mat'] });
+const susCuota = (o: Partial<Suscripcion> = {}) => ({
+  id: 'sus-c', socioId: 'ana', planId: 'cuota', estado: 'ACTIVA', fechaInicio: '2026-10-14', fechaFin: '2026-11-14', ...o,
+} as Suscripcion);
+// Lunes 19-oct-2026, 17:00 en Madrid (CEST, 15:00Z).
+const LUNES = '2026-10-19T15:00:00Z';
+const viva = (inicio: string, o: Partial<{ estado: string; tipoClaseId: string | null; cancelada: boolean }> = {}) =>
+  ({ estado: 'CONFIRMADA', inicio, tipoClaseId: 'tc-reformer', ...o });
+
+test('semanaEnEstudio: el lunes de la semana de Madrid, como date_trunc en la base de datos', () => {
+  assert.equal(semanaEnEstudio('2026-10-19T15:00:00Z'), '2026-10-19');
+  assert.equal(semanaEnEstudio('2026-10-25T21:30:00Z'), '2026-10-19'); // domingo noche en Madrid
+  assert.equal(semanaEnEstudio('2026-10-25T23:30:00Z'), '2026-10-26'); // ya lunes en Madrid, domingo en UTC
+});
+
+test('cuotaQueCubreLaClase: la cuota activa que incluye ese día y ese tipo', () => {
+  const planes = [cuotaPlan, cuotaMat];
+  const una = [viva(LUNES)];
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota()], planes, LUNES, 'tc-reformer', una)?.id, 'cuota');
+  // El día que empieza y el último, incluidos.
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota()], planes, '2026-10-14T08:00:00Z', null, una)?.id, 'cuota');
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota()], planes, '2026-11-14T08:00:00Z', null, una)?.id, 'cuota');
+  // Antes de empezar la cuota (la clase suelta de la semana pasada se pagó aparte, bien pagada).
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota()], planes, '2026-10-13T08:00:00Z', null, una), null);
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota({ estado: 'PAUSADA' })], planes, LUNES, null, una), null);
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota({ planId: 'cuota-mat' })], planes, LUNES, 'tc-reformer', una), null);
+  assert.equal(cuotaQueCubreLaClase('bea', [susCuota()], planes, LUNES, null, una), null);
+});
+
+test('tope semanal: con cuota de 2 días, la 3.ª clase de la semana NO la cubre (anularla regalaría una clase)', () => {
+  const dos = plan({ id: 'cuota-2', nombre: '2 días', tipo: 'MENSUAL', precio: 115, sesiones: null, limiteSemanal: 2 });
+  const semana = [viva('2026-10-19T15:00:00Z'), viva('2026-10-21T15:00:00Z')];
+  assert.equal(cabeEnElTopeSemanal(dos, 'tc-reformer', LUNES, semana), true);
+  assert.equal(cabeEnElTopeSemanal(dos, 'tc-reformer', LUNES, [...semana, viva('2026-10-23T15:00:00Z')]), false);
+  // Lo cancelado, lo de otra semana y la clase cancelada no cuentan.
+  assert.equal(cabeEnElTopeSemanal(dos, 'tc-reformer', LUNES, [
+    ...semana, viva('2026-10-23T15:00:00Z', { estado: 'CANCELADA' }), viva('2026-10-27T15:00:00Z'), viva('2026-10-24T09:00:00Z', { cancelada: true }),
+  ]), true);
+  assert.equal(cuotaQueCubreLaClase('ana', [susCuota({ planId: 'cuota-2' })], [dos], LUNES, 'tc-reformer', [...semana, viva('2026-10-23T15:00:00Z')]), null);
+});
+
+test('tope por tipo de clase: cuenta solo las de ese tipo', () => {
+  const mixta = plan({ id: 'mixta', nombre: 'Mixta', tipo: 'MENSUAL', precio: 90, sesiones: null, limitePorTipo: { 'tc-reformer': 1 } });
+  assert.equal(cabeEnElTopeSemanal(mixta, 'tc-reformer', LUNES, [viva(LUNES), viva('2026-10-21T15:00:00Z', { tipoClaseId: 'tc-mat' })]), true);
+  assert.equal(cabeEnElTopeSemanal(mixta, 'tc-reformer', LUNES, [viva(LUNES), viva('2026-10-21T15:00:00Z')]), false);
+});
+
+const reciboSuelta = (reservaId: string, o: Record<string, unknown> = {}) => ({
+  id: `rec-suelta-${reservaId}`, socioId: 'ana', suscripcionId: `sus-suelta-${reservaId}`,
+  estado: 'PENDIENTE', importe: 23, fechaCobro: null, ...o,
+});
+
+test('clasesSueltasQueCubreSuCuota: pendientes, pagadas y a medias de clases dentro de su cuota; ni las de antes ni las canceladas', () => {
+  const sesiones: Record<string, { inicio: string; tipoClaseId: string | null; cancelada?: boolean }> = {
+    lunes: { inicio: LUNES, tipoClaseId: 'tc-reformer' },
+    semanaPasada: { inicio: '2026-10-06T15:00:00Z', tipoClaseId: 'tc-reformer' },
+    miercoles: { inicio: '2026-10-21T15:00:00Z', tipoClaseId: 'tc-reformer' },
+    jueves: { inicio: '2026-10-29T15:00:00Z', tipoClaseId: 'tc-reformer' },
+    claseCancelada: { inicio: '2026-10-30T15:00:00Z', tipoClaseId: 'tc-reformer', cancelada: true },
+  };
+  const reservas = [
+    { id: 'r-lunes', socioId: 'ana', sesionId: 'lunes', estado: 'CONFIRMADA', bonoSuscripcionId: 'sus-suelta-r-lunes' },
+    { id: 'r-pasada', socioId: 'ana', sesionId: 'semanaPasada', estado: 'ASISTIDA' },
+    { id: 'r-cancelada', socioId: 'ana', sesionId: 'miercoles', estado: 'CANCELADA' },
+    { id: 'r-pagada', socioId: 'ana', sesionId: 'miercoles', estado: 'CONFIRMADA' },
+    { id: 'r-medias', socioId: 'ana', sesionId: 'jueves', estado: 'CONFIRMADA', bonoSuscripcionId: 'sus-suelta-r-medias' },
+    { id: 'r-clase-cancelada', socioId: 'ana', sesionId: 'claseCancelada', estado: 'CONFIRMADA' },
+  ];
+  const fuera = clasesSueltasQueCubreSuCuota({
+    socioId: 'ana',
+    recibos: [
+      reciboSuelta('r-lunes'),
+      reciboSuelta('r-pasada'),
+      reciboSuelta('r-cancelada'),
+      reciboSuelta('r-pagada', { estado: 'COBRADO', fechaCobro: '2026-10-14' }),
+      // Anulada pero la reserva sigue colgando de la clase suelta: un intento a medias.
+      reciboSuelta('r-medias', { estado: 'ANULADO' }),
+      reciboSuelta('r-clase-cancelada'),
+      // Un recibo suelto de antes, sin su clase suelta: no es de esto.
+      { id: 'rec-suelta-r-lunes-2', socioId: 'ana', suscripcionId: null, estado: 'PENDIENTE', importe: 23 },
+      // De otra alumna.
+      { ...reciboSuelta('r-lunes'), socioId: 'bea' },
+    ],
+    reservas,
+    sesion: id => sesiones[id],
+    suscripciones: [susCuota()],
+    planes: [cuotaPlan],
+  });
+  assert.deepEqual(fuera.map(f => [f.reciboId, f.pagado, f.aMedias, f.importe]), [
+    ['rec-suelta-r-lunes', false, false, 23],
+    ['rec-suelta-r-pagada', true, false, 23],
+    ['rec-suelta-r-medias', false, true, 0],
+  ]);
+  // Anulada del todo (ni clase suelta activa ni reserva colgando): nada que decir.
+  assert.deepEqual(clasesSueltasQueCubreSuCuota({
+    socioId: 'ana', recibos: [reciboSuelta('r-pagada', { estado: 'ANULADO' })], reservas, sesion: id => sesiones[id], suscripciones: [susCuota()], planes: [cuotaPlan],
+  }), []);
+  // Sin cuota, nada que decir.
+  assert.deepEqual(clasesSueltasQueCubreSuCuota({ socioId: 'ana', recibos: [reciboSuelta('r-lunes')], reservas, sesion: id => sesiones[id], suscripciones: [], planes: [cuotaPlan] }), []);
+});
+
+test('puedeAnularSueltaPorCuota: el servidor solo anula la clase suelta pendiente, sin cobro en marcha ni factura, de una reserva viva que cubre su cuota', () => {
+  const recibo = {
+    socio_id: 'ana', suscripcion_id: 'sus-suelta-r1', estado: 'PENDIENTE', fecha_cobro: null,
+    stripe_payment_intent_id: null, checkout_session_id: null, cobro_mostrador_pi: null, cobro_off_session_clave: null,
+  };
+  const base = {
+    reciboId: 'rec-suelta-r1', recibo, suelta: { estado: 'ACTIVA' },
+    reserva: { socio_id: 'ana', estado: 'CONFIRMADA', bono_suscripcion_id: 'sus-suelta-r1' },
+    sesion: { cancelada: false }, tieneFactura: false, cuota: cuotaPlan,
+  };
+  assert.deepEqual(puedeAnularSueltaPorCuota(base), { ok: true, reservaId: 'r1', suscripcionId: 'sus-suelta-r1', terminar: false });
+  const motivo = (o: Partial<typeof base>) => { const r = puedeAnularSueltaPorCuota({ ...base, ...o }); return r.ok ? (r.terminar ? 'terminar' : 'ok') : r.motivo; };
+  assert.equal(motivo({ reciboId: 'rec-otro-r1' }), 'NO_ES_CLASE_SUELTA');
+  assert.equal(motivo({ recibo: { ...recibo, suscripcion_id: null } }), 'NO_ES_CLASE_SUELTA');
+  assert.equal(motivo({ recibo: null }), 'NO_ES_CLASE_SUELTA');
+  assert.equal(motivo({ recibo: { ...recibo, estado: 'COBRADO' } }), 'NO_PENDIENTE');
+  assert.equal(motivo({ recibo: { ...recibo, fecha_cobro: '2026-10-14' } }), 'NO_PENDIENTE');
+  assert.equal(motivo({ recibo: { ...recibo, checkout_session_id: 'cs_1' } }), 'COBRO_EN_MARCHA');
+  assert.equal(motivo({ recibo: { ...recibo, cobro_off_session_clave: 'k' } }), 'COBRO_EN_MARCHA');
+  assert.equal(motivo({ tieneFactura: true }), 'TIENE_FACTURA');
+  assert.equal(motivo({ reserva: { socio_id: 'ana', estado: 'CANCELADA', bono_suscripcion_id: 'sus-suelta-r1' } }), 'RESERVA_NO_VALE');
+  assert.equal(motivo({ reserva: { socio_id: 'bea', estado: 'CONFIRMADA', bono_suscripcion_id: null } }), 'RESERVA_NO_VALE');
+  assert.equal(motivo({ sesion: { cancelada: true } }), 'RESERVA_NO_VALE');
+  assert.equal(motivo({ cuota: null }), 'SIN_CUOTA_QUE_LA_CUBRA');
+  // Anulado a medias: vale solo para terminar (la clase suelta sigue activa o la reserva colgando).
+  assert.equal(motivo({ recibo: { ...recibo, estado: 'ANULADO' } }), 'terminar');
+  assert.equal(motivo({ recibo: { ...recibo, estado: 'ANULADO' }, suelta: { estado: 'CANCELADA' } }), 'terminar');
+  assert.equal(motivo({ recibo: { ...recibo, estado: 'ANULADO' }, suelta: { estado: 'CANCELADA' }, reserva: { ...base.reserva, bono_suscripcion_id: null } }), 'NO_PENDIENTE');
+  // Y terminar también exige que la cuota la cubra.
+  assert.equal(motivo({ recibo: { ...recibo, estado: 'ANULADO' }, cuota: null }), 'SIN_CUOTA_QUE_LA_CUBRA');
+});
+
+test('al quitarla de la clase, una clase suelta anulada (la cubría su cuota) no promete «recupera su clase suelta»', () => {
+  const anulado = { estado: 'ANULADO', importe: 23, suscripcionId: 'sus-suelta-r1' };
+  assert.equal(avisoClaseSueltaAlQuitar({ recibo: anulado, reservaId: 'r1', bonoDevuelto: true, tardia: false }), null);
 });
