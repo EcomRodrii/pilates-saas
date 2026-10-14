@@ -85,7 +85,7 @@ function Contenido(p: FichaClaseProps) {
         className="shrink-0 border-b border-border px-5 pt-4 pb-3.5"
         data-testid="ficha-clase-cabeza"
         // Panel nuevo: la cabecera teñida del color de la clase, como su tarjeta en el calendario.
-        style={panelNuevo ? { background: `linear-gradient(160deg, color-mix(in srgb, ${p.color} 22%, var(--card)), var(--card) 75%)` } : undefined}
+        style={panelNuevo ? { background: `linear-gradient(160deg, color-mix(in srgb, ${p.color} 12%, var(--card)), var(--card) 70%)` } : undefined}
       >
         <div className="flex items-center gap-2">
           <span className="size-3 shrink-0 rounded-full" style={{ background: p.color }} aria-hidden />

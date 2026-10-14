@@ -20,7 +20,7 @@ import { useStudio } from '@/lib/studio-context';
 import { calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
 import { primerosPasos, type TareaConEstado } from '@/lib/guia/primeros-pasos';
 import { cn } from '@/lib/utils';
-import { BOTON_VIVO, DEGRADADO_LOGO } from '@/components/dashboard/vivo';
+import { DEGRADADO_LOGO, BOTON_DESTACADO } from '@/components/dashboard/vivo';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
@@ -85,7 +85,7 @@ export function PrimerosPasosTarjeta() {
               Has hecho los seis pasos. Comparte tu página donde ya te buscan: Instagram, Google o el grupo de WhatsApp de tus alumnas.
             </p>
             {studio.slug && (
-              <a href={`/reservar/${studio.slug}`} target="_blank" rel="noreferrer" className={cn(BOTON_VIVO, 'mt-4 h-10 px-4 text-[13.5px]')}>
+              <a href={`/reservar/${studio.slug}`} target="_blank" rel="noreferrer" className={cn(BOTON_DESTACADO, 'mt-4 h-10 px-4 text-[13.5px]')}>
                 Ver mi página de reservas <ExternalLink size={14} aria-hidden />
               </a>
             )}
@@ -193,7 +193,7 @@ function FilaTarea({ tarea, numero, siguiente }: { tarea: TareaConEstado; numero
           {siguiente ? (
             <Link
               href={tarea.href}
-              className={cn(BOTON_VIVO, 'h-8 px-3.5 text-[12.5px]')}
+              className={cn(BOTON_DESTACADO, 'h-8 px-3.5 text-[12.5px]')}
             >
               Empezar <ArrowRight size={13} aria-hidden />
             </Link>

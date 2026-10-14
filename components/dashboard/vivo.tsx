@@ -33,8 +33,22 @@ export const TONOS: Record<Tono, string> = {
   indigo: 'var(--cat-5)',
 };
 
-/** La acción principal de una tarjeta de la home nueva: el degradado del logo. */
+/**
+ * La acción principal de una pantalla: lisa, en el color del botón principal de
+ * siempre (`bg-primary`, tinta en claro y su versión en oscuro), como pide
+ * brand/component-guidelines.md. Una por vista.
+ * El degradado del logo ya no es el botón de todo (fundador, 14-oct: «no lo
+ * quiero siempre de ese color, solo los más destacados»): ese es `BOTON_DESTACADO`.
+ */
 export const BOTON_VIVO =
+  'inline-flex items-center justify-center gap-1.5 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/**
+ * El degradado del logo, SOLO para lo más destacado: el siguiente paso de «Pon en
+ * marcha tu estudio», «Tu estudio está listo» y publicar la app. Nunca en la
+ * cabecera de una sección ni en una lista.
+ */
+export const BOTON_DESTACADO =
   'inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--t-blue-700),var(--t-magenta-700))] font-semibold text-white shadow-[0_6px_16px_-8px_var(--t-magenta-700)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** El degradado del logo, para barras y progresos. */
@@ -54,12 +68,18 @@ export function Baldosa({ tono, Icono, tamano = 'md' }: { tono: Tono; Icono: Ele
   );
 }
 
-/** Fondo de una tarjeta teñida de su tono: blanca arriba a la izquierda y de color hacia la esquina. */
+/**
+ * Fondo de una tarjeta teñida de su tono: blanca y, solo hacia la esquina, un
+ * toque de su color, como las tarjetas de cifras de Bonsai. Suave a propósito
+ * (fundador, 14-oct: «los degradados de las cards son muy fuertes, solo debe
+ * ser fuerte la de módulos»): `fuerza` se queda en un 40 % de lo que se pide, y
+ * el borde casi neutro. La única fuerte es la de Tus módulos, que no pasa por aquí.
+ */
 export function fondoTenido(tono: Tono, fuerza = 16): CSSProperties {
   const c = TONOS[tono];
   return {
-    backgroundImage: `linear-gradient(135deg, var(--card) 25%, color-mix(in srgb, ${c} ${fuerza}%, var(--card)) 100%)`,
-    borderColor: `color-mix(in srgb, ${c} 26%, var(--border))`,
+    backgroundImage: `linear-gradient(135deg, var(--card) 45%, color-mix(in srgb, ${c} ${Math.round(fuerza * 0.4)}%, var(--card)) 100%)`,
+    borderColor: `color-mix(in srgb, ${c} 10%, var(--border))`,
   };
 }
 
@@ -316,11 +336,13 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, se
   );
 }
 
-/** La acción principal del panel nuevo: enlace o botón, con el degradado del logo. */
-export function BotonVivo({ label, href, onClick, Icono, grande = false, disabled, type = 'button', className }: {
+/** La acción principal del panel nuevo: enlace o botón, lisa (o con el degradado si es de lo más destacado). */
+export function BotonVivo({ label, href, onClick, Icono, grande = false, disabled, type = 'button', className, destacado = false }: {
   label: ReactNode; href?: string; onClick?: () => void; Icono?: ElementType; grande?: boolean; disabled?: boolean; type?: 'button' | 'submit'; className?: string;
+  /** El degradado del logo: solo para lo más destacado (ver `BOTON_DESTACADO`). */
+  destacado?: boolean;
 }) {
-  const clase = cn(BOTON_VIVO, grande ? 'h-11 px-5 text-[14px]' : 'h-9 px-4 text-[13px]', disabled && 'pointer-events-none opacity-60', className);
+  const clase = cn(destacado ? BOTON_DESTACADO : BOTON_VIVO, grande ? 'h-11 px-5 text-[14px]' : 'h-9 px-4 text-[13px]', disabled && 'pointer-events-none opacity-60', className);
   const contenido = <>{Icono ? <Icono size={grande ? 17 : 15} aria-hidden /> : null}{label}{!Icono && href ? <ArrowRight size={grande ? 16 : 14} aria-hidden /> : null}</>;
   return href ? (
     <Link href={href} className={clase}>{contenido}</Link>

@@ -51,12 +51,14 @@ for (const ruta of SECCIONES) {
 test('Apariencia: un paso cada vez, y «Siguiente» lleva al color con sus paletas', async ({ page }) => {
   await preparar(page, { nuevo: true });
   await ir(page, 'configuracion/apariencia');
-  await expect(page.getByText('Paso 1 de 6')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Elige el estilo de tu app' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Elige el estilo de tu app' })).toBeVisible({ timeout: 30_000 });
+  const pasos = page.getByRole('list', { name: 'Pasos' });
+  await expect(pasos.getByRole('button', { name: /Estilo/ })).toHaveAttribute('aria-current', 'step');
   // El resto de pasos no está a la vista hasta que se llega a ellos.
   await expect(page.getByRole('radiogroup', { name: 'Paletas' })).toHaveCount(0);
-  await page.getByRole('button', { name: /Siguiente: Color/ }).click();
-  await expect(page.getByText('Paso 2 de 6')).toBeVisible();
+  await page.getByRole('button', { name: /^Siguiente/ }).click();
+  await expect(page.getByRole('heading', { name: 'Tus colores' })).toBeVisible();
+  await expect(pasos.getByRole('button', { name: /Colores/ })).toHaveAttribute('aria-current', 'step');
   const paletas = page.getByRole('radiogroup', { name: 'Paletas' });
   await expect(paletas.getByRole('radio')).toHaveCount(6);
   // Elegir una paleta cambia el color del borrador: «Publicar» se enciende.
@@ -70,7 +72,7 @@ test('apagado, Apariencia sigue con todas sus secciones a la vez', async ({ page
   await ir(page, 'configuracion/apariencia');
   await expect(page.getByRole('radiogroup', { name: 'Estilo de la app' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('radiogroup', { name: 'Tipografía de la app' })).toBeVisible();
-  await expect(page.getByText('Paso 1 de 6')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Pasos' })).toHaveCount(0);
 });
 
 test('Sustituciones: los cuatro modos se eligen como tarjetas, y los del plan llevan su candado', async ({ page }) => {
