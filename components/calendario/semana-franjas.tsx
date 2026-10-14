@@ -3,6 +3,8 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { colorDeOcupacion } from '@/components/dashboard/vivo';
 import { clasesPorCelda, claveCelda, diasConClases, filasDeFranjas, textoHueco, type ClaseEnFranja } from '@/lib/calendario/franjas';
 import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 
@@ -50,6 +52,7 @@ export function SemanaFranjas({
   atenuada, onSeleccionar, arrastrable, onMoverADia, onCrearEn,
 }: SemanaFranjasProps) {
   const rejillaRef = useRef<HTMLDivElement>(null);
+  const panelNuevo = usePanelNuevo();
   const [destino, setDestino] = useState<number | null>(null);
   const filas = useMemo(() => filasDeFranjas(clases), [clases]);
   const celdas = useMemo(() => clasesPorCelda(clases), [clases]);
@@ -106,7 +109,8 @@ export function SemanaFranjas({
                     </p>
                     <div className="mt-1 flex items-center gap-1.5" title={pct == null ? undefined : `${r.clases} clases · ${pct} % de ocupación`}>
                       <span className="h-1 min-w-3 flex-1 overflow-hidden rounded-full bg-muted">
-                        <span className="block h-full rounded-full bg-foreground/45" style={{ width: `${pct ?? 0}%` }} />
+                        {/* Panel nuevo: roja, ámbar o verde según se llena, como las cifras de la home. */}
+                        <span className={cn('block h-full rounded-full', !panelNuevo && 'bg-foreground/45')} style={{ width: `${pct ?? 0}%`, ...(panelNuevo ? { backgroundColor: colorDeOcupacion(pct ?? 0) } : {}) }} />
                       </span>
                       <span className="shrink-0 text-[11.5px] tabular-nums text-muted-foreground">
                         {compacta ? `${pct ?? 0} %` : `${r.clases} · ${pct ?? 0} %`}
