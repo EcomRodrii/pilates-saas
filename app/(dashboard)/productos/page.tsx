@@ -30,7 +30,7 @@ import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { clientasPorPlan } from '@/lib/planes/cifras-paquetes';
 import { BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
 import {
-  CifrasPaquetes, EleccionTipoNueva, SelectorTipo, TarjetaAnadir, TarjetaPlanNueva, VacioPaquetes,
+  CifrasPaquetes, EleccionTipoNueva, ListaPlanesNueva, SelectorTipo, SelectorVista, TarjetaAnadir, TarjetaPlanNueva, VacioPaquetes, useVistaPaquetes,
 } from '@/components/productos/paquetes-nuevo';
 
 type Tab = 'planes' | 'pos' | 'regalo';
@@ -1187,6 +1187,8 @@ export default function Productos() {
   // Panel nuevo (interruptor `panelNuevo`): cifras de colores, tarjetas por tipo y
   // vacíos que enseñan. Apagado, la pantalla de siempre.
   const panelNuevo = usePanelNuevo();
+  // Lista (como «Cuotas» de Bonsai) o tarjetas; se recuerda en este navegador.
+  const [vistaPaquetes, setVistaPaquetes] = useVistaPaquetes();
   const [hoy] = useState(() => hoyEnEstudio());
   // Quién tiene cada tarifa AHORA (en vigor, personas distintas), para las tarjetas nuevas.
   const clientasDe = useMemo(() => clientasPorPlan(suscripciones, hoy), [suscripciones, hoy]);
@@ -1357,7 +1359,8 @@ export default function Productos() {
               cuantas={cuantasPorTipo}
               etiquetas={ETIQUETA_TIPO_TAB}
             />
-            <label className="relative w-full sm:ml-auto sm:w-[260px]">
+            <span className="sm:ml-auto"><SelectorVista valor={vistaPaquetes} onCambio={setVistaPaquetes} /></span>
+            <label className="relative w-full sm:w-[260px]">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <input
                 value={busqueda}
@@ -1375,6 +1378,19 @@ export default function Productos() {
             </div>
           ) : planesFiltrados.length === 0 ? (
             <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
+          ) : vistaPaquetes === 'lista' ? (
+            <div data-tour="paquetes-lista" className="space-y-2">
+              <p className="text-[13px] font-semibold text-foreground">
+                {planesFiltrados.length} {planesFiltrados.length === 1 ? (TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'tarifa') : (TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase() ?? 'tarifas')}
+              </p>
+              <ListaPlanesNueva
+                filas={planesFiltrados.map(plan => ({ plan, clientas: clientasDe.get(plan.id) ?? 0, cobertura: coberturaDe(plan) }))}
+                mueveDinero={mueveDinero}
+                onEditar={plan => setPlanModal(plan)}
+                onBorrar={plan => setBorrando(plan)}
+                onPonerALaVenta={plan => ponerALaVenta(plan)}
+              />
+            </div>
           ) : (
             <div data-tour="paquetes-lista" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {planesFiltrados.map(plan => (

@@ -91,7 +91,19 @@ export const decisionDispatcher = inngest.createFunction(
           .select('id, nombre, plan, subscription_status').is('suspendido_en', null).range(from, to),
       );
       if (error) throw new Error(error.message);
-      const conPlan = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      const conPlanTodos = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      // Founding Studio gratis (lib/billing/plan-gratis.ts) tiene el Centro de
+      // Control, pero el análisis cuesta (Inngest y la redacción con IA): un
+      // estudio gratis sin ninguna alumna activa medida (un alta abandonada) no
+      // tiene nada que analizar y no se analiza.
+      const gratisIds = conPlanTodos.filter(s => s.subscription_status === 'gratis').map(s => s.id);
+      let gratisConAlumnas = new Set<string>();
+      if (gratisIds.length > 0) {
+        const { data: usos } = await requireSupabaseAdmin()
+          .from('uso_plan_gratis').select('studio_id, alumnas_activas').in('studio_id', gratisIds).gt('alumnas_activas', 0);
+        gratisConAlumnas = new Set((usos ?? []).map(u => u.studio_id as string));
+      }
+      const conPlan = conPlanTodos.filter(s => s.subscription_status !== 'gratis' || gratisConAlumnas.has(s.id));
       if (conPlan.length === 0) return { nowISO, estudios: [] as { id: string }[] };
 
       // El flag DECISIONES es un KILL-SWITCH, no un opt-in. Antes el cron exigía

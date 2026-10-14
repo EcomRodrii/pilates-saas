@@ -23,6 +23,7 @@ import type { DecisionEstudio } from '@/lib/student/baja-instructora';
 import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
+import type { EstadoGratisApi } from '@/lib/billing/plan-gratis';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -1350,6 +1351,8 @@ export interface EstadoBilling {
    *  tal cual: si contara los días con el reloj del navegador, un portátil con
    *  la hora desfasada enseñaría una cuenta atrás distinta a la real. */
   trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
+  /** Founding Studio gratis: uso, fase y margen, derivados en servidor. `null`/ausente si no lo es. */
+  gratis?: EstadoGratisApi | null;
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve

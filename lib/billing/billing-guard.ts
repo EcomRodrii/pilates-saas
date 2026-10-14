@@ -19,6 +19,9 @@ import {
   type Denegacion,
 } from '@/lib/billing/billing-rules';
 import type { Entitlements } from '@/lib/billing/entitlements';
+import { ESTADO_GRATIS } from '@/lib/billing/plan-gratis';
+import { topeEstricto } from '@/lib/rate-limit';
+import { hoyEnEstudio } from '@/lib/utils';
 
 export { billingEnforced } from '@/lib/billing/billing-rules';
 
@@ -49,5 +52,27 @@ export async function bloqueoPorFeature(
   studioId: string,
   feature: keyof Entitlements['features'],
 ): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarFeature(getSupabaseAdmin(), studioId, feature));
+  const admin = getSupabaseAdmin();
+  const denegada = aRespuesta(await evaluarFeature(admin, studioId, feature));
+  if (denegada || feature !== 'ia' || !admin) return denegada;
+  return await topeIaGratis(admin, studioId);
+}
+
+/**
+ * Founding Studio gratis (lib/billing/plan-gratis.ts) tiene la IA de notas,
+ * campañas y fichas como todos, pero con un tope por día: cada una cuesta
+ * dinero por llamada y sin esto solo la frenaba el límite por minuto. Cerrado
+ * si el contador falla (`topeEstricto`). En Estudio y Cadena, sin tope.
+ */
+export const TOPE_IA_GRATIS_DIA = 40;
+
+async function topeIaGratis(admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, studioId: string): Promise<NextResponse | null> {
+  const { data } = await admin.from('studios').select('subscription_status').eq('id', studioId).maybeSingle();
+  if (data?.subscription_status !== ESTADO_GRATIS) return null;
+  const r = await topeEstricto(`ia-gratis:${studioId}:${hoyEnEstudio()}`, { max: TOPE_IA_GRATIS_DIA, windowSeconds: 36 * 3600 });
+  if (r.allowed) return null;
+  return NextResponse.json(
+    { error: `Has usado las ${TOPE_IA_GRATIS_DIA} ayudas con IA de hoy del plan gratis. Mañana vuelves a tenerlas; con Estudio, sin límite.`, code: 'TOPE_IA_GRATIS' },
+    { status: 429 },
+  );
 }

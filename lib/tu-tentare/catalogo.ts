@@ -18,7 +18,7 @@
 import type { ElementType } from 'react';
 import { ESSENTIAL_HREFS, NO_OCULTABLES, navSections, type NavSection } from '../nav-config.ts';
 import { seccionPanelNuevo } from '../nav-panel-nuevo.ts';
-import { PLAN_ENTITLEMENTS, PLAN_INFO, planMinimoPara, type Entitlements, type Plan } from '../billing/entitlements.ts';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, accesoProducto, entitlementsDe, planMinimoPara, tieneFeature, type Entitlements } from '../billing/entitlements.ts';
 import { tutorialDePantalla, valorDeModulo } from '../ayuda/pantallas.ts';
 import { hrefDeLugar, hrefDeSeccion, hrefDeTarjeta } from '../configuracion/destino.ts';
 
@@ -94,10 +94,16 @@ export function gruposTuTentare(puedeVer: (href: string) => boolean = () => true
  * entonces la pantalla no dice nada del plan (mejor callar que decir «necesita
  * el plan Estudio» a quien ya lo tiene). No decide qué se puede poner o quitar.
  */
-export function incluidoEnPlan(m: Pick<ModuloTuTentare, 'feature'>, plan: string | null | undefined, activo: boolean | null | undefined): boolean | null {
+export function incluidoEnPlan(
+  m: Pick<ModuloTuTentare, 'feature'>,
+  plan: string | null | undefined,
+  activo: boolean | null | undefined,
+  /** Con 'gratis' (Founding Studio gratis, plan-gratis.ts) lo incluye todo salvo varias sedes. */
+  subscriptionStatus?: string | null,
+): boolean | null {
   if (!m.feature) return true;
   if (!plan || !activo || !(plan in PLAN_ENTITLEMENTS)) return null;
-  return PLAN_ENTITLEMENTS[plan as Plan].features[m.feature];
+  return entitlementsDe({ plan, subscriptionStatus }).features[m.feature];
 }
 
 /** «Incluido en el plan Estudio» (el nombre comercial, de PLAN_INFO). */
@@ -105,6 +111,22 @@ export function planQueLoIncluye(m: Pick<ModuloTuTentare, 'feature'>): string | 
   if (!m.feature) return null;
   const p = planMinimoPara(m.feature);
   return p ? PLAN_INFO[p].nombre : null;
+}
+
+/**
+ * «Desde el plan Estudio» en la pantalla Módulos: el plan que haría falta, SOLO
+ * cuando `tieneFeature` dice que este estudio no lo tiene. Lo que decida
+ * `tieneFeature` (lib/billing) manda: si un plan pasa a incluirlo todo, la
+ * chapa desaparece sin tocar esta pantalla. Sin acceso al producto (prueba
+ * vencida, sin suscripción) no se dice nada: no es cosa del plan, y todo diría
+ * que falta. Sin estudio cargado, tampoco.
+ */
+export function planQueFalta(
+  m: Pick<ModuloTuTentare, 'feature'>,
+  studio: { plan?: string | null; subscriptionStatus?: string | null } | null | undefined,
+): string | null {
+  if (!m.feature || !studio || !accesoProducto(studio)) return null;
+  return tieneFeature(studio, m.feature) ? null : planQueLoIncluye(m);
 }
 
 export type EstadoEnMenu = 'en-menu' | 'solo-todo' | 'fuera';

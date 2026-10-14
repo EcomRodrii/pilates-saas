@@ -25,7 +25,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   const panelNuevo = usePanelNuevo();
   const [ocultos, setOcultos] = useState<string[] | null>(null);
   const [errorLectura, setErrorLectura] = useState(false);
-  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean } | null>(null);
+  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean; subscriptionStatus: string | null } | null>(null);
   const [modo, setModo] = useState<ModoMenu>('esencial');
   const [guardando, setGuardando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -38,7 +38,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
       .then(l => { if (vivo) { setOcultos(l.ocultos); setErrorLectura(false); } })
       .catch(() => { if (vivo) setErrorLectura(true); });
     void leer();
-    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo } : null); });
+    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo, subscriptionStatus: b.subscriptionStatus ?? null } : null); });
     setModo(leerModoMenu());
     // Si el cajón «Tu menú» guarda, esta lista se pone al día con lo guardado; y
     // si el selector Esencial/Todo del menú cambia, también.
@@ -57,8 +57,9 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   const vistos = new Set(ocultos ?? []);
   const cuenta = contar(grupos, vistos);
 
-  async function cambiar(m: ModuloTuTentare, enMenu: boolean) {
-    if (enVuelo.current || ocultos === null || bloqueado) return;
+  /** `true` solo cuando el servidor ha guardado: la pantalla Módulos cierra su confirmación con eso. */
+  async function cambiar(m: ModuloTuTentare, enMenu: boolean): Promise<boolean> {
+    if (enVuelo.current || ocultos === null || bloqueado) return false;
     enVuelo.current = true;
     setGuardando(m.href);
     onGuardando?.(true);
@@ -70,7 +71,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
       olvidarLayout();
       const fresco = await fetchLayout();
       const nuevos = ocultosTrasCambiar(fresco.ocultos, m, enMenu);
-      if (!nuevos) return;
+      if (!nuevos) return false;
       // Solo `ocultos`: el servidor fusiona por clave y no toca el orden ni el Resumen.
       const config = await guardarLayoutApi({ ocultos: nuevos });
       setOcultos(config.ocultos);
@@ -78,8 +79,10 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
       // El menú escucha esto y se recoloca sin recargar; la fila «Tu menú», también.
       window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
       onCambio?.();
+      return true;
     } catch (e) {
       setErrores(prev => ({ ...prev, [m.href]: mensajeSeguro((e as Error).message, ERROR_RED) }));
+      return false;
     } finally {
       enVuelo.current = false;
       setGuardando(null);
