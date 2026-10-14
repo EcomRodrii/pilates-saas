@@ -88,7 +88,7 @@ export function PastillaAviso({ aviso, atendido, ella = 'ella', className }: {
 // Panel nuevo: cada tarjeta de la ficha con el icono en una baldosa de color.
 // Por su título, para no tocar cada llamada; lo que no está aquí va en azul.
 const TONO_DE_TARJETA: Record<string, Tono> = {
-  'Plan': 'magenta', 'Próximas clases': 'azul', 'Constancia': 'indigo', 'Lo último': 'verde',
+  'Plan': 'magenta', 'Próximas clases': 'azul', 'Constancia': 'indigo', 'Asistencia últimos meses': 'indigo', 'Lo último': 'verde',
   'Seguimiento': 'magenta', 'Notas del equipo': 'indigo', 'Etiquetas': 'azul', 'Sobre ella': 'verde',
 };
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasesEstaSemana, constancia } from './constancia.ts';
+import { asistenciaPorMes, clasesEstaSemana, constancia } from './constancia.ts';
 
 // Jueves 1-oct-2026, mediodía en Madrid: la semana actual empieza el lunes 28-sep.
 const AHORA = new Date('2026-10-01T12:00:00+02:00');
@@ -39,4 +39,21 @@ test('esta semana: de lunes a domingo en hora de Madrid, hechas y reservadas', (
     '2026-09-27T20:00:00+02:00', // domingo anterior: no
     '2026-10-05T09:00:00+02:00', // lunes siguiente: no
   ], ahora), 2);
+});
+
+test('asistencia por mes: los últimos meses, en hora de Madrid, y lo futuro no cuenta', () => {
+  const meses = asistenciaPorMes([
+    '2026-09-30T22:30:00Z', // 1-oct 00:30 en Madrid: octubre, no septiembre
+    '2026-09-15T16:00:00Z',
+    '2026-08-03T16:00:00Z',
+    '2026-03-02T16:00:00Z', // fuera de los 6 meses
+    '2026-10-20T16:00:00Z', // aún no ha pasado
+  ], AHORA, 6);
+  assert.deepEqual(meses.map(m => m.clave), ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
+  assert.deepEqual(meses.map(m => m.valor), [0, 0, 0, 1, 1, 1]);
+});
+
+test('asistencia por mes: cruza de año', () => {
+  const meses = asistenciaPorMes(['2025-12-10T16:00:00Z'], new Date('2026-01-15T12:00:00+01:00'), 3);
+  assert.deepEqual(meses, [{ clave: '2025-11', valor: 0 }, { clave: '2025-12', valor: 1 }, { clave: '2026-01', valor: 0 }]);
 });
