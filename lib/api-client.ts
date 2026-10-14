@@ -980,6 +980,35 @@ export async function reintentarPorElBancoApi(reciboId: string): Promise<{ ok: t
 }
 
 /**
+ * «Anular la clase suelta» de la ficha: la de una clase que ya cubre su cuota. El
+ * servidor lo vuelve a comprobar todo (pendiente, sin cobro en marcha, reserva
+ * viva, cuota que cubre ese día y ese tipo) y es idempotente: repetirlo no anula
+ * nada dos veces.
+ */
+export async function anularClaseSueltaPorCuota(reciboId: string): Promise<{ ok: true; aviso?: string } | { ok: false; error: string }> {
+  // Que el botón no se quede en «Anulando…» para siempre (AbortController y no
+  // `AbortSignal.timeout`, que Safari antiguo no tiene).
+  const abortar = new AbortController();
+  const t = setTimeout(() => abortar.abort(), 30_000);
+  try {
+    const res = await fetch('/api/cobros/anular-clase-suelta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId }),
+      signal: abortar.signal,
+    });
+    const datos = await res.json().catch(() => null) as { ok?: boolean; error?: string; aviso?: string } | null;
+    if (!res.ok || !datos?.ok) return { ok: false, error: datos?.error ?? 'No se ha podido anular la clase suelta' };
+    return { ok: true, ...(typeof datos.aviso === 'string' ? { aviso: datos.aviso } : {}) };
+  } catch {
+    // Sin respuesta no se sabe si llegó: recargar enseña cómo quedó, y repetirlo es seguro.
+    return { ok: false, error: 'Sin respuesta del servidor: recarga la ficha para ver si se anuló.' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
  * «Marcar cobrado» a mano (`POST /api/cobros/marcar-cobrado`). Devuelve la
  * respuesta CRUDA (status + cuerpo) o `{ red: true }`: quien decide qué
  * significa es `leerRespuestaMarcarCobrado` (lib/cobros/marcar-cobrado.ts),

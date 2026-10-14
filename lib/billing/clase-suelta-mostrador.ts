@@ -200,6 +200,69 @@ export async function anularVentaClaseSuelta(admin: SupabaseClient, p: {
   return 'fallo';
 }
 
+export type DesenlaceAnularPorCuota = 'anulada' | 'no-pendiente' | 'fallo' | 'incompleta';
+
+/**
+ * La clase suelta de una reserva que ya cubre su cuota, en tres pasos y en este
+ * orden, cada uno un compare-and-set:
+ *  1. el recibo → ANULADO, solo si sigue PENDIENTE y sin ningún cobro en marcha
+ *     (lo que se le cobraría, lo primero);
+ *  2. la clase suelta → CANCELADA, aunque esté gastada: activa, una cancelación a
+ *     tiempo le devolvería la sesión y tendría una clase gratis;
+ *  3. la reserva deja de colgar de la clase suelta (`bono_suscripcion_id`), solo
+ *     si sigue apuntando a ella: queda como cualquier reserva con cuota, y al
+ *     cancelarla nadie le dice «sesión devuelta a tu bono».
+ * Lo decide el estudio desde la ficha; quien llama ya ha comprobado, con lo que
+ * leyó él, que la cuota cubre esa clase (`puedeAnularSueltaPorCuota`).
+ *
+ * Idempotente: con el recibo ya ANULADO (un intento que se quedó a medias) se
+ * saltan los cobros y se terminan los otros dos pasos. Si uno de ellos falla, es
+ * `incompleta` y se avisa: no se le cobra de más, y repetirlo lo termina.
+ */
+export async function anularClaseSueltaCubiertaPorCuota(admin: SupabaseClient, p: {
+  studioId: string; reciboId: string; suscripcionId: string; reservaId: string; ahoraISO: string;
+}, informar: (mensaje: string, extra: Record<string, unknown>) => void = avisarFallo): Promise<DesenlaceAnularPorCuota> {
+  const { data: anulados, error } = await admin.from('recibos')
+    .update({ estado: 'ANULADO', anulado_en: p.ahoraISO, proximo_reintento: null })
+    .eq('id', p.reciboId).eq('studio_id', p.studioId)
+    .eq('estado', 'PENDIENTE').is('fecha_cobro', null)
+    .is('stripe_payment_intent_id', null).is('checkout_session_id', null).is('cobro_mostrador_pi', null)
+    .is('cobro_off_session_clave', null)
+    .select('id');
+  if (error) {
+    informar('no se ha podido anular la clase suelta que cubre la cuota', { reciboId: p.reciboId, error: error.message });
+    return 'fallo';
+  }
+  if (!anulados || anulados.length === 0) {
+    // Nada pendiente que anular: o ya estaba anulado (un intento anterior), o alguien lo cobró o empezó a cobrarlo.
+    const { data: rec, error: errRec } = await admin.from('recibos').select('estado')
+      .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+    if (errRec) {
+      informar('no se ha podido comprobar el recibo de la clase suelta que cubre la cuota', { reciboId: p.reciboId, error: errRec.message });
+      return 'fallo';
+    }
+    if (rec?.estado !== 'ANULADO') return 'no-pendiente';
+  }
+  let completa = true;
+  const { error: errSus } = await admin.from('suscripciones')
+    .update({ estado: 'CANCELADA' })
+    .eq('id', p.suscripcionId).eq('studio_id', p.studioId).eq('estado', 'ACTIVA')
+    .select('id');
+  if (errSus) {
+    completa = false;
+    informar('recibo de clase suelta anulado, pero la clase suelta sigue activa', { suscripcionId: p.suscripcionId, error: errSus.message });
+  }
+  const { error: errRes } = await admin.from('reservas')
+    .update({ bono_suscripcion_id: null })
+    .eq('id', p.reservaId).eq('studio_id', p.studioId).eq('bono_suscripcion_id', p.suscripcionId)
+    .select('id');
+  if (errRes) {
+    completa = false;
+    informar('clase suelta anulada, pero la reserva sigue colgando de ella', { reservaId: p.reservaId, error: errRes.message });
+  }
+  return completa ? 'anulada' : 'incompleta';
+}
+
 /** Log + Sentry (dinámico: este módulo se prueba con `node --test`). */
 function avisarFallo(mensaje: string, extra: Record<string, unknown>) {
   console.error(`[clase-suelta] ${mensaje}`, extra);

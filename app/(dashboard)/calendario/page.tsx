@@ -82,8 +82,9 @@ import {
 import { hechosDeAsistencia, tieneHistorialPrevio } from '@/lib/clientas/estado';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
-import { avisoClaseSueltaAlQuitar, cuotaQueYaTiene, cuotasQueCubren, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { avisoClaseSueltaAlQuitar, clasesSueltasQueCubreSuCuota, cuotaQueYaTiene, cuotasQueCubren, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { esError, ventasPorAsignarDePlan } from '@/lib/pos/cliente';
+import { cicloInicialDe } from '@/lib/bono-logic';
 import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
@@ -1987,7 +1988,22 @@ export default function Calendario() {
       return false;
     }
     const recibo = plan.precio > 0 ? ` (recibo de ${formatEuro(plan.precio)} pendiente en Cobros)` : '';
-    await confirmarAddReserva(sesionId, socioId, `Cuota «${plan.nombre}» asignada a ${nombre}${recibo}`);
+    // Si ya se le había vendido una clase suelta para un día que esta cuota cubre, se dice:
+    // si no, se le cobraría esa clase dos veces. Anularla es de la ficha (con su confirmación).
+    const sueltas = clasesSueltasQueCubreSuCuota({
+      socioId, recibos, reservas,
+      sesion: sid => { const s = sesionesEnriquecidas.find(x => x.id === sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
+      // La cuota recién dada, con su primer periodo real (`cicloInicialDe`, el mismo que usa `assignPlan`).
+      suscripciones: [...suscripciones, {
+        id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA', fechaInicio: hoyEnEstudio(),
+        fechaFin: cicloInicialDe(plan, new Date().toISOString()).fechaFin, stripeSubscriptionId: null,
+      }],
+      planes: planesTarifa,
+    }).filter(sc => !sc.pagado);
+    const ojo = sueltas.length === 0 ? ''
+      : sueltas.length === 1 ? '. Ojo: tiene pendiente una clase suelta de una clase que ya cubre la cuota; anúlala en su ficha'
+      : `. Ojo: tiene pendientes ${sueltas.length} clases sueltas de clases que ya cubre la cuota; anúlalas en su ficha`;
+    await confirmarAddReserva(sesionId, socioId, `Cuota «${plan.nombre}» asignada a ${nombre}${recibo}${ojo}`);
     // La cuota ya es suya pase lo que pase con la reserva: la hoja se cierra.
     return true;
   }
