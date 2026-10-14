@@ -1,4 +1,6 @@
 import type { Page, Route } from '@playwright/test';
+import type { MiembroCompleto } from '../lib/equipo-tarjetas.ts';
+import type { TarifaInstructor } from '../lib/api-client.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Andamiaje del panel con datos SEMBRADOS, compartido por las suites que
@@ -154,6 +156,89 @@ const CONVERSACIONES_PANEL = [
   { id: 'conv-1', studio_id: STUDIO_ID, tipo: 'ALUMNA_ESTUDIO', socio_id: 'soc-1', instructor_id: null, creada_en: iso(dia(-3), 10, 0), actualizada_en: iso(dia(0), 9, 12), ultimoMensaje: '¿Puedo cambiar mi clase del jueves?', ultimoMensajeEn: iso(dia(0), 9, 12), ultimo_remitente_auth_user_id: 'auth-maria', sinLeer: 2, participantes: [] },
   { id: 'conv-2', studio_id: STUDIO_ID, tipo: 'ALUMNA_ESTUDIO', socio_id: 'soc-3', instructor_id: null, creada_en: iso(dia(-8), 17, 0), actualizada_en: iso(dia(-2), 12, 0), ultimoMensaje: 'Gracias, ¡nos vemos el lunes!', ultimoMensajeEn: iso(dia(-2), 12, 0), ultimo_remitente_auth_user_id: UID, sinLeer: 0, participantes: [] },
 ];
+
+// ─── Las tarjetas de Equipo (`GET /api/equipo/tarjetas`) ────────────────────
+//
+// ⚠️ Esto contestaba `{ tarjetas: [] }`, una clave que no lee nadie: la ruta
+// devuelve `{ items, esInstructora }` y `tarjetasEquipo()` (lib/api-client.ts)
+// trata un 200 sin `items` como «no se ha podido cargar» —a propósito: ausente
+// no es vacío—. Así que en TODAS las suites que montan este andamiaje Equipo
+// salía en su estado de FALLO, y la captura y el barrido de contraste medían
+// «No hemos podido cargar tu equipo», una pantalla que ninguna propietaria ve.
+//
+// Son las tres personas de `EQUIPO`, como las ve la propietaria. Lo de esta
+// semana (barras, horario, próxima clase, si está en clase ahora) se saca de
+// `SESIONES` igual que lo saca la ruta, para que Equipo y el Calendario cuenten
+// lo mismo. Lo que necesita historia —ocupación de 30 días, valoraciones,
+// clases de 90 días, horas del mes— va escrito: el sembrado solo llega de ayer
+// a dentro de tres días.
+
+const diaDeMadrid = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_ESTUDIO });
+const horaDeMadrid = new Intl.DateTimeFormat('es-ES', { timeZone: TZ_ESTUDIO, hour: '2-digit', minute: '2-digit' });
+/** El lunes de esta semana (hora del estudio), anclado a las 12:00 UTC como `dia()`. */
+const LUNES = dia(-((dia(0).getUTCDay() + 6) % 7));
+/** 0 = lunes … 6 = domingo de esta semana; fuera de ese rango, otra semana. */
+const diaDeLaSemana = (inicio: string) =>
+  Math.round((Date.parse(`${diaDeMadrid.format(new Date(inicio))}T12:00:00.000Z`) - LUNES.getTime()) / 86_400_000);
+
+/** Los campos que la ruta saca de las sesiones de la persona, sacados de `SESIONES`. */
+function agendaDe(instructorId: string, ahora: number) {
+  const semana = [0, 0, 0, 0, 0, 0, 0];
+  const horasDia: (string | null)[] = [null, null, null, null, null, null, null];
+  let enClaseAhora = false;
+  let claseHoyLabel: string | null = null;
+  let proximaClaseIso: string | null = null;
+  let ultimaClaseIso: string | null = null;
+  const etiqueta = (s: typeof SESIONES[number]) => [
+    TIPOS.find((t) => t.id === s.tipo_clase_id)?.nombre ?? 'Clase',
+    horaDeMadrid.format(new Date(s.inicio)),
+    SALAS.find((x) => x.id === s.sala_id)?.nombre,
+  ].filter(Boolean).join(' · ');
+
+  for (const s of SESIONES.filter((x) => x.instructor_id === instructorId)) {
+    const ini = Date.parse(s.inicio);
+    const d = diaDeLaSemana(s.inicio);
+    if (d >= 0 && d < 7) {
+      semana[d] += 1;
+      const hora = horaDeMadrid.format(new Date(s.inicio));
+      horasDia[d] = horasDia[d] ? `${horasDia[d]} · ${hora}` : hora;
+    }
+    if (ini <= ahora && ahora <= Date.parse(s.fin)) {
+      enClaseAhora = true;
+      claseHoyLabel = etiqueta(s);
+    } else if (ini > ahora && (proximaClaseIso === null || s.inicio < proximaClaseIso)) {
+      proximaClaseIso = s.inicio;
+      if (diaDeMadrid.format(new Date(s.inicio)) === hoyEstudio && !claseHoyLabel) claseHoyLabel = etiqueta(s);
+    }
+    if (ini <= ahora && (ultimaClaseIso === null || s.inicio > ultimaClaseIso)) ultimaClaseIso = s.inicio;
+  }
+  return { semana, horasDia, enClaseAhora, claseHoyLabel, proximaClaseIso, ultimaClaseIso };
+}
+
+type Historia = Pick<MiembroCompleto, 'email' | 'telefono' | 'ocupacionPct' | 'valoracion' | 'clasesUltimos90Dias' | 'horasMes' | 'costeMes' | 'disponibilidadActualizadaEn'>;
+
+// Marta va por debajo del 60 % (`OCUPACION_ATENCION`) a propósito: su tarjeta
+// sale en «Atención», el único tono de aviso de la rejilla, y así el barrido de
+// contraste también lo mide. Cuadra con REC_HORARIO (un Mat al 25 %; todos los
+// Mat de `SESIONES` son suyos). Su coste del mes es su tarifa sembrada (22 €/h,
+// `/api/equipo/tarifas`) por sus horas, como lo calcula la ruta; Cloe y Ana no
+// tienen tarifa: sin coste.
+const HISTORIA_EQUIPO: Record<string, Historia> = {
+  'ins-cloe': { email: 'cloe@example.com', telefono: '600000001', ocupacionPct: 86, valoracion: { media: 4.9, total: 41 }, clasesUltimos90Dias: 38, horasMes: 14.2, costeMes: null, disponibilidadActualizadaEn: null },
+  'ins-marta': { email: 'marta@example.com', telefono: '600000002', ocupacionPct: 54, valoracion: { media: 4.6, total: 23 }, clasesUltimos90Dias: 27, horasMes: 18.5, costeMes: 407, disponibilidadActualizadaEn: iso(dia(-12), 18, 40) },
+  // Recepción no da clases: sin ocupación, sin valoraciones y sin última clase (la ruta da `null`, no 0).
+  'ins-ana': { email: 'ana@example.com', telefono: '600000003', ocupacionPct: null, valoracion: null, clasesUltimos90Dias: null, horasMes: 0, costeMes: null, disponibilidadActualizadaEn: null },
+};
+
+/** Se calcula al contestar, no al cargar el fichero: «ahora» es el de la petición. */
+const tarjetasEquipo = (): MiembroCompleto[] => EQUIPO.map((e) => ({
+  id: e.id, nombre: e.nombre, rol: e.rol as MiembroCompleto['rol'], color: e.color,
+  avatar: null, fotoUrl: null, activo: e.activo,
+  conAcceso: Boolean(e.auth_user_id), esYo: e.auth_user_id === UID,
+  ...agendaDe(e.id, Date.now()),
+  ...HISTORIA_EQUIPO[e.id],
+  coincideContigo: null,
+}));
 
 /**
  * El Centro de Control con algo que decidir, que es su estado normal.
@@ -321,10 +406,16 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   }));
 
   await page.route((u) => u.pathname === '/api/equipo/ausencias', (r) => json(r, { ausencias: [] }));
-  await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => json(r, {
-    tarifas: [{ instructorId: 'ins-marta', importeHora: 22, moneda: 'EUR' }],
-  }));
-  await page.route((u) => u.pathname === '/api/equipo/tarjetas', (r) => json(r, { tarjetas: [] }));
+  // ⚠️ Era `{ tarifas: [{ importeHora }] }`, una forma que no existe: la ruta
+  // devuelve `{ items: TarifaInstructor[] }` y `leerTarifasEquipo()` da `null`
+  // sin `items` («no se han podido leer»), así que Equipo se medía sin tarifas
+  // ni relación laboral. Mismo fallo que el de las tarjetas, en el mismo sitio.
+  const tarifas: TarifaInstructor[] = [
+    { instructorId: 'ins-marta', tarifaHora: 22, baseMensualEur: null, recargoSustitucionPct: null, horasSemanalesContrato: null, relacionLaboral: 'CONTRATADA' },
+  ];
+  await page.route((u) => u.pathname === '/api/equipo/tarifas', (r) => json(r, { items: tarifas }));
+  // La forma de la ruta (`{ items, esInstructora }`); ver `tarjetasEquipo` arriba.
+  await page.route((u) => u.pathname === '/api/equipo/tarjetas', (r) => json(r, { items: tarjetasEquipo(), esInstructora: false }));
   await page.route((u) => u.pathname === '/api/ingresos-manuales', (r) => json(r, { ingresos: [] }));
   await page.route((u) => u.pathname === '/api/comunidad/comentarios', (r) => json(r, { comentarios: [] }));
   // Denuncias por revisar (moderación, #2562): la bandeja del estudio sin nada pendiente.
