@@ -3,9 +3,13 @@
 // (decisión del fundador, 15-oct-2026): todo Tentare menos varias sedes,
 // mientras el estudio no pase de GRATIS_ALUMNAS alumnas activas ni de
 // GRATIS_COBROS_MES cobros en un mes. Al pasarse tiene GRATIS_MARGEN_DIAS días
-// para pasarse al plan Estudio; si no, se cierra el panel y la app de sus
-// alumnas sigue funcionando. Ya no hay prueba de 7 días: se empieza gratis, con
-// todo.
+// para elegir: si solo se pasó de cobros, Founding Studio de pago
+// (PRECIO_FOUNDING_PAGO, con lo mismo); con más de 150 alumnas, el plan Estudio.
+// Si no, se cierra el panel y la app de sus alumnas sigue funcionando. Ya no hay
+// prueba de 7 días: se empieza gratis, con todo.
+//
+// «30 cobros al mes» es como se enseña la regla del producto: 30 cobros con
+// dinero ingresado en los últimos 30 días (neto de lo devuelto).
 //
 // ⚠️ Espejo de `lib/billing/plan-gratis.ts` (LIMITE_ALUMNAS, LIMITE_COBROS_MES,
 // MARGEN_DIAS, FRASE_PLAN_GRATIS), que es quien lo aplica de verdad. Web y
@@ -37,6 +41,18 @@ export const TOPE_GRATIS = `Hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_C
 
 /** «Gratis hasta 150 alumnas activas y 30 cobros al mes»: el precio de entrada, dicho entero. */
 export const GRATIS_CON_LIMITES = `Gratis ${LIMITES_GRATIS}`;
+
+/**
+ * Lo que paga Founding Studio cuando pasa de GRATIS_COBROS_MES cobros al mes
+ * sin pasar de GRATIS_ALUMNAS alumnas (decisión del fundador, 15-oct-2026, la
+ * misma noche): sigue en Founding Studio y paga su precio de siempre. Con más
+ * de 150 alumnas, el plan Estudio. Sale de PLAN_INFO, el mismo número que cobra
+ * el price de Stripe del plan.
+ */
+export const PRECIO_FOUNDING_PAGO = PLAN_INFO.BASE.precioMes;
+
+/** «con más cobros, 29 €/mes»: lo que viene después del «gratis hasta…». */
+export const CON_MAS_COBROS = `con más cobros, ${PRECIO_FOUNDING_PAGO} €/mes`;
 
 /** El botón que lleva al alta. Sustituye a «Probar 7 días gratis». */
 export const CTA_ALTA = 'Empezar gratis';

@@ -10,7 +10,7 @@ import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/Organi
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_COBROS_MES, GRATIS_MARGEN_DIAS, LIMITES_GRATIS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { CON_MAS_COBROS, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_COBROS_MES, GRATIS_MARGEN_DIAS, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
 import { ofertasPlanesLd } from '@/components/landing/StructuredData';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
@@ -42,8 +42,9 @@ const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
 };
 
 function tope(plan: Plan): string {
-  // Founding Studio gratis tiene DOS límites, y se dicen siempre juntos.
-  if (plan === 'BASE') return TOPE_GRATIS;
+  // Founding Studio: el tope de alumnas es del plan (gratis o de pago); el de
+  // cobros es solo de lo gratis y va encima, junto al precio.
+  if (plan === 'BASE') return `Hasta ${GRATIS_ALUMNAS} alumnas activas`;
   const max = PLAN_ENTITLEMENTS[plan].maxSocios;
   return max === Infinity ? 'Sin límite de alumnas' : `Hasta ${max} alumnas activas`;
 }
@@ -68,7 +69,7 @@ const FAQ = [
   },
   {
     q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o los ${GRATIS_COBROS_MES} cobros al mes del plan Founding Studio?`,
-    a: `Tienes ${GRATIS_MARGEN_DIAS} días para pasarte al plan ${PLAN_INFO.ESTUDIO.nombre} (${PLAN_INFO.ESTUDIO.precioMes} € al mes, IVA incluido). Si no, se cierra el panel; la app de tus alumnas sigue funcionando.`,
+    a: `Si pasas de ${GRATIS_COBROS_MES} cobros al mes, sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes; si pasas de ${GRATIS_ALUMNAS} alumnas activas, el plan ${PLAN_INFO.ESTUDIO.nombre} cuesta ${PLAN_INFO.ESTUDIO.precioMes} € al mes. Los dos, con IVA incluido. Tienes ${GRATIS_MARGEN_DIAS} días para elegir; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -157,9 +158,15 @@ export default function PreciosPage() {
                     la pidió una clienta con estas palabras (P2-20) — no una
                     redacción nueva para decir lo mismo. */}
                 {p === 'BASE' ? (
-                  // La frase del fundador, junto a Founding Studio. En la
-                  // cursiva de su nombre (NombrePlan): es una promesa, no un dato.
-                  <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: '#3A3A34', margin: '10px 0 0' }}>{FRASE_FOUNDING}</p>
+                  <>
+                    {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
+                    <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6B6B63', marginTop: 7 }}>
+                      Hasta {GRATIS_COBROS_MES} cobros al mes · {CON_MAS_COBROS}
+                    </div>
+                    {/* La frase del fundador, junto a Founding Studio. En la
+                        cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
+                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: '#3A3A34', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
+                  </>
                 ) : (
                   <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
                     IVA incluido
@@ -186,7 +193,7 @@ export default function PreciosPage() {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
             Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
-            {LIMITES_GRATIS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {LIMITES_GRATIS}; {CON_MAS_COBROS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
             {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que

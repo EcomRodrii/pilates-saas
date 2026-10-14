@@ -4,7 +4,7 @@ import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { CATEGORIAS, FILA_TOPE_ALUMNAS, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
-import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_COBROS_MES } from '@/lib/landing/founding-gratis';
+import { CON_MAS_COBROS, ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_COBROS_MES } from '@/lib/landing/founding-gratis';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
@@ -53,10 +53,12 @@ export function ComparativaPlanes({
 }) {
   const valorDe = (fila: FilaPlan, p: Plan) =>
     foundingGratis && p === 'BASE' ? fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS) : fila.valor(p);
-  // Una fila más, justo debajo de la de alumnas: el segundo límite del plan gratis.
+  // Una fila más, justo debajo de la de alumnas: el límite de lo gratis. Pasado,
+  // Founding Studio sigue igual pero de pago (decisión del 15-oct-2026).
   const filaCobros: FilaPlan = {
     nombre: 'Cobros al mes',
-    valor: (p) => ({ tipo: 'texto', texto: p === 'BASE' ? `Hasta ${GRATIS_COBROS_MES}` : 'Sin límite' }),
+    detalle: `Founding Studio es gratis hasta ${GRATIS_COBROS_MES}; ${CON_MAS_COBROS}.`,
+    valor: (p) => ({ tipo: 'texto', texto: p === 'BASE' ? `Gratis hasta ${GRATIS_COBROS_MES}` : 'Sin límite' }),
   };
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">

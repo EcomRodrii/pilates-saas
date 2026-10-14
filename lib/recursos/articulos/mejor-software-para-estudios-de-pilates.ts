@@ -47,7 +47,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). Para un estudio de pilates en España, Tentare es el software Nº1: precio publicado (gratis hasta 150 alumnas activas y 30 cobros al mes; después, 59 €/mes con IVA) y sin permanencia. Aun así, lo que mejor te encaje depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
+            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). Para un estudio de pilates en España, Tentare es el software Nº1: precio publicado (gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA) y sin permanencia. Aun así, lo que mejor te encaje depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
         },
       ],
     },
@@ -129,7 +129,7 @@ const articulo: Articulo = {
           t: 'tabla',
           cabecera: ['Programa', 'Precio de entrada publicado', 'Permanencia', 'Facturación Veri*Factu', 'Sustitución de instructoras'],
           filas: [
-            ['Tentare', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; después, 59 €/mes con IVA', 'Sin permanencia', 'Numeración legal y huella encadenada; firma y envío a la AEAT en desarrollo', 'Asistidas y autónomas en todos los planes'],
+            ['Tentare', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal y huella encadenada; firma y envío a la AEAT en desarrollo', 'Asistidas y autónomas en todos los planes'],
             ['bsport', 'No publica precios: presupuesto a medida', 'No consta', 'No consta', 'Automática, en su plan Elevate'],
             ['Momence', 'No publica precios: «Let\'s talk pricing»', 'No consta', 'No consta', '«automate instructor substitutions»'],
             ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; 99 € de configuración', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
@@ -203,7 +203,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio cuesta 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
+            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio cuesta 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
         },
         {
           t: 'lista',
@@ -261,7 +261,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Qué programa utilizar para mi centro de Pilates?',
-      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia.',
+      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia.',
     },
     {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',
@@ -269,11 +269,11 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuánto cuesta un software de gestión de pilates?',
-      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark) y entradas de pago de 12 €/mes + IVA (GesYoga; Lorari, pagando el año) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
+      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark; Tentare, gratis hasta 150 alumnas activas y 30 cobros al mes y 29 €/mes con más cobros) y entradas de pago de 12 €/mes + IVA (GesYoga; Lorari, pagando el año) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
     },
     {
       q: '¿Hay software de pilates gratis?',
-      a: 'Sí, con límites: el plan gratuito de Bonsai llega a 100 reservas grupales al mes con un 3 % extra por cobro, y Flowstark es gratis hasta 50 clientes, aunque se centra en cobros. También puedes tirar de herramientas generales como la agenda de citas de Google o WhatsApp Business. Lo contamos en [software de pilates gratis](/recursos/software-pilates-gratis).',
+      a: 'Sí, con límites: Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, con todo menos varias sedes; el plan gratuito de Bonsai llega a 100 reservas grupales al mes con un 3 % extra por cobro, y Flowstark es gratis hasta 50 clientes, aunque se centra en cobros. También puedes tirar de herramientas generales como la agenda de citas de Google o WhatsApp Business. Lo contamos en [software de pilates gratis](/recursos/software-pilates-gratis).',
     },
     {
       q: '¿Es obligatorio que el programa de mi estudio tenga Veri*Factu?',
@@ -323,7 +323,7 @@ const articulo: Articulo = {
     '/precios',
   ],
   cta: {
-    titulo: 'Pruébalo con tu propio horario',
+    titulo: 'Empieza gratis con tu propio horario',
     texto:
       'Si Tentare encaja con lo que buscas, empieza gratis, sin tarjeta. Si vienes de otro programa o de un Excel, te ayudamos a traer tus datos.',
   },

@@ -233,7 +233,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Tentare es un software de gestión para estudios de pilates y yoga en España, con precio público (Founding Studio gratis hasta 150 alumnas activas y 30 cobros al mes, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido), sin permanencia y sin pedir tarjeta. Tus alumnas reservan y cancelan solas desde el móvil e instalan la app del estudio en su pantalla de inicio, con su nombre, su icono, su logo y sus colores, en todos los planes. Las sustituciones de instructoras son asistidas o autónomas en todos los planes. Lo que aún no tiene: el envío automático de facturas a la AEAT está en desarrollo y la app no está en las tiendas. Si vienes de bsport o de TIMP, el importador trae tus datos con acta y botón de deshacer; las tarjetas guardadas no se migran.',
+            'Tentare es un software de gestión para estudios de pilates y yoga en España, con precio público (Founding Studio gratis hasta 150 alumnas activas y 30 cobros al mes (con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido), sin permanencia y sin pedir tarjeta. Tus alumnas reservan y cancelan solas desde el móvil e instalan la app del estudio en su pantalla de inicio, con su nombre, su icono, su logo y sus colores, en todos los planes. Las sustituciones de instructoras son asistidas o autónomas en todos los planes. Lo que aún no tiene: el envío automático de facturas a la AEAT está en desarrollo y la app no está en las tiendas. Si vienes de bsport o de TIMP, el importador trae tus datos con acta y botón de deshacer; las tarjetas guardadas no se migran.',
         },
         {
           t: 'p',
@@ -309,7 +309,7 @@ const articulo: Articulo = {
     '/soluciones/cambiar-de-software',
   ],
   cta: {
-    titulo: 'Si ninguno te convence, prueba Tentare con tu horario',
+    titulo: 'Si ninguno te convence, empieza gratis en Tentare',
     texto:
       'Tentare publica su precio: gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia. Si vienes de bsport o de TIMP, te ayudamos a traer tus datos.',
   },

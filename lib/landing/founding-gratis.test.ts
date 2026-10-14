@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLAN_ENTITLEMENTS } from '../billing/entitlements.ts';
 import {
+  CON_MAS_COBROS,
   ENTITLEMENTS_FOUNDING_GRATIS,
   FRASE_FOUNDING,
   GRATIS_ALUMNAS,
@@ -11,6 +12,7 @@ import {
   GRATIS_CON_LIMITES,
   GRATIS_MARGEN_DIAS,
   LIMITES_GRATIS,
+  PRECIO_FOUNDING_PAGO,
   TOPE_GRATIS,
   precioMesWeb,
 } from './founding-gratis.ts';
@@ -24,6 +26,11 @@ test('las cifras son las de la decisión', () => {
   assert.equal(LIMITES_GRATIS, 'hasta 150 alumnas activas y 30 cobros al mes');
   assert.equal(TOPE_GRATIS, 'Hasta 150 alumnas activas y 30 cobros al mes');
   assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 alumnas activas y 30 cobros al mes');
+});
+
+test('con más cobros, Founding Studio de pago a su precio de siempre (29 €)', () => {
+  assert.equal(PRECIO_FOUNDING_PAGO, 29);
+  assert.equal(CON_MAS_COBROS, 'con más cobros, 29 €/mes');
 });
 
 test('la frase del fundador va literal, con la tilde de «Tú»', () => {
@@ -72,7 +79,10 @@ const PROHIBIDO: [RegExp, string][] = [
   [/\b(7|siete)\s+días\s+(gratis|de prueba|sin tarjeta)/i, 'ya no hay prueba de 7 días'],
   [/prueba\s+(gratuita\s+)?de\s+(7|siete)\s+días/i, 'ya no hay prueba de 7 días'],
   [/con el plan que elijas|del plan que elijas/, 'ya no se elige plan para probar: se empieza en Founding Studio gratis'],
-  [/Founding Studio[^.\n]{0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis'],
+  // Founding Studio cuesta 29 € SOLO con más de 30 cobros: el precio va siempre
+  // atado a los cobros («Founding Studio gratis (…; con más cobros, 29 €/mes)»).
+  [/Founding Studio(?:(?!cobros)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «con más cobros»'],
+  [/después,? 59 ?€/, 'pasado lo gratis, Founding Studio cuesta 29 €; Estudio (59 €) es para más de 150 alumnas'],
   // «+ IVA» es de la competencia (Bonsai: «desde 29 €/mes + IVA»); Tentare lo decía con IVA.
   [/[Dd]esde 29(\s|&nbsp;)*(€|euros)(?!\/mes \+ IVA)/, 'el precio de entrada de Tentare es gratis'],
 ];

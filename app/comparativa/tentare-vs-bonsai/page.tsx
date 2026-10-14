@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio de entrada', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; después, 59 €/mes con IVA'], them: ['yes', 'Plan gratis (con un 3 % extra por cobro) o Starter desde 29 €/mes + IVA con pago anual (39 € mes a mes)'] },
+  { feature: 'Precio de entrada', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['yes', 'Plan gratis (con un 3 % extra por cobro) o Starter desde 29 €/mes + IVA con pago anual (39 € mes a mes)'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Mensual sin compromiso; el plan anual se paga por adelantado'] },
   { feature: 'Comisión de la plataforma por cobro', tentare: ['yes', 'Ninguna de Tentare (solo la de Stripe)'], them: ['partial', '3 % extra en el plan gratis; ninguna en los de pago'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['yes', 'Servidores en la UE, según sus condiciones'] },
@@ -32,7 +32,7 @@ const ROWS: ComparativaRow[] = [
   // Nuevos ejes (mybonsai.app/precios y mybonsai.app/faqs, revisados el 29-sep-2026):
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'Permite fijar cuántos cambios o recuperaciones puede hacer cada alumna y activar lista de espera automática; no consta que la antelación de reserva se configure por tipo de clase'] },
   { feature: 'App instalable con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador con el nombre, el icono y los colores del estudio; no pasa por App Store ni Google Play'], them: ['partial', 'App nativa con tu marca solo en Premium (precio a medida); los demás planes traen una app «personalizable»'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', 'Sin prueba: Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes), sin pedir tarjeta'], them: ['yes', '«No necesitas tarjeta de crédito para empezar tu prueba gratuita», según su web'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta'], them: ['yes', '«No necesitas tarjeta de crédito para empezar tu prueba gratuita», según su web'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['partial', 'Según su FAQ, con el plan Premium «puedes gestionar múltiples ubicaciones desde una única cuenta»; no confirma si es una sola suscripción o si hay coste adicional por sede'] },
 ];
 
@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Bonsai?',
-    a: 'Tiene un plan Seed gratuito (con un 3 % extra por transacción y límites: hasta 100 reservas grupales al mes y 30 cuotas activas), Starter a 39 €/mes, o 29 €/mes con pago anual (500 reservas al mes), Pro a 69 €/mes, o 49 €/mes con pago anual, y Premium a medida. Los precios de Bonsai no incluyen IVA. Los de Tentare sí: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio 59 €/mes y Cadena 149 €/mes.',
+    a: 'Tiene un plan Seed gratuito (con un 3 % extra por transacción y límites: hasta 100 reservas grupales al mes y 30 cuotas activas), Starter a 39 €/mes, o 29 €/mes con pago anual (500 reservas al mes), Pro a 69 €/mes, o 49 €/mes con pago anual, y Premium a medida. Los precios de Bonsai no incluyen IVA. Los de Tentare sí: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes.',
   },
   {
     q: '¿Puedo pasar mis datos de Bonsai a Tentare?',
@@ -68,7 +68,7 @@ const ANALISIS: SeccionAnalisis[] = [
       <>
         <p>El plan Seed de Bonsai no tiene cuota, pero cobra un 3 % extra en cada transacción y tiene límites: hasta 100 reservas grupales al mes y 30 cuotas activas. Si cobras 3.000 € al mes a través de la plataforma, ese 3 % son 90 € al mes: más que sus planes Starter y Pro, incluso con IVA.</p>
         <p>Los de pago, sin IVA: Starter 39 €/mes (29 € pagando el año, hasta 500 reservas al mes), Pro 69 €/mes (49 € anual) y Premium a medida. Con IVA, el Starter mensual sale a 47,19 €.</p>
-        <p>Tentare Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin comisión de la plataforma sobre tus cobros y sin límite de reservas; después, 59 €/mes con IVA. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Tentare Founding Studio también es gratis, con límites (hasta 150 alumnas activas y 30 cobros al mes), pero sin el 3 % extra sobre tus cobros y sin límite de reservas; con más cobros, 29 €/mes con IVA. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

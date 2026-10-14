@@ -32,7 +32,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'Su web solo menciona límites de reservas semanales generales; no consta configuración por tipo de actividad'] },
   { feature: 'App instalable con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador con el nombre, el icono y los colores del estudio; no pasa por App Store ni Google Play'], them: ['partial', 'App de reservas «para cualquier negocio», descargable en App Store y Google Play; no consta personalización de marca por estudio'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', 'Sin prueba: Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes), sin pedir tarjeta'], them: ['partial', '30 días de prueba, según su web («Prueba BookyWay gratis durante 30 días»); no consta si pide tarjeta de crédito'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta'], them: ['partial', '30 días de prueba, según su web («Prueba BookyWay gratis durante 30 días»); no consta si pide tarjeta de crédito'] },
 ];
 
 
@@ -41,7 +41,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta BookyWay?',
-    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -62,7 +62,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>BookyWay no tiene cuota mensual: según su web, tras 30 días de prueba pagas 1,50 € por cada usuario adicional. En un estudio que cada septiembre recibe a decenas de alumnas nuevas, el coste depende de cuántas pasen por la puerta.</p>
-        <p>Tentare tiene un precio mensual fijo: gratis hasta 150 alumnas activas y 30 cobros al mes, o 59 €/mes con IVA sin límite. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Tentare tiene un precio mensual fijo: gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes, y sin límite de alumnas, 59 €/mes, con IVA. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

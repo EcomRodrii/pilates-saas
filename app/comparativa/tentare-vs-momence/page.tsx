@@ -24,12 +24,12 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; después, 59 €/mes con IVA'], them: ['no', 'No publica cifras: pide hablar con ellos'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['no', 'No publica cifras: pide hablar con ellos'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['yes', '«Automate instructor substitutions», según su web'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Spot scheduling», según su web'] },
   { feature: 'Marketplace de consumidores', tentare: ['yes', 'Sin marketplace'], them: ['yes', 'Sin marketplace: «strictly a booking app», según su web'] },
   { feature: 'Reglas de cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', 'Política de cancelación con «override» por plantilla de clase, según su centro de ayuda'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', 'Sin prueba: Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes), sin pedir tarjeta'], them: ['yes', '«No se requiere tarjeta de crédito» en su alta, según su web'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta'], them: ['yes', '«No se requiere tarjeta de crédito» en su alta, según su web'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'No consta en su web pública que el aforo se fije por sala y no por clase'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, sin mínimo de sedes'], them: ['partial', 'Su «panel corporativo» es solo para franquicias: exige un documento FDD firmado y mínimo 6 sedes, según su centro de ayuda'] },
 ];
@@ -40,7 +40,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Momence?',
-    a: 'Momence no publica precios en su web: hay que hablar con ellos para conocer el suyo. Tentare publica los suyos: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Momence no publica precios en su web: hay que hablar con ellos para conocer el suyo. Tentare publica los suyos: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Puedo pasar mis datos de Momence a Tentare?',
@@ -65,7 +65,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Momence no publica cifras en su web: para conocer el precio hay que hablar con ellos. Sí deja empezar sin tarjeta.</p>
-        <p>Tentare publica sus tres planes: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes, con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. <Link href="/precios">Qué incluye cada uno</Link>.</p>
+        <p>Tentare publica sus tres planes: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes, 29 €/mes con más cobros, y con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. <Link href="/precios">Qué incluye cada uno</Link>.</p>
       </>
     ),
   },
