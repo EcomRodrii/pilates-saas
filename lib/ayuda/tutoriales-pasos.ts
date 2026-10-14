@@ -83,7 +83,7 @@ export const PASOS_TUTORIAL: { readonly [R in RutaConTutorial]: TutorialPasos } 
   },
   '/cobros': {
     pasos: [
-      { selector: 'cobros-resumen', titulo: 'Tu mes en una línea', texto: 'Lo que te deben, lo que está en el banco y lo cobrado este mes, frente al anterior.' },
+      { selector: 'cobros-resumen', titulo: 'Tu mes de un vistazo', texto: 'Lo que te deben, lo que está en el banco y lo cobrado este mes, frente al anterior.' },
       // «Se cobra sola» solo con Stripe Y un método guardado (tarjeta o SEPA).
       { selector: 'cobros-secciones', titulo: 'Lo pendiente y lo cobrado', texto: 'Con Stripe y la tarjeta de la clienta guardada, la cuota se cobra sola; lo que no entra sale en «Quién me debe».' },
       { selector: 'cobros-nuevo', titulo: 'Te han pagado en mano', texto: 'Efectivo o transferencia: apúntalo con «Nuevo cobro» y queda en su ficha.' },
