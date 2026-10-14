@@ -67,6 +67,7 @@ import { ResumenCalendario } from '@/components/calendario/resumen-calendario';
 import { TiraDias } from '@/components/calendario/tira-dias';
 import { SemanaFranjas } from '@/components/calendario/semana-franjas';
 import { FichaClase, type ModoFicha, type PestanaFicha } from '@/components/calendario/ficha-clase';
+import { cifrasDeClase } from '@/lib/calendario/cifras-clase';
 import { ClientasDeClase } from '@/components/calendario/clientas-de-clase';
 import { AnadirAClase, type MetodoSuelta } from '@/components/calendario/anadir-a-clase';
 import { SustitutaDeClase, type DatosSustitutaClase } from '@/components/calendario/sustituta-de-clase';
@@ -3392,6 +3393,7 @@ export default function Calendario() {
       pestana={pestanaPanel}
       onPestana={setPestanaPanel}
       nClientas={reservasActuales.filter(r => r.estado !== 'CANCELADA' && r.estado !== 'LISTA_ESPERA').length}
+      cifras={cifrasDeClase(reservasActuales)}
       conPlazas={spotsActuales.length > 0}
       clientas={
         <>

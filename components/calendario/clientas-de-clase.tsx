@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarPlus, Check, CircleSlash, Mic, Pin, RotateCcw, ThumbsDown, UserMinus, UserRound, UserX } from 'lucide-react';
 import { cn, horaEstudio } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import type { Reserva } from '@/lib/types';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
@@ -90,6 +91,9 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
   const [pendienteQuitar, setPendienteQuitar] = useState<Reserva | null>(null);
   const [noVinieron, setNoVinieron] = useState<Set<string>>(new Set());
   const [guardando, setGuardando] = useState(false);
+  // Panel nuevo: la acción principal en el color principal del panel, no en el del estudio.
+  const panelNuevo = usePanelNuevo();
+  const principal = panelNuevo ? 'rounded-full bg-primary text-primary-foreground' : 'rounded-xl bg-brand text-brand-foreground';
 
   const visibles = useMemo(() => {
     const orden = (r: Reserva) => DE_PLAZA.has(r.estado) ? 0 : r.estado === 'PENDIENTE_APROBACION' ? 1 : 2;
@@ -259,7 +263,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                     type="button"
                     disabled={p.resolviendoId != null}
                     onClick={() => p.onAprobar?.(r.id)}
-                    className={cn(BOTON_FILA, 'bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-50')}
+                    className={cn(BOTON_FILA, panelNuevo ? 'bg-primary text-primary-foreground' : 'bg-brand text-brand-foreground', 'hover:brightness-95 disabled:opacity-50')}
                   >
                     Aprobar
                   </button>
@@ -293,7 +297,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
             type="button"
             onClick={() => void guardarLista()}
             disabled={guardando}
-            className="flex min-h-11 w-full items-center justify-center rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground hover:brightness-95 disabled:opacity-60"
+            className={cn('flex min-h-11 w-full items-center justify-center px-4 text-[14px] font-semibold hover:brightness-95 disabled:opacity-60', principal)}
           >
             {guardando ? 'Guardando…' : `Guardar · ${plan.vinieron.length} ${plan.vinieron.length === 1 ? 'vino' : 'vinieron'}, ${plan.noVinieron.length} no`}
           </button>

@@ -108,3 +108,14 @@ test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se 
   await panel.getByRole('button', { name: 'Plegar «Primeros pasos»' }).click();
   await expect(page.getByRole('button', { name: /Abrir «Primeros pasos»/ })).toBeVisible();
 });
+
+test('Ficha de la clase: arriba, cuántas vienen, esperan, faltan por aprobar y cancelaron', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  await ir(page, 'calendario');
+  await page.getByRole('button', { name: /Mat/ }).first().click();
+  const cifras = page.getByTestId('cifras-clase');
+  await expect(cifras).toBeVisible({ timeout: 30_000 });
+  await expect(cifras.getByText('Apuntadas')).toBeVisible();
+  await expect(cifras.getByText('En espera')).toBeVisible();
+  await expect(cifras.getByText('Canceladas')).toBeVisible();
+});
