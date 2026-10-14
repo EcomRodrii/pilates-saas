@@ -4265,6 +4265,18 @@ export interface RowAppsEstudio {
   creada_en: string;
 }
 
+export interface RowFestivosEstudio {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  nombre: string;
+  ambito: string;
+  origen: string;
+  fuente_url: string | null;
+  creado_por: string | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11818,6 +11830,30 @@ export type AppsEstudioUpdate = {
   creada_en?: string | null;
 }
 
+export type FestivosEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  ambito?: string | null;
+  origen?: string | null;
+  fuente_url?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type FestivosEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  ambito?: string | null;
+  origen?: string | null;
+  fuente_url?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13135,6 +13171,11 @@ export type Database = {
         Row: RowAppsEstudio;
         Insert: AppsEstudioInsert;
         Update: AppsEstudioUpdate;
+      };
+      festivos_estudio: {
+        Row: RowFestivosEstudio;
+        Insert: FestivosEstudioInsert;
+        Update: FestivosEstudioUpdate;
       };
     };
   };

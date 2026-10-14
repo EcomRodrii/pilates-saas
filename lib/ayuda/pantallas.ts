@@ -157,6 +157,17 @@ export const AYUDA_POR_PANTALLA = {
     destino: { categoria: 'instructores', slug: 'sustituciones' },
   },
 
+  // Módulo del panel nuevo (14-oct-2026): sin `valor` mientras no esté en el
+  // menú de todos (su frase de Módulos vive en lib/nav-panel-nuevo.ts). La guía
+  // es la de los cierres: «Cerrar ese día» es un cierre de un día.
+  '/festivos': {
+    titulo: 'Festivos',
+    resumen:
+      'Los festivos oficiales de tu comunidad ya están, sacados del boletín por la dirección de tu estudio; las fiestas locales las buscas con IA y eliges cuáles añadir. Para cada festivo con clases decides si abres o cierras.',
+    ahorra: 'Buscar cada año el calendario laboral y descubrir el día antes que tenías clases un festivo.',
+    destino: { categoria: 'configuracion', slug: 'cierres-del-centro' },
+  },
+
   '/informes': {
     titulo: 'Informes',
     valor: 'Cuánto has cobrado, cómo se llena cada clase y quién viene, frente al periodo anterior. Sin montar un Excel.',

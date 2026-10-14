@@ -14,16 +14,16 @@ import { anfitrionPortal } from '@/lib/panel-portal';
 // Fechas como 'YYYY-MM-DD' de calendario, sin horas: el día de una fecha no
 // depende de la zona horaria de nadie.
 
-const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+export const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+export const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
-function partes(dia: string): { a: number; m: number; d: number } {
+export function partes(dia: string): { a: number; m: number; d: number } {
   const [a, m, d] = dia.split('-').map(Number);
   return { a, m, d };
 }
 
 /** Lunes de la semana que contiene el día 1 del mes, y las 6 semanas desde ahí. */
-function rejillaDelMes(a: number, m: number): string[] {
+export function rejillaDelMes(a: number, m: number): string[] {
   const primero = `${a}-${String(m).padStart(2, '0')}-01`;
   const dow = new Date(a, m - 1, 1, 12).getDay(); // 0 = domingo
   const inicio = masDias(primero, -((dow + 6) % 7));

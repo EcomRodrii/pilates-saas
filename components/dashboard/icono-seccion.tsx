@@ -8,6 +8,7 @@
 import { usePathname } from 'next/navigation';
 import { Zap, type LucideIcon } from 'lucide-react';
 import { MODULOS } from '@/lib/nav-config';
+import { seccionPanelNuevo } from '@/lib/nav-panel-nuevo';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Baldosa, type Tono } from './vivo';
 
@@ -38,6 +39,7 @@ export const TONO_DE_SECCION: Record<string, Tono> = {
   '/libreta': 'indigo',
   '/actualizaciones': 'magenta',
   '/suscripcion': 'verde',
+  '/festivos': 'magenta',
 };
 
 export function IconoSeccion() {
@@ -47,7 +49,8 @@ export function IconoSeccion() {
   // La sección es la primera parte de la ruta: /clientas/123 sigue siendo Clientas.
   const raiz = `/${pathname.split('/')[1] ?? ''}`;
   if (raiz !== pathname) return null; // en una ficha o un paso, el título ya es otra cosa
-  const modulo = MODULOS.find(m => m.href === raiz);
+  // Las secciones que solo existen con el panel nuevo (Festivos) no están en MODULOS.
+  const modulo = MODULOS.find(m => m.href === raiz) ?? seccionPanelNuevo(raiz);
   if (!modulo) return null;
   return <Baldosa tono={TONO_DE_SECCION[raiz] ?? 'azul'} Icono={ICONO_PROPIO[raiz] ?? modulo.icon} />;
 }

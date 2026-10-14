@@ -90,3 +90,37 @@ test('la sonda: disponible solo si la RPC nueva contesta SERIE_NO_ENCONTRADA', a
   assert.equal(await repetirDisponible(si.admin, 'studio-x'), true);
   olvidarSonda();
 });
+
+test('proponer: los festivos que el estudio guardó (módulo Festivos) vienen como suyos, sin repetir un oficial', async () => {
+  const { admin } = supabaseFalso({
+    tablas: {
+      studios: { data: ESTUDIO },
+      sesiones: { data: [sesion('viva', 6)] },
+      series: { data: [{ id: 'viva', no_renovar: false }] },
+      festivos_abiertos: { data: [] },
+      festivos_estudio: { data: [{ fecha: `${MES}-20`, nombre: 'Fiesta del barrio', origen: 'manual' }] },
+    },
+    rpc: () => simulacion({ fechas: [] }),
+  });
+  const r = await proponerRepetir(admin, 'studio-x', MES);
+  assert.ok(r.ok);
+  const propio = r.propuesta.festivos.find((f) => f.fecha === `${MES}-20`);
+  assert.deepEqual(propio, { fecha: `${MES}-20`, nombre: 'Fiesta del barrio', propio: true });
+  assert.ok(r.propuesta.festivos.every((f, i, t) => i === 0 || t[i - 1].fecha <= f.fecha), 'en orden');
+});
+
+test('proponer: sin la tabla del módulo Festivos, todo sigue como antes', async () => {
+  const { admin } = supabaseFalso({
+    tablas: {
+      studios: { data: ESTUDIO },
+      sesiones: { data: [sesion('viva', 6)] },
+      series: { data: [{ id: 'viva', no_renovar: false }] },
+      festivos_abiertos: { data: [] },
+      festivos_estudio: { error: { code: 'PGRST205', message: 'Could not find the table' } },
+    },
+    rpc: () => simulacion({ fechas: [] }),
+  });
+  const r = await proponerRepetir(admin, 'studio-x', MES);
+  assert.ok(r.ok);
+  assert.ok(r.propuesta.festivos.every((f) => !f.propio));
+});

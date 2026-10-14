@@ -57,7 +57,7 @@ export const PREFIJOS_NO_INDEXABLES = [
   // Panel de gestión — TODOS los segmentos de app/(dashboard)
   '/actualizaciones', '/asistente', '/automatizaciones', '/bienvenido-apertura', '/calendario', '/centro-de-control', '/chat', '/cierre', '/citas',
   '/clientas', '/cobros', '/comunidad', '/configuracion', '/contenido', '/dashboard',
-  '/equipo', '/explorar-funciones', '/facturas', '/informes', '/libreta', '/marketing',
+  '/equipo', '/explorar-funciones', '/facturas', '/festivos', '/informes', '/libreta', '/marketing',
   '/mensajeria', '/mi-perfil', '/migracion', '/notificaciones', '/ondemand', '/pagos',
   '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
   // Veri*Factu: la declaración responsable del SIF (lleva datos del productor)

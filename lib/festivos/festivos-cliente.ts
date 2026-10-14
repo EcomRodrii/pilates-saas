@@ -13,6 +13,8 @@ export interface ListaFestivos {
   zona: string | null;
   hoy: string;
   festivos: FestivoConClases[];
+  /** El estudio tiene festivos propios guardados (módulo Festivos): entran también aquí. */
+  propios: boolean;
 }
 
 const SIN_RED = 'No se ha podido conectar. Inténtalo de nuevo.';
@@ -30,7 +32,7 @@ export async function listarFestivos(alcance: 'aviso' | 'todos'): Promise<ListaF
   const d = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!d || d.disponible !== true || !Array.isArray(d.festivos) || typeof d.hoy !== 'string') return null;
   if (!d.festivos.every(esFestivo)) return null;
-  return { zona: typeof d.zona === 'string' ? d.zona : null, hoy: d.hoy, festivos: d.festivos };
+  return { zona: typeof d.zona === 'string' ? d.zona : null, hoy: d.hoy, festivos: d.festivos, propios: d.propios === true };
 }
 
 export async function abrirFestivo(fecha: string): Promise<{ ok: true } | { ok: false; error: string }> {

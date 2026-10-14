@@ -236,3 +236,22 @@ export function hayCalendario(zona: ZonaFestivos, fecha: string): boolean {
   const anio = Number(fecha.slice(0, 4));
   return CALENDARIOS.some((c) => c.zona === zona && c.anio === anio);
 }
+
+/** La norma de la que se copió el calendario de esa zona y año (para citarla en el módulo Festivos). */
+export function fuenteDe(zona: ZonaFestivos, anio: number): { fuente: string; url: string } | null {
+  const c = CALENDARIOS.find((x) => x.zona === zona && x.anio === anio);
+  return c ? { fuente: c.fuente, url: c.url } : null;
+}
+
+/**
+ * ¿Nacional o de la comunidad? La relación del BOE no lo marca fila a fila, así
+ * que se deduce: es nacional si ese día es festivo en TODAS las comunidades
+ * cargadas ese año (Arán no cuenta: es Cataluña con un día cambiado). Basta para
+ * la chapa de la lista; no decide nada.
+ */
+export function ambitoOficial(zona: ZonaFestivos, fecha: string): 'nacional' | 'autonomico' {
+  const anio = Number(fecha.slice(0, 4));
+  const delAnio = CALENDARIOS.filter((c) => c.anio === anio && c.zona !== 'ARAN');
+  const enTodas = delAnio.length > 1 && delAnio.every((c) => c.festivos.some((f) => f.fecha === fecha));
+  return enTodas && festivoDe(zona, fecha) ? 'nacional' : 'autonomico';
+}
