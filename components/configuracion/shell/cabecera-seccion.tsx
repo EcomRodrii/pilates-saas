@@ -6,7 +6,7 @@ import { TONO_SECCION_CONFIG } from './tono-config';
 import { ICONOS_SECCION } from './lista-secciones';
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import type { SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { grupoPanelNuevoDe, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
 import { hrefDeLugar } from '@/lib/configuracion/destino';
 import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
@@ -42,14 +42,18 @@ export function CabeceraSeccion({
           <ArrowLeft size={20} aria-hidden />
         </button>
         {panelNuevo && <span className="mr-2 hidden md:inline-flex"><Baldosa tono={TONO_SECCION_CONFIG[seccion.id] ?? 'azul'} Icono={ICONOS_SECCION[seccion.id]} /></span>}
-        <h2
-          id="seccion-titulo"
-          ref={tituloRef}
-          tabIndex={-1}
-          className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
-        >
-          {seccion.titulo}
-        </h2>
+        <span className="min-w-0">
+          {/* Panel nuevo: en qué grupo estás, encima del título, para no perderse. */}
+          {panelNuevo && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupoPanelNuevoDe(seccion.id).titulo}</span>}
+          <h2
+            id="seccion-titulo"
+            ref={tituloRef}
+            tabIndex={-1}
+            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
+          >
+            {seccion.titulo}
+          </h2>
+        </span>
         {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}
         <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id })} />
       </div>

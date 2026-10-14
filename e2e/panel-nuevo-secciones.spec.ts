@@ -109,6 +109,21 @@ test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se 
   await expect(page.getByRole('button', { name: /Abrir «Primeros pasos»/ })).toBeVisible();
 });
 
+test('Configuración: la columna, por grupos con su título, y el inicio, una tarjeta por grupo', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  await ir(page, 'configuracion');
+  const rail = page.getByRole('navigation', { name: 'Secciones de Configuración' });
+  await expect(rail.getByRole('list', { name: 'Tu estudio' })).toBeVisible({ timeout: 30_000 });
+  await expect(rail.getByRole('list', { name: 'Tu estudio' }).getByRole('link', { name: 'Mi equipo' })).toBeVisible();
+  await expect(rail.getByRole('list', { name: 'Reservas y cobros' }).getByRole('link', { name: 'Cobros y facturas' })).toBeVisible();
+  await expect(rail.getByRole('list', { name: 'Tu cuenta' }).getByRole('link', { name: 'Plan de Tentare' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus alumnas' })).toBeVisible();
+  // Al abrir una sección, encima del título dice en qué grupo está.
+  await rail.getByRole('link', { name: 'Cómo reservan mis alumnas' }).click();
+  await expect(page.locator('#seccion-titulo')).toHaveText('Cómo reservan mis alumnas');
+  await expect(page.getByText('Reservas y cobros', { exact: true }).first()).toBeVisible();
+});
+
 test('Ficha de la clase: arriba, cuántas vienen, esperan, faltan por aprobar y cancelaron', async ({ page }) => {
   await preparar(page, { nuevo: true });
   await ir(page, 'calendario');
