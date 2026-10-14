@@ -183,12 +183,13 @@ export function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles,
 }) {
   return (
     <section aria-labelledby={id} className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
-      <div className="flex items-start justify-between gap-4">
+      {/* En el móvil, la cifra debajo del título: al lado le dejaba al subtítulo dos palabras por línea. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <h2 id={id} className="text-[16px] font-semibold text-foreground">{titulo}</h2>
           <p className="mt-0.5 max-w-[34ch] text-[12.5px] leading-snug text-muted-foreground">{sub}</p>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 sm:text-right">
           <p className="text-[28px] font-bold leading-none tracking-tight text-foreground tabular-nums">{cifra}</p>
           {comparacion && <p className="mt-1 text-[12px] leading-tight text-muted-foreground">{comparacion}</p>}
         </div>
