@@ -1,7 +1,7 @@
 'use client';
 
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { useEffect, useId, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useState, type ElementType, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, Clock, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -23,6 +23,8 @@ import { EstadoAjuste } from './estado-ajuste';
 import { ICONOS_EXTERNAS, ICONOS_SECCION } from './lista-secciones';
 import { esClicNormal } from './contexto';
 import { tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
+import { TONOS, type Tono } from '@/components/dashboard/vivo';
+import { TONO_SECCION_CONFIG } from './tono-config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El inicio de Configuración: cómo está tu estudio, de un vistazo.
@@ -52,6 +54,18 @@ const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover
 const LISTA = cn(cardCls, 'divide-y divide-border overflow-hidden');
 const TITULO_GRUPO = 'px-1 text-sm font-semibold text-foreground';
 const CAJA_ICONO = 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground';
+
+/** Panel nuevo: el icono de cada fila en la baldosa del color de su sección, como en la home. */
+const TONO_EXTERNA: Record<string, Tono> = { plan: 'verde', cuenta: 'azul' };
+
+function CajaIcono({ Icono, tono, nuevo }: { Icono: ElementType; tono: Tono; nuevo: boolean }) {
+  if (!nuevo) return <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>;
+  return (
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: TONOS[tono], color: 'var(--card)' }}>
+      <Icono size={19} strokeWidth={2.1} aria-hidden />
+    </span>
+  );
+}
 
 type Abrir = (tab: SeccionId, opciones: { ancla?: string; abrir?: HerramientaId; origen: string }) => void;
 
@@ -258,7 +272,7 @@ export function InicioConfiguracion({
             return (
               <section key={grupo.id} aria-labelledby={`inicio-grupo-${grupo.id}`} className="space-y-2">
                 <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
-                <ul className={LISTA} data-tarjeta-ajuste="">
+                <ul className={cn(LISTA, panelNuevo && 'rounded-t-card shadow-t-card')} data-tarjeta-ajuste="">
                   {suyas.map(s => {
                     const Icono = ICONOS_SECCION[s.id];
                     const resumen = resumenes?.[s.id];
@@ -266,7 +280,7 @@ export function InicioConfiguracion({
                     return (
                       <li key={s.id}>
                         <Link id={id} href={hrefDeSeccion(s.id)} onClick={abrir(s.id, id)} className={FILA}>
-                          <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>
+                          <CajaIcono Icono={Icono} tono={TONO_SECCION_CONFIG[s.id]} nuevo={panelNuevo} />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[15px] font-semibold text-foreground">{s.titulo}</span>
@@ -289,7 +303,7 @@ export function InicioConfiguracion({
                     return (
                       <li key={idFila}>
                         <Link id={`inicio-${idFila}`} href={f.href} className={FILA}>
-                          <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>
+                          <CajaIcono Icono={Icono} tono={TONO_EXTERNA[idFila] ?? 'azul'} nuevo={panelNuevo} />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[15px] font-semibold text-foreground">{f.titulo}</span>
