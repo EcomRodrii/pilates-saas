@@ -38,7 +38,8 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
       titulo="Nuevas clientas"
       sub="Las que se han dado de alta en tu estudio cada mes"
       cifra={mes.total}
-      comparacion={<><Comparacion diferencia={mes.total - mes.mesPasadoAlDia} contra={`1–${mes.hoy} ${mesPasado}.`} /><br />este mes</>}
+      // «este mes · +2 vs 1–14 sep.»: la cifra es la de este mes, comparada con el mismo tramo del anterior.
+      comparacion={<>este mes · <Comparacion diferencia={mes.total - mes.mesPasadoAlDia} contra={`1–${mes.hoy} ${mesPasado}.`} /></>}
       controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
       pie={href ? <VerMas href={href} label="Ver clientas" /> : null}
     >
