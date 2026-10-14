@@ -20,7 +20,7 @@ export function PlanGratisAlta() {
   const puntos = [
     `${TODO_MENOS_SEDES}.`,
     `${TOPE_GRATIS}.`,
-    `${CON_MAS_RESERVAS.charAt(0).toUpperCase()}${CON_MAS_RESERVAS.slice(1)}; con más de ${GRATIS_ALUMNAS} alumnas, el plan ${PLAN_INFO.ESTUDIO.nombre} (${PLAN_INFO.ESTUDIO.precioMes} €/mes). IVA incluido.`,
+    `${CON_MAS_RESERVAS.charAt(0).toUpperCase()}${CON_MAS_RESERVAS.slice(1)}; con más de ${GRATIS_ALUMNAS} alumnas, el plan ${PLAN_INFO.ESTUDIO.nombre} (${PLAN_INFO.ESTUDIO.precioMes}\u00a0€/mes). IVA incluido.`,
     `Si te pasas, tienes ${GRATIS_MARGEN_DIAS} días para elegir, y te avisamos antes.`,
     'Sin tarjeta y sin permanencia.',
   ];
