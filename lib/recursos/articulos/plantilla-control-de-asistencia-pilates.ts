@@ -228,7 +228,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Cuando la hoja se te quede pequeña',
     texto:
-      'Prueba Tentare 7 días gratis y sin tarjeta con el plan que elijas: check-in y control de asistencia, bonos con caducidad y lista de espera automática. Si vienes de esta plantilla, puedes importar tu Excel.',
+      'Empieza gratis con Tentare, sin tarjeta: check-in y control de asistencia, bonos con caducidad y lista de espera automática. Si vienes de esta plantilla, puedes importar tu Excel.',
   },
   revision: [
     'El texto se ha cotejado con public/recursos/plantillas/control-asistencia-pilates.xlsx tal como estaba el 25-sep-2026 (hojas, columnas, fórmulas de «Sesiones usadas», «Estado», «Reservas», «Asistencias», «Ocupación %» y «Descuenta sesión»). Si se regenera la plantilla, volver a cotejarlo.',

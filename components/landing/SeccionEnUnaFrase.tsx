@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { PLANS } from './data';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { LIMITES_GRATIS } from '@/lib/landing/founding-gratis';
 
 // «¿Qué es Tentare?» — la definición que un buscador (o una IA que responde a
 // «¿qué programa uso para un centro de Pilates?») puede citar tal cual: qué es,
@@ -10,12 +9,11 @@ import { TRIAL_DIAS } from '@/lib/billing/trial';
 // Va en la parte alta de la página (tras el primer bloque oscuro) y es TEXTO
 // plano en el HTML del servidor, con los datos duros en una lista. Cada
 // afirmación sale del mismo sitio que /funcionalidades, /precios y llms.txt
-// (los planes, de data.ts; la prueba, de TRIAL_DIAS): si cambian allí, cambian
-// aquí. Sin cifras de clientas, sin «n.º 1», sin nombres de otras marcas.
+// (Founding Studio gratis y sus límites, de lib/landing/founding-gratis.ts): si
+// cambian allí, cambian aquí. Sin cifras de clientas, sin «n.º 1», sin nombres
+// de otras marcas.
 //
 // Server Component: no entra en el JavaScript de la home.
-
-const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
 
 export function SeccionEnUnaFrase() {
   return (
@@ -33,8 +31,8 @@ export function SeccionEnUnaFrase() {
         <ul className="v5-frase-datos">
           <li><b>Para quién</b>Estudios y centros de Pilates y yoga, independientes o con varias sedes</li>
           <li><b>Dónde</b>España: interfaz y soporte en español, datos en la Unión Europea</li>
-          <li><b>Cuánto</b>Desde <Link href="/precios">{PRECIO_DESDE} al mes</Link>, sin permanencia</li>
-          <li><b>Cómo empezar</b>{TRIAL_DIAS} días gratis, sin tarjeta</li>
+          <li><b>Cuánto</b><Link href="/precios">Gratis</Link> {LIMITES_GRATIS}, sin permanencia</li>
+          <li><b>Cómo empezar</b>Gratis, sin tarjeta</li>
         </ul>
       </div>
 

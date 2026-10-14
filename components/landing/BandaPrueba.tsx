@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ALTA } from '@/components/landing/enlaces';
 import { ACC, ACC_SOFT } from '@/components/landing/theme';
 import { CLAVE_BANDA_PRUEBA, verBandaPrueba } from '@/lib/landing/banda-prueba-reglas';
@@ -24,7 +24,8 @@ import { CLAVE_BANDA_PRUEBA, verBandaPrueba } from '@/lib/landing/banda-prueba-r
 // (`app/precios/page.tsx`: «¿La migración desde otra plataforma cuesta aparte? —
 // No se cobra aparte. Traes tus datos con los asistentes de importación y te
 // acompañamos en la puesta en marcha»; y `SeccionConfianza`):
-//  · 7 días gratis, sin tarjeta (`TRIAL_DIAS`, prueba local);
+//  · Founding Studio gratis, con sus dos límites (`GRATIS_CON_LIMITES`; hasta
+//    el 15-oct-2026 era «7 días gratis, sin tarjeta», la prueba que ya no hay);
 //  · migración incluida, sin coste aparte.
 // ⚠️ Nada de «migración en 48 h» ni de «lo hacemos nosotros»: no hay plazo
 // garantizado y la importación la hace la propietaria con el asistente. Si algún
@@ -57,9 +58,9 @@ export function BandaPrueba() {
   if (!ver) return null;
 
   return (
-    <div className="v5-banda" role="note" aria-label="Oferta de prueba">
+    <div className="v5-banda" role="note" aria-label="Founding Studio gratis">
       <p className="v5-banda-texto">
-        <strong>{TRIAL_DIAS} días gratis, sin tarjeta</strong>
+        <strong>{GRATIS_CON_LIMITES}</strong>
         <span className="v5-banda-sep" aria-hidden> · </span>
         <span>Migración incluida, sin coste aparte</span>
       </p>

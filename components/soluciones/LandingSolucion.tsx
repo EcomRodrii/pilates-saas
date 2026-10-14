@@ -10,7 +10,8 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
-import { PLANES, PLAN_INFO, TRIAL_DIAS } from '@/lib/billing/entitlements';
+import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,13 +109,13 @@ export function HeroSolucion({
           </h1>
           <p className="sol-entrada">{entrada}</p>
           <div className="sol-acciones">
-            <Link href="/crear-estudio" className="sol-cta">Probar {TRIAL_DIAS} días gratis</Link>
+            <Link href="/crear-estudio" className="sol-cta">{CTA_ALTA}</Link>
             <Link href="/precios" className="sol-cta-2">Ver precios →</Link>
           </div>
           <p className="sol-confianza">
             <span><Check size={15} strokeWidth={2.6} aria-hidden /> Sin tarjeta</span>
             <span><Check size={15} strokeWidth={2.6} aria-hidden /> Sin permanencia</span>
-            <span><Check size={15} strokeWidth={2.6} aria-hidden /> Desde {PLAN_INFO.BASE.precioMes} €/mes con IVA</span>
+            <span><Check size={15} strokeWidth={2.6} aria-hidden /> {GRATIS_CON_LIMITES}</span>
           </p>
         </div>
         <figure className="sol-heroe-escena">
@@ -274,6 +275,14 @@ export function TablaSolucion({ titulo, intro, cabeceras, filas }: { titulo: str
   );
 }
 
+// Founding Studio es gratis desde el 15-oct-2026 (lib/landing/founding-gratis.ts):
+// su resumen y el de Estudio ya no son los de PLAN_INFO, que vendían a Estudio
+// por lo que ahora también tiene Founding Studio. Los mismos que en la home.
+const RESUMEN_WEB: Partial<Record<Plan, string>> = {
+  BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}.`,
+  ESTUDIO: 'Alumnas y cobros sin límite.',
+};
+
 /** Los tres planes, con el precio de lib/billing (nunca escrito a mano). */
 export function PlanesSolucion({ titulo, nota }: { titulo: string; nota?: string }) {
   return (
@@ -284,12 +293,12 @@ export function PlanesSolucion({ titulo, nota }: { titulo: string; nota?: string
           {PLANES.map((p) => (
             <div key={p} className={p === 'BASE' ? 'sol-plan sol-plan-destacado' : 'sol-plan'}>
               <p className="sol-plan-nombre">{PLAN_INFO[p].nombre}</p>
-              <p className="sol-plan-precio">{PLAN_INFO[p].precioMes} €<span>/mes con IVA</span></p>
-              <p className="sol-plan-resumen">{PLAN_INFO[p].resumen}</p>
+              <p className="sol-plan-precio">{p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes} €<span>/mes con IVA</span></>}</p>
+              <p className="sol-plan-resumen">{RESUMEN_WEB[p] ?? PLAN_INFO[p].resumen}</p>
             </div>
           ))}
         </div>
-        <p className="sol-planes-nota">{nota ?? `Sin permanencia y sin comisión de Tentare sobre tus cobros. ${TRIAL_DIAS} días de prueba sin tarjeta.`} <Link href="/precios">Qué incluye cada plan →</Link></p>
+        <p className="sol-planes-nota">{nota ?? 'Sin permanencia y sin comisión de Tentare sobre tus cobros. Se empieza gratis, sin tarjeta.'} <Link href="/precios">Qué incluye cada plan →</Link></p>
       </div>
     </section>
   );
@@ -314,7 +323,7 @@ export function CierreSolucion({ titulo, texto }: { titulo: string; texto: strin
         <h2>{titulo}</h2>
         <p>{texto}</p>
         <div className="sol-acciones sol-acciones-centro">
-          <Link href="/crear-estudio" className="sol-cta sol-cta-claro">Probar {TRIAL_DIAS} días gratis</Link>
+          <Link href="/crear-estudio" className="sol-cta sol-cta-claro">{CTA_ALTA}</Link>
           <Link href="/soluciones/cambiar-de-software" className="sol-cta-2 sol-cta-2-claro">Vengo de otro programa →</Link>
         </div>
       </Reveal>

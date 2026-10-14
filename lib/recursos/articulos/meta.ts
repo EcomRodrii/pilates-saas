@@ -23,7 +23,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precios-reformer-mat",
       "/precios"
     ],
-    "palabras": 2822
+    "palabras": 2829
   },
   {
     "slug": "como-abrir-un-estudio-de-yoga",
@@ -41,7 +41,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/recursos/politica-de-cancelacion-de-clases"
     ],
-    "palabras": 2493
+    "palabras": 2501
   },
   {
     "slug": "como-gestionar-un-estudio-de-pilates",
@@ -58,7 +58,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/politica-de-cancelacion-de-clases",
       "/funcionalidades"
     ],
-    "palabras": 2122
+    "palabras": 2129
   },
   {
     "slug": "mejor-software-para-estudios-de-pilates",
@@ -76,7 +76,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2883
+    "palabras": 2885
   },
   {
     "slug": "bsport-vs-timp",
@@ -94,7 +94,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1981,
+    "palabras": 1974,
     "actualizado": "2026-10-07"
   },
   {
@@ -114,7 +114,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2457
+    "palabras": 2516
   },
   {
     "slug": "alternativas-a-timp",
@@ -133,7 +133,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/sustituciones"
     ],
-    "palabras": 2391
+    "palabras": 2439
   },
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
@@ -151,7 +151,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2294
+    "palabras": 2316
   },
   {
     "slug": "precio-clase-de-pilates",
@@ -168,7 +168,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/funcionalidades/bonos-y-membresias"
     ],
-    "palabras": 2413
+    "palabras": 2407
   },
   {
     "slug": "rentabilidad-estudio-de-pilates",
@@ -185,7 +185,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates",
       "/funcionalidades/informes-y-rentabilidad"
     ],
-    "palabras": 2426,
+    "palabras": 2420,
     "actualizado": "2026-10-08"
   },
   {
@@ -203,7 +203,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/soluciones/estudio-de-pilates-reformer"
     ],
-    "palabras": 1710,
+    "palabras": 1721,
     "actualizado": "2026-10-07"
   },
   {
@@ -240,7 +240,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/ficha-de-clienta",
       "/funcionalidades/facturacion"
     ],
-    "palabras": 2376,
+    "palabras": 2367,
     "actualizado": "2026-10-01"
   },
   {
@@ -258,7 +258,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/bonos-y-membresias",
       "/funcionalidades/cancelaciones-y-politicas"
     ],
-    "palabras": 2063,
+    "palabras": 2057,
     "actualizado": "2026-10-07"
   },
   {
@@ -277,7 +277,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/lista-de-espera",
       "/recursos/como-abrir-un-estudio-de-yoga"
     ],
-    "palabras": 2418
+    "palabras": 2411
   },
   {
     "slug": "reducir-cancelaciones-ultima-hora",
@@ -313,7 +313,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cubrir-baja-instructora",
       "/recursos/iva-clases-de-pilates"
     ],
-    "palabras": 2172
+    "palabras": 2165
   },
   {
     "slug": "cubrir-baja-instructora",
@@ -365,7 +365,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precio-clase-de-pilates",
       "/recursos/cuanto-cobra-una-instructora-de-pilates"
     ],
-    "palabras": 1906
+    "palabras": 1902
   },
   {
     "slug": "software-pilates-gratis",
@@ -382,7 +382,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/precios"
     ],
-    "palabras": 1883
+    "palabras": 1879
   },
   {
     "slug": "plantilla-control-de-asistencia-pilates",
@@ -399,7 +399,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/recursos/reducir-cancelaciones-ultima-hora"
     ],
-    "palabras": 1686
+    "palabras": 1679
   },
   {
     "slug": "franquicia-de-pilates",
@@ -435,6 +435,6 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/app-para-alumnas",
       "/recursos/reservas-en-tu-web"
     ],
-    "palabras": 1773
+    "palabras": 1769
   }
 ];

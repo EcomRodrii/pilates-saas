@@ -17,7 +17,7 @@ import { test, expect, type Page } from '@playwright/test';
 const CLAVE = 'tentare:popup-empezar';
 const CLAVE_SESION = 'tentare:popup-empezar-sesion';
 
-const popup = (page: Page) => page.getByRole('dialog', { name: /Pruébalo \d+ días gratis/i });
+const popup = (page: Page) => page.getByRole('dialog', { name: /Empieza gratis/i });
 
 /**
  * Deja atrás la sección de precio (baja hasta la de preguntas), que es lo que
@@ -58,7 +58,9 @@ test.describe('El popup invita, no persigue', () => {
     // Sin «2 minutos»: el código no respalda ese plazo (auditoría del 23-sep).
     await expect(popup(page)).toContainText('Sin tarjeta y sin permanencia');
     await expect(popup(page)).not.toContainText('2 minutos');
-    await expect(popup(page).getByRole('link', { name: /Probar \d+ días gratis/ })).toHaveAttribute('href', '/crear-estudio');
+    // Sin prueba de 7 días desde el 15-oct-2026: Founding Studio es gratis.
+    await expect(popup(page)).not.toContainText('días gratis');
+    await expect(popup(page).getByRole('link', { name: 'Empezar gratis' })).toHaveAttribute('href', '/crear-estudio');
   });
 
   test('cerrarlo lo calla en lo que queda de sesión, aunque se siga navegando', async ({ page }) => {

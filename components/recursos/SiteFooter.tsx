@@ -1,7 +1,7 @@
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import Link from 'next/link';
 import { PIE_PUBLICO } from '@/lib/seo/navegacion-publica';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Pie de todas las páginas públicas interiores. El árbol entero del sitio sale de
 // lib/seo/navegacion-publica.ts (ver allí por qué dejó de ser una lista de tres
@@ -17,7 +17,7 @@ export function SiteFooter() {
             <LogoTentare formato="horizontal" tinta="negativo" alto={26} />
           </Link>
           <p className="sf-lema">Software para estudios de Pilates y yoga. Reservas, app con tu marca, bonos y cobros, con precio público y sin permanencia.</p>
-          <Link href="/crear-estudio" className="sf-cta">Probar {TRIAL_DIAS} días gratis</Link>
+          <Link href="/crear-estudio" className="sf-cta">{CTA_ALTA}</Link>
         </div>
 
         <nav className="sf-cols" aria-label="Mapa del sitio">

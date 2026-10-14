@@ -260,7 +260,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Que tu política se aplique sola, igual para todas',
-    texto: 'Con Tentare, tus alumnas cancelan desde el móvil dentro de la ventana que fijas para cada tipo de clase, y la plaza pasa sola a la lista de espera. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Con Tentare, tus alumnas cancelan desde el móvil dentro de la ventana que fijas para cada tipo de clase, y la plaza pasa sola a la lista de espera. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Parte legal (TRLGDCU, LCGC y LSSI): que la revise una abogada de consumo antes de publicar. La tabla de desistimiento es una lectura prudente de los artículos 102 y 103.l y de la guía de la Comisión Europea; no se ha encontrado resolución española sobre bonos o cuotas de clases comprados online.',

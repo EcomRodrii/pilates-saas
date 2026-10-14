@@ -166,7 +166,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'El reformer y el mat, cada uno con su precio y sus reglas',
-          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, si defines los puestos de la sala la alumna elige su reformer al reservar, y la plaza que se libera pasa sola a la primera de la lista de espera. Desde 29 €/mes con IVA y sin permanencia.',
+          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, si defines los puestos de la sala la alumna elige su reformer al reservar, y la plaza que se libera pasa sola a la primera de la lista de espera. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia.',
         },
       ],
     },
@@ -208,7 +208,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Cada formato con su precio, y ninguna plaza perdida.',
-    texto: 'Bonos y cuotas por tipo de clase, reserva por reformer y lista de espera automática. 7 días gratis, sin tarjeta y sin permanencia.',
+    texto: 'Bonos y cuotas por tipo de clase, reserva por reformer y lista de espera automática. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Precios de Elina Pilates y de la muestra de 32 estudios: 25-sep-2026.',

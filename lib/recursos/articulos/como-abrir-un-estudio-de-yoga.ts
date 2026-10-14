@@ -219,11 +219,11 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Cuesta 29, 59 o 149 € al mes con IVA, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
+          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
         },
         {
           t: 'llamada',
-          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, desde 29 €/mes con IVA y sin permanencia.',
+          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia.',
         },
       ],
     },
@@ -309,7 +309,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Abre tu estudio de yoga con las reservas resueltas',
-    texto: 'Tentare deja listos las reservas, los bonos, las cuotas y la lista de espera de tu estudio antes de la primera clase, con la app del estudio para tus alumnas. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare deja listos las reservas, los bonos, las cuotas y la lista de espera de tu estudio antes de la primera clase, con la app del estudio para tus alumnas. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Precios de material (Yogaes y Zafuki) y tarifas de los 14 estudios consultados el 25-sep-2026: cambian a menudo, revisarlos antes de publicar. La mayoría de los estudios no dice si sus precios incluyen IVA.',

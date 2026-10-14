@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PLANS } from '@/components/landing/data';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { FRASE_FOUNDING } from '@/lib/landing/founding-gratis';
 import { ALTA, SALIDAS, WHATSAPP_SOPORTE } from './enlaces';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
@@ -14,6 +14,9 @@ import { NombrePlan } from '@/components/planes/nombre-plan';
 // Rediseño 23-sep: sin «EL MÁS ELEGIDO» (con 0 estudios de pago no es verdad),
 // los dos primeros planes llevan al alta con el mismo texto que el resto de la
 // página y Cadena lleva a WhatsApp — antes «Hablar con ventas» iba al alta.
+//
+// 15-oct-2026: Founding Studio es gratis (sin «/mes») y lleva la frase del
+// fundador; la banda de la prueba de 7 días pasa a «Empieza gratis».
 
 export function SeccionPrecio() {
   const whatsappCadena = enlaceWhatsApp(WHATSAPP_SOPORTE, 'Hola, tengo varios centros y quiero saber más de Tentare:') ?? '#';
@@ -26,15 +29,16 @@ export function SeccionPrecio() {
           <p className="v5-pre-lead">Sustituciones incluidas desde el primer plan. Sin comisión sobre tus cobros.</p>
           {/* La promesa que quita el freno, justo encima de los importes: es
               donde se decide si se sigue leyendo o se cierra la pestaña. */}
-          <p className="v5-pre-prueba">{TRIAL_DIAS} días gratis · Sin tarjeta de crédito</p>
+          <p className="v5-pre-prueba">Empieza gratis · Sin tarjeta de crédito</p>
         </div>
         <div className="v5-pre-grid">
           {PLANS.map((plan, n) => (
             <div key={plan.name} className={plan.dark ? 'v5-pre-card v5-pre-card-dark lp-rv' : 'v5-pre-card lp-rv'} style={{ ['--lp-r' as string]: n * 6 }}>
               <div className="v5-pre-nombre" style={{ color: plan.dark ? '#D9C29E' : '#6B6B63' }}>{plan.id === 'BASE' ? <NombrePlan plan="BASE" tamano={26} /> : plan.name.toUpperCase()}</div>
               <div className="v5-pre-precio" style={{ color: plan.dark ? '#fff' : '#1A1A1A' }}>
-                {plan.price}<span className="v5-pre-mes">/mes</span>
+                {plan.price}{plan.id !== 'BASE' && <span className="v5-pre-mes">/mes</span>}
               </div>
+              {plan.id === 'BASE' && <p className="v5-pre-frase nombre-plan-founding">{FRASE_FOUNDING}</p>}
               <p className="v5-pre-desc" style={{ color: plan.dark ? '#A6A69E' : '#5A5A52' }}>{plan.desc}</p>
               <div className="v5-pre-features" style={{ borderTopColor: plan.dark ? 'rgba(255,255,255,.12)' : '#E7E7E0', color: plan.dark ? '#E8E8E4' : '#3B3B34' }}>
                 {plan.features.map((f) => <span key={f}>{f}<br /></span>)}
@@ -71,6 +75,8 @@ export function SeccionPrecio() {
         .v5-pre-nombre { font-size: 12.5px; font-weight: 800; letter-spacing: .12em; margin-bottom: 14px; }
         .v5-pre-precio { font-size: 48px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
         .v5-pre-mes { font-size: 16px; font-weight: 600; color: #6B6B63; }
+        /* Gana a .nombre-plan-founding (globals.css: 1.3em, interlineado 1), que da la cursiva. */
+        .v5-pre .v5-pre-frase { font-size: 19px; line-height: 1.3; color: #3A3A34; margin: 12px 0 0; }
         .v5-pre-desc { font-size: 14.5px; margin: 8px 0 22px; }
         .v5-pre-features { border-top: 1px solid; padding-top: 16px; font-size: 15px; font-weight: 500; line-height: 2.05; flex: 1; }
         .v5-pre-cta { display: block; text-align: center; margin-top: 24px; border: 1.5px solid #343825; color: #343825;

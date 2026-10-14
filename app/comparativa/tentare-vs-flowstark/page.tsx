@@ -27,7 +27,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Cancelas cuando quieras; surte efecto al final del periodo'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'Dice cumplir el RGPD; no consta el país'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
   // Ejes añadidos el 29-sep-2026 (flowstark.com y flowstark.com/centros-yoga-y-pilates,
   // revisadas esa fecha). Flowstark se centra en cobros y suscripciones, no en
   // reservas de clase con sala — de ahí que estos cuatro ejes no consten.
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Flowstark?',
-    a: 'Tiene un plan gratuito (con límites de clientes, servicios y suscripciones) y un plan Pro a 19 €/mes sin límite; los precios no incluyen impuestos. Tentare empieza en 29 €/mes, IVA incluido.',
+    a: 'Tiene un plan gratuito (con límites de clientes, servicios y suscripciones) y un plan Pro a 19 €/mes sin límite; los precios no incluyen impuestos. Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes; después, 59 €/mes con IVA.',
   },
 ];
 
@@ -55,7 +55,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Gratis hasta 50 clientes o 19 €/mes + impuestos',
   permanencia: 'Cancelas cuando quieras',
   destacado: { etiqueta: 'Reservas de clases', suyo: 'No consta: es una herramienta de cobros', nuestro: 'Reservas con plaza por reformer y lista de espera' },
-  respuesta: <>Flowstark resuelve los cobros recurrentes, pero un estudio de Pilates necesita además reservas con sala y reformer, bonos, plazas fijas y alguien que cubra la clase cuando falla una instructora. Si quieres todo eso en un solo programa, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.</>,
+  respuesta: <>Flowstark resuelve los cobros recurrentes, pero un estudio de Pilates necesita además reservas con sala y reformer, bonos, plazas fijas y alguien que cubra la clase cuando falla una instructora. Si quieres todo eso en un solo programa, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -79,7 +79,7 @@ export default function TentareVsFlowstarkPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para gestionar tu estudio de Pilates entero: reservas con plaza por reformer, plazas fijas, bonos, sustituciones y cobros en un solo programa. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
+      veredicto={<>Tentare es la mejor opción para gestionar tu estudio de Pilates entero: reservas con plaza por reformer, plazas fijas, bonos, sustituciones y cobros en un solo programa. Empieza gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de Flowstark (flowstark.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Flowstark es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

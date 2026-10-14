@@ -21,7 +21,7 @@
 // hace es venderla mientras no se pueda usar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PLAN_ENTITLEMENTS, type Plan } from './entitlements.ts';
+import { PLAN_ENTITLEMENTS, type Entitlements, type Plan } from './entitlements.ts';
 
 /** Cómo se pinta una fila para un plan concreto. */
 export type ValorPlan =
@@ -42,8 +42,8 @@ const TODOS = (): ValorPlan => SI;
 /** Derivado del entitlement real, nunca escrito a mano. */
 const porFeature =
   (feature: keyof (typeof PLAN_ENTITLEMENTS)['BASE']['features']) =>
-  (p: Plan): ValorPlan =>
-    PLAN_ENTITLEMENTS[p].features[feature] ? SI : NO;
+  (p: Plan, e: Entitlements = PLAN_ENTITLEMENTS[p]): ValorPlan =>
+    e.features[feature] ? SI : NO;
 
 export interface FilaPlan {
   /** Identificador estable para las filas a las que hay que referirse desde
@@ -53,7 +53,9 @@ export interface FilaPlan {
   nombre: string;
   /** Una línea de contexto. Se enseña en la comparativa ampliada, no en la corta. */
   detalle?: string;
-  valor: (p: Plan) => ValorPlan;
+  /** `e` cambia los entitlements de una columna (la web enseña Founding Studio
+   *  gratis, que no es `PLAN_ENTITLEMENTS.BASE`); sin él, los del plan. */
+  valor: (p: Plan, e?: Entitlements) => ValorPlan;
 }
 
 export interface CategoriaPlan {
@@ -95,8 +97,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
         id: FILA_TOPE_ALUMNAS,
         nombre: 'Alumnas activas',
         detalle: 'El tope se aplica sobre las activas; nadie se borra al llegar al límite.',
-        valor: (p) => {
-          const max = PLAN_ENTITLEMENTS[p].maxSocios;
+        valor: (p, e = PLAN_ENTITLEMENTS[p]) => {
+          const max = e.maxSocios;
           return txt(max === Infinity ? 'Sin límite' : `Hasta ${max}`);
         },
       },

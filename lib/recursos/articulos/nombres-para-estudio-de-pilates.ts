@@ -431,7 +431,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Con el nombre elegido, abre tu estudio en Tentare',
     texto:
-      'Tus alumnas reservan desde el móvil e instalan la app de tu estudio con tu nombre y tu icono. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas: desde 29 €/mes, IVA incluido y sin permanencia.',
+      'Tus alumnas reservan desde el móvil e instalan la app de tu estudio con tu nombre y tu icono. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Antes de publicar, pasar las 117 ideas por el Localizador de Marcas de la OEPM para descartar coincidencias con marcas conocidas del sector.',

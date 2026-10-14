@@ -256,7 +256,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Mira el margen de cada clase antes de cambiar el horario',
-    texto: 'Prueba Tentare 7 días sin tarjeta: pon las tarifas de tu equipo, mira la ocupación por tipo de clase y el margen de cada clase, y avisa solo a quien puede venir.',
+    texto: 'Empieza gratis con Tentare, sin tarjeta: pon las tarifas de tu equipo, mira la ocupación por tipo de clase y el margen de cada clase, y avisa solo a quien puede venir.',
   },
   revision: [
     'Costes y precios: escenario A de rentabilidad-estudio-de-pilates y mediana de cuotas de precio-clase-de-pilates (25-sep-2026); si cambian, rehacer la tabla de las dos líneas.',

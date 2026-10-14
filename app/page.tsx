@@ -19,7 +19,7 @@ const pagina = paginaDe('/')!;
 
 const COMPARTIR = {
   titulo: 'El software que lleva tu estudio de Pilates y yoga.',
-  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Pruébalo 7 días gratis, sin tarjeta.',
+  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Empieza gratis, sin tarjeta.',
   imagen: '/og-image.png',
   alt: 'Tentare',
 };

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { PLANS } from './data';
 import { FOTOS_APORTADAS } from './fotos';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { MockupIphone, estilosMockupIphone } from './MockupIphone';
@@ -41,13 +40,12 @@ import { MessageCircle, Mail, CalendarDays } from 'lucide-react';
 //   · el asistente CONSULTA y PROPONE clases, salas, eventos y citas; nada se
 //     crea sin confirmar y no cobra, borra, edita ni escribe a nadie;
 //   · los reintentos de cobro, de lib/billing/dunning.ts (1, 3 y 7 días);
-//   · el Centro de Control, plan Estudio; la sustitución espera tu visto bueno,
+//   · el Centro de Control, en todos los planes; la sustitución espera tu visto bueno,
 //     y es solo un chip: no es lo que más busca un estudio;
 //   · los avisos y las tarjetitas son ejemplos de lo que la app y el panel
 //     muestran hoy; nada de cifras de clientas.
 // Nada de lo congelado (Kiosko, VOD, Chat de equipo, Network).
 
-const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
 
 type Pos = Partial<Record<'l' | 'r' | 't' | 'b' | 'w' | 'ml' | 'mr' | 'mt' | 'mb' | 'mw', string | number>>;
 const px = (v: string | number) => (typeof v === 'number' ? `${v}px` : v);
@@ -159,7 +157,7 @@ function Texto({ id, href, titulo, texto, chips }: { id: string; href: string; t
 
 const MAS: { href: string; label: string }[] = [
   { href: '/funcionalidades', label: 'Todas las funcionalidades' },
-  { href: '/precios', label: `Planes y precios · desde ${PRECIO_DESDE}` },
+  { href: '/precios', label: 'Planes y precios · Founding Studio gratis' },
   { href: '/soluciones/estudio-de-pilates-reformer', label: 'Software para estudios de Pilates reformer' },
   { href: '/soluciones/estudio-de-yoga', label: 'Software para estudios de yoga' },
   { href: '/recursos', label: 'Guías para dueñas de estudios' },
@@ -249,7 +247,7 @@ export function SeccionBento() {
               chips={['Calendario por sala', 'Lo que espera tu visto bueno', 'Pregúntale a Tentare']} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Mini etiqueta="Recomendación del Centro de Control: abrir una segunda clase de Reformer los martes, con 7 personas en lista de espera" pos={{ l: 30, t: 150, w: 292, ml: 12, mt: 4, mw: 276 }}>
-                <span className="bn-fila"><Tag t="✨ RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Plan Estudio</span></span>
+                <span className="bn-fila"><Tag t="✨ RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Centro de Control</span></span>
                 <b className="bn-m-tit">Abrir una segunda clase de Reformer los martes</b>
                 <i className="bn-m-sub">7 personas en lista de espera</i>
               </Mini>

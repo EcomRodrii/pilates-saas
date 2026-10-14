@@ -13,6 +13,8 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
 import { ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
+import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
@@ -38,12 +40,13 @@ const POR_QUE = [
   { titulo: 'Cobras tú, sin comisión', texto: 'Tarjeta y SEPA directos a tu cuenta con Stripe. Tentare no se queda nada de cada cobro.' },
 ];
 
-/** La columna de Tentare del resumen: la misma en las trece comparativas. */
+/** La columna de Tentare del resumen: la misma en las trece comparativas.
+ *  Founding Studio es gratis desde el 15-oct-2026 y ya no hay prueba de 7 días. */
 const TENTARE_RESUMEN = {
   queEs: 'Software de gestión para estudios de Pilates y yoga, hecho en España',
-  precio: 'Desde 29 €/mes con IVA, precio publicado',
+  precio: `${GRATIS_CON_LIMITES}; después, ${PLAN_INFO.ESTUDIO.precioMes} €/mes con IVA`,
   permanencia: 'Sin permanencia: mes a mes',
-  prueba: '7 días gratis, sin tarjeta',
+  prueba: 'Sin prueba: se empieza gratis, sin tarjeta',
 };
 
 export type ComparativaRow = { feature: string; tentare: [Verdict, string]; them: [Verdict, string] };
@@ -176,7 +179,7 @@ export function CompetitorPage({
           <h1 className="cmp1-h1">{name}: precios, funciones y la alternativa para tu estudio de Pilates</h1>
           <p className="cmp1-intro">{intro}</p>
           <div className="cmp1-ctas">
-            <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">Probar 7 días gratis →</Link>
+            <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">{CTA_ALTA} →</Link>
             <Link href="/precios" className="cmp1-btn cmp1-btn--sec">Ver precios</Link>
           </div>
           <p className="cmp1-confianza">
@@ -252,7 +255,7 @@ export function CompetitorPage({
           </Reveal>
           <p className="lp-mono cmp1-nota">{footnote}</p>
           <div className="cmp1-mitad">
-            <p>¿Lo ves claro? Compruébalo con tu estudio: 7 días gratis, sin tarjeta.</p>
+            <p>¿Lo ves claro? Compruébalo con tu estudio: empieza gratis, sin tarjeta.</p>
             <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">Empezar gratis →</Link>
           </div>
         </div>
@@ -281,7 +284,7 @@ export function CompetitorPage({
           <p className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', margin: '0 0 16px' }}>Nuestro veredicto</p>
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(28px,4.2vw,46px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 18px', color: '#fff' }}>Tentare, el Nº1 para tu estudio de Pilates.</h2>
           <p style={{ fontSize: 'clamp(16px,1.4vw,18px)', lineHeight: 1.6, color: MUTED_DARK, margin: '0 0 28px' }}>{veredicto}</p>
-          <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--claro">Probar 7 días gratis →</Link>
+          <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--claro">{CTA_ALTA} →</Link>
         </Reveal>
       </section>
 

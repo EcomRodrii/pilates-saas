@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un software de reservas y pagos para un estudio de Pilates?',
-    a: 'Tentare cuesta desde 29 € al mes con IVA incluido, sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
+    a: 'Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, y sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
   },
   {
     q: '¿Mis alumnas tienen que instalarse una app?',
@@ -117,7 +117,7 @@ export default function ReservasPage() {
           En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro va con tarjeta
           o domiciliación SEPA a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare
           no añade comisión; lo único aparte es la de Stripe. Las facturas se pueden emitir automáticamente, con numeración
-          legal. Desde 29 € al mes con IVA incluido y sin permanencia: los{' '}
+          legal. Gratis hasta 150 alumnas activas y 30 cobros al mes, y sin permanencia: los{' '}
           <Link href="/precios">planes y límites</Link> están en la página de precios.
         </p>
         <p>

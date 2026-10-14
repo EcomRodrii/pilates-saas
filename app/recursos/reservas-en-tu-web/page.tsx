@@ -5,6 +5,7 @@ import { fechaModificada, guia } from '@/lib/recursos/guias';
 import { openGraphGuia } from '@/lib/recursos/schema';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
+import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
@@ -124,7 +125,7 @@ export default function ReservasEnTuWebPage() {
 
         <h3>Tentare: una solución orientada a la realidad de un estudio de Pilates</h3>
         <p>Tentare es una solución del mercado español diseñada específicamente para estudios de Pilates. Gestiona por reformer individual, no solo por aforo general, lo que marca una diferencia real en la operativa diaria. Su sistema de listas de espera es automático y las sustituciones de instructoras se resuelven sin que la propietaria escriba un solo mensaje: le basta con dar el visto bueno a la candidata, o ni eso en modo autónomo.</p>
-        <p>Su widget de reservas se instala en cualquier web en minutos, mantiene la identidad visual del estudio en todo momento y permite a la alumna reservar clase, elegir reformer y pagar sin salir del dominio. Está disponible desde 29&nbsp;€/mes sin permanencia, y la app con la marca del estudio va incluida en todos los planes.</p>
+        <p>Su widget de reservas se instala en cualquier web en minutos, mantiene la identidad visual del estudio en todo momento y permite a la alumna reservar clase, elegir reformer y pagar sin salir del dominio. Está disponible gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia, y la app con la marca del estudio va incluida en todos los planes.</p>
 
         <h3>Otras opciones a conocer para tener contexto</h3>
         <p>Soluciones como Mindbody o <Link href="/comparativa/tentare-vs-glofox" style={{ color: ACC }}>Glofox</Link> son herramientas pensadas para gimnasios y centros de fitness en general. En sus planes estándar pueden no cubrir funcionalidades específicas como la gestión por reformer individual o las sustituciones automatizadas, y sus precios suelen superar los 200&nbsp;€/mes. Para un estudio de Pilates con necesidades concretas, es importante verificar qué incluye exactamente cada plan antes de comprometerse.</p>
@@ -133,9 +134,9 @@ export default function ReservasEnTuWebPage() {
         <h2 id="conclusion">La decisión que parece pequeña y no lo es</h2>
         <p>Integrar las reservas directamente en tu web no es una mejora cosmética. Es una decisión que afecta a la conversión, a la fidelización y a la imagen profesional de tu estudio. Cada alumna que llega a tu web y completa la reserva sin salir de tu dominio vive una experiencia coherente con tu marca de principio a fin.</p>
         <p>Para la mayoría de estudios, la opción más práctica es el widget embebido: sin desarrollo a medida, sin redirigir a la alumna, con tu marca presente en todo momento. No necesitas un presupuesto de desarrollo ni conocimientos técnicos avanzados para conseguirlo. En resumen: sí puedes integrar las reservas de Pilates en tu web sin redirigir a otra plataforma, y el widget embebido es, en la mayoría de los casos, la forma más rápida y rentable de hacerlo.</p>
-        <p>Si quieres ver cómo funciona en la práctica, Tentare ofrece una demostración sin compromiso. Desde 29&nbsp;€/mes y sin permanencia, puedes tener un sistema de reservas completamente integrado en tu web antes de que acabe la semana.</p>
+        <p>Si quieres ver cómo funciona en la práctica, Tentare ofrece una demostración sin compromiso. Gratis hasta 150 alumnas activas y 30 cobros al mes, y sin permanencia, puedes tener un sistema de reservas completamente integrado en tu web antes de que acabe la semana.</p>
 
-        <CtaBlock title="Un sistema de reservas dentro de tu web, esta semana" body="Sin redirección, sin código complejo, con tu marca en todo momento. Desde 29€/mes, sin permanencia." />
+        <CtaBlock title="Un sistema de reservas dentro de tu web, esta semana" body={`Sin redirección, sin código complejo, con tu marca en todo momento. ${GRATIS_CON_LIMITES}, sin permanencia.`} />
 
         <RelatedLinks
           items={[

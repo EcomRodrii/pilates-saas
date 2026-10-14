@@ -28,7 +28,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo seguir aprobando cada sustitución a mano?',
-    a: 'Sí, y es el modo por defecto. En asistido el sistema te propone la candidata y no escribe a nadie hasta que das el visto bueno; a partir de ahí la contacta, le insiste y, si acepta, la clase se reasigna sola. Solo pasas a autónomo (plan Estudio o Cadena) si quieres.',
+    a: 'Sí, y es el modo por defecto. En asistido el sistema te propone la candidata y no escribe a nadie hasta que das el visto bueno; a partir de ahí la contacta, le insiste y, si acepta, la clase se reasigna sola. Solo pasas a autónomo si quieres.',
   },
   {
     q: '¿Cómo sabe el sistema quién puede dar cada clase?',
@@ -112,7 +112,7 @@ export default function SustitucionesPage() {
         <NivelesDeAutonomia />
         <p>
           Todo estudio arranca en <strong>asistido</strong>, el modo por defecto —el sistema hace el trabajo pesado y tú das
-          el visto bueno—, y puede subir a autónomo (plan Estudio o Cadena) cuando lleva unas semanas acertando. El modo
+          el visto bueno—, y puede subir a autónomo cuando lleva unas semanas acertando. El modo
           Vacaciones existe porque el peor momento para una baja es justo cuando la propietaria no está.
         </p>
       </Seccion>

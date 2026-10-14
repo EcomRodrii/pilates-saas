@@ -220,7 +220,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Tentare lleva los cinco sistemas en un solo panel',
-          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, las cuotas con cobro automático y los bonos que la alumna compra desde su app, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
+          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, las cuotas con cobro automático y los bonos que la alumna compra desde su app, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
         },
       ],
     },
@@ -266,7 +266,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Los cinco sistemas, en un solo sitio.',
-    texto: 'Horario, reservas, cobros, equipo y números en un panel, con una app con tu marca para tus alumnas. 7 días gratis, sin tarjeta y sin permanencia.',
+    texto: 'Horario, reservas, cobros, equipo y números en un panel, con una app con tu marca para tus alumnas. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Cifras de precios y bonos: de los artículos de precio y bonos (25-sep-2026); si se actualizan, cambiar aquí.',

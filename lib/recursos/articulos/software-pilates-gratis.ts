@@ -182,7 +182,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Si llegas a ese punto, Tentare no es gratis: cuesta desde 29 €/mes con IVA incluido, sin permanencia, y puedes probarlo 7 días gratis y sin tarjeta con el plan que elijas. Si empezaste con una hoja de cálculo, su importador lee Excel y te enseña un acta de lo importado, con botón de deshacer. Tienes los planes en [precios](/precios).',
+            'Si llegas a ese punto, Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia; después, el plan Estudio cuesta 59 €/mes con IVA. Si empezaste con una hoja de cálculo, su importador lee Excel y te enseña un acta de lo importado, con botón de deshacer. Tienes los planes en [precios](/precios).',
         },
       ],
     },
@@ -232,7 +232,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Cuando lo gratis se te quede corto',
     texto:
-      'Prueba Tentare 7 días gratis y sin tarjeta con el plan que elijas: bonos con caducidad, lista de espera automática y cobros recurrentes con Stripe, desde 29 €/mes con IVA incluido y sin permanencia.',
+      'Empieza gratis con Tentare, sin tarjeta: bonos con caducidad, lista de espera automática y cobros recurrentes con Stripe, gratis hasta 150 alumnas activas y 30 cobros al mes y sin permanencia.',
   },
   revision: [
     'Planes gratuitos de terceros (Google, Square, SimplyBook.me, Bonsai, Flowstark) revisados el 25-sep-2026: cambian a menudo, repasarlos cada trimestre.',

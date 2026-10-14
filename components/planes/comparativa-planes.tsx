@@ -3,7 +3,8 @@
 import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CATEGORIAS, type ValorPlan } from '@/lib/billing/catalogo-planes';
+import { CATEGORIAS, FILA_TOPE_ALUMNAS, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
+import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_COBROS_MES } from '@/lib/landing/founding-gratis';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
@@ -41,10 +42,22 @@ export function ComparativaPlanes({
   destacado,
   /** Abre todas las categorías de salida. /precios lo quiere así (es SEO). */
   todoAbierto = false,
+  /** Founding Studio GRATIS (web comercial, decisión del 15-oct-2026): su
+   *  columna enseña todo menos varias sedes, «Gratis» en vez del precio y la
+   *  fila de cobros al mes, que solo tiene tope en ese plan. */
+  foundingGratis = false,
 }: {
   destacado?: Plan;
   todoAbierto?: boolean;
+  foundingGratis?: boolean;
 }) {
+  const valorDe = (fila: FilaPlan, p: Plan) =>
+    foundingGratis && p === 'BASE' ? fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS) : fila.valor(p);
+  // Una fila más, justo debajo de la de alumnas: el segundo límite del plan gratis.
+  const filaCobros: FilaPlan = {
+    nombre: 'Cobros al mes',
+    valor: (p) => ({ tipo: 'texto', texto: p === 'BASE' ? `Hasta ${GRATIS_COBROS_MES}` : 'Sin límite' }),
+  };
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Aviso de que se puede deslizar, solo en móvil. Antes el comentario de
@@ -80,7 +93,7 @@ export function ComparativaPlanes({
               >
                 <NombrePlan plan={p} />
                 <span className="block text-[10px] font-medium tabular-nums opacity-70">
-                  {PLAN_INFO[p].precioMes}€
+                  {foundingGratis && p === 'BASE' ? 'Gratis' : `${PLAN_INFO[p].precioMes}€`}
                 </span>
               </span>
             ))}
@@ -102,7 +115,7 @@ export function ComparativaPlanes({
               </summary>
 
               <div className="pb-1">
-                {cat.filas.map((fila) => (
+                {cat.filas.flatMap((fila) => (foundingGratis && fila.id === FILA_TOPE_ALUMNAS ? [fila, filaCobros] : [fila])).map((fila) => (
                   <div
                     key={fila.nombre}
                     className="grid grid-cols-[minmax(150px,1fr)_repeat(3,minmax(76px,96px))] items-center gap-2 px-4 py-2.5 odd:bg-muted/25 sm:grid-cols-[minmax(180px,1fr)_repeat(3,minmax(96px,124px))] sm:px-5"
@@ -115,7 +128,7 @@ export function ComparativaPlanes({
                     </div>
                     {PLANES.map((p) => (
                       <div key={p} className="flex items-center justify-center">
-                        <Marca valor={fila.valor(p)} />
+                        <Marca valor={valorDe(fila, p)} />
                       </div>
                     ))}
                   </div>

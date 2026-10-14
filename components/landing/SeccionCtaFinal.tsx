@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 import { ALTA, esExterno, PIE_V5 } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
@@ -87,11 +87,11 @@ export function SeccionCtaFinal() {
         <div className="v5-cta-cuerpo">
           <h2 id="v5-cta-h" className="v5-cta-h2">Pruébalo con tu estudio de verdad.</h2>
           <p className="v5-cta-lead">
-            {TRIAL_DIAS} días gratis, sin tarjeta. Tu horario y tu página de reservas, listos en tu primera sesión.
+            Empieza gratis, sin tarjeta. Tu horario y tu página de reservas, listos en tu primera sesión.
             Y si no te convence, te llevas tus datos.
           </p>
           <div className="v5-cta-acciones">
-            <Link href={ALTA} className="v5-cta-boton">Probar {TRIAL_DIAS} días gratis</Link>
+            <Link href={ALTA} className="v5-cta-boton">{CTA_ALTA}</Link>
           </div>
         </div>
       </section>
