@@ -18,8 +18,8 @@
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 import { planCubreTipoClase } from '../bono-logic.ts';
 import { idReciboDeClaseSuelta, PREFIJO_RECIBO_DE_CLASE_SUELTA } from '../cobros/recibo-de-cita.ts';
-import { importeAdeudado, importeIngresado, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
-import { formatEuro, TZ_ESTUDIO } from '../utils.ts';
+import { importeAdeudado, importeIngresado, situacionRecibo, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
+import { formatEuro, hoyEnEstudio, TZ_ESTUDIO } from '../utils.ts';
 
 export const PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA = 'sus-suelta-';
 
@@ -255,6 +255,9 @@ export function avisoClaseSueltaAlQuitar(p: {
 }): string | null {
   const { recibo } = p;
   if (!recibo) return null;
+  // Anulada porque la cubría su cuota: ni recupera nada ni debe nada (la devolución de la
+  // sesión cae en una clase suelta ya cancelada, que no se puede usar).
+  if (situacionRecibo(recibo) === 'ANULADO') return null;
   const pagado = importeIngresado(recibo);
   const debe = importeAdeudado(recibo);
   const conPolitica = !!recibo.suscripcionId && recibo.suscripcionId === idSuscripcionDeClaseSuelta(p.reservaId);
@@ -272,4 +275,182 @@ export function avisoClaseSueltaAlQuitar(p: {
     return debe > 0 ? `Fuera de plazo: pierde la clase suelta, y sigue debiendo ${formatEuro(debe)}` : 'Fuera de plazo: pierde la clase suelta';
   }
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La clase suelta de una clase que YA cubre su cuota.
+//
+// Se le vende una clase suelta para el lunes y el miércoles se pasa a cuota: el
+// lunes queda pagado dos veces (la clase suelta y la cuota, que empieza hoy y lo
+// incluye). Un estudio lo vivió así y tuvo que ir borrando cargos a mano. La
+// ficha lo dice en cuanto pasa, venga la cuota de donde venga, y ofrece anular la
+// clase suelta si aún no se ha cobrado; si ya la pagó, solo lo cuenta: devolver
+// el dinero es decisión del estudio.
+//
+// ⚠️ «La cubre» quiere decir que la cuota la pagaría de verdad: el día y el tipo,
+// y que quepa en su tope semanal (y en el de ese tipo de clase), contado como lo
+// cuenta la base de datos (`calcular_excede_limite_semanal`: todas sus reservas
+// vivas de la semana de Madrid, de lunes a domingo, las pague quien las pague).
+// Sin el tope, la 3.ª clase de una semana con cuota de 2 días salía «cubierta» y
+// anularla regalaba una clase.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Estados de una reserva que sí ocupan (o han ocupado) la clase: la que se canceló no se cobra dos veces. */
+const RESERVA_VIVA = new Set(['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO']);
+
+/** El lunes (YYYY-MM-DD) de la semana de Madrid de un instante, como `date_trunc('week', … at time zone 'Europe/Madrid')`. */
+export function semanaEnEstudio(inicioISO: string): string {
+  const [a, m, d] = hoyEnEstudio(new Date(inicioISO)).split('-').map(Number);
+  const dia = new Date(Date.UTC(a, m - 1, d));
+  const desdeLunes = (dia.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(a, m - 1, d - desdeLunes)).toISOString().slice(0, 10);
+}
+
+/** Una reserva de la alumna, con lo que hace falta para contar su tope semanal. */
+export interface ReservaParaTope {
+  estado: string;
+  inicio: string;
+  tipoClaseId: string | null;
+  cancelada?: boolean;
+}
+
+/** ¿Esta clase cabe en el tope semanal de la cuota (y en el de su tipo), contando todas sus reservas vivas de esa semana? */
+export function cabeEnElTopeSemanal(
+  plan: Pick<PlanTarifa, 'limiteSemanal' | 'limitePorTipo' | 'tiposClaseIds'>,
+  tipoClaseId: string | null,
+  inicioClase: string,
+  reservas: readonly ReservaParaTope[],
+): boolean {
+  const semana = semanaEnEstudio(inicioClase);
+  const deLaSemana = reservas.filter(r => RESERVA_VIVA.has(r.estado) && !r.cancelada && semanaEnEstudio(r.inicio) === semana);
+  const tope = plan.limiteSemanal ?? 0;
+  if (tope > 0 && deLaSemana.filter(r => planCubreTipoClase(plan, r.tipoClaseId)).length > tope) return false;
+  const topeTipo = tipoClaseId ? plan.limitePorTipo?.[tipoClaseId] ?? 0 : 0;
+  if (topeTipo > 0 && deLaSemana.filter(r => r.tipoClaseId === tipoClaseId).length > topeTipo) return false;
+  return true;
+}
+
+/**
+ * La cuota (MENSUAL, ACTIVA) que pagaría esta clase: la incluye ese día (hora del
+ * estudio) y ese tipo, y cabe en su tope semanal con `reservas` (TODAS las suyas,
+ * esta incluida).
+ */
+export function cuotaQueCubreLaClase(
+  socioId: string,
+  suscripciones: readonly Suscripcion[],
+  planes: readonly PlanTarifa[],
+  inicioClase: string,
+  tipoClaseId: string | null,
+  reservas: readonly ReservaParaTope[],
+): PlanTarifa | null {
+  const fecha = hoyEnEstudio(new Date(inicioClase));
+  for (const s of suscripciones) {
+    if (s.socioId !== socioId || s.estado !== 'ACTIVA') continue;
+    if (s.fechaInicio.slice(0, 10) > fecha || (s.fechaFin && s.fechaFin.slice(0, 10) < fecha)) continue;
+    const plan = planes.find(p => p.id === s.planId);
+    if (!plan || plan.tipo !== 'MENSUAL' || !planCubreTipoClase(plan, tipoClaseId)) continue;
+    if (cabeEnElTopeSemanal(plan, tipoClaseId, inicioClase, reservas)) return plan;
+  }
+  return null;
+}
+
+export interface SueltaQueCubreLaCuota {
+  reciboId: string;
+  reservaId: string;
+  /** ISO de inicio de la clase. */
+  inicio: string;
+  /** Lo pendiente o, si ya la pagó, lo pagado (neto de lo devuelto). */
+  importe: number;
+  pagado: boolean;
+  /** El recibo ya está anulado pero falta quitar la clase suelta (un intento que se quedó a medias): «Terminar». */
+  aMedias: boolean;
+  cuota: string;
+}
+
+/** Las clases sueltas de una alumna (pendientes o pagadas) de clases que ya cubre su cuota. */
+export function clasesSueltasQueCubreSuCuota(p: {
+  socioId: string;
+  recibos: readonly (ReciboParaCifras & { id: string; socioId?: string | null; suscripcionId?: string | null })[];
+  reservas: readonly { id: string; socioId: string; sesionId: string; estado: string; bonoSuscripcionId?: string | null }[];
+  sesion: (id: string) => { inicio: string; tipoClaseId: string | null; cancelada?: boolean } | undefined;
+  suscripciones: readonly Suscripcion[];
+  planes: readonly PlanTarifa[];
+}): SueltaQueCubreLaCuota[] {
+  const paraTope: ReservaParaTope[] = [];
+  for (const r of p.reservas) {
+    if (r.socioId !== p.socioId) continue;
+    const ses = p.sesion(r.sesionId);
+    if (ses) paraTope.push({ estado: r.estado, inicio: ses.inicio, tipoClaseId: ses.tipoClaseId, cancelada: ses.cancelada });
+  }
+  const fuera: SueltaQueCubreLaCuota[] = [];
+  for (const r of p.recibos) {
+    if (r.socioId !== p.socioId || !r.id.startsWith(PREFIJO_RECIBO_DE_CLASE_SUELTA)) continue;
+    const reservaId = r.id.slice(PREFIJO_RECIBO_DE_CLASE_SUELTA.length);
+    // Solo la venta de ESA reserva: un recibo suelto de antes no lleva su clase suelta.
+    if (!r.suscripcionId || r.suscripcionId !== idSuscripcionDeClaseSuelta(reservaId)) continue;
+    const reserva = p.reservas.find(x => x.id === reservaId && x.socioId === p.socioId);
+    if (!reserva || !RESERVA_VIVA.has(reserva.estado)) continue;
+    const ses = p.sesion(reserva.sesionId);
+    if (!ses || ses.cancelada) continue;
+    const cuota = cuotaQueCubreLaClase(p.socioId, p.suscripciones, p.planes, ses.inicio, ses.tipoClaseId, paraTope);
+    if (!cuota) continue;
+    const situacion = situacionRecibo(r);
+    const aMedias = situacion === 'ANULADO'
+      && (p.suscripciones.some(s => s.id === r.suscripcionId && s.estado === 'ACTIVA') || reserva.bonoSuscripcionId === r.suscripcionId);
+    const base = { reciboId: r.id, reservaId, inicio: ses.inicio, cuota: cuota.nombre };
+    if (situacion === 'POR_COBRAR') fuera.push({ ...base, importe: importeAdeudado(r), pagado: false, aMedias: false });
+    else if (aMedias) fuera.push({ ...base, importe: 0, pagado: false, aMedias: true });
+    else if (situacion === 'COBRADO') fuera.push({ ...base, importe: importeIngresado(r), pagado: true, aMedias: false });
+  }
+  return fuera.sort((a, b) => a.inicio.localeCompare(b.inicio));
+}
+
+export type MotivoParaNoAnularSuelta =
+  'NO_ES_CLASE_SUELTA' | 'NO_PENDIENTE' | 'COBRO_EN_MARCHA' | 'TIENE_FACTURA' | 'RESERVA_NO_VALE' | 'SIN_CUOTA_QUE_LA_CUBRA';
+
+/**
+ * Lo que comprueba el SERVIDOR antes de anular una clase suelta porque la cubre
+ * la cuota, con lo que ha leído él (nunca lo que diga el navegador).
+ *
+ * Un recibo ya ANULADO vale solo para TERMINAR un intento que se quedó a medias
+ * (la clase suelta sigue activa o la reserva sigue colgando de ella): repetirlo
+ * no anula nada dos veces.
+ */
+export function puedeAnularSueltaPorCuota(p: {
+  reciboId: string;
+  recibo: {
+    socio_id: string; suscripcion_id: string | null; estado: string; fecha_cobro: string | null;
+    stripe_payment_intent_id: string | null; checkout_session_id: string | null;
+    cobro_mostrador_pi: string | null; cobro_off_session_clave: string | null;
+  } | null;
+  /** La clase suelta (`sus-suelta-…`) tal como está. */
+  suelta: { estado: string } | null;
+  reserva: { socio_id: string; estado: string; bono_suscripcion_id: string | null } | null;
+  sesion: { cancelada: boolean } | null;
+  tieneFactura: boolean;
+  cuota: PlanTarifa | null;
+}): { ok: true; reservaId: string; suscripcionId: string; terminar: boolean } | { ok: false; motivo: MotivoParaNoAnularSuelta; error: string } {
+  const reservaId = p.reciboId.startsWith(PREFIJO_RECIBO_DE_CLASE_SUELTA) ? p.reciboId.slice(PREFIJO_RECIBO_DE_CLASE_SUELTA.length) : '';
+  const suscripcionId = reservaId ? idSuscripcionDeClaseSuelta(reservaId) : null;
+  if (!p.recibo || !suscripcionId || p.recibo.suscripcion_id !== suscripcionId) {
+    return { ok: false, motivo: 'NO_ES_CLASE_SUELTA', error: 'Ese recibo no es la clase suelta de una reserva.' };
+  }
+  const aMedias = p.recibo.estado === 'ANULADO'
+    && (p.suelta?.estado === 'ACTIVA' || p.reserva?.bono_suscripcion_id === suscripcionId);
+  if (!aMedias && (p.recibo.estado !== 'PENDIENTE' || p.recibo.fecha_cobro)) {
+    return { ok: false, motivo: 'NO_PENDIENTE', error: 'Esa clase suelta ya no está pendiente: si la pagó, devolver el dinero se marca en Cobros.' };
+  }
+  if (p.recibo.stripe_payment_intent_id || p.recibo.checkout_session_id || p.recibo.cobro_mostrador_pi || p.recibo.cobro_off_session_clave) {
+    return { ok: false, motivo: 'COBRO_EN_MARCHA', error: 'Esa clase suelta tiene un cobro en marcha: espera a que termine y revísala en Cobros.' };
+  }
+  if (p.tieneFactura) {
+    return { ok: false, motivo: 'TIENE_FACTURA', error: 'Esa clase suelta ya tiene factura: anularla es una rectificativa, desde Cobros.' };
+  }
+  if (!p.reserva || p.reserva.socio_id !== p.recibo.socio_id || !RESERVA_VIVA.has(p.reserva.estado) || !p.sesion || p.sesion.cancelada) {
+    return { ok: false, motivo: 'RESERVA_NO_VALE', error: 'La reserva de esa clase suelta ya no está en pie: revísala en Cobros.' };
+  }
+  if (!p.cuota) {
+    return { ok: false, motivo: 'SIN_CUOTA_QUE_LA_CUBRA', error: 'Su cuota no cubre esa clase (otro día, otro tipo o se pasa de sus clases de esa semana): la clase suelta sigue siendo lo que la paga.' };
+  }
+  return { ok: true, reservaId, suscripcionId, terminar: aMedias };
 }

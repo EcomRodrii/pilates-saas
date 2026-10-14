@@ -8,7 +8,7 @@
 // Lo que está en el banco va aparte («En el banco»): todavía no es deuda.
 
 import { useCallback, useMemo, useState } from 'react';
-import { CalendarClock, CheckSquare, ChevronDown, Clock, RefreshCw, Square, X } from 'lucide-react';
+import { Banknote, CalendarClock, CheckCheck, CheckSquare, ChevronDown, Clock, CreditCard, Landmark, RefreshCw, Smartphone, Square, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { MetodoCobro, Recibo } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
@@ -25,7 +25,8 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CabeceraTarjeta, VacioPositivo } from '@/components/dashboard/vivo';
+import { BOTON_VIVO, CabeceraTarjeta, VacioPositivo } from '@/components/dashboard/vivo';
+import { MenuAcciones } from '@/components/ui/menu-acciones';
 import { FichaDeudora } from './ficha-deudora';
 import { EnElBanco } from './en-el-banco';
 import { ProximasCuotas } from './proximas-cuotas';
@@ -35,9 +36,9 @@ import type { AccionesRecibo, AvisosCobros } from './use-acciones-recibo';
 import type { DatosCobros } from './use-datos-cobros';
 
 const POR_PAGINA = 50;
-const METODOS: { metodo: MetodoCobro; texto: string }[] = [
-  { metodo: 'EFECTIVO', texto: 'Efectivo' }, { metodo: 'TARJETA', texto: 'Tarjeta' },
-  { metodo: 'BIZUM', texto: 'Bizum' }, { metodo: 'TRANSFERENCIA', texto: 'Transferencia' },
+const METODOS: { metodo: MetodoCobro; texto: string; icono: typeof Banknote }[] = [
+  { metodo: 'EFECTIVO', texto: 'Efectivo', icono: Banknote }, { metodo: 'TARJETA', texto: 'Tarjeta', icono: CreditCard },
+  { metodo: 'BIZUM', texto: 'Bizum', icono: Smartphone }, { metodo: 'TRANSFERENCIA', texto: 'Transferencia', icono: Landmark },
 ];
 
 /** Lo que la pantalla puede pedir al abrir la lista (la cifra «Devueltos y fallidos» del panel nuevo). */
@@ -127,7 +128,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
       )}
       <span className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
         <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar clienta o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
-        {grupos.length > 0 && (
+        {grupos.length > 0 && !nueva && (
           <button
             type="button"
             onClick={() => (seleccionando ? salirDeSeleccion() : setSeleccionando(true))}
@@ -142,8 +143,27 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
     </div>
   );
   const coincidencia = busqueda || (chip ? TEXTO_ESTADO[chip as keyof typeof TEXTO_ESTADO] ?? 'Se reintenta solo' : atencion ? 'Devueltos y fallidos' : '');
+  const todasMarcadas = marcables.length > 0 && marcables.every(g => marcadas.has(g.clave));
   const lista = (
     <>
+      {nueva && marcables.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-[13px]">
+          <button
+            type="button"
+            onClick={() => setMarcadas(todasMarcadas ? new Set() : new Set(marcables.map(g => g.clave)))}
+            aria-pressed={todasMarcadas}
+            className="inline-flex items-center gap-2 font-semibold text-foreground"
+          >
+            {todasMarcadas ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
+            Seleccionar todo
+          </button>
+          <span className="ml-auto text-[12.5px] text-muted-foreground">
+            {marcadas.size > 0
+              ? <>{marcadas.size} {marcadas.size === 1 ? 'seleccionada' : 'seleccionadas'} · <CifraPrivada inline>{formatEuro(importeLote)}</CifraPrivada></>
+              : 'Lo que se reintenta solo no entra: ya lo cobra el sistema.'}
+          </span>
+        </div>
+      )}
       {seleccionando && (
         <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[12.5px]">
           <button
@@ -166,6 +186,8 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
             seleccionando={seleccionando}
             marcada={marcadas.has(g.clave)}
             sinLote={loteDe(g).length === 0}
+            conCasilla={nueva}
+            onAlternar={() => alternar(g.clave)}
             compacta={lateral || enMovil}
             onAbrir={() => (seleccionando ? (loteDe(g).length > 0 && alternar(g.clave)) : setAbierta(g.clave === abierta ? null : g.clave))}
             onCobrar={() => setAbierta(g.clave)}
@@ -193,7 +215,25 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
           ) : (
             <section aria-label="Quién me debe" className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card">
               <div className="space-y-3 border-b border-border px-4 py-4 sm:px-5">
-                <CabeceraTarjeta tono="azul" Icono={Clock} titulo="Quién me debe" sub="Una fila por clienta, con todo lo que debe" />
+                <CabeceraTarjeta
+                  tono="azul" Icono={Clock} titulo="Quién me debe" sub="Una fila por clienta, con todo lo que debe"
+                  derecha={marcables.length > 0 ? (idsLote.length > 0 ? (
+                    <MenuAcciones
+                      etiqueta={`Marcar ${marcadas.size} como cobrado`}
+                      titulo="¿Cómo te han pagado?"
+                      claseBoton={cn(BOTON_VIVO, 'h-9 shrink-0 px-3.5 text-[13px]')}
+                      boton={<><CheckCheck size={15} aria-hidden />Marcar {marcadas.size} como cobrado</>}
+                      acciones={METODOS.map(m => ({
+                        texto: m.texto, icono: m.icono,
+                        onClick: () => { setMetodoLote(m.metodo); setCobrandoLote(true); },
+                      }))}
+                    />
+                  ) : (
+                    <button type="button" disabled title="Marca primero a quién" className={cn(BOTON_VIVO, 'h-9 shrink-0 px-3.5 text-[13px] opacity-50')}>
+                      <CheckCheck size={15} aria-hidden />Marcar como cobrado
+                    </button>
+                  )) : undefined}
+                />
                 {barra}
               </div>
               {filtrados.length === 0
@@ -290,14 +330,14 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
           metodo={metodoLote}
           abierto={cobrandoLote}
           avisos={avisos}
-          onCerrar={cobrado => { setCobrandoLote(false); if (cobrado) salirDeSeleccion(); }}
+          onCerrar={cobrado => { setCobrandoLote(false); if (cobrado) salirDeSeleccion(); else if (nueva) setMetodoLote(null); }}
         />
       )}
     </div>
   );
 }
 
-function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, compacta, onAbrir, onCobrar }: {
+function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, compacta, onAbrir, onCobrar, conCasilla = false, onAlternar }: {
   grupo: GrupoDeDeuda<Recibo>;
   datos: DatosCobros;
   activa: boolean;
@@ -307,6 +347,9 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
   compacta: boolean;
   onAbrir: () => void;
   onCobrar: () => void;
+  /** Panel nuevo: la casilla siempre a la vista, como en Bonsai; marcarla no abre la ficha. */
+  conCasilla?: boolean;
+  onAlternar?: () => void;
 }) {
   const socio = datos.socioDe(grupo.socioId);
   const dias = diasDebiendo(grupo, datos.hoy);
@@ -316,9 +359,22 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
     ? (medio.aviso ?? (medio.domiciliacionRemesa || medio.domiciliacionStripe ? 'Domiciliada' : medio.tarjeta ? medio.tarjeta.nombre : 'Sin tarjeta'))
     : null;
   return (
-    <li data-deudora={grupo.clave} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', activa && 'bg-brand/8', seleccionando && sinLote && 'opacity-60')}>
+    <li data-deudora={grupo.clave} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', activa && 'bg-brand/8', seleccionando && sinLote && 'opacity-60', conCasilla && marcada && !activa && 'bg-[color-mix(in_srgb,var(--t-blue-500)_6%,var(--card))]')}>
       {seleccionando && (
         <span className="shrink-0 text-foreground" aria-hidden>{marcada ? <CheckSquare size={18} /> : <Square size={18} className="text-muted-foreground" />}</span>
+      )}
+      {conCasilla && (
+        <button
+          type="button"
+          onClick={onAlternar}
+          disabled={sinLote}
+          aria-pressed={marcada}
+          aria-label={`${marcada ? 'Desmarcar' : 'Marcar'} a ${datos.nombreDe(grupo.socioId)}`}
+          title={sinLote ? 'Se cobra solo: no entra en marcar como cobrado' : undefined}
+          className="-m-1.5 flex size-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40"
+        >
+          {marcada ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
+        </button>
       )}
       <button type="button" onClick={onAbrir} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={seleccionando ? `${marcada ? 'Desmarcar' : 'Marcar'} a ${datos.nombreDe(grupo.socioId)}` : `Abrir la ficha de ${datos.nombreDe(grupo.socioId)}`} disabled={seleccionando && sinLote}>
         {socio

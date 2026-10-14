@@ -26,6 +26,7 @@ const RUTAS: Array<{ ruta: string; acciones: string[] }> = [
   { ruta: 'app/api/facturas/rectificar/route.ts', acciones: ['FACTURA_RECTIFICATIVA_EMITIDA'] },
   { ruta: 'app/api/pos/devolucion/route.ts', acciones: ['DEVOLUCION_CAJA'] },
   { ruta: 'app/api/reservas/crear/route.ts', acciones: ['CLASE_SUELTA_VENDIDA'] },
+  { ruta: 'app/api/cobros/anular-clase-suelta/route.ts', acciones: ['CLASE_SUELTA_ANULADA_POR_CUOTA'] },
   { ruta: 'app/api/cobros/reembolso-manual/route.ts', acciones: [] }, // la anota lib/billing/reembolso-manual.ts
   { ruta: 'app/api/cobros/reintentar-banco/route.ts', acciones: [] }, // la anota lib/billing/marcar-devuelto.ts
 ];

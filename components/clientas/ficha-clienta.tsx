@@ -15,7 +15,7 @@ import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
-import { borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
+import { anularClaseSueltaPorCuota, borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
 import { DialogoBorrarDatos, DialogoDarDeBaja } from '@/components/socios/dar-de-baja';
 import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
@@ -59,7 +59,8 @@ import {
   CircleDollarSign, CalendarCheck, CalendarPlus, HeartPulse, Gift, Smartphone, Image as ImageIcon,
   MessageCircle, ChevronRight, UserRound, Users, Sparkles, Coins, ListChecks, MessagesSquare, Check, Pin, Bell, type LucideIcon,
 } from 'lucide-react';
-import { cn, formatEuro, hoyEnEstudio } from '@/lib/utils';
+import { cn, fechaCortaEstudio, formatEuro, horaEstudio, hoyEnEstudio } from '@/lib/utils';
+import { clasesSueltasQueCubreSuCuota, type SueltaQueCubreLaCuota } from '@/lib/reservas/clase-suelta';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { cumpleMesDia } from '@/lib/socios/datos-privados';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
@@ -327,6 +328,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
   const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // La clase suelta que ya cubre su cuota, a punto de anularse (con su confirmación).
+  const [sueltaAAnular, setSueltaAAnular] = useState<SueltaQueCubreLaCuota | null>(null);
+  const [anulandoSuelta, setAnulandoSuelta] = useState(false);
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
   const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
@@ -530,6 +534,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     () => resumenSocio({ socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now }),
     [socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now],
   );
+  // Clases sueltas de clases que YA cubre su cuota (se le vendió la del lunes y el
+  // miércoles pasó a cuota): sin decirlo, el lunes se cobraba dos veces. Sale venga
+  // la cuota de donde venga (ficha, Calendario, TPV, su app).
+  const sueltasEnSuCuota = useMemo(() => clasesSueltasQueCubreSuCuota({
+    socioId: id, recibos: misRecibos, reservas: misReservas,
+    sesion: sid => { const s = sesionById.get(sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
+    suscripciones, planes: planesTarifa,
+  }), [id, misRecibos, misReservas, sesionById, suscripciones, planesTarifa]);
 
   // Otras suscripciones ACTIVA del mismo socio, aparte de la que ya se
   // enseña en la tarjeta "Plan" — el staff es quien decide si hace falta
@@ -1080,6 +1092,26 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   }
   if (!socio.aceptacionContrato) {
     alertas.push({ icono: FileSignature, tono: 'aviso', texto: 'Falta que acepte el contrato: se le pide al reservar', onClick: gestionaClientas ? () => setActiveTab('datos') : undefined });
+  }
+  if (verFinanzas) {
+    for (const sc of sueltasEnSuCuota) {
+      const cuando = `${fechaCortaEstudio(sc.inicio)}, ${horaEstudio(sc.inicio)}`;
+      alertas.push(sc.pagado
+        ? {
+          icono: Coins, tono: 'aviso',
+          texto: <>Pagó {formatEuro(sc.importe)} por la clase suelta del <strong className="font-semibold">{cuando}</strong>, que ya cubre su cuota · si se los devuelves, márcalo en Pagos y quítale la clase suelta</>,
+          onClick: () => setActiveTab('pagos'),
+        }
+        : sc.aMedias ? {
+          icono: Coins, tono: 'aviso',
+          texto: <>La clase suelta del <strong className="font-semibold">{cuando}</strong> quedó anulada a medias{puedeCobrar ? ' · terminar' : ''}</>,
+          onClick: puedeCobrar ? () => setSueltaAAnular(sc) : () => setActiveTab('pagos'),
+        } : {
+          icono: Coins, tono: 'aviso',
+          texto: <>Su cuota ya cubre la clase del <strong className="font-semibold">{cuando}</strong> y tiene pendiente su clase suelta de {formatEuro(sc.importe)}{puedeCobrar ? ' · anularla' : ''}</>,
+          onClick: puedeCobrar ? () => setSueltaAAnular(sc) : () => setActiveTab('pagos'),
+        });
+    }
   }
   if (verFinanzas && pagosFallidos.length > 0) {
     alertas.push({ icono: AlertTriangle, tono: 'problema', texto: pagosFallidos.length === 1 ? 'Tiene un pago fallido' : `Tiene ${pagosFallidos.length} pagos fallidos`, onClick: () => setActiveTab('pagos') });
@@ -2887,6 +2919,53 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         onCerrar={() => { setShowConfirmDelete(false); setErrorBorrar(null); }}
         onConfirmar={() => void handleDelete()}
       />
+
+      {/* La clase suelta que ya cubre su cuota: anularla, con lo que pasa dicho antes. */}
+      <Dialog open={sueltaAAnular !== null && puedeCobrar} onOpenChange={open => { if (!open && !anulandoSuelta) setSueltaAAnular(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">{sueltaAAnular?.aMedias ? '¿Terminar de anular la clase suelta?' : '¿Anular la clase suelta?'}</DialogTitle>
+          </DialogHeader>
+          {sueltaAAnular && (
+            <p className="text-sm text-muted-foreground mt-1">
+              La clase del {fechaCortaEstudio(sueltaAAnular.inicio)}, {horaEstudio(sueltaAAnular.inicio)} ya entra en su cuota «{sueltaAAnular.cuota}».
+              {sueltaAAnular.aMedias
+                ? ' Su recibo ya está anulado y no se le cobra; falta quitar la clase suelta para que la clase quede con su cuota.'
+                : ` Se anula el recibo de ${formatEuro(sueltaAAnular.importe)} y no se le cobra; la clase sigue reservada, ahora con la cuota.`}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              disabled={anulandoSuelta}
+              onClick={async () => {
+                if (!sueltaAAnular || anulandoSuelta) return;
+                setAnulandoSuelta(true);
+                try {
+                  const r = await anularClaseSueltaPorCuota(sueltaAAnular.reciboId);
+                  if (!r.ok) { setToastError(r.error); return; }
+                  await refrescarTrasVentaPOS();
+                  setToast(r.aviso ?? (sueltaAAnular.aMedias
+                    ? 'Clase suelta quitada: la clase queda con su cuota.'
+                    : `Clase suelta anulada: no se le cobrarán ${formatEuro(sueltaAAnular.importe)}. La clase la cubre su cuota.`));
+                  setSueltaAAnular(null);
+                } finally {
+                  setAnulandoSuelta(false);
+                }
+              }}
+              className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-60"
+            >
+              {anulandoSuelta ? 'Anulando…' : sueltaAAnular?.aMedias ? 'Terminar' : 'Anular la clase suelta'}
+            </button>
+            <button
+              disabled={anulandoSuelta}
+              onClick={() => setSueltaAAnular(null)}
+              className="w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-60"
+            >
+              Dejarla
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast */}
       {toast && <Toast message={toast.mensaje} variant={toast.variant} onDismiss={() => setToastEstado(null)} />}
