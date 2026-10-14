@@ -159,6 +159,7 @@ export default function MigracionPage() {
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
   const { resetDatosPilates, planesTarifa, instructores, salas, citasServicios } = useStudio();
   const rol = useRol();
+  const esPropietaria = rol === 'PROPIETARIO';
   // Panel nuevo (14-oct-2026): la pantalla de subir enseña qué se puede traer y
   // los cuatro pasos; el flujo, las llamadas y los estados son los mismos.
   const panelNuevo = usePanelNuevo();
@@ -587,7 +588,10 @@ export default function MigracionPage() {
             <div className={panelNuevo ? 'mt-8 rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6' : 'mt-8'}>
               <h2 className={panelNuevo ? 'text-[16px] font-semibold text-foreground' : 'text-[13px] font-extrabold text-foreground'}>Migraciones recientes</h2>
               <p className="text-[12px] text-muted-foreground mt-1 mb-3">
-                Puedes deshacer cualquiera con un clic: se borra exactamente lo que creó, y nada más. Siguen aquí aunque recargues la página.
+                {/* Panel nuevo: deshacer es solo de la propietaria (/api/migracion/deshacer); al resto no se le ofrece un botón que el servidor rechaza. */}
+                {panelNuevo && !esPropietaria
+                  ? 'La propietaria puede deshacer cualquiera con un clic: se borra exactamente lo que creó, y nada más.'
+                  : 'Puedes deshacer cualquiera con un clic: se borra exactamente lo que creó, y nada más. Siguen aquí aunque recargues la página.'}
               </p>
               <div className="space-y-2">
                 {recientes.map(b => (
@@ -596,7 +600,7 @@ export default function MigracionPage() {
                       <p className="text-[13px] font-semibold text-foreground">{fechaLote(b.creadoEn)}</p>
                       <p className="text-[12px] text-muted-foreground truncate">{resumenBatch(b.conteos)}</p>
                     </div>
-                    <button
+                    {(!panelNuevo || esPropietaria) && <button
                       onClick={() => setConfirmarReciente(b.id)}
                       disabled={deshaciendoReciente === b.id}
                       className={panelNuevo
@@ -604,7 +608,7 @@ export default function MigracionPage() {
                         : 'flex items-center gap-1.5 py-2 px-3 rounded-xl border border-border text-[12px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition shrink-0'}
                     >
                       <Undo2 size={14} /> {deshaciendoReciente === b.id ? 'Deshaciendo…' : 'Deshacer'}
-                    </button>
+                    </button>}
                   </div>
                 ))}
               </div>
@@ -945,7 +949,7 @@ export default function MigracionPage() {
           </p>
 
           <div className="flex gap-3">
-            {!deshecho && (
+            {!deshecho && (!panelNuevo || esPropietaria) && (
               <button
                 onClick={() => setConfirmDeshacer(true)}
                 disabled={deshaciendo}
