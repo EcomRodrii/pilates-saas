@@ -1,5 +1,6 @@
 'use client';
 
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useEffect, useId, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, Clock, Search } from 'lucide-react';
@@ -133,7 +134,10 @@ export function InicioConfiguracion({
   // «Pon tu estudio a punto» es la guía de la PROPIETARIA: sus pasos son el NIF,
   // Stripe, la marca y el contrato, ninguno de la gerencia. Contarle un «3 de 8»
   // que no puede mover sería un recado para otra persona.
-  const aPunto = rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
+  // Con el panel nuevo, la guía de inicio es UNA: «Pon en marcha tu estudio» del
+  // Resumen. Aquí no se repite (eran tres guías diciendo cosas distintas).
+  const panelNuevo = usePanelNuevo();
+  const aPunto = !panelNuevo && rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
     && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
 
   // «Sedes» se busca por lo que dice el plan, no por las sedes que carga «Mi

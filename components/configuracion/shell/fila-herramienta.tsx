@@ -1,5 +1,8 @@
 'use client';
 
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TONOS } from '@/components/dashboard/vivo';
+import { useTonoConfig } from './tono-config';
 import Link from 'next/link';
 import { BellRing, CalendarRange, ChevronRight, Code2, DoorOpen, Gift, Mail, Newspaper, Smartphone, Ticket, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,6 +44,16 @@ export const idFilaHerramienta = (id: HerramientaId) => `fila-herramienta-${id}`
 export const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
 
 export function IconoFila({ icono: Icono }: { icono: LucideIcon }) {
+  // Panel nuevo: la baldosa con el color de la sección, como en la home.
+  const panelNuevo = usePanelNuevo();
+  const tono = useTonoConfig();
+  if (panelNuevo) {
+    return (
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: TONOS[tono], color: 'var(--card)' }}>
+        <Icono size={19} strokeWidth={2.1} aria-hidden />
+      </span>
+    );
+  }
   return (
     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
       <Icono size={20} aria-hidden />
