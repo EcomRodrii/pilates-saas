@@ -35,7 +35,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
-import { rolesQuePuedeAsignar, puedeGestionarEquipo, ETIQUETA_ROL } from '@/lib/permisos-reglas';
+import { rolesQuePuedeAsignar, puedeGestionarEquipo, puedeVer, ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import { reiniciaAccesoAlCambiarEmail } from '@/lib/equipo/reinicio-acceso';
 import { cambiosDeFicha, type CamposFicha } from '@/lib/equipo/cambios-ficha';
 import {
@@ -47,6 +47,11 @@ import { ERROR_RED } from '@/lib/errores';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { enlaceInvitacionWhatsApp } from '@/lib/equipo/invitacion-whatsapp';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
+import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
+import { CifrasEquipo, SemanaDelEquipo } from '@/components/equipo/resumen-equipo';
 
 type FiltroEstadoEquipo = FiltroEstado;
 
@@ -152,6 +157,10 @@ export default function EquipoPage() {
   // `EQUIPO_INVITAR_WHATSAPP`. El WhatsApp NUNCA lleva el enlace de invitación:
   // ver `lib/equipo/invitacion-whatsapp.ts`.
   const avisarPorWhatsApp = useInterruptor('invitarWhatsApp', studio?.id);
+  // Panel nuevo (interruptor `panelNuevo`, 14-oct-2026): cifras de color arriba,
+  // el reparto de la semana, quién no está y un vacío que enseña. Apagado, la
+  // pantalla es la de siempre: todo lo nuevo va detrás de esto.
+  const panelNuevo = usePanelNuevo();
   // El dominio de la app: el de producción (como el correo de invitación) y, si
   // no está configurado, el de la pestaña ('' al pintar en el servidor).
   const origenPestana = useSyncExternalStore(sinSuscripcion, () => window.location.origin, () => '');
@@ -537,12 +546,49 @@ export default function EquipoPage() {
   const conAcceso = tarjetas.filter(m => m.conAcceso).length;
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
 
+  // ── Panel nuevo: la cabecera ──────────────────────────────────────────────
+  // La acción principal con el degradado del logo y «Rendimiento» con borde; el
+  // resto de pantallas del equipo, en el ⋯ (en el móvil, todas: no caben cinco
+  // botones en una fila). Los mismos permisos que la cabecera de siempre.
+  const pantallasEquipo: (AccionMenu & { href: string })[] = puedeGestionarEquipo(miRol) ? [
+    { href: '/equipo/rendimiento', texto: 'Rendimiento', icono: TrendingUp, nota: 'Retención y conversión de cada una, últimos 90 días', onClick: () => router.push('/equipo/rendimiento') },
+    { href: '/equipo/tiempo-trabajado', texto: 'Tiempo trabajado', icono: Clock, nota: 'Las jornadas que fichan y las clases que dan', onClick: () => router.push('/equipo/tiempo-trabajado') },
+    { href: '/equipo/liquidaciones', texto: 'Liquidaciones', icono: Euro, nota: 'Lo que le corresponde a cada una este mes', onClick: () => router.push('/equipo/liquidaciones') },
+    // Tentare Network está congelado (lib/frozen-features.ts): vuelve solo al descongelarlo.
+    ...(!esRutaCongelada('/network/buscar')
+      ? [{ href: '/network/buscar', texto: 'Buscar en Tentare Network', icono: Network, onClick: () => router.push('/network/buscar') }]
+      : []),
+  ] : [];
+  const [rendimiento, ...otrasPantallas] = pantallasEquipo;
+  const accionesNuevas = (
+    <>
+      {pantallasEquipo.length > 0 && (
+        <span className="sm:hidden">
+          <MenuAcciones acciones={pantallasEquipo} claseBoton={BOTON_MENU} etiqueta="Más del equipo" />
+        </span>
+      )}
+      {rendimiento && (
+        <Link href={rendimiento.href} className={cn(BOTON_BORDE, 'hidden sm:inline-flex')}>
+          <TrendingUp size={15} aria-hidden /> Rendimiento
+        </Link>
+      )}
+      {otrasPantallas.length > 0 && (
+        <span className="hidden sm:inline-flex">
+          <MenuAcciones acciones={otrasPantallas} claseBoton={BOTON_MENU} etiqueta="Más del equipo" />
+        </span>
+      )}
+      <span data-tour="equipo-nuevo" className="inline-flex">
+        <BotonVivo Icono={Plus} onClick={openNuevo} label="Nuevo miembro" />
+      </span>
+    </>
+  );
+
   return (
     <div data-tour="equipo-vista" className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"
-        actions={tab === 'equipo' && gestiona && (
+        actions={tab === 'equipo' && gestiona && (panelNuevo ? accionesNuevas : (
           <div className="flex items-center gap-2">
             {puedeGestionarEquipo(miRol) && (
               <>
@@ -568,9 +614,17 @@ export default function EquipoPage() {
               <Plus size={16} /> Nuevo miembro
             </button>
           </div>
-        )}
+        ))}
       />
 
+      {panelNuevo ? (
+        <PestanasVivas
+          etiqueta="Vista"
+          valor={tab}
+          onCambio={setTab}
+          pestanas={[{ id: 'equipo', label: 'Equipo' }, { id: 'actividad', label: 'Actividad' }]}
+        />
+      ) : (
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
         {(['equipo', 'actividad'] as const).map(t => (
           <button
@@ -584,6 +638,7 @@ export default function EquipoPage() {
           </button>
         ))}
       </div>
+      )}
 
       {tab === 'actividad' ? (
         <ActividadTab actividadReciente={actividadReciente} />
@@ -596,7 +651,29 @@ export default function EquipoPage() {
           «0 miembros · 0 clases · 0 €» justo encima de un cartel que dice que
           no hemos podido cargar el equipo. Cero no es «no lo sé», y aquí no lo
           sabemos: la fila entera se calla. */}
-      {!falloTarjetas && (
+      {panelNuevo ? (
+        // Panel nuevo: cuatro cifras como las de la home y, debajo, la semana del
+        // equipo. Con el equipo vacío no van: el vacío de abajo ya lo dice todo.
+        !falloTarjetas && (cargandoTarjetas || tarjetas.length > 0) && (
+          <>
+            <CifrasEquipo
+              tarjetas={tarjetas}
+              cargando={cargandoTarjetas}
+              esPropietaria={miRol === 'PROPIETARIO'}
+              irACalendario={puedeVer(miRol, '/calendario')}
+              irARendimiento={puedeGestionarEquipo(miRol)}
+              irALiquidaciones={puedeGestionarEquipo(miRol)}
+            />
+            {!cargandoTarjetas && (
+              <SemanaDelEquipo
+                tarjetas={tarjetas}
+                ausencias={ausencias}
+                onAbrirAusencias={gestiona ? (id) => { const i = instructores.find(x => x.id === id); if (i) setVerAusencias(i); } : undefined}
+              />
+            )}
+          </>
+        )
+      ) : !falloTarjetas && (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Miembros', value: tarjetas.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
@@ -659,6 +736,21 @@ export default function EquipoPage() {
           descripcion="Es un problema nuestro, no que te falten instructoras. Vuelve a intentarlo."
           cta={{ label: 'Reintentar', onClick: () => { setCargandoTarjetas(true); recargarTarjetas(); } }}
         />
+      ) : tarjetas.length === 0 && panelNuevo ? (
+        // Panel nuevo: el vacío que enseña para qué sirve esto y cómo empezar.
+        <PantallaVacia
+          tono="verde"
+          Icono={Users}
+          titulo="Añade a quien da clase contigo"
+          texto="Verás a cada instructora con sus clases de la semana, cómo se llenan y qué día tiene libre."
+          ejemplos={[
+            { accion: 'Pídele su disponibilidad', cuando: 'con un enlace que abre en el móvil, sin crear cuenta.' },
+            { accion: 'Si un día no puede dar su clase,', cuando: 'avisa ella y se busca sustituta.' },
+            { accion: 'Mira quién tiene el día libre', cuando: 'cuando falte alguien.' },
+          ]}
+          accion={gestiona ? { label: 'Añadir a mi primera instructora', Icono: Plus, onClick: openNuevo } : undefined}
+          secundaria={puedeGestionarEquipo(miRol) && puedeVer(miRol, '/migracion') ? { label: '¿Vienes de otro programa? Tráelas con tus clases', href: '/migracion' } : undefined}
+        />
       ) : tarjetas.length === 0 ? (
         <EmptyState
           icono={Users}
@@ -676,7 +768,7 @@ export default function EquipoPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {ordenados.map(m => (
             <TarjetaMiembro
-              key={m.id} m={m} rolViewer={miRol} gestiona={gestiona}
+              key={m.id} m={m} rolViewer={miRol} gestiona={gestiona} nueva={panelNuevo}
               relacion={puedeGestionarEquipo(miRol) && m.rol === 'INSTRUCTOR' ? (relaciones?.[m.id] ?? null) : null}
               refCb={el => { if (el) fichaRefs.current.set(m.id, el); else fichaRefs.current.delete(m.id); }}
               pedido={!!pedido[m.id]}
@@ -1064,10 +1156,12 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 };
 
 function TarjetaMiembro({
-  m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
+  m, rolViewer, gestiona, nueva = false, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
   onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion, avisoWhatsApp,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
+  /** Panel nuevo: la tarjeta con el radio y la sombra de las de la home. */
+  nueva?: boolean;
   /** Contratada/autónoma (control horario). Solo para quien gestiona el equipo; null = no se enseña. */
   relacion?: 'CONTRATADA' | 'AUTONOMA' | null;
   pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
@@ -1095,7 +1189,9 @@ function TarjetaMiembro({
   return (
     <article
       ref={refCb}
-      className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none"
+      className={nueva
+        ? 'bg-card border border-border rounded-t-card shadow-t-card p-5 flex flex-col gap-4 transition-shadow hover:shadow-t-floating motion-reduce:transition-none'
+        : 'bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none'}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
