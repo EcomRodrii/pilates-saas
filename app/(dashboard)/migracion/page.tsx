@@ -28,7 +28,7 @@ import {
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
   type FilaRecuperacion,
 } from '@/lib/csv';
-import { uid, hoyEnEstudio } from '@/lib/utils';
+import { uid, hoyEnEstudio, cn } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
 import type { BatchReciente } from '@/lib/migracion/batches';
 import { planesSinCasar, aplicarMapeoPlanes, normalizarNombrePlan } from '@/lib/migracion/planes';
@@ -42,6 +42,10 @@ import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { estadoDeLaMigracion } from '@/lib/tenti/momentos';
 import { bloqueadaPor, estadoDeEntidad, actaIncompleta, type EstadoEntidad } from '@/lib/migracion/ejecucion';
 import { incidenciasACsv, incidenciasDeImportacion, type IncidenciasDeEntidad, type ResultadoParaIncidencias } from '@/lib/migracion/incidencias';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_VIVO } from '@/components/dashboard/vivo';
+import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
+import { PasosMigracion, QueSePuedeTraer, ZonaArrastreNueva } from '@/components/migracion/traer-datos-nuevo';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -155,6 +159,9 @@ export default function MigracionPage() {
   // hasta recargar la página a mano. resetDatosPilates re-lee todo del servidor.
   const { resetDatosPilates, planesTarifa, instructores, salas, citasServicios } = useStudio();
   const rol = useRol();
+  // Panel nuevo (14-oct-2026): la pantalla de subir enseña qué se puede traer y
+  // los cuatro pasos; el flujo, las llamadas y los estados son los mismos.
+  const panelNuevo = usePanelNuevo();
   // Contexto del estudio para reanalizar mapeos manuales con los mismos avisos
   // (planes/instructoras/salas/servicios inexistentes) que la vía automática.
   const ctxEstudio: ContextoEstudio = {
@@ -504,6 +511,15 @@ export default function MigracionPage() {
       {/* ── Paso 1: subir ──────────────────────────────────────────────────── */}
       {(paso === 'subir' || paso === 'analizando') && (
         <div>
+          {panelNuevo ? (
+            <ZonaArrastreNueva
+              arrastrando={arrastrando}
+              onArrastrando={setArrastrando}
+              onFiles={lista => void onFiles(lista)}
+              inputRef={inputRef}
+              inputId={inputId}
+            />
+          ) : (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -523,12 +539,13 @@ export default function MigracionPage() {
               onChange={e => { if (e.target.files) void onFiles(e.target.files); e.target.value = ''; }}
             />
           </button>
+          )}
 
           {archivos.length > 0 && (
             <div className="mt-4 space-y-2">
               {archivos.map(a => (
-                <div key={a.nombre} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
-                  <FileSpreadsheet size={16} className="text-brand-medio shrink-0" />
+                <div key={a.nombre} className={panelNuevo ? 'flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-t-card' : 'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5'}>
+                  <FileSpreadsheet size={16} className="text-brand-medio shrink-0" style={panelNuevo ? { color: 'var(--cat-2)' } : undefined} />
                   <span className="flex-1 text-[13px] font-medium text-foreground truncate">{a.nombre}</span>
                   <button
                     onClick={() => setArchivos(prev => prev.filter(x => x.nombre !== a.nombre))}
@@ -545,7 +562,9 @@ export default function MigracionPage() {
                 onClick={analizar}
                 disabled={paso === 'analizando'}
                 aria-busy={paso === 'analizando'}
-                className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 [&:disabled:not([aria-busy=true])]:opacity-60 transition"
+                className={panelNuevo
+                  ? cn(BOTON_VIVO, 'mt-2 h-12 w-full gap-2 text-[14px] [&:disabled:not([aria-busy=true])]:opacity-60')
+                  : 'mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 [&:disabled:not([aria-busy=true])]:opacity-60 transition'}
               >
                 {/* Tenti en sus dos estados. Aquí Tentare está de verdad
                     leyendo unos ficheros que no ha visto nunca y decidiendo qué
@@ -565,14 +584,14 @@ export default function MigracionPage() {
           {/* Migraciones deshacibles: recuperadas del servidor, así el botón de
               deshacer sigue aquí aunque se recargue la página o se vuelva luego. */}
           {recientes.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-[13px] font-extrabold text-foreground">Migraciones recientes</h2>
+            <div className={panelNuevo ? 'mt-8 rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6' : 'mt-8'}>
+              <h2 className={panelNuevo ? 'text-[16px] font-semibold text-foreground' : 'text-[13px] font-extrabold text-foreground'}>Migraciones recientes</h2>
               <p className="text-[12px] text-muted-foreground mt-1 mb-3">
                 Puedes deshacer cualquiera con un clic: se borra exactamente lo que creó, y nada más. Siguen aquí aunque recargues la página.
               </p>
               <div className="space-y-2">
                 {recientes.map(b => (
-                  <div key={b.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                  <div key={b.id} className={panelNuevo ? 'flex items-center gap-3 rounded-2xl border border-border px-4 py-3' : 'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3'}>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-foreground">{fechaLote(b.creadoEn)}</p>
                       <p className="text-[12px] text-muted-foreground truncate">{resumenBatch(b.conteos)}</p>
@@ -580,13 +599,24 @@ export default function MigracionPage() {
                     <button
                       onClick={() => setConfirmarReciente(b.id)}
                       disabled={deshaciendoReciente === b.id}
-                      className="flex items-center gap-1.5 py-2 px-3 rounded-xl border border-border text-[12px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition shrink-0"
+                      className={panelNuevo
+                        ? cn(BOTON_BORDE, 'shrink-0 disabled:opacity-50')
+                        : 'flex items-center gap-1.5 py-2 px-3 rounded-xl border border-border text-[12px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition shrink-0'}
                     >
                       <Undo2 size={14} /> {deshaciendoReciente === b.id ? 'Deshaciendo…' : 'Deshacer'}
                     </button>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Lo que enseña la pantalla nueva: los pasos y lo que se puede traer,
+              debajo de lo que se usa (la caja, los archivos y lo ya migrado). */}
+          {panelNuevo && (
+            <div className="mt-8 space-y-5">
+              <PasosMigracion esPropietaria={rol === 'PROPIETARIO'} />
+              <QueSePuedeTraer />
             </div>
           )}
         </div>
@@ -602,7 +632,7 @@ export default function MigracionPage() {
           ))}
 
           {archivosEfectivos.map(a => (
-            <div key={a.nombre} className="rounded-2xl border border-border bg-card p-4">
+            <div key={a.nombre} className={panelNuevo ? 'rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5' : 'rounded-2xl border border-border bg-card p-4'}>
               <div className="flex items-center gap-3">
                 <FileSpreadsheet size={18} className={a.entidad ? 'text-brand-medio' : 'text-muted-foreground'} />
                 <div className="flex-1 min-w-0">
@@ -793,13 +823,15 @@ export default function MigracionPage() {
           )}
 
           <div className="flex gap-3">
-            <button onClick={() => { setPaso('subir'); setPlan(null); }} className="flex-1 py-3 rounded-2xl border border-border text-[13px] font-bold text-foreground hover:bg-muted transition">
+            <button onClick={() => { setPaso('subir'); setPlan(null); }} className={panelNuevo ? cn(BOTON_BORDE, 'h-12 flex-1') : 'flex-1 py-3 rounded-2xl border border-border text-[13px] font-bold text-foreground hover:bg-muted transition'}>
               Volver
             </button>
             <button
               onClick={ejecutar}
               disabled={totalOk === 0}
-              className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 disabled:opacity-50 transition"
+              className={panelNuevo
+                ? cn(BOTON_VIVO, 'h-12 flex-[2] gap-2 text-[14px] disabled:pointer-events-none disabled:opacity-50')
+                : 'flex-[2] flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 disabled:opacity-50 transition'}
             >
               Importar {totalOk} registro{totalOk === 1 ? '' : 's'} <ArrowRight size={15} />
             </button>
@@ -917,14 +949,18 @@ export default function MigracionPage() {
               <button
                 onClick={() => setConfirmDeshacer(true)}
                 disabled={deshaciendo}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-border text-[13px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition"
+                className={panelNuevo
+                  ? cn(BOTON_BORDE, 'h-12 flex-1 disabled:opacity-50')
+                  : 'flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-border text-[13px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition'}
               >
                 <Undo2 size={14} /> {deshaciendo ? 'Deshaciendo…' : 'Deshacer migración'}
               </button>
             )}
             <button
               onClick={() => { setPaso('subir'); setArchivos([]); setPlan(null); setResultados([]); setBatchId(null); setDeshecho(null); setInstructorasConservadas(0); setError(null); }}
-              className="flex-1 py-3 rounded-2xl bg-brand text-brand-foreground text-[13px] font-extrabold hover:brightness-95 transition"
+              className={panelNuevo
+                ? cn(BOTON_VIVO, 'h-12 flex-1 text-[13px]')
+                : 'flex-1 py-3 rounded-2xl bg-brand text-brand-foreground text-[13px] font-extrabold hover:brightness-95 transition'}
             >
               {deshecho ? 'Empezar de nuevo' : 'Hacer otra importación'}
             </button>
