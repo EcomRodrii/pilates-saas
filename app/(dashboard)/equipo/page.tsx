@@ -41,7 +41,7 @@ import { cambiosDeFicha, type CamposFicha } from '@/lib/equipo/cambios-ficha';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
-  horas as textoHoras, valoracionMedia,
+  horas as textoHoras, horasCsv, valoracionMedia,
   type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
 } from '@/lib/equipo-tarjetas.ts';
 import { ERROR_RED } from '@/lib/errores';
@@ -1683,10 +1683,10 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
         f.inicio.toLocaleDateString('es-ES'),
         f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         f.clase,
-        f.horas % 1 === 0 ? f.horas : f.horas.toFixed(2),
+        horasCsv(f.horas),
       ]);
     }
-    rows.push(['', '', 'TOTAL', totalHoras % 1 === 0 ? totalHoras : totalHoras.toFixed(2)]);
+    rows.push(['', '', 'TOTAL', horasCsv(totalHoras)]);
     const csv = rows.map(r => r.map(esc).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

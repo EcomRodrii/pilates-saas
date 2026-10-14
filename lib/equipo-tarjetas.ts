@@ -278,6 +278,15 @@ export function horas(n: number): string {
   return `${HASTA_UN_DECIMAL.format(n)} h`;
 }
 
+/**
+ * Horas para el CSV de «Horas de…»: coma decimal y hasta dos decimales, como el
+ * CSV de fichajes (`lib/fichaje/csv-jornadas.ts`). Va separado por `;` y lo abre
+ * Excel en español, que con «1.5» lee un millar o una fecha, no hora y media.
+ */
+export function horasCsv(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(2).replace('.', ',');
+}
+
 /** La media de las valoraciones, siempre con un decimal: «4,8», «5,0». */
 export function valoracionMedia(n: number): string {
   return UN_DECIMAL.format(n);

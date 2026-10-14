@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
-  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual, horas, valoracionMedia,
+  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual, horas, horasCsv, valoracionMedia,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
 
@@ -167,6 +167,13 @@ test('horas(): un número entero sale sin decimales', () => {
   // Una suma de duraciones en coma flotante que se queda a nada del entero.
   assert.equal(horas(2.9999999), '3 h');
   assert.equal(horas(14.04), '14 h');
+});
+
+test('horasCsv(): coma decimal para el Excel en español, sin decimales si es entero', () => {
+  assert.equal(horasCsv(1.5), '1,50');
+  assert.equal(horasCsv(0.75), '0,75');
+  assert.equal(horasCsv(14), '14');
+  assert.ok(!horasCsv(2 / 3).includes('.'));
 });
 
 test('valoracionMedia(): siempre un decimal, con coma', () => {
