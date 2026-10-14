@@ -241,7 +241,8 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
             <>
               <span
                 className="flex size-10 items-center justify-center rounded-full transition-transform group-hover:scale-110"
-                style={{ backgroundColor: c, color: 'var(--card)', boxShadow: `0 8px 18px -10px ${c}` }}
+                // Como Bonsai: la baldosa neutra y el color solo en el icono.
+                style={{ backgroundColor: `color-mix(in srgb, ${c} 13%, var(--card))`, color: c }}
                 aria-hidden
               >
                 <Icono size={18} strokeWidth={2.2} />
@@ -250,7 +251,7 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
             </>
           );
           const clase = 'group flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-card focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
-          const estilo = { backgroundColor: `color-mix(in srgb, ${c} 9%, var(--card))`, borderColor: `color-mix(in srgb, ${c} 22%, var(--border))` };
+          const estilo = { backgroundColor: 'color-mix(in srgb, var(--muted) 45%, var(--card))', borderColor: 'var(--border)' };
           return externo ? (
             <a key={href} href={href} target="_blank" rel="noreferrer" className={clase} style={estilo} aria-label={`${label} (se abre en otra pestaña)`}>{contenido}</a>
           ) : (
