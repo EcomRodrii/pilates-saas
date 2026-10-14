@@ -18,6 +18,7 @@ import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { encajeDe } from '@/lib/sustituciones/encaje';
+import { valoracionMedia } from '@/lib/equipo-tarjetas.ts';
 import { MarcarDisponibilidadDialog } from '@/components/sustituciones/marcar-disponibilidad-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -703,7 +704,7 @@ function Estrellas({ val }: { val?: { media: number; total: number } }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
       <Star size={10} fill="#D9C29E" stroke="#D9C29E" />
-      {val.media.toFixed(1)}
+      {valoracionMedia(val.media)}
       <span className="font-medium text-[#CA8A04]">({val.total})</span>
     </span>
   );

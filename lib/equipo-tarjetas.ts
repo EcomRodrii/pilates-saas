@@ -256,19 +256,40 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
     valoracionTexto: !gestiona(rolViewer)
       ? ''
       : m.valoracion && m.valoracion.total > 0
-        ? `${m.valoracion.media.toFixed(1)} de ${m.valoracion.total} clientas`
+        ? `${valoracionMedia(m.valoracion.media)} de ${m.valoracion.total} clientas`
         : 'sin valoraciones aún',
     conValoracion: gestiona(rolViewer) && !!(m.valoracion && m.valoracion.total > 0),
-    frecuenciaTexto: frecuencia == null ? null : `≈${frecuencia % 1 === 0 ? frecuencia : frecuencia.toFixed(1)} clase${frecuencia === 1 ? '' : 's'}/mes`,
+    frecuenciaTexto: frecuencia == null ? null : `≈${HASTA_UN_DECIMAL.format(frecuencia)} clase${frecuencia === 1 ? '' : 's'}/mes`,
   };
 }
 
 export function euros(n: number): string {
   return `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
+
+// Coma decimal, como `euros()`: con `toFixed` la misma tarjeta decía «407,00 €»
+// en una y «14.2 h» en otra. Construidos una vez: un formateador nuevo por
+// llamada es caro (ver `porZona` en lib/utils.ts).
+const HASTA_UN_DECIMAL = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const UN_DECIMAL = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** «14 h», «14,2 h»: un decimal como mucho, y ninguno si sale entero. */
 export function horas(n: number): string {
-  const h = Math.round(n * 10) / 10;
-  return `${h % 1 === 0 ? h : h.toFixed(1)} h`;
+  return `${HASTA_UN_DECIMAL.format(n)} h`;
+}
+
+/**
+ * Horas para el CSV de «Horas de…»: coma decimal y hasta dos decimales, como el
+ * CSV de fichajes (`lib/fichaje/csv-jornadas.ts`). Va separado por `;` y lo abre
+ * Excel en español, que con «1.5» lee un millar o una fecha, no hora y media.
+ */
+export function horasCsv(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(2).replace('.', ',');
+}
+
+/** La media de las valoraciones, siempre con un decimal: «4,8», «5,0». */
+export function valoracionMedia(n: number): string {
+  return UN_DECIMAL.format(n);
 }
 
 export type AccionTipo = 'avisos' | 'mensaje' | 'hecho' | 'horas' | 'pedir';

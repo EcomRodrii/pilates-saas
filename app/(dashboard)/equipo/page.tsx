@@ -41,6 +41,7 @@ import { cambiosDeFicha, type CamposFicha } from '@/lib/equipo/cambios-ficha';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
+  horas as textoHoras, horasCsv, valoracionMedia,
   type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
 } from '@/lib/equipo-tarjetas.ts';
 import { ERROR_RED } from '@/lib/errores';
@@ -1671,8 +1672,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
   );
   const totalHoras = resumen.asignadas;
   const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  const fmtH = (h: number) => `${h % 1 === 0 ? h : h.toFixed(1)} h`;
-  const fmtDif = (h: number) => `${h > 0 ? '+' : h < 0 ? '−' : ''}${fmtH(Math.abs(h))}`;
+  const fmtDif = (h: number) => `${h > 0 ? '+' : h < 0 ? '−' : ''}${textoHoras(Math.abs(h))}`;
 
   function exportar() {
     if (!instructor) return;
@@ -1683,10 +1683,10 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
         f.inicio.toLocaleDateString('es-ES'),
         f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         f.clase,
-        f.horas % 1 === 0 ? f.horas : f.horas.toFixed(2),
+        horasCsv(f.horas),
       ]);
     }
-    rows.push(['', '', 'TOTAL', totalHoras % 1 === 0 ? totalHoras : totalHoras.toFixed(2)]);
+    rows.push(['', '', 'TOTAL', horasCsv(totalHoras)]);
     const csv = rows.map(r => r.map(esc).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1720,11 +1720,11 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
 
         <div className="flex items-center gap-6 py-3 px-4 rounded-xl bg-muted/50">
           <div>
-            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.asignadas)}</p>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{textoHoras(resumen.asignadas)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">asignadas este mes</p>
           </div>
           <div className="pl-6 border-l border-border">
-            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.realizadas)}</p>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{textoHoras(resumen.realizadas)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">ya realizadas</p>
           </div>
           <div className="pl-6 border-l border-border">
@@ -1739,10 +1739,10 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
           <div className="flex items-center justify-between gap-3 py-2.5 px-4 rounded-xl border border-border">
             <div className="min-w-0">
               <p className="text-[12.5px] font-semibold text-foreground">
-                Contrato: {fmtH(horasSemanalesContrato ?? 0)}/semana
+                Contrato: {textoHoras(horasSemanalesContrato ?? 0)}/semana
               </p>
               <p className="text-[11px] text-muted-foreground">
-                ≈ {fmtH(resumen.contratoMes)} al mes (52 semanas entre 12)
+                ≈ {textoHoras(resumen.contratoMes)} al mes (52 semanas entre 12)
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -1773,7 +1773,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
                     {f.inicio.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <span className="text-[13px] font-bold text-foreground tabular-nums shrink-0">{fmtH(f.horas)}</span>
+                <span className="text-[13px] font-bold text-foreground tabular-nums shrink-0">{textoHoras(f.horas)}</span>
               </div>
             ))}
           </div>
@@ -1969,7 +1969,7 @@ function ValoracionesDialog({ instructor, tiposClase, onClose }: {
           <div className="space-y-4">
             <div className="flex items-center gap-5 rounded-2xl border border-border bg-muted/30 p-4">
               <div className="text-center shrink-0">
-                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{media.toFixed(1)}</p>
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{valoracionMedia(media)}</p>
                 <div className="mt-1.5 flex justify-center"><Estrellas n={Math.round(media)} size={13} /></div>
                 <p className="text-[11px] text-muted-foreground mt-1">{total} valoración{total === 1 ? '' : 'es'}</p>
               </div>

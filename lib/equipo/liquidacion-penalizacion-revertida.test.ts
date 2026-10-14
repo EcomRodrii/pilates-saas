@@ -103,8 +103,11 @@ test('los dos motivos se distinguen y llevan el importe', () => {
   const disputa = motivoRevisionPenalizacion(10, 'disputa');
   const reembolso = motivoRevisionPenalizacion(10, 'reembolso');
   assert.notEqual(disputa, reembolso);
-  assert.ok(disputa.includes('10.00€'));
-  assert.ok(reembolso.includes('10.00€'));
+  // Lo lee la propietaria en Liquidaciones: el importe como el resto de euros
+  // del panel, con coma decimal.
+  assert.ok(disputa.includes('10,00 €'));
+  assert.ok(reembolso.includes('10,00 €'));
+  assert.ok(motivoRevisionPenalizacion(12.5, 'reembolso').includes('12,50 €'));
 });
 
 // I-5 (auditoría 15-sep): el UPDATE no llevaba `.select()`, así que 0 filas
