@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FILAS_A_OTRA_PANTALLA, FILAS_EXTERNAS, GRUPOS, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esSeccionId, esTarjetaId, externaVisible, herramientaDeTarjeta,
+  FILAS_A_OTRA_PANTALLA, FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, HERRAMIENTAS, MI_CUENTA, SECCIONES, cumpleCondicion, esHerramientaId, esSeccionId, esTarjetaId, externaVisible, herramientaDeTarjeta,
   herramientaPorId, herramientaVisible, herramientasDeSeccion, rolesDeTarjeta, seccionDeTarjeta, seccionPorId, tarjetaPorId, tarjetasDeHerramienta,
   type FilaExternaId, type TarjetaConfiguracion, type TarjetaId,
 } from './secciones.ts';
@@ -272,5 +272,18 @@ test('las palabras del buscador: en minúsculas, sin repetir y que no repiten el
       assert.doesNotMatch(p, /\b(client|soci)as?\b/i, `${x.id}: «${p}»`);
       assert.notEqual(p, x.titulo.toLowerCase(), `${x.id}: «${p}» ya es el título`);
     }
+  }
+});
+
+
+test('panel nuevo: cada sección está en un grupo y solo en uno, y las otras pantallas van en «Tu cuenta»', () => {
+  const enGrupos = GRUPOS_PANEL_NUEVO.flatMap(g => g.secciones);
+  assert.deepEqual([...enGrupos].sort(), SECCIONES.map(s => s.id).sort());
+  assert.equal(new Set(enGrupos).size, enGrupos.length);
+  assert.deepEqual(GRUPOS_PANEL_NUEVO.flatMap(g => g.externas ?? []).sort(), GRUPOS.flatMap(g => g.externas ?? []).sort());
+  assert.deepEqual(GRUPOS_PANEL_NUEVO.filter(g => g.externas?.length).map(g => g.id), ['tu-cuenta']);
+  for (const g of GRUPOS_PANEL_NUEVO) {
+    assert.ok(g.frase.length > 0 && g.frase.length <= 80, `${g.id}: una frase corta de qué hay dentro`);
+    assert.ok(g.frase.endsWith('.'), g.id);
   }
 });

@@ -461,6 +461,36 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 
+/**
+ * Panel nuevo (14-oct-2026). El fundador: «Configuración está muy mezclado y no
+ * se entiende». La columna eran 15 secciones seguidas sin ningún orden a la
+ * vista, y el inicio repetía la misma lista. Ahora, como las pestañas de
+ * Preferencias de Bonsai, se agrupan por lo que una dueña viene a buscar, cada
+ * grupo con una frase de qué hay dentro: lo del estudio, las reglas de reservar
+ * y cobrar, lo de sus alumnas, su app y su web, lo que conecta y guarda, y lo
+ * que es solo suyo. Las secciones y sus direcciones no cambian: solo cómo se
+ * ordenan y se presentan.
+ */
+export interface GrupoPanelNuevo extends GrupoConfiguracion {
+  /** Qué hay dentro, en una frase. */
+  readonly frase: string;
+}
+
+export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
+  { id: 'tu-estudio', titulo: 'Tu estudio', frase: 'Datos, horario, salas, tipos de clase y tu equipo.', secciones: ['estudio', 'clases', 'equipo'] },
+  { id: 'reservas-y-cobros', titulo: 'Reservas y cobros', frase: 'Las reglas para reservar y cancelar, y cómo cobras y facturas.', secciones: ['reservas', 'cobros'] },
+  { id: 'tus-alumnas', titulo: 'Tus alumnas', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
+  { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
+  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', frase: 'Otras herramientas que usas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
+  { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
+  { id: 'aprende', titulo: 'Aprende', frase: 'Tentare de principio a fin, en vídeo.', secciones: ['demo'] },
+];
+
+/** El grupo del panel nuevo al que pertenece una sección. */
+export function grupoPanelNuevoDe(id: SeccionId): GrupoPanelNuevo {
+  return GRUPOS_PANEL_NUEVO.find(g => g.secciones.includes(id))!;
+}
+
 const SECCION_POR_ID = new Map<string, SeccionConfiguracion>(SECCIONES.map(s => [s.id, s]));
 const TARJETA_POR_ID = new Map<string, { tarjeta: TarjetaConfiguracion; seccion: SeccionId }>(
   SECCIONES.flatMap(s => s.tarjetas.map(t => [t.id, { tarjeta: t as TarjetaConfiguracion, seccion: s.id }] as const)),
