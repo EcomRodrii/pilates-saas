@@ -6,9 +6,11 @@
 // liquidación ni del pago, solo mide.
 
 import { useEffect, useState } from 'react';
+import { TrendingUp } from 'lucide-react';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchRendimientoInstructoras, type RendimientoInstructoraApi } from '@/lib/api-client';
 
 function Metrica({ etiqueta, pct, n }: { etiqueta: string; pct: number | null; n: number }) {
@@ -26,14 +28,18 @@ function Metrica({ etiqueta, pct, n }: { etiqueta: string; pct: number | null; n
 
 export default function RendimientoInstructorasPage() {
   const rol = useRol();
-  const [items, setItems] = useState<RendimientoInstructoraApi[]>([]);
+  // ⚠️ Un fallo de carga NO es un equipo vacío: `null` es «no se ha podido
+  // cargar» y `[]` es «no hay nadie». Antes los dos acababan en `[]` y un 500
+  // se pintaba como «Todavía no hay instructoras de alta».
+  const [items, setItems] = useState<RendimientoInstructoraApi[] | null>([]);
   const [cargando, setCargando] = useState(true);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vivo = true;
     fetchRendimientoInstructoras().then(r => { if (vivo) { setItems(r); setCargando(false); } });
     return () => { vivo = false; };
-  }, []);
+  }, [intento]);
 
   if (!puedeGestionarEquipo(rol)) {
     return (
@@ -54,6 +60,13 @@ export default function RendimientoInstructorasPage() {
 
       {cargando ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : items === null ? (
+        <EmptyState
+          icono={TrendingUp}
+          titulo="No hemos podido cargar el rendimiento"
+          descripcion="Es un problema nuestro, no que te falten instructoras. Vuelve a intentarlo."
+          cta={{ label: 'Reintentar', onClick: () => { setCargando(true); setIntento(n => n + 1); } }}
+        />
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">Todavía no hay instructoras de alta.</p>
       ) : (
