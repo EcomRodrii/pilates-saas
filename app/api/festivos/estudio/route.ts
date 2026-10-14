@@ -3,7 +3,6 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { panelNuevoEncendido } from '@/lib/interruptor-por-estudio';
 import { hoyEnEstudio } from '@/lib/utils';
 import { NOMBRE_ZONA } from '@/lib/festivos/oficiales';
 import { guardarFestivos, listaDelEstudio, quitarFestivos, ubicacionDelEstudio, zonaDeUbicacion } from '@/lib/festivos/estudio-servidor';
@@ -11,7 +10,7 @@ import { prepararParaGuardar, MAX_POR_GUARDADO } from '@/lib/festivos/modulo';
 
 export const dynamic = 'force-dynamic';
 
-// Módulo Festivos (panel nuevo): la lista de festivos del estudio.
+// Módulo Festivos: la lista de festivos del estudio.
 //   GET    → los oficiales de su zona (por la dirección, del código) y los que
 //            ha guardado, con lo que ya decidió de cada día (cerrado / abres).
 //   POST   → guardar en lote lo que la propietaria ha marcado `{ festivos }`:
@@ -28,7 +27,6 @@ async function puerta(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return { error: NextResponse.json({ error: 'No autorizado' }, { status: 401 }) };
   if (!puedeGestionarSede(sesion.rol)) return { error: NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 }) };
-  if (!panelNuevoEncendido(sesion.studioId)) return { error: NextResponse.json({ error: 'No disponible' }, { status: 404 }) };
   const admin = getSupabaseAdmin();
   if (!admin) return { error: NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }) };
   return { sesion, admin };

@@ -4,7 +4,6 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit, topeEstricto } from '@/lib/rate-limit';
-import { panelNuevoEncendido } from '@/lib/interruptor-por-estudio';
 import { hoyEnEstudio } from '@/lib/utils';
 import { festivosEntre, NOMBRE_ZONA } from '@/lib/festivos/oficiales';
 import { festivosGuardadosEntre, ubicacionDelEstudio, zonaDeUbicacion } from '@/lib/festivos/estudio-servidor';
@@ -18,7 +17,7 @@ export const dynamic = 'force-dynamic';
 // La IA tiene 80 s en total (lib/festivos/buscar-ia.ts): la ruta, de sobra para contestar siempre.
 export const maxDuration = 120;
 
-// Módulo Festivos (panel nuevo) — `POST /api/festivos/buscar { localidad }`:
+// Módulo Festivos — `POST /api/festivos/buscar { localidad }`:
 // las fiestas que la IA encuentra para esa localidad, desde hoy hasta final del
 // año que viene, para REVISARLAS. No guarda nada.
 //   · Los oficiales NO salen de aquí: están ya en la lista del estudio, por la
@@ -30,7 +29,7 @@ export const maxDuration = 120;
 // Si la IA no está, se agota el tope o falla, se contesta igual con un aviso.
 //
 // Puertas, en orden: sesión de staff → rol (propietaria y gerencia, las que
-// pueden cerrar) → panel nuevo → ráfaga → localidad válida → TOPE DIARIO de
+// pueden cerrar) → ráfaga → localidad válida → TOPE DIARIO de
 // búsquedas con IA por cuenta, por estudio y total, CERRADO si el contador falla
 // (es gasto de IA) → el modelo. No gasta consultas del asistente (mismo criterio
 // que «Leer el horario»).
@@ -54,7 +53,6 @@ export async function POST(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarSede(sesion.rol)) return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
   const studioId = sesion.studioId;
-  if (!panelNuevoEncendido(studioId)) return NextResponse.json({ error: 'No disponible' }, { status: 404 });
 
   const limited = await enforceRateLimit(req, 'festivos-buscar', { max: 6, windowSeconds: 60 }, studioId);
   if (limited) return limited;

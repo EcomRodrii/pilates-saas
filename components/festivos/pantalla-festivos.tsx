@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Festivos (módulo del panel nuevo, 14-oct-2026), como la pantalla de Bonsai
+// Festivos (14-oct-2026), como la pantalla de Bonsai
 // (b-90-festivos-01…27): cabecera con «Comprobar clases» y «Añadir festivos»,
 // pestañas Listado / Configuración, la lista por años con su hoja de
 // calendario y su chapa, y el panel lateral de añadir con la búsqueda con IA y

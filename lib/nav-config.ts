@@ -7,7 +7,7 @@ import {
   Clock, Megaphone, Play,
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace, Network,
-  Calculator, Notebook, DownloadCloud, Wallet,
+  Calculator, Notebook, DownloadCloud, Wallet, PartyPopper,
 } from 'lucide-react';
 // Relativos y con extensión: `npm test` corre `node --test
 // --experimental-strip-types`, que no resuelve ni el alias `@/` ni las
@@ -136,6 +136,11 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/configuracion', label: 'Configuración', icon: Settings },
+      // Festivos (14-oct-2026, a todos los estudios por decisión del fundador el
+      // mismo día): los oficiales de su comunidad, las fiestas locales que busca
+      // la IA y qué hacer con las clases de ese día. Sin «vacaciones» en los
+      // alias: varios días seguidos son «Cerrar el centro», no un festivo.
+      { href: '/festivos', label: 'Festivos', icon: PartyPopper, alias: ['dias festivos', 'fiestas locales', 'puentes', 'calendario laboral'] },
       // La pantalla existía pero no había forma de llegar a ella: había que
       // saberse la URL. Se llama "Traer mis datos" y no "Migración" porque nadie
       // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
@@ -206,9 +211,8 @@ export const bottomNavItems: NavItemDef[] = [
 // '/mensajeria' entra el 14-sep: es la ÚNICA entrada con contador de no leídos,
 // y fuera del modo por defecto ese contador no lo veía nadie — una alumna
 // escribía y la propietaria no tenía forma de enterarse sin ir a buscarlo.
-// '/festivos' (14-oct-2026) solo existe con el panel nuevo (lib/nav-panel-nuevo.ts):
-// va aquí para que encenderlo en Módulos lo enseñe también con el menú en
-// «Esencial», que es el de serie. Sin el panel nuevo no está en el menú y esto no hace nada.
+// '/festivos' (14-oct-2026) entra para que se vea con el menú en «Esencial», el de
+// serie: un módulo que se enciende en Módulos y no sale en el menú no está encendido.
 export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).

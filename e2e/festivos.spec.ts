@@ -2,11 +2,11 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El módulo Festivos (panel nuevo, 14-oct-2026). En un fichero propio a
+// El módulo Festivos (14-oct-2026). En un fichero propio a
 // propósito: `panel-nuevo-secciones.spec.ts` lo tocan otras ramas.
 //
 // Lo que se prueba es lo que importa de verdad:
-//   · con el panel nuevo apagado, nadie nota nada (ni menú ni pantalla);
+//   · está para todos los estudios (desde el 14-oct), con o sin el panel nuevo;
 //   · lo que propone la IA llega DESMARCADO y solo se guarda lo marcado;
 //   · los fuegos artificiales salen cuando el servidor confirma, no antes, y
 //     nunca con «reducir movimiento»;
@@ -75,12 +75,20 @@ async function conLista(page: Page, guardar: (cuerpo: unknown) => { status: numb
 
 const enlaceMenu = (page: Page) => page.locator('a[href="/festivos"]');
 
-test('apagado: ni en el menú ni en la pantalla', async ({ page }) => {
+test('sin el panel nuevo también está: en el menú y su pantalla funciona (para todos los estudios desde el 14-oct)', async ({ page }) => {
   await preparar(page, { nuevo: false });
-  await page.route((u) => u.pathname === '/api/festivos/estudio', (r) => json(r, { error: 'No disponible' }, 404));
+  await conLista(page, () => ({ status: 200, body: { ok: true, creados: [], yaEstaban: 0 } }));
   await ir(page, 'dashboard');
   await expect(page.locator('a[href="/calendario"]:visible').first()).toBeVisible({ timeout: 30_000 });
-  await expect(enlaceMenu(page)).toHaveCount(0);
+  await expect(enlaceMenu(page).first()).toBeAttached();
+  await ir(page, 'festivos');
+  await expect(page.getByRole('heading', { name: 'Festivos', level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('festivo-fila')).toHaveCount(2);
+});
+
+test('si la API dice que no está (tabla sin migrar), la pantalla lo dice', async ({ page }) => {
+  await preparar(page, { nuevo: false });
+  await page.route((u) => u.pathname === '/api/festivos/estudio', (r) => json(r, { error: 'No disponible' }, 404));
   await ir(page, 'festivos');
   await expect(page.getByTestId('festivos-no-disponible')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Añadir festivos' })).toHaveCount(0);
