@@ -1996,7 +1996,7 @@ export default function Calendario() {
       // La cuota recién dada, con su primer periodo real (`cicloInicialDe`, el mismo que usa `assignPlan`).
       suscripciones: [...suscripciones, {
         id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA', fechaInicio: hoyEnEstudio(),
-        fechaFin: cicloInicialDe(plan, new Date().toISOString()).fechaFin, stripeSubscriptionId: null,
+        ...cicloInicialDe(plan, new Date().toISOString()), stripeSubscriptionId: null,
       }],
       planes: planesTarifa,
     }).filter(sc => !sc.pagado);
