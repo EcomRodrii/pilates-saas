@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, CircleX, Clock, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import type { CifrasClase } from '@/lib/calendario/cifras-clase';
 import { cn } from '@/lib/utils';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -65,6 +66,8 @@ export interface FichaClaseProps {
   clientas: ReactNode;
   plazas?: ReactNode;
   sustituciones: ReactNode;
+  /** Panel nuevo: las cifras de arriba, como la sesión de Bonsai (lib/calendario/cifras-clase.ts). */
+  cifras?: CifrasClase;
 }
 
 const BOTON_CABEZA = 'flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
@@ -134,6 +137,25 @@ function Contenido(p: FichaClaseProps) {
         )}
         {p.explicacion && <div className="mt-2 text-[13.5px] text-foreground text-pretty">{p.explicacion}</div>}
       </div>
+
+      {panelNuevo && p.cifras && (
+        <dl className="grid shrink-0 grid-cols-4 gap-2 border-b border-border px-5 py-3.5" data-testid="cifras-clase">
+          {([
+            { etiqueta: 'Apuntadas', valor: p.cifras.apuntadas, Icono: CheckCircle2, color: 'var(--success)' },
+            { etiqueta: 'En espera', valor: p.cifras.enEspera, Icono: Clock, color: 'var(--t-blue-500)' },
+            { etiqueta: 'Por aprobar', valor: p.cifras.porAprobar, Icono: CircleAlert, color: 'var(--warning)' },
+            { etiqueta: 'Canceladas', valor: p.cifras.canceladas, Icono: CircleX, color: 'var(--muted-foreground)' },
+          ] as const).map(c => (
+            <div key={c.etiqueta} className="rounded-[12px] border border-border bg-card px-2.5 py-2">
+              <dd className="flex items-center justify-between text-[20px] font-bold leading-none tabular-nums text-foreground">
+                {c.valor}
+                <c.Icono size={14} aria-hidden style={{ color: c.color }} />
+              </dd>
+              <dt className="mt-1 text-[11.5px] leading-tight text-muted-foreground">{c.etiqueta}</dt>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {p.principal && <div className="shrink-0 space-y-3 border-b border-border px-5 py-4">{p.principal}</div>}
 

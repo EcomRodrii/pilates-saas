@@ -123,3 +123,14 @@ test('Configuración: la columna, por grupos con su título, y el inicio, una ta
   await expect(page.locator('#seccion-titulo')).toHaveText('Cómo reservan mis alumnas');
   await expect(page.getByText('Reservas y cobros', { exact: true }).first()).toBeVisible();
 });
+
+test('Ficha de la clase: arriba, cuántas vienen, esperan, faltan por aprobar y cancelaron', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  await ir(page, 'calendario');
+  await page.getByRole('button', { name: /Mat/ }).first().click();
+  const cifras = page.getByTestId('cifras-clase');
+  await expect(cifras).toBeVisible({ timeout: 30_000 });
+  await expect(cifras.getByText('Apuntadas')).toBeVisible();
+  await expect(cifras.getByText('En espera')).toBeVisible();
+  await expect(cifras.getByText('Canceladas')).toBeVisible();
+});
