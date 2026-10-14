@@ -82,7 +82,8 @@ import {
 import { hechosDeAsistencia, tieneHistorialPrevio } from '@/lib/clientas/estado';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
-import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { avisoClaseSueltaAlQuitar, cuotaQueYaTiene, cuotasQueCubren, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { esError, ventasPorAsignarDePlan } from '@/lib/pos/cliente';
 import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
@@ -620,7 +621,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded,
+    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded, assignPlan,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -1785,7 +1786,8 @@ export default function Calendario() {
     void confirmarAddReserva(sesionId, socioId);
   }
 
-  async function confirmarAddReserva(sesionId: string, socioId: string): Promise<boolean> {
+  // `prefijo`: lo que ya ha pasado antes de reservar (p. ej. «Cuota … asignada»), para que el aviso lo cuente todo.
+  async function confirmarAddReserva(sesionId: string, socioId: string, prefijo = ''): Promise<boolean> {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
     // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
@@ -1799,13 +1801,13 @@ export default function Calendario() {
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
     const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna });
     if (!res.ok) {
-      showToastError(res.error);
+      showToastError(prefijo ? `${prefijo}, pero no se ha podido añadir a la clase: ${res.error}` : res.error);
       return false;
     }
     // Si recepción decidió no avisarla, el toast lo recuerda: es la única
     // pista de que la alumna no sabe nada de esta reserva.
     const sinAviso = avisarAlumna ? '' : ' · sin avisarla';
-    showToast((res.estado === 'LISTA_ESPERA'
+    showToast((prefijo ? `${prefijo} · ` : '') + (res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
       : esWalkIn
       ? `${nombre} añadida y registrada como asistencia`
@@ -1944,6 +1946,49 @@ export default function Calendario() {
     showToast(reserva.yaEstaba
       ? `${nombre} ya estaba en la clase · su recibo de ${formatEuro(reserva.venta.importe)} sigue pendiente en Cobros`
       : `${nombre} añadida · recibo de ${formatEuro(reserva.venta.importe)} pendiente en Cobros`);
+    return true;
+  }
+
+  // Viene a apuntarse con su cuota: se le da aquí, por el MISMO camino que
+  // «Asignar plan» de su ficha (`assignPlan`: la cuota, su recibo pendiente y la
+  // matrícula si es su primer plan), y después entra con ella, sin clase suelta.
+  // Antes la hoja solo sabía vender la clase suelta: el estudio la apuntaba así,
+  // le daba la cuota en la ficha, y la clase quedaba pagada dos veces.
+  async function darCuotaYAnadir(sesionId: string, socioId: string, planId: string): Promise<boolean> {
+    const plan = planesTarifa.find(p => p.id === planId);
+    if (!plan) return false;
+    const socio = socios.find(s => s.id === socioId);
+    const nombre = socio ? socio.nombre : 'La clienta';
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    // Antes de tocar nada: a una clase terminada o cancelada no se la puede apuntar,
+    // y la cuota quedaría dada sin la clase por la que se dio.
+    if (!sesion || sesion.cancelada || new Date(sesion.fin) <= new Date()) {
+      showToastError('Esta clase ya ha terminado o está cancelada: dale la cuota desde su ficha.');
+      return false;
+    }
+    // Lo mismo que esconde el botón, otra vez aquí: si ya tiene cuota, otra le cobraría el mes dos veces.
+    const suya = cuotaQueYaTiene(socioId, suscripciones, planesTarifa, hoyEnEstudio(), sesion.tipoClaseId);
+    if (suya) {
+      showToastError(`${nombre} ya tiene la cuota «${suya.nombre}»: revísala en su ficha en vez de darle otra.`);
+      return false;
+    }
+    // Igual que en la ficha: si esa cuota ya se cobró en el TPV sin clienta, darla
+    // aquí la cobraría dos veces. Si la consulta falla se sigue: el aviso ayuda, no bloquea.
+    const tpv = await ventasPorAsignarDePlan(planId);
+    if (!esError(tpv) && Array.isArray(tpv.ventas) && tpv.ventas.length > 0) {
+      showToastError(`«${plan.nombre}» ya está cobrada en el TPV sin clienta (${tpv.ventas.length === 1 ? '1 venta' : `${tpv.ventas.length} ventas`}). Asígnasela desde su ficha para no cobrarla dos veces.`);
+      return false;
+    }
+    try {
+      await assignPlan(socioId, planId);
+    } catch (e) {
+      // Lo que no se ha guardado lo dice `assignPlan`; no se la apunta a ciegas.
+      showToastError(e instanceof Error ? e.message : 'No se ha podido dar la cuota');
+      return false;
+    }
+    const recibo = plan.precio > 0 ? ` (recibo de ${formatEuro(plan.precio)} pendiente en Cobros)` : '';
+    await confirmarAddReserva(sesionId, socioId, `Cuota «${plan.nombre}» asignada a ${nombre}${recibo}`);
+    // La cuota ya es suya pase lo que pase con la reserva: la hoja se cierra.
     return true;
   }
 
@@ -3442,6 +3487,9 @@ export default function Calendario() {
                   onAnadirYCobrarDespues={mueveDinero ? (socioId => anadirYCobrarDespues(sesionActual.id, socioId)) : null}
                   onCortesia={socioId => void anadirCortesia(sesionActual.id, socioId)}
                   hrefVenderBono={puedeVer(rolActual, '/pos') ? (socioId => `/pos?clienta=${encodeURIComponent(socioId)}`) : null}
+                  cuotas={cuotasQueCubren(planesTarifa, sesionActual.tipoClaseId).map(p => ({ id: p.id, nombre: p.nombre, precio: Number(p.precio) }))}
+                  cuotaQueYaTiene={socioId => cuotaQueYaTiene(socioId, suscripciones, planesTarifa, hoyEnEstudio(), sesionActual.tipoClaseId)}
+                  onDarCuota={mueveDinero ? ((socioId, planId) => darCuotaYAnadir(sesionActual.id, socioId, planId)) : null}
                 />
               )}
             </div>

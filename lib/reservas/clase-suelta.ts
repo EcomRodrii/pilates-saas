@@ -15,7 +15,7 @@
 // servidor (qué cobra): una sola regla. Sin `@/`: lo prueba `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { PlanTarifa } from '../types.ts';
+import type { PlanTarifa, Suscripcion } from '../types.ts';
 import { planCubreTipoClase } from '../bono-logic.ts';
 import { idReciboDeClaseSuelta, PREFIJO_RECIBO_DE_CLASE_SUELTA } from '../cobros/recibo-de-cita.ts';
 import { importeAdeudado, importeIngresado, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
@@ -69,6 +69,57 @@ export function planDeClaseSuelta(planes: readonly PlanTarifa[], tipoClaseId: st
       || (Number(p.precio) === Number(elegido.precio) && p.id < elegido.id)) elegido = p;
   }
   return elegido;
+}
+
+/**
+ * Las cuotas que se le pueden dar desde el mostrador a quien viene sin nada que
+ * cubra ESTA clase: mensuales activas, que no sean de prueba y que incluyan el
+ * tipo de clase. Antes la hoja solo sabía vender la clase suelta, y una alumna
+ * que venía a apuntarse con su cuota de «2 días a la semana» salía de ahí con
+ * una clase suelta de 23 € que luego, al darle la cuota en su ficha, se pagaba
+ * dos veces. Las más baratas primero; a igual precio, por nombre.
+ */
+export function cuotasQueCubren(planes: readonly PlanTarifa[], tipoClaseId: string | null): PlanTarifa[] {
+  return planes
+    .filter(p => p.tipo === 'MENSUAL' && p.activo !== false && p.esPrueba !== true && planCubreTipoClase(p, tipoClaseId))
+    .sort((a, b) => Number(a.precio) - Number(b.precio) || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+/** Por qué una alumna que YA tiene cuota no entra con ella en esta clase. */
+export type MotivoCuotaQueNoCubre = 'VENCIDA' | 'PAUSADA' | 'NO_INCLUYE_LA_CLASE' | 'OTRO';
+
+/**
+ * La cuota que ya tiene (ACTIVA o PAUSADA, vigente o no), si tiene alguna. Si la
+ * tiene, desde el mostrador NO se le da otra: darle una cuota nueva cancela la
+ * suya (`assignPlan`) y cobra el mes entero otra vez. Pasaba con las tres formas
+ * de «tiene cuota pero el calendario no la cuenta»:
+ *  · VENCIDA a falta de cobrar su renovación: el recibo de renovación sigue vivo
+ *    y, con la cuota cancelada, cobrarlo ya no le da el mes → pagaba dos veces.
+ *  · PAUSADA: quedaban una pausada y una activa; al reanudar, dos cuotas.
+ *  · NO_INCLUYE_LA_CLASE: se la cambiaba a mitad de ciclo sin decirlo.
+ * Lo que toca en cada caso (cobrar la renovación, reanudarla, cambiarla) se hace
+ * en su ficha o en Cobros, donde se ve qué se sustituye.
+ */
+export function cuotaQueYaTiene(
+  socioId: string,
+  suscripciones: readonly Suscripcion[],
+  planes: readonly PlanTarifa[],
+  hoyISO: string,
+  tipoClaseId: string | null,
+): { nombre: string; motivo: MotivoCuotaQueNoCubre } | null {
+  let elegida: { nombre: string; motivo: MotivoCuotaQueNoCubre } | null = null;
+  for (const s of suscripciones) {
+    if (s.socioId !== socioId || (s.estado !== 'ACTIVA' && s.estado !== 'PAUSADA')) continue;
+    const plan = planes.find(p => p.id === s.planId);
+    if (!plan || plan.tipo !== 'MENSUAL') continue;
+    const motivo: MotivoCuotaQueNoCubre = s.estado === 'PAUSADA' ? 'PAUSADA'
+      : s.fechaFin && s.fechaFin < hoyISO ? 'VENCIDA'
+      : !planCubreTipoClase(plan, tipoClaseId) ? 'NO_INCLUYE_LA_CLASE'
+      : 'OTRO';
+    // Si tiene varias, la que más pide atención: la vencida (hay un cobro esperando).
+    if (!elegida || motivo === 'VENCIDA') elegida = { nombre: plan.nombre, motivo };
+  }
+  return elegida;
 }
 
 /**
