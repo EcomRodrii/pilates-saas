@@ -94,10 +94,18 @@ export function colorDeOcupacion(pct: number): string {
 // tenga las mismas cifras, gráficas, píldoras y vacíos: «quiero que se vea así
 // en cada sección» (fundador, 14-oct-2026).
 
-export function MarcoCifra({ href, tono, children, etiqueta }: { href: string | null; tono: Tono; children: ReactNode; etiqueta: string }) {
+/**
+ * `onNavigate`: para una cifra que lleva a otra pestaña de la MISMA pantalla
+ * (Cobros, Paquetes). El enlace sigue siendo un enlace (se abre en otra pestaña
+ * con ⌘-clic y lleva su `?tab=`), pero el clic normal cambia la pestaña en el
+ * sitio, sin navegar: la pantalla solo lee la URL al entrar.
+ */
+type AlNavegar = (e: { preventDefault: () => void }) => void;
+
+export function MarcoCifra({ href, tono, children, etiqueta, onNavigate }: { href: string | null; tono: Tono; children: ReactNode; etiqueta: string; onNavigate?: AlNavegar }) {
   const clase = 'group flex min-h-[132px] flex-col rounded-t-card border p-4 shadow-t-card sm:p-5';
   return href ? (
-    <Link href={href} aria-label={etiqueta} className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
+    <Link href={href} onNavigate={onNavigate} aria-label={etiqueta} className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
       {children}
     </Link>
   ) : (
@@ -132,11 +140,11 @@ export function NumeroConLado({ valor, arriba, abajo }: { valor: ReactNode; arri
 }
 
 
-export function TarjetaCifra({ etiqueta, tono, Icono, valor, arriba, abajo, href }: {
-  etiqueta: string; tono: Tono; Icono: React.ElementType; valor: ReactNode; arriba?: ReactNode; abajo: ReactNode; href: string | null;
+export function TarjetaCifra({ etiqueta, tono, Icono, valor, arriba, abajo, href, onNavigate }: {
+  etiqueta: string; tono: Tono; Icono: React.ElementType; valor: ReactNode; arriba?: ReactNode; abajo: ReactNode; href: string | null; onNavigate?: AlNavegar;
 }) {
   return (
-    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta}>
+    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta} onNavigate={onNavigate}>
       <Cabecilla etiqueta={etiqueta} tono={tono} Icono={Icono} />
       <NumeroConLado valor={valor} arriba={arriba} abajo={abajo} />
     </MarcoCifra>

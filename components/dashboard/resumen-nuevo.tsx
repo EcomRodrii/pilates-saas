@@ -24,7 +24,7 @@
 // calcula lo nuevo, con funciones puras y probadas (`lib/inicio/cifras.ts`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowRight, Bell, CalendarCheck, CalendarPlus, CreditCard, Euro, ExternalLink,
@@ -39,12 +39,13 @@ import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import {
-  MESES_LARGOS, ingresosAlDia, ingresosPorMes, ocupacionEntre, ocupadasPorSesion,
+  MESES_LARGOS, ingresosAlDia, ocupacionEntre, ocupadasPorSesion,
   reservasPorDia, semanaDe, semanaISO,
 } from '@/lib/inicio/cifras';
+import { GraficaIngresos, formatoEuros, ladoIngresos } from '@/components/dashboard/ingresos-nuevo';
 import { cn, hoyEnEstudio } from '@/lib/utils';
 import {
-  CabeceraTarjeta, Comparacion, Pildoras, TONOS, TarjetaCifra, TarjetaGrafica, TarjetaOcupacion, VacioPositivo, VerMas, type Tono,
+  CabeceraTarjeta, Comparacion, TONOS, TarjetaCifra, TarjetaGrafica, TarjetaOcupacion, VacioPositivo, VerMas, type Tono,
 } from '@/components/dashboard/vivo';
 
 // El día de una clase es el del estudio. Se recuerda por hora UTC: cientos de
@@ -208,22 +209,6 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
 
 // ─── Cifras ───────────────────────────────────────────────────────────────────
 
-function formatoEuros(n: number): string {
-  return `${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`;
-}
-
-/** Lo que va al lado del número de ingresos: la variación y contra qué. */
-function ladoIngresos(actual: number, anterior: number, mesAnterior: string): { arriba?: ReactNode; abajo: ReactNode } {
-  if (actual === 0 && anterior === 0) return { abajo: 'Aún no has cobrado nada este mes' };
-  if (anterior === 0) return { abajo: `Sin cobros en ${mesAnterior} a estas alturas` };
-  const pct = Math.round(((actual - anterior) / anterior) * 100);
-  const color = pct > 0 ? 'var(--success)' : pct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
-  return {
-    arriba: <span style={{ color }}>{pct > 0 ? '+' : ''}{pct} %</span>,
-    abajo: `vs ${mesAnterior.slice(0, 3)}. a estas alturas`,
-  };
-}
-
 /** Lo que va al lado de las clientas activas: con cero clientas no hay «todas han venido». */
 function ladoClientas(activas: number | null, sinVenir: number | null): { arriba?: ReactNode; abajo: ReactNode } {
   if (activas === null || sinVenir === null) return { abajo: 'Contando…' };
@@ -279,41 +264,6 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
 
 // ─── Gráficas, como las de Bonsai ─────────────────────────────────────────────
 
-const nombreMes = (clave: string) => `${MESES_LARGOS[Number(clave.slice(5, 7)) - 1]} de ${clave.slice(0, 4)}`;
-const ejeMes = (clave: string) => MESES_LARGOS[Number(clave.slice(5, 7)) - 1].slice(0, 3);
-
-function GraficaIngresos({ recibos, hoy, alDia, href }: {
-  recibos: ReturnType<typeof useStudio>['recibos']; hoy: string; alDia: { actual: number; anterior: number; mesAnterior: string }; href: string | null;
-}) {
-  const [meses, setMeses] = useState<3 | 6 | 12>(6);
-  const serie = useMemo(() => ingresosPorMes(recibos, hoy, meses), [recibos, hoy, meses]);
-  const pct = alDia.anterior > 0 ? Math.round(((alDia.actual - alDia.anterior) / alDia.anterior) * 100) : null;
-  return (
-    <TarjetaGrafica
-      id="grafica-ingresos"
-      titulo="Ingresos"
-      sub="Lo cobrado cada mes, con IVA y ya restado lo devuelto"
-      cifra={<CifraPrivada inline>{formatoEuros(alDia.actual)}</CifraPrivada>}
-      comparacion={pct === null ? 'este mes' : (
-        <><span className="font-semibold" style={{ color: pct > 0 ? 'var(--success)' : pct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}>{pct > 0 ? '+' : ''}{pct} %</span> vs {alDia.mesAnterior} a estas alturas</>
-      )}
-      controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
-      pie={href ? <VerMas href={href} label="Ver informe" /> : null}
-    >
-      <CifraPrivada>
-        <GraficaArea
-          titulo="Ingresos por mes"
-          color="var(--cat-2)"
-          puntos={serie.map(m => ({ eje: ejeMes(m.clave), nombre: nombreMes(m.clave) + (m.actual ? ' (va a medias)' : ''), valor: m.total }))}
-          formato={formatoEuros}
-          formatoEje={formatoEjeEuros}
-          vacio="Aquí verás lo que cobras cada mes en cuanto cobres la primera cuota o el primer bono."
-        />
-      </CifraPrivada>
-    </TarjetaGrafica>
-  );
-}
-
 function GraficaReservas({ reservas, hoy, href }: { reservas: ReturnType<typeof useStudio>['reservas']; hoy: string; href: string | null }) {
   // 28 días: los 14 que se ven y los 14 de antes, para comparar.
   const serie = useMemo(() => reservasPorDia(reservas, hoy, 28, diaDelEstudio), [reservas, hoy]);
@@ -350,10 +300,6 @@ function diaLargo(dia: string): string {
   const m = Number(dia.slice(5, 7));
   return `${diaCorto(dia)} de ${MESES_LARGOS[m - 1]}`;
 }
-function formatoEjeEuros(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} k€` : `${n.toLocaleString('es-ES')} €`;
-}
-
 // ─── Renovaciones ─────────────────────────────────────────────────────────────
 
 function Renovaciones({ renovaciones, hoy }: { renovaciones: RenovacionResumen[]; hoy: string }) {

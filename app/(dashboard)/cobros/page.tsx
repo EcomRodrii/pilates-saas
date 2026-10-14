@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Landmark, Plus } from 'lucide-react';
+import { CreditCard, Landmark, Plus } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
@@ -11,7 +11,7 @@ import { cobradoEnTramo, mismoTramoAnterior, textoDeLaComparacion, tramoVisible 
 import { PageHeader } from '@/components/ui/page-header';
 import { MenuAcciones } from '@/components/ui/menu-acciones';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { QuienMeDebe } from '@/components/cobros/quien-me-debe';
+import { QuienMeDebe, type FiltroDeudas } from '@/components/cobros/quien-me-debe';
 import { LoQueHeCobrado } from '@/components/cobros/lo-que-he-cobrado';
 import { ParaTuGestoria } from '@/components/cobros/para-tu-gestoria';
 import { PanelFacturas } from '@/components/cobros/panel-facturas';
@@ -21,6 +21,10 @@ import { useAccionesRecibo, type AvisosCobros } from '@/components/cobros/use-ac
 import { useDatosCobros, type DatosCobros } from '@/components/cobros/use-datos-cobros';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
 import { Toast, useToast } from '@/components/ui/toast';
+import { CifrasCobros, GraficaCobros, type DestinoCifra } from '@/components/cobros/cifras-cobros';
+import { ProximasCuotasNueva, type PlazoProximas } from '@/components/cobros/proximas-cuotas';
+import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // "Cobrar" existe como un solo sitio. La caja (TPV) se queda fuera a propósito:
 // es otro modo de uso —pantalla completa, táctil, de pie en el mostrador—.
@@ -43,12 +47,18 @@ export default function Cobros() {
   const [nuevoCobro, setNuevoCobro] = useState(false);
   const [remesa, setRemesa] = useState(false);
   const toast = useToast();
-  const { studio, recibos, resetDatosPilates } = useStudio();
+  const { studio, recibos, suscripciones, dataLoaded, resetDatosPilates } = useStudio();
   const verHistorial = puedeVerAuditoriaFinanciera(useRol());
   const datos = useDatosCobros();
   // Un solo canal de avisos para toda la pantalla, con el error en su color.
   const avisos: AvisosCobros = useMemo(() => ({ ok: toast.show, error: toast.showError }), [toast.show, toast.showError]);
   const acciones = useAccionesRecibo(avisos);
+  // Panel nuevo (interruptor `panelNuevo`): cifras de colores arriba, la lista en su
+  // tarjeta y, debajo, la gráfica y «Próximas cuotas». Apagado, todo como siempre.
+  const panelNuevo = usePanelNuevo();
+  // Lo que pide una cifra al pulsarla: abrir «Quién me debe» ya filtrada o
+  // «Próximas cuotas» a 7 días. `n` vuelve a montar las dos con lo pedido.
+  const [pedido, setPedido] = useState<{ n: number; filtro: FiltroDeudas | null; dias: PlazoProximas }>({ n: 0, filtro: null, dias: 30 });
 
   // Se lee de window.location y no con useSearchParams para no suspender el
   // árbol (mismo motivo que en el resto de pantallas del panel).
@@ -90,6 +100,16 @@ export default function Cobros() {
     window.history.replaceState({}, '', `/cobros?tab=${id}`);
   }
 
+  function irDesdeCifra(d: DestinoCifra) {
+    if (d === 'cobrado') { irA('cobrado'); return; }
+    setPedido(p => ({ n: p.n + 1, filtro: d === 'atencion' ? 'ATENCION' : null, dias: d === 'proximas' ? 7 : 30 }));
+    irA('deudas');
+    if (d === 'proximas') {
+      // Tras pintarse con los 7 días: está debajo de la lista.
+      setTimeout(() => document.getElementById('proximas-cuotas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    }
+  }
+
   // Mientras carga el estudio, «Facturas»: la de siempre, sin parpadeo.
   const sinFacturacion = studio?.modoFacturacion === 'sin_facturas';
   const nDeudas = useMemo(() => agruparDeudas(recibos, id => !!datos.socioDe(id)).length, [recibos, datos]);
@@ -100,6 +120,10 @@ export default function Cobros() {
     historial: 'Cambios del equipo',
   };
   const tabs = TABS.filter(t => t !== 'historial' || verHistorial);
+  // Un estudio que aún no ha cobrado nada ni vendido ninguna cuota o bono: en el
+  // panel nuevo, el vacío que enseña en vez de una lista, una gráfica y unas
+  // próximas cuotas vacías. Solo con los datos ya cargados (si no, parpadea).
+  const estrenando = dataLoaded && recibos.length === 0 && suscripciones.length === 0;
 
   return (
     // `pb-24`: lo último de la pantalla (el ⋯ de «En el banco») puede subir por encima de
@@ -107,8 +131,26 @@ export default function Cobros() {
     <div data-tour="cobros-vista" className="space-y-5 pb-24">
       <PageHeader
         title="Cobros"
-        description={<LineaResumen datos={datos} />}
-        actions={(
+        description={panelNuevo ? 'Quién te debe, lo que has cobrado y lo que viene' : <LineaResumen datos={datos} />}
+        actions={panelNuevo ? (
+          <div className="flex items-center gap-2">
+            {datos.estudioHaceRemesas && (
+              <>
+                <span className="hidden md:inline-flex"><BotonRemesaSepa /></span>
+                <span className="md:hidden">
+                  <MenuAcciones
+                    etiqueta="Más acciones de Cobros"
+                    acciones={[{ texto: 'Preparar recibos para el banco', icono: Landmark, onClick: () => setRemesa(true) }]}
+                  />
+                </span>
+              </>
+            )}
+            {/* La acción principal, con el degradado del logo; el resto, con borde. */}
+            <span data-tour="cobros-nuevo" className="inline-flex">
+              <BotonVivo label="Nuevo cobro" Icono={Plus} onClick={() => setNuevoCobro(true)} />
+            </span>
+          </div>
+        ) : (
           <div className="flex items-center gap-2">
             {datos.estudioHaceRemesas && (
               <>
@@ -131,6 +173,8 @@ export default function Cobros() {
         )}
       />
 
+      {panelNuevo && <CifrasCobros datos={datos} onIr={irDesdeCifra} />}
+
       {/* `max-w-full` + scroll: en un móvil de 375 px las cuatro no caben. */}
       <nav data-tour="cobros-secciones" aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
         {tabs.map(t => (
@@ -148,8 +192,31 @@ export default function Cobros() {
         ))}
       </nav>
 
-      {tab === 'deudas' && <QuienMeDebe datos={datos} acciones={acciones} avisos={avisos} />}
-      {tab === 'cobrado' && <LoQueHeCobrado datos={datos} acciones={acciones} avisos={avisos} />}
+      {tab === 'deudas' && (panelNuevo ? (estrenando ? (
+        <PantallaVacia
+          tono="verde"
+          Icono={CreditCard}
+          titulo="Cobra tu primera cuota"
+          texto="Aquí verás quién te debe, lo que has cobrado y lo que viene. Cada cuota o bono que vendas deja aquí su recibo, y lo que te paguen en mano lo apuntas tú."
+          ejemplos={[
+            { accion: 'Vende una cuota o un bono', cuando: 'y su recibo aparece aquí' },
+            { accion: 'Apunta un pago en mano', cuando: 'en efectivo, Bizum o transferencia' },
+            { accion: 'Cada renovación de una cuota', cuando: 'sale aquí sola el día que toca' },
+          ]}
+          accion={{ label: 'Nuevo cobro', onClick: () => setNuevoCobro(true), Icono: Plus }}
+          secundaria={{ label: 'Crear una cuota o un bono', href: '/productos' }}
+        />
+      ) : (
+        <>
+          <QuienMeDebe key={pedido.n} datos={datos} acciones={acciones} avisos={avisos} nueva filtroInicial={pedido.filtro} />
+          {/* Como «Cuentas» de Bonsai: lo cobrado mes a mes y lo que viene, debajo de lo que se debe. */}
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+            <GraficaCobros datos={datos} onVerCobrado={() => irA('cobrado')} />
+            <ProximasCuotasNueva key={pedido.n} datos={datos} diasIniciales={pedido.dias} />
+          </div>
+        </>
+      )) : <QuienMeDebe datos={datos} acciones={acciones} avisos={avisos} />)}
+      {tab === 'cobrado' && <LoQueHeCobrado datos={datos} acciones={acciones} avisos={avisos} nueva={panelNuevo} />}
       {tab === 'facturas' && (sinFacturacion ? <ParaTuGestoria hoy={datos.hoy} avisos={avisos} /> : <PanelFacturas />)}
       {tab === 'historial' && verHistorial && studio && <HistorialDinero studioId={studio.id} />}
 
