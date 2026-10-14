@@ -5,7 +5,7 @@ import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { useRol, puedeVer, puedeVerFinanzas, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
@@ -60,6 +60,11 @@ import { ConstructorSegmentos } from '@/components/segmentos/constructor-segment
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
 import { emiteFacturas } from '@/lib/factura-automatica';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
+import { GraficaAltas } from '@/components/dashboard/grafica-altas';
+import { CifrasClientas, type CifraClientas } from '@/components/clientas/cifras-clientas';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -197,9 +202,13 @@ export default function Socios() {
     // compone en el contexto con el mismo helper: el diálogo tiene que enseñar
     // exactamente lo que se va a guardar, no una versión parecida.
     studio, registrarConsentimientoMarketing,
-    plazasFijas,
+    plazasFijas, dataLoaded, datosIncompletos,
   } = useStudio();
   const rol = useRol();
+  // Panel nuevo (interruptor `panelNuevo`, 14-oct-2026): cifras de color arriba,
+  // pestañas y estados en píldora, la gráfica de altas y un vacío que enseña.
+  // Apagado, la pantalla es la de siempre: todo lo nuevo va detrás de esto.
+  const panelNuevo = usePanelNuevo();
   const verSemaforo = puedeVerSemaforo(rol);
   // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0118). Lo
   // que faltaba era no enseñárselo: veía "Nueva clienta", "Importar", editar,
@@ -1194,6 +1203,64 @@ export default function Socios() {
   const nInteresadas = (conteos?.DE_PRUEBA ?? 0) + (conteos?.INTERESADA ?? 0) + consultasNuevas.length;
   const hoyTxt = hoyISO ?? '';
 
+  // ── Panel nuevo: las cifras de arriba filtran la lista ─────────────────────
+  // Igual que el enlace de Resumen (`/clientas?mas=sin_venir_30d`), que llega con
+  // ese filtro y ningún otro: al pulsar una cifra se quitan los demás, para que
+  // la lista enseñe justo las que cuenta la tarjeta. Pulsada otra vez, se quita.
+  const cifraActiva: CifraClientas | null =
+    filtroMasEfectivo === 'sin_venir_30d' ? 'sin_venir'
+      : filtroEstado === 'ACTIVA' ? 'activas'
+        : filtroEstado === 'SIN_RENOVAR' ? 'sin_renovar'
+          : sortKey === 'fecha_registro' ? 'altas'
+            : null;
+  function alPulsarCifra(c: CifraClientas) {
+    const quitar = cifraActiva === c;
+    limpiarFiltros();
+    if (sortKey === 'fecha_registro') { setSortKey('nombre'); setSortDir('asc'); }
+    setVista('clientas');
+    setSeleccionando(false);
+    if (quitar) return;
+    if (c === 'activas') setFiltroEstado('ACTIVA');
+    if (c === 'sin_renovar') setFiltroEstado('SIN_RENOVAR');
+    if (c === 'sin_venir') setFiltroMas('sin_venir_30d');
+    // Las altas no son un filtro: se ordena por fecha de alta, las más nuevas arriba.
+    if (c === 'altas') { setSortKey('fecha_registro'); setSortDir('asc'); }
+  }
+  // Ni una ficha (con los datos enteros: mientras cargan, `socios` también está
+  // vacío): en vez de la tabla vacía, la pantalla que enseña para qué sirve.
+  const sinNingunaNueva = panelNuevo && dataLoaded && !datosIncompletos.includes('socios') && socios.length === 0;
+  const abrirAlta = () => { setForm(emptyForm()); setShowForm('nueva'); };
+  // La cabecera nueva: la acción principal con el degradado del logo e
+  // «Importar» con borde; las respuestas a las preguntas del estudio, en el ⋯.
+  // En el móvil, el ⋯ lleva también «Importar» (antes no se llegaba desde ahí).
+  const accionImportar: AccionMenu = { texto: 'Importar clientas', icono: Upload, nota: 'Desde un Excel o un CSV', onClick: () => router.push('/clientas/importar') };
+  const accionRespuestas: AccionMenu[] = camposPersonalizados.some(c => c.activo)
+    ? [{ texto: 'Respuestas', icono: ListChecks, nota: 'Lo que ha contestado cada una a tus preguntas', onClick: () => router.push('/clientas/respuestas') }]
+    : [];
+  const accionesNuevas = (
+    <>
+      <span className="sm:hidden">
+        <MenuAcciones acciones={[accionImportar, ...accionRespuestas]} claseBoton={BOTON_MENU} />
+      </span>
+      <button type="button" data-tour="clientas-importar" onClick={() => router.push('/clientas/importar')} className={cn(BOTON_BORDE, 'hidden sm:inline-flex')}>
+        <Upload size={15} aria-hidden />
+        Importar
+      </button>
+      {accionRespuestas.length > 0 && (
+        <span className="hidden sm:inline-flex">
+          <MenuAcciones acciones={accionRespuestas} claseBoton={BOTON_MENU} />
+        </span>
+      )}
+      <span data-tour="clientas-nueva" className="inline-flex">
+        <BotonVivo
+          Icono={Plus}
+          onClick={abrirAlta}
+          label={<><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva clienta</span></>}
+        />
+      </span>
+    </>
+  );
+
   function abrirClienta(id: string, e?: MouseEvent) {
     if (seleccionando) { e?.preventDefault(); toggleSelect(id); return; }
     // ⌘/Ctrl/Mayús-clic: lo hace el propio enlace (pestaña o ventana nueva).
@@ -1276,6 +1343,7 @@ export default function Socios() {
             ].filter(Boolean).join(' · ')
           : 'Gestiona y haz seguimiento de todas tus clientas'}
         actions={
+          panelNuevo ? (gestionaClientas ? accionesNuevas : null) :
           gestionaClientas ? (
           <>
             {/* Las respuestas de todas a las preguntas del estudio, juntas. Solo si hay preguntas. */}
@@ -1310,8 +1378,28 @@ export default function Socios() {
         }
       />
 
+      {/* Panel nuevo: cuatro cifras como las de la home; las de la lista la filtran. */}
+      {panelNuevo && !sinNingunaNueva && (
+        <CifrasClientas
+          estados={estados}
+          verFinanzas={puedeVerFinanzas(rol)}
+          irACobros={puedeVer(rol, '/cobros')}
+          activa={vista === 'clientas' ? cifraActiva : null}
+          onCifra={alPulsarCifra}
+        />
+      )}
+
       {/* Dos vistas: las clientas y quienes todavía están entrando (preguntaron,
           tienen su prueba o vinieron a ella). Con la URL, para volver a la misma. */}
+      {panelNuevo ? (
+        <PestanasVivas
+          etiqueta="Vista"
+          dataTour="clientas-interesadas"
+          valor={vista}
+          onCambio={(id) => { setVista(id); setAbierta(null); setSelected(new Set()); setSeleccionando(false); }}
+          pestanas={[{ id: 'clientas', label: 'Clientas', n: conteos?.TOTAL }, { id: 'interesadas', label: 'Interesadas y pruebas', n: nInteresadas }]}
+        />
+      ) : (
       <div data-tour="clientas-interesadas" role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
         {([['clientas', 'Clientas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
           <button
@@ -1331,6 +1419,7 @@ export default function Socios() {
           </button>
         ))}
       </div>
+      )}
 
       {/* RGPD: solicitudes de las clientas desde su app, por plazo. Se atienden en la ficha. */}
       {gestionaClientas && <SolicitudesDerechosPendientes />}
@@ -1352,9 +1441,62 @@ export default function Socios() {
           }}
           onRecargar={() => setRecargaConsultas((n) => n + 1)}
         />
+      ) : sinNingunaNueva ? (
+        // Panel nuevo, sin ninguna clienta todavía: lo que tendrá aquí y cómo empezar.
+        <PantallaVacia
+          tono="magenta"
+          Icono={Users}
+          titulo="Da de alta a tu primera clienta"
+          texto="Aquí tendrás a cada clienta con su plan, lo que le queda y cuándo vino por última vez."
+          ejemplos={[
+            { accion: 'Mira quién lleva un mes sin venir', cuando: 'antes de que se te vaya.' },
+            { accion: 'Ve cuántas sesiones le quedan a cada una', cuando: 'sin abrir su ficha.' },
+            { accion: 'Encuentra a quien se le acabó el plan', cuando: 'cuando aún estás a tiempo de recuperarla.' },
+          ]}
+          accion={gestionaClientas ? { label: 'Añadir mi primera clienta', Icono: Plus, onClick: abrirAlta } : undefined}
+          secundaria={gestionaClientas && puedeVer(rol, '/migracion') ? { label: 'Tráelas de tu programa anterior', href: '/migracion' } : undefined}
+        />
       ) : (
       <>
       {/* ── Estado: un chip por estado con su recuento ──────────────────────── */}
+      {panelNuevo ? (
+        // Panel nuevo: los estados en píldora segmentada, como el periodo de las
+        // gráficas de la home; el punto de color de cada estado se queda.
+        <div className="space-y-2">
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            <div data-tour="clientas-estados" className="inline-flex gap-1 rounded-full bg-muted p-1" role="radiogroup" aria-label="Estado">
+              {(['TODAS', ...ESTADOS_CLIENTA] as const)
+                .filter((e) => e === 'TODAS' || e === filtroEstado || (conteos?.[e] ?? 0) > 0 || e === 'ACTIVA')
+                .map((e) => {
+                  const activo = filtroEstado === e;
+                  const n = e === 'TODAS' ? conteos?.TOTAL : conteos?.[e];
+                  return (
+                    <button
+                      key={e}
+                      role="radio"
+                      aria-checked={activo}
+                      data-estado-filtro={e}
+                      onClick={() => setFiltroEstado(e)}
+                      className={cn(
+                        'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
+                        activo ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {e !== 'TODAS' && <PuntoEstado estado={e} />}
+                      {e === 'TODAS' ? 'Todas' : ETIQUETA_ESTADO[e]}
+                      <span className="tabular-nums text-muted-foreground">{n ?? '—'}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+          {filtroEstado !== 'TODAS' && (
+            <p className="text-[12.5px] text-muted-foreground text-pretty">
+              <strong className="font-semibold text-foreground">{ETIQUETA_ESTADO[filtroEstado]}:</strong> {DEFINICION_ESTADO[filtroEstado]}
+            </p>
+          )}
+        </div>
+      ) : (
       <div className="space-y-2">
         <div data-tour="clientas-estados" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
           {(['TODAS', ...ESTADOS_CLIENTA] as const)
@@ -1387,6 +1529,7 @@ export default function Socios() {
           </p>
         )}
       </div>
+      )}
 
       {/* ── Buscar y filtrar ─────────────────────────────────────────────────── */}
       {/* En el móvil, lo primero es buscar: los filtros van plegados detrás de un
@@ -1576,7 +1719,7 @@ export default function Socios() {
 
       {/* ── La lista, y al lado la clienta abierta (pantallas anchas) ────────── */}
       <div className={cn(panelAbierto && 'grid grid-cols-[minmax(320px,380px)_minmax(0,1fr)] items-start gap-4')}>
-      <div className={cn('rounded-2xl border border-border bg-card shadow-xs', columnasExtra.length > 0 && !panelAbierto ? 'overflow-x-auto' : 'overflow-hidden', panelAbierto && 'sticky top-4')}>
+      <div className={cn(panelNuevo ? 'rounded-t-card border border-border bg-card shadow-t-card' : 'rounded-2xl border border-border bg-card shadow-xs', columnasExtra.length > 0 && !panelAbierto ? 'overflow-x-auto' : 'overflow-hidden', panelAbierto && 'sticky top-4')}>
         {lista.length === 0 ? (
           // P2 (auditoría de producto): migrado a `EmptyState`, la primitiva
           // extraída en la auditoría del 20-ago (~90 estados vacíos con 6
@@ -1861,6 +2004,13 @@ export default function Socios() {
         </section>
       )}
       </div>
+
+      {/* Panel nuevo: cómo crece el estudio, la misma gráfica que la home. Debajo
+          de la lista, que es a lo que se viene aquí; con una clienta abierta al
+          lado, no (esa vista es para ir de una en una). */}
+      {panelNuevo && hoyISO && !panelAbierto && (
+        <GraficaAltas socios={socios} hoy={hoyISO} href={null} />
+      )}
       </>
       )}
 
