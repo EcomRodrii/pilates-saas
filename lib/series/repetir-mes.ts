@@ -79,7 +79,8 @@ export interface PropuestaRepetir {
   hoy: string;
   /** «Cataluña», o null si no sabemos la comunidad (entonces no se marca ningún festivo). */
   zona: string | null;
-  festivos: { fecha: string; nombre: string }[];
+  /** Los oficiales de la zona y, con `propio`, los que el estudio guardó en el módulo Festivos. */
+  festivos: { fecha: string; nombre: string; propio?: boolean }[];
   /** Festivos con «abrimos igualmente»: vienen marcados. */
   abiertos: string[];
   series: SerieParaRepetir[];

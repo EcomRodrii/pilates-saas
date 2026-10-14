@@ -21,12 +21,15 @@ import { mapLimit } from '../concurrency.ts';
 import { avisoFestivosEncendido } from '../interruptor-por-estudio.ts';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '../utils.ts';
 import type { FestivoOficial, ZonaFestivos } from './oficiales.ts';
-import { festivosSinDecidir, ventanaFestivos, type FestivoConClases } from './por-decidir.ts';
+import { festivosSinDecidir, sumarDias, ventanaFestivos, type FestivoConClases } from './por-decidir.ts';
 import { zonaDelEstudio } from './zona-del-estudio.ts';
+import { festivosGuardadosEntre } from './estudio-servidor.ts';
 
 export type ResultadoFestivos =
   | { disponible: false }
-  | { disponible: true; zona: ZonaFestivos | null; festivos: FestivoConClases[] }
+  // `propios`: el estudio tiene festivos guardados en el módulo Festivos (los
+  // locales, por ejemplo): la tarjeta no puede decir «no incluye los locales».
+  | { disponible: true; zona: ZonaFestivos | null; festivos: FestivoConClases[]; propios: boolean }
   | null;
 
 /** La zona del estudio según su dirección, o null (sin calendario: no se avisa). */
@@ -56,9 +59,17 @@ async function abiertosEntre(admin: SupabaseClient, studioId: string, desde: str
 
 export async function festivosPorDecidir(
   admin: SupabaseClient,
-  { studioId, ahora, alcance, conReservas }: { studioId: string; ahora: Date; alcance: 'aviso' | 'todos'; conReservas: boolean },
+  { studioId, ahora, alcance, conReservas, encendido }: {
+    studioId: string; ahora: Date; alcance: 'aviso' | 'todos'; conReservas: boolean;
+    /**
+     * ¿Está encendido para este estudio? Por defecto, el aviso de la bandeja
+     * (`FESTIVOS_AVISO`). «Comprobar clases» del módulo Festivos (panel nuevo)
+     * lo abre también con el panel nuevo, solo con alcance «todos».
+     */
+    encendido?: boolean;
+  },
 ): Promise<ResultadoFestivos> {
-  if (!avisoFestivosEncendido(studioId)) return { disponible: false };
+  if (!(encendido ?? avisoFestivosEncendido(studioId))) return { disponible: false };
 
   const zona = await zonaDeEstudio(admin, studioId);
   if (zona === 'error') return null;
@@ -70,13 +81,19 @@ export async function festivosPorDecidir(
   if (abiertos === 'no_disponible') return { disponible: false };
   if (abiertos === 'error') return null;
 
-  if (!zona) return { disponible: true, zona: null, festivos: [] };
-  const ventana = ventanaFestivos(hoy, alcance, zona);
-  if (!ventana) return { disponible: true, zona, festivos: [] };
+  // Lo que el estudio ha guardado en el módulo Festivos (sin la tabla: nada).
+  // Va antes de mirar la zona: un festivo local guardado cuenta aunque no
+  // tengamos el calendario oficial de su comunidad.
+  const guardados = await festivosGuardadosEntre(admin, studioId, sumarDias(hoy, 1), null);
+  if (guardados === 'error') return null;
+  const propios = guardados.length > 0;
+
+  const ventana = ventanaFestivos(hoy, alcance, zona, guardados[guardados.length - 1]?.fecha ?? null);
+  if (!ventana) return { disponible: true, zona, festivos: [], propios };
 
   // Sin ningún festivo en la ventana, nada más que leer (lo normal casi todo el año).
-  const enVentana = festivosSinDecidir(zona, ventana, { abiertos: new Set(), cierres: [] });
-  if (enVentana.length === 0) return { disponible: true, zona, festivos: [] };
+  const enVentana = festivosSinDecidir(zona, ventana, { abiertos: new Set(), cierres: [] }, guardados);
+  if (enVentana.length === 0) return { disponible: true, zona, festivos: [], propios };
 
   const [yaAbiertos, cierres] = await Promise.all([
     abiertosEntre(admin, studioId, ventana.desde, ventana.hasta),
@@ -91,12 +108,12 @@ export async function festivosPorDecidir(
   const pendientes = festivosSinDecidir(zona, ventana, {
     abiertos: yaAbiertos,
     cierres: (cierres.data ?? []).map((c) => ({ desde: String(c.desde).slice(0, 10), hasta: String(c.hasta).slice(0, 10) })),
-  });
+  }, guardados);
 
   // De a pocos: el aviso son 0–2 festivos, «Ver todos» hasta ~15.
   const contados = await mapLimit(pendientes, 3, (f) => contarDia(admin, studioId, f, conReservas));
   if (contados.some((c) => c === null)) return null;
-  return { disponible: true, zona, festivos: (contados as FestivoConClases[]).filter((f) => f.clases > 0) };
+  return { disponible: true, zona, festivos: (contados as FestivoConClases[]).filter((f) => f.clases > 0), propios };
 }
 
 async function contarDia(

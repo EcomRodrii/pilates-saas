@@ -29,7 +29,10 @@ import type { Rol } from './types';
 // '/asistente' («Pregúntale a Tentare»): propietaria y gerencia (fundador,
 // 5-oct-2026); recepción no. Lo que el plan incluye y si está encendido lo
 // decide la propia pantalla (feature `asistente`) y, de verdad, el servidor.
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente'];
+// '/festivos' (módulo del panel nuevo, 14-oct-2026): lo que se decide ahí es
+// abrir o cerrar un día, y cerrar es de la propietaria y la gerencia
+// (`puedeGestionarSede`, el mismo permiso que sus rutas y la RLS de la tabla).
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente', '/festivos'];
 
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque

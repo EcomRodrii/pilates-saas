@@ -85,3 +85,32 @@ test('«Abrimos igualmente» solo para un festivo de SU zona, futuro y bien escr
   assert.equal(festivoAbrible(null, '2026-12-08', '2026-11-20'), null, 'sin zona');
   assert.equal(festivoAbrible('MADRID', "2026-12-08' or 1=1", '2026-11-20'), null);
 });
+
+// ─── Módulo Festivos (panel nuevo): lo que el estudio ha guardado ───────────
+
+test('los guardados entran en la ventana con los oficiales, sin repetir un día', () => {
+  const v = ventanaFestivos('2026-11-30', 'aviso', 'MADRID')!;
+  const r = festivosSinDecidir('MADRID', v, nada, [
+    { fecha: '2026-12-09', nombre: 'Fiesta del barrio' },
+    { fecha: '2026-12-08', nombre: 'Repetido' },
+    { fecha: '2027-03-01', nombre: 'Fuera de la ventana' },
+  ]);
+  assert.deepEqual(r.map((f) => [f.fecha, f.nombre]).filter(([f]) => f <= '2026-12-09'), [
+    ['2026-12-07', 'Día de la Constitución, trasladado'], ['2026-12-08', 'Inmaculada'], ['2026-12-09', 'Fiesta del barrio'],
+  ]);
+});
+
+test('sin zona, los guardados solos; «Ver todos» llega hasta el último guardado', () => {
+  assert.equal(ventanaFestivos('2026-10-12', 'todos', null), null);
+  const v = ventanaFestivos('2026-10-12', 'todos', null, '2028-05-02')!;
+  assert.deepEqual(v, { desde: '2026-10-13', hasta: '2028-12-31' });
+  assert.deepEqual(festivosSinDecidir(null, v, nada, [{ fecha: '2028-05-02', nombre: 'San X' }]).map((f) => f.fecha), ['2028-05-02']);
+});
+
+test('«Abrimos igualmente» también para un festivo guardado, con SU nombre', () => {
+  const guardados = [{ fecha: '2026-12-09', nombre: 'Fiesta del barrio' }];
+  assert.equal(festivoAbrible('MADRID', '2026-12-09', '2026-11-20', guardados)?.nombre, 'Fiesta del barrio');
+  assert.equal(festivoAbrible(null, '2026-12-09', '2026-11-20', guardados)?.nombre, 'Fiesta del barrio');
+  assert.equal(festivoAbrible('MADRID', '2026-12-08', '2026-11-20', guardados)?.nombre, 'Inmaculada', 'el oficial manda');
+  assert.equal(festivoAbrible(null, '2026-12-10', '2026-11-20', guardados), null);
+});
