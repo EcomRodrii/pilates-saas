@@ -9,6 +9,13 @@ import { ayudaDePantalla, urlDeAyuda, type AyudaPantalla } from '@/lib/ayuda/pan
 import { IconoInfo } from '@/lib/iconos';
 import { cn } from '@/lib/utils';
 import { DentroDePortal, useDestinoPortal } from '@/components/ui/destino-portal';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+
+// Panel nuevo: el ⓘ abre la ayuda en un panel lateral, como Bonsai. Llega con
+// dynamic(): sus textos (pasos, guías) no viajan en el chunk de cada pantalla.
+const CajonAyuda = dynamic(() => import('@/components/ayuda/cajon-ayuda').then(m => m.CajonAyuda), { ssr: false });
 
 // El (i) que va pegado al título de cada pantalla.
 //
@@ -59,10 +66,34 @@ export function AyudaDePantalla({
   // Al anfitrión del panel, dentro de `.dark`: en <body> el recuadro salía
   // blanco sobre el panel oscuro (components/ui/destino-portal.tsx).
   const destino = useDestinoPortal();
-  const ayuda = ayudaDePantalla(ruta ?? pathname);
+  const panelNuevo = usePanelNuevo();
+  const [cajon, setCajon] = useState(false);
+  const clave = ruta ?? pathname;
+  const ayuda = ayudaDePantalla(clave);
   // Una pantalla sin ficha no pinta nada. Preferimos un hueco a un (i) que
   // abre un recuadro vacío o que lleva a una guía que no habla de esto.
   if (!ayuda) return null;
+
+  if (panelNuevo) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setCajon(true)}
+          data-slot="ayuda-pantalla-trigger"
+          aria-label={`Ayuda: ${ayuda.titulo}`}
+          aria-haspopup="dialog"
+          className={cn(
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            className
+          )}
+        >
+          <IconoInfo className="size-4" aria-hidden="true" />
+        </button>
+        {cajon && <CajonAyuda ayuda={ayuda} ruta={clave} abierto={cajon} onCerrar={() => setCajon(false)} />}
+      </>
+    );
+  }
 
   return (
     <PopoverPrimitive.Root>
