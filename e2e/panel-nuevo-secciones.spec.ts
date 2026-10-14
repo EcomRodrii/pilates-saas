@@ -93,3 +93,18 @@ test('Configuración: cada ajuste es su tarjeta con su valor a la vista, y tocar
   await fila.click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
+
+test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se pliega a una píldora', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  for (const t of ['instructores', 'socios', 'planes_tarifa', 'suscripciones', 'tipos_clase', 'sesiones', 'reservas', 'recibos']) {
+    await page.route(`**/rest/v1/${t}**`, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  }
+  await page.route((u) => u.pathname === '/api/calendario', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sesiones: [], reservas: [], salas: [], instructores: [] }) }));
+  await ir(page, 'clientas');
+  const panel = page.getByRole('region', { name: 'Primeros pasos' });
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByRole('progressbar', { name: 'Tu progreso' })).toHaveAttribute('aria-valuenow', '0');
+  await expect(panel.getByRole('link', { name: 'Añade a quien da las clases' })).toHaveAttribute('href', '/equipo?nuevo=1');
+  await panel.getByRole('button', { name: 'Plegar «Primeros pasos»' }).click();
+  await expect(page.getByRole('button', { name: /Abrir «Primeros pasos»/ })).toBeVisible();
+});
