@@ -83,6 +83,16 @@ test('Sustituciones: los cuatro modos se eligen como tarjetas, y los del plan ll
   await expect(modos.getByRole('radio', { name: /Asistido/ })).toHaveAttribute('aria-checked', 'true');
 });
 
+test('Configuración: cada ajuste es su tarjeta con su valor a la vista, y tocarlo abre su editor de siempre', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  await ir(page, 'configuracion?tab=reservas');
+  const fila = page.locator('#reservar');
+  await expect(fila).toBeVisible({ timeout: 30_000 });
+  // Título, explicación y el valor de hoy en la caja de la derecha.
+  await expect(fila.locator('[data-resumen]')).toHaveCount(1);
+  await fila.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+
 test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se pliega a una píldora', async ({ page }) => {
   await preparar(page, { nuevo: true });
   for (const t of ['instructores', 'socios', 'planes_tarifa', 'suscripciones', 'tipos_clase', 'sesiones', 'reservas', 'recibos']) {
