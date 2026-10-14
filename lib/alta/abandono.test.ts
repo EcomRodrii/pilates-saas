@@ -287,3 +287,12 @@ test('el where exists del cron es la MISMA condición que «pendiente» en la fu
   assert.match(CRON, /url := 'https:\/\/www\.tentare\.app\/api\/cron\/altas-sin-terminar'/);
   assert.match(CRON, /'23 \* \* \* \*'/);
 });
+
+test('con Founding Studio gratis, el correo del paso del plan no habla de prueba', () => {
+  const c = contenidoRecordatorio('formulario_plan', alta(), BASE, { foundingGratis: true });
+  const todo = [c.asunto, c.preheader, c.titular, ...c.parrafos].join(' ');
+  assert.doesNotMatch(todo, /prueba|días gratis/);
+  assert.match(todo, /Empiezas gratis/);
+  // Apagado, lo de siempre.
+  assert.match(contenidoRecordatorio('formulario_plan', alta(), BASE).preheader, /días gratis/);
+});

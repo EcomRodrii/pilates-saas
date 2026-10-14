@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { enviarRecordatorioAlta } from '@/lib/emails/embudo-alta-server';
 import { correoAltaSinTerminar } from '@/lib/emails/tentare/embudo-alta';
 import { LEGAL } from '@/lib/legal-info';
+import { foundingGratisEnAltas } from '@/lib/alta/founding-gratis-alta';
 import {
   altaDesdeFila,
   claveIdempotenciaRecordatorio,
@@ -76,7 +77,7 @@ export async function enviarRecordatoriosAltas(admin: SupabaseClient, ahoraMs = 
       .select('auth_user_id');
     if (errReclamo || !reclamada?.length) continue;
 
-    const contenido = contenidoRecordatorio(decision.paso, alta, base);
+    const contenido = contenidoRecordatorio(decision.paso, alta, base, { foundingGratis: foundingGratisEnAltas() });
     const res = await enviarRecordatorioAlta({
       to: alta.email!,
       asunto: contenido.asunto,
