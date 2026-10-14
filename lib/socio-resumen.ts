@@ -44,17 +44,46 @@ export interface ResumenSocio {
   pagosFallidos: Recibo[];
 }
 
+/**
+ * Qué plan es «el suyo» cuando tiene varios vivos: el que le da derecho a venir.
+ * Primero la cuota vigente, después un bono con clases, y al final lo gastado
+ * (una clase suelta ya usada, un bono a 0). Antes valía el primero de la lista:
+ * con una clase suelta gastada y la cuota recién asignada, la ficha decía «Plan:
+ * Clase Suelta · quedan 0 · +1 bono más» —y ese «bono» era la cuota—, y «Sin
+ * plan» cancelaba la clase suelta en vez de la cuota. A igual rango, la ACTIVA
+ * antes que la PAUSADA (con «Reanudar» a mano saldrían dos cuotas activas), y
+ * después el orden de la lista, como hasta ahora.
+ */
+export function rangoSuscripcion(s: Suscripcion, planesTarifa: readonly PlanTarifa[], hoyISO: string): number {
+  const tipo = planesTarifa.find(p => p.id === s.planId)?.tipo;
+  // Vencida (cuota sin renovar, bono caducado) no da derecho a venir: va con lo gastado.
+  const vigente = !s.fechaFin || s.fechaFin >= hoyISO;
+  if (tipo === 'MENSUAL') return vigente ? 0 : 2;
+  if (vigente && (s.sesionesRestantes == null || s.sesionesRestantes > 0)) return 1;
+  return 2;
+}
+
+function laPrincipal(candidatas: Suscripcion[], planesTarifa: readonly PlanTarifa[], hoyISO: string): Suscripcion | undefined {
+  const peso = (s: Suscripcion) => rangoSuscripcion(s, planesTarifa, hoyISO) * 2 + (s.estado === 'PAUSADA' ? 1 : 0);
+  let mejor: Suscripcion | undefined;
+  for (const s of candidatas) {
+    if (!mejor || peso(s) < peso(mejor)) mejor = s;
+  }
+  return mejor;
+}
+
 export function resumenSocio({
   socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now,
 }: ResumenSocioInput): ResumenSocio {
   const propiasSocio = suscripciones.filter(s => s.socioId === id);
+  const hoyISO = hoyEnEstudio(now);
   // Hallazgo B (auditoría dunning 2026-08-10): sin ninguna ACTIVA/PAUSADA, se
   // ofrece la CANCELADA más reciente (por fechaInicio) para que el botón
   // "Reactivar" tenga algo desde lo que dispararse — antes esta tarjeta
   // simplemente desaparecía y la única vía era "Asignar plan" (una
   // suscripción nueva desde cero, perdiendo el histórico de la cancelada).
   const suscripcion =
-    propiasSocio.find(s => s.estado === 'ACTIVA' || s.estado === 'PAUSADA') ??
+    laPrincipal(propiasSocio.filter(s => s.estado === 'ACTIVA' || s.estado === 'PAUSADA'), planesTarifa, hoyISO) ??
     propiasSocio
       .filter(s => s.estado === 'CANCELADA')
       .sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio))[0];
@@ -105,9 +134,8 @@ export function resumenSocio({
   // auto-cancelacion del dunning (que ya deja el estado en CANCELADA hacia
   // adelante, pero este contador no debe fiarse ciegamente de que quedo
   // sincronizado).
-  const hoyISO = hoyEnEstudio(now);
   const estaVigente = (s: Suscripcion) => !s.fechaFin || s.fechaFin >= hoyISO;
-  const suscripcionActiva = suscripciones.find(s => s.socioId === id && s.estado === 'ACTIVA' && estaVigente(s)) ?? null;
+  const suscripcionActiva = laPrincipal(propiasSocio.filter(s => s.estado === 'ACTIVA' && estaVigente(s)), planesTarifa, hoyISO) ?? null;
   const planActivo = suscripcionActiva ? planesTarifa.find(p => p.id === suscripcionActiva.planId) ?? null : null;
   const bonosActivos = suscripciones.filter(s => s.socioId === id && s.estado === 'ACTIVA' && estaVigente(s)).length;
   const pendientesImporte = pendientes.reduce((acc, r) => acc + r.importe, 0);
