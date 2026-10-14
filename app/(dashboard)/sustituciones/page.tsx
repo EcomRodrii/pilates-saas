@@ -24,7 +24,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2, Send,
-  MessageCircle, UserCheck, Hand, ThumbsUp, Bot, TreePalm, Lock, UserX,
+  MessageCircle, UserCheck, Hand, ThumbsUp, Zap, TreePalm, Lock, UserX, ArrowLeftRight,
 } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ type EstadoMeta = { label: string; cls: string; activa: boolean };
 const MODOS: { val: string; label: string; que: string; premium: boolean; Icono: ElementType; tono: Tono }[] = [
   { val: 'manual', label: 'Manual', que: 'Te propone candidatas; tú das cada paso.', premium: false, Icono: Hand, tono: 'indigo' },
   { val: 'asistido', label: 'Asistido', que: 'Contacta candidatas; tú apruebas con un toque.', premium: false, Icono: ThumbsUp, tono: 'azul' },
-  { val: 'autonomo', label: 'Autónomo', que: 'Cubre las bajas solo y te lo cuenta después.', premium: true, Icono: Bot, tono: 'magenta' },
+  { val: 'autonomo', label: 'Autónomo', que: 'Cubre las bajas solo y te lo cuenta después.', premium: true, Icono: Zap, tono: 'magenta' },
   { val: 'vacaciones', label: 'Vacaciones', que: 'Opera de principio a fin sin molestarte.', premium: true, Icono: TreePalm, tono: 'verde' },
 ];
 
@@ -348,7 +348,7 @@ export default function SustitucionesPage() {
           se pinta hasta haberlo leído: «no avisa» mientras carga sería mentira. */}
       {panelNuevo ? (
         <section aria-labelledby="como-cubre" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
-          <CabeceraTarjeta tono="azul" Icono={Bot} id="como-cubre" titulo="Cómo cubre Tentare las bajas" sub="Elige cuánto quieres que haga solo. Lo puedes cambiar cuando quieras." />
+          <CabeceraTarjeta tono="azul" Icono={ArrowLeftRight} id="como-cubre" titulo="Cómo cubre Tentare las bajas" sub="Elige cuánto quieres que haga solo. Lo puedes cambiar cuando quieras." />
           <div role="radiogroup" aria-label="Modo de autonomía" className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             {MODOS.map(m => {
               const bloqueado = m.premium && !autonomiaOk;
@@ -532,7 +532,7 @@ export default function SustitucionesPage() {
       ) : items.length === 0 && panelNuevo ? (
         <PantallaVacia
           tono="verde"
-          Icono={Sparkles}
+          Icono={UserCheck}
           titulo="Ninguna baja ahora mismo"
           texto="Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar, con sus motivos."
           ejemplos={[

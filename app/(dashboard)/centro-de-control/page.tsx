@@ -25,7 +25,7 @@ import { EspecialistaCartera } from '@/components/decision/especialista-cartera'
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { BarraPreguntar } from '@/components/asistente/barra-preguntar';
-import { Bot, ChevronDown, ChevronUp, Compass, ShieldAlert, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Compass, Lightbulb, ShieldAlert, Zap } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Baldosa, type Tono } from '@/components/dashboard/vivo';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
@@ -414,7 +414,7 @@ export default function CentroDeControlPage() {
           se pinta fusionada dentro de VeredictoDelDia (§2, arriba). */}
       <div className="flex flex-col gap-6">
         <div>
-          <TituloBloque nuevo={panelNuevo} tono="magenta" Icono={Sparkles}>Recomendaciones de hoy</TituloBloque>
+          <TituloBloque nuevo={panelNuevo} tono="magenta" Icono={Lightbulb}>Recomendaciones de hoy</TituloBloque>
           {itemsVivos.length > 0 && (
             <p className="mt-1 text-[12px] text-muted-foreground">
               Tiempo estimado · <strong className="font-semibold text-foreground">{tiempoEstimadoVivoMin} min</strong>
@@ -475,7 +475,7 @@ export default function CentroDeControlPage() {
           sistema", a diferencia de Riesgos (alerta transversal) y Actividad
           (historial), que se quedan como secciones propias. */}
       <div className="flex flex-col gap-4">
-        <TituloBloque nuevo={panelNuevo} tono="azul" Icono={Bot} sub="Lo que dejas que haga solo y lo que ha encontrado cada especialista">Cómo trabajo para ti</TituloBloque>
+        <TituloBloque nuevo={panelNuevo} tono="azul" Icono={Zap} sub="Lo que dejas que haga solo y lo que ha encontrado cada especialista">Cómo trabajo para ti</TituloBloque>
         <PilotoAutomatico autonomia={autonomia} />
         {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
           <div className="flex flex-col gap-2 pl-1">

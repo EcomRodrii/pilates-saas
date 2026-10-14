@@ -8,7 +8,7 @@ import {
   Play, ChevronRight, Loader2,
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
-  UserX, UserPlus, Repeat, BadgeCheck, Cake, ArrowDown, ListOrdered, Ticket, RefreshCw, Star, Bot,
+  UserX, UserPlus, Repeat, BadgeCheck, Cake, ArrowDown, ListOrdered, Ticket, RefreshCw, Star,
 } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { PageHeader } from '@/components/ui/page-header';
@@ -1324,7 +1324,7 @@ export default function AutomatizacionesPage() {
           {panelNuevo && reglasVisibles.length === 0 && (
             <PantallaVacia
               tono="indigo"
-              Icono={Bot}
+              Icono={Zap}
               titulo="Automatiza tu estudio"
               texto="Reglas que trabajan por ti cada mañana. Llegan apagadas: lees qué envía cada una y enciendes solo las que quieras."
               ejemplos={[
