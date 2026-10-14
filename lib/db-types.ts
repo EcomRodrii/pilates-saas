@@ -4277,6 +4277,16 @@ export interface RowFestivosEstudio {
   creado_en: string;
 }
 
+export interface RowUsoPlanGratis {
+  studio_id: string;
+  alumnas_activas: number | null;
+  cobros_30_dias: number | null;
+  excedido_desde: string | null;
+  medido_en: string | null;
+  intento_en: string | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11854,6 +11864,26 @@ export type FestivosEstudioUpdate = {
   creado_en?: string | null;
 }
 
+export type UsoPlanGratisInsert = {
+  studio_id?: string | null;
+  alumnas_activas?: number | null | null;
+  cobros_30_dias?: number | null | null;
+  excedido_desde?: string | null | null;
+  medido_en?: string | null | null;
+  intento_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type UsoPlanGratisUpdate = {
+  studio_id?: string | null;
+  alumnas_activas?: number | null | null;
+  cobros_30_dias?: number | null | null;
+  excedido_desde?: string | null | null;
+  medido_en?: string | null | null;
+  intento_en?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13176,6 +13206,11 @@ export type Database = {
         Row: RowFestivosEstudio;
         Insert: FestivosEstudioInsert;
         Update: FestivosEstudioUpdate;
+      };
+      uso_plan_gratis: {
+        Row: RowUsoPlanGratis;
+        Insert: UsoPlanGratisInsert;
+        Update: UsoPlanGratisUpdate;
       };
     };
   };

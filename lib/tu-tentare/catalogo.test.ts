@@ -58,6 +58,7 @@ test('lo que depende del plan: Centro de Control, del plan Estudio, y es lo que 
   assert.equal(planQueLoIncluye(cdc), 'Estudio');
   assert.equal(incluidoEnPlan(cdc, 'BASE', true), false);
   assert.equal(incluidoEnPlan(cdc, 'ESTUDIO', true), true);
+  assert.equal(incluidoEnPlan(cdc, 'BASE', true, 'gratis'), true, 'Founding Studio gratis lo incluye todo');
   assert.equal(incluidoEnPlan(cdc, null, true), null, 'sin plan, no se sabe');
   assert.equal(incluidoEnPlan(cdc, 'ESTUDIO', false), null, 'sin acceso (prueba agotada), no se sabe');
   // La puerta del servidor usa esa misma feature.
