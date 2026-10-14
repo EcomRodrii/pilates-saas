@@ -23,7 +23,7 @@ import { estadoEnMenu, incluidoEnPlan, planQueLoIncluye, type ModuloTuTentare } 
 import { useTusModulos } from '@/components/configuracion/tu-tentare/use-tus-modulos';
 import { Interruptor } from '@/components/ui/interruptor';
 import { TONOS } from '@/components/dashboard/vivo';
-import { TONO_DE_SECCION } from '@/components/dashboard/icono-seccion';
+import { TONO_DE_SECCION, ICONO_PROPIO } from '@/components/dashboard/icono-seccion';
 import { cn } from '@/lib/utils';
 
 /** Qué resuelve cada grupo del menú, en una línea (como «Funcionalidades esenciales…» de Bonsai). */
@@ -146,7 +146,7 @@ export function ModulosNuevo() {
               const c = TONOS[tono];
               const incluido = plan ? incluidoEnPlan(m, plan.plan, true) : null;
               const minimo = planQueLoIncluye(m);
-              const Icono = m.icon;
+              const Icono = ICONO_PROPIO[m.href] ?? m.icon;
               return (
                 <li
                   key={m.href}

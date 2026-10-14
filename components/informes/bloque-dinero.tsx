@@ -20,6 +20,14 @@ import { ImportadoDelSoftwareAnterior } from '@/components/cobros/importado-ante
 import { GraficoDinero } from './grafico-dinero';
 import { CabeceraBloque, conSignoEuros, Euros, frenteA, tonoDiferencia, type PeriodoInforme } from './piezas';
 import { useClaseBloque } from './piezas';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TONOS } from '@/components/dashboard/vivo';
+import type { MotivoCobro } from '@/lib/informes/motivo-cobro';
+
+// Panel nuevo: cada motivo con su color, como las cifras de la home; «Otros», neutro.
+const COLOR_MOTIVO: Record<MotivoCobro, string> = {
+  CUOTA: TONOS.magenta, BONO: TONOS.indigo, CLASE_SUELTA: TONOS.azul, SESION_PRIVADA: TONOS.verde, CAJA: TONOS.azul, OTROS: 'var(--muted-foreground)',
+};
 
 export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, importado, plataformas, onDescargarPlataformas }: {
   periodo: PeriodoInforme;
@@ -37,6 +45,7 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
   const maxMotivo = Math.max(1, ...ORDEN_MOTIVOS.map(m => actual.porMotivo[m].neto));
 
   const claseBloque = useClaseBloque();
+  const panelNuevo = usePanelNuevo();
   return (
     <section aria-labelledby="informe-dinero" className={`space-y-4 ${claseBloque}`}>
       <CabeceraBloque id="informe-dinero" titulo="Dinero">
@@ -72,7 +81,7 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
                     {TEXTO_MOTIVO[m]} <span className="tabular-nums text-muted-foreground">· {n}</span>
                   </span>
                   <span className="h-2 rounded-full bg-muted">
-                    <span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(0, (neto / maxMotivo) * 100)}%` }} />
+                    <span className={cn('block h-2 rounded-full', !panelNuevo && 'bg-foreground/70')} style={{ width: `${Math.max(0, (neto / maxMotivo) * 100)}%`, ...(panelNuevo ? { backgroundColor: COLOR_MOTIVO[m] } : {}) }} />
                   </span>
                   <span className="text-right text-[13px] font-semibold tabular-nums text-foreground"><Euros n={neto} /></span>
                   <span className={cn('col-span-3 text-right text-[12px] tabular-nums sm:col-span-1', tonoDiferencia(dif))}>

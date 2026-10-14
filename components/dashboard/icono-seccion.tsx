@@ -6,11 +6,19 @@
 // nueva lo trae sola. El Resumen no lo lleva: su título es el saludo.
 
 import { usePathname } from 'next/navigation';
+import { Zap, type LucideIcon } from 'lucide-react';
 import { MODULOS } from '@/lib/nav-config';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Baldosa, type Tono } from './vivo';
 
 /** El tono de cada sección: el mismo en su cabecera, sus cifras y sus vacíos. */
+/**
+ * El icono de una sección en el panel nuevo, cuando no es el del menú: el robot
+ * del menú no es Tentare (lib/tenti/donde-vive-tenti.test.ts) y Automatizaciones
+ * es la baldosa del rayo (fundador, 6-oct-2026). El menú de siempre no cambia.
+ */
+export const ICONO_PROPIO: Record<string, LucideIcon> = { '/automatizaciones': Zap };
+
 export const TONO_DE_SECCION: Record<string, Tono> = {
   '/centro-de-control': 'magenta',
   '/automatizaciones': 'indigo',
@@ -41,5 +49,5 @@ export function IconoSeccion() {
   if (raiz !== pathname) return null; // en una ficha o un paso, el título ya es otra cosa
   const modulo = MODULOS.find(m => m.href === raiz);
   if (!modulo) return null;
-  return <Baldosa tono={TONO_DE_SECCION[raiz] ?? 'azul'} Icono={modulo.icon} />;
+  return <Baldosa tono={TONO_DE_SECCION[raiz] ?? 'azul'} Icono={ICONO_PROPIO[raiz] ?? modulo.icon} />;
 }

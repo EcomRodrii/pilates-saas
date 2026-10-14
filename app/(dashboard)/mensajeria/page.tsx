@@ -55,6 +55,8 @@ type Tab = 'notificaciones' | 'comunidad' | 'conversaciones' | 'enviar';
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
+  // Con el reloj del dispositivo un poco por detrás, un aviso recién llegado salía «hace -2m».
+  if (mins < 1) return 'ahora';
   if (mins < 60) return `hace ${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `hace ${hrs}h`;
