@@ -2706,14 +2706,24 @@ export interface RendimientoInstructoraApi {
   redSocialPct: number | null;
 }
 
-export async function fetchRendimientoInstructoras(): Promise<RendimientoInstructoraApi[]> {
+/**
+ * El rendimiento de cada instructora, o `null` si NO se ha podido cargar.
+ *
+ * ⚠️ `null` y `[]` son cosas distintas, igual que en `tarjetasEquipo`: con
+ * `[]` la pantalla dice «Todavía no hay instructoras de alta», y devolverlo
+ * ante un 500 o un corte de red le contaba a la propietaria que no tiene
+ * equipo cuando lo que falló fuimos nosotros.
+ */
+export async function fetchRendimientoInstructoras(): Promise<RendimientoInstructoraApi[] | null> {
   try {
     const res = await fetch('/api/equipo/rendimiento', { headers: await authHeader() });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items?: RendimientoInstructoraApi[] };
-    return data.items ?? [];
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { items?: RendimientoInstructoraApi[] } | null;
+    // Un 200 sin `items` tampoco es un equipo vacío: es una respuesta que no entendemos.
+    return Array.isArray(data?.items) ? data.items : null;
   } catch {
-    return [];
+    // La red se cayó. Tampoco es un equipo vacío.
+    return null;
   }
 }
 
