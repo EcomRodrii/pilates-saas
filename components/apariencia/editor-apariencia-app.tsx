@@ -25,7 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, ExternalLink, Palette, RotateCcw } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { Baldosa, BotonVivo, DEGRADADO_LOGO } from '@/components/dashboard/vivo';
+import { BOTON_VIVO, Baldosa, BotonVivo, DEGRADADO_LOGO } from '@/components/dashboard/vivo';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -726,7 +726,9 @@ export function EditorAparienciaApp() {
             </button>
             <button
               type="button"
-              className={cn(btnPrimary, 'transition-transform duration-200 active:scale-[.97]')}
+              className={panelNuevo
+                ? cn(BOTON_VIVO, 'h-10 px-5 text-[14px] disabled:pointer-events-none disabled:opacity-50')
+                : cn(btnPrimary, 'transition-transform duration-200 active:scale-[.97]')}
               disabled={!puedePublicar}
               onClick={publicar}
               title={!soyPropietaria ? 'Solo la propietaria puede publicar' : undefined}

@@ -54,10 +54,14 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
       />
       {/* La tira de Bonsai: cada día del mes, con su número encima si hubo altas. */}
       <p className="mt-4 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Altas por día este mes</p>
-      <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${mes.porDia.length}, minmax(0, 1fr))` }}>
+      <div className="@container mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${mes.porDia.length}, minmax(0, 1fr))` }}>
         {mes.porDia.map((v, i) => {
           const dia = i + 1;
           const futuro = dia > mes.hoy;
+          // En estrecho (el móvil, la columna de la derecha) los 31 números se
+          // pisan: salen el 1, los múltiplos de 5, el último y hoy, sin pegarse a hoy.
+          const ultimo = mes.porDia.length;
+          const clave = dia === mes.hoy || ((dia === 1 || dia === ultimo || (dia % 5 === 0 && dia <= ultimo - 2)) && Math.abs(dia - mes.hoy) > 1);
           return (
             <div key={dia} className="flex flex-col items-center gap-1" title={`${dia}: ${v} alta${v === 1 ? '' : 's'}`}>
               <span className="h-3 text-[9.5px] font-bold leading-3 tabular-nums" style={{ color: 'var(--t-magenta-500)' }}>{v > 0 ? v : ''}</span>
@@ -67,7 +71,7 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
                   ? { backgroundColor: 'var(--t-magenta-500)' }
                   : { backgroundColor: futuro ? 'color-mix(in srgb, var(--foreground) 3%, transparent)' : 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
               />
-              <span className={cn('text-[9px] tabular-nums', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground/50' : 'text-muted-foreground')}>{dia}</span>
+              <span className={cn('text-[9px] tabular-nums', !clave && 'invisible @lg:visible', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground/50' : 'text-muted-foreground')}>{dia}</span>
             </div>
           );
         })}

@@ -49,7 +49,7 @@ import { enlaceInvitacionWhatsApp } from '@/lib/equipo/invitacion-whatsapp';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
-import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import { BotonVivo, PantallaVacia, colorDeOcupacion } from '@/components/dashboard/vivo';
 import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
 import { CifrasEquipo, SemanaDelEquipo } from '@/components/equipo/resumen-equipo';
 
@@ -1291,8 +1291,9 @@ function TarjetaMiembro({
               <button key={i} type="button" onClick={() => onDiaSel(i)}
                 className="flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
                 <span
-                  className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
-                  style={{ height: `${n === 0 ? 8 : 8 + n * 10}px` }}
+                  className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : nueva ? '' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
+                  // Panel nuevo: azul, y el día elegido en magenta, como las gráficas de la home.
+                  style={{ height: `${n === 0 ? 8 : 8 + n * 10}px`, ...(nueva && n > 0 ? { backgroundColor: diaSel === i ? 'var(--t-magenta-500)' : 'var(--t-blue-500)' } : {}) }}
                 />
                 <span className={`text-[10px] ${diaSel === i ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>{DIAS[i]}</span>
               </button>
@@ -1312,7 +1313,10 @@ function TarjetaMiembro({
           <div>
             <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{cif.ocupacionTexto}</p>
             <span className="block h-1 mt-2 rounded-full bg-foreground/[0.07]">
-              <span className="block h-1 rounded-full bg-brand-medio transition-[width] duration-700" style={{ width: `${cif.ocupacionBarraPct}%` }} />
+              <span
+                className={cn('block h-1 rounded-full transition-[width] duration-700', !nueva && 'bg-brand-medio')}
+                style={{ width: `${cif.ocupacionBarraPct}%`, ...(nueva ? { backgroundColor: colorDeOcupacion(cif.ocupacionBarraPct) } : {}) }}
+              />
             </span>
             <p className="text-[12px] text-muted-foreground mt-2">{cif.ocupacionPie}</p>
           </div>

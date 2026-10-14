@@ -82,7 +82,7 @@ function PageHeader({
         )}
         {/* El icono de color de la sección (panel nuevo): solo en la pantalla
             principal de cada sección; con el interruptor apagado no pinta nada. */}
-        {!back && <span className="mt-0.5 empty:hidden"><IconoSeccion /></span>}
+        {!back && <span className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1
