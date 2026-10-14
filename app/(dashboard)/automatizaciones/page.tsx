@@ -8,7 +8,11 @@ import {
   Play, ChevronRight, Loader2,
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
+  UserX, UserPlus, Repeat, BadgeCheck, Cake, ArrowDown, ListOrdered, Ticket, RefreshCw, Star,
 } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { PageHeader } from '@/components/ui/page-header';
+import { Baldosa, CabeceraTarjeta, PantallaVacia, Pildoras, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo, enviarPruebaAutomatizacion, pedirAutomatizacionesDisponibles, type AlcanceCumpleCliente } from '@/lib/api-client';
 import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
@@ -191,6 +195,21 @@ function HechoPorTentare() {
 }
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
+
+/** Lo de hoy: acciones, fallidas y lo que espera tu visto bueno (la cifra de la bandeja). */
+function useResumenDeHoy(logs: AutomationLog[]) {
+  // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
+  const ahora = new Date();
+  const todayLogs = registrosDeHoy(logs, ahora);
+  const pendingAdmin = logs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
+  const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
+  const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
+  const rol = useRol();
+  const enBandeja = useConteoDecidir('automatizacionesEsperando');
+  const esperandoEnBandeja = puedeGestionarAutomatizaciones(rol) ? enBandeja : null;
+  const esperando = esperandoEnBandeja ?? pendingAdmin.length;
+  return { ejecutadas, fallidas, esperando };
+}
 
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
@@ -800,6 +819,209 @@ function AlcanceDelCumple({ alcance }: { alcance: AlcanceCumpleCliente | null })
   );
 }
 
+// ─── Panel nuevo (14-oct-2026) ────────────────────────────────────────────────
+// La pantalla al nivel de Bonsai (b-20 «Automatiza tu centro», b-22 el flujo
+// dibujado): cifras de color arriba, lo que Tentare ya hace solo con su icono,
+// un vacío que enseña con ejemplos y cada regla con su icono (no un emoji) y,
+// al abrirla, el flujo: cuándo → qué hace → qué le llega a tu clienta. La
+// lógica (encender con confirmación, mensajes, aprobar) es la de siempre.
+
+const ICONO_DE_TRIGGER: Record<string, { Icono: React.ElementType; tono: Tono }> = {
+  AUSENCIA_DIAS: { Icono: UserX, tono: 'magenta' },
+  PAGO_PENDIENTE_DIAS: { Icono: CreditCard, tono: 'verde' },
+  BONO_SESIONES_BAJAS: { Icono: Repeat, tono: 'indigo' },
+  NUEVA_SOCIA: { Icono: UserPlus, tono: 'verde' },
+  CLASE_MANANA: { Icono: Bell, tono: 'azul' },
+  RENOVACION_COBRADA: { Icono: BadgeCheck, tono: 'azul' },
+  CLASE_LLENA_RECURRENTE: { Icono: TrendingUp, tono: 'azul' },
+  CUMPLEANOS: { Icono: Cake, tono: 'magenta' },
+};
+
+/** «Cuándo» salta cada regla, en una frase. */
+const CUANDO_DE_TRIGGER: Record<string, string> = {
+  AUSENCIA_DIAS: 'Cuando una clienta lleva días sin venir',
+  PAGO_PENDIENTE_DIAS: 'Cuando un recibo lleva días sin pagarse',
+  BONO_SESIONES_BAJAS: 'Cuando una clienta compra el mismo bono varias veces',
+  NUEVA_SOCIA: 'Cuando se da de alta una clienta nueva',
+  CLASE_MANANA: 'El día antes de cada clase',
+  RENOVACION_COBRADA: 'Cuando se cobra la renovación de una cuota',
+  CLASE_LLENA_RECURRENTE: 'Cuando una franja se llena varias semanas seguidas',
+  CUMPLEANOS: 'El día de su cumpleaños',
+};
+
+/** Lo que ya hace Tentare de serie (HECHO_DE_SERIE, mismo orden), con su nombre corto y su icono. */
+const HECHO_DE_SERIE_NUEVO: { titulo: string; Icono: React.ElementType; tono: Tono }[] = [
+  { titulo: 'Recordatorio de cada clase', Icono: Bell, tono: 'azul' },
+  { titulo: 'Confirmación al reservar', Icono: CheckCircle2, tono: 'verde' },
+  { titulo: 'Lista de espera que avanza sola', Icono: ListOrdered, tono: 'indigo' },
+  { titulo: 'Aviso de bono que se acaba', Icono: Ticket, tono: 'magenta' },
+  { titulo: 'Reintento de cobros fallidos', Icono: RefreshCw, tono: 'verde' },
+  { titulo: 'Valoración después de clase', Icono: Star, tono: 'azul' },
+];
+
+function HechoPorTentareNuevo() {
+  return (
+    <section aria-labelledby="hecho-de-serie" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+      <CabeceraTarjeta
+        tono="verde"
+        Icono={CheckCircle2}
+        titulo="Esto ya lo hace Tentare, sin que configures nada"
+        id="hecho-de-serie"
+        sub="Las reglas de abajo son para lo que depende de cómo trabajas tú."
+      />
+      <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        {HECHO_DE_SERIE_NUEVO.map((h, i) => (
+          <li key={h.titulo} className="flex items-start gap-3 rounded-2xl border border-border p-3" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[h.tono]} 5%, var(--card))` }}>
+            <Baldosa tono={h.tono} Icono={h.Icono} tamano="sm" />
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-semibold text-foreground">{h.titulo}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{HECHO_DE_SERIE[i]}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function CifrasAutomatizaciones({ logs, reglas }: { logs: AutomationLog[]; reglas: AutomationRule[] }) {
+  const { ejecutadas, fallidas, esperando } = useResumenDeHoy(logs);
+  const encendidas = reglas.filter(r => r.activa).length;
+  return (
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+      <TarjetaCifra etiqueta="Reglas encendidas" tono="indigo" Icono={Zap} href={null} valor={String(encendidas)} abajo={reglas.length === 0 ? 'Aún no tienes reglas' : `de ${reglas.length} ${reglas.length === 1 ? 'regla' : 'reglas'}`} />
+      <TarjetaCifra etiqueta="Acciones hoy" tono="azul" Icono={Play} href={null} valor={String(ejecutadas)} abajo="hechas solas hoy" />
+      <TarjetaCifra
+        etiqueta="Esperan tu visto bueno"
+        tono="magenta"
+        Icono={AlertTriangle}
+        href={null}
+        valor={String(esperando)}
+        arriba={esperando > 0 ? <span style={{ color: 'var(--warning)' }}>Míralas abajo</span> : undefined}
+        abajo={esperando > 0 ? 'en «Requiere tu intervención»' : 'nada pendiente'}
+      />
+      <TarjetaCifra
+        etiqueta="Fallidas hoy"
+        tono="verde"
+        Icono={XCircle}
+        href={null}
+        valor={String(fallidas)}
+        arriba={fallidas > 0 ? <span style={{ color: 'var(--destructive)' }}>Revisa el registro</span> : undefined}
+        abajo={fallidas > 0 ? 'p. ej., una clienta sin email' : 'todo salió bien'}
+      />
+    </div>
+  );
+}
+
+function PasoFlujo({ numero, etiqueta, texto, Icono, color, ultimo }: {
+  numero: number; etiqueta: string; texto: string; Icono: React.ElementType; color: string; ultimo?: boolean;
+}) {
+  return (
+    <li className="flex flex-col items-stretch">
+      <div className="flex items-start gap-3 rounded-2xl border p-3" style={{ borderColor: `color-mix(in srgb, ${color} 30%, var(--border))`, backgroundColor: `color-mix(in srgb, ${color} 6%, var(--card))` }}>
+        <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: color, color: 'var(--card)' }}>
+          <Icono size={15} strokeWidth={2.2} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color }}>{numero}. {etiqueta}</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-foreground">{texto}</p>
+        </div>
+      </div>
+      {!ultimo && <ArrowDown aria-hidden size={15} className="mx-auto my-1 text-muted-foreground" />}
+    </li>
+  );
+}
+
+function RuleCardNueva({
+  rule, onToggle, soloLectura = false, textoAnadir = 'Añadir las reglas sugeridas para poder activar',
+  tituloAnadir = 'Añádelas primero para poder encenderla', idInterruptor,
+}: {
+  rule: AutomationRule; onToggle: () => void; soloLectura?: boolean; textoAnadir?: string; tituloAnadir?: string; idInterruptor?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
+  const mensajes = useMemo(() => mensajesDeTrigger(rule.trigger), [rule.trigger]);
+  const icono = ICONO_DE_TRIGGER[rule.trigger] ?? { Icono: Zap, tono: 'indigo' as Tono };
+  const encendida = !soloLectura && rule.activa;
+  const cuando = CUANDO_DE_TRIGGER[rule.trigger] ?? triggerLabels[rule.trigger] ?? rule.trigger;
+  return (
+    <div className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card" style={encendida ? fondoTenido(icono.tono, 9) : undefined}>
+      <div className="flex items-start gap-3 p-4 sm:p-5">
+        <Baldosa tono={icono.tono} Icono={icono.Icono} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[15px] font-semibold text-foreground">{rule.nombre}</span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={encendida
+                ? { color: 'var(--success)', backgroundColor: 'color-mix(in srgb, var(--success) 14%, transparent)' }
+                : { color: 'var(--muted-foreground)', backgroundColor: 'var(--muted)' }}
+            >
+              {soloLectura ? 'Sin añadir' : rule.activa ? 'Encendida' : 'Apagada'}
+            </span>
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-muted-foreground text-pretty">{rule.descripcion}</p>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{cuando}</span>
+            {!soloLectura && <> · {rule.ejecutadaVeces} {rule.ejecutadaVeces === 1 ? 'vez' : 'veces'}{rule.ultimaEjecucion ? ` · la última, ${formatFecha(rule.ultimaEjecucion)}` : ''}</>}
+          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded(p => !p)}
+            aria-expanded={expanded}
+            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
+            style={{ color: 'var(--t-text-link)' }}
+          >
+            {expanded ? 'Ocultar cómo funciona' : 'Ver cómo funciona y qué le llega'}
+            <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} aria-hidden />
+          </button>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          id={idInterruptor}
+          aria-checked={soloLectura ? false : rule.activa}
+          aria-label={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+          title={soloLectura ? tituloAnadir : rule.activa ? 'Encendida — apagar' : 'Apagada — encender'}
+          onClick={onToggle}
+          className="relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
+          style={{ background: encendida ? 'var(--success)' : 'color-mix(in srgb, var(--muted-foreground) 55%, transparent)' }}
+        >
+          <span className={cn('inline-block size-6 rounded-full bg-white shadow transition-transform', encendida ? 'translate-x-5' : 'translate-x-0')} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="grid gap-5 border-t border-border px-4 py-4 sm:px-5 lg:grid-cols-2">
+          <div>
+            <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Flujo de la automatización</p>
+            <ol className="mt-3">
+              <PasoFlujo numero={1} etiqueta="Cuándo" texto={cuando} Icono={Zap} color={TONOS.indigo} ultimo={pasos.length === 0} />
+              {pasos.map((paso, i) => {
+                const cfg = accionConfig[paso.accion];
+                return <PasoFlujo key={i} numero={i + 2} etiqueta={cfg.label} texto={paso.cuando} Icono={cfg.icon} color={cfg.color} ultimo={i === pasos.length - 1} />;
+              })}
+            </ol>
+            {pasos.length === 0 && (
+              <p className="mt-2 text-[12.5px] text-muted-foreground">Esta automatización no tiene pasos configurados, así que no enviará nada.</p>
+            )}
+          </div>
+          {mensajes.length > 0 && (
+            <div>
+              <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá tu clienta</p>
+              <div className="mt-3 space-y-2">
+                {mensajes.map(def => (
+                  <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AutomatizacionesPage() {
   const {
     studio, automationRules, automationLogs, socios, automatizaciones,
@@ -808,7 +1030,10 @@ export default function AutomatizacionesPage() {
 
   const [running, setRunning] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'log' | 'reglas'>('log');
+  // Con el panel nuevo se abre en «Reglas»: es lo que hay que entender primero.
+  const panelNuevo = usePanelNuevo();
+  const [tabElegida, setTab] = useState<'log' | 'reglas' | null>(null);
+  const tab = tabElegida ?? (panelNuevo ? 'reglas' : 'log');
   const [filterResultado, setFilterResultado] = useState<ResultadoLog | 'TODAS'>('TODAS');
   // Regla pendiente de confirmar antes de ENCENDERLA. Apagar nunca pregunta:
   // dejar de mandar mensajes no necesita permiso de nadie.
@@ -976,6 +1201,8 @@ export default function AutomatizacionesPage() {
     setApprovingId(null);
   }
 
+  const TarjetaRegla = panelNuevo ? RuleCardNueva : RuleCard;
+
   const filters: { value: ResultadoLog | 'TODAS'; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
     { value: 'PENDIENTE_ADMIN', label: 'Acción humana' },
@@ -985,12 +1212,43 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div data-tour="automatizaciones-vista" className="max-w-4xl">
+    <div data-tour="automatizaciones-vista" className={panelNuevo ? 'space-y-5' : 'max-w-4xl'}>
+      {panelNuevo ? (
+        <>
+          <PageHeader
+            title="Automatizaciones"
+            description="Lo que Tentare hace solo por ti cada día, y las reglas que decides tú."
+            actions={
+              <button
+                onClick={handleRunNow}
+                disabled={running}
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                {running ? 'Revisando…' : 'Revisar ahora'}
+              </button>
+            }
+          />
+          <CifrasAutomatizaciones logs={automationLogs} reglas={automationRules} />
+        </>
+      ) : (
       <MorningBriefing logs={automationLogs} />
+      )}
 
       {/* Pending admin actions */}
       {pendingAdmin.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-border bg-brand/10 p-4">
+        <div className={panelNuevo ? 'rounded-t-card border p-4 shadow-t-card sm:p-5' : 'mb-6 rounded-2xl border border-border bg-brand/10 p-4'} style={panelNuevo ? fondoTenido('magenta', 12) : undefined}>
+          {panelNuevo ? (
+            <div className="mb-3">
+              <CabeceraTarjeta
+                tono="magenta"
+                Icono={AlertTriangle}
+                titulo="Requiere tu intervención"
+                sub="Tentare lo ha preparado, pero no lo hace sin tu sí."
+                derecha={<span className="rounded-full px-2.5 py-0.5 text-[12px] font-bold text-white" style={{ backgroundColor: TONOS.magenta }}>{pendingAdmin.length}</span>}
+              />
+            </div>
+          ) : (
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={16} className="text-brand-secondary" />
             <h2 className="font-semibold text-brand-secondary text-sm">Requiere tu intervención</h2>
@@ -998,6 +1256,7 @@ export default function AutomatizacionesPage() {
               {pendingAdmin.length}
             </span>
           </div>
+          )}
           <div className="space-y-2">
             {pendingAdmin.map(log => (
               <LogItem
@@ -1014,6 +1273,13 @@ export default function AutomatizacionesPage() {
       )}
 
       {/* Run now button */}
+      {panelNuevo ? (
+        <Pildoras
+          opciones={[{ valor: 'reglas', label: 'Reglas' }, { valor: 'log', label: 'Registro de acciones' }]}
+          valor={tab}
+          onCambio={v => setTab(v as 'log' | 'reglas')}
+        />
+      ) : (
       <div className="flex items-center justify-between mb-4">
         <div className="flex bg-muted rounded-xl p-1 gap-1">
           {(['log', 'reglas'] as const).map(t => (
@@ -1040,6 +1306,7 @@ export default function AutomatizacionesPage() {
           {running ? 'Evaluando...' : 'Ejecutar ahora'}
         </button>
       </div>
+      )}
 
       {tab === 'reglas' && (
         <div className="space-y-3">
@@ -1053,9 +1320,27 @@ export default function AutomatizacionesPage() {
               Ahora se ven desde el primer segundo, sin escribir nada en la base
               de datos: son tarjetas de solo lectura, con sus pasos
               desplegables, hasta que la propietaria decide añadirlas. */}
-          <HechoPorTentare />
+          {panelNuevo ? (reglasVisibles.length > 0 && <HechoPorTentareNuevo />) : <HechoPorTentare />}
+          {panelNuevo && reglasVisibles.length === 0 && (
+            <PantallaVacia
+              tono="indigo"
+              Icono={Zap}
+              titulo="Automatiza tu estudio"
+              texto="Reglas que trabajan por ti cada mañana. Llegan apagadas: lees qué envía cada una y enciendes solo las que quieras."
+              ejemplos={[
+                { accion: 'Escribe a quien lleva 7 días sin venir', cuando: 'y le pregunta qué tal a las dos semanas' },
+                { accion: 'Persigue un pago pendiente', cuando: 'con dos avisos, y te avisa a ti si sigue sin pagar' },
+                { accion: 'Anima a reservar a quien se acaba de dar de alta', cuando: 'si a los 2 días no ha reservado' },
+              ]}
+              accion={{ label: `Añadir las ${REGLAS_SUGERIDAS.length} reglas`, Icono: Zap, onClick: handleCargarSugeridas }}
+            />
+          )}
+          {panelNuevo && reglasVisibles.length === 0 && <HechoPorTentareNuevo />}
           {reglasVisibles.length === 0 ? (
             <>
+              {panelNuevo ? (
+                <h2 className="pt-2 text-[16px] font-semibold text-foreground">Las reglas que se añadirán</h2>
+              ) : (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground max-w-xl">
                   Esto es lo que Tentare puede hacer solo por ti. Añádelas cuando quieras:
@@ -1070,8 +1355,9 @@ export default function AutomatizacionesPage() {
                   Añadir estas {REGLAS_SUGERIDAS.length} reglas
                 </button>
               </div>
+              )}
               {REGLAS_SUGERIDAS.map((sug, i) => (
-                <RuleCard
+                <TarjetaRegla
                   key={sug.nombre}
                   rule={{
                     ...sug,
@@ -1088,6 +1374,21 @@ export default function AutomatizacionesPage() {
             </>
           ) : (
             <>
+              {panelNuevo ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <div>
+                    <h2 className="text-[16px] font-semibold text-foreground">Tus reglas</h2>
+                    <p className="text-[12.5px] text-muted-foreground">Ábrelas para ver qué envía cada una y enciende solo las que quieras.</p>
+                  </div>
+                  <button
+                    onClick={handleCargarSugeridas}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    <Zap size={14} />
+                    Añadir las que faltan
+                  </button>
+                </div>
+              ) : (
               <div className="flex items-center justify-between gap-4">
                 <p className="text-xs text-muted-foreground">
                   Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
@@ -1101,8 +1402,9 @@ export default function AutomatizacionesPage() {
                   Cargar reglas sugeridas
                 </button>
               </div>
+              )}
               {reglasVisibles.map(rule => (
-                <RuleCard
+                <TarjetaRegla
                   key={rule.id}
                   rule={rule}
                   onToggle={() => handleToggleRule(rule)}
@@ -1135,14 +1437,14 @@ export default function AutomatizacionesPage() {
                 )}
               </div>
               {reglasCumple.length > 0 ? reglasCumple.map((regla, i) => (
-                <RuleCard
+                <TarjetaRegla
                   key={i === 0 ? 'cumpleanos' : regla.id}
                   rule={regla}
                   idInterruptor={i === 0 ? 'interruptor-cumpleanos' : undefined}
                   onToggle={() => handleToggleRule(regla)}
                 />
               )) : (
-                <RuleCard
+                <TarjetaRegla
                   key="cumpleanos"
                   rule={{ ...REGLA_CUMPLEANOS, id: 'opcional-cumpleanos', studioId: '', ejecutadaVeces: 0, ultimaEjecucion: null, creadaEn: '' }}
                   soloLectura
@@ -1164,9 +1466,9 @@ export default function AutomatizacionesPage() {
                 key={f.value}
                 onClick={() => setFilterResultado(f.value)}
                 className={cn(
-                  'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                  panelNuevo ? 'rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-all' : 'px-3 py-1 rounded-full text-xs font-medium border transition-all',
                   filterResultado === f.value
-                    ? 'bg-primary text-primary-foreground border-foreground'
+                    ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-primary text-primary-foreground border-foreground')
                     : 'bg-card text-foreground border-border hover:border-muted-foreground'
                 )}
               >

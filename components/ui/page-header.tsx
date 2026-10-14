@@ -5,6 +5,7 @@ import * as React from "react"
 import { AyudaDePantalla } from "@/components/ayuda/AyudaDePantalla"
 import { BotonTutorial } from "@/components/tutorial/boton-tutorial"
 import { BotonAmpliar } from "@/components/layout/boton-ampliar"
+import { IconoSeccion } from "@/components/dashboard/icono-seccion"
 import { cn } from "@/lib/utils"
 
 // Cabecera única para todas las pantallas del dashboard.
@@ -79,6 +80,9 @@ function PageHeader({
             <ArrowLeftIcon className="size-4" aria-hidden="true" />
           </Link>
         )}
+        {/* El icono de color de la sección (panel nuevo): solo en la pantalla
+            principal de cada sección; con el interruptor apagado no pinta nada. */}
+        {!back && <span className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1

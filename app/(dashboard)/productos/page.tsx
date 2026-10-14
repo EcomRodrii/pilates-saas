@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId, useEffect, useRef } from 'react';
+import { useState, useId, useEffect, useRef, useMemo } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useTutorial } from '@/lib/tutorial-context';
 import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
@@ -10,7 +10,7 @@ import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
 import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
-import { cn, uid, formatFechaLarga } from '@/lib/utils';
+import { cn, uid, formatFechaLarga, hoyEnEstudio } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { estadoStock } from '@/lib/pos/ticket';
 import { HojaStock } from '@/components/pos/hoja-stock';
@@ -26,6 +26,12 @@ import {
   resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada, precioSospechoso, agruparTiposClase,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { clientasPorPlan } from '@/lib/planes/cifras-paquetes';
+import { BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
+import {
+  CifrasPaquetes, EleccionTipoNueva, SelectorTipo, TarjetaAnadir, TarjetaPlanNueva, VacioPaquetes,
+} from '@/components/productos/paquetes-nuevo';
 
 type Tab = 'planes' | 'pos' | 'regalo';
 
@@ -48,6 +54,8 @@ const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.
   { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
   { v: 'PUNTUAL', label: 'Clases sueltas', singular: 'clase suelta', icon: Tag },
 ];
+
+const ETIQUETA_TIPO_TAB = Object.fromEntries(TIPO_TABS.map(t => [t.v, t.label])) as Record<TipoPlanTab, string>;
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
@@ -223,8 +231,10 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false, ejemplo }: {
+function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false, ejemplo, nuevo = false }: {
   initial?: PlanTarifa;
+  /** Panel nuevo: el tipo se elige en tarjetas con ejemplos y el botón de guardar lleva el degradado. Lo que se guarda, igual. */
+  nuevo?: boolean;
   /** Las tarifas que ya hay, para avisar de una repetida. */
   otrasTarifas: readonly Pick<PlanTarifa, 'id' | 'nombre' | 'tipo' | 'precio' | 'activo'>[];
   /**
@@ -389,6 +399,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
             <div className="space-y-6 min-w-0">
 
               <Seccion titulo="¿Qué tipo de tarifa es?">
+                {nuevo ? <EleccionTipoNueva tipo={form.tipo} onElegir={cambiarTipo} /> : (
                 <div role="radiogroup" aria-label="Tipo de tarifa" className="grid gap-2 sm:grid-cols-3">
                   {(['MENSUAL', 'BONO', 'PUNTUAL'] as TipoPlan[]).map(t => {
                     const Icono = ICONO_TIPO[t];
@@ -409,6 +420,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     );
                   })}
                 </div>
+                )}
               </Seccion>
 
               <Seccion titulo="Nombre y descripción">
@@ -793,8 +805,10 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
           </button>
           {/* Guardando se lee entero (no al 40 %): es un estado, no un botón apagado. */}
           <button onClick={guardar} disabled={guardando} aria-busy={guardando}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100"
-            style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
+            className={nuevo
+              ? cn(BOTON_VIVO, 'h-11 px-5 text-sm disabled:opacity-40 aria-busy:opacity-100')
+              : 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100'}
+            style={nuevo ? undefined : { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
             {guardando ? 'Guardando…' : tituloAccion}
           </button>
         </div>
@@ -1170,6 +1184,28 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
+  // Panel nuevo (interruptor `panelNuevo`): cifras de colores, tarjetas por tipo y
+  // vacíos que enseñan. Apagado, la pantalla de siempre.
+  const panelNuevo = usePanelNuevo();
+  const [hoy] = useState(() => hoyEnEstudio());
+  // Quién tiene cada tarifa AHORA (en vigor, personas distintas), para las tarjetas nuevas.
+  const clientasDe = useMemo(() => clientasPorPlan(suscripciones, hoy), [suscripciones, hoy]);
+  const cuantasPorTipo = useMemo(() => {
+    const n: Record<TipoPlanTab, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 };
+    for (const p of planesTarifa) if (p.tipo in n) n[p.tipo as TipoPlanTab] += 1;
+    return n;
+  }, [planesTarifa]);
+  const coberturaDe = (plan: PlanTarifa) => {
+    const nombres = tiposClase.filter(tc => (plan.tiposClaseIds ?? []).includes(tc.id)).map(tc => tc.nombre);
+    return nombres.length === 0 ? 'Sirve para todas las clases' : `Solo para ${nombres.join(' · ')}`;
+  };
+  // Una cifra de arriba lleva a su tipo de tarifa.
+  function verTipo(t: TipoPlanTab) {
+    setTab('planes');
+    setTipoTab(t);
+    setBusqueda('');
+  }
+
   async function savePlan(f: FormularioPlan): Promise<string | null> {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
@@ -1251,6 +1287,11 @@ export default function Productos() {
 
   const PLAN_ICONS: Record<string, React.ElementType> = { MENSUAL: Repeat, BONO: Zap, PUNTUAL: Tag };
 
+  async function ponerALaVenta(plan: PlanTarifa) {
+    const res = await updatePlan(plan.id, { activo: true });
+    if (res.ok) setAviso(`"${plan.nombre}" ya está a la venta`); else setAvisoError(res.error);
+  }
+
   const planesFiltrados = planesTarifa
     .filter(p => p.tipo === tipoTab)
     .filter(p => p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()));
@@ -1260,7 +1301,16 @@ export default function Productos() {
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
-        actions={mueveDinero && tab !== 'regalo' && (
+        actions={mueveDinero && tab !== 'regalo' && (panelNuevo ? (
+          // La acción principal, con el degradado del logo.
+          <span data-tour={tab === 'planes' ? 'paquetes-crear' : undefined} className="inline-flex">
+            <BotonVivo
+              label={tab === 'planes' ? 'Crear tarifa' : 'Nuevo producto'}
+              Icono={Plus}
+              onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
+            />
+          </span>
+        ) : (
           <button
             data-tour={tab === 'planes' ? 'paquetes-crear' : undefined}
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
@@ -1270,8 +1320,10 @@ export default function Productos() {
             <Plus size={15} />
             {tab === 'planes' ? 'Crear' : 'Nuevo producto'}
           </button>
-        )}
+        ))}
       />
+
+      {panelNuevo && <CifrasPaquetes planes={planesTarifa} suscripciones={suscripciones} verFinanzas={verFinanzas} onTipo={verTipo} />}
 
       {/* Tabs — la pestaña "Productos POS" queda oculta con POS congelado (solo
           se muestra la barra si hay más de una pestaña). */}
@@ -1287,8 +1339,66 @@ export default function Productos() {
         </div>
       )}
 
+      {/* ── PLANES, en el panel nuevo ── */}
+      {tab === 'planes' && panelNuevo && (planesTarifa.length === 0 ? (
+        // Sin ninguna tarifa: el vacío que enseña. Lleva las dos anclas del
+        // tutorial de la pantalla (los tipos y la lista), que aquí son la misma caja.
+        <div data-tour="paquetes-tipos">
+          <div data-tour="paquetes-lista">
+            <VacioPaquetes puedeCrear={mueveDinero} onCrear={() => setPlanModal('new')} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <SelectorTipo
+              valor={tipoTab}
+              onCambio={setTipoTab}
+              cuantas={cuantasPorTipo}
+              etiquetas={ETIQUETA_TIPO_TAB}
+            />
+            <label className="relative w-full sm:ml-auto sm:w-[260px]">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <input
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}...`}
+                aria-label={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
+                className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-brand"
+              />
+            </label>
+          </div>
+
+          {cuantasPorTipo[tipoTab] === 0 ? (
+            <div data-tour="paquetes-lista">
+              <VacioPaquetes tipo={tipoTab} puedeCrear={mueveDinero} onCrear={() => setPlanModal('new')} />
+            </div>
+          ) : planesFiltrados.length === 0 ? (
+            <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
+          ) : (
+            <div data-tour="paquetes-lista" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {planesFiltrados.map(plan => (
+                <TarjetaPlanNueva
+                  key={plan.id}
+                  plan={plan}
+                  clientas={clientasDe.get(plan.id) ?? 0}
+                  cobertura={coberturaDe(plan)}
+                  mueveDinero={mueveDinero}
+                  onEditar={() => setPlanModal(plan)}
+                  onBorrar={() => setBorrando(plan)}
+                  onPonerALaVenta={() => ponerALaVenta(plan)}
+                />
+              ))}
+              {mueveDinero && (
+                <TarjetaAnadir texto={`Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'tarifa'}`} onClick={() => setPlanModal('new')} />
+              )}
+            </div>
+          )}
+        </>
+      ))}
+
       {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
-      {tab === 'planes' && (
+      {tab === 'planes' && !panelNuevo && (
         <>
           <div data-tour="paquetes-tipos" className="flex items-center gap-2 flex-wrap">
             {TIPO_TABS.map(t => {
@@ -1449,10 +1559,7 @@ export default function Productos() {
                     {mueveDinero && plan.precio > 0 && (
                       <button
                         type="button"
-                        onClick={async () => {
-                          const res = await updatePlan(plan.id, { activo: true });
-                          if (res.ok) setAviso(`"${plan.nombre}" ya está a la venta`); else setAvisoError(res.error);
-                        }}
+                        onClick={() => ponerALaVenta(plan)}
                         className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-brand-foreground hover:opacity-90"
                       >
                         Ponerla a la venta
@@ -1593,6 +1700,7 @@ export default function Productos() {
           onClose={() => { setPlanModal(null); setConEjemplo(false); }}
           ejemplo={conEjemplo && planModal === 'new' ? EJEMPLOS.bono : undefined}
           yaVendida={planModal !== 'new' && !!planModal && suscripciones.some(s => s.planId === planModal.id)}
+          nuevo={panelNuevo}
         />
       )}
       <ConfirmDialog

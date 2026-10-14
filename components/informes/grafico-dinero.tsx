@@ -12,6 +12,7 @@ import { formatEuro } from '@/lib/utils';
 import type { PuntoDelGrafico } from '@/lib/informes/dinero';
 import { etiquetaEuros, marcasDelEje, techoDelEje } from '@/lib/informes/eje-euros';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 const ALTO = 160;
 const IZQ = 44;
@@ -41,6 +42,8 @@ function useAncho() {
 
 export function GraficoDinero({ periodo, puntos, textoAnterior }: { periodo: PeriodoInforme; puntos: PuntoDelGrafico[]; textoAnterior: string | null }) {
   const { ref, ancho: disponible } = useAncho();
+  // Panel nuevo: las barras con el degradado del logo y el periodo anterior en magenta, como las gráficas de la home.
+  const nueva = usePanelNuevo();
   const paso = Math.max(PASO_MINIMO[periodo], (disponible - IZQ) / Math.max(1, puntos.length));
   const barra = Math.min(40, Math.max(5, Math.round(paso * 0.62)));
   const ancho = IZQ + puntos.length * paso;
@@ -55,7 +58,7 @@ export function GraficoDinero({ periodo, puntos, textoAnterior }: { periodo: Per
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5"><span className="inline-block size-2.5 rounded-sm bg-foreground/70" aria-hidden />Cobrado</span>
+        <span className="inline-flex items-center gap-1.5"><span className={nueva ? 'inline-block size-2.5 rounded-sm' : 'inline-block size-2.5 rounded-sm bg-foreground/70'} style={nueva ? { backgroundImage: 'linear-gradient(180deg, var(--t-magenta-500), var(--t-blue-500))' } : undefined} aria-hidden />Cobrado</span>
         {textoAnterior && (
           <span className="inline-flex items-center gap-1.5">
             <svg width="18" height="4" aria-hidden><line x1="0" y1="2" x2="18" y2="2" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeDasharray="3 3" /></svg>
@@ -73,6 +76,14 @@ export function GraficoDinero({ periodo, puntos, textoAnterior }: { periodo: Per
           role="img"
           aria-label="Lo cobrado en cada tramo del periodo, con el periodo anterior en línea discontinua"
         >
+          {nueva && (
+            <defs>
+              <linearGradient id="barra-cobrado-nueva" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" style={{ stopColor: 'var(--t-magenta-500)' }} />
+                <stop offset="100%" style={{ stopColor: 'var(--t-blue-500)' }} />
+              </linearGradient>
+            </defs>
+          )}
           {marcasDelEje(techo, MARCAS).map(v => (
             <g key={v}>
               <line x1={IZQ} y1={y(v)} x2={ancho} y2={y(v)} stroke="var(--border)" strokeWidth="1" />
@@ -86,7 +97,7 @@ export function GraficoDinero({ periodo, puntos, textoAnterior }: { periodo: Per
             return (
               <g key={p.clave}>
                 {alto > 0 && (
-                  <rect x={x} y={ALTO - alto} width={barra} height={alto} rx={2} fill="var(--foreground)" opacity={0.7}>
+                  <rect x={x} y={ALTO - alto} width={barra} height={alto} rx={nueva ? 4 : 2} fill={nueva ? 'url(#barra-cobrado-nueva)' : 'var(--foreground)'} opacity={nueva ? 1 : 0.7}>
                     <title>{`${p.etiqueta}: ${formatEuro(v)}${p.anterior != null ? ` (antes ${formatEuro(p.anterior)})` : ''}`}</title>
                   </rect>
                 )}
@@ -96,7 +107,7 @@ export function GraficoDinero({ periodo, puntos, textoAnterior }: { periodo: Per
               </g>
             );
           })}
-          {linea && <polyline points={linea} fill="none" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeDasharray="4 3" />}
+          {linea && <polyline points={linea} fill="none" stroke={nueva ? 'var(--t-magenta-500)' : 'var(--muted-foreground)'} strokeWidth={nueva ? 2 : 1.5} strokeDasharray="4 3" />}
           <line x1={IZQ} y1={ALTO} x2={ancho} y2={ALTO} stroke="var(--border)" strokeWidth="1" />
         </svg>}
       </CifraPrivada>

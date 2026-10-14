@@ -34,6 +34,8 @@ import type { ComoTermino } from '@/lib/ayuda/tutorial-progreso';
 import { useTutorial, type OrigenTutorial } from '@/lib/tutorial-context';
 import { usePermisos } from '@/lib/permisos';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_VIVO } from '@/components/dashboard/vivo';
 
 // La sección de Configuración llega aparte (`dynamic()`, con su esqueleto): en
 // un móvil con la red lenta, 1,5 s se comían pasos que solo estaban cargando.
@@ -53,6 +55,7 @@ export function TutorialDePantalla({ ruta, escritorio, origen, onTerminar, onCer
 }) {
   const { rol } = usePermisos();
   const contexto = useTutorial();
+  const panelNuevo = usePanelNuevo();
   const quien = { escritorio, moverDinero: puedeMoverDinero(rol) };
   const pasos = pasosVisibles(PASOS_TUTORIAL[ruta], quien);
   const hazloConmigo = hazloConmigoPara(PASOS_TUTORIAL[ruta], quien);
@@ -169,7 +172,18 @@ export function TutorialDePantalla({ ruta, escritorio, origen, onTerminar, onCer
       >
         {/* Lo que oye un lector de pantalla al cambiar de paso. */}
         <p className="sr-only" aria-live="polite">{`Paso ${idx + 1} de ${pasos.length}: ${paso.titulo}`}</p>
-        <p className="font-mono text-[11px] text-muted-foreground" aria-hidden>{idx + 1} de {pasos.length}</p>
+        {panelNuevo ? (
+          <div className="flex items-center justify-between gap-3" aria-hidden>
+            <p className="font-t-mono text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--t-text-accent)' }}>Paso {idx + 1} de {pasos.length}</p>
+            <span className="flex gap-1">
+              {pasos.map((_, k) => (
+                <span key={k} className="h-1.5 rounded-full transition-[width]" style={{ width: k === idx ? 16 : 6, backgroundColor: k <= idx ? 'var(--t-magenta-500)' : 'var(--border)' }} />
+              ))}
+            </span>
+          </div>
+        ) : (
+          <p className="font-mono text-[11px] text-muted-foreground" aria-hidden>{idx + 1} de {pasos.length}</p>
+        )}
         <h2 id={idTitulo} className="mt-1 text-[15px] font-bold leading-snug text-foreground text-balance">{paso.titulo}</h2>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">{paso.texto}</p>
 
@@ -201,9 +215,15 @@ export function TutorialDePantalla({ ruta, escritorio, origen, onTerminar, onCer
                 <ArrowLeft data-icon="inline-start" aria-hidden /> Anterior
               </Button>
             )}
+            {panelNuevo ? (
+              <button type="button" onClick={siguiente} className={cn(BOTON_VIVO, 'h-9 px-4 text-[13px] max-lg:h-10')}>
+                {ultimo ? 'Listo' : <>Siguiente <ArrowRight size={14} aria-hidden /></>}
+              </button>
+            ) : (
             <Button onClick={siguiente} className="max-lg:h-10">
               {ultimo ? 'Listo' : <>Siguiente <ArrowRight data-icon="inline-end" aria-hidden /></>}
             </Button>
+            )}
           </div>
         </div>
       </div>

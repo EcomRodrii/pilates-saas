@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Wrench, CreditCard, RotateCcw, CalendarClock, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { construirBandeja, type CategoriaBandeja } from '@/lib/bandeja-logic';
 
 // Bandeja diaria (F2 · B2.9): "Para hoy" — ≤5 decisiones concretas derivadas de
@@ -30,6 +31,7 @@ export function BandejaHoy() {
   // minuto es lo que la hace pasar de día sola (mismo patrón que dashboard).
   // La lógica pura sigue recibiéndolo inyectado, que es lo que la hace testeable.
   const [ahoraMs, setAhoraMs] = useState(0);
+  const panelNuevo = usePanelNuevo();
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo. Es el caso de uso que la regla considera legítimo.
     setAhoraMs(Date.now());
@@ -70,8 +72,8 @@ export function BandejaHoy() {
                 className="group flex items-center gap-3 py-2.5 -mx-1 px-1 rounded-lg transition-colors hover:bg-muted/60"
               >
                 <span
-                  className="grid size-8 shrink-0 place-items-center rounded-full"
-                  style={{ color, backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
+                  className={panelNuevo ? 'grid size-9 shrink-0 place-items-center rounded-[11px]' : 'grid size-8 shrink-0 place-items-center rounded-full'}
+                  style={panelNuevo ? { color: 'var(--card)', backgroundColor: color } : { color, backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
                   aria-hidden
                 >
                   <Icon size={16} />

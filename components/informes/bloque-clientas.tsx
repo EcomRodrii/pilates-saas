@@ -13,6 +13,7 @@ import type { ClientasDelTramo } from '@/lib/informes/clientas';
 import { UMBRAL_PLAZAS_VACIAS, textoPlazasVacias } from '@/lib/informes/plazas-vacias';
 import type { EstadoPlazasVacias } from '@/lib/informes/plazas-vacias-cliente';
 import { CabeceraBloque, conSigno, frenteA, tonoDiferencia } from './piezas';
+import { useClaseBloque } from './piezas';
 
 // «may 26»: el mes de una cohorte ('YYYY-MM'), sin depender de la zona del navegador.
 const FORMATO_MES_COHORTE = new Intl.DateTimeFormat('es-ES', { month: 'short', year: '2-digit', timeZone: 'UTC' });
@@ -43,8 +44,9 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
   const max = clientas.lasQueMasVienen[0]?.clases ?? 1;
   const difNuevas = nuevasAntes == null ? null : nuevas - nuevasAntes;
 
+  const claseBloque = useClaseBloque();
   return (
-    <section aria-labelledby="informe-clientas" className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section aria-labelledby="informe-clientas" className={`space-y-4 ${claseBloque}`}>
       <CabeceraBloque id="informe-clientas" titulo="Clientas" />
 
       <div className="grid gap-3 sm:grid-cols-2">

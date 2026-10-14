@@ -38,6 +38,9 @@ import type { SnapshotEstudio } from '@/lib/decision/tipos';
 import { esVentaSinRecibo, resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { csvDeFilas, filasCsvPorOrigen, resumenPorPlataforma } from '@/lib/plataformas/informe-origen';
 import { PageHeader } from '@/components/ui/page-header';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TarjetaCifra, TarjetaOcupacion } from '@/components/dashboard/vivo';
+import { CalendarCheck, Euro, UserPlus, Users } from 'lucide-react';
 import { MenuAcciones } from '@/components/ui/menu-acciones';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { Toast, useToast } from '@/components/ui/toast';
@@ -68,6 +71,7 @@ export default function Informes() {
   } = useStudio();
   const { listo: estadosListos, conteos } = useEstadosClientas();
   const toast = useToast();
+  const panelNuevo = usePanelNuevo();
   const avisos: AvisosCobros = useMemo(() => ({ ok: toast.show, error: toast.showError }), [toast.show, toast.showError]);
   const descargas = useDescargaCobrado(avisos);
 
@@ -312,32 +316,79 @@ export default function Informes() {
         </p>
       )}
 
-      <div className="grid divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-3 md:divide-x md:divide-y-0" data-testid="informe-titular">
-        <Hecho
-          testId="informe-cobrado"
-          titulo="Cobrado · neto, ya restado lo devuelto"
-          valor={<CifraPrivada inline>{formatEuro(dinero.actual.neto)}</CifraPrivada>}
-          comparacion={difCobrado == null ? null : {
-            texto: <CifraPrivada inline>{conSignoEuros(difCobrado)}</CifraPrivada>, tono: tonoDiferencia(difCobrado),
-            frente: <>{frente} (<CifraPrivada inline>{formatEuro(dinero.anterior?.neto ?? 0)}</CifraPrivada>)</>,
-          }}
-          nota={`${dinero.actual.nCobros} ${dinero.actual.nCobros === 1 ? 'cobro' : 'cobros'}`}
-        />
-        <Hecho
-          testId="informe-ocupacion"
-          titulo="Ocupación de las clases"
-          valor={clases.actual.pct == null ? '—' : `${clases.actual.pct} %`}
-          comparacion={puntos == null ? null : { texto: conSigno(puntos, ' puntos'), tono: tonoDiferencia(puntos), frente }}
-          nota={`${clases.actual.ocupadas} de ${clases.actual.aforo} plazas en ${clases.actual.nClases} ${clases.actual.nClases === 1 ? 'clase' : 'clases'}`}
-        />
-        <Hecho
-          testId="informe-vinieron"
-          titulo="Clientas que vinieron"
-          valor={clases.actual.sinPasarLista ? '—' : clientas.actual.vinieron}
-          comparacion={clases.actual.sinPasarLista || difVinieron == null ? null : { texto: conSigno(difVinieron), tono: tonoDiferencia(difVinieron), frente }}
-          nota={clases.actual.sinPasarLista ? 'No se ha pasado lista: no sabemos quién vino.' : 'Distintas, a alguna clase del periodo.'}
-        />
-      </div>
+      {panelNuevo ? (
+        // Panel nuevo: las cifras del periodo como las de la home, cada una con su color.
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" data-testid="informe-titular">
+          <TarjetaCifra
+            etiqueta="Cobrado"
+            tono="verde"
+            Icono={Euro}
+            href={null}
+            valor={<CifraPrivada inline>{formatEuro(dinero.actual.neto)}</CifraPrivada>}
+            arriba={difCobrado == null ? undefined : <CifraPrivada inline><span className={tonoDiferencia(difCobrado)}>{conSignoEuros(difCobrado)}</span></CifraPrivada>}
+            abajo={difCobrado == null ? `${dinero.actual.nCobros} ${dinero.actual.nCobros === 1 ? 'cobro' : 'cobros'}` : frente}
+          />
+          <TarjetaOcupacion
+            etiqueta="Ocupación"
+            tono="azul"
+            Icono={CalendarCheck}
+            href={null}
+            ocupacion={{ pct: clases.actual.pct, ocupadas: clases.actual.ocupadas, plazas: clases.actual.aforo, clases: clases.actual.nClases }}
+            vacio="No hubo clases en este periodo"
+            contexto={puntos == null ? undefined : `${conSigno(puntos, ' puntos')} ${frente}`}
+          />
+          <TarjetaCifra
+            etiqueta="Vinieron"
+            tono="magenta"
+            Icono={Users}
+            href={null}
+            valor={clases.actual.sinPasarLista ? '—' : String(clientas.actual.vinieron)}
+            arriba={clases.actual.sinPasarLista || difVinieron == null ? undefined : <span className={tonoDiferencia(difVinieron)}>{conSigno(difVinieron)}</span>}
+            abajo={clases.actual.sinPasarLista ? 'Sin pasar lista no sabemos quién vino' : difVinieron == null ? 'clientas distintas' : frente}
+          />
+          <TarjetaCifra
+            etiqueta="Nuevas clientas"
+            tono="indigo"
+            Icono={UserPlus}
+            href={null}
+            valor={String(nuevasEnTramo(empezaron, visible))}
+            {...(() => {
+              const antes = tramos.anterior ? nuevasEnTramo(empezaron, tramos.anterior) : null;
+              const dif = antes == null ? null : nuevasEnTramo(empezaron, visible) - antes;
+              return dif == null
+                ? { abajo: 'empezaron en este periodo' }
+                : { arriba: <span className={tonoDiferencia(dif)}>{conSigno(dif)}</span>, abajo: frente };
+            })()}
+          />
+        </div>
+      ) : (
+        <div className="grid divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-3 md:divide-x md:divide-y-0" data-testid="informe-titular">
+          <Hecho
+            testId="informe-cobrado"
+            titulo="Cobrado · neto, ya restado lo devuelto"
+            valor={<CifraPrivada inline>{formatEuro(dinero.actual.neto)}</CifraPrivada>}
+            comparacion={difCobrado == null ? null : {
+              texto: <CifraPrivada inline>{conSignoEuros(difCobrado)}</CifraPrivada>, tono: tonoDiferencia(difCobrado),
+              frente: <>{frente} (<CifraPrivada inline>{formatEuro(dinero.anterior?.neto ?? 0)}</CifraPrivada>)</>,
+            }}
+            nota={`${dinero.actual.nCobros} ${dinero.actual.nCobros === 1 ? 'cobro' : 'cobros'}`}
+          />
+          <Hecho
+            testId="informe-ocupacion"
+            titulo="Ocupación de las clases"
+            valor={clases.actual.pct == null ? '—' : `${clases.actual.pct} %`}
+            comparacion={puntos == null ? null : { texto: conSigno(puntos, ' puntos'), tono: tonoDiferencia(puntos), frente }}
+            nota={`${clases.actual.ocupadas} de ${clases.actual.aforo} plazas en ${clases.actual.nClases} ${clases.actual.nClases === 1 ? 'clase' : 'clases'}`}
+          />
+          <Hecho
+            testId="informe-vinieron"
+            titulo="Clientas que vinieron"
+            valor={clases.actual.sinPasarLista ? '—' : clientas.actual.vinieron}
+            comparacion={clases.actual.sinPasarLista || difVinieron == null ? null : { texto: conSigno(difVinieron), tono: tonoDiferencia(difVinieron), frente }}
+            nota={clases.actual.sinPasarLista ? 'No se ha pasado lista: no sabemos quién vino.' : 'Distintas, a alguna clase del periodo.'}
+          />
+        </div>
+      )}
 
       <BloqueDinero
         periodo={periodo} actual={dinero.actual} anterior={dinero.anterior} puntos={dinero.puntos} comparacion={comparacion}

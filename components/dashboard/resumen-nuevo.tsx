@@ -24,11 +24,11 @@
 // calcula lo nuevo, con funciones puras y probadas (`lib/inicio/cifras.ts`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowRight, Bell, CalendarCheck, CalendarPlus, CreditCard, Euro, ExternalLink,
-  MessageCircle, Package, RefreshCw, UserPlus, Users, Zap, Check,
+  MessageCircle, Package, RefreshCw, UserPlus, Users, Zap,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { PageHeader } from '@/components/ui/page-header';
@@ -37,12 +37,16 @@ import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
+import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import {
-  MESES_LARGOS, altasDelMes, altasPorMes, ingresosAlDia, ingresosPorMes, ocupacionEntre, ocupadasPorSesion,
-  reservasPorDia, semanaDe, semanaISO, type Ocupacion,
+  MESES_LARGOS, ingresosAlDia, ocupacionEntre, ocupadasPorSesion,
+  reservasPorDia, semanaDe, semanaISO,
 } from '@/lib/inicio/cifras';
+import { GraficaIngresos, formatoEuros, ladoIngresos } from '@/components/dashboard/ingresos-nuevo';
 import { cn, hoyEnEstudio } from '@/lib/utils';
-import { Baldosa, CabeceraTarjeta, TONOS, colorDeOcupacion, fondoTenido, type Tono } from '@/components/dashboard/vivo';
+import {
+  CabeceraTarjeta, Comparacion, TONOS, TarjetaCifra, TarjetaGrafica, TarjetaOcupacion, VacioPositivo, VerMas, type Tono,
+} from '@/components/dashboard/vivo';
 
 // El día de una clase es el del estudio. Se recuerda por hora UTC: cientos de
 // clases, una sola llamada a Intl por hora distinta (y Madrid no cambia de día
@@ -205,98 +209,12 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
 
 // ─── Cifras ───────────────────────────────────────────────────────────────────
 
-function formatoEuros(n: number): string {
-  return `${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`;
-}
-
-/** Lo que va al lado del número de ingresos: la variación y contra qué. */
-function ladoIngresos(actual: number, anterior: number, mesAnterior: string): { arriba?: ReactNode; abajo: ReactNode } {
-  if (actual === 0 && anterior === 0) return { abajo: 'Aún no has cobrado nada este mes' };
-  if (anterior === 0) return { abajo: `Sin cobros en ${mesAnterior} a estas alturas` };
-  const pct = Math.round(((actual - anterior) / anterior) * 100);
-  const color = pct > 0 ? 'var(--success)' : pct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
-  return {
-    arriba: <span style={{ color }}>{pct > 0 ? '+' : ''}{pct} %</span>,
-    abajo: `vs ${mesAnterior.slice(0, 3)}. a estas alturas`,
-  };
-}
-
 /** Lo que va al lado de las clientas activas: con cero clientas no hay «todas han venido». */
 function ladoClientas(activas: number | null, sinVenir: number | null): { arriba?: ReactNode; abajo: ReactNode } {
   if (activas === null || sinVenir === null) return { abajo: 'Contando…' };
   if (activas === 0 && sinVenir === 0) return { abajo: 'Aún no tienes clientas activas' };
   if (sinVenir === 0) return { arriba: 'Todas', abajo: 'han venido en 30 días' };
   return { arriba: <span style={{ color: 'var(--warning)' }}>{sinVenir} sin venir</span>, abajo: 'en 30 días' };
-}
-
-function MarcoCifra({ href, tono, children, etiqueta }: { href: string | null; tono: Tono; children: ReactNode; etiqueta: string }) {
-  const clase = 'group flex min-h-[132px] flex-col rounded-t-card border p-4 shadow-t-card sm:p-5';
-  return href ? (
-    <Link href={href} aria-label={etiqueta} className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
-      {children}
-    </Link>
-  ) : (
-    <div className={clase} style={fondoTenido(tono, 14)}>{children}</div>
-  );
-}
-
-/** Etiqueta pequeña a la izquierda e icono de color a la derecha, como en Bonsai. */
-function Cabecilla({ etiqueta, tono, Icono }: { etiqueta: string; tono: Tono; Icono: React.ElementType }) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <p className="text-[11.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-foreground/60">{etiqueta}</p>
-      <Icono size={19} strokeWidth={2.2} style={{ color: TONOS[tono] }} aria-hidden className="shrink-0" />
-    </div>
-  );
-}
-
-/** El número grande con su explicación AL LADO, en dos líneas («1/12» / «1 sesión»). */
-function NumeroConLado({ valor, arriba, abajo }: { valor: ReactNode; arriba?: ReactNode; abajo: ReactNode }) {
-  return (
-    // Si no cabe al lado (móvil), la explicación baja debajo del número.
-    <div className="mt-auto flex flex-wrap items-end gap-x-2.5 gap-y-1 pt-3">
-      <p className="whitespace-nowrap text-[34px] font-bold leading-[0.9] tracking-tight text-foreground tabular-nums sm:text-[40px]">{valor}</p>
-      <div className="min-w-0 pb-0.5 leading-tight">
-        {arriba && <p className="truncate text-[13px] font-semibold text-foreground tabular-nums">{arriba}</p>}
-        <p className="text-[12px] text-muted-foreground">{abajo}</p>
-      </div>
-    </div>
-  );
-}
-
-function TarjetaCifra({ etiqueta, tono, Icono, valor, arriba, abajo, href }: {
-  etiqueta: string; tono: Tono; Icono: React.ElementType; valor: ReactNode; arriba?: ReactNode; abajo: ReactNode; href: string | null;
-}) {
-  return (
-    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta}>
-      <Cabecilla etiqueta={etiqueta} tono={tono} Icono={Icono} />
-      <NumeroConLado valor={valor} arriba={arriba} abajo={abajo} />
-    </MarcoCifra>
-  );
-}
-
-function TarjetaOcupacion({ etiqueta, tono, Icono, ocupacion, vacio, contexto, href }: {
-  etiqueta: string; tono: Tono; Icono: React.ElementType; ocupacion: Ocupacion; vacio: string; contexto?: string; href: string | null;
-}) {
-  const sinClases = ocupacion.pct === null;
-  return (
-    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta}>
-      <Cabecilla etiqueta={etiqueta} tono={tono} Icono={Icono} />
-      {sinClases ? (
-        <NumeroConLado valor="—" abajo={vacio} />
-      ) : (
-        <NumeroConLado
-          valor={<>{ocupacion.pct}<span className="text-[0.6em]">%</span></>}
-          arriba={`${ocupacion.ocupadas}/${ocupacion.plazas}`}
-          abajo={contexto ?? `${ocupacion.clases} clase${ocupacion.clases === 1 ? '' : 's'}`}
-        />
-      )}
-      {/* Roja si va floja, ámbar a medias, verde si se llena: como la de Bonsai. */}
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--foreground) 8%, transparent)' }} aria-hidden>
-        {!sinClases && <div className="h-full rounded-full" style={{ width: `${Math.max(ocupacion.pct ?? 0, 3)}%`, backgroundColor: colorDeOcupacion(ocupacion.pct ?? 0) }} />}
-      </div>
-    </MarcoCifra>
-  );
 }
 
 // ─── Accesos rápidos ──────────────────────────────────────────────────────────
@@ -346,103 +264,6 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
 
 // ─── Gráficas, como las de Bonsai ─────────────────────────────────────────────
 
-/** El marco de una gráfica: título y para qué a la izquierda, la cifra grande y su comparación a la derecha. */
-function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles, children, pie }: {
-  id: string; titulo: string; sub: string; cifra: ReactNode; comparacion?: ReactNode; controles?: ReactNode; children: ReactNode; pie?: ReactNode;
-}) {
-  return (
-    <section aria-labelledby={id} className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 id={id} className="text-[16px] font-semibold text-foreground">{titulo}</h2>
-          <p className="mt-0.5 max-w-[34ch] text-[12.5px] leading-snug text-muted-foreground">{sub}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[28px] font-bold leading-none tracking-tight text-foreground tabular-nums">{cifra}</p>
-          {comparacion && <p className="mt-1 text-[12px] leading-tight text-muted-foreground">{comparacion}</p>}
-        </div>
-      </div>
-      {controles && <div className="mt-3">{controles}</div>}
-      <div className="mt-3">{children}</div>
-      {pie}
-    </section>
-  );
-}
-
-/** El periodo en píldoras, como «7 días · Este mes · 3 meses» de Bonsai. */
-function Pildoras<T extends string | number>({ opciones, valor, onCambio }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void }) {
-  return (
-    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Periodo">
-      {opciones.map(o => (
-        <button
-          key={String(o.valor)}
-          type="button"
-          onClick={() => onCambio(o.valor)}
-          aria-pressed={valor === o.valor}
-          className={cn(
-            'rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
-            valor === o.valor ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Comparacion({ diferencia, contra }: { diferencia: number; contra: string }) {
-  const color = diferencia > 0 ? 'var(--success)' : diferencia < 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
-  return (
-    <>
-      <span className="font-semibold" style={{ color }}>{diferencia > 0 ? '+' : ''}{diferencia}</span> vs {contra}
-    </>
-  );
-}
-
-function VerMas({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
-      {label} <ArrowRight size={14} aria-hidden />
-    </Link>
-  );
-}
-
-const nombreMes = (clave: string) => `${MESES_LARGOS[Number(clave.slice(5, 7)) - 1]} de ${clave.slice(0, 4)}`;
-const ejeMes = (clave: string) => MESES_LARGOS[Number(clave.slice(5, 7)) - 1].slice(0, 3);
-
-function GraficaIngresos({ recibos, hoy, alDia, href }: {
-  recibos: ReturnType<typeof useStudio>['recibos']; hoy: string; alDia: { actual: number; anterior: number; mesAnterior: string }; href: string | null;
-}) {
-  const [meses, setMeses] = useState<3 | 6 | 12>(6);
-  const serie = useMemo(() => ingresosPorMes(recibos, hoy, meses), [recibos, hoy, meses]);
-  const pct = alDia.anterior > 0 ? Math.round(((alDia.actual - alDia.anterior) / alDia.anterior) * 100) : null;
-  return (
-    <TarjetaGrafica
-      id="grafica-ingresos"
-      titulo="Ingresos"
-      sub="Lo cobrado cada mes, con IVA y ya restado lo devuelto"
-      cifra={<CifraPrivada inline>{formatoEuros(alDia.actual)}</CifraPrivada>}
-      comparacion={pct === null ? 'este mes' : (
-        <><span className="font-semibold" style={{ color: pct > 0 ? 'var(--success)' : pct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}>{pct > 0 ? '+' : ''}{pct} %</span> vs {alDia.mesAnterior} a estas alturas</>
-      )}
-      controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
-      pie={href ? <VerMas href={href} label="Ver informe" /> : null}
-    >
-      <CifraPrivada>
-        <GraficaArea
-          titulo="Ingresos por mes"
-          color="var(--cat-2)"
-          puntos={serie.map(m => ({ eje: ejeMes(m.clave), nombre: nombreMes(m.clave) + (m.actual ? ' (va a medias)' : ''), valor: m.total }))}
-          formato={formatoEuros}
-          formatoEje={formatoEjeEuros}
-          vacio="Aquí verás lo que cobras cada mes en cuanto cobres la primera cuota o el primer bono."
-        />
-      </CifraPrivada>
-    </TarjetaGrafica>
-  );
-}
-
 function GraficaReservas({ reservas, hoy, href }: { reservas: ReturnType<typeof useStudio>['reservas']; hoy: string; href: string | null }) {
   // 28 días: los 14 que se ven y los 14 de antes, para comparar.
   const serie = useMemo(() => reservasPorDia(reservas, hoy, 28, diaDelEstudio), [reservas, hoy]);
@@ -470,55 +291,6 @@ function GraficaReservas({ reservas, hoy, href }: { reservas: ReturnType<typeof 
   );
 }
 
-function GraficaAltas({ socios, hoy, href }: { socios: ReturnType<typeof useStudio>['socios']; hoy: string; href: string | null }) {
-  const [meses, setMeses] = useState<3 | 6 | 12>(6);
-  const serie = useMemo(() => altasPorMes(socios, hoy, meses, diaDelEstudio), [socios, hoy, meses]);
-  const mes = useMemo(() => altasDelMes(socios, hoy, diaDelEstudio), [socios, hoy]);
-  const mesPasado = MESES_LARGOS[(Number(hoy.slice(5, 7)) + 10) % 12].slice(0, 3);
-  return (
-    <TarjetaGrafica
-      id="grafica-altas"
-      titulo="Nuevas clientas"
-      sub="Las que se han dado de alta en tu estudio cada mes"
-      cifra={mes.total}
-      comparacion={<><Comparacion diferencia={mes.total - mes.mesPasadoAlDia} contra={`1–${mes.hoy} ${mesPasado}.`} /><br />este mes</>}
-      controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
-      pie={href ? <VerMas href={href} label="Ver clientas" /> : null}
-    >
-      <GraficaArea
-        titulo="Altas por mes"
-        alto={190}
-        color="var(--t-magenta-500)"
-        colorPunto="var(--t-blue-500)"
-        puntos={serie.map(m => ({ eje: ejeMes(m.clave), nombre: nombreMes(m.clave), valor: m.valor }))}
-        formato={n => `${n} alta${n === 1 ? '' : 's'}`}
-        enteros
-        vacio="Cada alumna que se dé de alta, en el mostrador o desde tu página, sumará aquí."
-      />
-      {/* La tira de Bonsai: cada día del mes, con su número encima si hubo altas. */}
-      <p className="mt-4 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Altas por día este mes</p>
-      <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${mes.porDia.length}, minmax(0, 1fr))` }}>
-        {mes.porDia.map((v, i) => {
-          const dia = i + 1;
-          const futuro = dia > mes.hoy;
-          return (
-            <div key={dia} className="flex flex-col items-center gap-1" title={`${dia}: ${v} alta${v === 1 ? '' : 's'}`}>
-              <span className="h-3 text-[9.5px] font-bold leading-3 tabular-nums" style={{ color: 'var(--t-magenta-500)' }}>{v > 0 ? v : ''}</span>
-              <span
-                className="h-7 w-full rounded-[5px]"
-                style={v > 0
-                  ? { backgroundColor: 'var(--t-magenta-500)' }
-                  : { backgroundColor: futuro ? 'color-mix(in srgb, var(--foreground) 3%, transparent)' : 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
-              />
-              <span className={cn('text-[9px] tabular-nums', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground/50' : 'text-muted-foreground')}>{dia}</span>
-            </div>
-          );
-        })}
-      </div>
-    </TarjetaGrafica>
-  );
-}
-
 const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 function diaCorto(dia: string): string {
   const [y, m, d] = dia.split('-').map(Number);
@@ -528,10 +300,6 @@ function diaLargo(dia: string): string {
   const m = Number(dia.slice(5, 7));
   return `${diaCorto(dia)} de ${MESES_LARGOS[m - 1]}`;
 }
-function formatoEjeEuros(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} k€` : `${n.toLocaleString('es-ES')} €`;
-}
-
 // ─── Renovaciones ─────────────────────────────────────────────────────────────
 
 function Renovaciones({ renovaciones, hoy }: { renovaciones: RenovacionResumen[]; hoy: string }) {
@@ -634,18 +402,3 @@ function Actividad({ actividad, verTodo }: { actividad: ActividadResumen[]; verT
     </section>
   );
 }
-
-// ─── Vacío en positivo ────────────────────────────────────────────────────────
-
-function VacioPositivo({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <section className="flex items-start gap-3 rounded-t-card border p-4 shadow-t-card sm:p-5" style={fondoTenido('verde', 12)}>
-      <Baldosa tono="verde" Icono={Check} />
-      <div className="min-w-0">
-        <h2 className="text-[16px] font-semibold text-foreground">{titulo}</h2>
-        <p className="mt-0.5 text-[13px] text-muted-foreground text-pretty">{texto}</p>
-      </div>
-    </section>
-  );
-}
-

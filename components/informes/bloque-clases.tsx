@@ -16,6 +16,7 @@ import { cn, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { ClasesDelTramo, SesionDelInforme, TipoDelInforme } from '@/lib/informes/clases';
 import type { MargenSesion } from '@/lib/decision/margen-clase';
 import { CabeceraBloque, conSigno, Euros, frenteA, tonoDiferencia } from './piezas';
+import { useClaseBloque } from './piezas';
 
 export interface NombresClases {
   tipo: (id: string) => string | undefined;
@@ -62,8 +63,9 @@ export function BloqueClases({ clases, anterior, comparacion, margenes, nombres 
   const anteriorPorTipo = new Map((anterior?.tipos ?? []).map(t => [t.tipoClaseId, t]));
   const hayMargenSinTarifa = clases.sesiones.some(s => margenes.get(s.sesionId)?.margen == null);
 
+  const claseBloque = useClaseBloque();
   return (
-    <section aria-labelledby="informe-clases" className="space-y-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section aria-labelledby="informe-clases" className={`space-y-3 ${claseBloque}`}>
       <CabeceraBloque id="informe-clases" titulo="Clases">
         Las clases ya empezadas del periodo. Ocupación: plazas reservadas sobre el aforo, vinieran o no (una falta también
         ocupó la plaza). Despliega un tipo para verlo por franja, y una franja para ver cada clase con su margen.

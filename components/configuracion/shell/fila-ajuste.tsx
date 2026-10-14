@@ -12,6 +12,7 @@ import type { ResumenFila } from '@/lib/configuracion/resumenes';
 import { FILA, IconoFila } from './fila-herramienta';
 import { EstadoAjuste } from './estado-ajuste';
 import { esClicNormal, useNavegacionConfig } from './contexto';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Una sección de Configuración como grupos de filas, no como formularios
 // apilados (§4.2). Cada fila dice qué es y cómo está HOY —«L-V 8:00–22:00 · D
@@ -26,10 +27,11 @@ import { esClicNormal, useNavegacionConfig } from './contexto';
 /** Un grupo con su título, en frase normal. */
 export function GrupoFilas({ titulo, children }: { titulo: string; children: ReactNode }) {
   const id = useId();
+  const panelNuevo = usePanelNuevo();
   return (
-    <section aria-labelledby={id} className="max-w-2xl space-y-2">
-      <h3 id={id} className="px-1 text-sm font-semibold text-foreground">{titulo}</h3>
-      <ul data-tarjeta-ajuste="" className={cn(cardCls, 'divide-y divide-border overflow-hidden')}>
+    <section aria-labelledby={id} className={cn('space-y-2', panelNuevo ? 'max-w-3xl' : 'max-w-2xl')}>
+      <h3 id={id} className={panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
+      <ul data-tarjeta-ajuste="" className={cn(panelNuevo ? 'rounded-t-card border border-border bg-card shadow-t-card' : cardCls, 'divide-y divide-border overflow-hidden')}>
         {children}
       </ul>
     </section>

@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, CirclePlay } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useTutorial } from '@/lib/tutorial-context';
 import { ayudaDePantalla, tutorialDePantalla } from '@/lib/ayuda/pantallas';
 
@@ -27,6 +28,7 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
   const pedir = tutorial?.pedirAbrirSolo;
   const presente = tutorial?.presente;
   const visible = !!t && !!tutorial && !tutorial.visitaActiva;
+  const panelNuevo = usePanelNuevo();
 
   useEffect(() => {
     if (t && presente && visible) return presente(t.ruta);
@@ -38,6 +40,22 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
 
   if (!t || !tutorial || !visible) return null;
   const nombre = ayudaDePantalla(t.ruta)?.titulo ?? 'esta pantalla';
+  if (panelNuevo) {
+    // Panel nuevo: a la vista y con nombre, como el «Cómo funciona» de Bonsai; el mismo tutorial.
+    return (
+      <button
+        type="button"
+        onClick={() => tutorial.abrir(t.ruta)}
+        aria-label={`Enséñame «${nombre}» paso a paso`}
+        title={`Enséñame «${nombre}» paso a paso`}
+        data-testid="boton-tutorial"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <CirclePlay size={15} aria-hidden style={{ color: 'var(--t-magenta-500)' }} />
+        Cómo funciona
+      </button>
+    );
+  }
   return (
     <button
       type="button"

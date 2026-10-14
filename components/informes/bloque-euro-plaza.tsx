@@ -26,6 +26,7 @@ import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { EnlaceExplicador, TarjetaPrimeraVez, useExplicador } from '@/components/explicador/enlace-explicador';
 import { EXPLICADORES } from '@/lib/ayuda/explicadores';
 import { CabeceraBloque, type PeriodoInforme } from './piezas';
+import { useClaseBloque } from './piezas';
 import { VerCalculo, type LineaCalculo } from './ver-calculo';
 
 /** Lunes primero, como el calendario. `dow` de `franjaLocalDe` (0 = domingo). */
@@ -116,8 +117,9 @@ export function BloqueEuroPlaza({ datos, periodo, visible, textoPeriodo, hoy, da
     };
   }
 
+  const claseBloque = useClaseBloque();
   return (
-    <section aria-labelledby="informe-euro-plaza" className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5" data-testid="bloque-euro-plaza">
+    <section aria-labelledby="informe-euro-plaza" className={`space-y-4 ${claseBloque}`} data-testid="bloque-euro-plaza">
       <CabeceraBloque
         id="informe-euro-plaza" titulo="€ por plaza a la venta"
         acciones={<EnlaceExplicador ref={enlaceRef} texto="¿Qué es el € por plaza?" onAbrir={abrir} />}
