@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { PlanTarifa } from '../types.ts';
+import type { PlanTarifa, Suscripcion } from '../types.ts';
 import {
-  avisoDeVentaSuelta, conceptoDeClaseSuelta, desenlaceVentaSuelta, idReciboDeSuscripcionDeClaseSuelta, idSuscripcionDeClaseSuelta,
+  avisoDeVentaSuelta, conceptoDeClaseSuelta, cuotaQueYaTiene, cuotasQueCubren, desenlaceVentaSuelta, idReciboDeSuscripcionDeClaseSuelta, idSuscripcionDeClaseSuelta,
   idSuscripcionDeReciboDeClaseSuelta, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta,
 } from './clase-suelta.ts';
 
@@ -131,4 +131,44 @@ test('lo que se le dice a recepción cuando la clase suelta no queda vendida com
     assert.match(texto, /no se ha podido deshacer/);
     assert.doesNotMatch(texto, /que sobra/);
   }
+});
+
+test('cuotas para dar desde el mostrador: mensuales activas, sin prueba, que incluyan la clase; las baratas primero', () => {
+  const planes = [
+    plan({ id: 'dos-dias', nombre: '2 días Semana Mensual', tipo: 'MENSUAL', precio: 115, sesiones: null }),
+    plan({ id: 'un-dia', nombre: '1 día Semana Mes', tipo: 'MENSUAL', precio: 65, sesiones: null }),
+    plan({ id: 'suelta', nombre: 'Clase Suelta', precio: 23 }),
+    plan({ id: 'bono', tipo: 'BONO', precio: 90, sesiones: 10 }),
+    plan({ id: 'prueba', tipo: 'MENSUAL', precio: 0, sesiones: null, esPrueba: true }),
+    plan({ id: 'vieja', tipo: 'MENSUAL', precio: 50, sesiones: null, activo: false }),
+    plan({ id: 'solo-mat', tipo: 'MENSUAL', precio: 40, sesiones: null, tiposClaseIds: ['tc-mat'] }),
+  ];
+  assert.deepEqual(cuotasQueCubren(planes, 'tc-reformer').map(p => p.id), ['un-dia', 'dos-dias']);
+  assert.deepEqual(cuotasQueCubren(planes, 'tc-mat').map(p => p.id), ['solo-mat', 'un-dia', 'dos-dias']);
+  assert.deepEqual(cuotasQueCubren([], 'tc-reformer'), []);
+});
+
+test('si ya tiene cuota (vencida, en pausa o que no incluye la clase), no se le ofrece otra: se dice cuál y por qué', () => {
+  const planes = [
+    plan({ id: 'cuota', nombre: '2 días Semana Mensual', tipo: 'MENSUAL', precio: 115, sesiones: null }),
+    plan({ id: 'cuota-mat', nombre: 'Mat Mensual', tipo: 'MENSUAL', precio: 60, sesiones: null, tiposClaseIds: ['tc-mat'] }),
+    plan({ id: 'suelta', nombre: 'Clase Suelta', precio: 23 }),
+  ];
+  const sus = (o: Partial<Suscripcion>) => ({
+    id: 'x', socioId: 'ana', planId: 'cuota', estado: 'ACTIVA', fechaInicio: '2026-09-01', fechaFin: '2026-10-31', ...o,
+  } as Suscripcion);
+  const hoy = '2026-10-14';
+  // Sin nada, o solo con una clase suelta gastada: se le puede dar cuota.
+  assert.equal(cuotaQueYaTiene('ana', [], planes, hoy, 'tc-reformer'), null);
+  assert.equal(cuotaQueYaTiene('ana', [sus({ planId: 'suelta', sesionesRestantes: 0, fechaFin: null })], planes, hoy, 'tc-reformer'), null);
+  // Una cancelada o de otra alumna no cuenta.
+  assert.equal(cuotaQueYaTiene('ana', [sus({ estado: 'CANCELADA' }), sus({ socioId: 'bea' })], planes, hoy, 'tc-reformer'), null);
+
+  assert.deepEqual(cuotaQueYaTiene('ana', [sus({ fechaFin: '2026-10-13' })], planes, hoy, 'tc-reformer'), { nombre: '2 días Semana Mensual', motivo: 'VENCIDA' });
+  assert.deepEqual(cuotaQueYaTiene('ana', [sus({ estado: 'PAUSADA' })], planes, hoy, 'tc-reformer'), { nombre: '2 días Semana Mensual', motivo: 'PAUSADA' });
+  assert.deepEqual(cuotaQueYaTiene('ana', [sus({ planId: 'cuota-mat' })], planes, hoy, 'tc-reformer'), { nombre: 'Mat Mensual', motivo: 'NO_INCLUYE_LA_CLASE' });
+  // Vigente y que incluye la clase, pero sin cobertura por otra cosa (p. ej. su tope semanal).
+  assert.deepEqual(cuotaQueYaTiene('ana', [sus({})], planes, hoy, 'tc-reformer'), { nombre: '2 días Semana Mensual', motivo: 'OTRO' });
+  // Con varias, manda la vencida: hay un cobro esperando.
+  assert.equal(cuotaQueYaTiene('ana', [sus({ planId: 'cuota-mat' }), sus({ fechaFin: '2026-10-01' })], planes, hoy, 'tc-reformer')?.motivo, 'VENCIDA');
 });

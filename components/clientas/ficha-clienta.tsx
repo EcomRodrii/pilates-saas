@@ -540,8 +540,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // `if (!socio)`, igual que `resumen`.
   const otrosBonosActivos = useMemo(() => {
     if (!resumen.suscripcion) return [];
+    // Sin lo gastado (una clase suelta ya usada, un bono a 0): no da derecho a
+    // nada, y contarlo decía «+1 bono más» de una clase que ya pagó y dio.
     return suscripciones
-      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id)
+      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id && s.sesionesRestantes !== 0)
       .map(s => {
         const p = planesTarifa.find(pt => pt.id === s.planId);
         if (!p) return null;

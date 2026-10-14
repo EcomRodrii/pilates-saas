@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Banknote, CreditCard, Gift, QrCode, Search, Smartphone, Ticket, UserPlus } from 'lucide-react';
+import { Banknote, CreditCard, Gift, QrCode, Repeat, Search, Smartphone, Ticket, UserPlus } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { NOMBRE_PLATAFORMA, type Plataforma } from '@/lib/plataformas/catalogo';
 import { hastaCuandoApartadas } from '@/lib/plataformas/apartadas';
 import type { ApartadasDeClase } from '@/lib/calendario-datos';
 import type { LineaCobertura } from '@/lib/calendario/cobertura-mostrador';
+import type { MotivoCuotaQueNoCubre } from '@/lib/reservas/clase-suelta';
 import { AnadirReservaPlataforma } from './anadir-reserva-plataforma';
 
 // «Añadir clienta…» en la ficha de la clase: buscar a una clienta y apuntarla,
@@ -20,6 +21,20 @@ import { AnadirReservaPlataforma } from './anadir-reserva-plataforma';
 // suelta —en efectivo, con tarjeta o por Bizum, en el mostrador— o se le vende
 // un bono, o se le regala (maqueta aprobada, 1-oct-2026). Antes eso era un
 // diálogo aparte que dejaba el recibo pendiente para cobrarlo luego en Cobros.
+//
+// Y si viene a apuntarse con su CUOTA, se le da aquí la cuota y entra con ella.
+// Sin esa opción, una alumna nueva de «2 días a la semana» salía con una clase
+// suelta que luego, al darle la cuota en su ficha, pagaba dos veces. Solo a
+// quien no tiene NINGUNA cuota: a quien ya tiene una (vencida, en pausa o que
+// no incluye la clase) darle otra le cobraría el mes dos veces; se le dice cuál
+// tiene y qué hacer, en su ficha.
+
+const QUE_HACER_CON_SU_CUOTA: Record<MotivoCuotaQueNoCubre, (nombre: string) => string> = {
+  VENCIDA: n => `Su cuota «${n}» está vencida, a falta de cobrarle la renovación: cóbrasela en Cobros y entrará con ella. No le des otra: pagaría el mes dos veces.`,
+  PAUSADA: n => `Tiene la cuota «${n}» en pausa: si vuelve, reanúdala en su ficha.`,
+  NO_INCLUYE_LA_CLASE: n => `Su cuota «${n}» no incluye esta clase. Si se la cambias, hazlo en su ficha («Cambiar plan»), donde se ve qué sustituye.`,
+  OTRO: n => `Ya tiene la cuota «${n}»: en su ficha ves por qué no le vale para esta clase.`,
+};
 //
 // Cobrar lo hace la página (reserva primero y cobro por el servidor después);
 // aquí solo se elige a quién y cómo paga.
@@ -41,6 +56,7 @@ export interface ClientaElegible {
 export function AnadirAClase({
   sesionId, confirmadas, aforo, apartadas, onLiberarApartada, plataformas, clientas, avisar, onAvisar, hrefQr, showToast, onPlazaPlataforma,
   coberturaDe, precio, sinPrecio, onAnadir, onCobrarYAnadir, onAnadirYCobrarDespues, onCortesia, hrefVenderBono,
+  cuotas, cuotaQueYaTiene, onDarCuota,
 }: {
   sesionId: string;
   confirmadas: number;
@@ -73,6 +89,13 @@ export function AnadirAClase({
   onCortesia: (socioId: string) => void;
   /** A la caja con ella ya elegida; null si quien mira no cobra en caja. */
   hrefVenderBono: ((socioId: string) => string) | null;
+  /** Las cuotas que cubren esta clase (`cuotasQueCubren`), para dársela a quien viene sin nada. */
+  cuotas: { id: string; nombre: string; precio: number }[];
+  /** La cuota que ya tiene (`cuotaQueYaTiene`): con una, no se le ofrece otra. */
+  cuotaQueYaTiene: (socioId: string) => { nombre: string; motivo: MotivoCuotaQueNoCubre } | null;
+  /** Le da la cuota (el mismo camino que «Asignar plan» de su ficha) y la apunta
+   *  con ella. `true` si hay que cerrar. `null` si quien mira no mueve dinero. */
+  onDarCuota: ((socioId: string, planId: string) => Promise<boolean>) | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [de, setDe] = useState<'CLIENTA' | Plataforma>('CLIENTA');
@@ -119,6 +142,16 @@ export function AnadirAClase({
     setCobrando(true);
     try {
       if (await onAnadirYCobrarDespues(socioId)) cerrar();
+    } finally {
+      setCobrando(false);
+    }
+  }
+
+  async function darCuota(socioId: string, planId: string) {
+    if (cobrando || !onDarCuota) return;
+    setCobrando(true);
+    try {
+      if (await onDarCuota(socioId, planId)) cerrar();
     } finally {
       setCobrando(false);
     }
@@ -227,6 +260,7 @@ export function AnadirAClase({
             {encontradas.slice(0, 8).map(c => {
               const cob = coberturaDe(c.id);
               const abiertaAqui = desplegada === c.id;
+              const suCuota = abiertaAqui && onDarCuota ? cuotaQueYaTiene(c.id) : null;
               const iniciales = `${(c.nombre[0] ?? '').toUpperCase()}${(c.apellidos[0] ?? '').toUpperCase()}`;
               const fila = (
                 <>
@@ -330,6 +364,34 @@ export function AnadirAClase({
                             <>{' '}<Link href="/productos" className="font-semibold text-brand-medio hover:underline">en Paquetes</Link>.</>
                           )}
                         </p>
+                      )}
+                      {!llena && suCuota && (
+                        <p className="border-t border-border pt-2.5 text-[12.5px] text-muted-foreground" data-testid="ya-tiene-cuota">
+                          {QUE_HACER_CON_SU_CUOTA[suCuota.motivo](suCuota.nombre)}{' '}
+                          <Link href={`/clientas/${encodeURIComponent(c.id)}`} className="font-semibold text-brand-medio hover:underline">Ver su ficha</Link>
+                        </p>
+                      )}
+                      {!llena && onDarCuota && !suCuota && cuotas.length > 0 && (
+                        <div className="space-y-1.5 border-t border-border pt-2.5" data-testid="dar-cuota">
+                          <p className="text-[12.5px] text-muted-foreground">
+                            ¿Viene con cuota? Dásela y entra con ella; el recibo queda pendiente en Cobros.
+                          </p>
+                          {cuotas.map(q => (
+                            <button
+                              key={q.id}
+                              type="button"
+                              disabled={cobrando}
+                              onClick={() => void darCuota(c.id, q.id)}
+                              className="inline-flex min-h-10 w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <Repeat size={14} className="shrink-0" aria-hidden />
+                                <span className="truncate">Darle «{q.nombre}»</span>
+                              </span>
+                              <span className="shrink-0 text-muted-foreground">{formatEuro(q.precio)}</span>
+                            </button>
+                          ))}
+                        </div>
                       )}
                       <div className="flex flex-wrap gap-2">
                         {hrefVenderBono && (
