@@ -28,7 +28,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowRight, Bell, CalendarCheck, CalendarPlus, CreditCard, Euro, ExternalLink,
-  MessageCircle, Package, RefreshCw, UserPlus, Users, Zap, Check,
+  MessageCircle, Package, RefreshCw, UserPlus, Users, Zap,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { PageHeader } from '@/components/ui/page-header';
@@ -39,10 +39,12 @@ import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
 import {
   MESES_LARGOS, altasDelMes, altasPorMes, ingresosAlDia, ingresosPorMes, ocupacionEntre, ocupadasPorSesion,
-  reservasPorDia, semanaDe, semanaISO, type Ocupacion,
+  reservasPorDia, semanaDe, semanaISO,
 } from '@/lib/inicio/cifras';
 import { cn, hoyEnEstudio } from '@/lib/utils';
-import { Baldosa, CabeceraTarjeta, TONOS, colorDeOcupacion, fondoTenido, type Tono } from '@/components/dashboard/vivo';
+import {
+  CabeceraTarjeta, Comparacion, Pildoras, TONOS, TarjetaCifra, TarjetaGrafica, TarjetaOcupacion, VacioPositivo, VerMas, type Tono,
+} from '@/components/dashboard/vivo';
 
 // El día de una clase es el del estudio. Se recuerda por hora UTC: cientos de
 // clases, una sola llamada a Intl por hora distinta (y Madrid no cambia de día
@@ -229,76 +231,6 @@ function ladoClientas(activas: number | null, sinVenir: number | null): { arriba
   return { arriba: <span style={{ color: 'var(--warning)' }}>{sinVenir} sin venir</span>, abajo: 'en 30 días' };
 }
 
-function MarcoCifra({ href, tono, children, etiqueta }: { href: string | null; tono: Tono; children: ReactNode; etiqueta: string }) {
-  const clase = 'group flex min-h-[132px] flex-col rounded-t-card border p-4 shadow-t-card sm:p-5';
-  return href ? (
-    <Link href={href} aria-label={etiqueta} className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
-      {children}
-    </Link>
-  ) : (
-    <div className={clase} style={fondoTenido(tono, 14)}>{children}</div>
-  );
-}
-
-/** Etiqueta pequeña a la izquierda e icono de color a la derecha, como en Bonsai. */
-function Cabecilla({ etiqueta, tono, Icono }: { etiqueta: string; tono: Tono; Icono: React.ElementType }) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <p className="text-[11.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-foreground/60">{etiqueta}</p>
-      <Icono size={19} strokeWidth={2.2} style={{ color: TONOS[tono] }} aria-hidden className="shrink-0" />
-    </div>
-  );
-}
-
-/** El número grande con su explicación AL LADO, en dos líneas («1/12» / «1 sesión»). */
-function NumeroConLado({ valor, arriba, abajo }: { valor: ReactNode; arriba?: ReactNode; abajo: ReactNode }) {
-  return (
-    // Si no cabe al lado (móvil), la explicación baja debajo del número.
-    <div className="mt-auto flex flex-wrap items-end gap-x-2.5 gap-y-1 pt-3">
-      <p className="whitespace-nowrap text-[34px] font-bold leading-[0.9] tracking-tight text-foreground tabular-nums sm:text-[40px]">{valor}</p>
-      <div className="min-w-0 pb-0.5 leading-tight">
-        {arriba && <p className="truncate text-[13px] font-semibold text-foreground tabular-nums">{arriba}</p>}
-        <p className="text-[12px] text-muted-foreground">{abajo}</p>
-      </div>
-    </div>
-  );
-}
-
-function TarjetaCifra({ etiqueta, tono, Icono, valor, arriba, abajo, href }: {
-  etiqueta: string; tono: Tono; Icono: React.ElementType; valor: ReactNode; arriba?: ReactNode; abajo: ReactNode; href: string | null;
-}) {
-  return (
-    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta}>
-      <Cabecilla etiqueta={etiqueta} tono={tono} Icono={Icono} />
-      <NumeroConLado valor={valor} arriba={arriba} abajo={abajo} />
-    </MarcoCifra>
-  );
-}
-
-function TarjetaOcupacion({ etiqueta, tono, Icono, ocupacion, vacio, contexto, href }: {
-  etiqueta: string; tono: Tono; Icono: React.ElementType; ocupacion: Ocupacion; vacio: string; contexto?: string; href: string | null;
-}) {
-  const sinClases = ocupacion.pct === null;
-  return (
-    <MarcoCifra href={href} tono={tono} etiqueta={etiqueta}>
-      <Cabecilla etiqueta={etiqueta} tono={tono} Icono={Icono} />
-      {sinClases ? (
-        <NumeroConLado valor="—" abajo={vacio} />
-      ) : (
-        <NumeroConLado
-          valor={<>{ocupacion.pct}<span className="text-[0.6em]">%</span></>}
-          arriba={`${ocupacion.ocupadas}/${ocupacion.plazas}`}
-          abajo={contexto ?? `${ocupacion.clases} clase${ocupacion.clases === 1 ? '' : 's'}`}
-        />
-      )}
-      {/* Roja si va floja, ámbar a medias, verde si se llena: como la de Bonsai. */}
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--foreground) 8%, transparent)' }} aria-hidden>
-        {!sinClases && <div className="h-full rounded-full" style={{ width: `${Math.max(ocupacion.pct ?? 0, 3)}%`, backgroundColor: colorDeOcupacion(ocupacion.pct ?? 0) }} />}
-      </div>
-    </MarcoCifra>
-  );
-}
-
 // ─── Accesos rápidos ──────────────────────────────────────────────────────────
 
 function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
@@ -345,68 +277,6 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
 }
 
 // ─── Gráficas, como las de Bonsai ─────────────────────────────────────────────
-
-/** El marco de una gráfica: título y para qué a la izquierda, la cifra grande y su comparación a la derecha. */
-function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles, children, pie }: {
-  id: string; titulo: string; sub: string; cifra: ReactNode; comparacion?: ReactNode; controles?: ReactNode; children: ReactNode; pie?: ReactNode;
-}) {
-  return (
-    <section aria-labelledby={id} className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 id={id} className="text-[16px] font-semibold text-foreground">{titulo}</h2>
-          <p className="mt-0.5 max-w-[34ch] text-[12.5px] leading-snug text-muted-foreground">{sub}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[28px] font-bold leading-none tracking-tight text-foreground tabular-nums">{cifra}</p>
-          {comparacion && <p className="mt-1 text-[12px] leading-tight text-muted-foreground">{comparacion}</p>}
-        </div>
-      </div>
-      {controles && <div className="mt-3">{controles}</div>}
-      <div className="mt-3">{children}</div>
-      {pie}
-    </section>
-  );
-}
-
-/** El periodo en píldoras, como «7 días · Este mes · 3 meses» de Bonsai. */
-function Pildoras<T extends string | number>({ opciones, valor, onCambio }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void }) {
-  return (
-    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Periodo">
-      {opciones.map(o => (
-        <button
-          key={String(o.valor)}
-          type="button"
-          onClick={() => onCambio(o.valor)}
-          aria-pressed={valor === o.valor}
-          className={cn(
-            'rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
-            valor === o.valor ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Comparacion({ diferencia, contra }: { diferencia: number; contra: string }) {
-  const color = diferencia > 0 ? 'var(--success)' : diferencia < 0 ? 'var(--destructive)' : 'var(--muted-foreground)';
-  return (
-    <>
-      <span className="font-semibold" style={{ color }}>{diferencia > 0 ? '+' : ''}{diferencia}</span> vs {contra}
-    </>
-  );
-}
-
-function VerMas({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
-      {label} <ArrowRight size={14} aria-hidden />
-    </Link>
-  );
-}
 
 const nombreMes = (clave: string) => `${MESES_LARGOS[Number(clave.slice(5, 7)) - 1]} de ${clave.slice(0, 4)}`;
 const ejeMes = (clave: string) => MESES_LARGOS[Number(clave.slice(5, 7)) - 1].slice(0, 3);
@@ -634,18 +504,3 @@ function Actividad({ actividad, verTodo }: { actividad: ActividadResumen[]; verT
     </section>
   );
 }
-
-// ─── Vacío en positivo ────────────────────────────────────────────────────────
-
-function VacioPositivo({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <section className="flex items-start gap-3 rounded-t-card border p-4 shadow-t-card sm:p-5" style={fondoTenido('verde', 12)}>
-      <Baldosa tono="verde" Icono={Check} />
-      <div className="min-w-0">
-        <h2 className="text-[16px] font-semibold text-foreground">{titulo}</h2>
-        <p className="mt-0.5 text-[13px] text-muted-foreground text-pretty">{texto}</p>
-      </div>
-    </section>
-  );
-}
-
