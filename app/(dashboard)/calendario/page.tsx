@@ -117,7 +117,9 @@ import { mmA } from '@/lib/calendario-metricas';
 import { minutosEnEstudio, diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/calendario-acciones';
-import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
+import { claseAtenuadaPorInstructor, claseAtenuadaPorColumna, instructoraApagada, alternarInstructora, alternarEnConjunto } from '@/lib/calendario-filtros';
+import { ColumnaCalendario, type FilaColumna } from '@/components/calendario/columna-calendario';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
@@ -787,6 +789,15 @@ export default function Calendario() {
   // ── Filters (punto 9: sala reduce columnas, instructora atenúa) ─────────────
   const [filtroInstructor, setFiltroInstructor] = useState('');
   const [filtroSala, setFiltroSala] = useState('todas');
+  // Panel nuevo: la columna de la izquierda, como la de Bonsai (b-40), con un
+  // ojo por clase y por instructora y «Solo con alumnas apuntadas». Atenúan,
+  // como el filtro de instructora. Solo cuentan donde se ve la columna.
+  const panelNuevo = usePanelNuevo();
+  const columnaCabe = useCoincideMedio('(min-width: 1360px)');
+  const conColumna = panelNuevo && columnaCabe;
+  const [tiposApagados, setTiposApagados] = useState<ReadonlySet<string>>(() => new Set());
+  const [instructorasApagadas, setInstructorasApagadas] = useState<ReadonlySet<string>>(() => new Set());
+  const [soloConApuntadas, setSoloConApuntadas] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
   const [guardandoSesion, setGuardandoSesion] = useState(false);
@@ -2322,6 +2333,10 @@ export default function Calendario() {
     const d = datosPorSesionId.get(id);
     if (!d) return false;
     if (claseAtenuadaPorInstructor(d.sesion.instructorId, filtroInstructor)) return true;
+    if (conColumna && claseAtenuadaPorColumna(
+      { tipoClaseId: d.sesion.tipoClaseId, instructorId: d.sesion.instructorId, apuntadas: tarjetasPorId.get(id)?.confirmadas ?? 0 },
+      { tiposApagados, instructorasApagadas, soloConApuntadas },
+    )) return true;
     if (filtroResumenVivo) {
       const c = clasesParaResumen.find(x => x.id === id);
       if (!c || !claseEnFiltro(c, filtroResumenVivo)) return true;
@@ -2332,7 +2347,7 @@ export default function Calendario() {
       if (!texto.includes(busquedaNormal)) return true;
     }
     return false;
-  }, [datosPorSesionId, filtroInstructor, filtroResumenVivo, clasesParaResumen, busquedaNormal, datosVista]);
+  }, [datosPorSesionId, filtroInstructor, filtroResumenVivo, clasesParaResumen, busquedaNormal, datosVista, conColumna, tarjetasPorId, tiposApagados, instructorasApagadas, soloConApuntadas]);
 
   // ── Columnas (Día por sala / Semana 7 columnas) ─────────────────────────────
   const columnasDia = useMemo(() => {
@@ -2773,6 +2788,31 @@ export default function Calendario() {
   const fichaAlLadoDia = useCoincideMedio('(min-width: 1180px)');
   const fichaAlLadoSemana = useCoincideMedio('(min-width: 1440px)');
   const modoFicha: ModoFicha = enMovil ? 'hoja' : (vista === 'dia' ? fichaAlLadoDia : fichaAlLadoSemana) ? 'lateral' : 'cajon';
+
+  // La columna de la izquierda (panel nuevo): fuera en Horario, sin clases, y
+  // mientras la ficha de una clase va al lado (la rejilla no cabría).
+  const columnaVisible = conColumna && vista !== 'horario' && !!datosVista && !sinNingunaClase && !(sesionId && modoFicha === 'lateral');
+  const filasColumna = useMemo(() => {
+    const tipos = new Map<string, FilaColumna>();
+    const instr = new Map<string, FilaColumna>();
+    if (!columnaVisible) return { tipos: [], instructoras: [] };
+    for (const s of sesionesALaVista) {
+      if (s.cancelada) continue;
+      const d = datosPorSesionId.get(s.id);
+      if (!d) continue;
+      const t = tipos.get(d.tipo.id) ?? { id: d.tipo.id, nombre: d.tipo.nombre, color: d.tipo.color || 'var(--muted-foreground)', clases: 0, apagada: tiposApagados.has(d.tipo.id) };
+      t.clases++;
+      tipos.set(t.id, t);
+      // RES-8: si la tarjeta no enseña su nombre, la columna tampoco.
+      if (s.instructorId && d.instructor) {
+        const i = instr.get(s.instructorId) ?? { id: s.instructorId, nombre: d.instructor.nombre, color: d.instructor.color || 'var(--muted-foreground)', clases: 0, apagada: instructoraApagada(s.instructorId, filtroInstructor, instructorasApagadas) };
+        i.clases++;
+        instr.set(i.id, i);
+      }
+    }
+    const porNombre = (a: FilaColumna, b: FilaColumna) => a.nombre.localeCompare(b.nombre, 'es');
+    return { tipos: [...tipos.values()].sort(porNombre), instructoras: [...instr.values()].sort(porNombre) };
+  }, [columnaVisible, sesionesALaVista, datosPorSesionId, tiposApagados, instructorasApagadas, filtroInstructor]);
 
   // Las herramientas de la cabecera llevan su nombre si caben (con el menú
   // lateral, desde unos 1400 px); si no, solo el icono, con el nombre al pasar.
@@ -3562,6 +3602,28 @@ export default function Calendario() {
     <div ref={refLienzo} data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)]">
     <LienzoCalendario>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)]">
+      <ConColumna columna={columnaVisible ? (
+        <ColumnaCalendario
+          abrirEn={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+          desde={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+          hasta={vista === 'semana' ? localDate(addDays(semana, 6)) : localDate(diaSeleccionado)}
+          hoy={todayStr}
+          diasConClase={diasConClase}
+          onElegirDia={irAFecha}
+          soloConApuntadas={soloConApuntadas}
+          onSoloConApuntadas={setSoloConApuntadas}
+          tipos={filasColumna.tipos}
+          onTipo={id => setTiposApagados(s => alternarEnConjunto(s, id))}
+          instructoras={filasColumna.instructoras}
+          onInstructora={id => {
+            const r = alternarInstructora(id, filasColumna.instructoras.map(x => x.id), filtroInstructor, instructorasApagadas);
+            setInstructorasApagadas(r.apagadas);
+            setFiltroInstructor(r.filtroInstructorId);
+          }}
+          hayApagadas={tiposApagados.size > 0 || instructorasApagadas.size > 0 || soloConApuntadas || filtroInstructor !== ''}
+          onVerTodo={() => { setTiposApagados(new Set()); setInstructorasApagadas(new Set()); setSoloConApuntadas(false); setFiltroInstructor(''); }}
+        />
+      ) : null}>
       <div className="shrink-0 space-y-3 px-4 pt-4 pb-3 lg:px-6 lg:pt-5 escritorio-bajo:space-y-2 escritorio-bajo:pt-3 escritorio-bajo:pb-2">
         <CabeceraCalendario
           vista={vista}
@@ -3610,11 +3672,11 @@ export default function Calendario() {
             ),
           }}
           salas={datosVista?.salas ?? salas}
-          instructoras={instructoresActivos}
+          instructoras={conColumna ? [] : instructoresActivos}
           filtroSala={filtroSala}
           filtroInstructora={filtroInstructor}
           onSala={setFiltroSala}
-          onInstructora={setFiltroInstructor}
+          onInstructora={v => { setFiltroInstructor(v); setInstructorasApagadas(new Set()); }}
         />
         {/* En el móvil, el Día lleva la semana en una tira: un toque y a otro día. */}
         {enMovil && vista === 'dia' && (
@@ -3756,6 +3818,7 @@ export default function Calendario() {
           </div>
         )}
       </ReanimarAlCambiar>
+      </ConColumna>
     </div>
     </LienzoCalendario>
 
@@ -4538,6 +4601,17 @@ export default function Calendario() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Con la columna (panel nuevo), cabecera y rejilla a su derecha; sin ella, el mismo árbol de siempre. */
+function ConColumna({ columna, children }: { columna: React.ReactNode | null; children: React.ReactNode }) {
+  if (!columna) return <>{children}</>;
+  return (
+    <div className="flex min-h-0 flex-1">
+      {columna}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
