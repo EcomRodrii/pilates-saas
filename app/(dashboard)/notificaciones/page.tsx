@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { authHeader } from '@/lib/api-client';
 import { CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
 import type { NotificationCategory } from '@/lib/notifications/types';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { RegistroNuevo } from '@/components/notificaciones/registro-nuevo';
 
 interface AdminItem {
   id: string;
@@ -52,6 +54,9 @@ export default function NotificationCenterPage() {
   const [reintentando, setReintentando] = useState<string | null>(null);
   const [errorReintento, setErrorReintento] = useState<string | null>(null);
   const [buscar, setBuscar] = useState('');
+  // Panel nuevo (14-oct-2026): cifras de color, el canal en píldoras y cada
+  // entrega con su canal en baldosa. Mismos datos y mismo «Reintentar».
+  const panelNuevo = usePanelNuevo();
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/notifications/admin', { headers: await authHeader(), cache: 'no-store' });
@@ -97,6 +102,15 @@ export default function NotificationCenterPage() {
         description="Todo lo que el sistema ha enviado: a quién, por qué canal y con qué resultado."
       />
 
+      {panelNuevo ? (
+        <RegistroNuevo
+          items={items}
+          cargando={cargando}
+          reintentando={reintentando}
+          errorReintento={errorReintento}
+          onReintentar={id => void reintentar(id)}
+        />
+      ) : (<>
       <input
         type="search" value={buscar} onChange={e => setBuscar(e.target.value)}
         placeholder="Buscar por destinatario, aviso o error (p. ej. el nombre de una alumna)…"
@@ -174,6 +188,7 @@ export default function NotificationCenterPage() {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }
