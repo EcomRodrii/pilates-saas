@@ -457,7 +457,7 @@ export function EditorAparienciaApp() {
                           role="radio"
                           aria-checked={activa}
                           onClick={() => { setAviso(null); setBorrador(b => (b ? { ...b, primary: pal.color } : b)); }}
-                          className={cn('flex h-12 items-center gap-3 rounded-xl border bg-card px-4 text-left transition-shadow hover:shadow-md', activa ? 'border-transparent ring-2' : 'border-border')}
+                          className={cn('flex h-12 items-center gap-3 rounded-[12px] border bg-card px-4 text-left transition-shadow hover:shadow-md', activa ? 'border-transparent ring-2' : 'border-border')}
                           style={activa ? { ['--tw-ring-color' as string]: pal.color, backgroundColor: `color-mix(in srgb, ${pal.color} 8%, var(--card))` } : undefined}
                         >
                           <span aria-hidden className="flex -space-x-1.5">
