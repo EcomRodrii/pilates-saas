@@ -18,7 +18,9 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
-import { navSections, NO_OCULTABLES } from '@/lib/nav-config';
+import { NO_OCULTABLES } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { HOME_SECCIONES, HOME_FIJAS_PRIMERO } from '@/lib/home-sections';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ItemOrdenable } from '@/components/panel/lista-ordenable';
@@ -74,11 +76,15 @@ export function usePersonalizacionPanel() {
   // parecía no hacer nada y el botón de guardar no llegaba a aparecer nunca.
   const puedeVerRef = useRef(puedeVer);
   useEffect(() => { puedeVerRef.current = puedeVer; });
+  // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
+  const panelNuevo = usePanelNuevo();
+  const panelNuevoRef = useRef(panelNuevo);
+  useEffect(() => { panelNuevoRef.current = panelNuevo; });
 
   const cargar = useCallback(() => {
     // Solo los módulos que este rol puede ver: ofrecer ocultar algo que ya no
     // ves es un control que no hace nada.
-    const gruposVisibles = navSections
+    const gruposVisibles = seccionesDelMenu(panelNuevoRef.current)
       .map(sec => ({ label: sec.label, items: sec.items.filter(m => puedeVerRef.current(m.href)) }))
       .filter(g => g.items.length > 0);
     const aItem = (m: { href: string; label: string }): ItemOrdenable =>
@@ -113,6 +119,18 @@ export function usePersonalizacionPanel() {
   // Volver a leer es cosa de `descartar`, que es explícito.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { cargar(); }, []);
+
+  // El interruptor del panel nuevo llega un momento después en una pestaña
+  // nueva (lo pregunta al servidor): si cambia y aún no se ha tocado nada, se
+  // vuelve a leer para que «Tu menú» traiga sus secciones (Festivos). Con algo
+  // tocado no: recargar sería borrarlo.
+  const panelLeido = useRef(panelNuevo);
+  useEffect(() => {
+    if (panelLeido.current === panelNuevo) return;
+    panelLeido.current = panelNuevo;
+    if (!cambios.menu && !cambios.inicio && !cambios.posicion) cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelNuevo]);
 
   const tocado = (parte: keyof CambiosPanel) => setCambios(c => (c[parte] ? c : { ...c, [parte]: true }));
 

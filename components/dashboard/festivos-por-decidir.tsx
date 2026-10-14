@@ -136,7 +136,8 @@ export function FestivosPorDecidir({ onToast }: { onToast: (m: string) => void }
 
       <p className="mt-2 text-[11px] text-muted-foreground text-pretty">
         {zona ? `Festivos oficiales de ${zona}, según la dirección de tu estudio. ` : ''}
-        No incluye las fiestas locales de tu municipio.
+        {/* Con festivos propios guardados (módulo Festivos), los locales que añadió también cuentan. */}
+        {lista.propios ? 'Y los que has añadido en Festivos.' : 'No incluye las fiestas locales de tu municipio.'}
         {corrigeDireccion
           ? <> Si la dirección no es la de tu sala, <Link href="/configuracion?tab=estudio#datos-y-contacto" className="underline underline-offset-2">corrígela</Link>.</>
           : ' Si la dirección no es la de tu sala, puede corregirla la propietaria en Configuración.'}

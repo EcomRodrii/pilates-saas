@@ -13,6 +13,8 @@ import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { useEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -349,6 +351,8 @@ export function Sidebar() {
   // la suya (avatar y foto reales), igual que en Configuración > Mi perfil.
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const { rol, puedeVer } = usePermisos();
+  // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
+  const panelNuevo = usePanelNuevo();
   // Mientras `studio` no ha cargado, `useRol()` cae al mínimo (INSTRUCTOR,
   // fail-closed de A-2 en lib/permisos.ts) — sin este guard se veía el logo/
   // título de Tentare Core un instante en CUALQUIER rol, incluida la
@@ -404,7 +408,7 @@ export function Sidebar() {
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', alCambiar); };
   }, []);
 
-  const seccionesVisibles = navSections
+  const seccionesVisibles = seccionesDelMenu(panelNuevo)
     .map(s => ({
       ...s,
       // ⚠️ Ordenar DESPUÉS de filtrar, no antes: ordenar primero recorre

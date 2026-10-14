@@ -46,14 +46,18 @@ export function DialogoRepetirMes({ mes, onCerrar, onHecho, onIncierto }: {
     return () => { vivo = false; };
   }, [mes]);
 
+  // Los que el estudio guardó en el módulo Festivos (un local, un día propio) no son «de su comunidad».
+  const propios = useMemo(() => new Set((propuesta?.festivos ?? []).filter(f => f.propio).map(f => f.fecha)), [propuesta]);
   const fechas: FechaParaConfirmar[] = useMemo(() => (propuesta
     ? diasDeLaPropuesta(propuesta, series).map(d => ({
         fecha: d.fecha,
         clases: d.clases,
-        festivo: d.festivo ? `Festivo en ${propuesta.zona ?? 'tu comunidad'}: ${d.festivo}` : null,
+        festivo: d.festivo
+          ? propios.has(d.fecha) ? `Festivo de tu lista: ${d.festivo}` : `Festivo en ${propuesta.zona ?? 'tu comunidad'}: ${d.festivo}`
+          : null,
         nota: d.festivo && d.abierto ? 'Dijiste que ese día abres' : null,
       }))
-    : []), [propuesta, series]);
+    : []), [propuesta, series, propios]);
 
   async function crear() {
     if (!propuesta || enviandoRef.current) return;
@@ -150,8 +154,12 @@ export function DialogoRepetirMes({ mes, onCerrar, onHecho, onIncierto }: {
               ? `Las clases sueltas no se copian (en ${nombreMes(mes)} hay ${propuesta.sueltas}). `
               : 'Las clases sueltas no se copian. '}
             {propuesta.zona
-              ? `Los festivos de ${propuesta.zona} vienen sin marcar; los locales de tu ciudad, no: revisa esos días.`
-              : 'No sabemos tu comunidad por la dirección del estudio, así que no marcamos festivos.'}
+              ? propios.size > 0
+                ? `Los festivos de ${propuesta.zona} y los de tu lista de Festivos vienen sin marcar.`
+                : `Los festivos de ${propuesta.zona} vienen sin marcar; los locales de tu ciudad, no: revisa esos días.`
+              : propios.size > 0
+                ? 'No sabemos tu comunidad por la dirección del estudio: vienen sin marcar solo los festivos de tu lista.'
+                : 'No sabemos tu comunidad por la dirección del estudio, así que no marcamos festivos.'}
             {propuesta.zona && (propuesta.aniosSinFestivos ?? []).length > 0 &&
               ` Aún no tenemos los festivos de ${(propuesta.aniosSinFestivos ?? []).join(' y ')}: revisa tú esos días.`}
           </p>

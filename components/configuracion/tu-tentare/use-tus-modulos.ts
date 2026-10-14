@@ -9,6 +9,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePermisos } from '@/lib/permisos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { estadoBilling, fetchLayout, guardarLayoutApi, olvidarLayout } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { EVENTO_MODO_MENU, leerModoMenu, modoDelEvento, type ModoMenu } from '@/lib/nav-modo';
@@ -20,6 +22,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   onGuardando?: (guardando: boolean) => void;
 } = {}) {
   const { puedeVer } = usePermisos();
+  const panelNuevo = usePanelNuevo();
   const [ocultos, setOcultos] = useState<string[] | null>(null);
   const [errorLectura, setErrorLectura] = useState(false);
   const [plan, setPlan] = useState<{ plan: string | null; activo: boolean } | null>(null);
@@ -50,7 +53,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
     };
   }, []);
 
-  const grupos = gruposTuTentare(puedeVer);
+  const grupos = gruposTuTentare(puedeVer, seccionesDelMenu(panelNuevo));
   const vistos = new Set(ocultos ?? []);
   const cuenta = contar(grupos, vistos);
 

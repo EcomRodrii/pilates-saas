@@ -206,7 +206,10 @@ export const bottomNavItems: NavItemDef[] = [
 // '/mensajeria' entra el 14-sep: es la ÚNICA entrada con contador de no leídos,
 // y fuera del modo por defecto ese contador no lo veía nadie — una alumna
 // escribía y la propietaria no tenía forma de enterarse sin ir a buscarlo.
-export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones'];
+// '/festivos' (14-oct-2026) solo existe con el panel nuevo (lib/nav-panel-nuevo.ts):
+// va aquí para que encenderlo en Módulos lo enseñe también con el menú en
+// «Esencial», que es el de serie. Sin el panel nuevo no está en el menú y esto no hace nada.
+export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

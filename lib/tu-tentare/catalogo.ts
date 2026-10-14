@@ -16,7 +16,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { ElementType } from 'react';
-import { ESSENTIAL_HREFS, NO_OCULTABLES, navSections } from '../nav-config.ts';
+import { ESSENTIAL_HREFS, NO_OCULTABLES, navSections, type NavSection } from '../nav-config.ts';
+import { seccionPanelNuevo } from '../nav-panel-nuevo.ts';
 import { PLAN_ENTITLEMENTS, PLAN_INFO, planMinimoPara, type Entitlements, type Plan } from '../billing/entitlements.ts';
 import { tutorialDePantalla, valorDeModulo } from '../ayuda/pantallas.ts';
 import { hrefDeLugar, hrefDeSeccion, hrefDeTarjeta } from '../configuracion/destino.ts';
@@ -64,16 +65,20 @@ export interface GrupoTuTentare {
   modulos: ModuloTuTentare[];
 }
 
-/** Los módulos agrupados como el menú (mismo orden de grupos), con lo que vean `puedeVer`. */
-export function gruposTuTentare(puedeVer: (href: string) => boolean = () => true): GrupoTuTentare[] {
-  return navSections
+/**
+ * Los módulos agrupados como el menú (mismo orden de grupos), con lo que vean
+ * `puedeVer`. `secciones`: el menú de ESTE estudio (`seccionesDelMenu`, que con
+ * el panel nuevo trae sus secciones propias, con su frase); por defecto, el de siempre.
+ */
+export function gruposTuTentare(puedeVer: (href: string) => boolean = () => true, secciones: NavSection[] = navSections): GrupoTuTentare[] {
+  return secciones
     .map(s => ({
       label: s.label ?? null,
       modulos: s.items.filter(i => puedeVer(i.href)).map(i => ({
         href: i.href,
         label: i.label,
         icon: i.icon,
-        frase: valorDeModulo(i.href) ?? '',
+        frase: valorDeModulo(i.href) ?? seccionPanelNuevo(i.href)?.frase ?? '',
         fijo: NO_OCULTABLES.includes(i.href),
         esencial: ESSENTIAL_HREFS.includes(i.href),
         tutorial: !!tutorialDePantalla(i.href),

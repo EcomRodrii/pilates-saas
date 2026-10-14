@@ -33,7 +33,7 @@ import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
 import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
-import { navSections } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
@@ -77,6 +77,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // comentario largo más abajo, junto a `rolResuelto`). Se calcula aquí arriba
   // porque el título de pestaña lo necesita antes que el resto.
   const rolResuelto = studio !== null;
+  // El panel nuevo (14-oct-2026): sus secciones propias (Festivos) entran en el
+  // menú y en el título de la pestaña; y trae su propia guía (más abajo).
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
 
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
@@ -88,13 +91,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Manager" al cargar el estudio de una propietaria). Con "Tentare" a secas
   // mientras carga no se afirma un rol que aún no se conoce.
   useEffect(() => {
-    const item = navSections
+    const item = seccionesDelMenu(panelNuevo)
       .flatMap(s => s.items)
       .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
       .sort((a, b) => b.href.length - a.href.length)[0];
     const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
     document.title = item ? `${marca} · ${item.label}` : marca;
-  }, [pathname, rol, rolResuelto]);
+  }, [pathname, rol, rolResuelto, panelNuevo]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
@@ -203,7 +206,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // El panel nuevo (14-oct-2026) trae su propia guía («Pon en marcha tu
   // estudio» en el Resumen y «Cómo funciona» en cada sección): ni la banda de
   // «Siguiente paso» ni la franja «¿Primera vez aquí?», que eran dos guías más.
-  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
   const conSiguientePaso = observarHitos && guiaNueva && !panelNuevo;
   // Y en sus pantallas con tutorial, «¿Primera vez aquí?» sobra: el «?» ya lo
   // enseña ahí mismo, y eran dos ayudas casi iguales apiladas.

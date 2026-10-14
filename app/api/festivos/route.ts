@@ -4,16 +4,20 @@ import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { avisoFestivosEncendido } from '@/lib/interruptor-por-estudio';
+import { avisoFestivosEncendido, panelNuevoEncendido } from '@/lib/interruptor-por-estudio';
 import { hoyEnEstudio } from '@/lib/utils';
 import { festivosPorDecidir, zonaDeEstudio } from '@/lib/festivos/por-decidir-servidor';
 import { festivoAbrible } from '@/lib/festivos/por-decidir';
 import { NOMBRE_ZONA } from '@/lib/festivos/oficiales';
+import { festivosGuardadosEntre } from '@/lib/festivos/estudio-servidor';
 
 export const dynamic = 'force-dynamic';
 
-// Festivos oficiales con clases que esperan que el estudio decida (P1.6):
+// Festivos con clases que esperan que el estudio decida (P1.6): los oficiales
+// de su zona y, con el módulo Festivos (panel nuevo), los que ha guardado.
 // GET los lista; POST `{ accion: 'abrir', fecha }` apunta «Abrimos igualmente».
+// El alcance «aviso» (la bandeja) va con `FESTIVOS_AVISO`; «todos» es también
+// el «Comprobar clases» del módulo Festivos y se abre con el panel nuevo.
 // «Cerrar ese día» NO pasa por aquí: va al POST /api/cierres de siempre, para
 // que el resultado sea exactamente el de «Cerrar el centro».
 //
@@ -33,7 +37,8 @@ export async function GET(req: NextRequest) {
     const limited = await enforceRateLimit(req, 'festivos-lista', { max: 30, windowSeconds: 60 }, sesion.studioId);
     if (limited) return limited;
   }
-  const r = await festivosPorDecidir(admin, { studioId: sesion.studioId, ahora: new Date(), alcance, conReservas: true });
+  const encendido = avisoFestivosEncendido(sesion.studioId) || (alcance === 'todos' && panelNuevoEncendido(sesion.studioId));
+  const r = await festivosPorDecidir(admin, { studioId: sesion.studioId, ahora: new Date(), alcance, conReservas: true, encendido });
   if (!r) return NextResponse.json({ error: 'No se han podido leer los festivos' }, { status: 500 });
   if (!r.disponible) return NextResponse.json({ disponible: false });
   return NextResponse.json({
@@ -41,6 +46,7 @@ export async function GET(req: NextRequest) {
     zona: r.zona ? NOMBRE_ZONA[r.zona] : null,
     hoy: hoyEnEstudio(),
     festivos: r.festivos,
+    propios: r.propios,
   });
 }
 
@@ -48,7 +54,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarSede(sesion.rol)) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-  if (!avisoFestivosEncendido(sesion.studioId)) return NextResponse.json({ error: 'No disponible' }, { status: 404 });
+  if (!avisoFestivosEncendido(sesion.studioId) && !panelNuevoEncendido(sesion.studioId)) return NextResponse.json({ error: 'No disponible' }, { status: 404 });
   const limited = await enforceRateLimit(req, 'festivos', { max: 30, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
   const admin = getSupabaseAdmin();
@@ -60,11 +66,13 @@ export async function POST(req: NextRequest) {
   }
 
   // La zona se recalcula aquí, y el nombre que se guarda sale de la tabla
-  // oficial: el cliente solo dice qué día.
+  // oficial o de la fila que el estudio guardó: el cliente solo dice qué día.
   const zona = await zonaDeEstudio(admin, sesion.studioId);
   if (zona === 'error') return NextResponse.json({ error: 'No se ha podido comprobar el festivo' }, { status: 500 });
-  const festivo = festivoAbrible(zona, body.fecha, hoyEnEstudio());
-  if (!festivo) return NextResponse.json({ error: 'Ese día no es un festivo próximo de tu zona' }, { status: 400 });
+  const guardados = /^\d{4}-\d{2}-\d{2}$/.test(body.fecha) ? await festivosGuardadosEntre(admin, sesion.studioId, body.fecha, body.fecha) : [];
+  if (guardados === 'error') return NextResponse.json({ error: 'No se ha podido comprobar el festivo' }, { status: 500 });
+  const festivo = festivoAbrible(zona, body.fecha, hoyEnEstudio(), guardados);
+  if (!festivo) return NextResponse.json({ error: 'Ese día no es un festivo próximo de tu zona ni de tu lista' }, { status: 400 });
 
   // Si alguien lo cerró mientras tanto, gana el cierre: no se apunta «abrimos».
   const { data: cierre, error: errCierre } = await admin.from('cierres_estudio').select('id')

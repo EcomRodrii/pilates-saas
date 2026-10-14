@@ -20,6 +20,7 @@ import { reservarPlazasFijasRenovadas } from './plazas-tras-renovar.ts';
 import { esTablaQueFalta } from '../db/tabla-que-falta.ts';
 import { festivosEntre, hayCalendario, NOMBRE_ZONA } from '../festivos/oficiales.ts';
 import { zonaDelEstudio } from '../festivos/zona-del-estudio.ts';
+import { festivosGuardadosEntre } from '../festivos/estudio-servidor.ts';
 import {
   mesSiguiente, porQueNoSigue, primerDia, ultimoDia,
   type PropuestaRepetir, type ResultadoRepetir, type SerieParaRepetir,
@@ -118,9 +119,21 @@ export async function proponerRepetir(
 
   // Festivos de la zona desde HOY (una serie aún puede tener clase hoy) hasta el
   // final del mes siguiente, y los del mes de origen para decir si una serie
-  // «terminó» o solo no tuvo clase un festivo.
-  const festivosOrigen = new Set(zona ? festivosEntre(zona, primerDia(mes), finMes).map((f) => f.fecha) : []);
-  const festivos = zona ? festivosEntre(zona, hoy, hasta).map((f) => ({ fecha: f.fecha, nombre: f.nombre })) : [];
+  // «terminó» o solo no tuvo clase un festivo. Con los que el estudio guardó en
+  // el módulo Festivos (los locales, por ejemplo): sin ellos, una serie que solo
+  // se saltó una fiesta local a final de mes saldría como «terminada».
+  const guardados = await festivosGuardadosEntre(admin, studioId, primerDia(mes) < hoy ? primerDia(mes) : hoy, hasta);
+  if (guardados === 'error') return { ok: false, error: 'No se han podido leer los festivos.', status: 500 };
+  const festivosOrigen = new Set([
+    ...(zona ? festivosEntre(zona, primerDia(mes), finMes).map((f) => f.fecha) : []),
+    ...guardados.filter((g) => g.fecha >= primerDia(mes) && g.fecha <= finMes).map((g) => g.fecha),
+  ]);
+  const oficiales = zona ? festivosEntre(zona, hoy, hasta).map((f) => ({ fecha: f.fecha, nombre: f.nombre })) : [];
+  const deOficiales = new Set(oficiales.map((f) => f.fecha));
+  const festivos = [
+    ...oficiales,
+    ...guardados.filter((g) => g.fecha >= hoy && !deOficiales.has(g.fecha)).map((g) => ({ fecha: g.fecha, nombre: g.nombre, propio: true })),
+  ].sort((a, b) => a.fecha.localeCompare(b.fecha));
   const aniosSinFestivos = zona
     ? [...new Set([hoy.slice(0, 4), hasta.slice(0, 4)])].map(Number).filter((a) => !hayCalendario(zona, `${a}-01-01`))
     : [];
