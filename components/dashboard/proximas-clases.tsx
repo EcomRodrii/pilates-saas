@@ -65,7 +65,8 @@ interface DatosRango {
 
 const VACIO: DatosRango = { sesiones: [], reservas: [], salas: [], instructores: [] };
 
-export function ProximasClases() {
+/** `nueva`: con la forma de las tarjetas de la home nueva (panel nuevo). */
+export function ProximasClases({ nueva = false }: { nueva?: boolean } = {}) {
   const { tiposClase } = useStudio();
   const rol = useRol();
 
@@ -164,11 +165,11 @@ export function ProximasClases() {
 
   return (
     <section aria-label="Próximas clases">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-muted px-4 py-3 sm:px-5">
+      <div className={cn('overflow-hidden border border-border bg-card', nueva ? 'rounded-t-card shadow-t-card' : 'rounded-xl')}>
+        <div className={cn('flex items-center justify-between border-b border-muted', nueva ? 'px-5 py-3.5' : 'px-4 py-3 sm:px-5')}>
           <div className="flex items-center gap-2">
             <CalendarClock size={14} className="text-muted-foreground" />
-            <h3 className="text-[13px] font-semibold text-foreground">Próximas clases</h3>
+            <h3 className={cn('font-semibold text-foreground', nueva ? 'text-[15px]' : 'text-[13px]')}>Próximas clases</h3>
           </div>
           {puedeCalendario && (
             <Link

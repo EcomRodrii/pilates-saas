@@ -33,6 +33,7 @@ import { asociarEstudio } from '@/lib/posthog-cliente';
 import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { navSections } from '@/lib/nav-config';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
 // bienvenida solo sale hasta que el estudio la sella (y trae a Tenti, con su
@@ -198,10 +199,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Lo nuevo del arranque (P1.4) solo para estudios nacidos con los tutoriales:
   // a quien ya trabaja no le cambia nada. Una sede de cadena hereda su montaje.
   const guiaNueva = nacioConTutoriales(studio?.creadoEn) && !studio?.cadenaId;
-  const conSiguientePaso = observarHitos && guiaNueva;
+  // El panel nuevo (14-oct-2026) trae su propia guía («Pon en marcha tu
+  // estudio» en el Resumen y «Cómo funciona» en cada sección): ni la banda de
+  // «Siguiente paso» ni la franja «¿Primera vez aquí?», que eran dos guías más.
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
+  const conSiguientePaso = observarHitos && guiaNueva && !panelNuevo;
   // Y en sus pantallas con tutorial, «¿Primera vez aquí?» sobra: el «?» ya lo
   // enseña ahí mismo, y eran dos ayudas casi iguales apiladas.
-  const conPrimeraVez = !(guiaNueva && tutorialDePantalla(pathname));
+  const conPrimeraVez = !panelNuevo && !(guiaNueva && tutorialDePantalla(pathname));
 
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
@@ -446,9 +451,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
           {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
               soporte sigue en el menú de ayuda, no encima del campo. */}
-          {pathname !== '/asistente' && <WhatsAppFab />}
+          {/* Con el panel nuevo, el soporte va en el menú de ayuda y no flota: en la
+              esquina se amontonaban WhatsApp, el asistente y la visita. */}
+          {pathname !== '/asistente' && !panelNuevo && <WhatsAppFab />}
           {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
-          <AsistenteFlotante />
+          <AsistenteFlotante solo={panelNuevo} />
           </AsistenteProvider>
           </TutorialProvider>
         </TourProvider>

@@ -32,7 +32,11 @@ const PANTALLAS_DE_DINERO = /^\/(cobros|caja|cierre|facturas|transacciones|suscr
 
 const PanelFlotante = dynamic(() => import('./panel-flotante').then(m => m.PanelFlotante), { ssr: false });
 
-export function AsistenteFlotante() {
+/**
+ * `solo`: sin el botón de WhatsApp debajo (panel nuevo), baja a su sitio, la
+ * esquina, en vez de quedarse flotando a media altura.
+ */
+export function AsistenteFlotante({ solo = false }: { solo?: boolean } = {}) {
   const puerta = usePuertaAsistente();
   const { abrir } = useAsistente();
   const pathname = usePathname();
@@ -57,7 +61,9 @@ export function AsistenteFlotante() {
     <>
       {abierto && <PanelFlotante onCerrar={() => setAbierto(false)} />}
       {/* `panel-wa-fab`: se aparta con las barras de guardar y de selección, igual que el botón de WhatsApp (globals.css). */}
-      <div className="panel-wa-fab fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom,0px))] right-4 z-40 lg:bottom-[5.5rem] lg:right-6">
+      <div className={solo
+        ? 'panel-wa-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 lg:bottom-6 lg:right-6'
+        : 'panel-wa-fab fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom,0px))] right-4 z-40 lg:bottom-[5.5rem] lg:right-6'}>
         <button
           type="button"
           onClick={alPulsar}
