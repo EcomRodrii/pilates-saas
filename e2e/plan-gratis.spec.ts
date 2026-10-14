@@ -16,13 +16,13 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 type Fase = 'DENTRO' | 'CERCA' | 'MARGEN' | 'CERRADO';
-type FaseMock = Fase | 'MARGEN_COBROS';
+type FaseMock = Fase | 'MARGEN_RESERVAS';
 const GRATIS: Record<FaseMock, Record<string, unknown>> = {
-  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, cobros30Dias: 11 }, planQueToca: null, motivos: [], diasRestantes: 0, cierraEl: null },
-  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, cobros30Dias: 11 }, planQueToca: null, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
-  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, cobros30Dias: 31 }, planQueToca: 'ESTUDIO', motivos: ['alumnas', 'cobros'], diasRestantes: 12, cierraEl: '2026-11-20' },
-  MARGEN_COBROS: { fase: 'MARGEN', uso: { alumnasActivas: 90, cobros30Dias: 41 }, planQueToca: 'BASE', motivos: ['cobros'], diasRestantes: 20, cierraEl: '2026-11-28' },
-  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, cobros30Dias: 12 }, planQueToca: 'ESTUDIO', motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
+  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, planQueToca: null, motivos: [], diasRestantes: 0, cierraEl: null },
+  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, reservas30Dias: 96 }, planQueToca: null, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
+  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, planQueToca: 'ESTUDIO', motivos: ['alumnas', 'reservas'], diasRestantes: 12, cierraEl: '2026-11-20' },
+  MARGEN_RESERVAS: { fase: 'MARGEN', uso: { alumnasActivas: 90, reservas30Dias: 310 }, planQueToca: 'BASE', motivos: ['reservas'], diasRestantes: 20, cierraEl: '2026-11-28' },
+  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, reservas30Dias: 120 }, planQueToca: 'ESTUDIO', motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
 };
 
 async function montar(page: Page, fase: FaseMock, ruta: string) {
@@ -38,7 +38,7 @@ async function montar(page: Page, fase: FaseMock, ruta: string) {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: fase !== 'CERRADO', configurado: true, esPropietaria: true,
     bloqueado: fase === 'CERRADO', enPrueba: false, pruebaTermina: null, periodoTermina: null,
     trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
-    gratis: { ...GRATIS[fase], limites: { alumnas: 150, cobrosMes: 30 }, margenDias: 30 },
+    gratis: { ...GRATIS[fase], limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
   }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -58,8 +58,8 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   const uso = page.getByRole('region', { name: 'Lo que usas' });
   await expect(uso.getByRole('meter', { name: 'Alumnas activas' })).toHaveAttribute('aria-valuenow', '42');
   await expect(uso.getByRole('meter', { name: 'Alumnas activas' })).toHaveAttribute('aria-valuemax', '150');
-  await expect(uso.getByRole('meter', { name: 'Cobros en los últimos 30 días' })).toHaveAttribute('aria-valuenow', '11');
-  await expect(uso.getByRole('meter', { name: 'Cobros en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '30');
+  await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuenow', '96');
+  await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
 
   // Dentro del límite no hay nada que pagar: se ofrece crecer a Estudio o Cadena.
@@ -73,7 +73,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await montar(page, 'MARGEN', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Te quedan 12 días en Founding Studio', { timeout: 30_000 });
-  await expect(aviso).toContainText('150 alumnas activas y 30 cobros al mes');
+  await expect(aviso).toContainText('150 alumnas activas y 250 reservas al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
   await expect(aviso).toContainText('Estudio (59 €/mes)');
@@ -81,11 +81,11 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveCount(0);
 });
 
-test('pasado solo de cobros: toca Founding Studio de pago a 29 €, y es lo que sale elegido', async ({ page }) => {
-  await montar(page, 'MARGEN_COBROS', '/suscripcion');
+test('pasado solo de reservas: toca Founding Studio de pago a 29 €, y es lo que sale elegido', async ({ page }) => {
+  await montar(page, 'MARGEN_RESERVAS', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
-  await expect(aviso).toContainText('sin límite de cobros');
+  await expect(aviso).toContainText('sin límite de reservas');
   await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
 });
@@ -104,7 +104,7 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
   await page.route('**/api/billing/status**', route => json(route, {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
     trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
-    gratis: { ...GRATIS[fase], limites: { alumnas: 150, cobrosMes: 30 }, margenDias: 30 },
+    gratis: { ...GRATIS[fase], limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
   }));
   await ir(page, 'dashboard');
   await expect(page.getByRole('link', { name: /plan gratis/ })).toHaveCount(0);

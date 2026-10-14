@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
   // Founding Studio de pago (29 €), con el interruptor del plan gratis
-  // encendido: es lo que toca a quien pasa de 30 cobros con 150 alumnas
-  // activas o menos (lib/billing/plan-gratis.ts). Con más de 150, toca Estudio:
+  // encendido: es lo que toca a quien pasa de 250 reservas al mes con 150
+  // alumnas activas o menos (lib/billing/plan-gratis.ts). Con más de 150, toca Estudio:
   // se comprueba aquí también, no solo en la pantalla.
   if (plan === 'BASE' && encendidaPara(process.env.FOUNDING_GRATIS, sesion.studioId)) {
     const { estado } = await leerUsoGratis(admin, studio.id, studio.owner_auth_user_id ?? null, new Date());

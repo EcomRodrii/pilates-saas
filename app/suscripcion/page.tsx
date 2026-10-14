@@ -189,7 +189,7 @@ export default function SuscripcionPage() {
           </div>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
             {gratis
-              ? 'Gratis mientras tu estudio crece. Cuando lo necesites, pasas a Estudio en un momento.'
+              ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
               : yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
               : pruebaAgotada
@@ -262,7 +262,7 @@ export default function SuscripcionPage() {
             <section aria-label={gratis.planQueToca ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
               <h2 className="text-[16px] font-semibold text-foreground">{gratis.planQueToca ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
               <p className="text-[12.5px] text-muted-foreground">Lo mismo que ya usas, con más margen. Sin permanencia.</p>
-              {/* Founding Studio de pago solo si se ha pasado de cobros con 150 alumnas o menos (plan-gratis.ts). */}
+              {/* Founding Studio de pago solo si se ha pasado de reservas con 150 alumnas o menos (plan-gratis.ts). */}
               <div role="radiogroup" aria-label="Plan" className={cn('mt-4 grid gap-3', gratis.planQueToca === 'BASE' ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
                 {(gratis.planQueToca === 'BASE' ? ['BASE', 'ESTUDIO', 'CADENA'] as const : ['ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
@@ -281,7 +281,7 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'BASE' ? 'Todo igual, sin límite de cobros. Hasta 150 alumnas activas.' : p === 'ESTUDIO' ? 'Alumnas y cobros sin límite.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Todo igual, sin límite de reservas. Hasta 150 alumnas activas.' : p === 'ESTUDIO' ? 'Alumnas y reservas sin límite.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}
