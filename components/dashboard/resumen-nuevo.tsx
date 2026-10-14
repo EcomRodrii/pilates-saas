@@ -37,8 +37,9 @@ import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
+import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import {
-  MESES_LARGOS, altasDelMes, altasPorMes, ingresosAlDia, ingresosPorMes, ocupacionEntre, ocupadasPorSesion,
+  MESES_LARGOS, ingresosAlDia, ingresosPorMes, ocupacionEntre, ocupadasPorSesion,
   reservasPorDia, semanaDe, semanaISO,
 } from '@/lib/inicio/cifras';
 import { cn, hoyEnEstudio } from '@/lib/utils';
@@ -336,55 +337,6 @@ function GraficaReservas({ reservas, hoy, href }: { reservas: ReturnType<typeof 
         enteros
         vacio="Cada reserva que hagan tus alumnas, desde tu página o en el mostrador, sumará aquí."
       />
-    </TarjetaGrafica>
-  );
-}
-
-function GraficaAltas({ socios, hoy, href }: { socios: ReturnType<typeof useStudio>['socios']; hoy: string; href: string | null }) {
-  const [meses, setMeses] = useState<3 | 6 | 12>(6);
-  const serie = useMemo(() => altasPorMes(socios, hoy, meses, diaDelEstudio), [socios, hoy, meses]);
-  const mes = useMemo(() => altasDelMes(socios, hoy, diaDelEstudio), [socios, hoy]);
-  const mesPasado = MESES_LARGOS[(Number(hoy.slice(5, 7)) + 10) % 12].slice(0, 3);
-  return (
-    <TarjetaGrafica
-      id="grafica-altas"
-      titulo="Nuevas clientas"
-      sub="Las que se han dado de alta en tu estudio cada mes"
-      cifra={mes.total}
-      comparacion={<><Comparacion diferencia={mes.total - mes.mesPasadoAlDia} contra={`1–${mes.hoy} ${mesPasado}.`} /><br />este mes</>}
-      controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
-      pie={href ? <VerMas href={href} label="Ver clientas" /> : null}
-    >
-      <GraficaArea
-        titulo="Altas por mes"
-        alto={190}
-        color="var(--t-magenta-500)"
-        colorPunto="var(--t-blue-500)"
-        puntos={serie.map(m => ({ eje: ejeMes(m.clave), nombre: nombreMes(m.clave), valor: m.valor }))}
-        formato={n => `${n} alta${n === 1 ? '' : 's'}`}
-        enteros
-        vacio="Cada alumna que se dé de alta, en el mostrador o desde tu página, sumará aquí."
-      />
-      {/* La tira de Bonsai: cada día del mes, con su número encima si hubo altas. */}
-      <p className="mt-4 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Altas por día este mes</p>
-      <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${mes.porDia.length}, minmax(0, 1fr))` }}>
-        {mes.porDia.map((v, i) => {
-          const dia = i + 1;
-          const futuro = dia > mes.hoy;
-          return (
-            <div key={dia} className="flex flex-col items-center gap-1" title={`${dia}: ${v} alta${v === 1 ? '' : 's'}`}>
-              <span className="h-3 text-[9.5px] font-bold leading-3 tabular-nums" style={{ color: 'var(--t-magenta-500)' }}>{v > 0 ? v : ''}</span>
-              <span
-                className="h-7 w-full rounded-[5px]"
-                style={v > 0
-                  ? { backgroundColor: 'var(--t-magenta-500)' }
-                  : { backgroundColor: futuro ? 'color-mix(in srgb, var(--foreground) 3%, transparent)' : 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
-              />
-              <span className={cn('text-[9px] tabular-nums', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground/50' : 'text-muted-foreground')}>{dia}</span>
-            </div>
-          );
-        })}
-      </div>
     </TarjetaGrafica>
   );
 }
