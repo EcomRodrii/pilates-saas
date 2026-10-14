@@ -16,7 +16,12 @@ const json = (r: Route, b: unknown, status = 200) =>
 
 const TZ = 'Europe/Madrid';
 const ymdMadrid = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
-const enDias = (n: number) => ymdMadrid(new Date(Date.now() + n * 86_400_000));
+// Días de CALENDARIO en Madrid, no bloques de 24 h: cruzando el cambio de hora
+// (25-oct) «hoy + 12 × 24 h» pasada la medianoche cae en el día anterior.
+const enDias = (n: number) => {
+  const [a, m, d] = ymdMadrid(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+};
 
 const tarjeta = (o: Record<string, unknown> = {}) => ({
   serieId: 'serie-e2e', diaSemana: 2, hora: '18:00', duracionMin: 50, salaId: 'sala-1', tipoClaseId: 'tc-reformer',
