@@ -86,7 +86,7 @@ test('pasan a gratis los que no pagan; nunca una sede, lo que paga ni un Checkou
   assert.equal(pasaAGratis({ subscriptionStatus: 'trial_expirado', subscriptionId: null, cadenaId: 'cad-1' }), false);
 });
 
-test('gratis da acceso y todo menos varias sedes; Founding Studio de pago sigue como estaba', async () => {
+test('gratis da acceso y todo menos varias sedes, como Founding Studio de pago', async () => {
   const { tieneFeature, entitlementsDe, suscripcionActiva } = await import('./entitlements.ts');
   const gratis = { plan: 'BASE', subscriptionStatus: 'gratis' };
   assert.equal(suscripcionActiva('gratis'), true);
@@ -96,8 +96,9 @@ test('gratis da acceso y todo menos varias sedes; Founding Studio de pago sigue 
   assert.equal(tieneFeature(gratis, 'multiCentro'), false);
   assert.equal(entitlementsDe(gratis).maxSocios, 150);
   assert.equal(entitlementsDe(gratis).consultasAsistenteMes, 50);
-  // El estudio que paga Founding Studio no cambia hasta que deje de pagar.
-  assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'decisiones'), false);
+  // Founding Studio de pago (29 €) incluye lo mismo (decisión del 15-oct ~01:30).
+  assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'decisiones'), true);
+  assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'multiCentro'), false);
 });
 
 test('gratis no es una prueba ni una prueba agotada', async () => {
@@ -119,4 +120,19 @@ test('si vuelve a bajar dentro del margen, se borra; acabado el margen, el cierr
 
 test('los cobros cuentan en 30 días, no por mes natural: el día 1 no reinicia nada', () => {
   assert.equal(estadoGratis({ uso: uso({ cobros30Dias: 33 }), excedidoDesde: '2026-10-28', hoy: '2026-11-01' }).fase, 'MARGEN');
+});
+
+test('al pasarse: solo de cobros, Founding Studio de pago; de alumnas, Estudio', async () => {
+  const { planQueToca, puedeContratarFounding } = await import('./plan-gratis.ts');
+  assert.equal(planQueToca(uso({ alumnasActivas: 120, cobros30Dias: 45 })), 'BASE');
+  assert.equal(planQueToca(uso({ alumnasActivas: 151, cobros30Dias: 10 })), 'ESTUDIO');
+  assert.equal(planQueToca(uso({ alumnasActivas: 160, cobros30Dias: 60 })), 'ESTUDIO');
+  // Cerrado y ya por debajo: el más barato que le reabre el panel.
+  assert.equal(planQueToca(uso({ alumnasActivas: 90, cobros30Dias: 5 })), 'BASE');
+  assert.equal(puedeContratarFounding(150), true);
+  assert.equal(puedeContratarFounding(151), false);
+  assert.equal(puedeContratarFounding(null), true);
+  const margen = estadoGratis({ uso: uso({ alumnasActivas: 100, cobros30Dias: 40 }), excedidoDesde: '2026-10-10', hoy: '2026-10-15' });
+  assert.equal(margen.planQueToca, 'BASE');
+  assert.equal(estadoGratis({ uso: uso({ alumnasActivas: 100 }), excedidoDesde: null, hoy: '2026-10-15' }).planQueToca, null);
 });

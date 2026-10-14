@@ -16,14 +16,16 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 type Fase = 'DENTRO' | 'CERCA' | 'MARGEN' | 'CERRADO';
-const GRATIS: Record<Fase, Record<string, unknown>> = {
-  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, cobros30Dias: 11 }, motivos: [], diasRestantes: 0, cierraEl: null },
-  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, cobros30Dias: 11 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
-  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, cobros30Dias: 31 }, motivos: ['alumnas', 'cobros'], diasRestantes: 12, cierraEl: '2026-11-20' },
-  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, cobros30Dias: 12 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
+type FaseMock = Fase | 'MARGEN_COBROS';
+const GRATIS: Record<FaseMock, Record<string, unknown>> = {
+  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, cobros30Dias: 11 }, planQueToca: null, motivos: [], diasRestantes: 0, cierraEl: null },
+  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, cobros30Dias: 11 }, planQueToca: null, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
+  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, cobros30Dias: 31 }, planQueToca: 'ESTUDIO', motivos: ['alumnas', 'cobros'], diasRestantes: 12, cierraEl: '2026-11-20' },
+  MARGEN_COBROS: { fase: 'MARGEN', uso: { alumnasActivas: 90, cobros30Dias: 41 }, planQueToca: 'BASE', motivos: ['cobros'], diasRestantes: 20, cierraEl: '2026-11-28' },
+  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, cobros30Dias: 12 }, planQueToca: 'ESTUDIO', motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
 };
 
-async function montar(page: Page, fase: Fase, ruta: string) {
+async function montar(page: Page, fase: FaseMock, ruta: string) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -60,8 +62,9 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(uso.getByRole('meter', { name: 'Cobros en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '30');
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
 
-  // Se sube a Estudio o Cadena; Founding Studio de 29 € ya no se ofrece.
+  // Dentro del límite no hay nada que pagar: se ofrece crecer a Estudio o Cadena.
   await expect(page.getByRole('radio', { name: /Estudio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Pasarme a Estudio · 59 €\/mes/ })).toBeVisible();
   await expect(page.getByText('29€')).toHaveCount(0);
 });
@@ -73,6 +76,18 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await expect(aviso).toContainText('150 alumnas activas y 30 cobros al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
+  await expect(aviso).toContainText('Estudio (59 €/mes)');
+  // Con más de 150 alumnas, Founding Studio de pago no se ofrece.
+  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveCount(0);
+});
+
+test('pasado solo de cobros: toca Founding Studio de pago a 29 €, y es lo que sale elegido', async ({ page }) => {
+  await montar(page, 'MARGEN_COBROS', '/suscripcion');
+  const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
+  await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
+  await expect(aviso).toContainText('sin límite de cobros');
+  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
 });
 
 test('margen agotado: dice que la app de las alumnas sigue funcionando', async ({ page }) => {

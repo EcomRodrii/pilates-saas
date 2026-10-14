@@ -1,6 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Founding Studio gratis (decisión del fundador, 15-oct-2026).
 //
+// Y qué toca al pasarse (decisión del fundador, 15-oct ~01:30, contestada en la
+// sesión de la web comercial): más de 30 cobros con 150 alumnas activas o menos
+// → Founding Studio DE PAGO (29 €/mes, lo mismo sin límite de cobros); más de
+// 150 alumnas → Estudio (59 €/mes). Lo dice `planQueToca`.
+//
 // Un estudio que no paga usa Tentare ENTERO (todo salvo varias sedes) mientras
 // no pase de LIMITE_ALUMNAS alumnas «Activa» ni de LIMITE_COBROS_MES cobros en un
 // mes. Al pasarse tiene MARGEN_DIAS para elegir Estudio; pasado el margen, el
@@ -98,9 +103,28 @@ export function siguienteExcedidoDesde(actual: string | null, uso: UsoGratis, ho
  */
 export type FaseGratis = 'DENTRO' | 'CERCA' | 'MARGEN' | 'CERRADO' | 'SIN_MEDIR';
 
+/** El plan de pago al que tiene que pasar: Founding Studio de pago (BASE) o Estudio. */
+export type PlanQueToca = 'BASE' | 'ESTUDIO';
+
+/**
+ * Al pasarse: con más de 150 alumnas activas, Estudio; si solo se ha pasado de
+ * cobros, Founding Studio de pago (29 €). Sin ningún límite pasado —cerrado y ya
+ * por debajo—, el más barato que le reabre el panel: Founding de pago.
+ */
+export function planQueToca(uso: UsoGratis | null): PlanQueToca {
+  return uso && uso.alumnasActivas > LIMITE_ALUMNAS ? 'ESTUDIO' : 'BASE';
+}
+
+/** ¿Puede contratar Founding Studio de pago? Solo con 150 alumnas activas o menos (o sin medir: no se le cierra la puerta por no saber). */
+export function puedeContratarFounding(alumnasActivas: number | null): boolean {
+  return alumnasActivas === null || alumnasActivas <= LIMITE_ALUMNAS;
+}
+
 export interface EstadoGratis {
   fase: FaseGratis;
   uso: UsoGratis | null;
+  /** A qué plan de pago tiene que pasar (MARGEN/CERRADO); `null` dentro del límite. */
+  planQueToca: PlanQueToca | null;
   /** Qué límite se ha pasado (MARGEN/CERRADO) o está cerca (CERCA). */
   motivos: MotivoLimite[];
   /** Días que quedan de margen (MARGEN), 0 en CERRADO. */
@@ -126,19 +150,19 @@ export function estadoGratis(entrada: { uso: UsoGratis | null; excedidoDesde: st
   const { uso, excedidoDesde, hoy } = entrada;
   // Acabado el margen, cerrado, se mida lo que se mida (y aunque no haya cifras).
   if (excedidoDesde && hoy >= finDelMargen(excedidoDesde)) {
-    return { fase: 'CERRADO', uso, motivos: uso ? limitesPasados(uso) : [], diasRestantes: 0, cierraEl: finDelMargen(excedidoDesde) };
+    return { fase: 'CERRADO', uso, planQueToca: planQueToca(uso), motivos: uso ? limitesPasados(uso) : [], diasRestantes: 0, cierraEl: finDelMargen(excedidoDesde) };
   }
-  if (!uso) return { fase: 'SIN_MEDIR', uso: null, motivos: [], diasRestantes: 0, cierraEl: null };
+  if (!uso) return { fase: 'SIN_MEDIR', uso: null, planQueToca: null, motivos: [], diasRestantes: 0, cierraEl: null };
   const pasados = limitesPasados(uso);
   if (pasados.length > 0) {
     // Pasado pero sin fecha todavía (la medición que lo vio aún no la guardó):
     // el margen empieza hoy, nunca antes.
     const cierraEl = finDelMargen(excedidoDesde ?? hoy);
     const dias = Math.max(0, Math.round((aMs(cierraEl) - aMs(hoy)) / MS_DIA));
-    return { fase: dias > 0 ? 'MARGEN' : 'CERRADO', uso, motivos: pasados, diasRestantes: dias, cierraEl };
+    return { fase: dias > 0 ? 'MARGEN' : 'CERRADO', uso, planQueToca: planQueToca(uso), motivos: pasados, diasRestantes: dias, cierraEl };
   }
   const cerca = limitesCerca(uso);
-  return { fase: cerca.length > 0 ? 'CERCA' : 'DENTRO', uso, motivos: cerca, diasRestantes: 0, cierraEl: null };
+  return { fase: cerca.length > 0 ? 'CERCA' : 'DENTRO', uso, planQueToca: null, motivos: cerca, diasRestantes: 0, cierraEl: null };
 }
 
 /** Lo que contesta /api/billing/status de un estudio gratis (ya derivado). */

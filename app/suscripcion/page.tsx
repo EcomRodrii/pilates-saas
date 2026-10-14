@@ -115,7 +115,7 @@ export default function SuscripcionPage() {
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis ya está en Founding Studio: se le ofrece a lo que puede subir.
-      if (e?.gratis) setElegido('ESTUDIO');
+      if (e?.gratis) setElegido(e.gratis.planQueToca ?? 'ESTUDIO');
       else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
@@ -259,11 +259,12 @@ export default function SuscripcionPage() {
           <div className="flex flex-col gap-4">
             <CabeceraPlanGratis />
             <UsoPlanGratis gratis={gratis} />
-            <section aria-label="Cuando quieras crecer" className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
-              <h2 className="text-[16px] font-semibold text-foreground">Cuando quieras crecer</h2>
-              <p className="text-[12.5px] text-muted-foreground">Lo mismo que ya usas, sin límite de alumnas ni de cobros. Sin permanencia.</p>
-              <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-2">
-                {(['ESTUDIO', 'CADENA'] as const).map(p => (
+            <section aria-label={gratis.planQueToca ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
+              <h2 className="text-[16px] font-semibold text-foreground">{gratis.planQueToca ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
+              <p className="text-[12.5px] text-muted-foreground">Lo mismo que ya usas, con más margen. Sin permanencia.</p>
+              {/* Founding Studio de pago solo si se ha pasado de cobros con 150 alumnas o menos (plan-gratis.ts). */}
+              <div role="radiogroup" aria-label="Plan" className={cn('mt-4 grid gap-3', gratis.planQueToca === 'BASE' ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+                {(gratis.planQueToca === 'BASE' ? ['BASE', 'ESTUDIO', 'CADENA'] as const : ['ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -280,7 +281,7 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'ESTUDIO' ? 'Alumnas y cobros sin límite.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Todo igual, sin límite de cobros. Hasta 150 alumnas activas.' : p === 'ESTUDIO' ? 'Alumnas y cobros sin límite.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}

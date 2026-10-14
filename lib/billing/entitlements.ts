@@ -51,9 +51,12 @@ export interface Entitlements {
 export const CONSULTAS_ASISTENTE_PRUEBA = 30;
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
+  // Founding Studio (de pago, 29 €): lo mismo que el gratis, todo menos varias
+  // sedes (decisión del fundador, 15-oct-2026: al pasar de 30 cobros con 150
+  // alumnas o menos se paga esto y se sigue igual; ver plan-gratis.ts).
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
     consultasAsistenteMes: 50,
   },
   ESTUDIO: {
@@ -77,7 +80,7 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
  * su id: renombrarlo exigiría migrar la columna y los precios de Stripe.
  */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
-  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Reservas, cobros, check-in y app con tu marca. Hasta 150 socias.' },
+  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Todo Tentare menos varias sedes, hasta 150 alumnas activas.' },
   ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas, sustituciones autónomas y Centro de Control.' },
   CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
 };

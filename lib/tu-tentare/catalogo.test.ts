@@ -49,14 +49,15 @@ test('frases verdaderas y cortas: sin «próximamente» ni palabras vacías', ()
   assert.doesNotMatch(AYUDA_POR_PANTALLA['/sustituciones'].resumen, /Network/, 'Network está congelado en el panel');
 });
 
-test('lo que depende del plan: Centro de Control, del plan Estudio, y es lo que mira el servidor', () => {
+test('lo que depende del plan: Centro de Control, desde Founding Studio, y es lo que mira el servidor', () => {
   for (const [h, f] of Object.entries(FEATURE_DE_MODULO)) {
     assert.ok(MODULOS.some(m => m.href === h), h);
     assert.ok(f! in PLAN_ENTITLEMENTS.BASE.features, f);
   }
   const cdc = todos().find(m => m.href === '/centro-de-control')!;
-  assert.equal(planQueLoIncluye(cdc), 'Estudio');
-  assert.equal(incluidoEnPlan(cdc, 'BASE', true), false);
+  // Desde el 15-oct-2026 Founding Studio lo incluye todo menos varias sedes.
+  assert.equal(planQueLoIncluye(cdc), 'Founding Studio');
+  assert.equal(incluidoEnPlan(cdc, 'BASE', true), true);
   assert.equal(incluidoEnPlan(cdc, 'ESTUDIO', true), true);
   assert.equal(incluidoEnPlan(cdc, 'BASE', true, 'gratis'), true, 'Founding Studio gratis lo incluye todo');
   assert.equal(incluidoEnPlan(cdc, null, true), null, 'sin plan, no se sabe');

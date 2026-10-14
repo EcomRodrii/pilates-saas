@@ -6,7 +6,7 @@ import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_COBROS_MES, MARGEN_DIAS, esPlanGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_COBROS_MES, MARGEN_DIAS, esPlanGratis, planQueToca, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
 import { leerUsoGratis, refrescarUsoGratis } from '@/lib/billing/uso-gratis-servidor';
 import { COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, type FilaParaGratis } from '@/lib/billing/convertir-a-gratis';
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
     }
     let estado = lectura.estado;
     // Ya cerrado en la base: cerrado, digan lo que digan las cifras.
-    if (subscriptionStatus === ESTADO_GRATIS_CERRADO && estado.fase !== 'CERRADO') estado = { ...estado, fase: 'CERRADO', diasRestantes: 0 };
+    if (subscriptionStatus === ESTADO_GRATIS_CERRADO && estado.fase !== 'CERRADO') estado = { ...estado, fase: 'CERRADO', diasRestantes: 0, planQueToca: planQueToca(estado.uso) };
     // Acabado el margen: se escribe 'gratis_cerrado' para que TODO el servidor
     // (IA, Centro de Control, API pública…) lo vea, no solo esta pantalla.
     if (estado.fase === 'CERRADO' && subscriptionStatus === ESTADO_GRATIS && (await cerrarPlanGratis(admin, sesion.studioId))) {

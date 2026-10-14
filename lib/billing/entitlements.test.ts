@@ -24,16 +24,19 @@ test('tieneFeature: exige suscripción activa Y que el plan la incluya', () => {
   const estudioSinSub = { plan: 'ESTUDIO', subscriptionStatus: null };
 
   assert.equal(tieneFeature(estudioActivo, 'gamificacion'), true);
-  assert.equal(tieneFeature(baseActivo, 'gamificacion'), false); // BASE no incluye
+  // Founding Studio lo incluye todo menos varias sedes (decisión del fundador, 15-oct-2026).
+  assert.equal(tieneFeature(baseActivo, 'gamificacion'), true);
+  assert.equal(tieneFeature(baseActivo, 'multiCentro'), false);
   assert.equal(tieneFeature(estudioSinSub, 'gamificacion'), false); // sin suscripción
   assert.equal(tieneFeature(estudioActivo, 'multiCentro'), false); // solo CADENA
 });
 
 test('planMinimoPara: el plan más barato que ya incluye la feature', () => {
-  assert.equal(planMinimoPara('gamificacion'), 'ESTUDIO');
-  assert.equal(planMinimoPara('marketing'), 'ESTUDIO');
-  assert.equal(planMinimoPara('ia'), 'ESTUDIO');
-  assert.equal(planMinimoPara('decisiones'), 'ESTUDIO');
+  // Desde el 15-oct-2026 Founding Studio (BASE) lo incluye todo menos varias sedes.
+  assert.equal(planMinimoPara('gamificacion'), 'BASE');
+  assert.equal(planMinimoPara('marketing'), 'BASE');
+  assert.equal(planMinimoPara('ia'), 'BASE');
+  assert.equal(planMinimoPara('decisiones'), 'BASE');
   assert.equal(planMinimoPara('multiCentro'), 'CADENA'); // solo CADENA la tiene
 });
 

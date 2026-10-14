@@ -20,7 +20,8 @@ test('bloqueoDelPlan: adelante solo con un plan que incluya el Centro de Control
   assert.equal(bloqueoDelPlan({ plan: 'CADENA', subscription_status: 'trialing' }, false), null);
   assert.equal(bloqueoDelPlan({ plan: 'ESTUDIO', subscription_status: 'past_due' }, false), null, 'el periodo de gracia de Stripe');
   const cerrado = { status: 403, error: SIN_PLAN_DECISIONES };
-  assert.deepEqual(bloqueoDelPlan({ plan: 'BASE', subscription_status: 'active' }, false), cerrado, 'el plan de entrada no lo incluye');
+  // Desde el 15-oct-2026 el plan de entrada (Founding Studio) también lo incluye.
+  assert.equal(bloqueoDelPlan({ plan: 'BASE', subscription_status: 'active' }, false), null, 'Founding Studio lo incluye');
   assert.deepEqual(bloqueoDelPlan({ plan: 'ESTUDIO', subscription_status: 'trial_expirado' }, false), cerrado, 'la prueba vencida');
   assert.deepEqual(bloqueoDelPlan({ plan: 'ESTUDIO', subscription_status: 'canceled' }, false), cerrado);
   assert.deepEqual(bloqueoDelPlan({ plan: 'ESTUDIO', subscription_status: null }, false), cerrado);

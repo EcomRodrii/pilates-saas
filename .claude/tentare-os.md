@@ -321,6 +321,9 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Qué toca al pasarse** (fundador, 15-oct ~01:30): más de 30 cobros con 150 alumnas o menos →
+    Founding Studio DE PAGO (29 €, lo mismo sin límite de cobros); más de 150 alumnas → Estudio
+    (`planQueToca`). Founding de pago incluye lo mismo que el gratis: todo menos varias sedes.
 - **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
   `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
   vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
