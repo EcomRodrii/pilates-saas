@@ -34,7 +34,7 @@ function vigilarErrores(page: Page): string[] {
 const SECCIONES = [
   'clientas', 'clientas/soc-2', 'equipo', 'cobros', 'productos', 'informes', 'citas', 'mensajeria',
   'automatizaciones', 'explorar-funciones', 'configuracion', 'configuracion/apariencia', 'centro-de-control',
-  'sustituciones', 'migracion', 'notificaciones', 'cierre', 'calendario',
+  'sustituciones', 'migracion', 'notificaciones', 'cierre', 'calendario', 'comunidad',
 ];
 
 for (const ruta of SECCIONES) {
