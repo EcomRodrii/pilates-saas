@@ -21,15 +21,22 @@ export const AMBITOS: readonly Ambito[] = ['nacional', 'autonomico', 'local', 'p
 /** El nombre más largo que se guarda (lo mismo dice el CHECK de la tabla). */
 export const NOMBRE_MAX = 80;
 
-/** Lo que propone la búsqueda con IA: sin guardar, para revisar. */
+/**
+ * Lo que encuentra la búsqueda, para revisar: TODOS los festivos de la
+ * localidad (los del boletín y lo que encuentra la IA), en una sola lista.
+ */
 export interface FestivoPropuesto {
   /** YYYY-MM-DD, día civil en España. */
   fecha: string;
   nombre: string;
   ambito: Ambito;
-  /** El dominio de la fuente («barcelona.cat»), o null si no la tiene. */
+  /** Del boletín (comprobado por el servidor) o de la IA (a revisar). */
+  origen: 'oficial' | 'ia';
+  /** La norma («BOE núm. 259») o el dominio de la web («barcelona.cat»); null si no tiene. */
   fuente: string | null;
   fuenteUrl: string | null;
+  /** Ya está en la lista del estudio: no se vuelve a añadir. */
+  yaEnLista: boolean;
 }
 
 /** Un festivo de la lista del estudio. */

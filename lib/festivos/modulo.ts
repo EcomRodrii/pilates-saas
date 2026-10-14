@@ -4,16 +4,17 @@
 // se puede guardar. Sin IO y sin `@/`, para probarlo con `node --test`
 // (modulo.test.ts). Los tipos y lo de pintar la lista, en lista.ts.
 //
-// Los OFICIALES no se guardan: salen siempre del calendario copiado del boletín
-// (oficiales.ts) por la DIRECCIÓN del estudio, la misma regla que el aviso de
-// la bandeja y «Repetir este mes». Así la lista, la bandeja y Repetir dicen lo
-// mismo, y una corrección o el año nuevo llegan solos. Lo que se guarda
-// (`festivos_estudio`) es lo que no está en el boletín: las fiestas locales que
-// propone la IA y la propietaria marca, y los días propios del estudio.
+// Los OFICIALES de la comunidad de la DIRECCIÓN del estudio no se guardan: salen
+// siempre del calendario copiado del boletín (oficiales.ts), la misma regla que
+// el aviso de la bandeja y «Repetir este mes», así que una corrección o el año
+// nuevo llegan solos. Se guarda (`festivos_estudio`) lo que la lista no trae
+// sola: las fiestas locales, lo que no está en ningún boletín y los oficiales
+// de una comunidad que no sale de la dirección (sin dirección, u otra localidad;
+// y sin comunidad conocida, los nacionales comunes).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ambitoOficial, aniosConFestivos, festivosEntre, fuenteDe, hayCalendario, type ZonaFestivos } from './oficiales.ts';
-import { zonaDelEstudio } from './zona-del-estudio.ts';
+import { normalizarLugar, zonaDelEstudio } from './zona-del-estudio.ts';
 import { NOMBRE_MAX, type Ambito, type FestivoDeLaLista, type FestivoPropuesto } from './lista.ts';
 
 export type { Ambito, Origen, FestivoPropuesto, FestivoDeLaLista } from './lista.ts';
@@ -34,6 +35,15 @@ export const TOPE_BUSQUEDAS_ESTUDIO_DIA = 6;
 export const TOPE_BUSQUEDAS_TOTAL_DIA = 60;
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** «Tu localidad»: letras (con tildes, ç, ñ, l·l), números, espacios y la puntuación de un nombre de municipio. */
+export const LOCALIDAD = /^[\p{L}\p{M}0-9 '’.,·()/-]{2,60}$/u;
+
+/** Lo escrito en «Tu localidad», limpio, o null si no vale. */
+export function limpiarLocalidad(s: unknown): string | null {
+  const t = typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '';
+  return LOCALIDAD.test(t) ? t : null;
+}
 
 /** ¿Es un día que existe? («2027-02-30» no). */
 export function esFecha(s: unknown): s is string {
@@ -85,6 +95,43 @@ export function oficialesDeLaLista(zona: ZonaFestivos, desde: string, hasta: str
       estado: null,
     };
   });
+}
+
+/**
+ * Los festivos NACIONALES comunes (los que son festivo en todas las comunidades
+ * con calendario cargado ese año: Año Nuevo, Reyes, Viernes Santo, 1 de mayo,
+ * 12 de octubre, Navidad…), para quien no tiene comunidad conocida: así nunca
+ * se queda una búsqueda sin Navidad porque la IA falle.
+ */
+export function nacionalesComunes(desde: string, hasta: string): FestivoDeLaLista[] {
+  return oficialesDeLaLista('MADRID', desde, hasta)
+    .filter((f) => f.ambito === 'nacional')
+    // La norma de Madrid no es la de un festivo nacional: solo se cita si es el BOE.
+    .map((f) => (/^BOE/.test(f.fuente ?? '') ? f : { ...f, fuente: null, fuenteUrl: null }));
+}
+
+/**
+ * La comunidad con la que se BUSCA: la de lo escrito; si no se reconoce (un
+ * pueblo fuera de la lista cerrada), la de la dirección del estudio, pero solo
+ * si lo escrito es su misma ciudad o su código postal (buscar «Valencia» desde
+ * un estudio de Madrid no puede traer el calendario de Madrid).
+ */
+export function zonaDeBusqueda(
+  localidad: string,
+  estudio: { codigoPostal?: string | null; ciudad?: string | null; direccion?: string | null; zonaHoraria?: string | null },
+): ZonaFestivos | null {
+  const escrita = zonaDeLocalidad(localidad);
+  if (escrita) return escrita;
+  const l = normalizarLugar(localidad);
+  const mismaCiudad = !!estudio.ciudad && normalizarLugar(estudio.ciudad) === l;
+  const cp = (estudio.codigoPostal ?? '').replace(/\s/g, '');
+  const mismoCp = /^\d{5}$/.test(cp) && localidad.includes(cp);
+  return mismaCiudad || mismoCp ? zonaDelEstudio(estudio) : null;
+}
+
+/** Los oficiales de una búsqueda: los de su comunidad o, sin comunidad, los nacionales comunes. */
+export function oficialesDeBusqueda(zona: ZonaFestivos | null, desde: string, hasta: string): FestivoDeLaLista[] {
+  return zona ? oficialesDeLaLista(zona, desde, hasta) : nacionalesComunes(desde, hasta);
 }
 
 /** El rango de la lista: del 1 de enero de este año al final del último con calendario de la zona (o del que viene). */
@@ -168,7 +215,7 @@ export function limpiarPropuestosIA(
     if (!ambito || (o.aniosConCalendario.has(Number(f.fecha.slice(0, 4))) && ambito !== 'local')) continue;
     const fuenteUrl = fuenteVista(urlSegura(f.fuente_url), o.fuentesVistas);
     vistos.add(f.fecha);
-    out.push({ fecha: f.fecha, nombre, ambito, fuente: dominioDe(fuenteUrl), fuenteUrl });
+    out.push({ fecha: f.fecha, nombre, ambito, origen: 'ia', fuente: dominioDe(fuenteUrl), fuenteUrl, yaEnLista: false });
   }
   return out.sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
@@ -177,39 +224,54 @@ export interface FilaParaGuardar {
   fecha: string;
   nombre: string;
   ambito: Ambito;
-  origen: 'ia' | 'manual';
+  origen: 'oficial' | 'ia' | 'manual';
   fuente_url: string | null;
 }
 
 /**
- * Lo que llega del navegador para guardar, comprobado: solo lo que NO es
- * oficial (lo de la IA y lo escrito a mano), nunca en un día que ya es festivo
- * oficial del estudio, ni antes de hoy ni más allá del año que viene. Lo de la
- * IA, en un año con calendario oficial, solo como fiesta local. Dos filas del
- * mismo día: vale la primera.
+ * Lo que llega del navegador para guardar, comprobado:
+ *   · un día que ya es oficial de la comunidad de la DIRECCIÓN ya está en la
+ *     lista: se salta sin error (se cuenta como «ya estaba»); a mano, se dice;
+ *   · un oficial se busca en el calendario del código para la comunidad de la
+ *     BÚSQUEDA (o entre los nacionales comunes) y se guarda con el nombre del
+ *     boletín, nunca el del navegador;
+ *   · lo de la IA, en un año con calendario oficial de esa comunidad, solo como
+ *     fiesta local, y nunca encima de un oficial;
+ *   · nada antes de hoy ni más allá del año que viene. Dos del mismo día: el primero.
  */
 export function prepararParaGuardar(
   items: unknown,
-  o: { zona: ZonaFestivos | null; hoy: string },
-): { ok: true; filas: FilaParaGuardar[] } | { ok: false; error: string } {
+  o: { zonaLista: ZonaFestivos | null; zonaBusqueda: ZonaFestivos | null; hoy: string },
+): { ok: true; filas: FilaParaGuardar[]; omitidos: number } | { ok: false; error: string } {
   if (!Array.isArray(items) || items.length === 0) return { ok: false, error: 'No has elegido ningún festivo.' };
   if (items.length > MAX_POR_GUARDADO) return { ok: false, error: `Como mucho ${MAX_POR_GUARDADO} festivos de una vez.` };
   const { hasta, anios } = rangoDeBusqueda(o.hoy);
-  const oficiales = new Set(o.zona ? festivosEntre(o.zona, o.hoy, hasta).map((f) => f.fecha) : []);
-  const conCalendario = aniosConCalendario(o.zona, anios);
+  const enLista = new Set(o.zonaLista ? festivosEntre(o.zonaLista, o.hoy, hasta).map((f) => f.fecha) : []);
+  const oficiales = new Map(oficialesDeBusqueda(o.zonaBusqueda, o.hoy, hasta).map((f) => [f.fecha, f]));
+  const conCalendario = aniosConCalendario(o.zonaBusqueda, anios);
   const vistos = new Set<string>();
   const filas: FilaParaGuardar[] = [];
+  let omitidos = 0;
   for (const x of items) {
     const f = x as Record<string, unknown> | null;
     if (!f || !esFecha(f.fecha)) return { ok: false, error: 'Hay un día que no es una fecha.' };
     if (f.fecha < o.hoy) return { ok: false, error: 'No se guardan festivos que ya han pasado.' };
     if (f.fecha > hasta) return { ok: false, error: `Solo se guardan festivos hasta el 31 de diciembre de ${hasta.slice(0, 4)}.` };
-    if (oficiales.has(f.fecha)) return { ok: false, error: 'Ese día ya es festivo oficial: ya está en tu lista.' };
+    if (enLista.has(f.fecha)) {
+      if (f.origen === 'manual') return { ok: false, error: 'Ese día ya es festivo oficial: ya está en tu lista.' };
+      omitidos++;
+      continue;
+    }
     if (vistos.has(f.fecha)) continue;
     const nombre = limpiarNombre(f.nombre);
-    if (f.origen === 'ia') {
+    if (f.origen === 'oficial') {
+      const oficial = oficiales.get(f.fecha);
+      if (!oficial) return { ok: false, error: 'Uno de los festivos oficiales no es de esa localidad. Vuelve a buscar.' };
+      filas.push({ fecha: f.fecha, nombre: oficial.nombre, ambito: oficial.ambito, origen: 'oficial', fuente_url: oficial.fuenteUrl });
+    } else if (f.origen === 'ia') {
       const ambito = f.ambito === 'nacional' || f.ambito === 'autonomico' || f.ambito === 'local' ? f.ambito : null;
       if (!nombre || !ambito) return { ok: false, error: 'Uno de los festivos propuestos no ha llegado bien. Vuelve a buscar.' };
+      if (oficiales.has(f.fecha)) { omitidos++; continue; }
       if (conCalendario.has(Number(f.fecha.slice(0, 4))) && ambito !== 'local') {
         return { ok: false, error: 'Uno de los festivos propuestos no es una fiesta local. Vuelve a buscar.' };
       }
@@ -218,11 +280,11 @@ export function prepararParaGuardar(
       if (!nombre) return { ok: false, error: `Ponle un nombre de hasta ${NOMBRE_MAX} letras.` };
       filas.push({ fecha: f.fecha, nombre, ambito: 'propio', origen: 'manual', fuente_url: null });
     } else {
-      return { ok: false, error: 'Los festivos oficiales ya están en tu lista: no hace falta añadirlos.' };
+      return { ok: false, error: 'Hay un festivo sin origen.' };
     }
     vistos.add(f.fecha);
   }
-  return { ok: true, filas };
+  return { ok: true, filas, omitidos };
 }
 
 /**

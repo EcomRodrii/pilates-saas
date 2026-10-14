@@ -6,16 +6,19 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { hoyEnEstudio } from '@/lib/utils';
 import { NOMBRE_ZONA } from '@/lib/festivos/oficiales';
 import { guardarFestivos, listaDelEstudio, quitarFestivos, ubicacionDelEstudio, zonaDeUbicacion } from '@/lib/festivos/estudio-servidor';
-import { prepararParaGuardar, MAX_POR_GUARDADO } from '@/lib/festivos/modulo';
+import { limpiarLocalidad, prepararParaGuardar, zonaDeBusqueda, MAX_POR_GUARDADO } from '@/lib/festivos/modulo';
 
 export const dynamic = 'force-dynamic';
 
 // Módulo Festivos: la lista de festivos del estudio.
 //   GET    → los oficiales de su zona (por la dirección, del código) y los que
 //            ha guardado, con lo que ya decidió de cada día (cerrado / abres).
-//   POST   → guardar en lote lo que la propietaria ha marcado `{ festivos }`:
-//            solo lo que no es oficial (locales de la IA y días propios).
-//   DELETE → quitar de la lista `{ ids }` (solo lo guardado: un oficial no se quita).
+//   POST   → guardar en lote lo que la propietaria ha marcado `{ localidad, festivos }`:
+//            los locales de la IA, los días propios y los oficiales de la
+//            localidad buscada que la dirección no trae (comprobados contra el
+//            calendario del código; un día que ya está en la lista se salta).
+//   DELETE → quitar de la lista `{ ids }` (solo lo guardado: un oficial de la
+//            dirección no se quita).
 // Guardar o quitar un festivo NO toca clases ni reservas: cerrar el día es el
 // POST /api/cierres de siempre y abrir igualmente, POST /api/festivos.
 //
@@ -60,18 +63,24 @@ export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'festivos-guardar', { max: 20, windowSeconds: 60 }, p.sesion.studioId);
   if (limited) return limited;
 
-  const body = (await req.json().catch(() => null)) as { festivos?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { localidad?: unknown; festivos?: unknown } | null;
   const ubicacion = await ubicacionDelEstudio(p.admin, p.sesion.studioId);
   if (ubicacion === 'error') return NextResponse.json({ error: 'No se han podido guardar. Inténtalo de nuevo.' }, { status: 500 });
-  // La zona la decide el servidor (por la dirección): con ella se comprueba que
-  // nada de lo que se guarda pisa un festivo oficial.
-  const preparado = prepararParaGuardar(body?.festivos, { zona: zonaDeUbicacion(ubicacion), hoy: hoyEnEstudio() });
+  // Las comunidades las decide el servidor: la de la dirección (lo que la lista
+  // ya trae) y la de la localidad buscada (contra la que se comprueba un oficial).
+  const localidad = limpiarLocalidad(body?.localidad);
+  const preparado = prepararParaGuardar(body?.festivos, {
+    zonaLista: zonaDeUbicacion(ubicacion),
+    zonaBusqueda: localidad ? zonaDeBusqueda(localidad, ubicacion) : null,
+    hoy: hoyEnEstudio(),
+  });
   if (!preparado.ok) return NextResponse.json({ error: preparado.error }, { status: 400 });
+  if (preparado.filas.length === 0) return NextResponse.json({ ok: true, creados: [], yaEstaban: preparado.omitidos });
 
   const r = await guardarFestivos(p.admin, p.sesion.studioId, p.sesion.userId ?? null, preparado.filas);
   if (r === 'no_disponible') return NO_DISPONIBLE();
   if (r === 'error') return NextResponse.json({ error: 'No se han podido guardar. Inténtalo de nuevo.' }, { status: 500 });
-  return NextResponse.json({ ok: true, creados: r.creados, yaEstaban: r.yaEstaban });
+  return NextResponse.json({ ok: true, creados: r.creados, yaEstaban: r.yaEstaban + preparado.omitidos });
 }
 
 export async function DELETE(req: NextRequest) {

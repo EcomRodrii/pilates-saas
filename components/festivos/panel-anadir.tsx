@@ -4,11 +4,13 @@
 // «Añadir festivos» (módulo Festivos, panel nuevo): el panel lateral de Bonsai
 // (b-90-festivos-02…13) con lo que a Bonsai le falta.
 //
-//   · Buscar: «Tu localidad» ya viene puesta (la ciudad del estudio). Los
-//     festivos oficiales ya están en la lista (salen del boletín por la
-//     dirección): aquí se buscan los que faltan, las fiestas LOCALES, con IA.
-//     Salen DESMARCADOS y con su fuente: la propietaria los marca cuando los ha
-//     visto. La IA nunca guarda sola.
+//   · Buscar: «Tu localidad» ya viene puesta (la ciudad del estudio). Sale UNA
+//     lista con TODOS los festivos de hoy a final del año que viene, por años:
+//     los oficiales (Año Nuevo, Reyes, Navidad, los de la comunidad), del
+//     boletín copiado en el código, y las fiestas locales que encuentra la IA.
+//     Vienen marcados los oficiales y lo de la IA con fuente vista; lo de la IA
+//     sin fuente, desmarcado. Lo que ya está en la lista se enseña con su ✓ y no
+//     se vuelve a añadir. Nada se guarda hasta pulsar «Añadir N festivos».
 //   · A mano: un nombre y un día. Para varios días seguidos (vacaciones) ya
 //     existe «Cerrar el centro», y se enlaza.
 //
@@ -24,20 +26,18 @@ import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { BotonVivo } from '@/components/dashboard/vivo';
 import { cn } from '@/lib/utils';
 import { fechaDelFestivo } from '@/lib/festivos/textos';
-import { NOMBRE_MAX, textoAnadir, type FestivoPropuesto } from '@/lib/festivos/lista';
+import { NOMBRE_MAX, recuentoDeFestivos, textoAnadir, type FestivoPropuesto } from '@/lib/festivos/lista';
 import { buscarFestivos, guardarFestivos, type Busqueda, type FestivoParaGuardar } from '@/lib/festivos/modulo-cliente';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { BotonBordeVivo, ChapaAmbito, ChapaIA } from './piezas';
 
 type Modo = 'buscar' | 'manual';
 
-export function PanelAnadirFestivos({ open, onClose, modoInicial, localidadInicial, comunidad, hoy, puedeVerCierres, onGuardados }: {
+export function PanelAnadirFestivos({ open, onClose, modoInicial, localidadInicial, hoy, puedeVerCierres, onGuardados }: {
   open: boolean;
   onClose: () => void;
   modoInicial: Modo;
   localidadInicial: string;
-  /** La comunidad de la dirección del estudio (de ahí salen los oficiales), o null. */
-  comunidad: string | null;
   hoy: string;
   /** Si este rol abre «Cerrar el centro» en Configuración (para enlazarlo). */
   puedeVerCierres: boolean;
@@ -56,7 +56,6 @@ export function PanelAnadirFestivos({ open, onClose, modoInicial, localidadInici
         <Contenido
           modoInicial={modoInicial}
           localidadInicial={localidadInicial}
-          comunidad={comunidad}
           hoy={hoy}
           puedeVerCierres={puedeVerCierres}
           onClose={onClose}
@@ -67,8 +66,8 @@ export function PanelAnadirFestivos({ open, onClose, modoInicial, localidadInici
   );
 }
 
-function Contenido({ modoInicial, localidadInicial, comunidad, hoy, puedeVerCierres, onClose, onGuardados }: {
-  modoInicial: Modo; localidadInicial: string; comunidad: string | null; hoy: string; puedeVerCierres: boolean;
+function Contenido({ modoInicial, localidadInicial, hoy, puedeVerCierres, onClose, onGuardados }: {
+  modoInicial: Modo; localidadInicial: string; hoy: string; puedeVerCierres: boolean;
   onClose: () => void; onGuardados: (r: { creados: number; yaEstaban: number }) => void;
 }) {
   const [modo, setModo] = useState<Modo>(modoInicial);
@@ -88,7 +87,7 @@ function Contenido({ modoInicial, localidadInicial, comunidad, hoy, puedeVerCier
         </button>
       </header>
       {modo === 'buscar' ? (
-        <Buscar localidadInicial={localidadInicial} comunidad={comunidad} hoy={hoy} onManual={() => setModo('manual')} onGuardados={onGuardados} />
+        <Buscar localidadInicial={localidadInicial} hoy={hoy} onManual={() => setModo('manual')} onGuardados={onGuardados} />
       ) : (
         <AMano hoy={hoy} puedeVerCierres={puedeVerCierres} onBuscar={() => setModo('buscar')} onGuardados={onGuardados} />
       )}
@@ -98,8 +97,11 @@ function Contenido({ modoInicial, localidadInicial, comunidad, hoy, puedeVerCier
 
 // ─── Buscar ──────────────────────────────────────────────────────────────────
 
-function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
-  localidadInicial: string; comunidad: string | null; hoy: string; onManual: () => void; onGuardados: (r: { creados: number; yaEstaban: number }) => void;
+/** Lo que viene marcado: lo del boletín y lo de la IA con fuente vista. Lo de la IA sin fuente, a criterio de ella. */
+const marcadoDeSerie = (f: FestivoPropuesto) => !f.yaEnLista && (f.origen === 'oficial' || !!f.fuenteUrl);
+
+function Buscar({ localidadInicial, hoy, onManual, onGuardados }: {
+  localidadInicial: string; hoy: string; onManual: () => void; onGuardados: (r: { creados: number; yaEstaban: number }) => void;
 }) {
   const [localidad, setLocalidad] = useState(localidadInicial);
   const [buscando, setBuscando] = useState(false);
@@ -111,9 +113,13 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const enVuelo = useRef(false);
 
-  const yaEstan = useMemo(() => new Set(busqueda?.yaGuardados ?? []), [busqueda]);
-  const elegibles = useMemo(() => (busqueda?.propuestos ?? []).filter(f => !yaEstan.has(f.fecha)), [busqueda, yaEstan]);
+  const elegibles = useMemo(() => (busqueda?.propuestos ?? []).filter(f => !f.yaEnLista), [busqueda]);
   const nMarcadas = elegibles.filter(f => marcadas.has(f.fecha)).length;
+  const porAnio = useMemo(() => {
+    const grupos = new Map<string, FestivoPropuesto[]>();
+    for (const f of busqueda?.propuestos ?? []) grupos.set(f.fecha.slice(0, 4), [...(grupos.get(f.fecha.slice(0, 4)) ?? []), f]);
+    return [...grupos.entries()];
+  }, [busqueda]);
 
   async function buscar(e?: FormEvent) {
     e?.preventDefault();
@@ -127,8 +133,7 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
       const r = await buscarFestivos(localidad.trim());
       if (!r.ok) { setError(r.error); return; }
       setBusqueda(r.datos);
-      // Lo de la IA viene DESMARCADO: lo marca ella cuando lo ha visto con su fuente.
-      setMarcadas(new Set());
+      setMarcadas(new Set(r.datos.propuestos.filter(marcadoDeSerie).map(f => f.fecha)));
     } finally {
       enVuelo.current = false;
       setBuscando(false);
@@ -150,9 +155,9 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
     setErrorGuardar(null);
     try {
       const elegidos: FestivoParaGuardar[] = elegibles.filter(f => marcadas.has(f.fecha)).map(f => ({
-        fecha: f.fecha, nombre: f.nombre, origen: 'ia', ambito: f.ambito, fuenteUrl: f.fuenteUrl,
+        fecha: f.fecha, nombre: f.nombre, origen: f.origen, ambito: f.ambito, fuenteUrl: f.fuenteUrl,
       }));
-      const r = await guardarFestivos(elegidos);
+      const r = await guardarFestivos(elegidos, busqueda.localidad);
       if (!r.ok) { setErrorGuardar(r.error); return; }
       // En verde lo que el servidor dice que ha guardado (y lo que ya estaba).
       setGuardadas(new Set(elegidos.map(f => f.fecha)));
@@ -165,16 +170,16 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
 
   const todasMarcadas = elegibles.length > 0 && nMarcadas === elegibles.length;
   const hecho = guardadas !== null;
+  const nLocales = busqueda?.propuestos.filter(f => f.origen === 'ia').length ?? 0;
+  const nYa = (busqueda?.propuestos.length ?? 0) - elegibles.length;
 
   return (
     <>
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <form onSubmit={buscar} className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
           <p className="text-[12.5px] leading-snug text-muted-foreground text-pretty">
-            {comunidad
-              ? <>Los festivos nacionales y los de {comunidad} ya están en tu lista, del <strong className="font-semibold text-foreground">boletín oficial</strong>. </>
-              : <>No sabemos tu comunidad por la dirección del estudio: la IA buscará también los nacionales y los de tu comunidad. </>}
-            Las <strong className="font-semibold text-foreground">fiestas locales</strong> las busca la IA en el boletín oficial y en la web de tu ayuntamiento: revísalas antes de añadirlas.
+            Te enseñamos <strong className="font-semibold text-foreground">todos los festivos</strong> de tu localidad hasta final de {Number(hoy.slice(0, 4)) + 1}:
+            {' '}los nacionales y los de tu comunidad, del boletín oficial, y las <strong className="font-semibold text-foreground">fiestas locales</strong>, que busca la IA en el boletín y en la web de tu ayuntamiento.
           </p>
           <label className="block">
             <span className="mb-1 block text-[12px] font-semibold text-foreground">Tu localidad</span>
@@ -200,20 +205,26 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
 
         {error && <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-[13px] font-medium text-destructive">{error}</p>}
 
-        {buscando && <Buscando localidad={localidad.trim()} conComunidad={!!comunidad} />}
+        {buscando && <Buscando localidad={localidad.trim()} />}
 
         {!buscando && busqueda && (
           <section aria-label="Festivos encontrados" className="space-y-4" data-testid="festivos-encontrados">
-            <p className="text-[13px] text-muted-foreground text-pretty">
-              <span className="font-semibold text-foreground">{busqueda.localidad}</span>
-              {busqueda.comunidad && busqueda.oficiales > 0
-                ? ` · los ${busqueda.oficiales} festivos oficiales de ${busqueda.comunidad} ya están en tu lista.`
-                : ''}
-            </p>
+            <div className="space-y-1">
+              <p className="text-[14px] font-semibold text-foreground text-pretty">
+                {busqueda.localidad}: {recuentoDeFestivos(busqueda.propuestos.length)} hasta final de {Number(hoy.slice(0, 4)) + 1}
+              </p>
+              <p className="text-[12.5px] leading-snug text-muted-foreground text-pretty">
+                {busqueda.comunidad
+                  ? `Los nacionales y los de ${busqueda.comunidad} salen del boletín oficial`
+                  : `No reconocemos la comunidad de ${busqueda.localidad}: los nacionales salen del boletín oficial y lo demás lo ha buscado la IA`}
+                {nLocales > 0 ? `; ${nLocales === 1 ? 'la fiesta local la ha' : `las ${nLocales} fiestas locales las ha`} encontrado la IA: compruébalas con su fuente.` : '.'}
+                {nYa > 0 ? ` ${nYa === 1 ? '1 ya está' : `${nYa} ya están`} en tu lista.` : ''}
+              </p>
+            </div>
             {busqueda.otraComunidad && (
               <p className="rounded-xl bg-muted/60 px-3 py-2 text-[12.5px] leading-snug text-foreground text-pretty">
-                {busqueda.localidad} es de {busqueda.otraComunidad}, pero la dirección de tu estudio es de {busqueda.comunidad ?? 'otra comunidad'}:
-                {' '}los festivos oficiales de tu lista salen de la dirección. Si tu sala está en {busqueda.localidad}, corrige la dirección en Configuración.
+                {busqueda.localidad} es de {busqueda.comunidad}, pero la dirección de tu estudio es de {busqueda.otraComunidad}, y tu lista ya trae sus festivos.
+                {' '}Si tu sala está en {busqueda.localidad}, corrige la dirección en Configuración.
               </p>
             )}
 
@@ -225,6 +236,14 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Si la IA ya explica por qué no hay (un aviso), no se repite. */}
+            {busqueda.ia === 'ok' && nLocales === 0 && busqueda.avisos.length === 0 && (
+              <p className="rounded-xl border border-dashed border-border px-3 py-3 text-[12.5px] text-muted-foreground text-pretty">
+                La IA no ha encontrado fiestas locales de {busqueda.localidad} que queden por venir. Las del año que viene suelen publicarse a final de año:
+                {' '}vuelve a buscarlas entonces, o añádelas a mano.
+              </p>
             )}
 
             {elegibles.length > 0 && !hecho && (
@@ -243,20 +262,19 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
               </div>
             )}
 
-            <Grupo
-              titulo="Los ha encontrado la IA"
-              sub="Compruébalos con su fuente antes de marcarlos: la IA se puede equivocar con las fiestas locales."
-              festivos={busqueda.propuestos}
-              marcadas={marcadas}
-              yaEstan={yaEstan}
-              guardadas={guardadas}
-              hoy={hoy}
-              deshabilitado={guardando || hecho}
-              onMarcar={marcar}
-              vacio={busqueda.ia === 'ok'
-                ? `No ha encontrado fiestas locales publicadas para ${busqueda.localidad} en estas fechas. Si tienes alguna, añádela a mano.`
-                : null}
-            />
+            {porAnio.map(([anio, festivos]) => (
+              <Anio
+                key={anio}
+                anio={anio}
+                sinCalendario={busqueda.sinCalendario.includes(Number(anio))}
+                festivos={festivos}
+                marcadas={marcadas}
+                guardadas={guardadas}
+                hoy={hoy}
+                deshabilitado={guardando || hecho}
+                onMarcar={marcar}
+              />
+            ))}
           </section>
         )}
 
@@ -273,6 +291,10 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
           {hecho ? (
             <p role="status" className="flex items-center gap-2 text-[13.5px] font-semibold" style={{ color: 'var(--success)' }}>
               <Check size={16} aria-hidden /> Añadidos a tus festivos
+            </p>
+          ) : elegibles.length === 0 ? (
+            <p role="status" className="flex items-center gap-2 text-[13.5px] font-semibold text-foreground">
+              <Check size={16} style={{ color: 'var(--success)' }} aria-hidden /> Ya tienes todos en tu lista
             </p>
           ) : (
             <div className="flex items-center gap-3">
@@ -295,16 +317,16 @@ function Buscar({ localidadInicial, comunidad, hoy, onManual, onGuardados }: {
 }
 
 /** Mientras busca: qué está haciendo, sin inventar un progreso que no conocemos. */
-function Buscando({ localidad, conComunidad }: { localidad: string; conComunidad: boolean }) {
+function Buscando({ localidad }: { localidad: string }) {
   return (
     <div role="status" aria-live="polite" className="space-y-3 rounded-2xl border border-border p-4" data-testid="festivos-buscando">
       <p className="flex items-center gap-2 text-[13.5px] font-semibold text-foreground">
         <Loader2 size={16} className="animate-spin" style={{ color: 'var(--t-magenta-500)' }} aria-hidden />
-        Buscando las fiestas de {localidad || 'tu localidad'}
+        Buscando los festivos de {localidad || 'tu localidad'}
       </p>
       <ul className="space-y-1.5 text-[12.5px] text-muted-foreground">
-        <li>· Las fiestas locales, en el boletín oficial y en la web de tu ayuntamiento.</li>
-        {!conComunidad && <li>· Los festivos nacionales y los de tu comunidad.</li>}
+        <li>· Los nacionales y los de tu comunidad, del boletín oficial.</li>
+        <li>· Las fiestas locales, con IA, en el boletín y en la web de tu ayuntamiento.</li>
       </ul>
       <p className="text-[12px] text-muted-foreground">Suele tardar menos de un minuto.</p>
       <div aria-hidden className="space-y-2 pt-1">
@@ -314,74 +336,79 @@ function Buscando({ localidad, conComunidad }: { localidad: string; conComunidad
   );
 }
 
-function Grupo({ titulo, sub, festivos, marcadas, yaEstan, guardadas, hoy, deshabilitado, onMarcar, vacio = null }: {
-  titulo: string; sub?: string; festivos: FestivoPropuesto[]; marcadas: ReadonlySet<string>; yaEstan: ReadonlySet<string>;
+function Anio({ anio, sinCalendario, festivos, marcadas, guardadas, hoy, deshabilitado, onMarcar }: {
+  anio: string; sinCalendario: boolean; festivos: FestivoPropuesto[]; marcadas: ReadonlySet<string>;
   guardadas: ReadonlySet<string> | null; hoy: string; deshabilitado: boolean; onMarcar: (fecha: string, si: boolean) => void;
-  vacio?: string | null;
 }) {
-  if (festivos.length === 0 && !vacio) return null;
   return (
     <div className="space-y-2">
-      <div>
-        <h3 className="flex items-center gap-1.5 text-[12.5px] font-bold uppercase tracking-[0.06em]" style={{ color: 'var(--t-magenta-500)' }}>
-          <Sparkles size={13} aria-hidden /> {titulo}
-        </h3>
-        {sub && <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground text-pretty">{sub}</p>}
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[15px] font-bold text-foreground tabular-nums">{anio}</h3>
+        <span className="text-[12px] text-muted-foreground">{recuentoDeFestivos(festivos.length)}</span>
       </div>
-      {festivos.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-3 py-3 text-[12.5px] text-muted-foreground">{vacio}</p>
-      ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card" data-testid="festivos-ia">
-          {festivos.map((f, i) => {
-            const ya = yaEstan.has(f.fecha);
-            const guardada = guardadas?.has(f.fecha) ?? false;
-            const marcada = marcadas.has(f.fecha);
-            return (
-              <li
-                key={f.fecha}
-                data-testid="festivo-encontrado"
-                data-fecha={f.fecha}
-                className={cn('transition-colors', guardada ? 'bg-[color-mix(in_srgb,var(--success)_10%,transparent)]' : marcada && !ya ? 'bg-[color-mix(in_srgb,var(--t-blue-500)_6%,transparent)]' : '')}
-              >
-                <label className={cn('flex min-h-12 items-center gap-3 px-3 py-2.5', ya || deshabilitado ? 'cursor-default' : 'cursor-pointer')}>
-                  {guardada ? (
-                    <span className="reserva-check-pop flex size-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--success)', color: 'var(--card)', animationDelay: `${Math.min(i, 20) * 45}ms` }} aria-hidden>
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                  ) : (
-                    <input
-                      type="checkbox"
-                      className="size-4 shrink-0 accent-[var(--t-blue-500)]"
-                      checked={marcada && !ya}
-                      disabled={ya || deshabilitado}
-                      onChange={e => onMarcar(f.fecha, e.target.checked)}
-                      aria-label={`${f.nombre}, ${fechaDelFestivo(f.fecha, hoy)}`}
-                    />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <span className={cn('text-[13.5px] font-semibold', ya ? 'text-muted-foreground' : 'text-foreground')}>{f.nombre}</span>
-                      <ChapaAmbito ambito={f.ambito} />
-                      <ChapaIA />
-                      {ya && <span className="text-[11px] font-semibold text-muted-foreground">Ya en tu lista</span>}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
-                      <span className="first-letter:uppercase">{fechaDelFestivo(f.fecha, hoy)}</span>
-                      {f.fuenteUrl && (
-                        <a href={f.fuenteUrl} target="_blank" rel="noopener noreferrer nofollow" onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--t-text-link)' }}>
-                          {f.fuente ?? 'Ver la fuente'} <ExternalLink size={11} aria-hidden /><span className="sr-only"> (se abre en otra pestaña)</span>
-                        </a>
-                      )}
-                      {!f.fuenteUrl && <span>sin fuente: compruébalo tú</span>}
-                    </span>
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+      {sinCalendario && (
+        <p className="text-[12px] leading-snug text-muted-foreground text-pretty">
+          El boletín de tu comunidad aún no ha publicado {anio}: lo que no es nacional lo ha buscado la IA.
+        </p>
       )}
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card" data-testid={`festivos-${anio}`}>
+        {festivos.map((f, i) => {
+          const ya = f.yaEnLista;
+          const guardada = guardadas?.has(f.fecha) ?? false;
+          const marcada = marcadas.has(f.fecha) && !ya;
+          return (
+            <li
+              key={f.fecha}
+              data-testid="festivo-encontrado"
+              data-fecha={f.fecha}
+              data-origen={f.origen}
+              className={cn('transition-colors', guardada ? 'bg-[color-mix(in_srgb,var(--success)_10%,transparent)]' : marcada ? 'bg-[color-mix(in_srgb,var(--t-blue-500)_6%,transparent)]' : '')}
+            >
+              <label className={cn('flex min-h-12 items-center gap-3 px-3 py-2.5', ya || deshabilitado ? 'cursor-default' : 'cursor-pointer')}>
+                {guardada ? (
+                  <span className="reserva-check-pop flex size-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--success)', color: 'var(--card)', animationDelay: `${Math.min(i, 20) * 45}ms` }} aria-hidden>
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                ) : ya ? (
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground" aria-hidden>
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                ) : (
+                  <input
+                    type="checkbox"
+                    className="size-4 shrink-0 accent-[var(--t-blue-500)]"
+                    checked={marcada}
+                    disabled={deshabilitado}
+                    onChange={e => onMarcar(f.fecha, e.target.checked)}
+                    aria-label={`${f.nombre}, ${fechaDelFestivo(f.fecha, hoy)}`}
+                  />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className={cn('text-[13.5px] font-semibold', ya ? 'text-muted-foreground' : 'text-foreground')}>{f.nombre}</span>
+                    <ChapaAmbito ambito={f.ambito} />
+                    {f.origen === 'ia' && <ChapaIA />}
+                    {ya && <span className="text-[11px] font-semibold text-muted-foreground">Ya en tu lista</span>}
+                  </span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
+                    <span className="first-letter:uppercase">{fechaDelFestivo(f.fecha, hoy)}</span>
+                    {f.fuenteUrl ? (
+                      <a href={f.fuenteUrl} target="_blank" rel="noopener noreferrer nofollow" onClick={e => e.stopPropagation()} title={f.fuente ?? undefined}
+                        className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--t-text-link)' }}>
+                        {(f.origen === 'oficial' ? f.fuente?.split(',')[0] : f.fuente) ?? 'Ver la fuente'} <ExternalLink size={11} aria-hidden /><span className="sr-only"> (se abre en otra pestaña)</span>
+                      </a>
+                    ) : f.origen === 'oficial' ? (
+                      <span>Boletín oficial</span>
+                    ) : (
+                      <span>sin fuente: compruébalo tú</span>
+                    )}
+                  </span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
