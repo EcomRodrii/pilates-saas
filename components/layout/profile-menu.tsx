@@ -150,7 +150,7 @@ export function ProfileMenu() {
                 className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
               >
                 <LayoutGrid size={15} className="text-muted-foreground" />
-                Tus módulos
+                Módulos
               </Link>
             )}
             {panelNuevo && enlaceSoporte && (

@@ -73,7 +73,7 @@ export function Baldosa({ tono, Icono, tamano = 'md' }: { tono: Tono; Icono: Ele
  * toque de su color, como las tarjetas de cifras de Bonsai. Suave a propósito
  * (fundador, 14-oct: «los degradados de las cards son muy fuertes, solo debe
  * ser fuerte la de módulos»): `fuerza` se queda en un 40 % de lo que se pide, y
- * el borde casi neutro. La única fuerte es la de Tus módulos, que no pasa por aquí.
+ * el borde casi neutro. La única fuerte es la cabecera de Módulos, que no pasa por aquí.
  */
 export function fondoTenido(tono: Tono, fuerza = 16): CSSProperties {
   const c = TONOS[tono];

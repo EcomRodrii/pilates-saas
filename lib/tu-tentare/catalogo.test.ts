@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { ESSENTIAL_HREFS, MODULOS, NO_OCULTABLES } from '../nav-config.ts';
 import { RUTAS_CONGELADAS } from '../frozen-features.ts';
 import { valorDeModulo, AYUDA_POR_PANTALLA } from '../ayuda/pantallas.ts';
-import { PLAN_ENTITLEMENTS } from '../billing/entitlements.ts';
+import { PLAN_ENTITLEMENTS, PLANES, accesoProducto, tieneFeature } from '../billing/entitlements.ts';
 import { resolverHref, puedeAbrirEnConfiguracion } from '../configuracion/destino.ts';
 import {
-  CONFIGURAR, FEATURE_DE_MODULO, contar, estadoEnMenu, gruposTuTentare, incluidoEnPlan, ocultosTrasCambiar, planQueLoIncluye,
+  CONFIGURAR, FEATURE_DE_MODULO, contar, estadoEnMenu, gruposTuTentare, incluidoEnPlan, ocultosTrasCambiar, planQueFalta, planQueLoIncluye,
 } from './catalogo.ts';
 
 const todos = () => gruposTuTentare().flatMap(g => g.modulos);
@@ -104,4 +104,28 @@ test('el contador es la misma cifra que la fila «Tu menú»: lo encendido (y lo
   // Lo fijo cuenta aunque el dato diga «escondido» (no se puede esconder).
   assert.deepEqual(contar(g, new Set(['/dashboard'])), { en: total, de: total });
   assert.ok(ESSENTIAL_HREFS.length > 0 && NO_OCULTABLES.length === 3);
+});
+
+// La chapa «Desde el plan X» de la pantalla Módulos la decide `tieneFeature`, no
+// una tabla propia: si un plan pasa a incluirlo todo (Founding Studio gratis,
+// 15-oct-2026), la chapa se va sola. Por eso se compara contra `tieneFeature` y
+// no contra un plan fijo.
+test('«Desde el plan…» sale solo cuando `tieneFeature` dice que no, y nunca sin acceso al producto', () => {
+  const conFeature = todos().filter(m => m.feature);
+  assert.ok(conFeature.length > 0);
+  for (const m of conFeature) {
+    for (const plan of [...PLANES, null, 'RARO']) {
+      for (const subscriptionStatus of ['active', 'trialing', 'past_due', 'canceled', 'trial_expirado', null]) {
+        const studio = { plan, subscriptionStatus };
+        const falta = accesoProducto(studio) && !tieneFeature(studio, m.feature!);
+        assert.equal(planQueFalta(m, studio) !== null, falta, `${m.href} con ${plan}/${subscriptionStatus}`);
+        if (falta) assert.equal(planQueFalta(m, studio), planQueLoIncluye(m));
+      }
+    }
+  }
+  // Sin estudio cargado, o un módulo que no depende del plan: nada.
+  assert.equal(planQueFalta({ feature: 'decisiones' }, null), null);
+  assert.equal(planQueFalta({ feature: null }, { plan: 'BASE', subscriptionStatus: 'active' }), null);
+  // Con el plan que lo incluye, nunca.
+  assert.equal(planQueFalta({ feature: 'decisiones' }, { plan: 'ESTUDIO', subscriptionStatus: 'active' }), null);
 });
