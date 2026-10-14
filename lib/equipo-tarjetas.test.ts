@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
-  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual,
+  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual, horas, valoracionMedia,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
 
@@ -122,7 +122,13 @@ test('propietaria ve coste en euros', () => {
 test('responsable de sede ve horas, nunca euros — aunque el dato llegue relleno', () => {
   const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER', AHORA);
   assert.equal(c.segundaEtiqueta, 'Horas del mes');
-  assert.equal(c.segundaValor, '18.5 h');
+  assert.equal(c.segundaValor, '18,5 h');
+});
+
+test('propietaria sobre alguien sin tarifa: horas con coma decimal, como los euros', () => {
+  const c = cifras(m({ costeMes: null, horasMes: 14.2 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.segundaEtiqueta, 'Horas del mes');
+  assert.equal(c.segundaValor, '14,2 h');
 });
 
 test('responsable de sede: el texto de horas no contiene el símbolo de euro', () => {
@@ -147,6 +153,33 @@ test('recepción (situación mostrador) no muestra cifras de clase a nadie', () 
   assert.equal(c.verBarras, false);
 });
 
+// ── horas() / valoracionMedia(): coma decimal, nunca punto ──────────────────
+
+test('horas(): coma decimal y un decimal como mucho', () => {
+  assert.equal(horas(14.2), '14,2 h');
+  assert.equal(horas(14.25), '14,3 h');
+  assert.equal(horas(0.5), '0,5 h');
+});
+
+test('horas(): un número entero sale sin decimales', () => {
+  assert.equal(horas(14), '14 h');
+  assert.equal(horas(0), '0 h');
+  // Una suma de duraciones en coma flotante que se queda a nada del entero.
+  assert.equal(horas(2.9999999), '3 h');
+  assert.equal(horas(14.04), '14 h');
+});
+
+test('valoracionMedia(): siempre un decimal, con coma', () => {
+  assert.equal(valoracionMedia(4.8), '4,8');
+  assert.equal(valoracionMedia(5), '5,0');
+  assert.equal(valoracionMedia(4.63), '4,6');
+});
+
+test('cifras().valoracionTexto: la media con coma decimal', () => {
+  const c = cifras(m({ valoracion: { media: 4.8, total: 34 } }), 'PROPIETARIO', AHORA);
+  assert.equal(c.valoracionTexto, '4,8 de 34 clientas');
+});
+
 // ── frecuenciaMensual() / cifras().frecuenciaTexto ──────────────────────────
 
 test('frecuenciaMensual: null sin datos', () => {
@@ -169,6 +202,12 @@ test('cifras().frecuenciaTexto: freelance de 2 clases/mes lo dice explícitament
 test('cifras().frecuenciaTexto: singular correcto para 1 clase/mes', () => {
   const c = cifras(m({ clasesUltimos90Dias: 3 }), 'PROPIETARIO', AHORA);
   assert.equal(c.frecuenciaTexto, '≈1 clase/mes');
+});
+
+test('cifras().frecuenciaTexto: con decimal, coma y no punto', () => {
+  // 4 clases en 90 días ≈ 1,3 al mes.
+  const c = cifras(m({ clasesUltimos90Dias: 4 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.frecuenciaTexto, '≈1,3 clases/mes');
 });
 
 test('cifras().frecuenciaTexto: null sin datos suficientes', () => {

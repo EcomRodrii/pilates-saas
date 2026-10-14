@@ -13,6 +13,10 @@ import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { fetchRendimientoInstructoras, type RendimientoInstructoraApi } from '@/lib/api-client';
 
+// Coma decimal («66,7%», no «66.7%»): los porcentajes llegan con un decimal. Uno
+// reutilizado, no un formateador por cifra (ver `porZona` en lib/utils.ts).
+const PORCENTAJE = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+
 function Metrica({ etiqueta, pct, n }: { etiqueta: string; pct: number | null; n: number }) {
   return (
     <div>
@@ -20,7 +24,7 @@ function Metrica({ etiqueta, pct, n }: { etiqueta: string; pct: number | null; n
       {pct === null ? (
         <p className="text-[13px] text-muted-foreground">Sin dato</p>
       ) : (
-        <p className="font-semibold text-foreground">{pct}% <span className="text-[11px] font-normal text-muted-foreground">(de {n})</span></p>
+        <p className="font-semibold text-foreground">{PORCENTAJE.format(pct)}% <span className="text-[11px] font-normal text-muted-foreground">(de {n})</span></p>
       )}
     </div>
   );

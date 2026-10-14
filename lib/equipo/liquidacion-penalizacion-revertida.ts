@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { periodoLiquidacionDe } from './liquidacion-logic.ts';
+import { formatEuro } from '../utils.ts';
 
 // 44ª pasada de auditoría, hallazgo H-2. Cuando `procesarReembolsoDeUnRecibo`
 // (lib/billing/procesar-reembolso.ts) marca DEVUELTO un recibo, este helper
@@ -21,7 +22,7 @@ import { periodoLiquidacionDe } from './liquidacion-logic.ts';
 export type CausaReversionPenalizacion = 'reembolso' | 'disputa';
 
 export function motivoRevisionPenalizacion(importe: number, causa: CausaReversionPenalizacion): string {
-  const eur = `${importe.toFixed(2)}€`;
+  const eur = formatEuro(importe);
   return causa === 'disputa'
     ? `Una penalización de ${eur} ya repartida aquí se ha perdido en una disputa: el banco de la socia le ha devuelto el cargo.`
     : `Una penalización de ${eur} ya repartida aquí se ha reembolsado a la socia.`;
