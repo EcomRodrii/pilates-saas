@@ -9,7 +9,7 @@ import { Interruptor } from '@/components/ui/interruptor';
 import { tarjetaPorId, type SeccionId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import type { ResumenFila } from '@/lib/configuracion/resumenes';
-import { FILA, IconoFila } from './fila-herramienta';
+import { CajaValor, FILA, FILAS_COMO_TARJETAS, FILA_NUEVA, IconoFila } from './fila-herramienta';
 import { EstadoAjuste } from './estado-ajuste';
 import { esClicNormal, useNavegacionConfig } from './contexto';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
@@ -31,7 +31,7 @@ export function GrupoFilas({ titulo, children }: { titulo: string; children: Rea
   return (
     <section aria-labelledby={id} className={cn('space-y-2', panelNuevo ? 'max-w-3xl' : 'max-w-2xl')}>
       <h3 id={id} className={panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
-      <ul data-tarjeta-ajuste="" className={cn(panelNuevo ? 'rounded-t-card border border-border bg-card shadow-t-card' : cardCls, 'divide-y divide-border overflow-hidden')}>
+      <ul data-tarjeta-ajuste="" className={panelNuevo ? cn('space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'divide-y divide-border overflow-hidden')}>
         {children}
       </ul>
     </section>
@@ -99,6 +99,27 @@ export function FilaAjuste({
   onAbrir: (id: TarjetaId) => void;
 }) {
   const tarjeta = tarjetaPorId(id);
+  const panelNuevo = usePanelNuevo();
+  if (panelNuevo) {
+    return (
+      <li>
+        <button
+          id={id}
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => onAbrir(id)}
+          className={cn(FILA_NUEVA, 'scroll-mt-32 scroll-mb-32')}
+        >
+          <span className="min-w-0 flex-1">
+            <TituloFila titulo={tarjeta.titulo} estado={estado} />
+            <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{tarjeta.frase}</span>
+            {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
+          </span>
+          <span data-resumen={valor ? 'valor' : 'descripcion'} className="contents"><CajaValor valor={valor} /></span>
+        </button>
+      </li>
+    );
+  }
   return (
     <li>
       <button
@@ -170,8 +191,9 @@ export function FilaInterruptor({
     }
   }
 
+  const panelNuevo = usePanelNuevo();
   return (
-    <li id={id} className="flex min-h-16 scroll-mt-32 scroll-mb-32 items-center gap-3 px-4 py-3">
+    <li id={id} className={cn('flex min-h-16 scroll-mt-32 scroll-mb-32 items-center', panelNuevo ? 'gap-5 px-5 py-4' : 'gap-3 px-4 py-3')}>
       <IconoFila icono={icono} />
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-semibold text-foreground">{tarjeta.titulo}</span>
@@ -224,6 +246,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
   ancla?: TarjetaId;
 }) {
   const nav = useNavegacionConfig();
+  const panelNuevo = usePanelNuevo();
   return (
     <li>
       <a
@@ -234,14 +257,18 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
           e.preventDefault();
           nav.irA(seccion, { ancla, modo: 'push' });
         }}
-        className={cn(FILA, 'scroll-mt-32 scroll-mb-32')}
+        className={cn(panelNuevo ? FILA_NUEVA : FILA, 'scroll-mt-32 scroll-mb-32')}
       >
         <IconoFila icono={icono} />
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
-          <ValorFila valor={valor} descripcion={descripcion ?? valor ?? ''} />
+          {panelNuevo
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{descripcion ?? valor ?? ''}</span>
+            : <ValorFila valor={valor} descripcion={descripcion ?? valor ?? ''} />}
         </span>
-        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+        {panelNuevo
+          ? <CajaValor valor={valor ?? 'Abrir'} />
+          : <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
       </a>
     </li>
   );
@@ -256,15 +283,20 @@ export function FilaExterna({ id, icono, titulo, valor, descripcion, href }: {
   descripcion: string;
   href: string;
 }) {
+  const panelNuevo = usePanelNuevo();
   return (
     <li>
-      <Link id={id} href={href} className={cn(FILA, 'scroll-mt-32 scroll-mb-32')}>
+      <Link id={id} href={href} className={cn(panelNuevo ? FILA_NUEVA : FILA, 'scroll-mt-32 scroll-mb-32')}>
         <IconoFila icono={icono} />
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
-          <ValorFila valor={valor} descripcion={descripcion} />
+          {panelNuevo
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{descripcion}</span>
+            : <ValorFila valor={valor} descripcion={descripcion} />}
         </span>
-        <ArrowUpRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+        {panelNuevo
+          ? <CajaValor valor={valor ?? 'Abrir'} externo />
+          : <ArrowUpRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
       </Link>
     </li>
   );
