@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['no', 'No publica cifras'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['no', 'No publica cifras'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta DeporWeb?',
-    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -55,7 +55,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'No lo publica: hay que contactar con ellos',
   permanencia: 'No consta en su web pública',
   prueba: 'No consta en su web pública',
-  respuesta: <>DeporWeb está pensado para centros deportivos con muchas disciplinas y no publica sus precios. Para un estudio de Pilates o yoga que quiere saber lo que paga sin pedir una demo, y un producto hecho para clases con reformer, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.</>,
+  respuesta: <>DeporWeb está pensado para centros deportivos con muchas disciplinas y no publica sus precios. Para un estudio de Pilates o yoga que quiere saber lo que paga sin pedir una demo, y un producto hecho para clases con reformer, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -64,7 +64,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Un centro deportivo vende accesos, zonas y muchas actividades. Un estudio de Pilates vende plazas en una máquina a una hora concreta, con alumnas que repiten cada semana. Por eso Tentare trae plaza por reformer, aforo por sala, plazas fijas y lista de espera automática. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
-        <p>Y el precio está publicado: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Y el precio está publicado: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

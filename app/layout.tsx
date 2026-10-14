@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   // «Tentare», y es el de la página que más busca la marca.
   title: 'Software de gestión para estudios de Pilates | Tentare',
   description:
-    'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, gratis hasta 150 alumnas activas y 30 cobros al mes.',
+    'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, gratis hasta 150 alumnas activas y 250 reservas al mes.',
   // Sin `alternates.canonical` aquí (23-sep): un canonical en el layout raíz lo
   // heredan TODAS las páginas que no declaran el suyo, y las declara como copia de
   // la home. Cada página indexable pone el suyo; la home, en app/page.tsx.
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     title: 'Tentare: software para estudios de Pilates y Yoga',
     description:
-      'Reservas, cobros, bonos y sustituciones de instructoras para estudios de Pilates y Yoga. Sin permanencia, gratis hasta 150 alumnas activas y 30 cobros al mes.',
+      'Reservas, cobros, bonos y sustituciones de instructoras para estudios de Pilates y Yoga. Sin permanencia, gratis hasta 150 alumnas activas y 250 reservas al mes.',
   },
   twitter: {
     card: 'summary_large_image',

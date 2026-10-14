@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Flowstark?',
-    a: 'Tiene un plan gratuito (con límites de clientes, servicios y suscripciones) y un plan Pro a 19 €/mes sin límite; los precios no incluyen impuestos. Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA.',
+    a: 'Tiene un plan gratuito (con límites de clientes, servicios y suscripciones) y un plan Pro a 19 €/mes sin límite; los precios no incluyen impuestos. Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA.',
   },
 ];
 
@@ -55,7 +55,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Gratis hasta 50 clientes o 19 €/mes + impuestos',
   permanencia: 'Cancelas cuando quieras',
   destacado: { etiqueta: 'Reservas de clases', suyo: 'No consta: es una herramienta de cobros', nuestro: 'Reservas con plaza por reformer y lista de espera' },
-  respuesta: <>Flowstark resuelve los cobros recurrentes, pero un estudio de Pilates necesita además reservas con sala y reformer, bonos, plazas fijas y alguien que cubra la clase cuando falla una instructora. Si quieres todo eso en un solo programa, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.</>,
+  respuesta: <>Flowstark resuelve los cobros recurrentes, pero un estudio de Pilates necesita además reservas con sala y reformer, bonos, plazas fijas y alguien que cubra la clase cuando falla una instructora. Si quieres todo eso en un solo programa, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [

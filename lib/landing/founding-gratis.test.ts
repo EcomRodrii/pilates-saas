@@ -4,11 +4,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLAN_ENTITLEMENTS } from '../billing/entitlements.ts';
 import {
-  CON_MAS_COBROS,
+  CON_MAS_RESERVAS,
   ENTITLEMENTS_FOUNDING_GRATIS,
   FRASE_FOUNDING,
   GRATIS_ALUMNAS,
-  GRATIS_COBROS_MES,
+  GRATIS_RESERVAS_MES,
   GRATIS_CON_LIMITES,
   GRATIS_MARGEN_DIAS,
   LIMITES_GRATIS,
@@ -21,16 +21,16 @@ import {
 
 test('las cifras son las de la decisión', () => {
   assert.equal(GRATIS_ALUMNAS, 150);
-  assert.equal(GRATIS_COBROS_MES, 30);
+  assert.equal(GRATIS_RESERVAS_MES, 250);
   assert.equal(GRATIS_MARGEN_DIAS, 30);
-  assert.equal(LIMITES_GRATIS, 'hasta 150 alumnas activas y 30 cobros al mes');
-  assert.equal(TOPE_GRATIS, 'Hasta 150 alumnas activas y 30 cobros al mes');
-  assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 alumnas activas y 30 cobros al mes');
+  assert.equal(LIMITES_GRATIS, 'hasta 150 alumnas activas y 250 reservas al mes');
+  assert.equal(TOPE_GRATIS, 'Hasta 150 alumnas activas y 250 reservas al mes');
+  assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 alumnas activas y 250 reservas al mes');
 });
 
-test('con más cobros, Founding Studio de pago a su precio de siempre (29 €)', () => {
+test('con más reservas, Founding Studio de pago a su precio de siempre (29 €)', () => {
   assert.equal(PRECIO_FOUNDING_PAGO, 29);
-  assert.equal(CON_MAS_COBROS, 'con más cobros, 29 €/mes');
+  assert.equal(CON_MAS_RESERVAS, 'con más reservas, 29 €/mes');
 });
 
 test('la frase del fundador va literal, con la tilde de «Tú»', () => {
@@ -79,9 +79,9 @@ const PROHIBIDO: [RegExp, string][] = [
   [/\b(7|siete)\s+días\s+(gratis|de prueba|sin tarjeta)/i, 'ya no hay prueba de 7 días'],
   [/prueba\s+(gratuita\s+)?de\s+(7|siete)\s+días/i, 'ya no hay prueba de 7 días'],
   [/con el plan que elijas|del plan que elijas/, 'ya no se elige plan para probar: se empieza en Founding Studio gratis'],
-  // Founding Studio cuesta 29 € SOLO con más de 30 cobros: el precio va siempre
-  // atado a los cobros («Founding Studio gratis (…; con más cobros, 29 €/mes)»).
-  [/Founding Studio(?:(?!cobros)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «con más cobros»'],
+  // Founding Studio cuesta 29 € SOLO con más de 250 reservas: el precio va siempre
+  // atado a las reservas («Founding Studio gratis (…; con más reservas, 29 €/mes)»).
+  [/Founding Studio(?:(?!reservas)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «con más reservas»'],
   [/después,? 59 ?€/, 'pasado lo gratis, Founding Studio cuesta 29 €; Estudio (59 €) es para más de 150 alumnas'],
   // «+ IVA» es de la competencia (Bonsai: «desde 29 €/mes + IVA»); Tentare lo decía con IVA.
   [/[Dd]esde 29(\s|&nbsp;)*(€|euros)(?!\/mes \+ IVA)/, 'el precio de entrada de Tentare es gratis'],
@@ -101,14 +101,14 @@ test('la web no promete la prueba de 7 días ni Founding Studio a 29 €', () =>
   assert.deepEqual(fallos, []);
 });
 
-test('en la web, «150 alumnas» de Tentare va siempre con «30 cobros al mes»', () => {
-  // Con 150 alumnas lo normal es pasar de 30 cobros: un límite sin el otro engaña.
+test('en la web, «150 alumnas» de Tentare va siempre con «250 reservas al mes»', () => {
+  // Con 150 alumnas lo normal es pasar de 250 reservas: un límite sin el otro engaña.
   const fallos: string[] = [];
   for (const f of WEB.flatMap(ficheros)) {
     if (!/\.(tsx?|txt)$/.test(f) || f.endsWith('.test.ts')) continue;
     readFileSync(join(RAIZ, f), 'utf8').split('\n').forEach((linea, i) => {
       const l = linea.replace(/ | /g, ' ');
-      if (/150 alumnas/.test(l) && !/30 cobros|GRATIS_COBROS_MES|LIMITES_GRATIS|TOPE_GRATIS/.test(l)) fallos.push(`${f}:${i + 1}`);
+      if (/150 alumnas/.test(l) && !/250 reservas|GRATIS_RESERVAS_MES|LIMITES_GRATIS|TOPE_GRATIS/.test(l)) fallos.push(`${f}:${i + 1}`);
     });
   }
   assert.deepEqual(fallos, []);

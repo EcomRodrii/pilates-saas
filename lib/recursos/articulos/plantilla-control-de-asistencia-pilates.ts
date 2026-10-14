@@ -184,7 +184,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'En ese punto, un programa hace lo mismo sin que lo teclees. Tentare, por ejemplo, tiene [check-in y control de asistencia](/funcionalidades/control-de-asistencia), bonos con caducidad y lista de espera automática, y tus alumnas reservan y cancelan solas desde el móvil. Si ya tienes a tus alumnas en esta plantilla, su importador lee Excel. Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes; y si prefieres otras herramientas sin coste, mira qué más puedes montar con [software de pilates gratis](/recursos/software-pilates-gratis).',
+            'En ese punto, un programa hace lo mismo sin que lo teclees. Tentare, por ejemplo, tiene [check-in y control de asistencia](/funcionalidades/control-de-asistencia), bonos con caducidad y lista de espera automática, y tus alumnas reservan y cancelan solas desde el móvil. Si ya tienes a tus alumnas en esta plantilla, su importador lee Excel. Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes; y si prefieres otras herramientas sin coste, mira qué más puedes montar con [software de pilates gratis](/recursos/software-pilates-gratis).',
         },
       ],
     },

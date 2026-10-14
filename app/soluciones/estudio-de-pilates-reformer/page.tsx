@@ -104,13 +104,13 @@ export default function EstudioDePilatesReformerPage() {
         datos={[
           { cifra: '25 €', texto: 'Precio mediano de una clase suelta de reformer, de una muestra de 32 estudios españoles' },
           { cifra: '18,75 €', texto: 'Lo que sale cada sesión con una cuota de una clase a la semana' },
-          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 30 cobros al mes' },
+          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 250 reservas al mes' },
         ]}
       >
         Uno que trate cada reformer como una plaza: que la alumna reserve su máquina desde el móvil, que el aforo de
         cada sala se respete solo, que la plaza que se libera pase a la lista de espera sin escribir un WhatsApp y que
         el reformer y el mat puedan tener reglas y precios distintos. Tentare hace todo eso, junto con los cobros, los
-        bonos y las sustituciones de instructoras, gratis hasta 150 alumnas activas y 30 cobros al mes, y sin permanencia.
+        bonos y las sustituciones de instructoras, gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones

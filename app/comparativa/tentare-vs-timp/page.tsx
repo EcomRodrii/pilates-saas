@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 // https://timp.pro/app-de-reservas/ (sin mención de aforo por sala ni de
 // reglas de reserva por tipo de clase).
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['yes', 'Desde 50 €/mes (1 profesional); no consta si incluye IVA'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['yes', 'Desde 50 €/mes (1 profesional); no consta si incluye IVA'] },
   { feature: 'Compromiso mínimo', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', '«La contratación mínima en la mayoría de planes es de 3 meses»'] },
   { feature: 'Comisión por captar clientas', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', 'Con TIMPY, «comisión por la gestión del cobro»; el porcentaje no es público'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'Progressive Web App con tu logo, nombre y colores'] },
@@ -48,7 +48,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta TIMP?',
-    a: 'Según su web, por centro y al mes: Starter 50 € (1 profesional), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con descuento en planes semestrales y anuales; la web no aclara si incluye IVA. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, por centro y al mes: Starter 50 € (1 profesional), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con descuento en planes semestrales y anuales; la web no aclara si incluye IVA. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿TIMP tiene permanencia?',
@@ -68,7 +68,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Por centro y por profesionales: de 50 €/mes (1) a 170 €/mes (15)',
   permanencia: 'Mínimo de 3 meses en la mayoría de planes',
   destacado: { etiqueta: 'Instructoras', suyo: 'El precio sube con cada profesional del centro', nuestro: 'El precio no cuenta instructoras' },
-  respuesta: <>TIMP sirve para muchos negocios de citas y clases, y su precio depende de cuántos profesionales trabajan en tu centro, con un mínimo de 3 meses en la mayoría de planes. Un estudio de Pilates con cuatro instructoras ya entra en su plan de 130 €/mes. Si quieres un precio que no cuente instructoras y sin compromiso, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.</>,
+  respuesta: <>TIMP sirve para muchos negocios de citas y clases, y su precio depende de cuántos profesionales trabajan en tu centro, con un mínimo de 3 meses en la mayoría de planes. Un estudio de Pilates con cuatro instructoras ya entra en su plan de 130 €/mes. Si quieres un precio que no cuente instructoras y sin compromiso, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -77,7 +77,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>TIMP cotiza por centro y al mes, según los profesionales: Starter 50 € (1), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con pago mensual y algo menos en planes semestrales y anuales. Su web no aclara si el precio incluye IVA, y la contratación mínima en la mayoría de planes es de 3 meses.</p>
-        <p>En un estudio de Pilates el equipo crece pronto: con cuatro instructoras ya no vale el plan Basic y pasas a Pro, 130 € al mes. En Tentare el precio no depende de cuántas instructoras tengas: Founding Studio gratis hasta 150 alumnas activas y 30 cobros al mes y 29 €/mes con más cobros, y Estudio 59 €/mes sin límite de alumnas, IVA incluido y sin permanencia. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>En un estudio de Pilates el equipo crece pronto: con cuatro instructoras ya no vale el plan Basic y pasas a Pro, 130 € al mes. En Tentare el precio no depende de cuántas instructoras tengas: Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes y 29 €/mes con más reservas, y Estudio 59 €/mes sin límite de alumnas, IVA incluido y sin permanencia. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

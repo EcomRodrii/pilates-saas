@@ -219,11 +219,11 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
+          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
         },
         {
           t: 'llamada',
-          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia.',
+          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.',
         },
       ],
     },

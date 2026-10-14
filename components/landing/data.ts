@@ -1,4 +1,4 @@
-import { CON_MAS_COBROS, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_COBROS_MES, PRECIO_FOUNDING_PAGO, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { CON_MAS_RESERVAS, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 
 // Menú principal. También alimenta el `SiteNavigationElement` de
 // components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
@@ -32,7 +32,7 @@ export const INTEGRACIONES = [
 // ⚠️ Nada que el código no respalde: «Soporte dedicado» salió el 23-sep porque
 // no existe en los entitlements, y «EL MÁS ELEGIDO» también (0 estudios de pago).
 // Founding Studio es GRATIS desde el 15-oct-2026 (lib/landing/founding-gratis.ts):
-// todo menos varias sedes, con dos límites; con más cobros, el mismo plan a 29 €.
+// todo menos varias sedes, con dos límites; con más reservas, el mismo plan a 29 €.
 // Por eso Estudio ya no se vende por las sustituciones autónomas ni el Centro de
 // Control: los tiene Founding Studio. Lo que lo distingue son las alumnas.
 export const PLANS = [
@@ -40,7 +40,7 @@ export const PLANS = [
     id: 'BASE' as const,
     name: 'Founding Studio',
     price: 'Gratis',
-    desc: `Para empezar. ${TOPE_GRATIS}; ${CON_MAS_COBROS}.`,
+    desc: `Para empezar. ${TOPE_GRATIS}; ${CON_MAS_RESERVAS}.`,
     features: [TODO_MENOS_SEDES, 'Reservas y calendario', 'Cobros, bonos y facturas', 'App con tu marca'],
     cta: CTA_ALTA,
     dark: false,
@@ -51,8 +51,8 @@ export const PLANS = [
     id: 'ESTUDIO' as const,
     name: 'Estudio',
     price: '59€',
-    desc: 'Alumnas y cobros sin límite.',
-    features: ['Todo lo de Founding Studio', 'Alumnas ilimitadas', 'Cobros sin límite'],
+    desc: 'Alumnas y reservas sin límite.',
+    features: ['Todo lo de Founding Studio', 'Alumnas ilimitadas', 'Reservas sin límite'],
     cta: CTA_ALTA,
     dark: true,
     popular: true,
@@ -99,7 +99,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cuánto cuesta Tentare?',
-    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_COBROS_MES} cobros al mes, con todas las funcionalidades menos varias sedes; con más cobros, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA. Con más de ${GRATIS_ALUMNAS} alumnas, el plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
+    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; con más reservas, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA. Con más de ${GRATIS_ALUMNAS} alumnas, el plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
   },
   {
     q: '¿Hay permanencia?',

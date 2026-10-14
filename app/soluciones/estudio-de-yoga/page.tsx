@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
-    a: 'Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes (con más cobros, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
+    a: 'Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (con más reservas, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
 ];
 
@@ -96,12 +96,12 @@ export default function EstudioDeYogaPage() {
         datos={[
           { cifra: '24/7', texto: 'Reservas y cancelaciones desde el móvil, con tus reglas' },
           { cifra: '0 %', texto: 'Comisión de Tentare sobre lo que cobras' },
-          { cifra: 'Gratis', texto: 'Founding Studio, con la app con tu marca, hasta 150 alumnas activas y 30 cobros al mes' },
+          { cifra: 'Gratis', texto: 'Founding Studio, con la app con tu marca, hasta 150 alumnas activas y 250 reservas al mes' },
         ]}
       >
         Uno que te quite el trabajo de mostrador: reservas online con lista de espera, bonos y mensualidades que se
         cobran y se renuevan solos, una app con la marca de tu estudio para tus alumnas y un sitio donde ver quién viene
-        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, gratis hasta 150 alumnas activas y 30 cobros
+        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, gratis hasta 150 alumnas activas y 250 reservas
         al mes, y sin permanencia.
       </ResumenSolucion>
 

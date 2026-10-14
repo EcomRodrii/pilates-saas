@@ -87,7 +87,7 @@ const ROWS: {
 }[] = [
   {
     feature: 'Precio público en la web',
-    tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'],
+    tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'],
     bsport: ['no', 'Pide presupuesto'],
     momence: ['no', 'Pide hablar con ellos'],
     eversports: ['yes', 'Desde 33 €/mes + IVA'],

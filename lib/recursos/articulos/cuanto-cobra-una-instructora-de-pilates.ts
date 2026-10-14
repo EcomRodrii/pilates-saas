@@ -337,7 +337,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Sabe cuánto te cuesta cada clase y organiza las bajas con tu visto bueno',
     texto:
-      'Con Tentare ves la rentabilidad de cada clase, lo que ingresa menos lo que cuesta su instructora, y gestionas las sustituciones sin perder el control. Gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
+      'Con Tentare ves la rentabilidad de cada clase, lo que ingresa menos lo que cuesta su instructora, y gestionas las sustituciones sin perder el control. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Comprobar si se han publicado en el BOE las tablas salariales de 2026 o el VI Convenio estatal de instalaciones deportivas y gimnasios: a 25-sep-2026 no constaban, y UGT informaba en mayo de 2026 de que no había acuerdo.',

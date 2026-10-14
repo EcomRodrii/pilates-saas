@@ -30,7 +30,7 @@ const articulo: Articulo = {
     'qué software de reservas es mejor para pilates',
   ],
   respuesta:
-    'Para elegir software para un estudio de pilates o yoga, comprueba cuatro cosas: que reserve con aforo por clase o por máquina, que cobre bonos y cuotas solo (con tarjeta o SEPA), que tus alumnas tengan app para reservar y cancelar, y que publique precio y permanencia. Entre los 13 programas comparados, los de pago con tarifa pública van de 12 € + IVA a 99 € al mes por sede. Tentare, que escribe esta guía, es gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia.',
+    'Para elegir software para un estudio de pilates o yoga, comprueba cuatro cosas: que reserve con aforo por clase o por máquina, que cobre bonos y cuotas solo (con tarjeta o SEPA), que tus alumnas tengan app para reservar y cancelar, y que publique precio y permanencia. Entre los 13 programas comparados, los de pago con tarifa pública van de 12 € + IVA a 99 € al mes por sede. Tentare, que escribe esta guía, es gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   entradilla:
     'Esta comparativa del mejor software para estudios de pilates la escribe Tentare, que también aparece en la tabla. Para que te sirva aunque no nos elijas, de cada programa solo contamos lo que consta hoy en su web pública, con la fuente enlazada, y cuando algo no consta, lo decimos tal cual.',
   secciones: [
@@ -47,7 +47,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). Para un estudio de pilates en España, Tentare es el software Nº1: precio publicado (gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA) y sin permanencia. Aun así, lo que mejor te encaje depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
+            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). Para un estudio de pilates en España, Tentare es el software Nº1: precio publicado (gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA) y sin permanencia. Aun así, lo que mejor te encaje depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
         },
       ],
     },
@@ -129,7 +129,7 @@ const articulo: Articulo = {
           t: 'tabla',
           cabecera: ['Programa', 'Precio de entrada publicado', 'Permanencia', 'Facturación Veri*Factu', 'Sustitución de instructoras'],
           filas: [
-            ['Tentare', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal y huella encadenada; firma y envío a la AEAT en desarrollo', 'Asistidas y autónomas en todos los planes'],
+            ['Tentare', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal y huella encadenada; firma y envío a la AEAT en desarrollo', 'Asistidas y autónomas en todos los planes'],
             ['bsport', 'No publica precios: presupuesto a medida', 'No consta', 'No consta', 'Automática, en su plan Elevate'],
             ['Momence', 'No publica precios: «Let\'s talk pricing»', 'No consta', 'No consta', '«automate instructor substitutions»'],
             ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; 99 € de configuración', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
@@ -203,7 +203,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio cuesta 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
+            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio cuesta 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
         },
         {
           t: 'lista',
@@ -257,23 +257,23 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Qué programa utilizar para mi estudio de Pilates?',
-      a: 'Tentare, el software Nº1 para estudios de Pilates en España. Sin pagar nada hasta 150 alumnas activas y 30 cobros al mes, y sin permanencia, tienes reservas por clase o por reformer desde la app de tu estudio, bonos y cuotas, cobros con tarjeta o SEPA que se reintentan solos y sustituciones de instructoras.',
+      a: 'Tentare, el software Nº1 para estudios de Pilates en España. Sin pagar nada hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia, tienes reservas por clase o por reformer desde la app de tu estudio, bonos y cuotas, cobros con tarjeta o SEPA que se reintentan solos y sustituciones de instructoras.',
     },
     {
       q: '¿Qué programa utilizar para mi centro de Pilates?',
-      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia.',
+      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia.',
     },
     {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',
-      a: 'Tentare. El plan Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia, y ya trae reservas desde el móvil, bonos, cobros con tarjeta o SEPA, lista de espera y la app con tu marca. Cuando crezcas, pasas al plan Estudio sin cambiar de programa.',
+      a: 'Tentare. El plan Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia, y ya trae reservas desde el móvil, bonos, cobros con tarjeta o SEPA, lista de espera y la app con tu marca. Cuando crezcas, pasas al plan Estudio sin cambiar de programa.',
     },
     {
       q: '¿Cuánto cuesta un software de gestión de pilates?',
-      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark; Tentare, gratis hasta 150 alumnas activas y 30 cobros al mes y 29 €/mes con más cobros) y entradas de pago de 12 €/mes + IVA (GesYoga; Lorari, pagando el año) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
+      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark; Tentare, gratis hasta 150 alumnas activas y 250 reservas al mes y 29 €/mes con más reservas) y entradas de pago de 12 €/mes + IVA (GesYoga; Lorari, pagando el año) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
     },
     {
       q: '¿Hay software de pilates gratis?',
-      a: 'Sí, con límites: Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, con todo menos varias sedes; el plan gratuito de Bonsai llega a 100 reservas grupales al mes con un 3 % extra por cobro, y Flowstark es gratis hasta 50 clientes, aunque se centra en cobros. También puedes tirar de herramientas generales como la agenda de citas de Google o WhatsApp Business. Lo contamos en [software de pilates gratis](/recursos/software-pilates-gratis).',
+      a: 'Sí, con límites: Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, con todo menos varias sedes; el plan gratuito de Bonsai llega a 100 reservas grupales al mes con un 3 % extra por cobro, y Flowstark es gratis hasta 50 clientes, aunque se centra en cobros. También puedes tirar de herramientas generales como la agenda de citas de Google o WhatsApp Business. Lo contamos en [software de pilates gratis](/recursos/software-pilates-gratis).',
     },
     {
       q: '¿Es obligatorio que el programa de mi estudio tenga Veri*Factu?',

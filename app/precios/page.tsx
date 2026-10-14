@@ -10,7 +10,7 @@ import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/Organi
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CON_MAS_COBROS, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_COBROS_MES, GRATIS_MARGEN_DIAS, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
+import { CON_MAS_RESERVAS, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, GRATIS_MARGEN_DIAS, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
 import { ofertasPlanesLd } from '@/components/landing/StructuredData';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
@@ -68,8 +68,8 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o los ${GRATIS_COBROS_MES} cobros al mes del plan Founding Studio?`,
-    a: `Si pasas de ${GRATIS_COBROS_MES} cobros al mes, sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes; si pasas de ${GRATIS_ALUMNAS} alumnas activas, el plan ${PLAN_INFO.ESTUDIO.nombre} cuesta ${PLAN_INFO.ESTUDIO.precioMes} € al mes. Los dos, con IVA incluido. Tienes ${GRATIS_MARGEN_DIAS} días para elegir; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
+    q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
+    a: `Si pasas de ${GRATIS_RESERVAS_MES} reservas al mes, sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes; si pasas de ${GRATIS_ALUMNAS} alumnas activas, el plan ${PLAN_INFO.ESTUDIO.nombre} cuesta ${PLAN_INFO.ESTUDIO.precioMes} € al mes. Los dos, con IVA incluido. Tienes ${GRATIS_MARGEN_DIAS} días para elegir; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -161,7 +161,7 @@ export default function PreciosPage() {
                   <>
                     {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
                     <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6B6B63', marginTop: 7 }}>
-                      Hasta {GRATIS_COBROS_MES} cobros al mes · {CON_MAS_COBROS}
+                      Hasta {GRATIS_RESERVAS_MES} reservas al mes · {CON_MAS_RESERVAS}
                     </div>
                     {/* La frase del fundador, junto a Founding Studio. En la
                         cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
@@ -193,7 +193,7 @@ export default function PreciosPage() {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
             Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
-            {LIMITES_GRATIS}; {CON_MAS_COBROS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {LIMITES_GRATIS}; {CON_MAS_RESERVAS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
             {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
@@ -206,7 +206,7 @@ export default function PreciosPage() {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
           <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño: alumnas,
-            cobros al mes y sedes.
+            reservas al mes y sedes.
           </p>
           <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
           <p className="lp-mono" style={{ fontSize: 11.5, color: '#6B6B63', margin: '14px 0 0' }}>

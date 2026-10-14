@@ -18,7 +18,7 @@ const articulo: Articulo = {
     'sistema de reservas online gratuito',
   ],
   respuesta:
-    'Sí hay software de pilates gratis, pero con límites. Con una cuenta de Google personal puedes publicar una página de reservas, WhatsApp Business es gratuita y hay planes a 0 € pensados para centros, como Bonsai Seed (hasta 100 reservas grupales al mes y un 3 % extra por cobro) o Flowstark Free (cobros, hasta 50 clientes); Tentare, que escribe esta guía, es gratis hasta 150 alumnas activas y 30 cobros al mes. Sirven para arrancar con pocas alumnas; con bonos, cuotas y varias instructoras, el trabajo a mano crece rápido.',
+    'Sí hay software de pilates gratis, pero con límites. Con una cuenta de Google personal puedes publicar una página de reservas, WhatsApp Business es gratuita y hay planes a 0 € pensados para centros, como Bonsai Seed (hasta 100 reservas grupales al mes y un 3 % extra por cobro) o Flowstark Free (cobros, hasta 50 clientes); Tentare, que escribe esta guía, es gratis hasta 150 alumnas activas y 250 reservas al mes. Sirven para arrancar con pocas alumnas; con bonos, cuotas y varias instructoras, el trabajo a mano crece rápido.',
   entradilla:
     'Cuando abres un estudio, cada euro cuenta y pagar un programa antes de tener alumnas da vértigo. Esto es lo que de verdad puedes montar con software de pilates gratis y herramientas sin coste, con los límites que publica cada una, y las señales de que ha llegado el momento de pagar.',
   secciones: [
@@ -42,7 +42,7 @@ const articulo: Articulo = {
             ['SimplyBook.me, plan Free', '0 €: hasta 50 reservas al mes, un proveedor y widget de reservas', 'Con clases de grupo, 50 reservas al mes se acaban pronto'],
             ['Bonsai, plan Seed', '0 € para siempre: hasta 100 reservas grupales al mes, pensado para yoga y pilates', 'Un 3 % extra en cada cobro por su pasarela de pago'],
             ['Flowstark, plan Free', '0 €: hasta 50 clientes, 30 servicios y 30 suscripciones', 'Es una herramienta de cobros: en su web no consta que gestione reservas'],
-            ['Tentare, plan Founding Studio', 'Gratis hasta 150 alumnas activas y 30 cobros al mes: todas sus funciones menos varias sedes, con la app con tu marca', 'Con más cobros, 29 €/mes con IVA; con más de 150 alumnas, el plan Estudio, 59 €/mes'],
+            ['Tentare, plan Founding Studio', 'Gratis hasta 150 alumnas activas y 250 reservas al mes: todas sus funciones menos varias sedes, con la app con tu marca', 'Con más reservas, 29 €/mes con IVA; con más de 150 alumnas, el plan Estudio, 59 €/mes'],
             ['Aplicación de facturación de la AEAT', 'Gratuita: emite facturas y envía los registros a Hacienda con VERI*FACTU', 'Va aparte de reservas y cobros, y está pensada para un volumen reducido de facturas'],
           ],
           nota:
@@ -98,7 +98,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Si buscas una app con el nombre de tu estudio en el móvil de tus alumnas, no la vas a encontrar en los planes gratuitos de terceros que hemos revisado: en Bonsai, la app personalizable aparece a partir del plan Starter, y en SimplyBook.me la app de cliente con tu marca no está entre las opciones del plan Free. El de Tentare, que escribe esta guía, sí la incluye, gratis hasta 150 alumnas activas y 30 cobros al mes.',
+            'Si buscas una app con el nombre de tu estudio en el móvil de tus alumnas, no la vas a encontrar en los planes gratuitos de terceros que hemos revisado: en Bonsai, la app personalizable aparece a partir del plan Starter, y en SimplyBook.me la app de cliente con tu marca no está entre las opciones del plan Free. El de Tentare, que escribe esta guía, sí la incluye, gratis hasta 150 alumnas activas y 250 reservas al mes.',
         },
         {
           t: 'p',
@@ -183,7 +183,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Si llegas a ese punto, Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, sin tarjeta y sin permanencia; con más cobros, 29 €/mes con IVA, y con más de 150 alumnas, el plan Estudio, 59 €/mes. Si empezaste con una hoja de cálculo, su importador lee Excel y te enseña un acta de lo importado, con botón de deshacer. Tienes los planes en [precios](/precios).',
+            'Si llegas a ese punto, Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia; con más reservas, 29 €/mes con IVA, y con más de 150 alumnas, el plan Estudio, 59 €/mes. Si empezaste con una hoja de cálculo, su importador lee Excel y te enseña un acta de lo importado, con botón de deshacer. Tienes los planes en [precios](/precios).',
         },
       ],
     },
@@ -195,7 +195,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Qué app para reservar clases gratis puedo usar?',
-      a: 'Para tus alumnas sirve cualquier página de reservas que se abra en el móvil: la agenda de citas de Google, la de Square Citas o la de un plan gratuito como el de SimplyBook.me o Bonsai. Una app con el nombre y el icono de tu estudio no aparece en los planes gratuitos de terceros que hemos revisado; en Tentare va incluida, gratis hasta 150 alumnas activas y 30 cobros al mes.',
+      a: 'Para tus alumnas sirve cualquier página de reservas que se abra en el móvil: la agenda de citas de Google, la de Square Citas o la de un plan gratuito como el de SimplyBook.me o Bonsai. Una app con el nombre y el icono de tu estudio no aparece en los planes gratuitos de terceros que hemos revisado; en Tentare va incluida, gratis hasta 150 alumnas activas y 250 reservas al mes.',
     },
     {
       q: '¿Puedo tener un sistema de reservas online gratuito en mi web?',
@@ -233,11 +233,11 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Gratis y con todo en un solo sitio',
     texto:
-      'Empieza gratis con Tentare, sin tarjeta: bonos con caducidad, lista de espera automática y cobros recurrentes con Stripe, gratis hasta 150 alumnas activas y 30 cobros al mes y sin permanencia.',
+      'Empieza gratis con Tentare, sin tarjeta: bonos con caducidad, lista de espera automática y cobros recurrentes con Stripe, gratis hasta 150 alumnas activas y 250 reservas al mes y sin permanencia.',
   },
   revision: [
     'Planes gratuitos de terceros (Google, Square, SimplyBook.me, Bonsai, Flowstark) revisados el 25-sep-2026: cambian a menudo, repasarlos cada trimestre.',
-    'Tentare Founding Studio, gratis desde el 15-oct-2026 (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes): la fila de la tabla sale de /precios.',
+    'Tentare Founding Studio, gratis desde el 15-oct-2026 (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes): la fila de la tabla sale de /precios.',
     'SimplyBook.me: su FAQ dice que el plan Free incluye «client app», pero en la tabla de planes la «Branded Client App» aparece en planes de pago; el texto solo afirma lo segundo.',
   ],
 };

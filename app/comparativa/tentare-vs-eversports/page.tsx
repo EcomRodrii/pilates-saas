@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['yes', 'Desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA, según reservas al mes'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['yes', 'Desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA, según reservas al mes'] },
   { feature: 'Cuota de alta', tentare: ['yes', 'Sin cuota de alta'], them: ['partial', 'Su página de precios la enseña tachada (99 €), aunque sus preguntas frecuentes aún la mencionan'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública; el plan anual se factura por año'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['yes', '«Gestión de sustituciones», según su web'] },
@@ -32,7 +32,7 @@ const ROWS: ComparativaRow[] = [
   // Ejes añadidos el 29-sep-2026 (eversportsmanager.com/es, /es-ES/precios y
   // /es-ES/funciones-de-gestion, revisadas esa fecha).
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima/máxima y lista de espera propias por tipo de clase'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo se ofrece reservar una demo'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo se ofrece reservar una demo'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Con una sola suscripción (plan Cadena)'], them: ['yes', '«Gestionarlos desde un solo panel», según su web'] },
 ];
 
@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Eversports Manager?',
-    a: 'Según su web, depende de las reservas al mes y no incluye IVA. Con pago mensual: Light (hasta 49 reservas) 41 €, Starter (hasta 199) 69 €, Accelerate (hasta 599) 106 €, Professional (hasta 1.499) 149 € y Champion 189 €; con pago anual salen a 33, 55, 85, 119 y 151 € al mes. Su página de precios enseña tachada una configuración de 99 € que sus preguntas frecuentes aún mencionan. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin cuota de alta.',
+    a: 'Según su web, depende de las reservas al mes y no incluye IVA. Con pago mensual: Light (hasta 49 reservas) 41 €, Starter (hasta 199) 69 €, Accelerate (hasta 599) 106 €, Professional (hasta 1.499) 149 € y Champion 189 €; con pago anual salen a 33, 55, 85, 119 y 151 € al mes. Su página de precios enseña tachada una configuración de 99 € que sus preguntas frecuentes aún mencionan. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin cuota de alta.',
   },
   {
     q: '¿Puedo pasar mis datos de Eversports a Tentare?',
@@ -58,7 +58,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'De 41 a 189 €/mes + IVA según tus reservas al mes (de 33 a 151 € pagando el año)',
   permanencia: 'No consta; el plan anual se factura por año',
   prueba: 'No consta: ofrece una consulta o una demo',
-  respuesta: <>Eversports publica sus precios, pero el que pagas depende de cuántas reservas haces al mes, y sin IVA. En un estudio de Pilates que funciona, las reservas suben rápido y con ellas la cuota. Si quieres un precio fijo que no crezca con cada clase llena, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, y 29 o 59 €/mes con IVA si pasas de ahí, sin cuota de alta y sin permanencia.</>,
+  respuesta: <>Eversports publica sus precios, pero el que pagas depende de cuántas reservas haces al mes, y sin IVA. En un estudio de Pilates que funciona, las reservas suben rápido y con ellas la cuota. Si quieres un precio fijo que no crezca con cada clase llena, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, y 29 o 59 €/mes con IVA si pasas de ahí, sin cuota de alta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -68,7 +68,7 @@ const ANALISIS: SeccionAnalisis[] = [
       <>
         <p>Eversports Manager cobra por tramos de reservas al mes, sin IVA. Con pago mensual: Light hasta 49 reservas, 41 €; Starter hasta 199, 69 €; Accelerate hasta 599, 106 €; Professional hasta 1.499, 149 €, y Champion, 189 €. Pagando el año salen a 33, 55, 85, 119 y 151 € al mes. Su página de precios enseña tachada la configuración de 99 €, aunque sus preguntas frecuentes todavía la mencionan: pregúntalo antes de firmar.</p>
         <p>Pon números a un estudio de reformer normal: 8 máquinas, 5 clases al día y 22 días abiertos son 880 plazas al mes. Con una ocupación del 80 %, unas 700 reservas. Eso cae en el tramo Professional: 149 € + IVA, es decir, unos 180 € al mes con pago mensual, o 144 € al mes pagando el año entero por adelantado.</p>
-        <p>El mismo estudio en Tentare no paga nada mientras no pase de 30 cobros al mes; con más cobros, paga 29 €/mes si tiene hasta 150 alumnas activas, o 59 €/mes sin límite de alumnas, IVA incluido en los dos casos. El precio no cambia con las reservas: llenar más clases no te sube la cuota. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>El mismo estudio, con 700 reservas al mes, paga en Tentare 29 €/mes si tiene hasta 150 alumnas activas, o 59 €/mes sin límite de alumnas, IVA incluido en los dos casos; con 250 reservas al mes o menos, no paga nada. Pasado ese punto, el precio ya no cambia con las reservas: llenar más clases no te sube la cuota. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

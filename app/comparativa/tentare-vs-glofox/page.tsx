@@ -57,12 +57,12 @@ const TABLA_FILAS: { funcionalidad: string; glofox: string; tentare: string }[] 
   { funcionalidad: 'App con marca propia', glofox: 'Sí (coste mayor)', tentare: 'Sí' },
   { funcionalidad: 'Widget de reservas integrado en la web', glofox: 'Sí', tentare: 'Sí (sin redirección a terceros, según el proveedor)' },
   { funcionalidad: 'Soporte en español', glofox: 'Disponible', tentare: 'Nativo en castellano' },
-  { funcionalidad: 'Precio de entrada', glofox: 'Desde ~100 €/mes (en USD)', tentare: 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA' },
+  { funcionalidad: 'Precio de entrada', glofox: 'Desde ~100 €/mes (en USD)', tentare: 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA' },
   { funcionalidad: 'Permanencia mínima', glofox: 'Habitual (anual/trimestral)', tentare: 'Sin permanencia' },
   { funcionalidad: 'Integraciones con Stripe, GoCardless', glofox: 'Sí, según su web', tentare: 'Sí con Stripe (tarjeta y domiciliación SEPA); no usa GoCardless, genera su propia remesa SEPA' },
   { funcionalidad: 'Plan para cadenas o franquicias', glofox: 'Sí', tentare: 'Sí (según el proveedor)' },
   { funcionalidad: 'Reglas de reserva/cancelación por tipo de clase', glofox: 'Sí: aforo, ventana de reserva y cancelación configurables por clase, según su web', tentare: 'Sí (según el proveedor)' },
-  { funcionalidad: 'Empezar gratis, sin tarjeta', glofox: 'No documentada', tentare: 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta' },
+  { funcionalidad: 'Empezar gratis, sin tarjeta', glofox: 'No documentada', tentare: 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta' },
   { funcionalidad: 'Precio público sin pedir demo', glofox: 'No; su web remite a pedir una demo para conocer el precio', tentare: 'Sí, precios publicados en /precios' },
 ];
 
@@ -153,8 +153,8 @@ export default function GlofoxVsTentarePage() {
         <h3>Lo que cuesta Glofox: precios en dólares y compromisos anuales</h3>
         <p>Glofox publica en su web planes &quot;desde 99 USD al mes&quot;, pero esa cifra es la entrada más baja. Los planes para centros con funcionalidades completas oscilan, según diversas fuentes de terceros, entre 110 y 400 dólares mensuales según el nivel, lo que equivale aproximadamente a entre 100 y 370 euros al cambio actual (conversión orientativa; consulta el tipo de cambio vigente en el momento de contratar). El modelo habitual implica compromisos anuales o trimestrales: entrar es fácil, salir tiene coste. Además, varios usuarios europeos señalan en <a href="https://www.trustpilot.com/review/www.glofox.com" target="_blank" rel="noopener noreferrer nofollow" style={{ color: 'inherit' }}>reseñas públicas de Trustpilot</a> incrementos de precio en renovación que en algunos casos superan el 70%; aunque no se trata de una estadística generalizable, el patrón aparece con suficiente frecuencia como para tenerlo en cuenta. Si tu estudio factura en euros, el impacto del tipo de cambio añade una variable que no controlas, especialmente si Glofox factura en dólares por defecto según el país de contratación.</p>
 
-        <h3>Lo que cuesta Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia</h3>
-        <p>Según la información publicada por el proveedor, <Link href="/precios" style={{ color: ACC }}>Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes</Link>, y con más cobros cuesta 29 €/mes con IVA, con acceso a las funcionalidades completas del plan contratado, todo en euros y sin permanencia mínima. Puedes cancelar cuando quieras. Los planes estándar no incluyen comisiones por transacción, aunque conviene verificarlo en las condiciones actuales antes de contratar. Para una propietaria que acaba de abrir su estudio o que gestiona sola un centro pequeño, la diferencia de coste es inmediata y tangible: gratis hasta 150 alumnas activas y 30 cobros al mes frente a 130 euros al mes no es una cuestión de matices, sino la diferencia entre una herramienta accesible y un compromiso financiero que necesita justificarse.</p>
+        <h3>Lo que cuesta Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia</h3>
+        <p>Según la información publicada por el proveedor, <Link href="/precios" style={{ color: ACC }}>Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes</Link>, y con más reservas cuesta 29 €/mes con IVA, con acceso a las funcionalidades completas del plan contratado, todo en euros y sin permanencia mínima. Puedes cancelar cuando quieras. Los planes estándar no incluyen comisiones por transacción, aunque conviene verificarlo en las condiciones actuales antes de contratar. Para una propietaria que acaba de abrir su estudio o que gestiona sola un centro pequeño, la diferencia de coste es inmediata y tangible: gratis hasta 150 alumnas activas y 250 reservas al mes frente a 130 euros al mes no es una cuestión de matices, sino la diferencia entre una herramienta accesible y un compromiso financiero que necesita justificarse.</p>
 
         <h2 id="s3">Glofox vs. Tentare: tabla comparativa de funcionalidades clave</h2>
         <TablaComparativa />
@@ -207,12 +207,12 @@ export default function GlofoxVsTentarePage() {
         <h2 id="conclusion">Conclusión: la comparativa Glofox vs. Tentare en pocas palabras</h2>
         <p>El precio, la especialización en Pilates y el soporte en español inclinan claramente la balanza hacia Tentare para la mayoría de estudios independientes en España. Son tres ventajas concretas, no tres argumentos de marketing.</p>
         <p>Glofox es una plataforma legítima que funciona bien para gimnasios y centros de fitness con operativas de volumen. Pero si tu negocio son las clases de Pilates con reformers, instructoras y una relación cercana con tus alumnas, pagar entre 100 y 370 euros al mes por un software genérico en dólares con soporte variable no es una ecuación que se sostenga fácilmente frente a una alternativa especializada.</p>
-        <p>En la comparativa Glofox frente a Tentare, para la mayoría de estudios de Pilates en España la decisión más sensata es probar Tentare antes de comprometerse con cualquier otra plataforma. Sin permanencia que te retenga, gratis hasta 150 alumnas activas y 30 cobros al mes, y con un sistema diseñado para la lógica concreta del método, el punto de partida es muy distinto al de firmar un contrato anual en dólares con una herramienta que no está pensada para gestionar aparatos individuales.</p>
+        <p>En la comparativa Glofox frente a Tentare, para la mayoría de estudios de Pilates en España la decisión más sensata es probar Tentare antes de comprometerse con cualquier otra plataforma. Sin permanencia que te retenga, gratis hasta 150 alumnas activas y 250 reservas al mes, y con un sistema diseñado para la lógica concreta del método, el punto de partida es muy distinto al de firmar un contrato anual en dólares con una herramienta que no está pensada para gestionar aparatos individuales.</p>
 
         <h2 id="s8">Preguntas frecuentes sobre Glofox y Tentare</h2>
         <ArticleFaq items={FAQ} />
 
-        <CtaBlock title="Prueba Tentare antes de comprometerte con nadie más" body="Sin permanencia, gratis hasta 150 alumnas activas y 30 cobros al mes, con gestión por reformer y sustituciones automáticas desde el primer día." />
+        <CtaBlock title="Prueba Tentare antes de comprometerte con nadie más" body="Sin permanencia, gratis hasta 150 alumnas activas y 250 reservas al mes, con gestión por reformer y sustituciones automáticas desde el primer día." />
 
         <RelatedLinks
           items={[

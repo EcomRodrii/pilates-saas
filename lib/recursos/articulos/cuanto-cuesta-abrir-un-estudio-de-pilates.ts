@@ -41,7 +41,7 @@ const articulo: Articulo = {
             ['Registro de marca', 'Inversión', '127,88 € la primera clase, trámite electrónico (OEPM)'],
             ['Seguro de responsabilidad civil', 'Gasto fijo', 'Desde 155 €/año la de una monitora, según un comparador; la del estudio, a presupuesto'],
             ['Cuota de autónoma', 'Gasto fijo', 'Cuota reducida de 80 €/mes los 12 primeros meses (cuantía legal de 2023-2025)'],
-            ['Software de reservas y cobros', 'Gasto fijo', 'Tentare: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido'],
+            ['Software de reservas y cobros', 'Gasto fijo', 'Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido'],
             ['Comisiones de cobro', 'Variable', 'Stripe: 1,5 % + 0,25 € por pago con tarjeta estándar del EEE'],
             ['Instructoras', 'Gasto fijo o variable', '[Cuánto cobra una instructora de pilates](/recursos/cuanto-cobra-una-instructora-de-pilates)'],
             ['Marketing de apertura', 'Inversión', 'Tu plan: web, fotos, anuncios y preventa'],
@@ -138,7 +138,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare es gratis en el plan Founding Studio (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €) y cuesta 59 € al mes en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
+          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare es gratis en el plan Founding Studio (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €) y cuesta 59 € al mes en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
         },
         {
           t: 'p',
@@ -150,7 +150,7 @@ const articulo: Articulo = {
         },
         {
           t: 'llamada',
-          texto: 'El software de gestión es de las partidas más pequeñas del presupuesto: Tentare es gratis hasta 150 alumnas activas y 30 cobros al mes, sin permanencia, y lleva reservas, bonos y cobros desde la primera clase.',
+          texto: 'El software de gestión es de las partidas más pequeñas del presupuesto: Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y lleva reservas, bonos y cobros desde la primera clase.',
         },
       ],
     },
@@ -214,7 +214,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuánto cuesta el software para un estudio de pilates?',
-      a: 'Tentare cuesta, según el plan: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. Aparte van las comisiones del procesador de pagos: con Stripe, un 1,5 % + 0,25 € por pago con tarjeta estándar del Espacio Económico Europeo.',
+      a: 'Tentare cuesta, según el plan: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. Aparte van las comisiones del procesador de pagos: con Stripe, un 1,5 % + 0,25 € por pago con tarjeta estándar del Espacio Económico Europeo.',
     },
     { q: '¿Cuánto cuesta montar un negocio de pilates?', a: 'Lo que tiene precio público suma unos 20.500 € en nuestro ejemplo: 6 reformers de gama de entrada, una silla, esterillas, el registro de la marca y 12 meses de software y de cuota de autónoma. Aparte van la fianza, la obra, las tasas y los seguros, que dependen de tu local y de tu municipio. Con reformers de gama alta, solo las máquinas pasan de 36.000 €.' },
     {

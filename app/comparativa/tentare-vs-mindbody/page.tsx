@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes con IVA'], them: ['partial', 'Desde 99 € al mes por ubicación; el resto de planes, «hablemos»'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['partial', 'Desde 99 € al mes por ubicación; el resto de planes, «hablemos»'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Depende del plan y de las condiciones que contrates; la baja puede requerir preaviso'] },
   { feature: 'Comisión por clientas nuevas del marketplace', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', '20 % (tope de 30 $ o su equivalente) en la primera compra de una clienta nueva'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Client Pick-a-Spot», en el plan Accelerate'] },
@@ -32,7 +32,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', '«Booking window» y «cancellation window» configurables por servicio, según su web de ayuda'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, desde el plan Cadena'], them: ['yes', '«Un panel corporativo único» para todas las sedes, según su web; solo en el nivel Enterprise, a consultar'] },
-  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 30 cobros al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
 ];
 
 
@@ -41,7 +41,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Mindbody?',
-    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio gratis (hasta 150 alumnas activas y 30 cobros al mes; con más cobros, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Puedo pasar mis datos de Mindbody a Tentare?',
@@ -57,7 +57,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Desde 99 €/mes + IVA por local; el resto de planes, a consultar',
   permanencia: 'Depende del plan; la baja puede pedir preaviso',
   prueba: 'No consta en su web pública',
-  respuesta: <>Mindbody es una plataforma grande, con marketplace propio, pero su precio arranca en 99 € al mes por ubicación, la app con tu marca es un complemento de pago y se queda una comisión en la primera compra de cada clienta nueva que llega por su marketplace. Para un estudio de Pilates o yoga en España, la alternativa es Tentare: gratis hasta 150 alumnas activas y 30 cobros al mes, la app con tu marca incluida y ninguna comisión sobre tus cobros.</>,
+  respuesta: <>Mindbody es una plataforma grande, con marketplace propio, pero su precio arranca en 99 € al mes por ubicación, la app con tu marca es un complemento de pago y se queda una comisión en la primera compra de cada clienta nueva que llega por su marketplace. Para un estudio de Pilates o yoga en España, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, la app con tu marca incluida y ninguna comisión sobre tus cobros.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
