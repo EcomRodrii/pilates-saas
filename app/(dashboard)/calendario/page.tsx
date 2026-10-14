@@ -38,7 +38,8 @@ import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -3865,10 +3866,10 @@ export default function Calendario() {
           claveInicial={plazaFijaDesdeClase.clave}
           spotInicial={plazaFijaDesdeClase.spotId}
           onClose={() => setPlazaFijaDesdeClase(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setPlazaFijaDesdeClase(null);
             invalidarHorario();
-            showToast(textoPlazaGuardada(r, movida));
+            showToast(textoClasesFijasGuardadas(guardadas, movida));
             // Las reservas de las próximas semanas las acaba de crear el servidor.
             void refrescarVista();
           }}

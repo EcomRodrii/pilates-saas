@@ -17,7 +17,8 @@ import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-est
 import { saldoBonosPorSocia } from '@/lib/clientas/saldo-bonos';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
 import { ETIQUETA_GENERO, GENEROS, generoDe, trato, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -2377,8 +2378,8 @@ export default function Socios() {
           </DialogHeader>
           {ultimaOferta && (
             <p className="text-sm text-muted-foreground mt-1">
-              {ultimaOferta.nombre} ya tiene «{ultimaOferta.plan}». Si viene siempre a la misma clase, elige
-              cuál: se le reserva sola cada semana, sin apuntarla a mano.
+              {ultimaOferta.nombre} ya tiene «{ultimaOferta.plan}». Si viene cada semana a las mismas clases,
+              elígelas (una o varias): se le reservan solas, sin apuntarla a mano.
             </p>
           )}
           <div className="flex flex-col gap-2 pt-2">
@@ -2386,7 +2387,7 @@ export default function Socios() {
               onClick={() => { setPlazaFijaPara(ofrecerPlazaFija?.socioId ?? null); setOfrecerPlazaFija(null); }}
               className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
             >
-              Elegir su clase
+              Elegir sus clases
             </button>
             <button
               onClick={() => setOfrecerPlazaFija(null)}
@@ -2402,10 +2403,10 @@ export default function Socios() {
         <DialogoPlazaFija
           socioId={plazaFijaPara}
           onClose={() => setPlazaFijaPara(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setPlazaFijaPara(null);
             setErrorFila(null);
-            setAvisoPlazaFija(textoPlazaGuardada(r, movida));
+            setAvisoPlazaFija(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}
