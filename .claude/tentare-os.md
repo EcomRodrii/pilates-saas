@@ -310,6 +310,17 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Founding Studio GRATIS (decisión del fundador, 15-oct-2026), tras el interruptor `FOUNDING_GRATIS`.**
+  Un estudio que no paga tiene TODO (menos varias sedes) hasta 150 alumnas «Activa» y 30 cobros
+  al mes; al pasarse, 30 días de margen y después se cierra el PANEL (el `bloqueado` de
+  /api/billing/status) hasta elegir Estudio. Reglas y «truquitos» en `lib/billing/plan-gratis.ts`.
+  - Es la única excepción a «no bloquea»: ninguna alta se frena (lo de arriba sigue en pie) y la app
+    de la alumna no se toca nunca.
+  - `subscription_status = 'gratis'` lo escribe SOLO el gate, con compare-and-set, a quien no paga
+    (nunca una sede ni un Checkout a medias). El uso lo mide `lib/billing/uso-gratis-servidor.ts`,
+    con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
+    si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
+  - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
 - **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
   `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
   vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da

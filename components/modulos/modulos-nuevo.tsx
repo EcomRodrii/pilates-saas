@@ -144,7 +144,7 @@ export function ModulosNuevo() {
               const enMenu = estado !== 'fuera';
               const tono = TONO_DE_SECCION[m.href] ?? 'azul';
               const c = TONOS[tono];
-              const incluido = plan ? incluidoEnPlan(m, plan.plan, true) : null;
+              const incluido = plan ? incluidoEnPlan(m, plan.plan, true, plan.subscriptionStatus) : null;
               const minimo = planQueLoIncluye(m);
               const Icono = ICONO_PROPIO[m.href] ?? m.icon;
               return (

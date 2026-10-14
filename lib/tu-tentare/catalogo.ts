@@ -18,7 +18,7 @@
 import type { ElementType } from 'react';
 import { ESSENTIAL_HREFS, NO_OCULTABLES, navSections, type NavSection } from '../nav-config.ts';
 import { seccionPanelNuevo } from '../nav-panel-nuevo.ts';
-import { PLAN_ENTITLEMENTS, PLAN_INFO, planMinimoPara, type Entitlements, type Plan } from '../billing/entitlements.ts';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, planMinimoPara, type Entitlements } from '../billing/entitlements.ts';
 import { tutorialDePantalla, valorDeModulo } from '../ayuda/pantallas.ts';
 import { hrefDeLugar, hrefDeSeccion, hrefDeTarjeta } from '../configuracion/destino.ts';
 
@@ -94,10 +94,16 @@ export function gruposTuTentare(puedeVer: (href: string) => boolean = () => true
  * entonces la pantalla no dice nada del plan (mejor callar que decir «necesita
  * el plan Estudio» a quien ya lo tiene). No decide qué se puede poner o quitar.
  */
-export function incluidoEnPlan(m: Pick<ModuloTuTentare, 'feature'>, plan: string | null | undefined, activo: boolean | null | undefined): boolean | null {
+export function incluidoEnPlan(
+  m: Pick<ModuloTuTentare, 'feature'>,
+  plan: string | null | undefined,
+  activo: boolean | null | undefined,
+  /** Con 'gratis' (Founding Studio gratis, plan-gratis.ts) lo incluye todo salvo varias sedes. */
+  subscriptionStatus?: string | null,
+): boolean | null {
   if (!m.feature) return true;
   if (!plan || !activo || !(plan in PLAN_ENTITLEMENTS)) return null;
-  return PLAN_ENTITLEMENTS[plan as Plan].features[m.feature];
+  return entitlementsDe({ plan, subscriptionStatus }).features[m.feature];
 }
 
 /** «Incluido en el plan Estudio» (el nombre comercial, de PLAN_INFO). */

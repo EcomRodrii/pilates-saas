@@ -25,7 +25,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   const panelNuevo = usePanelNuevo();
   const [ocultos, setOcultos] = useState<string[] | null>(null);
   const [errorLectura, setErrorLectura] = useState(false);
-  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean } | null>(null);
+  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean; subscriptionStatus: string | null } | null>(null);
   const [modo, setModo] = useState<ModoMenu>('esencial');
   const [guardando, setGuardando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -38,7 +38,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
       .then(l => { if (vivo) { setOcultos(l.ocultos); setErrorLectura(false); } })
       .catch(() => { if (vivo) setErrorLectura(true); });
     void leer();
-    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo } : null); });
+    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo, subscriptionStatus: b.subscriptionStatus ?? null } : null); });
     setModo(leerModoMenu());
     // Si el cajón «Tu menú» guarda, esta lista se pone al día con lo guardado; y
     // si el selector Esencial/Todo del menú cambia, también.

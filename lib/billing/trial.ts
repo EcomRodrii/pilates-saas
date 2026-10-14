@@ -142,6 +142,12 @@ export function estadoTrial(entrada: EntradaTrial, ahora: Date = new Date()): Es
   // una fecha — no la AUSENCIA de un dato. La combinación ya no debería
   // existir (la repara la migr 20260905213839, que además endurece el
   // barrido); esto es la red por si vuelve.
+  // Founding Studio gratis (plan-gratis.ts): no hay prueba que contar ni que se
+  // agote. Si se cierra por pasarse del margen, lo decide el gate, no esto.
+  if (status === 'gratis' || status === 'gratis_cerrado') {
+    return { enPrueba: false, fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null, agotada: false };
+  }
+
   if (!fin && status === 'trialing') {
     return { enPrueba: false, fase: 'EXPIRADA', diasRestantes: 0, finaliza: null, agotada: true };
   }
