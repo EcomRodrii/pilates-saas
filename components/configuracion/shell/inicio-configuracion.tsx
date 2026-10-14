@@ -12,7 +12,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { DEFAULT_THEME } from '@/lib/theme-schema';
 import { cardCls, inputCls } from '@/components/configuracion/estilos';
 import { externasVisibles, hrefDeLugar, hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
-import { FILAS_EXTERNAS, GRUPOS, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
+import { FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, type GrupoPanelNuevo, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
 import {
   resumenPlan, resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion, type EstadoPlanResumible,
 } from '@/lib/configuracion/resumenes';
@@ -61,8 +61,8 @@ const TONO_EXTERNA: Record<string, Tono> = { plan: 'verde', cuenta: 'azul' };
 function CajaIcono({ Icono, tono, nuevo }: { Icono: ElementType; tono: Tono; nuevo: boolean }) {
   if (!nuevo) return <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>;
   return (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: TONOS[tono], color: 'var(--card)' }}>
-      <Icono size={19} strokeWidth={2.1} aria-hidden />
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[tono]} 14%, var(--card))`, color: TONOS[tono] }}>
+      <Icono size={18} strokeWidth={2} aria-hidden />
     </span>
   );
 }
@@ -263,16 +263,30 @@ export function InicioConfiguracion({
             </section>
           )}
 
-          {GRUPOS.map(grupo => {
+          <div className={panelNuevo ? 'grid items-start gap-5 xl:grid-cols-2' : 'contents'}>
+          {(panelNuevo ? GRUPOS_PANEL_NUEVO : GRUPOS).map(grupo => {
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))
               .filter((s): s is SeccionConfiguracion => !!s);
             const externasDelGrupo = (grupo.externas ?? []).filter(id => idsExternas.has(id));
             if (suyas.length === 0 && externasDelGrupo.length === 0) return null;
+            const frase = 'frase' in grupo ? (grupo as GrupoPanelNuevo).frase : null;
             return (
-              <section key={grupo.id} aria-labelledby={`inicio-grupo-${grupo.id}`} className="space-y-2">
-                <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
-                <ul className={cn(LISTA, panelNuevo && 'rounded-t-card shadow-t-card')} data-tarjeta-ajuste="">
+              <section
+                key={grupo.id}
+                aria-labelledby={`inicio-grupo-${grupo.id}`}
+                // Panel nuevo: cada grupo, su tarjeta, con su título y qué hay dentro.
+                className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'space-y-2'}
+              >
+                {panelNuevo ? (
+                  <div className="border-b border-border px-4 pb-3 pt-4">
+                    <h2 id={`inicio-grupo-${grupo.id}`} className="text-[16px] font-semibold text-foreground">{grupo.titulo}</h2>
+                    {frase && <p className="mt-0.5 text-[13px] text-muted-foreground text-pretty">{frase}</p>}
+                  </div>
+                ) : (
+                  <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
+                )}
+                <ul className={panelNuevo ? 'divide-y divide-border' : LISTA} data-tarjeta-ajuste="">
                   {suyas.map(s => {
                     const Icono = ICONOS_SECCION[s.id];
                     const resumen = resumenes?.[s.id];
@@ -322,6 +336,7 @@ export function InicioConfiguracion({
               </section>
             );
           })}
+          </div>
         </>
       )}
     </div>
