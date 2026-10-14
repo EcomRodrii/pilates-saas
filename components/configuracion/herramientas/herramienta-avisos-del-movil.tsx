@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
@@ -57,10 +58,38 @@ type TextosPropios = ReturnType<typeof useTextosPropios>;
 export function HerramientaAvisosDelMovil({ showToast }: { showToast: MostrarToast }) {
   const textos = useTextosPropios();
   const panelNuevo = usePanelNuevo();
+  const [pestana, setPestana] = useState<'recordatorios' | 'otros'>('recordatorios');
+  if (panelNuevo) {
+    // Como «Recordatorios» de Bonsai (b-60): dos pestañas, los recordatorios de
+    // clase con todo a la vista, y el resto de avisos aparte.
+    return (
+      <TarjetaAjuste id="avisos-del-movil" marco={false}>
+        <div className="flex flex-col gap-4">
+          <div role="tablist" aria-label="Qué avisos" className="flex w-fit gap-1 rounded-full bg-muted p-1">
+            {([['recordatorios', 'Recordatorios de clase'], ['otros', 'Otros avisos']] as const).map(([id, texto]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={pestana === id}
+                onClick={() => setPestana(id)}
+                className={cn('min-h-9 rounded-full px-4 text-[13.5px] font-semibold transition-colors', pestana === id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground')}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
+          {pestana === 'recordatorios'
+            ? <Recordatorios showToast={showToast} textos={textos} />
+            : <Textos showToast={showToast} textos={textos} sinRecordatorios />}
+        </div>
+      </TarjetaAjuste>
+    );
+  }
   return (
     <TarjetaAjuste id="avisos-del-movil" marco={false}>
       <div className="flex flex-col gap-6">
-        {panelNuevo ? <Recordatorios showToast={showToast} propios={textos.propios} /> : <Antelacion showToast={showToast} />}
+        <Antelacion showToast={showToast} />
         <Textos showToast={showToast} textos={textos} />
       </div>
     </TarjetaAjuste>
@@ -93,11 +122,13 @@ function NotificacionMovil({ title, body }: { title: string; body: string }) {
 }
 
 /**
- * Panel nuevo: los dos recordatorios de clase, cada uno en su tarjeta como los de
- * Bonsai (b-60): cuándo se envía, por dónde y cómo le llega. Guarda igual que
- * `Antelacion` (al elegir, y si el servidor dice que no, vuelve atrás).
+ * Panel nuevo: los dos recordatorios de clase, calcados a «Recordatorios» de
+ * Bonsai (b-60). Una tarjeta ancha por recordatorio: cuándo se envía, por dónde,
+ * qué se le dice (el texto se edita AQUÍ y se guarda al salir del campo, como
+ * en Bonsai), los caracteres libres y «Así lo recibirá» en vivo.
+ * La antelación se guarda al elegirla; si el servidor dice que no, vuelve atrás.
  */
-function Recordatorios({ showToast, propios }: { showToast: MostrarToast; propios: Record<string, TextoAviso> | null }) {
+function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos: TextosPropios }) {
   const { studio, updateStudio } = useStudio();
   const [largo, setLargo] = useState(studio?.recordatorioLargoHoras ?? 24);
   const [corto, setCorto] = useState(studio?.recordatorioCortoMinutos ?? 60);
@@ -120,67 +151,199 @@ function Recordatorios({ showToast, propios }: { showToast: MostrarToast; propio
     showToast('Recordatorio guardado');
   }
 
-  const tarjetas = [
+  const recordatorios: { evento: string; titulo: string; cuando: string; sub: string; canales: { nombre: string; nota?: string }[]; control: ReactNode }[] = [
     {
-      evento: EVENTOS.RECORDATORIO_24H, titulo: 'Recordatorio 1', cuando: `${largo} h antes`, sub: 'El aviso principal antes de la clase.',
-      canales: ['En su móvil', 'Correo', 'WhatsApp, si lo tienes conectado'],
+      evento: EVENTOS.RECORDATORIO_24H, titulo: 'Recordatorio 1', cuando: `${horasEnDias(largo)} antes`, sub: 'Aviso principal antes de la clase',
+      canales: [{ nombre: 'En su móvil' }, { nombre: 'Correo' }, { nombre: 'WhatsApp', nota: 'si lo tienes conectado' }],
       control: (
-        <select className={inputCls} value={largo} disabled={guardando} onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 1">
-          {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas antes</option>)}
+        <select className={SELECT_CORTO} value={largo} disabled={guardando} onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 1">
+          {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas</option>)}
         </select>
       ),
     },
     {
-      evento: EVENTOS.RECORDATORIO_1H, titulo: 'Recordatorio 2', cuando: `${minutos(corto)} antes`, sub: 'Justo antes de la clase, para que no se le pase.',
-      canales: ['En su móvil'],
+      evento: EVENTOS.RECORDATORIO_1H, titulo: 'Recordatorio 2', cuando: `${minutos(corto)} antes`, sub: 'Justo antes de la clase, para que no se le pase',
+      canales: [{ nombre: 'En su móvil' }],
       control: (
-        <select className={inputCls} value={corto} disabled={guardando} onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 2">
-          {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)} antes</option>)}
+        <select className={SELECT_CORTO} value={corto} disabled={guardando} onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 2">
+          {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)}</option>)}
         </select>
       ),
     },
   ];
 
   return (
-    <section aria-labelledby="recordatorios-clase" className="flex flex-col gap-3">
-      <div>
-        <h3 id="recordatorios-clase" className="text-[16px] font-semibold text-foreground">Recordatorios de clase</h3>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">Se guardan al elegir y valen para las clases que aún no lo han recibido. Cada alumna puede apagarlos desde su app.</p>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {tarjetas.map(r => {
-          const muestra = propios ? previsualizar(textoEnLista(r.evento, propios[r.evento]).texto, datosDe(r.evento), r.evento) : null;
-          return (
-            <div key={r.evento} className="flex flex-col gap-4 rounded-t-card border border-border bg-card p-5 shadow-t-card">
-              <div>
-                <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-foreground">
-                  {r.titulo}
-                  <span className="rounded-full px-2 py-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--t-blue-500)', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 12%, var(--card))' }}>{r.cuando}</span>
-                </p>
-                <p className="mt-0.5 text-[12.5px] text-muted-foreground">{r.sub}</p>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[13px] font-semibold text-foreground">¿Cuándo se envía?</p>
-                {r.control}
-              </div>
-              <div>
-                <p className="mb-1.5 text-[13px] font-semibold text-foreground">¿Por dónde le llega?</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {r.canales.map(c => (
-                    <span key={c} className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[12px] font-medium text-foreground">{c}</span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá</p>
-                {muestra ? <NotificacionMovil title={muestra.title} body={muestra.body} /> : <p className="text-[12.5px] text-muted-foreground">Cargando el texto…</p>}
-                <p className="mt-1.5 text-[12px] text-muted-foreground">Su texto se cambia abajo, en «Lo que dicen los avisos».</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <section aria-label="Recordatorios de clase" className="flex flex-col gap-3">
+      <p className="text-[13.5px] text-muted-foreground">Avisa a tus alumnas antes de su clase. Tienes dos recordatorios con antelaciones distintas.</p>
+      <p className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] font-medium" style={{ color: 'color-mix(in srgb, var(--success) 85%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}>
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
+        Los cambios se guardan solos. El texto se guarda al salir del campo.
+      </p>
+      {recordatorios.map(r => (
+        <div key={r.evento} className="rounded-[14px] bg-card px-5 py-4 shadow-t-card">
+          <div className="border-b border-border pb-3">
+            <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold text-foreground">
+              {r.titulo}
+              <span className="rounded-md px-1.5 py-0.5 text-[12px] font-medium" style={{ color: 'var(--t-blue-500)', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 12%, var(--card))' }}>{r.cuando}</span>
+            </p>
+            <p className="text-[13px] text-muted-foreground">{r.sub}</p>
+          </div>
+
+          <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Cuándo se envía?</p>
+          <div className="mt-1.5 flex items-center gap-2 text-[13.5px] text-muted-foreground">{r.control} antes de la clase</div>
+
+          <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Por dónde se envía?</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {r.canales.map(c => (
+              <span key={c.nombre} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium text-foreground" style={{ borderColor: 'color-mix(in srgb, var(--t-blue-500) 40%, var(--border))', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 8%, var(--card))' }}>
+                <span aria-hidden className="flex size-3.5 items-center justify-center rounded-[3px] text-white" style={{ backgroundColor: 'var(--t-blue-500)' }}><Check size={10} strokeWidth={3.5} /></span>
+                {c.nombre}
+                {c.nota && <span className="text-[11.5px] font-normal text-muted-foreground">{c.nota}</span>}
+              </span>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[12px] text-muted-foreground">Cada alumna puede apagar cualquiera de estos canales desde su app.</p>
+
+          {textos.fallo
+            ? <p className="mt-4 text-[13px] text-destructive">No hemos podido cargar el texto. Recarga la página.</p>
+            : !textos.propios
+              ? <p className="mt-4 text-[13px] text-muted-foreground">Cargando el texto…</p>
+              : <TextoEnLinea evento={r.evento} textos={textos} datos={datosDe(r.evento)} />}
+        </div>
+      ))}
     </section>
+  );
+}
+
+const horasEnDias = (h: number) => (h % 24 === 0 ? `${h / 24} ${h === 24 ? 'día' : 'días'}` : `${h} horas`);
+const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const SELECT_CORTO = 'h-10 rounded-[10px] border border-border bg-card px-3 text-[14px] font-medium text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60';
+
+/**
+ * «¿Qué se le dice a la alumna?», editable en la tarjeta como en Bonsai: los
+ * campos vacíos enseñan el texto de Tentare y vacío = sale ese; las variables se
+ * meten donde está el cursor; los caracteres libres y «Así lo recibirá» van en
+ * vivo. Se guarda al salir del campo, solo si cambió y vale; si el servidor dice
+ * que no, lo escrito se queda y se dice por qué.
+ */
+function TextoEnLinea({ evento, textos, datos }: { evento: string; textos: TextosPropios; datos: Record<string, string> }) {
+  const { studio } = useStudio();
+  const fabrica = textoDeFabrica(evento)!;
+  const propio = textos.propios?.[evento] ?? null;
+  const [title, setTitle] = useState(propio?.title ?? '');
+  const [body, setBody] = useState(propio?.body ?? '');
+  // Lo que sale ahora (el suyo guardado, o el de Tentare), para no guardar sin cambios.
+  const [guardado, setGuardado] = useState<TextoAviso>(propio ?? fabrica);
+  const [estado, setEstado] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const cuerpoRef = useRef<HTMLTextAreaElement>(null);
+  const efectivo = { title: title.trim() || fabrica.title, body: body.trim() || fabrica.body };
+  const muestra = previsualizar(efectivo, datos, evento);
+  const variables = variablesPermitidas(evento);
+  const esPropio = !!textos.propios?.[evento];
+  const enLista = textoEnLista(evento, textos.propios?.[evento]);
+
+  async function guardarSiCambio() {
+    if (!studio?.id || ocupado) return;
+    // Los dos vacíos: vuelve el de Tentare (si había uno suyo).
+    if (!title.trim() && !body.trim()) { if (esPropio) await volverAlOriginal(); return; }
+    if (efectivo.title === guardado.title.trim() && efectivo.body === guardado.body.trim()) return;
+    const error = validarTexto(evento, efectivo);
+    if (error) { setEstado({ tipo: 'error', texto: error }); return; }
+    setOcupado(true);
+    const res = await dbGuardarTextoAviso(studio.id, evento, efectivo);
+    setOcupado(false);
+    if (!res.ok) { setEstado({ tipo: 'error', texto: res.error }); return; }
+    setGuardado(efectivo);
+    textos.setPropios(p => ({ ...(p ?? {}), [evento]: efectivo }));
+    setEstado({ tipo: 'ok', texto: 'Texto guardado' });
+  }
+
+  async function volverAlOriginal() {
+    if (!studio?.id) return;
+    setOcupado(true);
+    const res = await dbRestaurarTextoAviso(studio.id, evento);
+    setOcupado(false);
+    if (!res.ok) { setEstado({ tipo: 'error', texto: res.error }); return; }
+    setTitle('');
+    setBody('');
+    setGuardado(fabrica);
+    textos.setPropios(p => { const n = { ...(p ?? {}) }; delete n[evento]; return n; });
+    setEstado({ tipo: 'ok', texto: 'Vuelve el texto de Tentare' });
+  }
+
+  // Como en Bonsai: la variable entra donde estaba el cursor y el foco vuelve
+  // al texto, así que salir de él la guarda.
+  function meterVariable(v: string) {
+    const el = cuerpoRef.current;
+    const base = body || fabrica.body;
+    const desde = el && body ? el.selectionStart : base.length;
+    const hasta = el && body ? el.selectionEnd : base.length;
+    const trozo = `{${v}}`;
+    const nuevo = base.slice(0, desde) + trozo + base.slice(hasta);
+    setBody(nuevo);
+    setEstado(null);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(desde + trozo.length, desde + trozo.length);
+    });
+  }
+
+  return (
+    <>
+      <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Qué se le dice a la alumna?</p>
+      {variables.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {variables.map(v => (
+            <button
+              key={v}
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => meterVariable(v)}
+              className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[12px] text-foreground transition-colors hover:bg-muted"
+            >
+              + {mayuscula(ETIQUETA_VARIABLE[v] ?? v)}
+            </button>
+          ))}
+        </div>
+      )}
+      <input
+        aria-label="Título del aviso"
+        className={cn(inputCls, 'mt-2 rounded-[10px]')}
+        value={title}
+        placeholder={fabrica.title}
+        maxLength={TITULO_MAX + 20}
+        onChange={e => { setTitle(e.target.value); setEstado(null); }}
+        onBlur={() => void guardarSiCambio()}
+      />
+      <textarea
+        ref={cuerpoRef}
+        aria-label="Texto del aviso"
+        className={cn(inputCls, 'mt-2 min-h-[72px] resize-y rounded-[10px]')}
+        value={body}
+        placeholder={fabrica.body}
+        maxLength={CUERPO_MAX + 40}
+        onChange={e => { setBody(e.target.value); setEstado(null); }}
+        onBlur={() => void guardarSiCambio()}
+      />
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground">
+        <span>
+          {estado
+            ? <span role={estado.tipo === 'error' ? 'alert' : 'status'} className={estado.tipo === 'error' ? 'font-medium text-destructive' : 'font-medium text-success'}>{estado.texto}</span>
+            : enLista.yaNoSeUsa ? 'Tu texto guardado ya no vale: sale el de Tentare hasta que lo corrijas.' : esPropio ? 'Sale tu texto.' : 'Se enviará el mensaje de Tentare.'}
+          {esPropio && !ocupado && (
+            <button type="button" onClick={() => void volverAlOriginal()} className="ml-2 font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--t-text-link)' }}>
+              Volver al de Tentare
+            </button>
+          )}
+        </span>
+        <span className="tabular-nums">{Math.max(0, CUERPO_MAX - efectivo.body.length)} caracteres libres</span>
+      </div>
+      <p className="mt-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá</p>
+      <div className="mt-1.5"><NotificacionMovil title={muestra.title} body={muestra.body} /></div>
+    </>
   );
 }
 
@@ -240,7 +403,7 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
   );
 }
 
-function Textos({ showToast, textos }: { showToast: MostrarToast; textos: TextosPropios }) {
+function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: MostrarToast; textos: TextosPropios; sinRecordatorios?: boolean }) {
   const { studio } = useStudio();
   const studioId = studio?.id;
   const { propios, setPropios, fallo } = textos;
@@ -259,7 +422,7 @@ function Textos({ showToast, textos }: { showToast: MostrarToast; textos: Textos
           El texto que ve cada alumna en su móvil y en los avisos de su app. Si no cambias nada, sale el de Tentare.
         </p>
       </div>
-      {TIPOS_CON_TEXTO_EDITABLE.map(grupo => (
+      {TIPOS_CON_TEXTO_EDITABLE.filter(g => !sinRecordatorios || !g.tipos.some(x => x.evento === EVENTOS.RECORDATORIO_24H || x.evento === EVENTOS.RECORDATORIO_1H)).map(grupo => (
         <div key={grupo.titulo} className="flex flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{grupo.titulo}</p>
           <ul className={cn(panelNuevo ? 'rounded-t-card border border-border bg-card shadow-t-card' : cardCls, 'divide-y divide-border overflow-hidden')}>
