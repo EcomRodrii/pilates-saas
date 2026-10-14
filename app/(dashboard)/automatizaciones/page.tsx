@@ -1320,7 +1320,7 @@ export default function AutomatizacionesPage() {
               Ahora se ven desde el primer segundo, sin escribir nada en la base
               de datos: son tarjetas de solo lectura, con sus pasos
               desplegables, hasta que la propietaria decide añadirlas. */}
-          {panelNuevo ? <HechoPorTentareNuevo /> : <HechoPorTentare />}
+          {panelNuevo ? (reglasVisibles.length > 0 && <HechoPorTentareNuevo />) : <HechoPorTentare />}
           {panelNuevo && reglasVisibles.length === 0 && (
             <PantallaVacia
               tono="indigo"
@@ -1335,6 +1335,7 @@ export default function AutomatizacionesPage() {
               accion={{ label: `Añadir las ${REGLAS_SUGERIDAS.length} reglas`, Icono: Zap, onClick: handleCargarSugeridas }}
             />
           )}
+          {panelNuevo && reglasVisibles.length === 0 && <HechoPorTentareNuevo />}
           {reglasVisibles.length === 0 ? (
             <>
               {panelNuevo ? (

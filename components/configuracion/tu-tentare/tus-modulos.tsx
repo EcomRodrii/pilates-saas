@@ -1,19 +1,17 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId } from 'react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { usePermisos } from '@/lib/permisos';
 import { useStudio } from '@/lib/studio-context';
 import { useTutorial } from '@/lib/tutorial-context';
-import { estadoBilling, fetchLayout, guardarLayoutApi, olvidarLayout } from '@/lib/api-client';
-import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
-import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento, type ModoMenu } from '@/lib/nav-modo';
+import { guardarModoMenu } from '@/lib/nav-modo';
 import { estadoDelPlan } from '@/lib/configuracion/resumenes';
 import {
-  contar, estadoEnMenu, gruposTuTentare, incluidoEnPlan, ocultosTrasCambiar, planQueLoIncluye,
+  estadoEnMenu, incluidoEnPlan, planQueLoIncluye,
   type GrupoTuTentare, type ModuloTuTentare,
 } from '@/lib/tu-tentare/catalogo';
+import { useTusModulos } from './use-tus-modulos';
 import { Button } from '@/components/ui/button';
 import { Interruptor } from '@/components/ui/interruptor';
 import { GrupoFilas, TituloFila } from '@/components/configuracion/shell/fila-ajuste';
@@ -58,73 +56,11 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
   /** Para que la sección no abra un cajón mientras esto guarda. */
   onGuardando?: (guardando: boolean) => void;
 }) {
-  const { puedeVer } = usePermisos();
   const { studio } = useStudio();
   const tutorial = useTutorial();
   const idTitulo = useId();
-  const [ocultos, setOcultos] = useState<string[] | null>(null);
-  const [errorLectura, setErrorLectura] = useState(false);
-  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean } | null>(null);
-  const [modo, setModo] = useState<ModoMenu>('esencial');
-  const [guardando, setGuardando] = useState<string | null>(null);
-  const [errores, setErrores] = useState<Record<string, string>>({});
-  const [recien, setRecien] = useState<string | null>(null);
-  const enVuelo = useRef(false);
-
-  useEffect(() => {
-    let vivo = true;
-    const leer = () => fetchLayout()
-      .then(l => { if (vivo) { setOcultos(l.ocultos); setErrorLectura(false); } })
-      .catch(() => { if (vivo) setErrorLectura(true); });
-    void leer();
-    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo } : null); });
-    setModo(leerModoMenu());
-    // Si el cajón «Tu menú» guarda, esta lista se pone al día con lo guardado; y
-    // si el selector Esencial/Todo del menú cambia, también.
-    const alCambiar = () => { void leer(); };
-    const alCambiarModo = (e: Event) => setModo(modoDelEvento(e));
-    window.addEventListener('tentare-layout-changed', alCambiar);
-    window.addEventListener(EVENTO_MODO_MENU, alCambiarModo);
-    return () => {
-      vivo = false;
-      window.removeEventListener('tentare-layout-changed', alCambiar);
-      window.removeEventListener(EVENTO_MODO_MENU, alCambiarModo);
-    };
-  }, []);
-
-  const grupos = gruposTuTentare(puedeVer);
-  const vistos = new Set(ocultos ?? []);
-  const cuenta = contar(grupos, vistos);
-
-  async function cambiar(m: ModuloTuTentare, enMenu: boolean) {
-    if (enVuelo.current || ocultos === null || bloqueado) return;
-    enVuelo.current = true;
-    setGuardando(m.href);
-    onGuardando?.(true);
-    setErrores(prev => { const { [m.href]: _, ...resto } = prev; return resto; });
-    try {
-      // Sobre el menú de AHORA, no el de cuando se abrió la pestaña: otra pestaña
-      // u otro dispositivo pueden haberlo cambiado, y mandar `ocultos` entero con
-      // datos viejos desharía lo suyo.
-      olvidarLayout();
-      const fresco = await fetchLayout();
-      const nuevos = ocultosTrasCambiar(fresco.ocultos, m, enMenu);
-      if (!nuevos) return;
-      // Solo `ocultos`: el servidor fusiona por clave y no toca el orden ni el Resumen.
-      const config = await guardarLayoutApi({ ocultos: nuevos });
-      setOcultos(config.ocultos);
-      setRecien(enMenu ? m.href : null);
-      // El menú escucha esto y se recoloca sin recargar; la fila «Tu menú», también.
-      window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
-      onCambio();
-    } catch (e) {
-      setErrores(prev => ({ ...prev, [m.href]: mensajeSeguro((e as Error).message, ERROR_RED) }));
-    } finally {
-      enVuelo.current = false;
-      setGuardando(null);
-      onGuardando?.(false);
-    }
-  }
+  const { grupos, ocultos, vistos, cuenta, plan, modo, setModo, guardando, errores, recien, errorLectura, cambiar } =
+    useTusModulos({ onCambio, bloqueado, onGuardando });
 
   return (
     <section aria-labelledby={idTitulo} className="max-w-2xl space-y-4" data-testid="tu-tentare">

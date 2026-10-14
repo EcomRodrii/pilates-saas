@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HelpCircle, UserCog, LogOut, ChevronDown, Palette, Building2, Check, Moon, Sun, ChevronRight } from 'lucide-react';
+import { HelpCircle, UserCog, LogOut, ChevronDown, Palette, Building2, Check, Moon, Sun, ChevronRight, LayoutGrid } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
@@ -143,6 +143,16 @@ export function ProfileMenu() {
               <HelpCircle size={15} className="text-muted-foreground" />
               Preguntas frecuentes
             </button>
+            {panelNuevo && (
+              <Link
+                href="/explorar-funciones"
+                onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
+              >
+                <LayoutGrid size={15} className="text-muted-foreground" />
+                Tus módulos
+              </Link>
+            )}
             {panelNuevo && enlaceSoporte && (
               <a
                 href={enlaceSoporte}
