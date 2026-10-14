@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Festivos (módulo del panel nuevo, 14-oct-2026), como la pantalla de Bonsai
+// Festivos (14-oct-2026), como la pantalla de Bonsai
 // (b-90-festivos-01…27): cabecera con «Comprobar clases» y «Añadir festivos»,
 // pestañas Listado / Configuración, la lista por años con su hoja de
 // calendario y su chapa, y el panel lateral de añadir con la búsqueda con IA y
@@ -210,8 +210,8 @@ export function PantallaFestivos() {
               Icono={PartyPopper}
               titulo="Pon los festivos de tu estudio"
               texto={datos.comunidad
-                ? 'Busca con IA las fiestas de tu localidad y elige cuáles son festivo en tu estudio.'
-                : 'No sabemos tu comunidad por la dirección del estudio, así que aún no tienes los oficiales. Búscalos con IA para tu localidad y elige cuáles son festivo en tu estudio.'}
+                ? 'Busca los de tu localidad: te enseñamos todos, los del boletín oficial y las fiestas locales, y añades los que quieras.'
+                : 'No sabemos tu comunidad por la dirección del estudio, así que aún no tienes los oficiales. Busca los de tu localidad: te enseñamos todos, los del boletín oficial y las fiestas locales, y añades los que quieras.'}
               ejemplos={[
                 { accion: 'Buscar los de tu localidad', cuando: 'y añadirlos de una vez' },
                 { accion: 'Ver qué clases caen en festivo', cuando: 'antes de que llegue el día' },
@@ -322,7 +322,7 @@ export function PantallaFestivos() {
 
                   <p className="text-[12px] text-muted-foreground text-pretty">
                     {datos.comunidad
-                      ? `Los oficiales salen del boletín oficial (el BOE y el de ${datos.comunidad}), según la dirección de tu estudio, y no se pueden quitar: si un día abres, dilo con «Abrimos igualmente». `
+                      ? `Los oficiales de ${datos.comunidad} salen del boletín oficial (el BOE y el de la comunidad), según la dirección de tu estudio, y no se pueden quitar: si un día abres, dilo con «Abrimos igualmente». `
                       : 'No sabemos tu comunidad por la dirección del estudio: los festivos de la lista son los que has añadido. '}
                     Añadir o quitar un festivo no cancela ninguna clase.
                   </p>
@@ -341,7 +341,6 @@ export function PantallaFestivos() {
           onClose={() => setPanel(null)}
           modoInicial={panel ?? 'buscar'}
           localidadInicial={datos.localidad}
-          comunidad={datos.comunidad}
           hoy={hoy}
           puedeVerCierres={tarjetaVisible('cerrar-el-centro', rol)}
           onGuardados={alGuardar}

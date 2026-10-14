@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo Festivos: leer y escribir lo que el estudio ha guardado
 // (`festivos_estudio`, migr 20261014183358) y la lista que ve: los oficiales de
-// su zona (del código, nunca guardados) más lo guardado, con lo que ya decidió
-// de cada día (un cierre o «abrimos igualmente»).
+// la comunidad de su dirección (del código, nunca guardados) más lo guardado
+// (locales, días propios y los oficiales que la dirección no trae), con lo que
+// ya decidió de cada día (un cierre o «abrimos igualmente»).
 //
 // Va con service-role: el llamador comprueba el rol (`puedeGestionarSede`) y el
 // interruptor, y pasa el estudio de la SESIÓN, nunca del cliente. Cada consulta
@@ -53,7 +54,7 @@ export const zonaDeUbicacion = (u: UbicacionEstudio): ZonaFestivos | null => zon
  */
 export async function festivosGuardadosEntre(
   admin: SupabaseClient, studioId: string, desde: string, hasta: string | null,
-): Promise<{ fecha: string; nombre: string; origen: 'ia' | 'manual' }[] | 'error'> {
+): Promise<{ fecha: string; nombre: string; origen: 'oficial' | 'ia' | 'manual' }[] | 'error'> {
   let q = admin.from('festivos_estudio').select('fecha, nombre, origen').eq('studio_id', studioId).gte('fecha', desde);
   if (hasta) q = q.lte('fecha', hasta);
   const { data, error } = await q.order('fecha').limit(MAX_GUARDADOS);
@@ -62,7 +63,11 @@ export async function festivosGuardadosEntre(
     console.error('[festivos-estudio:rango]', error);
     return 'error';
   }
-  return (data ?? []).map((f) => ({ fecha: String(f.fecha).slice(0, 10), nombre: String(f.nombre), origen: f.origen === 'ia' ? 'ia' as const : 'manual' as const }));
+  return (data ?? []).map((f) => ({
+    fecha: String(f.fecha).slice(0, 10),
+    nombre: String(f.nombre),
+    origen: f.origen === 'oficial' ? 'oficial' as const : f.origen === 'ia' ? 'ia' as const : 'manual' as const,
+  }));
 }
 
 /**

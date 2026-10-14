@@ -46,6 +46,7 @@ function esDeLaLista(x: unknown): x is FestivoDeLaLista {
 function esPropuesto(x: unknown): x is FestivoPropuesto {
   const f = x as Record<string, unknown> | null;
   return !!f && typeof f.fecha === 'string' && typeof f.nombre === 'string' && AMBITOS.has(f.ambito as string)
+    && (f.origen === 'oficial' || f.origen === 'ia') && typeof f.yaEnLista === 'boolean'
     && esCadenaONull(f.fuente) && esCadenaONull(f.fuenteUrl);
 }
 
@@ -70,16 +71,13 @@ export async function leerFestivosDelEstudio(): Promise<Resultado<ListaDelEstudi
 
 export interface Busqueda {
   localidad: string;
-  /** La comunidad de la dirección (de ahí salen los oficiales), o null. */
+  /** La comunidad de lo buscado (de ahí salen los oficiales), o null: entonces, los nacionales comunes. */
   comunidad: string | null;
-  /** Lo escrito es de otra comunidad que la dirección: se avisa. */
+  /** Lo buscado es de otra comunidad que la dirección del estudio (la de la dirección): se avisa. */
   otraComunidad: string | null;
-  /** Cuántos oficiales tiene ya la lista en el rango de la búsqueda. */
-  oficiales: number;
-  /** Años del rango sin calendario oficial (lo de esos años lo busca entero la IA). */
+  /** Años del rango sin calendario oficial de esa comunidad (lo de esos años lo busca entero la IA). */
   sinCalendario: number[];
-  /** Días que ya están guardados en la lista. */
-  yaGuardados: string[];
+  /** TODOS los festivos, en orden: los del boletín y los que encuentra la IA. */
   propuestos: FestivoPropuesto[];
   /** Qué pasó con la IA. */
   ia: 'ok' | 'tope' | 'error';
@@ -90,8 +88,8 @@ export async function buscarFestivos(localidad: string): Promise<Resultado<Busqu
   const r = await pedir('/api/festivos/buscar', { method: 'POST', body: JSON.stringify({ localidad }) });
   if (!r?.res.ok) return fallo(r, 'No se han podido buscar los festivos. Inténtalo de nuevo.');
   const d = r.cuerpo;
-  const listas = d && Array.isArray(d.propuestos) && Array.isArray(d.yaGuardados) && Array.isArray(d.sinCalendario) && Array.isArray(d.avisos);
-  if (!d || !listas || !(d.propuestos as unknown[]).every(esPropuesto) || typeof d.oficiales !== 'number'
+  const listas = d && Array.isArray(d.propuestos) && Array.isArray(d.sinCalendario) && Array.isArray(d.avisos);
+  if (!d || !listas || !(d.propuestos as unknown[]).every(esPropuesto)
     || (d.ia !== 'ok' && d.ia !== 'tope' && d.ia !== 'error') || typeof d.localidad !== 'string') {
     return { ok: false, error: 'No se han podido buscar los festivos. Inténtalo de nuevo.' };
   }
@@ -101,9 +99,7 @@ export async function buscarFestivos(localidad: string): Promise<Resultado<Busqu
       localidad: d.localidad,
       comunidad: typeof d.comunidad === 'string' ? d.comunidad : null,
       otraComunidad: typeof d.otraComunidad === 'string' ? d.otraComunidad : null,
-      oficiales: d.oficiales,
       sinCalendario: (d.sinCalendario as unknown[]).filter((a): a is number => typeof a === 'number'),
-      yaGuardados: (d.yaGuardados as unknown[]).filter((f): f is string => typeof f === 'string'),
       propuestos: d.propuestos as FestivoPropuesto[],
       ia: d.ia,
       avisos: (d.avisos as unknown[]).filter((a): a is string => typeof a === 'string'),
@@ -114,13 +110,14 @@ export async function buscarFestivos(localidad: string): Promise<Resultado<Busqu
 export interface FestivoParaGuardar {
   fecha: string;
   nombre: string;
-  origen: Exclude<Origen, 'oficial'>;
+  origen: Origen;
   ambito?: Ambito;
   fuenteUrl?: string | null;
 }
 
-export async function guardarFestivos(festivos: FestivoParaGuardar[]): Promise<Resultado<{ creados: string[]; yaEstaban: number }>> {
-  const r = await pedir('/api/festivos/estudio', { method: 'POST', body: JSON.stringify({ festivos }) });
+/** `localidad`: la que se buscó (el servidor comprueba contra ella los oficiales). */
+export async function guardarFestivos(festivos: FestivoParaGuardar[], localidad?: string): Promise<Resultado<{ creados: string[]; yaEstaban: number }>> {
+  const r = await pedir('/api/festivos/estudio', { method: 'POST', body: JSON.stringify({ localidad, festivos }) });
   if (!r?.res.ok) return fallo(r, 'No se han podido guardar. Inténtalo de nuevo.');
   const d = r.cuerpo;
   if (!d || d.ok !== true || !Array.isArray(d.creados) || typeof d.yaEstaban !== 'number') {

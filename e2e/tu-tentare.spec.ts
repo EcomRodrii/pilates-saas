@@ -71,7 +71,7 @@ test.describe('Configuración · Tu Tentare', () => {
     await abrir(page);
     const tu = page.getByTestId('tu-tentare');
     await expect(tu.getByRole('heading', { name: 'Tus módulos' })).toBeVisible({ timeout: 60_000 });
-    await expect(tu.getByTestId('modulo-tu-tentare')).toHaveCount(19);
+    await expect(tu.getByTestId('modulo-tu-tentare')).toHaveCount(20);
     for (const congelado of ['Chat de equipo', 'Oferta digital', 'Tentare Network']) await expect(tu.getByText(congelado)).toHaveCount(0);
     await expect(tu.getByText(/próximamente/i)).toHaveCount(0);
     await expect(tu.getByText('No se puede quitar')).toHaveCount(3);
@@ -171,8 +171,8 @@ test.describe('Configuración · Tu Tentare', () => {
     const cuenta = await abrir(page, { plan: 'BASE', ocultos: ['/centro-de-control'] });
     const cdc = fila(page, '/centro-de-control');
     await expect(cdc.getByText('Desde el plan Estudio')).toBeVisible({ timeout: 60_000 });
-    // La misma cifra que la fila «Tu menú»: 19 módulos, uno quitado.
-    await expect(page.getByText('En tu menú: 18 de 19.')).toBeVisible();
+    // La misma cifra que la fila «Tu menú»: 20 módulos (con Festivos, 14-oct), uno quitado.
+    await expect(page.getByText('En tu menú: 19 de 20.')).toBeVisible();
     await expect(cdc.getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/suscripcion');
     await cdc.getByRole('switch').click();
     await expect(cdc.getByRole('switch')).toHaveAttribute('aria-checked', 'true');

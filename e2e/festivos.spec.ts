@@ -2,12 +2,15 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El módulo Festivos (panel nuevo, 14-oct-2026). En un fichero propio a
+// El módulo Festivos (14-oct-2026). En un fichero propio a
 // propósito: `panel-nuevo-secciones.spec.ts` lo tocan otras ramas.
 //
 // Lo que se prueba es lo que importa de verdad:
-//   · con el panel nuevo apagado, nadie nota nada (ni menú ni pantalla);
-//   · lo que propone la IA llega DESMARCADO y solo se guarda lo marcado;
+//   · está para todos los estudios (desde el 14-oct), con o sin el panel nuevo;
+//   · la búsqueda enseña TODOS los festivos (los del boletín y los locales de
+//     la IA), con lo que ya está en la lista a la vista y sin volver a añadirlo;
+//     vienen marcados los oficiales y lo de la IA con fuente, y lo de la IA sin
+//     fuente, desmarcado; solo se guarda lo marcado;
 //   · los fuegos artificiales salen cuando el servidor confirma, no antes, y
 //     nunca con «reducir movimiento»;
 //   · si guardar falla, se dice y no hay fuegos (con contador de intentos: un
@@ -38,10 +41,13 @@ const GUARDADO = { id: '7b1c6a3e-4d2f-4a1b-9c3d-5e6f7a8b9c0d', fecha: dia(30), n
 const lista = (festivos: unknown[]) => ({ hoy: HOY, localidad: 'Almería', comunidad: 'Andalucía', festivos });
 
 const BUSQUEDA = {
-  localidad: 'Almería', comunidad: 'Andalucía', otraComunidad: null, oficiales: 2, sinCalendario: [], yaGuardados: [],
+  localidad: 'Almería', comunidad: 'Andalucía', otraComunidad: null, sinCalendario: [],
   propuestos: [
-    { fecha: dia(30), nombre: 'Virgen del Mar', ambito: 'local', fuente: 'almeria.es', fuenteUrl: 'https://www.almeria.es/fiestas' },
-    { fecha: dia(200), nombre: 'San Indalecio', ambito: 'local', fuente: null, fuenteUrl: null },
+    { fecha: dia(20), nombre: 'Fiesta de prueba', ambito: 'nacional', origen: 'oficial', fuente: 'BOE núm. 259, de 28 de octubre de 2025', fuenteUrl: 'https://www.boe.es/buscar/doc.php?id=BOE-A-2025-21667', yaEnLista: true },
+    { fecha: dia(30), nombre: 'Virgen del Mar', ambito: 'local', origen: 'ia', fuente: 'almeria.es', fuenteUrl: 'https://www.almeria.es/fiestas', yaEnLista: false },
+    { fecha: dia(60), nombre: 'Otra fiesta', ambito: 'autonomico', origen: 'oficial', fuente: 'BOJA núm. 84, de 5 de mayo de 2026', fuenteUrl: 'https://www.juntadeandalucia.es/eboja/x.pdf', yaEnLista: true },
+    { fecha: dia(90), nombre: 'Año Nuevo', ambito: 'nacional', origen: 'oficial', fuente: 'BOE núm. 259', fuenteUrl: 'https://www.boe.es/buscar/doc.php?id=BOE-A-2025-21667', yaEnLista: false },
+    { fecha: dia(200), nombre: 'San Indalecio', ambito: 'local', origen: 'ia', fuente: null, fuenteUrl: null, yaEnLista: false },
   ],
   ia: 'ok',
   avisos: ['El Ayuntamiento aún no ha publicado las fiestas locales del año que viene'],
@@ -75,18 +81,26 @@ async function conLista(page: Page, guardar: (cuerpo: unknown) => { status: numb
 
 const enlaceMenu = (page: Page) => page.locator('a[href="/festivos"]');
 
-test('apagado: ni en el menú ni en la pantalla', async ({ page }) => {
+test('sin el panel nuevo también está: en el menú y su pantalla funciona (para todos los estudios desde el 14-oct)', async ({ page }) => {
   await preparar(page, { nuevo: false });
-  await page.route((u) => u.pathname === '/api/festivos/estudio', (r) => json(r, { error: 'No disponible' }, 404));
+  await conLista(page, () => ({ status: 200, body: { ok: true, creados: [], yaEstaban: 0 } }));
   await ir(page, 'dashboard');
   await expect(page.locator('a[href="/calendario"]:visible').first()).toBeVisible({ timeout: 30_000 });
-  await expect(enlaceMenu(page)).toHaveCount(0);
+  await expect(enlaceMenu(page).first()).toBeAttached();
+  await ir(page, 'festivos');
+  await expect(page.getByRole('heading', { name: 'Festivos', level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('festivo-fila')).toHaveCount(2);
+});
+
+test('si la API dice que no está (tabla sin migrar), la pantalla lo dice', async ({ page }) => {
+  await preparar(page, { nuevo: false });
+  await page.route((u) => u.pathname === '/api/festivos/estudio', (r) => json(r, { error: 'No disponible' }, 404));
   await ir(page, 'festivos');
   await expect(page.getByTestId('festivos-no-disponible')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Añadir festivos' })).toHaveCount(0);
 });
 
-test('encendido: la lista con los oficiales, la búsqueda con IA desmarcada y los fuegos al guardar', async ({ page }) => {
+test('la búsqueda enseña todos los festivos, marca los nuevos y solo guarda lo marcado; fuegos al guardar', async ({ page }) => {
   await preparar(page, { nuevo: true });
   const enviados = await conLista(page, (c) => ({ status: 200, body: { ok: true, creados: (c as { festivos: { fecha: string }[] }).festivos.map(f => f.fecha), yaEstaban: 0 } }));
   let busquedas = 0;
@@ -103,25 +117,52 @@ test('encendido: la lista con los oficiales, la búsqueda con IA desmarcada y lo
   await expect(panel.getByRole('textbox')).toHaveValue('Almería');
   await panel.getByRole('button', { name: /Buscar los festivos de mi localidad/ }).click();
 
-  await expect(panel.getByText('Virgen del Mar')).toBeVisible();
+  // Todos, en una lista: los del boletín y los locales.
+  await expect(panel.getByTestId('festivo-encontrado')).toHaveCount(5);
   expect(busquedas).toBe(1);
   await expect(panel.getByText('El Ayuntamiento aún no ha publicado')).toBeVisible();
-  // Lo de la IA, desmarcado: nada se añade sin que ella lo marque.
-  const virgen = panel.getByRole('checkbox', { name: /Virgen del Mar/ });
-  await expect(virgen).not.toBeChecked();
+  // Lo que ya está en la lista se ve, con su ✓, y no se puede volver a añadir.
+  const ya = panel.locator(`[data-testid="festivo-encontrado"][data-fecha="${dia(20)}"]`);
+  await expect(ya.getByText('Ya en tu lista')).toBeVisible();
+  await expect(ya.getByRole('checkbox')).toHaveCount(0);
+  // Marcados: el oficial nuevo y lo de la IA con fuente. Sin fuente, a su criterio.
+  await expect(panel.getByRole('checkbox', { name: /Año Nuevo/ })).toBeChecked();
+  await expect(panel.getByRole('checkbox', { name: /Virgen del Mar/ })).toBeChecked();
   await expect(panel.getByRole('checkbox', { name: /San Indalecio/ })).not.toBeChecked();
-  await expect(panel.getByRole('button', { name: 'Marca los que quieras añadir' })).toBeDisabled();
+  await expect(panel.getByText('2 de 3 marcados')).toBeVisible();
 
-  await virgen.check();
-  await panel.getByRole('button', { name: 'Añadir 1 festivo' }).click();
+  await panel.getByRole('button', { name: 'Añadir 2 festivos' }).click();
   await expect.poll(() => enviados.length).toBeGreaterThan(0);
-  expect(enviados[0]).toEqual({ festivos: [{ fecha: dia(30), nombre: 'Virgen del Mar', origen: 'ia', ambito: 'local', fuenteUrl: 'https://www.almeria.es/fiestas' }] });
+  expect(enviados[0]).toEqual({
+    localidad: 'Almería',
+    festivos: [
+      { fecha: dia(30), nombre: 'Virgen del Mar', origen: 'ia', ambito: 'local', fuenteUrl: 'https://www.almeria.es/fiestas' },
+      { fecha: dia(90), nombre: 'Año Nuevo', origen: 'oficial', ambito: 'nacional', fuenteUrl: 'https://www.boe.es/buscar/doc.php?id=BOE-A-2025-21667' },
+    ],
+  });
   await expect(page.getByTestId('fuegos-artificiales')).toBeAttached();
-  await expect(page.getByText('1 festivo añadido a tu lista')).toBeVisible();
+  await expect(page.getByText('2 festivos añadidos a tu lista')).toBeVisible();
   // Se cierra solo y la lista ya lo trae.
   await expect(panel).toHaveCount(0, { timeout: 5_000 });
   await expect(page.getByTestId('festivo-fila')).toHaveCount(3);
   await expect(page.getByTestId('festivos-faltan-locales')).toHaveCount(0);
+});
+
+test('si todo está ya en la lista, lo dice y no hay nada que añadir', async ({ page }) => {
+  await preparar(page, { nuevo: true });
+  const enviados = await conLista(page, () => ({ status: 200, body: { ok: true, creados: [], yaEstaban: 0 } }));
+  await page.route((u) => u.pathname === '/api/festivos/buscar', (r) => json(r, {
+    ...BUSQUEDA, propuestos: BUSQUEDA.propuestos.map(f => ({ ...f, yaEnLista: true })),
+  }));
+
+  await ir(page, 'festivos');
+  await page.getByRole('button', { name: 'Añadir festivos' }).click({ timeout: 30_000 });
+  const panel = page.getByRole('dialog', { name: 'Añadir festivos' });
+  await panel.getByRole('button', { name: /Buscar los festivos de mi localidad/ }).click();
+  await expect(panel.getByTestId('festivo-encontrado')).toHaveCount(5);
+  await expect(panel.getByRole('checkbox')).toHaveCount(0);
+  await expect(panel.getByText('Ya tienes todos en tu lista')).toBeVisible();
+  expect(enviados).toHaveLength(0);
 });
 
 test('si guardar falla, lo dice y no hay fuegos', async ({ page }) => {
@@ -133,20 +174,20 @@ test('si guardar falla, lo dice y no hay fuegos', async ({ page }) => {
   await page.getByRole('button', { name: 'Añadir festivos' }).click({ timeout: 30_000 });
   const panel = page.getByRole('dialog', { name: 'Añadir festivos' });
   await panel.getByRole('button', { name: /Buscar los festivos de mi localidad/ }).click();
-  await panel.getByRole('checkbox', { name: /Virgen del Mar/ }).check();
-  await panel.getByRole('button', { name: 'Añadir 1 festivo' }).click();
+  await panel.getByRole('button', { name: 'Añadir 2 festivos' }).click();
 
   await expect.poll(() => enviados.length).toBeGreaterThan(0);
   await expect(panel.getByRole('alert')).toContainText('No se han podido guardar');
   await expect(page.getByTestId('fuegos-artificiales')).toHaveCount(0);
-  await expect(panel.getByRole('button', { name: 'Añadir 1 festivo' })).toBeEnabled();
+  await expect(panel.getByRole('button', { name: 'Añadir 2 festivos' })).toBeEnabled();
 });
 
-test('con la IA caída se dice, y se puede añadir a mano', async ({ page }) => {
+test('con la IA caída se dice, salen igual los del boletín y se puede añadir a mano', async ({ page }) => {
   await preparar(page, { nuevo: true });
   await conLista(page, () => ({ status: 200, body: { ok: true, creados: [], yaEstaban: 0 } }));
   await page.route((u) => u.pathname === '/api/festivos/buscar', (r) => json(r, {
-    ...BUSQUEDA, propuestos: [], ia: 'error', avisos: ['No hemos podido buscar las fiestas locales ahora. Inténtalo en un rato, o añádelas a mano.'],
+    ...BUSQUEDA, propuestos: BUSQUEDA.propuestos.filter(f => f.origen === 'oficial'), ia: 'error',
+    avisos: ['No hemos podido buscar las fiestas locales ahora. Inténtalo en un rato, o añádelas a mano.'],
   }));
 
   await ir(page, 'festivos');
@@ -154,7 +195,9 @@ test('con la IA caída se dice, y se puede añadir a mano', async ({ page }) => 
   const panel = page.getByRole('dialog', { name: 'Añadir festivos' });
   await panel.getByRole('button', { name: /Buscar los festivos de mi localidad/ }).click();
   await expect(panel.getByText('No hemos podido buscar las fiestas locales ahora')).toBeVisible();
-  await expect(panel.getByTestId('festivo-encontrado')).toHaveCount(0);
+  await expect(panel.getByTestId('festivo-encontrado')).toHaveCount(3);
+  await expect(panel.locator('[data-testid="festivo-encontrado"][data-origen="ia"]')).toHaveCount(0);
+  await expect(panel.getByRole('checkbox', { name: /Año Nuevo/ })).toBeChecked();
   await panel.getByRole('button', { name: 'Uno a mano' }).click();
   await expect(page.getByRole('dialog', { name: 'Añadir festivos' }).getByText('Añadir un festivo a mano')).toBeVisible();
 });
@@ -169,9 +212,8 @@ test('con «reducir movimiento», sin fuegos (pero añadido igual)', async ({ pa
   await page.getByRole('button', { name: 'Añadir festivos' }).click({ timeout: 30_000 });
   const panel = page.getByRole('dialog', { name: 'Añadir festivos' });
   await panel.getByRole('button', { name: /Buscar los festivos de mi localidad/ }).click();
-  await panel.getByRole('checkbox', { name: /Virgen del Mar/ }).check();
-  await panel.getByRole('button', { name: 'Añadir 1 festivo' }).click();
-  await expect(page.getByText('1 festivo añadido a tu lista')).toBeVisible();
+  await panel.getByRole('button', { name: 'Añadir 2 festivos' }).click();
+  await expect(page.getByText('2 festivos añadidos a tu lista')).toBeVisible();
   await expect(page.getByTestId('fuegos-artificiales')).toHaveCount(0);
 });
 

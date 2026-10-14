@@ -112,7 +112,7 @@ test('sin la tabla del módulo (migración sin aplicar), el aviso de los oficial
   assert.deepEqual(await festivosPorDecidir(admin, args), { disponible: true, zona: 'MADRID', festivos: [], propios: false });
 });
 
-test('«Comprobar clases» lo enciende el panel nuevo aunque el aviso esté apagado', async () => {
+test('«Comprobar clases» (módulo Festivos) funciona aunque el aviso de la bandeja esté apagado', async () => {
   process.env.FESTIVOS_AVISO = 'estudios:otro';
   const { admin } = supabaseFalso({ tablas: { studios: { data: ESTUDIO }, festivos_abiertos: { data: [] }, cierres_estudio: { data: [] }, sesiones: { data: [] } } });
   assert.deepEqual(await festivosPorDecidir(admin, { ...args, alcance: 'todos', encendido: true }), { disponible: true, zona: 'MADRID', festivos: [], propios: false });

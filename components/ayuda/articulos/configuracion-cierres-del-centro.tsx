@@ -106,8 +106,9 @@ export default function Contenido() {
       <p>
         Con <strong>«Ver todos los festivos con clases»</strong> ves los que quedan más allá de esas tres semanas.
         La comunidad sale de la <strong>dirección de tu estudio</strong> (el código postal o la ciudad); si no se
-        sabe, no se avisa de ninguno. Las <strong>fiestas locales de tu municipio no están</strong>: esas, ciérralas
-        tú. Lo ven la propietaria y la gerencia.
+        sabe, no se avisa de ninguno. Las <strong>fiestas locales de tu municipio</strong> no vienen solas: añádelas
+        en <strong>Estudio › Festivos</strong> (las busca la IA y tú eliges cuáles) y desde entonces cuentan aquí
+        también. Lo ven la propietaria y la gerencia.
       </p>
 
       <AyudaResultado>

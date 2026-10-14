@@ -109,6 +109,7 @@ El menú del panel, de arriba abajo:
 - Negocio › Informes: arriba un titular con los tres hechos que más importan, y los bloques Dinero, Clases y Clientas, por semana, mes, trimestre o año, comparados con el periodo anterior.
 - Negocio › Cierre de año: lo facturado y el IVA del año para la gestoría.
 - Estudio › Configuración: todos los ajustes (abajo, sus apartados).
+- Estudio › Festivos: los festivos del estudio. Los oficiales de su comunidad ya están (del boletín, según la dirección); las fiestas locales las busca la IA y la propietaria elige cuáles añadir, y también se añade un día a mano. «Comprobar clases» dice qué festivos tienen clases para abrir igualmente o cerrar ese día.
 - Estudio › Traer mis datos: importar alumnas, planes y reservas desde otro programa o un Excel.
 - Estudio › Libreta de clientas: un PDF con cada alumna, su plan, sus sesiones y su plaza fija.
 - Estudio › Actualizaciones: las novedades de Tentare.

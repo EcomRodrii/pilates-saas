@@ -4,7 +4,7 @@ import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { esTablaQueFalta } from '@/lib/db/tabla-que-falta';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { avisoFestivosEncendido, panelNuevoEncendido } from '@/lib/interruptor-por-estudio';
+import { avisoFestivosEncendido } from '@/lib/interruptor-por-estudio';
 import { hoyEnEstudio } from '@/lib/utils';
 import { festivosPorDecidir, zonaDeEstudio } from '@/lib/festivos/por-decidir-servidor';
 import { festivoAbrible } from '@/lib/festivos/por-decidir';
@@ -14,10 +14,11 @@ import { festivosGuardadosEntre } from '@/lib/festivos/estudio-servidor';
 export const dynamic = 'force-dynamic';
 
 // Festivos con clases que esperan que el estudio decida (P1.6): los oficiales
-// de su zona y, con el módulo Festivos (panel nuevo), los que ha guardado.
+// de su zona y los que ha guardado en el módulo Festivos.
 // GET los lista; POST `{ accion: 'abrir', fecha }` apunta «Abrimos igualmente».
-// El alcance «aviso» (la bandeja) va con `FESTIVOS_AVISO`; «todos» es también
-// el «Comprobar clases» del módulo Festivos y se abre con el panel nuevo.
+// El alcance «aviso» (la bandeja) va con `FESTIVOS_AVISO`; «todos» es el
+// «Comprobar clases» del módulo Festivos, que tienen todos los estudios, y
+// «abrir» es su «Abrimos igualmente»: los dos, sin interruptor.
 // «Cerrar ese día» NO pasa por aquí: va al POST /api/cierres de siempre, para
 // que el resultado sea exactamente el de «Cerrar el centro».
 //
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     const limited = await enforceRateLimit(req, 'festivos-lista', { max: 30, windowSeconds: 60 }, sesion.studioId);
     if (limited) return limited;
   }
-  const encendido = avisoFestivosEncendido(sesion.studioId) || (alcance === 'todos' && panelNuevoEncendido(sesion.studioId));
+  const encendido = alcance === 'todos' || avisoFestivosEncendido(sesion.studioId);
   const r = await festivosPorDecidir(admin, { studioId: sesion.studioId, ahora: new Date(), alcance, conReservas: true, encendido });
   if (!r) return NextResponse.json({ error: 'No se han podido leer los festivos' }, { status: 500 });
   if (!r.disponible) return NextResponse.json({ disponible: false });
@@ -54,7 +55,6 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarSede(sesion.rol)) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-  if (!avisoFestivosEncendido(sesion.studioId) && !panelNuevoEncendido(sesion.studioId)) return NextResponse.json({ error: 'No disponible' }, { status: 404 });
   const limited = await enforceRateLimit(req, 'festivos', { max: 30, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
   const admin = getSupabaseAdmin();

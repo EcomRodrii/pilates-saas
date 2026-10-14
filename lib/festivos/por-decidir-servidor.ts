@@ -63,8 +63,8 @@ export async function festivosPorDecidir(
     studioId: string; ahora: Date; alcance: 'aviso' | 'todos'; conReservas: boolean;
     /**
      * ¿Está encendido para este estudio? Por defecto, el aviso de la bandeja
-     * (`FESTIVOS_AVISO`). «Comprobar clases» del módulo Festivos (panel nuevo)
-     * lo abre también con el panel nuevo, solo con alcance «todos».
+     * (`FESTIVOS_AVISO`). «Comprobar clases» del módulo Festivos (alcance
+     * «todos») lo tienen todos los estudios: la ruta pasa `true`.
      */
     encendido?: boolean;
   },

@@ -107,8 +107,8 @@ export default function Contenido() {
         </li>
         <li>
           Debajo, <strong>los días del mes siguiente</strong>, también con casilla. Los festivos oficiales de tu
-          comunidad vienen sin marcar, salvo los que ya contestaste «Abrimos igualmente»; los locales de tu ciudad no
-          están, así que revisa esos días.
+          comunidad vienen sin marcar, salvo los que ya contestaste «Abrimos igualmente», y también los que añadiste
+          en <strong>Estudio › Festivos</strong> (las fiestas locales, por ejemplo). Si no has añadido los locales, revisa esos días.
         </li>
         <li>El botón dice <strong>cuántas clases se crean</strong> con lo que tienes marcado.</li>
       </ul>

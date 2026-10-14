@@ -20,13 +20,6 @@ export function encendidaPara(valor: string | undefined, studioId: string): bool
 /** Aviso de festivos en la bandeja (P1.6). */
 export const avisoFestivosEncendido = (studioId: string) => encendidaPara(process.env.FESTIVOS_AVISO, studioId);
 
-/**
- * El panel nuevo (14-oct-2026), visto desde el SERVIDOR: lo mira cada ruta que
- * solo existe con él (el módulo Festivos). La pantalla lo sabe por el catálogo
- * del navegador (`panelNuevo`), con la misma variable.
- */
-export const panelNuevoEncendido = (studioId: string) => encendidaPara(process.env.PANEL_NUEVO, studioId);
-
 /** «Repetir este mes» en el Calendario (P1.7). */
 export const repetirMesEncendido = (studioId: string) => encendidaPara(process.env.CALENDARIO_REPETIR_MES, studioId);
 
