@@ -537,7 +537,7 @@ export default function SustitucionesPage() {
           texto="Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar, con sus motivos."
           ejemplos={[
             { accion: 'Te propone sustitutas', cuando: 'según si están libres, si conocen la clase y cuántas horas llevan.' },
-            { accion: 'Las avisa por ti', cuando: 'si eliges Asistido o Autónomo arriba.' },
+            { accion: 'Las avisa por ti', cuando: 'en Asistido, Autónomo o Vacaciones.' },
             { accion: 'Si nadie puede,', cuando: 'mueves la clase o la cancelas, y avisa a tus alumnas si lo tienes encendido.' },
           ]}
           accion={{ label: 'Marcar una baja', onClick: () => setNuevaBaja(true), Icono: Plus }}
