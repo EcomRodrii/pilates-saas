@@ -92,6 +92,7 @@ test('Configuración: cada ajuste es su tarjeta con su valor a la vista, y tocar
   await expect(fila.locator('[data-resumen]')).toHaveCount(1);
   await fila.click();
   await expect(page.getByRole('dialog')).toBeVisible();
+});
 
 test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se pliega a una píldora', async ({ page }) => {
   await preparar(page, { nuevo: true });
