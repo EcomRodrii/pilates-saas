@@ -78,10 +78,12 @@ export function GlobalSearch({
     if (open) setTimeout(() => inputRef.current?.focus(), 40);
   }, [open]);
 
+  // El resultado marcado con el teclado (−1 = ninguno); ver «Con el teclado» más abajo.
+  const [activo, setActivo] = useState(-1);
   const [abiertoPrevio, setAbiertoPrevio] = useState(open);
   if (open !== abiertoPrevio) {
     setAbiertoPrevio(open);
-    if (open) setQuery('');
+    if (open) { setQuery(''); setActivo(-1); }
   }
 
   // El "ahora" con el que se filtran las próximas clases se fija cada vez que se
@@ -103,6 +105,49 @@ export function GlobalSearch({
   }, [query]);
 
   const q = debouncedQ;
+
+  // Con el teclado, como en Bonsai: ↑↓ mueven por los resultados y ↵ abre el que
+  // está marcado (el primero en cuanto se escribe). Antes el pie decía «↵ abrir»
+  // y no hacía nada. Los resultados se cuentan en el DOM (`data-resultado`, en el
+  // orden en que se ven), así no hay que mantener una segunda lista a mano.
+  const [qPrevio, setQPrevio] = useState(q);
+  if (q !== qPrevio) {
+    setQPrevio(q);
+    setActivo(q ? 0 : -1);
+  }
+  // Intro antes de que llegue la búsqueda (va con 150 ms de retraso): se espera
+  // a los resultados de lo escrito para no abrir uno de lo de antes.
+  const abrirAlLlegar = useRef(false);
+  useEffect(() => { abrirAlLlegar.current = false; }, [open]);
+  const resultadosRef = useRef<HTMLDivElement>(null);
+  const resultados = () => [...(resultadosRef.current?.querySelectorAll<HTMLButtonElement>('button[data-resultado]') ?? [])];
+  useEffect(() => {
+    const els = resultados();
+    els.forEach((el, i) => el.toggleAttribute('data-activo', i === activo));
+    if (activo >= 0) els[activo]?.scrollIntoView({ block: 'nearest' });
+  });
+  useEffect(() => {
+    if (!abrirAlLlegar.current || query.trim().toLowerCase() !== debouncedQ) return;
+    abrirAlLlegar.current = false;
+    resultados()[0]?.click();
+  }, [query, debouncedQ]);
+
+  function teclaEnBuscador(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (query.trim().toLowerCase() !== debouncedQ) { abrirAlLlegar.current = true; return; }
+      // Con la caja vacía y nada marcado, Intro no abre nada por su cuenta.
+      const i = activo >= 0 ? activo : debouncedQ ? 0 : -1;
+      if (i >= 0) resultados()[i]?.click();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const total = resultados().length;
+    if (total === 0) return;
+    e.preventDefault();
+    setActivo(a => (e.key === 'ArrowDown' ? (a + 1) % total : (a <= 0 ? total - 1 : a - 1)));
+  }
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
   const tipoById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
 
@@ -207,7 +252,7 @@ export function GlobalSearch({
     <div className="mb-1">
       <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pregúntale a Tentare</p>
       <button onClick={() => preguntarATentare(query)} data-testid="buscador-preguntar"
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+        data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
           <MessageCircleQuestionMark size={14} className="text-brand-medio" />
         </div>
@@ -280,6 +325,7 @@ export function GlobalSearch({
                 placeholder="¿Qué quieres hacer? O busca una clienta, clase o pago…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
+                onKeyDown={teclaEnBuscador}
                 className="flex-1 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none bg-transparent"
               />
               {query ? (
@@ -292,7 +338,7 @@ export function GlobalSearch({
             </div>
 
             {/* Results */}
-            <div className="max-h-[400px] overflow-y-auto p-2">
+            <div ref={resultadosRef} className="max-h-[400px] overflow-y-auto p-2">
               {asistentePrimero && filaAsistente}
               {/* Secciones del menú — primero: "escribo Calendario, quiero ir a Calendario" */}
               {modulosRes.length > 0 && (
@@ -304,7 +350,7 @@ export function GlobalSearch({
                     const Icon = m.icon;
                     return (
                       <button key={m.href} onClick={() => go(m.href)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                        data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted">
                           <Icon size={14} style={{ color: 'var(--foreground)' }} />
                         </div>
@@ -326,7 +372,7 @@ export function GlobalSearch({
                   </p>
                   {ajustesRes.map(a => (
                     <button key={a.id} onClick={() => go(a.href)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted">
                         <SlidersHorizontal size={14} style={{ color: 'var(--foreground)' }} />
                       </div>
@@ -348,7 +394,7 @@ export function GlobalSearch({
                   </p>
                   {tareasSinRepetir.map(t => (
                     <button key={t.id} onClick={() => go(t.href)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
                         <Zap size={14} className="text-brand-medio" />
                       </div>
@@ -370,7 +416,7 @@ export function GlobalSearch({
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pregúntale a Tentare</p>
                   {sugerenciasPara(puedeVerFinanzas(rol), 3).map(s => (
                     <button key={s} onClick={() => preguntarATentare(s)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
                         <MessageCircleQuestionMark size={14} className="text-brand-medio" />
                       </div>
@@ -389,7 +435,7 @@ export function GlobalSearch({
                   </p>
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/clientas/${s.id}`)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-brand-secondary/10 text-brand-secondary">
                         {s.nombre[0]}{s.apellidos[0]}
                       </div>
@@ -416,7 +462,7 @@ export function GlobalSearch({
                   </p>
                   {instructoresRes.map(i => (
                     <button key={i.id} onClick={() => go('/equipo')}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
                         <Users size={14} style={{ color: 'var(--brand)' }} />
                       </div>
@@ -439,7 +485,7 @@ export function GlobalSearch({
                     const d = new Date(s.inicio);
                     return (
                       <button key={s.id} onClick={() => go('/calendario')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                        data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: tipo?.color ?? '#C8C2E8', opacity: 0.85 }}>
                           <Calendar size={14} style={{ color: '#fff' }} />
                         </div>
@@ -464,7 +510,7 @@ export function GlobalSearch({
                     const s = socioById.get(r.socioId ?? '');
                     return (
                       <button key={r.id} onClick={() => go('/cobros?tab=deudas')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                        data-resultado className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted data-[activo]:bg-muted transition-colors text-left group">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}>
                           <CreditCard size={14} style={{ color: 'var(--warning)' }} />
                         </div>
@@ -492,6 +538,9 @@ export function GlobalSearch({
 
             {/* Footer */}
             <div className="border-t border-border px-4 py-2 flex items-center gap-4">
+              <span className="text-[10px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+                <kbd className="border border-border rounded px-1 mr-0.5 font-mono">↑</kbd><kbd className="border border-border rounded px-1 mr-1 font-mono">↓</kbd>moverte
+              </span>
               <span className="text-[10px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
                 <kbd className="border border-border rounded px-1 mr-1 font-mono">↵</kbd>abrir
               </span>
