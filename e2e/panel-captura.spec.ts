@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import { montar, ir, enOscuro } from './panel-sembrado';
+import { esRutaCongelada } from '../lib/frozen-features.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Auditoría visual del panel. No afirma nada: deja las imágenes en
@@ -27,10 +28,15 @@ const RUTAS = [
   // (/facturas, /pagos, /socios, /transacciones) y las dos que redirigen a
   // /dashboard mientras el módulo de marketing está apagado (/contenido,
   // /marketing): ninguna de esas seis pinta pantalla propia.
+  //
+  // `network/buscar` sigue en la lista pero la quita el filtro mientras Network
+  // esté congelado (2-oct-2026): el guardia del panel la rebota a /dashboard y la
+  // captura salía de un punto al azar de esa carrera, o expiraba esperándola.
+  // Medido y explicado en `panel-contraste.spec.ts`.
   'automatizaciones', 'cierre', 'comunidad', 'explorar-funciones',
   'libreta', 'mensajeria', 'mi-perfil', 'migracion',
   'notificaciones', 'primeros-pasos', 'primeros-pasos/tu-horario', 'sustituciones', 'network/buscar',
-];
+].filter((ruta) => !esRutaCongelada(`/${ruta}`));
 
 // ⚠️ Un test POR PANTALLA, no un bucle dentro de un test. Con el bucle, diez
 // rutas por tres segundos de espera se comían el límite de 30 s por test de
