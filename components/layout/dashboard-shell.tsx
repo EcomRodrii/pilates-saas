@@ -21,6 +21,7 @@ import { AsistenteProvider } from '@/lib/asistente-context';
 import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
@@ -456,6 +457,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {pathname !== '/asistente' && !panelNuevo && <WhatsAppFab />}
           {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
           <AsistenteFlotante solo={panelNuevo} />
+          {/* «Primeros pasos» flotante, como el de Bonsai (panel nuevo): en todas las
+              pantallas menos la home, que tiene la tarjeta entera. */}
+          {panelNuevo && pathname !== '/dashboard' && pathname !== '/asistente' && puedeVer('/primeros-pasos') && <PrimerosPasosFlotante />}
           </AsistenteProvider>
           </TutorialProvider>
         </TourProvider>
