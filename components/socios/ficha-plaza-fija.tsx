@@ -26,7 +26,8 @@ import { estadoPausa } from '@/lib/plazas-fijas-pausa';
 import { fechaLimiteDecidirVuelta } from '@/lib/plazas-fijas-solicitudes';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { hoyEnEstudio } from '@/lib/utils';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { DialogoPausaPlazaFija } from '@/components/plazas-fijas/dialogo-pausa-plaza-fija';
 import { CalendarioPlazaFija } from '@/components/plazas-fijas/calendario-plaza-fija';
 import type { PlazaFija } from '@/lib/types';
@@ -214,9 +215,9 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
           socioId={socioId}
           plaza={dialogo.plaza}
           onClose={() => setDialogo(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setDialogo(null);
-            onToast(textoPlazaGuardada(r, movida));
+            onToast(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}

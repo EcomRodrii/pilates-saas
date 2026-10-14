@@ -24,7 +24,8 @@ import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsi
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaClasesAutorizadas } from '@/components/socios/ficha-clases-autorizadas';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
@@ -2587,15 +2588,15 @@ export function FichaClienta({ id, modo = 'pagina' }: {
             <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una clase fija?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mt-1">
-            «{planOfrecido}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le
-            reserva sola cada semana, sin apuntarla a mano.
+            «{planOfrecido}» ya está asignado. Si {socio.nombre} viene cada semana a las mismas clases, elígelas
+            (una o varias): se le reservan solas, sin apuntarla a mano.
           </p>
           <div className="flex flex-col gap-2 pt-2">
             <button
               onClick={() => { setOfrecerPlazaFija(null); setDialogoPlazaFija(true); }}
               className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
             >
-              Elegir su clase
+              Elegir sus clases
             </button>
             <button
               onClick={() => setOfrecerPlazaFija(null)}
@@ -2611,9 +2612,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         <DialogoPlazaFija
           socioId={id}
           onClose={() => setDialogoPlazaFija(false)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setDialogoPlazaFija(false);
-            setToast(textoPlazaGuardada(r, movida));
+            setToast(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}

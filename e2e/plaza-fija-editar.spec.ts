@@ -157,8 +157,8 @@ test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
     await expect(dialogo.getByRole('heading', { name: 'Asignar clase fija' })).toBeVisible();
 
     // La clase en la que ya tiene plaza no se puede volver a elegir.
-    await expect(dialogo.getByRole('radio', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toBeDisabled();
-    const jueves = dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' });
+    await expect(dialogo.getByRole('checkbox', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toBeDisabled();
+    const jueves = dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' });
     await jueves.click();
     await expect(jueves).toHaveAttribute('aria-checked', 'true');
     expect(guardados.length).toBe(0);
@@ -181,7 +181,7 @@ test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
     const { guardados } = await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
     await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
-    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    await dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
     const hasta = dialogo.getByLabel('Hasta (opcional)');
     await expect(hasta).toHaveValue('');
 
@@ -214,7 +214,7 @@ test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
     });
     await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
-    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    await dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
     await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
 
     await expect(dialogo.getByText('Su cuota es de 1 clase por semana y ya tiene 1 clase fija.')).toBeVisible();
@@ -234,7 +234,7 @@ test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
     });
     await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
-    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    await dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
     await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
 
     await expect(dialogo.getByText(/necesita una cuota activa que incluya esta clase/)).toBeVisible();
@@ -242,6 +242,83 @@ test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
     // El intento SALIÓ de verdad: sin esto el test sería hueco.
     expect(guardados.length).toBeGreaterThan(0);
     await expect(page.getByText('Jueves · 18:00')).toHaveCount(0);
+  });
+
+  // Una cuota de «2 días a la semana» son dos clases fijas: antes solo se podía
+  // marcar una y había que volver a entrar para la segunda.
+  test('asignar dos a la vez: una petición por clase, en orden, y el aviso dice las dos', async ({ page }) => {
+    const { guardados, escriturasRest } = await montar(page, {
+      sesiones: [...MARTES_10, ...JUEVES_18],
+      // La de la fila está de baja: martes y jueves, libres.
+      plaza: { estado: 'BAJA' }, esperarPlaza: false,
+      guardar: [
+        { body: guardadaOk({ id: 'pf-mar', diaSemana: 2, horaInicio: '10:00:00' }, { primeraFecha: '2026-08-11' }) },
+        { body: guardadaOk({ id: 'pf-jue' }, { primeraFecha: '2026-08-06' }) },
+      ],
+    });
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
+    const dialogo = page.getByRole('dialog');
+    const martes = dialogo.getByRole('checkbox', { name: 'Martes 10:00 · Reformer · Sala Reformer' });
+    const jueves = dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' });
+    await martes.click();
+    await jueves.click();
+    await expect(martes).toHaveAttribute('aria-checked', 'true');
+    await expect(jueves).toHaveAttribute('aria-checked', 'true');
+    // Desmarcar y volver a marcar: es una casilla, no una opción única.
+    await martes.click();
+    await expect(martes).toHaveAttribute('aria-checked', 'false');
+    await expect(dialogo.getByRole('button', { name: 'Asignar clase fija' })).toBeEnabled();
+    await martes.click();
+    expect(guardados.length).toBe(0);
+
+    await dialogo.getByRole('button', { name: 'Asignar 2 clases fijas' }).click();
+    await expect(dialogo).toBeHidden();
+    expect(guardados.map(g => [g.metodo, g.cuerpo.sesionId])).toEqual([['POST', 'mar-0'], ['POST', 'jue-0']]);
+    for (const g of guardados) {
+      expect(g.cuerpo).toMatchObject({ socioId: 'soc-1', vigenciaDesde: '2026-08-05', vigenciaHasta: null, confirmarLimite: false });
+    }
+    await expect(page.getByText('2 clases fijas guardadas · ya tiene reservadas las clases del 6 de agosto y del 11 de agosto')).toBeVisible();
+    await expect(page.getByText('Martes · 10:00')).toBeVisible();
+    await expect(page.getByText('Jueves · 18:00')).toBeVisible();
+    expect(escriturasRest).toEqual([]);
+  });
+
+  test('si la segunda falla, la primera queda guardada y se dice; la que falló sigue marcada', async ({ page }) => {
+    const { guardados } = await montar(page, {
+      sesiones: [...MARTES_10, ...JUEVES_18],
+      plaza: { estado: 'BAJA' }, esperarPlaza: false,
+      guardar: [
+        { body: guardadaOk({ id: 'pf-mar', diaSemana: 2, horaInicio: '10:00:00' }, { primeraFecha: '2026-08-11' }) },
+        { status: 400, body: { ok: false, error: 'Esta clase está cancelada: elige otra del horario.' } },
+      ],
+    });
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
+    const dialogo = page.getByRole('dialog');
+    const martes = dialogo.getByRole('checkbox', { name: 'Martes 10:00 · Reformer · Sala Reformer' });
+    const jueves = dialogo.getByRole('checkbox', { name: 'Jueves 18:00 · Reformer · Sala Reformer' });
+    await martes.click();
+    await jueves.click();
+    await dialogo.getByRole('button', { name: 'Asignar 2 clases fijas' }).click();
+
+    // Las dos peticiones SALIERON: sin esto el test sería hueco.
+    await expect.poll(() => guardados.length).toBe(2);
+    const alerta = dialogo.getByRole('alert');
+    await expect(alerta).toContainText('Jueves 18:00: Esta clase está cancelada: elige otra del horario.');
+    await expect(alerta).toContainText('Ya guardada: martes 10:00.');
+    await expect(dialogo).toBeVisible();
+    // La guardada ya es suya y sale de la selección; la que falló sigue marcada para reintentar.
+    await expect(martes).toBeDisabled();
+    await expect(martes).toHaveAttribute('aria-checked', 'false');
+    await expect(jueves).toHaveAttribute('aria-checked', 'true');
+    await expect(dialogo.getByRole('button', { name: 'Asignar clase fija' })).toBeEnabled();
+
+    // Cerrar no la deshace: avisa de la que sí se guardó.
+    await dialogo.getByRole('button', { name: 'Cerrar' }).click();
+    await expect(dialogo).toBeHidden();
+    await expect(page.getByText('Clase fija guardada · ya tiene reservada la clase del 11 de agosto')).toBeVisible();
+    await expect(page.getByText('Martes · 10:00')).toBeVisible();
+    await expect(page.getByText('Jueves · 18:00')).toHaveCount(0);
+    expect(guardados).toHaveLength(2);
   });
 
   test('cambiar de clase conserva la plaza (PATCH) y dice cuántas del horario anterior se han cancelado', async ({ page }) => {

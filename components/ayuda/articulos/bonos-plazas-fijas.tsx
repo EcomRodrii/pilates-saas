@@ -56,19 +56,19 @@ export default function Contenido() {
       <p>
         En la ficha de la alumna, bloque <strong>«Clase fija»</strong> → «Añadir»; desde una clase del
         calendario, en el «⋯» junto a su nombre → <strong>«Darle clase fija»</strong>; o en la vista <strong>«Horario»</strong>
-        del calendario con «+ Clase fija» en la clase. En todos los casos <strong>eliges la
-        clase</strong> de tu horario a la que viene cada semana (y, si tu sala tiene máquinas numeradas, su
-        sitio). Ves cuántas alumnas con clase fija tiene ya cada clase.
+        del calendario con «+ Clase fija» en la clase. En todos los casos <strong>eliges en tu horario las
+        clases</strong> a las que viene cada semana —si viene dos días, marcas las dos de una vez— (y, si tu sala
+        tiene máquinas numeradas, su sitio en cada una). Ves cuántas alumnas con clase fija tiene ya cada clase.
       </p>
       <p>
         Y al asignarle una <strong>cuota</strong> —desde su ficha, o al darla de alta o editarla con una cuota— te
-        preguntamos si le das clase fija, que es justo cuando sabes a qué clase viene: «Elegir su clase» abre el
+        preguntamos si le das clase fija, que es justo cuando sabes a qué clases viene: «Elegir sus clases» abre el
         mismo diálogo y «Ahora no» no guarda nada. Con un bono, o si ya tiene clase fija, no se pregunta.
       </p>
       <p>
         Hace falta que tenga una <strong>cuota</strong> activa que incluya esa clase. Con bono no se puede: las
         reservas de una clase fija no descuentan sesiones, así que con bono se reserva clase a clase. Si la cuota
-        tiene un máximo de clases por semana y ya tiene esas clases fijas, te avisa antes y puedes asignarla
+        tiene un máximo de clases por semana y con las que eliges se pasaría, te avisa antes y puedes asignarlas
         igualmente.
       </p>
       <h2 style={h2}>Si se queda sin cuota</h2>
