@@ -55,3 +55,33 @@ export function clasesEstaSemana(inicios: readonly string[], ahora: Date, tz = '
   const lunesHoy = lunesDe(diaEstudio(ahora.toISOString(), tz));
   return inicios.filter(iso => lunesDe(diaEstudio(iso, tz)) === lunesHoy).length;
 }
+
+/**
+ * Cuántas clases ha hecho cada mes en los últimos `n` meses, el actual incluido
+ * (hora del estudio): la gráfica «Asistencia últimos meses» de la ficha del
+ * panel nuevo, como la de Bonsai. Lo que aún no ha pasado no cuenta.
+ */
+export function asistenciaPorMes(
+  asistencias: readonly string[],
+  ahora: Date,
+  n = 6,
+  tz = 'Europe/Madrid',
+): { clave: string; valor: number }[] {
+  const hoy = diaEstudio(ahora.toISOString(), tz);
+  let anio = Number(hoy.slice(0, 4));
+  let mes = Number(hoy.slice(5, 7));
+  const claves: string[] = [];
+  for (let i = 0; i < n; i++) {
+    claves.unshift(`${anio}-${String(mes).padStart(2, '0')}`);
+    mes -= 1;
+    if (mes === 0) { mes = 12; anio -= 1; }
+  }
+  const total = new Map(claves.map(c => [c, 0]));
+  const ahoraIso = ahora.toISOString();
+  for (const iso of asistencias) {
+    if (iso > ahoraIso) continue;
+    const clave = diaEstudio(iso, tz).slice(0, 7);
+    if (total.has(clave)) total.set(clave, (total.get(clave) ?? 0) + 1);
+  }
+  return claves.map(clave => ({ clave, valor: total.get(clave) ?? 0 }));
+}

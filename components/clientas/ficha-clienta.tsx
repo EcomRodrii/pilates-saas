@@ -65,7 +65,10 @@ import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
 import { cuandoClase, diasEntre, fechaCorta, haceCuanto, proximoCumple, telefonoLegible, textoDesde } from '@/lib/clientas/textos';
 import { compactarHistoria, historiaDeClienta, type GrupoHistoria } from '@/lib/clientas/historia';
-import { clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
+import { asistenciaPorMes, clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
+import { MESES_LARGOS } from '@/lib/inicio/cifras';
+import { GraficaArea } from '@/components/dashboard/grafica-area';
+import { Pildoras } from '@/components/dashboard/vivo';
 import { usoDe } from '@/lib/clientas/uso';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { contactoTrasElAviso, ETIQUETA_CANAL, ETIQUETA_RESULTADO, type CanalContacto, type ContactoApuntado, type ResultadoContacto } from '@/lib/clientas/contactos';
@@ -210,6 +213,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 }) {
   const rol = useRol();
   const panelNuevo = usePanelNuevo();
+  const [mesesAsistencia, setMesesAsistencia] = useState<6 | 12>(6);
   // Sin esto, una instructora veía «Cobrar» y «Cancelar suscripción»: botones que
   // desde la 0112 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
@@ -1561,13 +1565,36 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   </TarjetaFicha>
                 )}
 
-                <TarjetaFicha titulo="Constancia" icono={<CalendarClock size={16} />} accion={<span className="text-[12px] text-muted-foreground">Últimas 12 semanas</span>}>
+                <TarjetaFicha
+                  titulo={panelNuevo ? 'Asistencia últimos meses' : 'Constancia'}
+                  icono={<CalendarClock size={16} />}
+                  accion={panelNuevo
+                    ? <Pildoras opciones={[{ valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={mesesAsistencia} onCambio={setMesesAsistencia} />
+                    : <span className="text-[12px] text-muted-foreground">Últimas 12 semanas</span>}
+                >
+                  {panelNuevo ? (
+                    // Como la ficha de Bonsai (b-83): la asistencia de cada mes, en grande.
+                    <GraficaArea
+                      titulo="Clases a las que vino cada mes"
+                      alto={180}
+                      enteros
+                      puntos={asistenciaPorMes(asistenciasSuyas, now, mesesAsistencia).map(m => ({
+                        eje: MESES_LARGOS[Number(m.clave.slice(5, 7)) - 1].slice(0, 3),
+                        nombre: `${MESES_LARGOS[Number(m.clave.slice(5, 7)) - 1]} de ${m.clave.slice(0, 4)}`,
+                        valor: m.valor,
+                      }))}
+                      formato={n => `${n} ${n === 1 ? 'clase' : 'clases'}`}
+                      vacio="Cada clase a la que venga, cuando se pase lista, sumará aquí."
+                    />
+                  ) : (
                   <BarrasConstancia semanas={constanciaSuya.semanas} />
-                  <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
+                  )}
+                  {/* Panel nuevo: sin clases, la gráfica ya lo dice; con clases, la media es de las últimas 12 semanas. */}
+                  {!(panelNuevo && asistidas === 0) && <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
                     {mediaSuya === null
-                      ? 'Todavía no ha venido a ninguna clase en estas semanas.'
-                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{sinVenirSuyas >= 2 ? ` · lleva ${sinVenirSuyas} semanas sin venir` : ''}</>}
-                  </p>
+                      ? (panelNuevo ? 'No ha venido a ninguna clase en las últimas 12 semanas.' : 'Todavía no ha venido a ninguna clase en estas semanas.')
+                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{panelNuevo ? ' en las últimas 12 semanas' : ''}{sinVenirSuyas >= 2 ? ` · lleva ${sinVenirSuyas} semanas sin venir` : ''}</>}
+                  </p>}
                   <p className="mt-1 text-[12.5px] text-muted-foreground">
                     {asistidas === 0 ? 'Aún no ha venido a ninguna clase.' : `Ha venido a ${asistidas} ${asistidas === 1 ? 'clase' : 'clases'} en total`}
                     {verFinanzas && totalGastado > 0 ? ` · ha pagado ${formatEuro(totalGastado)}` : ''}
