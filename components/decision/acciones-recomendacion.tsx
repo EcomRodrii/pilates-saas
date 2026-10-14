@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { Check, Clock3, Euro, Mail, MessageCircle, Send, UserCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_VIVO } from '@/components/dashboard/vivo';
+import { cn } from '@/lib/utils';
 import { admiteYaContactada, efectoDe, ROTULO_EFECTO, TONO_TRAS_DECIDIR, trasDecidir, type EfectoAprobar } from '@/lib/decision/efecto-aprobar';
 import type { RecomendacionAPI } from './use-decisiones';
 
@@ -34,6 +37,7 @@ export function AccionesRecomendacion({
   /** Solo el veredicto ofrece «Recuérdamelo». */
   onPosponer?: () => void;
 }) {
+  const panelNuevo = usePanelNuevo();
   const efecto = efectoDe(recomendacion);
   const decidida = trasDecidir(efecto, recomendacion.estado, { resultado: recomendacion.resultado, tardando });
 
@@ -68,9 +72,16 @@ export function AccionesRecomendacion({
   const Icono = ICONO[efecto];
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
-      <Button size="sm" onClick={onAprobar} disabled={procesando}>
-        <Icono size={14} /> {ROTULO_EFECTO[efecto]}
-      </Button>
+      {panelNuevo ? (
+        // Panel nuevo: la acción principal con el degradado, como en el resto del panel.
+        <button type="button" onClick={onAprobar} disabled={procesando} className={cn(BOTON_VIVO, 'h-8 px-3.5 text-[13px] disabled:pointer-events-none disabled:opacity-50')}>
+          <Icono size={14} aria-hidden /> {ROTULO_EFECTO[efecto]}
+        </button>
+      ) : (
+        <Button size="sm" onClick={onAprobar} disabled={procesando}>
+          <Icono size={14} /> {ROTULO_EFECTO[efecto]}
+        </Button>
+      )}
       {whatsappHref && (
         <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex">
           <Button size="sm" variant="outline" type="button" tabIndex={-1}>
