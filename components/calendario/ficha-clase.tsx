@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, MoreHorizontal, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 
@@ -69,6 +70,7 @@ export interface FichaClaseProps {
 const BOTON_CABEZA = 'flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
 
 function Contenido(p: FichaClaseProps) {
+  const panelNuevo = usePanelNuevo();
   const pestanas: { id: PestanaFicha; texto: string }[] = [
     { id: 'clientas', texto: 'Clientas' },
     ...(p.conPlazas ? [{ id: 'plazas' as const, texto: 'Plazas' }] : []),
@@ -79,7 +81,12 @@ function Contenido(p: FichaClaseProps) {
   return (
     <>
       {p.modo === 'hoja' && <span className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-foreground/20" aria-hidden />}
-      <div className="shrink-0 border-b border-border px-5 pt-4 pb-3.5" data-testid="ficha-clase-cabeza">
+      <div
+        className="shrink-0 border-b border-border px-5 pt-4 pb-3.5"
+        data-testid="ficha-clase-cabeza"
+        // Panel nuevo: la cabecera teñida del color de la clase, como su tarjeta en el calendario.
+        style={panelNuevo ? { background: `linear-gradient(160deg, color-mix(in srgb, ${p.color} 22%, var(--card)), var(--card) 75%)` } : undefined}
+      >
         <div className="flex items-center gap-2">
           <span className="size-3 shrink-0 rounded-full" style={{ background: p.color }} aria-hidden />
           {/* tabIndex -1: recibe el foco al abrir la ficha al lado (no es un control). */}
@@ -145,7 +152,7 @@ function Contenido(p: FichaClaseProps) {
           >
             {t.texto}
             {t.id === 'clientas' && <span className="ml-1 tabular-nums text-muted-foreground">{p.nClientas}</span>}
-            {activa === t.id && <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-full bg-foreground" aria-hidden />}
+            {activa === t.id && <span className={cn('absolute inset-x-1.5 -bottom-px h-0.5 rounded-full', !panelNuevo && 'bg-foreground')} style={panelNuevo ? { backgroundColor: 'var(--t-magenta-500)' } : undefined} aria-hidden />}
           </button>
         ))}
       </div>
