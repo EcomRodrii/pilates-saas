@@ -24,7 +24,7 @@ import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 export function OnboardingChecklist() {
   const {
     studio, updateStudio, instructores, tiposClase, sesiones, socios,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
     reservas,
   } = useStudio();
   const { rol, puedeVer } = usePermisos();
@@ -33,7 +33,7 @@ export function OnboardingChecklist() {
 
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   });
   const { totalPasos, totalCompletados, categorias } = calcularOnboarding(datos);
 

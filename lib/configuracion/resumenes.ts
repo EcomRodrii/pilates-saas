@@ -29,6 +29,8 @@ import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
 import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '../plataformas/venta-externa.ts';
+import { tarjetasDescubre, type BannerMin } from '../student/descubre.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 export const MAX_RESUMEN = 44;
 /** Las filas de «Cómo reservan mis alumnas»: a dos líneas (ver `resumenRegla`). */
@@ -419,8 +421,6 @@ export function resumenesDeConfiguracion(
 export const CORREOS_AUTOMATICOS = ['bienvenida', 'reserva', 'recordatorio', 'cancelacion', 'promocion', 'impago'] as const;
 
 /** Algo que se ve entre dos fechas, o siempre si no las tiene. */
-type ConVigencia = { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null };
-
 export interface DatosHerramientas {
   numTiposClase?: number | null;
   salas?: {
@@ -431,10 +431,9 @@ export interface DatosHerramientas {
   } | null;
   /** Las filas de `plantillas_email`. Sin fila, el correo se envía. */
   correos?: readonly { tipo: string; enviar?: boolean | null }[] | null;
+  /** Las tarjetas de «Descubre» (los banners), tal cual las tiene el panel. */
   contenido?: {
-    mensajeDestacado: string | null;
-    tarjetas: readonly ConVigencia[];
-    avisos: readonly ConVigencia[];
+    tarjetas: readonly (BannerMin & { activo: boolean; ubicacion?: readonly string[] | null })[];
     ahoraMs: number;
   } | null;
   /** Las webs donde está autorizada la integración nativa del horario. */
@@ -453,13 +452,6 @@ export interface DatosHerramientas {
   } | null;
   /** «Avisos en el móvil»: antelación del recordatorio y cuántos textos reescribió (`null` = sin leer). */
   avisosMovil?: { largoHoras: number; cortoMinutos: number; textosPropios: number | null } | null;
-}
-
-function enVigor(x: ConVigencia, ahoraMs: number): boolean {
-  if (!x.activo) return false;
-  if (x.fechaInicio && Date.parse(x.fechaInicio) > ahoraMs) return false;
-  if (x.fechaFin && Date.parse(x.fechaFin) < ahoraMs) return false;
-  return true;
 }
 
 /** La línea de la fila de una herramienta, o `null` si no se sabe cómo está. */
@@ -495,22 +487,24 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
 
     case 'contenido-de-tu-app': {
       if (!d.contenido) return null;
-      const { mensajeDestacado, tarjetas, avisos, ahoraMs } = d.contenido;
-      const nTarjetas = tarjetas.filter(t => enVigor(t, ahoraMs)).length;
-      const nAvisos = avisos.filter(a => enVigor(a, ahoraMs)).length;
-      return unir([
-        mensajeDestacado?.trim() ? 'con mensaje destacado' : 'sin mensaje destacado',
-        // Solo las que se ven hoy: publicadas y dentro de sus fechas.
-        nTarjetas > 0 ? contar(nTarjetas, 'tarjeta', 'tarjetas') : null,
-        nAvisos > 0 ? contar(nAvisos, 'aviso', 'avisos') : null,
-      ]);
+      const { tarjetas, ahoraMs } = d.contenido;
+      // Lo que sale HOY en su app, con la misma regla que la app: publicada, en el
+      // inicio (es lo que filtra el servidor), con foto y dentro de sus fechas, que
+      // son inclusivas y del día de Madrid (`tarjetasDescubre`). Antes contaba una
+      // tarjeta sin foto, que la app descarta, y la quitaba el último día a las 02:00.
+      // Ni el mensaje destacado ni el tablón: ninguna pantalla de su app los enseña,
+      // y «con mensaje destacado · 1 aviso» prometía que sí.
+      const hoy = hoyEnEstudio(new Date(ahoraMs));
+      const n = tarjetasDescubre(tarjetas.filter(t => t.activo && (t.ubicacion ?? ['home']).includes('home')), hoy).length;
+      return n > 0 ? contar(n, 'tarjeta en su app', 'tarjetas en su app') : 'Ninguna tarjeta en su app';
     }
 
     case 'widgets': {
       // No se sabe qué widgets tiene pegados en su web: solo dónde autorizó la
       // integración nativa. Sin ninguna, la fila cuenta qué hay dentro.
       const n = d.widgetDominios?.length ?? 0;
-      return n > 0 ? contar(n, 'web con el widget nativo', 'webs con el widget nativo') : null;
+      // Con el nombre de la herramienta («Ponerlo sin marco»), no con la jerga de dentro.
+      return n > 0 ? contar(n, 'web autorizada para ponerlo sin marco', 'webs autorizadas para ponerlo sin marco') : null;
     }
 
     case 'avisos-del-movil': {

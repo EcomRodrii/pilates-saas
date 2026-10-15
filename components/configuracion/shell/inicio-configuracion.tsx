@@ -86,7 +86,7 @@ export function InicioConfiguracion({
 }) {
   const {
     studio, dataLoaded, salas, tiposClase, planesTarifa, integraciones,
-    instructores, sesiones, socios, reservas, suscripciones, automationRules, contenidoPortal,
+    instructores, sesiones, socios, reservas, suscripciones, automationRules, bannersPortal,
   } = useStudio();
   const idBuscador = useId();
   const { dark } = usePanelTheme();
@@ -142,7 +142,7 @@ export function InicioConfiguracion({
   const progreso = cargado
     ? calcularProgresoGuia(calcularOnboarding(datosOnboardingDelEstudio({
       studio, instructores, tiposClase, sesiones, socios, reservas,
-      salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+      salas, planesTarifa, suscripciones, automationRules, bannersPortal,
     })).categorias)
     : null;
   // «Pon tu estudio a punto» es la guía de la PROPIETARIA: sus pasos son el NIF,

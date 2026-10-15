@@ -5,7 +5,7 @@ import { calcularOnboarding, guiaRapida, PASOS_GUIA_RAPIDA, type DatosOnboarding
 const vacio: DatosOnboarding = {
   nif: null, stripeAccountId: null, slug: 'estudio-de-prueba', colorPrimario: '#4F46E5', temaPortal: 'original', logoUrl: null,
   numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0, numSocios: 0, numSalas: 0,
-  numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0, contenidoPortalPersonalizado: false,
+  numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0, hayTarjetaEnLaApp: false,
   automatizacionesActivas: new Set(),
 };
 const guia = (d: Partial<DatosOnboarding>) => guiaRapida(calcularOnboarding({ ...vacio, ...d }).categorias);

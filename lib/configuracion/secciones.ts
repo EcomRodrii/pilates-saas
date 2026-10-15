@@ -263,7 +263,7 @@ export const SECCIONES = [
       // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
       // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare. Aunque ocultes tu página, seguirá saliendo ahí.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
-      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
+      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Las tarjetas de «Descubre» de su app; el mensaje destacado y los avisos de aquí se guardan, pero hoy no salen.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
       { id: 'widgets', titulo: 'Widgets para tu web', frase: 'Tu horario, tus precios y la cuenta de tus alumnas dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
     ],
   },
