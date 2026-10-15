@@ -503,6 +503,22 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 
 ⚠️ Sube a App Store Connect, **no envía a revisión**.
 
+**Pedir la app desde el panel** (fase 1, 15-oct-2026; apagado de serie):
+
+- El estudio la pide en Apariencia de tu app → «Tu app en la App Store» (`MiAppDeTienda`),
+  solo con `APP_PROPIA_PEDIR` encendido para él (`on` o `estudios:<id>`, el formato de siempre).
+  Pedirla es de la **propietaria** y exige un plan que la incluya: `tieneFeature(studio, 'appPropia')`
+  EN EL SERVIDOR (`POST /api/estudio/app-movil`; Estudio y Cadena sí, Founding Studio y el plan gratis no).
+  Nace `PEDIDA` y **sin activar**; el bundle sale del slug (`app.tentare.<slug>`).
+- Los estados (`apps_estudio.estado`) son lo que se le cuenta al estudio: `PEDIDA`, `EN_PREPARACION`,
+  `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos»: esta fase no
+  manda ningún aviso al estudio (lo ve al volver al panel).
+- La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, pone el enlace de la
+  App Store (obligatorio para `PUBLICADA`) y apunta notas que el estudio nunca ve. **`activa` solo se
+  mueve desde ahí**, y es lo que cambia qué abre la app y el fichero de enlaces universales.
+- Una petición sigue exigiendo los pasos manuales de más arriba (fila activa, Client IDs de Apple en
+  Supabase, registro en App Store Connect, compilar y subir). Esta fase no los automatiza.
+
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 
 - **«Texto más grande»** (Dynamic Type): `PuenteNativo` mide el cuerpo del

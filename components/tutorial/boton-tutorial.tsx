@@ -52,7 +52,8 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <CirclePlay size={15} aria-hidden style={{ color: 'var(--t-magenta-500)' }} />
-        Cómo funciona
+        {/* Una cabecera estrecha puede dejar solo el icono (el nombre sigue en `aria-label`). */}
+        <span data-boton-tutorial-texto>Cómo funciona</span>
       </button>
     );
   }

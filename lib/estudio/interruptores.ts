@@ -37,6 +37,12 @@ export const INTERRUPTORES = {
    * fundador; a todos cuando él dé el sí.
    */
   panelNuevo: 'PANEL_NUEVO',
+  /**
+   * «Pedir mi app» (Apariencia de tu app → app propia en la App Store, 15-oct-2026). Apagado de
+   * serie: sin él la sección no se pinta y la ruta contesta 404. Se enciende con el piloto de
+   * «marta» y a todos cuando el fundador dé el sí.
+   */
+  pedirApp: 'APP_PROPIA_PEDIR',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

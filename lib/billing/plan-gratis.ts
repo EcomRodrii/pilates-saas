@@ -1,20 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Founding Studio gratis (decisión del fundador, 15-oct-2026).
 //
+// Y qué toca al pasarse (decisiones del fundador del 15-oct): el segundo límite
+// son 250 RESERVAS al mes, no cobros (~02:15: los cobros se esquivan cobrando
+// fuera de Tentare; las reservas no, como las «inscripciones» de Bonsai). Al
+// pasar CUALQUIERA de los dos límites, Founding Studio DE PAGO: 29 €/mes, lo
+// mismo y sin límites (08:30: «cuando pasa de esos limites cuesta 29€ y el
+// estudio ya 59 y cadena 149»). Nadie va obligado a Estudio: lo que lo
+// distingue es la app propia del estudio (`appPropia`, entitlements.ts).
+//
 // Un estudio que no paga usa Tentare ENTERO (todo salvo varias sedes) mientras
-// no pase de LIMITE_ALUMNAS alumnas «Activa» ni de LIMITE_COBROS_MES cobros en un
-// mes. Al pasarse tiene MARGEN_DIAS para elegir Estudio; pasado el margen, el
-// panel se cierra hasta que lo elija. La app de sus alumnas no se toca nunca.
+// no pase de LIMITE_ALUMNAS alumnas «Activa» ni de LIMITE_RESERVAS_MES reservas en un
+// mes. Al pasarse tiene MARGEN_DIAS para elegir plan de pago; pasado el
+// margen, el panel se cierra hasta que lo elija. La app de sus alumnas no se toca nunca.
 //
 // Los «truquitos», todos aquí y con su test:
 //   · Cuenta lo que mueve el estudio de verdad, no fichas: alumnas con el chip
-//     «Activa» (lib/clientas/estado.ts, el mismo número que el Resumen) y cobros
-//     con dinero ingresado (neto de lo devuelto). Importar fichas viejas o dejar
-//     recibos a cero no suma.
-//   · Los cobros se cuentan en los ÚLTIMOS 30 DÍAS (por día de cobro), no por
-//     mes natural: no se reinicia todo el día 1 (pasarse el 28 y volver a cero
-//     el 1 sería una trampa), y si de verdad vuelve a bajar, se ve.
-//   · Pasado el margen, el cierre se queda hasta que elija Estudio, aunque
+//     «Activa» (lib/clientas/estado.ts, el mismo número que el Resumen) y
+//     reservas de clases que se dieron (sin canceladas, lista de espera ni
+//     pendientes de aprobar; las de clase fija, sí). Importar fichas viejas no
+//     suma, y cobrar fuera de Tentare no lo esquiva.
+//   · Las reservas se cuentan en los ÚLTIMOS 30 DÍAS (por la fecha de la
+//     clase), no por mes natural: no se reinicia todo el día 1 (pasarse el 28
+//     y volver a cero el 1 sería una trampa), y si de verdad vuelve a bajar, se ve.
+//   · Pasado el margen, el cierre se queda hasta que elija un plan, aunque
 //     luego baje: si no, se reabriría solo en temporada baja.
 //   · Se suma el uso de todos los estudios gratis de la misma dueña: trocear un
 //     estudio en dos no lo hace gratis (lo hace quien mide, uso-gratis-servidor).
@@ -29,10 +38,10 @@
 import { masDias } from '../utils.ts';
 
 export const LIMITE_ALUMNAS = 150;
-export const LIMITE_COBROS_MES = 30;
-/** Días para elegir Estudio desde que se pasa. */
+export const LIMITE_RESERVAS_MES = 250;
+/** Días para elegir un plan de pago desde que se pasa. */
 export const MARGEN_DIAS = 30;
-/** Desde qué parte del límite se avisa (120 alumnas, 24 cobros). */
+/** Desde qué parte del límite se avisa (120 alumnas, 200 reservas). */
 export const AVISO_PCT = 0.8;
 
 /** La frase del fundador, literal (con la tilde de «Tú»). */
@@ -55,17 +64,17 @@ export function esPlanGratis(status: string | null | undefined): boolean {
 
 export interface UsoGratis {
   alumnasActivas: number;
-  /** Cobros con dinero ingresado en los últimos 30 días (por su día de cobro, Madrid). */
-  cobros30Dias: number;
+  /** Reservas de las clases de los últimos 30 días (por la fecha de la clase, Madrid). */
+  reservas30Dias: number;
 }
 
-export type MotivoLimite = 'alumnas' | 'cobros';
+export type MotivoLimite = 'alumnas' | 'reservas';
 
 /** Lo que se ha pasado del límite (vacío si nada). */
 export function limitesPasados(u: UsoGratis): MotivoLimite[] {
   const m: MotivoLimite[] = [];
   if (u.alumnasActivas > LIMITE_ALUMNAS) m.push('alumnas');
-  if (u.cobros30Dias > LIMITE_COBROS_MES) m.push('cobros');
+  if (u.reservas30Dias > LIMITE_RESERVAS_MES) m.push('reservas');
   return m;
 }
 
@@ -73,7 +82,7 @@ export function limitesPasados(u: UsoGratis): MotivoLimite[] {
 export function limitesCerca(u: UsoGratis): MotivoLimite[] {
   const m: MotivoLimite[] = [];
   if (u.alumnasActivas >= Math.ceil(LIMITE_ALUMNAS * AVISO_PCT)) m.push('alumnas');
-  if (u.cobros30Dias >= Math.ceil(LIMITE_COBROS_MES * AVISO_PCT)) m.push('cobros');
+  if (u.reservas30Dias >= Math.ceil(LIMITE_RESERVAS_MES * AVISO_PCT)) m.push('reservas');
   return m;
 }
 
@@ -92,7 +101,7 @@ export function siguienteExcedidoDesde(actual: string | null, uso: UsoGratis, ho
 /**
  *  · DENTRO  — lejos del límite.
  *  · CERCA   — desde el 80 %: se avisa, no pasa nada.
- *  · MARGEN  — se ha pasado: quedan `diasRestantes` para elegir Estudio.
+ *  · MARGEN  — se ha pasado: quedan `diasRestantes` para elegir un plan de pago.
  *  · CERRADO — se acabó el margen: el panel lleva a elegir plan.
  *  · SIN_MEDIR — todavía no hay cifras: nunca se cierra nada por no saber.
  */
@@ -143,7 +152,7 @@ export function estadoGratis(entrada: { uso: UsoGratis | null; excedidoDesde: st
 
 /** Lo que contesta /api/billing/status de un estudio gratis (ya derivado). */
 export interface EstadoGratisApi extends EstadoGratis {
-  limites: { alumnas: number; cobrosMes: number };
+  limites: { alumnas: number; reservasMes: number };
   margenDias: number;
 }
 
@@ -175,12 +184,12 @@ export function pasaAGratis(s: { subscriptionStatus: string | null | undefined; 
   return PASAN_A_GRATIS.has(s.subscriptionStatus ?? null);
 }
 
-/** La frase de lo que se ha pasado, para los avisos: «150 alumnas activas», «30 cobros al mes». */
+/** La frase de lo que se ha pasado, para los avisos: «150 alumnas activas», «250 reservas al mes». */
 export function textoLimite(m: MotivoLimite): string {
-  return m === 'alumnas' ? `${LIMITE_ALUMNAS} alumnas activas` : `${LIMITE_COBROS_MES} cobros al mes`;
+  return m === 'alumnas' ? `${LIMITE_ALUMNAS} alumnas activas` : `${LIMITE_RESERVAS_MES} reservas al mes`;
 }
 
-/** «150 alumnas activas y 30 cobros al mes»; sin motivos (cerrado y ya por debajo), «un límite del plan gratis». */
+/** «150 alumnas activas y 250 reservas al mes»; sin motivos (cerrado y ya por debajo), «un límite del plan gratis». */
 export function textoLimites(m: readonly MotivoLimite[]): string {
   return m.length === 0 ? 'un límite del plan gratis' : m.map(textoLimite).join(' y ');
 }

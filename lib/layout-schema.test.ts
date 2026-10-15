@@ -19,7 +19,7 @@ test('resolveLayout: filtra tipos inválidos por campo', () => {
 test('resolveLayout: config válida se respeta', () => {
   const r = resolveLayout({ orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior' });
   assert.deepEqual(r, {
-    orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
+    orden: ['/x'], ocultos: ['/y'], activados: [], menuPosition: 'superior',
     home: { orden: [], ocultos: [] },
     portalHome: { orden: [], ocultos: [] },
     // Orden/visibilidad de las secciones de /reservar (widget incrustable).
@@ -28,6 +28,12 @@ test('resolveLayout: config válida se respeta', () => {
     reservar: { orden: [], ocultos: [] },
     bloques: DEFAULT_BLOQUES_SHAPE,
   });
+});
+
+test('resolveLayout: `activados` (Módulos con el panel nuevo) se lee y se filtra; sin él, vacío', () => {
+  assert.deepEqual(resolveLayout({ activados: ['/pos', 4, '/cierre'] }).activados, ['/pos', '/cierre']);
+  assert.deepEqual(resolveLayout({ activados: 'no' }).activados, []);
+  assert.deepEqual(resolveLayout({ ocultos: ['/y'] }).activados, []);
 });
 
 test('resolveLayout: resuelve bloques.home (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveBloquesPantalla', () => {
@@ -297,4 +303,18 @@ test('guardar el menú no toca los bloques del estudio (ni el borrador ni lo pub
   assert.deepEqual(final.bloques.reservar.publicado, propio, 'lo publicado de /reservar se conserva');
   // Y sin el arreglo (lo de antes) se habría perdido: el parche trae bloques de fábrica.
   assert.ok('bloques' in parche);
+});
+
+// Módulos (panel nuevo) y el cajón «Tu menú» escriben el mismo documento: el
+// PUT de uno no puede pisar lo del otro.
+test('activar en Módulos ({ ocultos, activados }) no toca el orden; guardar el orden no toca los activados', async () => {
+  const { fusionarLayout, layoutConfigSchema, layoutDraftSchema } = await import('./layout-schema.ts');
+  const { DEFAULT_LAYOUT } = await import('./layout-runtime.ts');
+  const actual = { ...layoutConfigSchema.parse(DEFAULT_LAYOUT), orden: ['/citas'], activados: ['/cierre'] };
+  const trasModulos = fusionarLayout(actual, layoutDraftSchema.parse({ ocultos: [], activados: ['/cierre', '/pos'] }));
+  assert.deepEqual(trasModulos.activados, ['/cierre', '/pos']);
+  assert.deepEqual(trasModulos.orden, ['/citas']);
+  const trasOrden = fusionarLayout(trasModulos, layoutDraftSchema.parse({ orden: ['/pos', '/cobros'], menuPosition: 'lateral' }));
+  assert.deepEqual(trasOrden.activados, ['/cierre', '/pos']);
+  assert.deepEqual(trasOrden.orden, ['/pos', '/cobros']);
 });

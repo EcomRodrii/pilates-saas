@@ -6,7 +6,7 @@ import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_COBROS_MES, MARGEN_DIAS, esPlanGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
 import { leerUsoGratis, refrescarUsoGratis } from '@/lib/billing/uso-gratis-servidor';
 import { COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, type FilaParaGratis } from '@/lib/billing/convertir-a-gratis';
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     if (estado.fase === 'CERRADO' && subscriptionStatus === ESTADO_GRATIS && (await cerrarPlanGratis(admin, sesion.studioId))) {
       subscriptionStatus = ESTADO_GRATIS_CERRADO;
     }
-    gratis = { ...estado, limites: { alumnas: LIMITE_ALUMNAS, cobrosMes: LIMITE_COBROS_MES }, margenDias: MARGEN_DIAS };
+    gratis = { ...estado, limites: { alumnas: LIMITE_ALUMNAS, reservasMes: LIMITE_RESERVAS_MES }, margenDias: MARGEN_DIAS };
     activo = estado.fase !== 'CERRADO';
     bloqueado = enforcement && configurado && !activo;
   }

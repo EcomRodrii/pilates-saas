@@ -7,7 +7,6 @@ import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { pagaPlan } from '@/lib/billing/plan-gratis';
-import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
@@ -50,12 +49,6 @@ export async function POST(req: NextRequest) {
   const plan = body?.plan as Plan | undefined;
   if (!plan || !PLANES.includes(plan)) {
     return NextResponse.json({ error: 'Plan no válido' }, { status: 400 });
-  }
-  // Founding Studio es gratis (lib/billing/plan-gratis.ts): con el interruptor
-  // encendido no se vende, ni con una llamada directa. Una suscripción de 29 €
-  // dejaría al estudio PAGANDO con menos que el gratis.
-  if (plan === 'BASE' && encendidaPara(process.env.FOUNDING_GRATIS, sesion.studioId)) {
-    return NextResponse.json({ error: 'Founding Studio es gratis: no hay nada que contratar. Para crecer, elige Estudio.' }, { status: 400 });
   }
   const price = priceIdDe(plan);
   if (!price) {

@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
+import { accesoProducto, tieneFeature } from '../lib/billing/entitlements.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Tu Tentare» (P2.5): el catálogo de módulos en Configuración › Tu panel.
@@ -32,6 +33,13 @@ async function abrir(page: Page, o: {
   // Después de `montar`: gana a sus comodines.
   await page.route('**/api/configuracion/tu-tentare', r => { cuenta.activo++; return json(r, o.activo ?? { activo: true }, o.status ?? 200); });
   await page.route('**/api/billing/status**', r => json(r, { activo: true, plan: o.plan ?? 'ESTUDIO', configurado: true, bloqueado: false }));
+  // El plan lo dice `tieneFeature` sobre el estudio (`planQueFalta`), como en Módulos.
+  if (o.plan) {
+    await page.route('**/rest/v1/studios**', r => json(r, {
+      id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: 'auth-e2e-duena',
+      email: 'cloe@example.com', moneda: 'EUR', plan: o.plan, subscription_status: 'active',
+    }));
+  }
   await page.route('**/api/layout**', async r => {
     if (r.request().method() === 'PUT') {
       const cuerpo = r.request().postDataJSON() as Record<string, unknown>;
@@ -167,13 +175,16 @@ test.describe('Configuración · Tu Tentare', () => {
     expect(cuenta.puts).toHaveLength(1);
   });
 
-  test('plan Founding: Centro de Control dice qué plan necesita y se pone y se quita igual que en el cajón', async ({ page }) => {
+  test('plan Founding: Centro de Control dice qué plan necesita (si `tieneFeature` dice que falta) y se pone y se quita igual que en el cajón', async ({ page }) => {
     const cuenta = await abrir(page, { plan: 'BASE', ocultos: ['/centro-de-control'] });
     const cdc = fila(page, '/centro-de-control');
-    await expect(cdc.getByText('Desde el plan Estudio')).toBeVisible({ timeout: 60_000 });
     // La misma cifra que la fila «Tu menú»: 20 módulos (con Festivos, 14-oct), uno quitado.
-    await expect(page.getByText('En tu menú: 19 de 20.')).toBeVisible();
-    await expect(cdc.getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/suscripcion');
+    await expect(page.getByText('En tu menú: 19 de 20.')).toBeVisible({ timeout: 60_000 });
+    const base = { plan: 'BASE', subscriptionStatus: 'active' };
+    const falta = accesoProducto(base) && !tieneFeature(base, 'decisiones');
+    await expect(cdc.getByText(/^Desde el plan /)).toHaveCount(falta ? 1 : 0);
+    await expect(cdc.getByRole('link', { name: 'Ver planes' })).toHaveCount(falta ? 1 : 0);
+    if (falta) await expect(cdc.getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/suscripcion');
     await cdc.getByRole('switch').click();
     await expect(cdc.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
     expect(cuenta.puts).toEqual([{ ocultos: [] }]);

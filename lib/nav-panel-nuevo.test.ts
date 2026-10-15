@@ -7,8 +7,8 @@ import { puedeVer } from './permisos-reglas.ts';
 import { AYUDA_POR_PANTALLA } from './ayuda/pantallas.ts';
 
 // Las secciones que solo existen con el panel nuevo: con el interruptor apagado
-// nadie nota nada; encendido, salen al final de su grupo. Hoy no hay ninguna
-// (Festivos pasó a todos el 14-oct): estas guardias quedan para la próxima.
+// nadie nota nada; encendido, salen al final de su grupo. Hoy, Módulos (Festivos
+// pasó a todos el 14-oct).
 
 test('apagado: el menú es EL MISMO objeto de siempre (ni una entrada de más)', () => {
   assert.equal(seccionesDelMenu(false), navSections);
@@ -45,4 +45,14 @@ test('Festivos, para todos: en el menú (Estudio), esencial, con su ficha; recep
   assert.equal(puedeVer('MANAGER', '/festivos'), true);
   assert.equal(puedeVer('PROPIETARIO', '/festivos'), true);
   assert.match(readFileSync(new URL('./seo/no-indexables.ts', import.meta.url), 'utf-8'), /'\/festivos'/);
+});
+
+test('Módulos: con el panel nuevo, en el menú (Estudio), para quien gestiona; la instructora no tiene panel', () => {
+  const estudio = seccionesDelMenu(true).find((s) => s.label === 'Estudio')!;
+  const modulos = estudio.items.find((i) => i.href === '/explorar-funciones');
+  assert.equal(modulos?.label, 'Módulos');
+  assert.ok(!navSections.flatMap((s) => s.items).some((i) => i.href === '/explorar-funciones'), 'sin el panel nuevo no está en el menú');
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeVer(rol, '/explorar-funciones'), true, rol);
+  assert.equal(puedeVer('INSTRUCTOR', '/explorar-funciones'), false);
+  assert.match(readFileSync(new URL('./seo/no-indexables.ts', import.meta.url), 'utf-8'), /'\/explorar-funciones'/);
 });

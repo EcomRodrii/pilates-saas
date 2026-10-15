@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLAN_ENTITLEMENTS } from '../billing/entitlements.ts';
+import { LIMITE_RESERVAS_MES } from '../billing/plan-gratis.ts';
 import {
   SI_PASAS,
   ENTITLEMENTS_FOUNDING_GRATIS,
@@ -38,22 +39,22 @@ test('la frase del fundador va literal, con la tilde de «Tú»', () => {
 });
 
 test('Founding Studio gratis incluye todo menos varias sedes, con su tope de alumnas', () => {
+  // `appPropia` (#2716) es la app del estudio en la App Store: solo Estudio y
+  // Cadena, y todavía no existe, así que la web no la vende y «todo menos varias
+  // sedes» sigue siendo verdad. El día que se venda, este test falla a propósito:
+  // TODO_MENOS_SEDES tendrá que decir también lo de la app (propuesta al fundador).
+  const NO_INCLUYE = ['multiCentro', 'appPropia'];
   const { features, maxSocios } = ENTITLEMENTS_FOUNDING_GRATIS;
   for (const [nombre, tiene] of Object.entries(features)) {
-    assert.equal(tiene, nombre !== 'multiCentro', `${nombre} debería ser ${nombre !== 'multiCentro'}`);
+    assert.equal(tiene, !NO_INCLUYE.includes(nombre), `${nombre} debería ser ${!NO_INCLUYE.includes(nombre)}`);
   }
   assert.equal(maxSocios, GRATIS_ALUMNAS);
-  // Mismas features que Estudio: lo que cambia entre los dos son los límites.
-  assert.deepEqual(features, PLAN_ENTITLEMENTS.ESTUDIO.features);
+  // Lo único que Estudio tiene de más es la app propia; el resto, los límites.
+  assert.deepEqual({ ...features, appPropia: true }, PLAN_ENTITLEMENTS.ESTUDIO.features);
 });
 
-test('el límite de reservas de la web es el del producto en cuanto exista', () => {
-  // `LIMITE_RESERVAS_MES` llega a lib/billing/plan-gratis.ts con la continuación
-  // de #2707. Hasta entonces la web lleva su copia; desde ese día, esto falla si
-  // las dos cifras no coinciden (y toca reexportarla, como las demás).
-  const fuente = readFileSync(join(import.meta.dirname, '..', 'billing', 'plan-gratis.ts'), 'utf8');
-  const m = fuente.match(/export const LIMITE_RESERVAS_MES = (\d+)/);
-  if (m) assert.equal(GRATIS_RESERVAS_MES, Number(m[1]));
+test('el límite de reservas de la web es el del producto', () => {
+  assert.equal(GRATIS_RESERVAS_MES, LIMITE_RESERVAS_MES);
 });
 
 test('precio en la web: Founding Studio 0, el resto el de su plan', () => {

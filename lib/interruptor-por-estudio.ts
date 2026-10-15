@@ -52,3 +52,6 @@ export const nivelesConRitmoEncendido = (studioId: string) => encendidaPara(proc
 
 /** Qué se ve de cada alumna en la lista de una clase (P3.11). Lo mira `PUT /api/estudio/tarjeta-clase`; el Calendario y Configuración, el catálogo del navegador (misma variable). */
 export const tarjetaClaseEncendida = (studioId: string) => encendidaPara(process.env.TARJETA_CLASE, studioId);
+
+/** «Pedir mi app» (app propia en la App Store). Lo mira `/api/estudio/app-movil`; la pantalla, el catálogo del navegador (misma variable). */
+export const pedirAppEncendido = (studioId: string) => encendidaPara(process.env.APP_PROPIA_PEDIR, studioId);

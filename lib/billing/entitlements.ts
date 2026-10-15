@@ -38,6 +38,12 @@ export interface Entitlements {
                            // cambia es cuántas al mes (`consultasAsistenteMes`). Es una
                            // feature aparte de `ia` a propósito: Founding Studio lo tiene
                            // y sigue sin la IA de notas y campañas.
+    appPropia: boolean;    // la app PROPIA del estudio en la tienda de apps, con su
+                           // nombre y su icono (la que prepara «Pedir mi app»). Solo
+                           // Estudio y Cadena: es lo que los distingue de Founding
+                           // Studio (fundador, 15-oct-2026: «estudio incluye la app
+                           // alumna»). ⚠️ No es `marca` (la app web instalable con los
+                           // colores y el logo del estudio), que va en todos los planes.
   };
   /**
    * Consultas del asistente al mes (mes de Madrid). Espejo de
@@ -51,19 +57,23 @@ export interface Entitlements {
 export const CONSULTAS_ASISTENTE_PRUEBA = 30;
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
+  // Founding Studio (de pago, 29 €): lo mismo que el gratis, todo menos varias
+  // sedes y la app propia, y sin tope de alumnas (decisión del fundador,
+  // 15-oct-2026: al pasar cualquiera de los dos límites del gratis se paga esto
+  // y se sigue igual; ver plan-gratis.ts).
   BASE: {
-    maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true },
+    maxSocios: Infinity,
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: false },
     consultasAsistenteMes: 50,
   },
   ESTUDIO: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: true },
     consultasAsistenteMes: 200,
   },
   CADENA: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: true },
     consultasAsistenteMes: 500,
   },
 };
@@ -77,8 +87,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
  * su id: renombrarlo exigiría migrar la columna y los precios de Stripe.
  */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
-  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Reservas, cobros, check-in y app con tu marca. Hasta 150 socias.' },
-  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas, sustituciones autónomas y Centro de Control.' },
+  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Todo Tentare menos varias sedes, sin límite de alumnas.' },
+  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Todo lo de Founding Studio, con más consultas al asistente.' },
   CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
 };
 
@@ -87,7 +97,8 @@ export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
 /**
  * Founding Studio GRATIS (decisión del fundador, 15-oct-2026; reglas en
  * plan-gratis.ts): un estudio con `subscription_status = 'gratis'` usa TODO
- * Tentare salvo varias sedes, hasta 150 alumnas activas y 30 cobros al mes.
+ * Tentare salvo varias sedes y la app propia, hasta 150 alumnas activas y 250
+ * reservas al mes.
  * Lo que cuesta dinero por uso va con tope: el asistente, 50 consultas al mes
  * (el `plan` de la fila es 'BASE', así que `ia_cuota_mensual()` en SQL da el
  * mismo 50), y la IA de notas, campañas y fichas, TOPE_IA_GRATIS_DIA al día
@@ -96,7 +107,7 @@ export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
  */
 export const ENTITLEMENTS_GRATIS: Entitlements = {
   maxSocios: 150,
-  features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+  features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: false },
   consultasAsistenteMes: 50,
 };
 

@@ -7,10 +7,12 @@
 
 import { useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { Printer, Notebook } from 'lucide-react';
+import { Printer, Notebook, UserPlus } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { hoyEnEstudio } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { PantallaVacia } from '@/components/dashboard/vivo';
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -20,7 +22,8 @@ function fechaCorta(iso: string): string {
 }
 
 export default function Libreta() {
-  const { studio, socios, suscripciones, planesTarifa, recuperaciones, plazasFijas, salas } = useStudio();
+  const { studio, socios, suscripciones, planesTarifa, recuperaciones, plazasFijas, salas, dataLoaded } = useStudio();
+  const panelNuevo = usePanelNuevo();
   // `hoyEnEstudio`, no `toISOString()`: esta fecha se imprime en el pie de la
   // libreta («Generada el …») y además decide qué recuperaciones siguen vivas.
   // Con UTC, una libreta sacada a las 00:20 de Madrid salía fechada el día
@@ -40,6 +43,7 @@ export default function Libreta() {
         return { socia, sus, plan, recups, plazas };
       });
   }, [socios, suscripciones, planesTarifa, recuperaciones, plazasFijas, hoyISO]);
+  const vaciaNueva = panelNuevo && dataLoaded && filas.length === 0;
 
   return (
     // ⚠️ Ni `mx-auto` ni `p-6`. `DashboardShell` ya envuelve TODA pantalla del
@@ -68,7 +72,8 @@ export default function Libreta() {
         className="no-print mb-4"
         title="Libreta de clientas"
         description="Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras."
-        actions={
+        // Vacía (panel nuevo) no hay nada que imprimir: la acción es la del vacío, una sola.
+        actions={vaciaNueva ? undefined :
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
@@ -78,6 +83,24 @@ export default function Libreta() {
         }
       />
 
+      {/* Con el panel nuevo, sin clientas activas la hoja no tiene nada que imprimir: en su
+          lugar, la pantalla vacía que enseña qué llevará y cómo llenarla (Bonsai A4). */}
+      {vaciaNueva ? (
+        <PantallaVacia
+          tono="indigo"
+          Icono={Notebook}
+          titulo="Tu libreta, por si cae internet"
+          texto="Una hoja con cada clienta activa para imprimir o guardar en PDF. Se llena sola en cuanto tengas clientas activas."
+          ejemplos={[
+            { accion: 'Su plan y lo que le queda', cuando: 'de cada clienta activa' },
+            { accion: 'Sus recuperaciones vivas', cuando: 'con el día en que caducan' },
+            { accion: 'Su clase fija', cuando: 'con el día, la hora y la sala' },
+          ]}
+          accion={{ label: 'Dar de alta a mi primera clienta', href: '/clientas?nuevo=1', Icono: UserPlus }}
+          secundaria={{ label: 'Tráelas de tu programa anterior', href: '/migracion' }}
+          className="no-print"
+        />
+      ) : (
       <div className="libreta-doc border border-border rounded-xl p-8 bg-card">
         <div className="mb-6">
           <h2 className="text-2xl font-extrabold text-foreground">Tu estudio en Tentare</h2>
@@ -123,6 +146,7 @@ export default function Libreta() {
           Generada el {fechaCorta(hoyISO)} desde {studio?.nombre ?? 'tu estudio'}.
         </p>
       </div>
+      )}
     </div>
   );
 }
