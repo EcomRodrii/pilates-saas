@@ -3,6 +3,9 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { sumupDisponible } from '@/lib/pos/sumup-lector-servidor';
+import { errorInterno } from '@/lib/errores-servidor';
+import { hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
+import { NO_SE_PUDO_LEER_LA_CAJA } from '@/lib/pos/mensajes';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +35,11 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const desdeHoy = new Date();
-  desdeHoy.setHours(0, 0, 0, 0);
+  // El «hoy» del resumen es el de Madrid. Con `setHours(0, 0, 0, 0)` en un
+  // servidor en UTC el día empezaba a las 01:00/02:00 de Madrid: entre las 00:00
+  // y las 02:00 «Hoy» enseñaba las ventas de ayer, y las de esa franja no
+  // contaban en su día.
+  const desdeHoy = inicioDelDiaEstudio(hoyEnEstudio());
 
   const [prodRes, planRes, studioRes, cajaRes, hoyRes] = await Promise.all([
     admin.from('productos_pos')
@@ -52,9 +58,15 @@ export async function GET(req: NextRequest) {
     admin.from('ventas_pos')
       .select('id, numero, total, metodo_pago, realizada_en, socio_id, estado')
       .eq('studio_id', sesion.studioId).eq('estado', 'PAGADA')
-      .gte('realizada_en', desdeHoy.toISOString())
+      .gte('realizada_en', desdeHoy)
       .order('realizada_en', { ascending: false }),
   ]);
+
+  // Un fallo de lectura es un fallo, nunca una cifra: con `data ?? []` o
+  // `caja: null` una consulta caída salía como «sin productos», «caja cerrada»
+  // (y la Caja ofrecía abrir otra encima) o «Hoy 0,00 €».
+  const fallo = [prodRes, planRes, studioRes, cajaRes, hoyRes].find((r) => r.error);
+  if (fallo) return errorInterno('pos.catalogo', fallo.error, NO_SE_PUDO_LEER_LA_CAJA);
 
   const ivaDefecto = Number(studioRes.data?.iva_por_defecto ?? 21);
   const ventasHoy = hoyRes.data ?? [];
