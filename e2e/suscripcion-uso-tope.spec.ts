@@ -1,11 +1,12 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El tope del plan («hasta 150 alumnas activas» en Base) se ENSEÑA en
-// Suscripción y no bloquea (decisión del 1-oct-2026, `.claude/tentare-os.md`).
-// Cuenta el chip «Activa» de Clientas, el mismo número que el Resumen: aquí,
-// de tres fichas solo cuenta Ana (cuota vigente). Bea nunca ha venido ni
-// comprado (Interesada) y Eva está de baja.
+// El tope del plan se ENSEÑA en Suscripción y no bloquea (decisión del
+// 1-oct-2026, `.claude/tentare-os.md`), contando el chip «Activa» de Clientas.
+// Desde el 15-oct-2026 ningún plan de pago tiene tope de alumnas: Founding
+// Studio de pago tampoco (el de 150 es solo del gratis, que tiene su propia
+// pantalla y su medidor, e2e/plan-gratis.spec.ts). Cómo se cuenta lo fija
+// lib/billing/uso-tope.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -55,18 +56,12 @@ async function montar(page: Page, plan: string) {
 }
 
 test.describe('Suscripción · cuántas cuentan para el tope del plan', () => {
-  test('en Base dice «1 de 150 clientas activas»: solo la Activa, no las interesadas ni las de baja', async ({ page }) => {
-    await montar(page, 'BASE');
-    const uso = page.locator('[data-uso-tope]');
-    await expect(uso).toContainText('1 de 150 clientas activas', { timeout: 30_000 });
-    await expect(uso.getByRole('link', { name: '1 de 150 clientas activas' })).toHaveAttribute('href', '/clientas?estado=ACTIVA');
-    // Nada de prometer un bloqueo que no existe.
-    await expect(uso).not.toContainText(/no podr|bloque/i);
-  });
-
-  test('en un plan sin tope no hay nada que contar', async ({ page }) => {
-    await montar(page, 'ESTUDIO');
-    await expect(page.getByText('Plan actual')).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('[data-uso-tope]')).toHaveCount(0);
-  });
+  for (const plan of ['BASE', 'ESTUDIO'] as const) {
+    test(`en ${plan === 'BASE' ? 'Founding Studio de pago' : 'Estudio'} no hay tope: nada que contar ni bloqueo que prometer`, async ({ page }) => {
+      await montar(page, plan);
+      await expect(page.getByText('Plan actual')).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator('[data-uso-tope]')).toHaveCount(0);
+      await expect(page.getByText(/de 150 clientas activas/)).toHaveCount(0);
+    });
+  }
 });
