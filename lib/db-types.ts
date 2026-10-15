@@ -4289,6 +4289,25 @@ export interface RowUsoPlanGratis {
   reservas_30_dias: number | null;
 }
 
+export interface RowUscAvisosIntegrador {
+  id: string;
+  huella: string;
+  tipo: string;
+  provider_id: string;
+  location_id: string | null;
+  provider_nombre: string | null;
+  nombre_normalizado: string | null;
+  ubicacion_nombre: string | null;
+  inicio: string | null;
+  fin: string | null;
+  modificado_usc: string | null;
+  estado: string;
+  estudio_candidato_id: string | null;
+  resuelto_por: string | null;
+  resuelto_en: string | null;
+  recibido_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11888,6 +11907,44 @@ export type UsoPlanGratisUpdate = {
   reservas_30_dias?: number | null | null;
 }
 
+export type UscAvisosIntegradorInsert = {
+  id?: string | null;
+  huella?: string | null;
+  tipo?: string | null;
+  provider_id?: string | null;
+  location_id?: string | null | null;
+  provider_nombre?: string | null | null;
+  nombre_normalizado?: string | null | null;
+  ubicacion_nombre?: string | null | null;
+  inicio?: string | null | null;
+  fin?: string | null | null;
+  modificado_usc?: string | null | null;
+  estado?: string | null;
+  estudio_candidato_id?: string | null | null;
+  resuelto_por?: string | null | null;
+  resuelto_en?: string | null | null;
+  recibido_en?: string | null;
+}
+
+export type UscAvisosIntegradorUpdate = {
+  id?: string | null;
+  huella?: string | null;
+  tipo?: string | null;
+  provider_id?: string | null;
+  location_id?: string | null | null;
+  provider_nombre?: string | null | null;
+  nombre_normalizado?: string | null | null;
+  ubicacion_nombre?: string | null | null;
+  inicio?: string | null | null;
+  fin?: string | null | null;
+  modificado_usc?: string | null | null;
+  estado?: string | null;
+  estudio_candidato_id?: string | null | null;
+  resuelto_por?: string | null | null;
+  resuelto_en?: string | null | null;
+  recibido_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13215,6 +13272,11 @@ export type Database = {
         Row: RowUsoPlanGratis;
         Insert: UsoPlanGratisInsert;
         Update: UsoPlanGratisUpdate;
+      };
+      usc_avisos_integrador: {
+        Row: RowUscAvisosIntegrador;
+        Insert: UscAvisosIntegradorInsert;
+        Update: UscAvisosIntegradorUpdate;
       };
     };
   };
