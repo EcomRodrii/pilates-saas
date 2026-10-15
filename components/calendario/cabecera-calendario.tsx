@@ -144,7 +144,9 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
       <PageHeader
         title="Calendario"
         badge={p.ventana}
-        className="sm:items-center"
+        // En el móvil el «+» va en absoluto arriba a la derecha: sin este hueco
+        // se montaba encima de «Cómo funciona» (panel nuevo, 15-oct-2026).
+        className={cn('sm:items-center', p.onCrear && 'max-md:pr-14')}
         actions={
           <>
             {p.buscador}
