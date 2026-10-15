@@ -7,6 +7,8 @@ import {
   Smartphone, Sparkles, Store, Trash2, UserPlus, Users, XCircle, type LucideIcon,
 } from 'lucide-react';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
+import { PantallaVacia } from '@/components/dashboard/vivo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
@@ -116,6 +118,7 @@ export function InteresadasYPruebas({
   }
 
   const nada = !cargandoConsultas && !errorConsultas && consultas.length === 0 && interesadas.length === 0 && pruebas.length === 0;
+  const panelNuevo = usePanelNuevo();
 
   return (
     <div className="space-y-4">
@@ -139,7 +142,22 @@ export function InteresadasYPruebas({
         </p>
       )}
 
-      {nada && (
+      {/* Con el panel nuevo, el vacío que enseña (Bonsai A4): de dónde llegan y qué se hace con ellas. */}
+      {nada && panelNuevo && (
+        <PantallaVacia
+          tono="magenta"
+          Icono={UserPlus}
+          titulo="Que no se te escape ninguna interesada"
+          texto="Aquí aparece quien está a punto de entrar, con su siguiente paso, hasta que la das de alta."
+          ejemplos={[
+            { accion: 'Preguntó desde tu web', cuando: 'y te sale aquí sola' },
+            { accion: 'Reservó su clase de prueba', cuando: 'o ya vino, con su siguiente paso' },
+            { accion: 'Te escribió por Instagram o te llamó', cuando: 'y la apuntas tú para no perderle la pista' },
+          ]}
+          accion={puedeGestionar ? { label: 'Apuntar mi primera interesada', onClick: () => setApuntando(true), Icono: Plus } : undefined}
+        />
+      )}
+      {nada && !panelNuevo && (
         <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-8 text-center">
           <p className="text-[14px] font-semibold text-foreground">Nadie está entrando ahora mismo</p>
           <p className="mt-1 text-[13px] text-muted-foreground text-pretty">

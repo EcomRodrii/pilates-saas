@@ -28,7 +28,7 @@ import {
 } from '@/lib/planes/formulario';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { clientasPorPlan } from '@/lib/planes/cifras-paquetes';
-import { BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
+import { BOTON_VIVO, BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
 import {
   CifrasPaquetes, EleccionTipoNueva, ListaPlanesNueva, SelectorTipo, SelectorVista, TarjetaAnadir, TarjetaPlanNueva, VacioPaquetes, useVistaPaquetes,
 } from '@/components/productos/paquetes-nuevo';
@@ -1131,7 +1131,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS } = useStudio();
+  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS, dataLoaded } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
@@ -1605,7 +1605,22 @@ export default function Productos() {
       {tab === 'regalo' && <PanelRegalo />}
 
       {/* ── PRODUCTOS POS ── */}
-      {tab === 'pos' && (
+      {/* Con el panel nuevo, sin productos: la pantalla vacía que enseña (Bonsai A4). */}
+      {tab === 'pos' && panelNuevo && dataLoaded && productosPOS.length === 0 && (
+        <PantallaVacia
+          tono="magenta"
+          Icono={ShoppingBag}
+          titulo="Vende algo más que clases"
+          texto="Lo que añadas aquí se cobra en la Caja, junto con los bonos y las clases sueltas, y queda apuntado con lo demás."
+          ejemplos={[
+            { accion: 'Agua o una bebida', cuando: 'para quien sale de clase' },
+            { accion: 'Calcetines antideslizantes', cuando: 'que te piden en la sala' },
+            { accion: 'Una toalla o una esterilla', cuando: 'con su precio y su categoría' },
+          ]}
+          accion={{ label: 'Añadir mi primer producto', onClick: () => setPosModal('new'), Icono: Plus }}
+        />
+      )}
+      {tab === 'pos' && !(panelNuevo && dataLoaded && productosPOS.length === 0) && (
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           {productosPOS.length === 0 ? (
             <div className="px-5 py-12 text-center">
