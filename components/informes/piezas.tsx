@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { textoDelPeriodo, type Periodo } from '@/lib/cobros/lo-cobrado';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { BarChart3, CalendarCheck, Euro, Users } from 'lucide-react';
+import { BarChart3, CalendarCheck, Euro, Ticket, UserX, Users } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Baldosa, type Tono } from '@/components/dashboard/vivo';
 
@@ -19,6 +19,8 @@ const ICONO_DE_BLOQUE: Record<string, { tono: Tono; Icono: React.ElementType }> 
   'informe-clases': { tono: 'azul', Icono: CalendarCheck },
   'informe-clientas': { tono: 'magenta', Icono: Users },
   'informe-euro-plaza': { tono: 'indigo', Icono: BarChart3 },
+  'informe-bonos': { tono: 'indigo', Icono: Ticket },
+  'informe-riesgo': { tono: 'magenta', Icono: UserX },
 };
 
 /** La forma de la tarjeta de cada bloque: la de siempre o, con el panel nuevo, la de la home. */
