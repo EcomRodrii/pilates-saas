@@ -21,6 +21,8 @@ import type { StudioConfig } from '@/lib/student/tipos';
 /** Campos del diseño que hoy NO tienen columna propia en `studios`. */
 
 export interface EstudioStudent extends StudioConfig {
+  /** Su app de la App Store, si está publicada (la pone el layout: `appDeTiendaPublicada`). */
+  appTienda?: { id: string; url: string } | null;
   /** Id interno. NO se manda al cliente como autorización: la identidad sale
    *  siempre del JWT (ver `socioAutenticado`). Viaja porque las rutas públicas
    *  lo piden en el body como dato de enrutado, igual que hace /reservar. */

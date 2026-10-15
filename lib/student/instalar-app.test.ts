@@ -63,3 +63,11 @@ test('la frase del resultado distingue aceptar, rechazar y no poder', () => {
   assert.equal(new Set(f).size, 3);
   assert.match(f[0], /Luz/);
 });
+
+test('con la app publicada, en el iPhone se ofrece la de la App Store (y en ningún otro sitio)', async () => {
+  const { ofreceTienda } = await import('./instalar-app.ts');
+  assert.equal(ofreceTienda('ios-guia', true), true);
+  assert.equal(ofreceTienda('ios-incrustado', true), true);
+  assert.equal(ofreceTienda('ios-guia', false), false);
+  for (const e of ['instalable', 'ya-instalada', 'sin-opcion', null] as const) assert.equal(ofreceTienda(e, true), false, String(e));
+});
