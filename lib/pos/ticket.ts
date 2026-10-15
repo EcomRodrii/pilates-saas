@@ -30,6 +30,8 @@
 // El porcentaje solo dice cómo se reparte; no encarece nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { redondearCentimos } from '../utils.ts';
+
 export type TipoLineaPOS = 'PRODUCTO' | 'PLAN' | 'LIBRE';
 export type TipoDescuento = 'EUROS' | 'PORCENTAJE';
 
@@ -72,17 +74,12 @@ export interface Ticket {
   porTipoIva: { ivaPct: number; base: number; cuota: number }[];
 }
 
-/** Redondeo a céntimos, el mismo que hace `ROUND(x, 2)` en Postgres. */
-export function céntimos(n: number): number {
-  // `ROUND` de Postgres trabaja en decimal: 2,175 → 2,18. En coma flotante 2,175 es
-  // 2,17499999…, y sumarle `Number.EPSILON` solo lo arreglaba por debajo de 1 € (es
-  // un margen fijo y el error crece con el importe): un 50 % de 4,35 € daba 2,17
-  // aquí y 2,18 en la venta, y la venta lo rechaza por no coincidir. Se redondea el
-  // importe ya multiplicado a 12 cifras, que borra ese ruido sin tocar ningún
-  // importe real, y la mitad se aleja del cero, como `ROUND`.
-  const x = Number((Math.abs(n) * 100).toPrecision(12));
-  return (Math.sign(n) * Math.round(x)) / 100;
-}
+/**
+ * Redondeo a céntimos, el mismo que hace `ROUND(x, 2)` en Postgres. La regla vive
+ * una vez, en `redondearCentimos` (lib/utils.ts): la comparten este ticket y los
+ * códigos de descuento.
+ */
+export const céntimos = redondearCentimos;
 
 /**
  * Descuento en euros que aplica un valor manual sobre un subtotal.
@@ -102,20 +99,9 @@ export function descuentoManual(
 }
 
 /**
- * Lo que descuenta un código, SIN redondear: lo redondea `calcularTicket` con
- * `céntimos`, como `ROUND` en `registrar_venta_pos`. No se usa `calcularDescuento`
- * (lib/codigos-descuento.ts) porque redondea con `Math.round` sobre coma flotante
- * (un 10 % de 1,45 € le da 0,14; a la RPC, 0,15) y la usan también los cobros
- * online, que no se cambian desde la Caja.
- */
-export function descuentoDeCodigo(codigo: { tipo: string; valor: number }, subtotal: number): number {
-  const bruto = codigo.tipo === 'PORCENTAJE' ? (subtotal * codigo.valor) / 100 : codigo.valor;
-  return Math.max(0, Math.min(subtotal, bruto));
-}
-
-/**
- * Calcula el ticket completo. `descuentoCodigo` llega en euros, sin redondear
- * (`descuentoDeCodigo`): aquí se redondea como en la RPC.
+ * Calcula el ticket completo. `descuentoCodigo` llega ya resuelto en euros
+ * (`calcularDescuento` de lib/codigos-descuento.ts, la misma que usan los cobros
+ * online), redondeado con la misma regla que aquí: no se reimplementa.
  */
 export function calcularTicket(
   lineas: LineaTicket[],

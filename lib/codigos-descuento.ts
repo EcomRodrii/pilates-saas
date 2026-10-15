@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CodigoDescuento } from './types.ts';
-import { hoyEnEstudio, masDias } from './utils.ts';
+import { hoyEnEstudio, masDias, redondearCentimos } from './utils.ts';
 
 // Alfabeto sin caracteres ambiguos (sin O/0, I/1) — los códigos se dictan por
 // teléfono y se teclean en el mostrador.
@@ -68,10 +68,16 @@ export type ResultadoCanje =
   | { ok: true; descuento: number }
   | { ok: false; motivo: string };
 
-/** Descuento en euros que aplica un código a un subtotal (nunca supera el subtotal). */
+/**
+ * Descuento en euros que aplica un código a un subtotal (nunca supera el subtotal).
+ * Es el que se enseña Y el que se cobra en la Caja y en los tres cobros online
+ * (`resolverDescuentoCheckout`): redondea como `ROUND` de `registrar_venta_pos`
+ * (`redondearCentimos`). Con `Math.round` sobre coma flotante, un 10 % de 1,45 € daba
+ * 0,14 aquí y 0,15 en la Caja.
+ */
 export function calcularDescuento(codigo: CodigoDescuento, subtotal: number): number {
   const bruto = codigo.tipo === 'PORCENTAJE' ? (subtotal * codigo.valor) / 100 : codigo.valor;
-  return Math.max(0, Math.min(subtotal, Math.round(bruto * 100) / 100));
+  return Math.max(0, Math.min(subtotal, redondearCentimos(bruto)));
 }
 
 /**
@@ -98,8 +104,11 @@ export function validarCodigoCanjeable(
     /** P-5 (auditoría 26ª pasada): cada código es como mucho una vez por
      *  socia, tenga o no `usosMax` — antes solo había tope GLOBAL, así que un
      *  código sin tope era reutilizable indefinidamente por la misma persona.
-     *  El POS (`components/pos/pos-terminal.tsx`) llama a esta función sin
-     *  pasar este campo a propósito: feature congelada, no se toca aquí. */
+     *  El TPV (`components/pos/pos-terminal.tsx`) llama a esta función sin
+     *  este campo, y `registrar_venta_pos` solo mira el tope GLOBAL: en el
+     *  mostrador, el «una vez por socia» no se aplica. Antes se justificaba con
+     *  «feature congelada», y el TPV ya no lo está (`lib/frozen-features.ts`):
+     *  es una decisión pendiente, no una regla. */
     yaUsadoPorEstaSocia?: boolean;
   },
 ): ResultadoCanje {
