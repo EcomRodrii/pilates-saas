@@ -83,14 +83,19 @@ export function fondoTenido(tono: Tono, fuerza = 16): CSSProperties {
   };
 }
 
-/** La cabecera de una tarjeta: baldosa de color, título y, a la derecha, lo que sea. */
+/**
+ * La cabecera de una tarjeta: baldosa de color, título y, a la derecha, lo que sea.
+ * Si lo de la derecha no cabe sin dejar al título en menos de 9rem (un botón en
+ * el móvil), baja de línea: antes el título quedaba en una columna de una
+ * palabra por línea («Quién / me debe»).
+ */
 export function CabeceraTarjeta({ tono, Icono, titulo, id, derecha, sub }: {
   tono: Tono; Icono: ElementType; titulo: ReactNode; id?: string; derecha?: ReactNode; sub?: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-2.5">
       <Baldosa tono={tono} Icono={Icono} tamano="sm" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <h2 id={id} className="text-[16px] font-semibold leading-tight text-foreground">{titulo}</h2>
         {sub && <p className="mt-0.5 text-[12.5px] text-muted-foreground">{sub}</p>}
       </div>
