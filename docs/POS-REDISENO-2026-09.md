@@ -54,7 +54,9 @@ Navegador  ──►  POST /api/pos/venta        (ids + cantidades; el total vis
                     └─ registrar_venta_pos()      ← UNA transacción
                          · relee precio/IVA de productos_pos + planes_tarifa
                          · reserva stock con FOR UPDATE
-                         · valida y CONSUME el código de descuento
+                         · valida y CONSUME el código de descuento; con
+                           clienta, una vez por clienta en la Caja y online
+                           (`codigos_descuento_consumos`, 16-oct-2026)
                          · recalcula subtotal / descuento / IVA / total
                          · numera (advisory lock por estudio)
                          · añade la matrícula del primer plan (no descontable)

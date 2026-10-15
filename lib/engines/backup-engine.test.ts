@@ -50,7 +50,7 @@ const FK_PRODUCCION: Record<string, string[]> = {
   suscripciones: ['congelaciones', 'recibos'],
   tipos_clase: ['favoritos_clase', 'intentos_reserva_fallidos', 'plan_tipos_clase', 'plazas_fijas',
     'socio_tipos_clase_autorizados', 'sesiones'],
-  ventas_pos: ['devoluciones', 'ventas_pos_lineas', 'facturas'],
+  ventas_pos: ['devoluciones', 'ventas_pos_lineas', 'facturas', 'codigos_descuento_consumos'],
 };
 const fks = (mapa: Record<string, string[]>): ReferenciaFk[] =>
   Object.entries(mapa).flatMap(([referenciada, hijas]) => hijas.map(referenciante => ({ referenciada, referenciante })));

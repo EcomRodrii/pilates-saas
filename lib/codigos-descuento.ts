@@ -104,11 +104,11 @@ export function validarCodigoCanjeable(
     /** P-5 (auditoría 26ª pasada): cada código es como mucho una vez por
      *  socia, tenga o no `usosMax` — antes solo había tope GLOBAL, así que un
      *  código sin tope era reutilizable indefinidamente por la misma persona.
-     *  El TPV (`components/pos/pos-terminal.tsx`) llama a esta función sin
-     *  este campo, y `registrar_venta_pos` solo mira el tope GLOBAL: en el
-     *  mostrador, el «una vez por socia» no se aplica. Antes se justificaba con
-     *  «feature congelada», y el TPV ya no lo está (`lib/frozen-features.ts`):
-     *  es una decisión pendiente, no una regla. */
+     *  En la Caja también (fundador, 16-oct-2026), pero no desde aquí: el
+     *  navegador no puede leer quién ha usado qué. Lo decide el servidor,
+     *  `registrar_venta_pos`, contra el MISMO índice que los cobros online
+     *  (`codigos_descuento_consumos`), y la pantalla se entera por la vista
+     *  previa (`CODIGO_YA_USADO_POR_SOCIA`). Sin alumna, solo el tope global. */
     yaUsadoPorEstaSocia?: boolean;
   },
 ): ResultadoCanje {
