@@ -4285,6 +4285,8 @@ export interface RowUsoPlanGratis {
   medido_en: string | null;
   intento_en: string | null;
   creado_en: string;
+  // migr 20261014234337.
+  reservas_30_dias: number | null;
 }
 
 
@@ -11872,6 +11874,7 @@ export type UsoPlanGratisInsert = {
   medido_en?: string | null | null;
   intento_en?: string | null | null;
   creado_en?: string | null;
+  reservas_30_dias?: number | null | null;
 }
 
 export type UsoPlanGratisUpdate = {
@@ -11882,6 +11885,7 @@ export type UsoPlanGratisUpdate = {
   medido_en?: string | null | null;
   intento_en?: string | null | null;
   creado_en?: string | null;
+  reservas_30_dias?: number | null | null;
 }
 
 export type Database = {

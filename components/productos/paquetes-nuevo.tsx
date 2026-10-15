@@ -17,8 +17,9 @@
 
 import { useMemo, useState, type ElementType } from 'react';
 import {
-  CalendarClock, Check, Euro, Layers, Package, Pencil, Plus, Repeat, Tag, Trash2, Users, Zap,
+  CalendarClock, Check, Euro, LayoutGrid, Layers, List, Package, Pencil, Plus, Repeat, ShoppingBag, Tag, Trash2, Users, Zap,
 } from 'lucide-react';
+import { MenuAcciones } from '@/components/ui/menu-acciones';
 import type { PlanTarifa, Suscripcion, TipoPlan } from '@/lib/types';
 import { cn, formatFechaLarga, hoyEnEstudio } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
@@ -235,6 +236,165 @@ export function TarjetaPlanNueva({ plan, clientas, cobertura, mueveDinero, onEdi
         )}
       </div>
     </article>
+  );
+}
+
+// ─── Lista, como «Cuotas» de Bonsai (b-50) ───────────────────────────────────
+//
+// Una fila por tarifa: qué es, sesiones y caducidad, para qué sirve, precio,
+// cuántas la tienen y si está a la venta, con sus acciones en un ⋮. Mejor que
+// la de Bonsai: cuenta las clientas que la tienen y dice para qué clases sirve.
+// Se elige entre lista y tarjetas; la lista es la de serie.
+
+export type VistaPaquetes = 'lista' | 'tarjetas';
+const CLAVE_VISTA = 'tentare-paquetes-vista';
+
+/** La vista elegida, recordada en este navegador (sin almacenamiento, la lista). */
+export function useVistaPaquetes(): [VistaPaquetes, (v: VistaPaquetes) => void] {
+  const [vista, setVista] = useState<VistaPaquetes>(() => {
+    try { return localStorage.getItem(CLAVE_VISTA) === 'tarjetas' ? 'tarjetas' : 'lista'; } catch { return 'lista'; }
+  });
+  return [vista, (v: VistaPaquetes) => {
+    setVista(v);
+    try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* solo en esta pestaña */ }
+  }];
+}
+
+export function SelectorVista({ valor, onCambio }: { valor: VistaPaquetes; onCambio: (v: VistaPaquetes) => void }) {
+  return (
+    <span role="group" aria-label="Cómo verlas" className="inline-flex rounded-full bg-muted p-1">
+      {([['lista', 'Lista', List], ['tarjetas', 'Tarjetas', LayoutGrid]] as const).map(([v, texto, Icono]) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={valor === v}
+          onClick={() => onCambio(v)}
+          className={cn('inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors', valor === v ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground')}
+        >
+          <Icono size={14} aria-hidden />{texto}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+interface FilaPlan {
+  plan: PlanTarifa;
+  clientas: number;
+  cobertura: string;
+}
+
+function EstadoVenta({ plan }: { plan: PlanTarifa }) {
+  return plan.activo ? (
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ color: 'var(--success)', backgroundColor: 'color-mix(in srgb, var(--success) 12%, transparent)' }}>
+      <Check size={11} strokeWidth={3} aria-hidden />A la venta
+    </span>
+  ) : (
+    <span data-testid="plan-sin-vender" className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold text-muted-foreground">
+      {plan.precio > 0 ? 'No a la venta' : 'Borrador'}
+    </span>
+  );
+}
+
+function AccionesPlan({ plan, onEditar, onBorrar, onPonerALaVenta }: { plan: PlanTarifa; onEditar: () => void; onBorrar: () => void; onPonerALaVenta: () => void }) {
+  return (
+    <MenuAcciones
+      etiqueta={`Acciones de ${plan.nombre}`}
+      titulo={plan.nombre}
+      acciones={[
+        { texto: 'Editar', icono: Pencil, onClick: onEditar },
+        ...(!plan.activo && plan.precio > 0 ? [{ texto: 'Ponerla a la venta', icono: ShoppingBag, nota: 'Sale en la Caja y en la web', onClick: onPonerALaVenta }] : []),
+        { texto: 'Eliminar', icono: Trash2, onClick: onBorrar, peligro: true, separar: true },
+      ]}
+    />
+  );
+}
+
+export function ListaPlanesNueva({ filas, mueveDinero, onEditar, onBorrar, onPonerALaVenta }: {
+  filas: FilaPlan[];
+  mueveDinero: boolean;
+  onEditar: (p: PlanTarifa) => void;
+  onBorrar: (p: PlanTarifa) => void;
+  onPonerALaVenta: (p: PlanTarifa) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card">
+      {/* Escritorio: una tabla de verdad. */}
+      <table className="hidden w-full text-left md:table">
+        <thead>
+          <tr className="border-b border-border text-[12px] font-semibold text-muted-foreground">
+            <th scope="col" className="px-4 py-3 font-semibold">Nombre</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Sesiones</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Sirve para</th>
+            <th scope="col" className="px-3 py-3 text-right font-semibold">Precio</th>
+            <th scope="col" className="px-3 py-3 text-right font-semibold">La tienen</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Estado</th>
+            {mueveDinero && <th scope="col" className="w-12 px-3 py-3"><span className="sr-only">Acciones</span></th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {filas.map(({ plan, clientas, cobertura }) => {
+            const tono = TONO_TIPO[plan.tipo];
+            const d = datosDeTarjeta(plan);
+            return (
+              <tr key={plan.id} data-testid="fila-plan" className="align-middle transition-colors hover:bg-muted/40">
+                <td className="px-4 py-3">
+                  <button type="button" onClick={() => mueveDinero && onEditar(plan)} disabled={!mueveDinero} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-default">
+                    <Baldosa tono={tono} Icono={ICONO_TIPO[plan.tipo]} tamano="sm" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] font-semibold text-foreground">{plan.nombre}</span>
+                      <span className="block text-[12px] font-semibold" style={{ color: TONOS[tono] }}>
+                        {NOMBRE_TIPO_PLAN[plan.tipo]}{plan.esPrueba ? ' · clase de prueba' : ''}
+                      </span>
+                    </span>
+                  </button>
+                </td>
+                <td className="px-3 py-3 text-[13px] text-foreground">
+                  <span className="block">{d.sesiones}</span>
+                  <span className="block text-[12px] text-muted-foreground">{d.caducidad}</span>
+                </td>
+                <td className="max-w-[220px] px-3 py-3 text-[12.5px] text-muted-foreground"><span data-testid="cobertura-plan">{cobertura}</span></td>
+                <td className="whitespace-nowrap px-3 py-3 text-right">
+                  <span className="text-[15px] font-bold tabular-nums text-foreground">{precioCorto(plan.precio)}</span>
+                  {plan.tipo === 'MENSUAL' && <span className="text-[12px] text-muted-foreground"> / {nombrePeriodo(plan)}</span>}
+                  {d.porSesion !== null && <span className="block text-[11.5px] text-muted-foreground tabular-nums">{precioCorto(d.porSesion)} la sesión</span>}
+                </td>
+                <td className="px-3 py-3 text-right text-[14px] font-semibold tabular-nums text-foreground">{clientas}</td>
+                <td className="px-3 py-3"><EstadoVenta plan={plan} /></td>
+                {mueveDinero && (
+                  <td className="px-3 py-3 text-right">
+                    <AccionesPlan plan={plan} onEditar={() => onEditar(plan)} onBorrar={() => onBorrar(plan)} onPonerALaVenta={() => onPonerALaVenta(plan)} />
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Móvil: una fila por tarifa, lo esencial a la vista. */}
+      <ul className="divide-y divide-border md:hidden">
+        {filas.map(({ plan, clientas }) => {
+          const tono = TONO_TIPO[plan.tipo];
+          const d = datosDeTarjeta(plan);
+          return (
+            <li key={plan.id} data-testid="fila-plan-movil" className="flex items-center gap-3 px-4 py-3">
+              <Baldosa tono={tono} Icono={ICONO_TIPO[plan.tipo]} tamano="sm" />
+              <button type="button" onClick={() => mueveDinero && onEditar(plan)} disabled={!mueveDinero} className="min-w-0 flex-1 text-left disabled:cursor-default">
+                <span className="block truncate text-[14px] font-semibold text-foreground">{plan.nombre}</span>
+                <span className="block text-[12px] text-muted-foreground">{d.sesiones} · {clientas} {clientas === 1 ? 'la tiene' : 'la tienen'}</span>
+                <span className="mt-1 block"><EstadoVenta plan={plan} /></span>
+              </button>
+              <span className="text-right">
+                <span className="block text-[15px] font-bold tabular-nums text-foreground">{precioCorto(plan.precio)}</span>
+                {plan.tipo === 'MENSUAL' && <span className="block text-[11.5px] text-muted-foreground">/ {nombrePeriodo(plan)}</span>}
+              </span>
+              {mueveDinero && <AccionesPlan plan={plan} onEditar={() => onEditar(plan)} onBorrar={() => onBorrar(plan)} onPonerALaVenta={() => onPonerALaVenta(plan)} />}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
