@@ -142,7 +142,7 @@ export function VistaHorario(p: VistaHorarioProps) {
         <p className="text-sm font-semibold text-foreground">No se ha podido cargar el horario</p>
         <p className="mt-1 text-xs text-muted-foreground">{p.error}</p>
         <button type="button" onClick={p.onReintentar}
-          className="mt-3 px-4 py-2 rounded-lg text-xs font-bold text-primary-foreground bg-primary hover:brightness-95">
+          className="zona-tactil mt-3 px-4 py-2 rounded-lg text-xs font-bold text-primary-foreground bg-primary hover:brightness-95">
           Reintentar
         </button>
       </div>

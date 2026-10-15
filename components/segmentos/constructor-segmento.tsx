@@ -158,7 +158,7 @@ export function ConstructorSegmentos({
       <button
         type="button"
         onClick={() => { setAbierto(true); if (condiciones.length === 0 && !editando) empezarNuevo(); }}
-        className="px-3 py-1.5 rounded-lg text-[12px] font-medium border bg-card text-muted-foreground border-border hover:border-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 shrink-0"
+        className="zona-tactil px-3 py-1.5 rounded-lg text-[12px] font-medium border bg-card text-muted-foreground border-border hover:border-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 shrink-0"
       >
         <Bookmark size={14} /> Segmentos{segmentos.length > 0 ? ` (${segmentos.length})` : ''}
       </button>

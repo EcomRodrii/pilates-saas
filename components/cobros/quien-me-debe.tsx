@@ -133,7 +133,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
             type="button"
             onClick={() => (seleccionando ? salirDeSeleccion() : setSeleccionando(true))}
             aria-pressed={seleccionando}
-            className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+            className="zona-tactil inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             {seleccionando ? <X size={15} aria-hidden /> : <CheckSquare size={15} aria-hidden />}
             {seleccionando ? 'Dejar de seleccionar' : 'Seleccionar varias'}
@@ -152,7 +152,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
             type="button"
             onClick={() => setMarcadas(todasMarcadas ? new Set() : new Set(marcables.map(g => g.clave)))}
             aria-pressed={todasMarcadas}
-            className="inline-flex items-center gap-2 font-semibold text-foreground"
+            className="zona-tactil inline-flex items-center gap-2 font-semibold text-foreground"
           >
             {todasMarcadas ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
             Seleccionar todo
@@ -371,7 +371,7 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
           aria-pressed={marcada}
           aria-label={`${marcada ? 'Desmarcar' : 'Marcar'} a ${datos.nombreDe(grupo.socioId)}`}
           title={sinLote ? 'Se cobra solo: no entra en marcar como cobrado' : undefined}
-          className="-m-1.5 flex size-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40"
+          className="zona-tactil -m-1.5 flex size-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40"
         >
           {marcada ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
         </button>
@@ -398,7 +398,7 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
         </span>
       </button>
       {!compacta && !seleccionando && (
-        <button type="button" onClick={onCobrar} className="ml-1 hidden min-h-9 w-[92px] items-center justify-center rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:inline-flex">
+        <button type="button" onClick={onCobrar} className="zona-tactil ml-1 hidden min-h-9 w-[92px] items-center justify-center rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:inline-flex">
           Cobrar
         </button>
       )}

@@ -139,7 +139,9 @@ export function ProximasCuotasNueva({ datos, diasIniciales = 30 }: { datos: Dato
                     {iniciales(nombre)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <Link href={`/clientas/${c.socioId}`} className="block truncate text-[13.5px] font-semibold text-foreground hover:underline">{nombre}</Link>
+                    {/* Con el dedo, la zona crece por dentro (relleno con margen negativo, el
+                        texto no se mueve): `truncate` recorta y un `::after` no saldría. */}
+                    <Link href={`/clientas/${c.socioId}`} className="block truncate text-[13.5px] font-semibold text-foreground hover:underline tactil:relative tactil:-my-3 tactil:py-3">{nombre}</Link>
                     <span className="block truncate text-[12px] text-muted-foreground">{c.planNombre}</span>
                   </span>
                   <span className="shrink-0 text-right">

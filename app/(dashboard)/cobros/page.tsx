@@ -182,7 +182,9 @@ export default function Cobros() {
             key={t} type="button" aria-current={tab === t ? 'page' : undefined}
             onClick={() => irA(t)}
             className={cn(
-              'whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+              // Con el dedo, 36 de alto + los 4 de relleno de la barra = los 44 de su
+              // zona táctil; más no cabe, que la barra recorta (`overflow-x-auto`).
+              'zona-tactil whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors tactil:min-h-9',
               tab === t ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
             )}
           >

@@ -366,7 +366,7 @@ function Actividad({ actividad, verTodo }: { actividad: ActividadResumen[]; verT
         titulo="Lo último"
         id="actividad-titulo"
         derecha={verTodo ? (
-          <Link href="/notificaciones" className="inline-flex shrink-0 items-center gap-1 pt-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
+          <Link href="/notificaciones" className="zona-tactil inline-flex shrink-0 items-center gap-1 pt-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
             Ver todo <ArrowRight size={14} aria-hidden />
           </Link>
         ) : null}

@@ -89,6 +89,12 @@ export function SemanaFranjas({
                 data-cabecera-dia={i}
                 className={cn(
                   'sticky top-0 z-20 min-w-0 border-b border-l border-border px-2 py-2',
+                  // Un día sin clases se pliega a 36 px: con los 8 de relleno a cada lado
+                  // le quedaban 20 para «MIÉ» (~24) y se salía, cortado por la esquina
+                  // redondeada de la tarjeta (medido a 768 y a 1024). El último, un poco
+                  // más a la izquierda: a la altura del texto la curva de la esquina
+                  // (28,8 px de radio) entra 8 px.
+                  panelNuevo && !conClases[i] && (i === fechas.length - 1 ? 'pl-0.5 pr-2' : 'px-0.5'),
                   esHoy ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
                   destino === i && 'bg-[color-mix(in_srgb,var(--brand)_14%,var(--card))]',
                 )}
