@@ -37,6 +37,15 @@ type Conversacion = ConversacionStaff;
 const TYPING_THROTTLE_MS = 2000;
 const TYPING_TIMEOUT_MS = 3000;
 
+const NO_CARGAN_CONVERSACIONES = 'No se han podido cargar tus conversaciones.';
+
+/** Lo mínimo que la bandeja lee de cada fila; la que no lo trae no se pinta (no tumba la lista). */
+function esConversacionLegible(c: unknown): c is Conversacion {
+  if (typeof c !== 'object' || c === null) return false;
+  const f = c as { id?: unknown; tipo?: unknown; conversacion_participantes?: unknown };
+  return typeof f.id === 'string' && typeof f.tipo === 'string' && Array.isArray(f.conversacion_participantes);
+}
+
 async function api<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
     const res = await fetch(url, {
@@ -102,15 +111,17 @@ function Hilo({
 
   const cargar = useCallback(async () => {
     const resultado = await api<{ mensajes: RowMensajes[] }>(`/api/mensajeria/conversaciones/${conversacionId}/mensajes?limite=50`);
-    if (resultado.ok) {
-      setMensajes(resultado.data.mensajes);
+    // Un 200 con otra forma no tumba el hilo: se dice que no ha cargado, como un error.
+    const mensajes = resultado.ok ? (resultado.data as { mensajes?: unknown } | undefined)?.mensajes : null;
+    if (Array.isArray(mensajes)) {
+      setMensajes(mensajes as RowMensajes[]);
       setError(null);
       // Leído hasta el último mensaje que se va a pintar, no hasta «ahora»: uno
       // que llegue entre la carga y el canal no se ha visto (ni su aviso).
-      const ultimo = resultado.data.mensajes[resultado.data.mensajes.length - 1]?.id ?? null;
+      const ultimo = (mensajes as RowMensajes[])[mensajes.length - 1]?.id ?? null;
       if (!soloLectura) void marcarLeidoHasta(conversacionId, ultimo);
     } else {
-      setError(resultado.error);
+      setError(resultado.ok ? 'No se han podido cargar los mensajes.' : resultado.error);
     }
   }, [conversacionId, soloLectura]);
 
@@ -298,8 +309,11 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
     const resultado = await api<{ conversaciones: Conversacion[] }>(
       ambito === 'supervision' ? '/api/mensajeria/conversaciones?ambito=supervision' : '/api/mensajeria/conversaciones',
     );
-    if (resultado.ok) { setConversaciones(resultado.data.conversaciones); setError(null); }
-    else setError(resultado.error);
+    // La forma se comprueba antes de pintar: un 200 con otra forma (un `{}`), o una fila sin sus
+    // participantes, tumbaba Mensajería entera al leer `conversacion_participantes`.
+    const lista = resultado.ok ? (resultado.data as { conversaciones?: unknown } | undefined)?.conversaciones : null;
+    if (Array.isArray(lista)) { setConversaciones(lista.filter(esConversacionLegible)); setError(null); }
+    else setError(NO_CARGAN_CONVERSACIONES);
   }, [ambito]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
@@ -366,7 +380,7 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
   if (error && !conversaciones) {
     return (
       <div className="bg-card rounded-2xl border border-border p-8 text-center space-y-3">
-        <p className="text-sm text-destructive">{error}</p>
+        <p role="alert" className="text-sm text-destructive">{error}</p>
         <button onClick={() => void cargarLista()} className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-medio hover:underline">
           <RefreshCw size={12} /> Reintentar
         </button>
