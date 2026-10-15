@@ -25,6 +25,7 @@ export function LineaDePasos<T extends string>({ pasos, paso, onPaso, hecho }: {
             <button
               type="button"
               onClick={() => onPaso(p.id)}
+              aria-label={p.corto}
               aria-current={esActual ? 'step' : undefined}
               className="flex min-h-11 items-center gap-2.5 rounded-full py-1 pr-1 text-[14px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
@@ -34,10 +35,10 @@ export function LineaDePasos<T extends string>({ pasos, paso, onPaso, hecho }: {
               >
                 {hechoAqui ? <Check size={15} strokeWidth={2.6} aria-hidden /> : i + 1}
               </span>
-              <span className={cn(esActual ? 'font-semibold text-foreground' : hechoAqui ? 'text-foreground' : 'text-muted-foreground')}>{p.corto}</span>
+              <span className={cn(!esActual && 'hidden sm:inline', esActual ? 'font-semibold text-foreground' : hechoAqui ? 'text-foreground' : 'text-muted-foreground')}>{p.corto}</span>
             </button>
             {i < pasos.length - 1 && (
-              <span aria-hidden className="mx-3 h-px w-8 xl:mx-4 xl:w-14" style={{ backgroundColor: hechoAqui ? 'var(--t-blue-500)' : 'var(--border)' }} />
+              <span aria-hidden className="mx-1.5 h-px w-4 sm:mx-3 sm:w-8 xl:mx-4 xl:w-14" style={{ backgroundColor: hechoAqui ? 'var(--t-blue-500)' : 'var(--border)' }} />
             )}
           </li>
         );

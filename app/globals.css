@@ -1526,3 +1526,6 @@ canvas[data-tenti].tenti-entra {
 @media (prefers-reduced-motion: reduce) {
   .huella-creacion { animation: none !important; box-shadow: 0 0 0 2px var(--ring); }
 }
+
+/* Panel nuevo: Widgets esconde «Primeros pasos» mientras enseña la vista previa (constructor-widgets.tsx). */
+body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !important; }

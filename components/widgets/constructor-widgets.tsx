@@ -597,6 +597,14 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // La portada no tiene pasos, ni vista previa, ni el aviso de cabecera: cada
   // fila lleva el suyo.
   const conPrevia = paso !== 'plataforma' && paso !== 'tienes';
+  // Panel nuevo: «Primeros pasos» flota abajo a la derecha y taparía la vista previa. Mientras
+  // ésta se ve, la lista se esconde (sigue en la home y en el resto de pantallas).
+  const escondeLista = panelNuevo && conPrevia;
+  useEffect(() => {
+    if (!escondeLista) return;
+    document.body.classList.add('sin-primeros-pasos-flotante');
+    return () => document.body.classList.remove('sin-primeros-pasos-flotante');
+  }, [escondeLista]);
   const pasos = pasosDe(plataforma);
   const indice = pasos.findIndex(p => p.id === paso);
   // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de
@@ -895,7 +903,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
             {panelNuevo ? (
               // Como Apariencia (Bonsai b-30…): el widget real, sobre un panel de color. La tarjeta blanca
               // de dentro es la vista previa de siempre: su rótulo y sus controles siguen leyéndose.
-              <div className="rounded-[28px] p-3 sm:p-5" style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}>
+              <div className="rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-3 sm:p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
                 <div className="rounded-2xl bg-card p-3 text-card-foreground shadow-t-card sm:p-4">
                 <VistaPrevia
                   // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.

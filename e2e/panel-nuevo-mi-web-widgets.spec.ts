@@ -28,7 +28,7 @@ const CAPTURAS = process.env.CAPTURAS;
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-async function montar(page: Page, opts: { panelNuevo: boolean; plataforma?: string; slug?: string | null; copiados?: boolean }) {
+async function montar(page: Page, opts: { panelNuevo: boolean; plataforma?: string; slug?: string | null; copiados?: boolean; destino?: string }) {
   const studioRow: Record<string, unknown> = {
     id: STUDIO_ID, nombre: 'Pilates Centro', slug: opts.slug === undefined ? SLUG : opts.slug, owner_auth_user_id: AUTH_UID,
     email: 'duena@example.com', color_primario: '#343825',
@@ -61,10 +61,12 @@ async function montar(page: Page, opts: { panelNuevo: boolean; plataforma?: stri
   await page.route('**/rest/v1/tipos_clase**', r => json(r, [{ id: 'tc-r', studio_id: STUDIO_ID, nombre: 'Reformer', color: '#7C6A52', nivel: 'TODOS', duracion_min: 50 }]));
   await page.route('**/rest/v1/instructores**', r => json(r, [{ id: 'ins-1', studio_id: STUDIO_ID, nombre: 'Ana Ruiz', activo: true, rol: 'INSTRUCTOR', color: '#7C6A52' }]));
 
-  await page.goto('/configuracion?tab=web&abrir=widgets');
+  await page.goto(opts.destino ?? '/configuracion?tab=web&abrir=widgets');
 }
 
 async function captura(page: Page, nombre: string) {
+  // En las capturas, que la vista previa (la página real de reservas, lenta en dev) haya cargado.
+  if (CAPTURAS) await page.waitForTimeout(16_000);
   if (CAPTURAS) await page.screenshot({ path: `${CAPTURAS}/${nombre}.png`, fullPage: true });
 }
 
@@ -78,11 +80,15 @@ test('panel nuevo: la web ya contestada abre «Qué y dónde» con su línea de 
   // El widget real sigue ahí: «Así lo verá tu alumna» y el cambio de dispositivo.
   await expect(page.getByRole('heading', { name: 'Así lo verá tu alumna' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Dispositivo de la vista previa' }).getByRole('button')).toHaveText(['Ordenador', 'Móvil']);
+  // «Primeros pasos» flota abajo a la derecha y taparía la vista previa: mientras se ve, se esconde.
+  await expect(page.locator('[data-primeros-pasos]:visible')).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' })).toBeVisible();
   await captura(page, 'widgets-1-que');
 
   await page.getByRole('button', { name: /Siguiente: cómo se ve/ }).click();
   await expect(pasos.getByRole('button', { name: 'Cómo se ve' })).toHaveAttribute('aria-current', 'step');
   await expect(page.getByRole('heading', { name: 'Cómo se ve', exact: true })).toBeVisible();
+  await expect(page.getByText('¿Cómo quieres que se vea?')).toBeVisible();
   await captura(page, 'widgets-2-como');
 
   await page.getByRole('button', { name: /Siguiente: ponlo en tu web/ }).click();
@@ -132,4 +138,11 @@ test('sin el panel nuevo: el constructor es el de siempre (navegación «Pasos»
   await expect(page.getByRole('list', { name: 'Pasos' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Elige qué enseñas y dónde' })).toHaveCount(0);
   await captura(page, 'widgets-antes-que');
+});
+
+test('panel nuevo: «Contenido de tu app» con el marco del panel nuevo y sus textos de siempre', async ({ page }) => {
+  await page.setViewportSize({ width: Number(process.env.ANCHO ?? 1440), height: Number(process.env.ALTO ?? 900) });
+  await montar(page, { panelNuevo: true, plataforma: 'wordpress', destino: '/configuracion?tab=web&abrir=contenido-de-tu-app' });
+  await expect(page.getByText(/Si no publicas ninguna tarjeta/)).toBeVisible({ timeout: 60_000 });
+  await captura(page, 'contenido-de-tu-app');
 });
