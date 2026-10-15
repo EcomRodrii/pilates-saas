@@ -6,9 +6,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
-import { pagaPlan, puedeContratarFounding } from '@/lib/billing/plan-gratis';
-import { leerUsoGratis } from '@/lib/billing/uso-gratis-servidor';
-import { encendidaPara } from '@/lib/interruptor-por-estudio';
+import { pagaPlan } from '@/lib/billing/plan-gratis';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
@@ -58,20 +56,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: studio } = await admin
-    .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_id, subscription_status, owner_auth_user_id')
+    .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_id, subscription_status')
     .eq('id', sesion.studioId).single();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
-
-  // Founding Studio de pago (29 €), con el interruptor del plan gratis
-  // encendido: es lo que toca a quien pasa de 250 reservas al mes con 150
-  // alumnas activas o menos (lib/billing/plan-gratis.ts). Con más de 150, toca Estudio:
-  // se comprueba aquí también, no solo en la pantalla.
-  if (plan === 'BASE' && encendidaPara(process.env.FOUNDING_GRATIS, sesion.studioId)) {
-    const { estado } = await leerUsoGratis(admin, studio.id, studio.owner_auth_user_id ?? null, new Date());
-    if (!puedeContratarFounding(estado.uso?.alumnasActivas ?? null)) {
-      return NextResponse.json({ error: 'Con más de 150 alumnas activas te corresponde Estudio, que no tiene límite.' }, { status: 400 });
-    }
-  }
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';

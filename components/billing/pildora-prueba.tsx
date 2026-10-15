@@ -125,7 +125,7 @@ export function PildoraPrueba({ className = '' }: { className?: string }) {
         {margen && <span className="tabular-nums">{gratis.diasRestantes} {gratis.diasRestantes === 1 ? 'día' : 'días'}</span>}
         <span className="sr-only">
           {margen
-            ? `Has pasado un límite del plan gratis. Te quedan ${gratis.diasRestantes} días para pasarte a ${gratis.planQueToca === 'ESTUDIO' ? 'Estudio' : 'Founding Studio de pago'}. Pulsa para verlo.`
+            ? `Has pasado un límite del plan gratis. Te quedan ${gratis.diasRestantes} días para pasarte a Founding Studio de pago. Pulsa para verlo.`
             : 'Te acercas a un límite del plan gratis. Pulsa para ver lo que usas.'}
         </span>
       </Link>

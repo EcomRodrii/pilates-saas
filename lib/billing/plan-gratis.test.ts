@@ -122,17 +122,21 @@ test('las reservas cuentan en 30 días, no por mes natural: el día 1 no reinici
   assert.equal(estadoGratis({ uso: uso({ reservas30Dias: 260 }), excedidoDesde: '2026-10-28', hoy: '2026-11-01' }).fase, 'MARGEN');
 });
 
-test('al pasarse: solo de reservas, Founding Studio de pago; de alumnas, Estudio', async () => {
-  const { planQueToca, puedeContratarFounding } = await import('./plan-gratis.ts');
-  assert.equal(planQueToca(uso({ alumnasActivas: 120, reservas30Dias: 300 })), 'BASE');
-  assert.equal(planQueToca(uso({ alumnasActivas: 151, reservas30Dias: 10 })), 'ESTUDIO');
-  assert.equal(planQueToca(uso({ alumnasActivas: 160, reservas30Dias: 400 })), 'ESTUDIO');
-  // Cerrado y ya por debajo: el más barato que le reabre el panel.
-  assert.equal(planQueToca(uso({ alumnasActivas: 90, reservas30Dias: 5 })), 'BASE');
-  assert.equal(puedeContratarFounding(150), true);
-  assert.equal(puedeContratarFounding(151), false);
-  assert.equal(puedeContratarFounding(null), true);
-  const margen = estadoGratis({ uso: uso({ alumnasActivas: 100, reservas30Dias: 300 }), excedidoDesde: '2026-10-10', hoy: '2026-10-15' });
-  assert.equal(margen.planQueToca, 'BASE');
-  assert.equal(estadoGratis({ uso: uso({ alumnasActivas: 100 }), excedidoDesde: null, hoy: '2026-10-15' }).planQueToca, null);
+test('al pasarse de cualquiera de los dos límites, Founding Studio de pago: el gratis no manda a nadie a Estudio', async () => {
+  const mod = await import('./plan-gratis.ts');
+  // Ya no existe una regla que elija Estudio por tener más alumnas (fundador, 15-oct-2026, 08:30).
+  assert.equal('planQueToca' in mod, false);
+  assert.equal('puedeContratarFounding' in mod, false);
+  for (const u of [uso({ alumnasActivas: 151 }), uso({ reservas30Dias: 251 }), uso({ alumnasActivas: 400, reservas30Dias: 900 })]) {
+    const e = estadoGratis({ uso: u, excedidoDesde: '2026-10-10', hoy: '2026-10-15' });
+    assert.equal(e.fase, 'MARGEN');
+    assert.equal('planQueToca' in e, false);
+  }
+  // Founding de pago: lo mismo que el gratis, sin tope de alumnas y sin la app propia (que es de Estudio).
+  const { PLAN_ENTITLEMENTS, ENTITLEMENTS_GRATIS } = await import('./entitlements.ts');
+  assert.equal(PLAN_ENTITLEMENTS.BASE.maxSocios, Infinity);
+  assert.equal(PLAN_ENTITLEMENTS.BASE.features.appPropia, false);
+  assert.equal(ENTITLEMENTS_GRATIS.features.appPropia, false);
+  assert.equal(PLAN_ENTITLEMENTS.ESTUDIO.features.appPropia, true);
+  assert.equal(PLAN_ENTITLEMENTS.CADENA.features.appPropia, true);
 });

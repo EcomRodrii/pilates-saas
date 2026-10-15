@@ -209,6 +209,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Ocultar tu página mientras la preparas', detalle: 'Enseña un aviso en vez de tus clases, y con una clave dejas entrar solo a quien tú quieras.', valor: TODOS },
       { nombre: 'Tu dirección propia', detalle: 'tentare.app/portal/tu-estudio', valor: TODOS },
       { nombre: 'App con tu marca', detalle: 'Tus colores, tu logo y tus pantallas: lo que ve la alumna es tu estudio.', valor: porFeature('marca') },
+      // Lo que distingue Estudio de Founding Studio (fundador, 15-oct-2026: «estudio incluye la app alumna»).
+      { nombre: 'App propia de tu estudio', detalle: 'En la tienda de apps, con tu nombre y tu icono.', valor: porFeature('appPropia') },
     ],
   },
   {
