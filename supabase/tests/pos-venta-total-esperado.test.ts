@@ -1,4 +1,4 @@
-// El TPV cobra el total que ha enseñado, matrícula incluida (migr 20261015155427_pos_venta_total_esperado), contra una base
+// El TPV cobra el total que ha enseñado, matrícula incluida (migr 20261015183131_pos_venta_total_esperado), contra una base
 // de datos real:
 //  · `p_solo_calcular` contesta el total de verdad, con la matrícula, y no deja NADA escrito: ni venta, ni cupo de promoción;
 //  · `p_total_esperado` distinto del de verdad rechaza la venta con IMPORTE_NO_COINCIDE antes de que exista;
@@ -60,7 +60,7 @@ test('la vista previa da el total con la matrícula y no deja nada escrito: ni v
     const producto = idUnico('prod');
     const codigo = idUnico('cod');
     const { error: errProd } = await admin.from('productos_pos').insert({
-      id: producto, studio_id: studio.studioId, nombre: 'Calcetines', categoria: 'Ropa', precio: 10, activo: true, stock: 5,
+      id: producto, studio_id: studio.studioId, nombre: 'Calcetines', categoria: 'PRODUCTO', precio: 10, activo: true, stock: 5,
     });
     assert.ok(!errProd, `fixture de producto: ${errProd?.message}`);
     const { error: errCod } = await admin.from('codigos_descuento').insert({

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { leerPresupuesto, leerTotalNoCoincide, mensajeTotalNoCoincide } from './total-esperado.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El TPV cobra el total que ha enseñado (migr 20261015155427_pos_venta_total_esperado).
+// El TPV cobra el total que ha enseñado (migr 20261015183131_pos_venta_total_esperado).
 // La RPC lo cuenta en sus excepciones; esto lo lee, y los contratos de abajo fijan
 // que las dos rutas y la RPC siguen diciéndose lo mismo. Lo de verdad, contra
 // Postgres: `supabase/tests/pos-venta-total-esperado.test.ts`.

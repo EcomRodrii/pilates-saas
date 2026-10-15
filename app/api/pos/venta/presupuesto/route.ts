@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 //
 // No hay una copia del cálculo en TypeScript: se le pide a `registrar_venta_pos`
 // con `p_solo_calcular`, que hace la venta entera y la deshace con su excepción
-// `PRESUPUESTO:…` (migr `20261015155427_pos_venta_total_esperado`). Así cuenta lo
+// `PRESUPUESTO:…` (migr `20261015183131_pos_venta_total_esperado`). Así cuenta lo
 // que el carrito no ve, la matrícula del primer plan de verdad con su cupo de
 // promoción, con las mismas reglas que la venta de verdad. Nada queda escrito:
 // ni venta, ni stock, ni cupo de matrícula, ni el uso del código.
