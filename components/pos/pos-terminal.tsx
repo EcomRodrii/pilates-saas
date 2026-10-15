@@ -15,7 +15,7 @@ import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/li
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
 import { leerCatalogoPOS } from '@/lib/pos/leer-respuestas';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
-import { registrarVenta } from '@/lib/pos/cliente';
+import { registrarVenta, presupuestoVenta, type ErrorPOS, type PeticionPresupuesto, type PresupuestoVenta } from '@/lib/pos/cliente';
 import { cuotaSinClienta } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import type { CodigoDescuento } from '@/lib/types';
@@ -265,11 +265,13 @@ export function PosTerminal() {
   }
 
   // ── Totales (previsualización; manda el servidor) ─────────────────────────
-  const ticket = useMemo(() => calcularTicket(carrito, {
+  // El descuento es de lo que hay en el carrito: la matrícula de abajo no lo recibe.
+  const opcionesDescuento = useMemo(() => ({
     descuentoTipo,
     descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
     descuentoCodigo: codigoAplicado ? calcularDescuento(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
   }), [carrito, descuentoTipo, descuentoTexto, codigoAplicado]);
+  const ticket = useMemo(() => calcularTicket(carrito, opcionesDescuento), [carrito, opcionesDescuento]);
 
   function aplicarCodigo() {
     const encontrado = buscarCodigo(codigosDescuento, codigoTexto);
@@ -305,6 +307,60 @@ export function PosTerminal() {
   // un plan cuyo catálogo aún no ha cargado es exactamente «no se sabe».
   const bizumPermitido = tiposDePlanDelTicket.every((t) => bizumPermitidoPara(t));
 
+  // ── El total de verdad: la matrícula ──────────────────────────────────────
+  //
+  // `registrar_venta_pos` añade por su cuenta la matrícula del primer plan de una
+  // clienta (con su cupo de promoción), y eso el carrito no lo sabe. Antes la hoja
+  // de cobro enseñaba el total sin ella: con tarjeta, «Sí, he cobrado 130 €» quedaba
+  // registrado como 145 €; en efectivo, «Cambio 70» y después «Devuelve 55».
+  //
+  // Ahora se le pregunta a la misma RPC (`/api/pos/venta/presupuesto`) en cuanto
+  // puede haberla —una clienta y un plan—, y se enseña y se cobra ESE total, con la
+  // matrícula en su línea. Y aunque la pregunta falle, la venta manda el total que
+  // se ha visto (`totalEsperado`) y el servidor la rechaza si no es el suyo: nada
+  // se registra ni se cobra con un total distinto del de la pantalla.
+  const peticionTotal = useMemo<PeticionPresupuesto>(() => ({
+    lineas: carrito.map((i) => ({
+      tipo: i.tipo, referenciaId: i.referenciaId, cantidad: i.cantidad,
+      ...(i.tipo === 'LIBRE' ? { nombre: i.nombre, precio: i.precio } : {}),
+    })),
+    socioId: clienteId,
+    descuentoTipo: descuentoTexto ? descuentoTipo : null,
+    descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
+    codigoDescuentoId: codigoAplicado?.id ?? null,
+  }), [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
+  const firmaTotal = useMemo(() => JSON.stringify(peticionTotal), [peticionTotal]);
+  const puedeLlevarMatricula = !!clienteId && carrito.some((i) => i.tipo === 'PLAN');
+  // Atado al ticket que lo pidió: con otro carrito, otra clienta u otro descuento, no vale.
+  const [totalServidor, setTotalServidor] = useState<{ firma: string; r: PresupuestoVenta | ErrorPOS } | null>(null);
+  useEffect(() => {
+    if (!puedeLlevarMatricula) return;
+    let vivo = true;
+    // Un respiro: tocar «+» tres veces seguidas es una pregunta, no tres.
+    const t = setTimeout(() => {
+      void presupuestoVenta(peticionTotal).then((r) => { if (vivo) setTotalServidor({ firma: firmaTotal, r }); });
+    }, 250);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [puedeLlevarMatricula, peticionTotal, firmaTotal]);
+  const respuestaTotal = totalServidor?.firma === firmaTotal ? totalServidor.r : null;
+  const totalDelServidor = respuestaTotal && !esError(respuestaTotal) ? respuestaTotal : null;
+  const errorTotal = respuestaTotal && esError(respuestaTotal) ? respuestaTotal.error : null;
+  const calculandoTotal = puedeLlevarMatricula && !respuestaTotal;
+  const matricula = useMemo(() => {
+    if (!totalDelServidor || totalDelServidor.matricula <= 0) return null;
+    const plan = catalogo?.planes.find((p) => p.id === totalDelServidor.matriculaPlanId)?.nombre ?? 'plan';
+    // El mismo concepto que escribe la RPC en la línea de la venta.
+    return { importe: totalDelServidor.matricula, concepto: `Matrícula — ${plan}`.slice(0, 120) };
+  }, [totalDelServidor, catalogo]);
+  // El ticket que se cobra: el carrito más la matrícula, que no recibe descuento.
+  const ticketCobro = useMemo(() => !matricula ? ticket : calcularTicket([...carrito, {
+    clave: 'matricula', tipo: 'LIBRE', referenciaId: null, nombre: matricula.concepto,
+    precio: matricula.importe, cantidad: 1, ivaPct: catalogo?.ivaDefecto ?? 21, descontable: false,
+  }], opcionesDescuento), [matricula, ticket, carrito, catalogo, opcionesDescuento]);
+  // Si el servidor ya ha contado, manda su cifra (un precio cambiado desde que se
+  // cargó el catálogo también la mueve); si no, la del ticket.
+  const totalCobro = totalDelServidor?.total ?? ticketCobro.total;
+
   // ── Cobro ─────────────────────────────────────────────────────────────────
   //
   // ⚠️ La clave de idempotencia identifica ESTE INTENTO DE COBRO, no la forma
@@ -332,18 +388,20 @@ export function PosTerminal() {
 
   const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null) => {
     const r = await registrarVenta({
-      lineas: carrito.map((i) => ({
-        tipo: i.tipo, referenciaId: i.referenciaId, cantidad: i.cantidad,
-        ...(i.tipo === 'LIBRE' ? { nombre: i.nombre, precio: i.precio } : {}),
-      })),
-      socioId: clienteId,
+      ...peticionTotal,
       metodoPago: metodo,
-      descuentoTipo: descuentoTexto ? descuentoTipo : null,
-      descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
-      codigoDescuentoId: codigoAplicado?.id ?? null,
       efectivoRecibido,
       idempotenciaClave: `${claveIdempotencia}-${metodo}`,
+      totalEsperado: totalCobro,
     });
+    // El servidor no la ha registrado porque el total no era el de la pantalla. Trae el
+    // de verdad: la hoja lo enseña, y el siguiente intento manda ese.
+    if (esError(r) && r.codigo === 'IMPORTE_NO_COINCIDE' && typeof r.total === 'number') {
+      setTotalServidor({
+        firma: firmaTotal,
+        r: { total: r.total, matricula: r.matricula ?? 0, matriculaPlanId: r.matriculaPlanId ?? null },
+      });
+    }
     // `yaExistia` = el servidor reconoció este mismo intento y devolvió la
     // venta que ya había creado. No es un cobro nuevo, y hay que decirlo: dar
     // por buena una venta que no se ha registrado ahora es justo lo que
@@ -352,7 +410,7 @@ export function PosTerminal() {
       setAviso(`Esta venta ya estaba registrada (${formatNumeroVenta(r.numero)}). No se ha cobrado dos veces.`);
     }
     return r;
-  }, [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado, claveIdempotencia]);
+  }, [peticionTotal, claveIdempotencia, totalCobro, firmaTotal, setTotalServidor]);
 
   // ── Atajos de teclado (escritorio) ────────────────────────────────────────
   useEffect(() => {
@@ -362,13 +420,14 @@ export function PosTerminal() {
       if (e.key === 'Escape' && !mostrarCobro && !mostrarCaja) { setBusqueda(''); (e.target as HTMLElement)?.blur?.(); }
       // Enter NO cobra desde cualquier sitio: en el TPV anterior un Enter suelto
       // lanzaba el cobro entero. Aquí abre la hoja, que es donde se decide.
-      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro) {
+      // Ni mientras se calcula el total: la hoja se abriría con la cifra sin matrícula.
+      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro && !calculandoTotal) {
         setMostrarCobro(true);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [carrito.length, mostrarCobro, mostrarCaja]);
+  }, [carrito.length, mostrarCobro, mostrarCaja, calculandoTotal]);
 
   if (cargando) {
     return (
@@ -690,7 +749,7 @@ export function PosTerminal() {
                 {unidades}
               </span>
               <span className="flex-1 text-left text-[15px] font-bold">Ver el ticket</span>
-              <span className="text-[19px] font-extrabold tabular-nums">{formatEuro(ticket.total)}</span>
+              <span className="text-[19px] font-extrabold tabular-nums">{formatEuro(totalCobro)}</span>
             </button>
           )}
         </section>
@@ -885,31 +944,50 @@ export function PosTerminal() {
                   aritmética cuadre a la vista (base + IVA = total), y el
                   bloque se separa con un título que dice que ya está dentro. */}
               <div className="space-y-1 text-[14px] pt-1">
-                <Fila label="Subtotal" valor={formatEuro(ticket.subtotal)} />
-                {ticket.descuento > 0 && <Fila label="Descuento" valor={`−${formatEuro(ticket.descuento)}`} tono="warning" />}
+                {/* La matrícula no es una línea del carrito (no se quita ni se
+                    cambia la cantidad): la añade la venta, y por eso va aquí,
+                    sumada al subtotal como la suma la RPC. */}
+                {matricula && (
+                  <div data-testid="linea-matricula">
+                    <Fila label={matricula.concepto} valor={formatEuro(matricula.importe)} />
+                    <p className="text-[12px] text-muted-foreground">Es su primer plan. Los descuentos no la rebajan.</p>
+                  </div>
+                )}
+                <Fila label="Subtotal" valor={formatEuro(ticketCobro.subtotal)} />
+                {ticketCobro.descuento > 0 && <Fila label="Descuento" valor={`−${formatEuro(ticketCobro.descuento)}`} tono="warning" />}
                 <div className="pt-2 mt-1 border-t border-border space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Desglose (IVA ya incluido)
                   </p>
-                  <Fila label="Base imponible" valor={formatEuro(ticket.baseImponible)} />
+                  <Fila label="Base imponible" valor={formatEuro(ticketCobro.baseImponible)} />
                   {/* Desglosado por tipo: un ticket con género al 21 % y una
                       clase al 10 % enseña los dos, no una media. */}
-                  {ticket.porTipoIva.map((t) => (
+                  {ticketCobro.porTipoIva.map((t) => (
                     <Fila key={t.ivaPct} label={`IVA ${t.ivaPct}%`} valor={formatEuro(t.cuota)} />
                   ))}
                 </div>
                 <div className="flex items-center justify-between rounded-2xl bg-background border border-border px-4 py-3 mt-2">
                   <span className="text-[15px] font-bold text-foreground">Total</span>
-                  <span className="text-[30px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(ticket.total)}</span>
+                  <span className="text-[30px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(totalCobro)}</span>
                 </div>
+                {calculandoTotal && (
+                  <p className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                    <Loader2 size={13} className="animate-spin" /> Comprobando si lleva matrícula…
+                  </p>
+                )}
+                {errorTotal && (
+                  <p role="status" className="text-[12.5px] text-muted-foreground text-pretty">
+                    {errorTotal} Al cobrar se vuelve a comprobar el total, antes de registrar nada.
+                  </p>
+                )}
               </div>
 
               <button
                 onClick={() => setMostrarCobro(true)}
-                disabled={cuotaSinFicha}
+                disabled={cuotaSinFicha || calculandoTotal}
                 className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold active:scale-[0.99] transition-all disabled:opacity-40 disabled:active:scale-100"
               >
-                {`Cobrar ${formatEuro(ticket.total)}`}
+                {calculandoTotal ? 'Calculando el total…' : `Cobrar ${formatEuro(totalCobro)}`}
               </button>
             </div>
           )}
@@ -921,7 +999,8 @@ export function PosTerminal() {
           clienta. */}
       {mostrarCobro && !cuotaSinFicha && (
         <HojaCobro
-          total={ticket.total}
+          total={totalCobro}
+          matricula={matricula}
           cobroDisponible={catalogo?.cobro ?? { stripeConectado: false, datafonoEmparejado: false }}
           bizumPermitido={bizumPermitido}
           onCobrar={enviarVenta}

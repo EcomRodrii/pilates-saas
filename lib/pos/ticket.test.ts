@@ -95,6 +95,42 @@ test('el descuento manual y el del código se suman, y el conjunto se topa', () 
   assert.equal(t.total, 0);
 });
 
+// ─── La matrícula: la añade la RPC y no se descuenta ─────────────────────────
+
+const MATRICULA: LineaTicket = {
+  clave: 'matricula', tipo: 'LIBRE', referenciaId: null, nombre: 'Matrícula — Bono Reformer 10',
+  precio: 15, cantidad: 1, ivaPct: 21, descontable: false,
+};
+
+test('la matrícula suma al total pero el descuento no la toca, como en la RPC', () => {
+  // `registrar_venta_pos`: la matrícula entra con 'descontable', false y el descuento
+  // se calcula y se reparte sobre `v_subtotal_descontable`.
+  const t = calcularTicket([...CARRITO_ANCLA, MATRICULA], { descuentoTipo: 'PORCENTAJE', descuentoValor: 10 });
+  assert.equal(t.subtotal, 154.99);
+  assert.equal(t.descuento, 14, 'el 10 % es de 139,99, no de 154,99');
+  assert.equal(t.total, 140.99);
+  const matricula = t.lineas[t.lineas.length - 1];
+  assert.equal(matricula.descuento, 0);
+  assert.equal(matricula.total, 15);
+  // El céntimo suelto del reparto va a la última línea DESCONTABLE, no a la matrícula.
+  assert.deepEqual(t.lineas.map((l) => l.descuento), [5, 8, 1, 0]);
+  assert.equal(céntimos(t.lineas.reduce((s, l) => s + l.total, 0)), t.total);
+});
+
+test('un descuento enorme deja a 0 lo comprado, pero la matrícula se cobra', () => {
+  const t = calcularTicket([...CARRITO_ANCLA, MATRICULA], { descuentoTipo: 'EUROS', descuentoValor: 9999 });
+  assert.equal(t.descuento, 139.99);
+  assert.equal(t.total, 15);
+});
+
+test('sin líneas no descontables, el ticket es el de siempre', () => {
+  const conCampo = CARRITO_ANCLA.map((l) => ({ ...l, descontable: true }));
+  assert.deepEqual(
+    calcularTicket(conCampo, { descuentoCodigo: 14 }).lineas.map((l) => l.total),
+    calcularTicket(CARRITO_ANCLA, { descuentoCodigo: 14 }).lineas.map((l) => l.total),
+  );
+});
+
 // ─── Redondeo ────────────────────────────────────────────────────────────────
 
 test('redondea como Postgres, sin el error clásico de coma flotante', () => {

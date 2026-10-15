@@ -66,9 +66,16 @@ const ESPERA_MAX_MS = 90_000;
 const INTERVALO_MS = 1_500;
 
 export function HojaCobro({
-  total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar, onVentaAnulada,
+  total, matricula, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar, onVentaAnulada,
 }: {
+  /**
+   * Lo que se va a registrar: el que ha contado el servidor cuando lo hay (con la
+   * matrícula). Es el que se dice, el que se afirma («Sí, he cobrado…») y sobre el
+   * que se calcula el cambio. La venta lo manda y el servidor la rechaza si no es el suyo.
+   */
   total: number;
+  /** La matrícula que la venta añade por su cuenta (primer plan de la clienta), si la hay. */
+  matricula?: { concepto: string; importe: number } | null;
   cobroDisponible: CatalogoPOS['cobro'];
   /**
    * ¿Se puede ofrecer Bizum para ESTE ticket? Falso si lleva una cuota: Bizum
@@ -301,6 +308,13 @@ export function HojaCobro({
         <div className="relative shrink-0 px-6 pt-6 pb-5 border-b border-border text-center">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
           <p className="mt-1 text-[40px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(total)}</p>
+          {/* Dicha aquí y no solo en el ticket: es la cifra que se repite en voz
+              alta, y sin esto «¿por qué 95 si el bono son 80?» no tiene respuesta. */}
+          {matricula && (
+            <p data-testid="cobro-matricula" className="mt-2 text-[13px] text-muted-foreground">
+              Incluye {matricula.concepto} · {formatEuro(matricula.importe)}
+            </p>
+          )}
           {/* Sin esto la única salida de la pantalla de éxito era el botón
               «Nueva venta», que no dice que también sirva para cerrar. 44 px,
               que es el mínimo para un dedo en el iPad del mostrador. */}

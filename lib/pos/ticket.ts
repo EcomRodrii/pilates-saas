@@ -16,10 +16,11 @@
 // Reglas, en el orden en que se aplican:
 //   1. bruto de línea      = redondear(precio × cantidad)
 //   2. subtotal            = Σ brutos
-//   3. descuento           = min(subtotal, manual + código)   ← nunca negativo
-//   4. descuento de línea  = redondear(descuento × bruto / subtotal)
-//      · la ÚLTIMA línea se lleva el céntimo suelto del redondeo, para que
-//        Σ descuentos de línea == descuento total EXACTAMENTE
+//   3. descuento           = min(descontable, manual + código)   ← nunca negativo
+//      · «descontable» = Σ brutos menos la matrícula, que no se descuenta
+//   4. descuento de línea  = redondear(descuento × bruto / descontable)
+//      · la ÚLTIMA línea descontable se lleva el céntimo suelto del redondeo,
+//        para que Σ descuentos de línea == descuento total EXACTAMENTE
 //   5. total de línea      = bruto − descuento de línea
 //   6. base de línea       = redondear(total / (1 + iva/100))   ← IVA INCLUIDO
 //   7. IVA de línea        = total − base
@@ -44,6 +45,12 @@ export interface LineaTicket {
   cantidad: number;
   /** Porcentaje ya resuelto (el del artículo, o el del estudio si no tiene). */
   ivaPct: number;
+  /**
+   * `false` = el descuento no la toca. Solo la matrícula, que la RPC añade por su
+   * cuenta con `'descontable', false`: un código o un descuento a mano rebajan lo
+   * que se compra, no la matrícula. Sin el campo, se descuenta (todo lo demás).
+   */
+  descontable?: boolean;
 }
 
 export interface LineaCalculada extends LineaTicket {
@@ -104,20 +111,25 @@ export function calcularTicket(
 ): Ticket {
   const conBruto = lineas.map((l) => ({ ...l, bruto: céntimos(l.precio * l.cantidad) }));
   const subtotal = céntimos(conBruto.reduce((s, l) => s + l.bruto, 0));
+  // El descuento se calcula y se reparte solo sobre lo descontable, como
+  // `v_subtotal_descontable` en la RPC.
+  const descontable = (l: LineaTicket) => l.descontable !== false;
+  const subtotalDescontable = céntimos(conBruto.filter(descontable).reduce((s, l) => s + l.bruto, 0));
+  let ultimaDescontable = -1;
+  conBruto.forEach((l, i) => { if (descontable(l)) ultimaDescontable = i; });
 
-  const manual = descuentoManual(subtotal, opts.descuentoTipo ?? null, opts.descuentoValor ?? 0);
+  const manual = descuentoManual(subtotalDescontable, opts.descuentoTipo ?? null, opts.descuentoValor ?? 0);
   const codigo = Math.max(0, céntimos(opts.descuentoCodigo ?? 0));
-  const descuento = Math.min(subtotal, céntimos(manual + codigo));
+  const descuento = Math.min(subtotalDescontable, céntimos(manual + codigo));
 
   let repartido = 0;
   const calculadas: LineaCalculada[] = conBruto.map((l, i) => {
-    const esUltima = i === conBruto.length - 1;
-    // La última línea absorbe el céntimo que deja el redondeo del prorrateo.
-    // Sin esto, Σ líneas puede quedar a un céntimo del total de cabecera y el
-    // ticket no cuadraría consigo mismo.
-    const descLinea = esUltima
-      ? céntimos(descuento - repartido)
-      : subtotal > 0 ? céntimos((descuento * l.bruto) / subtotal) : 0;
+    // La última línea DESCONTABLE absorbe el céntimo que deja el redondeo del
+    // prorrateo. Sin esto, Σ líneas puede quedar a un céntimo del total de
+    // cabecera y el ticket no cuadraría consigo mismo.
+    const descLinea = !descontable(l) ? 0
+      : i === ultimaDescontable ? céntimos(descuento - repartido)
+        : subtotalDescontable > 0 ? céntimos((descuento * l.bruto) / subtotalDescontable) : 0;
     repartido = céntimos(repartido + descLinea);
 
     const total = céntimos(l.bruto - descLinea);
