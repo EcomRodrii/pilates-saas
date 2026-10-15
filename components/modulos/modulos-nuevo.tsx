@@ -81,7 +81,7 @@ const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
 
 /** «Ir →» y «Configurar»: el botón pequeño azul de Bonsai, con el azul del logo. */
 const BOTON_PEQUENO =
-  'inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 const ESTILO_BOTON_PEQUENO: CSSProperties = {
   color: 'var(--t-text-link)',
   borderColor: 'color-mix(in srgb, var(--t-blue-500) 30%, var(--border))',
@@ -179,8 +179,10 @@ function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGu
             </p>
           )}
         </div>
-        {/* Como en Bonsai: el interruptor arriba a la derecha y, debajo, «Ir». */}
-        <div className="flex shrink-0 flex-col items-end gap-2.5">
+        {/* Como en Bonsai: el interruptor arriba a la derecha y, debajo, «Ir».
+            Con el dedo, 20 de hueco: el interruptor (24 px) llega a 44 de zona con
+            su `::before` y «Ir» (28) con la suya; con 10 se pisaban. */}
+        <div className="flex shrink-0 flex-col items-end gap-2.5 tactil:gap-5">
           {!m.fijo && puedeCambiar && estado !== null && (
             <Interruptor
               on={activo}

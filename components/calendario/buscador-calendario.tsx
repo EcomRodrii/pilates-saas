@@ -71,7 +71,7 @@ export function BuscadorCalendario({ candidatas, texto, onTexto, onSeleccionar, 
           aria-expanded={abierto}
           aria-label={buscando ? `Buscando «${texto.trim()}»` : 'Buscar clase'}
           title="Buscar una clase por su nombre, sala o instructora"
-          className={cn('inline-flex min-h-11 items-center gap-1.5 text-foreground md:min-h-9', compacto && !buscando ? 'w-11 justify-center md:w-9' : 'pl-3', buscando ? 'pr-1' : compacto ? '' : 'pr-3')}
+          className={cn('zona-tactil inline-flex min-h-11 items-center gap-1.5 text-foreground md:min-h-9', compacto && !buscando ? 'w-11 justify-center md:w-9' : 'pl-3', buscando ? 'pr-1' : compacto ? '' : 'pr-3')}
         >
           <Search size={15} className="shrink-0 text-muted-foreground" aria-hidden />
           {buscando ? <span className="max-w-[9rem] truncate">«{texto.trim()}»</span> : !compacto && 'Buscar'}
@@ -81,7 +81,7 @@ export function BuscadorCalendario({ candidatas, texto, onTexto, onSeleccionar, 
             type="button"
             onClick={() => onTexto('')}
             aria-label="Dejar de buscar"
-            className="mr-1 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="zona-tactil mr-1 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X size={14} />
           </button>

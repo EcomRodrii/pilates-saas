@@ -134,7 +134,7 @@ export function SelectorTipo({ valor, onCambio, cuantas, etiquetas }: {
             onClick={() => onCambio(t)}
             aria-pressed={activo}
             className={cn(
-              'inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors',
+              'zona-tactil inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors',
               activo ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -269,7 +269,7 @@ export function SelectorVista({ valor, onCambio }: { valor: VistaPaquetes; onCam
           type="button"
           aria-pressed={valor === v}
           onClick={() => onCambio(v)}
-          className={cn('inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors', valor === v ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground')}
+          className={cn('zona-tactil inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors', valor === v ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground')}
         >
           <Icono size={14} aria-hidden />{texto}
         </button>
@@ -339,7 +339,7 @@ export function ListaPlanesNueva({ filas, mueveDinero, onEditar, onBorrar, onPon
             return (
               <tr key={plan.id} data-testid="fila-plan" className="align-middle transition-colors hover:bg-muted/40">
                 <td className="px-4 py-3">
-                  <button type="button" onClick={() => mueveDinero && onEditar(plan)} disabled={!mueveDinero} className="flex min-w-0 items-center gap-3 text-left disabled:cursor-default">
+                  <button type="button" onClick={() => mueveDinero && onEditar(plan)} disabled={!mueveDinero} className="zona-tactil flex min-w-0 items-center gap-3 text-left disabled:cursor-default">
                     <Baldosa tono={tono} Icono={ICONO_TIPO[plan.tipo]} tamano="sm" />
                     <span className="min-w-0">
                       <span className="block truncate text-[14px] font-semibold text-foreground">{plan.nombre}</span>

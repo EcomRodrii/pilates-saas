@@ -154,7 +154,7 @@ function Plataformas({ filas, onDescargar }: { filas: ResumenPlataforma[]; onDes
               </tbody>
             </table>
           </div>
-          <button type="button" onClick={onDescargar} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted">
+          <button type="button" onClick={onDescargar} className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted">
             <Download size={15} aria-hidden />Descargar detalle
           </button>
         </div>

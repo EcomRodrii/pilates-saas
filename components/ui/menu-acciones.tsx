@@ -131,7 +131,7 @@ export function MenuAcciones({ acciones, arriba, boton, claseBoton, etiqueta = '
         aria-haspopup="menu"
         aria-label={etiqueta}
         title={etiqueta}
-        className={claseBoton ?? 'flex h-full min-h-12 w-12 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted md:min-h-10 md:w-10'}
+        className={claseBoton ?? 'zona-tactil flex h-full min-h-12 w-12 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted md:min-h-10 md:w-10'}
       >
         {boton ?? <MoreHorizontal size={18} />}
       </button>

@@ -42,7 +42,7 @@ function Herramienta({ icono: Icono, texto, compacta, activa, href, onClick, tit
   titulo?: string;
 }) {
   const clase = cn(
-    'inline-flex min-h-11 items-center gap-1.5 rounded-lg border text-[13px] font-medium transition-colors md:min-h-9',
+    'zona-tactil inline-flex min-h-11 items-center gap-1.5 rounded-lg border text-[13px] font-medium transition-colors md:min-h-9',
     compacta ? 'w-11 justify-center md:w-9' : 'px-3',
     activa ? 'border-brand bg-brand text-brand-foreground' : 'border-border bg-card text-foreground hover:bg-muted',
   );
@@ -72,7 +72,7 @@ export function FiltroCabecera({ icono: Icono, valor, onCambio, opciones, etique
   const activo = valor !== opciones[0]?.valor;
   return (
     <label className={cn(
-      'relative inline-flex min-h-11 min-w-0 items-center rounded-lg border bg-card text-[13px] text-foreground md:min-h-9',
+      'relative inline-flex min-h-11 min-w-0 items-center rounded-lg border bg-card text-[13px] text-foreground md:min-h-9 tactil:md:min-h-11',
       activo ? 'border-foreground/40 font-medium' : 'border-border',
     )}>
       <Icono size={14} className="pointer-events-none absolute left-2.5 text-muted-foreground" aria-hidden />
@@ -80,7 +80,7 @@ export function FiltroCabecera({ icono: Icono, valor, onCambio, opciones, etique
         aria-label={etiqueta}
         value={valor}
         onChange={e => onCambio(e.target.value)}
-        className="min-h-11 w-full min-w-0 max-w-[13rem] cursor-pointer appearance-none truncate bg-transparent pl-8 pr-8 text-base focus:outline-none md:min-h-9 pointer-fine:text-[13px]"
+        className="min-h-11 w-full min-w-0 max-w-[13rem] cursor-pointer appearance-none truncate bg-transparent pl-8 pr-8 text-base focus:outline-none md:min-h-9 tactil:md:min-h-11 pointer-fine:text-[13px]"
       >
         {opciones.map(o => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
       </select>
@@ -155,7 +155,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
             {panelNuevo && herramientas.length > 0 && (
               <MenuAcciones
                 etiqueta="Más herramientas"
-                claseBoton="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:min-h-9"
+                claseBoton="zona-tactil inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:min-h-9"
                 boton={<><MoreHorizontal size={16} aria-hidden /><span className={p.compacta ? 'sr-only' : ''}>Más</span></>}
                 acciones={herramientas}
               />
@@ -214,17 +214,19 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
       <div className="flex flex-wrap items-center gap-2 md:gap-2.5">
         {p.navegacion && (
           <>
+            {/* Con el dedo (el iPad, que es `md`), 44 como en el móvil: van pegados
+                en un grupo con borde, así que la zona no puede crecer hacia los lados. */}
             <span className="inline-flex items-center rounded-lg border border-border bg-card max-md:hidden">
               <button type="button" onClick={p.navegacion.onAnterior} aria-label={p.navegacion.textoAnterior} title={p.navegacion.textoAnterior}
-                className="flex size-11 items-center justify-center rounded-l-lg text-muted-foreground hover:bg-muted hover:text-foreground md:size-9">
+                className="flex size-11 items-center justify-center rounded-l-lg text-muted-foreground hover:bg-muted hover:text-foreground md:size-9 tactil:md:size-11">
                 <ChevronLeft size={16} />
               </button>
               <button type="button" onClick={p.navegacion.onHoy}
-                className="min-h-11 border-x border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted md:min-h-9">
+                className="min-h-11 border-x border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted md:min-h-9 tactil:md:min-h-11">
                 Hoy
               </button>
               <button type="button" onClick={p.navegacion.onSiguiente} aria-label={p.navegacion.textoSiguiente} title={p.navegacion.textoSiguiente}
-                className="flex size-11 items-center justify-center rounded-r-lg text-muted-foreground hover:bg-muted hover:text-foreground md:size-9">
+                className="flex size-11 items-center justify-center rounded-r-lg text-muted-foreground hover:bg-muted hover:text-foreground md:size-9 tactil:md:size-11">
                 <ChevronRight size={16} />
               </button>
             </span>
@@ -240,7 +242,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
               aria-pressed={p.vista === v.id}
               title={v.titulo}
               className={cn(
-                'min-h-11 min-w-11 rounded-lg px-2.5 text-[13px] font-medium transition-colors md:min-h-8 md:min-w-0 md:px-3.5',
+                'zona-tactil min-h-11 min-w-11 rounded-lg px-2.5 text-[13px] font-medium transition-colors md:min-h-8 md:min-w-0 md:px-3.5',
                 p.vista === v.id ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
               )}
             >

@@ -184,6 +184,18 @@ function FF({
 }
 
 
+/**
+ * La casilla de seleccionar, con el dedo: con el panel nuevo va dentro de una
+ * etiqueta con zona táctil de 44 px (`.zona-tactil`, solo con `pointer: coarse`),
+ * así que tocar al lado también la marca. Una casilla de 16 px no puede llevar
+ * el `::after` (un <input> no lo pinta), y su celda corta el toque para no abrir
+ * la ficha: tocar a 5 px no hacía nada. Sin el panel nuevo, la casilla de
+ * siempre, sin envoltorio.
+ */
+function CasillaTactil({ panelNuevo, children }: { panelNuevo: boolean; children: ReactNode }) {
+  return panelNuevo ? <label className="zona-tactil inline-flex cursor-pointer align-middle">{children}</label> : <>{children}</>;
+}
+
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-muted-foreground ml-1 inline" />;
   return dir === 'asc'
@@ -1479,7 +1491,7 @@ export default function Socios() {
                       data-estado-filtro={e}
                       onClick={() => setFiltroEstado(e)}
                       className={cn(
-                        'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
+                        'zona-tactil inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
                         activo ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
@@ -1790,28 +1802,30 @@ export default function Socios() {
               <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {gestionaClientas && (
                   <th className={cn('w-11 py-3 pl-4', fijaIzq && 'sticky left-0 z-[1] bg-card')}>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
-                      className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                    />
+                    <CasillaTactil panelNuevo={panelNuevo}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
+                        className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                      />
+                    </CasillaTactil>
                   </th>
                 )}
                 <th className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1] bg-card', gestionaClientas ? 'left-11' : 'left-0'))}>
-                  <button onClick={() => toggleSort('nombre')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('nombre')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Clienta <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="py-3 pr-3">Estado</th>
                 <th className="py-3 pr-3">
-                  <button onClick={() => toggleSort('sesiones_restantes')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('sesiones_restantes')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Plan y saldo <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="hidden py-3 pr-3 lg:table-cell">
-                  <button onClick={() => toggleSort('ultima_visita')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('ultima_visita')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Última clase <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
                   </button>
                 </th>
@@ -1819,7 +1833,7 @@ export default function Socios() {
                 {COLUMNAS_EXTRA.filter((c) => columnasExtra.includes(c.id)).map((c) => (
                   <th key={c.id} className={cn('whitespace-nowrap py-3 pr-3', c.id === 'frecuencia' && 'text-right')} data-columna-extra={c.id}>
                     {c.id === 'desde' ? (
-                      <button onClick={() => toggleSort('fecha_registro')} className="inline-flex items-center uppercase hover:text-foreground">
+                      <button onClick={() => toggleSort('fecha_registro')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                         {c.titulo} <SortIcon active={sortKey === 'fecha_registro'} dir={sortDir} />
                       </button>
                     ) : c.titulo}
@@ -1842,13 +1856,15 @@ export default function Socios() {
                   >
                     {gestionaClientas && (
                       <td className={cn('py-3 pl-4', fijaIzq && cn('sticky left-0 z-[1]', fondoFija(isSelected)))} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(s.id)}
-                          aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
-                          className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                        />
+                        <CasillaTactil panelNuevo={panelNuevo}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(s.id)}
+                            aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
+                            className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                          />
+                        </CasillaTactil>
                       </td>
                     )}
                     <td className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1]', gestionaClientas ? 'left-11' : 'left-0', fondoFija(isSelected)))}>
@@ -1912,7 +1928,7 @@ export default function Socios() {
                       {gestionaClientas && (
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
+                          className="zona-tactil rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
                           aria-label={`Editar a ${s.nombre} ${s.apellidos}`}
                         >
                           <Pencil size={15} />

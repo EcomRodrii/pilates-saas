@@ -1244,7 +1244,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     <div data-tour="ficha-clienta" className={cn(modo === 'pagina' && 'min-h-dvh pb-24')} style={modo === 'pagina' ? { backgroundColor: 'var(--background)' } : undefined}>
       <div className={cn('space-y-4', modo === 'pagina' && 'mx-auto max-w-6xl')}>
         {modo === 'pagina' && (
-          <Link href="/clientas" onClick={volverALista} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
+          <Link href="/clientas" onClick={volverALista} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} aria-hidden />
             Clientas
           </Link>
@@ -1411,7 +1411,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               onClick={() => setActiveTab(p.id)}
               className={panelNuevo
                 ? cn(
-                  'min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
+                  'zona-tactil min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
                   activeTab === p.id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground',
                 )
                 : cn(
@@ -1543,7 +1543,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           type="button"
                           onClick={() => abrirCancelarSus()}
                           disabled={cambiandoPlan}
-                          className="mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
+                          className="zona-tactil mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
                         >
                           {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
                         </button>
@@ -1567,7 +1567,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                     titulo="Próximas clases"
                     icono={<CalendarCheck size={16} />}
                     accion={reservaPermitida && socio.activo !== false ? (
-                      <button type="button" onClick={() => setShowReservar(true)} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                      <button type="button" onClick={() => setShowReservar(true)} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                         <Plus size={14} aria-hidden /> Reservar otra
                       </button>
                     ) : undefined}
@@ -1639,7 +1639,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   titulo="Lo último"
                   icono={<Clock size={16} />}
                   accion={eventosHistoria.length > 5 ? (
-                    <button type="button" onClick={() => setActiveTab('historia')} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                    <button type="button" onClick={() => setActiveTab('historia')} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                       Toda la historia <ChevronRight size={14} aria-hidden />
                     </button>
                   ) : undefined}
@@ -1670,26 +1670,28 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   )}
 
                 <TarjetaFicha titulo="Etiquetas" icono={<Tag size={16} />}>
-                  <div className="flex flex-wrap gap-1.5">
+                  {/* `tactil:gap-4`: con el dedo, la × de 16 px crece 14 a cada lado
+                      hasta su zona de 44; con 6 de hueco se metía en la etiqueta de al lado. */}
+                  <div className="flex flex-wrap gap-1.5 tactil:gap-4">
                     {tags.map(tag => (
                       <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-[12.5px] font-medium text-foreground">
                         {tag}
                         {gestionaClientas && (
-                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="zona-tactil -mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                             <X size={12} />
                           </button>
                         )}
                       </span>
                     ))}
                     {gestionaClientas && (
-                      <button onClick={() => setShowAddTag(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
+                      <button onClick={() => setShowAddTag(true)} className="zona-tactil inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
                         <Plus size={12} aria-hidden /> Añadir
                       </button>
                     )}
                     {tags.length === 0 && !gestionaClientas && <p className="text-[13px] text-muted-foreground">Sin etiquetas.</p>}
                   </div>
                 </TarjetaFicha>
-                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
+                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="zona-tactil text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
                   <dl className="space-y-2.5">
                     <DatoSobreElla icono={Mail} etiqueta="Email" valor={socio.email || 'Sin email'} />
                     <DatoSobreElla icono={Phone} etiqueta="Teléfono" valor={socio.telefono ? telefonoLegible(socio.telefono) : 'Sin teléfono'} />

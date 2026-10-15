@@ -235,7 +235,7 @@ export function VistaDiaSalas({
                 type="button"
                 onClick={() => setDesplegado(true)}
                 title="Ver estas horas (para llevar una clase o crear una en ellas)"
-                className="group absolute inset-x-0 z-[5] flex items-center gap-1 border-y border-border bg-muted/60 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="zona-tactil group absolute inset-x-0 z-[5] flex items-center gap-1 border-y border-border bg-muted/60 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 style={{ top: t.y, height: t.alto, paddingLeft: ANCHO_GUTTER_PX + 12 }}
               >
                 {textoTramoPlegado(t)}

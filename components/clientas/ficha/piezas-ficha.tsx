@@ -78,7 +78,7 @@ export function CabeceraFicha({
                 <div className="absolute right-2.5 top-2.5 md:static">
                   <MenuAcciones
                     acciones={menu}
-                    claseBoton="flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground md:h-full md:min-h-10 md:w-10 md:rounded-xl md:border md:border-border md:bg-card md:text-foreground"
+                    claseBoton="zona-tactil flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground md:h-full md:min-h-10 md:w-10 md:rounded-xl md:border md:border-border md:bg-card md:text-foreground"
                   />
                 </div>
               )
@@ -132,7 +132,7 @@ export function CabeceraFicha({
             return (
               <li key={i} className="text-[12.5px] text-foreground">
                 {a.onClick
-                  ? <button type="button" onClick={a.onClick} className="inline-flex items-start gap-1.5 text-left hover:underline underline-offset-2">{contenido}</button>
+                  ? <button type="button" onClick={a.onClick} className="zona-tactil inline-flex items-start gap-1.5 text-left hover:underline underline-offset-2">{contenido}</button>
                   : <span className="inline-flex items-start gap-1.5">{contenido}</span>}
               </li>
             );
@@ -151,7 +151,7 @@ export function AccionGrande({ icono: Icono, children, href, externo, onClick, p
   const cls = panelNuevo
     // Panel nuevo: redondos, y la principal con el degradado, como la cabecera de cada sección.
     ? cn(
-      'inline-flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 text-[12.5px] font-semibold md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-4 md:text-[13.5px]',
+      'zona-tactil inline-flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 text-[12.5px] font-semibold md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-4 md:text-[13.5px]',
       primaria ? BOTON_VIVO : 'border border-border bg-card text-foreground transition-colors hover:bg-muted',
       disabled && 'pointer-events-none opacity-45',
     )

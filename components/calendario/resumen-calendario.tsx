@@ -40,13 +40,16 @@ export function ResumenCalendario({ resumen, activo, onFiltro, extra, enlace }: 
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2" data-testid="resumen-calendario">
-      {/* En una fila que se desliza hasta tener sitio de sobra; desde ahí, la que haga falta. */}
-      <div className="-mx-4 -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
+      {/* En una fila que se desliza hasta tener sitio de sobra; desde ahí, la que haga falta.
+          Con el dedo, 6 de relleno arriba y abajo (y el mismo margen negativo, para
+          no mover nada): la fila recorta (`overflow-x-auto`), y con 4 la zona táctil
+          de las cifras (32 px) se quedaba en 40. */}
+      <div className="-mx-4 -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] tactil:-my-1.5 tactil:py-1.5 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
         <span className="mr-1 shrink-0 text-[13px] tabular-nums text-muted-foreground">{textoResumen(resumen)}</span>
         {enlace && (
           <Link
             href={enlace.href} title={enlace.titulo}
-            className="inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full px-2 text-[13px] font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="zona-tactil inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full px-2 text-[13px] font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {enlace.texto}<ChevronRight size={14} aria-hidden />
           </Link>
@@ -63,7 +66,7 @@ export function ResumenCalendario({ resumen, activo, onFiltro, extra, enlace }: 
               title={pulsada ? 'Ver todas las clases otra vez' : 'Resaltar estas clases'}
               data-cifra={c.filtro}
               className={cn(
-                'inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-[box-shadow,opacity]',
+                'zona-tactil inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-[box-shadow,opacity]',
                 e.tono,
                 pulsada && 'ring-2 ring-foreground/70 ring-offset-1 ring-offset-card',
                 activo && !pulsada && 'opacity-60',

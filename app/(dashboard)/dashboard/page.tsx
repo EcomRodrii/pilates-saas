@@ -724,7 +724,7 @@ export default function Dashboard() {
           <div key={r.id} className="flex items-center gap-3 px-5 py-3">
             <Link
               href={`/clientas/${r.socioId}`}
-              className="w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+              className="zona-tactil w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
             >
               {r.socio!.nombre[0]}
               {r.socio!.apellidos[0]}
@@ -746,7 +746,7 @@ export default function Dashboard() {
                   else showToast(res.error, { variant: 'error' });
                 })}
                 className={panelNuevo
-                ? 'rounded-full border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted'
+                ? 'zona-tactil rounded-full border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted'
                 : 'text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors'}
               />
             </div>

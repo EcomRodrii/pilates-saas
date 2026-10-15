@@ -1,5 +1,5 @@
-import { test, expect, type Locator, type Page, type Route } from '@playwright/test';
-import { montar, ir } from './panel-sembrado';
+import { test, expect, type Locator, type Page } from '@playwright/test';
+import { abrirPanel as abrir, controlesCortos as medir, quitarMarcaPanelNuevo } from './zona-tactil';
 
 // El panel nuevo en el iPad de recepción, con el dedo: lo que se pulsa tiene
 // 44 px de zona táctil (WCAG 2.5.5 y la guía de Apple). Medido a 768 y a 1024
@@ -7,52 +7,15 @@ import { montar, ir } from './panel-sembrado';
 // periodo de 27, los botones de 32–36, y a 1024 (donde el iPad tumbado ya ve
 // la barra lateral) los iconos de arriba de 36 y «Cerrar sesión» de 26.
 //
-// Se mide como se toca: las 9 marcas de un cuadrado de 42 px centrado en el
-// control (centro, esquinas y medios) tienen que caer en ÉL. Así cuenta la zona
-// que crece sin cambiar el dibujo (`.zona-tactil`, un `::after`) y se ve
-// también si la de un control se mete en la del de al lado.
+// Se mide como se toca (`zona-tactil.ts`): un círculo de 44 px centrado en el
+// control tiene que caer en ÉL. Así cuenta la zona que crece sin cambiar el
+// dibujo (`.zona-tactil`, un `::after`) y se ve también si la de un control se
+// mete en la del de al lado. Las pantallas del mostrador, en
+// `panel-nuevo-tableta-mostrador.spec.ts`.
 
 test.use({ timezoneId: 'Europe/Madrid', hasTouch: true });
-
-const json = (r: Route, b: unknown) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
-
-async function abrir(page: Page, ruta: string, panelNuevo = true) {
-  await page.addInitScript(() => { try { localStorage.setItem('tentare-primeros-pasos-plegado', '1'); } catch { /* */ } });
-  await montar(page);
-  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, {
-    filtrosClientas: false, importarPegando: false, invitarWhatsApp: false, horarioDesdeImagen: false,
-    nivelesConRitmo: false, tarjetaClase: false, panelNuevo,
-  }));
-  await ir(page, ruta);
-}
-
-/** Las marcas de la zona de 44 px que NO caen en el control (vacío = bien). */
-async function fueraDeLaZona(control: Locator) {
-  await expect(control).toBeVisible({ timeout: 30_000 });
-  return control.evaluate((el) => {
-    el.scrollIntoView({ block: 'center', inline: 'nearest' });
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    const fuera: string[] = [];
-    for (const dx of [-21, 0, 21]) for (const dy of [-21, 0, 21]) {
-      const hit = document.elementFromPoint(cx + dx, cy + dy);
-      if (!hit || !(hit === el || el.contains(hit))) {
-        const quien = hit ? (hit.getAttribute('aria-label') || hit.getAttribute('title') || (hit as HTMLElement).innerText || hit.tagName) : 'nada';
-        fuera.push(`(${dx},${dy}) → ${quien.replace(/\s+/g, ' ').trim().slice(0, 30)}`);
-      }
-    }
-    return { caja: `${Math.round(r.width)}×${Math.round(r.height)}`, fuera };
-  });
-}
-
-async function medir(controles: [string, Locator][]) {
-  const malos: string[] = [];
-  for (const [nombre, control] of controles) {
-    const { caja, fuera } = await fueraDeLaZona(control);
-    if (fuera.length) malos.push(`${nombre} (${caja}): ${fuera.join(' · ')}`);
-  }
-  return malos;
-}
+// Contra un `next dev` que compila al vuelo, una ruta nueva tarda en la primera petición.
+test.describe.configure({ timeout: 90_000 });
 
 /** Las piezas comunes de una pantalla del panel nuevo: cabecera, pestañas y píldoras. */
 function piezasDeClientas(page: Page): [string, Locator][] {
@@ -89,8 +52,7 @@ test.describe('iPad vertical (768×1024)', () => {
 
   test('sin la marca del panel nuevo la medida ve el diseño de antes (quitada con JavaScript)', async ({ page }) => {
     await abrir(page, 'clientas');
-    await expect(page.locator('.panel-app[data-panel-nuevo]')).toHaveCount(1, { timeout: 30_000 });
-    await page.evaluate(() => document.querySelector('.panel-app')!.removeAttribute('data-panel-nuevo'));
+    await quitarMarcaPanelNuevo(page);
     const malos = await medir(piezasDeClientas(page));
     // El ⓘ (20 px), las píldoras (27) y los botones (32–36) vuelven a quedarse cortos.
     expect(malos.length, malos.join('\n')).toBeGreaterThanOrEqual(6);

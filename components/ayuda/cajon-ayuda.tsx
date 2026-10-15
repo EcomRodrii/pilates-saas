@@ -137,7 +137,7 @@ export function CajonAyuda({ ayuda, ruta, abierto, onCerrar }: {
             href={soporte}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2.5 inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted"
+            className="zona-tactil mt-2.5 inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted"
           >
             <WhatsAppIcon size={16} /> Escríbenos por WhatsApp
           </a>

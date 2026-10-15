@@ -81,7 +81,7 @@ export function TarjetaSeguimiento({ seguimientos, error, hoyISO, uid, equipo, p
       titulo="Seguimiento"
       icono={<Bell size={16} />}
       accion={
-        <button type="button" onClick={onNuevo} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+        <button type="button" onClick={onNuevo} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
           <Plus size={14} aria-hidden /> Recuérdamelo
         </button>
       }

@@ -1333,7 +1333,7 @@ export default function Productos() {
         <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
           {TABS.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+              className="zona-tactil px-4 py-2 rounded-lg text-sm font-semibold transition-all"
               style={tab === v ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: 'var(--muted-foreground)' }}>
               {l}
             </button>
@@ -1367,7 +1367,7 @@ export default function Productos() {
                 onChange={e => setBusqueda(e.target.value)}
                 placeholder={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}...`}
                 aria-label={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
-                className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-brand"
+                className="h-10 tactil:h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-brand"
               />
             </label>
           </div>

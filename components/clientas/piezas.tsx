@@ -109,9 +109,12 @@ export function TarjetaFicha({ titulo, icono, accion, children, className, id, d
     return (
       <section id={id} data-tour={dataTour} className={cn('rounded-t-card border border-border bg-card shadow-t-card', className)}>
         {(titulo || accion) && (
-          <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2.5 sm:px-5">
+          // Lo de la derecha baja de línea antes que cortar el título: a 1024 (el iPad
+          // tumbado, con el menú) «Asistencia últimos meses» se quedaba en «…m…» por
+          // las píldoras de al lado. 15rem le caben a cualquier título de la ficha.
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2.5 sm:px-5">
             {titulo && (
-              <h3 className="flex min-w-0 items-center gap-2.5 text-[15px] font-semibold text-foreground">
+              <h3 className="flex min-w-[min(100%,15rem)] flex-1 items-center gap-2.5 text-[15px] font-semibold text-foreground">
                 {icono && (
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px] [&_svg]:size-[15px]" style={{ backgroundColor: TONOS[tono], color: 'var(--card)' }} aria-hidden>
                     {icono}
@@ -158,7 +161,7 @@ export function BotonTarjeta({ icono: Icono, children, onClick, disabled }: {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cn(panelNuevo ? 'rounded-full' : 'rounded-xl', "inline-flex min-h-9 items-center gap-1.5 border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-10")}
+      className={cn(panelNuevo ? 'rounded-full' : 'rounded-xl', "zona-tactil inline-flex min-h-9 items-center gap-1.5 border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-10")}
     >
       {Icono && <Icono size={14} aria-hidden />}
       {children}

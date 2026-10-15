@@ -330,9 +330,9 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, se
           {accion && <BotonVivo {...accion} grande />}
           {secundaria && (
             secundaria.href ? (
-              <Link href={secundaria.href} className="text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</Link>
+              <Link href={secundaria.href} className="zona-tactil text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</Link>
             ) : (
-              <button type="button" onClick={secundaria.onClick} className="text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</button>
+              <button type="button" onClick={secundaria.onClick} className="zona-tactil text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</button>
             )
           )}
         </div>

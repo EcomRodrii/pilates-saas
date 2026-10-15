@@ -117,19 +117,19 @@ export function LoQueHeCobrado({ datos, acciones, avisos, nueva = false }: { dat
           ))}
         </div>
         <div className="inline-flex items-center rounded-lg border border-border bg-card">
-          <button type="button" onClick={() => mover(-1)} aria-label="Periodo anterior" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => mover(-1)} aria-label="Periodo anterior" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
             <ChevronLeft size={16} />
           </button>
           <span className="min-w-28 border-x border-border px-3 py-1.5 text-center text-[13px] font-semibold text-foreground" aria-live="polite">
             {textoDelPeriodo(periodo, ref, hoy)}
           </span>
-          <button type="button" onClick={() => mover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
+          <button type="button" onClick={() => mover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
             <ChevronRight size={16} />
           </button>
         </div>
         <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar clienta o concepto" className="min-w-0 flex-1 sm:w-[250px] sm:flex-none" />
-          <Link href="/pos" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
+          <Link href="/pos" className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
             <Wallet size={15} aria-hidden />Caja
           </Link>
           <button

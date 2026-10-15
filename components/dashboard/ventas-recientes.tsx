@@ -80,7 +80,7 @@ export function VentasRecientes() {
           <Receipt className="size-4 text-brand-medio" />
           <p className="text-[13px] font-medium text-foreground">Ventas recientes</p>
         </div>
-        <Link href="/cobros?tab=cobrado" className="text-[12px] font-semibold text-brand-medio hover:underline">
+        <Link href="/cobros?tab=cobrado" className="zona-tactil text-[12px] font-semibold text-brand-medio hover:underline">
           Ver todo
         </Link>
       </div>
