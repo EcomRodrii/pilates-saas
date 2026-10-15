@@ -144,7 +144,11 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
       <PageHeader
         title="Calendario"
         badge={p.ventana}
-        className="sm:items-center"
+        // En el móvil el «+» va en absoluto arriba a la derecha: sin este hueco
+        // (solo en la fila del TÍTULO, la de herramientas no se estrecha) se
+        // montaba encima de «Cómo funciona» (panel nuevo, 15-oct-2026). Y
+        // «Cómo funciona» se queda en icono para que la fila del título no crezca.
+        className={cn('sm:items-center', p.onCrear && 'max-md:[&>:first-child]:pr-14 max-md:[&_[data-boton-tutorial-texto]]:sr-only max-md:[&_[data-testid=boton-tutorial]]:px-2')}
         actions={
           <>
             {p.buscador}
