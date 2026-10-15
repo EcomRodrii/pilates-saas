@@ -255,7 +255,7 @@ export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
 export interface AppDeEstudioInterna {
   studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean;
   /** Por qué hoy NO podría pedirla (plan, prueba, cobro, sin-plan), o `null` si sí. */
-  motivoSinPlan: 'plan' | 'prueba' | 'cobro' | 'sin-plan' | 'sede' | null; estadoPago: string | null;
+  motivoSinPlan: 'plan' | 'prueba' | 'cobro' | 'sin-plan' | 'sede' | null; estadoPago: string | null; sinPlanDesde: string | null;
   bundleId: string; ascAppId: string | null; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
   urlTienda: string | null; notaInterna: string | null;
 }

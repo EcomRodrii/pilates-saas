@@ -6,6 +6,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { pedirAppEncendido } from '@/lib/interruptor-por-estudio';
 import { entitlementsDe } from '@/lib/billing/entitlements';
 import { estudioDeLaApp } from '@/lib/app-nativa/app-de-cadena';
+import { finDelMargen } from '@/lib/app-nativa/apps-sin-plan';
 import {
   bloqueoParaPedir, bundlesCandidatos, esCupo, esEstadoApp, nombreSugerido, validarNombreApp,
   type AppDelEstudio, type BloqueoPedirApp,
@@ -90,9 +91,13 @@ export async function GET(req: NextRequest) {
     const duena = await estudioDeLaApp(admin, sesion.studioId);
     const [plan, app] = await Promise.all([
       bloqueoDe(admin, duena.studioId, duena.esSedeSecundaria),
-      admin.from('apps_estudio').select('bundle_id, nombre_app, estado, url_tienda, pedida_en').eq('studio_id', duena.studioId).maybeSingle(),
+      admin.from('apps_estudio').select('bundle_id, nombre_app, estado, url_tienda, pedida_en, sin_plan_desde').eq('studio_id', duena.studioId).maybeSingle(),
     ]);
     if (app.error) throw app.error;
+    // Corre el margen de 30 días por no pagar Estudio/Cadena: hasta cuándo (apps-sin-plan.ts).
+    const sinPlanDesde = (app.data as { sin_plan_desde?: string | null } | null)?.sin_plan_desde ?? null;
+    const retiradaEl = sinPlanDesde && (app.data as { estado?: string } | null)?.estado !== 'PAUSADA'
+      ? finDelMargen(new Date(sinPlanDesde)).toISOString() : null;
     if (!plan) return NextResponse.json({ error: 'No encontramos tu estudio' }, { status: 404 });
     return NextResponse.json({
       bloqueo: plan.bloqueo,
@@ -100,6 +105,7 @@ export async function GET(req: NextRequest) {
       esPropietaria: sesion.rol === 'PROPIETARIO',
       nombreSugerido: nombreSugerido(plan.estudio.nombre ?? plan.estudio.slug ?? ''),
       app: aApp(app.data as FilaApp | null),
+      retiradaEl,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     return errorInterno('[estudio/app-movil] leer', err);

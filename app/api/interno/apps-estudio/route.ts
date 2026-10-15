@@ -18,11 +18,11 @@ export const runtime = 'nodejs';
 
 type Fila = {
   studio_id: string; bundle_id: string; nombre_app: string; activa: boolean; estado: string;
-  pedida_en: string | null; url_tienda: string | null; nota_interna: string | null;
+  pedida_en: string | null; url_tienda: string | null; nota_interna: string | null; sin_plan_desde: string | null;
   studios: { nombre: string | null; slug: string | null; plan: string | null; subscription_status: string | null; es_demo: boolean | null } | null;
 };
 
-const COLUMNAS = 'studio_id, bundle_id, nombre_app, activa, estado, pedida_en, url_tienda, nota_interna, studios!inner(nombre, slug, plan, subscription_status, es_demo)';
+const COLUMNAS = 'studio_id, bundle_id, nombre_app, activa, estado, pedida_en, url_tienda, nota_interna, sin_plan_desde, studios!inner(nombre, slug, plan, subscription_status, es_demo)';
 
 export async function GET(req: NextRequest) {
   const g = await exigirPermiso(req, 'studios.read');
@@ -56,6 +56,8 @@ export async function GET(req: NextRequest) {
         esSedeSecundaria: false,
       }),
       estadoPago: f.studios?.subscription_status ?? null,
+      // Corre el margen de 30 días por no pagar (lo mueve el cron, apps-sin-plan-cron.ts).
+      sinPlanDesde: f.sin_plan_desde,
       bundleId: f.bundle_id,
       // Id de la app en App Store Connect si es un hueco del lote (la app ya existe); `null` si hay
       // que crearla a mano.

@@ -21,6 +21,8 @@ import {
 
 interface Datos {
   bloqueo: BloqueoPedirApp | null; sedePrincipal: string | null; esPropietaria: boolean; nombreSugerido: string; app: AppDelEstudio | null;
+  /** Si corre el margen por no pagar Estudio/Cadena: el día en que se pausa (ISO), o `null`. */
+  retiradaEl: string | null;
 }
 
 const BLOQUEOS: readonly string[] = ['plan', 'prueba', 'cobro', 'sin-plan', 'sede'];
@@ -50,6 +52,7 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
         esPropietaria: d.esPropietaria === true,
         nombreSugerido: typeof d.nombreSugerido === 'string' ? d.nombreSugerido : '',
         app: d.app && esEstadoApp(d.app.estado) ? d.app : null,
+        retiradaEl: typeof d.retiradaEl === 'string' ? d.retiradaEl : null,
       });
       setFallo(null);
     } catch { setFallo('No hemos podido leer el estado de tu app: revisa tu conexión.'); }
@@ -110,6 +113,14 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
           <span className="text-[13px] text-foreground">«{app.nombreApp}»</span>
         </div>
         <p className="text-[13px] leading-relaxed text-muted-foreground">{t.detalle}</p>
+        {datos.retiradaEl && (
+          <p role="alert" className="rounded-xl bg-warning/15 px-3 py-2 text-[13px] leading-relaxed text-foreground" data-testid="mi-app-margen">
+            Tu plan ya no incluye la app. Si vuelves a {planesConApp().join(' o ')} antes del{' '}
+            {new Date(datos.retiradaEl).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })}, todo sigue igual;
+            si no, {app.estado === 'PUBLICADA' ? 'la retiramos de la App Store (quien ya la tenga podrá seguir usándola)' : 'dejamos de prepararla'}.{' '}
+            <Link href="/suscripcion" className="font-medium underline underline-offset-2">Ver los planes</Link>
+          </p>
+        )}
         {app.estado === 'PUBLICADA' && app.urlTienda && (
           <div className="flex flex-wrap items-center gap-4">
             {qr && <div className="size-28 shrink-0 rounded-xl border border-border bg-white p-2 [&_svg]:size-full" dangerouslySetInnerHTML={{ __html: qr }} data-testid="qr-tienda" />}

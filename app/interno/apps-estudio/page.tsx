@@ -107,6 +107,7 @@ function FilaApp({ app: a, puedeEditar, onCambio }: {
             {a.motivoSinPlan === 'prueba' && <Etiqueta aviso>en prueba</Etiqueta>}
             {a.motivoSinPlan === 'cobro' && <Etiqueta aviso>cobro pendiente</Etiqueta>}
             {a.motivoSinPlan === 'sin-plan' && <Etiqueta aviso>sin plan activo ({a.estadoPago ?? 'sin estado'})</Etiqueta>}
+            {a.sinPlanDesde && <Etiqueta aviso>sin pagar desde el {fecha(a.sinPlanDesde)}{a.estado === 'PAUSADA' ? '' : ' · se pausa a los 30 días'}</Etiqueta>}
           </p>
           <p className="text-[12px] text-muted-foreground">
             /{a.slug ?? '—'} · {a.plan ?? '—'} · pedida el {fecha(a.pedidaEn)} · «{a.nombreApp}» · <span className="font-mono">{a.bundleId}</span>

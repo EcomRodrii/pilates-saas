@@ -4,6 +4,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { marcaDelEstudio } from '@/lib/app-nativa/icono-estudio';
 import { esBundleDeEstudio } from '@/lib/app-nativa/app-estudio';
+import { sedesDeCadena } from '@/lib/app-nativa/app-de-cadena';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,22 +49,33 @@ export async function GET(req: NextRequest) {
 
     const marca = await marcaDelEstudio({ id: s.id, nombre: s.nombre, logo_url: s.logo_url, color_primario: s.color_primario });
 
-    // Una cadena tiene UNA app (su fila va con la sede principal): dentro van todas sus sedes, la
-    // principal primero, con el mismo orden que `estudioDeLaApp`. Si no se pueden leer, se corta: una
-    // app de cadena que solo enseñara la principal mandaría a las demás alumnas a darse de alta en ella.
+    // Una cadena tiene UNA app (su fila va con la sede principal): dentro van sus sedes, la principal
+    // primero (`sedesDeCadena`). Solo si ESTA app es la de la principal, y sin las sedes que ya tienen
+    // la suya propia (la app piloto de una sede secundaria sigue siendo solo de esa sede). Si no se
+    // pueden leer, se corta: una app de cadena que solo enseñara la principal mandaría a las demás
+    // alumnas a darse de alta en ella.
     let sedes: { slug: string; nombre: string; icono: string; color: string | null }[] | undefined;
     if (s.cadena_id) {
-      const { data: filas, error: errSedes } = await admin.from('studios')
-        .select('id, slug, nombre, logo_url, color_primario').eq('cadena_id', s.cadena_id)
-        .order('creado_en', { ascending: true, nullsFirst: false }).order('id', { ascending: true });
-      if (errSedes) throw errSedes;
-      const conSlug = ((filas ?? []) as { id: string; slug: string | null; nombre: string | null; logo_url: string | null; color_primario: string | null }[])
-        .filter((f): f is typeof f & { slug: string } => !!f.slug && /^[a-z0-9-]{1,80}$/.test(f.slug));
-      if (conSlug.length >= 2) {
-        sedes = await Promise.all(conSlug.map(async (f) => {
-          const m = await marcaDelEstudio({ id: f.id, nombre: f.nombre, logo_url: f.logo_url, color_primario: f.color_primario });
-          return { slug: f.slug, nombre: f.nombre ?? f.slug, icono: m.icono, color: m.color };
-        }));
+      const deLaCadena = await sedesDeCadena(admin, s.cadena_id);
+      if (deLaCadena[0]?.id === s.id) {
+        const ids = deLaCadena.map((x) => x.id);
+        const [{ data: filas, error: errSedes }, { data: propias, error: errPropias }] = await Promise.all([
+          admin.from('studios').select('id, slug, nombre, logo_url, color_primario').in('id', ids),
+          admin.from('apps_estudio').select('studio_id').in('studio_id', ids),
+        ]);
+        if (errSedes) throw errSedes;
+        if (errPropias) throw errPropias;
+        const conAppPropia = new Set(((propias ?? []) as { studio_id: string }[]).map((p) => p.studio_id).filter((id) => id !== s.id));
+        const porId = new Map(((filas ?? []) as { id: string; slug: string | null; nombre: string | null; logo_url: string | null; color_primario: string | null }[]).map((f) => [f.id, f]));
+        const dentro = ids
+          .map((id) => porId.get(id))
+          .filter((f): f is NonNullable<typeof f> & { slug: string } => !!f && !!f.slug && /^[a-z0-9-]{1,80}$/.test(f.slug) && !conAppPropia.has(f.id));
+        if (dentro.length >= 2) {
+          sedes = await Promise.all(dentro.map(async (f) => {
+            const m = await marcaDelEstudio({ id: f.id, nombre: f.nombre, logo_url: f.logo_url, color_primario: f.color_primario });
+            return { slug: f.slug, nombre: f.nombre ?? f.slug, icono: m.icono, color: m.color };
+          }));
+        }
       }
     }
 

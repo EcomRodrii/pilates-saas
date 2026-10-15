@@ -1025,6 +1025,47 @@ export async function emitirTrialExpirado(
   }
 }
 
+// La app de la App Store del estudio deja de estar pagada: empieza el margen de 30 días
+// (lib/app-nativa/apps-sin-plan.ts). dedupKey por el inicio del margen: un aviso por cada vez que
+// deja de pagarla, no uno por cada pasada del cron.
+export async function emitirAppTiendaSinPlan(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; fecha: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_SIN_PLAN, studioId: p.studioId,
+      data: {
+        fecha: p.fecha,
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada podrá seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-sin-plan:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaSinPlan:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Se acabó el margen: la app queda en pausa (y, si estaba publicada, se retira de la App Store).
+export async function emitirAppTiendaPausada(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_PAUSADA, studioId: p.studioId,
+      data: {
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada puede seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-pausada:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaPausada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Embudo de alta (Fase 3 del onboarding): un estudio sigue sin ninguna clase
 // programada 48h después de crearse. dedupKey SIN fecha a propósito — a
 // diferencia de un aviso periódico, este es un único empujón por estudio en

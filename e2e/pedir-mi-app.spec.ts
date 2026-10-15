@@ -11,7 +11,7 @@ const json = (r: Route, cuerpo: unknown, status = 200) =>
 
 const INTERRUPTORES = { filtrosClientas: false, importarPegando: false, invitarWhatsApp: false, horarioDesdeImagen: false, nivelesConRitmo: false, tarjetaClase: false, panelNuevo: false };
 
-interface Datos { bloqueo: string | null; sedePrincipal: string | null; esPropietaria: boolean; nombreSugerido: string; app: unknown }
+interface Datos { bloqueo: string | null; sedePrincipal: string | null; esPropietaria: boolean; nombreSugerido: string; app: unknown; retiradaEl?: string | null }
 const SIN_PEDIR: Datos = { bloqueo: null, sedePrincipal: null, esPropietaria: true, nombreSugerido: 'Pilates Centro', app: null };
 const app = (estado: string, extra: Record<string, unknown> = {}) => ({
   estado, nombreApp: 'Pilates Centro', bundleId: 'app.tentare.pilates-centro', urlTienda: null, pedidaEn: '2026-10-15T08:00:00Z', ...extra,
@@ -206,6 +206,20 @@ test.describe('Pedir mi app', () => {
     // No promete plazos ni avisos.
     await expect(estado).not.toContainText(/te avisamos|días|semanas/i);
     await expect(page.getByTestId('pedir-app')).toHaveCount(0);
+  });
+
+  test('deja de pagar con la app publicada: dice hasta cuándo y qué pasa después', async ({ page }) => {
+    await preparar(page, {
+      encendido: true,
+      datos: { ...SIN_PEDIR, bloqueo: 'sin-plan', app: app('PUBLICADA', { urlTienda: 'https://apps.apple.com/es/app/pilates-centro/id6822491721' }), retiradaEl: '2026-11-20T10:00:00Z' },
+    });
+    await abrir(page);
+    const aviso = page.getByTestId('mi-app-margen');
+    await expect(aviso).toContainText('20 de noviembre', { timeout: 30_000 });
+    await expect(aviso).toContainText('la retiramos de la App Store');
+    await expect(aviso).toContainText('Estudio o Cadena');
+    // La app sigue enseñándose con su enlace mientras corre el margen.
+    await expect(page.getByTestId('enlace-tienda')).toBeVisible();
   });
 
   test('publicada: enlace a la tienda y su QR', async ({ page }) => {

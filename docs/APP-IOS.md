@@ -527,6 +527,18 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   pausa, y atrás solo «rechazada» y «rehacer la compilación»); `PUBLICADA` exige el enlace de la ficha
   y la app activa; no se activa una app solo «Pedida» (aún no existe en App Store Connect); una
   publicada no se desactiva.
+- ⚠️ Una sede secundaria que YA tenía su propia app (la piloto de «marta», anterior a «una por
+  cadena») la conserva tal cual, como app de esa sede sola: `resolverDuena` mira primero si la sede
+  tiene fila propia, y la app de la cadena deja fuera a esas sedes (endpoint público y AASA).
+- **Si deja de pagar** Estudio/Cadena o baja a Founding (decisión del fundador, 15-oct-2026): 30 días
+  de margen con aviso a la propietaria (`APP_TIENDA_SIN_PLAN`) y en su panel; al acabar, la app pasa a
+  `PAUSADA` (aviso `APP_TIENDA_PAUSADA`) y la nota interna pide retirarla de la venta. `activa` se
+  queda: quien ya la tiene instalada la sigue usando. Si vuelve a pagar, el margen se borra y, si ya
+  estaba pausada, la nota pide retomarla. Lo hace el cron horario `notif-trial`
+  (`revisarAppsSinPlan`, `lib/app-nativa/apps-sin-plan*.ts`) con compare-and-set; el reloj es
+  `apps_estudio.sin_plan_desde` (migr `20261015184839`).
+- Con la app PUBLICADA, la alumna se entera: `apple-itunes-app` en su app web y en /reservar (el aviso
+  de Safari) y, en el iPhone, «Descarga la app» en su perfil (`appDeTiendaPublicada`).
 - Una app de estudio SIN activar dice «no disponible» al abrirse (`/app`): nunca cae a la entrada de
   «Tentare» con su buscador de estudios. Sus avisos solo llevan los de su estudio, y solo mientras
   está activa (`suscripcionesDelAviso`, `lib/notifications/channels.ts`).
