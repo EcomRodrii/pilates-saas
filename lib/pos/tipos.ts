@@ -87,6 +87,12 @@ export interface PeticionVenta {
   efectivoRecibido?: number | null;
   notas?: string | null;
   /**
+   * El total que ha visto quien cobra. El servidor no lo usa para cobrar: lo
+   * compara con el suyo y, si no es el mismo, no registra la venta
+   * (`IMPORTE_NO_COINCIDE`, con el total de verdad).
+   */
+  totalEsperado?: number | null;
+  /**
    * La manda el TPV y la mantiene mientras el carrito no cambie. Un doble
    * toque en «Cobrar», o un reintento tras un fallo de red, devuelven la MISMA
    * venta en vez de cobrar dos veces.

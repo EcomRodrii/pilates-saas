@@ -47,7 +47,19 @@ export interface CatalogoPOS {
   hoy: ResumenHoy;
 }
 
-async function pedir<T>(url: string, init?: RequestInit): Promise<T | { error: string; codigo?: string }> {
+/**
+ * Lo que vuelve cuando algo no sale. `total`/`matricula` solo los trae el rechazo
+ * `IMPORTE_NO_COINCIDE` de la venta: el total de verdad, para enseñarlo.
+ */
+export interface ErrorPOS {
+  error: string;
+  codigo?: string;
+  total?: number;
+  matricula?: number;
+  matriculaPlanId?: string | null;
+}
+
+async function pedir<T>(url: string, init?: RequestInit): Promise<T | ErrorPOS> {
   try {
     const res = await fetch(url, {
       ...init,
@@ -55,7 +67,13 @@ async function pedir<T>(url: string, init?: RequestInit): Promise<T | { error: s
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), ...(typeof data.codigo === 'string' ? { codigo: data.codigo } : {}) };
+      return {
+        error: mensajeSeguro(data.error, mensajeHttp(res.status)),
+        ...(typeof data.codigo === 'string' ? { codigo: data.codigo } : {}),
+        ...(typeof data.total === 'number' && Number.isFinite(data.total) ? { total: data.total } : {}),
+        ...(typeof data.matricula === 'number' && Number.isFinite(data.matricula) ? { matricula: data.matricula } : {}),
+        ...(typeof data.matriculaPlanId === 'string' ? { matriculaPlanId: data.matriculaPlanId } : {}),
+      };
     }
     return data as T;
   } catch {
@@ -78,6 +96,31 @@ export interface RespuestaVenta {
 
 export function registrarVenta(p: PeticionVenta) {
   return pedir<RespuestaVenta>('/api/pos/venta', { method: 'POST', body: JSON.stringify(p) });
+}
+
+/** Lo que costará la venta, contado por la misma RPC que la registra (matrícula incluida). */
+export interface PresupuestoVenta {
+  total: number;
+  matricula: number;
+  matriculaPlanId: string | null;
+}
+
+export type PeticionPresupuesto = Pick<PeticionVenta, 'lineas' | 'socioId' | 'descuentoTipo' | 'descuentoValor' | 'codigoDescuentoId'>;
+
+/**
+ * La vista previa del cobro. Una respuesta sin cifras (un 200 vacío, un proxy) es
+ * un fallo, nunca «0 €» ni «sin matrícula»: la pantalla vuelve al total del ticket
+ * y la venta lo comprueba igual al cobrar.
+ */
+export async function presupuestoVenta(p: PeticionPresupuesto): Promise<PresupuestoVenta | ErrorPOS> {
+  const r = await pedir<Partial<PresupuestoVenta>>('/api/pos/venta/presupuesto', { method: 'POST', body: JSON.stringify(p) });
+  if (esError(r)) return r;
+  const { total, matricula, matriculaPlanId } = r;
+  if (typeof total !== 'number' || !Number.isFinite(total) || total < 0
+    || typeof matricula !== 'number' || !Number.isFinite(matricula) || matricula < 0) {
+    return { error: 'No hemos podido calcular el total.' };
+  }
+  return { total, matricula, matriculaPlanId: typeof matriculaPlanId === 'string' && matriculaPlanId ? matriculaPlanId : null };
 }
 
 export interface RespuestaConfirmacion {

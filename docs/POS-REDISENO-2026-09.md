@@ -47,7 +47,7 @@ Backstop de reconciliación por webhook (`reconciliaciones_pos`).
 ## 3. Arquitectura nueva
 
 ```
-Navegador  ──►  POST /api/pos/venta        (SOLO ids + cantidades)
+Navegador  ──►  POST /api/pos/venta        (ids + cantidades; el total visto, solo para comparar)
                     │  verificarSesionStaff → puedeMoverDinero
                     │  → bloqueoPorSuscripcion → rate limit
                     │
@@ -57,6 +57,9 @@ Navegador  ──►  POST /api/pos/venta        (SOLO ids + cantidades)
                          · valida y CONSUME el código de descuento
                          · recalcula subtotal / descuento / IVA / total
                          · numera (advisory lock por estudio)
+                         · añade la matrícula del primer plan (no descontable)
+                         · total ≠ totalEsperado → IMPORTE_NO_COINCIDE, antes
+                           de PAGADA, de la caja y del cobro (15-oct-2026)
                          · cabecera + líneas + movimiento de caja
                          · idempotente por (studio_id, idempotencia_clave)
                     │
@@ -117,7 +120,8 @@ tres `REVOKE` explícitos (`PUBLIC`, `anon`, `authenticated`) que exige el
 
 | Ruta | Rol exigido | Qué hace |
 |---|---|---|
-| `POST /api/pos/venta` | `puedeMoverDinero` | Única puerta de registro. Rate limit 60/min, gate de suscripción, valida que la socia sea del estudio. |
+| `POST /api/pos/venta` | `puedeMoverDinero` | Única puerta de registro. Rate limit 60/min, gate de suscripción, valida que la socia sea del estudio. Compara `totalEsperado` (el total que enseña la hoja de cobro) con el de la RPC: si no coinciden, 409 `IMPORTE_NO_COINCIDE` con el total de verdad y un texto según el método. Sin `totalEsperado` (una Caja abierta antes del 15-oct), una venta con clienta y plan da 409 `CAJA_DESACTUALIZADA`. |
+| `POST /api/pos/venta/presupuesto` | `puedeMoverDinero` | La vista previa del cobro (15-oct-2026): la MISMA RPC con `p_solo_calcular`, que hace la venta y la deshace (`PRESUPUESTO:total:matrícula:plan`). Cuenta la matrícula que el carrito no ve. No reserva plazas ni escribe nada. La Caja la pide con clienta + plan, o con un descuento. |
 | `POST /api/pos/venta/confirmar` | `puedeMoverDinero` | Relee el pago en el proveedor y aplica el compare-and-set. Acción `cancelar` que respeta un cobro ya consumado. |
 | `POST /api/pos/devolucion` | `puedeMoverDinero` | Reembolso en Stripe con `idempotencyKey`, después el libro. |
 | `GET/POST /api/pos/caja` | `puedeVerFinanzas` / `puedeMoverDinero` | Abrir, mover, cerrar y consultar. |
