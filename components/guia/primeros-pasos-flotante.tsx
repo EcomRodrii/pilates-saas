@@ -31,7 +31,7 @@ function leerPlegado(): boolean {
 export function PrimerosPasosFlotante() {
   const {
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, dataLoaded, datosIncompletos,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal, dataLoaded, datosIncompletos,
   } = useStudio();
   const [plegado, setPlegado] = useState(leerPlegado);
 
@@ -40,7 +40,7 @@ export function PrimerosPasosFlotante() {
 
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   });
   const p = primerosPasos(calcularOnboarding(datos).categorias);
   if (p.siguiente === null) return null;

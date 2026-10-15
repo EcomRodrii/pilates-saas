@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, Globe, Loader2, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, EyeOff, Globe, Loader2, TrendingUp } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { BotonVivo } from '@/components/dashboard/vivo';
+import { llevarAlTitulo } from './lleva-al-titulo';
 import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import {
@@ -22,6 +23,8 @@ import { copiaTrasAplicar } from '@/lib/widgets/pieza-panel';
 import type { VistoWidget } from '@/lib/widgets/pegado';
 import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
+import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
+import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
 import {
   botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, tieneDisenoEnCodigo, urlEmbebido, urlPagina, type EntradaIntegracion,
@@ -123,7 +126,8 @@ function pasosDe(plataforma: PlataformaWeb | null): readonly { id: Exclude<Paso,
 /** Panel nuevo: el título-objetivo y la frase de cada paso (Bonsai B1). */
 const TITULO_PASO: Record<'que' | 'como' | 'ponlo', (p: PlataformaWeb | null) => { titulo: string; sub: string }> = {
   que: () => ({ titulo: 'Elige qué enseñas y dónde', sub: 'Una pieza de tu estudio dentro de tu web: tu horario, tus precios o la cuenta de tus alumnas.' }),
-  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo a la derecha, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' }),
+  // «a la derecha» no era verdad en el móvil, donde la vista previa va encima.
+  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' }),
   ponlo: p => (p === 'sinweb'
     ? { titulo: 'Compártelo', sub: 'Copia el enlace y ponlo donde quieras: Instagram, WhatsApp o tu newsletter.' }
     : { titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' }),
@@ -199,11 +203,20 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const contenedores = useRef<Partial<Record<Paso, HTMLDivElement | null>>>({});
   // Si abre «Cambiar» y se arrepiente, vuelve a donde estaba.
   const [pasoAnterior, setPasoAnterior] = useState<Paso>('que');
+  // Al paso nuevo: con el foco (se anuncia) y, en el panel nuevo, con su título a la vista
+  // debajo de las barras de arriba (`llevarAlTitulo`). Antes se quedaba a media pantalla.
+  function alPaso(p: Paso) {
+    const c = contenedores.current[p];
+    if (!panelNuevo) { c?.focus(); return; }
+    c?.focus({ preventScroll: true });
+    const destino = document.querySelector<HTMLElement>('[data-titulo-paso]') ?? c;
+    if (destino) llevarAlTitulo(destino);
+  }
   function irA(p: Paso) {
     if (p === 'ponlo') prepararCodigo(w.id);
     setPaso(p);
     // Al paso nuevo, con el foco: se anuncia y queda a la vista.
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
 
   const plataforma = web.plataforma;
@@ -234,6 +247,19 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     mesLeido.current = dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
     return () => { vivo = false; };
   }, [veResultados]);
+
+  // «Ocultar tu página» también oculta los widgets: son esa misma página
+  // (/reservar?embed=1, `app/reservar/[slug]/layout.tsx`), y enseñan «Estamos
+  // preparando esta página»; el calendario sin marco se queda sin clases. La
+  // herramienta no lo decía en ningún sitio. Solo la propietaria puede leerlo
+  // (`/api/pagina-publica`); sin respuesta, no se dice nada (nunca un aviso a ciegas).
+  const [paginaOculta, setPaginaOculta] = useState(false);
+  useEffect(() => {
+    if (rol !== 'PROPIETARIO') return;
+    let vivo = true;
+    void leerPaginaPublica().then(e => { if (vivo) setPaginaOculta(e?.oculta === true); });
+    return () => { vivo = false; };
+  }, [rol]);
 
   // Un tipo, una instructora o una sala borrados después de guardarse no se
   // cuelan en el código: un filtro por un id que ya no existe dejaría el
@@ -617,7 +643,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setActivoId(id);
     if (p === 'ponlo') prepararCodigo(id);
     setPaso(p);
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
   // «Ir a las webs autorizadas»: la lista vive en «Ponlo en tu web», dentro del
   // pliegue «Para quien te hace la web» (y solo con la nativa, por eso la fila
@@ -667,6 +693,17 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
 
   return (
     <div className="space-y-5">
+      {paginaOculta && (
+        <div role="note" data-testid="aviso-pagina-oculta" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+          <EyeOff size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+          <p className="text-pretty">
+            <strong className="font-semibold">Tu página está oculta</strong>, y lo que pongas en tu web también: tus widgets enseñan «Estamos preparando esta página» y desde ellos no se puede reservar ni comprar.{' '}
+            <Link href={hrefDeTarjeta('pagina-publica')} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline', FOCO)}>
+              Cambiarlo<ArrowUpRight size={12} aria-hidden />
+            </Link>
+          </p>
+        </div>
+      )}
       {paso !== 'plataforma' && (
         <div className="space-y-3">
           {conPrevia && conCopias && (
@@ -772,7 +809,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       <div className={cn('grid items-start gap-6', conPrevia && '@4xl/config:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]')}>
         <div className="min-w-0 space-y-4">
           {panelNuevo && conPrevia && (
-            <div>
+            <div data-titulo-paso="">
               <h3 className="text-[22px] font-bold leading-tight text-foreground">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).titulo}</h3>
               <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).sub}</p>
             </div>
@@ -900,7 +937,11 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
         </div>
 
         {conPrevia && (
-          <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-4 @4xl/config:order-none">
+          <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-[calc(var(--panel-sticky-top,0px)+4rem)] @4xl/config:order-none">
+            {/* Pegada DEBAJO de la barra de arriba (sticky y translúcida: con `top-4` la
+                cabecera de la vista previa pasaba por debajo y se leía a medias). Lo mismo
+                que la columna de Configuración: lo que mide el menú (`--panel-sticky-top`)
+                más los 4rem de la barra (h-14 y su mb-2). */}
             {panelNuevo ? (
               // Como Apariencia (Bonsai b-30…): el widget real, sobre un panel de color. La tarjeta blanca
               // de dentro es la vista previa de siempre: su rótulo y sus controles siguen leyéndose.

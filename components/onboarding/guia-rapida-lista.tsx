@@ -21,12 +21,12 @@ export interface CreadoAhora { tiposClase?: number; salas?: number }
 export function useGuiaRapida(creado?: CreadoAhora): GuiaRapida | null {
   const {
     studio, instructores, tiposClase, sesiones, socios, salas, planesTarifa,
-    suscripciones, automationRules, contenidoPortal, reservas,
+    suscripciones, automationRules, bannersPortal, reservas,
   } = useStudio();
   if (!studio) return null;
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   });
   // El asistente crea clases y salas en el servidor, y el contexto del panel no
   // las relee hasta la siguiente carga. Se suma lo que el servidor CONFIRMÓ haber
