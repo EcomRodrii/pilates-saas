@@ -47,6 +47,15 @@ test('Founding Studio gratis incluye todo menos varias sedes, con su tope de alu
   assert.deepEqual(features, PLAN_ENTITLEMENTS.ESTUDIO.features);
 });
 
+test('el límite de reservas de la web es el del producto en cuanto exista', () => {
+  // `LIMITE_RESERVAS_MES` llega a lib/billing/plan-gratis.ts con la continuación
+  // de #2707. Hasta entonces la web lleva su copia; desde ese día, esto falla si
+  // las dos cifras no coinciden (y toca reexportarla, como las demás).
+  const fuente = readFileSync(join(import.meta.dirname, '..', 'billing', 'plan-gratis.ts'), 'utf8');
+  const m = fuente.match(/export const LIMITE_RESERVAS_MES = (\d+)/);
+  if (m) assert.equal(GRATIS_RESERVAS_MES, Number(m[1]));
+});
+
 test('precio en la web: Founding Studio 0, el resto el de su plan', () => {
   assert.equal(precioMesWeb('BASE'), 0);
   assert.equal(precioMesWeb('ESTUDIO'), 59);
