@@ -61,16 +61,23 @@ export async function fetchNotificaciones(getHeaders: Headers, scope: AmbitoNoti
   }
 }
 
+/** `true` si el servidor lo ha guardado: quien pinta antes de saberlo lo deshace con `false`. */
 export async function accionNotificacion(
   getHeaders: Headers, scope: AmbitoNotif, action: 'read' | 'unread' | 'read-all' | 'archive', id?: string,
-): Promise<void> {
-  await fetch('/api/notifications', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
-    // El ámbito viaja también en las escrituras: sin él, el `read-all` de una
-    // superficie marcaba leído lo de la otra.
-    body: JSON.stringify({ action, id, ...scope }),
-  });
+): Promise<boolean> {
+  // Mismo criterio que `fetchNotificaciones`: el `fetch()` puede lanzar sin red.
+  try {
+    const res = await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
+      // El ámbito viaja también en las escrituras: sin él, el `read-all` de una
+      // superficie marcaba leído lo de la otra.
+      body: JSON.stringify({ action, id, ...scope }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchPreferencias(getHeaders: Headers): Promise<Record<string, { inapp: boolean; push: boolean }>> {
