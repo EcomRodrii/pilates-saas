@@ -35,18 +35,38 @@ export async function GET(req: NextRequest) {
   try {
     // La app y su estudio en una consulta; el estudio se filtra por `studios.slug`.
     const consulta = admin.from('apps_estudio')
-      .select('bundle_id, nombre_app, studios!inner(id, slug, nombre, logo_url, color_primario)')
+      .select('bundle_id, nombre_app, studios!inner(id, slug, nombre, logo_url, color_primario, cadena_id)')
       .eq('activa', true);
     const { data, error } = await (porBundle ? consulta.eq('bundle_id', bundle) : consulta.eq('studios.slug', slug as string)).limit(1);
     if (error) throw error;
     const fila = data?.[0] as unknown as {
       bundle_id: string; nombre_app: string;
-      studios: { id: string; slug: string | null; nombre: string | null; logo_url: string | null; color_primario: string | null };
+      studios: { id: string; slug: string | null; nombre: string | null; logo_url: string | null; color_primario: string | null; cadena_id: string | null };
     } | undefined;
     const s = fila?.studios;
     if (!fila || !s?.slug) return NextResponse.json({ error: 'Esa app no está activa' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
     const marca = await marcaDelEstudio({ id: s.id, nombre: s.nombre, logo_url: s.logo_url, color_primario: s.color_primario });
+
+    // Una cadena tiene UNA app (su fila va con la sede principal): dentro van todas sus sedes, la
+    // principal primero, con el mismo orden que `estudioDeLaApp`. Si no se pueden leer, se corta: una
+    // app de cadena que solo enseñara la principal mandaría a las demás alumnas a darse de alta en ella.
+    let sedes: { slug: string; nombre: string; icono: string; color: string | null }[] | undefined;
+    if (s.cadena_id) {
+      const { data: filas, error: errSedes } = await admin.from('studios')
+        .select('id, slug, nombre, logo_url, color_primario').eq('cadena_id', s.cadena_id)
+        .order('creado_en', { ascending: true, nullsFirst: false }).order('id', { ascending: true });
+      if (errSedes) throw errSedes;
+      const conSlug = ((filas ?? []) as { id: string; slug: string | null; nombre: string | null; logo_url: string | null; color_primario: string | null }[])
+        .filter((f): f is typeof f & { slug: string } => !!f.slug && /^[a-z0-9-]{1,80}$/.test(f.slug));
+      if (conSlug.length >= 2) {
+        sedes = await Promise.all(conSlug.map(async (f) => {
+          const m = await marcaDelEstudio({ id: f.id, nombre: f.nombre, logo_url: f.logo_url, color_primario: f.color_primario });
+          return { slug: f.slug, nombre: f.nombre ?? f.slug, icono: m.icono, color: m.color };
+        }));
+      }
+    }
+
     return NextResponse.json({
       slug: s.slug,
       nombre: s.nombre ?? s.slug,
@@ -54,6 +74,7 @@ export async function GET(req: NextRequest) {
       bundleId: fila.bundle_id,
       icono: marca.icono,
       color: marca.color,
+      ...(sedes ? { sedes } : {}),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     return errorInterno('public/app/app-estudio:GET', err, 'No se ha podido abrir la app. Inténtalo de nuevo.');

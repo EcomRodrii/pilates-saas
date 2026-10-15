@@ -227,16 +227,20 @@ test('el token de la app de iOS se diagnostica como la app, no como un host raro
   assert.equal(proveedorDePush('web.push.apple.com'), 'apple');
 });
 
-test('la app de un estudio solo lleva los avisos de su estudio, y solo mientras está activa', () => {
+test('la app de un estudio solo lleva los avisos de su estudio (o de su cadena), y solo mientras está activa', () => {
   const tok = 'a'.repeat(64);
   const web = { endpoint: 'https://web.push.apple.com/x', studio_id: 'otro' };
   const tentare = { endpoint: `apns://app.tentare/${tok}`, studio_id: 'otro' };
   const marta = { endpoint: `apns://app.tentare.marta/${tok}`, studio_id: 's-marta' };
   const subs = [web, tentare, marta];
   // Aviso de otro estudio: la app de Marta no lo lleva (rompería la marca blanca).
-  assert.deepEqual(suscripcionesDelAviso(subs, 's-otro', new Set(['app.tentare.marta'])), [web, tentare]);
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-otro']), new Set(['app.tentare.marta'])), [web, tentare]);
   // Aviso de Marta con su app activa: sí.
-  assert.deepEqual(suscripcionesDelAviso(subs, 's-marta', new Set(['app.tentare.marta'])), subs);
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-marta']), new Set(['app.tentare.marta'])), subs);
   // App pausada (no está entre las activas): ya no.
-  assert.deepEqual(suscripcionesDelAviso(subs, 's-marta', new Set()), [web, tentare]);
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-marta']), new Set()), [web, tentare]);
+  // App de una cadena: el token se guardó en la sede norte y el aviso es de la sur: sí lo lleva.
+  const cadena = { endpoint: `apns://app.tentare.cupo-001/${tok}`, studio_id: 's-norte' };
+  assert.deepEqual(suscripcionesDelAviso([cadena], new Set(['s-norte', 's-sur']), new Set(['app.tentare.cupo-001'])), [cadena]);
+  assert.deepEqual(suscripcionesDelAviso([cadena], new Set(['s-sur']), new Set(['app.tentare.cupo-001'])), []);
 });

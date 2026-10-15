@@ -22,7 +22,9 @@ import { BotonApple } from '@/components/nativo/BotonApple';
 import { BotonGoogle } from '@/components/nativo/BotonGoogle';
 import { AvatarEstudio } from '@/components/nativo/AvatarEstudio';
 import { bundleIdDeLaApp } from '@/lib/nativo/puente';
-import { esAppDeEstudio, tipoDeApp, type AppDeEstudio } from '@/lib/app-nativa/app-estudio';
+import {
+  entradaEnCadena, esAppDeEstudio, sedesDeLaApp, tipoDeApp, type AppDeEstudio, type SedeDeLaApp,
+} from '@/lib/app-nativa/app-estudio';
 import {
   CLAVE_ULTIMO_ESTUDIO, conElUltimoPrimero, entradaDirecta, rutaDeEntrada, type EstudioDeLaCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -54,7 +56,7 @@ import {
 // `color`: el de su tema, para la inicial que se ve mientras llega el icono (`AvatarEstudio`).
 type Estudio = EstudioDeLaCuenta & { icono: string; color?: string | null };
 type Encontrado = { slug: string; nombre: string; ciudad: string | null; icono: string; color?: string | null };
-type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error' | 'no-disponible';
+type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error' | 'no-disponible' | 'sede';
 
 const leerUltimo = () => { try { return localStorage.getItem(CLAVE_ULTIMO_ESTUDIO); } catch { return null; } };
 const guardarUltimo = (slug: string) => { try { localStorage.setItem(CLAVE_ULTIMO_ESTUDIO, slug); } catch { /* modo privado */ } };
@@ -106,6 +108,8 @@ export default function EntradaApp() {
   // ¿Es la app de UN estudio (aunque no esté activa o no se haya podido comprobar)? Entonces nunca
   // se ofrece la entrada genérica de Tentare, con su buscador de estudios.
   const [deEstudio, setDeEstudio] = useState(false);
+  // App de una CADENA: sus sedes, y en cuáles es ya alumna (para elegir a cuál entra).
+  const [sedes, setSedes] = useState<(SedeDeLaApp & { suya: EstudioDeLaCuenta | null })[]>([]);
   const consulta = useRef<Promise<ConsultaApp> | null>(null);
   const appDeEstudio = useCallback(() => (consulta.current ??= consultarAppDeEstudio()), []);
   const [nombre, setNombre] = useState<string | null>(null);
@@ -159,8 +163,25 @@ export default function EntradaApp() {
       }
       trasSegundoPaso.current = false;
       if (!res.ok || !Array.isArray(datos?.estudios)) { setFase('error'); return; }
-      // En la app de un estudio manda su estudio, y nunca se enseña la lista.
       const { elegir: pideLista, estudio: delEnlace } = param();
+      // App de una cadena: entra en su sede (o en la última que abrió) o elige entre las de la cadena,
+      // nunca entre otros estudios.
+      const deLaCadena = app ? sedesDeLaApp(app) : null;
+      if (deLaCadena) {
+        const suyas = new Map(datos.estudios.map((e) => [e.slug, e]));
+        const d = entradaEnCadena(deLaCadena, new Set(suyas.keys()), { ultimo: leerUltimo(), pideLista, enlace: delEnlace });
+        if (d.tipo === 'ir') { ir(suyas.get(d.slug)!); return; }
+        if (d.tipo === 'alta') {
+          guardarUltimo(d.slug);
+          if (montada.current && !navegoDesdeFueraHaceNada()) r.replace(`/portal/${encodeURIComponent(d.slug)}/acceso/registro`);
+          return;
+        }
+        setNombre(datos.nombre ?? null);
+        setSedes(deLaCadena.map((s) => ({ ...s, suya: suyas.get(s.slug) ?? null })));
+        setFase('sede');
+        return;
+      }
+      // En la app de un estudio manda su estudio, y nunca se enseña la lista.
       const elegir = app ? false : pideLista;
       const estudio = app?.slug ?? delEnlace;
       if (estudio) {
@@ -259,7 +280,7 @@ export default function EntradaApp() {
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--background)', padding: 'calc(28px + var(--safe-top, 0px)) 22px calc(28px + var(--safe-bottom, 0px))' }}>
       <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {(fase === 'cargando' || fase === 'puerta' || fase === 'elegir' || fase === 'sin-estudios' || fase === 'error') && (
+        {(fase === 'cargando' || fase === 'puerta' || fase === 'elegir' || fase === 'sede' || fase === 'sin-estudios' || fase === 'error') && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: fase === 'puerta' ? '18px 0 14px' : '4px 0' }}>
             {/* Nada hasta saber de qué app es: sin esto, en la de un estudio parpadearía el logo de Tentare. */}
             {fijo.listo && (fijo.app
@@ -293,7 +314,7 @@ export default function EntradaApp() {
         {fase === 'puerta' && (
           <form onSubmit={(e) => { e.preventDefault(); void continuar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
             <div>
-              <h1 className="t-h1">{fijo.app ? `Reserva en ${fijo.app.nombre}` : 'Reserva en tu estudio'}</h1>
+              <h1 className="t-h1">{fijo.app ? `Reserva en ${sedesDeLaApp(fijo.app) ? fijo.app.nombreApp : fijo.app.nombre}` : 'Reserva en tu estudio'}</h1>
               <p className="t-meta" style={{ marginTop: 4 }}>
                 {fijo.app
                   ? 'Escribe tu email. Si ya eres alumna, te reconocemos; si no, te das de alta.'
@@ -417,6 +438,38 @@ export default function EntradaApp() {
             <button type="button" onClick={abrirBuscador} style={{ ...enlace, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Icono nombre="mas" tamano={16} /> Añadir otro estudio
             </button>
+            <button type="button" onClick={() => void salir()} className="btn btn--secondary" style={{ marginTop: 4 }}>Salir</button>
+          </section>
+        )}
+
+        {fase === 'sede' && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="elegir-sede">
+            <div>
+              <h1 className="t-h1">{nombre ? `Hola, ${nombre}` : 'Elige tu sede'}</h1>
+              <p className="t-meta" style={{ marginTop: 4 }}>¿A qué sede vas? Podrás cambiarla cuando quieras desde tu perfil.</p>
+            </div>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {sedes.map((s) => (
+                <li key={s.slug}>
+                  <button
+                    type="button" className="card tap" data-sede={s.slug}
+                    onClick={() => {
+                      if (s.suya) { ir(s.suya); return; }
+                      guardarUltimo(s.slug);
+                      if (montada.current) r.replace(`/portal/${encodeURIComponent(s.slug)}/acceso/registro`);
+                    }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: 12, textAlign: 'left', border: '1.5px solid var(--border)', borderRadius: 18, background: 'var(--card)', color: 'inherit' }}
+                  >
+                    <AvatarEstudio icono={s.icono} nombre={s.nombre} color={s.color} lado={48} radio={13} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontWeight: 800 }}>{s.nombre}</span>
+                      <span className="t-meta" style={{ display: 'block', fontSize: 12 }}>{s.suya ? 'Ya eres alumna' : 'Te das de alta al entrar'}</span>
+                    </span>
+                    <Icono nombre="chevron-derecha" tamano={18} />
+                  </button>
+                </li>
+              ))}
+            </ul>
             <button type="button" onClick={() => void salir()} className="btn btn--secondary" style={{ marginTop: 4 }}>Salir</button>
           </section>
         )}

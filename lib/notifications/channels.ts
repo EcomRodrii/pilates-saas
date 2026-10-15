@@ -16,6 +16,7 @@ import { conReintentoResend } from '../emails/resend-reintentos.ts';
 import { urlMonograma } from '../monograma-estudio.ts';
 import { configApns, enviarApns, esEndpointApns, leerEndpointApns } from './apns.ts';
 import { BUNDLE_TENTARE } from '../app-nativa/app-estudio.ts';
+import { estudioDeLaApp } from '../app-nativa/app-de-cadena.ts';
 
 export interface ResultadoCanal {
   status: DeliveryStatus;
@@ -138,21 +139,22 @@ export function motivoApns(detalle: string | undefined): string | null {
 }
 
 /**
- * Las suscripciones a las que SÍ se manda un aviso de `studioId`. La app de un ESTUDIO (un bundle
- * que no es `app.tentare`) es marca blanca: solo recibe los avisos de su estudio, y solo mientras
- * esa app siga activa (`bundlesActivos`: los de `apps_estudio` activos de ESE estudio). Sin esto,
- * una alumna de dos estudios con la app de uno recibía los avisos del otro con la marca del primero,
- * y pausar una app no cortaba sus avisos. La web y la app «Tentare» sirven a cualquier estudio.
+ * Las suscripciones a las que SÍ se manda un aviso. La app de un ESTUDIO (un bundle que no es
+ * `app.tentare`) es marca blanca: solo recibe los avisos de su estudio —o, si es la app de una
+ * cadena, de sus sedes (`sedesDeLaApp`)— y solo mientras esa app siga activa (`bundlesActivos`: los
+ * de `apps_estudio` activos del dueño de la app). Sin esto, una alumna de dos estudios con la app de
+ * uno recibía los avisos del otro con la marca del primero, y pausar una app no cortaba sus avisos.
+ * La web y la app «Tentare» sirven a cualquier estudio.
  */
 export function suscripcionesDelAviso<T extends { endpoint: string; studio_id?: string | null }>(
-  subs: readonly T[], studioId: string, bundlesActivos: ReadonlySet<string>,
+  subs: readonly T[], sedesDeLaApp: ReadonlySet<string>, bundlesActivos: ReadonlySet<string>,
 ): T[] {
   return subs.filter((s) => {
     const apns = leerEndpointApns(s.endpoint);
     if (!apns) return true;
     const bundle = apns.bundleId.toLowerCase();
     if (bundle === BUNDLE_TENTARE) return true;
-    return s.studio_id === studioId && bundlesActivos.has(bundle);
+    return !!s.studio_id && sedesDeLaApp.has(s.studio_id) && bundlesActivos.has(bundle);
   });
 }
 
@@ -237,14 +239,21 @@ const push: Canal = {
       return !!e && e.bundleId.toLowerCase() !== BUNDLE_TENTARE;
     });
     let bundlesActivos = new Set<string>();
+    let sedesDeLaApp = new Set<string>([notificacion.studioId]);
     if (hayAppsDeEstudio) {
-      const { data: apps, error: errApps } = await admin.from('apps_estudio').select('bundle_id')
-        .eq('studio_id', notificacion.studioId).eq('activa', true);
       // Leer mal NO es «no tiene app»: sin saberlo no se manda por las apps de estudio, pero se dice.
-      if (errApps) console.warn('[push] no se pudieron leer las apps de estudio:', errApps.code ?? errApps.message);
-      bundlesActivos = new Set((apps ?? []).map((a) => String(a.bundle_id).toLowerCase()));
+      try {
+        const duena = await estudioDeLaApp(admin, notificacion.studioId);
+        sedesDeLaApp = new Set(duena.sedes);
+        const { data: apps, error: errApps } = await admin.from('apps_estudio').select('bundle_id')
+          .eq('studio_id', duena.studioId).eq('activa', true);
+        if (errApps) throw new Error(errApps.code ?? errApps.message);
+        bundlesActivos = new Set((apps ?? []).map((a) => String(a.bundle_id).toLowerCase()));
+      } catch (e) {
+        console.warn('[push] no se pudieron leer las apps de estudio:', e instanceof Error ? e.message : e);
+      }
     }
-    const delAviso = suscripcionesDelAviso(todas as { endpoint: string; studio_id: string | null }[], notificacion.studioId, bundlesActivos);
+    const delAviso = suscripcionesDelAviso(todas as { endpoint: string; studio_id: string | null }[], sedesDeLaApp, bundlesActivos);
     if (delAviso.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push para este estudio en sus dispositivos' };
     // Solo las que este servidor sabe mandar: sin VAPID no hay web; sin clave de APNs, no hay iPhone.
     const subs = (delAviso as typeof todas).filter((s) => (esEndpointApns(s.endpoint as string) ? !!apns : vapidListo));

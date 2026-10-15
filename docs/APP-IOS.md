@@ -513,7 +513,10 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   Nace `PEDIDA` y **sin activar**, con un hueco del lote (abajo) o, si no queda, el bundle del slug.
 - **Cadena = UNA app** (decisión del fundador, 15-oct-2026). Su fila de `apps_estudio` va con el id de
   la sede PRINCIPAL (la más antigua, `estudioDeLaApp`, `lib/app-nativa/app-de-cadena.ts`); se pide
-  desde ella, las demás sedes ven la misma, y dentro la alumna elige su sede.
+  desde ella y las demás sedes ven la misma. Dentro, la alumna entra en su sede (la única de la
+  cadena donde ya es alumna, o la última que abrió) o elige entre las de la cadena (`entradaEnCadena`,
+  `/app`), nunca entre otros estudios; en el perfil tiene «Cambiar de sede». `/api/public/app/app-estudio`
+  devuelve sus `sedes`, el AASA reclama las rutas de todas y sus avisos llevan los de cualquier sede.
 - Los estados (`apps_estudio.estado`) son lo que se le cuenta al estudio: `PEDIDA`, `EN_PREPARACION`,
   `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos».
 - La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, cambia el nombre si

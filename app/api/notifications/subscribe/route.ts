@@ -6,6 +6,7 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { endpointApns, endpointWebPushValido } from '@/lib/notifications/apns-endpoint';
 import { BUNDLE_TENTARE } from '@/lib/app-nativa/app-estudio';
+import { estudioDeLaApp } from '@/lib/app-nativa/app-de-cadena';
 
 // Guarda / elimina la suscripción Web Push del usuario (propietaria/instructora/
 // socia; identidad del JWT). Único por endpoint. La usa el canal PUSH del motor.
@@ -64,9 +65,13 @@ export async function POST(req: NextRequest) {
   // tiene que ser el de una app activa de este `studio_id`. Es integridad del dato, no
   // el límite de seguridad (ese es la pertenencia de arriba): un bundle inventado solo
   // daría un token que Apple rechaza. La app «Tentare» sirve a cualquier estudio.
+  // En una cadena la app es UNA (su fila va con la sede principal) y vale para todas sus sedes.
   if (endpointNativo && bundleNativo && bundleNativo !== BUNDLE_TENTARE) {
+    let duenaId: string;
+    try { duenaId = (await estudioDeLaApp(admin, b.studioId)).studioId; }
+    catch (e) { return errorInterno('notifications/subscribe:cadena', e, 'No se ha podido guardar la suscripción. Inténtalo de nuevo.'); }
     const { data: app, error: errApp } = await admin.from('apps_estudio').select('studio_id')
-      .eq('bundle_id', bundleNativo).eq('studio_id', b.studioId).eq('activa', true).maybeSingle();
+      .eq('bundle_id', bundleNativo).eq('studio_id', duenaId).eq('activa', true).maybeSingle();
     if (errApp) return errorInterno('notifications/subscribe:app', errApp, 'No se ha podido guardar la suscripción. Inténtalo de nuevo.');
     if (!app) return NextResponse.json({ error: 'Esa app no es de este estudio' }, { status: 403 });
   }

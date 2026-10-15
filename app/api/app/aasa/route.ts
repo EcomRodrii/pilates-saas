@@ -15,11 +15,24 @@ export async function GET() {
   const apps: AppDeEstudioAasa[] = [];
   const admin = getSupabaseAdmin();
   if (admin) {
-    const { data, error } = await admin.from('apps_estudio').select('bundle_id, studios!inner(slug)').eq('activa', true);
+    const { data, error } = await admin.from('apps_estudio').select('bundle_id, studios!inner(slug, cadena_id)').eq('activa', true);
     if (error) return new NextResponse('No disponible', { status: 503, headers: { 'Cache-Control': 'no-store' } });
-    for (const f of (data ?? []) as unknown as { bundle_id: string; studios: { slug: string | null } }[]) {
+    const filas = (data ?? []) as unknown as { bundle_id: string; studios: { slug: string | null; cadena_id: string | null } }[];
+    // La app de una cadena abre las páginas de TODAS sus sedes (una app por cadena).
+    const cadenas = [...new Set(filas.map((f) => f.studios?.cadena_id).filter((c): c is string => !!c))];
+    const sedesDe = new Map<string, string[]>();
+    if (cadenas.length > 0) {
+      const { data: sedes, error: errSedes } = await admin.from('studios').select('slug, cadena_id').in('cadena_id', cadenas);
+      if (errSedes) return new NextResponse('No disponible', { status: 503, headers: { 'Cache-Control': 'no-store' } });
+      for (const s of (sedes ?? []) as { slug: string | null; cadena_id: string }[]) {
+        if (s.slug) sedesDe.set(s.cadena_id, [...(sedesDe.get(s.cadena_id) ?? []), s.slug]);
+      }
+    }
+    for (const f of filas) {
       const appId = appIdDeEstudio(process.env.APPLE_TEAM_ID, f.bundle_id);
-      if (appId && f.studios?.slug) apps.push({ appId, slug: f.studios.slug });
+      if (!appId || !f.studios?.slug) continue;
+      const slugs = [f.studios.slug, ...(f.studios.cadena_id ? sedesDe.get(f.studios.cadena_id) ?? [] : [])];
+      for (const slug of slugs) apps.push({ appId, slug });
     }
   }
   return NextResponse.json(contenidoAasa(ids, apps), { headers: { 'Cache-Control': 'public, max-age=3600' } });
