@@ -4297,6 +4297,14 @@ export interface RowUsoPlanGratis {
   reservas_30_dias: number | null;
 }
 
+export interface RowAppsEstudioCupos {
+  bundle_id: string;
+  asc_app_id: string;
+  studio_id: string | null;
+  asignado_en: string | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -11904,6 +11912,22 @@ export type UsoPlanGratisUpdate = {
   reservas_30_dias?: number | null | null;
 }
 
+export type AppsEstudioCuposInsert = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type AppsEstudioCuposUpdate = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13231,6 +13255,11 @@ export type Database = {
         Row: RowUsoPlanGratis;
         Insert: UsoPlanGratisInsert;
         Update: UsoPlanGratisUpdate;
+      };
+      apps_estudio_cupos: {
+        Row: RowAppsEstudioCupos;
+        Insert: AppsEstudioCuposInsert;
+        Update: AppsEstudioCuposUpdate;
       };
     };
   };

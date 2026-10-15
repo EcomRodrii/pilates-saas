@@ -30,8 +30,15 @@ export async function GET(req: NextRequest) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const { data, error } = await db.from('apps_estudio').select(COLUMNAS);
+  const [{ data, error }, cupos] = await Promise.all([
+    db.from('apps_estudio').select(COLUMNAS),
+    // El lote de apps creadas de antemano. Tolerante: sin la tabla (migración aún no aplicada) la
+    // cola se enseña igual, sin huecos.
+    db.from('apps_estudio_cupos').select('bundle_id, asc_app_id, studio_id'),
+  ]);
   if (error) return NextResponse.json({ error: 'No se han podido leer las apps.' }, { status: 500 });
+  const lote = cupos.error ? [] : (cupos.data ?? []) as { bundle_id: string; asc_app_id: string; studio_id: string | null }[];
+  const ascDe = new Map(lote.map((c) => [c.bundle_id, c.asc_app_id]));
 
   const apps = ((data ?? []) as unknown as Fila[])
     .filter((f) => esEstadoApp(f.estado))
@@ -44,6 +51,9 @@ export async function GET(req: NextRequest) {
       // ¿Su plan la incluye hoy? Una petición de un plan que no la lleva se ve, no se esconde.
       planIncluye: tieneFeature({ plan: f.studios?.plan ?? null, subscriptionStatus: f.studios?.subscription_status ?? null }, 'appPropia'),
       bundleId: f.bundle_id,
+      // Id de la app en App Store Connect si es un hueco del lote (la app ya existe); `null` si hay
+      // que crearla a mano.
+      ascAppId: ascDe.get(f.bundle_id) ?? null,
       nombreApp: f.nombre_app,
       activa: f.activa,
       estado: f.estado as EstadoApp,
@@ -52,7 +62,9 @@ export async function GET(req: NextRequest) {
       notaInterna: f.nota_interna,
     }))
     .sort(ordenCola);
-  return NextResponse.json({ apps });
+  // Cuántos huecos quedan libres (`null` si el lote no está en esta base): cuando bajen, toca crear otro lote.
+  const cuposLibres = cupos.error ? null : lote.filter((c) => !c.studio_id).length;
+  return NextResponse.json({ apps, cuposLibres });
 }
 
 export async function POST(req: NextRequest) {

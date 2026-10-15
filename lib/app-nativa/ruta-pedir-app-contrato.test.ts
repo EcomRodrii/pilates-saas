@@ -61,3 +61,13 @@ test('la pantalla manda la sede que tiene delante', () => {
   // No decide nada por su cuenta: la plantilla de planes viene del catálogo.
   assert.match(cliente, /PLAN_ENTITLEMENTS\[p\]\.features\.appPropia/);
 });
+
+test('estudio: primero pide un hueco del lote (tolerante), y lo pide DESPUÉS de las puertas', () => {
+  const post = estudio.slice(estudio.indexOf('export async function POST'));
+  assert.match(estudio, /admin\.rpc\('asignar_cupo_app', \{ p_studio_id: studioId \}\)/);
+  assert.ok(post.indexOf("'appPropia'") < post.indexOf('cupoDelLote('), 'el hueco se gasta solo con un plan que la incluye');
+  assert.ok(post.indexOf('cupoDelLote(') < post.indexOf('.insert('));
+  // Si la función no existe o falla, se sigue con el slug: no rompe la petición.
+  const helper = estudio.slice(estudio.indexOf('async function cupoDelLote'), estudio.indexOf('async function contexto'));
+  assert.match(helper, /if \(error\) \{[\s\S]*return null;/);
+});
