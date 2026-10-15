@@ -28,20 +28,23 @@ export function SelectorPlan({
   onCambio,
   /** Se enseña el precio como «después de la prueba» en vez de a secas. */
   enPrueba = false,
+  /** Los que se ofrecen (por defecto, todos). Una sede secundaria de una cadena solo puede contratar Cadena. */
+  planes = PLANES,
   className = '',
 }: {
   valor: Plan;
   onCambio: (p: Plan) => void;
   enPrueba?: boolean;
+  planes?: readonly Plan[];
   className?: string;
 }) {
   const uid = useId();
 
   function alTeclado(e: React.KeyboardEvent, plan: Plan) {
-    const i = PLANES.indexOf(plan);
+    const i = planes.indexOf(plan);
     let siguiente: Plan | null = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') siguiente = PLANES[(i + 1) % PLANES.length];
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') siguiente = PLANES[(i - 1 + PLANES.length) % PLANES.length];
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') siguiente = planes[(i + 1) % planes.length];
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') siguiente = planes[(i - 1 + planes.length) % planes.length];
     // Espacio elige el que tiene el foco, como un radio nativo.
     if (e.key === ' ') { e.preventDefault(); onCambio(plan); return; }
     if (!siguiente) return;
@@ -60,8 +63,9 @@ export function SelectorPlan({
     // por columna — el nombre, el precio y los bullets se aplastaban antes de
     // tener sitio de verdad. Con `md:` la tarjeta se queda en una columna
     // (lectura cómoda) hasta que hay ancho real para las tres.
-    <div role="radiogroup" aria-label="Plan" className={`grid gap-3 md:grid-cols-3 ${className}`}>
-      {PLANES.map((plan) => {
+    // Con un solo plan, una tarjeta a lo ancho de la pantalla queda desproporcionada: ancho de una columna.
+    <div role="radiogroup" aria-label="Plan" className={`grid gap-3 ${planes.length > 1 ? 'md:grid-cols-3' : 'md:max-w-sm'} ${className}`}>
+      {planes.map((plan) => {
         const info = PLAN_INFO[plan];
         const elegido = plan === valor;
         const bullets = resumenCorto(plan, anteriorA(plan));

@@ -13,9 +13,10 @@ import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
 import {
-  leerCadenaDeLaSede, cadenaPagaSusSedes, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
+  decidirPlanSuelto, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
   MENSAJE_SEDE_INCLUIDA_EN_CADENA, MENSAJE_PAGO_DE_CADENA_A_MEDIAS, MENSAJE_PAGO_DE_SEDE_A_MEDIAS,
 } from '@/lib/billing/sede-incluida-en-cadena';
+import { leerCadenaParaGratis } from '@/lib/billing/convertir-a-gratis';
 import { leerRecompensaPendiente, canjearRecompensa, devolverRecompensa } from '@/lib/billing/recompensa-review-boost';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
@@ -290,23 +291,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Plan individual para una sede cuya cadena ya paga: sería un segundo cobro
-    // por lo mismo, y el guard de arriba no lo ve (la sede hereda el estado de la
-    // cadena, no su `subscription_id`). Se mira la BD y también a Stripe, porque
-    // el webhook tarda; un Checkout de cadena abierto se caduca (puede estar
-    // abandonado) y, si no se deja, no se abre este. Va antes de crear el cliente
-    // de la sede. Ver lib/billing/sede-incluida-en-cadena.ts.
+    // Plan individual para una sede de cadena (`decidirPlanSuelto`, ver
+    // lib/billing/sede-incluida-en-cadena.ts). Va antes de crear el cliente de la sede:
+    // · Si la cadena ya paga, sería un segundo cobro por lo mismo, y el guard de
+    //   arriba no lo ve (la sede hereda el estado de la cadena, no su
+    //   `subscription_id`).
+    // · Si no paga, solo la sede PRINCIPAL (la más antigua, la que elige
+    //   `leerCadenaParaGratis`) puede contratar un plan suelto; las demás se
+    //   reabren contratando Cadena (decisión del fundador, 15-oct-2026).
+    // Se mira la BD y también a Stripe, porque el webhook tarda; un Checkout de
+    // cadena abierto se caduca (puede estar abandonado) y, si no se deja, no se
+    // abre este.
     if (studio.cadena_id) {
       const cerrada = await cerrarCadena(studio.cadena_id as string);
       if (cerrada) return cerrada;
-      const cadena = await leerCadenaDeLaSede(admin, studio.cadena_id as string);
-      if (cadena && cadenaPagaSusSedes(cadena.estado)) {
-        return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
-      }
+      const cadena = await leerCadenaParaGratis(admin, studio);
+      const decision = decidirPlanSuelto(cadena && { estado: cadena.subscriptionStatus, esPrincipal: cadena.esPrincipal });
+      if (decision.accion === 'bloquear') return NextResponse.json({ error: decision.mensaje }, { status: 409 });
       // Si la sede comparte cliente con la cadena (las migradas en 0066), ya lo
       // mira `checkoutPrevio` de abajo, que además puede reutilizar su Checkout.
-      if (cadena?.clienteStripe && cadena.clienteStripe !== studio.stripe_customer_id) {
-        const enStripe = await consultarCadenaAntesDeIndividual(stripe, cadena.clienteStripe);
+      if (cadena?.stripeCustomerId && cadena.stripeCustomerId !== studio.stripe_customer_id) {
+        const enStripe = await consultarCadenaAntesDeIndividual(stripe, cadena.stripeCustomerId);
         if (enStripe.accion === 'bloquear') {
           return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
         }

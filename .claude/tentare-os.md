@@ -325,6 +325,12 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Una sede SECUNDARIA solo se reabre con Cadena** (decisión del 15-oct): no contrata Founding
+    Studio ni Estudio (si pudiera, N sedes saldrían por 29 € × (N−1) con la principal gratis). La
+    principal sí. Lo decide `decidirPlanSuelto` (`sede-incluida-en-cadena.ts`) en el checkout (409) y
+    en /suscripcion (solo ofrece Cadena), con la principal de `leerCadenaParaGratis`. Una sede que ya
+    pagaba un plan suelto sigue como está. Y al elegir Cadena, /suscripcion dice ANTES de pagar qué
+    plan suelto se cancela sin prorrateo (`sueltosQueCancelaCadena`, el mismo criterio que el webhook).
   - **Qué toca al pasarse** (fundador, 15-oct 08:30, corrige lo de la madrugada): pasar CUALQUIERA
     de los dos límites → Founding Studio DE PAGO (29 €): lo mismo que el gratis, sin tope de alumnas
     ni de reservas. Nadie va obligado a Estudio. Lo que distingue a Estudio (59 €) es la app propia

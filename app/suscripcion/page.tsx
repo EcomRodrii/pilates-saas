@@ -21,6 +21,8 @@ import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
 import { cn } from '@/lib/utils';
+import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
+import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 
 // Suscripción del estudio a Tentare.
 //
@@ -80,6 +82,47 @@ function UsoDelPlan({ estado, className }: { estado: EstadoBilling | null; class
   );
 }
 
+const fechaLarga = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO }) : null;
+
+/** «Tu plan Founding Studio, de 29 €/mes, se cancela al activar Cadena…»: lo que cancelará el webhook, dicho antes. */
+function fraseSueltoQueSeCancela(s: PlanSueltoQueCancelaCadena): string {
+  const info = PLAN_INFO[s.plan];
+  const cual = !s.otraSede ? `Tu plan ${info.nombre}`
+    : s.nombreSede ? `El plan ${info.nombre} de tu sede «${s.nombreSede}»` : `El plan ${info.nombre} de otra de tus sedes`;
+  // Un primer pago aún en curso (un adeudo SEPA) no lo para cancelar: no se promete que deje de cobrarse.
+  if (s.pagoEnCurso) {
+    return `${cual}, de ${info.precioMes} €/mes, se cancela al activar Cadena. Su primer pago todavía se está procesando `
+      + 'y cancelar no lo detiene: si llega a cobrarse, ese mes no se devuelve.';
+  }
+  const pagado = fechaLarga(s.pagadoHasta);
+  return `${cual}, de ${info.precioMes} €/mes, se cancela al activar Cadena: dejas de pagarlo desde ese momento`
+    + (pagado ? `, y el mes que ya has pagado (hasta el ${pagado}) no se devuelve.` : '.');
+}
+
+/**
+ * Contratar Cadena cancela, al confirmarse y sin prorrateo, los planes sueltos de
+ * sus sedes (decisión del fundador, 15-oct-2026): se dice ANTES del botón de
+ * pagar, y solo si hay alguno. Si el servidor no pudo leerlo (`null`), en
+ * condicional; sin el dato (un servidor anterior), nada.
+ */
+function AvisoAlPasarACadena({ opciones }: { opciones: OpcionesDePlan | null | undefined }) {
+  if (opciones === undefined) return null;
+  const sueltos = opciones?.sueltosQueCancelaCadena ?? null;
+  if (sueltos?.length === 0) return null;
+  return (
+    <div role="note" aria-label="Al activar Cadena" data-aviso-cadena className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+      {sueltos ? (
+        <ul className="space-y-1">
+          {sueltos.map((s, i) => <li key={i} className="text-pretty">{fraseSueltoQueSeCancela(s)}</li>)}
+        </ul>
+      ) : (
+        <p className="text-pretty">Si alguna de tus sedes paga ahora Founding Studio o Estudio, ese plan se cancela al activar Cadena, y el mes que ya está pagado no se devuelve.</p>
+      )}
+    </div>
+  );
+}
+
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
@@ -117,7 +160,9 @@ export default function SuscripcionPage() {
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
       // es lo que le toca (plan-gratis.ts); dentro del límite, a lo que puede subir.
       // Crecer desde el gratis es Founding Studio de pago, 29 €/mes (fundador, 15-oct-2026), pase lo que pase.
-      if (e?.gratis) setElegido('BASE');
+      // Una sede secundaria de una cadena solo puede contratar Cadena (`decidirPlanSuelto`).
+      if (e?.opcionesDePlan?.soloCadena) setElegido('CADENA');
+      else if (e?.gratis) setElegido('BASE');
       else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
@@ -165,9 +210,12 @@ export default function SuscripcionPage() {
   // anteriores a que la prueba pasara a ser local — ya no se crean nuevas, pero
   // las que hay siguen vivas y esta pantalla es donde las mira su dueña.
   const primerCobro = !!estado?.enPrueba;
+  // Qué se le ofrece y qué cancelaría Cadena (lo deriva /api/billing/status). Una
+  // sede secundaria de una cadena: solo Cadena, y se dice por qué.
+  const opciones = estado?.opcionesDePlan;
+  const soloCadena = opciones?.soloCadena === true;
 
-  const fecha = (iso: string | null | undefined) =>
-    iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO }) : null;
+  const fecha = fechaLarga;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -292,6 +340,7 @@ export default function SuscripcionPage() {
                   </button>
                 ))}
               </div>
+              {elegido === 'CADENA' && <div className="mt-4"><AvisoAlPasarACadena opciones={opciones} /></div>}
               {esPropietaria ? (
                 <>
                   <button
@@ -364,9 +413,16 @@ export default function SuscripcionPage() {
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
             <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
-            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} />
+            {soloCadena && (
+              <p data-solo-cadena className="mb-4 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">
+                <strong className="font-semibold text-foreground">Esta sede forma parte de tu cadena,</strong> así que se contrata con el plan Cadena:
+                una sola suscripción para todas tus sedes. Founding Studio y Estudio son para un solo estudio, y solo los puede contratar tu sede principal.
+              </p>
+            )}
+            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} planes={soloCadena ? ['CADENA'] : undefined} />
 
             <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
+              {elegido === 'CADENA' && <div className="mb-4"><AvisoAlPasarACadena opciones={opciones} /></div>}
               {esPropietaria ? (
                 <>
                   <button
