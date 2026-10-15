@@ -7,11 +7,11 @@ import {
   Search, Plus, Minus, X, ShoppingCart, Wallet, User, Package,
   Loader2, Tag, AlertTriangle, Ticket, Receipt,
 } from 'lucide-react';
-import { cn, formatEuro } from '@/lib/utils';
+import { cn, formatEuro, redondearCentimos } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { DeudaClienta } from './deuda-clienta';
-import { buscarCodigo, validarCodigoCanjeable } from '@/lib/codigos-descuento';
-import { calcularTicket, descuentoDeCodigo, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
+import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
+import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
 import { leerCatalogoPOS } from '@/lib/pos/leer-respuestas';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
@@ -235,7 +235,9 @@ export function PosTerminal() {
 
   function anadirLibre() {
     const nombre = libreNombre.trim();
-    const precio = parseFloat(libreImporte.replace(',', '.')) || 0;
+    // A céntimos, como lo guarda la venta (`ROUND(precio, 2)`): con 3 decimales tecleados,
+    // un código de porcentaje daba aquí un total distinto del de `registrar_venta_pos`.
+    const precio = redondearCentimos(parseFloat(libreImporte.replace(',', '.')) || 0);
     if (!nombre || precio <= 0) return;
     setCarrito((prev) => [...prev, {
       clave: `libre:${prev.length}:${Date.now()}`,
@@ -281,7 +283,7 @@ export function PosTerminal() {
   const opcionesDescuento = useMemo(() => ({
     descuentoTipo,
     descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
-    descuentoCodigo: codigoAplicado ? descuentoDeCodigo(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
+    descuentoCodigo: codigoAplicado ? calcularDescuento(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
   }), [carrito, descuentoTipo, descuentoTexto, codigoAplicado]);
   const ticket = useMemo(() => calcularTicket(carrito, opcionesDescuento), [carrito, opcionesDescuento]);
 

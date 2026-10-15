@@ -34,6 +34,37 @@ test('el sufijo no usa caracteres ambiguos (O, 0, I, 1)', () => {
   }
 });
 
+// La tabla de casos límite, contra `ROUND(x, 2)` de Postgres (los valores esperados se
+// sacaron de la base de datos, no a mano): es lo que cobra `registrar_venta_pos`.
+test('calcularDescuento redondea como ROUND de Postgres en los casos límite', () => {
+  const pct = (valor: number) => cod({ tipo: 'PORCENTAJE', valor });
+  const casos: [string, number, number, number][] = [
+    ['1,45 € al 10 %', 10, 1.45, 0.15],
+    ['0,05 € al 10 %', 10, 0.05, 0.01],
+    ['0,05 € al 50 %', 50, 0.05, 0.03],
+    ['4,35 € al 50 %', 50, 4.35, 2.18],
+    ['1,15 € al 50 %', 50, 1.15, 0.58],
+    ['19,90 € al 15 %', 15, 19.9, 2.99],
+    ['10 € al 33,33 %', 33.33, 10, 3.33],
+    ['99,99 € al 12,5 %', 12.5, 99.99, 12.5],
+    ['37,50 € al 100 %', 100, 37.5, 37.5],
+    ['0,05 € al 100 %', 100, 0.05, 0.05],
+  ];
+  for (const [caso, valor, subtotal, esperado] of casos) {
+    assert.equal(calcularDescuento(pct(valor), subtotal), esperado, caso);
+  }
+});
+
+test('calcularDescuento con cupón fijo: no pasa del subtotal ni recarga', () => {
+  const fijo = (valor: number) => cod({ tipo: 'IMPORTE_FIJO', valor });
+  assert.equal(calcularDescuento(fijo(5), 20), 5);
+  assert.equal(calcularDescuento(fijo(12.5), 12.5), 12.5);
+  assert.equal(calcularDescuento(fijo(20), 3.45), 3.45, 'un cupón de 20 € sobre 3,45 € deja la venta a 0, no en negativo');
+  assert.equal(calcularDescuento(fijo(-5), 20), 0, 'un valor negativo no se convierte en recargo');
+  // Y sin nada que descontar, nada.
+  assert.equal(calcularDescuento(cod({ tipo: 'PORCENTAJE', valor: 10 }), 0), 0);
+});
+
 test('calcularDescuento: porcentaje e importe fijo, nunca supera el subtotal', () => {
   assert.equal(calcularDescuento(cod({ tipo: 'PORCENTAJE', valor: 15 }), 100), 15);
   assert.equal(calcularDescuento(cod({ tipo: 'IMPORTE_FIJO', valor: 20 }), 100), 20);

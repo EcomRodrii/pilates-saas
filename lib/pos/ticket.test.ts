@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calcularTicket, calcularCambio, sugerenciasEfectivo, descuentoManual, descuentoDeCodigo,
+  calcularTicket, calcularCambio, sugerenciasEfectivo, descuentoManual,
   estadoStock, puedeAnadir, céntimos, type LineaTicket,
 } from './ticket.ts';
+import { calcularDescuento } from '../codigos-descuento.ts';
+import type { CodigoDescuento } from '../types.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El caso ancla: los MISMOS números que devolvió `registrar_venta_pos` contra
@@ -21,7 +23,7 @@ const CARRITO_ANCLA: LineaTicket[] = [
 ];
 
 test('coincide al céntimo con lo que calculó la RPC en la base real', () => {
-  // Código del 10 % sobre 139,99 → 14,00 (lo resuelve descuentoDeCodigo, aquí
+  // Código del 10 % sobre 139,99 → 14,00 (lo resuelve calcularDescuento, aquí
   // se pasa ya en euros como hace el TPV).
   const t = calcularTicket(CARRITO_ANCLA, { descuentoCodigo: 14 });
 
@@ -152,15 +154,13 @@ test('redondea la mitad como ROUND de Postgres también por encima de 1 €', ()
   assert.equal(céntimos(0.1 + 0.2), 0.3);
 });
 
-test('el descuento de un código se redondea como en la RPC, no antes', () => {
-  // 10 % de 1,45 = 0,145: ROUND da 0,15. Redondeado antes en coma flotante, 0,14.
+test('el descuento de un código sale de calcularDescuento y el ticket lo deja como en la RPC', () => {
+  // La Caja usa la MISMA función que los cobros online. 10 % de 1,45 = 0,145: ROUND da 0,15.
+  const codigo = { id: 'c', studioId: 's', codigo: 'X', descripcion: null, tipo: 'PORCENTAJE', valor: 10, usos: 0, usosMax: null, expira: null, activo: true, creadoEn: '', minImporte: null, soloNuevas: false } as unknown as CodigoDescuento;
   const lineas: LineaTicket[] = [{ clave: 'a', tipo: 'PRODUCTO', referenciaId: 'a', nombre: 'Goma', precio: 1.45, cantidad: 1, ivaPct: 21 }];
-  const t = calcularTicket(lineas, { descuentoCodigo: descuentoDeCodigo({ tipo: 'PORCENTAJE', valor: 10 }, 1.45) });
+  const t = calcularTicket(lineas, { descuentoCodigo: calcularDescuento(codigo, 1.45) });
   assert.equal(t.descuento, 0.15);
   assert.equal(t.total, 1.3);
-  // Un importe fijo mayor que el subtotal se topa; uno negativo no recarga.
-  assert.equal(descuentoDeCodigo({ tipo: 'IMPORTE_FIJO', valor: 200 }, 50), 50);
-  assert.equal(descuentoDeCodigo({ tipo: 'IMPORTE_FIJO', valor: -5 }, 50), 0);
 });
 
 test('un precio con decimales raros no desajusta el ticket', () => {
