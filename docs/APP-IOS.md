@@ -519,6 +519,21 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 - Una petición sigue exigiendo los pasos manuales de más arriba (fila activa, Client IDs de Apple en
   Supabase, registro en App Store Connect, compilar y subir). Esta fase no los automatiza.
 
+**La API de App Store Connect** (15-oct-2026, `scripts/asc.mjs` + `lib/nativo/asc.ts`):
+
+- La clave de equipo (rol Administración) vive SOLO en los secretos de GitHub Actions
+  (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`) y se usa desde el workflow manual
+  «Apps de estudio · App Store Connect» (`.github/workflows/apps-estudio-asc.yml`).
+  Nada la escribe en disco ni la imprime.
+- Órdenes: `comprobar` (lista las apps; no cambia nada), `nombre <bundle> "<nombre>"` y
+  `registrar-cupos <desde> <hasta>`. Las que cambian algo son un ensayo salvo con `--en-serio`.
+- ⚠️ Apple NO deja crear el registro de una app por API («The resource 'apps' does not allow
+  'CREATE'») ni contestar el cuestionario de privacidad. La idea para quitarlo del camino de
+  cada estudio es un LOTE: registrar `app.tentare.cupo-NNN` por API, crear esas apps de golpe
+  en la web y asignar un hueco libre a cada estudio que pide la suya, cambiándole el nombre por
+  API. ⚠️ Que Apple deje renombrar una app nunca enviada por API está POR COMPROBAR con
+  `nombre` sobre una app de prueba antes de construir el lote.
+
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 
 - **«Texto más grande»** (Dynamic Type): `PuenteNativo` mide el cuerpo del

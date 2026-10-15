@@ -152,9 +152,21 @@ const AVISOS_PANEL = [
   { id: 'nt-3', title: 'Marta Ruiz no puede dar su clase', body: 'Mat del jueves a las 11:00. Ya se está buscando sustituta.', category: 'equipo', eventType: 'sustitucion.contactando', createdAt: iso(dia(-1), 9, 0), readAt: iso(dia(-1), 9, 10), deepLink: '/sustituciones' },
 ];
 
+// La forma REAL de GET /api/mensajeria/conversaciones (`ConversacionStaff`, lib/mensajeria/tipos.ts).
+// ⚠️ Era una forma vieja (`participantes`, `ultimoMensaje`, `sinLeer`) que la pestaña no lee: al
+// abrir «Conversaciones», `identidadDe` buscaba en `conversacion_participantes`, que no venía, y la
+// pantalla entera salía con «Algo ha ido mal» en TODAS las suites que montan este andamiaje (15-oct-2026).
+// Las dos, leídas hasta su último mensaje: el menú no gana un contador de «sin leer» que cambiaría
+// el nombre accesible de «Mensajería» en las demás suites.
+const conversacion = (id: string, socioId: string, authSocia: string, creado: string, ultimo: string, cuerpo: string, remitente: string) => ({
+  id, studio_id: STUDIO_ID, tipo: 'ALUMNA_MOSTRADOR', titulo: null, ancla_sesion_id: null, ancla_reserva_id: null,
+  creado_en: creado, ultimo_mensaje_en: ultimo, mostrador_leido_hasta: ultimo, cerrada_en: null, cerrada_por: null, cerrada_revisor: null,
+  conversacion_participantes: [{ socio_id: socioId, rol_en_conversacion: 'SOCIO', auth_user_id: authSocia, leido_hasta: ultimo }],
+  leido_hasta: ultimo, leido_hasta_otros: ultimo, ultimo_cuerpo: cuerpo, ultimo_remitente_auth_user_id: remitente, sin_leer: false,
+});
 const CONVERSACIONES_PANEL = [
-  { id: 'conv-1', studio_id: STUDIO_ID, tipo: 'ALUMNA_ESTUDIO', socio_id: 'soc-1', instructor_id: null, creada_en: iso(dia(-3), 10, 0), actualizada_en: iso(dia(0), 9, 12), ultimoMensaje: '¿Puedo cambiar mi clase del jueves?', ultimoMensajeEn: iso(dia(0), 9, 12), ultimo_remitente_auth_user_id: 'auth-maria', sinLeer: 2, participantes: [] },
-  { id: 'conv-2', studio_id: STUDIO_ID, tipo: 'ALUMNA_ESTUDIO', socio_id: 'soc-3', instructor_id: null, creada_en: iso(dia(-8), 17, 0), actualizada_en: iso(dia(-2), 12, 0), ultimoMensaje: 'Gracias, ¡nos vemos el lunes!', ultimoMensajeEn: iso(dia(-2), 12, 0), ultimo_remitente_auth_user_id: UID, sinLeer: 0, participantes: [] },
+  conversacion('conv-1', 'soc-1', 'auth-maria', iso(dia(-3), 10, 0), iso(dia(0), 9, 12), '¿Puedo cambiar mi clase del jueves?', 'auth-maria'),
+  conversacion('conv-2', 'soc-3', 'auth-carmen', iso(dia(-8), 17, 0), iso(dia(-2), 12, 0), 'Gracias, ¡nos vemos el lunes!', UID),
 ];
 
 // ─── Las tarjetas de Equipo (`GET /api/equipo/tarjetas`) ────────────────────
