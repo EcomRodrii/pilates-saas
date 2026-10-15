@@ -107,6 +107,9 @@ const CASOS: Caso[] = [
   // PR-14: devolver el dinero de una clase COMPENSADA le quita el bono. Desde el cliente, cualquiera podría
   // vaciar el bono de otra (o sacarla de la cola) con solo conocer el id del pago.
   { firma: 'revertir_compra_de_clase(text, text)', anon: false, authenticated: false, serviceRole: true },
+  // Cadena que deja de pagar (migr 20261015141653): el trigger que recalcula el contrato de las sedes
+  // hermanas. Función de trigger: nadie la llama, y el permiso se comprueba al crear el trigger.
+  { firma: 'recalcular_contrato_sedes_hermanas()', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
