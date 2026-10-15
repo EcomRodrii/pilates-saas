@@ -157,10 +157,13 @@ export function HojaComparativa({
   abierta,
   onCerrar,
   destacado,
+  foundingGratis = false,
 }: {
   abierta: boolean;
   onCerrar: () => void;
   destacado?: Plan;
+  /** El alta con Founding Studio gratis: la misma columna que /precios. */
+  foundingGratis?: boolean;
 }) {
   const tituloId = useId();
 
@@ -204,7 +207,7 @@ export function HojaComparativa({
           </button>
         </div>
         <div className="cmp-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
-          <ComparativaPlanes destacado={destacado} todoAbierto />
+          <ComparativaPlanes destacado={destacado} todoAbierto foundingGratis={foundingGratis} />
         </div>
       </div>
     </div>
