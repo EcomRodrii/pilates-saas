@@ -52,3 +52,18 @@ export const nivelesConRitmoEncendido = (studioId: string) => encendidaPara(proc
 
 /** Qué se ve de cada alumna en la lista de una clase (P3.11). Lo mira `PUT /api/estudio/tarjeta-clase`; el Calendario y Configuración, el catálogo del navegador (misma variable). */
 export const tarjetaClaseEncendida = (studioId: string) => encendidaPara(process.env.TARJETA_CLASE, studioId);
+
+/**
+ * Avisos de integrador de Urban Sports Club (Provider ID automático). Dos
+ * lecturas de la MISMA variable `USC_AVISOS_INTEGRADOR`, porque el webhook es
+ * global y no conoce al estudio al recibir:
+ *  · recibir/guardar: `on` o una lista `estudios:` no vacía (guardar no afecta
+ *    a nadie);
+ *  · mostrar y confirmar: `encendidaPara`, con el estudio de la sesión.
+ * ⚠️ Apagado, el aviso se pierde (USC no reintenta tras el 200): encender la
+ * recepción ANTES de registrar la URL del webhook en USC.
+ */
+export const uscAvisosRecepcionEncendida = (valor: string | undefined = process.env.USC_AVISOS_INTEGRADOR): boolean =>
+  (valor ?? '').trim() === 'on' || (estudiosDelInterruptor(valor)?.length ?? 0) > 0;
+export const uscAvisosIntegradorEncendido = (studioId: string, valor: string | undefined = process.env.USC_AVISOS_INTEGRADOR) =>
+  encendidaPara(valor, studioId);

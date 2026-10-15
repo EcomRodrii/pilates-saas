@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type FormEvent } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -227,6 +227,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: MostrarTo
             )}
             {p === USC && activa && usc?.apiDisponible && (
               <ConexionUsc
+                key={`${usc.config.providerId ?? ''}/${usc.config.locationId ?? ''}`}
                 config={usc.config}
                 ventaCortada={usc.ventaCortada}
                 onGuardada={config => setUsc({ ...usc, config })}
@@ -387,7 +388,9 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
   }
 
   return (
-    <form onSubmit={guardar} className="mt-3 space-y-2 rounded-xl bg-muted/50 p-3" data-testid="conexion-usc">
+    <div className="mt-3 space-y-2">
+    <AvisoUsc onConectada={onGuardada} />
+    <form onSubmit={guardar} className="space-y-2 rounded-xl bg-muted/50 p-3" data-testid="conexion-usc">
       <p className="text-xs text-muted-foreground">
         {conectada && ventaCortada
           ? `En pausa: ${porQueSinVentaExterna(ventaCortada)}. Mientras tanto no se publica nada en Urban Sports Club ni entran sus reservas, y lo que estaba publicado se retira.`
@@ -427,5 +430,116 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
         {guardando ? 'Guardando…' : 'Guardar conexión'}
       </button>
     </form>
+    </div>
+  );
+}
+
+// Lo que Urban Sports Club ha avisado de este centro (Provider ID automático).
+// Solo aparece con el interruptor USC_AVISOS_INTEGRADOR encendido para el
+// estudio y un aviso que contar: si no, el servidor contesta 404 y no se pinta
+// nada. Nada se conecta sin que la propietaria lo confirme, y el servidor lo
+// comprueba antes con Urban Sports Club.
+interface VistaAviso { situacion: 'pendiente' | 'rechazado' | 'conflicto' | 'baja' | 'fin'; nombre: string | null; fin: string | null }
+
+function AvisoUsc({ onConectada }: { onConectada: (config: Record<string, string>) => void }) {
+  const [aviso, setAviso] = useState<VistaAviso | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const enCurso = useRef(false);
+  const [mensaje, setMensaje] = useState<{ texto: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/plataformas/usc/avisos')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivo && j?.aviso) setAviso(j.aviso as VistaAviso); })
+      .catch(() => { /* sin aviso: la pantalla sigue como siempre */ });
+    return () => { vivo = false; };
+  }, []);
+
+  async function enviar(accion: 'confirmar' | 'rechazar' | 'reabrir') {
+    if (enCurso.current) return; // un segundo clic, aunque sea antes de repintar, no manda otra petición
+    enCurso.current = true;
+    setEnviando(true);
+    setMensaje(null);
+    try {
+      const res = await fetch('/api/plataformas/usc/avisos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion }),
+      });
+      const j = await res.json().catch(() => null) as { error?: string } | null;
+      if (!res.ok) {
+        setMensaje({ texto: j?.error ?? 'No se ha podido guardar. No hemos cambiado nada.', ok: false });
+        return;
+      }
+      if (accion === 'confirmar') {
+        const c = await fetch('/api/integrations/config?tipo=URBAN_SPORTS_CLUB').then(r => (r.ok ? r.json() : null)).catch(() => null);
+        if (c?.config) onConectada(c.config as Record<string, string>);
+        setAviso(null);
+        setMensaje({ texto: 'Conectada. Las clases cuyo tipo tenga plazas cedidas a Urban Sports Club empezarán a publicarse.', ok: true });
+      } else {
+        setAviso({ ...(aviso as VistaAviso), situacion: accion === 'rechazar' ? 'rechazado' : 'pendiente' });
+      }
+    } catch {
+      setMensaje({ texto: 'No hemos podido conectar con el servidor. No hemos cambiado nada. Inténtalo de nuevo.', ok: false });
+    } finally {
+      enCurso.current = false;
+      setEnviando(false);
+    }
+  }
+
+  if (!aviso && !mensaje) return null;
+  const nombre = aviso?.nombre ? `«${aviso.nombre}»` : 'un centro';
+  const fin = aviso?.fin ? new Date(aviso.fin).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-background p-3" data-testid="aviso-usc">
+      {aviso?.situacion === 'pendiente' && (
+        <>
+          <p className="text-sm font-medium text-foreground">Urban Sports Club nos dice que ha dado de alta {nombre}. ¿Es el tuyo?</p>
+          <p className="text-xs text-muted-foreground">
+            Si lo es, lo comprobamos con ellos y lo conectamos: las clases cuyo tipo tenga plazas cedidas a Urban Sports Club empezarán a publicarse.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={enviando} onClick={() => enviar('confirmar')}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-foreground disabled:opacity-50" style={{ background: 'var(--brand)' }}>
+              {enviando ? 'Comprobando con Urban Sports Club…' : 'Sí, es mi centro: conectar'}
+            </button>
+            <button type="button" disabled={enviando} onClick={() => enviar('rechazar')}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50">
+              No es mío
+            </button>
+          </div>
+        </>
+      )}
+      {aviso?.situacion === 'rechazado' && (
+        <>
+          <p className="text-sm text-foreground">Dijiste que {nombre} no es tu centro.</p>
+          <button type="button" disabled={enviando} onClick={() => enviar('reabrir')}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50">
+            Deshacer
+          </button>
+        </>
+      )}
+      {aviso?.situacion === 'conflicto' && (
+        <p className="text-sm text-foreground">
+          Urban Sports Club ha avisado de otro centro ({nombre}) distinto del que tienes conectado. No hemos cambiado nada.
+          Si necesitas cambiarlo, avísanos desde Ayuda.
+        </p>
+      )}
+      {aviso?.situacion === 'baja' && (
+        <p className="text-sm text-foreground">
+          Atención: Urban Sports Club ha dado de baja la conexión de este centro con Tentare. No hemos borrado nada, pero es posible
+          que ya no se publiquen clases ni entren reservas nuevas. Pregúntales a ellos o avísanos desde Ayuda.
+        </p>
+      )}
+      {aviso?.situacion === 'fin' && fin && (
+        <p className="text-sm text-foreground">
+          Atención: la conexión con Urban Sports Club termina el {fin}. No hemos cambiado nada.
+        </p>
+      )}
+      {mensaje && (
+        <p role={mensaje.ok ? 'status' : 'alert'} className={cn('text-xs', mensaje.ok ? 'text-muted-foreground' : 'text-destructive')}>
+          {mensaje.texto}
+        </p>
+      )}
+    </div>
   );
 }
