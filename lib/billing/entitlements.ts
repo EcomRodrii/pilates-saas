@@ -38,10 +38,12 @@ export interface Entitlements {
                            // cambia es cuántas al mes (`consultasAsistenteMes`). Es una
                            // feature aparte de `ia` a propósito: Founding Studio lo tiene
                            // y sigue sin la IA de notas y campañas.
-    appPropia: boolean;    // la app de la App Store con el nombre y el icono del estudio
-                           // («Pedir mi app», lib/app-nativa/pedir-app.ts). Incluida en Estudio y
-                           // Cadena, NO en Founding Studio ni en el plan gratis (fundador, 15-oct-2026).
-                           // No confundir con `marca`: la web instalable con colores y logo, en todos.
+    appPropia: boolean;    // la app PROPIA del estudio en la tienda de apps, con su
+                           // nombre y su icono (la que prepara «Pedir mi app»). Solo
+                           // Estudio y Cadena: es lo que los distingue de Founding
+                           // Studio (fundador, 15-oct-2026: «estudio incluye la app
+                           // alumna»). ⚠️ No es `marca` (la app web instalable con los
+                           // colores y el logo del estudio), que va en todos los planes.
   };
   /**
    * Consultas del asistente al mes (mes de Madrid). Espejo de

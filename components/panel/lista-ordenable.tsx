@@ -29,7 +29,7 @@ export interface ItemOrdenable {
   fijo?: boolean;
 }
 
-function Fila({ item, oculto, onToggle }: { item: ItemOrdenable; oculto: boolean; onToggle: () => void }) {
+function Fila({ item, oculto, onToggle }: { item: ItemOrdenable; oculto: boolean; onToggle?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   return (
     <div
@@ -48,7 +48,7 @@ function Fila({ item, oculto, onToggle }: { item: ItemOrdenable; oculto: boolean
       <span className={cn('flex-1 text-[13px] font-medium', oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground')}>
         {item.label}
       </span>
-      {item.fijo ? (
+      {!onToggle ? null : item.fijo ? (
         // Se enseña el candado en vez de esconder el control: así se entiende
         // que no se puede, en vez de parecer que falta.
         <span title="Siempre visible" aria-label={`${item.label} siempre visible`} className="text-muted-foreground/40">
@@ -74,7 +74,8 @@ export function ListaOrdenable({
   items: ItemOrdenable[];
   ocultos: ReadonlySet<string>;
   onDragEnd: (e: DragEndEvent) => void;
-  onToggle: (id: string) => void;
+  /** Sin él, la lista solo ordena: sin el ojo de ocultar (con el panel nuevo, ocultar es cosa de Módulos). */
+  onToggle?: (id: string) => void;
 }) {
   const sensors = useSensors(
     // 5 px antes de arrastrar: sin esto, pulsar el ojo cuenta como arrastre en
@@ -87,7 +88,7 @@ export function ListaOrdenable({
       <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-1.5">
           {items.map(i => (
-            <Fila key={i.id} item={i} oculto={ocultos.has(i.id)} onToggle={() => onToggle(i.id)} />
+            <Fila key={i.id} item={i} oculto={ocultos.has(i.id)} onToggle={onToggle ? () => onToggle(i.id) : undefined} />
           ))}
         </div>
       </SortableContext>
