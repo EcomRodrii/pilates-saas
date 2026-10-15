@@ -87,11 +87,14 @@ export function FilaAjuste({
   estado,
   entero,
   extra,
+  frase,
   onAbrir,
 }: {
   id: TarjetaId;
   icono: LucideIcon;
   valor: string | null;
+  /** Otra frase que la de su tarjeta, cuando lo que hace la fila cambia (con el panel nuevo, «Tu menú» solo ordena). */
+  frase?: string;
   estado?: ResumenFila['estado'];
   entero?: boolean;
   /** Debajo del valor, sin interacción propia (va dentro del botón): p. ej. qué tipos de clase la cambian. */
@@ -112,7 +115,7 @@ export function FilaAjuste({
         >
           <span className="min-w-0 flex-1">
             <TituloFila titulo={tarjeta.titulo} estado={estado} />
-            <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{tarjeta.frase}</span>
+            <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{frase ?? tarjeta.frase}</span>
             {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
           </span>
           <span data-resumen={valor ? 'valor' : 'descripcion'} className="contents"><CajaValor valor={valor} /></span>
@@ -132,7 +135,7 @@ export function FilaAjuste({
         <IconoFila icono={icono} />
         <span className="min-w-0 flex-1">
           <TituloFila titulo={tarjeta.titulo} estado={estado} />
-          <ValorFila valor={valor} descripcion={tarjeta.frase} entero={entero || !!estado} />
+          <ValorFila valor={valor} descripcion={frase ?? tarjeta.frase} entero={entero || !!estado} />
           {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
         </span>
         <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />

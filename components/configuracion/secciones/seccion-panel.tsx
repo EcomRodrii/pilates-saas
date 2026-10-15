@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { Check, LayoutDashboard, Menu, Moon, PanelLeft, PanelTop } from 'lucide-react';
 import { usePanelTheme } from '@/lib/panel-theme';
 import { cn } from '@/lib/utils';
@@ -11,11 +12,14 @@ import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { ListaOrdenable } from '@/components/panel/lista-ordenable';
 import { usePersonalizacionPanel } from '@/components/panel/use-personalizacion-panel';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaInterruptor, GrupoFilas, TituloFila } from '@/components/configuracion/shell/fila-ajuste';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import { tuTentareActivo } from '@/lib/tu-tentare/cliente';
 import { useStudio } from '@/lib/studio-context';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { HREF_MODULOS } from '@/lib/modulos/menu';
+import { CajaValor, FILA_NUEVA } from '@/components/configuracion/shell/fila-herramienta';
 
 // «Tu Tentare» (P2.5): solo se carga si el servidor lo enciende para el estudio
 // (interruptor `TU_TENTARE`). Apagado, esta sección es exactamente la de antes.
@@ -63,6 +67,11 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
   const [tuTentare, setTuTentare] = useState(false);
   const { studio } = useStudio();
   const tarjetaClase = useInterruptor('tarjetaClase', studio?.id);
+  // Con el panel nuevo, qué sale en el menú lo decide Módulos (sustituye a «Tus
+  // módulos» y a «Esencial / Todo»): aquí queda el enlace, y «Tu menú» solo ordena.
+  const panelNuevo = usePanelNuevo();
+  const modulosDelPanel = p.grupos.flatMap(g => g.items).filter(i => i.id !== HREF_MODULOS);
+  const enElMenu = modulosDelPanel.filter(i => p.enMenu(i.id)).length;
   // «Tus módulos» y el cajón «Tu menú» escriben el mismo dato: nunca a la vez.
   // Con un cajón abierto, sus interruptores esperan; con uno guardando, los
   // cajones no se abren (si no, el cajón se quedaba con lo de antes y, al
@@ -110,10 +119,27 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
       )}
 
       <GrupoFilas titulo="Cómo se ordena tu panel">
+        {panelNuevo && (
+          <li>
+            <Link href={HREF_MODULOS} className={FILA_NUEVA} data-testid="fila-modulos">
+              <span className="min-w-0 flex-1">
+                <TituloFila titulo="Módulos" />
+                <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">
+                  Qué sale en el menú de tu equipo: activa los módulos que usas y oculta los que no, sin borrar nada.
+                </span>
+              </span>
+              <CajaValor valor={listo ? `${enElMenu} de ${modulosDelPanel.length} activos` : null} />
+            </Link>
+          </li>
+        )}
         <FilaAjuste
           id="menu-del-panel"
           icono={Menu}
-          valor={resumenMenuPanel(listo ? { total: p.grupos.reduce((n, g) => n + g.items.length, 0), ocultos: p.modulosOcultos.size } : null)}
+          // Con el panel nuevo, sin cifra: la de cuántos salen es la de la fila de Módulos, justo encima.
+          valor={panelNuevo
+            ? null
+            : resumenMenuPanel(listo ? { total: p.grupos.reduce((n, g) => n + g.items.length, 0), ocultos: p.modulosOcultos.size } : null)}
+          frase={panelNuevo ? 'Ordena los módulos de tu menú dentro de su grupo. Cuáles salen se elige en Módulos.' : undefined}
           onAbrir={abrirSiLibre}
         />
         <FilaAjuste
@@ -143,7 +169,7 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
       {/* «Tu Tentare», después de lo de siempre: diecinueve filas delante
           enterrarían «Claro u oscuro». Tras cada cambio el hook vuelve a leer:
           el cajón «Tu menú» no puede quedarse con datos viejos y deshacerlo. */}
-      {tuTentare && (
+      {tuTentare && !panelNuevo && (
         <TusModulos
           bloqueado={cajon !== null}
           onGuardando={setModulosGuardando}
@@ -157,17 +183,28 @@ export function SeccionPanel({ showToast }: { showToast: (m: string) => void }) 
             {/* Un bloque por grupo del menú, con su mismo rótulo: así se ve dónde
                 puede moverse cada módulo (fuera de su grupo no se puede). */}
             <div className="flex flex-col gap-4 pb-6">
-              {p.grupos.map((g, i) => (
-                <div key={g.label ?? `sin-rotulo-${i}`} className="space-y-1.5">
-                  {g.label && <p className="px-1 text-xs font-semibold text-muted-foreground">{g.label}</p>}
-                  <ListaOrdenable
-                    items={g.items}
-                    ocultos={p.modulosOcultos}
-                    onDragEnd={e => p.moverModulo(i, e)}
-                    onToggle={p.ocultarModulo}
-                  />
-                </div>
-              ))}
+              {panelNuevo && (
+                <p className="px-1 text-[13px] text-muted-foreground text-pretty">
+                  Aquí ordenas lo que sale en tu menú. Para activar u ocultar un módulo, ve a{' '}
+                  <Link href={HREF_MODULOS} className="font-semibold text-foreground underline underline-offset-2">Módulos</Link>.
+                </p>
+              )}
+              {p.grupos.map((g, i) => {
+                // Con el panel nuevo, solo lo que sale en el menú, y sin el ojo: ocultar es cosa de Módulos.
+                const items = panelNuevo ? g.items.filter(it => p.enMenu(it.id)) : g.items;
+                if (items.length === 0) return null;
+                return (
+                  <div key={g.label ?? `sin-rotulo-${i}`} className="space-y-1.5">
+                    {g.label && <p className="px-1 text-xs font-semibold text-muted-foreground">{g.label}</p>}
+                    <ListaOrdenable
+                      items={items}
+                      ocultos={p.modulosOcultos}
+                      onDragEnd={e => p.moverModulo(i, e)}
+                      onToggle={panelNuevo ? undefined : p.ocultarModulo}
+                    />
+                  </div>
+                );
+              })}
             </div>
             {barra('menu-del-panel', p.cambios.menu)}
           </>
