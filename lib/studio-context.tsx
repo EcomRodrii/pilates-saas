@@ -64,7 +64,7 @@ import {
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolverEstudioDeLaSesion, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
-import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura, type ResultadoAlta } from '@/lib/errores';
 
 /**
  * Lo que de verdad ha pasado al intentar reservar.
@@ -324,10 +324,10 @@ interface StudioContextValue {
   // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
   valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
-  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
-  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
@@ -2225,7 +2225,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setContenidoPortal({ studioId, mensajeDestacado: mensaje });
     return res;
   }
-  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     // `contenido_portal_banners.id` es `uuid` de verdad (no `text` como el resto
     // de entidades de esta app) — el id de cliente tiene que ser un UUID válido,
     // no el `bp-${uid()}` habitual, o Postgres lo rechaza con 22P02. Además el
@@ -2238,7 +2238,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertBannerPortal(nuevo);
     if (!res.ok) return res;
     setBannersPortal(prev => [...prev, nuevo]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateBannerPortal(id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateBannerPortal(id, changes);
@@ -2254,12 +2254,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
-  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
     const res = await dbInsertNovedadEstudio(nuevo);
     if (!res.ok) return res;
     setNovedadesEstudio(prev => [nuevo, ...prev]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateNovedadEstudio(id, changes);

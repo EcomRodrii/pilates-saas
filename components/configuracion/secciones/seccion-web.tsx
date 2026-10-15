@@ -26,7 +26,7 @@ import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramien
 const CAJONES = ['direccion-y-enlaces', 'pagina-publica'] as const satisfies readonly TarjetaId[];
 
 export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, updateStudio, contenidoPortal, bannersPortal, novedadesEstudio } = useStudio();
+  const { studio, dataLoaded, updateStudio, bannersPortal } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   // Qué tarjetas siguen publicadas depende de la hora: se lee una vez al montar,
@@ -73,7 +73,7 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
       id: 'contenido-de-tu-app' as const,
       valor: resumenHerramienta('contenido-de-tu-app', {
         contenido: dataLoaded && ahoraMs > 0
-          ? { mensajeDestacado: contenidoPortal?.mensajeDestacado ?? null, tarjetas: bannersPortal, avisos: novedadesEstudio, ahoraMs }
+          ? { tarjetas: bannersPortal, ahoraMs }
           : null,
       }),
     },

@@ -12,7 +12,7 @@ const BASE: DatosOnboarding = {
   nif: '1', stripeAccountId: null, slug: 'salma', colorPrimario: null, temaPortal: null, logoUrl: 'x',
   numInstructores: 1, numInstructoresConCuenta: 1, numTiposClase: 3, numSesiones: 40, numSocios: 5,
   numSalas: 2, numPlanesTarifa: 1, numSuscripcionesActivas: 1, numReservas: 0,
-  contenidoPortalPersonalizado: false, automatizacionesActivas: new Set(),
+  hayTarjetaEnLaApp: false, automatizacionesActivas: new Set(),
   reservaExigirPlan: true, numPlanesActivos: 1, numPlanesBorrador: 1,
 };
 

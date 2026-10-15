@@ -74,6 +74,8 @@ export const ERROR_RED =
 
 /** Resultado de una escritura que la usuaria está esperando en pantalla. */
 export type ResultadoEscritura = { ok: true } | { ok: false; error: string };
+/** Lo mismo, para un alta: con el id de lo creado, para poder abrirlo al momento. */
+export type ResultadoAlta = { ok: true; id: string } | { ok: false; error: string };
 
 /**
  * Traduce un fallo de escritura a una frase que la dueña pueda entender Y
