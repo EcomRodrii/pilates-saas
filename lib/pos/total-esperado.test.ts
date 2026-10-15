@@ -43,15 +43,42 @@ test('el IMPORTE_NO_COINCIDE de la confirmación (dos cifras) no se lee como est
   assert.equal(leerTotalNoCoincide('IMPORTE_NO_COINCIDE:80.00:95.00'), null);
 });
 
-test('el mensaje dice el total de verdad, por qué, y que no se ha cobrado nada', () => {
-  const m = mensajeTotalNoCoincide({ esperado: 80, total: 95, matricula: 15 });
-  assert.match(m, /95,00/);
-  assert.match(m, /matrícula \(15,00/);
-  assert.match(m, /No se ha registrado ni cobrado nada/);
-  // Nunca la frase de la confirmación: aquí no se ha cobrado.
-  assert.doesNotMatch(m, /Se cobraron/i);
+test('el mensaje dice el total de verdad y por qué, sin decir nunca «no se ha cobrado nada»', () => {
+  for (const metodo of ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA', 'DATAFONO']) {
+    const m = mensajeTotalNoCoincide({ esperado: 80, total: 95, matricula: 15 }, metodo);
+    assert.match(m, /El total de esta venta es 95,00 €/);
+    assert.match(m, /matrícula \(15,00/);
+    assert.match(m, /La venta no se ha registrado/);
+    // Con el TPV del banco o una transferencia el dinero se mueve antes de confirmar:
+    // «no se ha cobrado nada» invitaría a cobrar el total otra vez.
+    assert.doesNotMatch(m, /ni cobrado nada|Se cobraron/i, metodo);
+  }
   // Sin matrícula, sin inventarse un motivo.
-  assert.doesNotMatch(mensajeTotalNoCoincide({ esperado: 25, total: 27, matricula: 0 }), /matrícula/);
+  assert.doesNotMatch(mensajeTotalNoCoincide({ esperado: 25, total: 27, matricula: 0 }, 'EFECTIVO'), /matrícula/);
+});
+
+test('con el TPV del banco, si sube se cobra SOLO la diferencia; si baja, se devuelve', () => {
+  const sube = mensajeTotalNoCoincide({ esperado: 130, total: 145, matricula: 15 }, 'TARJETA');
+  assert.match(sube, /cobra solo los 15,00 € que faltan/);
+  assert.match(sube, /no el total otra vez/);
+  assert.match(sube, /confirma 145,00 €/);
+  const baja = mensajeTotalNoCoincide({ esperado: 145, total: 130, matricula: 0 }, 'TARJETA');
+  assert.match(baja, /devuelve 15,00 €/);
+  assert.doesNotMatch(baja, /que faltan/, 'si el total baja, no se manda cobrar de más');
+  // Y una matrícula que ya no toca no se da como motivo de una subida que no hay.
+  assert.doesNotMatch(mensajeTotalNoCoincide({ esperado: 145, total: 130, matricula: 15 }, 'TARJETA'), /porque lleva/);
+});
+
+test('con la transferencia, igual: se pide solo lo que falta, o se devuelve lo de más', () => {
+  assert.match(mensajeTotalNoCoincide({ esperado: 130, total: 145, matricula: 15 }, 'TRANSFERENCIA'), /pide solo los 15,00 € que faltan/);
+  assert.match(mensajeTotalNoCoincide({ esperado: 145, total: 130, matricula: 0 }, 'TRANSFERENCIA'), /devuelve 15,00 €/);
+});
+
+test('con datáfono o Bizum no se lanzó ningún cobro; en efectivo, el cambio va con el total nuevo', () => {
+  for (const metodo of ['DATAFONO', 'BIZUM']) {
+    assert.match(mensajeTotalNoCoincide({ esperado: 130, total: 145, matricula: 15 }, metodo), /No se ha lanzado ningún cobro/);
+  }
+  assert.match(mensajeTotalNoCoincide({ esperado: 130, total: 145, matricula: 15 }, 'EFECTIVO'), /Cuenta el cambio con el total nuevo/);
 });
 
 function ultimaDefinicionRpc(): { fichero: string; cuerpo: string } {
@@ -88,6 +115,11 @@ test('las dos rutas le hablan a la RPC con los mismos parámetros nuevos', () =>
   // El rechazo nunca cae en el mensaje genérico de ese código («Se cobraron X €…»).
   assert.ok(venta.indexOf("startsWith('IMPORTE_NO_COINCIDE')") < venta.indexOf('mensajeErrorVenta(codigo)'),
     'el rechazo por total se trata antes que el resto de códigos');
+
+  // Una Caja de antes (sin totalEsperado) no puede vender un plan a una clienta: es
+  // justo el caso en que la RPC añade la matrícula sin que se haya visto.
+  assert.match(venta, /totalEsperado === null && socioId && sane\.lineas\.some\(\(l\) => l\.tipo === 'PLAN'\)/);
+  assert.match(venta, /mensajeTotalNoCoincide\(d, metodoPago\)/, 'el mensaje depende del método');
 
   const presupuesto = sinComentarios(leer('app/api/pos/venta/presupuesto/route.ts'));
   assert.match(presupuesto, /p_solo_calcular:\s*true/);

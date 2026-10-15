@@ -53,18 +53,36 @@ async function ventasDelEstudio(studioId: string) {
   return count ?? 0;
 }
 
-test('la vista previa da el total con la matrícula y no deja ninguna venta escrita', async () => {
+test('la vista previa da el total con la matrícula y no deja nada escrito: ni venta, ni stock, ni uso del código', async () => {
   await conEstudio(async (studio) => {
     const socio = await crearSocia(admin, studio.studioId);
     const plan = await montarPlanConMatricula(studio.studioId);
+    const producto = idUnico('prod');
+    const codigo = idUnico('cod');
+    const { error: errProd } = await admin.from('productos_pos').insert({
+      id: producto, studio_id: studio.studioId, nombre: 'Calcetines', categoria: 'Ropa', precio: 10, activo: true, stock: 5,
+    });
+    assert.ok(!errProd, `fixture de producto: ${errProd?.message}`);
+    const { error: errCod } = await admin.from('codigos_descuento').insert({
+      id: codigo, studio_id: studio.studioId, codigo: `TE${contador}`, tipo: 'PORCENTAJE', valor: 10, usos: 0, activo: true,
+    });
+    assert.ok(!errCod, `fixture de código: ${errCod?.message}`);
 
-    const { data, error } = await vender(studio, socio, plan, { p_solo_calcular: true });
+    const { data, error } = await vender(studio, socio, plan, {
+      p_lineas: [{ tipo: 'PLAN', referenciaId: plan, cantidad: 1 }, { tipo: 'PRODUCTO', referenciaId: producto, cantidad: 2 }],
+      p_codigo_descuento_id: codigo,
+      p_solo_calcular: true,
+    });
     assert.equal(data, null, 'con p_solo_calcular la RPC no devuelve una venta');
     assert.ok(error, 'la vista previa contesta con su excepción');
-    const p = leerPresupuesto(error.message);
-    assert.deepEqual(p, { total: 95, matricula: 15, matriculaPlanId: plan }, error.message);
+    // 80 + 2 × 10 = 100; el 10 % del código solo sobre eso (90), y la matrícula entera encima.
+    assert.deepEqual(leerPresupuesto(error.message), { total: 105, matricula: 15, matriculaPlanId: plan }, error.message);
 
     assert.equal(await ventasDelEstudio(studio.studioId), 0, 'la vista previa no puede dejar una venta');
+    const { data: prod } = await admin.from('productos_pos').select('stock').eq('id', producto).single();
+    assert.equal(prod?.stock, 5, 'la vista previa no descuenta stock');
+    const { data: cod } = await admin.from('codigos_descuento').select('usos').eq('id', codigo).single();
+    assert.equal(cod?.usos ?? 0, 0, 'la vista previa no gasta un uso del código');
   });
 });
 

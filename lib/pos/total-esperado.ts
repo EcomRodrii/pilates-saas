@@ -70,17 +70,50 @@ export function leerTotalNoCoincide(mensaje: string): TotalNoCoincide | null {
 
 /**
  * Lo que se le dice a quien cobra cuando el servidor rechaza la venta porque el
- * total no es el que vio. Es VERDAD en todos los métodos: la venta no se ha
- * registrado y no se ha lanzado ningún cobro (la RPC se deshace antes). Si con
- * el TPV del banco ya cobró lo que veía, se lo dice: tiene que cobrar la
- * diferencia antes de volver a confirmar.
+ * total no es el que vio. La venta no existe (la RPC se deshace antes) y el
+ * servidor no ha lanzado ningún cobro; pero con el TPV del banco o una
+ * transferencia el dinero se mueve FUERA de Tentare antes de confirmar, y quien
+ * cobra acaba de afirmar «Sí, he cobrado X». Por eso cada método dice lo suyo, y
+ * nunca «no se ha cobrado nada» ni «cobra el total» a quien quizá ya cobró: solo
+ * la diferencia, en el sentido que toque.
  */
-export function mensajeTotalNoCoincide(d: Pick<TotalNoCoincide, 'esperado' | 'total' | 'matricula'>): string {
-  const motivo = d.matricula > 0 ? ` porque lleva la matrícula (${formatEuro(d.matricula)})` : '';
-  return `El total de esta venta es ${formatEuro(d.total)}${motivo}, no ${formatEuro(d.esperado)}. `
-    + 'No se ha registrado ni cobrado nada. Si ya cobraste con el TPV de tu banco, cobra la diferencia y vuelve a confirmar con el total nuevo.';
+export function mensajeTotalNoCoincide(
+  d: Pick<TotalNoCoincide, 'esperado' | 'total' | 'matricula'>,
+  metodo: string,
+): string {
+  const sube = d.total > d.esperado;
+  const diferencia = formatEuro(Math.round(Math.abs(d.total - d.esperado) * 100) / 100);
+  const motivo = sube && d.matricula > 0 ? ` porque lleva la matrícula (${formatEuro(d.matricula)})` : '';
+  const total = formatEuro(d.total), esperado = formatEuro(d.esperado);
+  const cabecera = `El total de esta venta es ${total}${motivo}, no ${esperado}. La venta no se ha registrado.`;
+  switch (metodo) {
+    case 'DATAFONO':
+    case 'BIZUM':
+      return `${cabecera} No se ha lanzado ningún cobro: cóbrala con el total nuevo.`;
+    case 'EFECTIVO':
+      return `${cabecera} Cuenta el cambio con el total nuevo.`;
+    case 'TARJETA':
+      return sube
+        ? `${cabecera} Si ya cobraste ${esperado} en el TPV de tu banco, cobra solo los ${diferencia} que faltan —no el total otra vez— y confirma ${total}.`
+        : `${cabecera} Si ya cobraste ${esperado} en el TPV de tu banco, devuelve ${diferencia} (o anula ese cobro y cobra ${total}) y confirma ${total}.`;
+    case 'TRANSFERENCIA':
+      return sube
+        ? `${cabecera} Si ya te han transferido ${esperado}, pide solo los ${diferencia} que faltan y confirma ${total}.`
+        : `${cabecera} Si ya te han transferido ${esperado}, devuelve ${diferencia} y confirma ${total}.`;
+    default:
+      return `${cabecera} Revisa el total antes de volver a confirmar.`;
+  }
 }
 
-/** Si el rechazo no se pudiera leer: igual de cierto, sin cifras. */
+/** Si el rechazo no se pudiera leer: igual de cierto, sin cifras ni promesas sobre el dinero. */
 export const MENSAJE_TOTAL_CAMBIADO =
-  'El total de esta venta ha cambiado. No se ha registrado ni cobrado nada: revisa el total y vuelve a confirmar.';
+  'El total de esta venta ha cambiado y la venta no se ha registrado. Revisa el total antes de volver a confirmar.';
+
+/**
+ * Una Caja abierta antes de este cambio no manda `totalEsperado`. Solo con clienta y
+ * plan puede la RPC añadir una línea (la matrícula), así que solo entonces se le
+ * pide que recargue: el resto de ventas no puede descuadrar por esto.
+ */
+export const MENSAJE_CAJA_DESACTUALIZADA =
+  'Esta pantalla de la Caja es de antes de una actualización. Recarga la página y vuelve a cobrar esta venta: no se ha registrado. '
+  + 'Si ya la cobraste con el TPV de tu banco o por transferencia y al recargar el total es otro, cobra o devuelve solo la diferencia, no el total otra vez.';

@@ -12,7 +12,7 @@ import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { CODIGO_INTENTO_CERRADO, mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 import { saneaLineas } from '@/lib/pos/sanear-lineas';
-import { leerTotalNoCoincide, mensajeTotalNoCoincide, MENSAJE_TOTAL_CAMBIADO } from '@/lib/pos/total-esperado';
+import { leerTotalNoCoincide, mensajeTotalNoCoincide, MENSAJE_TOTAL_CAMBIADO, MENSAJE_CAJA_DESACTUALIZADA } from '@/lib/pos/total-esperado';
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
@@ -120,8 +120,8 @@ export async function POST(req: NextRequest) {
   const notas = typeof body.notas === 'string' ? body.notas.slice(0, 500) : null;
   // El total que ha visto quien cobra (la vista previa de la hoja de cobro). Si no es
   // el que calcula la RPC —la matrícula, un precio cambiado—, la venta no se registra
-  // ni se cobra (`IMPORTE_NO_COINCIDE`). Opcional solo para no tumbar una pestaña
-  // abierta antes del despliegue: la Caja lo manda siempre.
+  // ni se cobra (`IMPORTE_NO_COINCIDE`). La Caja lo manda siempre; falta solo en una
+  // pestaña abierta antes del despliegue (ver abajo).
   const totalEsperado = body.totalEsperado == null ? null : Number(body.totalEsperado);
 
   if (descuentoTipo && (!Number.isFinite(descuentoValor) || descuentoValor < 0)) {
@@ -132,6 +132,12 @@ export async function POST(req: NextRequest) {
   }
   if (totalEsperado !== null && (!Number.isFinite(totalEsperado) || totalEsperado < 0 || totalEsperado > 100000)) {
     return NextResponse.json({ error: 'El total de la venta no es válido.' }, { status: 400 });
+  }
+  // Sin él, una Caja de antes seguiría registrando la matrícula sin haberla enseñado. Solo
+  // puede pasar con clienta y plan (es cuando la RPC añade esa línea): ahí se le pide que
+  // recargue; el resto de ventas sigue como siempre.
+  if (totalEsperado === null && socioId && sane.lineas.some((l) => l.tipo === 'PLAN')) {
+    return NextResponse.json({ error: MENSAJE_CAJA_DESACTUALIZADA, codigo: 'CAJA_DESACTUALIZADA' }, { status: 409 });
   }
 
   // La socia, si viene, tiene que ser de ESTE estudio. El id lo manda el
@@ -245,7 +251,7 @@ export async function POST(req: NextRequest) {
       const d = leerTotalNoCoincide(error.message);
       if (!d) return NextResponse.json({ error: MENSAJE_TOTAL_CAMBIADO, codigo: 'IMPORTE_NO_COINCIDE' }, { status: 409 });
       return NextResponse.json({
-        error: mensajeTotalNoCoincide(d), codigo: 'IMPORTE_NO_COINCIDE',
+        error: mensajeTotalNoCoincide(d, metodoPago), codigo: 'IMPORTE_NO_COINCIDE',
         total: d.total, matricula: d.matricula, matriculaPlanId: d.matriculaPlanId,
       }, { status: 409 });
     }

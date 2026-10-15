@@ -10,8 +10,8 @@ import {
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { DeudaClienta } from './deuda-clienta';
-import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
-import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
+import { buscarCodigo, validarCodigoCanjeable } from '@/lib/codigos-descuento';
+import { calcularTicket, descuentoDeCodigo, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
 import { leerCatalogoPOS } from '@/lib/pos/leer-respuestas';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
@@ -256,7 +256,15 @@ export function PosTerminal() {
     }));
   }
 
+  // El total que contó el servidor para un ticket (ver «El total de verdad», abajo).
+  // Declarado aquí porque `vaciar` lo borra: si no, la misma clienta con el mismo plan
+  // en la venta siguiente encontraría la cuenta de antes y «Cobrar» saldría al momento
+  // con una cifra que el servidor quizá ya no da.
+  const [totalServidor, setTotalServidor] = useState<{ firma: string; r: PresupuestoVenta | ErrorPOS } | null>(null);
+  const [intentoTotal, setIntentoTotal] = useState(0);
+
   function vaciar() {
+    setTotalServidor(null);
     setCarrito([]); setClienteId(null); setDescuentoTexto('');
     setCodigoTexto(''); setCodigoAplicado(null); setCodigoError(null);
     setAviso(null); setVistaMovil('catalogo');
@@ -269,7 +277,7 @@ export function PosTerminal() {
   const opcionesDescuento = useMemo(() => ({
     descuentoTipo,
     descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
-    descuentoCodigo: codigoAplicado ? calcularDescuento(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
+    descuentoCodigo: codigoAplicado ? descuentoDeCodigo(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
   }), [carrito, descuentoTipo, descuentoTexto, codigoAplicado]);
   const ticket = useMemo(() => calcularTicket(carrito, opcionesDescuento), [carrito, opcionesDescuento]);
 
@@ -315,10 +323,13 @@ export function PosTerminal() {
   // registrado como 145 €; en efectivo, «Cambio 70» y después «Devuelve 55».
   //
   // Ahora se le pregunta a la misma RPC (`/api/pos/venta/presupuesto`) en cuanto
-  // puede haberla —una clienta y un plan—, y se enseña y se cobra ESE total, con la
-  // matrícula en su línea. Y aunque la pregunta falle, la venta manda el total que
-  // se ha visto (`totalEsperado`) y el servidor la rechaza si no es el suyo: nada
-  // se registra ni se cobra con un total distinto del de la pantalla.
+  // puede haberla —una clienta y un plan— o hay un descuento (por si el redondeo de
+  // aquí y el de la base de datos se separan un céntimo), y se
+  // enseña y se cobra ESE total, con la matrícula en su línea. Y aunque la pregunta
+  // falle, la venta manda el total que se ha visto (`totalEsperado`) y el servidor la
+  // rechaza si no es el suyo: nada se registra ni se cobra con un total distinto del
+  // de la pantalla. Sin clienta ni plan ni descuento no se pregunta: el ticket ya es
+  // el de la RPC, y la venta lo comprueba igual.
   const peticionTotal = useMemo<PeticionPresupuesto>(() => ({
     lineas: carrito.map((i) => ({
       tipo: i.tipo, referenciaId: i.referenciaId, cantidad: i.cantidad,
@@ -330,22 +341,31 @@ export function PosTerminal() {
     codigoDescuentoId: codigoAplicado?.id ?? null,
   }), [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
   const firmaTotal = useMemo(() => JSON.stringify(peticionTotal), [peticionTotal]);
-  const puedeLlevarMatricula = !!clienteId && carrito.some((i) => i.tipo === 'PLAN');
-  // Atado al ticket que lo pidió: con otro carrito, otra clienta u otro descuento, no vale.
-  const [totalServidor, setTotalServidor] = useState<{ firma: string; r: PresupuestoVenta | ErrorPOS } | null>(null);
+  const necesitaTotalServidor = carrito.length > 0 && (
+    (!!clienteId && carrito.some((i) => i.tipo === 'PLAN'))
+    || (!!descuentoTexto && (parseFloat(descuentoTexto.replace(',', '.')) || 0) > 0)
+    || !!codigoAplicado
+  );
+  // `totalServidor` va atado al ticket que lo pidió: con otro carrito, otra clienta u
+  // otro descuento, no vale.
   useEffect(() => {
-    if (!puedeLlevarMatricula) return;
+    if (!necesitaTotalServidor) return;
     let vivo = true;
     // Un respiro: tocar «+» tres veces seguidas es una pregunta, no tres.
     const t = setTimeout(() => {
       void presupuestoVenta(peticionTotal).then((r) => { if (vivo) setTotalServidor({ firma: firmaTotal, r }); });
     }, 250);
     return () => { vivo = false; clearTimeout(t); };
-  }, [puedeLlevarMatricula, peticionTotal, firmaTotal]);
+  }, [necesitaTotalServidor, peticionTotal, firmaTotal, intentoTotal]);
   const respuestaTotal = totalServidor?.firma === firmaTotal ? totalServidor.r : null;
   const totalDelServidor = respuestaTotal && !esError(respuestaTotal) ? respuestaTotal : null;
   const errorTotal = respuestaTotal && esError(respuestaTotal) ? respuestaTotal.error : null;
-  const calculandoTotal = puedeLlevarMatricula && !respuestaTotal;
+  const calculandoTotal = necesitaTotalServidor && !respuestaTotal;
+  // «Volver a comprobar»: se olvida la respuesta fallida y se pregunta otra vez.
+  const comprobarTotal = useCallback(() => {
+    setTotalServidor(null);
+    setIntentoTotal((n) => n + 1);
+  }, []);
   const matricula = useMemo(() => {
     if (!totalDelServidor || totalDelServidor.matricula <= 0) return null;
     const plan = catalogo?.planes.find((p) => p.id === totalDelServidor.matriculaPlanId)?.nombre ?? 'plan';
@@ -386,13 +406,15 @@ export function PosTerminal() {
     return `pos-${hash(nonceVenta + firma + clienteId + descuentoTexto + descuentoTipo + (codigoAplicado?.id ?? ''))}`;
   }, [nonceVenta, carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
 
-  const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null) => {
+  // `totalEsperado` lo pone la hoja: es el que está enseñando (y, con el TPV del
+  // banco, el que quien cobra acaba de afirmar), no el que haya aquí en ese momento.
+  const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null, totalEsperado: number) => {
     const r = await registrarVenta({
       ...peticionTotal,
       metodoPago: metodo,
       efectivoRecibido,
       idempotenciaClave: `${claveIdempotencia}-${metodo}`,
-      totalEsperado: totalCobro,
+      totalEsperado,
     });
     // El servidor no la ha registrado porque el total no era el de la pantalla. Trae el
     // de verdad: la hoja lo enseña, y el siguiente intento manda ese.
@@ -410,7 +432,7 @@ export function PosTerminal() {
       setAviso(`Esta venta ya estaba registrada (${formatNumeroVenta(r.numero)}). No se ha cobrado dos veces.`);
     }
     return r;
-  }, [peticionTotal, claveIdempotencia, totalCobro, firmaTotal, setTotalServidor]);
+  }, [peticionTotal, claveIdempotencia, firmaTotal, setTotalServidor]);
 
   // ── Atajos de teclado (escritorio) ────────────────────────────────────────
   useEffect(() => {
@@ -1001,6 +1023,10 @@ export function PosTerminal() {
         <HojaCobro
           total={totalCobro}
           matricula={matricula}
+          totalSinComprobar={!!errorTotal}
+          motivoSinComprobar={errorTotal}
+          comprobandoTotal={calculandoTotal}
+          onComprobarTotal={comprobarTotal}
           cobroDisponible={catalogo?.cobro ?? { stripeConectado: false, datafonoEmparejado: false }}
           bizumPermitido={bizumPermitido}
           onCobrar={enviarVenta}
