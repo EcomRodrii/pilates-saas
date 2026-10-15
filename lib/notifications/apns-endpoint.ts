@@ -26,3 +26,20 @@ export function leerEndpointApns(endpoint: string): { bundleId: string; token: s
   if (!BUNDLE_VALIDO.test(bundleId) || !TOKEN_VALIDO.test(token)) return null;
   return { bundleId, token };
 }
+
+/**
+ * Los servicios de Web Push de los navegadores (Chrome/Edge/Brave/Samsung → FCM; Safari → Apple;
+ * Edge antiguo → Windows; Firefox → Mozilla). El servidor hace un POST a la dirección que se guarda,
+ * así que solo se aceptan estas: cualquier otra sería pedirle al servidor que llame a donde diga el
+ * navegador. Un token de la app (`apns://`) nunca entra por aquí: va por `nativo`, que comprueba el bundle.
+ */
+const HOSTS_WEB_PUSH = ['fcm.googleapis.com', 'android.googleapis.com', 'push.apple.com', 'notify.windows.com', 'push.services.mozilla.com'];
+
+export function endpointWebPushValido(endpoint: unknown): endpoint is string {
+  if (typeof endpoint !== 'string' || endpoint.length > 2000) return false;
+  let url: URL;
+  try { url = new URL(endpoint); } catch { return false; }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) return false;
+  const host = url.hostname.toLowerCase();
+  return HOSTS_WEB_PUSH.some((h) => host === h || host.endsWith(`.${h}`));
+}

@@ -44,3 +44,27 @@ test('el appID de un estudio exige el Team y un bundle limpio', () => {
   assert.equal(appIdDeEstudio('corto', 'app.tentare.luz'), null);
   assert.equal(appIdDeEstudio('ABCDE12345', 'app tentare/luz'), null);
 });
+
+test('un slug con comodines no entra: reclamaría rutas de otros estudios', () => {
+  const c = contenidoAasa(['T.app.tentare'], [
+    { appId: 'T.app.tentare.bien', slug: 'pilates-bien' },
+    { appId: 'T.app.tentare.mal', slug: 'p*' },
+    { appId: 'T.app.tentare.mal2', slug: 'a?b' },
+  ]);
+  const ids = c.applinks.details.map((d) => d.appIDs[0]);
+  assert.deepEqual(ids, ['T.app.tentare.bien', 'T.app.tentare']);
+});
+
+test('la app de una cadena reclama las rutas de todas sus sedes, en un solo bloque', () => {
+  const c = contenidoAasa(['T.app.tentare'], [
+    { appId: 'T.app.tentare.cupo-001', slug: 'luz-norte' },
+    { appId: 'T.app.tentare.cupo-001', slug: 'luz-sur' },
+    { appId: 'T.app.tentare.cupo-001', slug: 'luz-norte' },
+  ]);
+  assert.equal(c.applinks.details.length, 2);
+  const cadena = c.applinks.details[0];
+  assert.deepEqual(cadena.appIDs, ['T.app.tentare.cupo-001']);
+  assert.deepEqual(cadena.components.map((x) => x['/']), ['/portal/luz-norte', '/portal/luz-norte/*', '/portal/luz-sur', '/portal/luz-sur/*']);
+  // La general, siempre la última.
+  assert.deepEqual(c.applinks.details[1].appIDs, ['T.app.tentare']);
+});

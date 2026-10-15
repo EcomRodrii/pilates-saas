@@ -274,6 +274,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // real de socias en curso.
   [EVENTOS.TRIAL_PROXIMO_A_EXPIRAR]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   [EVENTOS.TRIAL_EXPIRADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.APP_TIENDA_SIN_PLAN]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.APP_TIENDA_PAUSADA]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // MEDIA, no ALTA: es un nudge de producto, no un fallo que bloquee el
   // negocio — mismo criterio que SERIES_POR_TERMINAR (con margen).
   [EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS]: { category: 'sistema', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
@@ -1063,6 +1065,16 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.TRIAL_EXPIRADO}#PROPIETARIO`]: {
     title: 'Tu prueba gratuita ha terminado',
     body: 'Tus datos están intactos. Elige un plan para volver a entrar en tu estudio.',
+    deepLink: () => `/suscripcion`,
+  },
+  [`${EVENTOS.APP_TIENDA_SIN_PLAN}#PROPIETARIO`]: {
+    title: 'Tu app de la App Store, hasta el {fecha}',
+    body: 'Tu plan ya no incluye la app con el nombre de tu estudio. Si vuelves a Estudio o Cadena antes del {fecha}, todo sigue igual; si no, {consecuencia}',
+    deepLink: () => `/suscripcion`,
+  },
+  [`${EVENTOS.APP_TIENDA_PAUSADA}#PROPIETARIO`]: {
+    title: 'Tu app queda en pausa',
+    body: 'Tu plan ya no incluye la app con el nombre de tu estudio: {consecuencia} Si vuelves a Estudio o Cadena, la retomamos.',
     deepLink: () => `/suscripcion`,
   },
   [`${EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS}#PROPIETARIO`]: {

@@ -98,6 +98,14 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
 export const seOfrece = (e: EstadoInstalacion | null): boolean =>
   e === 'instalable' || e === 'ios-guia' || e === 'ios-incrustado';
 
+/**
+ * Con la app del estudio PUBLICADA en la App Store, en un iPhone se ofrece esa (con su enlace) en
+ * vez de «Añadir a pantalla de inicio»: es la de verdad, con avisos y Entrar con Apple. Dentro de
+ * la app nativa o ya instalada, nada; en Android y escritorio sigue la web app (no hay app para ellos).
+ */
+export const ofreceTienda = (e: EstadoInstalacion | null, hayAppPublicada: boolean): boolean =>
+  hayAppPublicada && (e === 'ios-guia' || e === 'ios-incrustado');
+
 /** La respuesta del navegador a «¿quieres instalarla?», en lo que la alumna necesita saber. */
 export type ResultadoInstalacion = 'aceptada' | 'rechazada' | 'no-disponible';
 

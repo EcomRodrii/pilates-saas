@@ -210,7 +210,7 @@ export default function PerfilPage() {
         {/* Instalar la app del estudio. Se pinta SOLO si este navegador puede hacer
             algo (botón en Android, guía en iPhone); en escritorio o con la app ya
             abierta desde su icono, no aparece. */}
-        <InstalarApp nombreEstudio={estudio.nombre} />
+        <InstalarApp nombreEstudio={estudio.nombre} urlTienda={estudio.appTienda?.url ?? null} />
 
         <ProfileSection
           titulo="Estudio"
