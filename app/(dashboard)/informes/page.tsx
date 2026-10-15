@@ -446,12 +446,12 @@ export default function Informes() {
         description="Cuánto has cobrado, cómo se llenan las clases y quién viene, frente al mismo tramo del periodo anterior."
         actions={(
           <div className="flex items-center gap-2 print:hidden">
-            <Link href="/cierre" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
+            <Link href="/cierre" className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
               <FileText size={15} aria-hidden />Cierre para la gestoría
             </Link>
             <MenuAcciones
               etiqueta="Descargar"
-              claseBoton="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+              claseBoton="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
               boton={(
                 <>
                   {descarga === 'loading' ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Download size={15} aria-hidden />}
@@ -489,7 +489,7 @@ export default function Informes() {
               aria-controls={`informe-panel-${p.id}`}
               onClick={() => setPestana(p.id)}
               className={cn(
-                'min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
+                'zona-tactil min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
                 pestana === p.id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground',
               )}
             >

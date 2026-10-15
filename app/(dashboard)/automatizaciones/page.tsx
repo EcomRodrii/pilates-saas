@@ -987,7 +987,7 @@ function RuleCardNueva({
             type="button"
             onClick={() => setExpanded(p => !p)}
             aria-expanded={expanded}
-            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
+            className="zona-tactil mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
             style={{ color: 'var(--t-text-link)' }}
           >
             {expanded ? 'Ocultar cómo funciona' : 'Ver cómo funciona y qué le llega'}
@@ -1002,7 +1002,7 @@ function RuleCardNueva({
           aria-label={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
           title={soloLectura ? tituloAnadir : rule.activa ? 'Encendida — apagar' : 'Apagada — encender'}
           onClick={onToggle}
-          className="relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
+          className="zona-tactil relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
           style={{ background: encendida ? 'var(--success)' : 'color-mix(in srgb, var(--muted-foreground) 55%, transparent)' }}
         >
           <span className={cn('inline-block size-6 rounded-full bg-white shadow transition-transform', encendida ? 'translate-x-5' : 'translate-x-0')} />
@@ -1241,7 +1241,7 @@ export default function AutomatizacionesPage() {
               <button
                 onClick={handleRunNow}
                 disabled={running}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="zona-tactil inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
                 {running ? 'Revisando…' : 'Revisar ahora'}

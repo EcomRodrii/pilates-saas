@@ -14,6 +14,8 @@ import { abrirPanel as abrir, controlesCortos as medir, quitarMarcaPanelNuevo } 
 // `panel-nuevo-tableta-mostrador.spec.ts`.
 
 test.use({ timezoneId: 'Europe/Madrid', hasTouch: true });
+// Contra un `next dev` que compila al vuelo, una ruta nueva tarda en la primera petición.
+test.describe.configure({ timeout: 90_000 });
 
 /** Las piezas comunes de una pantalla del panel nuevo: cabecera, pestañas y píldoras. */
 function piezasDeClientas(page: Page): [string, Locator][] {

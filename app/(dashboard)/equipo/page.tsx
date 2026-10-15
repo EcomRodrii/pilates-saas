@@ -1135,10 +1135,12 @@ function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
 }) {
   return (
-    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors">
+    // Con el dedo, el desplegable ocupa todo el alto de la píldora (44): tocar la
+    // píldora fuera de su texto (22 px) no lo abría.
+    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
       <span className="text-muted-foreground font-medium whitespace-nowrap">{label}:</span>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer">
+        className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer tactil:min-h-11">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
     </label>
@@ -1225,10 +1227,10 @@ function TarjetaMiembro({
         </div>
         {verMenu && (
           <div className="flex items-center gap-1 shrink-0 relative" data-menu-equipo>
-            <button onClick={onEditar} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+            <button onClick={onEditar} title="Editar" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
               <Pencil size={14} />
             </button>
-            <button onClick={onMenu} title="Más acciones" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+            <button onClick={onMenu} title="Más acciones" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
               <MoreVertical size={15} />
             </button>
             {menuAbierto && (
@@ -1290,7 +1292,7 @@ function TarjetaMiembro({
           <div className="grid grid-cols-7 gap-1.5 mt-3 items-end">
             {m.semana.map((n, i) => (
               <button key={i} type="button" onClick={() => onDiaSel(i)}
-                className="flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
+                className="zona-tactil flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
                 <span
                   className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : nueva ? '' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
                   // Panel nuevo: azul, y el día elegido en magenta, como las gráficas de la home.
@@ -1729,12 +1731,12 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
 
         <div className="flex items-center justify-between">
           <button onClick={() => setMesAtras(m => Math.min(m + 1, 11))} disabled={mesAtras >= 11} aria-label="Mes anterior"
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            className="zona-tactil w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
             <ChevronLeft size={16} />
           </button>
           <p className="text-[14px] font-bold text-foreground capitalize">{fmtMes}</p>
           <button onClick={() => setMesAtras(m => Math.max(m - 1, 0))} disabled={mesAtras === 0} aria-label="Mes siguiente"
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            className="zona-tactil w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
             <ChevronRight size={16} />
           </button>
         </div>

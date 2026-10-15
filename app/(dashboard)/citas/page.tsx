@@ -617,7 +617,7 @@ export default function CitasPage() {
             {/* Migración asistida: traer las citas del programa anterior. */}
             <Link
               href="/citas/importar"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="zona-tactil inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <Upload size={15} />
               Importar
@@ -668,7 +668,7 @@ export default function CitasPage() {
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              panelNuevo ? 'rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors' : 'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              panelNuevo ? 'zona-tactil rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors' : 'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === t
                 ? (panelNuevo ? 'bg-card text-foreground shadow-sm' : 'bg-brand text-brand-foreground')
                 : 'text-muted-foreground hover:text-foreground'
@@ -688,7 +688,7 @@ export default function CitasPage() {
         <button
           onClick={() => setFilterInstructor('all')}
           className={cn(
-            panelNuevo ? 'rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+            panelNuevo ? 'zona-tactil rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
               ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-brand text-brand-foreground border-foreground')
               : 'bg-card border-border text-muted-foreground hover:text-foreground'
@@ -701,7 +701,7 @@ export default function CitasPage() {
             key={ins.id}
             onClick={() => setFilterInstructor(ins.id)}
             className={cn(
-              panelNuevo ? 'rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+              panelNuevo ? 'zona-tactil rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
                 ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-brand text-brand-foreground border-foreground')
                 : 'bg-card border-border text-muted-foreground hover:text-foreground'

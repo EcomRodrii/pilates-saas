@@ -10,6 +10,8 @@ import { abrirPanel, controlesCortos, quitarMarcaPanelNuevo } from './zona-tacti
 // de Cobros 32, y la cabecera del Calendario volvía a 36 justo en el iPad (`md:`).
 
 test.use({ timezoneId: 'Europe/Madrid', hasTouch: true });
+// Contra un `next dev` que compila al vuelo, una ruta nueva tarda en la primera petición.
+test.describe.configure({ timeout: 90_000 });
 
 test.describe('iPad vertical (768×1024)', () => {
   test.use({ viewport: { width: 768, height: 1024 } });

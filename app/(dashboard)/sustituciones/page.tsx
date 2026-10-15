@@ -401,7 +401,7 @@ export default function SustitucionesPage() {
                   {seccionesVisibles(rolPanel).some(s => s.id === 'reservas') && (
                     <Link
                       href="/configuracion?tab=reservas#ajuste-avisar-alumnas"
-                      className="text-[12.5px] font-semibold underline-offset-2 hover:underline"
+                      className="zona-tactil text-[12.5px] font-semibold underline-offset-2 hover:underline"
                       style={{ color: 'var(--t-text-link)' }}
                     >
                       Qué más pasa cuando una clase cambia
