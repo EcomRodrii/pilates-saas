@@ -13,6 +13,7 @@ import { DeudaClienta } from './deuda-clienta';
 import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
 import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
+import { leerCatalogoPOS } from '@/lib/pos/leer-respuestas';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
 import { registrarVenta } from '@/lib/pos/cliente';
 import { cuotaSinClienta } from '@/lib/pos/cuota-exige-clienta';
@@ -128,8 +129,12 @@ export function PosTerminal() {
       if (!vivo) return;
       setCargando(false);
       if (esError(r)) { setErrorCarga(r.error); return; }
+      // Comprobado antes de pintarlo: con otra forma (un `{}`, un campo a `null`)
+      // la Caja caía entera en «Algo ha ido mal». Ahora dice qué falta.
+      const leido = leerCatalogoPOS(r);
+      if (!leido.ok) { setErrorCarga(leido.error); return; }
       setErrorCarga(null);
-      setCatalogo(r);
+      setCatalogo(leido.valor);
     });
     return () => { vivo = false; };
   }, [recarga]);

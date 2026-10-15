@@ -5,6 +5,7 @@ import { X, ArrowDownLeft, ArrowUpRight, Loader2 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { cargarCaja, abrirCaja, moverCaja, cerrarCaja, esError, type EstadoCaja } from '@/lib/pos/cliente';
+import { leerEstadoCaja } from '@/lib/pos/leer-respuestas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La caja: abrirla, mover efectivo a mano y cuadrarla al cerrar.
@@ -51,8 +52,14 @@ export function HojaCaja({ onCerrar, onCambio }: { onCerrar: () => void; onCambi
       if (!vivo) return;
       setCargando(false);
       if (esError(r)) { setError(r.error); return; }
-      setDatos(r);
-      setVista(r.caja ? 'resumen' : 'abrir');
+      // Sin saber si la caja está abierta ni lo esperado, no se ofrece ni abrirla
+      // ni el arqueo: se dice qué falta. Y lo de antes se quita: en una recarga
+      // (tras apuntar un movimiento) seguiría enseñando el «esperado» viejo y una
+      // lista sin lo recién apuntado, y parecería que no se hizo.
+      const leido = leerEstadoCaja(r);
+      if (!leido.ok) { setError(leido.error); setDatos(null); setVista('resumen'); return; }
+      setDatos(leido.valor);
+      setVista(leido.valor.caja ? 'resumen' : 'abrir');
     });
     return () => { vivo = false; };
   }, [recarga]);
