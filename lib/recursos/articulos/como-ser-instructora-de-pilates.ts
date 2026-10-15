@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-ser-instructora-de-pilates',
   titulo: 'Cómo ser instructora de pilates en España: formación, cualificación oficial y trabajo',
-  tituloSeo: 'Cómo ser instructora de pilates: cursos, horas y precios',
+  tituloSeo: 'Cómo ser instructora de pilates: cursos y precios',
   descripcion: 'La cualificación oficial de 510 horas, las formaciones de Polestar, STOTT, BASI y Balanced Body con horas y precio, suelo o reformer y cómo encontrar trabajo.',
   resumen:
     'El camino para ser instructora de pilates en España: qué es la cualificación oficial AFD805_3, qué formaciones hay con sus horas y precios, suelo o reformer y cómo encontrar trabajo.',

@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-abrir-un-estudio-de-pilates',
   titulo: 'Cómo abrir un estudio de pilates: guía paso a paso, de la idea a la primera semana abierta',
-  tituloSeo: 'Cómo abrir un estudio de pilates en 2026: guía paso a paso',
+  tituloSeo: 'Cómo abrir un estudio de pilates en 2026: guía',
   descripcion: 'De la idea a la primera clase: inversión, local, máquinas, trámites, precios y equipo para abrir tu estudio de pilates en España. Con checklist.',
   resumen: 'La guía completa para montar un estudio de pilates en España: concepto, números, local, reformers, trámites, precios, equipo, reservas y los primeros 90 días, con una checklist de todo el proceso.',
   categoria: 'abrir',

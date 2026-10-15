@@ -13,7 +13,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'reducir-cancelaciones-ultima-hora',
   titulo: 'Cómo reducir las cancelaciones de última hora y los plantones en tus clases',
-  tituloSeo: 'Cómo reducir cancelaciones de última hora y no-shows',
+  tituloSeo: 'Reducir cancelaciones de última hora y no-shows',
   descripcion: 'Lo que miden los estudios sobre recordatorios, las ventanas que usan SoulCycle, Barry\'s o CorePower y seis medidas para que no se pierda ninguna plaza.',
   resumen: 'Por qué se falta a una clase, lo que dicen cinco estudios sobre los recordatorios, las reglas de las cadenas grandes y un plan en seis pasos para perder menos plazas.',
   categoria: 'operacion',

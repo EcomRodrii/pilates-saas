@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ categoria
   const categoria = categoriaDe(slug);
   if (!categoria) return {};
   return {
-    title: `${categoria.titulo} | Centro de Ayuda de Tentare`,
+    title: `${categoria.titulo} | Ayuda de Tentare`,
     description: categoria.descripcion,
     alternates: { canonical: urlDe(`/ayuda/${categoria.slug}`) },
   };

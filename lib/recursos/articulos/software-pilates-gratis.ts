@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'software-pilates-gratis',
   titulo: 'Software de pilates gratis: qué puedes montar sin pagar y qué pierdes',
-  tituloSeo: 'Software de pilates gratis: qué sirve y qué pierdes',
+  tituloSeo: 'Software de pilates gratis: qué sirve y límites',
   descripcion:
     'Google, WhatsApp, Excel y planes a 0 €: qué puedes montar gratis en tu estudio de pilates, qué pierdes por el camino y cuándo compensa empezar a pagar.',
   resumen:

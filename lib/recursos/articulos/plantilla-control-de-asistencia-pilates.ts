@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'plantilla-control-de-asistencia-pilates',
   titulo: 'Plantilla de control de asistencia para clases de pilates (Excel gratis)',
-  tituloSeo: 'Plantilla de control de asistencia para clases (Excel)',
+  tituloSeo: 'Plantilla de control de asistencia (Excel)',
   descripcion:
     'Descarga gratis la plantilla en Excel para llevar la asistencia y los bonos de tu estudio: cómo usarla paso a paso, qué calcula sola y dónde se queda corta.',
   resumen:
