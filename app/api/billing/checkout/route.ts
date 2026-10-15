@@ -7,6 +7,7 @@ import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { pagaPlan } from '@/lib/billing/plan-gratis';
+import { planSueltoACancelarAlPasarACadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
@@ -203,10 +204,8 @@ export async function POST(req: NextRequest) {
       // nueva, que dice qué reemplaza ESTE checkout. (`studio.subscription_id`
       // no lo pisa nadie: el trigger de cadena no propaga ese campo, ver
       // lib/billing/suscripcion-desplazada-por-cadena.ts.)
-      const cancelarAlConfirmar =
-        studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled'
-          ? (studio.subscription_id as string)
-          : null;
+      // Solo si la sede lo está pagando de verdad: ver `planSueltoACancelarAlPasarACadena`.
+      const cancelarAlConfirmar = planSueltoACancelarAlPasarACadena(studio);
 
       let customerId = cadena.stripe_customer_id;
       if (!customerId) {

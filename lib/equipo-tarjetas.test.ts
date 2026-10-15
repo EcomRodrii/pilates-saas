@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
   semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual, horas, horasCsv, valoracionMedia,
+  ventanaEstudio, diaDeSemanaEstudio,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
 
@@ -297,4 +298,61 @@ test('ordenar no muta el array original', () => {
   const original = [...equipo];
   ordenar(equipo, 'nombre-za');
   assert.deepEqual(equipo, original);
+});
+
+// ─── La semana y el mes son los del estudio (Madrid), no los del servidor (UTC) ───
+// GET /api/equipo/tarjetas corre en Vercel (UTC). Con la medianoche, el `getDay()` y el
+// `new Date(año, mes, 1)` del proceso, una clase antes de las 01:00/02:00 de Madrid caía
+// en el día, la semana o el mes anterior.
+
+const iso = (d: Date) => d.toISOString();
+
+test('martes a las 00:30 de Madrid (verano): es martes, y la semana empezó el lunes a las 00:00 de Madrid', () => {
+  const ahora = new Date('2026-10-19T22:30:00Z'); // martes 20, 00:30 (+02:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-10-20');
+  assert.equal(iso(v.lunes), '2026-10-18T22:00:00.000Z');
+  assert.equal(diaDeSemanaEstudio(ahora), 1);
+  // Lo de antes: en UTC aún era lunes.
+  assert.equal((ahora.getUTCDay() + 6) % 7, 0);
+});
+
+test('martes a las 00:30 de Madrid (invierno): lo mismo con +01:00', () => {
+  const ahora = new Date('2026-11-16T23:30:00Z'); // martes 17, 00:30 (+01:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-11-17');
+  assert.equal(iso(v.lunes), '2026-11-15T23:00:00.000Z');
+  assert.equal(diaDeSemanaEstudio(ahora), 1);
+});
+
+test('el día 1 a las 00:30 de Madrid ya es el mes nuevo (y el mes acaba a las 00:00 de Madrid del 1 siguiente)', () => {
+  const ahora = new Date('2026-10-31T23:30:00Z'); // domingo 1 de noviembre, 00:30 (+01:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-11-01');
+  assert.equal(iso(v.inicioMes), '2026-10-31T23:00:00.000Z');
+  assert.equal(iso(v.finMes), '2026-11-30T23:00:00.000Z');
+  // Una clase de las 00:30 del 1 cuenta en noviembre, no en octubre.
+  assert.ok(ahora >= v.inicioMes && ahora < v.finMes);
+});
+
+test('diciembre: el mes acaba el 1 de enero del año siguiente', () => {
+  const v = ventanaEstudio(new Date('2026-12-15T12:00:00Z'));
+  assert.equal(iso(v.inicioMes), '2026-11-30T23:00:00.000Z');
+  assert.equal(iso(v.finMes), '2026-12-31T23:00:00.000Z');
+});
+
+test('la semana del cambio de hora: del lunes a las 00:00 (+02:00) al lunes siguiente a las 00:00 (+01:00)', () => {
+  const ahora = new Date('2026-10-25T22:30:00Z'); // domingo 25, 23:30 (+01:00): aún domingo
+  const v = ventanaEstudio(ahora);
+  assert.equal(diaDeSemanaEstudio(ahora), 6);
+  assert.equal(iso(v.lunes), '2026-10-18T22:00:00.000Z');
+  assert.equal(iso(v.finSemana), '2026-10-25T23:00:00.000Z');
+  assert.ok(ahora >= v.lunes && ahora < v.finSemana);
+});
+
+test('el día de la semana de una clase es el de Madrid, también con el proceso en otra zona', () => {
+  // Domingo 23:30 en Madrid es domingo, aunque en UTC sea domingo 21:30 o lunes en Asia.
+  assert.equal(diaDeSemanaEstudio(new Date('2026-07-05T21:30:00Z')), 6);
+  // Lunes 00:15 en Madrid (verano) es lunes, aunque en UTC sea domingo 22:15.
+  assert.equal(diaDeSemanaEstudio(new Date('2026-07-05T22:15:00Z')), 0);
 });

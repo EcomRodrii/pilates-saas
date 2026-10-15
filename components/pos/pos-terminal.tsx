@@ -53,6 +53,9 @@ export function PosTerminal() {
   const [catalogo, setCatalogo] = useState<CatalogoPOS | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  // «Reintentar» del aviso de recarga, en marcha: sin esto, si vuelve a fallar no
+  // cambia nada en pantalla y en el iPad parece un botón muerto.
+  const [reintentando, setReintentando] = useState(false);
 
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -128,6 +131,7 @@ export function PosTerminal() {
     cargarCatalogoPOS().then((r) => {
       if (!vivo) return;
       setCargando(false);
+      setReintentando(false);
       if (esError(r)) { setErrorCarga(r.error); return; }
       // Comprobado antes de pintarlo: con otra forma (un `{}`, un campo a `null`)
       // la Caja caía entera en «Algo ha ido mal». Ahora dice qué falta.
@@ -459,7 +463,12 @@ export function PosTerminal() {
     );
   }
 
-  if (errorCarga) {
+  // La pantalla de error, solo si la Caja nunca llegó a cargar. Si falla una
+  // RECARGA (tras vender, cobrar una deuda o cerrar la caja), el TPV se queda y
+  // arriba sale un aviso: sustituirlo entero cerraba la hoja abierta y se perdía
+  // de vista, por ejemplo, el resultado del arqueo recién hecho (que sí queda
+  // guardado). Revisión de tentare-stripe (#2735).
+  if (errorCarga && !catalogo) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-3 text-center px-6">
         <AlertTriangle size={28} className="text-warning" />
@@ -525,16 +534,43 @@ export function PosTerminal() {
             onClick={() => setMostrarCaja(true)}
             className={cn(
               'h-11 px-4 rounded-xl border text-[13.5px] font-semibold flex items-center gap-2 transition-colors',
-              catalogo?.caja
-                ? 'border-success/30 bg-success/10 text-success'
-                : 'border-warning/40 bg-warning/10 text-warning',
+              // Con el aviso de recarga puesto, si la caja está abierta es dato de
+              // antes (p. ej., recién cerrada): se queda en neutro y solo «Caja».
+              errorCarga
+                ? 'border-border bg-background text-foreground'
+                : catalogo?.caja
+                  ? 'border-success/30 bg-success/10 text-success'
+                  : 'border-warning/40 bg-warning/10 text-warning',
             )}
           >
             <Wallet size={15} />
-            {catalogo?.caja ? 'Caja abierta' : 'Abrir caja'}
+            {errorCarga ? 'Caja' : catalogo?.caja ? 'Caja abierta' : 'Abrir caja'}
           </button>
         </div>
       </header>
+
+      {errorCarga && (
+        // Texto FIJO, sin el motivo (revisión de tentare-stripe): esta recarga corre
+        // justo después de «Cobrado» o de cerrar la caja, y un motivo genérico
+        // («Inténtalo de nuevo…», «…repite la operación») se leía como «tu venta
+        // no ha salido, repítela»: una segunda venta, o un segundo cargo con
+        // datáfono o Bizum. Nada de «se ha guardado» ni «se ha cobrado»: también
+        // corre tras un cobro que falló.
+        <div role="alert" data-testid="aviso-recarga-caja" className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-warning/40 bg-warning/10 px-4 py-2.5 sm:px-5">
+          <AlertTriangle size={16} className="shrink-0 text-warning" aria-hidden />
+          <p className="min-w-0 flex-1 text-[13px] text-foreground">
+            No hemos podido poner al día el stock, las cifras de hoy ni si la caja está abierta: esos datos son de antes de este fallo.
+            Es solo una lectura: no cobra ni cambia nada, y lo que ya hayas hecho sigue hecho.
+          </p>
+          <button
+            onClick={() => { setReintentando(true); refrescar(); }}
+            disabled={reintentando}
+            className="h-11 shrink-0 rounded-xl border border-border bg-card px-4 text-[13.5px] font-semibold text-foreground disabled:opacity-60"
+          >
+            {reintentando ? 'Leyendo…' : 'Reintentar'}
+          </button>
+        </div>
+      )}
 
       {/* ── Conmutador móvil ──────────────────────────────────────────────── */}
       {/* Segmentado de verdad: los dos lados dentro de un mismo carril. Antes

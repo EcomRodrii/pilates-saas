@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Stripe from 'stripe';
-import { idACancelar, cancelarSuscripcionAnteriorSiToca } from './cancelar-suscripcion-anterior.ts';
+import { idACancelar, cancelarSuscripcionAnteriorSiToca, planSueltoACancelarAlPasarACadena } from './cancelar-suscripcion-anterior.ts';
 
 test('sin metadata no hay nada que cancelar', () => {
   assert.equal(idACancelar({ metadata: {}, status: 'active' }), null);
@@ -50,4 +50,18 @@ test('un fallo real de Stripe se reporta, pero nunca lanza — no puede tirar el
   const r = await cancelarSuscripcionAnteriorSiToca(stripeFalso, { metadata: { cancelarSuscripcionAnterior: 'sub_vieja' }, status: 'active' });
   assert.equal(r.intentado, true);
   assert.equal(r.errorInesperado, boom);
+});
+
+test('alta a CADENA: solo se cancela al confirmarse el plan suelto que la sede paga de verdad', () => {
+  const sede = (subscription_status: string | null, subscription_id: string | null = 'sub_suelta') => ({ subscription_status, subscription_id });
+  // Gratis (o gratis cerrado, o cancelada) con el id de una suscripción ya muerta: nada que cancelar.
+  for (const st of ['gratis', 'gratis_cerrado', 'canceled', 'incomplete_expired', 'trial_expirado']) {
+    assert.equal(planSueltoACancelarAlPasarACadena(sede(st)), null, st);
+  }
+  // Prueba local: 'trialing' sin suscripción de Stripe.
+  assert.equal(planSueltoACancelarAlPasarACadena(sede('trialing', null)), null);
+  // Viva o a medio pagar en Stripe: se cancela al confirmarse la cadena.
+  for (const st of ['active', 'past_due', 'trialing', 'incomplete', 'unpaid']) {
+    assert.equal(planSueltoACancelarAlPasarACadena(sede(st)), 'sub_suelta', st);
+  }
 });

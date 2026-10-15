@@ -28,7 +28,7 @@ import { BUCKET_COMUNIDAD } from '@/lib/comunidad/foto';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import { convertirAGratisSiToca } from '@/lib/billing/convertir-a-gratis';
 import {
-  cicloDelEstudio, debeRecalcularInforme, mismaAncla, purgaEstudiosActiva, siguientePaso,
+  cicloDelEstudio, debeRecalcularInforme, fueraDelCicloPorElGratis, mismaAncla, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseCiclo, type FaseRegistrada, type MotivoCiclo,
 } from '@/lib/retencion/ciclo-estudios-vencidos';
 
@@ -178,11 +178,17 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
   // recibir avisos de borrado. Si Stripe dice que paga, o no contesta, tampoco
   // se le avisa (lo vuelve a mirar el siguiente tic). Su ciclo, si lo había, se
   // cancela solo: deja de ser el actual del estudio.
-  const fueraDelCiclo = new Set<string>();
+  // De una cadena que dejó de pagar pasa a gratis solo la sede principal, y con
+  // ella la BD da por vivo el contrato de las demás (fijar_contrato_terminado,
+  // migr 20261015141653: se quedan cerradas, sin borrar nada) salvo la que ya
+  // pidió el borrado. Lo que aquí se leyó de ellas es de ANTES de convertirla:
+  // en este tic tampoco se les avisa (`fueraDelCicloPorElGratis`).
+  const tocados = new Set<string>();
   for (const s of estudios.data) {
     if (!encendidaPara(process.env.FOUNDING_GRATIS, s.id)) continue;
-    if ((await convertirAGratisSiToca(admin, s)) !== 'no-toca') fueraDelCiclo.add(s.id);
+    if ((await convertirAGratisSiToca(admin, s)) !== 'no-toca') tocados.add(s.id);
   }
+  const fueraDelCiclo = fueraDelCicloPorElGratis(estudios.data, tocados);
   const vigentes = estudios.data.filter(s => !fueraDelCiclo.has(s.id));
 
   const resumen: ResumenCiclo = { estudios: vigentes.length, avisos: 0, informes: 0, purgados: 0, cancelados: 0, errores: 0 };

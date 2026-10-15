@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  estadoGratis, finDelMargen, limitesCerca, limitesPasados, pagaPlan, pasaAGratis, siguienteExcedidoDesde,
+  cadenaSinPlan, empiezaDeCeroAlConvertir, estadoGratis, finDelMargen, limitesCerca, limitesPasados, pagaPlan, pasaAGratis, sedeAdmiteGratis, siguienteExcedidoDesde,
   FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, type UsoGratis,
 } from './plan-gratis.ts';
 
@@ -69,7 +69,7 @@ test('quién paga: Stripe vivo o la sede de una cadena; la prueba local no', () 
   assert.equal(pagaPlan({ subscriptionStatus: 'gratis', subscriptionId: null }), false);
 });
 
-test('pasan a gratis los que no pagan; nunca una sede, lo que paga ni un Checkout a medias', () => {
+test('pasan a gratis los que no pagan; nunca una sede sin saber de su cadena, lo que paga ni un Checkout a medias', () => {
   const sin = { subscriptionId: null, cadenaId: null };
   for (const st of [null, 'trialing', 'trial_expirado', 'canceled', 'incomplete_expired']) {
     assert.equal(pasaAGratis({ ...sin, subscriptionStatus: st }), true, String(st));
@@ -84,6 +84,66 @@ test('pasan a gratis los que no pagan; nunca una sede, lo que paga ni un Checkou
   assert.equal(pasaAGratis({ subscriptionStatus: 'active', subscriptionId: 'sub_1', cadenaId: null }), false);
   assert.equal(pasaAGratis({ subscriptionStatus: 'trialing', subscriptionId: 'sub_1', cadenaId: null }), false);
   assert.equal(pasaAGratis({ subscriptionStatus: 'trial_expirado', subscriptionId: null, cadenaId: 'cad-1' }), false);
+});
+
+// Una cadena que deja de pagar (decisión del fundador, 15-oct-2026): su sede
+// principal pasa a gratis; las demás siguen cerradas hasta que vuelva a pagar.
+test('cadena que paga: ninguna de sus sedes pasa a gratis, ni la principal', () => {
+  const sede = { subscriptionStatus: 'canceled', subscriptionId: 'sub_suelta_vieja', cadenaId: 'cad-1' };
+  for (const [estado, subId] of [['active', 'sub_c'], ['active', null], ['past_due', 'sub_c'], ['trialing', 'sub_c'], ['unpaid', 'sub_c'], ['incomplete', 'sub_c']] as const) {
+    assert.equal(pasaAGratis({ ...sede, cadena: { subscriptionStatus: estado, subscriptionId: subId, esPrincipal: true, otraSedeGratis: false } }), false, `${estado}/${subId}`);
+  }
+});
+
+test('cadena que no paga: la principal sí, las demás no', () => {
+  for (const estadoCadena of [null, 'canceled', 'incomplete_expired']) {
+    const cadena = { subscriptionStatus: estadoCadena, subscriptionId: estadoCadena ? 'sub_c' : null };
+    // La sede sigue a su cadena: 'canceled' propagado (o la prueba local de un Checkout de Cadena abandonado).
+    for (const estadoSede of ['canceled', 'incomplete_expired', 'trial_expirado', 'trialing', null]) {
+      const sede = { subscriptionStatus: estadoSede, subscriptionId: null, cadenaId: 'cad-1' };
+      assert.equal(pasaAGratis({ ...sede, cadena: { ...cadena, esPrincipal: true, otraSedeGratis: false } }), true, `principal ${estadoCadena}/${estadoSede}`);
+      assert.equal(pasaAGratis({ ...sede, cadena: { ...cadena, esPrincipal: false, otraSedeGratis: false } }), false, `otra sede ${estadoCadena}/${estadoSede}`);
+    }
+  }
+});
+
+test('la principal de una cadena sin pagar sigue sus propias reglas: si paga su plan suelto o ya es gratis, no', () => {
+  const cadena = { subscriptionStatus: 'canceled', subscriptionId: 'sub_c', esPrincipal: true, otraSedeGratis: false };
+  assert.equal(pasaAGratis({ subscriptionStatus: 'active', subscriptionId: 'sub_suelta', cadenaId: 'cad-1', cadena }), false);
+  assert.equal(pasaAGratis({ subscriptionStatus: 'incomplete', subscriptionId: 'sub_suelta', cadenaId: 'cad-1', cadena }), false);
+  assert.equal(pasaAGratis({ subscriptionStatus: 'gratis', subscriptionId: null, cadenaId: 'cad-1', cadena }), false);
+  assert.equal(pasaAGratis({ subscriptionStatus: 'gratis_cerrado', subscriptionId: null, cadenaId: 'cad-1', cadena }), false);
+});
+
+test('una sede sin saber de su cadena nunca pasa a gratis', () => {
+  assert.equal(pasaAGratis({ subscriptionStatus: 'canceled', subscriptionId: null, cadenaId: 'cad-1', cadena: null }), false);
+  assert.equal(pasaAGratis({ subscriptionStatus: 'canceled', subscriptionId: null, cadenaId: 'cad-1' }), false);
+});
+
+test('qué cadena ha dejado de pagar y qué estudio admite el gratis por su cadena', () => {
+  assert.equal(cadenaSinPlan({ subscriptionStatus: 'canceled', subscriptionId: 'sub_c' }), true);
+  assert.equal(cadenaSinPlan({ subscriptionStatus: null, subscriptionId: null }), true); // Checkout de Cadena abandonado
+  assert.equal(cadenaSinPlan({ subscriptionStatus: 'unpaid', subscriptionId: 'sub_c' }), false); // Stripe aún puede cobrarla
+  assert.equal(cadenaSinPlan({ subscriptionStatus: 'incomplete', subscriptionId: 'sub_c' }), false); // pago a medias
+  assert.equal(cadenaSinPlan({ subscriptionStatus: 'active', subscriptionId: null }), false); // alta a mano en /interno
+  assert.equal(sedeAdmiteGratis({ cadenaId: null }), true);
+  assert.equal(sedeAdmiteGratis({ cadenaId: 'cad-1', cadena: { subscriptionStatus: 'canceled', subscriptionId: 'sub_c', esPrincipal: true, otraSedeGratis: false } }), true);
+  assert.equal(sedeAdmiteGratis({ cadenaId: 'cad-1', cadena: { subscriptionStatus: 'canceled', subscriptionId: 'sub_c', esPrincipal: false, otraSedeGratis: false } }), false);
+  assert.equal(sedeAdmiteGratis({ cadenaId: 'cad-1', cadena: { subscriptionStatus: 'active', subscriptionId: 'sub_c', esPrincipal: true, otraSedeGratis: false } }), false);
+});
+
+test('nunca dos sedes gratis en la misma cadena: si otra ya lo está, la principal no pasa', () => {
+  const cadena = { subscriptionStatus: 'canceled', subscriptionId: 'sub_c', esPrincipal: true, otraSedeGratis: true };
+  assert.equal(sedeAdmiteGratis({ cadenaId: 'cad-1', cadena }), false);
+  assert.equal(pasaAGratis({ subscriptionStatus: 'canceled', subscriptionId: null, cadenaId: 'cad-1', cadena }), false);
+});
+
+test('al pasar a gratis, la medición empieza de cero solo tras un periodo pagado (canceled)', () => {
+  assert.equal(empiezaDeCeroAlConvertir('canceled'), true);
+  // Un pago abandonado no reabre un gratis_cerrado con 30 días más; una prueba agotada no tiene medición que borrar.
+  for (const st of ['incomplete_expired', 'trial_expirado', 'trialing', null, undefined]) {
+    assert.equal(empiezaDeCeroAlConvertir(st), false, String(st));
+  }
 });
 
 test('gratis da acceso y todo menos varias sedes, como Founding Studio de pago', async () => {

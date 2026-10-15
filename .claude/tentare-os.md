@@ -317,8 +317,11 @@ así que todo lo que se versiona lo lee cualquiera:
   hasta elegir plan de pago. Reglas y «truquitos» en `lib/billing/plan-gratis.ts`.
   - Es la única excepción a «no bloquea»: ninguna alta se frena (lo de arriba sigue en pie) y la app
     de la alumna no se toca nunca.
-  - `subscription_status = 'gratis'` lo escribe SOLO el gate, con compare-and-set, a quien no paga
-    (nunca una sede ni un Checkout a medias). El uso lo mide `lib/billing/uso-gratis-servidor.ts`,
+  - `subscription_status = 'gratis'` lo escribe SOLO `lib/billing/convertir-a-gratis.ts` (el gate y
+    dos crons), con compare-and-set, a quien no paga (nunca un Checkout a medias). De una cadena que
+    deja de pagar, solo su sede PRINCIPAL (la más antigua); las demás siguen cerradas, sin borrar
+    nada, y si vuelve a pagar Cadena manda otra vez en todas (decisión del 15-oct; la BD no pisa ese
+    'gratis' ni da por terminado el contrato de las hermanas: migr `20261015141653`). El uso lo mide `lib/billing/uso-gratis-servidor.ts`,
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
