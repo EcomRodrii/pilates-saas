@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accesoProducto, tieneFeature, entitlementsDe, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara,
+  accesoProducto, tieneFeature, entitlementsDe, ENTITLEMENTS_GRATIS, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara,
 } from './entitlements.ts';
 
 test('accesoProducto: solo con suscripción activa (sin trial)', () => {
@@ -46,4 +46,18 @@ test('el plan de entrada se enseña como Founding Studio e incluye la app de mar
   assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'marca'), true);
   // Sin suscripción activa no hay marca, como con cualquier otra función.
   assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'trial_expirado' }, 'marca'), false);
+});
+
+// Lo que distingue Estudio de Founding Studio (fundador, 15-oct-2026: «estudio
+// incluye la app alumna»): la app propia del estudio en la tienda de apps.
+test('la app propia del estudio: solo Estudio y Cadena, nunca Founding Studio ni el plan gratis', () => {
+  assert.equal(PLAN_ENTITLEMENTS.BASE.features.appPropia, false);
+  assert.equal(PLAN_ENTITLEMENTS.ESTUDIO.features.appPropia, true);
+  assert.equal(PLAN_ENTITLEMENTS.CADENA.features.appPropia, true);
+  assert.equal(ENTITLEMENTS_GRATIS.features.appPropia, false);
+  assert.equal(planMinimoPara('appPropia'), 'ESTUDIO');
+  assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'gratis' }, 'appPropia'), false);
+  assert.equal(tieneFeature({ plan: 'ESTUDIO', subscriptionStatus: 'active' }, 'appPropia'), true);
+  // `marca` (la app web con los colores del estudio) sigue en todos.
+  for (const p of PLANES) assert.equal(PLAN_ENTITLEMENTS[p].features.marca, true, p);
 });
