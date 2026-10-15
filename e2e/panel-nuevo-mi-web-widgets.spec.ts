@@ -54,6 +54,21 @@ async function montar(page: Page, opts: { panelNuevo: boolean; plataforma?: stri
   await page.route('**/api/theme**', r => json(r, { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12 }));
   await page.route('**/api/oauth/consentimientos**', r => json(r, { apps: [] }));
   await page.route('**/api/public/session**', r => json(r, { error: 'no' }, 404));
+  // Los datos públicos que pinta la vista previa (sin ellos enseña «No hemos podido cargar el horario»).
+  const manana = (h: number) => { const d = new Date(Date.now() + 86_400_000); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(h)}:00:00`; };
+  await page.route('**/api/public/studio-data**', r => json(r, {
+    studio: { id: STUDIO_ID, nombre: 'Pilates Centro', slug: SLUG, colorPrimario: '#343825' },
+    tiposClase: [{ id: 'tc-r', studioId: STUDIO_ID, nombre: 'Reformer', color: '#7C6A52', nivel: 'TODOS', ventanaCancelacionHoras: null }],
+    salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 8 }],
+    instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ruiz', rol: 'INSTRUCTOR' }],
+    spots: [], planesTarifa: [{ id: 'p1', studioId: STUDIO_ID, tipo: 'PUNTUAL', activo: true, precio: 15, sesiones: 1, nombre: 'Clase suelta' }],
+    citasServicios: [], citasDisponibilidad: [], sustitucionesConfirmadas: [],
+    sesiones: [
+      { id: 's1', studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: manana(10), fin: manana(11), aforoMaximo: 8, cancelada: false },
+      { id: 's2', studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: manana(18), fin: manana(19), aforoMaximo: 8, cancelada: false },
+    ],
+    aforoReservas: [], socia: null,
+  }));
   await page.route(u => u.pathname === '/api/estudio/interruptores', r => json(r, { panelNuevo: opts.panelNuevo }));
   await page.route('**/rest/v1/**', r => json(r, []));
   await page.route('**/rest/v1/studios**', r => (r.request().method() === 'PATCH' ? json(r, [{ id: STUDIO_ID }]) : json(r, studioRow)));
