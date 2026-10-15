@@ -103,6 +103,7 @@ const articulo: Articulo = {
         },
         { t: 'p', texto: 'Haz la cuenta con tus números. La calculadora usa la misma fórmula y arranca con el escenario A de más abajo: en «costes fijos» van el local, los gastos generales y la reserva para máquinas, y en «ingreso medio por plaza», lo que te queda sin IVA y sin comisiones.' },
         { t: 'herramienta', id: 'calculadora-rentabilidad' },
+        { t: 'descarga', recurso: 'modelo-estudio-12-meses' },
         { t: 'p', texto: 'Clase a clase se entiende mejor: reparte los costes del estudio entre las clases del mes, suma la instructora y divide entre lo que deja una plaza. En el escenario A, cada clase necesita 3,2 alumnas de 6: con dos, pierde dinero aunque «se haya dado».' },
         { t: 'p', texto: 'Para pasar a alumnas, divide las plazas ocupadas a la semana entre las veces que viene cada una: por ejemplo, 108 plazas semanales son 72 alumnas que vienen una vez y media por semana.' },
       ],

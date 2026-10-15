@@ -7,7 +7,7 @@ import { Icono } from '@/components/student/ui/Icono';
 import {
   estadoInstalacionServidor, leerEstadoInstalacion, pedirInstalacion, suscribirInstalacion,
 } from '@/lib/student/instalar-prompt';
-import { fraseResultado, seOfrece, textoInstalacion, type ResultadoInstalacion } from '@/lib/student/instalar-app';
+import { fraseResultado, ofreceTienda, seOfrece, textoInstalacion, type ResultadoInstalacion } from '@/lib/student/instalar-app';
 
 // «Instalar la app» del estudio, en Perfil. Es la web app instalable de ESTE
 // estudio (su nombre, su icono: `manifest.webmanifest` de cada portal).
@@ -19,11 +19,31 @@ import { fraseResultado, seOfrece, textoInstalacion, type ResultadoInstalacion }
 //
 // ⚠️ «Listo» solo cuando el navegador dice que ACEPTÓ; un rechazo o un fallo se
 // dicen tal cual. Nunca se da por instalada una app por haber tocado el botón.
-export function InstalarApp({ nombreEstudio }: { nombreEstudio: string }) {
+export function InstalarApp({ nombreEstudio, urlTienda = null }: { nombreEstudio: string; urlTienda?: string | null }) {
   const estado = useSyncExternalStore(suscribirInstalacion, leerEstadoInstalacion, estadoInstalacionServidor);
   const [abierta, setAbierta] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [resultado, setResultado] = useState<ResultadoInstalacion | null>(null);
+
+  // En un iPhone, con la app del estudio publicada: su ficha de la App Store, no la guía de Safari.
+  if (urlTienda && ofreceTienda(estado, true)) {
+    return (
+      <a
+        href={urlTienda}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="card card--tap card--pad row row--between tap"
+        style={{ width: '100%', textAlign: 'left', color: 'inherit', textDecoration: 'none' }}
+        data-testid="descargar-app-tienda"
+      >
+        <span className="stack" style={{ ['--gap' as string]: '2px' }}>
+          <span className="t-card-title">Descarga la app de {nombreEstudio}</span>
+          <span className="t-meta">En la App Store, con avisos de tus clases</span>
+        </span>
+        <Icono nombre="chevron-derecha" tamano={18} stroke="var(--subtle-foreground)" className="no-shrink" />
+      </a>
+    );
+  }
 
   // Al tocar «Instalar» el aviso del navegador se gasta y el estado pasa a «sin
   // opción»: la fila desaparece, pero la hoja SIGUE abierta para decir cómo ha ido.

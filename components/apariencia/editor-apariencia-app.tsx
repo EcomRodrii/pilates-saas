@@ -681,12 +681,12 @@ export function EditorAparienciaApp() {
             </Seccion>
           )}
 
-          {pedirApp && studio.id && (
+          {pedirApp && studio.id && (!panelNuevo || paso === 'instalar') && (
             <Seccion
               enAsistente={panelNuevo}
               titulo="Tu app en la App Store"
               orden={6}
-              detalle="Una app con el nombre y el icono de tu estudio, publicada en la App Store."
+              detalle="Una app con el nombre y el icono de tu estudio, para la App Store."
             >
               <MiAppDeTienda studioId={studio.id} />
             </Seccion>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { notFound, redirect } from 'next/navigation';
 import { getStudioSeo, getStudioSeoResultado, slugActualDeDireccionAntigua } from '@/lib/studio-seo';
+import { appDeTiendaPublicada } from '@/lib/app-nativa/app-publicada';
 import { BASE_URL } from '@/lib/seo/paginas';
 import { estudioIndexable } from '@/lib/seo/estudio-indexable-servidor';
 import { EstudioStructuredData } from '@/components/seo/estudio-structured-data';
@@ -81,8 +82,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // esto era condicional porque un `images: [undefined]` renderiza una etiqueta
   // `og:image` vacía, que a algunos scrapers les gusta menos que ninguna.
   const imagenes = { images: [imagen] };
+  // Con la app del estudio publicada, Safari ofrece arriba «Abrir» / «Obtener» (aviso nativo de Apple).
+  const appTienda = await appDeTiendaPublicada(studio.id);
   return {
     title: titulo,
+    ...(appTienda ? { itunes: { appId: appTienda.id } } : {}),
     description: descripcion,
     openGraph: { title: titulo, description: descripcion, type: 'website', locale: 'es_ES', ...imagenes },
     twitter: { card: tarjeta, title: titulo, description: descripcion, ...imagenes },

@@ -196,6 +196,7 @@ const articulo: Articulo = {
             { titulo: 'Fin de mes: el cierre', texto: 'Ingresos, altas y bajas, ocupación por franja y margen por clase. Las facturas, a tu gestoría. Y una sola decisión para el mes siguiente.' },
           ],
         },
+        { t: 'descarga', recurso: 'checklist-mensual-estudio-de-pilates' },
       ],
     },
     {

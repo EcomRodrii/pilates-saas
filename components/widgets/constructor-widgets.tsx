@@ -10,6 +10,7 @@ import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { BotonVivo } from '@/components/dashboard/vivo';
+import { llevarAlTitulo } from './lleva-al-titulo';
 import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import {
@@ -202,11 +203,20 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const contenedores = useRef<Partial<Record<Paso, HTMLDivElement | null>>>({});
   // Si abre «Cambiar» y se arrepiente, vuelve a donde estaba.
   const [pasoAnterior, setPasoAnterior] = useState<Paso>('que');
+  // Al paso nuevo: con el foco (se anuncia) y, en el panel nuevo, con su título a la vista
+  // debajo de las barras de arriba (`llevarAlTitulo`). Antes se quedaba a media pantalla.
+  function alPaso(p: Paso) {
+    const c = contenedores.current[p];
+    if (!panelNuevo) { c?.focus(); return; }
+    c?.focus({ preventScroll: true });
+    const destino = document.querySelector<HTMLElement>('[data-titulo-paso]') ?? c;
+    if (destino) llevarAlTitulo(destino);
+  }
   function irA(p: Paso) {
     if (p === 'ponlo') prepararCodigo(w.id);
     setPaso(p);
     // Al paso nuevo, con el foco: se anuncia y queda a la vista.
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
 
   const plataforma = web.plataforma;
@@ -633,7 +643,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setActivoId(id);
     if (p === 'ponlo') prepararCodigo(id);
     setPaso(p);
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
   // «Ir a las webs autorizadas»: la lista vive en «Ponlo en tu web», dentro del
   // pliegue «Para quien te hace la web» (y solo con la nativa, por eso la fila
@@ -799,7 +809,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       <div className={cn('grid items-start gap-6', conPrevia && '@4xl/config:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]')}>
         <div className="min-w-0 space-y-4">
           {panelNuevo && conPrevia && (
-            <div>
+            <div data-titulo-paso="">
               <h3 className="text-[22px] font-bold leading-tight text-foreground">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).titulo}</h3>
               <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).sub}</p>
             </div>
