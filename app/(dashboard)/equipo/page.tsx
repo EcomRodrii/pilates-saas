@@ -153,7 +153,7 @@ export default function EquipoPage() {
   const gestiona = miRol !== 'INSTRUCTOR';
   const uid = useId();
   const router = useRouter();
-  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots, studio } = useStudio();
+  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots, studio, dataLoaded } = useStudio();
   // «Avisar por WhatsApp» a quien está sin acceso (P3.14, opción B), apagado tras
   // `EQUIPO_INVITAR_WHATSAPP`. El WhatsApp NUNCA lleva el enlace de invitación:
   // ver `lib/equipo/invitacion-whatsapp.ts`.
@@ -642,7 +642,7 @@ export default function EquipoPage() {
       )}
 
       {tab === 'actividad' ? (
-        <ActividadTab actividadReciente={actividadReciente} />
+        <ActividadTab actividadReciente={actividadReciente} panelNuevo={panelNuevo} cargado={dataLoaded} />
       ) : (
       <>
       <AvisoControlHorario pendientes={sinRelacion} />
@@ -1400,10 +1400,31 @@ const TIPO_AUDITORIA = new Set([
   'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA', 'SESION_REASIGNADA', 'GESTORIA_CAMBIADA',
 ]);
 
-function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/types').ActividadReciente[] }) {
+function ActividadTab({ actividadReciente, panelNuevo = false, cargado = true }: {
+  actividadReciente: import('@/lib/types').ActividadReciente[];
+  panelNuevo?: boolean;
+  cargado?: boolean;
+}) {
   const relevantes = actividadReciente
     .filter(a => TIPO_AUDITORIA.has(a.tipo))
     .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
+
+  // Con el panel nuevo, el vacío enseña qué se apunta aquí (Bonsai A4). Sin botón: se llena solo.
+  if (panelNuevo && cargado && relevantes.length === 0) {
+    return (
+      <PantallaVacia
+        tono="verde"
+        Icono={History}
+        titulo="Aquí verás quién ha hecho qué"
+        texto="Cada cambio que hace tu equipo en el panel queda apuntado con quién lo hizo y cuándo."
+        ejemplos={[
+          { accion: 'Alta o baja de alguien del equipo', cuando: 'y quién la hizo' },
+          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de una clienta' },
+          { accion: 'Una clase que pasa a otra instructora', cuando: 'con la hora del cambio' },
+        ]}
+      />
+    );
+  }
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
