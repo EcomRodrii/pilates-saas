@@ -5,7 +5,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import type { MiembroCompleto } from '@/lib/equipo-tarjetas.ts';
 import { NOMBRE_PERSONA_ELIMINADA } from '@/lib/equipo/eliminar-persona-reglas';
-import { DIAS_LARGOS, MIN_CLASES_OCUPACION } from '@/lib/equipo-tarjetas.ts';
+import { DIAS_LARGOS, MIN_CLASES_OCUPACION, diaDeSemanaEstudio, ventanaEstudio } from '@/lib/equipo-tarjetas.ts';
+import { horaEstudio, hoyEnEstudio } from '@/lib/utils';
 
 // GET /api/equipo/tarjetas — el equipo, ya listo para la rejilla de tarjetas
 // del rediseño. El contrato de permisos vive en `lib/equipo-tarjetas.ts`
@@ -22,13 +23,6 @@ export const dynamic = 'force-dynamic';
 
 const MS_DIA = 86400000;
 const OCUPADAS_ESTADOS = ['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO'];
-
-function lunesDe(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-  return x;
-}
 
 interface SesionFila {
   id: string;
@@ -55,9 +49,9 @@ export async function GET(req: NextRequest) {
   }
 
   const ahora = new Date();
-  const lunes = lunesDe(ahora);
-  const finSemana = new Date(lunes.getTime() + 7 * MS_DIA);
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  // La semana, el mes y el «hoy» son los del estudio (Madrid), no los del
+  // proceso, que en el servidor es UTC.
+  const { hoy, lunes, finSemana, inicioMes, finMes } = ventanaEstudio(ahora);
   // Ventana única que cubre: ocupación de los últimos 30 días, horas del mes en
   // curso y la semana actual completa. El límite futuro es intencional (3
   // semanas): "próxima clase" no necesita alcance ilimitado, y así la query no
@@ -191,7 +185,7 @@ export async function GET(req: NextRequest) {
   const miFicha = equipo.find(i => i.auth_user_id === sesion.userId && i.activo !== false) ?? null;
 
   function labelSesion(s: SesionFila): string {
-    const hora = new Date(s.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const hora = horaEstudio(s.inicio);
     const partes = [nombreTipo.get(s.tipo_clase_id ?? '') ?? 'Clase', hora];
     const sala = s.sala_id ? nombreSala.get(s.sala_id) : null;
     if (sala) partes.push(sala);
@@ -202,7 +196,7 @@ export async function GET(req: NextRequest) {
   if (miFicha) {
     for (const s of porInstructor.get(miFicha.id) ?? []) {
       const d = new Date(s.inicio);
-      if (d >= lunes && d < finSemana) miSemanaDias.add((d.getDay() + 6) % 7);
+      if (d >= lunes && d < finSemana) miSemanaDias.add(diaDeSemanaEstudio(d));
     }
   }
 
@@ -228,10 +222,10 @@ export async function GET(req: NextRequest) {
       const ini = new Date(s.inicio);
       const fin = new Date(s.fin);
       if (ini >= lunes && ini < finSemana) {
-        const dia = (ini.getDay() + 6) % 7;
+        const dia = diaDeSemanaEstudio(ini);
         semana[dia] += 1;
         misDiasSemana.add(dia);
-        const hora = ini.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const hora = horaEstudio(ini);
         horasDia[dia] = horasDia[dia] ? `${horasDia[dia]} · ${hora}` : hora;
       }
       if (ini <= ahora && ahora <= fin) {
@@ -239,14 +233,14 @@ export async function GET(req: NextRequest) {
         claseHoyLabel = labelSesion(s);
       } else if (ini > ahora && (proximaClaseIso === null || ini.toISOString() < proximaClaseIso)) {
         proximaClaseIso = ini.toISOString();
-        if (ini.toDateString() === ahora.toDateString() && !claseHoyLabel) claseHoyLabel = labelSesion(s);
+        if (hoyEnEstudio(ini) === hoy && !claseHoyLabel) claseHoyLabel = labelSesion(s);
       }
       if (ini >= new Date(ahora.getTime() - 30 * MS_DIA) && ini <= ahora && s.aforo_maximo) {
         ocupadasVentana += ocupadasPorSesion.get(s.id) ?? 0;
         aforoVentana += s.aforo_maximo;
         sesionesVentana += 1;
       }
-      if (ini >= inicioMes && ini < new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)) {
+      if (ini >= inicioMes && ini < finMes) {
         horasMes += Math.max(0, (fin.getTime() - ini.getTime()) / 3600000);
       }
     }

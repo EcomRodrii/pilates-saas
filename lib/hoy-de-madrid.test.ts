@@ -76,11 +76,9 @@ test('ningún «hoy» que decide algo sale del día de UTC', () => {
 const MEDIANOCHE_DEL_PROCESO = /\.setHours\(0,\s*0,\s*0,\s*0\)/;
 
 // Las que quedan, cada una con lo que le pasa. Es un trinquete: solo puede bajar, y un
-// fichero que deja de usarla tiene que salir de aquí.
-const MEDIANOCHE_PENDIENTE: Record<string, string> = {
-  'app/api/equipo/tarjetas/route.ts':
-    'toda la ruta piensa en UTC, no solo esta línea: la semana (lunes), el mes, el día de la semana de cada clase (`getDay()`, las barras L–D) y «clase de hoy» (`toDateString()`). Una clase antes de las 02:00 de Madrid cae en el día, la semana o el mes anterior. No es de la Caja ni de una línea: pendiente de su propio PR',
-};
+// fichero que deja de usarla tiene que salir de aquí. Vacío desde que las tarjetas de
+// Equipo (la última) pasaron al día de Madrid (`ventanaEstudio`, lib/equipo-tarjetas.ts).
+const MEDIANOCHE_PENDIENTE: Record<string, string> = {};
 
 test('ninguna ruta de servidor saca el inicio del día de la medianoche del proceso (UTC)', () => {
   const rutas = ficheros(join(RAIZ, 'app', 'api'));
