@@ -728,7 +728,7 @@ export default function CierreDeAnoPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3 border-t border-border text-sm text-muted-foreground">
           <span>Mostrando {Math.min(8, facturasAnio.length)} de <b className="text-foreground tabular-nums">{facturasAnio.length}</b> facturas del año</span>
           {panelNuevo ? (
-            <button type="button" onClick={descargarCsv} className="font-semibold" style={{ color: 'var(--t-text-link)' }}>Descargar libro completo (CSV) →</button>
+            <button type="button" onClick={descargarCsv} className="zona-tactil font-semibold" style={{ color: 'var(--t-text-link)' }}>Descargar libro completo (CSV) →</button>
           ) : (
           <button onClick={descargarCsv} className="text-brand-medio font-semibold">Descargar libro completo (CSV) →</button>
           )}
