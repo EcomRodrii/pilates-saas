@@ -123,10 +123,14 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       onClick={e => { onClick?.(); alPulsarEnlaceAConfiguracion(e, href); }}
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
-        'flex items-center rounded-full text-[13px] font-medium transition-all relative',
+        'zona-tactil flex items-center rounded-full text-[13px] font-medium transition-all relative',
         // Alto de siempre (~36), no los 40 de la guía: con 40, a 900 px de alto
         // «Configuración» se quedaba bajo el pliegue del menú (OPEN DECISION 18).
-        collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
+        // Con el dedo y el panel nuevo (el iPad), 44: las filas de un grupo van
+        // pegadas, así que la zona táctil no puede crecer sin meterse en la de
+        // al lado; tiene que crecer la fila. Ahí el menú se desliza con el dedo,
+        // y una fila que no se acierta cuesta más que una bajo el pliegue.
+        collapsed ? 'justify-center w-10 h-10 mx-auto tactil:size-11' : 'gap-2.5 px-3 py-2 tactil:min-h-11',
         // ⚠️ Tumbado, el item NO se encoge ni parte la etiqueta. Sin esto,
         // «Centro de Control» se rompía en tres líneas y «Configuración» salía
         // cortada a media palabra: en una fila, flex reparte el hueco que falta
@@ -729,7 +733,7 @@ export function Sidebar() {
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
           <div className={cn('flex items-center gap-0.5', horizontal ? 'shrink-0' : 'px-2 pb-2 flex-col')}>
-            <Link href={`/portal/${studioSlug}/acceso/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
+            <Link href={`/portal/${studioSlug}/acceso/login`} target="_blank" title="Portal clientes" className="zona-tactil flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -743,7 +747,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/acceso/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
+              className="zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal clientes</span>
@@ -759,7 +763,7 @@ export function Sidebar() {
           <div className={cn('flex items-center gap-2.5 rounded-lg', (collapsed && !horizontal) ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
             {/* /mi-perfil y no Configuración: esa pestaña abría «Clases y
                 salas», y MANAGER/RECEPCION ni siquiera pueden entrar allí. */}
-            <Link href="/mi-perfil" title="Editar mi perfil" className="shrink-0">
+            <Link href="/mi-perfil" title="Editar mi perfil" className="zona-tactil shrink-0">
               <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="xs" />
             </Link>
             {(!collapsed || horizontal) && (
@@ -773,7 +777,7 @@ export function Sidebar() {
                 <button
                   onClick={handleSignOut}
                   title="Cerrar sesión"
-                  className="p-1.5 rounded-lg transition-colors hover:bg-card/10"
+                  className="zona-tactil p-1.5 rounded-lg transition-colors hover:bg-card/10"
                 >
                   <LogOut size={14} className="text-white/30 hover:text-white/60" />
                 </button>
@@ -796,7 +800,7 @@ export function Sidebar() {
                   <button
                     key={key}
                     onClick={() => { applySize(key); setSizeMenuOpen(false); }}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 tactil:py-3.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
                   >
                     {SIDEBAR_SIZES[key].label}
                     {size === key && <Check size={14} className="text-brand-medio shrink-0" />}
@@ -809,7 +813,9 @@ export function Sidebar() {
             onClick={() => setSizeMenuOpen(v => !v)}
             title="Tamaño del menú"
             className={cn(
-              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/55 hover:text-white/80',
+              // `tactil:h-11` y no `.zona-tactil`: va pegado al borde de abajo del
+              // menú, que recorta (`overflow-hidden`), y la zona no crecería hacia abajo.
+              'flex items-center h-9 tactil:h-11 w-full transition-colors hover:bg-card/5 text-white/55 hover:text-white/80',
               collapsed ? 'justify-center' : 'justify-center gap-2',
             )}
           >

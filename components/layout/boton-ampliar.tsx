@@ -31,7 +31,7 @@ export function BotonAmpliar() {
       aria-label={ampliado ? 'Volver al tamaño normal' : 'Ampliar a toda la pantalla'}
       title={ampliado ? 'Volver al tamaño normal (Esc)' : 'Ampliar a toda la pantalla'}
       className={cn(
-        '-my-0.5 flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+        'zona-tactil -my-0.5 flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
         ampliado && 'bg-muted text-foreground',
       )}
     >

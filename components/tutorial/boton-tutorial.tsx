@@ -49,7 +49,7 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
         aria-label={`Enséñame «${nombre}» paso a paso`}
         title={`Enséñame «${nombre}» paso a paso`}
         data-testid="boton-tutorial"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="zona-tactil inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <CirclePlay size={15} aria-hidden style={{ color: 'var(--t-magenta-500)' }} />
         {/* Una cabecera estrecha puede dejar solo el icono (el nombre sigue en `aria-label`). */}
@@ -65,7 +65,7 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
       title={`Enséñame «${nombre}» paso a paso`}
       data-testid="boton-tutorial"
       // 40 px de zona táctil en el móvil sin estirar la fila del título (-my-1); 32 en escritorio.
-      className="-my-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:my-0 lg:size-8"
+      className="zona-tactil -my-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:my-0 lg:size-8"
     >
       <CircleHelp size={16} aria-hidden />
     </button>

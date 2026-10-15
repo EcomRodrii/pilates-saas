@@ -84,7 +84,7 @@ export function AyudaDePantalla({
           aria-label={`Ayuda: ${ayuda.titulo}`}
           aria-haspopup="dialog"
           className={cn(
-            'inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            'zona-tactil inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
             className
           )}
         >

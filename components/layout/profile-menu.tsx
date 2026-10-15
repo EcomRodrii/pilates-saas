@@ -90,7 +90,7 @@ export function ProfileMenu() {
           aria-label="Abrir menú de perfil"
           aria-expanded={open}
           aria-haspopup="menu"
-          className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
+          className="zona-tactil flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
         >
           <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="sm" />
           <ChevronDown size={14} className="text-muted-foreground" />

@@ -406,7 +406,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="panel-app min-h-dvh bg-background">
+      <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo}>
         <TourProvider>
           {/* El tutorial de cada pantalla (P1.1): dentro de la visita, que manda sobre él. */}
           <TutorialProvider>

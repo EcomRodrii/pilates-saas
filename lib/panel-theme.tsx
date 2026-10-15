@@ -61,7 +61,16 @@ function guardarMarcaCache(theme: ThemeConfig) {
 // preferencia por-usuario. Lo único personal es el modo claro/oscuro
 // (localStorage). Si la carga del tema falla, se mantiene la marca por defecto
 // de globals.css (fallback robusto).
-export function PanelThemeProvider({ children, className }: { children: React.ReactNode; className?: string }) {
+export function PanelThemeProvider({ children, className, panelNuevo = false }: {
+  children: React.ReactNode;
+  className?: string;
+  /**
+   * El panel nuevo (interruptor `panelNuevo`): marca la raíz con
+   * `data-panel-nuevo`, y de esa marca cuelga lo que solo es suyo en CSS
+   * (`.zona-tactil` en globals.css). Sin él, ni un atributo de más.
+   */
+  panelNuevo?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   // Último tema aplicado: al cambiar de claro a oscuro hay que recalcular el
   // color con el fondo nuevo, y para eso hace falta acordarse de él.
@@ -131,7 +140,7 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
 
   return (
     <PanelThemeContext.Provider value={{ dark, setDark }}>
-      <div ref={ref} className={className}>
+      <div ref={ref} className={className} data-panel-nuevo={panelNuevo ? '' : undefined}>
         {children}
         {/* ⚠️ Anfitrión de los portales del panel. Va AQUÍ y no en
             `document.body` por una razón concreta: la clase `.dark` vive en
