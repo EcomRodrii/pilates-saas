@@ -25,11 +25,12 @@ export default function AppsEstudioInterno() {
   const sesion = useSesionInterna();
   const puedeEditar = tienePermiso(sesion.permisos, 'studios.update');
   const [apps, setApps] = useState<AppDeEstudioInterna[] | null>(null);
+  const [cuposLibres, setCuposLibres] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    try { setApps((await fetchAppsEstudio()).apps); setError(null); }
+    try { const r = await fetchAppsEstudio(); setApps(r.apps); setCuposLibres(r.cuposLibres ?? null); setError(null); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se ha podido cargar.'); }
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,6 +49,13 @@ export default function AppsEstudioInterno() {
         </p>
       </header>
 
+      {cuposLibres !== null && (
+        <p className={`rounded-xl px-4 py-2.5 text-[13px] ${cuposLibres <= 2 ? 'bg-warning/15 text-foreground' : 'bg-muted text-muted-foreground'}`} data-testid="cupos-libres">
+          {cuposLibres === 0
+            ? 'No queda ningún hueco libre en el lote: la próxima petición tendrá que crearse a mano en App Store Connect. Toca preparar otro lote.'
+            : `Huecos libres en el lote: ${cuposLibres}. Cada petición nueva se lleva uno (su app ya existe en App Store Connect).`}
+        </p>
+      )}
       {error && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive">{error}</p>}
       {aviso && <p role="status" className="rounded-xl bg-success/10 px-4 py-2.5 text-[13px] text-success">{aviso}</p>}
 
@@ -90,6 +98,17 @@ function FilaApp({ app: a, puedeEditar, onCambio }: {
           </p>
           <p className="text-[12px] text-muted-foreground">
             /{a.slug ?? '—'} · {a.plan ?? '—'} · pedida el {fecha(a.pedidaEn)} · «{a.nombreApp}» · <span className="font-mono">{a.bundleId}</span>
+          </p>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
+            {a.ascAppId ? (
+              <>
+                Hueco del lote: la app ya existe.{' '}
+                <a href={`https://appstoreconnect.apple.com/apps/${a.ascAppId}/distribution`} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
+                  Abrir en App Store Connect
+                </a>
+                {' '}· antes de activarla, ponle «{a.nombreApp}» con la orden «nombre» de Actions.
+              </>
+            ) : 'Sin hueco del lote: hay que crear la app a mano en App Store Connect con este identificador.'}
           </p>
         </div>
         <label className="flex items-center gap-2 text-[13px] font-medium text-foreground">

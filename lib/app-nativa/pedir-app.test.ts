@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ESTADOS_APP, LETRAS_BAJO_EL_ICONO, bundleDeSlug, esEstadoApp, nombreSugerido, textoDeEstado, urlTiendaValida, validarNombreApp,
+  ESTADOS_APP, LETRAS_BAJO_EL_ICONO, bundleDeSlug, bundlesCandidatos, esCupo, esEstadoApp, nombreSugerido, textoDeEstado, urlTiendaValida, validarNombreApp,
 } from './pedir-app.ts';
 import { esBundleDeEstudio } from './app-estudio.ts';
 
@@ -51,4 +51,18 @@ test('solo un enlace de la App Store vale como enlace de la tienda', () => {
   for (const malo of ['http://apps.apple.com/x', 'https://evil.com/https://apps.apple.com/x', 'javascript:alert(1)', '', 5, 'https://apps.apple.com/ x']) {
     assert.equal(urlTiendaValida(malo), false, String(malo));
   }
+});
+
+test('primero el hueco del lote; si no hay, los del slug', () => {
+  assert.deepEqual(bundlesCandidatos('app.tentare.cupo-003', 'luz', 2), ['app.tentare.cupo-003', 'app.tentare.luz', 'app.tentare.luz-2']);
+  assert.deepEqual(bundlesCandidatos(null, 'luz', 2), ['app.tentare.luz', 'app.tentare.luz-2']);
+  // Un slug que no da identificador deja solo el hueco.
+  assert.deepEqual(bundlesCandidatos('app.tentare.cupo-001', '___', 3), ['app.tentare.cupo-001']);
+  assert.deepEqual(bundlesCandidatos(null, '___', 3), []);
+});
+
+test('se reconoce un hueco del lote', () => {
+  assert.equal(esCupo('app.tentare.cupo-001'), true);
+  assert.equal(esCupo('app.tentare.marta'), false);
+  assert.equal(esCupo('app.tentare.cupo-1'), false);
 });

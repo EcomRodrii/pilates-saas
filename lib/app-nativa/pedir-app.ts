@@ -43,6 +43,20 @@ export function bundleDeSlug(slug: string, intento = 1): string | null {
   return id.length <= 155 && /^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(id) ? id : null;
 }
 
+/**
+ * En qué orden se intentan los identificadores al pedir la app: primero el HUECO del lote (la app ya
+ * existe en App Store Connect y solo hay que ponerle nombre), y si no queda ninguno —o el lote aún no
+ * está en esta base—, los sacados del slug (`app.tentare.<slug>`, `-2`…), que exigen crear la app a mano.
+ * Sin repetidos y sin nulos.
+ */
+export function bundlesCandidatos(cupo: string | null, slug: string, intentosSlug = 5): string[] {
+  const del = Array.from({ length: intentosSlug }, (_, i) => bundleDeSlug(slug, i + 1));
+  return [...new Set([cupo, ...del].filter((b): b is string => typeof b === 'string' && b.length > 0))];
+}
+
+/** ¿Es un hueco del lote? (`app.tentare.cupo-NNN`) */
+export const esCupo = (bundle: string): boolean => /^app\.tentare\.cupo-[0-9]{3}$/.test(bundle);
+
 export function urlTiendaValida(u: unknown): u is string {
   return typeof u === 'string' && /^https:\/\/apps\.apple\.com\/\S+$/.test(u) && u.length <= 300;
 }

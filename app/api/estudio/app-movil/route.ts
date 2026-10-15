@@ -5,7 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { pedirAppEncendido } from '@/lib/interruptor-por-estudio';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { bundleDeSlug, esEstadoApp, nombreSugerido, validarNombreApp, type AppDelEstudio } from '@/lib/app-nativa/pedir-app';
+import { bundlesCandidatos, esCupo, esEstadoApp, nombreSugerido, validarNombreApp, type AppDelEstudio } from '@/lib/app-nativa/pedir-app';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +27,21 @@ type FilaApp = { bundle_id: string; nombre_app: string; estado: string; url_tien
 const aApp = (f: FilaApp | null): AppDelEstudio | null => f && esEstadoApp(f.estado)
   ? { estado: f.estado, nombreApp: f.nombre_app, bundleId: f.bundle_id, urlTienda: f.url_tienda, pedidaEn: f.pedida_en }
   : null;
+
+/**
+ * El hueco del lote para este estudio (`asignar_cupo_app`: le da uno libre o el que ya tenía), o
+ * `null` si no queda ninguno. TOLERANTE: si la función aún no existe en esta base (código desplegado
+ * antes que la migración) o falla, también `null`, y se sigue con el identificador del slug, que es
+ * lo de antes. Se avisa en el log para que no pase en silencio.
+ */
+async function cupoDelLote(admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, studioId: string): Promise<string | null> {
+  const { data, error } = await admin.rpc('asignar_cupo_app', { p_studio_id: studioId });
+  if (error) {
+    console.warn('[estudio/app-movil] sin hueco del lote:', error.code ?? error.message);
+    return null;
+  }
+  return typeof data === 'string' && esCupo(data) ? data : null;
+}
 
 async function contexto(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
@@ -91,10 +106,11 @@ export async function POST(req: NextRequest) {
     if (errExiste) throw errExiste;
     if (existente) return NextResponse.json({ error: 'Ya has pedido tu app.', app: aApp(existente as FilaApp) }, { status: 409 });
 
-    // El bundle sale del slug; si ya estaba cogido por otro estudio, se prueba con un sufijo.
-    for (let intento = 1; intento <= 5; intento++) {
-      const bundle = bundleDeSlug((estudio.slug as string | null) ?? sesion.studioId, intento);
-      if (!bundle) return NextResponse.json({ error: 'Tu estudio no tiene una dirección válida para la app. Escríbenos.' }, { status: 422 });
+    // Primero un hueco del lote (la app ya existe en App Store Connect); si no queda ninguno, el
+    // identificador sale del slug y, si ya estaba cogido por otro estudio, con un sufijo.
+    const candidatos = bundlesCandidatos(await cupoDelLote(admin, sesion.studioId), (estudio.slug as string | null) ?? sesion.studioId);
+    if (candidatos.length === 0) return NextResponse.json({ error: 'Tu estudio no tiene una dirección válida para la app. Escríbenos.' }, { status: 422 });
+    for (const bundle of candidatos) {
       const { data: creada, error } = await admin.from('apps_estudio').insert({
         studio_id: sesion.studioId, bundle_id: bundle, nombre_app: nombre.nombre,
         activa: false, estado: 'PEDIDA', pedida_en: new Date().toISOString(),

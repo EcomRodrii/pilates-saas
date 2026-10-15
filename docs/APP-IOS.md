@@ -531,8 +531,16 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   'CREATE'») ni contestar el cuestionario de privacidad. La idea para quitarlo del camino de
   cada estudio es un LOTE: registrar `app.tentare.cupo-NNN` por API, crear esas apps de golpe
   en la web y asignar un hueco libre a cada estudio que pide la suya, cambiándole el nombre por
-  API. ⚠️ Que Apple deje renombrar una app nunca enviada por API está POR COMPROBAR con
-  `nombre` sobre una app de prueba antes de construir el lote.
+  API. Comprobado el 15-oct-2026: Apple SÍ deja renombrar por API una app nunca enviada
+  (`nombre` sobre la app de Marta, ida y vuelta).
+- **El lote** (`apps_estudio_cupos`, migr `20261015120000_apps_estudio_cupos`): cada hueco es un
+  identificador `app.tentare.cupo-NNN` ya registrado con sus capacidades, su app ya creada en App
+  Store Connect (`asc_app_id`) y su bundle ya en los Client IDs de Apple de Supabase. El primer lote
+  son 10 (15-oct-2026). Al pedir su app, el estudio se lleva un hueco libre (`asignar_cupo_app`, con
+  candado; solo service_role); si no queda ninguno, el identificador sale del slug como antes y la
+  app se crea a mano. La cola de `/interno` dice cuántos huecos quedan y enlaza cada app a App Store
+  Connect. ⚠️ Un lote nuevo: `registrar-cupos`, crear las apps en la web, añadir sus bundles a los
+  Client IDs de Supabase e insertar sus filas en `apps_estudio_cupos`.
 
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 

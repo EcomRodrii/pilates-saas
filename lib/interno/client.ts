@@ -254,11 +254,11 @@ export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
 // Apps de estudio: la cola de «Pedir mi app» (la tramita el equipo desde /interno/apps-estudio).
 export interface AppDeEstudioInterna {
   studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean; planIncluye: boolean;
-  bundleId: string; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
+  bundleId: string; ascAppId: string | null; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
   urlTienda: string | null; notaInterna: string | null;
 }
 
-export const fetchAppsEstudio = () => pedir<{ apps: AppDeEstudioInterna[] }>('/apps-estudio');
+export const fetchAppsEstudio = () => pedir<{ apps: AppDeEstudioInterna[]; cuposLibres: number | null }>('/apps-estudio');
 
 export const cambiarAppEstudio = (cuerpo: CambioApp) =>
   pedir<{ ok: true }>('/apps-estudio', { method: 'POST', body: JSON.stringify(cuerpo) });
