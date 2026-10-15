@@ -15,12 +15,14 @@
 // cifra si algo les toca (`DialogoOcultar`). Sustituye a «Explorar todas las
 // funciones» cuando el estudio tiene el panel nuevo.
 //
-// «Activo» = en el menú del estudio. Es lo que guarda el interruptor (`ocultos`,
-// con la lógica de «Tus módulos», `useTusModulos`): ocultar un módulo lo quita
-// del menú de TODO el equipo, no lo apaga ni quita permisos ni borra nada. Por
-// eso la otra chapa es «Oculto» y no «Inactivo», y la cabecera lo dice. Guardar
-// solo lo deja el servidor a la propietaria (`guardarLayoutAction`, y la RLS de
-// `studio_layout`): al resto del equipo no se le enseña el interruptor.
+// «Activo» = en el menú del estudio, y Módulos es el único sitio que lo decide:
+// sustituye al conmutador «Esencial / Todo» (lib/modulos/menu.ts). Es lo que
+// guarda el interruptor (`ocultos` y `activados`, con la lógica de `useTusModulos`):
+// ocultar un módulo lo quita del menú de TODO el equipo, no lo apaga ni quita
+// permisos ni borra nada. Por eso la otra chapa es «Oculto» y no «Inactivo», y
+// la cabecera lo dice. Guardar solo lo deja el servidor a la propietaria
+// (`guardarLayoutAction`, y la RLS de `studio_layout`): al resto del equipo no
+// se le enseña el interruptor.
 //
 // La chapa del plan la decide `tieneFeature` (`planQueFalta`): si el plan del
 // estudio ya lo incluye, no hay chapa.
@@ -35,8 +37,7 @@ import { usePermisos } from '@/lib/permisos';
 import { useCore } from '@/lib/core-context';
 import { useStudio } from '@/lib/studio-context';
 import { useTutorial } from '@/lib/tutorial-context';
-import { guardarModoMenu } from '@/lib/nav-modo';
-import { estadoEnMenu, planQueFalta, type EstadoEnMenu, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
+import { planQueFalta, type EstadoEnMenu, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
 import { alOcultar, type DatosAlOcultar } from '@/lib/modulos/al-ocultar';
 import { estaSinCobrar } from '@/lib/billing/situacion-recibo';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
@@ -102,7 +103,7 @@ function Chapa({ estado }: { estado: 'activo' | 'oculto' | 'siempre' | 'cargando
   );
 }
 
-function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGuardando, recien, error, notaEsencial, onCambiar, onIr }: {
+function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGuardando, recien, error, onCambiar, onIr }: {
   m: ModuloTuTentare;
   /** `null`: el menú no se ha podido leer (o no ha llegado): no se dice si está puesto. */
   estado: EstadoEnMenu | null;
@@ -113,7 +114,6 @@ function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGu
   otroGuardando: boolean;
   recien: boolean;
   error: string | null;
-  notaEsencial: boolean;
   onCambiar: (activo: boolean) => void;
   onIr: () => void;
 }) {
@@ -178,9 +178,6 @@ function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGu
               </Link>
             </p>
           )}
-          {notaEsencial && (
-            <p className="mt-1.5 text-[11.5px] text-muted-foreground">Solo se ve con el menú en «Todo».</p>
-          )}
         </div>
         {/* Como en Bonsai: el interruptor arriba a la derecha y, debajo, «Ir». */}
         <div className="flex shrink-0 flex-col items-end gap-2.5">
@@ -216,7 +213,7 @@ export function ModulosNuevo() {
   const { citas, citasServicios, automatizaciones, planesTarifa, recibos, reservas, sesiones, dataLoaded } = useStudio();
   const tutorial = useTutorial();
   const esPropietaria = rol === 'PROPIETARIO';
-  const { grupos, ocultos, vistos, cuenta, modo, setModo, guardando, errores, recien, errorLectura, cambiar } = useTusModulos();
+  const { grupos, ocultos, estadoDe, cuenta, guardando, errores, recien, errorLectura, cambiar } = useTusModulos();
   const [busqueda, setBusqueda] = useState('');
   const [ocultando, setOcultando] = useState<ModuloTuTentare | null>(null);
   // El error de un intento anterior no es de ESTE diálogo: solo se enseña el de pulsar «Ocultar» en él.
@@ -234,9 +231,6 @@ export function ModulosNuevo() {
   }, [grupos, busqueda]);
 
   const leido = ocultos !== null;
-  const soloEnTodo = leido && modo === 'esencial'
-    ? grupos.flatMap(g => g.modulos).filter(m => estadoEnMenu(m, vistos) === 'solo-todo').length
-    : 0;
 
   // Las cifras del aviso, solo con el diálogo abierto. Sin datos cargados, `null`:
   // `alOcultar` no afirma ninguna cifra que no sepa.
@@ -288,7 +282,7 @@ export function ModulosNuevo() {
           <div className="min-w-0 max-w-xl">
             <h2 id="modulos-titulo" className="text-[20px] font-bold leading-tight">Personaliza tu plataforma</h2>
             <p className="mt-1.5 text-[13.5px] leading-snug text-white/85 text-pretty">
-              Activa los módulos que usas y oculta los que no. Ocultar uno solo lo quita del menú de tu equipo: no borra nada y lo que hace solo sigue funcionando.
+              Lo que activas aquí es lo que sale en el menú de tu equipo. Ocultar un módulo no borra nada, y lo que hace solo sigue funcionando.
             </p>
           </div>
           <div className="flex items-stretch rounded-2xl bg-white/15 px-1.5 py-3 ring-1 ring-white/20 backdrop-blur-sm" data-testid="cifras-modulos">
@@ -320,19 +314,6 @@ export function ModulosNuevo() {
         {!esPropietaria && (
           <p className="px-1 text-[12.5px] text-muted-foreground">Activar u ocultar un módulo es cosa de la propietaria del estudio.</p>
         )}
-        {soloEnTodo > 0 && (
-          <p className="px-1 text-[12.5px] text-muted-foreground">
-            Tu menú está en «Esencial» en este navegador: {soloEnTodo === 1 ? '1 módulo activo solo se ve' : `${soloEnTodo} módulos activos solo se ven`} en «Todo».{' '}
-            <button
-              type="button"
-              className="font-semibold underline-offset-2 hover:underline"
-              style={{ color: 'var(--t-text-link)' }}
-              onClick={() => { guardarModoMenu('avanzado'); setModo('avanzado'); }}
-            >
-              Ver «Todo»
-            </button>
-          </p>
-        )}
       </div>
 
       {errorLectura && (
@@ -349,7 +330,7 @@ export function ModulosNuevo() {
 
       {visibles.map(g => {
         const grupo = GRUPOS[g.label] ?? GRUPO_POR_DEFECTO;
-        const activosDelGrupo = g.modulos.filter(m => m.fijo || !vistos.has(m.href)).length;
+        const activosDelGrupo = leido ? g.modulos.filter(m => estadoDe(m) !== 'fuera').length : 0;
         const id = `grupo-${sinTildes(g.label)}`;
         return (
           <section key={g.label} aria-labelledby={id} className="space-y-3" data-testid="grupo-modulos">
@@ -365,7 +346,7 @@ export function ModulosNuevo() {
             </div>
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {g.modulos.map(m => {
-                const estado = leido ? estadoEnMenu(m, vistos) : null;
+                const estado = leido ? estadoDe(m) : null;
                 return (
                   <TarjetaModulo
                     key={m.href}
@@ -378,7 +359,6 @@ export function ModulosNuevo() {
                     otroGuardando={guardando !== null && guardando !== m.href}
                     recien={recien === m.href}
                     error={ocultando?.href === m.href ? null : errores[m.href] ?? null}
-                    notaEsencial={estado === 'solo-todo' && modo === 'esencial'}
                     onCambiar={v => { if (v) void activar(m); else { setIntentado(false); setAbiertoEn(Date.now()); setOcultando(m); } }}
                     onIr={() => { if (m.tutorial) tutorial?.abrirAlLlegar(m.href); }}
                   />

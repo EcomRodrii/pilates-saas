@@ -20,7 +20,7 @@ test.describe.configure({ timeout: 120_000 });
 const json = (r: Route, b: unknown, status = 200) =>
   r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
 
-const LAYOUT = { orden: [], ocultos: [] as string[], menuPosition: 'lateral', home: { orden: [], ocultos: [] } };
+const LAYOUT = { orden: [], ocultos: [] as string[], activados: [] as string[], menuPosition: 'lateral', home: { orden: [], ocultos: [] } };
 const STUDIO = {
   id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro',
   owner_auth_user_id: 'auth-e2e-duena', email: 'cloe@example.com', moneda: 'EUR',
@@ -28,6 +28,7 @@ const STUDIO = {
 
 async function abrir(page: Page, o: {
   ocultos?: string[];
+  activados?: string[];
   plan?: string; estado?: string | null;
   put?: (r: Route, cuerpo: Record<string, unknown>) => Promise<void> | void;
   rol?: 'MANAGER';
@@ -35,6 +36,7 @@ async function abrir(page: Page, o: {
 } = {}) {
   await montar(page);
   let ocultos = o.ocultos ?? [];
+  let activados = o.activados ?? [];
   const cuenta = { puts: [] as Record<string, unknown>[] };
   // Después de `montar`: ganan a sus comodines.
   await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, {
@@ -59,10 +61,11 @@ async function abrir(page: Page, o: {
       cuenta.puts.push(cuerpo);
       if (o.put) return o.put(r, cuerpo);
       ocultos = (cuerpo.ocultos as string[]) ?? ocultos;
+      activados = (cuerpo.activados as string[]) ?? activados;
       // El PUT real devuelve la configuración entera ya fusionada.
-      return json(r, { ...LAYOUT, ocultos });
+      return json(r, { ...LAYOUT, ocultos, activados });
     }
-    return json(r, { ...LAYOUT, ocultos });
+    return json(r, { ...LAYOUT, ocultos, activados });
   });
   await ir(page, 'explorar-funciones');
   await expect(page.getByTestId('modulos-nuevo')).toBeVisible({ timeout: 60_000 });
@@ -78,9 +81,16 @@ test('como Bonsai: cabecera con activos y total, buscador, grupos con su frase y
   await abrir(page, { ocultos: ['/informes'] });
   await expect(page.getByRole('heading', { level: 1, name: 'Módulos' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Personaliza tu plataforma' })).toBeVisible();
+  await expect(tarjeta(page, '/informes').getByTestId('chapa-modulo')).toHaveText('Oculto');
   const total = await page.getByTestId('modulo-nuevo').count();
   await expect(cifra(page, 'En total')).toHaveText(String(total));
-  await expect(cifra(page, 'Activos')).toHaveText(String(total - 1));
+  // «Activos» es lo que sale en el menú: las tarjetas encendidas, ni una más.
+  const activos = await page.locator('[data-testid="modulo-nuevo"][data-activo="si"]').count();
+  await expect(cifra(page, 'Activos')).toHaveText(String(activos));
+  // De serie, lo de fuera del día a día nace oculto (el menú de siempre en «Esencial»).
+  await expect(tarjeta(page, '/pos').getByTestId('chapa-modulo')).toHaveText('Oculto');
+  // Módulos no sale en su propia pantalla.
+  await expect(tarjeta(page, '/explorar-funciones')).toHaveCount(0);
 
   // Los grupos, con su frase.
   for (const [grupo, frase] of [['Operación', 'Clases, citas, alumnas'], ['Negocio', 'Lo que vendes, lo que cobras']]) {
@@ -114,7 +124,7 @@ test('activar un módulo oculto guarda al momento: solo `ocultos`, y la tarjeta 
   await expect(enElMenu(page, 'Informes')).toHaveCount(0);
   await interruptor.click();
   await expect(interruptor).toHaveAttribute('aria-checked', 'true');
-  expect(cuenta.puts).toEqual([{ ocultos: [] }]);
+  expect(cuenta.puts).toEqual([{ ocultos: [], activados: [] }]);
   await expect(tarjeta(page, '/informes').getByTestId('chapa-modulo')).toHaveText('Activo');
   await expect(enElMenu(page, 'Informes')).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'Informes vuelve a estar en tu menú' })).toBeVisible();
@@ -139,7 +149,7 @@ test('ocultar pregunta antes: qué deja de verse, qué notan las alumnas y qué 
 });
 
 test('con automatizaciones encendidas, ocultarlas avisa de que seguirán escribiendo a las alumnas', async ({ page }) => {
-  await abrir(page, { automatizaciones: 2 });
+  await abrir(page, { automatizaciones: 2, activados: ['/automatizaciones'] });
   await tarjeta(page, '/automatizaciones').getByRole('switch').click();
   const dialogo = page.getByRole('dialog', { name: '¿Ocultar Automatizaciones?' });
   await expect(dialogo.getByTestId('aviso-ocultar')).toContainText('Tienes 2 automatizaciones encendidas: seguirán escribiendo a tus alumnas.');
@@ -148,19 +158,20 @@ test('con automatizaciones encendidas, ocultarlas avisa de que seguirán escribi
 
 test('confirmar ocultar manda solo `ocultos`; la tarjeta, el contador y el menú cambian, y «Deshacer» lo devuelve', async ({ page }) => {
   const cuenta = await abrir(page);
-  const total = await page.getByTestId('modulo-nuevo').count();
   await expect(enElMenu(page, 'Informes')).toBeVisible();
+  await expect(tarjeta(page, '/informes').getByTestId('chapa-modulo')).toHaveText('Activo');
+  const activos = await page.locator('[data-testid="modulo-nuevo"][data-activo="si"]').count();
   await tarjeta(page, '/informes').getByRole('switch', { name: 'Informes en el menú' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Ocultar Informes' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect(cuenta.puts).toEqual([{ ocultos: ['/informes'] }]);
+  expect(cuenta.puts).toEqual([{ ocultos: ['/informes'], activados: [] }]);
   await expect(tarjeta(page, '/informes').getByTestId('chapa-modulo')).toHaveText('Oculto');
-  await expect(cifra(page, 'Activos')).toHaveText(String(total - 1));
+  await expect(cifra(page, 'Activos')).toHaveText(String(activos - 1));
   await expect(enElMenu(page, 'Informes')).toHaveCount(0);
 
   await page.getByRole('status').getByRole('button', { name: 'Deshacer' }).click();
   await expect(tarjeta(page, '/informes').getByTestId('chapa-modulo')).toHaveText('Activo');
-  expect(cuenta.puts[1]).toEqual({ ocultos: [] });
+  expect(cuenta.puts[1]).toEqual({ ocultos: [], activados: [] });
   await expect(enElMenu(page, 'Informes')).toBeVisible();
 });
 
@@ -237,7 +248,7 @@ test.describe('capturas', () => {
     test(`Módulos a ${ancho}${oscuro ? ' en oscuro' : ''}`, async ({ page }) => {
       if (oscuro) await enOscuro(page);
       await page.setViewportSize({ width: ancho, height: alto });
-      await abrir(page, { ocultos: ['/informes', '/libreta'], automatizaciones: 2 });
+      await abrir(page, { ocultos: ['/informes', '/libreta'], activados: ['/automatizaciones'], automatizaciones: 2 });
       await page.mouse.move(0, 0);
       const sufijo = `${ancho}${oscuro ? '-oscuro' : ''}`;
       await page.screenshot({ path: `${OUT}/modulos-${sufijo}.png` });

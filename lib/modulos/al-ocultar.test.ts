@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NO_OCULTABLES, bottomNavItems } from '../nav-config.ts';
+import { siempreEnElMenu } from './menu.ts';
 import { seccionesDelMenu } from '../nav-panel-nuevo.ts';
 import { LO_PROPIO, alOcultar, type DatosAlOcultar } from './al-ocultar.ts';
 
@@ -13,7 +14,7 @@ const CEROS: DatosAlOcultar = {
   paquetesActivos: 0, recibosSinCobrar: 0, mensajesSinLeer: 0, enCadena: false,
 };
 
-const ocultables = () => seccionesDelMenu(true).flatMap(s => s.items).filter(i => !NO_OCULTABLES.includes(i.href));
+const ocultables = () => seccionesDelMenu(true).flatMap(s => s.items).filter(i => !siempreEnElMenu(i.href));
 
 test('cada módulo que se puede ocultar dice qué pasa al ocultarlo (uno nuevo sin su entrada falla aquí)', () => {
   for (const m of ocultables()) assert.ok(LO_PROPIO[m.href], `${m.href} sin su entrada en LO_PROPIO`);
