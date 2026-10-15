@@ -3,6 +3,8 @@
 import { useId, useState } from 'react';
 import { ArrowRight, Code2, Globe, Smartphone, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo } from '@/components/dashboard/vivo';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { PLATAFORMAS_WEB, direccionLegible, type EstadoWeb, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { GrupoOpciones, Tarjeta } from './piezas';
@@ -29,6 +31,7 @@ export function PasoPlataforma({ web, sitioWeb, onContestar, onCancelar }: {
   const [direccion, setDireccion] = useState(web.direccion ?? direccionLegible(sitioWeb) ?? '');
   const idDireccion = useId();
   const idAyuda = useId();
+  const panelNuevo = usePanelNuevo();
 
   return (
     <div className="space-y-4">
@@ -69,14 +72,23 @@ export function PasoPlataforma({ web, sitioWeb, onContestar, onCancelar }: {
         {onCancelar && (
           <button type="button" onClick={onCancelar} className={btnSecondary}>Cancelar</button>
         )}
-        <button
-          type="button"
-          disabled={!plataforma}
-          onClick={() => plataforma && onContestar({ plataforma, direccion: plataforma === 'sinweb' ? null : direccionLegible(direccion) })}
-          className={btnPrimary}
-        >
-          Siguiente<ArrowRight size={15} aria-hidden />
-        </button>
+        {panelNuevo ? (
+          <BotonVivo
+            grande
+            disabled={!plataforma}
+            onClick={() => plataforma && onContestar({ plataforma, direccion: plataforma === 'sinweb' ? null : direccionLegible(direccion) })}
+            label={<>Siguiente<ArrowRight size={15} aria-hidden /></>}
+          />
+        ) : (
+          <button
+            type="button"
+            disabled={!plataforma}
+            onClick={() => plataforma && onContestar({ plataforma, direccion: plataforma === 'sinweb' ? null : direccionLegible(direccion) })}
+            className={btnPrimary}
+          >
+            Siguiente<ArrowRight size={15} aria-hidden />
+          </button>
+        )}
       </div>
     </div>
   );

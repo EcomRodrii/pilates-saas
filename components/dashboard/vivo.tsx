@@ -228,9 +228,9 @@ export function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles,
 
 
 /** El periodo en píldoras, como «7 días · Este mes · 3 meses» de Bonsai. */
-export function Pildoras<T extends string | number>({ opciones, valor, onCambio }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void }) {
+export function Pildoras<T extends string | number>({ opciones, valor, onCambio, etiqueta = 'Periodo' }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void; etiqueta?: string }) {
   return (
-    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Periodo">
+    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label={etiqueta}>
       {opciones.map(o => (
         <button
           key={String(o.valor)}

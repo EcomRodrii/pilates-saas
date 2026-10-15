@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toggle } from '@/components/configuracion/estilos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Las piezas del constructor de widgets. Todas con el mismo lenguaje: la
 // etiqueta dice QUÉ es, la línea gris de debajo dice qué pasa al tocarlo, y el
@@ -53,8 +54,10 @@ export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   className?: string;
 }) {
   const id = useId();
+  // Panel nuevo: el marco de las tarjetas del resto del panel (casi blanca, borde suave).
+  const panelNuevo = usePanelNuevo();
   return (
-    <section aria-labelledby={id} className={cn('min-w-0 rounded-2xl border border-border bg-card p-4 shadow-xs @md/config:p-5', className)}>
+    <section aria-labelledby={id} className={cn('min-w-0 border border-border bg-card p-4 @md/config:p-5', panelNuevo ? 'rounded-t-card shadow-t-card' : 'rounded-2xl shadow-xs', className)}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 id={id} className="text-[15px] font-semibold tracking-tight text-foreground">{titulo}</h3>
         {etiqueta && <Etiqueta tipo={etiqueta} />}
