@@ -54,6 +54,13 @@ const ORIGEN = (valor('origen') ?? 'https://www.tentare.app').replace(/\/$/, '')
 const SOLO_ICONO = flag('solo-icono');
 const SIN_SUBIR = flag('sin-subir');
 
+/** En Actions (registro público): que estos valores salgan como ***. Fuera de Actions, nada. */
+function ocultar(...valores) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  for (const v of valores) if (typeof v === 'string' && v.trim().length >= 3) console.log(`::add-mask::${v.trim()}`);
+}
+ocultar(slug);
+
 function parar(mensaje) {
   console.error(`\n✖ ${mensaje}\n`);
   process.exit(1);
@@ -138,6 +145,7 @@ const app = await leerApp();
 if (!esAppDeEstudio(app) || typeof app.bundleId !== 'string' || typeof app.nombreApp !== 'string') {
   parar('La respuesta del servidor no tiene la forma de una app de estudio.');
 }
+ocultar(app.nombre, app.bundleId, app.nombreApp);
 console.log(`App de «${app.nombre}» → ${app.bundleId} · «${app.nombreApp}»`);
 
 const imagenes = await componerImagenes(app);

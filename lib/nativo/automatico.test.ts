@@ -57,6 +57,7 @@ test('estados de Apple', () => {
   assert.equal(faseDeVersion('WAITING_FOR_REVIEW'), 'en-revision');
   assert.equal(faseDeVersion('REJECTED'), 'rechazada');
   assert.equal(faseDeVersion('PREPARE_FOR_SUBMISSION'), 'preparando');
+  assert.equal(faseDeVersion('WAITING_FOR_EXPORT_COMPLIANCE'), 'preparando');
   assert.equal(faseDeVersion('ALGO_NUEVO'), 'desconocida');
 });
 

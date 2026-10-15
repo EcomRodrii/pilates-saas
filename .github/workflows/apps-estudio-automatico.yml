@@ -12,6 +12,10 @@
 #
 # Secretos: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 y APPS_AUTOMATICO_SECRET (este, el mismo que en
 # Vercel). Sin ellos no hace nada. Nunca se imprimen (GitHub los enmascara, y los scripts no los escriben).
+# ⚠️ Cada secreto va SOLO en el paso que lo usa, nunca en el `env` del job: `npm ci` y la instalación
+# de navegadores ejecutan scripts de terceros, y la clave de App Store Connect gobierna toda la cuenta.
+# ⚠️ El repo es público y este registro también: la lista de compilar lleva fichas opacas, no slugs,
+# y los scripts enmascaran nombres, slugs y bundles (`::add-mask::`) antes de escribir nada.
 # El Team ID de Apple no es secreto: sale en el apple-app-site-association de tentare.app.
 
 name: Apps de estudio · automático
@@ -58,6 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           # A mano, una app concreta: se compila esa y nada más (el slug, validado; la app tiene que estar activa).
+          # Lo escribió quien lanza el workflow; el job de compilar lo resuelve y lo enmascara igual.
           if [ -n "${SOLO_COMPILAR:-}" ]; then
             if [[ ! "$SOLO_COMPILAR" =~ ^[a-z0-9-]{1,80}$ ]]; then echo "::error::slug no válido"; exit 1; fi
             echo "compilar=[\"$SOLO_COMPILAR\"]" >> "$GITHUB_OUTPUT"
@@ -80,20 +85,24 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        slug: ${{ fromJSON(needs.sincronizar.outputs.compilar) }}
+        # Fichas opacas (o el slug escrito a mano): el paso «Qué app es» lo resuelve y lo enmascara.
+        app: ${{ fromJSON(needs.sincronizar.outputs.compilar) }}
     env:
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-      APPS_AUTOMATICO_SECRET: ${{ secrets.APPS_AUTOMATICO_SECRET }}
       TENTARE_APPLE_TEAM_ID: QZV686W535
-      SLUG: ${{ matrix.slug }}
+      FICHA: ${{ matrix.app }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: npm
+      - name: Qué app es
+        env:
+          APPS_AUTOMATICO_SECRET: ${{ secrets.APPS_AUTOMATICO_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$FICHA" =~ ^[A-Za-z0-9-]{1,80}$ ]]; then echo "::error::ficha no válida"; exit 1; fi
+          node --experimental-strip-types scripts/apps-automatico.mjs slug "$FICHA"
       - name: El Xcode más nuevo de la máquina
         run: |
           set -euo pipefail
@@ -106,23 +115,38 @@ jobs:
           npm ci
           npx playwright install chromium
       - name: La clave, en un fichero temporal
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc.p8"
           echo "ASC_KEY_PATH=$RUNNER_TEMP/asc.p8" >> "$GITHUB_ENV"
       - name: Certificados de desarrollo antes de compilar
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: node --experimental-strip-types scripts/apps-automatico.mjs certificados > "$RUNNER_TEMP/certificados-antes.json"
       - name: Compilar y subir a TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
           if [[ ! "$SLUG" =~ ^[a-z0-9-]{1,80}$ ]]; then echo "slug no válido"; exit 1; fi
           node --experimental-strip-types scripts/app-estudio.mjs "$SLUG"
       - name: Si ha fallado, avisar
-        if: failure()
+        if: failure() && env.SLUG != ''
+        env:
+          APPS_AUTOMATICO_SECRET: ${{ secrets.APPS_AUTOMATICO_SECRET }}
         run: node --experimental-strip-types scripts/apps-automatico.mjs fallo "$SLUG" "la compilación o la subida ha fallado; mira el registro del workflow" || true
       - name: Revocar los certificados que ha creado esta compilación
         if: always()
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           if [ -f "$RUNNER_TEMP/certificados-antes.json" ]; then
             node --experimental-strip-types scripts/apps-automatico.mjs revocar "$RUNNER_TEMP/certificados-antes.json"

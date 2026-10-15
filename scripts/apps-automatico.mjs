@@ -13,6 +13,13 @@
 //       compilación). Ninguno más.
 //   node scripts/apps-automatico.mjs fallo <slug> "<detalle>"
 //       Le cuenta al servidor que la compilación de esa app ha fallado (aviso al equipo).
+//   node scripts/apps-automatico.mjs slug <ficha|slug>
+//       Para el job de compilar: de la ficha opaca que deja «sincronizar» saca el slug, lo oculta en
+//       el registro y lo deja en GITHUB_ENV como SLUG.
+//
+// ⚠️ El repo es público y los registros de Actions también: nada de nombres de estudio, slugs ni
+// bundles a la vista. En Actions se enmascaran (`::add-mask::`) antes de escribir nada, y la lista
+// para compilar lleva fichas opacas (hash del id del estudio), no slugs.
 //
 // Necesita ASC_KEY_ID, ASC_ISSUER_ID y ASC_KEY_P8 (secretos de GitHub) y APPS_AUTOMATICO_SECRET (el
 // mismo en GitHub y en Vercel). Nada de esto se imprime nunca.
@@ -22,6 +29,7 @@
 // esto lo ve y lo apunta solo.
 
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { ASC_API, credencialesDe, cuerpoNombre, errorAsc, tokenAsc } from '../lib/nativo/asc.ts';
 import { certificadosNuevos, estadoDeBuild, faseDeVersion, pasoDe } from '../lib/nativo/automatico.ts';
 
@@ -30,9 +38,19 @@ const ORIGEN = (process.env.TENTARE_ORIGEN ?? 'https://www.tentare.app').replace
 
 function parar(m) { console.error(`\n✖ ${m}\n`); process.exit(1); }
 
+// Solo las órdenes que hablan con Apple necesitan la clave de App Store Connect.
+const conApple = ['sincronizar', 'certificados', 'revocar'].includes(orden);
 const cred = credencialesDe(process.env);
-if ('falta' in cred) parar(`Faltan o no tienen buen formato: ${cred.falta.join(', ')}.`);
+if (conApple && 'falta' in cred) parar(`Faltan o no tienen buen formato: ${cred.falta.join(', ')}.`);
 const secreto = process.env.APPS_AUTOMATICO_SECRET?.trim();
+
+/** En Actions, que estos valores salgan como *** en el registro (público). Fuera de Actions, nada. */
+function ocultar(...valores) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  for (const v of valores) if (typeof v === 'string' && v.trim().length >= 3) console.log(`::add-mask::${v.trim()}`);
+}
+/** La ficha opaca de una app en la lista de compilar: no dice qué estudio es. Mayúsculas: no puede ser un slug. */
+const fichaDe = (studioId) => `X${createHash('sha256').update(studioId).digest('hex').slice(0, 12).toUpperCase()}`;
 
 class ErrorApple extends Error { constructor(estado, texto) { super(texto); this.estado = estado; } }
 
@@ -94,6 +112,7 @@ async function sincronizar() {
   console.log(`${apps.length} app(s) de estudio · ${cuposLibres} hueco(s) libre(s) en el lote.`);
   const compilar = new Set();
 
+  for (const app of apps) ocultar(app.estudio, app.slug, app.bundleId, app.nombreApp);
   for (const app of apps) {
     const etiqueta = `${app.estudio} (${app.bundleId}, ${app.estado})`;
     try {
@@ -129,13 +148,18 @@ async function sincronizar() {
         }
         await tentare('POST', { studioId: app.studioId, cambio: { estado: 'EN_PREPARACION', activa: true }, evento: 'preparada' });
         console.log(`✔ ${etiqueta}: nombre puesto y activada → en preparación`);
-        if (app.slug) compilar.add(app.slug);
+        if (app.slug) compilar.add(fichaDe(app.studioId));
         continue;
       }
 
       if (paso.tipo === 'compilar') {
         if (fallosDeHoy(app.notaInterna) >= 2) { console.log(`· ${etiqueta}: ya ha fallado dos veces hoy; se reintenta mañana`); continue; }
-        if (app.slug) compilar.add(app.slug);
+        // Apple dio la última compilación por no válida: cuenta como fallo (si no, se recompilaba
+        // cada media hora sin fin y sin que nadie se enterara).
+        if (apple_.build === 'fallida') {
+          await tentare('POST', { studioId: app.studioId, evento: 'fallo', detalle: 'Apple ha marcado la última compilación como no válida; se vuelve a compilar' });
+        }
+        if (app.slug) compilar.add(fichaDe(app.studioId));
         console.log(`· ${etiqueta}: a compilar`);
         continue;
       }
@@ -175,13 +199,24 @@ try {
     const nuevos = certificadosNuevos(antes, await certificadosDeDesarrollo());
     for (const id of nuevos) { await apple('DELETE', `/v1/certificates/${id}`); console.log(`✔ Revocado el certificado de desarrollo ${id} (creado por esta compilación).`); }
     if (nuevos.length === 0) console.log('Esta compilación no ha creado certificados de desarrollo.');
+  } else if (orden === 'slug') {
+    // De la ficha opaca (o de un slug escrito a mano en el workflow) al slug, oculto en el registro.
+    const [valor] = args;
+    const { apps } = await tentare('GET');
+    for (const a of apps) ocultar(a.estudio, a.slug, a.bundleId, a.nombreApp);
+    const app = apps.find((a) => fichaDe(a.studioId) === valor || a.slug === valor);
+    if (!app?.slug) parar('No hay ninguna app de estudio con esa ficha.');
+    if (!process.env.GITHUB_ENV) parar('Esta orden es para Actions (falta GITHUB_ENV).');
+    fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${app.slug}\n`);
+    console.log('✔ App encontrada.');
   } else if (orden === 'fallo') {
     const [slug, detalle] = args;
     const { apps } = await tentare('GET');
+    for (const a of apps) ocultar(a.estudio, a.slug, a.bundleId, a.nombreApp);
     const app = apps.find((a) => a.slug === slug);
     if (app) await tentare('POST', { studioId: app.studioId, evento: 'fallo', detalle: `compilación: ${(detalle ?? 'falló').slice(0, 250)}` });
   } else {
-    parar('Uso: sincronizar | certificados | revocar <antes.json> | fallo <slug> "<detalle>"');
+    parar('Uso: sincronizar | certificados | revocar <antes.json> | slug <ficha> | fallo <slug> "<detalle>"');
   }
 } catch (e) {
   parar(e.message);

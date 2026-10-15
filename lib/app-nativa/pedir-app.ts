@@ -111,7 +111,8 @@ export function textoDeEstado(estado: EstadoApp): { titulo: string; detalle: str
     case 'PUBLICADA':
       return { titulo: 'Publicada', detalle: 'Tu app ya está en la App Store.' };
     case 'PAUSADA':
-      return { titulo: 'En pausa', detalle: 'Tu app está en pausa. Escríbenos si quieres retomarla.' };
+      // Lo mismo que le dice el aviso de la pausa (APP_TIENDA_PAUSADA): «si vuelves, la retomamos».
+      return { titulo: 'En pausa', detalle: 'Tu app está en pausa. Si tu plan vuelve a incluirla (Estudio o Cadena), la retomamos; si es por otra cosa, escríbenos.' };
   }
 }
 
