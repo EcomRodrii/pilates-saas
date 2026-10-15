@@ -322,9 +322,11 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
-  - **Qué toca al pasarse** (fundador, 15-oct de madrugada): más de 250 reservas con 150 alumnas o
-    menos → Founding Studio DE PAGO (29 €, lo mismo sin límite de reservas); más de 150 alumnas →
-    Estudio (`planQueToca`). Founding de pago incluye lo mismo que el gratis: todo menos varias sedes.
+  - **Qué toca al pasarse** (fundador, 15-oct 08:30, corrige lo de la madrugada): pasar CUALQUIERA
+    de los dos límites → Founding Studio DE PAGO (29 €): lo mismo que el gratis, sin tope de alumnas
+    ni de reservas. Nadie va obligado a Estudio. Lo que distingue a Estudio (59 €) es la app propia
+    del estudio en la tienda de apps (`appPropia`: «estudio incluye la app alumna»); mientras no se
+    pueda pedir, en /precios solo se anuncia lo que ya tiene de más (consultas al asistente).
 - **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
   `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
   vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
