@@ -15,6 +15,7 @@ import {
 } from '@/lib/widgets/recetas';
 import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta } from './piezas';
 import { SelectorClase, type DatosPanel } from './paso-que';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Paso 3 · Ponlo en tu web. Un botón grande para copiar, los pasos de SU web y
 // el código plegado —el <pre> sigue en el DOM: es lo que se copia y lo que leen
@@ -73,7 +74,7 @@ export function PasoPonlo({
    * la web», donde está la lista. Quien lo pide lleva allí el foco.
    */
   verDominios?: boolean;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   const w = entrada.widget;
   const c = entrada.config;
@@ -106,7 +107,7 @@ export function PasoPonlo({
       // Decir «copiado» y que no lo esté es peor que decir que no: se iría a
       // su web a pegar nada y daría por roto el widget.
       if (detalles.current) detalles.current.open = true;
-      showToast(`No se ha podido copiar. Abre «Ver ${esEnlace ? 'el enlace' : 'el código'}», selecciónalo y cópialo a mano.`);
+      showToast(`No se ha podido copiar. Abre «Ver ${esEnlace ? 'el enlace' : 'el código'}», selecciónalo y cópialo a mano.`, { variant: 'error' });
       return;
     }
     onCopiado(firma);
@@ -122,7 +123,7 @@ export function PasoPonlo({
 
   async function copiarReact() {
     if (!(await copiarAlPortapapeles(generarCodigo(entrada, metodo, 'react').codigo))) {
-      showToast('No se ha podido copiar el componente.');
+      showToast('No se ha podido copiar el componente.', { variant: 'error' });
       return;
     }
     onCopiado(firma);
@@ -132,7 +133,7 @@ export function PasoPonlo({
   const mensaje = mensajeParaTuWeb({ estudio, queEs: w.respuesta, forma, codigo: copiable, esEnlace, pasos, guia });
 
   async function copiarMensaje() {
-    if (!(await copiarAlPortapapeles(mensaje.cuerpo))) { showToast('No se ha podido copiar el mensaje.'); return; }
+    if (!(await copiarAlPortapapeles(mensaje.cuerpo))) { showToast('No se ha podido copiar el mensaje.', { variant: 'error' }); return; }
     onCopiado(firma);
     marcar('mensaje');
     showToast('Mensaje copiado: pégalo en un correo o en WhatsApp.');

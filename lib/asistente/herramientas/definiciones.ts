@@ -24,7 +24,7 @@
 import { z } from 'zod';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
-  puedeGestionarCalendario, puedeGestionarClientas, puedeVerFinanzas,
+  puedeGestionarCalendario, puedeGestionarClientas, puedeModerarComunidad, puedeVerFinanzas,
 } from '../../permisos-reglas.ts';
 import type { Rol } from '../../types.ts';
 import type { DefinicionHerramienta, NombreHerramienta } from '../tipos.ts';
@@ -314,6 +314,27 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
     zod: zClases,
     permitida: rol => puedeEjecutarAccion(rol, 'CREAR_CLASE'),
     etiqueta: () => 'Preparando las clases…',
+  }),
+  def({
+    nombre: 'ocupacion_por_tipo_de_clase',
+    clase: 'lectura',
+    descripcion: 'La ocupación de cada TIPO de clase (Reformer, Mat, Yoga…) en un periodo, de la que más se llena a la que menos, con las clases dadas de cada tipo y comparada con el mismo tramo del periodo anterior. Es la misma cifra que Informes › Clases. Úsala para «¿qué tipo de clase funciona mejor?», «¿se llena más el reformer que el mat?», «¿qué clase debería quitar?» o «¿en qué clase invierto mejor mi tiempo?».',
+    esquema: objeto({
+      periodo: enumerado(PERIODO, 'El periodo.'),
+      cual: enumerado(CUAL, 'actual: el periodo en curso, hasta hoy; anterior: el periodo anterior entero.'),
+    }),
+    zod: zActividad,
+    permitida: rol => delAsistente(rol) && puedeGestionarCalendario(rol),
+    etiqueta: (input) => `Comparando los tipos de clase de ${TEXTO_PERIODO[input.periodo][input.cual]}…`,
+  }),
+  def({
+    nombre: 'eventos_proximos',
+    clase: 'lectura',
+    descripcion: 'Los eventos de la comunidad publicados que aún no han pasado (talleres, quedadas, clases especiales): de qué es cada uno, el día y la hora, el lugar, el aforo y cuántas alumnas se han apuntado. Hasta 10, el más próximo primero. Úsala para «¿cuántos eventos tengo?», «¿cómo va el taller del sábado?» o «¿qué eventos hay esta semana?».',
+    esquema: objeto({}),
+    zod: sinEntrada,
+    permitida: rol => delAsistente(rol) && puedeModerarComunidad(rol),
+    etiqueta: () => 'Mirando tus próximos eventos…',
   }),
 ];
 

@@ -278,7 +278,7 @@ export default function FichaAlumnaInstructoraPage() {
     setAbriendo(true);
     const r = await escribirAAlumna(estudio.slug, socioId);
     setAbriendo(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     router.push(href(`/equipo/mensajes/${encodeURIComponent(r.id)}`));
   };
   const hoy = hoyISO();

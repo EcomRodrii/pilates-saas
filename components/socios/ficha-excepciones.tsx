@@ -3,16 +3,17 @@
 // F2 (B2.9) — Excepciones por socia ("porque lo digo yo"): toggles en la ficha que
 // eximen a esta socia de automatizaciones concretas. Sin formulario, sin reproche.
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useStudio } from '@/lib/studio-context';
 import { tieneExcepcion, TIPOS_EXCEPCION, EXCEPCION_META, type TipoExcepcion } from '@/lib/excepciones';
 import { ShieldOff } from 'lucide-react';
 
-export function FichaExcepciones({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
+export function FichaExcepciones({ socioId, onToast }: { socioId: string; onToast: MostrarToast }) {
   const { socioExcepciones, ponerExcepcion, quitarExcepcion } = useStudio();
 
   async function toggle(tipo: TipoExcepcion, on: boolean) {
     const res = on ? await ponerExcepcion(socioId, tipo, null) : await quitarExcepcion(socioId, tipo);
-    if (!res.ok) onToast(res.error);
+    if (!res.ok) onToast(res.error, { variant: 'error' });
   }
 
   return (

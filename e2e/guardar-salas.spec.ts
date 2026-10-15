@@ -68,6 +68,9 @@ async function mockBackend(page: Page, opts: {
 } = {}) {
   const salasGuardadas: Record<string, unknown>[] = [...(opts.salasIniciales ?? [])];
   const borradas: string[] = [];
+  // Todos los DELETE que llegan, aceptados o no: un test de fallo sin contador
+  // puede pasar sin que la pantalla haya intentado nada.
+  const intentosBorrar: string[] = [];
 
   // OJO con el orden: Playwright resuelve las rutas en orden INVERSO al de
   // registro, así que los comodines van PRIMERO y las específicas después.
@@ -94,6 +97,7 @@ async function mockBackend(page: Page, opts: {
       return json(route, [], 201);
     }
     if (req.method() === 'DELETE') {
+      intentosBorrar.push(req.url());
       // Simula el rechazo de la BD (p.ej. FK 23503 si la sala tiene clases que
       // el cliente no tenía en memoria) para comprobar el mensaje del borrado.
       if (opts.fallaDelete) return json(route, opts.fallaDelete.body, opts.fallaDelete.status);
@@ -109,7 +113,7 @@ async function mockBackend(page: Page, opts: {
     return json(route, salasGuardadas);
   });
 
-  return { salasGuardadas, borradas };
+  return { salasGuardadas, borradas, intentosBorrar };
 }
 
 // Una sala ya guardada (forma de la BD: snake_case, como la devuelve PostgREST).
@@ -241,10 +245,10 @@ test.describe('Borrar una sala', () => {
     expect(borradas).toEqual(['sala-vacia']);
   });
 
-  test('si la BD rechaza el borrado (FK 23503), el mensaje es el del borrado, no el de crear', async ({ page }) => {
+  test('si la BD rechaza el borrado (FK 23503), el mensaje es el del borrado, no el de crear, y sale en rojo', async ({ page }) => {
     // Pre-check en verde (el cliente no ve clases) pero la BD sí las tiene: se
     // llega al DELETE y este falla con 23503 — la red de seguridad de dbDeleteSala.
-    await mockBackend(page, {
+    const { intentosBorrar } = await mockBackend(page, {
       salasIniciales: [salaRow('sala-x', 'Sala X')],
       sesiones: [],
       fallaDelete: {
@@ -261,8 +265,12 @@ test.describe('Borrar una sala', () => {
     await page.getByRole('button', { name: 'Eliminar sala' }).first().click();
     await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
 
-    // El mensaje propio del borrado...
-    await expect(page.getByText(/No puedes borrar una sala con clases asignadas/)).toBeVisible();
+    // El borrado SÍ se intentó: sin esto, «no mintió» podría ser no haber hecho nada.
+    await expect.poll(() => intentosBorrar.length, { timeout: 20_000 }).toBeGreaterThan(0);
+    // El mensaje propio del borrado, como error (rojo, `alert`), nunca con el ✓
+    // verde del éxito (P0.3: antes salía como «status» durante 3 s).
+    await expect(page.getByRole('alert').filter({ hasText: /No puedes borrar una sala con clases asignadas/ })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: /No puedes borrar una sala/ })).toHaveCount(0);
     // ...y NUNCA el texto pensado para un INSERT ("vuelve a crearlo").
     await expect(page.getByText(/vuelve a crearlo/i)).toHaveCount(0);
     // La sala sigue en la tabla: el borrado no se dio por bueno.

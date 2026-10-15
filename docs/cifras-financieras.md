@@ -47,12 +47,29 @@ Ninguna cifra va a coincidir con el banco sin restar esas comisiones.
 | «Cobrado» del titular y el gráfico | Informes › Dinero | `dineroDelTramo` (`lib/informes/dinero.ts`), que envuelve `cobradoEnTramo`: la misma cifra que «Lo que he cobrado» de Cobros, frente al mismo tramo del periodo anterior (`mismoTramoAnterior`) |
 | Ingreso medio por clienta que pagó | Informes › Dinero | lo cobrado por recibos CON clienta ÷ clientas distintas que pagaron (sin las ventas de caja sin clienta) |
 | Ventas por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros) | Informes › Dinero | `motivoDelCobro` (`lib/informes/motivo-cobro.ts`): por el id del recibo y, si no, por el tipo del plan; nunca por el concepto. Suman el «Cobrado» |
+| € por plaza a la venta, por día y hora (apagado tras `INFORMES_EURO_PLAZA`) | Informes › € por plaza | `mapaEuroPorPlaza` (`lib/informes/euro-por-plaza.ts`). Solo con el periodo cerrado. Cada alumna reparte lo que **pagó** en el periodo por cuota, bono o clase suelta (`importeIngresado` de `cobradoEnTramo`, motivo por `motivoDelCobro`) entre las plazas que ocupó (vino, faltó o tenía reserva); lo repartido de cada franja ÷ sus plazas a la venta (aforo, o las ocupadas si fueron más). Cuadra al céntimo con el «Cobrado»: Caja + sesiones privadas + otros + sin clienta + de quien no ocupó plaza + lo repartido. **No** es el «Ingreso» de la tabla Clases (`margen-clase.ts`, por tarifa): un bono pagado antes del periodo cuenta 0 € en sus clases, y se dice en pantalla |
 | Facturado este mes y % frente al anterior | Cobros › Facturas | `facturas.fecha_emision` del mes del estudio y su anterior (`mesAnterior`) |
 | Cierre anual/trimestral, IVA, 347 | Cierre y correo a la gestoría | todas las facturas emitidas (selladas o no) + ingresos manuales; **fuera** las que tienen el registro ANULADO en la AEAT |
 | Gasto total | Ficha de la clienta | suma de `importeIngresado` |
 | Pendiente de cobro | Ficha de la clienta (cabecera) | suma de `importeAdeudado` (por cobrar + impagado), como «Pendiente cobro» de Cobros; debajo, cuántos pagos fallidos lleva |
 | Cobros pendientes | Centro de Control (bandeja) | `POR_COBRAR` (se resuelve cobrando) |
 | Cobros sin cobrar | Bandeja única («decidir») | `IMPAGADO` |
+
+## Pagos históricos importados: se enseñan aparte, no suman (10-oct-2026)
+
+Al migrar, el estudio trae sus pagos (`pagos_historicos`, tabla aparte a propósito: no es
+`recibos`, sin Stripe, sin factura, sin NIF verificado, ya declarado por la gestoría anterior).
+**No suman en «Cobrado»**: esa cifra cuadra con las facturas y el cierre, y un ingreso sin
+factura la rompería. Pero tampoco pueden quedarse fuera de vista: tras migrar 3 meses de pagos,
+Cobros e Informes decían «Cobrado 0 €» para agosto y septiembre y el comparativo «frente a
+septiembre» salía vacío (medido el 10-oct con 568 pagos de prueba).
+
+Por eso **Cobros › Lo que he cobrado** e **Informes › Dinero** enseñan debajo del titular una
+línea propia, «De tu software anterior: X € en N pagos importados» (con la del mismo tramo del
+periodo anterior), que dice que no suma en «Cobrado» y por qué. La lee `GET /api/pagos-historicos/resumen`
+(agregado por día en servidor, mismo gate `puedeVerFinanzas`) y la calcula
+`lib/cobros/pagos-historicos.ts`. Una pantalla nueva con dinero que quiera «contarlos» debe
+seguir enseñándolos aparte, nunca sumarlos a recibos.
 
 ## Ventas del TPV
 

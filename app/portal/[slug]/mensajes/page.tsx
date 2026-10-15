@@ -40,7 +40,7 @@ export default function MensajesPage() {
     setAbriendo(true);
     const r = await abrirConversacionConEstudio(estudio.id);
     setAbriendo(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     router.push(href(`/mensajes/${r.id}`));
   };
 

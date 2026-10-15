@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
-  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual,
+  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual, horas, horasCsv, valoracionMedia,
+  ventanaEstudio, diaDeSemanaEstudio,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
 
@@ -122,7 +123,13 @@ test('propietaria ve coste en euros', () => {
 test('responsable de sede ve horas, nunca euros — aunque el dato llegue relleno', () => {
   const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER', AHORA);
   assert.equal(c.segundaEtiqueta, 'Horas del mes');
-  assert.equal(c.segundaValor, '18.5 h');
+  assert.equal(c.segundaValor, '18,5 h');
+});
+
+test('propietaria sobre alguien sin tarifa: horas con coma decimal, como los euros', () => {
+  const c = cifras(m({ costeMes: null, horasMes: 14.2 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.segundaEtiqueta, 'Horas del mes');
+  assert.equal(c.segundaValor, '14,2 h');
 });
 
 test('responsable de sede: el texto de horas no contiene el símbolo de euro', () => {
@@ -147,6 +154,40 @@ test('recepción (situación mostrador) no muestra cifras de clase a nadie', () 
   assert.equal(c.verBarras, false);
 });
 
+// ── horas() / valoracionMedia(): coma decimal, nunca punto ──────────────────
+
+test('horas(): coma decimal y un decimal como mucho', () => {
+  assert.equal(horas(14.2), '14,2 h');
+  assert.equal(horas(14.25), '14,3 h');
+  assert.equal(horas(0.5), '0,5 h');
+});
+
+test('horas(): un número entero sale sin decimales', () => {
+  assert.equal(horas(14), '14 h');
+  assert.equal(horas(0), '0 h');
+  // Una suma de duraciones en coma flotante que se queda a nada del entero.
+  assert.equal(horas(2.9999999), '3 h');
+  assert.equal(horas(14.04), '14 h');
+});
+
+test('horasCsv(): coma decimal para el Excel en español, sin decimales si es entero', () => {
+  assert.equal(horasCsv(1.5), '1,50');
+  assert.equal(horasCsv(0.75), '0,75');
+  assert.equal(horasCsv(14), '14');
+  assert.ok(!horasCsv(2 / 3).includes('.'));
+});
+
+test('valoracionMedia(): siempre un decimal, con coma', () => {
+  assert.equal(valoracionMedia(4.8), '4,8');
+  assert.equal(valoracionMedia(5), '5,0');
+  assert.equal(valoracionMedia(4.63), '4,6');
+});
+
+test('cifras().valoracionTexto: la media con coma decimal', () => {
+  const c = cifras(m({ valoracion: { media: 4.8, total: 34 } }), 'PROPIETARIO', AHORA);
+  assert.equal(c.valoracionTexto, '4,8 de 34 clientas');
+});
+
 // ── frecuenciaMensual() / cifras().frecuenciaTexto ──────────────────────────
 
 test('frecuenciaMensual: null sin datos', () => {
@@ -169,6 +210,12 @@ test('cifras().frecuenciaTexto: freelance de 2 clases/mes lo dice explícitament
 test('cifras().frecuenciaTexto: singular correcto para 1 clase/mes', () => {
   const c = cifras(m({ clasesUltimos90Dias: 3 }), 'PROPIETARIO', AHORA);
   assert.equal(c.frecuenciaTexto, '≈1 clase/mes');
+});
+
+test('cifras().frecuenciaTexto: con decimal, coma y no punto', () => {
+  // 4 clases en 90 días ≈ 1,3 al mes.
+  const c = cifras(m({ clasesUltimos90Dias: 4 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.frecuenciaTexto, '≈1,3 clases/mes');
 });
 
 test('cifras().frecuenciaTexto: null sin datos suficientes', () => {
@@ -251,4 +298,61 @@ test('ordenar no muta el array original', () => {
   const original = [...equipo];
   ordenar(equipo, 'nombre-za');
   assert.deepEqual(equipo, original);
+});
+
+// ─── La semana y el mes son los del estudio (Madrid), no los del servidor (UTC) ───
+// GET /api/equipo/tarjetas corre en Vercel (UTC). Con la medianoche, el `getDay()` y el
+// `new Date(año, mes, 1)` del proceso, una clase antes de las 01:00/02:00 de Madrid caía
+// en el día, la semana o el mes anterior.
+
+const iso = (d: Date) => d.toISOString();
+
+test('martes a las 00:30 de Madrid (verano): es martes, y la semana empezó el lunes a las 00:00 de Madrid', () => {
+  const ahora = new Date('2026-10-19T22:30:00Z'); // martes 20, 00:30 (+02:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-10-20');
+  assert.equal(iso(v.lunes), '2026-10-18T22:00:00.000Z');
+  assert.equal(diaDeSemanaEstudio(ahora), 1);
+  // Lo de antes: en UTC aún era lunes.
+  assert.equal((ahora.getUTCDay() + 6) % 7, 0);
+});
+
+test('martes a las 00:30 de Madrid (invierno): lo mismo con +01:00', () => {
+  const ahora = new Date('2026-11-16T23:30:00Z'); // martes 17, 00:30 (+01:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-11-17');
+  assert.equal(iso(v.lunes), '2026-11-15T23:00:00.000Z');
+  assert.equal(diaDeSemanaEstudio(ahora), 1);
+});
+
+test('el día 1 a las 00:30 de Madrid ya es el mes nuevo (y el mes acaba a las 00:00 de Madrid del 1 siguiente)', () => {
+  const ahora = new Date('2026-10-31T23:30:00Z'); // domingo 1 de noviembre, 00:30 (+01:00)
+  const v = ventanaEstudio(ahora);
+  assert.equal(v.hoy, '2026-11-01');
+  assert.equal(iso(v.inicioMes), '2026-10-31T23:00:00.000Z');
+  assert.equal(iso(v.finMes), '2026-11-30T23:00:00.000Z');
+  // Una clase de las 00:30 del 1 cuenta en noviembre, no en octubre.
+  assert.ok(ahora >= v.inicioMes && ahora < v.finMes);
+});
+
+test('diciembre: el mes acaba el 1 de enero del año siguiente', () => {
+  const v = ventanaEstudio(new Date('2026-12-15T12:00:00Z'));
+  assert.equal(iso(v.inicioMes), '2026-11-30T23:00:00.000Z');
+  assert.equal(iso(v.finMes), '2026-12-31T23:00:00.000Z');
+});
+
+test('la semana del cambio de hora: del lunes a las 00:00 (+02:00) al lunes siguiente a las 00:00 (+01:00)', () => {
+  const ahora = new Date('2026-10-25T22:30:00Z'); // domingo 25, 23:30 (+01:00): aún domingo
+  const v = ventanaEstudio(ahora);
+  assert.equal(diaDeSemanaEstudio(ahora), 6);
+  assert.equal(iso(v.lunes), '2026-10-18T22:00:00.000Z');
+  assert.equal(iso(v.finSemana), '2026-10-25T23:00:00.000Z');
+  assert.ok(ahora >= v.lunes && ahora < v.finSemana);
+});
+
+test('el día de la semana de una clase es el de Madrid, también con el proceso en otra zona', () => {
+  // Domingo 23:30 en Madrid es domingo, aunque en UTC sea domingo 21:30 o lunes en Asia.
+  assert.equal(diaDeSemanaEstudio(new Date('2026-07-05T21:30:00Z')), 6);
+  // Lunes 00:15 en Madrid (verano) es lunes, aunque en UTC sea domingo 22:15.
+  assert.equal(diaDeSemanaEstudio(new Date('2026-07-05T22:15:00Z')), 0);
 });

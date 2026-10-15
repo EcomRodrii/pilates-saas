@@ -155,11 +155,12 @@ export function estadoDeHoy({ esHoy, cargando, fallo, clases }: {
  * texto ya dice «el proceso se detuvo ahí»). Deshecha, sin Tenti.
  */
 export function estadoDeLaMigracion({ resultados, deshecho }: {
-  resultados: readonly { error?: string | null; estado?: string }[]; deshecho: boolean;
+  resultados: readonly { error?: string | null; estado?: string; incidencias?: number }[]; deshecho: boolean;
 }): 'hecho' | 'error' | null {
   if (deshecho) return null;
-  // Una entidad saltada («no_importada») no lleva error propio pero tampoco es éxito.
-  return resultados.some(r => r.error || (r.estado !== undefined && r.estado !== 'importada')) ? 'error' : 'hecho';
+  // Una entidad saltada («no_importada») no lleva error propio pero tampoco es éxito,
+  // y filas que no entraron del todo (incidencias) tampoco: no se celebra un acta así.
+  return resultados.some(r => r.error || (r.incidencias ?? 0) > 0 || (r.estado !== undefined && r.estado !== 'importada')) ? 'error' : 'hecho';
 }
 
 /** Lo que dura el 'hecho' breve de lo diario (el veredicto, el asistente). */

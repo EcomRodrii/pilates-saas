@@ -584,6 +584,27 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect.poll(() => intentosWallet, { timeout: 10_000 }).toBeGreaterThan(0);
   });
 
+  test('si el servidor no deja autorizar la web, se dice en rojo y la lista no cambia (P0.3, con contador)', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const envios: string[][] = [];
+    await page.route('**/api/estudio/widget-dominios', route => {
+      envios.push((route.request().postDataJSON() as { dominios: string[] }).dominios);
+      return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'Solo la propietaria puede cambiar las webs autorizadas.' }) });
+    });
+
+    await sinMarco(page);
+    await expect(page.getByRole('list', { name: 'Webs autorizadas' })).toContainText('https://midominio.com');
+    await page.getByLabel('Dirección de la web que quieres autorizar').fill('otrodominio.com');
+    await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
+
+    // Se intentó de verdad, y el «no» sale como error: `alert` en rojo, nunca
+    // el ✓ verde del éxito (`status`).
+    await expect.poll(() => envios.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    await expect(page.getByRole('alert').filter({ hasText: 'Solo la propietaria puede cambiar las webs autorizadas.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Solo la propietaria puede cambiar' })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Webs autorizadas' })).not.toContainText('otrodominio.com');
+  });
+
   test('los widgets que no honran filtros no los ofrecen (nada de UI fake), y el color va sin códigos a la vista', async ({ page }) => {
     await montar(page, { plataforma: 'otra' });
     await widget(page, /Citas/);

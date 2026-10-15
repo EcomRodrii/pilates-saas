@@ -32,7 +32,11 @@ export function estadoDeEntidad(r: { importadas: number; error?: string | null }
   return r.importadas > 0 ? 'parcial' : 'fallida';
 }
 
-/** ¿Hay algo en el acta que no entró del todo? (error, entrada parcial o saltada). */
-export function actaIncompleta(resultados: readonly { error?: string | null; estado?: EstadoEntidad }[]): boolean {
-  return resultados.some(r => !!r.error || (r.estado !== undefined && r.estado !== 'importada'));
+/**
+ * ¿Hay algo en el acta que no entró del todo? (error, entrada parcial o saltada,
+ * o filas con incidencia). Antes las incidencias no contaban: un acta con 76
+ * filas sin importar cerraba con «¿Todo cuadra? Ya está — no había más que hacer».
+ */
+export function actaIncompleta(resultados: readonly { error?: string | null; estado?: EstadoEntidad; incidencias?: number }[]): boolean {
+  return resultados.some(r => !!r.error || (r.incidencias ?? 0) > 0 || (r.estado !== undefined && r.estado !== 'importada'));
 }

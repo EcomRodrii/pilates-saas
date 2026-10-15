@@ -13,6 +13,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { RellenarHuecoPanel } from './rellenar-hueco-panel';
 import { BarraPlazas } from './barra-plazas';
 import { PINTA } from '@/lib/calendario-estado';
+import { BOTON_VIVO, Baldosa } from '@/components/dashboard/vivo';
 import { invalidarAgenda } from '@/lib/agenda-panel';
 import { detectarConflictos, hayConflicto } from '@/lib/calendar-logic';
 import {
@@ -89,7 +90,14 @@ const VACIO: DatosDia = { sesiones: [], reservas: [], salas: [], instructores: [
 // minuto con el reloj de la agenda).
 const SIN_RELOJ = new Date(0);
 
-export function HoyEnElEstudio() {
+/**
+ * `nueva`: la home del panel nuevo (interruptor `panelNuevo`, 14-oct-2026). La
+ * misma agenda, entera dentro de su tarjeta (el día y sus flechas en la
+ * cabecera) y sin decir dos veces que no hay clases: con el día vacío, la frase
+ * de Tenti ES el vacío, y si el estudio no tiene ninguna clase todavía, el vacío
+ * enseña a programarlas. Sin la prop, todo igual que siempre.
+ */
+export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
   const { tiposClase, reservas: reservasHistoricas, sesiones: sesionesHistoricas, socios, dataLoaded, studio } = useStudio();
   const rol = useRol();
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
@@ -280,6 +288,162 @@ export function HoyEnElEstudio() {
 
   if (!fecha || !ahora) return <EsqueletoAgenda />;
 
+  const filas = (
+    <ul className="divide-y divide-muted">
+      {clases.map((c, i) => (
+        <FilaClase
+          key={c.sesionId}
+          clase={c}
+          anterior={clases[i - 1] ?? null}
+          ahora={ahora}
+          mostrarAhora={esHoy}
+          tipoNombre={tipoById.get(c.tipoClaseId)?.nombre ?? 'Clase'}
+          tipoColor={tipoById.get(c.tipoClaseId)?.color ?? 'var(--border)'}
+          salaNombre={salaById.get(c.salaId)?.nombre ?? null}
+          instructor={instructorById.get(c.instructorId) ?? null}
+          puedeCalendario={puedeCalendario}
+          onRellenar={() => setHuecoAbierto(c.sesionId)}
+          nueva={nueva}
+        />
+      ))}
+    </ul>
+  );
+
+  const panelHueco = (
+    <RellenarHuecoPanel
+      abierto={huecoAbierto !== null}
+      onCerrar={() => setHuecoAbierto(null)}
+      clase={claseHueco}
+      sesion={sesionHueco}
+      nombreClase={sesionHueco ? tipoById.get(sesionHueco.tipoClaseId)?.nombre ?? 'Clase' : 'Clase'}
+      reservasSesion={reservasHueco}
+      onAviso={showToast}
+      onCambio={refrescar}
+    />
+  );
+
+  if (nueva) {
+    // Ninguna clase en todo el estudio (no solo hoy): el vacío enseña a empezar.
+    const horarioVacio = dataLoaded && sesionesHistoricas.length === 0;
+    return (
+      <section aria-label="Hoy en el estudio" className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-muted px-5 py-3.5">
+          <div className="flex min-w-0 items-start gap-3">
+            <Baldosa tono="azul" Icono={CalendarDays} tamano="sm" />
+            <div className="min-w-0">
+            <h2 className="text-[16px] font-semibold text-foreground">{esHoy ? 'Hoy en el estudio' : 'En el estudio'}</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              {etiqueta && !esHoy && <span className="font-medium text-foreground">{etiqueta} · </span>}
+              {fechaLarga}
+              {!cargando && resumen.clases > 0 && (
+                <>
+                  {' · '}{resumen.clases} clase{resumen.clases === 1 ? '' : 's'}
+                  {' · '}{resumen.alumnas} alumna{resumen.alumnas === 1 ? '' : 's'}
+                </>
+              )}
+            </p>
+            </div>
+          </div>
+          {/* `tactil:gap-3`: con el dedo, cada flecha (32 px) gana 6 a cada lado
+              hasta los 44 de su zona táctil; con 6 de hueco se pisaban. */}
+          <div className="flex items-center gap-1.5 tactil:gap-3">
+            {!esHoy && hoy && (
+              <button
+                type="button"
+                onClick={() => setFecha(hoy)}
+                className="zona-tactil rounded-full px-2.5 py-1 text-[12px] font-semibold text-brand-medio transition-colors hover:bg-muted"
+              >
+                Volver a hoy
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setFecha(masDias(fecha, -1))}
+              aria-label="Día anterior"
+              className="zona-tactil flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFecha(masDias(fecha, 1))}
+              aria-label="Día siguiente"
+              className="zona-tactil flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronRight size={15} />
+            </button>
+            {puedeCalendario && (
+              <Link
+                href="/calendario"
+                className="zona-tactil ml-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Ver calendario
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <h3 className="sr-only">Tu día en el estudio</h3>
+
+        {/* Con clases, lo que ha visto Tentare va arriba de la lista. Sin
+            clases, su frase es el vacío (abajo): nunca las dos. */}
+        {frase && clases.length > 0 && (
+          <div className="flex items-center gap-2.5 border-b border-muted px-5 py-3">
+            <TentiIcono ancho={24} estado={estadoTenti} emocion={emocionTenti} />
+            <p className="text-[13px] text-foreground">{frase.texto}</p>
+          </div>
+        )}
+
+        {cargando ? (
+          <FilasEsqueleto />
+        ) : fallo ? (
+          <div className="px-5 py-8 text-center">
+            <p className="text-[13px] text-foreground">No hemos podido cargar la agenda de este día.</p>
+            <button
+              type="button"
+              onClick={refrescar}
+              className="zona-tactil mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
+            >
+              <RefreshCw size={12} /> Reintentar
+            </button>
+          </div>
+        ) : clases.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-9 text-center">
+            {frase ? (
+              <>
+                <TentiIcono ancho={28} estado={estadoTenti} emocion={emocionTenti} />
+                <p className="mt-3 max-w-sm text-[14px] font-medium text-foreground text-pretty">{frase.texto}</p>
+              </>
+            ) : (
+              <p className="text-[14px] font-medium text-foreground">{esHoy ? 'Hoy no hay clases' : 'Ese día no hay clases'}</p>
+            )}
+            {horarioVacio && puedeCalendario ? (
+              <>
+                <p className="mt-1.5 max-w-sm text-[13px] text-muted-foreground text-pretty">
+                  Tu horario está vacío. Cuando programes tus clases, aquí verás cada una con su instructora y quién viene.
+                </p>
+                <Link href="/calendario?nueva=1" className={`${BOTON_VIVO} mt-4 h-10 px-4 text-[13.5px]`}>
+                  <CalendarDays size={14} aria-hidden /> Programar mis clases
+                </Link>
+              </>
+            ) : null}
+          </div>
+        ) : (
+          filas
+        )}
+
+        {!cargando && !fallo && clases.length > 0 && resumen.problemas === 0 && resumen.pendientes === 0 && (
+          <p className="border-t border-muted px-5 py-3 text-[12px] text-muted-foreground">
+            Todo preparado{esHoy ? ' para hoy' : ''}
+          </p>
+        )}
+
+        {panelHueco}
+        {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Hoy en el estudio">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -351,7 +515,7 @@ export function HoyEnElEstudio() {
           {puedeCalendario && (
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="zona-tactil text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Ver calendario
             </Link>
@@ -366,7 +530,7 @@ export function HoyEnElEstudio() {
             <button
               type="button"
               onClick={refrescar}
-              className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
+              className="zona-tactil mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
             >
               <RefreshCw size={12} /> Reintentar
             </button>
@@ -387,23 +551,7 @@ export function HoyEnElEstudio() {
             )}
           </div>
         ) : (
-          <ul className="divide-y divide-muted">
-            {clases.map((c, i) => (
-              <FilaClase
-                key={c.sesionId}
-                clase={c}
-                anterior={clases[i - 1] ?? null}
-                ahora={ahora}
-                mostrarAhora={esHoy}
-                tipoNombre={tipoById.get(c.tipoClaseId)?.nombre ?? 'Clase'}
-                tipoColor={tipoById.get(c.tipoClaseId)?.color ?? 'var(--border)'}
-                salaNombre={salaById.get(c.salaId)?.nombre ?? null}
-                instructor={instructorById.get(c.instructorId) ?? null}
-                puedeCalendario={puedeCalendario}
-                onRellenar={() => setHuecoAbierto(c.sesionId)}
-              />
-            ))}
-          </ul>
+          filas
         )}
 
         {!cargando && !fallo && clases.length > 0 && resumen.problemas === 0 && resumen.pendientes === 0 && (
@@ -413,16 +561,7 @@ export function HoyEnElEstudio() {
         )}
       </div>
 
-      <RellenarHuecoPanel
-        abierto={huecoAbierto !== null}
-        onCerrar={() => setHuecoAbierto(null)}
-        clase={claseHueco}
-        sesion={sesionHueco}
-        nombreClase={sesionHueco ? tipoById.get(sesionHueco.tipoClaseId)?.nombre ?? 'Clase' : 'Clase'}
-        reservasSesion={reservasHueco}
-        onAviso={showToast}
-        onCambio={refrescar}
-      />
+      {panelHueco}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </section>
@@ -433,7 +572,7 @@ export function HoyEnElEstudio() {
 
 function FilaClase({
   clase, anterior, ahora, mostrarAhora, tipoNombre, tipoColor, salaNombre, instructor,
-  puedeCalendario, onRellenar,
+  puedeCalendario, onRellenar, nueva = false,
 }: {
   clase: ClaseDelDia;
   anterior: ClaseDelDia | null;
@@ -445,6 +584,7 @@ function FilaClase({
   instructor: Instructor | null;
   puedeCalendario: boolean;
   onRellenar: () => void;
+  nueva?: boolean;
 }) {
   const pinta = PINTA[clase.estado];
   const problema = clase.senal === 'PROBLEMA';
@@ -577,7 +717,7 @@ function FilaClase({
 
         {/* Acción */}
         <div className="col-start-2 flex flex-col items-start gap-1 sm:col-start-5 sm:items-end sm:justify-self-end">
-          <AccionClase clase={clase} puedeCalendario={puedeCalendario} onRellenar={onRellenar} />
+          <AccionClase clase={clase} puedeCalendario={puedeCalendario} onRellenar={onRellenar} nueva={nueva} />
         </div>
       </li>
     </>
@@ -587,11 +727,12 @@ function FilaClase({
 /** Una acción por clase, la que toca. La tabla de qué toca en cada estado es la
  *  del calendario (`accionParaEstado`), no una nueva. */
 function AccionClase({
-  clase, puedeCalendario, onRellenar,
+  clase, puedeCalendario, onRellenar, nueva = false,
 }: {
   clase: ClaseDelDia;
   puedeCalendario: boolean;
   onRellenar: () => void;
+  nueva?: boolean;
 }) {
   const enlaceClase = `/calendario?sesion=${encodeURIComponent(clase.sesionId)}`;
 
@@ -604,7 +745,7 @@ function AccionClase({
       <button
         type="button"
         onClick={onRellenar}
-        className="rounded-full border border-border px-3 py-1.5 text-[11.5px] font-semibold text-foreground transition-colors hover:bg-muted"
+        className="zona-tactil rounded-full border border-border px-3 py-1.5 text-[11.5px] font-semibold text-foreground transition-colors hover:bg-muted"
       >
         Rellenar hueco{clase.huecos > 1 ? 's' : ''}
       </button>
@@ -624,7 +765,11 @@ function AccionClase({
     return (
       <Link
         href={enlaceClase}
-        className="inline-block rounded-full bg-brand px-3 py-1.5 text-[11.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95"
+        // En la home nueva, la acción que toca es la principal de la fila: oscura,
+        // como manda brand/component-guidelines.md («Buscar sustituta» primary).
+        className={nueva
+          ? 'zona-tactil inline-block rounded-full bg-primary px-3 py-1.5 text-[11.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
+          : 'zona-tactil inline-block rounded-full bg-brand px-3 py-1.5 text-[11.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95'}
       >
         {texto}
       </Link>

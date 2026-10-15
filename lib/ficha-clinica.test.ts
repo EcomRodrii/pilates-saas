@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CondicionSalud, RespuestaSesion } from '@/lib/types';
 import {
-  semaforo, nivelRiesgo, alertaPreClase, diasDesde, revisionVencida,
+  semaforo, nivelRiesgo, alertaPreClase, adaptacionPreClase, diasDesde, revisionVencida,
   esRestriccionDura, etiquetaRestriccion, restriccionesDeZona, resumenSaludClase,
   recordatoriosRevision, textoRecordatorioRevision,
 } from './ficha-clinica.ts';
@@ -101,6 +101,12 @@ test('alertaPreClase compone nombre + condición principal + restricciones + rev
   assert.match(alerta!, /^Ana — Lesión lumbar\./);       // toma la de mayor severidad
   assert.match(alerta!, /Evitar flexión\./);
   assert.match(alerta!, /Revisión vencida hace 20 d\./);
+});
+
+test('adaptacionPreClase es la misma alerta sin el nombre (la fila de la alumna ya lo lleva)', () => {
+  const condiciones = [cond({ id: 'c1', etiqueta: 'Lesión lumbar', severidad: 'ALTA', restricciones: ['EVITAR_FLEXION'], revisarEn: '2026-06-22' })];
+  assert.equal(`Ana — ${adaptacionPreClase(condiciones, HOY)}`, alertaPreClase('Ana', condiciones, HOY));
+  assert.equal(adaptacionPreClase([], HOY), null);
 });
 
 test('alertaPreClase muestra revisión próxima dentro de 7 días', () => {

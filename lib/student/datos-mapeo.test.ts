@@ -354,3 +354,14 @@ test('cierraEl: el del tipo manda, null hereda el del estudio y 0 es sin cierre'
   assert.equal(cierre(null, 0), null);
   assert.equal(cierre(null, undefined), null);
 });
+
+test('gamificación: un nivel que el estudio desactivó no lo ve la alumna (el panel ya lo ignoraba)', async () => {
+  const { proyectarGamificacion } = await import('./mapeo.ts');
+  const nivel = (id: string, umbral: number, activo: boolean) => ({ id, nombre: id, orden: 0, umbralCreditos: umbral, color: '#000000', icono: '·', beneficios: null, activo });
+  const vista = proyectarGamificacion({
+    levelDefinitions: [nivel('base', 0, true), nivel('apagado', 100, false), nivel('alto', 500, true)],
+    socia: { memberCredits: [{ saldo: 0, totalGanado: 200, totalCanjeado: 0 }] },
+  } as never, '2026-10-13');
+  assert.equal(vista.nivel.actual?.id, 'base', 'con 200 no está en el inactivo de 100');
+  assert.equal(vista.nivel.siguiente?.id, 'alto');
+});

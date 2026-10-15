@@ -8,6 +8,9 @@ import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo } from '@/components/dashboard/vivo';
+import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import {
   CONFIG_POR_DEFECTO, anchoPopupDe, anchoPorDefecto, esLaMismaCopia, etiquetaEfectiva, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
@@ -45,6 +48,7 @@ import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type Forma
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
 import { estaArchivado, tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // «Tentare Widgets»: el constructor, en el orden en que lo piensa la dueña de
 // un estudio —con qué está hecha su web (una vez), qué pone y dónde, cómo se
@@ -116,6 +120,14 @@ function pasosDe(plataforma: PlataformaWeb | null): readonly { id: Exclude<Paso,
     { id: 'ponlo', nombre: ponlo, siguiente: `Siguiente: ${ponlo.toLowerCase()}` },
   ];
 }
+/** Panel nuevo: el título-objetivo y la frase de cada paso (Bonsai B1). */
+const TITULO_PASO: Record<'que' | 'como' | 'ponlo', (p: PlataformaWeb | null) => { titulo: string; sub: string }> = {
+  que: () => ({ titulo: 'Elige qué enseñas y dónde', sub: 'Una pieza de tu estudio dentro de tu web: tu horario, tus precios o la cuenta de tus alumnas.' }),
+  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo a la derecha, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' }),
+  ponlo: p => (p === 'sinweb'
+    ? { titulo: 'Compártelo', sub: 'Copia el enlace y ponlo donde quieras: Instagram, WhatsApp o tu newsletter.' }
+    : { titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' }),
+};
 type EstadoGuardado = 'guardando' | 'guardado' | 'error' | null;
 interface Guardable { configs: Record<string, ConfigConstructor>; copiados: Record<string, Copiado>; web: EstadoWeb }
 
@@ -124,7 +136,7 @@ const hayCopias = (copiados: Readonly<Record<string, Copiado>>) => Object.keys(c
 
 export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   slug: string;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /**
    * Lleva a «Cómo le va a tu página», centrada en la fila de esa etiqueta
    * (`null`: sin etiqueta que medir, se abre sin centrar en ninguna).
@@ -134,6 +146,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
   const rol = useRol();
+  const panelNuevo = usePanelNuevo();
   const estiloWeb = useEstiloWeb();
   // Lo publicado de cada widget por id. Solo lo lee y lo aplica la propietaria.
   const publicacion = usePiezas(rol === 'PROPIETARIO');
@@ -276,7 +289,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setAplicando(true);
     const r = await publicacion.publicar(w.id, configEfectiva);
     setAplicando(false);
-    if (!r.ok) { showToast(opc?.alFallar ?? r.error); return false; }
+    if (!r.ok) { showToast(opc?.alFallar ?? r.error, { variant: 'error' }); return false; }
     const base = opc?.copiados ?? copiados;
     const pegada = base[w.id];
     if (pegada?.pieza) {
@@ -584,6 +597,15 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // La portada no tiene pasos, ni vista previa, ni el aviso de cabecera: cada
   // fila lleva el suyo.
   const conPrevia = paso !== 'plataforma' && paso !== 'tienes';
+  // Panel nuevo: «Primeros pasos» flota abajo a la derecha y tapa la vista previa y los botones
+  // de la pantalla (medido: en «¿Con qué está hecha tu web?» cubría «Siguiente»). Mientras el
+  // constructor está abierto, la lista se esconde (sigue en la home y en el resto de pantallas).
+  const escondeLista = panelNuevo;
+  useEffect(() => {
+    if (!escondeLista) return;
+    document.body.classList.add('sin-primeros-pasos-flotante');
+    return () => document.body.classList.remove('sin-primeros-pasos-flotante');
+  }, [escondeLista]);
   const pasos = pasosDe(plataforma);
   const indice = pasos.findIndex(p => p.id === paso);
   // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de
@@ -673,7 +695,12 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               <ResumenMes resultado={resultadoActivo} onVer={onVerResultados ? () => onVerResultados(etiquetaActiva) : undefined} />
             )}
           </div>
-          {conPrevia && (
+          {conPrevia && panelNuevo && (
+            <div className="border-y border-border py-2">
+              <LineaDePasos pasos={pasos.map(p => ({ id: p.id, corto: p.nombre }))} paso={paso as Exclude<Paso, 'plataforma' | 'tienes'>} onPaso={irA} hecho={(id, i) => hecho(id, i)} />
+            </div>
+          )}
+          {conPrevia && !panelNuevo && (
             <nav aria-label="Pasos" className="flex flex-wrap gap-2">
               {pasos.map((p, i) => {
                 const actual = p.id === paso;
@@ -732,14 +759,24 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
           <p className="min-w-0 flex-[1_1_16rem]">
             <strong>Tienes cambios sin aplicar en tu web</strong> ({unirGrupos(sinAplicar)}). No hace falta volver a pegar nada: al aplicarlos, tu web los enseña en unos minutos.
           </p>
-          <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>
-            {aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web
-          </button>
+          {panelNuevo ? (
+            <BotonVivo onClick={() => void aplicarContenido()} disabled={aplicando} label={<>{aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web</>} />
+          ) : (
+            <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>
+              {aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web
+            </button>
+          )}
         </div>
       )}
 
       <div className={cn('grid items-start gap-6', conPrevia && '@4xl/config:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]')}>
         <div className="min-w-0 space-y-4">
+          {panelNuevo && conPrevia && (
+            <div>
+              <h3 className="text-[22px] font-bold leading-tight text-foreground">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).titulo}</h3>
+              <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).sub}</p>
+            </div>
+          )}
           {paso === 'tienes' && (
             <div ref={el => { contenedores.current.tienes = el; }} tabIndex={-1} className="outline-none">
               <LoQueTienes
@@ -839,14 +876,24 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
           {conPrevia && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               {indice > 0 ? (
-                <button type="button" onClick={() => irA(pasos[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
-                  <ArrowLeft size={15} aria-hidden />Atrás
-                </button>
+                panelNuevo ? (
+                  <button type="button" onClick={() => irA(pasos[indice - 1].id)} className="inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted">
+                    <ArrowLeft size={15} aria-hidden />Atrás
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => irA(pasos[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
+                    <ArrowLeft size={15} aria-hidden />Atrás
+                  </button>
+                )
               ) : <span />}
               {indice < pasos.length - 1 && (
-                <button type="button" onClick={() => irA(pasos[indice + 1].id)} className={btnPrimary}>
-                  {pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
-                </button>
+                panelNuevo ? (
+                  <BotonVivo grande onClick={() => irA(pasos[indice + 1].id)} label={<>{pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden /></>} />
+                ) : (
+                  <button type="button" onClick={() => irA(pasos[indice + 1].id)} className={btnPrimary}>
+                    {pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
+                  </button>
+                )
               )}
             </div>
           )}
@@ -854,21 +901,45 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
 
         {conPrevia && (
           <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-4 @4xl/config:order-none">
-            <VistaPrevia
-              // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
-              key={`${w.id}-${metodo}-${estiloWeb.version}`}
-              contenido={contenido}
-              falta={faltaPrevia}
-              forma={forma}
-              web={suWeb}
-              paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
-              anchoWidget={anchoWidget}
-              abrirEn={urlPrevia}
-              dispositivo={dispositivo}
-              onDispositivo={setDispositivo}
-              noSigueElEstilo={noSigueElEstilo}
-              alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
-            />
+            {panelNuevo ? (
+              // Como Apariencia (Bonsai b-30…): el widget real, sobre un panel de color. La tarjeta blanca
+              // de dentro es la vista previa de siempre: su rótulo y sus controles siguen leyéndose.
+              <div className="rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-3 sm:p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
+                <div className="rounded-2xl bg-card p-3 text-card-foreground shadow-t-card sm:p-4">
+                <VistaPrevia
+                  // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+                  key={`${w.id}-${metodo}-${estiloWeb.version}`}
+                  contenido={contenido}
+                  falta={faltaPrevia}
+                  forma={forma}
+                  web={suWeb}
+                  paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
+                  anchoWidget={anchoWidget}
+                  abrirEn={urlPrevia}
+                  dispositivo={dispositivo}
+                  onDispositivo={setDispositivo}
+                  noSigueElEstilo={noSigueElEstilo}
+                  alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
+                />
+                </div>
+              </div>
+            ) : (
+              <VistaPrevia
+                // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+                key={`${w.id}-${metodo}-${estiloWeb.version}`}
+                contenido={contenido}
+                falta={faltaPrevia}
+                forma={forma}
+                web={suWeb}
+                paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
+                anchoWidget={anchoWidget}
+                abrirEn={urlPrevia}
+                dispositivo={dispositivo}
+                onDispositivo={setDispositivo}
+                noSigueElEstilo={noSigueElEstilo}
+                alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
+              />
+            )}
           </div>
         )}
       </div>

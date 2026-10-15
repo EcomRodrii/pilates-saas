@@ -15,10 +15,21 @@ import type { ResumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { diferencia, type DineroDelTramo, type PuntoDelGrafico } from '@/lib/informes/dinero';
 import { NOTA_OTROS, ORDEN_MOTIVOS, TEXTO_MOTIVO } from '@/lib/informes/motivo-cobro';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import type { ResumenPagosHistoricos } from '@/lib/cobros/pagos-historicos';
+import { ImportadoDelSoftwareAnterior } from '@/components/cobros/importado-anterior';
 import { GraficoDinero } from './grafico-dinero';
 import { CabeceraBloque, conSignoEuros, Euros, frenteA, tonoDiferencia, type PeriodoInforme } from './piezas';
+import { useClaseBloque } from './piezas';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TONOS } from '@/components/dashboard/vivo';
+import type { MotivoCobro } from '@/lib/informes/motivo-cobro';
 
-export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, plataformas, onDescargarPlataformas }: {
+// Panel nuevo: cada motivo con su color, como las cifras de la home; «Otros», neutro.
+const COLOR_MOTIVO: Record<MotivoCobro, string> = {
+  CUOTA: TONOS.magenta, BONO: TONOS.indigo, CLASE_SUELTA: TONOS.azul, SESION_PRIVADA: TONOS.verde, CAJA: TONOS.azul, OTROS: 'var(--muted-foreground)',
+};
+
+export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, ventasSinRecibo, importado, plataformas, onDescargarPlataformas }: {
   periodo: PeriodoInforme;
   actual: DineroDelTramo;
   anterior: DineroDelTramo | null;
@@ -26,18 +37,26 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
   /** «septiembre a estas alturas», o `null`. */
   comparacion: string | null;
   ventasSinRecibo: ResumenVentasSinRecibo;
+  /** Lo importado del software anterior en el tramo y en el anterior; `null` si no hay o no se pudo leer. */
+  importado: { actual: ResumenPagosHistoricos; anterior: ResumenPagosHistoricos | null; completo: boolean } | null;
   plataformas: ResumenPlataforma[];
   onDescargarPlataformas: () => void;
 }) {
   const maxMotivo = Math.max(1, ...ORDEN_MOTIVOS.map(m => actual.porMotivo[m].neto));
 
+  const claseBloque = useClaseBloque();
+  const panelNuevo = usePanelNuevo();
   return (
-    <section aria-labelledby="informe-dinero" className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section aria-labelledby="informe-dinero" className={`space-y-4 ${claseBloque}`}>
       <CabeceraBloque id="informe-dinero" titulo="Dinero">
         Lo cobrado, neto de lo devuelto y en el día en que se cobró: la misma cifra que «Lo que he cobrado» en Cobros.
       </CabeceraBloque>
 
       <GraficoDinero periodo={periodo} puntos={puntos} textoAnterior={comparacion ? `Mismo tramo: ${comparacion}` : null} />
+
+      {importado && (
+        <ImportadoDelSoftwareAnterior actual={importado.actual} anterior={importado.anterior} comparacion={comparacion} completo={importado.completo} />
+      )}
 
       {ventasSinRecibo.n > 0 && (
         <p role="note" className="text-[12px] text-muted-foreground">
@@ -62,7 +81,7 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
                     {TEXTO_MOTIVO[m]} <span className="tabular-nums text-muted-foreground">· {n}</span>
                   </span>
                   <span className="h-2 rounded-full bg-muted">
-                    <span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(0, (neto / maxMotivo) * 100)}%` }} />
+                    <span className={cn('block h-2 rounded-full', !panelNuevo && 'bg-foreground/70')} style={{ width: `${Math.max(0, (neto / maxMotivo) * 100)}%`, ...(panelNuevo ? { backgroundColor: COLOR_MOTIVO[m] } : {}) }} />
                   </span>
                   <span className="text-right text-[13px] font-semibold tabular-nums text-foreground"><Euros n={neto} /></span>
                   <span className={cn('col-span-3 text-right text-[12px] tabular-nums sm:col-span-1', tonoDiferencia(dif))}>
@@ -135,7 +154,7 @@ function Plataformas({ filas, onDescargar }: { filas: ResumenPlataforma[]; onDes
               </tbody>
             </table>
           </div>
-          <button type="button" onClick={onDescargar} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted">
+          <button type="button" onClick={onDescargar} className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted">
             <Download size={15} aria-hidden />Descargar detalle
           </button>
         </div>

@@ -23,6 +23,7 @@ import type { DecisionEstudio } from '@/lib/student/baja-instructora';
 import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
+import type { EstadoGratisApi } from '@/lib/billing/plan-gratis';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -980,6 +981,35 @@ export async function reintentarPorElBancoApi(reciboId: string): Promise<{ ok: t
 }
 
 /**
+ * «Anular la clase suelta» de la ficha: la de una clase que ya cubre su cuota. El
+ * servidor lo vuelve a comprobar todo (pendiente, sin cobro en marcha, reserva
+ * viva, cuota que cubre ese día y ese tipo) y es idempotente: repetirlo no anula
+ * nada dos veces.
+ */
+export async function anularClaseSueltaPorCuota(reciboId: string): Promise<{ ok: true; aviso?: string } | { ok: false; error: string }> {
+  // Que el botón no se quede en «Anulando…» para siempre (AbortController y no
+  // `AbortSignal.timeout`, que Safari antiguo no tiene).
+  const abortar = new AbortController();
+  const t = setTimeout(() => abortar.abort(), 30_000);
+  try {
+    const res = await fetch('/api/cobros/anular-clase-suelta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId }),
+      signal: abortar.signal,
+    });
+    const datos = await res.json().catch(() => null) as { ok?: boolean; error?: string; aviso?: string } | null;
+    if (!res.ok || !datos?.ok) return { ok: false, error: datos?.error ?? 'No se ha podido anular la clase suelta' };
+    return { ok: true, ...(typeof datos.aviso === 'string' ? { aviso: datos.aviso } : {}) };
+  } catch {
+    // Sin respuesta no se sabe si llegó: recargar enseña cómo quedó, y repetirlo es seguro.
+    return { ok: false, error: 'Sin respuesta del servidor: recarga la ficha para ver si se anuló.' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
  * «Marcar cobrado» a mano (`POST /api/cobros/marcar-cobrado`). Devuelve la
  * respuesta CRUDA (status + cuerpo) o `{ red: true }`: quien decide qué
  * significa es `leerRespuestaMarcarCobrado` (lib/cobros/marcar-cobrado.ts),
@@ -1321,6 +1351,8 @@ export interface EstadoBilling {
    *  tal cual: si contara los días con el reloj del navegador, un portátil con
    *  la hora desfasada enseñaría una cuenta atrás distinta a la real. */
   trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
+  /** Founding Studio gratis: uso, fase y margen, derivados en servidor. `null`/ausente si no lo es. */
+  gratis?: EstadoGratisApi | null;
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
@@ -1534,7 +1566,7 @@ export async function analizarMigracion(
 // Deshace un lote de migración: borra exactamente lo que creó ese lote.
 export async function deshacerMigracion(
   batchId: string,
-): Promise<{ ok: true; borrados: Record<string, number> } | { error: string; borrados?: Record<string, number> }> {
+): Promise<{ ok: true; borrados: Record<string, number>; instructorasConservadas?: number } | { error: string; borrados?: Record<string, number> }> {
   try {
     const res = await fetch('/api/migracion/deshacer', {
       method: 'POST',
@@ -1884,6 +1916,21 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
     if (!res.ok) return null;
     const data: unknown = await res.json();
     return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+// Pagos importados de la plataforma anterior, agregados por día (Cobros e
+// Informes los enseñan aparte del «Cobrado»). `null` si no se pudo leer o no
+// hay permiso: callar es lo correcto, la línea simplemente no sale — y un
+// array vacío querría decir «no importó ninguno», que es otra respuesta.
+export async function obtenerResumenPagosHistoricos(): Promise<{ dias: Array<{ fecha: string; n: number; total: number }>; completo: boolean } | null> {
+  try {
+    const res = await fetch('/api/pagos-historicos/resumen', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { dias?: unknown; completo?: unknown };
+    return Array.isArray(data.dias) ? { dias: data.dias as Array<{ fecha: string; n: number; total: number }>, completo: data.completo !== false } : null;
   } catch {
     return null;
   }
@@ -2272,7 +2319,13 @@ export interface ResultadoImportClases {
   creadas: number;
   omitidas: number;       // ya existían: reimportar no duplica
   tiposCreados: number;
+  /** Instructoras del archivo que no existían y se dieron de alta al importar (sin email). */
+  instructorasCreadas?: string[];
+  /** Errores en total: `errores` se corta en 500, este es el número real. */
+  totalErrores?: number;
   omitidasPorSolape?: number; // se pisaban con otra clase en su sala/instructora: no se crearon
+  /** Desde una captura: caían en un cierre del centro y no se crearon. */
+  saltadasPorCierre?: number;
   sinInstructor: number;  // filas cuya instructora no se encontró por nombre
   sinSala: number;
   errores: { fila: number; motivo: string }[];
@@ -2282,14 +2335,14 @@ export interface ResultadoImportClases {
 // Importa el horario. Las filas recurrentes (por día de la semana) se expanden a
 // `semanas` semanas desde `desde`; el studio_id sale del JWT, nunca del body.
 export async function importarClases(
-  rows: FilaClase[], opciones: { semanas: number; desde: string }, batchId?: string,
+  rows: FilaClase[], opciones: { semanas: number; desde: string; origen?: 'imagen' }, batchId?: string,
 ): Promise<ResultadoImportClases> {
   const vacio = { creadas: 0, omitidas: 0, tiposCreados: 0, sinInstructor: 0, sinSala: 0, errores: [] };
   try {
     const res = await fetch('/api/clases/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde, batchId }),
+      body: JSON.stringify({ rows, semanas: opciones.semanas, desde: opciones.desde, batchId, origen: opciones.origen }),
     });
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -2446,6 +2499,26 @@ export async function enviarPruebaAutomatizacion(datos: { ruleId: string; clave:
     return data as { ok: true; enviadoA: string };
   } catch {
     return { error: 'No se pudo enviar la prueba' };
+  }
+}
+
+// Reglas opcionales de Automatizaciones (P3.10). `null` = no se ofrecen: el
+// servidor dice que están apagadas para este estudio, o no ha contestado (sin
+// respuesta fiable, la pantalla se queda como siempre). `alcance: null` =
+// encendida pero sin cifras: la confirmación lo dice en vez de inventar un cero.
+export interface AlcanceCumpleCliente { activas: number; conFecha: number; conConsentimiento: number; alcanzables: number }
+export async function pedirAutomatizacionesDisponibles(): Promise<{ cumpleanos: { alcance: AlcanceCumpleCliente | null } } | null> {
+  try {
+    const res = await fetch('/api/automatizaciones/disponibles', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const d = (await res.json().catch(() => null)) as { cumpleanos?: { alcance?: unknown } | null } | null;
+    if (!d?.cumpleanos) return null;
+    const a = d.cumpleanos.alcance as Record<string, unknown> | null | undefined;
+    const esCifra = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+    const valido = !!a && esCifra(a.activas) && esCifra(a.conFecha) && esCifra(a.conConsentimiento) && esCifra(a.alcanzables);
+    return { cumpleanos: { alcance: valido ? (a as unknown as AlcanceCumpleCliente) : null } };
+  } catch {
+    return null;
   }
 }
 
@@ -2665,14 +2738,24 @@ export interface RendimientoInstructoraApi {
   redSocialPct: number | null;
 }
 
-export async function fetchRendimientoInstructoras(): Promise<RendimientoInstructoraApi[]> {
+/**
+ * El rendimiento de cada instructora, o `null` si NO se ha podido cargar.
+ *
+ * ⚠️ `null` y `[]` son cosas distintas, igual que en `tarjetasEquipo`: con
+ * `[]` la pantalla dice «Todavía no hay instructoras de alta», y devolverlo
+ * ante un 500 o un corte de red le contaba a la propietaria que no tiene
+ * equipo cuando lo que falló fuimos nosotros.
+ */
+export async function fetchRendimientoInstructoras(): Promise<RendimientoInstructoraApi[] | null> {
   try {
     const res = await fetch('/api/equipo/rendimiento', { headers: await authHeader() });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items?: RendimientoInstructoraApi[] };
-    return data.items ?? [];
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { items?: RendimientoInstructoraApi[] } | null;
+    // Un 200 sin `items` tampoco es un equipo vacío: es una respuesta que no entendemos.
+    return Array.isArray(data?.items) ? data.items : null;
   } catch {
-    return [];
+    // La red se cayó. Tampoco es un equipo vacío.
+    return null;
   }
 }
 

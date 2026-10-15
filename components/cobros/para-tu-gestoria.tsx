@@ -72,7 +72,7 @@ export function ParaTuGestoria({ hoy, avisos }: { hoy: string; avisos: AvisosCob
           acciones={(
             <>
               {boton(bloques.anioAnterior, 'Descargar')}
-              <Link href="/cierre" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
+              <Link href="/cierre" className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
                 <FileText size={15} aria-hidden />Abrir el cierre
               </Link>
             </>

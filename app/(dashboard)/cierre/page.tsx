@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check, AlertTriangle } from 'lucide-react';
+import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check, AlertTriangle, BookOpen, CalendarRange, FileText, Percent, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Toast, useToast } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { serializeCsv } from '@/lib/csv';
 import { csvLoCobrado, descargarCsv as descargarFichero } from '@/lib/billing/export-cobrado';
@@ -18,6 +19,11 @@ import { dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { computeCierreAnual, desglosarIvaDesdeTotal, facturasSinRectificarDeCobrosDevueltos, type CierreLinea } from '@/lib/fiscal/cierre-engine';
 import type { IngresoManual } from '@/lib/types';
 import { AVISO_VERIFACTU_APAGADO } from '@/lib/cobros/gestoria';
+import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo, CabeceraTarjeta, Pildoras, TONOS, TarjetaGrafica, Baldosa } from '@/components/dashboard/vivo';
+import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
+import { BarrasMensualesNuevas, CifrasCierre } from '@/components/cierre/cierre-nuevo';
 
 const eur = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -54,6 +60,11 @@ export default function CierreDeAnoPage() {
   // RECEPCION) para no enseñar un control que la BD va a rechazar en silencio.
   const esPropietaria = rol === 'PROPIETARIO';
   const [guardandoAuto, setGuardandoAuto] = useState(false);
+  // Panel nuevo (14-oct-2026): solo cambia cómo se pinta. Ni un cálculo, ni una
+  // cifra, ni una llamada son distintos: es una pantalla de dinero.
+  const panelNuevo = usePanelNuevo();
+  // Las tarjetas del panel nuevo: el radio y la sombra de la marca.
+  const tarjeta = (vieja: string, nueva: string) => (panelNuevo ? nueva : vieja);
 
   const [anio, setAnio] = useState<number>(() => new Date().getFullYear());
   // Lo cobrado del año, para la gestoría de quien no factura con Tentare: el
@@ -81,12 +92,9 @@ export default function CierreDeAnoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<IngresoManual | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  // El aviso compartido del panel: verde y `status` si salió, rojo y `alert` si
+  // no. El de antes era SIEMPRE rojo, también «Envío automático activado».
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   // Envío a la gestoría
   const [envOpen, setEnvOpen] = useState(false);
@@ -187,11 +195,11 @@ export default function CierreDeAnoPage() {
       });
       if (!res.ok) {
         setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
-        setToast('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
+        showToastError('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
       }
     } catch {
       setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
-      setToast('Error de red: no se ha podido eliminar el ingreso.');
+      showToastError('Error de red: no se ha podido eliminar el ingreso.');
     }
   };
 
@@ -286,7 +294,8 @@ export default function CierreDeAnoPage() {
     setGuardandoAuto(true);
     try {
       const res = await updateStudio({ gestoriaEnvioAutomatico: activar ? 'trimestral' : 'desactivado' });
-      setToast(res.ok ? (activar ? 'Envío automático activado' : 'Envío automático desactivado') : res.error);
+      if (res.ok) showToast(activar ? 'Envío automático activado' : 'Envío automático desactivado');
+      else showToastError(res.error);
     } finally {
       setGuardandoAuto(false);
     }
@@ -301,11 +310,19 @@ export default function CierreDeAnoPage() {
         title="Cierre de año"
         description="Todo lo facturado y el IVA que repercutiste en el año, cuadrado y listo para tu gestoría. Sale de las facturas emitidas desde Tentare y de los ingresos que añades a mano — no tienes que rehacer ningún Excel."
         actions={
+          panelNuevo ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={descargarCsv} className={BOTON_BORDE}><Download className="size-4" aria-hidden /> CSV</button>
+              <button type="button" onClick={imprimir} className={BOTON_BORDE}><Printer className="size-4" aria-hidden /> Imprimir / PDF</button>
+              <BotonVivo label="Enviar a mi gestoría" Icono={Mail} onClick={abrirEnvio} />
+            </div>
+          ) : (
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={descargarCsv}><Download className="size-4" /> CSV</Button>
             <Button variant="outline" onClick={imprimir}><Printer className="size-4" /> Imprimir / PDF</Button>
             <Button onClick={abrirEnvio}><Mail className="size-4" /> Enviar a mi gestoría</Button>
           </div>
+          )
         }
       />
 
@@ -320,9 +337,15 @@ export default function CierreDeAnoPage() {
             en {anio} (o un trimestre en <Link href="/cobros?tab=facturas" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Para tu gestoría</Link>).
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
+            {panelNuevo ? (
+              <button type="button" className={cn(BOTON_BORDE, 'disabled:opacity-50')} onClick={() => void descargarCobradoDelAnio()} disabled={descargandoCobrado === 'loading'}>
+                <Download className="size-4" aria-hidden /> {descargandoCobrado === 'loading' ? 'Preparando…' : `Descargar lo cobrado en ${anio}`}
+              </button>
+            ) : (
             <Button variant="outline" onClick={() => void descargarCobradoDelAnio()} disabled={descargandoCobrado === 'loading'}>
               <Download className="size-4" /> {descargandoCobrado === 'loading' ? 'Preparando…' : `Descargar lo cobrado en ${anio}`}
             </Button>
+            )}
             {descargandoCobrado === 'error' && (
               <span role="alert" className="text-[13px] text-destructive">No se ha podido preparar el fichero. Inténtalo otra vez.</span>
             )}
@@ -331,6 +354,9 @@ export default function CierreDeAnoPage() {
       )}
 
       {/* Selector de año */}
+      {panelNuevo ? (
+        <Pildoras opciones={anios.map(y => ({ valor: y, label: String(y) }))} valor={anio} onCambio={setAnio} />
+      ) : (
       <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: 'var(--border)' }}>
         {anios.map(y => (
           <button
@@ -343,6 +369,7 @@ export default function CierreDeAnoPage() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Aviso de honestidad */}
       <div className="flex gap-2.5 items-start rounded-xl border border-border bg-accent px-4 py-3 text-sm">
@@ -388,6 +415,9 @@ export default function CierreDeAnoPage() {
       )}
 
       {/* Tiles */}
+      {panelNuevo ? (
+        <CifrasCierre totales={cierre.totales} sellado={cierre.sellado} conVerifactu={conVerifactu} anio={anio} eur={eur} />
+      ) : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-xl border border-border p-5" style={{ backgroundColor: 'var(--foreground)', color: 'var(--background)' }}>
           <div className="text-xs font-medium opacity-70">Total facturado</div>
@@ -414,13 +444,20 @@ export default function CierreDeAnoPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Trimestres */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <section className={tarjeta('rounded-xl border border-border bg-card overflow-hidden', 'rounded-t-card border border-border bg-card shadow-t-card overflow-hidden')}>
+        {panelNuevo ? (
+          <div className="px-5 py-4 border-b border-border">
+            <CabeceraTarjeta tono="indigo" Icono={CalendarRange} titulo="Resumen trimestral de IVA" sub="Cada trimestre debería cuadrar con el modelo 303 que presentó tu gestoría" />
+          </div>
+        ) : (
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-4 border-b border-border">
           <h2 className="text-base font-bold m-0">Resumen trimestral de IVA</h2>
           <span className="text-xs text-muted-foreground">Cada trimestre debería cuadrar con el modelo 303 que presentó tu gestoría</span>
         </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm tabular-nums">
             <thead>
@@ -458,8 +495,12 @@ export default function CierreDeAnoPage() {
 
       {/* IVA por tipo + sellado */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <section className="rounded-xl border border-border bg-card overflow-hidden">
+        <section className={tarjeta('rounded-xl border border-border bg-card overflow-hidden', 'rounded-t-card border border-border bg-card shadow-t-card overflow-hidden')}>
+          {panelNuevo ? (
+            <div className="px-5 py-4 border-b border-border"><CabeceraTarjeta tono="magenta" Icono={Percent} titulo="IVA por tipo" /></div>
+          ) : (
           <div className="px-5 py-4 border-b border-border"><h2 className="text-base font-bold m-0">IVA por tipo</h2></div>
+          )}
           <table className="w-full text-sm tabular-nums">
             <thead>
               <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -482,12 +523,14 @@ export default function CierreDeAnoPage() {
         </section>
 
         {conVerifactu ? (
-        <section className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
-          <h2 className="text-base font-bold m-0">Sellado fiscal</h2>
+        <section className={tarjeta('rounded-xl border border-border bg-card p-5 flex flex-col gap-3', 'rounded-t-card border border-border bg-card shadow-t-card p-5 flex flex-col gap-3')}>
+          <h2 className={tarjeta('text-base font-bold m-0', 'text-[16px] font-semibold text-foreground m-0')}>Sellado fiscal</h2>
           <div className="flex items-center gap-3">
+            {panelNuevo ? <Baldosa tono="verde" Icono={ShieldCheck} /> : (
             <div className="size-10 rounded-xl grid place-items-center shrink-0 bg-success/10 text-success dark:bg-emerald-950 dark:text-emerald-400">
               <ShieldCheck className="size-5" />
             </div>
+            )}
             <div>
               <div className="text-lg font-extrabold tracking-tight tabular-nums">{cierre.sellado.selladas} / {cierre.sellado.totalFacturas} selladas</div>
               <div className="text-xs text-muted-foreground">Cadena Verifactu · numeración correlativa</div>
@@ -498,8 +541,10 @@ export default function CierreDeAnoPage() {
           </p>
         </section>
         ) : (
-        <section className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
+        <section className={tarjeta('rounded-xl border border-border bg-card p-5 flex flex-col gap-3', 'rounded-t-card border border-border bg-card shadow-t-card p-5 flex flex-col gap-3')}>
+          {panelNuevo ? <CabeceraTarjeta tono="azul" Icono={FileText} titulo="Tus facturas" /> : (
           <h2 className="text-base font-bold m-0">Tus facturas</h2>
+          )}
           <p className="text-xs text-muted-foreground leading-relaxed m-0">
             Numeración correlativa por año. Si tu gestoría pide el libro registro de facturas emitidas, se exporta con el botón CSV de arriba.
           </p>
@@ -509,13 +554,39 @@ export default function CierreDeAnoPage() {
       </div>
 
       {/* Mensual */}
+      {panelNuevo ? (
+        <TarjetaGrafica
+          id="cierre-mensual"
+          titulo={`Facturación mensual ${anio}`}
+          sub="Lo facturado cada mes, IVA incluido."
+          // Mismo total que la primera cifra; más pequeño en el móvil para que el título no se quede en una columna.
+          cifra={<span className="text-[20px] sm:text-[28px]">{eur(cierre.totales.total)}</span>}
+          comparacion="en todo el año"
+        >
+          <BarrasMensualesNuevas meses={cierre.meses.map(m => m.total)} anio={anio} formato={eur} completo={!cargando && !errorManuales} />
+        </TarjetaGrafica>
+      ) : (
       <section className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border"><h2 className="text-base font-bold m-0">Facturación mensual {anio}</h2></div>
         <MonthlyBars meses={cierre.meses.map(m => m.total)} />
       </section>
+      )}
 
       {/* Ingresos manuales */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <section className={tarjeta('rounded-xl border border-border bg-card overflow-hidden', 'rounded-t-card border border-border bg-card shadow-t-card overflow-hidden')}>
+        {panelNuevo ? (
+          <div className="px-5 py-4 border-b border-border">
+            <CabeceraTarjeta
+              tono="verde"
+              Icono={Wallet}
+              titulo="Ingresos cobrados fuera de Tentare"
+              sub="¿Cobraste algo en efectivo, por transferencia o en otra plataforma? Añádelo a mano para que el cierre esté completo. Se suma a los totales, marcado como manual (sin factura de Tentare)."
+            />
+            {!mostrarForm && (
+              <button type="button" onClick={abrirNuevo} className={cn(BOTON_BORDE, 'mt-3 sm:ml-11')}><Plus className="size-4" aria-hidden /> Añadir ingreso</button>
+            )}
+          </div>
+        ) : (
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-4 border-b border-border">
           <div>
             <h2 className="text-base font-bold m-0">Ingresos cobrados fuera de Tentare</h2>
@@ -523,6 +594,7 @@ export default function CierreDeAnoPage() {
           </div>
           {!mostrarForm && <Button variant="outline" onClick={abrirNuevo}><Plus className="size-4" /> Añadir ingreso</Button>}
         </div>
+        )}
 
         {mostrarForm && (
           <div className="px-5 py-4 border-b border-border bg-accent/40">
@@ -612,11 +684,17 @@ export default function CierreDeAnoPage() {
       </section>
 
       {/* Libro de facturas (preview) */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <section className={tarjeta('rounded-xl border border-border bg-card overflow-hidden', 'rounded-t-card border border-border bg-card shadow-t-card overflow-hidden')}>
+        {panelNuevo ? (
+          <div className="px-5 py-4 border-b border-border">
+            <CabeceraTarjeta tono="azul" Icono={BookOpen} titulo="Libro de facturas emitidas" sub="Registro de IVA repercutido — vista previa" />
+          </div>
+        ) : (
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-4 border-b border-border">
           <h2 className="text-base font-bold m-0">Libro de facturas emitidas</h2>
           <span className="text-xs text-muted-foreground">Registro de IVA repercutido — vista previa</span>
         </div>
+        )}
         {facturasAnio.length === 0 ? (
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">Sin facturas emitidas en {anio}.</div>
         ) : (
@@ -649,23 +727,39 @@ export default function CierreDeAnoPage() {
         )}
         <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3 border-t border-border text-sm text-muted-foreground">
           <span>Mostrando {Math.min(8, facturasAnio.length)} de <b className="text-foreground tabular-nums">{facturasAnio.length}</b> facturas del año</span>
+          {panelNuevo ? (
+            <button type="button" onClick={descargarCsv} className="zona-tactil font-semibold" style={{ color: 'var(--t-text-link)' }}>Descargar libro completo (CSV) →</button>
+          ) : (
           <button onClick={descargarCsv} className="text-brand-medio font-semibold">Descargar libro completo (CSV) →</button>
+          )}
         </div>
       </section>
 
       {/* Modelo 347 */}
-      <section className="rounded-xl border border-border bg-card px-5 py-4 flex items-center gap-4">
+      <section className={tarjeta('rounded-xl border border-border bg-card px-5 py-4 flex items-center gap-4', 'rounded-t-card border border-border bg-card shadow-t-card px-5 py-4 flex items-center gap-4')}>
+        {panelNuevo ? (
+          <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl text-[12.5px] font-bold" style={{ backgroundColor: TONOS.magenta, color: 'var(--card)', boxShadow: `0 8px 18px -10px ${TONOS.magenta}` }}>347</span>
+        ) : (
         <div className="size-9 rounded-xl grid place-items-center shrink-0" style={{ backgroundColor: 'var(--secondary)', color: 'var(--muted-foreground)' }}>347</div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold">Modelo 347 · operaciones con terceros</div>
           <div className="text-xs text-muted-foreground mt-0.5">Clientas que te pagaron más de <b className="tabular-nums">3.005,06 €</b> en el año (declaración informativa de febrero).</div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: 'var(--secondary)', color: 'var(--muted-foreground)' }}>
+        <span
+          className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
+          style={!panelNuevo
+            ? { backgroundColor: 'var(--secondary)', color: 'var(--muted-foreground)' }
+            // A revisar, en ámbar: es una declaración que hay que presentar en febrero.
+            : cierre.candidatos347.length > 0
+              ? { backgroundColor: 'color-mix(in srgb, var(--warning) 14%, transparent)', color: 'var(--warning)' }
+              : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
+        >
           {cierre.candidatos347.length === 0 ? 'Ninguno este año' : `${cierre.candidatos347.length} a revisar`}
         </span>
       </section>
       {cierre.candidatos347.length > 0 && (
-        <div className="rounded-xl border border-border bg-card overflow-hidden -mt-2">
+        <div className={tarjeta('rounded-xl border border-border bg-card overflow-hidden -mt-2', 'rounded-t-card border border-border bg-card shadow-t-card overflow-hidden -mt-2')}>
           <table className="w-full text-sm tabular-nums">
             <tbody>
               {cierre.candidatos347.map((c, i) => (
@@ -782,11 +876,7 @@ export default function CierreDeAnoPage() {
         </DialogContent>
       </Dialog>
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 bg-destructive text-destructive-foreground px-5 py-3 rounded-full shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
-          {toast}
-        </div>
-      )}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

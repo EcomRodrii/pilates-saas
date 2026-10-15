@@ -6,7 +6,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, X, Inbox, PartyPopper, Volume2, VolumeX } from 'lucide-react';
+import { ArrowRight, Bell, Check, X, Inbox, PartyPopper, Volume2, VolumeX } from 'lucide-react';
+import Link from 'next/link';
+import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { authHeader } from '@/lib/api-client';
 import { avisarAncla } from '@/lib/estado-estudio-cliente';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
@@ -22,12 +25,35 @@ import { fetchMisEstudios } from '@/lib/supabase-data';
 const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
 // Cada cuánto se repregunta con la pestaña visible (ver el efecto de más abajo).
 const SONDEO_MS = 120_000;
-import { cn } from '@/lib/utils';
+import { cn, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
+import { useRol } from '@/lib/permisos';
+import { hrefDeTarjeta, puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
 const ACENTO: Record<string, string> = {
   CRITICA: 'bg-red-500', ALTA: 'bg-amber-500', MEDIA: 'bg-brand', BAJA: 'bg-muted-foreground/40', SILENCIOSA: 'bg-muted-foreground/40',
 };
+
+// La fecha exacta como Bonsai («11 octubre · 03:39») y el «hace…» (panel
+// nuevo), con un formateador de cada para todos los avisos.
+const DIA_MES = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO });
+const HORA = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO });
+const fechaExacta = (iso: string) => { const d = new Date(iso); return `${DIA_MES.format(d)} · ${HORA.format(d)}`; };
+
+/** Los avisos por día del estudio: Hoy, Ayer, Esta semana y Antes (panel nuevo). */
+function porDia(items: NotifItem[]): { titulo: string; items: NotifItem[] }[] {
+  const hoy = hoyEnEstudio();
+  const ayer = masDias(hoy, -1);
+  const semana = masDias(hoy, -6);
+  const grupos: { titulo: string; items: NotifItem[] }[] = [
+    { titulo: 'Hoy', items: [] }, { titulo: 'Ayer', items: [] }, { titulo: 'Esta semana', items: [] }, { titulo: 'Antes', items: [] },
+  ];
+  for (const n of items) {
+    const dia = hoyEnEstudio(new Date(n.createdAt));
+    grupos[dia >= hoy ? 0 : dia === ayer ? 1 : dia >= semana ? 2 : 3].items.push(n);
+  }
+  return grupos.filter(g => g.items.length > 0);
+}
 
 function haceCuanto(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -58,6 +84,13 @@ function destinoDelAviso(n: NotifItem): string | null {
 
 export function NotificationBell() {
   const router = useRouter();
+  // Panel nuevo: la bandeja es un cajón a toda altura, como «Todas las
+  // notificaciones» de Bonsai (b-86), en vez de un desplegable.
+  const panelNuevo = usePanelNuevo();
+  const rol = useRol();
+  // «Qué te avisamos» solo a quien puede abrir esa tarjeta (hoy, la propietaria).
+  const ajustesAvisos = hrefDeTarjeta('tus-avisos');
+  const veAjustesAvisos = puedeAbrirEnConfiguracion(rol, ajustesAvisos);
   const { user } = useAuth();
   const [abierto, setAbierto] = useState(false);
   const [items, setItems] = useState<NotifItem[]>([]);
@@ -179,19 +212,24 @@ export function NotificationBell() {
     return () => clearTimeout(t);
   }, [ventaToast]);
 
-  // Cerrar al hacer clic fuera.
+  // Cerrar al hacer clic fuera (el desplegable; el cajón lo cierra su fondo).
   useEffect(() => {
-    if (!abierto) return;
+    if (!abierto || panelNuevo) return;
     const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false); };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
-  }, [abierto]);
+  }, [abierto, panelNuevo]);
 
+  // Las tres escrituras pintan al momento y, si el servidor dice que no, lo
+  // deshacen: un aviso archivado que vuelve al recargar es peor que esperar.
   async function abrirItem(n: NotifItem) {
     if (n.readAt == null) {
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x));
       setUnread(u => Math.max(0, u - 1));
-      await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id);
+      if (!await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id)) {
+        setItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: null } : x));
+        setUnread(u => u + 1);
+      }
     }
     // Un aviso que lleva a Configuración estando en ella: por el shell (#2030).
     const destino = destinoDelAviso(n);
@@ -203,15 +241,24 @@ export function NotificationBell() {
 
   async function archivar(e: React.MouseEvent, n: NotifItem) {
     e.stopPropagation();
+    const sitio = items.findIndex(x => x.id === n.id);
     setItems(prev => prev.filter(x => x.id !== n.id));
     if (n.readAt == null) setUnread(u => Math.max(0, u - 1));
-    await accionNotificacion(authHeader, AMBITO_STAFF, 'archive', n.id);
+    if (!await accionNotificacion(authHeader, AMBITO_STAFF, 'archive', n.id)) {
+      setItems(prev => prev.some(x => x.id === n.id) ? prev : [...prev.slice(0, Math.max(0, sitio)), n, ...prev.slice(Math.max(0, sitio))]);
+      if (n.readAt == null) setUnread(u => u + 1);
+    }
   }
 
   async function marcarTodas() {
+    const sinLeer = new Set(items.filter(x => x.readAt == null).map(x => x.id));
+    const antes = unread;
     setItems(prev => prev.map(x => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })));
     setUnread(0);
-    await accionNotificacion(authHeader, AMBITO_STAFF, 'read-all');
+    if (!await accionNotificacion(authHeader, AMBITO_STAFF, 'read-all')) {
+      setItems(prev => prev.map(x => sinLeer.has(x.id) ? { ...x, readAt: null } : x));
+      setUnread(u => u + antes);
+    }
   }
 
   return (
@@ -242,7 +289,7 @@ export function NotificationBell() {
       <button
         onClick={() => setAbierto(o => !o)}
         aria-label="Notificaciones"
-        className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+        className="zona-tactil relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
       >
         <Bell size={18} className="text-muted-foreground" />
         {/* ⚠️ `red-600` y no `red-500`: el contador va en 10 px, y blanco sobre
@@ -259,7 +306,99 @@ export function NotificationBell() {
         )}
       </button>
 
-      {abierto && (
+      {/* Panel nuevo: un cajón a toda altura («Todas las notificaciones» de
+          Bonsai). Por `DashboardDrawer`, que va en portal: dentro de la barra
+          de arriba (`backdrop-blur`) un `fixed` se quedaba en sus 56 px. */}
+      {panelNuevo && (
+        <DashboardDrawer
+          open={abierto}
+          onClose={() => setAbierto(false)}
+          label="Todas las notificaciones"
+          sheetClassName="relative flex h-full w-full flex-col bg-background shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] sm:w-[460px]"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+            <h2 className="text-[18px] font-bold text-foreground">Todas las notificaciones</h2>
+            <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-5 py-2.5 text-[12.5px]">
+            <span className="font-medium text-muted-foreground">{unread > 0 ? `${unread} sin leer` : 'Todo leído'}</span>
+            <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSilenciado(alternarSonidoVenta())}
+                title={silenciado ? 'Activar sonido de nueva venta' : 'Silenciar sonido de nueva venta'}
+                aria-label={silenciado ? 'Activar sonido de nueva venta' : 'Silenciar sonido de nueva venta'}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {silenciado ? <VolumeX size={15} /> : <Volume2 size={15} />}
+              </button>
+              {unread > 0 && (
+                <button type="button" onClick={marcarTodas} className="inline-flex items-center gap-1 font-semibold text-brand-medio hover:underline">
+                  <Check size={14} /> Marcar todas como leídas
+                </button>
+              )}
+            </span>
+          </div>
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+                <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"><Inbox size={22} /></span>
+                <p className="text-[14px] font-semibold text-foreground">Todo al día</p>
+                <p className="text-[12.5px] text-muted-foreground">Aquí te avisamos de reservas, bajas, cobros y lo que necesite tu atención.</p>
+              </div>
+            ) : porDia(items).map(g => (
+              <section key={g.titulo} aria-label={g.titulo}>
+                <h3 className="px-1 pb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{g.titulo}</h3>
+                <ul className="space-y-2">
+                  {g.items.map(n => (
+                    <li key={n.id}>
+                      <div className={cn('group flex gap-1 rounded-[14px] border bg-card shadow-t-card transition-colors hover:bg-muted/40', n.readAt == null ? 'border-[color:color-mix(in_srgb,var(--t-blue-500)_30%,var(--border))]' : 'border-border')}>
+                        <button type="button" onClick={() => abrirItem(n)} className="flex min-w-0 flex-1 gap-3 rounded-[14px] p-3.5 pr-0 text-left">
+                          <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', n.readAt == null ? ACENTO[n.priority] ?? 'bg-brand' : 'bg-transparent')} />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn('block text-[13.5px] leading-snug', n.readAt == null ? 'font-bold text-foreground' : 'font-semibold text-foreground/80')}>{n.title}</span>
+                            <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{n.body}</span>
+                            <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
+                              <span>{fechaExacta(n.createdAt)} · {haceCuanto(n.createdAt)}</span>
+                              {n.studioId && nombrePorSede[n.studioId] && (
+                                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10.5px] font-semibold">{nombrePorSede[n.studioId]}</span>
+                              )}
+                              {destinoDelAviso(n) && <span className="inline-flex items-center gap-0.5 font-semibold text-brand-medio opacity-0 transition-opacity group-hover:opacity-100">Ir <ArrowRight size={11} aria-hidden /></span>}
+                            </span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => archivar(e, n)}
+                          aria-label={`Archivar «${n.title}»`}
+                          className="m-2.5 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-destructive"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          {veAjustesAvisos && (
+            <div className="border-t border-border px-5 py-3">
+              <Link
+                href={ajustesAvisos}
+                onClick={(e) => { setAbierto(false); if (irEnConfiguracion(ajustesAvisos)) e.preventDefault(); }}
+                className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-medio hover:underline"
+              >
+                Elegir qué te avisamos <ArrowRight size={14} aria-hidden />
+              </Link>
+            </div>
+          )}
+        </DashboardDrawer>
+      )}
+
+      {abierto && !panelNuevo && (
         <div className="absolute right-0 mt-2 w-[360px] max-w-[calc(100vw-24px)] bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-[14px] font-extrabold text-foreground">Notificaciones</p>

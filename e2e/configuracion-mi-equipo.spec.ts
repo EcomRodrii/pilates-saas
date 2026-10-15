@@ -152,9 +152,12 @@ test.describe('Lo que se lee de otras pantallas', () => {
     await expect(valor(page, 'fila-liquidaciones')).toHaveText('Lo que cobra cada instructora y lo que le debes cada mes');
   });
 
-  test('sin el plan, el modo autónomo funciona como asistido, y la fila lo dice', async ({ page }) => {
+  // Founding Studio incluye el modo autónomo desde el 15-oct-2026 (todo menos varias
+  // sedes y la app propia): la fila no puede decir que el plan no lo incluye. El caso
+  // «sin el plan» lo cubre resumenes.test.ts (sin acceso, se trata como asistido).
+  test('con Founding Studio, el modo autónomo es autónomo y la fila no habla del plan', async ({ page }) => {
     await abrir(page, 'configuracion?tab=equipo', { fila: { plan: 'BASE', modo_autonomia: 'autonomo' } });
-    await expect(valor(page, 'fila-sustituciones')).toHaveText('Asistido: tu plan no incluye «Autónomo»', { timeout: 30_000 });
+    await expect(valor(page, 'fila-sustituciones')).toHaveText('Autónomo: cubre las bajas y te lo cuenta', { timeout: 30_000 });
   });
 
   test('«Copiar» solo dice «Copiado» si el portapapeles lo tiene', async ({ page, context }) => {

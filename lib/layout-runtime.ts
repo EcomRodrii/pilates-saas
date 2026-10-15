@@ -26,6 +26,8 @@ export interface OrdenVisibilidad {
 export interface LayoutConfigShape {
   orden: string[];
   ocultos: string[];
+  /** Con el panel nuevo: lo de fuera del día a día que el estudio activó en Módulos (lib/modulos/menu.ts). */
+  activados: string[];
   menuPosition: MenuPosicion;
   home: OrdenVisibilidad;
   // Orden/visibilidad de los módulos de Inicio del PORTAL cliente (Fase 2 del
@@ -49,6 +51,7 @@ export interface LayoutConfigShape {
 export const DEFAULT_LAYOUT: LayoutConfigShape = {
   orden: [],
   ocultos: [],
+  activados: [],
   menuPosition: 'lateral',
   home: { orden: [], ocultos: [] },
   portalHome: { orden: [], ocultos: [] },
@@ -87,8 +90,9 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
       ),
     ]),
   ) as BloquesPorPantallaShape;
+  const activados = Array.isArray(obj.activados) ? obj.activados.filter((x): x is string => typeof x === 'string') : [];
   return {
-    orden, ocultos, menuPosition,
+    orden, ocultos, activados, menuPosition,
     home: resolveOrdenVis(obj.home),
     portalHome,
     reservar,

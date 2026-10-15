@@ -141,3 +141,26 @@ export async function aplicarRateLimit(
     return abierto;
   }
 }
+
+/**
+ * El mismo contador, pero CERRADO si algo falla. Para topes de GASTO (una
+ * llamada a un modelo de IA): ahí dejar pasar sin contar es gastar sin techo,
+ * que es justo lo que el tope tiene que impedir. Sin RPC, sin secreto, con
+ * error, sin fila o con una respuesta rara: no.
+ */
+export async function aplicarTopeEstricto(
+  rpc: RpcRateLimit | null, secreto: string, bucketKey: string, opts: RateLimitOptions,
+): Promise<RateLimitResult> {
+  const cerrado = { allowed: false, remaining: 0, resetAt: null };
+  if (!rpc || !secreto) return cerrado;
+  try {
+    const { data, error } = await rpc(await claveOpaca(bucketKey, secreto), opts.max, opts.windowSeconds);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) return cerrado;
+    const r = row as { allowed: unknown; remaining: number; reset_at: string };
+    if (r.allowed !== true) return { allowed: false, remaining: 0, resetAt: r.reset_at ? new Date(r.reset_at) : null };
+    return { allowed: true, remaining: r.remaining, resetAt: new Date(r.reset_at) };
+  } catch {
+    return cerrado;
+  }
+}

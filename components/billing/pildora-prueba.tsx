@@ -108,6 +108,30 @@ export function PildoraPrueba({ className = '' }: { className?: string }) {
     };
   }, [abierto]);
 
+  // Founding Studio gratis (lib/billing/plan-gratis.ts): la píldora sale solo
+  // cuando hay algo que decir —cerca del límite o dentro del margen— y lleva a
+  // «Tu plan». Dentro del límite no se pinta: un aviso que sale siempre no se lee.
+  const gratis = estado?.gratis;
+  if (gratis) {
+    if (gratis.fase !== 'CERCA' && gratis.fase !== 'MARGEN') return null;
+    const margen = gratis.fase === 'MARGEN';
+    return (
+      <Link
+        href="/suscripcion"
+        className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${margen ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning'} ${className}`}
+      >
+        <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${margen ? 'bg-destructive' : 'bg-warning'}`} />
+        <span className="hidden sm:inline">{margen ? 'Founding Studio ·\u00a0' : 'Tu estudio crece'}</span>
+        {margen && <span className="tabular-nums">{gratis.diasRestantes} {gratis.diasRestantes === 1 ? 'día' : 'días'}</span>}
+        <span className="sr-only">
+          {margen
+            ? `Has pasado un límite del plan gratis. Te quedan ${gratis.diasRestantes} días para pasarte a Founding Studio de pago. Pulsa para verlo.`
+            : 'Te acercas a un límite del plan gratis. Pulsa para ver lo que usas.'}
+        </span>
+      </Link>
+    );
+  }
+
   const trial = estado?.trial;
   // Sin dato todavía, o nada que contar: no se pinta NADA. Un esqueleto aquí
   // sería un hueco parpadeante en la barra para la mayoría de estudios, que no

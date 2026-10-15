@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useId, useEffect } from 'react';
+import { useState, useId, useEffect, useRef, useMemo } from 'react';
+import { Toast, type ToastVariante } from '@/components/ui/toast';
+import { useTutorial } from '@/lib/tutorial-context';
+import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
+import { avisoCoberturaFallida } from '@/lib/planes/cobertura-fallida';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos';
 import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
-import { cn, uid, formatFechaLarga } from '@/lib/utils';
+import { cn, uid, formatFechaLarga, hoyEnEstudio } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { estadoStock } from '@/lib/pos/ticket';
 import { HojaStock } from '@/components/pos/hoja-stock';
@@ -22,6 +26,12 @@ import {
   resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA, tipoSugeridoPorNombre, tarifaDuplicada, precioSospechoso, agruparTiposClase,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { clientasPorPlan } from '@/lib/planes/cifras-paquetes';
+import { BOTON_VIVO, BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import {
+  CifrasPaquetes, EleccionTipoNueva, ListaPlanesNueva, SelectorTipo, SelectorVista, TarjetaAnadir, TarjetaPlanNueva, VacioPaquetes, useVistaPaquetes,
+} from '@/components/productos/paquetes-nuevo';
 
 type Tab = 'planes' | 'pos' | 'regalo';
 
@@ -44,6 +54,8 @@ const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.
   { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
   { v: 'PUNTUAL', label: 'Clases sueltas', singular: 'clase suelta', icon: Tag },
 ];
+
+const ETIQUETA_TIPO_TAB = Object.fromEntries(TIPO_TABS.map(t => [t.v, t.label])) as Record<TipoPlanTab, string>;
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
@@ -219,8 +231,10 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false }: {
+function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onClose, yaVendida = false, ejemplo, nuevo = false }: {
   initial?: PlanTarifa;
+  /** Panel nuevo: el tipo se elige en tarjetas con ejemplos y el botón de guardar lleva el degradado. Lo que se guarda, igual. */
+  nuevo?: boolean;
   /** Las tarifas que ya hay, para avisar de una repetida. */
   otrasTarifas: readonly Pick<PlanTarifa, 'id' | 'nombre' | 'tipo' | 'precio' | 'activo'>[];
   /**
@@ -234,10 +248,21 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
   // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
   tipoInicial?: PlanTarifa['tipo'];
-  onSave: (f: FormularioPlan) => void;
+  /** Devuelve el error del servidor (el formulario lo enseña dentro y no se cierra) o `null` si se guardó. */
+  onSave: (f: FormularioPlan) => Promise<string | null>;
   onClose: () => void;
+  /** «Hazlo conmigo» (P1.3): la banda y el texto en gris; el estado inicial es el de siempre. */
+  ejemplo?: Ejemplo;
 }) {
   const uid = useId();
+  // P0.3: se espera al servidor antes de cerrar, el botón no deja guardar dos
+  // veces (un doble clic creaba dos tarifas) y el error sale AQUÍ, a la vista,
+  // no en una píldora que el panel lateral tapaba.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  // El estado llega un render tarde: con un doble clic, el segundo veía
+  // `guardando` en falso. El ref corta en el acto (mismo criterio que BarraGuardar).
+  const enVuelo = useRef(false);
   const [inicial] = useState<FormularioPlan>(() => {
     const base = initial ? planAFormulario(initial) : { ...planVacio(), tipo: tipoInicial ?? 'MENSUAL' };
     // Una clase suelta es UNA sesión y aquí ya no se pregunta, así que el campo
@@ -292,6 +317,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
   }
 
   function intentarCerrar() {
+    // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+    if (enVuelo.current) return;
     if (sucio) setConfirmandoCierre(true);
     else onClose();
   }
@@ -314,7 +341,15 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
       }
       return;
     }
-    onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form);
+    if (enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    void onSave(modoClases === 'todas' ? { ...form, tiposClaseIds: [] } : form)
+      .then(error => { if (error) setErrorGuardar(error); })
+      // Una promesa rota no puede dejar el botón en «Guardando…» para siempre.
+      .catch(() => setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.'))
+      .finally(() => { enVuelo.current = false; setGuardando(false); });
   }
 
   const esBono = form.tipo === 'BONO';
@@ -355,10 +390,16 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
+          {ejemplo && (
+            <p data-testid="banda-ejemplo" className="mb-5 rounded-xl border border-dashed border-border bg-muted/50 px-3.5 py-2.5 text-[13px] leading-snug text-foreground">
+              {ejemplo.banda}
+            </p>
+          )}
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-8">
             <div className="space-y-6 min-w-0">
 
               <Seccion titulo="¿Qué tipo de tarifa es?">
+                {nuevo ? <EleccionTipoNueva tipo={form.tipo} onElegir={cambiarTipo} /> : (
                 <div role="radiogroup" aria-label="Tipo de tarifa" className="grid gap-2 sm:grid-cols-3">
                   {(['MENSUAL', 'BONO', 'PUNTUAL'] as TipoPlan[]).map(t => {
                     const Icono = ICONO_TIPO[t];
@@ -379,6 +420,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     );
                   })}
                 </div>
+                )}
               </Seccion>
 
               <Seccion titulo="Nombre y descripción">
@@ -386,7 +428,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                   {p => (
                     <input {...p} value={form.nombre} onChange={e => set('nombre', e.target.value)}
                       onBlur={() => tocar('nombre')} className={cajaCls(visible('nombre'))}
-                      placeholder={esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado'} />
+                      placeholder={ejemplo?.placeholders.nombre ?? (esBono ? 'Ej. Bono 4 clases' : 'Ej. Mensual ilimitado')} />
                   )}
                 </Campo>
                 {repetida && (
@@ -448,7 +490,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                       <input {...p} value={form.precio} onChange={e => set('precio', e.target.value)}
                         onBlur={() => tocar('precio')} type="text" inputMode="decimal"
                         className={cn(cajaCls(visible('precio')), 'pl-7 pr-14 tabular-nums')}
-                        placeholder="0,00" />
+                        placeholder={ejemplo?.placeholders.precio ?? '0,00'} />
                       {form.tipo === 'MENSUAL' && (
                         <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/ {periodoDe(form)}</span>
                       )}
@@ -507,7 +549,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                           <div className="flex items-center gap-2">
                             <input {...p} value={form.sesiones} onChange={e => set('sesiones', e.target.value)}
                               onBlur={() => tocar('sesiones')} type="number" min="1" inputMode="numeric"
-                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder="4" />
+                              className={cn(cajaCls(visible('sesiones')), 'tabular-nums')} placeholder={ejemplo?.placeholders.sesiones ?? '4'} />
                             <span className="text-sm text-muted-foreground shrink-0">sesiones</span>
                           </div>
                         )}
@@ -751,15 +793,23 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
             {Object.values(errores)[0]}
           </p>
         )}
+        {errorGuardar && (
+          <p role="alert" className="px-5 sm:px-6 pb-1 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="px-5 sm:px-6 py-4 border-t border-border shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <button onClick={intentarCerrar}
-            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">
+          <button onClick={intentarCerrar} disabled={guardando}
+            className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">
             Cancelar
           </button>
-          <button onClick={guardar}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
-            style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
-            {tituloAccion}
+          {/* Guardando se lee entero (no al 40 %): es un estado, no un botón apagado. */}
+          <button onClick={guardar} disabled={guardando} aria-busy={guardando}
+            className={nuevo
+              ? cn(BOTON_VIVO, 'h-11 px-5 text-sm disabled:opacity-40 aria-busy:opacity-100')
+              : 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 aria-busy:opacity-100'}
+            style={nuevo ? undefined : { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}>
+            {guardando ? 'Guardando…' : tituloAccion}
           </button>
         </div>
       </>
@@ -808,7 +858,8 @@ type PosFormData = {
 function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   initial?: ProductoPOS;
   /** `foto` es el fichero recién elegido; `null` = quitar la que hubiera. */
-  onSave: (d: PosFormData, foto: File | null | undefined) => void;
+  /** Devuelve el error del servidor (se enseña dentro) o `null` si se guardó. */
+  onSave: (d: PosFormData, foto: File | null | undefined) => Promise<string | null>;
   onClose: () => void;
   onDelete?: () => void;
   /** Solo al EDITAR: abre el libro de existencias. Al crear no hay qué mover. */
@@ -829,6 +880,28 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   });
   const set = (k: keyof PosFormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
+  // Mismo criterio que el formulario de tarifas (P0.3): esperar, no dejar
+  // guardar dos veces y enseñar el error aquí dentro.
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  const enVuelo = useRef(false);
+  async function guardarProducto() {
+    if (!valid || enVuelo.current) return;
+    enVuelo.current = true;
+    setGuardando(true);
+    setErrorGuardar(null);
+    try {
+      const error = await onSave(form, foto);
+      if (error) setErrorGuardar(error);
+    } catch {
+      setErrorGuardar('No hemos podido hablar con el servidor. Inténtalo de nuevo.');
+    } finally {
+      enVuelo.current = false;
+      setGuardando(false);
+    }
+  }
+  // Con el guardado en vuelo no se cierra: su error no tendría dónde salir.
+  const cerrar = () => { if (!enVuelo.current) onClose(); };
   const controlaStock = form.stock.trim() !== '';
 
   // `undefined` = no se ha tocado la foto; `null` = quitarla; File = subir esa.
@@ -865,7 +938,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
     // dar de alta un artículo. El modal de planes de esta misma página ya lo
     // hacía bien; este se quedó con el default.
     <DashboardSheet
-      open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
+      open onClose={cerrar} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
       // ⚠️ `portal`, por lo mismo que el modal de tarifas de esta misma página
       // (ver el comentario de arriba): el contenedor del panel lleva la
       // animación `.panel-page-in`, cuyo `transform` crea un "containing block"
@@ -877,7 +950,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
       <>
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+          <button onClick={cerrar} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
@@ -1027,6 +1100,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
             <span className="text-sm font-medium text-foreground">Producto activo</span>
           </div>
         </div>
+        {errorGuardar && (
+          <p role="alert" className="shrink-0 px-6 pt-3 text-[13px] font-medium" style={{ color: 'var(--destructive)' }}>
+            No se ha guardado: {errorGuardar}
+          </p>
+        )}
         <div className="shrink-0 flex gap-3 px-6 pb-6 pt-4 border-t border-border">
           {initial && onDelete && (
             // `border-destructive/30`, no un `#FECACA` fijo: ese rosa claro se
@@ -1038,11 +1116,11 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
               <Trash2 size={15} />
             </button>
           )}
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
-          <button onClick={() => valid && onSave(form, foto)} disabled={!valid}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40"
+          <button onClick={cerrar} disabled={guardando} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
+          <button onClick={() => void guardarProducto()} disabled={!valid || guardando} aria-busy={guardando}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40 aria-busy:opacity-100"
             style={{ backgroundColor: 'var(--brand)' }}>
-            {initial ? 'Guardar cambios' : 'Crear producto'}
+            {guardando ? 'Guardando…' : initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
       </>
@@ -1053,24 +1131,36 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS } = useStudio();
+  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS, dataLoaded } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
+  // «Hazlo conmigo» (P1.3): el tutorial pide un ejemplo de bono y esta pantalla
+  // abre su «Nuevo» de siempre, en la pestaña de bonos, con el ejemplo en gris.
+  const tutorial = useTutorial();
+  const [conEjemplo, setConEjemplo] = useState(false);
+  const ejemploPedido = tutorial?.ejemplo === 'bono';
+  const soltarEjemplo = tutorial?.soltarEjemplo;
+  useEffect(() => {
+    if (!ejemploPedido || !soltarEjemplo) return;
+    soltarEjemplo();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Responde a una petición del tutorial, que vive en otro sitio.
+    setTab('planes');
+    setTipoTab('BONO');
+    setConEjemplo(true);
+    setPlanModal('new');
+  }, [ejemploPedido, soltarEjemplo]);
   // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
   // destructiva, dos comportamientos.
   const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
-  // El aviso se borra solo a los 4 s. Antes colgaba de `onAnimationEnd` sobre un
-  // elemento SIN animación: el callback no se disparaba nunca y el mensaje se
-  // quedaba fijo en pantalla para siempre, contando algo que ya había pasado.
-  useEffect(() => {
-    if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 4000);
-    return () => clearTimeout(t);
-  }, [aviso]);
+  // El aviso de la pantalla, con su variante: un fallo en rojo y 8 s, no en la
+  // píldora neutra de antes (P0.3). Lo pinta el `<Toast>` de siempre, que se
+  // cierra solo.
+  const [aviso, setAvisoEstado] = useState<{ mensaje: string; variant: ToastVariante } | null>(null);
+  const setAviso = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'exito' });
+  const setAvisoError = (mensaje: string) => setAvisoEstado({ mensaje, variant: 'error' });
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
   // Libro de existencias del artículo abierto. Va aparte del modal para que
   // cerrar la hoja no cierre también la ficha del producto.
@@ -1094,14 +1184,49 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  async function savePlan(f: FormularioPlan) {
+  // Panel nuevo (interruptor `panelNuevo`): cifras de colores, tarjetas por tipo y
+  // vacíos que enseñan. Apagado, la pantalla de siempre.
+  const panelNuevo = usePanelNuevo();
+  // Lista (como «Cuotas» de Bonsai) o tarjetas; se recuerda en este navegador.
+  const [vistaPaquetes, setVistaPaquetes] = useVistaPaquetes();
+  const [hoy] = useState(() => hoyEnEstudio());
+  // Quién tiene cada tarifa AHORA (en vigor, personas distintas), para las tarjetas nuevas.
+  const clientasDe = useMemo(() => clientasPorPlan(suscripciones, hoy), [suscripciones, hoy]);
+  const cuantasPorTipo = useMemo(() => {
+    const n: Record<TipoPlanTab, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 };
+    for (const p of planesTarifa) if (p.tipo in n) n[p.tipo as TipoPlanTab] += 1;
+    return n;
+  }, [planesTarifa]);
+  const coberturaDe = (plan: PlanTarifa) => {
+    const nombres = tiposClase.filter(tc => (plan.tiposClaseIds ?? []).includes(tc.id)).map(tc => tc.nombre);
+    return nombres.length === 0 ? 'Sirve para todas las clases' : `Solo para ${nombres.join(' · ')}`;
+  };
+  // Una cifra de arriba lleva a su tipo de tarifa.
+  function verTipo(t: TipoPlanTab) {
+    setTab('planes');
+    setTipoTab(t);
+    setBusqueda('');
+  }
+
+  async function savePlan(f: FormularioPlan): Promise<string | null> {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
     const datos = formularioAPlan(f);
     const editando = planModal && planModal !== 'new';
     const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
-    if (!res.ok) { setAviso(res.error); return; }
+    // La tarifa SÍ se guardó pero no a qué clases da acceso: no es «no se ha
+    // guardado». Se cierra el formulario (otro «Crear» haría otra igual) y se
+    // dice lo que pasó, en rojo, porque hay algo que arreglar.
+    if (!res.ok && 'filaEscrita' in res) {
+      setPlanModal(null);
+      setConEjemplo(false);
+      setAvisoError(avisoCoberturaFallida({ nombre: datos.nombre, editando: !!editando, aLaVenta: datos.activo, desactivada: res.desactivada }));
+      return null;
+    }
+    // El error lo enseña el formulario, que se queda abierto con lo escrito.
+    if (!res.ok) return res.error;
     setPlanModal(null);
+    setConEjemplo(false);
     // Lo que se dice tiene que ser lo que pasa: una tarifa guardada con
     // «Disponible para vender» apagado NO sale en la Caja ni en la web, y
     // «ya está a la venta» fue justo lo que dejó a una dueña sin su cuota en la
@@ -1109,9 +1234,10 @@ export default function Productos() {
     setAviso(!datos.activo
       ? `"${datos.nombre}" guardada, pero NO está a la venta: no sale en la Caja ni en la web`
       : editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
+    return null;
   }
 
-  async function savePos(d: PosFormData, foto: File | null | undefined) {
+  async function savePos(d: PosFormData, foto: File | null | undefined): Promise<string | null> {
     // Campo vacío → `null`, no `0`. En existencias y en IVA los dos valores
     // significan cosas distintas: null es "no controla / hereda", 0 es
     // "agotado / exento". El formulario deja vacío a propósito y aquí NO se
@@ -1143,22 +1269,30 @@ export default function Productos() {
     const res = editandoPos
       ? await updateProductoPOS(id, fields)
       : await addProductoPOS(fields, id);
-    if (!res.ok) { setAviso(res.error); return; }
+    if (!res.ok) return res.error;
 
     // La foto va aparte y DESPUÉS: si falla, el artículo ya existe y se avisa
     // de lo que ha fallado de verdad — no se pierde el alta entera por una
     // imagen, ni se anuncia un éxito que no ha ocurrido.
     if (foto !== undefined) {
       const r = foto === null ? await eliminarFotoProducto(id) : await subirFotoProducto(id, foto);
-      if ('error' in r) { setAviso(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return; }
+      if ('error' in r) { setAvisoError(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return null; }
       const url = 'url' in r ? r.url : null;
       const resFoto = await updateProductoPOS(id, { imagenUrl: url });
-      if (!resFoto.ok) { setAviso(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return; }
+      if (!resFoto.ok) { setAvisoError(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return null; }
     }
     setPosModal(null);
+    // Antes guardar un producto no decía nada: se cerraba y ya.
+    setAviso(editandoPos ? 'Producto guardado' : `"${fields.nombre}" creado`);
+    return null;
   }
 
   const PLAN_ICONS: Record<string, React.ElementType> = { MENSUAL: Repeat, BONO: Zap, PUNTUAL: Tag };
+
+  async function ponerALaVenta(plan: PlanTarifa) {
+    const res = await updatePlan(plan.id, { activo: true });
+    if (res.ok) setAviso(`"${plan.nombre}" ya está a la venta`); else setAvisoError(res.error);
+  }
 
   const planesFiltrados = planesTarifa
     .filter(p => p.tipo === tipoTab)
@@ -1169,8 +1303,18 @@ export default function Productos() {
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
-        actions={mueveDinero && tab !== 'regalo' && (
+        actions={mueveDinero && tab !== 'regalo' && (panelNuevo ? (
+          // La acción principal, con el degradado del logo.
+          <span data-tour={tab === 'planes' ? 'paquetes-crear' : undefined} className="inline-flex">
+            <BotonVivo
+              label={tab === 'planes' ? 'Crear tarifa' : 'Nuevo producto'}
+              Icono={Plus}
+              onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
+            />
+          </span>
+        ) : (
           <button
+            data-tour={tab === 'planes' ? 'paquetes-crear' : undefined}
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-colors"
             style={{ backgroundColor: 'var(--brand)' }}
@@ -1178,8 +1322,10 @@ export default function Productos() {
             <Plus size={15} />
             {tab === 'planes' ? 'Crear' : 'Nuevo producto'}
           </button>
-        )}
+        ))}
       />
+
+      {panelNuevo && <CifrasPaquetes planes={planesTarifa} suscripciones={suscripciones} verFinanzas={verFinanzas} onTipo={verTipo} />}
 
       {/* Tabs — la pestaña "Productos POS" queda oculta con POS congelado (solo
           se muestra la barra si hay más de una pestaña). */}
@@ -1187,7 +1333,7 @@ export default function Productos() {
         <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
           {TABS.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+              className="zona-tactil px-4 py-2 rounded-lg text-sm font-semibold transition-all"
               style={tab === v ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: 'var(--muted-foreground)' }}>
               {l}
             </button>
@@ -1195,10 +1341,82 @@ export default function Productos() {
         </div>
       )}
 
-      {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
-      {tab === 'planes' && (
+      {/* ── PLANES, en el panel nuevo ── */}
+      {tab === 'planes' && panelNuevo && (planesTarifa.length === 0 ? (
+        // Sin ninguna tarifa: el vacío que enseña. Lleva las dos anclas del
+        // tutorial de la pantalla (los tipos y la lista), que aquí son la misma caja.
+        <div data-tour="paquetes-tipos">
+          <div data-tour="paquetes-lista">
+            <VacioPaquetes puedeCrear={mueveDinero} onCrear={() => setPlanModal('new')} />
+          </div>
+        </div>
+      ) : (
         <>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-3">
+            <SelectorTipo
+              valor={tipoTab}
+              onCambio={setTipoTab}
+              cuantas={cuantasPorTipo}
+              etiquetas={ETIQUETA_TIPO_TAB}
+            />
+            <span className="sm:ml-auto"><SelectorVista valor={vistaPaquetes} onCambio={setVistaPaquetes} /></span>
+            <label className="relative w-full sm:w-[260px]">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <input
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}...`}
+                aria-label={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
+                className="h-10 tactil:h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-brand"
+              />
+            </label>
+          </div>
+
+          {cuantasPorTipo[tipoTab] === 0 ? (
+            <div data-tour="paquetes-lista">
+              <VacioPaquetes tipo={tipoTab} puedeCrear={mueveDinero} onCrear={() => setPlanModal('new')} />
+            </div>
+          ) : planesFiltrados.length === 0 ? (
+            <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
+          ) : vistaPaquetes === 'lista' ? (
+            <div data-tour="paquetes-lista" className="space-y-2">
+              <p className="text-[13px] font-semibold text-foreground">
+                {planesFiltrados.length} {planesFiltrados.length === 1 ? (TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'tarifa') : (TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase() ?? 'tarifas')}
+              </p>
+              <ListaPlanesNueva
+                filas={planesFiltrados.map(plan => ({ plan, clientas: clientasDe.get(plan.id) ?? 0, cobertura: coberturaDe(plan) }))}
+                mueveDinero={mueveDinero}
+                onEditar={plan => setPlanModal(plan)}
+                onBorrar={plan => setBorrando(plan)}
+                onPonerALaVenta={plan => ponerALaVenta(plan)}
+              />
+            </div>
+          ) : (
+            <div data-tour="paquetes-lista" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {planesFiltrados.map(plan => (
+                <TarjetaPlanNueva
+                  key={plan.id}
+                  plan={plan}
+                  clientas={clientasDe.get(plan.id) ?? 0}
+                  cobertura={coberturaDe(plan)}
+                  mueveDinero={mueveDinero}
+                  onEditar={() => setPlanModal(plan)}
+                  onBorrar={() => setBorrando(plan)}
+                  onPonerALaVenta={() => ponerALaVenta(plan)}
+                />
+              ))}
+              {mueveDinero && (
+                <TarjetaAnadir texto={`Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'tarifa'}`} onClick={() => setPlanModal('new')} />
+              )}
+            </div>
+          )}
+        </>
+      ))}
+
+      {/* ── PLANES: Suscripciones / Bonos / Clases sueltas ── */}
+      {tab === 'planes' && !panelNuevo && (
+        <>
+          <div data-tour="paquetes-tipos" className="flex items-center gap-2 flex-wrap">
             {TIPO_TABS.map(t => {
               const activo = tipoTab === t.v;
               const Icon = t.icon;
@@ -1226,6 +1444,7 @@ export default function Productos() {
           </div>
 
           {planesTarifa.filter(p => p.tipo === tipoTab).length === 0 ? (
+            <div data-tour="paquetes-lista">
             <EmptyState
               icono={Package}
               titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
@@ -1236,10 +1455,11 @@ export default function Productos() {
                 ? { label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }
                 : undefined}
             />
+            </div>
           ) : planesFiltrados.length === 0 ? (
             <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div data-tour="paquetes-lista" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {planesFiltrados.map(plan => {
             const c = TIPO_COLOR[plan.tipo] ?? TIPO_COLOR.MENSUAL;
             const Icon = PLAN_ICONS[plan.tipo] ?? Tag;
@@ -1355,10 +1575,7 @@ export default function Productos() {
                     {mueveDinero && plan.precio > 0 && (
                       <button
                         type="button"
-                        onClick={async () => {
-                          const res = await updatePlan(plan.id, { activo: true });
-                          setAviso(res.ok ? `"${plan.nombre}" ya está a la venta` : res.error);
-                        }}
+                        onClick={() => ponerALaVenta(plan)}
                         className="rounded-lg bg-brand px-2.5 py-1 text-xs font-semibold text-brand-foreground hover:opacity-90"
                       >
                         Ponerla a la venta
@@ -1388,7 +1605,22 @@ export default function Productos() {
       {tab === 'regalo' && <PanelRegalo />}
 
       {/* ── PRODUCTOS POS ── */}
-      {tab === 'pos' && (
+      {/* Con el panel nuevo, sin productos: la pantalla vacía que enseña (Bonsai A4). */}
+      {tab === 'pos' && panelNuevo && dataLoaded && productosPOS.length === 0 && (
+        <PantallaVacia
+          tono="magenta"
+          Icono={ShoppingBag}
+          titulo="Vende algo más que clases"
+          texto="Lo que añadas aquí se cobra en la Caja, junto con los bonos y las clases sueltas, y queda apuntado con lo demás."
+          ejemplos={[
+            { accion: 'Agua o una bebida', cuando: 'para quien sale de clase' },
+            { accion: 'Calcetines antideslizantes', cuando: 'que te piden en la sala' },
+            { accion: 'Una toalla o una esterilla', cuando: 'con su precio y su categoría' },
+          ]}
+          accion={{ label: 'Añadir mi primer producto', onClick: () => setPosModal('new'), Icono: Plus }}
+        />
+      )}
+      {tab === 'pos' && !(panelNuevo && dataLoaded && productosPOS.length === 0) && (
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           {productosPOS.length === 0 ? (
             <div className="px-5 py-12 text-center">
@@ -1496,8 +1728,10 @@ export default function Productos() {
           // cualquier desajuste futuro entre el formulario y el guardado —
           // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
           onSave={savePlan}
-          onClose={() => setPlanModal(null)}
+          onClose={() => { setPlanModal(null); setConEjemplo(false); }}
+          ejemplo={conEjemplo && planModal === 'new' ? EJEMPLOS.bono : undefined}
           yaVendida={planModal !== 'new' && !!planModal && suscripciones.some(s => s.planId === planModal.id)}
+          nuevo={panelNuevo}
         />
       )}
       <ConfirmDialog
@@ -1517,17 +1751,12 @@ export default function Productos() {
         onConfirm={async () => {
           if (borrando) {
             const res = await deletePlan(borrando.id);
-            setAviso(res.ok ? `"${borrando.nombre}" ya no está a la venta` : res.error);
+            if (res.ok) setAviso(`"${borrando.nombre}" ya no está a la venta`); else setAvisoError(res.error);
           }
           setBorrando(null);
         }}
       />
-      {aviso && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-[13px] font-medium shadow-lg"
-          role="status">
-          {aviso}
-        </div>
-      )}
+      {aviso && <Toast message={aviso.mensaje} variant={aviso.variant} onDismiss={() => setAvisoEstado(null)} />}
       {stockDe && (
         <HojaStock
           productoId={stockDe}
@@ -1543,7 +1772,7 @@ export default function Productos() {
           onMoverStock={posModal !== 'new' && posModal ? () => setStockDe(posModal.id) : undefined}
           onDelete={posModal !== 'new' && posModal ? async () => {
             const res = await deleteProductoPOS(posModal.id);
-            if (!res.ok) { setAviso(res.error); return; }
+            if (!res.ok) { setAvisoError(res.error); return; }
             setPosModal(null);
           } : undefined}
         />

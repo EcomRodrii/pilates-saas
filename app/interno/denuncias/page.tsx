@@ -33,7 +33,7 @@ function hace(iso: string): string {
 export default function DenunciasInternoPage() {
   const [items, setItems] = useState<DenunciaInterna[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
   const [enviando, setEnviando] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -55,11 +55,11 @@ export default function DenunciasInternoPage() {
     setEnviando(d.id);
     try {
       await decidirDenunciaInterno(d.id, accion);
-      setAviso(accion === 'MANTENER' ? 'Mantenido. Avisamos a quien la hizo.' : accion === 'OCULTAR'
-        ? 'Retirado. Avisamos a quien la hizo y a quien lo escribió.' : 'Conversación cerrada.');
+      setAviso({ error: false, texto: accion === 'MANTENER' ? 'Mantenido. Avisamos a quien la hizo.' : accion === 'OCULTAR'
+        ? 'Retirado. Avisamos a quien la hizo y a quien lo escribió.' : 'Conversación cerrada.' });
     } catch (e) {
       // Ya decidida (por el estudio o por otra persona de Tentare): se relee igual.
-      setAviso(e instanceof Error ? e.message : 'No se ha podido guardar la decisión.');
+      setAviso({ error: true, texto: e instanceof Error ? e.message : 'No se ha podido guardar la decisión.' }); // toast-no-es-error: lleva `error` y se pinta como alert en rojo
     } finally {
       setEnviando(null);
       // Las demás denuncias del mismo contenido se cierran a la vez.
@@ -81,7 +81,12 @@ export default function DenunciasInternoPage() {
         </p>
       </div>
 
-      {aviso && <p role="status" className="rounded-lg bg-muted px-3 py-2 text-[12.5px] text-foreground">{aviso}</p>}
+      {aviso && (
+        <p role={aviso.error ? 'alert' : 'status'}
+          className={aviso.error ? 'rounded-lg bg-destructive/10 px-3 py-2 text-[12.5px] font-semibold text-destructive' : 'rounded-lg bg-muted px-3 py-2 text-[12.5px] text-foreground'}>
+          {aviso.texto}
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p className="text-[13.5px] text-muted-foreground">No hay ninguna denuncia esperando a Tentare.</p>

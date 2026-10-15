@@ -217,9 +217,12 @@ test('el menú de tamaño no se ofrece tumbado', () => {
   assert.match(src, /\{!horizontal && \(\n\s*<div className="relative shrink-0 border-t"/);
 });
 
-test('el modo Esencial/Todo SÍ sobrevive a la barra', () => {
+test('el modo Esencial/Todo SÍ sobrevive a la barra (y con el panel nuevo lo sustituye Módulos, siempre en el menú)', () => {
   const src = leer('components/layout/sidebar.tsx');
-  // Es lo único que devuelve el menú completo a quien esté en «esencial».
-  assert.match(src, /\{\(horizontal \|\| !collapsed\) && \(\n\s*<div className=\{cn\(horizontal \? 'shrink-0 w-\[132px\]'/,
+  // Sin el panel nuevo, es lo único que devuelve el menú completo a quien esté en «esencial».
+  assert.match(src, /\{\(horizontal \|\| !collapsed\) && !panelNuevo && \(\n\s*<div className=\{cn\(horizontal \? 'shrink-0 w-\[132px\]'/,
     'Sin él, quien esté en Esencial se queda encerrada en media aplicación.');
+  // Con el panel nuevo, lo que sale lo decide Módulos, que es una entrada del menú que no se puede quitar.
+  assert.match(src, /activoEnModulos\(i\.href/);
+  assert.match(leer('lib/modulos/menu.ts'), /export function siempreEnElMenu[\s\S]*href === HREF_MODULOS/);
 });

@@ -69,12 +69,21 @@ test('la confirmación del borrado dice qué se borró y qué se conserva por le
 });
 
 test('el acceso activado enseña con qué correo ha entrado', () => {
-  // Es lo único que delata una dirección mal tecleada en la ficha.
-  const html = correoAccesoActivado({ nombre: 'Marta', emailCuenta: 'marta@example.com', estudioNombre: 'Casa Pilates', urlEquipo: `${URL}/equipo` });
+  const html = correoAccesoActivado({ nombre: 'Marta', rol: 'RECEPCION', emailCuenta: 'marta@example.com', estudioNombre: 'Casa Pilates', urlEquipo: `${URL}/equipo` });
   assert.match(html, /Ha entrado con este correo/);
   assert.match(html, /marta@example\.com/);
-  const sin = correoAccesoActivado({ nombre: 'Marta', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: `${URL}/equipo` });
+  const sin = correoAccesoActivado({ nombre: 'Marta', rol: 'RECEPCION', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: `${URL}/equipo` });
   assert.ok(!sin.includes('Ha entrado con este correo'));
+});
+
+test('el acceso activado dice con qué rol entra, y a la instructora la manda a la app, no al panel', () => {
+  // Lo que la propietaria tiene que poder juzgar de un vistazo es qué puede ver
+  // esa persona desde ahora.
+  const recepcion = correoAccesoActivado({ nombre: 'Marta', rol: 'RECEPCION', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: URL });
+  assert.match(recepcion, /entrar al panel de Casa Pilates como recepción/);
+  const instructora = correoAccesoActivado({ nombre: 'Marta', rol: 'INSTRUCTOR', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: URL });
+  assert.match(instructora, /entrar a la app de Casa Pilates como instructora/);
+  assert.ok(!instructora.includes('al panel'));
 });
 
 test('el resumen semanal solo enseña crecimiento si lo hay', () => {
@@ -88,7 +97,7 @@ test('ninguno de estos correos lleva la marca de un estudio', () => {
   // alguien volvió a pasarle `colorPrimario`.
   const correos = [
     correoFalloPagoSaas({ estudioNombre: 'Casa Pilates', plan: 'Estudio', urlSuscripcion: URL }),
-    correoAccesoActivado({ nombre: 'Marta', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: URL }),
+    correoAccesoActivado({ nombre: 'Marta', rol: 'INSTRUCTOR', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: URL }),
     correoResumenSemanal({ propietariaNombre: 'Carmen', estudioNombre: 'Casa Pilates', rangoTexto: 'x', urlCentroDeControl: URL }),
     correoDatosBorrados({ estudioNombre: 'Casa Pilates', fecha: '4 de noviembre de 2026' }),
   ];

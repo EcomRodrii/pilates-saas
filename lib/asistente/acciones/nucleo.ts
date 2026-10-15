@@ -65,14 +65,40 @@ const no = (error: string): PropuestaImposible => ({ ok: false, error });
 // ── Nombres ──
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** El elemento que nombra el texto: exacto, o el único que lo contiene. `null` = ninguno; `'ambiguo'` = varios. */
+// Emojis, sus tonos de piel, el selector de variante (U+FE0F), el unidor
+// (U+200D), la tecla (U+20E3) y las letras de las banderas.
+const EMOJI = /[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+
+/**
+ * Para BUSCAR, no para decidir si un nombre ya existe: sin emojis. El modelo
+ * los quita (el prompt le pide no usarlos) o se deja el U+FE0F de «🔥», y un
+ * tipo «Secret 🔥 Burn» pedido como «Secret Burn» no casaba: la herramienta
+ * fallaba y no salía ninguna tarjeta (raíz del aviso de #2633). Un nombre que
+ * solo es un emoji se queda como está, para no volverse «» y casar con todo.
+ */
+export const normalizarParaBuscar = (s: string) => normalizar(s.replace(EMOJI, ' ')) || normalizar(s);
+
+/**
+ * El elemento que nombra el texto: exacto, o el único que lo contiene. `null` = ninguno; `'ambiguo'` = varios.
+ * Primero exacto tal cual (con emojis: «Burn 🔥» y «Burn 💧» se distinguen), después exacto sin emojis y por
+ * último el único que lo contiene.
+ */
 export function resolverPorNombre<T extends { nombre: string }>(lista: readonly T[], pedido: string): T | null | 'ambiguo' {
-  const q = normalizar(pedido);
+  // Tal cual, salvo el selector de variante (U+FE0F): «🔥» y «🔥︎» son el mismo emoji.
+  const exacto = (s: string) => normalizar(s.replace(/\u{FE0F}/gu, ''));
+  const q = exacto(pedido);
   if (!q) return null;
-  const exactos = lista.filter(x => normalizar(x.nombre) === q);
+  const exactos = lista.filter(x => exacto(x.nombre) === q);
   if (exactos.length === 1) return exactos[0];
   if (exactos.length > 1) return 'ambiguo';
-  const parecidos = lista.filter(x => normalizar(x.nombre).includes(q) || q.includes(normalizar(x.nombre)));
+  const qb = normalizarParaBuscar(pedido);
+  const sinEmoji = lista.filter(x => normalizarParaBuscar(x.nombre) === qb);
+  if (sinEmoji.length === 1) return sinEmoji[0];
+  if (sinEmoji.length > 1) return 'ambiguo';
+  const parecidos = lista.filter(x => {
+    const n = normalizarParaBuscar(x.nombre);
+    return n.includes(qb) || qb.includes(n);
+  });
   return parecidos.length === 1 ? parecidos[0] : parecidos.length > 1 ? 'ambiguo' : null;
 }
 

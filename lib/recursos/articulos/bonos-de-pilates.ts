@@ -203,7 +203,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Tus bonos y cuotas, con sus reglas, en un solo sitio',
-    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con Stripe (tarjeta o SEPA). Prueba 7 días gratis, sin tarjeta, el plan que elijas.',
+    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con Stripe (tarjeta o SEPA). Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Escalera de ejemplo: la suelta (25 €) y las cuotas (75 y 130 €) son medianas del estudio de precios; los bonos de 5 (110 €) y 10 (200 €) están redondeados dentro de los descuentos observados, no son medianas.',

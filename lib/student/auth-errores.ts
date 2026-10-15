@@ -9,6 +9,11 @@
 //
 // La regla es pura: de un texto a un mensaje y un código. Aquí se prueba en
 // milisegundos y sin carreras.
+//
+// (El único import es otra regla pura, también sin `@/` ni cliente de Supabase:
+// el de los motivos por los que se rechaza una contraseña.)
+
+import { mensajeDePassword } from '../auth/password-errores.ts';
 
 /**
  * El caso que hay que poder distinguir sin leer textos.
@@ -49,7 +54,10 @@ export function traducirAuth(mensaje: string): string | null {
   if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';
   if (codigoDeError(mensaje) === 'sin-confirmar') return 'Tienes que confirmar tu email antes de entrar.';
   if (m.includes('user already registered')) return 'Ya existe una cuenta con ese email. Entra con tu contraseña o con un código.';
-  if (m.includes('should be at least') || m.includes('password')) return 'La contraseña es demasiado corta. Usa al menos 8 caracteres.';
+  // No un `m.includes('password')` a secas: decía «demasiado corta» aunque el
+  // motivo fuera otro (una contraseña filtrada, por ejemplo).
+  const contrasena = mensajeDePassword({ message: mensaje });
+  if (contrasena) return contrasena;
   return null;
 }
 

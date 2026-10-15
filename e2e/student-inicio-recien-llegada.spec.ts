@@ -78,12 +78,18 @@ test('recién llegada: bienvenida, la cifra real de clases con plaza y su primer
   // El andamiaje no vende clase suelta: las dos solo se reservan con bono o cuota, y la tarjeta lo dice.
   await expect(tarjeta).toContainText('Para reservarlas hace falta un bono o una cuota.');
 
-  // La valoración inicial, encima.
+  // La valoración inicial, delante EN ORDEN DE LECTURA. En el móvil va encima;
+  // desde 1024 px Inicio es una rejilla de dos columnas por filas
+  // (`.grid-lg-2`, student.css) y van en la misma fila: la valoración a la
+  // izquierda. Comparar solo la `y` fallaba ahí con el orden correcto (13-oct).
   const valoracion = page.getByTestId('card-valoracion');
   await expect(valoracion).toBeVisible();
-  const cajaV = await valoracion.boundingBox();
-  const cajaT = await tarjeta.boundingBox();
-  expect(cajaV && cajaT && cajaV.y < cajaT.y).toBe(true);
+  await expect.poll(async () => {
+    const v = await valoracion.boundingBox();
+    const t = await tarjeta.boundingBox();
+    if (!v || !t) return false;
+    return Math.abs(v.y - t.y) <= 1 ? v.x < t.x : v.y < t.y;
+  }, { timeout: 10_000 }).toBe(true);
 
   // Sin «Tu ritmo» ni sus ceros; lo de siempre sigue.
   await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);

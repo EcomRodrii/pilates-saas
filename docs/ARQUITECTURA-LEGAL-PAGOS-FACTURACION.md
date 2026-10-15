@@ -194,7 +194,7 @@ El consentimiento de salud (migración `0138`, PR #511) **cierra el hueco de "ce
 | `lib/permisos-reglas.ts` como barrera de UI + espejo en RLS | ✅ Patrón confirmado y documentado en el propio código |
 | Turnstile (CAPTCHA) a nivel de proyecto Supabase | ✅ En prod (este mismo hilo de trabajo) |
 | MFA/2FA | ❌ No implementado |
-| Leaked Password Protection | ❌ No activado (requiere plan Pro de Supabase) |
+| Leaked Password Protection | ✅ Activo en prod (comprobado el 9-oct-2026 en los registros de gotrue: `/signup` devuelve 422 «Password is known to be weak and easy to guess»). Antes constaba como no activado. Los textos que lo traducen: `lib/auth/password-errores.ts` |
 | Cifrado a nivel de columna (pgcrypto/vault) | ❌ No implementado — depende del cifrado de plataforma de Supabase |
 | `restaurar_backup` cerrado a `anon` | ✅ (migración `0021`) |
 | Auditoría del panel interno (staff de Tentare) | ✅ Tabla solo-append, rechaza UPDATE/DELETE |
@@ -206,7 +206,7 @@ Este repo ha tenido **al menos cuatro rondas** del mismo bug de fondo: una regla
 ### Recomendaciones puntuales
 
 1. **MFA para roles con acceso a dinero** (PROPIETARIO, RECEPCION, MANAGER): Supabase Auth soporta TOTP nativo — complejidad media, no requiere infraestructura nueva.
-2. **Leaked Password Protection**: es un toggle gratis una vez se suba a plan Pro de Supabase — no hay trabajo de código, es una decisión de negocio (coste del plan).
+2. ~~**Leaked Password Protection**~~ — ya está activo (ver la tabla de arriba). Lo que sí hace falta es que la pantalla diga el motivo cuando rechaza una contraseña: `lib/auth/password-errores.ts`.
 3. **Cifrado a nivel de columna para datos de salud/NIF**: evaluar si el cifrado de plataforma de Supabase es suficiente para el nivel de riesgo real, antes de añadir la complejidad operativa de `pgcrypto` (gestión de claves, rendimiento de búsqueda). No lo trates como obligatorio sin antes hacer esa evaluación de riesgo/coste.
 
 ---
@@ -317,7 +317,6 @@ lib/interno/
 ### Fase 3 — Robustez y escala (según crecimiento real, no calendario fijo)
 - Prorrateos de cambio de plan a mitad de ciclo.
 - Unificar (o documentar como decisión definitiva) los dos sistemas de cupones.
-- Evaluar Leaked Password Protection al subir de plan Supabase.
 - RAT como feature de producto para los estudios.
 
 ### Fase 4 — Especulativo, solo cuando haya cliente/fecha real

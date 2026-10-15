@@ -3,7 +3,9 @@ import Link from "next/link"
 import * as React from "react"
 
 import { AyudaDePantalla } from "@/components/ayuda/AyudaDePantalla"
+import { BotonTutorial } from "@/components/tutorial/boton-tutorial"
 import { BotonAmpliar } from "@/components/layout/boton-ampliar"
+import { IconoSeccion } from "@/components/dashboard/icono-seccion"
 import { cn } from "@/lib/utils"
 
 // Cabecera única para todas las pantallas del dashboard.
@@ -73,13 +75,19 @@ function PageHeader({
             href={back.href}
             aria-label={back.label}
             data-slot="page-header-back"
-            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="zona-tactil mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ArrowLeftIcon className="size-4" aria-hidden="true" />
           </Link>
         )}
+        {/* El icono de color de la sección (panel nuevo): solo en la pantalla
+            principal de cada sección; con el interruptor apagado no pinta nada. */}
+        {!back && <span className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
         <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* `tactil:gap-3`: con el dedo, el ⓘ (20 px) crece 12 px a cada lado hasta
+              los 44 de su zona táctil; con 8 de hueco se metía 4 px en la del
+              «Cómo funciona» de al lado. Con 12, se tocan sin pisarse. */}
+          <div className="flex flex-wrap items-center gap-2 tactil:gap-3">
             <h1
               data-slot="page-header-title"
               // text-foreground explícito, no heredado: `body` vive FUERA del
@@ -97,6 +105,8 @@ function PageHeader({
                 que es lo que de verdad cuesta— y las subpantallas de un flujo
                 (los importadores) no lo pintan porque no tienen ficha. */}
             <AyudaDePantalla />
+            {/* El «?» del tutorial de la pantalla (P1.1): como el ⓘ, por la ruta. */}
+            <BotonTutorial />
             {badge}
             {/* «Ampliar a toda la pantalla»: como el ⓘ, se resuelve por la ruta
                 (lib/panel/ampliar.ts, PANTALLAS_AMPLIABLES) y no por prop. */}

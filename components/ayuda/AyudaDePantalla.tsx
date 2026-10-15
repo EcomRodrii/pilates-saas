@@ -8,6 +8,14 @@ import { usePathname } from 'next/navigation';
 import { ayudaDePantalla, urlDeAyuda, type AyudaPantalla } from '@/lib/ayuda/pantallas';
 import { IconoInfo } from '@/lib/iconos';
 import { cn } from '@/lib/utils';
+import { DentroDePortal, useDestinoPortal } from '@/components/ui/destino-portal';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+
+// Panel nuevo: el ⓘ abre la ayuda en un panel lateral, como Bonsai. Llega con
+// dynamic(): sus textos (pasos, guías) no viajan en el chunk de cada pantalla.
+const CajonAyuda = dynamic(() => import('@/components/ayuda/cajon-ayuda').then(m => m.CajonAyuda), { ssr: false });
 
 // El (i) que va pegado al título de cada pantalla.
 //
@@ -37,7 +45,7 @@ function Contenido({ ayuda }: { ayuda: AyudaPantalla }) {
       </p>
       <Link
         href={urlDeAyuda(ayuda.destino)}
-        className="mt-2.5 inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 rounded-sm outline-none"
+        className="mt-2.5 inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand-medio hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 rounded-sm outline-none"
       >
         Ver la guía completa
         <ArrowUpRight className="size-3.5" aria-hidden="true" />
@@ -55,10 +63,37 @@ export function AyudaDePantalla({
   className?: string;
 }) {
   const pathname = usePathname();
-  const ayuda = ayudaDePantalla(ruta ?? pathname);
+  // Al anfitrión del panel, dentro de `.dark`: en <body> el recuadro salía
+  // blanco sobre el panel oscuro (components/ui/destino-portal.tsx).
+  const destino = useDestinoPortal();
+  const panelNuevo = usePanelNuevo();
+  const [cajon, setCajon] = useState(false);
+  const clave = ruta ?? pathname;
+  const ayuda = ayudaDePantalla(clave);
   // Una pantalla sin ficha no pinta nada. Preferimos un hueco a un (i) que
   // abre un recuadro vacío o que lleva a una guía que no habla de esto.
   if (!ayuda) return null;
+
+  if (panelNuevo) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setCajon(true)}
+          data-slot="ayuda-pantalla-trigger"
+          aria-label={`Ayuda: ${ayuda.titulo}`}
+          aria-haspopup="dialog"
+          className={cn(
+            'zona-tactil inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            className
+          )}
+        >
+          <IconoInfo className="size-4" aria-hidden="true" />
+        </button>
+        {cajon && <CajonAyuda ayuda={ayuda} ruta={clave} abierto={cajon} onCerrar={() => setCajon(false)} />}
+      </>
+    );
+  }
 
   return (
     <PopoverPrimitive.Root>
@@ -77,7 +112,7 @@ export function AyudaDePantalla({
       >
         <IconoInfo className="size-4" aria-hidden="true" />
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={destino}>
         {/* ⚠️ El z-index va en el POSITIONER, no en el recuadro.
             El recuadro es `position: static`, y en un elemento estático el
             `z-index` NO HACE NADA: se ignora sin avisar. Con el `z-50` puesto
@@ -92,7 +127,9 @@ export function AyudaDePantalla({
             data-slot="ayuda-pantalla"
             className="w-[min(20rem,calc(100vw-2rem))] origin-[var(--transform-origin)] rounded-xl bg-popover p-3.5 text-popover-foreground ring-1 ring-foreground/10 shadow-lg transition-[transform,opacity] duration-100 ease-out data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0"
           >
-            <Contenido ayuda={ayuda} />
+            <DentroDePortal>
+              <Contenido ayuda={ayuda} />
+            </DentroDePortal>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>

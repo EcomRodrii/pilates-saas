@@ -592,7 +592,8 @@ export function NuevaConversacion({
 
       {!socio ? (
         <div className="px-4 pb-3.5 space-y-2">
-          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 focus-within:border-brand transition-colors">
+          {/* Una <label>: tocar la caja, no solo la línea del texto, pone el cursor. */}
+          <label className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 focus-within:border-brand transition-colors">
             <Search size={14} className="text-muted-foreground shrink-0" aria-hidden="true" />
             <input
               value={busqueda}
@@ -601,7 +602,7 @@ export function NuevaConversacion({
               aria-label="Buscar clienta"
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
             />
-          </div>
+          </label>
           <div className="max-h-56 overflow-y-auto -mx-1 px-1">
             {resultados.length === 0 ? (
               <p className="text-xs text-muted-foreground py-6 text-center">

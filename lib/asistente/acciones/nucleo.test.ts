@@ -172,3 +172,35 @@ test('lote: el esquema pide entre 2 y 24 horarios', () => {
   const muchos = Array.from({ length: 25 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`);
   assert.ok(!zClases.safeParse(lote(muchos)).success);
 });
+
+test('resolverPorNombre: un nombre con emoji casa aunque el modelo lo quite o se deje el U+FE0F', () => {
+  const tipos = [{ nombre: 'Secret 🔥 Burn' }, { nombre: 'Reformer' }];
+  assert.equal(resolverPorNombre(tipos, 'Secret Burn'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'secret burn'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'Secret \u{1F525}\u{FE0F} Burn'), tipos[0]); // con el selector de variante
+  assert.equal(resolverPorNombre(tipos, 'Secret 🔥 Burn'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'Burn'), tipos[0]);
+});
+
+test('resolverPorNombre: dos tipos que solo se distinguen por el emoji', () => {
+  const tipos = [{ nombre: 'Burn 🔥' }, { nombre: 'Burn 💧' }];
+  // Con el emoji, cada uno el suyo (también con el selector de variante U+FE0F).
+  assert.equal(resolverPorNombre(tipos, 'Burn 🔥'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'Burn \u{1F525}\u{FE0F}'), tipos[0]);
+  assert.equal(resolverPorNombre(tipos, 'Burn 💧'), tipos[1]);
+  // Sin el emoji no se puede saber: se pregunta, no se elige uno.
+  assert.equal(resolverPorNombre(tipos, 'Burn'), 'ambiguo');
+});
+
+test('resolverPorNombre: un nombre que solo es un emoji no casa con cualquier cosa', () => {
+  const salas = [{ nombre: '🌿' }, { nombre: 'Sala grande' }];
+  assert.equal(resolverPorNombre(salas, 'grande'), salas[1]);
+  assert.equal(resolverPorNombre(salas, '🌿'), salas[0]);
+  assert.equal(resolverPorNombre(salas, 'azotea'), null);
+});
+
+test('una sala nueva con emoji no choca con una sin él: el duplicado se sigue mirando con emojis', () => {
+  // `normalizar` (la de los duplicados) no cambia: solo la búsqueda ignora los emojis.
+  const r = prepararSala({ nombre: 'Sala 🌿', capacidad: 8 } as never, [{ nombre: 'Sala' }]);
+  assert.equal(r.ok, true, r.ok ? '' : r.error);
+});

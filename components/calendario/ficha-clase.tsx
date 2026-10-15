@@ -1,8 +1,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, CircleX, Clock, MoreHorizontal, RefreshCw, X } from 'lucide-react';
+import type { CifrasClase } from '@/lib/calendario/cifras-clase';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 
@@ -64,11 +66,14 @@ export interface FichaClaseProps {
   clientas: ReactNode;
   plazas?: ReactNode;
   sustituciones: ReactNode;
+  /** Panel nuevo: las cifras de arriba, como la sesión de Bonsai (lib/calendario/cifras-clase.ts). */
+  cifras?: CifrasClase;
 }
 
 const BOTON_CABEZA = 'flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
 
 function Contenido(p: FichaClaseProps) {
+  const panelNuevo = usePanelNuevo();
   const pestanas: { id: PestanaFicha; texto: string }[] = [
     { id: 'clientas', texto: 'Clientas' },
     ...(p.conPlazas ? [{ id: 'plazas' as const, texto: 'Plazas' }] : []),
@@ -79,7 +84,12 @@ function Contenido(p: FichaClaseProps) {
   return (
     <>
       {p.modo === 'hoja' && <span className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-foreground/20" aria-hidden />}
-      <div className="shrink-0 border-b border-border px-5 pt-4 pb-3.5" data-testid="ficha-clase-cabeza">
+      <div
+        className="shrink-0 border-b border-border px-5 pt-4 pb-3.5"
+        data-testid="ficha-clase-cabeza"
+        // Panel nuevo: la cabecera teñida del color de la clase, como su tarjeta en el calendario.
+        style={panelNuevo ? { background: `linear-gradient(160deg, color-mix(in srgb, ${p.color} 12%, var(--card)), var(--card) 70%)` } : undefined}
+      >
         <div className="flex items-center gap-2">
           <span className="size-3 shrink-0 rounded-full" style={{ background: p.color }} aria-hidden />
           {/* tabIndex -1: recibe el foco al abrir la ficha al lado (no es un control). */}
@@ -128,6 +138,25 @@ function Contenido(p: FichaClaseProps) {
         {p.explicacion && <div className="mt-2 text-[13.5px] text-foreground text-pretty">{p.explicacion}</div>}
       </div>
 
+      {panelNuevo && p.cifras && (
+        <dl className="grid shrink-0 grid-cols-4 gap-2 border-b border-border px-5 py-3.5" data-testid="cifras-clase">
+          {([
+            { etiqueta: 'Apuntadas', valor: p.cifras.apuntadas, Icono: CheckCircle2, color: 'var(--success)' },
+            { etiqueta: 'En espera', valor: p.cifras.enEspera, Icono: Clock, color: 'var(--t-blue-500)' },
+            { etiqueta: 'Por aprobar', valor: p.cifras.porAprobar, Icono: CircleAlert, color: 'var(--warning)' },
+            { etiqueta: 'Canceladas', valor: p.cifras.canceladas, Icono: CircleX, color: 'var(--muted-foreground)' },
+          ] as const).map(c => (
+            <div key={c.etiqueta} className="rounded-[12px] border border-border bg-card px-2.5 py-2">
+              <dd className="flex items-center justify-between text-[20px] font-bold leading-none tabular-nums text-foreground">
+                {c.valor}
+                <c.Icono size={14} aria-hidden style={{ color: c.color }} />
+              </dd>
+              <dt className="mt-1 text-[11.5px] leading-tight text-muted-foreground">{c.etiqueta}</dt>
+            </div>
+          ))}
+        </dl>
+      )}
+
       {p.principal && <div className="shrink-0 space-y-3 border-b border-border px-5 py-4">{p.principal}</div>}
 
       <div role="tablist" aria-label="Qué ver de la clase" className="flex shrink-0 gap-1 border-b border-border px-3">
@@ -145,7 +174,7 @@ function Contenido(p: FichaClaseProps) {
           >
             {t.texto}
             {t.id === 'clientas' && <span className="ml-1 tabular-nums text-muted-foreground">{p.nClientas}</span>}
-            {activa === t.id && <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-full bg-foreground" aria-hidden />}
+            {activa === t.id && <span className={cn('absolute inset-x-1.5 -bottom-px h-0.5 rounded-full', !panelNuevo && 'bg-foreground')} style={panelNuevo ? { backgroundColor: 'var(--t-magenta-500)' } : undefined} aria-hidden />}
           </button>
         ))}
       </div>

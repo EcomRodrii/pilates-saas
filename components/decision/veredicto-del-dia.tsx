@@ -3,7 +3,9 @@
 import { ANCLA_LISTO } from '@/lib/opening/listo';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card as CardBase, CardContent } from '@/components/ui/card';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { cn } from '@/lib/utils';
 import { AccionesRecomendacion } from './acciones-recomendacion';
 import { severidad } from './severidad';
 import { SeveridadBadge } from './severidad-badge';
@@ -45,6 +47,12 @@ const QUE_REVISO = [
 // y el argumento que justifica el plan Estudio— no tiene nada que decir los
 // siete días. Quien la mira no puede distinguir «es brillante» de «no hace
 // nada», y decide sobre lo segundo.
+// Panel nuevo: la misma tarjeta, con el radio y la sombra de la marca (como la home).
+function Card({ children }: { children: React.ReactNode }) {
+  const panelNuevo = usePanelNuevo();
+  return <CardBase className={cn(panelNuevo && 'rounded-t-card shadow-t-card ring-border')}>{children}</CardBase>;
+}
+
 function EjemploDelUmbral() {
   return (
     <div className="mt-4 w-full max-w-md rounded-xl border border-dashed border-border p-4 text-left">
@@ -228,7 +236,7 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
             <button
               type="button"
               onClick={onVerPendiente}
-              className="text-[12.5px] font-semibold underline underline-offset-2"
+              className="zona-tactil text-[12.5px] font-semibold underline underline-offset-2"
               style={{ color: 'var(--brand-secondary)' }}
             >
               {SIGUE_EN_EL_DETALLE}
@@ -261,7 +269,7 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
         <button
           type="button"
           onClick={() => setPorQueAbierto(v => !v)}
-          className="w-fit text-[12px] font-semibold underline underline-offset-2"
+          className="zona-tactil w-fit text-[12px] font-semibold underline underline-offset-2 tactil:my-1.5"
           style={{ color: 'var(--brand-secondary)' }}
         >
           {porQueAbierto ? 'Ocultar evidencia' : '¿Por qué?'}

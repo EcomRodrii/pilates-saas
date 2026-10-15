@@ -135,7 +135,8 @@ export default function HoyInstructoraPage() {
     const r = await f();
     setEnviandoClase(false);
     if (r.estado) setClasesPropio(r.estado);
-    toast(r.ok ? (r.aviso ? `${exito} ${r.aviso}` : exito) : (r.error ?? 'No hemos podido guardarlo.'));
+    if (r.ok) toast(r.aviso ? `${exito} ${r.aviso}` : exito);
+    else toast(r.error ?? 'No hemos podido guardarlo.', { variant: 'error' });
     return r.ok;
   };
 
@@ -178,7 +179,7 @@ export default function HoyInstructoraPage() {
     // que dice el servidor: se recarga.
     await refrescar();
     setRespondiendo(null);
-    if (!r.ok) toast(r.error);
+    if (!r.ok) toast(r.error, { variant: 'error' });
     else toast(accion === 'aceptar' ? 'La clase es tuya. Ya está en tu agenda.' : 'Gracias por avisar. Buscaremos a otra persona.');
   };
 

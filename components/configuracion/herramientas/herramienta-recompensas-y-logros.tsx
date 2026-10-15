@@ -12,6 +12,9 @@ import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabCanjes } from '@/components/configuracion/tab-canjes';
 import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
+import { EditorNiveles } from '@/components/configuracion/niveles/editor-niveles';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { useRol } from '@/lib/permisos';
 import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
@@ -20,6 +23,10 @@ import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 // cada cosa se quedan en la sección, en sus cajones: son ajustes, no catálogos.
 export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: string) => void }) {
   const { studio, cargarGamificacion } = useStudio();
+  // Niveles con ritmo (P3.8), apagado tras `GAMIFICACION_NIVELES_RITMO`. Solo
+  // la propietaria: la ruta que guarda (y que impide que nadie baje) es suya.
+  const rol = useRol();
+  const nivelesConRitmo = useInterruptor('nivelesConRitmo', studio?.id) && rol === 'PROPIETARIO';
 
   // Las tablas de gamificación no vienen en el arranque del panel (ver
   // seccion-motivacion.tsx). Se entra aquí también por un enlace directo.
@@ -35,7 +42,7 @@ export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: st
         </div>
       </TarjetaAjuste>
       <TabLogros showToast={showToast} />
-      <TabNiveles showToast={showToast} />
+      {nivelesConRitmo ? <EditorNiveles showToast={showToast} /> : <TabNiveles showToast={showToast} />}
       <TabRetos showToast={showToast} />
     </PlanGate>
   );

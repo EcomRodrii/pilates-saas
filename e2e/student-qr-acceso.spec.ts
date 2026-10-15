@@ -111,7 +111,10 @@ test.describe('Student PWA · QR de acceso', () => {
       await page.getByRole('button', { name: 'Generar QR nuevo' }).click();
     };
     await pedir();
-    await expect(page.getByRole('status').filter({ hasText: 'No hemos podido cambiarlo' })).toBeVisible({ timeout: 15_000 });
+    // Un fallo se dice como fallo (P0.3, tanda 6): `alert` con el tono de peligro,
+    // nunca `status` con el aspecto de un acierto.
+    await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido cambiarlo' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('status').filter({ hasText: 'No hemos podido cambiarlo' })).toHaveCount(0);
     expect(regenerar.length).toBeGreaterThan(0);
     await expect(page.getByText('El anterior ya no funciona')).toHaveCount(0);
     // El QR de antes sigue en pantalla: un fallo al cambiarlo no deja un hueco.

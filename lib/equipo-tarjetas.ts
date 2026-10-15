@@ -13,6 +13,34 @@
 // porque el cliente nunca lo tuvo.
 
 import type { Rol } from './types';
+import { claveSemanaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, masDias } from './utils.ts';
+
+/**
+ * La semana (lunes a domingo) y el mes DEL ESTUDIO que contienen `ahora`, como
+ * instantes, y el día de hoy en Madrid. `GET /api/equipo/tarjetas` corre en el
+ * servidor (UTC): con `setHours(0, 0, 0, 0)`, `getDay()` y `new Date(año, mes, 1)`
+ * del proceso, la semana y el mes empezaban a las 01:00/02:00 de Madrid, y una
+ * clase antes de esa hora contaba en la semana, el día o el mes anterior (en las
+ * barras L–D, en las horas y en el coste del mes).
+ */
+export function ventanaEstudio(ahora: Date): { hoy: string; lunes: Date; finSemana: Date; inicioMes: Date; finMes: Date } {
+  const hoy = hoyEnEstudio(ahora);
+  const lunes = claveSemanaEstudio(ahora);
+  const [anio, mes] = hoy.split('-').map(Number);
+  const primeroDelSiguiente = mes === 12 ? `${anio + 1}-01-01` : `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
+  return {
+    hoy,
+    lunes: new Date(inicioDelDiaEstudio(lunes)),
+    finSemana: new Date(inicioDelDiaEstudio(masDias(lunes, 7))),
+    inicioMes: new Date(inicioDelDiaEstudio(`${hoy.slice(0, 7)}-01`)),
+    finMes: new Date(inicioDelDiaEstudio(primeroDelSiguiente)),
+  };
+}
+
+/** 0 = lunes … 6 = domingo: el día del ESTUDIO en que cae `instante` (no el de UTC). */
+export function diaDeSemanaEstudio(instante: Date): number {
+  return (franjaLocalDe(instante.toISOString()).dow + 6) % 7;
+}
 
 export type Situacion = 'clase' | 'mostrador' | 'flojo' | 'libre' | 'direccion' | 'inactiva';
 
@@ -256,19 +284,40 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
     valoracionTexto: !gestiona(rolViewer)
       ? ''
       : m.valoracion && m.valoracion.total > 0
-        ? `${m.valoracion.media.toFixed(1)} de ${m.valoracion.total} clientas`
+        ? `${valoracionMedia(m.valoracion.media)} de ${m.valoracion.total} clientas`
         : 'sin valoraciones aún',
     conValoracion: gestiona(rolViewer) && !!(m.valoracion && m.valoracion.total > 0),
-    frecuenciaTexto: frecuencia == null ? null : `≈${frecuencia % 1 === 0 ? frecuencia : frecuencia.toFixed(1)} clase${frecuencia === 1 ? '' : 's'}/mes`,
+    frecuenciaTexto: frecuencia == null ? null : `≈${HASTA_UN_DECIMAL.format(frecuencia)} clase${frecuencia === 1 ? '' : 's'}/mes`,
   };
 }
 
 export function euros(n: number): string {
   return `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
+
+// Coma decimal, como `euros()`: con `toFixed` la misma tarjeta decía «407,00 €»
+// en una y «14.2 h» en otra. Construidos una vez: un formateador nuevo por
+// llamada es caro (ver `porZona` en lib/utils.ts).
+const HASTA_UN_DECIMAL = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const UN_DECIMAL = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** «14 h», «14,2 h»: un decimal como mucho, y ninguno si sale entero. */
 export function horas(n: number): string {
-  const h = Math.round(n * 10) / 10;
-  return `${h % 1 === 0 ? h : h.toFixed(1)} h`;
+  return `${HASTA_UN_DECIMAL.format(n)} h`;
+}
+
+/**
+ * Horas para el CSV de «Horas de…»: coma decimal y hasta dos decimales, como el
+ * CSV de fichajes (`lib/fichaje/csv-jornadas.ts`). Va separado por `;` y lo abre
+ * Excel en español, que con «1.5» lee un millar o una fecha, no hora y media.
+ */
+export function horasCsv(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(2).replace('.', ',');
+}
+
+/** La media de las valoraciones, siempre con un decimal: «4,8», «5,0». */
+export function valoracionMedia(n: number): string {
+  return UN_DECIMAL.format(n);
 }
 
 export type AccionTipo = 'avisos' | 'mensaje' | 'hecho' | 'horas' | 'pedir';

@@ -107,8 +107,12 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   recibo de `/api/public/renovar-plan`, el vencimiento del recibo de penalización y los `hoyISO` por defecto de `bono-logic`,
   `suscripcion-estado`, `socio-resumen` y `cobro-permitido`. ⚠️ Una función de vigencia NUEVA no usa `current_date`: lo vigila
   `supabase/tests/hoy-de-madrid.test.ts` contra Postgres real (la única excepción, con su motivo, es el tope diario del piloto
-  automático, un límite de IA). ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa
-  `::timestamp at time zone 'Europe/Madrid'`.
+  automático, un límite de IA). En TypeScript lo vigila `lib/hoy-de-madrid.test.ts`: un `new Date()`/`Date.now()` con
+  `.toISOString().slice(0, 10)` solo vale en `CON_DIA_UTC_A_PROPOSITO`, con su motivo (un nombre de fichero, una ruta); para
+  sumar días, `masDias()` sobre el día del estudio, nunca `Date.now() + N días`. ⚠️ No ve otras formas del mismo error
+  (`ahora.toISOString().slice(0, 10)` sobre un `Date` recibido, `nowISO.slice(0, 10)`): esas se miran a mano. Una función que
+  reciba «ahora» como instante saca el día con `hoyEnEstudio(new Date(…))`, como `validarCodigoCanjeable`.
+  ⚠️ Convertir un día a instante con `::timestamptz` cae en UTC: usa `::timestamp at time zone 'Europe/Madrid'`.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
@@ -165,7 +169,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   solo manda a entrar si el refresco falla con un 4xx de GoTrue: sin red o con un 5xx
   (`esFalloTransitorioDeRefresh`) la sesión sigue viva y no se toca.
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
-  migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
+  migr `20261004141529`…`20261004191152`, `doble_factor_por_correo_1…7`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
   y el servidor la apunta en `sesiones_confiadas` con `origen = 'correo'` (vale lo que viva la
   sesión); `sesion_confiada_de` sigue siendo la única regla y ninguna política cambió.
@@ -306,6 +310,34 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Founding Studio GRATIS (decisión del fundador, 15-oct-2026), tras el interruptor `FOUNDING_GRATIS`.**
+  Un estudio que no paga tiene TODO (menos varias sedes) hasta 150 alumnas «Activa» y 250 reservas
+  al mes (las de las clases de los últimos 30 días; no cobros: se esquivan cobrando fuera); al
+  pasarse, 30 días de margen y después se cierra el PANEL (el `bloqueado` de /api/billing/status)
+  hasta elegir plan de pago. Reglas y «truquitos» en `lib/billing/plan-gratis.ts`.
+  - Es la única excepción a «no bloquea»: ninguna alta se frena (lo de arriba sigue en pie) y la app
+    de la alumna no se toca nunca.
+  - `subscription_status = 'gratis'` lo escribe SOLO `lib/billing/convertir-a-gratis.ts` (el gate y
+    dos crons), con compare-and-set, a quien no paga (nunca un Checkout a medias). De una cadena que
+    deja de pagar, solo su sede PRINCIPAL (la más antigua); las demás siguen cerradas, sin borrar
+    nada, y si vuelve a pagar Cadena manda otra vez en todas (decisión del 15-oct; la BD no pisa ese
+    'gratis' ni da por terminado el contrato de las hermanas: migr `20261015141653`). El uso lo mide `lib/billing/uso-gratis-servidor.ts`,
+    con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
+    si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
+  - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Qué toca al pasarse** (fundador, 15-oct 08:30, corrige lo de la madrugada): pasar CUALQUIERA
+    de los dos límites → Founding Studio DE PAGO (29 €): lo mismo que el gratis, sin tope de alumnas
+    ni de reservas. Nadie va obligado a Estudio. Lo que distingue a Estudio (59 €) es la app propia
+    del estudio en la tienda de apps (`appPropia`: «estudio incluye la app alumna»); mientras no se
+    pueda pedir, en /precios solo se anuncia lo que ya tiene de más (consultas al asistente).
+- **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
+  `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
+  vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da
+  `mensajeParaSocia` (`comercial`), no el `tipo` (F1 y F3 comparten `PROPONER_RENOVACION_BONO`), y la
+  puerta es UNA, `canalesSocia`: botón, ejecutores y piloto automático. R6 (congelar la cuota) es
+  servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
+  el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
+  ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso
@@ -1367,6 +1399,10 @@ no se cierra hasta el final; NO es «bloquea la app» (máscara y anillo son
   de cadena y en demos (el cliente no vuelve a mirar `cadena_id`: se puede activar a mano en cualquiera). `tour_obligatorio` NO se concede a `authenticated`.
 - **Un paso «hacer» se cierra por DATOS REALES** (`lib/tour/hecho.ts`), no por un botón. Una
   tarifa «hecha» es ACTIVA con precio: el asistente de alta deja borradores.
+- ⚠️ **Dónde está la persona lo decide `lugarDelPaso`, y una herramienta abierta (`&abrir=`) cuenta**:
+  dentro de la del propio paso (pulsó la fila que se le pedía) lo está HACIENDO, no se busca la fila;
+  dentro de otra, está fuera. A Sentry solo va lo que NUNCA apareció (`lib/tour/objetivo.ts`): lo que
+  se vio y se fue lo movió ella (JAVASCRIPT-NEXTJS-3J, 13-oct, todo falsos).
 - **Copy y pantallas en `lib/tour/capitulos.ts`**: solo lo que existe, con los nombres reales
   del menú y de Configuración, y nada congelado (lo vigila `capitulos.test.ts`, que también
   comprueba que cada `data-tour` existe). Una pantalla fuera del marco del panel

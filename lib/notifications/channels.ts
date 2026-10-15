@@ -100,9 +100,13 @@ export function hostDeEndpoint(endpoint: string): string {
   try { return new URL(endpoint).host; } catch { return 'desconocido'; }
 }
 
-/** El nombre corto que se enseña: fcm, apple, mozilla, windows… */
+/** El nombre corto que se enseña: fcm, apple, ios, mozilla, windows… */
 export function proveedorDePush(host: string): string {
   if (host.includes('fcm.googleapis') || host.includes('googleapis')) return 'fcm';
+  // La app nativa (APNs) y el Web Push de Safari son los dos de Apple: sin
+  // distinguirlos, «apple:403 apple:201» no decía si el iPhone había recibido
+  // el aviso en la app o en la web instalada.
+  if (host === 'api.push.apple.com') return 'ios';
   if (host.includes('push.apple.com')) return 'apple';
   if (host.includes('mozilla')) return 'mozilla';
   if (host.includes('notify.windows')) return 'windows';
@@ -125,6 +129,11 @@ function clasificar(codigo: number | undefined): EstadoEndpoint {
   // Sin código = red caída/timeout; 429 y 5xx = el servicio de push, no la suscripción.
   if (codigo == null || codigo === 429 || codigo >= 500) return 'transitorio';
   return 'rechazado'; // 400/401/403/413…: payload, VAPID o suscripción inválidos
+}
+
+/** `APNs 403 InvalidProviderToken` → `InvalidProviderToken`; nada para el resto. */
+export function motivoApns(detalle: string | undefined): string | null {
+  return detalle?.match(/^APNs \d+ ([A-Za-z]+)/)?.[1] ?? null;
 }
 
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -165,7 +174,13 @@ export async function enviarAEndpoints(
 
 /** El veredicto y el texto que queda en `notification_delivery` para «¿por qué no le llegó?». */
 export function resumirPush(res: readonly ResultadoEndpoint[], retiradas: number): ResultadoCanal {
-  const partes = res.map((r) => `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}${r.estado === 'ok' ? '' : `(${r.estado})`}`);
+  const partes = res.map((r) => {
+    if (r.estado === 'ok') return `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}`;
+    // El motivo de APNs (`InvalidProviderToken`, `TopicDisallowed`…) es lo único
+    // que dice qué arreglar, y con otro dispositivo en `ok` no llegaba a `error`.
+    const motivo = motivoApns(r.detalle);
+    return `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}(${r.estado}${motivo ? ` ${motivo}` : ''})`;
+  });
   const ok = res.filter((r) => r.estado === 'ok').length;
   const providerId = `${ok}/${res.length} · ${partes.join(' ')}`.slice(0, 250);
   if (ok > 0) return { status: 'SENT', providerId };

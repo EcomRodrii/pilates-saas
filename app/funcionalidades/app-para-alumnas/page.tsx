@@ -26,7 +26,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiar los colores y las fuentes?',
-    a: 'Sí, con un editor propio (a partir del plan Estudio): paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
+    a: 'Sí, con un editor propio (en todos los planes): paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
   },
   {
     q: '¿Los avisos llegan al móvil de verdad?',
@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Aparece Tentare por algún lado?',
-    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida en todos los planes, también en el Founding Studio de 29 €/mes.',
+    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida en todos los planes, también en Founding Studio, que es gratis.',
   },
   {
     q: '¿Puede gestionar su plaza fija ella sola?',

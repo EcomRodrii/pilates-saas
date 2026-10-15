@@ -10,6 +10,7 @@ import type { ChallengeDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 function isoToDateInput(iso: string): string {
   return iso ? iso.slice(0, 10) : '';
@@ -31,7 +32,7 @@ const ESTADO_LABEL: Record<string, { label: string; bg: string; text: string }> 
   CADUCADO: { label: 'Caducado', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
 };
 
-export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
+export function TabRetos({ showToast }: { showToast: MostrarToast }) {
   const { challengeDefinitions, addChallengeDefinition, updateChallengeDefinition, deleteChallengeDefinition } = useStudio();
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
     setGuardando(true);
     try {
       const res = modal === 'nuevo' ? await addChallengeDefinition(form) : editId ? await updateChallengeDefinition(editId, form) : { ok: true as const };
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
       setModal(null);
       showToast(modal === 'nuevo' ? 'Reto creado' : 'Reto actualizado');
     } finally { setGuardando(false); }
@@ -68,7 +69,8 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
     if (!borrarId) return;
     const res = await deleteChallengeDefinition(borrarId);
     setBorrarId(null);
-    showToast(res.ok ? 'Reto eliminado' : res.error);
+    if (res.ok) showToast('Reto eliminado');
+    else showToast(res.error, { variant: 'error' });
   }
 
   const metricLabel = (m: AchievementMetric) => ACHIEVEMENT_METRICS.find(x => x.metric === m)?.nombre ?? m;

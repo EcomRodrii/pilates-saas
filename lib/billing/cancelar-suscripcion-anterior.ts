@@ -16,6 +16,22 @@
 // una comparación con ese campo.
 import Stripe from 'stripe';
 import { ESTADOS_VIVOS } from './checkout-saas-previo.ts';
+import { pagaPlan } from './plan-gratis.ts';
+
+/**
+ * El plan suelto que un alta a CADENA desde esta sede tiene que cancelar cuando
+ * Stripe la confirme (PAY-2), o `null`. Solo si la sede lo está pagando, lo tiene
+ * a medio pagar ('incomplete') o impagado pero vivo en Stripe ('unpaid': aún
+ * puede cobrarse). Un estudio en el plan gratis, o con la prueba agotada,
+ * conserva el id de una suscripción ya muerta: no hay nada que cancelar (antes
+ * bastaba con «no es 'canceled'», y 'gratis' lo pasaba).
+ */
+export function planSueltoACancelarAlPasarACadena(studio: { subscription_status: string | null; subscription_id: string | null }): string | null {
+  if (!studio.subscription_id) return null;
+  const vivo = pagaPlan({ subscriptionStatus: studio.subscription_status, subscriptionId: studio.subscription_id })
+    || studio.subscription_status === 'incomplete' || studio.subscription_status === 'unpaid';
+  return vivo ? studio.subscription_id : null;
+}
 
 /** ¿Hay que intentar cancelar algo, y qué id? `null` = nada que hacer. */
 export function idACancelar(sub: { metadata?: Record<string, string> | null; status: string }): string | null {
@@ -45,12 +61,39 @@ export async function cancelarSuscripcionAnteriorSiToca(
 ): Promise<ResultadoCancelacion> {
   const anteriorId = idACancelar(sub);
   if (!anteriorId) return { intentado: false };
-  try {
-    await stripe.subscriptions.cancel(anteriorId);
-    return { intentado: true };
-  } catch (err) {
-    const code = err instanceof Stripe.errors.StripeError ? err.code : undefined;
-    if (code === 'resource_missing') return { intentado: true };
-    return { intentado: true, errorInesperado: err };
+  const { errores } = await cancelarSuscripciones(stripe, [anteriorId]);
+  return errores.length ? { intentado: true, errorInesperado: errores[0].error } : { intentado: true };
+}
+
+export interface ResultadoCancelaciones {
+  /** Canceladas ahora (o que ya lo estaban: `resource_missing`). */
+  canceladas: string[];
+  /** Las que Stripe no dejó cancelar (o el cliente que no se pudo leer): para avisar, nunca para lanzar. */
+  errores: { id: string; error: unknown }[];
+}
+
+/**
+ * Cancela una lista de suscripciones, una a una y cada una una sola vez.
+ * `resource_missing` cuenta como hecho (ya no existe), igual que arriba. Nunca
+ * lanza: quien llama ya ha aplicado lo suyo y solo tiene que avisar.
+ */
+export async function cancelarSuscripciones(
+  stripe: Pick<Stripe, 'subscriptions'>,
+  ids: readonly string[],
+  opciones: { comentario?: string } = {},
+): Promise<ResultadoCancelaciones> {
+  const r: ResultadoCancelaciones = { canceladas: [], errores: [] };
+  // El motivo queda en Stripe (`cancellation_details.comment`): quien mire la suscripción sabe por qué se canceló.
+  const params = opciones.comentario ? { cancellation_details: { comment: opciones.comentario } } : undefined;
+  for (const id of new Set(ids)) {
+    try {
+      await (params ? stripe.subscriptions.cancel(id, params) : stripe.subscriptions.cancel(id));
+      r.canceladas.push(id);
+    } catch (err) {
+      const code = err instanceof Stripe.errors.StripeError ? err.code : undefined;
+      if (code === 'resource_missing') r.canceladas.push(id);
+      else r.errores.push({ id, error: err });
+    }
   }
+  return r;
 }

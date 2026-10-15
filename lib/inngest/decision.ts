@@ -12,25 +12,28 @@ import { cobroManualDeRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { correoAutomatizacion } from '@/lib/emails/estudio/mensajes';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
-import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { appUrl, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot-cache';
 import { ejecutarAnalisis } from '@/lib/decision/motor';
 import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
-import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
+import { ventanaDiasDe, medirOutcome, precioMensualDePlanRenovado, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import {
-  canalesSocia, emailConfigurado, esEfectoAprobar, FUERA_DE_LA_RECOMENDACION, puedeEscribirle, recibosACobrar, recibosAprobadosFuera,
+  canalesSocia, efectoAlAprobar, emailConfigurado, esEfectoAprobar, FUERA_DE_LA_RECOMENDACION, porQueNoLeLlega, puedeEscribirle,
+  recibosACobrar, recibosAprobadosFuera,
 } from '@/lib/decision/efecto-aprobar';
+import { canalesDeSocias, esComercial, permisoComercial } from '@/lib/decision/canales-socia';
+import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import {
   cobroEjecutado, detalleCobro, detalleInterrumpida, lineaActividad, pudoMoverDinero, resumirCobro,
   type IntentoCobro, type ResultadoEjecucion, type ResumenCobro,
 } from '@/lib/decision/resultado-ejecucion';
 import { importeIngresado, situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
-import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
+import { generarCodigoReactivacion, caducidadCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarWhatsAppTexto } from '@/lib/whatsapp';
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
@@ -88,7 +91,19 @@ export const decisionDispatcher = inngest.createFunction(
           .select('id, nombre, plan, subscription_status').is('suspendido_en', null).range(from, to),
       );
       if (error) throw new Error(error.message);
-      const conPlan = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      const conPlanTodos = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      // Founding Studio gratis (lib/billing/plan-gratis.ts) tiene el Centro de
+      // Control, pero el análisis cuesta (Inngest y la redacción con IA): un
+      // estudio gratis sin ninguna alumna activa medida (un alta abandonada) no
+      // tiene nada que analizar y no se analiza.
+      const gratisIds = conPlanTodos.filter(s => s.subscription_status === 'gratis').map(s => s.id);
+      let gratisConAlumnas = new Set<string>();
+      if (gratisIds.length > 0) {
+        const { data: usos } = await requireSupabaseAdmin()
+          .from('uso_plan_gratis').select('studio_id, alumnas_activas').in('studio_id', gratisIds).gt('alumnas_activas', 0);
+        gratisConAlumnas = new Set((usos ?? []).map(u => u.studio_id as string));
+      }
+      const conPlan = conPlanTodos.filter(s => s.subscription_status !== 'gratis' || gratisConAlumnas.has(s.id));
       if (conPlan.length === 0) return { nowISO, estudios: [] as { id: string }[] };
 
       // El flag DECISIONES es un KILL-SWITCH, no un opt-in. Antes el cron exigía
@@ -279,7 +294,20 @@ export const analizarEstudio = inngest.createFunction(
       const yaHoy = await dbCountCupoAutonomasHoy(studioId, now);
       // Se releen las PENDIENTE reales (estado + id ya persistidos), no el objeto en memoria.
       const pendientes = await dbListPendientes(studioId);
-      return { ids: seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id })), maxDiario: config.maxDiario };
+      // Lo que le escribiría a una socia por la que ahora no hay por dónde (sin
+      // email, sin haber aceptado recibir ofertas, correo roto) no se aprueba
+      // solo: se queda para la propietaria con su «Hecho», como lo vería ella, en
+      // vez de acabar FALLIDA y contar como no seguida para el Umbral.
+      const canales = await canalesDeSocias(studioId, pendientes);
+      const sinPorDonde = (r: Recomendacion) => {
+        const c = canales(r);
+        // Sin poder leer su permiso (`undefined` en una que le escribe), una oferta
+        // tampoco se aprueba sola: el ejecutor la frenaría y acabaría FALLIDA.
+        if (!c) return (r.accion.tipo === 'ENVIAR_EMAIL' || r.accion.tipo === 'CONTACTO_MANUAL') && !!r.socioId && esComercial(r);
+        return efectoAlAprobar(r, c) === 'MARCAR';
+      };
+      const aprobables = pendientes.filter(r => !sinPorDonde(r));
+      return { ids: seleccionarAutonomas(aprobables, config, yaHoy).map(r => ({ id: r.id })), maxDiario: config.maxDiario };
     });
 
     // Batch autonomías en un solo evento en lugar de N llamadas individuales.
@@ -421,8 +449,8 @@ export const analizarEstudio = inngest.createFunction(
 // Next-best-offer: crea un código de descuento REAL y canjeable para la socia
 // (antes el `descuentoPct` era solo texto en el email: prometíamos algo que el
 // sistema no sabía canjear). Determinista por recomendación → reintentar el envío
-// no crea códigos nuevos. Un solo uso y caduca en 30 días.
-const DIAS_VIGENCIA_CODIGO = 30;
+// no crea códigos nuevos. Un solo uso y caduca en 30 días del estudio
+// (`caducidadCodigoReactivacion`).
 
 async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null> {
   const pct = typeof r.datosUsados.descuentoPct === 'number' ? r.datosUsados.descuentoPct : 0;
@@ -437,7 +465,7 @@ async function crearCodigoReactivacion(r: Recomendacion): Promise<string | null>
   if (existente) return codigo;
 
   const nombre = typeof r.datosUsados.nombre === 'string' ? r.datosUsados.nombre : 'socia';
-  const expira = new Date(Date.now() + DIAS_VIGENCIA_CODIGO * MS_DIA).toISOString().slice(0, 10);
+  const expira = caducidadCodigoReactivacion();
   const { error } = await admin.from('codigos_descuento').insert({
     id: uid(), studio_id: r.studioId, codigo,
     descripcion: `Reactivación de ${nombre} (Centro de Control)`,
@@ -461,7 +489,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   // La ficha, acotada a SU estudio: con service-role no hay RLS que lo haga, y
   // el `socio_id` de la fila no es de fiar por sí solo (la FK a socios es global).
   const [{ data: socio }, studio, conIA] = await Promise.all([
-    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
+    requireSupabaseAdmin().from('socios').select('nombre, email, consentimiento_marketing_texto').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
     resolverMarcaEstudio(r.studioId),
     dbRedaccionIaActiva(r.studioId),
   ]);
@@ -470,20 +498,37 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 
   const estudioNombre = studio.nombre ?? '';
 
+  // Sin mensaje para la socia NO se envía nada: antes caía al texto del
+  // propietario, que es justo lo que no debe recibir.
+  const previo = mensajeParaSocia(r.tipo, r.datosUsados, estudioNombre);
+  if (!previo) return { ok: false, detalle: 'Sin mensaje para la socia para este tipo de recomendación' };
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!emailConfigurado(apiKey)) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
+
+  // Una oferta solo a quien ha aceptado recibirlas, y nunca a un correo roto
+  // (`canalesSocia`, lo mismo que dijo el botón y que mira el piloto antes de
+  // aprobarla). Se mira ANTES de crear el código: si no, quedaría un descuento
+  // canjeable que nadie ha recibido.
+  const permiso = previo.comercial
+    ? (await permisoComercial(r.studioId, [{ id: r.socioId, email: socio.email, consentimiento_marketing_texto: socio.consentimiento_marketing_texto }])).get(r.socioId)
+    : undefined;
+  const correoRoto = permiso?.correoRoto ?? false;
+  const canales = canalesSocia({
+    accion: r.accion, socia: socio, whatsappConectado: false, emailConfigurado: true,
+    comercial: previo.comercial, consentimientoVigente: permiso?.consentimientoVigente ?? false, correoRoto,
+  });
+  if (!canales.email) {
+    return { ok: false, detalle: `No se le ha enviado nada: ${porQueNoLeLlega(canales, { tieneEmail: true, porWhatsapp: false, correoRoto })}.` };
+  }
+
   // Next-best-offer: si la recomendación lleva descuento, se crea el código real
   // ANTES de redactar, para que el mensaje lo incluya y sea canjeable en el POS.
   const codigoDescuento = r.tipo === 'ENVIAR_REACTIVACION' ? await crearCodigoReactivacion(r) : null;
   const datos = codigoDescuento ? { ...r.datosUsados, codigoDescuento } : r.datosUsados;
+  const base = mensajeParaSocia(r.tipo, datos, estudioNombre) ?? previo;
 
-  const base = mensajeParaSocia(r.tipo, datos, estudioNombre);
-  // Sin mensaje para la socia NO se envía nada: antes caía al texto del
-  // propietario, que es justo lo que no debe recibir.
-  if (!base) return { ok: false, detalle: 'Sin mensaje para la socia para este tipo de recomendación' };
-
-  const apiKey = process.env.RESEND_API_KEY;
-  const resend = emailConfigurado(apiKey) ? new Resend(apiKey) : null;
-  if (!resend) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
-
+  const resend = new Resend(apiKey);
   const mensaje = await personalizarMensajeSocia(base, {
     nombreEstudio: estudioNombre, tipo: r.tipo, datosUsados: datos,
     // El código debe sobrevivir intacto a la reescritura de la IA.
@@ -494,6 +539,8 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   const html = correoAutomatizacion({
     socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo,
     marca: marcaCorreoDesde(studio, estudioNombre || 'Tu estudio'),
+    // LSSI: toda comunicación comercial lleva enlace de baja.
+    ...(base.comercial ? { unsubscribeUrl: enlaceBajaOfertas(r.studioId, r.socioId) } : {}),
   });
   const { error } = await resend.emails.send(
     {
@@ -514,6 +561,11 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   };
 }
 
+/** El enlace de baja de las ofertas del estudio: el mismo de Automatizaciones y Campañas. */
+function enlaceBajaOfertas(studioId: string, socioId: string): string {
+  return `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(studioId, socioId)}`;
+}
+
 // Al aprobar una recomendación de CONTACTO_MANUAL («Enviarle el mensaje», o el
 // piloto automático): se le manda a la socia el mensaje orientado a ELLA (no el
 // motivo del propietario), por WhatsApp si la recomendación es de ese canal y el
@@ -526,11 +578,13 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 // se medía como si se le hubiera escrito. Los canales son los mismos que mira el
 // botón (`canalesSocia`), así que «Enviarle el mensaje» solo sale donde hay por
 // dónde; aquí se vuelven a mirar porque pueden cambiar entre el clic y el envío.
+// Un mensaje comercial, además, solo si ha aceptado recibir ofertas y siempre con
+// el enlace de baja, también en el WhatsApp.
 async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
   const [{ data: socio }, studio, conIA] = await Promise.all([
     // Acotada a SU estudio, como en `ejecutarEnvioEmail`.
-    requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
+    requireSupabaseAdmin().from('socios').select('nombre, email, telefono, consentimiento_marketing_texto').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
     resolverMarcaEstudio(r.studioId),
     dbRedaccionIaActiva(r.studioId),
   ]);
@@ -551,30 +605,38 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   const porWhatsapp = r.accion.tipo === 'CONTACTO_MANUAL' && r.accion.canal === 'WHATSAPP' && !!socio.telefono;
   const whatsapp = porWhatsapp ? whatsappDelEstudio(await dbGetIntegracionConfig(r.studioId, 'WHATSAPP')) : null;
   const apiKey = process.env.RESEND_API_KEY;
-  const canales = canalesSocia({ accion: r.accion, socia: socio, whatsappConectado: !!whatsapp, emailConfigurado: emailConfigurado(apiKey) });
+  const permiso = base.comercial
+    ? (await permisoComercial(r.studioId, [{ id: r.socioId, email: socio.email, consentimiento_marketing_texto: socio.consentimiento_marketing_texto }])).get(r.socioId)
+    : undefined;
+  const correoRoto = permiso?.correoRoto ?? false;
+  const canales = canalesSocia({
+    accion: r.accion, socia: socio, whatsappConectado: !!whatsapp, emailConfigurado: emailConfigurado(apiKey),
+    comercial: base.comercial, consentimientoVigente: permiso?.consentimientoVigente ?? false, correoRoto,
+  });
   if (!puedeEscribirle(canales)) {
-    const porQue = [
-      socio.email ? 'el envío de emails no está configurado' : 'no tiene email',
-      ...(porWhatsapp ? ['el WhatsApp del estudio no está conectado'] : []),
-    ];
-    return { ok: false, detalle: `No se le ha enviado nada: ${porQue.join(' y ')}.` };
+    return { ok: false, detalle: `No se le ha enviado nada: ${porQueNoLeLlega(canales, { tieneEmail: !!socio.email, porWhatsapp, correoRoto })}.` };
   }
 
   // Mismo mensaje, reescrito con IA para que suene personal (falla-suave). Solo
   // ahora que se sabe que hay por dónde mandárselo.
   const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados, conIA });
+  // LSSI: toda comunicación comercial lleva enlace de baja, también la de WhatsApp
+  // (como el motor de marketing). Después de la IA, para que no lo toque.
+  const baja = base.comercial ? enlaceBajaOfertas(r.studioId, r.socioId) : null;
 
   if (canales.whatsapp && whatsapp) {
-    const rw = await enviarWhatsAppTexto(whatsapp, socio.telefono, mensaje.cuerpo);
+    const cuerpo = baja ? `${mensaje.cuerpo}\n\nPara dejar de recibir ofertas de ${studio.nombre || 'tu estudio'}: ${baja}` : mensaje.cuerpo;
+    const rw = await enviarWhatsAppTexto(whatsapp, socio.telefono, cuerpo);
     if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
     // no-ok → sigue al respaldo por email, si lo hay
-    if (!canales.email) return { ok: false, detalle: 'No se le ha enviado nada: WhatsApp no ha aceptado el mensaje y no tiene email.' };
+    if (!canales.email) return { ok: false, detalle: 'No se le ha enviado nada: WhatsApp no ha aceptado el mensaje y no hay email por el que mandárselo.' };
   }
 
   const resend = new Resend(apiKey);
   const html = correoAutomatizacion({
     socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo,
     marca: marcaCorreoDesde(studio, 'Tu estudio'),
+    ...(baja ? { unsubscribeUrl: baja } : {}),
   });
   const { error } = await resend.emails.send(
     {
@@ -905,14 +967,14 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     s.estado === 'ACTIVA' && new Date(s.fecha_inicio).getTime() >= new Date(resueltoEnISO).getTime()
   ) as { plan_id: string } | undefined;
 
-  // Precio del plan de la suscripción renovada — solo se consulta cuando hace
+  // Precio al mes del plan de la suscripción renovada — solo se consulta cuando hace
   // falta (no en cada medición), para no pagar una query extra en el caso
   // mayoritario (sin renovación).
   let precioMensualPlanEur: number | null = null;
   if (renovada?.plan_id) {
     const { data: plan } = await requireSupabaseAdmin()
-      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
-    precioMensualPlanEur = plan?.precio != null ? Number(plan.precio) : null;
+      .from('planes_tarifa').select('precio, tipo, periodicidad_meses').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
+    precioMensualPlanEur = precioMensualDePlanRenovado(plan);
   }
 
   return {

@@ -35,6 +35,7 @@ const AVISOS: Record<string, string> = {
   LIMITE_HERRAMIENTAS: 'He mirado lo máximo que miro por pregunta: si te falta algo, pregúntamelo aparte.',
   DEMASIADO_AMPLIA: 'La pregunta era muy amplia: te respondo con lo que he mirado. Si concretas, afino.',
   RECHAZADA: 'Eso no lo puedo responder.',
+  PROPUESTA_SIN_TARJETA: 'No he llegado a preparar la tarjeta, así que no hay nada que confirmar y no se ha creado nada. Pídemelo otra vez.',
 };
 
 export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotante = false }: {

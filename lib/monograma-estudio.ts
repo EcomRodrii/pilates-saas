@@ -51,13 +51,15 @@ export function monogramaDeEstudio(
  * Tamaños que sirve la ruta. Cualquier otro valor cae a 512.
  *
  * 64 es el favicon de la pestaña (el navegador lo reduce a 16/32); 180 el de
- * iOS; 192 y 512 los que exige el manifest de una PWA.
+ * iOS; 192 y 512 los que exige el manifest de una PWA; 1024 el de la ficha de la
+ * App Store (solo lo pide `scripts/app-estudio.mjs`, que lo aplana a RGB sin alfa:
+ * ninguna página lo enlaza).
  *
  * Ya no compite con el `favicon.ico` de Tentare: vive en `public/`, no en
  * `app/` (Next inyectaba el de `app/` en TODAS las rutas y una hija no podía
  * quitarlo). En las páginas de un estudio sus iconos son los únicos.
  */
-export const TAMANOS_MONOGRAMA = [64, 180, 192, 512] as const;
+export const TAMANOS_MONOGRAMA = [64, 180, 192, 512, 1024] as const;
 export type TamanoMonograma = (typeof TAMANOS_MONOGRAMA)[number];
 
 export function tamanoValido(v: string | null): TamanoMonograma {

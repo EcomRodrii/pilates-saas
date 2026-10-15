@@ -19,7 +19,7 @@ const articulo: Articulo = {
     'bsport o timp para un estudio de pilates',
   ],
   respuesta:
-    'bsport vs TIMP: los dos cubren reservas, bonos, cobros y app para tus alumnas. bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes altos. TIMP sirve a muchos negocios de clases y citas: de 50 a 170 € al mes por centro, 3 meses mínimos en la mayoría de planes y 15 días de prueba. Como alternativa con precio publicado, Tentare cuesta desde 29 €/mes con IVA, sin permanencia, y la app con tu marca va en todos los planes.',
+    'bsport vs TIMP: los dos cubren reservas, bonos, cobros y app para tus alumnas. bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes altos. TIMP sirve a muchos negocios de clases y citas: de 50 a 170 € al mes por centro, 3 meses mínimos en la mayoría de planes y 15 días de prueba. Como alternativa con precio publicado, Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y la app con tu marca va en todos los planes.',
   entradilla:
     'Si estás evaluando bsport para tu estudio de pilates y te han hablado de TIMP, aquí tienes bsport vs TIMP lado a lado, con lo que consta hoy en la web de cada uno, para quién encaja cada uno y qué preguntar en la demo. Lo escribe Tentare, que no es ninguno de los dos.',
   secciones: [
@@ -233,7 +233,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Tentare es un software de gestión para estudios de pilates y yoga en España, con precio público (Founding Studio 29 €/mes, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido), sin permanencia y con 7 días de prueba gratis, sin tarjeta, del plan que elijas. Tus alumnas reservan y cancelan solas desde el móvil e instalan la app del estudio en su pantalla de inicio, con su nombre, su icono, su logo y sus colores, en todos los planes. Las sustituciones de instructoras son asistidas en todos los planes y autónomas desde el plan Estudio. Lo que aún no tiene: el envío automático de facturas a la AEAT está en desarrollo y la app no está en las tiendas. Si vienes de bsport o de TIMP, el importador trae tus datos con acta y botón de deshacer; las tarjetas guardadas no se migran.',
+            'Tentare es un software de gestión para estudios de pilates y yoga en España, con precio público (Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido), sin permanencia y sin pedir tarjeta. Tus alumnas reservan y cancelan solas desde el móvil e instalan la app del estudio en su pantalla de inicio, con su nombre, su icono, su logo y sus colores, en todos los planes. Las sustituciones de instructoras son asistidas o autónomas en todos los planes. Lo que aún no tiene: el envío automático de facturas a la AEAT está en desarrollo y la app no está en las tiendas. Si vienes de bsport o de TIMP, el importador trae tus datos con acta y botón de deshacer; las tarjetas guardadas no se migran.',
         },
         {
           t: 'p',
@@ -309,9 +309,9 @@ const articulo: Articulo = {
     '/soluciones/cambiar-de-software',
   ],
   cta: {
-    titulo: 'Si ninguno te convence, prueba Tentare con tu horario',
+    titulo: 'Si ninguno te convence, empieza gratis en Tentare',
     texto:
-      'Tentare publica su precio, desde 29 €/mes con IVA incluido y sin permanencia, y se prueba 7 días gratis, sin tarjeta, con el plan que elijas. Si vienes de bsport o de TIMP, te ayudamos a traer tus datos.',
+      'Tentare publica su precio: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia. Si vienes de bsport o de TIMP, te ayudamos a traer tus datos.',
   },
   revision: [
     'Precios, planes y condiciones de bsport y TIMP revisados en su web el 25-sep-2026: repasarlos cada trimestre, sobre todo los de bsport, que no publica precio.',

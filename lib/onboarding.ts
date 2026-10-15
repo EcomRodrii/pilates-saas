@@ -371,7 +371,7 @@ export function guiaRapida(categorias: readonly CategoriaOnboarding[]): GuiaRapi
   const todos = new Map<string, PasoOnboarding>();
   for (const c of categorias) for (const p of c.pasos) todos.set(p.id, p);
   const creado: PasoOnboarding = {
-    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel, tu página de reservas y tu prueba de 7 días.',
+    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel y tu página de reservas.',
     minutos: 1, done: true, href: '/dashboard',
   };
   const pasos = [

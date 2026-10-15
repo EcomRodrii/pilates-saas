@@ -1,6 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Modo oscuro: nada del panel puede portalearse a `document.body`.
 //
+// Ni con `createPortal(…, document.body)` ni con un `.Portal` de Base UI sin
+// `container`, que es lo mismo escrito de otra forma: Base UI cuelga de <body>
+// lo que no tiene destino. Así salieron blancos TODOS los diálogos del panel
+// en modo oscuro (components/ui/dialog.tsx) hasta octubre de 2026, con esta
+// guardia en verde porque solo sabía buscar `createPortal`.
+//
 // `PanelThemeProvider` pone `.dark` en un <div>, nunca en <html> (a propósito:
 // la app de socias vive en la misma aplicación y no debe teñirse). Un
 // `createPortal(…, document.body)` sale de ese div y sus tokens vuelven a los
@@ -48,6 +54,9 @@ const leerCodigo = (rel: string) =>
 // coló la pantalla de «Tu estudio ya puede recibir reservas».
 const PORTAL_A_BODY = /createPortal\s*\([\s\S]*?,\s*document\.body\s*,?\s*\)/;
 
+// Las pantallas del panel también pintan diálogos y popovers, no solo los componentes.
+const CARPETAS_DEL_PANEL = ['components', 'app/(dashboard)'];
+
 function tsx(dir: string, acc: string[] = []): string[] {
   for (const e of readdirSync(join(raiz, dir))) {
     const rel = `${dir}/${e}`;
@@ -59,8 +68,10 @@ function tsx(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
+const delPanel = () => CARPETAS_DEL_PANEL.flatMap(d => tsx(d));
+
 test('ningún componente del panel portalea a document.body', () => {
-  const culpables = tsx('components').filter(f => PORTAL_A_BODY.test(leerCodigo(f)));
+  const culpables = delPanel().filter(f => PORTAL_A_BODY.test(leerCodigo(f)));
   assert.deepEqual(culpables, [],
     'Portalear a document.body saca el contenido de `.dark`: usa `anfitrionPortal()` de lib/panel-portal.ts.');
 });
@@ -71,6 +82,47 @@ test('la guardia ve un portal largo a <body>, y el mismo con el anfitrión no', 
   const largo = `createPortal(\n  <div onClick={() => cerrar()} style={{ width: calc(1) }}>\n    <p>{f(x)}</p>\n  </div>,\n  document.body,\n)`;
   assert.match(largo, PORTAL_A_BODY);
   assert.doesNotMatch(largo.replace('document.body', 'anfitrionPortal()'), PORTAL_A_BODY);
+});
+
+// La etiqueta de apertura de un portal de Base UI (`<DialogPrimitive.Portal …>`,
+// `<PopoverPrimitive.Portal …>`), con sus props. La de cierre (`</…>`) y los
+// tipos (`DialogPrimitive.Portal.Props`) no llevan `<` delante y no casan.
+const PORTAL_BASE_UI = /<([A-Z]\w*)\.Portal\b([^>]*)>/g;
+
+/** Los `.Portal` de Base UI de este código que caen en <body>: sin destino, o con <body> a mano. */
+function portalesSinDestino(codigo: string): string[] {
+  return [...codigo.matchAll(PORTAL_BASE_UI)]
+    .filter(([, , props]) => !/\bcontainer=/.test(props) || /\bcontainer=\{\s*document\.body\s*\}/.test(props))
+    .map(([etiqueta]) => etiqueta.replace(/\s+/g, ' '));
+}
+
+test('ningún portal de Base UI del panel se queda sin destino', () => {
+  const culpables = delPanel().flatMap(f => portalesSinDestino(leerCodigo(f)).map(p => `${f}: ${p}`));
+  assert.deepEqual(culpables, [],
+    'Un `.Portal` de Base UI sin `container` cae en <body>, fuera de `.dark`: pásale `container={useDestinoPortal()}` (components/ui/destino-portal.tsx).');
+});
+
+test('el contenido de un popup de Base UI marca lo que se abra dentro como anidado', () => {
+  // Sin `<DentroDePortal>`, un InfoTip dentro de un diálogo pediría también el
+  // anfitrión y saldría del portal del diálogo: el diálogo modal lo trataría
+  // como «de fuera» (oculto al lector de pantalla, sin foco).
+  const culpables = delPanel().filter(f => {
+    const codigo = leerCodigo(f);
+    return codigo.search(PORTAL_BASE_UI) !== -1 && !/<DentroDePortal\b/.test(codigo);
+  });
+  assert.deepEqual(culpables, []);
+});
+
+test('la guardia ve un portal de Base UI sin destino, y no el que lo tiene', () => {
+  assert.deepEqual(portalesSinDestino('<DialogPrimitive.Portal data-slot="dialog-portal" {...props} />'),
+    ['<DialogPrimitive.Portal data-slot="dialog-portal" {...props} />']);
+  assert.deepEqual(portalesSinDestino('<PopoverPrimitive.Portal>\n  <X />\n</PopoverPrimitive.Portal>'),
+    ['<PopoverPrimitive.Portal>']);
+  assert.deepEqual(portalesSinDestino('<TooltipPrimitive.Portal container={document.body}>'),
+    ['<TooltipPrimitive.Portal container={document.body}>']);
+  assert.deepEqual(portalesSinDestino('<PopoverPrimitive.Portal container={destino}>'), []);
+  assert.deepEqual(portalesSinDestino('function P(p: DialogPrimitive.Portal.Props) {}'), [],
+    'Un tipo no es un portal.');
 });
 
 test('lo de fuera del panel se excluye por carpeta, no por cómo empieza el nombre', () => {

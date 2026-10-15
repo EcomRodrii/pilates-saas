@@ -1120,6 +1120,8 @@ export interface RowStudios {
   tour_completado_en: string | null;
   // migr 20261008231750.
   facturar_automatico: boolean | null;
+  // migr 20261013184656.
+  tarjeta_clase: any | null;
 }
 
 export interface RowSuscripciones {
@@ -1747,7 +1749,7 @@ export interface RowPlazasFijas {
   pausa_hasta: string | null;
   // migr 20260915231920.
   pausa_libera_sitio: boolean | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   clase_fija_id: string | null;
 }
 
@@ -3435,7 +3437,7 @@ export interface RowClasesFijas {
   creada_en: string;
   actualizada_en: string;
   and: string | null;
-  // migr 20260922100000.
+  // migr 20260922013106.
   aprobacion_automatica: boolean | null;
 }
 
@@ -3973,7 +3975,7 @@ export interface RowSesionesConfiadas {
   dispositivo_id: string | null;
   creada_en: string;
   references: string | null;
-  // migr 20261003160000.
+  // migr 20261004141529.
   origen: 'dispositivo' | 'correo';
 }
 
@@ -4244,6 +4246,62 @@ export interface RowMovimientosRegalo {
   motivo: string | null;
   nota: string | null;
   recibo_id: string | null;
+  creado_en: string;
+}
+
+export interface RowFestivosAbiertos {
+  studio_id: string;
+  fecha: string;
+  nombre: string;
+  decidido_por: string | null;
+  decidido_en: string;
+}
+
+export interface RowAppsEstudio {
+  studio_id: string;
+  bundle_id: string;
+  nombre_app: string;
+  activa: boolean;
+  creada_en: string;
+  // migr 20261015062318.
+  estado: string | null;
+  // migr 20261015062318.
+  pedida_en: string | null;
+  // migr 20261015062318.
+  url_tienda: string | null;
+  // migr 20261015062318.
+  nota_interna: string | null;
+}
+
+export interface RowFestivosEstudio {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  nombre: string;
+  ambito: string;
+  origen: string;
+  fuente_url: string | null;
+  creado_por: string | null;
+  creado_en: string;
+}
+
+export interface RowUsoPlanGratis {
+  studio_id: string;
+  alumnas_activas: number | null;
+  cobros_30_dias: number | null;
+  excedido_desde: string | null;
+  medido_en: string | null;
+  intento_en: string | null;
+  creado_en: string;
+  // migr 20261014234337.
+  reservas_30_dias: number | null;
+}
+
+export interface RowAppsEstudioCupos {
+  bundle_id: string;
+  asc_app_id: string;
+  studio_id: string | null;
+  asignado_en: string | null;
   creado_en: string;
 }
 
@@ -5739,6 +5797,7 @@ export type StudiosInsert = {
   tour_progreso?: any | null | null;
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
+  tarjeta_clase?: any | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5896,6 +5955,7 @@ export type StudiosUpdate = {
   tour_progreso?: any | null | null;
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
+  tarjeta_clase?: any | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -11766,6 +11826,108 @@ export type MovimientosRegaloUpdate = {
   creado_en?: string | null;
 }
 
+export type FestivosAbiertosInsert = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
+export type FestivosAbiertosUpdate = {
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  decidido_por?: string | null | null;
+  decidido_en?: string | null;
+}
+
+export type AppsEstudioInsert = {
+  studio_id?: string | null;
+  bundle_id?: string | null;
+  nombre_app?: string | null;
+  activa?: boolean | null;
+  creada_en?: string | null;
+  estado?: string | null | null;
+  pedida_en?: string | null | null;
+  url_tienda?: string | null | null;
+  nota_interna?: string | null | null;
+}
+
+export type AppsEstudioUpdate = {
+  studio_id?: string | null;
+  bundle_id?: string | null;
+  nombre_app?: string | null;
+  activa?: boolean | null;
+  creada_en?: string | null;
+  estado?: string | null | null;
+  pedida_en?: string | null | null;
+  url_tienda?: string | null | null;
+  nota_interna?: string | null | null;
+}
+
+export type FestivosEstudioInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  ambito?: string | null;
+  origen?: string | null;
+  fuente_url?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type FestivosEstudioUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  fecha?: string | null;
+  nombre?: string | null;
+  ambito?: string | null;
+  origen?: string | null;
+  fuente_url?: string | null | null;
+  creado_por?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type UsoPlanGratisInsert = {
+  studio_id?: string | null;
+  alumnas_activas?: number | null | null;
+  cobros_30_dias?: number | null | null;
+  excedido_desde?: string | null | null;
+  medido_en?: string | null | null;
+  intento_en?: string | null | null;
+  creado_en?: string | null;
+  reservas_30_dias?: number | null | null;
+}
+
+export type UsoPlanGratisUpdate = {
+  studio_id?: string | null;
+  alumnas_activas?: number | null | null;
+  cobros_30_dias?: number | null | null;
+  excedido_desde?: string | null | null;
+  medido_en?: string | null | null;
+  intento_en?: string | null | null;
+  creado_en?: string | null;
+  reservas_30_dias?: number | null | null;
+}
+
+export type AppsEstudioCuposInsert = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type AppsEstudioCuposUpdate = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13073,6 +13235,31 @@ export type Database = {
         Row: RowMovimientosRegalo;
         Insert: MovimientosRegaloInsert;
         Update: MovimientosRegaloUpdate;
+      };
+      festivos_abiertos: {
+        Row: RowFestivosAbiertos;
+        Insert: FestivosAbiertosInsert;
+        Update: FestivosAbiertosUpdate;
+      };
+      apps_estudio: {
+        Row: RowAppsEstudio;
+        Insert: AppsEstudioInsert;
+        Update: AppsEstudioUpdate;
+      };
+      festivos_estudio: {
+        Row: RowFestivosEstudio;
+        Insert: FestivosEstudioInsert;
+        Update: FestivosEstudioUpdate;
+      };
+      uso_plan_gratis: {
+        Row: RowUsoPlanGratis;
+        Insert: UsoPlanGratisInsert;
+        Update: UsoPlanGratisUpdate;
+      };
+      apps_estudio_cupos: {
+        Row: RowAppsEstudioCupos;
+        Insert: AppsEstudioCuposInsert;
+        Update: AppsEstudioCuposUpdate;
       };
     };
   };

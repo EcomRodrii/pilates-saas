@@ -6,6 +6,7 @@ import { listarDoblesCobros, resolverDobleCobro, type DobleCobroPendiente } from
 import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // PAY-5. El detector encontró un recibo con más de un cargo que tomó dinero: a
 // la alumna se le ha cobrado de más. Aquí solo se avisa y se anota; devolver el
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 // y la comprobación de Stripe. Sin «todo bien»: la tarjeta no aparece si no hay nada.
 //
 // Solo se monta con `puedeMoverDinero` (mismo gate que la ruta).
-export function DoblesCobrosPorRevisar({ onToast }: { onToast: (m: string) => void }) {
+export function DoblesCobrosPorRevisar({ onToast }: { onToast: MostrarToast }) {
   const [items, setItems] = useState<DobleCobroPendiente[] | null>(null);
   const [resolviendo, setResolviendo] = useState<string | null>(null);
   const enVuelo = useRef(false);
@@ -29,7 +30,7 @@ export function DoblesCobrosPorRevisar({ onToast }: { onToast: (m: string) => vo
     enVuelo.current = true;
     setResolviendo(id);
     try {
-      if (!(await resolverDobleCobro(id))) { onToast('No se ha podido marcar como resuelto'); return; }
+      if (!(await resolverDobleCobro(id))) { onToast('No se ha podido marcar como resuelto', { variant: 'error' }); return; }
       setItems((prev) => (prev ?? []).filter((x) => x.id !== id));
       invalidarEstadoEstudio();
       onToast('Marcado como resuelto');

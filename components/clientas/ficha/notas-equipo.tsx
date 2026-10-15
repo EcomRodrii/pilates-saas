@@ -1,5 +1,6 @@
 'use client';
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useState } from 'react';
 import { Bot, Lock, Pin, PinOff, StickyNote, Trash2, Pencil, Users } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -37,7 +38,7 @@ export function NotasDelEquipo({ socioId, notas, rol, autoras, hoyISO, ella = 'e
   rol: Rol;
   autoras: ContextoAutoras;
   hoyISO: string;
-  onToast: (texto: string) => void;
+  onToast: MostrarToast;
 }) {
   const { addNota, updateNota, deleteNota } = useStudio();
   const [texto, setTexto] = useState('');
@@ -60,7 +61,7 @@ export function NotasDelEquipo({ socioId, notas, rol, autoras, hoyISO, ella = 'e
     setGuardando(true);
     const res = await addNota(socioId, limpio, { visibilidad });
     setGuardando(false);
-    if (!res.ok) { onToast(res.error); return; }
+    if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
     setTexto('');
   }
 
@@ -70,7 +71,7 @@ export function NotasDelEquipo({ socioId, notas, rol, autoras, hoyISO, ella = 'e
     setOcupada(nota.id);
     const res = await updateNota(nota.id, cambios);
     setOcupada(null);
-    if (!res.ok) { onToast(res.error); return false; }
+    if (!res.ok) { onToast(res.error, { variant: 'error' }); return false; }
     if (hecho) onToast(hecho);
     return true;
   }
@@ -81,7 +82,7 @@ export function NotasDelEquipo({ socioId, notas, rol, autoras, hoyISO, ella = 'e
     const res = await deleteNota(nota.id);
     setOcupada(null);
     setBorrando(null);
-    onToast(res.ok ? 'Nota borrada' : res.error);
+    onToast(res.ok ? 'Nota borrada' : res.error, res.ok ? undefined : { variant: 'error' });
   }
 
   async function guardarEdicion() {

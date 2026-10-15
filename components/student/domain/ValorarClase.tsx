@@ -36,7 +36,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
     setEnviando(true);
     const r = await enviarValoracion(studioId, sesionId, puntuacion, comentario);
     setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     toast(r.actualizada ? 'Valoración actualizada. ¡Gracias!' : '¡Gracias por tu valoración!');
     setEditando(false);
     setPuntuacion(0);

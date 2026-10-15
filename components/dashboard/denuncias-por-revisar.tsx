@@ -7,6 +7,7 @@ import { decidirDenuncia, listarDenunciasPorRevisar, type DenunciaPorRevisar } f
 import { ANCLA_DECIDIR, invalidarEstadoEstudio, useAnclaDeAviso } from '@/lib/estado-estudio-cliente';
 import { etiquetaAmbito, horasHastaTentare } from '@/lib/moderacion/denuncias';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Denuncias y bloqueos de la app que esperan al estudio (App Store 1.2). Mismo
 // alcance que `BajasPorRevisar`: una lista y sus botones, dentro de la bandeja,
@@ -38,7 +39,7 @@ function enlaceContexto(d: DenunciaPorRevisar): string | null {
   return null;
 }
 
-export function DenunciasPorRevisar({ onToast }: { onToast: (m: string) => void }) {
+export function DenunciasPorRevisar({ onToast }: { onToast: MostrarToast }) {
   const [items, setItems] = useState<DenunciaPorRevisar[] | null>(null);
   const [enviando, setEnviando] = useState<string | null>(null);
 
@@ -62,7 +63,7 @@ export function DenunciasPorRevisar({ onToast }: { onToast: (m: string) => void 
     if ('error' in r) {
       // Ya la decidió otra persona (o ya le toca a Tentare): la fila sobra, y se dice por qué se va.
       if (r.status === 409 || r.status === 404) quitar(d.id);
-      onToast(r.error);
+      onToast(r.error, { variant: 'error' });
       return;
     }
     // Las demás denuncias del mismo contenido se resuelven a la vez: se relee la lista.

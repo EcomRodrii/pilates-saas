@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { InvitarAmiga } from '@/components/student/domain/InvitarAmiga';
+import { InstalarApp } from '@/components/student/domain/InstalarApp';
 import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -205,6 +206,11 @@ export default function PerfilPage() {
         {sesion?.socioId && (
           <InvitarAmiga slug={estudio.slug} socioId={sesion.socioId} nombreEstudio={estudio.nombre} premio={premio} />
         )}
+
+        {/* Instalar la app del estudio. Se pinta SOLO si este navegador puede hacer
+            algo (botón en Android, guía en iPhone); en escritorio o con la app ya
+            abierta desde su icono, no aparece. */}
+        <InstalarApp nombreEstudio={estudio.nombre} />
 
         <ProfileSection
           titulo="Estudio"

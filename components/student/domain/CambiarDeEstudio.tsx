@@ -5,11 +5,14 @@ import Link from 'next/link';
 import { Icono } from '@/components/student/ui/Icono';
 import { useAppNativa } from '@/lib/nativo/use-app-nativa';
 import { portalAuthHeader } from '@/lib/student/api-publica';
+import { bundleIdDeLaApp } from '@/lib/nativo/puente';
+import { tipoDeApp } from '@/lib/app-nativa/app-estudio';
 
 // «Cambiar de estudio», en el Perfil de la app del estudio, SOLO dentro de la app
 // de iOS «Tentare»: ahí una misma cuenta puede estar en varios estudios y la
 // entrada (`/app`) es la que los lista. En la web cada estudio tiene su propia
-// app, y la fila no tendría a dónde llevar.
+// app, y la fila no tendría a dónde llevar. Y tampoco en la app de tienda de un
+// estudio: está fijada en él, y su entrada no enseña la lista.
 //
 // `?elegir=1`: la entrada enseña la lista en vez de entrar directo al último
 // estudio, que sería justo este. Los iconos son un adorno: si la lista no llega,
@@ -22,10 +25,14 @@ export const HREF_CAMBIAR_DE_ESTUDIO = '/app?elegir=1';
 export function CambiarDeEstudio() {
   const nativa = useAppNativa();
   const [iconos, setIconos] = useState<IconoEstudio[]>([]);
+  // Hasta saber que es la app genérica (`app.tentare`), la fila no se pinta: en la de un
+  // estudio no debe ni parpadear. Un hueco de milisegundos en «Tentare», aceptado.
+  const [generica, setGenerica] = useState(false);
 
   useEffect(() => {
     if (!nativa) return;
     let vivo = true;
+    void bundleIdDeLaApp().then((b) => { if (vivo) setGenerica(tipoDeApp(b) === 'general'); });
     void (async () => {
       try {
         const res = await fetch('/api/app/mis-estudios', { headers: await portalAuthHeader(), cache: 'no-store' });
@@ -39,7 +46,7 @@ export function CambiarDeEstudio() {
     return () => { vivo = false; };
   }, [nativa]);
 
-  if (!nativa) return null;
+  if (!nativa || !generica) return null;
 
   return (
     <Link

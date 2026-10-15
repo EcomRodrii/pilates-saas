@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { autoMapearRecuperacion, validarFilasRecuperacion, MAX_RECUPERACIONES_POR_FILA } from './csv.ts';
 import { clasificarArchivoDeterminista, CTX_VACIO } from './migracion/clasificador.ts';
@@ -131,4 +131,31 @@ test('un CSV que SÍ es de recuperaciones se reconoce', () => {
   );
   assert.equal(r.tipo, 'ok');
   if (r.tipo === 'ok') assert.equal(r.analisis.entidad, 'recuperaciones');
+});
+
+// Sin `hoy`, la importación usa el día del ESTUDIO. Con el de UTC, entre las 00:00 y las
+// 02:00 de Madrid una recuperación que caducó ayer entraba como válida. (Se corre también
+// con TZ=UTC: no puede depender de la zona del proceso.)
+test('sin hoy, a las 00:30 de Madrid una que caducó ayer ya no entra (en UTC aún era ayer)', () => {
+  // 17-nov-2026, horario de invierno (+01:00): las 23:30 UTC del 16 son las 00:30 del 17.
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T23:30:00Z') });
+  try {
+    const m = autoMapearRecuperacion(['Email', 'Caduca']);
+    const r = validarFilasRecuperacion([['ana@estudio.es', '16/11/2026'], ['luz@estudio.es', '17/11/2026']], m);
+    assert.equal(r[0].estado, 'error', 'caducó el 16: a las 00:30 del 17 ya ha pasado');
+    assert.equal(r[0].motivo, 'La fecha de caducidad ya ha pasado');
+    assert.equal(r[1].estado, 'ok', 'la que caduca hoy, el 17, todavía vale');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('en verano el corte es a las 22:00 UTC: a las 23:59 de Madrid aún vale la que caduca ese día', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-07-15T21:59:00Z') });
+  try {
+    const m = autoMapearRecuperacion(['Email', 'Caduca']);
+    assert.equal(validarFilasRecuperacion([['ana@estudio.es', '15/07/2026']], m)[0].estado, 'ok');
+  } finally {
+    mock.timers.reset();
+  }
 });

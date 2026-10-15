@@ -141,7 +141,7 @@ export function CustomChartsSection() {
         // Vacío → botón discreto (no un cajón grande que empuja el contenido).
         <button
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="zona-tactil flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Plus size={14} /> Añadir un gráfico personalizado
         </button>

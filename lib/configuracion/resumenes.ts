@@ -1100,6 +1100,9 @@ export function resumenPlan(e: EstadoPlanResumible | null | undefined): ResumenS
       return nada;
     }
     case 'SIN_PRUEBA':
+      // Founding Studio gratis (plan-gratis.ts): sin prueba que contar.
+      if (e.subscriptionStatus === 'gratis') return { valor: 'Founding Studio · gratis', estado: null };
+      if (e.subscriptionStatus === 'gratis_cerrado') return { valor: 'Founding Studio · tu estudio ha crecido', estado: { tono: 'problema', etiqueta: 'Elige Estudio' } };
       return nada;
   }
 }

@@ -442,27 +442,105 @@ este resumen se escribió sin poder abrirlas.
 
 ## Apps por estudio
 
-Salen de este mismo proyecto cambiando la identidad al compilar:
+Cada estudio puede tener su propia app de tienda (nombre, icono y color suyos),
+publicada desde la cuenta de Apple de **Tentare**, con el mismo código: una variante
+de binario por estudio (el modelo de Momence). Un solo equipo de Apple significa
+una sola clave de notificaciones y un solo «Entrar con Apple» para todas.
+
+**Cómo sabe la app de qué estudio es** (14-oct-2026, piloto):
+
+- La tabla `apps_estudio` (`studio_id`, `bundle_id`, `nombre_app`, `activa`) es el
+  mapa, y `activa` el único interruptor. Solo la lee y escribe el servidor.
+- Al abrirse, `/app` pregunta `GET /api/public/app/app-estudio?bundle=<bundle id>`
+  (el bundle lo da la carcasa, `bundleIdDeLaApp()`). Con fila activa se fija en ese
+  estudio: su icono y nombre en la puerta, sin buscador, y entra directa en él (o a
+  darse de alta, si aún no es suyo). Sin fila activa (404), o en la web y en
+  `app.tentare`, es la entrada de siempre. Si la consulta falla, dice que no hay
+  conexión: no cae al selector de «Tentare».
+- «Cambiar de estudio» solo existe en `app.tentare`.
+- `subscribe` solo guarda un token de una app de estudio bajo ESE estudio (bundle de
+  una app activa de su `studio_id`); `app.tentare` sirve a cualquiera.
+- El fichero de enlaces universales añade, por cada app activa, una entrada con
+  `TEAMID.bundle` que reclama solo `/portal/<slug>` y `/portal/<slug>/*`, antes de la
+  entrada general (iOS toma la primera que encaja). Si no se pueden leer, 503 y no un
+  fichero recortado.
+
+⚠️ El bundle id es un dato del cliente y se puede falsear: solo sirve para estrechar
+(abrir en un estudio), nunca para dar acceso; la sesión y la pertenencia al estudio las
+decide el servidor.
+
+Lo que sigue siendo a mano por estudio: la fila en `apps_estudio`; añadir el bundle a
+los Client IDs de Apple en Supabase; el registro de la app en App Store Connect
+(Apple no permite crearlo por API; el nombre ha de ser único en toda la App Store);
+y, cuando se envíe a revisión, App Privacy y la ficha.
+
+⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si no las
+publica el propio dueño del contenido, y dice que estos servicios «no deben enviar
+apps en nombre de sus clientes». Publicar desde la cuenta de Tentare es el modelo de
+Momence, que Apple acepta en la práctica, pero es lo contrario del texto. **Nada de
+esto se envía a revisión de Apple sin decisión expresa del fundador**; el piloto va a
+TestFlight interno. La consulta a App Review sobre este modelo está pendiente de enviar.
+
+**Compilar y subir la app de un estudio** (con la fila ya ACTIVA y el registro creado en
+App Store Connect con el mismo bundle id):
 
 ```sh
-TENTARE_APP_ID=app.tentare.luz TENTARE_APP_NAME="Luz" npm run cap:sync
+TENTARE_APPLE_TEAM_ID=XXXXXXXXXX npm run app:estudio -- <slug>            # icono, compila y sube a TestFlight
+npm run app:estudio -- <slug> --solo-icono                                # deja el icono en build/app-estudio/<slug>/ y para
+npm run app:estudio -- <slug> --sin-subir                                 # compila y comprueba, sin subir
 ```
 
-`capacitor.config.ts` las lee, y `scripts/identidad-ios.mjs` las escribe en
-`ios/identidad.local.xcconfig`, que `project.pbxproj` e `Info.plist` usan como
-`$(TENTARE_BUNDLE_ID)` y `$(TENTARE_APP_NAME)`. La URL de arranque es la misma:
-`/app` sabe qué app la abre por su bundle id (`bundleIdDeLaApp()`).
+(`scripts/app-estudio.mjs`; el Team ID se lee también de `ios/identidad.local.xcconfig`.)
+Pide al servidor el nombre y el icono del estudio, pinta el icono de 1024 px sin alfa (el
+mismo que ven sus alumnas: favicon › logo › inicial; `/icono-estudio?size=1024`), pone
+la identidad, compila con firma automática (`-allowProvisioningUpdates`, que registra el
+App ID), exporta primero un IPA y **comprueba sus entitlements** (notificaciones en
+producción, Entrar con Apple y enlaces universales; sin ellos no sube; en el archivo las
+notificaciones van en `development`, solo el IPA las lleva en `production`) y entonces lo
+sube a App Store Connect. El número de build es la fecha y hora. Deja los ficheros versionados
+(`Assets.xcassets`), la identidad local y el JSON de Capacitor como estaban, salga bien o
+mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 
-Cada app de estudio necesita además: su App ID con las tres capacidades, su
-ficha en App Store Connect, su `<TEAMID>.<bundle id>` en el fichero de Universal
-Links, su bundle id en los Client IDs de Apple de Supabase, su
-`<bundle id>://auth/vuelta` en las Redirect URLs, y su icono (hoy `iconos:ios`
-pinta el de Tentare).
+⚠️ Sube a App Store Connect, **no envía a revisión**.
 
-⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si
-no las publica el propio dueño del contenido. Una app por estudio tendría que
-publicarse desde la cuenta de desarrollador **del estudio**, no desde la de
-Tentare. Decidirlo antes de prometerlo.
+**Pedir la app desde el panel** (fase 1, 15-oct-2026; apagado de serie):
+
+- El estudio la pide en Apariencia de tu app → «Tu app en la App Store» (`MiAppDeTienda`),
+  solo con `APP_PROPIA_PEDIR` encendido para él (`on` o `estudios:<id>`, el formato de siempre).
+  Pedirla es de la **propietaria** y exige un plan que la incluya: `tieneFeature(studio, 'appPropia')`
+  EN EL SERVIDOR (`POST /api/estudio/app-movil`; Estudio y Cadena sí, Founding Studio y el plan gratis no).
+  Nace `PEDIDA` y **sin activar**; el bundle sale del slug (`app.tentare.<slug>`).
+- Los estados (`apps_estudio.estado`) son lo que se le cuenta al estudio: `PEDIDA`, `EN_PREPARACION`,
+  `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos»: esta fase no
+  manda ningún aviso al estudio (lo ve al volver al panel).
+- La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, pone el enlace de la
+  App Store (obligatorio para `PUBLICADA`) y apunta notas que el estudio nunca ve. **`activa` solo se
+  mueve desde ahí**, y es lo que cambia qué abre la app y el fichero de enlaces universales.
+- Una petición sigue exigiendo los pasos manuales de más arriba (fila activa, Client IDs de Apple en
+  Supabase, registro en App Store Connect, compilar y subir). Esta fase no los automatiza.
+
+**La API de App Store Connect** (15-oct-2026, `scripts/asc.mjs` + `lib/nativo/asc.ts`):
+
+- La clave de equipo (rol Administración) vive SOLO en los secretos de GitHub Actions
+  (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`) y se usa desde el workflow manual
+  «Apps de estudio · App Store Connect» (`.github/workflows/apps-estudio-asc.yml`).
+  Nada la escribe en disco ni la imprime.
+- Órdenes: `comprobar` (lista las apps; no cambia nada), `nombre <bundle> "<nombre>"` y
+  `registrar-cupos <desde> <hasta>`. Las que cambian algo son un ensayo salvo con `--en-serio`.
+- ⚠️ Apple NO deja crear el registro de una app por API («The resource 'apps' does not allow
+  'CREATE'») ni contestar el cuestionario de privacidad. La idea para quitarlo del camino de
+  cada estudio es un LOTE: registrar `app.tentare.cupo-NNN` por API, crear esas apps de golpe
+  en la web y asignar un hueco libre a cada estudio que pide la suya, cambiándole el nombre por
+  API. Comprobado el 15-oct-2026: Apple SÍ deja renombrar por API una app nunca enviada
+  (`nombre` sobre la app de Marta, ida y vuelta).
+- **El lote** (`apps_estudio_cupos`, migr `20261015125054_apps_estudio_cupos`): cada hueco es un
+  identificador `app.tentare.cupo-NNN` ya registrado con sus capacidades, su app ya creada en App
+  Store Connect (`asc_app_id`) y su bundle ya en los Client IDs de Apple de Supabase. El primer lote
+  son 10 (15-oct-2026). Al pedir su app, el estudio se lleva un hueco libre (`asignar_cupo_app`, con
+  candado; solo service_role); si no queda ninguno, el identificador sale del slug como antes y la
+  app se crea a mano. La cola de `/interno` dice cuántos huecos quedan y enlaza cada app a App Store
+  Connect. ⚠️ Un lote nuevo: `registrar-cupos`, crear las apps en la web, añadir sus bundles a los
+  Client IDs de Supabase e insertar sus filas en `apps_estudio_cupos`.
 
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 

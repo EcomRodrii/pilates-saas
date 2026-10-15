@@ -10,6 +10,7 @@
 // el archivo sube DIRECTO a Storage con la sesión del staff
 // (subirDocumentoSocioArchivo), y solo entonces se crea la fila de metadatos.
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -51,7 +52,7 @@ function formVacio(): FormSubida {
   return { titulo: '', categoria: 'OTRO', caducaEn: '', archivo: null };
 }
 
-export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
+export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast: MostrarToast }) {
   const { studio } = useStudio();
   const uid = useId();
 
@@ -96,7 +97,7 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
     setAbriendoId(d.id);
     const res = await abrirDocumentoSocio(d.id);
     setAbriendoId(null);
-    if ('error' in res) { onToast(res.error); return; }
+    if ('error' in res) { onToast(res.error, { variant: 'error' }); return; }
     window.open(res.url, '_blank', 'noopener,noreferrer');
   }
 
@@ -132,7 +133,7 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
     setBorrando(true);
     const res = await borrarDocumentoSocio(aBorrar.id);
     setBorrando(false);
-    if (!res.ok) { onToast(res.error); return; }
+    if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
     setDocumentos(prev => (prev ?? []).filter(d => d.id !== aBorrar.id));
     setABorrar(null);
   }

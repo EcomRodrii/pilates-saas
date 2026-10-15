@@ -42,7 +42,11 @@ function studioDataFixture() {
     spots: [],
     planesTarifa: [],
     sesiones: [
-      // Nada hoy — solo mañana, igual que el hallazgo real (19 vacío, 20 con 1 clase).
+      // El hallazgo real era «19 vacío, 20 con 1 clase». Desde #2633 un hoy vacío ya
+      // no se queda seleccionado (la reserva abre en el primer día con clases), así
+      // que hoy lleva una clase por la tarde: la página abre en hoy y el toque en
+      // mañana sigue siendo lo que se prueba.
+      { id: 'ses-hoy', studioId: 'studio-test', tipoClaseId: 'tc-mat', salaId: 'sala-1', instructorId: 'ins-1', inicio: `${FECHA}T19:00:00`, fin: `${FECHA}T19:50:00`, aforoMaximo: 10, cancelada: false },
       { id: 'ses-manana', studioId: 'studio-test', tipoClaseId: 'tc-mat', salaId: 'sala-1', instructorId: 'ins-1', inicio: `${manana}T13:00:00`, fin: `${manana}T13:50:00`, aforoMaximo: 10, cancelada: false },
     ],
     videosOnDemand: [], rewardRules: [], rewardCatalog: [], levelDefinitions: [],

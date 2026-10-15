@@ -381,6 +381,20 @@ export function mesesDeCiclo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>
 }
 
 /**
+ * Lo que una cuota ingresa al MES: `precio` es lo que se cobra por ciclo, y el
+ * ciclo dura `mesesDeCiclo`. Una trimestral de 240 € son 80 € al mes, no 240.
+ *
+ * Quien valore una cuota por mes o por clase (el margen de Informes, el valor
+ * mensual de una socia y el precio medio de la sesión del Centro de Control)
+ * parte de aquí, nunca de `precio` a pelo: con `precio` a pelo una trimestral
+ * contaba ×3 y una anual ×12. Solo para `tipo: 'MENSUAL'`: en BONO y PUNTUAL la
+ * periodicidad no significa nada.
+ */
+export function precioMensualDeCuota(plan: Pick<PlanTarifa, 'precio'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): number {
+  return plan.precio / mesesDeCiclo(plan);
+}
+
+/**
  * Cómo se llama ese periodo: «mes», «trimestre», «semestre», «año».
  *
  * UNA función y no tres («/mes», «al mes», «cada mes»): las tres formas que

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Zap } from 'lucide-react';
+import { ArrowRight, Compass, Zap } from 'lucide-react';
+import { BOTON_VIVO, Baldosa } from '@/components/dashboard/vivo';
 import { useDecisiones } from '@/components/decision/use-decisiones';
 import { SEVERIDAD_INFO } from '@/lib/decision/severidad';
 import {
@@ -19,7 +20,11 @@ import {
 // Se pinta SOLO si hay algo que contar. Sin recomendaciones pendientes, sin
 // permiso o mientras carga, no ocupa ni un píxel: un bloque que dice "todo en
 // orden" cada mañana entrena a no mirarlo.
-export function ActionCenter() {
+/**
+ * `nueva`: con la forma de las tarjetas de la home nueva (panel nuevo): un
+ * punto de color por gravedad en vez del emoji y la acción como botón.
+ */
+export function ActionCenter({ nueva = false }: { nueva?: boolean } = {}) {
   const { data, loading } = useDecisiones();
   if (loading || !data) return null;
 
@@ -39,6 +44,57 @@ export function ActionCenter() {
   const nOportunidades = todas.length - nAtencion;
   const eurRiesgo = fraseEuros(r.eurMesEnRiesgo, r.eurPuntualEnRiesgo);
   const eurGanancia = fraseEuros(r.eurMesOportunidad, r.eurPuntualOportunidad);
+
+  if (nueva) {
+    return (
+      <Link
+        href="/centro-de-control?detalle=1"
+        className="group flex flex-col gap-3 rounded-t-card border border-border bg-card p-5 shadow-t-card transition-colors hover:bg-muted/40"
+      >
+        <div className="flex items-start gap-3">
+          <Baldosa tono="magenta" Icono={Compass} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-foreground">
+              {nAtencion > 0 ? tituloAtencion(nAtencion) : tituloOportunidades(nOportunidades)}
+            </p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">
+              El Centro de Control lo ha visto en tus datos
+              {nAtencion > 0 && eurRiesgo && <> · <span className="font-medium" style={{ color: 'var(--destructive)' }}>{eurRiesgo} en juego</span></>}
+              {nAtencion === 0 && eurGanancia && <> · <span className="font-medium" style={{ color: 'var(--success)' }}>+{eurGanancia}</span></>}
+            </p>
+          </div>
+        </div>
+        {nAtencion > 0 && (
+          <ul className="flex flex-col gap-1.5 pl-[52px]">
+            {r.atencion.map(item => (
+              <li key={item.id} className="flex items-start gap-2 text-[13px] text-foreground">
+                <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: SEVERIDAD_INFO[item.severidad].color }} />
+                <span className="sr-only">{SEVERIDAD_INFO[item.severidad].label}: </span>
+                <span className="flex-1 leading-snug">{item.titulo}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {nAtencion > 0 && nOportunidades > 0 && (
+          <p className="pl-[52px] text-[13px] text-muted-foreground">
+            Y {nOportunidades === 1 ? 'una oportunidad' : `${nOportunidades} oportunidades`}
+            {eurGanancia && <> · <span className="font-medium" style={{ color: 'var(--success)' }}>+{eurGanancia}</span></>}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-muted pt-3">
+          {r.nUnToque > 0 ? (
+            <span className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+              <Zap size={14} aria-hidden />
+              {r.nUnToque === 1 ? 'Una la hago yo con un toque' : `${r.nUnToque} las hago yo con un toque`}
+            </span>
+          ) : <span />}
+          <span className={`${BOTON_VIVO} h-9 px-4 text-[13px]`}>
+            Ver y decidir <ArrowRight size={13} aria-hidden />
+          </span>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     // `?detalle=1`: llega con la lista abierta, que es lo que esta tarjeta cuenta.

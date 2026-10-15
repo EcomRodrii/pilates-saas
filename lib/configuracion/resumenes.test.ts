@@ -854,9 +854,11 @@ test('Mi equipo: el modo de Sustituciones que se aplica de verdad, con el plan; 
   assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'asistido' }), 'Asistido: tú apruebas con un toque');
   assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'autonomo' }), 'Autónomo: cubre las bajas y te lo cuenta');
   assert.equal(resumenModoSustituciones({ ...estudio, modoAutonomia: 'vacaciones' }), 'Vacaciones: lo resuelve sin molestarte');
-  // Sin el plan, el motor lo rebaja a asistido (`modoAutonomiaEfectivo`): se dice eso, no lo guardado.
-  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'autonomo' }), 'Asistido: tu plan no incluye «Autónomo»');
-  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'vacaciones' }), 'Asistido: tu plan no incluye «Vacaciones»');
+  // Sin el plan (o sin acceso), el motor lo rebaja a asistido (`modoAutonomiaEfectivo`): se dice eso, no lo guardado.
+  // Desde el 15-oct-2026 todos los planes lo incluyen; lo que lo rebaja es no tener acceso.
+  assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'autonomo' }), 'Autónomo: cubre las bajas y te lo cuenta');
+  assert.equal(resumenModoSustituciones({ plan: 'ESTUDIO', subscriptionStatus: 'trial_expirado', modoAutonomia: 'autonomo' }), 'Asistido: tu plan no incluye «Autónomo»');
+  assert.equal(resumenModoSustituciones({ plan: 'ESTUDIO', subscriptionStatus: 'trial_expirado', modoAutonomia: 'vacaciones' }), 'Asistido: tu plan no incluye «Vacaciones»');
   assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'asistido' }), 'Asistido: tú apruebas con un toque');
 });
 

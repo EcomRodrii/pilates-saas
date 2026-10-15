@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react';
 import { RefreshCw, ChevronRight } from 'lucide-react';
 import { cn, hoyEnEstudio, TZ_ESTUDIO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,10 @@ import { EspecialistaCartera } from '@/components/decision/especialista-cartera'
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { BarraPreguntar } from '@/components/asistente/barra-preguntar';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Compass, Lightbulb, ShieldAlert, Zap } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Baldosa, type Tono } from '@/components/dashboard/vivo';
+import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { Toast, useToast } from '@/components/ui/toast';
 import { CentroNoIncluido } from '@/components/decision/centro-no-incluido';
 import { SIN_PLAN_DECISIONES } from '@/lib/decision/plan-decisiones';
@@ -73,6 +76,22 @@ function diasAbierta(creadoEn: string, fechaHoy: string): number {
   return Math.round((Date.parse(fechaHoy) - Date.parse(hoyEnEstudio(new Date(creadoEn)))) / 86400000);
 }
 
+/** El título de cada bloque del detalle; en el panel nuevo, con su baldosa de color y una frase. */
+function TituloBloque({ nuevo, tono, Icono, sub, children }: { nuevo: boolean; tono: Tono; Icono: ElementType; sub?: string; children: ReactNode }) {
+  if (!nuevo) {
+    return <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2>;
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <Baldosa tono={tono} Icono={Icono} tamano="sm" />
+      <div className="min-w-0">
+        <h2 className="text-[16px] font-bold text-foreground">{children}</h2>
+        {sub && <p className="text-[12.5px] text-muted-foreground">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
 /** Cada situación de la lista, localizable por su id para llegar a ella desde un enlace. */
 function AnclaSituacion({ id, resaltada, children }: { id: string; resaltada: boolean; children: ReactNode }) {
   return (
@@ -101,6 +120,7 @@ export default function CentroDeControlPage() {
   const [lanzando, setLanzando] = useState(false);
   const analizando = lanzando || analisis === 'en-curso';
   const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const panelNuevo = usePanelNuevo();
   const toast = useToast();
 
   // El día en Madrid, el mismo con el que el servidor elige el mensaje de hoy:
@@ -250,7 +270,10 @@ export default function CentroDeControlPage() {
     const mensaje = mensajeParaSocia(r.tipo, r.datosUsados, studio?.nombre ?? '');
     if (!mensaje) return null;
     const socia = socios.find(s => s.id === r.socioId);
-    return enlaceWhatsApp(socia?.telefono, mensaje.cuerpo);
+    // Una oferta a quien no ha aceptado recibirlas: el chat se abre SIN la oferta
+    // escrita. La tarjeta dice «Tentare no le envía este mensaje» y redactárselo
+    // para mandarlo en un toque sería lo mismo por otra puerta (LSSI art. 21).
+    return enlaceWhatsApp(socia?.telefono, r.sinPermisoOfertas ? '' : mensaje.cuerpo);
   }
 
   // Las cuatro acciones de una recomendación. Ninguna quita la tarjeta antes de
@@ -314,19 +337,29 @@ export default function CentroDeControlPage() {
           para forzar el primer análisis de un estudio nuevo, y vivía detrás
           de un clic que nadie tenía motivo para dar el primer día. */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-[20px] font-semibold text-foreground">Centro de Control</h1>
+        <div className={cn(panelNuevo && 'flex items-start gap-3')}>
+          {panelNuevo && <span className="hidden sm:block"><Baldosa tono="magenta" Icono={Compass} /></span>}
+          <div>
+          <h1 className={panelNuevo ? 'text-[24px] font-bold leading-tight text-foreground' : 'font-heading text-[20px] font-semibold text-foreground'}>Centro de Control</h1>
           <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
             {/* El día en Madrid, como el mensaje que hay debajo: con la zona del
                 navegador, uno en UTC a las 01:30 de Madrid ponía la fecha de ayer. */}
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO })}
           </p>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
+          {panelNuevo ? (
+            <button type="button" onClick={handleAnalizar} disabled={analizando} aria-busy={analizando || undefined} className={cn(BOTON_BORDE, 'disabled:opacity-60')}>
+              <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} aria-hidden />
+              {analizando ? 'Analizando…' : 'Analizar ahora'}
+            </button>
+          ) : (
           <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando} aria-busy={analizando || undefined}>
             <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
             {analizando ? 'Analizando…' : 'Analizar ahora'}
           </Button>
+          )}
           {analisis === 'tardando' && (
             <p role="status" className="max-w-[16rem] text-right text-[12px] text-muted-foreground">{TEXTO_ANALISIS_TARDANDO}</p>
           )}
@@ -369,7 +402,7 @@ export default function CentroDeControlPage() {
         onClick={() => setDetalleAbierto(v => !v)}
         aria-expanded={detalleAbierto}
         aria-controls="detalle-centro-de-control"
-        className="flex w-fit items-center gap-1 self-start text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+        className={panelNuevo ? cn(BOTON_BORDE, 'self-start') : 'flex w-fit items-center gap-1 self-start text-[12px] font-semibold text-muted-foreground hover:text-foreground'}
       >
         {detalleAbierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         {detalleAbierto ? 'Ocultar todo el detalle' : 'Ver todo el detalle'}
@@ -381,9 +414,7 @@ export default function CentroDeControlPage() {
           se pinta fusionada dentro de VeredictoDelDia (§2, arriba). */}
       <div className="flex flex-col gap-6">
         <div>
-          <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Recomendaciones de hoy
-          </h2>
+          <TituloBloque nuevo={panelNuevo} tono="magenta" Icono={Lightbulb}>Recomendaciones de hoy</TituloBloque>
           {itemsVivos.length > 0 && (
             <p className="mt-1 text-[12px] text-muted-foreground">
               Tiempo estimado · <strong className="font-semibold text-foreground">{tiempoEstimadoVivoMin} min</strong>
@@ -444,9 +475,7 @@ export default function CentroDeControlPage() {
           sistema", a diferencia de Riesgos (alerta transversal) y Actividad
           (historial), que se quedan como secciones propias. */}
       <div className="flex flex-col gap-4">
-        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Cómo trabajo para ti
-        </h2>
+        <TituloBloque nuevo={panelNuevo} tono="azul" Icono={Zap} sub="Lo que dejas que haga solo y lo que ha encontrado cada especialista">Cómo trabajo para ti</TituloBloque>
         <PilotoAutomatico autonomia={autonomia} />
         {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
           <div className="flex flex-col gap-2 pl-1">
@@ -470,7 +499,7 @@ export default function CentroDeControlPage() {
           </div>
         )}
         {!modoAprendizaje && data.porEspecialista.length > 0 && (
-          <div className="rounded-3xl border border-border bg-card p-1">
+          <div className={cn('border border-border bg-card p-1', panelNuevo ? 'rounded-t-card shadow-t-card' : 'rounded-3xl')}>
             {data.porEspecialista.map(pe => <FilaEspecialista key={pe.especialista} data={pe} />)}
           </div>
         )}
@@ -478,9 +507,7 @@ export default function CentroDeControlPage() {
 
       {/* 4. Riesgos — visión transversal, separada de las recomendaciones */}
       <div className="flex flex-col gap-3">
-        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Riesgos
-        </h2>
+        <TituloBloque nuevo={panelNuevo} tono="indigo" Icono={ShieldAlert}>Riesgos</TituloBloque>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <EspecialistaCartera />
         </div>

@@ -5,6 +5,8 @@
 // (coma, punto y coma —Excel en español— o tabulador). Puro y testeable.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { hoyEnEstudio } from './utils.ts';
+
 export interface ParsedCsv {
   headers: string[];
   rows: string[][];
@@ -261,12 +263,25 @@ export function autoMapear(headers: string[]): Record<CampoSocia, number> {
   return mapearColumnas(headers, CAMPOS_SOCIA.map((c) => c.campo), SINONIMOS);
 }
 
+/**
+ * ¿La celda es, TAL CUAL, el nombre de un campo de la clienta («Email»,
+ * «Teléfono», «Fecha de alta»…)? Coincidencia exacta, no parcial: «Calle Mayor 3»
+ * contiene «calle» y no es un título. Para adivinar si lo pegado trae títulos.
+ */
+export function nombraCampoSocia(celda: string): boolean {
+  const n = normaliza(celda);
+  return n !== '' && Object.values(SINONIMOS).some((lista) => lista.some((s) => normaliza(s) === n));
+}
+
 // ─── Validación ──────────────────────────────────────────────────────────────
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function emailValido(email: string): boolean {
-  return RE_EMAIL.test(email.trim());
+  // 254 es el máximo de una dirección. Además corta el coste de la regex, que con
+  // una celda larga llena de «@» y puntos crece al cuadrado.
+  const e = email.trim();
+  return e.length <= 254 && RE_EMAIL.test(e);
 }
 
 /**
@@ -793,8 +808,9 @@ export const MAX_RECUPERACIONES_POR_FILA = 20;
 export function validarFilasRecuperacion(
   rows: string[][],
   mapeo: Record<CampoRecuperacion, number>,
-  /** Hoy en 'YYYY-MM-DD'. Se pasa para que la validación sea determinista. */
-  hoy: string = new Date().toISOString().slice(0, 10),
+  /** Hoy en 'YYYY-MM-DD'. Se pasa para que la validación sea determinista. Por defecto,
+   *  el día del ESTUDIO: con el de UTC, de madrugada entraba una que caducó ayer. */
+  hoy: string = hoyEnEstudio(),
 ): FilaRecuperacionValidada[] {
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
   // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
@@ -914,8 +930,11 @@ export function parsearHora(celda: string | null | undefined): string | null {
   if (!celda) return null;
   const s = celda.trim().toLowerCase();
   if (!s) return null;
-  const pm = /\bp\.?m\.?\b/.test(s);
-  const am = /\ba\.?m\.?\b/.test(s);
+  // Detrás de una cifra no hay «límite de palabra» (`\b`): con él, «7:00pm» y
+  // «7:00 p. m.» se leían como las 07:00. Se busca la marca pegada a la cifra o
+  // tras un espacio, con o sin puntos («pm», «p.m.», «p. m.»).
+  const pm = /(?:^|[\d\s])p\.?\s?m(?![a-z])/.test(s);
+  const am = /(?:^|[\d\s])a\.?\s?m(?![a-z])/.test(s);
   const m = s.match(/(\d{1,2})\s*[:.h]\s*(\d{2})?/);
   if (!m) return null;
   let h = Number(m[1]);

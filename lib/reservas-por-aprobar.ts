@@ -83,6 +83,8 @@ export interface ResultadoDecision {
   /** true = la reserva ya no está pendiente: la fila sobra. */
   quitar: boolean;
   mensaje: string;
+  /** No ha pasado lo que se pidió (no se aprobó): el aviso va en rojo aunque la fila sobre. */
+  error?: true;
 }
 
 export const SIN_GUARDAR = 'No se ha podido guardar. Vuelve a intentarlo';
@@ -106,7 +108,7 @@ export function resultadoDecisionReserva(aprobar: boolean, r: RespuestaDecision)
 
   if (r.status >= 200 && r.status < 300) {
     if (body.motivoUI === 'clase_ya_empezada') {
-      return { quitar: true, mensaje: 'La clase ya ha empezado: la reserva se ha cancelado sola y ya no puede aprobarse' };
+      return { quitar: true, error: true, mensaje: 'La clase ya ha empezado: la reserva se ha cancelado sola y ya no puede aprobarse' };
     }
     if (aprobar && body.estado === 'CONFIRMADA') return { quitar: true, mensaje: 'Reserva aprobada: tiene su plaza confirmada' };
     if (aprobar && body.estado === 'LISTA_ESPERA') {

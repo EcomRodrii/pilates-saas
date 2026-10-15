@@ -433,3 +433,77 @@ test.describe('Editar una tarifa que ya existe', () => {
     expect(planes[0].sesiones).toBe(1);
   });
 });
+
+// ── P0.3: guardar espera al servidor ─────────────────────────────────────────
+
+test('crear una tarifa que el servidor rechaza: un solo envío aunque se pulse dos veces, y el error dentro del formulario', async ({ page }) => {
+  await mockBackend(page);
+  let posts = 0;
+  await page.route('**/rest/v1/planes_tarifa**', async route => {
+    if (route.request().method() !== 'POST') return json(route, []);
+    posts++;
+    // Lento a propósito: el segundo clic llega con la petición en vuelo.
+    await new Promise(r => setTimeout(r, 800));
+    return json(route, { message: 'new row violates row-level security policy for table "planes_tarifa"', code: '42501' }, 403);
+  });
+  await seedSesionDeDuena(page);
+  await abrirFormulario(page);
+  const d = dialogo(page);
+
+  await d.getByRole('radio', { name: /Bono de sesiones/ }).click();
+  await d.getByLabel('Nombre', { exact: false }).first().fill('Bono 4 clases');
+  await d.getByLabel('Precio', { exact: false }).first().fill('40');
+  await d.getByLabel('Sesiones que incluye').fill('4');
+  await d.getByLabel('Caducidad').fill('60');
+  await d.getByRole('button', { name: 'Crear bono de sesiones' }).dblclick();
+
+  await expect.poll(() => posts, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(d.getByRole('alert').filter({ hasText: 'No se ha guardado' })).toBeVisible({ timeout: 15_000 });
+  // Un doble clic ya no crea dos tarifas.
+  expect(posts).toBe(1);
+  // El formulario sigue abierto con lo escrito: no se pierde nada.
+  await expect(d.getByLabel('Nombre', { exact: false }).first()).toHaveValue('Bono 4 clases');
+});
+
+// ── La tarifa se crea pero fallan sus clases (seguimiento de P0.3) ─────────────
+// `dbInsertPlanTarifa` escribe la fila y DESPUÉS sus clases (`plan_tipos_clase`).
+// Si lo segundo falla, la tarifa existe: decir «No se ha guardado» con el
+// formulario abierto era falso, y un segundo «Crear» hacía otra igual.
+test.describe('si la tarifa se crea pero no sus clases', () => {
+  test('se cierra, dice la verdad, la retira de la venta y no hay un segundo alta', async ({ page }) => {
+    const { planes } = await mockBackend(page);
+    // DESPUÉS de mockBackend: la última ruta registrada gana.
+    let altasCobertura = 0;
+    await page.route('**/rest/v1/plan_tipos_clase**', route => {
+      if (route.request().method() === 'POST') {
+        altasCobertura++;
+        return json(route, { message: 'fallo simulado' }, 500);
+      }
+      return json(route, []);
+    });
+    const parches: unknown[] = [];
+    page.on('request', req => {
+      if (req.url().includes('/rest/v1/planes_tarifa') && req.method() === 'PATCH') parches.push(req.postDataJSON());
+    });
+    await seedSesionDeDuena(page);
+    await abrirFormulario(page);
+    const d = dialogo(page);
+
+    await d.getByRole('radio', { name: /Bono de sesiones/ }).click();
+    await d.getByLabel('Nombre', { exact: false }).first().fill('Bono Reformer');
+    await d.getByLabel('Precio', { exact: false }).first().fill('40');
+    await d.getByLabel('Sesiones que incluye').fill('4');
+    await d.getByLabel('Caducidad').fill('60');
+    await d.getByRole('radio', { name: /Solo algunas clases/ }).click();
+    await d.getByRole('checkbox', { name: 'Reformer' }).check();
+    await d.getByRole('button', { name: 'Crear bono de sesiones' }).click();
+
+    await expect(d).toBeHidden();
+    await expect(page.getByRole('alert').filter({ hasText: '«Bono Reformer» se ha creado, pero no hemos podido guardar a qué clases da acceso' })).toBeVisible();
+    await expect(page.getByText('No se ha guardado')).toHaveCount(0);
+    expect(altasCobertura).toBeGreaterThan(0);
+    // Una sola tarifa, y retirada de la venta para que nadie la compre valiendo para todas las clases.
+    expect(planes).toHaveLength(1);
+    expect(parches).toEqual([{ activo: false }]);
+  });
+});

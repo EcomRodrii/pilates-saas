@@ -97,7 +97,7 @@ test('el prefijo cacheable (herramientas + prompt) pasa de 4.096 tokens también
 });
 
 test('al modelo se le enseña UN solo juego de herramientas, el mismo para propietaria y gerente (una sola caché)', () => {
-  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 17);
+  assert.equal(HERRAMIENTAS_DEL_ASISTENTE.length, 19);
   assert.equal(JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE), JSON.stringify(aHerramientasAnthropic(herramientasDelRol('PROPIETARIO'))));
   const chars = JSON.stringify(HERRAMIENTAS_DEL_ASISTENTE).length + PROMPT_SISTEMA.length;
   assert.ok(chars / 4 > 4096, `~${Math.round(chars / 4)} tokens (cota baja)`);
@@ -106,4 +106,17 @@ test('al modelo se le enseña UN solo juego de herramientas, el mismo para propi
   assert.doesNotMatch(ruta, /herramientasDelRol/, 'Un juego por rol son dos prefijos de caché: la puerta por rol es ejecutarHerramienta.');
   // El prefijo con TTL de una hora, antes del punto de 5 minutos del historial.
   assert.match(ruta, /text: PROMPT_SISTEMA, cache_control: \{ type: 'ephemeral', ttl: '1h' \}/);
+});
+
+test('el mapa conoce lo que se ha lanzado y lo que todavía no existe (preguntaron por la tarjeta regalo y por las clases por nivel)', () => {
+  for (const frase of ['Tarjeta regalo', 'Seleccionar varias', 'BORRAR', 'Facturar automáticamente', 'Demo:', 'Solo para alumnas autorizadas']) {
+    assert.ok(PROMPT_SISTEMA.includes(frase), `el mapa no dice «${frase}»`);
+  }
+  // Y no promete lo que no existe: reservar por nivel solo se menciona como «todavía no existe».
+  assert.match(PROMPT_SISTEMA, /reserva automática por nivel todavía no existe/);
+});
+
+test('las herramientas nuevas se nombran en el prompt (si no, el modelo no sabe cuándo usarlas)', () => {
+  assert.match(PROMPT_SISTEMA, /ocupacion_por_tipo_de_clase/);
+  assert.match(PROMPT_SISTEMA, /eventos_proximos/);
 });

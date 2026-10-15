@@ -58,7 +58,7 @@ export default function FichajePage() {
       if (a === 'entrada') toast(r.yaAbierta ? 'Ya tenías la jornada abierta' : 'Entrada registrada');
       else toast(r.yaCerrada ? 'Ya tenías la jornada cerrada' : `Salida registrada · ${duracion(r.minutos ?? 0)}`);
     } catch {
-      toast('No hemos podido registrarlo. Inténtalo de nuevo.');
+      toast('No hemos podido registrarlo. Inténtalo de nuevo.', { variant: 'error' });
     } finally {
       setEnviando(false);
     }

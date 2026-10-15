@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { firmarTokenInstructora, verificarTokenInstructora } from './token.ts';
+import { firmarTokenInstructora, firmarTokenInvitacion, verificarTokenInstructora } from './token.ts';
 
 process.env.SUSTITUCION_TOKEN_SECRET ??= 'test-secret-sustituciones';
 const AHORA = 1_700_000_000_000;
@@ -9,14 +9,14 @@ const DIA = 24 * 60 * 60 * 1000;
 test('roundtrip: firma y verifica devolviendo el claim', () => {
   const t = firmarTokenInstructora('ins-1', 'studio-1', 'disponibilidad', null, AHORA);
   assert.deepEqual(verificarTokenInstructora(t, 'disponibilidad', AHORA), {
-    instructorId: 'ins-1', studioId: 'studio-1', ref: null,
+    instructorId: 'ins-1', studioId: 'studio-1', ref: null, rolFicha: null,
   });
 });
 
 test('roundtrip con ref (la sustitución concreta)', () => {
   const t = firmarTokenInstructora('ins-1', 'studio-1', 'aceptar_sustitucion', 'sust-42', AHORA);
   assert.deepEqual(verificarTokenInstructora(t, 'aceptar_sustitucion', AHORA), {
-    instructorId: 'ins-1', studioId: 'studio-1', ref: 'sust-42',
+    instructorId: 'ins-1', studioId: 'studio-1', ref: 'sust-42', rolFicha: null,
   });
 });
 
@@ -64,6 +64,25 @@ test('invitacion caduca en 7 días, no en 30', () => {
   const t = firmarTokenInstructora('ins-1', 'studio-1', 'invitacion', 'PROPIETARIO', AHORA);
   assert.notEqual(verificarTokenInstructora(t, 'invitacion', AHORA + 6 * DIA), null);
   assert.equal(verificarTokenInstructora(t, 'invitacion', AHORA + 8 * DIA), null);
+});
+
+// La invitación lleva firmado, además de quién invita, el ROL que tenía la
+// ficha: si alguien lo cambia después, `reclamar-reglas.ts` la da por desfasada.
+test('la invitación lleva firmados quién invita y el rol de la ficha', () => {
+  const t = firmarTokenInvitacion('ins-1', 'studio-1', 'PROPIETARIO', 'INSTRUCTOR', AHORA);
+  assert.deepEqual(verificarTokenInstructora(t, 'invitacion', AHORA), {
+    instructorId: 'ins-1', studioId: 'studio-1', ref: 'PROPIETARIO', rolFicha: 'INSTRUCTOR',
+  });
+  assert.equal(verificarTokenInstructora(t, 'invitacion', AHORA + 8 * DIA), null, 'también caduca en 7 días');
+  assert.equal(verificarTokenInstructora(t, 'disponibilidad', AHORA), null, 'y no sirve para otra cosa');
+});
+
+test('el rol de la ficha no se puede cambiar a mano en el enlace (la firma no cuadra)', () => {
+  const t = firmarTokenInvitacion('ins-1', 'studio-1', 'PROPIETARIO', 'INSTRUCTOR', AHORA);
+  const [payload, sig] = t.split('.');
+  const datos = JSON.parse(Buffer.from(payload, 'base64url').toString());
+  const subido = Buffer.from(JSON.stringify({ ...datos, rolFicha: 'RECEPCION' })).toString('base64url');
+  assert.equal(verificarTokenInstructora(`${subido}.${sig}`, 'invitacion', AHORA), null);
 });
 
 // ── Manipulación ────────────────────────────────────────────────────────────

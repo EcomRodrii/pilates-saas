@@ -11,6 +11,7 @@
 // panel: es un dato de esta pantalla, y arrastrarlo en el contexto lo dejaría
 // creciendo con cada alumna sin que nadie lo mire.
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useEffect, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { dbListAutorizadosDeSocia, dbAutorizarTipoClase, dbDesautorizarTipoClase } from '@/lib/supabase-data';
@@ -20,7 +21,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 export function FichaClasesAutorizadas({ socioId, studioId, onToast }: {
   socioId: string;
   studioId: string;
-  onToast: (mensaje: string) => void;
+  onToast: MostrarToast;
 }) {
   const { tiposClase } = useStudio();
   // Misma cerradura que conceder una recuperación: es una decisión de
@@ -54,7 +55,7 @@ export function FichaClasesAutorizadas({ socioId, studioId, onToast }: {
       ? await dbDesautorizarTipoClase(studioId, socioId, tipoId)
       : await dbAutorizarTipoClase(studioId, socioId, tipoId);
     setGuardando(null);
-    if (!res.ok) { onToast(res.error); return; }
+    if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
     setAutorizados(prev => {
       const s = new Set(prev ?? []);
       if (ahoraAutorizada) s.delete(tipoId); else s.add(tipoId);

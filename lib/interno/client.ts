@@ -5,6 +5,8 @@
 import { authHeader } from '../api-client.ts';
 import type { SaludEstudio } from './salud-estudio.ts';
 import type { AccionVisita, ResumenVisita } from './visita-guiada.ts';
+import type { CambioApp } from './apps-estudio.ts';
+import type { EstadoApp } from '../app-nativa/pedir-app.ts';
 
 export class SinAcceso extends Error {
   constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso' | 'mfa-requerido', mensaje: string) {
@@ -248,6 +250,18 @@ export const fetchVisitaGuiada = () =>
 
 export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
   pedir<{ ok: true; cambiados?: number; nuevos?: boolean }>('/visita-guiada', { method: 'POST', body: JSON.stringify(cuerpo) });
+
+// Apps de estudio: la cola de «Pedir mi app» (la tramita el equipo desde /interno/apps-estudio).
+export interface AppDeEstudioInterna {
+  studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean; planIncluye: boolean;
+  bundleId: string; ascAppId: string | null; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
+  urlTienda: string | null; notaInterna: string | null;
+}
+
+export const fetchAppsEstudio = () => pedir<{ apps: AppDeEstudioInterna[]; cuposLibres: number | null }>('/apps-estudio');
+
+export const cambiarAppEstudio = (cuerpo: CambioApp) =>
+  pedir<{ ok: true }>('/apps-estudio', { method: 'POST', body: JSON.stringify(cuerpo) });
 
 // Changelog de "Actualizaciones" — antes lib/novedades.ts hardcodeado.
 export type EtiquetaCambio = 'NUEVA_FUNCIONALIDAD' | 'MEJORA' | 'RENDIMIENTO' | 'ARREGLO';

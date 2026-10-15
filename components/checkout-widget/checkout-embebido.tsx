@@ -18,6 +18,9 @@ import type { PlanTarifa } from '@/lib/types';
 import { sans, serif, radius, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { fuenteDelPago } from '@/lib/widget/fuentes-nativa';
 import { semantic } from '@/lib/portal-tokens';
+// «15,3 €», no «15.3 €»: con códigos de porcentaje los céntimos son lo normal.
+// El mismo formato que la app de la alumna (lib/student/formato.ts).
+import { euros } from '@/lib/student/formato';
 
 /**
  * El origen de Tentare, de donde el iframe de Stripe pide las letras: el que
@@ -344,7 +347,7 @@ export function CheckoutEmbebido({
         <div style={{ borderTop: `1px dashed ${t.line}` }} />
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <p style={{ fontSize: 12, color: t.muted }}>Total</p>
-          <p style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>{importeTotal ?? plan.precio} €</p>
+          <p style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>{euros(importeTotal ?? plan.precio)}</p>
         </div>
       </div>
       <Elements
@@ -647,7 +650,7 @@ function FormularioPago({
             <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
             Procesando el pago…
           </span>
-        ) : (textoBoton ?? `Pagar ${importeTotal ?? plan.precio} €`)}
+        ) : (textoBoton ?? `Pagar ${euros(importeTotal ?? plan.precio)}`)}
       </button>
       {/* Línea de confianza (pantalla 04) — candado + un hecho VERAZ (el pago
           lo procesa Stripe de verdad; nada de sellos ni "100% seguro") + la

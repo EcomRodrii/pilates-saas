@@ -10,6 +10,16 @@
    de Windows, 1440×900 de MacBook). El calendario aprieta ahí su cabecera para
    dejarle sitio a la rejilla. */
 @custom-variant escritorio-bajo (@media (min-width: 1024px) and (max-height: 900px));
+/* El panel nuevo con el dedo (el iPad de recepción): `tactil:gap-2`. La misma
+   puerta que `.zona-tactil` (ver más abajo): solo con `data-panel-nuevo` en la
+   raíz del panel y `pointer: coarse`; sin las dos, la clase no hace nada. */
+@custom-variant tactil {
+  @media (pointer: coarse) {
+    &:where(.panel-app[data-panel-nuevo] *) {
+      @slot;
+    }
+  }
+}
 
 @theme inline {
   /* Tailwind v4 no trae un breakpoint entre el base (0) y `sm` (640px) —
@@ -990,6 +1000,41 @@ html[data-vt-ampliar='reducir']::view-transition-new(panel-barra) {
   }
 }
 
+/* El panel nuevo con el dedo (el iPad de recepción, 15-oct-2026): lo que se
+   pulsa tiene 44 px de zona táctil SIN cambiar de dibujo. Medido a 768 y a 1024:
+   el ⓘ de cada cabecera era de 20 px, las píldoras de periodo de 27, los
+   botones de 32–36. Agrandarlos los habría sacado de la medida que se aprobó
+   en escritorio; aquí crece solo la zona que recibe el toque: un `::after`
+   transparente que llega a 44 en el eje que falta (y a nada en el que ya
+   llega, para no pisar al vecino de al lado).
+   · Solo con el panel nuevo (`data-panel-nuevo`, lo pone DashboardShell) y solo
+     con el dedo: el panel de siempre y el ratón no cambian ni un píxel.
+   · Es una clase y no una regla para todo `button`, como `.config-tactil`:
+     un `::after` encima de los que ya lo usan (el subrayado de `TabsTrigger`)
+     los rompería, y `position: relative` a los que van `absolute` los movería.
+     Ese `relative` va en la capa `components` para que cualquier utilidad de
+     posición (`absolute`, `sticky`…) le gane sin pensar en especificidades.
+   · Donde dos controles van más juntos que la zona que crece (los iconos de la
+     barra de arriba, las filas del menú), la pieza abre el hueco con la
+     variante `tactil:` (arriba), que tiene la misma puerta.
+   · Un contenedor con `overflow` recorta la zona: el control al borde de una
+     tarjeta así crece con `tactil:` de verdad (el «Normal» del menú).
+   Lo vigila e2e/panel-nuevo-tableta-tactil.spec.ts tocando las esquinas de la
+   zona de 44 px de cada control con `elementFromPoint`. */
+@layer components {
+  @media (pointer: coarse) {
+    .panel-app[data-panel-nuevo] .zona-tactil { position: relative; }
+  }
+}
+@media (pointer: coarse) {
+  .panel-app[data-panel-nuevo] .zona-tactil::after {
+    content: '';
+    position: absolute;
+    inset-block: min(0px, calc((100% - 44px) / 2));
+    inset-inline: min(0px, calc((100% - 44px) / 2));
+  }
+}
+
 /* Configuración se DISTINGUE. «Es un poco horrible por la diferencia de colores,
    no se distingue muy bien» (el fundador), y con números: tarjeta contra fondo
    1,16:1, borde de campo 1,24:1. Medido antes y después en
@@ -1019,8 +1064,10 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo
    (sheet-pop-out, drawer-*-out): cerrar debe sentirse inmediato. */
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
-@keyframes toast-out { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 4px) scale(.98); } }
+/* Solo vertical: el toast se centra con márgenes (`inset-x-4 mx-auto`), no con
+   `translate(-50%)` — con él, en móvil el texto se quedaba en media pantalla. */
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(4px) scale(.98); } }
 .toast-in { animation: toast-in var(--motion-medium) var(--motion-ease) both; }
 .toast-out { animation: toast-out var(--motion-fast) var(--motion-ease-in) both; }
 
@@ -1509,3 +1556,21 @@ canvas[data-tenti].tenti-entra {
   .asistente-cursor, .asistente-brillo { animation: none; }
   .asistente-brillo { color: var(--muted-foreground); background: none; }
 }
+
+/* HuellaDeCreacion (P2.3, doc 07 §6): las clases recién creadas se señalan con
+   un fondo de la marca que se apaga en 1,2 s (components/calendario/
+   huella-de-creacion.ts pone y quita la clase). Sombra interior y no
+   `background`: la tarjeta de clase ya pinta el suyo y lo taparía. Con
+   «reducir movimiento», un borde quieto el mismo tiempo, sin animación. */
+@keyframes huella-creacion {
+  from { box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--brand) 28%, transparent), 0 0 0 2px var(--ring); }
+  to { box-shadow: inset 0 0 0 999px transparent, 0 0 0 2px transparent; }
+}
+/* 300 ms de espera: el desplazamiento suave hasta la clase va primero. */
+.huella-creacion { animation: huella-creacion 1.2s ease-out 300ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .huella-creacion { animation: none !important; box-shadow: 0 0 0 2px var(--ring); }
+}
+
+/* Panel nuevo: Widgets esconde «Primeros pasos» mientras enseña la vista previa (constructor-widgets.tsx). */
+body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !important; }

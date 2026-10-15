@@ -25,16 +25,16 @@ export const metadata: Metadata = {
 // inventada. Hasta el 23-sep esta tabla decía «contrato anual» y «vía ERP
 // externo» de bsport sin que su web lo diga en ningún sitio.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['no', 'No publica cifras: hay que pedir presupuesto'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras: hay que pedir presupuesto'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma desde el plan Estudio'], them: ['yes', 'Sustituciones automáticas, según su web'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en todos los planes'], them: ['yes', 'Sustituciones automáticas, según su web'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App propia, en los planes superiores'] },
   { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de concentración'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (pro.bsport.io/pricing, /studios/multilocations-franchises y su
   // centro de ayuda en intercom.help/bsport-helpcenter, revisados el 29-sep-2026):
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'Su centro de ayuda distingue el aforo del establecimiento de la capacidad por sesión, pero no confirma un aforo propio por sala dentro del mismo local'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['yes', 'Al crear cada tipo de cita se fija la antelación de cancelación gratuita y el plazo límite para reservar, según su centro de ayuda'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No ofrece prueba de autoservicio; su web de precios habla de un «periodo inicial gratuito» integrado en el contrato para estudios nuevos'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No ofrece prueba de autoservicio; su web de precios habla de un «periodo inicial gratuito» integrado en el contrato para estudios nuevos'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['yes', 'Un solo panel para varias sedes o franquicias («one platform for every growth model»), con plan Scale a medida y sin precio público'] },
 ];
 
@@ -44,7 +44,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta bsport?',
-    a: 'bsport no publica precios en su web: ofrece varios planes (con funciones distintas, como la app propia en los superiores) y hay que pedir un presupuesto para saber la cifra. Tentare publica los suyos: Founding Studio 29 €/mes, con la app con tu marca incluida, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, con 7 días de prueba gratis sin tarjeta.',
+    a: 'bsport no publica precios en su web: ofrece varios planes (con funciones distintas, como la app propia en los superiores) y hay que pedir un presupuesto para saber la cifra. Tentare publica los suyos: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), con la app con tu marca incluida, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Qué alternativas a bsport hay para un estudio de Pilates en España?',
@@ -68,7 +68,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'No lo publica: hay que pedir presupuesto',
   permanencia: 'No consta en su web pública',
   prueba: 'Sin prueba por tu cuenta; habla de un periodo inicial gratuito dentro del contrato',
-  respuesta: <>bsport está pensado para estudios boutique y cadenas, pero no publica sus precios: para saber cuánto pagarías tienes que pedir presupuesto, y su web no aclara la permanencia. Si tienes un estudio de Pilates o yoga en España y quieres saber lo que pagas antes de hablar con nadie, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días para probarlo sin tarjeta.</>,
+  respuesta: <>bsport está pensado para estudios boutique y cadenas, pero no publica sus precios: para saber cuánto pagarías tienes que pedir presupuesto, y su web no aclara la permanencia. Si tienes un estudio de Pilates o yoga en España y quieres saber lo que pagas antes de hablar con nadie, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -78,7 +78,7 @@ const ANALISIS: SeccionAnalisis[] = [
       <>
         <p>bsport no publica cifras. Su página de precios describe varios planes con funciones distintas —la app propia del estudio, por ejemplo, va en los superiores— y para conocer el precio hay que pedir una propuesta. Para varias sedes o franquicias tiene un plan a medida, también sin precio público.</p>
         <p>En la práctica, eso significa que no puedes comparar sin pasar antes por una llamada comercial. Si estás valorándolo, pide por escrito tres cosas: la cuota mensual con IVA, la duración mínima del contrato y lo que cuesta darse de baja.</p>
-        <p>En Tentare los tres planes están en la web: Founding Studio a 29 €/mes (hasta 150 alumnas activas, con la app con tu marca), Estudio a 59 €/mes y Cadena a 149 €/mes, todos con IVA y sin permanencia. <Link href="/precios">Qué incluye cada plan</Link>.</p>
+        <p>En Tentare los tres planes están en la web: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes, 29 €/mes si pasas de ahí, y con la app con tu marca), Estudio a 59 €/mes y Cadena a 149 €/mes, IVA incluido y sin permanencia. <Link href="/precios">Qué incluye cada plan</Link>.</p>
       </>
     ),
   },
@@ -112,7 +112,7 @@ export default function TentareVsBsportPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de bsport.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Empieza gratis, sin tarjeta, y te traemos tus datos de bsport.</>}
       footnote="Basado en la información pública de bsport (pro.bsport.io) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

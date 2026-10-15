@@ -25,6 +25,7 @@ import { inputCls, btnPrimary, btnSecondary, Field, Toggle } from '@/components/
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useCajonAjuste } from '@/components/configuracion/shell/cajon-ajuste';
 import { useNavegacionConfig } from '@/components/configuracion/shell/contexto';
+import type { MostrarToast } from '@/components/ui/toast';
 
 const TIPOS_RESPUESTA: { id: PlantillaCuestionarioSalud['tipoRespuesta']; label: string }[] = [
   { id: 'texto',              label: 'Texto libre' },
@@ -36,7 +37,7 @@ const TIPOS_RESPUESTA: { id: PlantillaCuestionarioSalud['tipoRespuesta']; label:
 type PreguntaForm = { pregunta: string; tipoRespuesta: PlantillaCuestionarioSalud['tipoRespuesta']; opciones: string };
 const emptyForm = (): PreguntaForm => ({ pregunta: '', tipoRespuesta: 'texto', opciones: '' });
 
-export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => void }) {
+export function TabCuestionarioSalud({ showToast }: { showToast: MostrarToast }) {
   const { plantillasCuestionarioSalud, addPlantillaCuestionarioSalud, updatePlantillaCuestionarioSalud, deletePlantillaCuestionarioSalud } = useStudio();
   const rol = useRol();
   const puedeGestionar = rol === 'PROPIETARIO';
@@ -83,7 +84,7 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
             pregunta, tipoRespuesta: form.tipoRespuesta, opciones,
             orden: ordenadas.length ? Math.max(...ordenadas.map(p => p.orden)) + 1 : 0, activo: true,
           });
-      if (!res.ok) { showToast(res.error); return; }
+      if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
       showToast(editId ? 'Pregunta actualizada' : 'Pregunta añadida');
       setForm(emptyForm());
       setEditId(null);
@@ -106,7 +107,7 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
       updatePlantillaCuestionarioSalud(a.id, { orden: b.orden }),
       updatePlantillaCuestionarioSalud(b.id, { orden: a.orden }),
     ]);
-    if (!r1.ok) showToast(r1.error); else if (!r2.ok) showToast(r2.error);
+    if (!r1.ok) showToast(r1.error, { variant: 'error' }); else if (!r2.ok) showToast(r2.error, { variant: 'error' });
   }
 
   return (
@@ -175,7 +176,7 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
                 </div>
                 {puedeGestionar && (
                   <>
-                    <Toggle on={p.activo} ariaLabel={`Activa: ${p.pregunta}`} onChange={async v => { const res = await updatePlantillaCuestionarioSalud(p.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
+                    <Toggle on={p.activo} ariaLabel={`Activa: ${p.pregunta}`} onChange={async v => { const res = await updatePlantillaCuestionarioSalud(p.id, { activo: v }); if (!res.ok) showToast(res.error, { variant: 'error' }); }} />
                     <button type="button" onClick={() => editar(p)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={`Editar ${p.pregunta}`}>
                       <Pencil size={14} aria-hidden />
                     </button>
@@ -200,7 +201,8 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
         onConfirm={async () => {
           if (confirmDel) {
             const res = await deletePlantillaCuestionarioSalud(confirmDel);
-            showToast(res.ok ? 'Pregunta eliminada' : res.error);
+            if (res.ok) showToast('Pregunta eliminada');
+            else showToast(res.error, { variant: 'error' });
           }
           setConfirmDel(null);
         }}

@@ -27,12 +27,12 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
   // Ejes añadidos el 29-sep-2026 (gesyoga.com y
   // gesyoga.com/funcionalidades-software-gestion-yoga/, revisadas esa fecha).
   { feature: 'Aforo por sala o aparato individual', tentare: ['yes', 'Capacidad por reformer, no solo un número de aforo'], them: ['partial', '«Asignación de sala según la capacidad que requiere cada clase», según su web; no consta a nivel de aparato individual'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima/máxima y lista de espera propias por tipo de clase'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta'], them: ['yes', '30 días, sin tarjeta, según su web'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['yes', '30 días, sin tarjeta, según su web'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Con una sola suscripción (plan Cadena)'], them: ['partial', 'El plan Enterprise menciona «múltiples sedes»; no consta si es un panel único con una sola suscripción'] },
 ];
 
@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta GesYoga?',
-    a: 'Según su web, Personal 12 €/mes (o 120 €/año), Profesional 45 €/mes (450 €/año) y Enterprise 65 €/mes (654 €/año), con IVA no incluido y 30 días de prueba sin tarjeta. Tentare: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido, con 7 días de prueba.',
+    a: 'Según su web, Personal 12 €/mes (o 120 €/año), Profesional 45 €/mes (450 €/año) y Enterprise 65 €/mes (654 €/año), con IVA no incluido y 30 días de prueba sin tarjeta. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -54,7 +54,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'De 12 a 65 €/mes + IVA según el plan',
   permanencia: 'No consta en su web pública',
   destacado: { etiqueta: 'Elegir reformer', suyo: 'No consta: asigna sala según la capacidad de la clase', nuestro: 'Sí: cada alumna elige su máquina' },
-  respuesta: <>GesYoga es un software de gestión para estudios de yoga y pilates con planes desde 12 €/mes sin IVA. Para un estudio de Pilates con reformers, la diferencia está en lo que hace solo: plaza por máquina, plazas fijas, cobros que se reintentan y sustituciones de instructoras. Eso es Tentare: desde 29 €/mes con IVA y sin permanencia.</>,
+  respuesta: <>GesYoga es un software de gestión para estudios de yoga y pilates con planes desde 12 €/mes sin IVA. Para un estudio de Pilates con reformers, la diferencia está en lo que hace solo: plaza por máquina, plazas fijas, cobros que se reintentan y sustituciones de instructoras. Eso es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -79,7 +79,7 @@ export default function TentareVsGesYogaPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público y sin permanencia. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de GesYoga.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público y sin permanencia. Empieza gratis, sin tarjeta, y te traemos tus datos de GesYoga.</>}
       footnote="Basado en la información pública de GesYoga (gesyoga.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

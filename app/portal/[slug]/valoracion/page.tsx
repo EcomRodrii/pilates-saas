@@ -138,7 +138,7 @@ export default function ValoracionPage() {
     // El guardado va en segundo plano: bloquear el paso siguiente por una
     // petición de red convertiría nueve pasos en nueve esperas.
     const r = await guardarBorrador(estudio.id, v);
-    if ('error' in r) toast('No hemos podido guardar este paso. Lo reintentaremos al continuar.');
+    if ('error' in r) toast('No hemos podido guardar este paso. Lo reintentaremos al continuar.', { variant: 'error' });
   };
 
   const retroceder = () => {

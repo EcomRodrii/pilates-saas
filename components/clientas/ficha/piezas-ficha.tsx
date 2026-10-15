@@ -10,6 +10,11 @@ import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import type { EventoHistoria, ItemHistoria } from '@/lib/clientas/historia';
 import type { AvisoClienta } from '@/lib/clientas/avisos';
 import { fechaCorta } from '@/lib/clientas/textos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_VIVO, TONOS, type Tono } from '@/components/dashboard/vivo';
+
+// Panel nuevo: el icono de cada dato de la cabecera en su baldosa, en este orden.
+const TONOS_CELDAS: Tono[] = ['magenta', 'azul', 'indigo', 'verde'];
 
 // Piezas de la ficha de una clienta (components/clientas/ficha-clienta.tsx).
 // Solo pintan: los datos y lo que se puede hacer llegan ya decididos (permisos
@@ -51,8 +56,9 @@ export function CabeceraFicha({
   /** En el panel junto a la lista o en el móvil: datos en dos columnas. */
   estrecha?: boolean;
 }) {
+  const panelNuevo = usePanelNuevo();
   return (
-    <section aria-label="Quién es" className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+    <section aria-label="Quién es" className={cn('relative overflow-hidden border border-border bg-card', panelNuevo ? 'rounded-t-card shadow-t-card' : 'rounded-2xl shadow-xs')}>
       <div className={cn('flex flex-col gap-4 p-4 sm:p-5', !estrecha && 'md:flex-row md:items-start')}>
         {/* En el móvil el «⋯» va en la esquina: así los tres botones grandes caben enteros. */}
         <div className={cn('flex min-w-0 flex-1 items-start gap-3.5 sm:gap-4', !estrecha && menu.length > 0 && 'pr-10 md:pr-0')}>
@@ -72,7 +78,7 @@ export function CabeceraFicha({
                 <div className="absolute right-2.5 top-2.5 md:static">
                   <MenuAcciones
                     acciones={menu}
-                    claseBoton="flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground md:h-full md:min-h-10 md:w-10 md:rounded-xl md:border md:border-border md:bg-card md:text-foreground"
+                    claseBoton="zona-tactil flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground md:h-full md:min-h-10 md:w-10 md:rounded-xl md:border md:border-border md:bg-card md:text-foreground"
                   />
                 </div>
               )
@@ -85,10 +91,15 @@ export function CabeceraFicha({
             const contenido = (
               <>
                 <dt className="flex items-center gap-1.5 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <c.icono size={13} aria-hidden />{c.etiqueta}
+                  {panelNuevo ? (
+                    <span className="mr-0.5 flex size-6 shrink-0 items-center justify-center rounded-[7px]" style={{ backgroundColor: TONOS[TONOS_CELDAS[i % 4]], color: 'var(--card)' }} aria-hidden>
+                      <c.icono size={13} strokeWidth={2.2} />
+                    </span>
+                  ) : <c.icono size={13} aria-hidden />}
+                  {c.etiqueta}
                 </dt>
                 <dd className={cn(
-                  'mt-0.5 text-[13.5px] font-medium text-pretty',
+                  panelNuevo ? 'mt-1.5 text-[15px] font-semibold text-pretty' : 'mt-0.5 text-[13.5px] font-medium text-pretty',
                   c.tono === 'problema' ? 'text-destructive' : c.tono === 'aviso' ? 'text-warning' : 'text-foreground',
                 )}>
                   {c.valor}
@@ -121,7 +132,7 @@ export function CabeceraFicha({
             return (
               <li key={i} className="text-[12.5px] text-foreground">
                 {a.onClick
-                  ? <button type="button" onClick={a.onClick} className="inline-flex items-start gap-1.5 text-left hover:underline underline-offset-2">{contenido}</button>
+                  ? <button type="button" onClick={a.onClick} className="zona-tactil inline-flex items-start gap-1.5 text-left hover:underline underline-offset-2">{contenido}</button>
                   : <span className="inline-flex items-start gap-1.5">{contenido}</span>}
               </li>
             );
@@ -136,11 +147,19 @@ export function CabeceraFicha({
 export function AccionGrande({ icono: Icono, children, href, externo, onClick, primaria, disabled, title }: {
   icono: LucideIcon; children: ReactNode; href?: string | null; externo?: boolean; onClick?: () => void; primaria?: boolean; disabled?: boolean; title?: string;
 }) {
-  const cls = cn(
-    'inline-flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border px-3 text-[12.5px] font-semibold transition-colors md:min-h-10 md:flex-row md:gap-1.5 md:text-[13.5px]',
-    primaria ? 'border-transparent bg-primary text-primary-foreground hover:brightness-95' : 'border-border bg-card text-foreground hover:bg-muted',
-    disabled && 'pointer-events-none opacity-45',
-  );
+  const panelNuevo = usePanelNuevo();
+  const cls = panelNuevo
+    // Panel nuevo: redondos, y la principal con el degradado, como la cabecera de cada sección.
+    ? cn(
+      'zona-tactil inline-flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 text-[12.5px] font-semibold md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-4 md:text-[13.5px]',
+      primaria ? BOTON_VIVO : 'border border-border bg-card text-foreground transition-colors hover:bg-muted',
+      disabled && 'pointer-events-none opacity-45',
+    )
+    : cn(
+      'inline-flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border px-3 text-[12.5px] font-semibold transition-colors md:min-h-10 md:flex-row md:gap-1.5 md:text-[13.5px]',
+      primaria ? 'border-transparent bg-primary text-primary-foreground hover:brightness-95' : 'border-border bg-card text-foreground hover:bg-muted',
+      disabled && 'pointer-events-none opacity-45',
+    );
   if (href && !disabled) {
     return <a href={href} target={externo ? '_blank' : undefined} rel={externo ? 'noopener noreferrer' : undefined} onClick={onClick} className={cls} title={title}><Icono size={17} aria-hidden />{children}</a>;
   }
@@ -271,14 +290,16 @@ export function LineaHistoria({ items, hoyISO, vacio, accion }: {
 // ─── Constancia ──────────────────────────────────────────────────────────────
 
 export function BarrasConstancia({ semanas }: { semanas: number[] }) {
+  const panelNuevo = usePanelNuevo();
   const max = Math.max(2, ...semanas);
   return (
     <div className="flex h-12 items-end gap-1.5" role="img" aria-label={`Clases por semana, de hace ${semanas.length - 1} semanas a esta: ${semanas.join(', ')}`}>
       {semanas.map((n, i) => (
         <span
           key={i}
-          className={cn('flex-1 rounded-t-[3px]', n === 0 ? 'h-[3px] rounded-[3px] bg-border' : 'bg-brand/80', i === semanas.length - 1 && n > 0 && 'bg-brand')}
-          style={n > 0 ? { height: `${Math.max(18, (n / max) * 100)}%` } : undefined}
+          className={cn('flex-1 rounded-t-[3px]', n === 0 ? 'h-[3px] rounded-[3px] bg-border' : !panelNuevo && 'bg-brand/80', !panelNuevo && i === semanas.length - 1 && n > 0 && 'bg-brand')}
+          // Panel nuevo: azul, y esta semana en magenta, como las gráficas de la home.
+          style={n > 0 ? { height: `${Math.max(18, (n / max) * 100)}%`, ...(panelNuevo ? { backgroundColor: i === semanas.length - 1 ? 'var(--t-magenta-500)' : 'var(--t-blue-500)' } : {}) } : undefined}
           title={`${n} ${n === 1 ? 'clase' : 'clases'}`}
         />
       ))}

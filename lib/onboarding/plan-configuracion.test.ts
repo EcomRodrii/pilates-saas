@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   planificarConfiguracion, planVacio, colorPorIndice, TIPOS_CLASE_SUGERIDOS, OPCIONES_IMPARTE,
   interpretarRespuestasWizard, OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION,
+  faseDeConfigurar, montadoTrasConfigurar,
 } from './plan-configuracion.ts';
 
 test('el caso del enunciado: 2 salas, aforo 8, clases de 50 min', () => {
@@ -297,4 +298,46 @@ test('un borrador antiguo con un solo aforo sigue valiendo para todas', () => {
 test('«Yoga» y «Taller» son planificables como cualquier otro tipo', () => {
   const p = planificarConfiguracion({ duracionMinutos: 50, tiposClase: ['Yoga', 'Taller'] });
   assert.deepEqual(p.tiposClase.map((t) => t.nombre), ['Yoga', 'Taller']);
+});
+
+// ─── El evento que cierra el asistente ───────────────────────────────────────
+
+test('solo la llamada final cierra el embudo; sin fase, también final', () => {
+  assert.equal(faseDeConfigurar({ fase: 'parcial', numSalas: 1 }), 'parcial');
+  assert.equal(faseDeConfigurar({ fase: 'final' }), 'final');
+  assert.equal(faseDeConfigurar({ numSalas: 1 }), 'final');
+  assert.equal(faseDeConfigurar(null), 'final');
+  // Lista cerrada: cualquier otra cosa del cliente no apaga el evento.
+  assert.equal(faseDeConfigurar({ fase: 'PARCIAL' }), 'final');
+  assert.equal(faseDeConfigurar({ fase: 1 }), 'final');
+});
+
+test('cuenta lo que quedó montado, aunque lo creara la llamada parcial de antes', () => {
+  // El caso del bug: la pantalla «espacio» ya creó salas y clases, así que la
+  // llamada final no crea ninguna. Antes el evento decía «0 tipos de clase».
+  const plan = planificarConfiguracion({
+    numSalas: 2, aforosPorSala: [8], duracionMinutos: 50,
+    tiposClase: ['Reformer', 'Mat'], usaBonos: true, imparteClases: true,
+    horaApertura: '07:00:00', horaCierre: '21:00:00',
+  });
+  const m = montadoTrasConfigurar(plan, {
+    instructora: true, horario: { apertura: '07:00:00', cierre: '21:00:00' },
+  });
+  assert.deepEqual(m, { salas: 2, tipos_clase: 2, planes: 1, instructora: true, horario: true });
+});
+
+test('la franja solo cuenta si el estudio tiene la que pidió (una puesta a mano no)', () => {
+  const plan = planificarConfiguracion({ horaApertura: '07:00:00', horaCierre: '21:00:00' });
+  assert.equal(montadoTrasConfigurar(plan, { instructora: false, horario: { apertura: '09:00:00', cierre: '20:00:00' } }).horario, false);
+  assert.equal(montadoTrasConfigurar(plan, { instructora: false, horario: null }).horario, false);
+  const sinFranja = planificarConfiguracion({ numSalas: 1, aforosPorSala: [6] });
+  assert.equal(montadoTrasConfigurar(sinFranja, { instructora: false, horario: { apertura: '08:00:00', cierre: '22:00:00' } }).horario, false);
+});
+
+test('la ficha de instructora solo cuenta si la pidió y existe', () => {
+  const pide = planificarConfiguracion({ imparteClases: true });
+  assert.equal(montadoTrasConfigurar(pide, { instructora: true, horario: null }).instructora, true);
+  assert.equal(montadoTrasConfigurar(pide, { instructora: false, horario: null }).instructora, false);
+  const noPide = planificarConfiguracion({ imparteClases: false, numSalas: 1, aforosPorSala: [6] });
+  assert.equal(montadoTrasConfigurar(noPide, { instructora: true, horario: null }).instructora, false);
 });

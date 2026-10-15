@@ -53,6 +53,25 @@ const CABECERA_SENSIBLE = new RegExp([
 // Valores que, aunque la columna no lo avise, nombran una condición de salud.
 const VALOR_SALUD = /lesion|embaraz|postparto|diastasis|hernia|lumbal|cervical|escoliosis|cirugi|operad|protesis|diabet|hipertens|asma|artrosis|artritis|osteopor|fibromialg|ansiedad|depres|cancer|alergi|medic|dolor|injur|pregnan/;
 
+// Cabeceras de SALUD (subconjunto de las sensibles; sin «condición», que en una
+// hoja suele ser «Condiciones aceptadas»).
+const CABECERA_SALUD = /salud|health|lesion|injur|medic|alergi|allerg|patolog|embaraz|pregnan|diagnos/;
+
+/**
+ * ¿Esta columna parece de salud? Por su título, o porque al menos dos de sus
+ * valores (y uno de cada diez) nombran una condición. Para AVISAR, nunca para
+ * decidir nada: lo usa el importador al pegar (`lib/importar-pegando.ts`).
+ * «Dolores» es un nombre, no un dolor: no cuenta.
+ */
+export function columnaPareceDeSalud(cabecera: string, valores: string[]): boolean {
+  if (CABECERA_SALUD.test(normalizar(cabecera))) return true;
+  const llenos = valores.filter(v => v.trim() !== '');
+  if (llenos.length === 0) return false;
+  // Un correo no es una condición («mariadolores@…»), y «Dolores»/«Dolors» son nombres.
+  const n = llenos.filter(v => !v.includes('@') && VALOR_SALUD.test(normalizar(v).replace(/\bdolor(?:e)?s\b/g, ''))).length;
+  return n >= 2 && n / llenos.length >= 0.1;
+}
+
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RE_URL = /^(https?:\/\/|www\.)/i;
 const RE_IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i;

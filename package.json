@@ -23,6 +23,7 @@
     "cap:sync": "node scripts/identidad-ios.mjs && cap sync ios",
     "cap:open": "cap open ios",
     "iconos:ios": "node scripts/iconos-ios.mjs",
+    "app:estudio": "node scripts/app-estudio.mjs",
     "demo:grabar": "node --experimental-strip-types demo/grabar.ts",
     "demo:montar": "node demo/montar.mjs --escribir-indice"
   },
@@ -81,6 +82,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@capacitor/cli": "^8.5.2",
     "@playwright/test": "^1.61.1",
     "@react-email/ui": "^6.9.2",

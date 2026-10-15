@@ -47,7 +47,7 @@ function miembroCompletoDe(i: Record<string, unknown>) {
 }
 
 /** `invitaciones` recoge cada POST a /api/equipo/invitar: si está vacío, no ha salido ningún correo. */
-async function montarEquipo(page: Page, instructores: unknown[] = [MARTA]) {
+async function montarEquipo(page: Page, instructores: unknown[] = [MARTA], o: { whatsapp?: boolean } = {}) {
   const invitaciones: string[] = [];
   const altas: string[] = [];
 
@@ -90,6 +90,9 @@ async function montarEquipo(page: Page, instructores: unknown[] = [MARTA]) {
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/instructores**', route => json(route, instructores));
+  if (o.whatsapp) {
+    await page.route('**/api/estudio/interruptores**', route => json(route, { filtrosClientas: false, invitarWhatsApp: true }));
+  }
 
   await page.goto('/equipo');
   return { invitaciones, altas };
@@ -146,6 +149,25 @@ test.describe('Invitación al equipo', () => {
     await expect.poll(() => invitaciones.length).toBe(1);
     expect(invitaciones[0]).toContain('ins-marta');
     await expect(page.getByText(/invitación enviada a/i)).toBeVisible();
+  });
+
+  test('si la invitación no sale, se dice en rojo, nunca con el ✓ del éxito', async ({ page }) => {
+    await montarEquipo(page);
+    // Gana la ruta registrada después. Con contador: «no dijo que se envió»
+    // podría ser verdad por no haberlo intentado.
+    const intentos: string[] = [];
+    await page.route('**/api/equipo/invitar**', route => {
+      intentos.push(route.request().postData() ?? '');
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'No hemos podido mandar el correo de invitación. Inténtalo en un rato.' }) });
+    });
+    await expect(page.getByText('Todavía sin acceso').first()).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Enviar invitación' }).first().click();
+
+    await expect.poll(() => intentos.length).toBeGreaterThan(0);
+    await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido mandar el correo de invitación' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'No hemos podido mandar' })).toHaveCount(0);
+    await expect(page.getByText(/invitación enviada a/i)).toHaveCount(0);
   });
 });
 
@@ -360,5 +382,63 @@ test.describe('Eliminar definitivamente a alguien del equipo', () => {
     expect(JSON.parse(llamadas[0])).toEqual({ instructorId: 'ins-eliminada' });
     await expect(page.getByText('Listo: ya no queda nada por borrar de esta persona')).toBeVisible();
     await expect(dialogo).toHaveCount(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// «Avisar por WhatsApp» (P3.14, opción B), apagado tras EQUIPO_INVITAR_WHATSAPP.
+// El WhatsApp NUNCA lleva el enlace de invitación (un número mal tecleado o un
+// reenvío a un grupo lo dejaría en otras manos): a una instructora le dice que
+// entre en la app con su correo y elija «Como instructora»; a gerencia o
+// recepción, solo «mira tu correo», y solo tras habérsela mandado.
+// ────────────────────────────────────────────────────────────────────────────
+
+const LUCIA_GERENCIA = {
+  id: 'ins-lucia', studio_id: STUDIO_ID, nombre: 'Lucía Pérez', email: 'lucia.gerencia@example.com',
+  telefono: '611 22 33 44', color: '#222', activo: true, rol: 'MANAGER',
+  avatar: null, foto_url: null, auth_user_id: null,
+};
+
+test.describe('Avisar por WhatsApp a quien está sin acceso', () => {
+  test('apagado: la tarjeta es la de siempre', async ({ page }) => {
+    await montarEquipo(page, [{ ...MARTA, telefono: '612 34 56 78' }]);
+    await expect(page.getByText('Todavía sin acceso').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Avisar por WhatsApp' })).toHaveCount(0);
+  });
+
+  test('a una instructora: la app del estudio y qué pulsar, con el +34 y SIN enlace de invitación', async ({ page }) => {
+    const { invitaciones } = await montarEquipo(page, [{ ...MARTA, telefono: '612 34 56 78' }], { whatsapp: true });
+    const enlace = page.getByRole('link', { name: 'Avisar por WhatsApp' });
+    await expect(enlace).toBeVisible({ timeout: 30_000 });
+    const href = (await enlace.getAttribute('href'))!;
+    expect(href).toMatch(/^https:\/\/wa\.me\/34612345678\?text=/);
+    const texto = decodeURIComponent(href.split('?text=')[1]);
+    expect(texto).toContain('te he dado acceso a Studio Carmen en Tentare');
+    expect(texto).toContain('«Como instructora»');
+    expect(texto).toContain('/portal/studio-carmen/acceso/elegir');
+    expect(texto).toContain('ma•••@example.com');
+    expect(texto).not.toContain('marta@example.com');
+    expect(href).not.toMatch(/token|invitacion/i);
+    await expect(enlace).toHaveAttribute('target', '_blank');
+    // Avisar por WhatsApp no manda ningún correo.
+    expect(invitaciones).toHaveLength(0);
+  });
+
+  test('a gerencia: nada hasta mandarle la invitación por correo; después, «mira tu correo», sin enlaces', async ({ page }) => {
+    const { invitaciones } = await montarEquipo(page, [LUCIA_GERENCIA], { whatsapp: true });
+    await expect(page.getByText('Todavía sin acceso').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Avisar por WhatsApp' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Enviar invitación' }).first().click();
+    await expect.poll(() => invitaciones.length).toBe(1);
+
+    const enlace = page.getByRole('link', { name: 'Avisar por WhatsApp' });
+    await expect(enlace).toBeVisible();
+    const href = (await enlace.getAttribute('href'))!;
+    expect(href).toMatch(/^https:\/\/wa\.me\/34611223344\?text=/);
+    const texto = decodeURIComponent(href.split('?text=')[1]);
+    expect(texto).toContain('te acabo de mandar a lu•••@example.com la invitación');
+    expect(texto).not.toMatch(/https?:\/\//);
+    expect(href).not.toMatch(/token|invitacion%3F/i);
   });
 });

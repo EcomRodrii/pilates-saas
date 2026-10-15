@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import {
@@ -8,14 +8,18 @@ import {
   Play, ChevronRight, Loader2,
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
+  UserX, UserPlus, Repeat, BadgeCheck, Cake, ArrowDown, ListOrdered, Ticket, RefreshCw, Star,
 } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { PageHeader } from '@/components/ui/page-header';
+import { Baldosa, CabeceraTarjeta, PantallaVacia, Pildoras, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
-import { aprobarCobroAutonomo, enviarPruebaAutomatizacion } from '@/lib/api-client';
+import { aprobarCobroAutonomo, enviarPruebaAutomatizacion, pedirAutomatizacionesDisponibles, type AlcanceCumpleCliente } from '@/lib/api-client';
 import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
 import { registrosDeHoy, saludoDelEstudio } from '@/lib/automatizaciones-hoy';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { useRol } from '@/lib/permisos';
@@ -82,6 +86,7 @@ const triggerLabels: Record<string, string> = {
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
   CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
+  CUMPLEANOS:          'Cumpleaños',
 };
 
 // Punto de partida opcional (botón "Cargar reglas sugeridas"). Nacen todas con
@@ -123,6 +128,16 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
   },
 ];
 
+// P3.10 · Regla OPCIONAL: solo se ofrece donde el servidor la tiene encendida
+// para el estudio (`/api/automatizaciones/disponibles`), y el motor lo vuelve a
+// mirar antes de mandar nada. No va en REGLAS_SUGERIDAS: «Añadir estas reglas»
+// no puede crear una regla que este estudio no tiene. Nace apagada, como todas.
+const REGLA_CUMPLEANOS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'> = {
+  nombre: 'Felicitar el cumpleaños',
+  descripcion: 'El día de su cumpleaños le manda un correo de felicitación en nombre de tu estudio. Solo a quien tiene guardada su fecha de nacimiento, es mayor de edad y ha aceptado recibir novedades de tu estudio. No regala ni descuenta nada.',
+  icono: '🎂', trigger: 'CUMPLEANOS', condicion: {}, pasos: [], activa: false,
+};
+
 // Triggers cuyas acciones mandan un mensaje a la CLIENTA sin pasar por la
 // bandeja de aprobación (ver lib/engines/automation-engine.ts). Que nazcan
 // desactivadas evita encenderlas sin querer, pero encender sigue siendo un
@@ -135,6 +150,7 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
   'CLASE_MANANA',
   'NUEVA_SOCIA',
   'RENOVACION_COBRADA',
+  'CUMPLEANOS',
 ]);
 
 // ─── Lo que Tentare hace de serie ─────────────────────────────────────────────
@@ -179,6 +195,21 @@ function HechoPorTentare() {
 }
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
+
+/** Lo de hoy: acciones, fallidas y lo que espera tu visto bueno (la cifra de la bandeja). */
+function useResumenDeHoy(logs: AutomationLog[]) {
+  // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
+  const ahora = new Date();
+  const todayLogs = registrosDeHoy(logs, ahora);
+  const pendingAdmin = logs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
+  const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
+  const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
+  const rol = useRol();
+  const enBandeja = useConteoDecidir('automatizacionesEsperando');
+  const esperandoEnBandeja = puedeGestionarAutomatizaciones(rol) ? enBandeja : null;
+  const esperando = esperandoEnBandeja ?? pendingAdmin.length;
+  return { ejecutadas, fallidas, esperando };
+}
 
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
@@ -324,6 +355,10 @@ function pasosDeRegla(rule: AutomationRule): PasoVisible[] {
       return [
         { accion: 'ENVIAR_EMAIL', cuando: `Confirma cada renovación cobrada, con un detalle extra cada ${n('hitoMeses', 6)} meses de antigüedad` },
       ];
+    case 'CUMPLEANOS':
+      return [
+        { accion: 'ENVIAR_EMAIL', cuando: 'El día de su cumpleaños, por la mañana. Una vez al año' },
+      ];
     default:
       return [];
   }
@@ -335,6 +370,9 @@ function RuleCard({
   rule,
   onToggle,
   soloLectura = false,
+  textoAnadir = 'Añadir las reglas sugeridas para poder activar',
+  tituloAnadir = 'Añádelas primero para poder encenderla',
+  idInterruptor,
 }: {
   rule: AutomationRule;
   onToggle: () => void;
@@ -342,6 +380,11 @@ function RuleCard({
    *  datos. Se puede leer y desplegar sus pasos; el interruptor invita a
    *  añadirlas en vez de fingir que ya se pueden encender. */
   soloLectura?: boolean;
+  /** Qué hace el interruptor de una vista previa: no todas se añaden con «las sugeridas». */
+  textoAnadir?: string;
+  tituloAnadir?: string;
+  /** Para poder devolverle el foco al interruptor (tras añadir la regla). */
+  idInterruptor?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
@@ -403,12 +446,13 @@ function RuleCard({
           <button
             type="button"
             role="switch"
+            id={idInterruptor}
             aria-checked={soloLectura ? false : rule.activa}
             aria-label={soloLectura
-              ? `Añadir las reglas sugeridas para poder activar ${rule.nombre}`
+              ? `${textoAnadir} ${rule.nombre}`
               : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
             title={soloLectura
-              ? 'Añádelas primero para poder encenderla'
+              ? tituloAnadir
               : rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
             onClick={onToggle}
             className="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors"
@@ -463,6 +507,7 @@ function RuleCard({
                   <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
                 ))}
               </div>
+
             </div>
           )}
         </div>
@@ -579,6 +624,12 @@ function EditorMensaje({ rule, def, soloLectura }: {
               </span>
             ))}
           </p>
+          {rule.trigger === 'CUMPLEANOS' && (
+            <p className="text-[11px] text-muted-foreground">
+              Este correo no regala ni descuenta nada. Si en el texto prometes algo (una clase, un
+              descuento), tendrás que dárselo tú en el estudio: Tentare no lo aplica.
+            </p>
+          )}
           {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
           <div className="flex gap-2">
             <button
@@ -718,6 +769,278 @@ function LogItem({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// La confirmación de «Felicitar el cumpleaños» con la cifra de verdad: la
+// cuenta el servidor con las mismas condiciones que el motor (fecha, mayoría de
+// edad, consentimiento vigente y email). El panel no tiene ni el año de
+// nacimiento ni el texto del consentimiento para contarlo él.
+function AlcanceDelCumple({ alcance }: { alcance: AlcanceCumpleCliente | null }) {
+  // «Clientas» a secas y no «activas»: cuenta las que no están de baja, que no
+  // es la cifra «Activa» de Resumen (lib/clientas/estado.ts).
+  const deTus = (n: number) => (n === 1 ? 'de tu única clienta' : `de tus ${n} clientas`);
+  const cuantas = (n: number, una: string, varias: string) => (n === 0 ? `ninguna ${una}` : `${n} ${n === 1 ? una : varias}`);
+  return (
+    <>
+      <p>
+        El día de su cumpleaños, por la mañana, le llega un correo de felicitación en nombre de tu
+        estudio. No regala ni descuenta nada.
+      </p>
+      {alcance === null ? (
+        <p>
+          Solo escribe a quien tiene guardada su fecha de nacimiento, es mayor de edad y ha aceptado
+          recibir novedades de tu estudio. Ahora mismo Tentare no ha podido contar a cuántas llegaría.
+        </p>
+      ) : alcance.alcanzables > 0 ? (
+        <p>
+          Solo escribe a quien tiene guardada su fecha de nacimiento, es mayor de edad y ha aceptado
+          recibir novedades de tu estudio. Ahora mismo llegaría a{' '}
+          <span className="font-semibold text-foreground">
+            {alcance.activas === 1 ? 'tu única clienta' : `${alcance.alcanzables} de tus ${alcance.activas} clientas`}
+          </span>.
+        </p>
+      ) : alcance.activas === 0 ? (
+        <p>
+          Ahora mismo <span className="font-semibold text-foreground">no felicitaría a nadie</span>: todavía
+          no tienes clientas.
+        </p>
+      ) : (
+        <p>
+          Ahora mismo <span className="font-semibold text-foreground">no felicitaría a nadie</span>:{' '}
+          {deTus(alcance.activas)}, {cuantas(alcance.conFecha, 'tiene', 'tienen')} guardada su fecha de
+          nacimiento y {cuantas(alcance.conConsentimiento, 'ha aceptado', 'han aceptado')} recibir
+          novedades.{' '}
+          {alcance.conFecha === 0 || alcance.conConsentimiento === 0
+            ? 'Hacen falta las dos cosas, y ser mayor de edad.'
+            : 'Ninguna cumple todo a la vez: fecha, consentimiento, ser mayor de edad y un correo que funcione.'}{' '}
+          Si la activas, empezará a escribir en cuanto alguna lo cumpla. La fecha llega cuando la
+          clienta la pone al apuntarse desde tu web o al firmar su ficha de salud, o si la importas.
+        </p>
+      )}
+    </>
+  );
+}
+
+// ─── Panel nuevo (14-oct-2026) ────────────────────────────────────────────────
+// La pantalla al nivel de Bonsai (b-20 «Automatiza tu centro», b-22 el flujo
+// dibujado): cifras de color arriba, lo que Tentare ya hace solo con su icono,
+// un vacío que enseña con ejemplos y cada regla con su icono (no un emoji) y,
+// al abrirla, el flujo: cuándo → qué hace → qué le llega a tu clienta. La
+// lógica (encender con confirmación, mensajes, aprobar) es la de siempre.
+
+const ICONO_DE_TRIGGER: Record<string, { Icono: React.ElementType; tono: Tono }> = {
+  AUSENCIA_DIAS: { Icono: UserX, tono: 'magenta' },
+  PAGO_PENDIENTE_DIAS: { Icono: CreditCard, tono: 'verde' },
+  BONO_SESIONES_BAJAS: { Icono: Repeat, tono: 'indigo' },
+  NUEVA_SOCIA: { Icono: UserPlus, tono: 'verde' },
+  CLASE_MANANA: { Icono: Bell, tono: 'azul' },
+  RENOVACION_COBRADA: { Icono: BadgeCheck, tono: 'azul' },
+  CLASE_LLENA_RECURRENTE: { Icono: TrendingUp, tono: 'azul' },
+  CUMPLEANOS: { Icono: Cake, tono: 'magenta' },
+};
+
+/** «Cuándo» salta cada regla, en una frase. */
+const CUANDO_DE_TRIGGER: Record<string, string> = {
+  AUSENCIA_DIAS: 'Cuando una clienta lleva días sin venir',
+  PAGO_PENDIENTE_DIAS: 'Cuando un recibo lleva días sin pagarse',
+  BONO_SESIONES_BAJAS: 'Cuando una clienta compra el mismo bono varias veces',
+  NUEVA_SOCIA: 'Cuando se da de alta una clienta nueva',
+  CLASE_MANANA: 'El día antes de cada clase',
+  RENOVACION_COBRADA: 'Cuando se cobra la renovación de una cuota',
+  CLASE_LLENA_RECURRENTE: 'Cuando una franja se llena varias semanas seguidas',
+  CUMPLEANOS: 'El día de su cumpleaños',
+};
+
+/** Lo que ya hace Tentare de serie (HECHO_DE_SERIE, mismo orden), con su nombre corto y su icono. */
+const HECHO_DE_SERIE_NUEVO: { titulo: string; Icono: React.ElementType; tono: Tono }[] = [
+  { titulo: 'Recordatorio de cada clase', Icono: Bell, tono: 'azul' },
+  { titulo: 'Confirmación al reservar', Icono: CheckCircle2, tono: 'verde' },
+  { titulo: 'Lista de espera que avanza sola', Icono: ListOrdered, tono: 'indigo' },
+  { titulo: 'Aviso de bono que se acaba', Icono: Ticket, tono: 'magenta' },
+  { titulo: 'Reintento de cobros fallidos', Icono: RefreshCw, tono: 'verde' },
+  { titulo: 'Valoración después de clase', Icono: Star, tono: 'azul' },
+];
+
+function HechoPorTentareNuevo() {
+  return (
+    <section aria-labelledby="hecho-de-serie" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+      <CabeceraTarjeta
+        tono="verde"
+        Icono={CheckCircle2}
+        titulo="Esto ya lo hace Tentare, sin que configures nada"
+        id="hecho-de-serie"
+        sub="Las reglas de abajo son para lo que depende de cómo trabajas tú."
+      />
+      <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+        {HECHO_DE_SERIE_NUEVO.map((h, i) => (
+          <li key={h.titulo} className="flex items-start gap-3 rounded-2xl border border-border p-3" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[h.tono]} 5%, var(--card))` }}>
+            <Baldosa tono={h.tono} Icono={h.Icono} tamano="sm" />
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-semibold text-foreground">{h.titulo}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{HECHO_DE_SERIE[i]}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function CifrasAutomatizaciones({ logs, reglas }: { logs: AutomationLog[]; reglas: AutomationRule[] }) {
+  const { ejecutadas, fallidas, esperando } = useResumenDeHoy(logs);
+  const encendidas = reglas.filter(r => r.activa).length;
+  return (
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+      <TarjetaCifra etiqueta="Reglas encendidas" tono="indigo" Icono={Zap} href={null} valor={String(encendidas)} abajo={reglas.length === 0 ? 'Aún no tienes reglas' : `de ${reglas.length} ${reglas.length === 1 ? 'regla' : 'reglas'}`} />
+      <TarjetaCifra etiqueta="Acciones hoy" tono="azul" Icono={Play} href={null} valor={String(ejecutadas)} abajo="hechas solas hoy" />
+      <TarjetaCifra
+        etiqueta="Esperan tu visto bueno"
+        tono="magenta"
+        Icono={AlertTriangle}
+        href={null}
+        valor={String(esperando)}
+        arriba={esperando > 0 ? <span style={{ color: 'var(--warning)' }}>Míralas abajo</span> : undefined}
+        abajo={esperando > 0 ? 'en «Requiere tu intervención»' : 'nada pendiente'}
+      />
+      <TarjetaCifra
+        etiqueta="Fallidas hoy"
+        tono="verde"
+        Icono={XCircle}
+        href={null}
+        valor={String(fallidas)}
+        arriba={fallidas > 0 ? <span style={{ color: 'var(--destructive)' }}>Revisa el registro</span> : undefined}
+        abajo={fallidas > 0 ? 'p. ej., una clienta sin email' : 'todo salió bien'}
+      />
+    </div>
+  );
+}
+
+// Cada paso del flujo, como el «Flujo de Automatización» de Bonsai (b-22): su
+// etiqueta (CUÁNDO / ACCIÓN) y su número, el tick de que está listo, la baldosa
+// con el icono, el título y la explicación, y la flecha hasta el siguiente.
+function PasoFlujo({ numero, tipo, titulo, texto, Icono, color, ultimo }: {
+  numero: number; tipo: 'cuando' | 'accion'; titulo: string; texto: string; Icono: React.ElementType; color: string; ultimo?: boolean;
+}) {
+  const pastilla = tipo === 'cuando'
+    ? { texto: 'Cuándo', estilo: { color: 'color-mix(in srgb, var(--warning) 80%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--warning) 16%, var(--card))' } }
+    : { texto: 'Acción', estilo: { color: 'color-mix(in srgb, var(--cat-5) 85%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--cat-5) 14%, var(--card))' } };
+  return (
+    <li className="flex flex-col items-center">
+      <div className="w-full rounded-[14px] border-[1.5px] bg-card p-3.5" style={{ borderColor: 'color-mix(in srgb, var(--success) 80%, var(--border))' }}>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.06em]" style={pastilla.estilo}>{pastilla.texto}</span>
+          <span className="flex size-5 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ backgroundColor: 'var(--t-blue-500)' }}>{numero}</span>
+          <CheckCircle2 aria-hidden size={17} className="ml-auto" style={{ color: 'var(--success)' }} />
+        </div>
+        <div className="mt-2.5 flex items-start gap-3">
+          <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, var(--card))`, color }}>
+            <Icono size={17} strokeWidth={2.1} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold leading-snug text-foreground">{titulo}</p>
+            <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground text-pretty">{texto}</p>
+          </div>
+        </div>
+      </div>
+      {!ultimo && (
+        <span aria-hidden className="flex flex-col items-center py-1" style={{ color: 'var(--success)' }}>
+          <span className="h-2.5 w-px bg-current" />
+          <ArrowDown size={14} />
+        </span>
+      )}
+    </li>
+  );
+}
+
+function RuleCardNueva({
+  rule, onToggle, soloLectura = false, textoAnadir = 'Añadir las reglas sugeridas para poder activar',
+  tituloAnadir = 'Añádelas primero para poder encenderla', idInterruptor,
+}: {
+  rule: AutomationRule; onToggle: () => void; soloLectura?: boolean; textoAnadir?: string; tituloAnadir?: string; idInterruptor?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
+  const mensajes = useMemo(() => mensajesDeTrigger(rule.trigger), [rule.trigger]);
+  const icono = ICONO_DE_TRIGGER[rule.trigger] ?? { Icono: Zap, tono: 'indigo' as Tono };
+  const encendida = !soloLectura && rule.activa;
+  const cuando = CUANDO_DE_TRIGGER[rule.trigger] ?? triggerLabels[rule.trigger] ?? rule.trigger;
+  return (
+    <div className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card" style={encendida ? fondoTenido(icono.tono, 9) : undefined}>
+      <div className="flex items-start gap-3 p-4 sm:p-5">
+        <Baldosa tono={icono.tono} Icono={icono.Icono} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[15px] font-semibold text-foreground">{rule.nombre}</span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={encendida
+                ? { color: 'var(--success)', backgroundColor: 'color-mix(in srgb, var(--success) 14%, transparent)' }
+                : { color: 'var(--muted-foreground)', backgroundColor: 'var(--muted)' }}
+            >
+              {soloLectura ? 'Sin añadir' : rule.activa ? 'Encendida' : 'Apagada'}
+            </span>
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-muted-foreground text-pretty">{rule.descripcion}</p>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{cuando}</span>
+            {!soloLectura && <> · {rule.ejecutadaVeces} {rule.ejecutadaVeces === 1 ? 'vez' : 'veces'}{rule.ultimaEjecucion ? ` · la última, ${formatFecha(rule.ultimaEjecucion)}` : ''}</>}
+          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded(p => !p)}
+            aria-expanded={expanded}
+            className="zona-tactil mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
+            style={{ color: 'var(--t-text-link)' }}
+          >
+            {expanded ? 'Ocultar cómo funciona' : 'Ver cómo funciona y qué le llega'}
+            <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} aria-hidden />
+          </button>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          id={idInterruptor}
+          aria-checked={soloLectura ? false : rule.activa}
+          aria-label={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+          title={soloLectura ? tituloAnadir : rule.activa ? 'Encendida — apagar' : 'Apagada — encender'}
+          onClick={onToggle}
+          className="zona-tactil relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
+          style={{ background: encendida ? 'var(--success)' : 'color-mix(in srgb, var(--muted-foreground) 55%, transparent)' }}
+        >
+          <span className={cn('inline-block size-6 rounded-full bg-white shadow transition-transform', encendida ? 'translate-x-5' : 'translate-x-0')} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="grid gap-5 border-t border-border px-4 py-4 sm:px-5 lg:grid-cols-2">
+          <div className="rounded-[16px] border border-border bg-muted/40 p-4">
+            <p className="text-center text-[15px] font-semibold text-foreground">Flujo de la automatización</p>
+            <p className="text-center text-[12px] text-muted-foreground">Qué pasa, y en qué orden</p>
+            <ol className="mt-3">
+              <PasoFlujo numero={1} tipo="cuando" titulo={cuando} texto="Se pone en marcha sola cuando pasa esto." Icono={Zap} color={TONOS.indigo} ultimo={pasos.length === 0} />
+              {pasos.map((paso, i) => {
+                const cfg = accionConfig[paso.accion];
+                return <PasoFlujo key={i} numero={i + 2} tipo="accion" titulo={cfg.label} texto={paso.cuando} Icono={cfg.icon} color={cfg.color} ultimo={i === pasos.length - 1} />;
+              })}
+            </ol>
+            {pasos.length === 0 && (
+              <p className="mt-2 text-[12.5px] text-muted-foreground">Esta automatización no tiene pasos configurados, así que no enviará nada.</p>
+            )}
+          </div>
+          {mensajes.length > 0 && (
+            <div>
+              <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá tu clienta</p>
+              <div className="mt-3 space-y-2">
+                {mensajes.map(def => (
+                  <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AutomatizacionesPage() {
   const {
     studio, automationRules, automationLogs, socios, automatizaciones,
@@ -726,12 +1049,27 @@ export default function AutomatizacionesPage() {
 
   const [running, setRunning] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'log' | 'reglas'>('log');
+  // Con el panel nuevo se abre en «Reglas»: es lo que hay que entender primero.
+  const panelNuevo = usePanelNuevo();
+  const [tabElegida, setTab] = useState<'log' | 'reglas' | null>(null);
+  const tab = tabElegida ?? (panelNuevo ? 'reglas' : 'log');
   const [filterResultado, setFilterResultado] = useState<ResultadoLog | 'TODAS'>('TODAS');
   // Regla pendiente de confirmar antes de ENCENDERLA. Apagar nunca pregunta:
   // dejar de mandar mensajes no necesita permiso de nadie.
   const [confirmarEncender, setConfirmarEncender] = useState<AutomationRule | null>(null);
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError, dismiss: dismissToast } = useToast();
+
+  // P3.10: si este estudio tiene «Felicitar el cumpleaños» y a cuántas
+  // llegaría. Sin respuesta del servidor (apagada, o no contesta), la pantalla
+  // es la de siempre. `undefined` mientras se pregunta.
+  const [cumpleanos, setCumpleanos] = useState<{ alcance: AlcanceCumpleCliente | null } | null | undefined>(undefined);
+  const [anadiendoCumple, setAnadiendoCumple] = useState(false);
+  const studioId = studio?.id;
+  useEffect(() => {
+    let vigente = true;
+    pedirAutomatizacionesDisponibles().then(d => { if (vigente) setCumpleanos(d?.cumpleanos ?? null); });
+    return () => { vigente = false; };
+  }, [studioId]);
 
   const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   // A cuánta gente puede llegar de verdad una regla que manda mensajes.
@@ -747,7 +1085,7 @@ export default function AutomatizacionesPage() {
       setConfirmarEncender(rule);
       return;
     }
-    toggleAutomationRule(rule.id).then(res => { if (!res.ok) showToast(res.error); });
+    toggleAutomationRule(rule.id).then(res => { if (!res.ok) showError(res.error); });
   }
 
   const filteredLogs = useMemo(() => {
@@ -765,7 +1103,41 @@ export default function AutomatizacionesPage() {
   // Una CLASE_MANANA apagada (las de quien cargó las sugeridas antes de que
   // saliera de la lista) no se enseña: encenderla duplicaría el recordatorio
   // nativo. Si alguna estuviera ENCENDIDA sí se ve, para poder apagarla.
-  const reglasVisibles = automationRules.filter(r => r.trigger !== 'CLASE_MANANA' || r.activa);
+  // Lo mismo con el cumpleaños donde no se ofrece: apagada, no hace nada (el
+  // motor la salta) y enseñarla sería ofrecer un interruptor que no enciende
+  // nada. Encendida sí se ve, para poder apagarla.
+  // Donde se ofrece, vive siempre en su propia sección: si pasara al listado
+  // al añadirla, un estudio sin reglas perdería de golpe las sugeridas. Mientras
+  // se pregunta, no se pinta en ningún sitio (no salta de uno a otro).
+  const reglasVisibles = automationRules.filter(r =>
+    (r.trigger !== 'CLASE_MANANA' || r.activa) &&
+    (r.trigger !== 'CUMPLEANOS' || (cumpleanos === null && r.activa)));
+  // Todas: la base no impide dos (dos pestañas), y una que no se viera seguiría
+  // felicitando sin poder apagarla.
+  const reglasCumple = automationRules.filter(r => r.trigger === 'CUMPLEANOS');
+  const cumpleEnMarketing = automatizaciones.some(a => a.activa && a.trigger === 'CUMPLEANOS');
+
+  // Al añadirla, el botón pulsado desaparece: el foco va a su interruptor.
+  const enfocarCumple = useRef(false);
+  const idReglaCumple = reglasCumple[0]?.id;
+  useEffect(() => {
+    if (!enfocarCumple.current || !idReglaCumple) return;
+    enfocarCumple.current = false;
+    document.getElementById('interruptor-cumpleanos')?.focus();
+  }, [idReglaCumple]);
+
+  function handleAnadirCumple() {
+    if (anadiendoCumple) return;
+    setAnadiendoCumple(true);
+    addAutomationRule(REGLA_CUMPLEANOS)
+      .catch(() => ({ ok: false as const, error: 'No se ha podido añadir la regla. Inténtalo de nuevo.' }))
+      .then(res => {
+        setAnadiendoCumple(false);
+        if (!res.ok) { showError(res.error); return; }
+        enfocarCumple.current = true;
+        showToast('Añadida. Está apagada: enciéndela cuando quieras.');
+      });
+  }
 
   function handleCargarSugeridas() {
     const existentes = new Set(automationRules.map(r => r.trigger));
@@ -848,6 +1220,8 @@ export default function AutomatizacionesPage() {
     setApprovingId(null);
   }
 
+  const TarjetaRegla = panelNuevo ? RuleCardNueva : RuleCard;
+
   const filters: { value: ResultadoLog | 'TODAS'; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
     { value: 'PENDIENTE_ADMIN', label: 'Acción humana' },
@@ -857,12 +1231,43 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div data-tour="automatizaciones-vista" className="max-w-4xl">
+    <div data-tour="automatizaciones-vista" className={panelNuevo ? 'space-y-5' : 'max-w-4xl'}>
+      {panelNuevo ? (
+        <>
+          <PageHeader
+            title="Automatizaciones"
+            description="Lo que Tentare hace solo por ti cada día, y las reglas que decides tú."
+            actions={
+              <button
+                onClick={handleRunNow}
+                disabled={running}
+                className="zona-tactil inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                {running ? 'Revisando…' : 'Revisar ahora'}
+              </button>
+            }
+          />
+          <CifrasAutomatizaciones logs={automationLogs} reglas={automationRules} />
+        </>
+      ) : (
       <MorningBriefing logs={automationLogs} />
+      )}
 
       {/* Pending admin actions */}
       {pendingAdmin.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-border bg-brand/10 p-4">
+        <div className={panelNuevo ? 'rounded-t-card border p-4 shadow-t-card sm:p-5' : 'mb-6 rounded-2xl border border-border bg-brand/10 p-4'} style={panelNuevo ? fondoTenido('magenta', 12) : undefined}>
+          {panelNuevo ? (
+            <div className="mb-3">
+              <CabeceraTarjeta
+                tono="magenta"
+                Icono={AlertTriangle}
+                titulo="Requiere tu intervención"
+                sub="Tentare lo ha preparado, pero no lo hace sin tu sí."
+                derecha={<span className="rounded-full px-2.5 py-0.5 text-[12px] font-bold text-white" style={{ backgroundColor: TONOS.magenta }}>{pendingAdmin.length}</span>}
+              />
+            </div>
+          ) : (
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={16} className="text-brand-secondary" />
             <h2 className="font-semibold text-brand-secondary text-sm">Requiere tu intervención</h2>
@@ -870,6 +1275,7 @@ export default function AutomatizacionesPage() {
               {pendingAdmin.length}
             </span>
           </div>
+          )}
           <div className="space-y-2">
             {pendingAdmin.map(log => (
               <LogItem
@@ -886,6 +1292,13 @@ export default function AutomatizacionesPage() {
       )}
 
       {/* Run now button */}
+      {panelNuevo ? (
+        <Pildoras
+          opciones={[{ valor: 'reglas', label: 'Reglas' }, { valor: 'log', label: 'Registro de acciones' }]}
+          valor={tab}
+          onCambio={v => setTab(v as 'log' | 'reglas')}
+        />
+      ) : (
       <div className="flex items-center justify-between mb-4">
         <div className="flex bg-muted rounded-xl p-1 gap-1">
           {(['log', 'reglas'] as const).map(t => (
@@ -912,6 +1325,7 @@ export default function AutomatizacionesPage() {
           {running ? 'Evaluando...' : 'Ejecutar ahora'}
         </button>
       </div>
+      )}
 
       {tab === 'reglas' && (
         <div className="space-y-3">
@@ -925,9 +1339,27 @@ export default function AutomatizacionesPage() {
               Ahora se ven desde el primer segundo, sin escribir nada en la base
               de datos: son tarjetas de solo lectura, con sus pasos
               desplegables, hasta que la propietaria decide añadirlas. */}
-          <HechoPorTentare />
+          {panelNuevo ? (reglasVisibles.length > 0 && <HechoPorTentareNuevo />) : <HechoPorTentare />}
+          {panelNuevo && reglasVisibles.length === 0 && (
+            <PantallaVacia
+              tono="indigo"
+              Icono={Zap}
+              titulo="Automatiza tu estudio"
+              texto="Reglas que trabajan por ti cada mañana. Llegan apagadas: lees qué envía cada una y enciendes solo las que quieras."
+              ejemplos={[
+                { accion: 'Escribe a quien lleva 7 días sin venir', cuando: 'y le pregunta qué tal a las dos semanas' },
+                { accion: 'Persigue un pago pendiente', cuando: 'con dos avisos, y te avisa a ti si sigue sin pagar' },
+                { accion: 'Anima a reservar a quien se acaba de dar de alta', cuando: 'si a los 2 días no ha reservado' },
+              ]}
+              accion={{ label: `Añadir las ${REGLAS_SUGERIDAS.length} reglas`, Icono: Zap, onClick: handleCargarSugeridas }}
+            />
+          )}
+          {panelNuevo && reglasVisibles.length === 0 && <HechoPorTentareNuevo />}
           {reglasVisibles.length === 0 ? (
             <>
+              {panelNuevo ? (
+                <h2 className="pt-2 text-[16px] font-semibold text-foreground">Las reglas que se añadirán</h2>
+              ) : (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground max-w-xl">
                   Esto es lo que Tentare puede hacer solo por ti. Añádelas cuando quieras:
@@ -942,8 +1374,9 @@ export default function AutomatizacionesPage() {
                   Añadir estas {REGLAS_SUGERIDAS.length} reglas
                 </button>
               </div>
+              )}
               {REGLAS_SUGERIDAS.map((sug, i) => (
-                <RuleCard
+                <TarjetaRegla
                   key={sug.nombre}
                   rule={{
                     ...sug,
@@ -960,6 +1393,21 @@ export default function AutomatizacionesPage() {
             </>
           ) : (
             <>
+              {panelNuevo ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <div>
+                    <h2 className="text-[16px] font-semibold text-foreground">Tus reglas</h2>
+                    <p className="text-[12.5px] text-muted-foreground">Ábrelas para ver qué envía cada una y enciende solo las que quieras.</p>
+                  </div>
+                  <button
+                    onClick={handleCargarSugeridas}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    <Zap size={14} />
+                    Añadir las que faltan
+                  </button>
+                </div>
+              ) : (
               <div className="flex items-center justify-between gap-4">
                 <p className="text-xs text-muted-foreground">
                   Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
@@ -973,14 +1421,58 @@ export default function AutomatizacionesPage() {
                   Cargar reglas sugeridas
                 </button>
               </div>
+              )}
               {reglasVisibles.map(rule => (
-                <RuleCard
+                <TarjetaRegla
                   key={rule.id}
                   rule={rule}
                   onToggle={() => handleToggleRule(rule)}
                 />
               ))}
             </>
+          )}
+          {cumpleanos && (
+            <section aria-labelledby="reglas-opcionales" className="pt-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="max-w-xl">
+                  <h2 id="reglas-opcionales" className="text-sm font-semibold text-foreground">
+                    {reglasCumple.length > 0 ? 'Cumpleaños' : 'También puedes añadir'}
+                  </h2>
+                  {reglasCumple.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Llega apagada, como las demás. Antes de encenderla, Tentare te dice a cuántas clientas escribiría.
+                    </p>
+                  )}
+                </div>
+                {reglasCumple.length === 0 && (
+                  <button
+                    onClick={handleAnadirCumple}
+                    disabled={anadiendoCumple}
+                    className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {anadiendoCumple ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                    Añadir esta regla
+                  </button>
+                )}
+              </div>
+              {reglasCumple.length > 0 ? reglasCumple.map((regla, i) => (
+                <TarjetaRegla
+                  key={i === 0 ? 'cumpleanos' : regla.id}
+                  rule={regla}
+                  idInterruptor={i === 0 ? 'interruptor-cumpleanos' : undefined}
+                  onToggle={() => handleToggleRule(regla)}
+                />
+              )) : (
+                <TarjetaRegla
+                  key="cumpleanos"
+                  rule={{ ...REGLA_CUMPLEANOS, id: 'opcional-cumpleanos', studioId: '', ejecutadaVeces: 0, ultimaEjecucion: null, creadaEn: '' }}
+                  soloLectura
+                  textoAnadir="Añadir la regla"
+                  tituloAnadir="Añádela primero para poder encenderla"
+                  onToggle={handleAnadirCumple}
+                />
+              )}
+            </section>
           )}
         </div>
       )}
@@ -993,9 +1485,9 @@ export default function AutomatizacionesPage() {
                 key={f.value}
                 onClick={() => setFilterResultado(f.value)}
                 className={cn(
-                  'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                  panelNuevo ? 'rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-all' : 'px-3 py-1 rounded-full text-xs font-medium border transition-all',
                   filterResultado === f.value
-                    ? 'bg-primary text-primary-foreground border-foreground'
+                    ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-primary text-primary-foreground border-foreground')
                     : 'bg-card text-foreground border-border hover:border-muted-foreground'
                 )}
               >
@@ -1027,15 +1519,31 @@ export default function AutomatizacionesPage() {
           </DialogHeader>
           <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
             <p className="text-foreground font-medium">{confirmarEncender?.nombre}</p>
-            <p>{confirmarEncender?.descripcion}</p>
-            <p>
-              Los mensajes salen solos cada mañana, en nombre de tu estudio y sin
-              volver a preguntarte. Ahora mismo puede escribir a{' '}
-              <span className="font-semibold text-foreground">
-                {contactables} {contactables === 1 ? 'clienta' : 'clientas'}
-              </span>{' '}
-              que {contactables === 1 ? 'tiene' : 'tienen'} email o teléfono.
-            </p>
+            {confirmarEncender?.trigger === 'CUMPLEANOS' ? (
+              // Descripción del diálogo: el foco cae en «No, dejarla pausada» y,
+              // sin esto, un lector de pantalla no leería a cuántas llega.
+              <DialogDescription render={<div className="space-y-3 text-[13px]" />}>
+                <AlcanceDelCumple alcance={cumpleanos?.alcance ?? null} />
+                {cumpleEnMarketing && (
+                  <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-foreground">
+                    Hay otra felicitación de cumpleaños activa en la pantalla antigua de Marketing: con las
+                    dos, a una clienta le llegarían dos correos ese día.
+                  </p>
+                )}
+              </DialogDescription>
+            ) : (
+              <>
+                <p>{confirmarEncender?.descripcion}</p>
+                <p>
+                  Los mensajes salen solos cada mañana, en nombre de tu estudio y sin
+                  volver a preguntarte. Ahora mismo puede escribir a{' '}
+                  <span className="font-semibold text-foreground">
+                    {contactables} {contactables === 1 ? 'clienta' : 'clientas'}
+                  </span>{' '}
+                  que {contactables === 1 ? 'tiene' : 'tienen'} email o teléfono.
+                </p>
+              </>
+            )}
             {confirmarEncender?.trigger === 'AUSENCIA_DIAS' && inactividad30dActiva && (
               <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-foreground">
                 Ya tienes activa <span className="font-semibold">&quot;Sin actividad 45 días&quot;</span> en
@@ -1056,7 +1564,7 @@ export default function AutomatizacionesPage() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) showToast(res.error); });
+                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) showError(res.error); });
                 setConfirmarEncender(null);
               }}
             >
@@ -1065,7 +1573,7 @@ export default function AutomatizacionesPage() {
           </div>
         </DialogContent>
       </Dialog>
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

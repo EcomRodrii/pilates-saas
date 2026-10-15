@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { authHeader } from '@/lib/api-client';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // La verificación en dos pasos de la cuenta de una alumna, desde su ficha
 // (app/api/socios/[id]/doble-factor). Se pregunta al ABRIR el diálogo y no al
@@ -21,7 +22,7 @@ export function DialogoDobleFactor({ socioId, nombre, abierto, onCerrar, onAviso
   abierto: boolean;
   onCerrar: () => void;
   /** El resultado, para el toast de la ficha. */
-  onAviso: (texto: string) => void;
+  onAviso: MostrarToast;
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
   const [quitando, setQuitando] = useState(false);
@@ -56,9 +57,10 @@ export function DialogoDobleFactor({ socioId, nombre, abierto, onCerrar, onAviso
       const res = await fetch(`/api/socios/${encodeURIComponent(socioId)}/doble-factor`, { method: 'DELETE', headers: await authHeader() });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; avisada?: boolean; error?: string };
       if (!res.ok || !data.ok) { setEstado({ tipo: 'error', mensaje: data.error ?? 'No hemos podido quitarla. Vuelve a intentarlo.' }); return; }
-      onAviso(data.avisada
-        ? `Verificación quitada. Le hemos avisado por correo a ${nombre}.`
-        : `Verificación quitada. No hemos podido avisarle por correo: díselo tú a ${nombre}.`);
+      // Medio fallo: la verificación sí se quitó, el correo no salió. Hay algo que
+      // hacer (decírselo ella), así que en rojo.
+      if (data.avisada) onAviso(`Verificación quitada. Le hemos avisado por correo a ${nombre}.`);
+      else onAviso(`Verificación quitada. No hemos podido avisarle por correo: díselo tú a ${nombre}.`, { variant: 'error' });
       cerrar();
     } catch {
       setEstado({ tipo: 'error', mensaje: 'Sin conexión. Vuelve a intentarlo.' });

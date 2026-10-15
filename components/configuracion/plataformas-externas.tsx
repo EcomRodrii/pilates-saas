@@ -14,6 +14,7 @@ import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/ic
 import { LogoConexion } from '@/components/configuracion/canales-comunicacion';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import { FILA } from '@/components/configuracion/shell/fila-herramienta';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Qué plataformas venden plazas de este estudio (ClassPass, Urban Sports Club,
 // Wellhub). En modo manual, encenderla deja apuntar sus ventas desde la hoja de
@@ -84,6 +85,34 @@ function conexionDe(p: Plataforma, usc: EstadoUsc | null): { disponible: boolean
 }
 
 /**
+ * Los pasos para pedir la conexión a Wellhub. Es SU trámite, no el nuestro:
+ * Wellhub activa la integración de un software cuando sus estudios se la piden
+ * desde su portal (su ayuda: «How to set up your CMS integration?»), y mientras
+ * no lo hagan Tentare no tiene a quién pedir credenciales para esa sede. Por eso
+ * el estudio lo ve aquí, sin buscarlo. No promete plazo: lo que ocurre después
+ * lo decide Wellhub.
+ */
+function PedirConexionWellhub() {
+  return (
+    <details className="mt-3 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer font-semibold text-foreground">
+        Cómo pedir la conexión automática a Wellhub
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-4">
+        <li>Entra en tu <span className="font-semibold text-foreground">Partner Portal</span> de Wellhub.</li>
+        <li>En el menú, abre <span className="font-semibold text-foreground">Integraciones</span> y elige tu sede.</li>
+        <li>En el sistema de gestión elige <span className="font-semibold text-foreground">«Others»</span> y escribe <span className="font-semibold text-foreground">Tentare</span>.</li>
+        <li>Pulsa <span className="font-semibold text-foreground">«Request integration»</span>.</li>
+      </ol>
+      <p className="mt-2">
+        Wellhub se pone en contacto con Tentare para activarla. Hasta entonces, apunta tú sus reservas desde la clase.
+        Cuantos más estudios la pidan, antes la abren.
+      </p>
+    </details>
+  );
+}
+
+/**
  * Una fila por plataforma en Conexiones, como el resto de conexiones: su logo,
  * su estado y lo que hace el estudio con ella. Las tres abren el mismo cajón.
  * La primera lleva el ancla de siempre (`#plataformas-externas`).
@@ -122,7 +151,7 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
   );
 }
 
-export function DetallePlataformasExternas({ showToast }: { showToast: (m: string) => void }) {
+export function DetallePlataformasExternas({ showToast }: { showToast: MostrarToast }) {
   const { upsertIntegracion } = useStudio();
   const activas = usePlataformasActivas();
   const [guardando, setGuardando] = useState<Plataforma | null>(null);
@@ -137,7 +166,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
     setGuardando(p);
     const res = await upsertIntegracion(p, activo, config, anterior);
     setGuardando(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setRecienActivada(activo ? p : null);
     showToast(activo
       ? `${NOMBRE_PLATAFORMA[p]} activada: ya puedes apuntar sus reservas desde la clase`
@@ -204,6 +233,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
                 showToast={showToast}
               />
             )}
+            {p === 'WELLHUB' && !porApi && <PedirConexionWellhub />}
             </li>
           );
         })}
@@ -225,7 +255,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
  * clase: nunca sobreventa. La regla la aplica la base de datos (`plazas_apartadas`).
  */
 function LiberarApartadas({ plataforma, preguntar, showToast }: {
-  plataforma: Plataforma; preguntar: boolean; showToast: (m: string) => void;
+  plataforma: Plataforma; preguntar: boolean; showToast: MostrarToast;
 }) {
   const nombre = NOMBRE_PLATAFORMA[plataforma];
   // `undefined`: cargando o sin poder leer; `null`: sin configurar.
@@ -255,7 +285,7 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
     setGuardando(true);
     const res = await dbGuardarLiberarHorasPlataforma(plataforma, valor);
     setGuardando(false);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     setHoras(valor);
     setEditando(false);
     showToast(valor === 0
@@ -325,7 +355,7 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
   config: Record<string, string>;
   ventaCortada: MotivoSinVentaExterna | null;
   onGuardada: (config: Record<string, string>) => void;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   const { upsertIntegracion } = useStudio();
   const conectada = uscPublicaPorApi(config);

@@ -24,7 +24,7 @@ export function PersonasBloqueadas({ studioId, data }: { studioId: string; data:
     setOcupada(p.id);
     const r = await desbloquearPersona(studioId, p);
     setOcupada(null);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     setQuitadas((q) => [...q, p.id]);
     toast(`Has desbloqueado a ${p.nombre}.`);
   };

@@ -42,11 +42,11 @@ export function AnadirAWallet({ slug }: { slug: string }) {
       });
       if (!res.ok) {
         const e = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast(e?.error ?? 'No hemos podido preparar tu pase.');
+        toast(e?.error ?? 'No hemos podido preparar tu pase.', { variant: 'error' });
         return;
       }
       const r = await compartirFichero({ nombre: 'acceso.pkpass', tipo: 'application/vnd.apple.pkpass', contenido: await res.blob() });
-      if ('error' in r && r.error !== 'cancelado') toast('No hemos podido abrir Wallet.');
+      if ('error' in r && r.error !== 'cancelado') toast('No hemos podido abrir Wallet.', { variant: 'error' });
     } finally {
       setPreparando(false);
     }

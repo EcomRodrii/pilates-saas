@@ -4,7 +4,7 @@ import { hoyEnEstudio } from '@/lib/utils';
 import { inicioDeHoyEnEstudio } from '@/lib/decision/mensaje-del-dia';
 import {
   puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
-  puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
+  puedeGestionarEquipo, puedeGestionarSede, puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
 import { contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
 import { situacionRecibo } from '@/lib/billing/situacion-recibo';
@@ -13,6 +13,7 @@ import type { ModoFacturacion, Rol } from '@/lib/types';
 import { emiteFacturas } from '@/lib/factura-automatica';
 import { nifEmisorValido } from '@/lib/nif';
 import { ambitosQueRevisa } from '@/lib/moderacion/denuncias';
+import { festivosPorDecidir as leerFestivosPorDecidir } from '@/lib/festivos/por-decidir-servidor';
 
 // Los recuentos de la bandeja única (lib/estado-estudio.ts), sacados tal cual
 // de GET /api/estado-estudio para que el asistente («¿qué debería revisar
@@ -78,7 +79,7 @@ export async function contarConteosEstudio(
 
   const [
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar, festivosPorDecidir,
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
@@ -183,6 +184,14 @@ export async function contarConteosEstudio(
         return null;
       }
       return Array.isArray(data) ? data.length : null;
+    }),
+    // Festivos con clases sin decidir: el mismo gate que cerrar el centro
+    // (`/api/cierres`). Apagado (interruptor o tabla sin migrar) = undefined:
+    // ni línea ni tarjeta. Sin festivo en los próximos 21 días, una sola lectura.
+    si(puedeGestionarSede(rol), async () => {
+      const r = await leerFestivosPorDecidir(admin, { studioId, ahora, alcance: 'aviso', conReservas: false });
+      if (r === null) return null;
+      return r.disponible ? r.festivos.length : undefined;
     }),
     // Mismos dos permisos que resolverlas (`/api/plazas-fijas/solicitudes`).
     si(gestionaClientas && gestionaCalendario, () => contar('plazas-fijas-decidir', admin.from('solicitudes_plaza_fija')
@@ -292,7 +301,7 @@ export async function contarConteosEstudio(
   const clasesNoDadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.clases ?? null);
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, clasesSinInstructora, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
-    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
+    devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar, festivosPorDecidir,
     plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar, seguimientosParaHoy,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,

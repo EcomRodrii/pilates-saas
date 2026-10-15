@@ -67,6 +67,16 @@ test('todas caducadas = SKIPPED con la instrucción para la usuaria; con una viv
   assert.match(mixto.providerId ?? '', /^1\/2 · apple:410\(caducada\) fcm:201$/);
 });
 
+test('el motivo de APNs queda en el resumen aunque otro dispositivo lo reciba', () => {
+  const ios = { id: 'a', host: 'api.push.apple.com', estado: 'rechazado' as const, codigo: 403, detalle: 'APNs 403 InvalidProviderToken' };
+  const web = { id: 'b', host: 'web.push.apple.com', estado: 'ok' as const, codigo: 201 };
+  const v = resumirPush([ios, web], 0);
+  assert.equal(v.status, 'SENT');
+  assert.equal(v.providerId, '1/2 · ios:403(rechazado InvalidProviderToken) apple:201');
+  // Un fallo que no es de APNs no inventa motivo.
+  assert.equal(resumirPush([{ ...ios, host: 'fcm.googleapis.com', detalle: 'Received unexpected response code' }], 0).providerId, '0/1 · fcm:403(rechazado)');
+});
+
 test('el resumen nunca contiene el endpoint completo (es un secreto)', () => {
   const v = resumirPush([{ id: 'a', host: 'fcm.googleapis.com', estado: 'ok', codigo: 201 }], 0);
   assert.doesNotMatch(v.providerId ?? '', /wpush|https:/);
@@ -210,8 +220,9 @@ test('una suscripción con demasiados fallos seguidos se retira', () => {
   assert.equal(FALLOS_PARA_RETIRAR, 10);
 });
 
-test('el token de la app de iOS se diagnostica como Apple, no como un host raro', () => {
+test('el token de la app de iOS se diagnostica como la app, no como un host raro ni como la web de Safari', () => {
   const host = hostDeEndpoint(`apns://app.tentare/${'b'.repeat(64)}`);
   assert.equal(host, 'api.push.apple.com');
-  assert.equal(proveedorDePush(host), 'apple');
+  assert.equal(proveedorDePush(host), 'ios');
+  assert.equal(proveedorDePush('web.push.apple.com'), 'apple');
 });
