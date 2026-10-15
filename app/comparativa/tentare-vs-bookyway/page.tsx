@@ -41,7 +41,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta BookyWay?',
-    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -62,7 +62,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>BookyWay no tiene cuota mensual: según su web, tras 30 días de prueba pagas 1,50 € por cada usuario adicional. En un estudio que cada septiembre recibe a decenas de alumnas nuevas, el coste depende de cuántas pasen por la puerta.</p>
-        <p>Tentare tiene un precio mensual fijo: gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes, y sin límite de alumnas, 59 €/mes, con IVA. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Tentare tiene un precio mensual fijo: gratis hasta 150 alumnas activas y 250 reservas al mes, y 29 €/mes con IVA si pasas de ahí. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

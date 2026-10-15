@@ -11,7 +11,7 @@ import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CON_MAS_RESERVAS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -276,11 +276,11 @@ export function TablaSolucion({ titulo, intro, cabeceras, filas }: { titulo: str
 }
 
 // Founding Studio es gratis desde el 15-oct-2026 (lib/landing/founding-gratis.ts):
-// su resumen y el de Estudio ya no son los de PLAN_INFO, que vendían a Estudio
-// por lo que ahora también tiene Founding Studio. Los mismos que en la home.
+// su resumen y el de Estudio son los de la home (components/landing/data.ts), no
+// los de PLAN_INFO: Estudio no se vende por lo que también tiene Founding Studio.
 const RESUMEN_WEB: Partial<Record<Plan, string>> = {
-  BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${CON_MAS_RESERVAS}.`,
-  ESTUDIO: 'Alumnas y reservas sin límite.',
+  BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${SI_PASAS}.`,
+  ESTUDIO: 'Todo lo de Founding Studio, con más consultas al asistente.',
 };
 
 /** Los tres planes, con el precio de lib/billing (nunca escrito a mano). */

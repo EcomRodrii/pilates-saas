@@ -10,6 +10,6 @@ export default async function Image() {
   // Lo mismo que dicen la página y su schema.org: Founding Studio gratis, con sus dos límites.
   return generarOgImage(
     'Precio público. Sin permanencia.',
-    `Founding Studio gratis ${LIMITES_GRATIS} (con más reservas, ${PLAN_INFO.BASE.precioMes}€); Estudio ${PLAN_INFO.ESTUDIO.precioMes}€ y Cadena ${PLAN_INFO.CADENA.precioMes}€ al mes.`,
+    `Founding Studio gratis ${LIMITES_GRATIS} (si pasas de ahí, ${PLAN_INFO.BASE.precioMes}€); Estudio ${PLAN_INFO.ESTUDIO.precioMes}€ y Cadena ${PLAN_INFO.CADENA.precioMes}€ al mes.`,
   );
 }

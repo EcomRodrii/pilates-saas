@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
-    a: 'Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (con más reservas, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
+    a: 'Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
 ];
 

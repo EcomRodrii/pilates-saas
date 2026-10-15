@@ -23,7 +23,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precios-reformer-mat",
       "/precios"
     ],
-    "palabras": 2834
+    "palabras": 2835
   },
   {
     "slug": "como-abrir-un-estudio-de-yoga",
@@ -41,7 +41,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/recursos/politica-de-cancelacion-de-clases"
     ],
-    "palabras": 2506
+    "palabras": 2507
   },
   {
     "slug": "como-gestionar-un-estudio-de-pilates",
@@ -76,7 +76,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2934
+    "palabras": 2947
   },
   {
     "slug": "bsport-vs-timp",
@@ -94,7 +94,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1978,
+    "palabras": 1979,
     "actualizado": "2026-10-07"
   },
   {
@@ -114,7 +114,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2535
+    "palabras": 2540
   },
   {
     "slug": "alternativas-a-timp",
@@ -133,7 +133,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/sustituciones"
     ],
-    "palabras": 2460
+    "palabras": 2474
   },
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
@@ -151,7 +151,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2331
+    "palabras": 2349
   },
   {
     "slug": "precio-clase-de-pilates",
@@ -382,7 +382,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/precios"
     ],
-    "palabras": 1994
+    "palabras": 1982
   },
   {
     "slug": "plantilla-control-de-asistencia-pilates",

@@ -12,7 +12,7 @@ Tentare es un SaaS B2B: no es un software genérico de gimnasio al que se le ha 
 - Estudios que necesitan facturas con numeración legal, no solo recibos.
 - Cadenas de 2 o más centros que quieren un único panel y una única suscripción.
 
-Tentare tiene tres planes según el tamaño: Founding Studio (gratis: todas las funcionalidades menos varias sedes, hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio (equipo y horario completos, alumnas sin límite) y Cadena (dos o más centros bajo la misma marca). Precios y límites exactos en [Precios](https://www.tentare.app/precios).
+Tentare tiene tres planes: Founding Studio (gratis: todas las funcionalidades menos varias sedes, hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio y Cadena (dos o más centros bajo la misma marca). Precios y límites exactos en [Precios](https://www.tentare.app/precios).
 
 ## Problemas que resuelve
 
@@ -75,8 +75,8 @@ Cliente principal: estudios de Pilates (reformer y/o mat), independientes o pequ
 Moneda: EUR
 Idioma: español (interfaz y soporte)
 Especialización: Pilates / Pilates reformer; también estudios de Yoga y centros que combinan ambas disciplinas
-Modelo: Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes, y 29 €/mes con más reservas; con más de 150 alumnas, Estudio a 59 €/mes; suscripción mensual sin permanencia y sin comisión sobre cobros
-Planes públicos: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes) · Estudio 59€/mes · Cadena 149€/mes
+Modelo: Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes, y 29 €/mes si pasas de ahí, sin tope; suscripción mensual sin permanencia y sin comisión sobre cobros
+Planes públicos: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes) · Estudio 59€/mes · Cadena 149€/mes
 Prueba: no hay; se empieza en Founding Studio gratis, sin tarjeta de crédito
 Asistente integrado: «Pregúntale a Tentare», en todos los planes (50, 200 y 500 consultas al mes según el plan); propone acciones y la persona las confirma
 Alojamiento de datos: Unión Europea
@@ -90,7 +90,7 @@ software para estudios de Pilates · software de gestión para Pilates · progra
 
 - [Funcionalidades](https://www.tentare.app/funcionalidades): las 17 áreas del producto (reservas online, lista de espera, plazas fijas, calendario y salas, clases recurrentes, cancelaciones y no-shows, control de asistencia, gestión de instructoras, sustituciones, bonos y membresías, cobros recurrentes, facturación, ficha de clienta, app de marca para alumnas, automatizaciones y avisos, informes y rentabilidad, varias sedes).
 - [Centro de ayuda](https://www.tentare.app/ayuda): documentación pública por categorías (empezar, reservas, clientes, instructores, pagos, bonos, portal de la alumna, widget, automatizaciones, integraciones, app, configuración, informes) y guías de resolución de problemas. Cada artículo responde una pregunta concreta y dice cuándo se actualizó.
-- [Precios](https://www.tentare.app/precios): tres planes públicos y sin permanencia — Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59€/mes, Cadena 149€/mes, IVA incluido.
+- [Precios](https://www.tentare.app/precios): tres planes públicos y sin permanencia — Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59€/mes, Cadena 149€/mes, IVA incluido.
 - [Comparativa](https://www.tentare.app/comparativa): cómo se compara Tentare con bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, Glofox y otros — precio real, permanencia, facturación española y sustitución de instructoras, punto por punto.
 - [Soluciones](https://www.tentare.app/soluciones): Tentare según el tipo de estudio — [Pilates reformer](https://www.tentare.app/soluciones/estudio-de-pilates-reformer) (reservas por máquina, aforo por sala, plazas fijas, lista de espera, reglas distintas para reformer y mat, y una calculadora de lo que cuestan las plazas vacías), [Yoga](https://www.tentare.app/soluciones/estudio-de-yoga) (cada estilo como tipo de clase, clase suelta, bonos y mensualidades a la vez, talleres con precio propio, app con la marca del estudio) y varios centros.
 - Comparativas uno a uno, con un resumen de precio, permanencia y prueba de cada competidor según su web pública (fecha de revisión en cada página): [bsport](https://www.tentare.app/comparativa/tentare-vs-bsport), [Eversports](https://www.tentare.app/comparativa/tentare-vs-eversports), [Momence](https://www.tentare.app/comparativa/tentare-vs-momence), [Mindbody](https://www.tentare.app/comparativa/tentare-vs-mindbody), [TIMP](https://www.tentare.app/comparativa/tentare-vs-timp), [Lorari](https://www.tentare.app/comparativa/tentare-vs-lorari) y [Bonsai](https://www.tentare.app/comparativa/tentare-vs-bonsai).

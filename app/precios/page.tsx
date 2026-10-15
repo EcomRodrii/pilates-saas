@@ -9,8 +9,9 @@ import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
-import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CON_MAS_RESERVAS, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, GRATIS_MARGEN_DIAS, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
+import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { PLANS } from '@/components/landing/data';
+import { CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { ofertasPlanesLd } from '@/components/landing/StructuredData';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
@@ -37,17 +38,11 @@ export const metadata: Metadata = {
 // no hay prueba de 7 días, se empieza en Founding Studio gratis, con todo.
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
   BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: CTA_ALTA },
-  ESTUDIO: { gancho: 'El plan completo', para: 'Un estudio en marcha, con equipo y horario completo.', cta: CTA_ALTA },
+  // Estudio ya no se vende por el equipo ni por las alumnas: Founding Studio
+  // también los tiene, sin tope (15-oct-2026). El mismo texto que la home.
+  ESTUDIO: { gancho: 'Más consultas al asistente', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
-
-function tope(plan: Plan): string {
-  // Founding Studio: el tope de alumnas es del plan (gratis o de pago); el de
-  // cobros es solo de lo gratis y va encima, junto al precio.
-  if (plan === 'BASE') return `Hasta ${GRATIS_ALUMNAS} alumnas activas`;
-  const max = PLAN_ENTITLEMENTS[plan].maxSocios;
-  return max === Infinity ? 'Sin límite de alumnas' : `Hasta ${max} alumnas activas`;
-}
 
 // La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
 // pinta <ComparativaPlanes>. Esta página tenía su propia lista de 11 filas
@@ -69,7 +64,7 @@ const FAQ = [
   },
   {
     q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
-    a: `Si pasas de ${GRATIS_RESERVAS_MES} reservas al mes, sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes; si pasas de ${GRATIS_ALUMNAS} alumnas activas, el plan ${PLAN_INFO.ESTUDIO.nombre} cuesta ${PLAN_INFO.ESTUDIO.precioMes} € al mes. Los dos, con IVA incluido. Tienes ${GRATIS_MARGEN_DIAS} días para elegir; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
+    a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -161,7 +156,7 @@ export default function PreciosPage() {
                   <>
                     {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
                     <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6B6B63', marginTop: 7 }}>
-                      Hasta {GRATIS_RESERVAS_MES} reservas al mes · {CON_MAS_RESERVAS}
+                      {TOPE_GRATIS} · {SI_PASAS}
                     </div>
                     {/* La frase del fundador, junto a Founding Studio. En la
                         cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
@@ -173,7 +168,7 @@ export default function PreciosPage() {
                   </div>
                 )}
                 <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
-                <p className="lp-mono" style={{ fontSize: 11.5, color: destacado ? '#D9C29E' : '#5A6142', margin: '0 0 20px' }}>{tope(p)}</p>
+                <div style={{ height: 14 }} />
                 <Link
                   href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
                   className="block hover:brightness-110 transition-all"
@@ -193,8 +188,8 @@ export default function PreciosPage() {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
             Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
-            {LIMITES_GRATIS}; {CON_MAS_RESERVAS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
-            {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
+            {LIMITES_GRATIS}; {SI_PASAS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {PLAN_INFO.ESTUDIO.nombre} y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
             cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer
