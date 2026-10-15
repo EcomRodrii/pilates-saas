@@ -56,7 +56,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si una profesora no puede dar su clase?',
-    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo sola, sin esperar a que lo apruebes.',
+    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. En todos los planes puede hacerlo sola, sin esperar a que lo apruebes.',
   },
   {
     q: '¿Hay funciones pensadas solo para yoga?',
@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
-    a: 'Founding Studio cuesta 29 €/mes con IVA, hasta 150 alumnas activas y con la app con tu marca; Estudio, 59 €/mes sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y con 7 días de prueba sin tarjeta.',
+    a: 'Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
 ];
 
@@ -96,13 +96,13 @@ export default function EstudioDeYogaPage() {
         datos={[
           { cifra: '24/7', texto: 'Reservas y cancelaciones desde el móvil, con tus reglas' },
           { cifra: '0 %', texto: 'Comisión de Tentare sobre lo que cobras' },
-          { cifra: '29 €/mes', texto: 'Founding Studio, con la app con tu marca e IVA incluido' },
+          { cifra: 'Gratis', texto: 'Founding Studio, con la app con tu marca, hasta 150 alumnas activas y 250 reservas al mes' },
         ]}
       >
         Uno que te quite el trabajo de mostrador: reservas online con lista de espera, bonos y mensualidades que se
         cobran y se renuevan solos, una app con la marca de tu estudio para tus alumnas y un sitio donde ver quién viene
-        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, desde 29 €/mes con IVA y sin
-        permanencia.
+        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, gratis hasta 150 alumnas activas y 250 reservas
+        al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones
@@ -160,7 +160,7 @@ export default function EstudioDeYogaPage() {
         titulo="Tu estudio, en la pantalla de inicio de tus alumnas"
         captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
         puntos={[
-          'En todos los planes, también en el de 29 €',
+          'En todos los planes, también en el gratuito',
           'Avisos de sus reservas y de la lista de espera',
           'Sin comisión de Tentare sobre lo que venden',
         ]}
@@ -190,7 +190,7 @@ export default function EstudioDeYogaPage() {
 
       <CierreSolucion
         titulo="Pruébalo con tu estudio de yoga."
-        texto="Monta tu horario, tus bonos y tu app en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+        texto="Monta tu horario, tus bonos y tu app en tu primera sesión. Empieza gratis, sin tarjeta y sin permanencia."
       />
     </SolucionShell>
   );

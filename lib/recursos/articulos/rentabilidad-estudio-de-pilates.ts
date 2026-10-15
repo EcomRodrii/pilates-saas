@@ -216,7 +216,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Mira qué clases pagan su coste, una a una',
-    texto: 'El informe de rentabilidad por clase de Tentare resta a lo que ingresó cada clase lo que costó su instructora, y la lista de espera automática ofrece las plazas que se liberan. Prueba 7 días gratis, sin tarjeta, el plan que elijas.',
+    texto: 'El informe de rentabilidad por clase de Tentare resta a lo que ingresó cada clase lo que costó su instructora, y la lista de espera automática ofrece las plazas que se liberan. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Los precios de los escenarios son medianas del artículo precio-clase-de-pilates (32 fuentes listadas allí); si se actualiza ese estudio, actualizar aquí.',

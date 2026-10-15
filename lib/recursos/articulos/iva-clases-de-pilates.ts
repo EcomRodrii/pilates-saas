@@ -307,7 +307,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Facturas con el IVA bien puesto, sin hacerlas a mano',
     texto:
-      'Tentare emite cada factura con numeración legal y huella encadenada, y el envío automático a la AEAT está en desarrollo. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas: desde 29 €/mes, IVA incluido y sin permanencia.',
+      'Tentare emite cada factura con numeración legal y huella encadenada, y el envío automático a la AEAT está en desarrollo. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Confirmar que no se ha publicado en el BOE ninguna rebaja del IVA de los servicios deportivos posterior a la última modificación del texto consolidado consultado (28-feb-2026).',

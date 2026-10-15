@@ -113,8 +113,8 @@ export function EscaladoEnElTiempo() {
 const MODOS = [
   { n: 'Manual', nivel: 'Nivel 1', body: 'El sistema te propone a quién avisar. Tú das cada paso.', quien: 'Todos los planes' },
   { n: 'Asistido', nivel: 'Nivel 2 · por defecto', body: 'Te propone la candidata y, con tu visto bueno, la contacta y le insiste. Si acepta, la clase se reasigna sola.', quien: 'Todos los planes' },
-  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: 'Plan Estudio o Cadena' },
-  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: 'Plan Estudio o Cadena' },
+  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: 'Todos los planes' },
+  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: 'Todos los planes' },
 ];
 
 export function NivelesDeAutonomia() {

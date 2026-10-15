@@ -9,7 +9,10 @@ import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
-import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
+import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { PLANS } from '@/components/landing/data';
+import { CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { ofertasPlanesLd } from '@/components/landing/StructuredData';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
 import { NombrePlan } from '@/components/planes/nombre-plan';
@@ -31,17 +34,15 @@ export const metadata: Metadata = {
 //
 // ⚠️ Nada de «el más elegido» ni de «más popular» sin datos que lo respalden
 // (retirado el 23-sep con OK del fundador: no había ningún estudio de pago). El
-// texto del botón es el mismo que en la home: «Probar N días gratis».
+// texto del botón es el mismo que en la home (`CTA_ALTA`): desde el 15-oct-2026
+// no hay prueba de 7 días, se empieza en Founding Studio gratis, con todo.
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
-  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: `Probar ${TRIAL_DIAS} días gratis` },
-  ESTUDIO: { gancho: 'El plan completo', para: 'Un estudio en marcha, con equipo y horario completo.', cta: `Probar ${TRIAL_DIAS} días gratis` },
+  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: CTA_ALTA },
+  // Estudio ya no se vende por el equipo ni por las alumnas: Founding Studio
+  // también los tiene, sin tope (15-oct-2026). El mismo texto que la home.
+  ESTUDIO: { gancho: 'Más consultas al asistente', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
-
-function tope(plan: Plan): string {
-  const max = PLAN_ENTITLEMENTS[plan].maxSocios;
-  return max === Infinity ? 'Sin límite de alumnas' : `Hasta ${max} alumnas activas`;
-}
 
 // La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
 // pinta <ComparativaPlanes>. Esta página tenía su propia lista de 11 filas
@@ -50,15 +51,9 @@ function tope(plan: Plan): string {
 // qué no (p. ej. marketing, apagado otra vez desde el 2026-08-19) se decide
 // allí, no aquí.
 
+// Las dos preguntas de la prueba de 7 días se fueron con ella (15-oct-2026):
+// ya no hay prueba, se empieza en Founding Studio gratis.
 const FAQ = [
-  {
-    q: `¿La prueba de ${TRIAL_DIAS} días pide tarjeta?`,
-    a: `No. Creas tu estudio y entras: ${TRIAL_DIAS} días gratis del plan que elijas, sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada.`,
-  },
-  {
-    q: `¿Qué pasa exactamente cuando terminan los ${TRIAL_DIAS} días?`,
-    a: 'Que dejas de poder entrar al panel hasta que elijas un plan. No se borra nada: tus alumnas, tus clases, tus bonos y tus facturas siguen donde estaban, y en cuanto contrates vuelves a encontrarlo todo tal cual lo dejaste. Tus alumnas tampoco pierden su historial.',
-  },
   {
     q: '¿Hay permanencia?',
     a: 'No. Se paga mes a mes y se cancela cuando quieras. Tus datos son tuyos: puedes exportar alumnas, historial y facturas en cualquier momento, también al irte.',
@@ -68,8 +63,8 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: '¿Qué pasa si supero las 150 alumnas del plan Founding Studio?',
-    a: 'El tope cuenta alumnas activas. No se bloquea ninguna alta ni se borra a nadie: en Suscripción ves cuántas llevas, y pasas al plan Estudio cuando te encaje.',
+    q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
+    a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -81,7 +76,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiar de plan más adelante?',
-    a: 'Sí, en los dos sentidos. Si bajas de plan, las funciones exclusivas del plan superior dejan de estar disponibles — por ejemplo, las sustituciones autónomas vuelven a modo asistido en lugar de seguir operando solas.',
+    a: 'Sí, en los dos sentidos. Si bajas de plan, las funciones exclusivas del plan superior dejan de estar disponibles — por ejemplo, las varias sedes al dejar el plan Cadena.',
   },
 ];
 
@@ -103,14 +98,9 @@ export default function PreciosPage() {
     url: BASE_URL,
     publisher: { '@id': ID_ORGANIZACION },
     description: pagina.descripcion,
-    offers: PLANES.map((p) => ({
-      '@type': 'Offer',
-      name: PLAN_INFO[p].nombre,
-      price: PLAN_INFO[p].precioMes,
-      priceCurrency: 'EUR',
-      url: urlDe(PATH),
-      description: PLAN_INFO[p].resumen,
-    })),
+    // Las mismas ofertas que la home, de la misma función: Founding Studio con
+    // precio 0 y sus límites (components/landing/StructuredData.tsx).
+    offers: ofertasPlanesLd(),
   };
 
   return (
@@ -132,7 +122,7 @@ export default function PreciosPage() {
             contrato anual.
           </p>
           <p className="lp-mono" style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: ACC, color: '#D9C29E', fontSize: 13, fontWeight: 700 }}>
-            {TRIAL_DIAS} días gratis · Sin tarjeta de crédito
+            Empieza gratis · Sin tarjeta de crédito
           </p>
         </div>
       </header>
@@ -154,7 +144,7 @@ export default function PreciosPage() {
               >
                 <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
-                  {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span>
+                  {p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span></>}
                 </div>
                 {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
                     página: el precio de un SaaS español se lee para compararlo
@@ -162,11 +152,23 @@ export default function PreciosPage() {
                     llevan un 21%. Misma frase que ya se ve en /suscripcion, que
                     la pidió una clienta con estas palabras (P2-20) — no una
                     redacción nueva para decir lo mismo. */}
-                <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
-                  IVA incluido
-                </div>
+                {p === 'BASE' ? (
+                  <>
+                    {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
+                    <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6B6B63', marginTop: 7 }}>
+                      {TOPE_GRATIS} · {SI_PASAS}
+                    </div>
+                    {/* La frase del fundador, junto a Founding Studio. En la
+                        cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
+                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: '#3A3A34', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
+                  </>
+                ) : (
+                  <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
+                    IVA incluido
+                  </div>
+                )}
                 <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
-                <p className="lp-mono" style={{ fontSize: 11.5, color: destacado ? '#D9C29E' : '#5A6142', margin: '0 0 20px' }}>{tope(p)}</p>
+                <div style={{ height: 14 }} />
                 <Link
                   href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
                   className="block hover:brightness-110 transition-all"
@@ -185,24 +187,23 @@ export default function PreciosPage() {
         <section style={{ marginTop: 'clamp(48px,6vw,72px)' }}>
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
-            Tentare cuesta {PLAN_INFO.BASE.precioMes} € al mes en el plan {PLAN_INFO.BASE.nombre} (una sala, una o dos
-            instructoras y {tope('BASE').toLowerCase()}), {PLAN_INFO.ESTUDIO.precioMes} € en el plan{' '}
-            {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
+            Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
+            {LIMITES_GRATIS}; {SI_PASAS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {PLAN_INFO.ESTUDIO.nombre} y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
-            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. La prueba
-            dura {TRIAL_DIAS} días del plan que elijas, sin tarjeta, y traer tus datos desde otra plataforma no se cobra
-            aparte.
+            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer
+            tus datos desde otra plataforma no se cobra aparte.
           </p>
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
           <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>
-            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño y cuánto
-            trabaja el sistema por su cuenta.
+            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño: alumnas,
+            reservas al mes y sedes.
           </p>
-          <ComparativaPlanes todoAbierto destacado="ESTUDIO" />
+          <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
           <p className="lp-mono" style={{ fontSize: 11.5, color: '#6B6B63', margin: '14px 0 0' }}>
             Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
           </p>

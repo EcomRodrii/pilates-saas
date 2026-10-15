@@ -18,6 +18,7 @@ import { articuloLd, faqLd, migasLd, textoPlano } from '@/lib/recursos/articulos
 import { contarPalabras } from '@/lib/recursos/articulos/validar';
 import { PAGINAS } from '@/lib/seo/paginas';
 import type { Articulo, Bloque } from '@/lib/recursos/articulos/tipos';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Pinta un artículo de /recursos escrito como datos (lib/recursos/articulos).
 // Todo lo que no es contenido —JSON-LD, índice, «En resumen», FAQ, fuentes,
@@ -88,13 +89,13 @@ function BloqueArticulo({ b }: { b: Bloque }) {
     case 'nota':
       return <Callout title={b.titulo}><TextoMarcado texto={b.texto} /></Callout>;
     case 'producto':
-      return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta="Probar 7 días gratis →" />;
+      return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta={`${CTA_ALTA} →`} />;
     case 'llamada':
       return (
         <aside style={{ borderLeft: `3px solid ${ACC}`, padding: '2px 0 2px 18px', margin: '26px 0' }}>
           <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: '#33332D' }}>
             {b.texto}{' '}
-            <Link href="/crear-estudio" style={{ color: ACC, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Prueba Tentare 7 días gratis</Link>
+            <Link href="/crear-estudio" style={{ color: ACC, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Empieza gratis con Tentare</Link>
             {' '}o <Link href="/precios" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>mira los precios</Link>.
           </p>
         </aside>
@@ -175,7 +176,7 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
 
         {a.cta.enlace
           ? <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} href={a.cta.enlace.href} cta={a.cta.enlace.texto} />
-          : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta="Probar 7 días gratis →" />}
+          : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta={`${CTA_ALTA} →`} />}
         <RelatedLinks items={[...relacionadas, { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' }]} />
       </ArticleShell>
     </PageShell>

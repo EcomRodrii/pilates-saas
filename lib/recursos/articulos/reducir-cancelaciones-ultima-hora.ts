@@ -253,7 +253,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Menos plazas perdidas, sin estar pendiente del móvil',
-    texto: 'Prueba Tentare 7 días sin tarjeta: pon tu ventana de cancelación por tipo de clase, deja que los recordatorios salgan solos y que la lista de espera ocupe las plazas que se liberan.',
+    texto: 'Empieza gratis con Tentare, sin tarjeta: pon tu ventana de cancelación por tipo de clase, deja que los recordatorios salgan solos y que la lista de espera ocupe las plazas que se liberan.',
   },
   revision: [
     'Reglas de SoulCycle, Barry\'s, CorePower y ClassPass: sus páginas, 7-oct-2026; cambian sin aviso, revisar cada seis meses.',

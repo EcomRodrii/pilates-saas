@@ -24,11 +24,11 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['no', 'No publica cifras'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (deporweb.es/gestion-de-clientes, /pilates/ y
   // /app-gestionar-gimnasio/, revisados el 29-sep-2026):
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'Menciona «reserva de zonas»; no consta un aforo propio por sala'] },
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta DeporWeb?',
-    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -55,7 +55,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'No lo publica: hay que contactar con ellos',
   permanencia: 'No consta en su web pública',
   prueba: 'No consta en su web pública',
-  respuesta: <>DeporWeb está pensado para centros deportivos con muchas disciplinas y no publica sus precios. Para un estudio de Pilates o yoga que quiere saber lo que paga sin pedir una demo, y un producto hecho para clases con reformer, la alternativa es Tentare: desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.</>,
+  respuesta: <>DeporWeb está pensado para centros deportivos con muchas disciplinas y no publica sus precios. Para un estudio de Pilates o yoga que quiere saber lo que paga sin pedir una demo, y un producto hecho para clases con reformer, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -64,7 +64,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Un centro deportivo vende accesos, zonas y muchas actividades. Un estudio de Pilates vende plazas en una máquina a una hora concreta, con alumnas que repiten cada semana. Por eso Tentare trae plaza por reformer, aforo por sala, plazas fijas y lista de espera automática. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
-        <p>Y el precio está publicado: Founding Studio 29 €/mes, Estudio 59 €/mes y Cadena 149 €/mes, con IVA. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Y el precio está publicado: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },
@@ -80,7 +80,7 @@ export default function TentareVsDeporWebPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Empieza gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

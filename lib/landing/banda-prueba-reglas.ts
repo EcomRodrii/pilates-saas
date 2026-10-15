@@ -1,4 +1,4 @@
-// Cuándo se enseña la banda «7 días gratis · Migración incluida» de la home
+// Cuándo se enseña la banda «Gratis hasta… · Migración incluida» de la home
 // (fundador, 9-oct-2026): SOLO a quien llega por el enlace del anuncio de Meta.
 // La landing normal —quien entra directo, desde Google o desde el navegador— no
 // la lleva. Sin navegador ni red, para poder probarla con `node --test`.
