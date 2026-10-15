@@ -3,6 +3,9 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import { verificarSecretoWebhookUsc } from '@/lib/plataformas/usc-firma';
 import { accionDeEstadoUsc, aplicableSobre, esMasReciente, leerWebhookReservaUsc } from '@/lib/plataformas/usc-webhook';
+import { uscAvisosRecepcionEncendida } from '@/lib/interruptor-por-estudio';
+import { esAvisoIntegradorUsc } from '@/lib/plataformas/usc/avisos';
+import { MAX_BYTES_AVISO, registrarAvisoIntegrador } from '@/lib/plataformas/usc/avisos-servidor';
 import { claveWebhook, fallarWebhookEvent, marcarWebhookProcesado, reclamarWebhookEvent } from '@/lib/webhook-idempotencia';
 
 export const dynamic = 'force-dynamic';
@@ -23,10 +26,25 @@ export async function POST(req: NextRequest) {
   if (!verificarSecretoWebhookUsc(process.env.USC_WEBHOOK_SECRET, req.headers.get('x-signature-256'))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  const cuerpo = await req.json().catch(() => null) as Record<string, unknown> | null;
-  // Avisos de integración (tipo 4: IntegratorAssociated…): aún no se automatizan.
-  if (cuerpo && typeof cuerpo.Type === 'string' && !('BookingStatus' in cuerpo)) {
-    return NextResponse.json({ ok: true, ignorado: 'integracion' });
+  const cuerpoCrudo = await req.text().catch(() => '');
+  let cuerpo: Record<string, unknown> | null = null;
+  try { cuerpo = JSON.parse(cuerpoCrudo) as Record<string, unknown> | null; } catch { cuerpo = null; }
+  // Avisos de integración (tipo 4: IntegratorAssociated…): con el interruptor
+  // apagado se ignoran como siempre; encendido, van al buzón (no se aplica nada
+  // solo: lo confirma la propietaria). Ver lib/plataformas/usc/avisos-servidor.ts.
+  if (esAvisoIntegradorUsc(cuerpo)) {
+    if (!uscAvisosRecepcionEncendida()) return NextResponse.json({ ok: true, ignorado: 'integracion' });
+    if (cuerpoCrudo.length > MAX_BYTES_AVISO) return NextResponse.json({ ok: true, ignorado: 'formato' });
+    const adminAvisos = getSupabaseAdmin();
+    if (!adminAvisos) return NextResponse.json({ error: 'server' }, { status: 503 });
+    try {
+      const r = await registrarAvisoIntegrador(adminAvisos, cuerpo, { clientIdPropio: process.env.USC_CLIENT_ID?.trim() });
+      return NextResponse.json(r.resultado === 'guardado' ? { ok: true } : { ok: true, ignorado: r.motivo });
+    } catch (e) {
+      // Sin datos del cuerpo en el log. 500: USC lo reintenta y la huella lo hace idempotente.
+      console.error('[usc/webhook] aviso de integración no guardado:', e instanceof Error ? e.message : 'error');
+      return NextResponse.json({ error: 'server' }, { status: 500 });
+    }
   }
   const lectura = leerWebhookReservaUsc(cuerpo);
   if (!lectura.ok) {

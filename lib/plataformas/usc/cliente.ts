@@ -127,6 +127,34 @@ export async function renombrarTrainerUsc(c: CredencialesUsc, providerId: string
   return r.ok ? { ok: true, valor: null } : fallo(r);
 }
 
+export interface UbicacionUsc { id: string; nombre: string; estado: 'Active' | 'Terminated' | 'AwaitingApproval' | 'Otro' }
+
+const RE_UUID_USC = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Las ubicaciones de un proveedor (`GET /locations?providerId=`, primera página).
+ * Es la comprobación AUTORITATIVA de que USC reconoce ese proveedor para nuestro
+ * client: la cabecera de sus webhooks es estática y falsificable. Cualquier
+ * `id` que no sea un UUID se descarta.
+ */
+export async function ubicacionesUsc(c: CredencialesUsc, providerId: string): Promise<ResultadoUsc<UbicacionUsc[]>> {
+  if (!RE_UUID_USC.test(providerId)) return { ok: false, error: 'providerId no válido' };
+  const r = await llamar(c, 'GET', `/locations?${q(providerId)}`);
+  if (!r.ok) return fallo(r);
+  if (!Array.isArray(r.json)) return { ok: false, error: 'USC: respuesta de ubicaciones inesperada' };
+  const valor: UbicacionUsc[] = [];
+  for (const x of r.json as Record<string, unknown>[]) {
+    if (typeof x?.id !== 'string' || !RE_UUID_USC.test(x.id)) continue;
+    const e = x.status;
+    valor.push({
+      id: x.id.toLowerCase(),
+      nombre: typeof x.name === 'string' ? x.name.slice(0, 120) : '',
+      estado: e === 'Active' || e === 'Terminated' || e === 'AwaitingApproval' ? e : 'Otro',
+    });
+  }
+  return { ok: true, valor };
+}
+
 /**
  * Desde cuándo deja USC crear eventos de este proveedor. `null` = sin fecha
  * (activa ya). 404 = la integración no existe para ese proveedor: no se publica.
