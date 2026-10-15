@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { abrirPanel, controlesCortos, quitarMarcaPanelNuevo } from './zona-tactil';
+import { instanteDeHoy } from './panel-sembrado';
 
 // Las pantallas del MOSTRADOR del panel nuevo en el iPad de recepción, con el
 // dedo: Resumen (Hoy en el estudio), Clientas y su ficha, Cobros y el
@@ -12,6 +13,17 @@ import { abrirPanel, controlesCortos, quitarMarcaPanelNuevo } from './zona-tacti
 test.use({ timezoneId: 'Europe/Madrid', hasTouch: true });
 // Contra un `next dev` que compila al vuelo, una ruta nueva tarda en la primera petición.
 test.describe.configure({ timeout: 90_000 });
+
+// ⚠️ Lo que se mide depende de la HORA: «Pasar lista» (Resumen) y la cifra «por pasar
+// lista» (Calendario) solo existen si hoy ha terminado ya alguna clase, y el Calendario
+// abre una semana que EMPIEZA hoy, así que la clase de ayer no cuenta. Las de hoy acaban
+// a las 11:50 y a las 13:50 de Madrid: el 16-oct, con el CI corriendo a las 00:0x, el
+// control no existía y el test falló sin que nada hubiera cambiado. Con el reloj fijo a
+// las 12:30 del MISMO día que el sembrado hay una clase terminada sin pasar lista y otra
+// por empezar, corra a la hora que corra.
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(instanteDeHoy(12, 30));
+});
 
 test.describe('iPad vertical (768×1024)', () => {
   test.use({ viewport: { width: 768, height: 1024 } });
