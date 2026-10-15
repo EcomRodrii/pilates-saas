@@ -306,13 +306,14 @@ test.describe('Guardar de verdad', () => {
 test.describe('Estados y portapapeles', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 
-  test('sin el plan, la pastilla lo dice y lo de dentro se ve pero lleva a los planes', async ({ page }) => {
+  // Founding Studio (y un estudio sin plan, que cae en él) incluye la motivación desde
+  // el 15-oct-2026: ni pastilla de plan ni enlace a los planes dentro.
+  test('con Founding Studio, la motivación está incluida: sin pastilla de plan y sin mandar a los planes', async ({ page }) => {
     await abrir(page, 'configuracion?tab=motivacion', { fila: { plan: null } });
-    await expect(page.locator('[data-estado-ajuste]').filter({ hasText: 'Desde el plan Estudio' })).toHaveCount(3, { timeout: 30_000 });
-    // La sección no está tapada: sus filas se tocan.
-    await page.locator('#reglas').click();
+    await page.locator('#reglas').click({ timeout: 30_000 });
     await expect(titulo(page, 'Cómo funcionan tus créditos')).toBeFocused();
-    await expect(cajon(page).getByRole('link', { name: /Disponible en el plan Estudio/ })).toHaveAttribute('href', '/suscripcion');
+    await expect(page.locator('[data-estado-ajuste]').filter({ hasText: 'Desde el plan Estudio' })).toHaveCount(0);
+    await expect(cajon(page).getByRole('link', { name: /Disponible en el plan Estudio/ })).toHaveCount(0);
   });
 
   test('«Copiar» solo dice «Copiado» si el portapapeles lo tiene', async ({ page, context }) => {

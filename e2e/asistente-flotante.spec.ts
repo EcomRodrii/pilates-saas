@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ir } from './panel-sembrado';
 import { recolectarScripts } from './recolector-scripts';
 import { HUELLA_DEL_CHAT, json, conAsistente } from './asistente-andamiaje';
+import { PLAN_INFO, planMinimoPara } from '../lib/billing/entitlements.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El chat flotante de «Pregúntale a Tentare» y la salida del Centro de Control
@@ -75,7 +76,8 @@ test('Centro de Control sin plan: explica el porqué y da salida, sin «Reintent
   const pantalla = page.getByTestId('centro-no-incluido');
   await expect(pantalla).toBeVisible({ timeout: 30_000 });
   expect(intentos).toBeGreaterThan(0);
-  await expect(pantalla.getByRole('heading')).toContainText('El Centro de Control es del plan Estudio');
+  // El plan que lo incluye sale del entitlement (Founding Studio desde el 15-oct-2026).
+  await expect(pantalla.getByRole('heading')).toContainText(`El Centro de Control es del plan ${PLAN_INFO[planMinimoPara('decisiones') ?? 'ESTUDIO'].nombre}`);
   await expect(pantalla.getByRole('link', { name: 'Ver planes y precios' })).toHaveAttribute('href', '/suscripcion');
   await expect(pantalla.getByRole('button', { name: 'Reintentar' })).toHaveCount(0);
   await expect(page.getByText('No hemos podido cargar el Centro de Control')).toHaveCount(0);

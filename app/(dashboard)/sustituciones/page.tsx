@@ -32,6 +32,11 @@ import { cn } from '@/lib/utils';
 import { BotonVivo, CabeceraTarjeta, PantallaVacia, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
+
+// El plan más barato con Autónomo y Vacaciones, del entitlement: escrito a mano
+// decía «Estudio» también cuando Founding Studio pasó a incluirlos (15-oct-2026).
+const PLAN_AUTONOMIA = PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre;
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
 // Panel nuevo (14-oct-2026): los cuatro modos como tarjetas que se eligen, con lo
@@ -362,7 +367,7 @@ export default function SustitucionesPage() {
                   aria-checked={activo}
                   onClick={() => cambiarModo(m.val)}
                   disabled={bloqueado}
-                  title={bloqueado ? 'Incluido a partir del plan Estudio' : undefined}
+                  title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
                   className={cn(
                     'flex items-start gap-3 rounded-2xl border p-3 text-left transition-[transform,box-shadow] disabled:cursor-not-allowed',
                     !bloqueado && 'hover:-translate-y-0.5 hover:shadow-md',
@@ -379,7 +384,7 @@ export default function SustitucionesPage() {
                       {activo && <Check size={14} style={{ color: TONOS[m.tono] }} aria-hidden />}
                       {bloqueado && <Lock size={12} className="text-muted-foreground" aria-hidden />}
                     </span>
-                    <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{bloqueado ? 'Incluido a partir del plan Estudio.' : m.que}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}.` : m.que}</span>
                   </span>
                 </button>
               );
@@ -452,7 +457,7 @@ export default function SustitucionesPage() {
                 key={val}
                 onClick={() => cambiarModo(val)}
                 disabled={bloqueado}
-                title={bloqueado ? 'Incluido a partir del plan Estudio' : undefined}
+                title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
                 className={`px-3 py-1 rounded-full text-[12px] font-bold transition-all disabled:opacity-45 disabled:cursor-not-allowed ${modo === val ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {bloqueado ? `🔒 ${label}` : label}

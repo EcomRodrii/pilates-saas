@@ -2,12 +2,11 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 // Rutas relativas: lo mismo que estado-servidor (lo cargan módulos que prueba `node --test`).
-import { cargarEstadosClientas, todasLasFilas } from '../clientas/estado-servidor.ts';
-import { importeIngresado } from './situacion-recibo.ts';
+import { cargarEstadosClientas } from '../clientas/estado-servidor.ts';
 import {
   estadoGratis, siguienteExcedidoDesde, ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, type EstadoGratis, type UsoGratis,
 } from './plan-gratis.ts';
-import { hoyEnEstudio, masDias } from '../utils.ts';
+import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cuánto usa el plan gratis una dueña (plan-gratis.ts): mide, guarda y lee.
@@ -15,8 +14,10 @@ import { hoyEnEstudio, masDias } from '../utils.ts';
 // · Las alumnas «Activa» salen de la MISMA función que el chip de Clientas y el
 //   Resumen (`cargarEstadosClientas`), en el servidor: el número que cierra es
 //   el número que ella ve.
-// · Los cobros, de los recibos con dinero ingresado (`importeIngresado`, neto de
-//   lo devuelto) en los últimos 30 días, por su día de cobro en Madrid.
+// · Las reservas, de las clases de los últimos 30 días (por la fecha de la
+//   clase, desde el principio de ese día en Madrid hasta ahora), sin canceladas,
+//   lista de espera ni pendientes de aprobar. Las de clase fija cuentan; una
+//   falta (NO_ASISTIO) también: la plaza se ocupó.
 // · Se suman TODOS los estudios gratis de la misma dueña (también uno que se
 //   quedó con `cadena_id` de un Checkout de Cadena abandonado): trocear el
 //   estudio no lo hace gratis.
@@ -33,21 +34,18 @@ import { hoyEnEstudio, masDias } from '../utils.ts';
 export const HORAS_VIGENCIA = 12;
 const MINUTOS_ENTRE_INTENTOS = 15;
 const HORAS_SIN_MEDIR_AVISO = 24;
-/** Ventana de los cobros: «30 cobros al mes» son 30 en los últimos 30 días. */
-export const DIAS_VENTANA_COBROS = 30;
+/** Ventana de las reservas: «250 reservas al mes» son 250 en las clases de los últimos 30 días. */
+export const DIAS_VENTANA_RESERVAS = 30;
+/** Las que no son uso: no ocupan plaza. */
+const RESERVAS_QUE_NO_CUENTAN = '(CANCELADA,LISTA_ESPERA,PENDIENTE_APROBACION)';
 
 interface FilaUso {
   studio_id: string;
   alumnas_activas: number | null;
-  cobros_30_dias: number | null;
+  reservas_30_dias: number | null;
   excedido_desde: string | null;
   medido_en: string | null;
   creado_en: string;
-}
-
-/** El día 'YYYY-MM-DD' de un cobro: una columna `date` o un instante, en el calendario del estudio. */
-function diaDeCobro(f: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : hoyEnEstudio(new Date(f));
 }
 
 /** Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira siempre dentro. */
@@ -59,12 +57,13 @@ async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, 
   return [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
 }
 
-/** Mide alumnas y cobros de cada estudio. `null` si cualquier lectura falla. */
+/** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. */
 async function medir(admin: SupabaseClient, ids: string[], ahora: Date): Promise<Map<string, UsoGratis> | null> {
   const hoy = hoyEnEstudio(ahora);
-  // Del día siguiente a hace 30 días hasta hoy, ambos dentro: 30 días de calendario.
-  const desde = masDias(hoy, -(DIAS_VENTANA_COBROS - 1));
-  const usos = new Map<string, UsoGratis>(ids.map(id => [id, { alumnasActivas: 0, cobros30Dias: 0 }]));
+  // Las clases desde el principio (Madrid) de hace 29 días hasta ahora: 30 días de calendario.
+  const desde = inicioDelDiaEstudio(masDias(hoy, -(DIAS_VENTANA_RESERVAS - 1)));
+  const hasta = ahora.toISOString();
+  const usos = new Map<string, UsoGratis>(ids.map(id => [id, { alumnasActivas: 0, reservas30Dias: 0 }]));
 
   for (const id of ids) {
     const estados = await cargarEstadosClientas(admin, id, { ahora });
@@ -72,30 +71,24 @@ async function medir(admin: SupabaseClient, ids: string[], ahora: Date): Promise
     let activas = 0;
     for (const e of estados.values()) if (e.estado === 'ACTIVA') activas++;
     usos.get(id)!.alumnasActivas = activas;
-  }
 
-  const { data: recibos, error } = await todasLasFilas<{ studio_id: string; estado: string; importe: number; importe_devuelto: number | null; fecha_cobro: string | null }>(
-    // Un día antes: un cobro a las 00:30 de Madrid aún es el día anterior en UTC.
-    (a, b) => admin.from('recibos').select('studio_id, estado, importe, importe_devuelto, fecha_cobro')
-      .in('studio_id', ids).gte('fecha_cobro', masDias(desde, -1)).order('id').range(a, b),
-  );
-  if (error) return null;
-  for (const r of recibos) {
-    if (!r.fecha_cobro) continue;
-    const dia = diaDeCobro(r.fecha_cobro);
-    if (dia < desde || dia > hoy) continue;
-    if (importeIngresado({ estado: r.estado, importe: r.importe, importeDevuelto: r.importe_devuelto }) <= 0) continue;
-    const u = usos.get(r.studio_id);
-    if (u) u.cobros30Dias++;
+    // Un recuento (HEAD), no las filas: un estudio grande tiene miles al mes.
+    const { count, error } = await admin.from('reservas')
+      .select('id, sesiones!inner(inicio)', { count: 'exact', head: true })
+      .eq('studio_id', id)
+      .not('estado', 'in', RESERVAS_QUE_NO_CUENTAN)
+      .gte('sesiones.inicio', desde).lte('sesiones.inicio', hasta);
+    if (error || count === null) return null;
+    usos.get(id)!.reservas30Dias = count;
   }
   return usos;
 }
 
 function sumar(usos: Iterable<UsoGratis>): UsoGratis {
-  const t: UsoGratis = { alumnasActivas: 0, cobros30Dias: 0 };
+  const t: UsoGratis = { alumnasActivas: 0, reservas30Dias: 0 };
   for (const u of usos) {
     t.alumnasActivas += u.alumnasActivas;
-    t.cobros30Dias += u.cobros30Dias;
+    t.reservas30Dias += u.reservas30Dias;
   }
   return t;
 }
@@ -118,14 +111,14 @@ export async function leerUsoGratis(admin: SupabaseClient, studioId: string, own
   const sinCifras = (excedidoDesde: string | null) => ({ estado: estadoGratis({ uso: null, excedidoDesde, hoy }), caducado: true });
   if (!ids) return sinCifras(null);
   const { data, error } = await admin.from('uso_plan_gratis')
-    .select('studio_id, alumnas_activas, cobros_30_dias, excedido_desde, medido_en, creado_en').in('studio_id', ids);
+    .select('studio_id, alumnas_activas, reservas_30_dias, excedido_desde, medido_en, creado_en').in('studio_id', ids);
   if (error) return sinCifras(null);
   const filas = (data ?? []) as FilaUso[];
   const desde = excedidoDelGrupo(filas);
 
   // Un estudio del grupo sin medir: la suma saldría menor que la real. Hasta
   // medirlo no se dice nada del uso (pero un margen ya acabado sigue cerrado).
-  const medidas = filas.filter(f => f.medido_en && f.alumnas_activas !== null && f.cobros_30_dias !== null);
+  const medidas = filas.filter(f => f.medido_en && f.alumnas_activas !== null && f.reservas_30_dias !== null);
   if (medidas.length < ids.length) {
     const atascada = filas.find(f => !f.medido_en && ahora.getTime() - new Date(f.creado_en).getTime() > HORAS_SIN_MEDIR_AVISO * 3_600_000);
     if (atascada) {
@@ -135,7 +128,7 @@ export async function leerUsoGratis(admin: SupabaseClient, studioId: string, own
     }
     return sinCifras(desde);
   }
-  const uso = sumar(medidas.map(f => ({ alumnasActivas: f.alumnas_activas!, cobros30Dias: f.cobros_30_dias! })));
+  const uso = sumar(medidas.map(f => ({ alumnasActivas: f.alumnas_activas!, reservas30Dias: f.reservas_30_dias! })));
   const viejo = medidas.some(f => ahora.getTime() - new Date(f.medido_en!).getTime() > HORAS_VIGENCIA * 3_600_000);
   return { estado: estadoGratis({ uso, excedidoDesde: desde, hoy }), caducado: viejo };
 }
@@ -167,7 +160,7 @@ export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string
   const medidoEn = ahora.toISOString();
   const filas = ids.map(id => {
     const u = usos.get(id)!;
-    return { studio_id: id, alumnas_activas: u.alumnasActivas, cobros_30_dias: u.cobros30Dias, excedido_desde: desde, medido_en: medidoEn };
+    return { studio_id: id, alumnas_activas: u.alumnasActivas, reservas_30_dias: u.reservas30Dias, excedido_desde: desde, medido_en: medidoEn };
   });
   const { error } = await admin.from('uso_plan_gratis').upsert(filas, { onConflict: 'studio_id' });
   return !error;
