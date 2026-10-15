@@ -6,7 +6,7 @@ import { calcularOnboarding, type DatosOnboarding } from '../onboarding.ts';
 const vacio: DatosOnboarding = {
   nif: null, stripeAccountId: null, slug: 'estudio', colorPrimario: null, temaPortal: null, logoUrl: null,
   numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0, numSocios: 0, numSalas: 1,
-  numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0, contenidoPortalPersonalizado: false,
+  numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0, hayTarjetaEnLaApp: false,
   automatizacionesActivas: new Set(),
 };
 

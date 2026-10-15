@@ -38,7 +38,7 @@ function estudioVacio(): DatosOnboarding {
     nif: null, stripeAccountId: null, slug: null, colorPrimario: null, temaPortal: null, logoUrl: null,
     numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0,
     numSocios: 0, numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0,
-    contenidoPortalPersonalizado: false, automatizacionesActivas: new Set<string>(),
+    hayTarjetaEnLaApp: false, automatizacionesActivas: new Set<string>(),
   };
 }
 
@@ -49,7 +49,7 @@ function estudioCompleto(): DatosOnboarding {
     temaPortal: 'oliva', logoUrl: 'https://x/logo.png',
     numInstructores: 3, numInstructoresConCuenta: 2, numTiposClase: 4, numSesiones: 40,
     numSocios: 60, numSalas: 2, numPlanesTarifa: 3, numSuscripcionesActivas: 20, numReservas: 500,
-    contenidoPortalPersonalizado: true,
+    hayTarjetaEnLaApp: true,
     automatizacionesActivas: new Set(['CLASE_MANANA', 'AUSENCIA_DIAS', 'NUEVA_SOCIA']),
   };
 }

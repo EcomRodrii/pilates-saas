@@ -343,26 +343,29 @@ test('la lista de correos del resumen es la de la pantalla de correos', () => {
   assert.deepEqual(tipos, [...CORREOS_AUTOMATICOS]);
 });
 
-test('contenido de tu app: el mensaje, y lo publicado que se ve hoy', () => {
-  const contenido = (c: Partial<{ mensajeDestacado: string | null; tarjetas: { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null }[]; avisos: { activo: boolean }[] }>) =>
-    resumenHerramienta('contenido-de-tu-app', { contenido: { mensajeDestacado: null, tarjetas: [], avisos: [], ahoraMs: AHORA, ...c } });
-  assert.equal(contenido({}), 'Sin mensaje destacado');
-  assert.equal(contenido({ mensajeDestacado: '  ' }), 'Sin mensaje destacado');
+test('contenido de tu app: solo lo que sale hoy en su app, con la regla de la app', () => {
+  const foto = 'https://example.com/foto.jpg';
+  const tarjeta = (t: Partial<{ activo: boolean; imagenUrl: string; fechaInicio: string | null; fechaFin: string | null; ubicacion: string[] }>) =>
+    ({ id: `b-${Math.random()}`, activo: true, imagenUrl: foto, ...t });
+  const contenido = (tarjetas: ReturnType<typeof tarjeta>[], ahoraMs = AHORA) =>
+    resumenHerramienta('contenido-de-tu-app', { contenido: { tarjetas, ahoraMs } });
+  assert.equal(contenido([]), 'Ninguna tarjeta en su app');
+  assert.equal(contenido([tarjeta({}), tarjeta({})]), '2 tarjetas en su app');
+  // Oculta, caducada, aún por empezar o fuera del inicio: no sale, no cuenta.
   assert.equal(
-    contenido({ mensajeDestacado: 'Taller el sábado', tarjetas: [{ activo: true }, { activo: true }], avisos: [{ activo: true }] }),
-    'Con mensaje destacado · 2 tarjetas · 1 aviso',
+    contenido([tarjeta({ activo: false }), tarjeta({ fechaFin: AYER }), tarjeta({ fechaInicio: MANANA }), tarjeta({ ubicacion: ['otra'] }), tarjeta({})]),
+    '1 tarjeta en su app',
   );
-  // Oculta, caducada o aún por empezar: no se ve, no cuenta.
-  assert.equal(
-    contenido({ tarjetas: [{ activo: false }, { activo: true, fechaFin: AYER }, { activo: true, fechaInicio: MANANA }, { activo: true }] }),
-    'Sin mensaje destacado · 1 tarjeta',
-  );
-  assert.equal(contenido({ avisos: [{ activo: true }, { activo: false }] }), 'Sin mensaje destacado · 1 aviso');
+  // Sin foto, la app la descarta: la fila tampoco la cuenta.
+  assert.equal(contenido([tarjeta({ imagenUrl: '' })]), 'Ninguna tarjeta en su app');
+  // El «hasta» es inclusivo y del día de Madrid: el 15-sep a las 23:30 de Madrid (21:30 UTC) aún sale.
+  assert.equal(contenido([tarjeta({ fechaFin: '2026-09-15' })], Date.parse('2026-09-15T21:30:00Z')), '1 tarjeta en su app');
+  assert.equal(contenido([tarjeta({ fechaFin: '2026-09-15' })], Date.parse('2026-09-15T22:30:00Z')), 'Ninguna tarjeta en su app');
 });
 
 test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, su descripción', () => {
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web con el widget nativo');
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs con el widget nativo');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web autorizada para ponerlo sin marco');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs autorizadas para ponerlo sin marco');
   assert.equal(resumenHerramienta('widgets', { widgetDominios: [] }), null);
   assert.equal(resumenHerramienta('widgets', { widgetDominios: null }), null);
 });

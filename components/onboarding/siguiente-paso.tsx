@@ -61,7 +61,7 @@ export function SiguientePaso() {
   const { user } = useAuth();
   const {
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, datosIncompletos,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal, datosIncompletos,
   } = useStudio();
   const tour = useTour();
   const tutorial = useTutorial();
@@ -76,7 +76,7 @@ export function SiguientePaso() {
   if (!studio || !clave || datosIncompletos.length > 0) return null;
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   });
   const progreso = calcularProgresoGuia(calcularOnboarding(datos).categorias);
   // La línea base se toma ANTES de mirar si toca enseñarla: con un tutorial
