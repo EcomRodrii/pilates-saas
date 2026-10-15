@@ -7,6 +7,7 @@ import { pedirAppEncendido } from '@/lib/interruptor-por-estudio';
 import { entitlementsDe } from '@/lib/billing/entitlements';
 import { estudioDeLaApp } from '@/lib/app-nativa/app-de-cadena';
 import { finDelMargen } from '@/lib/app-nativa/apps-sin-plan';
+import { avisarEquipoApps } from '@/lib/app-nativa/avisar-equipo';
 import {
   bloqueoParaPedir, bundlesCandidatos, esCupo, esEstadoApp, nombreSugerido, validarNombreApp,
   type AppDelEstudio, type BloqueoPedirApp,
@@ -147,7 +148,19 @@ export async function POST(req: NextRequest) {
         studio_id: studioIdApp, bundle_id: bundle, nombre_app: nombre.nombre,
         activa: false, estado: 'PEDIDA', pedida_en: new Date().toISOString(),
       }).select('bundle_id, nombre_app, estado, url_tienda, pedida_en').single();
-      if (!error) return NextResponse.json({ app: aApp(creada as FilaApp) }, { status: 201 });
+      if (!error) {
+        // Al equipo: con hueco, la automatización la prepara sola; sin hueco, hay que crearla a mano.
+        // Y cuántos huecos quedan: crear un lote nuevo es trabajo a mano en la web de Apple.
+        const { count: libres } = await admin.from('apps_estudio_cupos').select('bundle_id', { count: 'exact', head: true }).is('studio_id', null);
+        const quedan = typeof libres === 'number' ? ` Quedan ${libres} hueco${libres === 1 ? '' : 's'} libre${libres === 1 ? '' : 's'}${libres <= 2 ? ': toca preparar otro lote.' : '.'}` : '';
+        await avisarEquipoApps(
+          `${plan.estudio.nombre ?? plan.estudio.slug ?? studioIdApp} pide su app «${nombre.nombre}»`,
+          (esCupo(bundle)
+            ? `Se le ha dado el hueco ${bundle}. La automatización le pone el nombre, la compila y la sube a TestFlight sola; enviarla a revisión es decisión vuestra.`
+            : `No quedaba ningún hueco: hay que crear la app ${bundle} a mano en App Store Connect y preparar otro lote.`) + quedan,
+        );
+        return NextResponse.json({ app: aApp(creada as FilaApp) }, { status: 201 });
+      }
       // 23505: o ya la había pedido otra pestaña (clave del estudio) o el bundle estaba cogido.
       if (error.code !== '23505') throw error;
       const { data: ya } = await admin.from('apps_estudio').select('bundle_id, nombre_app, estado, url_tienda, pedida_en').eq('studio_id', studioIdApp).maybeSingle();

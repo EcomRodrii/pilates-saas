@@ -49,6 +49,9 @@ export default function AppsEstudioInterno() {
           tienda cuando esté publicada y apunta notas: el estudio solo ve el estado, el nombre y el enlace. Los estudios solo pueden
           pedirla con el interruptor <span className="font-mono text-[12px]">APP_PROPIA_PEDIR</span> encendido para ellos y con
           Estudio o Cadena pagado (en una cadena, una sola app, pedida desde la sede principal).
+          Lo de cada app con hueco del lote va solo (workflow «Apps de estudio · automático», cada 30 minutos): nombre en
+          App Store Connect, activarla, compilar y subir a TestFlight, y seguir lo que hace Apple hasta publicarla. Lo único
+          que es vuestro es <strong>enviarla a revisión</strong> desde App Store Connect. Cada paso os llega por correo.
         </p>
       </header>
 

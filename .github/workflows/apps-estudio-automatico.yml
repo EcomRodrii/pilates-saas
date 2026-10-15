@@ -1,0 +1,120 @@
+# La tramitación automática de las apps de estudio (scripts/apps-automatico.mjs).
+#
+# Cada 30 minutos (y a mano, desde Actions):
+#   1. «sincronizar» (Linux): a cada app pedida le pone su nombre en App Store Connect y la activa;
+#      mira en Apple cómo van sus compilaciones y su versión y mueve el estado en Tentare (en pruebas,
+#      en revisión, publicada, rechazada). Saca la lista de apps que hay que compilar.
+#   2. «compilar» (macOS), solo si hay alguna: compila y sube a TestFlight cada una, firmando con la
+#      clave de App Store Connect, y al terminar REVOCA los certificados de desarrollo que haya creado
+#      (Xcode crea uno en cada máquina nueva; sin revocarlos la cuenta llega al máximo y deja de firmar).
+#
+# ⚠️ Nada de esto ENVÍA una app a revisión de Apple: eso lo decide el equipo en App Store Connect.
+#
+# Secretos: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 y APPS_AUTOMATICO_SECRET (este, el mismo que en
+# Vercel). Sin ellos no hace nada. Nunca se imprimen (GitHub los enmascara, y los scripts no los escriben).
+# El Team ID de Apple no es secreto: sale en el apple-app-site-association de tentare.app.
+
+name: Apps de estudio · automático
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-estudio-automatico
+  cancel-in-progress: false
+
+env:
+  TENTARE_ORIGEN: https://www.tentare.app
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      compilar: ${{ steps.sync.outputs.compilar }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Sincronizar con App Store Connect
+        id: sync
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPS_AUTOMATICO_SECRET: ${{ secrets.APPS_AUTOMATICO_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPS_AUTOMATICO_SECRET}" ] || [ -z "${ASC_KEY_P8}" ]; then
+            echo "::notice::Faltan secretos (APPS_AUTOMATICO_SECRET o la clave de App Store Connect): no se hace nada."
+            echo "compilar=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node --experimental-strip-types scripts/apps-automatico.mjs sincronizar
+
+  compilar:
+    needs: sincronizar
+    if: needs.sincronizar.outputs.compilar != '' && needs.sincronizar.outputs.compilar != '[]'
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      # Una a una: comparten la cuenta de Apple y la revocación de certificados mira el antes/después.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        slug: ${{ fromJSON(needs.sincronizar.outputs.compilar) }}
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPS_AUTOMATICO_SECRET: ${{ secrets.APPS_AUTOMATICO_SECRET }}
+      TENTARE_APPLE_TEAM_ID: QZV686W535
+      SLUG: ${{ matrix.slug }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: El Xcode más nuevo de la máquina
+        run: |
+          set -euo pipefail
+          ultimo="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$ultimo"
+          xcodebuild -version
+      - name: Dependencias
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install chromium
+      - name: La clave, en un fichero temporal
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/asc.p8" >> "$GITHUB_ENV"
+      - name: Certificados de desarrollo antes de compilar
+        run: node --experimental-strip-types scripts/apps-automatico.mjs certificados > "$RUNNER_TEMP/certificados-antes.json"
+      - name: Compilar y subir a TestFlight
+        run: |
+          set -euo pipefail
+          if [[ ! "$SLUG" =~ ^[a-z0-9-]{1,80}$ ]]; then echo "slug no válido"; exit 1; fi
+          node --experimental-strip-types scripts/app-estudio.mjs "$SLUG"
+      - name: Si ha fallado, avisar
+        if: failure()
+        run: node --experimental-strip-types scripts/apps-automatico.mjs fallo "$SLUG" "la compilación o la subida ha fallado; mira el registro del workflow" || true
+      - name: Revocar los certificados que ha creado esta compilación
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/certificados-antes.json" ]; then
+            node --experimental-strip-types scripts/apps-automatico.mjs revocar "$RUNNER_TEMP/certificados-antes.json"
+          fi
+      - name: Borrar la clave
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc.p8"

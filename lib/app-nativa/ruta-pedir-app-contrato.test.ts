@@ -78,3 +78,21 @@ test('estudio: primero pide un hueco del lote, y lo pide DESPUÉS de las puertas
   assert.match(helper, /if \(error\) throw /);
   assert.doesNotMatch(helper, /if \(error\) \{[\s\S]*return null;/);
 });
+
+test('automático: secreto en tiempo constante ANTES de nada, las mismas reglas que /interno y compare-and-set', () => {
+  const auto = leer('../../app/api/automatico/apps-estudio/route.ts');
+  assert.match(auto, /secretoValido\(req\.headers\.get\('authorization'\), secreto\)/);
+  for (const metodo of ['GET', 'POST']) {
+    const cuerpo = auto.slice(auto.indexOf(`export async function ${metodo}`));
+    assert.ok(cuerpo.indexOf('autorizado(req)') < cuerpo.indexOf('getSupabaseAdmin()'), `${metodo}: el secreto va antes de tocar la base de datos`);
+  }
+  // Sin secreto configurado no hay automatización a medias.
+  assert.match(auto, /if \(!secreto\) return NextResponse\.json\([^)]*\{ status: 503 \}\)/);
+  // Lo que cambia pasa por las mismas reglas que una persona en /interno.
+  assert.match(auto, /leerCambio\(/);
+  assert.match(auto, /columnasDeCambio\(/);
+  // Y se escribe sobre el estado leído: si alguien lo cambió entretanto, no se pisa.
+  assert.match(auto, /\.update\(columnas\)\s*\.eq\('studio_id', studioId\)\.eq\('estado', antes\.estado\)/);
+  // Queda en la auditoría de /interno.
+  assert.match(auto, /plataforma_auditoria/);
+});

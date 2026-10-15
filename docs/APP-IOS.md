@@ -567,6 +567,30 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   Connect. ⚠️ Un lote nuevo: `registrar-cupos`, crear las apps en la web, añadir sus bundles a los
   Client IDs de Supabase e insertar sus filas en `apps_estudio_cupos`.
 
+**Tramitación automática** (15-oct-2026, `scripts/apps-automatico.mjs` + `.github/workflows/apps-estudio-automatico.yml`):
+
+- Cada 30 minutos, GitHub Actions pregunta a `/api/automatico/apps-estudio` (con
+  `APPS_AUTOMATICO_SECRET`, el MISMO valor en Vercel y en los secretos de GitHub; sin él, no hace nada) y,
+  para cada app con hueco del lote y su dueño pagando (`pasoDe`, `lib/nativo/automatico.ts`):
+  - `PEDIDA`: le pone su nombre en App Store Connect y la pasa a `EN_PREPARACION`, activa. Si Apple dice que
+    el nombre está cogido, lo apunta y avisa; se cambia en /interno y se reintenta solo.
+  - `EN_PREPARACION`: si no tiene compilación (o falló), la compila y la sube a TestFlight en una máquina
+    macOS de GitHub, firmando con la clave de App Store Connect (`argumentosDeClave`). Cuando Apple la ha
+    procesado, `EN_PRUEBAS`. Dos fallos en el día y no se reintenta hasta el siguiente.
+  - `EN_PRUEBAS`/`EN_REVISION`: sigue la versión en Apple (`faseDeVersion`): en revisión, rechazada (vuelve
+    a pruebas) o publicada (`PUBLICADA` con el enlace de su ficha, `urlDeFicha`).
+- El servidor aplica las MISMAS reglas que /interno (`leerCambio`), con compare-and-set sobre el estado
+  leído, y lo apunta en la auditoría a nombre de «Automático». Cada paso que importa llega por correo a
+  soporte@ (`avisarEquipoApps`), igual que cada petición nueva (con los huecos que quedan).
+- ⚠️ Xcode crea un certificado de desarrollo en cada máquina nueva al firmar con la clave; si se acumulan,
+  Apple deja de firmar («máximo de certificados»). El workflow anota los que había antes y, al terminar,
+  revoca SOLO los nuevos (`certificadosNuevos`). El de distribución es de la nube de Apple y no se toca.
+- ⚠️ Lo que NO hace solo: **enviar a revisión** (decisión del equipo: guía 4.2.6 y el cuestionario de
+  privacidad, que solo se contesta en la web) ni **retirar de la venta** (sin una forma confirmada por API:
+  la nota interna lo pide y llega por correo).
+- Para encenderlo: crear `APPS_AUTOMATICO_SECRET` (p. ej. `openssl rand -hex 32`) en Vercel (Production) y
+  en los secretos del repo de GitHub, con el mismo valor, y desplegar.
+
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 
 - **«Texto más grande»** (Dynamic Type): `PuenteNativo` mide el cuerpo del
