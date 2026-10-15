@@ -62,11 +62,12 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
 
-  // Dentro del límite no hay nada que pagar: se ofrece crecer a Estudio o Cadena.
-  await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Pasarme a Estudio · 59 €\/mes/ })).toBeVisible();
-  await expect(page.getByText('29€')).toHaveCount(0);
+  // Crecer es Founding Studio de pago a 29 €/mes (fundador, 15-oct-2026), también dentro del límite:
+  // va elegido; Estudio y Cadena se ofrecen, pero no se eligen solos.
+  await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /59 €\/mes/ })).toHaveCount(0);
 });
 
 test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vuelve a bajar', async ({ page }) => {

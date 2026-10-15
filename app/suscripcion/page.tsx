@@ -116,7 +116,8 @@ export default function SuscripcionPage() {
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
       // es lo que le toca (plan-gratis.ts); dentro del límite, a lo que puede subir.
-      if (e?.gratis) setElegido(e.gratis.fase === 'MARGEN' || e.gratis.fase === 'CERRADO' ? 'BASE' : 'ESTUDIO');
+      // Crecer desde el gratis es Founding Studio de pago, 29 €/mes (fundador, 15-oct-2026), pase lo que pase.
+      if (e?.gratis) setElegido('BASE');
       else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
@@ -265,9 +266,11 @@ export default function SuscripcionPage() {
             <section aria-label={seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
               <h2 className="text-[16px] font-semibold text-foreground">{seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
               <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Lo mismo que ya usas, sin límites. Sin permanencia.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
-              {/* Founding Studio de pago, cuando ha pasado un límite (plan-gratis.ts): dentro del gratis no tiene nada más que darle. */}
-              <div role="radiogroup" aria-label="Plan" className={cn('mt-4 grid gap-3', seHaPasado ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-                {(seHaPasado ? ['BASE', 'ESTUDIO', 'CADENA'] as const : ['ESTUDIO', 'CADENA'] as const).map(p => (
+              {/* Crecer es Founding Studio de pago, 29 €/mes y lo mismo sin límites (fundador, 15-oct-2026:
+                  «cuando pasa de esos limites cuesta 29€»): va el primero y elegido, también dentro del gratis.
+                  Estudio y Cadena se ofrecen, pero nunca se eligen solos. */}
+              <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-3">
+                {(['BASE', 'ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
