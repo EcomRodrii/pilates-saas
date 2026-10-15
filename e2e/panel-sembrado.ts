@@ -41,6 +41,13 @@ const iso = (d: Date, h = 9, m = 0) => {
   const comoMadrid = Date.UTC(+partes.year, +partes.month - 1, +partes.day, +partes.hour, +partes.minute);
   return new Date(supuesto - (comoMadrid - supuesto)).toISOString();
 };
+/**
+ * El día del sembrado («hoy» en Madrid) a las h:m de Madrid. Para fijar el reloj
+ * del navegador (`page.clock.setFixedTime`) en un spec que mira lo que depende de
+ * la hora —qué clases de hoy ya han terminado—: sale del MISMO «hoy» que las
+ * clases sembradas, así que da igual a qué hora corra el CI.
+ */
+export const instanteDeHoy = (h: number, m = 0) => new Date(iso(dia(0), h, m));
 
 const STUDIO_ROW = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',
