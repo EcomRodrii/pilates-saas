@@ -597,9 +597,10 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // La portada no tiene pasos, ni vista previa, ni el aviso de cabecera: cada
   // fila lleva el suyo.
   const conPrevia = paso !== 'plataforma' && paso !== 'tienes';
-  // Panel nuevo: «Primeros pasos» flota abajo a la derecha y taparía la vista previa. Mientras
-  // ésta se ve, la lista se esconde (sigue en la home y en el resto de pantallas).
-  const escondeLista = panelNuevo && conPrevia;
+  // Panel nuevo: «Primeros pasos» flota abajo a la derecha y tapa la vista previa y los botones
+  // de la pantalla (medido: en «¿Con qué está hecha tu web?» cubría «Siguiente»). Mientras el
+  // constructor está abierto, la lista se esconde (sigue en la home y en el resto de pantallas).
+  const escondeLista = panelNuevo;
   useEffect(() => {
     if (!escondeLista) return;
     document.body.classList.add('sin-primeros-pasos-flotante');

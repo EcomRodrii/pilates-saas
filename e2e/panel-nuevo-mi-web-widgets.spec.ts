@@ -82,6 +82,8 @@ async function montar(page: Page, opts: { panelNuevo: boolean; plataforma?: stri
 async function captura(page: Page, nombre: string) {
   // En las capturas, que la vista previa (la página real de reservas, lenta en dev) haya cargado.
   if (CAPTURAS) await page.waitForTimeout(16_000);
+  // Que la captura no salga con la página desplazada o a medio asentar.
+  if (CAPTURAS) await sinDesborde(page, nombre);
   if (CAPTURAS) await page.screenshot({ path: `${CAPTURAS}/${nombre}.png`, fullPage: true });
 }
 
@@ -161,3 +163,76 @@ test('panel nuevo: «Contenido de tu app» con el marco del panel nuevo y sus te
   await expect(page.getByText(/Si no publicas ninguna tarjeta/)).toBeVisible({ timeout: 60_000 });
   await captura(page, 'contenido-de-tu-app');
 });
+
+// ─── Nada se desborda ni queda bajo el menú lateral ──────────────────────────
+// Una captura de la pantalla salió con toda la columna principal ~90 px a la
+// izquierda, por debajo del menú. Esto mide, en cada paso de Widgets y con la
+// vista previa ya cargada, que la página y el contenedor principal no son más
+// anchos que su hueco, que nada está desplazado a un lado y que el contenido
+// empieza a la derecha del menú (a partir de `lg`, donde el menú es lateral).
+async function sinDesborde(page: Page, donde: string) {
+  await expect.poll(() => page.evaluate(() => {
+    const de = document.documentElement;
+    const main = document.querySelector('main');
+    const lateral = document.querySelector('aside');
+    const titulo = document.querySelector('#herramienta-titulo');
+    const movidos = Array.from(document.querySelectorAll('*')).filter(e => e.scrollLeft > 0).length;
+    const ancho = de.clientWidth >= 1024;
+    const bajoMenu = ancho && lateral && titulo ? titulo.getBoundingClientRect().left < lateral.getBoundingClientRect().right : false;
+    return {
+      pagina: de.scrollWidth - de.clientWidth,
+      principal: main ? main.scrollWidth - main.clientWidth : 0,
+      movidos,
+      bajoMenu,
+      relleno: main ? getComputedStyle(main).paddingLeft : null,
+    };
+  }), { message: `${donde}: desborde o contenido bajo el menú`, timeout: 8_000 })
+    .toMatchObject({ pagina: 0, principal: 0, movidos: 0, bajoMenu: false });
+}
+
+async function previaCargada(page: Page) {
+  await expect(page.frameLocator('iframe[title^="Vista previa"]').locator('body')).toBeVisible({ timeout: 90_000 });
+  await page.waitForTimeout(1500);
+}
+
+const TAMANOS = [
+  { ancho: 1280, alto: 800 }, { ancho: 1440, alto: 900 }, { ancho: 768, alto: 1024 }, { ancho: 375, alto: 812 },
+] as const;
+
+for (const t of TAMANOS) {
+  for (const oscuro of [false, true]) {
+    test(`panel nuevo: sin desbordes en los pasos de Widgets a ${t.ancho} px ${oscuro ? 'en oscuro' : 'en claro'}`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await page.setViewportSize({ width: t.ancho, height: t.alto });
+      if (oscuro) await page.addInitScript(() => localStorage.setItem('panel-dark-mode', '1'));
+      await montar(page, { panelNuevo: true, plataforma: 'wordpress', copiados: true });
+      // 5 · lo que tienes (portada)
+      await expect(page.getByRole('region', { name: 'Lo que tienes en tu web' })).toBeVisible({ timeout: 90_000 });
+      await sinDesborde(page, 'lo que tienes');
+      // 1 · qué y dónde
+      await page.getByRole('button', { name: 'Poner otra cosa en tu web' }).click();
+      await expect(page.getByRole('heading', { name: 'Elige qué enseñas y dónde' })).toBeVisible();
+      await previaCargada(page);
+      await sinDesborde(page, 'qué y dónde');
+      // 2 · cómo se ve
+      await page.getByRole('button', { name: /Siguiente: cómo se ve/ }).click();
+      await expect(page.getByText('¿Cómo quieres que se vea?')).toBeVisible();
+      await previaCargada(page);
+      await sinDesborde(page, 'cómo se ve');
+      // 3 · ponlo en tu web
+      await page.getByRole('button', { name: /Siguiente: ponlo en tu web/ }).click();
+      await expect(page.getByRole('heading', { name: 'Ponlo en tu web', exact: true })).toBeVisible();
+      await previaCargada(page);
+      await sinDesborde(page, 'ponlo en tu web');
+      // 4 · cómo le va
+      const vistas = page.getByRole('group', { name: 'Qué ver' });
+      await vistas.getByRole('button', { name: 'Cómo le va a tu página' }).click();
+      await sinDesborde(page, 'cómo le va');
+      await vistas.getByRole('button', { name: 'Widgets', exact: true }).click();
+      // 0 · con qué está hecha tu web
+      await page.getByRole('button', { name: 'Cambiar con qué está hecha tu web' }).click();
+      await expect(page.getByRole('radiogroup', { name: 'Con qué está hecha tu web' })).toBeVisible();
+      await sinDesborde(page, 'con qué está hecha tu web');
+    });
+  }
+}
