@@ -284,6 +284,8 @@ const COLUMNAS_NOMBRE_DECIDIDAS: Record<string, string> = {
   'tarjetas_regalo.destinatario_nombre': 'fuera: quien recibe el regalo (un tercero), no una persona del equipo',
   'plataforma_auditoria.actor_nombre': 'fuera: equipo de Tentare, no del estudio',
   'sales_leads.estudio_nombre': 'fuera: prospección de Tentare',
+  'usc_avisos_integrador.provider_nombre': 'fuera: el nombre del NEGOCIO que USC asocia a un proveedor, no de una persona del equipo',
+  'usc_avisos_integrador.ubicacion_nombre': 'fuera: el nombre de una ubicación (sede) en USC, no de una persona del equipo',
   'altas_estudio.estudio_nombre': 'fuera: el nombre del ESTUDIO que se escribió en el alta, no de una persona; la fila cae con su cuenta (on delete cascade)', 'studios.creditos_nombre': 'fuera: ajuste del estudio',
   'verifactu_declaraciones_responsables.productor_nombre': 'fuera: el productor del SIF (Tentare), no del estudio; declaración de solo añadir',
   'verifactu_representaciones.apoderado_nombre': 'fuera: el apoderado de Tentare ante la AEAT, no del estudio',
