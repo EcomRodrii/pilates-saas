@@ -7,10 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useTutorial } from '@/lib/tutorial-context';
 import { guardarModoMenu } from '@/lib/nav-modo';
 import { estadoDelPlan } from '@/lib/configuracion/resumenes';
-import {
-  estadoEnMenu, incluidoEnPlan, planQueLoIncluye,
-  type GrupoTuTentare, type ModuloTuTentare,
-} from '@/lib/tu-tentare/catalogo';
+import { planQueFalta, type GrupoTuTentare, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
 import { useTusModulos } from './use-tus-modulos';
 import { Button } from '@/components/ui/button';
 import { Interruptor } from '@/components/ui/interruptor';
@@ -59,7 +56,7 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
   const { studio } = useStudio();
   const tutorial = useTutorial();
   const idTitulo = useId();
-  const { grupos, ocultos, vistos, cuenta, plan, modo, setModo, guardando, errores, recien, errorLectura, cambiar } =
+  const { grupos, ocultos, estadoDe, cuenta, modo, setModo, guardando, errores, recien, errorLectura, cambiar } =
     useTusModulos({ onCambio, bloqueado, onGuardando });
 
   return (
@@ -91,16 +88,14 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
       {conRotulos(grupos).map(g => (
         <GrupoFilas key={g.label} titulo={g.label}>
           {g.modulos.map(m => {
-            const estado = estadoEnMenu(m, vistos);
+            const estado = estadoDe(m);
             const enMenu = estado !== 'fuera';
-            // Del plan solo se dice algo cuando se SABE: mientras carga, o si no se
-            // ha podido leer, nada (decir «necesita el plan Estudio» a quien ya lo
-            // tiene sería mentir).
-            const incluido = plan ? incluidoEnPlan(m, plan.plan, true, plan.subscriptionStatus) : null;
-            const minimo = planQueLoIncluye(m);
-            const estadoPlan = m.feature && plan && incluido !== null
-              ? estadoDelPlan({ enTuPlan: incluido, activo: plan.activo, planMinimo: minimo })
-              : undefined;
+            // Del plan, lo que diga `tieneFeature` (`planQueFalta`, como la pantalla
+            // Módulos): solo se avisa de lo que falta de verdad. Sin estudio cargado
+            // o sin acceso al producto, nada (decir «necesita el plan Estudio» a
+            // quien ya lo tiene sería mentir; y el Founding gratis lo tiene todo).
+            const falta = planQueFalta(m, studio);
+            const estadoPlan = falta ? estadoDelPlan({ enTuPlan: false, activo: true, planMinimo: falta }) : undefined;
             // Sin el menú leído no se sabe si está puesto: ni interruptor ni nota
             // (un «en el menú, activado» de un módulo escondido sería mentira).
             const nota = ocultos !== null && estado === 'solo-todo' && modo === 'esencial' ? 'Lo verás al poner el menú en «Todo».' : null;
@@ -142,7 +137,7 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
                         Configurar<span className="sr-only"> {m.label}</span>
                       </Link>
                     )}
-                    {incluido === false && (
+                    {falta && (
                       <Link href="/suscripcion" className={`${ENLACE} text-muted-foreground underline decoration-border hover:decoration-current`}>
                         Ver planes
                       </Link>
