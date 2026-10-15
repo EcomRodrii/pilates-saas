@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -35,14 +35,24 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
-import { rolesQuePuedeAsignar, puedeGestionarEquipo, ETIQUETA_ROL } from '@/lib/permisos-reglas';
+import { rolesQuePuedeAsignar, puedeGestionarEquipo, puedeVer, ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import { reiniciaAccesoAlCambiarEmail } from '@/lib/equipo/reinicio-acceso';
 import { cambiosDeFicha, type CamposFicha } from '@/lib/equipo/cambios-ficha';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
+  horas as textoHoras, horasCsv, valoracionMedia,
   type MiembroCompleto, type FiltroEstado, type FiltroRol, type Orden, type Situacion, type AccionTipo,
 } from '@/lib/equipo-tarjetas.ts';
+import { ERROR_RED } from '@/lib/errores';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { enlaceInvitacionWhatsApp } from '@/lib/equipo/invitacion-whatsapp';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
+import { BotonVivo, PantallaVacia, colorDeOcupacion } from '@/components/dashboard/vivo';
+import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
+import { CifrasEquipo, SemanaDelEquipo } from '@/components/equipo/resumen-equipo';
 
 type FiltroEstadoEquipo = FiltroEstado;
 
@@ -136,12 +146,29 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+const sinSuscripcion = () => () => {};
+
 export default function EquipoPage() {
   const miRol = useRol();
   const gestiona = miRol !== 'INSTRUCTOR';
   const uid = useId();
   const router = useRouter();
-  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots } = useStudio();
+  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots, studio, dataLoaded } = useStudio();
+  // «Avisar por WhatsApp» a quien está sin acceso (P3.14, opción B), apagado tras
+  // `EQUIPO_INVITAR_WHATSAPP`. El WhatsApp NUNCA lleva el enlace de invitación:
+  // ver `lib/equipo/invitacion-whatsapp.ts`.
+  const avisarPorWhatsApp = useInterruptor('invitarWhatsApp', studio?.id);
+  // Panel nuevo (interruptor `panelNuevo`, 14-oct-2026): cifras de color arriba,
+  // el reparto de la semana, quién no está y un vacío que enseña. Apagado, la
+  // pantalla es la de siempre: todo lo nuevo va detrás de esto.
+  const panelNuevo = usePanelNuevo();
+  // El dominio de la app: el de producción (como el correo de invitación) y, si
+  // no está configurado, el de la pestaña ('' al pintar en el servidor).
+  const origenPestana = useSyncExternalStore(sinSuscripcion, () => window.location.origin, () => '');
+  const origen = process.env.NEXT_PUBLIC_APP_URL || origenPestana;
+  // A quién se le ha mandado la invitación por correo en esta pantalla: a gerencia
+  // y recepción solo se les dice «mira tu correo» si es verdad.
+  const [invitadosAhora, setInvitadosAhora] = useState<ReadonlySet<string>>(() => new Set());
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -154,7 +181,7 @@ export default function EquipoPage() {
   const [errorFoto, setErrorFoto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState('');
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
   const [invitarAhora, setInvitarAhora] = useState(false);
   const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -363,9 +390,24 @@ export default function EquipoPage() {
   async function enviarInvitacion(i: Instructor) {
     setMenuCardId(null);
     setInvitando(i.id);
-    const res = await invitarAlEquipo(i.id);
+    // Sin red, `fetch` lanza: sin el catch el botón se quedaba en «Enviando…».
+    const res = await invitarAlEquipo(i.id).catch(() => ({ error: ERROR_RED }));
     setInvitando(null);
-    showToast('ok' in res ? `Invitación enviada a ${res.email}` : res.error);
+    if ('ok' in res) {
+      showToast(`Invitación enviada a ${res.email}`);
+      setInvitadosAhora((prev) => new Set(prev).add(i.id));
+    } else showToastError(res.error);
+  }
+
+  /** El wa.me del aviso, o null si está apagado o no hay nada cierto que decirle. */
+  function avisoWhatsApp(m: MiembroCompleto): string | null {
+    const slug = studio?.slug?.trim();
+    if (!avisarPorWhatsApp || !puedeGestionarEquipo(miRol) || m.conAcceso || !slug || !origen) return null;
+    return enlaceInvitacionWhatsApp({
+      nombre: m.nombre, rol: m.rol, activo: m.activo, email: m.email, telefono: m.telefono,
+      estudio: studio?.nombre ?? '', urlApp: `${origen}/portal/${encodeURIComponent(slug)}/acceso/elegir`,
+      invitacionEnviada: invitadosAhora.has(m.id),
+    });
   }
 
   function openNuevo() { setForm(emptyForm()); setEditId(null); setErrorGuardar(''); setInvitarAhora(false); setModal('nuevo'); }
@@ -421,9 +463,9 @@ export default function EquipoPage() {
       if (!res.ok) { setErrorGuardar(res.error); return; }
       if (fields.email && invitarAhora) {
         const inv = await invitarAlEquipo(form.tempId);
-        showToast('ok' in inv
-          ? `${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`
-          : `${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
+        if ('ok' in inv) showToast(`${fields.nombre} ya está en tu equipo — invitación enviada a ${fields.email}`);
+        // Medio fallo: la ficha sí, la invitación no. Hay algo que hacer: en rojo.
+        else showToastError(`${fields.nombre} ya está en tu equipo, pero la invitación no salió: ${inv.error}`);
       } else if (fields.email && fields.rol === 'INSTRUCTOR') {
         // Desde el 15-sep-2026 una instructora con correo no necesita la
         // invitación: entrando en la app del estudio con ese correo verificado
@@ -443,7 +485,7 @@ export default function EquipoPage() {
       const reinicia = 'email' in cambios && accesoSeReinicia(editId, fields.email);
       if (!sinCambiosFicha) {
         const res = await updateInstructor(editId, cambios);
-        if (!res.ok) { showToast(res.error); setModal(null); return; }
+        if (!res.ok) { showToastError(res.error); setModal(null); return; }
       }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
@@ -505,12 +547,49 @@ export default function EquipoPage() {
   const conAcceso = tarjetas.filter(m => m.conAcceso).length;
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
 
+  // ── Panel nuevo: la cabecera ──────────────────────────────────────────────
+  // La acción principal con el degradado del logo y «Rendimiento» con borde; el
+  // resto de pantallas del equipo, en el ⋯ (en el móvil, todas: no caben cinco
+  // botones en una fila). Los mismos permisos que la cabecera de siempre.
+  const pantallasEquipo: (AccionMenu & { href: string })[] = puedeGestionarEquipo(miRol) ? [
+    { href: '/equipo/rendimiento', texto: 'Rendimiento', icono: TrendingUp, nota: 'Retención y conversión de cada una, últimos 90 días', onClick: () => router.push('/equipo/rendimiento') },
+    { href: '/equipo/tiempo-trabajado', texto: 'Tiempo trabajado', icono: Clock, nota: 'Las jornadas que fichan y las clases que dan', onClick: () => router.push('/equipo/tiempo-trabajado') },
+    { href: '/equipo/liquidaciones', texto: 'Liquidaciones', icono: Euro, nota: 'Lo que le corresponde a cada una este mes', onClick: () => router.push('/equipo/liquidaciones') },
+    // Tentare Network está congelado (lib/frozen-features.ts): vuelve solo al descongelarlo.
+    ...(!esRutaCongelada('/network/buscar')
+      ? [{ href: '/network/buscar', texto: 'Buscar en Tentare Network', icono: Network, onClick: () => router.push('/network/buscar') }]
+      : []),
+  ] : [];
+  const [rendimiento, ...otrasPantallas] = pantallasEquipo;
+  const accionesNuevas = (
+    <>
+      {pantallasEquipo.length > 0 && (
+        <span className="sm:hidden">
+          <MenuAcciones acciones={pantallasEquipo} claseBoton={BOTON_MENU} etiqueta="Más del equipo" />
+        </span>
+      )}
+      {rendimiento && (
+        <Link href={rendimiento.href} className={cn(BOTON_BORDE, 'hidden sm:inline-flex')}>
+          <TrendingUp size={15} aria-hidden /> Rendimiento
+        </Link>
+      )}
+      {otrasPantallas.length > 0 && (
+        <span className="hidden sm:inline-flex">
+          <MenuAcciones acciones={otrasPantallas} claseBoton={BOTON_MENU} etiqueta="Más del equipo" />
+        </span>
+      )}
+      <span data-tour="equipo-nuevo" className="inline-flex">
+        <BotonVivo Icono={Plus} onClick={openNuevo} label="Nuevo miembro" />
+      </span>
+    </>
+  );
+
   return (
     <div data-tour="equipo-vista" className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"
-        actions={tab === 'equipo' && gestiona && (
+        actions={tab === 'equipo' && gestiona && (panelNuevo ? accionesNuevas : (
           <div className="flex items-center gap-2">
             {puedeGestionarEquipo(miRol) && (
               <>
@@ -536,9 +615,17 @@ export default function EquipoPage() {
               <Plus size={16} /> Nuevo miembro
             </button>
           </div>
-        )}
+        ))}
       />
 
+      {panelNuevo ? (
+        <PestanasVivas
+          etiqueta="Vista"
+          valor={tab}
+          onCambio={setTab}
+          pestanas={[{ id: 'equipo', label: 'Equipo' }, { id: 'actividad', label: 'Actividad' }]}
+        />
+      ) : (
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
         {(['equipo', 'actividad'] as const).map(t => (
           <button
@@ -552,9 +639,10 @@ export default function EquipoPage() {
           </button>
         ))}
       </div>
+      )}
 
       {tab === 'actividad' ? (
-        <ActividadTab actividadReciente={actividadReciente} />
+        <ActividadTab actividadReciente={actividadReciente} panelNuevo={panelNuevo} cargado={dataLoaded} />
       ) : (
       <>
       <AvisoControlHorario pendientes={sinRelacion} />
@@ -564,7 +652,29 @@ export default function EquipoPage() {
           «0 miembros · 0 clases · 0 €» justo encima de un cartel que dice que
           no hemos podido cargar el equipo. Cero no es «no lo sé», y aquí no lo
           sabemos: la fila entera se calla. */}
-      {!falloTarjetas && (
+      {panelNuevo ? (
+        // Panel nuevo: cuatro cifras como las de la home y, debajo, la semana del
+        // equipo. Con el equipo vacío no van: el vacío de abajo ya lo dice todo.
+        !falloTarjetas && (cargandoTarjetas || tarjetas.length > 0) && (
+          <>
+            <CifrasEquipo
+              tarjetas={tarjetas}
+              cargando={cargandoTarjetas}
+              esPropietaria={miRol === 'PROPIETARIO'}
+              irACalendario={puedeVer(miRol, '/calendario')}
+              irARendimiento={puedeGestionarEquipo(miRol)}
+              irALiquidaciones={puedeGestionarEquipo(miRol)}
+            />
+            {!cargandoTarjetas && (
+              <SemanaDelEquipo
+                tarjetas={tarjetas}
+                ausencias={ausencias}
+                onAbrirAusencias={gestiona ? (id) => { const i = instructores.find(x => x.id === id); if (i) setVerAusencias(i); } : undefined}
+              />
+            )}
+          </>
+        )
+      ) : !falloTarjetas && (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Miembros', value: tarjetas.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
@@ -627,6 +737,21 @@ export default function EquipoPage() {
           descripcion="Es un problema nuestro, no que te falten instructoras. Vuelve a intentarlo."
           cta={{ label: 'Reintentar', onClick: () => { setCargandoTarjetas(true); recargarTarjetas(); } }}
         />
+      ) : tarjetas.length === 0 && panelNuevo ? (
+        // Panel nuevo: el vacío que enseña para qué sirve esto y cómo empezar.
+        <PantallaVacia
+          tono="verde"
+          Icono={Users}
+          titulo="Añade a quien da clase contigo"
+          texto="Verás a cada instructora con sus clases de la semana, cómo se llenan y qué día tiene libre."
+          ejemplos={[
+            { accion: 'Pídele su disponibilidad', cuando: 'con un enlace que abre en el móvil, sin crear cuenta.' },
+            { accion: 'Si un día no puede dar su clase,', cuando: 'avisa ella y se busca sustituta.' },
+            { accion: 'Mira quién tiene el día libre', cuando: 'cuando falte alguien.' },
+          ]}
+          accion={gestiona ? { label: 'Añadir a mi primera instructora', Icono: Plus, onClick: openNuevo } : undefined}
+          secundaria={puedeGestionarEquipo(miRol) && puedeVer(miRol, '/migracion') ? { label: '¿Vienes de otro programa? Tráelas con tus clases', href: '/migracion' } : undefined}
+        />
       ) : tarjetas.length === 0 ? (
         <EmptyState
           icono={Users}
@@ -644,7 +769,7 @@ export default function EquipoPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {ordenados.map(m => (
             <TarjetaMiembro
-              key={m.id} m={m} rolViewer={miRol} gestiona={gestiona}
+              key={m.id} m={m} rolViewer={miRol} gestiona={gestiona} nueva={panelNuevo}
               relacion={puedeGestionarEquipo(miRol) && m.rol === 'INSTRUCTOR' ? (relaciones?.[m.id] ?? null) : null}
               refCb={el => { if (el) fichaRefs.current.set(m.id, el); else fichaRefs.current.delete(m.id); }}
               pedido={!!pedido[m.id]}
@@ -664,6 +789,7 @@ export default function EquipoPage() {
               ausente={ausenciaHoy(ausencias, m.id)}
               invitando={invitando === m.id}
               onInvitar={() => { const i = instructorDe(m); if (i) enviarInvitacion(i); }}
+              avisoWhatsApp={avisoWhatsApp(m)}
             />
           ))}
         </div>
@@ -890,7 +1016,14 @@ export default function EquipoPage() {
                     </button>
                   </div>
                   <a
-                    href={`https://wa.me/${(enlace.instructor.telefono ?? '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${enlace.instructor.nombre}, ${TEXTOS_ENLACE[enlace.scope].whatsapp} ${enlace.url}`)}`}
+                    // Con el +34 del móvil español (`enlaceWhatsApp`): quitando lo que no es
+                    // dígito, «612 34 56 78» era wa.me/612345678 —para WhatsApp, Australia— y
+                    // el enlace con su token podía ir a un desconocido. Sin teléfono, que elija
+                    // ella a quién mandarlo.
+                    href={(() => {
+                      const texto = `Hola ${enlace.instructor.nombre}, ${TEXTOS_ENLACE[enlace.scope].whatsapp} ${enlace.url}`;
+                      return enlaceWhatsApp(enlace.instructor.telefono, texto) ?? `https://wa.me/?text=${encodeURIComponent(texto)}`;
+                    })()}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition"
                   >
@@ -955,7 +1088,7 @@ export default function EquipoPage() {
               const res = await deleteInstructor(confirmDel.id);
               setEliminando(false);
               setConfirmDel(null);
-              if (!res.ok) showToast(res.error);
+              if (!res.ok) showToastError(res.error);
             }} disabled={eliminando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600 disabled:opacity-40">
               {eliminando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Dar de baja
             </button>
@@ -976,7 +1109,7 @@ export default function EquipoPage() {
         }}
       />
 
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
 
       {/* Aviso con Deshacer (5 s) de la acción principal de una tarjeta */}
       {aviso && (
@@ -1002,10 +1135,12 @@ function PillSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: [string, string][];
 }) {
   return (
-    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors">
+    // Con el dedo, el desplegable ocupa todo el alto de la píldora (44): tocar la
+    // píldora fuera de su texto (22 px) no lo abría.
+    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
       <span className="text-muted-foreground font-medium whitespace-nowrap">{label}:</span>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer">
+        className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer tactil:min-h-11">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
     </label>
@@ -1024,10 +1159,12 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 };
 
 function TarjetaMiembro({
-  m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
-  onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion,
+  m, rolViewer, gestiona, nueva = false, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
+  onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion, avisoWhatsApp,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
+  /** Panel nuevo: la tarjeta con el radio y la sombra de las de la home. */
+  nueva?: boolean;
   /** Contratada/autónoma (control horario). Solo para quien gestiona el equipo; null = no se enseña. */
   relacion?: 'CONTRATADA' | 'AUTONOMA' | null;
   pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
@@ -1035,6 +1172,8 @@ function TarjetaMiembro({
   onEditar: () => void; onEliminar: () => void; onEliminarDefinitivo: () => void; onValoraciones: () => void; onHoras: () => void;
   onAusencias: () => void; onEnlaceBaja: () => void; onReasignar: () => void;
   ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
+  /** wa.me para avisarle de que entre (sin enlace de invitación), o null. */
+  avisoWhatsApp?: string | null;
 }) {
   const ahora = new Date();
   const situacion = situacionDe(m, ahora);
@@ -1053,7 +1192,9 @@ function TarjetaMiembro({
   return (
     <article
       ref={refCb}
-      className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none"
+      className={nueva
+        ? 'bg-card border border-border rounded-t-card shadow-t-card p-5 flex flex-col gap-4 transition-shadow hover:shadow-t-floating motion-reduce:transition-none'
+        : 'bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none'}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -1086,10 +1227,10 @@ function TarjetaMiembro({
         </div>
         {verMenu && (
           <div className="flex items-center gap-1 shrink-0 relative" data-menu-equipo>
-            <button onClick={onEditar} title="Editar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+            <button onClick={onEditar} title="Editar" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
               <Pencil size={14} />
             </button>
-            <button onClick={onMenu} title="Más acciones" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+            <button onClick={onMenu} title="Más acciones" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
               <MoreVertical size={15} />
             </button>
             {menuAbierto && (
@@ -1151,10 +1292,11 @@ function TarjetaMiembro({
           <div className="grid grid-cols-7 gap-1.5 mt-3 items-end">
             {m.semana.map((n, i) => (
               <button key={i} type="button" onClick={() => onDiaSel(i)}
-                className="flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
+                className="zona-tactil flex flex-col items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer">
                 <span
-                  className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
-                  style={{ height: `${n === 0 ? 8 : 8 + n * 10}px` }}
+                  className={`w-full rounded-[6px] transition-[height] ${n === 0 ? 'bg-muted' : nueva ? '' : diaSel === i ? 'bg-brand' : 'bg-foreground/70'}`}
+                  // Panel nuevo: azul, y el día elegido en magenta, como las gráficas de la home.
+                  style={{ height: `${n === 0 ? 8 : 8 + n * 10}px`, ...(nueva && n > 0 ? { backgroundColor: diaSel === i ? 'var(--t-magenta-500)' : 'var(--t-blue-500)' } : {}) }}
                 />
                 <span className={`text-[10px] ${diaSel === i ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>{DIAS[i]}</span>
               </button>
@@ -1174,7 +1316,10 @@ function TarjetaMiembro({
           <div>
             <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{cif.ocupacionTexto}</p>
             <span className="block h-1 mt-2 rounded-full bg-foreground/[0.07]">
-              <span className="block h-1 rounded-full bg-brand-medio transition-[width] duration-700" style={{ width: `${cif.ocupacionBarraPct}%` }} />
+              <span
+                className={cn('block h-1 rounded-full transition-[width] duration-700', !nueva && 'bg-brand-medio')}
+                style={{ width: `${cif.ocupacionBarraPct}%`, ...(nueva ? { backgroundColor: colorDeOcupacion(cif.ocupacionBarraPct) } : {}) }}
+              />
             </span>
             <p className="text-[12px] text-muted-foreground mt-2">{cif.ocupacionPie}</p>
           </div>
@@ -1198,13 +1343,20 @@ function TarjetaMiembro({
       )}
 
       {!m.conAcceso && m.email && gestiona && (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <span className="text-[12px] text-warning font-medium flex items-center gap-1.5"><AlertTriangle size={12} />Todavía sin acceso</span>
-          {onInvitar && (
-            <button onClick={onInvitar} disabled={invitando} className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50">
-              {invitando ? 'Enviando…' : 'Enviar invitación'}
-            </button>
-          )}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {avisoWhatsApp && (
+              <a href={avisoWhatsApp} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2">
+                Avisar por WhatsApp
+              </a>
+            )}
+            {onInvitar && (
+              <button onClick={onInvitar} disabled={invitando} className="text-[12px] font-semibold text-brand-medio hover:underline underline-offset-2 disabled:opacity-50">
+                {invitando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            )}
+          </span>
         </div>
       )}
 
@@ -1250,10 +1402,31 @@ const TIPO_AUDITORIA = new Set([
   'AUTOMATIZACION_CAMBIO', 'NUEVA_SOCIA', 'SESION_REASIGNADA', 'GESTORIA_CAMBIADA',
 ]);
 
-function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/types').ActividadReciente[] }) {
+function ActividadTab({ actividadReciente, panelNuevo = false, cargado = true }: {
+  actividadReciente: import('@/lib/types').ActividadReciente[];
+  panelNuevo?: boolean;
+  cargado?: boolean;
+}) {
   const relevantes = actividadReciente
     .filter(a => TIPO_AUDITORIA.has(a.tipo))
     .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
+
+  // Con el panel nuevo, el vacío enseña qué se apunta aquí (Bonsai A4). Sin botón: se llena solo.
+  if (panelNuevo && cargado && relevantes.length === 0) {
+    return (
+      <PantallaVacia
+        tono="verde"
+        Icono={History}
+        titulo="Aquí verás quién ha hecho qué"
+        texto="Cada cambio que hace tu equipo en el panel queda apuntado con quién lo hizo y cuándo."
+        ejemplos={[
+          { accion: 'Alta o baja de alguien del equipo', cuando: 'y quién la hizo' },
+          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de una clienta' },
+          { accion: 'Una clase que pasa a otra instructora', cuando: 'con la hora del cambio' },
+        ]}
+      />
+    );
+  }
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
@@ -1522,8 +1695,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
   );
   const totalHoras = resumen.asignadas;
   const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  const fmtH = (h: number) => `${h % 1 === 0 ? h : h.toFixed(1)} h`;
-  const fmtDif = (h: number) => `${h > 0 ? '+' : h < 0 ? '−' : ''}${fmtH(Math.abs(h))}`;
+  const fmtDif = (h: number) => `${h > 0 ? '+' : h < 0 ? '−' : ''}${textoHoras(Math.abs(h))}`;
 
   function exportar() {
     if (!instructor) return;
@@ -1534,10 +1706,10 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
         f.inicio.toLocaleDateString('es-ES'),
         f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         f.clase,
-        f.horas % 1 === 0 ? f.horas : f.horas.toFixed(2),
+        horasCsv(f.horas),
       ]);
     }
-    rows.push(['', '', 'TOTAL', totalHoras % 1 === 0 ? totalHoras : totalHoras.toFixed(2)]);
+    rows.push(['', '', 'TOTAL', horasCsv(totalHoras)]);
     const csv = rows.map(r => r.map(esc).join(';')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1559,23 +1731,23 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
 
         <div className="flex items-center justify-between">
           <button onClick={() => setMesAtras(m => Math.min(m + 1, 11))} disabled={mesAtras >= 11} aria-label="Mes anterior"
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            className="zona-tactil w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
             <ChevronLeft size={16} />
           </button>
           <p className="text-[14px] font-bold text-foreground capitalize">{fmtMes}</p>
           <button onClick={() => setMesAtras(m => Math.max(m - 1, 0))} disabled={mesAtras === 0} aria-label="Mes siguiente"
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
+            className="zona-tactil w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30">
             <ChevronRight size={16} />
           </button>
         </div>
 
         <div className="flex items-center gap-6 py-3 px-4 rounded-xl bg-muted/50">
           <div>
-            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.asignadas)}</p>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{textoHoras(resumen.asignadas)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">asignadas este mes</p>
           </div>
           <div className="pl-6 border-l border-border">
-            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.realizadas)}</p>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{textoHoras(resumen.realizadas)}</p>
             <p className="text-[11px] text-muted-foreground mt-1">ya realizadas</p>
           </div>
           <div className="pl-6 border-l border-border">
@@ -1590,10 +1762,10 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
           <div className="flex items-center justify-between gap-3 py-2.5 px-4 rounded-xl border border-border">
             <div className="min-w-0">
               <p className="text-[12.5px] font-semibold text-foreground">
-                Contrato: {fmtH(horasSemanalesContrato ?? 0)}/semana
+                Contrato: {textoHoras(horasSemanalesContrato ?? 0)}/semana
               </p>
               <p className="text-[11px] text-muted-foreground">
-                ≈ {fmtH(resumen.contratoMes)} al mes (52 semanas entre 12)
+                ≈ {textoHoras(resumen.contratoMes)} al mes (52 semanas entre 12)
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -1624,7 +1796,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato,
                     {f.inicio.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {f.inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <span className="text-[13px] font-bold text-foreground tabular-nums shrink-0">{fmtH(f.horas)}</span>
+                <span className="text-[13px] font-bold text-foreground tabular-nums shrink-0">{textoHoras(f.horas)}</span>
               </div>
             ))}
           </div>
@@ -1820,7 +1992,7 @@ function ValoracionesDialog({ instructor, tiposClase, onClose }: {
           <div className="space-y-4">
             <div className="flex items-center gap-5 rounded-2xl border border-border bg-muted/30 p-4">
               <div className="text-center shrink-0">
-                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{media.toFixed(1)}</p>
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{valoracionMedia(media)}</p>
                 <div className="mt-1.5 flex justify-center"><Estrellas n={Math.round(media)} size={13} /></div>
                 <p className="text-[11px] text-muted-foreground mt-1">{total} valoración{total === 1 ? '' : 'es'}</p>
               </div>

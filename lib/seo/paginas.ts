@@ -80,13 +80,13 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/reservas-online',
     titulo: 'Reservas y pagos para estudios de Pilates | Tentare',
     descripcion:
-      'Tus alumnas reservan y pagan desde el móvil, 24/7: bono, clase suelta o cuota con tarjeta o SEPA. Reglas por tipo de clase y precio desde 29 €/mes con IVA.',
+      'Tus alumnas reservan y pagan desde el móvil, 24/7: bono, clase suelta o cuota con tarjeta o SEPA. Reglas por tipo de clase y precio público: gratis hasta 150 alumnas activas y 250 reservas al mes.',
     grupo: 'funcionalidades',
     etiqueta: 'Reservas online',
     resumen: 'Reservan solas desde el móvil, con las reglas que tú pongas.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
-    actualizado: '2026-10-11',
+    actualizado: '2026-10-15',
     relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas', '/funcionalidades/plazas-fijas', '/soluciones/programa-de-gestion-para-estudio-de-pilates'],
   },
   {
@@ -345,25 +345,25 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/',
     titulo: 'Software de gestión para Pilates y yoga en España | Tentare',
     descripcion:
-      'Programa para centros de Pilates y yoga: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. 7 días gratis.',
+      'Programa para centros de Pilates y yoga: llena tus clases con reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros. Empieza gratis.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,
     changeFrequency: 'weekly',
     relacionadas: ['/funcionalidades', '/precios', '/comparativa', '/soluciones/programa-de-gestion-para-estudio-de-pilates'],
-    actualizado: '2026-10-11',
+    actualizado: '2026-10-15',
   },
   {
     path: '/precios',
-    titulo: 'Precios de Tentare: software para Pilates desde 29 €',
+    titulo: 'Precios de Tentare: software para estudios de Pilates, con un plan gratis',
     descripcion:
-      'Tres planes con precio público y sin permanencia: Founding Studio 29 €, Estudio 59 € y Cadena 149 € al mes. Qué incluye cada uno y qué se cobra aparte.',
+      'Tres planes públicos, sin permanencia: Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €), Estudio 59 € y Cadena 149 € al mes.',
     grupo: 'software',
     etiqueta: 'Precios',
-    resumen: 'Tres planes, precio público, sin permanencia y con prueba de 7 días sin tarjeta.',
+    resumen: 'Tres planes, precio público, sin permanencia y Founding Studio gratis.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
-    actualizado: '2026-10-11',
+    actualizado: '2026-10-15',
     relacionadas: ['/funcionalidades', '/comparativa', '/funcionalidades/cobros-recurrentes'],
   },
   {
@@ -473,7 +473,7 @@ export const PAGINAS: PaginaSeo[] = [
     resumen: 'Tentare frente a las trece plataformas con las que más se compara.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
-    actualizado: '2026-10-11',
+    actualizado: '2026-10-15',
     relacionadas: ['/precios', '/funcionalidades', '/recursos/mejor-software-para-estudios-de-pilates', '/seguridad'],
   },
   // relacionadas y descripcion por competidor: la descripción NO es una
@@ -487,19 +487,19 @@ export const PAGINAS: PaginaSeo[] = [
   // competidor concreto — ver docs/SEO-AI-MASTERPLAN.md §28.
   ...([
     ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
-      'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (desde 29 €/mes con IVA, sin permanencia) en facturación, sustituciones y funciones.'],
+      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia) en facturación, sustituciones y funciones.'],
     ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): cobros, facturación y funciones, punto por punto.'],
+      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): cobros, facturación y funciones, punto por punto.'],
     ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
-      'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (desde 29 €/mes con IVA), punto por punto.'],
+      'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes), punto por punto.'],
     ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia).'],
+      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
-      'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     // Estos 5 no salieron de una lista genérica de "competidores conocidos"
     // como los 8 de arriba — son los que de verdad aparecen en el SERP español
     // para "gestión pilates"/"gestión centros de pilates", las 2 únicas
@@ -508,15 +508,15 @@ export const PAGINAS: PaginaSeo[] = [
     // en su web pública — donde no se encontró un dato, la fila dice
     // "no encontrada"/"no especifica", nunca se asumió.
     ['tentare-vs-viday', 'ViDay', ['/funcionalidades/sustituciones', '/precios'],
-      'ViDay publica desde 39 €/mes (plan Individual), IVA no incluido. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'ViDay publica desde 39 €/mes (plan Individual), IVA no incluido. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-gesyoga', 'GesYoga', ['/funcionalidades/sustituciones', '/precios'],
-      'GesYoga publica desde 12 €/mes (plan Personal), IVA no incluido. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): funciones y límites.'],
+      'GesYoga publica desde 12 €/mes (plan Personal), IVA no incluido. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): funciones y límites.'],
     ['tentare-vs-bookyway', 'BookyWay', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'BookyWay no tiene suscripción: 1,50 € por usuario adicional tras 30 días. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'BookyWay no tiene suscripción: 1,50 € por usuario adicional tras 30 días. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-deporweb', 'DeporWeb', ['/funcionalidades/sustituciones', '/precios'],
-      'DeporWeb no publica precios. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): reservas por reformer, sustituciones y facturación.'],
+      'DeporWeb no publica precios. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): reservas por reformer, sustituciones y facturación.'],
     ['tentare-vs-flowstark', 'Flowstark', ['/funcionalidades/sustituciones', '/precios'],
-      'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
+      'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     // Lo que se busca de un competidor es su precio y su alternativa («bsport
@@ -557,7 +557,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/comparativa/tentare-vs-glofox',
     titulo: '¿Glofox merece la pena? Precios y alternativa para Pilates',
     descripcion:
-      'Glofox en euros: precio real, permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (desde 29 €/mes con IVA, sin permanencia).',
+      'Glofox en euros: precio real, permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).',
     grupo: 'software',
     etiqueta: 'Tentare vs Glofox',
     prioridad: 0.7,
@@ -592,7 +592,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/estudio-de-yoga',
     titulo: 'Software para estudios de yoga: reservas y bonos | Tentare',
     descripcion:
-      'Reservas online, bonos, mensualidades y cobros automáticos para tu estudio de yoga, con una app con tu marca. Desde 29 €/mes con IVA y sin permanencia.',
+      'Reservas online, bonos, mensualidades y cobros automáticos para tu estudio de yoga, con una app con tu marca. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.',
     grupo: 'soluciones',
     etiqueta: 'Estudio de Yoga',
     resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.',
@@ -610,7 +610,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/estudio-de-pilates-reformer',
     titulo: 'Reservas por reformer: software para Pilates | Tentare',
     descripcion:
-      'Reservas por reformer, aforo por sala, plazas fijas y lista de espera automática para estudios de Pilates reformer en España. Desde 29 €/mes con IVA.',
+      'Reservas por reformer, aforo por sala, plazas fijas y lista de espera automática para estudios de Pilates reformer en España. Gratis hasta 150 alumnas activas y 250 reservas al mes.',
     grupo: 'soluciones',
     etiqueta: 'Estudio de Pilates reformer',
     resumen: 'Cada reformer, una plaza: aforo por sala, plazas fijas y lista de espera.',
@@ -626,13 +626,13 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/programa-de-gestion-para-estudio-de-pilates',
     titulo: 'Programa de gestión para estudios de Pilates en España',
     descripcion:
-      'Reservas, calendario con salas, bonos, cobros con tarjeta o SEPA, facturas y sustituciones en un programa para estudios de Pilates en España. Desde 29 €/mes.',
+      'Reservas, calendario con salas, bonos, cobros con tarjeta o SEPA, facturas y sustituciones en un programa para estudios de Pilates en España.',
     grupo: 'soluciones',
     etiqueta: 'Programa de gestión',
     resumen: 'El programa que lleva el estudio entero: reservas, bonos, cobros, facturas y equipo.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
-    actualizado: '2026-10-11',
+    actualizado: '2026-10-16',
     relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion', '/recursos/checklist-elegir-software-estudio'],
   },
   // Índice de /soluciones: hasta el 23-sep era un 404 aunque colgaran de él

@@ -32,8 +32,8 @@ export interface SenalesEstudio {
 /** Días hacia atrás en los que tiene que haber alguna reserva. */
 export const DIAS_ACTIVIDAD_INDEXABLE = 90;
 
-/** Una suscripción viva: en prueba o pagando (con un cobro fallido a medias sigue siendo cliente). */
-const SUSCRIPCION_VIVA = new Set(['active', 'trialing', 'past_due']);
+/** Una suscripción viva: en prueba, pagando (con un cobro fallido a medias sigue siendo cliente) o en Founding Studio gratis. */
+const SUSCRIPCION_VIVA = new Set(['active', 'trialing', 'past_due', 'gratis']);
 
 export function paginaEstudioIndexable(s: SenalesEstudio): boolean {
   if (s.oculta || s.suspendido || s.esDemo) return false;

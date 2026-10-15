@@ -12,6 +12,7 @@ import { RastroDeRutas } from '@/components/student/shell/volver';
 import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
+import { appDeTiendaPublicada } from '@/lib/app-nativa/app-publicada';
 import './student.css';
 
 // Raíz de la Student PWA. Server Component a propósito.
@@ -60,8 +61,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!estudio) return { title: 'Estudio no encontrado' };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
+  // Con su app publicada en la App Store, Safari enseña arriba «Abrir» / «Obtener» (el aviso nativo
+  // de Apple; dentro de la app no sale).
+  const appTienda = await appDeTiendaPublicada(estudio.id);
   return {
     title: estudio.nombre,
+    ...(appTienda ? { itunes: { appId: appTienda.id } } : {}),
     description: `Reserva tu clase en ${estudio.nombre}.`,
     // Manifest POR ESTUDIO: es lo que hace que instalarla dé la app del
     // estudio y no «Tentare». El de la plataforma (app/manifest.ts) sigue
@@ -126,6 +131,9 @@ export default async function StudentLayout({
     }
   }
 
+  // Su app de la App Store, si está publicada: la fila «Descarga la app» de su Perfil.
+  const appTienda = await appDeTiendaPublicada(estudio.id);
+
   return (
     <div className="student-app">
       {/* La apariencia del estudio, en servidor (sin destello). Solo lo que
@@ -139,7 +147,7 @@ export default async function StudentLayout({
       <RastroDeRutas />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}
-      <StudentProvider estudio={estudio}>
+      <StudentProvider estudio={{ ...estudio, appTienda }}>
         <ToastProvider>{children}</ToastProvider>
       </StudentProvider>
     </div>

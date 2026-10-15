@@ -87,7 +87,7 @@ async function elegirPlan(page: Page, nombre: RegExp) {
   await page.getByRole('dialog').getByRole('button', { name: nombre }).click();
 }
 
-test('al asignar una cuota pregunta por la clase fija, y «Elegir su clase» abre el diálogo de clase fija', async ({ page }) => {
+test('al asignar una cuota pregunta por la clase fija, y «Elegir sus clases» abre el diálogo de clase fija', async ({ page }) => {
   const cuenta = await montar(page);
   await elegirPlan(page, /Cuota mensual 2x/);
 
@@ -96,7 +96,7 @@ test('al asignar una cuota pregunta por la clase fija, y «Elegir su clase» abr
   await expect(pregunta).toBeVisible();
   await expect(pregunta).toContainText('«Cuota mensual 2x» ya está asignado');
 
-  await pregunta.getByRole('button', { name: 'Elegir su clase' }).click();
+  await pregunta.getByRole('button', { name: 'Elegir sus clases' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Asignar clase fija' })).toBeVisible();
   // Abrir el diálogo no guarda nada: la plaza se guarda al elegir la clase.
   expect(cuenta.plazas).toHaveLength(0);

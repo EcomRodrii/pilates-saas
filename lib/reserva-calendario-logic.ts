@@ -49,6 +49,23 @@ export function contarSlotsPorDia<T extends { inicio: string }>(slots: T[]): Map
   return m;
 }
 
+/**
+ * El día en que abre la reserva pública. Hoy, si hoy hay algo que enseñar (una
+ * clase por venir o ya pasada); si no, el primer día de la ventana con clases.
+ * Abrir en un día vacío es la primera pantalla de una alumna nueva —sobre todo
+ * en móvil— diciéndole «Sin clases este día» antes de ver ninguna.
+ * Sin ninguna clase en la ventana se queda en hoy: no hay nada mejor que enseñar.
+ */
+export function diaInicialConClases(
+  conteoPorDia: Map<string, number>,
+  clavesVentana: string[],
+  hoyKey: string,
+  hayFinalizadasHoy: boolean,
+): string {
+  if (hayFinalizadasHoy || (conteoPorDia.get(hoyKey) ?? 0) > 0) return hoyKey;
+  return clavesVentana.find(k => (conteoPorDia.get(k) ?? 0) > 0) ?? hoyKey;
+}
+
 // Slots de un día concreto (por clave local), ordenados por hora de inicio.
 export function slotsDelDia<T extends { inicio: string }>(slots: T[], dayKey: string): T[] {
   return slots

@@ -191,6 +191,10 @@ export const EVENTOS = {
   // posterior (auditoría 23ª pasada, hallazgo pendiente).
   TRIAL_PROXIMO_A_EXPIRAR: 'sistema.trial_proximo_a_expirar',
   TRIAL_EXPIRADO: 'sistema.trial_expirado',
+  // La app de la App Store del estudio cuando deja de pagar Estudio/Cadena (decisión del fundador,
+  // 15-oct-2026, lib/app-nativa/apps-sin-plan.ts): empieza el margen de 30 días, y se pausa al acabar.
+  APP_TIENDA_SIN_PLAN: 'sistema.app_tienda_sin_plan',
+  APP_TIENDA_PAUSADA: 'sistema.app_tienda_pausada',
   // Embudo de alta (Fase 3 del onboarding): un estudio que ya existe pero
   // sigue, 48h después de crearse, sin ninguna clase programada — sin
   // horario no puede haber ni una reserva. Un único aviso por estudio en

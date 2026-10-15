@@ -15,6 +15,7 @@
 // fila avisa cuando no hay ninguna clase en su horario (mismo criterio que la
 // bandeja «Para hoy», lib/plazas-fijas-slot.ts).
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useEffect, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -25,7 +26,8 @@ import { estadoPausa } from '@/lib/plazas-fijas-pausa';
 import { fechaLimiteDecidirVuelta } from '@/lib/plazas-fijas-solicitudes';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { hoyEnEstudio } from '@/lib/utils';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { DialogoPausaPlazaFija } from '@/components/plazas-fijas/dialogo-pausa-plaza-fija';
 import { CalendarioPlazaFija } from '@/components/plazas-fijas/calendario-plaza-fija';
 import type { PlazaFija } from '@/lib/types';
@@ -62,7 +64,7 @@ function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: num
   return partes.join(' · ');
 }
 
-export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
+export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: MostrarToast }) {
   const { plazasFijas, quitarPlazaFija, salas, tiposClase, spots, sesiones, suscripciones, planesTarifa } = useStudio();
   // null = cerrado; { plaza: null } = asignando una nueva; { plaza } = cambiando esa.
   const [dialogo, setDialogo] = useState<{ plaza: PlazaFija | null } | null>(null);
@@ -213,9 +215,9 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
           socioId={socioId}
           plaza={dialogo.plaza}
           onClose={() => setDialogo(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setDialogo(null);
-            onToast(textoPlazaGuardada(r, movida));
+            onToast(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}
@@ -242,8 +244,8 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
         onConfirm={async () => {
           if (aBorrar) {
             const res = await quitarPlazaFija(aBorrar.id);
-            if (!res.ok) { onToast(res.error); return; }
-            onToast(textoPlazaQuitada(res.canceladas ?? 0, res.mantenidas ?? 0, res.fallidas ?? 0));
+            if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
+            onToast(textoPlazaQuitada(res.canceladas ?? 0, res.mantenidas ?? 0, res.fallidas ?? 0), (res.fallidas ?? 0) > 0 ? { variant: 'error' } : undefined);
           }
           setABorrar(null);
         }}

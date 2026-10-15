@@ -35,6 +35,9 @@ export default function LoginPage() {
   // perfil de Network. Nunca se le concede el panel: se le dice la verdad y
   // se cierra la sesión que se acaba de abrir (ver el bloque de abajo).
   const [cuentaDeNetwork, setCuentaDeNetwork] = useState(false);
+  // El servidor ha dicho que NO a la invitación (otro correo, enlace revocado…):
+  // se enseña su motivo en vez de seguir al panel como si nada.
+  const [rechazoInvitacion, setRechazoInvitacion] = useState<string | null>(null);
   // Recarga/atrás/pestaña cerrada y reabierta a medio verificar: el email
   // pendiente sobrevive en sessionStorage (lib/auth/otp-pendiente.ts) — sin
   // esto, un F5 en plena verificación devolvía sin más al formulario de
@@ -85,17 +88,26 @@ export default function LoginPage() {
   }, []);
 
   // Segunda vía para el token de invitación, además del sessionStorage que
-  // /invitacion ya guardó al entrar (lib/equipo/invitacion-pendiente.ts). Se
+  // /invitacion guardó al pulsar (lib/equipo/invitacion-pendiente.ts). Se
   // vio en producción una cuenta creada y confirmada por OTP sin vincular a
   // ningún estudio — sessionStorage se había perdido en el salto desde
   // /invitacion sin dejar traza de la causa exacta. Si el token llega por
   // querystring (mismo origen, /invitacion → /login, sin relación con el
   // enlace del correo), se vuelve a guardar aquí — cubre el caso justo antes
   // de que se necesite, tanto si sessionStorage sobrevivió como si no.
+  //
+  // ⚠️ Solo si NO había sesión al llegar (13-oct-2026). El camino de verdad,
+  // `/invitacion`, cierra la sesión antes de mandar aquí, así que un
+  // `/login?token=` con una sesión ya abierta no viene de pulsar en la
+  // invitación: se manda a la invitación (ver el efecto de abajo), que es donde
+  // se acepta.
+  const sesionAlLlegar = useRef<boolean | null>(null);
   useEffect(() => {
+    if (loading || sesionAlLlegar.current !== null) return;
+    sesionAlLlegar.current = Boolean(session);
     const token = new URLSearchParams(window.location.search).get('token');
-    if (token) recordarTokenInvitacion(token);
-  }, []);
+    if (token && !session) recordarTokenInvitacion(token);
+  }, [loading, session]);
 
   // Vuelta de Google con fallo (cancelado, callback caído, provider mal
   // configurado): gotrue lo comunica como error_description en la URL de
@@ -143,6 +155,16 @@ export default function LoginPage() {
     if (yaArrancado.current) return;
     yaArrancado.current = true;
 
+    // Con una sesión que ya estaba abierta, un enlace de invitación no se canjea
+    // aquí: se va a la invitación, que dice a qué estudio y con qué papel, y
+    // ofrece cerrar esta sesión (ver `sesionAlLlegar`).
+    const tokenEnUrl = new URLSearchParams(window.location.search).get('token');
+    if (tokenEnUrl && sesionAlLlegar.current) {
+      window.location.replace(`/invitacion?token=${encodeURIComponent(tokenEnUrl)}`);
+      return;
+    }
+
+    let rechazo: string | null = null;
     (async () => {
       // Ver lib/auth/normalizar-nombre-google.ts — se llama también desde
       // /network/acceso, que desde 2026-08-19 tiene su propio retorno de
@@ -247,15 +269,27 @@ export default function LoginPage() {
         // verdad») y a `pending_freelance`; aquí quedó sin aplicar. La acción es
         // idempotente por diseño, así que conservar el token es seguro: el
         // siguiente login lo completa solo.
-        const vinculadas = await dbReclamarAccesoEquipo(token);
-        if (vinculadas > 0) {
+        const r = await dbReclamarAccesoEquipo(token);
+        // Un «no» definitivo tampoco se reintenta: si se conservara, cada acceso
+        // en esta pestaña volvería a chocar con él, también con la cuenta de
+        // siempre. Para reintentarlo con la cuenta buena, se abre otra vez el
+        // enlace del correo.
+        if (r.vinculadas > 0 || r.yaEra || r.rechazo) {
           olvidarTokenInvitacion();
           if (user.user_metadata?.[CLAVE_INVITACION]) {
             await supabase.auth.updateUser({ data: { [CLAVE_INVITACION]: null } });
           }
         }
+        if (r.rechazo) rechazo = r.rechazo;
       }
     })().finally(async () => {
+      // La invitación no ha valido: se dice, y no se deja abierta una sesión que
+      // no tiene adónde ir (mismo criterio que la cuenta de Network, abajo).
+      if (rechazo) {
+        await supabase.auth.signOut({ scope: 'local' });
+        setRechazoInvitacion(rechazo);
+        return;
+      }
       // Hard navigation on purpose: StudioProvider (mounted once at the root
       // layout) already resolved/fetched with whatever studio_id was current
       // *before* the studio creation/claim above finished. A client-side
@@ -435,7 +469,29 @@ export default function LoginPage() {
           <p className="text-[12.5px] text-[#A8A89F]">Gestión de tu estudio de Pilates</p>
         </div>
 
-        {cuentaDeNetwork ? (
+        {rechazoInvitacion ? (
+          <div
+            role="alert" data-testid="invitacion-rechazada"
+            className="bg-white rounded-2xl p-6 text-center" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}
+          >
+            <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1.5">No hemos podido activar tu acceso</h2>
+            <p className="text-[13.5px] leading-relaxed text-[#6C6C64] mb-2">{rechazoInvitacion}</p>
+            <p className="text-[12.5px] leading-relaxed text-[#8E8E86] mb-5">
+              Para volver a intentarlo, abre otra vez el enlace de tu invitación.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                // Entrar sin la invitación: el efecto de arriba tiene que poder correr otra vez.
+                yaArrancado.current = false;
+                setRechazoInvitacion(null); setEmail(''); setPassword(''); setModo('entrar');
+              }}
+              className="block w-full rounded-xl bg-brand px-4 py-2.5 text-center text-[13.5px] font-semibold text-brand-foreground transition-colors hover:brightness-95"
+            >
+              Volver a iniciar sesión
+            </button>
+          </div>
+        ) : cuentaDeNetwork ? (
           <div className="bg-white rounded-2xl p-6 text-center" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
             <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'var(--accent)' }}>
               <ArrowLeftRight size={18} style={{ color: 'var(--accent-foreground)' }} aria-hidden="true" />

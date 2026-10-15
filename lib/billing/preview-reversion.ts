@@ -12,6 +12,8 @@
 // Esto solo calcula y avisa; el botón lo pulsa una persona.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { hoyEnEstudio } from '../utils.ts';
+
 export type MotivoSinReversion =
   | 'SIN_INSTRUMENTAR'   // cobro anterior al snapshot: no se sabe qué entregó
   | 'SIN_ENTREGA'        // se evaluó y no cambió nada, o no cuelga de ninguna suscripción
@@ -156,8 +158,10 @@ export function calcularReversion(p: {
   return NO('SIN_ENTREGA');
 }
 
+// El día del estudio: con el de UTC, entre las 00:00 y las 02:00 de Madrid una
+// cuota que venció ayer aún no «había pasado» y el aviso no salía.
 function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hoyEnEstudio();
 }
 
 /**

@@ -206,7 +206,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Tentare, el software de gestión para estudios de Pilates',
-          texto: 'Reservas, lista de espera, bonos, cobros y facturas desde el primer día, y cuando una instructora no puede venir busca sustituta por ti. Pruébalo 7 días gratis, sin tarjeta.',
+          texto: 'Reservas, lista de espera, bonos, cobros y facturas desde el primer día, y cuando una instructora no puede venir busca sustituta por ti. Empieza gratis, sin tarjeta.',
         },
       ],
     },
@@ -293,7 +293,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Con los papeles en regla, que la gestión no te quite horas',
-    texto: 'Tentare lleva las reservas, los bonos, los cobros y las facturas de tu estudio desde el primer día, con la ficha de salud de cada alumna. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare lleva las reservas, los bonos, los cobros y las facturas de tu estudio desde el primer día, con la ficha de salud de cada alumna. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'La DGT publicó en mayo de 2026 la consulta V1288-26 (967.2 frente a actividad profesional, en entrenamiento personal); no se pudo leer el texto oficial porque la base de datos de la DGT no respondía. Revisar si matiza el criterio de V2661-14.',

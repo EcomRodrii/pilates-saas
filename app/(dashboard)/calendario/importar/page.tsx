@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Upload, FileSpreadsheet, Download, Check, AlertTriangle,
-  ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users,
+  ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users, ImageUp,
 } from 'lucide-react';
 import {
   autoMapearClase, validarFilasClase, serializeCsv, CAMPOS_CLASE,
@@ -14,6 +14,12 @@ import {
 import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { hoyEnEstudio } from '@/lib/utils';
+import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { puedeGestionarSede } from '@/lib/permisos-reglas';
+import { HorarioDesdeImagen } from '@/components/calendario/horario-desde-imagen';
 
 // Asistente de importación del HORARIO — tercera pieza de la migración asistida
 // (tras socias y membresías). Acepta las dos formas en que las plataformas
@@ -47,6 +53,12 @@ const inputCls = 'rounded-lg border border-border px-3 py-2 text-[13px] focus:ou
 
 export default function ImportarHorarioPage() {
   const router = useRouter();
+  // «Desde una foto o un texto» (P2.1), apagado tras `HORARIO_DESDE_IMAGEN` y
+  // solo para quien monta la agenda. Apagado, la pantalla es la de siempre.
+  const { studio } = useStudio();
+  const rol = useRol();
+  const leerEncendido = useInterruptor('horarioDesdeImagen', studio?.id) && puedeGestionarSede(rol);
+  const [modo, setModo] = useState<'archivo' | 'imagen'>('archivo');
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState('');
@@ -56,7 +68,9 @@ export default function ImportarHorarioPage() {
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportClases | null>(null);
   const [semanas, setSemanas] = useState(4);
-  const [desde, setDesde] = useState(() => new Date().toISOString().slice(0, 10));
+  // El día del estudio: con el de UTC, entre las 00:00 y las 02:00 de Madrid el
+  // horario recurrente empezaba AYER y su primera clase nacía en el pasado.
+  const [desde, setDesde] = useState(() => hoyEnEstudio());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validadas = useMemo(
@@ -116,6 +130,9 @@ export default function ImportarHorarioPage() {
         description="Trae tus clases y tu horario desde tu programa anterior."
       />
 
+      {leerEncendido && modo === 'imagen' && <HorarioDesdeImagen onVolver={() => setModo('archivo')} />}
+      {!(leerEncendido && modo === 'imagen') && (<>
+
       {/* Pasos */}
       <div className="flex items-center gap-2">
         {([1, 2, 3] as Paso[]).map(n => (
@@ -135,6 +152,20 @@ export default function ImportarHorarioPage() {
       {/* ── Paso 1: archivo ─────────────────────────────────────────────── */}
       {paso === 1 && (
         <div className="flex flex-col gap-4">
+          {leerEncendido && (
+            <button
+              type="button"
+              onClick={() => setModo('imagen')}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted"
+            >
+              <ImageUp size={20} className="shrink-0 text-brand-medio" />
+              <span className="flex-1">
+                <span className="block text-[13.5px] font-semibold text-foreground">¿Lo tienes en una foto o en tu web? Desde una captura o un texto</span>
+                <span className="block text-[12.5px] text-muted-foreground">Lo leemos y revisas la semana antes de crear nada.</span>
+              </span>
+              <ArrowRight size={16} className="shrink-0 text-muted-foreground" />
+            </button>
+          )}
           <div
             onDragOver={e => { e.preventDefault(); setDragActivo(true); }}
             onDragLeave={() => setDragActivo(false)}
@@ -353,6 +384,7 @@ export default function ImportarHorarioPage() {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }

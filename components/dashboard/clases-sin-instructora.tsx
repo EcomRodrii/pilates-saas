@@ -7,6 +7,7 @@ import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-clie
 import { clasesSinInstructora, ETIQUETA_INSTRUCTORA_NO_DISPONIBLE } from '@/lib/equipo/clases-sin-instructora';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // RES-8. Clases futuras de una instructora dada de baja. Nada las cancela solo:
 // hay alumnas apuntadas a algo que nadie va a dar, y decide el estudio, por
@@ -22,7 +23,7 @@ const fmt = new Intl.DateTimeFormat('es-ES', {
 });
 const cuando = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : fmt.format(d); };
 
-export function ClasesSinInstructora({ onToast }: { onToast: (m: string) => void }) {
+export function ClasesSinInstructora({ onToast }: { onToast: MostrarToast }) {
   const { sesiones, reservas, instructores, tiposClase, cancelarSesionesConAviso, asignarInstructoraASesiones } = useStudio();
   const grupos = useMemo(
     () => clasesSinInstructora(sesiones, instructores, new Date()),
@@ -61,11 +62,11 @@ export function ClasesSinInstructora({ onToast }: { onToast: (m: string) => void
       const ids = elegidas.map(s => s.id);
       if (accion === 'cancelar') {
         const res = await cancelarSesionesConAviso(sesiones.filter(s => ids.includes(s.id)));
-        if (!res.ok) { setAviso(p => ({ ...p, [instructorId]: res.error ?? 'No se han podido cancelar.' })); return; }
+        if (!res.ok) { setAviso(p => ({ ...p, [instructorId]: res.error ?? 'No se han podido cancelar.' })); return; } // toast-no-es-error: aviso en línea, en rojo y con role="alert"
         onToast(`${ids.length} clase${ids.length === 1 ? '' : 's'} cancelada${ids.length === 1 ? '' : 's'}`);
       } else {
         const res = await asignarInstructoraASesiones(ids, accion === 'pasar' ? destino[instructorId] : null);
-        if (!res.ok) { setAviso(p => ({ ...p, [instructorId]: res.error ?? 'No se ha podido guardar.' })); return; }
+        if (!res.ok) { setAviso(p => ({ ...p, [instructorId]: res.error ?? 'No se ha podido guardar.' })); return; } // toast-no-es-error: aviso en línea, en rojo y con role="alert"
         onToast(accion === 'pasar'
           ? `${ids.length} clase${ids.length === 1 ? '' : 's'} pasada${ids.length === 1 ? '' : 's'} a otra instructora`
           : `${ids.length} clase${ids.length === 1 ? '' : 's'} sin instructora`);

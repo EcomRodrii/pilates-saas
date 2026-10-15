@@ -302,7 +302,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Créalas en serie, no una a una',
-        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clase» → «Clase fija» te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
+        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clase» → «Clase semanal» te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
       },
       {
         titulo: 'Cambiar una serie sin romperla',
@@ -577,8 +577,11 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Lleva tu nombre, tu logo y tus colores. Para tus alumnas es la app de tu estudio. Hoy puedes cambiar el logo, el favicon, los colores de marca y los textos que se leen al entrar.',
       },
       {
-        titulo: 'Tu tablón',
-        texto: 'En «Contenido de tu app» (Configuración → Mi app y mi web) pones el mensaje destacado que ven al entrar y los avisos del estudio. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
+        // Decía «pones el mensaje destacado que ven al entrar y los avisos del estudio»:
+        // ninguna pantalla de su app enseña ninguno de los dos (sí las tarjetas). Y
+        // «tablón» es el de Comunidad, que es otra cosa y ese sí se ve.
+        titulo: 'Tus tarjetas de «Descubre»',
+        texto: 'En «Contenido de tu app» (Configuración → Mi app y mi web) publicas las tarjetas con foto que ven al entrar en su app. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
       },
       {
         titulo: 'El editor de marca completo, ahora mismo',
@@ -586,7 +589,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Personalizar mi tablón', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
+      { label: 'Publicar una tarjeta', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
       { label: 'Mi logo y mi color', href: '/configuracion?tab=marca' },
       { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],

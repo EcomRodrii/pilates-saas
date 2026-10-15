@@ -190,3 +190,12 @@ test('un horario en inglés con columna «Day» se mapea y valida', () => {
   assert.equal(filas[0].datos.diaSemana, 1); // lunes
   assert.equal(filas[1].datos.diaSemana, 4); // jueves
 });
+
+test('parsearHora: «pm» pegado a la cifra o con puntos y espacio (antes salían las 07:00)', () => {
+  assert.equal(parsearHora('7:00pm'), '19:00');
+  assert.equal(parsearHora('7:00 p. m.'), '19:00');
+  assert.equal(parsearHora('7:30 P.M.'), '19:30');
+  assert.equal(parsearHora('12:00am'), '00:00');
+  assert.equal(parsearHora('12:30pm'), '12:30');
+  assert.equal(parsearHora('9:00 am'), '09:00');
+});

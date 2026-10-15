@@ -9,6 +9,7 @@ import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import { cancelarSuscripcionAnteriorSiToca } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { desplazadaPorSuCadena } from '@/lib/billing/suscripcion-desplazada-por-cadena';
+import { cancelarSueltasDeLasSedes } from '@/lib/billing/sede-incluida-en-cadena';
 import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decidirAcreditacion, disputaRetiraElPack, efectoDelReembolso, esDePack, idDeReferencia } from '@/lib/asistente/packs-stripe';
@@ -369,6 +370,26 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
         tags: { area: 'billing', tipo: 'cancelar-suscripcion-anterior' },
         extra: { anteriorId: sub.metadata?.cancelarSuscripcionAnterior, nuevaId: sub.id },
       });
+    }
+    // Y las sueltas de las DEMÁS sedes (la principal que pagaba Founding Studio
+    // desde el gratis, si la Cadena se contrató desde otra sede): la cadena ya las
+    // cubre. Mismo criterio que arriba (solo con la cadena viva) e idempotente.
+    // Avisa y sigue: la cadena ya está escrita, y un reintento de Stripe por esto
+    // no arreglaría nada que el siguiente evento no vuelva a intentar.
+    try {
+      const sueltas = await cancelarSueltasDeLasSedes(admin, stripe, { id: cadenaId, clienteStripe: customerId, suscripcion: sub });
+      for (const e of sueltas.errores) {
+        Sentry.captureException(e.error, {
+          tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, sueltaOCliente: e.id, nuevaId: sub.id },
+        });
+      }
+      if (sueltas.revisar.length > 0) {
+        Sentry.captureMessage('[billing webhook] cadena confirmada con otra suscripción viva en el cliente de una sede: revisar a mano', {
+          level: 'warning', tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, revisar: sueltas.revisar, nuevaId: sub.id },
+        });
+      }
+    } catch (err) {
+      Sentry.captureException(err, { tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, nuevaId: sub.id } });
     }
     return;
   }

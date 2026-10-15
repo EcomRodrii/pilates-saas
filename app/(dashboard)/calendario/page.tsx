@@ -9,10 +9,10 @@ import { useStudio } from '@/lib/studio-context';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
-import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
+import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
+import { semaforo, alertaPreClase, adaptacionPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion, Studio, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
+import { avisoTrasCancelar } from '@/lib/calendario/aviso-tras-cancelar';
 import { cn, cuandoEstudio, fechaLargaEstudio, formatEuro, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
@@ -37,7 +38,8 @@ import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -66,14 +68,23 @@ import { ResumenCalendario } from '@/components/calendario/resumen-calendario';
 import { TiraDias } from '@/components/calendario/tira-dias';
 import { SemanaFranjas } from '@/components/calendario/semana-franjas';
 import { FichaClase, type ModoFicha, type PestanaFicha } from '@/components/calendario/ficha-clase';
+import { cifrasDeClase } from '@/lib/calendario/cifras-clase';
 import { ClientasDeClase } from '@/components/calendario/clientas-de-clase';
 import { AnadirAClase, type MetodoSuelta } from '@/components/calendario/anadir-a-clase';
 import { SustitutaDeClase, type DatosSustitutaClase } from '@/components/calendario/sustituta-de-clase';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import { lineaCoberturaMostrador } from '@/lib/calendario/cobertura-mostrador';
+import {
+  DE_SERIE as TARJETA_DE_SERIE, bonoAgotadoQueCubre, conQueVieneFila, esPrimeraVez, notaFijadaPorSocia, pagoConocido,
+  piezasDeTarjeta, saludVisible, tarjetaClaseDe, textoCumpleanos, type Pieza,
+} from '@/lib/calendario/tarjeta-clienta';
+import { hechosDeAsistencia, tieneHistorialPrevio } from '@/lib/clientas/estado';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
-import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { avisoClaseSueltaAlQuitar, clasesSueltasQueCubreSuCuota, cuotaQueYaTiene, cuotasQueCubren, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { esError, ventasPorAsignarDePlan } from '@/lib/pos/cliente';
+import { cicloInicialDe } from '@/lib/bono-logic';
 import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
@@ -108,13 +119,21 @@ import { mmA } from '@/lib/calendario-metricas';
 import { minutosEnEstudio, diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/calendario-acciones';
-import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
+import { claseAtenuadaPorInstructor, claseAtenuadaPorColumna, instructoraApagada, alternarInstructora, alternarEnConjunto } from '@/lib/calendario-filtros';
+import { ColumnaCalendario, type FilaColumna } from '@/components/calendario/columna-calendario';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { ClasesFijasPorAlumna, SelectorHorarioPor, type HorarioPor } from '@/components/calendario/clases-fijas-por-alumna';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
+import dynamic from 'next/dynamic';
+import { repetirMesDisponible } from '@/lib/series/repetir-mes-cliente';
+import { plazasLibresDisponible } from '@/lib/calendario/plazas-libres-cliente';
+import { nombreMes, textoTrasRepetir, type ResultadoRepetir } from '@/lib/series/repetir-mes';
+import { señalarClasesCreadas } from '@/components/calendario/huella-de-creacion';
 import { VistaHorario } from '@/components/calendario/vista-horario';
 import { ElegirClienta } from '@/components/calendario/elegir-clienta';
 import { pedirHorario } from '@/lib/horario-fijo-cliente';
@@ -133,6 +152,13 @@ const FALLBACK = new Date('2026-01-01T12:00:00');
 const SIN_CIERRES: CierreGuardado[] = [];
 /** El ajuste «Peticiones desde su app», al que lleva el aviso de la vista Horario. */
 const HREF_PETICIONES_PLAZA_FIJA = '/configuracion?tab=reservas#plaza-fija-desde-la-app';
+
+// «Repetir este mes» (P1.7): fuera del chunk del Calendario; solo se carga si
+// está encendido para el estudio y alguien lo abre.
+const DialogoRepetirMes = dynamic(
+  () => import('@/components/calendario/dialogo-repetir-mes').then(m => m.DialogoRepetirMes),
+  { ssr: false },
+);
 
 function addDays(date: Date, n: number) {
   const d = new Date(date);
@@ -599,7 +625,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded,
+    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded, assignPlan,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -621,7 +647,7 @@ export default function Calendario() {
     setResolviendoReserva(reservaId);
     try {
       const r = resultadoDecisionReserva(aprobar, await decidirReservaPendiente(reservaId, aprobar));
-      showToast(r.mensaje);
+      (r.quitar && !r.error ? showToast : showToastError)(r.mensaje);
       if (r.quitar) {
         invalidarEstadoEstudio();
         resetDatosPilates();
@@ -766,6 +792,17 @@ export default function Calendario() {
   // ── Filters (punto 9: sala reduce columnas, instructora atenúa) ─────────────
   const [filtroInstructor, setFiltroInstructor] = useState('');
   const [filtroSala, setFiltroSala] = useState('todas');
+  // Panel nuevo: la columna de la izquierda, como la de Bonsai (b-40), con un
+  // ojo por clase y por instructora y «Solo con alumnas apuntadas». Atenúan,
+  // como el filtro de instructora. Solo cuentan donde se ve la columna.
+  const panelNuevo = usePanelNuevo();
+  // Horario «Por clase» o «Por alumna» (Turnos de Bonsai): solo con el panel nuevo.
+  const [horarioPor, setHorarioPor] = useState<HorarioPor>('clase');
+  const columnaCabe = useCoincideMedio('(min-width: 1360px)');
+  const conColumna = panelNuevo && columnaCabe;
+  const [tiposApagados, setTiposApagados] = useState<ReadonlySet<string>>(() => new Set());
+  const [instructorasApagadas, setInstructorasApagadas] = useState<ReadonlySet<string>>(() => new Set());
+  const [soloConApuntadas, setSoloConApuntadas] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
   const [guardandoSesion, setGuardandoSesion] = useState(false);
@@ -1028,6 +1065,11 @@ export default function Calendario() {
       setInitialRecurrente(undefined);
       setShowRecurrentes(true);
       window.history.replaceState({}, '', '/calendario');
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(params.get('fecha') ?? '')) {
+      // «Ver ese día en el calendario» del aviso de festivos: el día, en vista Día.
+      irAFecha(params.get('fecha') as string);
+      setVista('dia');
+      window.history.replaceState({}, '', '/calendario');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1253,7 +1295,7 @@ export default function Calendario() {
       instructora: aviso.datos.instructora, instructorActual: aviso.datos.instructora,
       fecha: aviso.email.fecha, hora: aviso.email.hora, instructorAnterior: aviso.email.anterior,
     });
-    if (!r) { showToast('No se ha podido avisar. Inténtalo otra vez.'); return; }
+    if (!r) { showToastError('No se ha podido avisar. Inténtalo otra vez.'); return; }
 
     const faltan = r.sinEmail > 0 ? ` · ${r.sinEmail} sin email guardado` : '';
     if (r.enviados > 0) {
@@ -1261,7 +1303,7 @@ export default function Calendario() {
     } else if (r.enApp > 0) {
       showToast(`Aviso puesto en la app${faltan}`);
     } else {
-      showToast('No se ha podido avisar. Inténtalo otra vez.');
+      showToastError('No se ha podido avisar. Inténtalo otra vez.');
     }
   }
 
@@ -1321,7 +1363,7 @@ export default function Calendario() {
       // «6 clases» cuando dos fallaron es justo la escritura optimista que
       // este repo no se permite en ningún sitio.
       if (fallos.length) {
-        showToast(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
+        showToastError(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
       } else {
         showToast(`${hechas} clase${hechas === 1 ? '' : 's'} ${hechas === 1 ? 'pasada' : 'pasadas'} a ${nueva}${avisar ? ' · alumnas avisadas' : ''}`);
       }
@@ -1358,15 +1400,29 @@ export default function Calendario() {
     if (borran.length === 0) { setEliminarLote(null); return; }
     let hechas = 0;
     const fallos: string[] = [];
+    // Lo que queda a medias en las que SÍ se borraron (P0.3): sesiones que no
+    // volvieron al bono y alumnas sin avisar. Antes el lote decía «N clases
+    // eliminadas» y se lo callaba.
+    let bonosSinDevolver = 0, sinAvisar = 0;
     setEliminarLote({ hechas: 0, total: borran.length });
     for (const ses of borran) {
       const res = await deleteSesion(ses.id);
-      if (res.ok) hechas++; else fallos.push(res.error);
+      if (res.ok) {
+        hechas++;
+        if (res.avisoBono) bonosSinDevolver++;
+        sinAvisar += res.sinAvisar ?? 0;
+      } else fallos.push(res.error);
       setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
     }
-    showToast(fallos.length
-      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}`
-      : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
+    const pendiente = [
+      bonosSinDevolver > 0 ? `En ${bonosSinDevolver === 1 ? '1 clase' : `${bonosSinDevolver} clases`} no hemos podido devolver la sesión al bono de alguna clienta: revísalo a mano.` : null,
+      sinAvisar > 0 ? `A ${sinAvisar === 1 ? '1 clienta no le ha' : `${sinAvisar} clientas no les ha`} llegado el aviso: escríbeles o llámalas.` : null,
+    ].filter(Boolean).join(' ');
+    (fallos.length || pendiente ? showToastError : showToast)(fallos.length
+      ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}${pendiente ? ` ${pendiente}` : ''}`
+      : pendiente
+        ? `${pendiente} ${hechas === 1 ? 'La clase sí se ha eliminado.' : `Las ${hechas} clases sí se han eliminado.`}`
+        : `${hechas} clase${hechas === 1 ? '' : 's'} eliminada${hechas === 1 ? '' : 's'}`);
     salirDeSeleccion();
     invalidarHorario();
     void refrescarVista();
@@ -1391,7 +1447,7 @@ export default function Calendario() {
   async function editarSesion() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     if (sesionActual && sesionYaEmpezada(sesionActual.inicio)) {
-      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      showToastError(MENSAJE_CLASE_YA_EMPEZADA);
       return;
     }
     setGuardandoSesion(true);
@@ -1399,7 +1455,7 @@ export default function Calendario() {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     const mismoInstante = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
     const cambioHora = !!sesionActual && !mismoInstante(sesionActual.inicio, nuevoInicio);
-    if (cambioHora && sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (cambioHora && sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
     const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
     const cambioInstructora = !!sesionActual && sesionActual.instructorId !== form.instructorId;
     const guardado = await updateSesion(sesionId, {
@@ -1411,7 +1467,7 @@ export default function Calendario() {
       aforoMaximo: form.aforoMaximo,
       notas: form.notas || null,
     });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     const apuntadas = cuantasApuntadas(sesionId);
 
     if (sesionActual && (cambioHora || cambioSala || cambioInstructora)) {
@@ -1487,7 +1543,7 @@ export default function Calendario() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);
     if (!base) return;
-    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (serieAlPasado()) { showToastError(MENSAJE_HORA_PASADA); return; }
     const edicion = edicionDelFormulario();
     const impacto = calcularImpactoEdicionSerie({
       tramo: tramoDeLaSerie(), edicion, reservas, plazasFijas, recuperaciones,
@@ -1508,7 +1564,7 @@ export default function Calendario() {
   async function editarSerie() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     // Otra vez al confirmar: entre pedir la confirmación y darle pueden pasar minutos.
-    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (serieAlPasado()) { showToastError(MENSAJE_HORA_PASADA); return; }
     setGuardandoSesion(true);
     try {
     // Se calcula ANTES de guardar: es lo que había, no lo que queda.
@@ -1524,14 +1580,14 @@ export default function Calendario() {
       horaInicio: form.horaInicio,
       horaFin: form.horaFin,
     });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     invalidarHorario();
     if (guardado.count != null && guardado.count !== n) {
       Sentry.captureMessage('[calendario] editar_serie_desde: filas afectadas no coinciden con las esperadas', {
         level: 'warning', tags: { area: 'calendario', tipo: 'conflicto_edicion' },
         extra: { sesionId, esperadas: n, afectadas: guardado.count },
       });
-      showToast(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
+      showToastError(`Serie actualizada · ${guardado.count} de ${n} clases (alguien más tocó la serie mientras editabas — revisa el calendario)`);
       setShowForm(null);
       void refrescarVista();
       return;
@@ -1609,9 +1665,9 @@ export default function Calendario() {
   async function cancelarSesion() {
     if (!sesionId) return;
     const aCancelar = sesionesEnriquecidas.find(s => s.id === sesionId);
-    if (aCancelar && sesionYaEmpezada(aCancelar.inicio)) { showToast(MENSAJE_CLASE_DADA); return; }
+    if (aCancelar && sesionYaEmpezada(aCancelar.inicio)) { showToastError(MENSAJE_CLASE_DADA); return; }
     const guardado = await updateSesion(sesionId, { cancelada: true });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     let avisadas = 0;
     let sinAvisar = 0;
@@ -1651,12 +1707,13 @@ export default function Calendario() {
     // F-32: si alguna socia no recuperó su sesión de bono, el toast base
     // ("clientas avisadas") ya no puede quedarse tan tranquilo — se añade el
     // mismo aviso que ya usa cancelarReserva (una sola reserva).
-    const base = !resReservas.ok
-      ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
-      : sinAvisar > 0
-        ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-        : 'Clase cancelada · clientas avisadas';
-    showToast(resReservas.avisoBono ? `${base} · ${resReservas.avisoBono}` : base);
+    // Lo que quede por arreglar (bono sin devolver, alumnas sin avisar) va
+    // primero y en rojo: ver lib/calendario/aviso-tras-cancelar.ts.
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase cancelada', confirmacion: 'La clase sí está cancelada',
+      reservasCanceladas: resReservas.ok, avisadas, sinAvisar, avisoBono: resReservas.ok ? resReservas.avisoBono : null,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1672,18 +1729,19 @@ export default function Calendario() {
     const n = sesionesSerieRestantes.length;
     const res = await cancelarSerieDesde(sesionId);
     setSesionId(null);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     invalidarHorario();
     // El toast cuenta lo que de verdad salió. Antes decía «clientas avisadas»
     // siempre: `notificarCancelacionSesiones` disparaba los emails sin esperar
     // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
     // (clase suelta) y que su gemelo de serie se había quedado sin heredar.
     const avisadas = res.avisadas ?? 0, sinAvisar = res.sinAvisar ?? 0;
-    const aviso = sinAvisar > 0
-      ? `${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-      : avisadas > 0 ? 'clientas avisadas' : 'sin clientas a las que avisar';
-    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · ${aviso}${res.enApp === false ? ' · sin aviso en la app' : ''}`;
-    showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+    const aviso = avisoTrasCancelar({
+      hecho: `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''}`,
+      confirmacion: `La serie sí está cancelada (${n} clase${n !== 1 ? 's' : ''})`,
+      avisadas, sinAvisar, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
@@ -1695,26 +1753,24 @@ export default function Calendario() {
     // varios segundos la clase seguía visible en el calendario aunque el
     // toast ya dijera "eliminada".
     const res = await deleteSesion(sesionId);
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     setSesionId(null);
     // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
     // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
     // Igual que "Cancelar": eliminar también avisa por email e in-app, así que
     // el toast tiene que poder decir que ese aviso no salió.
-    const sinAvisar = res.sinAvisar ?? 0;
-    const pegas = [
-      sinAvisar > 0 ? `${sinAvisar} sin avisar` : null,
-      res.enApp === false ? 'sin aviso en la app' : null,
-      res.avisoBono ?? null,
-    ].filter(Boolean);
-    showToast(['Clase eliminada', ...pegas].join(' · '));
+    const aviso = avisoTrasCancelar({
+      hecho: 'Clase eliminada', confirmacion: 'La clase sí se ha eliminado',
+      avisadas: res.avisadas ?? 0, sinAvisar: res.sinAvisar ?? 0, enApp: res.enApp, avisoBono: res.avisoBono,
+    });
+    (aviso.error ? showToastError : showToast)(aviso.texto);
     void refrescarVista();
   }
 
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
     const eraLaPrimera = sinNingunaClase;
     const res = await addSesionesSerie(sesionesFields);
-    if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
+    if (!res.ok) { showToastError(`No se ha creado la serie. ${res.error}`); return; }
     if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(sesionesFields.length);
     invalidarHorario();
     setShowRecurrentes(false);
@@ -1745,7 +1801,8 @@ export default function Calendario() {
     void confirmarAddReserva(sesionId, socioId);
   }
 
-  async function confirmarAddReserva(sesionId: string, socioId: string): Promise<boolean> {
+  // `prefijo`: lo que ya ha pasado antes de reservar (p. ej. «Cuota … asignada»), para que el aviso lo cuente todo.
+  async function confirmarAddReserva(sesionId: string, socioId: string, prefijo = ''): Promise<boolean> {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
     // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
@@ -1759,13 +1816,13 @@ export default function Calendario() {
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
     const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna });
     if (!res.ok) {
-      showToast(res.error);
+      showToastError(prefijo ? `${prefijo}, pero no se ha podido añadir a la clase: ${res.error}` : res.error);
       return false;
     }
     // Si recepción decidió no avisarla, el toast lo recuerda: es la única
     // pista de que la alumna no sabe nada de esta reserva.
     const sinAviso = avisarAlumna ? '' : ' · sin avisarla';
-    showToast((res.estado === 'LISTA_ESPERA'
+    showToast((prefijo ? `${prefijo} · ` : '') + (res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
       : esWalkIn
       ? `${nombre} añadida y registrada como asistencia`
@@ -1858,8 +1915,9 @@ export default function Calendario() {
     } else if (res.ok) {
       showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
-      // El dinero entró; falta sellar la factura (se reintenta sola).
-      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`);
+      // El dinero entró; falta sellar la factura (se reintenta sola): no es
+      // algo que ella tenga que arreglar, así que no va en rojo.
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`); // toast-no-es-error: el cobro entró y la factura se reintenta sola
     } else {
       // El recibo existe, pendiente: queda en «Quién me debe». En rojo y más
       // rato: recepción puede tener ya el dinero en la mano.
@@ -1903,6 +1961,64 @@ export default function Calendario() {
     showToast(reserva.yaEstaba
       ? `${nombre} ya estaba en la clase · su recibo de ${formatEuro(reserva.venta.importe)} sigue pendiente en Cobros`
       : `${nombre} añadida · recibo de ${formatEuro(reserva.venta.importe)} pendiente en Cobros`);
+    return true;
+  }
+
+  // Viene a apuntarse con su cuota: se le da aquí, por el MISMO camino que
+  // «Asignar plan» de su ficha (`assignPlan`: la cuota, su recibo pendiente y la
+  // matrícula si es su primer plan), y después entra con ella, sin clase suelta.
+  // Antes la hoja solo sabía vender la clase suelta: el estudio la apuntaba así,
+  // le daba la cuota en la ficha, y la clase quedaba pagada dos veces.
+  async function darCuotaYAnadir(sesionId: string, socioId: string, planId: string): Promise<boolean> {
+    const plan = planesTarifa.find(p => p.id === planId);
+    if (!plan) return false;
+    const socio = socios.find(s => s.id === socioId);
+    const nombre = socio ? socio.nombre : 'La clienta';
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    // Antes de tocar nada: a una clase terminada o cancelada no se la puede apuntar,
+    // y la cuota quedaría dada sin la clase por la que se dio.
+    if (!sesion || sesion.cancelada || new Date(sesion.fin) <= new Date()) {
+      showToastError('Esta clase ya ha terminado o está cancelada: dale la cuota desde su ficha.');
+      return false;
+    }
+    // Lo mismo que esconde el botón, otra vez aquí: si ya tiene cuota, otra le cobraría el mes dos veces.
+    const suya = cuotaQueYaTiene(socioId, suscripciones, planesTarifa, hoyEnEstudio(), sesion.tipoClaseId);
+    if (suya) {
+      showToastError(`${nombre} ya tiene la cuota «${suya.nombre}»: revísala en su ficha en vez de darle otra.`);
+      return false;
+    }
+    // Igual que en la ficha: si esa cuota ya se cobró en el TPV sin clienta, darla
+    // aquí la cobraría dos veces. Si la consulta falla se sigue: el aviso ayuda, no bloquea.
+    const tpv = await ventasPorAsignarDePlan(planId);
+    if (!esError(tpv) && Array.isArray(tpv.ventas) && tpv.ventas.length > 0) {
+      showToastError(`«${plan.nombre}» ya está cobrada en el TPV sin clienta (${tpv.ventas.length === 1 ? '1 venta' : `${tpv.ventas.length} ventas`}). Asígnasela desde su ficha para no cobrarla dos veces.`);
+      return false;
+    }
+    try {
+      await assignPlan(socioId, planId);
+    } catch (e) {
+      // Lo que no se ha guardado lo dice `assignPlan`; no se la apunta a ciegas.
+      showToastError(e instanceof Error ? e.message : 'No se ha podido dar la cuota');
+      return false;
+    }
+    const recibo = plan.precio > 0 ? ` (recibo de ${formatEuro(plan.precio)} pendiente en Cobros)` : '';
+    // Si ya se le había vendido una clase suelta para un día que esta cuota cubre, se dice:
+    // si no, se le cobraría esa clase dos veces. Anularla es de la ficha (con su confirmación).
+    const sueltas = clasesSueltasQueCubreSuCuota({
+      socioId, recibos, reservas,
+      sesion: sid => { const s = sesionesEnriquecidas.find(x => x.id === sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
+      // La cuota recién dada, con su primer periodo real (`cicloInicialDe`, el mismo que usa `assignPlan`).
+      suscripciones: [...suscripciones, {
+        id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA', fechaInicio: hoyEnEstudio(),
+        ...cicloInicialDe(plan, new Date().toISOString()), stripeSubscriptionId: null,
+      }],
+      planes: planesTarifa,
+    }).filter(sc => !sc.pagado);
+    const ojo = sueltas.length === 0 ? ''
+      : sueltas.length === 1 ? '. Ojo: tiene pendiente una clase suelta de una clase que ya cubre la cuota; anúlala en su ficha'
+      : `. Ojo: tiene pendientes ${sueltas.length} clases sueltas de clases que ya cubre la cuota; anúlalas en su ficha`;
+    await confirmarAddReserva(sesionId, socioId, `Cuota «${plan.nombre}» asignada a ${nombre}${recibo}${ojo}`);
+    // La cuota ya es suya pase lo que pase con la reserva: la hoja se cierra.
     return true;
   }
 
@@ -2019,14 +2135,14 @@ export default function Calendario() {
         body: JSON.stringify({ sesionId }),
       });
       const j = await res.json().catch(() => null) as { error?: string; apartadas?: number } | null;
-      if (!res.ok) { showToast(j?.error ?? 'No se ha podido liberar la plaza. Inténtalo de nuevo.'); return false; }
+      if (!res.ok) { showToastError(j?.error ?? 'No se ha podido liberar la plaza. Inténtalo de nuevo.'); return false; }
       showToast(j?.apartadas
         ? `Plaza liberada. Siguen ${j.apartadas} apartadas para ClassPass.`
         : 'Plaza liberada: ya no queda ninguna apartada para ClassPass.');
       await refrescarVista();
       return true;
     } catch {
-      showToast('No se ha podido liberar la plaza. Inténtalo de nuevo.');
+      showToastError('No se ha podido liberar la plaza. Inténtalo de nuevo.');
       return false;
     }
   }
@@ -2063,6 +2179,57 @@ export default function Calendario() {
     setErrorHorario(null);
     setVersionHorario(v => v + 1);
   }, []);
+
+  // ── «Repetir este mes» (P1.7) ────────────────────────────────────────────────
+  // Apagado salvo que el servidor diga que está disponible para este estudio
+  // (interruptor `CALENDARIO_REPETIR_MES` + migración aplicada). Mismo permiso
+  // que renovar una serie. El mes es el de lo que se está viendo.
+  const [repetirOk, setRepetirOk] = useState(false);
+  const [repetirAbierto, setRepetirAbierto] = useState<string | null>(null);
+  const gestionaCalendarioTop = puedeGestionarCalendario(rolActual);
+  useEffect(() => {
+    if (!mounted || !gestionaCalendarioTop) return;
+    let vivo = true;
+    void repetirMesDisponible().then(d => { if (vivo) setRepetirOk(d); });
+    return () => { vivo = false; };
+  }, [mounted, gestionaCalendarioTop]);
+  // «Plazas libres» (P3.9): igual, apagado salvo que el servidor diga que sí (interruptor
+  // `CALENDARIO_PLAZAS_LIBRES`). El enlace va en la línea de cifras, no en la cabecera.
+  const [plazasLibresOk, setPlazasLibresOk] = useState(false);
+  useEffect(() => {
+    if (!mounted || !gestionaCalendarioTop) return;
+    let vivo = true;
+    void plazasLibresDisponible().then(d => { if (vivo) setPlazasLibresOk(d); });
+    return () => { vivo = false; };
+  }, [mounted, gestionaCalendarioTop]);
+  // El del primer día visible: el 30 de octubre, con la semana empezando ese día,
+  // lo natural es repetir octubre, no noviembre.
+  const mesVisible = localDate(vista === 'dia' ? diaSeleccionado : semana).slice(0, 7);
+
+  function trasRepetirMes(r: ResultadoRepetir, destino: string) {
+    setRepetirAbierto(null);
+    invalidarHorario();
+    // Las clases las ha creado el servidor: se olvida la caché de todas las semanas.
+    cacheVistaRef.current.clear();
+    const texto = textoTrasRepetir(r, destino);
+    if (r.creadas === 0 || !r.primeraFecha) {
+      void refrescarVista();
+      showToastError(texto);
+      return;
+    }
+    const primeraFecha = r.primeraFecha;
+    // HuellaDeCreacion: a la semana de la primera clase creada, y se señalan.
+    const ir = () => {
+      const primera = new Date(`${primeraFecha}T12:00:00`);
+      if (vista === 'horario') setVista('semana');
+      setDiaSeleccionado(primera);
+      const { navego } = invalidarCacheSerieYNavegarSiHaceFalta([primera]);
+      if (!navego) void refrescarVista();
+      señalarClasesCreadas(r.ids);
+    };
+    ir();
+    showToast(texto, { texto: 'Ver', onClick: ir });
+  }
 
   const nombreTipoDe = (id: string) => tiposClase.find(t => t.id === id)?.nombre;
   const nombreSalaDe = (id: string) => salas.find(x => x.id === id)?.nombre;
@@ -2230,6 +2397,10 @@ export default function Calendario() {
     const d = datosPorSesionId.get(id);
     if (!d) return false;
     if (claseAtenuadaPorInstructor(d.sesion.instructorId, filtroInstructor)) return true;
+    if (conColumna && claseAtenuadaPorColumna(
+      { tipoClaseId: d.sesion.tipoClaseId, instructorId: d.sesion.instructorId, apuntadas: tarjetasPorId.get(id)?.confirmadas ?? 0 },
+      { tiposApagados, instructorasApagadas, soloConApuntadas },
+    )) return true;
     if (filtroResumenVivo) {
       const c = clasesParaResumen.find(x => x.id === id);
       if (!c || !claseEnFiltro(c, filtroResumenVivo)) return true;
@@ -2240,7 +2411,7 @@ export default function Calendario() {
       if (!texto.includes(busquedaNormal)) return true;
     }
     return false;
-  }, [datosPorSesionId, filtroInstructor, filtroResumenVivo, clasesParaResumen, busquedaNormal, datosVista]);
+  }, [datosPorSesionId, filtroInstructor, filtroResumenVivo, clasesParaResumen, busquedaNormal, datosVista, conColumna, tarjetasPorId, tiposApagados, instructorasApagadas, soloConApuntadas]);
 
   // ── Columnas (Día por sala / Semana 7 columnas) ─────────────────────────────
   const columnasDia = useMemo(() => {
@@ -2401,7 +2572,7 @@ export default function Calendario() {
       }
       const fallidas = plan.vinieron.length + plan.noVinieron.length - okVino.length - okNoVino.length;
       await refrescarVista();
-      if (okVino.length + okNoVino.length === 0) { showToast('No se ha podido pasar lista. Inténtalo de nuevo.'); return; }
+      if (okVino.length + okNoVino.length === 0) { showToastError('No se ha podido pasar lista. Inténtalo de nuevo.'); return; }
       const partes = [
         `${okVino.length} ${okVino.length === 1 ? 'vino' : 'vinieron'}`,
         ...(okNoVino.length ? [`${okNoVino.length} no`] : []),
@@ -2416,7 +2587,7 @@ export default function Calendario() {
           for (const id of okVino) if (!(await deshacerCheckin(id)).ok) sinDeshacer++;
           for (const id of okNoVino) if (!(await revertirNoShow(id)).ok) sinDeshacer++;
           await refrescarVista();
-          if (sinDeshacer > 0) showToast(`${sinDeshacer} ${sinDeshacer === 1 ? 'no se ha podido deshacer' : 'no se han podido deshacer'}: cámbialas en su fila`);
+          if (sinDeshacer > 0) showToastError(`${sinDeshacer} ${sinDeshacer === 1 ? 'no se ha podido deshacer' : 'no se han podido deshacer'}: cámbialas en su fila`);
         },
       });
     } finally {
@@ -2430,7 +2601,7 @@ export default function Calendario() {
   function conAviso(accion: (reservaId: string) => Promise<ResultadoEscritura & { aviso?: string | null }>) {
     return (reservaId: string) => {
       // `aviso`: hecho aquí, pero la plataforma ha dicho algo (Wellhub no validó su check-in).
-      void accion(reservaId).then(res => { if (!res.ok) showToast(res.error); else if (res.aviso) showToast(res.aviso); });
+      void accion(reservaId).then(res => { if (!res.ok) showToastError(res.error); else if (res.aviso) showToast(res.aviso); });
     };
   }
 
@@ -2438,13 +2609,13 @@ export default function Calendario() {
     const r = reservasActuales.find(x => x.id === reservaId);
     if (!r || !sesionActual) return;
     const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
-    if (!destino) { showToast('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    if (!destino) { showToastError('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
     // Sin casilla aquí, y se la avisa: es una clase FUTURA que no ha reservado
     // ella, así que si no se le cuenta no tiene forma de saber que va apuntada
     // (ni de cancelarla a tiempo). Es la regla general de las reservas del
     // mostrador; la casilla solo existe donde la clienta suele estar delante.
     const res = await addReserva(destino.id, r.socioId, undefined, { avisar: true });
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToastError(res.error); return; }
     showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
@@ -2475,7 +2646,7 @@ export default function Calendario() {
     const { sesionId, texto } = dialogoIncidencia;
     setDialogoIncidencia(null);
     const guardado = await updateSesion(sesionId, { incidenciaTexto: texto.trim() || null });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     await refrescarVista();
     showToast(texto.trim() ? 'Incidencia registrada' : 'Incidencia borrada');
   }
@@ -2483,26 +2654,34 @@ export default function Calendario() {
   async function ejecutarResolverIncidencia(sesionId: string) {
     const prevTexto = datosVista?.sesiones.find(s => s.id === sesionId)?.incidenciaTexto ?? null;
     const guardado = await updateSesion(sesionId, { incidenciaTexto: null });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     await refrescarVista();
     showToast('Incidencia resuelta', {
       texto: 'Deshacer',
       onClick: async () => {
         const vuelta = await updateSesion(sesionId, { incidenciaTexto: prevTexto });
-        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        if (!vuelta.ok) { showToastError(vuelta.error); return; }
         await refrescarVista();
       },
     });
   }
 
   async function ejecutarOfrecerPlaza(sesionId: string) {
-    const res = await fetch('/api/reservas/ofrecer-plaza', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ sesionId }),
-    });
+    // Sin red, `fetch` rechaza: sin este catch la promesa se perdía, el diálogo
+    // se quedaba abierto y nadie decía nada.
+    let res: Response;
+    try {
+      res = await fetch('/api/reservas/ofrecer-plaza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId }),
+      });
+    } catch {
+      showToastError('Sin conexión: no se ha ofrecido la plaza. Revisa tu red e inténtalo de nuevo.');
+      return;
+    }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { showToast(data?.error ?? 'No se ha podido ofrecer la plaza'); return; }
+    if (!res.ok) { showToastError(data?.error ?? 'No se ha podido ofrecer la plaza'); return; }
     setDialogoAccion(null);
     await refrescarVista();
     showToast(data.resultado === 'confirmada' ? 'Plaza confirmada a la siguiente en la lista' : 'Oferta de plaza enviada');
@@ -2512,14 +2691,14 @@ export default function Calendario() {
     const s = datosVista?.sesiones.find(x => x.id === sesionId);
     const prevAforo = s?.aforoMaximo ?? nuevoAforo;
     const guardado = await updateSesion(sesionId, { aforoMaximo: nuevoAforo });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     setDialogoAccion(null);
     await refrescarVista();
     showToast(`Aforo ajustado a ${nuevoAforo}`, {
       texto: 'Deshacer',
       onClick: async () => {
         const vuelta = await updateSesion(sesionId, { aforoMaximo: prevAforo });
-        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        if (!vuelta.ok) { showToastError(vuelta.error); return; }
         await refrescarVista();
       },
     });
@@ -2544,12 +2723,12 @@ export default function Calendario() {
     // Se vuelve a mirar al ejecutar, no solo al soltar: con gente apuntada hay un
     // diálogo de por medio, y mientras está abierto la hora puede pasar (o la
     // clase empezar).
-    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
-    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (sesionYaEmpezada(sesion.inicio)) { showToastError(MENSAJE_CLASE_YA_EMPEZADA); return; }
+    if (sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
     const cambioHora = new Date(sesion.inicio).getTime() !== new Date(nuevoInicio).getTime();
     const cambioSala = sesion.salaId !== nuevoSalaId;
     const guardado = await updateSesion(sesionId, { salaId: nuevoSalaId, inicio: nuevoInicio, fin: nuevoFin });
-    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (!guardado.ok) { showToastError(guardado.error); return; }
     if (cambioHora || cambioSala) {
       const d = new Date(nuevoInicio);
       void avisarCambioHorarioSala(
@@ -2582,14 +2761,14 @@ export default function Calendario() {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion || sesion.cancelada) return;
     if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
-    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
+    if (sesionYaEmpezada(sesion.inicio)) { showToastError(MENSAJE_CLASE_YA_EMPEZADA); return; }
 
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
     const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
     const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, destino.inicioMin);
     if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
-      showToast('Fuera del horario del estudio');
+      showToastError('Fuera del horario del estudio');
       return;
     }
 
@@ -2603,14 +2782,14 @@ export default function Calendario() {
     // Por instante, no por texto: `toISO` da «…00.000Z» y la base de datos
     // «…00+00:00», así que comparar las cadenas nunca daba «no se ha movido».
     if (new Date(nuevoInicio).getTime() === new Date(sesion.inicio).getTime() && nuevoSalaId === sesion.salaId) return;
-    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
+    if (sesionYaEmpezada(nuevoInicio)) { showToastError(MENSAJE_HORA_PASADA); return; }
 
     const conflicto = detectarConflictos(
       { salaId: nuevoSalaId, instructorId: sesion.instructorId, inicio: nuevoInicio, fin: nuevoFin },
       existentesSlot, sesionId,
     );
     if (hayConflicto(conflicto)) {
-      showToast(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
+      showToastError(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
       return;
     }
 
@@ -2673,6 +2852,31 @@ export default function Calendario() {
   const fichaAlLadoDia = useCoincideMedio('(min-width: 1180px)');
   const fichaAlLadoSemana = useCoincideMedio('(min-width: 1440px)');
   const modoFicha: ModoFicha = enMovil ? 'hoja' : (vista === 'dia' ? fichaAlLadoDia : fichaAlLadoSemana) ? 'lateral' : 'cajon';
+
+  // La columna de la izquierda (panel nuevo): fuera en Horario, sin clases, y
+  // mientras la ficha de una clase va al lado (la rejilla no cabría).
+  const columnaVisible = conColumna && vista !== 'horario' && !!datosVista && !sinNingunaClase && !(sesionId && modoFicha === 'lateral');
+  const filasColumna = useMemo(() => {
+    const tipos = new Map<string, FilaColumna>();
+    const instr = new Map<string, FilaColumna>();
+    if (!columnaVisible) return { tipos: [], instructoras: [] };
+    for (const s of sesionesALaVista) {
+      if (s.cancelada) continue;
+      const d = datosPorSesionId.get(s.id);
+      if (!d) continue;
+      const t = tipos.get(d.tipo.id) ?? { id: d.tipo.id, nombre: d.tipo.nombre, color: d.tipo.color || 'var(--muted-foreground)', clases: 0, apagada: tiposApagados.has(d.tipo.id) };
+      t.clases++;
+      tipos.set(t.id, t);
+      // RES-8: si la tarjeta no enseña su nombre, la columna tampoco.
+      if (s.instructorId && d.instructor) {
+        const i = instr.get(s.instructorId) ?? { id: s.instructorId, nombre: d.instructor.nombre, color: d.instructor.color || 'var(--muted-foreground)', clases: 0, apagada: instructoraApagada(s.instructorId, filtroInstructor, instructorasApagadas) };
+        i.clases++;
+        instr.set(i.id, i);
+      }
+    }
+    const porNombre = (a: FilaColumna, b: FilaColumna) => a.nombre.localeCompare(b.nombre, 'es');
+    return { tipos: [...tipos.values()].sort(porNombre), instructoras: [...instr.values()].sort(porNombre) };
+  }, [columnaVisible, sesionesALaVista, datosPorSesionId, tiposApagados, instructorasApagadas, filtroInstructor]);
 
   // Las herramientas de la cabecera llevan su nombre si caben (con el menú
   // lateral, desde unos 1400 px); si no, solo el icono, con el nombre al pasar.
@@ -2764,7 +2968,7 @@ export default function Calendario() {
   const rolCalendario = useRol();
   const verFichaClinica = puedeVerFichaClinica(rolCalendario);
   const verSemaforo = puedeVerSemaforo(rolCalendario);
-  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion, cargarFichaClienta } = useStudio();
+  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion, cargarFichaClienta, notasInternas, datosIncompletos } = useStudio();
 
   // ⚠️ Aquí no es solo que la lista se vea vacía. `registrarRespuestaSesion`
   // decide UPDATE vs INSERT buscando en `respuestasSesion`, y con la lista
@@ -2809,8 +3013,8 @@ export default function Calendario() {
     return m;
   }, [condicionesSalud, verSemaforo]);
 
-  const semaforoRecepcion = useSemaforoRecepcion(rolCalendario);
-  const semaforoParaMostrar = rolCalendario === 'RECEPCION' ? semaforoRecepcion : nivelSemaforoPorSocio;
+  const semaforoServidor = useSemaforoServidor(rolCalendario);
+  const semaforoParaMostrar = semaforoDesdeServidor(rolCalendario) ? semaforoServidor : nivelSemaforoPorSocio;
 
   const alertasClase = useMemo(() => {
     if (!verFichaClinica) return [] as string[];
@@ -2827,6 +3031,75 @@ export default function Calendario() {
     // que `now` es una instancia nueva cada vez aunque sea el mismo día.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservasActuales, condicionesPorSocio, verFichaClinica, todayStr]);
+
+  // ── Lo que se ve de cada alumna en la lista (P3.11, `TARJETA_CLASE`) ──────
+  // Apagado, o sin nada guardado, es lo de siempre (`TARJETA_DE_SERIE`): solo el
+  // punto de color para quien tiene `verSemaforo`. Todo sale de lo que ESTE rol
+  // ya tiene cargado: no se pide nada nuevo. Lo de salud lo acota además
+  // `saludVisible` (sin la ficha clínica no hay «adaptar», diga lo que diga lo
+  // guardado), y las condiciones solo le llegan a la propietaria (RLS).
+  const tarjetaEncendida = useInterruptor('tarjetaClase', studio?.id);
+  const tarjeta = useMemo(
+    () => (tarjetaEncendida ? tarjetaClaseDe(studio?.tarjetaClase) : TARJETA_DE_SERIE),
+    [tarjetaEncendida, studio?.tarjetaClase],
+  );
+  const saludFila = saludVisible(tarjeta, { verSemaforo, verFichaClinica });
+  // La primera reserva de cada una en todo el histórico: solo si se pide, y
+  // solo con el histórico ENTERO (antes de cargar, o con una página de reservas
+  // o de clases que no llegó, todas parecerían nuevas).
+  const historialEntero = dataLoaded && !datosIncompletos.includes('reservas') && !datosIncompletos.includes('sesiones');
+  const primeraReservaPorSocia = useMemo(
+    () => (tarjeta.primeraVez && historialEntero ? hechosDeAsistencia(reservas, sesiones, new Date(0)) : null),
+    [tarjeta.primeraVez, historialEntero, reservas, sesiones],
+  );
+  const notaFijadaDe = useMemo(
+    () => (tarjeta.notaFijada ? notaFijadaPorSocia(notasInternas) : new Map<string, string>()),
+    [tarjeta.notaFijada, notasInternas],
+  );
+  // Empezada y terminada, como booleanos: `now` cambia en cada render y la lista
+  // no se recalcula por eso, solo cuando cruza el inicio o el fin.
+  // (Por instante, no comparando cadenas: la base devuelve `+00:00`, no `Z`.)
+  const claseEmpezadaTarjeta = sesionActual ? sesionYaEmpezada(sesionActual.inicio, now) : false;
+  const claseTerminadaTarjeta = sesionActual ? sesionYaEmpezada(sesionActual.fin, now) : false;
+  const piezasPorReserva = useMemo(() => {
+    const m = new Map<string, Pieza[]>();
+    if (!tarjetaEncendida || !sesionActual) return m;
+    const fichas = new Map(socios.map(x => [x.id, x]));
+    const diaClase = diaEnEstudio(sesionActual.inicio);
+    for (const r of reservasActuales) {
+      if (!r.socioId) continue;
+      const ficha = fichas.get(r.socioId);
+      const marca = tarjeta.conQueViene ? marcaReserva(r, recuperaciones) : null;
+      m.set(r.id, piezasDeTarjeta(tarjeta, {
+        estado: r.estado,
+        claseEmpezada: claseEmpezadaTarjeta,
+        claseTerminada: claseTerminadaTarjeta,
+        conQueViene: tarjeta.conQueViene
+          ? conQueVieneFila({
+            marca: marca === 'fija' || marca === 'recuperacion' ? marca : null,
+            // La clase suelta del mostrador lleva el id de la reserva (`crearReservaMostrador`).
+            claseSuelta: suscripciones.some(x => x.id === `sus-suelta-${r.id}`),
+            cobertura: coberturaDeClase({ socioId: r.socioId, suscripciones, planesTarifa, hoyISO: todayStr, tipoClaseId: sesionActual.tipoClaseId, precioClaseSuelta: null }),
+            pagoCon: pagoConocido(r.bonoSuscripcionId, suscripciones, planesTarifa, todayStr),
+            bonoAgotado: bonoAgotadoQueCubre({ socioId: r.socioId, suscripciones, planesTarifa, hoyISO: todayStr, tipoClaseId: sesionActual.tipoClaseId }),
+          })
+          : null,
+        confirmacionPedidaEn: r.confirmacionPedidaEn,
+        confirmadoEn: r.confirmadoEn,
+        cumpleanos: tarjeta.cumpleanos ? textoCumpleanos(ficha?.cumpleMmDd, diaClase, todayStr) : null,
+        notaFijada: notaFijadaDe.get(r.socioId) ?? null,
+        primeraVez: tarjeta.primeraVez && esPrimeraVez({
+          historialCargado: primeraReservaPorSocia !== null,
+          historialPrevio: ficha ? tieneHistorialPrevio(ficha) : null,
+          primeraReserva: primeraReservaPorSocia?.get(r.socioId)?.primeraReserva ?? null,
+          inicioClase: sesionActual.inicio,
+        }),
+        adaptacion: saludFila.adaptar ? adaptacionPreClase(condicionesPorSocio.get(r.socioId) ?? [], new Date(`${todayStr}T12:00:00Z`)) : null,
+      }, { verSemaforo, verFichaClinica }));
+    }
+    return m;
+  }, [tarjetaEncendida, tarjeta, sesionActual, reservasActuales, socios, suscripciones, planesTarifa, recuperaciones, notaFijadaDe,
+    primeraReservaPorSocia, saludFila.adaptar, condicionesPorSocio, todayStr, claseEmpezadaTarjeta, claseTerminadaTarjeta, verSemaforo, verFichaClinica]);
 
   const respuestaPorSocio = useMemo(() => {
     const m = new Map<string, (typeof respuestasSesion)[number]>();
@@ -3074,7 +3347,7 @@ export default function Calendario() {
       if (!r.ok) { showToastError(r.error ?? 'No se ha podido empezar a buscar. Inténtalo otra vez.'); return; }
       const sust = r.data?.sustitucion as { estado?: string } | undefined;
       if (r.data?.yaExistia && sust?.estado === 'confirmada') {
-        showToast('A esta clase ya la cubrió una sustituta: para cambiar quién la da, edita la clase');
+        showToastError('A esta clase ya la cubrió una sustituta: para cambiar quién la da, edita la clase');
         return;
       }
       showToast(sust?.estado === 'contactando' ? 'Buscando sustituta: avisada la que mejor encaja'
@@ -3225,6 +3498,7 @@ export default function Calendario() {
       pestana={pestanaPanel}
       onPestana={setPestanaPanel}
       nClientas={reservasActuales.filter(r => r.estado !== 'CANCELADA' && r.estado !== 'LISTA_ESPERA').length}
+      cifras={cifrasDeClase(reservasActuales)}
       conPlazas={spotsActuales.length > 0}
       clientas={
         <>
@@ -3272,6 +3546,9 @@ export default function Calendario() {
                   onAnadirYCobrarDespues={mueveDinero ? (socioId => anadirYCobrarDespues(sesionActual.id, socioId)) : null}
                   onCortesia={socioId => void anadirCortesia(sesionActual.id, socioId)}
                   hrefVenderBono={puedeVer(rolActual, '/pos') ? (socioId => `/pos?clienta=${encodeURIComponent(socioId)}`) : null}
+                  cuotas={cuotasQueCubren(planesTarifa, sesionActual.tipoClaseId).map(p => ({ id: p.id, nombre: p.nombre, precio: Number(p.precio) }))}
+                  cuotaQueYaTiene={socioId => cuotaQueYaTiene(socioId, suscripciones, planesTarifa, hoyEnEstudio(), sesionActual.tipoClaseId)}
+                  onDarCuota={mueveDinero ? ((socioId, planId) => darCuotaYAnadir(sesionActual.id, socioId, planId)) : null}
                 />
               )}
             </div>
@@ -3298,12 +3575,12 @@ export default function Calendario() {
               // El aviso de bono no devuelto, y lo que decidió el servidor sobre
               // la plaza fija, la recuperación y la clase suelta (su política).
               void cancelarReserva(id).then(async res => {
-                if (!res.ok) showToast(res.error);
+                if (!res.ok) showToastError(res.error);
                 else {
                   const texto = [textoTrasQuitar(res, marca), res.avisoBono,
                     avisoClaseSueltaAlQuitar({ recibo: suelta, reservaId: id, bonoDevuelto: !!res.bonoDevuelto, tardia: !!res.tardia })]
                     .filter(Boolean).join(' · ');
-                  if (texto) showToast(texto);
+                  if (texto) (res.avisoBono ? showToastError : showToast)(texto);
                 }
                 // ⚠️ Sin esto el contador se quedaba en «8/8» con la clienta ya
                 // fuera de la lista: `cancelarReserva` actualiza `reservas` del
@@ -3320,11 +3597,12 @@ export default function Calendario() {
             // la ficha de salud, no solo el piloto (FICHA-CLINICA.md §11, #561).
             onNotaVoz={verFichaClinica && enPiloto && esPropiaClase ? setNotaVozSocioId : undefined}
             marcaDe={r => marcaReserva(r, recuperaciones)}
-            semaforoPorSocio={verSemaforo ? (socioId => {
+            semaforoPorSocio={saludFila.color ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
               return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
             }) : undefined}
             sitioDe={r => (r.spotId ? spots.find(sp => sp.id === r.spotId)?.nombre ?? null : null)}
+            piezasDe={tarjetaEncendida ? (r => piezasPorReserva.get(r.id) ?? []) : undefined}
             onGuardarLista={plan => guardarLista(sesionActual.id, plan)}
             filaExtra={verFichaClinica ? (r => r.estado === 'ASISTIDA' ? (
               <div className="mt-1.5 flex items-center gap-1 pl-[52px]">
@@ -3344,7 +3622,7 @@ export default function Calendario() {
                         disabled={!tieneConsentimiento}
                         onClick={async () => {
                           const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                          if (!res.ok) showToast(res.error);
+                          if (!res.ok) showToastError(res.error);
                         }}
                         title={tieneConsentimiento ? rm.label : 'Pide primero el consentimiento de datos de salud desde su ficha'}
                         aria-label={rm.label}
@@ -3374,7 +3652,7 @@ export default function Calendario() {
           onQuitarSpot={conAviso(liberarSpot)}
           onAsignarSpot={async (spotId, socioId) => {
             const res = await asignarSpot(sesionActual.id, socioId, spotId);
-            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
+            if (!res.ok) showToastError(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
           }}
         />
       ) : undefined}
@@ -3391,6 +3669,28 @@ export default function Calendario() {
     <div ref={refLienzo} data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)]">
     <LienzoCalendario>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)]">
+      <ConColumna columna={columnaVisible ? (
+        <ColumnaCalendario
+          abrirEn={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+          desde={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+          hasta={vista === 'semana' ? localDate(addDays(semana, 6)) : localDate(diaSeleccionado)}
+          hoy={todayStr}
+          diasConClase={diasConClase}
+          onElegirDia={irAFecha}
+          soloConApuntadas={soloConApuntadas}
+          onSoloConApuntadas={setSoloConApuntadas}
+          tipos={filasColumna.tipos}
+          onTipo={id => setTiposApagados(s => alternarEnConjunto(s, id))}
+          instructoras={filasColumna.instructoras}
+          onInstructora={id => {
+            const r = alternarInstructora(id, filasColumna.instructoras.map(x => x.id), filtroInstructor, instructorasApagadas);
+            setInstructorasApagadas(r.apagadas);
+            setFiltroInstructor(r.filtroInstructorId);
+          }}
+          hayApagadas={tiposApagados.size > 0 || instructorasApagadas.size > 0 || soloConApuntadas || filtroInstructor !== ''}
+          onVerTodo={() => { setTiposApagados(new Set()); setInstructorasApagadas(new Set()); setSoloConApuntadas(false); setFiltroInstructor(''); }}
+        />
+      ) : null}>
       <div className="shrink-0 space-y-3 px-4 pt-4 pb-3 lg:px-6 lg:pt-5 escritorio-bajo:space-y-2 escritorio-bajo:pt-3 escritorio-bajo:pb-2">
         <CabeceraCalendario
           vista={vista}
@@ -3414,6 +3714,7 @@ export default function Calendario() {
           buscador={<BuscadorCalendario candidatas={candidatasBusqueda} texto={busqueda} onTexto={setBusqueda} onSeleccionar={saltarAClase} compacto={!herramientasConNombre} />}
           hrefEscanear={puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false ? '/calendario/pase' : null}
           hrefImportar={gestionaClientas ? '/calendario/importar' : null}
+          repetirMes={repetirOk ? { texto: `Repetir ${nombreMes(mesVisible)}`, onAbrir: () => setRepetirAbierto(mesVisible) } : null}
           seleccion={gestionaClientas && vista !== 'horario' ? { activa: modoSeleccion, onAlternar: () => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true)) } : null}
           // Quien gestiona el estudio elige primero qué crea; la instructora que
           // crea sus clases va directa a la suya (no tiene clases fijas).
@@ -3438,11 +3739,11 @@ export default function Calendario() {
             ),
           }}
           salas={datosVista?.salas ?? salas}
-          instructoras={instructoresActivos}
+          instructoras={conColumna ? [] : instructoresActivos}
           filtroSala={filtroSala}
           filtroInstructora={filtroInstructor}
           onSala={setFiltroSala}
-          onInstructora={setFiltroInstructor}
+          onInstructora={v => { setFiltroInstructor(v); setInstructorasApagadas(new Set()); }}
         />
         {/* En el móvil, el Día lleva la semana en una tira: un toque y a otro día. */}
         {enMovil && vista === 'dia' && (
@@ -3459,6 +3760,7 @@ export default function Calendario() {
             resumen={resumen}
             activo={filtroResumenVivo}
             onFiltro={setFiltroResumen}
+            enlace={plazasLibresOk ? { href: '/calendario/plazas-libres', texto: 'Plazas libres', titulo: 'Cuántas plazas quedan en cada clase y dónde cabe otra alumna con clase fija' } : null}
             extra={esHoyEnDia && siguienteHoyId ? (() => {
               const t = tarjetasPorId.get(siguienteHoyId);
               if (!t) return null;
@@ -3475,7 +3777,17 @@ export default function Calendario() {
       </div>
 
       <ReanimarAlCambiar clave={vista === 'horario' ? 'horario' : claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
-        {vista === 'horario' ? (
+        {vista === 'horario' && panelNuevo && horarioPor === 'alumna' ? (
+          <>
+            <SelectorHorarioPor valor={horarioPor} onCambio={setHorarioPor} />
+            <ClasesFijasPorAlumna
+              puedeGestionar={gestionaClientas}
+              onToast={(m, o) => (o?.variant === 'error' ? showToastError(m) : showToast(m))}
+            />
+          </>
+        ) : vista === 'horario' ? (
+          <>
+          {panelNuevo && <SelectorHorarioPor valor={horarioPor} onCambio={setHorarioPor} />}
           <VistaHorario
             horario={horario}
             error={errorHorario}
@@ -3495,6 +3807,7 @@ export default function Calendario() {
             plazasSeApruebanSolas={studio?.plazaFijaAprobacion === 'AUTOMATICA'}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
           />
+          </>
         ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
             <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>
@@ -3583,6 +3896,7 @@ export default function Calendario() {
           </div>
         )}
       </ReanimarAlCambiar>
+      </ConColumna>
     </div>
     </LienzoCalendario>
 
@@ -3693,10 +4007,10 @@ export default function Calendario() {
           claveInicial={plazaFijaDesdeClase.clave}
           spotInicial={plazaFijaDesdeClase.spotId}
           onClose={() => setPlazaFijaDesdeClase(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setPlazaFijaDesdeClase(null);
             invalidarHorario();
-            showToast(textoPlazaGuardada(r, movida));
+            showToast(textoClasesFijasGuardadas(guardadas, movida));
             // Las reservas de las próximas semanas las acaba de crear el servidor.
             void refrescarVista();
           }}
@@ -4051,6 +4365,15 @@ export default function Calendario() {
         studio={studio}
       />
 
+      {repetirAbierto && (
+        <DialogoRepetirMes
+          mes={repetirAbierto}
+          onCerrar={() => setRepetirAbierto(null)}
+          onHecho={trasRepetirMes}
+          onIncierto={() => { invalidarHorario(); cacheVistaRef.current.clear(); void refrescarVista(); }}
+        />
+      )}
+
       {renovarSerieDe && (
         <DialogoRenovarSerie
           serieId={renovarSerieDe.serieId}
@@ -4356,6 +4679,17 @@ export default function Calendario() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Con la columna (panel nuevo), cabecera y rejilla a su derecha; sin ella, el mismo árbol de siempre. */
+function ConColumna({ columna, children }: { columna: React.ReactNode | null; children: React.ReactNode }) {
+  if (!columna) return <>{children}</>;
+  return (
+    <div className="flex min-h-0 flex-1">
+      {columna}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }

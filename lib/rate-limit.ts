@@ -16,7 +16,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
-  type RateLimitOptions, type RateLimitResult, aplicarRateLimit, claveOpaca, rateLimitKey,
+  type RateLimitOptions, type RateLimitResult, aplicarRateLimit, aplicarTopeEstricto, claveOpaca, rateLimitKey,
   retryAfterSeconds, secretoRateLimit, tooManyRequestsResponse,
 } from '@/lib/rate-limit-core';
 
@@ -58,4 +58,18 @@ export async function enforceRateLimit(
   const result = await rateLimit(rateLimitKey(name, req, extra), opts);
   if (result.allowed) return null;
   return tooManyRequestsResponse(retryAfterSeconds(result.resetAt, opts.windowSeconds));
+}
+
+/**
+ * Tope de GASTO (p. ej. lecturas de IA por estudio y día): el contador de
+ * siempre, pero CERRADO si falla (`aplicarTopeEstricto`). La clave es la que se
+ * pasa, sin IP: un tope por estudio no puede saltarse cambiando de red.
+ */
+export async function topeEstricto(bucketKey: string, opts: RateLimitOptions): Promise<RateLimitResult> {
+  const admin = getSupabaseAdmin();
+  const rpc = admin
+    ? async (p_key: string, p_max: number, p_window_seconds: number) =>
+      await admin.rpc('rate_limit_hit', { p_key, p_max, p_window_seconds })
+    : null;
+  return aplicarTopeEstricto(rpc, secretoRateLimit(process.env), bucketKey, opts);
 }

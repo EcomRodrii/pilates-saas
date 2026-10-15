@@ -18,7 +18,10 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
-import { navSections, NO_OCULTABLES } from '@/lib/nav-config';
+import { NO_OCULTABLES } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { activoEnModulos } from '@/lib/modulos/menu';
 import { HOME_SECCIONES, HOME_FIJAS_PRIMERO } from '@/lib/home-sections';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ItemOrdenable } from '@/components/panel/lista-ordenable';
@@ -61,6 +64,8 @@ export function usePersonalizacionPanel() {
   // nunca va a aplicarse. Enseñando los grupos, lo que se ve es lo que pasa.
   const [grupos, setGrupos] = useState<GrupoModulos[]>([]);
   const [modulosOcultos, setModulosOcultos] = useState<Set<string>>(new Set());
+  // Con el panel nuevo, lo que el estudio activó en Módulos (solo para saber qué sale en el menú: aquí no se toca).
+  const [activados, setActivados] = useState<string[]>([]);
   const [posicion, setPosicion] = useState<MenuPosicion>('lateral');
   const [seccionesHome, setSeccionesHome] = useState<string[]>(SECCIONES_HOME.map(s => s.id));
   const [homeOcultos, setHomeOcultos] = useState<Set<string>>(new Set());
@@ -74,11 +79,15 @@ export function usePersonalizacionPanel() {
   // parecía no hacer nada y el botón de guardar no llegaba a aparecer nunca.
   const puedeVerRef = useRef(puedeVer);
   useEffect(() => { puedeVerRef.current = puedeVer; });
+  // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
+  const panelNuevo = usePanelNuevo();
+  const panelNuevoRef = useRef(panelNuevo);
+  useEffect(() => { panelNuevoRef.current = panelNuevo; });
 
   const cargar = useCallback(() => {
     // Solo los módulos que este rol puede ver: ofrecer ocultar algo que ya no
     // ves es un control que no hace nada.
-    const gruposVisibles = navSections
+    const gruposVisibles = seccionesDelMenu(panelNuevoRef.current)
       .map(sec => ({ label: sec.label, items: sec.items.filter(m => puedeVerRef.current(m.href)) }))
       .filter(g => g.items.length > 0);
     const aItem = (m: { href: string; label: string }): ItemOrdenable =>
@@ -90,6 +99,7 @@ export function usePersonalizacionPanel() {
           items: ordenarItemsMenu(g.items, l.orden).map(aItem),
         })));
         setModulosOcultos(new Set(l.ocultos));
+        setActivados(Array.isArray(l.activados) ? l.activados : []);
         setPosicion(l.menuPosition);
         const todas = SECCIONES_HOME.map(s => s.id);
         setSeccionesHome([
@@ -114,6 +124,18 @@ export function usePersonalizacionPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { cargar(); }, []);
 
+  // El interruptor del panel nuevo llega un momento después en una pestaña
+  // nueva (lo pregunta al servidor): si cambia y aún no se ha tocado nada, se
+  // vuelve a leer para que «Tu menú» traiga sus secciones (Festivos). Con algo
+  // tocado no: recargar sería borrarlo.
+  const panelLeido = useRef(panelNuevo);
+  useEffect(() => {
+    if (panelLeido.current === panelNuevo) return;
+    panelLeido.current = panelNuevo;
+    if (!cambios.menu && !cambios.inicio && !cambios.posicion) cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelNuevo]);
+
   const tocado = (parte: keyof CambiosPanel) => setCambios(c => (c[parte] ? c : { ...c, [parte]: true }));
 
   return {
@@ -121,6 +143,8 @@ export function usePersonalizacionPanel() {
     sucio: cambios.menu || cambios.inicio || cambios.posicion,
     grupos, modulosOcultos, posicion, seccionesHome, homeOcultos,
     secciones: SECCIONES_HOME,
+    /** Con el panel nuevo: ¿sale en el menú? Lo decide Módulos (lib/modulos/menu.ts). */
+    enMenu: (href: string) => activoEnModulos(href, { ocultos: [...modulosOcultos], activados }),
 
     // El arrastre es POR GRUPO: cada lista tiene su propio contexto, así que
     // un id solo puede moverse dentro del suyo.
@@ -148,7 +172,9 @@ export function usePersonalizacionPanel() {
           // Se aplana en el orden que se ve: los grupos en su orden natural y,
           // dentro, lo que la propietaria haya dejado.
           orden: grupos.flatMap(g => g.items.map(m => m.id)),
-          ocultos: [...modulosOcultos],
+          // Con el panel nuevo, «Tu menú» solo ordena: qué sale lo decide Módulos, y
+          // mandar aquí los `ocultos` de cuando se abrió desharía lo que se cambie allí.
+          ...(panelNuevo ? {} : { ocultos: [...modulosOcultos] }),
           menuPosition: posicion,
           home: { orden: seccionesHome, ocultos: [...homeOcultos] },
         });

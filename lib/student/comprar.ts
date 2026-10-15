@@ -34,6 +34,8 @@ export type InicioCobro =
       descuento: number;
       /** `false` con un código que el servidor no pudo aplicar. */
       codigoAplicado: boolean;
+      /** Por qué no se aplicó el código escrito («ya ha caducado»…). `null` si entró o no había código. */
+      motivoCodigo: string | null;
       /**
        * P-1 (auditoría 26ª pasada): cuánto de `importe` es matrícula de
        * alta — 0 si no aplica (no es su primer plan, o el plan no la tiene).
@@ -51,7 +53,8 @@ export type InicioCobro =
 /** Lo que dice el servidor de un código ANTES de pagar. */
 export type ComprobacionCodigo =
   | { ok: true; descuento: number }
-  | { ok: false; motivo: string };
+  /** `sinRespuesta`: no se ha podido COMPROBAR (sin red, límite de peticiones, servidor caído), que no es lo mismo que «no vale». */
+  | { ok: false; motivo: string; sinRespuesta?: true };
 
 /**
  * Comprueba un código con el servidor.
@@ -74,12 +77,16 @@ export async function comprobarCodigo(
     });
     const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; descuento?: number; motivo?: string } | null;
     if (cuerpo?.ok && typeof cuerpo.descuento === 'number') return { ok: true, descuento: cuerpo.descuento };
+    // 429 (límite), 5xx o una respuesta sin motivo: no se sabe si el código vale.
+    if (res.status === 429 || res.status >= 500 || !cuerpo?.motivo) {
+      return { ok: false, motivo: cuerpo?.motivo ?? 'No hemos podido comprobar el código.', sinRespuesta: true };
+    }
     // El motivo del servidor es el bueno: distingue «no existe» de «caducado»,
     // «agotado» o «solo para clientas nuevas», y ese matiz es justo lo que
     // evita que lo intente otras cinco veces.
     return { ok: false, motivo: cuerpo?.motivo ?? 'No hemos podido comprobar el código.' };
   } catch {
-    return { ok: false, motivo: 'No hemos podido comprobar el código. Revisa tu conexión.' };
+    return { ok: false, motivo: 'No hemos podido comprobar el código. Revisa tu conexión.', sinRespuesta: true };
   }
 }
 
@@ -110,7 +117,7 @@ export async function iniciarCompra(
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string; codigo?: string;
       importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number; total?: number;
-      customerSessionClientSecret?: string;
+      customerSessionClientSecret?: string; motivoCodigo?: string;
     } | null;
 
     if (res.status === 401) {
@@ -144,6 +151,8 @@ export async function iniciarCompra(
       importe: typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN,
       descuento: typeof cuerpo.descuento === 'number' ? cuerpo.descuento : 0,
       codigoAplicado: cuerpo.codigoAplicado === true,
+      // Por qué no entró el código, si no entró (el servidor lo dice con la misma regla que el cobro).
+      motivoCodigo: typeof cuerpo.motivoCodigo === 'string' ? cuerpo.motivoCodigo : null,
       matricula: typeof cuerpo.matricula === 'number' ? cuerpo.matricula : 0,
     };
   } catch {

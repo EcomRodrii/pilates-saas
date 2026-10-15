@@ -2,9 +2,11 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeActivarAccesoDelRol, puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
-import { obtenerOFirmarEnlace } from '@/lib/sustituciones/enlaces';
+import { emitirInvitacion } from '@/lib/sustituciones/enlaces';
+import * as Sentry from '@sentry/nextjs';
 import { ErrorAccion } from '@/lib/actions/errores';
 
 /**
@@ -40,8 +42,12 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
     throw new ErrorAccion('Esa persona ya no está en tu equipo.', 404);
   }
 
+  // Y lo que la invitación no podría dar al abrirla (`ROL_POR_ENCIMA_DE_QUIEN_INVITA`,
+  // lib/equipo/reclamar-reglas.ts): gerencia puede asignar recepción, pero no
+  // activar el acceso de quien mueve dinero. Antes salía un correo que no servía.
   if (sesion.rol !== 'PROPIETARIO'
-      && !rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)) {
+      && (!rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)
+        || !puedeActivarAccesoDelRol(sesion.rol, instructor.rol as Rol))) {
     throw new ErrorAccion('No puedes invitar a esta persona. Pídeselo a la propietaria.', 403);
   }
 
@@ -61,13 +67,19 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 
-  // Reenviar la invitación reutiliza el enlace vigente si aún es válido, o lo
-  // regenera y REVOCA el anterior (instructor_enlaces_vigentes, migr
-  // 20260905014901) — antes cada reenvío firmaba un token independiente y los
-  // 30 días de validez del anterior seguían corriendo sin que nada lo supiera.
-  const token = await obtenerOFirmarEnlace(admin, sesion.studioId, instructor.id as string, 'invitacion', sesion.rol);
+  // Cada envío firma un enlace NUEVO (7 días) y REVOCA el anterior
+  // (instructor_enlaces_vigentes): corregir un correo mal tecleado y reenviar
+  // deja sin valor la copia que fue a la dirección equivocada. Lleva firmados
+  // quién invita y el rol de la ficha (lib/equipo/reclamar-reglas.ts).
+  let token: string;
+  try {
+    token = await emitirInvitacion(admin, sesion.studioId, instructor.id as string, sesion.rol, instructor.rol as string);
+  } catch (e) {
+    Sentry.captureException(e, { tags: { area: 'equipo', accion: 'invitar' } });
+    throw new ErrorAccion('No hemos podido preparar la invitación. Inténtalo de nuevo en unos segundos.', 500);
+  }
 
-  await enviarEmailInvitacionEquipo({
+  const envio = await enviarEmailInvitacionEquipo({
     to: instructor.email as string,
     nombre: instructor.nombre as string,
     propietariaNombre: sesion.nombre,
@@ -77,6 +89,11 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
     rol: instructor.rol as string,
     url: `${appUrl}/invitacion?token=${encodeURIComponent(token)}`,
   });
+  // Antes se contestaba «enviada» aunque el correo no saliera. Ahora además el
+  // enlace anterior ya está revocado: decir la verdad para que se reintente.
+  if (!envio.ok) {
+    throw new ErrorAccion('No hemos podido enviar el correo de invitación. Vuelve a intentarlo en unos minutos.', 502);
+  }
 
   return { ok: true, email: instructor.email };
 }

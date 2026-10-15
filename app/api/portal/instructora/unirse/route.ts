@@ -5,12 +5,14 @@ import { resolverStudioPorSlug } from '@/lib/db/supabase-data-admin';
 import { fichaInstructoraPendiente, instructoraActivaEnEstudio } from '@/lib/auth-instructora';
 import { avisarAlEstudioAccesoActivado } from '@/lib/equipo/avisar-acceso-activado';
 import { conservarEstudioDelPanel } from '@/lib/equipo/conservar-estudio-panel';
-import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-reglas';
+import { MENSAJE_RECHAZO, estadoHttpDelRechazo, motivoNoReclamable, rolDelEnlace } from '@/lib/equipo/reclamar-reglas';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
-import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
+import { enlaceRevocado, gastarInvitacion } from '@/lib/sustituciones/enlaces';
+import * as Sentry from '@sentry/nextjs';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import type { Rol } from '@/lib/types';
+import type { User } from '@supabase/supabase-js';
 import { pasoDeLaSesion } from '@/lib/auth-server';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 
@@ -23,9 +25,10 @@ type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 // botón: une su cuenta a su ficha. Llega por una de dos vías:
 //
 //   · Con el ENLACE de invitación (`token`): el correo de invitación de una
-//     instructora lleva a la app, no al panel. El enlace firmado es la prueba,
-//     igual que en `equipoReclamarAction`: vale con cualquier cuenta, y se
-//     aplican las mismas reglas (`motivoNoReclamable`, enlace no revocado).
+//     instructora lleva a la app, no al panel. Mismas reglas que
+//     `equipoReclamarAction` (`motivoNoReclamable`, enlace no revocado): desde
+//     el 13-oct-2026 el enlace solo vale con el correo verificado de la ficha,
+//     y al unirse queda gastado.
 //   · Sin enlace, por su CORREO: la ficha pendiente con el correo del token de
 //     sesión. Exige el correo verificado — es lo que el enlace demostraba.
 //
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ficha = enlace
-      ? await fichaPorEnlace(admin, enlace, studioId, user.id)
+      ? await fichaPorEnlace(admin, enlace, studioId, user)
       : await fichaPorCorreo(admin, user, studioId);
     if ('respuesta' in ficha) return ficha.respuesta;
 
@@ -93,6 +96,7 @@ export async function POST(req: NextRequest) {
       .eq('id', ficha.instructorId)
       .eq('studio_id', studioId)
       .eq('rol', 'INSTRUCTOR')
+      .not('activo', 'is', false)
       .is('auth_user_id', null)
       .select('id');
     // 23505: otra vía (el panel) la ha unido a la vez en esta sede.
@@ -105,7 +109,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await avisarAlEstudioAccesoActivado(admin, studioId, ficha.nombre, user.email ?? null);
+    // Por enlace o por correo: una vez unida, la invitación que tuviera pendiente ya no vale.
+    try {
+      await gastarInvitacion(admin, studioId, ficha.instructorId);
+    } catch (e) {
+      // Ya está unida; el enlace sigue acotado por su caducidad y por que la ficha ya tiene cuenta.
+      Sentry.captureException(e, { tags: { area: 'equipo', accion: 'unirse-gastar' } });
+    }
+    await avisarAlEstudioAccesoActivado(admin, studioId, ficha.nombre, 'INSTRUCTOR', user.email ?? null);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return errorInterno('portal/instructora/unirse:POST', err, 'No hemos podido activar tu acceso. Inténtalo de nuevo en unos segundos.');
@@ -114,10 +125,8 @@ export async function POST(req: NextRequest) {
 
 type Resultado = { instructorId: string; nombre: string } | { respuesta: NextResponse };
 
-const ROLES: readonly string[] = ['PROPIETARIO', 'INSTRUCTOR', 'RECEPCION', 'MANAGER'];
-
-/** Vía enlace: el token firmado de invitación, de ESTE estudio y vigente. */
-async function fichaPorEnlace(admin: Admin, enlace: string, studioId: string, userId: string): Promise<Resultado> {
+/** Vía enlace: el token firmado de invitación, de ESTE estudio y vigente, con el correo de la ficha. */
+async function fichaPorEnlace(admin: Admin, enlace: string, studioId: string, user: User): Promise<Resultado> {
   const claim = verificarTokenInstructora(enlace, 'invitacion');
   if (!claim || claim.studioId !== studioId || await enlaceRevocado(admin, claim.instructorId, 'invitacion', enlace)) {
     return {
@@ -128,7 +137,7 @@ async function fichaPorEnlace(admin: Admin, enlace: string, studioId: string, us
     };
   }
   const { data: fila, error } = await admin
-    .from('instructores').select('id, nombre, rol, activo, auth_user_id')
+    .from('instructores').select('id, nombre, rol, activo, auth_user_id, email')
     .eq('id', claim.instructorId).eq('studio_id', studioId)
     .maybeSingle();
   if (error) throw error;
@@ -141,13 +150,19 @@ async function fichaPorEnlace(admin: Admin, enlace: string, studioId: string, us
       ),
     };
   }
-  const rolEmisor = ROLES.includes(claim.ref as Rol) ? (claim.ref as Rol) : null;
   const motivo = motivoNoReclamable(
-    { rol: fila.rol as Rol, activo: fila.activo as boolean | null, authUserId: fila.auth_user_id as string | null },
-    userId, rolEmisor,
+    {
+      rol: fila.rol as Rol, activo: fila.activo as boolean | null,
+      authUserId: fila.auth_user_id as string | null, email: fila.email as string | null,
+    },
+    user.id, rolDelEnlace(claim.ref),
+    {
+      rolFirmado: rolDelEnlace(claim.rolFicha),
+      cuenta: { email: user.email ?? null, emailConfirmado: Boolean(user.email_confirmed_at) },
+    },
   );
   if (motivo) {
-    return { respuesta: NextResponse.json({ error: MENSAJE_RECHAZO[motivo], code: motivo }, { status: 409 }) };
+    return { respuesta: NextResponse.json({ error: MENSAJE_RECHAZO[motivo], code: motivo }, { status: estadoHttpDelRechazo(motivo) }) };
   }
   return { instructorId: fila.id as string, nombre: (fila.nombre as string | null) || 'Instructora' };
 }

@@ -7,7 +7,7 @@
 // canje lo valida `/api/public/canje`. Esto solo ORDENA y presenta lo que el
 // payload ya trae: si el estudio no ha configurado nada, no hay nada que pintar.
 
-export interface NivelDef { id: string; nombre: string; orden: number; umbralCreditos: number; color: string; icono: string; beneficios: string | null }
+export interface NivelDef { id: string; nombre: string; orden: number; umbralCreditos: number; color: string; icono: string; beneficios: string | null; activo?: boolean }
 export interface LogroDef { id: string; nombre: string; descripcion: string | null; umbral: number; icono: string; creditosRecompensa: number; activo: boolean }
 export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean }
 export interface ProgresoMin { achievementId?: string; challengeId?: string; progresoActual: number; completado: boolean; completadoEn: string | null }

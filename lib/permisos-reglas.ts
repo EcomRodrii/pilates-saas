@@ -29,7 +29,10 @@ import type { Rol } from './types';
 // '/asistente' («Pregúntale a Tentare»): propietaria y gerencia (fundador,
 // 5-oct-2026); recepción no. Lo que el plan incluye y si está encendido lo
 // decide la propia pantalla (feature `asistente`) y, de verdad, el servidor.
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente'];
+// '/festivos' (módulo del panel nuevo, 14-oct-2026): lo que se decide ahí es
+// abrir o cerrar un día, y cerrar es de la propietaria y la gerencia
+// (`puedeGestionarSede`, el mismo permiso que sus rutas y la RLS de la tabla).
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente', '/festivos'];
 
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque
@@ -104,6 +107,20 @@ export function puedeVerFichaClinica(rol: Rol): boolean {
 // comentario explicando el motivo).
 export function puedeVerSemaforo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION' || rol === 'MANAGER';
+}
+
+// De DÓNDE sale ese color en el panel. La RLS de `condiciones_salud` solo le da
+// filas a la PROPIETARIA (migr 20260914220613): para el resto de roles que ven
+// el semáforo, el cálculo local sobre `condicionesSalud` da siempre vacío, y el
+// color tiene que llegar por la RPC `semaforo_salud_estudio`, que devuelve solo
+// el nivel (sin condiciones ni motivo). La gerencia se quedó fuera de esto: el
+// permiso se le abrió (arriba), pero las pantallas solo pedían la RPC para
+// RECEPCIÓN y a MANAGER le pintaban el cálculo local, vacío — nunca vio un punto.
+// INSTRUCTOR fuera a propósito: no tiene panel, y `useRol()` la devuelve como
+// valor por defecto mientras carga la sesión, así que incluirla haría la llamada
+// en cada arranque del panel, también el de la propietaria.
+export function semaforoDesdeServidor(rol: Rol): boolean {
+  return puedeVerSemaforo(rol) && (rol === 'RECEPCION' || rol === 'MANAGER');
 }
 
 // ⚠️ `puedeVerFichaClinica` dice si el ROL es clínico en el panel, no si ve la

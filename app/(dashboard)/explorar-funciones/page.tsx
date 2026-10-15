@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowRight, Compass } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { calcularCatalogoFunciones } from '@/lib/funciones-catalogo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { ModulosNuevo } from '@/components/modulos/modulos-nuevo';
 
 // "Explorar todas las funciones" — botón secundario junto al tour en
 // /primeros-pasos. A diferencia de esa página (solo lo pendiente de
@@ -12,6 +14,9 @@ import { calcularCatalogoFunciones } from '@/lib/funciones-catalogo';
 // cada función es un enlace directo.
 export default function ExplorarFuncionesPage() {
   const categorias = calcularCatalogoFunciones();
+  // Con el panel nuevo, la pantalla Módulos (como la de Bonsai): cada módulo en su tarjeta, con interruptor e «Ir».
+  const panelNuevo = usePanelNuevo();
+  if (panelNuevo) return <ModulosNuevo />;
 
   return (
     <div className="space-y-6 max-w-3xl">

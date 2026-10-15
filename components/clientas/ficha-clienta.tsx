@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useAuth } from '@/lib/auth-context';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
@@ -14,8 +15,8 @@ import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
-import { borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
+import { anularClaseSueltaPorCuota, borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
 import { DialogoBorrarDatos, DialogoDarDeBaja } from '@/components/socios/dar-de-baja';
 import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
@@ -23,7 +24,8 @@ import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsi
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaClasesAutorizadas } from '@/components/socios/ficha-clases-autorizadas';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
@@ -57,14 +59,20 @@ import {
   CircleDollarSign, CalendarCheck, CalendarPlus, HeartPulse, Gift, Smartphone, Image as ImageIcon,
   MessageCircle, ChevronRight, UserRound, Users, Sparkles, Coins, ListChecks, MessagesSquare, Check, Pin, Bell, type LucideIcon,
 } from 'lucide-react';
-import { cn, formatEuro, hoyEnEstudio } from '@/lib/utils';
+import { cn, fechaCortaEstudio, formatEuro, horaEstudio, hoyEnEstudio } from '@/lib/utils';
+import { clasesSueltasQueCubreSuCuota, type SueltaQueCubreLaCuota } from '@/lib/reservas/clase-suelta';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { cumpleMesDia } from '@/lib/socios/datos-privados';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
 import { cuandoClase, diasEntre, fechaCorta, haceCuanto, proximoCumple, telefonoLegible, textoDesde } from '@/lib/clientas/textos';
 import { compactarHistoria, historiaDeClienta, type GrupoHistoria } from '@/lib/clientas/historia';
-import { clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
+import { asistenciaPorMes, clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
+import { MESES_LARGOS } from '@/lib/inicio/cifras';
+import { GraficaArea } from '@/components/dashboard/grafica-area';
+import { Pildoras } from '@/components/dashboard/vivo';
+import { usoDe } from '@/lib/clientas/uso';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { contactoTrasElAviso, ETIQUETA_CANAL, ETIQUETA_RESULTADO, type CanalContacto, type ContactoApuntado, type ResultadoContacto } from '@/lib/clientas/contactos';
 import { DialogoApuntarContacto, PreguntaTrasContacto } from '@/components/clientas/ficha/apuntar-contacto';
 import { DialogoDobleFactor } from '@/components/clientas/ficha/dialogo-doble-factor';
@@ -83,7 +91,7 @@ import {
 import type { AccionMenu } from '@/components/ui/menu-acciones';
 import { ReservarClase } from '@/components/clientas/ficha/reservar-clase';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { Toast } from '@/components/ui/toast';
+import { Toast, type MostrarToast, type ToastVariante } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
 import { repartirHistorial } from '@/lib/valoracion-inicial';
@@ -162,8 +170,9 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  const panelNuevo = usePanelNuevo();
   return (
-    <div className={cn('bg-card border border-border rounded-xl p-5', className)}>
+    <div className={cn('bg-card border border-border p-5', panelNuevo ? 'rounded-t-card shadow-t-card' : 'rounded-xl', className)}>
       {children}
     </div>
   );
@@ -205,6 +214,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   modo?: 'pagina' | 'panel';
 }) {
   const rol = useRol();
+  const panelNuevo = usePanelNuevo();
+  const [mesesAsistencia, setMesesAsistencia] = useState<6 | 12>(6);
   // Sin esto, una instructora veía «Cobrar» y «Cancelar suscripción»: botones que
   // desde la 0112 la base de datos rechaza. Enseñar un botón que no funciona es
   // peor que no enseñarlo.
@@ -241,6 +252,11 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     refrescarTrasVentaPOS,
     memberCredits,
   } = useStudio();
+  // P2.8: con los filtros nuevos de Clientas encendidos, la media de la ficha es
+  // la MISMA que la de la lista (sin la semana en curso mientras está vacía); si
+  // no, un lunes la lista decía «Alta» y la ficha una media de «Media». Apagado,
+  // la ficha es la de siempre.
+  const mediaComoLaLista = useInterruptor('filtrosClientas', studio?.id);
   // Las notas internas y las respuestas de sesión no vienen en el arranque
   // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
   useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
@@ -267,14 +283,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     () => semaforo(condicionesSalud.filter(c => c.socioId === id)),
     [condicionesSalud, id],
   );
-  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
-  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo local de arriba nunca produce nada para ese rol.
-  // useSemaforoRecepcion trae el nivel de TODO el estudio en una sola
+  // RECEPCIÓN y la gerencia sí ven el semáforo, pero la RLS de condiciones_salud
+  // no les deja leer las filas — `condicionesSalud` les llega SIEMPRE vacío, así
+  // que el cálculo local de arriba nunca produce nada para esos roles.
+  // useSemaforoServidor trae el nivel de TODO el estudio en una sola
   // llamada; navegar a otra socia solo reindexa el mismo Map por otra
   // clave (sin re-fetch y sin arrastrar el nivel de la socia anterior).
-  const semaforoRecepcion = useSemaforoRecepcion(rol);
-  const semaforoSocio = rol === 'RECEPCION' ? (semaforoRecepcion.get(id) ?? 'VERDE') : semaforoLocal;
+  const semaforoServidor = useSemaforoServidor(rol);
+  const semaforoSocio = semaforoDesdeServidor(rol) ? (semaforoServidor.get(id) ?? 'VERDE') : semaforoLocal;
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
@@ -306,8 +322,15 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToastEstado] = useState<{ mensaje: string; variant: ToastVariante } | null>(null);
+  // Un fallo en ROJO y 8 s, no con el ✓ verde del éxito (P0.3): para que se vea,
+  // quien avisa de un error lo dice con `setToastError` (o `{ variant: 'error' }`).
+  const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
+  const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // La clase suelta que ya cubre su cuota, a punto de anularse (con su confirmación).
+  const [sueltaAAnular, setSueltaAAnular] = useState<SueltaQueCubreLaCuota | null>(null);
+  const [anulandoSuelta, setAnulandoSuelta] = useState(false);
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
   const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
@@ -456,7 +479,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setReactivandoBuzon(true);
     try {
       const r = await reactivarBuzonRoto(emailNormalizadoSocio);
-      if (!r.ok) { setToast(r.error); return; }
+      if (!r.ok) { setToastError(r.error); return; }
       setBuzonesReactivados(prev => new Set(prev).add(emailNormalizadoSocio));
       setToast('Buzón reactivado — volverá a recibir correos');
     } finally {
@@ -511,6 +534,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     () => resumenSocio({ socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now }),
     [socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now],
   );
+  // Clases sueltas de clases que YA cubre su cuota (se le vendió la del lunes y el
+  // miércoles pasó a cuota): sin decirlo, el lunes se cobraba dos veces. Sale venga
+  // la cuota de donde venga (ficha, Calendario, TPV, su app).
+  const sueltasEnSuCuota = useMemo(() => clasesSueltasQueCubreSuCuota({
+    socioId: id, recibos: misRecibos, reservas: misReservas,
+    sesion: sid => { const s = sesionById.get(sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
+    suscripciones, planes: planesTarifa,
+  }), [id, misRecibos, misReservas, sesionById, suscripciones, planesTarifa]);
 
   // Otras suscripciones ACTIVA del mismo socio, aparte de la que ya se
   // enseña en la tarjeta "Plan" — el staff es quien decide si hace falta
@@ -521,8 +552,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // `if (!socio)`, igual que `resumen`.
   const otrosBonosActivos = useMemo(() => {
     if (!resumen.suscripcion) return [];
+    // Sin lo gastado (una clase suelta ya usada, un bono a 0): no da derecho a
+    // nada, y contarlo decía «+1 bono más» de una clase que ya pagó y dio.
     return suscripciones
-      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id)
+      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id && s.sesionesRestantes !== 0)
       .map(s => {
         const p = planesTarifa.find(pt => pt.id === s.planId);
         if (!p) return null;
@@ -645,7 +678,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     }, { puedeVerPrivados: veDatosPrivados, original: socio }));
     // El diálogo solo se cierra si de verdad se guardó: cerrarlo con el error
     // detrás deja a la propietaria creyendo que cambió el email de una clienta.
-    if (!res.ok) { setToast(res.error); return; }
+    if (!res.ok) { setToastError(res.error); return; }
     setShowEdit(false);
     // Con el género que se acaba de guardar, no con el de antes de abrir el diálogo.
     const nuevo = trato(editForm.genero || null);
@@ -681,7 +714,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setDandoDeAlta(true);
     try {
       const r = await volverADarDeAlta(id);
-      if (!r.ok) { setToast(r.error); return; }
+      if (!r.ok) { setToastError(r.error); return; }
       setToast(r.cuotasSinRenovar > 0
         ? `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta. Su cuota sigue sin renovarse: si quieres que siga, quita la baja programada en su plan.`
         : `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta.`);
@@ -732,7 +765,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       setToast(`Plan "${nombrePlan}" asignado`);
       ofrecerPlazaFijaSiCuota(planId, nombrePlan);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : ERROR_GENERICO);
+      setToastError(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
       setCambiandoPlan(false);
     }
@@ -745,7 +778,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setAsignandoVenta(true);
     try {
       const r = await asignarVentaAClienta(venta.id, id);
-      if (esError(r)) { setToast(r.error); return; }
+      if (esError(r)) { setToastError(r.error); return; }
       const entregado = ventaPorAsignar;
       setVentaPorAsignar(null);
       setToast(`Venta nº ${venta.numero} asignada: plan entregado sin cobrarlo otra vez`);
@@ -777,7 +810,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setCambiandoPlan(true);
     try {
       const res = await cancelarSuscripcion(suscripcion.id);
-      setToast(res.ok ? 'Suscripción cancelada' : res.error);
+      if (res.ok) setToast('Suscripción cancelada'); else setToastError(res.error);
       if (res.ok) setConfirmarCancelarSus(null);
     } finally {
       setCambiandoPlan(false);
@@ -791,7 +824,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setCambiandoPlan(true);
     try {
       const res = await programarBajaSuscripcion(suscripcion.id, programar);
-      if (!res.ok) { setToast(res.error); return; }
+      if (!res.ok) { setToastError(res.error); return; }
       setToast(programar
         ? `Se dará de baja el ${suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : 'final del periodo'}`
         : 'Baja programada quitada: seguirá renovando');
@@ -806,7 +839,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     // Mismo gate que la RLS de `notas_progreso` y que la ruta de IA: sin
     // consentimiento de salud vigente el servidor dirá que no, así que se
     // explica antes en vez de dejar que el guardado falle con un «sin permiso».
-    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
+    if (!socio?.consentimientoSalud) { setToastError(SIN_CONSENTIMIENTO_SALUD); return; }
     setAiLoading(true);
     setAiResult(null);
     try {
@@ -817,7 +850,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       });
       setAiResult(resultado);
     } catch (err) {
-      setToast(err instanceof Error && err.message ? err.message : 'Error al procesar con IA');
+      setToastError(err instanceof Error && err.message ? err.message : 'Error al procesar con IA');
     } finally {
       setAiLoading(false);
     }
@@ -825,7 +858,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
   async function handleSaveAiNote() {
     if (!aiResult) return;
-    if (!socio?.consentimientoSalud) { setToast(SIN_CONSENTIMIENTO_SALUD); return; }
+    if (!socio?.consentimientoSalud) { setToastError(SIN_CONSENTIMIENTO_SALUD); return; }
     const res = await addNotaProgreso({
       socioId: id,
       instructorId: yo?.id ?? null,
@@ -836,7 +869,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       planProximaSesion: aiResult.planProximaSesion,
       ejerciciosCasa: aiResult.ejerciciosCasa,
     });
-    if (!res.ok) { setToast('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
+    if (!res.ok) { setToastError('No se ha podido guardar la nota. Inténtalo de nuevo.'); return; }
     setAiNoteText('');
     setAiResult(null);
     setToast('Nota guardada');
@@ -845,13 +878,13 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   async function handleSendMessage() {
     if (!socio) return;
     if (!msgForm.asunto.trim() || !msgForm.cuerpo.trim()) return;
-    if (!socio.email) { setToast(`${mayuscula(t.la)} ${t.clienta} no tiene email registrado`); return; }
+    if (!socio.email) { setToastError(`${mayuscula(t.la)} ${t.clienta} no tiene email registrado`); return; }
     // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
     // Ahora manda el email de verdad por Resend (/api/emails/send).
     setEnviandoMsg(true);
     const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim(), socioId: socio.id });
     setEnviandoMsg(false);
-    if (!ok) { setToast('No se pudo enviar el email'); return; }
+    if (!ok) { setToastError('No se pudo enviar el email'); return; }
     // El registro real lo crea el servidor (/api/emails/send); se recarga el
     // historial en vez de simularlo aquí para reflejar el estado que la BD
     // acaba de guardar, no una suposición optimista.
@@ -1060,6 +1093,26 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   if (!socio.aceptacionContrato) {
     alertas.push({ icono: FileSignature, tono: 'aviso', texto: 'Falta que acepte el contrato: se le pide al reservar', onClick: gestionaClientas ? () => setActiveTab('datos') : undefined });
   }
+  if (verFinanzas) {
+    for (const sc of sueltasEnSuCuota) {
+      const cuando = `${fechaCortaEstudio(sc.inicio)}, ${horaEstudio(sc.inicio)}`;
+      alertas.push(sc.pagado
+        ? {
+          icono: Coins, tono: 'aviso',
+          texto: <>Pagó {formatEuro(sc.importe)} por la clase suelta del <strong className="font-semibold">{cuando}</strong>, que ya cubre su cuota · si se los devuelves, márcalo en Pagos y quítale la clase suelta</>,
+          onClick: () => setActiveTab('pagos'),
+        }
+        : sc.aMedias ? {
+          icono: Coins, tono: 'aviso',
+          texto: <>La clase suelta del <strong className="font-semibold">{cuando}</strong> quedó anulada a medias{puedeCobrar ? ' · terminar' : ''}</>,
+          onClick: puedeCobrar ? () => setSueltaAAnular(sc) : () => setActiveTab('pagos'),
+        } : {
+          icono: Coins, tono: 'aviso',
+          texto: <>Su cuota ya cubre la clase del <strong className="font-semibold">{cuando}</strong> y tiene pendiente su clase suelta de {formatEuro(sc.importe)}{puedeCobrar ? ' · anularla' : ''}</>,
+          onClick: puedeCobrar ? () => setSueltaAAnular(sc) : () => setActiveTab('pagos'),
+        });
+    }
+  }
   if (verFinanzas && pagosFallidos.length > 0) {
     alertas.push({ icono: AlertTriangle, tono: 'problema', texto: pagosFallidos.length === 1 ? 'Tiene un pago fallido' : `Tiene ${pagosFallidos.length} pagos fallidos`, onClick: () => setActiveTab('pagos') });
   }
@@ -1104,10 +1157,13 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     .filter(c => c.tipo !== 'contacto' && !!c.creadoPorNombre)
     .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0] ?? null;
 
-  const constanciaSuya = constancia(
-    misReservas.filter(r => r.estado === 'ASISTIDA').map(r => sesionById.get(r.sesionId)?.inicio).filter((x): x is string => !!x),
-    now,
-  );
+  const asistenciasSuyas = misReservas.filter(r => r.estado === 'ASISTIDA').map(r => sesionById.get(r.sesionId)?.inicio).filter((x): x is string => !!x);
+  const constanciaSuya = constancia(asistenciasSuyas, now);
+  // Con los filtros nuevos encendidos, la ficha dice lo mismo que su fila: la
+  // misma media y las mismas semanas sin venir (solo las completas).
+  const usoSuyo = mediaComoLaLista ? usoDe(asistenciasSuyas, now) : null;
+  const mediaSuya = usoSuyo ? usoSuyo.media : constanciaSuya.media;
+  const sinVenirSuyas = usoSuyo ? usoSuyo.semanasSinVenir : constanciaSuya.semanasSinVenir;
 
   const eventosHistoria = historiaDeClienta({
     fechaAlta: socio.fechaAlta,
@@ -1159,7 +1215,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     setEnviandoAcceso(true);
     const ok = await enviarEmailBienvenida({ to: socio.email, toName: nombreCompleto, socioId: socio.id });
     setEnviandoAcceso(false);
-    setToast(ok ? `Le hemos mandado a ${socio.nombre} el enlace para entrar en su app` : 'No se ha podido mandar el acceso. Vuelve a intentarlo.');
+    (ok ? setToast : setToastError)(ok ? `Le hemos mandado a ${socio.nombre} el enlace para entrar en su app` : 'No se ha podido mandar el acceso. Vuelve a intentarlo.');
   }
 
   // Borrar un contacto apuntado por error: solo quien lo apuntó o la propietaria
@@ -1170,7 +1226,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     const r = await borrarContacto(id, contactoId);
     setBorrandoContacto(null);
     setContactoABorrar(null);
-    if (!r.ok) { setToast(r.error); return; }
+    if (!r.ok) { setToastError(r.error); return; }
     await recargarComunicaciones();
     setToast('Contacto borrado');
   }
@@ -1188,7 +1244,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     <div data-tour="ficha-clienta" className={cn(modo === 'pagina' && 'min-h-dvh pb-24')} style={modo === 'pagina' ? { backgroundColor: 'var(--background)' } : undefined}>
       <div className={cn('space-y-4', modo === 'pagina' && 'mx-auto max-w-6xl')}>
         {modo === 'pagina' && (
-          <Link href="/clientas" onClick={volverALista} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
+          <Link href="/clientas" onClick={volverALista} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} aria-hidden />
             Clientas
           </Link>
@@ -1252,7 +1308,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
 
         {showAvatarPicker && (
           <div className="rounded-2xl border border-border bg-card p-4">
-            <AvatarPicker value={socio.avatar ?? null} onChange={nuevo => { void updateSocio(socio.id, { avatar: nuevo }).then(res => { if (!res.ok) setToast(res.error); }); }} />
+            <AvatarPicker value={socio.avatar ?? null} onChange={nuevo => { void updateSocio(socio.id, { avatar: nuevo }).then(res => { if (!res.ok) setToastError(res.error); }); }} />
           </div>
         )}
 
@@ -1339,14 +1395,26 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         )}
 
         {/* Pestañas: con su URL en la página (?pestana=pagos), para volver a la misma. */}
-        <div role="tablist" aria-label="Secciones de la ficha" className="-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+        <div
+          role="tablist"
+          aria-label="Secciones de la ficha"
+          // Panel nuevo: en píldora, como las pestañas del resto del panel.
+          className={panelNuevo
+            ? '-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:w-fit sm:max-w-full sm:rounded-full sm:bg-muted sm:p-1'
+            : '-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0'}
+        >
           {pestanas.map(p => (
             <button
               key={p.id}
               role="tab"
               aria-selected={activeTab === p.id}
               onClick={() => setActiveTab(p.id)}
-              className={cn(
+              className={panelNuevo
+                ? cn(
+                  'zona-tactil min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
+                  activeTab === p.id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground',
+                )
+                : cn(
                 '-mb-px min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 text-[14px] font-medium transition-colors',
                 activeTab === p.id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
@@ -1377,10 +1445,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           estaban fuera de `verFinanzas`: una instructora las veía y
                           podía cancelarle el plan a una clienta. */}
                       {puedeCobrar && suscripcion.estado === 'ACTIVA' && (
-                        <BotonTarjeta icono={Pause} onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToast(res.error); }}>Pausar</BotonTarjeta>
+                        <BotonTarjeta icono={Pause} onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Pausar</BotonTarjeta>
                       )}
                       {puedeCobrar && suscripcion.estado === 'PAUSADA' && (
-                        <BotonTarjeta icono={Play} onClick={async () => { const res = await reanudarSuscripcion(suscripcion.id); if (!res.ok) setToast(res.error); }}>Reanudar</BotonTarjeta>
+                        <BotonTarjeta icono={Play} onClick={async () => { const res = await reanudarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Reanudar</BotonTarjeta>
                       )}
                       {/* Hallazgo B (auditoría dunning 2026-08-10): reactiva ESTA misma
                           suscripción (mismo id, con su histórico) — distinto de
@@ -1393,7 +1461,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                             setReactivando(true);
                             try {
                               const res = await reactivarSuscripcion(suscripcion.id);
-                              setToast(res.ok ? 'Suscripción reactivada' : res.error);
+                              if (res.ok) setToast('Suscripción reactivada'); else setToastError(res.error);
                             } finally {
                               setReactivando(false);
                             }
@@ -1475,7 +1543,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           type="button"
                           onClick={() => abrirCancelarSus()}
                           disabled={cambiandoPlan}
-                          className="mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
+                          className="zona-tactil mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
                         >
                           {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
                         </button>
@@ -1499,7 +1567,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                     titulo="Próximas clases"
                     icono={<CalendarCheck size={16} />}
                     accion={reservaPermitida && socio.activo !== false ? (
-                      <button type="button" onClick={() => setShowReservar(true)} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                      <button type="button" onClick={() => setShowReservar(true)} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                         <Plus size={14} aria-hidden /> Reservar otra
                       </button>
                     ) : undefined}
@@ -1532,13 +1600,36 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   </TarjetaFicha>
                 )}
 
-                <TarjetaFicha titulo="Constancia" icono={<CalendarClock size={16} />} accion={<span className="text-[12px] text-muted-foreground">Últimas 12 semanas</span>}>
+                <TarjetaFicha
+                  titulo={panelNuevo ? 'Asistencia últimos meses' : 'Constancia'}
+                  icono={<CalendarClock size={16} />}
+                  accion={panelNuevo
+                    ? <Pildoras opciones={[{ valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={mesesAsistencia} onCambio={setMesesAsistencia} />
+                    : <span className="text-[12px] text-muted-foreground">Últimas 12 semanas</span>}
+                >
+                  {panelNuevo ? (
+                    // Como la ficha de Bonsai (b-83): la asistencia de cada mes, en grande.
+                    <GraficaArea
+                      titulo="Clases a las que vino cada mes"
+                      alto={180}
+                      enteros
+                      puntos={asistenciaPorMes(asistenciasSuyas, now, mesesAsistencia).map(m => ({
+                        eje: MESES_LARGOS[Number(m.clave.slice(5, 7)) - 1].slice(0, 3),
+                        nombre: `${MESES_LARGOS[Number(m.clave.slice(5, 7)) - 1]} de ${m.clave.slice(0, 4)}`,
+                        valor: m.valor,
+                      }))}
+                      formato={n => `${n} ${n === 1 ? 'clase' : 'clases'}`}
+                      vacio="Cada clase a la que venga, cuando se pase lista, sumará aquí."
+                    />
+                  ) : (
                   <BarrasConstancia semanas={constanciaSuya.semanas} />
-                  <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
-                    {constanciaSuya.media === null
-                      ? 'Todavía no ha venido a ninguna clase en estas semanas.'
-                      : <><strong className="font-semibold text-foreground">{String(constanciaSuya.media).replace('.', ',')} clases por semana</strong> de media{constanciaSuya.semanasSinVenir >= 2 ? ` · lleva ${constanciaSuya.semanasSinVenir} semanas sin venir` : ''}</>}
-                  </p>
+                  )}
+                  {/* Panel nuevo: sin clases, la gráfica ya lo dice; con clases, la media es de las últimas 12 semanas. */}
+                  {!(panelNuevo && asistidas === 0) && <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
+                    {mediaSuya === null
+                      ? (panelNuevo ? 'No ha venido a ninguna clase en las últimas 12 semanas.' : 'Todavía no ha venido a ninguna clase en estas semanas.')
+                      : <><strong className="font-semibold text-foreground">{String(mediaSuya).replace('.', ',')} clases por semana</strong> de media{panelNuevo ? ' en las últimas 12 semanas' : ''}{sinVenirSuyas >= 2 ? ` · lleva ${sinVenirSuyas} semanas sin venir` : ''}</>}
+                  </p>}
                   <p className="mt-1 text-[12.5px] text-muted-foreground">
                     {asistidas === 0 ? 'Aún no ha venido a ninguna clase.' : `Ha venido a ${asistidas} ${asistidas === 1 ? 'clase' : 'clases'} en total`}
                     {verFinanzas && totalGastado > 0 ? ` · ha pagado ${formatEuro(totalGastado)}` : ''}
@@ -1548,7 +1639,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   titulo="Lo último"
                   icono={<Clock size={16} />}
                   accion={eventosHistoria.length > 5 ? (
-                    <button type="button" onClick={() => setActiveTab('historia')} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                    <button type="button" onClick={() => setActiveTab('historia')} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                       Toda la historia <ChevronRight size={14} aria-hidden />
                     </button>
                   ) : undefined}
@@ -1579,26 +1670,28 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   )}
 
                 <TarjetaFicha titulo="Etiquetas" icono={<Tag size={16} />}>
-                  <div className="flex flex-wrap gap-1.5">
+                  {/* `tactil:gap-4`: con el dedo, la × de 16 px crece 14 a cada lado
+                      hasta su zona de 44; con 6 de hueco se metía en la etiqueta de al lado. */}
+                  <div className="flex flex-wrap gap-1.5 tactil:gap-4">
                     {tags.map(tag => (
                       <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-[12.5px] font-medium text-foreground">
                         {tag}
                         {gestionaClientas && (
-                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToast(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="zona-tactil -mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                             <X size={12} />
                           </button>
                         )}
                       </span>
                     ))}
                     {gestionaClientas && (
-                      <button onClick={() => setShowAddTag(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
+                      <button onClick={() => setShowAddTag(true)} className="zona-tactil inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
                         <Plus size={12} aria-hidden /> Añadir
                       </button>
                     )}
                     {tags.length === 0 && !gestionaClientas && <p className="text-[13px] text-muted-foreground">Sin etiquetas.</p>}
                   </div>
                 </TarjetaFicha>
-                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
+                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="zona-tactil text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
                   <dl className="space-y-2.5">
                     <DatoSobreElla icono={Mail} etiqueta="Email" valor={socio.email || 'Sin email'} />
                     <DatoSobreElla icono={Phone} etiqueta="Teléfono" valor={socio.telefono ? telefonoLegible(socio.telefono) : 'Sin teléfono'} />
@@ -1956,7 +2049,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                         <BotonCobrarConMetodo
                           detalle={<>{pendientes.length} {pendientes.length === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientes.reduce((t, r) => t + r.importe, 0))}</span></>}
                           onCobrar={metodo => cobrarTodosPendientes(id, metodo).then(res => {
-                            setToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
+                            (res.ok ? setToast : setToastError)(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
                           })}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
@@ -2038,7 +2131,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                     <BotonCobrarConMetodo
                                       detalle={<>{r.concepto} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span></>}
                                       onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                                        setToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)}`) : res.error);
+                                        (res.ok ? setToast : setToastError)(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)}`) : res.error);
                                       })}
                                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors"
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
@@ -2361,7 +2454,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                 setRetirandoMkt(true);
                 void updateSocio(id, { consentimientoMarketing: undefined }).then(res => {
                   setRetirandoMkt(false);
-                  if (!res.ok) { setToast(res.error); return; }
+                  if (!res.ok) { setToastError(res.error); return; }
                   setConfirmarRetiroMkt(false);
                   setToast('Consentimiento de marketing retirado');
                 });
@@ -2412,7 +2505,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   },
                 });
                 setGuardandoConsentimientoMkt(false);
-                if (!res.ok) { setToast(res.error); return; }
+                if (!res.ok) { setToastError(res.error); return; }
                 setConfirmarConsentimientoMkt(false);
               }}
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
@@ -2435,7 +2528,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
             {tagsDisponibles.map(t => (
               <button
                 key={t.label}
-                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToast(res.error); return; } setShowAddTag(false); }}
+                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToastError(res.error); return; } setShowAddTag(false); }}
                 className="px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105"
                 style={{ backgroundColor: t.bg, color: t.text }}
               >
@@ -2531,15 +2624,15 @@ export function FichaClienta({ id, modo = 'pagina' }: {
             <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una clase fija?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mt-1">
-            «{planOfrecido}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le
-            reserva sola cada semana, sin apuntarla a mano.
+            «{planOfrecido}» ya está asignado. Si {socio.nombre} viene cada semana a las mismas clases, elígelas
+            (una o varias): se le reservan solas, sin apuntarla a mano.
           </p>
           <div className="flex flex-col gap-2 pt-2">
             <button
               onClick={() => { setOfrecerPlazaFija(null); setDialogoPlazaFija(true); }}
               className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
             >
-              Elegir su clase
+              Elegir sus clases
             </button>
             <button
               onClick={() => setOfrecerPlazaFija(null)}
@@ -2555,9 +2648,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         <DialogoPlazaFija
           socioId={id}
           onClose={() => setDialogoPlazaFija(false)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setDialogoPlazaFija(false);
-            setToast(textoPlazaGuardada(r, movida));
+            setToast(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}
@@ -2700,7 +2793,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       <DialogoNuevoCobro
         abierto={showAddRecibo && puedeCobrar}
         onCerrar={() => setShowAddRecibo(false)}
-        avisos={{ ok: setToast, error: setToast }}
+        avisos={{ ok: setToast, error: setToastError }}
         socioId={id}
       />
 
@@ -2818,7 +2911,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         socio={socio}
         abierto={showBaja && gestionaClientas}
         onCerrar={() => setShowBaja(false)}
-        onHecho={resumen => { setShowBaja(false); setToast(resumen); }}
+        onHecho={(resumen, opciones) => { setShowBaja(false); setToast(resumen, opciones); }}
       />
       <DialogoBorrarDatos
         socio={socio}
@@ -2829,8 +2922,55 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         onConfirmar={() => void handleDelete()}
       />
 
+      {/* La clase suelta que ya cubre su cuota: anularla, con lo que pasa dicho antes. */}
+      <Dialog open={sueltaAAnular !== null && puedeCobrar} onOpenChange={open => { if (!open && !anulandoSuelta) setSueltaAAnular(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">{sueltaAAnular?.aMedias ? '¿Terminar de anular la clase suelta?' : '¿Anular la clase suelta?'}</DialogTitle>
+          </DialogHeader>
+          {sueltaAAnular && (
+            <p className="text-sm text-muted-foreground mt-1">
+              La clase del {fechaCortaEstudio(sueltaAAnular.inicio)}, {horaEstudio(sueltaAAnular.inicio)} ya entra en su cuota «{sueltaAAnular.cuota}».
+              {sueltaAAnular.aMedias
+                ? ' Su recibo ya está anulado y no se le cobra; falta quitar la clase suelta para que la clase quede con su cuota.'
+                : ` Se anula el recibo de ${formatEuro(sueltaAAnular.importe)} y no se le cobra; la clase sigue reservada, ahora con la cuota.`}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              disabled={anulandoSuelta}
+              onClick={async () => {
+                if (!sueltaAAnular || anulandoSuelta) return;
+                setAnulandoSuelta(true);
+                try {
+                  const r = await anularClaseSueltaPorCuota(sueltaAAnular.reciboId);
+                  if (!r.ok) { setToastError(r.error); return; }
+                  await refrescarTrasVentaPOS();
+                  setToast(r.aviso ?? (sueltaAAnular.aMedias
+                    ? 'Clase suelta quitada: la clase queda con su cuota.'
+                    : `Clase suelta anulada: no se le cobrarán ${formatEuro(sueltaAAnular.importe)}. La clase la cubre su cuota.`));
+                  setSueltaAAnular(null);
+                } finally {
+                  setAnulandoSuelta(false);
+                }
+              }}
+              className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-60"
+            >
+              {anulandoSuelta ? 'Anulando…' : sueltaAAnular?.aMedias ? 'Terminar' : 'Anular la clase suelta'}
+            </button>
+            <button
+              disabled={anulandoSuelta}
+              onClick={() => setSueltaAAnular(null)}
+              className="w-full rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-60"
+            >
+              Dejarla
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Toast */}
-      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      {toast && <Toast message={toast.mensaje} variant={toast.variant} onDismiss={() => setToastEstado(null)} />}
     </div>
   );
 }

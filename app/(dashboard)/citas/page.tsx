@@ -12,6 +12,9 @@ import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo, PantallaVacia, TarjetaCifra, type Tono } from '@/components/dashboard/vivo';
+import { CalendarCheck, Euro, UserX } from 'lucide-react';
 import { emiteFacturas as emiteFacturasDelEstudio } from '@/lib/factura-automatica';
 import {
   Dialog,
@@ -277,6 +280,7 @@ function CitaCard({
 
 export default function CitasPage() {
   const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita, crearFacturaDirecta, studio } = useStudio();
+  const panelNuevo = usePanelNuevo();
   // Con el estudio sin facturas desde Tentare, cobrar una cita deja su recibo y
   // nada más: los textos no pueden prometer una factura.
   const emiteFacturas = emiteFacturasDelEstudio(studio?.modoFacturacion);
@@ -613,11 +617,14 @@ export default function CitasPage() {
             {/* Migración asistida: traer las citas del programa anterior. */}
             <Link
               href="/citas/importar"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="zona-tactil inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <Upload size={15} />
               Importar
             </Link>
+            {panelNuevo ? (
+              <BotonVivo label="Nueva cita" Icono={Plus} onClick={() => { setErrorModal(null); setShowModal(true); }} />
+            ) : (
             <button
               onClick={() => { setErrorModal(null); setShowModal(true); }}
               className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-lg px-4 py-2.5 text-sm font-medium hover:brightness-95 transition-colors shrink-0"
@@ -625,12 +632,25 @@ export default function CitasPage() {
               <Plus size={16} />
               Nueva cita
             </button>
+            )}
           </>
           ) : null
         }
       />
 
       {/* Métricas del mes */}
+      {panelNuevo ? (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+          {metricas.map((m, i) => {
+            const estilo: { tono: Tono; Icono: React.ElementType; abajo: string } =
+              m.label === 'Ingresos este mes' ? { tono: 'verde', Icono: Euro, abajo: 'cobrado en citas' }
+              : m.label === 'Citas este mes' ? { tono: 'indigo', Icono: Clock, abajo: `${upcoming.length} próximas` }
+              : m.label === 'Asistencia' ? { tono: 'azul', Icono: CalendarCheck, abajo: m.title ?? 'de las citas resueltas' }
+              : { tono: 'magenta', Icono: UserX, abajo: 'este mes' };
+            return <TarjetaCifra key={m.label + i} etiqueta={m.label} tono={estilo.tono} Icono={estilo.Icono} href={null} valor={m.value} abajo={estilo.abajo} />;
+          })}
+        </div>
+      ) : (
       <div className={cn('grid grid-cols-2 gap-3', metricas.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3')}>
         {metricas.map((m) => (
           <div key={m.label} className="bg-card border border-border rounded-xl px-4 py-3">
@@ -639,17 +659,18 @@ export default function CitasPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
+      <div className={panelNuevo ? 'flex w-fit gap-1 rounded-full bg-muted p-1' : 'flex gap-1 bg-card border border-border rounded-xl p-1 w-fit'}>
         {(['proximas', 'historial'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              panelNuevo ? 'zona-tactil rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors' : 'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === t
-                ? 'bg-brand text-brand-foreground'
+                ? (panelNuevo ? 'bg-card text-foreground shadow-sm' : 'bg-brand text-brand-foreground')
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -667,9 +688,9 @@ export default function CitasPage() {
         <button
           onClick={() => setFilterInstructor('all')}
           className={cn(
-            'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+            panelNuevo ? 'zona-tactil rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
             filterInstructor === 'all'
-              ? 'bg-brand text-brand-foreground border-foreground'
+              ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-brand text-brand-foreground border-foreground')
               : 'bg-card border-border text-muted-foreground hover:text-foreground'
           )}
         >
@@ -680,9 +701,9 @@ export default function CitasPage() {
             key={ins.id}
             onClick={() => setFilterInstructor(ins.id)}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+              panelNuevo ? 'zona-tactil rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors' : 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               filterInstructor === ins.id
-                ? 'bg-brand text-brand-foreground border-foreground'
+                ? (panelNuevo ? 'bg-foreground text-background border-foreground' : 'bg-brand text-brand-foreground border-foreground')
                 : 'bg-card border-border text-muted-foreground hover:text-foreground'
             )}
           >
@@ -693,7 +714,21 @@ export default function CitasPage() {
 
       {/* Cita list */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {filtered.length === 0 && panelNuevo && citas.length === 0 ? (
+          <PantallaVacia
+            tono="indigo"
+            Icono={Clock}
+            titulo="Reserva tu primera cita"
+            texto="Las sesiones de una en una, con su hueco en la agenda y su precio, aparte de las clases de grupo."
+            ejemplos={[
+              { accion: 'Valoración inicial', cuando: 'antes de que una alumna empiece en las clases de grupo' },
+              { accion: 'Sesión privada', cuando: 'para quien quiere ir a su ritmo' },
+              { accion: 'Fisio o readaptación', cuando: 'con su hora, su instructora y lo que cuesta' },
+            ]}
+            accion={gestionaCitas ? { label: 'Reservar una cita', Icono: Plus, onClick: () => { setErrorModal(null); setShowModal(true); } } : undefined}
+            secundaria={gestionaCitas ? { label: 'Traerlas de mi programa anterior', href: '/citas/importar' } : undefined}
+          />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icono={Clock}
             titulo="No hay citas que mostrar"
@@ -747,7 +782,7 @@ export default function CitasPage() {
 
       {/* Nueva cita modal */}
       <Dialog open={showModal && gestionaCitas} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">Nueva cita</DialogTitle>
           </DialogHeader>

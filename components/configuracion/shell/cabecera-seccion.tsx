@@ -1,8 +1,14 @@
 'use client';
 
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Baldosa } from '@/components/dashboard/vivo';
+import { TONO_SECCION_CONFIG } from './tono-config';
+import { ICONOS_SECCION } from './lista-secciones';
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import type { SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { grupoPanelNuevoDe, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { hrefDeLugar } from '@/lib/configuracion/destino';
+import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
 // La cabecera de una sección abierta.
 //
@@ -23,6 +29,7 @@ export function CabeceraSeccion({
   tituloRef: RefObject<HTMLHeadingElement | null>;
   onVolver: () => void;
 }) {
+  const panelNuevo = usePanelNuevo();
   return (
     <>
       <div className="sticky top-12 z-20 -mx-4 flex h-14 items-center gap-1 border-b border-border bg-background/95 px-2 backdrop-blur md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
@@ -34,14 +41,21 @@ export function CabeceraSeccion({
         >
           <ArrowLeft size={20} aria-hidden />
         </button>
-        <h2
-          id="seccion-titulo"
-          ref={tituloRef}
-          tabIndex={-1}
-          className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
-        >
-          {seccion.titulo}
-        </h2>
+        {panelNuevo && <span className="mr-2 hidden md:inline-flex"><Baldosa tono={TONO_SECCION_CONFIG[seccion.id] ?? 'azul'} Icono={ICONOS_SECCION[seccion.id]} /></span>}
+        <span className="min-w-0">
+          {/* Panel nuevo: en qué grupo estás, encima del título, para no perderse. */}
+          {panelNuevo && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupoPanelNuevoDe(seccion.id).titulo}</span>}
+          <h2
+            id="seccion-titulo"
+            ref={tituloRef}
+            tabIndex={-1}
+            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
+          >
+            {seccion.titulo}
+          </h2>
+        </span>
+        {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}
+        <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id })} />
       </div>
       <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{seccion.frase}</p>
     </>

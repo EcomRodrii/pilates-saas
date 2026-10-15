@@ -13,6 +13,8 @@ import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { useEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -23,6 +25,8 @@ import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentar
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
+import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
+import { activoEnModulos } from '@/lib/modulos/menu';
 
 export function useNavMode() {
   // Por defecto 'esencial' (los módulos del día a día, ESSENTIAL_HREFS): un
@@ -31,14 +35,19 @@ export function useNavMode() {
   const [mode, setMode] = useState<'esencial' | 'avanzado'>('esencial');
 
   useEffect(() => {
-    const stored = localStorage.getItem('nav-mode');
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage. No es accesible durante el render (ni en servidor ni en la hidratación): leerlo en render rompería la hidratación.
-    if (stored === 'avanzado') setMode('avanzado');
+    if (leerModoMenu() === 'avanzado') setMode('avanzado');
+    // «Ver el menú entero» de «Tu Tentare» (Configuración) cambia el modo desde
+    // fuera: el menú se pone al día sin recargar. Sin ese evento, nada cambia.
+    const alCambiar = (e: Event) => setMode(modoDelEvento(e));
+    window.addEventListener(EVENTO_MODO_MENU, alCambiar);
+    return () => window.removeEventListener(EVENTO_MODO_MENU, alCambiar);
   }, []);
 
   function setNavMode(next: 'esencial' | 'avanzado') {
     setMode(next);
-    localStorage.setItem('nav-mode', next);
+    // Guarda y avisa: «Tu Tentare» (Configuración) dice qué se ve en cada modo.
+    guardarModoMenu(next);
   }
 
   return { mode, setNavMode };
@@ -114,10 +123,14 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       onClick={e => { onClick?.(); alPulsarEnlaceAConfiguracion(e, href); }}
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
-        'flex items-center rounded-full text-[13px] font-medium transition-all relative',
+        'zona-tactil flex items-center rounded-full text-[13px] font-medium transition-all relative',
         // Alto de siempre (~36), no los 40 de la guía: con 40, a 900 px de alto
         // «Configuración» se quedaba bajo el pliegue del menú (OPEN DECISION 18).
-        collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
+        // Con el dedo y el panel nuevo (el iPad), 44: las filas de un grupo van
+        // pegadas, así que la zona táctil no puede crecer sin meterse en la de
+        // al lado; tiene que crecer la fila. Ahí el menú se desliza con el dedo,
+        // y una fila que no se acierta cuesta más que una bajo el pliegue.
+        collapsed ? 'justify-center w-10 h-10 mx-auto tactil:size-11' : 'gap-2.5 px-3 py-2 tactil:min-h-11',
         // ⚠️ Tumbado, el item NO se encoge ni parte la etiqueta. Sin esto,
         // «Centro de Control» se rompía en tres líneas y «Configuración» salía
         // cortada a media palabra: en una fila, flex reparte el hueco que falta
@@ -343,6 +356,8 @@ export function Sidebar() {
   // la suya (avatar y foto reales), igual que en Configuración > Mi perfil.
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const { rol, puedeVer } = usePermisos();
+  // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
+  const panelNuevo = usePanelNuevo();
   // Mientras `studio` no ha cargado, `useRol()` cae al mínimo (INSTRUCTOR,
   // fail-closed de A-2 en lib/permisos.ts) — sin este guard se veía el logo/
   // título de Tentare Core un instante en CUALQUIER rol, incluida la
@@ -367,6 +382,8 @@ export function Sidebar() {
   // menos: esconder por un error de red dejaría a alguien sin encontrar su
   // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.ts.
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
+  // Con el panel nuevo, lo de fuera del día a día que el estudio activó en Módulos.
+  const [activados, setActivados] = useState<string[]>([]);
   const [ordenMenu, setOrdenMenu] = useState<string[]>([]);
   // ⚠️ La posición del menú sale del MISMO `studio_layout` que el orden y los
   // ocultos — no de una columna aparte. `MENU_POSICIONES` (lateral|superior)
@@ -384,6 +401,7 @@ export function Sidebar() {
           // normaliza nada. `new Set(undefined)` ya era inofensivo; el orden y
           // la posición también tienen que serlo.
           setOcultos(new Set(l.ocultos));
+          setActivados(Array.isArray(l.activados) ? l.activados : []);
           setOrdenMenu(Array.isArray(l.orden) ? l.orden : []);
           setMenuPosition(l.menuPosition === 'superior' ? 'superior' : 'lateral');
         })
@@ -398,14 +416,18 @@ export function Sidebar() {
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', alCambiar); };
   }, []);
 
-  const seccionesVisibles = navSections
+  const seccionesVisibles = seccionesDelMenu(panelNuevo)
     .map(s => ({
       ...s,
       // ⚠️ Ordenar DESPUÉS de filtrar, no antes: ordenar primero recorre
       // también lo que este rol no puede ver, y eso es trabajo tirado en cada
       // render del panel.
       items: ordenarItemsMenu(
-        filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
+        // Con el panel nuevo, lo que dice Módulos y nada más: sin «Esencial / Todo»
+        // (lib/modulos/menu.ts). Mientras el menú no ha llegado, lo de serie.
+        panelNuevo
+          ? s.items.filter(i => puedeVer(i.href) && activoEnModulos(i.href, { ocultos: [...ocultos], activados }))
+          : filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
         ordenMenu,
       ),
     }))
@@ -491,7 +513,7 @@ export function Sidebar() {
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => { el.removeEventListener('scroll', medir); ro.disconnect(); };
-  }, [horizontal, navMode, size, ocultos, ordenMenu]);
+  }, [horizontal, navMode, size, ocultos, activados, ordenMenu]);
 
 
   async function handleSignOut() {
@@ -670,7 +692,8 @@ export function Sidebar() {
             ⚠️ Se conserva también en horizontal: es lo único que devuelve el
             menú completo a quien esté en «esencial». Sin él, quedaría
             encerrada en media aplicación sin saber por qué. */}
-        {(horizontal || !collapsed) && (
+        {/* Con el panel nuevo no está: lo que sale en el menú se decide en Módulos (una entrada más del menú). */}
+        {(horizontal || !collapsed) && !panelNuevo && (
           <div className={cn(horizontal ? 'shrink-0 w-[132px]' : 'px-3 pt-2.5 pb-1')}>
             <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
@@ -710,7 +733,7 @@ export function Sidebar() {
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
           <div className={cn('flex items-center gap-0.5', horizontal ? 'shrink-0' : 'px-2 pb-2 flex-col')}>
-            <Link href={`/portal/${studioSlug}/acceso/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
+            <Link href={`/portal/${studioSlug}/acceso/login`} target="_blank" title="Portal clientes" className="zona-tactil flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -724,7 +747,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/acceso/login`}
               target="_blank"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
+              className="zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal clientes</span>
@@ -740,7 +763,7 @@ export function Sidebar() {
           <div className={cn('flex items-center gap-2.5 rounded-lg', (collapsed && !horizontal) ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
             {/* /mi-perfil y no Configuración: esa pestaña abría «Clases y
                 salas», y MANAGER/RECEPCION ni siquiera pueden entrar allí. */}
-            <Link href="/mi-perfil" title="Editar mi perfil" className="shrink-0">
+            <Link href="/mi-perfil" title="Editar mi perfil" className="zona-tactil shrink-0">
               <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="xs" />
             </Link>
             {(!collapsed || horizontal) && (
@@ -754,7 +777,7 @@ export function Sidebar() {
                 <button
                   onClick={handleSignOut}
                   title="Cerrar sesión"
-                  className="p-1.5 rounded-lg transition-colors hover:bg-card/10"
+                  className="zona-tactil p-1.5 rounded-lg transition-colors hover:bg-card/10"
                 >
                   <LogOut size={14} className="text-white/30 hover:text-white/60" />
                 </button>
@@ -777,7 +800,7 @@ export function Sidebar() {
                   <button
                     key={key}
                     onClick={() => { applySize(key); setSizeMenuOpen(false); }}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 tactil:py-3.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
                   >
                     {SIDEBAR_SIZES[key].label}
                     {size === key && <Check size={14} className="text-brand-medio shrink-0" />}
@@ -790,7 +813,9 @@ export function Sidebar() {
             onClick={() => setSizeMenuOpen(v => !v)}
             title="Tamaño del menú"
             className={cn(
-              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/55 hover:text-white/80',
+              // `tactil:h-11` y no `.zona-tactil`: va pegado al borde de abajo del
+              // menú, que recorta (`overflow-hidden`), y la zona no crecería hacia abajo.
+              'flex items-center h-9 tactil:h-11 w-full transition-colors hover:bg-card/5 text-white/55 hover:text-white/80',
               collapsed ? 'justify-center' : 'justify-center gap-2',
             )}
           >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import { useEffect, useMemo, useRef, useState, useId, type ElementType } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import {
@@ -18,18 +18,37 @@ import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { encajeDe } from '@/lib/sustituciones/encaje';
+import { valoracionMedia } from '@/lib/equipo-tarjetas.ts';
 import { MarcarDisponibilidadDialog } from '@/components/sustituciones/marcar-disponibilidad-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2, Send,
-  MessageCircle, UserCheck,
+  MessageCircle, UserCheck, Hand, ThumbsUp, Zap, TreePalm, Lock, UserX, ArrowLeftRight,
 } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { cn } from '@/lib/utils';
+import { BotonVivo, CabeceraTarjeta, PantallaVacia, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
+
+// El plan más barato con Autónomo y Vacaciones, del entitlement: escrito a mano
+// decía «Estudio» también cuando Founding Studio pasó a incluirlos (15-oct-2026).
+const PLAN_AUTONOMIA = PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre;
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
+// Panel nuevo (14-oct-2026): los cuatro modos como tarjetas que se eligen, con lo
+// que hace cada uno. El texto es el de siempre; Autónomo y Vacaciones siguen con
+// su candado de plan (el límite real está en el servidor).
+const MODOS: { val: string; label: string; que: string; premium: boolean; Icono: ElementType; tono: Tono }[] = [
+  { val: 'manual', label: 'Manual', que: 'Te propone candidatas; tú das cada paso.', premium: false, Icono: Hand, tono: 'indigo' },
+  { val: 'asistido', label: 'Asistido', que: 'Contacta candidatas; tú apruebas con un toque.', premium: false, Icono: ThumbsUp, tono: 'azul' },
+  { val: 'autonomo', label: 'Autónomo', que: 'Cubre las bajas solo y te lo cuenta después.', premium: true, Icono: Zap, tono: 'magenta' },
+  { val: 'vacaciones', label: 'Vacaciones', que: 'Opera de principio a fin sin molestarte.', premium: true, Icono: TreePalm, tono: 'verde' },
+];
+
 const ESTADO: Record<string, EstadoMeta> = {
   buscando: { label: 'Buscando', cls: 'bg-warning/10 text-warning', activa: true },
   pendiente_aprobacion: { label: 'Esperando tu visto bueno', cls: 'bg-brand/10 text-brand-secondary', activa: true },
@@ -84,6 +103,7 @@ export default function SustitucionesPage() {
   const [marcandoPara, setMarcandoPara] = useState<string | null>(null);
   const [modo, setModo] = useState('asistido');               // modo_autonomia del estudio
   const [autonomiaOk, setAutonomiaOk] = useState(false);      // plan incluye autónomo/vacaciones
+  const panelNuevo = usePanelNuevo();
 
   const nombreInstructor = (id: string | null) => instructores.find(i => i.id === id)?.nombre ?? 'Instructora';
   const tipoDe = (id: string | null | undefined) => tiposClase.find(t => t.id === id);
@@ -301,12 +321,30 @@ export default function SustitucionesPage() {
       <PageHeader
         title="Sustituciones"
         description="Cuando alguien falla, aquí tienes la sustituta antes de coger el teléfono"
-        actions={
+        actions={panelNuevo ? (
+          <BotonVivo label="Marcar una baja" Icono={Plus} onClick={() => setNuevaBaja(true)} />
+        ) : (
           <button onClick={() => setNuevaBaja(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
             <Plus size={16} /> Marcar una baja
           </button>
-        }
+        )}
       />
+
+      {panelNuevo && !cargando && items.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+          <TarjetaCifra etiqueta="Bajas abiertas" tono="magenta" Icono={UserX} href={null} valor={String(activas.length)} abajo={activas.length === 1 ? 'clase por cubrir' : 'clases por cubrir'} />
+          <TarjetaCifra etiqueta="Esperando respuesta" tono="azul" Icono={Clock} href={null} valor={String(esperandoRespuesta)} abajo="candidatas avisadas" />
+          <TarjetaCifra etiqueta="Cubiertas" tono="verde" Icono={CheckCircle2} href={null} valor={String(resueltas.filter(s => s.estado === 'confirmada').length)} abajo="en el historial" />
+          <TarjetaCifra
+            etiqueta="Equipo listo"
+            tono="indigo"
+            Icono={CalendarClock}
+            href={null}
+            valor={`${equipo.total - equipo.sinDisponibilidad.length}/${equipo.total}`}
+            abajo="con su disponibilidad puesta"
+          />
+        </div>
+      )}
 
       {/* El aviso a las alumnas lo pueden cambiar quienes deja su único escritor
           (`/api/sustituciones`, PROPIETARIO y MANAGER), y la gerencia no abre
@@ -314,6 +352,74 @@ export default function SustitucionesPage() {
           de su sede—: por eso el interruptor sigue aquí. Es el MISMO componente
           que en esa sección, y a ella solo se enlaza a quien puede abrirla. Nada
           se pinta hasta haberlo leído: «no avisa» mientras carga sería mentira. */}
+      {panelNuevo ? (
+        <section aria-labelledby="como-cubre" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+          <CabeceraTarjeta tono="azul" Icono={ArrowLeftRight} id="como-cubre" titulo="Cómo cubre Tentare las bajas" sub="Elige cuánto quieres que haga solo. Lo puedes cambiar cuando quieras." />
+          <div role="radiogroup" aria-label="Modo de autonomía" className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+            {MODOS.map(m => {
+              const bloqueado = m.premium && !autonomiaOk;
+              const activo = modo === m.val;
+              return (
+                <button
+                  key={m.val}
+                  type="button"
+                  role="radio"
+                  aria-checked={activo}
+                  onClick={() => cambiarModo(m.val)}
+                  disabled={bloqueado}
+                  title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
+                  className={cn(
+                    'flex items-start gap-3 rounded-2xl border p-3 text-left transition-[transform,box-shadow] disabled:cursor-not-allowed',
+                    !bloqueado && 'hover:-translate-y-0.5 hover:shadow-md',
+                    activo ? 'border-transparent' : 'border-border',
+                  )}
+                  style={activo ? { ...fondoTenido(m.tono, 18), outline: `2px solid ${TONOS[m.tono]}`, outlineOffset: '-2px' } : bloqueado ? { opacity: 0.6 } : undefined}
+                >
+                  <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[11px]" style={{ backgroundColor: TONOS[m.tono], color: 'var(--card)' }}>
+                    <m.Icono size={17} strokeWidth={2.1} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-[14px] font-semibold text-foreground">
+                      {m.label}
+                      {activo && <Check size={14} style={{ color: TONOS[m.tono] }} aria-hidden />}
+                      {bloqueado && <Lock size={12} className="text-muted-foreground" aria-hidden />}
+                    </span>
+                    <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}.` : m.que}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!cargando && (
+            <div className="mt-4 border-t border-border pt-4">
+              {puedeGestionarEquipo(rolPanel) ? (
+                <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+                  <InterruptorAvisarAlumnas
+                    guardado={avisar}
+                    onGuardado={v => { setAvisar(v); reflejarStudioGuardado({ avisarAlumnas: v }); }}
+                  />
+                  {seccionesVisibles(rolPanel).some(s => s.id === 'reservas') && (
+                    <Link
+                      href="/configuracion?tab=reservas#ajuste-avisar-alumnas"
+                      className="zona-tactil text-[12.5px] font-semibold underline-offset-2 hover:underline"
+                      style={{ color: 'var(--t-text-link)' }}
+                    >
+                      Qué más pasa cuando una clase cambia
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Users size={14} className="shrink-0" aria-hidden />
+                  {avisar
+                    ? 'Tentare avisa a sus alumnas por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
+                    : 'Tentare no avisa a las alumnas cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+      ) : (<>
       {!cargando && (puedeGestionarEquipo(rolPanel) ? (
         <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
           <InterruptorAvisarAlumnas
@@ -351,7 +457,7 @@ export default function SustitucionesPage() {
                 key={val}
                 onClick={() => cambiarModo(val)}
                 disabled={bloqueado}
-                title={bloqueado ? 'Incluido a partir del plan Estudio' : undefined}
+                title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
                 className={`px-3 py-1 rounded-full text-[12px] font-bold transition-all disabled:opacity-45 disabled:cursor-not-allowed ${modo === val ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {bloqueado ? `🔒 ${label}` : label}
@@ -364,6 +470,7 @@ export default function SustitucionesPage() {
         {modo === 'asistido' && <span className="text-[12px]">contacta candidatas; tú apruebas con un toque.</span>}
         {modo === 'manual' && <span className="text-[12px]">te propone candidatas; tú das cada paso.</span>}
       </div>
+      </>)}
 
       {errorAccion && (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
@@ -428,6 +535,19 @@ export default function SustitucionesPage() {
 
       {cargando ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando…</p>
+      ) : items.length === 0 && panelNuevo ? (
+        <PantallaVacia
+          tono="verde"
+          Icono={UserCheck}
+          titulo="Ninguna baja ahora mismo"
+          texto="Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar, con sus motivos."
+          ejemplos={[
+            { accion: 'Te propone sustitutas', cuando: 'según si están libres, si conocen la clase y cuántas horas llevan.' },
+            { accion: 'Las avisa por ti', cuando: 'en Asistido, Autónomo o Vacaciones.' },
+            { accion: 'Si nadie puede,', cuando: 'mueves la clase o la cancelas, y avisa a tus alumnas si lo tienes encendido.' },
+          ]}
+          accion={{ label: 'Marcar una baja', onClick: () => setNuevaBaja(true), Icono: Plus }}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           icono={Sparkles}
@@ -589,7 +709,7 @@ function Estrellas({ val }: { val?: { media: number; total: number } }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
       <Star size={10} fill="#D9C29E" stroke="#D9C29E" />
-      {val.media.toFixed(1)}
+      {valoracionMedia(val.media)}
       <span className="font-medium text-[#CA8A04]">({val.total})</span>
     </span>
   );

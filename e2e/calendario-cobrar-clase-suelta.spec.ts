@@ -456,3 +456,138 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     expect(cancelaciones).toEqual([{ reservaId: 'r1' }]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quien viene a apuntarse con su CUOTA: se le da aquí y entra con ella. Antes la
+// hoja solo sabía vender la clase suelta; un estudio la apuntaba así, le daba la
+// cuota en su ficha y la clase quedaba pagada dos veces (y tenía que ir borrando
+// cargos). La cuota va por el mismo camino que «Asignar plan» de la ficha: la
+// suscripción y su recibo PENDIENTE (nunca cobrado desde el navegador) y, después,
+// la plaza, sin clase suelta.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Darle la cuota al añadirla a la clase', () => {
+  async function conCuota(page: Page, opts: {
+    altaStatus?: number; ventasTPV?: unknown[];
+    /** Lo que Bea ya tiene (filas de `suscripciones`). */
+    suyas?: Record<string, unknown>[];
+    planes?: Record<string, unknown>[];
+    /** Filas de `plan_tipos_clase`: sin filas, un plan cubre todas las clases. */
+    tiposDePlan?: Record<string, unknown>[];
+  } = {}) {
+    const calendario = await montarCalendario(page, opts.planes ? { planes: opts.planes } : {});
+    const altas: Record<string, unknown>[] = [];
+    let consultasTPV = 0;
+    // Registradas después de `montarCalendario`: ganan a las suyas.
+    await page.route('**/rest/v1/suscripciones**', route => {
+      const req = route.request();
+      if (req.method() !== 'POST') return json(route, [...SUSCRIPCIONES, ...(opts.suyas ?? [])]);
+      calendario.orden.push('cuota');
+      const cuerpo = req.postDataJSON() as Record<string, unknown> | Record<string, unknown>[];
+      altas.push(...(Array.isArray(cuerpo) ? cuerpo : [cuerpo]));
+      if (opts.altaStatus) return json(route, { message: 'permission denied for table suscripciones', code: '42501' }, opts.altaStatus);
+      return route.fulfill({ status: 201, contentType: 'application/json', body: '' });
+    });
+    if (opts.tiposDePlan) await page.route('**/rest/v1/plan_tipos_clase**', route => json(route, opts.tiposDePlan));
+    await page.route('**/api/pos/ventas/por-asignar**', route => {
+      consultasTPV++;
+      return json(route, { ventas: opts.ventasTPV ?? [] });
+    });
+    await abrirAnadir(page);
+    // Bea no trae nada que valga para esta clase: su fila se despliega con lo que se le puede hacer.
+    await page.getByRole('button', { name: /Bea Ruiz/ }).click();
+    const darCuota = page.getByTestId('dar-cuota');
+    return { ...calendario, altas, consultasTPV: () => consultasTPV, darCuota, boton: darCuota.getByRole('button', { name: /Darle «Mensual»/ }) };
+  }
+
+  test('se le da la cuota (con su recibo pendiente) y entra con ella, sin clase suelta ni cobro', async ({ page }) => {
+    const { darCuota, boton, orden, altas, recibos, reservas, cobros } = await conCuota(page);
+    await expect(darCuota).toContainText('¿Viene con cuota?');
+    // La clase suelta (PUNTUAL) no se ofrece como cuota: solo la mensual que cubre la clase.
+    await expect(darCuota.getByRole('button')).toHaveCount(1);
+    await expect(boton).toContainText('60,00 €');
+    await boton.click();
+
+    await expect(page.getByText('Cuota «Mensual» asignada a Bea (recibo de 60,00 € pendiente en Cobros) · Bea añadida a la clase'))
+      .toBeVisible({ timeout: 30_000 });
+    // Primero la cuota y su recibo, y después la plaza.
+    expect(orden).toEqual(['cuota', 'recibo', 'reserva']);
+    expect(altas).toHaveLength(1);
+    expect(altas[0]).toMatchObject({ socio_id: 's2', plan_id: 'plan-1', estado: 'ACTIVA' });
+    expect(recibos).toHaveLength(1);
+    expect(recibos[0]).toMatchObject({ socio_id: 's2', suscripcion_id: altas[0].id, importe: 60, estado: 'PENDIENTE' });
+    // La plaza, con la cuota: ni clase suelta ni cobro.
+    expect(reservas).toHaveLength(1);
+    expect(reservas[0]).toMatchObject({ sesionId: 'ses-1', socioId: 's2' });
+    expect(reservas[0].claseSuelta).toBeUndefined();
+    expect(reservas[0].comoClaseSuelta).toBeUndefined();
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('si esa cuota ya se cobró en el TPV sin clienta, no se da otra vez ni se la apunta', async ({ page }) => {
+    const { boton, consultasTPV, altas, recibos, reservas } = await conCuota(page, {
+      ventasTPV: [{ id: 'v-1', numero: 12, fecha: HOY, importe: 60 }],
+    });
+    await boton.click();
+
+    await expect(page.getByText(/«Mensual» ya está cobrada en el TPV sin clienta \(1 venta\)/)).toBeVisible({ timeout: 30_000 });
+    // Se preguntó de verdad al servidor: «no hizo nada» no es por no haber mirado.
+    expect(consultasTPV()).toBeGreaterThan(0);
+    expect(altas).toHaveLength(0);
+    expect(recibos).toHaveLength(0);
+    expect(reservas).toHaveLength(0);
+  });
+
+  test('si la cuota no se puede guardar, no se la apunta a ciegas y la hoja sigue abierta', async ({ page }) => {
+    const { boton, altas, recibos, reservas } = await conCuota(page, { altaStatus: 403 });
+    await boton.click();
+
+    // El intento SALIÓ: sin esto el test sería hueco.
+    await expect.poll(() => altas.length, { timeout: 30_000 }).toBeGreaterThan(0);
+    await page.waitForTimeout(1_000);
+    expect(recibos).toHaveLength(0);
+    expect(reservas).toHaveLength(0);
+    await expect(page.getByText(/Cuota «Mensual» asignada/)).toHaveCount(0);
+    await expect(page.getByTestId('dar-cuota')).toBeVisible();
+  });
+
+  // A quien YA tiene cuota no se le da otra: cancelaría la suya y cobraría el mes
+  // entero otra vez. Se dice cuál tiene y qué hacer, y no se escribe nada.
+  const cuotaDeBea = (o: Record<string, unknown>) => ({
+    id: 'sus-bea', studio_id: STUDIO_ID, socio_id: 's2', plan_id: 'plan-1', estado: 'ACTIVA',
+    fecha_inicio: '2026-01-01', fecha_fin: '2030-01-01', sesiones_restantes: null, stripe_subscription_id: null, ...o,
+  });
+  const ayer = (() => { const d = new Date(`${HOY}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+
+  for (const caso of [
+    {
+      titulo: 'vencida a falta de cobrar la renovación: que se la cobre, no otra (pagaría el mes dos veces)',
+      suyas: [cuotaDeBea({ fecha_fin: ayer })],
+      texto: /Su cuota «Mensual» está vencida, a falta de cobrarle la renovación/,
+    },
+    {
+      titulo: 'en pausa: que la reanude en su ficha (con otra, al reanudar tendría dos)',
+      suyas: [cuotaDeBea({ estado: 'PAUSADA' })],
+      texto: /Tiene la cuota «Mensual» en pausa/,
+    },
+    {
+      titulo: 'que no incluye esta clase: que se la cambie en su ficha, donde se ve qué sustituye',
+      suyas: [cuotaDeBea({})],
+      // Su «Mensual» es solo de Mat; hay otra cuota que sí cubre Reformer, y aun así no se le ofrece.
+      planes: [...PLANES, { id: 'plan-2', studio_id: STUDIO_ID, nombre: 'Mensual Reformer', descripcion: null, precio: 80, tipo: 'MENSUAL', sesiones: null, validez_dias: null, limite_semanal: null, activo: true }],
+      tiposDePlan: [{ plan_id: 'plan-1', tipo_clase_id: 'tc-mat', limite_semanal: null }],
+      texto: /Su cuota «Mensual» no incluye esta clase/,
+    },
+  ]) {
+    test(`ya tiene cuota, ${caso.titulo}`, async ({ page }) => {
+      const { darCuota, altas, recibos, reservas, consultasTPV } = await conCuota(page, caso);
+      const aviso = page.getByTestId('ya-tiene-cuota');
+      await expect(aviso).toContainText(caso.texto, { timeout: 30_000 });
+      await expect(aviso.getByRole('link', { name: 'Ver su ficha' })).toHaveAttribute('href', '/clientas/s2');
+      await expect(darCuota).toHaveCount(0);
+      expect(consultasTPV()).toBe(0);
+      expect(altas).toHaveLength(0);
+      expect(recibos).toHaveLength(0);
+      expect(reservas).toHaveLength(0);
+    });
+  }
+});

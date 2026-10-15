@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight, FileDown, Receipt, Unlock } from 'lucide-react';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { LIMITES_GRATIS } from '@/lib/landing/founding-gratis';
 
 // «¿Ya usas otro programa?» (7-oct-2026). La mayoría de estudios ya paga un
 // software (feedback del fundador, 1-oct): esta sección le habla a ese segmento
@@ -28,7 +29,8 @@ const COMPETIDORES: { slug: string; nombre: string; logo: string | null; ancho: 
   { slug: 'lorari', nombre: 'Lorari', logo: null, ancho: 0, alto: 0, dato: 'Cobra por alumnos activos, más IVA' },
 ];
 
-const PRECIOS = `${PLAN_INFO.BASE.precioMes}, ${PLAN_INFO.ESTUDIO.precioMes} o ${PLAN_INFO.CADENA.precioMes} €`;
+// Founding Studio es gratis desde el 15-oct-2026 (lib/landing/founding-gratis.ts).
+const PRECIOS = `${PLAN_INFO.BASE.nombre} gratis ${LIMITES_GRATIS}; ${PLAN_INFO.ESTUDIO.nombre} ${PLAN_INFO.ESTUDIO.precioMes} € y ${PLAN_INFO.CADENA.nombre} ${PLAN_INFO.CADENA.precioMes} €`;
 
 const RAZONES = [
   {

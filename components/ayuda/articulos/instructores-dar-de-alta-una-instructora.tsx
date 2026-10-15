@@ -8,6 +8,8 @@ export default function Contenido() {
       <AyudaAntesDeEmpezar>
         Dar de alta a una instructora crea su ficha en tu equipo. Su acceso lo crea ella —con la invitación por
         email o entrando con ese mismo correo—, así que no comparte usuario contigo ni con el resto del equipo.
+        La invitación solo vale con el correo de su ficha: si prefiere entrar con otro, cámbialo en su ficha y
+        reenvíale la invitación. Cada reenvío deja sin valor el enlace anterior.
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Ve a Equipo y añade una persona nueva">

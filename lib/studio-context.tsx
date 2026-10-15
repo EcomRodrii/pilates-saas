@@ -19,7 +19,7 @@ import {
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
-  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
+  dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa, type ResultadoTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbSocioTieneAlgunPlan,
   dbReservarMatricula,
@@ -64,7 +64,7 @@ import {
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolverEstudioDeLaSesion, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
-import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura, type ResultadoAlta } from '@/lib/errores';
 
 /**
  * Lo que de verdad ha pasado al intentar reservar.
@@ -324,10 +324,10 @@ interface StudioContextValue {
   // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
   valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
-  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
-  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
@@ -705,6 +705,8 @@ interface StudioContextValue {
   addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
   updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteLevelDefinition: (id: string) => Promise<ResultadoEscritura>;
+  /** La escala entera que ha guardado el servidor (`PUT /api/estudio/niveles`, P3.8). */
+  reemplazarNiveles: (niveles: LevelDefinition[]) => void;
   challengeDefinitions: ChallengeDefinition[];
   challengeProgress: ChallengeProgress[];
   challengeHistory: ChallengeHistory[];
@@ -717,8 +719,8 @@ interface StudioContextValue {
   deleteDashboardChart: (id: string) => Promise<ResultadoEscritura>;
   backups: BackupMeta[];
   // Planes (mutable)
-  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
-  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoTarifa>;
+  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoTarifa>;
   deletePlan: (id: string) => Promise<ResultadoEscritura & { archivado?: boolean }>;
 
   // Salas (mutable)
@@ -1687,17 +1689,41 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Planes ────────────────────────────────────────────────────────────────────
 
-  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoTarifa> {
     const nuevo: PlanTarifa = { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() };
     const res = await dbInsertPlanTarifa(nuevo);
+    if (!res.ok && 'filaEscrita' in res) {
+      // La tarifa EXISTE aunque su cobertura no se guardara: se pinta como quedó
+      // (sin tipos = todas; fuera de la venta si se pudo retirar). Sin esto no
+      // salía en la lista y un segundo «Crear» hacía otra igual.
+      const quedo: PlanTarifa = { ...nuevo, tiposClaseIds: undefined, limitePorTipo: undefined, activo: res.desactivada ? false : nuevo.activo };
+      setPlanesTarifa(prev => [...prev, quedo]);
+      addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
+      return res;
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => [...prev, nuevo]);
     addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
     return res;
   }
-  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoTarifa> {
     const anterior = planesTarifa.find(p => p.id === id);
     const res = await dbUpdatePlanTarifa(id, changes);
+    if (!res.ok && 'filaEscrita' in res) {
+      // Lo de la fila (precio, nombre…) SÍ se guardó: se pinta. La cobertura se
+      // queda como estaba en pantalla; la de la base la dice la próxima carga.
+      // Si esta edición la PONÍA a la venta y su cobertura no se guardó, se vuelve
+      // a retirar: es justo lo que pide el aviso tras un alta fallida («elige sus
+      // clases y vuelve a ponerla a la venta»), y si fallara otra vez quedaría a
+      // la venta valiendo para todas las clases. Una que ya se vendía, no se toca.
+      let desactivada = false;
+      if (changes.activo === true && anterior && !anterior.activo) {
+        desactivada = (await dbUpdatePlanTarifa(id, { activo: false })).ok;
+      }
+      const { tiposClaseIds: _tipos, limitePorTipo: _limites, ...fila } = changes;
+      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...fila, ...(desactivada ? { activo: false } : {}) } : p));
+      return { ...res, desactivada };
+    }
     if (!res.ok) return res;
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
     if (anterior) {
@@ -2199,7 +2225,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setContenidoPortal({ studioId, mensajeDestacado: mensaje });
     return res;
   }
-  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     // `contenido_portal_banners.id` es `uuid` de verdad (no `text` como el resto
     // de entidades de esta app) — el id de cliente tiene que ser un UUID válido,
     // no el `bp-${uid()}` habitual, o Postgres lo rechaza con 22P02. Además el
@@ -2212,7 +2238,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertBannerPortal(nuevo);
     if (!res.ok) return res;
     setBannersPortal(prev => [...prev, nuevo]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateBannerPortal(id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateBannerPortal(id, changes);
@@ -2228,12 +2254,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
-  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
     const res = await dbInsertNovedadEstudio(nuevo);
     if (!res.ok) return res;
     setNovedadesEstudio(prev => [nuevo, ...prev]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateNovedadEstudio(id, changes);
@@ -5970,6 +5996,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addLevelDefinition,
     updateLevelDefinition,
     deleteLevelDefinition,
+    reemplazarNiveles: setLevelDefinitions,
     challengeDefinitions,
     challengeProgress,
     challengeHistory,

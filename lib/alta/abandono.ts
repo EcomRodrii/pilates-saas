@@ -164,6 +164,9 @@ export function contenidoRecordatorio(
   paso: Exclude<PasoAbandono, 'terminada' | 'formulario_estudio'>,
   alta: Pick<AltaEstudio, 'estudioNombre' | 'origen'>,
   baseUrl: string,
+  /** Founding Studio gratis para las altas nuevas (lib/alta/founding-gratis-alta.ts):
+   *  ya no hay prueba ni plan que elegir, se empieza gratis. */
+  { foundingGratis = false }: { foundingGratis?: boolean } = {},
 ): ContenidoRecordatorio {
   const estudio = alta.estudioNombre?.trim() || 'tu estudio';
   const href = `${baseUrl.replace(/\/+$/, '')}/login`;
@@ -209,6 +212,19 @@ export function contenidoRecordatorio(
         nota,
       };
     case 'formulario_plan':
+      if (foundingGratis) {
+        return {
+          asunto: `Te falta un paso para montar ${estudio}`,
+          preheader: 'Empiezas gratis, sin tarjeta.',
+          titular: 'Te falta un paso',
+          parrafos: [
+            `Empezaste a montar ${estudio} en Tentare, pero no llegaste a terminar el alta.`,
+            'Empiezas gratis, con todo menos varias sedes, sin tarjeta y sin permanencia. Entra con tu cuenta y te llevamos al alta: son dos pasos, el nombre y el plan.',
+          ],
+          boton: { href, texto: 'Terminar el alta' },
+          nota,
+        };
+      }
       return {
         asunto: `Te falta elegir plan para ${estudio}`,
         preheader: `Son ${TRIAL_DIAS} días gratis, sin tarjeta.`,

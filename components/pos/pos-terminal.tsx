@@ -10,11 +10,12 @@ import {
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { DeudaClienta } from './deuda-clienta';
-import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
-import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
+import { buscarCodigo, validarCodigoCanjeable } from '@/lib/codigos-descuento';
+import { calcularTicket, descuentoDeCodigo, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
+import { leerCatalogoPOS } from '@/lib/pos/leer-respuestas';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
-import { registrarVenta } from '@/lib/pos/cliente';
+import { registrarVenta, presupuestoVenta, type ErrorPOS, type PeticionPresupuesto, type PresupuestoVenta } from '@/lib/pos/cliente';
 import { cuotaSinClienta } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import type { CodigoDescuento } from '@/lib/types';
@@ -52,6 +53,9 @@ export function PosTerminal() {
   const [catalogo, setCatalogo] = useState<CatalogoPOS | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  // «Reintentar» del aviso de recarga, en marcha: sin esto, si vuelve a fallar no
+  // cambia nada en pantalla y en el iPad parece un botón muerto.
+  const [reintentando, setReintentando] = useState(false);
 
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -127,9 +131,14 @@ export function PosTerminal() {
     cargarCatalogoPOS().then((r) => {
       if (!vivo) return;
       setCargando(false);
+      setReintentando(false);
       if (esError(r)) { setErrorCarga(r.error); return; }
+      // Comprobado antes de pintarlo: con otra forma (un `{}`, un campo a `null`)
+      // la Caja caía entera en «Algo ha ido mal». Ahora dice qué falta.
+      const leido = leerCatalogoPOS(r);
+      if (!leido.ok) { setErrorCarga(leido.error); return; }
       setErrorCarga(null);
-      setCatalogo(r);
+      setCatalogo(leido.valor);
     });
     return () => { vivo = false; };
   }, [recarga]);
@@ -251,7 +260,15 @@ export function PosTerminal() {
     }));
   }
 
+  // El total que contó el servidor para un ticket (ver «El total de verdad», abajo).
+  // Declarado aquí porque `vaciar` lo borra: si no, la misma clienta con el mismo plan
+  // en la venta siguiente encontraría la cuenta de antes y «Cobrar» saldría al momento
+  // con una cifra que el servidor quizá ya no da.
+  const [totalServidor, setTotalServidor] = useState<{ firma: string; r: PresupuestoVenta | ErrorPOS } | null>(null);
+  const [intentoTotal, setIntentoTotal] = useState(0);
+
   function vaciar() {
+    setTotalServidor(null);
     setCarrito([]); setClienteId(null); setDescuentoTexto('');
     setCodigoTexto(''); setCodigoAplicado(null); setCodigoError(null);
     setAviso(null); setVistaMovil('catalogo');
@@ -260,11 +277,13 @@ export function PosTerminal() {
   }
 
   // ── Totales (previsualización; manda el servidor) ─────────────────────────
-  const ticket = useMemo(() => calcularTicket(carrito, {
+  // El descuento es de lo que hay en el carrito: la matrícula de abajo no lo recibe.
+  const opcionesDescuento = useMemo(() => ({
     descuentoTipo,
     descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
-    descuentoCodigo: codigoAplicado ? calcularDescuento(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
+    descuentoCodigo: codigoAplicado ? descuentoDeCodigo(codigoAplicado, carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)) : 0,
   }), [carrito, descuentoTipo, descuentoTexto, codigoAplicado]);
+  const ticket = useMemo(() => calcularTicket(carrito, opcionesDescuento), [carrito, opcionesDescuento]);
 
   function aplicarCodigo() {
     const encontrado = buscarCodigo(codigosDescuento, codigoTexto);
@@ -300,6 +319,72 @@ export function PosTerminal() {
   // un plan cuyo catálogo aún no ha cargado es exactamente «no se sabe».
   const bizumPermitido = tiposDePlanDelTicket.every((t) => bizumPermitidoPara(t));
 
+  // ── El total de verdad: la matrícula ──────────────────────────────────────
+  //
+  // `registrar_venta_pos` añade por su cuenta la matrícula del primer plan de una
+  // clienta (con su cupo de promoción), y eso el carrito no lo sabe. Antes la hoja
+  // de cobro enseñaba el total sin ella: con tarjeta, «Sí, he cobrado 130 €» quedaba
+  // registrado como 145 €; en efectivo, «Cambio 70» y después «Devuelve 55».
+  //
+  // Ahora se le pregunta a la misma RPC (`/api/pos/venta/presupuesto`) en cuanto
+  // puede haberla —una clienta y un plan— o hay un descuento (por si el redondeo de
+  // aquí y el de la base de datos se separan un céntimo), y se
+  // enseña y se cobra ESE total, con la matrícula en su línea. Y aunque la pregunta
+  // falle, la venta manda el total que se ha visto (`totalEsperado`) y el servidor la
+  // rechaza si no es el suyo: nada se registra ni se cobra con un total distinto del
+  // de la pantalla. Sin clienta ni plan ni descuento no se pregunta: el ticket ya es
+  // el de la RPC, y la venta lo comprueba igual.
+  const peticionTotal = useMemo<PeticionPresupuesto>(() => ({
+    lineas: carrito.map((i) => ({
+      tipo: i.tipo, referenciaId: i.referenciaId, cantidad: i.cantidad,
+      ...(i.tipo === 'LIBRE' ? { nombre: i.nombre, precio: i.precio } : {}),
+    })),
+    socioId: clienteId,
+    descuentoTipo: descuentoTexto ? descuentoTipo : null,
+    descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
+    codigoDescuentoId: codigoAplicado?.id ?? null,
+  }), [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
+  const firmaTotal = useMemo(() => JSON.stringify(peticionTotal), [peticionTotal]);
+  const necesitaTotalServidor = carrito.length > 0 && (
+    (!!clienteId && carrito.some((i) => i.tipo === 'PLAN'))
+    || (!!descuentoTexto && (parseFloat(descuentoTexto.replace(',', '.')) || 0) > 0)
+    || !!codigoAplicado
+  );
+  // `totalServidor` va atado al ticket que lo pidió: con otro carrito, otra clienta u
+  // otro descuento, no vale.
+  useEffect(() => {
+    if (!necesitaTotalServidor) return;
+    let vivo = true;
+    // Un respiro: tocar «+» tres veces seguidas es una pregunta, no tres.
+    const t = setTimeout(() => {
+      void presupuestoVenta(peticionTotal).then((r) => { if (vivo) setTotalServidor({ firma: firmaTotal, r }); });
+    }, 250);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [necesitaTotalServidor, peticionTotal, firmaTotal, intentoTotal]);
+  const respuestaTotal = totalServidor?.firma === firmaTotal ? totalServidor.r : null;
+  const totalDelServidor = respuestaTotal && !esError(respuestaTotal) ? respuestaTotal : null;
+  const errorTotal = respuestaTotal && esError(respuestaTotal) ? respuestaTotal.error : null;
+  const calculandoTotal = necesitaTotalServidor && !respuestaTotal;
+  // «Volver a comprobar»: se olvida la respuesta fallida y se pregunta otra vez.
+  const comprobarTotal = useCallback(() => {
+    setTotalServidor(null);
+    setIntentoTotal((n) => n + 1);
+  }, []);
+  const matricula = useMemo(() => {
+    if (!totalDelServidor || totalDelServidor.matricula <= 0) return null;
+    const plan = catalogo?.planes.find((p) => p.id === totalDelServidor.matriculaPlanId)?.nombre ?? 'plan';
+    // El mismo concepto que escribe la RPC en la línea de la venta.
+    return { importe: totalDelServidor.matricula, concepto: `Matrícula — ${plan}`.slice(0, 120) };
+  }, [totalDelServidor, catalogo]);
+  // El ticket que se cobra: el carrito más la matrícula, que no recibe descuento.
+  const ticketCobro = useMemo(() => !matricula ? ticket : calcularTicket([...carrito, {
+    clave: 'matricula', tipo: 'LIBRE', referenciaId: null, nombre: matricula.concepto,
+    precio: matricula.importe, cantidad: 1, ivaPct: catalogo?.ivaDefecto ?? 21, descontable: false,
+  }], opcionesDescuento), [matricula, ticket, carrito, catalogo, opcionesDescuento]);
+  // Si el servidor ya ha contado, manda su cifra (un precio cambiado desde que se
+  // cargó el catálogo también la mueve); si no, la del ticket.
+  const totalCobro = totalDelServidor?.total ?? ticketCobro.total;
+
   // ── Cobro ─────────────────────────────────────────────────────────────────
   //
   // ⚠️ La clave de idempotencia identifica ESTE INTENTO DE COBRO, no la forma
@@ -325,20 +410,24 @@ export function PosTerminal() {
     return `pos-${hash(nonceVenta + firma + clienteId + descuentoTexto + descuentoTipo + (codigoAplicado?.id ?? ''))}`;
   }, [nonceVenta, carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
 
-  const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null) => {
+  // `totalEsperado` lo pone la hoja: es el que está enseñando (y, con el TPV del
+  // banco, el que quien cobra acaba de afirmar), no el que haya aquí en ese momento.
+  const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null, totalEsperado: number) => {
     const r = await registrarVenta({
-      lineas: carrito.map((i) => ({
-        tipo: i.tipo, referenciaId: i.referenciaId, cantidad: i.cantidad,
-        ...(i.tipo === 'LIBRE' ? { nombre: i.nombre, precio: i.precio } : {}),
-      })),
-      socioId: clienteId,
+      ...peticionTotal,
       metodoPago: metodo,
-      descuentoTipo: descuentoTexto ? descuentoTipo : null,
-      descuentoValor: parseFloat(descuentoTexto.replace(',', '.')) || 0,
-      codigoDescuentoId: codigoAplicado?.id ?? null,
       efectivoRecibido,
       idempotenciaClave: `${claveIdempotencia}-${metodo}`,
+      totalEsperado,
     });
+    // El servidor no la ha registrado porque el total no era el de la pantalla. Trae el
+    // de verdad: la hoja lo enseña, y el siguiente intento manda ese.
+    if (esError(r) && r.codigo === 'IMPORTE_NO_COINCIDE' && typeof r.total === 'number') {
+      setTotalServidor({
+        firma: firmaTotal,
+        r: { total: r.total, matricula: r.matricula ?? 0, matriculaPlanId: r.matriculaPlanId ?? null },
+      });
+    }
     // `yaExistia` = el servidor reconoció este mismo intento y devolvió la
     // venta que ya había creado. No es un cobro nuevo, y hay que decirlo: dar
     // por buena una venta que no se ha registrado ahora es justo lo que
@@ -347,7 +436,7 @@ export function PosTerminal() {
       setAviso(`Esta venta ya estaba registrada (${formatNumeroVenta(r.numero)}). No se ha cobrado dos veces.`);
     }
     return r;
-  }, [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado, claveIdempotencia]);
+  }, [peticionTotal, claveIdempotencia, firmaTotal, setTotalServidor]);
 
   // ── Atajos de teclado (escritorio) ────────────────────────────────────────
   useEffect(() => {
@@ -357,13 +446,14 @@ export function PosTerminal() {
       if (e.key === 'Escape' && !mostrarCobro && !mostrarCaja) { setBusqueda(''); (e.target as HTMLElement)?.blur?.(); }
       // Enter NO cobra desde cualquier sitio: en el TPV anterior un Enter suelto
       // lanzaba el cobro entero. Aquí abre la hoja, que es donde se decide.
-      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro) {
+      // Ni mientras se calcula el total: la hoja se abriría con la cifra sin matrícula.
+      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro && !calculandoTotal) {
         setMostrarCobro(true);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [carrito.length, mostrarCobro, mostrarCaja]);
+  }, [carrito.length, mostrarCobro, mostrarCaja, calculandoTotal]);
 
   if (cargando) {
     return (
@@ -373,7 +463,12 @@ export function PosTerminal() {
     );
   }
 
-  if (errorCarga) {
+  // La pantalla de error, solo si la Caja nunca llegó a cargar. Si falla una
+  // RECARGA (tras vender, cobrar una deuda o cerrar la caja), el TPV se queda y
+  // arriba sale un aviso: sustituirlo entero cerraba la hoja abierta y se perdía
+  // de vista, por ejemplo, el resultado del arqueo recién hecho (que sí queda
+  // guardado). Revisión de tentare-stripe (#2735).
+  if (errorCarga && !catalogo) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-3 text-center px-6">
         <AlertTriangle size={28} className="text-warning" />
@@ -439,16 +534,43 @@ export function PosTerminal() {
             onClick={() => setMostrarCaja(true)}
             className={cn(
               'h-11 px-4 rounded-xl border text-[13.5px] font-semibold flex items-center gap-2 transition-colors',
-              catalogo?.caja
-                ? 'border-success/30 bg-success/10 text-success'
-                : 'border-warning/40 bg-warning/10 text-warning',
+              // Con el aviso de recarga puesto, si la caja está abierta es dato de
+              // antes (p. ej., recién cerrada): se queda en neutro y solo «Caja».
+              errorCarga
+                ? 'border-border bg-background text-foreground'
+                : catalogo?.caja
+                  ? 'border-success/30 bg-success/10 text-success'
+                  : 'border-warning/40 bg-warning/10 text-warning',
             )}
           >
             <Wallet size={15} />
-            {catalogo?.caja ? 'Caja abierta' : 'Abrir caja'}
+            {errorCarga ? 'Caja' : catalogo?.caja ? 'Caja abierta' : 'Abrir caja'}
           </button>
         </div>
       </header>
+
+      {errorCarga && (
+        // Texto FIJO, sin el motivo (revisión de tentare-stripe): esta recarga corre
+        // justo después de «Cobrado» o de cerrar la caja, y un motivo genérico
+        // («Inténtalo de nuevo…», «…repite la operación») se leía como «tu venta
+        // no ha salido, repítela»: una segunda venta, o un segundo cargo con
+        // datáfono o Bizum. Nada de «se ha guardado» ni «se ha cobrado»: también
+        // corre tras un cobro que falló.
+        <div role="alert" data-testid="aviso-recarga-caja" className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-warning/40 bg-warning/10 px-4 py-2.5 sm:px-5">
+          <AlertTriangle size={16} className="shrink-0 text-warning" aria-hidden />
+          <p className="min-w-0 flex-1 text-[13px] text-foreground">
+            No hemos podido poner al día el stock, las cifras de hoy ni si la caja está abierta: esos datos son de antes de este fallo.
+            Es solo una lectura: no cobra ni cambia nada, y lo que ya hayas hecho sigue hecho.
+          </p>
+          <button
+            onClick={() => { setReintentando(true); refrescar(); }}
+            disabled={reintentando}
+            className="h-11 shrink-0 rounded-xl border border-border bg-card px-4 text-[13.5px] font-semibold text-foreground disabled:opacity-60"
+          >
+            {reintentando ? 'Leyendo…' : 'Reintentar'}
+          </button>
+        </div>
+      )}
 
       {/* ── Conmutador móvil ──────────────────────────────────────────────── */}
       {/* Segmentado de verdad: los dos lados dentro de un mismo carril. Antes
@@ -685,7 +807,7 @@ export function PosTerminal() {
                 {unidades}
               </span>
               <span className="flex-1 text-left text-[15px] font-bold">Ver el ticket</span>
-              <span className="text-[19px] font-extrabold tabular-nums">{formatEuro(ticket.total)}</span>
+              <span className="text-[19px] font-extrabold tabular-nums">{formatEuro(totalCobro)}</span>
             </button>
           )}
         </section>
@@ -880,31 +1002,50 @@ export function PosTerminal() {
                   aritmética cuadre a la vista (base + IVA = total), y el
                   bloque se separa con un título que dice que ya está dentro. */}
               <div className="space-y-1 text-[14px] pt-1">
-                <Fila label="Subtotal" valor={formatEuro(ticket.subtotal)} />
-                {ticket.descuento > 0 && <Fila label="Descuento" valor={`−${formatEuro(ticket.descuento)}`} tono="warning" />}
+                {/* La matrícula no es una línea del carrito (no se quita ni se
+                    cambia la cantidad): la añade la venta, y por eso va aquí,
+                    sumada al subtotal como la suma la RPC. */}
+                {matricula && (
+                  <div data-testid="linea-matricula">
+                    <Fila label={matricula.concepto} valor={formatEuro(matricula.importe)} />
+                    <p className="text-[12px] text-muted-foreground">Es su primer plan. Los descuentos no la rebajan.</p>
+                  </div>
+                )}
+                <Fila label="Subtotal" valor={formatEuro(ticketCobro.subtotal)} />
+                {ticketCobro.descuento > 0 && <Fila label="Descuento" valor={`−${formatEuro(ticketCobro.descuento)}`} tono="warning" />}
                 <div className="pt-2 mt-1 border-t border-border space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Desglose (IVA ya incluido)
                   </p>
-                  <Fila label="Base imponible" valor={formatEuro(ticket.baseImponible)} />
+                  <Fila label="Base imponible" valor={formatEuro(ticketCobro.baseImponible)} />
                   {/* Desglosado por tipo: un ticket con género al 21 % y una
                       clase al 10 % enseña los dos, no una media. */}
-                  {ticket.porTipoIva.map((t) => (
+                  {ticketCobro.porTipoIva.map((t) => (
                     <Fila key={t.ivaPct} label={`IVA ${t.ivaPct}%`} valor={formatEuro(t.cuota)} />
                   ))}
                 </div>
                 <div className="flex items-center justify-between rounded-2xl bg-background border border-border px-4 py-3 mt-2">
                   <span className="text-[15px] font-bold text-foreground">Total</span>
-                  <span className="text-[30px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(ticket.total)}</span>
+                  <span className="text-[30px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(totalCobro)}</span>
                 </div>
+                {calculandoTotal && (
+                  <p className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                    <Loader2 size={13} className="animate-spin" /> Comprobando si lleva matrícula…
+                  </p>
+                )}
+                {errorTotal && (
+                  <p role="status" className="text-[12.5px] text-muted-foreground text-pretty">
+                    {errorTotal} Al cobrar se vuelve a comprobar el total, antes de registrar nada.
+                  </p>
+                )}
               </div>
 
               <button
                 onClick={() => setMostrarCobro(true)}
-                disabled={cuotaSinFicha}
+                disabled={cuotaSinFicha || calculandoTotal}
                 className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold active:scale-[0.99] transition-all disabled:opacity-40 disabled:active:scale-100"
               >
-                {`Cobrar ${formatEuro(ticket.total)}`}
+                {calculandoTotal ? 'Calculando el total…' : `Cobrar ${formatEuro(totalCobro)}`}
               </button>
             </div>
           )}
@@ -916,7 +1057,12 @@ export function PosTerminal() {
           clienta. */}
       {mostrarCobro && !cuotaSinFicha && (
         <HojaCobro
-          total={ticket.total}
+          total={totalCobro}
+          matricula={matricula}
+          totalSinComprobar={!!errorTotal}
+          motivoSinComprobar={errorTotal}
+          comprobandoTotal={calculandoTotal}
+          onComprobarTotal={comprobarTotal}
           cobroDisponible={catalogo?.cobro ?? { stripeConectado: false, datafonoEmparejado: false }}
           bizumPermitido={bizumPermitido}
           onCobrar={enviarVenta}

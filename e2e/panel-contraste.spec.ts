@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { montar, ir, enOscuro } from './panel-sembrado';
+import { esRutaCongelada } from '../lib/frozen-features.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Barrido de contraste del panel — la auditoría visual, hecha máquina.
@@ -33,7 +34,7 @@ const RUTAS = [
   'automatizaciones', 'cierre', 'comunidad', 'explorar-funciones',
   'libreta', 'mensajeria', 'mi-perfil', 'migracion',
   'notificaciones', 'primeros-pasos', 'primeros-pasos/tu-horario', 'sustituciones', 'network/buscar',
-];
+].filter((ruta) => !esRutaCongelada(`/${ruta}`));
 
 // ⚠️ Fuera de la lista, y no por descuido: /facturas, /pagos, /socios y
 // /transacciones NO son pantallas — son redirecciones a /cobros, y /contenido
@@ -42,6 +43,20 @@ const RUTAS = [
 // transiciones de página: la primera vez que estuvieron aquí, el barrido cazó
 // 18 «fallos» de contraste en /facturas que eran los colores a medio fundir de
 // la animación de entrada de /cobros, no un color de nadie.
+//
+// ⚠️ Las CONGELADAS (lib/frozen-features.ts) caen por el mismo motivo, y las
+// quita el filtro de arriba. `network/buscar` entró cuando Network estaba vivo
+// (#1751) y se quedó al congelarlo (2-oct-2026, #2464): desde entonces no hay
+// pantalla que medir. El guardia de `DashboardShell` pinta el menú con el
+// <main> vacío y rebota a /dashboard, e `ir()` vuelve en un punto al azar de esa
+// carrera. Medido en 8 pasadas: la mitad, el menú solo (23 nodos, aún en
+// /network/buscar); la otra mitad, /dashboard a medio cargar (27 nodos con 13
+// esqueletos). Con la máquina cargada, a veces 3 — el rojo intermitente «pintó
+// el panel pero ni una línea de texto», 1 de cada 8. Ninguna de esas era
+// Network, y /dashboard ya está en la lista. Bajar el umbral de `revisados`
+// habría tapado el síntoma y dejado al guardia sin distinguir un 404.
+// El filtro y no borrarla: al descongelar Network vuelve sola, como el `.skip`
+// de `network-buscador-panel.spec.ts`, sin que nadie tenga que acordarse.
 
 interface Fallo { ruta: string; texto: string; ratio: number; color: string; fondo: string; px: number }
 

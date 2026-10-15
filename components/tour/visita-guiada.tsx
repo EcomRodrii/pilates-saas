@@ -17,8 +17,9 @@
 //  · Con un diálogo abierto (asignar un plan, crear una sala…) la tarjeta se
 //    convierte en un banner de solo texto, que no tapa ni quita foco al diálogo.
 //  · Si algo falla, no se salta en mudo ni se atrapa: el paso que no se puede
-//    señalar se enseña sin foco y avisa a Sentry; el «hacer» que no sale en 60 s
-//    ofrece «Ahora no puedo» (queda aplazado y se enseña al final con su enlace).
+//    señalar se enseña sin foco (y, si nunca apareció, avisa a Sentry); el
+//    «hacer» que no sale en 60 s ofrece «Ahora no puedo» (queda aplazado y se
+//    enseña al final con su enlace).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,62 +29,55 @@ import { cn } from '@/lib/utils';
 import { useTour } from '@/lib/tour-context';
 import { useStudio } from '@/lib/studio-context';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
-import { CAPITULOS, lugarCoincide, pasoPorId, rutaBase, selectorCss, type CapituloVisita, type PasoVisita } from '@/lib/tour/capitulos';
+import { CAPITULOS, lugarDelPaso, pasoPorId, rutaBase, type CapituloVisita, type LugarPaso, type PasoVisita } from '@/lib/tour/capitulos';
+import { elementoVisible, hayDialogoAbierto, mismoRect } from '@/components/tour/foco';
 import { datosHecho, type DatosHecho } from '@/lib/tour/hecho';
 import { MARGEN_SUPERIOR, modoDeDesplazamiento } from '@/lib/tour/desplazar';
+import { empezarRastro, medirRastro } from '@/lib/tour/objetivo';
 import { aplazadosEnOrden, capitulosConPasos, pasoAnteriorA, pasoCerrado } from '@/lib/tour/progreso';
 import { PantallaAperturaCapitulo, PantallaCapituloVisita, PantallaFinVisita, PantallaInicioVisita } from '@/components/tour/pantallas-visita';
 
-const ESPERA_OBJETIVO_MS = 8_000;
 const ESPERA_APLAZAR_MS = 60_000;
 const AVANCE_AUTOMATICO_MS = 1_500;
 const MARGEN = 12;
 
 // ── Lo que se ve en pantalla ─────────────────────────────────────────────────
 
-/** El primer elemento con ese `data-tour` que se VE (la barra de móvil y la de escritorio conviven en el DOM). */
-function elementoVisible(selector: string): HTMLElement | null {
-  for (const el of document.querySelectorAll<HTMLElement>(selectorCss(selector))) {
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) return el;
-  }
-  return null;
-}
-
-/** ¿Hay un diálogo de la app abierto? (los nuestros llevan `data-visita` y no cuentan.) */
-function hayDialogoAbierto(): boolean {
-  return !!document.querySelector('[role="dialog"]:not([data-visita]), [role="alertdialog"]:not([data-visita])');
-}
+// `elementoVisible`, `hayDialogoAbierto` y `mismoRect` viven en `foco.tsx`, que
+// comparte con el tutorial de cada pantalla (P1.1). El resto de este fichero, igual.
 
 /**
- * La pestaña (`?tab=`) en la que está la pantalla ahora mismo. Se lee del navegador
- * y no de `useSearchParams`: Configuración cambia de pestaña con `pushState`, que Next
- * tarda un render en enterarse, y `useSearchParams` obliga a un Suspense en todas las
- * páginas del panel. Un intervalo corto es barato y siempre dice la verdad.
+ * La pestaña (`?tab=`) en la que está la pantalla ahora mismo, y la herramienta abierta encima
+ * (`&abrir=`). Se lee del navegador y no de `useSearchParams`: Configuración cambia de pestaña con
+ * `pushState`, que Next tarda un render en enterarse, y `useSearchParams` obliga a un Suspense en
+ * todas las páginas del panel. Un intervalo corto es barato y siempre dice la verdad.
  */
-function useTabActual(): string | null {
+function useConfiguracionActual(): { tab: string | null; abrir: string | null } {
   // Lectura inicial perezosa: esta pieza solo se monta con la visita ya activa (después de hidratar).
-  const [tab, setTab] = useState<string | null>(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('tab')));
+  const [actual, setActual] = useState(() => (typeof window === 'undefined' ? { tab: null, abrir: null } : leerConfiguracion()));
   useEffect(() => {
-    const leer = () => setTab(prev => { const t = new URLSearchParams(window.location.search).get('tab'); return prev === t ? prev : t; });
+    const leer = () => setActual(prev => { const a = leerConfiguracion(); return prev.tab === a.tab && prev.abrir === a.abrir ? prev : a; });
     leer();
     const id = window.setInterval(leer, 300);
     window.addEventListener('popstate', leer);
     return () => { window.clearInterval(id); window.removeEventListener('popstate', leer); };
   }, []);
-  return tab;
+  return actual;
 }
 
-function mismoRect(a: DOMRect | null, b: DOMRect): boolean {
-  return !!a && Math.abs(a.top - b.top) < 1 && Math.abs(a.left - b.left) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
+function leerConfiguracion() {
+  const q = new URLSearchParams(window.location.search);
+  return { tab: q.get('tab'), abrir: q.get('abrir') };
 }
 
 /**
  * Localiza el elemento del paso y lo sigue (scroll, resize, la página que se
  * recoloca al cargar). Si pasados 8 s de carga no aparece, lo dice: la tarjeta se
- * enseña sin foco y se avisa a Sentry. Nunca se salta el paso en silencio.
+ * enseña sin foco y, si nunca llegó a verse, se avisa a Sentry (lib/tour/objetivo.ts).
+ * Nunca se salta el paso en silencio. Dentro de la herramienta del paso no se busca
+ * nada: la persona está haciendo lo que pide, y su fila ya no está.
  */
-function useObjetivo(paso: PasoVisita, enRuta: boolean, cargando: boolean) {
+function useObjetivo(paso: PasoVisita, lugar: LugarPaso, cargando: boolean) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [sinFoco, setSinFoco] = useState(false);
   const [dialogo, setDialogo] = useState(false);
@@ -93,25 +87,31 @@ function useObjetivo(paso: PasoVisita, enRuta: boolean, cargando: boolean) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Mide el DOM real: el ejemplo canónico de efecto legítimo.
     setRect(null); setSinFoco(false); setMsHaciendo(0);
-    if (!enRuta || cargando) return;
-    const inicio = Date.now();
+    if (lugar === 'fuera' || cargando) return;
+    const buscar = lugar === 'sitio';
+    let rastro = empezarRastro(Date.now());
     let centrado = false;
     const medir = () => {
-      const el = elementoVisible(paso.selector);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        if (!centrado) {
-          centrado = true;
-          // Una fila se centra; una pantalla entera no (saltaría a la mitad): se lleva su inicio, si hace falta.
-          const modo = modoDeDesplazamiento(r, window.innerHeight);
-          if (modo === 'centro') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          else if (modo === 'inicio') window.scrollTo({ top: window.scrollY + r.top - MARGEN_SUPERIOR, behavior: 'smooth' });
+      if (buscar) {
+        const el = elementoVisible(paso.selector);
+        const medido = medirRastro(rastro, !!el, Date.now());
+        rastro = medido.rastro;
+        if (el) {
+          const r = el.getBoundingClientRect();
+          if (!centrado) {
+            centrado = true;
+            // Una fila se centra; una pantalla entera no (saltaría a la mitad): se lleva su inicio, si hace falta.
+            const modo = modoDeDesplazamiento(r, window.innerHeight);
+            if (modo === 'centro') el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            else if (modo === 'inicio') window.scrollTo({ top: window.scrollY + r.top - MARGEN_SUPERIOR, behavior: 'smooth' });
+          }
+          setRect(prev => (mismoRect(prev, r) ? prev : r));
+        } else {
+          // Nunca un anillo en coordenadas viejas, encima de lo que haya ocupado su sitio.
+          setRect(null);
         }
-        setRect(prev => (mismoRect(prev, r) ? prev : r));
-        setSinFoco(false);
-      } else if (Date.now() - inicio > ESPERA_OBJETIVO_MS) {
-        setSinFoco(true);
-        if (avisado.current !== paso.id) {
+        setSinFoco(prev => (prev === medido.sinFoco ? prev : medido.sinFoco));
+        if (medido.avisar && avisado.current !== paso.id) {
           avisado.current = paso.id;
           capturarExcepcion(new Error(`Visita guiada: no se encontró «${paso.selector}»`), { tags: { area: 'tour', paso: paso.id } });
         }
@@ -133,7 +133,7 @@ function useObjetivo(paso: PasoVisita, enRuta: boolean, cargando: boolean) {
       window.clearInterval(id); if (pendiente) cancelAnimationFrame(pendiente);
       window.removeEventListener('resize', alMover); window.removeEventListener('scroll', alMover, true);
     };
-  }, [paso.id, paso.selector, paso.tipo, enRuta, cargando]);
+  }, [paso.id, paso.selector, paso.tipo, lugar, cargando]);
 
   return { rect, sinFoco, dialogo, puedeAplazar: segundosHaciendo >= ESPERA_APLAZAR_MS };
 }
@@ -189,11 +189,13 @@ function TarjetaPaso({ capitulo, paso, numero, de, numeroCapitulo, totalCapitulo
 }) {
   const t = useTour();
   const pathname = usePathname();
-  const tabActual = useTabActual();
-  // Estar en `/configuracion` NO es estar en el sitio: cada pestaña es otra pantalla.
-  const enRuta = lugarCoincide(paso, pathname, tabActual);
+  const configuracion = useConfiguracionActual();
+  // Estar en `/configuracion` NO es estar en el sitio: cada pestaña es otra pantalla, y una
+  // herramienta abierta encima también, salvo la del propio paso (dentro, lo está haciendo).
+  const lugar = lugarDelPaso(paso, pathname, configuracion.tab, configuracion.abrir);
+  const enRuta = lugar !== 'fuera';
   const [minimizada, setMinimizada] = useState(false);
-  const { rect, sinFoco, dialogo, puedeAplazar } = useObjetivo(paso, enRuta, cargando);
+  const { rect, sinFoco, dialogo, puedeAplazar } = useObjetivo(paso, lugar, cargando);
 
   // (Al cambiar de paso, VisitaGuiada la monta de nuevo con `key`: vuelve a abrirse sola.)
 
@@ -204,7 +206,7 @@ function TarjetaPaso({ capitulo, paso, numero, de, numeroCapitulo, totalCapitulo
   const contenido = (datos: DatosPaso | null) => (
     <ContenidoPaso
       capitulo={capitulo} paso={paso} numero={numero} de={de} numeroCapitulo={numeroCapitulo} totalCapitulos={totalCapitulos}
-      enRuta={enRuta} rect={rect} sinFoco={sinFoco} dialogo={dialogo} puedeAplazar={puedeAplazar}
+      enRuta={enRuta} enSuHerramienta={lugar === 'herramienta'} rect={rect} sinFoco={sinFoco} dialogo={dialogo} puedeAplazar={puedeAplazar}
       datos={datos} repaso={repaso} onVolver={onVolver} onAnterior={onAnterior} llevar={llevar} onMinimizar={() => setMinimizada(true)}
     />
   );
@@ -212,10 +214,13 @@ function TarjetaPaso({ capitulo, paso, numero, de, numeroCapitulo, totalCapitulo
 }
 
 function ContenidoPaso({
-  capitulo, paso, numero, de, numeroCapitulo, totalCapitulos, enRuta, rect, sinFoco, dialogo, puedeAplazar, datos, repaso, onVolver, onAnterior, llevar, onMinimizar,
+  capitulo, paso, numero, de, numeroCapitulo, totalCapitulos, enRuta, enSuHerramienta, rect, sinFoco, dialogo, puedeAplazar, datos, repaso, onVolver, onAnterior, llevar, onMinimizar,
 }: {
   capitulo: CapituloVisita; paso: PasoVisita; numero: number; de: number; numeroCapitulo: number; totalCapitulos: number;
-  enRuta: boolean; rect: DOMRect | null; sinFoco: boolean; dialogo: boolean; puedeAplazar: boolean;
+  enRuta: boolean;
+  /** Dentro de la herramienta cuya fila señala el paso: está en el paso, sin nada que señalar. */
+  enSuHerramienta: boolean;
+  rect: DOMRect | null; sinFoco: boolean; dialogo: boolean; puedeAplazar: boolean;
   datos: DatosPaso | null; repaso: boolean; onVolver: () => void; onAnterior: (id: string) => void; llevar: boolean; onMinimizar: () => void;
 }) {
   const t = useTour();
@@ -244,13 +249,18 @@ function ContenidoPaso({
 
   // Pasar al paso siguiente te lleva a su pantalla UNA vez. Si luego te vas, no te
   // persigue; y al recargar la página tampoco te arrastra de vuelta (`llevar` es
-  // falso hasta que el paso cambia dentro de esta sesión).
+  // falso hasta que el paso cambia dentro de esta sesión). Una vez el paso ha estado
+  // en su sitio, ya no hay a dónde llevar: irte tú después no te devuelve (pasaba: un
+  // enlace del Resumen a /calendario y, a los 46 ms, de vuelta al Resumen).
+  const [estuvoEnSuSitio, setEstuvoEnSuSitio] = useState(enRuta);
+  if (enRuta && !estuvoEnSuSitio) setEstuvoEnSuSitio(true);
+  const vaALlevar = llevar && !estuvoEnSuSitio && !!destino;
   const llevado = useRef<string | null>(null);
   useEffect(() => {
-    if (!llevar || enRuta || !destino || llevado.current === paso.id) return;
+    if (!vaALlevar || enRuta || !destino || llevado.current === paso.id) return;
     llevado.current = paso.id;
     router.push(destino);
-  }, [llevar, enRuta, destino, paso.id, router]);
+  }, [vaALlevar, enRuta, destino, paso.id, router]);
 
   // Teclado: → o Intro pasan al siguiente paso, ← vuelve al anterior. Solo si no se está escribiendo
   // en ningún sitio (el foco está en la página, no en un campo ni en un botón).
@@ -357,7 +367,7 @@ function ContenidoPaso({
         </p>
 
         {!enRuta && (
-          llevar && destino ? (
+          vaALlevar ? (
             <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden /> Te llevo a {nombrePantalla(paso)}…</p>
           ) : (
             <p className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12.5px] text-muted-foreground">
@@ -370,7 +380,7 @@ function ContenidoPaso({
             No encuentro el recuadro en esta pantalla. Pulsa «Llévame» y lo intento de nuevo.
           </p>
         )}
-        {enRuta && !rect && !sinFoco && (
+        {enRuta && !enSuHerramienta && !rect && !sinFoco && (
           <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden /> Buscando el sitio…</p>
         )}
 

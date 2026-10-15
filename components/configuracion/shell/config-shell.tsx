@@ -17,6 +17,7 @@ import {
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
+import { TONO_SECCION_CONFIG, TonoConfigContext } from './tono-config';
 import { CabeceraHerramienta } from './cabecera-herramienta';
 import { idFilaHerramienta } from './fila-herramienta';
 import { InicioConfiguracion } from './inicio-configuracion';
@@ -485,6 +486,7 @@ export function ConfigShell() {
           )}
 
           <div className="@container/config min-w-0">
+            <TonoConfigContext.Provider value={(mostrada && TONO_SECCION_CONFIG[mostrada]) || 'azul'}>
             {herramienta && Herramienta && mostrada ? (
               <section
                 key={`herramienta-${herramienta}`}
@@ -521,6 +523,7 @@ export function ConfigShell() {
                 onAbrir={(id, { ancla: tarjeta, abrir, origen }) => irAPreguntando(id, { ancla: tarjeta, abrir, modo: 'push', origen })}
               />
             )}
+            </TonoConfigContext.Provider>
           </div>
         </div>
 

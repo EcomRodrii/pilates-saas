@@ -5,6 +5,7 @@
 // Solo se monta para la PROPIETARIA (`puedeVerFichaClinica`; el gating vive en
 // la página). La instructora lee la salud de sus alumnas en la app del estudio.
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useMemo, useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
@@ -475,7 +476,7 @@ function PreguntaCuestionario({
 
 // ─── Pestaña completa ────────────────────────────────────────────────────────
 
-export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Date; onToast: (mensaje: string) => void }) {
+export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Date; onToast: MostrarToast }) {
   const {
     socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, instructores, studio,
     registrarConsentimientoSalud, revocarConsentimientoSalud,
@@ -610,7 +611,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     setRevocando(true);
     const r = await revocarConsentimientoSalud(socioId);
     setRevocando(false);
-    if (!r.ok) { onToast(r.error); return; }
+    if (!r.ok) { onToast(r.error, { variant: 'error' }); return; }
     setConfirmarRevocar(false);
     onToast('Consentimiento de salud retirado. Sus datos de salud quedan bloqueados.');
   }
@@ -633,7 +634,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     const res = editando
       ? await updateCondicion(editando.id, { ...payload, estado: editando.estado, fin: editando.fin })
       : await addCondicion(payload);
-    if (!res.ok) { onToast(res.error); return; }
+    if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
     setDialogOpen(false);
     setEditando(null);
   }
@@ -801,7 +802,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
           {condiciones.map(c => (
             <CondicionCard key={c.id} c={c} now={now}
               onEdit={() => abrirEditar(c)}
-              onAlta={async () => { const res = await updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) }); if (!res.ok) onToast(res.error); }}
+              onAlta={async () => { const res = await updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) }); if (!res.ok) onToast(res.error, { variant: 'error' }); }}
               onDelete={() => setABorrar(c)}
             />
           ))}
@@ -842,7 +843,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
         onConfirm={async () => {
           if (aBorrar) {
             const res = await deleteCondicion(aBorrar.id);
-            if (!res.ok) { onToast(res.error); return; }
+            if (!res.ok) { onToast(res.error, { variant: 'error' }); return; }
           }
           setABorrar(null);
         }}

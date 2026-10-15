@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un programa de gestión para un estudio de Pilates en España?',
-    a: 'Tentare tiene tres planes públicos con IVA incluido y sin permanencia: Founding Studio a 29 €/mes (una sala, una o dos instructoras, hasta 150 alumnas activas y la app con tu marca), Estudio a 59 €/mes y Cadena a 149 €/mes. La prueba dura 7 días del plan que elijas y no pide tarjeta.',
+    a: 'En Tentare, Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
   {
     q: '¿Sirve para cobrar y facturar en España?',
@@ -92,8 +92,7 @@ export default function ProgramaDeGestionPage() {
       <ResumenSolucion
         pregunta="¿Qué debe hacer un programa de gestión para un estudio de Pilates en España?"
         datos={[
-          { cifra: '29 €/mes', texto: 'Tentare Founding Studio, IVA incluido y sin permanencia' },
-          { cifra: '7 días', texto: 'De prueba del plan que elijas, sin tarjeta' },
+          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 250 reservas al mes' },
           { cifra: 'UE', texto: 'Datos alojados en la Unión Europea, con soporte en español' },
         ]}
       >
@@ -101,7 +100,7 @@ export default function ProgramaDeGestionPage() {
         espera y bonos, los cobros con tarjeta o domiciliación SEPA con facturas de numeración legal, y el equipo de
         instructoras con sus sustituciones. Un programa que solo reserva te deja el resto en hojas de cálculo; uno que
         sirve para cualquier negocio de citas no entiende un bono de sesiones ni un reformer. Tentare está hecho para
-        estudios de Pilates y yoga en España, desde 29 €/mes con IVA y sin permanencia.
+        estudios de Pilates y yoga en España, gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones
@@ -149,7 +148,7 @@ export default function ProgramaDeGestionPage() {
         puntos={[
           'Disponibilidad, vacaciones y tarifa por hora de cada instructora',
           'Ocupación por tipo de clase y retención de tus alumnas',
-          'Sustituciones con tu visto bueno, o solas en el plan Estudio',
+          'Sustituciones con tu visto bueno, o solas en todos los planes',
         ]}
         enlace={{ href: '/funcionalidades/gestion-de-instructoras', texto: 'Gestión de instructoras' }}
       >
@@ -166,7 +165,7 @@ export default function ProgramaDeGestionPage() {
           ['Cobro con tarjeta y SEPA', 'La mayoría de cuotas se cobran así en España', 'Ambos, sin comisión de Tentare'],
           ['Facturas con numeración legal', 'Se exige a quien emite facturas', 'Numeración legal y huella encadenada'],
           ['Sustitución de instructoras', 'Una baja no debería cancelar la clase', 'Propone candidatas, contacta y avisa'],
-          ['Precio público y permanencia', 'Para comparar sin pedir demo', 'Desde 29 €/mes con IVA, sin permanencia'],
+          ['Precio público y permanencia', 'Para comparar sin pedir demo', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA. Sin permanencia'],
           ['Importar tus datos', 'Cambiar de programa no debe costar el histórico', 'Importador con acta y botón de deshacer'],
         ]}
       />
@@ -177,7 +176,7 @@ export default function ProgramaDeGestionPage() {
 
       <CierreSolucion
         titulo="Tu estudio, funcionando solo."
-        texto="Monta tu horario y tu página de reservas en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+        texto="Monta tu horario y tu página de reservas en tu primera sesión. Empieza gratis, sin tarjeta y sin permanencia."
       />
     </SolucionShell>
   );

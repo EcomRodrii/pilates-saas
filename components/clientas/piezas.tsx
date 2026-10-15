@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import { Bell, Check, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TONOS, type Tono } from '@/components/dashboard/vivo';
 import { DEFINICION_ESTADO, ETIQUETA_ESTADO, type EstadoClienta } from '@/lib/clientas/estado';
 import type { AvisoClienta } from '@/lib/clientas/avisos';
 
@@ -83,6 +85,13 @@ export function PastillaAviso({ aviso, atendido, ella = 'ella', className }: {
   );
 }
 
+// Panel nuevo: cada tarjeta de la ficha con el icono en una baldosa de color.
+// Por su título, para no tocar cada llamada; lo que no está aquí va en azul.
+const TONO_DE_TARJETA: Record<string, Tono> = {
+  'Plan': 'magenta', 'Próximas clases': 'azul', 'Constancia': 'indigo', 'Asistencia últimos meses': 'indigo', 'Lo último': 'verde',
+  'Seguimiento': 'magenta', 'Notas del equipo': 'indigo', 'Etiquetas': 'azul', 'Sobre ella': 'verde',
+};
+
 /** Tarjeta de la ficha: borde suave, título pequeño con icono y una acción a la derecha. */
 export function TarjetaFicha({ titulo, icono, accion, children, className, id, dataTour }: {
   titulo?: ReactNode;
@@ -94,6 +103,33 @@ export function TarjetaFicha({ titulo, icono, accion, children, className, id, d
   /** Para la visita guiada (lib/tour/): el valor de `data-tour` que la señala. */
   dataTour?: string;
 }) {
+  const panelNuevo = usePanelNuevo();
+  if (panelNuevo) {
+    const tono = (typeof titulo === 'string' && TONO_DE_TARJETA[titulo]) || 'azul';
+    return (
+      <section id={id} data-tour={dataTour} className={cn('rounded-t-card border border-border bg-card shadow-t-card', className)}>
+        {(titulo || accion) && (
+          // Lo de la derecha baja de línea antes que cortar el título: a 1024 (el iPad
+          // tumbado, con el menú) «Asistencia últimos meses» se quedaba en «…m…» por
+          // las píldoras de al lado. 15rem le caben a cualquier título de la ficha.
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-4 pb-2.5 sm:px-5">
+            {titulo && (
+              <h3 className="flex min-w-[min(100%,15rem)] flex-1 items-center gap-2.5 text-[15px] font-semibold text-foreground">
+                {icono && (
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-[9px] [&_svg]:size-[15px]" style={{ backgroundColor: TONOS[tono], color: 'var(--card)' }} aria-hidden>
+                    {icono}
+                  </span>
+                )}
+                <span className="truncate">{titulo}</span>
+              </h3>
+            )}
+            {accion}
+          </div>
+        )}
+        <div className="px-4 pb-4 sm:px-5">{children}</div>
+      </section>
+    );
+  }
   return (
     <section id={id} data-tour={dataTour} className={cn('rounded-2xl border border-border bg-card shadow-xs', className)}>
       {(titulo || accion) && (
@@ -119,12 +155,13 @@ export function BotonTarjeta({ icono: Icono, children, onClick, disabled }: {
   onClick: () => void;
   disabled?: boolean;
 }) {
+  const panelNuevo = usePanelNuevo();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-10"
+      className={cn(panelNuevo ? 'rounded-full' : 'rounded-xl', "zona-tactil inline-flex min-h-9 items-center gap-1.5 border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-10")}
     >
       {Icono && <Icono size={14} aria-hidden />}
       {children}

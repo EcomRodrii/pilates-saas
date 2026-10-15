@@ -8,13 +8,14 @@
 // Lo que está en el banco va aparte («En el banco»): todavía no es deuda.
 
 import { useCallback, useMemo, useState } from 'react';
-import { CalendarClock, CheckSquare, ChevronDown, RefreshCw, Square, X } from 'lucide-react';
+import { Banknote, CalendarClock, CheckCheck, CheckSquare, ChevronDown, Clock, CreditCard, Landmark, RefreshCw, Smartphone, Square, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { MetodoCobro, Recibo } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
 import { colorDeAvatar, fechaCorta } from '@/lib/clientas/textos';
 import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { entraEnCobroEnLote } from '@/lib/cobros/cobro-en-lote';
+import { grupoRequiereAtencion } from '@/lib/cobros/cifras-cobros';
 import {
   agruparDeudas, contarChips, diasDebiendo, grupoEnChip, TEXTO_ESTADO, type Chip, type GrupoDeDeuda,
 } from '@/lib/cobros/deudas';
@@ -24,6 +25,8 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { EmptyState } from '@/components/ui/empty-state';
+import { BOTON_VIVO, CabeceraTarjeta, VacioPositivo } from '@/components/dashboard/vivo';
+import { MenuAcciones } from '@/components/ui/menu-acciones';
 import { FichaDeudora } from './ficha-deudora';
 import { EnElBanco } from './en-el-banco';
 import { ProximasCuotas } from './proximas-cuotas';
@@ -33,17 +36,31 @@ import type { AccionesRecibo, AvisosCobros } from './use-acciones-recibo';
 import type { DatosCobros } from './use-datos-cobros';
 
 const POR_PAGINA = 50;
-const METODOS: { metodo: MetodoCobro; texto: string }[] = [
-  { metodo: 'EFECTIVO', texto: 'Efectivo' }, { metodo: 'TARJETA', texto: 'Tarjeta' },
-  { metodo: 'BIZUM', texto: 'Bizum' }, { metodo: 'TRANSFERENCIA', texto: 'Transferencia' },
+const METODOS: { metodo: MetodoCobro; texto: string; icono: typeof Banknote }[] = [
+  { metodo: 'EFECTIVO', texto: 'Efectivo', icono: Banknote }, { metodo: 'TARJETA', texto: 'Tarjeta', icono: CreditCard },
+  { metodo: 'BIZUM', texto: 'Bizum', icono: Smartphone }, { metodo: 'TRANSFERENCIA', texto: 'Transferencia', icono: Landmark },
 ];
 
-export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; acciones: AccionesRecibo; avisos: AvisosCobros }) {
+/** Lo que la pantalla puede pedir al abrir la lista (la cifra «Devueltos y fallidos» del panel nuevo). */
+export type FiltroDeudas = 'ATENCION';
+
+/**
+ * `nueva`: con la forma del panel nuevo (la lista en su tarjeta, «Próximas
+ * cuotas» la pinta la pantalla aparte). `filtroInicial`: abre ya filtrada; para
+ * cambiarlo, la pantalla la vuelve a montar con otra `key`. Las filas, los
+ * botones de cobrar y el cobro de varias son los mismos en las dos.
+ */
+export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInicial = null }: {
+  datos: DatosCobros; acciones: AccionesRecibo; avisos: AvisosCobros; nueva?: boolean; filtroInicial?: FiltroDeudas | null;
+}) {
   const { recibos } = useStudio();
   const esAncho = useEsAncho();
   const enMovil = useCoincideMedio('(max-width: 767.98px)');
 
   const [chip, setChip] = useState<Chip | null>(null);
+  // «Devueltos y fallidos» (la cifra de arriba del panel nuevo): los dos estados a la vez.
+  // Solo se enciende desde la cifra; cualquier otro filtro lo apaga.
+  const [atencion, setAtencion] = useState(filtroInicial === 'ATENCION');
   const [busqueda, setBusqueda] = useState('');
   const [cuantas, setCuantas] = useState(POR_PAGINA);
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -62,8 +79,9 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
 
   const q = normalizar(busqueda.trim());
   const filtrados = useMemo(() => grupos.filter(g => grupoEnChip(g, chip, seReintentaSolo)
+    && (!atencion || grupoRequiereAtencion(g))
     && (!q || normalizar(datos.nombreDe(g.socioId)).includes(q) || g.recibos.some(r => normalizar(r.concepto).includes(q)))),
-  [grupos, chip, seReintentaSolo, q, datos]);
+  [grupos, chip, atencion, seReintentaSolo, q, datos]);
   const visibles = filtrados.slice(0, cuantas);
   const total = filtrados.reduce((t, g) => t + g.total, 0);
   const nRecibos = filtrados.reduce((t, g) => t + g.recibos.length, 0);
@@ -92,84 +110,155 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
     setMetodoLote(null);
   }
 
+  const barra = (
+    <div className="flex flex-wrap items-center gap-2">
+      <ChipFiltro activo={chip === null && !atencion} n={grupos.length} onClick={() => { setChip(null); setAtencion(false); }}>Todas</ChipFiltro>
+      {atencion && (
+        <ChipFiltro activo n={grupos.filter(grupoRequiereAtencion).length} onClick={() => setAtencion(false)}>
+          Devueltos y fallidos<X size={12} aria-hidden />
+        </ChipFiltro>
+      )}
+      {(['DEVUELTO_BANCO', 'NO_SE_PUDO', 'SIN_COBRAR'] as const).map(e => chips[e] > 0 && (
+        <ChipFiltro key={e} activo={chip === e} n={chips[e]} onClick={() => { setChip(chip === e ? null : e); setAtencion(false); }}>{TEXTO_ESTADO[e]}</ChipFiltro>
+      ))}
+      {chips.SE_REINTENTA_SOLO > 0 && (
+        <ChipFiltro activo={chip === 'SE_REINTENTA_SOLO'} n={chips.SE_REINTENTA_SOLO} onClick={() => { setChip(chip === 'SE_REINTENTA_SOLO' ? null : 'SE_REINTENTA_SOLO'); setAtencion(false); }}>
+          <RefreshCw size={12} aria-hidden />Se reintenta solo
+        </ChipFiltro>
+      )}
+      <span className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+        <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar clienta o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
+        {grupos.length > 0 && !nueva && (
+          <button
+            type="button"
+            onClick={() => (seleccionando ? salirDeSeleccion() : setSeleccionando(true))}
+            aria-pressed={seleccionando}
+            className="zona-tactil inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            {seleccionando ? <X size={15} aria-hidden /> : <CheckSquare size={15} aria-hidden />}
+            {seleccionando ? 'Dejar de seleccionar' : 'Seleccionar varias'}
+          </button>
+        )}
+      </span>
+    </div>
+  );
+  const coincidencia = busqueda || (chip ? TEXTO_ESTADO[chip as keyof typeof TEXTO_ESTADO] ?? 'Se reintenta solo' : atencion ? 'Devueltos y fallidos' : '');
+  const todasMarcadas = marcables.length > 0 && marcables.every(g => marcadas.has(g.clave));
+  const lista = (
+    <>
+      {nueva && marcables.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-[13px]">
+          <button
+            type="button"
+            onClick={() => setMarcadas(todasMarcadas ? new Set() : new Set(marcables.map(g => g.clave)))}
+            aria-pressed={todasMarcadas}
+            className="zona-tactil inline-flex items-center gap-2 font-semibold text-foreground"
+          >
+            {todasMarcadas ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
+            Seleccionar todo
+          </button>
+          <span className="ml-auto text-[12.5px] text-muted-foreground">
+            {marcadas.size > 0
+              ? <>{marcadas.size} {marcadas.size === 1 ? 'seleccionada' : 'seleccionadas'} · <CifraPrivada inline>{formatEuro(importeLote)}</CifraPrivada></>
+              : 'Lo que se reintenta solo no entra: ya lo cobra el sistema.'}
+          </span>
+        </div>
+      )}
+      {seleccionando && (
+        <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[12.5px]">
+          <button
+            type="button"
+            onClick={() => setMarcadas(marcadas.size === marcables.length ? new Set() : new Set(marcables.map(g => g.clave)))}
+            className="font-medium text-brand-medio hover:underline"
+          >
+            {marcadas.size === marcables.length ? 'Desmarcar todas' : `Marcar todas (${marcables.length})`}
+          </button>
+          <span className="text-muted-foreground">Lo que se reintenta solo no entra: ya lo cobra el sistema.</span>
+        </div>
+      )}
+      <ul className="divide-y divide-border">
+        {visibles.map(g => (
+          <FilaDeudora
+            key={g.clave}
+            grupo={g}
+            datos={datos}
+            activa={g.clave === abierta}
+            seleccionando={seleccionando}
+            marcada={marcadas.has(g.clave)}
+            sinLote={loteDe(g).length === 0}
+            conCasilla={nueva}
+            onAlternar={() => alternar(g.clave)}
+            compacta={lateral || enMovil}
+            onAbrir={() => (seleccionando ? (loteDe(g).length > 0 && alternar(g.clave)) : setAbierta(g.clave === abierta ? null : g.clave))}
+            onCobrar={() => setAbierta(g.clave)}
+          />
+        ))}
+      </ul>
+      {filtrados.length > visibles.length && (
+        <button type="button" onClick={() => setCuantas(c => c + POR_PAGINA)} className="w-full border-t border-border px-4 py-2.5 text-[13px] font-medium text-brand-medio hover:bg-muted/40">
+          Ver {Math.min(POR_PAGINA, filtrados.length - visibles.length)} más
+        </button>
+      )}
+      <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-[12.5px] text-muted-foreground">
+        <span>{filtrados.length} {filtrados.length === 1 ? 'clienta' : 'clientas'} · {nRecibos} {nRecibos === 1 ? 'recibo' : 'recibos'} · la deuda más antigua primero</span>
+        <span className="whitespace-nowrap font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(total)}</CifraPrivada></span>
+      </div>
+    </>
+  );
+
   return (
     <div className={cn('flex items-start gap-5', lateral && 'min-h-[60vh]')}>
       <div className="min-w-0 flex-1 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <ChipFiltro activo={chip === null} n={grupos.length} onClick={() => setChip(null)}>Todas</ChipFiltro>
-          {(['DEVUELTO_BANCO', 'NO_SE_PUDO', 'SIN_COBRAR'] as const).map(e => chips[e] > 0 && (
-            <ChipFiltro key={e} activo={chip === e} n={chips[e]} onClick={() => setChip(chip === e ? null : e)}>{TEXTO_ESTADO[e]}</ChipFiltro>
-          ))}
-          {chips.SE_REINTENTA_SOLO > 0 && (
-            <ChipFiltro activo={chip === 'SE_REINTENTA_SOLO'} n={chips.SE_REINTENTA_SOLO} onClick={() => setChip(chip === 'SE_REINTENTA_SOLO' ? null : 'SE_REINTENTA_SOLO')}>
-              <RefreshCw size={12} aria-hidden />Se reintenta solo
-            </ChipFiltro>
-          )}
-          <span className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-            <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar clienta o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
-            {grupos.length > 0 && (
-              <button
-                type="button"
-                onClick={() => (seleccionando ? salirDeSeleccion() : setSeleccionando(true))}
-                aria-pressed={seleccionando}
-                className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                {seleccionando ? <X size={15} aria-hidden /> : <CheckSquare size={15} aria-hidden />}
-                {seleccionando ? 'Dejar de seleccionar' : 'Seleccionar varias'}
-              </button>
-            )}
-          </span>
-        </div>
-
-        {grupos.length === 0 ? (
-          <EmptyState titulo="Nadie te debe nada" descripcion="Cuando una clienta tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
-        ) : filtrados.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">Nadie coincide con «{busqueda || (chip ? TEXTO_ESTADO[chip as keyof typeof TEXTO_ESTADO] ?? 'Se reintenta solo' : '')}».</p>
-        ) : (
-          <section aria-label="Quién me debe" className="overflow-hidden rounded-2xl border border-border bg-card">
-            {seleccionando && (
-              <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[12.5px]">
-                <button
-                  type="button"
-                  onClick={() => setMarcadas(marcadas.size === marcables.length ? new Set() : new Set(marcables.map(g => g.clave)))}
-                  className="font-medium text-brand-medio hover:underline"
-                >
-                  {marcadas.size === marcables.length ? 'Desmarcar todas' : `Marcar todas (${marcables.length})`}
-                </button>
-                <span className="text-muted-foreground">Lo que se reintenta solo no entra: ya lo cobra el sistema.</span>
-              </div>
-            )}
-            <ul className="divide-y divide-border">
-              {visibles.map(g => (
-                <FilaDeudora
-                  key={g.clave}
-                  grupo={g}
-                  datos={datos}
-                  activa={g.clave === abierta}
-                  seleccionando={seleccionando}
-                  marcada={marcadas.has(g.clave)}
-                  sinLote={loteDe(g).length === 0}
-                  compacta={lateral || enMovil}
-                  onAbrir={() => (seleccionando ? (loteDe(g).length > 0 && alternar(g.clave)) : setAbierta(g.clave === abierta ? null : g.clave))}
-                  onCobrar={() => setAbierta(g.clave)}
+        {nueva ? (
+          grupos.length === 0 ? (
+            <VacioPositivo titulo="Nadie te debe nada" texto="Cuando una clienta tenga un recibo sin cobrar, saldrá aquí con lo que debe y cómo se le puede cobrar." />
+          ) : (
+            <section aria-label="Quién me debe" className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card">
+              <div className="space-y-3 border-b border-border px-4 py-4 sm:px-5">
+                <CabeceraTarjeta
+                  tono="azul" Icono={Clock} titulo="Quién me debe" sub="Una fila por clienta, con todo lo que debe"
+                  derecha={marcables.length > 0 ? (idsLote.length > 0 ? (
+                    <MenuAcciones
+                      etiqueta={`Marcar ${marcadas.size} como cobrado`}
+                      titulo="¿Cómo te han pagado?"
+                      claseBoton={cn(BOTON_VIVO, 'h-9 shrink-0 px-3.5 text-[13px]')}
+                      boton={<><CheckCheck size={15} aria-hidden />Marcar {marcadas.size} como cobrado</>}
+                      acciones={METODOS.map(m => ({
+                        texto: m.texto, icono: m.icono,
+                        onClick: () => { setMetodoLote(m.metodo); setCobrandoLote(true); },
+                      }))}
+                    />
+                  ) : (
+                    <button type="button" disabled title="Marca primero a quién" className={cn(BOTON_VIVO, 'h-9 shrink-0 px-3.5 text-[13px] opacity-50')}>
+                      <CheckCheck size={15} aria-hidden />Marcar como cobrado
+                    </button>
+                  )) : undefined}
                 />
-              ))}
-            </ul>
-            {filtrados.length > visibles.length && (
-              <button type="button" onClick={() => setCuantas(c => c + POR_PAGINA)} className="w-full border-t border-border px-4 py-2.5 text-[13px] font-medium text-brand-medio hover:bg-muted/40">
-                Ver {Math.min(POR_PAGINA, filtrados.length - visibles.length)} más
-              </button>
+                {barra}
+              </div>
+              {filtrados.length === 0
+                ? <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">Nadie coincide con «{coincidencia}».</p>
+                : lista}
+            </section>
+          )
+        ) : (
+          <>
+            {barra}
+            {grupos.length === 0 ? (
+              <EmptyState titulo="Nadie te debe nada" descripcion="Cuando una clienta tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
+            ) : filtrados.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">Nadie coincide con «{coincidencia}».</p>
+            ) : (
+              <section aria-label="Quién me debe" className="overflow-hidden rounded-2xl border border-border bg-card">
+                {lista}
+              </section>
             )}
-            <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-[12.5px] text-muted-foreground">
-              <span>{filtrados.length} {filtrados.length === 1 ? 'clienta' : 'clientas'} · {nRecibos} {nRecibos === 1 ? 'recibo' : 'recibos'} · la deuda más antigua primero</span>
-              <span className="whitespace-nowrap font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(total)}</CifraPrivada></span>
-            </div>
-          </section>
+          </>
         )}
 
-        <EnElBanco recibos={enElBanco} datos={datos} acciones={acciones} />
+        <EnElBanco recibos={enElBanco} datos={datos} acciones={acciones} nueva={nueva} />
 
-        <div>
+        {!nueva && <div>
           <button
             type="button"
             onClick={() => setVerCuotas(v => !v)}
@@ -180,11 +269,16 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
             <ChevronDown size={14} className={cn('transition-transform', verCuotas && 'rotate-180')} aria-hidden />
           </button>
           {verCuotas && <div className="mt-2"><ProximasCuotas datos={datos} /></div>}
-        </div>
+        </div>}
       </div>
 
       {lateral && grupoAbierto && (
-        <aside aria-label={`Ficha de ${datos.nombreDe(grupoAbierto.socioId)}`} className="sticky top-4 flex max-h-[calc(100dvh-2rem)] w-[400px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <aside
+          aria-label={`Ficha de ${datos.nombreDe(grupoAbierto.socioId)}`}
+          className={nueva
+            ? 'sticky top-4 flex max-h-[calc(100dvh-2rem)] w-[400px] shrink-0 flex-col overflow-hidden rounded-t-card border border-border bg-card shadow-t-card'
+            : 'sticky top-4 flex max-h-[calc(100dvh-2rem)] w-[400px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm'}
+        >
           <FichaDeudora key={grupoAbierto.clave} grupo={grupoAbierto} datos={datos} acciones={acciones} avisos={avisos} onCerrar={() => setAbierta(null)} />
         </aside>
       )}
@@ -236,14 +330,14 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
           metodo={metodoLote}
           abierto={cobrandoLote}
           avisos={avisos}
-          onCerrar={cobrado => { setCobrandoLote(false); if (cobrado) salirDeSeleccion(); }}
+          onCerrar={cobrado => { setCobrandoLote(false); if (cobrado) salirDeSeleccion(); else if (nueva) setMetodoLote(null); }}
         />
       )}
     </div>
   );
 }
 
-function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, compacta, onAbrir, onCobrar }: {
+function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, compacta, onAbrir, onCobrar, conCasilla = false, onAlternar }: {
   grupo: GrupoDeDeuda<Recibo>;
   datos: DatosCobros;
   activa: boolean;
@@ -253,6 +347,9 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
   compacta: boolean;
   onAbrir: () => void;
   onCobrar: () => void;
+  /** Panel nuevo: la casilla siempre a la vista, como en Bonsai; marcarla no abre la ficha. */
+  conCasilla?: boolean;
+  onAlternar?: () => void;
 }) {
   const socio = datos.socioDe(grupo.socioId);
   const dias = diasDebiendo(grupo, datos.hoy);
@@ -262,9 +359,22 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
     ? (medio.aviso ?? (medio.domiciliacionRemesa || medio.domiciliacionStripe ? 'Domiciliada' : medio.tarjeta ? medio.tarjeta.nombre : 'Sin tarjeta'))
     : null;
   return (
-    <li data-deudora={grupo.clave} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', activa && 'bg-brand/8', seleccionando && sinLote && 'opacity-60')}>
+    <li data-deudora={grupo.clave} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', activa && 'bg-brand/8', seleccionando && sinLote && 'opacity-60', conCasilla && marcada && !activa && 'bg-[color-mix(in_srgb,var(--t-blue-500)_6%,var(--card))]')}>
       {seleccionando && (
         <span className="shrink-0 text-foreground" aria-hidden>{marcada ? <CheckSquare size={18} /> : <Square size={18} className="text-muted-foreground" />}</span>
+      )}
+      {conCasilla && (
+        <button
+          type="button"
+          onClick={onAlternar}
+          disabled={sinLote}
+          aria-pressed={marcada}
+          aria-label={`${marcada ? 'Desmarcar' : 'Marcar'} a ${datos.nombreDe(grupo.socioId)}`}
+          title={sinLote ? 'Se cobra solo: no entra en marcar como cobrado' : undefined}
+          className="zona-tactil -m-1.5 flex size-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40"
+        >
+          {marcada ? <CheckSquare size={18} aria-hidden style={{ color: 'var(--t-blue-500)' }} /> : <Square size={18} aria-hidden className="text-muted-foreground" />}
+        </button>
       )}
       <button type="button" onClick={onAbrir} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={seleccionando ? `${marcada ? 'Desmarcar' : 'Marcar'} a ${datos.nombreDe(grupo.socioId)}` : `Abrir la ficha de ${datos.nombreDe(grupo.socioId)}`} disabled={seleccionando && sinLote}>
         {socio
@@ -288,7 +398,7 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
         </span>
       </button>
       {!compacta && !seleccionando && (
-        <button type="button" onClick={onCobrar} className="ml-1 hidden min-h-9 w-[92px] items-center justify-center rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:inline-flex">
+        <button type="button" onClick={onCobrar} className="zona-tactil ml-1 hidden min-h-9 w-[92px] items-center justify-center rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted md:inline-flex">
           Cobrar
         </button>
       )}

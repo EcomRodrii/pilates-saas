@@ -20,7 +20,8 @@ export async function equipoRendimientoAction() {
   }
 
   const admin = getSupabaseAdmin();
-  if (!admin) return { items: [] };
+  // Sin cliente de servidor no hay informe: «no hay nadie» sería mentira.
+  if (!admin) throw new ErrorAccion('No hemos podido cargar el rendimiento. Vuelve a intentarlo.', 503);
 
   // La migración sustituyó el cálculo real por un `select` de nombres, y nadie
   // falló: `lib/api-client.ts` espera {instructorId, retencionPct, conversionPct,

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import type { NombreEventoNavegador } from '@/lib/analytics-navegador';
 
 // `Link` con un evento de analítica al clic, para los pocos CTA de entrada
 // al embudo que valen la pena medir (top-of-funnel: "quiso crear perfil"),
@@ -14,7 +15,7 @@ export function EnlaceRastreo({
   href, evento, className, style, children,
 }: {
   href: string;
-  evento: string;
+  evento: NombreEventoNavegador;
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;

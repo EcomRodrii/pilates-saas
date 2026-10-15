@@ -211,7 +211,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Bonos, cuotas y clases sueltas en un mismo sitio',
-    texto: 'En Tentare configuras bonos, cuotas mensuales y clases sueltas con su caducidad y reglas por tipo de clase, y tus alumnas reservan y cancelan solas desde el móvil. Prueba 7 días gratis, sin tarjeta, el plan que elijas.',
+    texto: 'En Tentare configuras bonos, cuotas mensuales y clases sueltas con su caducidad y reglas por tipo de clase, y tus alumnas reservan y cancelan solas desde el móvil. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Muestra no aleatoria: solo estudios que publican precios en su web. Las tarifas cambian; revisar las cifras antes de cada actualización del artículo.',

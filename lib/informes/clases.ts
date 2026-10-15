@@ -35,7 +35,7 @@ export interface ReservaParaInforme {
   estado: string;
 }
 
-const OCUPA_PLAZA = new Set(['ASISTIDA', 'NO_ASISTIO', 'CONFIRMADA']);
+export const OCUPA_PLAZA: ReadonlySet<string> = new Set(['ASISTIDA', 'NO_ASISTIO', 'CONFIRMADA']);
 
 export interface Ocupacion {
   nClases: number;

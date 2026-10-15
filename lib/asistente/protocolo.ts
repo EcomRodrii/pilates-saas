@@ -5,7 +5,7 @@
 
 import type { BloqueAsistente, NombreHerramienta } from './tipos.ts';
 
-export type CodigoAviso = 'CIFRA_SIN_RESPALDO' | 'LIMITE_HERRAMIENTAS' | 'DEMASIADO_AMPLIA' | 'RECHAZADA';
+export type CodigoAviso = 'CIFRA_SIN_RESPALDO' | 'LIMITE_HERRAMIENTAS' | 'DEMASIADO_AMPLIA' | 'RECHAZADA' | 'PROPUESTA_SIN_TARJETA';
 export type MotivoFin = 'OK' | 'ACLARACION' | 'DEMASIADO_AMPLIA';
 
 export type EventoAsistente =

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useState, type MouseEvent } from 'react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useEffect, useId, useState, type ElementType, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, Clock, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -11,7 +12,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { DEFAULT_THEME } from '@/lib/theme-schema';
 import { cardCls, inputCls } from '@/components/configuracion/estilos';
 import { externasVisibles, hrefDeLugar, hrefDeSeccion, resolverHref } from '@/lib/configuracion/destino';
-import { FILAS_EXTERNAS, GRUPOS, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
+import { FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, type GrupoPanelNuevo, type HerramientaId, type SeccionConfiguracion, type SeccionId } from '@/lib/configuracion/secciones';
 import {
   resumenPlan, resumenesDeConfiguracion, revisaEsto, type DatosConfiguracion, type EstadoPlanResumible,
 } from '@/lib/configuracion/resumenes';
@@ -22,6 +23,8 @@ import { EstadoAjuste } from './estado-ajuste';
 import { ICONOS_EXTERNAS, ICONOS_SECCION } from './lista-secciones';
 import { esClicNormal } from './contexto';
 import { tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
+import { TONOS, type Tono } from '@/components/dashboard/vivo';
+import { TONO_SECCION_CONFIG } from './tono-config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El inicio de Configuración: cómo está tu estudio, de un vistazo.
@@ -52,6 +55,18 @@ const LISTA = cn(cardCls, 'divide-y divide-border overflow-hidden');
 const TITULO_GRUPO = 'px-1 text-sm font-semibold text-foreground';
 const CAJA_ICONO = 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground';
 
+/** Panel nuevo: el icono de cada fila en la baldosa del color de su sección, como en la home. */
+const TONO_EXTERNA: Record<string, Tono> = { plan: 'verde', cuenta: 'azul' };
+
+function CajaIcono({ Icono, tono, nuevo }: { Icono: ElementType; tono: Tono; nuevo: boolean }) {
+  if (!nuevo) return <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>;
+  return (
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[tono]} 14%, var(--card))`, color: TONOS[tono] }}>
+      <Icono size={18} strokeWidth={2} aria-hidden />
+    </span>
+  );
+}
+
 type Abrir = (tab: SeccionId, opciones: { ancla?: string; abrir?: HerramientaId; origen: string }) => void;
 
 export function InicioConfiguracion({
@@ -71,7 +86,7 @@ export function InicioConfiguracion({
 }) {
   const {
     studio, dataLoaded, salas, tiposClase, planesTarifa, integraciones,
-    instructores, sesiones, socios, reservas, suscripciones, automationRules, contenidoPortal,
+    instructores, sesiones, socios, reservas, suscripciones, automationRules, bannersPortal,
   } = useStudio();
   const idBuscador = useId();
   const { dark } = usePanelTheme();
@@ -127,13 +142,16 @@ export function InicioConfiguracion({
   const progreso = cargado
     ? calcularProgresoGuia(calcularOnboarding(datosOnboardingDelEstudio({
       studio, instructores, tiposClase, sesiones, socios, reservas,
-      salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+      salas, planesTarifa, suscripciones, automationRules, bannersPortal,
     })).categorias)
     : null;
   // «Pon tu estudio a punto» es la guía de la PROPIETARIA: sus pasos son el NIF,
   // Stripe, la marca y el contrato, ninguno de la gerencia. Contarle un «3 de 8»
   // que no puede mover sería un recado para otra persona.
-  const aPunto = rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
+  // Con el panel nuevo, la guía de inicio es UNA: «Pon en marcha tu estudio» del
+  // Resumen. Aquí no se repite (eran tres guías diciendo cosas distintas).
+  const panelNuevo = usePanelNuevo();
+  const aPunto = !panelNuevo && rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
     && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
 
   // «Sedes» se busca por lo que dice el plan, no por las sedes que carga «Mi
@@ -245,16 +263,30 @@ export function InicioConfiguracion({
             </section>
           )}
 
-          {GRUPOS.map(grupo => {
+          <div className={panelNuevo ? 'grid items-start gap-5 xl:grid-cols-2' : 'contents'}>
+          {(panelNuevo ? GRUPOS_PANEL_NUEVO : GRUPOS).map(grupo => {
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))
               .filter((s): s is SeccionConfiguracion => !!s);
             const externasDelGrupo = (grupo.externas ?? []).filter(id => idsExternas.has(id));
             if (suyas.length === 0 && externasDelGrupo.length === 0) return null;
+            const frase = 'frase' in grupo ? (grupo as GrupoPanelNuevo).frase : null;
             return (
-              <section key={grupo.id} aria-labelledby={`inicio-grupo-${grupo.id}`} className="space-y-2">
-                <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
-                <ul className={LISTA} data-tarjeta-ajuste="">
+              <section
+                key={grupo.id}
+                aria-labelledby={`inicio-grupo-${grupo.id}`}
+                // Panel nuevo: cada grupo, su tarjeta, con su título y qué hay dentro.
+                className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'space-y-2'}
+              >
+                {panelNuevo ? (
+                  <div className="border-b border-border px-4 pb-3 pt-4">
+                    <h2 id={`inicio-grupo-${grupo.id}`} className="text-[16px] font-semibold text-foreground">{grupo.titulo}</h2>
+                    {frase && <p className="mt-0.5 text-[13px] text-muted-foreground text-pretty">{frase}</p>}
+                  </div>
+                ) : (
+                  <h2 id={`inicio-grupo-${grupo.id}`} className={TITULO_GRUPO}>{grupo.titulo}</h2>
+                )}
+                <ul className={panelNuevo ? 'divide-y divide-border' : LISTA} data-tarjeta-ajuste="">
                   {suyas.map(s => {
                     const Icono = ICONOS_SECCION[s.id];
                     const resumen = resumenes?.[s.id];
@@ -262,7 +294,7 @@ export function InicioConfiguracion({
                     return (
                       <li key={s.id}>
                         <Link id={id} href={hrefDeSeccion(s.id)} onClick={abrir(s.id, id)} className={FILA}>
-                          <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>
+                          <CajaIcono Icono={Icono} tono={TONO_SECCION_CONFIG[s.id]} nuevo={panelNuevo} />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[15px] font-semibold text-foreground">{s.titulo}</span>
@@ -285,7 +317,7 @@ export function InicioConfiguracion({
                     return (
                       <li key={idFila}>
                         <Link id={`inicio-${idFila}`} href={f.href} className={FILA}>
-                          <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>
+                          <CajaIcono Icono={Icono} tono={TONO_EXTERNA[idFila] ?? 'azul'} nuevo={panelNuevo} />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[15px] font-semibold text-foreground">{f.titulo}</span>
@@ -304,6 +336,7 @@ export function InicioConfiguracion({
               </section>
             );
           })}
+          </div>
         </>
       )}
     </div>

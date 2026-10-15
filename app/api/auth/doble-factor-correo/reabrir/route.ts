@@ -8,7 +8,7 @@ import { reabrirCorreo } from '@/lib/auth/codigo-correo';
 
 // Tras pasar la app de autenticación (`aal2` de verdad, nunca una sesión
 // confiada): el correo vuelve a valer como segundo paso si se había cerrado
-// por un cambio de contraseña o de correo (migr 20261003160000). Lo llama
+// por un cambio de contraseña o de correo (migr 20261004141529…20261004191152, doble_factor_por_correo_*). Lo llama
 // /verificar-acceso justo después de verificar con la app; si falla, la
 // próxima vez se vuelve a pedir la app, nada más.
 export const dynamic = 'force-dynamic';

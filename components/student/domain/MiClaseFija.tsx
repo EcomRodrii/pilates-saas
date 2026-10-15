@@ -137,7 +137,7 @@ export function MiClaseFija({ plazas, calendario, onCambio, tieneCuota }: {
     if (!r.ok) {
       if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
       // La reserva SIGUE ACTIVA: la píldora no cambia y el diálogo sigue abierto para reintentar.
-      toast(r.error);
+      toast(r.error, { variant: 'error' });
       return;
     }
     const { plaza, semana } = noVoy;

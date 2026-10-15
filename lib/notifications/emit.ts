@@ -978,7 +978,7 @@ export async function emitirEmailFallido(
   admin: SupabaseClient, p: { studioId: string; error: string },
 ): Promise<void> {
   try {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyEnEstudio(); // «al día» es el día del estudio, no el de UTC
     await publish({
       type: EVENTOS.SISTEMA_EMAIL_FALLIDO, studioId: p.studioId,
       data: { error: p.error.slice(0, 200) },
@@ -1022,6 +1022,47 @@ export async function emitirTrialExpirado(
     });
   } catch (e) {
     console.error('[notifications] emitirTrialExpirado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// La app de la App Store del estudio deja de estar pagada: empieza el margen de 30 días
+// (lib/app-nativa/apps-sin-plan.ts). dedupKey por el inicio del margen: un aviso por cada vez que
+// deja de pagarla, no uno por cada pasada del cron.
+export async function emitirAppTiendaSinPlan(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; fecha: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_SIN_PLAN, studioId: p.studioId,
+      data: {
+        fecha: p.fecha,
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada podrá seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-sin-plan:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaSinPlan:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Se acabó el margen: la app queda en pausa (y, si estaba publicada, se retira de la App Store).
+export async function emitirAppTiendaPausada(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_PAUSADA, studioId: p.studioId,
+      data: {
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada puede seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-pausada:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaPausada:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -1537,7 +1578,7 @@ export async function emitirVerifactuEnvioPausado(
       type: EVENTOS.VERIFACTU_ENVIO_PAUSADO, studioId: p.studioId,
       data: { motivo: p.motivo },
       resource: { type: 'verifactu_estudio', id: p.studioId },
-      dedupKey: `verifactu-pausado:${p.studioId}:${new Date().toISOString().slice(0, 10)}`,
+      dedupKey: `verifactu-pausado:${p.studioId}:${hoyEnEstudio()}`,
     });
   } catch (e) {
     console.error('[notifications] emitirVerifactuEnvioPausado:', e instanceof Error ? e.message : e);

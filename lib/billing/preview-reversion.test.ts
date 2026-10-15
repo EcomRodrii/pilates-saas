@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { calcularReversion, huellaDe, type Snapshot, type SuscripcionActual } from './preview-reversion.ts';
 
@@ -118,4 +118,33 @@ test('si los números cambian entre pintar y pulsar, la huella difiere', () => {
   // Pero si deja de ser posible, la huella sí cambia y el endpoint frenará.
   const interferido = calcularReversion({ snapshot: BONO_ENTREGADO, actual: actual({ sesionesRestantes: 15 }) });
   assert.notEqual(huellaDe(antes), huellaDe(interferido));
+});
+
+// «La fecha anterior ya ha pasado» se mide con el día del ESTUDIO. Con el de UTC, entre las
+// 00:00 y las 02:00 de Madrid una cuota que venció ayer aún no había pasado y el aviso no
+// salía. (Se corre también con TZ=UTC.)
+const mensualQueVencio = (fechaFinAntes: string): Snapshot => ({
+  tipo: 'MENSUAL', aplicada: true, sesionesAntes: null, sesionesDespues: null,
+  fechaFinAntes, fechaFinDespues: '2026-12-16', estadoAntes: 'ACTIVA',
+});
+
+test('a las 00:30 de Madrid, una cuota que venció ayer ya avisa de que se queda sin plan', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T23:30:00Z') });
+  try {
+    const r = calcularReversion({ snapshot: mensualQueVencio('2026-11-16'), actual: actual({ fechaFin: '2026-12-16' }) });
+    assert.equal(r.posible, true);
+    assert.match(r.avisos.join(' '), /sin plan activo/i);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('y a las 23:30 de Madrid del mismo día en que vence, todavía no', () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T22:30:00Z') });
+  try {
+    const r = calcularReversion({ snapshot: mensualQueVencio('2026-11-16'), actual: actual({ fechaFin: '2026-12-16' }) });
+    assert.doesNotMatch(r.avisos.join(' '), /sin plan activo/i);
+  } finally {
+    mock.timers.reset();
+  }
 });

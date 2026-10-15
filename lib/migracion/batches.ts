@@ -13,7 +13,12 @@ export const RE_BATCH_ID = /^mig-[A-Za-z0-9-]{6,48}$/;
 // Orden de BORRADO: primero lo que referencia, después lo referenciado.
 // pagos_historicos no referencia nada más que socios, así que va indiferente
 // respecto a citas/reservas/plazas_fijas — se pone junto a ellas por claridad.
-export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'pagos_historicos', 'recuperaciones', 'suscripciones', 'sesiones', 'instructores', 'tipos_clase', 'socios'];
+//
+// `instructores` va la ÚLTIMA: nada de lo anterior depende de ella salvo las clases y
+// citas del propio lote (ya borradas), y es la única que la propietaria suele tocar
+// después de migrar (su tarifa, su disponibilidad). Si eso bloquea el deshacer, que
+// bloquee al final y deje solo las instructoras, no a mitad con las clientas dentro.
+export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'pagos_historicos', 'recuperaciones', 'suscripciones', 'sesiones', 'tipos_clase', 'socios', 'instructores'];
 
 const TABLA: Record<EntidadBatch, string> = {
   socios: 'socios', suscripciones: 'suscripciones', tipos_clase: 'tipos_clase', instructores: 'instructores',
@@ -72,6 +77,12 @@ export async function registrarIdsBatch(
 export interface ResultadoDeshacer {
   ok: boolean;
   borrados: Partial<Record<EntidadBatch, number>>;
+  /**
+   * Instructoras del lote que NO se borraron porque la propietaria ya las
+   * completó (email, cuenta vinculada o otro rol): ya no son lo que creó el
+   * importador, y borrarlas se llevaría su vínculo de acceso.
+   */
+  instructorasConservadas?: number;
   error?: string;
 }
 
@@ -198,10 +209,33 @@ export async function deshacerBatch(
   if (batch.deshecho_en) return { ok: false, borrados, error: 'Este lote ya se deshizo' };
 
   const ids = (batch.ids_creados ?? {}) as Partial<Record<EntidadBatch, string[]>>;
+  let instructorasConservadas = 0;
 
   for (const entidad of ORDEN_DESHACER) {
-    const lista = ids[entidad] ?? [];
+    let lista = ids[entidad] ?? [];
     if (lista.length === 0) continue;
+
+    // Una instructora que creó el importador y la propietaria ya completó (le puso
+    // email, la invitó, se vinculó a su cuenta o le cambió el rol) deja de ser «lo
+    // que creó la importación»: no se borra. El preflight de la cascada solo ve
+    // filas hijas, y estas ediciones no dejan ninguna.
+    if (entidad === 'instructores') {
+      const protegidas = new Set<string>();
+      for (let i = 0; i < lista.length; i += 500) {
+        const { data, error } = await admin
+          .from('instructores').select('id')
+          .in('id', lista.slice(i, i + 500)).eq('studio_id', studioId)
+          .or('email.not.is.null,auth_user_id.not.is.null,rol.neq.INSTRUCTOR');
+        // Falla CERRADO, como el preflight: sin saberlo, no se borra nada.
+        if (error) return { ok: false, borrados, error: 'No se ha podido comprobar qué instructoras ya has completado. No se han borrado las instructoras; inténtalo de nuevo.' };
+        for (const f of data ?? []) protegidas.add((f as { id: string }).id);
+      }
+      if (protegidas.size > 0) {
+        instructorasConservadas = protegidas.size;
+        lista = lista.filter(id => !protegidas.has(id));
+        if (lista.length === 0) continue;
+      }
+    }
 
     // Antes de borrar: ¿la cascada se llevaría algo que no creó este lote?
     const dep = await dependenciasExternas(admin, entidad, lista, ids);
@@ -243,7 +277,7 @@ export async function deshacerBatch(
     });
   }
 
-  return { ok: true, borrados };
+  return { ok: true, borrados, ...(instructorasConservadas > 0 ? { instructorasConservadas } : {}) };
 }
 
 export interface BatchReciente {

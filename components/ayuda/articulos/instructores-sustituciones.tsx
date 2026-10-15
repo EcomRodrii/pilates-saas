@@ -1,5 +1,10 @@
 import Link from 'next/link';
 import { AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
+import { PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
+
+// Del entitlement, no escrito a mano: Founding Studio los incluye desde el 15-oct-2026.
+const PLAN_AUTONOMIA = planMinimoPara('sustitucionesAutonomas');
+const DESDE_PLAN = !PLAN_AUTONOMIA || PLAN_AUTONOMIA === 'BASE' ? 'en todos los planes' : `desde el plan ${PLAN_INFO[PLAN_AUTONOMIA].nombre}`;
 
 export default function Contenido() {
   return (
@@ -29,7 +34,7 @@ export default function Contenido() {
       <p>
         Tú decides cuánta autonomía tiene este proceso, en Sustituciones: Manual, Asistido (el que viene puesto, en
         el que cada sustitución espera tu visto bueno), Autónomo, en el que se resuelve sola de principio a fin, y
-        Vacaciones. Autónomo y Vacaciones van incluidos desde el plan Estudio.
+        Vacaciones. Autónomo y Vacaciones van incluidos {DESDE_PLAN}.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué le llega a la alumna</h2>

@@ -54,7 +54,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un software para un estudio de pilates o yoga?',
-    a: 'Depende del programa y de si publica precio. Mira siempre también las comisiones sobre tus cobros y la permanencia. Tentare publica sus planes, desde 29 € al mes con IVA y sin permanencia, en la página de precios, y la guía de mejor software compara 13 programas con lo que dice la web de cada uno.',
+    a: 'Depende del programa y de si publica precio. Mira siempre también las comisiones sobre tus cobros y la permanencia. Tentare publica sus planes en la página de precios, sin permanencia: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes y cuesta 29 € al mes si pasas de ahí, y Estudio, 59 €, con IVA. La guía de mejor software compara 13 programas con lo que dice la web de cada uno.',
   },
   {
     q: '¿Un contrato anual es siempre una mala señal?',
@@ -196,7 +196,7 @@ export default function ChecklistSoftwarePage() {
         <RelatedLinks
           items={[
             { href: '/recursos/mejor-software-para-estudios-de-pilates', category: 'Elegir software', categoryColor: '#6E7650', title: 'Mejor software para estudios de pilates: 13 comparados' },
-            { href: '/precios', category: 'Precios', categoryColor: '#6E7650', title: 'Planes desde 29 €/mes, sin permanencia' },
+            { href: '/precios', category: 'Precios', categoryColor: '#6E7650', title: 'Planes y precios, con Founding Studio gratis' },
             { href: '/soluciones/cambiar-de-software', category: 'Cambiarte de software', categoryColor: '#4E9E7F', title: 'Cambiarte a Tentare sin perder nada' },
             { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#3E7C86', title: 'Cómo cubrir una baja de instructora sin hacer una llamada' },
           ]}

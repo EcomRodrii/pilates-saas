@@ -123,3 +123,56 @@ test('resumenSocio: con una ACTIVA, la ignora frente a cualquier CANCELADA (prio
   const r = resumenSocio({ ...base, suscripciones: mix });
   assert.equal(r.suscripcion?.estado, 'ACTIVA');
 });
+
+// La ficha de una alumna con la cuota recién dada y la clase suelta con la que
+// la apuntaron antes (ya gastada): la cabecera decía «Clase Suelta · quedan 0».
+test('el plan de la cabecera es la cuota, no una clase suelta gastada que va antes en la lista', () => {
+  const planes = [
+    { id: 'suelta', nombre: 'Clase Suelta', tipo: 'PUNTUAL' },
+    { id: 'cuota', nombre: '2 días Semana Mensual', tipo: 'MENSUAL' },
+  ] as unknown as PlanTarifa[];
+  const suyas = [
+    { id: 'sus-suelta-res-1', socioId: 'soc1', estado: 'ACTIVA', planId: 'suelta', sesionesRestantes: 0, fechaInicio: '2026-07-16', fechaFin: null },
+    { id: 'sus-cuota', socioId: 'soc1', estado: 'ACTIVA', planId: 'cuota', sesionesRestantes: null, fechaInicio: '2026-07-16', fechaFin: '2026-08-16' },
+  ] as unknown as Suscripcion[];
+  for (const orden of [suyas, [...suyas].reverse()]) {
+    const r = resumenSocio({ ...base, suscripciones: orden, planesTarifa: planes });
+    assert.equal(r.suscripcion?.id, 'sus-cuota');
+    assert.equal(r.plan?.nombre, '2 días Semana Mensual');
+    assert.equal(r.planActivo?.nombre, '2 días Semana Mensual');
+  }
+});
+
+test('sin cuota, un bono con clases va antes que uno gastado; una cuota vencida no gana a un bono vivo', () => {
+  const planes = [
+    { id: 'bono', nombre: 'Bono 10', tipo: 'BONO' },
+    { id: 'cuota', nombre: 'Mensual', tipo: 'MENSUAL' },
+  ] as unknown as PlanTarifa[];
+  const gastado = { id: 'b-0', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 0, fechaInicio: '2026-06-01', fechaFin: null };
+  const vivo = { id: 'b-3', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 3, fechaInicio: '2026-07-01', fechaFin: null };
+  const vencida = { id: 'c-v', socioId: 'soc1', estado: 'ACTIVA', planId: 'cuota', sesionesRestantes: null, fechaInicio: '2026-05-01', fechaFin: '2026-06-01' };
+  const r = resumenSocio({ ...base, suscripciones: [gastado, vencida, vivo] as unknown as Suscripcion[], planesTarifa: planes });
+  assert.equal(r.suscripcion?.id, 'b-3');
+});
+
+test('a igual rango manda el orden de la lista, como antes', () => {
+  const planes = [{ id: 'bono', nombre: 'Bono 10', tipo: 'BONO' }] as unknown as PlanTarifa[];
+  const a = { id: 'b-a', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 2, fechaInicio: '2026-07-01', fechaFin: null };
+  const b = { id: 'b-b', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 5, fechaInicio: '2026-07-01', fechaFin: null };
+  assert.equal(resumenSocio({ ...base, suscripciones: [a, b] as unknown as Suscripcion[], planesTarifa: planes }).suscripcion?.id, 'b-a');
+  assert.equal(resumenSocio({ ...base, suscripciones: [b, a] as unknown as Suscripcion[], planesTarifa: planes }).suscripcion?.id, 'b-b');
+});
+
+test('a igual rango, la cuota activa va antes que una pausada; un bono caducado cuenta como gastado', () => {
+  const planes = [
+    { id: 'cuota', nombre: 'Mensual', tipo: 'MENSUAL' },
+    { id: 'bono', nombre: 'Bono 10', tipo: 'BONO' },
+  ] as unknown as PlanTarifa[];
+  const pausada = { id: 'c-p', socioId: 'soc1', estado: 'PAUSADA', planId: 'cuota', sesionesRestantes: null, fechaInicio: '2026-07-01', fechaFin: '2026-08-01' };
+  const activa = { id: 'c-a', socioId: 'soc1', estado: 'ACTIVA', planId: 'cuota', sesionesRestantes: null, fechaInicio: '2026-07-10', fechaFin: '2026-08-10' };
+  assert.equal(resumenSocio({ ...base, suscripciones: [pausada, activa] as unknown as Suscripcion[], planesTarifa: planes }).suscripcion?.id, 'c-a');
+
+  const caducado = { id: 'b-c', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 4, fechaInicio: '2026-01-01', fechaFin: '2026-06-01' };
+  const vivo = { id: 'b-v', socioId: 'soc1', estado: 'ACTIVA', planId: 'bono', sesionesRestantes: 1, fechaInicio: '2026-07-01', fechaFin: '2026-09-01' };
+  assert.equal(resumenSocio({ ...base, suscripciones: [caducado, vivo] as unknown as Suscripcion[], planesTarifa: planes }).suscripcion?.id, 'b-v');
+});

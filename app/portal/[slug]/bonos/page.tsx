@@ -100,7 +100,7 @@ function MiPlan() {
     if (incrustado) { setHojaRenovar(true); return; }
     setRenovando(true);
     const r = await renovarPlan(estudio.id);
-    if (!r.ok) { setRenovando(false); toast(r.error); return; }
+    if (!r.ok) { setRenovando(false); toast(r.error, { variant: 'error' }); return; }
     window.location.href = r.url;
   }, [estudio.id, toast, incrustado]);
 

@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, Globe, Loader2, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, EyeOff, Globe, Loader2, TrendingUp } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo } from '@/components/dashboard/vivo';
+import { llevarAlTitulo } from './lleva-al-titulo';
+import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import {
   CONFIG_POR_DEFECTO, anchoPopupDe, anchoPorDefecto, esLaMismaCopia, etiquetaEfectiva, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
@@ -19,6 +23,8 @@ import { copiaTrasAplicar } from '@/lib/widgets/pieza-panel';
 import type { VistoWidget } from '@/lib/widgets/pegado';
 import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
+import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
+import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
 import {
   botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, tieneDisenoEnCodigo, urlEmbebido, urlPagina, type EntradaIntegracion,
@@ -45,6 +51,7 @@ import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type Forma
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
 import { estaArchivado, tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // «Tentare Widgets»: el constructor, en el orden en que lo piensa la dueña de
 // un estudio —con qué está hecha su web (una vez), qué pone y dónde, cómo se
@@ -116,6 +123,15 @@ function pasosDe(plataforma: PlataformaWeb | null): readonly { id: Exclude<Paso,
     { id: 'ponlo', nombre: ponlo, siguiente: `Siguiente: ${ponlo.toLowerCase()}` },
   ];
 }
+/** Panel nuevo: el título-objetivo y la frase de cada paso (Bonsai B1). */
+const TITULO_PASO: Record<'que' | 'como' | 'ponlo', (p: PlataformaWeb | null) => { titulo: string; sub: string }> = {
+  que: () => ({ titulo: 'Elige qué enseñas y dónde', sub: 'Una pieza de tu estudio dentro de tu web: tu horario, tus precios o la cuenta de tus alumnas.' }),
+  // «a la derecha» no era verdad en el móvil, donde la vista previa va encima.
+  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' }),
+  ponlo: p => (p === 'sinweb'
+    ? { titulo: 'Compártelo', sub: 'Copia el enlace y ponlo donde quieras: Instagram, WhatsApp o tu newsletter.' }
+    : { titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' }),
+};
 type EstadoGuardado = 'guardando' | 'guardado' | 'error' | null;
 interface Guardable { configs: Record<string, ConfigConstructor>; copiados: Record<string, Copiado>; web: EstadoWeb }
 
@@ -124,7 +140,7 @@ const hayCopias = (copiados: Readonly<Record<string, Copiado>>) => Object.keys(c
 
 export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   slug: string;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /**
    * Lleva a «Cómo le va a tu página», centrada en la fila de esa etiqueta
    * (`null`: sin etiqueta que medir, se abre sin centrar en ninguna).
@@ -134,6 +150,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
   const rol = useRol();
+  const panelNuevo = usePanelNuevo();
   const estiloWeb = useEstiloWeb();
   // Lo publicado de cada widget por id. Solo lo lee y lo aplica la propietaria.
   const publicacion = usePiezas(rol === 'PROPIETARIO');
@@ -186,11 +203,20 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const contenedores = useRef<Partial<Record<Paso, HTMLDivElement | null>>>({});
   // Si abre «Cambiar» y se arrepiente, vuelve a donde estaba.
   const [pasoAnterior, setPasoAnterior] = useState<Paso>('que');
+  // Al paso nuevo: con el foco (se anuncia) y, en el panel nuevo, con su título a la vista
+  // debajo de las barras de arriba (`llevarAlTitulo`). Antes se quedaba a media pantalla.
+  function alPaso(p: Paso) {
+    const c = contenedores.current[p];
+    if (!panelNuevo) { c?.focus(); return; }
+    c?.focus({ preventScroll: true });
+    const destino = document.querySelector<HTMLElement>('[data-titulo-paso]') ?? c;
+    if (destino) llevarAlTitulo(destino);
+  }
   function irA(p: Paso) {
     if (p === 'ponlo') prepararCodigo(w.id);
     setPaso(p);
     // Al paso nuevo, con el foco: se anuncia y queda a la vista.
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
 
   const plataforma = web.plataforma;
@@ -221,6 +247,19 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     mesLeido.current = dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
     return () => { vivo = false; };
   }, [veResultados]);
+
+  // «Ocultar tu página» también oculta los widgets: son esa misma página
+  // (/reservar?embed=1, `app/reservar/[slug]/layout.tsx`), y enseñan «Estamos
+  // preparando esta página»; el calendario sin marco se queda sin clases. La
+  // herramienta no lo decía en ningún sitio. Solo la propietaria puede leerlo
+  // (`/api/pagina-publica`); sin respuesta, no se dice nada (nunca un aviso a ciegas).
+  const [paginaOculta, setPaginaOculta] = useState(false);
+  useEffect(() => {
+    if (rol !== 'PROPIETARIO') return;
+    let vivo = true;
+    void leerPaginaPublica().then(e => { if (vivo) setPaginaOculta(e?.oculta === true); });
+    return () => { vivo = false; };
+  }, [rol]);
 
   // Un tipo, una instructora o una sala borrados después de guardarse no se
   // cuelan en el código: un filtro por un id que ya no existe dejaría el
@@ -276,7 +315,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setAplicando(true);
     const r = await publicacion.publicar(w.id, configEfectiva);
     setAplicando(false);
-    if (!r.ok) { showToast(opc?.alFallar ?? r.error); return false; }
+    if (!r.ok) { showToast(opc?.alFallar ?? r.error, { variant: 'error' }); return false; }
     const base = opc?.copiados ?? copiados;
     const pegada = base[w.id];
     if (pegada?.pieza) {
@@ -584,6 +623,15 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // La portada no tiene pasos, ni vista previa, ni el aviso de cabecera: cada
   // fila lleva el suyo.
   const conPrevia = paso !== 'plataforma' && paso !== 'tienes';
+  // Panel nuevo: «Primeros pasos» flota abajo a la derecha y tapa la vista previa y los botones
+  // de la pantalla (medido: en «¿Con qué está hecha tu web?» cubría «Siguiente»). Mientras el
+  // constructor está abierto, la lista se esconde (sigue en la home y en el resto de pantallas).
+  const escondeLista = panelNuevo;
+  useEffect(() => {
+    if (!escondeLista) return;
+    document.body.classList.add('sin-primeros-pasos-flotante');
+    return () => document.body.classList.remove('sin-primeros-pasos-flotante');
+  }, [escondeLista]);
   const pasos = pasosDe(plataforma);
   const indice = pasos.findIndex(p => p.id === paso);
   // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de
@@ -595,7 +643,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setActivoId(id);
     if (p === 'ponlo') prepararCodigo(id);
     setPaso(p);
-    requestAnimationFrame(() => contenedores.current[p]?.focus());
+    requestAnimationFrame(() => alPaso(p));
   }
   // «Ir a las webs autorizadas»: la lista vive en «Ponlo en tu web», dentro del
   // pliegue «Para quien te hace la web» (y solo con la nativa, por eso la fila
@@ -645,6 +693,17 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
 
   return (
     <div className="space-y-5">
+      {paginaOculta && (
+        <div role="note" data-testid="aviso-pagina-oculta" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+          <EyeOff size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+          <p className="text-pretty">
+            <strong className="font-semibold">Tu página está oculta</strong>, y lo que pongas en tu web también: tus widgets enseñan «Estamos preparando esta página» y desde ellos no se puede reservar ni comprar.{' '}
+            <Link href={hrefDeTarjeta('pagina-publica')} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline', FOCO)}>
+              Cambiarlo<ArrowUpRight size={12} aria-hidden />
+            </Link>
+          </p>
+        </div>
+      )}
       {paso !== 'plataforma' && (
         <div className="space-y-3">
           {conPrevia && conCopias && (
@@ -673,7 +732,12 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               <ResumenMes resultado={resultadoActivo} onVer={onVerResultados ? () => onVerResultados(etiquetaActiva) : undefined} />
             )}
           </div>
-          {conPrevia && (
+          {conPrevia && panelNuevo && (
+            <div className="border-y border-border py-2">
+              <LineaDePasos pasos={pasos.map(p => ({ id: p.id, corto: p.nombre }))} paso={paso as Exclude<Paso, 'plataforma' | 'tienes'>} onPaso={irA} hecho={(id, i) => hecho(id, i)} />
+            </div>
+          )}
+          {conPrevia && !panelNuevo && (
             <nav aria-label="Pasos" className="flex flex-wrap gap-2">
               {pasos.map((p, i) => {
                 const actual = p.id === paso;
@@ -732,14 +796,24 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
           <p className="min-w-0 flex-[1_1_16rem]">
             <strong>Tienes cambios sin aplicar en tu web</strong> ({unirGrupos(sinAplicar)}). No hace falta volver a pegar nada: al aplicarlos, tu web los enseña en unos minutos.
           </p>
-          <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>
-            {aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web
-          </button>
+          {panelNuevo ? (
+            <BotonVivo onClick={() => void aplicarContenido()} disabled={aplicando} label={<>{aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web</>} />
+          ) : (
+            <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>
+              {aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web
+            </button>
+          )}
         </div>
       )}
 
       <div className={cn('grid items-start gap-6', conPrevia && '@4xl/config:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]')}>
         <div className="min-w-0 space-y-4">
+          {panelNuevo && conPrevia && (
+            <div data-titulo-paso="">
+              <h3 className="text-[22px] font-bold leading-tight text-foreground">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).titulo}</h3>
+              <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{TITULO_PASO[paso as 'que' | 'como' | 'ponlo'](plataforma).sub}</p>
+            </div>
+          )}
           {paso === 'tienes' && (
             <div ref={el => { contenedores.current.tienes = el; }} tabIndex={-1} className="outline-none">
               <LoQueTienes
@@ -839,36 +913,74 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
           {conPrevia && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               {indice > 0 ? (
-                <button type="button" onClick={() => irA(pasos[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
-                  <ArrowLeft size={15} aria-hidden />Atrás
-                </button>
+                panelNuevo ? (
+                  <button type="button" onClick={() => irA(pasos[indice - 1].id)} className="inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted">
+                    <ArrowLeft size={15} aria-hidden />Atrás
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => irA(pasos[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
+                    <ArrowLeft size={15} aria-hidden />Atrás
+                  </button>
+                )
               ) : <span />}
               {indice < pasos.length - 1 && (
-                <button type="button" onClick={() => irA(pasos[indice + 1].id)} className={btnPrimary}>
-                  {pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
-                </button>
+                panelNuevo ? (
+                  <BotonVivo grande onClick={() => irA(pasos[indice + 1].id)} label={<>{pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden /></>} />
+                ) : (
+                  <button type="button" onClick={() => irA(pasos[indice + 1].id)} className={btnPrimary}>
+                    {pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
+                  </button>
+                )
               )}
             </div>
           )}
         </div>
 
         {conPrevia && (
-          <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-4 @4xl/config:order-none">
-            <VistaPrevia
-              // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
-              key={`${w.id}-${metodo}-${estiloWeb.version}`}
-              contenido={contenido}
-              falta={faltaPrevia}
-              forma={forma}
-              web={suWeb}
-              paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
-              anchoWidget={anchoWidget}
-              abrirEn={urlPrevia}
-              dispositivo={dispositivo}
-              onDispositivo={setDispositivo}
-              noSigueElEstilo={noSigueElEstilo}
-              alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
-            />
+          <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-[calc(var(--panel-sticky-top,0px)+4rem)] @4xl/config:order-none">
+            {/* Pegada DEBAJO de la barra de arriba (sticky y translúcida: con `top-4` la
+                cabecera de la vista previa pasaba por debajo y se leía a medias). Lo mismo
+                que la columna de Configuración: lo que mide el menú (`--panel-sticky-top`)
+                más los 4rem de la barra (h-14 y su mb-2). */}
+            {panelNuevo ? (
+              // Como Apariencia (Bonsai b-30…): el widget real, sobre un panel de color. La tarjeta blanca
+              // de dentro es la vista previa de siempre: su rótulo y sus controles siguen leyéndose.
+              <div className="rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-3 sm:p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
+                <div className="rounded-2xl bg-card p-3 text-card-foreground shadow-t-card sm:p-4">
+                <VistaPrevia
+                  // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+                  key={`${w.id}-${metodo}-${estiloWeb.version}`}
+                  contenido={contenido}
+                  falta={faltaPrevia}
+                  forma={forma}
+                  web={suWeb}
+                  paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
+                  anchoWidget={anchoWidget}
+                  abrirEn={urlPrevia}
+                  dispositivo={dispositivo}
+                  onDispositivo={setDispositivo}
+                  noSigueElEstilo={noSigueElEstilo}
+                  alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
+                />
+                </div>
+              </div>
+            ) : (
+              <VistaPrevia
+                // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+                key={`${w.id}-${metodo}-${estiloWeb.version}`}
+                contenido={contenido}
+                falta={faltaPrevia}
+                forma={forma}
+                web={suWeb}
+                paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
+                anchoWidget={anchoWidget}
+                abrirEn={urlPrevia}
+                dispositivo={dispositivo}
+                onDispositivo={setDispositivo}
+                noSigueElEstilo={noSigueElEstilo}
+                alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
+              />
+            )}
           </div>
         )}
       </div>

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, Globe, LayoutGrid, MapPin, Palette, Ruler, Send, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toggle } from '@/components/configuracion/estilos';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { CabeceraTarjeta, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 
 // Las piezas del constructor de widgets. Todas con el mismo lenguaje: la
 // etiqueta dice QUÉ es, la línea gris de debajo dice qué pasa al tocarlo, y el
@@ -44,6 +46,22 @@ export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
   );
 }
 
+/**
+ * Panel nuevo: el icono y el tono de cada tarjeta, por su título (los mismos
+ * tonos de la home: azul y magenta del logo, verde e índigo de la paleta).
+ * Solo cambia el marco; lo de dentro es lo de siempre.
+ */
+function marcaDe(titulo: string): { Icono: LucideIcon; tono: Tono } {
+  if (titulo.startsWith('¿Con qué está hecha') || titulo.startsWith('Lo que tienes')) return { Icono: Globe, tono: 'azul' };
+  if (titulo.startsWith('¿Qué quieres poner')) return { Icono: LayoutGrid, tono: 'azul' };
+  if (titulo.startsWith('¿Dónde')) return { Icono: MapPin, tono: 'magenta' };
+  if (titulo.startsWith('Qué enseña') || titulo.startsWith('¿Qué clase') || titulo.startsWith('¿Qué se vende')) return { Icono: SlidersHorizontal, tono: 'verde' };
+  if (titulo.startsWith('¿Cómo quieres') || titulo.startsWith('Estilo de')) return { Icono: Palette, tono: 'magenta' };
+  if (titulo.startsWith('Cómo encaja')) return { Icono: Ruler, tono: 'indigo' };
+  if (titulo.startsWith('Te falta')) return { Icono: AlertCircle, tono: 'magenta' };
+  return { Icono: Send, tono: 'verde' };
+}
+
 /** Una tarjeta de un paso, con su título y, si toca, su etiqueta. */
 export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   titulo: string;
@@ -53,13 +71,24 @@ export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   className?: string;
 }) {
   const id = useId();
+  // Panel nuevo: el marco de las tarjetas del resto del panel (casi blanca, un toque de su tono) y su baldosa.
+  const panelNuevo = usePanelNuevo();
+  const marca = panelNuevo ? marcaDe(titulo) : null;
   return (
-    <section aria-labelledby={id} className={cn('min-w-0 rounded-2xl border border-border bg-card p-4 shadow-xs @md/config:p-5', className)}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 id={id} className="text-[15px] font-semibold tracking-tight text-foreground">{titulo}</h3>
-        {etiqueta && <Etiqueta tipo={etiqueta} />}
-      </div>
-      {subtitulo && <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{subtitulo}</p>}
+    <section
+      aria-labelledby={id}
+      className={cn('min-w-0 border border-border bg-card p-4 @md/config:p-5', marca ? 'rounded-t-card shadow-t-card' : 'rounded-2xl shadow-xs', className)}
+      style={marca ? fondoTenido(marca.tono, 9) : undefined}
+    >
+      {marca ? (
+        <CabeceraTarjeta tono={marca.tono} Icono={marca.Icono} titulo={titulo} id={id} derecha={etiqueta ? <Etiqueta tipo={etiqueta} /> : undefined} />
+      ) : (
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h3 id={id} className="text-[15px] font-semibold tracking-tight text-foreground">{titulo}</h3>
+          {etiqueta && <Etiqueta tipo={etiqueta} />}
+        </div>
+      )}
+      {subtitulo && <p className={cn('text-[12.5px] leading-relaxed text-muted-foreground', marca ? 'mt-2' : 'mt-1')}>{subtitulo}</p>}
       {children && <div className="mt-4 space-y-5">{children}</div>}
     </section>
   );

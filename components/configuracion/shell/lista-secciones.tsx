@@ -9,8 +9,9 @@ import {
 import { cn } from '@/lib/utils';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
-  FILAS_EXTERNAS, GRUPOS, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
+  FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { esClicNormal } from './contexto';
 
 // La columna de secciones, a partir de 768 px: el inicio de Configuración y
@@ -64,6 +65,9 @@ const fila = (actual: boolean) => cn(
   foco,
   actual ? 'border-brand-foreground/50 bg-brand font-semibold text-brand-foreground' : 'text-foreground hover:bg-muted',
 );
+// Panel nuevo: 36 px por fila (más de los 24 que pide WCAG 2.2): con los títulos
+// de grupo, la columna entera cabe a la vista en un portátil.
+const filaNueva = (actual: boolean) => cn(fila(actual), 'min-h-9 py-1.5');
 const icono = (actual: boolean) => cn('shrink-0', actual ? 'text-brand-foreground' : 'text-muted-foreground');
 
 export function ListaSecciones({
@@ -86,6 +90,56 @@ export function ListaSecciones({
     onElegir(id);
   };
   const enInicio = activa === null;
+  const panelNuevo = usePanelNuevo();
+
+  // Panel nuevo: las secciones por grupos, cada uno con su título (como las
+  // pestañas de Preferencias de Bonsai), en vez de quince filas seguidas.
+  if (panelNuevo) {
+    return (
+      <nav aria-label="Secciones de Configuración" className="space-y-3">
+        <Link id="rail-inicio" href="/configuracion" aria-current={enInicio ? 'page' : undefined} onClick={elegir(null)} className={filaNueva(enInicio)}>
+          <Settings size={16} className={icono(enInicio)} aria-hidden />
+          <span className="min-w-0 flex-1">Vista general</span>
+        </Link>
+        {GRUPOS_PANEL_NUEVO.map(grupo => {
+          const suyas = grupo.secciones.map(id => secciones.find(s => s.id === id)).filter((s): s is SeccionConfiguracion => !!s);
+          const otras = (grupo.externas ?? []).filter(id => externas.includes(id));
+          if (suyas.length === 0 && otras.length === 0) return null;
+          return (
+            <div key={grupo.id}>
+              <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>
+              <ul aria-labelledby={`rail-grupo-${grupo.id}`} className="space-y-0.5">
+                {suyas.map(s => {
+                  const Icono = ICONOS_SECCION[s.id];
+                  const actual = activa === s.id;
+                  return (
+                    <li key={s.id}>
+                      <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} onClick={elegir(s.id)} className={filaNueva(actual)}>
+                        <Icono size={16} className={icono(actual)} aria-hidden />
+                        <span className="min-w-0 flex-1">{s.titulo}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {otras.map(id => {
+                  const f = FILAS_EXTERNAS[id];
+                  const Icono = ICONOS_EXTERNAS[id];
+                  return (
+                    <li key={id}>
+                      <Link href={f.href} className={cn('flex min-h-9 items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted', foco)}>
+                        <Icono size={16} className="shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="min-w-0 flex-1">{f.titulo}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </nav>
+    );
+  }
 
   return (
     <nav aria-label="Secciones de Configuración" className="space-y-2">

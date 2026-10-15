@@ -65,7 +65,7 @@ export default function LogrosPage() {
     setOcupado(retoId);
     const ok = await apuntarseReto(estudio.slug, estudio.id, retoId, !apuntada);
     setOcupado(null);
-    if (!ok) { toast('No hemos podido guardar el cambio.'); return; }
+    if (!ok) { toast('No hemos podido guardar el cambio.', { variant: 'error' }); return; }
     toast(!apuntada ? '¡Apuntada al reto!' : 'Te has borrado del reto');
     await refrescar();
   };
@@ -75,7 +75,7 @@ export default function LogrosPage() {
     setOcupado(id);
     const r = await canjearRecompensa(estudio.slug, estudio.id, id);
     setOcupado(null);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     // ⚠️ El aviso NO es el resultado del canje, es solo el acuse. El resultado
     // vive abajo, en «Tus canjes», y sigue ahí mañana. Cuando esto era solo un
     // toast, el fundador canjeó una botella, no vio nada al desvanecerse, y

@@ -190,11 +190,23 @@ export function alertaPreClase(
   condiciones: CondicionSalud[],
   hoy: Date,
 ): string | null {
+  const adaptacion = adaptacionPreClase(condiciones, hoy);
+  return adaptacion === null ? null : `${nombre} — ${adaptacion}`;
+}
+
+/**
+ * Lo mismo que `alertaPreClase`, sin el nombre delante: para la fila de la
+ * propia alumna en la lista de la clase (P3.11), donde el nombre ya está.
+ */
+export function adaptacionPreClase(
+  condiciones: CondicionSalud[],
+  hoy: Date,
+): string | null {
   const activas = condicionesActivas(condiciones);
   if (activas.length === 0) return null;
 
   const principal = [...activas].sort((a, b) => PESO_SEVERIDAD[b.severidad] - PESO_SEVERIDAD[a.severidad])[0];
-  const partes: string[] = [`${nombre} — ${principal.etiqueta}.`];
+  const partes: string[] = [`${principal.etiqueta}.`];
 
   const restr = restriccionesLegibles(principal);
   if (restr.length) partes.push(`${restr.join(', ')}.`);

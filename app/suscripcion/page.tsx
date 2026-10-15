@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
@@ -19,6 +19,8 @@ import { BorrarDatosEstudio } from '@/components/billing/borrar-datos-estudio';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
+import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
+import { cn } from '@/lib/utils';
 
 // Suscripción del estudio a Tentare.
 //
@@ -112,7 +114,11 @@ export default function SuscripcionPage() {
       setEstado(e);
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
-      if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
+      // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
+      // es lo que le toca (plan-gratis.ts); dentro del límite, a lo que puede subir.
+      // Crecer desde el gratis es Founding Studio de pago, 29 €/mes (fundador, 15-oct-2026), pase lo que pase.
+      if (e?.gratis) setElegido('BASE');
+      else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
       if (++intentos >= REINTENTOS_CONFIRMACION) { setConfirmacionAgotada(true); return; }
@@ -146,6 +152,10 @@ export default function SuscripcionPage() {
   const trial = estado?.trial;
 
   const yaPaga = yaPagaSegun(estado);
+  // Founding Studio gratis (lib/billing/plan-gratis.ts): su uso, fase y margen, ya derivados.
+  const gratis = estado?.gratis ?? null;
+  // Ha pasado un límite del gratis: le toca Founding Studio de pago (plan-gratis.ts).
+  const seHaPasado = gratis?.fase === 'MARGEN' || gratis?.fase === 'CERRADO';
   const enPrueba = trial
     ? trial.fase !== 'SUSCRITO' && trial.fase !== 'EXPIRADA' && trial.fase !== 'SIN_PRUEBA'
     : false;
@@ -173,7 +183,7 @@ export default function SuscripcionPage() {
         <header className="mb-7">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
-              {yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
+              {gratis ? 'Tu plan' : yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
             </h1>
             {/* Esta pantalla vive fuera del panel y no usa PageHeader, así que
                 su (i) va a mano y con la ruta escrita: el título cambia según
@@ -182,7 +192,9 @@ export default function SuscripcionPage() {
             <AyudaDePantalla ruta="/suscripcion" />
           </div>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-            {yaPaga
+            {gratis
+              ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
+              : yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
               : pruebaAgotada
                 ? 'Tus datos están intactos: no se ha borrado nada. Elige un plan y sigues justo donde lo dejaste.'
@@ -245,6 +257,57 @@ export default function SuscripcionPage() {
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-8 text-[14px] text-muted-foreground">
             <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
             Cargando tu suscripción…
+          </div>
+        ) : gratis ? (
+          /* ── Founding Studio gratis, como «Planes» de Bonsai ───────────── */
+          <div className="flex flex-col gap-4">
+            <CabeceraPlanGratis />
+            <UsoPlanGratis gratis={gratis} />
+            <section aria-label={seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
+              <h2 className="text-[16px] font-semibold text-foreground">{seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
+              <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Lo mismo que ya usas, sin límites. Sin permanencia.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
+              {/* Crecer es Founding Studio de pago, 29 €/mes y lo mismo sin límites (fundador, 15-oct-2026:
+                  «cuando pasa de esos limites cuesta 29€»): va el primero y elegido, también dentro del gratis.
+                  Estudio y Cadena se ofrecen, pero nunca se eligen solos. */}
+              <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-3">
+                {(['BASE', 'ESTUDIO', 'CADENA'] as const).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={elegido === p}
+                    onClick={() => setElegido(p)}
+                    className={cn(
+                      'rounded-[14px] border px-4 py-3.5 text-left transition-colors',
+                      elegido === p ? 'border-foreground/60 bg-muted/60' : 'border-border hover:bg-muted/40',
+                    )}
+                  >
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-[16px] font-bold text-foreground"><NombrePlan plan={p} /></span>
+                      <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
+                    </span>
+                    <span className="mt-1 block text-[12.5px] text-muted-foreground">
+                      {p === 'BASE' ? 'Todo igual, sin límite de alumnas ni de reservas.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio, con ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {esPropietaria ? (
+                <>
+                  <button
+                    onClick={suscribir}
+                    disabled={accion !== null || !stripeListo}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:w-auto"
+                  >
+                    {accion === 'suscribir' && <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Pasarme a ${PLAN_INFO[elegido].nombre} · ${PLAN_INFO[elegido].precioMes} €/mes`}
+                  </button>
+                  <p className="mt-2 text-[12.5px] text-muted-foreground">Tus datos y tu app siguen igual. Puedes cancelar cuando quieras desde esta misma pantalla.</p>
+                </>
+              ) : (
+                <p className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13.5px] text-muted-foreground">Solo la propietaria puede cambiar de plan.</p>
+              )}
+            </section>
           </div>
         ) : yaPaga ? (
           /* ── Ya paga ──────────────────────────────────────────────────── */

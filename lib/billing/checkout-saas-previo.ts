@@ -18,9 +18,10 @@
 
 import type Stripe from 'stripe';
 
-// Los mismos estados que `suscripcionActiva()` da por vivos: 'past_due' incluido
+// Los estados en que una suscripción de STRIPE sigue viva: 'past_due' incluido
 // (Stripe sigue reintentando el cobro), y 'unpaid' porque sigue siendo una
-// suscripción que no se ha cancelado.
+// suscripción que no se ha cancelado. Solo estados de Stripe: 'gratis'
+// (Founding Studio gratis) da acceso pero no es una suscripción, y no va aquí.
 export const ESTADOS_VIVOS = ['active', 'trialing', 'past_due', 'unpaid'];
 
 export interface SuscripcionPrevia { id: string; status: string }

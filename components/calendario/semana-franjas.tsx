@@ -3,6 +3,8 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { colorDeOcupacion } from '@/components/dashboard/vivo';
 import { clasesPorCelda, claveCelda, diasConClases, filasDeFranjas, textoHueco, type ClaseEnFranja } from '@/lib/calendario/franjas';
 import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 
@@ -50,6 +52,7 @@ export function SemanaFranjas({
   atenuada, onSeleccionar, arrastrable, onMoverADia, onCrearEn,
 }: SemanaFranjasProps) {
   const rejillaRef = useRef<HTMLDivElement>(null);
+  const panelNuevo = usePanelNuevo();
   const [destino, setDestino] = useState<number | null>(null);
   const filas = useMemo(() => filasDeFranjas(clases), [clases]);
   const celdas = useMemo(() => clasesPorCelda(clases), [clases]);
@@ -86,6 +89,12 @@ export function SemanaFranjas({
                 data-cabecera-dia={i}
                 className={cn(
                   'sticky top-0 z-20 min-w-0 border-b border-l border-border px-2 py-2',
+                  // Un día sin clases se pliega a 36 px: con los 8 de relleno a cada lado
+                  // le quedaban 20 para «MIÉ» (~24) y se salía, cortado por la esquina
+                  // redondeada de la tarjeta (medido a 768 y a 1024). El último, un poco
+                  // más a la izquierda: a la altura del texto la curva de la esquina
+                  // (28,8 px de radio) entra 8 px.
+                  panelNuevo && !conClases[i] && (i === fechas.length - 1 ? 'pl-0.5 pr-2' : 'px-0.5'),
                   esHoy ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
                   destino === i && 'bg-[color-mix(in_srgb,var(--brand)_14%,var(--card))]',
                 )}
@@ -106,7 +115,8 @@ export function SemanaFranjas({
                     </p>
                     <div className="mt-1 flex items-center gap-1.5" title={pct == null ? undefined : `${r.clases} clases · ${pct} % de ocupación`}>
                       <span className="h-1 min-w-3 flex-1 overflow-hidden rounded-full bg-muted">
-                        <span className="block h-full rounded-full bg-foreground/45" style={{ width: `${pct ?? 0}%` }} />
+                        {/* Panel nuevo: roja, ámbar o verde según se llena, como las cifras de la home. */}
+                        <span className={cn('block h-full rounded-full', !panelNuevo && 'bg-foreground/45')} style={{ width: `${pct ?? 0}%`, ...(panelNuevo ? { backgroundColor: colorDeOcupacion(pct ?? 0) } : {}) }} />
                       </span>
                       <span className="shrink-0 text-[11.5px] tabular-nums text-muted-foreground">
                         {compacta ? `${pct ?? 0} %` : `${r.clases} · ${pct ?? 0} %`}

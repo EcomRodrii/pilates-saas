@@ -207,7 +207,7 @@ const articulo: Articulo = {
             {
               titulo: 'Pacta las sustituciones por escrito',
               texto:
-                'Quién cubre una baja, con cuánto aviso y a qué tarifa. Con Tentare, en todos los planes lanzas la búsqueda de sustituta y das tú el visto bueno; en el plan Estudio o superior puede resolverse sola, y si nadie acepta te avisa en vez de cancelar la clase. Más en [sustituciones](/funcionalidades/sustituciones) y en [gestión de instructoras](/funcionalidades/gestion-de-instructoras).',
+                'Quién cubre una baja, con cuánto aviso y a qué tarifa. Con Tentare, en todos los planes lanzas la búsqueda de sustituta y das tú el visto bueno, o dejas que se resuelva sola; y si nadie acepta te avisa en vez de cancelar la clase. Más en [sustituciones](/funcionalidades/sustituciones) y en [gestión de instructoras](/funcionalidades/gestion-de-instructoras).',
             },
           ],
         },
@@ -337,7 +337,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Sabe cuánto te cuesta cada clase y organiza las bajas con tu visto bueno',
     texto:
-      'Con Tentare ves la rentabilidad de cada clase, lo que ingresa menos lo que cuesta su instructora, y gestionas las sustituciones sin perder el control. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas: desde 29 €/mes, IVA incluido y sin permanencia.',
+      'Con Tentare ves la rentabilidad de cada clase, lo que ingresa menos lo que cuesta su instructora, y gestionas las sustituciones sin perder el control. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Comprobar si se han publicado en el BOE las tablas salariales de 2026 o el VI Convenio estatal de instalaciones deportivas y gimnasios: a 25-sep-2026 no constaban, y UGT informaba en mayo de 2026 de que no había acuerdo.',

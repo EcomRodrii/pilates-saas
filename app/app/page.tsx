@@ -21,6 +21,10 @@ import { navegoDesdeFueraHaceNada } from '@/lib/nativo/navegacion-desde-fuera';
 import { BotonApple } from '@/components/nativo/BotonApple';
 import { BotonGoogle } from '@/components/nativo/BotonGoogle';
 import { AvatarEstudio } from '@/components/nativo/AvatarEstudio';
+import { bundleIdDeLaApp } from '@/lib/nativo/puente';
+import {
+  entradaEnCadena, esAppDeEstudio, sedesDeLaApp, tipoDeApp, type AppDeEstudio, type SedeDeLaApp,
+} from '@/lib/app-nativa/app-estudio';
 import {
   CLAVE_ULTIMO_ESTUDIO, conElUltimoPrimero, entradaDirecta, rutaDeEntrada, type EstudioDeLaCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -42,17 +46,43 @@ import {
  * Parámetros: `?elegir=1` enseña la lista sin entrar directa (Perfil → «Cambiar de
  * estudio»); `?estudio=<slug>` lleva a ese estudio al entrar (la ficha del estudio),
  * y si aún no la tiene, a darse de alta en él.
+ *
+ * Una app de tienda de UN estudio (nombre, icono y color propios: `apps_estudio`) usa
+ * esta misma entrada, pero fijada en su estudio: no lista ni busca otros, y entra
+ * directa en él (o a darse de alta, si aún no es suya). Lo decide el bundle id de
+ * la carcasa; sin una fila activa para él, esto es la app «Tentare» de siempre.
  */
 
 // `color`: el de su tema, para la inicial que se ve mientras llega el icono (`AvatarEstudio`).
 type Estudio = EstudioDeLaCuenta & { icono: string; color?: string | null };
 type Encontrado = { slug: string; nombre: string; ciudad: string | null; icono: string; color?: string | null };
-type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error';
+type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error' | 'no-disponible' | 'sede';
 
 const leerUltimo = () => { try { return localStorage.getItem(CLAVE_ULTIMO_ESTUDIO); } catch { return null; } };
 const guardarUltimo = (slug: string) => { try { localStorage.setItem(CLAVE_ULTIMO_ESTUDIO, slug); } catch { /* modo privado */ } };
 const SLUG = /^[a-z0-9-]{1,80}$/;
 const emailValido = (e: string) => /.+@.+\..+/.test(e.trim());
+
+/**
+ * ¿Es esta la app de un estudio? `null` = no (la web o la app «Tentare»); `'error'` = no
+ * hemos podido comprobarlo; `'no-disponible'` = es la app de un estudio pero no está activa
+ * (desactivada desde /interno). En los dos últimos NO se cae al selector de «Tentare»: una
+ * app con el nombre de un estudio que enseña el logo de otro producto y un buscador con otros
+ * estudios es peor que decir que no hay conexión o que no está disponible.
+ */
+type ConsultaApp = AppDeEstudio | null | 'error' | 'no-disponible';
+async function consultarAppDeEstudio(): Promise<ConsultaApp> {
+  const bundle = await bundleIdDeLaApp();
+  if (tipoDeApp(bundle) !== 'estudio') return null;
+  try {
+    const res = await fetch(`/api/public/app/app-estudio?bundle=${encodeURIComponent(bundle as string)}`, { cache: 'no-store' });
+    if (res.status === 404) return 'no-disponible';
+    const datos = await res.json().catch(() => null);
+    return res.ok && esAppDeEstudio(datos) ? datos : 'error';
+  } catch {
+    return 'error';
+  }
+}
 
 const enlace = {
   border: 'none', background: 'none', fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', padding: '6px 0',
@@ -72,6 +102,16 @@ export default function EntradaApp() {
   // A dónde vuelve «Volver» desde el buscador.
   const [antesDeBuscar, setAntesDeBuscar] = useState<Fase>('puerta');
   const [estudios, setEstudios] = useState<Estudio[]>([]);
+  // La app de un estudio fija la entrada en él. `listo`: ya sabemos si lo es (hasta
+  // entonces no se pinta ningún logo: en una app de estudio saldría el de Tentare un instante).
+  const [fijo, setFijo] = useState<{ listo: boolean; app: AppDeEstudio | null }>({ listo: false, app: null });
+  // ¿Es la app de UN estudio (aunque no esté activa o no se haya podido comprobar)? Entonces nunca
+  // se ofrece la entrada genérica de Tentare, con su buscador de estudios.
+  const [deEstudio, setDeEstudio] = useState(false);
+  // App de una CADENA: sus sedes, y en cuáles es ya alumna (para elegir a cuál entra).
+  const [sedes, setSedes] = useState<(SedeDeLaApp & { suya: EstudioDeLaCuenta | null })[]>([]);
+  const consulta = useRef<Promise<ConsultaApp> | null>(null);
+  const appDeEstudio = useCallback(() => (consulta.current ??= consultarAppDeEstudio()), []);
   const [nombre, setNombre] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
@@ -107,6 +147,11 @@ export default function EntradaApp() {
   const cargarEstudios = useCallback(async () => {
     setFase('cargando');
     try {
+      const app = await appDeEstudio();
+      setDeEstudio(app !== null);
+      if (app === 'error') { consulta.current = null; setFase('error'); return; }
+      if (app === 'no-disponible') { consulta.current = null; setFijo({ listo: true, app: null }); setFase('no-disponible'); return; }
+      setFijo({ listo: true, app });
       const res = await fetch('/api/app/mis-estudios', { headers: await portalAuthHeader(), cache: 'no-store' });
       if (res.status === 401) { setFase('puerta'); return; }
       const datos = (await res.json().catch(() => null)) as { estudios?: Estudio[]; nombre?: string | null; error?: string } | null;
@@ -118,7 +163,27 @@ export default function EntradaApp() {
       }
       trasSegundoPaso.current = false;
       if (!res.ok || !Array.isArray(datos?.estudios)) { setFase('error'); return; }
-      const { elegir, estudio } = param();
+      const { elegir: pideLista, estudio: delEnlace } = param();
+      // App de una cadena: entra en su sede (o en la última que abrió) o elige entre las de la cadena,
+      // nunca entre otros estudios.
+      const deLaCadena = app ? sedesDeLaApp(app) : null;
+      if (deLaCadena) {
+        const suyas = new Map(datos.estudios.map((e) => [e.slug, e]));
+        const d = entradaEnCadena(deLaCadena, new Set(suyas.keys()), { ultimo: leerUltimo(), pideLista, enlace: delEnlace });
+        if (d.tipo === 'ir') { ir(suyas.get(d.slug)!); return; }
+        if (d.tipo === 'alta') {
+          guardarUltimo(d.slug);
+          if (montada.current && !navegoDesdeFueraHaceNada()) r.replace(`/portal/${encodeURIComponent(d.slug)}/acceso/registro`);
+          return;
+        }
+        setNombre(datos.nombre ?? null);
+        setSedes(deLaCadena.map((s) => ({ ...s, suya: suyas.get(s.slug) ?? null })));
+        setFase('sede');
+        return;
+      }
+      // En la app de un estudio manda su estudio, y nunca se enseña la lista.
+      const elegir = app ? false : pideLista;
+      const estudio = app?.slug ?? delEnlace;
       if (estudio) {
         const suyo = datos.estudios.find((e) => e.slug === estudio);
         // Aún no es suya: a darse de alta en él, con la cuenta que ya tiene.
@@ -134,22 +199,30 @@ export default function EntradaApp() {
     } catch {
       setFase('error');
     }
-  }, [ir, r]);
+  }, [ir, r, appDeEstudio]);
 
   // Con sesión (también la que llega del enlace del correo: `detectSessionInUrl`),
   // a sus estudios; sin ella, a la puerta.
   useEffect(() => {
     let vivo = true;
-    void supabasePortal.auth.getSession().then(({ data }) => {
+    void (async () => {
+      // Antes de pintar nada: ¿es la app de un estudio?
+      const app = await appDeEstudio();
+      if (!vivo) return;
+      setDeEstudio(app !== null);
+      if (app === 'error') { consulta.current = null; setFase('error'); return; }
+      if (app === 'no-disponible') { consulta.current = null; setFijo({ listo: true, app: null }); setFase('no-disponible'); return; }
+      setFijo({ listo: true, app });
+      const { data } = await supabasePortal.auth.getSession();
       if (!vivo) return;
       if (data.session) void cargarEstudios();
       else setFase('puerta');
-    });
+    })();
     const { data: escucha } = supabasePortal.auth.onAuthStateChange((evento, sesion) => {
       if (evento === 'SIGNED_IN' && sesion && vivo) void cargarEstudios();
     });
     return () => { vivo = false; escucha.subscription.unsubscribe(); };
-  }, [cargarEstudios]);
+  }, [cargarEstudios, appDeEstudio]);
 
   /** Manda el código. Si el email no tiene cuenta, gotrue la crea y el correo trae el mismo código. */
   const enviarCodigo = useCallback(async (): Promise<{ ok: true } | { error: string }> => {
@@ -207,20 +280,33 @@ export default function EntradaApp() {
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--background)', padding: 'calc(28px + var(--safe-top, 0px)) 22px calc(28px + var(--safe-bottom, 0px))' }}>
       <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {(fase === 'cargando' || fase === 'puerta' || fase === 'elegir' || fase === 'sin-estudios' || fase === 'error') && (
+        {(fase === 'cargando' || fase === 'puerta' || fase === 'elegir' || fase === 'sede' || fase === 'sin-estudios' || fase === 'error') && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: fase === 'puerta' ? '18px 0 14px' : '4px 0' }}>
-            <LogoTentare alto={fase === 'puerta' ? 30 : 24} />
+            {/* Nada hasta saber de qué app es: sin esto, en la de un estudio parpadearía el logo de Tentare. */}
+            {fijo.listo && (fijo.app
+              ? <AvatarEstudio icono={fijo.app.icono} nombre={fijo.app.nombre} color={fijo.app.color} lado={fase === 'puerta' ? 72 : 52} radio={fase === 'puerta' ? 18 : 14} />
+              : <LogoTentare alto={fase === 'puerta' ? 30 : 24} />)}
           </div>
         )}
 
         {fase === 'cargando' && <p className="t-meta" role="status" style={{ textAlign: 'center' }}>Un momento…</p>}
 
+        {fase === 'no-disponible' && (
+          <div role="status" className="note" data-testid="app-no-disponible">
+            Esta app no está disponible ahora mismo. Puedes seguir reservando desde la web de tu estudio, o escribirle para saber más.
+            <div style={{ marginTop: 10 }}>
+              <Button full onClick={() => { consulta.current = null; void cargarEstudios(); }}>Volver a comprobarlo</Button>
+            </div>
+          </div>
+        )}
+
         {fase === 'error' && (
           <div role="alert" className="note note--danger">
-            No hemos podido cargar tus estudios. Revisa la conexión.
+            {deEstudio || !fijo.listo ? 'No hemos podido abrir la app. Revisa la conexión e inténtalo de nuevo.' : 'No hemos podido cargar tus estudios. Revisa la conexión.'}
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Button full onClick={() => void cargarEstudios()}>Reintentar</Button>
-              <Button full variant="secondary" onClick={() => void salir()}>Entrar con otra cuenta</Button>
+              {/* Sin saber aún de qué app es, no se ofrece: llevaría a la entrada genérica de Tentare. */}
+              {fijo.listo && (fijo.app || !deEstudio) && <Button full variant="secondary" onClick={() => void salir()}>Entrar con otra cuenta</Button>}
             </div>
           </div>
         )}
@@ -228,8 +314,12 @@ export default function EntradaApp() {
         {fase === 'puerta' && (
           <form onSubmit={(e) => { e.preventDefault(); void continuar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
             <div>
-              <h1 className="t-h1">Reserva en tu estudio</h1>
-              <p className="t-meta" style={{ marginTop: 4 }}>Escribe tu email. Si ya vas a un estudio con Tentare, te reconocemos.</p>
+              <h1 className="t-h1">{fijo.app ? `Reserva en ${sedesDeLaApp(fijo.app) ? fijo.app.nombreApp : fijo.app.nombre}` : 'Reserva en tu estudio'}</h1>
+              <p className="t-meta" style={{ marginTop: 4 }}>
+                {fijo.app
+                  ? 'Escribe tu email. Si ya eres alumna, te reconocemos; si no, te das de alta.'
+                  : 'Escribe tu email. Si ya vas a un estudio con Tentare, te reconocemos.'}
+              </p>
             </div>
             {global && <div role="alert" className="note note--danger" data-testid="error-acceso">{global}</div>}
             <Input
@@ -244,13 +334,18 @@ export default function EntradaApp() {
             <BotonApple disabled={cargando} onEntrado={() => undefined} onError={setGlobal} />
             <BotonGoogle disabled={cargando} onEntrado={() => undefined} onError={setGlobal} />
             {captcha}
-            <div style={{ marginTop: 6, padding: 14, borderRadius: 16, background: 'var(--card)', border: '1px solid var(--border)' }}>
-              <p style={{ fontWeight: 800, margin: 0 }}>¿Tu estudio te ha pasado un enlace o un QR?</p>
-              <p className="t-meta" style={{ margin: '4px 0 0' }}>Ábrelo en este móvil y entrarás directa en su app.</p>
-            </div>
-            <button type="button" onClick={abrirBuscador} style={{ ...enlace, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Icono nombre="buscar" tamano={16} /> Buscar mi estudio
-            </button>
+            {/* En la app de un estudio no hay otro estudio que buscar. */}
+            {!fijo.app && (
+              <>
+                <div style={{ marginTop: 6, padding: 14, borderRadius: 16, background: 'var(--card)', border: '1px solid var(--border)' }}>
+                  <p style={{ fontWeight: 800, margin: 0 }}>¿Tu estudio te ha pasado un enlace o un QR?</p>
+                  <p className="t-meta" style={{ margin: '4px 0 0' }}>Ábrelo en este móvil y entrarás directa en su app.</p>
+                </div>
+                <button type="button" onClick={abrirBuscador} style={{ ...enlace, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <Icono nombre="buscar" tamano={16} /> Buscar mi estudio
+                </button>
+              </>
+            )}
             <p className="t-meta" style={{ textAlign: 'center', margin: 0 }}>
               ¿No puedes entrar? <Link href="/soporte" style={{ color: 'var(--accent)', fontWeight: 800 }}>Te ayudamos</Link>
             </p>
@@ -343,6 +438,38 @@ export default function EntradaApp() {
             <button type="button" onClick={abrirBuscador} style={{ ...enlace, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Icono nombre="mas" tamano={16} /> Añadir otro estudio
             </button>
+            <button type="button" onClick={() => void salir()} className="btn btn--secondary" style={{ marginTop: 4 }}>Salir</button>
+          </section>
+        )}
+
+        {fase === 'sede' && (
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="elegir-sede">
+            <div>
+              <h1 className="t-h1">{nombre ? `Hola, ${nombre}` : 'Elige tu sede'}</h1>
+              <p className="t-meta" style={{ marginTop: 4 }}>¿A qué sede vas? Podrás cambiarla cuando quieras desde tu perfil.</p>
+            </div>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {sedes.map((s) => (
+                <li key={s.slug}>
+                  <button
+                    type="button" className="card tap" data-sede={s.slug}
+                    onClick={() => {
+                      if (s.suya) { ir(s.suya); return; }
+                      guardarUltimo(s.slug);
+                      if (montada.current) r.replace(`/portal/${encodeURIComponent(s.slug)}/acceso/registro`);
+                    }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: 12, textAlign: 'left', border: '1.5px solid var(--border)', borderRadius: 18, background: 'var(--card)', color: 'inherit' }}
+                  >
+                    <AvatarEstudio icono={s.icono} nombre={s.nombre} color={s.color} lado={48} radio={13} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontWeight: 800 }}>{s.nombre}</span>
+                      <span className="t-meta" style={{ display: 'block', fontSize: 12 }}>{s.suya ? 'Ya eres alumna' : 'Te das de alta al entrar'}</span>
+                    </span>
+                    <Icono nombre="chevron-derecha" tamano={18} />
+                  </button>
+                </li>
+              ))}
+            </ul>
             <button type="button" onClick={() => void salir()} className="btn btn--secondary" style={{ marginTop: 4 }}>Salir</button>
           </section>
         )}

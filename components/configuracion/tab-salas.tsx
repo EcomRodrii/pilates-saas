@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import type { Sala } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, DoorOpen, Pencil, Plus, Trash2, Wrench } from 'lucide-react';
+import type { MostrarToast } from '@/components/ui/toast';
 
 type SalaForm = {
   nombre: string;
@@ -44,7 +45,7 @@ function salaToForm(s: Sala): SalaForm {
   };
 }
 
-export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
+export function TabSalas({ showToast }: { showToast: MostrarToast }) {
   const { salas, sesiones, reservas, addSala, updateSala, updateSesion, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
@@ -177,7 +178,8 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deleteSala(confirmDel);
-    showToast(res.ok ? 'Sala eliminada' : res.error);
+    if (res.ok) showToast('Sala eliminada');
+    else showToast(res.error, { variant: 'error' });
   }, [confirmDel, deleteSala, showToast]);
 
   // El HTML `min={1}` del input es solo una pista visual del navegador — no
@@ -210,7 +212,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       averiaForm.motivo.trim() || null,
       averiaForm.hasta ? new Date(averiaForm.hasta).toISOString() : null,
     );
-    if (!res.ok) { showToast(res.error); return; }
+    if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     showToast('Avería registrada — baja el aforo de esa sala');
     setAveriaModal(false);
   }, [averiaForm, marcarAveria, showToast]);
@@ -352,7 +354,8 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                     <button
                       onClick={async () => {
                         const res = await quitarAveria(b.id);
-                        showToast(res.ok ? 'Máquina marcada como arreglada' : res.error);
+                        if (res.ok) showToast('Máquina marcada como arreglada');
+                        else showToast(res.error, { variant: 'error' });
                       }}
                       className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors shrink-0"
                     >

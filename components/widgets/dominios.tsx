@@ -7,6 +7,7 @@ import { btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { normalizarOrigenWidget } from '@/lib/widget/dominios-autorizados';
 import { origenesConYSinWww } from '@/lib/widgets/recetas';
 import { FOCO } from './piezas';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Lista blanca de orígenes para el bundle embebible (studios.widget_dominios_autorizados,
 // lib/cors-widget.ts) — sin esto configurado, el navegador de cualquier
@@ -19,7 +20,7 @@ import { FOCO } from './piezas';
 export function GestionDominios({ dominios, onGuardar, showToast, puedeCambiar, sugerido }: {
   dominios: string[];
   onGuardar: (dominios: string[]) => Promise<{ ok: boolean; error?: string }>;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   puedeCambiar: boolean;
   /** La dirección que dio de su web, para no tener que escribirla otra vez. */
   sugerido?: string | null;
@@ -39,7 +40,7 @@ export function GestionDominios({ dominios, onGuardar, showToast, puedeCambiar, 
     setGuardando(true);
     const r = await onGuardar([...dominios, ...faltan]);
     setGuardando(false);
-    if (!r.ok) { showToast(r.error ?? 'No se pudo autorizar tu web'); return; }
+    if (!r.ok) { showToast(r.error ?? 'No se pudo autorizar tu web', { variant: 'error' }); return; }
     setNuevo('');
     // Fire-and-forget: registra el dominio recién autorizado como dominio de
     // wallets (Apple Pay/Google Pay) sobre la cuenta conectada del estudio.
@@ -57,7 +58,7 @@ export function GestionDominios({ dominios, onGuardar, showToast, puedeCambiar, 
     setGuardando(true);
     const r = await onGuardar(dominios.filter(d => d !== origenAQuitar));
     setGuardando(false);
-    if (!r.ok) showToast(r.error ?? 'No se pudo quitar la web');
+    if (!r.ok) showToast(r.error ?? 'No se pudo quitar la web', { variant: 'error' });
   }
 
   return (

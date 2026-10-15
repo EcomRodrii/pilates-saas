@@ -100,6 +100,7 @@ const articulo: Articulo = {
         },
         { t: 'p', texto: 'Haz la cuenta con tus precios: la calculadora parte del ejemplo de la tabla y te avisa si un escalón queda por debajo de tu coste o si el bono le quita alumnas a la cuota.' },
         { t: 'herramienta', id: 'calculadora-bonos' },
+        { t: 'descarga', recurso: 'simulador-escalera-bonos' },
         { t: 'p', texto: 'Después, llévalo a tu programa de reservas para no controlar caducidades a mano. En Tentare configuras [bonos, cuotas mensuales y clases sueltas](/funcionalidades/bonos-y-membresias), con la caducidad de cada bono y reglas por tipo de clase; si de momento usas una hoja de cálculo, tienes la [plantilla de control de asistencia](/recursos/plantilla-control-de-asistencia-pilates).' },
         {
           t: 'llamada',
@@ -202,7 +203,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Tus bonos y cuotas, con sus reglas, en un solo sitio',
-    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con Stripe (tarjeta o SEPA). Prueba 7 días gratis, sin tarjeta, el plan que elijas.',
+    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con Stripe (tarjeta o SEPA). Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Escalera de ejemplo: la suelta (25 €) y las cuotas (75 y 130 €) son medianas del estudio de precios; los bonos de 5 (110 €) y 10 (200 €) están redondeados dentro de los descuentos observados, no son medianas.',

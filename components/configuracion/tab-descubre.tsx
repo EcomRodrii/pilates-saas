@@ -7,6 +7,8 @@ import {
 } from '@/components/theme/contenido-portal-editor';
 import { cardCls } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { fondoTenido } from '@/components/dashboard/vivo';
 
 // «Descubre» y el tablón: lo que el estudio publica y leen sus alumnas.
 //
@@ -24,6 +26,7 @@ import { cn } from '@/lib/utils';
 // un segundo sitio es exactamente para lo que se separó.
 export function TabDescubre() {
   const { rol } = usePermisos();
+  const panelNuevo = usePanelNuevo();
   const hook = useContenidoPortalEditor();
   const [seleccion, setSeleccion] = useState<string | null>(MENSAJE_DESTACADO_ID);
 
@@ -51,17 +54,19 @@ export function TabDescubre() {
       </p>
 
       {hook.aviso && (
-        <p className="text-[12.5px] text-muted-foreground" role="status">{hook.aviso}</p>
+        <p className={cn('text-[12.5px]', hook.aviso.error ? 'font-medium text-destructive' : 'text-muted-foreground')} role={hook.aviso.error ? 'alert' : 'status'}>
+          {hook.aviso.texto}
+        </p>
       )}
 
       {/* Maestro–detalle, como en Apariencia: la lista elige y el panel
           configura. En móvil se apilan — la rejilla de dos columnas solo entra
           a partir de `lg`, donde caben las dos sin apretar ninguna. */}
       <div className="grid gap-4 @3xl/config:grid-cols-[minmax(0,260px)_minmax(0,1fr)] items-start">
-        <div className={cn(cardCls, 'p-3')}>
+        <div className={cn(panelNuevo ? 'rounded-t-card border shadow-t-card' : cardCls, 'p-3')} style={panelNuevo ? fondoTenido('azul', 9) : undefined}>
           <ContenidoPortalList hook={hook} seleccionId={seleccion} onSeleccionar={setSeleccion} />
         </div>
-        <div className={cn(cardCls, 'p-4')}>
+        <div className={cn(panelNuevo ? 'rounded-t-card border shadow-t-card' : cardCls, 'p-4')} style={panelNuevo ? fondoTenido('magenta', 9) : undefined}>
           <ContenidoPortalPanel hook={hook} seleccionId={seleccion} />
         </div>
       </div>

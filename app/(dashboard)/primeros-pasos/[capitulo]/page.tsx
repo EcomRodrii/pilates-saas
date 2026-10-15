@@ -28,7 +28,7 @@ export default function CapituloPage({ params }: { params: Promise<{ capitulo: s
   const { capitulo: id } = use(params);
   const {
     studio, instructores, tiposClase, sesiones, socios,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, reservas,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal, reservas,
   } = useStudio();
   const { iniciarTour } = useTour();
 
@@ -37,7 +37,7 @@ export default function CapituloPage({ params }: { params: Promise<{ capitulo: s
 
   const datos = studio ? calcularOnboarding(datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   })) : null;
 
   const item = datos

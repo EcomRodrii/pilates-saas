@@ -87,7 +87,7 @@ const ROWS: {
 }[] = [
   {
     feature: 'Precio público en la web',
-    tentare: ['yes', 'Desde 29 €/mes, IVA incluido'],
+    tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'],
     bsport: ['no', 'Pide presupuesto'],
     momence: ['no', 'Pide hablar con ellos'],
     eversports: ['yes', 'Desde 33 €/mes + IVA'],
@@ -172,7 +172,7 @@ const ROWS: {
   },
   {
     feature: 'Sustitución de instructoras',
-    tentare: ['yes', 'Con tu visto bueno; autónoma en el plan Estudio'],
+    tentare: ['yes', 'Con tu visto bueno; autónoma en todos los planes'],
     bsport: ['yes', 'Sustituciones automáticas'],
     momence: ['yes', 'Automatiza sustituciones'],
     eversports: ['yes', 'Gestión de sustituciones'],

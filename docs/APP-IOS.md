@@ -442,27 +442,154 @@ este resumen se escribió sin poder abrirlas.
 
 ## Apps por estudio
 
-Salen de este mismo proyecto cambiando la identidad al compilar:
+Cada estudio puede tener su propia app de tienda (nombre, icono y color suyos),
+publicada desde la cuenta de Apple de **Tentare**, con el mismo código: una variante
+de binario por estudio (el modelo de Momence). Un solo equipo de Apple significa
+una sola clave de notificaciones y un solo «Entrar con Apple» para todas.
+
+**Cómo sabe la app de qué estudio es** (14-oct-2026, piloto):
+
+- La tabla `apps_estudio` (`studio_id`, `bundle_id`, `nombre_app`, `activa`) es el
+  mapa, y `activa` el único interruptor. Solo la lee y escribe el servidor.
+- Al abrirse, `/app` pregunta `GET /api/public/app/app-estudio?bundle=<bundle id>`
+  (el bundle lo da la carcasa, `bundleIdDeLaApp()`). Con fila activa se fija en ese
+  estudio: su icono y nombre en la puerta, sin buscador, y entra directa en él (o a
+  darse de alta, si aún no es suyo). Sin fila activa (404), o en la web y en
+  `app.tentare`, es la entrada de siempre. Si la consulta falla, dice que no hay
+  conexión: no cae al selector de «Tentare».
+- «Cambiar de estudio» solo existe en `app.tentare`.
+- `subscribe` solo guarda un token de una app de estudio bajo ESE estudio (bundle de
+  una app activa de su `studio_id`); `app.tentare` sirve a cualquiera.
+- El fichero de enlaces universales añade, por cada app activa, una entrada con
+  `TEAMID.bundle` que reclama solo `/portal/<slug>` y `/portal/<slug>/*`, antes de la
+  entrada general (iOS toma la primera que encaja). Si no se pueden leer, 503 y no un
+  fichero recortado.
+
+⚠️ El bundle id es un dato del cliente y se puede falsear: solo sirve para estrechar
+(abrir en un estudio), nunca para dar acceso; la sesión y la pertenencia al estudio las
+decide el servidor.
+
+Lo que sigue siendo a mano por estudio: la fila en `apps_estudio`; añadir el bundle a
+los Client IDs de Apple en Supabase; el registro de la app en App Store Connect
+(Apple no permite crearlo por API; el nombre ha de ser único en toda la App Store);
+y, cuando se envíe a revisión, App Privacy y la ficha.
+
+⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si no las
+publica el propio dueño del contenido, y dice que estos servicios «no deben enviar
+apps en nombre de sus clientes». Publicar desde la cuenta de Tentare es el modelo de
+Momence, que Apple acepta en la práctica, pero es lo contrario del texto. **Nada de
+esto se envía a revisión de Apple sin decisión expresa del fundador**; el piloto va a
+TestFlight interno. La consulta a App Review sobre este modelo está pendiente de enviar.
+
+**Compilar y subir la app de un estudio** (con la fila ya ACTIVA y el registro creado en
+App Store Connect con el mismo bundle id):
 
 ```sh
-TENTARE_APP_ID=app.tentare.luz TENTARE_APP_NAME="Luz" npm run cap:sync
+TENTARE_APPLE_TEAM_ID=XXXXXXXXXX npm run app:estudio -- <slug>            # icono, compila y sube a TestFlight
+npm run app:estudio -- <slug> --solo-icono                                # deja el icono en build/app-estudio/<slug>/ y para
+npm run app:estudio -- <slug> --sin-subir                                 # compila y comprueba, sin subir
 ```
 
-`capacitor.config.ts` las lee, y `scripts/identidad-ios.mjs` las escribe en
-`ios/identidad.local.xcconfig`, que `project.pbxproj` e `Info.plist` usan como
-`$(TENTARE_BUNDLE_ID)` y `$(TENTARE_APP_NAME)`. La URL de arranque es la misma:
-`/app` sabe qué app la abre por su bundle id (`bundleIdDeLaApp()`).
+(`scripts/app-estudio.mjs`; el Team ID se lee también de `ios/identidad.local.xcconfig`.)
+Pide al servidor el nombre y el icono del estudio, pinta el icono de 1024 px sin alfa (el
+mismo que ven sus alumnas: favicon › logo › inicial; `/icono-estudio?size=1024`), pone
+la identidad, compila con firma automática (`-allowProvisioningUpdates`, que registra el
+App ID), exporta primero un IPA y **comprueba sus entitlements** (notificaciones en
+producción, Entrar con Apple y enlaces universales; sin ellos no sube; en el archivo las
+notificaciones van en `development`, solo el IPA las lleva en `production`) y entonces lo
+sube a App Store Connect. El número de build es la fecha y hora. Deja los ficheros versionados
+(`Assets.xcassets`), la identidad local y el JSON de Capacitor como estaban, salga bien o
+mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 
-Cada app de estudio necesita además: su App ID con las tres capacidades, su
-ficha en App Store Connect, su `<TEAMID>.<bundle id>` en el fichero de Universal
-Links, su bundle id en los Client IDs de Apple de Supabase, su
-`<bundle id>://auth/vuelta` en las Redirect URLs, y su icono (hoy `iconos:ios`
-pinta el de Tentare).
+⚠️ Sube a App Store Connect, **no envía a revisión**.
 
-⚠️ **Guía 4.2.6**: Apple rechaza las apps hechas con una plantilla comercial si
-no las publica el propio dueño del contenido. Una app por estudio tendría que
-publicarse desde la cuenta de desarrollador **del estudio**, no desde la de
-Tentare. Decidirlo antes de prometerlo.
+**Pedir la app desde el panel** (fase 1, 15-oct-2026; apagado de serie):
+
+- El estudio la pide en Apariencia de tu app → «Tu app en la App Store» (`MiAppDeTienda`; con
+  `PANEL_NUEVO`, en el paso «Tu app»), solo con `APP_PROPIA_PEDIR` encendido para él (`on` o
+  `estudios:<id>`, el formato de siempre). Pedirla es de la **propietaria** y, decisión del fundador
+  (15-oct-2026), solo con **Estudio o Cadena PAGADO**: ni en la prueba ni con un cobro pendiente
+  (`bloqueoParaPedir`, `lib/app-nativa/pedir-app.ts`, EN EL SERVIDOR: `POST /api/estudio/app-movil`).
+  Nace `PEDIDA` y **sin activar**, con un hueco del lote (abajo) o, si no queda, el bundle del slug.
+- **Cadena = UNA app** (decisión del fundador, 15-oct-2026). Su fila de `apps_estudio` va con el id de
+  la sede PRINCIPAL (la más antigua, `estudioDeLaApp`, `lib/app-nativa/app-de-cadena.ts`); se pide
+  desde ella y las demás sedes ven la misma. Dentro, la alumna entra en su sede (la única de la
+  cadena donde ya es alumna, o la última que abrió) o elige entre las de la cadena (`entradaEnCadena`,
+  `/app`), nunca entre otros estudios; en el perfil tiene «Cambiar de sede». `/api/public/app/app-estudio`
+  devuelve sus `sedes`, el AASA reclama las rutas de todas y sus avisos llevan los de cualquier sede.
+- Los estados (`apps_estudio.estado`) son lo que se le cuenta al estudio: `PEDIDA`, `EN_PREPARACION`,
+  `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos».
+- La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, cambia el nombre si
+  el pedido ya está cogido en la App Store, pone el enlace de la tienda y apunta notas que el estudio
+  nunca ve. **`activa` solo se mueve desde ahí**, y es lo que cambia qué abre la app, a qué bundle se
+  mandan sus avisos y el fichero de enlaces universales. Las reglas las pone el servidor (`leerCambio`,
+  `lib/interno/apps-estudio.ts`) sobre cómo QUEDA la app: solo transiciones reales (hacia delante,
+  pausa, y atrás solo «rechazada» y «rehacer la compilación»); `PUBLICADA` exige el enlace de la ficha
+  y la app activa; no se activa una app solo «Pedida» (aún no existe en App Store Connect); una
+  publicada no se desactiva.
+- ⚠️ Una sede secundaria que YA tenía su propia app (la piloto de «marta», anterior a «una por
+  cadena») la conserva tal cual, como app de esa sede sola: `resolverDuena` mira primero si la sede
+  tiene fila propia, y la app de la cadena deja fuera a esas sedes (endpoint público y AASA).
+- **Si deja de pagar** Estudio/Cadena o baja a Founding (decisión del fundador, 15-oct-2026): 30 días
+  de margen con aviso a la propietaria (`APP_TIENDA_SIN_PLAN`) y en su panel; al acabar, la app pasa a
+  `PAUSADA` (aviso `APP_TIENDA_PAUSADA`) y la nota interna pide retirarla de la venta. `activa` se
+  queda: quien ya la tiene instalada la sigue usando. Si vuelve a pagar, el margen se borra y, si ya
+  estaba pausada, la nota pide retomarla. Lo hace el cron horario `notif-trial`
+  (`revisarAppsSinPlan`, `lib/app-nativa/apps-sin-plan*.ts`) con compare-and-set; el reloj es
+  `apps_estudio.sin_plan_desde` (migr `20261015184839`).
+- Con la app PUBLICADA, la alumna se entera: `apple-itunes-app` en su app web y en /reservar (el aviso
+  de Safari) y, en el iPhone, «Descarga la app» en su perfil (`appDeTiendaPublicada`).
+- Una app de estudio SIN activar dice «no disponible» al abrirse (`/app`): nunca cae a la entrada de
+  «Tentare» con su buscador de estudios. Sus avisos solo llevan los de su estudio, y solo mientras
+  está activa (`suscripcionesDelAviso`, `lib/notifications/channels.ts`).
+
+**La API de App Store Connect** (15-oct-2026, `scripts/asc.mjs` + `lib/nativo/asc.ts`):
+
+- La clave de equipo (rol Administración) vive SOLO en los secretos de GitHub Actions
+  (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`) y se usa desde el workflow manual
+  «Apps de estudio · App Store Connect» (`.github/workflows/apps-estudio-asc.yml`).
+  Nada la escribe en disco ni la imprime.
+- Órdenes: `comprobar` (lista las apps; no cambia nada), `nombre <bundle> "<nombre>"` y
+  `registrar-cupos <desde> <hasta>`. Las que cambian algo son un ensayo salvo con `--en-serio`.
+- ⚠️ Apple NO deja crear el registro de una app por API («The resource 'apps' does not allow
+  'CREATE'») ni contestar el cuestionario de privacidad. La idea para quitarlo del camino de
+  cada estudio es un LOTE: registrar `app.tentare.cupo-NNN` por API, crear esas apps de golpe
+  en la web y asignar un hueco libre a cada estudio que pide la suya, cambiándole el nombre por
+  API. Comprobado el 15-oct-2026: Apple SÍ deja renombrar por API una app nunca enviada
+  (`nombre` sobre la app de Marta, ida y vuelta).
+- **El lote** (`apps_estudio_cupos`, migr `20261015125054_apps_estudio_cupos`): cada hueco es un
+  identificador `app.tentare.cupo-NNN` ya registrado con sus capacidades, su app ya creada en App
+  Store Connect (`asc_app_id`) y su bundle ya en los Client IDs de Apple de Supabase. El primer lote
+  son 10 (15-oct-2026). Al pedir su app, el estudio se lleva un hueco libre (`asignar_cupo_app`, con
+  candado por estudio desde la migr `20261015183121`; solo service_role); si la función falla, la
+  petición falla (nunca cae al slug por un error); si no queda ninguno, el identificador sale del slug como antes y la
+  app se crea a mano. La cola de `/interno` dice cuántos huecos quedan y enlaza cada app a App Store
+  Connect. ⚠️ Un lote nuevo: `registrar-cupos`, crear las apps en la web, añadir sus bundles a los
+  Client IDs de Supabase e insertar sus filas en `apps_estudio_cupos`.
+
+**Tramitación automática** (15-oct-2026, `scripts/apps-automatico.mjs` + `.github/workflows/apps-estudio-automatico.yml`):
+
+- Cada 30 minutos, GitHub Actions pregunta a `/api/automatico/apps-estudio` (con
+  `APPS_AUTOMATICO_SECRET`, el MISMO valor en Vercel y en los secretos de GitHub; sin él, no hace nada) y,
+  para cada app con hueco del lote y su dueño pagando (`pasoDe`, `lib/nativo/automatico.ts`):
+  - `PEDIDA`: le pone su nombre en App Store Connect y la pasa a `EN_PREPARACION`, activa. Si Apple dice que
+    el nombre está cogido, lo apunta y avisa; se cambia en /interno y se reintenta solo.
+  - `EN_PREPARACION`: si no tiene compilación (o falló), la compila y la sube a TestFlight en una máquina
+    macOS de GitHub, firmando con la clave de App Store Connect (`argumentosDeClave`). Cuando Apple la ha
+    procesado, `EN_PRUEBAS`. Dos fallos en el día y no se reintenta hasta el siguiente.
+  - `EN_PRUEBAS`/`EN_REVISION`: sigue la versión en Apple (`faseDeVersion`): en revisión, rechazada (vuelve
+    a pruebas) o publicada (`PUBLICADA` con el enlace de su ficha, `urlDeFicha`).
+- El servidor aplica las MISMAS reglas que /interno (`leerCambio`), con compare-and-set sobre el estado
+  leído, y lo apunta en la auditoría a nombre de «Automático». Cada paso que importa llega por correo a
+  soporte@ (`avisarEquipoApps`), igual que cada petición nueva (con los huecos que quedan).
+- ⚠️ Xcode crea un certificado de desarrollo en cada máquina nueva al firmar con la clave; si se acumulan,
+  Apple deja de firmar («máximo de certificados»). El workflow anota los que había antes y, al terminar,
+  revoca SOLO los nuevos (`certificadosNuevos`). El de distribución es de la nube de Apple y no se toca.
+- ⚠️ Lo que NO hace solo: **enviar a revisión** (decisión del equipo: guía 4.2.6 y el cuestionario de
+  privacidad, que solo se contesta en la web) ni **retirar de la venta** (sin una forma confirmada por API:
+  la nota interna lo pide y llega por correo).
+- Para encenderlo: crear `APPS_AUTOMATICO_SECRET` (p. ej. `openssl rand -hex 32`) en Vercel (Production) y
+  en los secretos del repo de GitHub, con el mismo valor, y desplegar.
 
 ## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
 

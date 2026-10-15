@@ -3,7 +3,8 @@
 import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { CATEGORIAS, type ValorPlan } from '@/lib/billing/catalogo-planes';
+import { CATEGORIAS, FILA_TOPE_ALUMNAS, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
+import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, SI_PASAS } from '@/lib/landing/founding-gratis';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
@@ -41,10 +42,28 @@ export function ComparativaPlanes({
   destacado,
   /** Abre todas las categorías de salida. /precios lo quiere así (es SEO). */
   todoAbierto = false,
+  /** Founding Studio GRATIS (web comercial, decisión del 15-oct-2026): su
+   *  columna enseña todo menos varias sedes, «Gratis» en vez del precio y la
+   *  fila de reservas al mes, que solo tiene tope en ese plan. */
+  foundingGratis = false,
 }: {
   destacado?: Plan;
   todoAbierto?: boolean;
+  foundingGratis?: boolean;
 }) {
+  const valorDe = (fila: FilaPlan, p: Plan): ValorPlan => {
+    if (!foundingGratis || p !== 'BASE') return fila.valor(p);
+    // El tope de alumnas es solo de lo gratis: pasado, Founding Studio sigue sin tope.
+    if (fila.id === FILA_TOPE_ALUMNAS) return { tipo: 'texto', texto: `Gratis hasta ${GRATIS_ALUMNAS}` };
+    return fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS);
+  };
+  // Una fila más, justo debajo de la de alumnas: el límite de lo gratis. Pasado,
+  // Founding Studio sigue igual pero de pago (decisión del 15-oct-2026).
+  const filaReservas: FilaPlan = {
+    nombre: 'Reservas al mes',
+    detalle: `Founding Studio es gratis ${LIMITES_GRATIS}; ${SI_PASAS}, sin tope.`,
+    valor: (p) => ({ tipo: 'texto', texto: p === 'BASE' ? `Gratis hasta ${GRATIS_RESERVAS_MES}` : 'Sin límite' }),
+  };
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Aviso de que se puede deslizar, solo en móvil. Antes el comentario de
@@ -80,7 +99,7 @@ export function ComparativaPlanes({
               >
                 <NombrePlan plan={p} />
                 <span className="block text-[10px] font-medium tabular-nums opacity-70">
-                  {PLAN_INFO[p].precioMes}€
+                  {foundingGratis && p === 'BASE' ? 'Gratis' : `${PLAN_INFO[p].precioMes}€`}
                 </span>
               </span>
             ))}
@@ -102,7 +121,7 @@ export function ComparativaPlanes({
               </summary>
 
               <div className="pb-1">
-                {cat.filas.map((fila) => (
+                {cat.filas.flatMap((fila) => (foundingGratis && fila.id === FILA_TOPE_ALUMNAS ? [fila, filaReservas] : [fila])).map((fila) => (
                   <div
                     key={fila.nombre}
                     className="grid grid-cols-[minmax(150px,1fr)_repeat(3,minmax(76px,96px))] items-center gap-2 px-4 py-2.5 odd:bg-muted/25 sm:grid-cols-[minmax(180px,1fr)_repeat(3,minmax(96px,124px))] sm:px-5"
@@ -115,7 +134,7 @@ export function ComparativaPlanes({
                     </div>
                     {PLANES.map((p) => (
                       <div key={p} className="flex items-center justify-center">
-                        <Marca valor={fila.valor(p)} />
+                        <Marca valor={valorDe(fila, p)} />
                       </div>
                     ))}
                   </div>
@@ -138,10 +157,13 @@ export function HojaComparativa({
   abierta,
   onCerrar,
   destacado,
+  foundingGratis = false,
 }: {
   abierta: boolean;
   onCerrar: () => void;
   destacado?: Plan;
+  /** El alta con Founding Studio gratis: la misma columna que /precios. */
+  foundingGratis?: boolean;
 }) {
   const tituloId = useId();
 
@@ -185,7 +207,7 @@ export function HojaComparativa({
           </button>
         </div>
         <div className="cmp-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
-          <ComparativaPlanes destacado={destacado} todoAbierto />
+          <ComparativaPlanes destacado={destacado} todoAbierto foundingGratis={foundingGratis} />
         </div>
       </div>
     </div>

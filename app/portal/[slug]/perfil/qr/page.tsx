@@ -28,7 +28,7 @@ export default function QrAccesoPage() {
   const { data: socia } = useAsync(cargarAlumna, (d) => !d);
   const [confirmar, setConfirmar] = useState(false);
   const [cambiando, setCambiando] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
 
   const nombre = [socia?.nombre, socia?.apellidos].filter(Boolean).join(' ');
 
@@ -37,7 +37,9 @@ export default function QrAccesoPage() {
     const ok = await regenerar();
     setCambiando(false);
     setConfirmar(false);
-    setAviso(ok ? 'Listo: este es tu QR nuevo. El anterior ya no funciona.' : 'No hemos podido cambiarlo. Inténtalo otra vez.');
+    setAviso(ok // toast-no-es-error: el aviso lleva `error` y se pinta como alert con note--danger
+      ? { texto: 'Listo: este es tu QR nuevo. El anterior ya no funciona.', error: false }
+      : { texto: 'No hemos podido cambiarlo. Inténtalo otra vez.', error: true });
   };
 
   return (
@@ -79,8 +81,9 @@ export default function QrAccesoPage() {
             {estado === 'listo' && <AnadirAWallet slug={estudio.slug} />}
 
             {aviso && (
-              <p role="status" className="card" style={{ padding: '12px 14px', margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>
-                {aviso}
+              // Un fallo, con el tono de peligro de la app (`note--danger`) y como `alert`.
+              <p role={aviso.error ? 'alert' : 'status'} className={aviso.error ? 'card note--danger' : 'card'} style={{ padding: '12px 14px', margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>
+                {aviso.texto}
               </p>
             )}
 

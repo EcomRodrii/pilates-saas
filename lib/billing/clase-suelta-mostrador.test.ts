@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular } from './clase-suelta-mostrador.ts';
+import { anularClaseSueltaCubiertaPorCuota, anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular } from './clase-suelta-mostrador.ts';
 
 // Un admin de mentira: guarda filas por tabla, aplica los `.eq`/`.is` de los
 // update (compare-and-set) y apunta cada escritura. `fallos`:
@@ -11,10 +11,10 @@ import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular } fro
 //  · `update`: cuántas veces seguidas falla el UPDATE de esa tabla.
 type Fila = Record<string, unknown>;
 function adminFalso(
-  inicial: { suscripciones?: Fila[]; recibos?: Fila[] } = {},
+  inicial: { suscripciones?: Fila[]; recibos?: Fila[]; reservas?: Fila[] } = {},
   fallos: { insert?: Record<string, string>; insertQueGuarda?: Record<string, string>; update?: Record<string, number> } = {},
 ) {
-  const tablas: Record<string, Fila[]> = { suscripciones: [...(inicial.suscripciones ?? [])], recibos: [...(inicial.recibos ?? [])] };
+  const tablas: Record<string, Fila[]> = { suscripciones: [...(inicial.suscripciones ?? [])], recibos: [...(inicial.recibos ?? [])], reservas: [...(inicial.reservas ?? [])] };
   const escrituras: string[] = [];
   const fallosUpdate: Record<string, number> = { ...(fallos.update ?? {}) };
   const admin = {
@@ -222,4 +222,68 @@ test('si una suscripción creada AQUÍ sobra por un recibo ajeno y no se puede c
   assert.equal(r.ok, false);
   assert.equal(!r.ok && r.queda, 'revisar');
   assert.equal(tablas.suscripciones[0].estado, 'ACTIVA', 'no se pudo cancelar: sigue viva, de ahí el «revisar»');
+});
+
+// ── La clase suelta de una clase que ya cubre su cuota ──────────────────────────
+const ANULAR_CUOTA = { ...ANULAR, reservaId: 'res-1' };
+const gastada = () => ({ id: 'sus-suelta-res-1', studio_id: 'st', estado: 'ACTIVA', sesiones_restantes: 0 });
+const colgando = () => ({ id: 'res-1', studio_id: 'st', estado: 'CONFIRMADA', bono_suscripcion_id: 'sus-suelta-res-1' });
+const pendiente = (o: Fila = {}) => ({
+  id: 'rec-suelta-res-1', studio_id: 'st', estado: 'PENDIENTE', fecha_cobro: null, stripe_payment_intent_id: null,
+  checkout_session_id: null, cobro_mostrador_pi: null, cobro_off_session_clave: null, proximo_reintento: null, ...o,
+});
+
+test('cubierta por la cuota: anula el recibo, cancela la clase suelta (ya gastada) y la reserva deja de colgar de ella, en ese orden', async () => {
+  const { admin, tablas, escrituras } = adminFalso({ suscripciones: [gastada()], recibos: [pendiente()], reservas: [colgando()] });
+  assert.equal(await anularClaseSueltaCubiertaPorCuota(admin, ANULAR_CUOTA, callado), 'anulada');
+  assert.equal(tablas.recibos[0].estado, 'ANULADO');
+  assert.equal(tablas.recibos[0].anulado_en, ANULAR_CUOTA.ahoraISO);
+  // Cancelada aunque estuviera gastada: si no, al cancelar a tiempo la sesión volvería a ella, gratis.
+  assert.equal(tablas.suscripciones[0].estado, 'CANCELADA');
+  // Como cualquier reserva con cuota: al cancelarla nadie le dice «sesión devuelta a tu bono».
+  assert.equal(tablas.reservas[0].bono_suscripcion_id, null);
+  assert.equal(tablas.reservas[0].estado, 'CONFIRMADA');
+  assert.deepEqual(escrituras, ['update recibos rec-suelta-res-1', 'update suscripciones sus-suelta-res-1', 'update reservas res-1']);
+});
+
+test('cubierta por la cuota: con el recibo cobrado o con un cobro en marcha, no se toca nada', async () => {
+  for (const recibo of [pendiente({ estado: 'COBRADO', fecha_cobro: '2026-10-14' }), pendiente({ checkout_session_id: 'cs_1' }), pendiente({ cobro_mostrador_pi: 'pi_1' })]) {
+    const { admin, tablas, escrituras } = adminFalso({ suscripciones: [gastada()], recibos: [recibo], reservas: [colgando()] });
+    assert.equal(await anularClaseSueltaCubiertaPorCuota(admin, ANULAR_CUOTA, callado), 'no-pendiente');
+    assert.equal(tablas.suscripciones[0].estado, 'ACTIVA');
+    assert.equal(tablas.reservas[0].bono_suscripcion_id, 'sus-suelta-res-1');
+    assert.deepEqual(escrituras, []);
+  }
+});
+
+test('cubierta por la cuota: la reserva que ya no cuelga de esta clase suelta (otro bono) no se toca', async () => {
+  const { admin, tablas } = adminFalso({ suscripciones: [gastada()], recibos: [pendiente()], reservas: [{ ...colgando(), bono_suscripcion_id: 'sus-otro' }] });
+  assert.equal(await anularClaseSueltaCubiertaPorCuota(admin, ANULAR_CUOTA, callado), 'anulada');
+  assert.equal(tablas.reservas[0].bono_suscripcion_id, 'sus-otro');
+});
+
+test('cubierta por la cuota: idempotente — con el recibo ya anulado, termina lo que faltaba', async () => {
+  const { admin, tablas } = adminFalso({ suscripciones: [gastada()], recibos: [pendiente({ estado: 'ANULADO' })], reservas: [colgando()] });
+  assert.equal(await anularClaseSueltaCubiertaPorCuota(admin, ANULAR_CUOTA, callado), 'anulada');
+  assert.equal(tablas.suscripciones[0].estado, 'CANCELADA');
+  assert.equal(tablas.reservas[0].bono_suscripcion_id, null);
+  // Y otra vez: nada más que hacer, sin error.
+  assert.equal(await anularClaseSueltaCubiertaPorCuota(admin, ANULAR_CUOTA, callado), 'anulada');
+});
+
+test('cubierta por la cuota: si el recibo no se puede anular no se toca nada más; si falla un paso de después, es «incompleta» y se dice', async () => {
+  const avisos: string[] = [];
+  const a = adminFalso({ suscripciones: [gastada()], recibos: [pendiente()], reservas: [colgando()] }, { update: { recibos: 1 } });
+  assert.equal(await anularClaseSueltaCubiertaPorCuota(a.admin, ANULAR_CUOTA, m => avisos.push(m)), 'fallo');
+  assert.equal(a.tablas.recibos[0].estado, 'PENDIENTE');
+  assert.equal(a.tablas.suscripciones[0].estado, 'ACTIVA');
+  assert.equal(a.tablas.reservas[0].bono_suscripcion_id, 'sus-suelta-res-1');
+
+  for (const tabla of ['suscripciones', 'reservas']) {
+    const b = adminFalso({ suscripciones: [gastada()], recibos: [pendiente()], reservas: [colgando()] }, { update: { [tabla]: 1 } });
+    assert.equal(await anularClaseSueltaCubiertaPorCuota(b.admin, ANULAR_CUOTA, m => avisos.push(m)), 'incompleta');
+    // Lo que se le cobraría ya no se le cobra.
+    assert.equal(b.tablas.recibos[0].estado, 'ANULADO');
+  }
+  assert.equal(avisos.length, 3);
 });

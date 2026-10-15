@@ -28,6 +28,9 @@ import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { subirImagenPostComunidad } from '@/lib/portal-storage';
 import type { DestinatariosCampana } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { CalendarDays, Megaphone, Star, Target, Trophy, Users } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Baldosa, PantallaVacia, TONOS, type Tono } from '@/components/dashboard/vivo';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Toast, useToast } from '@/components/ui/toast';
 import { retirarComentarioComunidad } from '@/lib/api-client';
@@ -45,6 +48,20 @@ type Comment = { id: string; autorNombre: string; texto: string; creadoEn: strin
 // montar 300 tarjetas de golpe en un estudio con historial.
 const PAGINA = 8;
 
+// Panel nuevo: cada tarjeta del lateral con su baldosa, y los logros con un icono
+// del juego de siempre en vez del emoji (cero emojis como icono en el panel).
+const LATERAL: Record<string, { Icono: React.ElementType; tono: Tono }> = {
+  'Destacadas este mes': { Icono: Trophy, tono: 'magenta' },
+  'Próximas clases': { Icono: CalendarDays, tono: 'azul' },
+  'Clientas activas': { Icono: Users, tono: 'verde' },
+  'Logros del mes': { Icono: Target, tono: 'indigo' },
+};
+const ICONO_LOGRO: Record<string, { Icono: React.ElementType; tono: Tono }> = {
+  '🏆': { Icono: Trophy, tono: 'magenta' },
+  '🎯': { Icono: Target, tono: 'azul' },
+  '⭐': { Icono: Star, tono: 'indigo' },
+};
+
 export function ComunidadFeed() {
   const {
     postsComunidad: posts, addPost, toggleLikePost, updatePost, deletePost, likedPostIds,
@@ -56,6 +73,7 @@ export function ComunidadFeed() {
   const { porSocio: estadosClientas, conteos: conteosClientas } = useEstadosClientas();
   const authUserId = user?.id ?? null;
   const rol = useRol();
+  const panelNuevo = usePanelNuevo();
   // F-18: editar/borrar es solo del autor o de quien modera — la RLS
   // (migr 20260902104439) ya lo exige de verdad; esto es solo no ENSEÑAR un
   // botón que la base de datos va a rechazar.
@@ -253,7 +271,28 @@ export function ComunidadFeed() {
           </div>
         )}
 
-        {dataLoaded && sortedPosts.length === 0 && (
+        {dataLoaded && sortedPosts.length === 0 && panelNuevo && (
+          <PantallaVacia
+            tono="magenta"
+            Icono={Megaphone}
+            titulo="Tu tablón está en silencio"
+            texto="Lo que publiques aquí lo verán tus clientas en su portal, sin tener que abrir el correo."
+            ejemplos={[
+              { accion: 'Un aviso', cuando: 'como «el lunes 3 la sala abre a las 8».' },
+              { accion: 'Una foto', cuando: 'de la sala nueva o del último taller.' },
+              { accion: 'Un evento', cuando: 'como el taller del sábado, con su fecha.' },
+            ]}
+            accion={{
+              label: 'Escribir la primera',
+              onClick: () => {
+                compositorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                compositorRef.current?.querySelector('textarea')?.focus();
+              },
+            }}
+          />
+        )}
+
+        {dataLoaded && sortedPosts.length === 0 && !panelNuevo && (
           <FeedVacio
             onEmpezar={() => {
               compositorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -375,7 +414,9 @@ export function ComunidadFeed() {
             <div className="space-y-3">
               {logrosMes.map(logro => (
                 <div key={logro.titulo} className="flex items-start gap-3">
-                  <span aria-hidden className="mt-0.5 text-[20px] leading-none">{logro.emoji}</span>
+                  {panelNuevo && ICONO_LOGRO[logro.emoji]
+                    ? <Baldosa tono={ICONO_LOGRO[logro.emoji].tono} Icono={ICONO_LOGRO[logro.emoji].Icono} tamano="sm" />
+                    : <span aria-hidden className="mt-0.5 text-[20px] leading-none">{logro.emoji}</span>}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold text-foreground">{logro.titulo}</p>
                     <p className="text-[12px] text-muted-foreground">{logro.subtitulo}</p>
@@ -404,6 +445,21 @@ export function ComunidadFeed() {
 // ─── Lateral ────────────────────────────────────────────────────────────────
 
 function TarjetaLateral({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  const panelNuevo = usePanelNuevo();
+  const cabeza = LATERAL[titulo];
+  if (panelNuevo && cabeza) {
+    return (
+      <section className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+        <div className="mb-3.5 flex items-center gap-2.5">
+          <span aria-hidden className="flex size-7 items-center justify-center rounded-[9px]" style={{ backgroundColor: TONOS[cabeza.tono], color: 'var(--card)' }}>
+            <cabeza.Icono size={15} strokeWidth={2.2} />
+          </span>
+          <h2 className="text-[15px] font-semibold text-foreground">{titulo}</h2>
+        </div>
+        {children}
+      </section>
+    );
+  }
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{titulo}</h2>

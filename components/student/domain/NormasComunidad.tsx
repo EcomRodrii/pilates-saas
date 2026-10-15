@@ -30,7 +30,7 @@ export function HojaNormas({ open, onClose, onAceptada }: { open: boolean; onClo
     setGuardando(true);
     const r = await aceptarNormasComunidad();
     setGuardando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     onAceptada();
   };
   return (

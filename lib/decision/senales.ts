@@ -5,8 +5,8 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot, ContactoManualSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
-import { diaSemanaEstudio, franjaLocalDe, horaEstudio } from '../utils.ts';
-import { tieneEntitlementActivo } from '../bono-logic.ts';
+import { diaSemanaEstudio, franjaLocalDe, horaEstudio, hoyEnEstudio } from '../utils.ts';
+import { tieneEntitlementActivo, precioMensualDeCuota } from '../bono-logic.ts';
 import { PREFIJO_RECIBO_PENALIZACION } from '../billing/penalizacion-aprobar-reglas.ts';
 import { estadosDeClientas, type ResultadoEstado } from '../clientas/estado.ts';
 
@@ -244,7 +244,8 @@ export function renovacionProxima(socioId: string, idx: IndicesSenal, now: Date)
 }
 
 /**
- * Valor mensual de la socia (Núcleo §1): precio del plan ACTIVO; para bonos,
+ * Valor mensual de la socia (Núcleo §1): precio del plan ACTIVO (una cuota, por
+ * MES: una trimestral cuenta un tercio, `precioMensualDeCuota`); para bonos,
  * precio/sesiones × frecuenciaHabitual × 4.33; fallback: media de recibos
  * COBRADOS de los últimos 90 días ÷ 3.
  */
@@ -259,6 +260,8 @@ export function valorMensual(socioId: string, idx: IndicesSenal, now: Date): num
           if (freq !== null) return (plan.precio / plan.sesiones) * freq * 4.33;
         }
         // bono sin frecuencia fiable → cae al fallback de recibos, no al precio bruto del bono
+      } else if (plan.tipo === 'MENSUAL') {
+        return precioMensualDeCuota(plan);
       } else {
         return plan.precio;
       }
@@ -791,7 +794,7 @@ export function candidatasPorAfinidad(
       .map(r => r.socioId),
   );
   const objetivo = franjaLocalDe(sesion.inicio);
-  const hoyISO = now.toISOString().slice(0, 10);
+  const hoyISO = hoyEnEstudio(now);
   const desde = now.getTime() - VENTANA_COSTUMBRE_DIAS * MS_DIA;
 
   const resultado: CandidataAfinidad[] = [];
@@ -846,10 +849,11 @@ export function demandaInsatisfecha(franja: FranjaRecurrente, s: SnapshotEstudio
 }
 
 /**
- * Precio medio por sesión, ponderado por socias activas (mismo criterio que
- * Ingresos §2.2). Compartido: lo usa Agenda para valorar plazas vacías en una
- * franja infrautilizada, y margen-clase.ts como precio de referencia del
- * break-even de una clase suelta — señal genérica de "cuánto vale en
+ * Precio medio por sesión, ponderado por socias activas (Especialistas §2.2):
+ * MENSUAL → precio al mes/(frecuenciaHabitual×4.33) · BONO → precio/sesiones ·
+ * PUNTUAL → precio. Compartido: lo usan Ingresos, Equipo y Agenda (para valorar
+ * plazas vacías en una franja infrautilizada), y margen-clase.ts como precio de
+ * referencia del break-even de una clase suelta — señal genérica de "cuánto vale en
  * promedio una plaza", no propia de ningún especialista.
  */
 export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
@@ -862,7 +866,7 @@ export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number
     if (!plan) continue;
     if (plan.tipo === 'MENSUAL') {
       const freq = frecuenciaHabitual(socio.id, idx);
-      if (freq !== null && freq > 0) precios.push(plan.precio / (freq * 4.33));
+      if (freq !== null && freq > 0) precios.push(precioMensualDeCuota(plan) / (freq * 4.33));
     } else if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
       precios.push(plan.precio / plan.sesiones);
     } else if (plan.tipo === 'PUNTUAL') {

@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La banda de la home: «7 días gratis, sin tarjeta · Migración incluida».
+// La banda de la home: «Gratis hasta 150 alumnas activas y 250 reservas al mes ·
+// Migración incluida» (hasta el 15-oct-2026, «7 días gratis, sin tarjeta»).
 //
 // SOLO la ve quien llega por el enlace del anuncio de Meta (`utm_source=meta`);
 // la landing normal no la lleva. Pública y la sufre quien llega de un anuncio
@@ -32,7 +33,8 @@ for (const [nombre, ancho, alto] of [['movil', 390, 844], ['escritorio', 1280, 8
     await abrir(page, ENLACE_ANUNCIO);
 
     await expect(banda(page)).toBeVisible();
-    await expect(banda(page)).toContainText(/7 días gratis, sin tarjeta/);
+    await expect(banda(page)).toContainText('Gratis hasta 150 alumnas activas y 250 reservas al mes');
+    await expect(banda(page)).not.toContainText('días gratis');
     await expect(banda(page)).toContainText(/Migración incluida, sin coste aparte/);
     await expect(banda(page).getByRole('link', { name: /Empezar/ })).toHaveAttribute('href', '/crear-estudio');
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarPlus, Check, CircleSlash, Mic, Pin, RotateCcw, ThumbsDown, UserMinus, UserRound, UserX } from 'lucide-react';
 import { cn, horaEstudio } from '@/lib/utils';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import type { Reserva } from '@/lib/types';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
@@ -12,6 +13,8 @@ import { avisoQuitarReserva, type MarcaReserva } from '@/lib/plazas-fijas-cancel
 import { avisoQuitarExterna, filaReserva } from '@/lib/plataformas/fila-reserva';
 import { planPasarLista } from '@/lib/calendario-decisiones';
 import { MENSAJE_CLASE_AUN_NO_EMPEZADA } from '@/lib/calendario-estado';
+import type { Pieza } from '@/lib/calendario/tarjeta-clienta';
+import { PiezasFila } from '@/components/calendario/piezas-fila';
 
 // Quién viene a la clase, en la ficha del Calendario.
 //
@@ -53,6 +56,8 @@ export interface ClientasDeClaseProps {
   filaExtra?: (r: Reserva) => ReactNode;
   /** El nombre de su máquina o sitio, si lo tiene. */
   sitioDe?: (r: Reserva) => string | null;
+  /** Lo que la propietaria eligió ver de cada alumna (P3.11). Sin esto, nada: lo de siempre. */
+  piezasDe?: (r: Reserva) => Pieza[];
   /** Pasar lista: escribe y dice cómo ha ido. */
   onGuardarLista?: (plan: { vinieron: string[]; noVinieron: string[] }) => Promise<void>;
 }
@@ -86,6 +91,9 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
   const [pendienteQuitar, setPendienteQuitar] = useState<Reserva | null>(null);
   const [noVinieron, setNoVinieron] = useState<Set<string>>(new Set());
   const [guardando, setGuardando] = useState(false);
+  // Panel nuevo: la acción principal en el color principal del panel, no en el del estudio.
+  const panelNuevo = usePanelNuevo();
+  const principal = panelNuevo ? 'rounded-full bg-primary text-primary-foreground' : 'rounded-xl bg-brand text-brand-foreground';
 
   const visibles = useMemo(() => {
     const orden = (r: Reserva) => DE_PLAZA.has(r.estado) ? 0 : r.estado === 'PENDIENTE_APROBACION' ? 1 : 2;
@@ -197,7 +205,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5 text-[14px] font-medium text-foreground">
-                    {semaforo && <span className="size-2 shrink-0 rounded-full" title={semaforo.label} style={{ background: semaforo.color }} />}
+                    {semaforo && <span data-semaforo className="size-2 shrink-0 rounded-full" title={semaforo.label} style={{ background: semaforo.color }} />}
                     {fila.enlaceFicha
                       ? <Link href={fila.enlaceFicha} className="truncate hover:underline">{fila.nombre}</Link>
                       : <span className="truncate">{fila.nombre}</span>}
@@ -255,7 +263,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                     type="button"
                     disabled={p.resolviendoId != null}
                     onClick={() => p.onAprobar?.(r.id)}
-                    className={cn(BOTON_FILA, 'bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-50')}
+                    className={cn(BOTON_FILA, panelNuevo ? 'bg-primary text-primary-foreground' : 'bg-brand text-brand-foreground', 'hover:brightness-95 disabled:opacity-50')}
                   >
                     Aprobar
                   </button>
@@ -271,6 +279,9 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                   />
                 )}
               </div>
+              {/* Debajo de la fila y a todo su ancho (alineado con el nombre): al lado del
+                  botón de check-in, en la hoja de 375 px, se cortaba antes del número. */}
+              {!fila.plataforma && p.piezasDe && <PiezasFila piezas={p.piezasDe(r)} className="pl-[52px]" />}
               {!fila.plataforma && p.filaExtra?.(r)}
             </li>
           );
@@ -286,7 +297,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
             type="button"
             onClick={() => void guardarLista()}
             disabled={guardando}
-            className="flex min-h-11 w-full items-center justify-center rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground hover:brightness-95 disabled:opacity-60"
+            className={cn('flex min-h-11 w-full items-center justify-center px-4 text-[14px] font-semibold hover:brightness-95 disabled:opacity-60', principal)}
           >
             {guardando ? 'Guardando…' : `Guardar · ${plan.vinieron.length} ${plan.vinieron.length === 1 ? 'vino' : 'vinieron'}, ${plan.noVinieron.length} no`}
           </button>

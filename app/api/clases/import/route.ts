@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
-import { uid, TZ_ESTUDIO } from '@/lib/utils';
+import { uid, TZ_ESTUDIO, hoyEnEstudio } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { catalogo } from '@/lib/migracion/catalogo';
@@ -12,6 +12,7 @@ import { puedeGestionarClientas, puedeGestionarEquipo, puedeGestionarSede } from
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
 import { MAX_ERRORES_DEVUELTOS } from '@/lib/migracion/incidencias';
+import { emparejarPorNombreDePila, esNombreDeInstructora, MAX_INSTRUCTORAS_NUEVAS } from '@/lib/migracion/instructoras';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -49,7 +50,8 @@ const COLORES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444
 const COLORES_INSTRUCTORA = ['#F7A6C4', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6', '#14B8A6', '#EC4899', '#A855F7'];
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
-const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim();
+// Sin acentos ni mayúsculas y con los espacios interiores colapsados: «Ana  García» = «Ana García».
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').replace(/\s+/g, ' ').trim();
 
 interface Cuerpo {
   rows?: FilaClase[];
@@ -58,7 +60,7 @@ interface Cuerpo {
   /** De dónde viene el horario. El propuesto por Tentare al empezar y el que
    *  la propietaria importa de un Excel son dos caminos con conversiones muy
    *  distintas, y mezclarlos en la misma métrica oculta cuál funciona. */
-  origen?: 'onboarding' | 'importacion';
+  origen?: 'onboarding' | 'importacion' | 'imagen';
 }
 
 /** Suma días a una fecha local 'YYYY-MM-DD' sin tocar zonas horarias. */
@@ -108,9 +110,32 @@ export async function POST(req: NextRequest) {
   }
 
   const semanas = Math.max(1, Math.min(MAX_SEMANAS, Math.trunc(body?.semanas ?? 4)));
-  const desde = /^\d{4}-\d{2}-\d{2}$/.test(body?.desde ?? '')
+  let desde = /^\d{4}-\d{2}-\d{2}$/.test(body?.desde ?? '')
     ? (body!.desde as string)
-    : new Date().toISOString().slice(0, 10);
+    : hoyEnEstudio(); // el día del estudio, no el de UTC: si no, la serie empezaba ayer
+  // El horario leído de una captura (P2.1) nunca se crea en el pasado ni en un
+  // cierre del centro: solo clases semanales, desde hoy o después (una pestaña
+  // abierta desde la semana pasada empieza hoy, no da error), sin las que ya
+  // hayan empezado y saltando los cierres, como `renovar_serie` y «Clase
+  // semanal». Un Excel puede traer historial a propósito; una foto, no.
+  const desdeCaptura = body?.origen === 'imagen';
+  let cierresCaptura: { desde: string; hasta: string }[] = [];
+  if (desdeCaptura) {
+    if (filas.some((f) => f?.fecha || f?.diaSemana == null)) {
+      return NextResponse.json({ error: 'Desde una captura solo se crean clases semanales.' }, { status: 400 });
+    }
+    const hoy = hoyEnEstudio();
+    if (desde < hoy) desde = hoy;
+    const { data: cierres, error: eCierres } = await admin
+      .from('cierres_estudio').select('desde, hasta')
+      .eq('studio_id', sesion.studioId)
+      .lte('desde', sumarDias(desde, semanas * 7))
+      .gte('hasta', desde);
+    // Sin saber los cierres no se crea: una clase en un día cerrado no la puede reservar nadie.
+    if (eCierres) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
+    cierresCaptura = (cierres ?? []) as { desde: string; hasta: string }[];
+  }
+  let saltadasPorCierre = 0;
 
   // ── Catálogo del estudio para emparejar ────────────────────────────────────
   // Paginado con `catalogo()` como los otros siete importadores: sin `.range()`
@@ -178,12 +203,27 @@ export async function POST(req: NextRequest) {
   // ── Instructoras que faltan: se crean (si quien importa gestiona el equipo) ──
   // Se apuntan aquí y se insertan más abajo, ya con las clases validadas, solo las
   // que de verdad van a tener alguna (misma regla que los tipos de clase).
+  // Antes de crear nada: «Ana» en el archivo y «Ana García» en Equipo son la misma
+  // persona si solo hay una Ana. Es la forma de un export de Bsport o Timp (nombre
+  // de pila), y sin esto cada importación duplicaba fichas.
+  for (const f of filas) {
+    const nombre = typeof f.instructor === 'string' ? f.instructor.trim() : '';
+    if (!nombre || instructorPorNombre.has(norm(nombre))) continue;
+    const id = emparejarPorNombreDePila(norm(nombre), instructorPorNombre);
+    if (id) instructorPorNombre.set(norm(nombre), id);
+  }
   const nuevasInstructoras: { id: string; nombre: string; color: string }[] = [];
   if (puedeGestionarEquipo(sesion.rol)) {
     for (const f of filas) {
       const nombre = (f.instructor ?? '').trim();
-      if (nombre.length < 2 || instructorPorNombre.has(norm(nombre))) continue;
+      // «-», «N/A», «Sin asignar»…: la clase entra sin instructora, no se inventa una.
+      if (!esNombreDeInstructora(nombre) || instructorPorNombre.has(norm(nombre))) continue;
       const id = `inst-${uid()}`;
+      if (nuevasInstructoras.length >= MAX_INSTRUCTORAS_NUEVAS) {
+        return NextResponse.json({
+          error: `El archivo trae más de ${MAX_INSTRUCTORAS_NUEVAS} instructoras que no existen en tu estudio: casi seguro la columna de instructora no es la que crees (¿lleva otro dato?). Revisa el archivo, o dalas de alta en Equipo y vuelve a subirlo.`,
+        }, { status: 422 });
+      }
       nuevasInstructoras.push({ id, nombre, color: COLORES_INSTRUCTORA[(instructorPorNombre.size + nuevasInstructoras.length) % COLORES_INSTRUCTORA.length] });
       instructorPorNombre.set(norm(nombre), id);
     }
@@ -234,6 +274,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
       if (tipo.archivado && inicio.getTime() > ahoraMs) { futurasDeArchivado++; continue; }
+      if (desdeCaptura) {
+        if (inicio.getTime() <= ahoraMs) continue; // ya empezó: nunca en el pasado
+        if (cierresCaptura.some((c) => c.desde <= fecha && fecha <= c.hasta)) { saltadasPorCierre++; continue; }
+      }
       pendientes.push({
         tipoId: tipo.id, salaId: sala?.id ?? null, instructorId,
         inicio: inicio.toISOString(),
@@ -250,7 +294,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (pendientes.length === 0) {
-    return NextResponse.json({ error: 'Ninguna fila generó sesiones', errores }, { status: 400 });
+    return NextResponse.json({ error: 'Ninguna fila generó sesiones', errores, saltadasPorCierre }, { status: 400 });
   }
 
   // ── Dedup contra lo que ya existe (reimportar no duplica el horario) ───────
@@ -384,7 +428,7 @@ export async function POST(req: NextRequest) {
           : 'Vuelve a subir el archivo: las ya creadas no se duplican.';
       return errorInterno('clases:import:sesiones', error,
         `Se han creado ${creadas} clases y el proceso se ha detenido ahí. ${motivo}`,
-        500, { creadas, omitidasPorSolape, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
+        500, { creadas, omitidasPorSolape, errores: errores.slice(0, MAX_ERRORES_DEVUELTOS), batchAviso: tiposFueraDelDeshacer || instructorasFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
     }
     idsCreados.push(...lote.map(l => l.id));
     for (const l of lote) tiposCreadosIds.add(l.tipo_clase_id);
@@ -406,7 +450,7 @@ export async function POST(req: NextRequest) {
   if (creadas > 0) {
     capturar(sesion.studioId, {
       nombre: 'horario_creado',
-      props: { origen: body?.origen === 'onboarding' ? 'onboarding' : 'importacion', sesiones: creadas },
+      props: { origen: body?.origen === 'onboarding' || body?.origen === 'imagen' ? body.origen : 'importacion', sesiones: creadas },
     });
   }
 
@@ -421,5 +465,7 @@ export async function POST(req: NextRequest) {
     sinInstructor,       // filas cuya instructora no se encontró por nombre (y no se pudo crear)
     sinSala,
     errores: errores.slice(0, MAX_ERRORES_DEVUELTOS),
+    totalErrores: errores.length, // la lista de arriba se corta; este es el número real
+    saltadasPorCierre,   // desde una captura: caían en un cierre del centro y no se crearon
   });
 }

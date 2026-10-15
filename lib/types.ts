@@ -389,6 +389,11 @@ export interface Studio {
   tourObligatorio: boolean;
   tourProgreso: unknown;
   tourCompletadoEn: string | null;
+  // Qué se ve de cada alumna en la lista de una clase (P3.11, `studios.tarjeta_clase`).
+  // Crudo a propósito: se lee SIEMPRE con `tarjetaClaseDe` (lib/calendario/tarjeta-clienta.ts),
+  // que devuelve lo de serie ante NULL o lo que no entienda. Solo lo actualiza el
+  // servidor (PUT /api/estudio/tarjeta-clase): no va en `dbUpdateStudio`.
+  tarjetaClase?: unknown;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no
@@ -1650,7 +1655,10 @@ export type TriggerRule =
   | 'NUEVA_SOCIA'
   | 'CLASE_MANANA'
   | 'RENOVACION_COBRADA'
-  | 'CLASE_LLENA_RECURRENTE';
+  | 'CLASE_LLENA_RECURRENTE'
+  // P3.10 (13-oct-2026): solo corre donde su interruptor de servidor está
+  // encendido (lib/engines/reglas-opcionales.ts). Apagado, el motor la salta.
+  | 'CUMPLEANOS';
 
 export type AccionAutomatica =
   | 'ENVIAR_EMAIL'

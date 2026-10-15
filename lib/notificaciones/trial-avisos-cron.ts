@@ -15,12 +15,11 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { estadoTrial } from '@/lib/billing/trial';
 import { emitirTrialProximoAExpirar, emitirTrialExpirado } from '@/lib/notifications/emit';
+import { encendidaPara } from '@/lib/interruptor-por-estudio';
+import { COLUMNAS_PARA_GRATIS, convertirAGratisSiToca, type FilaParaGratis } from '@/lib/billing/convertir-a-gratis';
 
-interface FilaTrial {
-  id: string;
+interface FilaTrial extends FilaParaGratis {
   trial_ends_at: string;
-  subscription_status: string | null;
-  subscription_id: string | null;
 }
 
 export async function barrerTrialAvisos(): Promise<{ estudios: number; avisos: number; bloqueos: number } | { skipped: string }> {
@@ -34,7 +33,7 @@ export async function barrerTrialAvisos(): Promise<{ estudios: number; avisos: n
   const { data, error } = await fetchAllRows<FilaTrial>(
     '(global)', 'studios',
     (from, to) => admin.from('studios')
-      .select('id, trial_ends_at, subscription_status, subscription_id')
+      .select(`trial_ends_at, ${COLUMNAS_PARA_GRATIS}`)
       .is('subscription_id', null)
       .not('trial_ends_at', 'is', null)
       .in('subscription_status', ['trialing', 'trial_expirado'])
@@ -44,6 +43,13 @@ export async function barrerTrialAvisos(): Promise<{ estudios: number; avisos: n
 
   let avisos = 0, bloqueos = 0;
   for (const s of data) {
+    // Founding Studio gratis (lib/billing/plan-gratis.ts): con el interruptor
+    // encendido ya no hay prueba que acabe. Se pasa a gratis (si toca) y no se
+    // le manda ningún aviso de prueba, pase lo que pase con la conversión.
+    if (encendidaPara(process.env.FOUNDING_GRATIS, s.id)) {
+      await convertirAGratisSiToca(admin, s);
+      continue;
+    }
     const estado = estadoTrial({
       trialEndsAt: s.trial_ends_at,
       subscriptionStatus: s.subscription_status,

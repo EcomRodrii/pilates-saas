@@ -14,10 +14,14 @@ import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
+import { TutorialProvider } from '@/lib/tutorial-context';
+import { nacioConTutoriales } from '@/lib/ayuda/tutorial-progreso';
+import { tutorialDePantalla } from '@/lib/ayuda/pantallas';
 import { AsistenteProvider } from '@/lib/asistente-context';
 import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
@@ -27,8 +31,10 @@ import { estadoBilling } from '@/lib/api-client';
 import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
+import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
-import { navSections } from '@/lib/nav-config';
+import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
 // bienvenida solo sale hasta que el estudio la sella (y trae a Tenti, con su
@@ -41,6 +47,12 @@ const PantallaBienvenida = dynamic(
   { loading: () => <PanelSkeleton /> },
 );
 const PrimeraVezAqui = dynamic(() => import('@/components/guia/primera-vez-aqui').then(m => m.PrimeraVezAqui), { ssr: false });
+// Los hitos de activación (primer tipo de clase, primera clase, primera tarifa)
+// para el embudo de PostHog. No pinta nada y solo se carga para la propietaria
+// de un estudio de su primer mes: ver `debeObservar` (lib/analitica/hitos.ts).
+const HitosActivacion = dynamic(() => import('@/components/analitica/hitos-activacion').then(m => m.HitosActivacion), { ssr: false });
+// «Siguiente paso» (P1.4): solo la propietaria de un estudio nuevo, y aparte del chunk del panel.
+const SiguientePaso = dynamic(() => import('@/components/onboarding/siguiente-paso').then(m => m.SiguientePaso), { ssr: false });
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
 // archivo necesita exportar `metadata` (manifest del panel instalable) y eso
@@ -65,6 +77,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // comentario largo más abajo, junto a `rolResuelto`). Se calcula aquí arriba
   // porque el título de pestaña lo necesita antes que el resto.
   const rolResuelto = studio !== null;
+  // El panel nuevo (14-oct-2026): sus secciones propias (Festivos) entran en el
+  // menú y en el título de la pestaña; y trae su propia guía (más abajo).
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
 
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
@@ -76,13 +91,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Manager" al cargar el estudio de una propietaria). Con "Tentare" a secas
   // mientras carga no se afirma un rol que aún no se conoce.
   useEffect(() => {
-    const item = navSections
+    const item = seccionesDelMenu(panelNuevo)
       .flatMap(s => s.items)
       .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
       .sort((a, b) => b.href.length - a.href.length)[0];
     const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
     document.title = item ? `${marca} · ${item.label}` : marca;
-  }, [pathname, rol, rolResuelto]);
+  }, [pathname, rol, rolResuelto, panelNuevo]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción
@@ -183,6 +198,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (estudioId) asociarEstudio(estudioId);
   }, [estudioId]);
+  const [arranque] = useState(() => new Date());
+  const observarHitos = rolResuelto && debeObservar({ rol, creadoEn: studio?.creadoEn, ahora: arranque });
+  // Lo nuevo del arranque (P1.4) solo para estudios nacidos con los tutoriales:
+  // a quien ya trabaja no le cambia nada. Una sede de cadena hereda su montaje.
+  const guiaNueva = nacioConTutoriales(studio?.creadoEn) && !studio?.cadenaId;
+  // El panel nuevo (14-oct-2026) trae su propia guía («Pon en marcha tu
+  // estudio» en el Resumen y «Cómo funciona» en cada sección): ni la banda de
+  // «Siguiente paso» ni la franja «¿Primera vez aquí?», que eran dos guías más.
+  const conSiguientePaso = observarHitos && guiaNueva && !panelNuevo;
+  // Y en sus pantallas con tutorial, «¿Primera vez aquí?» sobra: el «?» ya lo
+  // enseña ahí mismo, y eran dos ayudas casi iguales apiladas.
+  const conPrimeraVez = !panelNuevo && !(guiaNueva && tutorialDePantalla(pathname));
 
   const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
   useEffect(() => {
@@ -379,8 +406,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="panel-app min-h-dvh bg-background">
+      <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo}>
         <TourProvider>
+          {/* El tutorial de cada pantalla (P1.1): dentro de la visita, que manda sobre él. */}
+          <TutorialProvider>
           {/* «Pregúntale a Tentare»: el panel llega aparte, al abrirlo por primera vez. */}
           <AsistenteProvider>
           <Sidebar />
@@ -391,6 +420,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               por capítulos (lib/tour/). Solo localiza el data-tour="..." real de
               la pantalla actual; ver components/tour/visita-guiada.tsx. */}
           <VisitaGuiada cargando={cargandoDatos} />
+          {observarHitos && <HitosActivacion />}
           {/* Overlay, NO pantalla completa (a diferencia de PantallaBienvenida
               arriba): no debe bloquear el panel. Se autogobierna con
               debeMostrarModal() — el componente decide si se muestra. */}
@@ -414,7 +444,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                         `cargandoDatos ? …` y no fuera: enseñar «¿primera vez
                         aquí?» encima de un esqueleto de carga es hablarle a
                         una pantalla que todavía no existe. */}
-                    <PrimeraVezAqui />
+                    {conSiguientePaso && <SiguientePaso key={studio?.id} />}
+                    {conPrimeraVez && <PrimeraVezAqui />}
                     {children}
                   </>
                 )}
@@ -423,10 +454,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
           {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
               soporte sigue en el menú de ayuda, no encima del campo. */}
-          {pathname !== '/asistente' && <WhatsAppFab />}
+          {/* Con el panel nuevo, el soporte va en el menú de ayuda y no flota: en la
+              esquina se amontonaban WhatsApp, el asistente y la visita. */}
+          {pathname !== '/asistente' && !panelNuevo && <WhatsAppFab />}
           {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
-          <AsistenteFlotante />
+          <AsistenteFlotante solo={panelNuevo} />
+          {/* «Primeros pasos» flotante, como el de Bonsai (panel nuevo): en todas las
+              pantallas menos la home, que tiene la tarjeta entera. */}
+          {panelNuevo && pathname !== '/dashboard' && pathname !== '/asistente' && puedeVer('/primeros-pasos') && <PrimerosPasosFlotante />}
           </AsistenteProvider>
+          </TutorialProvider>
         </TourProvider>
       </PanelThemeProvider>
     </PanelPrivacyProvider>

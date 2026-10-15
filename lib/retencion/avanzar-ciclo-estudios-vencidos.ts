@@ -25,8 +25,10 @@ import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { enviarAvisoEstudioVencido, enviarConfirmacionBorrado } from '@/lib/emails/estudio-vencido-server';
 import { borrarPrefijoR2, r2Configurado } from '@/lib/r2';
 import { BUCKET_COMUNIDAD } from '@/lib/comunidad/foto';
+import { encendidaPara } from '@/lib/interruptor-por-estudio';
+import { convertirAGratisSiToca } from '@/lib/billing/convertir-a-gratis';
 import {
-  cicloDelEstudio, debeRecalcularInforme, mismaAncla, purgaEstudiosActiva, siguientePaso,
+  cicloDelEstudio, debeRecalcularInforme, fueraDelCicloPorElGratis, mismaAncla, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseCiclo, type FaseRegistrada, type MotivoCiclo,
 } from '@/lib/retencion/ciclo-estudios-vencidos';
 
@@ -40,6 +42,8 @@ interface FilaEstudio {
   subscription_id: string | null;
   contrato_terminado_en: string | null;
   supresion_pedida_en: string | null;
+  cadena_id: string | null;
+  stripe_customer_id: string | null;
 }
 
 interface FilaCiclo {
@@ -156,7 +160,7 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
   const [estudios, ciclo] = await Promise.all([
     // Los dos motivos: la prueba local agotada y la baja (fecha que pone la BD).
     fetchAllRows<FilaEstudio>('(global)', 'studios', (from, to) => admin.from('studios')
-      .select('id, nombre, email, owner_auth_user_id, trial_ends_at, subscription_status, subscription_id, contrato_terminado_en, supresion_pedida_en')
+      .select('id, nombre, email, owner_auth_user_id, trial_ends_at, subscription_status, subscription_id, contrato_terminado_en, supresion_pedida_en, cadena_id, stripe_customer_id')
       .or('and(subscription_status.eq.trial_expirado,subscription_id.is.null,trial_ends_at.not.is.null),contrato_terminado_en.not.is.null')
       .order('id')
       .range(from, to)),
@@ -169,8 +173,26 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
   if (estudios.error) throw new Error(`leyendo estudios vencidos: ${estudios.error.message}`);
   if (ciclo.error) throw new Error(`leyendo ciclo_estudios_vencidos: ${ciclo.error.message}`);
 
-  const resumen: ResumenCiclo = { estudios: estudios.data.length, avisos: 0, informes: 0, purgados: 0, cancelados: 0, errores: 0 };
-  const cicloPorId = new Map(estudios.data.map(s => [s.id, cicloDelEstudio(aEstudioCiclo(s))]));
+  // Founding Studio gratis (lib/billing/plan-gratis.ts): con el interruptor
+  // encendido, una prueba agotada o una baja de pago pasa a gratis en vez de
+  // recibir avisos de borrado. Si Stripe dice que paga, o no contesta, tampoco
+  // se le avisa (lo vuelve a mirar el siguiente tic). Su ciclo, si lo había, se
+  // cancela solo: deja de ser el actual del estudio.
+  // De una cadena que dejó de pagar pasa a gratis solo la sede principal, y con
+  // ella la BD da por vivo el contrato de las demás (fijar_contrato_terminado,
+  // migr 20261015141653: se quedan cerradas, sin borrar nada) salvo la que ya
+  // pidió el borrado. Lo que aquí se leyó de ellas es de ANTES de convertirla:
+  // en este tic tampoco se les avisa (`fueraDelCicloPorElGratis`).
+  const tocados = new Set<string>();
+  for (const s of estudios.data) {
+    if (!encendidaPara(process.env.FOUNDING_GRATIS, s.id)) continue;
+    if ((await convertirAGratisSiToca(admin, s)) !== 'no-toca') tocados.add(s.id);
+  }
+  const fueraDelCiclo = fueraDelCicloPorElGratis(estudios.data, tocados);
+  const vigentes = estudios.data.filter(s => !fueraDelCiclo.has(s.id));
+
+  const resumen: ResumenCiclo = { estudios: vigentes.length, avisos: 0, informes: 0, purgados: 0, cancelados: 0, errores: 0 };
+  const cicloPorId = new Map(vigentes.map(s => [s.id, cicloDelEstudio(aEstudioCiclo(s))]));
   const filasDe = (studioId: string, motivo: MotivoCiclo, ancla: string | Date) =>
     ciclo.data.filter(f => f.studio_id === studioId && f.motivo === motivo && mismaAncla(f.trial_ends_at, ancla));
 
@@ -191,7 +213,7 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
   }
 
   // 2) Un paso por estudio sin contrato, si le toca.
-  for (const s of estudios.data) {
+  for (const s of vigentes) {
     const actual = cicloPorId.get(s.id);
     if (!actual) continue;
     const registradas = filasDe(s.id, actual.motivo, actual.ancla);

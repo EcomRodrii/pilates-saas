@@ -17,6 +17,7 @@ import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import { IconoFila } from '@/components/configuracion/shell/fila-herramienta';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Dirección y enlaces», en Mi app y mi web (15-sep, v2): una fila con la
@@ -48,7 +49,7 @@ export function BotonCopiar({ texto, que, showToast, compacto, className }: {
   texto: string;
   /** Lo que se copia, para el aviso y el nombre del botón: «El enlace de tu página». */
   que: string;
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
   /** En una fila estrecha, solo el icono: con la palabra, a 375 px la dirección se quedaba en «localhost:3217/r…». */
   compacto?: boolean;
   className?: string;
@@ -59,7 +60,7 @@ export function BotonCopiar({ texto, que, showToast, compacto, className }: {
 
   async function copiar() {
     if (!(await copiarAlPortapapeles(texto))) {
-      showToast('No se ha podido copiar. Selecciona el enlace y cópialo a mano.');
+      showToast('No se ha podido copiar. Selecciona el enlace y cópialo a mano.', { variant: 'error' });
       return;
     }
     setCopiado(true);
@@ -86,7 +87,7 @@ export function BotonCopiar({ texto, que, showToast, compacto, className }: {
  * botones hermanos —el de la fila ocupa todo el fondo— y no uno dentro de otro,
  * que un lector de pantalla no sabe anunciar.
  */
-export function FilaDireccionYEnlaces({ onAbrir, showToast }: { onAbrir: () => void; showToast: (m: string) => void }) {
+export function FilaDireccionYEnlaces({ onAbrir, showToast }: { onAbrir: () => void; showToast: MostrarToast }) {
   const { studio, dataLoaded } = useStudio();
   const origen = useOrigen();
   const textoId = useId();
@@ -122,7 +123,7 @@ function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, qr, sho
   abrir?: boolean;
   /** Su código QR para imprimir: a qué lleva, el nombre del estudio y la dirección para el archivo. */
   qr: { destino: DestinoQr; estudio: string; slug: string };
-  showToast: (m: string) => void;
+  showToast: MostrarToast;
 }) {
   return (
     <li className="flex flex-col gap-2 py-3">

@@ -6,6 +6,7 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
+import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
@@ -90,7 +91,7 @@ export default function SolucionesPage() {
 
       <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(64px,8vw,110px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Pruébalo con tu estudio de verdad." body="7 días gratis, sin tarjeta y sin permanencia." cta="Probar 7 días gratis" />
+          <CtaBlock title="Pruébalo con tu estudio de verdad." body={`${GRATIS_CON_LIMITES}, sin tarjeta y sin permanencia.`} cta={CTA_ALTA} />
         </div>
       </section>
 

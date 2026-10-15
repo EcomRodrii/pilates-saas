@@ -27,6 +27,8 @@ export interface ResultadoParaIncidencias {
   sinSala?: number;
   sinServicioCatalogo?: number;
   omitidasPorSolape?: number;
+  /** Cuántos errores hubo EN TOTAL cuando la lista devuelta se cortó en `MAX_ERRORES_DEVUELTOS`. */
+  totalErrores?: number;
 }
 
 export interface GrupoIncidencia {
@@ -82,21 +84,31 @@ export function incidenciasDeImportacion(r: ResultadoParaIncidencias): Incidenci
   const filas = [...(r.errores ?? [])];
   // `sinSocia` y `sinSesion` YA vienen dentro de `errores` (una entrada por
   // fila); el tope de lo devuelto puede dejar fuera algunas, así que se toma el
-  // mayor de los dos números — nunca la suma.
+  // mayor de los números — nunca la suma. Y se cuentan FILAS, no entradas: una
+  // clase que se pisa por sala Y por instructora genera dos errores para una fila.
+  const filasConError = new Set(filas.map(f => f.fila)).size;
   const sinEmparejar = (r.sinSocia ?? 0) + (r.sinSesion ?? 0);
-  const total = Math.max(filas.length, sinEmparejar);
+  const total = Math.max(filasConError, sinEmparejar, r.totalErrores ?? 0);
 
+  // Entraron, pero a medias: no son filas que no han entrado, así que se dicen sin
+  // contarlas como incidencia (no impiden dar el acta por buena).
   const notas: string[] = [];
-  if (r.sinInstructor) notas.push(`${plural(r.sinInstructor, 'fila', 'filas')} con una instructora que no existe en tu estudio: ${r.sinInstructor === 1 ? 'entró' : 'entraron'} sin instructora asignada.`);
+  if (r.sinInstructor) notas.push(`${plural(r.sinInstructor, 'fila', 'filas')} con una instructora que no existe o no es un nombre válido (vacío, «-», «N/A», varias personas en la misma celda): ${r.sinInstructor === 1 ? 'entró' : 'entraron'} sin instructora asignada.`);
   if (r.sinSala) notas.push(`${plural(r.sinSala, 'fila', 'filas')} con una sala que no existe en tu estudio: ${r.sinSala === 1 ? 'entró' : 'entraron'} sin sala.`);
   if (r.sinServicioCatalogo) notas.push(`${plural(r.sinServicioCatalogo, 'cita', 'citas')} con un servicio que no está en tu catálogo: se dedujo su tipo del texto.`);
 
-  return { total: total + (r.sinInstructor ?? 0) + (r.sinSala ?? 0), grupos: agruparIncidencias(filas), notas, filas };
+  return { total, grupos: agruparIncidencias(filas), notas, filas };
 }
 
 /** El CSV que se descarga con todas las incidencias del acta, para corregirlas y volver a subir. */
 export function incidenciasACsv(entidades: readonly { etiqueta: string; filas: readonly ErrorDeFila[] }[]): string {
-  const celda = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  // Excel ejecuta como fórmula una celda de texto que empieza por = + - @ (o tab/CR):
+  // se antepone un apóstrofo. Hoy ningún motivo empieza por un dato del archivo,
+  // pero el motivo cita lo que traía (emails, clases): mejor no depender de ello.
+  const celda = (v: string | number) => {
+    const t = String(v);
+    return `"${(typeof v === 'string' && /^[=+\-@\t\r]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"`;
+  };
   const lineas = [['Archivo', 'Fila', 'Motivo'].map(celda).join(',')];
   for (const e of entidades) for (const f of e.filas) lineas.push([e.etiqueta, f.fila, f.motivo].map(celda).join(','));
   return lineas.join('\r\n');

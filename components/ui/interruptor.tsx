@@ -25,11 +25,13 @@ import { cn } from '@/lib/utils';
 // interruptores del mínimo de 44 px por eso).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function Interruptor({ on, onChange, ariaLabel, title, disabled, ocupado, className }: {
+export function Interruptor({ on, onChange, ariaLabel, describedBy, title, disabled, ocupado, className }: {
   on: boolean;
   onChange: (valor: boolean) => void;
   /** Sin él, el nombre lo tiene que poner un <label> que lo envuelva. */
   ariaLabel?: string;
+  /** El id del texto que explica qué hace (`aria-describedby`). */
+  describedBy?: string;
   title?: string;
   disabled?: boolean;
   /** Guardando: `aria-busy` y no se deja tocar. */
@@ -43,6 +45,7 @@ export function Interruptor({ on, onChange, ariaLabel, title, disabled, ocupado,
       role="switch"
       aria-checked={on}
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       aria-busy={ocupado || undefined}
       title={title}
       disabled={bloqueado}

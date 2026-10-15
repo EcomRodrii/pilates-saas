@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
-import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { useRol, puedeVer, puedeVerFinanzas, puedeVerSemaforo, semaforoDesdeServidor, puedeGestionarClientas, puedeMoverDinero, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
@@ -14,9 +14,11 @@ import { sellarAceptacionMostrador } from '@/lib/aceptacion-contrato-cliente';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import { saldoBonosPorSocia } from '@/lib/clientas/saldo-bonos';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
+import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
 import { ETIQUETA_GENERO, GENEROS, generoDe, trato, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -34,8 +36,17 @@ import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
 import { useSeguimientosParaHoy } from '@/lib/clientas/use-seguimientos';
 import { useBajasAbiertas } from '@/lib/clientas/use-bajas';
-import { DEFINICION_ESTADO, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir, type EstadoClienta } from '@/lib/clientas/estado';
-import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, textoDesde } from '@/lib/clientas/textos';
+import { DEFINICION_ESTADO, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir, tieneHistorialPrevio, type EstadoClienta } from '@/lib/clientas/estado';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import {
+  asistenciasRecientes, constanciaDe, frecuenciaDe, nuncaCompro, textoConstancia, textoFrecuencia, tramoSaldo, usoDe,
+  variosPlanes, OPCIONES_CONSTANCIA, OPCIONES_FRECUENCIA, OPCIONES_SALDO, DEFINICION_FRECUENCIA,
+  DEFINICION_NUNCA_COMPRO, DEFINICION_SALDO, DEFINICION_VARIOS_PLANES,
+  type Constancia, type Frecuencia, type TramoSaldo, type UsoClienta,
+} from '@/lib/clientas/uso';
+import { COLUMNAS_EXTRA, claveColumnas, guardarColumnas, leerColumnas, type ColumnaExtra } from '@/lib/clientas/columnas';
+import { SelectorColumnas } from '@/components/clientas/selector-columnas';
+import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, mesYAnio, textoDesde } from '@/lib/clientas/textos';
 import { PastillaAviso, PastillaEstado, PastillaSeguimiento, PuntoEstado } from '@/components/clientas/piezas';
 import { FichaClienta } from '@/components/clientas/ficha-clienta';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
@@ -50,6 +61,11 @@ import { ConstructorSegmentos } from '@/components/segmentos/constructor-segment
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
 import { emiteFacturas } from '@/lib/factura-automatica';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
+import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
+import { GraficaAltas } from '@/components/dashboard/grafica-altas';
+import { CifrasClientas, type CifraClientas } from '@/components/clientas/cifras-clientas';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -62,7 +78,7 @@ const selectCls = inputCls + ' appearance-none';
 // son un estado: quién lleva 30 días sin venir, quién no ha dado el
 // consentimiento de marketing, con o sin plan.
 type FiltroEstado = 'TODAS' | EstadoClienta;
-type FiltroMas = '' | 'seguimiento_hoy' | 'sin_venir_30d' | 'sin_consentimiento_mkt' | 'con_plan' | 'sin_plan';
+type FiltroMas = '' | 'seguimiento_hoy' | 'sin_venir_30d' | 'sin_consentimiento_mkt' | 'con_plan' | 'sin_plan' | 'nunca_compro' | 'varios_planes';
 const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
   // Los «Recuérdamelo» de hoy o atrasados (de quien mira o de nadie): el enlace
   // de «Por decidir» del Resumen llega aquí.
@@ -72,6 +88,15 @@ const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
   { id: 'sin_plan', label: 'Sin plan ni bono' },
   { id: 'sin_consentimiento_mkt', label: 'Sin consentimiento de marketing' },
 ];
+// P2.8: solo con el interruptor `CLIENTAS_FILTROS` encendido para el estudio.
+const FILTROS_MAS_NUEVOS: { id: Exclude<FiltroMas, ''>; label: string; definicion: string }[] = [
+  // No «nada»: no mira las citas ni la Caja, solo planes, bonos y clases sueltas.
+  { id: 'nunca_compro', label: 'Nunca ha comprado un plan ni un bono', definicion: DEFINICION_NUNCA_COMPRO },
+  { id: 'varios_planes', label: 'Varios planes a la vez', definicion: DEFINICION_VARIOS_PLANES },
+];
+// Ancho que necesitan las columnas de siempre sin partirse, y cada extra (P2.8).
+const ANCHO_TABLA_BASE = 900;
+const ANCHO_COLUMNA_EXTRA = 150;
 type SortKey = 'nombre' | 'ultima_visita' | 'sesiones_restantes' | 'fecha_registro';
 type SortDir = 'asc' | 'desc';
 
@@ -159,6 +184,18 @@ function FF({
 }
 
 
+/**
+ * La casilla de seleccionar, con el dedo: con el panel nuevo va dentro de una
+ * etiqueta con zona táctil de 44 px (`.zona-tactil`, solo con `pointer: coarse`),
+ * así que tocar al lado también la marca. Una casilla de 16 px no puede llevar
+ * el `::after` (un <input> no lo pinta), y su celda corta el toque para no abrir
+ * la ficha: tocar a 5 px no hacía nada. Sin el panel nuevo, la casilla de
+ * siempre, sin envoltorio.
+ */
+function CasillaTactil({ panelNuevo, children }: { panelNuevo: boolean; children: ReactNode }) {
+  return panelNuevo ? <label className="zona-tactil inline-flex cursor-pointer align-middle">{children}</label> : <>{children}</>;
+}
+
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-muted-foreground ml-1 inline" />;
   return dir === 'asc'
@@ -178,9 +215,13 @@ export default function Socios() {
     // compone en el contexto con el mismo helper: el diálogo tiene que enseñar
     // exactamente lo que se va a guardar, no una versión parecida.
     studio, registrarConsentimientoMarketing,
-    plazasFijas,
+    plazasFijas, dataLoaded, datosIncompletos,
   } = useStudio();
   const rol = useRol();
+  // Panel nuevo (interruptor `panelNuevo`, 14-oct-2026): cifras de color arriba,
+  // pestañas y estados en píldora, la gráfica de altas y un vacío que enseña.
+  // Apagado, la pantalla es la de siempre: todo lo nuevo va detrás de esto.
+  const panelNuevo = usePanelNuevo();
   const verSemaforo = puedeVerSemaforo(rol);
   // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0118). Lo
   // que faltaba era no enseñárselo: veía "Nueva clienta", "Importar", editar,
@@ -219,12 +260,12 @@ export default function Socios() {
     return porSocio;
   }, [condicionesSalud, verSemaforo]);
 
-  // RECEPCIÓN sí ve el semáforo, pero la RLS de condiciones_salud no le deja
-  // leer las filas — `condicionesSalud` le llega SIEMPRE vacío, así que el
-  // cálculo de arriba nunca produce nada para ese rol. useSemaforoRecepcion
-  // pide el nivel ya calculado por RPC (sin condiciones ni motivo).
-  const semaforoRecepcion = useSemaforoRecepcion(rol);
-  const semaforoParaMostrar = rol === 'RECEPCION' ? semaforoRecepcion : semaforoPorSocio;
+  // RECEPCIÓN y la gerencia sí ven el semáforo, pero la RLS de condiciones_salud
+  // no les deja leer las filas — `condicionesSalud` les llega SIEMPRE vacío, así
+  // que el cálculo de arriba nunca produce nada para esos roles.
+  // useSemaforoServidor pide el nivel ya calculado por RPC (sin condiciones ni motivo).
+  const semaforoServidor = useSemaforoServidor(rol);
+  const semaforoParaMostrar = semaforoDesdeServidor(rol) ? semaforoServidor : semaforoPorSocio;
 
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
@@ -233,6 +274,21 @@ export default function Socios() {
   const [filtroPlan, setFiltroPlan] = useState('');
   const [segmentoAplicado, setSegmentoAplicado] = useState<SegmentoCliente | null>(null);
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
+  // ── P2.8: frecuencia, constancia, sesiones que le quedan y columnas ─────────
+  // Entran APAGADOS (interruptor `CLIENTAS_FILTROS`, leído en el servidor): sin
+  // él, la pantalla es la de siempre. Los valores de la URL se leen siempre (la
+  // URL se lee al montar, antes de saber si está encendido) pero solo se aplican
+  // y se pintan encendido.
+  const filtrosNuevos = useInterruptor('filtrosClientas', studio?.id);
+  const [filtroFrecuencia, setFiltroFrecuencia] = useState<Frecuencia | ''>('');
+  const [filtroConstancia, setFiltroConstancia] = useState<Constancia | ''>('');
+  const [filtroSaldo, setFiltroSaldo] = useState<TramoSaldo | ''>('');
+  const [columnasElegidas, setColumnasElegidas] = useState<ColumnaExtra[]>([]);
+  const fFrecuencia = filtrosNuevos ? filtroFrecuencia : '';
+  const fConstancia = filtrosNuevos ? filtroConstancia : '';
+  const fSaldo = filtrosNuevos ? filtroSaldo : '';
+  const columnasExtra = filtrosNuevos ? columnasElegidas : [];
+  const filtroMasEfectivo: FiltroMas = !filtrosNuevos && FILTROS_MAS_NUEVOS.some((f) => f.id === filtroMas) ? '' : filtroMas;
   const [vista, setVista] = useState<'clientas' | 'interesadas'>('clientas');
   // La clienta abierta al lado de la lista (pantallas anchas). En la URL, para
   // que volver atrás o recargar la deje donde estaba.
@@ -351,22 +407,13 @@ export default function Socios() {
   // diseño, no una anomalía) la columna «Sesiones rest.» enseñaba el saldo de
   // uno cualquiera de ellos, y no se movía al venderle otro.
   //
-  // Mismos criterios que `saldoSesionesBono` (lib/bono-logic), pero en UNA
-  // pasada y no una por socia: esta tabla lista el estudio entero y el resto de
-  // índices de aquí arriba existen justo por eso. No es duplicación a la que
-  // haya que "sacar factor común" — si cambian los criterios, cambian los dos.
-  const saldoBonosPorSocio = useMemo(() => {
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    const m = new Map<string, number>();
-    for (const s of suscripciones) {
-      if (s.estado !== 'ACTIVA' || s.sesionesRestantes === null) continue;
-      if (s.fechaFin && s.fechaFin < hoyISO) continue;
-      const plan = planesTarifa.find((p) => p.id === s.planId);
-      if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) continue;
-      m.set(s.socioId, (m.get(s.socioId) ?? 0) + s.sesionesRestantes);
-    }
-    return m;
-  }, [suscripciones, planesTarifa]);
+  // El criterio es el de `saldoSesionesBono`, con el «hoy» del estudio: con el
+  // de UTC, entre las 00:00 y las 02:00 de Madrid un bono caducado ayer seguía
+  // sumando (lib/clientas/saldo-bonos.ts).
+  const saldoBonosPorSocio = useMemo(
+    () => saldoBonosPorSocia(suscripciones, planesTarifa, hoyEnEstudio()),
+    [suscripciones, planesTarifa],
+  );
   const ultimaVisitaPorSocio = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of reservas) {
@@ -426,6 +473,34 @@ export default function Socios() {
     return m;
   }, [reservas, sesionById, ahoraMs]);
 
+  // P2.8: cómo viene cada una (lib/clientas/uso.ts). Solo se calcula si hace
+  // falta —encendido Y con un filtro o una columna que lo use—, y con la hora
+  // fija de `estados.ahora`: son las mismas barras que su ficha.
+  const necesitaUso = filtrosNuevos && (fFrecuencia !== '' || fConstancia !== ''
+    || columnasExtra.includes('frecuencia') || columnasExtra.includes('constancia'));
+  const usoPorSocio = useMemo(() => {
+    const m = new Map<string, UsoClienta>();
+    const ahora = estados.ahora;
+    if (!necesitaUso || !ahora) return m;
+    const { porSocia, antes } = asistenciasRecientes(reservas, (sid) => sesionById.get(sid)?.inicio, ahora);
+    for (const [id, lista] of porSocia) m.set(id, usoDe(lista, ahora, antes.has(id)));
+    return m;
+  }, [necesitaUso, reservas, sesionById, estados.ahora]);
+  // «Nunca ha comprado»: todas sus suscripciones, en cualquier estado.
+  const suscripcionesPorSocio = useMemo(() => {
+    const m = new Map<string, Suscripcion[]>();
+    if (!filtrosNuevos) return m;
+    for (const s of suscripciones) {
+      const suyas = m.get(s.socioId);
+      if (suyas) suyas.push(s); else m.set(s.socioId, [s]);
+    }
+    return m;
+  }, [filtrosNuevos, suscripciones]);
+  const esPlanDePrueba = useMemo(() => {
+    const prueba = new Set(planesTarifa.filter((p) => p.esPrueba === true).map((p) => p.id));
+    return (planId: string) => prueba.has(planId);
+  }, [planesTarifa]);
+
   // Lo que ha comprado de verdad cada una, por plan: el filtro «Plan» mira las
   // suscripciones vivas (activas o pausadas), no una cualquiera.
   // Su último plan, si ya no tiene ninguno vivo (el que acabó más tarde).
@@ -483,19 +558,28 @@ export default function Socios() {
       const estado = estados.porSocio.get(s.id);
       const matchEstado = filtroEstado === 'TODAS' || estado?.estado === filtroEstado;
       let matchMas = true;
-      if (filtroMas === 'seguimiento_hoy') matchMas = seguimientosHoy?.has(s.id) ?? false;
-      if (filtroMas === 'sin_venir_30d') matchMas = isInactiva30d(s.id, s);
-      if (filtroMas === 'con_plan') matchMas = estado?.derecho === true;
-      if (filtroMas === 'sin_plan') matchMas = estado?.derecho !== true;
+      if (filtroMasEfectivo === 'seguimiento_hoy') matchMas = seguimientosHoy?.has(s.id) ?? false;
+      if (filtroMasEfectivo === 'sin_venir_30d') matchMas = isInactiva30d(s.id, s);
+      if (filtroMasEfectivo === 'con_plan') matchMas = estado?.derecho === true;
+      if (filtroMasEfectivo === 'sin_plan') matchMas = estado?.derecho !== true;
+      // P2.8 (solo encendido: con él apagado están vacíos). Con los datos a medias
+      // (`estados.listo` falso: una tabla no cargó entera) no filtran a nadie: sin
+      // las suscripciones, TODAS habrían salido en «nunca ha comprado».
+      if (filtroMasEfectivo === 'nunca_compro') matchMas = estados.listo && nuncaCompro(suscripcionesPorSocio.get(s.id) ?? [], esPlanDePrueba, tieneHistorialPrevio(s));
+      if (filtroMasEfectivo === 'varios_planes') matchMas = estados.listo && variosPlanes(planesVivosPorSocio.get(s.id));
+      let matchUso = !(fFrecuencia || fConstancia || fSaldo) || estados.listo;
+      if (matchUso && fFrecuencia) matchUso = frecuenciaDe(usoPorSocio.get(s.id)) === fFrecuencia;
+      if (matchUso && fConstancia) matchUso = constanciaDe(usoPorSocio.get(s.id)) === fConstancia;
+      if (matchUso && fSaldo) matchUso = tramoSaldo(saldoBonosPorSocio.get(s.id)) === fSaldo;
       // Presencia, no vigencia: el panel no trae el texto del consentimiento,
       // así que una socia con uno ANTIGUO (el estudio se renombró) no sale
       // aquí aunque haya que renovarlo. La RPC sí lo distingue y lo cuenta
       // como registrada — ver sinConsentimientoMarketing en lib/marketing.
-      if (filtroMas === 'sin_consentimiento_mkt') matchMas = !tieneConsentimientoMarketingAlgunaVez(s);
+      if (filtroMasEfectivo === 'sin_consentimiento_mkt') matchMas = !tieneConsentimientoMarketingAlgunaVez(s);
       const matchPlan = !filtroPlan || (planesVivosPorSocio.get(s.id)?.has(filtroPlan) ?? false);
       const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
       const matchSegmento = !segmentoAplicado || !ctxSegmento || evaluarSegmento(segmentoAplicado.condiciones, s, ctxSegmento);
-      return matchB && matchEstado && matchMas && matchPlan && matchEtiqueta && matchSegmento;
+      return matchB && matchEstado && matchMas && matchUso && matchPlan && matchEtiqueta && matchSegmento;
     });
 
     return [...filtered].sort((a, b) => {
@@ -522,18 +606,35 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMas, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy]);
+  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMasEfectivo, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy, fFrecuencia, fConstancia, fSaldo, usoPorSocio, saldoBonosPorSocio, suscripcionesPorSocio, esPlanDePrueba, estados.listo]);
 
   // Auditoría PR #1276 (QA): el estado vacío y "Limpiar filtros" solo miraban
   // busqueda/smartFilter — con filtroEtapa/filtroEtiqueta/segmentoAplicado
   // vaciando la lista, se veía "Aún no hay clientas" (mensaje de cuenta
   // nueva) sin ningún botón para salir del filtro.
-  const hayFiltrosActivos = Boolean(busqueda || filtroEstado !== 'TODAS' || filtroMas || filtroPlan || filtroEtiqueta || segmentoAplicado);
+  const definicionesNuevas: { titulo: string; texto: string }[] = [];
+  if (fFrecuencia) {
+    const o = OPCIONES_FRECUENCIA.find((x) => x.id === fFrecuencia);
+    if (o) definicionesNuevas.push({ titulo: `Frecuencia: ${o.nombre}`, texto: `${o.definicion} ${DEFINICION_FRECUENCIA}` });
+  }
+  if (fConstancia) {
+    const o = OPCIONES_CONSTANCIA.find((x) => x.id === fConstancia);
+    if (o) definicionesNuevas.push({ titulo: o.texto, texto: o.definicion });
+  }
+  if (fSaldo) definicionesNuevas.push({ titulo: `Le quedan: ${OPCIONES_SALDO.find((x) => x.id === fSaldo)?.texto ?? ''}`, texto: DEFINICION_SALDO });
+  const masNuevo = FILTROS_MAS_NUEVOS.find((f) => f.id === filtroMasEfectivo);
+  if (masNuevo) definicionesNuevas.push({ titulo: masNuevo.label, texto: masNuevo.definicion });
+  const hayFiltrosActivos = Boolean(busqueda || filtroEstado !== 'TODAS' || filtroMasEfectivo || filtroPlan || filtroEtiqueta || segmentoAplicado || fFrecuencia || fConstancia || fSaldo);
+  // Los filtros nuevos no filtran a nadie con datos a medias (ver el filtro de
+  // arriba): la lista vacía no es «nadie cumple», es «no se sabe».
+  const faltanDatosParaFiltrar = !estados.listo &&
+    Boolean(fFrecuencia || fConstancia || fSaldo || filtroMasEfectivo === 'nunca_compro' || filtroMasEfectivo === 'varios_planes');
   function limpiarFiltros() {
     setBusqueda(''); setFiltroEstado('TODAS'); setFiltroMas(''); setFiltroPlan(''); setFiltroEtiqueta(''); setSegmentoAplicado(null);
+    setFiltroFrecuencia(''); setFiltroConstancia(''); setFiltroSaldo('');
   }
   // Los que viven detrás del botón «Filtros» del móvil (el estado y la búsqueda se ven siempre).
-  const nFiltrosPuestos = [filtroPlan, filtroEtiqueta, filtroMas, segmentoAplicado].filter(Boolean).length;
+  const nFiltrosPuestos = [filtroPlan, filtroEtiqueta, filtroMasEfectivo, segmentoAplicado, fFrecuencia, fConstancia, fSaldo].filter(Boolean).length;
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   // Una acción en bloque solo puede caer sobre clientas que se están viendo.
@@ -560,7 +661,7 @@ export default function Socios() {
   // todavía la paginación y la selección viejas, y el reset entraba en un
   // segundo render. Así React descarta el render en curso y rehace antes de
   // tocar el DOM: ese frame intermedio no llega a existir.
-  const filtroActual = `${busqueda}\x00${filtroEstado}\x00${filtroMas}\x00${filtroPlan}\x00${filtroEtiqueta}\x00${segmentoAplicado?.id ?? ''}\x00${sortKey}\x00${sortDir}`;
+  const filtroActual = `${busqueda}\x00${filtroEstado}\x00${filtroMasEfectivo}\x00${filtroPlan}\x00${filtroEtiqueta}\x00${segmentoAplicado?.id ?? ''}\x00${sortKey}\x00${sortDir}\x00${fFrecuencia}\x00${fConstancia}\x00${fSaldo}`;
   const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
   if (filtroActual !== filtroPrevio) {
     setFiltroPrevio(filtroActual);
@@ -652,8 +753,10 @@ export default function Socios() {
       // Las que sí han salido dejan de estar seleccionadas: reintentar no debe
       // volver a cobrárselas.
       setSelected(new Set([...selected].filter((id) => !conseguidas.has(id))));
+      // Cuántas SÍ: son cobros, y «no se ha podido» a secas hacía pensar que no salió ninguno.
+      const total = conseguidas.size + fallidas.length;
       setErrorAsignar(
-        `No se ha podido asignar el plan a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}. ${ultimoError}`,
+        `${conseguidas.size > 0 ? `Asignado a ${conseguidas.size} de ${total}. ` : ''}No se ha podido asignar a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}: ${ultimoError.replace(/\.$/, '')}. Siguen marcadas para reintentarlo.`,
       );
       return;
     }
@@ -661,6 +764,10 @@ export default function Socios() {
     setSelected(new Set());
     setShowAsignarPlan(false);
     setAsignarPlanId('');
+    // Antes se cerraba sin decir nada (P0.3): son N cobros, y lo que ha pasado
+    // se dice con su número.
+    const nombrePlan = planesTarifa.find((p) => p.id === asignarPlanId)?.nombre ?? 'el plan';
+    setAvisoPlazaFija(`Plan «${nombrePlan}» asignado a ${conseguidas.size === 1 ? '1 clienta' : `${conseguidas.size} clientas`}`);
   }
 
   async function handleAmpliarCaducidades() {
@@ -926,7 +1033,13 @@ export default function Socios() {
     if (p.get('plan')) setFiltroPlan(p.get('plan') ?? '');
     if (p.get('etiqueta')) setFiltroEtiqueta(p.get('etiqueta') ?? '');
     const mas = p.get('mas');
-    if (mas && FILTROS_MAS.some((f) => f.id === mas)) setFiltroMas(mas as FiltroMas);
+    if (mas && [...FILTROS_MAS, ...FILTROS_MAS_NUEVOS].some((f) => f.id === mas)) setFiltroMas(mas as FiltroMas);
+    const frec = p.get('frecuencia');
+    if (frec && OPCIONES_FRECUENCIA.some((o) => o.id === frec)) setFiltroFrecuencia(frec as Frecuencia);
+    const cons = p.get('constancia');
+    if (cons && OPCIONES_CONSTANCIA.some((o) => o.id === cons)) setFiltroConstancia(cons as Constancia);
+    const sal = p.get('sesiones');
+    if (sal && OPCIONES_SALDO.some((o) => o.id === sal)) setFiltroSaldo(sal as TramoSaldo);
     if (p.get('seguimientos') === 'hoy') setFiltroMas('seguimiento_hoy');
     const orden = p.get('orden');
     if (orden === 'ultima_visita' || orden === 'sesiones_restantes' || orden === 'fecha_registro') setSortKey(orden);
@@ -944,13 +1057,54 @@ export default function Socios() {
     if (filtroPlan) p.set('plan', filtroPlan);
     if (filtroEtiqueta) p.set('etiqueta', filtroEtiqueta);
     if (filtroMas) p.set('mas', filtroMas);
+    if (filtroFrecuencia) p.set('frecuencia', filtroFrecuencia);
+    if (filtroConstancia) p.set('constancia', filtroConstancia);
+    if (filtroSaldo) p.set('sesiones', filtroSaldo);
     if (sortKey !== 'nombre') p.set('orden', sortKey);
     if (sortDir !== 'asc') p.set('dir', sortDir);
     if (abierta) p.set('c', abierta);
     const qs = p.toString();
     const url = `/clientas${qs ? `?${qs}` : ''}`;
     if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
-  }, [urlLeida, vista, filtroEstado, busqueda, filtroPlan, filtroEtiqueta, filtroMas, sortKey, sortDir, abierta]);
+  }, [urlLeida, vista, filtroEstado, busqueda, filtroPlan, filtroEtiqueta, filtroMas, filtroFrecuencia, filtroConstancia, filtroSaldo, sortKey, sortDir, abierta]);
+
+  // P2.8: las columnas que eligió ESTA persona en ESTE estudio, en este navegador.
+  const claveCols = user?.id && studio?.id ? claveColumnas(user.id, studio.id) : null;
+  useEffect(() => {
+    if (!claveCols) return;
+    let almacen: Storage | null = null;
+    try { almacen = window.localStorage; } catch { almacen = null; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage: solo existe en el navegador.
+    setColumnasElegidas(leerColumnas(almacen, claveCols));
+  }, [claveCols]);
+  function cambiarColumnas(cols: ColumnaExtra[]) {
+    setColumnasElegidas(cols);
+    if (!claveCols) return;
+    let almacen: Storage | null = null;
+    try { almacen = window.localStorage; } catch { almacen = null; }
+    guardarColumnas(almacen, claveCols, cols);
+  }
+  function celdaExtra(id: ColumnaExtra, s: Socio): string {
+    if (id === 'frecuencia') return textoFrecuencia(usoPorSocio.get(s.id));
+    if (id === 'constancia') return textoConstancia(usoPorSocio.get(s.id));
+    if (id === 'telefono') return s.telefono || '—';
+    if (id === 'email') return s.email || '—';
+    // «Clienta desde»: mes y año de su alta, en hora del estudio (es un instante, no una fecha).
+    const alta = s.fechaAlta ? new Date(s.fechaAlta) : null;
+    if (!alta || Number.isNaN(alta.getTime())) return '—';
+    return mesYAnio(hoyEnEstudio(alta));
+  }
+  // Con columnas extra, la clienta (y su casilla) se queda fija al hacer scroll
+  // lateral: si no, al llegar a «Email» no se sabe de quién es.
+  const fijaIzq = columnasExtra.length > 0;
+  const fondoFija = (seleccionada: boolean) => (seleccionada ? 'bg-accent' : 'bg-card group-hover:bg-muted');
+  // Bajo el nombre va el teléfono (o el email). Si ya tiene su columna, no se repite.
+  function contactoBajoElNombre(s: Socio): string {
+    if (columnasExtra.length === 0) return s.telefono || s.email || '—';
+    const tel = columnasExtra.includes('telefono') ? '' : s.telefono;
+    const mail = columnasExtra.includes('email') ? '' : s.email;
+    return tel || mail || '';
+  }
 
   // Teclado: «/» busca; con una clienta abierta al lado, ↑ ↓ pasan a la de
   // arriba o abajo y Esc la cierra. Nunca mientras se escribe ni con una
@@ -1062,6 +1216,64 @@ export default function Socios() {
   const nInteresadas = (conteos?.DE_PRUEBA ?? 0) + (conteos?.INTERESADA ?? 0) + consultasNuevas.length;
   const hoyTxt = hoyISO ?? '';
 
+  // ── Panel nuevo: las cifras de arriba filtran la lista ─────────────────────
+  // Igual que el enlace de Resumen (`/clientas?mas=sin_venir_30d`), que llega con
+  // ese filtro y ningún otro: al pulsar una cifra se quitan los demás, para que
+  // la lista enseñe justo las que cuenta la tarjeta. Pulsada otra vez, se quita.
+  const cifraActiva: CifraClientas | null =
+    filtroMasEfectivo === 'sin_venir_30d' ? 'sin_venir'
+      : filtroEstado === 'ACTIVA' ? 'activas'
+        : filtroEstado === 'SIN_RENOVAR' ? 'sin_renovar'
+          : sortKey === 'fecha_registro' ? 'altas'
+            : null;
+  function alPulsarCifra(c: CifraClientas) {
+    const quitar = cifraActiva === c;
+    limpiarFiltros();
+    if (sortKey === 'fecha_registro') { setSortKey('nombre'); setSortDir('asc'); }
+    setVista('clientas');
+    setSeleccionando(false);
+    if (quitar) return;
+    if (c === 'activas') setFiltroEstado('ACTIVA');
+    if (c === 'sin_renovar') setFiltroEstado('SIN_RENOVAR');
+    if (c === 'sin_venir') setFiltroMas('sin_venir_30d');
+    // Las altas no son un filtro: se ordena por fecha de alta, las más nuevas arriba.
+    if (c === 'altas') { setSortKey('fecha_registro'); setSortDir('asc'); }
+  }
+  // Ni una ficha (con los datos enteros: mientras cargan, `socios` también está
+  // vacío): en vez de la tabla vacía, la pantalla que enseña para qué sirve.
+  const sinNingunaNueva = panelNuevo && dataLoaded && !datosIncompletos.includes('socios') && socios.length === 0;
+  const abrirAlta = () => { setForm(emptyForm()); setShowForm('nueva'); };
+  // La cabecera nueva: la acción principal con el degradado del logo e
+  // «Importar» con borde; las respuestas a las preguntas del estudio, en el ⋯.
+  // En el móvil, el ⋯ lleva también «Importar» (antes no se llegaba desde ahí).
+  const accionImportar: AccionMenu = { texto: 'Importar clientas', icono: Upload, nota: 'Desde un Excel o un CSV', onClick: () => router.push('/clientas/importar') };
+  const accionRespuestas: AccionMenu[] = camposPersonalizados.some(c => c.activo)
+    ? [{ texto: 'Respuestas', icono: ListChecks, nota: 'Lo que ha contestado cada una a tus preguntas', onClick: () => router.push('/clientas/respuestas') }]
+    : [];
+  const accionesNuevas = (
+    <>
+      <span className="sm:hidden">
+        <MenuAcciones acciones={[accionImportar, ...accionRespuestas]} claseBoton={BOTON_MENU} />
+      </span>
+      <button type="button" data-tour="clientas-importar" onClick={() => router.push('/clientas/importar')} className={cn(BOTON_BORDE, 'hidden sm:inline-flex')}>
+        <Upload size={15} aria-hidden />
+        Importar
+      </button>
+      {accionRespuestas.length > 0 && (
+        <span className="hidden sm:inline-flex">
+          <MenuAcciones acciones={accionRespuestas} claseBoton={BOTON_MENU} />
+        </span>
+      )}
+      <span data-tour="clientas-nueva" className="inline-flex">
+        <BotonVivo
+          Icono={Plus}
+          onClick={abrirAlta}
+          label={<><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva clienta</span></>}
+        />
+      </span>
+    </>
+  );
+
   function abrirClienta(id: string, e?: MouseEvent) {
     if (seleccionando) { e?.preventDefault(); toggleSelect(id); return; }
     // ⌘/Ctrl/Mayús-clic: lo hace el propio enlace (pestaña o ventana nueva).
@@ -1144,6 +1356,7 @@ export default function Socios() {
             ].filter(Boolean).join(' · ')
           : 'Gestiona y haz seguimiento de todas tus clientas'}
         actions={
+          panelNuevo ? (gestionaClientas ? accionesNuevas : null) :
           gestionaClientas ? (
           <>
             {/* Las respuestas de todas a las preguntas del estudio, juntas. Solo si hay preguntas. */}
@@ -1157,6 +1370,7 @@ export default function Socios() {
               </button>
             )}
             <button
+              data-tour="clientas-importar"
               onClick={() => router.push('/clientas/importar')}
               className="hidden sm:flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
             >
@@ -1177,9 +1391,29 @@ export default function Socios() {
         }
       />
 
+      {/* Panel nuevo: cuatro cifras como las de la home; las de la lista la filtran. */}
+      {panelNuevo && !sinNingunaNueva && (
+        <CifrasClientas
+          estados={estados}
+          verFinanzas={puedeVerFinanzas(rol)}
+          irACobros={puedeVer(rol, '/cobros')}
+          activa={vista === 'clientas' ? cifraActiva : null}
+          onCifra={alPulsarCifra}
+        />
+      )}
+
       {/* Dos vistas: las clientas y quienes todavía están entrando (preguntaron,
           tienen su prueba o vinieron a ella). Con la URL, para volver a la misma. */}
-      <div role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
+      {panelNuevo ? (
+        <PestanasVivas
+          etiqueta="Vista"
+          dataTour="clientas-interesadas"
+          valor={vista}
+          onCambio={(id) => { setVista(id); setAbierta(null); setSelected(new Set()); setSeleccionando(false); }}
+          pestanas={[{ id: 'clientas', label: 'Clientas', n: conteos?.TOTAL }, { id: 'interesadas', label: 'Interesadas y pruebas', n: nInteresadas }]}
+        />
+      ) : (
+      <div data-tour="clientas-interesadas" role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
         {([['clientas', 'Clientas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
           <button
             key={id}
@@ -1198,6 +1432,7 @@ export default function Socios() {
           </button>
         ))}
       </div>
+      )}
 
       {/* RGPD: solicitudes de las clientas desde su app, por plazo. Se atienden en la ficha. */}
       {gestionaClientas && <SolicitudesDerechosPendientes />}
@@ -1219,11 +1454,64 @@ export default function Socios() {
           }}
           onRecargar={() => setRecargaConsultas((n) => n + 1)}
         />
+      ) : sinNingunaNueva ? (
+        // Panel nuevo, sin ninguna clienta todavía: lo que tendrá aquí y cómo empezar.
+        <PantallaVacia
+          tono="magenta"
+          Icono={Users}
+          titulo="Da de alta a tu primera clienta"
+          texto="Aquí tendrás a cada clienta con su plan, lo que le queda y cuándo vino por última vez."
+          ejemplos={[
+            { accion: 'Mira quién lleva un mes sin venir', cuando: 'antes de que se te vaya.' },
+            { accion: 'Ve cuántas sesiones le quedan a cada una', cuando: 'sin abrir su ficha.' },
+            { accion: 'Encuentra a quien se le acabó el plan', cuando: 'cuando aún estás a tiempo de recuperarla.' },
+          ]}
+          accion={gestionaClientas ? { label: 'Añadir mi primera clienta', Icono: Plus, onClick: abrirAlta } : undefined}
+          secundaria={gestionaClientas && puedeVer(rol, '/migracion') ? { label: 'Tráelas de tu programa anterior', href: '/migracion' } : undefined}
+        />
       ) : (
       <>
       {/* ── Estado: un chip por estado con su recuento ──────────────────────── */}
+      {panelNuevo ? (
+        // Panel nuevo: los estados en píldora segmentada, como el periodo de las
+        // gráficas de la home; el punto de color de cada estado se queda.
+        <div className="space-y-2">
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            <div data-tour="clientas-estados" className="inline-flex gap-1 rounded-full bg-muted p-1" role="radiogroup" aria-label="Estado">
+              {(['TODAS', ...ESTADOS_CLIENTA] as const)
+                .filter((e) => e === 'TODAS' || e === filtroEstado || (conteos?.[e] ?? 0) > 0 || e === 'ACTIVA')
+                .map((e) => {
+                  const activo = filtroEstado === e;
+                  const n = e === 'TODAS' ? conteos?.TOTAL : conteos?.[e];
+                  return (
+                    <button
+                      key={e}
+                      role="radio"
+                      aria-checked={activo}
+                      data-estado-filtro={e}
+                      onClick={() => setFiltroEstado(e)}
+                      className={cn(
+                        'zona-tactil inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
+                        activo ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {e !== 'TODAS' && <PuntoEstado estado={e} />}
+                      {e === 'TODAS' ? 'Todas' : ETIQUETA_ESTADO[e]}
+                      <span className="tabular-nums text-muted-foreground">{n ?? '—'}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+          {filtroEstado !== 'TODAS' && (
+            <p className="text-[12.5px] text-muted-foreground text-pretty">
+              <strong className="font-semibold text-foreground">{ETIQUETA_ESTADO[filtroEstado]}:</strong> {DEFINICION_ESTADO[filtroEstado]}
+            </p>
+          )}
+        </div>
+      ) : (
       <div className="space-y-2">
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
+        <div data-tour="clientas-estados" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
           {(['TODAS', ...ESTADOS_CLIENTA] as const)
             .filter((e) => e === 'TODAS' || e === filtroEstado || (conteos?.[e] ?? 0) > 0 || e === 'ACTIVA')
             .map((e) => {
@@ -1254,6 +1542,7 @@ export default function Socios() {
           </p>
         )}
       </div>
+      )}
 
       {/* ── Buscar y filtrar ─────────────────────────────────────────────────── */}
       {/* En el móvil, lo primero es buscar: los filtros van plegados detrás de un
@@ -1300,7 +1589,9 @@ export default function Socios() {
           )}
         </button>
 
-        <div className={cn('basis-full flex-wrap items-center gap-2 sm:flex sm:basis-auto', filtrosAbiertos ? 'flex' : 'hidden')}>
+        {/* Con los filtros nuevos (P2.8) el grupo se «disuelve» en la fila del
+            buscador en pantallas anchas: si no, la barra pasaba a tres filas. */}
+        <div className={cn('basis-full flex-wrap items-center gap-2', filtrosNuevos ? 'sm:contents' : 'sm:flex sm:basis-auto', filtrosAbiertos ? 'flex' : 'hidden')}>
           <SelectFiltro
             etiqueta="Plan"
             valor={filtroPlan}
@@ -1317,11 +1608,37 @@ export default function Socios() {
               todos="Todas las etiquetas"
             />
           )}
+          {/* P2.8: solo si el servidor dice que este estudio lo tiene encendido. */}
+          {filtrosNuevos && (
+            <>
+              <SelectFiltro
+                etiqueta="Frecuencia"
+                valor={filtroFrecuencia}
+                onCambiar={(v) => setFiltroFrecuencia(v as Frecuencia | '')}
+                opciones={OPCIONES_FRECUENCIA.map((o) => ({ valor: o.id, texto: o.texto }))}
+                todos="Cualquiera"
+              />
+              <SelectFiltro
+                etiqueta="Constancia"
+                valor={filtroConstancia}
+                onCambiar={(v) => setFiltroConstancia(v as Constancia | '')}
+                opciones={OPCIONES_CONSTANCIA.map((o) => ({ valor: o.id, texto: o.texto }))}
+                todos="Cualquiera"
+              />
+              <SelectFiltro
+                etiqueta="Le quedan"
+                valor={filtroSaldo}
+                onCambiar={(v) => setFiltroSaldo(v as TramoSaldo | '')}
+                opciones={OPCIONES_SALDO.map((o) => ({ valor: o.id, texto: o.texto }))}
+                todos="Cualquiera"
+              />
+            </>
+          )}
           <SelectFiltro
             etiqueta="Más filtros"
-            valor={filtroMas}
+            valor={filtroMasEfectivo}
             onCambiar={(v) => setFiltroMas(v as FiltroMas)}
-            opciones={FILTROS_MAS.map((f) => ({ valor: f.id, texto: f.label }))}
+            opciones={[...FILTROS_MAS, ...(filtrosNuevos ? FILTROS_MAS_NUEVOS : [])].map((f) => ({ valor: f.id, texto: f.label }))}
             todos="Sin más filtros"
           />
           {/* Ordenar: en la tabla se hace desde la cabecera de cada columna. */}
@@ -1376,8 +1693,25 @@ export default function Socios() {
               Quitar filtros
             </button>
           )}
+          {/* Cambia la vista, no filtra: al final y a la derecha. Con una clienta
+              abierta al lado la lista es la compacta, sin columnas. */}
+          {filtrosNuevos && !panelAbierto && (
+            <div className="hidden md:ml-auto md:block">
+              <SelectorColumnas elegidas={columnasElegidas} onCambiar={cambiarColumnas} />
+            </div>
+          )}
         </div>
       </div>
+      {/* Qué significa cada filtro nuevo elegido, como la línea de los chips de
+          estado. En el móvil, dentro de «Filtros»: abierta encima de la lista no
+          dejaba ver ninguna clienta. */}
+      {definicionesNuevas.length > 0 && (
+        <ul className={cn('-mt-1 max-w-[75ch] space-y-0.5 text-[12.5px] text-muted-foreground text-pretty', !filtrosAbiertos && 'hidden sm:block')} data-testid="definiciones-filtros">
+          {definicionesNuevas.map((d) => (
+            <li key={d.titulo}><strong className="font-semibold text-foreground">{d.titulo}:</strong> {d.texto}</li>
+          ))}
+        </ul>
+      )}
 
       {/* Cuántas salen y, en el móvil, el modo de elegir varias. */}
       {lista.length > 0 && (
@@ -1398,15 +1732,17 @@ export default function Socios() {
 
       {/* ── La lista, y al lado la clienta abierta (pantallas anchas) ────────── */}
       <div className={cn(panelAbierto && 'grid grid-cols-[minmax(320px,380px)_minmax(0,1fr)] items-start gap-4')}>
-      <div className={cn('overflow-hidden rounded-2xl border border-border bg-card shadow-xs', panelAbierto && 'sticky top-4')}>
+      <div className={cn(panelNuevo ? 'rounded-t-card border border-border bg-card shadow-t-card' : 'rounded-2xl border border-border bg-card shadow-xs', columnasExtra.length > 0 && !panelAbierto ? 'overflow-x-auto' : 'overflow-hidden', panelAbierto && 'sticky top-4')}>
         {lista.length === 0 ? (
           // P2 (auditoría de producto): migrado a `EmptyState`, la primitiva
           // extraída en la auditoría del 20-ago (~90 estados vacíos con 6
           // implementaciones distintas).
           <EmptyState
             icono={Users}
-            titulo={hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
-            descripcion={hayFiltrosActivos
+            titulo={faltanDatosParaFiltrar ? 'Faltan datos para este filtro' : hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
+            descripcion={faltanDatosParaFiltrar
+              ? 'No se han podido cargar todas sus clases o sus planes, y sin ellos este filtro no puede decir quién lo cumple. Recarga la página o quita el filtro.'
+              : hayFiltrosActivos
               ? 'Prueba con otros filtros, o quítalos para ver a todas.'
               : 'Añade tu primera clienta o tráelas de tu programa anterior.'}
             cta={hayFiltrosActivos
@@ -1459,37 +1795,50 @@ export default function Socios() {
           </ul>
         ) : (
           <>
-          <table className="hidden w-full md:table">
+          {/* Con columnas extra la tabla no aprieta las de siempre (el plan se partía
+              en cinco líneas): pide su ancho y el contenedor hace scroll lateral. */}
+          <table className="hidden w-full md:table" style={columnasExtra.length > 0 ? { minWidth: ANCHO_TABLA_BASE + ANCHO_COLUMNA_EXTRA * columnasExtra.length } : undefined}>
             <thead>
               <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {gestionaClientas && (
-                  <th className="w-11 py-3 pl-4">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
-                      className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                    />
+                  <th className={cn('w-11 py-3 pl-4', fijaIzq && 'sticky left-0 z-[1] bg-card')}>
+                    <CasillaTactil panelNuevo={panelNuevo}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
+                        className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                      />
+                    </CasillaTactil>
                   </th>
                 )}
-                <th className="py-3 pl-4 pr-3">
-                  <button onClick={() => toggleSort('nombre')} className="inline-flex items-center uppercase hover:text-foreground">
+                <th className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1] bg-card', gestionaClientas ? 'left-11' : 'left-0'))}>
+                  <button onClick={() => toggleSort('nombre')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Clienta <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="py-3 pr-3">Estado</th>
                 <th className="py-3 pr-3">
-                  <button onClick={() => toggleSort('sesiones_restantes')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('sesiones_restantes')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Plan y saldo <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="hidden py-3 pr-3 lg:table-cell">
-                  <button onClick={() => toggleSort('ultima_visita')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('ultima_visita')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Última clase <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="py-3 pr-3">Aviso</th>
+                {COLUMNAS_EXTRA.filter((c) => columnasExtra.includes(c.id)).map((c) => (
+                  <th key={c.id} className={cn('whitespace-nowrap py-3 pr-3', c.id === 'frecuencia' && 'text-right')} data-columna-extra={c.id}>
+                    {c.id === 'desde' ? (
+                      <button onClick={() => toggleSort('fecha_registro')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
+                        {c.titulo} <SortIcon active={sortKey === 'fecha_registro'} dir={sortDir} />
+                      </button>
+                    ) : c.titulo}
+                  </th>
+                ))}
                 <th className="w-12 py-3 pr-3"><span className="sr-only">Editar</span></th>
               </tr>
             </thead>
@@ -1503,20 +1852,22 @@ export default function Socios() {
                     key={s.id}
                     onClick={(e) => abrirClienta(s.id, e)}
                     data-fila-clienta={s.id}
-                    className={cn('group cursor-pointer transition-colors hover:bg-muted/60', isSelected && 'bg-accent')}
+                    className={cn('group cursor-pointer transition-colors', fijaIzq ? 'hover:bg-muted' : 'hover:bg-muted/60', isSelected && 'bg-accent')}
                   >
                     {gestionaClientas && (
-                      <td className="py-3 pl-4" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(s.id)}
-                          aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
-                          className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                        />
+                      <td className={cn('py-3 pl-4', fijaIzq && cn('sticky left-0 z-[1]', fondoFija(isSelected)))} onClick={(e) => e.stopPropagation()}>
+                        <CasillaTactil panelNuevo={panelNuevo}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(s.id)}
+                            aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
+                            className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                          />
+                        </CasillaTactil>
                       </td>
                     )}
-                    <td className="py-3 pl-4 pr-3">
+                    <td className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1]', gestionaClientas ? 'left-11' : 'left-0', fondoFija(isSelected)))}>
                       <div className="flex items-center gap-3">
                         <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarColor(`${s.nombre}${s.apellidos}`)} size="sm" />
                         <div className="min-w-0">
@@ -1531,7 +1882,7 @@ export default function Socios() {
                             </Link>
                             {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
                           </p>
-                          <p className="truncate text-[12.5px] text-muted-foreground">{s.telefono || s.email || '—'}</p>
+                          <p className="truncate text-[12.5px] text-muted-foreground">{contactoBajoElNombre(s)}</p>
                         </div>
                       </div>
                     </td>
@@ -1568,11 +1919,16 @@ export default function Socios() {
                         {f.seguimiento && hoyISO && <PastillaSeguimiento titulo={f.seguimiento.titulo} atrasado={(f.seguimiento.venceEl ?? hoyISO) < hoyISO} />}
                       </span>
                     </td>
+                    {COLUMNAS_EXTRA.filter((c) => columnasExtra.includes(c.id)).map((c) => (
+                      <td key={c.id} className={cn('whitespace-nowrap py-3 pr-3 text-[13px] text-foreground', c.id === 'frecuencia' && 'text-right')}>
+                        {celdaExtra(c.id, s)}
+                      </td>
+                    ))}
                     <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
                       {gestionaClientas && (
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
+                          className="zona-tactil rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
                           aria-label={`Editar a ${s.nombre} ${s.apellidos}`}
                         >
                           <Pencil size={15} />
@@ -1665,6 +2021,13 @@ export default function Socios() {
         </section>
       )}
       </div>
+
+      {/* Panel nuevo: cómo crece el estudio, la misma gráfica que la home. Debajo
+          de la lista, que es a lo que se viene aquí; con una clienta abierta al
+          lado, no (esa vista es para ir de una en una). */}
+      {panelNuevo && hoyISO && !panelAbierto && (
+        <GraficaAltas socios={socios} hoy={hoyISO} href={null} />
+      )}
       </>
       )}
 
@@ -2031,8 +2394,8 @@ export default function Socios() {
           </DialogHeader>
           {ultimaOferta && (
             <p className="text-sm text-muted-foreground mt-1">
-              {ultimaOferta.nombre} ya tiene «{ultimaOferta.plan}». Si viene siempre a la misma clase, elige
-              cuál: se le reserva sola cada semana, sin apuntarla a mano.
+              {ultimaOferta.nombre} ya tiene «{ultimaOferta.plan}». Si viene cada semana a las mismas clases,
+              elígelas (una o varias): se le reservan solas, sin apuntarla a mano.
             </p>
           )}
           <div className="flex flex-col gap-2 pt-2">
@@ -2040,7 +2403,7 @@ export default function Socios() {
               onClick={() => { setPlazaFijaPara(ofrecerPlazaFija?.socioId ?? null); setOfrecerPlazaFija(null); }}
               className="w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground"
             >
-              Elegir su clase
+              Elegir sus clases
             </button>
             <button
               onClick={() => setOfrecerPlazaFija(null)}
@@ -2056,10 +2419,10 @@ export default function Socios() {
         <DialogoPlazaFija
           socioId={plazaFijaPara}
           onClose={() => setPlazaFijaPara(null)}
-          onGuardada={(r, movida) => {
+          onGuardada={(guardadas, movida) => {
             setPlazaFijaPara(null);
             setErrorFila(null);
-            setAvisoPlazaFija(textoPlazaGuardada(r, movida));
+            setAvisoPlazaFija(textoClasesFijasGuardadas(guardadas, movida));
           }}
         />
       )}
@@ -2203,7 +2566,7 @@ export default function Socios() {
               );
             })()}
             {errorAsignar && (
-              <p className="text-[12.5px] text-destructive">{errorAsignar}</p>
+              <p role="alert" className="text-[12.5px] text-destructive">{errorAsignar}</p>
             )}
             <div className="flex gap-2">
               <button
@@ -2382,9 +2745,14 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
   const filtrando = todos !== undefined && !!valor;
   // Sin filtrar dice solo qué filtra («Plan»); filtrando, lo elegido («Plan: Mensual»).
   const conValor = todos === undefined || filtrando;
+  // Chrome y Safari dan `:focus-visible` también a un select pinchado con el ratón
+  // (medido): sin apuntarlo, el anillo de teclado salía en cada clic.
+  const [conPuntero, setConPuntero] = useState(false);
   return (
     <label className={cn(
       'relative inline-flex min-h-10 shrink-0 items-center rounded-xl border bg-card pl-3 pr-8 text-[13px] font-medium text-foreground transition-colors hover:border-muted-foreground [@media(pointer:fine)]:min-h-9',
+      // El foco lo tiene el select, que es invisible: el anillo lo pinta la etiqueta.
+      !conPuntero && 'has-[select:focus-visible]:border-ring has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50',
       filtrando ? 'border-foreground bg-muted/60' : 'border-border',
     )}>
       {conValor ? (
@@ -2399,6 +2767,9 @@ function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
       <select
         value={valor}
         onChange={(e) => onCambiar(e.target.value)}
+        onPointerDown={() => setConPuntero(true)}
+        onKeyDown={() => setConPuntero(false)}
+        onBlur={() => setConPuntero(false)}
         aria-label={etiqueta}
         className="absolute inset-0 cursor-pointer appearance-none opacity-0"
       >

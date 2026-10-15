@@ -110,6 +110,27 @@ test.describe('Apariencia de tu app', () => {
     });
   });
 
+  test('«Instalar en el móvil»: enseña el nombre, el enlace del estudio y su QR, y «Copiar» copia de verdad', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+
+    const bloque = page.getByTestId('app-en-el-movil');
+    await expect(bloque).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('nombre-app')).toHaveText('Pilates Centro');
+    const enlace = (await page.getByTestId('enlace-app').textContent())?.trim() ?? '';
+    expect(enlace).toMatch(/\/portal\/pilates-centro$/);
+    await expect(page.getByTestId('qr-app').locator('svg')).toBeVisible();
+    // No promete la tienda: es la app web instalable.
+    await expect(bloque).toContainText('No está en la App Store ni en Google Play');
+
+    await page.getByTestId('copiar-enlace-app').click();
+    await expect(page.getByTestId('copiado-app')).toHaveText('Copiado.');
+    // «Copiado» solo vale si el portapapeles lo tiene de verdad.
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(enlace);
+  });
+
   test('si el servidor lo rechaza, lo dice y los cambios siguen sin publicar', async ({ page }) => {
     const { envios } = await preparar(page, () => ({ status: 422, cuerpo: { errores: [{ mensaje: 'Ese color no se lee sobre el fondo.', categoriaId: 'color-marca' }] } }));
     await ir(page, 'configuracion/apariencia');

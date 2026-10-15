@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
+import { pagaPlan } from '@/lib/billing/plan-gratis';
+import { planSueltoACancelarAlPasarACadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
@@ -202,10 +204,8 @@ export async function POST(req: NextRequest) {
       // nueva, que dice qué reemplaza ESTE checkout. (`studio.subscription_id`
       // no lo pisa nadie: el trigger de cadena no propaga ese campo, ver
       // lib/billing/suscripcion-desplazada-por-cadena.ts.)
-      const cancelarAlConfirmar =
-        studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled'
-          ? (studio.subscription_id as string)
-          : null;
+      // Solo si la sede lo está pagando de verdad: ver `planSueltoACancelarAlPasarACadena`.
+      const cancelarAlConfirmar = planSueltoACancelarAlPasarACadena(studio);
 
       let customerId = cadena.stripe_customer_id;
       if (!customerId) {
@@ -278,10 +278,12 @@ export async function POST(req: NextRequest) {
     // checkout.sessions.create sobre el MISMO customer — doble suscripción,
     // doble cobro real. Se comprueba en servidor, no solo en cliente.
     //
-    // `suscripcionActiva()` (no una comparación manual): incluye 'past_due'
-    // a propósito — Stripe sigue reintentando el cobro, la suscripción
-    // sigue viva. Dejarla pasar reabriría el mismo bug para ese estado.
-    if (studio.subscription_id && suscripcionActiva(studio.subscription_status)) {
+    // `pagaPlan()` (no una comparación manual): incluye 'past_due' a propósito
+    // — Stripe sigue reintentando el cobro, la suscripción sigue viva. Y NO
+    // cuenta 'gratis' (Founding Studio gratis da acceso pero no es una
+    // suscripción): un estudio gratis con el `subscription_id` de una vieja ya
+    // cancelada tiene que poder pagar Estudio.
+    if (studio.subscription_id && pagaPlan({ subscriptionStatus: studio.subscription_status, subscriptionId: studio.subscription_id })) {
       return NextResponse.json(
         { error: 'Ya tienes una suscripción activa. Gestiónala desde Suscripción.' },
         { status: 409 },

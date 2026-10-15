@@ -5,6 +5,7 @@ import { puedeMoverDinero, puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
+import { NO_SE_PUDO_LEER_LA_CAJA } from '@/lib/pos/mensajes';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,23 +33,32 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const { data: caja } = await admin.from('cajas')
+  const { data: caja, error: errorCaja } = await admin.from('cajas')
     .select('id, fondo_inicial, abierta_en, abierta_por_nombre')
     .eq('studio_id', sesion.studioId).eq('estado', 'ABIERTA')
     .maybeSingle();
+  // Un fallo de lectura es un fallo, nunca «caja cerrada»: con esa forma la hoja
+  // ofrecía abrir otra caja encima de la que hay.
+  if (errorCaja) return errorInterno('pos.caja.leer', errorCaja, NO_SE_PUDO_LEER_LA_CAJA);
 
   if (!caja) return NextResponse.json({ caja: null, movimientos: [], esperado: 0 });
 
   // El saldo esperado se DERIVA del libro, no se lee de una columna: un
   // contador incremental sería un segundo sitio donde puede quedar mal, y el
   // fallo clásico de toda caja es el contador y el detalle discrepando.
-  const { data: esperado } = await admin.rpc('saldo_caja', { p_caja_id: caja.id });
+  const { data: esperado, error: errorSaldo } = await admin.rpc('saldo_caja', { p_caja_id: caja.id });
+  // `saldo_caja` siempre devuelve un número (COALESCE en el SQL): `null` solo
+  // llega si ha fallado, y un esperado inventado a 0 € descuadra el arqueo.
+  if (errorSaldo || esperado === null || esperado === undefined) {
+    return errorInterno('pos.caja.saldo', errorSaldo ?? new Error('saldo_caja devolvió null'), NO_SE_PUDO_LEER_LA_CAJA);
+  }
 
-  const { data: movimientos } = await admin.from('movimientos_caja')
+  const { data: movimientos, error: errorMovimientos } = await admin.from('movimientos_caja')
     .select('id, tipo, importe, metodo_pago, concepto, referencia, creado_en, creado_por_nombre')
     .eq('caja_id', caja.id).eq('studio_id', sesion.studioId)
     .order('creado_en', { ascending: false })
     .limit(200);
+  if (errorMovimientos) return errorInterno('pos.caja.movimientos', errorMovimientos, NO_SE_PUDO_LEER_LA_CAJA);
 
   return NextResponse.json({
     caja: {
@@ -57,7 +67,7 @@ export async function GET(req: NextRequest) {
       abiertaEn: caja.abierta_en,
       abiertaPor: caja.abierta_por_nombre,
     },
-    esperado: Number(esperado ?? 0),
+    esperado: Number(esperado),
     movimientos: (movimientos ?? []).map((m) => ({
       id: m.id, tipo: m.tipo, importe: Number(m.importe), metodoPago: m.metodo_pago,
       concepto: m.concepto, referencia: m.referencia, creadoEn: m.creado_en, creadoPor: m.creado_por_nombre,

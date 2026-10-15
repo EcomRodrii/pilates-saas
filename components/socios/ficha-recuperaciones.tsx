@@ -3,6 +3,7 @@
 // F2 (B2.3) — Recuperaciones: sección de la ficha para que la dueña conceda y
 // gestione las "clases a recuperar" de la socia (dueña-first). Caducan por fecha.
 
+import type { MostrarToast } from '@/components/ui/toast';
 import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,7 +34,7 @@ function estadoRecup(r: Recuperacion, hoy: string): { label: string; viva: boole
 const inputCls = 'w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring';
 const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
 
-export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
+export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onToast: MostrarToast }) {
   // Anular una recuperación le quita a la alumna una clase que ya tenía
   // ganada, y no se puede deshacer. Antes se ejecutaba con un solo clic en un
   // icono de papelera, sin preguntar nada.
@@ -170,7 +171,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
           setAnulando(null);
           if (!id) return;
           const res = await anularRecuperacion(id);
-          if (!res.ok) onToast(res.error);
+          if (!res.ok) onToast(res.error, { variant: 'error' });
         }}
       />
     </div>

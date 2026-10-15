@@ -11,6 +11,7 @@ import {
   EMAIL_VALIDO, NOMBRE_ESTADO_REGALO, diasParaCaducar, formatearEuros, type AjustesRegalo, type EstadoRegalo,
 } from '@/lib/regalo/reglas';
 import type { TarjetaRegaloVista } from '@/lib/regalo/servidor';
+import { NO_SE_HAN_PODIDO_CARGAR, leerDatosPanelRegalo, type DatosPanelRegalo } from '@/lib/regalo/panel-datos';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -18,7 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Interruptor } from '@/components/ui/interruptor';
 import { Toast } from '@/components/ui/toast';
 
-type Datos = { ajustes: AjustesRegalo; tarjetas: TarjetaRegaloVista[]; pasivoVivo: number; puedeEditarAjustes: boolean };
+type Datos = DatosPanelRegalo;
 type Vista = TarjetaRegaloVista;
 type Hoja =
   | { t: 'gastar'; tarjeta: Vista }
@@ -73,8 +74,12 @@ export function PanelRegalo() {
 
   const cargar = useCallback(async () => {
     const r = await llamar('/api/regalo', 'GET');
-    if (!r.ok) { setError((r.json.error as string) ?? 'No se han podido cargar las tarjetas regalo.'); return; }
-    setError(null); setDatos(r.json as unknown as Datos);
+    // La forma se comprueba antes de pintar: un 200 con otra forma tumbaba Paquetes entera
+    // (lib/regalo/panel-datos.ts). Un 500, sin red o una forma rara: lo mismo, «no se han podido
+    // cargar» y «Reintentar»; si ya había una lista, se queda la de antes.
+    const leidos = r.ok ? leerDatosPanelRegalo(r.json) : null;
+    if (!leidos) { setError(r.status === 0 ? `${NO_SE_HAN_PODIDO_CARGAR} Comprueba la conexión.` : NO_SE_HAN_PODIDO_CARGAR); return; }
+    setError(null); setDatos(leidos);
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de datos del servidor; el estado se actualiza al llegar la respuesta
   useEffect(() => { void cargar(); }, [cargar]);
@@ -122,7 +127,7 @@ export function PanelRegalo() {
     setReenviando(t.id); setAviso(null);
     const r = await llamar(`/api/regalo/${t.id}`, 'POST', { accion: 'reenviar' });
     setReenviando(null);
-    if (!r.ok) { setAvisoError(true); setAviso((r.json.error as string) ?? 'No se ha podido reenviar el correo.'); return; }
+    if (!r.ok) { setAvisoError(true); setAviso((r.json.error as string) ?? 'No se ha podido reenviar el correo.'); return; } // toast-no-es-error: `avisoError` pinta el Toast en rojo
     setAvisoError(false); setAviso(`Correo reenviado a ${t.destinatario_nombre ?? 'quien lo recibe'}.`);
     await cargar();
   }

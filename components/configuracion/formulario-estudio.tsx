@@ -6,6 +6,7 @@ import { hayCambios as formularioCambiado, sincronizarFormulario } from '@/lib/c
 import type { Studio } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { labelCls } from '@/components/configuracion/estilos';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Lo que comparten los formularios que editan la fila del estudio desde tres
 // secciones distintas: «Nombre y dirección» y «Contacto» (Mi estudio, cada uno en
@@ -69,7 +70,7 @@ export function Campo({
  */
 export function useFormularioEstudio<T extends object>(
   aFormulario: (s: Studio | null) => T,
-  showToast: (m: string) => void,
+  showToast: MostrarToast,
 ) {
   const { studio, updateStudio } = useStudio();
   const [form, setForm] = useState<T>(() => aFormulario(studio));
@@ -103,7 +104,7 @@ export function useFormularioEstudio<T extends object>(
       const res = await updateStudio(cambios);
       // Si no, lo escrito se queda en pantalla y la barra sigue ahí.
       if (!res.ok) {
-        if (textoGuardado !== null) showToast(res.error);
+        if (textoGuardado !== null) showToast(res.error, { variant: 'error' });
         return res;
       }
       // Lo guardado, normalizado (recortes, vacío → NULL), pasa a ser la base.

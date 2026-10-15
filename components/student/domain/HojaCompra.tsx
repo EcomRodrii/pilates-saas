@@ -162,7 +162,9 @@ export function HojaCompra({ textosLegales,
         customerSessionClientSecret: r.customerSessionClientSecret,
       });
       if (codigo.trim() && !r.codigoAplicado) {
-        setCodigoDicho({ ok: false, texto: 'Ese código ya no se puede aplicar. Pagas el precio normal.' });
+        // El motivo del servidor (misma regla que el cobro): «ya ha caducado» le dice
+        // qué pasa; «ya no se puede aplicar» la dejaba probando otra vez.
+        setCodigoDicho({ ok: false, texto: `${r.motivoCodigo ?? 'Ese código ya no se puede aplicar'}. Pagas el precio normal.` });
       }
       return;
     }

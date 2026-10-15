@@ -16,10 +16,11 @@
 // Reglas, en el orden en que se aplican:
 //   1. bruto de línea      = redondear(precio × cantidad)
 //   2. subtotal            = Σ brutos
-//   3. descuento           = min(subtotal, manual + código)   ← nunca negativo
-//   4. descuento de línea  = redondear(descuento × bruto / subtotal)
-//      · la ÚLTIMA línea se lleva el céntimo suelto del redondeo, para que
-//        Σ descuentos de línea == descuento total EXACTAMENTE
+//   3. descuento           = min(descontable, manual + código)   ← nunca negativo
+//      · «descontable» = Σ brutos menos la matrícula, que no se descuenta
+//   4. descuento de línea  = redondear(descuento × bruto / descontable)
+//      · la ÚLTIMA línea descontable se lleva el céntimo suelto del redondeo,
+//        para que Σ descuentos de línea == descuento total EXACTAMENTE
 //   5. total de línea      = bruto − descuento de línea
 //   6. base de línea       = redondear(total / (1 + iva/100))   ← IVA INCLUIDO
 //   7. IVA de línea        = total − base
@@ -44,6 +45,12 @@ export interface LineaTicket {
   cantidad: number;
   /** Porcentaje ya resuelto (el del artículo, o el del estudio si no tiene). */
   ivaPct: number;
+  /**
+   * `false` = el descuento no la toca. Solo la matrícula, que la RPC añade por su
+   * cuenta con `'descontable', false`: un código o un descuento a mano rebajan lo
+   * que se compra, no la matrícula. Sin el campo, se descuenta (todo lo demás).
+   */
+  descontable?: boolean;
 }
 
 export interface LineaCalculada extends LineaTicket {
@@ -67,9 +74,14 @@ export interface Ticket {
 
 /** Redondeo a céntimos, el mismo que hace `ROUND(x, 2)` en Postgres. */
 export function céntimos(n: number): number {
-  // `Number.EPSILON` corrige el caso clásico de coma flotante: 1.005 se
-  // representa como 1.00499999…, y sin esto redondearía a 1.00 en vez de 1.01.
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  // `ROUND` de Postgres trabaja en decimal: 2,175 → 2,18. En coma flotante 2,175 es
+  // 2,17499999…, y sumarle `Number.EPSILON` solo lo arreglaba por debajo de 1 € (es
+  // un margen fijo y el error crece con el importe): un 50 % de 4,35 € daba 2,17
+  // aquí y 2,18 en la venta, y la venta lo rechaza por no coincidir. Se redondea el
+  // importe ya multiplicado a 12 cifras, que borra ese ruido sin tocar ningún
+  // importe real, y la mitad se aleja del cero, como `ROUND`.
+  const x = Number((Math.abs(n) * 100).toPrecision(12));
+  return (Math.sign(n) * Math.round(x)) / 100;
 }
 
 /**
@@ -90,9 +102,20 @@ export function descuentoManual(
 }
 
 /**
- * Calcula el ticket completo. `descuentoCodigo` llega ya resuelto en euros
- * (lo calcula `calcularDescuento` de lib/codigos-descuento.ts, que es la
- * función que ya usa el resto del producto — no se reimplementa aquí).
+ * Lo que descuenta un código, SIN redondear: lo redondea `calcularTicket` con
+ * `céntimos`, como `ROUND` en `registrar_venta_pos`. No se usa `calcularDescuento`
+ * (lib/codigos-descuento.ts) porque redondea con `Math.round` sobre coma flotante
+ * (un 10 % de 1,45 € le da 0,14; a la RPC, 0,15) y la usan también los cobros
+ * online, que no se cambian desde la Caja.
+ */
+export function descuentoDeCodigo(codigo: { tipo: string; valor: number }, subtotal: number): number {
+  const bruto = codigo.tipo === 'PORCENTAJE' ? (subtotal * codigo.valor) / 100 : codigo.valor;
+  return Math.max(0, Math.min(subtotal, bruto));
+}
+
+/**
+ * Calcula el ticket completo. `descuentoCodigo` llega en euros, sin redondear
+ * (`descuentoDeCodigo`): aquí se redondea como en la RPC.
  */
 export function calcularTicket(
   lineas: LineaTicket[],
@@ -104,20 +127,25 @@ export function calcularTicket(
 ): Ticket {
   const conBruto = lineas.map((l) => ({ ...l, bruto: céntimos(l.precio * l.cantidad) }));
   const subtotal = céntimos(conBruto.reduce((s, l) => s + l.bruto, 0));
+  // El descuento se calcula y se reparte solo sobre lo descontable, como
+  // `v_subtotal_descontable` en la RPC.
+  const descontable = (l: LineaTicket) => l.descontable !== false;
+  const subtotalDescontable = céntimos(conBruto.filter(descontable).reduce((s, l) => s + l.bruto, 0));
+  let ultimaDescontable = -1;
+  conBruto.forEach((l, i) => { if (descontable(l)) ultimaDescontable = i; });
 
-  const manual = descuentoManual(subtotal, opts.descuentoTipo ?? null, opts.descuentoValor ?? 0);
+  const manual = descuentoManual(subtotalDescontable, opts.descuentoTipo ?? null, opts.descuentoValor ?? 0);
   const codigo = Math.max(0, céntimos(opts.descuentoCodigo ?? 0));
-  const descuento = Math.min(subtotal, céntimos(manual + codigo));
+  const descuento = Math.min(subtotalDescontable, céntimos(manual + codigo));
 
   let repartido = 0;
   const calculadas: LineaCalculada[] = conBruto.map((l, i) => {
-    const esUltima = i === conBruto.length - 1;
-    // La última línea absorbe el céntimo que deja el redondeo del prorrateo.
-    // Sin esto, Σ líneas puede quedar a un céntimo del total de cabecera y el
-    // ticket no cuadraría consigo mismo.
-    const descLinea = esUltima
-      ? céntimos(descuento - repartido)
-      : subtotal > 0 ? céntimos((descuento * l.bruto) / subtotal) : 0;
+    // La última línea DESCONTABLE absorbe el céntimo que deja el redondeo del
+    // prorrateo. Sin esto, Σ líneas puede quedar a un céntimo del total de
+    // cabecera y el ticket no cuadraría consigo mismo.
+    const descLinea = !descontable(l) ? 0
+      : i === ultimaDescontable ? céntimos(descuento - repartido)
+        : subtotalDescontable > 0 ? céntimos((descuento * l.bruto) / subtotalDescontable) : 0;
     repartido = céntimos(repartido + descLinea);
 
     const total = céntimos(l.bruto - descLinea);

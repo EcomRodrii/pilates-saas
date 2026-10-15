@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useRef, useState, useId } from 'react';
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Upload, FileSpreadsheet, Download, Check, AlertTriangle, Copy,
-  ArrowLeft, ArrowRight, Users, PartyPopper,
+  ArrowLeft, ArrowRight, Users, PartyPopper, ClipboardPaste,
 } from 'lucide-react';
 import {
   autoMapear, validarFilas, serializeCsv, CAMPOS_SOCIA,
@@ -13,6 +13,11 @@ import {
 } from '@/lib/csv';
 import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarSocias, type ResultadoImport } from '@/lib/api-client';
+import {
+  leerPegado, tablaPegada, mapeoPegado, mapeoConservado, columnasConFechaDeExcel, columnasDeSalud, camposConSalud,
+  MAX_FILAS_PEGADAS, MAX_FILAS_LEIDAS, type Pegado,
+} from '@/lib/importar-pegando';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { PageHeader } from '@/components/ui/page-header';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { useStudio } from '@/lib/studio-context';
@@ -38,7 +43,14 @@ function descargar(nombre: string, contenido: string) {
 export default function ImportarSociasPage() {
   const uid = useId();
   const router = useRouter();
-  const { socios } = useStudio();
+  const { socios, studio } = useStudio();
+  // «Pega desde tu hoja» (P3.16), apagado tras `IMPORTAR_PEGANDO`: apagado, la
+  // pantalla es la de siempre. Lo pegado vive solo en la memoria de esta
+  // pantalla: ni localStorage, ni Sentry, ni logs.
+  const pegarEncendido = useInterruptor('importarPegando', studio?.id);
+  const [pegado, setPegado] = useState<Pegado | null>(null);
+  const [conCabecera, setConCabecera] = useState(true);
+  const [textoPegado, setTextoPegado] = useState('');
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState('');
@@ -82,7 +94,28 @@ export default function ImportarSociasPage() {
   }, [validadas]);
 
   const obligatoriosMapeados = mapeo.nombre >= 0 && mapeo.email >= 0;
-  const puedeImportar = obligatoriosMapeados && conteo.ok > 0 && !importando;
+  // Pegando, el tope del servidor (en filas que se ENVÍAN: las listas) se dice
+  // ANTES de importar, no con un 413 al final.
+  const demasiadasPegadas = !!pegado && conteo.ok > MAX_FILAS_PEGADAS;
+  const avisosPegado = useMemo(() => {
+    if (!pegado || !parsed) return null;
+    const conSerie = columnasConFechaDeExcel(parsed);
+    const fechasDeExcel = [mapeo.fecha_alta, mapeo.fecha_nacimiento]
+      .filter((i) => i >= 0 && conSerie.has(i))
+      .map((i) => parsed.headers[i] || `Columna ${i + 1}`);
+    const salud = columnasDeSalud(parsed);
+    return { fechasDeExcel, salud, saludRelacionada: camposConSalud(mapeo, salud), comillas: pegado.comillasSinCerrar };
+  }, [pegado, parsed, mapeo]);
+  // Una columna de salud relacionada con un campo de la clienta saldría del
+  // navegador (y unas etiquetas las ve todo el equipo): no se importa.
+  const saludRelacionada = (avisosPegado?.saludRelacionada.length ?? 0) > 0;
+  const puedeImportar = obligatoriosMapeados && conteo.ok > 0 && !importando && !demasiadasPegadas && !saludRelacionada;
+  // Al pasar al paso 2 tras pegar, el cuadro desaparece: el foco va al resumen
+  // (si no, cae al `body` y un lector de pantalla no se entera del cambio).
+  const resumenPegadoRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (paso === 2 && pegado) resumenPegadoRef.current?.focus();
+  }, [paso, pegado]);
 
   async function cargarArchivo(file: File) {
     setErrorCarga(null);
@@ -97,6 +130,7 @@ export default function ImportarSociasPage() {
         return;
       }
       const m = autoMapear(p.headers);
+      setPegado(null);
       setParsed(p);
       setMapeo(m);
       setAvisoMapeoAutomatico(m.nombre < 0 && m.email < 0);
@@ -105,6 +139,46 @@ export default function ImportarSociasPage() {
     } catch {
       setErrorCarga('No se pudo leer el archivo. ¿Seguro que es un CSV o Excel válido?');
     }
+  }
+
+  /** Lo pegado, a la tabla de siempre, con o sin la primera fila como títulos. */
+  function aplicarPegado(p: Pegado, cabecera: boolean, mapeoAnterior?: Record<CampoSocia, number>) {
+    const t = tablaPegada(p, cabecera);
+    const m = mapeoAnterior ? mapeoConservado(mapeoAnterior, t, cabecera) : mapeoPegado(t, cabecera);
+    setPegado(p);
+    setConCabecera(cabecera);
+    setParsed(t);
+    setMapeo(m);
+    setAvisoMapeoAutomatico(m.nombre < 0 && m.email < 0);
+    setNombreArchivo('');
+  }
+
+  function revisarPegado(texto: string) {
+    setErrorCarga(null);
+    const p = leerPegado(texto);
+    if (!p) {
+      setErrorCarga('No hay ninguna fila en lo pegado. Selecciona las celdas en tu hoja, cópialas y pégalas aquí.');
+      return;
+    }
+    if (p.demasiadas) {
+      setErrorCarga(`Son más de ${MAX_FILAS_LEIDAS.toLocaleString('es-ES')} filas. Pégalas en tandas de ${MAX_FILAS_PEGADAS.toLocaleString('es-ES')} como mucho.`);
+      return;
+    }
+    const cabecera = p.cabeceraAdivinada && p.filas.length > 1;
+    aplicarPegado(p, cabecera);
+    setTextoPegado('');
+    setPaso(2);
+  }
+
+  // Se lee del propio evento: no pide permiso al portapapeles (que Safari y el
+  // iPad de recepción niegan). Si no llega texto en el evento (hay teclados de
+  // móvil que pegan sin disparar `paste`), lo pegado queda en el cuadro y se
+  // revisa con el botón.
+  function onPegar(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const texto = e.clipboardData.getData('text/plain');
+    if (!texto.trim()) return;
+    e.preventDefault();
+    revisarPegado(texto);
   }
 
   function onDrop(e: React.DragEvent) {
@@ -126,6 +200,8 @@ export default function ImportarSociasPage() {
   function reiniciar() {
     setPaso(1);
     setParsed(null);
+    setPegado(null);
+    setTextoPegado('');
     setNombreArchivo('');
     setResultado(null);
     setErrorCarga(null);
@@ -141,7 +217,9 @@ export default function ImportarSociasPage() {
       <PageHeader
         back={{ href: '/clientas', label: 'Volver a Clientas' }}
         title="Importar clientas"
-        description="Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro)."
+        description={pegarEncendido
+          ? 'Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro) o pegándola desde tu hoja.'
+          : 'Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro).'}
       />
 
       {/* Migración Mágica: el camino nuevo — todo de golpe, cualquier formato */}
@@ -164,7 +242,7 @@ export default function ImportarSociasPage() {
 
       {/* Stepper */}
       <div className="flex items-center gap-2 text-[12px] font-medium">
-        {(['Subir archivo', 'Revisar y mapear', 'Importar'] as const).map((label, i) => {
+        {([pegarEncendido ? 'Subir o pegar' : 'Subir archivo', 'Revisar y mapear', 'Importar'] as const).map((label, i) => {
           const n = (i + 1) as Paso;
           const activo = paso === n;
           const hecho = paso > n;
@@ -215,9 +293,41 @@ export default function ImportarSociasPage() {
           </div>
 
           {errorCarga && (
-            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
+            <div role="alert" className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <span>{errorCarga}</span>
+            </div>
+          )}
+
+          {pegarEncendido && (
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-2.5">
+              <label htmlFor={`${uid}-pegar`} className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                <ClipboardPaste size={14} className="text-primary" /> Pega aquí las filas de tu hoja
+              </label>
+              <p id={`${uid}-pegar-ayuda`} className="text-[12px] text-muted-foreground">
+                Selecciona las celdas en Excel, Numbers o Google Sheets (con los títulos, si los tiene), cópialas y pégalas.
+                Pegar no guarda nada: primero verás la vista previa.
+              </p>
+              <textarea
+                id={`${uid}-pegar`}
+                aria-describedby={`${uid}-pegar-ayuda`}
+                value={textoPegado}
+                onChange={(e) => setTextoPegado(e.target.value)}
+                onPaste={onPegar}
+                rows={3}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="Nombre    Email    Teléfono…"
+                className="w-full text-[12.5px] font-mono bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-muted-foreground transition-colors resize-y"
+              />
+              <button
+                type="button"
+                onClick={() => revisarPegado(textoPegado)}
+                disabled={!textoPegado.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold border border-border bg-background hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Revisar lo pegado <ArrowRight size={14} />
+              </button>
             </div>
           )}
 
@@ -247,17 +357,74 @@ export default function ImportarSociasPage() {
       {/* ── Paso 2: mapear + previsualizar ─────────────────────────────────── */}
       {paso === 2 && parsed && (
         <div className="space-y-5">
-          <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <FileSpreadsheet size={15} className="text-foreground" />
-            <strong className="text-foreground">{nombreArchivo}</strong>
-            · {parsed.rows.length} filas
-            {parsed.delimiter && ` · delimitador «${parsed.delimiter === '\t' ? 'tab' : parsed.delimiter}»`}
-          </div>
+          {pegado ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
+              <span ref={resumenPegadoRef} tabIndex={-1} className="flex items-center gap-2 outline-none">
+                <ClipboardPaste size={15} className="text-foreground" />
+                <strong className="text-foreground">Pegado desde tu hoja</strong>
+                · {parsed.rows.length} {parsed.rows.length === 1 ? 'fila' : 'filas'}
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={conCabecera}
+                  onChange={(e) => aplicarPegado(pegado, e.target.checked, mapeo)}
+                  className="accent-[var(--primary)]"
+                />
+                La primera fila son los títulos
+              </label>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <FileSpreadsheet size={15} className="text-foreground" />
+              <strong className="text-foreground">{nombreArchivo}</strong>
+              · {parsed.rows.length} filas
+              {parsed.delimiter && ` · delimitador «${parsed.delimiter === '\t' ? 'tab' : parsed.delimiter}»`}
+            </div>
+          )}
+
+          {demasiadasPegadas && (
+            <div role="alert" className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <span>Hay {conteo.ok.toLocaleString('es-ES')} clientas listas y se importan como mucho {MAX_FILAS_PEGADAS.toLocaleString('es-ES')} de una vez. Pégalas en tandas de {MAX_FILAS_PEGADAS.toLocaleString('es-ES')}.</span>
+            </div>
+          )}
+          {avisosPegado && avisosPegado.saludRelacionada.length > 0 && (
+            <div role="alert" className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <span>
+                {avisosPegado.saludRelacionada.map(({ campo, columna }) => `«${columna}» parece de salud y está relacionada con «${CAMPOS_SOCIA.find((c) => c.campo === campo)?.etiqueta ?? campo}»`).join('; ')}.
+                {' '}Se guardaría en su ficha, a la vista de todo el equipo. Déjala «Sin asignar» abajo (o quita esos datos de tu hoja) para poder importar.
+              </span>
+            </div>
+          )}
+          {avisosPegado && ((avisosPegado.salud.length > 0 && avisosPegado.saludRelacionada.length === 0) || avisosPegado.fechasDeExcel.length > 0 || avisosPegado.comillas) && (
+            <ul className="space-y-2 text-[13px]">
+              {avisosPegado.salud.length > 0 && avisosPegado.saludRelacionada.length === 0 && (
+                <AvisoPegado>
+                  {avisosPegado.salud.length === 1
+                    ? <>La columna «{avisosPegado.salud[0].nombre}» parece de salud.</>
+                    : <>Las columnas {avisosPegado.salud.map((c) => `«${c.nombre}»`).join(', ')} parecen de salud.</>}
+                  {' '}No se importa: no está relacionada con ningún campo, y solo se envían las columnas que relaciones abajo.
+                </AvisoPegado>
+              )}
+              {avisosPegado.fechasDeExcel.length > 0 && (
+                <AvisoPegado>
+                  {avisosPegado.fechasDeExcel.map((c) => `«${c}»`).join(' y ')} trae las fechas como números de Excel (por ejemplo, 44562), y así no se pueden leer: esas fechas no se importarán. Dales formato de fecha en tu hoja y vuelve a copiarlas.
+                </AvisoPegado>
+              )}
+              {avisosPegado.comillas && (
+                <AvisoPegado>
+                  Hay unas comillas sin cerrar en lo pegado: alguna celda puede haberse juntado con las siguientes. Revisa la vista previa.
+                </AvisoPegado>
+              )}
+            </ul>
+          )}
 
           {avisoMapeoAutomatico && (
             <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-              <span>No hemos podido reconocer automáticamente las columnas de este archivo. Revísalas abajo antes de continuar.</span>
+              <span>No hemos podido reconocer automáticamente las columnas de {pegado ? 'lo pegado' : 'este archivo'}. Revísalas abajo antes de continuar.</span>
             </div>
           )}
 
@@ -268,11 +435,11 @@ export default function ImportarSociasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {CAMPOS_SOCIA.map(({ campo, etiqueta, obligatorio }) => (
                 <div key={campo} className="space-y-1.5">
-                  <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <label htmlFor={`${uid}-${campo}`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     {etiqueta}
                     {obligatorio && <span className="text-primary">*</span>}
                   </label>
-                  <select id={`${uid}-1`}
+                  <select id={`${uid}-${campo}`}
                     value={mapeo[campo]}
                     onChange={(e) => setMapeo((m) => ({ ...m, [campo]: Number(e.target.value) }))}
                     className="w-full text-[13px] bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-muted-foreground transition-colors"
@@ -340,7 +507,7 @@ export default function ImportarSociasPage() {
           {/* Acciones */}
           <div className="flex items-center justify-between gap-3">
             <button onClick={reiniciar} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft size={14} /> Elegir otro archivo
+              <ArrowLeft size={14} /> {pegado ? 'Pegar otra cosa' : 'Elegir otro archivo'}
             </button>
             <button
               onClick={ejecutarImport}
@@ -414,12 +581,22 @@ export default function ImportarSociasPage() {
               <Users size={14} /> Ver mis clientas
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Importar otro archivo
+              {pegado ? 'Importar más clientas' : 'Importar otro archivo'}
             </button>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+/** Un aviso que no bloquea: se puede importar igual. */
+function AvisoPegado({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 rounded-xl px-4 py-3 border border-border bg-card text-foreground">
+      <AlertTriangle size={15} className="shrink-0 mt-0.5" style={{ color: '#8F6215' }} />
+      <span>{children}</span>
+    </li>
   );
 }
 

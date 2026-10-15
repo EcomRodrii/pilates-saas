@@ -225,7 +225,9 @@ export function AsistenteRapido({
                 const r = await fetch('/api/onboarding/configurar', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-                  body: JSON.stringify(operativa),
+                  // La llamada que cierra el asistente: es la única que emite
+                  // `onboarding_completado` (ver `faseDeConfigurar`).
+                  body: JSON.stringify({ ...operativa, fase: 'final' }),
                 });
                 if (!r.ok) {
                   capturarExcepcion(new Error(`[onboarding/configurar] HTTP ${r.status}`), { tags: { area: 'onboarding' } });
@@ -277,7 +279,8 @@ export function AsistenteRapido({
       const r = await fetch('/api/onboarding/configurar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(operativa),
+        // Parcial: monta, pero no da el asistente por terminado.
+        body: JSON.stringify({ ...operativa, fase: 'parcial' }),
       });
       if (!r.ok) { capturarExcepcion(new Error(`[onboarding/configurar] HTTP ${r.status}`), { tags: { area: 'onboarding' } }); return; }
       const d = await r.json().catch(() => ({})) as { tiposClase?: number; salas?: number };

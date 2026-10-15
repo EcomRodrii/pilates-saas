@@ -41,7 +41,7 @@ export function AccesosDeLaClienta({ socioId }: { socioId: string }) {
       });
       const d = await res.json().catch(() => null) as { qrDesde?: string; error?: string } | null;
       if (!res.ok || !d?.qrDesde) {
-        setAviso({ ok: false, texto: d?.error ?? 'No hemos podido generar el QR nuevo.' });
+        setAviso({ ok: false, texto: d?.error ?? 'No hemos podido generar el QR nuevo.' }) // toast-no-es-error: `ok: false` se pinta como alert en rojo;
         return;
       }
       setInfo(x => x && { ...x, qrDesde: d.qrDesde! });

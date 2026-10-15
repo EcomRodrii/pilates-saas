@@ -104,13 +104,13 @@ export default function EstudioDePilatesReformerPage() {
         datos={[
           { cifra: '25 €', texto: 'Precio mediano de una clase suelta de reformer, de una muestra de 32 estudios españoles' },
           { cifra: '18,75 €', texto: 'Lo que sale cada sesión con una cuota de una clase a la semana' },
-          { cifra: '29 €/mes', texto: 'Tentare Founding Studio, IVA incluido y sin permanencia' },
+          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 250 reservas al mes' },
         ]}
       >
         Uno que trate cada reformer como una plaza: que la alumna reserve su máquina desde el móvil, que el aforo de
         cada sala se respete solo, que la plaza que se libera pase a la lista de espera sin escribir un WhatsApp y que
         el reformer y el mat puedan tener reglas y precios distintos. Tentare hace todo eso, junto con los cobros, los
-        bonos y las sustituciones de instructoras, desde 29 €/mes con IVA y sin permanencia.
+        bonos y las sustituciones de instructoras, gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones
@@ -209,7 +209,7 @@ export default function EstudioDePilatesReformerPage() {
         captura={{ src: '/landing/fotos-aportadas/instructora-y-alumna-reformers-estudio-pilates.webp', alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', ancho: 434, alto: 600, foto: true }}
         enlace={{ href: '/funcionalidades/sustituciones', texto: 'Cómo funcionan las sustituciones' }}
       >
-        <p>Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo sola, sin esperar a que lo apruebes.</p>
+        <p>Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. En todos los planes puede hacerlo sola, sin esperar a que lo apruebes.</p>
       </FilaProducto>
 
       <PlanesSolucion titulo="Lo que cuesta Tentare para un estudio de reformer" />
@@ -218,7 +218,7 @@ export default function EstudioDePilatesReformerPage() {
 
       <CierreSolucion
         titulo="Tu estudio de reformer, funcionando solo."
-        texto="Monta tu horario y tu página de reservas en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+        texto="Monta tu horario y tu página de reservas en tu primera sesión. Empieza gratis, sin tarjeta y sin permanencia."
       />
     </SolucionShell>
   );

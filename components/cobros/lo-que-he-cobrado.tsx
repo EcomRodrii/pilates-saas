@@ -10,7 +10,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, Wallet } from 'lucide-react';
+import { Banknote, CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { Recibo } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
@@ -18,9 +18,10 @@ import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import { resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import {
   ORDEN_COMO_SE_COBRO, TEXTO_COMO_SE_COBRO, cobradoEnTramo, comoSeCobro, horaDelCobro, mismoTramoAnterior, moverPeriodo,
-  textoDeLaComparacion, textoDelDia, textoDelPeriodo, tramoVisible, type Periodo,
+  textoDeLaComparacion, textoDelDia, textoDelPeriodo, tramoVisible, type ComoSeCobro, type Periodo,
 } from '@/lib/cobros/lo-cobrado';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { CabeceraTarjeta, TONOS, type Tono } from '@/components/dashboard/vivo';
 import { pagosHistoricosEnTramo } from '@/lib/cobros/pagos-historicos';
 import { usePagosHistoricos } from '@/lib/cobros/use-pagos-historicos';
 import { Buscador, normalizar } from './piezas';
@@ -38,7 +39,19 @@ const PERIODOS: { id: Periodo; texto: string }[] = [
 
 const POR_PAGINA = 100;
 
-export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros; acciones: AccionesRecibo; avisos: AvisosCobros }) {
+/** El color de cada forma de pago en «Cómo te han pagado» (panel nuevo). */
+const TONO_COMO: Record<ComoSeCobro, Tono | null> = {
+  DOMICILIACION: 'indigo', TARJETA_ONLINE: 'azul', TARJETA_MOSTRADOR: 'azul', EFECTIVO: 'verde',
+  BIZUM: 'magenta', TRANSFERENCIA: 'indigo', SIN_ESPECIFICAR: null,
+};
+
+const colorDeComo = (c: ComoSeCobro) => {
+  const tono = TONO_COMO[c];
+  return tono ? TONOS[tono] : 'var(--muted-foreground)';
+};
+
+/** `nueva`: con la forma de las tarjetas del panel nuevo; las cifras, la lista y sus menús son los mismos. */
+export function LoQueHeCobrado({ datos, acciones, avisos, nueva = false }: { datos: DatosCobros; acciones: AccionesRecibo; avisos: AvisosCobros; nueva?: boolean }) {
   const { recibos, ventasPOS } = useStudio();
   const hoy = datos.hoy;
   const [periodo, setPeriodo] = useState<Periodo>('MES');
@@ -104,19 +117,19 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
           ))}
         </div>
         <div className="inline-flex items-center rounded-lg border border-border bg-card">
-          <button type="button" onClick={() => mover(-1)} aria-label="Periodo anterior" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => mover(-1)} aria-label="Periodo anterior" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
             <ChevronLeft size={16} />
           </button>
           <span className="min-w-28 border-x border-border px-3 py-1.5 text-center text-[13px] font-semibold text-foreground" aria-live="polite">
             {textoDelPeriodo(periodo, ref, hoy)}
           </span>
-          <button type="button" onClick={() => mover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
+          <button type="button" onClick={() => mover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
             <ChevronRight size={16} />
           </button>
         </div>
         <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar clienta o concepto" className="min-w-0 flex-1 sm:w-[250px] sm:flex-none" />
-          <Link href="/pos" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
+          <Link href="/pos" className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
             <Wallet size={15} aria-hidden />Caja
           </Link>
           <button
@@ -167,7 +180,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
       )}
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <section aria-label="Cobros del periodo" className="overflow-hidden rounded-2xl border border-border bg-card">
+        <section aria-label="Cobros del periodo" className={nueva ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'overflow-hidden rounded-2xl border border-border bg-card'}>
           {dias.total === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
               {busqueda ? 'Ningún cobro coincide con la búsqueda.' : 'No hay cobros en este periodo.'}
@@ -197,17 +210,27 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
           )}
         </section>
 
-        <section aria-label="Cómo te han pagado" className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-[13.5px] font-semibold text-foreground">Cómo te han pagado</h2>
-          <p className="text-[12.5px] text-muted-foreground">Para cuadrar la caja y el banco. Lo devuelto se resta en su método.</p>
-          <div className="mt-3 space-y-2">
+        <section aria-label="Cómo te han pagado" className={nueva ? 'rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5' : 'rounded-2xl border border-border bg-card p-4'}>
+          {nueva ? (
+            <CabeceraTarjeta tono="verde" Icono={Banknote} titulo="Cómo te han pagado" sub="Para cuadrar la caja y el banco. Lo devuelto se resta en su método." />
+          ) : (
+            <>
+              <h2 className="text-[13.5px] font-semibold text-foreground">Cómo te han pagado</h2>
+              <p className="text-[12.5px] text-muted-foreground">Para cuadrar la caja y el banco. Lo devuelto se resta en su método.</p>
+            </>
+          )}
+          <div className={nueva ? 'mt-4 space-y-2.5' : 'mt-3 space-y-2'}>
             {ORDEN_COMO_SE_COBRO.filter(c => c !== 'SIN_ESPECIFICAR' || actual.porComo[c].n > 0).map(c => {
               const { n, neto } = actual.porComo[c];
               return (
                 <div key={c} className={cn('grid grid-cols-[minmax(0,175px)_1fr_76px] items-center gap-3', n === 0 && 'opacity-60')}>
                   <span className="truncate text-[13px] text-foreground">{TEXTO_COMO_SE_COBRO[c]} <span className="tabular-nums text-muted-foreground">· {n}</span></span>
                   <span className="h-2 rounded-full bg-muted">
-                    <span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(0, (neto / maxComo) * 100)}%` }} />
+                    {nueva ? (
+                      <span className="block h-2 rounded-full" style={{ width: `${Math.max(0, (neto / maxComo) * 100)}%`, backgroundColor: colorDeComo(c) }} />
+                    ) : (
+                      <span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(0, (neto / maxComo) * 100)}%` }} />
+                    )}
                   </span>
                   <span className="text-right text-[13px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(neto)}</CifraPrivada></span>
                 </div>

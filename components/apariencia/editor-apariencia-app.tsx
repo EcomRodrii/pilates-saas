@@ -23,7 +23,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -41,6 +43,9 @@ import {
 } from '@/lib/student/apariencia';
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
 import { MuestraEstilo } from './muestra-estilo';
+import { AppEnElMovil } from './app-en-el-movil';
+import { MiAppDeTienda } from './mi-app-de-tienda';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
@@ -71,13 +76,80 @@ function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
-function Seccion({ titulo, detalle, orden = 0, children }: { titulo: string; detalle: string; orden?: number; children: React.ReactNode }) {
+function Seccion({ titulo, detalle, orden = 0, children, enAsistente = false }: { titulo: string; detalle: string; orden?: number; children: React.ReactNode; enAsistente?: boolean }) {
+  // En el asistente (panel nuevo) el título y la frase los pone el paso, más grandes.
+  if (enAsistente) {
+    return (
+      <section aria-label={titulo} className="contenido-anim">
+        {children}
+      </section>
+    );
+  }
   return (
     <section className={cn(cardCls, 'contenido-anim p-5')} style={{ animationDelay: `${orden * 60}ms` }}>
       <h2 className="text-[15px] font-semibold text-foreground">{titulo}</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">{detalle}</p>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+// ─── El asistente (panel nuevo, 14-oct-2026) ──────────────────────────────────
+// Copiado de «Tu App» de Bonsai (b-30…b-36): la línea de pasos centrada, sin
+// caja; a la izquierda el paso, con su título y el formulario sin tarjeta
+// alrededor; a la derecha el móvil sobre un panel grande de color; abajo
+// «← Atrás» y «Siguiente →», y en el último paso «Publicar mi app».
+// Publicar hace lo de siempre; mientras hay cambios sin publicar, se dice.
+type PasoAsistente = 'estilo' | 'color' | 'letra' | 'entrada' | 'fotos' | 'instalar';
+const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[] = [
+  { id: 'estilo', corto: 'Estilo', titulo: 'Elige el estilo de tu app', sub: 'El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho se leen bien con cualquier color, también en oscuro.' },
+  { id: 'color', corto: 'Colores', titulo: 'Tus colores', sub: 'Empieza con una paleta y afina el color a tu gusto. Sale en los botones, los avisos y la tarjeta de la próxima clase.' },
+  { id: 'letra', corto: 'Tipografía', titulo: 'La tipografía', sub: 'Una letra para los títulos y otra para el texto, pensadas para ir juntas.' },
+  { id: 'entrada', corto: 'Entrada', titulo: 'Pantalla de entrada', sub: 'La primera impresión al entrar: tu foto de portada y la frase que escribes tú.' },
+  { id: 'fotos', corto: 'Fotos', titulo: 'Tus fotos', sub: 'Se guardan al subirlas, sin esperar a publicar: tus alumnas las ven al momento.' },
+  { id: 'instalar', corto: 'Tu app', titulo: 'Tu app en el móvil de tus alumnas', sub: 'Cómo la instalan y cómo se la haces llegar.' },
+];
+
+/** Paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas). Son un color de marca como cualquier otro: al publicar pasan el mismo control que uno elegido a mano. */
+const PALETAS: { nombre: string; color: string }[] = [
+  { nombre: 'Salvia', color: '#5E7A5A' },
+  { nombre: 'Terracota', color: '#A85A3E' },
+  { nombre: 'Lavanda', color: '#6E62A8' },
+  { nombre: 'Océano', color: '#2F6F8F' },
+  { nombre: 'Rosa empolvado', color: '#A85C72' },
+  { nombre: 'Tinta', color: '#2E3440' },
+];
+
+function LineaDePasos({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
+  const actual = pasos.findIndex(p => p.id === paso);
+  return (
+    <ol className="flex items-center overflow-x-auto py-1 lg:justify-center" aria-label="Pasos">
+      {pasos.map((p, i) => {
+        const hecho = i < actual;
+        const esActual = i === actual;
+        return (
+          <li key={p.id} className="flex shrink-0 items-center">
+            <button
+              type="button"
+              onClick={() => onPaso(p.id)}
+              aria-current={esActual ? 'step' : undefined}
+              className="flex items-center gap-2.5 rounded-full py-1 pr-1 text-[14px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <span
+                className={cn('flex size-8 items-center justify-center rounded-full text-[13px] font-semibold', esActual || hecho ? 'text-white' : 'border-[1.5px] border-border bg-card text-muted-foreground')}
+                style={esActual || hecho ? { backgroundColor: 'var(--t-blue-500)', boxShadow: esActual ? '0 0 0 4px color-mix(in srgb, var(--t-blue-500) 18%, transparent)' : undefined } : undefined}
+              >
+                {hecho ? <Check size={15} strokeWidth={2.6} aria-hidden /> : i + 1}
+              </span>
+              <span className={cn(esActual ? 'font-semibold text-foreground' : hecho ? 'text-foreground' : 'text-muted-foreground')}>{p.corto}</span>
+            </button>
+            {i < pasos.length - 1 && (
+              <span aria-hidden className="mx-3 h-px w-8 xl:mx-4 xl:w-14" style={{ backgroundColor: hecho ? 'var(--t-blue-500)' : 'var(--border)' }} />
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -193,6 +265,8 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
 
 export function EditorAparienciaApp() {
   const { studio, updateStudio } = useStudio();
+  // «Pedir mi app»: apagado de serie (`APP_PROPIA_PEDIR`); sin él, la sección no existe.
+  const pedirApp = useInterruptor('pedirApp', studio?.id);
   const rol = useRol();
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [errorCarga, setErrorCarga] = useState(false);
@@ -206,6 +280,12 @@ export function EditorAparienciaApp() {
   const [pantalla, setPantalla] = useState<PantallaId>('inicio');
   const [tituloAcceso, setTituloAcceso] = useState<string | null>(null);
   const [guardandoTitulo, setGuardandoTitulo] = useState(false);
+  const panelNuevo = usePanelNuevo();
+  const [paso, setPasoEstado] = useState<PasoAsistente>('estilo');
+  // En el paso de la entrada, el móvil enseña la entrada; en el resto, el inicio.
+  const irAPaso = (p: PasoAsistente) => { setPasoEstado(p); setPantalla(p === 'entrada' ? 'entrada' : 'inicio'); };
+  // Sin dirección de la app (sin slug) no hay nada que instalar: ese paso no sale.
+  const pasos = studio?.slug ? PASOS : PASOS.filter(p => p.id !== 'instalar');
 
   useEffect(() => {
     let vivo = true;
@@ -291,7 +371,7 @@ export function EditorAparienciaApp() {
     if (url === null) await eliminarImagenBienvenida(studio!.id);
     const res = await updateStudio({ imagenBienvenidaUrl: url });
     setSubiendo(false);
-    setAviso(res.ok
+    setAviso(res.ok // toast-no-es-error: el aviso lleva `tipo` y el error se pinta como alert en rojo
       ? { tipo: 'ok', texto: url ? 'Portada cambiada. Ya la ven tus alumnas.' : 'Portada quitada: vuelve la foto por defecto.' }
       : { tipo: 'error', texto: res.error });
     if (res.ok) setRecarga(n => n + 1);
@@ -303,6 +383,11 @@ export function EditorAparienciaApp() {
     <div>
       <header className="max-w-2xl">
         <h1 className="text-[22px] font-bold text-foreground">Apariencia de tu app</h1>
+        {panelNuevo ? (
+          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+            Nadie lo ve hasta que publiques. Cambia también tu página de reservas y el widget de tu web.
+          </p>
+        ) : (<>
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
           Cómo ven tus alumnas su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
           resultado en el móvil de la derecha; nadie lo ve hasta que publiques.
@@ -313,6 +398,7 @@ export function EditorAparienciaApp() {
           También se aplica a tu página de reservas y al widget de tu web (salvo los colores o la letra que le
           pongas al widget).
         </p>
+        </>)}
         {!soyPropietaria && (
           <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-[13px] text-foreground">
             Puedes probar estilos, pero solo la propietaria del estudio puede publicarlos.
@@ -326,9 +412,27 @@ export function EditorAparienciaApp() {
         )}
       </header>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <div className="order-2 flex min-w-0 flex-col gap-5 lg:order-1">
-          <Seccion titulo="Estilo" orden={0} detalle="El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho están pensados para leerse bien con cualquier color, incluido el oscuro.">
+      {panelNuevo && (
+        <div className="mt-5 border-b border-border pb-5">
+          <LineaDePasos pasos={pasos} paso={paso} onPaso={irAPaso} />
+        </div>
+      )}
+
+      <div className={panelNuevo
+        ? 'mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start'
+        : 'mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start'}>
+        <div className={cn('flex min-w-0 flex-col gap-5', panelNuevo ? 'order-1' : 'order-2 lg:order-1')}>
+          {panelNuevo && (() => {
+            const i = pasos.findIndex(p => p.id === paso);
+            return (
+              <div>
+                <p className="sr-only">Paso {i + 1} de {pasos.length}</p>
+                <h2 className="text-[22px] font-bold leading-tight text-foreground">{pasos[i].titulo}</h2>
+                <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{pasos[i].sub}</p>
+              </div>
+            );
+          })()}
+          {(!panelNuevo || paso === 'estilo') && <Seccion enAsistente={panelNuevo} titulo="Estilo" orden={0} detalle="El fondo, las tarjetas y la forma de las esquinas y los botones. Los ocho están pensados para leerse bien con cualquier color, incluido el oscuro.">
             <div role="radiogroup" aria-label="Estilo de la app" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {ESTILOS.map(e => (
                 <MuestraEstilo
@@ -340,10 +444,39 @@ export function EditorAparienciaApp() {
                 />
               ))}
             </div>
-          </Seccion>
+          </Seccion>}
 
-          <Seccion titulo="Tu color" orden={1} detalle="El de tu marca. Sale en enlaces, avisos y la tarjeta de la próxima clase, y en tu panel y tu página de reservas.">
+          {(!panelNuevo || paso === 'color') && <Seccion enAsistente={panelNuevo} titulo="Tu color" orden={1} detalle="El de tu marca. Sale en enlaces, avisos y la tarjeta de la próxima clase, y en tu panel y tu página de reservas.">
             <div className="flex flex-col gap-5">
+              {panelNuevo && (
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Paletas listas</p>
+                  <div role="radiogroup" aria-label="Paletas" className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {PALETAS.map(pal => {
+                      const activa = borrador.primary.toLowerCase() === pal.color.toLowerCase();
+                      return (
+                        <button
+                          key={pal.nombre}
+                          type="button"
+                          role="radio"
+                          aria-checked={activa}
+                          onClick={() => { setAviso(null); setBorrador(b => (b ? { ...b, primary: pal.color } : b)); }}
+                          className={cn('flex h-12 items-center gap-3 rounded-[12px] border bg-card px-4 text-left transition-shadow hover:shadow-md', activa ? 'border-transparent ring-2' : 'border-border')}
+                          style={activa ? { ['--tw-ring-color' as string]: pal.color, backgroundColor: `color-mix(in srgb, ${pal.color} 8%, var(--card))` } : undefined}
+                        >
+                          <span aria-hidden className="flex -space-x-1.5">
+                            <span className="size-6 rounded-full ring-2 ring-card" style={{ backgroundColor: `color-mix(in srgb, ${pal.color} 45%, white)` }} />
+                            <span className="size-6 rounded-full ring-2 ring-card" style={{ backgroundColor: pal.color }} />
+                          </span>
+                          <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-foreground">{pal.nombre}</span>
+                          {activa && <Check size={15} style={{ color: pal.color }} aria-hidden />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-[13px] font-semibold text-foreground">O afínalo tú</p>
+                </div>
+              )}
               <CampoColor
                 etiqueta="Color de tu marca"
                 valor={borrador.primary}
@@ -390,9 +523,9 @@ export function EditorAparienciaApp() {
                 </div>
               </details>
             </div>
-          </Seccion>
+          </Seccion>}
 
-          <Seccion titulo="Tipografía" orden={2} detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas. La de títulos la llevan además los botones, los rótulos y las etiquetas.">
+          {(!panelNuevo || paso === 'letra') && <Seccion enAsistente={panelNuevo} titulo="Tipografía" orden={2} detalle="Una letra para los títulos y otra para el texto, elegidas para ir juntas. La de títulos la llevan además los botones, los rótulos y las etiquetas.">
             <div role="radiogroup" aria-label="Tipografía de la app" className="grid gap-2 sm:grid-cols-2">
               {TIPOGRAFIAS.map(t => {
                 const activo = borrador.app.tipografia === t.id;
@@ -426,9 +559,9 @@ export function EditorAparienciaApp() {
                 );
               })}
             </div>
-          </Seccion>
+          </Seccion>}
 
-          <Seccion
+          {(!panelNuevo || paso === 'entrada') && <Seccion enAsistente={panelNuevo}
             titulo="La entrada" orden={3}
             detalle="La primera pantalla, donde tus alumnas entran o se registran. La foto es la de portada; el titular lo escribes tú."
           >
@@ -459,7 +592,7 @@ export function EditorAparienciaApp() {
                     setGuardandoTitulo(true);
                     const res = await updateStudio({ tituloAcceso: tituloAcceso.trim() || null });
                     setGuardandoTitulo(false);
-                    setAviso(res.ok
+                    setAviso(res.ok // toast-no-es-error: el aviso lleva `tipo` y el error se pinta como alert en rojo
                       ? { tipo: 'ok', texto: 'Titular guardado. Ya se lee en tu entrada.' }
                       : { tipo: 'error', texto: res.error });
                     if (res.ok) { setTituloAcceso(null); setPantalla('entrada'); setRecarga(n => n + 1); }
@@ -470,9 +603,9 @@ export function EditorAparienciaApp() {
                 <span className="text-[12px] text-muted-foreground">Se guarda al momento, sin esperar a «Publicar».</span>
               </div>
             </div>
-          </Seccion>
+          </Seccion>}
 
-          <Seccion
+          {(!panelNuevo || paso === 'fotos') && <Seccion enAsistente={panelNuevo}
             titulo="Fotos"
             orden={4}
             detalle="Las fotos se guardan al subirlas, sin esperar a «Publicar»: tus alumnas las ven al momento."
@@ -529,18 +662,88 @@ export function EditorAparienciaApp() {
                 ))}
               </ul>
             </div>
-          </Seccion>
+          </Seccion>}
+
+          {studio.slug && (!panelNuevo || paso === 'instalar') && (
+            <Seccion
+              enAsistente={panelNuevo}
+              titulo="Instalar en el móvil"
+              orden={5}
+              detalle="Cómo se instala la app de tu estudio y cómo hacérselo llegar a tus alumnas."
+            >
+              <AppEnElMovil
+                nombre={studio.nombre}
+                slug={studio.slug}
+                colorPrimario={studio.colorPrimario}
+                faviconUrl={publicado.faviconUrl ?? null}
+                logoUrl={studio.logoUrl}
+              />
+            </Seccion>
+          )}
+
+          {pedirApp && studio.id && (!panelNuevo || paso === 'instalar') && (
+            <Seccion
+              enAsistente={panelNuevo}
+              titulo="Tu app en la App Store"
+              orden={6}
+              detalle="Una app con el nombre y el icono de tu estudio, para la App Store."
+            >
+              <MiAppDeTienda studioId={studio.id} />
+            </Seccion>
+          )}
+          {panelNuevo && (() => {
+            const k = pasos.findIndex(p => p.id === paso);
+            const anterior = k > 0 ? pasos[k - 1] : null;
+            const siguiente = k < pasos.length - 1 ? pasos[k + 1] : null;
+            return (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                {anterior ? (
+                  <button type="button" onClick={() => irAPaso(anterior.id)} className="inline-flex h-10 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted">
+                    <ArrowLeft size={15} aria-hidden /> Atrás
+                  </button>
+                ) : <span />}
+                {siguiente ? (
+                  <BotonVivo label={<>Siguiente <ArrowRight size={15} aria-hidden /></>} onClick={() => irAPaso(siguiente.id)} className="h-10 px-5 text-[14px]" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={publicar}
+                    disabled={!puedePublicar}
+                    title={!soyPropietaria ? 'Solo la propietaria puede publicar' : cambios.length === 0 ? 'No hay cambios que publicar' : undefined}
+                    className={cn(BOTON_DESTACADO, 'h-10 px-5 text-[14px] disabled:pointer-events-none disabled:opacity-50')}
+                  >
+                    {reciénPublicado ? <><Check size={15} aria-hidden /> Publicada</> : publicando ? 'Publicando…' : 'Publicar mi app'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
-        <div className="order-1 lg:sticky lg:top-20 lg:order-2">
-          {studio.slug
+        <div className={panelNuevo ? 'order-2 lg:sticky lg:top-20' : 'order-1 lg:sticky lg:top-20 lg:order-2'}>
+          {panelNuevo ? (
+            // Como Bonsai: el móvil sobre un panel grande de color, con los tonos del logo.
+            <div
+              className="flex min-h-[560px] items-center justify-center rounded-[28px] px-4 py-8 sm:px-8"
+              style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
+            >
+              {studio.slug
+                ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
+                : <p className="max-w-xs rounded-2xl bg-card/90 p-4 text-[13px] text-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>}
+            </div>
+          ) : (studio.slug
             ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
-            : <p className="max-w-xs text-[13px] text-muted-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>}
+            : <p className="max-w-xs text-[13px] text-muted-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>)}
         </div>
       </div>
 
-      {/* Barra fija: lo que hay sin publicar y las dos salidas. */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-6 border-t border-border bg-card/95 backdrop-blur sm:mx-0 sm:rounded-t-xl sm:border-x">
+      {/* Barra fija: lo que hay sin publicar y las dos salidas. En el panel nuevo,
+          solo cuando hay algo que decir (cambios, un aviso): «Todo publicado» de
+          relleno no; y publicar del todo es el último paso. */}
+      {(!panelNuevo || cambios.length > 0 || aviso) && (
+      <div className={panelNuevo
+        ? 'sticky bottom-0 z-30 -mx-4 mt-6 border-t border-border bg-card/95 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:shadow-t-card'
+        : 'sticky bottom-0 z-30 -mx-4 mt-6 border-t border-border bg-card/95 backdrop-blur sm:mx-0 sm:rounded-t-xl sm:border-x'}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:pr-24">
           <p
             role={aviso?.tipo === 'error' ? 'alert' : 'status'}
@@ -563,7 +766,9 @@ export function EditorAparienciaApp() {
             </button>
             <button
               type="button"
-              className={cn(btnPrimary, 'transition-transform duration-200 active:scale-[.97]')}
+              className={panelNuevo
+                ? cn(BOTON_VIVO, 'h-10 px-5 text-[14px] disabled:pointer-events-none disabled:opacity-50')
+                : cn(btnPrimary, 'transition-transform duration-200 active:scale-[.97]')}
               disabled={!puedePublicar}
               onClick={publicar}
               title={!soyPropietaria ? 'Solo la propietaria puede publicar' : undefined}
@@ -575,6 +780,7 @@ export function EditorAparienciaApp() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

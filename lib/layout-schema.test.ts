@@ -19,7 +19,7 @@ test('resolveLayout: filtra tipos inválidos por campo', () => {
 test('resolveLayout: config válida se respeta', () => {
   const r = resolveLayout({ orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior' });
   assert.deepEqual(r, {
-    orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
+    orden: ['/x'], ocultos: ['/y'], activados: [], menuPosition: 'superior',
     home: { orden: [], ocultos: [] },
     portalHome: { orden: [], ocultos: [] },
     // Orden/visibilidad de las secciones de /reservar (widget incrustable).
@@ -28,6 +28,12 @@ test('resolveLayout: config válida se respeta', () => {
     reservar: { orden: [], ocultos: [] },
     bloques: DEFAULT_BLOQUES_SHAPE,
   });
+});
+
+test('resolveLayout: `activados` (Módulos con el panel nuevo) se lee y se filtra; sin él, vacío', () => {
+  assert.deepEqual(resolveLayout({ activados: ['/pos', 4, '/cierre'] }).activados, ['/pos', '/cierre']);
+  assert.deepEqual(resolveLayout({ activados: 'no' }).activados, []);
+  assert.deepEqual(resolveLayout({ ocultos: ['/y'] }).activados, []);
 });
 
 test('resolveLayout: resuelve bloques.home (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveBloquesPantalla', () => {
@@ -271,4 +277,44 @@ test('no muta la lista que recibe', () => {
 test('sin lista de orden (undefined) no revienta: devuelve los items tal cual', () => {
   const items = [it('/a'), it('/b')];
   assert.deepEqual(ordenarItemsMenu(items, undefined).map(x => x.href), ['/a', '/b']);
+});
+
+// ⚠️ Con zod 4, `.partial()` aplica el `.default()` de `bloques`: un PUT de solo
+// `{ ocultos }` traía bloques DE FÁBRICA y, fusionados encima, borraban los del
+// estudio (su app y /reservar) cada vez que alguien guardaba «Tu menú».
+test('guardar el menú no toca los bloques del estudio (ni el borrador ni lo publicado)', async () => {
+  const { fusionarLayout, layoutConfigSchema, layoutDraftSchema } = await import('./layout-schema.ts');
+  const { DEFAULT_LAYOUT } = await import('./layout-runtime.ts');
+  const base = layoutConfigSchema.parse(DEFAULT_LAYOUT);
+  const conBloques = structuredClone(base);
+  // Un arreglo propio: los bloques de fábrica al revés y sin el último.
+  const propio = [...base.bloques.home.draft].reverse().slice(1);
+  conBloques.bloques.home.draft = propio;
+  conBloques.bloques.reservar.publicado = propio;
+  const actual = { ...conBloques, orden: ['/citas'], home: { orden: ['estado'], ocultos: ['x'] } };
+
+  const parche = layoutDraftSchema.parse({ ocultos: ['/informes'] });
+  const final = fusionarLayout(actual, parche);
+  assert.deepEqual(final.ocultos, ['/informes']);
+  assert.deepEqual(final.orden, ['/citas'], 'el orden se conserva');
+  assert.deepEqual(final.home, { orden: ['estado'], ocultos: ['x'] }, 'el Resumen se conserva');
+  assert.ok(propio.length > 1);
+  assert.deepEqual(final.bloques.home.draft, propio, 'el borrador de la app se conserva');
+  assert.deepEqual(final.bloques.reservar.publicado, propio, 'lo publicado de /reservar se conserva');
+  // Y sin el arreglo (lo de antes) se habría perdido: el parche trae bloques de fábrica.
+  assert.ok('bloques' in parche);
+});
+
+// Módulos (panel nuevo) y el cajón «Tu menú» escriben el mismo documento: el
+// PUT de uno no puede pisar lo del otro.
+test('activar en Módulos ({ ocultos, activados }) no toca el orden; guardar el orden no toca los activados', async () => {
+  const { fusionarLayout, layoutConfigSchema, layoutDraftSchema } = await import('./layout-schema.ts');
+  const { DEFAULT_LAYOUT } = await import('./layout-runtime.ts');
+  const actual = { ...layoutConfigSchema.parse(DEFAULT_LAYOUT), orden: ['/citas'], activados: ['/cierre'] };
+  const trasModulos = fusionarLayout(actual, layoutDraftSchema.parse({ ocultos: [], activados: ['/cierre', '/pos'] }));
+  assert.deepEqual(trasModulos.activados, ['/cierre', '/pos']);
+  assert.deepEqual(trasModulos.orden, ['/citas']);
+  const trasOrden = fusionarLayout(trasModulos, layoutDraftSchema.parse({ orden: ['/pos', '/cobros'], menuPosition: 'lateral' }));
+  assert.deepEqual(trasOrden.activados, ['/cierre', '/pos']);
+  assert.deepEqual(trasOrden.orden, ['/pos', '/cobros']);
 });

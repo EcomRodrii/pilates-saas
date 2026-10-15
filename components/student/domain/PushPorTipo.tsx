@@ -42,7 +42,7 @@ export function PushPorTipo({ rol, studioId, inicial, online }: {
     // preferencia que el motor no tiene.
     if (!ok) {
       setEstado((s) => ({ ...s, [evento]: antes }));
-      toast('No hemos podido guardar ese cambio.');
+      toast('No hemos podido guardar ese cambio.', { variant: 'error' });
     }
   };
 

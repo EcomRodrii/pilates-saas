@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -35,7 +35,7 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero, puedeGestionarCalendario } from '@/lib/permisos';
-import { Toast, useToast } from '@/components/ui/toast';
+import { Toast, useToast, type MostrarToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
@@ -49,10 +49,13 @@ import { ClasesSinInstructora } from '@/components/dashboard/clases-sin-instruct
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
 import { SeriesPorRenovar } from '@/components/dashboard/series-por-renovar';
-import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { FestivosPorDecidir } from '@/components/dashboard/festivos-por-decidir';
+import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarEquipo, puedeGestionarSede } from '@/lib/permisos-reglas';
 import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
+import { ResumenNuevo } from '@/components/dashboard/resumen-nuevo';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Code-split (mismo patrón que components/configuracion/shell/config-shell.tsx):
 // las tres se pintan solo en circunstancias que la mayoría de cargas de
@@ -293,6 +296,9 @@ export default function Dashboard() {
     automationLogs,
     studio,
   } = useStudio();
+  // El panel nuevo (14-oct-2026): con el interruptor apagado, esta pantalla es
+  // la de siempre, sin un píxel distinto.
+  const panelNuevo = useInterruptor('panelNuevo', studio?.id);
 
   // Personalización de la home por estudio (reordenar/ocultar secciones). Se
   // reordena por CSS `order` sin mover el DOM. Recarga al vuelo al guardar.
@@ -599,7 +605,13 @@ export default function Dashboard() {
     return { esperando, ejecutadas, fallidas };
   }, [automationLogs, hoyStr, rolActual, esperandoEnBandeja]);
 
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
+  // Las dos mitades de un error en rojo: el `{ variant: 'error' }` de quien avisa
+  // (las tarjetas de «por decidir» y los cobros) y el `variant` del <Toast>.
+  const showToast: MostrarToast = useCallback(
+    (mensaje, opciones) => { if (opciones?.variant === 'error') showError(mensaje); else show(mensaje); },
+    [show, showError],
+  );
   const [cobrandoTodos, setCobrandoTodos] = useState(false);
 
   // ── "10 segundos": lo que el negocio necesita ver hoy sin navegar ───────────
@@ -634,7 +646,169 @@ export default function Dashboard() {
   const trendBg =
     pctChange > 0 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : pctChange < 0 ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--muted)';
 
+  // ── Piezas que comparten las dos homes ───────────────────────────────────────
+  const bandeja = (
+    <EstadoDelEstudio
+      nueva={panelNuevo}
+      accionesEnLinea={<>
+        {/* ⚠️ Estas ocho piden sus filas al montar, por las MISMAS que la
+            bandeja acaba de contar en servidor. Parece trabajo de sobra y
+            NO se puede quitar: el recuento lleva hasta 30 s de caché y la
+            tarjeta lee en vivo, así que un cero del contador no significa
+            que no haya nada — solo que hace un rato no lo había. Saltarse
+            la consulta con ese cero esconde trabajo pendiente sin dar
+            ningún error. Lo fija `estado-del-estudio.spec.ts`: «si el
+            recuento aún dice nada y la tarjeta sí tiene algo, se ve la
+            tarjeta». Probado y revertido el 23-sep. */}
+        {/* Denuncias de la app: tienen reloj (a las 24 h las revisa Tentare). Quien revisa algún ámbito. */}
+        {ambitosQueRevisa(rolActual).length > 0 && <DenunciasPorRevisar onToast={showToast} />}
+        {/* La primera: es la única que puede caducar sola (la clase empieza). */}
+        {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
+        {/* Clases con alumnas apuntadas que nadie va a dar (RES-8): nada las cancela solo. */}
+        {gestionaCalendario && <ClasesSinInstructora onToast={showToast} />}
+        {/* Un festivo con clases: abrir o cerrar ese día. Quien puede cerrar el centro (propietaria y gerencia). */}
+        {puedeGestionarSede(rolActual) && <FestivosPorDecidir onToast={showToast} />}
+        {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
+        {/* Aprobar da, pausa o devuelve una plaza y reserva o cancela clases: los dos permisos. */}
+        {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
+        {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
+        {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+        {mueveDinero && <DoblesCobrosPorRevisar onToast={showToast} />}
+        {mueveDinero && <ReconciliacionesPendientes onToast={showToast} />}
+        {gestionaClientas && <CanjesPendientes onToast={showToast} />}
+        {/* El motivo de una baja puede ser salud: propietaria y gerencia, nunca recepción. */}
+        {gestionaEquipo && <BajasPorRevisar onToast={showToast} />}
+      </>}
+    />
+  );
+
+  const pagosPendientes = verFinanzas && pendientes.length > 0 ? (
+    // En la home nueva, con la forma de sus tarjetas; la de siempre no cambia.
+    <div className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'bg-card rounded-xl border border-border'}>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
+        <div className="flex items-center gap-2">
+          <CreditCard size={14} className="text-muted-foreground" />
+          <h2 className={panelNuevo ? 'text-[15px] font-semibold text-foreground' : 'text-[13px] font-semibold text-foreground'}>
+            Pagos pendientes
+          </h2>
+          <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
+            {pendientesTotal}
+          </span>
+        </div>
+        {pendientes.length > 1 && (
+          // Pregunta cómo se ha cobrado, y eso es también la confirmación
+          // (2-oct-2026): antes un toque cobraba TODO lo pendiente del
+          // estudio —no solo los 5 que se ven— sin método, así que nada
+          // entraba en la caja ni en el desglose. Mismo botón que la ficha.
+          <BotonCobrarConMetodo
+            sinEspecificar={false}
+            detalle={<>Todo lo pendiente del estudio: {cobrarTodos.n} {cobrarTodos.n === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(cobrarTodos.importe)}</span></>}
+            onCobrar={metodo => {
+              if (cobrandoTodos) return;
+              setCobrandoTodos(true);
+              return cobrarTodosPendientes(undefined, metodo)
+                .then(res => {
+                  if (res.ok) showToast(textoLoteCobrado(res, res.saltados));
+                  else showToast(res.error, { variant: 'error' });
+                })
+                .finally(() => setCobrandoTodos(false));
+            }}
+            className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Zap size={11} /> {cobrandoTodos ? 'Cobrando…' : 'Cobrar todos'}
+          </BotonCobrarConMetodo>
+        )}
+      </div>
+      <div className="divide-y divide-muted">
+        {pendientes.map(r => (
+          <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+            <Link
+              href={`/clientas/${r.socioId}`}
+              className="zona-tactil w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+            >
+              {r.socio!.nombre[0]}
+              {r.socio!.apellidos[0]}
+            </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-foreground truncate">
+                {r.socio!.nombre} {r.socio!.apellidos}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">{r.concepto}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <CifraPrivada inline className="text-[13px] font-bold text-foreground">
+                {r.importe} €
+              </CifraPrivada>
+              <BotonCobrarConMetodo
+                detalle={<>{r.socio!.nombre} {r.socio!.apellidos} — <span className="font-semibold text-foreground">{r.importe} €</span></>}
+                onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
+                  if (res.ok) showToast(res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${r.importe} €`);
+                  else showToast(res.error, { variant: 'error' });
+                })}
+                className={panelNuevo
+                ? 'zona-tactil rounded-full border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted'
+                : 'text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors'}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      {pendientesTotal > 5 && (
+        <div className="px-5 py-3 border-t border-muted">
+          <Link
+            href="/cobros?tab=pendientes"
+            className="text-[11px] font-medium text-brand-medio hover:underline"
+          >
+            Ver todos los pagos pendientes →
+          </Link>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   if (!mounted) return null;
+
+  if (panelNuevo) {
+    return (
+      <div data-tour="resumen-vista">
+        <ResumenNuevo
+          titulo={nombrePropio ? `${saludo}, ${nombrePropio}` : saludo}
+          fecha={capitalizarPrimera(mesFecha)}
+          ahora={now}
+          visible={id => ordenSeccion(id) !== undefined}
+          puedeIr={href => puedeVer(rolActual, href)}
+          verFinanzas={verFinanzas}
+          verPrimerosPasos={puedeVer(rolActual, '/primeros-pasos')}
+          gestionaClientas={gestionaClientas}
+          gestionaCalendario={gestionaCalendario}
+          mueveDinero={mueveDinero}
+          sociasActivas={sociasActivas}
+          sinVenir30d={sinVenir30d}
+          pendientesTotal={pendientesTotal}
+          renovaciones={renovacionesProximas.map(r => ({
+            id: r.id,
+            socioId: r.socioId,
+            nombre: `${r.socio!.nombre} ${r.socio!.apellidos}`.trim(),
+            plan: r.plan!.nombre,
+            precio: r.plan!.precio,
+            fechaFin: r.fechaFin!,
+          }))}
+          actividad={actividadReciente.slice(0, 8).map(act => {
+            const cfg = actividadConfig[act.tipo];
+            return { id: act.id, etiqueta: cfg.label, color: cfg.color, bg: cfg.bg, texto: limpiarActividad(act.texto), enlace: act.enlace, hace: timeAgo(act.creadoEn, now) };
+          })}
+          avisos={<AvisoIntegracionesCaidas />}
+          bandeja={bandeja}
+          centroDeControl={puedeVer(rolActual, '/centro-de-control') ? <ActionCenter nueva /> : null}
+          pagosPendientes={pagosPendientes}
+          ventasRecientes={<VentasRecientes />}
+          crecimiento={<EmbudoWidgetCard />}
+          graficos={<CustomChartsSection />}
+        />
+        {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
+      </div>
+    );
+  }
 
   return (
 
@@ -718,35 +892,7 @@ export default function Dashboard() {
             estas tarjetas iban fuera del layout y no se podían esconder; meterlas
             aquí no puede volverlas escondibles. */}
         <div {...wrap('estado')} hidden={false}>
-          <EstadoDelEstudio
-            accionesEnLinea={<>
-              {/* ⚠️ Estas ocho piden sus filas al montar, por las MISMAS que la
-                  bandeja acaba de contar en servidor. Parece trabajo de sobra y
-                  NO se puede quitar: el recuento lleva hasta 30 s de caché y la
-                  tarjeta lee en vivo, así que un cero del contador no significa
-                  que no haya nada — solo que hace un rato no lo había. Saltarse
-                  la consulta con ese cero esconde trabajo pendiente sin dar
-                  ningún error. Lo fija `estado-del-estudio.spec.ts`: «si el
-                  recuento aún dice nada y la tarjeta sí tiene algo, se ve la
-                  tarjeta». Probado y revertido el 23-sep. */}
-              {/* Denuncias de la app: tienen reloj (a las 24 h las revisa Tentare). Quien revisa algún ámbito. */}
-              {ambitosQueRevisa(rolActual).length > 0 && <DenunciasPorRevisar onToast={showToast} />}
-              {/* La primera: es la única que puede caducar sola (la clase empieza). */}
-              {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
-              {/* Clases con alumnas apuntadas que nadie va a dar (RES-8): nada las cancela solo. */}
-              {gestionaCalendario && <ClasesSinInstructora onToast={showToast} />}
-              {gestionaCalendario && <SeriesPorRenovar onToast={showToast} />}
-              {/* Aprobar da, pausa o devuelve una plaza y reserva o cancela clases: los dos permisos. */}
-              {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
-              {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
-              {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
-              {mueveDinero && <DoblesCobrosPorRevisar onToast={showToast} />}
-              {mueveDinero && <ReconciliacionesPendientes onToast={showToast} />}
-              {gestionaClientas && <CanjesPendientes onToast={showToast} />}
-              {/* El motivo de una baja puede ser salud: propietaria y gerencia, nunca recepción. */}
-              {gestionaEquipo && <BajasPorRevisar onToast={showToast} />}
-            </>}
-          />
+          {bandeja}
         </div>
 
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
@@ -1026,82 +1172,7 @@ export default function Dashboard() {
                 instructora («No puedo asistir») se movió con ella, no se perdió. */}
 
             {/* Pagos pendientes */}
-            {verFinanzas && pendientes.length > 0 && (
-              <div className="bg-card rounded-xl border border-border">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
-                  <div className="flex items-center gap-2">
-                    <CreditCard size={14} className="text-muted-foreground" />
-                    <h2 className="text-[13px] font-semibold text-foreground">
-                      Pagos pendientes
-                    </h2>
-                    <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
-                      {pendientesTotal}
-                    </span>
-                  </div>
-                  {pendientes.length > 1 && (
-                    // Pregunta cómo se ha cobrado, y eso es también la confirmación
-                    // (2-oct-2026): antes un toque cobraba TODO lo pendiente del
-                    // estudio —no solo los 5 que se ven— sin método, así que nada
-                    // entraba en la caja ni en el desglose. Mismo botón que la ficha.
-                    <BotonCobrarConMetodo
-                      sinEspecificar={false}
-                      detalle={<>Todo lo pendiente del estudio: {cobrarTodos.n} {cobrarTodos.n === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(cobrarTodos.importe)}</span></>}
-                      onCobrar={metodo => {
-                        if (cobrandoTodos) return;
-                        setCobrandoTodos(true);
-                        return cobrarTodosPendientes(undefined, metodo)
-                          .then(res => { showToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error); })
-                          .finally(() => setCobrandoTodos(false));
-                      }}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <Zap size={11} /> {cobrandoTodos ? 'Cobrando…' : 'Cobrar todos'}
-                    </BotonCobrarConMetodo>
-                  )}
-                </div>
-                <div className="divide-y divide-muted">
-                  {pendientes.map(r => (
-                    <div key={r.id} className="flex items-center gap-3 px-5 py-3">
-                      <Link
-                        href={`/clientas/${r.socioId}`}
-                        className="w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
-                      >
-                        {r.socio!.nombre[0]}
-                        {r.socio!.apellidos[0]}
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-foreground truncate">
-                          {r.socio!.nombre} {r.socio!.apellidos}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">{r.concepto}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <CifraPrivada inline className="text-[13px] font-bold text-foreground">
-                          {r.importe} €
-                        </CifraPrivada>
-                        <BotonCobrarConMetodo
-                          detalle={<>{r.socio!.nombre} {r.socio!.apellidos} — <span className="font-semibold text-foreground">{r.importe} €</span></>}
-                          onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                            showToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${r.importe} €`) : res.error);
-                          })}
-                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {pendientesTotal > 5 && (
-                  <div className="px-5 py-3 border-t border-muted">
-                    <Link
-                      href="/cobros?tab=pendientes"
-                      className="text-[11px] font-medium text-brand-medio hover:underline"
-                    >
-                      Ver todos los pagos pendientes →
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
+            {pagosPendientes}
 
             {/* El radar «Clases con hueco (próximas 48 h)» vivía aquí y ya no.
                 Su botón «Avisar a candidatas» mandaba WhatsApp a TODAS de golpe
@@ -1278,7 +1349,7 @@ export default function Dashboard() {
         </div>
         </div>
       </div>
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import type http from 'node:http';
 import crypto from 'node:crypto';
 import webpush from 'web-push';
-import { CANALES, enviarAEndpoints, opcionesPush, resumirPush, proveedorDePush, hostDeEndpoint, FALLOS_PARA_RETIRAR, type EndpointPush } from './channels.ts';
+import { CANALES, suscripcionesDelAviso, enviarAEndpoints, opcionesPush, resumirPush, proveedorDePush, hostDeEndpoint, FALLOS_PARA_RETIRAR, type EndpointPush } from './channels.ts';
 
 const sinEspera = async () => {};
 const ep = (id: string, host = 'fcm.googleapis.com'): EndpointPush => ({ id, endpoint: `https://${host}/wpush/${id}`, p256dh: 'p', auth: 'a', failure_count: 0 });
@@ -65,6 +65,16 @@ test('todas caducadas = SKIPPED con la instrucción para la usuaria; con una viv
   const mixto = resumirPush([caducada, ok], 1);
   assert.equal(mixto.status, 'SENT');
   assert.match(mixto.providerId ?? '', /^1\/2 · apple:410\(caducada\) fcm:201$/);
+});
+
+test('el motivo de APNs queda en el resumen aunque otro dispositivo lo reciba', () => {
+  const ios = { id: 'a', host: 'api.push.apple.com', estado: 'rechazado' as const, codigo: 403, detalle: 'APNs 403 InvalidProviderToken' };
+  const web = { id: 'b', host: 'web.push.apple.com', estado: 'ok' as const, codigo: 201 };
+  const v = resumirPush([ios, web], 0);
+  assert.equal(v.status, 'SENT');
+  assert.equal(v.providerId, '1/2 · ios:403(rechazado InvalidProviderToken) apple:201');
+  // Un fallo que no es de APNs no inventa motivo.
+  assert.equal(resumirPush([{ ...ios, host: 'fcm.googleapis.com', detalle: 'Received unexpected response code' }], 0).providerId, '0/1 · fcm:403(rechazado)');
 });
 
 test('el resumen nunca contiene el endpoint completo (es un secreto)', () => {
@@ -210,8 +220,27 @@ test('una suscripción con demasiados fallos seguidos se retira', () => {
   assert.equal(FALLOS_PARA_RETIRAR, 10);
 });
 
-test('el token de la app de iOS se diagnostica como Apple, no como un host raro', () => {
+test('el token de la app de iOS se diagnostica como la app, no como un host raro ni como la web de Safari', () => {
   const host = hostDeEndpoint(`apns://app.tentare/${'b'.repeat(64)}`);
   assert.equal(host, 'api.push.apple.com');
-  assert.equal(proveedorDePush(host), 'apple');
+  assert.equal(proveedorDePush(host), 'ios');
+  assert.equal(proveedorDePush('web.push.apple.com'), 'apple');
+});
+
+test('la app de un estudio solo lleva los avisos de su estudio (o de su cadena), y solo mientras está activa', () => {
+  const tok = 'a'.repeat(64);
+  const web = { endpoint: 'https://web.push.apple.com/x', studio_id: 'otro' };
+  const tentare = { endpoint: `apns://app.tentare/${tok}`, studio_id: 'otro' };
+  const marta = { endpoint: `apns://app.tentare.marta/${tok}`, studio_id: 's-marta' };
+  const subs = [web, tentare, marta];
+  // Aviso de otro estudio: la app de Marta no lo lleva (rompería la marca blanca).
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-otro']), new Set(['app.tentare.marta'])), [web, tentare]);
+  // Aviso de Marta con su app activa: sí.
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-marta']), new Set(['app.tentare.marta'])), subs);
+  // App pausada (no está entre las activas): ya no.
+  assert.deepEqual(suscripcionesDelAviso(subs, new Set(['s-marta']), new Set()), [web, tentare]);
+  // App de una cadena: el token se guardó en la sede norte y el aviso es de la sur: sí lo lleva.
+  const cadena = { endpoint: `apns://app.tentare.cupo-001/${tok}`, studio_id: 's-norte' };
+  assert.deepEqual(suscripcionesDelAviso([cadena], new Set(['s-norte', 's-sur']), new Set(['app.tentare.cupo-001'])), [cadena]);
+  assert.deepEqual(suscripcionesDelAviso([cadena], new Set(['s-sur']), new Set(['app.tentare.cupo-001'])), []);
 });

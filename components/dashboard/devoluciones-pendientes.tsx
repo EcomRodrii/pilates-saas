@@ -8,6 +8,7 @@ import { resolverDevolucion } from '@/lib/api-client';
 import { ANCLA_DECIDIR, invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import type { MostrarToast } from '@/components/ui/toast';
 
 // Devoluciones que hace falta revisar: se ha devuelto dinero (o se ha perdido
 // una disputa) y la socia conserva lo que se le entregó.
@@ -29,7 +30,7 @@ const ETIQUETA_ORIGEN: Record<DevolucionPendiente['origen'], string> = {
   CHARGEBACK: 'Disputa perdida',
 };
 
-export function DevolucionesPendientes({ onToast }: { onToast: (m: string) => void }) {
+export function DevolucionesPendientes({ onToast }: { onToast: MostrarToast }) {
   const [items, setItems] = useState<DevolucionPendiente[] | null>(null);
   const [enCurso, setEnCurso] = useState<string | null>(null);
 
@@ -44,7 +45,7 @@ export function DevolucionesPendientes({ onToast }: { onToast: (m: string) => vo
     const previa = calcularReversion({ snapshot: d.snapshot, actual: d.actual });
     const r = await resolverDevolucion(d.id, accion, huellaDe(previa));
     setEnCurso(null);
-    if ('error' in r) { onToast(r.error); return; }
+    if ('error' in r) { onToast(r.error, { variant: 'error' }); return; }
     setItems(prev => (prev ?? []).filter(x => x.id !== d.id));
     invalidarEstadoEstudio();
     onToast(accion === 'REVERTIR' ? 'Entrega revertida' : 'Devolución marcada como revisada');

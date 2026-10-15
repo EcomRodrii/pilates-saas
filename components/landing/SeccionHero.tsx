@@ -4,17 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, Hourglass, RefreshCw, type LucideIcon } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ALTA, NAV_V5 } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
-import { PLANS } from './data';
 import { useIslaCompacta } from './use-isla-compacta';
 import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
 
-// El precio más bajo, del mismo sitio que la sección de precios: si cambia la
-// tarifa, no se queda una cifra vieja en el primer pantallazo.
-const PRECIO_DESDE = PLANS[0].price.replace('€', ' €');
+// El precio de entrada (Founding Studio gratis, con sus dos límites) sale de
+// lib/landing/founding-gratis.ts, el mismo sitio que la sección de precios: si
+// cambia, no se queda una cifra vieja en el primer pantallazo.
 
 // Nav + primer pantallazo.
 //
@@ -161,7 +160,7 @@ export function SeccionHero() {
               se reintentan solos. Tú solo decides lo que necesita tu criterio.
             </p>
             <div className="v5-hero-acciones">
-              <Link href={ALTA} className="v5-hero-cta">Probar {TRIAL_DIAS} días gratis</Link>
+              <Link href={ALTA} className="v5-hero-cta">{CTA_ALTA}</Link>
               <a href="#producto" className="v5-hero-enlace">Ver cómo funciona <span aria-hidden>↓</span></a>
             </div>
             {/* La nota pública de G2 (lib/seo/g2.ts), la misma que enseñan las
@@ -170,7 +169,7 @@ export function SeccionHero() {
               <a href={G2_URL} target="_blank" rel="noopener noreferrer" className="v5-hero-g2">
                 <span className="v5-hero-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2
               </a>
-              <span aria-hidden> · </span>Sin tarjeta · Sin permanencia · Desde {PRECIO_DESDE}/mes
+              <span aria-hidden> · </span>Sin tarjeta · Sin permanencia · {GRATIS_CON_LIMITES}
             </p>
           </div>
 

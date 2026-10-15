@@ -59,10 +59,58 @@ export type EventoAnalitica =
   // superan). `origen` distingue el horario propuesto por Tentare del que la
   // propietaria importa de un Excel: son dos caminos con conversiones muy
   // distintas y mezclarlos oculta cuál funciona.
-  | { nombre: 'horario_creado'; props: { origen: 'onboarding' | 'importacion'; sesiones: number } }
+  | { nombre: 'horario_creado'; props: { origen: 'onboarding' | 'importacion' | 'imagen'; sesiones: number } }
   // Vio la propuesta y dijo que no. Es la señal de que el horario propuesto no
   // le encajaba — y sin ella, «no lo creó» y «ni lo vio» se confunden.
-  | { nombre: 'horario_propuesto_descartado'; props: Record<string, never> };
+  | { nombre: 'horario_propuesto_descartado'; props: Record<string, never> }
+  // ── Hitos de activación que ocurren en el SERVIDOR ─────────────────────────
+  // Los que se ven en el panel los emite el navegador (lib/analytics-navegador.ts,
+  // mismo nombre). Estos cubren lo que el panel no llega a ver: el asistente
+  // crea los tipos de clase en el servidor sin recargar el contexto.
+  //
+  // El primer tipo de clase del estudio. Solo cuando antes no había ninguno.
+  | { nombre: 'primer_tipo_clase'; props: { origen: 'asistente' | 'panel' } }
+  // La cuenta de cobro (Stripe Connect) quedó conectada.
+  | { nombre: 'stripe_conectado'; props: Record<string, never> };
+
+type PropsDe<N extends EventoAnalitica['nombre']> = Extract<EventoAnalitica, { nombre: N }>['props'];
+
+/**
+ * Las props que puede llevar cada evento, en ejecución. El tipo ya cierra la
+ * puerta, pero un `as` la abre: `construirEvento` tira todo lo que no esté
+ * aquí. tsc exige una entrada por evento, así que uno nuevo no compila hasta
+ * decir qué lleva.
+ */
+export const PROPS_PERMITIDAS = {
+  pago_completado: ['importe_centimos', 'via'],
+  suscripcion_cambiada: ['plan', 'estado'],
+  ia_pack_comprado: ['unidades'],
+  reserva_completada: ['con_spot_elegido'],
+  review_boost_eligible: [],
+  review_boost_shown: [],
+  review_boost_feedback_submitted: ['rating'],
+  review_boost_positive_feedback: ['rating'],
+  review_boost_negative_feedback: ['rating'],
+  review_boost_platform_clicked: ['plataforma'],
+  review_boost_reward_offered: [],
+  review_boost_reward_claimed: [],
+  review_boost_converted_to_paid: [],
+  onboarding_completado: ['salas', 'tipos_clase', 'planes', 'instructora', 'horario', 'origen'],
+  horario_creado: ['origen', 'sesiones'],
+  horario_propuesto_descartado: [],
+  primer_tipo_clase: ['origen'],
+  stripe_conectado: [],
+} as const satisfies { readonly [N in EventoAnalitica['nombre']]: readonly (keyof PropsDe<N>)[] };
+
+// Y que no FALTE ninguna: una prop nueva en el tipo que no se añade aquí se tiraría
+// en silencio en `construirEvento`. Si esto no compila, añádela arriba.
+// (Un evento sin props es `Record<string, never>`, cuyo `keyof` es `string`: no tiene nada que olvidar.)
+type PropsOlvidadas = {
+  [N in EventoAnalitica['nombre']]: string extends keyof PropsDe<N>
+    ? never
+    : Exclude<keyof PropsDe<N>, (typeof PROPS_PERMITIDAS)[N][number]>
+}[EventoAnalitica['nombre']];
+export const _sinPropsOlvidadas: [PropsOlvidadas] extends [never] ? true : PropsOlvidadas = true;
 
 /** ¿Está configurada la analítica? (POSTHOG_KEY presente). */
 export function analyticsHabilitado(): boolean {
@@ -78,13 +126,17 @@ export function construirEvento(
   evento: EventoAnalitica,
   timestampISO?: string,
 ): { event: string; distinct_id: string; properties: Record<string, unknown>; timestamp?: string } {
+  const permitidas: readonly string[] = PROPS_PERMITIDAS[evento.nombre];
+  const props = Object.fromEntries(
+    Object.entries(evento.props as Record<string, unknown>).filter(([clave]) => permitidas.includes(clave)),
+  );
   return {
     event: evento.nombre,
     distinct_id: studioId, // tenant, nunca una persona natural
     // `studio_id` también como propiedad: los eventos del navegador (identificados
     // por persona) llevan la misma, y es lo que permite cruzar los dos en PostHog
     // sin depender de Group Analytics.
-    properties: { ...evento.props, studio_id: studioId, $lib: 'tentare-server' },
+    properties: { ...props, studio_id: studioId, $lib: 'tentare-server' },
     ...(timestampISO ? { timestamp: timestampISO } : {}),
   };
 }

@@ -30,7 +30,7 @@ import { Cifra, Etiqueta, MESES, Nota, SelectorMes, horasMin } from '@/component
 export default function LiquidacionesPage() {
   const rol = useRol();
   const { instructores } = useStudio();
-  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { message: toastMsg, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   const ahora = useMemo(() => new Date(), []);
   const [anio, setAnio] = useState(ahora.getFullYear());
@@ -66,7 +66,7 @@ export default function LiquidacionesPage() {
     setGuardandoCriterio(true);
     const r = await guardarModoLiquidacion({ modo });
     setGuardandoCriterio(false);
-    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    if (!r.ok) { showToastError(r.error ?? 'No se pudo guardar'); return; }
     setCriterio({ ...criterio, modo });
     showToast('Criterio guardado. Recalcula los borradores de este mes para aplicarlo.');
   }
@@ -80,7 +80,7 @@ export default function LiquidacionesPage() {
     setGuardandoCriterio(true);
     const r = await guardarModoLiquidacion({ pagarDuracionReal });
     setGuardandoCriterio(false);
-    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    if (!r.ok) { showToastError(r.error ?? 'No se pudo guardar'); return; }
     setCriterio({ ...criterio, pagarDuracionReal });
     showToast('Criterio guardado. Recalcula los borradores de este mes para aplicarlo.');
   }
@@ -107,7 +107,7 @@ export default function LiquidacionesPage() {
     if (r.ok && r.item) {
       setLiquidaciones(prev => ({ ...prev, [instructorId]: r.item! }));
     } else {
-      showToast(r.error ?? 'No se pudo generar la liquidación');
+      showToastError(r.error ?? 'No se pudo generar la liquidación');
     }
   }
 
@@ -122,7 +122,7 @@ export default function LiquidacionesPage() {
     if (r.ok && r.item) {
       setLiquidaciones(prev => ({ ...prev, [liq.instructorId]: r.item! }));
     } else {
-      showToast(r.error ?? 'No se pudo actualizar la liquidación');
+      showToastError(r.error ?? 'No se pudo actualizar la liquidación');
     }
   }
 
@@ -142,14 +142,14 @@ export default function LiquidacionesPage() {
     if (r.ok) {
       setTarifas(prev => ({ ...prev, [instructorId]: siguiente }));
     } else {
-      showToast(r.error ?? 'No se pudo guardar');
+      showToastError(r.error ?? 'No se pudo guardar');
     }
   }
 
   async function handleRelacion(instructorId: string, valor: string) {
     const relacion = valor === 'CONTRATADA' || valor === 'AUTONOMA' ? valor : null;
     const r = await guardarRelacionLaboral(instructorId, relacion);
-    if (!r.ok) { showToast(r.error ?? 'No se pudo guardar'); return; }
+    if (!r.ok) { showToastError(r.error ?? 'No se pudo guardar'); return; }
     setTarifas(prev => ({
       ...prev,
       [instructorId]: { ...(prev[instructorId] ?? { instructorId, tarifaHora: null, baseMensualEur: null, recargoSustitucionPct: null, horasSemanalesContrato: null }), relacionLaboral: relacion },
@@ -267,7 +267,7 @@ export default function LiquidacionesPage() {
           ))}
         </div>
       )}
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      {toastMsg && <Toast message={toastMsg} variant={toastVariant} onDismiss={dismissToast} />}
     </div>
   );
 }

@@ -192,6 +192,13 @@ test.describe('Reordenar módulos', () => {
       );
     }
     await page.mouse.up();
+    // ⚠️ Al soltar, dnd-kit deja 50 ms un oyente que se come el SIGUIENTE clic de
+    // la página (`detach()` → `setTimeout(documentListeners.removeAll, 50)` en
+    // @dnd-kit/core, para que soltar no cuente como clic). Una persona tarda más
+    // en llegar a «Guardar»; Playwright no, y según la carga de la máquina el
+    // clic caía dentro de esos 50 ms: el rojo intermitente de este test (en
+    // local, siempre). No es un fallo del producto: se espera a que pase.
+    await page.waitForTimeout(150);
     // El botón solo existe si algo cambió de verdad: su sola aparición ya
     // descarta el fallo original («arrastro y no pasa nada»).
     await page.getByRole('button', { name: 'Guardar', exact: true }).click({ timeout: 15_000 });

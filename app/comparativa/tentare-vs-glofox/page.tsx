@@ -26,15 +26,15 @@ export const metadata: Metadata = {
 // ni nosotros habíamos comprobado: se quitaron al pasarla a la plantilla de las
 // demás comparativas.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['partial', 'Anuncia planes desde 99 USD/mes, en dólares; su web remite a pedir una demo para el precio'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['partial', 'Anuncia planes desde 99 USD/mes, en dólares; su web remite a pedir una demo para el precio'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Plaza por reformer individual', tentare: ['yes', 'Cada alumna reserva su reformer concreto'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Lista de espera por aparato', tentare: ['yes', 'Automática: la plaza que se libera pasa a la siguiente'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma desde el plan Estudio'], them: ['partial', 'No consta como función nativa en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en todos los planes'], them: ['partial', 'No consta como función nativa en su web pública'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con marca propia, según su web'] },
   { feature: 'Reglas de reserva y cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase'], them: ['yes', 'Aforo, ventana de reserva y cancelación configurables por clase, según su web'] },
   { feature: 'Cobros con Stripe y domiciliación', tentare: ['yes', 'Stripe (tarjeta y domiciliación SEPA); Tentare genera su propia remesa SEPA'], them: ['yes', 'Stripe y GoCardless, según su web'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['yes', 'Plan para varias sedes y franquicias, según su web'] },
   { feature: 'Soporte en español', tentare: ['yes', 'Nativo en castellano'], them: ['yes', 'Disponible, según su web'] },
 ];
@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Glofox?',
-    a: 'Su web anuncia planes desde 99 USD al mes, en dólares, y remite a pedir una demo para conocer el precio de cada nivel. Tentare publica sus tres planes en euros con IVA incluido: Founding Studio 29 €/mes, Estudio 59 €/mes y Cadena 149 €/mes.',
+    a: 'Su web anuncia planes desde 99 USD al mes, en dólares, y remite a pedir una demo para conocer el precio de cada nivel. Tentare publica sus tres planes en euros: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Glofox tiene permanencia?',
@@ -72,7 +72,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Glofox anuncia planes desde 99 USD al mes y, para saber el precio de cada nivel, remite a pedir una demo. Está en dólares, así que lo que pagas en euros depende del cambio y de las condiciones que te den por escrito.</p>
-        <p>Pide tres cosas: la cuota mensual con impuestos, la duración mínima del contrato y qué incluye cada nivel (app propia, varias sedes, integraciones). En Tentare los tres planes están publicados en <Link href="/precios">/precios</Link>: Founding Studio a 29 €/mes (hasta 150 alumnas activas, con la app con tu marca), Estudio a 59 €/mes y Cadena a 149 €/mes, todos con IVA y sin permanencia.</p>
+        <p>Pide tres cosas: la cuota mensual con impuestos, la duración mínima del contrato y qué incluye cada nivel (app propia, varias sedes, integraciones). En Tentare los tres planes están publicados en <Link href="/precios">/precios</Link>: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes, 29 €/mes si pasas de ahí, y con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia.</p>
       </>
     ),
   },

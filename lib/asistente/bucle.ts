@@ -255,6 +255,10 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
       }
       if (msg.stop_reason !== 'tool_use' || pedidas.length === 0) {
         if (soloTexto.length) nuevos.push({ role: 'assistant', content: soloTexto });
+        // El modelo a veces escribe «Pulsa Confirmar» sin haber llamado a ninguna herramienta de
+        // propuesta (visto con el emoji del nombre de una clase): no hay tarjeta, y la persona
+        // esperaría un botón que no existe. El texto ya salió en directo; se avisa debajo.
+        if (!hayPropuesta && /\bconfirmar\b/i.test(texto)) deps.emitir({ t: 'aviso', codigo: 'PROPUESTA_SIN_TARJETA' });
         const aclara = usadas.length === 0 && texto.trim().endsWith('?');
         return fin(aclara ? 'ACLARACION' : 'OK');
       }

@@ -126,7 +126,8 @@ export default function DatosPage() {
       objetivoClasesMes: objetivoNumero,
     });
     setGuardando(false);
-    toast(r.ok ? 'Datos guardados ✓' : r.error);
+    if (r.ok) toast('Datos guardados ✓');
+    else toast(r.error, { variant: 'error' });
   };
 
   return (

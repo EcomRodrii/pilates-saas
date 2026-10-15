@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, lugarCoincide, rutaBase, rutaCoincide, selectorCss, tabDe } from './capitulos.ts';
-import { SECCIONES } from '../configuracion/secciones.ts';
+import { CAPITULOS, TODOS_LOS_PASOS, MINUTOS_TOTALES, herramientaDe, lugarDelPaso, rutaBase, rutaCoincide, selectorCss, tabDe } from './capitulos.ts';
+import { HERRAMIENTAS, SECCIONES } from '../configuracion/secciones.ts';
 import { rutaFueraDelMenu } from '../nav-config.ts';
 import { esRutaCongelada } from '../frozen-features.ts';
 
@@ -177,15 +177,48 @@ test('«mira» no pide pulsar nada que abra un diálogo; «hacer» sí empieza p
   }
 });
 
-test('lugarCoincide: la ruta no basta si el paso vive en una pestaña', () => {
+test('lugarDelPaso: la ruta no basta si el paso vive en una pestaña', () => {
   const horario = TODOS_LOS_PASOS.find(p => p.id === 'c2.3')!;
-  assert.equal(lugarCoincide(horario, '/configuracion', 'estudio'), true);
-  assert.equal(lugarCoincide(horario, '/configuracion', null), false, 'en el inicio de Configuración no está «Horario»');
-  assert.equal(lugarCoincide(horario, '/configuracion', 'marca'), false);
-  assert.equal(lugarCoincide(horario, '/calendario', 'estudio'), false);
+  assert.equal(lugarDelPaso(horario, '/configuracion', 'estudio', null), 'sitio');
+  assert.equal(lugarDelPaso(horario, '/configuracion', null, null), 'fuera', 'en el inicio de Configuración no está «Horario»');
+  assert.equal(lugarDelPaso(horario, '/configuracion', 'marca', null), 'fuera');
+  assert.equal(lugarDelPaso(horario, '/calendario', 'estudio', null), 'fuera');
   // un paso sin pestaña solo mira la ruta
   const calendario = TODOS_LOS_PASOS.find(p => p.id === 'c3.1')!;
-  assert.equal(lugarCoincide(calendario, '/calendario', null), true);
+  assert.equal(lugarDelPaso(calendario, '/calendario', null, null), 'sitio');
+});
+
+test('lugarDelPaso: dentro de la herramienta que pide el paso se está HACIENDO; dentro de otra, se está fuera', () => {
+  // JAVASCRIPT-NEXTJS-3J: «Pulsa «Tipos de clase» y crea el primero» abre la herramienta y la fila
+  // deja de verse. Eso es el paso en marcha, no «no encuentro el recuadro».
+  const tipos = TODOS_LOS_PASOS.find(p => p.id === 'c2.4')!;
+  assert.equal(lugarDelPaso(tipos, '/configuracion', 'clases', 'tipos-de-clase'), 'herramienta');
+  assert.equal(lugarDelPaso(tipos, '/configuracion', 'clases', null), 'sitio');
+  assert.equal(lugarDelPaso(tipos, '/configuracion', 'estudio', 'tipos-de-clase'), 'fuera', 'la pestaña sigue mandando');
+  // Con «Salas» abierta, «Horario» no se ve aunque la pestaña sea la suya (pasó tras crear la sala).
+  const horario = TODOS_LOS_PASOS.find(p => p.id === 'c2.3')!;
+  assert.equal(lugarDelPaso(horario, '/configuracion', 'estudio', 'salas'), 'fuera');
+  // Lo mismo para un «mira» que señala la fila de una herramienta: al abrirla, está mirándola.
+  const correos = TODOS_LOS_PASOS.find(p => p.id === 'c9.3')!;
+  assert.equal(lugarDelPaso(correos, '/configuracion', 'comunicacion', 'correos-automaticos'), 'herramienta');
+  // Un paso sin pestaña (Configuración entera) no depende de lo que esté abierto.
+  const config = TODOS_LOS_PASOS.find(p => p.id === 'c2.1')!;
+  assert.equal(lugarDelPaso(config, '/configuracion', 'estudio', 'salas'), 'sitio');
+});
+
+test('todo paso que señala la fila de una herramienta nombra una herramienta real de SU pestaña', () => {
+  const conHerramienta = TODOS_LOS_PASOS.filter(p => herramientaDe(p) !== null);
+  assert.ok(conHerramienta.length >= 3, 'salas, tipos de clase y correos automáticos señalan su fila');
+  for (const p of conHerramienta) {
+    const h = HERRAMIENTAS.find(x => x.id === herramientaDe(p));
+    assert.ok(h, `${p.id}: ${p.selector} no es la fila de ninguna herramienta (lib/configuracion/secciones.ts)`);
+    assert.equal(h.seccion, tabDe(p), `${p.id}: la herramienta «${h.titulo}» se abre en «${h.seccion}», no en «${tabDe(p)}»`);
+  }
+  // El id de su fila es el que pinta Configuración (idFilaHerramienta): si cambia, esto deja de reconocerla.
+  const fila = readFileSync(join(RAIZ, 'components/configuracion/shell/fila-herramienta.tsx'), 'utf8');
+  assert.ok(fila.includes('`fila-herramienta-${id}`'), 'idFilaHerramienta ya no es fila-herramienta-<id>: actualiza herramientaDe');
+  assert.equal(herramientaDe({ selector: '#horario' }), null);
+  assert.equal(herramientaDe({ selector: 'calendario-vista' }), null);
 });
 
 test('tabDe lee la pestaña del href, con o sin ancla', () => {

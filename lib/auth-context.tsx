@@ -251,7 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // (dbReclamarAccesoEquipo) solo se ejecuta en /login → la cuenta quedaba
     // creada y verificada pero SIN vincular: el panel decía "no registrada" y
     // la instructora entraba a una pantalla en blanco, sin estudio asociado.
-    // Le pasó a Rosi y a María Soler, y hubo que vincularlas a mano.
+    // Le pasó a dos instructoras, y hubo que vincularlas a mano.
     // redirectPath por defecto sigue siendo /login (staff de estudio); el alta
     // de Tentare Network pasa '/network/mi-perfil' porque esa cuenta no tiene
     // ficha de instructora que vincular — /login no sabría qué hacer con ella.

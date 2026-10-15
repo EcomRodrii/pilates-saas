@@ -184,7 +184,9 @@ const AVISO_MIT = 'Copyright (c) 2026 Louis Raillé';
 const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // Resumen: los tres sitios donde estaba el Orb.
   'app/(dashboard)/dashboard/page.tsx': { usos: 1, motivo: 'el enlace «Sistema autónomo»: Tentare ejecuta cosas por su cuenta (solo la propietaria)' },
-  'components/dashboard/hoy-en-el-estudio.tsx': { usos: 1, motivo: 'la tira «Tentare ha encontrado…»: lo que Tentare ha visto en la agenda del día' },
+  // 3 en el código, 1 en pantalla: la home de siempre pinta la tira; la nueva (panel nuevo, 14-oct-2026) la pinta dentro de su
+  // tarjeta o, con el día vacío, como el propio vacío («Hoy no hay clases. Tentare sigue atento…»), nunca las dos.
+  'components/dashboard/hoy-en-el-estudio.tsx': { usos: 3, motivo: 'la tira «Tentare ha encontrado…»: lo que Tentare ha visto en la agenda del día (y, en la home nueva, la misma frase como vacío del día)' },
   // Dos desde el 5-oct (fundador: «cada estado en su momento»): el titular de
   // «Decidir» solo lleva a Tenti si algo espera tu visto bueno (si no, el Check).
   'components/dashboard/estado-del-estudio.tsx': { usos: 2, motivo: '«Tentare lo está haciendo» (trabajando) y el titular de «Decidir» (espera tu visto bueno / agobiado)' },

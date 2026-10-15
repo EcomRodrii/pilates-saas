@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { AyudaResultado, AyudaAntesDeEmpezar } from '@/components/ayuda/AyudaPasos';
 
 // Verificado contra: app/(dashboard)/calendario/page.tsx (botones y diálogo),
+// components/calendario/dialogo-repetir-mes.tsx y lib/series/repetir-mes.ts
+// («Repetir este mes», 13-oct-2026),
 // components/series/dialogo-renovar-serie.tsx (el diálogo «Renovar clase»),
 // components/calendario/vista-horario.tsx, lib/series-renovacion.ts (topes y
 // motivos de fecha omitida) y lib/series-avisos.ts (tramos del aviso).
@@ -89,6 +91,32 @@ export default function Contenido() {
         que la última vez y te avisamos de que se ha renovado sola. Si algo lo impide —esas fechas ya estaban en el
         calendario, la sala está ocupada o el centro está cerrado— no lo hace en silencio: te lo dice para que la
         revises tú.
+      </p>
+
+      <h2 style={h2}>Repetir el mes entero</h2>
+      <p>
+        Para preparar el mes que viene de una vez, en el <strong>Calendario</strong> tienes el botón{' '}
+        <strong>«Repetir octubre»</strong> (con el nombre del mes que estás viendo). Abre «Repetir octubre en
+        noviembre» y, como el diálogo de renovar, no guarda nada hasta que confirmas.
+      </p>
+      <ul style={lista}>
+        <li>Arriba, <strong>las clases que se repiten</strong> ese mes, cada una con su casilla. Las que llevan sus clases hasta el mes siguiente no salen: ya están.</li>
+        <li>
+          Vienen <strong>sin marcar, y diciendo por qué</strong>, las que marcaste «No renovar», las que tienen
+          canceladas todas sus clases del mes y las que pararon antes de que acabara. Si alguna sigue, márcala tú.
+        </li>
+        <li>
+          Debajo, <strong>los días del mes siguiente</strong>, también con casilla. Los festivos oficiales de tu
+          comunidad vienen sin marcar, salvo los que ya contestaste «Abrimos igualmente», y también los que añadiste
+          en <strong>Estudio › Festivos</strong> (las fiestas locales, por ejemplo). Si no has añadido los locales, revisa esos días.
+        </li>
+        <li>El botón dice <strong>cuántas clases se crean</strong> con lo que tienes marcado.</li>
+      </ul>
+      <p>
+        Cada clase sale igual que al renovar: su sala, su instructora, su aforo, y las <strong>clases fijas</strong>{' '}
+        de ese hueco siguen. Las fechas con la sala ocupada, con una clase igual o con el centro cerrado no se crean.
+        Las <strong>clases sueltas no se copian</strong>, y el diálogo te dice cuántas hay. Pueden hacerlo la
+        propietaria, la gerencia y recepción.
       </p>
 
       <AyudaResultado>

@@ -9,6 +9,9 @@
 // cancelacionVentanaHoras=12h, permiteListaEspera=true), no es un paso de
 // onboarding — está "hecho" desde el minuto cero y no representa ningún
 // trabajo real de la propietaria, así que no se incluye.
+import { tarjetasDescubre, type BannerMin } from './student/descubre.ts';
+import { hoyEnEstudio } from './utils.ts';
+
 export interface DatosOnboarding {
   nif: string | null | undefined;
   stripeAccountId: string | null | undefined;
@@ -27,7 +30,13 @@ export interface DatosOnboarding {
   /** Reservas del estudio. Es el activation event real: sin una reserva, todo
    *  lo demás es configuración que todavía no ha servido para nada. */
   numReservas: number;
-  contenidoPortalPersonalizado: boolean;
+  /**
+   * ¿Sale hoy alguna tarjeta de «Descubre» en su app? Con la regla de la app
+   * (`tarjetasDescubre`: publicada, en el inicio, con foto y en sus fechas). Antes
+   * era «tiene mensaje destacado», que ninguna pantalla de su app enseña: el paso
+   * se daba por hecho con algo que no veía nadie.
+   */
+  hayTarjetaEnLaApp: boolean;
   /** Solo los triggers relevantes para "Funciones inteligentes", con si están activos. */
   automatizacionesActivas: Set<string>;
   /**
@@ -96,7 +105,8 @@ export interface FuenteOnboarding {
   planesTarifa: readonly { activo: boolean; precio: number }[];
   suscripciones: readonly { estado: string }[];
   automationRules: readonly { activa: boolean; trigger: string }[];
-  contenidoPortal: { mensajeDestacado?: unknown } | null;
+  /** Los banners del estudio, tal cual los tiene el panel (las tarjetas de «Descubre»). */
+  bannersPortal: readonly (BannerMin & { activo: boolean; ubicacion?: readonly string[] | null })[];
 }
 
 /**
@@ -132,7 +142,12 @@ export function datosOnboardingDelEstudio(f: FuenteOnboarding): DatosOnboarding 
     numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
     reservaExigirPlan: studio.reservaExigirPlan ?? true,
     numSuscripcionesActivas: f.suscripciones.filter(s => s.estado === 'ACTIVA').length,
-    contenidoPortalPersonalizado: !!f.contenidoPortal?.mensajeDestacado,
+    // `?? []`: la tarjeta de «Primeros pasos» se monta en TODAS las pantallas; un dato que
+    // no ha llegado no puede tumbarlas (el `contenidoPortal?.` de antes lo toleraba igual).
+    hayTarjetaEnLaApp: tarjetasDescubre(
+      (f.bannersPortal ?? []).filter(b => b.activo && (b.ubicacion ?? ['home']).includes('home')),
+      hoyEnEstudio(),
+    ).length > 0,
     automatizacionesActivas: new Set(f.automationRules.filter(r => r.activa).map(r => r.trigger)),
   };
 }
@@ -308,7 +323,9 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
+    // Solo lo que hoy sale en su app: las tarjetas de «Descubre». El mensaje destacado
+    // no lo pinta ninguna pantalla (cuando lo pinte, este paso vuelve a nombrarlo).
+    { id: 'portal-contenido', label: 'Publica una tarjeta en su app', descripcion: 'Una tarjeta con foto en «Descubre», lo primero que ven tus alumnas al entrar en su app.', minutos: 3, done: d.hayTarjetaEnLaApp, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
   ];
 
   const categorias: CategoriaOnboarding[] = [
@@ -371,7 +388,7 @@ export function guiaRapida(categorias: readonly CategoriaOnboarding[]): GuiaRapi
   const todos = new Map<string, PasoOnboarding>();
   for (const c of categorias) for (const p of c.pasos) todos.set(p.id, p);
   const creado: PasoOnboarding = {
-    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel, tu página de reservas y tu prueba de 7 días.',
+    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel y tu página de reservas.',
     minutos: 1, done: true, href: '/dashboard',
   };
   const pasos = [

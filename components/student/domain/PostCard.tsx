@@ -60,7 +60,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
     setLocal({ apuntada: siguiente, total: Math.max(0, total + (siguiente ? 1 : -1)) });
     const r = await rsvpEvento(studioId, post.id, siguiente);
     setOcupado(false);
-    if (!r.ok) { setLocal({ apuntada, total }); toast(r.error); return; }
+    if (!r.ok) { setLocal({ apuntada, total }); toast(r.error, { variant: 'error' }); return; }
     setLocal({ apuntada: r.apuntada, total: r.totalAsistentes });
     toast(r.apuntada ? '¡Apuntada! Te esperamos.' : 'Te has borrado del evento.');
   };
@@ -78,7 +78,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
     setLikeLocal({ liked: siguiente, likes: Math.max(0, likes + (siguiente ? 1 : -1)) });
     const r = await toggleLikePost(studioId, post.id);
     setLikeOcupado(false);
-    if (!r.ok) { setLikeLocal({ liked, likes }); toast(r.error); return; }
+    if (!r.ok) { setLikeLocal({ liked, likes }); toast(r.error, { variant: 'error' }); return; }
     setLikeLocal({ liked: r.liked, likes: r.likes });
   };
 
@@ -97,7 +97,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
       setCargandoComentarios(true);
       const r = await fetchComentarios(studioId, post.id);
       setCargandoComentarios(false);
-      if (r === null) { toast('No se han podido cargar los comentarios.'); return; }
+      if (r === null) { toast('No se han podido cargar los comentarios.', { variant: 'error' }); return; }
       setComentarios(r);
     }
   };
@@ -110,7 +110,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
     const r = await conNormas(() => postComentario(studioId, post.id, texto));
     setEnviandoComentario(false);
     if (!r.ok) {
-      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error);
+      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error, { variant: 'error' });
       return;
     }
     setComentarios(prev => [...(prev ?? []), r.comentario]);
@@ -278,7 +278,7 @@ function HojaComentario({ comentario, studioId, onClose, onHecho }: {
       : accion === 'denunciar' ? await denunciarComentarioTablon(studioId, comentario.id)
         : await bloquearAutoraComentario(studioId, comentario.id);
     setOcupado(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     if (accion === 'borrar') { toast('Comentario borrado.'); onHecho('borrado'); }
     if (accion === 'denunciar') toast(r.mensaje ?? TEXTO_GRACIAS_DENUNCIA);
     if (accion === 'bloquear') { toast(`Has bloqueado a ${comentario.autorNombre}.`); onHecho('bloqueada'); }

@@ -19,18 +19,33 @@ import { duracionToast } from '@/lib/student/toast-duracion';
 // cancelación de una clase enseña su resultado AQUÍ y también
 // en la propia lista, que es lo que queda cuando el aviso se va.
 
-interface ValorToast { toast: (mensaje: string) => void }
+//
+// Un fallo NO sale con el aspecto de un acierto (P0.3, 13-oct-2026): con
+// `{ variant: 'error' }` el aviso usa el tono de peligro de la app (el mismo
+// lenguaje que `.btn--danger`: fondo suave, texto oscuro y borde del color de
+// peligro, que el estudio no cambia), es `role="alert"` y dura más: hay que
+// decidir qué hacer, no solo leerlo. Sin opciones, todo sigue como antes.
+
+export type VarianteToastAlumna = 'exito' | 'error';
+export type AvisarAlumna = (mensaje: string, opciones?: { variant?: VarianteToastAlumna }) => void;
+
+interface ValorToast { toast: AvisarAlumna }
 
 const ContextoToast = createContext<ValorToast>({ toast: () => {} });
 
+/** Un error se queda al menos 6 s: hay que leerlo y decidir. */
+export const TOAST_ERROR_MIN_MS = 6000;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const toast = useCallback((m: string) => {
+  const toast = useCallback<AvisarAlumna>((m, opciones) => {
     if (temporizador.current) clearTimeout(temporizador.current);
-    setMensaje(m);
-    temporizador.current = setTimeout(() => setMensaje(null), duracionToast(m));
+    const error = opciones?.variant === 'error';
+    setAviso({ texto: m, error });
+    const duracion = error ? Math.max(TOAST_ERROR_MIN_MS, duracionToast(m)) : duracionToast(m);
+    temporizador.current = setTimeout(() => setAviso(null), duracion);
   }, []);
 
   useEffect(() => () => {
@@ -40,10 +55,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ContextoToast.Provider value={{ toast }}>
       {children}
-      {mensaje && (
+      {aviso && (
         <div
-          role="status"
-          aria-live="polite"
+          role={aviso.error ? 'alert' : 'status'}
+          aria-live={aviso.error ? 'assertive' : 'polite'}
+          data-variante={aviso.error ? 'error' : 'exito'}
           style={{
             position: 'fixed', top: 'calc(14px + var(--safe-top))', left: 16, right: 16, zIndex: 95,
             display: 'flex', justifyContent: 'center', pointerEvents: 'none',
@@ -51,12 +67,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         >
           <div
             style={{
-              background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 999,
+              ...(aviso.error
+                ? {
+                    background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)',
+                    border: '1px solid color-mix(in srgb, var(--destructive) 90%, transparent)',
+                  }
+                : { background: 'var(--primary)', color: 'var(--primary-foreground)' }),
+              borderRadius: 999,
               padding: '10px 18px', fontSize: 'var(--t-small)', fontWeight: 700, boxShadow: 'var(--shadow-toast)',
               animation: 'apToast .35s var(--ease-spring) both',
             }}
           >
-            {mensaje}
+            {aviso.texto}
           </div>
         </div>
       )}

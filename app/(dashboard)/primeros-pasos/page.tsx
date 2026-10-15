@@ -36,7 +36,7 @@ const ILUSTRACION_NIVEL: Record<NivelGuia, string> = {
 export default function PrimerosPasosPage() {
   const {
     studio, instructores, tiposClase, sesiones, socios,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, reservas,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal, reservas,
   } = useStudio();
   const { iniciarTour } = useTour();
 
@@ -46,7 +46,7 @@ export default function PrimerosPasosPage() {
   // during the previous render» que ya tumbó esta pantalla una vez.
   const datos = studio ? calcularOnboarding(datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   })) : null;
   // Mismo aviso que la tarjeta del dashboard y la pantalla de «listo»: se pinta
   // también cuando lo esencial está hecho, que es justo cuando se promete.
