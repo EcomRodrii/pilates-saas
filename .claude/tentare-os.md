@@ -226,7 +226,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   no romper Zapier). Corre con service-role: cada consulta filtra `ctx.studioId` (lo exige
   `lib/api-publica/rutas.test.ts`) y sale por un serializador con lista blanca, nunca `select('*')`.
   Una credencial nunca ve más que el rol que la concedió, comprobado en cada petición. Claves: solo
-  PROPIETARIO; la API se activa por estudio desde /interno; el límite por plan va SOLO en
+  PROPIETARIO; la API está activa en TODOS los estudios (16-oct-2026; /interno solo apaga uno concreto: `lib/api-publica/acceso.ts`); el límite por plan va SOLO en
   `scopesDelPlan()` (hoy no recorta: no inventar límites comerciales).
   Eventos y webhooks (F2, `lib/api-publica/webhooks/`): los registra un TRIGGER
   (`api_registrar_evento`), nunca el código, y solo cuando cambia una columna de `COLUMNAS`;

@@ -57,10 +57,10 @@ async function abrir(page: Page, opts: { activada: boolean; falloCrear?: boolean
 
 const cajon = (page: Page) => page.getByRole('dialog').first();
 
-test('sin activar: explica para qué sirve y cómo pedirla, sin botón de crear', async ({ page }) => {
+test('desactivada por Tentare: explica qué pasa y cómo escribirnos, sin botón de crear', async ({ page }) => {
   await abrir(page, { activada: false });
-  await expect(cajon(page).getByText('Todavía no está activada para tu estudio.')).toBeVisible();
-  await expect(cajon(page).getByRole('link', { name: /Pedir la API por WhatsApp/ })).toBeVisible();
+  await expect(cajon(page).getByText('Tentare la ha desactivado en tu estudio.')).toBeVisible();
+  await expect(cajon(page).getByRole('link', { name: /Escribirnos por WhatsApp/ })).toBeVisible();
   await expect(cajon(page).getByRole('button', { name: /Crear una clave/ })).toHaveCount(0);
 });
 
