@@ -1,11 +1,9 @@
 import { Check } from 'lucide-react';
 import { NombrePlan } from '@/components/planes/nombre-plan';
-import { PLAN_INFO } from '@/lib/billing/entitlements';
 import {
-  CON_MAS_RESERVAS,
   FRASE_FOUNDING,
-  GRATIS_ALUMNAS,
   GRATIS_MARGEN_DIAS,
+  SI_PASAS,
   TODO_MENOS_SEDES,
   TOPE_GRATIS,
 } from '@/lib/landing/founding-gratis';
@@ -20,8 +18,8 @@ export function PlanGratisAlta() {
   const puntos = [
     `${TODO_MENOS_SEDES}.`,
     `${TOPE_GRATIS}.`,
-    `${CON_MAS_RESERVAS.charAt(0).toUpperCase()}${CON_MAS_RESERVAS.slice(1)}; con más de ${GRATIS_ALUMNAS} alumnas, el plan ${PLAN_INFO.ESTUDIO.nombre} (${PLAN_INFO.ESTUDIO.precioMes}\u00a0€/mes). IVA incluido.`,
-    `Si te pasas, tienes ${GRATIS_MARGEN_DIAS} días para elegir, y te avisamos antes.`,
+    `${SI_PASAS.charAt(0).toUpperCase()}${SI_PASAS.slice(1)}, sin tope de alumnas ni de reservas. IVA incluido.`,
+    `Si te pasas, tienes ${GRATIS_MARGEN_DIAS} días para contratarlo, y te avisamos antes.`,
     'Sin tarjeta y sin permanencia.',
   ];
   return (

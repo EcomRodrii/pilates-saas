@@ -19,12 +19,10 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué pasa si te pasas</h2>
       <p>
-        Si pasas de {GRATIS_RESERVAS_MES} reservas al mes, sigues en {PLAN_INFO.BASE.nombre} por{' '}
-        {PRECIO_FOUNDING_PAGO} € al mes. Si pasas de {GRATIS_ALUMNAS} alumnas activas, el plan{' '}
-        {PLAN_INFO.ESTUDIO.nombre} cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes. Los dos, con IVA incluido. Te avisamos
-        cuando llegas al 80 % y, si te pasas, tienes {GRATIS_MARGEN_DIAS} días para elegir el plan desde Suscripción, en
-        el menú. Si no lo eliges, el panel se cierra hasta que lo hagas; la app de tus alumnas sigue funcionando todo el
-        tiempo.
+        Si pasas de cualquiera de los dos, sigues en {PLAN_INFO.BASE.nombre} por {PRECIO_FOUNDING_PAGO} € al mes, con
+        IVA incluido y sin tope de alumnas ni de reservas. Te avisamos cuando llegas al 80 % y, si te pasas, tienes{' '}
+        {GRATIS_MARGEN_DIAS} días para contratarlo desde Suscripción, en el menú. Si no lo contratas, el panel se cierra
+        hasta que lo hagas; la app de tus alumnas sigue funcionando todo el tiempo.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo se cuentan</h2>
