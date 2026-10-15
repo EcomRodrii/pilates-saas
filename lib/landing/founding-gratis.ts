@@ -16,10 +16,8 @@
 // da 80 gratis). Cómo se cuentan lo decide el producto (lib/billing/plan-gratis.ts).
 //
 // ⚠️ Las cifras salen de `lib/billing/plan-gratis.ts` y `ENTITLEMENTS_GRATIS`
-// (#2707), que es quien las aplica de verdad: la web no puede prometer un límite
-// distinto del que mide el servidor. La de reservas todavía no está allí (llega
-// con la continuación de #2707): hasta entonces vive aquí, y
-// `founding-gratis.test.ts` la cruza con `LIMITE_RESERVAS_MES` en cuanto exista.
+// (#2707, #2712), que es quien las aplica de verdad: la web no puede prometer un
+// límite distinto del que mide el servidor.
 //
 // ⚠️ Siempre los DOS límites juntos: con 150 alumnas lo normal es pasar de 250
 // reservas al mes, así que «gratis hasta 150 alumnas» a secas engaña.
@@ -28,10 +26,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ENTITLEMENTS_GRATIS, PLAN_INFO, type Entitlements, type Plan } from '../billing/entitlements.ts';
-import { FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, MARGEN_DIAS } from '../billing/plan-gratis.ts';
+import { FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS } from '../billing/plan-gratis.ts';
 
 export const GRATIS_ALUMNAS = LIMITE_ALUMNAS;
-export const GRATIS_RESERVAS_MES = 250;
+export const GRATIS_RESERVAS_MES = LIMITE_RESERVAS_MES;
 /** Días para pasarse a Founding Studio de pago desde que se supera un límite. */
 export const GRATIS_MARGEN_DIAS = MARGEN_DIAS;
 

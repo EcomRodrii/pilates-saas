@@ -195,7 +195,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Riesgo de fuga y de impago', valor: porFeature('decisiones') },
       // Hoy, lo que Estudio tiene de más frente a Founding Studio de pago (15-oct-2026);
       // la app propia del estudio se añade aquí cuando se pueda pedir de verdad.
-      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p) => txt(`${PLAN_ENTITLEMENTS[p].consultasAsistenteMes} consultas al mes`) },
+      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p, e = PLAN_ENTITLEMENTS[p]) => txt(`${e.consultasAsistenteMes} consultas al mes`) },
     ],
   },
   {
