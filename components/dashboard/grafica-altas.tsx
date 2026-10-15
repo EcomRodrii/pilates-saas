@@ -72,7 +72,7 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
                   ? { backgroundColor: 'var(--t-magenta-500)' }
                   : { backgroundColor: futuro ? 'color-mix(in srgb, var(--foreground) 3%, transparent)' : 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
               />
-              <span className={cn('text-[9px] tabular-nums', !clave && 'invisible @lg:visible', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground/50' : 'text-muted-foreground')}>{dia}</span>
+              <span className={cn('text-[9px] tabular-nums', !clave && 'invisible @lg:visible', dia === mes.hoy ? 'font-bold text-foreground' : futuro ? 'text-muted-foreground' : 'text-foreground/80')}>{dia}</span>
             </div>
           );
         })}
