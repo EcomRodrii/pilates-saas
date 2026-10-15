@@ -4263,6 +4263,14 @@ export interface RowAppsEstudio {
   nombre_app: string;
   activa: boolean;
   creada_en: string;
+  // migr 20261015062318.
+  estado: string | null;
+  // migr 20261015062318.
+  pedida_en: string | null;
+  // migr 20261015062318.
+  url_tienda: string | null;
+  // migr 20261015062318.
+  nota_interna: string | null;
 }
 
 export interface RowFestivosEstudio {
@@ -11832,6 +11840,10 @@ export type AppsEstudioInsert = {
   nombre_app?: string | null;
   activa?: boolean | null;
   creada_en?: string | null;
+  estado?: string | null | null;
+  pedida_en?: string | null | null;
+  url_tienda?: string | null | null;
+  nota_interna?: string | null | null;
 }
 
 export type AppsEstudioUpdate = {
@@ -11840,6 +11852,10 @@ export type AppsEstudioUpdate = {
   nombre_app?: string | null;
   activa?: boolean | null;
   creada_en?: string | null;
+  estado?: string | null | null;
+  pedida_en?: string | null | null;
+  url_tienda?: string | null | null;
+  nota_interna?: string | null | null;
 }
 
 export type FestivosEstudioInsert = {
