@@ -42,8 +42,9 @@ for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 375, 8
 
     const main = page.locator('body');
     await expect(main).toContainText('Gratis');
-    await expect(main).toContainText('Hasta 250 reservas al mes · con más reservas, 29 €/mes');
-    await expect(main).toContainText('Hasta 150 alumnas activas');
+    await expect(main).toContainText('Hasta 150 alumnas activas y 250 reservas al mes · si pasas de ahí, 29 €/mes');
+    await expect(main).toContainText('sin tope de alumnas ni de reservas');
+    await expect(main).not.toContainText('Sin límite de alumnas');
     await expect(main.getByText(FRASE)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Empezar gratis' }).first()).toHaveAttribute('href', '/crear-estudio');
     await expect(main).not.toContainText('días gratis');
@@ -69,7 +70,7 @@ for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 375, 8
     const precio = page.locator('#precio');
     await precio.scrollIntoViewIfNeeded();
     await expect(precio).toContainText('Gratis');
-    await expect(precio).toContainText('Hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes');
+    await expect(precio).toContainText('Hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes');
     await expect(precio.getByText(FRASE)).toBeVisible();
     await expect(precio).not.toContainText('días gratis');
     await expect(page.locator('body')).not.toContainText('7 días gratis');
@@ -91,7 +92,7 @@ test('el schema.org de la home y el de /precios dan lo mismo: Founding Studio a 
 
   expect(enPrecios).toEqual(enHome);
   expect(enHome['Founding Studio'].price).toBe(0);
-  expect(enHome['Founding Studio'].description).toContain('150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes');
+  expect(enHome['Founding Studio'].description).toContain('150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes');
   expect(enHome['Estudio'].price).toBe(59);
   expect(enHome['Cadena'].price).toBe(149);
   for (const o of Object.values(enHome)) expect(o.description).not.toMatch(/prueba/i);

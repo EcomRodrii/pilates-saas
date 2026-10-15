@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 // de reglas de reserva por tipo de clase) y https://viday.es/precios/ (sin
 // mención de periodo de prueba; solo CTAs «Empieza ahora» y «Te llamamos»).
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio de entrada', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['partial', 'Desde 39 €/mes (Individual), IVA no incluido'] },
+  { feature: 'Precio de entrada', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['partial', 'Desde 39 €/mes (Individual), IVA no incluido'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sí: «solo avísanos y te damos de baja»'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta; sí ofrece plazas fijas con recuperación'] },
@@ -46,7 +46,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta ViDay?',
-    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -67,7 +67,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>La web de ViDay no menciona elegir máquina al reservar ni el aforo por sala. En Tentare, si defines los puestos de una sala, cada alumna elige su reformer, y cada sala tiene su propio aforo. Las plazas fijas reservan solas el hueco de cada semana. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
-        <p>En precio, el plan Individual de ViDay sale a 47,19 € al mes con IVA; Tentare Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, con la app con tu marca; con más reservas, 29 €/mes con IVA. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>En precio, el plan Individual de ViDay sale a 47,19 € al mes con IVA; Tentare Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, con la app con tu marca; si pasas de ahí, 29 €/mes con IVA. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },

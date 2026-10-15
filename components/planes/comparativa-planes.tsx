@@ -4,7 +4,7 @@ import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { CATEGORIAS, FILA_TOPE_ALUMNAS, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
-import { CON_MAS_RESERVAS, ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_RESERVAS_MES } from '@/lib/landing/founding-gratis';
+import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, SI_PASAS } from '@/lib/landing/founding-gratis';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
@@ -51,13 +51,17 @@ export function ComparativaPlanes({
   todoAbierto?: boolean;
   foundingGratis?: boolean;
 }) {
-  const valorDe = (fila: FilaPlan, p: Plan) =>
-    foundingGratis && p === 'BASE' ? fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS) : fila.valor(p);
+  const valorDe = (fila: FilaPlan, p: Plan): ValorPlan => {
+    if (!foundingGratis || p !== 'BASE') return fila.valor(p);
+    // El tope de alumnas es solo de lo gratis: pasado, Founding Studio sigue sin tope.
+    if (fila.id === FILA_TOPE_ALUMNAS) return { tipo: 'texto', texto: `Gratis hasta ${GRATIS_ALUMNAS}` };
+    return fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS);
+  };
   // Una fila más, justo debajo de la de alumnas: el límite de lo gratis. Pasado,
   // Founding Studio sigue igual pero de pago (decisión del 15-oct-2026).
-  const filaCobros: FilaPlan = {
+  const filaReservas: FilaPlan = {
     nombre: 'Reservas al mes',
-    detalle: `Founding Studio es gratis hasta ${GRATIS_RESERVAS_MES}; ${CON_MAS_RESERVAS}.`,
+    detalle: `Founding Studio es gratis ${LIMITES_GRATIS}; ${SI_PASAS}, sin tope.`,
     valor: (p) => ({ tipo: 'texto', texto: p === 'BASE' ? `Gratis hasta ${GRATIS_RESERVAS_MES}` : 'Sin límite' }),
   };
   return (
@@ -117,7 +121,7 @@ export function ComparativaPlanes({
               </summary>
 
               <div className="pb-1">
-                {cat.filas.flatMap((fila) => (foundingGratis && fila.id === FILA_TOPE_ALUMNAS ? [fila, filaCobros] : [fila])).map((fila) => (
+                {cat.filas.flatMap((fila) => (foundingGratis && fila.id === FILA_TOPE_ALUMNAS ? [fila, filaReservas] : [fila])).map((fila) => (
                   <div
                     key={fila.nombre}
                     className="grid grid-cols-[minmax(150px,1fr)_repeat(3,minmax(76px,96px))] items-center gap-2 px-4 py-2.5 odd:bg-muted/25 sm:grid-cols-[minmax(180px,1fr)_repeat(3,minmax(96px,124px))] sm:px-5"

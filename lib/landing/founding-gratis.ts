@@ -3,10 +3,12 @@
 // (decisión del fundador, 15-oct-2026): todo Tentare menos varias sedes,
 // mientras el estudio no pase de GRATIS_ALUMNAS alumnas activas ni de
 // GRATIS_RESERVAS_MES reservas en un mes. Al pasarse tiene GRATIS_MARGEN_DIAS días
-// para elegir: si solo se pasó de reservas, Founding Studio de pago
-// (PRECIO_FOUNDING_PAGO, con lo mismo); con más de 150 alumnas, el plan Estudio.
-// Si no, se cierra el panel y la app de sus alumnas sigue funcionando. Ya no hay
-// prueba de 7 días: se empieza gratis, con todo.
+// para pasarse a Founding Studio de pago (PRECIO_FOUNDING_PAGO), con lo mismo y
+// sin tope; si no, se cierra el panel y la app de sus alumnas sigue funcionando.
+// Pasar de CUALQUIERA de los dos límites lleva ahí: nadie va obligado a Estudio
+// (corrección del fundador, 15-oct por la mañana). Lo que distingue a Estudio es
+// la app propia del estudio, que todavía no existe: la web no la vende hasta que
+// exista. Ya no hay prueba de 7 días: se empieza gratis, con todo.
 //
 // El segundo límite son RESERVAS y no cobros (decisión del fundador, la misma
 // noche): los cobros se esquivan cobrando fuera de Tentare; las reservas no, y
@@ -30,7 +32,7 @@ import { FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, MARGEN_DIAS } from '../billing/plan-
 
 export const GRATIS_ALUMNAS = LIMITE_ALUMNAS;
 export const GRATIS_RESERVAS_MES = 250;
-/** Días para pasarse al plan Estudio desde que se supera un límite. */
+/** Días para pasarse a Founding Studio de pago desde que se supera un límite. */
 export const GRATIS_MARGEN_DIAS = MARGEN_DIAS;
 
 /** La frase del fundador, literal (con la tilde de «Tú»). */
@@ -46,16 +48,15 @@ export const TOPE_GRATIS = `Hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_R
 export const GRATIS_CON_LIMITES = `Gratis ${LIMITES_GRATIS}`;
 
 /**
- * Lo que paga Founding Studio cuando pasa de GRATIS_RESERVAS_MES reservas al mes
- * sin pasar de GRATIS_ALUMNAS alumnas (decisión del fundador, 15-oct-2026, la
- * misma noche): sigue en Founding Studio y paga su precio de siempre. Con más
- * de 150 alumnas, el plan Estudio. Sale de PLAN_INFO, el mismo número que cobra
+ * Lo que paga Founding Studio cuando pasa de cualquiera de sus dos límites
+ * (decisión del fundador, 15-oct-2026): sigue en Founding Studio, sin tope, y
+ * paga su precio de siempre. Sale de PLAN_INFO, el mismo número que cobra
  * el price de Stripe del plan.
  */
 export const PRECIO_FOUNDING_PAGO = PLAN_INFO.BASE.precioMes;
 
-/** «con más reservas, 29 €/mes»: lo que viene después del «gratis hasta…». */
-export const CON_MAS_RESERVAS = `con más reservas, ${PRECIO_FOUNDING_PAGO} €/mes`;
+/** «si pasas de ahí, 29 €/mes»: lo que viene después del «gratis hasta…». */
+export const SI_PASAS = `si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes`;
 
 /** El botón que lleva al alta. Sustituye a «Probar 7 días gratis». */
 export const CTA_ALTA = 'Empezar gratis';

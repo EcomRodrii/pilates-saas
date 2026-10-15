@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Lorari?',
-    a: 'Según su web, pagando el año: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados); mes a mes, 16, 36 y 68 €. IVA aparte y 14 días de prueba. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, pagando el año: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados); mes a mes, 16, 36 y 68 €. IVA aparte y 14 días de prueba. Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -54,7 +54,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Por alumnos activos: de 12 a 51 €/mes + IVA pagando el año; de 16 a 68 € mes a mes',
   permanencia: 'Cancela cuando quieras, según su web',
   prueba: '14 días, pero pide tarjeta al empezar',
-  respuesta: <>Lorari es una app de reservas sencilla para estudios de pilates y yoga, con un precio que sube según tus alumnos activos y sin IVA. Para un estudio con 150 alumnas, Tentare cuesta menos con IVA y además cubre lo que más tiempo te quita: las bajas de las instructoras, el aforo de cada sala y los cobros que fallan. Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA, sin permanencia.</>,
+  respuesta: <>Lorari es una app de reservas sencilla para estudios de pilates y yoga, con un precio que sube según tus alumnos activos y sin IVA. Para un estudio con 150 alumnas, Tentare cuesta menos con IVA y además cubre lo que más tiempo te quita: las bajas de las instructoras, el aforo de cada sala y los cobros que fallan. Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA, sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -63,7 +63,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Lorari cobra por alumnos activos y sus precios no incluyen IVA. Pagando el año: Starter 12 €/mes (hasta 50 alumnos), Pro 27 €/mes (hasta 150) y Business 51 €/mes (sin límite). Mes a mes: 16, 36 y 68 €.</p>
-        <p>Un estudio de reformer en marcha suele pasar de 50 alumnas, así que la comparación real es con el plan Pro. Para 150 alumnas, Lorari Pro sale a 32,67 € al mes con IVA pagando el año por adelantado, o 43,56 € mes a mes. Tentare Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA, mes a mes y con la app con tu marca incluida. <Link href="/precios">Ver los planes de Tentare</Link>.</p>
+        <p>Un estudio de reformer en marcha suele pasar de 50 alumnas, así que la comparación real es con el plan Pro. Para 150 alumnas, Lorari Pro sale a 32,67 € al mes con IVA pagando el año por adelantado, o 43,56 € mes a mes. Tentare Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA, mes a mes y con la app con tu marca incluida. <Link href="/precios">Ver los planes de Tentare</Link>.</p>
       </>
     ),
   },

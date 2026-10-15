@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLAN_ENTITLEMENTS } from '../billing/entitlements.ts';
 import {
-  CON_MAS_RESERVAS,
+  SI_PASAS,
   ENTITLEMENTS_FOUNDING_GRATIS,
   FRASE_FOUNDING,
   GRATIS_ALUMNAS,
@@ -28,9 +28,9 @@ test('las cifras son las de la decisión', () => {
   assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 alumnas activas y 250 reservas al mes');
 });
 
-test('con más reservas, Founding Studio de pago a su precio de siempre (29 €)', () => {
+test('si pasa de cualquiera de los dos límites, Founding Studio de pago a su precio de siempre (29 €)', () => {
   assert.equal(PRECIO_FOUNDING_PAGO, 29);
-  assert.equal(CON_MAS_RESERVAS, 'con más reservas, 29 €/mes');
+  assert.equal(SI_PASAS, 'si pasas de ahí, 29 €/mes');
 });
 
 test('la frase del fundador va literal, con la tilde de «Tú»', () => {
@@ -89,9 +89,12 @@ const PROHIBIDO: [RegExp, string][] = [
   [/prueba\s+(gratuita\s+)?de\s+(7|siete)\s+días/i, 'ya no hay prueba de 7 días'],
   [/con el plan que elijas|del plan que elijas/, 'ya no se elige plan para probar: se empieza en Founding Studio gratis'],
   // Founding Studio cuesta 29 € SOLO con más de 250 reservas: el precio va siempre
-  // atado a las reservas («Founding Studio gratis (…; con más reservas, 29 €/mes)»).
-  [/Founding Studio(?:(?!reservas)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «con más reservas»'],
-  [/después,? 59 ?€/, 'pasado lo gratis, Founding Studio cuesta 29 €; Estudio (59 €) es para más de 150 alumnas'],
+  // atado a lo gratis («Founding Studio gratis (…; si pasas de ahí, 29 €/mes)»).
+  [/Founding Studio(?:(?!reservas|pasas)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «si pasas de ahí»'],
+  // Pasar de CUALQUIERA de los dos límites lleva a Founding Studio de pago, sin
+  // tope (corrección del fundador, 15-oct-2026): nadie va obligado a Estudio.
+  [/después,? 59 ?€|29 o 59|más de 150 alumnas,? (el plan )?Estudio|o 59 €\/mes sin límite/, 'pasado lo gratis, Founding Studio de pago (29 €), sin tope: nadie va obligado a Estudio'],
+  [/con más reservas,? 29/, 'cualquiera de los dos límites lleva a los 29 €: «si pasas de ahí»'],
   // «+ IVA» es de la competencia (Bonsai: «desde 29 €/mes + IVA»); Tentare lo decía con IVA.
   [/[Dd]esde 29(\s|&nbsp;)*(€|euros)(?!\/mes \+ IVA)/, 'el precio de entrada de Tentare es gratis'],
 ];

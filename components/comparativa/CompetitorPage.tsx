@@ -13,7 +13,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
 import { ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
-import { CON_MAS_RESERVAS, CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
+import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
@@ -43,7 +43,7 @@ const POR_QUE = [
  *  Founding Studio es gratis desde el 15-oct-2026 y ya no hay prueba de 7 días. */
 const TENTARE_RESUMEN = {
   queEs: 'Software de gestión para estudios de Pilates y yoga, hecho en España',
-  precio: `${GRATIS_CON_LIMITES}; ${CON_MAS_RESERVAS} con IVA`,
+  precio: `${GRATIS_CON_LIMITES}; ${SI_PASAS} con IVA`,
   permanencia: 'Sin permanencia: mes a mes',
   prueba: 'Sin prueba: se empieza gratis, sin tarjeta',
 };

@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes con IVA'], them: ['no', 'No publica cifras: pide hablar con ellos'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras: pide hablar con ellos'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['yes', '«Automate instructor substitutions», según su web'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Spot scheduling», según su web'] },
   { feature: 'Marketplace de consumidores', tentare: ['yes', 'Sin marketplace'], them: ['yes', 'Sin marketplace: «strictly a booking app», según su web'] },
@@ -40,7 +40,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Momence?',
-    a: 'Momence no publica precios en su web: hay que hablar con ellos para conocer el suyo. Tentare publica los suyos: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; con más reservas, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Momence no publica precios en su web: hay que hablar con ellos para conocer el suyo. Tentare publica los suyos: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Puedo pasar mis datos de Momence a Tentare?',
@@ -65,7 +65,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Momence no publica cifras en su web: para conocer el precio hay que hablar con ellos. Sí deja empezar sin tarjeta.</p>
-        <p>Tentare publica sus tres planes: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes, 29 €/mes con más reservas, y con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. <Link href="/precios">Qué incluye cada uno</Link>.</p>
+        <p>Tentare publica sus tres planes: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes, 29 €/mes si pasas de ahí, y con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. <Link href="/precios">Qué incluye cada uno</Link>.</p>
       </>
     ),
   },
