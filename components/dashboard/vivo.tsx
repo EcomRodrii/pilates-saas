@@ -41,7 +41,7 @@ export const TONOS: Record<Tono, string> = {
  * quiero siempre de ese color, solo los más destacados»): ese es `BOTON_DESTACADO`.
  */
 export const BOTON_VIVO =
-  'inline-flex items-center justify-center gap-1.5 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex items-center justify-center gap-1.5 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
  * El degradado del logo, SOLO para lo más destacado: el siguiente paso de «Pon en
@@ -49,7 +49,7 @@ export const BOTON_VIVO =
  * cabecera de una sección ni en una lista.
  */
 export const BOTON_DESTACADO =
-  'inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--t-blue-700),var(--t-magenta-700))] font-semibold text-white shadow-[0_6px_16px_-8px_var(--t-magenta-700)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--t-blue-700),var(--t-magenta-700))] font-semibold text-white shadow-[0_6px_16px_-8px_var(--t-magenta-700)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** El degradado del logo, para barras y progresos. */
 export const DEGRADADO_LOGO = 'linear-gradient(90deg, var(--t-blue-500), var(--t-magenta-500))';
@@ -238,7 +238,7 @@ export function Pildoras<T extends string | number>({ opciones, valor, onCambio 
           onClick={() => onCambio(o.valor)}
           aria-pressed={valor === o.valor}
           className={cn(
-            'rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
+            'zona-tactil rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
             valor === o.valor ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -262,7 +262,7 @@ export function Comparacion({ diferencia, contra }: { diferencia: number; contra
 
 export function VerMas({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
+    <Link href={href} className="zona-tactil mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
       {label} <ArrowRight size={14} aria-hidden />
     </Link>
   );

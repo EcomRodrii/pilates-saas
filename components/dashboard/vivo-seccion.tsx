@@ -22,11 +22,11 @@ import { Cabecilla, NumeroConLado, TONOS, fondoTenido, type Tono } from './vivo'
 
 /** Un botón secundario de la cabecera, junto a `BotonVivo`. */
 export const BOTON_BORDE =
-  'inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** El ⋯ de la cabecera (`MenuAcciones` con `claseBoton`): lo que no cabe a la vista. */
 export const BOTON_MENU =
-  'flex size-9 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil flex size-9 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** La cifra de la home que, pulsada, filtra la lista de debajo (y pulsada otra vez, lo quita). */
 export function TarjetaCifraFiltro({ etiqueta, tono, Icono, valor, arriba, abajo, activo, onClick, accion }: {
@@ -87,7 +87,7 @@ export function PestanasVivas<T extends string>({ pestanas, valor, onCambio, eti
             aria-selected={activa}
             onClick={() => onCambio(p.id)}
             className={cn(
-              'inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full px-4 text-[13.5px] font-semibold transition-colors',
+              'zona-tactil inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full px-4 text-[13.5px] font-semibold transition-colors',
               activa ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >

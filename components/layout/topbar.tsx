@@ -92,7 +92,7 @@ export function Topbar() {
         <button
           onClick={() => abrirBuscador(true)}
           data-tour="buscador"
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
+          className="zona-tactil flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />
           <Search size={14} aria-hidden="true" className="shrink-0 opacity-70" />
@@ -108,7 +108,9 @@ export function Topbar() {
           />
         )}
       </div>
-      <div className="flex items-center gap-1.5">
+      {/* `tactil:gap-2`: con el dedo, cada icono (36 px) gana 4 a cada lado hasta
+          los 44 de su zona táctil; con 6 de hueco se pisaban 2. */}
+      <div className="flex items-center gap-1.5 tactil:gap-2">
         <PildoraPrueba className="mr-1" />
         <IconButton
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
@@ -119,7 +121,7 @@ export function Topbar() {
         <Link
           href="/mensajeria"
           title="Mensajería"
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
+          className="zona-tactil w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
         >
           <Inbox size={16} />
         </Link>
