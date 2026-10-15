@@ -38,6 +38,10 @@ export interface Entitlements {
                            // cambia es cuántas al mes (`consultasAsistenteMes`). Es una
                            // feature aparte de `ia` a propósito: Founding Studio lo tiene
                            // y sigue sin la IA de notas y campañas.
+    appPropia: boolean;    // la app de la App Store con el nombre y el icono del estudio
+                           // («Pedir mi app», lib/app-nativa/pedir-app.ts). Incluida en Estudio y
+                           // Cadena, NO en Founding Studio ni en el plan gratis (fundador, 15-oct-2026).
+                           // No confundir con `marca`: la web instalable con colores y logo, en todos.
   };
   /**
    * Consultas del asistente al mes (mes de Madrid). Espejo de
@@ -53,17 +57,17 @@ export const CONSULTAS_ASISTENTE_PRUEBA = 30;
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true },
+    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true, appPropia: false },
     consultasAsistenteMes: 50,
   },
   ESTUDIO: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: true },
     consultasAsistenteMes: 200,
   },
   CADENA: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: true },
     consultasAsistenteMes: 500,
   },
 };
@@ -96,7 +100,7 @@ export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
  */
 export const ENTITLEMENTS_GRATIS: Entitlements = {
   maxSocios: 150,
-  features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+  features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: false },
   consultasAsistenteMes: 50,
 };
 

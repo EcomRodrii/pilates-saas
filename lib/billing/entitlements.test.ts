@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accesoProducto, tieneFeature, entitlementsDe, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara,
+  accesoProducto, tieneFeature, entitlementsDe, ENTITLEMENTS_GRATIS, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara,
 } from './entitlements.ts';
 
 test('accesoProducto: solo con suscripción activa (sin trial)', () => {
@@ -46,4 +46,24 @@ test('el plan de entrada se enseña como Founding Studio e incluye la app de mar
   assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'marca'), true);
   // Sin suscripción activa no hay marca, como con cualquier otra función.
   assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'trial_expirado' }, 'marca'), false);
+});
+
+// «Pedir mi app»: la app de la App Store con el nombre y el icono del estudio. Incluida en Estudio
+// y Cadena, NO en Founding Studio ni en el plan gratis (fundador, 15-oct-2026). Distinta de `marca`
+// (la web instalable con colores y logo, que sigue en TODOS los planes).
+test('appPropia: Estudio y Cadena sí; Founding Studio y el plan gratis no', () => {
+  assert.equal(PLAN_ENTITLEMENTS.BASE.features.appPropia, false);
+  assert.equal(PLAN_ENTITLEMENTS.ESTUDIO.features.appPropia, true);
+  assert.equal(PLAN_ENTITLEMENTS.CADENA.features.appPropia, true);
+  assert.equal(ENTITLEMENTS_GRATIS.features.appPropia, false);
+  const activo = { subscriptionStatus: 'active' };
+  assert.equal(tieneFeature({ ...activo, plan: 'BASE' }, 'appPropia'), false);
+  assert.equal(tieneFeature({ ...activo, plan: 'ESTUDIO' }, 'appPropia'), true);
+  assert.equal(tieneFeature({ ...activo, plan: 'CADENA' }, 'appPropia'), true);
+  // El plan gratis dice que no aunque la fila sea de un plan que sí la lleva.
+  assert.equal(tieneFeature({ subscriptionStatus: 'gratis', plan: 'ESTUDIO' }, 'appPropia'), false);
+  // Sin suscripción activa, ni Estudio la da.
+  assert.equal(tieneFeature({ subscriptionStatus: 'canceled', plan: 'ESTUDIO' }, 'appPropia'), false);
+  // `marca` no cambia: en todos.
+  for (const p of PLANES) assert.equal(PLAN_ENTITLEMENTS[p].features.marca, true);
 });
