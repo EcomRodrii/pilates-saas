@@ -100,6 +100,7 @@ const articulo: Articulo = {
         },
         { t: 'p', texto: 'Haz la cuenta con tus precios: la calculadora parte del ejemplo de la tabla y te avisa si un escalón queda por debajo de tu coste o si el bono le quita alumnas a la cuota.' },
         { t: 'herramienta', id: 'calculadora-bonos' },
+        { t: 'descarga', recurso: 'simulador-escalera-bonos' },
         { t: 'p', texto: 'Después, llévalo a tu programa de reservas para no controlar caducidades a mano. En Tentare configuras [bonos, cuotas mensuales y clases sueltas](/funcionalidades/bonos-y-membresias), con la caducidad de cada bono y reglas por tipo de clase; si de momento usas una hoja de cálculo, tienes la [plantilla de control de asistencia](/recursos/plantilla-control-de-asistencia-pilates).' },
         {
           t: 'llamada',

@@ -140,6 +140,7 @@ const articulo: Articulo = {
             },
           ],
         },
+        { t: 'descarga', recurso: 'mensajes-llenar-clases-recuperar-alumnas' },
       ],
     },
     {
