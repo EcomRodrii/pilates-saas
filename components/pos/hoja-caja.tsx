@@ -51,11 +51,12 @@ export function HojaCaja({ onCerrar, onCambio }: { onCerrar: () => void; onCambi
     cargarCaja().then((r) => {
       if (!vivo) return;
       setCargando(false);
-      if (esError(r)) { setError(r.error); return; }
-      // Sin saber si la caja está abierta ni lo esperado, no se ofrece ni abrirla
-      // ni el arqueo: se dice qué falta. Y lo de antes se quita: en una recarga
-      // (tras apuntar un movimiento) seguiría enseñando el «esperado» viejo y una
-      // lista sin lo recién apuntado, y parecería que no se hizo.
+      // Si no se pudo leer (un 500, sin red) o llega sin forma, se dice y lo de
+      // antes se quita: en una recarga (tras apuntar un movimiento) seguiría
+      // enseñando el «esperado» viejo y una lista sin lo recién apuntado, y
+      // parecería que no se hizo. Sin saber si la caja está abierta ni lo
+      // esperado, tampoco se ofrece abrirla ni el arqueo.
+      if (esError(r)) { setError(r.error); setDatos(null); setVista('resumen'); return; }
       const leido = leerEstadoCaja(r);
       if (!leido.ok) { setError(leido.error); setDatos(null); setVista('resumen'); return; }
       setDatos(leido.valor);

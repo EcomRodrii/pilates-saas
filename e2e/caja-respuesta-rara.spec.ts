@@ -105,6 +105,33 @@ test('la hoja de caja, con un `{}`: dice qué falta y no ofrece ni abrir caja ni
   expect(cuenta.escrituras).toEqual([]);
 });
 
+test('la hoja de caja, si la recarga tras apuntar un movimiento falla: no deja a la vista el «esperado» de antes', async ({ page }) => {
+  let leer: 'bien' | '500' = 'bien';
+  const cuenta = { movimientos: 0 };
+  await montar(page);
+  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { panelNuevo: true }));
+  await page.route((u) => u.pathname.startsWith('/api/pos/'), (r) => {
+    const req = r.request();
+    const ruta = new URL(req.url()).pathname;
+    if (req.method() === 'GET' && ruta === '/api/pos/catalogo') return json(r, CATALOGO);
+    if (req.method() === 'GET' && ruta === '/api/pos/caja') return leer === 'bien' ? json(r, ESTADO_CAJA) : json(r, { error: 'No hemos podido leer la caja.' }, 500);
+    // El movimiento sí se apunta (es lo que se quiere probar: la recarga de después).
+    if (req.method() === 'POST' && ruta === '/api/pos/caja') { cuenta.movimientos++; leer = '500'; return json(r, { ok: true, saldo: 122 }); }
+    return json(r, { error: 'no debería haberse pedido' }, 500);
+  });
+  await ir(page, 'pos');
+  await page.getByRole('button', { name: /Caja abierta/ }).click({ timeout: 30_000 });
+  await expect(page.getByText('Debería haber en el cajón')).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /Meter dinero/ }).click();
+  await page.getByPlaceholder('0,00').fill('10');
+  await page.getByPlaceholder(/¿De qué es\?/).fill('Cambio');
+  await page.getByRole('button', { name: 'Apuntar' }).click();
+  await expect(page.getByText('No hemos podido leer la caja.')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Debería haber en el cajón')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Abrir caja/ })).toHaveCount(0);
+  expect(cuenta.movimientos).toBe(1);
+});
+
 test.describe('Cierre, con el dedo en el iPad', () => {
   test.use({ viewport: { width: 768, height: 1024 }, hasTouch: true });
 
