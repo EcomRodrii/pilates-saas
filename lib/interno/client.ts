@@ -253,7 +253,9 @@ export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
 
 // Apps de estudio: la cola de «Pedir mi app» (la tramita el equipo desde /interno/apps-estudio).
 export interface AppDeEstudioInterna {
-  studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean; planIncluye: boolean;
+  studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean;
+  /** Por qué hoy NO podría pedirla (plan, prueba, cobro, sin-plan), o `null` si sí. */
+  motivoSinPlan: 'plan' | 'prueba' | 'cobro' | 'sin-plan' | 'sede' | null; estadoPago: string | null;
   bundleId: string; ascAppId: string | null; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
   urlTienda: string | null; notaInterna: string | null;
 }

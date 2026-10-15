@@ -54,7 +54,7 @@ import {
 // `color`: el de su tema, para la inicial que se ve mientras llega el icono (`AvatarEstudio`).
 type Estudio = EstudioDeLaCuenta & { icono: string; color?: string | null };
 type Encontrado = { slug: string; nombre: string; ciudad: string | null; icono: string; color?: string | null };
-type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error';
+type Fase = 'cargando' | 'puerta' | 'codigo' | 'contrasena' | 'dos-pasos' | 'elegir' | 'sin-estudios' | 'buscar' | 'error' | 'no-disponible';
 
 const leerUltimo = () => { try { return localStorage.getItem(CLAVE_ULTIMO_ESTUDIO); } catch { return null; } };
 const guardarUltimo = (slug: string) => { try { localStorage.setItem(CLAVE_ULTIMO_ESTUDIO, slug); } catch { /* modo privado */ } };
@@ -62,17 +62,19 @@ const SLUG = /^[a-z0-9-]{1,80}$/;
 const emailValido = (e: string) => /.+@.+\..+/.test(e.trim());
 
 /**
- * ¿Es esta la app de un estudio? `null` = no (la web, la app «Tentare», o un bundle
- * sin fila activa); `'error'` = no hemos podido comprobarlo, y entonces NO se cae al
- * selector de «Tentare»: una app de estudio que enseña el logo y la lista de otro
- * producto es peor que decir que no hay conexión.
+ * ¿Es esta la app de un estudio? `null` = no (la web o la app «Tentare»); `'error'` = no
+ * hemos podido comprobarlo; `'no-disponible'` = es la app de un estudio pero no está activa
+ * (desactivada desde /interno). En los dos últimos NO se cae al selector de «Tentare»: una
+ * app con el nombre de un estudio que enseña el logo de otro producto y un buscador con otros
+ * estudios es peor que decir que no hay conexión o que no está disponible.
  */
-async function consultarAppDeEstudio(): Promise<AppDeEstudio | null | 'error'> {
+type ConsultaApp = AppDeEstudio | null | 'error' | 'no-disponible';
+async function consultarAppDeEstudio(): Promise<ConsultaApp> {
   const bundle = await bundleIdDeLaApp();
   if (tipoDeApp(bundle) !== 'estudio') return null;
   try {
     const res = await fetch(`/api/public/app/app-estudio?bundle=${encodeURIComponent(bundle as string)}`, { cache: 'no-store' });
-    if (res.status === 404) return null;
+    if (res.status === 404) return 'no-disponible';
     const datos = await res.json().catch(() => null);
     return res.ok && esAppDeEstudio(datos) ? datos : 'error';
   } catch {
@@ -101,7 +103,10 @@ export default function EntradaApp() {
   // La app de un estudio fija la entrada en él. `listo`: ya sabemos si lo es (hasta
   // entonces no se pinta ningún logo: en una app de estudio saldría el de Tentare un instante).
   const [fijo, setFijo] = useState<{ listo: boolean; app: AppDeEstudio | null }>({ listo: false, app: null });
-  const consulta = useRef<Promise<AppDeEstudio | null | 'error'> | null>(null);
+  // ¿Es la app de UN estudio (aunque no esté activa o no se haya podido comprobar)? Entonces nunca
+  // se ofrece la entrada genérica de Tentare, con su buscador de estudios.
+  const [deEstudio, setDeEstudio] = useState(false);
+  const consulta = useRef<Promise<ConsultaApp> | null>(null);
   const appDeEstudio = useCallback(() => (consulta.current ??= consultarAppDeEstudio()), []);
   const [nombre, setNombre] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -139,7 +144,9 @@ export default function EntradaApp() {
     setFase('cargando');
     try {
       const app = await appDeEstudio();
+      setDeEstudio(app !== null);
       if (app === 'error') { consulta.current = null; setFase('error'); return; }
+      if (app === 'no-disponible') { consulta.current = null; setFijo({ listo: true, app: null }); setFase('no-disponible'); return; }
       setFijo({ listo: true, app });
       const res = await fetch('/api/app/mis-estudios', { headers: await portalAuthHeader(), cache: 'no-store' });
       if (res.status === 401) { setFase('puerta'); return; }
@@ -181,7 +188,9 @@ export default function EntradaApp() {
       // Antes de pintar nada: ¿es la app de un estudio?
       const app = await appDeEstudio();
       if (!vivo) return;
+      setDeEstudio(app !== null);
       if (app === 'error') { consulta.current = null; setFase('error'); return; }
+      if (app === 'no-disponible') { consulta.current = null; setFijo({ listo: true, app: null }); setFase('no-disponible'); return; }
       setFijo({ listo: true, app });
       const { data } = await supabasePortal.auth.getSession();
       if (!vivo) return;
@@ -261,12 +270,22 @@ export default function EntradaApp() {
 
         {fase === 'cargando' && <p className="t-meta" role="status" style={{ textAlign: 'center' }}>Un momento…</p>}
 
+        {fase === 'no-disponible' && (
+          <div role="status" className="note" data-testid="app-no-disponible">
+            Esta app no está disponible ahora mismo. Puedes seguir reservando desde la web de tu estudio, o escribirle para saber más.
+            <div style={{ marginTop: 10 }}>
+              <Button full onClick={() => { consulta.current = null; void cargarEstudios(); }}>Volver a comprobarlo</Button>
+            </div>
+          </div>
+        )}
+
         {fase === 'error' && (
           <div role="alert" className="note note--danger">
-            No hemos podido cargar tus estudios. Revisa la conexión.
+            {deEstudio || !fijo.listo ? 'No hemos podido abrir la app. Revisa la conexión e inténtalo de nuevo.' : 'No hemos podido cargar tus estudios. Revisa la conexión.'}
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Button full onClick={() => void cargarEstudios()}>Reintentar</Button>
-              <Button full variant="secondary" onClick={() => void salir()}>Entrar con otra cuenta</Button>
+              {/* Sin saber aún de qué app es, no se ofrece: llevaría a la entrada genérica de Tentare. */}
+              {fijo.listo && (fijo.app || !deEstudio) && <Button full variant="secondary" onClick={() => void salir()}>Entrar con otra cuenta</Button>}
             </div>
           </div>
         )}

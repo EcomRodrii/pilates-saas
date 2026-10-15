@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
-import { tieneFeature } from '@/lib/billing/entitlements';
-import { esEstadoApp, type EstadoApp } from '@/lib/app-nativa/pedir-app';
+import { entitlementsDe } from '@/lib/billing/entitlements';
+import { bloqueoParaPedir, esEstadoApp, type EstadoApp } from '@/lib/app-nativa/pedir-app';
 import { columnasDeCambio, leerCambio, ordenCola } from '@/lib/interno/apps-estudio';
 
 export const runtime = 'nodejs';
@@ -48,8 +48,14 @@ export async function GET(req: NextRequest) {
       slug: f.studios?.slug ?? null,
       plan: f.studios?.plan ?? null,
       esDemo: f.studios?.es_demo === true,
-      // ¿Su plan la incluye hoy? Una petición de un plan que no la lleva se ve, no se esconde.
-      planIncluye: tieneFeature({ plan: f.studios?.plan ?? null, subscriptionStatus: f.studios?.subscription_status ?? null }, 'appPropia'),
+      // ¿Podría pedirla HOY (plan que la trae y pagado)? Una que ya no cumple se ve, no se esconde:
+      // `plan`, `prueba`, `cobro` o `sin-plan` (la fila es siempre la del dueño de la app).
+      motivoSinPlan: bloqueoParaPedir({
+        planIncluye: entitlementsDe({ plan: f.studios?.plan ?? null }).features.appPropia,
+        estado: f.studios?.subscription_status ?? null,
+        esSedeSecundaria: false,
+      }),
+      estadoPago: f.studios?.subscription_status ?? null,
       bundleId: f.bundle_id,
       // Id de la app en App Store Connect si es un hueco del lote (la app ya existe); `null` si hay
       // que crearla a mano.
@@ -82,7 +88,8 @@ export async function POST(req: NextRequest) {
   if (errAntes) return NextResponse.json({ error: 'No se ha podido leer la app.' }, { status: 500 });
   if (!antes) return NextResponse.json({ error: 'Ese estudio no ha pedido la app.' }, { status: 404 });
 
-  const v = leerCambio(cuerpo, (antes.url_tienda as string | null) ?? null);
+  if (!esEstadoApp(antes.estado)) return NextResponse.json({ error: 'La app tiene un estado desconocido.' }, { status: 500 });
+  const v = leerCambio(cuerpo, { estado: antes.estado, activa: antes.activa === true, urlTienda: (antes.url_tienda as string | null) ?? null });
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
 
   const columnas = columnasDeCambio(v.cambio);
@@ -93,7 +100,7 @@ export async function POST(req: NextRequest) {
     actor: g.admin, accion: 'apps-estudio.cambiada',
     objetivoTipo: 'studio', objetivoId: studioId,
     resumen: `App ${antes.bundle_id as string}: ${Object.keys(columnas).join(', ')}`,
-    antes: { estado: antes.estado, activa: antes.activa, urlTienda: antes.url_tienda },
+    antes: { estado: antes.estado, activa: antes.activa, urlTienda: antes.url_tienda, nombreApp: antes.nombre_app },
     despues: columnas,
   });
   return NextResponse.json({ ok: true });

@@ -53,3 +53,23 @@ test('prioridad: lo urgente y lo normal, ya; lo de baja, cuando convenga', () =>
   assert.equal(prioridadApns('normal'), '10');
   assert.equal(prioridadApns('low'), '5');
 });
+
+test('por la vía web solo entran direcciones de servicios de push reales', async () => {
+  const { endpointWebPushValido } = await import('./apns-endpoint.ts');
+  for (const bueno of [
+    'https://fcm.googleapis.com/fcm/send/abc',
+    'https://web.push.apple.com/QGx',
+    'https://wns2-db5p.notify.windows.com/w/?token=x',
+    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+  ]) assert.equal(endpointWebPushValido(bueno), true, bueno);
+  for (const malo of [
+    `apns://app.tentare.otro/${TOKEN}`,
+    'http://fcm.googleapis.com/fcm/send/abc',
+    'https://fcm.googleapis.com.evil.example/x',
+    'https://evil.example/fcm.googleapis.com',
+    'https://user:pass@fcm.googleapis.com/x',
+    'https://fcm.googleapis.com:8443/x',
+    'https://169.254.169.254/latest',
+    '', 5, null,
+  ]) assert.equal(endpointWebPushValido(malo), false, String(malo));
+});

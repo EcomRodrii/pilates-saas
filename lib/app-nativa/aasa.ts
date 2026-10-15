@@ -27,7 +27,9 @@ export interface AppDeEstudioAasa { appId: string; slug: string }
  * las comería todas. Sin ninguna, el fichero es el de siempre.
  */
 export function contenidoAasa(appIds: readonly string[], appsEstudio: readonly AppDeEstudioAasa[] = []) {
-  const detallesDeEstudios = appsEstudio.map((a) => ({
+  // El slug va dentro de un PATRÓN de iOS: un `*` o un `?` reclamaría rutas de otros estudios.
+  // Solo entra el formato de siempre (letras, números y guiones); lo demás se queda fuera.
+  const detallesDeEstudios = appsEstudio.filter((a) => /^[a-z0-9-]{1,80}$/.test(a.slug)).map((a) => ({
     appIDs: [a.appId],
     components: [
       { '/': `/portal/${a.slug}`, comment: 'La app de este estudio' },

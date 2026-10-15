@@ -23,19 +23,25 @@ test('estudio: sesión → interruptor → sede → límite, antes de tocar la b
   assert.deepEqual([...orden].sort((a, b) => a - b), orden);
 });
 
-test('estudio: pedirla es solo de la propietaria y con un plan que la incluye, comprobado en el servidor', () => {
+test('estudio: pedirla es solo de la propietaria, con el plan PAGADO, comprobado en el servidor', () => {
   const post = estudio.slice(estudio.indexOf('export async function POST'));
   assert.match(post, /sesion\.rol !== 'PROPIETARIO'/);
-  assert.match(post, /tieneFeature\(\{ plan: estudio\.plan as string \| null, subscriptionStatus: estudio\.subscription_status as string \| null \}, 'appPropia'\)/);
+  // Plan y pago los decide `bloqueoParaPedir` con el dueño de la app (la sede principal en una cadena).
+  assert.match(estudio, /features\.appPropia/);
+  assert.match(estudio, /bloqueoParaPedir\(\{ planIncluye, estado: data\.subscription_status as string \| null, esSedeSecundaria \}\)/);
+  assert.match(post, /if \(plan\.bloqueo\) \{/);
   // Y ANTES de insertar.
-  assert.ok(post.indexOf("'appPropia'") < post.indexOf(".insert("));
+  assert.ok(post.indexOf('plan.bloqueo') < post.indexOf(".insert("));
   assert.ok(post.indexOf("sesion.rol !== 'PROPIETARIO'") < post.indexOf('req.json()'));
   assert.match(post, /status: 403/);
 });
 
 test('estudio: el estudio sale de la sesión, nunca del body; nace PEDIDA y SIN activar', () => {
   assert.doesNotMatch(estudio, /body\.(studio|estudio)|studioId\s*[:=]\s*\(?body/i);
-  assert.match(estudio, /studio_id: sesion\.studioId/);
+  // El dueño de la app sale de la sede de la SESIÓN (la principal si es de una cadena).
+  assert.match(estudio, /estudioDeLaApp\(admin, sesion\.studioId\)/);
+  assert.match(estudio, /const studioIdApp = duena\.studioId;/);
+  assert.match(estudio, /studio_id: studioIdApp/);
   assert.match(estudio, /activa: false, estado: 'PEDIDA'/);
   // La nota interna y `activa` no se leen para devolverlas al estudio.
   assert.doesNotMatch(estudio, /nota_interna/);
@@ -62,12 +68,13 @@ test('la pantalla manda la sede que tiene delante', () => {
   assert.match(cliente, /PLAN_ENTITLEMENTS\[p\]\.features\.appPropia/);
 });
 
-test('estudio: primero pide un hueco del lote (tolerante), y lo pide DESPUÉS de las puertas', () => {
+test('estudio: primero pide un hueco del lote, y lo pide DESPUÉS de las puertas', () => {
   const post = estudio.slice(estudio.indexOf('export async function POST'));
   assert.match(estudio, /admin\.rpc\('asignar_cupo_app', \{ p_studio_id: studioId \}\)/);
-  assert.ok(post.indexOf("'appPropia'") < post.indexOf('cupoDelLote('), 'el hueco se gasta solo con un plan que la incluye');
+  assert.ok(post.indexOf('plan.bloqueo') < post.indexOf('cupoDelLote('), 'el hueco se gasta solo con el plan pagado');
   assert.ok(post.indexOf('cupoDelLote(') < post.indexOf('.insert('));
-  // Si la función no existe o falla, se sigue con el slug: no rompe la petición.
-  const helper = estudio.slice(estudio.indexOf('async function cupoDelLote'), estudio.indexOf('async function contexto'));
-  assert.match(helper, /if \(error\) \{[\s\S]*return null;/);
+  // Si la función falla, se corta: caer al slug dejaría una app que no existe en App Store Connect.
+  const helper = estudio.slice(estudio.indexOf('async function cupoDelLote'), estudio.indexOf('async function bloqueoDe'));
+  assert.match(helper, /if \(error\) throw /);
+  assert.doesNotMatch(helper, /if \(error\) \{[\s\S]*return null;/);
 });

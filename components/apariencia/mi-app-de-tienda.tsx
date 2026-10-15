@@ -8,7 +8,7 @@ import { btnPrimary, inputCls } from '@/components/configuracion/estilos';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO } from '@/lib/billing/entitlements';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import {
-  LETRAS_BAJO_EL_ICONO, esEstadoApp, textoDeEstado, validarNombreApp, type AppDelEstudio,
+  LETRAS_BAJO_EL_ICONO, esEstadoApp, textoDeEstado, validarNombreApp, type AppDelEstudio, type BloqueoPedirApp,
 } from '@/lib/app-nativa/pedir-app';
 
 // «Tu app en la App Store» (Apariencia de tu app, `APP_PROPIA_PEDIR`): pedir la app con el
@@ -19,7 +19,12 @@ import {
 // ⚠️ No promete plazos ni avisos: Apple decide cuándo revisa, y esta pantalla no manda ningún
 // aviso al estudio (lo ve al volver aquí). Tampoco que Apple la vaya a aprobar.
 
-interface Datos { planIncluye: boolean; esPropietaria: boolean; nombreSugerido: string; app: AppDelEstudio | null }
+interface Datos {
+  bloqueo: BloqueoPedirApp | null; sedePrincipal: string | null; esPropietaria: boolean; nombreSugerido: string; app: AppDelEstudio | null;
+}
+
+const BLOQUEOS: readonly string[] = ['plan', 'prueba', 'cobro', 'sin-plan', 'sede'];
+const esBloqueo = (v: unknown): v is BloqueoPedirApp => typeof v === 'string' && BLOQUEOS.includes(v);
 
 /** Los planes que la incluyen, leídos del catálogo (nunca una lista a mano). */
 const planesConApp = () =>
@@ -27,7 +32,7 @@ const planesConApp = () =>
 
 export function MiAppDeTienda({ studioId }: { studioId: string }) {
   const [datos, setDatos] = useState<Datos | null>(null);
-  const [fallo, setFallo] = useState(false);
+  const [fallo, setFallo] = useState<string | null>(null);
   const [nombre, setNombre] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,15 +41,18 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
   const cargar = useCallback(async () => {
     try {
       const res = await fetch(url, { headers: await authHeader(), cache: 'no-store' });
-      const d = (await res.json().catch(() => null)) as (Partial<Datos> & { app?: AppDelEstudio | null }) | null;
-      if (!res.ok || !d || typeof d.planIncluye !== 'boolean') { setFallo(true); return; }
+      const d = (await res.json().catch(() => null)) as (Partial<Datos> & { app?: AppDelEstudio | null; error?: string }) | null;
+      // 409: ha cambiado de sede en otra pestaña. Lo dice el servidor; reintentar no lo arregla.
+      if (res.status === 409) { setFallo(d?.error ?? 'Has cambiado de sede en otra pestaña: recarga la página.'); return; }
+      if (!res.ok || !d || !(d.bloqueo === null || esBloqueo(d.bloqueo))) { setFallo('No hemos podido leer el estado de tu app.'); return; }
       setDatos({
-        planIncluye: d.planIncluye, esPropietaria: d.esPropietaria === true,
+        bloqueo: d.bloqueo, sedePrincipal: typeof d.sedePrincipal === 'string' ? d.sedePrincipal : null,
+        esPropietaria: d.esPropietaria === true,
         nombreSugerido: typeof d.nombreSugerido === 'string' ? d.nombreSugerido : '',
         app: d.app && esEstadoApp(d.app.estado) ? d.app : null,
       });
-      setFallo(false);
-    } catch { setFallo(true); }
+      setFallo(null);
+    } catch { setFallo('No hemos podido leer el estado de tu app: revisa tu conexión.'); }
   }, [url]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
@@ -80,7 +88,7 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
   if (fallo) {
     return (
       <div className="flex flex-col items-start gap-2">
-        <p role="alert" className="text-[13px] font-medium text-destructive">No hemos podido leer el estado de tu app.</p>
+        <p role="alert" className="text-[13px] font-medium text-destructive" data-testid="mi-app-fallo">{fallo}</p>
         <button type="button" className="text-[13px] font-medium underline underline-offset-2" onClick={() => void cargar()}>Volver a intentarlo</button>
       </div>
     );
@@ -114,14 +122,24 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
     );
   }
 
-  // ── Su plan no la incluye ───────────────────────────────────────────────────
-  if (!datos.planIncluye) {
+  // ── Ahora no puede pedirla ─────────────────────────────────────────────────
+  if (datos.bloqueo) {
+    const planes = planesConApp().join(' y ');
+    const texto: Record<BloqueoPedirApp, string> = {
+      plan: `La app con el nombre y el icono de tu estudio en la App Store va incluida en ${planes}.`,
+      prueba: `La app con el nombre y el icono de tu estudio en la App Store va incluida en ${planes}. Se pide con el plan ya pagado, no durante la prueba.`,
+      cobro: 'Hay un cobro de tu plan pendiente. Cuando se resuelva, podrás pedir aquí tu app.',
+      'sin-plan': `Tu plan no está activo. La app con el nombre y el icono de tu estudio va incluida en ${planes}.`,
+      sede: `Tu cadena tiene una sola app, con todas sus sedes dentro. Se pide desde ${datos.sedePrincipal ? `«${datos.sedePrincipal}»` : 'su sede principal'}.`,
+    };
     return (
-      <div className="flex flex-col gap-2" data-testid="mi-app-sin-plan">
-        <p className="text-[13px] leading-relaxed text-foreground">
-          La app con el nombre y el icono de tu estudio en la App Store va incluida en {planesConApp().join(' y ')}.
-        </p>
-        <Link href="/suscripcion" className="text-[13px] font-medium underline underline-offset-2">Ver los planes</Link>
+      <div className="flex flex-col gap-2" data-testid="mi-app-sin-plan" data-bloqueo={datos.bloqueo}>
+        <p className="text-[13px] leading-relaxed text-foreground">{texto[datos.bloqueo]}</p>
+        {datos.bloqueo !== 'sede' && (
+          <Link href="/suscripcion" className="text-[13px] font-medium underline underline-offset-2">
+            {datos.bloqueo === 'cobro' ? 'Ver mi suscripción' : 'Ver los planes'}
+          </Link>
+        )}
       </div>
     );
   }
@@ -132,7 +150,9 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
   }
 
   // ── Pedirla ─────────────────────────────────────────────────────────────────
-  const largo = valor.trim().length > LETRAS_BAJO_EL_ICONO;
+  const largo = [...valor.trim()].length > LETRAS_BAJO_EL_ICONO;
+  // El motivo se ve en cuanto el botón se apaga, no solo al pulsarlo (con un «$» no decía por qué).
+  const aviso = error ?? (valor.trim() && !validado.ok ? validado.error : null);
   return (
     <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void pedir(); }} data-testid="mi-app-pedir">
       <p className="text-[13px] leading-relaxed text-muted-foreground">
@@ -148,9 +168,10 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
           {largo
             ? `En la pantalla de inicio caben unas ${LETRAS_BAJO_EL_ICONO} letras: este nombre se verá recortado.`
             : 'Es el que ve tu alumna en la pantalla de inicio de su móvil.'}
+          {' '}En la App Store no puede haber dos apps con el mismo nombre: si ya está cogido, te escribimos para elegir otro.
         </span>
       </label>
-      {error && <p role="alert" className="text-[13px] font-medium text-destructive">{error}</p>}
+      {aviso && <p role="alert" className="text-[13px] font-medium text-destructive">{aviso}</p>}
       <div>
         <button type="submit" className={btnPrimary} disabled={enviando || !validado.ok} data-testid="pedir-app">
           {enviando ? 'Pidiéndola…' : 'Pedir mi app'}

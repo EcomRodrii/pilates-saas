@@ -505,19 +505,28 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
 
 **Pedir la app desde el panel** (fase 1, 15-oct-2026; apagado de serie):
 
-- El estudio la pide en Apariencia de tu app → «Tu app en la App Store» (`MiAppDeTienda`),
-  solo con `APP_PROPIA_PEDIR` encendido para él (`on` o `estudios:<id>`, el formato de siempre).
-  Pedirla es de la **propietaria** y exige un plan que la incluya: `tieneFeature(studio, 'appPropia')`
-  EN EL SERVIDOR (`POST /api/estudio/app-movil`; Estudio y Cadena sí, Founding Studio y el plan gratis no).
-  Nace `PEDIDA` y **sin activar**; el bundle sale del slug (`app.tentare.<slug>`).
+- El estudio la pide en Apariencia de tu app → «Tu app en la App Store» (`MiAppDeTienda`; con
+  `PANEL_NUEVO`, en el paso «Tu app»), solo con `APP_PROPIA_PEDIR` encendido para él (`on` o
+  `estudios:<id>`, el formato de siempre). Pedirla es de la **propietaria** y, decisión del fundador
+  (15-oct-2026), solo con **Estudio o Cadena PAGADO**: ni en la prueba ni con un cobro pendiente
+  (`bloqueoParaPedir`, `lib/app-nativa/pedir-app.ts`, EN EL SERVIDOR: `POST /api/estudio/app-movil`).
+  Nace `PEDIDA` y **sin activar**, con un hueco del lote (abajo) o, si no queda, el bundle del slug.
+- **Cadena = UNA app** (decisión del fundador, 15-oct-2026). Su fila de `apps_estudio` va con el id de
+  la sede PRINCIPAL (la más antigua, `estudioDeLaApp`, `lib/app-nativa/app-de-cadena.ts`); se pide
+  desde ella, las demás sedes ven la misma, y dentro la alumna elige su sede.
 - Los estados (`apps_estudio.estado`) son lo que se le cuenta al estudio: `PEDIDA`, `EN_PREPARACION`,
-  `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos»: esta fase no
-  manda ningún aviso al estudio (lo ve al volver al panel).
-- La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, pone el enlace de la
-  App Store (obligatorio para `PUBLICADA`) y apunta notas que el estudio nunca ve. **`activa` solo se
-  mueve desde ahí**, y es lo que cambia qué abre la app y el fichero de enlaces universales.
-- Una petición sigue exigiendo los pasos manuales de más arriba (fila activa, Client IDs de Apple en
-  Supabase, registro en App Store Connect, compilar y subir). Esta fase no los automatiza.
+  `EN_PRUEBAS`, `EN_REVISION`, `PUBLICADA`, `PAUSADA`. Sin plazos y sin «te avisamos».
+- La cola vive en `/interno` → «Apps de estudio»: quien tramita mueve el estado, cambia el nombre si
+  el pedido ya está cogido en la App Store, pone el enlace de la tienda y apunta notas que el estudio
+  nunca ve. **`activa` solo se mueve desde ahí**, y es lo que cambia qué abre la app, a qué bundle se
+  mandan sus avisos y el fichero de enlaces universales. Las reglas las pone el servidor (`leerCambio`,
+  `lib/interno/apps-estudio.ts`) sobre cómo QUEDA la app: solo transiciones reales (hacia delante,
+  pausa, y atrás solo «rechazada» y «rehacer la compilación»); `PUBLICADA` exige el enlace de la ficha
+  y la app activa; no se activa una app solo «Pedida» (aún no existe en App Store Connect); una
+  publicada no se desactiva.
+- Una app de estudio SIN activar dice «no disponible» al abrirse (`/app`): nunca cae a la entrada de
+  «Tentare» con su buscador de estudios. Sus avisos solo llevan los de su estudio, y solo mientras
+  está activa (`suscripcionesDelAviso`, `lib/notifications/channels.ts`).
 
 **La API de App Store Connect** (15-oct-2026, `scripts/asc.mjs` + `lib/nativo/asc.ts`):
 
@@ -537,7 +546,8 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   identificador `app.tentare.cupo-NNN` ya registrado con sus capacidades, su app ya creada en App
   Store Connect (`asc_app_id`) y su bundle ya en los Client IDs de Apple de Supabase. El primer lote
   son 10 (15-oct-2026). Al pedir su app, el estudio se lleva un hueco libre (`asignar_cupo_app`, con
-  candado; solo service_role); si no queda ninguno, el identificador sale del slug como antes y la
+  candado por estudio desde la migr `20261015183121`; solo service_role); si la función falla, la
+  petición falla (nunca cae al slug por un error); si no queda ninguno, el identificador sale del slug como antes y la
   app se crea a mano. La cola de `/interno` dice cuántos huecos quedan y enlaza cada app a App Store
   Connect. ⚠️ Un lote nuevo: `registrar-cupos`, crear las apps en la web, añadir sus bundles a los
   Client IDs de Supabase e insertar sus filas en `apps_estudio_cupos`.

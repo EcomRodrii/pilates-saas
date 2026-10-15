@@ -17,14 +17,17 @@ export const dynamic = 'force-dynamic';
 // público (el nombre, el icono y el color del estudio salen igual en el buscador);
 // con tope por IP para que no sirva de directorio.
 export async function GET(req: NextRequest) {
-  const limitado = await enforceRateLimit(req, 'app-de-estudio', { max: 60, windowSeconds: 600 });
-  if (limitado) return limitado;
-
   const bundle = req.nextUrl.searchParams.get('bundle');
   const slug = req.nextUrl.searchParams.get('slug');
   const porBundle = esBundleDeEstudio(bundle);
   const porSlug = !porBundle && !!slug && /^[a-z0-9-]{1,80}$/.test(slug);
   if (!porBundle && !porSlug) return NextResponse.json({ error: 'Falta el bundle o el slug' }, { status: 400 });
+
+  // Cada arranque en frío de la app pasa por aquí, y en el wifi del estudio (o con la IP compartida
+  // del operador) muchas alumnas salen por la misma IP: el tope es por IP Y por app, y holgado. Lo
+  // que protege es que esto no sirva para recorrer estudios, no el número de aperturas de una app.
+  const limitado = await enforceRateLimit(req, 'app-de-estudio', { max: 300, windowSeconds: 600 }, porBundle ? bundle as string : `slug:${slug}`);
+  if (limitado) return limitado;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'sin service-role' }, { status: 500 });

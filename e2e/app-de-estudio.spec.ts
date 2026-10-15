@@ -109,14 +109,21 @@ test('con sesión pero sin ser alumna de ese estudio: a darse de alta en él', a
   expect(misEstudios).toBeGreaterThan(0);
 });
 
-test('un bundle de estudio SIN fila activa es la app «Tentare» de siempre', async ({ page }) => {
+test('un bundle de estudio SIN fila activa dice «no disponible» y NUNCA cae a la app «Tentare»', async ({ page }) => {
   await comoApp(page, 'app.tentare.apagada');
   const n = await appDeEstudio(page, () => ({ status: 404, body: { error: 'Esa app no está activa' } }));
 
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('app-no-disponible')).toBeVisible({ timeout: 60_000 });
   expect(n.pedidas).toBeGreaterThan(0);
-  await expect(page.getByRole('button', { name: 'Buscar mi estudio' })).toBeVisible();
+  // Ni el buscador de estudios ni el logo de Tentare: la app lleva el nombre de un estudio.
+  await expect(page.getByRole('button', { name: 'Buscar mi estudio' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toHaveCount(0);
+  await expect(page.locator('svg.t-logo')).toHaveCount(0);
+  // Volver a comprobarlo pregunta otra vez de verdad.
+  const antes = n.pedidas;
+  await page.getByRole('button', { name: 'Volver a comprobarlo' }).click();
+  await expect.poll(() => n.pedidas, { timeout: 30_000 }).toBeGreaterThan(antes);
 });
 
 test('si no se puede comprobar la app del estudio, lo dice y NO cae al selector de Tentare', async ({ page }) => {
@@ -124,10 +131,12 @@ test('si no se puede comprobar la app del estudio, lo dice y NO cae al selector 
   const n = await appDeEstudio(page, () => ({ status: 500, body: { error: 'x' } }));
 
   await page.goto('/app');
-  await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido cargar tus estudios' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido abrir la app' })).toBeVisible({ timeout: 60_000 });
   expect(n.pedidas).toBeGreaterThan(0);
   await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+  // Sin saber de qué app es, no se ofrece cambiar de cuenta: llevaría a la entrada genérica.
+  await expect(page.getByRole('button', { name: 'Entrar con otra cuenta' })).toHaveCount(0);
 });
 
 test('la app «Tentare» y la web no preguntan por ningún estudio', async ({ page }) => {

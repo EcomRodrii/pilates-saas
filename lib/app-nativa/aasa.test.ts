@@ -44,3 +44,13 @@ test('el appID de un estudio exige el Team y un bundle limpio', () => {
   assert.equal(appIdDeEstudio('corto', 'app.tentare.luz'), null);
   assert.equal(appIdDeEstudio('ABCDE12345', 'app tentare/luz'), null);
 });
+
+test('un slug con comodines no entra: reclamaría rutas de otros estudios', () => {
+  const c = contenidoAasa(['T.app.tentare'], [
+    { appId: 'T.app.tentare.bien', slug: 'pilates-bien' },
+    { appId: 'T.app.tentare.mal', slug: 'p*' },
+    { appId: 'T.app.tentare.mal2', slug: 'a?b' },
+  ]);
+  const ids = c.applinks.details.map((d) => d.appIDs[0]);
+  assert.deepEqual(ids, ['T.app.tentare.bien', 'T.app.tentare']);
+});
