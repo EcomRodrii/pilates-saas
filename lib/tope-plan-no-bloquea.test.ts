@@ -46,7 +46,6 @@ const LEEN_EL_TOPE: Record<string, string> = {
   'lib/billing/catalogo-planes.ts': 'la comparativa de planes y el resumen corto del alta',
   'lib/billing/uso-tope.ts': '«N de 150 clientas activas»',
   'app/precios/page.tsx': 'el tope de cada tarjeta de /precios',
-  'lib/landing/founding-gratis.ts': 'la columna de Founding Studio gratis en la tabla de /precios',
   'app/suscripcion/page.tsx': 'enseña cuántas lleva el estudio',
 };
 

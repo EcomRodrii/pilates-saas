@@ -85,6 +85,22 @@ export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resume
 export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
 
 /**
+ * Founding Studio GRATIS (decisión del fundador, 15-oct-2026; reglas en
+ * plan-gratis.ts): un estudio con `subscription_status = 'gratis'` usa TODO
+ * Tentare salvo varias sedes, hasta 150 alumnas activas y 30 cobros al mes.
+ * Lo que cuesta dinero por uso va con tope: el asistente, 50 consultas al mes
+ * (el `plan` de la fila es 'BASE', así que `ia_cuota_mensual()` en SQL da el
+ * mismo 50), y la IA de notas, campañas y fichas, TOPE_IA_GRATIS_DIA al día
+ * (lib/billing/billing-guard.ts). Con 'gratis_cerrado' no hay acceso: estas
+ * features dan igual, porque `suscripcionActiva` dice que no.
+ */
+export const ENTITLEMENTS_GRATIS: Entitlements = {
+  maxSocios: 150,
+  features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+  consultasAsistenteMes: 50,
+};
+
+/**
  * Estados de suscripción que dan acceso al producto.
  *
  * ⚠️ 'trialing' cubre DOS cosas desde que la prueba es local y sin tarjeta: la
@@ -101,7 +117,9 @@ export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
 export function suscripcionActiva(status: string | null | undefined): boolean {
   // 'past_due': Stripe reintenta el cobro; damos periodo de gracia corto para no
   // cortar el servicio por un fallo puntual de tarjeta.
-  return status === 'active' || status === 'trialing' || status === 'past_due';
+  // 'gratis': Founding Studio gratis (plan-gratis.ts). Da acceso; si se cierra
+  // por pasarse del margen, lo decide el gate (`/api/billing/status`), no esto.
+  return status === 'active' || status === 'trialing' || status === 'past_due' || status === 'gratis';
 }
 
 /** ¿Este estudio puede usar el producto? En prueba (trialing) o con suscripción activa. */
@@ -114,8 +132,9 @@ function planDe(studio: { plan?: string | null }): Plan {
   return p === 'ESTUDIO' || p === 'CADENA' ? p : 'BASE';
 }
 
-/** Entitlements efectivos del estudio (según su plan). */
-export function entitlementsDe(studio: { plan?: string | null }): Entitlements {
+/** Entitlements efectivos del estudio (según su plan, o el gratis si lo es). */
+export function entitlementsDe(studio: { plan?: string | null; subscriptionStatus?: string | null }): Entitlements {
+  if (studio.subscriptionStatus === 'gratis' || studio.subscriptionStatus === 'gratis_cerrado') return ENTITLEMENTS_GRATIS;
   return PLAN_ENTITLEMENTS[planDe(studio)];
 }
 

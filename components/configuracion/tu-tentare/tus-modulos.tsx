@@ -96,7 +96,7 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
             // Del plan solo se dice algo cuando se SABE: mientras carga, o si no se
             // ha podido leer, nada (decir «necesita el plan Estudio» a quien ya lo
             // tiene sería mentir).
-            const incluido = plan ? incluidoEnPlan(m, plan.plan, true) : null;
+            const incluido = plan ? incluidoEnPlan(m, plan.plan, true, plan.subscriptionStatus) : null;
             const minimo = planQueLoIncluye(m);
             const estadoPlan = m.feature && plan && incluido !== null
               ? estadoDelPlan({ enTuPlan: incluido, activo: plan.activo, planMinimo: minimo })

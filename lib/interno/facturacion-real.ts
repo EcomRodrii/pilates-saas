@@ -162,7 +162,12 @@ export function cruzarFacturacion(
     let estado: EstadoCobro;
     let motivo: string | null = null;
 
-    if (sub && COBRANDO.has(sub.status)) estado = 'pagando';
+    // Founding Studio gratis y Stripe cobrándole: un webhook perdido o una
+    // suscripción que nadie canceló. Se marca para mirarlo, no como «pagando».
+    if (estadoBd === 'gratis' && sub && (COBRANDO.has(sub.status) || EN_PRUEBA.has(sub.status))) {
+      estado = 'descuadre';
+      motivo = `Está en Founding Studio gratis y Stripe dice «${sub.status}»`;
+    } else if (sub && COBRANDO.has(sub.status)) estado = 'pagando';
     else if (sub && EN_PRUEBA.has(sub.status)) estado = 'en_prueba';
     else if (sub && IMPAGO.has(sub.status)) estado = 'impago';
     else if (sub) estado = 'cancelado';

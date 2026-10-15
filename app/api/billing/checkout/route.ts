@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
+import { pagaPlan } from '@/lib/billing/plan-gratis';
+import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
@@ -48,6 +50,12 @@ export async function POST(req: NextRequest) {
   const plan = body?.plan as Plan | undefined;
   if (!plan || !PLANES.includes(plan)) {
     return NextResponse.json({ error: 'Plan no válido' }, { status: 400 });
+  }
+  // Founding Studio es gratis (lib/billing/plan-gratis.ts): con el interruptor
+  // encendido no se vende, ni con una llamada directa. Una suscripción de 29 €
+  // dejaría al estudio PAGANDO con menos que el gratis.
+  if (plan === 'BASE' && encendidaPara(process.env.FOUNDING_GRATIS, sesion.studioId)) {
+    return NextResponse.json({ error: 'Founding Studio es gratis: no hay nada que contratar. Para crecer, elige Estudio.' }, { status: 400 });
   }
   const price = priceIdDe(plan);
   if (!price) {
@@ -278,10 +286,12 @@ export async function POST(req: NextRequest) {
     // checkout.sessions.create sobre el MISMO customer — doble suscripción,
     // doble cobro real. Se comprueba en servidor, no solo en cliente.
     //
-    // `suscripcionActiva()` (no una comparación manual): incluye 'past_due'
-    // a propósito — Stripe sigue reintentando el cobro, la suscripción
-    // sigue viva. Dejarla pasar reabriría el mismo bug para ese estado.
-    if (studio.subscription_id && suscripcionActiva(studio.subscription_status)) {
+    // `pagaPlan()` (no una comparación manual): incluye 'past_due' a propósito
+    // — Stripe sigue reintentando el cobro, la suscripción sigue viva. Y NO
+    // cuenta 'gratis' (Founding Studio gratis da acceso pero no es una
+    // suscripción): un estudio gratis con el `subscription_id` de una vieja ya
+    // cancelada tiene que poder pagar Estudio.
+    if (studio.subscription_id && pagaPlan({ subscriptionStatus: studio.subscription_status, subscriptionId: studio.subscription_id })) {
       return NextResponse.json(
         { error: 'Ya tienes una suscripción activa. Gestiónala desde Suscripción.' },
         { status: 409 },
