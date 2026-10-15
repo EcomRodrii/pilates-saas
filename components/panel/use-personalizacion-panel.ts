@@ -21,6 +21,7 @@ import { ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
 import { NO_OCULTABLES } from '@/lib/nav-config';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { activoEnModulos } from '@/lib/modulos/menu';
 import { HOME_SECCIONES, HOME_FIJAS_PRIMERO } from '@/lib/home-sections';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ItemOrdenable } from '@/components/panel/lista-ordenable';
@@ -63,6 +64,8 @@ export function usePersonalizacionPanel() {
   // nunca va a aplicarse. Enseñando los grupos, lo que se ve es lo que pasa.
   const [grupos, setGrupos] = useState<GrupoModulos[]>([]);
   const [modulosOcultos, setModulosOcultos] = useState<Set<string>>(new Set());
+  // Con el panel nuevo, lo que el estudio activó en Módulos (solo para saber qué sale en el menú: aquí no se toca).
+  const [activados, setActivados] = useState<string[]>([]);
   const [posicion, setPosicion] = useState<MenuPosicion>('lateral');
   const [seccionesHome, setSeccionesHome] = useState<string[]>(SECCIONES_HOME.map(s => s.id));
   const [homeOcultos, setHomeOcultos] = useState<Set<string>>(new Set());
@@ -96,6 +99,7 @@ export function usePersonalizacionPanel() {
           items: ordenarItemsMenu(g.items, l.orden).map(aItem),
         })));
         setModulosOcultos(new Set(l.ocultos));
+        setActivados(Array.isArray(l.activados) ? l.activados : []);
         setPosicion(l.menuPosition);
         const todas = SECCIONES_HOME.map(s => s.id);
         setSeccionesHome([
@@ -139,6 +143,8 @@ export function usePersonalizacionPanel() {
     sucio: cambios.menu || cambios.inicio || cambios.posicion,
     grupos, modulosOcultos, posicion, seccionesHome, homeOcultos,
     secciones: SECCIONES_HOME,
+    /** Con el panel nuevo: ¿sale en el menú? Lo decide Módulos (lib/modulos/menu.ts). */
+    enMenu: (href: string) => activoEnModulos(href, { ocultos: [...modulosOcultos], activados }),
 
     // El arrastre es POR GRUPO: cada lista tiene su propio contexto, así que
     // un id solo puede moverse dentro del suyo.
@@ -166,7 +172,9 @@ export function usePersonalizacionPanel() {
           // Se aplana en el orden que se ve: los grupos en su orden natural y,
           // dentro, lo que la propietaria haya dejado.
           orden: grupos.flatMap(g => g.items.map(m => m.id)),
-          ocultos: [...modulosOcultos],
+          // Con el panel nuevo, «Tu menú» solo ordena: qué sale lo decide Módulos, y
+          // mandar aquí los `ocultos` de cuando se abrió desharía lo que se cambie allí.
+          ...(panelNuevo ? {} : { ocultos: [...modulosOcultos] }),
           menuPosition: posicion,
           home: { orden: seccionesHome, ocultos: [...homeOcultos] },
         });

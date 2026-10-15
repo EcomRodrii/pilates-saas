@@ -44,6 +44,8 @@ import {
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
 import { MuestraEstilo } from './muestra-estilo';
 import { AppEnElMovil } from './app-en-el-movil';
+import { MiAppDeTienda } from './mi-app-de-tienda';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
@@ -263,6 +265,8 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
 
 export function EditorAparienciaApp() {
   const { studio, updateStudio } = useStudio();
+  // «Pedir mi app»: apagado de serie (`APP_PROPIA_PEDIR`); sin él, la sección no existe.
+  const pedirApp = useInterruptor('pedirApp', studio?.id);
   const rol = useRol();
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [errorCarga, setErrorCarga] = useState(false);
@@ -674,6 +678,17 @@ export function EditorAparienciaApp() {
                 faviconUrl={publicado.faviconUrl ?? null}
                 logoUrl={studio.logoUrl}
               />
+            </Seccion>
+          )}
+
+          {pedirApp && studio.id && (
+            <Seccion
+              enAsistente={panelNuevo}
+              titulo="Tu app en la App Store"
+              orden={6}
+              detalle="Una app con el nombre y el icono de tu estudio, publicada en la App Store."
+            >
+              <MiAppDeTienda studioId={studio.id} />
             </Seccion>
           )}
           {panelNuevo && (() => {

@@ -12,7 +12,7 @@ import { confirmarSustituta, mensajeConfirmacionRechazada } from '@/lib/sustituc
 import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 import { candidataDelEstudio } from '@/lib/sustituciones/candidata-del-estudio';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { PLAN_INFO, planMinimoPara, tieneFeature } from '@/lib/billing/entitlements';
 import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
@@ -236,7 +236,7 @@ export async function PATCH(req: NextRequest) {
     }
     if ((modo === 'autonomo' || modo === 'vacaciones') && !(await featureDeEstudio(sesion.studioId, 'sustitucionesAutonomas'))) {
       return NextResponse.json(
-        { error: 'Los modos Autónomo y Vacaciones están incluidos a partir del plan Estudio. Mejora tu plan para activarlos.' },
+        { error: `Los modos Autónomo y Vacaciones están incluidos a partir del plan ${PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre}. Mejora tu plan para activarlos.` },
         { status: 403 },
       );
     }

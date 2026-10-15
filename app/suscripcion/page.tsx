@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
@@ -114,8 +114,9 @@ export default function SuscripcionPage() {
       setEstado(e);
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
-      // Un estudio gratis ya está en Founding Studio: se le ofrece a lo que puede subir.
-      if (e?.gratis) setElegido('ESTUDIO');
+      // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
+      // es lo que le toca (plan-gratis.ts); dentro del límite, a lo que puede subir.
+      if (e?.gratis) setElegido(e.gratis.fase === 'MARGEN' || e.gratis.fase === 'CERRADO' ? 'BASE' : 'ESTUDIO');
       else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
@@ -152,6 +153,8 @@ export default function SuscripcionPage() {
   const yaPaga = yaPagaSegun(estado);
   // Founding Studio gratis (lib/billing/plan-gratis.ts): su uso, fase y margen, ya derivados.
   const gratis = estado?.gratis ?? null;
+  // Ha pasado un límite del gratis: le toca Founding Studio de pago (plan-gratis.ts).
+  const seHaPasado = gratis?.fase === 'MARGEN' || gratis?.fase === 'CERRADO';
   const enPrueba = trial
     ? trial.fase !== 'SUSCRITO' && trial.fase !== 'EXPIRADA' && trial.fase !== 'SIN_PRUEBA'
     : false;
@@ -189,7 +192,7 @@ export default function SuscripcionPage() {
           </div>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
             {gratis
-              ? 'Gratis mientras tu estudio crece. Cuando lo necesites, pasas a Estudio en un momento.'
+              ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
               : yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
               : pruebaAgotada
@@ -259,11 +262,12 @@ export default function SuscripcionPage() {
           <div className="flex flex-col gap-4">
             <CabeceraPlanGratis />
             <UsoPlanGratis gratis={gratis} />
-            <section aria-label="Cuando quieras crecer" className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
-              <h2 className="text-[16px] font-semibold text-foreground">Cuando quieras crecer</h2>
-              <p className="text-[12.5px] text-muted-foreground">Lo mismo que ya usas, sin límite de alumnas ni de cobros. Sin permanencia.</p>
-              <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-2">
-                {(['ESTUDIO', 'CADENA'] as const).map(p => (
+            <section aria-label={seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
+              <h2 className="text-[16px] font-semibold text-foreground">{seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
+              <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Lo mismo que ya usas, sin límites. Sin permanencia.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
+              {/* Founding Studio de pago, cuando ha pasado un límite (plan-gratis.ts): dentro del gratis no tiene nada más que darle. */}
+              <div role="radiogroup" aria-label="Plan" className={cn('mt-4 grid gap-3', seHaPasado ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+                {(seHaPasado ? ['BASE', 'ESTUDIO', 'CADENA'] as const : ['ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -280,7 +284,7 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'ESTUDIO' ? 'Alumnas y cobros sin límite.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Todo igual, sin límite de alumnas ni de reservas.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio, con ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}

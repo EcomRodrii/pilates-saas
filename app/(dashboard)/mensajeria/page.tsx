@@ -532,14 +532,14 @@ export default function Mensajeria() {
                 role="tab"
                 aria-selected={activa}
                 onClick={() => { setTab(t.id); setBusqueda(''); setPedida(null); }}
-                className={cn('flex items-start gap-3 rounded-t-card border p-4 text-left shadow-t-card transition-[transform,box-shadow] hover:-translate-y-0.5', activa && 'ring-2')}
+                className={cn('flex flex-col items-start gap-2.5 rounded-t-card border p-4 text-left shadow-t-card transition-[transform,box-shadow] hover:-translate-y-0.5 sm:flex-row sm:gap-3', activa && 'ring-2')}
                 style={{ ...(activa ? fondoTenido(que.tono, 18) : { backgroundColor: 'var(--card)', borderColor: 'var(--border)' }), ...(activa ? { ['--tw-ring-color' as string]: c } : {}) }}
               >
                 <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: c, color: 'var(--card)' }}>
                   <t.icon size={18} strokeWidth={2.2} />
                 </span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-[14.5px] font-semibold text-foreground">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14.5px] font-semibold text-foreground">
                     {t.label}
                     {t.count > 0 && <span className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold text-white" style={{ backgroundColor: 'var(--destructive)' }}>{t.count}</span>}
                   </span>
@@ -572,8 +572,9 @@ export default function Mensajeria() {
       {/* ── NOTIFICACIONES ── */}
       {tab === 'notificaciones' && (
         <div className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'bg-card rounded-2xl border border-border overflow-hidden'}>
-          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
-            <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
+          {/* Con flex-wrap: en el móvil «Marcar todas leídas» baja de línea en vez de salirse por la derecha. */}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3.5 border-b border-border sm:gap-3 sm:px-5">
+            <div className="flex min-w-[12rem] items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
               <Search size={14} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."

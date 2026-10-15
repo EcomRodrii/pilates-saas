@@ -311,9 +311,10 @@ así que todo lo que se versiona lo lee cualquiera:
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
 - **Founding Studio GRATIS (decisión del fundador, 15-oct-2026), tras el interruptor `FOUNDING_GRATIS`.**
-  Un estudio que no paga tiene TODO (menos varias sedes) hasta 150 alumnas «Activa» y 30 cobros
-  al mes; al pasarse, 30 días de margen y después se cierra el PANEL (el `bloqueado` de
-  /api/billing/status) hasta elegir Estudio. Reglas y «truquitos» en `lib/billing/plan-gratis.ts`.
+  Un estudio que no paga tiene TODO (menos varias sedes) hasta 150 alumnas «Activa» y 250 reservas
+  al mes (las de las clases de los últimos 30 días; no cobros: se esquivan cobrando fuera); al
+  pasarse, 30 días de margen y después se cierra el PANEL (el `bloqueado` de /api/billing/status)
+  hasta elegir plan de pago. Reglas y «truquitos» en `lib/billing/plan-gratis.ts`.
   - Es la única excepción a «no bloquea»: ninguna alta se frena (lo de arriba sigue en pie) y la app
     de la alumna no se toca nunca.
   - `subscription_status = 'gratis'` lo escribe SOLO el gate, con compare-and-set, a quien no paga
@@ -321,6 +322,11 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Qué toca al pasarse** (fundador, 15-oct 08:30, corrige lo de la madrugada): pasar CUALQUIERA
+    de los dos límites → Founding Studio DE PAGO (29 €): lo mismo que el gratis, sin tope de alumnas
+    ni de reservas. Nadie va obligado a Estudio. Lo que distingue a Estudio (59 €) es la app propia
+    del estudio en la tienda de apps (`appPropia`: «estudio incluye la app alumna»); mientras no se
+    pueda pedir, en /precios solo se anuncia lo que ya tiene de más (consultas al asistente).
 - **Lo que el Centro de Control le manda a la alumna (13-oct-2026, decisión del fundador,
   `docs/decision-os-mensajes-comerciales.md`): una OFERTA solo con su consentimiento de novedades
   vigente y siempre con enlace de baja; un aviso de servicio, como siempre.** La clase la da

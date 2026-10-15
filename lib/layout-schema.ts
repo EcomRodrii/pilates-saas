@@ -87,6 +87,11 @@ export const layoutConfigSchema = z
     orden: z.array(z.string()),
     // hrefs ocultos del menú.
     ocultos: z.array(z.string()),
+    // Con el panel nuevo (Módulos sustituye a «Esencial / Todo», 15-oct-2026):
+    // los módulos de fuera del día a día (ESSENTIAL_HREFS) que el estudio ha
+    // activado en Módulos. Sin el panel nuevo no lo lee nadie
+    // (lib/modulos/menu.ts).
+    activados: z.array(z.string()),
     menuPosition: z.enum(MENU_POSICIONES),
     // Orden/visibilidad de las secciones de la home del dashboard.
     home: z.object({ orden: z.array(z.string()), ocultos: z.array(z.string()) }),

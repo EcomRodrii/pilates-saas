@@ -1,20 +1,27 @@
 'use client';
 
-// La lógica de «Tus módulos» (leer el menú, el plan y el modo, y poner o quitar
+// La lógica de «Tus módulos» (leer el menú y el modo, y poner o quitar
 // un módulo del menú) para las dos caras: la fila de Configuración
 // (`tus-modulos.tsx`) y la pantalla Módulos del panel nuevo
 // (`components/modulos/modulos-nuevo.tsx`). Un solo sitio que guarda: dos
 // editores del mismo dato no pueden tener reglas distintas. Guardar lo deja
 // hacer el servidor solo a la propietaria (`guardarLayoutAction`).
+//
+// Con el panel nuevo, Módulos sustituye a «Esencial / Todo» (lib/modulos/menu.ts):
+// un módulo está «en el menú» o no, sin un tercer estado que dependa del
+// navegador, y guardar manda `ocultos` y `activados`.
 
 import { useEffect, useRef, useState } from 'react';
 import { usePermisos } from '@/lib/permisos';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
-import { estadoBilling, fetchLayout, guardarLayoutApi, olvidarLayout } from '@/lib/api-client';
+import { fetchLayout, guardarLayoutApi, olvidarLayout } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { EVENTO_MODO_MENU, leerModoMenu, modoDelEvento, type ModoMenu } from '@/lib/nav-modo';
-import { contar, gruposTuTentare, ocultosTrasCambiar, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
+import { contar, estadoEnMenu, gruposTuTentare, ocultosTrasCambiar, type EstadoEnMenu, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
+import { HREF_MODULOS, activoEnModulos, eleccionTrasCambiar } from '@/lib/modulos/menu';
+
+const lista = (x: unknown): string[] => (Array.isArray(x) ? x.filter((h): h is string => typeof h === 'string') : []);
 
 export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   onCambio?: () => void;
@@ -24,8 +31,8 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   const { puedeVer } = usePermisos();
   const panelNuevo = usePanelNuevo();
   const [ocultos, setOcultos] = useState<string[] | null>(null);
+  const [activados, setActivados] = useState<string[]>([]);
   const [errorLectura, setErrorLectura] = useState(false);
-  const [plan, setPlan] = useState<{ plan: string | null; activo: boolean; subscriptionStatus: string | null } | null>(null);
   const [modo, setModo] = useState<ModoMenu>('esencial');
   const [guardando, setGuardando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -35,10 +42,9 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   useEffect(() => {
     let vivo = true;
     const leer = () => fetchLayout()
-      .then(l => { if (vivo) { setOcultos(l.ocultos); setErrorLectura(false); } })
+      .then(l => { if (vivo) { setOcultos(lista(l.ocultos)); setActivados(lista(l.activados)); setErrorLectura(false); } })
       .catch(() => { if (vivo) setErrorLectura(true); });
     void leer();
-    void estadoBilling().then(b => { if (vivo) setPlan(b ? { plan: b.plan ?? null, activo: b.activo, subscriptionStatus: b.subscriptionStatus ?? null } : null); });
     setModo(leerModoMenu());
     // Si el cajón «Tu menú» guarda, esta lista se pone al día con lo guardado; y
     // si el selector Esencial/Todo del menú cambia, también.
@@ -53,9 +59,18 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
     };
   }, []);
 
-  const grupos = gruposTuTentare(puedeVer, seccionesDelMenu(panelNuevo));
+  // Módulos no sale en su propia pantalla: no se puede ocultar y es donde se está.
+  const grupos = gruposTuTentare(puedeVer, seccionesDelMenu(panelNuevo))
+    .map(g => ({ ...g, modulos: g.modulos.filter(m => m.href !== HREF_MODULOS) }))
+    .filter(g => g.modulos.length > 0);
   const vistos = new Set(ocultos ?? []);
-  const cuenta = contar(grupos, vistos);
+  const eleccion = { ocultos: ocultos ?? [], activados };
+  /** Dónde se ve hoy. Con el panel nuevo, en el menú o fuera: no hay «solo con Todo». */
+  const estadoDe = (m: ModuloTuTentare): EstadoEnMenu =>
+    panelNuevo ? (activoEnModulos(m.href, eleccion) ? 'en-menu' : 'fuera') : estadoEnMenu(m, vistos);
+  const cuenta = panelNuevo
+    ? (() => { const todos = grupos.flatMap(g => g.modulos); return { en: todos.filter(m => estadoDe(m) !== 'fuera').length, de: todos.length }; })()
+    : contar(grupos, vistos);
 
   /** `true` solo cuando el servidor ha guardado: la pantalla Módulos cierra su confirmación con eso. */
   async function cambiar(m: ModuloTuTentare, enMenu: boolean): Promise<boolean> {
@@ -70,11 +85,14 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
       // datos viejos desharía lo suyo.
       olvidarLayout();
       const fresco = await fetchLayout();
-      const nuevos = ocultosTrasCambiar(fresco.ocultos, m, enMenu);
-      if (!nuevos) return false;
-      // Solo `ocultos`: el servidor fusiona por clave y no toca el orden ni el Resumen.
-      const config = await guardarLayoutApi({ ocultos: nuevos });
-      setOcultos(config.ocultos);
+      const parche = panelNuevo
+        ? eleccionTrasCambiar({ ocultos: lista(fresco.ocultos), activados: lista(fresco.activados) }, m.href, enMenu)
+        : (() => { const nuevos = ocultosTrasCambiar(lista(fresco.ocultos), m, enMenu); return nuevos ? { ocultos: nuevos } : null; })();
+      if (!parche) return false;
+      // Solo esto: el servidor fusiona por clave y no toca el orden ni el Resumen.
+      const config = await guardarLayoutApi(parche);
+      setOcultos(lista(config.ocultos));
+      setActivados(lista(config.activados));
       setRecien(enMenu ? m.href : null);
       // El menú escucha esto y se recoloca sin recargar; la fila «Tu menú», también.
       window.dispatchEvent(new CustomEvent('tentare-layout-changed'));
@@ -91,5 +109,5 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   }
 
 
-  return { grupos, ocultos, vistos, cuenta, plan, modo, setModo, guardando, errores, recien, errorLectura, cambiar };
+  return { grupos, ocultos, vistos, estadoDe, cuenta, modo, setModo, guardando, errores, recien, errorLectura, cambiar };
 }

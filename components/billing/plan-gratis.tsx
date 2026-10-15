@@ -11,10 +11,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link';
-import { CalendarClock, Gift, TrendingUp, Users } from 'lucide-react';
+import { CalendarCheck, CalendarClock, Gift, TrendingUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { AVISO_PCT, FRASE_PLAN_GRATIS, textoLimite, textoLimites, type EstadoGratisApi } from '@/lib/billing/plan-gratis';
+import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { Baldosa } from '@/components/dashboard/vivo';
 
@@ -22,21 +23,32 @@ const fechaLarga = (ymd: string) =>
   new Date(`${ymd}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO });
 
 
+/** A qué se pasa al pasar un límite, con su precio: siempre Founding Studio de pago. */
+const DESTINO = `Founding Studio de pago (${PLAN_INFO.BASE.precioMes} €/mes)`;
+
 /** La frase que resume dónde está, por fase. */
 export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: string; tono: 'bien' | 'aviso' | 'problema' | 'neutro' } {
   switch (g.fase) {
     case 'DENTRO':
-      return { titulo: 'Te corresponde Founding Studio: gratis', texto: `Todo Tentare, sin pagar nada. Si un día pasas de ${textoLimite('alumnas')} o de ${textoLimite('cobros')}, te avisamos y tienes ${g.margenDias} días para pasarte a Estudio.`, tono: 'bien' };
+      return {
+        titulo: 'Te corresponde Founding Studio: gratis',
+        texto: `Todo Tentare, sin pagar nada. Si un día pasas de ${textoLimite('alumnas')} o de ${textoLimite('reservas')}, pasas a ${PLAN_INFO.BASE.precioMes} €/mes y sigues igual, sin límites. Te avisamos antes y tienes ${g.margenDias} días para hacerlo.`,
+        tono: 'bien',
+      };
     case 'CERCA':
-      return { titulo: 'Tu estudio está creciendo', texto: `Te acercas a ${textoLimites(g.motivos)}. Sigue siendo gratis; cuando lo pases tendrás ${g.margenDias} días para pasarte a Estudio.`, tono: 'aviso' };
+      return { titulo: 'Tu estudio está creciendo', texto: `Te acercas a ${textoLimites(g.motivos)}. Sigue siendo gratis; cuando lo pases tendrás ${g.margenDias} días para elegir.`, tono: 'aviso' };
     case 'MARGEN':
       return {
-        titulo: `Te quedan ${g.diasRestantes} ${g.diasRestantes === 1 ? 'día' : 'días'} en Founding Studio`,
-        texto: `Has pasado de ${textoLimites(g.motivos)}. Tienes hasta el ${fechaLarga(g.cierraEl!)} para pasarte a Estudio. Si antes vuelves a estar por debajo, no tienes que hacer nada.`,
+        titulo: `Te quedan ${g.diasRestantes} ${g.diasRestantes === 1 ? 'día' : 'días'} en Founding Studio gratis`,
+        texto: `Has pasado de ${textoLimites(g.motivos)}. Tienes hasta el ${fechaLarga(g.cierraEl!)} para pasarte a ${DESTINO}: todo igual, sin límites. Si antes vuelves a estar por debajo, no tienes que hacer nada.`,
         tono: 'problema',
       };
     case 'CERRADO':
-      return { titulo: 'Tu estudio ha crecido: es hora de Estudio', texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Elige Estudio para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre.`, tono: 'problema' };
+      return {
+        titulo: 'Tu estudio ha crecido',
+        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre.`,
+        tono: 'problema',
+      };
     case 'SIN_MEDIR':
       return { titulo: 'Estamos midiendo lo que usas', texto: 'Tarda un momento. Mientras tanto, todo sigue funcionando.', tono: 'neutro' };
   }
@@ -63,7 +75,7 @@ export function CabeceraPlanGratis({ className }: { className?: string }) {
           </p>
           <p className="mt-2 text-[15px] font-semibold text-foreground text-pretty">{FRASE_PLAN_GRATIS}</p>
           <p className="mt-1 text-[13.5px] text-muted-foreground text-pretty">
-            Todo Tentare, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 30 cobros al mes.
+            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes y sigues igual.
           </p>
         </div>
       </div>
@@ -124,11 +136,11 @@ export function UsoPlanGratis({ gratis, className }: { gratis: EstadoGratisApi; 
             pie={`Las que pueden reservar ahora o han venido en los últimos ${DIAS_VINO_HACE_POCO} días. Las fichas antiguas no cuentan.`}
           />
           <Medidor
-            Icono={TrendingUp}
-            titulo="Cobros en los últimos 30 días"
-            valor={u.cobros30Dias}
-            limite={gratis.limites.cobrosMes}
-            pie="Cuenta cada cobro con dinero ingresado, por el día en que se cobró; lo devuelto no."
+            Icono={CalendarCheck}
+            titulo="Reservas en los últimos 30 días"
+            valor={u.reservas30Dias}
+            limite={gratis.limites.reservasMes}
+            pie="Las de las clases de estos 30 días, también las de clase fija; las canceladas, en lista de espera o por aprobar, no."
           />
         </div>
       ) : null}

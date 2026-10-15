@@ -122,6 +122,7 @@ import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/cal
 import { claseAtenuadaPorInstructor, claseAtenuadaPorColumna, instructoraApagada, alternarInstructora, alternarEnConjunto } from '@/lib/calendario-filtros';
 import { ColumnaCalendario, type FilaColumna } from '@/components/calendario/columna-calendario';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { ClasesFijasPorAlumna, SelectorHorarioPor, type HorarioPor } from '@/components/calendario/clases-fijas-por-alumna';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
@@ -795,6 +796,8 @@ export default function Calendario() {
   // ojo por clase y por instructora y «Solo con alumnas apuntadas». Atenúan,
   // como el filtro de instructora. Solo cuentan donde se ve la columna.
   const panelNuevo = usePanelNuevo();
+  // Horario «Por clase» o «Por alumna» (Turnos de Bonsai): solo con el panel nuevo.
+  const [horarioPor, setHorarioPor] = useState<HorarioPor>('clase');
   const columnaCabe = useCoincideMedio('(min-width: 1360px)');
   const conColumna = panelNuevo && columnaCabe;
   const [tiposApagados, setTiposApagados] = useState<ReadonlySet<string>>(() => new Set());
@@ -3774,7 +3777,17 @@ export default function Calendario() {
       </div>
 
       <ReanimarAlCambiar clave={vista === 'horario' ? 'horario' : claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
-        {vista === 'horario' ? (
+        {vista === 'horario' && panelNuevo && horarioPor === 'alumna' ? (
+          <>
+            <SelectorHorarioPor valor={horarioPor} onCambio={setHorarioPor} />
+            <ClasesFijasPorAlumna
+              puedeGestionar={gestionaClientas}
+              onToast={(m, o) => (o?.variant === 'error' ? showToastError(m) : showToast(m))}
+            />
+          </>
+        ) : vista === 'horario' ? (
+          <>
+          {panelNuevo && <SelectorHorarioPor valor={horarioPor} onCambio={setHorarioPor} />}
           <VistaHorario
             horario={horario}
             error={errorHorario}
@@ -3794,6 +3807,7 @@ export default function Calendario() {
             plazasSeApruebanSolas={studio?.plazaFijaAprobacion === 'AUTOMATICA'}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
           />
+          </>
         ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
             <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>

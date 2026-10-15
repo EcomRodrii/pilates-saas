@@ -26,6 +26,7 @@ import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
+import { activoEnModulos } from '@/lib/modulos/menu';
 
 export function useNavMode() {
   // Por defecto 'esencial' (los módulos del día a día, ESSENTIAL_HREFS): un
@@ -377,6 +378,8 @@ export function Sidebar() {
   // menos: esconder por un error de red dejaría a alguien sin encontrar su
   // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.ts.
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
+  // Con el panel nuevo, lo de fuera del día a día que el estudio activó en Módulos.
+  const [activados, setActivados] = useState<string[]>([]);
   const [ordenMenu, setOrdenMenu] = useState<string[]>([]);
   // ⚠️ La posición del menú sale del MISMO `studio_layout` que el orden y los
   // ocultos — no de una columna aparte. `MENU_POSICIONES` (lateral|superior)
@@ -394,6 +397,7 @@ export function Sidebar() {
           // normaliza nada. `new Set(undefined)` ya era inofensivo; el orden y
           // la posición también tienen que serlo.
           setOcultos(new Set(l.ocultos));
+          setActivados(Array.isArray(l.activados) ? l.activados : []);
           setOrdenMenu(Array.isArray(l.orden) ? l.orden : []);
           setMenuPosition(l.menuPosition === 'superior' ? 'superior' : 'lateral');
         })
@@ -415,7 +419,11 @@ export function Sidebar() {
       // también lo que este rol no puede ver, y eso es trabajo tirado en cada
       // render del panel.
       items: ordenarItemsMenu(
-        filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
+        // Con el panel nuevo, lo que dice Módulos y nada más: sin «Esencial / Todo»
+        // (lib/modulos/menu.ts). Mientras el menú no ha llegado, lo de serie.
+        panelNuevo
+          ? s.items.filter(i => puedeVer(i.href) && activoEnModulos(i.href, { ocultos: [...ocultos], activados }))
+          : filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
         ordenMenu,
       ),
     }))
@@ -501,7 +509,7 @@ export function Sidebar() {
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => { el.removeEventListener('scroll', medir); ro.disconnect(); };
-  }, [horizontal, navMode, size, ocultos, ordenMenu]);
+  }, [horizontal, navMode, size, ocultos, activados, ordenMenu]);
 
 
   async function handleSignOut() {
@@ -680,7 +688,8 @@ export function Sidebar() {
             ⚠️ Se conserva también en horizontal: es lo único que devuelve el
             menú completo a quien esté en «esencial». Sin él, quedaría
             encerrada en media aplicación sin saber por qué. */}
-        {(horizontal || !collapsed) && (
+        {/* Con el panel nuevo no está: lo que sale en el menú se decide en Módulos (una entrada más del menú). */}
+        {(horizontal || !collapsed) && !panelNuevo && (
           <div className={cn(horizontal ? 'shrink-0 w-[132px]' : 'px-3 pt-2.5 pb-1')}>
             <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (

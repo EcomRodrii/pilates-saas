@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
 import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
 
 // Lo que ve quien abre el Centro de Control sin que su plan (o su prueba) lo
@@ -15,6 +15,9 @@ import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
 // El asistente sí va en todos los planes (feature `asistente`): se ofrece aquí
 // como lo que SÍ pueden usar hoy.
 export function CentroNoIncluido({ pruebaVencida }: { pruebaVencida: boolean }) {
+  // El plan más barato que lo incluye, del entitlement: escrito a mano decía «Estudio»
+  // también cuando Founding Studio pasó a incluirlo (15-oct-2026).
+  const plan = PLAN_INFO[planMinimoPara('decisiones') ?? 'ESTUDIO'].nombre;
   const puertaAsistente = usePuertaAsistente();
   const { abrir } = useAsistente();
   return (
@@ -24,7 +27,7 @@ export function CentroNoIncluido({ pruebaVencida }: { pruebaVencida: boolean }) 
       </span>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-[22px] font-semibold tracking-tight text-foreground">
-          {pruebaVencida ? 'Tu prueba gratuita ha terminado' : `El Centro de Control es del plan ${PLAN_INFO.ESTUDIO.nombre}`}
+          {pruebaVencida ? 'Tu prueba gratuita ha terminado' : `El Centro de Control es del plan ${plan}`}
         </h1>
         <p className="text-[14.5px] leading-relaxed text-muted-foreground text-pretty">
           {pruebaVencida
