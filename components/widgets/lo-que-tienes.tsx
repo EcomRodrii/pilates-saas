@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { estiloPorId } from '@/lib/student/apariencia';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
-import { METODOS } from '@/lib/widgets/catalogo';
+import { METODOS, widgetPorId, type CategoriaWidget } from '@/lib/widgets/catalogo';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Baldosa, BotonVivo, type Tono } from '@/components/dashboard/vivo';
 import { textoCambios, textosEnTuWeb, unirGrupos, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
 import { FOCO, TACTIL, Tarjeta, fechaCorta } from './piezas';
 import { ICONOS } from './paso-que';
@@ -51,6 +53,9 @@ export interface FilaTienes {
   codigoAntiguo: boolean;
 }
 
+/** El tono de la baldosa de cada pieza, por su categoría (panel nuevo). */
+const TONO_CATEGORIA: Record<CategoriaWidget, Tono> = { reservas: 'azul', venta: 'verde', captacion: 'magenta', estudio: 'indigo', contenido: 'indigo' };
+
 export function LoQueTienes({
   filas, ahora, estilo, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAutorizadas, onCambiarEstilo, onOtraCosa, onVerResultados,
 }: {
@@ -68,6 +73,7 @@ export function LoQueTienes({
   /** Solo si puede ver los resultados: lleva a los de la etiqueta con la que se copió. */
   onVerResultados?: (etiqueta: string | null) => void;
 }) {
+  const panelNuevo = usePanelNuevo();
   // La más reciente, arriba.
   const ordenadas = [...filas].sort((a, b) => Date.parse(b.en) - Date.parse(a.en));
   // Igual que «Igual que tu app · …» en «Cómo se ve» (estilo-web.tsx). Mientras
@@ -96,6 +102,7 @@ export function LoQueTienes({
             <FilaPieza
               key={f.id}
               f={f}
+              panelNuevo={panelNuevo}
               ahora={ahora}
               onCambiar={() => onCambiar(f.id)}
               onCopiarNuevo={() => onCopiarNuevo(f.id)}
@@ -105,9 +112,13 @@ export function LoQueTienes({
             />
           ))}
         </ul>
-        <button type="button" onClick={onOtraCosa} className={cn(btnPrimary, 'w-full justify-center @md/config:w-auto')}>
-          <Plus size={15} aria-hidden />Poner otra cosa en tu web
-        </button>
+        {panelNuevo ? (
+          <BotonVivo onClick={onOtraCosa} Icono={Plus} label="Poner otra cosa en tu web" className="w-full @md/config:w-auto" />
+        ) : (
+          <button type="button" onClick={onOtraCosa} className={cn(btnPrimary, 'w-full justify-center @md/config:w-auto')}>
+            <Plus size={15} aria-hidden />Poner otra cosa en tu web
+          </button>
+        )}
       </Tarjeta>
 
       <Tarjeta titulo="Estilo de tus widgets" etiqueta="aplicar" subtitulo={nombreEstilo}>
@@ -133,8 +144,9 @@ export function LoQueTienes({
   );
 }
 
-function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAutorizadas, onVerResultados }: {
+function FilaPieza({ f, panelNuevo, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAutorizadas, onVerResultados }: {
   f: FilaTienes;
+  panelNuevo: boolean;
   ahora: number | null;
   onCambiar: () => void;
   onCopiarNuevo: () => void;
@@ -150,9 +162,13 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
 
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 py-4 first:pt-0 last:pb-0">
-      <span aria-hidden className="flex size-10 items-center justify-center rounded-xl bg-muted text-foreground">
-        <Icono size={18} strokeWidth={1.8} />
-      </span>
+      {panelNuevo ? (
+        <Baldosa tono={TONO_CATEGORIA[widgetPorId(f.id)?.categoria ?? 'estudio']} Icono={Icono} />
+      ) : (
+        <span aria-hidden className="flex size-10 items-center justify-center rounded-xl bg-muted text-foreground">
+          <Icono size={18} strokeWidth={1.8} />
+        </span>
+      )}
       <div className="min-w-0 space-y-1.5">
         <h4 className="text-[13.5px] font-semibold leading-snug text-foreground">{f.nombre}</h4>
         <p className="text-[12px] text-muted-foreground">
