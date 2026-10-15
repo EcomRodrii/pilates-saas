@@ -191,6 +191,9 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Centro de Control', detalle: 'Un solo aviso al día, y solo cuando de verdad merece interrumpirte.', valor: porFeature('decisiones') },
       { nombre: 'Piloto automático', detalle: 'Ejecuta solo lo que ya has aprobado muchas veces.', valor: porFeature('decisiones') },
       { nombre: 'Riesgo de fuga y de impago', valor: porFeature('decisiones') },
+      // Hoy, lo que Estudio tiene de más frente a Founding Studio de pago (15-oct-2026);
+      // la app propia del estudio se añade aquí cuando se pueda pedir de verdad.
+      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p) => txt(`${PLAN_ENTITLEMENTS[p].consultasAsistenteMes} consultas al mes`) },
     ],
   },
   {
@@ -209,8 +212,6 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Ocultar tu página mientras la preparas', detalle: 'Enseña un aviso en vez de tus clases, y con una clave dejas entrar solo a quien tú quieras.', valor: TODOS },
       { nombre: 'Tu dirección propia', detalle: 'tentare.app/portal/tu-estudio', valor: TODOS },
       { nombre: 'App con tu marca', detalle: 'Tus colores, tu logo y tus pantallas: lo que ve la alumna es tu estudio.', valor: porFeature('marca') },
-      // Lo que distingue Estudio de Founding Studio (fundador, 15-oct-2026: «estudio incluye la app alumna»).
-      { nombre: 'App propia de tu estudio', detalle: 'En la tienda de apps, con tu nombre y tu icono.', valor: porFeature('appPropia') },
     ],
   },
   {

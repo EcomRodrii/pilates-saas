@@ -18,11 +18,11 @@ const json = (route: Route, body: unknown, status = 200) =>
 type Fase = 'DENTRO' | 'CERCA' | 'MARGEN' | 'CERRADO';
 type FaseMock = Fase | 'MARGEN_RESERVAS';
 const GRATIS: Record<FaseMock, Record<string, unknown>> = {
-  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, planQueToca: null, motivos: [], diasRestantes: 0, cierraEl: null },
-  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, reservas30Dias: 96 }, planQueToca: null, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
-  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, planQueToca: 'ESTUDIO', motivos: ['alumnas', 'reservas'], diasRestantes: 12, cierraEl: '2026-11-20' },
-  MARGEN_RESERVAS: { fase: 'MARGEN', uso: { alumnasActivas: 90, reservas30Dias: 310 }, planQueToca: 'BASE', motivos: ['reservas'], diasRestantes: 20, cierraEl: '2026-11-28' },
-  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, reservas30Dias: 120 }, planQueToca: 'ESTUDIO', motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
+  DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, motivos: [], diasRestantes: 0, cierraEl: null },
+  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, reservas30Dias: 96 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
+  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, motivos: ['alumnas', 'reservas'], diasRestantes: 12, cierraEl: '2026-11-20' },
+  MARGEN_RESERVAS: { fase: 'MARGEN', uso: { alumnasActivas: 90, reservas30Dias: 310 }, motivos: ['reservas'], diasRestantes: 20, cierraEl: '2026-11-28' },
+  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, reservas30Dias: 120 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
 };
 
 async function montar(page: Page, fase: FaseMock, ruta: string) {
@@ -63,8 +63,8 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
 
   // Dentro del límite no hay nada que pagar: se ofrece crecer a Estudio o Cadena.
-  await expect(page.getByRole('radio', { name: /Estudio/ })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Pasarme a Estudio · 59 €\/mes/ })).toBeVisible();
   await expect(page.getByText('29€')).toHaveCount(0);
 });
@@ -76,24 +76,28 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await expect(aviso).toContainText('150 alumnas activas y 250 reservas al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
-  await expect(aviso).toContainText('Estudio (59 €/mes)');
-  // Con más de 150 alumnas, Founding Studio de pago no se ofrece.
-  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveCount(0);
+  // Pase el límite que pase, lo que toca es Founding Studio de pago (fundador, 15-oct-2026):
+  // también con más de 150 alumnas. Estudio y Cadena se ofrecen, pero no se eligen solos.
+  await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)');
+  await expect(aviso).toContainText('sin límites');
+  await expect(aviso).not.toContainText('Estudio (59');
+  await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'false');
 });
 
 test('pasado solo de reservas: toca Founding Studio de pago a 29 €, y es lo que sale elegido', async ({ page }) => {
   await montar(page, 'MARGEN_RESERVAS', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
-  await expect(aviso).toContainText('sin límite de reservas');
-  await expect(page.getByRole('radio', { name: /Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(aviso).toContainText('sin límites');
+  await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
 });
 
 test('margen agotado: dice que la app de las alumnas sigue funcionando', async ({ page }) => {
   await montar(page, 'CERRADO', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
-  await expect(aviso).toContainText('es hora de Estudio', { timeout: 30_000 });
+  await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
   await expect(aviso).toContainText('La app de tus alumnas sigue funcionando');
 });
 
@@ -111,7 +115,7 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
 
   fase = 'MARGEN';
   await page.reload();
-  const pildora = page.getByRole('link', { name: /Te quedan 12 días para pasarte a Estudio/ }).first();
+  const pildora = page.getByRole('link', { name: /Te quedan 12 días para pasarte a Founding Studio de pago/ }).first();
   await expect(pildora).toBeVisible({ timeout: 30_000 });
   await expect(pildora).toHaveAttribute('href', '/suscripcion');
 });

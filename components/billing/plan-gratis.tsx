@@ -75,7 +75,7 @@ export function CabeceraPlanGratis({ className }: { className?: string }) {
           </p>
           <p className="mt-2 text-[15px] font-semibold text-foreground text-pretty">{FRASE_PLAN_GRATIS}</p>
           <p className="mt-1 text-[13.5px] text-muted-foreground text-pretty">
-            Todo Tentare menos varias sedes y la app propia, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes y sigues igual.
+            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes y sigues igual.
           </p>
         </div>
       </div>

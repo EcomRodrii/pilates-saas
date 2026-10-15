@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
@@ -284,7 +284,7 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'BASE' ? 'Todo igual, sin límite de alumnas ni de reservas.' : p === 'ESTUDIO' ? 'Todo lo de Founding Studio y la app propia de tu estudio, con tu nombre y tu icono.' : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Todo igual, sin límite de alumnas ni de reservas.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio, con ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}
