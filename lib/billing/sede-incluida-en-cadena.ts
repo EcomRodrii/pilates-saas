@@ -21,7 +21,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ESTADOS_VIVOS, leerPagosDelCliente, type SuscripcionPrevia } from './checkout-saas-previo.ts';
-import { cancelarSuscripciones, type ResultadoCancelaciones } from './cancelar-suscripcion-anterior.ts';
+import { cancelarSuscripciones, type ResultadoCancelaciones, type PlanSueltoQueCancelaCadena } from './cancelar-suscripcion-anterior.ts';
 
 export const MENSAJE_SEDE_INCLUIDA_EN_CADENA =
   'Esta sede ya está incluida en el plan de tu cadena, así que no necesita un plan propio.';
@@ -29,6 +29,9 @@ export const MENSAJE_PAGO_DE_CADENA_A_MEDIAS =
   'Hay un pago del plan de tu cadena a medias. Espera unos segundos y vuelve a intentarlo.';
 export const MENSAJE_PAGO_DE_SEDE_A_MEDIAS =
   'Hay un pago del plan de una de tus sedes a medias. Espera unos segundos y vuelve a intentarlo.';
+export const MENSAJE_SEDE_SOLO_CADENA =
+  'Esta sede forma parte de tu cadena, así que se contrata con el plan Cadena, que cubre todas tus sedes en una sola suscripción. '
+  + 'Founding Studio y Estudio son para un solo estudio: solo los puede contratar tu sede principal.';
 
 export interface CadenaDeLaSede {
   estado: string | null;
@@ -38,6 +41,42 @@ export interface CadenaDeLaSede {
 /** ¿La suscripción de la cadena cubre ya a sus sedes? */
 export function cadenaPagaSusSedes(estadoCadena: string | null | undefined): boolean {
   return estadoCadena != null && ESTADOS_VIVOS.includes(estadoCadena);
+}
+
+/**
+ * Lo que /suscripcion necesita para ofrecer planes a quien no paga (lo calcula
+ * /api/billing/status).
+ */
+export interface OpcionesDePlan {
+  /** Sede secundaria de una cadena: solo puede contratar Cadena (`decidirPlanSuelto`). */
+  soloCadena: boolean;
+  /** Planes sueltos que contratar Cadena cancelará: se avisa antes del botón de pagar. */
+  sueltosQueCancelaCadena: PlanSueltoQueCancelaCadena[];
+}
+
+export type DecisionPlanSuelto =
+  | { accion: 'seguir' }
+  | { accion: 'bloquear'; motivo: 'incluida-en-cadena' | 'solo-cadena'; mensaje: string };
+
+/**
+ * ¿Puede este estudio contratar un plan SUELTO (Founding Studio, Estudio)?
+ * `cadena` es la suya (null si no tiene): su estado y si esta sede es la
+ * principal, la más antigua, como la elige `leerCadenaParaGratis`.
+ *
+ * · Un estudio suelto, sí, como siempre.
+ * · Una sede de una cadena que paga, no: ya la paga la cadena.
+ * · Una sede SECUNDARIA de una cadena que no paga, tampoco: se reabre
+ *   contratando Cadena (decisión del fundador, 15-oct-2026). Si pudiera, una
+ *   cadena de N sedes saldría por 29 € × (N−1), con la principal en el plan
+ *   gratis, en vez de 149 €. Vale para contrataciones nuevas: una sede que ya
+ *   paga su plan suelto sigue como está (no llega aquí: ya tiene suscripción).
+ * · La sede PRINCIPAL, sí: es «un estudio», y es la que pasa al plan gratis.
+ */
+export function decidirPlanSuelto(cadena: { estado: string | null; esPrincipal: boolean } | null): DecisionPlanSuelto {
+  if (!cadena) return { accion: 'seguir' };
+  if (cadenaPagaSusSedes(cadena.estado)) return { accion: 'bloquear', motivo: 'incluida-en-cadena', mensaje: MENSAJE_SEDE_INCLUIDA_EN_CADENA };
+  if (!cadena.esPrincipal) return { accion: 'bloquear', motivo: 'solo-cadena', mensaje: MENSAJE_SEDE_SOLO_CADENA };
+  return { accion: 'seguir' };
 }
 
 /**

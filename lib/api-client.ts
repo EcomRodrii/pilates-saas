@@ -24,6 +24,7 @@ import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
 import type { EstadoGratisApi } from '@/lib/billing/plan-gratis';
+import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -1353,6 +1354,12 @@ export interface EstadoBilling {
   trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
   /** Founding Studio gratis: uso, fase y margen, derivados en servidor. `null`/ausente si no lo es. */
   gratis?: EstadoGratisApi | null;
+  /**
+   * Qué planes se le ofrecen (una sede secundaria, solo Cadena) y qué planes
+   * sueltos cancelaría Cadena. Ausente si ya paga (o con un servidor anterior);
+   * `null` si no se pudo leer.
+   */
+  opcionesDePlan?: OpcionesDePlan | null;
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve

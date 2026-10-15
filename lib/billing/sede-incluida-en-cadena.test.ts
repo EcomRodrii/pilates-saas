@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import {
   cadenaPagaSusSedes, leerCadenaDeLaSede, decidirIndividualEnCadena, consultarCadenaAntesDeIndividual,
   checkoutsAbiertosDeLasSedes, caducarCheckouts, clienteDelPortal, cancelarSueltasDeLasSedes,
+  decidirPlanSuelto, MENSAJE_SEDE_SOLO_CADENA, MENSAJE_SEDE_INCLUIDA_EN_CADENA,
 } from './sede-incluida-en-cadena.ts';
 import { cancelarSuscripciones } from './cancelar-suscripcion-anterior.ts';
 
@@ -25,6 +26,44 @@ test('checkout de cadena abandonado (sin estado): la sede puede contratar su pla
 
 test('cadena que ya no está viva: la sede puede contratar su plan', () => {
   for (const estado of ESTADOS_MUERTOS) assert.equal(cadenaPagaSusSedes(estado), false, estado);
+});
+
+// ── Plan suelto en una sede: solo la principal (decisión del fundador, 15-oct-2026) ──
+
+test('estudio suelto (sin cadena): puede contratar un plan suelto, como siempre', () => {
+  assert.deepEqual(decidirPlanSuelto(null), { accion: 'seguir' });
+});
+
+test('sede SECUNDARIA de una cadena que no paga: no puede contratar un plan suelto, se reabre con Cadena', () => {
+  // Con la cadena sin pagar, a medio pagar o con un Checkout de Cadena abandonado.
+  for (const estado of [null, ...ESTADOS_MUERTOS]) {
+    const d = decidirPlanSuelto({ estado, esPrincipal: false });
+    assert.equal(d.accion, 'bloquear', String(estado));
+    assert.equal(d.accion === 'bloquear' && d.motivo, 'solo-cadena', String(estado));
+    assert.equal(d.accion === 'bloquear' && d.mensaje, MENSAJE_SEDE_SOLO_CADENA);
+  }
+});
+
+test('sede PRINCIPAL de una cadena que no paga: puede contratar un plan suelto (es «un estudio»)', () => {
+  for (const estado of [null, ...ESTADOS_MUERTOS]) {
+    assert.deepEqual(decidirPlanSuelto({ estado, esPrincipal: true }), { accion: 'seguir' }, String(estado));
+  }
+});
+
+test('sede de una cadena que paga, principal o no: ya está incluida, nada de plan suelto', () => {
+  for (const estado of ESTADOS_VIVOS) {
+    for (const esPrincipal of [true, false]) {
+      const d = decidirPlanSuelto({ estado, esPrincipal });
+      assert.equal(d.accion === 'bloquear' && d.motivo, 'incluida-en-cadena', `${estado} ${esPrincipal}`);
+      assert.equal(d.accion === 'bloquear' && d.mensaje, MENSAJE_SEDE_INCLUIDA_EN_CADENA);
+    }
+  }
+});
+
+test('el mensaje de la secundaria dice qué hacer y por qué, sin jerga', () => {
+  assert.match(MENSAJE_SEDE_SOLO_CADENA, /plan Cadena/);
+  assert.match(MENSAJE_SEDE_SOLO_CADENA, /sede principal/);
+  assert.doesNotMatch(MENSAJE_SEDE_SOLO_CADENA, /secundaria|409|checkout/i);
 });
 
 // ── Lo que dice Stripe del cliente de la cadena ─────────────────────────────
@@ -202,12 +241,30 @@ test('/api/billing/checkout, rama individual: mira la cadena (BD y Stripe) con s
   const bloque = checkout.indexOf('if (studio.cadena_id) {');
   assert.ok(bloque > 0, 'falta el bloque de la sede de cadena en la rama individual');
   let anterior = bloque;
-  for (const paso of ['cerrarCadena(studio.cadena_id', 'leerCadenaDeLaSede(admin, studio.cadena_id', 'consultarCadenaAntesDeIndividual(', 'caducarCheckouts(stripe, enStripe.expirar)']) {
+  // La principal la elige `leerCadenaParaGratis` (convertir-a-gratis.ts): la misma que pasa al plan gratis.
+  for (const paso of ['cerrarCadena(studio.cadena_id', 'leerCadenaParaGratis(admin, studio)', 'decidirPlanSuelto(', "decision.accion === 'bloquear'", 'consultarCadenaAntesDeIndividual(', 'caducarCheckouts(stripe, enStripe.expirar)']) {
     const i = checkout.indexOf(paso, bloque);
     assert.ok(i > anterior, `${paso} fuera de orden o ausente`);
     anterior = i;
   }
   assert.ok(anterior < clienteSede && anterior < sesionSede, 'la cadena se mira antes de crear el cliente y la sesión de la sede');
+});
+
+test('/api/billing/checkout: la regla de la sede secundaria va en la rama individual, nunca en la de Cadena', () => {
+  const ramaCadena = checkout.slice(checkout.indexOf("if (plan === 'CADENA') {"), checkout.indexOf('if (studio.cadena_id) {'));
+  assert.ok(ramaCadena.length > 0);
+  assert.doesNotMatch(ramaCadena, /decidirPlanSuelto\(/, 'una sede secundaria tiene que poder contratar Cadena');
+});
+
+test('/api/billing/status: las opciones de plan salen de las mismas reglas que el checkout, y solo para quien no paga', () => {
+  const status = readFileSync(join(raiz, 'app', 'api', 'billing', 'status', 'route.ts'), 'utf8');
+  assert.match(status, /decidirPlanSuelto\(cadena && \{ estado: cadena\.subscriptionStatus, esPrincipal: cadena\.esPrincipal \}\)/);
+  assert.match(status, /leerCadenaParaGratis\(admin, studio\)/);
+  assert.match(status, /sueltosQueCancelaCadena\(/);
+  // Solo la propietaria (es quien contrata): ni gerencia ni recepción reciben los planes de las sedes hermanas.
+  assert.match(status, /if \(studio && sesion\.rol === 'PROPIETARIO' && !pagaPlan\(\{ subscriptionStatus, subscriptionId: studio\.subscription_id \}\)\) \{\s*opciones = await opcionesDePlan\(/);
+  // Un fallo al leer no tumba el gate: la pantalla lo dice en condicional.
+  assert.match(status, /opcionesDePlan\([^;]*\.catch\(\(\) => null\)/s);
 });
 
 test('/api/billing/checkout, rama CADENA: cerrojo de cadena y caducar los individuales de las sedes antes de su checkoutPrevio', () => {

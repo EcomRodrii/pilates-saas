@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
@@ -6,12 +7,32 @@ import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, sedeAdmiteGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
+import { decidirPlanSuelto, type OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
+import { sueltosQueCancelaCadena, type SedeConPlan } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { leerUsoGratis, refrescarUsoGratis } from '@/lib/billing/uso-gratis-servidor';
 import {
   COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, leerCadenaParaGratis, type FilaParaGratis,
 } from '@/lib/billing/convertir-a-gratis';
+
+/**
+ * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
+ * basta su fila); una sede lee su cadena y sus hermanas. Lanza si una lectura falla.
+ */
+async function opcionesDePlan(admin: SupabaseClient, studio: SedeConPlan & { cadena_id: string | null }): Promise<OpcionesDePlan> {
+  if (!studio.cadena_id) return { soloCadena: false, sueltosQueCancelaCadena: sueltosQueCancelaCadena([studio], studio.id) };
+  const [cadena, sedes] = await Promise.all([
+    leerCadenaParaGratis(admin, studio),
+    admin.from('studios').select('id, nombre, plan, subscription_status, subscription_id, current_period_end').eq('cadena_id', studio.cadena_id),
+  ]);
+  if (sedes.error) throw new Error(`leer sedes: ${sedes.error.message}`);
+  const decision = decidirPlanSuelto(cadena && { estado: cadena.subscriptionStatus, esPrincipal: cadena.esPrincipal });
+  return {
+    soloCadena: decision.accion === 'bloquear' && decision.motivo === 'solo-cadena',
+    sueltosQueCancelaCadena: sueltosQueCancelaCadena((sedes.data ?? []) as SedeConPlan[], studio.id),
+  };
+}
 
 // Estado de suscripción del estudio para el cliente (gate de acceso + página de
 // suscripción). Diseño a prueba de foot-guns: `bloqueado` solo es true cuando la
@@ -118,6 +139,17 @@ export async function GET(req: NextRequest) {
     bloqueado = enforcement && configurado && !activo;
   }
 
+  // /suscripcion ofrece planes solo a quien no paga (quien paga ve el portal), y
+  // solo la propietaria contrata: solo entonces se lee. Así ni gerencia ni
+  // recepción reciben el plan y la fecha de pago de las sedes hermanas, y el
+  // resto de cargas del panel no pagan estas lecturas.
+  // `null`: no se pudo leer; la pantalla avisa en condicional antes de Cadena.
+  let opciones: OpcionesDePlan | null | undefined;
+  if (studio && sesion.rol === 'PROPIETARIO' && !pagaPlan({ subscriptionStatus, subscriptionId: studio.subscription_id })) {
+    opciones = await opcionesDePlan(admin, { ...studio, subscription_status: subscriptionStatus } as SedeConPlan & { cadena_id: string | null })
+      .catch(() => null);
+  }
+
   return NextResponse.json({
     plan,
     subscriptionStatus,
@@ -134,5 +166,7 @@ export async function GET(req: NextRequest) {
     trial: { fase: trial.fase, diasRestantes: trial.diasRestantes, finaliza: trial.finaliza },
     // Founding Studio gratis: el uso, la fase y el margen, ya derivados. `null` si no lo es.
     gratis,
+    // Qué planes se le ofrecen y qué cancelaría Cadena. Ausente si ya paga.
+    ...(opciones !== undefined ? { opcionesDePlan: opciones } : {}),
   });
 }
