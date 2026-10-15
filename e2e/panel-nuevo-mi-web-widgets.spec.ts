@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Locator, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración › Mi app y mi web › Widgets con el panel nuevo (15-oct-2026):
@@ -235,4 +235,55 @@ for (const t of TAMANOS) {
       await sinDesborde(page, 'con qué está hecha tu web');
     });
   }
+}
+
+// ─── Al cambiar de paso, el título del paso queda a la vista ─────────────────
+// «Siguiente» (o un paso de la línea de pasos) dejaba la página a media pantalla,
+// como si no hubiera hecho nada: en «Cómo se ve» se aterrizaba en «Color de los
+// botones». Ahora se lleva el scroll al título, descontando la barra de arriba
+// (sticky y translúcida, que tapa lo que pasa por debajo). Se mide con
+// `elementFromPoint`: el título está a la vista si lo que hay en su propio punto es
+// él y no una barra.
+async function tituloALaVista(titulo: Locator, donde: string) {
+  await expect(titulo, donde).toBeVisible();
+  await expect.poll(() => titulo.evaluate(el => {
+    const r = el.getBoundingClientRect();
+    const x = r.left + Math.min(r.width / 2, 40);
+    const y = r.top + r.height / 2;
+    const encima = document.elementFromPoint(x, y);
+    return {
+      dentro: r.top >= 0 && r.bottom <= window.innerHeight,
+      destapado: !!encima && (el === encima || el.contains(encima)),
+    };
+  }), { message: `${donde}: el título del paso queda a la vista y sin la barra encima`, timeout: 6_000 }).toEqual({ dentro: true, destapado: true });
+}
+
+for (const t of [{ ancho: 1440, alto: 900 }, { ancho: 375, alto: 812 }]) {
+  test(`panel nuevo: tras «Siguiente» o un paso de la línea, el título del paso queda a la vista (${t.ancho} px)`, async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.setViewportSize({ width: t.ancho, height: t.alto });
+    await montar(page, { panelNuevo: true, plataforma: 'wordpress', copiados: true });
+    const abajo = () => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // 5 · portada → 1 · qué y dónde
+    await expect(page.getByRole('region', { name: 'Lo que tienes en tu web' })).toBeVisible({ timeout: 90_000 });
+    await abajo();
+    await page.getByRole('button', { name: 'Poner otra cosa en tu web' }).click();
+    await tituloALaVista(page.getByRole('heading', { name: 'Elige qué enseñas y dónde' }), 'qué y dónde');
+    // 2 · cómo se ve (con «Siguiente», al final de la página)
+    await abajo();
+    await page.getByRole('button', { name: /Siguiente: cómo se ve/ }).click();
+    await tituloALaVista(page.getByRole('heading', { name: 'Cómo se ve', exact: true }), 'cómo se ve');
+    // 3 · ponlo en tu web
+    await abajo();
+    await page.getByRole('button', { name: /Siguiente: ponlo en tu web/ }).click();
+    await tituloALaVista(page.getByRole('heading', { name: 'Ponlo en tu web', exact: true }), 'ponlo en tu web');
+    // Un paso de la línea de pasos, desde abajo
+    await abajo();
+    await page.getByRole('list', { name: 'Pasos' }).getByRole('button', { name: 'Cómo se ve' }).click();
+    await tituloALaVista(page.getByRole('heading', { name: 'Cómo se ve', exact: true }), 'línea de pasos → cómo se ve');
+    // 0 · con qué está hecha tu web
+    await abajo();
+    await page.getByRole('button', { name: 'Cambiar con qué está hecha tu web' }).click();
+    await tituloALaVista(page.getByRole('heading', { name: '¿Con qué está hecha tu web?' }), 'con qué está hecha tu web');
+  });
 }
