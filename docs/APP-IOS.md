@@ -533,7 +533,7 @@ mal. Nunca `CODE_SIGNING_ALLOWED=NO`: la app sale sin entitlements.
   en la web y asignar un hueco libre a cada estudio que pide la suya, cambiándole el nombre por
   API. Comprobado el 15-oct-2026: Apple SÍ deja renombrar por API una app nunca enviada
   (`nombre` sobre la app de Marta, ida y vuelta).
-- **El lote** (`apps_estudio_cupos`, migr `20261015120000_apps_estudio_cupos`): cada hueco es un
+- **El lote** (`apps_estudio_cupos`, migr `20261015125054_apps_estudio_cupos`): cada hueco es un
   identificador `app.tentare.cupo-NNN` ya registrado con sus capacidades, su app ya creada en App
   Store Connect (`asc_app_id`) y su bundle ya en los Client IDs de Apple de Supabase. El primer lote
   son 10 (15-oct-2026). Al pedir su app, el estudio se lleva un hueco libre (`asignar_cupo_app`, con
