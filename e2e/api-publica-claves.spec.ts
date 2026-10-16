@@ -111,5 +111,5 @@ test('la dueña de una cadena puede crear una clave para todas sus sedes y ve el
   await expect(cajon(page).getByText('Tentare-Estudio').first()).toBeVisible();
   await expect(cajon(page).getByText('sede-centro')).toBeVisible();
   await expect(cajon(page).getByText('sede-norte')).toBeVisible();
-  await expect(cajon(page).getByText(/la API no está activada aquí/)).toHaveCount(1);
+  await expect(cajon(page).getByText(/Tentare tiene la API desactivada en esta sede/)).toHaveCount(1);
 });
