@@ -378,7 +378,7 @@ export default function EquipoInterno() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[17px] font-bold text-foreground">Equipo</h1>
+          <h1 className="text-[17px] font-bold text-foreground">Equipo interno</h1>
           <p className="text-[12.5px] text-muted-foreground">
             {activos.length} persona(s) con acceso al backoffice
             {conDinero.length > 0 && `, ${conDinero.length} de ellas pueden tocar planes o dinero`}.

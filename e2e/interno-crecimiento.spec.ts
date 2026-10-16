@@ -232,7 +232,7 @@ test.describe('Crecimiento enseña dónde se quedó cada alta de estudio', () =>
     await seedSesion(page);
     await page.goto('/interno/crecimiento');
 
-    await expect(page.getByRole('heading', { name: 'Crecimiento' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Altas y prospectos' })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => pedidas).toBeGreaterThan(0);
     await expect(page.getByTestId('altas-sin-terminar')).toHaveCount(0);
   });

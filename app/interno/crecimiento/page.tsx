@@ -24,6 +24,7 @@ import {
 import type { ResumenReviewBoost } from '@/lib/interno/review-boost';
 import { Prospeccion } from './prospeccion';
 import { AltasSinTerminarSeccion } from './altas-sin-terminar';
+import { ActivacionYAltas } from './activacion';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -177,7 +178,7 @@ export default function CrecimientoInterno() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[17px] font-bold text-foreground">Crecimiento</h1>
+          <h1 className="text-[17px] font-bold text-foreground">Altas y prospectos</h1>
           <p className="text-[12.5px] text-muted-foreground">
             {pestana === 'bandeja'
               ? 'De dónde vienen los clientes y qué piden.'
@@ -275,6 +276,8 @@ export default function CrecimientoInterno() {
       )}
 
       <AltasSinTerminarSeccion />
+
+      <ActivacionYAltas />
 
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">

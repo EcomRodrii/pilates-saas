@@ -38,7 +38,7 @@ export default function AuditoriaInterna() {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h1 className="text-[17px] font-bold text-foreground">Auditoría</h1>
+        <h1 className="text-[17px] font-bold text-foreground">Registro de cambios</h1>
         <p className="text-[12.5px] text-muted-foreground">
           Todo lo que el equipo hace sobre los datos de un cliente. No se puede editar ni borrar.
         </p>
