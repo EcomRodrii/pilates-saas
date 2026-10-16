@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hrefDeLugar, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
 import {
-  esTarjetaId, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
+  esTarjetaId, herramientaParaMostrar, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
   type HerramientaId, type SeccionId, type TarjetaId,
 } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
@@ -22,6 +22,7 @@ import { CabeceraHerramienta } from './cabecera-herramienta';
 import { idFilaHerramienta } from './fila-herramienta';
 import { InicioConfiguracion } from './inicio-configuracion';
 import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
+import { useMiWebNueva } from '@/lib/estudio/mi-web-nueva-cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración por preguntas.
@@ -112,6 +113,8 @@ export function ConfigShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rol = useRol();
+  // «Mi app y mi web» v2: cambia la frase de las herramientas rehechas (`FRASE_MI_WEB_NUEVA`).
+  const miWebNueva = useMiWebNueva();
   const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
   // Auditoría 15-sep (C-4): las secciones ya podían avisar de un fallo, pero el
   // toast no distinguía color/aria de un éxito — este wrapper es lo único que
@@ -493,7 +496,7 @@ export function ConfigShell() {
                 className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
               >
                 <CabeceraHerramienta
-                  herramienta={herramientaPorId(herramienta)}
+                  herramienta={herramientaParaMostrar(herramienta, miWebNueva)}
                   seccion={seccionPorId(mostrada)}
                   tituloRef={tituloRef}
                   onVolver={volver}

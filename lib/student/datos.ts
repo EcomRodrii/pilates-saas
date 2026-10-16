@@ -61,6 +61,15 @@ export async function getDescubre(slug: string, hoy: string): Promise<TarjetaDes
   return d ? tarjetasDescubre(d.bannersPortal, hoy) : [];
 }
 
+/**
+ * El mensaje destacado del estudio, del MISMO payload: ni una petición más.
+ * `null` = no hay franja (sin texto, o el estudio no tiene «Mi app y mi web» v2).
+ */
+export async function getMensajeDestacado(slug: string): Promise<string | null> {
+  const d = await catalogo(slug);
+  return d?.mensajeDestacado ?? null;
+}
+
 /** Sale del mismo payload: no hay endpoint por id de clase. */
 export async function getClase(slug: string, id: string): Promise<Clase | null> {
   const d = await catalogo(slug);

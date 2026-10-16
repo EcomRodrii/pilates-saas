@@ -12,6 +12,7 @@ import { DetallePaginaPublica } from '@/components/configuracion/pagina-publica'
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
+import { useMiWebNueva } from '@/lib/estudio/mi-web-nueva-cliente';
 
 // Mi app y mi web: cómo se ve tu estudio por fuera. El logo, el color y los
 // textos de tu app están en «Marca» (seccion-marca.tsx).
@@ -26,7 +27,8 @@ import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramien
 const CAJONES = ['direccion-y-enlaces', 'pagina-publica'] as const satisfies readonly TarjetaId[];
 
 export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, updateStudio, bannersPortal } = useStudio();
+  const { studio, dataLoaded, updateStudio, bannersPortal, contenidoPortal } = useStudio();
+  const miWebNueva = useMiWebNueva();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   // Qué tarjetas siguen publicadas depende de la hora: se lee una vez al montar,
@@ -73,7 +75,7 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
       id: 'contenido-de-tu-app' as const,
       valor: resumenHerramienta('contenido-de-tu-app', {
         contenido: dataLoaded && ahoraMs > 0
-          ? { tarjetas: bannersPortal, ahoraMs }
+          ? { tarjetas: bannersPortal, ahoraMs, mensaje: miWebNueva ? contenidoPortal?.mensajeDestacado : null }
           : null,
       }),
     },

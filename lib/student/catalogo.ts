@@ -121,6 +121,12 @@ export interface PayloadPublico {
    * ⚠️ NO llegan en modo `liviano` — los widgets embebibles no las piden.
    */
   bannersPortal?: BannerPortal[];
+  /**
+   * El mensaje destacado del estudio, arriba del inicio (decisión 11A de «Mi app y mi web» v2,
+   * tras `MI_WEB_NUEVA`). Ya viene limpio del servidor (`mensajeParaLaApp`): `null` = no hay franja.
+   * ⚠️ No llega en modo `liviano`, como las tarjetas.
+   */
+  mensajeDestacado?: string | null;
   socia: {
     /** La ficha de la socia (el servidor manda `select('*')` de `socios`).
         Solo se declaran los campos que la app usa. */

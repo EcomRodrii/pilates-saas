@@ -63,6 +63,11 @@ export interface OpcionesSocia {
    */
   descubre?: number;
   /**
+   * El mensaje destacado tal como lo manda el servidor (`mensajeParaLaApp`: ya limpio).
+   * Sin pasarlo, `null`: la app no pinta franja, que es lo de serie.
+   */
+  mensajeDestacado?: string | null;
+  /**
    * Clases fijas que ofrece el estudio (`/api/public/clases-fijas`). `0` = ninguna,
    * que es el caso por defecto: sin ofertas el horario no pinta su puerta.
    */
@@ -188,6 +193,8 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     ? [{ id: o.reservaFija ? `res-pf-${SESION_ID}` : 'res-1', socioId: SOCIO_ID, sesionId: SESION_ID, estado: 'CONFIRMADA', creadoEn: '2026-08-01T09:00:00Z' }]
     : [];
   if (o.reglasCreditos) f.rewardRules = o.reglasCreditos.map((r) => ({ activa: true, unidadEuros: null, topeMensual: null, ...r }));
+
+  f.mensajeDestacado = o.mensajeDestacado ?? null;
 
   // «Descubre». El servidor ya filtra por `activo` y ubicación y ordena por
   // `orden`, así que el andamiaje manda solo lo que llegaría de verdad. La

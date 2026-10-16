@@ -1089,7 +1089,12 @@ export interface BannerPortal {
   imagenUrl: string;
   titulo: string | null;
   texto: string | null;
-  linkTipo: 'interno' | 'externo';
+  /**
+   * `ninguno` (con `linkValor` vacío): la tarjeta no lleva a ningún sitio. Es lo de
+   * serie al crearla en «Contenido de tu app» v2 (decisión 13, 15-oct-2026); la
+   * base de datos lo admite desde la migración `…_tarjeta_sin_enlace`.
+   */
+  linkTipo: 'interno' | 'externo' | 'ninguno';
   linkValor: string;
   ubicacion: UbicacionBannerPortal[];
   activo: boolean;
