@@ -13,6 +13,7 @@ import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { appDeTiendaPublicada } from '@/lib/app-nativa/app-publicada';
+import { tarjetasDelPortal } from '@/lib/student/metadatos-portal';
 import './student.css';
 
 // Raíz de la Student PWA. Server Component a propósito.
@@ -51,23 +52,41 @@ function baseSupabase(): string | null {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
 }
 
+function tarjetaNeutra(titulo: string): Pick<Metadata, 'openGraph' | 'twitter'> {
+  return { openGraph: { type: 'website', locale: 'es_ES', title: titulo }, twitter: { card: 'summary', title: titulo } };
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const estudio = await cargarEstudio(slug);
   // Si no se ha podido leer, un título neutro: decir «no encontrado» sería
   // afirmar algo que no sabemos, y este título acaba en la pestaña y en el
   // enlace que se comparte.
-  if (estudio === 'no-disponible') return { title: 'Portal del estudio' };
-  if (!estudio) return { title: 'Estudio no encontrado' };
+  // Con su propia tarjeta neutra también: si no, heredaría la de Tentare B2B.
+  if (estudio === 'no-disponible') return { title: 'Portal del estudio', ...tarjetaNeutra('Portal del estudio') };
+  if (!estudio) return { title: 'Estudio no encontrado', ...tarjetaNeutra('Estudio no encontrado') };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
   // Con su app publicada en la App Store, Safari enseña arriba «Abrir» / «Obtener» (el aviso nativo
   // de Apple; dentro de la app no sale).
   const appTienda = await appDeTiendaPublicada(estudio.id);
+  const descripcion = `Reserva tu clase en ${estudio.nombre}.`;
+  // La portada CRUDA (la que subió), no `estudio.fotoPortada`, que ya trae la
+  // de serie del repo cuando no hay ninguna. `getStudioSeo` está cacheada por
+  // petición: es la misma consulta que hizo `cargarEstudio`.
+  const seo = await getStudioSeo(slug);
+  const { openGraph, twitter } = tarjetasDelPortal(
+    { nombre: estudio.nombre, portadaUrl: seo?.imagenBienvenidaUrl, logoUrl: estudio.logoUrl },
+    descripcion, baseSupabase(),
+  );
   return {
     title: estudio.nombre,
     ...(appTienda ? { itunes: { appId: appTienda.id } } : {}),
-    description: `Reserva tu clase en ${estudio.nombre}.`,
+    description: descripcion,
+    // Su tarjeta al compartir el enlace o el QR, no la de Tentare B2B que
+    // pondría `app/layout.tsx` (ver lib/student/metadatos-portal.ts).
+    openGraph,
+    twitter,
     // Manifest POR ESTUDIO: es lo que hace que instalarla dé la app del
     // estudio y no «Tentare». El de la plataforma (app/manifest.ts) sigue
     // sirviendo a la web pública.
