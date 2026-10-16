@@ -9,7 +9,7 @@ import {
 
 test('clasificación: el orden de ramas importa (favicon-borrador antes que favicon, claselogo antes que clase)', () => {
   const casos: [string, TipoRutaAvatar][] = [
-    ['favicon-borrador-est-1', 'favicon-borrador'], ['favicon-est-1', 'marca'], ['logo-est-1', 'marca'],
+    ['favicon-borrador-est-1', 'favicon-borrador'], ['favicon-est-1', 'favicon'], ['logo-est-1', 'marca'],
     ['bienvenida-est-1', 'marca'], ['admin-est-1', 'admin'], ['portal-est-1-hero', 'portal'],
     ['instructor-ins-1', 'instructor'], ['network-red-1', 'network'], ['claselogo-tc-1', 'claselogo'],
     ['clase-tc-1', 'clase'], ['banner-uuid', 'banner'], ['producto-p-1', 'producto'], ['soc-123', 'socia'],
@@ -31,12 +31,27 @@ test('la instructora SIGUE pudiendo cambiar su propia foto (tab-perfil de /mi-pe
   assert.equal(puedeEscribirRutaAvatar({ ...base, esPropia: true, nombre: 'instructor-yo', rol: 'INSTRUCTOR' }), true);
 });
 
-test('marca y portal: PROPIETARIO y MANAGER sí, RECEPCION no', () => {
+test('marca (logo, favicon de borrador, portada): solo PROPIETARIO', () => {
+  for (const nombre of ['logo-est-1', 'favicon-borrador-est-1', 'bienvenida-est-1']) {
+    assert.equal(puedeEscribirRutaAvatar({ ...base, nombre, rol: 'PROPIETARIO' }), true, nombre);
+    for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR'] as Rol[]) {
+      assert.equal(puedeEscribirRutaAvatar({ ...base, nombre, rol }), false, `${nombre} · ${rol}`);
+    }
+  }
+});
+
+test('favicon publicado: nadie desde el navegador, ni la propietaria (lo copia el servidor)', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as Rol[]) {
+    assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'favicon-est-1', rol }), false, rol);
+  }
+});
+
+test('portal y banner (Inicio del portal, Contenido): PROPIETARIO y MANAGER sí, RECEPCION no', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER'] as Rol[]) {
-    assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'logo-est-1', rol }), true, rol);
+    assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'portal-est-1-hero', rol }), true, rol);
     assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'banner-b', rol }), true, rol);
   }
-  assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'logo-est-1', rol: 'RECEPCION' }), false);
+  assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'banner-b', rol: 'RECEPCION' }), false);
 });
 
 test('admin-<studio> es la foto de la propietaria: solo PROPIETARIO', () => {

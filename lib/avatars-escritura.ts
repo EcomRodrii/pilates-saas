@@ -1,6 +1,6 @@
 // Quién puede ESCRIBIR (subir, sustituir, borrar) cada ruta del bucket público
-// `avatars`. Espejo TS de `public.avatars_path_escribible` (migración
-// 20260913161200) — sin imports para poder probarlo con `node --test`, y con un
+// `avatars`. Espejo TS de `public.avatars_path_escribible` (la última migración
+// que la define) — sin imports para poder probarlo con `node --test`, y con un
 // test de contrato que compara esta tabla con el SQL.
 //
 // Antes una sola función (`avatars_path_autorizado`) decidía lectura y escritura
@@ -8,10 +8,14 @@
 // es la escritura, que ahora exige el mismo rol que el panel.
 //
 // Criterio de cada tipo = quién hace hoy esa subida en el panel:
-//   - marca/portal (logo, favicon, favicon-borrador, bienvenida, portal, banner,
-//     clase, claselogo): /configuracion y el editor de apariencia →
-//     PROPIETARIO y MANAGER (`puedeGestionarPortalHome`, RLS de
-//     `contenido_portal_banners`).
+//   - marca (logo, favicon-borrador, bienvenida): Configuración › Marca y
+//     «Apariencia de tu app» → solo PROPIETARIO (decisión del fundador,
+//     16-oct-2026: la marca del estudio la cambia solo la propietaria).
+//   - favicon-<studio> (el PUBLICADO): nadie desde el navegador; lo copia
+//     `publicarTheme()` con service_role, que no pasa por RLS.
+//   - portal, banner, clase, claselogo: el Inicio del portal, Contenido y los
+//     tipos de clase → PROPIETARIO y MANAGER (`puedeGestionarPortalHome`, RLS
+//     de `contenido_portal_banners`).
 //   - admin-<studio>: foto de perfil de la propietaria (tab-perfil sin ficha
 //     de equipo) → solo PROPIETARIO.
 //   - producto-<id>: /productos, que exige `puedeMoverDinero` igual que la RLS
@@ -27,7 +31,7 @@
 export type Rol = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRUCTOR';
 
 export type TipoRutaAvatar =
-  | 'favicon-borrador' | 'portal' | 'admin' | 'marca' | 'instructor' | 'network'
+  | 'favicon-borrador' | 'portal' | 'admin' | 'marca' | 'favicon' | 'instructor' | 'network'
   | 'claselogo' | 'clase' | 'banner' | 'producto' | 'portada-correo' | 'socia';
 
 /** Mismo orden de ramas que el SQL: `favicon-borrador-` va antes que `favicon-`, `claselogo-` antes que `clase-`. */
@@ -35,7 +39,8 @@ export function clasificarRutaAvatar(nombre: string): TipoRutaAvatar {
   if (nombre.startsWith('favicon-borrador-')) return 'favicon-borrador';
   if (nombre.startsWith('portal-')) return 'portal';
   if (nombre.startsWith('admin-')) return 'admin';
-  if (nombre.startsWith('logo-') || nombre.startsWith('favicon-') || nombre.startsWith('bienvenida-')) return 'marca';
+  if (nombre.startsWith('logo-') || nombre.startsWith('bienvenida-')) return 'marca';
+  if (nombre.startsWith('favicon-')) return 'favicon';
   if (nombre.startsWith('instructor-')) return 'instructor';
   if (nombre.startsWith('network-')) return 'network';
   if (nombre.startsWith('claselogo-')) return 'claselogo';
@@ -50,9 +55,11 @@ export function clasificarRutaAvatar(nombre: string): TipoRutaAvatar {
 
 /** Roles de staff que escriben cada tipo (además de la dueña, en los tipos «propios»). */
 export const ROLES_ESCRITURA: Record<TipoRutaAvatar, readonly Rol[]> = {
-  'favicon-borrador': ['PROPIETARIO', 'MANAGER'],
+  'favicon-borrador': ['PROPIETARIO'],
   portal: ['PROPIETARIO', 'MANAGER'],
-  marca: ['PROPIETARIO', 'MANAGER'],
+  marca: ['PROPIETARIO'],
+  // El favicon publicado solo lo escribe el servidor (service_role).
+  favicon: [],
   claselogo: ['PROPIETARIO', 'MANAGER'],
   clase: ['PROPIETARIO', 'MANAGER'],
   banner: ['PROPIETARIO', 'MANAGER'],
