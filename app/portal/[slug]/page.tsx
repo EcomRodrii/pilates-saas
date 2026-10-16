@@ -35,6 +35,7 @@ import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { Descubre } from '@/components/student/domain/Descubre';
+import { MensajeDestacado } from '@/components/student/domain/MensajeDestacado';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
@@ -525,6 +526,11 @@ export default function InicioPage() {
           hrefReservar={href('/reservar')}
         />
       </form>
+
+      {/* El mensaje destacado del estudio, lo primero tras la portada (decisión 11A, «Mi
+          app y mi web» v2). Sin texto, nada. Va tras el buscador y no encima: el buscador
+          va a caballo del borde de la portada y es lo que cose las dos zonas. */}
+      <MensajeDestacado slug={estudio.slug} />
 
       <AccesosRapidos
         studioId={estudio.id}

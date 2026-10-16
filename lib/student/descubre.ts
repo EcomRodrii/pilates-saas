@@ -43,6 +43,23 @@ export interface BannerMin {
   fechaFin?: string | null;
 }
 
+/** Un banner con lo que el servidor filtra en SQL antes de mandarlo a la app. */
+export interface BannerDelEstudio extends BannerMin {
+  activo: boolean;
+  ubicacion?: readonly string[] | null;
+}
+
+/**
+ * Lo que sale HOY en su app, a partir de TODOS los banners del estudio (los que
+ * tiene el panel). Es lo que hace la app con lo que le llega: el servidor filtra
+ * publicada y en el inicio (`fetchPublicStudioData`), y `tarjetasDescubre` el
+ * resto. Una sola regla para el resumen de la fila, «Primeros pasos» y el editor:
+ * cada copia de este filtro era una ocasión de contar distinto que la app.
+ */
+export function tarjetasEnLaApp(banners: readonly BannerDelEstudio[] | undefined | null, hoy: string): TarjetaDescubre[] {
+  return tarjetasDescubre((banners ?? []).filter((b) => b.activo && (b.ubicacion ?? ['home']).includes('home')), hoy);
+}
+
 /**
  * Las tarjetas que tocan HOY, en orden.
  *

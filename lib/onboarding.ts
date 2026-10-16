@@ -9,7 +9,7 @@
 // cancelacionVentanaHoras=12h, permiteListaEspera=true), no es un paso de
 // onboarding — está "hecho" desde el minuto cero y no representa ningún
 // trabajo real de la propietaria, así que no se incluye.
-import { tarjetasDescubre, type BannerMin } from './student/descubre.ts';
+import { tarjetasEnLaApp, type BannerDelEstudio } from './student/descubre.ts';
 import { hoyEnEstudio } from './utils.ts';
 
 export interface DatosOnboarding {
@@ -32,7 +32,7 @@ export interface DatosOnboarding {
   numReservas: number;
   /**
    * ¿Sale hoy alguna tarjeta de «Descubre» en su app? Con la regla de la app
-   * (`tarjetasDescubre`: publicada, en el inicio, con foto y en sus fechas). Antes
+   * (`tarjetasEnLaApp`: publicada, en el inicio, con foto y en sus fechas). Antes
    * era «tiene mensaje destacado», que ninguna pantalla de su app enseña: el paso
    * se daba por hecho con algo que no veía nadie.
    */
@@ -106,7 +106,7 @@ export interface FuenteOnboarding {
   suscripciones: readonly { estado: string }[];
   automationRules: readonly { activa: boolean; trigger: string }[];
   /** Los banners del estudio, tal cual los tiene el panel (las tarjetas de «Descubre»). */
-  bannersPortal: readonly (BannerMin & { activo: boolean; ubicacion?: readonly string[] | null })[];
+  bannersPortal: readonly BannerDelEstudio[];
 }
 
 /**
@@ -144,10 +144,7 @@ export function datosOnboardingDelEstudio(f: FuenteOnboarding): DatosOnboarding 
     numSuscripcionesActivas: f.suscripciones.filter(s => s.estado === 'ACTIVA').length,
     // `?? []`: la tarjeta de «Primeros pasos» se monta en TODAS las pantallas; un dato que
     // no ha llegado no puede tumbarlas (el `contenidoPortal?.` de antes lo toleraba igual).
-    hayTarjetaEnLaApp: tarjetasDescubre(
-      (f.bannersPortal ?? []).filter(b => b.activo && (b.ubicacion ?? ['home']).includes('home')),
-      hoyEnEstudio(),
-    ).length > 0,
+    hayTarjetaEnLaApp: tarjetasEnLaApp(f.bannersPortal, hoyEnEstudio()).length > 0,
     automatizacionesActivas: new Set(f.automationRules.filter(r => r.activa).map(r => r.trigger)),
   };
 }
@@ -325,7 +322,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   const portal: PasoOnboarding[] = [
     // Solo lo que hoy sale en su app: las tarjetas de «Descubre». El mensaje destacado
     // no lo pinta ninguna pantalla (cuando lo pinte, este paso vuelve a nombrarlo).
-    { id: 'portal-contenido', label: 'Publica una tarjeta en su app', descripcion: 'Una tarjeta con foto en «Descubre», lo primero que ven tus alumnas al entrar en su app.', minutos: 3, done: d.hayTarjetaEnLaApp, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
+    { id: 'portal-contenido', label: 'Publica una tarjeta en su app', descripcion: 'Una tarjeta con foto en «Descubre», en el inicio de su app: un taller, un bono o tu Instagram.', minutos: 3, done: d.hayTarjetaEnLaApp, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
   ];
 
   const categorias: CategoriaOnboarding[] = [

@@ -573,6 +573,23 @@ export function herramientaPorId(id: HerramientaId): HerramientaConfiguracion {
   return HERRAMIENTA_POR_ID.get(id)!;
 }
 
+/**
+ * La frase de las herramientas rehechas en «Mi app y mi web» v2, para el estudio que
+ * tiene `MI_WEB_NUEVA`: la de siempre describe la pantalla de antes y con la nueva
+ * dejaría de ser verdad («el mensaje destacado… hoy no sale»). Cuando el interruptor
+ * llegue a todos, cada una pasa a ser la `frase` de su tarjeta y este mapa se borra.
+ */
+export const FRASE_MI_WEB_NUEVA: Partial<Record<HerramientaId, string>> = {
+  'contenido-de-tu-app': 'Lo que tus alumnas ven en el inicio de su app además de sus clases: tarjetas con foto y un mensaje para todas.',
+};
+
+/** La herramienta como se enseña en su pantalla, con la frase de la v2 si el estudio la tiene. */
+export function herramientaParaMostrar(id: HerramientaId, miWebNueva: boolean): HerramientaConfiguracion {
+  const h = herramientaPorId(id);
+  const frase = miWebNueva ? FRASE_MI_WEB_NUEVA[id] : undefined;
+  return frase ? { ...h, frase } : h;
+}
+
 /** La herramienta en cuya pantalla se pinta la tarjeta, o `null` si va en su sección. */
 export function herramientaDeTarjeta(id: TarjetaId): HerramientaId | null {
   return TARJETA_POR_ID.get(id)!.tarjeta.herramienta ?? null;

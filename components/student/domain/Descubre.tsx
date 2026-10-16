@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useAsync } from '@/lib/student/useAsync';
 import { getDescubre } from '@/lib/student/datos';
@@ -21,8 +21,16 @@ import { Icono } from '@/components/student/ui/Icono';
 // empujarían «Huecos de hoy» —que es lo que sirve para reservar HOY— fuera de
 // la pantalla.
 
-/** Una tarjeta. Con enlace es un <a>; sin él, una figura que no promete nada. */
-function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => string; delay: number }) {
+/**
+ * Una tarjeta. Con enlace es un <a>; sin él, una figura que no promete nada.
+ *
+ * Exportada para la vista previa de «Contenido de tu app» en el panel, que pinta la
+ * pieza de verdad: `marca` (una etiqueta encima, «La estás editando») y `resaltada`
+ * solo los usa ella; la app no los pasa nunca.
+ */
+export function Tarjeta({ t, href, delay, marca, resaltada = false }: {
+  t: TarjetaDescubre; href: (p: string) => string; delay: number; marca?: ReactNode; resaltada?: boolean;
+}) {
   const cuerpo = (
     <>
       <Foto
@@ -71,12 +79,20 @@ function Tarjeta({ t, href, delay }: { t: TarjetaDescubre; href: (p: string) => 
     position: 'relative' as const, display: 'flex', flexDirection: 'column' as const,
     width: 172, height: 194, flexShrink: 0, borderRadius: 'var(--radius-card)', overflow: 'hidden',
     background: '#0F0F0C', animationDelay: `${delay}ms`,
+    ...(resaltada ? { outline: '3px solid var(--accent)', outlineOffset: 2 } : null),
   };
+  const etiqueta = marca ? (
+    <span style={{
+      position: 'absolute', top: 8, left: 8, zIndex: 1, padding: '3px 8px', borderRadius: 999,
+      background: 'rgba(250,249,245,.94)', color: '#1A1A1A', fontSize: 11, fontWeight: 800,
+    }}>{marca}</span>
+  ) : null;
 
-  if (!t.enlace) return <li className="a-up" style={estilo}>{cuerpo}</li>;
+  if (!t.enlace) return <li className="a-up" style={estilo}>{cuerpo}{etiqueta}</li>;
 
   return (
     <li className="a-up" style={estilo}>
+      {etiqueta}
       {t.enlace.interno ? (
         // Los internos son rutas del portal («/reservar»), guardadas sin el
         // prefijo del estudio: se lo pone `href()`, que es quien sabe el slug.

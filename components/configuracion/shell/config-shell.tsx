@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hrefDeLugar, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
 import {
-  esTarjetaId, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
+  esTarjetaId, herramientaParaMostrar, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
   type HerramientaId, type SeccionId, type TarjetaId,
 } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
@@ -496,7 +496,9 @@ export function ConfigShell() {
                 className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
               >
                 <CabeceraHerramienta
-                  herramienta={herramientaPorId(herramienta)}
+                  // «Mi app y mi web» v2: la frase de las herramientas rehechas (`FRASE_MI_WEB_NUEVA`)
+                  // y la sección con su nombre nuevo («Tu app» / «Tu web»).
+                  herramienta={herramientaParaMostrar(herramienta, miWebNueva)}
                   seccion={presentarSeccion(seccionPorId(seccionVisual(mostrada, herramienta, miWebNueva)), miWebNueva)}
                   tituloRef={tituloRef}
                   onVolver={volver}

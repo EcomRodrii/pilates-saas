@@ -287,3 +287,14 @@ test('panel nuevo: cada sección está en un grupo y solo en uno, y las otras pa
     assert.ok(g.frase.endsWith('.'), g.id);
   }
 });
+
+test('«Mi app y mi web» v2: la frase nueva cabe, y solo cambia con el interruptor', async () => {
+  const { FRASE_MI_WEB_NUEVA, herramientaParaMostrar, herramientaPorId } = await import('./secciones.ts');
+  for (const [id, frase] of Object.entries(FRASE_MI_WEB_NUEVA)) {
+    assert.ok(frase!.length <= 120, `${id}: ${frase!.length} caracteres`);
+    assert.equal(herramientaParaMostrar(id as never, true).frase, frase);
+    assert.equal(herramientaParaMostrar(id as never, false).frase, herramientaPorId(id as never).frase);
+  }
+  // La de antes dice que el mensaje no sale; la nueva no puede decirlo.
+  assert.doesNotMatch(FRASE_MI_WEB_NUEVA['contenido-de-tu-app']!, /no sale|tablón/i);
+});

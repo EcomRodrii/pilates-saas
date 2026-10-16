@@ -51,7 +51,7 @@ function resumenApariencia(tema: ThemeConfig | null): string | null {
 }
 
 export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, bannersPortal } = useStudio();
+  const { studio, dataLoaded, bannersPortal, contenidoPortal } = useStudio();
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
   // «Tu app» (MI_WEB_NUEVA): primero lo de la app —cómo se ve, qué enseña y su app en la App Store—,
@@ -113,7 +113,10 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
           {filaApariencia}
           <FilaHerramienta
             id="contenido-de-tu-app"
-            valor={resumenHerramienta('contenido-de-tu-app', { contenido: dataLoaded && ahoraMs > 0 ? { tarjetas: bannersPortal, ahoraMs } : null })}
+            // Con el interruptor su app enseña el mensaje destacado, así que la fila también lo cuenta.
+            valor={resumenHerramienta('contenido-de-tu-app', {
+              contenido: dataLoaded && ahoraMs > 0 ? { tarjetas: bannersPortal, ahoraMs, mensaje: contenidoPortal?.mensajeDestacado } : null,
+            })}
           />
           {pedirApp && soyPropietaria && (
             <FilaExterna
