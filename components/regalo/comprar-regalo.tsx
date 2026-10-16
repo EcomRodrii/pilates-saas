@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, Check, Clock, Gift, Loader2, Lock, MailCheck } 
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 import { EMAIL_VALIDO, MAX_MENSAJE, formatearEuros } from '@/lib/regalo/reglas';
+import { ESCRITURA_EN_VISTA_PREVIA, enVistaPreviaDelPanel } from '@/lib/reservar/vista-previa-sin-escrituras';
 
 interface Info {
   nombreEstudio: string; aLaVenta: boolean; importesEur: number[]; permiteImporteLibre: boolean;
@@ -188,6 +189,8 @@ export function ComprarRegalo({ slug }: { slug: string }) {
       document.getElementById(ID_CAMPO[primero!])?.focus();
       return;
     }
+    // La vista previa del constructor de widgets no vende (lib/reservar/vista-previa-sin-escrituras.ts).
+    if (enVistaPreviaDelPanel()) { setError(ESCRITURA_EN_VISTA_PREVIA); return; }
     setEnviando(true); // carga ANTES de pedir el token: tarda segundos
     try {
       const token = await pedirToken();

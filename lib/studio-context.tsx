@@ -65,6 +65,7 @@ import {
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura, type ResultadoAlta } from '@/lib/errores';
+import { ESCRITURA_EN_VISTA_PREVIA, enVistaPreviaDelPanel } from '@/lib/reservar/vista-previa-sin-escrituras';
 
 /**
  * Lo que de verdad ha pasado al intentar reservar.
@@ -2671,6 +2672,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   async function postPublico(url: string, body: Record<string, unknown>): Promise<ResultadoEscritura & { datos?: unknown }> {
     try {
+      // La vista previa del constructor de widgets no escribe nada de verdad
+      // (lib/reservar/vista-previa-sin-escrituras.ts): el camino de fallo de
+      // siempre, con lo que pasa. El `finally` reconcilia lo optimista.
+      if (enVistaPreviaDelPanel()) return { ok: false, error: ESCRITURA_EN_VISTA_PREVIA };
       // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
       // endpoints que ya exigen sesión real (canje, preferencias) derivan la
       // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
@@ -4841,6 +4846,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   ): Promise<{ ok: true; inicio: string; fin: string } | { error: string }> {
     const cpub = ctxPublico();
     if (!cpub) return { error: 'La reserva de citas solo está disponible desde el portal público' };
+    // La vista previa del constructor de widgets no reserva nada de verdad.
+    if (enVistaPreviaDelPanel()) return { error: ESCRITURA_EN_VISTA_PREVIA };
     try {
       const auth = await portalAuthHeader();
       const res = await fetch('/api/public/citas', {

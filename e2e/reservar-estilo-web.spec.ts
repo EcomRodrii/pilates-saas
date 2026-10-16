@@ -65,9 +65,9 @@ async function abrir(page: Page, slug: string, q: string) {
 
 async function medir(page: Page) {
   return page.evaluate(() => {
-    // La raíz de la página es la que lleva `min-height: 100dvh` en línea (ver
-    // el mismo comentario en e2e/reservar-tema-de-la-app.spec.ts).
-    const raiz = document.querySelector('#horario')!.closest('div[style*="100dvh"]') as HTMLElement;
+    // La raíz de la página (`.reservar-raiz`, ver el mismo comentario en
+    // e2e/reservar-tema-de-la-app.spec.ts).
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     const primera = (f: string) => f.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
     const sonda = (pila: string) => {
       const el = document.createElement('span');

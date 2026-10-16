@@ -7,6 +7,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeSeguro } from '@/lib/errores';
 import { sessionIdWidget } from './reservar/eventos.ts';
+import { ESCRITURA_EN_VISTA_PREVIA, enVistaPreviaDelPanel } from './reservar/vista-previa-sin-escrituras.ts';
 import { pasoDelPortal } from '@/lib/student/doble-factor-portal';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 
@@ -100,6 +101,9 @@ export function useSociaSession(slug: string) {
   // socia en la página sin ninguna señal de si había entrado o no: tenía que
   // pulsar "Acceder" otra vez para que el modal reaccionara.
   const enviarEnlace = useCallback(async (email: string, sesionId?: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
+    // La vista previa del panel no manda correos ni crea cuentas
+    // (lib/reservar/vista-previa-sin-escrituras.ts).
+    if (enVistaPreviaDelPanel()) return { error: ESCRITURA_EN_VISTA_PREVIA };
     // La «clase de prueba» (`?prueba=1`) sigue siéndolo al volver del correo:
     // sin esto aterrizaría en el horario normal, sin la oferta.
     const params = new URLSearchParams(window.location.search);

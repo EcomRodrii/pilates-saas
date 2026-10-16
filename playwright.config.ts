@@ -69,6 +69,12 @@ const SPECS_WEBKIT = [
   // snippet embebido los sufre la visitante de la web del estudio.
   '**/widget-config-params.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
+  // El iframe del widget ENCOGE cuando su contenido encoge (16-oct-2026): lo que
+  // se prueba —`body.scrollHeight`, `ResizeObserver` y la raíz sin `100dvh`
+  // dentro de un marco de otro origen— es justo lo que un motor resuelve
+  // distinto, y el hueco en blanco lo ve la visitante de su web, casi siempre
+  // en un iPhone. Coste medido sumando por test (ver el PR).
+  '**/reservar-embed-encoge.spec.ts',
   // El estilo de los widgets en la web del estudio (Fase B del constructor):
   // lo ve la visitante de su web, casi siempre desde un iPhone, y lo que mira
   // es justo lo que cambia de un motor a otro —fondo transparente sobre la web,

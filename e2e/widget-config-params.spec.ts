@@ -172,7 +172,7 @@ test('marca= pisa el color primario del widget', async ({ page }) => {
 /** La letra del cuerpo (la raíz) y la de un titular de verdad. */
 async function letras(page: Page) {
   return page.evaluate(() => {
-    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     // Los titulares llevan la pila `serif` (portal-design.ts), que empieza por
     // var(--portal-heading-font) — ese literal en el style en línea es la
     // firma inequívoca de un titular, sin atar el test a un selector concreto.
