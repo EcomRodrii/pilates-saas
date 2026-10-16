@@ -48,7 +48,12 @@ begin
   select md5(regexp_replace(btrim(p.prosrc), '\s+', ' ', 'g')) into v_md5
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'asignar_venta_pos_a_socia';
-  if v_md5 is distinct from '000047d30053dfffa93f20490cabd826' then
+  -- Dos huellas válidas de la MISMA definición (20260908191048_asignar_venta_pos_bloquea_devuelta):
+  --   · 000047d3…, la de producción, que se aplicó sin las líneas de comentario de dentro del
+  --     cuerpo (comprobado el 16-oct-2026: quitándoselas al fichero sale exactamente esta);
+  --   · 206e60bc…, la del fichero tal cual, que es la que construye una base desde el repo (CI).
+  -- La lógica es idéntica; cualquier otra huella es que alguien la ha cambiado.
+  if v_md5 is null or v_md5 not in ('000047d30053dfffa93f20490cabd826', '206e60bc46e68d24fa2bf76684588025') then
     raise exception 'asignar_venta_pos_a_socia ha cambiado desde que se escribió esta migración (md5 normalizado %): rehazla partiendo de la definición viva', v_md5;
   end if;
   if not exists (select 1 from information_schema.columns
