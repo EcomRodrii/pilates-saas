@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { AlertTriangle, Info } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowUpRight, Code2, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { btnSecondary } from '@/components/configuracion/estilos';
 import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { MODO_TOKENS } from '@/lib/portal-modo';
@@ -11,7 +13,7 @@ import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
 import { columnasSinPaleta, sinMarcoSoloLetra, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
-import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta, useTextosPublicar } from './piezas';
+import { Ajuste, AjusteInterruptor, Etiqueta, FOCO, MuestraColor, Plegable, Segmentado, TACTIL, Tarjeta, useTextosPublicar } from './piezas';
 import { EstiloWeb } from './estilo-web';
 import type { EstiloWebPanel } from './usar-estilo-web';
 
@@ -37,7 +39,7 @@ const COLOR_DE_FONDO = '#F6F3EC';
 /** El primario de siempre de la nativa sin `data-marca` ni identidad del estudio (`montarUno`, app/widget-bundle/main.tsx). */
 const COLOR_WIDGET_NATIVA = '#343825';
 
-export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas, porId = false, sinBarraAplicar = false }: {
+export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas, porId = false, sinBarraAplicar = false, variante = 'v1' }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -60,24 +62,23 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
    * la barra y el diálogo de aquí (ver `EstiloWeb`).
    */
   sinBarraAplicar?: boolean;
+  /**
+   * «Tu web» v2 (decisiones 2 y 4): el estilo en dos niveles (`EstiloWeb
+   * variante="v2"`), con el ancho dentro de «Más ajustes»; el diseño propio de
+   * este widget se va a «Ponlo en tu web», para quien te hace la web
+   * (`ColoresPropios`), y aquí solo se avisa. Con un enlace o un botón a su
+   * página no se enseña ningún control: no harían nada.
+   */
+  variante?: 'v1' | 'v2';
 }) {
   const { boton } = useTextosPublicar();
+  const v2 = variante === 'v2';
   const propia = c.identidad === 'propia';
   const nativa = metodo === 'nativa';
   const soloBoton = metodo === 'boton';
   const botonPropio = soloBoton && usaBotonPropio(plataforma);
-  // El pie ya es del estilo de su web («Ajustes finos»). Aquí sigue el
-  // interruptor de cada widget en dos casos, y su `pie=0` va en el código:
-  //   · con un diseño propio en su código, porque a ese widget el estilo de su
-  //     web no le llega —tampoco su pie— (`urlTraeDisenoPropio`), y esta es la
-  //     única forma de quitárselo;
-  //   · si ya lo apagó en ESTE widget, para que pueda volver a encenderlo. Eso
-  //     se mira también al abrirlo y, una vez tocado, se queda: si no, al
-  //     quitar el diseño propio y volver a encenderlo desaparecería bajo el dedo.
-  const [pieApagadoAlAbrir] = useState(() => c.mostrarPie === false);
-  const [pieTocado, setPieTocado] = useState(false);
-  const disenoEnCodigo = tieneDisenoEnCodigo(c);
-  const pieDelWidget = disenoEnCodigo || pieApagadoAlAbrir || pieTocado || c.mostrarPie === false;
+  // El pie de ESTE widget: cuándo se ofrece, en `usePieDelWidget`.
+  const { disenoEnCodigo, pieDelWidget, setPieTocado } = usePieDelWidget(c);
 
   // La misma cuenta que la confirmación de «Aplicar en mi web», con el borrador
   // que se está probando: lo que haría /reservar con el código de este widget.
@@ -104,8 +105,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
         // Con la identidad del estudio, su color (el del tema) y la letra de su
         // web; «propia» sin nada que la nativa entienda, su diseño de siempre.
         ? propia
-          ? 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.'
-          : 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.'
+          ? `Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto ${v2 ? 'publiques' : 'apliques'} un cambio, le llega solo, sin volver a pegar nada.`
+          : `Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto ${v2 ? 'publiques' : 'apliques'} un cambio, le llega solo, sin volver a pegar nada.`
         : sinMarcoLetra
           // De noche en columnas solo le llegaría la letra; con «Como tu app», ni esa.
           ? estilo.borrador.letra === null
@@ -142,7 +143,9 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
       <Tarjeta
         titulo="¿Cómo quieres que se vea?"
         etiqueta="aplicar"
-        subtitulo={`Es el mismo estilo para todos tus widgets. Cuando lo cambies, pulsa «${boton}»: no hace falta volver a pegar nada.`}
+        subtitulo={v2
+          ? `Es el mismo estilo para todos tus widgets. Lo ves aquí al momento; en tu web cambia cuando pulses «${boton}», sin volver a pegar nada.`
+          : `Es el mismo estilo para todos tus widgets. Cuando lo cambies, pulsa «${boton}»: no hace falta volver a pegar nada.`}
       >
         {noLeLlega && (
           <div role="note" aria-label="Este widget no cambia con el estilo" className="space-y-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">
@@ -151,17 +154,26 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
               <span className="min-w-0">{metodo === 'enlace' || soloBoton ? 'Tu página de reservas no cambia con este estilo' : `«${w.nombre}» no cambia con este estilo`}</span>
             </p>
             {metodo === 'enlace' || soloBoton ? (
-              <p className="text-[12.5px] leading-relaxed text-foreground">
-                Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, se abre tu página de reservas, que se ve <strong className="font-semibold">como tu app</strong>: por eso la vista previa no cambia al elegir aquí. Este estilo es para lo que pongas dentro de tu web o en una ventana encima. Para cambiar tu página, cambia el estilo de tu app.
-              </p>
+              <>
+                <p className="text-[12.5px] leading-relaxed text-foreground">
+                  Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, se abre tu página de reservas, que se ve <strong className="font-semibold">como tu app</strong>: por eso la vista previa no cambia al elegir aquí. Este estilo es para lo que pongas dentro de tu web o en una ventana encima. Para cambiar tu página, cambia el estilo de tu app.
+                </p>
+                {v2 && verApariencia && (
+                  <Link href="/configuracion/apariencia" className={cn(TACTIL, 'gap-0.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
+                    Cambiar el estilo de tu app<ArrowUpRight size={12} aria-hidden />
+                  </Link>
+                )}
+              </>
             ) : (
               <>
                 <p className="text-[12.5px] leading-relaxed text-foreground">
-                  Tiene <strong className="font-semibold">su propio diseño</strong> (color, letra…) guardado en su código, en «Un diseño distinto solo para este widget». Mientras lo tenga, ni el estilo ni la letra de aquí le llegan: por eso la vista previa no cambia. Sí cambian el resto de tus widgets.
+                  {v2
+                    ? <>Tiene <strong className="font-semibold">sus propios colores y letra</strong>, guardados en su código: se cambian en «Ponlo en tu web», en «Para quien te hace la web». Mientras los tenga, ni el estilo ni la letra de aquí le llegan: por eso la vista previa no cambia. Sí cambian el resto de tus widgets.</>
+                    : <>Tiene <strong className="font-semibold">su propio diseño</strong> (color, letra…) guardado en su código, en «Un diseño distinto solo para este widget». Mientras lo tenga, ni el estilo ni la letra de aquí le llegan: por eso la vista previa no cambia. Sí cambian el resto de tus widgets.</>}
                 </p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <button type="button" onClick={() => cambiar({ identidad: 'estudio' })} className={btnSecondary}>
-                    Que siga el estilo de tus widgets
+                    {v2 ? 'Que siga este estilo' : 'Que siga el estilo de tus widgets'}
                   </button>
                   <span className="text-[12px] text-muted-foreground">{porId ? `Después, pulsa «${boton}».` : 'Cambia su código: tendrás que copiarlo otra vez.'}</span>
                 </div>
@@ -182,19 +194,37 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
           </p>
         )}
 
-        <EstiloWeb
-          estado={estilo}
-          metodo={metodo}
-          letraSinMarco={nativa && !disenoEnSuCodigo ? (propia ? 'siempre' : 'web') : null}
-          soloLectura={soloLectura}
-          verApariencia={verApariencia}
-          piezas={piezas}
-          disenoPropio={disenoDistinto}
-          sinBarra={sinBarraAplicar}
-        />
+        {v2 ? (
+          // Con un enlace o un botón a su página, nada de aquí le llega: no se enseña ningún control.
+          !(metodo === 'enlace' || soloBoton) && (
+            <EstiloWeb
+              estado={estilo}
+              metodo={metodo}
+              letraSinMarco={nativa && !disenoEnSuCodigo ? (propia ? 'siempre' : 'web') : null}
+              soloLectura={soloLectura}
+              verApariencia={verApariencia}
+              piezas={piezas}
+              sinBarra
+              variante="v2"
+              ancho={metodo === 'iframe' ? <AnchoV2 w={w} c={c} cambiar={cambiar} /> : undefined}
+              anchoElegido={metodo === 'iframe' && c.ancho !== null}
+            />
+          )
+        ) : (
+          <EstiloWeb
+            estado={estilo}
+            metodo={metodo}
+            letraSinMarco={nativa && !disenoEnSuCodigo ? (propia ? 'siempre' : 'web') : null}
+            soloLectura={soloLectura}
+            verApariencia={verApariencia}
+            piezas={piezas}
+            disenoPropio={disenoDistinto}
+            sinBarra={sinBarraAplicar}
+          />
+        )}
       </Tarjeta>
 
-      {(metodo === 'iframe' || (metodo === 'popup' && pieDelWidget)) && (
+      {!v2 && (metodo === 'iframe' || (metodo === 'popup' && pieDelWidget)) && (
         <Tarjeta titulo="Cómo encaja en tu página" etiqueta="codigo">
           {metodo === 'iframe' && (
             <Ajuste etiqueta="Ancho" descripcion="En una columna queda a lo ancho de un móvil; a todo el ancho ocupa el hueco de tu página.">
@@ -225,6 +255,113 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
             />
           )}
         </Tarjeta>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El pie de ESTE widget. El pie ya es del estilo de su web («Ajustes finos» /
+ * «Más ajustes»); el interruptor de cada widget, cuyo `pie=0` va en el código,
+ * sigue en dos casos:
+ *   · con un diseño propio en su código, porque a ese widget el estilo de su web
+ *     no le llega —tampoco su pie— (`urlTraeDisenoPropio`), y esta es la única
+ *     forma de quitárselo;
+ *   · si ya lo apagó en ESTE widget, para que pueda volver a encenderlo. Eso se
+ *     mira también al abrirlo y, una vez tocado, se queda: si no, al quitar el
+ *     diseño propio y volver a encenderlo desaparecería bajo el dedo.
+ */
+function usePieDelWidget(c: ConfigConstructor) {
+  const [pieApagadoAlAbrir] = useState(() => c.mostrarPie === false);
+  const [pieTocado, setPieTocado] = useState(false);
+  const disenoEnCodigo = tieneDisenoEnCodigo(c);
+  const pieDelWidget = disenoEnCodigo || pieApagadoAlAbrir || pieTocado || c.mostrarPie === false;
+  return { disenoEnCodigo, pieDelWidget, setPieTocado };
+}
+
+/** «Va en el código», la marca de lo que cambiar pide pegar otra vez (decisión 2: solo en «Ancho»). */
+function VaEnElCodigo() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+      <Code2 size={11} aria-hidden />Va en el código
+    </span>
+  );
+}
+
+/** El ancho de un widget dentro de una página, en «Más ajustes» de «Tu web» v2. */
+function AnchoV2({ w, c, cambiar }: { w: WidgetDisponible; c: ConfigConstructor; cambiar: (parcial: Partial<ConfigConstructor>) => void }) {
+  return (
+    <div>
+      <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-foreground">Ancho <VaEnElCodigo /></p>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+        En una columna queda a lo ancho de un móvil; a todo el ancho ocupa el hueco de tu página. Si lo cambias cuando ya esté en tu web, tendrás que pegarlo otra vez.
+      </p>
+      <div className="mt-2">
+        <Segmentado
+          etiqueta="Ancho del widget"
+          valor={c.ancho ?? anchoPorDefecto(w, c)}
+          onChange={v => cambiar({ ancho: v === anchoPorDefecto(w, c) ? null : v })}
+          opciones={[{ valor: 'compacto', nombre: 'En una columna' }, { valor: 'completo', nombre: 'Todo el ancho' }] as const}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * «Tu web» v2 (decisión 4): «Colores y letra propios solo en X», en «Ponlo en tu
+ * web» → «Para quien te hace la web». Es lo que antes era «Un diseño distinto
+ * solo para este widget» en «Cómo se ve», con sus mismos controles y reglas: se
+ * aparta, no se quita, porque encendido apaga el estilo de tus widgets en ESTE
+ * widget sin que se vea. Con él encendido, «Cómo se ve» lo avisa y ofrece «Que
+ * siga este estilo». El pie de ESTE widget viaja con él (ver `usePieDelWidget`).
+ *
+ * `null` donde no hay diseño que poner: un enlace, o el botón de su propia web.
+ */
+export function ColoresPropios({ w, c, metodo, plataforma, cambiar, colorEstudio, porId }: {
+  w: WidgetDisponible;
+  c: ConfigConstructor;
+  metodo: MetodoIntegracion;
+  plataforma: PlataformaWeb | null;
+  cambiar: (parcial: Partial<ConfigConstructor>) => void;
+  colorEstudio: string;
+  porId: boolean;
+}) {
+  const { boton } = useTextosPublicar();
+  const { disenoEnCodigo, pieDelWidget, setPieTocado } = usePieDelWidget(c);
+  const propia = c.identidad === 'propia';
+  const nativa = metodo === 'nativa';
+  const soloBoton = metodo === 'boton';
+  if (metodo === 'enlace' || (soloBoton && usaBotonPropio(plataforma))) return null;
+  return (
+    <div className="space-y-4">
+      <div>
+        <h4 className="text-[13.5px] font-semibold text-foreground">Colores y letra propios solo en «{w.nombre}»</h4>
+        <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+          {porId && !soloBoton
+            ? <>Lo que cambies aquí es solo de este widget y, desde ese momento, deja de seguir el estilo de tus widgets. Llega a tu web al pulsar «{boton}», sin volver a pegar nada{metodo === 'popup' ? ' (salvo el color del botón que abre la ventana: ese va en el código)' : ''}.</>
+            : 'Lo que cambies aquí va dentro de su código y, desde ese momento, este widget deja de seguir el estilo de tus widgets. Si lo tocas después de pegarlo, tendrás que copiar el código otra vez.'}
+        </p>
+      </div>
+      <AjusteInterruptor
+        etiqueta={`Usar un diseño propio en «${w.respuesta}»`}
+        on={propia}
+        onChange={v => cambiar({ identidad: v ? 'propia' : 'estudio' })}
+      />
+      {propia && <DisenoPropio c={c} nativa={nativa} soloBoton={soloBoton} cambiar={cambiar} colorEstudio={colorEstudio} />}
+      {(metodo === 'iframe' || metodo === 'popup') && pieDelWidget && (
+        <AjusteInterruptor
+          etiqueta="Dirección y aviso legal al pie"
+          descripcion={porId
+            ? disenoEnCodigo
+              ? `Solo para este widget, y llega a tu web al pulsar «${boton}»: con un diseño propio, el de «Más ajustes» no le llega.`
+              : `Solo para este widget, y llega a tu web al pulsar «${boton}». Para todos tus widgets a la vez, está en «Cómo se ve», en «Más ajustes».`
+            : disenoEnCodigo
+              ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Más ajustes» no le llega.'
+              : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Cómo se ve», en «Más ajustes».'}
+          on={c.mostrarPie}
+          onChange={v => { setPieTocado(true); cambiar({ mostrarPie: v }); }}
+        />
       )}
     </div>
   );

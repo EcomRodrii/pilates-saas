@@ -66,10 +66,14 @@ async function montar(page: Page, opts: {
   retenerPieza?: boolean;
   plataforma?: string | null;
   direccion?: string;
+  /** Las webs ya autorizadas para la forma sin marco. */
+  dominios?: string[];
+  /** El portapapeles dice que no (Safari puede): se cuentan los intentos en `window.__intentosCopiar`. */
+  portapapelesNo?: boolean;
 }) {
   const studioRow: Record<string, unknown> = {
     id: STUDIO_ID, nombre: 'Pilates Centro', slug: SLUG, owner_auth_user_id: AUTH_UID,
-    email: 'duena@example.com', color_primario: '#343825', widget_dominios_autorizados: [],
+    email: 'duena@example.com', color_primario: '#343825', widget_dominios_autorizados: opts.dominios ?? [],
     widget_builder: {
       ...(opts.widgetBuilder ?? {}),
       ...(opts.plataforma === null ? {} : { _web: { plataforma: opts.plataforma ?? 'wordpress', ...(opts.direccion ? { direccion: opts.direccion } : {}) } }),
@@ -83,16 +87,25 @@ async function montar(page: Page, opts: {
   const retenida = new Promise<void>(r => { soltar = r; });
 
   if (process.env.OSCURO === '1') await page.addInitScript(() => localStorage.setItem('panel-dark-mode', '1'));
-  await page.addInitScript(([key, uid]) => {
+  await page.addInitScript(([key, uid, no]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh', expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
       user: { id: uid, email: 'duena@example.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
     }));
+    const w = window as unknown as { __copiado?: string; __intentosCopiar?: number };
+    w.__intentosCopiar = 0;
     Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: (t: string) => { (window as unknown as { __copiado?: string }).__copiado = t; return Promise.resolve(); } },
+      value: {
+        writeText: (t: string) => {
+          w.__intentosCopiar = (w.__intentosCopiar ?? 0) + 1;
+          if (no) return Promise.reject(new Error('no'));
+          w.__copiado = t;
+          return Promise.resolve();
+        },
+      },
       configurable: true,
     });
-  }, [STORAGE_KEY, AUTH_UID] as const);
+  }, [STORAGE_KEY, AUTH_UID, !!opts.portapapelesNo] as const);
 
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/billing/**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
@@ -128,6 +141,12 @@ async function montar(page: Page, opts: {
   });
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
+  // Una clase futura en el panel: la materia prima de «Una clase concreta».
+  await page.route('**/rest/v1/sesiones**', route => json(route, [{
+    id: 's1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-r', sala_id: 'sala-1', instructor_id: 'ins-1',
+    inicio: new Date(Date.now() + 24 * 3600 * 1000).toISOString(), fin: new Date(Date.now() + 25 * 3600 * 1000).toISOString(),
+    aforo_maximo: 8, cancelada: false,
+  }]));
   await page.route('**/rest/v1/widget_piezas**', route => {
     c.lecturasPiezas += 1;
     return json(route, hubo409 && opts.piezasDespues ? opts.piezasDespues : (opts.piezas ?? []));
@@ -164,24 +183,58 @@ const PUBLICADO = 'Publicado. Tu web lo enseñará en unos minutos.';
 const SOLO_MAT = { horario: { ...CONFIG_POR_DEFECTO, tipos: ['tc-m'], copiado: copiaPorId() } };
 const PUBLICADA = (t = T0) => [{ id: ID, widget: 'horario', config: {}, actualizado_en: t }];
 
-async function captura(page: Page, nombre: string) {
+async function captura(page: Page, nombre: string, opc: { soloPagina?: boolean } = {}) {
   if (!CAPTURAS) return;
   // «Primeros pasos» flota encima (otra sesión lo pliega a su píldora, decisión 8): plegado, se ve la pantalla.
   const plegar = page.getByRole('button', { name: 'Plegar «Primeros pasos»' });
   if (await plegar.isVisible()) await plegar.click();
   await page.waitForTimeout(25_000);
+  // Lo que se ve de verdad al llegar (la ventana, con lo pegajoso donde está) y, aparte, la página entera.
+  if (!opc.soloPagina) await page.screenshot({ path: `${CAPTURAS}/${nombre}.png` });
+  const y = await page.evaluate(() => window.scrollY);
   // Desde arriba: con la página desplazada, lo pegajoso sale a media captura.
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: `${CAPTURAS}/${nombre}.png`, fullPage: true });
+  await page.screenshot({ path: `${CAPTURAS}/${nombre}${opc.soloPagina ? '' : '-completa'}.png`, fullPage: true });
+  await page.evaluate(top => window.scrollTo(0, top), y);
 }
+
+const estilos = (page: Page) => page.getByRole('radiogroup', { name: 'Estilo de tus widgets' });
+const niveles = (page: Page) => page.getByRole('radiogroup', { name: 'Cómo se ven tus widgets' });
 
 /** Desde la portada, al paso «Cómo se ve», y otro estilo elegido (un borrador). */
 async function elegirArena(page: Page) {
   await page.getByRole('button', { name: /^Cambiar el estilo/ }).click();
   await expect(pasos(page).getByRole('button', { name: 'Cómo se ve' })).toHaveAttribute('aria-current', 'step');
-  const arena = page.getByRole('radiogroup', { name: 'Estilo de tus widgets' }).getByRole('radio', { name: 'Arena', exact: true });
+  // Dos niveles (decisión 4): los estilos están dentro de «Un estilo solo para tu web».
+  await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+  const arena = estilos(page).getByRole('radio', { name: 'Arena', exact: true });
   await arena.click();
   await expect(arena).toHaveAttribute('aria-checked', 'true');
+}
+
+/** Desde la portada vacía, al asistente. */
+async function empezar(page: Page) {
+  await page.getByRole('button', { name: 'Poner mi horario en mi web' }).click({ timeout: 60_000 });
+  await expect(pasos(page).getByRole('button', { name: 'Qué pones' })).toHaveAttribute('aria-current', 'step');
+}
+const irA = async (page: Page, nombre: 'Qué pones' | 'Dónde va' | 'Cómo se ve' | 'Ponlo en tu web') => {
+  // Con el teclado: tras cambiar de paso, la línea de pasos queda bajo la barra de arriba (y «Primeros
+  // pasos» flota encima: otra sesión lo pliega a su píldora, decisión 8), y un clic caería en ellas.
+  await pasos(page).getByRole('button', { name: nombre }).press('Enter');
+  await expect(pasos(page).getByRole('button', { name: nombre })).toHaveAttribute('aria-current', 'step');
+};
+/** Abre un pliegue visible por el texto de su título, solo si está cerrado (pulsarlo abierto lo cerraría). */
+async function abrirPliegue(page: Page, titulo: string | RegExp) {
+  const pliegue = page.locator('details').filter({ has: page.locator('summary', { hasText: titulo }) }).filter({ visible: true }).first();
+  if (!(await pliegue.evaluate(d => (d as HTMLDetailsElement).open))) await pliegue.locator('summary').first().click();
+}
+const previa = (page: Page) => page.getByTitle(/^Vista previa:/);
+/** El fondo del documento que pinta el iframe de la previa, cuando ya carga `trozo`. */
+async function fondoDeLaPrevia(page: Page, trozo: string): Promise<string> {
+  const marco = await previa(page).elementHandle();
+  const frame = marco ? await marco.contentFrame() : null;
+  if (!frame || !decodeURIComponent(frame.url()).includes(trozo)) return '';
+  return frame.evaluate(() => getComputedStyle(document.body).backgroundColor).catch(() => '');
 }
 
 test('sin nada copiado: el vacío que enseña, sin escribir nada al montar, y el asistente de cuatro pasos con «Terminar»', async ({ page }) => {
@@ -333,6 +386,253 @@ test('sin red: nunca «Publicado», lo dice en rojo y lo pendiente se queda', as
   await expect(barra(page)).toContainText('Sin publicar en tu web');
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PR 2 · el contenido de los cuatro pasos (decisiones 2, 3, 4 y 7).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('Siguiente lleva al título del paso nuevo y le da el foco (#2743)', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await page.getByRole('button', { name: /Siguiente: dónde va/ }).click();
+  const titulo = page.getByRole('heading', { name: 'Elige dónde va', exact: true });
+  await expect(titulo).toBeInViewport();
+  // El foco, en el contenedor del paso nuevo (lo anuncia el lector de pantalla), no en el botón que ya no está.
+  await expect.poll(() => page.evaluate(() => {
+    const a = document.activeElement as HTMLElement | null;
+    return !!a && a.tabIndex === -1 && !a.hidden && !!a.textContent?.includes('Tu web está hecha con');
+  })).toBe(true);
+  // Y el título queda debajo de la barra de arriba, no tapado por ella.
+  const caja = await titulo.boundingBox();
+  expect(caja!.y).toBeGreaterThan(40);
+});
+
+test('la web se pregunta en «Dónde va»: monogramas, se guarda en `_web` UNA vez fusionando, y sin contestar no se sigue', async ({ page }) => {
+  const { c } = await montar(page, { plataforma: null, widgetBuilder: { horario: { ...CONFIG_POR_DEFECTO, tipos: ['tc-m'] } } });
+  await empezar(page);
+  await irA(page, 'Dónde va');
+  await expect(page.getByRole('button', { name: /Siguiente: cómo se ve/ })).toBeDisabled();
+  const pregunta = page.getByRole('radiogroup', { name: 'Con qué está hecha tu web' });
+  // Decisión 7: un monograma neutro por plataforma (no el mismo globo para las cuatro); a mano, agencia y sin web, su icono.
+  await expect(pregunta.locator('[data-monograma]')).toHaveText(['W', 'Wix', 'S', 'Wf']);
+  await expect(pregunta.getByRole('radio', { name: /Otra o hecha a mano/ }).locator('svg')).toHaveCount(1);
+  await page.waitForTimeout(800);
+  expect(c.patches, 'nunca guardar al montar ni al cambiar de paso').toHaveLength(0);
+  await pregunta.getByRole('radio', { name: /^Wix/ }).click();
+  await page.getByRole('button', { name: 'Guardar mi web' }).click();
+  await expect.poll(() => c.patches.length).toBe(1);
+  const wb = c.patches[0].widget_builder as { _web?: { plataforma?: string }; horario?: { tipos?: string[] } };
+  expect(wb._web?.plataforma).toBe('wix');
+  // Fusionando: lo demás de `widget_builder` sigue en el cuerpo.
+  expect(wb.horario?.tipos).toEqual(['tc-m']);
+  await expect(page.getByText('Tu web está hecha con')).toBeVisible();
+  await expect(page.locator('[data-monograma="wix"]').filter({ visible: true })).toHaveText('Wix');
+  await expect(page.getByRole('button', { name: /Siguiente: cómo se ve/ })).toBeEnabled();
+  await page.waitForTimeout(800);
+  expect(c.patches).toHaveLength(1);
+});
+
+test('sin las tres etiquetas ni «Cómo llega cada cambio»: una línea en «Dónde va», la marca en «Ancho» y una frase en «Ponlo»', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  // Paso 1: «Más cosas» a la vista (sin plegar) y «Próximamente» se lee, no se pulsa.
+  await expect(page.getByRole('radiogroup', { name: 'Más cosas para tu web' }).getByRole('radio', { name: /Una clase concreta/ })).toBeVisible();
+  await expect(page.locator('summary', { hasText: 'Más cosas para tu web' })).toHaveCount(0);
+  const proximamente = page.getByRole('list', { name: 'Próximamente' });
+  await expect(proximamente).toBeVisible();
+  await expect(proximamente.getByRole('button')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Qué sale en tu horario' })).toBeVisible();
+
+  for (const prohibido of ['Pegar el código otra vez', 'Siempre al día']) {
+    await expect(page.getByText(prohibido, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText(/Con «(Publicar|Aplicar) en mi web»/)).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Cómo llega cada cambio a tu web' })).toHaveCount(0);
+
+  await irA(page, 'Dónde va');
+  await expect(page.getByText('Lo de este paso va dentro del código. Si lo cambias cuando ya esté en tu web, tendrás que pegarlo otra vez; te lo diremos.')).toBeVisible();
+  await irA(page, 'Cómo se ve');
+  await abrirPliegue(page, 'Más ajustes');
+  await expect(page.getByRole('group', { name: 'Ancho del widget' })).toBeVisible();
+  await expect(page.getByText('Va en el código', { exact: true }).filter({ visible: true })).toHaveCount(1);
+  // El diseño propio ya no está en «Cómo se ve»: se fue a «Ponlo en tu web».
+  await expect(page.getByRole('switch', { name: /Usar un diseño propio/ }).filter({ visible: true })).toHaveCount(0);
+  await irA(page, 'Ponlo en tu web');
+  await expect(page.getByText(/^Lo pegas una vez\. Tus clases, precios y plazas se actualizan solos; el estilo y lo que enseña llegan cuando pulsas «Publicar en mi web»\.$/)).toBeVisible();
+  // Los pasos de su plataforma, cada uno con su dibujo.
+  await expect(page.getByRole('heading', { name: 'En WordPress, en 3 pasos' })).toBeVisible();
+  await expect(page.locator('[data-dibujo-paso]').filter({ visible: true })).toHaveCount(3);
+  await abrirPliegue(page, 'Para quien te hace la web');
+  await expect(page.getByRole('heading', { name: 'Colores y letra propios solo en «Horario y reservas»' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: /Usar un diseño propio/ }).filter({ visible: true })).toHaveCount(1);
+  // Y en ninguno de los cuatro pasos (están todos montados) vuelven las etiquetas.
+  for (const prohibido of ['Pegar el código otra vez', 'Siempre al día']) {
+    await expect(page.getByText(prohibido, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText(/Con «(Publicar|Aplicar) en mi web»/)).toHaveCount(0);
+});
+
+test('con un enlace: «Dónde va» dice que lo de qué enseña no se aplica, y «Cómo se ve» no enseña controles que no hacen nada', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com', widgetBuilder: { horario: { ...CONFIG_POR_DEFECTO, metodo: 'enlace' } } });
+  await empezar(page);
+  await irA(page, 'Dónde va');
+  await expect(page.getByRole('note').filter({ hasText: 'Con un enlace se abre tu página de reservas con todas tus clases' })).toBeVisible();
+  await expect(page.getByText('Lo de este paso va dentro del enlace.', { exact: false })).toBeVisible();
+  await irA(page, 'Cómo se ve');
+  await expect(page.getByRole('note', { name: 'Este widget no cambia con el estilo' })).toContainText('Tu página de reservas no cambia con este estilo');
+  await expect(niveles(page)).toHaveCount(0);
+  await expect(estilos(page)).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: 'Que se funda con tu web' })).toHaveCount(0);
+});
+
+test('«Igual que tu app» vacía estilo, letra y botones: el borrador de la vista previa ya no lleva letra; elegir el nivel no es un cambio', async ({ page }) => {
+  const { c } = await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await irA(page, 'Cómo se ve');
+  await expect(niveles(page).getByRole('radio', { name: /Igual que tu app/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(estilos(page)).toHaveCount(0);
+  // Elegir «Un estilo solo para tu web» sin estilo abre los estilos y no deja nada sin publicar.
+  await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+  await expect(estilos(page)).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(barra(page)).toHaveCount(0);
+  // Su web oscura y fundido (valen en los dos niveles; sin fundido, «Tu web es…» solo dibuja la vista previa
+  // y no hay nada que publicar), Arena y otra letra.
+  await page.getByRole('radiogroup', { name: 'Cómo es tu web' }).getByRole('radio', { name: 'Oscura' }).click();
+  await page.getByRole('switch', { name: 'Que se funda con tu web' }).click();
+  await estilos(page).getByRole('radio', { name: 'Arena', exact: true }).click();
+  await page.getByRole('radiogroup', { name: 'Letra de tus widgets' }).getByRole('radio', { name: 'Editorial' }).click();
+  await expect.poll(async () => decodeURIComponent(await previa(page).getAttribute('src') ?? ''), { timeout: 20_000 }).toContain('"letra":"editorial"');
+  await expect(barra(page)).toContainText('Sin publicar en tu web: el estilo');
+
+  await niveles(page).getByRole('radio', { name: /Igual que tu app/ }).click();
+  await expect(niveles(page).getByRole('radio', { name: /Igual que tu app/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(estilos(page)).toHaveCount(0);
+  // El borrador que pinta la vista previa: su web oscura sigue (vale en los dos niveles), sin letra ni estilo.
+  await expect.poll(async () => {
+    const actual = decodeURIComponent(await previa(page).getAttribute('src') ?? '');
+    return actual.includes('"web":"oscura"') && actual.includes('"fundido":true') && !actual.includes('"letra"');
+  }, { timeout: 20_000 }).toBe(true);
+  const src = decodeURIComponent(await previa(page).getAttribute('src') ?? '');
+  expect(src).not.toContain('"letra"');
+  expect(src).not.toContain('"estilo"');
+  expect(src).not.toContain('"boton"');
+  // Sigue sin publicar el fundido sobre su web oscura, y nada se ha mandado.
+  await expect(barra(page)).toContainText('Sin publicar en tu web: el estilo');
+  expect(c.estilos).toHaveLength(0);
+});
+
+test('con un diseño propio: «Cómo se ve» lo avisa y «Que siga este estilo» lo quita (lo pinta el documento de la vista previa)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await montar(page, {
+    direccion: 'pilatescentro.example.com',
+    widgetBuilder: { horario: { metodo: 'iframe', identidad: 'propia', marca: '#000000' } },
+  });
+  await empezar(page);
+  await irA(page, 'Cómo se ve');
+  const nota = page.getByRole('note', { name: 'Este widget no cambia con el estilo' });
+  await expect(nota).toContainText('«Horario y reservas» no cambia con este estilo');
+  await expect(nota).toContainText('se cambian en «Ponlo en tu web», en «Para quien te hace la web»');
+  await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+  await estilos(page).getByRole('radio', { name: 'Carbón', exact: true }).click();
+  // Con su diseño, la previa no sigue el estilo: lleva su color en la URL.
+  await expect(previa(page)).toHaveAttribute('src', /marca=%23000000/);
+
+  await nota.getByRole('button', { name: 'Que siga este estilo' }).click();
+  await expect(nota).toHaveCount(0);
+  await expect(previa(page)).not.toHaveAttribute('src', /marca=/);
+  await expect.poll(() => fondoDeLaPrevia(page, '"estilo":"carbon"'), { timeout: 45_000 }).toBe('rgb(23, 24, 27)');
+  // Y en «Ponlo en tu web», el interruptor del diseño propio está apagado.
+  await irA(page, 'Ponlo en tu web');
+  await abrirPliegue(page, 'Para quien te hace la web');
+  await expect(page.getByRole('switch', { name: /Usar un diseño propio/ }).filter({ visible: true })).toHaveAttribute('aria-checked', 'false');
+});
+
+test('copiar entrega el texto EXACTO del código y dice «Copiado»', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await irA(page, 'Ponlo en tu web');
+  const copiar = page.getByRole('button', { name: 'Copiar código' });
+  await expect(copiar).toBeEnabled({ timeout: 30_000 });
+  await copiar.click();
+  await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+  const [copiado, codigo] = await Promise.all([
+    page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado),
+    page.locator('pre').textContent(),
+  ]);
+  expect(copiado).toBe(codigo);
+});
+
+test('si el portapapeles dice que no: nunca «Copiado», ni se guarda la copia (con contador de intentos)', async ({ page }) => {
+  const { c } = await montar(page, { direccion: 'pilatescentro.example.com', portapapelesNo: true });
+  await empezar(page);
+  await irA(page, 'Ponlo en tu web');
+  const copiar = page.getByRole('button', { name: 'Copiar código' });
+  await expect(copiar).toBeEnabled({ timeout: 30_000 });
+  await copiar.click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __intentosCopiar?: number }).__intentosCopiar ?? 0)).toBeGreaterThan(0);
+  await expect(page.getByText(/No se ha podido copiar/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copiado' })).toHaveCount(0);
+  // El código queda a la vista para copiarlo a mano.
+  await expect(page.locator('pre')).toBeVisible();
+  await page.waitForTimeout(1_500);
+  expect(c.patches.some(p => JSON.stringify(p.widget_builder ?? {}).includes('"copiado"'))).toBe(false);
+});
+
+test('«Una clase concreta» no da código hasta elegir la clase, que se pide allí mismo', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await page.getByRole('radiogroup', { name: 'Más cosas para tu web' }).getByRole('radio', { name: /Una clase concreta/ }).click();
+  await expect(page.locator('pre')).toHaveCount(0);
+  await irA(page, 'Ponlo en tu web');
+  await expect(page.getByRole('status').filter({ hasText: 'Elige la clase para tener el código.' })).toBeVisible();
+  await expect(page.getByText('Te falta un dato')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Qué clase' }).filter({ visible: true }).selectOption({ index: 1 });
+  await expect(page.locator('pre')).toContainText(`/reservar/${SLUG}?`);
+  await expect(page.getByRole('button', { name: /Copiar (el )?enlace/ })).toBeVisible();
+});
+
+test('«Tu clase de prueba»: `prueba=1` en el código y sin la forma sin marco', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu clase de prueba/ }).click();
+  await expect(page.locator('pre')).toContainText('prueba=1');
+  await irA(page, 'Ponlo en tu web');
+  await abrirPliegue(page, 'Para quien te hace la web');
+  await expect(page.getByRole('switch', { name: 'Ponerlo sin marco' })).toHaveCount(0);
+});
+
+test('autorizar su web: con y sin «www» en UNA petición; con un 4xx, en rojo y la lista no cambia (con contador)', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com', dominios: ['https://midominio.com'] });
+  let respuesta: 'ok' | '403' = 'ok';
+  const envios: string[][] = [];
+  await page.route('**/api/estudio/widget-dominios', route => {
+    const cuerpo = route.request().postDataJSON() as { dominios: string[] };
+    envios.push(cuerpo.dominios);
+    return respuesta === 'ok'
+      ? json(route, { ok: true, dominios: cuerpo.dominios })
+      : json(route, { error: 'Solo la propietaria puede cambiar las webs autorizadas.' }, 403);
+  });
+  await empezar(page);
+  await irA(page, 'Ponlo en tu web');
+  await abrirPliegue(page, 'Para quien te hace la web');
+  await page.getByRole('switch', { name: 'Ponerlo sin marco' }).click();
+  const lista = page.getByRole('list', { name: 'Webs autorizadas' });
+  await expect(lista).toContainText('https://midominio.com');
+  const campo = page.getByLabel('Dirección de la web que quieres autorizar');
+  await campo.fill('otrodominio.com');
+  await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
+  await expect.poll(() => envios.length, { timeout: 10_000 }).toBe(1);
+  expect(envios[0]).toEqual(expect.arrayContaining(['https://midominio.com', 'https://otrodominio.com', 'https://www.otrodominio.com']));
+  await expect(lista).toContainText('https://www.otrodominio.com');
+
+  respuesta = '403';
+  await campo.fill('tercero.com');
+  await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
+  await expect.poll(() => envios.length, { timeout: 10_000 }).toBe(2);
+  await expect(page.getByRole('alert').filter({ hasText: 'Solo la propietaria puede cambiar las webs autorizadas.' })).toBeVisible();
+  await expect(lista).not.toContainText('tercero.com');
+});
+
 test.describe('a 375 px', () => {
   test.use({ viewport: { width: 375, height: 812 } });
   test('la barra no desborda, el botón se ve y la fila parte el dominio', async ({ page }) => {
@@ -354,6 +654,23 @@ test.describe('a 375 px', () => {
     const cajaWeb = await web.boundingBox();
     expect(cajaWeb!.x + cajaWeb!.width).toBeLessThanOrEqual(375 + 1);
   });
+
+  test('los cuatro pasos caben: sin desbordar, con «Más cosas» a la vista y los pasos dibujados uno debajo de otro', async ({ page }) => {
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    const desborda = () => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    await expect(page.getByRole('radiogroup', { name: 'Más cosas para tu web' })).toBeVisible();
+    expect(await desborda()).toBe(false);
+    for (const p of ['Dónde va', 'Cómo se ve', 'Ponlo en tu web'] as const) {
+      await irA(page, p);
+      expect(await desborda(), p).toBe(false);
+    }
+    const dibujos = page.locator('[data-dibujo-paso]').filter({ visible: true });
+    await expect(dibujos).toHaveCount(3);
+    // Medidos a la vez: la página puede estar aún desplazándose hasta el título del paso.
+    const [a, b] = await dibujos.evaluateAll(els => els.slice(0, 2).map(e => e.getBoundingClientRect().toJSON() as DOMRect));
+    expect(b.top).toBeGreaterThan(a.bottom);
+  });
 });
 
 test.describe('capturas para el fundador (solo con CAPTURAS=<carpeta>; ANCHO=375 para el móvil)', () => {
@@ -374,13 +691,19 @@ test.describe('capturas para el fundador (solo con CAPTURAS=<carpeta>; ANCHO=375
     await expect(page.getByText('Tu web está hecha con')).toBeVisible();
     await captura(page, `v2-paso-2-donde-${ancho}`);
     await page.getByRole('button', { name: /Siguiente: cómo se ve/ }).click();
-    const arena = page.getByRole('radiogroup', { name: 'Estilo de tus widgets' }).getByRole('radio', { name: 'Arena', exact: true });
+    await expect(page.getByRole('heading', { name: 'Cómo se ve', exact: true })).toBeVisible();
+    await captura(page, `v2-paso-3-como-${ancho}`);
+    await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+    const arena = estilos(page).getByRole('radio', { name: 'Arena', exact: true });
     await arena.click();
     await expect(barra(page)).toContainText('Sin publicar en tu web: el estilo');
-    await captura(page, `v2-paso-3-como-${ancho}`);
+    await captura(page, `v2-paso-3-como-estilo-propio-${ancho}`);
     await page.getByRole('button', { name: /Siguiente: ponlo en tu web/ }).click();
     await expect(page.getByRole('heading', { name: 'Ponlo en tu web', exact: true })).toBeVisible();
     await captura(page, `v2-paso-4-ponlo-${ancho}`);
+    await abrirPliegue(page, 'Para quien te hace la web');
+    await page.getByRole('heading', { name: /Colores y letra propios solo en/ }).scrollIntoViewIfNeeded();
+    await captura(page, `v2-paso-4-para-quien-te-hace-la-web-${ancho}`, { soloPagina: false });
   });
 
   test('la portada con piezas', async ({ page }) => {

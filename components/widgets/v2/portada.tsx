@@ -13,7 +13,7 @@ import { FOCO, TACTIL } from '../piezas';
 import type { ConstructorWidgets } from '../usar-constructor';
 import { FilaWidget } from './fila-widget';
 import { VacioQueEnsena } from './vacio-que-ensena';
-import { PreguntaTuWeb } from './tu-web-hecha-con';
+import { MonogramaPlataforma, PreguntaTuWeb } from './tu-web-hecha-con';
 
 // La portada «Tus widgets» de «Tu web» v2 (decisión 5: siempre la entrada). Sin
 // nada copiado, el vacío que enseña; con algo, una fila por pieza (la más
@@ -108,11 +108,19 @@ function TarjetaTuWeb({ s }: { s: ConstructorWidgets }) {
   return (
     <section aria-labelledby="portada-web" className="rounded-t-card border border-border bg-card p-4 shadow-t-card @md/config:p-5" style={fondoTenido('azul', 9)}>
       <CabeceraTarjeta tono="azul" Icono={Globe} titulo="Tu web" id="portada-web" />
-      <p className="mt-3 text-[12.5px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
-        {web.plataforma
-          ? <>{nombrePlataforma(web.plataforma)}{s.direccionWeb && web.plataforma !== 'sinweb' ? ` · ${s.direccionWeb}` : ''}. Con eso te damos sus pasos.</>
-          : 'Aún no nos has dicho con qué está hecha tu web. Con eso te decimos cómo ponerlo y te damos sus pasos.'}
-      </p>
+      <div className="mt-3 flex items-start gap-2.5">
+        {/* Su monograma (decisión 7), el mismo que en «Dónde va». */}
+        {web.plataforma && (
+          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+            <MonogramaPlataforma plataforma={web.plataforma} size={15} />
+          </span>
+        )}
+        <p className="min-w-0 text-[12.5px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
+          {web.plataforma
+            ? <>{nombrePlataforma(web.plataforma)}{s.direccionWeb && web.plataforma !== 'sinweb' ? ` · ${s.direccionWeb}` : ''}. Con eso te damos sus pasos.</>
+            : 'Aún no nos has dicho con qué está hecha tu web. Con eso te decimos cómo ponerlo y te damos sus pasos.'}
+        </p>
+      </div>
       <button
         type="button"
         onClick={() => setAbierta(true)}

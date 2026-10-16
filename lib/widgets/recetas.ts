@@ -31,6 +31,17 @@ export function nombrePlataforma(p: PlataformaWeb): string {
   return PLATAFORMAS_WEB.find(x => x.id === p)?.nombre ?? p;
 }
 
+/**
+ * El monograma de cada plataforma en «Tu web» v2 (decisión 7 del fundador,
+ * 15-oct-2026): unas letras en neutro, sin logos ni colores de marca de nadie (lo
+ * que antes resolvía un mismo globo para las cuatro). `null`: no es una
+ * plataforma con nombre, y lleva el icono de lo que es (a mano, una persona, sin web).
+ */
+export const MONOGRAMA: Readonly<Record<PlataformaWeb, string | null>> = {
+  wordpress: 'W', wix: 'Wix', squarespace: 'S', webflow: 'Wf',
+  otra: null, agencia: null, sinweb: null,
+};
+
 /** Lo que el constructor recuerda de su web (`widget_builder._web`). */
 export interface EstadoWeb {
   plataforma: PlataformaWeb | null;
@@ -170,41 +181,64 @@ export function botonDeSuWeb(plataforma: PlataformaWeb | null): string | null {
 
 // ── Los pasos ─────────────────────────────────────────────────────────────────
 
-/** Los pasos para ponerlo, en SU plataforma. */
-export function pasosEnTuWeb(plataforma: PlataformaWeb | null, metodo: MetodoIntegracion): string[] {
+/**
+ * El dibujo de cada paso en «Tu web» v2 (decisión 3: «los pasos de su plataforma
+ * con un dibujo cada uno»). Genéricos por TIPO de paso, nunca la pantalla de una
+ * plataforma: ni sus logos ni sus colores (decisión 7).
+ */
+export type DibujoPaso =
+  | 'copiar'     // pulsar el botón de copiar
+  | 'compartir'  // pegarlo en Instagram, WhatsApp o un correo
+  | 'bloque'     // añadir un bloque o un elemento a la página
+  | 'boton'      // añadir un botón de su web
+  | 'pegar'      // pegar el código
+  | 'enlace'     // pegar el enlace en el botón
+  | 'publicar'   // guardar, actualizar o publicar
+  | 'comprobar'  // mirarlo en la web publicada
+  | 'script';    // la línea <script> en el pie del tema
+
+export const DIBUJOS_PASO: readonly DibujoPaso[] = ['copiar', 'compartir', 'bloque', 'boton', 'pegar', 'enlace', 'publicar', 'comprobar', 'script'];
+
+export interface PasoConDibujo { texto: string; dibujo: DibujoPaso }
+
+/**
+ * Los pasos para ponerlo, en SU plataforma, cada uno con su dibujo. Es la fuente
+ * de `pasosEnTuWeb` (los mismos textos): no hay dos listas que puedan divergir.
+ */
+export function pasosConDibujo(plataforma: PlataformaWeb | null, metodo: MetodoIntegracion): PasoConDibujo[] {
   if (metodo === 'enlace') {
     return [
-      'Pulsa «Copiar enlace».',
+      { texto: 'Pulsa «Copiar enlace».', dibujo: 'copiar' },
       plataforma === 'sinweb'
-        ? 'Pégalo en la bio de Instagram, en WhatsApp o en tu newsletter.'
-        : 'Pégalo en la bio de Instagram, en WhatsApp, en tu newsletter o en cualquier botón de tu web.',
+        ? { texto: 'Pégalo en la bio de Instagram, en WhatsApp o en tu newsletter.', dibujo: 'compartir' }
+        : { texto: 'Pégalo en la bio de Instagram, en WhatsApp, en tu newsletter o en cualquier botón de tu web.', dibujo: 'compartir' },
     ];
   }
   if (metodo === 'boton' && usaBotonPropio(plataforma)) {
     switch (plataforma) {
       case 'wordpress':
         return [
-          'Abre la página donde lo quieres y añade un bloque «Botones».',
-          'Escribe el texto (por ejemplo «Reservar clase»), pulsa el icono del enlace y pega tu enlace.',
-          'Pulsa «Actualizar».',
+          { texto: 'Abre la página donde lo quieres y añade un bloque «Botones».', dibujo: 'boton' },
+          { texto: 'Escribe el texto (por ejemplo «Reservar clase»), pulsa el icono del enlace y pega tu enlace.', dibujo: 'enlace' },
+          { texto: 'Pulsa «Actualizar».', dibujo: 'publicar' },
         ];
       case 'wix':
         return [
-          'En el editor de Wix, añade un botón donde lo quieras.',
-          'Escribe el texto y, en su enlace, elige «Dirección web» y pega tu enlace.',
-          'Publica tu web.',
+          { texto: 'En el editor de Wix, añade un botón donde lo quieras.', dibujo: 'boton' },
+          { texto: 'Escribe el texto y, en su enlace, elige «Dirección web» y pega tu enlace.', dibujo: 'enlace' },
+          { texto: 'Publica tu web.', dibujo: 'publicar' },
         ];
       case 'squarespace':
         return [
-          'Edita la página y añade un bloque «Botón».',
-          'Escribe el texto y pega tu enlace como destino.',
-          'Guarda y publica.',
+          { texto: 'Edita la página y añade un bloque «Botón».', dibujo: 'boton' },
+          { texto: 'Escribe el texto y pega tu enlace como destino.', dibujo: 'enlace' },
+          { texto: 'Guarda y publica.', dibujo: 'publicar' },
         ];
       default:
         return [
-          'Arrastra un elemento «Button» donde lo quieras.',
-          'En sus ajustes de enlace, elige «URL» y pega tu enlace.',
-          'Publica el sitio.',
+          { texto: 'Arrastra un elemento «Button» donde lo quieras.', dibujo: 'boton' },
+          { texto: 'En sus ajustes de enlace, elige «URL» y pega tu enlace.', dibujo: 'enlace' },
+          { texto: 'Publica el sitio.', dibujo: 'publicar' },
         ];
     }
   }
@@ -213,36 +247,41 @@ export function pasosEnTuWeb(plataforma: PlataformaWeb | null, metodo: MetodoInt
   switch (plataforma) {
     case 'wordpress':
       return [
-        'Abre la página donde lo quieres y añade un bloque «HTML personalizado».',
-        'Pega el código y pulsa «Actualizar».',
+        { texto: 'Abre la página donde lo quieres y añade un bloque «HTML personalizado».', dibujo: 'bloque' },
+        { texto: 'Pega el código y pulsa «Actualizar».', dibujo: 'pegar' },
         conScript
-          ? 'Si no aparece, pega la línea <script …> en el pie de tu tema: algunos constructores de páginas no ejecutan scripts dentro de un bloque.'
-          : 'Ábrelo en tu web publicada: en el editor no siempre se ve.',
+          ? { texto: 'Si no aparece, pega la línea <script …> en el pie de tu tema: algunos constructores de páginas no ejecutan scripts dentro de un bloque.', dibujo: 'script' }
+          : { texto: 'Ábrelo en tu web publicada: en el editor no siempre se ve.', dibujo: 'comprobar' },
       ];
     case 'wix':
       return [
-        'En el editor de Wix, añade un elemento para insertar código HTML donde lo quieras.',
-        'Pega el código y guarda.',
-        metodo === 'iframe' ? 'Estira la caja hasta que quepa entero y publica tu web.' : 'Publica tu web.',
+        { texto: 'En el editor de Wix, añade un elemento para insertar código HTML donde lo quieras.', dibujo: 'bloque' },
+        { texto: 'Pega el código y guarda.', dibujo: 'pegar' },
+        { texto: metodo === 'iframe' ? 'Estira la caja hasta que quepa entero y publica tu web.' : 'Publica tu web.', dibujo: 'publicar' },
       ];
     case 'squarespace':
       return [
-        'Edita la página y añade un bloque «Código» (no el de «Insertar»).',
-        'Pega el código y guarda.',
-        'Con la sesión abierta puede no verse: compruébalo en una ventana privada.',
+        { texto: 'Edita la página y añade un bloque «Código» (no el de «Insertar»).', dibujo: 'bloque' },
+        { texto: 'Pega el código y guarda.', dibujo: 'pegar' },
+        { texto: 'Con la sesión abierta puede no verse: compruébalo en una ventana privada.', dibujo: 'comprobar' },
       ];
     case 'webflow':
       return [
-        'Arrastra un elemento «Code Embed» donde lo quieras.',
-        'Pega el código y pulsa «Save & Close».',
-        'Publica el sitio: en el editor no se ve, solo en la web publicada.',
+        { texto: 'Arrastra un elemento «Code Embed» donde lo quieras.', dibujo: 'bloque' },
+        { texto: 'Pega el código y pulsa «Save & Close».', dibujo: 'pegar' },
+        { texto: 'Publica el sitio: en el editor no se ve, solo en la web publicada.', dibujo: 'publicar' },
       ];
     default:
       return [
-        'Pega el código en el HTML de tu página, donde quieras que aparezca.',
-        'Sube el cambio a tu web. No hace falta nada más.',
+        { texto: 'Pega el código en el HTML de tu página, donde quieras que aparezca.', dibujo: 'pegar' },
+        { texto: 'Sube el cambio a tu web. No hace falta nada más.', dibujo: 'publicar' },
       ];
   }
+}
+
+/** Los pasos para ponerlo, en SU plataforma. */
+export function pasosEnTuWeb(plataforma: PlataformaWeb | null, metodo: MetodoIntegracion): string[] {
+  return pasosConDibujo(plataforma, metodo).map(p => p.texto);
 }
 
 /** La guía de la ayuda que mejor le sirve, como ruta del sitio. */
