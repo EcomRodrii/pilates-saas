@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 // Rutas relativas: lo mismo que estado-servidor (lo cargan módulos que prueba `node --test`).
 import { cargarEstadosClientas } from '../clientas/estado-servidor.ts';
 import {
-  estadoGratis, siguienteExcedidoDesde, ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, type EstadoGratis, type UsoGratis,
+  estadoDeLoGuardado, estadoGratis, medicionDelGrupo, ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, type EstadoGratis, type UsoGratis,
 } from './plan-gratis.ts';
 import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 
@@ -28,6 +28,9 @@ import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 //   pasado MINUTOS_ENTRE_INTENTOS. Si algo falla al medir no se guarda nada (un
 //   «0» inventado escondería un exceso); un estudio gratis sin medir más de
 //   HORAS_SIN_MEDIR_AVISO va a Sentry.
+// · El informe en seco de bajas (lib/retencion/gratis-en-seco-servidor.ts) mide
+//   con ESTAS funciones (`estudiosGratisDeLaDuena`, `medirUsoGratis`) y deriva
+//   con las mismas reglas puras (plan-gratis.ts), pero no guarda nada aquí.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Cada cuánto se vuelve a medir. El margen es de días: medio día de retraso no cambia nada. */
@@ -39,7 +42,7 @@ export const DIAS_VENTANA_RESERVAS = 30;
 /** Las que no son uso: no ocupan plaza. */
 const RESERVAS_QUE_NO_CUENTAN = '(CANCELADA,LISTA_ESPERA,PENDIENTE_APROBACION)';
 
-interface FilaUso {
+export interface FilaUso {
   studio_id: string;
   alumnas_activas: number | null;
   reservas_30_dias: number | null;
@@ -48,8 +51,8 @@ interface FilaUso {
   creado_en: string;
 }
 
-/** Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira siempre dentro. */
-async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, ownerId: string | null): Promise<string[] | null> {
+/** Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira siempre dentro. `null` si la lectura falla. */
+export async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, ownerId: string | null): Promise<string[] | null> {
   if (!ownerId) return [studioId];
   const { data, error } = await admin.from('studios').select('id')
     .eq('owner_auth_user_id', ownerId).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
@@ -57,8 +60,8 @@ async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, 
   return [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
 }
 
-/** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. */
-async function medir(admin: SupabaseClient, ids: string[], ahora: Date): Promise<Map<string, UsoGratis> | null> {
+/** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. Solo lee. */
+export async function medirUsoGratis(admin: SupabaseClient, ids: string[], ahora: Date): Promise<Map<string, UsoGratis> | null> {
   const hoy = hoyEnEstudio(ahora);
   // Las clases desde el principio (Madrid) de hace 29 días hasta ahora: 30 días de calendario.
   const desde = inicioDelDiaEstudio(masDias(hoy, -(DIAS_VENTANA_RESERVAS - 1)));
@@ -84,53 +87,46 @@ async function medir(admin: SupabaseClient, ids: string[], ahora: Date): Promise
   return usos;
 }
 
-function sumar(usos: Iterable<UsoGratis>): UsoGratis {
-  const t: UsoGratis = { alumnasActivas: 0, reservas30Dias: 0 };
-  for (const u of usos) {
-    t.alumnasActivas += u.alumnasActivas;
-    t.reservas30Dias += u.reservas30Dias;
-  }
-  return t;
-}
-
-/** Desde cuándo se pasó el grupo: la fecha más antigua guardada. */
-function excedidoDelGrupo(filas: { excedido_desde: string | null }[]): string | null {
-  return filas.reduce<string | null>((m, f) => (f.excedido_desde && (!m || f.excedido_desde < m) ? f.excedido_desde : m), null);
-}
-
 export interface LecturaUsoGratis {
   estado: EstadoGratis;
   /** Toca volver a medir (falta alguna cifra o son de hace más de HORAS_VIGENCIA). */
   caducado: boolean;
+  /** Desde cuándo se pasó el grupo según lo guardado (la fecha más antigua). */
+  excedidoDesde: string | null;
+}
+
+export const COLUMNAS_USO = 'studio_id, alumnas_activas, reservas_30_dias, excedido_desde, medido_en, creado_en';
+
+/** Lo guardado de un grupo, ya derivado (lo que ve el gate). Puro: no lee ni avisa. */
+export function lecturaDeLoGuardado(filas: readonly FilaUso[], ids: readonly string[], ahora: Date): LecturaUsoGratis {
+  const { estado, excedidoDesde, medidas } = estadoDeLoGuardado(filas.map(f => ({
+    alumnasActivas: f.alumnas_activas, reservas30Dias: f.reservas_30_dias, excedidoDesde: f.excedido_desde, medidoEn: f.medido_en,
+  })), ids.length, hoyEnEstudio(ahora));
+  // Un estudio del grupo sin medir: hasta medirlo no se dice nada del uso.
+  const viejo = medidas.length < ids.length
+    || medidas.some(m => ahora.getTime() - new Date(m.medidoEn!).getTime() > HORAS_VIGENCIA * 3_600_000);
+  return { estado, caducado: viejo, excedidoDesde };
 }
 
 /** Lee lo guardado del grupo de la dueña y deriva el estado. Nunca mide. */
 export async function leerUsoGratis(admin: SupabaseClient, studioId: string, ownerId: string | null, ahora: Date): Promise<LecturaUsoGratis> {
   const hoy = hoyEnEstudio(ahora);
   const ids = await estudiosGratisDeLaDuena(admin, studioId, ownerId);
-  const sinCifras = (excedidoDesde: string | null) => ({ estado: estadoGratis({ uso: null, excedidoDesde, hoy }), caducado: true });
+  const sinCifras = (excedidoDesde: string | null): LecturaUsoGratis => ({ estado: estadoGratis({ uso: null, excedidoDesde, hoy }), caducado: true, excedidoDesde });
   if (!ids) return sinCifras(null);
-  const { data, error } = await admin.from('uso_plan_gratis')
-    .select('studio_id, alumnas_activas, reservas_30_dias, excedido_desde, medido_en, creado_en').in('studio_id', ids);
+  const { data, error } = await admin.from('uso_plan_gratis').select(COLUMNAS_USO).in('studio_id', ids);
   if (error) return sinCifras(null);
   const filas = (data ?? []) as FilaUso[];
-  const desde = excedidoDelGrupo(filas);
-
-  // Un estudio del grupo sin medir: la suma saldría menor que la real. Hasta
-  // medirlo no se dice nada del uso (pero un margen ya acabado sigue cerrado).
-  const medidas = filas.filter(f => f.medido_en && f.alumnas_activas !== null && f.reservas_30_dias !== null);
-  if (medidas.length < ids.length) {
+  const lectura = lecturaDeLoGuardado(filas, ids, ahora);
+  if (!lectura.estado.uso) {
     const atascada = filas.find(f => !f.medido_en && ahora.getTime() - new Date(f.creado_en).getTime() > HORAS_SIN_MEDIR_AVISO * 3_600_000);
     if (atascada) {
       Sentry.captureMessage('[plan gratis] un estudio gratis lleva más de un día sin poder medirse', {
         level: 'warning', tags: { area: 'billing' }, extra: { studioId: atascada.studio_id },
       });
     }
-    return sinCifras(desde);
   }
-  const uso = sumar(medidas.map(f => ({ alumnasActivas: f.alumnas_activas!, reservas30Dias: f.reservas_30_dias! })));
-  const viejo = medidas.some(f => ahora.getTime() - new Date(f.medido_en!).getTime() > HORAS_VIGENCIA * 3_600_000);
-  return { estado: estadoGratis({ uso, excedidoDesde: desde, hoy }), caducado: viejo };
+  return lectura;
 }
 
 /**
@@ -153,10 +149,12 @@ export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string
   if (!(await reservarMedicion(admin, studioId, ahora))) return false;
   const ids = await estudiosGratisDeLaDuena(admin, studioId, ownerId);
   if (!ids) return false;
-  const usos = await medir(admin, ids, ahora);
+  const usos = await medirUsoGratis(admin, ids, ahora);
   if (!usos) return false;
   const { data: previas } = await admin.from('uso_plan_gratis').select('excedido_desde').in('studio_id', ids);
-  const desde = siguienteExcedidoDesde(excedidoDelGrupo((previas ?? []) as { excedido_desde: string | null }[]), sumar(usos.values()), hoyEnEstudio(ahora));
+  const { excedidoDesde: desde } = medicionDelGrupo(
+    [...usos.values()], ((previas ?? []) as { excedido_desde: string | null }[]).map(p => p.excedido_desde), hoyEnEstudio(ahora),
+  );
   const medidoEn = ahora.toISOString();
   const filas = ids.map(id => {
     const u = usos.get(id)!;
