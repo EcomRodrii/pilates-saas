@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { TabDescubre } from '@/components/configuracion/tab-descubre';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
-import { useMiWebNueva } from '@/lib/estudio/mi-web-nueva-cliente';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
 
 // La v2 (decisiones 10–13 de «Mi app y mi web», tras `MI_WEB_NUEVA`) en su propio
 // trozo: quien no la tiene no la descarga.

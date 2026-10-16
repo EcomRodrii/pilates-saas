@@ -6,7 +6,7 @@
 //
 // Este es el ÚNICO sitio donde el SERVIDOR lo pregunta para Contenido (hoy: si su
 // app enseña el mensaje destacado). El panel lo pregunta en `useMiWebNueva`
-// (mi-web-nueva-cliente.ts). Los dos leen la misma variable: si el panel enseña el
+// (panel-nuevo-cliente.ts). Los dos leen la misma variable: si el panel enseña el
 // editor nuevo («sale arriba del todo en el inicio de su app») y la app no pinta la
 // franja, la pantalla miente.
 // Puro, sin `@/`.

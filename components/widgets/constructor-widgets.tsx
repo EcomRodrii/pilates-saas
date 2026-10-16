@@ -1029,11 +1029,11 @@ function avisosDeDatos(id: string, d: { pruebas: number; pruebaDePago: boolean; 
   const ir = (href: string, texto: string) => (
     <Link href={href} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2', FOCO)}>{texto}<ArrowUpRight size={12} aria-hidden /></Link>
   );
-  if ((id === 'planes' || id === 'bonos') && !d.stripe) a.push({ texto: 'Para vender online necesitas los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=cobros', 'Conectarlos') });
+  if ((id === 'planes' || id === 'bonos') && !d.stripe) a.push({ texto: 'Para vender online necesitas los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=conexiones#integracion-stripe', 'Conectarlos') });
   if (id === 'planes' && d.planes === 0) a.push({ texto: 'No tienes planes a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un plan') });
   if (id === 'bonos' && d.bonos === 0) a.push({ texto: 'No tienes bonos a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un bono') });
   if (id === 'prueba' && d.pruebas === 0) a.push({ texto: 'No tienes ninguna clase de prueba activa: tu web diría «Ahora no hay clase de prueba». Marca una tarifa como clase de prueba en Paquetes.', enlace: ir('/productos', 'Ir a Paquetes') });
-  if (id === 'prueba' && d.pruebaDePago && !d.stripe) a.push({ texto: 'Tu clase de prueba es de pago y no tienes los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=cobros', 'Conectarlos') });
+  if (id === 'prueba' && d.pruebaDePago && !d.stripe) a.push({ texto: 'Tu clase de prueba es de pago y no tienes los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=conexiones#integracion-stripe', 'Conectarlos') });
   if (id === 'citas' && d.citas === 0) a.push({ texto: 'Ningún servicio de cita se puede reservar online todavía: el widget saldría vacío.', enlace: ir('/configuracion?tab=clases', 'Revisar servicios') });
   return a;
 }

@@ -20,7 +20,7 @@ import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
 import { NO_OCULTABLES } from '@/lib/nav-config';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
-import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { activoEnModulos } from '@/lib/modulos/menu';
 import { HOME_SECCIONES, HOME_FIJAS_PRIMERO } from '@/lib/home-sections';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -82,14 +82,12 @@ export function usePersonalizacionPanel() {
   // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
   const panelNuevo = usePanelNuevo();
   const panelNuevoRef = useRef(panelNuevo);
-  const miWebNueva = useMiWebNueva();
-  const miWebNuevaRef = useRef(miWebNueva);
-  useEffect(() => { panelNuevoRef.current = panelNuevo; miWebNuevaRef.current = miWebNueva; });
+  useEffect(() => { panelNuevoRef.current = panelNuevo; });
 
   const cargar = useCallback(() => {
     // Solo los módulos que este rol puede ver: ofrecer ocultar algo que ya no
     // ves es un control que no hace nada.
-    const gruposVisibles = seccionesDelMenu(panelNuevoRef.current, miWebNuevaRef.current)
+    const gruposVisibles = seccionesDelMenu(panelNuevoRef.current)
       .map(sec => ({ label: sec.label, items: sec.items.filter(m => puedeVerRef.current(m.href)) }))
       .filter(g => g.items.length > 0);
     const aItem = (m: { href: string; label: string }): ItemOrdenable =>
@@ -130,15 +128,13 @@ export function usePersonalizacionPanel() {
   // nueva (lo pregunta al servidor): si cambia y aún no se ha tocado nada, se
   // vuelve a leer para que «Tu menú» traiga sus secciones (Festivos). Con algo
   // tocado no: recargar sería borrarlo.
-  // Lo mismo con «Tu app» y «Tu web» (MI_WEB_NUEVA).
-  const panelLeido = useRef(`${panelNuevo}|${miWebNueva}`);
+  const panelLeido = useRef(panelNuevo);
   useEffect(() => {
-    const ahora = `${panelNuevo}|${miWebNueva}`;
-    if (panelLeido.current === ahora) return;
-    panelLeido.current = ahora;
+    if (panelLeido.current === panelNuevo) return;
+    panelLeido.current = panelNuevo;
     if (!cambios.menu && !cambios.inicio && !cambios.posicion) cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelNuevo, miWebNueva]);
+  }, [panelNuevo]);
 
   const tocado = (parte: keyof CambiosPanel) => setCambios(c => (c[parte] ? c : { ...c, [parte]: true }));
 

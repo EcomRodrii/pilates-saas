@@ -134,8 +134,13 @@
      escala: había 28 tamaños distintos en la app porque cada pantalla elegía el
      suyo, y varios se diferenciaban en medio píxel. Ocho pasos cubren todo lo
      que la app dice, y con ocho el ritmo se ve. */
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  /* ⚠️ Por la VARIABLE, nunca por el nombre: las fuentes van autoalojadas con
+     `next/font/local` (app/_fuentes), que las registra con otro nombre de
+     familia, así que el literal 'Plus Jakarta Sans' no casaba con ninguna cara
+     cargada y «Moderna» —la de serie— caía a system-ui (San Francisco en el
+     iPhone de la alumna). Lo vigila lib/student/apariencia.test.ts. */
+  --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   /* Títulos. Por defecto, la misma familia y el mismo peso de siempre: solo
      cambian si el estudio elige otra pareja tipográfica en «Apariencia de tu
      app» (lib/student/apariencia.ts). Una serif no aguanta el −0,03 em ni el

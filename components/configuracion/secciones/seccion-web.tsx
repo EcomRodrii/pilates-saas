@@ -12,7 +12,7 @@ import { DetallePaginaPublica } from '@/components/configuracion/pagina-publica'
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
-import { useMiWebNueva } from '@/lib/estudio/mi-web-nueva-cliente';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Mi app y mi web: cómo se ve tu estudio por fuera. El logo, el color y los
 // textos de tu app están en «Marca» (seccion-marca.tsx).
@@ -27,9 +27,11 @@ import { useMiWebNueva } from '@/lib/estudio/mi-web-nueva-cliente';
 const CAJONES = ['direccion-y-enlaces', 'pagina-publica'] as const satisfies readonly TarjetaId[];
 
 export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, updateStudio, bannersPortal, contenidoPortal } = useStudio();
-  const miWebNueva = useMiWebNueva();
+  const { studio, dataLoaded, updateStudio, bannersPortal } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  // «Tu web» (MI_WEB_NUEVA): solo lo de la web, en el orden del fundador (dirección, widgets, ocultar la
+  // página) y Network aparte. «Contenido de tu app» se pinta en «Tu app» (seccion-marca.tsx).
+  const miWebNueva = useMiWebNueva();
 
   // Qué tarjetas siguen publicadas depende de la hora: se lee una vez al montar,
   // no en cada render (sería impuro).
@@ -75,15 +77,26 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
       id: 'contenido-de-tu-app' as const,
       valor: resumenHerramienta('contenido-de-tu-app', {
         contenido: dataLoaded && ahoraMs > 0
-          ? { tarjetas: bannersPortal, ahoraMs, mensaje: miWebNueva ? contenidoPortal?.mensajeDestacado : null }
+          ? { tarjetas: bannersPortal, ahoraMs }
           : null,
       }),
     },
     { id: 'widgets' as const, valor: resumenHerramienta('widgets', { widgetDominios: studio?.widgetDominiosAutorizados ?? null }) },
   ];
 
+  const widgets = herramientas.find(h => h.id === 'widgets')!;
   return (
     <>
+      {miWebNueva ? (<>
+      <GrupoFilas titulo="Tu web">
+        <FilaDireccionYEnlaces onAbrir={() => abrir('direccion-y-enlaces')} showToast={showToast} />
+        <FilaHerramienta {...widgets} />
+        <FilaAjuste id="pagina-publica" icono={EyeOff} valor={resumenPaginaPublica(paginaPublica)} onAbrir={abrir} />
+      </GrupoFilas>
+      <GrupoFilas titulo="Tentare Network">
+        <FilaInterruptor id="network" icono={Globe} on={dataLoaded && studio ? studio.visibleEnNetwork : null} onCambiar={cambiarNetwork} />
+      </GrupoFilas>
+      </>) : (<>
       <GrupoFilas titulo="Tu página y tu app">
         <FilaDireccionYEnlaces onAbrir={() => abrir('direccion-y-enlaces')} showToast={showToast} />
         <FilaAjuste id="pagina-publica" icono={EyeOff} valor={resumenPaginaPublica(paginaPublica)} onAbrir={abrir} />
@@ -93,6 +106,7 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
       <GrupoFilas titulo="Lo que ven en tu app y en tu web">
         {herramientas.map(f => <FilaHerramienta key={f.id} {...f} />)}
       </GrupoFilas>
+      </>)}
 
       <CajonAjuste id="direccion-y-enlaces" abierto={cajon === 'direccion-y-enlaces'} onCerrar={cerrar}>
         <DetalleDireccionYEnlaces showToast={showToast} />

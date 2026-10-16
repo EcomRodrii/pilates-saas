@@ -23,7 +23,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink, EyeOff, RotateCcw } from 'lucide-react';
+import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
+import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
 import { cn } from '@/lib/utils';
@@ -42,6 +44,7 @@ import {
   type AparienciaApp, type EncuadrePortada,
 } from '@/lib/student/apariencia';
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
+import { TEXTO_RESERVAS_Y_WIDGET, TEXTO_SECUNDARIO } from '@/lib/student/textos-apariencia';
 import { MuestraEstilo } from './muestra-estilo';
 import { AppEnElMovil } from './app-en-el-movil';
 import { MiAppDeTienda } from './mi-app-de-tienda';
@@ -212,8 +215,35 @@ const PANTALLAS = [
 ] as const;
 type PantallaId = (typeof PANTALLAS)[number]['id'];
 
-function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
-  slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void;
+/**
+ * Con la página oculta, la app del iframe enseña el cartel «Estamos preparando
+ * esta página» y no el borrador: se dice encima, en vez de dejar que parezca
+ * que el estilo no se aplica.
+ *
+ * ⚠️ No se abre la app «solo para la vista previa»: el cierre lo decide el
+ * SERVIDOR en el layout de la app y en cada ruta que lee o escribe
+ * (lib/publico/pagina-cerrada-peticion.ts), y la sesión del panel no viaja en
+ * cookie (va en el `Authorization` de cada llamada), así que el layout no
+ * tiene cómo saber que quien mira es la propietaria. Una excepción por URL o
+ * por galleta nueva sería una puerta para enseñar una página oculta, que es
+ * justo lo que la dueña ha pedido que no pase.
+ */
+function AvisoPaginaOculta() {
+  return (
+    <div role="note" data-testid="aviso-pagina-oculta-apariencia" className="mb-3 flex max-w-[332px] items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
+      <EyeOff size={15} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <p className="text-pretty">
+        <strong className="font-semibold">Tu página está oculta</strong>, así que aquí (y a tus alumnas) se ve «Estamos preparando esta página» en vez de tu app. Lo que publiques se verá en cuanto la hagas visible.{' '}
+        <Link href={hrefDeTarjeta('pagina-publica')} className="inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          Cambiarlo<ArrowUpRight size={12} aria-hidden />
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = false }: {
+  slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void; paginaOculta?: boolean;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [cargando, setCargando] = useState(true);
@@ -227,6 +257,7 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
   const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
   return (
     <div className="flex flex-col items-center">
+      {paginaOculta && <AvisoPaginaOculta />}
       <div className="mb-3">
         <Segmentado
           etiqueta="Pantalla de la vista previa"
@@ -286,6 +317,17 @@ export function EditorAparienciaApp() {
   const irAPaso = (p: PasoAsistente) => { setPasoEstado(p); setPantalla(p === 'entrada' ? 'entrada' : 'inicio'); };
   // Sin dirección de la app (sin slug) no hay nada que instalar: ese paso no sale.
   const pasos = studio?.slug ? PASOS : PASOS.filter(p => p.id !== 'instalar');
+  // `?paso=instalar` abre directamente un paso: lo usa la fila «Tu app en la App Store» de
+  // Configuración (MI_WEB_NUEVA). Se lee una vez, al tener el estudio, y solo si ese paso existe.
+  const pasoDeLaUrl = useRef(false);
+  useEffect(() => {
+    if (pasoDeLaUrl.current || !studio) return;
+    pasoDeLaUrl.current = true;
+    const pedido = new URLSearchParams(window.location.search).get('paso');
+    const valido = pasos.find(p => p.id === pedido);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La URL solo se puede leer tras montar.
+    if (valido) irAPaso(valido.id);
+  }, [studio, pasos]);
 
   useEffect(() => {
     let vivo = true;
@@ -296,9 +338,18 @@ export function EditorAparienciaApp() {
   }, [intento]);
 
   const soyPropietaria = rol === 'PROPIETARIO';
+  // Solo la propietaria puede leerlo (`/api/pagina-publica`); sin respuesta, no
+  // se dice nada (nunca un aviso a ciegas). Mismo criterio que los widgets.
+  const [paginaOculta, setPaginaOculta] = useState(false);
+  useEffect(() => {
+    if (!soyPropietaria) return;
+    let vivo = true;
+    void leerPaginaPublica().then(e => { if (vivo) setPaginaOculta(e?.oculta === true); });
+    return () => { vivo = false; };
+  }, [soyPropietaria]);
   const incluidoEnPlan = !!studio && tieneFeature(studio, 'marca');
   const css = useMemo(
-    () => (borrador ? temaAppCssText(HEX.test(borrador.primary) ? borrador.primary : publicado?.primary, borrador.app, '.student-app.student-app') : ''),
+    () => (borrador ? temaAppCssText(HEX.test(borrador.primary) ? borrador.primary : publicado?.primary, borrador.app, '.student-app.student-app', { completo: true }) : ''),
     [borrador, publicado],
   );
 
@@ -385,18 +436,17 @@ export function EditorAparienciaApp() {
         <h1 className="text-[22px] font-bold text-foreground">Apariencia de tu app</h1>
         {panelNuevo ? (
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-            Nadie lo ve hasta que publiques. Cambia también tu página de reservas y el widget de tu web.
+            Nadie lo ve hasta que publiques. {TEXTO_RESERVAS_Y_WIDGET}
           </p>
         ) : (<>
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
           Cómo ven tus alumnas su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
           resultado en el móvil de la derecha; nadie lo ve hasta que publiques.
         </p>
-        {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts):
-            publicar aquí también cambia la página de reservas y el widget de su web. */}
+        {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts),
+            pero no todo: ver `TEXTO_RESERVAS_Y_WIDGET`. */}
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-          También se aplica a tu página de reservas y al widget de tu web (salvo los colores o la letra que le
-          pongas al widget).
+          {TEXTO_RESERVAS_Y_WIDGET}
         </p>
         </>)}
         {!soyPropietaria && (
@@ -507,12 +557,12 @@ export function EditorAparienciaApp() {
                   opciones={[{ valor: 'tinta', texto: 'Oscuro' }, { valor: 'marca', texto: 'En tu color' }]}
                   onChange={boton => setApp({ boton })}
                 />
-                <p className="text-[12px] leading-relaxed text-muted-foreground">«Reservar», «Comprar», la pestaña activa…</p>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">«Reservar», «Comprar», la pestaña activa… de tu app. En tu página de reservas los botones van siempre en tu color.</p>
               </div>
               <details className="group">
                 <summary className="flex cursor-pointer list-none items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
                   <ChevronRight size={14} className="transition-transform group-open:rotate-90" aria-hidden />
-                  Color secundario (solo tu panel y tu página de reservas)
+                  {TEXTO_SECUNDARIO}
                 </summary>
                 <div className="mt-3">
                   <CampoColor
@@ -674,7 +724,9 @@ export function EditorAparienciaApp() {
               <AppEnElMovil
                 nombre={studio.nombre}
                 slug={studio.slug}
-                colorPrimario={studio.colorPrimario}
+                // El color del icono real (el manifest de su app) es el del tema publicado, no la
+                // columna `color_primario` del alta, que en casi todos los estudios es otro.
+                colorPrimario={publicado.primary ?? studio.colorPrimario}
                 faviconUrl={publicado.faviconUrl ?? null}
                 logoUrl={studio.logoUrl}
               />
@@ -728,11 +780,11 @@ export function EditorAparienciaApp() {
               style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
             >
               {studio.slug
-                ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
+                ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />
                 : <p className="max-w-xs rounded-2xl bg-card/90 p-4 text-[13px] text-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>}
             </div>
           ) : (studio.slug
-            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
+            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />
             : <p className="max-w-xs text-[13px] text-muted-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>)}
         </div>
       </div>
