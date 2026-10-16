@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Eye, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { BotonVivo } from '@/components/dashboard/vivo';
 import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { puedeVer } from '@/lib/permisos-reglas';
@@ -108,9 +109,33 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
   }, [paso, estadoPublicacion, w.id]);
   const preparando = s.creando === w.id || (rol === 'PROPIETARIO' && estadoPublicacion === 'cargando');
 
-  // ── Vista previa ── (lo de siempre; móvil por defecto y a tamaño real, en el PR 3)
-  const [dispositivo, setDispositivo] = useState<Dispositivo>(() =>
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches ? 'movil' : 'escritorio');
+  // ── Vista previa ── (decisión 6): en el MÓVIL por defecto, siempre —es donde la
+  // mira casi siempre su alumna—, y a tamaño real (lo mide `VistaPrevia variante="v2"`).
+  const [dispositivo, setDispositivo] = useState<Dispositivo>('movil');
+  // Por debajo de las dos columnas (iPad en vertical, móvil del panel) la vista
+  // previa no va encima del paso: «Ver cómo queda» la abre en una hoja. Se decide
+  // midiendo el contenedor de la configuración (el mismo `@4xl/config` de la
+  // rejilla), no con CSS: un iframe escondido con CSS carga igual, y cargaría la
+  // página de reservas en cada cambio sin que nadie la viera.
+  const raiz = useRef<HTMLDivElement | null>(null);
+  const [columnas, setColumnas] = useState<boolean | null>(null);
+  const [hoja, setHoja] = useState(false);
+  useLayoutEffect(() => {
+    const el = raiz.current;
+    const contenedor = el?.closest<HTMLElement>('[class~="@container/config"]') ?? el;
+    if (!contenedor) return;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const medir = () => {
+      const dos = contenedor.clientWidth >= 56 * rem;
+      setColumnas(dos);
+      // Con las dos columnas la vista previa ya está a la vista: la hoja sobra.
+      if (dos) setHoja(false);
+    };
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(contenedor);
+    return () => obs.disconnect();
+  }, []);
 
   // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de «Una
   // clase concreta», «Qué pones» no lo está; sin su web, «Dónde va» tampoco.
@@ -118,8 +143,29 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
   const siguiente = PASOS_V2[indice + 1] ?? null;
   const bloqueado = paso === 'donde' && !plataforma;
 
+  const vistaPrevia = (
+    <VistaPrevia
+      // Tras publicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+      key={`${w.id}-${metodo}-${estiloWeb.version}`}
+      variante="v2"
+      contenido={s.contenido}
+      falta={s.faltaPrevia}
+      forma={s.forma}
+      web={s.suWeb}
+      paginaDeReservas={`${new URL(s.origen).host}/reservar/${s.slug}`}
+      anchoWidget={s.anchoWidget}
+      // La dirección de verdad, sin `vista-previa` ni el borrador: lo que verá su alumna (01b).
+      abrirEn={s.urlReal}
+      dispositivo={dispositivo}
+      onDispositivo={setDispositivo}
+      noSigueElEstilo={s.noSigueElEstilo}
+      alSeguirElEstilo={!s.paginaCompleta && s.noSigueElEstilo ? () => s.cambiar({ identidad: 'estudio' }) : null}
+      nota={s.letraDeSuWeb ? 'Sin marco, tu widget toma la letra de tu web: aquí, la del dibujo.' : null}
+    />
+  );
+
   return (
-    <div className="space-y-5">
+    <div ref={raiz} className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border py-2">
         <button
           type="button"
@@ -139,6 +185,16 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
           <div ref={titulo} data-titulo-paso="">
             <h3 className="text-[22px] font-bold leading-tight text-foreground">{n[paso].titulo}</h3>
             <p className="mt-1 max-w-xl text-[13.5px] text-muted-foreground text-pretty">{n[paso].sub}</p>
+            {columnas === false && (
+              <button
+                type="button"
+                onClick={() => setHoja(true)}
+                aria-haspopup="dialog"
+                className={cn(TACTIL, 'mt-3 gap-2 rounded-full bg-foreground px-4 py-2 text-[13.5px] font-semibold text-background hover:bg-foreground/90', FOCO)}
+              >
+                <Eye size={15} aria-hidden />Ver cómo queda
+              </button>
+            )}
           </div>
 
           <div ref={el => { contenedores.current.que = el; }} tabIndex={-1} hidden={paso !== 'que'} className="space-y-4 outline-none">
@@ -248,29 +304,47 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
           </div>
         </div>
 
-        <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-[calc(var(--panel-sticky-top,0px)+4rem)] @4xl/config:order-none">
-          {/* Como Apariencia (Bonsai b-30…): el widget real, sobre un panel de color, pegado debajo de la barra de arriba. */}
-          <div className="rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-3 sm:p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
-            <div className="rounded-2xl bg-card p-3 text-card-foreground shadow-t-card sm:p-4">
-              <VistaPrevia
-                // Tras publicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
-                key={`${w.id}-${metodo}-${estiloWeb.version}`}
-                contenido={s.contenido}
-                falta={s.faltaPrevia}
-                forma={s.forma}
-                web={s.suWeb}
-                paginaDeReservas={`${new URL(s.origen).host}/reservar/${s.slug}`}
-                anchoWidget={s.anchoWidget}
-                abrirEn={s.urlPrevia}
-                dispositivo={dispositivo}
-                onDispositivo={setDispositivo}
-                noSigueElEstilo={s.noSigueElEstilo}
-                alSeguirElEstilo={!s.paginaCompleta && s.noSigueElEstilo ? () => s.cambiar({ identidad: 'estudio' }) : null}
-              />
-            </div>
+        {columnas && (
+          <div className="min-w-0 @4xl/config:sticky @4xl/config:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
+            {/* Como Apariencia (Bonsai b-30…): el widget real, directamente sobre un panel de color, pegado debajo de la barra de arriba. */}
+            <PanelDeColor>{vistaPrevia}</PanelDeColor>
           </div>
-        </div>
+        )}
       </div>
+
+      {columnas === false && (
+        <DashboardSheet
+          open={hoja}
+          onClose={() => setHoja(false)}
+          label="Cómo queda en tu web"
+          backdropClassName="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
+          sheetClassName="flex max-h-[94dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-3xl bg-card text-card-foreground shadow-2xl sm:rounded-3xl"
+        >
+          <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
+            <p className="text-[15px] font-semibold text-foreground">Cómo queda en tu web</p>
+            <button
+              type="button"
+              onClick={() => setHoja(false)}
+              aria-label="Cerrar la vista previa"
+              className={cn('inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground', FOCO)}
+            >
+              <X size={18} aria-hidden />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+            {hoja && <PanelDeColor>{vistaPrevia}</PanelDeColor>}
+          </div>
+        </DashboardSheet>
+      )}
+    </div>
+  );
+}
+
+/** El panel de color de Apariencia (Bonsai b-30…), con la vista previa encima, sin tarjeta blanca entre los dos. */
+function PanelDeColor({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-3 sm:p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
+      {children}
     </div>
   );
 }

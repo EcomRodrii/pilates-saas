@@ -401,9 +401,9 @@ test('Siguiente lleva al título del paso nuevo y le da el foco (#2743)', async 
     const a = document.activeElement as HTMLElement | null;
     return !!a && a.tabIndex === -1 && !a.hidden && !!a.textContent?.includes('Tu web está hecha con');
   })).toBe(true);
-  // Y el título queda debajo de la barra de arriba, no tapado por ella.
-  const caja = await titulo.boundingBox();
-  expect(caja!.y).toBeGreaterThan(40);
+  // Y el título queda debajo de la barra de arriba, no tapado por ella. Con `poll`: el desplazamiento es
+  // suave, y medirlo a medio camino (con la previa del móvil la página es más larga) daba falsos rojos.
+  await expect.poll(async () => (await titulo.boundingBox())!.y, { timeout: 5_000 }).toBeGreaterThan(40);
 });
 
 test('la web se pregunta en «Dónde va»: monogramas, se guarda en `_web` UNA vez fusionando, y sin contestar no se sigue', async ({ page }) => {
@@ -721,4 +721,196 @@ test.describe('capturas para el fundador (solo con CAPTURAS=<carpeta>; ANCHO=375
     await expect(barra(page)).toBeVisible();
     await captura(page, `v2-portada-con-piezas-${ancho}`);
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PR 3 · La vista previa (decisión 6): en el móvil por defecto y a tamaño real,
+// el ordenador que se lee, la anterior mientras carga, «Abrir en una pestaña»
+// con la dirección de verdad y, por debajo de las dos columnas, en una hoja.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const dispositivos = (page: Page) => page.getByRole('group', { name: 'Dispositivo de la vista previa' }).filter({ visible: true }).first();
+/** La escala con que se pinta el iframe de la previa (su caja en pantalla frente a su ancho de verdad). */
+const escalaDe = (page: Page) => previa(page).evaluate(el => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
+/** Espera a que la previa cargue de verdad el horario, para medir dentro. */
+async function previaCargada(page: Page) {
+  await expect(previa(page)).toHaveCount(1, { timeout: 30_000 });
+  const marco = await previa(page).elementHandle();
+  const frame = await marco!.contentFrame();
+  await frame!.locator('#horario').waitFor({ timeout: 120_000 });
+  return frame!;
+}
+/** Retiene el documento de la previa que lleva el estilo Arena (el cambio que se hace) hasta `soltar()`. */
+async function retenerArena(page: Page) {
+  const estado = { retener: false, retenidas: 0, soltar: () => {} };
+  const retenida = new Promise<void>(r => { estado.soltar = r; });
+  await page.route(u => u.pathname.startsWith(`/reservar/${SLUG}`), async route => {
+    if (estado.retener && route.request().resourceType() === 'document' && decodeURIComponent(route.request().url()).includes('"estilo":"arena"')) {
+      estado.retenidas += 1;
+      await retenida;
+    }
+    return route.continue();
+  });
+  return estado;
+}
+
+test.describe('la vista previa a 1440', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('la portada vacía enseña su horario DE VERDAD en el móvil (no un hueco en blanco), sin dejarse tocar', async ({ page }) => {
+    await montar(page, { plataforma: null });
+    const escaparate = page.getByTitle('Tu horario, como lo verá tu alumna');
+    await expect(escaparate).toBeVisible({ timeout: 60_000 });
+    await expect(escaparate).toHaveAttribute('inert', '');
+    const marco = await escaparate.elementHandle();
+    const frame = await marco!.contentFrame();
+    // Que llegue a CARGAR (con `loading="lazy"` dentro de un marco escalado no cargaba nunca: el móvil en blanco).
+    await expect.poll(() => frame!.url(), { timeout: 30_000 }).toContain(`/reservar/${SLUG}`);
+    // Lleva el marcador de la vista previa: ni cuenta visitas ni reserva.
+    expect(new URL(frame!.url()).searchParams.get('vista-previa')).toBe('1');
+    await frame!.locator('#horario').waitFor({ timeout: 120_000 });
+    await expect(frame!.getByRole('button', { name: /Reformer a las 10:00/ }).first()).toBeVisible();
+  });
+
+  test('entra en «Móvil», a tamaño real; «Ordenador» se lee (≥ 0,75), lo dice y tiene «Ver a tamaño real»', async ({ page }) => {
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    await expect(dispositivos(page).getByRole('button')).toHaveText(['Móvil', 'Ordenador']);
+    await expect(dispositivos(page).getByRole('button', { name: 'Móvil' })).toHaveAttribute('aria-pressed', 'true');
+    await previaCargada(page);
+    // 390 px de móvil, sin encoger: a tamaño real en la columna de 1440.
+    const caja = (await previa(page).boundingBox())!;
+    expect(caja.width, `el móvil mide ${Math.round(caja.width)} px`).toBeGreaterThanOrEqual(390 * 0.95);
+    expect(await escalaDe(page)).toBeGreaterThanOrEqual(0.95);
+    // El móvil dibujado, sobre el panel de color (sin la tarjeta blanca de en medio).
+    await expect(page.locator('[data-marco-movil]')).toBeVisible();
+
+    await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+    const frame = await previaCargada(page);
+    await expect.poll(() => escalaDe(page)).toBeGreaterThanOrEqual(0.75);
+    const escala = await escalaDe(page);
+    // La letra de una tarjeta de clase tal como la ve la dueña: 11 px como poco.
+    const letra = await frame.getByRole('button', { name: /Reformer a las 10:00/ }).first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    expect(letra * escala, `letra de ${letra} px a ${escala.toFixed(2)}`).toBeGreaterThanOrEqual(11);
+    // Ordenador y móvil no se pintan igual.
+    expect(await previa(page).evaluate(el => (el as HTMLElement).offsetWidth)).toBeGreaterThan(450);
+    await expect(page.getByText(/Así se ve en una ventana estrecha de ordenador\./)).toBeVisible();
+    // «Ver a tamaño real»: la web de 1200 en una hoja, con su propio iframe (con otro título).
+    await page.getByRole('button', { name: 'Ver a tamaño real' }).click();
+    const hoja = page.getByRole('dialog', { name: 'La vista previa a tamaño real' });
+    await expect(hoja).toBeVisible();
+    const real = hoja.getByTitle(/^A tamaño real:/);
+    await expect(real).toBeVisible();
+    // La web de 1200 entera, a 1: a 1440 cabe (con `poll`: la hoja entra con una animación de escala).
+    await expect.poll(() => real.evaluate(el => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth)).toBeGreaterThanOrEqual(0.99);
+    await hoja.getByRole('button', { name: 'Cerrar la vista previa a tamaño real' }).click();
+    await expect(hoja).toHaveCount(0);
+  });
+
+  test('mientras carga un cambio, se queda la vista previa de antes con «Actualizando…» encima', async ({ page }) => {
+    const r = await retenerArena(page);
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    const antes = await previaCargada(page);
+    const srcAntes = await previa(page).getAttribute('src');
+    await irA(page, 'Cómo se ve');
+    r.retener = true;
+    await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+    await estilos(page).getByRole('radio', { name: 'Arena', exact: true }).click();
+    await expect.poll(() => r.retenidas, { timeout: 20_000 }).toBeGreaterThan(0);
+    // La de antes sigue delante y con su horario; la nueva carga detrás, sin el título de la vista previa.
+    await expect(page.getByText('Actualizando…')).toBeVisible();
+    await expect(previa(page)).toHaveCount(1);
+    expect(await previa(page).getAttribute('src')).toBe(srcAntes);
+    await expect(antes.locator('#horario')).toBeVisible();
+    const detras = page.getByTitle('Cargando la vista previa');
+    await expect(detras).toHaveCount(1);
+    await expect(detras).toHaveAttribute('aria-hidden', 'true');
+    r.soltar();
+    // Al cargar, la nueva pasa delante y la de antes se va.
+    await expect.poll(async () => decodeURIComponent(await previa(page).getAttribute('src') ?? ''), { timeout: 60_000 }).toContain('"estilo":"arena"');
+    await expect(detras).toHaveCount(0);
+    await expect(page.getByText('Actualizando…')).toHaveCount(0, { timeout: 30_000 });
+  });
+
+  test('«Abrir en una pestaña» lleva la dirección de verdad: sin `vista-previa` ni el borrador', async ({ page }) => {
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    await irA(page, 'Cómo se ve');
+    await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+    await estilos(page).getByRole('radio', { name: 'Arena', exact: true }).click();
+    // La previa sí lleva el marcador y el borrador…
+    await expect.poll(async () => decodeURIComponent(await previa(page).getAttribute('src') ?? ''), { timeout: 20_000 }).toContain('"estilo":"arena"');
+    expect(await previa(page).getAttribute('src')).toContain('vista-previa=1');
+    // …y la pestaña no: es lo que verá su alumna, y ahí se reserva de verdad.
+    const href = await page.getByRole('link', { name: 'Abrir el widget en una pestaña nueva' }).getAttribute('href');
+    expect(href).toContain(`/reservar/${SLUG}`);
+    expect(href).not.toContain('vista-previa');
+    expect(href).not.toContain('borrador-web');
+  });
+});
+
+test.describe('la vista previa a 375', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+  test('no va encima del paso: «Ver cómo queda» la abre en una hoja, en el móvil y sin salirse', async ({ page }) => {
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    // Sin la hoja abierta no hay ningún iframe cargando a escondidas.
+    await expect(page.getByRole('button', { name: 'Ver cómo queda' })).toBeVisible();
+    await expect(previa(page)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Ver cómo queda' }).click();
+    const hoja = page.getByRole('dialog', { name: 'Cómo queda en tu web' });
+    await expect(hoja).toBeVisible();
+    await expect(hoja.getByRole('group', { name: 'Dispositivo de la vista previa' }).getByRole('button', { name: 'Móvil' })).toHaveAttribute('aria-pressed', 'true');
+    const iframe = hoja.getByTitle(/^Vista previa:/);
+    await expect(iframe).toBeVisible();
+    const caja = (await iframe.boundingBox())!;
+    expect(caja.x).toBeGreaterThanOrEqual(0);
+    expect(caja.x + caja.width).toBeLessThanOrEqual(375 + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)).toBe(false);
+    await hoja.getByRole('button', { name: 'Cerrar la vista previa' }).click();
+    await expect(hoja).toHaveCount(0);
+  });
+});
+
+test.describe('capturas de la vista previa (solo con CAPTURAS_PR3=<carpeta>)', () => {
+  const carpeta = process.env.CAPTURAS_PR3;
+  test.skip(!carpeta, 'solo con CAPTURAS_PR3');
+  test.setTimeout(600_000);
+  /** La ventana tal cual, con la previa ya cargada. */
+  async function foto(page: Page, nombre: string) {
+    const plegar = page.getByRole('button', { name: 'Plegar «Primeros pasos»' });
+    if (await plegar.isVisible().catch(() => false)) await plegar.click();
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: `${carpeta}/${nombre}.png` });
+  }
+
+  for (const ancho of [1440, 375]) {
+    test(`móvil y ordenador${ancho > 400 ? ' y «Actualizando…»' : ''} a ${ancho}`, async ({ page }) => {
+      await page.setViewportSize({ width: ancho, height: ancho > 400 ? 900 : 812 });
+      const r = await retenerArena(page);
+      await montar(page, { direccion: 'pilatescentro.example.com' });
+      await empezar(page);
+      await irA(page, 'Cómo se ve');
+      const estrecho = ancho < 400;
+      if (estrecho) await page.getByRole('button', { name: 'Ver cómo queda' }).click();
+      await previaCargada(page);
+      await foto(page, `previa-movil-${ancho}`);
+      await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+      await previaCargada(page);
+      await foto(page, `previa-ordenador-${ancho}`);
+      // «Actualizando…» sobre la de antes, solo a dos columnas: en la hoja, cerrarla para cambiar
+      // el estilo la desmonta, y al abrirla otra vez no hay «la de antes» que enseñar.
+      if (estrecho) return;
+      await dispositivos(page).getByRole('button', { name: 'Móvil' }).click();
+      await previaCargada(page);
+      r.retener = true;
+      await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+      await estilos(page).getByRole('radio', { name: 'Arena', exact: true }).click();
+      await expect(page.getByText('Actualizando…')).toBeVisible({ timeout: 20_000 });
+      await page.waitForTimeout(1500);
+      await page.screenshot({ path: `${carpeta}/previa-actualizando-${ancho}.png` });
+      r.soltar();
+    });
+  }
 });

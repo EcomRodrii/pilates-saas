@@ -97,6 +97,7 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
   textos?: 'v1' | 'v2';
 }) {
   const textos = TEXTOS[opciones.textos ?? 'v1'];
+  const v2 = opciones.textos === 'v2';
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
   const rol = useRol();
@@ -515,10 +516,25 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
       ? {
         tipo: 'componente',
         // El estilo que está probando (o, sin borrador, lo que hay en su web): lo mismo que la previa del iframe.
-        nodo: <PreviewNativa slug={slug} config={configEfectiva} estilo={borradorWeb ?? estiloWeb.publicado} base={estiloWeb.base} colorEstudio={colorEstudio} />,
+        nodo: (
+          <PreviewNativa
+            slug={slug}
+            config={configEfectiva}
+            estilo={borradorWeb ?? estiloWeb.publicado}
+            base={estiloWeb.base}
+            colorEstudio={colorEstudio}
+            // v2 (01b, hallazgo #9): sin marco y con la identidad del estudio, el widget toma la letra de
+            // la web donde vive. Aquí su web es el dibujo de alrededor, así que lleva la letra del dibujo
+            // (la del panel), y no otra que no se ve en ningún sitio. La v1, como estaba.
+            fuenteDelPanel={v2 ? 'var(--fuente-sans, system-ui, sans-serif)' : undefined}
+          />
+        ),
       }
       : { tipo: 'iframe', src: srcPrevia, titulo: w.nombre, origen, slug, altoInicial: paginaCompleta ? 900 : w.alto };
   }
+  // Sin marco y sin letra elegida (ni en el estilo de sus widgets ni en un diseño propio), la letra es la
+  // de su web: la vista previa lo dice, porque aquí su web es un dibujo.
+  const letraDeSuWeb = metodo === 'nativa' && configEfectiva.identidad !== 'propia' && !(borradorWeb ?? estiloWeb.publicado)?.letra;
   const anchoWidget = metodo === 'iframe'
     ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
     : metodo === 'popup' ? anchoPopupDe(w, configEfectiva) : null;
@@ -607,7 +623,7 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
     veResultados, resultadosMes, paginaOculta, sinAplicar, creando, prepararCodigo, aplicando, aplicarPieza, aplicarContenido,
     registrarCopia, ahora, datos, guardarDominios, dominiosAutorizados, direccionWeb,
     copias, filasTienes, configsCopiadas, copia, desfase, porId, conCopias, filaActiva, etiquetaActiva, resultadoActivo,
-    faltaPrevia, paginaCompleta, urlPrevia, contenido, anchoWidget, botonPropio, noSigueElEstilo, forma, suWeb, piezas, avisos,
+    faltaPrevia, paginaCompleta, urlPrevia, urlReal, letraDeSuWeb, contenido, anchoWidget, botonPropio, noSigueElEstilo, forma, suWeb, piezas, avisos,
     descartarPiezas, quitarDisenoPropio,
   };
 }
