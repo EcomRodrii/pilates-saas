@@ -213,6 +213,15 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   con el aforo, y una pantalla nueva que enseñe plazas libres las resta (`plazasLibresParaReservar`): lo vigila
   `lib/plataformas/apartadas-contrato.test.ts`. Si no se pueden leer antes de cobrar, no se cobra. Las clases fijas
   no se tocan (derecho preaprobado) y recepción no usa una apartada: la cierra en ClassPass y la libera.
+- **El libro de créditos y canjes solo lo escribe el servidor** (migr `20261017130000`).
+  `reward_redemptions`, `credit_transactions`, `reward_history`, `reward_actions` y
+  `member_credits` no dan INSERT/UPDATE/DELETE a `authenticated`: todo movimiento va por RPC
+  `SECURITY DEFINER` (`canjear_recompensa`, `cancelar_canje`, `entregar_canje`,
+  `otorgar_credito_disparador`) o service-role. `ajustar_creditos` y `ajustar_stock` son solo
+  servidor. `lib/libro-creditos-solo-servidor.test.ts` falla si vuelve una escritura de
+  navegador. ⚠️ Los progresos e historiales de logros y retos (`achievement_*`, `challenge_*`)
+  siguen escribiéndose desde el panel: quién puede acuñar créditos con logros/retos es decisión
+  del fundador, no se cierra por iniciativa propia.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.
