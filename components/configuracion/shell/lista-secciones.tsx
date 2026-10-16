@@ -11,7 +11,8 @@ import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
   FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { esClicNormal } from './contexto';
 
 // La columna de secciones, a partir de 768 px: el inicio de Configuración y
@@ -90,6 +91,7 @@ export function ListaSecciones({
   };
   const enInicio = activa === null;
   const panelNuevo = usePanelNuevo();
+  const miWebNueva = useMiWebNueva();
 
   // Panel nuevo: las secciones por grupos, cada uno con su título (como las
   // pestañas de Preferencias de Bonsai), en vez de quince filas seguidas.
@@ -100,14 +102,16 @@ export function ListaSecciones({
           <Settings size={16} className={icono(enInicio)} aria-hidden />
           <span className="min-w-0 flex-1">Vista general</span>
         </Link>
-        {GRUPOS_PANEL_NUEVO.map(grupo => {
+        {gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva).map(grupo => {
           const suyas = grupo.secciones.map(id => secciones.find(s => s.id === id)).filter((s): s is SeccionConfiguracion => !!s);
           const otras = (grupo.externas ?? []).filter(id => externas.includes(id));
           if (suyas.length === 0 && otras.length === 0) return null;
+          // «Mi app» y «Mi web» (MI_WEB_NUEVA): un grupo que es solo su sección no repite el nombre encima.
+          const sinEncabezado = otras.length === 0 && suyas.length === 1 && grupoEsLaSeccion(grupo, suyas[0]);
           return (
             <div key={grupo.id}>
-              <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>
-              <ul aria-labelledby={`rail-grupo-${grupo.id}`} className="space-y-0.5">
+              {!sinEncabezado && <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>}
+              <ul aria-labelledby={sinEncabezado ? undefined : `rail-grupo-${grupo.id}`} className="space-y-0.5">
                 {suyas.map(s => {
                   const Icono = ICONOS_SECCION[s.id];
                   const actual = activa === s.id;

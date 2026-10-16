@@ -29,10 +29,10 @@ async function abrir(page: Page, ruta: string, miWeb: boolean) {
 const titulo = (page: Page) => page.locator('#seccion-titulo');
 
 for (const ancho of [1440, 375] as const) {
-  test(`encendido (${ancho}): «Tu app» con lo de la app y «Tu web» con lo de la web, sin entrada en el menú`, async ({ page }) => {
+  test(`encendido (${ancho}): «Mi app» y «Mi web» separadas, cada una con lo suyo, sin entrada en el menú`, async ({ page }) => {
     await page.setViewportSize({ width: ancho, height: ancho === 375 ? 812 : 900 });
     await abrir(page, 'configuracion?tab=marca', true);
-    await expect(titulo(page)).toHaveText('Tu app', { timeout: 60_000 });
+    await expect(titulo(page)).toHaveText('Mi app', { timeout: 60_000 });
     const app = page.locator('main');
     await expect(app.getByText('Apariencia de tu app').first()).toBeVisible();
     await expect(app.getByText('Contenido de tu app').first()).toBeVisible();
@@ -41,14 +41,28 @@ for (const ancho of [1440, 375] as const) {
     await page.screenshot({ path: `test-results/configuracion-tu-app-${ancho}-despues.png`, fullPage: true });
 
     await abrir(page, 'configuracion?tab=web', true);
-    await expect(titulo(page)).toHaveText('Tu web', { timeout: 60_000 });
+    await expect(titulo(page)).toHaveText('Mi web', { timeout: 60_000 });
     await expect(page.locator('main').getByText('Widgets para tu web').first()).toBeVisible();
     await expect(page.locator('main').getByText('Contenido de tu app')).toHaveCount(0);
     await page.screenshot({ path: `test-results/configuracion-tu-web-${ancho}-despues.png`, fullPage: true });
 
+    // «Mi app» y «Mi web», separadas: cada una su entrada en la columna de Configuración, sin el grupo
+    // común «Tu app y tu web» (fundador, 16-oct: «antes ponía MI APP / MI WEB y ahora todo está junto»).
+    if (ancho === 1440) {
+      const columna = page.getByRole('navigation', { name: 'Secciones de Configuración' });
+      await expect(columna.getByRole('link', { name: 'Mi app', exact: true })).toBeVisible();
+      await expect(columna.getByRole('link', { name: 'Mi web', exact: true })).toBeVisible();
+      await expect(columna.getByText('Tu app y tu web', { exact: true })).toHaveCount(0);
+    }
+    await abrir(page, 'configuracion', true);
+    await expect(page.locator('#inicio-grupo-mi-app')).toHaveText('Mi app', { timeout: 60_000 });
+    await expect(page.locator('#inicio-grupo-mi-web')).toHaveText('Mi web');
+    await expect(page.locator('#inicio-grupo-tu-app-y-tu-web')).toHaveCount(0);
+    await page.screenshot({ path: `test-results/configuracion-inicio-${ancho}-despues.png`, fullPage: true });
+
     // Ninguna entrada propia en el menú lateral.
-    await expect(page.locator('aside').getByRole('link', { name: 'Tu app', exact: true })).toHaveCount(0);
-    await expect(page.locator('aside').getByRole('link', { name: 'Tu web', exact: true })).toHaveCount(0);
+    await expect(page.locator('aside').getByRole('link', { name: 'Mi app', exact: true })).toHaveCount(0);
+    await expect(page.locator('aside').getByRole('link', { name: 'Mi web', exact: true })).toHaveCount(0);
   });
 
   test(`apagado (${ancho}): Configuración como siempre`, async ({ page }) => {
@@ -64,10 +78,10 @@ for (const ancho of [1440, 375] as const) {
   });
 }
 
-test('encendido: «Contenido de tu app» abierto desde «Tu app» vuelve a «Tu app»', async ({ page }) => {
+test('encendido: «Contenido de tu app» abierto desde «Mi app» vuelve a «Mi app»', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await abrir(page, 'configuracion?tab=marca', true);
-  await expect(titulo(page)).toHaveText('Tu app', { timeout: 60_000 });
+  await expect(titulo(page)).toHaveText('Mi app', { timeout: 60_000 });
   await page.locator('main').getByText('Contenido de tu app').first().click();
-  await expect(page.getByRole('button', { name: /Volver a Tu app/ }).or(page.getByRole('link', { name: /Volver a Tu app/ })).first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: /Volver a Mi app/ }).or(page.getByRole('link', { name: /Volver a Mi app/ })).first()).toBeVisible({ timeout: 60_000 });
 });
