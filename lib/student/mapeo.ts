@@ -370,7 +370,8 @@ export interface PayloadMin {
     // viaja el canje entero. Mismo motivo que `caducaEl`: sin nombrarlo aquí
     // llegaría `undefined` en silencio.
     rewardRedemptions?: {
-      id: string; catalogItemId: string; estado: string;
+      id: string; catalogItemId: string | null; estado: string;
+      recompensaNombre?: string | null;
       codigo?: string | null; creditosGastados?: number; creadoEn?: string;
       // La recuperación que le dio esta recompensa, si era una clase gratis.
       // Es lo que permite decirle CUÁL de sus clases se ganó con créditos.
@@ -623,7 +624,7 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   // volver a canjearla.
   const canjesPorItem: Record<string, number> = {};
   for (const r of d.socia?.rewardRedemptions ?? []) {
-    if (r.estado === 'CANCELADO') continue;
+    if (r.estado === 'CANCELADO' || !r.catalogItemId) continue;
     canjesPorItem[r.catalogItemId] = (canjesPorItem[r.catalogItemId] ?? 0) + 1;
   }
   const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo, hoyISO, canjesPorItem);

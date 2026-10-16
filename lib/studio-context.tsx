@@ -694,7 +694,7 @@ interface StudioContextValue {
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteRewardCatalogItem: (id: string) => Promise<ResultadoEscritura>;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
-  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => Promise<ResultadoEscritura>;
+  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado'], motivo?: string) => Promise<ResultadoEscritura>;
   achievementDefinitions: AchievementDefinition[];
   achievementProgress: AchievementProgress[];
   achievementHistory: AchievementHistory[];
@@ -1006,6 +1006,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // para un único cobro. El Set bloquea el segundo disparo del MISMO recibo;
   // ids distintos (cobro masivo) siguen corriendo en paralelo sin trabas.
   const cobrosEnCursoRef = useRef<Set<string>>(new Set());
+  // Canjes en vuelo (socia + recompensa): un segundo toque no es otro canje.
+  const canjesEnCurso = useRef(new Set<string>());
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
   const [valoracionesSocias, setValoracionesSocias] = useState<ValoracionSocia[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
@@ -5192,7 +5194,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // Un segundo toque mientras el canje sigue en vuelo NO es otro canje: se
+  // rechaza aquí, antes de pedir nada. (El servidor además es idempotente por
+  // clave en el portal; esta es la primera barrera, la de la propia pantalla.)
   async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
+    const clave = `${socioId}:${catalogItemId}`;
+    if (canjesEnCurso.current.has(clave)) return { error: 'Este canje ya se está procesando.' };
+    canjesEnCurso.current.add(clave);
+    try {
+      return await canjearRecompensaUnaVez(socioId, catalogItemId);
+    } finally {
+      canjesEnCurso.current.delete(clave);
+    }
+  }
+
+  async function canjearRecompensaUnaVez(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
     // Validación pura y testeada (reward-engine): disponibilidad, vigencia,
     // límite por clienta, stock y saldo. Es un PRE-filtro para dar el mensaje
@@ -5225,7 +5241,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // fallaba) y un INSERT final cuyo error nadie miraba. Entre el débito y ese
     // INSERT cabía el peor de los finales: sin créditos y sin canje. La RPC lo
     // hace todo en una transacción y devuelve el código.
-    (async () => {
+    return await (async (): Promise<{ ok: true } | { error: string }> => {
       const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
       if ('error' in res) {
         const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
@@ -5234,8 +5250,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
               : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
                 : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'
                   : 'No se pudo completar el canje.';
-        setDbError({ msg, key: Date.now() });
-        return;
+        // Se DEVUELVE: antes iba a un `setDbError` y la llamada ya había
+        // contestado `{ ok: true }`, así que quien llamaba creía haber canjeado.
+        return { error: msg };
       }
 
       // La UI se aplica sobre lo YA confirmado en base de datos, con el código
@@ -5257,23 +5274,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (item.stock != null) {
         setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
       }
+      return { ok: true };
     })();
-
-    return { ok: true };
   }
 
-  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado'], motivo?: string): Promise<ResultadoEscritura> {
     // CANCELADO no es un estado más: devuelve créditos y stock. Eso va por la
     // RPC `cancelar_canje`, que hace las tres escrituras en una transacción —
     // hacerlas aquí sueltas dejaría a la socia sin recompensa y sin créditos si
     // fallara la segunda. ENTREGADO sí es solo un cambio de estado.
     if (estado === 'CANCELADO') {
       const socioId = rewardRedemptions.find(r => r.id === id)?.socioId ?? null;
-      const res = await dbCancelarCanje(id, getCurrentStudioId());
+      const res = await dbCancelarCanje(id, getCurrentStudioId(), motivo);
       if ('error' in res) return { ok: false, error: res.error };
       // La RPC es idempotente y responde con el estado REAL: si alguien lo
       // había entregado ya desde otra pestaña, se refleja eso y no 'CANCELADO'.
-      setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado: res.estado } : r));
+      setRewardRedemptions(prev => prev.map(r => r.id === id
+        ? { ...r, estado: res.estado, ...(res.estado === 'CANCELADO' ? { canceladoEn: new Date().toISOString(), canceladoMotivo: motivo?.trim() || null } : {}) }
+        : r));
       if (socioId) {
         setMemberCredits(prev => prev.map(m => m.socioId === socioId ? { ...m, saldo: res.saldo } : m));
       }
