@@ -10,6 +10,7 @@ import { uid } from '@/lib/utils';
 import { proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
+import { confirmarTicketACero } from '@/lib/pos/ticket-a-cero';
 import { CODIGO_INTENTO_CERRADO, mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 import { saneaLineas } from '@/lib/pos/sanear-lineas';
 import { leerTotalNoCoincide, mensajeTotalNoCoincide, MENSAJE_TOTAL_CAMBIADO, MENSAJE_CAJA_DESACTUALIZADA } from '@/lib/pos/total-esperado';
@@ -64,17 +65,27 @@ const METODOS: MetodoPago[] = ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA', 
 async function anularVentaSinCobro(
   admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   p: { studioId: string; ventaId: string; plazas: string[]; motivo: string; cerrado: boolean },
-): Promise<{ codigo?: typeof CODIGO_INTENTO_CERRADO }> {
-  const { error } = await admin.rpc('fallar_pago_venta_pos', {
+): Promise<{ codigo?: typeof CODIGO_INTENTO_CERRADO; pagada?: true }> {
+  const { data: anulada, error } = await admin.rpc('fallar_pago_venta_pos', {
     p_venta_id: p.ventaId, p_studio_id: p.studioId,
     p_pago_estado: p.cerrado ? 'CANCELADO' : 'ERROR', p_motivo: p.motivo,
   });
   if (!p.cerrado) return {};
-  for (const id of p.plazas) await liberarPlaza(admin, id);
   if (error) {
     console.error('[pos/venta] no se pudo anular la venta sin cobro', p.ventaId, error.message);
     return {};
   }
+  // `false`: ya no estaba pendiente. Si la anuló otro, el intento sigue cerrado; si se
+  // pagó entretanto (una confirmación que se guardó aunque contestara con error), ni
+  // se sueltan sus plazas ni se cierra el intento: quien llama la entrega.
+  if (anulada !== true) {
+    const { data: v, error: errLectura } = await admin.from('ventas_pos')
+      .select('estado').eq('id', p.ventaId).eq('studio_id', p.studioId).maybeSingle();
+    if (errLectura || !v) return {};
+    if (v.estado === 'PAGADA') return { pagada: true };
+    if (v.estado !== 'ANULADA') return {};
+  }
+  for (const id of p.plazas) await liberarPlaza(admin, id);
   return { codigo: CODIGO_INTENTO_CERRADO };
 }
 
@@ -278,17 +289,58 @@ export async function POST(req: NextRequest) {
     yaExistia: fila.r_ya_existia === true,
   };
 
+  // Un ticket a 0 € (todo descontado) no pasa por el proveedor: lo confirma esta ruta,
+  // y solo con la confirmación hecha se entrega y se dice «Cobrado» (lib/pos/ticket-a-cero.ts).
+  // Sin pagar, se anula con el intento cerrado: a 0 € no hay cobro que pueda llegar. Sin
+  // saberlo, no se toca: el reintento con la misma clave vuelve aquí y lo termina.
+  const cerrarTicketACero = async (): Promise<NextResponse> => {
+    const resultado = await confirmarTicketACero(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
+    let pagada = resultado === 'pagada';
+    let cierre: { codigo?: typeof CODIGO_INTENTO_CERRADO } = {};
+    if (resultado === 'sin-pagar') {
+      const { pagada: sePago, ...resto } = await anularVentaSinCobro(admin, {
+        studioId: sesion.studioId, ventaId: base.ventaId, plazas: plazasPOS,
+        motivo: 'No se pudo confirmar el ticket a 0 €', cerrado: true,
+      });
+      pagada = sePago === true;
+      cierre = resto;
+    }
+    if (!pagada) {
+      Sentry.captureMessage('[pos/venta] no se pudo confirmar un ticket a 0 €', {
+        level: 'error', tags: { area: 'cobros' },
+        extra: { ventaId: base.ventaId, studioId: sesion.studioId, resultado },
+      });
+      return NextResponse.json(
+        { error: 'No se ha podido comprobar la venta. No se ha cobrado nada: vuelve a intentarlo.', ...cierre },
+        { status: 503 },
+      );
+    }
+    const entrega = await entregarVentaPOS(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
+    return NextResponse.json({
+      ...base, estado: 'PAGADA', pagoEstado: 'PAGADO',
+      entrega: { bonos: entrega.suscripcionesCreadas, creditos: entrega.creditos, facturaSellada: entrega.facturaSellada, avisos: entrega.avisos },
+    });
+  };
+
   // Reintento de una venta ya registrada: se devuelve tal cual, sin volver a
-  // cobrar ni a entregar nada.
+  // cobrar ni a entregar nada. Salvo un ticket a 0 €, que se termina aquí si la
+  // primera vez se quedó a medias (la entrega no repite nada: sus ids salen de la venta).
   if (base.yaExistia) {
-    const { data: v } = await admin.from('ventas_pos')
+    const { data: v, error: errV } = await admin.from('ventas_pos')
       .select('estado, pago_estado, stripe_payment_intent_id')
       .eq('id', base.ventaId).eq('studio_id', sesion.studioId).maybeSingle();
+    // Sin poder leerla no se dice nada: inventar PAGADA era decir «Cobrado» sin saberlo.
+    if (errV || !v) {
+      return NextResponse.json({ error: 'No se ha podido comprobar la venta. Vuelve a intentarlo.' }, { status: 503 });
+    }
+    if (Math.round(total * 100) <= 0 && (v.estado === 'PENDIENTE_PAGO' || v.estado === 'PAGADA')) {
+      return cerrarTicketACero();
+    }
     return NextResponse.json({
       ...base,
-      estado: v?.estado ?? 'PAGADA',
-      pagoEstado: v?.pago_estado ?? 'PAGADO',
-      pago: v?.stripe_payment_intent_id ? { referencia: v.stripe_payment_intent_id } : undefined,
+      estado: v.estado,
+      pagoEstado: v.pago_estado,
+      pago: v.stripe_payment_intent_id ? { referencia: v.stripe_payment_intent_id } : undefined,
     });
   }
 
@@ -306,18 +358,8 @@ export async function POST(req: NextRequest) {
 
   // ── Cobro con proveedor: se lanza y se espera confirmación real ──────────
   const centimos = Math.round(total * 100);
-  if (centimos <= 0) {
-    // Un ticket a 0 € (todo descontado) no necesita pasar por el datáfono.
-    await admin.rpc('confirmar_pago_venta_pos', {
-      p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
-      p_payment_intent_id: null, p_importe_confirmado: 0,
-    });
-    const entrega = await entregarVentaPOS(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
-    return NextResponse.json({
-      ...base, estado: 'PAGADA', pagoEstado: 'PAGADO',
-      entrega: { bonos: entrega.suscripcionesCreadas, creditos: entrega.creditos, facturaSellada: entrega.facturaSellada, avisos: entrega.avisos },
-    });
-  }
+  // Un ticket a 0 € no necesita pasar por el datáfono (ver `cerrarTicketACero`, arriba).
+  if (centimos <= 0) return cerrarTicketACero();
   if (centimos > MAX_CENTIMOS_POS) {
     await admin.rpc('fallar_pago_venta_pos', {
       p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
