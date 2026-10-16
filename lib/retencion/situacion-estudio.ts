@@ -30,7 +30,8 @@
 // gestión (el panel de la propietaria), el servicio a las alumnas, o solo los
 // cobros automáticos. Pasarse del gratis limita la gestión, nunca a las alumnas.
 // Hoy nada de esto se aplica: solo se informa (BAJAS_AUTOMATICAS=informe escribe
-// el informe diario y las marcas de uso; apagado, nada).
+// el informe diario y las marcas de uso, en tablas propias: nunca en `studios`;
+// apagado, nada).
 //
 // Puro, sin `@/`: se prueba con `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,8 +51,8 @@ export const DIAS_HASTA_SUSPENDIDO = 90;
 export const DIAS_MAX_POR_CIERRE = 365;
 
 /**
- * `BAJAS_AUTOMATICAS`: `informe` escribe las marcas de uso y el informe diario
- * (`estudio_situacion_diaria`) y nada más. Cualquier otro valor, o ninguno, es
+ * `BAJAS_AUTOMATICAS`: `informe` escribe las marcas de uso (`estudio_marcas_uso`)
+ * y el informe diario (`estudio_situacion_diaria`) y nada más. Cualquier otro valor, o ninguno, es
  * `apagado`. No hay modo que active nada: eso llegará en su propio PR.
  */
 export type ModoBajas = 'apagado' | 'informe';
@@ -192,11 +193,12 @@ const diaDe = (v: Date | string | null): string | null => (v === null ? null : h
 
 /**
  * El ancla: el día (Madrid) más reciente entre la última actividad real, el alta
- * y el último cambio de plan. Sin un cambio de plan en el ancla, quien deja de
- * pagar tras meses sin usar el panel entraría inactivo el mismo día.
+ * y el último cambio de plan, sin pasar de `hoy` (así un día pasado se evalúa con
+ * lo que había entonces). Sin un cambio de plan en el ancla, quien deja de pagar
+ * tras meses sin usar el panel entraría inactivo el mismo día.
  */
 export function anclaDeActividad(e: Pick<EntradaActividad, 'ultimaActividad' | 'creadoEn' | 'eventosDePlan' | 'hoy'>): string {
-  const dias = [e.ultimaActividad, e.creadoEn, ...e.eventosDePlan].map(diaDe).filter((d): d is string => d !== null);
+  const dias = [e.ultimaActividad, e.creadoEn, ...e.eventosDePlan].map(diaDe).filter((d): d is string => d !== null && d <= e.hoy);
   return dias.length === 0 ? e.hoy : dias.reduce((a, b) => (b > a ? b : a));
 }
 

@@ -6,12 +6,13 @@ import { hoyEnEstudio } from '../utils.ts';
 import { modoBajas } from './situacion-estudio.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Las marcas de uso de un estudio (`studios.ultimo_uso_panel_en` /
-// `ultimo_uso_app_en`): la señal de que alguien lo usa aunque no cambie nada.
+// Las marcas de uso de un estudio (`estudio_marcas_uso`: el DÍA de Madrid del
+// último uso del panel y de la app): la señal de que alguien lo usa aunque no
+// cambie nada. Nunca se escriben en `studios`.
 //
 // · Solo con BAJAS_AUTOMATICAS=informe. Apagado, no se llama a nada.
 // · Como mucho una vez al día de Madrid por estudio: la regla vive en SQL
-//   (`marcar_uso_panel` / `marcar_uso_app`, un UPDATE condicional), y aquí un
+//   (`marcar_uso_panel` / `marcar_uso_app`, un upsert condicional), y aquí un
 //   recuerdo por instancia evita hasta la llamada si ya se hizo hoy.
 // · Nunca bloquea ni tumba la petición: se llama dentro de `after()` y, si falla,
 //   se avisa (sin datos de nadie) y se sigue. Un fallo tampoco se reintenta en

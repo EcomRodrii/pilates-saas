@@ -33,6 +33,15 @@ test('contrato TS↔SQL: los umbrales y los límites son los mismos números', (
   // El tope por cierre (`c.desde + (365 - 1)`) y el aviso de la demo.
   assert.equal(Number(SQL.match(/c\.desde \+ \((\d+) - 1\)/)?.[1]), DIAS_MAX_POR_CIERRE);
   assert.match(SQL, new RegExp(`dias\\.sin_actividad >= ${DIAS_HASTA_INACTIVO} then 'demo_fuera_de_transiciones'`));
+  // «Reciente», para el aviso de que solo quedan señales de alumnas: la misma ventana que la inactividad.
+  assert.match(SQL, new RegExp(`> p_hoy - ${DIAS_HASTA_INACTIVO}\\n`));
+});
+
+test('solo lectura de verdad: la migración no añade columnas a `studios` ni la actualiza', () => {
+  // Cualquier UPDATE de `studios` dispara el trigger que recalcula el contrato: las marcas viven aparte.
+  assert.doesNotMatch(SQL, /alter table public\.studios/i);
+  assert.doesNotMatch(SQL, /update public\.studios/i);
+  assert.match(SQL, /create table if not exists public\.estudio_marcas_uso/);
 });
 
 test('contrato TS↔SQL: los estados del informe son los de la máquina (más ERROR)', () => {
@@ -193,6 +202,9 @@ test('el ancla es el día de MADRID más reciente: una señal a las 00:30 de Mad
   // Sin actividad, manda el alta; un cambio de plan posterior la adelanta.
   assert.equal(anclaDeActividad({ ...base, ultimaActividad: null }), '2026-01-01');
   assert.equal(anclaDeActividad({ ...base, ultimaActividad: null, eventosDePlan: [null, '2026-09-30T23:00:00Z'] }), '2026-10-01');
+  // Un día pasado se mira con lo que había entonces: lo posterior a `hoy` no ancla.
+  assert.equal(anclaDeActividad({ ...base, hoy: '2026-03-01', ultimaActividad: null, eventosDePlan: ['2026-09-30T23:00:00Z'] }), '2026-01-01');
+  assert.equal(anclaDeActividad({ ...base, hoy: '2025-12-01', ultimaActividad: null }), '2025-12-01');
 });
 
 test('los días de «Cierre del centro» no cuentan: una vez cada día, con su tope, y solo entre el ancla y hoy', () => {

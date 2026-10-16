@@ -4,24 +4,24 @@
 --
 -- Deriva en qué estado está cada estudio (ACTIVO_PAGO, PAGO_PENDIENTE, GRATIS,
 -- GRATIS_EN_MARGEN, INACTIVO, SUSPENDIDO, EN_BAJA, ELIMINADO) a partir de lo que
--- ya hay en la base. No cambia el comportamiento de nada: ninguna función toca
--- una fila de negocio. Lo único que se escribe son las marcas de uso y el informe
--- diario, y solo con BAJAS_AUTOMATICAS=informe (lo decide el servidor).
+-- ya hay en la base. No cambia el comportamiento de nada y NO toca `studios`: ni
+-- una columna nueva ni un UPDATE (cualquier UPDATE de `studios` recalcula el
+-- contrato en su trigger). Lo único que se escribe va a dos tablas nuevas, y solo
+-- con BAJAS_AUTOMATICAS=informe (lo decide el servidor).
 --
--- 1) Marcas de uso en `studios`, de servidor y como mucho una vez al día (Madrid):
---    · ultimo_uso_panel_en — alguien del equipo abrió el panel o la app del equipo;
---    · ultimo_uso_app_en   — una alumna abrió su app con la sesión iniciada.
---    Las escriben `marcar_uso_panel` / `marcar_uso_app` (service_role). Nacen sin
---    GRANT para `authenticated`: el UPDATE de `studios` va por columnas, y el
---    INSERT también desde 20261016115000. Una marca posterior al día que se evalúa
---    no cuenta: un valor inventado no alarga la actividad.
+-- 1) `estudio_marcas_uso`: el DÍA de Madrid en que alguien del equipo abrió el
+--    panel o la app del equipo (`panel_dia`) y en que una alumna abrió su app con
+--    sesión (`app_dia`). Una marca al día como mucho (`marcar_uso_panel` /
+--    `marcar_uso_app`, un upsert condicional). Nunca la hora de una sesión.
 --
 -- 2) `senales_actividad_real` / `ultima_actividad_real(estudio, hoy)`: la última
---    señal de uso real, por fuente. Cuentan las acciones del equipo, abrir el panel
---    o la app, las reservas (no las de clase fija, que se crean solas), los escaneos
---    de acceso, los cobros hechos por personas (sin `cobro_off_session_clave`) y las
---    ventas de caja. No cuenta lo que hace Tentare solo: origen TENTARE, plazas
---    fijas, cargos automáticos, renovaciones, crons.
+--    señal de uso real, por fuente. Cuentan las acciones del equipo (las de la
+--    propietaria, la dueña de la cadena o una ficha del equipo de ESE estudio; no
+--    las de Tentare desde /interno), abrir el panel o la app, las reservas (no las
+--    de clase fija, que se crean solas), los escaneos de acceso, los cobros hechos
+--    por personas (sin `cobro_off_session_clave`) y las ventas de caja. No cuenta
+--    lo que hace Tentare solo: origen TENTARE, plazas fijas, cargos automáticos,
+--    renovaciones, crons.
 --
 -- 3) `situacion_estudio(estudio, hoy)` y `situacion_estudios(hoy)`: la situación,
 --    con el ancla, los días de «Cierre del centro» (que no cuentan), los días sin
@@ -33,34 +33,56 @@
 -- 4) `estudio_situacion_diaria`: una fila por estudio y día de Madrid, para
 --    comparar días y ver quién cambia de estado. La escribe
 --    `registrar_situacion_diaria` (idempotente por estudio y día) desde el cron que
---    ya corre el ciclo de estudios vencidos. Solo service_role.
+--    ya corre el ciclo de estudios vencidos.
 --
--- 5) Índices para leer las señales sin recorrer tablas.
+-- Todo, solo para service_role. Los índices van primero: el resto solo crea
+-- tablas nuevas (y sus claves ajenas a `studios`, un candado breve).
 -- ═══════════════════════════════════════════════════════════════════════════
 
 set local lock_timeout = '5s';
 
+-- ── Índices de las señales (antes que nada) ─────────────────────────────────
+create index if not exists idx_reservas_studio_creado_sin_plaza_fija
+  on public.reservas (studio_id, creado_en desc) where id not like 'res-pf-%';
+create index if not exists idx_recibos_studio_cobrado_por_persona
+  on public.recibos (studio_id, fecha_cobro desc) where estado = 'COBRADO' and cobro_off_session_clave is null;
+create index if not exists idx_ventas_pos_studio_realizada
+  on public.ventas_pos (studio_id, realizada_en desc);
+create index if not exists idx_auditoria_estudio_studio_ocurrido
+  on public.auditoria_estudio (studio_id, ocurrido_en desc);
+
 -- ── 1) Marcas de uso ─────────────────────────────────────────────────────────
-alter table public.studios
-  add column if not exists ultimo_uso_panel_en timestamptz,
-  add column if not exists ultimo_uso_app_en timestamptz;
+create table if not exists public.estudio_marcas_uso (
+  studio_id text primary key references public.studios (id) on delete cascade,
+  -- Solo el día (Madrid): para contar días sin actividad no hace falta más.
+  panel_dia date,
+  app_dia date,
+  -- 'marca': la escribió el panel; 'sesiones_iniciales': el punto de partida del informe.
+  panel_origen text check (panel_origen in ('marca', 'sesiones_iniciales')),
+  actualizado_en timestamptz not null default now()
+);
 
-comment on column public.studios.ultimo_uso_panel_en is
-  'Último día (como mucho una marca al día de Madrid) en que alguien del equipo abrió el panel o la app del equipo. Lo escribe solo el servidor (marcar_uso_panel).';
-comment on column public.studios.ultimo_uso_app_en is
-  'Último día (como mucho una marca al día de Madrid) en que una alumna abrió su app con la sesión iniciada. Lo escribe solo el servidor (marcar_uso_app).';
+comment on table public.estudio_marcas_uso is
+  'Día (Madrid) del último uso del panel o la app del equipo (panel_dia) y de la app de las alumnas (app_dia). Una marca al día como mucho; la escribe el servidor con BAJAS_AUTOMATICAS=informe.';
 
+alter table public.estudio_marcas_uso enable row level security;
+revoke all on table public.estudio_marcas_uso from anon, authenticated;
+drop policy if exists exige_doble_factor on public.estudio_marcas_uso;
+create policy exige_doble_factor on public.estudio_marcas_uso as restrictive for all to authenticated
+  using ((select public.nivel_acceso_suficiente())) with check ((select public.nivel_acceso_suficiente()));
+
+-- Una vez al día: si la marca ya es de hoy (y es una marca de verdad), no escribe nada.
 create or replace function public.marcar_uso_panel(p_studio_id text)
 returns boolean
 language sql
 volatile
 set search_path = ''
 as $$
-  update public.studios st
-     set ultimo_uso_panel_en = now()
-   where st.id = p_studio_id
-     and (st.ultimo_uso_panel_en is null
-          or st.ultimo_uso_panel_en < ((select public.hoy_estudio())::timestamp at time zone 'Europe/Madrid'))
+  insert into public.estudio_marcas_uso as m (studio_id, panel_dia, panel_origen, actualizado_en)
+  select st.id, (select public.hoy_estudio()), 'marca', now() from public.studios st where st.id = p_studio_id
+  on conflict (studio_id) do update
+     set panel_dia = excluded.panel_dia, panel_origen = excluded.panel_origen, actualizado_en = excluded.actualizado_en
+   where m.panel_dia is null or m.panel_dia < excluded.panel_dia or m.panel_origen is distinct from 'marca'
   returning true;
 $$;
 
@@ -70,25 +92,34 @@ language sql
 volatile
 set search_path = ''
 as $$
-  update public.studios st
-     set ultimo_uso_app_en = now()
-    from public.socios so
-   where so.id = p_socio_id
-     and st.id = so.studio_id
-     and (st.ultimo_uso_app_en is null
-          or st.ultimo_uso_app_en < ((select public.hoy_estudio())::timestamp at time zone 'Europe/Madrid'))
+  insert into public.estudio_marcas_uso as m (studio_id, app_dia, actualizado_en)
+  select so.studio_id, (select public.hoy_estudio()), now() from public.socios so where so.id = p_socio_id
+  on conflict (studio_id) do update
+     set app_dia = excluded.app_dia, actualizado_en = excluded.actualizado_en
+   where m.app_dia is null or m.app_dia < excluded.app_dia
   returning true;
 $$;
 
--- ── 5) Índices de las señales ────────────────────────────────────────────────
-create index if not exists idx_reservas_studio_creado_sin_plaza_fija
-  on public.reservas (studio_id, creado_en desc) where id not like 'res-pf-%';
-create index if not exists idx_recibos_studio_cobrado_por_persona
-  on public.recibos (studio_id, fecha_cobro desc) where estado = 'COBRADO' and cobro_off_session_clave is null;
-create index if not exists idx_ventas_pos_studio_realizada
-  on public.ventas_pos (studio_id, realizada_en desc);
-create index if not exists idx_auditoria_estudio_studio_persona
-  on public.auditoria_estudio (studio_id, ocurrido_en desc) where actor_uid is not null;
+-- El punto de partida de la marca del panel: el día (Madrid) de la última sesión de
+-- alguien del equipo de cada estudio (la propietaria o una ficha ACTIVA con cuenta).
+-- Lee `auth.sessions`, por eso es SECURITY DEFINER y tan pequeña; solo para service_role.
+create or replace function public.sesiones_iniciales_del_equipo()
+returns table (studio_id text, dia date)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select eq.studio_id,
+         (max(greatest(se.refreshed_at at time zone 'UTC', se.updated_at, se.created_at)) at time zone 'Europe/Madrid')::date
+    from (select s.id as studio_id, s.owner_auth_user_id as uid
+            from public.studios s where s.owner_auth_user_id is not null
+          union
+          select i.studio_id, i.auth_user_id
+            from public.instructores i where i.auth_user_id is not null and i.activo is not false) as eq
+    join auth.sessions se on se.user_id = eq.uid
+   group by eq.studio_id;
+$$;
 
 -- ── 2) La actividad real ─────────────────────────────────────────────────────
 -- Una fila por fuente, con su última señal hasta el final del día `p_hoy` (Madrid):
@@ -104,14 +135,20 @@ as $$
     select 'equipo'::text, (select max(a.creado_en) from public.actividad_reciente a
              where a.studio_id = p_studio_id and a.origen = 'EQUIPO' and a.creado_en < lim.fin)
     union all
+    -- Solo quien es del estudio: la propietaria, la dueña de su cadena o una ficha de su equipo.
     select 'auditoria', (select max(au.ocurrido_en) from public.auditoria_estudio au
-             where au.studio_id = p_studio_id and au.actor_uid is not null and au.ocurrido_en < lim.fin)
+             where au.studio_id = p_studio_id and au.ocurrido_en < lim.fin
+               and (au.actor_uid = (select st.owner_auth_user_id from public.studios st where st.id = p_studio_id)
+                    or au.actor_uid = (select ca.owner_auth_user_id from public.studios st
+                                         join public.cadenas ca on ca.id = st.cadena_id where st.id = p_studio_id)
+                    or exists (select 1 from public.instructores i
+                                where i.studio_id = p_studio_id and i.auth_user_id = au.actor_uid)))
     union all
-    select 'panel', (select st.ultimo_uso_panel_en from public.studios st
-             where st.id = p_studio_id and st.ultimo_uso_panel_en < lim.fin)
+    select 'panel', (select m.panel_dia::timestamp at time zone 'Europe/Madrid' from public.estudio_marcas_uso m
+             where m.studio_id = p_studio_id and m.panel_dia <= p_hoy)
     union all
-    select 'app', (select st.ultimo_uso_app_en from public.studios st
-             where st.id = p_studio_id and st.ultimo_uso_app_en < lim.fin)
+    select 'app', (select m.app_dia::timestamp at time zone 'Europe/Madrid' from public.estudio_marcas_uso m
+             where m.studio_id = p_studio_id and m.app_dia <= p_hoy)
     union all
     select 'reservas', (select max(r.creado_en) from public.reservas r
              where r.studio_id = p_studio_id and r.id not like 'res-pf-%' and r.creado_en < lim.fin)
@@ -285,12 +322,14 @@ as $$
   with s as (
     select st.id, st.subscription_status, st.subscription_id, st.cadena_id, st.owner_auth_user_id,
            coalesce(st.es_demo, false) as es_demo, st.suspendido_en, st.contrato_terminado_en, st.supresion_pedida_en,
-           st.creado_en, st.subscription_evento_en, st.ultimo_uso_panel_en, st.ultimo_uso_app_en,
+           st.creado_en, st.subscription_evento_en,
            ca.id as cadena_encontrada,
            ca.subscription_status as cadena_estado, ca.subscription_id as cadena_subscription_id,
-           ca.subscription_evento_en as cadena_evento_en
+           ca.subscription_evento_en as cadena_evento_en,
+           m.panel_dia, m.app_dia, m.panel_origen
       from public.studios st
       left join public.cadenas ca on ca.id = st.cadena_id
+      left join public.estudio_marcas_uso m on m.studio_id = st.id
      where st.id = p_studio_id
   ),
   -- El grupo de uso del gratis, como `leerUsoGratis`: el estudio y los gratis de su dueña.
@@ -314,13 +353,17 @@ as $$
   ),
   fuentes as (select f.fuente, f.ultima from public.senales_actividad_real(p_studio_id, p_hoy) f),
   act as (select max(fu.ultima) as ultima, jsonb_object_agg(fu.fuente, fu.ultima) as por_fuente from fuentes fu),
-  -- El ancla: la última actividad real, el alta o el último cambio de plan (el suyo o el de su cadena).
+  -- El ancla: la última actividad real, el alta o el último cambio de plan (el suyo o el de su
+  -- cadena), sin pasar del día que se mira: así un día pasado se evalúa con lo que había entonces.
   anc as (
     select coalesce(greatest(
              (act.ultima at time zone 'Europe/Madrid')::date,
-             (s.creado_en at time zone 'Europe/Madrid')::date,
-             (s.subscription_evento_en at time zone 'Europe/Madrid')::date,
-             (s.cadena_evento_en at time zone 'Europe/Madrid')::date
+             case when (s.creado_en at time zone 'Europe/Madrid')::date <= p_hoy
+                  then (s.creado_en at time zone 'Europe/Madrid')::date end,
+             case when (s.subscription_evento_en at time zone 'Europe/Madrid')::date <= p_hoy
+                  then (s.subscription_evento_en at time zone 'Europe/Madrid')::date end,
+             case when (s.cadena_evento_en at time zone 'Europe/Madrid')::date <= p_hoy
+                  then (s.cadena_evento_en at time zone 'Europe/Madrid')::date end
            ), p_hoy) as dia
       from s, act
   ),
@@ -347,6 +390,13 @@ as $$
                       where cv.studio_id = s.id and cv.fase = 'purga' and cv.ejecutada_en is not null),
              fase.fase, dias.sin_actividad
            ) x
+  ),
+  -- Las fuentes con señal en los últimos 60 días: las de alumnas (app, reservas) y las demás.
+  recientes as (
+    select count(*) filter (where fu.fuente in ('app', 'reservas')) as de_alumnas,
+           count(*) filter (where fu.fuente not in ('app', 'reservas')) as del_resto
+      from fuentes fu
+     where (fu.ultima at time zone 'Europe/Madrid')::date > p_hoy - 60
   )
   select s.id, sit.estado, sit.motivo, sit.variante, sit.paga,
          sit.gestion_limitada, sit.servicio_alumnas_suspendido, sit.cobros_automaticos_pausados,
@@ -358,7 +408,8 @@ as $$
            'cadena', case when s.cadena_id is null then null
                           else jsonb_build_object('subscription_status', s.cadena_estado,
                                                   'con_suscripcion_stripe', nullif(s.cadena_subscription_id, '') is not null) end,
-           'uso_gratis', jsonb_build_object('alumnas', uso.alumnas, 'reservas', uso.reservas, 'excedido_desde', uso.excedido_desde)
+           'uso_gratis', jsonb_build_object('alumnas', uso.alumnas, 'reservas', uso.reservas, 'excedido_desde', uso.excedido_desde),
+           'panel_origen', s.panel_origen
          ),
          -- Lo dudoso: no cambia el estado, se apunta para revisarlo a mano.
          array_remove(array[
@@ -379,11 +430,13 @@ as $$
                      and (o.creado_en < s.creado_en or (o.creado_en = s.creado_en and o.id < s.id)))
                 then 'demo_es_sede_principal_por_antiguedad' end,
            case when s.suspendido_en is not null then 'suspendido_a_mano' end,
-           case when s.ultimo_uso_panel_en is null then 'sin_marca_de_panel' end,
-           case when s.ultimo_uso_panel_en >= ((p_hoy + 1)::timestamp at time zone 'Europe/Madrid')
-                  or s.ultimo_uso_app_en >= ((p_hoy + 1)::timestamp at time zone 'Europe/Madrid') then 'marca_posterior_al_dia' end
+           case when s.panel_dia is null then 'sin_marca_de_panel' end,
+           case when s.panel_origen = 'sesiones_iniciales' then 'marca_panel_inicial_de_sesiones' end,
+           case when s.panel_dia > p_hoy or s.app_dia > p_hoy then 'marca_posterior_al_dia' end,
+           -- Lo único reciente es de alumnas (y darse de alta como alumna lo puede hacer cualquiera).
+           case when not sit.paga and recientes.de_alumnas > 0 and recientes.del_resto = 0 then 'vivo_solo_por_alumnas' end
          ]::text[], null)
-    from s, act, anc, cie, dias, uso, fase, sit;
+    from s, act, anc, cie, dias, uso, fase, sit, recientes;
 $$;
 
 create or replace function public.situacion_estudios(p_hoy date default public.hoy_estudio())
@@ -440,7 +493,6 @@ comment on table public.estudio_situacion_diaria is
 
 alter table public.estudio_situacion_diaria enable row level security;
 revoke all on table public.estudio_situacion_diaria from anon, authenticated;
-
 drop policy if exists exige_doble_factor on public.estudio_situacion_diaria;
 create policy exige_doble_factor on public.estudio_situacion_diaria as restrictive for all to authenticated
   using ((select public.nivel_acceso_suficiente())) with check ((select public.nivel_acceso_suficiente()));
@@ -448,17 +500,15 @@ create policy exige_doble_factor on public.estudio_situacion_diaria as restricti
 -- Una fila por estudio y día. Lo ya escrito ese día no se reescribe (solo un ERROR,
 -- que se reintenta en la pasada siguiente). Un fallo en un estudio no corta los demás.
 --
--- La marca del panel arranca la PRIMERA vez que un estudio entra en el informe con la
--- última sesión de alguien de su equipo (la propietaria o una ficha activa con cuenta):
--- hasta entonces no había marca, y sin ese punto de partida el informe vería inactivo a
--- quien abre el panel sin hacer cambios. `auth.sessions` no sirve como fuente continua
--- (es por persona y se borra al cerrar sesión): después manda la marca. Por eso es
--- SECURITY DEFINER, y solo para service_role.
+-- Antes, el punto de partida de la marca del panel, solo para quien todavía no tiene ni
+-- informe ni marca (si no queda nadie así, ni se mira): el día de la última sesión de su
+-- equipo (`sesiones_iniciales_del_equipo`), con `panel_origen = 'sesiones_iniciales'`. Sin
+-- él, el informe vería inactivo a quien abre el panel sin cambiar nada. Después manda la
+-- marca. Corre con los privilegios de quien la llama (service_role).
 create or replace function public.registrar_situacion_diaria(p_hoy date default public.hoy_estudio())
 returns jsonb
 language plpgsql
 volatile
-security definer
 set search_path = ''
 as $$
 declare
@@ -468,26 +518,27 @@ declare
   v_errores integer := 0;
   v_sembradas integer := 0;
 begin
-  with x as (
-    select eq.studio_id, max(greatest(se.refreshed_at at time zone 'UTC', se.updated_at, se.created_at)) as ultima
-      from (select s.id as studio_id, s.owner_auth_user_id as uid
-              from public.studios s where s.owner_auth_user_id is not null
-            union
-            select i.studio_id, i.auth_user_id
-              from public.instructores i where i.auth_user_id is not null and coalesce(i.activo, true)) as eq
-      join auth.sessions se on se.user_id = eq.uid
-     group by eq.studio_id
-  ), sembradas as (
-    update public.studios st
-       set ultimo_uso_panel_en = x.ultima
-      from x
-     where st.id = x.studio_id
-       and st.ultimo_uso_panel_en is null
-       and x.ultima <= now()
-       and not exists (select 1 from public.estudio_situacion_diaria d where d.studio_id = st.id)
-    returning 1
-  )
-  select count(*) into v_sembradas from sembradas;
+  if exists (select 1 from public.studios st
+              where not exists (select 1 from public.estudio_situacion_diaria d where d.studio_id = st.id)
+                and not exists (select 1 from public.estudio_marcas_uso m where m.studio_id = st.id and m.panel_dia is not null)) then
+    begin
+      with sembradas as (
+        insert into public.estudio_marcas_uso as m (studio_id, panel_dia, panel_origen, actualizado_en)
+        select se.studio_id, se.dia, 'sesiones_iniciales', now()
+          from public.sesiones_iniciales_del_equipo() se
+         where se.dia <= p_hoy
+           and exists (select 1 from public.studios st where st.id = se.studio_id)
+           and not exists (select 1 from public.estudio_situacion_diaria d where d.studio_id = se.studio_id)
+        on conflict (studio_id) do update
+           set panel_dia = excluded.panel_dia, panel_origen = excluded.panel_origen, actualizado_en = excluded.actualizado_en
+         where m.panel_dia is null
+        returning 1
+      )
+      select count(*) into v_sembradas from sembradas;
+    exception when others then
+      v_errores := v_errores + 1;
+    end;
+  end if;
 
   for v_id in select st.id from public.studios st order by st.id loop
     if exists (select 1 from public.estudio_situacion_diaria d
@@ -537,6 +588,7 @@ $$;
 -- `pg_default_acl` da EXECUTE directo a anon/authenticated: REVOKE de PUBLIC no basta.
 revoke execute on function public.marcar_uso_panel(text) from public, anon, authenticated;
 revoke execute on function public.marcar_uso_app(text) from public, anon, authenticated;
+revoke execute on function public.sesiones_iniciales_del_equipo() from public, anon, authenticated;
 revoke execute on function public.senales_actividad_real(text, date) from public, anon, authenticated;
 revoke execute on function public.ultima_actividad_real(text, date) from public, anon, authenticated;
 revoke execute on function public.paga_plan(text, text) from public, anon, authenticated;
@@ -548,6 +600,7 @@ revoke execute on function public.registrar_situacion_diaria(date) from public, 
 
 grant execute on function public.marcar_uso_panel(text) to service_role;
 grant execute on function public.marcar_uso_app(text) to service_role;
+grant execute on function public.sesiones_iniciales_del_equipo() to service_role;
 grant execute on function public.senales_actividad_real(text, date) to service_role;
 grant execute on function public.ultima_actividad_real(text, date) to service_role;
 grant execute on function public.paga_plan(text, text) to service_role;
@@ -561,10 +614,10 @@ grant execute on function public.registrar_situacion_diaria(date) to service_rol
 do $$
 declare
   f text;
-  c text;
+  t text;
 begin
   foreach f in array array[
-    'public.marcar_uso_panel(text)', 'public.marcar_uso_app(text)',
+    'public.marcar_uso_panel(text)', 'public.marcar_uso_app(text)', 'public.sesiones_iniciales_del_equipo()',
     'public.senales_actividad_real(text, date)', 'public.ultima_actividad_real(text, date)',
     'public.paga_plan(text, text)', 'public.fase_plan_gratis(integer, integer, date, date)',
     'public.situacion_derivada(text, text, boolean, text, text, boolean, boolean, boolean, boolean, text, integer)',
@@ -576,29 +629,22 @@ begin
     end if;
   end loop;
 
-  foreach c in array array['ultimo_uso_panel_en', 'ultimo_uso_app_en'] loop
-    if has_column_privilege('authenticated', 'public.studios', c, 'UPDATE')
-       or has_column_privilege('anon', 'public.studios', c, 'UPDATE')
-       or has_column_privilege('anon', 'public.studios', c, 'INSERT')
-       or has_column_privilege('anon', 'public.studios', c, 'SELECT') then
-      raise exception 'studios.%: la escribe (o la lee sin sesión) alguien que no es el servidor', c;
+  -- Solo la que lee `auth.sessions` corre con privilegios de su dueño.
+  if (select p.prosecdef from pg_proc p where p.oid = 'public.registrar_situacion_diaria(date)'::regprocedure)
+     or not (select p.prosecdef from pg_proc p where p.oid = 'public.sesiones_iniciales_del_equipo()'::regprocedure) then
+    raise exception 'solo sesiones_iniciales_del_equipo es SECURITY DEFINER';
+  end if;
+
+  foreach t in array array['public.estudio_marcas_uso', 'public.estudio_situacion_diaria'] loop
+    if has_any_column_privilege('anon', t, 'SELECT') or has_any_column_privilege('anon', t, 'INSERT')
+       or has_any_column_privilege('authenticated', t, 'SELECT') or has_any_column_privilege('authenticated', t, 'INSERT')
+       or has_any_column_privilege('authenticated', t, 'UPDATE') or has_table_privilege('authenticated', t, 'DELETE') then
+      raise exception '%: solo la lee y la escribe el servidor', t;
     end if;
-    -- El INSERT de `studios` va por columnas desde 20261016115000: una columna nueva nace no insertable.
-    if has_column_privilege('authenticated', 'public.studios', c, 'INSERT') then
-      raise exception 'studios.%: authenticated puede fijarla al crear un estudio (¿falta 20261016115000?)', c;
+    if not exists (select 1 from pg_class where oid = t::regclass and relrowsecurity)
+       or not exists (select 1 from pg_policy where polrelid = t::regclass
+                       and polname = 'exige_doble_factor' and not polpermissive) then
+      raise exception '%: falta la RLS o la política exige_doble_factor', t;
     end if;
   end loop;
-
-  if has_any_column_privilege('anon', 'public.estudio_situacion_diaria', 'SELECT')
-     or has_any_column_privilege('authenticated', 'public.estudio_situacion_diaria', 'SELECT')
-     or has_any_column_privilege('authenticated', 'public.estudio_situacion_diaria', 'INSERT')
-     or has_any_column_privilege('authenticated', 'public.estudio_situacion_diaria', 'UPDATE')
-     or has_table_privilege('authenticated', 'public.estudio_situacion_diaria', 'DELETE') then
-    raise exception 'estudio_situacion_diaria: solo la lee y la escribe el servidor';
-  end if;
-  if not exists (select 1 from pg_class where oid = 'public.estudio_situacion_diaria'::regclass and relrowsecurity)
-     or not exists (select 1 from pg_policy where polrelid = 'public.estudio_situacion_diaria'::regclass
-                     and polname = 'exige_doble_factor' and not polpermissive) then
-    raise exception 'estudio_situacion_diaria: falta la RLS o la política exige_doble_factor';
-  end if;
 end $$;

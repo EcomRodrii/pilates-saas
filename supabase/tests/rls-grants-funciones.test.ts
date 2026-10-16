@@ -123,8 +123,9 @@ const CASOS: Caso[] = [
   { firma: 'situacion_derivada(text, text, boolean, text, text, boolean, boolean, boolean, boolean, text, integer)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_estudio(text, date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_estudios(date)', anon: false, authenticated: false, serviceRole: true },
-  // SECURITY DEFINER: la primera vez que un estudio entra en el informe lee `auth.sessions`.
   { firma: 'registrar_situacion_diaria(date)', anon: false, authenticated: false, serviceRole: true },
+  // La única SECURITY DEFINER del grupo: lee `auth.sessions` para el punto de partida de la marca del panel.
+  { firma: 'sesiones_iniciales_del_equipo()', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

@@ -1122,10 +1122,6 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
-  // migr 20261016123000.
-  ultimo_uso_panel_en: string | null;
-  // migr 20261016123000.
-  ultimo_uso_app_en: string | null;
 }
 
 export interface RowSuscripciones {
@@ -4317,6 +4313,14 @@ export interface RowAppsEstudioCupos {
   creado_en: string;
 }
 
+export interface RowEstudioMarcasUso {
+  studio_id: string;
+  panel_dia: string | null;
+  app_dia: string | null;
+  panel_origen: string | null;
+  actualizado_en: string;
+}
+
 export interface RowEstudioSituacionDiaria {
   studio_id: string;
   dia: string;
@@ -5825,8 +5829,6 @@ export type StudiosInsert = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
-  ultimo_uso_panel_en?: string | null | null;
-  ultimo_uso_app_en?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5985,8 +5987,6 @@ export type StudiosUpdate = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
-  ultimo_uso_panel_en?: string | null | null;
-  ultimo_uso_app_en?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -11967,6 +11967,22 @@ export type AppsEstudioCuposUpdate = {
   creado_en?: string | null;
 }
 
+export type EstudioMarcasUsoInsert = {
+  studio_id?: string | null;
+  panel_dia?: string | null | null;
+  app_dia?: string | null | null;
+  panel_origen?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type EstudioMarcasUsoUpdate = {
+  studio_id?: string | null;
+  panel_dia?: string | null | null;
+  app_dia?: string | null | null;
+  panel_origen?: string | null | null;
+  actualizado_en?: string | null;
+}
+
 export type EstudioSituacionDiariaInsert = {
   studio_id?: string | null;
   dia?: string | null;
@@ -13329,6 +13345,11 @@ export type Database = {
         Row: RowAppsEstudioCupos;
         Insert: AppsEstudioCuposInsert;
         Update: AppsEstudioCuposUpdate;
+      };
+      estudio_marcas_uso: {
+        Row: RowEstudioMarcasUso;
+        Insert: EstudioMarcasUsoInsert;
+        Update: EstudioMarcasUsoUpdate;
       };
       estudio_situacion_diaria: {
         Row: RowEstudioSituacionDiaria;

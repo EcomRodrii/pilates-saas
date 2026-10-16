@@ -72,6 +72,8 @@ test('las marcas se escriben donde dice el diseño: el panel, la app de la alumn
   assert.match(status, /after\(\(\) => marcarUso\(admin, 'panel', sesion\.studioId\)\)/);
   assert.match(leer('app/api/public/session/route.ts'), /after\(\(\) => marcarUso\(admin, 'app', socia\.socioId\)\)/);
   assert.match(leer('app/api/portal/instructora/sesion/route.ts'), /after\(\(\) => marcarUso\(admin, 'panel', sesion\.studioId\)\)/);
-  // El informe diario cuelga del cron que ya existe, sin cron nuevo.
-  assert.match(leer('app/api/cron/notif-trial/route.ts'), /registrarSituacionDiaria\(requireSupabaseAdmin\(\)\)/);
+  // El informe diario cuelga del cron que ya existe, sin cron nuevo, y DESPUÉS de los avisos a las propietarias.
+  const cron = leer('app/api/cron/notif-trial/route.ts');
+  assert.match(cron, /registrarSituacionDiaria\(requireSupabaseAdmin\(\)\)/);
+  assert.ok(cron.indexOf('await barrerTrialAvisos()') < cron.indexOf('await registrarSituacionDiaria('), 'el informe va antes que los avisos');
 });

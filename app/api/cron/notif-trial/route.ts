@@ -58,6 +58,17 @@ export async function POST(req: NextRequest) {
     appsSinPlan = { error: 'Error revisando las apps de estudio sin plan.' };
   }
 
+  // Los avisos a las propietarias, antes que el informe.
+  let resumen: Awaited<ReturnType<typeof barrerTrialAvisos>> | null = null;
+  let errorAvisos: unknown = null;
+  try {
+    resumen = await barrerTrialAvisos();
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial' } });
+    errorAvisos = err;
+  }
+
+  // El informe diario de bajas (solo con BAJAS_AUTOMATICAS=informe), el último.
   let situacionDiaria: unknown;
   try {
     situacionDiaria = await registrarSituacionDiaria(requireSupabaseAdmin());
@@ -66,11 +77,8 @@ export async function POST(req: NextRequest) {
     situacionDiaria = { error: 'Error escribiendo el informe diario de bajas.' };
   }
 
-  try {
-    const resumen = await barrerTrialAvisos();
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, situacionDiaria });
-  } catch (err) {
-    Sentry.captureException(err, { tags: { cron: 'notif-trial' } });
-    return errorInterno('cron/notif-trial:POST', err, 'Error avisando de prueba gratuita a punto de acabar.');
+  if (errorAvisos || !resumen) {
+    return errorInterno('cron/notif-trial:POST', errorAvisos, 'Error avisando de prueba gratuita a punto de acabar.');
   }
+  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, situacionDiaria });
 }

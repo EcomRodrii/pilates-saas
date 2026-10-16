@@ -114,7 +114,9 @@ export const TEXTO_AVISO: Record<string, string> = {
   demo_es_sede_principal_por_antiguedad: 'demo y sede más antigua de su cadena: hoy sería la principal',
   suspendido_a_mano: 'suspendido a mano desde /interno',
   sin_marca_de_panel: 'aún sin marca de uso del panel',
+  marca_panel_inicial_de_sesiones: 'el uso del panel sale aún de la última sesión del equipo, no de una marca',
   marca_posterior_al_dia: 'una marca de uso posterior al día (no cuenta)',
+  vivo_solo_por_alumnas: 'lo único reciente es de alumnas (app o reservas)',
 };
 
 export function textoAviso(codigo: string): string {
