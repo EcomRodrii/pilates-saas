@@ -29,8 +29,16 @@ export function ventaHecha(total: number, cambio: number | null) {
 
 export type Contesta = (r: Route, cuerpo: Record<string, unknown>, intento: number) => Promise<void> | void;
 
-export async function abrirCaja(page: Page, presupuesto: Contesta, venta: Contesta, opciones: { codigos?: Record<string, unknown>[] } = {}) {
-  const cuenta = { presupuestos: [] as Record<string, unknown>[], ventas: [] as Record<string, unknown>[] };
+export async function abrirCaja(
+  page: Page, presupuesto: Contesta, venta: Contesta,
+  // `datafono`: con un datáfono emparejado, y `confirmar` contesta a la consulta del cobro.
+  opciones: { codigos?: Record<string, unknown>[]; datafono?: boolean; confirmar?: Contesta } = {},
+) {
+  const cuenta = {
+    presupuestos: [] as Record<string, unknown>[], ventas: [] as Record<string, unknown>[],
+    confirmaciones: [] as Record<string, unknown>[],
+  };
+  const catalogo = opciones.datafono ? { ...CATALOGO, cobro: { ...CATALOGO.cobro, datafonoEmparejado: true } } : CATALOGO;
   await montar(page);
   await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { panelNuevo: true }));
   // Los códigos de descuento del estudio: el panel los lee de su tabla.
@@ -39,10 +47,14 @@ export async function abrirCaja(page: Page, presupuesto: Contesta, venta: Contes
     const req = r.request();
     const ruta = new URL(req.url()).pathname;
     const cuerpo = req.method() === 'POST' ? JSON.parse(req.postData() ?? '{}') as Record<string, unknown> : {};
-    if (req.method() === 'GET' && ruta === '/api/pos/catalogo') return json(r, CATALOGO);
+    if (req.method() === 'GET' && ruta === '/api/pos/catalogo') return json(r, catalogo);
     if (req.method() === 'GET' && ruta === '/api/pos/caja') return json(r, { caja: CAJA, esperado: 100, movimientos: [] });
     if (ruta === '/api/pos/venta/presupuesto') { cuenta.presupuestos.push(cuerpo); return presupuesto(r, cuerpo, cuenta.presupuestos.length); }
     if (ruta === '/api/pos/venta') { cuenta.ventas.push(cuerpo); return venta(r, cuerpo, cuenta.ventas.length); }
+    if (ruta === '/api/pos/venta/confirmar' && opciones.confirmar) {
+      cuenta.confirmaciones.push(cuerpo);
+      return opciones.confirmar(r, cuerpo, cuenta.confirmaciones.length);
+    }
     return json(r, {});
   });
   await ir(page, 'pos');
