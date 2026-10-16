@@ -78,7 +78,7 @@ function frasesSinMarco(piezas: PiezasAfectadas, borrador: WidgetWeb): string[] 
   return out;
 }
 
-export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, verApariencia, piezas, disenoPropio }: {
+export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, verApariencia, piezas, disenoPropio, sinBarra = false }: {
   estado: EstiloWebPanel;
   metodo: MetodoIntegracion;
   /**
@@ -96,6 +96,12 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
   piezas: PiezasAfectadas;
   /** «Un diseño distinto solo para este widget», justo después de «Ajustes finos». */
   disenoPropio?: ReactNode;
+  /**
+   * «Tu web» v2: sin la barra de aplicar ni su diálogo. El estilo se publica con
+   * la barra única de la pantalla («Publicar en mi web»), que usa la misma
+   * confirmación (`ConfirmarEstiloEnTuWeb`).
+   */
+  sinBarra?: boolean;
 }) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -274,65 +280,99 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
 
       {soloLectura ? (
         <p className="rounded-xl bg-muted px-3.5 py-3 text-[12.5px] text-foreground">Solo la propietaria puede cambiar el estilo de tus widgets.</p>
-      ) : (
+      ) : !sinBarra && (
         <BarraAplicar estado={estado} onAplicar={() => setConfirmando(true)} />
       )}
 
-      <Dialog open={confirmando} onOpenChange={setConfirmando}>
-        <DialogContent className="max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>¿Aplicar este estilo en tu web?</DialogTitle>
-            <DialogDescription>
-              Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus alumnas vuelvan a abrir la página.{' '}
-              <strong className="font-semibold text-foreground">No tienes que volver a pegar ningún código.</strong>
-            </DialogDescription>
-          </DialogHeader>
-          {/* Solo lo que sabemos: lo copiado desde aquí, nunca «tus N widgets» (no vemos qué hay pegado). */}
-          <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
-            {piezas.cambian.length > 0 && <p>Entre ellos, los que copiaste desde aquí: {enLista(piezas.cambian)}.</p>}
-            {piezas.columnasSinPaleta.length > 0 && (
-              // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
-              <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
-            )}
-            {/*
-              Sin marco (Fase E): el estilo le llega con sus datos, así que también
-              cambia lo pegado hace tiempo, sin volver a pegar nada; salvo las
-              columnas de noche, donde como mucho le llega la letra.
-            */}
-            {frasesSinMarco(piezas, b).map(f => <p key={f}>{f}</p>)}
-            <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
-            {/*
-              El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
-              se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
-              (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
-              unos minutos; lo copiado antes lleva su color literal y se queda como está.
-              Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
-              que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
-              sí»: con las columnas de noche no le llega todo (la línea de arriba).
-            */}
-            {piezas.botonesVivos.length > 0 && (
-              <p>
-                {piezas.botonesVivos.length > 1
-                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesVivos)} también cambian, aunque pueden tardar unos minutos más.`
-                  : `El botón que abre la ventana de ${piezas.botonesVivos[0]} también cambia, aunque puede tardar unos minutos más.`}
-              </p>
-            )}
-            {piezas.botonesCongelados.length > 0 && (
-              <p>
-                {piezas.botonesCongelados.length > 1
-                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
-                  : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
-              </p>
-            )}
-            {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-            <Button onClick={() => { setConfirmando(false); void estado.aplicar(); }}>Aplicar en mi web</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {!sinBarra && (
+        <ConfirmarEstiloEnTuWeb
+          abierto={confirmando}
+          onAbierto={setConfirmando}
+          piezas={piezas}
+          borrador={b}
+          titulo="¿Aplicar este estilo en tu web?"
+          verbo="Aplicar en mi web"
+          onConfirmar={() => { setConfirmando(false); void estado.aplicar(); }}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * La confirmación de llevar el estilo a su web: qué cambia, a quién no le llega y
+ * que no hace falta volver a pegar nada. La usan el constructor de siempre
+ * («¿Aplicar este estilo en tu web?» / «Aplicar en mi web») y la barra única de
+ * «Tu web» v2 («Publicar»), que añade en `extra` lo que se publica con él. Solo
+ * lo que sabemos: lo copiado desde aquí, nunca «tus N widgets».
+ */
+export function ConfirmarEstiloEnTuWeb({ abierto, onAbierto, piezas, borrador, titulo, verbo, onConfirmar, extra }: {
+  abierto: boolean;
+  onAbierto: (abierto: boolean) => void;
+  piezas: PiezasAfectadas;
+  borrador: WidgetWeb;
+  titulo: string;
+  verbo: string;
+  onConfirmar: () => void;
+  /** Una línea más, al final (lo que se publica a la vez). */
+  extra?: ReactNode;
+}) {
+  return (
+    <Dialog open={abierto} onOpenChange={onAbierto}>
+      <DialogContent className="max-w-md" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{titulo}</DialogTitle>
+          <DialogDescription>
+            Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus alumnas vuelvan a abrir la página.{' '}
+            <strong className="font-semibold text-foreground">No tienes que volver a pegar ningún código.</strong>
+          </DialogDescription>
+        </DialogHeader>
+        {/* Solo lo que sabemos: lo copiado desde aquí, nunca «tus N widgets» (no vemos qué hay pegado). */}
+        <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
+          {piezas.cambian.length > 0 && <p>Entre ellos, los que copiaste desde aquí: {enLista(piezas.cambian)}.</p>}
+          {piezas.columnasSinPaleta.length > 0 && (
+            // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
+            <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
+          )}
+          {/*
+            Sin marco (Fase E): el estilo le llega con sus datos, así que también
+            cambia lo pegado hace tiempo, sin volver a pegar nada; salvo las
+            columnas de noche, donde como mucho le llega la letra.
+          */}
+          {frasesSinMarco(piezas, borrador).map(f => <p key={f}>{f}</p>)}
+          <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
+          {/*
+            El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
+            se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
+            (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
+            unos minutos; lo copiado antes lleva su color literal y se queda como está.
+            Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
+            que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
+            sí»: con las columnas de noche no le llega todo (la línea de arriba).
+          */}
+          {piezas.botonesVivos.length > 0 && (
+            <p>
+              {piezas.botonesVivos.length > 1
+                ? `Los botones que abren la ventana de ${enLista(piezas.botonesVivos)} también cambian, aunque pueden tardar unos minutos más.`
+                : `El botón que abre la ventana de ${piezas.botonesVivos[0]} también cambia, aunque puede tardar unos minutos más.`}
+            </p>
+          )}
+          {piezas.botonesCongelados.length > 0 && (
+            <p>
+              {piezas.botonesCongelados.length > 1
+                ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
+                : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
+            </p>
+          )}
+          {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
+          {extra && <p className="text-foreground">{extra}</p>}
+        </div>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+          <Button onClick={onConfirmar}>{verbo}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
