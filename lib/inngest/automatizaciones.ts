@@ -276,7 +276,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       // que faltaba era conectar su WhatsApp.
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: c.mensajeCliente,
         detalle: c.socio.telefono
-          ? 'WhatsApp no conectado en este estudio (Configuración → Cómo me comunico)'
+          ? 'WhatsApp no conectado en este estudio (Configuración → Integraciones)'
           : `${c.socio.nombre} no tiene teléfono en su ficha` };
     } else {
       // Texto y no plantilla: `mensajeCliente` lo redacta la IA en cada
@@ -426,7 +426,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     // Gap residual (envío OK y caída antes de memoizar) igual que cualquier
     // side-effect sin clave; aceptable para MVP.
     if (!whatsapp) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no conectado en este estudio (Configuración → Cómo me comunico)' };
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no conectado en este estudio (Configuración → Integraciones)' };
     } else {
       // ⚠️ Auditoría 22ª pasada (3-sep-2026). Este camino es el del motor de
       // MARKETING: todo lo que sale por aquí es comunicación comercial. El

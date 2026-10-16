@@ -72,7 +72,7 @@ export const HREF_LISTO: Record<IdComprobacion, string> = {
   clases: '/calendario',
   pagina: '/configuracion?tab=estudio',
   venta: '/productos',
-  stripe: '/configuracion?tab=cobros#integracion-stripe',
+  stripe: '/configuracion?tab=conexiones#integracion-stripe',
   fiscal: '/configuracion?tab=cobros#datos-fiscales',
   antelacion: '/configuracion?tab=reservas#reservar',
   suave: '#apertura-suave',

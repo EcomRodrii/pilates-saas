@@ -498,7 +498,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Conectar Stripe', href: '/configuracion?tab=cobros#integracion-stripe' },
+      { label: 'Conectar Stripe', href: '/configuracion?tab=conexiones#integracion-stripe' },
       { label: 'Ver quién me debe', href: '/cobros' },
     ],
     consejo: 'Antes de cobrarle a nadie de verdad, haz una compra de prueba desde tu propia página con un importe pequeño. Ver el recibo aparecer solo es la mejor forma de fiarte del sistema.',
@@ -727,7 +727,7 @@ export const CAPITULOS: CapituloGuia[] = [
     acciones: [
       { label: 'Activar mis automatizaciones', href: '/automatizaciones' },
       { label: 'Mis correos', href: '/configuracion?tab=comunicacion&abrir=correos-automaticos' },
-      { label: 'Conectar WhatsApp', href: '/configuracion?tab=comunicacion#integracion-whatsapp' },
+      { label: 'Conectar WhatsApp', href: '/configuracion?tab=conexiones#integracion-whatsapp' },
     ],
     consejo: 'Empieza por recuperar a quien no viene y vive con ello dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',
     pasos: ['ausencias', 'nuevas'],

@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   // socias y el único que el consentimiento guardado cubre.
   if (!whatsapp && !resend) {
     return NextResponse.json(
-      { error: 'No hay ningún canal disponible: conecta tu WhatsApp Business en Configuración → Cómo me comunico' },
+      { error: 'No hay ningún canal disponible: conecta tu WhatsApp Business en Configuración → Integraciones' },
       { status: 503 },
     );
   }

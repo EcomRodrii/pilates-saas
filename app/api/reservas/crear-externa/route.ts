@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     .from('integraciones').select('activo')
     .eq('studio_id', sesion.studioId).eq('tipo', plataforma).maybeSingle();
   if (!integracion?.activo) {
-    return NextResponse.json({ error: 'Activa esta plataforma en Configuración → Conexiones para poder apuntar sus reservas.' }, { status: 409 });
+    return NextResponse.json({ error: 'Activa esta plataforma en Configuración → Integraciones para poder apuntar sus reservas.' }, { status: 409 });
   }
 
   const r = await crearReservaExterna({ studioId: sesion.studioId, sesionId, reservaId, plataforma, nombre, codigo });

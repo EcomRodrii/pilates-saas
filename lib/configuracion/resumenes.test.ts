@@ -69,10 +69,11 @@ test('cada sección resume lo guardado, y las que no se pueden saber no dicen na
   assert.equal(r.estudio.valor, 'Pilates Centro · L-V 8-21, S 9-14 · 2 salas');
   assert.equal(r.clases.valor, '5 tipos de clase');
   assert.equal(r.reservas.valor, 'Cancelar 12 h · lista de espera al momento');
-  assert.equal(r.cobros.valor, 'Stripe no disponible todavía · IVA 21 %');
+  assert.equal(r.cobros.valor, 'IVA 21 %');
   // La segunda parte no cabe: se salta entera, no se corta.
   assert.equal(r.altas.valor, 'Se registra antes de pagar');
-  assert.equal(r.comunicacion.valor, 'WhatsApp sin conectar');
+  // WhatsApp se gestiona en Integraciones: Cómo me comunico ya no resume nada.
+  assert.equal(r.comunicacion.valor, null);
   assert.equal(r.equipo.valor, 'Las instructoras crean sus clases');
   assert.equal(r.web.valor, 'Fuera de Tentare Network');
   // Sin el tema cargado, del color no se dice nada.
@@ -97,8 +98,8 @@ test('cambiar un valor guardado cambia su resumen', () => {
   // Sin lista de espera, su plazo no decide nada.
   assert.equal(valor(con({ permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 30 }), 'reservas'), 'Cancelar 12 h · sin lista de espera');
 
-  assert.equal(valor(con({ stripeAccountId: 'acct_1', ivaPorDefecto: 10 }), 'cobros'), 'Stripe conectado · IVA 10 %');
-  assert.equal(valor(con({}, { stripeDisponible: true }), 'cobros'), 'Stripe sin conectar · IVA 21 %');
+  assert.equal(valor(con({ stripeAccountId: 'acct_1', ivaPorDefecto: 10 }), 'cobros'), 'IVA 10 %');
+  assert.equal(valor(con({ stripeAccountId: 'acct_1' }), 'conexiones'), 'Stripe conectado');
 
   assert.equal(valor(con({}, { numTiposClase: 1 }), 'clases'), '1 tipo de clase');
   assert.equal(valor(con({}, { numTiposClase: 0 }), 'clases'), 'Sin tipos de clase');
@@ -147,11 +148,10 @@ test('el plan de Tentare: prueba con sus días, activo o terminado; y sin estado
 });
 
 test('comunicación y conexiones: solo lo que se sabe conectado, y cómo va', () => {
-  const whatsapp = (fila: IntegracionResumible) => valor(con({}, { integraciones: [fila] }), 'comunicacion');
-  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: '2026-09-02T10:00:00Z', ultimoErrorEn: null, ultimoError: null }), 'WhatsApp funcionando');
-  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: null, ultimoErrorEn: null, ultimoError: null }), 'WhatsApp sin probar');
-  assert.equal(whatsapp(fallando('WHATSAPP')), 'WhatsApp con problemas');
-  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), 'WhatsApp sin conectar · Gmail sin uso');
+  const whatsapp = (fila: IntegracionResumible) => valor(con({}, { integraciones: [fila] }), 'conexiones');
+  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: '2026-09-02T10:00:00Z', ultimoErrorEn: null, ultimoError: null }), 'WhatsApp conectado');
+  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: false, ultimoOkEn: null, ultimoErrorEn: null, ultimoError: null }), null);
+  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), null);
 
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar conectado');
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com', zoomEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar y Zoom conectados');
@@ -230,7 +230,7 @@ test('el NIF: vacío o de relleno no emite facturas; con el control mal, se revi
 
 test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avisa', () => {
   const [whatsapp] = avisosDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] }));
-  assert.deepEqual([whatsapp.seccion, whatsapp.ancla, whatsapp.etiqueta], ['comunicacion', 'integracion-whatsapp', 'Con problemas']);
+  assert.deepEqual([whatsapp.seccion, whatsapp.ancla, whatsapp.etiqueta], ['conexiones', 'integracion-whatsapp', 'Con problemas']);
   // Kisi tiene su fila en Conexiones desde el 15-sep (v2): antes iba a «Más integraciones».
   const [kisi] = avisosDeConfiguracion(con({}, { integraciones: [fallando('KISI')] }));
   assert.deepEqual([kisi.seccion, kisi.ancla], ['conexiones', 'integracion-kisi']);
@@ -244,13 +244,13 @@ test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avis
   const recuperada = { ...fallando('WHATSAPP'), ultimoOkEn: '2026-09-03T10:00:00Z' };
   assert.deepEqual(avisosDeConfiguracion(con({}, { integraciones: [recuperada] })), []);
   // Y la sección lo cuenta en su fila.
-  assert.deepEqual(resumenesDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] })).comunicacion.estado, { tono: 'problema', etiqueta: 'Con problemas' });
+  assert.deepEqual(resumenesDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] })).conexiones.estado, { tono: 'problema', etiqueta: 'Con problemas' });
 });
 
 test('pedir bono sin poder comprarlo online: a Stripe si se puede conectar, si no a la regla', () => {
   const vende = { numPlanesActivos: 2 };
   const [conStripe] = avisosDeConfiguracion(con({}, { ...vende, stripeDisponible: true }));
-  assert.deepEqual([conStripe.id, conStripe.seccion, conStripe.ancla], ['venta-online', 'cobros', 'integracion-stripe']);
+  assert.deepEqual([conStripe.id, conStripe.seccion, conStripe.ancla], ['venta-online', 'conexiones', 'integracion-stripe']);
   const [sinStripe] = avisosDeConfiguracion(con({}, { ...vende, stripeDisponible: false }));
   assert.deepEqual([sinStripe.seccion, sinStripe.ancla], ['reservas', 'reservar']);
   assert.deepEqual(avisosDeConfiguracion(con({ stripeAccountId: 'acct_1' }, vende)), []);

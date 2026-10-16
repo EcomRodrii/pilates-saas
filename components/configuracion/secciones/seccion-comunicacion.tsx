@@ -1,28 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, Mail } from 'lucide-react';
+import { Bot, MessageCircle, Mail } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { resumenHerramienta } from '@/lib/configuracion/resumenes';
-import { FILAS_A_OTRA_PANTALLA } from '@/lib/configuracion/secciones';
+import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId } from '@/lib/configuracion/secciones';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 import { dbListTextosAviso } from '@/lib/notifications/textos-estudio-db';
-import {
-  DetalleGmail, DetalleWhatsapp, FilaGmail, FilaWhatsapp, FormRemitente, useGmail, useRemitente, useWhatsapp,
-} from '@/components/configuracion/canales-comunicacion';
+import { FormRemitente, useRemitente } from '@/components/configuracion/canales-comunicacion';
 
-// Cómo me comunico: los correos que salen solos, con qué nombre salen y los
-// canales conectados, en filas con su valor de hoy (15-sep, v2).
+// Cómo me comunico: los correos que salen solos y con qué nombre salen, en filas
+// con su valor de hoy (15-sep, v2). WhatsApp se conecta en Integraciones
+// (16-oct-2026): aquí queda una fila que lleva allí.
 //
-// Los correos automáticos siguen siendo su herramienta (#2061). WhatsApp y Gmail
-// llevan UN estado y su acción en la fila o en su cajón (canales-comunicacion.tsx).
+// Los correos automáticos siguen siendo su herramienta (#2061).
 // El recordatorio de clase sigue siendo de serie (sale solo), pero desde migr
 // 20260921145514 el estudio elige su antelación y el texto de los avisos del
 // móvil: herramienta «Avisos en el móvil».
 
-const CAJONES = ['integracion-resend', 'integracion-whatsapp', 'integracion-gmail'] as const;
+const CAJONES = ['integracion-resend'] as const;
 
 export function SeccionComunicacion({ showToast }: { showToast: (m: string) => void }) {
   const { studio, plantillasEmail, plantillasEmailCargadas } = useStudio();
@@ -36,8 +34,6 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
     return () => { vivo = false; };
   }, [studioId]);
   const remitente = useRemitente();
-  const whatsapp = useWhatsapp(showToast);
-  const gmail = useGmail();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   function guardado(texto: string) {
@@ -59,8 +55,15 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
       </GrupoFilas>
 
       <GrupoFilas titulo="Canales conectados">
-        <FilaWhatsapp w={whatsapp} onAbrir={() => abrir('integracion-whatsapp')} />
-        <FilaGmail g={gmail} onAbrir={() => abrir('integracion-gmail')} />
+        <FilaOtraSeccion
+          id="fila-a-integraciones"
+          icono={MessageCircle}
+          titulo={tarjetaPorId('integracion-whatsapp').titulo}
+          valor={`En «${seccionPorId('conexiones').titulo}»`}
+          descripcion="Se conecta en Integraciones, junto al resto de tus conexiones."
+          seccion="conexiones"
+          ancla="integracion-whatsapp"
+        />
       </GrupoFilas>
 
       <GrupoFilas titulo="Sus avisos">
@@ -85,15 +88,6 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
       <CajonAjuste id="integracion-resend" abierto={cajon === 'integracion-resend'} onCerrar={cerrar}>
         <FormRemitente remitente={remitente} onGuardado={guardado} />
       </CajonAjuste>
-      {/* Sin conectar y con Meta, no hay nada que pegar: su acción es «Conectar» en la fila. */}
-      <CajonAjuste id="integracion-whatsapp" abierto={cajon === 'integracion-whatsapp' && (whatsapp.conectado || !whatsapp.conMeta)} onCerrar={cerrar}>
-        <DetalleWhatsapp w={whatsapp} {...props} />
-      </CajonAjuste>
-      <CajonAjuste id="integracion-gmail" abierto={cajon === 'integracion-gmail' && gmail.conectado} onCerrar={cerrar}>
-        <DetalleGmail g={gmail} {...props} />
-      </CajonAjuste>
-      {/* El SDK de Meta solo se descarga donde está la fila de WhatsApp. */}
-      {whatsapp.script}
     </>
   );
 }

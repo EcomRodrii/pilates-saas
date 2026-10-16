@@ -309,7 +309,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   });
 
   const pagos: PasoOnboarding[] = [
-    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta o SEPA — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta o SEPA — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
     { id: 'renovacion', label: 'Activa una membresía con renovación automática', descripcion: 'Cobra la cuota sola cada mes, sin que tengas que perseguir a nadie.', minutos: 2, done: d.numSuscripcionesActivas > 0, href: '/productos' },
   ];
 
@@ -415,8 +415,8 @@ function calcularRecomendaciones(d: DatosOnboarding): RecomendacionOnboarding[] 
   const candidatas: (RecomendacionOnboarding | null)[] = [
     // El aviso concreto sustituye al genérico de Stripe: dicen lo mismo, y el
     // concreto además explica qué se rompe.
-    ventaOnline ? { id: 'venta-online', texto: ventaOnline, href: '/configuracion?tab=cobros#integracion-stripe' } : null,
-    !d.stripeAccountId && !ventaOnline ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=cobros#integracion-stripe' } : null,
+    ventaOnline ? { id: 'venta-online', texto: ventaOnline, href: '/configuracion?tab=conexiones#integracion-stripe' } : null,
+    !d.stripeAccountId && !ventaOnline ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=conexiones#integracion-stripe' } : null,
     !d.slug ? { id: 'slug', texto: 'Las reservas online aún están desactivadas: falta la dirección pública de tu estudio.', href: '/configuracion?tab=estudio' } : null,
     // ⚠️ Decía «Todavía no has creado ningún bono» también cuando el asistente
     // ya había dejado el bono y la cuota creados en borrador (sin precio e
@@ -465,7 +465,7 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
     { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
-    { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
   ];
   const listo = base.every(p => p.done);
   const reservas: PasoOnboarding = {

@@ -121,7 +121,7 @@ export const TAREAS: Tarea[] = [
   {
     id: 'metodos-pago',
     label: 'Activar los cobros con tarjeta',
-    href: '/configuracion?tab=cobros#integracion-stripe',
+    href: '/configuracion?tab=conexiones#integracion-stripe',
     claves: ['stripe', 'pago', 'tarjeta', 'bizum', 'sepa', 'cobrar online', 'pasarela'],
   },
   {

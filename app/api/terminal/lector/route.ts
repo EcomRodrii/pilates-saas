@@ -15,7 +15,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // El datáfono del estudio (el de Stripe o el SumUp Solo): verlo, conectarlo,
 // renombrarlo y desconectarlo. Lo usan «Conectar datáfono» en la Caja y la fila
-// «Datáfono» de Configuración → Cobros y facturas.
+// «Datáfono» de Configuración → Integraciones.
 //
 // Service-role sin RLS debajo: la única cerradura es el rol, en CADA método
 // (`puedeMoverDinero`: propietaria y recepción, las que ya pueden cobrar). Lo

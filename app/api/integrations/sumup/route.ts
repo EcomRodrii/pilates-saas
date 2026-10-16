@@ -40,7 +40,7 @@ export async function DELETE(req: NextRequest) {
   const { error: errLog } = await admin.from('actividad_reciente').insert({
     id: uid(), studio_id: sesion.studioId, tipo: 'CUENTA_COBRO_CAMBIADA',
     texto: 'SumUp desconectado del estudio',
-    socio_id: null, enlace: '/configuracion?tab=cobros#datafono', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
+    socio_id: null, enlace: '/configuracion?tab=conexiones#datafono', creado_en: new Date().toISOString(), actor_nombre: sesion.nombre,
   });
   if (errLog) console.error('[sumup:desconectar] no se pudo registrar la actividad', errLog.message);
   return NextResponse.json({ ok: true });
