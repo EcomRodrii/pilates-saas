@@ -38,7 +38,7 @@ export function correoEstudioVencido(p: {
   /** Por qué el estudio se ha quedado sin contrato. Sin él, la prueba vencida (lo de siempre). */
   motivo?: 'prueba_vencida' | 'baja';
   /**
-   * La baja viene del plan gratis con el panel cerrado (migr 20261015233500): no
+   * La baja viene del plan gratis con el panel cerrado (migr 20261016100200): no
    * había una suscripción que terminase ni que «reactivar», sino un plan que elegir.
    */
   planGratis?: boolean;

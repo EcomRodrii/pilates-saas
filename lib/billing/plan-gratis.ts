@@ -35,7 +35,7 @@
 //     quien mide solo guarda cifras y desde cuándo se pasó.
 //   · Con el panel cerrado 90 días, entra en la baja de un estudio de pago
 //     (avisos de «descarga tus datos» y purga a los 30): lo decide la BD,
-//     `plan_gratis_entra_en_baja` (migr 20261015233500), con la misma fecha de
+//     `plan_gratis_entra_en_baja` (migr 20261016100200), con la misma fecha de
 //     exceso. Si paga antes, no pasa nada.
 //
 // Puro, sin `@/`: se prueba con `node --test`.

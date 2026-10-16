@@ -35,7 +35,7 @@ import { ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, empiezaDeCeroAlConvertir, pasaAGr
 //   no, un 'gratis_cerrado' se reabriría con 30 días más.
 //   ⚠️ Se borra ANTES de escribir 'gratis', no después: el trigger
 //   `fijar_contrato_terminado` decide la baja del plan gratis con esa medición
-//   (migr 20261015233500), y con la vieja aún dentro daría por cerrado 90 días
+//   (migr 20261016100200), y con la vieja aún dentro daría por cerrado 90 días
 //   a quien acaba de volver, con el panel abierto. Si el compare-and-set falla
 //   después, no pasa nada: venía de un periodo pagado y empieza de cero igual.
 // ─────────────────────────────────────────────────────────────────────────────

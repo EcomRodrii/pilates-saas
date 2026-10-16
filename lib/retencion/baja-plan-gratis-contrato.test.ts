@@ -1,4 +1,4 @@
-// La baja del plan gratis (decisión del fundador, 16-oct-2026; migr 20261015233500) vive en la BD: un estudio
+// La baja del plan gratis (decisión del fundador, 16-oct-2026; migr 20261016100200) vive en la BD: un estudio
 // gratis con el panel cerrado entra en la baja de pago a los 90 días de cerrarse. Este test, sin base de datos,
 // ata lo que la BD hace con lo que el código y los textos dan por hecho, en la ÚLTIMA migración que define
 // cada función (las pruebas contra Postgres están en supabase/tests/plan-gratis-baja.test.ts, solo en CI):

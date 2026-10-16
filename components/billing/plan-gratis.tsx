@@ -47,7 +47,7 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
     case 'CERRADO':
       return {
         titulo: 'Tu estudio ha crecido',
-        // Y qué pasa con sus datos si no elige plan (la baja del plan gratis, migr 20261015233500). «Te
+        // Y qué pasa con sus datos si no elige plan (la baja del plan gratis, migr 20261016100200). «Te
         // escribiremos», no «los borraremos»: el borrado va tras un interruptor que esta pantalla no conoce.
         texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre. Si no eliges un plan, a los ${DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA} días de cerrarse te escribiremos para que descargues los datos de tu estudio.`,
         tono: 'problema',

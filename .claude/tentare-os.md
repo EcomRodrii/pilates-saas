@@ -331,7 +331,7 @@ así que todo lo que se versiona lo lee cualquiera:
     en /suscripcion (solo ofrece Cadena), con la principal de `leerCadenaParaGratis`. Una sede que ya
     pagaba un plan suelto sigue como está. Y al elegir Cadena, /suscripcion dice ANTES de pagar qué
     plan suelto se cancela sin prorrateo (`sueltosQueCancelaCadena`, el mismo criterio que el webhook).
-  - **Un gratis con 90 días CERRADO entra en la baja de pago** (fundador, 16-oct; migr `20261015233500`): los
+  - **Un gratis con 90 días CERRADO entra en la baja de pago** (fundador, 16-oct; migr `20261016100200`): los
     mismos avisos de «descarga tus datos» y la misma purga a los 30 días, tras `PURGA_ESTUDIOS_VENCIDOS`. Sin
     purga paralela. La regla, `plan_gratis_entra_en_baja` (30 de margen + 90, días de Madrid; si ESE estudio
     entró al gratis más tarde, desde que se midió por primera vez); la decisión entera, `baja_del_plan_gratis`

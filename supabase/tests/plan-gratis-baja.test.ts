@@ -1,5 +1,5 @@
 // Un estudio gratis con 90 días CERRADO entra en el ciclo de baja de un estudio de pago (decisión del fundador,
-// 16-oct-2026; migración 20261015233500), contra Postgres de verdad (job `calidad-rls`):
+// 16-oct-2026; migración 20261016100200), contra Postgres de verdad (job `calidad-rls`):
 //
 //  · la regla (`plan_gratis_entra_en_baja`): 30 días de margen + 90 cerrado, en días de Madrid, con sus bordes;
 //  · el reloj (`reevaluar_baja_plan_gratis`) le pone la fecha, y pagar la quita;

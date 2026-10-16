@@ -110,7 +110,7 @@ const CASOS: Caso[] = [
   // Cadena que deja de pagar (migr 20261015141653): el trigger que recalcula el contrato de las sedes
   // hermanas. Función de trigger: nadie la llama, y el permiso se comprueba al crear el trigger.
   { firma: 'recalcular_contrato_sedes_hermanas()', anon: false, authenticated: false, serviceRole: true },
-  // El plan gratis con 90 días cerrado entra en la baja (migr 20261015233500): la regla, la excepción de las
+  // El plan gratis con 90 días cerrado entra en la baja (migr 20261016100200): la regla, la excepción de las
   // cadenas y el reloj que llama el barrido, solo del servidor; y el trigger que fija `studios.creado_en`.
   { firma: 'plan_gratis_entra_en_baja(text, text, date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'cadena_con_otra_sede_viva(text, text)', anon: false, authenticated: false, serviceRole: true },

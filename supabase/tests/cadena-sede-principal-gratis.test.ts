@@ -77,7 +77,7 @@ test('cadena que deja de pagar: la principal a gratis, las demás cerradas sin b
     assert.ok(pedida);
 
     // Solo la principal pasa a gratis (con su medición de antes borrada: venía de un periodo pagado).
-    // Vieja de verdad (también su `creado_en`): con ella, la baja del plan gratis (migr 20261015233500) daría por
+    // Vieja de verdad (también su `creado_en`): con ella, la baja del plan gratis (migr 20261016100200) daría por
     // cerrada 90 días a la principal si se borrase DESPUÉS de convertirla.
     await ok('medición vieja', admin.from('uso_plan_gratis').insert({ studio_id: p.studioId, excedido_desde: '2026-01-01', creado_en: '2026-01-01T00:00:00Z' }));
     assert.equal(await convertirAGratisSiToca(admin, await fila(sede2), encendido), 'no-toca');

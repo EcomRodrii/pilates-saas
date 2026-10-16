@@ -18,7 +18,7 @@
 // borraría.
 //
 // También es el reloj de la baja del plan gratis: un estudio gratis con 90
-// días cerrado entra en la baja de pago (migr 20261015233500), y un trigger no
+// días cerrado entra en la baja de pago (migr 20261016100200), y un trigger no
 // se dispara porque pase el tiempo. Antes de leer, `reevaluar_baja_plan_gratis`
 // vuelve a pasar por el trigger a los que ya han cruzado la fecha.
 //

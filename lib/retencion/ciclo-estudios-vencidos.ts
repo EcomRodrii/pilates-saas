@@ -18,7 +18,7 @@
 //     Un estudio en Founding Studio gratis con el panel cerrado entra en esta
 //     MISMA baja a los DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA días de cerrarse
 //     (decisión del fundador, 16-oct-2026). La regla vive en la BD
-//     (`plan_gratis_entra_en_baja`, migr 20261015233500) y la fecha la pone el
+//     (`plan_gratis_entra_en_baja`, migr 20261016100200) y la fecha la pone el
 //     mismo trigger; el reloj es el barrido (`reevaluar_baja_plan_gratis`).
 //
 // El borrado real va apagado hasta que el abogado lo valide
@@ -284,7 +284,7 @@ export function asuntoAvisoEstudioVencido(
  * pasar) a Founding Studio gratis: los `tocados` y, en una cadena, sus sedes
  * hermanas. Lo que se leyó de ellas es de ANTES de convertir la principal, y con
  * ella la BD puede dar por vivo su contrato (migr 20261015141653; salvo que la
- * principal vuelva al gratis con 90 días cerrado, 20261015233500): en este tic
+ * principal vuelva al gratis con 90 días cerrado, 20261016100200): en este tic
  * no se les avisa de nada, y el siguiente lee lo que haya decidido la BD. Salvo
  * a la que ya pidió el borrado: esa sigue su ciclo, como en la BD
  * (`fijar_contrato_terminado` respeta la petición).

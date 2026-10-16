@@ -139,7 +139,7 @@ export async function leerUsoGratis(admin: SupabaseClient, studioId: string, own
  *
  * ⚠️ `uso_plan_gratis.creado_en` (cuándo se midió el estudio por primera vez) lo
  * lee la BD para la baja del plan gratis (`plan_gratis_entra_en_baja`, migr
- * 20261015233500): ningún upsert de aquí la manda, y no debe mandarla.
+ * 20261016100200): ningún upsert de aquí la manda, y no debe mandarla.
  */
 async function reservarMedicion(admin: SupabaseClient, studioId: string, ahora: Date): Promise<boolean> {
   await admin.from('uso_plan_gratis').upsert({ studio_id: studioId }, { onConflict: 'studio_id', ignoreDuplicates: true });
