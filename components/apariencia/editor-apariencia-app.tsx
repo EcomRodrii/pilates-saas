@@ -28,6 +28,7 @@ import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo, FONDO_VISTA_MOVIL } from '@/components/dashboard/vivo';
+import { MarcoIphone, PANTALLA_IPHONE, useEscalaIphone } from '@/components/ui/marco-iphone';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -53,7 +54,6 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
 /** Tamaño lógico del móvil de la vista previa: un iPhone de 390 pt. */
-const MOVIL = { ancho: 390, alto: 800 };
 
 interface Borrador { primary: string; secondary: string; app: AparienciaApp }
 
@@ -65,6 +65,11 @@ const mismaApp = (a: AparienciaApp, b: AparienciaApp) =>
   a.estilo === b.estilo && a.tipografia === b.tipografia && a.marca === b.marca && a.boton === b.boton && a.encuadre === b.encuadre;
 
 /** Pinta el borrador dentro de la app del iframe. Mismo origen: se escribe en su `<head>`. */
+// Un iPhone le da a la app un margen arriba (isla y hora) y abajo (indicador de inicio) con
+// `env(safe-area-inset-*)`; dentro de un iframe esos márgenes valen 0 y la cabecera quedaría
+// debajo de la isla. La app los lee de estas dos variables: aquí se les dan los del iPhone 17.
+const MARGEN_IPHONE = 'html .student-app { --safe-top: 62px; --safe-bottom: 34px; }\n';
+
 function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
   const doc = iframe?.contentDocument;
   if (!doc?.head) return;
@@ -74,7 +79,7 @@ function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
     el.id = ID_ESTILO_BORRADOR;
     doc.head.appendChild(el);
   }
-  el.textContent = css;
+  el.textContent = MARGEN_IPHONE + css;
 }
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
@@ -253,8 +258,9 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = 
   // dé el salto de blanco → app.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCargando(true); }, [pantalla, recarga]);
-  const escala = 0.8;
   const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
+  // La app se pinta a 402 × 874, como en un iPhone 17, y el marco la reduce a lo que cabe.
+  const escala = useEscalaIphone();
   return (
     <div className="flex flex-col items-center">
       {paginaOculta && <AvisoPaginaOculta />}
@@ -266,20 +272,17 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = 
           onChange={onPantalla}
         />
       </div>
-      <div
-        className="overflow-hidden rounded-[38px] border-[10px] border-neutral-900 bg-neutral-900 shadow-xl"
-        style={{ width: MOVIL.ancho * escala + 20, height: MOVIL.alto * escala + 20 }}
-      >
+      <MarcoIphone escala={escala} tinta="auto" indicador="auto">
         <iframe
           key={`${recarga}-${pantalla}`}
           ref={ref}
           title="Vista previa de la app de tus alumnas"
           src={`/portal/${encodeURIComponent(slug)}${ruta}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
-          className="origin-top-left rounded-[28px] bg-white transition-opacity duration-300"
-          style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0, opacity: cargando ? 0.35 : 1 }}
+          className="bg-white transition-opacity duration-300"
+          style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
-      </div>
+      </MarcoIphone>
       <a
         href={`/portal/${encodeURIComponent(slug)}${ruta}`}
         target="_blank"
