@@ -7,11 +7,11 @@ import { BotonVivo } from '@/components/dashboard/vivo';
 import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
 import { puedeVer } from '@/lib/permisos-reglas';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
-import type { PlataformaWeb } from '@/lib/widgets/recetas';
+import { usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { FOCO, TACTIL } from '../piezas';
 import { llevarAlTitulo } from '../lleva-al-titulo';
 import { QueEnsena, QueQuieres, DondeLoQuieres } from '../paso-que';
-import { PasoComo } from '../paso-como';
+import { ColoresPropios, PasoComo } from '../paso-como';
 import { PasoPonlo } from '../paso-ponlo';
 import { GestionDominios } from '../dominios';
 import { VistaPrevia, type Dispositivo } from '../vista-previa';
@@ -20,10 +20,19 @@ import { TuWebHechaCon } from './tu-web-hecha-con';
 
 // El asistente de «Tu web» v2 (decisión 3): cuatro pasos cortos en lugar de tres
 // largos —Qué pones · Dónde va · Cómo se ve · Ponlo en tu web—, con «Salir» y un
-// «Terminar» que vuelve a la portada (antes el último paso no tenía final). En
-// este PR, con el contenido de siempre: los pasos 1 y 2 salen de partir «Qué y
-// dónde» (`PasoQue`), el 3 es «Cómo se ve» (`PasoComo`, sin su barra: se publica
-// con la barra única) y el 4, «Ponlo en tu web» (`PasoPonlo`).
+// «Terminar» que vuelve a la portada (antes el último paso no tenía final). Cada
+// paso compone piezas que ya existen, con sus variantes de la v2:
+//  1. Qué pones: las cuatro grandes, las seis de «Más cosas» a la vista,
+//     «Próximamente» en una lista discreta y «Qué sale en tu horario».
+//  2. Dónde va: «Tu web está hecha con» (monogramas), las tres formas con
+//     «Recomendado» y, al pie, UNA línea: lo de este paso va dentro del código.
+//  3. Cómo se ve: dos niveles de estilo, «Tu web es…», el fundido y «Más
+//     ajustes» (con el ancho, marcado «Va en el código»). Sin su barra: se publica
+//     con la barra única.
+//  4. Ponlo en tu web: copiar, los pasos con su dibujo, una frase de cómo llegan
+//     los cambios y, para quien te hace la web, los colores propios del widget.
+// Sin las etiquetas «Pegar el código otra vez / Con «Publicar…» / Siempre al día»
+// (decisión 2): las apaga `EtiquetasDeCambio`, que pone `TuWebWidgets`.
 //
 // ⚠️ Los cuatro pasos están SIEMPRE montados y solo se oculta el que no toca
 // (como en el constructor de siempre): el código (su <pre>) está en el DOM desde
@@ -133,14 +142,14 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
           </div>
 
           <div ref={el => { contenedores.current.que = el; }} tabIndex={-1} hidden={paso !== 'que'} className="space-y-4 outline-none">
-            <QueQuieres activo={w} avisos={s.avisos} copias={s.copias} onElegir={s.setActivoId} />
-            <QueEnsena key={w.id} w={w} c={configEfectiva} metodo={metodo} cambiar={s.cambiar} datos={datos} porId={s.porId} />
+            <QueQuieres activo={w} avisos={s.avisos} copias={s.copias} onElegir={s.setActivoId} masCosasALaVista />
+            <QueEnsena key={w.id} w={w} c={configEfectiva} metodo={metodo} cambiar={s.cambiar} datos={datos} porId={s.porId} tituloHorario="Qué sale en tu horario" />
           </div>
 
           <div ref={el => { contenedores.current.donde = el; }} tabIndex={-1} hidden={paso !== 'donde'} className="space-y-4 outline-none">
             <TuWebHechaCon web={s.web} sitioWeb={studio?.sitioWeb ?? null} direccion={s.direccionWeb} onContestar={s.guardarWeb} />
             {plataforma ? (
-              <DondeLoQuieres w={w} c={configEfectiva} metodo={metodo} plataforma={plataforma} receta={s.receta} cambiar={s.cambiar} onMetodo={s.elegirMetodo} />
+              <DondeLoQuieres w={w} c={configEfectiva} metodo={metodo} plataforma={plataforma} receta={s.receta} cambiar={s.cambiar} onMetodo={s.elegirMetodo} conPie />
             ) : (
               <p className="text-[12.5px] text-muted-foreground">Cuando nos digas con qué está hecha tu web, aquí verás cómo ponerlo: dentro de una página, como un botón o como un enlace, con la forma que mejor funciona en la tuya.</p>
             )}
@@ -163,6 +172,7 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
               piezas={s.piezas}
               porId={s.porId}
               sinBarraAplicar
+              variante="v2"
             />
           </div>
 
@@ -199,6 +209,20 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
                 </div>
               )}
               showToast={s.showToast}
+              variante="v2"
+              onCambiarWeb={() => onPaso('donde')}
+              // Sin diseño que poner con un enlace ni con el botón de su propia web.
+              colores={metodo !== 'enlace' && !(metodo === 'boton' && usaBotonPropio(plataforma)) ? (
+                <ColoresPropios
+                  w={w}
+                  c={configEfectiva}
+                  metodo={metodo}
+                  plataforma={plataforma}
+                  cambiar={s.cambiar}
+                  colorEstudio={datos.colorEstudio}
+                  porId={s.porId}
+                />
+              ) : undefined}
             />
           </div>
 

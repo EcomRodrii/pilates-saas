@@ -5,7 +5,7 @@ import { Code2, Globe, Smartphone, UsersRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BotonVivo } from '@/components/dashboard/vivo';
 import { btnSecondary, inputCls } from '@/components/configuracion/estilos';
-import { PLATAFORMAS_WEB, direccionLegible, nombrePlataforma, type EstadoWeb, type PlataformaWeb } from '@/lib/widgets/recetas';
+import { MONOGRAMA, PLATAFORMAS_WEB, direccionLegible, nombrePlataforma, type EstadoWeb, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { FOCO, GrupoOpciones, Tarjeta } from '../piezas';
 
 // «¿Con qué está hecha tu web?» en «Tu web» v2 (decisión 3): ya no es lo primero
@@ -15,13 +15,29 @@ import { FOCO, GrupoOpciones, Tarjeta } from '../piezas';
 // misma pregunta en un diálogo.
 //
 // Contestar GUARDA (en `_web`, fusionando sobre lo demás) y no navega: el paso
-// sigue a la vista y «Siguiente» se enciende. Los iconos, genéricos a propósito
-// (ni logos ni colores de marca de nadie); los monogramas llegan con el PR 2.
+// sigue a la vista y «Siguiente» se enciende.
+//
+// Cada plataforma con su monograma (decisión 7: W, Wix, S, Wf en lugar del mismo
+// globo para las cuatro), en neutro: ni logos ni colores de marca de nadie. Lo
+// que no es una plataforma con nombre lleva el icono de lo que es.
 
-const ICONO: Record<PlataformaWeb, typeof Globe> = {
-  wordpress: Globe, wix: Globe, squarespace: Globe, webflow: Globe,
+const ICONO: Record<'otra' | 'agencia' | 'sinweb', typeof Code2> = {
   otra: Code2, agencia: UsersRound, sinweb: Smartphone,
 };
+
+/** El monograma o el icono de una plataforma, sin su caja (la pone quien lo usa). */
+export function MonogramaPlataforma({ plataforma, size = 16 }: { plataforma: PlataformaWeb; size?: number }) {
+  const letras = MONOGRAMA[plataforma];
+  if (letras) {
+    return (
+      <span aria-hidden data-monograma={plataforma} className={cn('font-bold leading-none tracking-tight', letras.length > 2 ? 'text-[10.5px]' : 'text-[13px]')}>
+        {letras}
+      </span>
+    );
+  }
+  const Icono = ICONO[plataforma as keyof typeof ICONO] ?? Globe;
+  return <Icono size={size} strokeWidth={1.8} aria-hidden />;
+}
 
 /** La pregunta, abierta. */
 export function PreguntaTuWeb({ web, sitioWeb, onContestar, onCancelar }: {
@@ -46,10 +62,7 @@ export function PreguntaTuWeb({ web, sitioWeb, onContestar, onCancelar }: {
         valor={plataforma}
         onChange={setPlataforma}
         className="@md/config:grid-cols-2"
-        opciones={PLATAFORMAS_WEB.map(p => {
-          const Icono = ICONO[p.id];
-          return { valor: p.id, titulo: p.nombre, detalle: p.detalle, icono: <Icono size={16} strokeWidth={1.8} /> };
-        })}
+        opciones={PLATAFORMAS_WEB.map(p => ({ valor: p.id, titulo: p.nombre, detalle: p.detalle, icono: <MonogramaPlataforma plataforma={p.id} /> }))}
       />
       {plataforma !== 'sinweb' && (
         <div>
@@ -100,12 +113,11 @@ export function TuWebHechaCon({ web, sitioWeb, direccion, onContestar }: {
       />
     );
   }
-  const Icono = ICONO[web.plataforma];
   return (
     <div>
       <p className="text-[13px] font-semibold text-foreground">Tu web está hecha con</p>
       <div className="mt-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground"><Icono size={16} strokeWidth={1.8} /></span>
+        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground"><MonogramaPlataforma plataforma={web.plataforma} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-semibold text-foreground">{nombrePlataforma(web.plataforma)}</span>
           {direccion && web.plataforma !== 'sinweb' && <span className="block text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">{direccion}</span>}

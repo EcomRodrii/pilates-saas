@@ -11,7 +11,7 @@ import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-we
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { WIDGETS, esDisponible, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import type { AccionAviso } from '@/lib/widgets/fila-portada';
-import { FOCO, PUBLICAR_V2, TextosDePublicar } from '../piezas';
+import { EtiquetasDeCambio, FOCO, PUBLICAR_V2, TextosDePublicar } from '../piezas';
 import { useConstructorWidgets } from '../usar-constructor';
 import { llevarAlTitulo } from '../lleva-al-titulo';
 import { AsistenteWidgets, PASOS_V2, type PasoV2 } from './asistente';
@@ -99,62 +99,65 @@ function TuWebDelEstudio({ slug, showToast }: { slug: string; showToast: (m: str
 
   return (
     <TextosDePublicar.Provider value={PUBLICAR_V2}>
-      <TarjetaAjuste id="widgets" marco={false}>
-        <div ref={arriba} className="space-y-5">
-          {s.paginaOculta && (
-            <div role="note" data-testid="aviso-pagina-oculta" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
-              <EyeOff size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-              <p className="text-pretty">
-                <strong className="font-semibold">Tu página está oculta</strong>, y lo que pongas en tu web también: tus widgets enseñan «Estamos preparando esta página» y desde ellos no se puede reservar ni comprar.{' '}
-                <Link href={hrefDeTarjeta('pagina-publica')} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline', FOCO)}>
-                  Cambiarlo<ArrowUpRight size={12} aria-hidden />
-                </Link>
-              </p>
-            </div>
-          )}
+      {/* Sin las etiquetas de cómo llega cada cambio, tarjeta a tarjeta (decisión 2). */}
+      <EtiquetasDeCambio.Provider value={false}>
+        <TarjetaAjuste id="widgets" marco={false}>
+          <div ref={arriba} className="space-y-5">
+            {s.paginaOculta && (
+              <div role="note" data-testid="aviso-pagina-oculta" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+                <EyeOff size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                <p className="text-pretty">
+                  <strong className="font-semibold">Tu página está oculta</strong>, y lo que pongas en tu web también: tus widgets enseñan «Estamos preparando esta página» y desde ellos no se puede reservar ni comprar.{' '}
+                  <Link href={hrefDeTarjeta('pagina-publica')} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline', FOCO)}>
+                    Cambiarlo<ArrowUpRight size={12} aria-hidden />
+                  </Link>
+                </p>
+              </div>
+            )}
 
-          {modo.tipo === 'portada' ? (
-            <>
-              <Pildoras
-                opciones={[{ valor: 'widgets' as Vista, label: 'Tus widgets' }, { valor: 'crecimiento' as Vista, label: 'Cómo le va a tu página' }]}
-                etiqueta="Qué ver"
-                valor={vista}
-                onCambio={v => { setVista(v); setEnfoque(null); }}
-              />
-              {vista === 'widgets' ? (
-                <PortadaTusWidgets
-                  s={s}
-                  onEmpezar={id => abrirPieza(id, 'que')}
-                  onCambiar={id => abrirPieza(id, 'que')}
-                  onCopiar={id => { s.prepararCodigo(id); abrirPieza(id, 'ponlo'); }}
-                  onAccion={accion}
-                  onOtraCosa={ponerOtraCosa}
-                  onCambiarEstilo={() => abrir('como')}
-                  onVerResultados={verResultados}
+            {modo.tipo === 'portada' ? (
+              <>
+                <Pildoras
+                  opciones={[{ valor: 'widgets' as Vista, label: 'Tus widgets' }, { valor: 'crecimiento' as Vista, label: 'Cómo le va a tu página' }]}
+                  etiqueta="Qué ver"
+                  valor={vista}
+                  onCambio={v => { setVista(v); setEnfoque(null); }}
                 />
-              ) : (
-                <TabCrecimientoWeb showToast={showToast} enfoque={enfoque} />
-              )}
-            </>
-          ) : (
-            <AsistenteWidgets
-              s={s}
-              paso={modo.paso}
-              onPaso={abrir}
-              onSalir={() => {
-                setVista('widgets');
-                setModo({ tipo: 'portada' });
-                // De vuelta arriba de la portada: venía del final del último paso.
-                requestAnimationFrame(() => { if (arriba.current) llevarAlTitulo(arriba.current); });
-              }}
-              verDominios={verDominios}
-              onDominiosVistos={() => setVerDominios(false)}
-            />
-          )}
+                {vista === 'widgets' ? (
+                  <PortadaTusWidgets
+                    s={s}
+                    onEmpezar={id => abrirPieza(id, 'que')}
+                    onCambiar={id => abrirPieza(id, 'que')}
+                    onCopiar={id => { s.prepararCodigo(id); abrirPieza(id, 'ponlo'); }}
+                    onAccion={accion}
+                    onOtraCosa={ponerOtraCosa}
+                    onCambiarEstilo={() => abrir('como')}
+                    onVerResultados={verResultados}
+                  />
+                ) : (
+                  <TabCrecimientoWeb showToast={showToast} enfoque={enfoque} />
+                )}
+              </>
+            ) : (
+              <AsistenteWidgets
+                s={s}
+                paso={modo.paso}
+                onPaso={abrir}
+                onSalir={() => {
+                  setVista('widgets');
+                  setModo({ tipo: 'portada' });
+                  // De vuelta arriba de la portada: venía del final del último paso.
+                  requestAnimationFrame(() => { if (arriba.current) llevarAlTitulo(arriba.current); });
+                }}
+                verDominios={verDominios}
+                onDominiosVistos={() => setVerDominios(false)}
+              />
+            )}
 
-          <BarraPublicarEnMiWeb s={s} barra={barra} />
-        </div>
-      </TarjetaAjuste>
+            <BarraPublicarEnMiWeb s={s} barra={barra} />
+          </div>
+        </TarjetaAjuste>
+      </EtiquetasDeCambio.Provider>
     </TextosDePublicar.Provider>
   );
 }

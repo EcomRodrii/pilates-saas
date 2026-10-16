@@ -56,8 +56,20 @@ export function fechaCorta(iso: string): string {
  *  - `codigo`: va en el propio código, y cambiarlo pide pegarlo otra vez.
  */
 export type TipoEtiqueta = 'codigo' | 'aplicar' | 'vivo';
+
+/**
+ * Si se pintan esas etiquetas. En «Tu web» v2, no (decisión 2 del fundador,
+ * 15-oct-2026): en su lugar, una línea al pie de «Dónde va», una marca en «Ancho»
+ * y una frase en «Ponlo en tu web» (`fraseComoLlegan`). Un contexto para no tocar
+ * ninguna de las llamadas; sin proveedor, las de siempre.
+ */
+export const EtiquetasDeCambio = createContext(true);
+export const useEtiquetasDeCambio = () => useContext(EtiquetasDeCambio);
+
 export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
   const { boton } = useTextosPublicar();
+  const conEtiquetas = useEtiquetasDeCambio();
+  if (!conEtiquetas) return null;
   if (tipo === 'codigo') {
     return (
       <span className="inline-flex shrink-0 items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
@@ -81,7 +93,7 @@ function marcaDe(titulo: string): { Icono: LucideIcon; tono: Tono } {
   if (titulo.startsWith('¿Con qué está hecha') || titulo.startsWith('Lo que tienes')) return { Icono: Globe, tono: 'azul' };
   if (titulo.startsWith('¿Qué quieres poner')) return { Icono: LayoutGrid, tono: 'azul' };
   if (titulo.startsWith('¿Dónde')) return { Icono: MapPin, tono: 'magenta' };
-  if (titulo.startsWith('Qué enseña') || titulo.startsWith('¿Qué clase') || titulo.startsWith('¿Qué se vende')) return { Icono: SlidersHorizontal, tono: 'verde' };
+  if (titulo.startsWith('Qué enseña') || titulo.startsWith('Qué sale') || titulo.startsWith('¿Qué clase') || titulo.startsWith('¿Qué se vende')) return { Icono: SlidersHorizontal, tono: 'verde' };
   if (titulo.startsWith('¿Cómo quieres') || titulo.startsWith('Estilo de')) return { Icono: Palette, tono: 'magenta' };
   if (titulo.startsWith('Cómo encaja')) return { Icono: Ruler, tono: 'indigo' };
   if (titulo.startsWith('Te falta')) return { Icono: AlertCircle, tono: 'magenta' };
@@ -89,7 +101,7 @@ function marcaDe(titulo: string): { Icono: LucideIcon; tono: Tono } {
 }
 
 /** Una tarjeta de un paso, con su título y, si toca, su etiqueta. */
-export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
+export function Tarjeta({ titulo, etiqueta: pedida, subtitulo, children, className }: {
   titulo: string;
   etiqueta?: TipoEtiqueta;
   subtitulo?: ReactNode;
@@ -97,6 +109,7 @@ export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   className?: string;
 }) {
   const id = useId();
+  const etiqueta = useEtiquetasDeCambio() ? pedida : undefined;
   // Panel nuevo: el marco de las tarjetas del resto del panel (casi blanca, un toque de su tono) y su baldosa.
   const panelNuevo = usePanelNuevo();
   const marca = panelNuevo ? marcaDe(titulo) : null;
