@@ -59,7 +59,7 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/clientas', '/cobros', '/comunidad', '/configuracion', '/contenido', '/dashboard',
   '/equipo', '/explorar-funciones', '/facturas', '/festivos', '/informes', '/libreta', '/marketing',
   '/mensajeria', '/mi-perfil', '/migracion', '/notificaciones', '/ondemand', '/pagos',
-  '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
+  '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones', '/tu-app', '/tu-web',
   // Veri*Factu: la declaración responsable del SIF (lleva datos del productor)
   // y cualquier pantalla futura del envío a la AEAT.
   '/verifactu',

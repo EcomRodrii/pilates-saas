@@ -1,5 +1,11 @@
 # La demo de Configuración
 
+> ⚠️ **El apartado «Demo» se quitó de Configuración el 16-oct-2026** (decisión del fundador). Ya no hay
+> ninguna pantalla que enseñe el vídeo ni su índice (`seccion-demo.tsx`, `lib/configuracion/demo.ts` y
+> `demo-capitulos.ts` se borraron). Estas herramientas de grabación y el vídeo del bucket
+> `demo-configuracion` siguen ahí por si se quiere volver a usar; `montar.mjs -- --escribir-indice` ya no
+> tiene quién lea lo que escribe.
+
 El vídeo que recorre **todas** las secciones de Configuración —una por una,
 configurando cada ajuste y explicándolo— para enseñar a una propietaria nueva. Se ve
 en **Configuración → Demo** (`components/configuracion/secciones/seccion-demo.tsx`).
