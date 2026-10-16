@@ -120,6 +120,9 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     let cancelado = false;
     let enviado = false;
     let encargoRecibido = false;
+    // Con un encargo de contraseña, la sesión es SOLO la que devuelve el cliente efímero: una sesión
+    // por correo que apareciera mientras tanto en tentare.app (otra pestaña, otro estudio) no se reenvía.
+    let soloContrasena = false;
 
     function alWidget(mensaje: Record<string, unknown>) {
       window.opener?.postMessage({ nonce, ...mensaje }, destino!);
@@ -138,6 +141,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       window.close();
     }
     function enviarSiNueva(session: Session | null) {
+      if (soloContrasena) return;
       if (!session?.access_token || !session.refresh_token) return;
       if (!sesionAutenticadaPorEmailDespuesDe(session.access_token, abiertoEn)) return;
       entregar(session);
@@ -146,6 +150,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     async function cumplir(encargo: EncargoAcceso) {
       setEmail(encargo.email);
       setEmailDelWidget(true);
+      if (encargo.accion === 'password') soloContrasena = true;
       setFase(encargo.accion === 'password' ? 'entrando' : 'enviando-correo');
       // El encargo llega nada más cargar, antes que el script de Cloudflare:
       // sin esperar a que el captcha esté montado, `pedirToken` diría «no eres

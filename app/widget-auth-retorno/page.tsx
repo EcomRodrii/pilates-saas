@@ -63,7 +63,8 @@ function marcaDeApertura(): number {
 const ORIGEN_ANFITRIONA_E2E = 'http://127.0.0.1:4599';
 
 async function destinoDelPuente(slug: string, origenEstudio: string): Promise<string | null> {
-  if (process.env.E2E_TEST === '1') return slug === 'tentare' && origenEstudio === ORIGEN_ANFITRIONA_E2E ? origenEstudio : null;
+  // Nunca en producción, aunque alguien pusiera E2E_TEST en Vercel (defensa en profundidad).
+  if (process.env.E2E_TEST === '1' && process.env.VERCEL_ENV !== 'production') return slug === 'tentare' && origenEstudio === ORIGEN_ANFITRIONA_E2E ? origenEstudio : null;
   return origenPermitido({ slug }, origenEstudio);
 }
 
