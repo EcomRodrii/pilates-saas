@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ETIQUETA_ESTADO, ESTADOS_CON_ERROR, TEXTO_AVISO, cambiosEntreDias, estudioDesdeBd, evolucionPorDia, hoyPedido, prevision,
-  recuentoPorEstado, type FilaDiaria, type FilaSituacionBd,
+  ETIQUETA_ESTADO, ESTADOS_CON_ERROR, TEXTO_AVISO, cambiosEntreDias, estudioDesdeBd, evolucionPorDia, gratisParaPantalla, hoyPedido, prevision,
+  recuentoPorEstado, resumenGratis, textoAviso, type FilaDiaria, type FilaSituacionBd,
 } from './bajas.ts';
+import { CODIGOS_AVISO_GRATIS, TEXTO_AVISO_GRATIS, informeGratis } from '../retencion/gratis-en-seco.ts';
 import { DIAS_HASTA_INACTIVO, DIAS_HASTA_SUSPENDIDO } from '../retencion/situacion-estudio.ts';
 
 const SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261016123000_situacion_estudio_solo_lectura.sql'), 'utf8');
@@ -90,4 +91,31 @@ test('?hoy=: solo un día que existe, como mucho dos años alrededor de hoy', ()
   assert.equal(hoyPedido('mañana', hoy), hoy);
   assert.equal(hoyPedido('2099-01-01', hoy), hoy);
   assert.equal(hoyPedido("2026-10-01'; drop", hoy), hoy);
+});
+
+test('plan gratis en seco: el registro del día en pantalla, con los estudios por su nombre, y su recuento', () => {
+  const hoy = '2026-10-16';
+  const gratis = (s: string) => ({ estado: 'GRATIS' as const, motivo: null, esDemo: s === 'demo' });
+  const informe = informeGratis({
+    studioId: 'b', estadoSuscripcion: 'gratis', hoy, medidoEn: `${hoy}T10:00:00Z`, grupoDeHoy: ['b', 'demo'],
+    usos: new Map([['b', { alumnasActivas: 100, reservas30Dias: 10 }], ['demo', { alumnasActivas: 60, reservas30Dias: 0 }]]),
+    guardado: [], miembros: new Map([['b', gratis('b')], ['demo', gratis('demo')]]),
+  });
+  const nombres = new Map([['b', 'Estudio B'], ['demo', 'Estudio demo']]);
+  const g = gratisParaPantalla(JSON.parse(JSON.stringify(informe)), nombres)!;
+  assert.deepEqual(g.actual?.grupo, ['Estudio B', 'Estudio demo']);
+  assert.equal(g.actual?.fase, 'MARGEN');
+  assert.deepEqual(g.propuesta?.fuera, [{ nombre: 'Estudio demo', motivo: 'demo' }]);
+  assert.equal(g.propuesta?.fase, 'DENTRO');
+  assert.deepEqual(g.avisos.sort(), ['gratis_lo_mediria_el_barrido', 'grupo_dueña_difiere'].sort());
+  assert.equal(gratisParaPantalla(null, nombres), null);
+  assert.equal(gratisParaPantalla({ version: 99 }, nombres), null);
+
+  // En la fila del estudio, sus avisos se suman a los del cálculo de hoy, sin repetir.
+  const e = estudioDesdeBd(fila({ avisos: ['gratis_sin_medir'] }), 'Estudio B', hoy, g);
+  assert.deepEqual(e.avisos.sort(), ['gratis_lo_mediria_el_barrido', 'gratis_sin_medir', 'grupo_dueña_difiere'].sort());
+  assert.deepEqual(resumenGratis([e, estudioDesdeBd(fila({}), 'Otro', hoy)]), {
+    medidos: 1, coinciden: 0, loMediriaElBarrido: 1, difierenDelGate: 0, enMargen: 1, seCerrarian: 0, ambiguos: 0, gruposDistintos: 1,
+  });
+  for (const c of CODIGOS_AVISO_GRATIS) assert.equal(textoAviso(c), TEXTO_AVISO_GRATIS[c]);
 });

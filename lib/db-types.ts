@@ -4334,6 +4334,8 @@ export interface RowEstudioSituacionDiaria {
   senales: any;
   avisos: string[];
   calculado_en: string;
+  // migr 20261016174500.
+  gratis: any | null;
 }
 
 
@@ -11996,6 +11998,7 @@ export type EstudioSituacionDiariaInsert = {
   senales?: any | null;
   avisos?: string[] | null;
   calculado_en?: string | null;
+  gratis?: any | null | null;
 }
 
 export type EstudioSituacionDiariaUpdate = {
@@ -12011,6 +12014,7 @@ export type EstudioSituacionDiariaUpdate = {
   senales?: any | null;
   avisos?: string[] | null;
   calculado_en?: string | null;
+  gratis?: any | null | null;
 }
 
 export type Database = {

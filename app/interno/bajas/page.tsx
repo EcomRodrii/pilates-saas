@@ -10,14 +10,18 @@
 //     dudosos. Se puede mirar otro día (`?hoy=`) con los datos de hoy.
 //   · Evolución: el informe diario (solo existe con BAJAS_AUTOMATICAS=informe),
 //     día a día, y los estudios que cambian de estado de un día a otro.
+//   · Plan gratis medido en seco: lo que mide el cron de cada estudio gratis (la
+//     misma medición del gate), si coincide con lo que tiene el gate, y si el
+//     grupo de la dueña cambia con la regla propuesta. Nada de esto cierra un panel.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchBajas } from '@/lib/interno/client';
 import {
-  ESTADOS_CON_ERROR, ETIQUETA_ESTADO, textoAviso, type EstudioBajas, type RespuestaBajas,
+  ESTADOS_CON_ERROR, ETIQUETA_ESTADO, textoAviso, type EstudioBajas, type GratisEnPantalla, type RespuestaBajas,
 } from '@/lib/interno/bajas';
 import type { EstadoEstudio } from '@/lib/retencion/situacion-estudio';
+import type { FaseGratis } from '@/lib/billing/plan-gratis';
 
 const fecha = (ymd: string | null) => (ymd
   ? new Date(`${ymd}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Madrid' })
@@ -37,6 +41,42 @@ const TONO: Record<EstadoEstudio | 'ERROR', string> = {
   ELIMINADO: 'bg-destructive/10 text-destructive',
   ERROR: 'bg-destructive/10 text-destructive',
 };
+
+/** La fase del gratis como la diría el diseño: normal, en margen o cerrado. */
+const FASE: Record<FaseGratis, string> = {
+  DENTRO: 'normal',
+  CERCA: 'normal, cerca del límite',
+  MARGEN: 'en margen',
+  CERRADO: 'cerrado',
+  SIN_MEDIR: 'sin medir',
+};
+
+const MOTIVO_FUERA = { demo: 'demo', eliminado: 'eliminado', abandono: 'suspendido por abandono' } as const;
+
+/** Lo medido en seco de un estudio, en una o dos líneas. */
+function LineaGratis({ g }: { g: GratisEnPantalla }) {
+  const cifras = (a: number | null, r: number | null) => (a === null || r === null ? 'sin cifras' : `${a} alumnas activas · ${r} reservas en 30 días`);
+  return (
+    <div className="mt-0.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-[12px] text-muted-foreground">
+      <p>
+        <span className="font-semibold text-foreground">Gratis en seco:</span>{' '}
+        {g.actual
+          ? <>{cifras(g.actual.alumnas, g.actual.reservas)} → <span className="font-semibold text-foreground">{FASE[g.actual.fase]}</span>
+              {g.actual.excedidoDesde ? ` desde el ${fecha(g.actual.excedidoDesde)}` : ''}{g.actual.cierraEl ? ` (cierra el ${fecha(g.actual.cierraEl)})` : ''}
+              {g.actual.grupo.length > 1 ? ` · grupo de ${g.actual.grupo.length}: ${g.actual.grupo.join(', ')}` : ''}</>
+          : 'no se pudo medir'}
+        {' · '}el gate: {g.guardado ? `${FASE[g.guardado.fase]}${g.guardado.alumnas !== null ? ` (${cifras(g.guardado.alumnas, g.guardado.reservas)})` : ''}` : 'no se pudo leer'}
+        {g.coincide === true ? ' · coincide' : g.coincide === false ? ' · no coincide' : ''}
+      </p>
+      {g.grupoDifiere && g.propuesta && (
+        <p>
+          Regla propuesta: {cifras(g.propuesta.alumnas, g.propuesta.reservas)} → <span className="font-semibold text-foreground">{FASE[g.propuesta.fase]}</span>
+          {' · '}fuera: {g.propuesta.fuera.map(f => `${f.nombre} (${MOTIVO_FUERA[f.motivo]})`).join(', ')}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Qué limitaría el estado, en una frase. */
 function queLimita(e: EstudioBajas): string {
@@ -131,6 +171,35 @@ export default function BajasEnSeco() {
             </ul>
           </section>
 
+          <section className="rounded-2xl border border-border bg-card px-4 py-4" aria-labelledby="bajas-gratis">
+            <h2 id="bajas-gratis" className="text-[14px] font-bold text-foreground">Plan gratis, medido en seco</h2>
+            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+              Cada día el cron mide cada estudio gratis (no a quien paga ni las demos) con la misma medición del gate, y lo compara con
+              lo que el gate tiene guardado. Nada de esto se guarda donde el gate lo lee ni cierra un panel.
+            </p>
+            {datos.gratis.medidos === 0 ? (
+              <p className="mt-3 text-[13px] text-muted-foreground">Ese día no hay ningún estudio gratis medido en seco.</p>
+            ) : (
+              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([
+                  ['Medidos', datos.gratis.medidos],
+                  ['Coinciden con el gate', datos.gratis.coinciden],
+                  ['El gate no los tenía medidos', datos.gratis.loMediriaElBarrido],
+                  ['Difieren del gate', datos.gratis.difierenDelGate],
+                  ['En margen', datos.gratis.enMargen],
+                  ['Se cerrarían', datos.gratis.seCerrarian],
+                  ['Con lecturas fallidas', datos.gratis.ambiguos],
+                  ['Grupo de la dueña distinto', datos.gratis.gruposDistintos],
+                ] as const).map(([etiqueta, n]) => (
+                  <li key={etiqueta} className="rounded-xl border border-border/70 px-3 py-2">
+                    <p className="text-[11.5px] font-medium text-muted-foreground">{etiqueta}</p>
+                    <p className="text-[20px] font-bold tabular-nums text-foreground">{n}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section aria-labelledby="bajas-evolucion">
             <h2 id="bajas-evolucion" className="mb-2 text-[12px] font-bold uppercase tracking-wide text-muted-foreground">Evolución por días</h2>
             {datos.historial.dias.length === 0 ? (
@@ -203,6 +272,7 @@ export default function BajasEnSeco() {
                     {e.entraSuspendidoEl ? ` · suspendido el ${fecha(e.entraSuspendidoEl)}` : ''}
                     {e.faseGratis !== 'SIN_MEDIR' && !e.paga ? ` · gratis: ${e.faseGratis.toLowerCase()}` : ''}
                   </p>
+                  {e.gratis && <LineaGratis g={e.gratis} />}
                   {e.avisos.length > 0 && (
                     <ul className="mt-0.5 flex flex-wrap gap-1.5">
                       {e.avisos.map(a => <li key={a}><Etiqueta>{textoAviso(a)}</Etiqueta></li>)}

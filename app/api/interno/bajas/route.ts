@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import {
-  cambiosEntreDias, estudioDesdeBd, evolucionPorDia, hoyPedido, recuentoPorEstado,
+  cambiosEntreDias, estudioDesdeBd, evolucionPorDia, gratisParaPantalla, hoyPedido, recuentoPorEstado, resumenGratis,
   type FilaDiaria, type FilaSituacionBd, type RespuestaBajas,
 } from '@/lib/interno/bajas';
 import { DIAS_HASTA_INACTIVO, DIAS_HASTA_SUSPENDIDO, modoBajas } from '@/lib/retencion/situacion-estudio';
@@ -19,7 +19,9 @@ export const dynamic = 'force-dynamic';
 //     (`situacion_estudios`); con `?hoy=AAAA-MM-DD`, la de ese día con lo que hay
 //     hoy («si nadie hace nada»);
 //   · el informe diario (`estudio_situacion_diaria`), para ver la evolución y
-//     los estudios que cambian de estado de un día a otro.
+//     los estudios que cambian de estado de un día a otro;
+//   · el plan gratis medido en seco ese día (su columna `gratis`): lo medido, lo
+//     que tiene el gate y si el grupo de la dueña cambia con la regla propuesta.
 //
 // Misma puerta que el resto de /interno: equipo de Tentare activo, sesión `aal2`
 // y el permiso `studios.read`. Cruza estudios con service-role, legítimo solo
@@ -56,20 +58,25 @@ export async function GET(req: NextRequest) {
     }
   };
 
-  const [vivo, estudios, historial] = await Promise.all([
+  const [vivo, estudios, historial, gratisDelDia] = await Promise.all([
     db.rpc('situacion_estudios', { p_hoy: hoy }),
     db.from('studios').select('id, nombre, slug'),
     leerHistorial(),
+    // Solo las filas medidas: como mucho una por estudio.
+    db.from('estudio_situacion_diaria').select('studio_id, gratis').eq('dia', hoy).not('gratis', 'is', null),
   ]);
   if (estudios.error) noLeidos.push('estudios');
   if (vivo.error) noLeidos.push('situación de hoy');
   if (historial === null) noLeidos.push('informe diario');
+  if (gratisDelDia.error) noLeidos.push('plan gratis medido en seco');
 
   const nombres = new Map(((estudios.data ?? []) as { id: string; nombre: string | null; slug: string | null }[])
     .map(e => [e.id, e.nombre || e.slug || e.id]));
+  const gratisDe = new Map(((gratisDelDia.data ?? []) as { studio_id: string; gratis: unknown }[])
+    .map(g => [g.studio_id, gratisParaPantalla(g.gratis, nombres)]));
   const filasVivo = vivo.error ? [] : ((vivo.data ?? []) as FilaSituacionBd[]);
   const estudiosVivo = filasVivo
-    .map(f => estudioDesdeBd(f, nombres.get(f.studio_id) ?? f.studio_id, hoy))
+    .map(f => estudioDesdeBd(f, nombres.get(f.studio_id) ?? f.studio_id, hoy, gratisDe.get(f.studio_id) ?? null))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
   const respuesta: RespuestaBajas = {
@@ -81,6 +88,7 @@ export async function GET(req: NextRequest) {
       dias: evolucionPorDia(historial ?? []),
       cambios: cambiosEntreDias(historial ?? [], nombres),
     },
+    gratis: resumenGratis(estudiosVivo),
     noLeidos,
   };
   return NextResponse.json(respuesta);
