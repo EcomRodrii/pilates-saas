@@ -22,11 +22,16 @@ export function esBundleIdValido(id: string): boolean {
   return /^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)+$/.test(id) && id.length <= 155;
 }
 
-/** El nombre bajo el icono: Apple corta a partir de ~12 caracteres y no admite más de 30 en la tienda. */
+/**
+ * El nombre bajo el icono: Apple corta a partir de ~12 caracteres y no admite más de 30 en la tienda.
+ * Se cuenta en puntos de código, como la petición (`pedir-app.ts`) y el CHECK de la BD: con
+ * `.length` (UTF-16) un nombre con emoji se aceptaba al pedirlo y fallaba en cada compilación.
+ */
 export function esNombreValido(nombre: string): boolean {
+  const largo = [...nombre].length;
   return nombre.trim() === nombre
-    && nombre.length > 0
-    && nombre.length <= 30
+    && largo > 0
+    && largo <= 30
     && !/[\u0000-\u001f\u007f$]|\/\//.test(nombre);
 }
 

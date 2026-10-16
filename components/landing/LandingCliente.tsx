@@ -26,7 +26,6 @@ import { BandaPrueba } from '@/components/landing/BandaPrueba';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { MedicionLanding } from '@/components/landing/MedicionLanding';
 import { AnclasSuaves } from '@/components/landing/AnclasSuaves';
-import { IntroLogo } from '@/components/landing/IntroLogo';
 import { StructuredData } from '@/components/landing/StructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
@@ -66,8 +65,7 @@ export function LandingCliente({ guias, bento, frase, cambiarte }: { guias?: Rea
   // en la cabecera, no en Precio). Lo hacemos nosotros, con reintento por
   // frame hasta que el elemento exista, y una corrección a los 400ms por si
   // algo desplaza el layout justo después (p. ej. una fuente que termina de
-  // cargar). `IntroLogo` es `position: fixed`, así que hacer scroll debajo de
-  // la cortina mientras tapa la pantalla no tiene ningún efecto visible.
+  // cargar).
   useEffect(() => {
     if (!window.location.hash) return;
     const id = decodeURIComponent(window.location.hash.slice(1));
@@ -92,11 +90,6 @@ export function LandingCliente({ guias, bento, frase, cambiarte }: { guias?: Rea
     <div style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
       <StructuredData />
       <OrganizationStructuredData />
-      {/* Va ARRIBA del todo pero se pinta solo en cliente: el HTML del servidor
-          —el que ven Google y los lectores de pantalla— es la landing, sin
-          cortina delante. `autenticado` lo apaga para quien está a punto de
-          ser redirigido a su panel. */}
-      <IntroLogo autenticado={!!session} />
       {/* El nav (`position: sticky`, dentro de SeccionHero) queda "pegado" solo
           mientras este contenedor sigue en pantalla — es su límite de
           contención. Sin este envoltorio, el nav se queda pegado hasta el

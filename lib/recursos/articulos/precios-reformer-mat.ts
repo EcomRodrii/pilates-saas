@@ -11,7 +11,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'precios-reformer-mat',
   titulo: 'Reformer vs. mat: cuánto cuesta cada plaza, cuánto factura una máquina y qué precio ponerle',
-  tituloSeo: 'Reformer vs mat: coste por plaza y cuánto factura un reformer',
+  tituloSeo: 'Reformer vs mat: coste por plaza y facturación',
   descripcion: 'Cuánto cuesta ofrecer una plaza de reformer y una de mat, cuánto factura una máquina al mes y qué diferencia de precio cobran 32 estudios españoles.',
   resumen: 'La cuenta de una plaza de reformer frente a una de suelo, lo que factura cada máquina según la ocupación y la diferencia de precio que cobran los estudios españoles.',
   categoria: 'rentabilidad',

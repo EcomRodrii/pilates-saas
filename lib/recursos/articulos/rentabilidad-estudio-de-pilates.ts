@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'rentabilidad-estudio-de-pilates',
   titulo: '¿Es rentable un estudio de pilates? Cómo calcularlo con tus números',
-  tituloSeo: '¿Es rentable un estudio de pilates? Números y calculadora',
+  tituloSeo: '¿Es rentable un estudio de pilates? Calculadora',
   descripcion: 'Cuánto gana un estudio de pilates: ingresos, costes y punto de equilibrio con 3 escenarios, precios de 32 estudios y una calculadora gratis.',
   resumen: 'La cuenta que dice si tu estudio gana dinero: plazas, clases, ocupación y precio medio por plaza, costes fijos y variables, punto de equilibrio y tres escenarios de ejemplo.',
   categoria: 'rentabilidad',

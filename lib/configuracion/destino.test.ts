@@ -264,8 +264,8 @@ test('las pantallas sueltas de antes llevan a su sección, y sus páginas rediri
   }
 });
 
-test('la propietaria ve las quince secciones; la gerencia, tres (con la demo) y solo con sus tarjetas; recepción e instructora, ninguna', () => {
-  assert.equal(seccionesVisibles('PROPIETARIO').length, 15);
+test('la propietaria ve las catorce secciones; la gerencia, dos y solo con sus tarjetas; recepción e instructora, ninguna', () => {
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
 
@@ -273,10 +273,9 @@ test('la propietaria ve las quince secciones; la gerencia, tres (con la demo) y 
   // que lleva de su sede: ni el nombre del estudio, ni las sedes, ni los
   // servicios de cita (que llevan precio).
   const gerencia = seccionesVisibles('MANAGER');
-  assert.deepEqual(gerencia.map(s => s.id), ['estudio', 'clases', 'demo']);
+  assert.deepEqual(gerencia.map(s => s.id), ['estudio', 'clases']);
   assert.deepEqual(gerencia[0].tarjetas.map(t => t.id), ['horario', 'cerrar-el-centro', 'salas']);
   assert.deepEqual(gerencia[1].tarjetas.map(t => t.id), ['tipos-de-clase', 'horario-de-citas']);
-  assert.deepEqual(gerencia[2].tarjetas.map(t => t.id), ['video-de-la-demo']);
   // Y a la propietaria no se le recorta ninguna.
   for (const s of seccionesVisibles('PROPIETARIO')) {
     assert.equal(s.tarjetas.length, seccionPorId(s.id).tarjetas.length, s.id);

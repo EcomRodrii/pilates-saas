@@ -24,12 +24,16 @@ const IDIOMA = 'es-ES';
 /** El autor, tal como firma la cabecera de cada guía (ArticleShell). Su página es /sobre-tentare (antes apuntaba al aviso legal). */
 export const AUTOR = { '@type': 'Person', '@id': `${LEGAL.url}/sobre-tentare#fundador`, name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/sobre-tentare` } as const;
 
-/** Logo del editor: el lockup horizontal que ya sirve public/ (1200×319). */
+/** El editor: la misma Organization que pinta cada página (por @id). */
 export const PUBLISHER = {
   '@type': 'Organization',
+  // El mismo @id y el mismo logo que la Organization de la página
+  // (components/OrganizationStructuredData.tsx): una editorial con otro logo y
+  // sin @id se leía como una segunda organización.
+  '@id': `${LEGAL.url}/#organizacion`,
   name: LEGAL.marca,
   url: LEGAL.url,
-  logo: { '@type': 'ImageObject', url: `${LEGAL.url}/logo-horizontal.png`, width: 1200, height: 319 },
+  logo: { '@type': 'ImageObject', url: `${LEGAL.url}/icon-512.png`, width: 512, height: 512 },
 } as const;
 
 /** La imagen OG que genera cada guía (app/recursos/<slug>/opengraph-image.tsx), 1200×630. */

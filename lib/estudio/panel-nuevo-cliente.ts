@@ -12,3 +12,9 @@ export function usePanelNuevo(): boolean {
   const { studio } = useCore();
   return useInterruptor('panelNuevo', studio?.id);
 }
+
+/** ¿Ve este estudio «Tu app» y «Tu web» rehechos (interruptor `MI_WEB_NUEVA`, 16-oct-2026)? */
+export function useMiWebNueva(): boolean {
+  const { studio } = useCore();
+  return useInterruptor('miWebNueva', studio?.id);
+}

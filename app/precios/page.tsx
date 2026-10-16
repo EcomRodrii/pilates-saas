@@ -6,15 +6,14 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { PLANS } from '@/components/landing/data';
 import { CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
-import { ofertasPlanesLd } from '@/components/landing/StructuredData';
-import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
-import { LEGAL } from '@/lib/legal-info';
+import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
+import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 const PATH = '/precios';
@@ -81,27 +80,11 @@ const FAQ = [
 ];
 
 export default function PreciosPage() {
-  // SoftwareApplication + Offer viven aquí y en la home, y en ningún otro sitio:
-  // es una sola entidad, y repetirla en cada página de funcionalidad la
-  // convertiría en once declaraciones del mismo producto. Mismo `@id` que la
-  // home (components/landing/StructuredData.tsx) para que Google la lea como
-  // la MISMA entidad en las dos páginas, no como dos productos distintos.
-  const ofertaLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    '@id': `${BASE_URL}/#software`,
-    name: LEGAL.marca,
-    applicationCategory: 'BusinessApplication',
-    // «Web» y no «iOS, Android»: no hay app nativa en las tiendas (igual que
-    // en la home) — la app de la alumna es una PWA, el panel es web.
-    operatingSystem: 'Web',
-    url: BASE_URL,
-    publisher: { '@id': ID_ORGANIZACION },
-    description: pagina.descripcion,
-    // Las mismas ofertas que la home, de la misma función: Founding Studio con
-    // precio 0 y sus límites (components/landing/StructuredData.tsx).
-    offers: ofertasPlanesLd(),
-  };
+  // SoftwareApplication + Offer: el MISMO nodo (`/#software`) que pinta la home,
+  // construido en lib/seo/software-application.ts (con las ofertas de Founding
+  // Studio gratis). Una sola entidad, un solo objeto: repetirlo con datos
+  // distintos en cada página la hace contradecirse.
+  const ofertaLd = softwareApplicationLd();
 
   return (
     <PageShell>

@@ -18,8 +18,8 @@ const SLUG = 'widget-vs-iframe-reservas-pilates';
 const GUIA = guia('widget-vs-iframe-reservas-pilates');
 
 export const metadata: Metadata = {
-  title: `${TITLE} — Tentare`,
-  description: 'Cómo instalar reservas online en tu web paso a paso en WordPress, Wix y Squarespace: redirección, iframe o widget, qué configurar después y el checklist antes de publicar.',
+  title: 'Instalar reservas en WordPress, Wix y Squarespace — Tentare',
+  description: 'Cómo instalar reservas online en tu web en WordPress, Wix y Squarespace: redirección, iframe o widget, qué configurar después y el checklist antes de publicar.',
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
     type: 'article',

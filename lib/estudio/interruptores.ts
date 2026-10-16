@@ -43,6 +43,13 @@ export const INTERRUPTORES = {
    * «marta» y a todos cuando el fundador dé el sí.
    */
   pedirApp: 'APP_PROPIA_PEDIR',
+  /**
+   * «Tu app» y «Tu web» rehechos (16-oct-2026, maqueta aprobada por el fundador): dos entradas
+   * propias del menú, la portada «Tus widgets» de la v2 y «Contenido de tu app» v2. Apagado de
+   * serie: PANEL_NUEVO ya está encendido para todos y no esconde nada, así que todo lo nuevo de
+   * estas pantallas va detrás de este. Primero en el estudio de prueba; a todos con el sí del fundador.
+   */
+  miWebNueva: 'MI_WEB_NUEVA',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

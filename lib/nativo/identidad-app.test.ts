@@ -24,6 +24,12 @@ test('esNombreValido: lo que un xcconfig no puede llevar tal cual, fuera', () =>
   assert.equal(esNombreValido('x'.repeat(31)), false);
 });
 
+test('esNombreValido cuenta como la petición y la BD: un emoji es UN carácter', () => {
+  // 29 letras + 🌸 (dos unidades UTF-16): 30 caracteres. Se acepta al pedirla, así que compila.
+  assert.equal(esNombreValido(`${'x'.repeat(29)}🌸`), true);
+  assert.equal(esNombreValido(`${'x'.repeat(30)}🌸`), false);
+});
+
 test('identidadDesde: dice QUÉ variable arreglar', () => {
   assert.deepEqual(identidadDesde({ appId: 'app.tentare', appName: 'Tentare' }), { bundleId: 'app.tentare', nombre: 'Tentare', equipo: '' });
   assert.throws(() => identidadDesde({ appId: 'tentare', appName: 'Tentare' }), /TENTARE_APP_ID/);

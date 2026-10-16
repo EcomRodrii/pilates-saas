@@ -55,3 +55,6 @@ export const tarjetaClaseEncendida = (studioId: string) => encendidaPara(process
 
 /** «Pedir mi app» (app propia en la App Store). Lo mira `/api/estudio/app-movil`; la pantalla, el catálogo del navegador (misma variable). */
 export const pedirAppEncendido = (studioId: string) => encendidaPara(process.env.APP_PROPIA_PEDIR, studioId);
+
+/** «Tu app» y «Tu web» rehechos (`MI_WEB_NUEVA`). Para las rutas de servidor; la pantalla, el catálogo del navegador (misma variable). */
+export const miWebNuevaEncendida = (studioId: string) => encendidaPara(process.env.MI_WEB_NUEVA, studioId);

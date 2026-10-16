@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'bonos-de-pilates',
   titulo: 'Bonos de pilates: cómo diseñarlos (tipos, precio, caducidad y cancelaciones)',
-  tituloSeo: 'Bonos de pilates: cómo diseñarlos y ponerles precio',
+  tituloSeo: 'Bonos de pilates: cómo diseñarlos y su precio',
   descripcion: 'Bono de sesiones, cuota o clase suelta: cuánto descontar, qué caducidad ponen los estudios (de un mes a un año) y qué hacer con las cancelaciones tardías.',
   resumen: 'Tipos de bono, cuánto descontar por volumen, caducidades reales de estudios españoles, cancelaciones tardías y congelaciones: lo que decide si un bono te da caja o problemas.',
   categoria: 'rentabilidad',
