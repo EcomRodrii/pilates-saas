@@ -38,6 +38,32 @@ export function sesionAutenticadaPorEmailDespuesDe(
   desdeMs: number,
   toleranciaMs: number = TOLERANCIA_PUENTE_MS,
 ): boolean {
+  return autenticadaConDespuesDe(METODOS_EMAIL, accessToken, desdeMs, toleranciaMs);
+}
+
+/**
+ * ¿La sesión que devolvió el acceso con CONTRASEÑA de la ventana del puente es
+ * de ahora? Defensa en profundidad: esa sesión sale del propio
+ * `signInWithPassword` de la ventana (con un cliente sin almacenamiento, nunca
+ * de lo guardado en el navegador), pero se comprueba igual que la del correo:
+ * método `password` y posterior a abrirse el puente.
+ */
+export function sesionPorContrasenaDespuesDe(
+  accessToken: string,
+  desdeMs: number,
+  toleranciaMs: number = TOLERANCIA_PUENTE_MS,
+): boolean {
+  return autenticadaConDespuesDe(METODO_CONTRASENA, accessToken, desdeMs, toleranciaMs);
+}
+
+const METODO_CONTRASENA = new Set(['password']);
+
+function autenticadaConDespuesDe(
+  metodos: ReadonlySet<string>,
+  accessToken: string,
+  desdeMs: number,
+  toleranciaMs: number,
+): boolean {
   if (typeof accessToken !== 'string' || !Number.isFinite(desdeMs)) return false;
   const payload = payloadJwt(accessToken);
   if (!payload || typeof payload !== 'object') return false;
@@ -48,7 +74,7 @@ export function sesionAutenticadaPorEmailDespuesDe(
     if (!entrada || typeof entrada !== 'object') return false;
     const { method, timestamp } = entrada as { method?: unknown; timestamp?: unknown };
     return typeof method === 'string'
-      && METODOS_EMAIL.has(method)
+      && metodos.has(method)
       && typeof timestamp === 'number'
       && Number.isFinite(timestamp)
       && timestamp * 1000 >= limite;
@@ -96,6 +122,102 @@ export function emailDelIntento(datos: unknown, nonce: string | null): string | 
   if (!nonce || !datos || typeof datos !== 'object') return null;
   const { tipo, nonce: suNonce, email } = datos as { tipo?: unknown; nonce?: unknown; email?: unknown };
   if (tipo !== TIPO_EMAIL_DEL_INTENTO || suNonce !== nonce || typeof email !== 'string') return null;
+  return emailConForma(email);
+}
+
+function emailConForma(email: string): string | null {
   const limpio = email.trim();
   return limpio.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpio) ? limpio : null;
+}
+
+// ── El acceso entero, en la ventana de Tentare (16-oct-2026) ────────────────
+//
+// La site key de Turnstile solo vale en los dominios que Cloudflare tiene
+// autorizados (tentare.app): en la web de un estudio devuelve el error 110200
+// y no da token, y sin token gotrue rechaza todo acceso (el captcha se exige a
+// nivel de PROYECTO). Así que el widget ya no pide el captcha en la web del
+// estudio: abre esta misma ventana del puente, en tentare.app, y le ENCARGA el
+// acceso (entrar con contraseña o mandar el correo). La ventana pasa el
+// captcha, llama a gotrue y devuelve el resultado.
+//
+// Las garantías del puente siguen en pie (ver app/widget-auth-retorno/page.tsx):
+// destino resuelto en servidor contra `widget_dominios_autorizados`, un intento
+// por nonce, y la ventana solo acepta el encargo de la ventana que la abrió,
+// desde ese destino. Además, UN encargo por ventana: abrirla no da una
+// herramienta para probar contraseñas en bucle con el captcha ya pasado.
+export const TIPO_ENCARGO_ACCESO = 'tentare-widget-acceso';
+/** El resultado que el puente devuelve al widget: el tipo de siempre, ahora también con error. */
+export const TIPO_RESULTADO_ACCESO = 'tentare-widget-auth';
+export const TIPO_ENLACE_ENVIADO = 'tentare-widget-enlace-enviado';
+
+export type EncargoAcceso =
+  | { accion: 'password'; email: string; password: string }
+  | { accion: 'enlace'; email: string };
+
+/** De sobra para gotrue (bcrypt corta en 72 bytes); lo que pase de aquí no es una contraseña. */
+const MAX_PASSWORD = 256;
+/** Un error es una frase para la alumna, no un volcado. */
+const MAX_ERROR = 300;
+
+/** El mensaje con el que el widget encarga el acceso a la ventana del puente. */
+export function mensajeEncargo(nonce: string, encargo: EncargoAcceso) {
+  return { tipo: TIPO_ENCARGO_ACCESO, nonce, ...encargo };
+}
+
+/**
+ * El encargo que el puente acepta: el de SU intento, con un email con forma de
+ * email y, si es con contraseña, una contraseña no vacía y de tamaño razonable.
+ * Cualquier otra cosa → `null` (no se hace nada).
+ */
+export function encargoDelIntento(datos: unknown, nonce: string | null): EncargoAcceso | null {
+  if (!nonce || !datos || typeof datos !== 'object') return null;
+  const { tipo, nonce: suNonce, accion, email, password } = datos as Record<string, unknown>;
+  if (tipo !== TIPO_ENCARGO_ACCESO || suNonce !== nonce || typeof email !== 'string') return null;
+  const limpio = emailConForma(email);
+  if (!limpio) return null;
+  if (accion === 'enlace') return { accion, email: limpio };
+  if (accion === 'password' && typeof password === 'string' && password.length > 0 && password.length <= MAX_PASSWORD) {
+    return { accion, email: limpio, password };
+  }
+  return null;
+}
+
+export type ResultadoPuente =
+  | { tipo: 'sesion'; access_token: string; refresh_token: string }
+  | { tipo: 'error'; error: string }
+  | { tipo: 'enlace-enviado' };
+
+/**
+ * Lo que el widget acepta del puente para el intento en curso. El ORIGEN y la
+ * VENTANA los comprueba quien escucha; esto mira la forma y el nonce.
+ */
+export function resultadoDelPuente(datos: unknown, nonceEnCurso: string | null): ResultadoPuente | null {
+  if (!nonceEnCurso || !datos || typeof datos !== 'object') return null;
+  const d = datos as Record<string, unknown>;
+  if (d.nonce !== nonceEnCurso) return null;
+  if (d.tipo === TIPO_ENLACE_ENVIADO) return { tipo: 'enlace-enviado' };
+  if (d.tipo !== TIPO_RESULTADO_ACCESO) return null;
+  if (d.ok === true) {
+    if (typeof d.access_token !== 'string' || !d.access_token || typeof d.refresh_token !== 'string' || !d.refresh_token) return null;
+    return { tipo: 'sesion', access_token: d.access_token, refresh_token: d.refresh_token };
+  }
+  if (d.ok === false && typeof d.error === 'string' && d.error.trim()) {
+    return { tipo: 'error', error: d.error.trim().slice(0, MAX_ERROR) };
+  }
+  return null;
+}
+
+/**
+ * La URL de la ventana del puente. `origenEstudio` es el origen de la web que
+ * la abre: el servidor lo vuelve a comprobar contra la lista del estudio, así
+ * que aquí no decide nada. Es también el `emailRedirectTo` del correo: el
+ * enlace vuelve a esta misma página, con el mismo nonce.
+ */
+export function urlPuente(baseUrl: string, slug: string, origenEstudio: string, nonce: string): string {
+  return `${baseUrl}/widget-auth-retorno?slug=${encodeURIComponent(slug)}&origenEstudio=${encodeURIComponent(origenEstudio)}&nonce=${encodeURIComponent(nonce)}`;
+}
+
+/** Salida de siempre cuando la ventana no se puede usar: la página de reservas entera, en tentare.app. */
+export function urlReservarCompleta(baseUrl: string, slug: string): string {
+  return `${baseUrl}/reservar/${encodeURIComponent(slug)}`;
 }

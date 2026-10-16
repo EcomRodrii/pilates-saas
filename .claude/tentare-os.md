@@ -1286,6 +1286,14 @@ Quién verifica el token **no es la app**: lo valida gotrue en todas las
 pantallas de auth (el captcha se exige a nivel de PROYECTO en Supabase), y eso
 incluye el alta nueva de `/crear-estudio`.
 
+⚠️ **La site key solo da token en tentare.app** (16-oct-2026, medido): en otro
+hostname Turnstile contesta 110200 y no hay token. Por eso el widget sin marco,
+que vive en la web del ESTUDIO, no hace ningún acceso a gotrue: abre en el clic
+la ventana `/widget-auth-retorno` y le encarga entrar o mandar el correo
+(`docs/auth-widget-diseno.md` §5, lo vigila `lib/widget/acceso-en-tentare.test.ts`).
+Cualquier pantalla de auth que corra fuera de tentare.app va por ahí, no con un
+captcha propio.
+
 ⚠️ **Quién usa `lib/auth/captcha-servidor.ts` y `lib/auth/trampa-bots.ts`.**
 Corregido el 2026-09-25: este texto decía que las dos se habían quedado sin
 ningún consumidor al borrar `/api/public/interes-lanzamiento`, y la trampa ya la

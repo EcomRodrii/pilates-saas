@@ -88,7 +88,7 @@ const FUENTE_UI_BASE = "'Instrument Sans', system-ui, sans-serif";
 const FUENTE_DISPLAY_BASE = "'Instrument Serif', Georgia, serif";
 
 // Fase 3 (Booking Engine — checkout embebido): opcional a propósito, mismo
-// criterio que TURNSTILE_SITE_KEY en formulario-acceso.tsx — sin ella,
+// criterio que el resto de claves públicas del bundle — sin ella,
 // <ListaPlanes> se queda sin renderizar el paso de pago (el resto del
 // widget sigue funcionando).
 // Saneada, no cruda: una clave con forma equivocada (una `sk_` por una env
