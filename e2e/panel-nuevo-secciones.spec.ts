@@ -94,15 +94,20 @@ test('Configuración: cada ajuste es su tarjeta con su valor a la vista, y tocar
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 
-test('«Primeros pasos» flota fuera de la home en un estudio que empieza, y se pliega a una píldora', async ({ page }) => {
+test('«Primeros pasos» fuera de la home es una píldora en la barra de arriba, y se abre al tocarla', async ({ page }) => {
   await preparar(page, { nuevo: true });
   for (const t of ['instructores', 'socios', 'planes_tarifa', 'suscripciones', 'tipos_clase', 'sesiones', 'reservas', 'recibos']) {
     await page.route(`**/rest/v1/${t}**`, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   }
   await page.route((u) => u.pathname === '/api/calendario', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sesiones: [], reservas: [], salas: [], instructores: [] }) }));
   await ir(page, 'clientas');
+  // Nunca se abre sola fuera de la home: primero la píldora, y la tarjeta al tocarla.
+  const abrir = page.getByRole('button', { name: /Abrir «Primeros pasos»/ });
+  await expect(abrir).toBeVisible({ timeout: 30_000 });
   const panel = page.getByRole('region', { name: 'Primeros pasos' });
-  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel).toHaveCount(0);
+  await abrir.click();
+  await expect(panel).toBeVisible();
   await expect(panel.getByRole('progressbar', { name: 'Tu progreso' })).toHaveAttribute('aria-valuenow', '0');
   await expect(panel.getByRole('link', { name: 'Añade a quien da las clases' })).toHaveAttribute('href', '/equipo?nuevo=1');
   await panel.getByRole('button', { name: 'Plegar «Primeros pasos»' }).click();
