@@ -133,13 +133,14 @@ test.describe('El panel interno cabe en un móvil', () => {
     await page.getByRole('button', { name: /Menú/ }).click();
     const menu = page.getByRole('navigation', { name: 'Zona interna' });
     for (const etiqueta of ['Hoy', 'Estudios', 'Cobros a estudios', 'Altas y prospectos', 'Registro de cambios', 'Equipo interno']) {
-      await expect(menu.getByRole('link', { name: etiqueta })).toHaveCount(1);
+      // `exact`: sin él, «Estudios» también casa con «Cobros a estudios».
+      await expect(menu.getByRole('link', { name: etiqueta, exact: true })).toHaveCount(1);
     }
     const { documento, ventana } = await page.evaluate(() => ({
       documento: document.documentElement.scrollWidth, ventana: window.innerWidth,
     }));
     expect(documento, 'el menú abierto no puede ensanchar la página').toBeLessThanOrEqual(ventana);
-    await menu.getByRole('link', { name: 'Equipo interno' }).click();
+    await menu.getByRole('link', { name: 'Equipo interno', exact: true }).click();
     // Timeout explícito: con `next dev`, la primera navegación a /interno/equipo
     // compila la ruta bajo demanda y se pasa de los 5s por defecto.
     await expect(page).toHaveURL(/\/interno\/equipo$/, { timeout: 30_000 });
@@ -174,7 +175,7 @@ test.describe('El panel interno cabe en un móvil', () => {
 
     await expect(page.getByRole('button', { name: /Menú/ })).toBeHidden();
     const menu = page.getByRole('navigation', { name: 'Zona interna' });
-    const hoy = await menu.getByRole('link', { name: 'Hoy' }).boundingBox();
+    const hoy = await menu.getByRole('link', { name: 'Hoy', exact: true }).boundingBox();
     const titulo = await page.getByRole('heading', { level: 1 }).boundingBox();
     expect(hoy && titulo && hoy.x < titulo.x, 'el menú va a la izquierda del contenido').toBe(true);
     // Y el cargo, abajo del menú.
