@@ -11,7 +11,7 @@ import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
 import { columnasSinPaleta, sinMarcoSoloLetra, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
-import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta } from './piezas';
+import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta, useTextosPublicar } from './piezas';
 import { EstiloWeb } from './estilo-web';
 import type { EstiloWebPanel } from './usar-estilo-web';
 
@@ -37,7 +37,7 @@ const COLOR_DE_FONDO = '#F6F3EC';
 /** El primario de siempre de la nativa sin `data-marca` ni identidad del estudio (`montarUno`, app/widget-bundle/main.tsx). */
 const COLOR_WIDGET_NATIVA = '#343825';
 
-export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas, porId = false }: {
+export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas, porId = false, sinBarraAplicar = false }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -55,7 +55,13 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
    * va en el HTML del código.
    */
   porId?: boolean;
+  /**
+   * «Tu web» v2: el estilo se publica con la barra única de la pantalla, no con
+   * la barra y el diálogo de aquí (ver `EstiloWeb`).
+   */
+  sinBarraAplicar?: boolean;
 }) {
+  const { boton } = useTextosPublicar();
   const propia = c.identidad === 'propia';
   const nativa = metodo === 'nativa';
   const soloBoton = metodo === 'boton';
@@ -118,7 +124,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
       <div className="space-y-5">
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">
           {porId && !soloBoton
-            ? <>Lo que cambies aquí es solo de este widget y, desde ese momento, deja de seguir el estilo de tus widgets. Llega a tu web al pulsar «Aplicar en mi web», sin volver a pegar nada{metodo === 'popup' ? ' (salvo el color del botón que abre la ventana: ese va en el código)' : ''}. Pensado para quien te hace la web.</>
+            ? <>Lo que cambies aquí es solo de este widget y, desde ese momento, deja de seguir el estilo de tus widgets. Llega a tu web al pulsar «{boton}», sin volver a pegar nada{metodo === 'popup' ? ' (salvo el color del botón que abre la ventana: ese va en el código)' : ''}. Pensado para quien te hace la web.</>
             : 'Lo que cambies aquí va dentro de su código y, desde ese momento, este widget deja de seguir el estilo de tus widgets. Si lo tocas después de pegarlo, tendrás que copiar el código otra vez. Pensado para quien te hace la web.'}
         </p>
         <AjusteInterruptor
@@ -136,7 +142,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
       <Tarjeta
         titulo="¿Cómo quieres que se vea?"
         etiqueta="aplicar"
-        subtitulo="Es el mismo estilo para todos tus widgets. Cuando lo cambies, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada."
+        subtitulo={`Es el mismo estilo para todos tus widgets. Cuando lo cambies, pulsa «${boton}»: no hace falta volver a pegar nada.`}
       >
         {noLeLlega && (
           <div role="note" aria-label="Este widget no cambia con el estilo" className="space-y-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">
@@ -157,7 +163,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
                   <button type="button" onClick={() => cambiar({ identidad: 'estudio' })} className={btnSecondary}>
                     Que siga el estilo de tus widgets
                   </button>
-                  <span className="text-[12px] text-muted-foreground">{porId ? 'Después, pulsa «Aplicar en mi web».' : 'Cambia su código: tendrás que copiarlo otra vez.'}</span>
+                  <span className="text-[12px] text-muted-foreground">{porId ? `Después, pulsa «${boton}».` : 'Cambia su código: tendrás que copiarlo otra vez.'}</span>
                 </div>
               </>
             )}
@@ -184,6 +190,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
           verApariencia={verApariencia}
           piezas={piezas}
           disenoPropio={disenoDistinto}
+          sinBarra={sinBarraAplicar}
         />
       </Tarjeta>
 
@@ -208,8 +215,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
               // llega, y remitir allí sería mandarla a un interruptor que no hace nada.
               descripcion={porId
                 ? disenoEnCodigo
-                  ? 'Solo para este widget, y llega a tu web al pulsar «Aplicar en mi web»: con un diseño propio, el de «Ajustes finos» no le llega.'
-                  : 'Solo para este widget, y llega a tu web al pulsar «Aplicar en mi web». Para todos tus widgets a la vez, está en «Ajustes finos».'
+                  ? `Solo para este widget, y llega a tu web al pulsar «${boton}»: con un diseño propio, el de «Ajustes finos» no le llega.`
+                  : `Solo para este widget, y llega a tu web al pulsar «${boton}». Para todos tus widgets a la vez, está en «Ajustes finos».`
                 : disenoEnCodigo
                   ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Ajustes finos» no le llega.'
                   : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos».'}

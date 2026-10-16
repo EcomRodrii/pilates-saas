@@ -13,7 +13,7 @@ import {
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
 } from '@/lib/widgets/recetas';
-import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta } from './piezas';
+import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta, useTextosPublicar } from './piezas';
 import { SelectorClase, type DatosPanel } from './paso-que';
 import type { MostrarToast } from '@/components/ui/toast';
 
@@ -78,6 +78,7 @@ export function PasoPonlo({
 }) {
   const w = entrada.widget;
   const c = entrada.config;
+  const textosPublicar = useTextosPublicar();
   // El código va por id (lib/widgets/pieza.ts): lo que enseña llega al aplicar, sin volver a pegarlo.
   const porId = codigoPorId(entrada);
   const falta = faltaParaGenerar(entrada, metodo, { dominiosAutorizados });
@@ -203,7 +204,7 @@ export function PasoPonlo({
         {estiloSinAplicar && (
           <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
             <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-            <span className="min-w-0">Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».</span>
+            <span className="min-w-0">{textosPublicar.estiloSinAplicar}</span>
           </p>
         )}
         {falta ? (
@@ -217,7 +218,7 @@ export function PasoPonlo({
               <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
                 <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0">
-                  Tu web tiene {esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cópialo aquí y pégalo en lugar del anterior una sola vez; desde entonces, esos cambios llegarán con «Aplicar en mi web».
+                  Tu web tiene {esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cópialo aquí y pégalo en lugar del anterior una sola vez; desde entonces, esos cambios llegarán con «{textosPublicar.boton}».
                   {botonDeAntes && ' Con este, el botón que abre la ventana también seguirá el estilo de tus widgets.'}
                 </span>
               </p>
@@ -233,7 +234,7 @@ export function PasoPonlo({
             </button>
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
-              {yaPegado && ' No hace falta pegarlo otra vez: lo que enseña llega con «Aplicar en mi web».'}
+              {yaPegado && ` No hace falta pegarlo otra vez: lo que enseña llega con «${textosPublicar.boton}».`}
             </p>
             {botonDeAntes && !codigoAntiguo && (
               <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
@@ -355,10 +356,11 @@ const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
  * AQUÍ: lo que ya tenga pegado de antes lo dicen sus avisos.
  */
 function ComoLlegaCadaCambio({ siempre, aplicar, pegar }: { siempre: string; aplicar: string | null; pegar: string }) {
+  const { boton } = useTextosPublicar();
   return (
     <ul aria-label="Cómo llega cada cambio a tu web" className="space-y-1.5 rounded-xl border border-border p-3 text-[12.5px] leading-relaxed text-foreground">
       <li><strong className="font-semibold">Siempre al día:</strong> {mayuscula(siempre)}.</li>
-      {aplicar && <li><strong className="font-semibold">Con «Aplicar en mi web»:</strong> {mayuscula(aplicar)}.</li>}
+      {aplicar && <li><strong className="font-semibold">Con «{boton}»:</strong> {mayuscula(aplicar)}.</li>}
       <li><strong className="font-semibold">Pegando el código otra vez:</strong> {mayuscula(pegar)}.</li>
     </ul>
   );

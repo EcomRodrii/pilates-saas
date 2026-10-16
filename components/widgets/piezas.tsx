@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertCircle, Check, ChevronRight, Globe, LayoutGrid, MapPin, Palette, Ruler, Send, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toggle } from '@/components/configuracion/estilos';
@@ -17,6 +17,31 @@ export const FOCO = 'focus-visible:outline-none focus-visible:ring-3 focus-visib
 /** 44 px con el dedo (el iPad de recepción), más justo con ratón. */
 export const TACTIL = 'inline-flex min-h-11 items-center [@media(pointer:fine)]:min-h-8';
 
+/**
+ * Cómo se llama lo que lleva lo de aquí a su web sin pegar nada. En el
+ * constructor de siempre, «Aplicar en mi web»; en «Tu web» v2, «Publicar en mi
+ * web» (decisión 1 del fundador, 15-oct-2026: un solo verbo, como «Publicar mi
+ * app»). Un contexto para que los textos de los pasos, que comparten las dos,
+ * no prometan un botón que en esa pantalla no está. Sin proveedor, lo de
+ * siempre: el constructor de siempre no cambia ni un carácter.
+ */
+export interface TextosPublicar {
+  /** El nombre del botón, sin comillas. */
+  boton: string;
+  /** El estilo cambiado y sin llevar a su web, dicho donde se copia. */
+  estiloSinAplicar: string;
+}
+export const PUBLICAR_DE_SIEMPRE: TextosPublicar = {
+  boton: 'Aplicar en mi web',
+  estiloSinAplicar: 'Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».',
+};
+export const PUBLICAR_V2: TextosPublicar = {
+  boton: 'Publicar en mi web',
+  estiloSinAplicar: 'Tienes cambios de estilo sin publicar. No van en el código: llegan a tu web con «Publicar en mi web».',
+};
+export const TextosDePublicar = createContext<TextosPublicar>(PUBLICAR_DE_SIEMPRE);
+export const useTextosPublicar = () => useContext(TextosDePublicar);
+
 /** «12 sept», en la hora del estudio. */
 export function fechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
@@ -32,6 +57,7 @@ export function fechaCorta(iso: string): string {
  */
 export type TipoEtiqueta = 'codigo' | 'aplicar' | 'vivo';
 export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
+  const { boton } = useTextosPublicar();
   if (tipo === 'codigo') {
     return (
       <span className="inline-flex shrink-0 items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
@@ -41,7 +67,7 @@ export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
-      <Check size={11} aria-hidden />{tipo === 'aplicar' ? 'Con «Aplicar en mi web»' : 'Siempre al día'}
+      <Check size={11} aria-hidden />{tipo === 'aplicar' ? `Con «${boton}»` : 'Siempre al día'}
     </span>
   );
 }

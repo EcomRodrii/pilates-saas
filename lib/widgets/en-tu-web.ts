@@ -510,3 +510,69 @@ export function webSinAutorizar(direccion: string | null, dominios: readonly str
   if (!origen) return null;
   return origenesConYSinWww(origen).some(o => dominios.includes(o)) ? null : hostDe(origen);
 }
+
+// ── El estado en una pastilla (portada de «Tu web» v2, 16-oct-2026) ──────────
+
+export type TonoChip = 'ok' | 'aviso' | 'neutro';
+
+export interface ChipEnTuWeb {
+  /** Lo que se lee en la pastilla: corto. */
+  texto: string;
+  tono: TonoChip;
+  /** La frase larga de `textosEnTuWeb`, para `title` y `aria-description`. */
+  detalle: string | null;
+}
+
+/**
+ * La versión corta de `textosEnTuWeb`, con LAS MISMAS fuentes: un solo estado
+ * por pieza en la portada (decisión del fundador, 15-oct-2026). Por eso las
+ * reglas de lo que nunca se dice (arriba del todo) se cumplen por construcción:
+ * `oculto` —cargando, sin permiso o con la lectura fallida— no pinta nada, y
+ * nunca «Aún no lo vemos» por un error.
+ *
+ * Una versión anterior con el código por id NO es un aviso: se pone al día sola
+ * (`textosEnTuWeb` lo dice así); con un código de los de antes sí, porque hay
+ * que pegarlo otra vez.
+ *
+ * `esEnlace`: lo pegado es un enlace (o el botón de su propia web con el
+ * enlace). De un botón a su página tampoco se ve de dónde llegan, y se dice
+ * como botón.
+ */
+export function chipEnTuWeb(e: EstadoEnTuWeb, ahora: number, esEnlace: boolean): ChipEnTuWeb | null {
+  const t = textosEnTuWeb(e, ahora);
+  const detalle = [t.linea, t.version].filter((x): x is string => !!x).join(' ') || null;
+  switch (e.tipo) {
+    case 'oculto':
+      return null;
+    case 'no-medible':
+      return { texto: esEnlace ? 'Los enlaces no los vemos en tu web' : 'Los botones a tu página no los vemos en tu web', tono: 'neutro', detalle };
+    case 'sin-dato':
+      return { texto: 'Con visitas · aún no sabemos desde qué web', tono: 'neutro', detalle };
+    case 'sin-ver':
+      return { texto: e.forma === 'ventana' ? 'Aún no lo ha abierto nadie' : 'Aún no lo vemos en tu web', tono: 'neutro', detalle };
+    case 'visto': {
+      if (e.version === 'anterior' && e.laOtra) {
+        return e.porId
+          ? { texto: 'Se pone al día en unos minutos', tono: 'neutro', detalle }
+          : { texto: 'Tu web tiene lo de antes', tono: 'aviso', detalle };
+      }
+      if (e.version === 'distinta' && e.laOtra) return { texto: 'Tu web tiene otra versión', tono: 'aviso', detalle };
+      if (e.version === 'dos-versiones' && e.laOtra) return { texto: 'Tu web enseña dos versiones', tono: 'aviso', detalle };
+      const hace = relativo(e.ultimo, new Date(ahora));
+      const ventana = e.forma === 'ventana';
+      const texto = e.anfitrion
+        ? `${ventana ? 'Abierto' : 'Se ve'} en ${hostDe(e.anfitrion)} · ${hace}`
+        : `${ventana ? 'Abierto' : 'Visto'} ${hace}`;
+      return { texto, tono: 'ok', detalle };
+    }
+  }
+}
+
+/**
+ * ¿La versión que enseña su web pide pegar el código otra vez? Todas las que
+ * `textosEnTuWeb` nombra, menos la anterior por id: esa se pone al día sola.
+ */
+export function versionPidePegar(e: EstadoEnTuWeb): boolean {
+  if (e.tipo !== 'visto' || !e.version || e.version === 'al-dia' || !e.laOtra) return false;
+  return !(e.version === 'anterior' && e.porId);
+}

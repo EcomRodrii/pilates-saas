@@ -12,7 +12,7 @@ import { widgetsVisibles, type MetodoIntegracion, type WidgetDisponible } from '
 import type { ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, nombrePlataforma, usaBotonPropio, type PlataformaWeb, type Receta } from '@/lib/widgets/recetas';
 import type { TipoPlan } from '@/lib/types';
-import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta } from './piezas';
+import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta, useTextosPublicar } from './piezas';
 
 // Paso 1 · Qué y dónde. Primero QUÉ quiere poner y DÓNDE lo quiere (con la
 // forma que mejor funciona en su web ya marcada), y solo después los ajustes
@@ -93,7 +93,7 @@ function notaCopia(copia: EstadoCopias[string] | undefined): ReactNode {
   );
 }
 
-function QueQuieres({ activo, avisos, copias, onElegir }: {
+export function QueQuieres({ activo, avisos, copias, onElegir }: {
   activo: WidgetDisponible;
   avisos: readonly AvisoDeDatos[];
   copias: EstadoCopias;
@@ -159,7 +159,7 @@ function QueQuieres({ activo, avisos, copias, onElegir }: {
 
 // ── ¿Dónde lo quieres? ────────────────────────────────────────────────────────
 
-function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo }: {
+export function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -313,7 +313,7 @@ const SE_ACTUALIZA_SOLO: Record<string, ReactNode> = {
   contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientas</EnlaceA>.</>,
 };
 
-function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
+export function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -322,9 +322,10 @@ function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
   porId: boolean;
 }) {
   // Lo que enseña va en el código, o (por id) llega con «Aplicar en mi web».
+  const { boton } = useTextosPublicar();
   const etiqueta = porId ? 'aplicar' : 'codigo';
   const siCambia = porId
-    ? 'Si lo cambias después de pegarlo, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada.'
+    ? `Si lo cambias después de pegarlo, pulsa «${boton}»: no hace falta volver a pegar nada.`
     : 'Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.';
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
   const reservas = w.categoria === 'reservas' && w.id !== 'cuenta';

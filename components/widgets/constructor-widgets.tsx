@@ -1,56 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, EyeOff, Globe, Loader2, TrendingUp } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { BotonVivo } from '@/components/dashboard/vivo';
 import { llevarAlTitulo } from './lleva-al-titulo';
 import { LineaDePasos } from '@/components/dashboard/linea-de-pasos';
-import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
-import {
-  CONFIG_POR_DEFECTO, anchoPopupDe, anchoPorDefecto, esLaMismaCopia, etiquetaEfectiva, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
-  type ConfigConstructor, type Copiado,
-} from '@/lib/widgets/config';
-import { embudoPorWidget, textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
-import { etiquetasDeCopia, gruposSinAplicar, piezaCopiada, unirGrupos, webSinAutorizar } from '@/lib/widgets/en-tu-web';
-import { copiaTrasAplicar } from '@/lib/widgets/pieza-panel';
-import type { VistoWidget } from '@/lib/widgets/pegado';
-import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
-import { useRol } from '@/lib/permisos';
-import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
+import { WIDGETS, esDisponible, type WidgetDisponible } from '@/lib/widgets/catalogo';
+import { leerCopiados } from '@/lib/widgets/config';
+import { textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
+import { unirGrupos } from '@/lib/widgets/en-tu-web';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
-import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
-import {
-  botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, tieneDisenoEnCodigo, urlEmbebido, urlPagina, type EntradaIntegracion,
-} from '@/lib/widgets/integracion';
-import { urlPopupPermitida } from '@/lib/widgets/popup-url';
-import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
-import { colorDeLaWeb } from '@/lib/reservar/estilo-web-tipos';
+import { puedeVer } from '@/lib/permisos-reglas';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
-import { botonDeLaVentana } from '@/lib/reservar/estilo-web';
-import {
-  direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
-} from '@/lib/widgets/recetas';
-import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
-import type { TipoPlan } from '@/lib/types';
+import { leerWeb, nombrePlataforma, type EstadoWeb, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { FOCO, TACTIL, fechaCorta } from './piezas';
 import { PasoPlataforma } from './paso-plataforma';
-import { PasoQue, type AvisoDeDatos, type DatosPanel, type EstadoCopias } from './paso-que';
+import { PasoQue } from './paso-que';
 import { PasoComo } from './paso-como';
 import { PasoPonlo } from './paso-ponlo';
-import { LoQueTienes, type FilaTienes } from './lo-que-tienes';
-import { useEstiloWeb } from './usar-estilo-web';
-import { usePiezas } from './usar-piezas';
-import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type FormaPrevia } from './vista-previa';
-import { PreviewNativa } from './preview-nativa';
+import { LoQueTienes } from './lo-que-tienes';
+import { VistaPrevia, type Dispositivo } from './vista-previa';
 import { GestionDominios } from './dominios';
-import { estaArchivado, tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
+import { hayCopias, useConstructorWidgets } from './usar-constructor';
 import type { MostrarToast } from '@/components/ui/toast';
 
 // «Tentare Widgets»: el constructor, en el orden en que lo piensa la dueña de
@@ -107,11 +83,9 @@ import type { MostrarToast } from '@/components/ui/toast';
 // se pintan el botón a su página en el código (su `style`, que `firmaCodigo` no
 // cuenta), la vista previa y las muestras.
 
-const ORIGEN_POR_DEFECTO = new URL(LEGAL.url).origin;
-const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && x.estado === 'disponible')!;
-const COLOR_POR_DEFECTO = '#343825';
-/** El lienzo de la vista previa con un diseño propio «para una web oscura». */
-const FONDO_WEB_OSCURA = '#1C1D1A';
+// El estado y las reglas viven en `useConstructorWidgets` (./usar-constructor.tsx),
+// que comparte con «Tu web» v2 (./v2/, tras `MI_WEB_NUEVA`); aquí se quedan los
+// pasos de ESTA pantalla y su JSX de siempre.
 
 type Paso = 'tienes' | 'plataforma' | 'que' | 'como' | 'ponlo';
 // Sin web no hay dónde «ponerlo»: el último paso se llama por lo que hace.
@@ -133,10 +107,6 @@ const TITULO_PASO: Record<'que' | 'como' | 'ponlo', (p: PlataformaWeb | null) =>
     : { titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' }),
 };
 type EstadoGuardado = 'guardando' | 'guardado' | 'error' | null;
-interface Guardable { configs: Record<string, ConfigConstructor>; copiados: Record<string, Copiado>; web: EstadoWeb }
-
-/** Algo copiado de un widget que sigue existiendo: con eso hay portada. */
-const hayCopias = (copiados: Readonly<Record<string, Copiado>>) => Object.keys(copiados).some(id => esDisponible(widgetPorId(id)));
 
 export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   slug: string;
@@ -147,55 +117,25 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
    */
   onVerResultados?: (etiqueta: string | null) => void;
 }) {
-  const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
-  const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
-  const rol = useRol();
+  const { studio } = useStudio();
   const panelNuevo = usePanelNuevo();
-  const estiloWeb = useEstiloWeb();
-  // Lo publicado de cada widget por id. Solo lo lee y lo aplica la propietaria.
-  const publicacion = usePiezas(rol === 'PROPIETARIO');
+  const {
+    rol, origen, estiloWeb,
+    setActivoId, w, copiados, web, configEfectiva, entrada,
+    guardado, cambiar, guardarWeb, plataforma, receta, metodo, elegirMetodo,
+    veResultados, resultadosMes, paginaOculta, sinAplicar, creando, prepararCodigo, aplicando, aplicarContenido,
+    registrarCopia, ahora, datos, guardarDominios, dominiosAutorizados, direccionWeb,
+    copias, filasTienes, copia, desfase, porId, conCopias, etiquetaActiva, resultadoActivo,
+    faltaPrevia, paginaCompleta, urlPrevia, contenido, anchoWidget, noSigueElEstilo, forma, suWeb, piezas, avisos,
+    quitarDisenoPropio,
+  } = useConstructorWidgets({ slug, showToast });
 
-  const [activoId, setActivoId] = useState('horario');
-  const elegido = widgetPorId(activoId);
-  const w = esDisponible(elegido) ? elegido : HORARIO;
-
-  const [configs, setConfigs] = useState<Record<string, ConfigConstructor>>(() => leerConfigs(studio?.widgetBuilder));
-  const [copiados, setCopiados] = useState<Record<string, Copiado>>(() => leerCopiados(studio?.widgetBuilder));
-  const [web, setWeb] = useState<EstadoWeb>(() => leerWeb(studio?.widgetBuilder));
   const [paso, setPaso] = useState<Paso>(() => {
     if (!leerWeb(studio?.widgetBuilder).plataforma) return 'plataforma';
     return hayCopias(leerCopiados(studio?.widgetBuilder)) ? 'tienes' : 'que';
   });
-  const config = configs[w.id] ?? CONFIG_POR_DEFECTO;
-  const publicada = publicacion.publicadas[w.id] ?? null;
-
-  // ── Guardado ──
-  const [guardado, setGuardado] = useState<EstadoGuardado>(null);
-  const ultimo = useRef<Guardable>({ configs, copiados, web });
-  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (temporizador.current) clearTimeout(temporizador.current); }, []);
-  function guardar(parcial: Partial<Guardable>, inmediato = false) {
-    ultimo.current = { ...ultimo.current, ...parcial };
-    setGuardado('guardando');
-    if (temporizador.current) clearTimeout(temporizador.current);
-    temporizador.current = setTimeout(() => {
-      const u = ultimo.current;
-      const widgetBuilder = fusionarWidgetBuilder(studio?.widgetBuilder, u.configs, u.copiados, u.web);
-      void updateStudio({ widgetBuilder }).then(r => {
-        // Sin toast de error a propósito: perder esta comodidad no rompe nada
-        // (el código copiado sigue valiendo). Se dice aquí, en voz baja.
-        setGuardado(r.ok ? 'guardado' : 'error');
-      });
-    }, inmediato ? 0 : 1200);
-  }
-  function cambiar(parcial: Partial<ConfigConstructor>) {
-    const siguientes = { ...configs, [w.id]: { ...config, ...parcial } };
-    setConfigs(siguientes);
-    guardar({ configs: siguientes });
-  }
   function contestarWeb(nueva: EstadoWeb) {
-    setWeb(nueva);
-    guardar({ web: nueva }, true);
+    guardarWeb(nueva);
     irA(pasoAnterior === 'tienes' ? 'tienes' : 'que');
   }
 
@@ -219,406 +159,9 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     requestAnimationFrame(() => alPaso(p));
   }
 
-  const plataforma = web.plataforma;
-  const colorEstudio = estiloWeb.base?.colorPrimario ?? studio?.colorPrimario ?? null;
-  const receta = recetaDe(plataforma, w);
-  const metodo = metodoEnWeb(config, w, plataforma);
-  const elegirMetodo = (m: MetodoIntegracion) => cambiar({ metodo: m });
-
-  // El mes de cada widget, por su etiqueta (lib/widgets/embudo.ts). Solo para
-  // quien puede ver el embudo (la RLS de widget_eventos: PROPIETARIO/MANAGER).
-  const veResultados = puedeGestionarPortalHome(rol);
-  const [resultadosMes, setResultadosMes] = useState<EmbudoWidget[] | null>(null);
-  // Dónde se ha visto cada pieza (Fase C), con las etiquetas que se pidieron
-  // (se pide filtrado: ver `etiquetasVistas`, más abajo). `undefined` mientras
-  // llega lo primero (o sin permiso: ni se pide) y `filas: null` si falla: en
-  // los dos casos la portada no dice nada de su web. «Aún no lo vemos» sería
-  // mentira, y a quien la RLS no deja leer le llega `[]`, no un error.
-  const [vistos, setVistos] = useState<{ etiquetas: readonly string[]; filas: VistoWidget[] | null } | undefined>(undefined);
-  // Lo visto espera al mes: con visitas este mes y nada visto, la fila dice
-  // «aún no sabemos desde qué web», y antes del mes diría un momento «Aún no lo
-  // vemos». La lectura del mes se guarda aquí para que la espere.
-  const mesLeido = useRef<Promise<unknown> | null>(null);
-  useEffect(() => {
-    if (!veResultados) return;
-    const hoy = new Date();
-    const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-    let vivo = true;
-    mesLeido.current = dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
-    return () => { vivo = false; };
-  }, [veResultados]);
-
-  // «Ocultar tu página» también oculta los widgets: son esa misma página
-  // (/reservar?embed=1, `app/reservar/[slug]/layout.tsx`), y enseñan «Estamos
-  // preparando esta página»; el calendario sin marco se queda sin clases. La
-  // herramienta no lo decía en ningún sitio. Solo la propietaria puede leerlo
-  // (`/api/pagina-publica`); sin respuesta, no se dice nada (nunca un aviso a ciegas).
-  const [paginaOculta, setPaginaOculta] = useState(false);
-  useEffect(() => {
-    if (rol !== 'PROPIETARIO') return;
-    let vivo = true;
-    void leerPaginaPublica().then(e => { if (vivo) setPaginaOculta(e?.oculta === true); });
-    return () => { vivo = false; };
-  }, [rol]);
-
-  // Un tipo, una instructora o una sala borrados después de guardarse no se
-  // cuelan en el código: un filtro por un id que ya no existe dejaría el
-  // horario vacío sin que nadie entienda por qué.
-  const instructorasActivas = useMemo(() => instructores.filter(i => i.activo), [instructores]);
-  const vigentes = useMemo<Vigentes>(() => ({
-    tipos: new Set(tiposClase.map(t => t.id)),
-    instructoras: new Set(instructorasActivas.map(i => i.id)),
-    salas: new Set(salas.map(s => s.id)),
-  }), [tiposClase, instructorasActivas, salas]);
-  const configEfectiva = useMemo(() => sinHuerfanos(config, vigentes), [config, vigentes]);
-
-  // Sin useMemo a mano: el React Compiler ya memoiza, y uno manual sobre `w`
-  // (un objeto del catálogo) le impide optimizar el componente entero.
-  // `botonVivo`: el respaldo del botón del popup en el código, con lo PUBLICADO
-  // (mientras carga, `null`: el de siempre, `colorBoton`).
-  const entrada: EntradaIntegracion = {
-    widget: w, config: configEfectiva, origen, slug, colorEstudio,
-    botonVivo: estiloWeb.base ? botonDeLaVentana(estiloWeb.publicado, estiloWeb.base) : null,
-    pieza: publicada?.id ?? null,
-  };
-
-  // ── Lo publicado (código por ID) ──
-  // Lo que cambió aquí y aún no ha llegado a su web: solo lo que llega con
-  // «Aplicar en mi web» (lo que va en el HTML lo dice el aviso de copiar otra vez).
-  const sinAplicar = publicada ? gruposSinAplicar(publicada.config, configEfectiva) : [];
-  // Crear lo publicado la primera vez que abre «Ponlo en tu web» con un widget:
-  // hasta entonces no hay id que poner en el código. Si falla, el código de
-  // siempre (y no se reintenta en esta visita: no se cambia el código a medias).
-  const [creando, setCreando] = useState<string | null>(null);
-  const creacionFallida = useRef(new Set<string>());
-  function prepararCodigo(id: string) {
-    if (rol !== 'PROPIETARIO' || publicacion.estado !== 'listo' || creando) return;
-    if (publicacion.publicadas[id] || creacionFallida.current.has(id)) return;
-    const otro = widgetPorId(id);
-    if (!esDisponible(otro)) return;
-    const c = sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
-    if (otro.contenido.includes('sesion') && !c.sesion) return;
-    setCreando(id);
-    void publicacion.publicar(id, c).then(r => {
-      if (!r.ok) creacionFallida.current.add(id);
-      setCreando(null);
-    });
-  }
-  const [aplicando, setAplicando] = useState(false);
-  /**
-   * «Aplicar en mi web»: publica lo de ahora de este widget. Sin escritura
-   * optimista: lo publicado solo cambia con lo que devuelve el servidor. La
-   * copia por id pasa a decir que su web enseña esto (lo de antes, «anterior»).
-   */
-  async function aplicarContenido(opc?: { copiados?: Record<string, Copiado>; alFallar?: string }): Promise<boolean> {
-    if (aplicando) return false;
-    setAplicando(true);
-    const r = await publicacion.publicar(w.id, configEfectiva);
-    setAplicando(false);
-    if (!r.ok) { showToast(opc?.alFallar ?? r.error, { variant: 'error' }); return false; }
-    const base = opc?.copiados ?? copiados;
-    const pegada = base[w.id];
-    if (pegada?.pieza) {
-      const contenido = firmaContenidoDe({ ...entrada, pieza: null, config: r.pieza.config }, pegada.metodo ?? metodo);
-      const siguiente = copiaTrasAplicar(pegada, contenido);
-      if (siguiente !== pegada) {
-        const siguientes = { ...base, [w.id]: siguiente };
-        setCopiados(siguientes);
-        guardar({ copiados: siguientes }, true);
-      }
-    }
-    showToast('Aplicado. Tu web lo enseñará en unos minutos.');
-    return true;
-  }
-
-  // Al copiar se guarda, además de la huella, la forma, una foto de la config
-  // (sin huérfanos), la versión que verá la página y si su botón sigue el
-  // estilo: con eso la portada dice QUÉ cambió y qué hay en su web. Copiar otra
-  // vez lo mismo en menos de un minuto (el botón y después a mano, o dos
-  // Ctrl+C) no se vuelve a guardar.
-  //
-  // Con un código por id, copiar también APLICA lo de ahora: lo que copia es lo
-  // que su web va a enseñar. Se copia primero y se aplica después, a propósito:
-  // en Safari, esperar a la red antes de escribir en el portapapeles pierde el
-  // gesto y la copia falla; y el código por id es el mismo antes y después de
-  // aplicar. Si aplicar falla, se dice, y el aviso de «sin aplicar» se queda.
-  function registrarCopia(firma: string) {
-    const nueva = nuevaCopia(copiados[w.id], {
-      firma, en: new Date().toISOString(), metodo, config: configEfectiva, contenido: firmaContenidoDe(entrada, metodo),
-      botonVivo: botonSigueElEstilo(configEfectiva, metodo), pieza: entrada.pieza,
-    });
-    let siguientes = copiados;
-    if (!esLaMismaCopia(copiados[w.id], nueva)) {
-      siguientes = { ...copiados, [w.id]: nueva };
-      setCopiados(siguientes);
-      guardar({ copiados: siguientes }, true);
-    }
-    if (entrada.pieza && sinAplicar.length) {
-      void aplicarContenido({
-        copiados: siguientes,
-        alFallar: 'El código está copiado, pero tus cambios no se han aplicado: tu web enseñará lo de antes hasta que pulses «Aplicar en mi web».',
-      });
-    }
-  }
-
-  // `Date.now()` no puede llamarse en render (pureza del React Compiler): se
-  // fija tras montar. Es una pantalla de configuración, no un reloj.
-  const [ahora, setAhora] = useState<number | null>(null);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: `Date.now()` no puede llamarse en render, así que se fija tras montar. El segundo render es el OBJETIVO.
-    setAhora(Date.now());
-  }, []);
-  const tiposPorId = useMemo(() => new Map(tiposClase.map(t => [t.id, t.nombre])), [tiposClase]);
-  const proximasClases = useMemo(() => {
-    if (ahora === null) return [];
-    return sesiones
-      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > ahora)
-      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
-      .slice(0, 60)
-      .map(s => {
-        const inicio = new Date(s.inicio);
-        return {
-          id: s.id,
-          etiqueta: `${tiposPorId.get(s.tipoClaseId) ?? 'Clase'} — ${inicio.toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`,
-          cuando: inicio.toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
-        };
-      });
-  }, [sesiones, ahora, tiposPorId]);
-
-  const planesContratables = useMemo(() => planesTarifa.filter(p => p.activo && p.precio > 0 && p.esPrueba !== true), [planesTarifa]);
-  // Fuera del memo: el compilador infiere `config` entero si se lee dentro.
-  const tiposElegidos = config.tipos;
-  const datos: DatosPanel = useMemo(() => {
-    const planesPorTipo: Record<TipoPlan, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 };
-    for (const p of planesContratables) planesPorTipo[p.tipo] += 1;
-    const reglasEstudio = {
-      cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
-      reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
-      reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
-      reservaAntelacionHora: studio?.reservaAntelacionHora ?? null,
-    };
-    // Las reglas, sobre los tipos que aún tienen clases (lo mismo que /reservar):
-    // la de uno archivado sin ninguna ya no le toca a nadie.
-    const vivos = ahora === null ? tiposActivos(tiposClase) : tiposConVida(tiposClase, sesiones, ahora);
-    const reglas = [
-      frasePlazoCancelacion(reglasEstudio, vivos),
-      fraseAntelacionMinima(reglasEstudio, vivos),
-      fraseAntelacionMaxima(reglasEstudio, vivos),
-      studio?.permiteListaEspera === false ? 'Sin lista de espera: una clase llena no admite más.' : 'Con la clase llena, se apuntan a la lista de espera.',
-      studio?.requiereAprobacion ? 'Cada reserva espera tu visto bueno.' : null,
-      studio?.reservaExigirPlan ? 'Para reservar hace falta un plan o bono activo.' : null,
-    ].filter((r): r is string => !!r);
-    return {
-      // Para elegir, los activos. Uno archivado que ya estaba elegido se queda
-      // en la lista, marcado: quitarlo sin decir nada cambiaría el widget.
-      tiposClase: tiposClase
-        .filter(t => !estaArchivado(t) || tiposElegidos.includes(t.id))
-        .map(t => ({ id: t.id, nombre: estaArchivado(t) ? `${t.nombre} (archivado)` : t.nombre })),
-      instructoras: instructorasActivas.map(i => ({ id: i.id, nombre: i.nombre })),
-      salas: salas.map(s => ({ id: s.id, nombre: s.nombre })),
-      proximasClases,
-      planesPorTipo,
-      colorEstudio: colorEstudio ?? COLOR_POR_DEFECTO,
-      reglas,
-    };
-  }, [tiposClase, sesiones, ahora, tiposElegidos, instructorasActivas, salas, proximasClases, planesContratables, studio, colorEstudio]);
-
-  // Los dominios del widget los valida y guarda el servidor (solo la
-  // propietaria, migr 20260914011356); aquí se pinta lo que devolvió.
-  async function guardarDominios(dominios: string[]): Promise<{ ok: boolean; error?: string }> {
-    try {
-      const res = await fetch('/api/estudio/widget-dominios', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ dominios }),
-      });
-      const data = await res.json().catch(() => null) as { dominios?: unknown; error?: string } | null;
-      if (!res.ok || !Array.isArray(data?.dominios)) return { ok: false, error: data?.error ?? 'No se han podido guardar los dominios' };
-      reflejarStudioGuardado({ widgetDominiosAutorizados: data.dominios as string[] });
-      return { ok: true };
-    } catch {
-      return { ok: false, error: 'No se han podido guardar los dominios. Revisa tu conexión.' };
-    }
-  }
-  const dominiosAutorizados = studio?.widgetDominiosAutorizados ?? [];
-  const direccionWeb = web.direccion ?? direccionLegible(studio?.sitioWeb);
-
-  // ── Lo copiado: ¿sigue siendo lo de ahora, y qué se ve en su web? ──
-  // De CADA widget copiado, no solo del abierto: si cambió otro y vuelve otro
-  // día, su fila en la portada y su tarjeta en «¿Qué quieres poner en tu web?»
-  // se lo dicen. El MISMO `desfasado` en las dos, en la cabecera y en «Ponlo en
-  // tu web» (`piezaCopiada`, lib/widgets/en-tu-web.ts).
-  const copias: Record<string, EstadoCopias[string]> = {};
-  const filasTienes: FilaTienes[] = [];
-  // Las configs de lo copiado con lo de ahora (sin huérfanos): con ellas rehace
-  // su firma la confirmación de «Aplicar en mi web» (`piezasAfectadas`).
-  const configsCopiadas: Record<string, ConfigConstructor> = {};
-  // Lo que se pide a `widget_vistos()`: lo copiado y lo de ahora de cada pieza.
-  const pedir = new Set<string>();
-  for (const [id, k] of Object.entries(copiados)) {
-    const otro = widgetPorId(id);
-    if (!esDisponible(otro)) continue;
-    const c = id === w.id ? configEfectiva : sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
-    configsCopiadas[id] = c;
-    const m = metodoEnWeb(c, otro, plataforma);
-    const suya = publicacion.publicadas[id] ?? null;
-    const e: EntradaIntegracion = { ...entrada, widget: otro, config: c, pieza: suya?.id ?? null };
-    for (const t of etiquetasDeCopia(k, e)) pedir.add(t);
-    const p = piezaCopiada({
-      copia: k, base: e, metodoAhora: m, puedeGenerar: !faltaParaGenerar(e, m, { dominiosAutorizados }),
-      vistos: vistos?.filas, leidas: vistos?.etiquetas,
-      esperandoVistos: veResultados && vistos === undefined,
-      mes: resultadosMes, ahora,
-      publicada: suya?.config ?? null,
-    });
-    copias[id] = { en: k.en, desfasado: p.desfasado };
-    filasTienes.push({
-      id, nombre: otro.nombre, icono: otro.icono, en: k.en, pieza: p,
-      mes: resultadosMes && p.etiqueta ? textoMes(p.mes) : null,
-      esEnlace: m === 'enlace' || (m === 'boton' && usaBotonPropio(plataforma)),
-      // Solo la dirección que ELLA nos dio: nunca se ofrece autorizar otra.
-      webSinAutorizar: p.metodo === 'nativa' ? webSinAutorizar(direccionWeb, dominiosAutorizados) : null,
-      // La lista solo se pinta con la nativa de AHORA («Ponlo en tu web»).
-      conListaDeWebs: m === 'nativa',
-      // Un código de antes, y ella puede pasarse al de ahora (solo la propietaria publica).
-      codigoAntiguo: !k.pieza && rol === 'PROPIETARIO' && publicacion.estado === 'listo',
-    });
-  }
-  // Una cadena y no la lista, para que el efecto dependa de lo que se pide y no
-  // de un array nuevo en cada render. Las etiquetas no llevan espacios
-  // (ETIQUETA_VALIDA).
-  const etiquetasVistas = [...pedir].sort().join(' ');
-  // Se vuelve a pedir si cambian (copia algo nuevo, o cambia una etiqueta):
-  // lo leído no dice nada de una etiqueta que no se pidió (`leidas`). Mientras
-  // tanto se queda lo anterior, y tras la primera lectura se espera a que deje
-  // de escribir para no pedir una vez por letra.
-  const vistosLeidos = useRef(false);
-  useEffect(() => {
-    if (!veResultados) return;
-    const etiquetas = etiquetasVistas ? etiquetasVistas.split(' ') : [];
-    let vivo = true;
-    const t = setTimeout(() => {
-      void Promise.all([dbWidgetVistos(etiquetas), mesLeido.current])
-        .then(([filas]) => filas, () => null)
-        .then(filas => {
-          vistosLeidos.current = true;
-          if (vivo) setVistos({ etiquetas, filas });
-        });
-    }, vistosLeidos.current ? 600 : 0);
-    return () => { vivo = false; clearTimeout(t); };
-  }, [veResultados, etiquetasVistas]);
-  const copia = copiados[w.id] ?? null;
-  const desfase = !!copias[w.id]?.desfasado;
-  // ¿Llega lo que enseña con «Aplicar en mi web»? Solo si su código es por id:
-  // con uno de antes pegado, cambiarlo sigue pidiendo pegarlo otra vez, y
-  // decirle «pulsa Aplicar» sería prometer algo que no pasa.
-  const porId = !!publicada && (!copia || !!copia.pieza);
-  const conCopias = filasTienes.length > 0;
-
-  // El mes del widget abierto, por la etiqueta con la que se COPIÓ: es la que
-  // lleva lo que hay en su web (si la cambió después, la de ahora aún no mide nada).
-  const filaActiva = filasTienes.find(f => f.id === w.id);
-  const etiquetaActiva = filaActiva ? filaActiva.pieza.etiqueta : etiquetaEfectiva(configEfectiva, w);
-  const resultadoActivo = resultadosMes && etiquetaActiva
-    ? resultadosMes.find(r => r.etiqueta === etiquetaActiva) ?? null
-    : null;
-
   // ── Vista previa ──
   const [dispositivo, setDispositivo] = useState<Dispositivo>(() =>
     typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches ? 'movil' : 'escritorio');
-  // Con cualquier dominio dado por bueno, lo único que puede faltar para
-  // enseñarlo es la clase. Con su propio texto: aquí no se habla de código.
-  const faltaPrevia = faltaParaGenerar(entrada, metodo, { dominiosAutorizados: ['*'] })
-    ? 'Elige la clase y aquí verás cómo queda.'
-    : null;
-  const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
-  const urlReal = paginaCompleta ? urlPagina(entrada) : urlEmbebido(entrada, metodo);
-  // El estilo de sus widgets que está probando, solo mientras no lo aplica:
-  // aplicado, la previa ya lo recibe del servidor como cualquier web.
-  const borradorWeb = estiloWeb.pendiente ? estiloWeb.borrador : undefined;
-  const urlConBorrador = conVistaPrevia(urlReal, borradorWeb ? { borradorWeb } : undefined);
-  // La ventana de verdad la abre /widget-popup.js con `ventana=1` (ahí el
-  // estilo no se funde): la previa carga exactamente la misma URL que ella.
-  const urlPrevia = metodo === 'popup' ? urlPopupPermitida(urlConBorrador, origen) ?? urlConBorrador : urlConBorrador;
-  // Un color a medio elegir recargaría la vista previa a cada paso: se espera
-  // a que se deje de tocar. El código sí cambia al momento.
-  const [srcPrevia, setSrcPrevia] = useState(urlPrevia);
-  useEffect(() => {
-    const t = setTimeout(() => setSrcPrevia(urlPrevia), 350);
-    return () => clearTimeout(t);
-  }, [urlPrevia]);
-  // Tras aplicar o deshacer, sin esperar: la vista previa se vuelve a montar
-  // (ver su `key`) y tiene que cargar ya lo publicado, no el borrador de antes
-  // para recargar otra vez 350 ms después.
-  const [versionPrevia, setVersionPrevia] = useState(estiloWeb.version);
-  if (versionPrevia !== estiloWeb.version) {
-    setVersionPrevia(estiloWeb.version);
-    setSrcPrevia(urlPrevia);
-  }
-
-  let contenido: Contenido | null = null;
-  if (!faltaPrevia) {
-    contenido = metodo === 'nativa'
-      ? {
-        tipo: 'componente',
-        // El estilo que está probando (o, sin borrador, lo que hay en su web): lo mismo que la previa del iframe.
-        nodo: <PreviewNativa slug={slug} config={configEfectiva} estilo={borradorWeb ?? estiloWeb.publicado} base={estiloWeb.base} colorEstudio={colorEstudio} />,
-      }
-      : { tipo: 'iframe', src: srcPrevia, titulo: w.nombre, origen, slug, altoInicial: paginaCompleta ? 900 : w.alto };
-  }
-  const anchoWidget = metodo === 'iframe'
-    ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
-    : metodo === 'popup' ? anchoPopupDe(w, configEfectiva) : null;
-  const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
-  // Lo que enseña la previa y NO cambia con el estilo de sus widgets: se dice
-  // encima (y arriba, en «Cómo se ve», con la salida). Mismas reglas que la página.
-  const noSigueElEstilo = paginaCompleta
-    ? 'Tu página de reservas se ve como tu app: el estilo de tus widgets no le llega.'
-    : tieneDisenoEnCodigo(configEfectiva, metodo)
-      ? `«${w.nombre}» tiene su propio diseño: el estilo de tus widgets no le llega.`
-      : null;
-  // El botón de la previa, con el estilo que está PROBANDO (el código lleva lo publicado).
-  const entradaPrevia: EntradaIntegracion = {
-    ...entrada,
-    botonVivo: estiloWeb.base ? botonDeLaVentana(borradorWeb ?? estiloWeb.publicado, estiloWeb.base) : entrada.botonVivo,
-  };
-  const forma: FormaPrevia = metodo === 'popup' || metodo === 'boton'
-    ? {
-      tipo: 'boton',
-      boton: <BotonEnTuWeb entrada={entradaPrevia} metodo={metodo} botonPropio={botonPropio} borradorWeb={borradorWeb} />,
-      pista: botonPropio
-        ? 'Es el botón de tu propia web con tu enlace: se verá como el resto de tus botones.'
-        : metodo === 'popup' ? 'Púlsalo: se abre encima, como pasará en tu web.' : 'Púlsalo: lleva a tu página de reservas.',
-      alPulsar: metodo === 'popup' ? 'Al pulsarlo, se abre encima de tu web:' : 'Al pulsarlo, se abre tu página de reservas:',
-      abrePagina: metodo === 'boton',
-    }
-    : metodo === 'enlace' ? { tipo: 'enlace' } : { tipo: 'dentro' };
-  const suWeb = {
-    direccion: direccionWeb,
-    nombre: studio?.nombre ?? 'Tu estudio',
-    color: colorEstudio ?? COLOR_POR_DEFECTO,
-    // El de «¿Cómo es tu web?» (el borrador: lo está contestando ahora). Un
-    // diseño propio para una web oscura manda sobre él: es de este widget.
-    fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
-  };
-  // Lo que nombra la confirmación: solo lo copiado que sigue siendo el código de
-  // ahora, y a qué le llega el borrador que se va a aplicar (el botón de la
-  // ventana, solo si se ve distinto que con lo publicado).
-  const piezas = piezasAfectadas({
-    configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio,
-    estilo: estiloWeb.borrador, publicado: estiloWeb.publicado, base: estiloWeb.base,
-    publicadas: Object.fromEntries(Object.entries(publicacion.publicadas).map(([id, p]) => [id, p.config])),
-  });
-
-  const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
-  const avisos = avisosDeDatos(w.id, {
-    pruebas: ofertasPrueba.length,
-    pruebaDePago: ofertasPrueba.some(p => p.precio > 0),
-    stripe: !!studio?.stripeAccountId,
-    planes: planesContratables.length,
-    bonos: planesContratables.filter(p => p.tipo === 'BONO').length,
-    citas: citasServicios.filter(s => s.activo && s.autoReservable).length,
-  });
 
   // La portada no tiene pasos, ni vista previa, ni el aviso de cabecera: cada
   // fila lleva el suyo.
@@ -676,12 +219,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // se aplica (o se copia, si su código es de antes). Antes solo navegaba y
   // tenía que volver a encontrar el botón.
   function pasarAlEstiloComun(id: string) {
-    const actual = configs[id] ?? CONFIG_POR_DEFECTO;
-    if (actual.identidad !== 'estudio') {
-      const siguientes = { ...configs, [id]: { ...actual, identidad: 'estudio' as const } };
-      setConfigs(siguientes);
-      guardar({ configs: siguientes });
-    }
+    quitarDisenoPropio(id);
     abrirPieza(id, 'como');
   }
   function ponerOtraCosa() {
@@ -988,17 +526,6 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   );
 }
 
-interface Vigentes { tipos: ReadonlySet<string>; instructoras: ReadonlySet<string>; salas: ReadonlySet<string> }
-
-function sinHuerfanos(c: ConfigConstructor, v: Vigentes): ConfigConstructor {
-  return {
-    ...c,
-    tipos: c.tipos.filter(id => v.tipos.has(id)),
-    instructoras: c.instructoras.filter(id => v.instructoras.has(id)),
-    salas: c.salas.filter(id => v.salas.has(id)),
-  };
-}
-
 // El estado de lo guardado, sin que parezca que su web ya ha cambiado: lo
 // guardado es lo de esta pantalla; lo que va en el código llega a su web cuando
 // lo pega. (El estilo de sus widgets no pasa por aquí: se aplica con su botón.)
@@ -1022,21 +549,6 @@ function EstadoGuardadoLinea({ estado, porId, pendiente }: {
   );
 }
 
-// Lo que haría que el widget pegado no sirviera para lo que promete. Se dice
-// ANTES de configurar nada, con el sitio donde se arregla.
-function avisosDeDatos(id: string, d: { pruebas: number; pruebaDePago: boolean; stripe: boolean; planes: number; bonos: number; citas: number }): AvisoDeDatos[] {
-  const a: AvisoDeDatos[] = [];
-  const ir = (href: string, texto: string) => (
-    <Link href={href} className={cn('inline-flex items-center gap-0.5 font-medium underline underline-offset-2', FOCO)}>{texto}<ArrowUpRight size={12} aria-hidden /></Link>
-  );
-  if ((id === 'planes' || id === 'bonos') && !d.stripe) a.push({ texto: 'Para vender online necesitas los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=conexiones#integracion-stripe', 'Conectarlos') });
-  if (id === 'planes' && d.planes === 0) a.push({ texto: 'No tienes planes a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un plan') });
-  if (id === 'bonos' && d.bonos === 0) a.push({ texto: 'No tienes bonos a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un bono') });
-  if (id === 'prueba' && d.pruebas === 0) a.push({ texto: 'No tienes ninguna clase de prueba activa: tu web diría «Ahora no hay clase de prueba». Marca una tarifa como clase de prueba en Paquetes.', enlace: ir('/productos', 'Ir a Paquetes') });
-  if (id === 'prueba' && d.pruebaDePago && !d.stripe) a.push({ texto: 'Tu clase de prueba es de pago y no tienes los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=conexiones#integracion-stripe', 'Conectarlos') });
-  if (id === 'citas' && d.citas === 0) a.push({ texto: 'Ningún servicio de cita se puede reservar online todavía: el widget saldría vacío.', enlace: ir('/configuracion?tab=clases', 'Revisar servicios') });
-  return a;
-}
 
 // El mes del widget activo, en una línea (`textoMes`, la misma de la portada).
 // Sin visitas con su etiqueta lo dice así — no «0 % de conversión», que se
