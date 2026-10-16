@@ -432,7 +432,7 @@ export default function ActualizacionesInterno() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[17px] font-bold text-foreground">Actualizaciones</h1>
+          <h1 className="text-[17px] font-bold text-foreground">Novedades</h1>
           <p className="text-[12.5px] text-muted-foreground">
             El changelog que ve cualquier propietaria en su panel. Publicar aparece al instante, sin desplegar nada.
           </p>

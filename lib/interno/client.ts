@@ -132,6 +132,8 @@ export interface FichaEstudio {
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
 export const fetchKpis = () => pedir<Kpis>('/kpis');
+/** «Hoy» y los contadores del menú (ver lib/interno/hoy.ts). */
+export const fetchHoy = () => pedir<import('./hoy.ts').Hoy>('/hoy');
 export const fetchFacturacion = () => pedir<Facturacion>('/facturacion');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);

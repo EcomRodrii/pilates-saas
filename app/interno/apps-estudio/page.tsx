@@ -43,7 +43,7 @@ export default function AppsEstudioInterno() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-[20px] font-extrabold tracking-tight text-foreground">Apps de estudio</h1>
+        <h1 className="text-[20px] font-extrabold tracking-tight text-foreground">Apps en la App Store</h1>
         <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
           Los estudios que han pedido su app de la App Store (con el nombre y el icono del estudio). Mueve el estado, pon el enlace de la
           tienda cuando esté publicada y apunta notas: el estudio solo ve el estado, el nombre y el enlace. Los estudios solo pueden

@@ -1,168 +1,200 @@
 'use client';
 
-// Resumen ejecutivo. La regla que gobierna esta pantalla: **ningún número sin
-// procedencia**. Cuando algo vale 0 se dice por qué, y cuando es una estimación
-// se marca como tal. Un panel que enseña un MRR inventado es peor que no tener
-// panel: tomas decisiones con él.
+// «Hoy»: lo primero que se ve al entrar en /interno (antes «Resumen», una
+// pared de KPIs). Rediseño aprobado por el fundador el 16-oct-2026.
+//
+// Las reglas de la pantalla, que no cambian con el diseño:
+//   · **Ningún número sin procedencia.** Cada cifra dice de dónde sale; si su
+//     fuente falla o no tienes permiso, «—» con el motivo, nunca 0. Un panel
+//     que enseña un MRR inventado es peor que no tener panel: decides con él.
+//   · **Ninguna tarea inventada.** Cada fila sale de una pantalla que ya existe
+//     y lleva a ella. Si una fuente no se pudo leer, «no hay nada» se dice solo
+//     de lo que se ha podido mirar.
+// La lógica (qué es tarea, en qué orden, qué texto) vive en lib/interno/hoy.ts.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { fetchFacturacion, fetchKpis, SinAcceso, type Facturacion, type Kpis } from '@/lib/interno/client';
+import {
+  AlertTriangle, ArrowRight, Building2, CheckCircle2, CreditCard, Flag, Phone, Scale, Smartphone, Sprout,
+  TrendingDown, TrendingUp, type LucideIcon,
+} from 'lucide-react';
+import type { Cifra, EstudioAMirar, Tarea, TipoTarea } from '@/lib/interno/hoy';
+import { tienePermiso } from '@/lib/interno/permisos';
+import { useHoyInterno, useSesionInterna } from './layout';
 
-function Tarjeta({ titulo, valor, pie, acento }: {
-  titulo: string; valor: string; pie?: string; acento?: boolean;
-}) {
+const ICONO: Record<TipoTarea, LucideIcon> = {
+  impago: CreditCard, descuadre: Scale, denuncias: Flag, apps: Smartphone,
+  llamadas: Phone, altas: Sprout, 'sin-reservas': Building2,
+};
+
+const TONO_TAREA: Record<Tarea['tono'], string> = {
+  rojo: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  ambar: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  gris: 'bg-muted text-muted-foreground',
+};
+
+const TONO_ESTUDIO: Record<EstudioAMirar['tono'], string> = {
+  rojo: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  ambar: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  verde: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+};
+
+/** Una vuelta a «Hoy» antes de esto no vuelve a preguntar (es la misma respuesta que acaba de pintar el menú). */
+const FRESCO_MS = 60_000;
+
+const fechaDeHoy = () => {
+  const t = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+export default function HoyInterno() {
+  const sesion = useSesionInterna();
+  const { hoy, error, cargadoEn, recargar } = useHoyInterno();
+
+  // Al volver a «Hoy» desde otra pantalla (donde quizá se resolvió algo), se
+  // vuelve a preguntar; al entrar por primera vez ya lo ha pedido el layout.
+  useEffect(() => {
+    if (cargadoEn && Date.now() - cargadoEn > FRESCO_MS) void recargar();
+    // Solo al montar: lo que cambie después lo trae `recargar` por su cuenta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!hoy) {
+    return error
+      ? (
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-[13.5px] text-muted-foreground">No se ha podido cargar «Hoy»: {error}</p>
+          <button type="button" onClick={() => void recargar()} className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-foreground">
+            Reintentar
+          </button>
+        </div>
+      )
+      : <p className="text-[13.5px] text-muted-foreground">Mirando qué te espera hoy…</p>;
+  }
+
+  const n = hoy.tareas.length;
+  const mirado = hoy.noLeidos.length > 0 || hoy.sinPermiso.length > 0;
+
   return (
-    <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      <p className={`mt-1 text-[22px] sm:text-[26px] font-bold tabular-nums leading-none ${acento ? 'text-brand-medio' : 'text-foreground'}`}>{valor}</p>
-      {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
+    <div className="flex flex-col gap-8">
+      <header>
+        <p className="text-[13px] text-muted-foreground">{fechaDeHoy()}</p>
+        <h1 className="text-[22px] font-semibold tracking-tight text-foreground sm:text-[28px]">
+          {n === 0 ? 'Nada te espera hoy' : `${n} ${n === 1 ? 'cosa te espera' : 'cosas te esperan'} hoy`}
+        </h1>
+        <p className="mt-1 text-[14px] text-muted-foreground">
+          {n === 0
+            ? (mirado ? 'En lo que se ha podido mirar no hay nada pendiente.' : 'Ni cobros, ni denuncias, ni llamadas, ni apps, ni altas, ni clientes parados.')
+            : 'Ordenadas por lo que cuesta dejarlas: primero dinero y Apple, luego clientes nuevos.'}
+        </p>
+      </header>
+
+      {hoy.noLeidos.length > 0 && (
+        <p role="status" className="-mt-4 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] text-foreground">
+          <strong className="font-semibold">Faltan datos, no son ceros.</strong>{' '}
+          No se ha podido leer: {hoy.noLeidos.join(', ')}. Lo que venga de ahí no está en esta lista.
+        </p>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {n > 0 ? (
+          <section aria-label="Lo que te espera hoy" className="self-start overflow-hidden rounded-2xl border border-border bg-card">
+            <ul>
+              {hoy.tareas.map((t, i) => <FilaTarea key={t.tipo} t={t} primera={i === 0} />)}
+            </ul>
+          </section>
+        ) : (
+          <section className="flex items-center gap-3 self-start rounded-2xl border border-border bg-card px-5 py-5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><CheckCircle2 size={17} aria-hidden /></span>
+            <p className="text-[14px] text-muted-foreground">
+              Al día. {hoy.sinPermiso.length > 0 && <>Con tus permisos no se mira: {hoy.sinPermiso.join(', ')}.</>}
+            </p>
+          </section>
+        )}
+
+        <section aria-labelledby="como-va">
+          <h2 id="como-va" className="mb-2.5 text-[13px] font-semibold text-foreground">Cómo va el negocio</h2>
+          <div className="grid grid-cols-2 gap-2.5">
+            {hoy.cifras.map(c => <TarjetaCifra key={c.id} c={c} />)}
+          </div>
+        </section>
+      </div>
+
+      {hoy.estudios && (
+        <section aria-labelledby="estudios-mirar">
+          <div className="mb-2.5 flex items-baseline gap-3">
+            <h2 id="estudios-mirar" className="text-[13px] font-semibold text-foreground">Estudios que miraría hoy</h2>
+            {tienePermiso(sesion.permisos, 'studios.read') && (
+              <Link href="/interno/estudios" className="ml-auto text-[13px] font-medium text-muted-foreground hover:text-foreground">Todos los estudios →</Link>
+            )}
+          </div>
+          {hoy.estudios.length === 0 ? (
+            <p className="rounded-2xl border border-border bg-card px-5 py-4 text-[13.5px] text-muted-foreground">
+              Ningún estudio paga todavía y ninguno gratis se acerca a su límite.
+            </p>
+          ) : (
+            <ul className="overflow-hidden rounded-2xl border border-border bg-card">
+              {hoy.estudios.map((e, i) => (
+                <li key={e.id} className={i > 0 ? 'border-t border-border/70' : ''}>
+                  <Link href={`/interno/estudios/${e.id}`} className="flex items-center gap-3 px-4 py-3 text-[13.5px] transition-colors hover:bg-muted/40 sm:px-5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted text-[12px] font-semibold text-muted-foreground" aria-hidden>{e.nombre.slice(0, 2)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">{e.nombre}</span>
+                      <span className="block text-[12.5px] text-muted-foreground">{e.plan}<span className="sm:hidden"> · {e.uso}</span></span>
+                    </span>
+                    <span className="hidden w-64 shrink-0 text-[13px] tabular-nums text-muted-foreground sm:block">{e.uso}</span>
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[12px] font-medium ${TONO_ESTUDIO[e.tono]}`}>{e.estado}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      <p className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+        <AlertTriangle size={13} aria-hidden /> Cada cifra dice de dónde sale. Si una fuente no contesta, sale «—» con el motivo, nunca un 0.
+      </p>
     </div>
   );
 }
 
-const eur = (n: number) => `${n.toLocaleString('es-ES')} €`;
-
-export default function ResumenInterno() {
-  const [k, setK] = useState<Kpis | null>(null);
-  // El dinero se pide aparte, a Stripe. Si esa llamada falla, el resto de la
-  // pantalla sigue sirviendo: lo que NO se hace es rellenar el hueco con el
-  // precio de lista, que es lo que hacía antes y por eso mentía.
-  const [f, setF] = useState<Facturacion | null>(null);
-  // Por qué no hay cifra de dinero. Son tres motivos muy distintos y el pie de
-  // la tarjeta tiene que decir CUÁL: «no tienes permiso» y «Stripe no contesta»
-  // se arreglan de forma opuesta.
-  const [sinDinero, setSinDinero] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const cargar = useCallback(async () => {
-    try {
-      const [kpis, fact] = await Promise.all([
-        fetchKpis(),
-        fetchFacturacion().catch((e: unknown) => {
-          setSinDinero(e instanceof SinAcceso
-            ? 'No tienes permiso para ver la facturación.'
-            : 'No se ha podido cargar la facturación.');
-          return null;
-        }),
-      ]);
-      setK(kpis);
-      setF(fact);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void cargar(); }, [cargar]);
-
-  if (error) return <p className="text-[13.5px] text-muted-foreground">{error}</p>;
-  if (!k) return <p className="text-[13.5px] text-muted-foreground">Cargando…</p>;
-
-  const maxAltas = Math.max(1, ...k.altasPorMes.map(a => a.altas));
-
+function FilaTarea({ t, primera }: { t: Tarea; primera: boolean }) {
+  const Icono = ICONO[t.tipo];
   return (
-    <div className="flex flex-col gap-6">
-      {/* Mismo criterio que las tarjetas de Stripe de aquí abajo: un cero se lee
-          como un dato, así que si una lectura ha fallado hay que decirlo en vez
-          de dejar que las cifras lo disimulen. No es hipotético — se pedía
-          `sesiones.creado_en`, una columna que entonces no existía, y este panel llevaba
-          quién sabe cuánto diciendo que la plataforma no tenía ni una clase. */}
-      {k.noLeidos && k.noLeidos.length > 0 && (
-        <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] text-foreground">
-          <strong className="font-semibold">Faltan datos, no son ceros.</strong>{' '}
-          No se ha podido leer: {k.noLeidos.join(', ')}. Las cifras de esas secciones
-          están incompletas.
+    <li data-tarea={t.tipo} className={`flex items-start gap-3.5 px-4 py-4 sm:px-5 ${primera ? '' : 'border-t border-border/70'}`}>
+      <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${TONO_TAREA[t.tono]}`}><Icono size={17} aria-hidden /></span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14.5px] font-semibold text-foreground">{t.titulo}</p>
+        <p className="mt-0.5 text-pretty text-[13px] leading-snug text-muted-foreground">{t.porque}</p>
+        <Link href={t.href} className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-foreground sm:hidden">
+          {t.boton} <ArrowRight size={14} aria-hidden />
+        </Link>
+      </div>
+      <Link href={t.href}
+        className="hidden shrink-0 self-center rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex">
+        {t.boton}
+      </Link>
+    </li>
+  );
+}
+
+function TarjetaCifra({ c }: { c: Cifra }) {
+  return (
+    <div data-cifra={c.id} className="rounded-2xl border border-border bg-card px-4 py-3.5">
+      <p className="text-[12.5px] text-muted-foreground">{c.titulo}</p>
+      <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-foreground tabular-nums">{c.valor ?? '—'}</p>
+      {c.valor === null ? (
+        <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{c.motivo}</p>
+      ) : c.cambio && (
+        <p className={`mt-2 flex items-start gap-1 text-[12px] font-medium leading-snug ${
+          c.cambio.sube === null ? 'text-muted-foreground' : c.cambio.sube ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+          {c.cambio.sube === true && <TrendingUp size={13} className="mt-px shrink-0" aria-hidden />}
+          {c.cambio.sube === false && <TrendingDown size={13} className="mt-px shrink-0" aria-hidden />}
+          {c.cambio.texto}
         </p>
       )}
-      <section>
-        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Negocio</h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-          {/* Estas dos tarjetas salen de Stripe (ver /interno/facturacion). Si
-              Stripe no contesta se enseña «—», nunca 0 €: un cero se lee como
-              «no cobras nada» y eso es una afirmación que no podemos hacer. */}
-          <Tarjeta
-            titulo="MRR" valor={f?.stripeDisponible ? eur(f.mrrEuros) : '—'} acento
-            pie={!f ? (sinDinero ?? 'No se ha podido cargar la facturación.')
-              : !f.stripeDisponible ? (f.avisoStripe ?? 'Sin respuesta de Stripe.')
-              : f.pagando === 0
-                ? `Ninguna suscripción activa en Stripe${f.descuadres > 0 ? ` · ${f.descuadres} cuenta(s) no cuadran` : ''}.`
-                : `${f.pagando} suscripción(es) cobrando de verdad.`} />
-          <Tarjeta
-            titulo="ARR" valor={f?.stripeDisponible ? eur(f.mrrEuros * 12) : '—'}
-            pie="MRR × 12, con el importe que Stripe cobra de verdad." />
-          <Tarjeta
-            titulo="Estudios con actividad" valor={String(k.estudios.conActividad)}
-            pie={`${k.estudios.vacios} altas más sin ninguna socia ni clase.`} />
-          <Tarjeta
-            titulo="Altas (30 días)" valor={String(k.estudios.altasUltimos30d)}
-            pie={`${k.estudios.total} estudios en total${k.estudios.suspendidos > 0 ? ` · ${k.estudios.suspendidos} suspendido(s)` : ''}.`} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Activación (onboarding)</h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-          <Tarjeta
-            titulo="Estudios activados" valor={`${k.onboarding.activados}/${k.onboarding.totalConActividad}`}
-            pie="De los que tienen actividad: ya han recibido su primera reserva." />
-          <Tarjeta
-            titulo="Paso donde más se atascan"
-            valor={k.onboarding.pasoMasBloqueante ? String(k.onboarding.pasoMasBloqueante.pendientes) : '0'}
-            pie={k.onboarding.pasoMasBloqueante
-              ? `"${k.onboarding.pasoMasBloqueante.label}" — pendiente en ${k.onboarding.pasoMasBloqueante.pendientes} estudio(s).`
-              : 'Ninguno: a los que aún no tienen reservas no les falta ningún paso.'} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Uso de la plataforma</h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-          <Tarjeta titulo="Reservas hoy" valor={String(k.actividad.reservasHoy)} />
-          <Tarjeta titulo="Reservas (7 días)" valor={String(k.actividad.reservas7d)} />
-          <Tarjeta titulo="Socias" valor={String(k.actividad.socias)} pie="Sumando todos los estudios." />
-          <Tarjeta titulo="Clases creadas" valor={String(k.actividad.clases)} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Altas por mes</h2>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          {k.altasPorMes.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">Todavía no hay altas que dibujar.</p>
-          ) : (
-            <div className="flex items-end gap-2 h-32">
-              {k.altasPorMes.map(a => (
-                // `h-full` en la columna y un hueco `flex-1` para la barra: la
-                // altura en % necesita un padre con altura REAL. Antes colgaba
-                // de una columna de altura automática, así que resolvía a cero
-                // y el gráfico se pintaba vacío — números y meses, sin barras.
-                <div key={a.mes} className="flex-1 h-full flex flex-col items-center gap-1.5 min-w-0">
-                  <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{a.altas}</span>
-                  <div className="w-full flex-1 flex items-end">
-                    <div className="w-full rounded-t bg-brand/80" style={{ height: `${(a.altas / maxAltas) * 100}%` }} />
-                  </div>
-                  <span className="text-[10.5px] text-muted-foreground truncate w-full text-center">{a.mes}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Honestidad sobre lo que este panel todavía NO sabe. Sin esto, la
-          ausencia de una métrica se lee como "vale cero". */}
-      <section className="rounded-2xl border border-border bg-muted/30 px-4 py-3.5">
-        <p className="text-[12.5px] font-bold text-foreground">Lo que aquí no se puede saber (todavía)</p>
-        <ul className="mt-1.5 text-[12.5px] text-muted-foreground leading-relaxed list-disc pl-4">
-          <li><strong>Churn, cancelaciones y renovaciones:</strong> no se guarda localmente el estado de la suscripción de cada estudio. Vive en Stripe.</li>
-          <li><strong>Pruebas y conversión:</strong> no existe el concepto de periodo de prueba en la base de datos.</li>
-          <li><strong>Tickets, incidentes y leads:</strong> no hay soporte ni CRM construidos. Cuando los haya, sus KPIs entran aquí.</li>
-        </ul>
-        <p className="mt-2 text-[12px] text-muted-foreground">
-          Estado de servidores, errores y cobros: <Link href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Stripe</Link>,{' '}
-          <Link href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Vercel</Link> y{' '}
-          <Link href="https://sentry.io" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-medio">Sentry</Link> ya lo hacen mejor de lo que lo haríamos aquí.
-        </p>
-      </section>
+      <p className="mt-1 text-[11px] text-muted-foreground/80">Fuente: {c.fuente}</p>
     </div>
   );
 }

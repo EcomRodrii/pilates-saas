@@ -1,21 +1,26 @@
 'use client';
 
 // Chrome del panel interno. Deliberadamente MUY distinto del panel de un
-// estudio (barra oscura, marca "Tentare Internal"): mirando media pantalla
-// tienes que saber si estás en tu backoffice o dentro del negocio de un
+// estudio (menú lateral oscuro, marca «Tentare · Zona interna»): mirando media
+// pantalla tienes que saber si estás en tu backoffice o dentro del negocio de un
 // cliente. Confundirlos es como se cometen los errores caros.
+//
+// El menú va agrupado por para qué sirve cada pantalla (rediseño aprobado por el
+// fundador el 16-oct-2026; antes eran 17 pestañas en una barra que se salía de
+// la pantalla). Vive en ./menu.tsx; aquí, la guardia y lo que se comparte.
 //
 // La guardia de aquí es de USABILIDAD, no de seguridad: decide qué se pinta.
 // Quien autoriza de verdad es cada ruta de /api/interno, que vuelve a
 // comprobar permisos con el JWT. Un cliente manipulado no consigue nada.
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, CreditCard, FileCheck2, Flag, LayoutDashboard, LifeBuoy, Megaphone, Network, Phone, Route, ScrollText, ShieldAlert, Smartphone, Smile, Sprout, Users, Zap } from 'lucide-react';
-import { EVENTO_MFA_REQUERIDO, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
+import { ShieldAlert } from 'lucide-react';
+import { EVENTO_MFA_REQUERIDO, fetchHoy, fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
+import type { Hoy } from '@/lib/interno/hoy';
 import { useAuth } from '@/lib/auth-context';
-import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
+import { BarraMovil, MarcaInterna, MenuLateral } from './menu';
 
 const Ctx = createContext<SesionInterna | null>(null);
 export const useSesionInterna = (): SesionInterna => {
@@ -24,30 +29,22 @@ export const useSesionInterna = (): SesionInterna => {
   return s;
 };
 
-const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2; permisos: Permiso[] }> = [
-  { href: '/interno', etiqueta: 'Resumen', icono: LayoutDashboard, permisos: ['studios.read'] },
-  { href: '/interno/estudios', etiqueta: 'Estudios', icono: Building2, permisos: ['studios.read'] },
-  { href: '/interno/visita-guiada', etiqueta: 'Visita guiada', icono: Route, permisos: ['studios.read'] },
-  { href: '/interno/apps-estudio', etiqueta: 'Apps de estudio', icono: Smartphone, permisos: ['studios.read'] },
-  { href: '/interno/facturacion', etiqueta: 'Facturación', icono: CreditCard, permisos: ['billing.read'] },
-  // Veri*Factu: la declaración responsable y los poderes IZ860 los gestiona el
-  // productor/apoderado en persona, así que solo `admin.full`.
-  { href: '/interno/verifactu', etiqueta: 'Veri*Factu', icono: FileCheck2, permisos: ['admin.full'] },
-  { href: '/interno/sales', etiqueta: 'Sales OS', icono: Zap, permisos: ['crm.update'] },
-  { href: '/interno/crecimiento', etiqueta: 'Crecimiento', icono: Sprout, permisos: ['crm.update'] },
-  { href: '/interno/llamadas', etiqueta: 'Llamadas', icono: Phone, permisos: ['crm.update'] },
-  { href: '/interno/actualizaciones', etiqueta: 'Actualizaciones', icono: Megaphone, permisos: ['content.write'] },
-  { href: '/interno/ayuda', etiqueta: 'Ayuda', icono: LifeBuoy, permisos: ['content.write'] },
-  // El catálogo de la mascota: el único sitio con toques a mano, insignias, la
-  // mirada de 'pensando' y los estados que el panel no usa. Dónde vive Tenti en
-  // el panel lo dice lib/tenti/donde-vive-tenti.test.ts.
-  { href: '/interno/tenti', etiqueta: 'Tenti', icono: Smile, permisos: ['content.write'] },
-  { href: '/interno/auditoria', etiqueta: 'Auditoría', icono: ScrollText, permisos: ['logs.read'] },
-  { href: '/interno/network', etiqueta: 'Network', icono: Network, permisos: ['network.moderate'] },
-  // Denuncias de la app de los estudios que le tocan a Tentare (App Store 1.2).
-  { href: '/interno/denuncias', etiqueta: 'Denuncias', icono: Flag, permisos: ['app.moderate'] },
-  { href: '/interno/equipo', etiqueta: 'Equipo', icono: Users, permisos: ['users.create', 'users.delete'] },
-];
+// «Hoy» se pide UNA vez aquí y lo comparten la portada y los contadores del
+// menú: es la misma respuesta, y pedirla dos veces sería preguntar dos veces a
+// Stripe. `recargar` lo usa la portada al volver a ella.
+export interface HoyInterno {
+  hoy: Hoy | null;
+  error: string | null;
+  /** Instante (ms) de la última respuesta buena, para no repetirla al volver enseguida. */
+  cargadoEn: number;
+  recargar: () => Promise<void>;
+}
+const HoyCtx = createContext<HoyInterno | null>(null);
+export const useHoyInterno = (): HoyInterno => {
+  const h = useContext(HoyCtx);
+  if (!h) throw new Error('useHoyInterno fuera del layout de /interno');
+  return h;
+};
 
 export default function LayoutInterno({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -60,6 +57,27 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
   // sesión interna: con la exigencia activa, esa llamada es justo la que
   // responde MFA_REQUERIDO y la mandaría aquí en bucle.
   const esPantallaMfa = pathname === '/interno/mfa';
+  const [hoy, setHoy] = useState<Hoy | null>(null);
+  const [errorHoy, setErrorHoy] = useState<string | null>(null);
+  const [hoyCargadoEn, setHoyCargadoEn] = useState(0);
+  const pidiendoHoy = useRef(false);
+
+  const recargarHoy = useCallback(async () => {
+    if (pidiendoHoy.current) return;
+    pidiendoHoy.current = true;
+    try {
+      const r = await fetchHoy();
+      // Sin dar por hecha la forma: un `{}` no puede tumbar el menú entero.
+      if (!Array.isArray(r?.tareas) || !Array.isArray(r?.cifras)) throw new Error('Respuesta incompleta');
+      setHoy(r); setErrorHoy(null); setHoyCargadoEn(Date.now());
+    } catch (e) {
+      // Sin «Hoy» el resto del panel sigue sirviendo: el menú se queda sin
+      // contadores y la portada dice qué ha pasado.
+      setErrorHoy(e instanceof Error ? e.message : 'No se ha podido cargar.');
+    } finally {
+      pidiendoHoy.current = false;
+    }
+  }, []);
 
   const irAMfa = useCallback(() => {
     const volver = `${window.location.pathname}${window.location.search}`;
@@ -70,6 +88,7 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
     try {
       setSesion(await fetchSesionInterna());
       setCargando(false);
+      void recargarHoy();
     } catch (e) {
       // Se queda en «Comprobando acceso…» mientras navega: pintar el error
       // diría «no eres del equipo» a quien sí lo es.
@@ -77,7 +96,7 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
       setError(e instanceof SinAcceso ? e.message : 'No se ha podido comprobar tu acceso.');
       setCargando(false);
     }
-  }, [irAMfa]);
+  }, [irAMfa, recargarHoy]);
 
   // setState tras await, no en cascada — falso positivo del lint.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -94,11 +113,9 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
   if (esPantallaMfa) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="bg-slate-900 text-slate-100">
+        <header className="bg-[#14161c] text-white">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3">
-            <span className="text-[13px] font-bold tracking-wide">
-              Tentare <span className="text-slate-400 font-medium">Internal</span>
-            </span>
+            <MarcaInterna />
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6">{children}</main>
@@ -155,69 +172,32 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
     );
   }
 
-  const visibles = SECCIONES.filter(s => tieneAlguno(sesion.permisos, s.permisos));
-
   return (
     <Ctx.Provider value={sesion}>
-      <div className="min-h-screen bg-background">
-        {/* En móvil la cabecera va en DOS filas. En una sola, seis secciones más
-            el nombre necesitan ~800px: el documento entero se ensanchaba a esa
-            medida, aparecía scroll horizontal en TODAS las pantallas, la barra
-            oscura solo pintaba el ancho de la ventana y media navegación
-            quedaba fuera de alcance. */}
-        <header className="bg-slate-900 text-slate-100">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-3 pb-2 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            <div className="flex items-center justify-between gap-3 sm:contents">
-              <span className="text-[13px] font-bold tracking-wide shrink-0">
-                Tentare <span className="text-slate-400 font-medium">Internal</span>
-              </span>
-              {/* En móvil solo el nombre: el cargo obligaba a partir "Fundador y
-                  CEO" en dos líneas contra el borde. En pantalla ancha cabe. */}
-              <span className="text-right leading-tight shrink-0 sm:order-last">
-                <span className="block text-[12.5px] font-semibold">{sesion.nombre}</span>
-                {sesion.cargo && (
-                  <span className="hidden sm:block text-[11px] text-slate-400">{sesion.cargo}</span>
-                )}
-              </span>
-            </div>
-            {/* Los márgenes negativos hacen que el desbordamiento llegue hasta el
-                borde de la pantalla: si no, la última sección parece cortada por
-                el padding y no se ve que hay más a la derecha. */}
-            <nav
-              className="flex items-center gap-1 flex-1 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0
-                         [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {visibles.map(s => {
-                const activo = s.href === '/interno' ? pathname === s.href : pathname.startsWith(s.href);
-                const Icono = s.icono;
-                return (
-                  <Link key={s.href} href={s.href}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-semibold flex items-center gap-1.5 transition-colors ${
-                      activo ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
-                    <Icono size={14} />{s.etiqueta}
+      <HoyCtx.Provider value={{ hoy, error: errorHoy, cargadoEn: hoyCargadoEn, recargar: recargarHoy }}>
+        <div className="min-h-screen bg-background lg:flex">
+          <MenuLateral sesion={sesion} hoy={hoy} />
+          <div className="min-w-0 flex-1">
+            <BarraMovil sesion={sesion} hoy={hoy} />
+            {/* Con el default fail-closed (SEC-2 paso 2), aal1 solo llega hasta
+                aquí con INTERNO_EXIGIR_MFA=0 explícito (un entorno de
+                desarrollo) — en producción, `comprobarAdminInterno` ya habría
+                mandado a /interno/mfa antes de que este layout pintara nada. */}
+            {sesion.nivel === 'aal1' && (
+              <div className="bg-amber-500/10 border-b border-amber-500/20">
+                <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-foreground">
+                  <ShieldAlert size={14} className="text-warning shrink-0" />
+                  <span>Esta sesión no ha pasado la verificación en dos pasos.</span>
+                  <Link href={`/interno/mfa?volver=${encodeURIComponent(pathname)}`} className="font-bold underline">
+                    Configurarla
                   </Link>
-                );
-              })}
-            </nav>
+                </div>
+              </div>
+            )}
+            <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-5 sm:py-6 lg:py-8">{children}</main>
           </div>
-        </header>
-        {/* Con el default fail-closed (SEC-2 paso 2), aal1 solo llega hasta
-            aquí con INTERNO_EXIGIR_MFA=0 explícito (un entorno de
-            desarrollo) — en producción, `comprobarAdminInterno` ya habría
-            mandado a /interno/mfa antes de que este layout pintara nada. */}
-        {sesion.nivel === 'aal1' && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20">
-            <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-foreground">
-              <ShieldAlert size={14} className="text-warning shrink-0" />
-              <span>Esta sesión no ha pasado la verificación en dos pasos.</span>
-              <Link href={`/interno/mfa?volver=${encodeURIComponent(pathname)}`} className="font-bold underline">
-                Configurarla
-              </Link>
-            </div>
-          </div>
-        )}
-        <main className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6">{children}</main>
-      </div>
+        </div>
+      </HoyCtx.Provider>
     </Ctx.Provider>
   );
 }

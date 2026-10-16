@@ -6,7 +6,9 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // La cabecera ponía las seis secciones más el nombre en una fila. En 375px eso
 // necesita ~800px, así que el DOCUMENTO ENTERO se ensanchaba a esa medida:
 // scroll horizontal en todas las pantallas, la barra oscura pintando solo el
-// ancho de la ventana, y media navegación fuera de alcance.
+// ancho de la ventana, y media navegación fuera de alcance. Desde el rediseño
+// del 16-oct-2026 el menú es lateral en escritorio y un «Menú» desplegable en
+// el móvil (e2e/interno-hoy.spec.ts mira el menú en sí).
 //
 // Este test mide justo eso — `scrollWidth` del documento contra `innerWidth` —
 // porque es un fallo que se cuela sin que nadie lo note al añadir una sección
@@ -79,6 +81,10 @@ async function mockPanel(page: Page) {
     }],
   }));
   await page.route('**/api/interno/auditoria**', r => json(r, { entradas: [] }));
+  await page.route('**/api/interno/hoy**', r => json(r, {
+    tareas: [], pendientes: {}, estudios: [], noLeidos: [], sinPermiso: [],
+    cifras: [{ id: 'mrr', titulo: 'Lo que cobramos al mes', valor: '277 €', cambio: null, fuente: 'Stripe', motivo: null }],
+  }));
   await page.addInitScript(() => localStorage.setItem('sb-example-auth-token', JSON.stringify({
     access_token: 'e2e-fake-token', refresh_token: 'r', expires_at: 4102444800,
     expires_in: 999999999, token_type: 'bearer',
@@ -90,7 +96,7 @@ async function mockPanel(page: Page) {
 }
 
 const PANTALLAS: Array<[string, string, string]> = [
-  ['Resumen', '/interno', 'Uso de la plataforma'],
+  ['Hoy', '/interno', 'Cómo va el negocio'],
   ['Estudios', '/interno/estudios', 'Pilates Gràcia'],
   ['Facturación', '/interno/facturacion', 'Cuenta por cuenta'],
   ['Crecimiento', '/interno/crecimiento', 'Embudo'],
@@ -115,22 +121,25 @@ test.describe('El panel interno cabe en un móvil', () => {
     });
   }
 
-  test('la navegación sigue siendo alcanzable entera, aunque no quepa', async ({ page }) => {
+  test('la navegación sigue siendo alcanzable entera desde «Menú»', async ({ page }) => {
     // No basta con que no desborde: si las secciones se recortaran o se
     // escondieran, el panel "cabría" y sería inservible. Tienen que estar todas
-    // y poder llegarse a ellas desplazando la barra.
+    // detrás de «Menú».
     await mockPanel(page);
     await page.setViewportSize(MOVIL);
     await page.goto('/interno');
-    await page.getByText('Uso de la plataforma').waitFor({ timeout: 40_000 });
+    await page.getByText('Cómo va el negocio').waitFor({ timeout: 40_000 });
 
-    for (const etiqueta of ['Resumen', 'Estudios', 'Facturación', 'Crecimiento', 'Auditoría', 'Equipo']) {
-      await expect(page.getByRole('link', { name: etiqueta })).toHaveCount(1);
+    await page.getByRole('button', { name: /Menú/ }).click();
+    const menu = page.getByRole('navigation', { name: 'Zona interna' });
+    for (const etiqueta of ['Hoy', 'Estudios', 'Cobros a estudios', 'Altas y prospectos', 'Registro de cambios', 'Equipo interno']) {
+      await expect(menu.getByRole('link', { name: etiqueta })).toHaveCount(1);
     }
-    const nav = page.locator('header nav');
-    const puedeDesplazarse = await nav.evaluate(el => el.scrollWidth > el.clientWidth);
-    expect(puedeDesplazarse, 'las seis secciones no caben, así que la barra tiene que desplazarse').toBe(true);
-    await page.getByRole('link', { name: 'Equipo' }).click();
+    const { documento, ventana } = await page.evaluate(() => ({
+      documento: document.documentElement.scrollWidth, ventana: window.innerWidth,
+    }));
+    expect(documento, 'el menú abierto no puede ensanchar la página').toBeLessThanOrEqual(ventana);
+    await menu.getByRole('link', { name: 'Equipo interno' }).click();
     // Timeout explícito: con `next dev`, la primera navegación a /interno/equipo
     // compila la ruta bajo demanda y se pasa de los 5s por defecto.
     await expect(page).toHaveURL(/\/interno\/equipo$/, { timeout: 30_000 });
@@ -139,10 +148,11 @@ test.describe('El panel interno cabe en un móvil', () => {
   test('las barras del gráfico de altas se dibujan de verdad', async ({ page }) => {
     // Colgaban de una columna sin altura, así que el `height: N%` resolvía a
     // cero: el gráfico salía vacío, con los números y los meses pero sin una
-    // sola barra. Un gráfico vacío se lee como "no hay altas".
+    // sola barra. Un gráfico vacío se lee como "no hay altas". (Desde el
+    // 16-oct-2026 vive en «Altas y prospectos», no en la portada.)
     await mockPanel(page);
     await page.setViewportSize(MOVIL);
-    await page.goto('/interno');
+    await page.goto('/interno/crecimiento');
     await page.getByText('Altas por mes').waitFor({ timeout: 40_000 });
 
     const alturas = await page.locator('.bg-brand\\/80').evaluateAll(
@@ -154,18 +164,20 @@ test.describe('El panel interno cabe en un móvil', () => {
       .toBeGreaterThan(Math.min(...alturas));
   });
 
-  test('en escritorio la cabecera vuelve a ser una sola fila', async ({ page }) => {
+  test('en escritorio el menú es lateral y se ve entero', async ({ page }) => {
     // El control: sin esto, "arreglar el móvil" podría haber dejado el
-    // escritorio con la navegación colgando en una segunda línea para siempre.
+    // escritorio con el menú escondido detrás del botón para siempre.
     await mockPanel(page);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/interno');
-    await page.getByText('Uso de la plataforma').waitFor({ timeout: 40_000 });
+    await page.getByText('Cómo va el negocio').waitFor({ timeout: 40_000 });
 
-    const marca = await page.getByText('Internal').boundingBox();
-    const equipo = await page.getByRole('link', { name: 'Equipo' }).boundingBox();
-    expect(marca && equipo && Math.abs(marca.y - equipo.y) < 20, 'marca y navegación en la misma fila').toBe(true);
-    // Y el cargo, que en móvil se esconde, aquí se ve.
-    await expect(page.getByText('Fundador y CEO')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Menú/ })).toBeHidden();
+    const menu = page.getByRole('navigation', { name: 'Zona interna' });
+    const hoy = await menu.getByRole('link', { name: 'Hoy' }).boundingBox();
+    const titulo = await page.getByRole('heading', { level: 1 }).boundingBox();
+    expect(hoy && titulo && hoy.x < titulo.x, 'el menú va a la izquierda del contenido').toBe(true);
+    // Y el cargo, abajo del menú.
+    await expect(page.getByText('Fundador y CEO · todos los permisos')).toBeVisible();
   });
 });
