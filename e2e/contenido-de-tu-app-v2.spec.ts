@@ -222,3 +222,51 @@ test('sin MI_WEB_NUEVA, la pantalla de siempre', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Añadir banner' })).toBeVisible({ timeout: 60_000 });
   await expect(v2(page)).toHaveCount(0);
 });
+
+test('pasar un aviso se puede deshacer, y quitar el mensaje pide confirmación antes de escribir', async ({ page }) => {
+  const c = await abrir(page, {
+    mensaje: 'Bienvenidas',
+    avisos: [{ id: 'nov-1', studio_id: STUDIO_ID, titulo: 'Cerramos el lunes', texto: null, emoji: null, activo: true, fecha_inicio: null, fecha_fin: null, created_at: '2026-10-01T10:00:00Z' }],
+  });
+  await page.getByRole('button', { name: 'Mensaje destacado' }).click();
+  const texto = page.getByLabel('Mensaje destacado');
+  await expect(texto).toHaveValue('Bienvenidas', { timeout: 60_000 });
+  await page.getByRole('button', { name: 'Pasar a mensaje destacado' }).click();
+  await expect(texto).toHaveValue('Cerramos el lunes');
+  // El aviso ya es el borrador: no se ofrece pasarlo otra vez.
+  await expect(page.getByText('Es tu mensaje')).toBeVisible();
+  await page.getByRole('button', { name: 'Deshacer' }).click();
+  await expect(texto).toHaveValue('Bienvenidas');
+  expect(c.mensajes, 'pasar y deshacer no escriben nada').toHaveLength(0);
+
+  await page.getByRole('button', { name: 'Quitar el mensaje' }).click();
+  const dialogo = page.getByRole('dialog').filter({ hasText: '¿Quitar el mensaje?' });
+  await expect(dialogo).toBeVisible();
+  await dialogo.getByRole('button', { name: 'Volver' }).click();
+  await expect(dialogo).toBeHidden();
+  expect(c.mensajes, 'cancelar no quita nada').toHaveLength(0);
+  await page.getByRole('button', { name: 'Quitar el mensaje' }).click();
+  await dialogo.getByRole('button', { name: 'Quitar el mensaje' }).click();
+  await expect.poll(() => c.mensajes.length).toBe(1);
+  expect(c.mensajes[0]).toMatchObject({ mensaje_destacado: null });
+  await expect(page.getByText('Quitado: ya no sale en su app.')).toBeVisible();
+});
+
+test('el fallo del interruptor se dice junto al interruptor, y no se queda encendido', async ({ page }) => {
+  const c = await abrir(page, { banners: [banner('b-1', 'Taller', { activo: false })], patch: (r) => json(r, { message: 'fallo' }, 500) });
+  await page.getByTestId('fila-tarjeta').getByRole('button', { name: /^Taller/ }).click();
+  const interruptor = page.getByRole('switch', { name: 'Que la vean en su app' });
+  await interruptor.click();
+  await expect(page.getByText(/No se ha cambiado/)).toBeVisible({ timeout: 15_000 });
+  expect(c.patches.length).toBeGreaterThan(0);
+  expect(c.patches.at(-1)).toEqual({ activo: true });
+  await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+});
+
+test('llevar a Logros sin nada de motivación avisa de que esa pantalla saldría vacía', async ({ page }) => {
+  await abrir(page, { banners: [banner('b-1', 'Taller')] });
+  await page.getByTestId('fila-tarjeta').getByRole('button', { name: /^Taller/ }).click();
+  await page.getByLabel('Pantalla de su app').selectOption('/logros');
+  await expect(page.getByText(/Aún no tienes logros, retos ni recompensas/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('link', { name: 'Crearlos' })).toHaveAttribute('href', /abrir=recompensas-y-logros/);
+});

@@ -27,7 +27,7 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink,
 import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
+import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo, FONDO_VISTA_MOVIL } from '@/components/dashboard/vivo';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -777,7 +777,7 @@ export function EditorAparienciaApp() {
             // Como Bonsai: el móvil sobre un panel grande de color, con los tonos del logo.
             <div
               className="flex min-h-[560px] items-center justify-center rounded-[28px] px-4 py-8 sm:px-8"
-              style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
+              style={FONDO_VISTA_MOVIL}
             >
               {studio.slug
                 ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />
