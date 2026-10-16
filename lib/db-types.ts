@@ -2648,6 +2648,10 @@ export interface RowCodigosDescuentoConsumos {
   consumido_en: string;
   // migr 20260907172746.
   socio_id: string | null;
+  // migr 20261015222942.
+  id: number | null;
+  // migr 20261015222942.
+  venta_pos_id: string | null;
 }
 
 export interface RowReviewBoostFeedback {
@@ -8697,6 +8701,8 @@ export type CodigosDescuentoConsumosInsert = {
   codigo_id?: string | null;
   consumido_en?: string | null;
   socio_id?: string | null | null;
+  id?: number | null | null;
+  venta_pos_id?: string | null | null;
 }
 
 export type CodigosDescuentoConsumosUpdate = {
@@ -8704,6 +8710,8 @@ export type CodigosDescuentoConsumosUpdate = {
   codigo_id?: string | null;
   consumido_en?: string | null;
   socio_id?: string | null | null;
+  id?: number | null | null;
+  venta_pos_id?: string | null | null;
 }
 
 export type ReviewBoostFeedbackInsert = {

@@ -287,6 +287,16 @@ export function PosTerminal() {
   }), [carrito, descuentoTipo, descuentoTexto, codigoAplicado]);
   const ticket = useMemo(() => calcularTicket(carrito, opcionesDescuento), [carrito, opcionesDescuento]);
 
+  // «Una vez por clienta» (16-oct-2026): lo decide el servidor, que es quien sabe si
+  // esta clienta ya usó el código (aquí o en su app). Si lo dice la vista previa o la
+  // venta, el código se quita y el motivo se queda bajo su campo: cobrar con él no
+  // va a pasar, y sin él el total ya no lleva ese descuento.
+  const quitarCodigoSiYaLoUso = useCallback((r: object) => {
+    if (!esError(r) || (r as ErrorPOS).codigo !== 'CODIGO_YA_USADO_POR_SOCIA') return;
+    setCodigoAplicado(null);
+    setCodigoError(r.error);
+  }, []);
+
   function aplicarCodigo() {
     const encontrado = buscarCodigo(codigosDescuento, codigoTexto);
     const r = validarCodigoCanjeable(encontrado, { hoyISO: new Date().toISOString(), subtotal: ticket.subtotal });
@@ -359,10 +369,14 @@ export function PosTerminal() {
     let vivo = true;
     // Un respiro: tocar «+» tres veces seguidas es una pregunta, no tres.
     const t = setTimeout(() => {
-      void presupuestoVenta(peticionTotal).then((r) => { if (vivo) setTotalServidor({ firma: firmaTotal, r }); });
+      void presupuestoVenta(peticionTotal).then((r) => {
+        if (!vivo) return;
+        setTotalServidor({ firma: firmaTotal, r });
+        quitarCodigoSiYaLoUso(r);
+      });
     }, 250);
     return () => { vivo = false; clearTimeout(t); };
-  }, [necesitaTotalServidor, peticionTotal, firmaTotal, intentoTotal]);
+  }, [necesitaTotalServidor, peticionTotal, firmaTotal, intentoTotal, quitarCodigoSiYaLoUso]);
   const respuestaTotal = totalServidor?.firma === firmaTotal ? totalServidor.r : null;
   const totalDelServidor = respuestaTotal && !esError(respuestaTotal) ? respuestaTotal : null;
   const errorTotal = respuestaTotal && esError(respuestaTotal) ? respuestaTotal.error : null;
@@ -422,6 +436,7 @@ export function PosTerminal() {
       idempotenciaClave: `${claveIdempotencia}-${metodo}`,
       totalEsperado,
     });
+    quitarCodigoSiYaLoUso(r);
     // El servidor no la ha registrado porque el total no era el de la pantalla. Trae el
     // de verdad: la hoja lo enseña, y el siguiente intento manda ese.
     if (esError(r) && r.codigo === 'IMPORTE_NO_COINCIDE' && typeof r.total === 'number') {
@@ -438,7 +453,7 @@ export function PosTerminal() {
       setAviso(`Esta venta ya estaba registrada (${formatNumeroVenta(r.numero)}). No se ha cobrado dos veces.`);
     }
     return r;
-  }, [peticionTotal, claveIdempotencia, firmaTotal, setTotalServidor]);
+  }, [peticionTotal, claveIdempotencia, firmaTotal, setTotalServidor, quitarCodigoSiYaLoUso]);
 
   // ── Atajos de teclado (escritorio) ────────────────────────────────────────
   useEffect(() => {
@@ -988,7 +1003,7 @@ export function PosTerminal() {
                       Aplicar
                     </button>
                   </div>
-                  {codigoError && <p className="mt-1 text-[12px] text-destructive">{codigoError}</p>}
+                  {codigoError && <p role="alert" className="mt-1 text-[12px] text-destructive">{codigoError}</p>}
                 </div>
               )}
 

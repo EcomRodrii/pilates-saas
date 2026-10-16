@@ -1,5 +1,5 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
-import { montar, ir } from './panel-sembrado';
+import { test, expect } from '@playwright/test';
+import { abrirCaja, bonoParaLaura, CON_MATRICULA, hoja, json, ventaHecha } from './caja-andamiaje';
 import { mensajeTotalNoCoincide } from '../lib/pos/total-esperado.ts';
 
 // La Caja cobra el total que enseña, matrícula incluida.
@@ -20,57 +20,6 @@ import { mensajeTotalNoCoincide } from '../lib/pos/total-esperado.ts';
 test.use({ timezoneId: 'Europe/Madrid', viewport: { width: 1280, height: 860 } });
 // La primera visita a /pos compila la ruta en el `next dev`.
 test.describe.configure({ timeout: 90_000 });
-
-const json = (r: Route, b: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
-
-const CAJA = { id: 'caja-1', fondoInicial: 100, abiertaEn: new Date().toISOString(), abiertaPor: 'Cloe' };
-const CATALOGO = {
-  ivaDefecto: 21,
-  cobro: { stripeConectado: true, datafonoEmparejado: false, datafonoProveedor: null, sumupDisponible: false },
-  productos: [{ id: 'p1', nombre: 'Calcetines antideslizantes', descripcion: null, categoria: 'Ropa', precio: 12, activo: true, stock: 10, stockMinimo: 2, ivaPct: 21, imagenUrl: null, sku: null, codigoBarras: null }],
-  planes: [{ id: 'pl-bono10', nombre: 'Bono 10 clases', descripcion: null, precio: 130, tipo: 'BONO', sesiones: 10, validezDias: 90, ivaPct: 21 }],
-  caja: CAJA,
-  hoy: { ventas: 0, total: 0, ticketMedio: 0, porMetodo: [], ultimas: [] },
-};
-const CON_MATRICULA = { total: 145, matricula: 15, matriculaPlanId: 'pl-bono10' };
-
-function ventaHecha(total: number, cambio: number | null) {
-  return {
-    ventaId: 'vpos-1', numero: 7, subtotal: total, descuento: 0, baseImponible: Math.round((total / 1.21) * 100) / 100,
-    ivaTotal: Math.round((total - total / 1.21) * 100) / 100, total, cambio, estado: 'PAGADA', pagoEstado: 'PAGADO',
-    entrega: { bonos: 1, creditos: 0, facturaSellada: false, avisos: [] },
-  };
-}
-
-type Contesta = (r: Route, cuerpo: Record<string, unknown>, intento: number) => Promise<void> | void;
-
-async function abrirCaja(page: Page, presupuesto: Contesta, venta: Contesta) {
-  const cuenta = { presupuestos: [] as Record<string, unknown>[], ventas: [] as Record<string, unknown>[] };
-  await montar(page);
-  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { panelNuevo: true }));
-  await page.route((u) => u.pathname.startsWith('/api/pos/'), (r) => {
-    const req = r.request();
-    const ruta = new URL(req.url()).pathname;
-    const cuerpo = req.method() === 'POST' ? JSON.parse(req.postData() ?? '{}') as Record<string, unknown> : {};
-    if (req.method() === 'GET' && ruta === '/api/pos/catalogo') return json(r, CATALOGO);
-    if (req.method() === 'GET' && ruta === '/api/pos/caja') return json(r, { caja: CAJA, esperado: 100, movimientos: [] });
-    if (ruta === '/api/pos/venta/presupuesto') { cuenta.presupuestos.push(cuerpo); return presupuesto(r, cuerpo, cuenta.presupuestos.length); }
-    if (ruta === '/api/pos/venta') { cuenta.ventas.push(cuerpo); return venta(r, cuerpo, cuenta.ventas.length); }
-    return json(r, {});
-  });
-  await ir(page, 'pos');
-  await expect(page.getByRole('button', { name: /^Bono 10 clases/ })).toBeVisible({ timeout: 30_000 });
-  return cuenta;
-}
-
-/** La hoja de cobro. Fuera de ella también hay un «Efectivo»: el de cobrar la deuda de la clienta. */
-const hoja = (page: Page) => page.getByRole('dialog', { name: 'Cobrar' });
-
-async function bonoParaLaura(page: Page) {
-  await page.getByRole('button', { name: /^Bono 10 clases/ }).click();
-  await page.getByLabel('Buscar').fill('Laura');
-  await page.getByRole('button', { name: 'Laura Martín' }).click();
-}
 
 test('con clienta y su primer plan, el ticket y la hoja de cobro llevan la matrícula, y con tarjeta se afirma y se manda ese total', async ({ page }) => {
   const cuenta = await abrirCaja(page, (r) => json(r, CON_MATRICULA), (r) => json(r, ventaHecha(145, null)));

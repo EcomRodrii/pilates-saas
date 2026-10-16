@@ -180,7 +180,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   ventas_pos: { accion: 'CONSERVAR', detalle: 'Fiscal.' },
   devoluciones: { accion: 'CONSERVAR', detalle: 'Fiscal.' },
   pagos_historicos: { accion: 'CONSERVAR', detalle: 'Fiscal (histórico importado).' },
-  codigos_descuento_consumos: { accion: 'CONSERVAR', detalle: 'Ligado a un recibo fiscal. Seudónimo.' },
+  codigos_descuento_consumos: { accion: 'CONSERVAR', detalle: 'Ligado a un recibo fiscal o a una venta de la Caja. Seudónimo.' },
   auditoria_estudio: {
     accion: 'CONSERVAR',
     detalle: 'Libro de auditoría de los cambios de dinero del equipo (quién, cuándo, antes y después). Solo audita tablas fiscales que ya se conservan (recibos, suscripciones), con el mismo seudónimo por socio_id. Se conserva 6 años y después se borra sola (`purgar_datos_caducados`, migración 20260925215204).',

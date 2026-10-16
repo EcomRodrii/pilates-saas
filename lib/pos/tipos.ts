@@ -134,6 +134,13 @@ export function formatNumeroVenta(numero: number | null | undefined): string {
 // código — regla de `lib/errores.ts`: una dueña de estudio nunca debe leer
 // jerga de base de datos.
 
+/**
+ * Un código de descuento vale una vez por alumna, también en la Caja (fundador,
+ * 16-oct-2026). Lo decide `registrar_venta_pos` con el mismo índice que los cobros
+ * online: la alumna pudo usarlo aquí o en su app.
+ */
+export const MENSAJE_CODIGO_YA_USADO = 'Esta clienta ya ha usado este código, aquí o en su app: cada código vale una vez por clienta. Cobra sin él o elige otro.';
+
 export function mensajeErrorVenta(codigo: string): string {
   const [clave, ...partes] = codigo.split(':');
   const a = partes[0] ?? '';
@@ -162,6 +169,7 @@ export function mensajeErrorVenta(codigo: string): string {
     case 'CLIENTA_NO_ENCONTRADA':    return 'No encontramos esa clienta.';
     case 'PLAN_CANTIDAD_UNICA':      return 'Cada bono va en su propia línea. Añádelo otra vez para vender dos.';
     case 'CODIGO_NO_CANJEABLE':      return 'Ese código ya no se puede usar (caducado, agotado o desactivado).';
+    case 'CODIGO_YA_USADO_POR_SOCIA': return MENSAJE_CODIGO_YA_USADO;
     case 'CODIGO_MINIMO_NO_ALCANZADO': return `Ese código necesita una compra mínima de ${a} €.`;
     case 'DESCUENTO_INVALIDO':       return 'Ese descuento no es válido.';
     case 'EFECTIVO_INSUFICIENTE':    return `Con ${a} € no llega: el total es ${b} €.`;
