@@ -26,13 +26,13 @@ const EXCLUIDOS = ['components/ayuda/articulos', 'components/landing'];
 
 // «Configuración → …» seguido del nombre de una pestaña de antes (15-sep:
 // Configuración se reorganizó por preguntas). Acepta →, > y &gt;.
-const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|Integraciones|API|Emails|Logros y motivación|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
+const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|API|Emails|Logros y motivación|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
 
 const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Configuración → Planes/, ahora: 'Paquetes (/productos)' },
   {
     patron: PESTANAS_DE_ANTES,
-    ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad (lib/configuracion/secciones.ts)',
+    ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad (lib/configuracion/secciones.ts)',
   },
   { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Mis clases y citas → Servicios de cita' },
   // 15-sep (PR B): cada ajuste se fue a su sección. Mi estudio ya no tiene la
@@ -46,7 +46,12 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Guardar colores/, ahora: 'el color se guarda con el «Guardar» de su cajón, en Configuración → Marca' },
   {
     patron: /Conexiones\s*(?:→|>|&gt;|›)\s*(?:Stripe|WhatsApp|Gmail|Cobro con tarjeta)|(?:WhatsApp|Gmail)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Conexiones/,
-    ahora: 'Stripe en Cobros y facturas; WhatsApp, Gmail y el remitente en Cómo me comunico',
+    ahora: 'Stripe, el datáfono, WhatsApp y Gmail en Integraciones; el remitente en Cómo me comunico',
+  },
+  // 16-oct-2026: Stripe, el datáfono, WhatsApp y Gmail pasaron a Integraciones.
+  {
+    patron: /(?:Stripe|Datáfono)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Cobros y facturas|(?:WhatsApp|Gmail)[^.<'"`]{0,60}Configuración\s*(?:→|>|&gt;|›)\s*Cómo me comunico/,
+    ahora: 'Stripe, el datáfono, WhatsApp y Gmail se conectan en Configuración → Integraciones',
   },
   // 15-sep (PR C): las reglas de reserva se partieron en tarjetas con una sola
   // barra de guardar. «Reservas y cancelaciones» era el nombre de antes.

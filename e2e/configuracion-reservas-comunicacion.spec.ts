@@ -151,13 +151,18 @@ for (const vista of VISTAS) {
       expect(await seSaleDelCajon(page)).toEqual([]);
     });
 
-    test('Cómo me comunico: filas con su valor, WhatsApp con un solo estado, y Gmail solo si sigue conectado', async ({ page }) => {
+    test('Cómo me comunico: filas con su valor; WhatsApp y Gmail ya viven en Integraciones', async ({ page }) => {
       await abrir(page, 'configuracion?tab=comunicacion');
       // Sin nombre ni email propios: los del estudio, que es con lo que salen.
       await expect(valor(page, 'integracion-resend')).toHaveText('Pilates Centro · responde a cloe@example.com', { timeout: 30_000 });
       await expect(page.locator('#fila-herramienta-correos-automaticos')).toBeVisible();
 
-      await expect(estado(page, 'integracion-whatsapp')).toHaveCount(1);
+      // WhatsApp se conecta en Integraciones (16-oct): aquí, una fila que lleva allí.
+      await expect(page.locator('#integracion-whatsapp')).toHaveCount(0);
+      await expect(page.locator('#fila-a-integraciones')).toHaveAttribute('href', '/configuracion?tab=conexiones#integracion-whatsapp');
+
+      await abrir(page, 'configuracion?tab=conexiones');
+      await expect(estado(page, 'integracion-whatsapp')).toHaveCount(1, { timeout: 30_000 });
       await expect(estado(page, 'integracion-whatsapp')).toHaveText('Sin conectar');
       await expect(page.locator('#integracion-whatsapp').getByRole('button', { name: 'Conectar' })).toBeVisible();
 
@@ -249,7 +254,7 @@ test.describe('Reservas y comunicación: estados', () => {
   });
 
   test('WhatsApp funcionando: un solo estado, «Conectado», y la fila abre su cajón', async ({ page }) => {
-    await abrir(page, 'configuracion?tab=comunicacion', {
+    await abrir(page, 'configuracion?tab=conexiones', {
       integraciones: [{
         id: 'intg-whatsapp', studio_id: STUDIO_ID, tipo: 'WHATSAPP', activo: true, actualizado_en: '2026-08-01T10:00:00Z',
         ultimo_ok_en: '2026-08-18T10:00:00Z', ultimo_error: null, ultimo_error_en: null,

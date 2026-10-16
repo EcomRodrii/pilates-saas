@@ -41,7 +41,6 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
     showToast(texto);
   }
 
-  const props = { showToast, onGuardado: guardado };
   const filaCorreos = {
     id: 'correos-automaticos' as const,
     valor: resumenHerramienta('correos-automaticos', { correos: plantillasEmailCargadas ? plantillasEmail : null }),

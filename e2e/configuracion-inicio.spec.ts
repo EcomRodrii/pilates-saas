@@ -78,7 +78,7 @@ for (const vista of VISTAS) {
 
       await expect(page.getByRole('heading', { level: 1, name: 'Configuración', exact: true })).toBeVisible();
       await expect(page.getByRole('searchbox', { name: 'Buscar un ajuste' })).toBeVisible();
-      for (const grupo of ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Tu cuenta']) {
+      for (const grupo of ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']) {
         await expect(page.getByRole('heading', { level: 2, name: grupo, exact: true })).toBeVisible();
       }
       await expect(page.locator('#seccion-titulo')).toHaveCount(0);

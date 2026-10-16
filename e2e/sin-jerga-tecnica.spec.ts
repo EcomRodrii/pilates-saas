@@ -79,8 +79,7 @@ test.describe('Nada de jerga técnica en pantalla', () => {
   // retiró el 1-oct-2026; ahí solo queda barrer que no se cuele la jerga.
   const SECCIONES_CON_INTEGRACIONES: [string, RegExp, boolean][] = [
     ['/configuracion?tab=integraciones', /Google Calendar/, true],
-    ['/configuracion?tab=cobros', /Cobro con tarjeta \(Stripe\)/, true],
-    ['/configuracion?tab=comunicacion', /WhatsApp/, false],
+    ['/configuracion?tab=comunicacion', /Correos automáticos/, false],
   ];
   for (const [ruta, ancla, hayAlgunaSinConfigurar] of SECCIONES_CON_INTEGRACIONES) {
     test(`Integraciones en ${ruta}: las que no están listas se explican sin variables de entorno`, async ({ page }) => {

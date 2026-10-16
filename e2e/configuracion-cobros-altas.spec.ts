@@ -95,14 +95,21 @@ for (const vista of VISTAS) {
       await expect(valor(page, 'devoluciones')).toHaveText('Hasta 14 días · bonos, solo sin empezar');
       await expect(valor(page, 'fila-paquetes')).toHaveText('3 planes a la venta');
 
-      // UN estado, sin la pareja «No conectado» + «Todavía no disponible». Cuál
-      // sale depende de si este servidor tiene la clave de Stripe Connect.
-      await expect(estado(page, 'integracion-stripe')).toHaveCount(1);
+      // Stripe y el datáfono se conectan en Integraciones (16-oct): Cobros solo
+      // deja una fila que lleva allí, sin estado propio.
+      await expect(page.locator('#fila-a-integraciones')).toBeVisible();
+      await expect(page.locator('#integracion-stripe')).toHaveCount(0);
+      expect(await desborde(page), 'Cobros se sale de lado').toBeLessThanOrEqual(0);
+
+      // En Integraciones: UN estado, sin la pareja «No conectado» + «Todavía no
+      // disponible». Cuál sale depende de si este servidor tiene la clave de Stripe Connect.
+      await ir(page, 'configuracion?tab=conexiones');
+      await expect(estado(page, 'integracion-stripe')).toHaveCount(1, { timeout: 30_000 });
       const stripe = await estado(page, 'integracion-stripe').textContent();
       expect(stripe).toMatch(/^(Sin conectar|No disponible todavía)$/);
       await expect(page.locator('#integracion-stripe').getByRole('button', { name: 'Conectar' })).toHaveCount(stripe === 'Sin conectar' ? 1 : 0);
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
-      expect(await desborde(page), 'Cobros se sale de lado').toBeLessThanOrEqual(0);
+      expect(await desborde(page), 'Integraciones se sale de lado').toBeLessThanOrEqual(0);
 
       await ir(page, 'configuracion?tab=altas');
       await expect(valor(page, 'contrato-y-privacidad')).toHaveText('Los textos de Tentare', { timeout: 30_000 });
@@ -212,7 +219,7 @@ test.describe('Cobros y altas: estados', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 
   test('Stripe conectado: un solo estado, y la fila abre su cajón', async ({ page }) => {
-    await abrir(page, 'configuracion?tab=cobros', { fila: { stripe_account_id: 'acct_e2e' } });
+    await abrir(page, 'configuracion?tab=conexiones', { fila: { stripe_account_id: 'acct_e2e' } });
     await expect(estado(page, 'integracion-stripe')).toHaveText('Conectado', { timeout: 30_000 });
     await expect(estado(page, 'integracion-stripe')).toHaveCount(1);
     await expect(page.getByText(/No disponible todavía|No conectado|Sin conectar/)).toHaveCount(0);

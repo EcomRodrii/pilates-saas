@@ -176,7 +176,7 @@ test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y
 });
 
 test('siete grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
-  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Aprende', 'Tu cuenta']);
+  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Aprende', 'Tu cuenta']);
   const enGrupos = GRUPOS.flatMap(g => g.secciones);
   // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
   // pueden contar dos órdenes distintos.

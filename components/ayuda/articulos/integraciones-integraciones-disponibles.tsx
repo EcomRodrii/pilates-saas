@@ -11,28 +11,24 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 // 15-sep-2026: Configuración se reorganizó por preguntas y cada integración
 // está en la sección de lo que hace: Stripe en «Cobros y facturas», el
 // remitente y WhatsApp en «Cómo me comunico», y el resto en
-// «Conexiones». Llevarte tus datos no es una integración: está en «Datos y
+// «Conexiones». (16-oct-2026: todas, salvo el remitente, en «Integraciones».)
+// Llevarte tus datos no es una integración: está en «Datos y
 // seguridad» («Exportar mis datos»). Los nombres y frases de abajo son los de la pantalla
 // (lib/configuracion/secciones.ts): desde el 15-sep (v2) cada integración es una fila
-// con su estado, agrupadas en Conexiones por cómo están.
+// con su estado, agrupadas por lo que hacen en Integraciones.
 
 const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
-  {
-    seccion: 'Cobros y facturas',
-    tarjetas: [
-      ['Cobro con tarjeta (Stripe)', 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.'],
-    ],
-  },
   {
     seccion: 'Cómo me comunico',
     tarjetas: [
       ['Nombre y respuesta de tus correos', 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.'],
-      ['WhatsApp', 'Recordatorios y avisos desde tu número de WhatsApp Business.'],
     ],
   },
   {
-    seccion: 'Conexiones',
+    seccion: 'Integraciones',
     tarjetas: [
+      ['Cobro con tarjeta (Stripe)', 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.'],
+      ['WhatsApp', 'Recordatorios y avisos desde tu número de WhatsApp Business.'],
       ['Google Calendar', 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.'],
       ['Zoom', 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.'],
       ['Kisi', 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.'],
@@ -48,8 +44,8 @@ export default function Contenido() {
     <>
       <p>
         Puedes conectar Tentare con las herramientas que ya usas — cada una con un botón, sin tocar código. Cada
-        integración está en la sección de Configuración de lo que hace: el cobro con tarjeta en Cobros y facturas, los
-        canales para escribir a tus alumnas en Cómo me comunico, y el resto en Conexiones.
+        integración está en Configuración &gt; Integraciones (el cobro con tarjeta, WhatsApp, calendario, marketing, plataformas y tu API);
+        solo el nombre y la respuesta de tus correos están en Cómo me comunico.
       </p>
 
       {GRUPOS.map(({ seccion, tarjetas }) => (

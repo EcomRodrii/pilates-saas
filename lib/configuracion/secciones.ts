@@ -459,7 +459,7 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tus-alumnas', titulo: 'Tus alumnas', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', secciones: ['conexiones', 'datos'] },
   { id: 'aprende', titulo: 'Aprende', secciones: ['demo'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
@@ -484,7 +484,7 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'reservas-y-cobros', titulo: 'Reservas y cobros', frase: 'Las reglas para reservar y cancelar, y cómo cobras y facturas.', secciones: ['reservas', 'cobros'] },
   { id: 'tus-alumnas', titulo: 'Tus alumnas', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', frase: 'Otras herramientas que usas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', frase: 'Todo lo que conectas con otras herramientas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
   { id: 'aprende', titulo: 'Aprende', frase: 'Tentare de principio a fin, en vídeo.', secciones: ['demo'] },
 ];
