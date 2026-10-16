@@ -26,7 +26,8 @@ const PREVIA = 'embed=1&vista-previa=1';
 /** Abre /reservar con `extra` en la URL, con reintento: en frío el servidor de desarrollo compila. */
 async function abrir(page: Page, extra: string) {
   for (let intento = 0; intento < 3; intento++) {
-    await page.goto(`/reservar/${SLUG}?tab=clases${extra ? `&${extra}` : ''}`);
+    // Una respuesta vacía del servidor de desarrollo a media compilación también se reintenta.
+    if (!(await page.goto(`/reservar/${SLUG}?tab=clases${extra ? `&${extra}` : ''}`).then(() => true).catch(() => false))) continue;
     if (await page.locator('#horario').waitFor({ timeout: 40_000 }).then(() => true).catch(() => false)) return;
   }
   throw new Error('el horario no llegó a cargar');
