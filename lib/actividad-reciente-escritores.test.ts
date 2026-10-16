@@ -11,7 +11,10 @@ import { join, relative } from 'node:path';
 //    Por eso toda inserción declara `socio_id` de forma explícita (null solo
 //    cuando no hay socia de por medio).
 //  · `origen` 'TENTARE' solo lo escribe el servidor, y solo cuando Tentare actuó
-//    solo (piloto automático). La RLS no deja escribirlo desde una sesión.
+//    o apuntó algo solo. En TypeScript, el piloto automático (lo vigila este test);
+//    en SQL, la incidencia CODIGO_REPETIDO_AL_ASIGNAR que deja
+//    `asignar_venta_pos_a_socia` (migr 20261016140551), que este test no lee. La
+//    RLS no deja escribirlo desde una sesión.
 //
 // Los mensajes de fallo nombran fichero y línea, nunca el fuente entero: los logs
 // de CI son públicos.
@@ -83,7 +86,7 @@ test('toda inserción en actividad_reciente declara socio_id', () => {
   assert.doesNotMatch(cuerpo, /\borigen\s*:/, 'actividadRecienteToDb no debe mandar origen');
 });
 
-test('solo el servidor escribe origen, y TENTARE solo para el piloto automático', () => {
+test('solo el servidor escribe origen, y en TypeScript TENTARE solo para el piloto automático', () => {
   for (const { donde, argumento } of inserciones()) {
     const tentare = /['"]TENTARE['"]/.test(argumento);
     if (tentare) assert.ok(donde.startsWith('lib/decision/'), `${donde}: TENTARE fuera del Decision OS`);

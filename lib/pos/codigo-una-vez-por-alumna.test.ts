@@ -69,6 +69,23 @@ test('si el pago no sale, devuelve el uso del tope global una sola vez y nunca p
   );
 });
 
+test('asignar una venta cobrada sin ficha apunta su código, y si ya lo había usado lo deja en Actividad sin tocar la venta', () => {
+  // Migr 20261016140551, decisión del fundador del 16-oct. La prueba de verdad (duplicado
+  // histórico, simultáneas, asignar dos veces): `supabase/tests/pos-asignar-venta-codigo.test.ts`.
+  const { fichero, cuerpo } = ultimaDefinicion('asignar_venta_pos_a_socia');
+  const asigna = cuerpo.search(/UPDATE\s+public\.ventas_pos\s+v\s+SET\s+socio_id\s*=\s*p_socio_id/i);
+  const consumo = cuerpo.search(/INSERT\s+INTO\s+public\.codigos_descuento_consumos\s*\(\s*venta_pos_id,\s*codigo_id,\s*socio_id\s*\)/i);
+  assert.ok(asigna > 0 && consumo > asigna, `${fichero}: asignar ya no apunta el uso del código de la venta`);
+  // El mismo índice que la venta de la Caja y los cobros online: nada de una copia.
+  assert.match(cuerpo.slice(consumo, consumo + 300), /ON\s+CONFLICT\s*\(\s*codigo_id,\s*socio_id\s*\)\s+DO\s+NOTHING/i, fichero);
+  // Ya lo había usado: una línea por venta, apuntada por Tentare, y la venta no se revierte ni se bloquea.
+  assert.match(cuerpo, /INSERT\s+INTO\s+public\.actividad_reciente[\s\S]*?'CODIGO_REPETIDO_AL_ASIGNAR'[\s\S]*?'TENTARE'[\s\S]*?ON\s+CONFLICT\s*\(\s*id\s*\)\s+DO\s+NOTHING/i, fichero);
+  assert.doesNotMatch(cuerpo, /SET\s+(total|descuento|subtotal|importe)\b/i, `${fichero}: asignar no toca un importe`);
+  assert.doesNotMatch(cuerpo, /RAISE\s+EXCEPTION\s+'CODIGO_YA_USADO_POR_SOCIA'/i, `${fichero}: asignar una venta ya cobrada no se bloquea por el código`);
+  // Y el tipo existe para el panel, con su estilo (el mapa es un Record<TipoActividad, …>: sin él no compila).
+  assert.match(readFileSync(join(RAIZ, 'lib/types.ts'), 'utf8'), /\| 'CODIGO_REPETIDO_AL_ASIGNAR'/);
+});
+
 test('la Caja dice con palabras por qué no vale, y lo dicen igual la venta y la vista previa', () => {
   const tipos = readFileSync(join(RAIZ, 'lib/pos/tipos.ts'), 'utf8');
   assert.match(tipos, /case 'CODIGO_YA_USADO_POR_SOCIA':\s*return MENSAJE_CODIGO_YA_USADO;/);

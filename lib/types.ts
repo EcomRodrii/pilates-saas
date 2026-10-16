@@ -1831,7 +1831,11 @@ export type TipoActividad =
   | 'DOBLE_FACTOR_QUITADO'
   // Recepción liberó una plaza apartada para ClassPass («La he cerrado en
   // ClassPass»). Solo /api/plataformas/liberar-apartada.
-  | 'PLAZA_PLATAFORMA_LIBERADA';
+  | 'PLAZA_PLATAFORMA_LIBERADA'
+  // Una venta de la Caja cobrada sin ficha se asignó a una alumna que ya había usado su
+  // código de descuento: la venta queda como se cobró y esto deja constancia. Solo la
+  // escribe la RPC `asignar_venta_pos_a_socia` (migr 20261016140551), con origen TENTARE.
+  | 'CODIGO_REPETIDO_AL_ASIGNAR';
 
 export interface ActividadReciente {
   id: string;
