@@ -28,6 +28,10 @@ const RADIO_EXTERIOR = RADIO_PANTALLA + BISEL + MARCO;
 
 // Aluminio mate (el 17 base no es titanio): sin brillos duros en las esquinas.
 const METAL = 'linear-gradient(135deg, #6c6e73 0%, #3d3e42 30%, #25262a 55%, #4a4b50 80%, #74767b 100%)';
+// El 17 Pro (opcional, `modelo="17-pro"`): por delante es el mismo teléfono —la misma pantalla de
+// 402 × 874 y la misma isla—; lo que lo distingue de frente es el canto de aluminio pulido, más
+// claro y con más brillo en las aristas. Por defecto, el 17 de siempre.
+const METAL_PRO = 'linear-gradient(135deg, #c9cbcf 0%, #8e9196 22%, #4b4d52 50%, #9a9da2 78%, #dcdee1 100%)';
 const FUENTE = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif";
 
 const suscribirAlto = (avisar: () => void) => {
@@ -82,6 +86,8 @@ export interface MarcoIphoneProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   indicador?: 'clara' | 'oscura' | 'auto';
   /** Fondo de la barra de estado, para cuando lo de debajo ha subido hasta ella (p. ej. `rgba(250,249,245,.92)`). */
   fondoBarra?: string;
+  /** El modelo que se dibuja. Por defecto '17' (lo de siempre); '17-pro' cambia solo el canto. */
+  modelo?: '17' | '17-pro';
   children: ReactNode;
 }
 
@@ -116,7 +122,8 @@ function Bateria() {
   );
 }
 
-export function MarcoIphone({ escala = 0.75, tinta = 'oscura', velo = true, indicador = 'oscura', fondoBarra, children, style, ...resto }: MarcoIphoneProps) {
+export function MarcoIphone({ escala = 0.75, tinta = 'oscura', velo = true, indicador = 'oscura', fondoBarra, modelo = '17', children, style, ...resto }: MarcoIphoneProps) {
+  const metal = modelo === '17-pro' ? METAL_PRO : METAL;
   const tintaCss = tinta === 'oscura' ? '#0B0B0C' : '#FFFFFF';
   const indicadorCss = indicador === 'oscura' ? '#0B0B0C' : '#FFFFFF';
   const mezcla = (t: 'clara' | 'oscura' | 'auto') => (t === 'auto' ? { mixBlendMode: 'difference' as const } : null);
@@ -136,13 +143,13 @@ export function MarcoIphone({ escala = 0.75, tinta = 'oscura', velo = true, indi
             style={{
               position: 'absolute', top: b.y, height: b.alto, width: 5, borderRadius: 3,
               [b.lado === 'izq' ? 'left' : 'right']: -3,
-              background: b.hundido ? 'linear-gradient(90deg, #17181a, #2c2d31)' : METAL,
+              background: b.hundido ? 'linear-gradient(90deg, #17181a, #2c2d31)' : metal,
             }}
           />
         ))}
         <div
           style={{
-            position: 'absolute', inset: 0, borderRadius: RADIO_EXTERIOR, background: METAL,
+            position: 'absolute', inset: 0, borderRadius: RADIO_EXTERIOR, background: metal,
             boxShadow: '0 38px 70px -22px rgba(0,0,0,.5), 0 14px 26px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.16)',
           }}
         >

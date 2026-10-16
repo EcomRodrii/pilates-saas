@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { AlertTriangle, ExternalLink, Lock, Maximize2, Monitor, Smartphone, X } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Maximize2, Monitor, Smartphone, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { anchoPopupDe, textoBotonEfectivo } from '@/lib/widgets/config';
@@ -10,6 +10,8 @@ import { ANCHO_ESCRITORIO, medidasLienzo, type Dispositivo, type MedidasPrevia }
 import { luminancia } from '@/lib/reservar/apariencia-widget';
 import type { WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
 import { FOCO, Segmentado, TACTIL } from './piezas';
+import { MarcoMac } from '@/components/ui/marco-mac';
+import { IphoneConWeb, useAnchoDe, useEscalaIphoneEn } from './iphone-con-web';
 
 // La vista previa. ⚠️ El widget nunca es una imagen ni una maqueta: es el
 // MISMO motor que verá la visitante —la página incrustada real en un iframe, o
@@ -29,8 +31,10 @@ import { FOCO, Segmentado, TACTIL } from './piezas';
 // 700-900 px de distancia. «Ver en grande» la despliega.
 
 // «Tu web» v2 (`variante="v2"`, decisión 6 de la propuesta aprobada):
-//  · en MÓVIL por defecto (lo elige quien la usa) y a tamaño de verdad, dentro
-//    de un móvil dibujado, directamente sobre el panel de color;
+//  · en MÓVIL por defecto (lo elige quien la usa), dentro del iPhone del panel
+//    (`MarcoIphone`, components/widgets/iphone-con-web.tsx), con la página a su
+//    ancho de verdad y el teléfono a tamaño real si cabe, directamente sobre el
+//    panel de color;
 //  · «Ordenador» a una escala que se lee (nunca por debajo de 0,75,
 //    lib/widgets/vista-previa-medidas.ts) en una ventana más estrecha, y lo
 //    dice, con «Ver a tamaño real» a un clic (la web de 1200 en una hoja);
@@ -69,7 +73,7 @@ export type FormaPrevia =
   | { tipo: 'boton'; boton: ReactNode; pista: string; alPulsar: string; abrePagina: boolean }
   | { tipo: 'enlace' };
 
-export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null, alSeguirElEstilo = null, nota = null, variante = 'v1' }: {
+export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null, alSeguirElEstilo = null, nota = null, variante = 'v1', enHoja = false }: {
   /** `null` cuando falta algo para poder enseñarlo (`falta`). */
   contenido: Contenido | null;
   falta: string | null;
@@ -106,9 +110,15 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   nota?: string | null;
   /** 'v2': «Tu web» v2 (ver arriba). Por defecto, la de siempre. */
   variante?: 'v1' | 'v2';
+  /** v2: va en la hoja «Ver cómo queda» (menos cosas alrededor que reservar a lo alto para el iPhone). */
+  enHoja?: boolean;
 }) {
   const v2 = variante === 'v2';
   const movil = dispositivo === 'movil';
+  // v2 en «Móvil»: el iPhone del panel (`MarcoIphone`), a tamaño real si cabe a lo alto de la
+  // ventana y a lo ancho de la columna, y si no, a la escala que quepa sin cortar nada.
+  const [seccion, anchoSeccion] = useAnchoDe<HTMLElement>();
+  const escalaIphone = useEscalaIphoneEn(anchoSeccion, { max: 1, reservado: enHoja ? 250 : 280 });
   const [grande, setGrande] = useState(false);
   // «Ver a tamaño real» (v2, en «Ordenador»): la web de 1200 en una hoja.
   const [real, setReal] = useState(false);
@@ -140,7 +150,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   ];
 
   return (
-    <section aria-label="Vista previa" className="min-w-0 space-y-3">
+    <section ref={seccion} aria-label="Vista previa" className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[14px] font-semibold text-foreground">Así lo verá tu alumna</h3>
         <div className="flex items-center gap-1">
@@ -188,11 +198,24 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
       {forma.tipo === 'enlace' ? (
         <>
           <p className={cn('text-[12px]', tinta)}>Al abrir el enlace, se abre tu página de reservas:</p>
-          <Marco movil={movil} v2={v2} direccion={paginaDeReservas} fondo={BLANCO} recortado={recortado}>{widget}</Marco>
+          <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={paginaDeReservas} fondo={BLANCO} recortado={recortado}>{widget}</Marco>
         </>
+      ) : forma.tipo === 'boton' && v2 && movil ? (
+        // En el iPhone, un solo teléfono: su web con el botón y, bajando, lo que se abre al pulsarlo.
+        <Marco movil v2 escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={false}>
+          <CabeceraWeb web={web} movil />
+          <div className="px-4 pb-6 pt-2">
+            {forma.boton}
+            <p className={cn('mt-2 text-[11.5px]', esOscuro(web.fondo) ? 'text-white/65' : 'text-black/55')}>{forma.pista}</p>
+          </div>
+          <div style={{ background: BLANCO }}>
+            <p className="border-t border-black/10 px-4 pb-1 pt-3 text-[12px] text-black/60">{forma.alPulsar}</p>
+            {widget}
+          </div>
+        </Marco>
       ) : forma.tipo === 'boton' ? (
         <>
-          <Marco movil={movil} v2={v2} corto direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
+          <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
             <CabeceraWeb web={web} movil={movil} />
             <div className="px-4 pb-6 pt-2">
               {forma.boton}
@@ -205,11 +228,11 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
               página suelta lleva su propio fondo: ninguno es su web. */}
           <div className={cn('space-y-3', !v2 && !grande && 'hidden @4xl/config:block')}>
             <p className={cn('text-[12px]', tinta)}>{forma.alPulsar}</p>
-            <Marco movil={movil} v2={v2} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} fondo={BLANCO} recortado={false}>{widget}</Marco>
+            <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} fondo={BLANCO} recortado={false}>{widget}</Marco>
           </div>
         </>
       ) : (
-        <Marco movil={movil} v2={v2} direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
+        <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
           <CabeceraWeb web={web} movil={movil} />
           {widget}
         </Marco>
@@ -348,12 +371,12 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio, borradorWeb }: {
   );
 }
 
-function Marco({ movil, v2 = false, corto = false, alto = 'fijo', direccion, fondo, recortado, children }: {
+function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', direccion, fondo, recortado, children }: {
   movil: boolean;
-  /** «Tu web» v2: un móvil dibujado (con su muesca) y un alto que cabe en la pantalla. */
+  /** «Tu web» v2: en «Móvil», el iPhone del panel; en «Ordenador», un alto que cabe en la pantalla. */
   v2?: boolean;
-  /** v2: lo de dentro es corto (la web con su botón): sin el alto de un móvil entero. */
-  corto?: boolean;
+  /** v2 en «Móvil»: la escala del iPhone. */
+  escala?: number;
   /** 'libre': en la hoja de «Ver a tamaño real», que se desplaza ella. */
   alto?: 'fijo' | 'libre';
   direccion: string | null;
@@ -363,28 +386,32 @@ function Marco({ movil, v2 = false, corto = false, alto = 'fijo', direccion, fon
   children: ReactNode;
 }) {
   if (v2 && movil) {
-    // 390 px de pantalla por dentro (410 con el marco): a tamaño de verdad en cuanto la columna lo deja.
+    return <IphoneConWeb escala={escala} direccion={direccion} fondo={fondo}>{children}</IphoneConWeb>;
+  }
+  if (v2 && alto !== 'libre') {
+    // «Ordenador» en la v2: un MacBook (`MarcoMac`), con la ventana del navegador dentro, debajo
+    // del notch. La pantalla mide lo que deja el ancho: la página se mide sola dentro y se queda
+    // en la escala que se lee (lib/widgets/vista-previa-medidas.ts).
     return (
-      <div className="mx-auto w-full max-w-[410px] overflow-hidden rounded-[44px] border-[10px] border-foreground/90 bg-background shadow-xl" data-marco-movil="">
-        <div aria-hidden className="relative flex h-9 items-center justify-between px-6 text-[12px] font-semibold text-foreground">
-          <span>9:41</span>
-          <span className="absolute left-1/2 top-1.5 h-6 w-24 -translate-x-1/2 rounded-full bg-foreground/90" />
-          <span className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="size-1.5 rounded-full bg-foreground/80" />)}</span>
+      <MarcoMac>
+        <div className="flex h-full flex-col bg-card">
+          <div aria-hidden className="flex shrink-0 items-center gap-1.5 border-b border-border bg-background px-3 py-1.5">
+            <span className="size-2 rounded-full bg-foreground/15" />
+            <span className="size-2 rounded-full bg-foreground/15" />
+            <span className="size-2 rounded-full bg-foreground/15" />
+            <span className="ml-2 flex h-5 min-w-0 max-w-72 flex-1 items-center truncate rounded-md bg-background/80 px-2 text-[10.5px] text-muted-foreground">
+              {direccion ?? 'tu web'}
+            </span>
+          </div>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
+            style={{ background: fondo }}
+            data-vista-previa=""
+          >
+            {children}
+          </div>
         </div>
-        <div aria-hidden className="px-4 pb-2">
-          <span className="mx-auto flex h-7 max-w-[260px] items-center justify-center gap-1.5 rounded-full bg-muted px-3 text-[11px] text-muted-foreground">
-            <Lock size={10} className="shrink-0" />
-            <span className="truncate">{direccion ?? 'tu web'}</span>
-          </span>
-        </div>
-        <div
-          className={cn('overflow-y-auto overflow-x-hidden overscroll-contain', corto ? 'max-h-[min(62vh,700px)]' : 'h-[min(62vh,700px)]')}
-          style={{ background: fondo }}
-          data-vista-previa=""
-        >
-          {children}
-        </div>
-      </div>
+      </MarcoMac>
     );
   }
   return (
@@ -413,11 +440,10 @@ function Marco({ movil, v2 = false, corto = false, alto = 'fijo', direccion, fon
         // scroll). Con 640 fijos y el widget escalado, no quedaba casi nada
         // que desplazar y parecía que no dejaba; recortado, 260 era una rendija.
         className={cn(
+          // En la v2 aquí solo llega la hoja de «Ver a tamaño real» (alto libre): lo demás va en el Mac o el iPhone.
           alto === 'libre'
             ? 'overflow-x-hidden'
-            : v2
-              ? 'max-h-[min(62vh,700px)] overflow-y-auto overflow-x-hidden overscroll-contain'
-              : cn('overflow-y-auto overflow-x-hidden overscroll-contain @4xl/config:max-h-[min(78vh,860px)]', recortado ? 'max-h-[420px]' : 'max-h-[640px]'),
+            : cn('overflow-y-auto overflow-x-hidden overscroll-contain @4xl/config:max-h-[min(78vh,860px)]', recortado ? 'max-h-[420px]' : 'max-h-[640px]'),
         )}
         style={{ background: fondo }}
         data-vista-previa=""

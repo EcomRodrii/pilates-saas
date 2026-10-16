@@ -143,8 +143,9 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
   const siguiente = PASOS_V2[indice + 1] ?? null;
   const bloqueado = paso === 'donde' && !plataforma;
 
-  const vistaPrevia = (
+  const vistaPrevia = (enHoja: boolean) => (
     <VistaPrevia
+      enHoja={enHoja}
       // Tras publicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
       key={`${w.id}-${metodo}-${estiloWeb.version}`}
       variante="v2"
@@ -307,7 +308,7 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
         {columnas && (
           <div className="min-w-0 @4xl/config:sticky @4xl/config:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
             {/* Como Apariencia (Bonsai b-30…): el widget real, directamente sobre un panel de color, pegado debajo de la barra de arriba. */}
-            <PanelDeColor>{vistaPrevia}</PanelDeColor>
+            <PanelDeColor>{vistaPrevia(false)}</PanelDeColor>
           </div>
         )}
       </div>
@@ -332,7 +333,7 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-            {hoja && <PanelDeColor>{vistaPrevia}</PanelDeColor>}
+            {hoja && <PanelDeColor>{vistaPrevia(true)}</PanelDeColor>}
           </div>
         </DashboardSheet>
       )}

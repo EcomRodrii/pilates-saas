@@ -20,6 +20,8 @@ export type Dispositivo = 'escritorio' | 'movil';
 export type MedidasPrevia = 'v1' | 'legible' | 'real';
 
 export const ANCHO_MOVIL = 390;
+/** El móvil más ancho que se pinta (un iPhone grande ronda los 430). */
+export const ANCHO_MOVIL_MAX = 430;
 export const ANCHO_ESCRITORIO = 1200;
 /** Por debajo de esto, la letra de 15 px del widget baja de 11 px: no se lee. */
 export const ESCALA_LEGIBLE = 0.75;
@@ -69,7 +71,12 @@ export function medidasLienzo(
     return { ancho, escala, desborda: ancho * escala > disponible + 0.5 };
   };
   if (medidas === 'v1') return ajustar(anchoLienzo(d, anchoWidget));
-  if (d === 'movil') return ajustar(ANCHO_MOVIL);
+  if (d === 'movil') {
+    // En el iPhone del panel (402 de pantalla) la página ocupa la pantalla entera, como en el
+    // teléfono: entre 390 y 430, el ancho que haya. Más estrecho, 390 escalado.
+    if (medidas === 'legible' && disponible > ANCHO_MOVIL) return ajustar(Math.min(ANCHO_MOVIL_MAX, Math.floor(disponible)));
+    return ajustar(ANCHO_MOVIL);
+  }
   if (medidas === 'real') return ajustar(ANCHO_ESCRITORIO);
   // La ventana más ancha que cabe a la escala que se lee, entre 600 y 1200. El
   // widget va centrado y con su ancho máximo dentro, así que no hace falta

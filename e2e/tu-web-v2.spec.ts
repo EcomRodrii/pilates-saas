@@ -734,11 +734,19 @@ const dispositivos = (page: Page) => page.getByRole('group', { name: 'Dispositiv
 const escalaDe = (page: Page) => previa(page).evaluate(el => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
 /** Espera a que la previa cargue de verdad el horario, para medir dentro. */
 async function previaCargada(page: Page) {
-  await expect(previa(page)).toHaveCount(1, { timeout: 30_000 });
-  const marco = await previa(page).elementHandle();
-  const frame = await marco!.contentFrame();
-  await frame!.locator('#horario').waitFor({ timeout: 120_000 });
-  return frame!;
+  // Al cambiar de Móvil a Ordenador el iframe cambia de marco (del iPhone al Mac) y se monta otro:
+  // si se coge el de antes justo al cambiar, se suelta y se vuelve a por el nuevo.
+  for (let intento = 0; ; intento++) {
+    await expect(previa(page)).toHaveCount(1, { timeout: 30_000 });
+    const marco = await previa(page).elementHandle();
+    const frame = await marco!.contentFrame();
+    try {
+      await frame!.locator('#horario').waitFor({ timeout: 120_000 });
+      return frame!;
+    } catch (e) {
+      if (intento >= 2 || !String(e).includes('detached')) throw e;
+    }
+  }
 }
 /** Retiene el documento de la previa que lleva el estilo Arena (el cambio que se hace) hasta `soltar()`. */
 async function retenerArena(page: Page) {
@@ -772,21 +780,32 @@ test.describe('la vista previa a 1440', () => {
     await expect(frame!.getByRole('button', { name: /Reformer a las 10:00/ }).first()).toBeVisible();
   });
 
-  test('entra en «Móvil», a tamaño real; «Ordenador» se lee (≥ 0,75), lo dice y tiene «Ver a tamaño real»', async ({ page }) => {
+  test('entra en «Móvil», en el iPhone y a su ancho de verdad sin cortarse; «Ordenador», en el Mac, se lee (≥ 0,75), lo dice y tiene «Ver a tamaño real»', async ({ page }) => {
     await montar(page, { direccion: 'pilatescentro.example.com' });
     await empezar(page);
     await expect(dispositivos(page).getByRole('button')).toHaveText(['Móvil', 'Ordenador']);
     await expect(dispositivos(page).getByRole('button', { name: 'Móvil' })).toHaveAttribute('aria-pressed', 'true');
     await previaCargada(page);
-    // 390 px de móvil, sin encoger: a tamaño real en la columna de 1440.
-    const caja = (await previa(page).boundingBox())!;
-    expect(caja.width, `el móvil mide ${Math.round(caja.width)} px`).toBeGreaterThanOrEqual(390 * 0.95);
-    expect(await escalaDe(page)).toBeGreaterThanOrEqual(0.95);
-    // El móvil dibujado, sobre el panel de color (sin la tarjeta blanca de en medio).
-    await expect(page.locator('[data-marco-movil]')).toBeVisible();
+    // El iPhone del panel, con la página a la anchura de su pantalla (no la de un ordenador encogida).
+    const iphone = page.locator('[data-marco-movil]');
+    await expect(iphone.getByTestId('iphone-isla')).toBeVisible();
+    expect(await previa(page).evaluate(el => (el as HTMLElement).offsetWidth)).toBeGreaterThanOrEqual(390);
+    // A 900 de alto el teléfono entero no cabe a 1: baja lo justo para verse entero, sin cortarse.
+    const tel = (await iphone.boundingBox())!;
+    expect(tel.y + tel.height, 'el iPhone se sale por abajo').toBeLessThanOrEqual(900 + 1);
+    expect(tel.x + tel.width).toBeLessThanOrEqual(1440);
+    // La barra de estado del iPhone no tapa la página: la dirección y la web van por debajo.
+    const estado = (await iphone.getByTestId('iphone-estado').boundingBox())!;
+    const pagina = (await iphone.locator('[data-vista-previa]').boundingBox())!;
+    expect(pagina.y).toBeGreaterThanOrEqual(estado.y + estado.height - 0.5);
 
     await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
     const frame = await previaCargada(page);
+    // El MacBook: el notch arriba, y la ventana del navegador empieza por debajo de él.
+    const notch = (await page.getByTestId('mac-notch').boundingBox())!;
+    const ventana = (await page.getByTestId('mac-pantalla').locator('[data-vista-previa]').boundingBox())!;
+    expect(ventana.y, 'el notch tapa la página').toBeGreaterThanOrEqual(notch.y + notch.height);
+    await expect(page.getByTestId('mac-base')).toBeVisible();
     await expect.poll(() => escalaDe(page)).toBeGreaterThanOrEqual(0.75);
     const escala = await escalaDe(page);
     // La letra de una tarjeta de clase tal como la ve la dueña: 11 px como poco.
@@ -805,6 +824,17 @@ test.describe('la vista previa a 1440', () => {
     await expect.poll(() => real.evaluate(el => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth)).toBeGreaterThanOrEqual(0.99);
     await hoja.getByRole('button', { name: 'Cerrar la vista previa a tamaño real' }).click();
     await expect(hoja).toHaveCount(0);
+  });
+
+  test('con una ventana alta, el iPhone va a tamaño real', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1300 });
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    await previaCargada(page);
+    // La página, a 402 (la pantalla del iPhone) y el teléfono, a 1 o casi.
+    expect(await escalaDe(page)).toBeGreaterThanOrEqual(0.95);
+    const caja = (await previa(page).boundingBox())!;
+    expect(caja.width, `el móvil mide ${Math.round(caja.width)} px`).toBeGreaterThanOrEqual(390 * 0.95);
   });
 
   test('mientras carga un cambio, se queda la vista previa de antes con «Actualizando…» encima', async ({ page }) => {
@@ -884,6 +914,24 @@ test.describe('capturas de la vista previa (solo con CAPTURAS_PR3=<carpeta>)', (
     await page.waitForTimeout(4000);
     await page.screenshot({ path: `${carpeta}/${nombre}.png` });
   }
+
+  test('oscuro, iPhone y Mac, y la portada vacía', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await expect(page.getByRole('heading', { name: 'Pon tu horario en tu web' })).toBeVisible({ timeout: 60_000 });
+    const escaparate = await page.getByTitle('Tu horario, como lo verá tu alumna').elementHandle();
+    await (await escaparate!.contentFrame())!.locator('#horario').waitFor({ timeout: 120_000 });
+    await foto(page, 'vacio-pon-tu-horario-1440');
+    await page.evaluate(() => localStorage.setItem('panel-dark-mode', '1'));
+    await page.reload();
+    await empezar(page);
+    await irA(page, 'Cómo se ve');
+    await previaCargada(page);
+    await foto(page, 'previa-movil-oscuro-1440');
+    await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+    await previaCargada(page);
+    await foto(page, 'previa-ordenador-oscuro-1440');
+  });
 
   for (const ancho of [1440, 375]) {
     test(`móvil y ordenador${ancho > 400 ? ' y «Actualizando…»' : ''} a ${ancho}`, async ({ page }) => {

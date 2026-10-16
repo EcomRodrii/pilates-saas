@@ -32,7 +32,9 @@ test('legible: a 1440 (columna ~448) la ventana de ordenador cabe a 0,75 casi ju
 });
 
 test('legible: el móvil va a tamaño real (1) en cuanto cabe, y escalado solo si no', () => {
-  assert.deepEqual(medidasLienzo('movil', null, 418, 'legible'), { ancho: ANCHO_MOVIL, escala: 1, desborda: false });
+  // En el iPhone del panel (402 de pantalla), la página ocupa la pantalla entera.
+  assert.deepEqual(medidasLienzo('movil', null, 402, 'legible'), { ancho: 402, escala: 1, desborda: false });
+  assert.deepEqual(medidasLienzo('movil', null, 600, 'legible'), { ancho: 430, escala: 1, desborda: false });
   assert.deepEqual(medidasLienzo('movil', null, 390, 'legible'), { ancho: ANCHO_MOVIL, escala: 1, desborda: false });
   const estrecho = medidasLienzo('movil', null, 330, 'legible');
   assert.ok(estrecho.escala < 1 && estrecho.escala > 0.8);
@@ -43,7 +45,7 @@ test('legible: ordenador y móvil nunca se pintan al mismo ancho', () => {
   for (const disponible of COLUMNAS) {
     const o = medidasLienzo('escritorio', null, disponible, 'legible');
     const m = medidasLienzo('movil', null, disponible, 'legible');
-    assert.ok(o.ancho - m.ancho >= 200, `columna ${disponible}: ${o.ancho} frente a ${m.ancho}`);
+    assert.ok(o.ancho - m.ancho >= 150, `columna ${disponible}: ${o.ancho} frente a ${m.ancho}`);
   }
 });
 
