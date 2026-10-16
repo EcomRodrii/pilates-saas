@@ -1,10 +1,11 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 // Rutas relativas: lo importan crons que también se cargan en `node --test`.
 import { encendidaPara } from '../interruptor-por-estudio.ts';
-import { ESTADOS_VIVOS, leerPagosDelCliente } from './checkout-saas-previo.ts';
+import { ESTADOS_VIVOS } from './checkout-saas-previo.ts';
+import { stripePlataforma, suscripcionEnStripe } from './suscripcion-en-stripe.ts';
 import { ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, empiezaDeCeroAlConvertir, pasaAGratis, type CadenaParaGratis } from './plan-gratis.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +33,11 @@ import { ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, empiezaDeCeroAlConvertir, pasaAGr
 //   una fecha de exceso de antes no puede dejarlo cerrado el primer día. Desde un
 //   pago abandonado o una prueba, se conserva (`empiezaDeCeroAlConvertir`): si
 //   no, un 'gratis_cerrado' se reabriría con 30 días más.
+//   ⚠️ Se borra ANTES de escribir 'gratis', no después: el trigger
+//   `fijar_contrato_terminado` decide la baja del plan gratis con esa medición
+//   (migr 20261015233500), y con la vieja aún dentro daría por cerrado 90 días
+//   a quien acaba de volver, con el panel abierto. Si el compare-and-set falla
+//   después, no pasa nada: venía de un periodo pagado y empieza de cero igual.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface FilaParaGratis {
@@ -49,7 +55,9 @@ export const COLUMNAS_PARA_GRATIS = 'id, subscription_status, subscription_id, c
 export type ResultadoConversion =
   | 'convertido' | 'no-toca' | 'paga-en-stripe' | 'sin-respuesta-de-stripe' | 'cambio-en-medio'
   /** Una sede cuya cadena no se pudo leer: ni se convierte ni se da por decidido. */
-  | 'sin-leer-la-cadena';
+  | 'sin-leer-la-cadena'
+  /** Tras un periodo pagado, la medición vieja no se pudo borrar: no se convierte (ver la cabecera). */
+  | 'sin-borrar-la-medicion';
 
 /** La cadena de una sede, con lo que hace falta para decidir y preguntar a Stripe. */
 export interface CadenaLeida extends CadenaParaGratis {
@@ -86,12 +94,6 @@ export async function leerCadenaParaGratis(admin: SupabaseClient, fila: Pick<Fil
   };
 }
 
-function stripePlataforma(): Stripe | null {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key || key.startsWith('sk_test_XXXX')) return null;
-  return new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
-}
-
 export interface OpcionesConversion {
   /** Para las pruebas; por defecto, el de la cuenta de plataforma. */
   stripe?: Pick<Stripe, 'subscriptions' | 'checkout'> | null;
@@ -123,13 +125,9 @@ export async function convertirAGratisSiToca(admin: SupabaseClient, fila: FilaPa
   if (clientes.length > 0) {
     const stripe = opciones.stripe !== undefined ? opciones.stripe : stripePlataforma();
     if (!stripe) return 'sin-respuesta-de-stripe';
-    let viva: { status: string } | undefined;
+    let viva: { status: string } | null;
     try {
-      for (const cliente of clientes) {
-        const { suscripciones } = await leerPagosDelCliente(stripe, cliente);
-        viva = suscripciones.find(s => ESTADOS_VIVOS.includes(s.status));
-        if (viva) break;
-      }
+      viva = await suscripcionEnStripe(stripe, clientes, ESTADOS_VIVOS);
     } catch {
       return 'sin-respuesta-de-stripe';
     }
@@ -145,6 +143,14 @@ export async function convertirAGratisSiToca(admin: SupabaseClient, fila: FilaPa
     }
   }
 
+  // Tras un periodo pagado empieza de cero: ni la fecha de exceso ni las cifras
+  // de antes valen. Si no, se conservan (`empiezaDeCeroAlConvertir`). Antes de
+  // escribir 'gratis': el trigger de la baja la lee (ver la cabecera).
+  if (empiezaDeCeroAlConvertir(fila.subscription_status)) {
+    const { error: errorBorrado } = await admin.from('uso_plan_gratis').delete().eq('studio_id', fila.id);
+    if (errorBorrado) return 'sin-borrar-la-medicion';
+  }
+
   // Compare-and-set también contra la cadena leída: si la sede cambió de cadena
   // (o una suelta pasó a tener una) en medio, no se toca.
   let q = admin.from('studios').update({ subscription_status: ESTADO_GRATIS, plan: 'BASE' }).eq('id', fila.id);
@@ -153,10 +159,6 @@ export async function convertirAGratisSiToca(admin: SupabaseClient, fila: FilaPa
   q = fila.subscription_id === null ? q.is('subscription_id', null) : q.eq('subscription_id', fila.subscription_id);
   const { data, error } = await q.select('id');
   if (error || !data?.length) return 'cambio-en-medio';
-
-  // Tras un periodo pagado empieza de cero: ni la fecha de exceso ni las cifras
-  // de antes valen. Si no, se conservan (`empiezaDeCeroAlConvertir`).
-  if (empiezaDeCeroAlConvertir(fila.subscription_status)) await admin.from('uso_plan_gratis').delete().eq('studio_id', fila.id);
   return 'convertido';
 }
 

@@ -331,6 +331,25 @@ así que todo lo que se versiona lo lee cualquiera:
     en /suscripcion (solo ofrece Cadena), con la principal de `leerCadenaParaGratis`. Una sede que ya
     pagaba un plan suelto sigue como está. Y al elegir Cadena, /suscripcion dice ANTES de pagar qué
     plan suelto se cancela sin prorrateo (`sueltosQueCancelaCadena`, el mismo criterio que el webhook).
+  - **Un gratis con 90 días CERRADO entra en la baja de pago** (fundador, 16-oct; migr `20261015233500`): los
+    mismos avisos de «descarga tus datos» y la misma purga a los 30 días, tras `PURGA_ESTUDIOS_VENCIDOS`. Sin
+    purga paralela. La regla, `plan_gratis_entra_en_baja` (30 de margen + 90, días de Madrid; si ESE estudio
+    entró al gratis más tarde, desde que se midió por primera vez); la decisión entera, `baja_del_plan_gratis`
+    (más: cadena sin pagar ni con un pago de Cadena en marcha, y la excepción de las sedes), y la usan
+    `fijar_contrato_terminado`, el reloj y la guardia de `purgar_estudio_vencido`. Mira 'gratis' y
+    'gratis_cerrado' por igual: el cierre lo deriva el gate y la base sigue diciendo 'gratis' si la dueña no
+    vuelve. El reloj es el barrido del ciclo (`reevaluar_baja_plan_gratis`, POR DESAJUSTE en los dos sentidos:
+    cualquier UPDATE de la fila puede llevarse la transición), sin cron nuevo. En una cadena,
+    `cadena_con_otra_sede_viva`: mientras otra sede pague su plan nadie entra en baja ni se purga (salvo la
+    que pidió el borrado), y un gratis con los 90 días ya no cuenta como vivo (si no, las sedes cerradas se
+    guardarían para siempre). ⚠️ Los 90 días esperan a la gestoría (`DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA`,
+    cruzada con la BD).
+    ⚠️ Volver al gratis tras un periodo pagado borra la medición ANTES de escribir 'gratis'
+    (`convertir-a-gratis.ts`): con la vieja dentro, el trigger lo daría por cerrado 90 días.
+    ⚠️ Antes de cada aviso o purga de una baja, el barrido pregunta a Stripe (cliente del estudio y de su cadena,
+    `suscripcion-en-stripe.ts`): con algo vivo o a medio pagar, o sin respuesta, ese estudio espera.
+  - **`studios.creado_en` lo pone el servidor** (trigger `trg_studios_creado_en_solo_servidor`): con ella se
+    elige la sede principal («la más antigua»). El servidor (`es_llamada_servicio()`) sí puede fijarla.
   - **Qué toca al pasarse** (fundador, 15-oct 08:30, corrige lo de la madrugada): pasar CUALQUIERA
     de los dos límites → Founding Studio DE PAGO (29 €): lo mismo que el gratis, sin tope de alumnas
     ni de reservas. Nadie va obligado a Estudio. Lo que distingue a Estudio (59 €) es la app propia

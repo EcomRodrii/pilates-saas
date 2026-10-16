@@ -13,6 +13,8 @@ export async function enviarAvisoEstudioVencido(params: {
   to: string;
   fase: 'aviso_30' | 'aviso_baja' | 'aviso_final';
   motivo: 'prueba_vencida' | 'baja';
+  /** La baja viene del plan gratis cerrado (ver `correoEstudioVencido`). */
+  planGratis?: boolean;
   estudioNombre: string;
   fechaPurga: Date;
 }): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
@@ -26,6 +28,7 @@ export async function enviarAvisoEstudioVencido(params: {
     const html = correoEstudioVencido({
       fase: params.fase,
       motivo: params.motivo,
+      planGratis: params.planGratis,
       estudioNombre: params.estudioNombre,
       fechaPurga: formatearFechaAviso(params.fechaPurga),
       // El texto tiene que decir lo que el motor va a hacer, no lo que el ciclo
@@ -41,7 +44,7 @@ export async function enviarAvisoEstudioVencido(params: {
     const { error } = await new Resend(apiKey).emails.send({
       from: remitentePorMarca('Tentare'),
       to: [params.to],
-      subject: asuntoAvisoEstudioVencido(params.fase, params.fechaPurga, purgaEstudiosActiva(process.env)),
+      subject: asuntoAvisoEstudioVencido(params.fase, params.fechaPurga, purgaEstudiosActiva(process.env), params.planGratis),
       html,
     });
     if (error) return { ok: false, error: error.message };

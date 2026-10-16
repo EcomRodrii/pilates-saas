@@ -100,6 +100,8 @@ test('margen agotado: dice que la app de las alumnas sigue funcionando', async (
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
   await expect(aviso).toContainText('La app de tus alumnas sigue funcionando');
+  // Y qué pasa con sus datos si no elige plan (la baja del plan gratis): sin prometer un borrado.
+  await expect(aviso).toContainText('a los 90 días de cerrarse te escribiremos para que descargues los datos de tu estudio');
 });
 
 test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no', async ({ page }) => {

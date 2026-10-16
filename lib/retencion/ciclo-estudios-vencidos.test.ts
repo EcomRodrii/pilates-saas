@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DIAS_AVISO_CONSERVACION, DIAS_AVISO_FINAL, DIAS_BAJA_AVISO_FINAL, DIAS_BAJA_PURGA, DIAS_PURGA,
+  DIAS_AVISO_CONSERVACION, DIAS_AVISO_FINAL, DIAS_BAJA_AVISO_FINAL, DIAS_BAJA_PURGA, DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA, DIAS_PURGA,
   asuntoAvisoEstudioVencido, cicloDelEstudio, copiaSuspendidaPorVencimiento, debeRecalcularInforme, enCicloDeVencido,
   fechasCiclo, formatearFechaAviso, fueraDelCicloPorElGratis, mismaAncla, motivoSinBorradoAnticipado, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseRegistrada,
@@ -204,6 +204,15 @@ test('baja: si reactiva el plan, el ciclo se cancela', () => {
 test('baja: el asunto dice que hay que descargar, con la fecha', () => {
   assert.match(asuntoAvisoEstudioVencido('aviso_baja', diaBaja(30)), /descarga los datos de tu estudio antes del 4 de noviembre de 2026$/);
   assert.doesNotMatch(asuntoAvisoEstudioVencido('aviso_baja', diaBaja(30), false), /borrar/);
+});
+
+test('baja del plan gratis: 90 días cerrado (⚠️ legal, cambiar aquí rompe este test a propósito) y el asunto no habla de una suscripción', () => {
+  assert.equal(DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA, 90);
+  const asunto = asuntoAvisoEstudioVencido('aviso_baja', diaBaja(30), false, true);
+  assert.match(asunto, /^Tu estudio sigue cerrado: descarga sus datos antes del 4 de noviembre de 2026$/);
+  assert.doesNotMatch(asunto, /suscripción|borrar/);
+  // El último aviso es el mismo para los dos.
+  assert.equal(asuntoAvisoEstudioVencido('aviso_final', diaBaja(30), false, true), asuntoAvisoEstudioVencido('aviso_final', diaBaja(30), false));
 });
 
 test('baja: si la propietaria pide el borrado, va ya, sin esperar a los avisos', () => {

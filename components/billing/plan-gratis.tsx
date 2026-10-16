@@ -17,6 +17,7 @@ import { TZ_ESTUDIO } from '@/lib/utils';
 import { AVISO_PCT, FRASE_PLAN_GRATIS, textoLimite, textoLimites, type EstadoGratisApi } from '@/lib/billing/plan-gratis';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
+import { DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA } from '@/lib/retencion/ciclo-estudios-vencidos';
 import { Baldosa } from '@/components/dashboard/vivo';
 
 const fechaLarga = (ymd: string) =>
@@ -46,7 +47,9 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
     case 'CERRADO':
       return {
         titulo: 'Tu estudio ha crecido',
-        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre.`,
+        // Y qué pasa con sus datos si no elige plan (la baja del plan gratis, migr 20261015233500). «Te
+        // escribiremos», no «los borraremos»: el borrado va tras un interruptor que esta pantalla no conoce.
+        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre. Si no eliges un plan, a los ${DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA} días de cerrarse te escribiremos para que descargues los datos de tu estudio.`,
         tono: 'problema',
       };
     case 'SIN_MEDIR':

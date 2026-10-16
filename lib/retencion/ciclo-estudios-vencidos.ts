@@ -15,6 +15,11 @@
 //     «O antes si lo pide»: con `studios.supresion_pedida_en` (lo escribe solo
 //     el servidor, con el contrato ya terminado) la purga va en la pasada
 //     siguiente, sin esperar a los avisos: es ella quien lo pide.
+//     Un estudio en Founding Studio gratis con el panel cerrado entra en esta
+//     MISMA baja a los DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA días de cerrarse
+//     (decisión del fundador, 16-oct-2026). La regla vive en la BD
+//     (`plan_gratis_entra_en_baja`, migr 20261015233500) y la fecha la pone el
+//     mismo trigger; el reloj es el barrido (`reevaluar_baja_plan_gratis`).
 //
 // El borrado real va apagado hasta que el abogado lo valide
 // (`PURGA_ESTUDIOS_VENCIDOS=activa`), para los dos motivos.
@@ -45,6 +50,13 @@ export const DIAS_PURGA = 90;
 export const DIAS_BAJA_AVISO_FINAL = 23;
 /** ⚠️ LEGAL. Días desde `contrato_terminado_en` hasta el borrado: el plazo para descargar. */
 export const DIAS_BAJA_PURGA = 30;
+
+/**
+ * ⚠️ LEGAL. Días que un estudio en el plan gratis pasa con el panel cerrado (desde
+ * el fin de los 30 días de margen, en días de Madrid) antes de entrar en la baja
+ * de arriba. Vive en la BD (`plan_gratis_entra_en_baja`); un test cruza los dos.
+ */
+export const DIAS_PLAN_GRATIS_CERRADO_ANTES_DE_BAJA = 90;
 
 /** Hueco mínimo entre el primer aviso ENVIADO y el último (prueba vencida). */
 export const HUECO_MINIMO_ENTRE_AVISOS_DIAS = DIAS_AVISO_FINAL - DIAS_AVISO_CONSERVACION;
@@ -252,9 +264,15 @@ export function asuntoAvisoEstudioVencido(
   fase: FaseAviso,
   fechaPurga: Date,
   purgaArmada = false,
+  /** La baja viene del plan gratis cerrado: no había suscripción que terminase. */
+  planGratis = false,
 ): string {
   const fecha = formatearFechaAviso(fechaPurga);
-  if (fase === 'aviso_baja') return `Tu suscripción ha terminado: descarga los datos de tu estudio antes del ${fecha}`;
+  if (fase === 'aviso_baja') {
+    return planGratis
+      ? `Tu estudio sigue cerrado: descarga sus datos antes del ${fecha}`
+      : `Tu suscripción ha terminado: descarga los datos de tu estudio antes del ${fecha}`;
+  }
   if (fase !== 'aviso_final') return `Conservaremos los datos de tu estudio hasta el ${fecha}`;
   return purgaArmada
     ? `Último aviso: los datos de tu estudio se borrarán el ${fecha}`
@@ -265,9 +283,11 @@ export function asuntoAvisoEstudioVencido(
  * Los estudios que este tic del ciclo deja fuera por haber pasado (o intentado
  * pasar) a Founding Studio gratis: los `tocados` y, en una cadena, sus sedes
  * hermanas. Lo que se leyó de ellas es de ANTES de convertir la principal, y con
- * ella la BD da por vivo su contrato (migr 20261015141653): en este tic no se
- * les avisa de nada. Salvo a la que ya pidió el borrado: esa sigue su ciclo,
- * como en la BD (`fijar_contrato_terminado` respeta la petición).
+ * ella la BD puede dar por vivo su contrato (migr 20261015141653; salvo que la
+ * principal vuelva al gratis con 90 días cerrado, 20261015233500): en este tic
+ * no se les avisa de nada, y el siguiente lee lo que haya decidido la BD. Salvo
+ * a la que ya pidió el borrado: esa sigue su ciclo, como en la BD
+ * (`fijar_contrato_terminado` respeta la petición).
  */
 export function fueraDelCicloPorElGratis(
   estudios: readonly { id: string; cadena_id: string | null; supresion_pedida_en?: string | Date | null }[],

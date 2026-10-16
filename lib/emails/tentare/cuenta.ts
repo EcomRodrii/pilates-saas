@@ -37,6 +37,11 @@ export function correoEstudioVencido(p: {
   fase: 'aviso_30' | 'aviso_baja' | 'aviso_final';
   /** Por qué el estudio se ha quedado sin contrato. Sin él, la prueba vencida (lo de siempre). */
   motivo?: 'prueba_vencida' | 'baja';
+  /**
+   * La baja viene del plan gratis con el panel cerrado (migr 20261015233500): no
+   * había una suscripción que terminase ni que «reactivar», sino un plan que elegir.
+   */
+  planGratis?: boolean;
   estudioNombre: string;
   /** Ya formateada («24 de noviembre de 2026»). */
   fechaPurga: string;
@@ -52,6 +57,7 @@ export function correoEstudioVencido(p: {
 }): string {
   const final = p.fase === 'aviso_final';
   const baja = (p.motivo ?? (p.fase === 'aviso_baja' ? 'baja' : 'prueba_vencida')) === 'baja';
+  const gratis = baja && p.planGratis === true;
   // Lo que de verdad borra `purgar_estudio_vencido`: los datos de las clientas
   // y del equipo. La cuenta y las facturas se conservan.
   const queSeBorra = 'los datos personales de tus clientas y de tu equipo, con notas, mensajes y copias de seguridad';
@@ -76,15 +82,17 @@ export function correoEstudioVencido(p: {
     titular: final
       ? 'Último aviso sobre los datos de tu estudio'
       : baja ? 'Descarga los datos de tu estudio' : 'Tus datos se conservarán hasta una fecha',
-    parrafos: [baja
-      ? `La suscripción de ${p.estudioNombre} a Tentare ha terminado.`
-      : `La prueba gratuita de ${p.estudioNombre} terminó y el estudio no tiene un plan activo.`],
+    parrafos: [gratis
+      ? `El panel de ${p.estudioNombre} sigue cerrado porque se pasaron los límites del plan gratis, y no se ha elegido un plan de pago.`
+      : baja
+        ? `La suscripción de ${p.estudioNombre} a Tentare ha terminado.`
+        : `La prueba gratuita de ${p.estudioNombre} terminó y el estudio no tiene un plan activo.`],
     destacado: { titulo: p.fechaPurga, texto: queDiceLaFecha },
     // En una baja lo primero es llevarse los datos; en una prueba, elegir plan.
     boton: baja ? exportar : { href: p.urlSuscripcion, texto: 'Elegir un plan' },
-    enlace: baja ? { href: p.urlSuscripcion, texto: 'Reactivar la suscripción' } : exportar,
+    enlace: baja ? { href: p.urlSuscripcion, texto: gratis ? 'Elegir un plan' : 'Reactivar la suscripción' } : exportar,
     nota: baja
-      ? `La descarga es ${queLleva}. Si reactivas la suscripción antes de esa fecha, todo queda como estaba. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.`
+      ? `La descarga es ${queLleva}. ${gratis ? 'Si eliges un plan' : 'Si reactivas la suscripción'} antes de esa fecha, todo queda como estaba. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.`
       : `Si eliges un plan, todo queda como estaba. Si no, descarga tus datos antes de esa fecha: ${queLleva}. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.`,
     acento: final ? TENTARE.alerta : null,
     motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,

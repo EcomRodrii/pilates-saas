@@ -53,6 +53,20 @@ test('la baja de un estudio de pago lleva primero a descargar, y solo promete bo
   assert.ok(!armado.includes(TENTARE.alerta), 'el primer aviso no es una alarma');
 });
 
+test('la baja del plan gratis cerrado no habla de una suscripción que terminó: lleva a descargar y a elegir un plan', () => {
+  const base = { motivo: 'baja' as const, planGratis: true, estudioNombre: 'Casa Pilates', fechaPurga: '4 de noviembre de 2026', purgaArmada: false, urlSuscripcion: `${URL}/s`, urlExportar: `${URL}/e` };
+  for (const fase of ['aviso_baja', 'aviso_final'] as const) {
+    const html = correoEstudioVencido({ ...base, fase });
+    assert.match(html, /El panel de Casa Pilates sigue cerrado porque se pasaron los límites del plan gratis/, fase);
+    assert.ok(!html.includes('suscripción'), `${fase}: no había suscripción que terminase ni que reactivar`);
+    assert.match(html, /Elegir un plan/, fase);
+    assert.match(html, /Si eliges un plan antes de esa fecha, todo queda como estaba/, fase);
+    assert.ok(html.indexOf(`${URL}/e`) < html.indexOf(`${URL}/s`), `${fase}: la descarga va antes que elegir plan`);
+  }
+  // Sin la marca, la baja de pago de siempre.
+  assert.match(correoEstudioVencido({ ...base, planGratis: false, fase: 'aviso_baja' }), /La suscripción de Casa Pilates a Tentare ha terminado/);
+});
+
 test('la descarga que se anuncia ya lleva la salud: nadie dice «sin ficha clínica»', () => {
   for (const fase of ['aviso_30', 'aviso_baja', 'aviso_final'] as const) {
     const html = correoEstudioVencido({ fase, estudioNombre: 'Casa Pilates', fechaPurga: 'x', purgaArmada: false, urlSuscripcion: `${URL}/s`, urlExportar: `${URL}/e` });

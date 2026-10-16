@@ -16,6 +16,20 @@
 // ⚠️ Borrado real SOLO con `PURGA_ESTUDIOS_VENCIDOS=activa` (pendiente de
 // validación legal). Sin ella, la fase de purga solo deja en `resumen` qué
 // borraría.
+//
+// También es el reloj de la baja del plan gratis: un estudio gratis con 90
+// días cerrado entra en la baja de pago (migr 20261015233500), y un trigger no
+// se dispara porque pase el tiempo. Antes de leer, `reevaluar_baja_plan_gratis`
+// vuelve a pasar por el trigger a los que ya han cruzado la fecha.
+//
+// Y antes de cada aviso o purga, se pregunta a Stripe por el cliente del estudio
+// y el de su cadena: si hay una suscripción viva o un pago a medio confirmar, o
+// Stripe no contesta, ese estudio se salta en esta pasada. La base puede ir
+// atrasada (un webhook perdido) y la guardia SQL no lo ve: quien pagó desde el
+// plan gratis cerrado seguiría recibiendo «descarga tus datos». Solo cuentan las
+// suscripciones de ese estudio o de su cadena (por su metadata) y las que no
+// dicen de quién son: una sede que comparte cliente con otra que paga su plan
+// suelto (cadenas migradas en la 0066) no se queda frenada por un pago ajeno.
 // ─────────────────────────────────────────────────────────────────────────────
 import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -27,6 +41,8 @@ import { borrarPrefijoR2, r2Configurado } from '@/lib/r2';
 import { BUCKET_COMUNIDAD } from '@/lib/comunidad/foto';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import { convertirAGratisSiToca } from '@/lib/billing/convertir-a-gratis';
+import { esPlanGratis } from '@/lib/billing/plan-gratis';
+import { ESTADOS_QUE_FRENAN_LA_BAJA, stripePlataforma, suscripcionEnStripe } from '@/lib/billing/suscripcion-en-stripe';
 import {
   cicloDelEstudio, debeRecalcularInforme, fueraDelCicloPorElGratis, mismaAncla, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseCiclo, type FaseRegistrada, type MotivoCiclo,
@@ -74,6 +90,10 @@ export interface ResumenCiclo {
   purgados: number;
   cancelados: number;
   errores: number;
+  /** Filas que `reevaluar_baja_plan_gratis` ha vuelto a pasar por el trigger (entran o salen de la baja); null si falló. */
+  reevaluadosPlanGratis: number | null;
+  /** Pasos de una baja que no se han dado porque Stripe dice que paga, o no ha contestado. */
+  frenadosPorStripe: number;
 }
 
 const aRegistrada = (f: FilaCiclo): FaseRegistrada => ({ fase: f.fase, ejecutadaEn: f.ejecutada_en, canceladaEn: f.cancelada_en });
@@ -152,10 +172,70 @@ async function borrarFicherosDelEstudio(
   return { documentos: docs.data.length, avatares: socias.data.length, fotosComunidad: fotos.length };
 }
 
+/**
+ * ¿Paga en Stripe un estudio que la base da de baja? Mira el cliente del estudio
+ * y el de su cadena (una sede paga por la cadena). 'no' es lo único que deja
+ * seguir; 'si' y 'sin-respuesta' frenan el paso y van a Sentry. Una consulta por
+ * cliente y pasada.
+ */
+function stripeDeLaBaja(admin: SupabaseClient) {
+  const clientesDeCadena = new Map<string, string | null>();
+  const porCliente = new Map<string, Promise<boolean>>();
+  return async (s: FilaEstudio): Promise<'no' | 'si' | 'sin-respuesta'> => {
+    try {
+      let clienteCadena: string | null = null;
+      if (s.cadena_id) {
+        if (!clientesDeCadena.has(s.cadena_id)) {
+          const { data, error } = await admin.from('cadenas').select('stripe_customer_id').eq('id', s.cadena_id).maybeSingle();
+          if (error) throw new Error(`leer cadena: ${error.message}`);
+          clientesDeCadena.set(s.cadena_id, (data as { stripe_customer_id: string | null } | null)?.stripe_customer_id ?? null);
+        }
+        clienteCadena = clientesDeCadena.get(s.cadena_id) ?? null;
+      }
+      const clientes = [...new Set([s.stripe_customer_id, clienteCadena].filter((c): c is string => !!c))];
+      if (clientes.length === 0) return 'no';
+      const stripe = stripePlataforma();
+      if (!stripe) throw new Error('Stripe sin configurar');
+      // Solo cuentan las del estudio, las de su cadena o las que no dicen de quién son.
+      const deQuien = { studioId: s.id, cadenaId: s.cadena_id };
+      for (const cliente of clientes) {
+        const clave = `${cliente}:${s.id}`;
+        if (!porCliente.has(clave)) {
+          porCliente.set(clave, suscripcionEnStripe(stripe, [cliente], ESTADOS_QUE_FRENAN_LA_BAJA, deQuien).then(v => v !== null));
+        }
+        if (await porCliente.get(clave)) {
+          Sentry.captureMessage('[ciclo estudios vencidos] la base da de baja un estudio que en Stripe paga: no se le avisa ni se purga', {
+            level: 'warning', tags: { area: 'retencion' }, fingerprint: ['ciclo-baja-paga-en-stripe', s.id],
+            extra: { studioId: s.id, cadenaId: s.cadena_id, estadoEnBd: s.subscription_status },
+          });
+          return 'si';
+        }
+      }
+      return 'no';
+    } catch (e) {
+      Sentry.captureMessage('[ciclo estudios vencidos] no se pudo preguntar a Stripe antes de un paso de baja: se salta', {
+        level: 'warning', tags: { area: 'retencion' }, fingerprint: ['ciclo-baja-stripe-sin-respuesta', s.id],
+        extra: { studioId: s.id, error: e instanceof Error ? e.message : String(e) },
+      });
+      return 'sin-respuesta';
+    }
+  };
+}
+
 export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Promise<ResumenCiclo | { skipped: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { skipped: 'sin service-role' };
   const activa = purgaEstudiosActiva(process.env);
+
+  // El plan gratis con 90 días cerrado entra en baja: lo decide la BD (la misma
+  // fecha que lee la consulta de abajo). Si falla, el resto del ciclo sigue: lo
+  // que no entre hoy entra en la pasada siguiente, y nunca antes de tiempo.
+  const { data: reevaluados, error: errorGratis } = await admin.rpc('reevaluar_baja_plan_gratis');
+  if (errorGratis) {
+    Sentry.captureMessage('[ciclo estudios vencidos] no se pudo reevaluar la baja del plan gratis', {
+      level: 'warning', tags: { area: 'retencion' }, extra: { error: errorGratis.message },
+    });
+  }
 
   const [estudios, ciclo] = await Promise.all([
     // Los dos motivos: la prueba local agotada y la baja (fecha que pone la BD).
@@ -191,7 +271,11 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
   const fueraDelCiclo = fueraDelCicloPorElGratis(estudios.data, tocados);
   const vigentes = estudios.data.filter(s => !fueraDelCiclo.has(s.id));
 
-  const resumen: ResumenCiclo = { estudios: vigentes.length, avisos: 0, informes: 0, purgados: 0, cancelados: 0, errores: 0 };
+  const resumen: ResumenCiclo = {
+    estudios: vigentes.length, avisos: 0, informes: 0, purgados: 0, cancelados: 0, errores: 0,
+    reevaluadosPlanGratis: errorGratis ? null : Number(reevaluados ?? 0), frenadosPorStripe: 0,
+  };
+  const pagaEnStripe = stripeDeLaBaja(admin);
   const cicloPorId = new Map(vigentes.map(s => [s.id, cicloDelEstudio(aEstudioCiclo(s))]));
   const filasDe = (studioId: string, motivo: MotivoCiclo, ancla: string | Date) =>
     ciclo.data.filter(f => f.studio_id === studioId && f.motivo === motivo && mismaAncla(f.trial_ends_at, ancla));
@@ -220,13 +304,25 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
     const paso = siguientePaso(aEstudioCiclo(s), registradas.map(aRegistrada), ahora);
     if (paso.tipo !== 'ejecutar') continue;
 
+    // Ningún aviso ni purga si Stripe dice que paga (ver `stripeDeLaBaja`). También en
+    // una prueba vencida: sin cliente de Stripe no cuesta nada.
+    const frenadoPorStripe = async () => {
+      if ((await pagaEnStripe(s)) === 'no') return false;
+      resumen.frenadosPorStripe++;
+      return true;
+    };
+
     try {
       if (paso.fase !== 'purga') {
+        if (await frenadoPorStripe()) continue;
         // Sin aviso entregado a Resend el ciclo NO avanza: la fila queda sin
         // `ejecutada_en` y se reintenta en la pasada siguiente.
         const to = s.owner_auth_user_id ? await emailDeLaPropietaria(admin, s.owner_auth_user_id, s.email) : null;
         const envio = to
-          ? await enviarAvisoEstudioVencido({ to, fase: paso.fase, motivo: paso.motivo, estudioNombre: s.nombre ?? 'tu estudio', fechaPurga: paso.fechaPurga })
+          ? await enviarAvisoEstudioVencido({
+            to, fase: paso.fase, motivo: paso.motivo, planGratis: esPlanGratis(s.subscription_status),
+            estudioNombre: s.nombre ?? 'tu estudio', fechaPurga: paso.fechaPurga,
+          })
           : { ok: false, error: 'la propietaria no tiene email' };
         await registrar(admin, s, actual, paso.fase, paso.programadaPara, envio.ok ? ahora : null, envio.ok
           ? { email: 'enviado', fecha_purga: paso.fechaPurga.toISOString() }
@@ -237,6 +333,7 @@ export async function avanzarCicloEstudiosVencidos(ahora: Date = new Date()): Pr
 
       const previa = registradas.find(r => r.fase === 'purga');
       if (!activa && previa && !debeRecalcularInforme(previa.actualizado_en, ahora)) continue;
+      if (await frenadoPorStripe()) continue;
 
       const informe = await purgaEnBd(admin, s.id, false);
       if (!activa) {

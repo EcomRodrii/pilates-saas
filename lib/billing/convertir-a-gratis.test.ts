@@ -7,7 +7,7 @@ interface CadenaFalsa { subscription_status: string | null; subscription_id: str
 
 // Un cliente falso que anota cada escritura con sus filtros y contesta lo que se le diga.
 // Las lecturas: la cadena (`cadena`) y la sede más antigua de la cadena (`principal`).
-function adminFalso(opciones: { filasActualizadas?: number; cadena?: CadenaFalsa | null; principal?: string; otraGratis?: boolean; lecturaFalla?: boolean } = {}) {
+function adminFalso(opciones: { filasActualizadas?: number; cadena?: CadenaFalsa | null; principal?: string; otraGratis?: boolean; lecturaFalla?: boolean; borradoFalla?: boolean } = {}) {
   const escrituras: { tabla: string; op: string; valores?: unknown; filtros: string[] }[] = [];
   const cadena = (tabla: string, op: string, valores?: unknown) => {
     const filtros: string[] = [];
@@ -17,7 +17,7 @@ function adminFalso(opciones: { filasActualizadas?: number; cadena?: CadenaFalsa
       eq: (c: string, v: unknown) => { filtros.push(`${c}=${v}`); return q; },
       is: (c: string, v: unknown) => { filtros.push(`${c} is ${v}`); return q; },
       select: async () => ({ data: Array.from({ length: opciones.filasActualizadas ?? 1 }, () => ({ id: 'x' })), error: null }),
-      then: (r: (v: unknown) => void) => r({ data: null, error: null }),
+      then: (r: (v: unknown) => void) => r({ data: null, error: op === 'delete' && opciones.borradoFalla ? { message: 'caída' } : null }),
     };
     return q;
   };
@@ -83,6 +83,18 @@ test('una suscripción cancelada conserva su id: se compara con él, no se exige
   const upd = escrituras.find(e => e.tabla === 'studios')!;
   assert.ok(upd.filtros.includes('subscription_id=sub_viejo'));
   assert.ok(escrituras.some(e => e.tabla === 'uso_plan_gratis' && e.op === 'delete'), 'tras un periodo pagado, de cero');
+  // Antes de escribir 'gratis': el trigger de la baja del plan gratis lee la medición.
+  assert.ok(
+    escrituras.findIndex(e => e.tabla === 'uso_plan_gratis' && e.op === 'delete') < escrituras.findIndex(e => e.tabla === 'studios'),
+    'la medición vieja se borra antes del compare-and-set',
+  );
+});
+
+test('si la medición vieja no se puede borrar, no se convierte: el trigger la daría por cerrada 90 días', async () => {
+  const { admin, escrituras } = adminFalso({ borradoFalla: true });
+  const r = await convertirAGratisSiToca(admin, fila({ subscription_status: 'canceled', subscription_id: 'sub_viejo', stripe_customer_id: 'cus_1' }), { entorno: encendido, stripe: stripeCon(['canceled']) });
+  assert.equal(r, 'sin-borrar-la-medicion');
+  assert.equal(escrituras.filter(e => e.tabla === 'studios').length, 0);
 });
 
 test('la medición solo se borra tras un periodo pagado: un pago abandonado no reabre un gratis_cerrado con 30 días más', async () => {
