@@ -238,9 +238,9 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         <LineaEstado estado={guardado.estado} frase={estado.frase} onReintentar={guardado.vaciar} />
       </div>
 
-      <Bloque titulo="La foto" ayuda="Vertical o cuadrada, de tu sala o de una clase, mejor sin texto encima: el título va sobre ella.">
+      <Bloque titulo="La foto" ayuda="Horizontal (16:9), de tu sala o de una clase. Si la foto ya lleva el texto escrito, deja el título vacío y saldrá solo la foto.">
         <div className="flex flex-wrap items-start gap-4">
-          <div className="flex h-[134px] w-[118px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-border bg-muted">
+          <div className="flex aspect-video w-[224px] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-border bg-muted">
             {subiendo ? <Loader2 size={18} className="animate-spin text-muted-foreground" aria-hidden />
               // eslint-disable-next-line @next/next/no-img-element -- la foto que subió el estudio
               : conFoto ? <img src={banner.imagenUrl} alt="" className="h-full w-full object-cover" />
@@ -263,7 +263,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         </div>
       </Bloque>
 
-      <Bloque titulo="Título" ayuda="Así se lee encima de la foto.">
+      <Bloque titulo="Título" ayuda="Se lee encima de la foto, con un botón «Ver más» si la tarjeta lleva a alguna parte. Déjalo vacío si tu foto ya lleva el texto.">
         <div className="flex items-center gap-2">
           <input
             className={inputCls} value={campos.titulo} maxLength={40} aria-label="Título"

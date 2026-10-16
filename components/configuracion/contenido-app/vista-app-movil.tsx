@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties } from 'react';
-import { Tarjeta } from '@/components/student/domain/Descubre';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { FilaTarjetas, Tarjeta } from '@/components/student/domain/Descubre';
+import { MarcoIphone, PANTALLA_IPHONE, useEscalaIphone } from '@/components/ui/marco-iphone';
 import { FranjaMensaje } from '@/components/student/domain/MensajeDestacado';
 import { Icono } from '@/components/student/ui/Icono';
 import type { NombreIcono } from '@/components/student/ui/Icono';
@@ -33,9 +34,11 @@ export interface TarjetaEnVista {
   sale: boolean;
 }
 
-const ANCHO = 390;
-const ALTO = 800;
-const ESCALA = 0.8;
+// La pantalla de un iPhone 17 (402 × 874) y el tamaño al que se enseña. El marco la reduce.
+const ANCHO = PANTALLA_IPHONE.ancho;
+const ALTO = PANTALLA_IPHONE.alto;
+// La barra de pestañas de la app: 56 de pestañas y 34 del indicador de inicio.
+const ALTO_PESTANAS = 90;
 const ACENTO_DE_SERIE = '#3E6B4A';
 
 const PESTANAS: { label: string; icono: NombreIcono }[] = [
@@ -67,6 +70,9 @@ export function VistaAppMovil({ nombreEstudio, portadaUrl, color, mensaje, tarje
   const zonaTarjetas = useRef<HTMLDivElement>(null);
   const fila = useRef<HTMLUListElement>(null);
   const editando = tarjetas.findIndex(x => x.editando);
+  const escala = useEscalaIphone();
+  // Con la portada ya fuera de la vista, la hora se lee sobre un fondo claro y no sobre la foto.
+  const [bajada, setBajada] = useState(false);
 
   // Baja sola hasta lo que se toca. Con `scrollTo` del propio contenedor y no con
   // `scrollIntoView`, que movería también la página del panel.
@@ -83,35 +89,35 @@ export function VistaAppMovil({ nombreEstudio, portadaUrl, color, mensaje, tarje
   }, [foco, editando, tarjetas.length]);
 
   const vars = {
-    ...VARIABLES_APP, '--t-small': '14px', '--t-micro': '11px', '--t-body': '16px', '--accent': acento(color), '--px': '18px',
-    width: ANCHO, height: ALTO, transform: `scale(${ESCALA})`, transformOrigin: 'top left',
+    ...VARIABLES_APP, '--t-h2': '21px', '--t-small': '14px', '--t-micro': '11px', '--t-body': '16px', '--accent': acento(color), '--px': '18px',
+    // El texto sobre el color de marca. Sin esto heredaría el `--accent-foreground` del panel.
+    '--accent-foreground': '#FFFFFF',
+    width: ANCHO, height: ALTO,
     background: 'var(--background)', color: 'var(--foreground)', position: 'relative', overflow: 'hidden',
   } as CSSProperties;
   const marcaFoco = (activo: boolean): CSSProperties => activo
-    ? { outline: '3px solid color-mix(in srgb, var(--accent) 55%, transparent)', outlineOffset: 4, borderRadius: 18 }
+    ? { outline: '2px solid color-mix(in srgb, var(--accent) 45%, transparent)', outlineOffset: 8, borderRadius: 30 }
     : {};
   const hayTarjetas = tarjetas.length > 0;
 
   return (
     <figure className="m-0 flex flex-col items-center gap-3">
-      <div
+      <MarcoIphone
         aria-hidden
         inert
         data-testid="vista-app-movil"
-        className="overflow-hidden rounded-[38px] border-[10px] border-neutral-900 bg-neutral-900 shadow-xl"
-        style={{ width: ANCHO * ESCALA + 20, height: ALTO * ESCALA + 20 }}
+        escala={escala}
+        tinta={bajada ? 'oscura' : 'clara'}
+        fondoBarra={bajada ? 'rgba(250,249,245,.9)' : undefined}
       >
         <div style={vars}>
-          <div style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 26px', fontSize: 14, fontWeight: 700, background: '#0F0F0C', color: '#FAF9F5' }}>
-            <span>9:41</span><span style={{ letterSpacing: 2 }}>●●●</span>
-          </div>
-          <div ref={scroll} className="no-scrollbar" style={{ height: ALTO - 40 - 74, overflowY: 'auto', scrollbarWidth: 'none' }}>
+          <div ref={scroll} onScroll={e => setBajada(e.currentTarget.scrollTop > 60)} className="no-scrollbar" style={{ height: ALTO - ALTO_PESTANAS, overflowY: 'auto', scrollbarWidth: 'none' }}>
             {/* La portada de su app, con su foto y el saludo (de ejemplo). */}
-            <div style={{ position: 'relative', height: 190, background: '#0F0F0C', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', height: 236, background: '#0F0F0C', overflow: 'hidden' }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- la foto del estudio, ya servida por su URL */}
               <img src={portadaUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,8,8,.75), rgba(8,8,8,.2))' }} />
-              <div style={{ position: 'absolute', left: 18, right: 18, bottom: 34, color: '#FAF9F5' }}>
+              <div style={{ position: 'absolute', left: 18, right: 18, bottom: 40, color: '#FAF9F5' }}>
                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', opacity: 0.9 }}>{nombreEstudio}</p>
                 <p style={{ margin: '6px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: '-.03em' }}>Hola, Lucía 👋</p>
               </div>
@@ -132,37 +138,37 @@ export function VistaAppMovil({ nombreEstudio, portadaUrl, color, mensaje, tarje
               <p style={{ margin: '4px 0 0', fontSize: 13, opacity: 0.85 }}>Con tu instructora · Sala 1</p>
             </div>
 
-            <div ref={zonaTarjetas} style={{ margin: '18px 18px 0', padding: 2, ...marcaFoco(foco === 'tarjetas') }}>
+            <div ref={zonaTarjetas} style={{ margin: '20px 18px 0', ...marcaFoco(foco === 'tarjetas' && editando < 0) }}>
               {hayTarjetas ? (
                 <>
-                  <h2 style={{ margin: '0 0 9px', fontSize: 20, fontWeight: 800, letterSpacing: '-.02em' }}>Descubre</h2>
-                  <ul ref={fila} className="no-scrollbar" style={{ display: 'flex', gap: 11, margin: 0, padding: '2px 0 4px', listStyle: 'none', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                  <h2 style={{ margin: '0 0 9px', fontSize: 21, fontWeight: 800, letterSpacing: '-.02em' }}>Descubre</h2>
+                  <FilaTarjetas filaRef={fila}>
                     {tarjetas.map((x, i) => {
                       const marca = x.editando ? (x.sale ? 'La estás editando' : 'Solo la ves tú') : undefined;
                       return x.t ? (
-                        <Tarjeta key={x.id} t={x.t} href={() => '#'} delay={i * 55} marca={marca} resaltada={x.editando} />
+                        <Tarjeta key={x.id} t={x.t} href={() => '#'} delay={i * 55} marca={marca} resaltada={x.editando} unica={tarjetas.length === 1} />
                       ) : (
                         <li
                           key={x.id}
                           style={{
-                            width: 172, height: 194, flexShrink: 0, borderRadius: 16, border: '2px dashed #D9D6C9',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            color: '#5A5A52', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: 12, position: 'relative',
-                            outline: x.editando ? '3px solid var(--accent)' : undefined, outlineOffset: 2,
+                            width: tarjetas.length === 1 ? '100%' : 'calc(100% - 40px)', aspectRatio: '16 / 9', flex: '0 0 auto', borderRadius: 24,
+                            border: '2px dashed #D9D6C9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                            gap: 6, color: '#5A5A52', fontSize: 14, fontWeight: 600, textAlign: 'center', padding: 12, position: 'relative',
+                            scrollSnapAlign: 'start', outline: x.editando ? '3px solid var(--accent)' : undefined, outlineOffset: 2,
                           }}
                         >
-                          {marca && <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 999, background: '#EFEDE4', fontSize: 11, fontWeight: 800 }}>{marca}</span>}
+                          {marca && <span style={{ position: 'absolute', top: 10, left: 10, padding: '3px 8px', borderRadius: 999, background: '#EFEDE4', fontSize: 11, fontWeight: 800 }}>{marca}</span>}
                           <span>{x.titulo || 'Tarjeta sin título'}</span>
                           <span style={{ fontWeight: 500 }}>Sin foto no sale</span>
                         </li>
                       );
                     })}
-                  </ul>
+                  </FilaTarjetas>
                 </>
               ) : (
                 <>
-                  <h2 style={{ margin: '0 0 9px', fontSize: 20, fontWeight: 800, opacity: 0.45 }}>Descubre</h2>
-                  <div style={{ height: 150, borderRadius: 16, border: '2px dashed #D9D6C9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5A5A52', fontSize: 14, fontWeight: 600 }}>
+                  <h2 style={{ margin: '0 0 9px', fontSize: 21, fontWeight: 800, opacity: 0.45 }}>Descubre</h2>
+                  <div style={{ aspectRatio: '16 / 9', borderRadius: 24, border: '2px dashed #D9D6C9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5A5A52', fontSize: 14, fontWeight: 600 }}>
                     Aquí saldrán tus tarjetas
                   </div>
                 </>
@@ -178,7 +184,7 @@ export function VistaAppMovil({ nombreEstudio, portadaUrl, color, mensaje, tarje
               ))}
             </div>
           </div>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 74, background: '#FFFFFF', borderTop: '1px solid #E5E3DA', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', paddingTop: 10 }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: ALTO_PESTANAS, background: '#FFFFFF', borderTop: '1px solid #E5E3DA', display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', paddingTop: 10 }}>
             {PESTANAS.map((p, i) => (
               <span key={p.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: i === 0 ? 'var(--foreground)' : 'var(--subtle-foreground)' }}>
                 <Icono nombre={p.icono} tamano={22} />{p.label}
@@ -186,7 +192,7 @@ export function VistaAppMovil({ nombreEstudio, portadaUrl, color, mensaje, tarje
             ))}
           </div>
         </div>
-      </div>
+      </MarcoIphone>
       <figcaption className="max-w-[320px] rounded-xl bg-black/35 px-3 py-1.5 text-center text-[12px] leading-relaxed text-white">{pie}</figcaption>
     </figure>
   );
