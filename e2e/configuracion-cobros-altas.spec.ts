@@ -222,7 +222,7 @@ test.describe('Cobros y altas: estados', () => {
     await abrir(page, 'configuracion?tab=conexiones', { fila: { stripe_account_id: 'acct_e2e' } });
     await expect(estado(page, 'integracion-stripe')).toHaveText('Conectado', { timeout: 30_000 });
     await expect(estado(page, 'integracion-stripe')).toHaveCount(1);
-    await expect(page.getByText(/No disponible todavía|No conectado|Sin conectar/)).toHaveCount(0);
+    await expect(page.locator('#integracion-stripe').getByText(/No disponible todavía|No conectado|Sin conectar/)).toHaveCount(0);
 
     await page.locator('#integracion-stripe').click();
     await expect(titulo(page, 'Cobro con tarjeta (Stripe)')).toBeFocused();

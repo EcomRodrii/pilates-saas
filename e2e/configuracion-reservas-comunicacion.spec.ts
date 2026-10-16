@@ -161,6 +161,12 @@ for (const vista of VISTAS) {
       await expect(page.locator('#integracion-whatsapp')).toHaveCount(0);
       await expect(page.locator('#fila-a-integraciones')).toHaveAttribute('href', '/configuracion?tab=conexiones#integracion-whatsapp');
 
+      // El recordatorio ya no es un texto fijo: es la fila de «Avisos en el móvil», con la antelación del estudio.
+      await expect(page.locator('[data-fila-informativa]')).toHaveCount(0);
+      await expect(page.locator('#fila-herramienta-avisos-del-movil')).toContainText('Recordatorio 24 h y 1 h');
+      await expect(page.locator('#fila-automatizaciones')).toHaveAttribute('href', '/automatizaciones');
+      expect(await desborde(page), 'Comunicación se sale de lado').toBeLessThanOrEqual(0);
+
       await abrir(page, 'configuracion?tab=conexiones');
       await expect(estado(page, 'integracion-whatsapp')).toHaveCount(1, { timeout: 30_000 });
       await expect(estado(page, 'integracion-whatsapp')).toHaveText('Sin conectar');
@@ -169,12 +175,6 @@ for (const vista of VISTAS) {
       // Gmail se retiró (1-oct-2026): sin conectar no hay fila, ni nada que conectar.
       await expect(page.locator('#integracion-gmail')).toHaveCount(0);
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
-
-      // El recordatorio ya no es un texto fijo: es la fila de «Avisos en el móvil», con la antelación del estudio.
-      await expect(page.locator('[data-fila-informativa]')).toHaveCount(0);
-      await expect(page.locator('#fila-herramienta-avisos-del-movil')).toContainText('Recordatorio 24 h y 1 h');
-      await expect(page.locator('#fila-automatizaciones')).toHaveAttribute('href', '/automatizaciones');
-      expect(await desborde(page), 'Comunicación se sale de lado').toBeLessThanOrEqual(0);
     });
   });
 }
