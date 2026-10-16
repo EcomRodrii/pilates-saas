@@ -27,7 +27,7 @@ import type { FalloConexionSumup } from '@/lib/pos/sumup';
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   const redirigir = (query: string) => {
-    const res = NextResponse.redirect(`${appUrl}/configuracion?tab=cobros&${query}#datafono`);
+    const res = NextResponse.redirect(`${appUrl}/configuracion?tab=conexiones&${query}#datafono`);
     borrarCookieOAuth(res, 'sumup');
     return res;
   };
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     const { error: errLog } = await admin.from('actividad_reciente').insert({
       id: uid(), studio_id: studioId, tipo: 'CUENTA_COBRO_CAMBIADA',
       texto: `SumUp conectado al estudio${perfil.nombreComercio ? ` (${perfil.nombreComercio})` : ''}`,
-      socio_id: null, enlace: '/configuracion?tab=cobros#datafono', creado_en: new Date().toISOString(), actor_nombre: null,
+      socio_id: null, enlace: '/configuracion?tab=conexiones#datafono', creado_en: new Date().toISOString(), actor_nombre: null,
     });
     if (errLog) console.error('[integrations/sumup/callback] registro de actividad', errLog.message);
     return redirigir('sumup_conectado=1');

@@ -78,7 +78,7 @@ for (const vista of VISTAS) {
 
       await expect(page.getByRole('heading', { level: 1, name: 'Configuración', exact: true })).toBeVisible();
       await expect(page.getByRole('searchbox', { name: 'Buscar un ajuste' })).toBeVisible();
-      for (const grupo of ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Tu cuenta']) {
+      for (const grupo of ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']) {
         await expect(page.getByRole('heading', { level: 2, name: grupo, exact: true })).toBeVisible();
       }
       await expect(page.locator('#seccion-titulo')).toHaveCount(0);
@@ -101,7 +101,7 @@ test.describe('En el portátil', () => {
     await expect(resumen(page, 'estudio')).toHaveText('Pilates Centro · L-V 8-21, S 9-14 · 2 salas');
     await expect(resumen(page, 'clases')).toHaveText('2 tipos de clase');
     await expect(resumen(page, 'reservas')).toHaveText('Cancelar 12 h · lista de espera al momento');
-    await expect(resumen(page, 'cobros')).toHaveText('Stripe conectado · IVA 21 %');
+    await expect(resumen(page, 'cobros')).toHaveText('IVA 21 %');
     // El tema sembrado trae el oliva de fábrica.
     await expect(resumen(page, 'marca')).toHaveText('Sin logo · color de Tentare');
     await expect(resumen(page, 'web')).toHaveText('Fuera de Tentare Network');
@@ -114,7 +114,7 @@ test.describe('En el portátil', () => {
     }));
     await inicioCargado(page);
     await expect(resumen(page, 'reservas')).toHaveText('Cancelar 24 h · sin lista de espera');
-    await expect(resumen(page, 'cobros')).toHaveText('Stripe conectado · IVA 10 %');
+    await expect(resumen(page, 'cobros')).toHaveText('IVA 10 %');
   });
 
   test('sin nada que revisar, «Revisa esto» no sale ni hay pastillas de estado', async ({ page }) => {

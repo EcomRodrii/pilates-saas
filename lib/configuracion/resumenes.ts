@@ -190,9 +190,9 @@ const NOMBRE_INTEGRACION: Record<TipoIntegracion, string> = {
 };
 
 /**
- * La fila donde se arregla cada integración. Todas tienen la suya desde el
- * 15-sep (v2): Stripe en Cobros, el remitente, WhatsApp y Gmail en Cómo me
- * comunico y el resto en Conexiones. La usan «Revisa esto» y el aviso de la home.
+ * La fila donde se arregla cada integración. Todas viven en Integraciones desde
+ * el 16-oct-2026, salvo el remitente de los correos (Cómo me comunico). La usan
+ * «Revisa esto» y el aviso de la home.
  */
 export const TARJETA_DE_INTEGRACION: Readonly<Record<TipoIntegracion, TarjetaId>> = {
   STRIPE: 'integracion-stripe',
@@ -321,13 +321,9 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       return unir([cancelar, espera]);
     }
 
-    case 'cobros': {
-      const stripe = s.stripeAccountId === undefined ? null
-        : s.stripeAccountId ? 'Stripe conectado'
-        : d.stripeDisponible ? 'Stripe sin conectar' : 'Stripe no disponible todavía';
-      const iva = typeof s.ivaPorDefecto === 'number' ? `IVA ${numero(s.ivaPorDefecto)} %` : null;
-      return unir([stripe, iva]);
-    }
+    // Stripe se conecta en Integraciones desde el 16-oct-2026: aquí solo el IVA.
+    case 'cobros':
+      return typeof s.ivaPorDefecto === 'number' ? `IVA ${numero(s.ivaPorDefecto)} %` : null;
 
     case 'altas':
       return unir([
@@ -338,16 +334,9 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
           : s.valoracionInicialActiva === false ? 'sin valoración inicial' : null,
       ]);
 
-    case 'comunicacion': {
-      let whatsapp: string | null = null;
-      if (d.integraciones) {
-        const estado = salud(d.integraciones.find(i => i.tipo === 'WHATSAPP')).estado;
-        whatsapp = estado === 'FUNCIONA' ? 'WhatsApp funcionando'
-          : estado === 'SIN_PROBAR' ? 'WhatsApp sin probar'
-          : estado === 'FALLANDO' ? 'WhatsApp con problemas' : 'WhatsApp sin conectar';
-      }
-      return unir([whatsapp, s.gmailEmail ? 'Gmail sin uso' : null]);
-    }
+    // WhatsApp y Gmail se gestionan en Integraciones desde el 16-oct-2026.
+    case 'comunicacion':
+      return null;
 
     case 'equipo':
       if (s.instructorasCreanClases === undefined) return null;
@@ -375,6 +364,8 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       // Solo lo que se SABE conectado. Zapier se pide aparte al abrir la sección:
       // por eso nunca se dice «nada conectado» ni se da un total.
       const nombres: string[] = [];
+      if (s.stripeAccountId) nombres.push('Stripe');
+      if (d.integraciones?.some(i => i.tipo === 'WHATSAPP' && i.activo)) nombres.push('WhatsApp');
       if (s.googleCalendarEmail) nombres.push('Google Calendar');
       if (s.zoomEmail) nombres.push('Zoom');
       if (s.klaviyoAccountName) nombres.push('Klaviyo');

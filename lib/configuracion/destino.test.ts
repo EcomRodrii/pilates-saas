@@ -38,8 +38,8 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
     // Las vueltas de una conexión, sin `tab=` o con uno viejo: a la sección que
     // pinta HOY su tarjeta, que es la única que enseña el aviso.
-    ['/configuracion?stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'conexiones', ancla: 'integracion-stripe' }],
     ['/configuracion?google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
@@ -48,19 +48,23 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
     // «Más integraciones» se partió en una fila por conexión (15-sep, v2): su ancla, a la primera.
     ['/configuracion?tab=conexiones#mas-integraciones', { tab: 'conexiones', ancla: 'integracion-kisi' }],
-    ['/configuracion?whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     // Lo que mandaban los cinco callbacks y el Embedded Signup hasta el 15-sep.
-    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
     ['/configuracion?tab=integraciones&google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?tab=integraciones&zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
-    ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     // Lo que mandan hoy.
-    ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
-    // Tarjetas que cambiaron de sección el 15-sep: su ancla las sigue.
-    ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
+    // Tarjetas que cambiaron de sección (15-sep; Stripe y WhatsApp, a Integraciones el 16-oct): su ancla las sigue, también con el `tab=` de antes.
+    ['/configuracion?tab=cobros#integracion-stripe', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=cobros#datafono', { tab: 'conexiones', ancla: 'datafono' }],
+    ['/configuracion?tab=comunicacion#integracion-whatsapp', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=comunicacion#integracion-gmail', { tab: 'conexiones', ancla: 'integracion-gmail' }],
+    ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     ['/configuracion?tab=integraciones#integracion-resend', { tab: 'comunicacion', ancla: 'integracion-resend' }],
     // «Exportar a Excel» se retiró: su ancla lleva a la única exportación que queda.
     ['/configuracion?tab=conexiones#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
@@ -212,7 +216,7 @@ test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', (
 });
 
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
-  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'cobros', ancla: 'integracion-stripe' });
+  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'conexiones', ancla: 'integracion-stripe' });
   assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' });
   // Una herramienta abre su sección, con cualquier otro `tab=`.
   assert.deepEqual(resolverDestino({ tab: 'cobros', params: { abrir: 'widgets' } }), { tab: 'web', abrir: 'widgets' });
@@ -348,15 +352,15 @@ test('cada tarjeta de secciones.ts existe de verdad como id en un componente', (
 
 test('cada integración tiene su fila en la sección de su tarjeta, y solo en esa', () => {
   // Desde el 15-sep (v2) no hay catálogo de tarjetas de integraciones: cada una
-  // es una fila con UN estado. Stripe en Cobros, el remitente, WhatsApp y Gmail
-  // en Cómo me comunico, y el resto en Conexiones. Si una sección la pintara y
+  // es una fila con UN estado. Todas en Integraciones desde el 16-oct (Stripe,
+  // datáfono, WhatsApp, Gmail), salvo el remitente, en Cómo me comunico. Si una sección la pintara y
   // otra la tuviera en secciones.ts, su ancla, «Revisa esto» y la vuelta de su
   // conexión llevarían a una sección donde no está.
   assert.ok(!existsSync(join(RAIZ, 'components/configuracion/tab-integraciones.tsx')), 'vuelve a haber un catálogo de tarjetas de integraciones');
   const FICHEROS: Partial<Record<SeccionId, string[]>> = {
-    cobros: ['secciones/seccion-cobros.tsx', 'cobro-con-tarjeta.tsx'],
-    comunicacion: ['secciones/seccion-comunicacion.tsx', 'canales-comunicacion.tsx'],
-    conexiones: ['secciones/seccion-conexiones.tsx', 'conexiones.tsx'],
+    cobros: ['secciones/seccion-cobros.tsx'],
+    comunicacion: ['secciones/seccion-comunicacion.tsx'],
+    conexiones: ['secciones/seccion-conexiones.tsx', 'conexiones.tsx', 'cobro-con-tarjeta.tsx', 'canales-comunicacion.tsx', 'datafono.tsx'],
   };
   const leer = (s: SeccionId) => (FICHEROS[s] ?? []).map(f => readFileSync(join(RAIZ, 'components/configuracion', f), 'utf8')).join('\n');
   const tieneFila = (codigo: string, id: string) => codigo.includes(`id="${id}"`) || codigo.includes(`id: '${id}'`);

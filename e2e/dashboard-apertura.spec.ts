@@ -349,7 +349,7 @@ test.describe('¿Lista para abrir?', () => {
     ok('clases', 'Clases para tu apertura'),
     ok('pagina', 'Tu página de reservas'),
     { id: 'antelacion', titulo: 'Reservas abiertas', detalle: 'Solo dejas reservar con 7 días de antelación.', estado: 'FALTA', bloquea: false, href: '/configuracion?tab=reservas#reservar' },
-    { id: 'stripe', titulo: 'Cobro online', detalle: 'Stripe no ha contestado. Vuelve a comprobarlo en un momento.', estado: 'SIN_COMPROBAR', bloquea: true, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'stripe', titulo: 'Cobro online', detalle: 'Stripe no ha contestado. Vuelve a comprobarlo en un momento.', estado: 'SIN_COMPROBAR', bloquea: true, href: '/configuracion?tab=conexiones#integracion-stripe' },
     { id: 'fiscal', titulo: 'Datos fiscales', detalle: 'Falta: NIF válido. Sin ellos no se pueden emitir facturas.', estado: 'FALTA', bloquea: true, href: '/configuracion?tab=cobros#datos-fiscales' },
   ];
 

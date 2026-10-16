@@ -71,8 +71,8 @@ async function montarIntegraciones(page: Page, opts: {
     return json(route, { config: opts.config });
   });
 
-  // WhatsApp está en «Cómo me comunico» desde el 15-sep.
-  await page.goto('/configuracion?tab=comunicacion');
+  // WhatsApp está en «Integraciones» desde el 16-oct.
+  await page.goto('/configuracion?tab=conexiones');
 }
 
 test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', () => {

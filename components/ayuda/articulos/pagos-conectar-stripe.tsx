@@ -12,7 +12,7 @@ export default function Contenido() {
         hay cobro con tarjeta ni tarjeta guardada para renovaciones automáticas.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Ve a Configuración > Cobros y facturas">
+      <AyudaPaso numero={1} titulo="Ve a Configuración > Integraciones">
         <p>
           En la fila «Cobro con tarjeta (Stripe)», pulsa «Conectar» — un clic, sin pegar ninguna clave. Cuando
           está conectado, la fila lo dice y, al tocarla, puedes abrir tu cuenta de Stripe o desconectarla.

@@ -1034,7 +1034,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SISTEMA_STRIPE_DESCONECTADO}#PROPIETARIO`]: {
     title: 'Stripe desconectado — no puedes cobrar',
     body: 'Se ha desconectado tu cuenta de Stripe: los cobros automáticos están parados. Vuelve a conectarla para seguir cobrando.',
-    deepLink: () => `/configuracion?tab=cobros#integracion-stripe`,
+    deepLink: () => `/configuracion?tab=conexiones#integracion-stripe`,
   },
   // El cajón «API para tu contabilidad», donde están sus webhooks.
   [`${EVENTOS.WEBHOOK_FALLANDO}#PROPIETARIO`]: {

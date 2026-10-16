@@ -71,7 +71,7 @@ export const OPCIONAL: TareaPrimerosPasos = {
   id: 'stripe',
   titulo: 'Cobra online',
   para: 'Con tarjeta o domiciliación. Si cobras en el mostrador, no te hace falta.',
-  href: '/configuracion?tab=cobros#integracion-stripe',
+  href: '/configuracion?tab=conexiones#integracion-stripe',
   opcional: true,
 };
 

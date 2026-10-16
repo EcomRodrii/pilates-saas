@@ -75,7 +75,11 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     // «Marca» es una sección desde el 15-sep (v2): el ancla de la tarjeta de antes lleva al logo.
     ['/configuracion?tab=estudio#marca', 'Marca', '#logo-y-favicon'],
     ['/configuracion?tab=estudio#textos-de-tu-app', 'Marca', '#textos-de-tu-app'],
-    ['/configuracion?tab=conexiones#integracion-whatsapp', 'Cómo me comunico', '#integracion-whatsapp'],
+    ['/configuracion?tab=conexiones#integracion-whatsapp', 'Integraciones', '#integracion-whatsapp'],
+    // 16-oct: Stripe, el datáfono y WhatsApp pasaron a Integraciones; los enlaces con el `tab=` de antes las siguen.
+    ['/configuracion?tab=cobros#integracion-stripe', 'Integraciones', '#integracion-stripe'],
+    ['/configuracion?tab=cobros#datafono', 'Integraciones', '#datafono'],
+    ['/configuracion?tab=comunicacion#integracion-whatsapp', 'Integraciones', '#integracion-whatsapp'],
     // «Exportar a Excel» se retiró: su enlace lleva a «Exportar mis datos».
     ['/configuracion?tab=conexiones#integracion-excel', 'Datos y seguridad', '#exportar'],
   ];
@@ -96,12 +100,12 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
   // la URL llevara a otra, el aviso no saldría nunca. Con el `tab=` que
   // mandaban hasta el 15-sep, con el de hoy y sin ninguno.
   const VUELTAS: [string, string, string, string, string][] = [
-    ['/configuracion?stripe_connected=1', 'Cobros y facturas', 'Stripe conectado — ya puedes cobrar en tu propia cuenta', '#integracion-stripe', 'cobros'],
-    ['/configuracion?tab=conexiones&google_calendar_connected=1', 'Conexiones', 'Google Calendar conectado', '#integracion-google_calendar', 'conexiones'],
-    ['/configuracion?tab=integraciones&zoom_error=denegado', 'Conexiones', 'Error al conectar Zoom: denegado', '#integracion-zoom', 'conexiones'],
+    ['/configuracion?stripe_connected=1', 'Integraciones', 'Stripe conectado — ya puedes cobrar en tu propia cuenta', '#integracion-stripe', 'conexiones'],
+    ['/configuracion?tab=conexiones&google_calendar_connected=1', 'Integraciones', 'Google Calendar conectado', '#integracion-google_calendar', 'conexiones'],
+    ['/configuracion?tab=integraciones&zoom_error=denegado', 'Integraciones', 'Error al conectar Zoom: denegado', '#integracion-zoom', 'conexiones'],
     // Klaviyo tiene su fila desde el 15-sep (v2): antes vivía en «Más integraciones».
-    ['/configuracion?tab=conexiones&klaviyo_connected=1', 'Conexiones', 'Klaviyo conectado', '#integracion-klaviyo', 'conexiones'],
-    ['/configuracion?tab=conexiones&whatsapp_connected=1', 'Cómo me comunico', 'WhatsApp conectado', '#integracion-whatsapp', 'comunicacion'],
+    ['/configuracion?tab=conexiones&klaviyo_connected=1', 'Integraciones', 'Klaviyo conectado', '#integracion-klaviyo', 'conexiones'],
+    ['/configuracion?tab=conexiones&whatsapp_connected=1', 'Integraciones', 'WhatsApp conectado', '#integracion-whatsapp', 'conexiones'],
   ];
   for (const [href, seccion, aviso, tarjeta, tab] of VUELTAS) {
     test(`la vuelta ${href} abre «${seccion}», enseña su aviso y limpia la URL`, async ({ page }) => {
@@ -140,9 +144,9 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await expect(page).toHaveURL(/\/configuracion$/);
     const historialAntes = await page.evaluate(() => history.length);
 
-    await rail(page).getByRole('link', { name: 'Conexiones', exact: true }).click();
+    await rail(page).getByRole('link', { name: 'Integraciones', exact: true }).click();
     await expect(page).toHaveURL(/\/configuracion\?tab=conexiones$/);
-    await expect(tituloSeccion(page, 'Conexiones')).toBeVisible();
+    await expect(tituloSeccion(page, 'Integraciones')).toBeVisible();
 
     await rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true }).click();
     await expect(page).toHaveURL(/\/configuracion\?tab=altas$/);
@@ -179,7 +183,7 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     // Su fila, que abre su cajón aquí (15-sep, v2), no una que lleve a Mi estudio.
     await page.locator('#datos-fiscales').click({ timeout: 15_000 });
     await expect(page.getByRole('textbox', { name: 'NIF / CIF' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('#integracion-stripe')).toBeAttached();
+    await expect(page.locator('#fila-a-integraciones')).toBeAttached();
     await expect(page.getByText(/mientras terminamos de ordenarlo/)).toHaveCount(0);
 
     // Las dos últimas que vivían en otra sección, con su control de verdad.

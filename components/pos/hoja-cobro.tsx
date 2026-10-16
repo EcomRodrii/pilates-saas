@@ -483,7 +483,7 @@ export function HojaCobro({
                             ? 'No vale para una cuota: no deja método guardado'
                             : necesitaAtestiguar(valor)
                               ? 'Antes, comprueba el total'
-                              : 'Conecta Stripe en Configuración → Cobros y facturas'}
+                              : 'Conecta Stripe en Configuración → Integraciones'}
                     </span>
                   </button>
                 );

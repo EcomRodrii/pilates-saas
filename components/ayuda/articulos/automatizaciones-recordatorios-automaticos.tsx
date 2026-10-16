@@ -36,7 +36,7 @@ export default function Contenido() {
         recordatorio y puedes reescribir con tus palabras lo que dice cada aviso que reciben tus alumnas (con «Enviarme una prueba» te llega a tu móvil antes de guardarlo). Cada alumna,
         a su vez, puede apagar desde su app los avisos que no quiera en el móvil, uno a uno. Lo que eliges tú es qué
         avisos te llegan a ti y por dónde, en Configuración &gt; Mis avisos, y el WhatsApp de tu estudio se conecta en
-        Configuración &gt; Cómo me comunico.
+        Configuración &gt; Integraciones.
       </p>
 
       <AyudaResultado>

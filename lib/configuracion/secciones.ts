@@ -156,14 +156,12 @@ export const SECCIONES = [
   {
     id: 'cobros',
     titulo: 'Cobros y facturas',
-    resumen: 'Datos fiscales, Stripe, domiciliaciones y devoluciones',
+    resumen: 'Datos fiscales, facturas, domiciliaciones y devoluciones',
     frase: 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'facturacion', titulo: 'Facturación', frase: 'Si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera.', guardado: 'barra', palabras: ['verifactu', 'aeat', 'justificante', 'gestoría', 'factura'] },
       { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', palabras: ['nif', 'cif', 'razón social', 'facturas', 'impuestos'] },
-      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
-      { id: 'datafono', titulo: 'Datáfono', frase: 'Mandas el importe desde la Caja y la venta queda cobrada sola. Hoy, el de Stripe; SumUp y el de tu banco, próximamente.', guardado: 'accion', palabras: ['tpv', 'lector', 'terminal', 'stripe terminal', 'sumup', 'datáfono del banco', 'tarjeta', 'caja', 'mostrador'] },
       { id: 'cuando-se-cobra-la-cuota', titulo: 'Cuándo se cobra la cuota mensual', frase: 'Cada alumna en su aniversario, o todas el día 1 de cada mes.', guardado: 'barra', palabras: ['día 1', 'fecha de cobro', 'aniversario', 'mensual'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
@@ -188,16 +186,13 @@ export const SECCIONES = [
   {
     id: 'comunicacion',
     titulo: 'Cómo me comunico',
-    resumen: 'Correos y WhatsApp',
+    resumen: 'Correos y avisos a tus alumnas',
     frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
       { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada alumna el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
-      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
-      // Retirada el 1-oct-2026 (lib/gmail.ts): solo para quien la tenía conectada, a desconectarla.
-      { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
     ],
   },
   {
@@ -288,15 +283,23 @@ export const SECCIONES = [
   },
   {
     id: 'conexiones',
-    titulo: 'Conexiones',
-    resumen: 'Calendario, Zoom y otras apps',
-    frase: 'Tentare conectado con otras herramientas que ya usas.',
+    titulo: 'Integraciones',
+    resumen: 'Cobros, WhatsApp, calendario, plataformas y API',
+    frase: 'Cobrar, escribir, tu agenda, marketing, plataformas y tu API: todo lo que conectas.',
     roles: SOLO_PROPIETARIA,
-    // Cada conexión es una FILA con UN estado y se agrupan por cómo están (15-sep,
-    // v2): «Más integraciones» juntaba cuatro tarjetas en una y su ancla lleva
-    // ahora a la primera (destino.ts). Stripe, WhatsApp y Gmail viven en Cobros y
-    // en Cómo me comunico.
+    // El módulo de integraciones (16-oct-2026, petición del fundador): una fila
+    // por conexión con UN estado, agrupadas por la pregunta que se hace la
+    // propietaria (cobrar, comunicar, agenda, marketing, plataformas, accesos y
+    // API). Stripe, el datáfono, WhatsApp y Gmail (retirado, solo para
+    // desconectarlo) vivían en Cobros y en Cómo me comunico; sus anclas
+    // (`#integracion-stripe`…) llegan aquí solas (destino.ts), y esas secciones
+    // dejan una fila que lo dice. El id de sección sigue siendo `conexiones`
+    // para no romper `?tab=conexiones`, marcadores ni callbacks de OAuth.
     tarjetas: [
+      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
+      { id: 'datafono', titulo: 'Datáfono', frase: 'Mandas el importe desde la Caja y la venta queda cobrada sola. Hoy, el de Stripe; SumUp y el de tu banco, próximamente.', guardado: 'accion', palabras: ['tpv', 'lector', 'terminal', 'stripe terminal', 'sumup', 'datáfono del banco', 'tarjeta', 'caja', 'mostrador'] },
+      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
+      { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
       { id: 'integracion-google_calendar', titulo: 'Google Calendar', frase: 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.', guardado: 'accion', palabras: ['calendario'] },
       { id: 'integracion-zoom', titulo: 'Zoom', frase: 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.', guardado: 'accion', palabras: ['online', 'videollamada'] },
       { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
@@ -440,7 +443,7 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tus-alumnas', titulo: 'Tus alumnas', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 
@@ -464,7 +467,7 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'reservas-y-cobros', titulo: 'Reservas y cobros', frase: 'Las reglas para reservar y cancelar, y cómo cobras y facturas.', secciones: ['reservas', 'cobros'] },
   { id: 'tus-alumnas', titulo: 'Tus alumnas', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', frase: 'Otras herramientas que usas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', frase: 'Todo lo que conectas con otras herramientas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 

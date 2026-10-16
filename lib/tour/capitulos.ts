@@ -290,7 +290,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         accion: 'Mira lo pendiente y lo ya cobrado.',
       },
       {
-        id: 'c6.4', ruta: '/configuracion', href: '/configuracion?tab=cobros', selector: '#integracion-stripe', tipo: 'mira',
+        id: 'c6.4', ruta: '/configuracion', href: '/configuracion?tab=conexiones', selector: '#integracion-stripe', tipo: 'mira',
         titulo: 'Stripe, cuando quieras',
         texto: 'Sirve para cobrar con tarjeta por internet. No lo necesitas para recibir reservas: puedes cobrar en el mostrador y apuntarlo. Conéctalo cuando quieras que las cuotas se cobren solas.',
         accion: 'Mira la fila «Cobro con tarjeta (Stripe)». No hace falta que la conectes ahora.',
