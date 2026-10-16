@@ -110,6 +110,8 @@ const CASOS: Caso[] = [
   // Cadena que deja de pagar (migr 20261015141653): el trigger que recalcula el contrato de las sedes
   // hermanas. Función de trigger: nadie la llama, y el permiso se comprueba al crear el trigger.
   { firma: 'recalcular_contrato_sedes_hermanas()', anon: false, authenticated: false, serviceRole: true },
+  // `studios.creado_en` lo pone el servidor (migr 20261016115000): función de trigger, nadie la llama.
+  { firma: 'studios_creado_en_solo_servidor()', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

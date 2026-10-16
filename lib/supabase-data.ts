@@ -42,6 +42,7 @@ import {
 import { COLUMNAS_COBRO_EN_MARCHA, SELECT_RECIBOS_REMESA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type { ColumnaReciboActualizable, ColumnaReciboInsertable } from '@/lib/cobros/recibo-escritura-navegador';
+import type { ColumnaEstudioInsertable } from '@/lib/estudio/alta-escritura-navegador';
 import type { ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
@@ -5312,7 +5313,9 @@ export async function dbCreateStudio(fields: {
       // Feature #9: por defecto ESTUDIO (columna DEFAULT), solo se manda si
       // se pide FREELANCE explícitamente — no toca el camino existente.
       ...(fields.tipoCuenta ? { tipo_cuenta: fields.tipoCuenta } : {}),
-    });
+      // Solo columnas con GRANT de INSERT para el navegador: cualquier otra la rechaza la
+      // base de datos (lib/estudio/alta-escritura-navegador.ts).
+    } satisfies Partial<Record<ColumnaEstudioInsertable, unknown>>);
     if (!error) return { id, slug };
     ultimoError = error;
     if (error.code === '23505' && error.message.includes('studios_pkey')) {
