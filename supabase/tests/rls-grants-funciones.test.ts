@@ -112,6 +112,20 @@ const CASOS: Caso[] = [
   { firma: 'recalcular_contrato_sedes_hermanas()', anon: false, authenticated: false, serviceRole: true },
   // `studios.creado_en` lo pone el servidor (migr 20261016115000): función de trigger, nadie la llama.
   { firma: 'studios_creado_en_solo_servidor()', anon: false, authenticated: false, serviceRole: true },
+  // La situación de un estudio (bajas en seco, migr 20261016123000): la leen /interno y el cron, y las
+  // marcas de uso las escribe el servidor. Ninguna la llama el navegador.
+  { firma: 'marcar_uso_panel(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'marcar_uso_app(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'senales_actividad_real(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ultima_actividad_real(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'paga_plan(text, text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'fase_plan_gratis(integer, integer, date, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_derivada(text, text, boolean, text, text, boolean, boolean, boolean, boolean, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_estudio(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_estudios(date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'registrar_situacion_diaria(date)', anon: false, authenticated: false, serviceRole: true },
+  // La única SECURITY DEFINER del grupo: lee `auth.sessions` para el punto de partida de la marca del panel.
+  { firma: 'sesiones_iniciales_del_equipo()', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

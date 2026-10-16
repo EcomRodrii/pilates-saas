@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { usuarioSupabaseConPaso } from '@/lib/auth-server';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { resolverSociaAutenticada } from '@/lib/db/supabase-data-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { marcarUso } from '@/lib/retencion/marcar-uso';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
@@ -48,6 +50,10 @@ export async function POST(req: NextRequest) {
       // estudio (o ya está vinculada a otro usuario).
       return conCorsWidget(req, NextResponse.json({ error: 'No hay ninguna socia con este email en el estudio' }, { status: 404 }));
     }
+    // Una alumna ha abierto su app con la sesión iniciada: la señal de uso del
+    // estudio (una vez al día, solo con BAJAS_AUTOMATICAS=informe), después de contestar.
+    const admin = getSupabaseAdmin();
+    if (admin) after(() => marcarUso(admin, 'app', socia.socioId));
     return conCorsWidget(req, NextResponse.json(socia));
   } catch (err) {
     return conCorsWidget(req, errorInterno('public/session:POST', err, 'No se ha podido iniciar sesión.'));
