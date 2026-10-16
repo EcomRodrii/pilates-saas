@@ -36,9 +36,10 @@ export function scopesQuePuedeConceder(rol: Rol | null | undefined): ScopeOAuth[
  * cuando la haya: `autenticarApiPublica` ya cruza los scopes de cada petición
  * con el plan del estudio.
  *
- * Que la API no esté abierta a todo el mundo no se decide aquí, sino estudio a
- * estudio: las claves de API solo se pueden crear en un estudio con la API
- * activada (`api_acceso_estudios`, la activa Tentare desde /interno).
+ * La API está abierta a todos los estudios (16-oct-2026). Lo único que la corta
+ * es la desactivación explícita de un estudio concreto desde /interno
+ * (`api_acceso_estudios.desactivada_en`, lib/api-publica/acceso.ts): no es un
+ * límite comercial y no vive aquí.
  */
 export function scopesDelPlan(_plan: Plan): readonly ScopeOAuth[] {
   return SCOPES_VALIDOS;

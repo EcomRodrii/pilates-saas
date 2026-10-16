@@ -8,6 +8,7 @@ import type { Plan } from '@/lib/billing/entitlements';
 import type { ScopeOAuth } from './catalogo-scopes';
 import { scopesDelPlan, scopesQuePuedeConceder } from './scopes';
 import { estadoClave, filtroClaves } from './gestion-reglas';
+import { apiActivaSegunFila, idsConApiActiva } from './acceso.ts';
 
 // Lo que comparten las rutas del panel que gestionan la API del estudio
 // (/api/integrations/api-publica/*): quién puede, si la API está activada y
@@ -32,7 +33,7 @@ export async function exigirGestorApi(req: NextRequest): Promise<Gestor> {
   const admin = getSupabaseAdmin();
   if (!admin) return { ok: false, status: 503, error: 'Servidor no configurado' };
 
-  const [{ data: acceso }, { data: studio }] = await Promise.all([
+  const [{ data: acceso, error: accesoError }, { data: studio }] = await Promise.all([
     admin.from('api_acceso_estudios').select('desactivada_en').eq('studio_id', sesion.studioId).maybeSingle(),
     admin.from('studios').select('plan, cadena_id, owner_auth_user_id').eq('id', sesion.studioId).maybeSingle(),
   ]);
@@ -46,7 +47,8 @@ export async function exigirGestorApi(req: NextRequest): Promise<Gestor> {
   }
   return {
     ok: true, admin, studioId: sesion.studioId, userId: sesion.userId,
-    activada: !!acceso && !acceso.desactivada_en,
+    // Activa salvo desactivación explícita; si la lectura falla, cerrada.
+    activada: !accesoError && apiActivaSegunFila(acceso),
     permitidos: scopesQuePuedeConceder(sesion.rol).filter((s) => delPlan.has(s)),
     cadenaId,
   };
@@ -65,8 +67,9 @@ export async function sedesDeLaCadena(g: Extract<Gestor, { ok: true }>): Promise
     .eq('cadena_id', g.cadenaId).eq('owner_auth_user_id', g.userId).order('nombre');
   const ids = (sedes ?? []).map((s) => s.id as string);
   if (ids.length === 0) return [];
-  const { data: accesos } = await g.admin.from('api_acceso_estudios').select('studio_id').in('studio_id', ids).is('desactivada_en', null);
-  const activas = new Set((accesos ?? []).map((a) => a.studio_id as string));
+  // Solo las desactivadas a mano tienen fila que cuente: el resto, activas.
+  const { data: accesos } = await g.admin.from('api_acceso_estudios').select('studio_id').in('studio_id', ids).not('desactivada_en', 'is', null);
+  const activas = idsConApiActiva(ids, new Set((accesos ?? []).map((a) => a.studio_id as string)));
   return (sedes ?? []).map((s) => ({ id: s.id as string, nombre: s.nombre as string, apiActivada: activas.has(s.id as string), esEsta: s.id === g.studioId }));
 }
 

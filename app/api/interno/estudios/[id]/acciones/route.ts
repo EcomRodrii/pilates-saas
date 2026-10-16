@@ -6,6 +6,7 @@ import { PLANES } from '@/lib/billing/entitlements';
 import { DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
 import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
+import { apiActivaSegunFila } from '@/lib/api-publica/acceso';
 import { credencialesWellhub, productosWellhub } from '@/lib/plataformas/wellhub/cliente';
 
 export const runtime = 'nodejs';
@@ -239,18 +240,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, wellhub: { gymId, productoId: productoId || null } });
   }
 
-  // API pública (F1, 1-oct-2026): se activa estudio a estudio. Decisión del
-  // fundador: no queda abierta a todos los planes, pero tampoco se inventan
-  // límites comerciales todavía. Sin activar, el estudio no puede crear claves
-  // y las que tuviera dejan de valer (lib/api-publica/servidor.ts). Los tokens
-  // OAuth de Zapier no dependen de esto.
+  // API pública: desde el 16-oct-2026 la tienen TODOS los estudios (decisión del
+  // fundador, que revierte la del 1-oct). Esto es el interruptor de apagado de
+  // uno concreto: desactivar revoca claves y webhooks y la API deja de valer en
+  // ese estudio (lib/api-publica/servidor.ts); activar solo quita la
+  // desactivación. Los tokens OAuth de Zapier no dependen de esto.
   if (cuerpo.accion === 'activar-api' || cuerpo.accion === 'desactivar-api') {
     const { data: acceso } = await db.from('api_acceso_estudios')
       .select('activada_en, desactivada_en').eq('studio_id', id).maybeSingle();
-    const activaAntes = !!acceso && !acceso.desactivada_en;
+    const activaAntes = apiActivaSegunFila(acceso);
     const activar = cuerpo.accion === 'activar-api';
     if (activar === activaAntes) {
-      return NextResponse.json({ error: activar ? 'La API ya está activada.' : 'La API no está activada.' }, { status: 409 });
+      return NextResponse.json({ error: activar ? 'La API ya está activada.' : 'La API ya está desactivada.' }, { status: 409 });
     }
     const nota = activar ? (cuerpo.nota ?? '').trim().slice(0, 500) || null : undefined;
     const { error } = activar
@@ -258,7 +259,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           studio_id: id, activada_en: new Date().toISOString(), activada_por: g.admin.userId,
           desactivada_en: null, nota,
         }, { onConflict: 'studio_id' })
-      : await db.from('api_acceso_estudios').update({ desactivada_en: new Date().toISOString() }).eq('studio_id', id);
+      // UPSERT, no UPDATE: casi ningún estudio tiene fila (sin fila = activa) y un
+      // UPDATE sobre cero filas «funciona» sin apagar nada.
+      : await db.from('api_acceso_estudios').upsert({
+          studio_id: id, activada_por: g.admin.userId, desactivada_en: new Date().toISOString(),
+        }, { onConflict: 'studio_id' });
     if (error) return NextResponse.json({ error: 'No se ha podido cambiar el acceso a la API.' }, { status: 500 });
 
     // Desactivar REVOCA las claves que llegan a la sede: las suyas y las de su

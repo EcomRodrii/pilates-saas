@@ -85,7 +85,7 @@ export function useApiPublica(): ApiPublica {
 export function resumenApiPublica(a: ApiPublica): string | null {
   if (a.error) return 'No se ha podido cargar';
   if (!a.datos) return null;
-  if (!a.datos.activada) return 'Sin activar';
+  if (!a.datos.activada) return 'Desactivada por Tentare';
   const activas = a.datos.claves.filter((c) => c.estado === 'activa');
   if (activas.length === 0) return 'Activada · ninguna clave todavía';
   const usos = activas.map((c) => c.ultimoUsoEn).filter((x): x is string => !!x).sort();
@@ -103,17 +103,17 @@ export function DetalleApiPublica({ a, showToast }: { a: ApiPublica } & Pick<Pro
 }
 
 function SinActivar() {
-  const enlace = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, quiero activar la API de Tentare para mi estudio.');
+  const enlace = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, la API de Tentare aparece desactivada en mi estudio y quiero saber por qué.');
   return (
     <div className="flex flex-col gap-4 pb-6">
       <p className="text-sm text-foreground text-pretty">
         La API permite que tu programa de contabilidad (u otra herramienta) lea por su cuenta tus cobros, facturas, devoluciones,
         ventas de la caja y alumnas, sin exportar nada a mano.
       </p>
-      <p className="text-sm text-foreground text-pretty">Todavía no está activada para tu estudio. Pídenosla y te la activamos.</p>
+      <p className="text-sm text-foreground text-pretty">Tentare la ha desactivado en tu estudio. Escríbenos y lo revisamos.</p>
       {enlace && (
         <a href={enlace} target="_blank" rel="noopener noreferrer" className={cn(btnPrimary, 'self-start no-underline')}>
-          Pedir la API por WhatsApp <ExternalLink size={14} aria-hidden />
+          Escribirnos por WhatsApp <ExternalLink size={14} aria-hidden />
         </a>
       )}
     </div>
@@ -287,7 +287,7 @@ function SedesDeLaClave({ sedes, abierto = false }: { sedes: SedeCadena[]; abier
           <li key={s.id} className="flex flex-wrap gap-x-2 text-foreground">
             <span>{s.nombre}</span>
             <code className="text-xs text-muted-foreground">{s.id}</code>
-            {!s.apiActivada && <span className="text-xs text-muted-foreground">· la API no está activada aquí: la clave no llegará hasta que la activemos</span>}
+            {!s.apiActivada && <span className="text-xs text-muted-foreground">· Tentare tiene la API desactivada en esta sede: la clave no llegará a ella</span>}
           </li>
         ))}
       </ul>

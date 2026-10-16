@@ -5,6 +5,7 @@ import { registrar } from '@/lib/interno/auditoria';
 import { esDePago } from '@/lib/interno/salud-estudio';
 import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
+import { apiActivaSegunFila } from '@/lib/api-publica/acceso';
 import { credencialesWellhub } from '@/lib/plataformas/wellhub/cliente';
 
 export const runtime = 'nodejs';
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
     salud,
     apiPublica: {
-      activa: !!apiAcceso.data && !apiAcceso.data.desactivada_en,
+      activa: apiActivaSegunFila(apiAcceso.data),
       activadaEn: (apiAcceso.data?.activada_en as string | null) ?? null,
       clavesActivas: apiClaves.count ?? 0,
     },
