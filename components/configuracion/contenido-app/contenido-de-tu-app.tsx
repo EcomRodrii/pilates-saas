@@ -15,6 +15,7 @@
 // cuanto se guarda, así que se guarda con su botón, nunca a medio escribir.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ArrowLeft, Check, ChevronDown, ChevronUp, ExternalLink, Eye, Image as ImageIcon, Loader2, Megaphone, Plus, Trash2, Upload, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
@@ -31,7 +32,7 @@ import {
 import type { EstadoGuardado } from '@/lib/configuracion/guardado-diferido';
 import type { BannerPortal, NovedadEstudio } from '@/lib/types';
 import { Toggle, btnSecondary, inputCls } from '@/components/configuracion/estilos';
-import { BOTON_VIVO } from '@/components/dashboard/vivo';
+import { BOTON_VIVO, FONDO_VISTA_MOVIL } from '@/components/dashboard/vivo';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { useGuardadoDiferido } from '@/components/theme/usar-guardado-diferido';
@@ -91,7 +92,7 @@ function Segmentado<T extends string>({ etiqueta, valor, opciones, onChange }: {
 
 function Bloque({ titulo, ayuda, children }: { titulo: React.ReactNode; ayuda?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2 border-t border-border pt-5 first:border-t-0 first:pt-0">
+    <section className="space-y-2">
       <h4 className="text-[14px] font-semibold text-foreground">{titulo}</h4>
       {ayuda && <p className="-mt-1 text-[12.5px] text-muted-foreground">{ayuda}</p>}
       {children}
@@ -123,8 +124,16 @@ function LineaEstado({ estado, frase, onReintentar }: { estado: EstadoGuardado; 
 function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
   banner: BannerPortal; hoy: string; onVolver: () => void; onAvisar: Avisar;
 }) {
-  const { updateBannerPortal, deleteBannerPortal } = useStudio();
+  const { updateBannerPortal, deleteBannerPortal, achievementDefinitions, challengeDefinitions, levelDefinitions, rewardCatalog } = useStudio();
   const idPublicar = useId();
+  // Los fallos de la foto, del interruptor y de eliminar se dicen JUNTO a lo que se tocó:
+  // arriba del todo quedaban fuera de vista en el móvil.
+  const [falloFoto, setFalloFoto] = useState<string | null>(null);
+  const [falloPublicar, setFalloPublicar] = useState<string | null>(null);
+  const [falloBorrar, setFalloBorrar] = useState<string | null>(null);
+  const [publicando, setPublicando] = useState(false);
+  // Logros sale vacío en su app si el estudio no tiene nada de motivación.
+  const sinMotivacion = !achievementDefinitions.length && !challengeDefinitions.length && !levelDefinitions.length && !rewardCatalog.length;
   const fileRef = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [borrar, setBorrar] = useState(false);
@@ -175,29 +184,40 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
     e.target.value = '';
     if (!file) return;
     setSubiendo(true);
+    setFalloFoto(null);
     const r = await subirBannerEstudio(banner.id, file);
-    if ('error' in r) { setSubiendo(false); onAvisar(r.error); return; }
+    if ('error' in r) { setSubiendo(false); setFalloFoto(r.error); return; }
     const res = await updateBannerPortal(banner.id, { imagenUrl: r.url });
     setSubiendo(false);
-    onAvisar(res.ok ? null : res.error);
+    setFalloFoto(res.ok ? null : res.error);
   }
 
   async function quitarFoto() {
     // Sin foto no sale: se apaga en la misma escritura, para no dejarla «publicada» sin salir.
     setSubiendo(true);
+    setFalloFoto(null);
     const res = await updateBannerPortal(banner.id, { imagenUrl: '', activo: false });
     setSubiendo(false);
-    if (!res.ok) { onAvisar(res.error); return; }
-    onAvisar(null);
+    if (!res.ok) { setFalloFoto(res.error); return; }
     void eliminarBannerEstudio(banner.id);
+  }
+
+  // El interruptor escribe solo, sin la cola de lo tecleado (otra columna), y enseña lo
+  // que confirma el servidor: nada optimista.
+  async function publicar(v: boolean) {
+    setPublicando(true);
+    setFalloPublicar(null);
+    const res = await updateBannerPortal(banner.id, { activo: v });
+    setPublicando(false);
+    if (!res.ok) setFalloPublicar(res.error);
   }
 
   async function eliminar() {
     setBorrar(false);
     await guardado.esperar();
+    setFalloBorrar(null);
     const res = await deleteBannerPortal(banner.id);
-    if (!res.ok) { onAvisar(res.error); return; }
-    onAvisar(null);
+    if (!res.ok) { setFalloBorrar(res.error); return; }
     // La foto, después de la fila: si borrar la fila fallara, la tarjeta seguiría con su foto.
     void eliminarBannerEstudio(banner.id);
     onVolver();
@@ -209,7 +229,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
   }
 
   return (
-    <div className="space-y-5" data-testid="editor-tarjeta">
+    <div className="space-y-6" data-testid="editor-tarjeta">
       <div>
         <button type="button" onClick={() => void listo()} className="zona-tactil -ml-2 inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13.5px] font-medium text-foreground hover:bg-muted">
           <ArrowLeft size={16} aria-hidden /> Tus tarjetas
@@ -220,7 +240,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
 
       <Bloque titulo="La foto" ayuda="Vertical o cuadrada, de tu sala o de una clase, mejor sin texto encima: el título va sobre ella.">
         <div className="flex flex-wrap items-start gap-4">
-          <div className="flex h-[134px] w-[118px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
+          <div className="flex h-[134px] w-[118px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-border bg-muted">
             {subiendo ? <Loader2 size={18} className="animate-spin text-muted-foreground" aria-hidden />
               // eslint-disable-next-line @next/next/no-img-element -- la foto que subió el estudio
               : conFoto ? <img src={banner.imagenUrl} alt="" className="h-full w-full object-cover" />
@@ -237,6 +257,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
             )}
             <p className="text-[12px] text-muted-foreground">JPG, PNG o WEBP, hasta 2 MB. Se ve recortada a la forma de la tarjeta, como en la vista previa.</p>
             {!conFoto && <p className="text-[12.5px] font-medium text-foreground">Sin foto no sale en su app: allí la foto es la tarjeta.</p>}
+            {falloFoto && <p role="alert" className="text-[12.5px] font-medium text-destructive">{falloFoto}</p>}
           </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void subirFoto(e)} className="hidden" aria-label="Foto de la tarjeta" />
         </div>
@@ -283,6 +304,12 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
             {!pantallaConocida && <option value={campos.pantalla}>La de antes: {campos.pantalla}</option>}
           </select>
         )}
+        {campos.modo === 'app' && campos.pantalla === '/logros' && sinMotivacion && (
+          <p className="text-[12.5px] text-foreground">
+            Aún no tienes logros, retos ni recompensas: en su app esa pantalla diría «Tu estudio aún no ha configurado esto».{' '}
+            <Link href="/configuracion?tab=motivacion&abrir=recompensas-y-logros" className="font-medium underline underline-offset-2">Crearlos</Link>
+          </p>
+        )}
         {campos.modo === 'web' && (
           <>
             <input
@@ -328,7 +355,8 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         {fechasAlReves && <p role="alert" className="text-[12.5px] text-destructive">«Hasta» es antes que «Desde»: así no saldría ningún día.</p>}
       </Bloque>
 
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3.5">
+      <div className="rounded-t-card border border-border bg-card px-4 py-3.5">
+       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[14px] font-semibold text-foreground">Que la vean en su app</p>
           <p id={idPublicar} className="text-[12.5px] text-muted-foreground">
@@ -339,13 +367,17 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         </div>
         <Toggle
           on={banner.activo}
-          onChange={v => guardado.cambiar({ activo: v }, true)}
+          onChange={v => void publicar(v)}
           ariaLabel="Que la vean en su app"
           describedBy={idPublicar}
           disabled={!banner.activo && !conFoto}
+          ocupado={publicando}
         />
+       </div>
+        {falloPublicar && <p role="alert" className="mt-2 text-[12.5px] font-medium text-destructive">No se ha cambiado: {falloPublicar}</p>}
       </div>
 
+      {falloBorrar && <p role="alert" className="text-[12.5px] font-medium text-destructive">No se ha eliminado: {falloBorrar}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
         <button type="button" onClick={() => setBorrar(true)} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13.5px] font-medium text-destructive hover:bg-destructive/10">
           <Trash2 size={15} aria-hidden /> Eliminar la tarjeta
@@ -403,7 +435,7 @@ function ListaTarjetas({ tarjetas, hoy, creando, moviendo, enfocar, posicion, on
           const nombre = t.titulo?.trim() || 'Tarjeta sin título';
           const conFoto = esUrlImagenValida(t.imagenUrl);
           return (
-            <li key={t.id} className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2 pr-3" data-testid="fila-tarjeta">
+            <li key={t.id} className="flex items-center gap-2 rounded-t-card border border-border bg-card p-2 pr-3" data-testid="fila-tarjeta">
               <div className="flex shrink-0 flex-col">
                 {/* `aria-disabled` mientras se guarda: con `disabled` el botón perdía el foco y había que volver a tabular. */}
                 <button type="button" aria-label={`Subir «${nombre}»`} disabled={i === 0} aria-disabled={moviendo || undefined}
@@ -418,15 +450,18 @@ function ListaTarjetas({ tarjetas, hoy, creando, moviendo, enfocar, posicion, on
                 </button>
               </div>
               <button type="button" data-fila-id={t.id} onClick={() => onEditar(t.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left hover:bg-muted/50">
-                <span className="flex h-14 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                <span className="flex h-[52px] w-[46px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-border bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element -- la foto que subió el estudio */}
                   {conFoto ? <img src={t.imagenUrl} alt="" className="h-full w-full object-cover" /> : <ImageIcon size={16} className="text-muted-foreground" aria-hidden />}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-semibold text-foreground">{nombre}</span>
-                  <span className="block truncate text-[12.5px] text-muted-foreground">{llevaA(t)}</span>
+                {/* El estado, debajo en el móvil y a la derecha desde `sm` (como la maqueta). */}
+                <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-semibold text-foreground">{nombre}</span>
+                    <span className="block truncate text-[12.5px] text-muted-foreground">{llevaA(t)}</span>
+                  </span>
                   {e && (
-                    <span className={cn('mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11.5px] font-medium', TONO[e.tono])}>
+                    <span className={cn('inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11.5px] font-medium', TONO[e.tono])}>
                       <span aria-hidden className={cn('h-2 w-2 rounded-full', PUNTO[e.tono])} />{e.texto}
                     </span>
                   )}
@@ -475,16 +510,19 @@ function VacioTarjetas({ creando, onNueva }: { creando: boolean; onNueva: () => 
 
 // ── El mensaje ───────────────────────────────────────────────────────────────
 
-function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQuitar, avisos, onPasar, textareaRef, pasado }: {
+function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQuitar, avisos, onPasar, onDeshacerPaso, textareaRef, pasado }: {
   guardado: string | null; borrador: string; onBorrador: (v: string) => void;
   estado: 'quieto' | 'guardando' | 'guardado';
   onGuardar: () => void; onQuitar: () => void;
   avisos: NovedadEstudio[]; onPasar: (a: NovedadEstudio) => void;
+  /** Vuelve al texto que había antes de pasar el aviso. */
+  onDeshacerPaso: () => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   pasado: string | null;
 }) {
   const limpio = mensajeParaLaApp(borrador);
   const cambiado = limpio !== guardado;
+  const [quitar, setQuitar] = useState(false);
   return (
     <div className="space-y-5" data-testid="editor-mensaje">
       <div>
@@ -508,11 +546,16 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
           <span className="text-[12.5px] text-muted-foreground">Mejor corto: en el móvil se lee entero, y uno largo empuja hacia abajo todo su inicio.</span>
           <Contador n={borrador.length} max={MAX_MENSAJE} />
         </div>
-        {pasado && cambiado && <p role="status" className="text-[12.5px] font-medium text-foreground">Lo tienes aquí: revísalo y guárdalo para que salga en su app.</p>}
+        {pasado && cambiado && (
+          <p role="status" className="text-[12.5px] font-medium text-foreground">
+            Lo tienes aquí: revísalo y guárdalo para que salga en su app.{' '}
+            <button type="button" onClick={onDeshacerPaso} className="font-medium underline underline-offset-2 hover:no-underline">Deshacer</button>
+          </p>
+        )}
       </Bloque>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
         {guardado ? (
-          <button type="button" onClick={onQuitar} disabled={estado === 'guardando'} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13.5px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50">
+          <button type="button" onClick={() => setQuitar(true)} disabled={estado === 'guardando'} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13.5px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50">
             <X size={15} aria-hidden /> Quitar el mensaje
           </button>
         ) : <span />}
@@ -526,6 +569,16 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
       <p role="status" aria-live="polite" className="-mt-2 min-h-5 text-[12.5px] text-muted-foreground">
         {estado === 'guardado' && !cambiado ? (guardado ? 'Guardado: ya sale en su app.' : 'Quitado: ya no sale en su app.') : null}
       </p>
+
+      <ConfirmDialog
+        open={quitar}
+        onOpenChange={setQuitar}
+        titulo="¿Quitar el mensaje?"
+        descripcion="Deja de salir en su app ahora mismo, y el texto no se guarda en ningún sitio."
+        textoConfirmar="Quitar el mensaje"
+        destructivo
+        onConfirm={() => { setQuitar(false); onQuitar(); }}
+      />
 
       {avisos.length > 0 && (
         <section className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4" aria-labelledby="avisos-de-antes">
@@ -543,7 +596,9 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
                   <span className="block truncate text-[13.5px] font-semibold text-foreground">{a.titulo}</span>
                   {a.texto && <span className="block truncate text-[12.5px] text-muted-foreground">{a.texto}</span>}
                 </span>
-                <button type="button" onClick={() => onPasar(a)} className={cn(btnSecondary, 'shrink-0 rounded-full')}>Pasar a mensaje destacado</button>
+                {limpio === mensajeParaLaApp(avisoComoMensaje(a))
+                  ? <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground"><Check size={14} className="text-success" aria-hidden /> Es tu mensaje</span>
+                  : <button type="button" onClick={() => onPasar(a)} className={cn(btnSecondary, 'shrink-0 rounded-full')}>Pasar a mensaje destacado</button>}
               </li>
             ))}
           </ul>
@@ -583,6 +638,7 @@ export function ContenidoDeTuApp() {
   const borrador = editado ?? contenidoPortal?.mensajeDestacado ?? '';
   const [estadoMensaje, setEstadoMensaje] = useState<'quieto' | 'guardando' | 'guardado'>('quieto');
   const [pasado, setPasado] = useState<string | null>(null);
+  const antesDelPaso = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const tarjetas = useMemo(() => enOrden(bannersPortal), [bannersPortal]);
@@ -637,6 +693,7 @@ export function ContenidoDeTuApp() {
 
   function pasarAMensaje(a: NovedadEstudio) {
     const texto = avisoComoMensaje(a);
+    if (!pasado) antesDelPaso.current = borrador;
     setBorrador(texto);
     setPasado(a.id);
     setEstadoMensaje('quieto');
@@ -665,7 +722,7 @@ export function ContenidoDeTuApp() {
   const panelVista = (cerrar?: () => void) => (
     <div
       className="flex flex-col items-center gap-3 rounded-[28px] px-4 py-6 sm:px-6"
-      style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
+      style={FONDO_VISTA_MOVIL}
     >
       <div className="flex w-full items-center justify-between gap-2">
         <span className="rounded-full bg-black/35 px-3 py-1 text-[13.5px] font-semibold text-white">Así lo ven tus alumnas</span>
@@ -705,6 +762,7 @@ export function ContenidoDeTuApp() {
         onQuitar={() => void guardarMensaje(null)}
         avisos={novedadesEstudio}
         onPasar={pasarAMensaje}
+        onDeshacerPaso={() => { setBorrador(antesDelPaso.current); setPasado(null); }}
         textareaRef={textareaRef}
         pasado={pasado}
       />

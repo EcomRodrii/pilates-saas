@@ -8,6 +8,7 @@ import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 
@@ -114,6 +115,8 @@ export function Topbar() {
       {/* `tactil:gap-2`: con el dedo, cada icono (36 px) gana 4 a cada lado hasta
           los 44 de su zona táctil; con 6 de hueco se pisaban 2. */}
       <div className="flex items-center gap-1.5 tactil:gap-2">
+        {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
+        <PrimerosPasosFlotante />
         <PildoraPrueba className="mr-1" />
         <IconButton
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
