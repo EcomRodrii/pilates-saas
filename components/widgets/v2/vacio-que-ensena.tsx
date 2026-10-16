@@ -8,6 +8,7 @@ import { CONFIG_POR_DEFECTO } from '@/lib/widgets/config';
 import { conVistaPrevia, urlEmbebido } from '@/lib/widgets/integracion';
 import { GrupoOpciones } from '../piezas';
 import { ICONOS } from '../paso-que';
+import { IphoneConWeb, useAnchoDe, useEscalaIphoneEn } from '../iphone-con-web';
 
 // La portada sin nada puesto («Tu web» v2, decisión 5; Bonsai b-20, el vacío
 // que enseña): qué consigue, por cuál de las cuatro empezar, el camino en
@@ -37,6 +38,9 @@ export function VacioQueEnsena({ slug, origen, colorEstudio, onEmpezar }: {
   const horario = principales.find(x => x.id === 'horario');
   // Su horario con lo de siempre, como lo verá su alumna (y con la marca de vista
   // previa, como la de los pasos).
+  // El iPhone del panel, a lo que quepa en la columna y en el alto de la ventana.
+  const [figura, anchoFigura] = useAnchoDe<HTMLElement>();
+  const escala = useEscalaIphoneEn(Math.max(0, anchoFigura - 40), { max: 0.85, reservado: 300 });
   const src = horario ? conVistaPrevia(urlEmbebido({ widget: horario, config: CONFIG_POR_DEFECTO, origen, slug, colorEstudio, pieza: null }, 'iframe')) : null;
 
   return (
@@ -77,20 +81,18 @@ export function VacioQueEnsena({ slug, origen, colorEstudio, onEmpezar }: {
       </div>
 
       {src && (
-        <figure className="m-0 min-w-0 rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
-          {/* Un móvil a 390 px de ancho, a escala: la página de verdad, sin poder tocarla (`inert`). */}
-          <div className="mx-auto w-[304px] max-w-full overflow-hidden rounded-[36px] border-[6px] border-[#1B1D19] bg-white shadow-xl">
-            <div className="relative h-[560px] overflow-hidden">
-              <iframe
-                src={src}
-                title="Tu horario, como lo verá tu alumna"
-                inert
-                tabIndex={-1}
-                loading="lazy"
-                className="pointer-events-none absolute left-0 top-0 h-[748px] w-[390px] origin-top-left scale-[0.7487] border-0"
-              />
-            </div>
-          </div>
+        <figure ref={figura} className="m-0 min-w-0 rounded-[28px] bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_88%,white),color-mix(in_srgb,var(--t-magenta-500)_72%,white))] p-5 dark:bg-[linear-gradient(140deg,color-mix(in_srgb,var(--t-blue-500)_55%,var(--background)),color-mix(in_srgb,var(--t-magenta-500)_45%,var(--background)))]">
+          {/* Su página de verdad en el iPhone del panel, sin poder tocarla (`inert`): es un escaparate. */}
+          <IphoneConWeb escala={escala} direccion={null} fondo="white" desplazable={false}>
+            <iframe
+              src={src}
+              title="Tu horario, como lo verá tu alumna"
+              inert
+              tabIndex={-1}
+              loading="lazy"
+              className="pointer-events-none block h-full w-full border-0"
+            />
+          </IphoneConWeb>
           <figcaption className="mt-4 text-center text-[12.5px] font-medium text-foreground/85 text-pretty">Así quedará en tu web: con tus clases de verdad, tus plazas libres y tu estilo.</figcaption>
         </figure>
       )}
