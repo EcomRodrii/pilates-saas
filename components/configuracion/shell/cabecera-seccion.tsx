@@ -1,12 +1,13 @@
 'use client';
 
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { Baldosa } from '@/components/dashboard/vivo';
 import { TONO_SECCION_CONFIG } from './tono-config';
 import { ICONOS_SECCION } from './lista-secciones';
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { grupoPanelNuevoDe, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { GRUPOS_PANEL_NUEVO, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
 import { hrefDeLugar } from '@/lib/configuracion/destino';
 import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
@@ -30,6 +31,9 @@ export function CabeceraSeccion({
   onVolver: () => void;
 }) {
   const panelNuevo = usePanelNuevo();
+  const miWebNueva = useMiWebNueva();
+  // En qué grupo estás (con el interruptor, «Mi app» y «Mi web» son grupos propios: lib/configuracion/mi-web-nueva.ts).
+  const grupo = gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva).find(g => g.secciones.includes(seccion.id));
   return (
     <>
       <div className="sticky top-12 z-20 -mx-4 flex h-14 items-center gap-1 border-b border-border bg-background/95 px-2 backdrop-blur md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
@@ -44,7 +48,7 @@ export function CabeceraSeccion({
         {panelNuevo && <span className="mr-2 hidden md:inline-flex"><Baldosa tono={TONO_SECCION_CONFIG[seccion.id] ?? 'azul'} Icono={ICONOS_SECCION[seccion.id]} /></span>}
         <span className="min-w-0">
           {/* Panel nuevo: en qué grupo estás, encima del título, para no perderse. */}
-          {panelNuevo && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupoPanelNuevoDe(seccion.id).titulo}</span>}
+          {panelNuevo && grupo && !grupoEsLaSeccion(grupo, seccion) && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupo.titulo}</span>}
           <h2
             id="seccion-titulo"
             ref={tituloRef}

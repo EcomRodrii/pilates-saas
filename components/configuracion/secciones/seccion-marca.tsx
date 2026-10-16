@@ -54,7 +54,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
   const { studio, dataLoaded, bannersPortal, contenidoPortal } = useStudio();
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
-  // «Tu app» (MI_WEB_NUEVA): primero lo de la app —cómo se ve, qué enseña y su app en la App Store—,
+  // «Mi app» (MI_WEB_NUEVA): primero lo de la app —cómo se ve, qué enseña y su app en la App Store—,
   // luego tu marca y tus textos. «Contenido de tu app» vive en los datos de `web` (su dirección de
   // siempre) pero se pinta aquí (lib/configuracion/mi-web-nueva.ts).
   const miWebNueva = useMiWebNueva();
@@ -109,7 +109,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
   return (
     <>
       {miWebNueva ? (
-        <GrupoFilas titulo="Tu app">
+        <GrupoFilas titulo="Cómo es tu app">
           {filaApariencia}
           <FilaHerramienta
             id="contenido-de-tu-app"

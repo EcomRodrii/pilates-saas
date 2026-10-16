@@ -29,8 +29,8 @@ const CAJONES = ['direccion-y-enlaces', 'pagina-publica'] as const satisfies rea
 export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
   const { studio, dataLoaded, updateStudio, bannersPortal } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
-  // «Tu web» (MI_WEB_NUEVA): solo lo de la web, en el orden del fundador (dirección, widgets, ocultar la
-  // página) y Network aparte. «Contenido de tu app» se pinta en «Tu app» (seccion-marca.tsx).
+  // «Mi web» (MI_WEB_NUEVA): solo lo de la web, en el orden del fundador (dirección, widgets, ocultar la
+  // página) y Network aparte. «Contenido de tu app» se pinta en «Mi app» (seccion-marca.tsx).
   const miWebNueva = useMiWebNueva();
 
   // Qué tarjetas siguen publicadas depende de la hora: se lee una vez al montar,
@@ -88,7 +88,7 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
   return (
     <>
       {miWebNueva ? (<>
-      <GrupoFilas titulo="Tu web">
+      <GrupoFilas titulo="Tu página y tus widgets">
         <FilaDireccionYEnlaces onAbrir={() => abrir('direccion-y-enlaces')} showToast={showToast} />
         <FilaHerramienta {...widgets} />
         <FilaAjuste id="pagina-publica" icono={EyeOff} valor={resumenPaginaPublica(paginaPublica)} onAbrir={abrir} />
