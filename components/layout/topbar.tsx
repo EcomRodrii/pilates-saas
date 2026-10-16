@@ -83,11 +83,14 @@ export function Topbar() {
     // de este fondo translúcido. La variable la escribe el propio menú al
     // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
     // cuando la barra crece de dos filas a tres.
-    // Glass ligero de la marca (brand/tokens.css): fondo al 80 % —que en claro
-    // es justo `--t-glass-light-bg`— y su desenfoque. El fondo sale de
-    // `--background` y no del token porque el glass en oscuro no está definido
-    // (OPEN DECISION): así sigue al modo, como siempre.
-    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-(--t-glass-light-blur)">
+    // ⚠️ OPACA (15-oct-2026, decisión 9 de «Mi app y mi web»). Antes era un glass
+    // al 80 % con desenfoque y lo que pasaba por debajo —filas de tabla, cabeceras
+    // pegajosas, la vista previa de Widgets— se leía a medias detrás de la
+    // barra, en claro y en oscuro. El fondo sigue saliendo de `--background` y no
+    // de un token de glass, así acompaña al modo. Una barra pegajosa no se vuelve
+    // translúcida: lo vigila `lib/barra-superior-opaca.test.ts` y se mide en
+    // `e2e/panel-nuevo-barra-opaca.spec.ts`.
+    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background">
       <div className="flex items-center gap-2 flex-1 max-w-[440px]">
         <button
           onClick={() => abrirBuscador(true)}
