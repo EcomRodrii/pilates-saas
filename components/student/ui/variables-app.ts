@@ -14,5 +14,6 @@ export const VARIABLES_APP = {
   '--subtle-foreground': '#6C7567',
   '--on-dark': '#FAF9F5',
   '--radius-card': '16px',
+  '--radius-sheet': '24px',
   '--shadow-card': '0 10px 24px -10px rgba(26,26,26,.14)',
 } as const;
