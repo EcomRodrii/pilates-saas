@@ -47,6 +47,7 @@ export function faseDeVersion(estado: string | null | undefined): FaseTienda {
     case 'PREPARE_FOR_SUBMISSION':
     case 'DEVELOPER_REJECTED':
     case 'READY_FOR_REVIEW':
+    case 'WAITING_FOR_EXPORT_COMPLIANCE': // espera una respuesta nuestra: no está en manos de Apple
       return 'preparando';
     case 'WAITING_FOR_REVIEW':
     case 'IN_REVIEW':
@@ -64,6 +65,8 @@ export function faseDeVersion(estado: string | null | undefined): FaseTienda {
     case 'READY_FOR_SALE':
     case 'REPLACED_WITH_NEW_VERSION':
       return 'publicada';
+    // Solo los da el antiguo `appStoreState`: `appVersionState` ya no tiene «retirada» (la retirada
+    // de la venta es de disponibilidad, no de la versión). Por eso `pasoDe` no la usa.
     case 'DEVELOPER_REMOVED_FROM_SALE':
     case 'REMOVED_FROM_SALE':
       return 'retirada';
