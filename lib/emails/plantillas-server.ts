@@ -130,6 +130,21 @@ export function interpolarPersonalizacion(
 // Se reexporta para no tocar los ~10 importadores que ya lo traen de aquí.
 export type { MarcaEstudio } from './marca.ts';
 
+/**
+ * El color de marca de un estudio para un correo que se arma fuera de `resolverMarcaEstudio`
+ * (avisos al equipo, a la gestoría, a una sustituta): el del tema publicado y, sin él, el de su
+ * preset; nunca la columna `studios.color_primario` a pelo, que es el índigo del alta en casi todos
+ * los estudios (ver lib/emails/color-marca.ts). `respaldo` solo si no se puede leer nada.
+ */
+export async function colorDeMarcaDelEstudio(studioId: string | null | undefined, respaldo?: string | null): Promise<string | null | undefined> {
+  try {
+    const marca = await resolverMarcaEstudio(studioId);
+    return marca.colorPrimario ?? respaldo;
+  } catch {
+    return respaldo;
+  }
+}
+
 // Resuelve el logo + color + slug de un estudio para pintarlos en sus correos
 // (lib/emails/estudio/, vía `marcaCorreoDesde`) y, si hace falta, enlazar a su
 // portal (bienvenida). Sin studioId devuelve {} y la plantilla cae a la marca

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { colorDeMarcaDelEstudio } from '@/lib/emails/plantillas-server';
 import { enviarEmailAccesoActivado } from '@/lib/emails/acceso-activado-server';
 import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import type { Rol } from '@/lib/types';
@@ -38,7 +39,7 @@ export async function avisarAlEstudioAccesoActivado(
       rol,
       emailCuenta,
       estudioNombre: (studio.nombre as string | null) ?? 'tu estudio',
-      colorPrimario: studio.color_primario as string | null,
+      colorPrimario: await colorDeMarcaDelEstudio(studioId, studio.color_primario as string | null),
       logoUrl: studio.logo_url as string | null,
     });
   } catch (e) {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { colorDeMarcaDelEstudio } from '@/lib/emails/plantillas-server';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 import { hashToken } from '@/lib/token-hash';
@@ -173,7 +174,7 @@ export async function contactarCandidata(
     to: cand.email,
     toName: cand.nombre,
     estudioNombre: estudio?.nombre ?? 'Tu estudio',
-    colorPrimario: estudio?.color_primario,
+    colorPrimario: await colorDeMarcaDelEstudio(studioId, estudio?.color_primario),
     logoUrl: estudio?.logo_url,
     claseNombre: tipo?.nombre ?? 'Clase',
     cuando: sesion?.inicio ? formatCuando(sesion.inicio) : '',
@@ -339,7 +340,7 @@ export async function alertarPropietaria(
   let email = false;
   if (destinatario) {
     const r = await enviarEmailAlertaPropietaria({
-      to: destinatario, estudioNombre, colorPrimario: estudio?.color_primario, logoUrl: estudio?.logo_url,
+      to: destinatario, estudioNombre, colorPrimario: await colorDeMarcaDelEstudio(studioId, estudio?.color_primario), logoUrl: estudio?.logo_url,
       claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
       yaContactando: params.yaContactando,

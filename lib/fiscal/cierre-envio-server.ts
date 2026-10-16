@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { colorDeMarcaDelEstudio } from '@/lib/emails/plantillas-server';
 import { computeCierreAnual, mapFacturaRow, mapIngresoManual } from '@/lib/fiscal/cierre-engine';
 import { enviarCierreAGestoria } from '@/lib/emails/cierre-gestoria-server';
 import { fetchAllRows } from '@/lib/supabase-data';
@@ -51,7 +52,7 @@ export async function generarYEnviarCierreGestoria(params: {
     estudioNombre: studio?.nombre ?? 'Tu estudio',
     estudioEmail: studio?.email,
     logoUrl: studio?.logo_url,
-    colorPrimario: studio?.color_primario,
+    colorPrimario: await colorDeMarcaDelEstudio(sid, studio?.color_primario),
     anio,
     trimestre,
     cierre,
