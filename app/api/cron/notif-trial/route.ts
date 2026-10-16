@@ -7,6 +7,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { barrerAlertasApertura } from '@/lib/opening/alertas-cron';
 import { revisarAppsSinPlan } from '@/lib/app-nativa/apps-sin-plan-cron';
+import { registrarSituacionDiaria } from '@/lib/retencion/situacion-diaria';
 
 export const dynamic = 'force-dynamic';
 // El ciclo de estudios vencidos puede, en modo activo, borrar Storage y R2 de
@@ -21,6 +22,8 @@ export const maxDuration = 120;
 // misma cadencia, sin crear un job de pg_cron ni un cron de Inngest nuevos.
 // Y, por lo mismo, las alertas de Opening OS (lib/opening/alertas-cron.ts) y el margen de 30 días
 // de la app de la App Store de quien deja de pagar Estudio/Cadena (lib/app-nativa/apps-sin-plan.ts).
+// Y el informe diario de bajas en seco (lib/retencion/situacion-diaria.ts), solo con
+// BAJAS_AUTOMATICAS=informe: escribe una fila por estudio y día, nada más.
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
@@ -55,9 +58,17 @@ export async function POST(req: NextRequest) {
     appsSinPlan = { error: 'Error revisando las apps de estudio sin plan.' };
   }
 
+  let situacionDiaria: unknown;
+  try {
+    situacionDiaria = await registrarSituacionDiaria(requireSupabaseAdmin());
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'retencion' } });
+    situacionDiaria = { error: 'Error escribiendo el informe diario de bajas.' };
+  }
+
   try {
     const resumen = await barrerTrialAvisos();
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan });
+    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, situacionDiaria });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'notif-trial' } });
     return errorInterno('cron/notif-trial:POST', err, 'Error avisando de prueba gratuita a punto de acabar.');

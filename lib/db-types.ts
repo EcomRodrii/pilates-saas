@@ -1122,6 +1122,10 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
+  // migr 20261016123000.
+  ultimo_uso_panel_en: string | null;
+  // migr 20261016123000.
+  ultimo_uso_app_en: string | null;
 }
 
 export interface RowSuscripciones {
@@ -4311,6 +4315,21 @@ export interface RowAppsEstudioCupos {
   creado_en: string;
 }
 
+export interface RowEstudioSituacionDiaria {
+  studio_id: string;
+  dia: string;
+  estado: string;
+  motivo: string | null;
+  variante: string | null;
+  paga: boolean | null;
+  gestion_limitada: boolean | null;
+  servicio_alumnas_suspendido: boolean | null;
+  cobros_automaticos_pausados: boolean | null;
+  senales: any;
+  avisos: string[];
+  calculado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -5804,6 +5823,8 @@ export type StudiosInsert = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  ultimo_uso_panel_en?: string | null | null;
+  ultimo_uso_app_en?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5962,6 +5983,8 @@ export type StudiosUpdate = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  ultimo_uso_panel_en?: string | null | null;
+  ultimo_uso_app_en?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -11940,6 +11963,36 @@ export type AppsEstudioCuposUpdate = {
   creado_en?: string | null;
 }
 
+export type EstudioSituacionDiariaInsert = {
+  studio_id?: string | null;
+  dia?: string | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  variante?: string | null | null;
+  paga?: boolean | null | null;
+  gestion_limitada?: boolean | null | null;
+  servicio_alumnas_suspendido?: boolean | null | null;
+  cobros_automaticos_pausados?: boolean | null | null;
+  senales?: any | null;
+  avisos?: string[] | null;
+  calculado_en?: string | null;
+}
+
+export type EstudioSituacionDiariaUpdate = {
+  studio_id?: string | null;
+  dia?: string | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  variante?: string | null | null;
+  paga?: boolean | null | null;
+  gestion_limitada?: boolean | null | null;
+  servicio_alumnas_suspendido?: boolean | null | null;
+  cobros_automaticos_pausados?: boolean | null | null;
+  senales?: any | null;
+  avisos?: string[] | null;
+  calculado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13272,6 +13325,11 @@ export type Database = {
         Row: RowAppsEstudioCupos;
         Insert: AppsEstudioCuposInsert;
         Update: AppsEstudioCuposUpdate;
+      };
+      estudio_situacion_diaria: {
+        Row: RowEstudioSituacionDiaria;
+        Insert: EstudioSituacionDiariaInsert;
+        Update: EstudioSituacionDiariaUpdate;
       };
     };
   };

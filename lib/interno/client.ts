@@ -253,6 +253,10 @@ export const fetchVisitaGuiada = () =>
 export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
   pedir<{ ok: true; cambiados?: number; nuevos?: boolean }>('/visita-guiada', { method: 'POST', body: JSON.stringify(cuerpo) });
 
+// Bajas (en seco): lo que diría la máquina de estados de bajas, sin hacer nada.
+export const fetchBajas = (hoy?: string) =>
+  pedir<import('./bajas.ts').RespuestaBajas>(`/bajas${hoy ? `?hoy=${encodeURIComponent(hoy)}` : ''}`);
+
 // Apps de estudio: la cola de «Pedir mi app» (la tramita el equipo desde /interno/apps-estudio).
 export interface AppDeEstudioInterna {
   studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean;
