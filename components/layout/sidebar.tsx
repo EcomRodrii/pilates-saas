@@ -23,6 +23,7 @@ import { filtrarItemsMenu, ordenarItemsMenu, type MenuPosicion } from '@/lib/lay
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
@@ -599,7 +600,11 @@ export function Sidebar() {
             `justify-between` en el contenedor: la píldora no se pinta si el
             estudio no está en prueba, y con justify-between el logo se
             quedaría centrado a veces y a la izquierda otras. */}
-        <PildoraPrueba className="ml-auto" />
+        <div className="ml-auto flex items-center">
+          {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
+          <PrimerosPasosFlotante />
+          <PildoraPrueba />
+        </div>
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
