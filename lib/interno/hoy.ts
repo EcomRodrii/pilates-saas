@@ -208,7 +208,11 @@ export interface Cifra {
   motivo: string | null;
 }
 
-export const eur = (n: number) => `${n.toLocaleString('es-ES', { maximumFractionDigits: 2 })} €`;
+// `useGrouping: 'always'`: en es-ES, Intl no pone el punto de miles a los
+// números de cuatro cifras («1247 €»), y en una cifra de dinero se lee mal.
+const NUMERO = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2, useGrouping: 'always' as unknown as boolean });
+export const miles = (n: number) => NUMERO.format(n);
+export const eur = (n: number) => `${miles(n)} €`;
 const conSigno = (n: number, f: (x: number) => string = String) => (n > 0 ? `+${f(n)}` : n < 0 ? `−${f(-n)}` : f(0));
 
 /**
@@ -288,7 +292,7 @@ export function cifrasDelNegocio(e: EntradaCifras): Cifra[] {
       cambio = { texto: pct === 0 ? 'Igual que la semana anterior' : `${conSigno(pct)} % que la semana anterior`, sube: pct === 0 ? null : pct > 0 };
     }
     cifras.push({
-      id: 'reservas', titulo: 'Reservas (7 días)', valor: ultimos7.toLocaleString('es-ES'), motivo: null,
+      id: 'reservas', titulo: 'Reservas (7 días)', valor: miles(ultimos7), motivo: null,
       fuente: 'Reservas hechas en toda la plataforma', cambio,
     });
   }

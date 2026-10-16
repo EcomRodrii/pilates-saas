@@ -128,7 +128,8 @@ test('las cifras dicen el cambio frente al periodo anterior y su fuente', () => 
     actividad: { ahora: 58, antes: 52 },
     reservas: { ultimos7: 4912, anteriores7: 5012 },
   });
-  assert.equal(mrr.valor, '1247 €'.replace('1247', (1247).toLocaleString('es-ES')));
+  assert.equal(reservas.valor, '4.912');
+  assert.equal(mrr.valor, '1.247 €');
   assert.deepEqual(mrr.cambio, { texto: '+118 € en 30 días', sube: true });
   assert.match(mrr.fuente, /Stripe/);
   assert.deepEqual(pagan.cambio, { texto: '+3 altas · −1 baja en 30 días', sube: true });
