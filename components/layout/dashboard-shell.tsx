@@ -80,7 +80,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // El panel nuevo (14-oct-2026): sus secciones propias (Festivos) entran en el
   // menú y en el título de la pestaña; y trae su propia guía (más abajo).
   const panelNuevo = useInterruptor('panelNuevo', studio?.id);
-  const miWebNueva = useInterruptor('miWebNueva', studio?.id);
 
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
@@ -92,13 +91,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Manager" al cargar el estudio de una propietaria). Con "Tentare" a secas
   // mientras carga no se afirma un rol que aún no se conoce.
   useEffect(() => {
-    const item = seccionesDelMenu(panelNuevo, miWebNueva)
+    const item = seccionesDelMenu(panelNuevo)
       .flatMap(s => s.items)
       .filter(i => pathname === i.href || pathname.startsWith(i.href + '/'))
       .sort((a, b) => b.href.length - a.href.length)[0];
     const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
     document.title = item ? `${marca} · ${item.label}` : marca;
-  }, [pathname, rol, rolResuelto, panelNuevo, miWebNueva]);
+  }, [pathname, rol, rolResuelto, panelNuevo]);
 
   // Gate de suscripción. `estadoBilling` es fail-open: solo devuelve bloqueado=true
   // cuando BILLING_ENFORCED=true Y Stripe está configurado Y no hay suscripción

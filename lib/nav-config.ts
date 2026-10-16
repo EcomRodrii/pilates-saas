@@ -213,8 +213,7 @@ export const bottomNavItems: NavItemDef[] = [
 // escribía y la propietaria no tenía forma de enterarse sin ir a buscarlo.
 // '/festivos' (14-oct-2026) entra para que se vea con el menú en «Esencial», el de
 // serie: un módulo que se enciende en Módulos y no sale en el menú no está encendido.
-// '/tu-app' y '/tu-web' (16-oct-2026, MI_WEB_NUEVA): en el menú de serie, como módulos que se pueden ocultar.
-export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos', '/tu-app', '/tu-web'];
+export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

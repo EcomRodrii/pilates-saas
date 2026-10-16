@@ -10,7 +10,7 @@ import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
 import { modulosDelMenu } from '@/lib/nav-panel-nuevo';
-import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { ajustesParaBuscadorGlobal, sinTareasRepetidas } from '@/lib/configuracion/buscar';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
@@ -178,7 +178,6 @@ export function GlobalSearch({
   const { rol, puedeVer } = usePermisos();
   // Con el panel nuevo, también sus secciones propias (Festivos).
   const panelNuevo = usePanelNuevo();
-  const miWebNueva = useMiWebNueva();
   const tareasRes = useMemo(
     // Y, si la tarea lleva a Configuración, que este rol abra de verdad esa
     // sección y esa tarjeta: `puedeVer('/configuracion')` ya no basta desde que
@@ -195,7 +194,7 @@ export function GlobalSearch({
   const modulosRes = useMemo(() => {
     if (q.length < 1) return [];
     const nq = normalizar(q);
-    return modulosDelMenu(panelNuevo, miWebNueva)
+    return modulosDelMenu(panelNuevo)
       .filter(m => puedeVer(m.href))
       .map(m => {
         // Los alias puntúan por debajo del rótulo real: quien escribe el
@@ -212,7 +211,7 @@ export function GlobalSearch({
       .sort((a, b) => b.punt - a.punt)
       .slice(0, 4)
       .map(x => x.m);
-  }, [q, puedeVer, panelNuevo, miWebNueva]);
+  }, [q, puedeVer, panelNuevo]);
 
   // Ajustes de Configuración («IVA» → Datos fiscales e IVA), con el mismo
   // buscador que su inicio y solo las secciones que este rol abre. «Sedes» se
