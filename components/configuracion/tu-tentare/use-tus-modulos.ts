@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePermisos } from '@/lib/permisos';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { fetchLayout, guardarLayoutApi, olvidarLayout } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -30,6 +30,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
 } = {}) {
   const { puedeVer } = usePermisos();
   const panelNuevo = usePanelNuevo();
+  const miWebNueva = useMiWebNueva();
   const [ocultos, setOcultos] = useState<string[] | null>(null);
   const [activados, setActivados] = useState<string[]>([]);
   const [errorLectura, setErrorLectura] = useState(false);
@@ -60,7 +61,7 @@ export function useTusModulos({ onCambio, bloqueado = false, onGuardando }: {
   }, []);
 
   // Módulos no sale en su propia pantalla: no se puede ocultar y es donde se está.
-  const grupos = gruposTuTentare(puedeVer, seccionesDelMenu(panelNuevo))
+  const grupos = gruposTuTentare(puedeVer, seccionesDelMenu(panelNuevo, miWebNueva))
     .map(g => ({ ...g, modulos: g.modulos.filter(m => m.href !== HREF_MODULOS) }))
     .filter(g => g.modulos.length > 0);
   const vistos = new Set(ocultos ?? []);

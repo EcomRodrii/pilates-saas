@@ -20,7 +20,7 @@
 
 export type SeccionId =
   | 'estudio' | 'clases' | 'reservas' | 'cobros' | 'altas' | 'comunicacion'
-  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'demo' | 'avisos' | 'panel';
+  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'avisos' | 'panel';
 
 /**
  * Cómo se guarda lo que hay dentro. Solo `al-pulsar` se anuncia en pantalla
@@ -326,22 +326,6 @@ export const SECCIONES = [
       { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },
-  // La demo en vídeo (8-oct-2026, petición del fundador): un recorrido por TODA
-  // Configuración, sección por sección, para enseñar a una propietaria nueva.
-  // Es de quien lleva la sede (propietaria y gerencia), y lo que enseña lo ve
-  // cada una con sus secciones. Los capítulos y el vídeo viven en
-  // lib/configuracion/demo.ts; aquí solo hay una fila que dice que existe.
-  {
-    id: 'demo',
-    titulo: 'Demo',
-    resumen: 'Un vídeo que configura todo, paso a paso',
-    frase: 'Mira cómo se configura Tentare entero, sección por sección, con un estudio de ejemplo.',
-    roles: SEDE,
-    palabras: ['vídeo', 'tutorial', 'aprender', 'formación', 'guía'],
-    tarjetas: [
-      { id: 'video-de-la-demo', titulo: 'Vídeo de la demo', frase: 'Cada sección de Configuración explicada con un ejemplo, y un índice para saltar al minuto que te interesa.', guardado: 'lectura', roles: SEDE, palabras: ['capítulos', 'índice', 'paso a paso'] },
-    ],
-  },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
   // (/configuracion/notificaciones) o que se abrían desde Apariencia
   // (/configuracion/apariencia/panel). Sus URLs siguen llevando aquí (destino.ts).
@@ -457,7 +441,6 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
   { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
-  { id: 'aprende', titulo: 'Aprende', secciones: ['demo'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 
@@ -483,7 +466,6 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
   { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', frase: 'Otras herramientas que usas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
-  { id: 'aprende', titulo: 'Aprende', frase: 'Tentare de principio a fin, en vídeo.', secciones: ['demo'] },
 ];
 
 /** El grupo del panel nuevo al que pertenece una sección. */
