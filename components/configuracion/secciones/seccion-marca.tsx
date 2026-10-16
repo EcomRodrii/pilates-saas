@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Image as ImageIcon, MessageSquareQuote, Palette, Type } from 'lucide-react';
+import { Image as ImageIcon, MessageSquareQuote, Palette, Smartphone, Type } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -17,6 +17,10 @@ import { DetalleLogoYFavicon } from '@/components/configuracion/tab-marca';
 import { DetallePresentacion, DetalleTextosBienvenida } from '@/components/configuracion/tab-textos-app';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
+import { resumenHerramienta } from '@/lib/configuracion/resumenes';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Marca: cómo te reconocen tus alumnas. El logo estaba en «Mi app y mi web» y el
 // color en otra pantalla (/configuracion/apariencia/panel); ahora van juntos.
@@ -47,9 +51,19 @@ function resumenApariencia(tema: ThemeConfig | null): string | null {
 }
 
 export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded } = useStudio();
+  const { studio, dataLoaded, bannersPortal } = useStudio();
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  // «Tu app» (MI_WEB_NUEVA): primero lo de la app —cómo se ve, qué enseña y su app en la App Store—,
+  // luego tu marca y tus textos. «Contenido de tu app» vive en los datos de `web` (su dirección de
+  // siempre) pero se pinta aquí (lib/configuracion/mi-web-nueva.ts).
+  const miWebNueva = useMiWebNueva();
+  const pedirApp = useInterruptor('pedirApp', studio?.id);
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render.
+    if (miWebNueva) setAhoraMs(Date.now());
+  }, [miWebNueva]);
 
   // Editar la marca es de PROPIETARIO con suscripción activa (va en todos los
   // planes desde el 2-oct-2026) — lo exige
@@ -82,8 +96,37 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
     showToast(texto);
   }
 
+  const filaApariencia = (
+    <FilaExterna
+      id="color-de-marca"
+      icono={Palette}
+      titulo={tarjetaPorId('color-de-marca').titulo}
+      valor={resumenApariencia(tema)}
+      descripcion={tarjetaPorId('color-de-marca').frase}
+      href="/configuracion/apariencia"
+    />
+  );
   return (
     <>
+      {miWebNueva ? (
+        <GrupoFilas titulo="Tu app">
+          {filaApariencia}
+          <FilaHerramienta
+            id="contenido-de-tu-app"
+            valor={resumenHerramienta('contenido-de-tu-app', { contenido: dataLoaded && ahoraMs > 0 ? { tarjetas: bannersPortal, ahoraMs } : null })}
+          />
+          {pedirApp && soyPropietaria && (
+            <FilaExterna
+              id="app-en-la-tienda"
+              icono={Smartphone}
+              titulo="Tu app en la App Store"
+              valor={null}
+              descripcion="Tu app con tu nombre y tu icono en la App Store: pídela y mira en qué punto está."
+              href="/configuracion/apariencia?paso=instalar"
+            />
+          )}
+        </GrupoFilas>
+      ) : null}
       <GrupoFilas titulo="Tu marca">
         <FilaAjuste
           id="logo-y-favicon"
@@ -96,14 +139,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
           })}
           onAbrir={abrir}
         />
-        <FilaExterna
-          id="color-de-marca"
-          icono={Palette}
-          titulo={tarjetaPorId('color-de-marca').titulo}
-          valor={resumenApariencia(tema)}
-          descripcion={tarjetaPorId('color-de-marca').frase}
-          href="/configuracion/apariencia"
-        />
+        {!miWebNueva && filaApariencia}
       </GrupoFilas>
 
       <GrupoFilas titulo="Lo que leen tus alumnas">

@@ -1,0 +1,73 @@
+import { test, expect, type Page, type Route } from '@playwright/test';
+import { montar, ir } from './panel-sembrado';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Tu app» y «Tu web» SOLO dentro de Configuración (MI_WEB_NUEVA, 16-oct-2026, corrección del
+// fundador: «en el menú principal no lo quiero, solo en configuración»). Con el interruptor:
+//   · «Marca» se llama «Tu app»: Apariencia, Contenido de tu app y su app en la App Store, y debajo
+//     tu marca y tus textos;
+//   · «Mi app y mi web» se llama «Tu web»: dirección, widgets y ocultar la página; Network aparte;
+//   · nada de esto en el menú lateral.
+// Sin el interruptor, Configuración como siempre. Deja capturas en test-results/ para enseñarlas.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.use({ timezoneId: 'Europe/Madrid' });
+test.describe.configure({ timeout: 120_000 });
+
+const json = (r: Route, b: unknown, status = 200) =>
+  r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+
+async function abrir(page: Page, ruta: string, miWeb: boolean) {
+  await montar(page);
+  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, {
+    filtrosClientas: false, importarPegando: false, invitarWhatsApp: false, horarioDesdeImagen: false,
+    nivelesConRitmo: false, tarjetaClase: false, panelNuevo: true, pedirApp: true, miWebNueva: miWeb,
+  }));
+  await ir(page, ruta);
+}
+
+const titulo = (page: Page) => page.locator('#seccion-titulo');
+
+for (const ancho of [1440, 375] as const) {
+  test(`encendido (${ancho}): «Tu app» con lo de la app y «Tu web» con lo de la web, sin entrada en el menú`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: ancho === 375 ? 812 : 900 });
+    await abrir(page, 'configuracion?tab=marca', true);
+    await expect(titulo(page)).toHaveText('Tu app', { timeout: 60_000 });
+    const app = page.locator('main');
+    await expect(app.getByText('Apariencia de tu app').first()).toBeVisible();
+    await expect(app.getByText('Contenido de tu app').first()).toBeVisible();
+    await expect(app.getByText('Tu app en la App Store').first()).toBeVisible();
+    await expect(app.locator('a#app-en-la-tienda')).toHaveAttribute('href', '/configuracion/apariencia?paso=instalar');
+    await page.screenshot({ path: `test-results/configuracion-tu-app-${ancho}-despues.png`, fullPage: true });
+
+    await abrir(page, 'configuracion?tab=web', true);
+    await expect(titulo(page)).toHaveText('Tu web', { timeout: 60_000 });
+    await expect(page.locator('main').getByText('Widgets para tu web').first()).toBeVisible();
+    await expect(page.locator('main').getByText('Contenido de tu app')).toHaveCount(0);
+    await page.screenshot({ path: `test-results/configuracion-tu-web-${ancho}-despues.png`, fullPage: true });
+
+    // Ninguna entrada propia en el menú lateral.
+    await expect(page.locator('aside').getByRole('link', { name: 'Tu app', exact: true })).toHaveCount(0);
+    await expect(page.locator('aside').getByRole('link', { name: 'Tu web', exact: true })).toHaveCount(0);
+  });
+
+  test(`apagado (${ancho}): Configuración como siempre`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: ancho === 375 ? 812 : 900 });
+    await abrir(page, 'configuracion?tab=marca', false);
+    await expect(titulo(page)).toHaveText('Marca', { timeout: 60_000 });
+    await expect(page.locator('main').getByText('Tu app en la App Store')).toHaveCount(0);
+    await page.screenshot({ path: `test-results/configuracion-tu-app-${ancho}-antes.png`, fullPage: true });
+    await abrir(page, 'configuracion?tab=web', false);
+    await expect(titulo(page)).toHaveText('Mi app y mi web', { timeout: 60_000 });
+    await expect(page.locator('main').getByText('Contenido de tu app').first()).toBeVisible();
+    await page.screenshot({ path: `test-results/configuracion-tu-web-${ancho}-antes.png`, fullPage: true });
+  });
+}
+
+test('encendido: «Contenido de tu app» abierto desde «Tu app» vuelve a «Tu app»', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await abrir(page, 'configuracion?tab=marca', true);
+  await expect(titulo(page)).toHaveText('Tu app', { timeout: 60_000 });
+  await page.locator('main').getByText('Contenido de tu app').first().click();
+  await expect(page.getByRole('button', { name: /Volver a Tu app/ }).or(page.getByRole('link', { name: /Volver a Tu app/ })).first()).toBeVisible({ timeout: 60_000 });
+});

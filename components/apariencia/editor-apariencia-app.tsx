@@ -317,6 +317,17 @@ export function EditorAparienciaApp() {
   const irAPaso = (p: PasoAsistente) => { setPasoEstado(p); setPantalla(p === 'entrada' ? 'entrada' : 'inicio'); };
   // Sin dirección de la app (sin slug) no hay nada que instalar: ese paso no sale.
   const pasos = studio?.slug ? PASOS : PASOS.filter(p => p.id !== 'instalar');
+  // `?paso=instalar` abre directamente un paso: lo usa la fila «Tu app en la App Store» de
+  // Configuración (MI_WEB_NUEVA). Se lee una vez, al tener el estudio, y solo si ese paso existe.
+  const pasoDeLaUrl = useRef(false);
+  useEffect(() => {
+    if (pasoDeLaUrl.current || !studio) return;
+    pasoDeLaUrl.current = true;
+    const pedido = new URLSearchParams(window.location.search).get('paso');
+    const valido = pasos.find(p => p.id === pedido);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La URL solo se puede leer tras montar.
+    if (valido) irAPaso(valido.id);
+  }, [studio, pasos]);
 
   useEffect(() => {
     let vivo = true;
