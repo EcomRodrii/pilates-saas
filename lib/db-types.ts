@@ -1252,6 +1252,8 @@ export interface RowVentasPos {
   checkout_session_id: string | null;
   // migr 20260913020635.
   matricula_cupo_plan_id: string | null;
+  // migr 20261016115731.
+  codigo_descuento_id: string | null;
 }
 
 export interface RowVideosOnDemand {
@@ -6106,6 +6108,7 @@ export type VentasPosInsert = {
   anulada_motivo?: string | null | null;
   checkout_session_id?: string | null | null;
   matricula_cupo_plan_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
 }
 
 export type VentasPosUpdate = {
@@ -6143,6 +6146,7 @@ export type VentasPosUpdate = {
   anulada_motivo?: string | null | null;
   checkout_session_id?: string | null | null;
   matricula_cupo_plan_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
 }
 
 export type VideosOnDemandInsert = {

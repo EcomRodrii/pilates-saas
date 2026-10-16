@@ -5,7 +5,8 @@ import { MENSAJE_CODIGO_YA_USADO } from '../lib/pos/tipos.ts';
 // Un código de descuento vale una vez por clienta también en la Caja (decisión del
 // fundador, 16-oct-2026). Quien lo sabe es el servidor (`registrar_venta_pos`, con el
 // mismo índice que los cobros online): la Caja se entera por la vista previa o por la
-// venta (409 CODIGO_YA_USADO_POR_SOCIA), quita el código y lo dice bajo su campo.
+// venta (409 CODIGO_YA_USADO_POR_SOCIA), quita el código y lo dice bajo su campo. Y si
+// es el cobro el que no sale, el código no se gasta: sigue puesto para el reintento.
 //
 // ⚠️ Es dinero: cada camino cuenta las peticiones. Que no salga «Cobrado» no prueba
 // nada si nadie llegó a intentar cobrar.
@@ -77,4 +78,49 @@ test('si es la venta la que lo rechaza, no se da por cobrada, se dice por qué y
   await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
   expect(cuenta.ventas).toHaveLength(2);
   expect(cuenta.ventas[1]).toMatchObject({ codigoDescuentoId: null, totalEsperado: 145 });
+});
+
+test('si el datáfono rechaza la tarjeta, el código sigue puesto y el siguiente intento lo lleva otra vez', async ({ page }) => {
+  // Al anular la venta, el servidor devuelve el uso del código (`fallar_pago_venta_pos`,
+  // migr 20261016115731): la tarjeta rechazada no lo gasta. La Caja tiene que dejarlo
+  // puesto para el reintento, con el mismo total, y no quitarlo como si ya no valiera.
+  const pendiente = (intento: number) => ({
+    ventaId: `vpos-${intento}`, numero: intento, subtotal: 145, descuento: 13, baseImponible: 109.09, ivaTotal: 22.91,
+    total: 132, cambio: null, estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO', pago: { referencia: `pi_${intento}`, url: null },
+  });
+  const cuenta = await abrirCaja(
+    page,
+    (r, cuerpo) => json(r, cuerpo.codigoDescuentoId ? CON_CODIGO : CON_MATRICULA),
+    (r, _cuerpo, intento) => json(r, pendiente(intento)),
+    {
+      codigos: [CODIGO],
+      datafono: true,
+      confirmar: (r, cuerpo) => cuerpo.ventaId === 'vpos-1'
+        ? json(r, { ventaId: 'vpos-1', numero: 1, estado: 'ANULADA', pagoEstado: 'RECHAZADO', total: 132, motivo: 'El banco ha rechazado la tarjeta.' })
+        : json(r, { ventaId: 'vpos-2', numero: 2, estado: 'PAGADA', pagoEstado: 'PAGADO', total: 132 }),
+    },
+  );
+  await bonoParaLaura(page);
+  await aplicarCodigo(page);
+  await page.getByRole('button', { name: 'Cobrar 132,00 €' }).click();
+  await hoja(page).getByRole('button', { name: /^Datáfono/ }).click();
+
+  await expect(hoja(page).getByText('No se ha completado el cobro')).toBeVisible({ timeout: 20_000 });
+  await expect(hoja(page).getByText(/rechazado la tarjeta/)).toBeVisible();
+  await expect(page.getByText('Cobrado', { exact: true })).toHaveCount(0);
+  // Se intentó de verdad: una venta con el código y a nombre de Laura, y su consulta al banco.
+  expect(cuenta.ventas).toHaveLength(1);
+  expect(cuenta.ventas[0]).toMatchObject({ socioId: 'soc-2', codigoDescuentoId: 'cod-bienvenida', totalEsperado: 132 });
+  expect(cuenta.confirmaciones.length).toBeGreaterThan(0);
+
+  // El reintento es una venta nueva, con el código otra vez y el mismo total: nada dice
+  // que el código ya no valga.
+  await hoja(page).getByRole('button', { name: 'Probar otra vez' }).click();
+  await hoja(page).getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 20_000 });
+  expect(cuenta.ventas).toHaveLength(2);
+  expect(cuenta.ventas[1]).toMatchObject({ socioId: 'soc-2', codigoDescuentoId: 'cod-bienvenida', totalEsperado: 132 });
+  expect(cuenta.ventas[1].idempotenciaClave).not.toBe(cuenta.ventas[0].idempotenciaClave);
+  await expect(page.getByTestId('aviso-total-cambiado')).toHaveCount(0);
+  await expect(page.getByText(/ya ha usado este código/)).toHaveCount(0);
 });
