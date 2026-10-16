@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  emailDelIntento, esAvisoPuenteListo, nonceValido, sesionAutenticadaPorEmailDespuesDe, TOLERANCIA_PUENTE_MS,
-  TIPO_EMAIL_DEL_INTENTO, TIPO_PUENTE_LISTO,
+  emailDelIntento, encargoDelIntento, esAvisoPuenteListo, mensajeEncargo, nonceValido, resultadoDelPuente,
+  sesionAutenticadaPorEmailDespuesDe, sesionPorContrasenaDespuesDe, TOLERANCIA_PUENTE_MS,
+  TIPO_EMAIL_DEL_INTENTO, TIPO_ENCARGO_ACCESO, TIPO_ENLACE_ENVIADO, TIPO_PUENTE_LISTO, TIPO_RESULTADO_ACCESO,
+  urlPuente, urlReservarCompleta,
 } from './puente-sesion.ts';
 
 function b64url(obj: unknown): string {
@@ -121,4 +123,106 @@ test('el puente acepta el email de su intento, y solo con forma de email', () =>
   assert.equal(emailDelIntento({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE, email: 'nueva@example.com' }, NONCE), null);
   // Un puente sin nonce válido no tiene intento: no acepta nada.
   assert.equal(emailDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, email: 'nueva@example.com' }, null), null);
+});
+
+// ── El acceso entero en la ventana de Tentare (16-oct-2026) ──────────────────
+// La site key de Turnstile da 110200 fuera de tentare.app: el widget encarga el
+// acceso a la ventana del puente. Estas son las reglas de forma de ese
+// intercambio; el origen y la ventana los comprueba quien escucha.
+
+test('el encargo que manda el widget es exactamente el que acepta el puente', () => {
+  const conClave = mensajeEncargo(NONCE, { accion: 'password', email: 'socia@example.com', password: 'secreto-123' });
+  assert.equal(conClave.tipo, TIPO_ENCARGO_ACCESO);
+  assert.deepEqual(encargoDelIntento(conClave, NONCE), { accion: 'password', email: 'socia@example.com', password: 'secreto-123' });
+  const enlace = mensajeEncargo(NONCE, { accion: 'enlace', email: ' nueva@example.com ' });
+  assert.deepEqual(encargoDelIntento(enlace, NONCE), { accion: 'enlace', email: 'nueva@example.com' });
+});
+
+test('el puente no acepta el encargo de otro intento, ni sin intento', () => {
+  const m = mensajeEncargo(NONCE, { accion: 'enlace', email: 'socia@example.com' });
+  assert.equal(encargoDelIntento(m, 'otro-intento-cualquiera'), null);
+  assert.equal(encargoDelIntento(m, null), null);
+  assert.equal(encargoDelIntento({ ...m, nonce: undefined }, NONCE), null);
+});
+
+test('el puente rechaza encargos con forma rara', () => {
+  const base = { tipo: TIPO_ENCARGO_ACCESO, nonce: NONCE };
+  // Acción desconocida (p. ej. pedir un alta o un OAuth que no existe aquí).
+  assert.equal(encargoDelIntento({ ...base, accion: 'signup', email: 'a@example.com', password: 'x' }, NONCE), null);
+  assert.equal(encargoDelIntento({ ...base, accion: 'oauth', email: 'a@example.com' }, NONCE), null);
+  // Email sin forma de email, o de otro tipo.
+  assert.equal(encargoDelIntento({ ...base, accion: 'enlace', email: 'no-es-un-email' }, NONCE), null);
+  assert.equal(encargoDelIntento({ ...base, accion: 'enlace', email: ['a@example.com'] }, NONCE), null);
+  assert.equal(encargoDelIntento({ ...base, accion: 'enlace', email: `${'a'.repeat(250)}@example.com` }, NONCE), null);
+  // Contraseña vacía, no texto o absurdamente larga.
+  assert.equal(encargoDelIntento({ ...base, accion: 'password', email: 'a@example.com', password: '' }, NONCE), null);
+  assert.equal(encargoDelIntento({ ...base, accion: 'password', email: 'a@example.com', password: 123456 }, NONCE), null);
+  assert.equal(encargoDelIntento({ ...base, accion: 'password', email: 'a@example.com', password: 'x'.repeat(257) }, NONCE), null);
+  // Otro tipo de mensaje (el «listo», el email suelto de antes).
+  assert.equal(encargoDelIntento({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE, accion: 'enlace', email: 'a@example.com' }, NONCE), null);
+  assert.equal(encargoDelIntento({ tipo: TIPO_EMAIL_DEL_INTENTO, nonce: NONCE, accion: 'enlace', email: 'a@example.com' }, NONCE), null);
+  assert.equal(encargoDelIntento(null, NONCE), null);
+  assert.equal(encargoDelIntento('tentare-widget-acceso', NONCE), null);
+});
+
+test('un encargo de enlace no arrastra una contraseña', () => {
+  const r = encargoDelIntento({ tipo: TIPO_ENCARGO_ACCESO, nonce: NONCE, accion: 'enlace', email: 'a@example.com', password: 'colada' }, NONCE);
+  assert.deepEqual(r, { accion: 'enlace', email: 'a@example.com' });
+});
+
+test('el widget acepta del puente una sesión, un error o «correo enviado», solo de su intento', () => {
+  assert.deepEqual(
+    resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, ok: true, nonce: NONCE, access_token: 'a.b.c', refresh_token: 'r1' }, NONCE),
+    { tipo: 'sesion', access_token: 'a.b.c', refresh_token: 'r1' },
+  );
+  assert.deepEqual(
+    resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, ok: false, nonce: NONCE, error: ' Email o contraseña incorrectos. ' }, NONCE),
+    { tipo: 'error', error: 'Email o contraseña incorrectos.' },
+  );
+  assert.deepEqual(resultadoDelPuente({ tipo: TIPO_ENLACE_ENVIADO, nonce: NONCE }, NONCE), { tipo: 'enlace-enviado' });
+  // De otro intento, o sin intento en curso: nada.
+  assert.equal(resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, ok: true, nonce: 'otro-intento-cualquiera', access_token: 'a', refresh_token: 'r' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ tipo: TIPO_ENLACE_ENVIADO, nonce: NONCE }, null), null);
+});
+
+test('el widget descarta resultados incompletos o raros', () => {
+  const base = { tipo: TIPO_RESULTADO_ACCESO, nonce: NONCE };
+  assert.equal(resultadoDelPuente({ ...base, ok: true, access_token: 'a.b.c' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ ...base, ok: true, access_token: '', refresh_token: 'r' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ ...base, ok: true, access_token: 1, refresh_token: 'r' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ ...base, ok: false }, NONCE), null);
+  assert.equal(resultadoDelPuente({ ...base, ok: false, error: '   ' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ ...base, ok: 'true', access_token: 'a', refresh_token: 'r' }, NONCE), null);
+  assert.equal(resultadoDelPuente({ tipo: TIPO_PUENTE_LISTO, nonce: NONCE }, NONCE), null);
+  // Un error largo se recorta: es una frase para la alumna.
+  const largo = resultadoDelPuente({ ...base, ok: false, error: 'x'.repeat(5_000) }, NONCE);
+  assert.equal(largo?.tipo, 'error');
+  assert.equal(largo && 'error' in largo ? largo.error.length : 0, 300);
+});
+
+test('la sesión de la contraseña del puente: solo método password y posterior a abrirlo', () => {
+  const reciente = jwt({ amr: [{ method: 'password', timestamp: seg(ABIERTO_EN + 2_000) }] });
+  assert.equal(sesionPorContrasenaDespuesDe(reciente, ABIERTO_EN), true);
+  const vieja = jwt({ amr: [{ method: 'password', timestamp: seg(ABIERTO_EN - 3_600_000) }] });
+  assert.equal(sesionPorContrasenaDespuesDe(vieja, ABIERTO_EN), false);
+  for (const method of ['otp', 'oauth', 'token_refresh', 'anonymous', 'magiclink']) {
+    const token = jwt({ amr: [{ method, timestamp: seg(ABIERTO_EN + 1_000) }] });
+    assert.equal(sesionPorContrasenaDespuesDe(token, ABIERTO_EN), false, method);
+  }
+  assert.equal(sesionPorContrasenaDespuesDe('basura', ABIERTO_EN), false);
+  assert.equal(sesionPorContrasenaDespuesDe(reciente, Number.NaN), false);
+  // Y la del correo sigue sin aceptar una de contraseña (el filtro de siempre).
+  assert.equal(sesionAutenticadaPorEmailDespuesDe(reciente, ABIERTO_EN), false);
+});
+
+test('la URL del puente lleva el origen de quien la abre y el nonce, escapados', () => {
+  const url = new URL(urlPuente('https://www.tentare.app', 'mi estudio', 'https://estudio.example.com', NONCE));
+  assert.equal(url.origin, 'https://www.tentare.app');
+  assert.equal(url.pathname, '/widget-auth-retorno');
+  assert.equal(url.searchParams.get('slug'), 'mi estudio');
+  assert.equal(url.searchParams.get('origenEstudio'), 'https://estudio.example.com');
+  assert.equal(url.searchParams.get('nonce'), NONCE);
+  // Ni el email ni la contraseña viajan nunca en la URL.
+  assert.equal([...url.searchParams.keys()].sort().join(','), 'nonce,origenEstudio,slug');
+  assert.equal(urlReservarCompleta('https://www.tentare.app', 'a/b'), 'https://www.tentare.app/reservar/a%2Fb');
 });

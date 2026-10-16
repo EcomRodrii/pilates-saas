@@ -220,6 +220,44 @@ fiable como el storage de terceros lo permita en cada navegador.
 
 ## 5. Captcha
 
+> **Corregido el 16-oct-2026, medido en producción: Turnstile NO funciona en la
+> web del estudio.** La site key de producción solo da token en los hostnames que
+> Cloudflare tiene autorizados (tentare.app); en cualquier otro contesta con el
+> error **110200** («domain not authorized») y no hay token. Con el captcha
+> exigido a nivel de proyecto, nadie podía entrar ni darse de alta desde el
+> widget sin marco en NINGUNA web, y añadir cada dominio de estudio en Cloudflare
+> no escala (el plan gratuito admite un puñado). El diseño de abajo (Turnstile
+> dentro del Shadow Root) queda **retirado**: ni el bundle carga Turnstile ni
+> llama a gotrue para entrar (lo vigila `lib/widget/acceso-en-tentare.test.ts`).
+>
+> Lo que hay ahora: el widget abre en el propio clic la ventana del puente
+> (`/widget-auth-retorno`, en tentare.app) y le **encarga** el acceso —entrar con
+> contraseña o mandar el correo— por `postMessage` (`lib/widget/puente-sesion.ts`,
+> `encargoDelIntento`). La ventana pasa el captcha (`useCaptcha`, el de siempre),
+> llama a gotrue y devuelve la sesión solo a `destino`. Modelo de amenazas:
+> - **Destino resuelto en servidor** contra `widget_dominios_autorizados`; sin
+>   destino la ventana no acepta encargos ni manda nada.
+> - El encargo solo se acepta de **la ventana que abrió esta** (`e.source ===
+>   window.opener`), desde `destino` y con el **nonce**; **uno por ventana** (no
+>   sirve para probar contraseñas en bucle con el captcha ya pasado).
+> - El widget solo acepta respuestas de **Tentare** (`e.origin === baseUrl`), de
+>   **su** ventana (`e.source`) y con **su** nonce. La contraseña viaja solo a esa
+>   ventana con `targetOrigin` = Tentare; ningún mensaje va a `'*'`.
+> - La sesión de la contraseña sale de un cliente **sin almacenamiento**
+>   (`persistSession: false`): no toca la sesión guardada en tentare.app ni la
+>   deja guardada (dos dueños del mismo refresh token se lo revocan al rotarlo), y
+>   se comprueba igual que la del correo: método `password` posterior a abrir la
+>   ventana. Igual que antes (§7.1), la web listada recibe la sesión de quien entra
+>   en ella; nada que no obtuviera ya con la contraseña tecleada en su DOM.
+> - **Sin ventana** (bloqueador, la alumna la cierra, o la web corta el vínculo
+>   con COOP): el widget lo detecta (`window.open` nulo o `closed`) y ofrece la
+>   página de reservas entera, `/reservar/<slug>`, en tentare.app.
+>
+> Pendiente de mirar en Safari real (WebKit de Playwright no es Safari de iOS):
+> que la ventana abierta desde el clic dentro del Shadow Root conserve
+> `window.opener` en iOS (se abre como pestaña), que `window.close()` la cierre y
+> vuelva a la web del estudio, y el reto de Turnstile cuando pide interacción.
+
 **Se exige, sin excepción — Turnstile dentro del Shadow Root, misma
 combinación `execution:'execute'`+`appearance:'interaction-only'` ya medida en
 producción.**

@@ -93,6 +93,13 @@ const SPECS_WEBKIT = [
   // el fetch con CORS igual que otro es justo lo que no se puede dar por hecho.
   // Tres tests; mismo criterio de coste que los de arriba.
   '**/widget-codigo-por-id.spec.ts',
+  // Entrar desde la nativa (16-oct-2026): la web del estudio abre una ventana de
+  // Tentare en otro SITIO y hablan por `window.opener` + `postMessage`, que es
+  // justo lo que cada motor resuelve distinto (y lo que se rompe en Safari si se
+  // abre después de un `await`). La sufre quien quiere reservar desde el iPhone.
+  // Cinco tests: en local, con la máquina cargada, ~24-35 s de trabajo en Chromium y
+  // ~65 s en WebKit (sumando por test). En CI, medirlo en los `timings-*`.
+  '**/widget-nativa-acceso-otro-dominio.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',
