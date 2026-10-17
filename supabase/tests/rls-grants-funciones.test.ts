@@ -40,6 +40,14 @@ const CASOS: Caso[] = [
   // queda ningún llamador fuera de `admin.rpc(...)` — solo service_role.
   { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'mis_estudios()', anon: false, authenticated: true, serviceRole: true },
+  // Créditos y stock del catálogo: solo servidor (migr 20261017130000). Ninguna pantalla las llama; las
+  // RPC de canje las usan por dentro como su dueño. Mostrador podía restar saldo sin apunte y subir stock.
+  { firma: 'ajustar_creditos(text, text, integer, integer, integer)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ajustar_stock(text, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  // Las RPC de canje que SÍ llama el panel: abiertas a authenticated, con su guardia de rol dentro.
+  { firma: 'canjear_recompensa(text, text, text, text)', anon: false, authenticated: true, serviceRole: true },
+  { firma: 'cancelar_canje(text, text)', anon: false, authenticated: true, serviceRole: true },
+  { firma: 'entregar_canje(text, text, text)', anon: false, authenticated: true, serviceRole: true },
   // Qué conexiones están encendidas, solo el tipo (migr 20261007144207): la llama
   // el panel con la sesión del equipo, porque `integraciones` solo la lee la propietaria.
   { firma: 'integraciones_activas()', anon: false, authenticated: true, serviceRole: true },
@@ -226,6 +234,24 @@ test('las SECURITY DEFINER ejecutables por anon son solo las conocidas', async (
     `ya no son ejecutables por anon (¿se cerraron o cambiaron de firma?): ${faltan.join(', ')}. `
     + 'Quítalas de ANON_EJECUTABLES_CONOCIDAS, o si cambió la firma, actualízala.',
   );
+});
+
+// El libro de créditos y canjes lo escribe solo el servidor (migr 20261017130000): el navegador
+// (`authenticated`) lee, no escribe, y ninguna política permisiva de escritura lo reabriría.
+test('el libro de créditos y canjes no es escribible por authenticated ni anon', async () => {
+  const tablas = ['reward_redemptions', 'credit_transactions', 'reward_history', 'reward_actions', 'member_credits'];
+  const abiertas = await sql<{ tabla: string; rol: string; privilegio: string }[]>`
+    select t as tabla, r as rol, p as privilegio
+    from unnest(${tablas}::text[]) t, unnest(array['authenticated','anon']) r, unnest(array['INSERT','UPDATE','DELETE']) p
+    where has_table_privilege(r, 'public.' || t, p)
+  `;
+  assert.deepEqual([...abiertas], [], `tablas del libro escribibles desde el navegador: ${JSON.stringify(abiertas)}`);
+  const politicas = await sql<{ tablename: string; policyname: string }[]>`
+    select tablename, policyname from pg_policies
+    where schemaname = 'public' and tablename = any(${tablas}::text[])
+      and cmd in ('INSERT','UPDATE','DELETE') and permissive = 'PERMISSIVE'
+  `;
+  assert.deepEqual([...politicas], [], `políticas permisivas de escritura en el libro: ${JSON.stringify(politicas)}`);
 });
 
 test.after(async () => { await sql.end(); });
