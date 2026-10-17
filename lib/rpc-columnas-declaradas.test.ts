@@ -45,7 +45,7 @@ const CONTRATOS = [
     fn: 'dbOtorgarCreditoDisparador',
   },
   {
-    rpc: 'cancelar_canje',
+    rpc: 'cancelar_canje_con_motivo',
     fichero: 'lib/supabase-data.ts',
     fn: 'dbCancelarCanje',
   },

@@ -31,6 +31,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
   const {
     rewardRules,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
+    rewardRedemptions,
     studio,
   } = useStudio();
 
@@ -310,6 +311,22 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
           <p className="text-[13px] text-muted-foreground">
             ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las alumnas ya no podrán canjearla.
           </p>
+          {(() => {
+            // Los canjes ya hechos NO se borran: siguen en «Canjes» con el nombre
+            // de la recompensa, y los pendientes se pueden entregar o cancelar
+            // (cancelar devuelve los {moneda} a la alumna) igual que antes.
+            const canjes = rewardRedemptions.filter(r => r.catalogItemId === confirmDel?.id);
+            const pendientes = canjes.filter(r => r.estado === 'PENDIENTE').length;
+            if (canjes.length === 0) return null;
+            return (
+              <p data-testid="eliminar-recompensa-canjes" className="mt-2 text-[12px] text-muted-foreground">
+                {pendientes > 0
+                  ? `Tiene ${pendientes} ${pendientes === 1 ? 'canje pendiente' : 'canjes pendientes'} de entregar. Seguirán en «Canjes» y podrás entregarlos o cancelarlos. `
+                  : ''}
+                {`Sus ${canjes.length === 1 ? '1 canje' : `${canjes.length} canjes`} quedan en el historial. Si solo quieres que no se pueda canjear, ocúltala en vez de eliminarla.`}
+              </p>
+            );
+          })()}
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>
             <button
