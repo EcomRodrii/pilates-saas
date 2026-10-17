@@ -5,7 +5,7 @@ import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPor
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
   estiloBoton, firmaCodigo, conVistaPrevia, botonSigueElEstilo, colorBoton, idIframe, type EntradaIntegracion,
-  paresNativa, lectorDePares, tieneDisenoEnCodigo,
+  paresNativa, lectorDePares, tieneDisenoEnCodigo, ofreceSoloHorario,
 } from './integracion.ts';
 import { huella } from './huella.ts';
 import { usaBotonVivo, type BotonVivo } from './boton-vivo.ts';
@@ -25,7 +25,10 @@ function w(id: string): WidgetDisponible {
   return x;
 }
 function entrada(id: string, parcial: Partial<ConfigConstructor> = {}): EntradaIntegracion {
-  return { widget: w(id), config: { ...CONFIG_POR_DEFECTO, ...parcial }, origen: ORIGEN, slug: SLUG, colorEstudio: '#7A2E4F' };
+  // `soloHorario: false`: el código de ANTES de «Tu horario, tus clases». Los literales de este fichero son lo que
+  // ya está pegado en las webs, y sin la opción no se mueve ni un carácter; el código nuevo, con ella, se prueba
+  // más abajo (`describe` de «Tu horario, tus clases»).
+  return { widget: w(id), config: { ...CONFIG_POR_DEFECTO, soloHorario: false, ...parcial }, origen: ORIGEN, slug: SLUG, colorEstudio: '#7A2E4F' };
 }
 const params = (url: string) => new URL(url).searchParams;
 
@@ -92,7 +95,8 @@ test('basura en lo guardado cae al default, nunca rompe', () => {
   assert.deepEqual(c.tiposPlan, ['BONO']);
   assert.equal(c.etiqueta, null);
   assert.equal(c.forma, null);
-  assert.deepEqual(leerConfig(null), CONFIG_POR_DEFECTO);
+  // Leer lo guardado NUNCA enciende «Tu horario, tus clases»: lo pegado y lo publicado de antes no lo llevaba.
+  assert.deepEqual(leerConfig(null), { ...CONFIG_POR_DEFECTO, soloHorario: false });
 });
 
 // ── URL del iframe/popup: lo que el motor lee de verdad ──────────────────────
@@ -741,4 +745,48 @@ ${scriptSnippetIframe({ origen: ORIGEN, slug: SLUG, iframeId: idIframe(e) })}`;
       assert.equal(generarCodigo(conVivo(sin), metodo, plataforma).codigo, generarCodigo(sin, metodo, plataforma).codigo, `${x.id}/${metodo}/${plataforma}`);
     }
   }
+});
+
+// ── «Tu horario, tus clases» (`solo=1`) ──────────────────────────────────────
+
+test('«Tu horario, tus clases»: el código NUEVO del horario lleva `solo=1`, y sin la opción no cambia nada', () => {
+  const nuevo = urlEmbebido({ ...entrada('horario'), config: { ...CONFIG_POR_DEFECTO } });
+  assert.equal(nuevo, `${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&solo=1&ref=web-horario`);
+  assert.equal(urlEmbebido(entrada('horario', { soloHorario: true })), nuevo);
+  // Apagada, exactamente el código de siempre.
+  assert.equal(urlEmbebido(entrada('horario')), `${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario`);
+  // Encima de la página (popup) también: es la misma página dentro de una ventana.
+  assert.match(urlEmbebido({ ...entrada('horario'), config: { ...CONFIG_POR_DEFECTO } }, 'popup'), /[?&]solo=1(&|$)/);
+});
+
+test('«Tu horario, tus clases» solo existe donde la página entera va en un marco y el widget es el horario', () => {
+  const dentro = (id: string, metodo: 'iframe' | 'popup' | 'nativa' | 'boton' | 'enlace') => ofreceSoloHorario(w(id), metodo);
+  assert.equal(dentro('horario', 'iframe'), true);
+  assert.equal(dentro('horario', 'popup'), true);
+  // Sin marco no se pinta la página de reservas; el botón y el enlace abren la completa a propósito.
+  for (const m of ['nativa', 'boton', 'enlace'] as const) assert.equal(dentro('horario', m), false, m);
+  // La clase de prueba ya es una vista única; los demás widgets no son el horario.
+  for (const id of ['prueba', 'planes', 'bonos', 'contacto', 'equipo', 'estudio', 'citas', 'cuenta']) assert.equal(dentro(id, 'iframe'), false, id);
+  // Con la opción encendida, ninguno de esos la emite.
+  const todos = { ...CONFIG_POR_DEFECTO, soloHorario: true };
+  for (const id of ['prueba', 'planes', 'contacto', 'equipo']) {
+    assert.doesNotMatch(urlEmbebido({ ...entrada(id), config: todos }), /[?&]solo=/, id);
+  }
+  assert.doesNotMatch(urlPagina({ ...entrada('horario'), config: todos }), /solo=/);
+});
+
+test('«Tu horario, tus clases» no llega a la integración sin marco', () => {
+  const nativa = paresNativa({ ...entrada('horario'), config: { ...CONFIG_POR_DEFECTO } });
+  assert.equal(nativa.some(([k]) => k === 'solo'), false);
+});
+
+test('el borrador de aquí enciende la opción cuando falta (código nuevo), pero lo guardado apagado o encendido manda', () => {
+  assert.equal(leerConfigs({ horario: { tipos: ['tc-r'] } }).horario.soloHorario, true);
+  assert.equal(leerConfigs({ horario: { soloHorario: false } }).horario.soloHorario, false);
+  assert.equal(leerConfigs({ horario: { soloHorario: true } }).horario.soloHorario, true);
+  // Un widget que no la tiene no la enciende (no se emite y no debe salir como «sin publicar»).
+  assert.equal(leerConfigs({ planes: { tiposPlan: ['BONO'] } }).planes.soloHorario, false);
+  assert.equal(leerConfigs({ prueba: {} }).prueba.soloHorario, false);
+  // Y leer lo publicado o lo copiado nunca la enciende.
+  assert.equal(leerConfig({ tipos: ['tc-r'] }).soloHorario, false);
 });
