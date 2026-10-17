@@ -245,13 +245,13 @@ test('el libro de créditos y canjes no es escribible por authenticated ni anon'
     from unnest(${tablas}::text[]) t, unnest(array['authenticated','anon']) r, unnest(array['INSERT','UPDATE','DELETE']) p
     where has_table_privilege(r, 'public.' || t, p)
   `;
-  assert.deepEqual(abiertas, [], `tablas del libro escribibles desde el navegador: ${JSON.stringify(abiertas)}`);
+  assert.deepEqual([...abiertas], [], `tablas del libro escribibles desde el navegador: ${JSON.stringify(abiertas)}`);
   const politicas = await sql<{ tablename: string; policyname: string }[]>`
     select tablename, policyname from pg_policies
     where schemaname = 'public' and tablename = any(${tablas}::text[])
       and cmd in ('INSERT','UPDATE','DELETE') and permissive = 'PERMISSIVE'
   `;
-  assert.deepEqual(politicas, [], `políticas permisivas de escritura en el libro: ${JSON.stringify(politicas)}`);
+  assert.deepEqual([...politicas], [], `políticas permisivas de escritura en el libro: ${JSON.stringify(politicas)}`);
 });
 
 test.after(async () => { await sql.end(); });
