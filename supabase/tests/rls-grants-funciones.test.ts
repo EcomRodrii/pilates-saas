@@ -193,7 +193,6 @@ test('ninguna función SECURITY DEFINER que recibe p_studio_id o p_socio_id es e
 const ANON_EJECUTABLES_CONOCIDAS = [
   // Trigger functions: nacen con EXECUTE por el ACL por defecto, pero no se pueden
   // invocar como RPC («trigger functions can only be called as triggers»).
-  'member_credits_caducidad()',
   'red_experiencias_proteger_verificacion()',
   'red_perfiles_identidad_proteger_verificacion()',
   'red_perfiles_proteger_verificacion()',
