@@ -11,6 +11,8 @@ import { inputCls } from '@/components/configuracion/estilos';
 import { widgetsVisibles, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import type { ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, nombrePlataforma, usaBotonPropio, type PlataformaWeb, type Receta } from '@/lib/widgets/recetas';
+import { ofreceSoloHorario } from '@/lib/widgets/integracion';
+import { NOMBRE_SOLO_HORARIO } from '@/lib/widgets/solo-horario';
 import type { TipoPlan } from '@/lib/types';
 import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta, useEtiquetasDeCambio, useTextosPublicar } from './piezas';
 
@@ -427,7 +429,7 @@ export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario =
   if (w.contenido.includes('horario')) {
     return (
       <Tarjeta titulo={tituloHorario} etiqueta={etiqueta} subtitulo={siCambia}>
-        <ContenidoHorario c={c} metodo={metodo} cambiar={cambiar} datos={datos} />
+        <ContenidoHorario c={c} metodo={metodo} cambiar={cambiar} datos={datos} conSolo={ofreceSoloHorario(w, metodo)} />
         {reglas}
       </Tarjeta>
     );
@@ -479,11 +481,13 @@ export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario =
 
 type Orden = 'dias' | 'columnas' | 'semana';
 
-function ContenidoHorario({ c, metodo, cambiar, datos }: {
+function ContenidoHorario({ c, metodo, cambiar, datos, conSolo }: {
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   datos: DatosPanel;
+  /** «Tu horario, tus clases» se ofrece aquí (dentro de una página o encima, y es el horario). */
+  conSolo: boolean;
 }) {
   const nativa = metodo === 'nativa';
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
@@ -513,6 +517,15 @@ function ContenidoHorario({ c, metodo, cambiar, datos }: {
 
   return (
     <>
+      {conSolo && (
+        // A la vista, la primera: lo que se ve DEBAJO del horario es lo primero que nota quien lo pega.
+        <AjusteInterruptor
+          etiqueta={NOMBRE_SOLO_HORARIO}
+          descripcion="Solo se ven tus clases y reservar. Sin tus bonos ni tus cuotas debajo."
+          on={c.soloHorario}
+          onChange={v => cambiar({ soloHorario: v })}
+        />
+      )}
       <Ajuste etiqueta="Cómo se ordena">
         <GrupoOpciones
           etiqueta="Cómo se ordena"

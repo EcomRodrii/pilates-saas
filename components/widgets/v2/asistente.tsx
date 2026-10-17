@@ -267,6 +267,8 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
               )}
               showToast={s.showToast}
               variante="v2"
+              avisoSolo={s.filasTienes.find(f => f.id === w.id)?.soloHorario ?? null}
+              onActivarSolo={() => s.activarSoloHorario(w.id)}
               onCambiarWeb={() => onPaso('donde')}
               // Sin diseño que poner con un enlace ni con el botón de su propia web.
               colores={metodo !== 'enlace' && !(metodo === 'boton' && usaBotonPropio(plataforma)) ? (

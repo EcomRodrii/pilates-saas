@@ -10,6 +10,7 @@ import { METODOS, widgetPorId, type CategoriaWidget } from '@/lib/widgets/catalo
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { Baldosa, BotonVivo, type Tono } from '@/components/dashboard/vivo';
 import { textoCambios, textosEnTuWeb, unirGrupos, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
+import type { AvisoSoloHorario } from '@/lib/widgets/solo-horario';
 import { FOCO, TACTIL, Tarjeta, fechaCorta } from './piezas';
 import { ICONOS } from './paso-que';
 import type { EstiloWebPanel } from './usar-estilo-web';
@@ -51,6 +52,8 @@ export interface FilaTienes {
    * que lo cambie una sola vez.
    */
   codigoAntiguo: boolean;
+  /** Lo pegado es de antes de «Tu horario, tus clases»: cómo recuperarlo (lib/widgets/solo-horario.ts). */
+  soloHorario: AvisoSoloHorario | null;
 }
 
 /** El tono de la baldosa de cada pieza, por su categoría (panel nuevo). */

@@ -14,10 +14,11 @@
 // arreglar algo que no lo rompe. El resto, en el orden aprobado.
 
 import { chipEnTuWeb, textoCambios, textosEnTuWeb, versionPidePegar, type ChipEnTuWeb, type PiezaCopiada } from './en-tu-web.ts';
+import type { AvisoSoloHorario } from './solo-horario.ts';
 
-export type ClaveAviso = 'desfase' | 'version' | 'codigo-antiguo' | 'diseno-propio' | 'web-sin-autorizar' | 'boton-de-antes';
+export type ClaveAviso = 'desfase' | 'version' | 'codigo-antiguo' | 'diseno-propio' | 'web-sin-autorizar' | 'boton-de-antes' | 'solo-horario';
 /** Lo que hace el botón del aviso: lo resuelve la pantalla. */
-export type AccionAviso = 'copiar' | 'estilo-comun' | 'webs-autorizadas';
+export type AccionAviso = 'copiar' | 'estilo-comun' | 'webs-autorizadas' | 'activar-solo-horario';
 
 export interface AvisoFila {
   clave: ClaveAviso;
@@ -43,10 +44,12 @@ export interface EntradaFila {
   conListaDeWebs: boolean;
   /** Lo pegado es un código de antes del código por id y ella puede pasarse al de ahora. */
   codigoAntiguo: boolean;
+  /** Lo pegado es de antes de «Tu horario, tus clases» y el horario puede salir con los bonos debajo (./solo-horario.ts). */
+  soloHorario: AvisoSoloHorario | null;
 }
 
 /** El orden en que se decide el único aviso. El primero que encaja gana. */
-export const ORDEN: readonly ClaveAviso[] = ['web-sin-autorizar', 'desfase', 'version', 'codigo-antiguo', 'diseno-propio', 'boton-de-antes'];
+export const ORDEN: readonly ClaveAviso[] = ['web-sin-autorizar', 'solo-horario', 'desfase', 'version', 'codigo-antiguo', 'diseno-propio', 'boton-de-antes'];
 
 /** El nombre del botón que la publica en su web (decisión 1: un solo verbo). */
 const PUBLICAR = '«Publicar en mi web»';
@@ -58,6 +61,9 @@ type Regla = (f: EntradaFila, ahora: number | null) => AvisoFila | null;
  * `ClaveAviso`: un tipo nuevo sin regla no compila.
  */
 export const REGLAS: Record<ClaveAviso, Regla> = {
+  // Después de «no carga» y antes de todo lo demás: es lo que un estudio ve DEBAJO de su horario (los bonos
+  // y las cuotas que no quiere), y copiar el código nuevo arregla además lo que sea que esté pendiente.
+  'solo-horario': f => (f.soloHorario ? { clave: 'solo-horario', texto: f.soloHorario.texto, accion: f.soloHorario.accion } : null),
   desfase: f => (f.pieza.desfasado
     ? { clave: 'desfase', texto: textoCambios(f.pieza.cambios), accion: { texto: f.esEnlace ? 'Copiar el enlace nuevo' : 'Copiar el código nuevo', hace: 'copiar' } }
     : null),

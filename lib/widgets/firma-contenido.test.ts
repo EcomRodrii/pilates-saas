@@ -20,7 +20,8 @@ function w(id: string): WidgetDisponible {
 function entrada(x: WidgetDisponible | string, parcial: Partial<ConfigConstructor> = {}): EntradaIntegracion {
   const widget = typeof x === 'string' ? w(x) : x;
   // `sesion` siempre: «Reserva una clase» sin clase no da código.
-  return { widget, config: { ...CONFIG_POR_DEFECTO, sesion: 'ses-1', ...parcial }, origen: ORIGEN, slug: SLUG, colorEstudio: '#7A2E4F' };
+  // `soloHorario: false`: el código de ANTES de «Tu horario, tus clases» (los literales de abajo son lo ya pegado).
+  return { widget, config: { ...CONFIG_POR_DEFECTO, soloHorario: false, sesion: 'ses-1', ...parcial }, origen: ORIGEN, slug: SLUG, colorEstudio: '#7A2E4F' };
 }
 
 // Las del diseño (§3) y las que tocan TODO lo que emite el generador, para que
@@ -348,4 +349,12 @@ test('⚠️ literal fijo: la firma del código por defecto no se mueve sin subi
   assert.equal(firmaDeUrl(new URLSearchParams('embed=1&tab=clases&ref=web-horario')), 'c1k65yv5');
   assert.equal(firmaContenidoDe(entrada('horario'), 'iframe'), 'c1k65yv5');
   assert.equal(VERSION_FIRMA, 'c1');
+});
+
+test('«Tu horario, tus clases» (`solo=1`) es otra versión del código, y sin él la firma de siempre', () => {
+  const sin = firmaContenidoDe(entrada('horario'), 'iframe');
+  const con = firmaContenidoDe(entrada('horario', { soloHorario: true }), 'iframe');
+  assert.notEqual(con, sin);
+  assert.equal(firmaDeUrl(new URLSearchParams('embed=1&tab=clases&solo=1&ref=web-horario')), con);
+  assert.ok((CLAVES_FIRMA as readonly string[]).includes('solo'));
 });

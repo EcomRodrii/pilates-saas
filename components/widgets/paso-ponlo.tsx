@@ -7,6 +7,7 @@ import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/e
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
 import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
+import type { AvisoSoloHorario } from '@/lib/widgets/solo-horario';
 import {
   codigoPorId, faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
@@ -38,7 +39,7 @@ import type { MostrarToast } from '@/components/ui/toast';
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
   proximasClases, dominiosAutorizados, dominios, verDominios, showToast, preparando = false,
-  variante = 'v1', colores, onCambiarWeb,
+  variante = 'v1', colores, onCambiarWeb, avisoSolo = null, onActivarSolo,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -66,6 +67,13 @@ export function PasoPonlo({
    * pegar, y no se deja copiar.
    */
   preparando?: boolean;
+  /**
+   * Lo copiado es de antes de «Tu horario, tus clases»: cómo recuperarlo (lib/widgets/solo-horario.ts).
+   * `null` si no le toca: no ha copiado nada, o ya tiene el código nuevo con la opción.
+   */
+  avisoSolo?: AvisoSoloHorario | null;
+  /** Enciende la opción desde el propio aviso (con un código por id, para publicarla después). */
+  onActivarSolo?: () => void;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   proximasClases: DatosPanel['proximasClases'];
@@ -230,6 +238,19 @@ export function PasoPonlo({
           </div>
         ) : (
           <div className="space-y-2">
+            {avisoSolo && (
+              <div role="note" data-aviso-solo-horario={avisoSolo.modo} className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
+                <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+                <div className="min-w-0">
+                  <p>{avisoSolo.texto}</p>
+                  {avisoSolo.accion?.hace === 'activar-solo-horario' && onActivarSolo && (
+                    <button type="button" onClick={onActivarSolo} className="min-h-11 font-semibold underline underline-offset-2 hover:no-underline [@media(pointer:fine)]:min-h-8">
+                      {avisoSolo.accion.texto}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {codigoAntiguo && (
               <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
                 <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />

@@ -14,6 +14,7 @@ import {
 } from '@/lib/widgets/config';
 import { embudoPorWidget, textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
 import { etiquetasDeCopia, gruposSinAplicar, piezaCopiada, webSinAutorizar } from '@/lib/widgets/en-tu-web';
+import { avisoSoloHorario } from '@/lib/widgets/solo-horario';
 import { copiaTrasAplicar } from '@/lib/widgets/pieza-panel';
 import { descartarContenido } from '@/lib/widgets/publicar-en-mi-web';
 import type { VistoWidget } from '@/lib/widgets/pegado';
@@ -211,7 +212,7 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
   // ── Lo publicado (código por ID) ──
   // Lo que cambió aquí y aún no ha llegado a su web: solo lo que llega con
   // «Aplicar en mi web» (lo que va en el HTML lo dice el aviso de copiar otra vez).
-  const sinAplicar = publicada ? gruposSinAplicar(publicada.config, configEfectiva) : [];
+  const sinAplicar = publicada ? gruposSinAplicar(publicada.config, configEfectiva, w) : [];
   // Crear lo publicado la primera vez que abre «Ponlo en tu web» con un widget:
   // hasta entonces no hay id que poner en el código. Si falla, el código de
   // siempre (y no se reintenta en esta visita: no se cambia el código a medias).
@@ -438,6 +439,10 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
       conListaDeWebs: m === 'nativa',
       // Un código de antes, y ella puede pasarse al de ahora (solo la propietaria publica).
       codigoAntiguo: !k.pieza && rol === 'PROPIETARIO' && publicacion.estado === 'listo',
+      // Lo copiado es de antes de «Tu horario, tus clases»: cómo recuperarlo. Solo la propietaria (es quien copia y publica).
+      soloHorario: rol === 'PROPIETARIO'
+        ? avisoSoloHorario({ widget: otro, copia: k, ahora: c, metodoAhora: m, publicada: publicacion.estado === 'listo' ? (suya?.config ?? null) : null })
+        : null,
     });
   }
   // Una cadena y no la lista, para que el efecto dependa de lo que se pide y no
@@ -563,7 +568,8 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
     }
     : metodo === 'enlace' ? { tipo: 'enlace' } : { tipo: 'dentro' };
   const suWeb = {
-    direccion: direccionWeb,
+    // La que contestó, o una web autorizada, o nada (la vista previa pone entonces un ejemplo).
+    direccion: direccionWeb ?? direccionLegible(dominiosAutorizados[0]),
     nombre: studio?.nombre ?? 'Tu estudio',
     color: colorEstudio ?? COLOR_POR_DEFECTO,
     // El de «¿Cómo es tu web?» (el borrador: lo está contestando ahora). Un
@@ -607,6 +613,14 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
     setConfigs(siguientes);
     guardar({ configs: siguientes });
   }
+  /** Enciende «Tu horario, tus clases» en una pieza (el aviso de recuperarlo lo pide por id). */
+  function activarSoloHorario(id: string) {
+    const actual = configs[id] ?? CONFIG_POR_DEFECTO;
+    if (actual.soloHorario) return;
+    const siguientes = { ...configs, [id]: { ...actual, soloHorario: true } };
+    setConfigs(siguientes);
+    guardar({ configs: siguientes });
+  }
   /** Quita el diseño propio de una pieza: vuelve a seguir el estilo de sus widgets. */
   function quitarDisenoPropio(id: string) {
     const actual = configs[id] ?? CONFIG_POR_DEFECTO;
@@ -624,7 +638,7 @@ export function useConstructorWidgets({ slug, showToast, ...opciones }: {
     registrarCopia, ahora, datos, guardarDominios, dominiosAutorizados, direccionWeb,
     copias, filasTienes, configsCopiadas, copia, desfase, porId, conCopias, filaActiva, etiquetaActiva, resultadoActivo,
     faltaPrevia, paginaCompleta, urlPrevia, urlReal, letraDeSuWeb, contenido, anchoWidget, botonPropio, noSigueElEstilo, forma, suWeb, piezas, avisos,
-    descartarPiezas, quitarDisenoPropio,
+    descartarPiezas, quitarDisenoPropio, activarSoloHorario,
   };
 }
 
