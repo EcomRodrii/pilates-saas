@@ -47,6 +47,12 @@ const SUFIJOS_LOCALES = ['.localhost', '.local', '.internal', '.lan', '.home.arp
 /** Nuestros propios dominios: un webhook que se llama a sí mismo solo sirve para hacer bucles. */
 const DOMINIOS_PROPIOS = ['tentare.app'];
 
+/** ¿Es un dominio de Tentare (o un subdominio)? Mismo criterio que `validarUrlWebhook`. */
+export function esDominioPropio(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  return DOMINIOS_PROPIOS.some((d) => h === d || h.endsWith(`.${d}`));
+}
+
 export type UrlValidada = { ok: true; url: URL } | { ok: false; error: string };
 
 export function validarUrlWebhook(texto: unknown): UrlValidada {
@@ -72,7 +78,7 @@ export function validarUrlWebhook(texto: unknown): UrlValidada {
   if (host === 'localhost' || !host.includes('.') || SUFIJOS_LOCALES.some((s) => host.endsWith(s))) {
     return { ok: false, error: 'Esa dirección es privada o interna: tiene que ser pública en internet.' };
   }
-  if (DOMINIOS_PROPIOS.some((d) => host === d || host.endsWith(`.${d}`))) {
+  if (esDominioPropio(host)) {
     return { ok: false, error: 'El webhook tiene que apuntar a tu programa, no a Tentare.' };
   }
   return { ok: true, url };

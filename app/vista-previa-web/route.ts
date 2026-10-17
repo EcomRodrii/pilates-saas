@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { elegirOrigen } from '@/lib/widgets/web-real/servicio';
 import { cabecerasDelMarco, htmlDelMarco } from '@/lib/widgets/web-real/marco-html';
-import { verificarPermisoWebReal } from '@/lib/widgets/web-real/token';
+import { errorInterno } from '@/lib/errores-servidor';
+import { leerPermisoSinRomper } from '@/lib/widgets/web-real/permiso-seguro';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,10 @@ function prohibido(): Response {
 }
 
 export async function GET(req: NextRequest) {
-  const permiso = verificarPermisoWebReal(req.nextUrl.searchParams.get('t'));
+  // Sin secreto de firma, `verificar` lanza: se contesta lo mismo que un permiso malo (con las cabeceras de marco) y
+  // el fallo va a Sentry, no a un 500 vacío que cualquier web podría enmarcar.
+  const { permiso, fallo } = leerPermisoSinRomper(req.nextUrl.searchParams.get('t'));
+  if (fallo) errorInterno('estudio:vista-previa-web:permiso', fallo);
   if (!permiso) return prohibido();
 
   const admin = getSupabaseAdmin();

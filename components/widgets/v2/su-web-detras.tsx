@@ -34,12 +34,20 @@ export const ETIQUETA_COLOCACION = 'Así quedaría: colocación orientativa';
 export const FRASE_COLOCACION = 'No sabemos dónde lo pegarás: aquí va en un sitio fijo. Lo que sí ves de verdad es cómo pega con la letra y el color de tu web.';
 
 /**
- * Su web a pantalla completa dentro del marco y, encima, el widget en un sitio
- * fijo (centrado a media altura, con una sombra suave). No tapa la barra de
- * direcciones: el marco la pinta por encima de este contenido. El widget que va
- * encima es el mismo /reservar de la vista previa, no un dibujo nuevo.
+ * Su web a pantalla completa dentro del marco y, encima, SOLO el widget: sin
+ * recuadro, sin sombra, sin esquinas ni fondo nuestros (el widget lleva el estilo
+ * que ella eligió: si lo funde con su web, es transparente y se ve su web detrás;
+ * si no, lleva SU propia tarjeta, que es suya). Ancho de columna de contenido:
+ * el del marco menos el margen lateral típico de una web (16 px en el móvil) y, en
+ * el Mac, una columna centrada de ancho de lectura. Sin etiquetas flotando: la de
+ * «colocación orientativa» va en la leyenda de debajo, fuera del marco.
+ *
+ * ⚠️ LÍMITE: su web va en un iframe de OTRO origen, así que el widget no puede
+ * entrar en el flujo de su página: se dibuja encima y puede solaparse con su texto.
+ * Lo que lo hace parecer de la web es que no lleve marco propio y vaya a ancho de columna.
+ * No tapa la barra de direcciones: el marco la pinta por encima de este contenido.
  */
-export function SuWebDetras({ src, children }: { src: string; children: ReactNode }) {
+export function SuWebDetras({ src, movil, children }: { src: string; movil: boolean; children: ReactNode }) {
   return (
     <div className="absolute inset-0" data-su-web="">
       {/* NUESTRO documento (mismo origen); la web de ella va dentro, con su propio sandbox. */}
@@ -50,16 +58,13 @@ export function SuWebDetras({ src, children }: { src: string; children: ReactNod
         referrerPolicy="no-referrer"
         className="absolute inset-0 block size-full border-0 bg-white"
       />
-      {/* Lo que va encima se reparte DENTRO del alto del marco (la pantalla del Mac es baja): la etiqueta no encoge
-          y el widget se desplaza en su caja si es más alto de lo que queda. */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 py-3">
-        <span
-          data-colocacion-orientativa=""
-          className="pointer-events-auto shrink-0 rounded-full bg-foreground px-3 py-1 text-[11.5px] font-semibold text-background shadow-md"
+      {/* Solo reparte el hueco: no se ve y no coge el ratón (el widget sí). Si el widget es más alto que el
+          marco, se desplaza aquí; `my-auto` (no `items-center`) para no cortar su principio. */}
+      <div className={cn('pointer-events-none absolute inset-0 flex flex-col overflow-y-auto overscroll-contain', movil ? 'px-4' : 'px-3')}>
+        <div
+          data-su-web-widget=""
+          className={cn('pointer-events-auto my-auto w-full bg-transparent', movil ? '' : 'mx-auto max-w-[720px]')}
         >
-          {ETIQUETA_COLOCACION}
-        </span>
-        <div className="pointer-events-auto min-h-0 max-h-[74%] w-full max-w-full overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-[0_18px_50px_-12px_rgba(0,0,0,0.45)] ring-1 ring-black/10">
           {children}
         </div>
       </div>

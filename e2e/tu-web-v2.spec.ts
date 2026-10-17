@@ -1283,7 +1283,7 @@ async function servirSuWeb(page: Page) {
     webs.push(route.request().url());
     return route.fulfill({
       status: 200, contentType: 'text/html; charset=utf-8',
-      body: '<!doctype html><title>Web del estudio</title><body style="font:20px Georgia"><h1>Pilates Centro de verdad</h1><script>document.body.dataset.js="1"</script>',
+      body: '<!doctype html><title>Web del estudio</title><body style="font:20px Georgia"><h1>Pilates Centro de verdad</h1><p>Clases pequeñas, con tiempo para ti.</p><p>Reformer, mat y suelo pélvico en el barrio.</p><p>Escríbenos o reserva aquí mismo.</p><script>document.body.dataset.js="1"</script>',
     });
   });
   return { docs, webs };
@@ -1319,10 +1319,16 @@ for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
       await expect(suMarco).toHaveAttribute('loading', 'lazy');
       await expect(suMarco).toHaveAttribute('title', /Tu web, tal como se ve ahora/);
       await expect.poll(() => marcoDeSuWeb(page)?.url() ?? '', { timeout: 30_000 }).toContain(ORIGEN_WEB);
-      // MEDIDO: los únicos orígenes que la pantalla del constructor enmarca son el del propio panel
-      // (/reservar y /vista-previa-web) y la web del estudio. Ni Stripe ni el captcha cuelgan del panel.
-      const origenes = new Set(page.frames().filter(f => f !== page.mainFrame()).map(f => { try { return new URL(f.url()).origin; } catch { return f.url(); } }));
-      expect([...origenes].sort()).toEqual([new URL(page.url()).origin, ORIGEN_WEB].sort());
+      // MEDIDO: lo que cuelga DIRECTAMENTE del panel es solo de su propio origen (/reservar y /vista-previa-web); la web del
+      // estudio va dentro de /vista-previa-web, y Stripe, dentro del /reservar de la vista previa (su propio documento, con
+      // sus cabeceras). Ningún otro origen aparece en todo el árbol de marcos.
+      const util = page.frames().filter(f => f !== page.mainFrame() && f.url() && f.url() !== 'about:blank');
+      const origenDe = (f: { url(): string }) => { try { return new URL(f.url()).origin; } catch { return f.url(); } };
+      const propio = new URL(page.url()).origin;
+      expect(util.filter(f => f.parentFrame() === page.mainFrame()).map(origenDe).filter(o => o !== propio), 'los marcos del panel son de su origen').toEqual([]);
+      const todos = new Set(util.map(origenDe));
+      expect([...todos].filter(o => ![propio, ORIGEN_WEB, 'https://js.stripe.com', 'https://m.stripe.network'].includes(o))).toEqual([]);
+      expect(todos.has(ORIGEN_WEB)).toBe(true);
       const web = marcoDeSuWeb(page)!;
       await expect(web.getByRole('heading', { name: 'Pilates Centro de verdad' })).toBeVisible();
       // Corre su JavaScript (allow-scripts), pero en un origen opaco: no ve nuestras cookies ni almacenamiento.
@@ -1338,21 +1344,23 @@ for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
       expect(bloqueada, 'frame-src debe bloquear cualquier otra web').toBe(true);
       expect(consola.filter(t => t.includes(`Framing '${ORIGEN_WEB}`)), 'ninguna violación contra SU web (la única es la de la web ajena que probamos)').toEqual([]);
 
-      // El widget (el /reservar de verdad) va encima, con su etiqueta, y no tapa la barra de direcciones.
-      const etiqueta = page.locator('[data-colocacion-orientativa]').filter({ visible: true });
-      await expect(etiqueta).toHaveText('Así quedaría: colocación orientativa');
+      // El widget (el /reservar de verdad) va encima SIN ninguna pastilla ni etiqueta flotando sobre su web, dentro del
+      // marco y por debajo de la barra de direcciones.
+      await expect(page.locator('[data-colocacion-orientativa]')).toHaveCount(0);
       await expect(previa(page)).toBeVisible();
       const pantalla = dispositivo === 'Móvil' ? page.locator('[data-marco-movil]') : page.getByTestId('mac-pantalla');
-      const cajaEtiqueta = (await etiqueta.boundingBox())!;
+      const cajaWidget = (await suWeb(page).locator('[data-su-web-widget]').boundingBox())!;
       const cajaPantalla = (await pantalla.boundingBox())!;
-      expect(cajaEtiqueta.y).toBeGreaterThan(cajaPantalla.y + 40);
-      expect(cajaEtiqueta.y + cajaEtiqueta.height).toBeLessThan(cajaPantalla.y + cajaPantalla.height);
       await expect(pantalla).toContainText('web-ok.example.com');
       const cajaDir = (await pantalla.getByText('web-ok.example.com', { exact: true }).first().boundingBox())!;
-      expect(cajaEtiqueta.y, 'la etiqueta no cubre la barra de direcciones').toBeGreaterThan(cajaDir.y + cajaDir.height);
+      expect(cajaWidget.y, 'el widget no cubre la barra de direcciones').toBeGreaterThanOrEqual(cajaDir.y + cajaDir.height);
+      expect(cajaWidget.x).toBeGreaterThanOrEqual(cajaPantalla.x);
+      expect(cajaWidget.x + cajaWidget.width).toBeLessThanOrEqual(cajaPantalla.x + cajaPantalla.width + 1);
       // La leyenda lo dice con las palabras del fundador.
+      // La etiqueta va FUERA del marco, en la leyenda de debajo.
       const leyenda = page.locator('section[aria-label="Vista previa"] p').filter({ hasText: 'Así quedaría: colocación orientativa.' });
       await expect(leyenda).toContainText(FRASE_COLOCACION);
+      await expect(pantalla.getByText('Así quedaría: colocación orientativa')).toHaveCount(0);
       await expect(leyendaEjemplo(page)).toHaveCount(0);
 
       // El interruptor: ver la página de ejemplo quita su web y trae la leyenda de siempre; volver NO pregunta otra vez.
@@ -1365,6 +1373,65 @@ for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
     });
   });
 }
+
+test.describe('su web detrás del widget · sin marco nuestro', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
+    test(`${dispositivo}: el contenedor del widget no tiene sombra, ni radio, ni borde, ni fondo; con «Que se funda con tu web» el widget es transparente y apagada conserva SU recuadro`, async ({ page }) => {
+      await montar(page, { dominios: [ORIGEN_WEB], direccion: 'web-ok.example.com', webReal: seDeja });
+      await servirSuWeb(page);
+      await empezar(page);
+      if (dispositivo === 'Ordenador') await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+      await previaCargada(page);
+      await expect(suWeb(page)).toBeVisible({ timeout: 30_000 });
+
+      const contenedor = suWeb(page).locator('[data-su-web-widget]');
+      // CONTROL de que se mide algo: el contenedor existe y envuelve la vista previa del widget.
+      await expect(contenedor).toHaveCount(1);
+      await expect(contenedor.locator('iframe[title^="Vista previa:"]')).toHaveCount(1);
+      const estiloDelContenedor = () => contenedor.evaluate(el => {
+        const c = getComputedStyle(el);
+        return { sombra: c.boxShadow, radio: c.borderRadius, fondo: c.backgroundColor, borde: c.borderTopWidth, imagen: c.backgroundImage };
+      });
+      expect(await estiloDelContenedor()).toEqual({ sombra: 'none', radio: '0px', fondo: 'rgba(0, 0, 0, 0)', borde: '0px', imagen: 'none' });
+      // Y ningún ascendiente nuestro hasta el marco pone recuadro propio.
+      const ascendientes = await contenedor.evaluate(el => {
+        const malos: string[] = [];
+        for (let n = el.parentElement; n && !n.hasAttribute('data-su-web'); n = n.parentElement) {
+          const c = getComputedStyle(n);
+          if (c.boxShadow !== 'none' || c.borderTopWidth !== '0px' || (c.backgroundColor !== 'rgba(0, 0, 0, 0)' && n.hasAttribute('data-su-web'))) malos.push(n.className);
+        }
+        return malos;
+      });
+      expect(ascendientes).toEqual([]);
+      await expect(page.locator('[data-colocacion-orientativa]')).toHaveCount(0);
+      // Lo único sobre su web es el widget: el repartidor no lleva nada más.
+      await expect(contenedor.locator('xpath=..').locator('> *')).toHaveCount(1);
+
+      const fondoDelWidget = async () => {
+        const h = await previa(page).elementHandle();
+        const f = await h!.contentFrame();
+        return f ? await f.evaluate(() => getComputedStyle(document.body).backgroundColor).catch(() => '') : '';
+      };
+      // CONTROL: sin fundir, el widget lleva SU propia tarjeta (fondo suyo, opaco): es suyo, no nuestro.
+      await expect.poll(fondoDelWidget, { timeout: 30_000 }).not.toBe('rgba(0, 0, 0, 0)');
+      expect(await fondoDelWidget()).not.toBe('');
+
+      // Encendido «Que se funda con tu web»: transparente, y se ve su web detrás. Nada nuestro lo tapa.
+      await irA(page, 'Cómo se ve');
+      await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+      await page.getByRole('switch', { name: 'Que se funda con tu web' }).click();
+      await expect.poll(async () => decodeURIComponent(await previa(page).getAttribute('src') ?? ''), { timeout: 20_000 }).toContain('"fundido":true');
+      await expect.poll(fondoDelWidget, { timeout: 30_000 }).toBe('rgba(0, 0, 0, 0)');
+      expect(await estiloDelContenedor()).toEqual({ sombra: 'none', radio: '0px', fondo: 'rgba(0, 0, 0, 0)', borde: '0px', imagen: 'none' });
+
+      // Y apagado otra vez: vuelve SU recuadro.
+      await page.getByRole('switch', { name: 'Que se funda con tu web' }).click();
+      await expect.poll(fondoDelWidget, { timeout: 30_000 }).not.toBe('rgba(0, 0, 0, 0)');
+    });
+  }
+});
 
 test.describe('su web detrás del widget · lo que no se deja', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -1474,7 +1541,17 @@ test.describe('capturas de su web detrás del widget (solo con CAPTURAS_WEB=<car
       if (dispositivo === 'Ordenador') await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
       await previaCargada(page);
       await expect(suWeb(page)).toBeVisible({ timeout: 30_000 });
-      await foto(page, `web-enmarcable-${dispositivo === 'Móvil' ? 'iphone' : 'mac'}`);
+      const equipo = dispositivo === 'Móvil' ? 'iphone' : 'mac';
+      await foto(page, `web-enmarcable-${equipo}-recuadro-propio`);
+      // «Que se funda con tu web» encendido: el widget sin recuadro, y detrás se ve su web.
+      await irA(page, 'Cómo se ve');
+      await niveles(page).getByRole('radio', { name: /Un estilo solo para tu web/ }).click();
+      await page.getByRole('switch', { name: 'Que se funda con tu web' }).click();
+      await expect.poll(async () => decodeURIComponent(await previa(page).getAttribute('src') ?? ''), { timeout: 20_000 }).toContain('"fundido":true');
+      await page.waitForTimeout(4000);
+      await foto(page, `web-enmarcable-${equipo}-fundido`);
+      await page.getByRole('switch', { name: 'Que se funda con tu web' }).click();
+      await page.waitForTimeout(3000);
       if (dispositivo === 'Móvil') {
         await verWeb(page).getByRole('button', { name: 'Ver página de ejemplo' }).click();
         await foto(page, 'interruptor-ver-ejemplo-iphone');

@@ -251,7 +251,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
       ) : (
         <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={recortado} conSuWeb={conSuWeb}>
           {conSuWeb ? (
-            <SuWebDetras src={fondoWeb.src!}>{widget}</SuWebDetras>
+            <SuWebDetras src={fondoWeb.src!} movil={movil}>{widget}</SuWebDetras>
           ) : (
             <>
               <CabeceraWeb web={web} movil={movil} />

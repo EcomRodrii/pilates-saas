@@ -22,7 +22,7 @@
 
 import { request } from 'node:https';
 import { isIP } from 'node:net';
-import { crearLookupSeguro, DestinoNoPermitido, esIpPublica } from '../../api-publica/webhooks/destino.ts';
+import { crearLookupSeguro, DestinoNoPermitido, esDominioPropio, esIpPublica } from '../../api-publica/webhooks/destino.ts';
 import { LEGAL } from '../../legal-info.ts';
 import { decidirEnmarcable, mismoSitio, type Cabeceras } from './decision.ts';
 
@@ -106,6 +106,8 @@ export async function consultarEnmarcable(
   const limite = ahora() + (deps.totalMs ?? TIEMPO_TOTAL_MS);
   const partida = urlDePartida(origen);
   if (!partida) return { tipo: 'sin-saber', motivo: 'protocolo' };
+  // Defensa en profundidad (la primera puerta está en `resolverWebReal`): nunca se consulta un dominio de Tentare.
+  if (esDominioPropio(partida.hostname)) return { tipo: 'no-enmarcable', motivo: 'otro-sitio' };
 
   let url = partida;
   for (let saltos = 0; saltos <= MAX_REDIRECCIONES; saltos++) {

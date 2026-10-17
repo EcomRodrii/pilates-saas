@@ -20,6 +20,7 @@
 
 import { consultarEnmarcable, type ResultadoConsulta } from './consulta.ts';
 import { normalizarOrigenWidget } from '../../widget/dominios-autorizados.ts';
+import { esDominioPropio } from '../../api-publica/webhooks/destino.ts';
 
 export const TTL_DEFINITIVO_MS = 60 * 60 * 1000;
 export const TTL_SIN_SABER_MS = 5 * 60 * 1000;
@@ -86,6 +87,10 @@ export async function resolverWebReal(
   const origen = elegirOrigen(x.dominios);
   // Hay web autorizada pero no se puede consultar (sin https o con puerto raro): no se sabe, y sin tocar la red.
   if (!origen) return { estado: 'sin-saber' };
+  // Un dominio de Tentare autorizado como «web»: el servidor se consultaría a sí mismo (y nuestras páginas no se
+  // enseñan aquí). No se rompe la lista autorizada —puede ser a propósito, p. ej. en pruebas—: solo no se enseña,
+  // sin red, sin tope y sin caché.
+  if (esDominioPropio(new URL(origen).hostname)) return { estado: 'no-se-deja' };
 
   const clave = `${x.studioId}|${origen}`;
   if (!x.forzar) {

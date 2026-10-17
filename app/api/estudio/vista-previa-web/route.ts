@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { topeEstricto } from '@/lib/rate-limit';
 import { CacheWebReal, resolverWebReal } from '@/lib/widgets/web-real/servicio';
-import { firmarPermisoWebReal } from '@/lib/widgets/web-real/token';
+import { firmarSinRomper } from '@/lib/widgets/web-real/permiso-seguro';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +74,13 @@ export async function POST(req: NextRequest) {
 
   // Nunca un motivo técnico hacia la pantalla: solo en qué estado quedó.
   if (estado.estado === 'se-deja') {
-    return NextResponse.json({ estado: 'se-deja', permiso: firmarPermisoWebReal({ studioId: studio.id as string, origen: estado.origen }) });
+    // Sin secreto de firma no hay permiso: se contesta «sin saber» (la pantalla enseña el ejemplo) y el fallo va a Sentry.
+    const firma = firmarSinRomper({ studioId: studio.id as string, origen: estado.origen });
+    if (!firma.ok) {
+      errorInterno('estudio:vista-previa-web:firmar', firma.fallo, 'No se ha podido preparar la vista previa de tu web.', 500, { estado: 'sin-saber' });
+      return NextResponse.json({ estado: 'sin-saber' });
+    }
+    return NextResponse.json({ estado: 'se-deja', permiso: firma.permiso });
   }
   return NextResponse.json({ estado: estado.estado });
 }

@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { DestinoNoPermitido } from '../../api-publica/webhooks/destino.ts';
 import { decidirEnmarcable, mismoSitio, variantesDeHost, type Cabeceras } from './decision.ts';
@@ -9,6 +11,7 @@ import {
   CacheWebReal, TTL_DEFINITIVO_MS, TTL_SIN_SABER_MS, elegirOrigen, resolverWebReal,
 } from './servicio.ts';
 import { firmarPermisoWebReal, verificarPermisoWebReal } from './token.ts';
+import { firmarSinRomper, leerPermisoSinRomper } from './permiso-seguro.ts';
 import { SANDBOX_DE_SU_WEB, cabecerasDelMarco, htmlDelMarco, origenesDelMarco, politicaDelMarco } from './marco-html.ts';
 
 const NUESTRO = 'https://www.tentare.app';
@@ -345,4 +348,79 @@ test('⚠️ el iframe de su web: `sandbox="allow-scripts"` SIN allow-same-origi
   assert.doesNotMatch(html, /<script/i);
   // Lo que viene de fuera nunca rompe el atributo.
   assert.doesNotMatch(htmlDelMarco('https://x.com'), /javascript:/i);
+});
+
+// ── Sin secreto de firma: no se rompe, no se enseña nada ─────────────────────
+
+test('⚠️ sin secreto de firma: ni se firma ni se verifica, pero NADA lanza hacia la ruta (y el fallo viaja para Sentry)', () => {
+  const guardado = { a: process.env.HOME_PREVIEW_TOKEN_SECRET, b: process.env.OAUTH_STATE_SECRET };
+  try {
+    process.env.HOME_PREVIEW_TOKEN_SECRET = 'secreto-de-prueba';
+    // CONTROL: con secreto, firma y verifica de verdad (si no, el resto no probaría nada).
+    const firma = firmarSinRomper({ studioId: 'est-1', origen: 'https://x.com' });
+    assert.equal(firma.ok, true);
+    const token = firma.ok ? firma.permiso : '';
+    assert.deepEqual(leerPermisoSinRomper(token), { permiso: { studioId: 'est-1', origen: 'https://x.com' } });
+    assert.deepEqual(leerPermisoSinRomper('malo.malo'), { permiso: null }, 'un permiso malo no es un fallo');
+
+    // Sin secreto: lo de abajo lanza (token.ts), y los envoltorios lo convierten en un resultado.
+    delete process.env.HOME_PREVIEW_TOKEN_SECRET;
+    delete process.env.OAUTH_STATE_SECRET;
+    assert.throws(() => firmarPermisoWebReal({ studioId: 'est-1', origen: 'https://x.com' }), /Falta HOME_PREVIEW_TOKEN_SECRET/);
+    assert.throws(() => verificarPermisoWebReal(token), /Falta HOME_PREVIEW_TOKEN_SECRET/);
+    const sinFirma = firmarSinRomper({ studioId: 'est-1', origen: 'https://x.com' });
+    assert.equal(sinFirma.ok, false);
+    assert.ok(!sinFirma.ok && sinFirma.fallo instanceof Error, 'trae el fallo para Sentry');
+    const lectura = leerPermisoSinRomper(token);
+    assert.equal(lectura.permiso, null, 'sin secreto no hay permiso, ni siquiera con un token que fue válido');
+    assert.ok(lectura.fallo instanceof Error);
+  } finally {
+    if (guardado.a === undefined) delete process.env.HOME_PREVIEW_TOKEN_SECRET; else process.env.HOME_PREVIEW_TOKEN_SECRET = guardado.a;
+    if (guardado.b === undefined) delete process.env.OAUTH_STATE_SECRET; else process.env.OAUTH_STATE_SECRET = guardado.b;
+  }
+});
+
+// ── Un dominio de Tentare no es «su web» ─────────────────────────────────────
+
+test('⚠️ un dominio de Tentare autorizado como web: «no se deja», sin red, sin tope y sin caché (y CONTROL: otro dominio sí se consulta)', async () => {
+  for (const d of ['https://tentare.app', 'https://www.tentare.app', 'https://app.tentare.app', 'https://TENTARE.APP']) {
+    const e = entorno();
+    assert.deepEqual(await e.resolver({ dominios: [d] }), { estado: 'no-se-deja' }, d);
+    assert.deepEqual(e.hechas, [], `${d}: ni una consulta`);
+    assert.equal(e.topes(), 0, `${d}: ni tope`);
+    assert.equal(e.cache.tamano, 0, `${d}: ni caché`);
+  }
+  // CONTROL: un dominio parecido (otro sitio) sí se consulta, con su tope.
+  const e = entorno();
+  assert.deepEqual(await e.resolver({ dominios: ['https://tentare.app.otra-web.com'] }), { estado: 'se-deja', origen: 'https://tentare.app.otra-web.com' });
+  assert.deepEqual(await e.resolver({ dominios: ['https://notentare.app'] }), { estado: 'se-deja', origen: 'https://notentare.app' });
+  assert.equal(e.hechas.length, 2);
+  assert.equal(e.topes(), 2);
+});
+
+test('defensa en profundidad: la consulta nunca pide nada a un dominio de Tentare, ni aunque llegue directa', async () => {
+  const pedidas: string[] = [];
+  const peticion: PeticionDeCabeceras = async ({ url }) => { pedidas.push(url.href); return { estadoHttp: 200, cabeceras: {} }; };
+  for (const o of ['https://tentare.app', 'https://sub.tentare.app']) {
+    assert.deepEqual(await consultarEnmarcable(o, NUESTRO, { peticion }), { tipo: 'no-enmarcable', motivo: 'otro-sitio' }, o);
+  }
+  assert.deepEqual(pedidas, []);
+  // CONTROL: otro dominio sí pide.
+  assert.deepEqual(await consultarEnmarcable('https://estudio-ejemplo.com', NUESTRO, { peticion }), { tipo: 'enmarcable' });
+  assert.deepEqual(pedidas, ['https://estudio-ejemplo.com/']);
+});
+
+test('las dos rutas pasan SIEMPRE por los envoltorios (nunca `token.ts` a pelo): sin secreto contestan con su cara de siempre, no con un 500 vacío', () => {
+  const raiz = join(import.meta.dirname, '..', '..', '..');
+  const get = readFileSync(join(raiz, 'app/vista-previa-web/route.ts'), 'utf8');
+  const post = readFileSync(join(raiz, 'app/api/estudio/vista-previa-web/route.ts'), 'utf8');
+  for (const [nombre, t] of [['GET', get], ['POST', post]] as const) {
+    assert.doesNotMatch(t, /web-real\/token'/, `${nombre}: no importa token.ts directamente`);
+    assert.match(t, /errorInterno\(/, `${nombre}: el fallo va a Sentry`);
+  }
+  assert.match(get, /leerPermisoSinRomper/);
+  assert.match(get, /if \(!permiso\) return prohibido\(\)/, 'GET: sin permiso, la página que solo enmarca el panel');
+  assert.match(get, /frame-ancestors 'self'/);
+  assert.match(post, /firmarSinRomper/);
+  assert.match(post, /return NextResponse\.json\(\{ estado: 'sin-saber' \}\)/, 'POST: sin secreto, «sin saber»');
 });
