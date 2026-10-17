@@ -12,6 +12,7 @@ import type { WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
 import { FOCO, Segmentado, TACTIL } from './piezas';
 import { MarcoMac } from '@/components/ui/marco-mac';
 import { IphoneConWeb, useAnchoDe, useEscalaIphoneEn } from './iphone-con-web';
+import { ControlSuWeb, ETIQUETA_COLOCACION, FRASE_COLOCACION, SuWebDetras, type FondoWeb } from './v2/su-web-detras';
 
 // La vista previa. ⚠️ El widget nunca es una imagen ni una maqueta: es el
 // MISMO motor que verá la visitante —la página incrustada real en un iframe, o
@@ -76,7 +77,7 @@ export type FormaPrevia =
   | { tipo: 'boton'; boton: ReactNode; pista: string; alPulsar: string; abrePagina: boolean }
   | { tipo: 'enlace' };
 
-export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null, alSeguirElEstilo = null, nota = null, variante = 'v1', enHoja = false }: {
+export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null, alSeguirElEstilo = null, nota = null, variante = 'v1', enHoja = false, fondoWeb }: {
   /** `null` cuando falta algo para poder enseñarlo (`falta`). */
   contenido: Contenido | null;
   falta: string | null;
@@ -115,6 +116,11 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   variante?: 'v1' | 'v2';
   /** v2: va en la hoja «Ver cómo queda» (menos cosas alrededor que reservar a lo alto para el iPhone). */
   enHoja?: boolean;
+  /**
+   * v2, con una web autorizada: su web REAL detrás del widget, si se deja (ver `v2/su-web-detras.tsx`). Solo con el
+   * widget dentro de una página: un botón o un enlace no «caen» en un sitio concreto de su web.
+   */
+  fondoWeb?: FondoWeb;
 }) {
   const v2 = variante === 'v2';
   const movil = dispositivo === 'movil';
@@ -149,6 +155,9 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   const recortado = v2 ? false : !grande;
   const ventanaEstrecha = v2 && !movil && !!contenido && anchoPintado !== null && anchoPintado < ANCHO_ESCRITORIO;
   const tinta = v2 ? 'text-foreground/85' : 'text-muted-foreground';
+  // Su web de verdad detrás (solo con el widget dentro de una página); si no se deja, el ejemplo de siempre.
+  const conFondoWeb = v2 && forma.tipo === 'dentro' && !!fondoWeb;
+  const conSuWeb = conFondoWeb && fondoWeb.fase === 'se-deja' && fondoWeb.ver === 'web' && !!fondoWeb.src;
 
   const opciones = [
     { valor: 'escritorio' as const, nombre: 'Ordenador', icono: <Monitor size={13} aria-hidden /> },
@@ -201,6 +210,8 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
         </div>
       )}
 
+      {conFondoWeb && <ControlSuWeb f={fondoWeb} tinta={tinta} />}
+
       {forma.tipo === 'enlace' ? (
         <>
           <p className={cn('text-[12px]', tinta)}>Al abrir el enlace, se abre tu página de reservas:</p>
@@ -238,15 +249,25 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
           </div>
         </>
       ) : (
-        <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={recortado}>
-          <CabeceraWeb web={web} movil={movil} />
-          {widget}
+        <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={recortado} conSuWeb={conSuWeb}>
+          {conSuWeb ? (
+            <SuWebDetras src={fondoWeb.src!}>{widget}</SuWebDetras>
+          ) : (
+            <>
+              <CabeceraWeb web={web} movil={movil} />
+              {widget}
+            </>
+          )}
         </Marco>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className={cn('min-w-0 flex-1 text-[11.5px] leading-relaxed', tinta)}>
-          {v2
+          {conSuWeb ? (
+            <>
+              <strong className="font-semibold">{ETIQUETA_COLOCACION}.</strong> {FRASE_COLOCACION}
+            </>
+          ) : v2
             ? (
               <>
                 {ventanaEstrecha && 'Así se ve en una ventana estrecha de ordenador. '}
@@ -382,7 +403,7 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio, borradorWeb }: {
   );
 }
 
-function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', direccion, fondo, recortado, children }: {
+function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', conSuWeb = false, direccion, fondo, recortado, children }: {
   movil: boolean;
   /** «Tu web» v2: en «Móvil», el iPhone del panel; en «Ordenador», un alto que cabe en la pantalla. */
   v2?: boolean;
@@ -390,6 +411,8 @@ function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', direccion, fondo,
   escala?: number;
   /** 'libre': en la hoja de «Ver a tamaño real», que se desplaza ella. */
   alto?: 'fijo' | 'libre';
+  /** v2: dentro va su web REAL (que se desplaza por dentro) con el widget encima: el marco no se desplaza. */
+  conSuWeb?: boolean;
   direccion: string | null;
   fondo: string;
   /** Más bajo por debajo de las dos columnas (ver la cabecera). */
@@ -397,7 +420,7 @@ function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', direccion, fondo,
   children: ReactNode;
 }) {
   if (v2 && movil) {
-    return <IphoneConWeb escala={escala} direccion={direccion} fondo={fondo}>{children}</IphoneConWeb>;
+    return <IphoneConWeb escala={escala} direccion={direccion} fondo={fondo} desplazable={!conSuWeb}>{children}</IphoneConWeb>;
   }
   if (v2 && alto !== 'libre') {
     // «Ordenador» en la v2: un MacBook (`MarcoMac`), con la ventana del navegador dentro, debajo
@@ -415,7 +438,8 @@ function Marco({ movil, v2 = false, escala = 1, alto = 'fijo', direccion, fondo,
             </span>
           </div>
           <div
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
+            // Con su web de verdad, ella se desplaza por dentro de su documento y el widget va encima: el marco no.
+            className={conSuWeb ? 'relative min-h-0 flex-1 overflow-hidden' : 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain'}
             style={{ background: fondo }}
             data-vista-previa=""
           >

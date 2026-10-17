@@ -70,9 +70,12 @@ export const config = {
     // propia cabecera por respuesta. El resto de estáticos (iconos,
     // manifest) no necesitan exclusión — la cabecera de framing es un
     // no-op ahí, pero tampoco hace falta que el proxy los procese.
+    // /vista-previa-web (la web REAL del estudio dentro de la vista previa de «Tu web» v2)
+    // también fuera: el proxy pondría `frame-ancestors 'none'` y el panel no podría enmarcarla;
+    // la ruta pone la suya, con el `frame-src` de ESA petición (lib/widgets/web-real/marco-html.ts).
     // /widget-fuentes/ (la letra de la integración sin marco) también fuera:
     // son ficheros estáticos que se piden desde la web de cada estudio, con
     // sus cabeceras en next.config.ts, y no hay por qué pasarlos por aquí.
-    '/((?!reservar|_next/static|_next/image|tema-publicado|api/theme/importado|widget-fuentes/).*)',
+    '/((?!reservar|_next/static|_next/image|tema-publicado|api/theme/importado|widget-fuentes/|vista-previa-web).*)',
   ],
 };

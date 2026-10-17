@@ -76,7 +76,7 @@ export function IphoneConWeb({ escala, direccion, fondo, desplazable = true, chi
             // le quitaba 15 px a la página y el widget ya no iba a su ancho de verdad.
             className={desplazable
               ? 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-              : 'min-h-0 flex-1 overflow-hidden'}
+              : 'relative min-h-0 flex-1 overflow-hidden'}
             style={{ background: fondo }}
             data-vista-previa=""
           >

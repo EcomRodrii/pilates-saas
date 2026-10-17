@@ -18,6 +18,9 @@ import { GestionDominios } from '../dominios';
 import { VistaPrevia, type Dispositivo } from '../vista-previa';
 import type { ConstructorWidgets } from '../usar-constructor';
 import { TuWebHechaCon } from './tu-web-hecha-con';
+import { useWebReal } from './usar-web-real';
+import type { FondoWeb, VerWeb } from './su-web-detras';
+import { normalizarOrigenWidget } from '@/lib/widget/dominios-autorizados';
 
 // El asistente de «Tu web» v2 (decisión 3): cuatro pasos cortos en lugar de tres
 // largos —Qué pones · Dónde va · Cómo se ve · Ponlo en tu web—, con «Salir» y un
@@ -139,6 +142,20 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
 
   // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de «Una
   // clase concreta», «Qué pones» no lo está; sin su web, «Dónde va» tampoco.
+  // ── Su web de verdad detrás del widget ── solo la propietaria, solo con una web autorizada que se pueda
+  // consultar (https) y solo mientras la vista previa se ve. Sin eso NO se hace ninguna petición. Quién
+  // decide si se deja es el servidor (/api/estudio/vista-previa-web), no esta comprobación.
+  const hayWebAutorizada = rol === 'PROPIETARIO' && s.dominiosAutorizados.some(d => normalizarOrigenWidget(d)?.startsWith('https://'));
+  const [ver, setVer] = useState<VerWeb>('web');
+  const webReal = useWebReal({
+    activo: columnas === true || hoja,
+    conDominio: hayWebAutorizada,
+    clave: s.dominiosAutorizados.join('|'),
+  });
+  const fondoWeb: FondoWeb | undefined = webReal.fase === 'sin-dominio'
+    ? undefined
+    : { fase: webReal.fase, src: webReal.src, ver, onVer: setVer, onProbar: webReal.probar };
+
   const hecho = (id: PasoV2, i: number) => i < indice && !(id === 'que' && s.faltaPrevia) && !(id === 'donde' && !plataforma);
   const siguiente = PASOS_V2[indice + 1] ?? null;
   const bloqueado = paso === 'donde' && !plataforma;
@@ -161,6 +178,7 @@ export function AsistenteWidgets({ s, paso, onPaso, onSalir, verDominios, onDomi
       onDispositivo={setDispositivo}
       noSigueElEstilo={s.noSigueElEstilo}
       alSeguirElEstilo={!s.paginaCompleta && s.noSigueElEstilo ? () => s.cambiar({ identidad: 'estudio' }) : null}
+      fondoWeb={fondoWeb}
       nota={s.letraDeSuWeb ? 'Sin marco, tu widget toma la letra de tu web: aquí, la del dibujo.' : null}
     />
   );

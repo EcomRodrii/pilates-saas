@@ -2,6 +2,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { firmaCodigo } from '../lib/widgets/integracion.ts';
 import { CONFIG_POR_DEFECTO } from '../lib/widgets/config.ts';
 import { widgetPorId, esDisponible } from '../lib/widgets/catalogo.ts';
+import { cabecerasDelMarco, htmlDelMarco } from '../lib/widgets/web-real/marco-html.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Tu web» v2 (16-oct-2026, tras PANEL_NUEVO + MI_WEB_NUEVA): la portada «Tus
@@ -55,6 +56,8 @@ interface Contadores {
   estilos: Record<string, unknown>[];
   patches: Record<string, unknown>[];
   lecturasPiezas: number;
+  /** Las peticiones a «¿se puede enseñar mi web?» (su cuerpo). Sin web autorizada, ninguna. */
+  webReal: Record<string, unknown>[];
   /** El orden en que llegaron los POST a publicar. */
   orden: string[];
 }
@@ -75,6 +78,8 @@ async function montar(page: Page, opts: {
   portapapelesNo?: boolean;
   /** Los planes que enseña la página de reservas (por defecto, una clase suelta). */
   planesPublicos?: unknown[];
+  /** Qué contesta «¿se puede enseñar mi web?» (n = la petición que es, desde 1). Por defecto, `{}` como el resto de /api. */
+  webReal?: (route: Route, n: number) => Promise<void> | void;
 }) {
   const studioRow: Record<string, unknown> = {
     id: STUDIO_ID, nombre: 'Pilates Centro', slug: SLUG, owner_auth_user_id: AUTH_UID,
@@ -84,7 +89,7 @@ async function montar(page: Page, opts: {
       ...(opts.plataforma === null ? {} : { _web: { plataforma: opts.plataforma ?? 'wordpress', ...(opts.direccion ? { direccion: opts.direccion } : {}) } }),
     },
   };
-  const c: Contadores = { piezas: [], estilos: [], patches: [], lecturasPiezas: 0, orden: [] };
+  const c: Contadores = { piezas: [], estilos: [], patches: [], lecturasPiezas: 0, webReal: [], orden: [] };
   // Lo publicado cambia «en otra pestaña» justo cuando el servidor contesta 409 (no por contar lecturas:
   // en desarrollo, el modo estricto de React monta dos veces y la lee dos veces al entrar).
   let hubo409 = false;
@@ -161,6 +166,10 @@ async function montar(page: Page, opts: {
     c.estilos.push(cuerpo);
     c.orden.push('estilo');
     return json(route, { aplicado: cuerpo.estilo, anterior: cuerpo.esperado });
+  });
+  await page.route('**/api/estudio/vista-previa-web', route => {
+    c.webReal.push((route.request().postDataJSON() ?? {}) as Record<string, unknown>);
+    return opts.webReal ? opts.webReal(route, c.webReal.length) : json(route, {});
   });
   await page.route('**/api/estudio/widget-pieza', async route => {
     if (route.request().method() !== 'POST') return json(route, {}, 405);
@@ -1238,5 +1247,251 @@ test.describe('capturas de «Tu horario, tus clases» (solo con CAPTURAS_SOLO=<c
     await expect(page.locator('[data-aviso-solo-horario]')).toBeVisible();
     await page.locator('[data-aviso-solo-horario]').scrollIntoViewIfNeeded();
     await foto(page, 'aviso-recuperarlo-ponlo-1440');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Su web REAL detrás del widget en la vista previa («Tu web» v2, punto 3).
+//
+// El servidor decide si su web deja que la enseñemos (cabeceras, en node:test:
+// lib/widgets/web-real); aquí se mockea ESA respuesta (localhost no es público, y
+// la ruta real se probaría contra Internet) y se prueba lo que pasa en el panel:
+//  · se deja → su web de fondo en un documento NUESTRO (/vista-previa-web) con su
+//    propio sandbox, y el widget encima con la etiqueta de «colocación orientativa»;
+//  · no se deja / no se sabe / tope → el ejemplo de siempre, el aviso y «Probar de nuevo»;
+//  · sin web autorizada, NI UNA petición.
+// ⚠️ Cada camino de fallo CUENTA las peticiones (webReal) y tiene su control que sí escribe.
+// ─────────────────────────────────────────────────────────────────────────────
+const ORIGEN_WEB = 'https://web-ok.example.com';
+const seDeja = (route: Route) => json(route, { estado: 'se-deja', permiso: 'permiso-e2e' });
+const noSeDeja = (route: Route) => json(route, { estado: 'no-se-deja' });
+const AVISO_NO_SE_DEJA = 'Tu web no permite que la mostremos aquí (es una protección normal de muchas webs). Así se verá tu widget en una página de ejemplo.';
+const FRASE_COLOCACION = 'No sabemos dónde lo pegarás: aquí va en un sitio fijo. Lo que sí ves de verdad es cómo pega con la letra y el color de tu web.';
+const suWeb = (page: Page) => page.locator('[data-su-web]').filter({ visible: true });
+const verWeb = (page: Page) => page.getByRole('group', { name: 'Qué se ve detrás del widget' }).filter({ visible: true });
+const leyendaEjemplo = (page: Page) => page.locator('section[aria-label="Vista previa"] p').filter({ hasText: /Es un ejemplo de página/ });
+
+/** Sirve el documento que enmarca su web (con las cabeceras de VERDAD que le pone el servidor) y una web de ejemplo. */
+async function servirSuWeb(page: Page) {
+  const docs: string[] = [];
+  const webs: string[] = [];
+  await page.route(u => u.pathname === '/vista-previa-web', route => {
+    docs.push(route.request().url());
+    return route.fulfill({ status: 200, headers: cabecerasDelMarco(ORIGEN_WEB), body: htmlDelMarco(ORIGEN_WEB) });
+  });
+  await page.route(`${ORIGEN_WEB}/**`, route => {
+    webs.push(route.request().url());
+    return route.fulfill({
+      status: 200, contentType: 'text/html; charset=utf-8',
+      body: '<!doctype html><title>Web del estudio</title><body style="font:20px Georgia"><h1>Pilates Centro de verdad</h1><script>document.body.dataset.js="1"</script>',
+    });
+  });
+  return { docs, webs };
+}
+const marcoDeSuWeb = (page: Page) => page.frames().find(f => f.url().startsWith(ORIGEN_WEB));
+
+for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
+  const nombre = dispositivo === 'Móvil' ? 'iPhone' : 'Mac';
+  test.describe(`su web detrás del widget · ${nombre}`, () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test('se deja: su web de fondo en NUESTRO documento con su sandbox, el widget encima con la etiqueta, y el interruptor va y vuelve sin preguntar otra vez', async ({ page }) => {
+      const consola: string[] = [];
+      page.on('console', m => { if (/Content Security Policy|Refused to/i.test(m.text())) consola.push(m.text()); });
+      const { c } = await montar(page, { dominios: [ORIGEN_WEB], direccion: 'web-ok.example.com', webReal: seDeja });
+      await servirSuWeb(page);
+      await empezar(page);
+      if (dispositivo === 'Ordenador') await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+      await previaCargada(page);
+
+      await expect(suWeb(page)).toBeVisible({ timeout: 30_000 });
+      expect(c.webReal.length, 'tiene que haber preguntado (si no, el resto no prueba nada)').toBeGreaterThan(0);
+      expect(c.webReal).toEqual([{ forzar: false }]);
+      // Lo que se enmarca desde el panel es NUESTRO documento (con su permiso), nunca la web directamente.
+      const doc = suWeb(page).locator('iframe[title="Tu web, de fondo (orientativo)"]');
+      await expect(doc).toHaveAttribute('src', '/vista-previa-web?t=permiso-e2e');
+      // La web, dentro, con el sandbox justo y sin referrer.
+      const documento = await (await doc.elementHandle())!.contentFrame();
+      const suMarco = documento!.locator('iframe');
+      await expect(suMarco).toHaveAttribute('sandbox', 'allow-scripts');
+      expect(await suMarco.getAttribute('sandbox')).not.toContain('allow-same-origin');
+      await expect(suMarco).toHaveAttribute('referrerpolicy', 'no-referrer');
+      await expect(suMarco).toHaveAttribute('loading', 'lazy');
+      await expect(suMarco).toHaveAttribute('title', /Tu web, tal como se ve ahora/);
+      await expect.poll(() => marcoDeSuWeb(page)?.url() ?? '', { timeout: 30_000 }).toContain(ORIGEN_WEB);
+      // MEDIDO: los únicos orígenes que la pantalla del constructor enmarca son el del propio panel
+      // (/reservar y /vista-previa-web) y la web del estudio. Ni Stripe ni el captcha cuelgan del panel.
+      const origenes = new Set(page.frames().filter(f => f !== page.mainFrame()).map(f => { try { return new URL(f.url()).origin; } catch { return f.url(); } }));
+      expect([...origenes].sort()).toEqual([new URL(page.url()).origin, ORIGEN_WEB].sort());
+      const web = marcoDeSuWeb(page)!;
+      await expect(web.getByRole('heading', { name: 'Pilates Centro de verdad' })).toBeVisible();
+      // Corre su JavaScript (allow-scripts), pero en un origen opaco: no ve nuestras cookies ni almacenamiento.
+      expect(await web.evaluate(() => `${document.body.dataset.js}|${window.origin}`)).toBe('1|null');
+      // La política del documento la aplica el navegador: deja pasar su web y NO otra.
+      const bloqueada = await documento!.evaluate(() => new Promise<boolean>(res => {
+        document.addEventListener('securitypolicyviolation', () => res(true), { once: true });
+        const f = document.createElement('iframe');
+        f.src = 'https://otra-web.example.org/';
+        document.body.appendChild(f);
+        setTimeout(() => res(false), 5000);
+      }));
+      expect(bloqueada, 'frame-src debe bloquear cualquier otra web').toBe(true);
+      expect(consola.filter(t => t.includes(`Framing '${ORIGEN_WEB}`)), 'ninguna violación contra SU web (la única es la de la web ajena que probamos)').toEqual([]);
+
+      // El widget (el /reservar de verdad) va encima, con su etiqueta, y no tapa la barra de direcciones.
+      const etiqueta = page.locator('[data-colocacion-orientativa]').filter({ visible: true });
+      await expect(etiqueta).toHaveText('Así quedaría: colocación orientativa');
+      await expect(previa(page)).toBeVisible();
+      const pantalla = dispositivo === 'Móvil' ? page.locator('[data-marco-movil]') : page.getByTestId('mac-pantalla');
+      const cajaEtiqueta = (await etiqueta.boundingBox())!;
+      const cajaPantalla = (await pantalla.boundingBox())!;
+      expect(cajaEtiqueta.y).toBeGreaterThan(cajaPantalla.y + 40);
+      expect(cajaEtiqueta.y + cajaEtiqueta.height).toBeLessThan(cajaPantalla.y + cajaPantalla.height);
+      await expect(pantalla).toContainText('web-ok.example.com');
+      const cajaDir = (await pantalla.getByText('web-ok.example.com', { exact: true }).first().boundingBox())!;
+      expect(cajaEtiqueta.y, 'la etiqueta no cubre la barra de direcciones').toBeGreaterThan(cajaDir.y + cajaDir.height);
+      // La leyenda lo dice con las palabras del fundador.
+      const leyenda = page.locator('section[aria-label="Vista previa"] p').filter({ hasText: 'Así quedaría: colocación orientativa.' });
+      await expect(leyenda).toContainText(FRASE_COLOCACION);
+      await expect(leyendaEjemplo(page)).toHaveCount(0);
+
+      // El interruptor: ver la página de ejemplo quita su web y trae la leyenda de siempre; volver NO pregunta otra vez.
+      await verWeb(page).getByRole('button', { name: 'Ver página de ejemplo' }).click();
+      await expect(suWeb(page)).toHaveCount(0);
+      await expect(leyendaEjemplo(page)).toBeVisible();
+      await verWeb(page).getByRole('button', { name: 'Ver mi web' }).click();
+      await expect(suWeb(page)).toBeVisible();
+      expect(c.webReal, 'ir y volver no vuelve a consultar').toHaveLength(1);
+    });
+  });
+}
+
+test.describe('su web detrás del widget · lo que no se deja', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('no se deja: el mensaje exacto, el ejemplo de siempre, «Ver mi web» apagado, NI UN documento de su web; «Probar de nuevo» salta la caché (con contador) y, si ahora sí, la enseña', async ({ page }) => {
+    const { c } = await montar(page, { dominios: [ORIGEN_WEB], webReal: (route, n) => n === 1 ? noSeDeja(route) : seDeja(route) });
+    const { docs } = await servirSuWeb(page);
+    await empezar(page);
+    await previaCargada(page);
+    const aviso = page.locator('[data-aviso-su-web="no-se-deja"]');
+    await expect(aviso).toContainText(AVISO_NO_SE_DEJA);
+    await expect(aviso).not.toContainText(/X-Frame|CSP|cabecera|frame-ancestors|iframe/i);
+    expect(c.webReal.length).toBeGreaterThan(0);
+    await expect(suWeb(page)).toHaveCount(0);
+    expect(docs, 'sin permiso, nadie pide el documento de su web').toHaveLength(0);
+    // Sigue el ejemplo de siempre.
+    await expect(leyendaEjemplo(page)).toBeVisible();
+    await expect(verWeb(page).getByRole('button', { name: 'Ver mi web' })).toBeDisabled();
+    await expect(verWeb(page).getByRole('button', { name: 'Ver página de ejemplo' })).toHaveAttribute('aria-pressed', 'true');
+
+    // CONTROL: «Probar de nuevo» SÍ pregunta (forzando) y, con una respuesta distinta, su web aparece.
+    await aviso.getByRole('button', { name: 'Probar de nuevo' }).click();
+    await expect(suWeb(page)).toBeVisible({ timeout: 30_000 });
+    expect(c.webReal).toEqual([{ forzar: false }, { forzar: true }]);
+    await expect(page.locator('[data-aviso-su-web]')).toHaveCount(0);
+  });
+
+  const CASOS: { nombre: string; responder: (r: Route) => Promise<void> | void; fase: string; texto: RegExp }[] = [
+    { nombre: 'el servidor no sabe', responder: r => json(r, { estado: 'sin-saber' }), fase: 'sin-saber', texto: /no hemos podido abrir tu web/ },
+    { nombre: 'un 500', responder: r => json(r, { error: 'x' }, 500), fase: 'sin-saber', texto: /no hemos podido abrir tu web/ },
+    { nombre: 'sin red', responder: r => r.abort('internetdisconnected'), fase: 'sin-saber', texto: /no hemos podido abrir tu web/ },
+    { nombre: 'el tope de consultas', responder: r => json(r, { estado: 'tope' }), fase: 'tope', texto: /Has probado muchas veces/ },
+    { nombre: 'una respuesta rara (se deja, sin permiso)', responder: r => json(r, { estado: 'se-deja' }), fase: 'sin-saber', texto: /no hemos podido abrir tu web/ },
+  ];
+  for (const caso of CASOS) {
+    test(`${caso.nombre}: el ejemplo, un aviso sin jerga y «Probar de nuevo»; jamás su web (con contador)`, async ({ page }) => {
+      const { c } = await montar(page, { dominios: [ORIGEN_WEB], webReal: caso.responder });
+      const { docs } = await servirSuWeb(page);
+      await empezar(page);
+      await previaCargada(page);
+      await expect(page.locator(`[data-aviso-su-web="${caso.fase}"]`)).toContainText(caso.texto);
+      expect(c.webReal.length, 'tiene que haber intentado: si no, «no la enseñó» sería verdad por no haber hecho nada').toBeGreaterThan(0);
+      await expect(suWeb(page)).toHaveCount(0);
+      expect(docs).toHaveLength(0);
+      await expect(page.getByRole('button', { name: 'Probar de nuevo' })).toBeVisible();
+      await expect(leyendaEjemplo(page)).toBeVisible();
+    });
+  }
+
+  test('sin web autorizada: NI UNA petición, ni interruptor, ni aviso; el ejemplo de siempre', async ({ page }) => {
+    const { c } = await montar(page, { webReal: seDeja });
+    const { docs } = await servirSuWeb(page);
+    await empezar(page);
+    await previaCargada(page);
+    await page.waitForTimeout(2500);
+    expect(c.webReal, 'sin web autorizada no se consulta nada').toHaveLength(0);
+    expect(docs).toHaveLength(0);
+    await expect(page.locator('[data-control-su-web]')).toHaveCount(0);
+    await expect(page.locator('[data-su-web]')).toHaveCount(0);
+    await expect(leyendaEjemplo(page)).toBeVisible();
+  });
+
+  test('una web autorizada sin https tampoco se consulta: el servidor solo mira https', async ({ page }) => {
+    const { c } = await montar(page, { dominios: ['http://localhost:4000'], webReal: seDeja });
+    await empezar(page);
+    await previaCargada(page);
+    await page.waitForTimeout(2500);
+    expect(c.webReal).toHaveLength(0);
+    await expect(page.locator('[data-control-su-web]')).toHaveCount(0);
+  });
+
+  test('el documento de su web de verdad (sin mocks): sin permiso o con uno falso, 403 que solo puede enmarcar el panel y sin ningún marco', async ({ request }) => {
+    for (const q of ['', '?t=', '?t=x.y.z', '?t=web-real.AAAA.BBBB']) {
+      const r = await request.get(`/vista-previa-web${q}`);
+      expect(r.status(), q).toBe(403);
+      expect(r.headers()['content-security-policy']).toBe("frame-ancestors 'self'");
+      expect(r.headers()['x-frame-options']).toBe('SAMEORIGIN');
+      expect(r.headers()['cache-control']).toContain('no-store');
+      expect(await r.text()).not.toContain('<iframe');
+    }
+  });
+
+  test('la consulta de verdad exige sesión: sin ella, 401 (y no se hace nada)', async ({ request }) => {
+    const r = await request.post('/api/estudio/vista-previa-web', { data: { forzar: true } });
+    expect(r.status()).toBe(401);
+  });
+});
+
+test.describe('capturas de su web detrás del widget (solo con CAPTURAS_WEB=<carpeta>; OSCURO=1 para el modo oscuro)', () => {
+  const carpeta = process.env.CAPTURAS_WEB;
+  test.skip(!carpeta, 'solo con CAPTURAS_WEB');
+  test.setTimeout(600_000);
+  test.use({ viewport: { width: 1440, height: 900 } });
+  const modo = process.env.OSCURO === '1' ? 'oscuro' : 'claro';
+  async function foto(page: Page, nombre: string) {
+    const plegar = page.getByRole('button', { name: 'Plegar «Primeros pasos»' });
+    if (await plegar.isVisible().catch(() => false)) await plegar.click();
+    await page.waitForTimeout(3000);
+    await page.locator('section[aria-label="Vista previa"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${carpeta}/${nombre}-${modo}.png` });
+  }
+  for (const dispositivo of ['Móvil', 'Ordenador'] as const) {
+    test(`su web enmarcable + widget, ${dispositivo}`, async ({ page }) => {
+      await montar(page, { dominios: [ORIGEN_WEB], direccion: 'web-ok.example.com', webReal: seDeja });
+      await servirSuWeb(page);
+      await empezar(page);
+      if (dispositivo === 'Ordenador') await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+      await previaCargada(page);
+      await expect(suWeb(page)).toBeVisible({ timeout: 30_000 });
+      await foto(page, `web-enmarcable-${dispositivo === 'Móvil' ? 'iphone' : 'mac'}`);
+      if (dispositivo === 'Móvil') {
+        await verWeb(page).getByRole('button', { name: 'Ver página de ejemplo' }).click();
+        await foto(page, 'interruptor-ver-ejemplo-iphone');
+      }
+    });
+  }
+  test('su web no enmarcable', async ({ page }) => {
+    await montar(page, { dominios: [ORIGEN_WEB], direccion: 'web-ok.example.com', webReal: noSeDeja });
+    await empezar(page);
+    await previaCargada(page);
+    await expect(page.locator('[data-aviso-su-web="no-se-deja"]')).toBeVisible();
+    await foto(page, 'web-no-enmarcable-iphone');
+  });
+  test('sin web autorizada', async ({ page }) => {
+    await montar(page, {});
+    await empezar(page);
+    await previaCargada(page);
+    await foto(page, 'sin-web-autorizada-iphone');
   });
 });
