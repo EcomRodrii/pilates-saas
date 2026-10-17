@@ -26,6 +26,15 @@ Estado a 1-oct-2026. Documentación de USC: https://docs.urbansportsclub.io
 - **Tope:** 60 llamadas por pasada (el cron tiene 60 s); lo que no cabe va en la siguiente, primero las cancelaciones.
 - ⚠️ **Sin contrato o suspendido = apagada** (decisión del fundador, 7-oct-2026; `lib/plataformas/venta-externa.ts`): baja de pago (`contrato_terminado_en`), prueba gratuita vencida (a su hora, sin esperar al barrido) o `suspendido_en`. El Instant Booking lo rechaza en cada petición (E002) y el cron cancela en USC todo lo publicado, como al apagar — y USC cancela esas reservas (nos llegan por webhook). `past_due` y `unpaid` siguen vendiendo: la suscripción sigue viva. Al reactivar, se vuelve a publicar en la siguiente pasada. Conexiones lo dice («En pausa») en vez de «van solos».
 
+## IDs de proveedor y ubicación: uno por estudio (15-oct-2026)
+
+- `PUT /api/integrations/config` pasa los IDs de USC por `prepararConfigUsc` (`lib/plataformas/usc/proveedor-config.ts`): formato UUID, normalizados, y rechazo con un único mensaje neutro si otro estudio ya los tiene o si USC no los reconoce (no revela de quién son).
+- **Con credenciales:** se comprueba con `GET /locations` que el proveedor existe y que la ubicación es suya y está `Active`. Si USC no responde, 503 y no se guarda nada.
+- **Sin credenciales (hoy):** se guardan pero **sin verificar**. «Verificado» lo escribe solo el servidor (`verificadoPar`, ligado al par exacto) y el cron `usc-horario` no llama a USC con IDs sin verificar. Al haber credenciales, la propietaria vuelve a pulsar «Guardar conexión» y queda verificado. Un estudio con eventos ya publicados antes de esto (ninguno) no se retiraría.
+- Un proveedor por estudio: una cadena con un solo proveedor de USC y varias sedes de Tentare no está contemplada (decisión conservadora; reabrir con USC si aparece el caso).
+- ⚠️ **Pendiente de aplicar en producción: `20261015110000_usc_proveedor_unico.sql`** (dos índices únicos parciales, solo aditiva; se para sola si ya hubiera duplicados). Sin ella, la carrera de dos guardados simultáneos solo la cubre la comprobación previa. Aplicar antes de encender USC.
+- Cuando se mergee la confirmación de avisos de integrador (#2722), su ruta debe sellar `verificadoPar` (ya comprueba `GET /locations`); si no, esos estudios no publicarán hasta volver a guardar.
+
 ## Qué falta (necesita sus credenciales)
 
 1. **Contrato y sandbox.** Correo enviado a su dirección de integraciones el 28-sep, sin respuesta a 1-oct.

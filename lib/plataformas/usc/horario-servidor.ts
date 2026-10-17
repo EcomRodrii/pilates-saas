@@ -20,6 +20,7 @@ import {
   credencialesUsc, crearEventoUsc, editarEventoUsc, cancelarEventoUsc, enviarOcupacionUsc,
   crearTrainerUsc, renombrarTrainerUsc, fechaAltaUsc, type CredencialesUsc,
 } from './cliente.ts';
+import { uscVerificada } from './proveedor-config.ts';
 import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
 import { estudiosSinVentaExterna } from '../venta-externa.ts';
 
@@ -294,6 +295,8 @@ export async function sincronizarHorarioUsc(admin: SupabaseClient, ahora: number
     const config = descifrarConfigDeFila(intg.studio_id, PLATAFORMA, intg.config);
     const cfg = configUscDe(config);
     if (!cfg) continue; // nunca conectada por API
+    // IDs que USC no ha reconocido (guardados sin credenciales): no se llama a USC con ellos.
+    if (!uscVerificada(config)) continue;
     try {
       // Primero los nombres: si la instructora se ha anonimizado, su nombre
       // tiene que salir de USC aunque el estudio ya no publique nada.

@@ -184,6 +184,7 @@ import {
   dbUpdateAutomatizacionCon,
 } from '@/lib/supabase-data';
 import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
+import { MENSAJE_IDS_USC_NO_VALIDOS } from '../plataformas/usc/proveedor-config.ts';
 
 function dbEscritura(): SupabaseClient {
   return getSupabaseAdmin() ?? supabase;
@@ -8098,6 +8099,8 @@ export async function dbGuardarIntegracion(
   const { error } = await admin.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) {
     if (error.code === '23505') {
+      // USC: mismo mensaje neutro que la comprobación previa (no dice de quién es el ID).
+      if (datos.tipo === 'URBAN_SPORTS_CLUB') return { ok: false, conflict: true, error: MENSAJE_IDS_USC_NO_VALIDOS };
       return { ok: false, conflict: true, error: 'Ese número de WhatsApp ya está conectado a otro estudio en Tentare.' };
     }
     reportDbError('[dbGuardarIntegracion]', error);

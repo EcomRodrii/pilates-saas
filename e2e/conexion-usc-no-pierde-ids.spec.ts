@@ -23,7 +23,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?: string }) {
+async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?: string; verificada?: boolean; rechazo?: { status: number; error: string } }) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -56,10 +56,13 @@ async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?:
   await page.route('**/api/integrations/config**', async route => {
     if (route.request().method() === 'PUT') {
       guardados.push(route.request().postDataJSON());
-      return json(route, { ok: true });
+      return opts.rechazo ? json(route, { error: opts.rechazo.error }, opts.rechazo.status) : json(route, { ok: true });
     }
     return json(route, {
-      config: { modo: 'api', providerId: PROVEEDOR, locationId: UBICACION },
+      config: {
+        modo: 'api', providerId: PROVEEDOR, locationId: UBICACION,
+        ...(opts.verificada === false ? {} : { verificadoPar: `${PROVEEDOR}/${UBICACION}` }),
+      },
       apiDisponible: opts.apiDisponible,
       ventaCortada: opts.ventaCortada ?? null,
     });
@@ -159,5 +162,26 @@ test.describe('Urban Sports Club: sin contrato o suspendido, la pantalla no dice
     await expect(page.locator('#plataformas-externas-urban_sports_club')).toContainText('Conectado');
     await expect(page.getByText('Vendo aquí · conectada: el horario y las reservas van solos')).toBeVisible();
     await expect(page.getByText('En pausa')).toHaveCount(0);
+  });
+});
+
+test.describe('Urban Sports Club: los IDs no se pueden quitar a otro estudio', () => {
+  test('el servidor los rechaza: la pantalla enseña SU mensaje, sin decir de quién son, y no da el guardado por bueno', async ({ page }) => {
+    const mensaje = 'No hemos podido conectar con esos IDs de Urban Sports Club. Revísalos con ellos o escríbenos.';
+    const guardados = await montar(page, { apiDisponible: true, rechazo: { status: 409, error: mensaje } });
+    const form = page.getByTestId('conexion-usc');
+    await form.getByLabel('ID de proveedor').fill('11111111-1111-4111-8111-111111111111');
+    await form.getByRole('button', { name: 'Guardar conexión' }).click();
+    // Contador: el intento llegó al servidor (si no, «no mintió» no probaría nada).
+    await expect.poll(() => guardados.length).toBeGreaterThan(0);
+    await expect(form.getByRole('alert')).toContainText('esos IDs');
+    await expect(form.getByRole('alert')).not.toContainText(/otro estudio/i);
+    await expect(page.getByText('Conexión con Urban Sports Club guardada')).toHaveCount(0);
+  });
+
+  test('IDs guardados sin verificar: la pantalla dice que no se publica nada todavía', async ({ page }) => {
+    await montar(page, { apiDisponible: true, verificada: false });
+    await expect(page.getByTestId('conexion-usc')).toContainText('sin verificar');
+    await expect(page.getByTestId('conexion-usc')).not.toContainText('Conectada.');
   });
 });

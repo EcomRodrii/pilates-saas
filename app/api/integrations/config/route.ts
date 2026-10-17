@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { dbGetIntegracionConfig, dbGuardarIntegracion } from '@/lib/db/supabase-data-admin';
 import type { TipoIntegracion } from '@/lib/types';
-import { credencialesUsc } from '@/lib/plataformas/usc/cliente';
+import { credencialesUsc, ubicacionesUsc } from '@/lib/plataformas/usc/cliente';
+import { escaparLike } from '@/lib/escapar-like';
+import { prepararConfigUsc } from '@/lib/plataformas/usc/proveedor-config';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { motivoSinVentaExternaDe } from '@/lib/plataformas/venta-externa';
 
@@ -94,9 +96,37 @@ export async function PUT(req: NextRequest) {
   if (!tipo || !TIPOS_CON_CAMPOS.includes(tipo) || typeof cuerpo?.activo !== 'boolean' || !configValida(cuerpo.config)) {
     return NextResponse.json({ error: 'Datos de la integración no válidos' }, { status: 400 });
   }
+  let config = cuerpo.config;
+  let verificada: boolean | undefined;
+  if (tipo === 'URBAN_SPORTS_CLUB') {
+    // Los IDs de USC se comprueban en el servidor (ni repetidos entre estudios
+    // ni inventados) y «verificado» lo pone solo el servidor.
+    const admin = getSupabaseAdmin();
+    if (!admin) return NextResponse.json({ error: 'No se ha podido guardar.' }, { status: 500 });
+    const guardada = (await dbGetIntegracionConfig(sesion.studioId, tipo))?.config ?? {};
+    const p = await prepararConfigUsc({
+      enviada: config, guardada,
+      deps: {
+        credenciales: credencialesUsc,
+        ubicaciones: ubicacionesUsc,
+        ocupado: async (providerId, locationId) => {
+          for (const [campo, valor] of [['providerId', providerId], ['locationId', locationId]] as const) {
+            const { data, error } = await admin.from('integraciones').select('studio_id')
+              .eq('tipo', tipo).neq('studio_id', sesion.studioId).ilike(`config->>${campo}`, escaparLike(valor)).limit(1);
+            if (error) throw new Error(error.message);
+            if (data?.length) return true;
+          }
+          return false;
+        },
+      },
+    });
+    if (!p.ok) return NextResponse.json({ error: p.error }, { status: p.status });
+    config = p.config;
+    verificada = p.verificada;
+  }
   const r = await dbGuardarIntegracion(sesion.studioId, {
-    tipo, activo: cuerpo.activo, config: cuerpo.config, reiniciarSalud: cuerpo.reiniciarSalud === true,
+    tipo, activo: cuerpo.activo, config, reiniciarSalud: cuerpo.reiniciarSalud === true,
   });
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.conflict ? 409 : 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(verificada === undefined ? { ok: true } : { ok: true, verificada });
 }
