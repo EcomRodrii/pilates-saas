@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       console.error('[socios/eliminar] anonimizar_socio (reaplicar) falló', errRpc);
       return NextResponse.json({ error: 'No se pudo completar la supresión' }, { status: 500 });
     }
-    await borrarRastroDeAlumna(admin, sesion.studioId, socioId);
+    await borrarRastroDeAlumna(admin, sesion.studioId, socioId); // también lo hace anonimizar_socio (20261019192000)
     if (previos.length === 0) return NextResponse.json({ ok: true, yaEstaba: true, completa: true });
 
     const pendientes: TerceroPendiente[] = [];
