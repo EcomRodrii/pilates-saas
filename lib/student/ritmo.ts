@@ -1,16 +1,18 @@
 // «Tu ritmo»: la semana de la alumna y su racha, calculadas de sus clases.
 //
-// ⚠️ Sin `@/` a propósito, ni un import: el runner de tests es
+// ⚠️ Sin `@/` a propósito: el runner de tests es
 // `node --test --experimental-strip-types` y NO resuelve ese alias. Un test que
 // importe un módulo con `@/` no falla — **no se ejecuta**, y `npm test` reporta
-// menos casos sin marcar ninguno en rojo. Aquí solo hay funciones puras sobre
-// cadenas y arrays, así que se pueden probar de verdad.
+// menos casos sin marcar ninguno en rojo. El único import es relativo y con su
+// `.ts` (el día del estudio), y todo lo demás son funciones puras.
 //
 // ⚠️ Y no se inventa nada. Estas cifras salen de reservas que EXISTEN:
 // 'asistida' es lo que el estudio marcó, 'confirmada' en día pasado cuenta como
 // asistida porque muchos estudios no pasan lista. Lo que no se puede calcular
 // —una meta semanal que nadie ha fijado, un reto que nadie ha creado— no se
 // rellena con un número bonito: se deja fuera.
+
+import { hoyEnEstudio } from '../utils.ts';
 
 /** Lo mínimo que hace falta de una reserva para el cálculo. */
 export interface ClaseHecha {
@@ -115,4 +117,26 @@ function retrocederUnaSemana(iso: string): string {
   const [a, m, d] = iso.split('-').map(Number);
   const t = new Date(a, (m ?? 1) - 1, d - 7, 12);
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Las clases del historial de la alumna (`/api/public/historial`) en la forma de
+ * este módulo, para calcular su RACHA.
+ *
+ * ⚠️ La racha NO puede salir del catálogo del portal: `fetchPublicStudioData`
+ * solo trae sesiones con `fin >= ahora`, así que las semanas pasadas no existen
+ * ahí y la racha casi nunca pasaba de la semana en curso. El historial sí trae
+ * las pasadas (hasta 100 filas, de la más reciente a la más antigua).
+ *
+ * Solo cuentan las `ASISTIDA`: el historial también trae canceladas y no
+ * presentadas, y una `CONFIRMADA` pasada no entra en él (o el estudio no pasa
+ * lista, o no fue). El día es el de Madrid, no el del móvil ni el de UTC: una
+ * clase a las 00:30 del lunes es del lunes.
+ */
+export function clasesHechasDelHistorial(
+  historial: ReadonlyArray<{ inicio: string; estado: string }>,
+): ClaseHecha[] {
+  return historial
+    .filter((c) => c.estado === 'ASISTIDA')
+    .map((c) => ({ fecha: hoyEnEstudio(new Date(c.inicio)), estado: 'asistida' }));
 }

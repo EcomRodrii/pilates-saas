@@ -12,7 +12,7 @@ import { confirmarSustituta, mensajeConfirmacionRechazada } from '@/lib/sustituc
 import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 import { candidataDelEstudio } from '@/lib/sustituciones/candidata-del-estudio';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
-import { PLAN_INFO, planMinimoPara, tieneFeature } from '@/lib/billing/entitlements';
+import { PLAN_INFO, planMinimoPara, tieneFeature, COLUMNAS_PLAN, planDeFila, pagaAddonsAparte, ADDONS } from '@/lib/billing/entitlements';
 import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: estudio } = await admin
-    .from('studios').select('avisar_alumnas, modo_autonomia, plan, subscription_status').eq('id', sesion.studioId).maybeSingle();
+    .from('studios').select(`avisar_alumnas, modo_autonomia, ${COLUMNAS_PLAN}`).eq('id', sesion.studioId).maybeSingle();
 
   // Diagnóstico del equipo: quién es INVISIBLE para el ranking por no tener
   // ninguna franja en `instructora_disponibilidad`. `rankear_candidatas` (0038)
@@ -202,10 +202,9 @@ export async function GET(req: NextRequest) {
     avisarAlumnas: !!estudio?.avisar_alumnas,
     modoAutonomia: (estudio?.modo_autonomia as string) ?? 'asistido',
     // Para pintar los modos Autónomo/Vacaciones bloqueados con candado en Base.
-    autonomiaDisponible: tieneFeature(
-      { plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status },
-      'sustitucionesAutonomas',
-    ),
+    autonomiaDisponible: tieneFeature(planDeFila(estudio), 'sustitucionesAutonomas'),
+    // Founding con los complementos aparte: el candado ofrece el complemento, no otro plan.
+    autonomiaEsComplemento: pagaAddonsAparte(planDeFila(estudio)),
     equipo,
   });
 }
@@ -236,7 +235,7 @@ export async function PATCH(req: NextRequest) {
     }
     if ((modo === 'autonomo' || modo === 'vacaciones') && !(await featureDeEstudio(sesion.studioId, 'sustitucionesAutonomas'))) {
       return NextResponse.json(
-        { error: `Los modos Autónomo y Vacaciones están incluidos a partir del plan ${PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre}. Mejora tu plan para activarlos.` },
+        { error: `Los modos Autónomo y Vacaciones necesitan el complemento «${ADDONS.sustituciones.nombre}» o el plan ${PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre}. Actívalo en Suscripción.` },
         { status: 403 },
       );
     }

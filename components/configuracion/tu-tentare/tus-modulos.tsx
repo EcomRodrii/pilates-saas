@@ -7,7 +7,8 @@ import { useStudio } from '@/lib/studio-context';
 import { useTutorial } from '@/lib/tutorial-context';
 import { guardarModoMenu } from '@/lib/nav-modo';
 import { estadoDelPlan } from '@/lib/configuracion/resumenes';
-import { planQueFalta, type GrupoTuTentare, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
+import { ADDONS } from '@/lib/billing/entitlements';
+import { complementoQueFalta, planQueFalta, type GrupoTuTentare, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
 import { useTusModulos } from './use-tus-modulos';
 import { Button } from '@/components/ui/button';
 import { Interruptor } from '@/components/ui/interruptor';
@@ -95,7 +96,10 @@ export function TusModulos({ onCambio, bloqueado = false, onGuardando }: {
             // o sin acceso al producto, nada (decir «necesita el plan Estudio» a
             // quien ya lo tiene sería mentir; y el Founding gratis lo tiene todo).
             const falta = planQueFalta(m, studio);
-            const estadoPlan = falta ? estadoDelPlan({ enTuPlan: false, activo: true, planMinimo: falta }) : undefined;
+            const complemento = complementoQueFalta(m, studio);
+            const estadoPlan = complemento
+              ? { tono: 'neutro' as const, etiqueta: `Complemento · +${ADDONS[complemento].precioMes}€/mes` }
+              : falta ? estadoDelPlan({ enTuPlan: false, activo: true, planMinimo: falta }) : undefined;
             // Sin el menú leído no se sabe si está puesto: ni interruptor ni nota
             // (un «en el menú, activado» de un módulo escondido sería mentira).
             const nota = ocultos !== null && estado === 'solo-todo' && modo === 'esencial' ? 'Lo verás al poner el menú en «Todo».' : null;

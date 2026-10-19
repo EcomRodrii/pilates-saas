@@ -411,5 +411,39 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     await expect(page.locator('[data-fila="cancelacion"]')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/al asistir/)).toHaveCount(0);
   });
+
+  // ── La racha, desde el historial real ─────────────────────────────────────
+  // Hoy es miércoles 12 de agosto (el reloj de sembrarSociaLista). Vino las tres
+  // semanas anteriores y todavía no esta: la semana en curso no rompe la racha.
+  test('la racha sale del historial de clases y cuenta las semanas pasadas', async ({ page }) => {
+    await montar(page, conGamificacion());
+    let pedidas = 0;
+    await page.route('**/api/public/historial', (r) => {
+      pedidas++;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clases: [
+        { reservaId: 'h1', sesionId: 's1', inicio: '2026-08-05T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        { reservaId: 'h2', sesionId: 's2', inicio: '2026-07-29T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        { reservaId: 'h3', sesionId: 's3', inicio: '2026-07-22T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        // Cancelada: no cuenta, y no alarga la racha a una cuarta semana.
+        { reservaId: 'h4', sesionId: 's4', inicio: '2026-07-15T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'CANCELADA' },
+      ] }) });
+    });
+    await page.goto(`${base}/logros`);
+    const racha = page.getByTestId('racha');
+    await expect(racha).toBeVisible({ timeout: 30_000 });
+    await expect(racha.getByText('3 semanas seguidas')).toBeVisible();
+    await expect(racha.getByText('Viniendo al menos una vez cada semana')).toBeVisible();
+    expect(pedidas).toBeGreaterThan(0);
+  });
+
+  test('si el historial no se puede leer, no se inventa una racha', async ({ page }) => {
+    await montar(page, conGamificacion());
+    let pedidas = 0;
+    await page.route('**/api/public/historial', (r) => { pedidas++; return r.fulfill({ status: 500, contentType: 'application/json', body: '{}' }); });
+    await page.goto(`${base}/logros`);
+    await expect(page.getByTestId('nivel')).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => pedidas).toBeGreaterThan(0);
+    await expect(page.getByTestId('racha')).toHaveCount(0);
+  });
 });
 
