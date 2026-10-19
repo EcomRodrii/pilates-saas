@@ -80,7 +80,7 @@ const CASOS: Caso[] = [
   { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002145300): como `reservar_plaza`, solo el servidor.
   { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
-  // Guardas de pg_cron (migr 20261019180000): deciden si el job llama a Vercel; las llama el cron como su dueño y el test.
+  // Guardas de pg_cron (migr 20261020090000): deciden si el job llama a Vercel; las llama el cron como su dueño y el test.
   { firma: 'cron_hay_recordatorios_de_clase(text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'cron_hay_checkin_automatico(text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'cron_hay_sustituciones_vencidas(text)', anon: false, authenticated: false, serviceRole: true },
