@@ -297,13 +297,13 @@ test.describe('Student PWA · cómo pedir una clase fija', () => {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' }) });
     });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /^Reservar clase$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('auto-reservable')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     // La hoja cerrada sigue en el DOM (inert, fuera de pantalla, como todas las hojas): lo que importa es que no se ve.
     await expect(page.getByText(/¿Vienes los/)).not.toBeInViewport();
 
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).first().click();
     await page.getByRole('button', { name: /^confirmar/i }).click();
     await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
   });
@@ -507,7 +507,7 @@ test.describe('Student PWA · cómo pedir una clase fija', () => {
     let pedidos = 0;
     await page.route('**/api/public/clases-fijas', (r) => { pedidos++; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ofertas: [], pedidas: [], sueltas: [] }) }); });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /^Reservar clase$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => pedidos, { timeout: 15_000 }).toBeGreaterThan(0);
     await expect(page.getByTestId('auto-reservable')).toHaveCount(0);
 
@@ -515,7 +515,7 @@ test.describe('Student PWA · cómo pedir una clase fija', () => {
     let rotos = 0;
     await page.route('**/api/public/clases-fijas', (r) => { rotos++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /^Reservar clase$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => rotos, { timeout: 15_000 }).toBeGreaterThan(0);
     await expect(page.getByTestId('auto-reservable')).toHaveCount(0);
   });

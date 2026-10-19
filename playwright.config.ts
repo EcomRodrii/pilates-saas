@@ -174,7 +174,6 @@ const SPECS_WEBKIT = [
   '**/portal-dos-pasos.spec.ts',
   '**/student-aislamiento.spec.ts',
   '**/student-heroe-sobre-la-foto.spec.ts',
-  '**/student-cabecera-sobre-foto.spec.ts',
   '**/student-clase-en-curso.spec.ts',
   // Las preguntas del estudio antes de usar la app: es una PUERTA. Si se rompe
   // en Safari no es una pantalla fea, es una alumna que no puede entrar a

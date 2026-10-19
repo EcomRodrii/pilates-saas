@@ -109,7 +109,7 @@ test.describe('Student PWA · ficha de una clase', () => {
     await expect(page.getByTestId('pago-corto')).toHaveCount(0);
     // A quien viene con su cuota no se le habla de sesiones devueltas.
     await expect(page.locator('[data-fila="cancelacion"]')).not.toContainText('sesión');
-    await page.getByRole('button', { name: /^Reservar$/ }).click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).click();
     await expect(page.getByText('Incluida en tu cuota. No pagas nada hoy.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Confirmar 10:00 con tu cuota' })).toBeVisible();
     await expect(page.getByText(/Te quedan/)).toHaveCount(0);
@@ -141,7 +141,7 @@ test.describe('Student PWA · ficha de una clase', () => {
   test('bono que no cubre: la tarjeta lo dice con sus palabras, y la frase de la hoja sale UNA vez', async ({ page }) => {
     await abrir(page, { bonoQueNoCubre: true });
     await expect(page.getByTestId('como-vienes')).toContainText('Tu Bono Mat no sirve para Reformer');
-    await page.getByRole('button', { name: /^Reservar$/ }).click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).click();
     await expect(page.getByText(/tu bono no incluye este tipo de clase/i)).toHaveCount(1);
   });
 

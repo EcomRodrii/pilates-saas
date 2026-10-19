@@ -47,9 +47,9 @@ test.describe('Student PWA · pestañas al instante', () => {
     await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
 
     await vigilar(page, '$^');
-    await pestana(page, 'Mis clases').click();
+    await pestana(page, 'Actividad').click();
     await expect(page.getByTestId('proxima-clase')).toBeVisible();
-    expect((await visto(page)).esqueleto, 'al volver a «Mis clases» no debe pasar por el esqueleto').toBe(false);
+    expect((await visto(page)).esqueleto, 'al volver a «Actividad» no debe pasar por el esqueleto').toBe(false);
     // La pantalla ya vista no repite su entrada (`data-revisita` apaga `.a-up`/`.a-pop`).
     await expect(page.locator('.shell[data-revisita]')).toHaveCount(1);
   });
@@ -93,7 +93,7 @@ test.describe('Student PWA · pestañas al instante', () => {
     });
 
     await vigilar(page, 'Reformer');
-    await pestana(page, 'Mis clases').click();
+    await pestana(page, 'Actividad').click();
     await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
     // Contador: la pantalla de verdad se pidió con la sesión de la segunda.
     expect(pedidasPorB).toBeGreaterThan(0);

@@ -2,111 +2,60 @@
 
 import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
-import { coloresMonograma, inicialDe } from '@/lib/monograma-estudio';
 import { usePortalHref } from '@/components/student/contexto';
-import type { Bono, Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
+import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import type { EstadoTemporal } from '@/lib/student/fila-horario';
-import { textoPagoFila } from '@/lib/student/como-se-paga';
 import { Foto } from '@/components/student/ui/Foto';
 import { EstadoDeClase } from '@/components/student/domain/EstadoDeClase';
+import { Icono } from '@/components/student/ui/Icono';
 
 /**
- * La fila de una clase en el HORARIO (P11 + P12, 5-oct-2026). Inicio y Calendario siguen con `ClassCard`.
+ * La fila de una clase en el HORARIO, copia de la maqueta de los cuatro iPhones (fundador, 19-oct-2026): la foto de la
+ * clase a la izquierda, el nombre, «08:00 · 50 min» con su reloj, la sala y la instructora con su cara; a la derecha, el
+ * chip de plazas (`EstadoDeClase`: en curso, terminada o «se abre…» cuando toca) y la flecha. Toda la fila lleva a la
+ * ficha, que es donde se reserva. Inicio y Calendario siguen con `ClassCard`.
  *
- * · Un cuadro de 56 px con la foto PROPIA del tipo de clase o de su sala (`fotoPropiaUrl`: nunca una de por defecto ni
- *   la del estudio, que repetida en cada fila se lee como un error). Con foto y logo, la foto con el logo pequeño en
- *   una esquina (no se pierde el logo de hoy). Sin foto, el logo o el color del tipo con su inicial, como antes.
- * · «07:00 · 60 min», el nombre en hasta dos líneas, y la cara de la instructora con la sala.
- * · A la derecha, lo de siempre (`EstadoDeClase`) y, solo cuando la hoja diría «No pagas nada hoy» y todo lo demás está
- *   en verde (`accionDeFila`), «Reservar»: abre la MISMA hoja que la ficha y va por el mismo POST.
- *
- * ⚠️ La tarjeta entera lleva a la ficha con un enlace ESTIRADO (`::after`) sobre la columna central, así que su nombre
- * accesible sigue diciendo la hora, la clase y la instructora. El botón queda por ENCIMA del enlace (z-index): tocarlo no
- * abre la ficha. Un botón dentro de un `<a>` no es válido, y por eso la fila ya no es un `<a>`.
+ * La foto es la de la clase (`fotoUrl`: la del tipo, la de su sala o la de por defecto de su disciplina), como en la
+ * maqueta: antes solo se ponía la foto PROPIA y las demás filas salían con una inicial.
  */
-export function FilaHorario({ clase, instructora, estado, temporal, bono, ofreceReservar, onReservar, delay = 0 }: {
+export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }: {
   clase: Clase; instructora?: Instructora; estado: Disponibilidad; temporal: EstadoTemporal;
-  /** Lo que pagaría esta clase (`bonoParaClase`). */
-  bono: Bono | null;
-  ofreceReservar: boolean;
-  onReservar: () => void;
   delay?: number;
 }) {
   const href = usePortalHref();
   const suya = estado === 'reservada';
   return (
-    <div
+    <Link
+      href={href('/reservar/' + clase.id)}
+      transitionTypes={TRANSICION_ADELANTE}
       className="card card--tap a-up fila-horario"
       data-testid="fila-horario"
       data-clase={clase.id}
       style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', animationDelay: delay + 'ms',
+        display: 'flex', alignItems: 'stretch', gap: 12, padding: 8, animationDelay: delay + 'ms', color: 'var(--foreground)',
         borderColor: suya ? 'var(--accent)' : undefined, borderWidth: suya ? 1.5 : 1,
       }}
     >
-      <CuadroClase clase={clase} />
-      <Link
-        href={href('/reservar/' + clase.id)}
-        transitionTypes={TRANSICION_ADELANTE}
-        className="fila-horario__enlace"
-        style={{ flex: 1, minWidth: 0, color: 'inherit' }}
-      >
-        <span className="t-meta t-num" style={{ display: 'block', fontWeight: 700 }}>{clase.hora} · {clase.duracionMin} min</span>
-        {/* Sin `display` en línea: el recorte a dos líneas es `display: -webkit-box` (student.css), y uno en línea lo pisaría. */}
-        <span className="fila-horario__nombre" style={{ fontSize: 'var(--t-body)', fontWeight: 800, marginTop: 1 }}>{clase.nombre}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-          <span aria-hidden style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0, background: instructora?.fotoUrl ? 'url(' + instructora.fotoUrl + ') center/cover' : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{!instructora?.fotoUrl && instructora?.iniciales}</span>
-          <span className="t-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{instructora?.nombre ?? '—'}{clase.sala ? ` · ${clase.sala}` : ''}</span>
-        </span>
-      </Link>
-      <div className="fila-horario__derecha" style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <EstadoDeClase clase={clase} estado={estado} temporal={temporal} />
-        {ofreceReservar && (
-          <button
-            type="button"
-            className="pill fila-horario__reservar"
-            aria-label={`Reservar ${clase.nombre} a las ${clase.hora}`}
-            onClick={onReservar}
-            style={{ background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', borderColor: 'transparent', fontWeight: 800 }}
-          >
-            Reservar
-          </button>
-        )}
-        {/* Cómo se pagaría, de la misma clasificación que la hoja: «Cuota», «1 sesión», el precio, «Solo con bono» o «Sin pagar». En
-            curso, terminada o sin abrir no se dice: ya no se reserva. */}
-        {temporal === 'plazas' && (
-          <p className="t-micro" style={{ margin: 0, fontWeight: 800, color: 'var(--muted-foreground)' }}>{textoPagoFila(clase, bono)}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** El cuadro de 56 px: foto propia (con el logo en una esquina), logo, o el color del tipo con su inicial. */
-function CuadroClase({ clase }: { clase: Clase }) {
-  const chip = coloresMonograma(clase.color);
-  const caja = { width: 56, height: 56, borderRadius: 12, flexShrink: 0, position: 'relative' as const, overflow: 'hidden' };
-  const fondoChip = (
-    <span aria-hidden data-testid="color-clase" style={{ ...caja, position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: chip.fondo, color: chip.texto, fontSize: 'var(--t-body)', fontWeight: 800 }}>
-      {inicialDe(clase.tipo)}
-    </span>
-  );
-  if (clase.fotoPropiaUrl) {
-    return (
-      <span aria-hidden style={caja}>
-        {/* Debajo, el color: si la foto no carga, `Foto` la oculta y queda el chip, no un hueco. */}
-        <span style={{ position: 'absolute', inset: 0, background: chip.fondo }} />
-        <span data-testid="foto-clase" style={{ position: 'absolute', inset: 0 }}>
-          <Foto src={clase.fotoPropiaUrl} ancho={56} alto={56} sizes="56px" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        </span>
+      <span aria-hidden data-testid="foto-clase" style={{ width: 92, minHeight: 88, flexShrink: 0, borderRadius: 14, overflow: 'hidden', background: 'var(--muted)', position: 'relative' }}>
+        <Foto src={clase.fotoUrl} ancho={92} alto={92} sizes="92px" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         {clase.logoUrl && (
-          <span data-testid="logo-clase" style={{ position: 'absolute', right: 4, bottom: 4, width: 20, height: 20, borderRadius: 6, background: 'url(' + clase.logoUrl + ') center/cover', border: '1px solid var(--card)' }} />
+          <span data-testid="logo-clase" style={{ position: 'absolute', right: 5, bottom: 5, width: 20, height: 20, borderRadius: 6, background: 'url(' + clase.logoUrl + ') center/cover', border: '1px solid var(--card)' }} />
         )}
       </span>
-    );
-  }
-  if (clase.logoUrl) {
-    return <span aria-hidden data-testid="logo-clase" style={{ ...caja, background: 'url(' + clase.logoUrl + ') center/cover', border: '1px solid var(--muted)' }} />;
-  }
-  return <span aria-hidden style={caja}>{fondoChip}</span>;
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, padding: '4px 0' }}>
+        <span className="fila-horario__nombre" style={{ fontSize: 'var(--t-body)', fontWeight: 800, lineHeight: 1.2 }}>{clase.nombre}</span>
+        <span className="t-meta t-num" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Icono nombre="reloj" tamano={14} />{clase.hora} · {clase.duracionMin} min
+        </span>
+        <span className="t-meta" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span aria-hidden style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0, background: instructora?.fotoUrl ? 'url(' + instructora.fotoUrl + ') center/cover' : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{!instructora?.fotoUrl && instructora?.iniciales}</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[clase.sala, instructora?.nombre].filter(Boolean).join(' · ')}</span>
+        </span>
+      </span>
+      <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', padding: '4px 4px 4px 0' }}>
+        <EstadoDeClase clase={clase} estado={estado} temporal={temporal} />
+        <span aria-hidden className="flecha-fila"><Icono nombre="chevron-derecha" tamano={18} /></span>
+      </span>
+    </Link>
+  );
 }

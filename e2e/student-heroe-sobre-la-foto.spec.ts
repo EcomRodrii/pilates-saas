@@ -1,21 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { sembrarSociaCompleta, SLUG } from './socia-completa';
 
-// El texto del héroe de Inicio, medido sobre LA FOTO DE VERDAD.
+// El texto sobre FOTO de Inicio, medido sobre la foto de verdad.
 //
-// ⚠️ Esto no lo cubre `student-contraste`, que resuelve el fondo leyendo
-// estilos y se salta el texto sobre foto a propósito — medirlo así da números
-// falsos. Y tampoco `student-cabecera-sobre-foto`, que sustituye la portada por
-// un color plano para probar el velo de la BARRA.
+// Desde la maqueta de oct-2026 (copiada tal cual por decisión del fundador) Inicio no tiene portada: el único texto
+// sobre foto es la tarjeta «Próxima clase» (hora, nombre y la fila de duración · sala · instructora), sobre la foto de
+// la clase con su velo negro (`.velo-foto`). El nombre del fichero se queda porque el proyecto WebKit lo lista.
 //
-// Aquí se mide lo que de verdad decide: la portada por defecto del repo
-// (`public/por-defecto/estudio-hero.webp`) con su velo encima. Nace de cambiar
-// esa foto por una más luminosa: con el velo que había, el kicker cayó a
-// **3,73:1** donde hacen falta 4,5. Nada más lo habría dicho.
+// ⚠️ Esto no lo cubre `student-contraste`, que resuelve el fondo leyendo estilos y se salta el texto sobre foto a
+// propósito — medirlo así da números falsos.
 //
-// ⚠️ Se ocultan las HOJAS de texto, nunca su contenedor: ese `div` es quien
-// pinta el velo. Ocultándolo se mide la foto desnuda y sale 1,15:1 en un texto
-// que se lee perfectamente — el error que ya documenta `velo-del-heroe`.
+// Aquí se mide lo que de verdad decide: la foto por defecto de Reformer (`public/por-defecto/`) con su velo encima,
+// ocultando SOLO el texto (nunca el velo) y comparando la tinta con el PEOR píxel de debajo.
 
 const base = `/portal/${SLUG}`;
 
@@ -24,18 +20,21 @@ function lum(r: number, g: number, b: number) {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
-test.describe('Student PWA · el héroe sobre la foto', () => {
+test.describe('Student PWA · el texto sobre la foto de Inicio', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 393, height: 852 } });
 
-  test('kicker, saludo, subtítulo y carril llegan a AA sobre la portada por defecto', async ({ page }) => {
-    await sembrarSociaCompleta(page);
+  test('la hora, el nombre y la fila de la próxima clase llegan a AA sobre su foto', async ({ page }) => {
+    await sembrarSociaCompleta(page, { reservada: true });
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
+    const tarjeta = page.getByTestId('clase-del-momento');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    // Que la foto haya pintado: sin ella se mediría contra el color de fondo y saldría verde sin probar nada.
+    await expect.poll(() => tarjeta.locator('.tarjeta-proxima__foto').evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('url(');
+    await page.waitForTimeout(800);
 
     const piezas = await page.evaluate(() => {
-      const sec = document.querySelector('main.page > section')!;
-      const bloque = sec.querySelector('div.px')!;
+      const sec = document.querySelector('[data-testid="clase-del-momento"]')!;
       const out: { nombre: string; tinta: string; px: number; peso: number; x: number; y: number; width: number; height: number }[] = [];
       const añade = (nombre: string, el: Element | null) => {
         if (!el) return;
@@ -44,16 +43,14 @@ test.describe('Student PWA · el héroe sobre la foto', () => {
         out.push({ nombre, tinta: cs.color, px: parseFloat(cs.fontSize), peso: Number(cs.fontWeight) || 400,
           x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) });
       };
-      añade('kicker', bloque.querySelector('p.t-label'));
-      añade('saludo', bloque.querySelector('h1'));
-      añade('subtítulo', bloque.querySelectorAll('p')[1]);
-      añade('carril', sec.querySelector('p[aria-hidden]'));
-      bloque.querySelectorAll('p, h1, a').forEach((n) => ((n as HTMLElement).style.visibility = 'hidden'));
-      (sec.querySelector('p[aria-hidden]') as HTMLElement | null)?.style.setProperty('visibility', 'hidden');
+      añade('hora', sec.querySelector('.tarjeta-proxima__hora'));
+      añade('nombre', sec.querySelector('.tarjeta-proxima__nombre'));
+      añade('fila', sec.querySelector('.fila-meta-foto'));
+      sec.querySelectorAll('.tarjeta-proxima__hora, .tarjeta-proxima__nombre, .fila-meta-foto').forEach((n) => ((n as HTMLElement).style.visibility = 'hidden'));
       return out;
     });
 
-    expect(piezas.length, 'las cuatro piezas del héroe').toBe(4);
+    expect(piezas.length, 'las tres piezas de texto sobre la foto').toBe(3);
 
     for (const p of piezas) {
       const buf = await page.screenshot({ clip: { x: p.x, y: p.y, width: p.width, height: p.height } });

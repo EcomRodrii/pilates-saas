@@ -266,13 +266,13 @@ export default function MisReservasPage() {
   return (
     <StudentShell>
       <TirarParaActualizar onRefrescar={actualizar} />
-      <PageHeader titulo="Mis clases" />
+      <PageHeader titulo="Actividad" />
 
       {/* Segmentado con píldora deslizante (§I). `tablist` alrededor: unas
           pestañas sueltas (`role="tab"`) sin su lista no se anuncian como tales. */}
       <div
         role="tablist"
-        aria-label="Mis clases"
+        aria-label="Actividad"
         className="px"
         style={{ position: 'relative', display: 'flex', background: 'var(--muted)', borderRadius: 999, padding: 4, margin: '14px 18px 0' }}
       >

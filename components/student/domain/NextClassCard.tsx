@@ -6,39 +6,49 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { etiquetaDia, horaFin } from '@/lib/student/formato';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
+import { Icono } from '@/components/student/ui/Icono';
 // ⚠️ Los enlaces del paquete son absolutos ('/reservar/…') porque allí la app
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
 // de Tentare o al panel.
-/** Card "Tu próxima clase" del kit: foto + velo del color del estudio, texto claro, acciones. */
+/**
+ * «Tu próxima clase» cuando no es ni hoy ni mañana (con clase hoy o mañana va `ClaseDelMomentoCard`, arriba). Misma
+ * piel que esa: la foto de la clase a sangre con su velo negro (`.velo-foto`), la píldora con el día y la hora grande
+ * (maqueta de oct-2026). Sin foto, el fondo es el color hondo del estudio.
+ */
 export function NextClassCard({ reserva, clase, instructora, onCalendario, onComoLlegar }: { reserva: Reserva; clase: Clase; instructora?: Instructora; onCalendario?: () => void; onComoLlegar?: () => void }) {
   const href = usePortalHref();
-  // Si la clase se está dando, esta tarjeta deja de ser «tu PRÓXIMA clase» y
-  // pasa a ser «tu clase de AHORA». No es un adorno: llamar «próxima» a algo que
-  // ya ha empezado le dice a la alumna que aún le queda tiempo.
   const ahoraMs = useAhoraMs();
   const enCurso = estaEnCurso(clase, ahoraMs);
+  const hrefReserva = href('/mis-reservas/' + reserva.id);
+  const enlaceFila = { background: 'none', border: 'none', padding: '6px 0', color: 'var(--on-dark)', font: 'inherit', fontWeight: 700 } as const;
   return (
-    <section aria-label={enCurso ? 'Tu clase de ahora' : 'Tu próxima clase'} className="a-pop" style={{ position: 'relative', borderRadius: 'var(--radius-hero)', overflow: 'hidden', boxShadow: 'var(--shadow-hero)', color: 'var(--accent-deep-foreground)' }}>
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'url(' + clase.fotoUrl + ') center/cover' }} />
-      {/* El velo es del COLOR DEL ESTUDIO (`--accent-deep`, student.css →
-          `.velo-marca`), no el verde noche fijo del kit: un estudio terracota
-          veía aquí una tarjeta verde. */}
-      <div aria-hidden className="velo-marca" />
-      <div style={{ position: 'relative', padding: '14px 15px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {/* El punto ya latía aquí de adorno. En curso se enciende de verdad:
-              mismo elemento, ahora significa algo. */}
-          <p className="t-label" style={{ color: enCurso ? 'var(--on-dark)' : 'var(--accent-deep-muted)', display: 'flex', alignItems: 'center', gap: 6 }} role={enCurso ? 'status' : undefined}><span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: enCurso ? '#FAF9F5' : 'var(--accent-deep-muted)', animation: enCurso ? 'apPulse 1.6s infinite' : 'apPulse 2s infinite' }} />{enCurso ? 'Tu clase, en curso' : 'Tu próxima clase'}</p>
+    <section aria-label={enCurso ? 'Tu clase de ahora' : 'Tu próxima clase'} className="a-pop" style={{ position: 'relative', borderRadius: 'var(--radius-hero)', overflow: 'hidden', boxShadow: 'var(--shadow-hero)', color: 'var(--on-dark)', background: 'var(--accent-deep)' }}>
+      {clase.fotoUrl && <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'url(' + clase.fotoUrl + ') center 35%/cover' }} />}
+      <div aria-hidden className="velo-foto" />
+      <div style={{ position: 'relative', padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', gap: 'var(--s-3)', minHeight: 220 }}>
+        <Link href={hrefReserva} transitionTypes={TRANSICION_ADELANTE} className="tap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, color: 'inherit', flex: 1 }}>
           {/* En curso el día sobra —es hoy— y lo que importa es cuánto queda. */}
-          <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 600, color: 'var(--accent-deep-muted)' }}>{enCurso ? 'hasta las ' + horaFin(clase.hora, clase.duracionMin) : etiquetaDia(clase.fecha).toLowerCase() + ' · ' + clase.hora}</span>
-        </div>
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.nombre}</p>
-        <p style={{ margin: '2px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)' }}>con {instructora?.nombre} · {clase.sala} · {clase.duracionMin} min</p>
-        <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
-          <Link href={href('/mis-reservas/' + reserva.id)} transitionTypes={TRANSICION_ADELANTE} className="btn btn--sm tap" style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>
-          <button type="button" onClick={onComoLlegar} className="btn btn--sm tap" style={{ height: 34, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)', color: 'var(--accent-deep-foreground)', border: '1px solid color-mix(in srgb, var(--accent-deep-foreground) 35%, transparent)' }}>Cómo llegar</button>
-          <button type="button" onClick={onCalendario} className="btn btn--sm tap" style={{ height: 34, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)', color: 'var(--accent-deep-foreground)', border: '1px solid color-mix(in srgb, var(--accent-deep-foreground) 35%, transparent)' }}>+ Calendario</button>
+          <span className="pildora-foto t-label" role={enCurso ? 'status' : undefined}>
+            {enCurso && <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: 'currentColor', animation: 'apPulse 1.6s infinite' }} />}
+            {enCurso ? 'Tu clase, en curso · hasta las ' + horaFin(clase.hora, clase.duracionMin) : 'Tu próxima clase · ' + etiquetaDia(clase.fecha).toLowerCase()}
+          </span>
+          <span style={{ flex: 1 }} />
+          <span className="t-num" style={{ fontSize: 46, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.04em', lineHeight: 1 }}>{clase.hora}</span>
+          <span style={{ fontSize: 'calc(var(--t-h1) * var(--heading-scale) * .86)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.025em', lineHeight: 1.1 }}>{clase.nombre}</span>
+          <span className="fila-meta-foto">
+            <span><Icono nombre="reloj" tamano={15} />{clase.duracionMin} min</span>
+            {clase.sala && <span><Icono nombre="ubicacion" tamano={15} />{clase.sala}</span>}
+            {instructora?.nombre && <span><Icono nombre="instructoras" tamano={15} />{instructora.nombre}</span>}
+          </span>
+        </Link>
+        <Link href={hrefReserva} transitionTypes={TRANSICION_ADELANTE} className="tap boton-foto">
+          <span>Ver mi reserva</span>
+          <span aria-hidden className="boton-foto-flecha"><Icono nombre="flecha-derecha" tamano={18} /></span>
+        </Link>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--s-5)', fontSize: 'var(--t-meta)' }}>
+          <button type="button" onClick={onComoLlegar} className="tap" style={enlaceFila}>Cómo llegar</button>
+          <button type="button" onClick={onCalendario} className="tap" style={enlaceFila}>+ Calendario</button>
         </div>
       </div>
     </section>
