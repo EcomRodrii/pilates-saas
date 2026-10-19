@@ -1126,6 +1126,8 @@ export interface RowStudios {
   regimen_addons: boolean | null;
   // migr 20261019175741.
   addons: string[] | null;
+  // migr 20261019182716.
+  mostrar_logo_en_landing: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -5837,6 +5839,7 @@ export type StudiosInsert = {
   tarjeta_clase?: any | null | null;
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5997,6 +6000,7 @@ export type StudiosUpdate = {
   tarjeta_clase?: any | null | null;
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
