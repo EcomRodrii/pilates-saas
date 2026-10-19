@@ -106,13 +106,15 @@ test('el bento: cada tarjeta lleva a su página de función o solución, todas d
   }
 });
 
-test('un solo verbo para empezar: héroe, banda final y planes dicen «Empezar gratis»; la isla sigue como estaba', async ({ page }) => {
+test('un solo verbo para empezar: héroe, banda final y planes dicen «Empezar gratis»; la isla (ronda 2) también', async ({ page }) => {
   await abrirLanding(page, 1440);
   await expect(page.locator('.v5-hero-cta')).toHaveText('Empezar gratis');
   await expect(page.locator('.v5-cta-boton')).toHaveText('Empezar gratis');
   await expect(page.locator('.v5-pre-cta').first()).toHaveText('Empezar gratis');
-  // La cabecera no se toca (decisión del fundador): sigue diciendo lo que decía.
-  await expect(page.locator('.v5-nav-cta')).toHaveText('Probar Tentare');
+  // La isla (ronda 2, con autorización expresa del fundador para tocar la cabecera) dice lo mismo: «Probar Tentare»
+  // arrastraba el aire de la prueba de 7 días, que ya no existe.
+  await expect(page.locator('.v5-nav-cta')).toHaveText('Empezar gratis');
+  await expect(page.locator('.v5-menu-cta')).toHaveCount(0); // el menú móvil solo existe abierto
 });
 
 for (const path of ['/funcionalidades/plazas-fijas', '/funcionalidades']) {
