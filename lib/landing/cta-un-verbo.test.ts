@@ -24,6 +24,7 @@ const CUERPOS = [
   'components/landing/BandaPrueba.tsx',
   'components/landing/PopupEmpezar.tsx',
   'components/landing/SeccionCtaFinal.tsx',
+  'components/landing/BotonBloque.tsx',
   'components/landing/SeccionPrecio.tsx',
   'components/funcionalidades/FeatureShell.tsx',
   'components/funcionalidades/bloques.tsx',
