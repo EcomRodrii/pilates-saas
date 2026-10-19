@@ -68,7 +68,7 @@ export function CuentasVinculadas({ id, vinculos, alTerminar }: { id: string; vi
             confirmando === v.otroId ? (
               <div className="mt-2 flex flex-col gap-2">
                 <p className="text-[12.5px] text-foreground text-pretty">
-                  Se deshace el vínculo. Si sumaba el uso, el estudio que lo heredó (el más nuevo) se reabre y se vuelve a medir solo con lo suyo.
+                  Se deshace el vínculo. Si sumaba el uso, el estudio que lo heredó (el más nuevo) se reabre y se vuelve a medir solo con lo suyo: si de verdad se pasa, empieza un margen nuevo de 30 días.
                 </p>
                 <div className="flex gap-2">
                   <button type="button" disabled={ocupado} onClick={() => desvincular(v.otroId)}

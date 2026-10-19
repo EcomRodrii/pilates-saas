@@ -13,7 +13,6 @@
 //     'stripe'  — la misma cuenta de Stripe Connect, aunque ya la desconectara
 //                 del estudio viejo (`cuentas_stripe_vistas`; solo la escribe el
 //                 servidor, no se puede falsificar).
-//     'nif'     — el mismo NIF.
 //     'alumnas' — al menos MIN_ALUMNAS_COMUNES alumnas en común (correo o móvil)
 //                 Y la mitad de las suyas. Nadie salta de cuenta sin llevárselas.
 //
@@ -21,12 +20,13 @@
 // revisión de seguridad lo pidió: el NIF lo escribe la dueña y las alumnas se
 // importan). Por eso: (1) el vínculo va del nuevo al viejo y el grupo solo lo
 // sigue en esa dirección; (2) alumnas y NIF solo cuentan con lo que el SERVIDOR
-// vio en el viejo ANTES del alta del nuevo (`rastro_gratis`, sha256 con la hora
+// vio en el viejo ANTES del alta del nuevo (`rastro_gratis`, HMAC con la hora
 // del servidor): meter hoy las alumnas o el NIF de otra en un estudio cerrado no
 // la toca; (3) medir nunca escribe la fecha de exceso en estudios de otra dueña.
-//   · SOLO AVISAN (`cuenta = false`): 'dispositivo' e 'ip', la huella del alta,
-//     tras el interruptor HUELLA_ALTA. Una IP compartida (un local, un
-//     coworking) no es el mismo negocio: cerrar por eso cerraría a inocentes.
+//   · SOLO AVISAN (`cuenta = false`): 'nif' (lo escribe la dueña sin verificar:
+//     alguien podría «ocupar» hoy el NIF de un negocio que aún no está en
+//     Tentare), y 'dispositivo' e 'ip', la huella del alta, tras HUELLA_ALTA.
+//     Una IP compartida (un local, un coworking) no es el mismo negocio.
 //
 // Lo detecta la base de datos (`detectar_vinculos_gratis`: las alumnas no salen
 // de allí) cada vez que se mide un estudio gratis. Un vínculo se deshace desde
@@ -46,7 +46,10 @@ export type MotivoVinculo = 'stripe' | 'nif' | 'alumnas' | 'dispositivo' | 'ip';
 export const MOTIVOS_VINCULO: readonly MotivoVinculo[] = ['stripe', 'nif', 'alumnas', 'dispositivo', 'ip'];
 
 /** Los que suman el uso. Los demás solo avisan. Debe coincidir con la función SQL. */
-export const MOTIVOS_QUE_CUENTAN: readonly MotivoVinculo[] = ['stripe', 'nif', 'alumnas'];
+export const MOTIVOS_QUE_CUENTAN: readonly MotivoVinculo[] = ['stripe', 'alumnas'];
+
+/** Cuánto se guarda el rastro (HMAC de alumnas y NIF) antes de borrarse solo. */
+export const RETENCION_RASTRO_MESES = 18;
 
 /** Cómo se lee cada motivo en /interno. */
 export const TEXTO_MOTIVO: Record<MotivoVinculo, string> = {

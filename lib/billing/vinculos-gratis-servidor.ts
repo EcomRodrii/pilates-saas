@@ -5,7 +5,7 @@ import * as Sentry from '@sentry/nextjs';
 import { claveOpaca, secretoRateLimit } from '../rate-limit-core.ts';
 import { ESTADO_GRATIS, ESTADO_GRATIS_CERRADO } from './plan-gratis.ts';
 import {
-  MIN_ALUMNAS_COMUNES, PCT_ALUMNAS_COMUNES, vinculadosDelGrupo, type FilaVinculo, type MotivoVinculo,
+  MIN_ALUMNAS_COMUNES, PCT_ALUMNAS_COMUNES, RETENCION_RASTRO_MESES, vinculadosDelGrupo, type FilaVinculo, type MotivoVinculo,
 } from './vinculos-gratis.ts';
 
 // La mitad de servidor de vinculos-gratis.ts: detectar, leer y apuntar la huella.
@@ -16,6 +16,7 @@ import {
  * lanza: si falla, la medición sigue como siempre y va a Sentry.
  */
 export async function detectarVinculosGratis(admin: SupabaseClient, studioId: string): Promise<void> {
+  await aplicarRetencionRastro(admin);
   const { data, error } = await admin.rpc('detectar_vinculos_gratis', {
     p_studio: studioId, p_min_comunes: MIN_ALUMNAS_COMUNES, p_pct_comunes: PCT_ALUMNAS_COMUNES,
   });
@@ -32,6 +33,38 @@ export async function detectarVinculosGratis(admin: SupabaseClient, studioId: st
       v.cuenta ? '[plan gratis] estudio de otra cuenta vinculado: se suma su uso' : '[plan gratis] alta parecida a un estudio cerrado (solo aviso)',
       { level: 'warning', tags: { area: 'billing', vinculo: v.motivo }, extra: { studioId, vinculadoId: v.vinculado_id, motivo: v.motivo } },
     );
+  }
+}
+
+/**
+ * Retención del rastro (RGPD): fuera lo de más de RETENCION_RASTRO_MESES y lo de
+ * antes del HMAC. Lo hace el servidor (no la función SQL) a propósito: así el
+ * borrado queda en código revisable. Nunca lanza.
+ */
+async function aplicarRetencionRastro(admin: SupabaseClient): Promise<void> {
+  const limite = new Date(Date.now() - RETENCION_RASTRO_MESES * 30 * 86_400_000).toISOString();
+  const [a, b] = await Promise.all([
+    admin.from('rastro_gratis').delete().lt('visto_en', limite),
+    admin.from('rastro_gratis').delete().eq('es_hmac', false),
+  ]);
+  const error = a.error ?? b.error;
+  if (error) {
+    Sentry.captureMessage('[plan gratis] no se ha podido aplicar la retención del rastro', {
+      level: 'warning', tags: { area: 'billing' }, extra: { error: error.message },
+    });
+  }
+}
+
+/**
+ * Suprimir la ficha de una alumna (RGPD) borra también su rastro del plan gratis.
+ * Nunca lanza: la supresión ya está hecha; si esto falla, va a Sentry.
+ */
+export async function borrarRastroDeAlumna(admin: SupabaseClient, studioId: string, socioId: string): Promise<void> {
+  const { error } = await admin.from('rastro_gratis').delete().eq('studio_id', studioId).eq('socio_id', socioId);
+  if (error) {
+    Sentry.captureMessage('[plan gratis] no se ha podido borrar el rastro de una alumna suprimida', {
+      level: 'error', tags: { area: 'rgpd' }, extra: { studioId, socioId, error: error.message },
+    });
   }
 }
 

@@ -4368,6 +4368,15 @@ export interface RowRastroGratis {
   tipo: string;
   clave: string;
   visto_en: string;
+  // migr 20261019190418.
+  socio_id: string | null;
+  // migr 20261019190557.
+  es_hmac: boolean | null;
+}
+
+export interface RowRastroGratisClave {
+  id: boolean;
+  clave: string;
 }
 
 
@@ -12104,6 +12113,8 @@ export type RastroGratisInsert = {
   tipo?: string | null;
   clave?: string | null;
   visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
 }
 
 export type RastroGratisUpdate = {
@@ -12111,6 +12122,18 @@ export type RastroGratisUpdate = {
   tipo?: string | null;
   clave?: string | null;
   visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
+}
+
+export type RastroGratisClaveInsert = {
+  id?: boolean | null;
+  clave?: string | null;
+}
+
+export type RastroGratisClaveUpdate = {
+  id?: boolean | null;
+  clave?: string | null;
 }
 
 export type Database = {
@@ -13475,6 +13498,11 @@ export type Database = {
         Row: RowRastroGratis;
         Insert: RastroGratisInsert;
         Update: RastroGratisUpdate;
+      };
+      rastro_gratis_clave: {
+        Row: RowRastroGratisClave;
+        Insert: RastroGratisClaveInsert;
+        Update: RastroGratisClaveUpdate;
       };
     };
   };

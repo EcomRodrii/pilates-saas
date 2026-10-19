@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  MIN_ALUMNAS_COMUNES, MOTIVOS_QUE_CUENTAN, MOTIVOS_VINCULO, PCT_ALUMNAS_COMUNES, TEXTO_MOTIVO,
+  MIN_ALUMNAS_COMUNES, MOTIVOS_QUE_CUENTAN, MOTIVOS_VINCULO, PCT_ALUMNAS_COMUNES, RETENCION_RASTRO_MESES, TEXTO_MOTIVO,
   enDiasDeAlta, huellaAltaActiva, vinculadosDelGrupo, type FilaVinculo,
 } from './vinculos-gratis.ts';
 
@@ -88,8 +88,12 @@ test('la detección: solo service_role, compara contra el historial de Stripe y 
   // Alumnas y NIF: solo lo que el SERVIDOR vio en el viejo antes del alta del nuevo.
   assert.match(sql, /r\.tipo = 'alumna' and r\.clave = m\.clave and r\.visto_en < v_creado/);
   assert.match(sql, /r\.tipo = 'nif'[\s\S]*?r\.visto_en < v_creado/);
-  // El rastro se apunta en cada medición, con la hora del servidor.
-  assert.match(sql, /insert into rastro_gratis \(studio_id, tipo, clave\)/);
+  // El rastro se apunta en cada medición, con la hora del servidor, en HMAC y con su alumna.
+  assert.match(sql, /insert into rastro_gratis \(studio_id, tipo, clave, socio_id, es_hmac\)/);
+  assert.match(sql, /extensions\.hmac\(convert_to\(k, 'UTF8'\), v_clave, 'sha256'\)/);
+  assert.doesNotMatch(sql, /[^.]sha256\(convert_to/, 'nada de sha256 a pelo: un móvil se revierte por fuerza bruta');
+  // El NIF solo avisa: lo escribe la dueña sin verificar.
+  assert.match(sql, /select r\.studio_id, 'nif', false/);
   // Nunca deshace un descarte de /interno al volver a detectar.
   assert.match(sql, /on conflict \(studio_id, vinculado_id, motivo\)\s+do update set detalle = excluded\.detalle/);
 });
@@ -123,4 +127,17 @@ test('desvincular en /interno descarta los dos sentidos y reabre por la única p
   assert.match(reabrir, /export async function reabrirPlanGratis/);
   // Dice de verdad qué reabrió (no `!error`).
   assert.match(reabrir, /\.eq\('subscription_status', ESTADO_GRATIS_CERRADO\)\.select\('id'\)/);
+});
+
+test('RGPD: el rastro se borra al suprimir a la alumna y caduca solo', () => {
+  const ruta = leer('app/api/socios/eliminar/route.ts');
+  assert.equal((ruta.match(/await borrarRastroDeAlumna\(admin, sesion\.studioId, socioId\)/g) ?? []).length, 2,
+    'en la supresión y al reaplicarla');
+  const srv = leer('lib/billing/vinculos-gratis-servidor.ts');
+  assert.match(srv, /from\('rastro_gratis'\)\.delete\(\)\.lt\('visto_en', limite\)/);
+  assert.match(srv, /from\('rastro_gratis'\)\.delete\(\)\.eq\('es_hmac', false\)/);
+  assert.ok(RETENCION_RASTRO_MESES > 0 && RETENCION_RASTRO_MESES <= 24);
+  // La clave del HMAC: ni service_role la lee.
+  const mig = sinComentarios(leer('supabase/migrations/20261019190418_rastro_gratis_hmac.sql'));
+  assert.match(mig, /revoke all on public\.rastro_gratis_clave from anon, authenticated, service_role/);
 });
