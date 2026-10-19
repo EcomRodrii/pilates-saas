@@ -7,13 +7,23 @@
 // también los estudios de OTRAS cuentas que son el mismo negocio. Lo que no se
 // puede cambiar en cinco minutos no es el móvil ni la IP, es el negocio:
 //
-//   · CUENTAN (se suma su uso; hereda el exceso y el margen no vuelve a empezar):
+//   · CUENTAN (se suma su uso; hereda el exceso y el margen no vuelve a empezar),
+//     siempre contra un estudio MÁS ANTIGUO de otra dueña que ya se pasó de un
+//     límite o está cerrado:
 //     'stripe'  — la misma cuenta de Stripe Connect, aunque ya la desconectara
-//                 del estudio viejo (`cuentas_stripe_vistas`).
+//                 del estudio viejo (`cuentas_stripe_vistas`; solo la escribe el
+//                 servidor, no se puede falsificar).
 //     'nif'     — el mismo NIF.
 //     'alumnas' — al menos MIN_ALUMNAS_COMUNES alumnas en común (correo o móvil)
-//                 Y la mitad de las suyas, con un estudio que ya se pasó de un
-//                 límite o está cerrado. Nadie salta de cuenta sin llevárselas.
+//                 Y la mitad de las suyas. Nadie salta de cuenta sin llevárselas.
+//
+// ⚠️ Solo puede salir perjudicado el estudio que COPIA, nunca el copiado (la
+// revisión de seguridad lo pidió: el NIF lo escribe la dueña y las alumnas se
+// importan). Por eso: (1) el vínculo va del nuevo al viejo y el grupo solo lo
+// sigue en esa dirección; (2) alumnas y NIF solo cuentan con lo que el SERVIDOR
+// vio en el viejo ANTES del alta del nuevo (`rastro_gratis`, sha256 con la hora
+// del servidor): meter hoy las alumnas o el NIF de otra en un estudio cerrado no
+// la toca; (3) medir nunca escribe la fecha de exceso en estudios de otra dueña.
 //   · SOLO AVISAN (`cuenta = false`): 'dispositivo' e 'ip', la huella del alta,
 //     tras el interruptor HUELLA_ALTA. Una IP compartida (un local, un
 //     coworking) no es el mismo negocio: cerrar por eso cerraría a inocentes.
@@ -55,9 +65,9 @@ export interface FilaVinculo {
 }
 
 /**
- * Los estudios vinculados a un grupo: los del otro lado de cada vínculo que
- * cuenta y no está descartado, en cualquiera de las dos direcciones. Sin los
- * del propio grupo.
+ * Los estudios a los que se suma un grupo: el estudio VIEJO de cada vínculo que
+ * cuenta y no está descartado, cuando el NUEVO es del grupo. Solo en esa
+ * dirección: un estudio viejo nunca carga con el uso de quien lo copia.
  */
 export function vinculadosDelGrupo(grupo: readonly string[], vinculos: readonly FilaVinculo[]): string[] {
   const dentro = new Set(grupo);
@@ -65,9 +75,16 @@ export function vinculadosDelGrupo(grupo: readonly string[], vinculos: readonly 
   for (const v of vinculos) {
     if (!v.cuenta || v.descartado_en) continue;
     if (dentro.has(v.studio_id) && !dentro.has(v.vinculado_id)) fuera.add(v.vinculado_id);
-    if (dentro.has(v.vinculado_id) && !dentro.has(v.studio_id)) fuera.add(v.studio_id);
   }
   return [...fuera];
+}
+
+/** La huella del alta se apunta solo en los primeros días del estudio: es «desde dónde se dio de alta». */
+export const DIAS_HUELLA_ALTA = 14;
+
+export function enDiasDeAlta(creadoEn: string | null | undefined, ahora: Date): boolean {
+  if (!creadoEn) return false;
+  return ahora.getTime() - new Date(creadoEn).getTime() < DIAS_HUELLA_ALTA * 86_400_000;
 }
 
 /**

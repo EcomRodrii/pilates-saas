@@ -4363,6 +4363,13 @@ export interface RowCuentasStripeVistas {
   visto_en: string;
 }
 
+export interface RowRastroGratis {
+  studio_id: string;
+  tipo: string;
+  clave: string;
+  visto_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12092,6 +12099,20 @@ export type CuentasStripeVistasUpdate = {
   visto_en?: string | null;
 }
 
+export type RastroGratisInsert = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+}
+
+export type RastroGratisUpdate = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13449,6 +13470,11 @@ export type Database = {
         Row: RowCuentasStripeVistas;
         Insert: CuentasStripeVistasInsert;
         Update: CuentasStripeVistasUpdate;
+      };
+      rastro_gratis: {
+        Row: RowRastroGratis;
+        Insert: RastroGratisInsert;
+        Update: RastroGratisUpdate;
       };
     };
   };

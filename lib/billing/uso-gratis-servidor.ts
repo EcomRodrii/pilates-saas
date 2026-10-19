@@ -61,6 +61,14 @@ export interface FilaUso {
  * alumnas: vinculos-gratis.ts). `null` si la lectura de la dueña falla.
  */
 export async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, ownerId: string | null): Promise<string[] | null> {
+  const g = await grupoDeLaDuena(admin, studioId, ownerId);
+  return g && [...g.propios, ...g.vinculados];
+}
+
+/** El grupo, separado: los de la dueña y los de otras cuentas a los que se suma. */
+async function grupoDeLaDuena(
+  admin: SupabaseClient, studioId: string, ownerId: string | null,
+): Promise<{ propios: string[]; vinculados: string[] } | null> {
   let propios = [studioId];
   if (ownerId) {
     const { data, error } = await admin.from('studios').select('id')
@@ -70,7 +78,7 @@ export async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: s
   }
   // Y los de otras cuentas que son el mismo negocio (vinculos-gratis.ts): con un
   // correo nuevo no se empieza de cero.
-  return [...propios, ...(await estudiosVinculadosGratis(admin, propios))];
+  return { propios, vinculados: await estudiosVinculadosGratis(admin, propios) };
 }
 
 /** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. Solo lee. */
@@ -162,8 +170,9 @@ export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string
   if (!(await reservarMedicion(admin, studioId, ahora))) return false;
   // Antes de medir, ¿es otra cuenta del mismo negocio? Nunca lanza.
   await detectarVinculosGratis(admin, studioId);
-  const ids = await estudiosGratisDeLaDuena(admin, studioId, ownerId);
-  if (!ids) return false;
+  const grupo = await grupoDeLaDuena(admin, studioId, ownerId);
+  if (!grupo) return false;
+  const ids = [...grupo.propios, ...grupo.vinculados];
   const usos = await medirUsoGratis(admin, ids, ahora);
   if (!usos) return false;
   const { data: previas } = await admin.from('uso_plan_gratis').select('excedido_desde').in('studio_id', ids);
@@ -171,10 +180,18 @@ export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string
     [...usos.values()], ((previas ?? []) as { excedido_desde: string | null }[]).map(p => p.excedido_desde), hoyEnEstudio(ahora),
   );
   const medidoEn = ahora.toISOString();
-  const filas = ids.map(id => {
+  const cifras = (id: string) => {
     const u = usos.get(id)!;
-    return { studio_id: id, alumnas_activas: u.alumnasActivas, reservas_30_dias: u.reservas30Dias, excedido_desde: desde, medido_en: medidoEn };
-  });
-  const { error } = await admin.from('uso_plan_gratis').upsert(filas, { onConflict: 'studio_id' });
-  return !error;
+    return { studio_id: id, alumnas_activas: u.alumnasActivas, reservas_30_dias: u.reservas30Dias, medido_en: medidoEn };
+  };
+  // La fecha de exceso solo en los de la dueña: el estudio de otra cuenta al que
+  // se suma (vinculos-gratis.ts) se mide, pero su margen no se toca nunca.
+  const { error } = await admin.from('uso_plan_gratis')
+    .upsert(grupo.propios.map(id => ({ ...cifras(id), excedido_desde: desde })), { onConflict: 'studio_id' });
+  if (error) return false;
+  if (grupo.vinculados.length > 0) {
+    const { error: eV } = await admin.from('uso_plan_gratis').upsert(grupo.vinculados.map(cifras), { onConflict: 'studio_id' });
+    if (eV) return false;
+  }
+  return true;
 }

@@ -17,7 +17,7 @@ import {
 } from '@/lib/billing/convertir-a-gratis';
 import { marcarUso } from '@/lib/retencion/marcar-uso';
 import { clientIp } from '@/lib/rate-limit-core';
-import { COOKIE_DISPOSITIVO, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
+import { COOKIE_DISPOSITIVO, enDiasDeAlta, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
 import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
 
 /**
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
   const { data: studio } = await admin
     .from('studios')
-    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, ${COLUMNAS_PARA_GRATIS}`)
+    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, creado_en, ${COLUMNAS_PARA_GRATIS}`)
     .eq('id', sesion.studioId)
     .single();
 
@@ -161,8 +161,9 @@ export async function GET(req: NextRequest) {
   // La huella del alta (vinculos-gratis.ts), solo con HUELLA_ALTA y solo de la
   // propietaria: la primera IP y el primer navegador con que abre el panel. Solo
   // AVISA en /interno de un alta parecida a un estudio cerrado; nunca cierra nada.
+  // Solo en los primeros días del estudio: es «desde dónde se dio de alta».
   let dispositivoNuevo: string | null = null;
-  if (huellaAltaActiva(process.env) && sesion.rol === 'PROPIETARIO') {
+  if (huellaAltaActiva(process.env) && sesion.rol === 'PROPIETARIO' && enDiasDeAlta(studio?.creado_en, new Date())) {
     const dispositivo = req.cookies.get(COOKIE_DISPOSITIVO)?.value ?? (dispositivoNuevo = crypto.randomUUID());
     const ip = clientIp(req);
     after(() => apuntarHuellaAlta(admin, sesion.studioId, ip === 'unknown' ? null : ip, dispositivo));

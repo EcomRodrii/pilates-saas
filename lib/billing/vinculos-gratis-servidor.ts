@@ -36,25 +36,23 @@ export async function detectarVinculosGratis(admin: SupabaseClient, studioId: st
 }
 
 /**
- * Los estudios gratis (abiertos o cerrados) de otras cuentas vinculados a este
- * grupo, con los demás estudios gratis de sus dueñas. Si la lectura falla, `[]`
+ * Los estudios gratis (abiertos o cerrados) más antiguos de otras cuentas a los
+ * que este grupo se suma, con los demás estudios gratis de sus dueñas. Si la lectura falla, `[]`
  * y a Sentry: sin vínculos se mide como antes, nunca se deja de medir.
  */
 export async function estudiosVinculadosGratis(admin: SupabaseClient, grupo: readonly string[]): Promise<string[]> {
-  // Dos lecturas con `.in()` (los dos lados del vínculo), sin componer un filtro a mano.
-  const leer = (columna: 'studio_id' | 'vinculado_id') => admin.from('vinculos_cuentas_gratis')
+  // Solo los vínculos en los que un estudio del grupo es el NUEVO (`studio_id`):
+  // el viejo nunca carga con el uso de quien lo copia.
+  const { data, error } = await admin.from('vinculos_cuentas_gratis')
     .select('studio_id, vinculado_id, cuenta, descartado_en')
-    .eq('cuenta', true).is('descartado_en', null).in(columna, [...grupo]);
-  const [a, b] = await Promise.all([leer('studio_id'), leer('vinculado_id')]);
-  const error = a.error ?? b.error;
-  const data = [...(a.data ?? []), ...(b.data ?? [])];
+    .eq('cuenta', true).is('descartado_en', null).in('studio_id', [...grupo]);
   if (error) {
     Sentry.captureMessage('[plan gratis] no se han podido leer las cuentas vinculadas', {
       level: 'warning', tags: { area: 'billing' }, extra: { grupo, error: error.message },
     });
     return [];
   }
-  const otros = vinculadosDelGrupo(grupo, data as FilaVinculo[]);
+  const otros = vinculadosDelGrupo(grupo, (data ?? []) as FilaVinculo[]);
   if (otros.length === 0) return [];
   const { data: filas, error: eFilas } = await admin.from('studios')
     .select('id, owner_auth_user_id, subscription_status').in('id', otros);
