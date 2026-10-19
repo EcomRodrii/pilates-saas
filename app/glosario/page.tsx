@@ -9,11 +9,16 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { GlossaryStructuredData } from '@/components/glosario/GlossaryStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+// Título y descripción salen del registro (lib/seo/paginas.ts), como en el resto
+// de páginas comerciales: tenerlos escritos aquí y allí fue lo que los dejó
+// desincronizados otras veces.
+const pagina = paginaDe('/glosario')!;
 
 export const metadata: Metadata = {
-  title: 'Glosario de software para estudios de Pilates — Tentare',
-  description: 'Definiciones claras y neutrales de los términos del sector: software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio y más.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
   alternates: { canonical: urlDe('/glosario') },
   openGraph: {
     type: 'website',
