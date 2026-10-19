@@ -161,7 +161,8 @@ test('lo que el piloto hizo «hoy»: solo EJECUTADA, y desde la medianoche de Ma
   assert.match(contar, /\.gte\('resuelto_en', inicioDeHoyEnEstudio\(now\)\)/);
   assert.match(cuerpoDe(db, 'export function dbCountAutonomasHoy('), /contarAutonomasHoyEn\(studioId, now, 'EJECUTADA'\)/);
   // Y la bandeja del Resumen cuenta igual.
-  const estado = leer('lib/estado-estudio-servidor.ts');
-  assert.match(estado, /const inicioDiaISO = inicioDeHoyEnEstudio\(ahora\);/);
-  assert.match(estado, /\.eq\('resuelto_por', 'AUTONOMIA'\)\.eq\('estado', 'EJECUTADA'\)\.gte\('resuelto_en', inicioDiaISO\)/);
+  // (en la función SQL de la bandeja: el día de Madrid de `p_ahora`, la medianoche de ese día).
+  const estado = leer('supabase/migrations/20261019150000_estado_estudio_conteos.sql');
+  assert.match(estado, /v_inicio_dia timestamptz := \(\(p_ahora at time zone 'Europe\/Madrid'\)::date\)::timestamp at time zone 'Europe\/Madrid'/);
+  assert.match(estado, /rm\.resuelto_por = 'AUTONOMIA' and rm\.estado = 'EJECUTADA' and rm\.resuelto_en >= v_inicio_dia/);
 });

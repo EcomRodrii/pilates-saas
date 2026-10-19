@@ -119,7 +119,7 @@ test('revisión de seguridad: nadie ve ni decide lo que va contra sí misma; el 
   assert.match(leer('app/api/moderacion/denuncias/route.ts'), /listarDenunciasDelEstudio\(admin, sesion\.studioId, sesion\.rol, sesion\.userId\)/);
   const servidor = leer('lib/moderacion/denuncias-servidor.ts');
   assert.match(servidor, /\.or\(noContraQuienMira\(userId\)\)/);
-  assert.match(leer('lib/estado-estudio-servidor.ts'), /\.or\(`autor_auth_user_id\.is\.null,autor_auth_user_id\.neq\.\$\{userId\}`\)/);
+  assert.match(leer('supabase/migrations/20261019150000_estado_estudio_conteos.sql'), /\(dn\.autor_auth_user_id is null or dn\.autor_auth_user_id <> p_user_id\)/);
   // Retirar o volver a mostrar: la RPC rechaza a la autora y lo retirado por Tentare, y el estudio solo cierra lo suyo.
   const sql = leer('supabase/migrations/20261006014051_moderacion_esquema.sql');
   const ocultar = sql.slice(sql.indexOf('create or replace function public.ocultar_comentario_comunidad'), sql.indexOf('-- ── 6. Resolver una denuncia'));
