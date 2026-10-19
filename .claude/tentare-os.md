@@ -1403,7 +1403,8 @@ líneas de la MISMA suscripción de Stripe (29 + 9 = 38 €/mes). Catálogo y pr
   sobren: Estudio y Cadena los incluyen.
 - ⚠️ **El portal de Stripe no cambia de plan una suscripción con varias líneas.** Hasta que haya una
   ruta propia de cambio de plan, /suscripcion pide quitar los complementos antes.
-- Precios en Stripe: `STRIPE_PRICE_ADDON_DECISIONES`, `_SUSTITUCIONES`, `_IA` (mensuales). Un
+- Precios en Stripe: `STRIPE_PRICE_ADDON_DECISIONES`, `_SUSTITUCIONES`, `_IA` (mensuales). Sin los
+  tres (`complementosALaVenta`), el checkout sigue vendiendo el Founding completo. Un
   complemento sin su precio sale como «Muy pronto» y la ruta contesta 503.
 
 ## ⚠️ Un merge de solo documentación NO despliega

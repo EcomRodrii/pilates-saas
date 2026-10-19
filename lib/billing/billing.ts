@@ -55,6 +55,15 @@ export function priceIdDeAddon(addon: Addon): string | null {
   return priceEnvAddons()[addon] ?? null;
 }
 
+/**
+ * ¿Se pueden contratar ya los tres complementos? Hasta que existan sus precios
+ * en Stripe, el checkout sigue vendiendo el Founding completo: quitarle algo a
+ * quien no puede comprarlo aparte sería venderle menos por lo mismo.
+ */
+export function complementosALaVenta(): boolean {
+  return (['decisiones', 'sustituciones', 'ia'] as Addon[]).every((a) => !!priceIdDeAddon(a));
+}
+
 /** Mapea un price ID de vuelta a su complemento (para leer la suscripción). */
 export function addonDePriceId(priceId: string | null | undefined): Addon | null {
   if (!priceId) return null;

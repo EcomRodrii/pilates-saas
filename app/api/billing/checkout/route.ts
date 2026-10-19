@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe } from '@/lib/billing/billing';
+import { complementosALaVenta, priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { METADATA_REGIMEN } from '@/lib/billing/lectura-suscripcion';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
@@ -354,9 +354,9 @@ export async function POST(req: NextRequest) {
       // lo pasa a `studios.regimen_addons`; las suscripciones de antes no lo
       // traen y conservan el Founding completo.
       subscription_data: {
-        metadata: { studioId: studio.id, plan, ...METADATA_REGIMEN },
+        metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
       },
-      metadata: { studioId: studio.id, plan, ...METADATA_REGIMEN },
+      metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
       success_url: `${appUrl}/suscripcion?suscripcion=ok`,
       cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
       locale: 'es',
