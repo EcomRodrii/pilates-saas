@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'espana',
   seccion: 'España y fiscalidad',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: '¿las clases de pilates llevan IVA?',
   consultas: [
     'IVA de las clases de pilates',

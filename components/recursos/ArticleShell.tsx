@@ -63,7 +63,7 @@ export function ArticleShell({
         <p className="art-byline">
           {/* El nombre lleva a quién hay detrás y a cómo se escriben y se
               comprueban las guías (7-oct-2026): la autoría con su método. */}
-          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
+          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? <time dateTime={actualizado}>{mesCorto(actualizado)}</time> : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
         </p>
       </header>
 
@@ -94,6 +94,22 @@ export function ArticleShell({
         .art-related-card { transition: transform .2s, box-shadow .2s; }
         .art-related-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -30px rgba(26,26,26,.3); }
         @media (max-width: 900px) { .art-cta2 { grid-template-columns: 1fr; } }
+        /* Llamada a mitad de texto hacia un recurso: un filete a la izquierda,
+           como las notas. Sin caja ni color de fondo. */
+        .art-body .art-recurso { border-left: 3px solid ${ACC}; padding: 2px 0 2px 18px; margin: 26px 0; }
+        .art-body .art-recurso p { margin: 0; font-size: 17px; line-height: 1.65; }
+        .art-body .art-recurso a { font-weight: 700; }
+        /* «Sigue leyendo» (ArticulosRelacionados): tarjetas sencillas, una bajo
+           otra, sin color por categoría ni letra de máquina de escribir. */
+        .art-body .art-rel { margin-top: 56px; }
+        .art-body .art-rel h2 { margin: 0 0 16px; }
+        .art-body .art-rel-lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+        .art-body a.art-rel-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid #E1E1D9; border-radius: 12px; background: #fff; color: #1A1A1A; text-decoration: none; }
+        .art-body a.art-rel-tarjeta:hover .art-rel-titulo { text-decoration: underline; text-underline-offset: 3px; }
+        .art-rel-cat, .art-rel-min { font-size: 13px; line-height: 1.4; color: #6B6B63; }
+        .art-rel-cat { font-weight: 600; }
+        .art-rel-titulo { font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; }
+        .art-body .art-rel-mas { margin: 18px 0 0; font-size: 15px; line-height: 1.8; color: #4A4A44; }
         /* Tablas de más de tres columnas (ArticuloDatos): en escritorio, con su
            ancho mínimo; en el móvil, una tarjeta por fila con la etiqueta de
            cada columna, en vez de deslizar la tabla de lado. */

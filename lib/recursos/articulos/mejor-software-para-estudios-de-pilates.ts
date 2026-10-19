@@ -10,6 +10,7 @@ const articulo: Articulo = {
   categoria: 'software',
   seccion: 'Elegir software',
   publicado: '2026-09-25',
+  actualizado: '2026-10-15',
   consultaPrincipal: 'mejor software para estudios de pilates',
   consultas: [
     'software para estudio de pilates',

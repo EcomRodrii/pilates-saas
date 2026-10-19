@@ -9,6 +9,7 @@ const articulo: Articulo = {
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cómo abrir un estudio de yoga',
   consultas: [
     'qué necesito para abrir un estudio de yoga',
