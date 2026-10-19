@@ -6,9 +6,12 @@ import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
-import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
+import { FAQ_FUNCIONALIDADES } from '@/lib/seo/faq-hubs';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 const PATH = '/funcionalidades';
 const pagina = paginaDe(PATH)!;
@@ -122,6 +125,14 @@ export default function FuncionalidadesPage() {
           </section>
         )}
 
+        {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las 17 áreas tienen la suya;
+            esta es la de quien aún no sabe en cuál mirar. Marcado y texto, del mismo array. */}
+        <section aria-labelledby="fun-faq-h" style={{ maxWidth: 780, marginBottom: 'clamp(38px,5vw,58px)' }}>
+          <FaqStructuredData items={FAQ_FUNCIONALIDADES} />
+          <h2 id="fun-faq-h" style={{ fontWeight: 800, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: '-.028em', lineHeight: 1.15, margin: '0 0 6px' }}>Preguntas frecuentes</h2>
+          <ArticleFaq items={FAQ_FUNCIONALIDADES} />
+        </section>
+
         <section style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 24, padding: 'clamp(28px,4.5vw,48px)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-34%', right: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.32), transparent 64%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', display: 'flex', gap: 'clamp(20px,4vw,48px)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -135,7 +146,7 @@ export default function FuncionalidadesPage() {
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <Link href="/precios" className="hover:brightness-110" style={{ fontSize: 15.5, fontWeight: 700, color: '#343825', background: '#D9C29E', padding: '14px 26px', borderRadius: 999 }}>Ver precios</Link>
-              <Link href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', padding: '14px 26px', borderRadius: 999 }}>Crear mi estudio</Link>
+              <Link href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', padding: '14px 26px', borderRadius: 999 }}>{CTA_ALTA}</Link>
             </div>
           </div>
         </section>

@@ -7,10 +7,12 @@ import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
-import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
+import { FAQ_SOLUCIONES } from '@/lib/seo/faq-hubs';
 
 // Índice de /soluciones (fase 5 del rediseño, 23-sep). Hasta entonces la URL
 // daba 404 aunque colgaran de ella tres páginas: un hueco en las migas de pan y
@@ -86,6 +88,17 @@ export default function SolucionesPage() {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las cuatro soluciones tienen
+          las suyas; esta es la de quien aún no sabe cuál es la suya. Marcado y texto,
+          del mismo array. */}
+      <section aria-labelledby="solh-faq-h" style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,80px)' }}>
+        <div style={{ maxWidth: 780, margin: '0 auto' }}>
+          <FaqStructuredData items={FAQ_SOLUCIONES} />
+          <h2 id="solh-faq-h" style={{ fontWeight: 800, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.03em', lineHeight: 1.12, margin: 0 }}>Preguntas frecuentes</h2>
+          <ArticleFaq items={FAQ_SOLUCIONES} />
         </div>
       </section>
 
