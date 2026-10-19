@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { secretoValido } from './secreto.ts';
 import {
-  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_DENUNCIAS_ESPERANDO_A_TENTARE, ID_DENUNCIAS_SIN_REVISAR_48H,
+  avisoParaSentry, comprobarFlujos, DEFINICIONES, ID_ASISTENCIAS_SIN_PREMIO,
+  ID_DENUNCIAS_ESPERANDO_A_TENTARE, ID_DENUNCIAS_SIN_REVISAR_48H,
   ID_DEVOLUCION_POS_SIN_REFLEJAR,
   ID_PENALIZACIONES_COBRADAS_SIN_DINERO, ID_PENALIZACIONES_RECIBO_SIN_PROGRAMAR,
 } from './comprobaciones.ts';
@@ -287,4 +288,85 @@ test('devolución del TPV sin reflejar: un solo caso ya es un fallo (el dinero y
   const def = DEFINICIONES.find(d => d.id === ID_DEVOLUCION_POS_SIN_REFLEJAR)!;
   assert.equal(def.umbralAviso, 1);
   assert.equal(def.umbralFallo, 1);
+});
+
+// ── Fidelidad: asistencias que debieron dar créditos y no los dieron ────────
+
+// Doble que devuelve `{ data, error }` por tabla y apunta qué se le pidió.
+function adminConFilas(porTabla: Record<string, { data: unknown[] | null; error: { message: string } | null }>) {
+  const llamadas: Array<[string, ...unknown[]]> = [];
+  const admin = {
+    from: (tabla: string) => {
+      llamadas.push(['from', tabla]);
+      const r = porTabla[tabla] ?? { data: [], error: null };
+      const self: Record<string, unknown> = {};
+      for (const m of ['select', 'in', 'limit']) self[m] = (...args: unknown[]) => { llamadas.push([m, ...args]); return self; };
+      self.then = (res: (v: typeof r) => unknown) => Promise.resolve(r).then(res);
+      return self;
+    },
+  } as unknown as SupabaseClient;
+  return { admin, llamadas };
+}
+
+const defAsistencias = () => DEFINICIONES.find(d => d.id === ID_ASISTENCIAS_SIN_PREMIO)!;
+
+test('asistencias-sin-premio: una sola ya es aviso y fallo', () => {
+  const d = defAsistencias();
+  assert.ok(d, 'la comprobación existe junto a las demás');
+  assert.equal(d.umbralAviso, 1);
+  assert.equal(d.umbralFallo, 1);
+});
+
+test('asistencias-sin-premio: sin filas en la vista es 0 y no consulta estudios', async () => {
+  const { admin, llamadas } = adminConFilas({ gamificacion_asistencias_sin_premio: { data: [], error: null } });
+  const r = await defAsistencias().contar(admin, new Date());
+  assert.deepEqual(r, { count: 0, error: null });
+  assert.deepEqual(llamadas.filter(l => l[0] === 'from'), [['from', 'gamificacion_asistencias_sin_premio']]);
+});
+
+test('asistencias-sin-premio: solo cuenta los estudios cuyo plan premia (mismo gate que el servidor)', async () => {
+  const { admin } = adminConFilas({
+    gamificacion_asistencias_sin_premio: {
+      data: [{ studio_id: 'a' }, { studio_id: 'a' }, { studio_id: 'b' }, { studio_id: 'c' }],
+      error: null,
+    },
+    studios: {
+      data: [
+        { id: 'a', plan: 'ESTUDIO', subscription_status: 'active' }, // premia: 2 cuentan
+        { id: 'b', plan: 'ESTUDIO', subscription_status: 'canceled' }, // sin suscripción activa: no premia, no es fallo
+        { id: 'c', plan: 'BASE', subscription_status: 'gratis' }, // Founding gratis: premia
+      ],
+      error: null,
+    },
+  });
+  const r = await defAsistencias().contar(admin, new Date());
+  assert.equal(r.count, 3);
+});
+
+test('asistencias-sin-premio: no poder contar es un fallo, no un verde', async () => {
+  const { admin } = adminConFilas({ gamificacion_asistencias_sin_premio: { data: null, error: { message: 'boom' } } });
+  const r = await defAsistencias().contar(admin, new Date());
+  assert.equal(r.count, null);
+  assert.equal(avisoParaSentry(defAsistencias(), r)?.nivel, 'error');
+  const { admin: admin2 } = adminConFilas({
+    gamificacion_asistencias_sin_premio: { data: [{ studio_id: 'a' }], error: null },
+    studios: { data: null, error: { message: 'boom' } },
+  });
+  assert.equal((await defAsistencias().contar(admin2, new Date())).count, null);
+});
+
+test('asistencias-sin-premio: a Sentry va solo el número, sin filas ni ids', async () => {
+  const aviso = avisoParaSentry(defAsistencias(), { count: 4, error: null });
+  assert.equal(aviso?.nivel, 'error');
+  assert.deepEqual(aviso?.extra, { comprobacion: ID_ASISTENCIAS_SIN_PREMIO, valor: 4 });
+});
+
+test('asistencias-sin-premio: el cron diario de bonos la vigila y la vista solo la lee el servidor', () => {
+  const ruta = readFileSync(new URL('../../app/api/cron/notif-bonos/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes('ID_ASISTENCIAS_SIN_PREMIO'), 'sin cablear, nadie se entera');
+  const mig = readFileSync(new URL('../../supabase/migrations/20261019100000_vista_asistencias_sin_premio.sql', import.meta.url), 'utf8');
+  assert.match(mig, /with \(security_invoker = on\)/);
+  assert.match(mig, /revoke all on public\.gamificacion_asistencias_sin_premio from public, anon, authenticated/);
+  assert.match(mig, /grant select on public\.gamificacion_asistencias_sin_premio to service_role/);
+  assert.match(mig, /rr\.creado_en <= r\.check_in_en/, 'una regla creada después no es una pérdida');
 });
