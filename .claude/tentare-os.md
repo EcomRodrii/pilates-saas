@@ -213,7 +213,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   con el aforo, y una pantalla nueva que enseñe plazas libres las resta (`plazasLibresParaReservar`): lo vigila
   `lib/plataformas/apartadas-contrato.test.ts`. Si no se pueden leer antes de cobrar, no se cobra. Las clases fijas
   no se tocan (derecho preaprobado) y recepción no usa una apartada: la cierra en ClassPass y la libera.
-- **El libro de créditos y canjes solo lo escribe el servidor** (migr `20261017130000`).
+- **El libro de créditos y canjes solo lo escribe el servidor** (migr `20261019122718`).
   `reward_redemptions`, `credit_transactions`, `reward_history`, `reward_actions` y
   `member_credits` no dan INSERT/UPDATE/DELETE a `authenticated`: todo movimiento va por RPC
   `SECURITY DEFINER` (`canjear_recompensa`, `cancelar_canje`, `entregar_canje`,

@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El libro de créditos y canjes solo lo escribe el SERVIDOR (migración
-// 20261017130000_libro_creditos_solo_servidor.sql).
+// 20261019122718_libro_creditos_solo_servidor.sql).
 //
 // Antes, cualquier cuenta de mostrador podía escribir a pelo con su sesión en
 // `reward_redemptions`, `credit_transactions` y `reward_history`, y con eso
