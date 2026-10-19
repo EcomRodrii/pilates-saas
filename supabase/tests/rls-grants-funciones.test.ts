@@ -80,6 +80,12 @@ const CASOS: Caso[] = [
   { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002145300): como `reservar_plaza`, solo el servidor.
   { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
+  // Guardas de pg_cron (migr 20261019180000): deciden si el job llama a Vercel; las llama el cron como su dueño y el test.
+  { firma: 'cron_hay_recordatorios_de_clase(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_checkin_automatico(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_sustituciones_vencidas(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_zoom_sync(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_trabajo_lista_espera(text)', anon: false, authenticated: false, serviceRole: true },
   // Plaza fija suelta con tope de plazas (migr 20261002230422): la llama solo el servidor al aprobar sola una petición de la alumna.
   { firma: 'dar_plaza_fija_con_cupo(text, jsonb, integer)', anon: false, authenticated: false, serviceRole: true },
   // Anular una recuperación (migr 20261002144936): la llama el panel con su sesión (la propia función comprueba estudio y rol).
