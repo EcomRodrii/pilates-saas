@@ -44,7 +44,7 @@ test.describe('La isla de la landing', () => {
   test('arriba del todo está completa: enlaces y «Entrar» a la vista', async ({ page }, info) => {
     await prepararPagina(page);
     await expect(isla(page)).not.toHaveAttribute('data-compacta', /.*/);
-    await expect(page.getByRole('link', { name: 'Probar Tentare' })).toBeVisible();
+    await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
     // En móvil los enlaces viven en el menú; en escritorio, en la isla.
     if ((info.project.use.viewport?.width ?? 1280) > 760) {
       await expect(isla(page).getByRole('link', { name: 'Precios' })).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('La isla de la landing', () => {
       // Los enlaces plegados no se pueden tabular ni leer: no están.
       await expect(isla(page).getByRole('link', { name: 'Precios' })).toBeHidden();
     }
-    await expect(page.getByRole('link', { name: 'Probar Tentare' })).toBeVisible();
+    await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
 
     await desplazar(page, 900, 840);
     await expect(isla(page)).not.toHaveAttribute('data-compacta', /.*/);

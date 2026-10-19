@@ -16,12 +16,19 @@ export function PortadaRecursos({
   portada,
   sizes,
   prioritaria = false,
+  decorativa = false,
   className,
 }: {
   portada: Portada;
   sizes: string;
   /** Solo la que está en el primer pantallazo: `eager` + `fetchpriority=high`. */
   prioritaria?: boolean;
+  /**
+   * Con `alt=""`: la foto va DENTRO de un enlace que ya se nombra con su título,
+   * y su descripción haría que el nombre del enlace empezara por «Una mujer
+   * hace un ejercicio en un reformer…» (tarjetas de guías de la home).
+   */
+  decorativa?: boolean;
   className?: string;
 }) {
   return (
@@ -33,7 +40,7 @@ export function PortadaRecursos({
         sizes={sizes}
         width={ANCHO_MAX_PORTADA}
         height={altoPortada(portada, ANCHO_MAX_PORTADA)}
-        alt={portada.alt}
+        alt={decorativa ? '' : portada.alt}
         className={className}
         loading={prioritaria ? 'eager' : 'lazy'}
         fetchPriority={prioritaria ? 'high' : undefined}

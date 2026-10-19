@@ -1,3 +1,5 @@
+import { BotonBloque } from './BotonBloque';
+
 // «Y por la mañana, solo lo que necesita tu decisión» — la segunda mitad del
 // bloque 06 del rediseño (23-sep), justo después de SeccionParteNoche.
 //
@@ -91,6 +93,8 @@ export function SeccionCalendarioReservas() {
           </div>
         </div>
 
+        {/* Cierra el bloque de la noche y la mañana (ParteNoche + este): un botón por beneficio (ronda 3). */}
+        <div className="lp-cierre-bloque"><BotonBloque /></div>
       </div>
 
       <style>{`
