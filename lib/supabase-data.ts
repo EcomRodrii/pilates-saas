@@ -5512,6 +5512,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
+    regimenAddons: r.regimen_addons ?? false,
+    addons: r.addons ?? [],
     currentPeriodEnd: r.current_period_end ?? null,
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
