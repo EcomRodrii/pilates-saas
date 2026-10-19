@@ -2,8 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe } from '@/lib/billing/billing';
-import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
+import { priceIdDe, priceIdDeAddon } from '@/lib/billing/billing';
+import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
   const { data: studio } = await admin
     .from('studios')
-    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, ${COLUMNAS_PARA_GRATIS}`)
+    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, regimen_addons, addons, ${COLUMNAS_PARA_GRATIS}`)
     .eq('id', sesion.studioId)
     .single();
 
@@ -171,6 +171,13 @@ export async function GET(req: NextRequest) {
     trial: { fase: trial.fase, diasRestantes: trial.diasRestantes, finaliza: trial.finaliza },
     // Founding Studio gratis: el uso, la fase y el margen, ya derivados. `null` si no lo es.
     gratis,
+    // Complementos de Founding (lib/billing/entitlements.ts `ADDONS`): si los paga
+    // aparte, cuáles tiene y cuáles se pueden contratar ya (con su precio en Stripe).
+    complementos: {
+      pagaAparte: pagaAddonsAparte(planDeFila({ ...studio, plan, subscription_status: subscriptionStatus })),
+      contratados: addonsDe(planDeFila(studio)),
+      disponibles: LISTA_ADDONS.filter((a) => priceIdDeAddon(a)),
+    },
     // Qué planes se le ofrecen y qué cancelaría Cadena. Ausente si ya paga.
     ...(opciones !== undefined ? { opcionesDePlan: opciones } : {}),
   });

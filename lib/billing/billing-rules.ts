@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { accesoProducto, tieneFeature, type Entitlements } from './entitlements.ts';
+import { accesoProducto, tieneFeature, type Entitlements, COLUMNAS_PLAN, planDeFila, pagaAddonsAparte, addonDeFeature, ADDONS, type EstudioConPlan } from './entitlements.ts';
 import { estadoTrial } from './trial.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */
@@ -30,9 +30,7 @@ export function billingEnforced(): boolean {
   return process.env.BILLING_ENFORCED === 'true';
 }
 
-type StudioBilling = {
-  plan: string | null;
-  subscriptionStatus: string | null;
+type StudioBilling = EstudioConPlan & {
   trialEndsAt: string | null;
   subscriptionId: string | null;
 };
@@ -41,12 +39,12 @@ async function cargarBilling(admin: SupabaseClient | null, studioId: string): Pr
   if (!admin) return null; // sin service-role no podemos comprobar → fail-open
   const { data } = await admin
     .from('studios')
-    .select('plan, subscription_status, trial_ends_at, subscription_id')
+    .select(`${COLUMNAS_PLAN}, trial_ends_at, subscription_id`)
     .eq('id', studioId)
     .single();
   if (!data) return null;
   return {
-    plan: data.plan, subscriptionStatus: data.subscription_status,
+    ...planDeFila(data),
     trialEndsAt: data.trial_ends_at, subscriptionId: data.subscription_id,
   };
 }
@@ -115,13 +113,22 @@ export async function evaluarFeature(
   studioId: string,
   feature: keyof Entitlements['features'],
 ): Promise<Denegacion | null> {
-  if (!billingEnforced()) return null;
+  // Un complemento se cierra SIEMPRE, también con BILLING_ENFORCED apagado: es
+  // algo que se cobra aparte, y dejarlo abierto sería regalarlo a quien no lo paga.
+  const deComplemento = addonDeFeature(feature) !== null;
+  if (!billingEnforced() && !deComplemento) return null;
   const billing = await cargarBilling(admin, studioId);
   if (!billing) return null;
-  if (tieneFeature({ plan: billing.plan, subscriptionStatus: billing.subscriptionStatus }, feature)) return null;
+  if (tieneFeature(billing, feature)) return null;
+  // Con el cobro apagado, solo se cierra a quien paga los complementos aparte y
+  // tiene acceso al producto (lo demás, como hasta ahora).
+  if (!billingEnforced() && !(pagaAddonsAparte(billing) && accesoProducto(billing))) return null;
+  const complemento = pagaAddonsAparte(billing) ? addonDeFeature(feature) : null;
   return {
     status: 403,
-    error: 'Tu plan no incluye esta función. Mejóralo en Suscripción.',
+    error: complemento
+      ? `«${ADDONS[complemento].nombre}» es un complemento de tu plan. Actívalo en Suscripción.`
+      : 'Tu plan no incluye esta función. Mejóralo en Suscripción.',
     code: 'PLAN_SIN_FEATURE',
     feature,
   };

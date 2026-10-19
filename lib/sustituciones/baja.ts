@@ -3,7 +3,7 @@ import { uid } from '@/lib/utils';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { contactarDesde, alertarPropietaria, type RankingItem } from '@/lib/sustituciones/contacto';
 import { mensajeSeguro } from '@/lib/errores';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { candidatosNetworkParaHueco } from '@/lib/network/candidatos-sustitucion.ts';
 import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
@@ -100,10 +100,10 @@ export async function crearBaja(
   // el estudio bajó de plan con el modo puesto, el motor cae a asistido en vez
   // de operar una feature que ya no paga.
   const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia, plan, subscription_status, ciudad').eq('id', studioId).maybeSingle();
+    .from('studios').select(`modo_autonomia, ciudad, ${COLUMNAS_PLAN}`).eq('id', studioId).maybeSingle();
   let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
   if ((modo === 'autonomo' || modo === 'vacaciones') &&
-      !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+      !tieneFeature(planDeFila(estudio), 'sustitucionesAutonomas')) {
     modo = 'asistido';
   }
 

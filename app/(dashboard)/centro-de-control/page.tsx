@@ -31,6 +31,7 @@ import { Baldosa, type Tono } from '@/components/dashboard/vivo';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { Toast, useToast } from '@/components/ui/toast';
 import { CentroNoIncluido } from '@/components/decision/centro-no-incluido';
+import { pagaAddonsAparte } from '@/lib/billing/entitlements';
 import { SIN_PLAN_DECISIONES } from '@/lib/decision/plan-decisiones';
 
 // Centro de Control — reorganizado como sistema de decisiones, no como lista
@@ -313,7 +314,7 @@ export default function CentroDeControlPage() {
   }
 
   // Plan sin Centro de Control o prueba vencida: una puerta con salida, no un fallo.
-  if (error === SIN_PLAN_DECISIONES) return <CentroNoIncluido pruebaVencida={studio?.subscriptionStatus === 'trial_expirado'} />;
+  if (error === SIN_PLAN_DECISIONES) return <CentroNoIncluido pruebaVencida={studio?.subscriptionStatus === 'trial_expirado'} complemento={!!studio && pagaAddonsAparte(studio)} />;
 
   if (error) {
     return (

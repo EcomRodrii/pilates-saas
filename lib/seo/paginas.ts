@@ -195,7 +195,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/facturacion',
-    titulo: 'Facturación Veri*Factu para Pilates y yoga | Tentare',
+    titulo: 'Facturación para estudios de Pilates y yoga | Tentare',
     // ⚠️ Decía «firmada y transmitida a la AEAT» / «enviada a Hacienda», y el
     // envío automático NO está ocurriendo todavía — la propia página lo dice en
     // «Dónde está el límite, dicho claro». Que el título de Google prometa una
