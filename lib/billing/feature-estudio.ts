@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { tieneFeature, type Entitlements } from '@/lib/billing/entitlements';
+import { tieneFeature, type Entitlements, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 
 // Gate de plan para rutas de servidor que solo tienen el studioId (la sesión de
 // staff no trae el plan): carga plan + estado de suscripción y consulta el
@@ -12,6 +12,6 @@ export async function featureDeEstudio(
   const admin = getSupabaseAdmin();
   if (!admin) return false;
   const { data: studio } = await admin
-    .from('studios').select('plan, subscription_status').eq('id', studioId).maybeSingle();
-  return tieneFeature({ plan: studio?.plan, subscriptionStatus: studio?.subscription_status }, feature);
+    .from('studios').select(COLUMNAS_PLAN).eq('id', studioId).maybeSingle();
+  return tieneFeature(planDeFila(studio), feature);
 }

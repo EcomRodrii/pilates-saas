@@ -57,6 +57,25 @@ export function GlobalStyles() {
         }
       }
 
+      /* ── El botón de cierre de cada bloque (BotonBloque, ronda 3) ──
+         Mismo botón que el del héroe sobre fondo claro y que el de los planes
+         sobre oscuro. Sin degradado, sin sombra de color: el relleno es lo único
+         que empuja. */
+      .lp-boton-bloque { display: inline-block; font-weight: 800; font-size: 16.5px; padding: 16px 30px; border-radius: 999px;
+        white-space: nowrap; text-align: center;
+        transition: transform var(--motion-normal) var(--motion-ease), background var(--motion-normal), filter var(--motion-normal); }
+      .lp-boton-bloque-claro { background: #343825; color: #D9C29E; box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); }
+      .lp-boton-bloque-claro:hover { background: #22251A; transform: translateY(-2px); }
+      .lp-boton-bloque-oscuro { background: #D9C29E; color: #343825; }
+      .lp-boton-bloque-oscuro:hover { filter: brightness(1.08); transform: translateY(-2px); }
+      .lp-boton-bloque:active { transform: translateY(0) scale(.98); }
+      .lp-boton-bloque:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
+      .lp-boton-bloque-oscuro:focus-visible { outline-color: #D9C29E; }
+      @media (max-width: 600px) { .lp-boton-bloque { display: block; width: 100%; } }
+      @media (prefers-reduced-motion: reduce) { .lp-boton-bloque { transition: none; } }
+
+      .lp-cierre-bloque { margin-top: clamp(32px,4vw,52px); }
+
       /* Hover-lift cards: translateY + shadow + a radial glow tracking the
          cursor via --mx/--my custom properties written by LiftCard. */
       .tnt-lift { position: relative; transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }
