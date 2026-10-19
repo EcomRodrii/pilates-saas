@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 import { Resend } from 'resend';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { cobroManualDeRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
@@ -85,13 +85,13 @@ export const decisionDispatcher = inngest.createFunction(
       // Paginado (`fetchAllRows`), no un select suelto: PostgREST corta a 1.000
       // filas en silencio y pasado el estudio 1.001 los de fuera del corte
       // dejarían de recibir análisis, sin ningún error que lo delatara.
-      const { data, error } = await fetchAllRows<{ id: string; nombre: string; plan: string; subscription_status: string | null }>(
+      const { data, error } = await fetchAllRows<{ id: string; nombre: string; plan: string; subscription_status: string | null; regimen_addons: boolean | null; addons: string[] | null }>(
         '(global)', 'studios',
         (from, to) => requireSupabaseAdmin().from('studios')
-          .select('id, nombre, plan, subscription_status').is('suspendido_en', null).range(from, to),
+          .select(`id, nombre, ${COLUMNAS_PLAN}`).is('suspendido_en', null).range(from, to),
       );
       if (error) throw new Error(error.message);
-      const conPlanTodos = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      const conPlanTodos = data.filter(s => tieneFeature(planDeFila(s), 'decisiones'));
       // Founding Studio gratis (lib/billing/plan-gratis.ts) tiene el Centro de
       // Control, pero el análisis cuesta (Inngest y la redacción con IA): un
       // estudio gratis sin ninguna alumna activa medida (un alta abandonada) no

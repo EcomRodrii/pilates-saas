@@ -53,7 +53,7 @@ export function LandingCliente({ guias, bento, frase, cambiarte }: { guias?: Rea
     if (!session || !studio) return;
     const tieneDecisionOS =
       rol === 'PROPIETARIO' &&
-      tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscriptionStatus }, 'decisiones');
+      tieneFeature(studio, 'decisiones');
     router.replace(tieneDecisionOS ? '/centro-de-control' : '/dashboard');
   }, [session, studio, rol, router]);
 

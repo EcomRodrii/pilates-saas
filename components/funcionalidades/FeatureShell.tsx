@@ -7,6 +7,7 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureStructuredData } from './FeatureStructuredData';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Armazón compartido de /funcionalidades/<slug>.
 //
@@ -134,7 +135,7 @@ export function FeatureShell({
           <p className="ft-entrada">{intro}</p>
 
           <div className="ft-acciones">
-            <Link href="/crear-estudio" className="ft-cta">Crear mi estudio</Link>
+            <Link href="/crear-estudio" className="ft-cta">{CTA_ALTA}</Link>
             <Link href="/precios" className="ft-cta-2">Ver precios →</Link>
           </div>
         </div>

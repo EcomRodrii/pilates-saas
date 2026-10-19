@@ -4,6 +4,12 @@ import assert from 'node:assert/strict';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from './streak-engine.ts';
 import type { Reserva, Sesion } from '../types.ts';
 
+// El servidor (Vercel) corre en UTC y el panel en Madrid: este fichero fija el
+// huso del RUNTIME a UTC para que los casos de «hora de Madrid» de abajo
+// prueben justo lo que pasa en producción. Con el huso de Madrid en tu
+// máquina, el error que prueban no se vería.
+process.env.TZ = 'UTC';
+
 // ⚠️ Este motor NO tenía ni un test, y alimenta el de logros
 // (`achievement-engine.ts`) y los créditos de «semana completa». Estos casos
 // llegaron aquí desde un segundo cálculo que se escribió para el Inicio del
@@ -134,7 +140,43 @@ test('objetivoMensualAlcanzado: una reserva cuya sesion no esta cargada se ignor
   assert.equal(objetivoMensualAlcanzado(conFantasma, SES_MES, 2, AHORA), false);
 });
 
-test('claveMesActual: formato YYYY-MM, mismo que to_char(current_date, YYYY-MM) en SQL', () => {
+test('claveMesActual: formato YYYY-MM, mismo que to_char(hoy_estudio(), YYYY-MM) en SQL', () => {
   assert.equal(claveMesActual(AHORA), '2026-08');
   assert.equal(claveMesActual(new Date('2026-01-05T00:00:00Z')), '2026-01');
+});
+
+// ── La semana y el mes son los del ESTUDIO (Madrid), no los del runtime ─────
+// Una clase el lunes a las 00:30 de Madrid es el domingo 22:30 UTC. Con el
+// huso del runtime (UTC en el servidor) caía en la semana anterior, y el
+// día 1 de mes a las 00:30 caía en el mes anterior.
+
+const SES_MADRID: Sesion[] = [
+  { id: 'lun', inicio: '2026-08-09T22:30:00Z' }, // lunes 10-ago 00:30 en Madrid
+  { id: 'sem-1', inicio: '2026-08-05T09:00:00Z' }, // semana anterior
+  { id: 'ago1', inicio: '2026-07-31T22:30:00Z' }, // sábado 1-ago 00:30 en Madrid
+  { id: 'jul', inicio: '2026-07-31T21:30:00Z' }, // viernes 31-jul 23:30 en Madrid
+].map((s) => ({ ...s, fin: s.inicio }) as Sesion);
+
+test('calcularRacha: una clase el lunes a las 00:30 de Madrid es de ESA semana', () => {
+  const r = calcularRacha(asistio('lun', 'sem-1'), SES_MADRID, AHORA);
+  assert.equal(r.semanas, 2);
+  assert.equal(r.enRiesgo, false);
+  assert.equal(r.claveSemanaActual, '2026-08-10');
+});
+
+test('calcularRacha: el plazo se acaba el domingo a las 23:59 de Madrid', () => {
+  // Jueves 13-ago 12:00 en Madrid → quedan 4 días hasta el fin del domingo,
+  // con cualquier huso del runtime.
+  assert.equal(calcularRacha(asistio('sem-1'), SES_MADRID, AHORA).diasParaPerder, 4);
+});
+
+test('objetivoMensualAlcanzado: una clase el día 1 a las 00:30 de Madrid es de ESE mes', () => {
+  assert.equal(objetivoMensualAlcanzado([reservaAsistida('ago1')], SES_MADRID, 1, AHORA), true);
+  // …y la del 31 a las 23:30 de Madrid sigue siendo de julio.
+  assert.equal(objetivoMensualAlcanzado([reservaAsistida('jul')], SES_MADRID, 1, AHORA), false);
+});
+
+test('claveMesActual: a las 00:30 del día 1 en Madrid ya es el mes nuevo', () => {
+  assert.equal(claveMesActual(new Date('2026-08-31T22:30:00Z')), '2026-09');
+  assert.equal(claveMesActual(new Date('2026-08-31T21:30:00Z')), '2026-08');
 });

@@ -1122,6 +1122,10 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
+  // migr 20261019175741.
+  regimen_addons: boolean | null;
+  // migr 20261019175741.
+  addons: string[] | null;
 }
 
 export interface RowSuscripciones {
@@ -5872,6 +5876,8 @@ export type StudiosInsert = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6030,6 +6036,8 @@ export type StudiosUpdate = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
 }
 
 export type SuscripcionesInsert = {

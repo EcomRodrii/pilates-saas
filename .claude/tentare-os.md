@@ -1398,6 +1398,33 @@ Y lo que también sigue vigente es el método: **no declares nada huérfano con 
 grep de un solo worktree** — cruza contra `origin/main` primero. Mismo error de
 categoría que [[colisiones-entre-sesiones-paralelas]].
 
+## Complementos de Founding Studio (19-oct-2026, decisión del fundador)
+
+Founding Studio de pago (BASE, 29 €) deja de traer **Centro de Control (9 €), Sustituciones
+automáticas (6 €) y Redacción con IA (9 €)** para quien lo contrata desde ese día: se suman como
+líneas de la MISMA suscripción de Stripe (29 + 9 = 38 €/mes). Catálogo y precios en `ADDONS`
+(`lib/billing/entitlements.ts`); el «Pregúntale a Tentare» sigue en todos los planes.
+
+- **Quién paga aparte lo decide `studios.regimen_addons`**, que solo enciende el webhook cuando la
+  suscripción llega con `metadata.regimen = 'addons'` (lo pone el checkout nuevo). Quien ya pagaba
+  Founding se queda en `false` y lo conserva todo (`BASE_COMPLETO`); el Founding gratis y la prueba,
+  también. `studios.addons` lo escriben el webhook y `/api/billing/addons` leyendo las líneas REALES
+  de Stripe; el navegador no tiene permiso de escritura en ninguna de las dos (migr `20261019175741`).
+- ⚠️ **Toda puerta de un complemento lee el plan con `COLUMNAS_PLAN` + `planDeFila`**, nunca
+  `select('plan, subscription_status')` ni `tieneFeature({ plan, … })` a mano: sin las columnas,
+  `entitlementsDe` cae en el Founding completo y regala el complemento. Lo vigila
+  `lib/billing/addons-puertas.test.ts`. Un complemento se cierra aunque `BILLING_ENFORCED` esté
+  apagado (`evaluarFeature`).
+- **El plan de una suscripción es la línea con precio de plan, no `items[0]`**
+  (`lib/billing/lectura-suscripcion.ts`). El webhook relee la suscripción de Stripe (la foto del
+  evento puede ser vieja) y, si el plan ya no es Founding, quita las líneas de complemento que
+  sobren: Estudio y Cadena los incluyen.
+- ⚠️ **El portal de Stripe no cambia de plan una suscripción con varias líneas.** Hasta que haya una
+  ruta propia de cambio de plan, /suscripcion pide quitar los complementos antes.
+- Precios en Stripe: `STRIPE_PRICE_ADDON_DECISIONES`, `_SUSTITUCIONES`, `_IA` (mensuales). Sin los
+  tres (`complementosALaVenta`), el checkout sigue vendiendo el Founding completo. Un
+  complemento sin su precio sale como «Muy pronto» y la ruta contesta 503.
+
 ## ⚠️ Un merge de solo documentación NO despliega
 
 `vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
