@@ -4017,7 +4017,7 @@ export async function dbCancelarCanje(
   redemptionId: string, studioId: string, motivo?: string,
 ): Promise<{ ok: true; estado: EstadoCanje; saldo: number } | { error: string }> {
   // `cancelar_canje_con_motivo` guarda además quién, cuándo y por qué (migr
-  // 20261017213000). `cancelar_canje` (2 args) sigue existiendo para el código
+  // 20261019122801). `cancelar_canje` (2 args) sigue existiendo para el código
   // desplegado antes de esa migración.
   const { data, error } = await supabase.rpc('cancelar_canje_con_motivo', {
     p_redemption_id: redemptionId, p_studio_id: studioId, p_motivo: motivo?.trim() || null,

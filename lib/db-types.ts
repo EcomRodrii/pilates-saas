@@ -390,7 +390,7 @@ export interface RowMemberCredits {
   caduca_el: string | null;
   // migr 20260917010429.
   creditos_por_compensar: number | null;
-  // migr 20261017213000.
+  // migr 20261019122801.
   total_caducado: number | null;
 }
 
@@ -681,13 +681,13 @@ export interface RowRewardRedemptions {
   entregado_por: string | null;
   // migr 20260909154359.
   recuperacion_id: string | null;
-  // migr 20261017213000.
+  // migr 20261019122801.
   recompensa_nombre: string | null;
-  // migr 20261017213000.
+  // migr 20261019122801.
   cancelado_en: string | null;
-  // migr 20261017213000.
+  // migr 20261019122801.
   cancelado_por: string | null;
-  // migr 20261017213000.
+  // migr 20261019122801.
   cancelado_motivo: string | null;
 }
 
