@@ -70,7 +70,12 @@ export function SemanaFranjas({
     return null;
   }
 
-  const ancho = (i: number) => (conClases[i] ? 'minmax(0,1fr)' : compacta ? '36px' : '60px');
+  // La última columna sin clases, en el iPad, lleva 44 px y no 36: su cabecera («DOM» + el número) queda
+  // pegada a la esquina redondeada de la tarjeta y con 36 el texto la rozaba a unos 3 px (medido en CI con la
+  // semana 19–25: «DOM 25» se salía). El relleno solo no lo arregla, porque el texto ya llenaba la columna.
+  const ancho = (i: number) => (conClases[i]
+    ? 'minmax(0,1fr)'
+    : compacta ? (panelNuevo && i === fechas.length - 1 ? '44px' : '36px') : '60px');
   const plantilla = `${compacta ? '44px' : '52px'} ${fechas.map((_, i) => ancho(i)).join(' ')}`;
 
   return (
@@ -94,7 +99,7 @@ export function SemanaFranjas({
                   // redondeada de la tarjeta (medido a 768 y a 1024). El último, un poco
                   // más a la izquierda: a la altura del texto la curva de la esquina
                   // (28,8 px de radio) entra 8 px.
-                  panelNuevo && !conClases[i] && (i === fechas.length - 1 ? 'pl-0.5 pr-2' : 'px-0.5'),
+                  panelNuevo && !conClases[i] && (i === fechas.length - 1 ? 'pl-0.5 pr-3' : 'px-0.5'),
                   esHoy ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
                   destino === i && 'bg-[color-mix(in_srgb,var(--brand)_14%,var(--card))]',
                 )}
