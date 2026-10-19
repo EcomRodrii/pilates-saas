@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
+import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ALTA } from '@/components/landing/enlaces';
 import { ACC, ACC_SOFT } from '@/components/landing/theme';
 import { CLAVE_BANDA_PRUEBA, verBandaPrueba } from '@/lib/landing/banda-prueba-reglas';
@@ -64,7 +64,7 @@ export function BandaPrueba() {
         <span className="v5-banda-sep" aria-hidden> · </span>
         <span>Migración incluida, sin coste aparte</span>
       </p>
-      <Link href={ALTA} className="v5-banda-enlace">Empezar <span aria-hidden>→</span></Link>
+      <Link href={ALTA} className="v5-banda-enlace">{CTA_ALTA} <span aria-hidden>→</span></Link>
       <style>{`
         .v5-banda { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
           gap: 4px 14px; padding: 9px 16px; background: ${ACC}; color: ${ACC_SOFT};
