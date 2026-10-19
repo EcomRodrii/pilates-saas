@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { METADATA_REGIMEN } from '@/lib/billing/lectura-suscripcion';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { pagaPlan } from '@/lib/billing/plan-gratis';
 import { planSueltoACancelarAlPasarACadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -348,10 +349,14 @@ export async function POST(req: NextRequest) {
       // estudio (lib/billing/trial.ts). Quien llega hasta aquí es porque
       // decidió pagar —durante su prueba o después de agotarla—, así que este
       // Checkout cobra desde el primer periodo.
+      // `regimen`: desde el 19-oct-2026, quien paga Founding por aquí lleva los
+      // complementos aparte (lib/billing/entitlements.ts `ADDONS`). El webhook
+      // lo pasa a `studios.regimen_addons`; las suscripciones de antes no lo
+      // traen y conservan el Founding completo.
       subscription_data: {
-        metadata: { studioId: studio.id, plan },
+        metadata: { studioId: studio.id, plan, ...METADATA_REGIMEN },
       },
-      metadata: { studioId: studio.id, plan },
+      metadata: { studioId: studio.id, plan, ...METADATA_REGIMEN },
       success_url: `${appUrl}/suscripcion?suscripcion=ok`,
       cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
       locale: 'es',

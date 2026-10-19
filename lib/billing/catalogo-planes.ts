@@ -21,7 +21,7 @@
 // hace es venderla mientras no se pueda usar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PLAN_ENTITLEMENTS, type Entitlements, type Plan } from './entitlements.ts';
+import { ADDONS, PLAN_ENTITLEMENTS, addonDeFeature, type Entitlements, type Plan } from './entitlements.ts';
 
 /** Cómo se pinta una fila para un plan concreto. */
 export type ValorPlan =
@@ -39,11 +39,21 @@ export const FILA_TOPE_ALUMNAS = 'tope-alumnas';
 /** Todo el mundo lo tiene: el núcleo no se trocea por plan. */
 const TODOS = (): ValorPlan => SI;
 
-/** Derivado del entitlement real, nunca escrito a mano. */
+/** El texto de una fila que en Founding va como complemento (`ADDONS`). */
+export const textoComplemento = (precioMes: number) => `Complemento, +${precioMes} €/mes`;
+
+/**
+ * Derivado del entitlement real, nunca escrito a mano. En Founding (sus
+ * entitlements de catálogo, no los del Founding gratis que enseña la web) lo
+ * que va como complemento se dice con su precio, no como «no incluido».
+ */
 const porFeature =
   (feature: keyof (typeof PLAN_ENTITLEMENTS)['BASE']['features']) =>
-  (p: Plan, e: Entitlements = PLAN_ENTITLEMENTS[p]): ValorPlan =>
-    e.features[feature] ? SI : NO;
+  (p: Plan, e: Entitlements = PLAN_ENTITLEMENTS[p]): ValorPlan => {
+    if (e.features[feature]) return SI;
+    const addon = p === 'BASE' && e === PLAN_ENTITLEMENTS.BASE ? addonDeFeature(feature) : null;
+    return addon ? txt(textoComplemento(ADDONS[addon].precioMes)) : NO;
+  };
 
 export interface FilaPlan {
   /** Identificador estable para las filas a las que hay que referirse desde
@@ -271,7 +281,8 @@ export function novedadesFrenteAlAnterior(
       if (fila.id && omitir.includes(fila.id)) continue;
       const antes = fila.valor(anterior);
       const ahora = fila.valor(plan);
-      if (antes.tipo === 'no' && ahora.tipo === 'si') nuevas.push(fila.nombre);
+      // «no» o «complemento» (texto) → incluido.
+      if (antes.tipo !== 'si' && ahora.tipo === 'si') nuevas.push(fila.nombre);
       if (antes.tipo === 'texto' && ahora.tipo === 'texto' && antes.texto !== ahora.texto) {
         nuevas.push(`${fila.nombre}: ${ahora.texto.toLowerCase()}`);
       }
