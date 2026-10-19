@@ -5,6 +5,8 @@ import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { proyectarGamificacion } from '@/lib/student/mapeo';
 import { hoyISO } from '@/lib/student/formato';
 import type { GamificacionVista } from '@/lib/student/tipos';
+import { getMinimoRacha } from '@/lib/student/datos';
+import { clasesHechasDelHistorial, rachaSemanas } from '@/lib/student/ritmo';
 
 // Gamificación: sale del MISMO payload que todo lo demás (cero peticiones
 // nuevas) y se escribe contra las rutas que ya existían — `/api/public/canje`
@@ -60,5 +62,42 @@ export async function apuntarseReto(slug: string, studioId: string, retoId: stri
     return true;
   } catch {
     return false;
+  }
+}
+
+export interface RachaVista {
+  /** Semanas seguidas cumpliendo el mínimo del estudio (la en curso solo suma si ya lo cumple). */
+  semanas: number;
+  /** Clases por semana que pide el estudio para mantenerla. */
+  minimo: number;
+}
+
+/**
+ * La racha de la alumna, con su historial REAL de clases asistidas.
+ *
+ * ⚠️ No sale del catálogo: ahí solo hay sesiones que aún no han terminado, y la
+ * racha casi nunca pasaba de la semana en curso. Por eso pide el historial
+ * aparte (hasta 100 clases, las más recientes).
+ *
+ * `null` = no se ha podido leer. Distinto de una racha de 0: «no lo sé» no se
+ * pinta como «no has venido» (decisión del fundador: rachas solo si se calculan
+ * bien).
+ */
+export async function getRacha(slug: string, studioId: string, hoy: string = hoyISO()): Promise<RachaVista | null> {
+  try {
+    const [res, minimo] = await Promise.all([
+      fetch('/api/public/historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+        body: JSON.stringify({ studioId, limite: 100 }),
+      }),
+      getMinimoRacha(slug),
+    ]);
+    if (!res.ok) return null;
+    const cuerpo = (await res.json().catch(() => null)) as { clases?: Array<{ inicio: string; estado: string }> } | null;
+    if (!cuerpo || !Array.isArray(cuerpo.clases)) return null;
+    return { semanas: rachaSemanas(clasesHechasDelHistorial(cuerpo.clases), hoy, minimo), minimo };
+  } catch {
+    return null;
   }
 }

@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getGamificacion, apuntarseReto, canjearRecompensa } from '@/lib/student/gamificacion-datos';
+import { getGamificacion, getRacha, apuntarseReto, canjearRecompensa, type RachaVista } from '@/lib/student/gamificacion-datos';
 import { useCreditosEnVivoPortal } from '@/lib/student/use-creditos-portal';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { fechaCorta } from '@/lib/student/formato';
@@ -61,6 +61,15 @@ export default function LogrosPage() {
   // Un estudio puede dar créditos sin haber creado niveles: sin esto la
   // pantalla le decía «Aún sin nivel» de algo que no existe.
   const hayNiveles = Boolean(data?.nivel.actual || data?.nivel.siguiente);
+
+  // La racha va aparte de la gamificación: sale del historial de clases, que es
+  // otra petición, y si falla no puede tumbar la pantalla. Sin leerla, no se pinta.
+  const [racha, setRacha] = useState<RachaVista | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void getRacha(estudio.slug, estudio.id).then((r) => { if (vivo) setRacha(r); });
+    return () => { vivo = false; };
+  }, [estudio.slug, estudio.id]);
 
   const alternarReto = async (retoId: string, apuntada: boolean) => {
     if (ocupado) return;
@@ -149,6 +158,25 @@ export default function LogrosPage() {
                 </>
               )}
             </section>
+
+            {/* ── RACHA ────────────────────────────────────────────────────
+                Solo con una racha de verdad (1 semana o más): un «0 semanas» no
+                motiva a nadie, y si no se ha podido leer no se inventa. */}
+            {racha && racha.semanas > 0 && (
+              <section className="card card--pad row" style={{ ['--gap' as string]: 'var(--s-3)' }} data-testid="racha">
+                <Insignia icono="racha" tamano={44} />
+                <div style={{ minWidth: 0 }}>
+                  <p className="t-card-title">
+                    {racha.semanas === 1 ? '1 semana seguida' : `${racha.semanas} semanas seguidas`}
+                  </p>
+                  <p className="t-meta" style={{ marginTop: 2 }}>
+                    {racha.minimo === 1
+                      ? 'Viniendo al menos una vez cada semana'
+                      : `Viniendo al menos ${racha.minimo} veces cada semana`}
+                  </p>
+                </div>
+              </section>
+            )}
 
             {/* ── CÓMO GANAR ───────────────────────────────────────────────
                 Las reglas ACTIVAS de su estudio, con lo que da cada una. Sin
