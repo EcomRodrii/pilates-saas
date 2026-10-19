@@ -1,4 +1,4 @@
-// PARIDAD de la bandeja única (migración 20261019150000): `estado_estudio_conteos` (UNA llamada SQL) cuenta
+// PARIDAD de la bandeja única (migración 20261020100000): `estado_estudio_conteos` (UNA llamada SQL) cuenta
 // EXACTAMENTE lo que contaban las ~30 consultas de `contarConteosEstudio` antes de esa migración.
 //
 // `contarAntes` de abajo son aquellas consultas, tal cual, SOLO como referencia de este test (la ruta de producción ya

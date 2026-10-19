@@ -71,7 +71,7 @@ test('la bandeja cuenta las bajas por revisar solo para quien gestiona el equipo
   assert.match(src, /bajasPorRevisar: gestionaEquipo,/, 'el recuento va gateado por gestionaEquipo');
   assert.match(src, /const gestionaEquipo = puedeGestionarEquipo\(rol\)/);
   // El recuento vive en la función SQL de la bandeja: sin la suya propia.
-  const sql = leer('supabase/migrations/20261019150000_estado_estudio_conteos.sql');
+  const sql = leer('supabase/migrations/20261020100000_estado_estudio_conteos.sql');
   assert.match(sql, /from public\.bajas_instructora b[\s\S]*?\(v_propia is null or b\.instructor_id <> v_propia\)/);
 });
 

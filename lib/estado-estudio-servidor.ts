@@ -35,7 +35,7 @@ import { festivosPorDecidir as leerFestivosPorDecidir } from '@/lib/festivos/por
 // día (una reserva por aprobar, una clase sin cubrir), no el Decision OS.
 //
 // Coste: UNA llamada a la función SQL `estado_estudio_conteos` (migración
-// 20261019150000) con todos los recuentos que este rol puede ver, más la lectura
+// 20261020100000) con todos los recuentos que este rol puede ver, más la lectura
 // de festivos (calendario oficial por zona, lógica de TypeScript) en paralelo.
 // Antes eran ~30 consultas `count: exact` por llamada, en cada apertura del panel
 // y en cada vuelta de pestaña. Los filtros de cada recuento viven ahora en esa
