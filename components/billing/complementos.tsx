@@ -138,7 +138,7 @@ export function Complementos({
         Total al mes: <strong className="text-foreground tabular-nums">{total}€</strong>, IVA incluido.
         {/* Con dos o más, Estudio empieza a salir a cuenta: se dice, sin empujar. */}
         {contratados.length >= 2 && (
-          <> Con {PLAN_INFO.ESTUDIO.nombre} ({PLAN_INFO.ESTUDIO.precioMes}€) los tienes todos incluidos, además de la app propia.</>
+          <> Con {PLAN_INFO.ESTUDIO.nombre} ({PLAN_INFO.ESTUDIO.precioMes}€) los tienes todos incluidos.</>
         )}
       </p>
       {/* Pasar a Estudio: con complementos, el portal de Stripe no puede hacerlo
@@ -148,7 +148,7 @@ export function Complementos({
           {!confirmarEstudio ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[13px] text-muted-foreground text-pretty">
-                ¿Prefieres {PLAN_INFO.ESTUDIO.nombre}? Incluye todos los complementos y la app propia.
+                ¿Prefieres {PLAN_INFO.ESTUDIO.nombre}? Incluye todos los complementos.
               </p>
               <button
                 type="button"

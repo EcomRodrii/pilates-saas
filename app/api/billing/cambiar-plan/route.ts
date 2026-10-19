@@ -7,7 +7,7 @@ import { addonDePriceId, planDePriceId, priceIdDe } from '@/lib/billing/billing'
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
 import { COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
-import { itemsParaPasarAEstudio, MENSAJE_NO_CAMBIO_PLAN, motivoNoCambioPlan } from '@/lib/billing/cambio-plan-reglas';
+import { claveCambioPlan, itemsParaPasarAEstudio, MENSAJE_NO_CAMBIO_PLAN, motivoNoCambioPlan } from '@/lib/billing/cambio-plan-reglas';
 import { claveCheckoutLock, liberarCheckoutLock, reclamarCheckoutLock } from '@/lib/billing/checkout-lock';
 import { errorInterno } from '@/lib/errores-servidor';
 
@@ -68,24 +68,37 @@ export async function POST(req: NextRequest) {
     if (sub.status !== 'active' && sub.status !== 'trialing') {
       return NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN['sin-suscripcion'], codigo: 'sin-suscripcion' }, { status: 409 });
     }
+    // Con la baja programada, la diferencia del prorrateo iría a una factura que
+    // nunca llega. No se quita la baja en silencio: que la reactive ella.
+    if (sub.cancel_at_period_end || sub.cancel_at) {
+      return NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN['baja-programada'], codigo: 'baja-programada' }, { status: 409 });
+    }
     const lineas = sub.items.data;
-    const items = itemsParaPasarAEstudio(
-      lineas.map((l) => ({ id: l.id, priceId: l.price?.id })),
-      precioEstudio,
-      { plan: planDePriceId, esAddon: (p) => !!addonDePriceId(p) },
-    );
-    // La fila decía Founding, pero Stripe no (el webhook va por detrás, o el plan
-    // ya se cambió por otra vía): no se toca nada.
+    const leidas = lineas.map((l) => ({ id: l.id, priceId: l.price?.id }));
+    const items = itemsParaPasarAEstudio(leidas, precioEstudio, { plan: planDePriceId, esAddon: (p) => !!addonDePriceId(p) });
     if (!items) {
-      return NextResponse.json({ error: 'Tu suscripción ya no es de Founding Studio. Recarga la página.', codigo: 'ya-lo-tiene' }, { status: 409 });
+      // Stripe ya no dice Founding (el webhook va por detrás, o se cambió por otra
+      // vía), o hay una línea que no es nuestra: no se toca nada.
+      const yaNoEsFounding = !lineas.some((l) => planDePriceId(l.price?.id) === 'BASE');
+      return yaNoEsFounding
+        ? NextResponse.json({ error: 'Tu suscripción ya no es de Founding Studio. Recarga la página.', codigo: 'ya-lo-tiene' }, { status: 409 })
+        : NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN.revisar, codigo: 'revisar' }, { status: 409 });
+    }
+    // Mismo intervalo que el plan de ahora: si no, Stripe facturaría y cobraría en
+    // el acto, y un rechazo dejaría la suscripción en impago con un «hecho» aquí.
+    const lineaPlan = lineas.find((l) => planDePriceId(l.price?.id) === 'BASE');
+    const estudio = await stripe.prices.retrieve(precioEstudio);
+    if (lineaPlan?.price?.recurring?.interval !== estudio.recurring?.interval
+      || (lineaPlan?.price?.recurring?.interval_count ?? 1) !== (estudio.recurring?.interval_count ?? 1)) {
+      return NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN.revisar, codigo: 'revisar' }, { status: 409 });
     }
 
     await stripe.subscriptions.update(
       subId,
       { items, proration_behavior: 'create_prorations', metadata: { plan: 'ESTUDIO' } },
-      // Atada a las líneas leídas: un doble clic no aplica dos cambios, y la
-      // clave no se reutiliza para otra suscripción con otras líneas.
-      { idempotencyKey: `plan-${subId}-ESTUDIO-${lineas.map((l) => l.id).sort().join('.')}` },
+      // Atada a las líneas leídas con su precio: un doble clic no aplica dos
+      // cambios, y otra forma de suscripción no reutiliza la respuesta.
+      { idempotencyKey: claveCambioPlan(subId, leidas) },
     );
 
     // Lo que hay AHORA en Stripe, no lo que creemos haber hecho.
@@ -95,7 +108,7 @@ export async function POST(req: NextRequest) {
       despues.status,
       { plan: planDePriceId, addon: addonDePriceId },
     );
-    if (lectura.plan !== 'ESTUDIO' || lectura.addons.length > 0) {
+    if (lectura.plan !== 'ESTUDIO' || lectura.addons.length > 0 || (despues.status !== 'active' && despues.status !== 'trialing')) {
       return NextResponse.json({ error: 'No se ha podido completar el cambio. Vuelve a intentarlo en unos segundos.' }, { status: 409 });
     }
     const { error: eGuardar } = await admin.from('studios').update({ plan: 'ESTUDIO', addons: [] }).eq('id', fila.id);
@@ -106,7 +119,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, plan: 'ESTUDIO' });
   } catch (err) {
-    return errorInterno('billing/cambiar-plan:POST', err, 'No se ha podido cambiar de plan. No se te ha cobrado nada; vuelve a intentarlo.');
+    return errorInterno('billing/cambiar-plan:POST', err, 'No se ha podido confirmar el cambio de plan. Recarga la página en unos segundos para ver cómo ha quedado.');
   } finally {
     await liberarCheckoutLock(admin, claveLock);
   }
