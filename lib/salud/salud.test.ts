@@ -364,7 +364,7 @@ test('asistencias-sin-premio: a Sentry va solo el número, sin filas ni ids', as
 test('asistencias-sin-premio: el cron diario de bonos la vigila y la vista solo la lee el servidor', () => {
   const ruta = readFileSync(new URL('../../app/api/cron/notif-bonos/route.ts', import.meta.url), 'utf8');
   assert.ok(ruta.includes('ID_ASISTENCIAS_SIN_PREMIO'), 'sin cablear, nadie se entera');
-  const mig = readFileSync(new URL('../../supabase/migrations/20261019100000_vista_asistencias_sin_premio.sql', import.meta.url), 'utf8');
+  const mig = readFileSync(new URL('../../supabase/migrations/20261019151701_vista_asistencias_sin_premio.sql', import.meta.url), 'utf8');
   assert.match(mig, /with \(security_invoker = on\)/);
   assert.match(mig, /revoke all on public\.gamificacion_asistencias_sin_premio from public, anon, authenticated/);
   assert.match(mig, /grant select on public\.gamificacion_asistencias_sin_premio to service_role/);
