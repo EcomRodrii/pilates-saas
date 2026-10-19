@@ -14,6 +14,8 @@ import { fechaCorta } from '@/lib/student/formato';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { Insignia } from '@/components/student/ui/Insignia';
+import { INSIGNIA_DE_FORMA, insigniaDeNivel, insigniaOPorDefecto } from '@/lib/gamificacion/insignias';
 
 // Logros y recompensas (§ gamificación).
 //
@@ -113,20 +115,29 @@ export default function LogrosPage() {
                 hace bajar de nivel (misma regla que enuncia el panel). */}
             <section className="card card--pad-lg" data-testid="nivel">
               <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
-                {hayNiveles && (<div style={{ minWidth: 0 }}>
-                  <p className="t-label">Tu nivel</p>
-                  <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
-                    {data.nivel.actual ? `${data.nivel.actual.icono} ${data.nivel.actual.nombre}` : 'Aún sin nivel'}
-                  </p>
-                  {data.nivel.actual?.beneficios && (
-                    <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
+                {hayNiveles && (<div className="row row--top" style={{ ['--gap' as string]: 'var(--s-3)', minWidth: 0 }}>
+                  {/* Un número de nivel («1», «2»…) no es una insignia: estrella, y corona el último. */}
+                  {data.nivel.actual && (
+                    <Insignia insignia={insigniaDeNivel(data.nivel.actual.icono, !data.nivel.siguiente)} tamano={48} />
                   )}
+                  <div style={{ minWidth: 0 }}>
+                    <p className="t-label">Tu nivel</p>
+                    <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
+                      {data.nivel.actual ? data.nivel.actual.nombre : 'Aún sin nivel'}
+                    </p>
+                    {data.nivel.actual?.beneficios && (
+                      <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
+                    )}
+                  </div>
                 </div>)}
                 {/* Con el nombre que le da SU estudio: decía «Créditos» aunque
                     el estudio los llamara «puntos» en el resto de la pantalla. */}
                 <div className="no-shrink" style={{ textAlign: hayNiveles ? 'right' : 'left' }}>
                   <p className="t-label">Tus {moneda}</p>
-                  <p className="t-title t-num" style={{ marginTop: 'var(--s-1)' }}>{data.saldo}</p>
+                  <p className="t-title t-num row" style={{ marginTop: 'var(--s-1)', ['--gap' as string]: 'var(--s-1)', justifyContent: hayNiveles ? 'flex-end' : 'flex-start' }}>
+                    <Insignia icono="creditos" tamano={28} />
+                    {data.saldo}
+                  </p>
                 </div>
               </div>
               {data.nivel.siguiente && (
@@ -151,7 +162,8 @@ export default function LogrosPage() {
                 <div className="card card--pad stack" style={{ ['--gap' as string]: 'var(--s-3)' }}>
                   {data.formasDeGanar.map((f) => (
                     <div key={f.trigger} className="row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }} data-testid="forma-de-ganar">
-                      <div style={{ minWidth: 0 }}>
+                      <Insignia icono={INSIGNIA_DE_FORMA[f.trigger] ?? null} tamano={32} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <p className="t-card-title">{f.titulo}</p>
                         {f.detalle && <p className="t-meta" style={{ marginTop: 2 }}>{f.detalle}</p>}
                       </div>
@@ -171,8 +183,9 @@ export default function LogrosPage() {
                   {data.retos.map((r) => (
                     <div key={r.id} className="card card--pad">
                       <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p className="t-card-title">{r.icono} {r.nombre}</p>
+                        <Insignia insignia={insigniaOPorDefecto(r.icono, 'objetivo')} tamano={40} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p className="t-card-title">{r.nombre}</p>
                           {r.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{r.descripcion}</p>}
                         </div>
                         {r.completado
@@ -205,8 +218,12 @@ export default function LogrosPage() {
                   {data.logros.map((l) => (
                     <div key={l.id} className="card card--pad" style={{ opacity: l.completado ? 1 : 0.92 }}>
                       <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p className="t-card-title">{l.icono} {l.nombre}</p>
+                        {/* Sin conseguir, en gris: se ve qué hay que ganar sin confundirlo con lo ganado. */}
+                        <span style={{ filter: l.completado ? undefined : 'grayscale(1)', opacity: l.completado ? 1 : 0.55, display: 'inline-flex' }}>
+                          <Insignia insignia={insigniaOPorDefecto(l.icono, 'trofeo')} tamano={44} />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p className="t-card-title">{l.nombre}</p>
                           {l.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{l.descripcion}</p>}
                         </div>
                         {/* Con palabra, no «✓» suelto: un lector de pantalla leía
@@ -249,8 +266,9 @@ export default function LogrosPage() {
                 <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.recompensas.map((p) => (
                     <div key={p.id} className="card card--pad row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <p className="t-card-title">{p.icono} {p.nombre}</p>
+                      <Insignia insignia={insigniaOPorDefecto(p.icono, p.efecto === 'CLASE_GRATIS' ? 'entrada' : 'regalo')} tamano={44} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p className="t-card-title">{p.nombre}</p>
                         <p className="t-meta" style={{ marginTop: 2 }}>
                           {p.costeCreditos} {moneda}
                           {/* El orden importa: primero por qué NO puede
