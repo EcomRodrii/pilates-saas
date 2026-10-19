@@ -1,4 +1,4 @@
-import type { Plan } from '@/lib/billing/entitlements';
+import type { Addon, Plan } from '@/lib/billing/entitlements';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Billing del SaaS (Stripe Billing — la plataforma cobra al estudio).
@@ -34,6 +34,42 @@ export function planDePriceId(priceId: string | null | undefined): Plan | null {
   const env = priceEnv();
   for (const plan of ['BASE', 'ESTUDIO', 'CADENA'] as Plan[]) {
     if (env[plan] && env[plan] === priceId) return plan;
+  }
+  return null;
+}
+
+// ─── Complementos de Founding (ADDONS, lib/billing/entitlements.ts) ──────────
+// Un precio MENSUAL de Stripe por complemento, en el mismo producto o en uno
+// propio: da igual, se reconocen por el price ID. Sin la env, el complemento no
+// se puede contratar (la ruta contesta 503 y la pantalla lo dice).
+function priceEnvAddons(): Record<Addon, string | undefined> {
+  return {
+    decisiones: process.env.STRIPE_PRICE_ADDON_DECISIONES,
+    sustituciones: process.env.STRIPE_PRICE_ADDON_SUSTITUCIONES,
+    ia: process.env.STRIPE_PRICE_ADDON_IA,
+  };
+}
+
+/** price ID de Stripe de un complemento, o null si no está configurado. */
+export function priceIdDeAddon(addon: Addon): string | null {
+  return priceEnvAddons()[addon] ?? null;
+}
+
+/**
+ * ¿Se pueden contratar ya los tres complementos? Hasta que existan sus precios
+ * en Stripe, el checkout sigue vendiendo el Founding completo: quitarle algo a
+ * quien no puede comprarlo aparte sería venderle menos por lo mismo.
+ */
+export function complementosALaVenta(): boolean {
+  return (['decisiones', 'sustituciones', 'ia'] as Addon[]).every((a) => !!priceIdDeAddon(a));
+}
+
+/** Mapea un price ID de vuelta a su complemento (para leer la suscripción). */
+export function addonDePriceId(priceId: string | null | undefined): Addon | null {
+  if (!priceId) return null;
+  const env = priceEnvAddons();
+  for (const a of ['decisiones', 'sustituciones', 'ia'] as Addon[]) {
+    if (env[a] && env[a] === priceId) return a;
   }
   return null;
 }

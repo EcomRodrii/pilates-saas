@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATEGORIAS, PARA_QUIEN, novedadesFrenteAlAnterior, resumenCorto } from './catalogo-planes.ts';
-import { PLANES, PLAN_ENTITLEMENTS, type Plan } from './entitlements.ts';
+import { CATEGORIAS, PARA_QUIEN, novedadesFrenteAlAnterior, resumenCorto, textoComplemento } from './catalogo-planes.ts';
+import { ADDONS, PLANES, PLAN_ENTITLEMENTS, addonDeFeature, type Plan } from './entitlements.ts';
 
 test('ninguna fila promete menos en un plan caro que en uno barato', () => {
   // La escalera BASE → ESTUDIO → CADENA no puede tener escalones hacia abajo:
@@ -53,7 +53,8 @@ test('las filas de feature siguen al entitlement real, no a un texto suelto', ()
     const f = fila(nombre);
     assert.ok(f, `falta la fila «${nombre}»`);
     for (const p of PLANES) {
-      const esperado = PLAN_ENTITLEMENTS[p].features[feature] ? 'si' : 'no';
+      // En Founding, lo que va como complemento sale como texto con su precio.
+      const esperado = PLAN_ENTITLEMENTS[p].features[feature] ? 'si' : p === 'BASE' && addonDeFeature(feature) ? 'texto' : 'no';
       assert.equal(f.valor(p).tipo, esperado, `${nombre} en ${p}`);
     }
   }
@@ -102,4 +103,11 @@ test('no se anuncia ningún módulo congelado', () => {
   for (const congelado of ['kiosko', 'punto de venta', 'datáfono', 'vídeos a la carta', 'oferta digital', 'comunidad', 'chat de equipo']) {
     assert.ok(!todo.includes(congelado), `el catálogo menciona «${congelado}», que está congelado`);
   }
+});
+
+test('en Founding, los complementos salen con su precio y Estudio los incluye', () => {
+  const fila = CATEGORIAS.flatMap((c) => c.filas).find((f) => f.nombre === 'Centro de Control')!;
+  assert.deepEqual(fila.valor('BASE'), { tipo: 'texto', texto: textoComplemento(ADDONS.decisiones.precioMes) });
+  assert.deepEqual(fila.valor('ESTUDIO'), { tipo: 'si' });
+  assert.ok(novedadesFrenteAlAnterior('ESTUDIO', 'BASE').includes('Centro de Control'));
 });
