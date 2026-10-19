@@ -25,7 +25,7 @@ import {
 } from '@/lib/sustituciones/contacto';
 import { calcularVentanas } from '@/lib/sustituciones/ventanas';
 import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 
 // Modos que dejan al motor avanzar solo por el ranking.
 const MODOS_AUTONOMOS = ['autonomo', 'vacaciones'];
@@ -52,10 +52,10 @@ export const escalarSustitucion = inngest.createFunction(
       // del plan Estudio+; sin la feature, el escalado se comporta como asistido
       // (recuerda y alerta, pero no auto-avanza por el ranking).
       const { data: estudio } = await admin
-        .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+        .from('studios').select(`modo_autonomia, ${COLUMNAS_PLAN}`).eq('id', studioId).maybeSingle();
       let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
       if (MODOS_AUTONOMOS.includes(modo) &&
-          !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+          !tieneFeature(planDeFila(estudio), 'sustitucionesAutonomas')) {
         modo = 'asistido';
       }
       const msHastaClase = v.sesionInicio ? new Date(v.sesionInicio).getTime() - Date.now() : -1;

@@ -166,3 +166,32 @@ export async function cerrarPlanGratis(admin: SupabaseClient, studioId: string):
     .eq('id', studioId).eq('subscription_status', ESTADO_GRATIS).select('id');
   return !error && !!data?.length;
 }
+
+/**
+ * Deshace un exceso heredado que no tocaba: lo usa /interno al desvincular un
+ * estudio de otra cuenta que NO era el mismo negocio (vinculos-gratis.ts). La
+ * fecha heredada se escribió en TODOS los estudios gratis de la dueña, así que se
+ * borra en todos (si no, la siguiente medición la volvería a juntar) y los que se
+ * cerraron vuelven a 'gratis' (compare-and-set). La siguiente medición cuenta
+ * solo lo suyo; si de verdad se pasa, empieza un margen nuevo. Devuelve los ids
+ * reabiertos, o `null` si algo falla.
+ */
+export async function reabrirPlanGratis(admin: SupabaseClient, studioId: string): Promise<string[] | null> {
+  const { data: fila, error: eFila } = await admin.from('studios').select('owner_auth_user_id').eq('id', studioId).maybeSingle();
+  if (eFila || !fila) return null;
+  const owner = (fila as { owner_auth_user_id: string | null }).owner_auth_user_id;
+  let ids = [studioId];
+  if (owner) {
+    const { data, error } = await admin.from('studios').select('id')
+      .eq('owner_auth_user_id', owner).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
+    if (error) return null;
+    ids = [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
+  }
+  const { error: eUso } = await admin.from('uso_plan_gratis')
+    .update({ excedido_desde: null, medido_en: null, intento_en: null }).in('studio_id', ids);
+  if (eUso) return null;
+  const { data: abiertos, error } = await admin.from('studios').update({ subscription_status: ESTADO_GRATIS })
+    .in('id', ids).eq('subscription_status', ESTADO_GRATIS_CERRADO).select('id');
+  if (error) return null;
+  return ((abiertos ?? []) as { id: string }[]).map(a => a.id);
+}

@@ -133,6 +133,13 @@ const SPECS_WEBKIT = [
   // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y
   // el rebote de iOS—. Siete tests de unos segundos, todo local.
   '**/landing-isla.spec.ts',
+  // «Cambiarme a Tentare» y el héroe a 375 px (ronda 2 de la landing, 19-oct-2026):
+  // la puerta de quien ya paga otro programa. Misma pantalla y mismo criterio que la
+  // isla (pública, la sufre quien llega de Google desde el iPhone); lo que prueba en
+  // WebKit es la parte móvil —menú, botones del héroe sobre el pliegue, isla
+  // encogida sin recortes—. Los cuatro de escritorio se saltan solos en este
+  // proyecto. Coste: sumar por test en `timings-*` (ver el PR).
+  '**/landing-cambiarme.spec.ts',
 
   // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
   // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto

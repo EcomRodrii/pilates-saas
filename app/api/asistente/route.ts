@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoPorFeature } from '@/lib/billing/billing-guard';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { hoyEnEstudio } from '@/lib/utils';
 import { clienteAnthropic } from '@/lib/ai/cliente';
@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
   const [personas, cargada, studioR] = await Promise.all([
     personasDelEstudio(admin, sesion),
     conversacionId ? cargarConversacion(admin, sesion, conversacionId) : Promise.resolve(null),
-    admin.from('studios').select('nombre, ciudad, plan, subscription_status, subscription_id').eq('id', sesion.studioId).maybeSingle(),
+    admin.from('studios').select(`nombre, ciudad, subscription_id, ${COLUMNAS_PLAN}`).eq('id', sesion.studioId).maybeSingle(),
   ]);
   // Sin la lista de personas no se puede quitar un nombre de la pregunta: no se pregunta.
   if (studioR.error || !studioR.data || !personas) return json({ error: 'No disponible ahora', codigo: 'NO_DISPONIBLE' }, 503);
-  const fila = studioR.data as { nombre: string | null; ciudad: string | null; plan: string | null; subscription_status: string | null; subscription_id: string | null };
-  const decisiones = tieneFeature({ plan: fila.plan, subscriptionStatus: fila.subscription_status }, 'decisiones');
+  const fila = studioR.data as { nombre: string | null; ciudad: string | null; plan: string | null; subscription_status: string | null; subscription_id: string | null; regimen_addons: boolean | null; addons: string[] | null };
+  const decisiones = tieneFeature(planDeFila(fila), 'decisiones');
   // La prueba LOCAL (sin tarjeta): el mismo criterio que ia_saldo_consultas.
   const estudio = { nombre: fila.nombre, ciudad: fila.ciudad, plan: fila.plan, enPrueba: fila.subscription_status === 'trialing' && !fila.subscription_id };
   tiempos.marcar('carga');

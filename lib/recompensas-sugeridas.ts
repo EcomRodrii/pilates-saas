@@ -36,7 +36,7 @@ export const SUGERENCIAS: RecompensaSugerida[] = [
   {
     nombre: 'Clase invitada',
     descripcion: 'Una clase suelta de regalo. Se le añade sola al canjear.',
-    icono: '🎟',
+    icono: 'entrada',
     clasesEquivalentes: 12,
     // La única que se entrega sola: concede una recuperación, que ya es el
     // derecho a una clase suelta en este producto.
@@ -45,14 +45,14 @@ export const SUGERENCIAS: RecompensaSugerida[] = [
   {
     nombre: 'Botella del estudio',
     descripcion: 'Se la das en recepción.',
-    icono: '💧',
+    icono: 'regalo',
     clasesEquivalentes: 5,
     efecto: 'MANUAL',
   },
   {
     nombre: 'Trae a una amiga gratis',
     descripcion: 'Una clase para alguien que aún no es clienta.',
-    icono: '👯',
+    icono: 'amigas',
     clasesEquivalentes: 8,
     efecto: 'MANUAL',
   },

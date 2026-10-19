@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CalendarCheck, Hourglass, RefreshCw, type LucideIcon } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
-import { ALTA, NAV_V5 } from './enlaces';
+import { ALTA, HEROE_CAMBIARSE, NAV_CAMBIARSE, NAV_V5 } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
 import { useIslaCompacta } from './use-isla-compacta';
@@ -107,12 +107,15 @@ export function SeccionHero() {
               <a key={l.href} href={l.href}>{l.label}</a>
             ))}
             <Link href="/recursos">Recursos</Link>
+            {/* La entrada se quita la primera: entre 761 y 1000 px (no cabe) y al
+                encogerse la isla, que se queda con el logo y el botón. */}
+            <Link href={NAV_CAMBIARSE.href} className="v5-nav-cambiarse">{NAV_CAMBIARSE.label}</Link>
           </div>
         </div>
         <div className="v5-nav-col v5-nav-col-entrar">
           <Link href="/login" className="v5-nav-entrar">Entrar</Link>
         </div>
-        <Link href={ALTA} className="v5-nav-cta">Probar Tentare</Link>
+        <Link href={ALTA} className="v5-nav-cta">{CTA_ALTA}</Link>
         <button
           type="button"
           className="v5-nav-burger"
@@ -136,10 +139,11 @@ export function SeccionHero() {
               <a key={l.href} href={l.href} onClick={() => setMenuAbierto(false)}>{l.label}</a>
             ))}
             <Link href="/recursos" onClick={() => setMenuAbierto(false)}>Recursos</Link>
+            <Link href={NAV_CAMBIARSE.href} onClick={() => setMenuAbierto(false)}>{NAV_CAMBIARSE.label}</Link>
           </nav>
           <div className="v5-menu-pie">
             <Link href="/login" onClick={() => setMenuAbierto(false)} className="v5-menu-entrar">Entrar</Link>
-            <Link href={ALTA} onClick={() => setMenuAbierto(false)} className="v5-menu-cta">Probar Tentare</Link>
+            <Link href={ALTA} onClick={() => setMenuAbierto(false)} className="v5-menu-cta">{CTA_ALTA}</Link>
           </div>
         </div>
       )}
@@ -161,6 +165,10 @@ export function SeccionHero() {
             </p>
             <div className="v5-hero-acciones">
               <Link href={ALTA} className="v5-hero-cta">{CTA_ALTA}</Link>
+              {/* Secundario: de contorno, para quien ya paga otro programa. El que
+                  empuja sigue siendo UNO (el relleno). La frase promete lo que
+                  promete /soluciones/cambiar-de-software: traer los datos, no «todo». */}
+              <Link href={HEROE_CAMBIARSE.href} className="v5-hero-secundario">{HEROE_CAMBIARSE.label}</Link>
               <a href="#producto" className="v5-hero-enlace">Ver cómo funciona <span aria-hidden>↓</span></a>
             </div>
             {/* La nota pública de G2 (lib/seo/g2.ts), la misma que enseñan las
@@ -246,6 +254,8 @@ export function SeccionHero() {
         .v5-nav-links { display: flex; gap: clamp(10px,1.6vw,20px); padding: 0 clamp(10px,1.6vw,22px) 0 clamp(8px,1.2vw,16px); }
         .v5-nav-links a { font-size: 14px; font-weight: 600; color: #3B3B34; }
         .v5-nav-links a:hover { color: #1A1A1A; }
+        /* No cabe junto al resto entre 761 y 1000 px: ahí se quita (en móvil vive en el menú). */
+        @media (max-width: 1000px) { .v5-nav-cambiarse { display: none; } }
         .v5-nav-entrar { display: block; font-size: 14px; font-weight: 600; color: #1A1A1A; padding: 9px 12px; }
         .v5-nav-cta { flex-shrink: 0; background: #343825; color: #D9C29E; padding: 9px 18px; border-radius: 999px;
           font-weight: 700; font-size: 14px; transition: background .2s; }
@@ -324,6 +334,12 @@ export function SeccionHero() {
           box-shadow: 0 18px 36px -16px rgba(52,56,37,.6); transition: transform var(--motion-normal) var(--motion-ease), background var(--motion-normal); }
         .v5-hero-cta:hover { background: #22251A; transform: translateY(-2px); }
         .v5-hero-cta:active { transform: translateY(0) scale(.98); }
+        /* Secundario de contorno: sin relleno ni sombra, para que el relleno siga siendo el único que empuja. */
+        .v5-hero-secundario { display: inline-block; background: transparent; color: #343825; font-weight: 700; font-size: 15.5px;
+          padding: 15px 26px; border: 1.5px solid #343825; border-radius: 999px; white-space: nowrap;
+          transition: background var(--motion-normal), color var(--motion-normal); }
+        .v5-hero-secundario:hover { background: rgba(52,56,37,.08); }
+        .v5-hero-secundario:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
         .v5-hero-enlace { font-size: 15.5px; font-weight: 700; color: #343825; white-space: nowrap; }
         .v5-hero-enlace:hover { text-decoration: underline; text-underline-offset: 4px; }
         .v5-hero-cta:focus-visible, .v5-hero-enlace:focus-visible { outline: 2px solid #343825; outline-offset: 3px; }
@@ -401,6 +417,7 @@ export function SeccionHero() {
           .v5-hero-lead { margin-top: 16px; font-size: 15.5px; max-width: none; }
           .v5-hero-acciones { margin-top: 24px; flex-direction: column; align-items: stretch; gap: 14px; }
           .v5-hero-cta { display: block; text-align: center; font-size: 16px; padding: 16px 24px; }
+          .v5-hero-secundario { display: block; text-align: center; font-size: 15.5px; padding: 14px 20px; }
           .v5-hero-enlace { align-self: center; }
           .v5-hero-nota { margin-top: 12px; text-align: center; }
 

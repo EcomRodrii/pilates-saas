@@ -1,5 +1,6 @@
 import { LEGAL } from '@/lib/legal-info';
 import { blogLd, blogPostingLd } from '@/lib/recursos/schema';
+import { faqPageLd } from '@/lib/seo/faq-jsonld';
 
 // BreadcrumbList + BlogPosting JSON-LD para una guía de /recursos.
 // Separado del listado (RecursosBreadcrumb y RecursosBlogStructuredData, más
@@ -50,15 +51,7 @@ export function RecursosBlogStructuredData() {
 // mismo array `items` que recibe ese componente, para no duplicar contenido:
 // Google puede mostrar estas preguntas como rich snippet directamente en el buscador.
 export function FaqStructuredData({ items }: { items: { q: string; a: string }[] }) {
-  const faqLd = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: items.map((item) => ({
-      '@type': 'Question',
-      name: item.q,
-      acceptedAnswer: { '@type': 'Answer', text: item.a },
-    })),
-  };
+  const faqLd = faqPageLd(items);
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd).replace(/</g, '\\u003c') }} />;
 }
 

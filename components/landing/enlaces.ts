@@ -79,6 +79,21 @@ export const SALIDAS = {
   clientas: { href: '/funcionalidades/ficha-de-clienta', label: 'La ficha de cada alumna' },
 } as const satisfies Record<string, EnlaceNav>;
 
+/**
+ * «Cambiarme a Tentare» (ronda 2 de la landing, 19-oct-2026, con autorización
+ * expresa del fundador para tocar la cabecera): la puerta de quien ya paga otro
+ * programa, que es la mayoría de estudios. Va en la isla, en el menú móvil y,
+ * como «Traer mis datos de otro programa», en el héroe; los tres a la misma
+ * página, que existe desde el 13-ago y cuenta lo que el importador hace de verdad.
+ *
+ * ⚠️ El texto promete lo que esa página promete y nada más: traer datos
+ * (clientas, bonos, clases, reservas, citas y pagos históricos), con vista previa
+ * y botón de deshacer, tú misma o con ayuda. NO promete plazos, ni «sin coste»,
+ * ni que las tarjetas guardadas viajen (la propia página dice que no).
+ */
+export const NAV_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Cambiarme a Tentare' };
+export const HEROE_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Traer mis datos de otro programa' };
+
 /** Pie. `/legal` y no `/aviso-legal`: ese enlace del diseño estaba roto. */
 export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
   {
