@@ -32,8 +32,7 @@ import type { Rol } from './types';
 // '/festivos' (módulo del panel nuevo, 14-oct-2026): lo que se decide ahí es
 // abrir o cerrar un día, y cerrar es de la propietaria y la gerencia
 // (`puedeGestionarSede`, el mismo permiso que sus rutas y la RLS de la tabla).
-// `/tu-app` y `/tu-web` (16-oct-2026): «Apariencia de tu app» y los widgets fuera de Configuración, en el menú; sus APIs son de propietaria.
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente', '/festivos', '/tu-app', '/tu-web'];
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones', '/asistente', '/festivos'];
 
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque
@@ -55,9 +54,6 @@ const BLOQUEADO_MANAGER = [
   // «Apariencia de tu app» y la pantalla vieja de avisos. Sin nombrarlas,
   // abrir `/configuracion` las abriría por prefijo.
   '/configuracion/apariencia', '/configuracion/notificaciones',
-  // Las mismas pantallas en su entrada propia del menú (MI_WEB_NUEVA, 16-oct-2026): la marca, la app
-  // y los widgets son solo de la propietaria (decisión del fundador del mismo día).
-  '/tu-app', '/tu-web',
   // El alta del envío a la AEAT (poder IZ860): la otorga la obligada tributaria
   // y su API es solo de propietaria (app/api/verifactu/estudio).
   '/configuracion/verifactu',

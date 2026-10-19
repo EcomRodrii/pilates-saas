@@ -69,6 +69,15 @@ export function Baldosa({ tono, Icono, tamano = 'md' }: { tono: Tono; Icono: Ele
 }
 
 /**
+ * El panel de color sobre el que va el móvil de una vista previa de su app (Apariencia de
+ * tu app, Contenido de tu app): «como Bonsai, el móvil sobre un panel grande de color, con
+ * los tonos del logo». Uno solo, para que las dos pantallas no se separen.
+ */
+export const FONDO_VISTA_MOVIL: CSSProperties = {
+  backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))',
+};
+
+/**
  * Fondo de una tarjeta teñida de su tono: blanca y, solo hacia la esquina, un
  * toque de su color, como las tarjetas de cifras de Bonsai. Suave a propósito
  * (fundador, 14-oct: «los degradados de las cards son muy fuertes, solo debe

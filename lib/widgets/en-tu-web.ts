@@ -25,7 +25,8 @@ import type { MetodoIntegracion } from './catalogo.ts';
 import { claveDeCopia, etiquetaEfectiva, type ConfigConstructor, type Copiado } from './config.ts';
 import type { EmbudoWidget } from './embudo.ts';
 import { VERSION_FIRMA } from './firma-contenido.ts';
-import { firmaCodigo, firmaContenidoDe, tieneDisenoEnCodigo, type EntradaIntegracion } from './integracion.ts';
+import { firmaCodigo, firmaContenidoDe, ofreceSoloHorario, tieneDisenoEnCodigo, type EntradaIntegracion } from './integracion.ts';
+import type { WidgetDisponible } from './catalogo.ts';
 import { claveVista, formaDeMetodo, type FormaPegada, type VistoWidget } from './pegado.ts';
 import { origenesConYSinWww } from './recetas.ts';
 
@@ -37,10 +38,14 @@ import { origenesConYSinWww } from './recetas.ts';
  * compara aparte como «dónde va»): lo vigila un test, para que un ajuste nuevo
  * no se quede sin nombre en el aviso.
  */
+/** El nombre del ajuste «Tu horario, tus clases» en los avisos de «lo cambiaste» y «sin publicar». */
+export const GRUPO_SOLO_HORARIO = 'la opción «Tu horario, tus clases»';
+
 export const GRUPOS: readonly { nombre: string; campos: (keyof ConfigConstructor)[] }[] = [
   { nombre: 'qué clases salen', campos: ['tipos', 'instructoras', 'salas'] },
   { nombre: 'qué se ve de cada clase', campos: ['mostrarPrecio', 'mostrarNivel', 'mostrarSustituta'] },
   { nombre: 'cómo se ordena', campos: ['vista', 'presentacion', 'diseno'] },
+  { nombre: GRUPO_SOLO_HORARIO, campos: ['soloHorario'] },
   { nombre: 'qué clase', campos: ['sesion'] },
   { nombre: 'con qué se abre', campos: ['cuentaInicio'] },
   { nombre: 'qué planes salen', campos: ['tiposPlan'] },
@@ -102,9 +107,12 @@ export const GRUPOS_EN_EL_HTML: ReadonlySet<string> = new Set(['el ancho', 'cóm
  * HTML (eso no lo cambia aplicar). Compara los valores, no el código: da igual
  * con qué forma esté pegado, porque la pieza sirve a todas.
  */
-export function gruposSinAplicar(publicada: ConfigConstructor, ahora: ConfigConstructor): string[] {
+export function gruposSinAplicar(publicada: ConfigConstructor, ahora: ConfigConstructor, widget?: WidgetDisponible): string[] {
   const igual = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   return GRUPOS
+    // «Tu horario, tus clases» solo existe en el horario dentro de una página o encima: en cualquier otro
+    // widget su valor no se emite, y que difiera entre lo publicado y lo de ahora no es «sin publicar».
+    .filter(g => g.nombre !== GRUPO_SOLO_HORARIO || !widget || ofreceSoloHorario(widget, 'iframe'))
     .filter(g => !GRUPOS_EN_EL_HTML.has(g.nombre) && g.campos.some(k => !igual(publicada[k], ahora[k])))
     .map(g => g.nombre);
 }
@@ -430,8 +438,13 @@ export function piezaCopiada(x: {
   // elegida no es «otra versión» de lo que hay en su web.
   const claveAhora = formaAhora && contenidoAhora ? claveVista(formaAhora, contenidoAhora) : null;
 
-  const foto = k.config && k.metodo ? { config: k.config, metodo: k.metodo } : null;
-  const coincide = !foto && k.firma === firmaCodigo(base, metodoAhora);
+  // Una copia de ANTES de «Tu horario, tus clases» (no por id) no es «un cambio que hizo ella» cuando el código
+  // de ahora la lleva: lo dice su propio aviso (./solo-horario.ts), y aquí no sale además como «lo cambiaste».
+  const deAntesDeSolo = !!k.antesDeSolo && !porId;
+  const ajustada = (c: ConfigConstructor): ConfigConstructor => (deAntesDeSolo ? { ...c, soloHorario: base.config.soloHorario } : c);
+  const foto = k.config && k.metodo ? { config: ajustada(k.config), metodo: k.metodo } : null;
+  const coincide = !foto && (k.firma === firmaCodigo(base, metodoAhora)
+    || (deAntesDeSolo && k.firma === firmaCodigo({ ...base, config: { ...base.config, soloHorario: false } }, metodoAhora)));
   const metodo = foto ? foto.metodo : coincide ? metodoAhora : (k.metodo ?? null);
   const pegada = foto ? foto.config : coincide ? base.config : null;
 
@@ -509,4 +522,70 @@ export function webSinAutorizar(direccion: string | null, dominios: readonly str
   const origen = direccion ? normalizarOrigenWidget(direccion) : null;
   if (!origen) return null;
   return origenesConYSinWww(origen).some(o => dominios.includes(o)) ? null : hostDe(origen);
+}
+
+// ── El estado en una pastilla (portada de «Tu web» v2, 16-oct-2026) ──────────
+
+export type TonoChip = 'ok' | 'aviso' | 'neutro';
+
+export interface ChipEnTuWeb {
+  /** Lo que se lee en la pastilla: corto. */
+  texto: string;
+  tono: TonoChip;
+  /** La frase larga de `textosEnTuWeb`, para `title` y `aria-description`. */
+  detalle: string | null;
+}
+
+/**
+ * La versión corta de `textosEnTuWeb`, con LAS MISMAS fuentes: un solo estado
+ * por pieza en la portada (decisión del fundador, 15-oct-2026). Por eso las
+ * reglas de lo que nunca se dice (arriba del todo) se cumplen por construcción:
+ * `oculto` —cargando, sin permiso o con la lectura fallida— no pinta nada, y
+ * nunca «Aún no lo vemos» por un error.
+ *
+ * Una versión anterior con el código por id NO es un aviso: se pone al día sola
+ * (`textosEnTuWeb` lo dice así); con un código de los de antes sí, porque hay
+ * que pegarlo otra vez.
+ *
+ * `esEnlace`: lo pegado es un enlace (o el botón de su propia web con el
+ * enlace). De un botón a su página tampoco se ve de dónde llegan, y se dice
+ * como botón.
+ */
+export function chipEnTuWeb(e: EstadoEnTuWeb, ahora: number, esEnlace: boolean): ChipEnTuWeb | null {
+  const t = textosEnTuWeb(e, ahora);
+  const detalle = [t.linea, t.version].filter((x): x is string => !!x).join(' ') || null;
+  switch (e.tipo) {
+    case 'oculto':
+      return null;
+    case 'no-medible':
+      return { texto: esEnlace ? 'Los enlaces no los vemos en tu web' : 'Los botones a tu página no los vemos en tu web', tono: 'neutro', detalle };
+    case 'sin-dato':
+      return { texto: 'Con visitas · aún no sabemos desde qué web', tono: 'neutro', detalle };
+    case 'sin-ver':
+      return { texto: e.forma === 'ventana' ? 'Aún no lo ha abierto nadie' : 'Aún no lo vemos en tu web', tono: 'neutro', detalle };
+    case 'visto': {
+      if (e.version === 'anterior' && e.laOtra) {
+        return e.porId
+          ? { texto: 'Se pone al día en unos minutos', tono: 'neutro', detalle }
+          : { texto: 'Tu web tiene lo de antes', tono: 'aviso', detalle };
+      }
+      if (e.version === 'distinta' && e.laOtra) return { texto: 'Tu web tiene otra versión', tono: 'aviso', detalle };
+      if (e.version === 'dos-versiones' && e.laOtra) return { texto: 'Tu web enseña dos versiones', tono: 'aviso', detalle };
+      const hace = relativo(e.ultimo, new Date(ahora));
+      const ventana = e.forma === 'ventana';
+      const texto = e.anfitrion
+        ? `${ventana ? 'Abierto' : 'Se ve'} en ${hostDe(e.anfitrion)} · ${hace}`
+        : `${ventana ? 'Abierto' : 'Visto'} ${hace}`;
+      return { texto, tono: 'ok', detalle };
+    }
+  }
+}
+
+/**
+ * ¿La versión que enseña su web pide pegar el código otra vez? Todas las que
+ * `textosEnTuWeb` nombra, menos la anterior por id: esa se pone al día sola.
+ */
+export function versionPidePegar(e: EstadoEnTuWeb): boolean {
+  if (e.tipo !== 'visto' || !e.version || e.version === 'al-dia' || !e.laOtra) return false;
+  return !(e.version === 'anterior' && e.porId);
 }

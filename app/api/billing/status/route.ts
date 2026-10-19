@@ -15,6 +15,7 @@ import { leerUsoGratis, refrescarUsoGratis } from '@/lib/billing/uso-gratis-serv
 import {
   COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, leerCadenaParaGratis, type FilaParaGratis,
 } from '@/lib/billing/convertir-a-gratis';
+import { marcarUso } from '@/lib/retencion/marcar-uso';
 
 /**
  * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
@@ -48,6 +49,10 @@ export async function GET(req: NextRequest) {
     // Sin service-role no podemos leer el estado: fallo abierto, no bloqueamos.
     return NextResponse.json({ plan: 'BASE', subscriptionStatus: null, activo: true, bloqueado: false, configurado: false });
   }
+
+  // Alguien del equipo ha abierto el panel: la señal de uso del estudio (una vez
+  // al día, solo con BAJAS_AUTOMATICAS=informe). Después de contestar: nadie espera.
+  after(() => marcarUso(admin, 'panel', sesion.studioId));
 
   const { data: studio } = await admin
     .from('studios')

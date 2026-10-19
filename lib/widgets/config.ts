@@ -13,7 +13,7 @@
 
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import type { TipoPlan } from '../types.ts';
-import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
+import { WIDGETS, esHorarioPropio, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { FIRMA_CONTENIDO_VALIDA, FORMAS_PEGADAS, claveVista, formaDeMetodo } from './pegado.ts';
 import { esIdPieza } from './pieza.ts';
 import type { EstadoWeb } from './recetas.ts';
@@ -79,6 +79,20 @@ export interface ConfigConstructor {
   abrirEn: 'nueva' | 'misma';
   /** El pie con dirección y legales. La web del estudio ya suele tener el suyo. */
   mostrarPie: boolean;
+  /**
+   * «Tu horario, tus clases» (solo el horario dentro de una página o encima):
+   * el código lleva `solo=1` y /reservar no pinta nada de la página completa
+   * debajo —ni los bonos y las cuotas, ni «Sobre nosotros», ni el pie—.
+   *
+   * ⚠️ El único booleano con el default ENCENDIDO que SE EMITE cuando está
+   * encendido (los demás, como `mostrarPie`, emiten el valor que se aparta del
+   * default). Es a propósito: un código pegado antes de esta opción no lleva
+   * `solo=1` y tiene que seguir exactamente como estaba. Por eso un `leerConfig`
+   * sin el campo lo lee APAGADO (lo copiado y lo publicado de antes no es lo
+   * que dice el panel de ahora), y solo `leerConfigs` —el constructor, que
+   * genera código NUEVO— lo enciende cuando falta.
+   */
+  soloHorario: boolean;
 
   // ── Avanzado ──
   /**
@@ -100,6 +114,7 @@ export const CONFIG_POR_DEFECTO: ConfigConstructor = {
   fondo: null, marca: null, tinta: null, superficie: null, linea: null,
   forma: null, densidad: null, fuente: null, fuenteDisplay: null, ancho: null,
   metodo: null, textoBoton: null, estiloBoton: 'relleno', abrirEn: 'nueva', mostrarPie: true,
+  soloHorario: true,
   etiqueta: null, cargaDiferida: true,
 };
 
@@ -164,7 +179,7 @@ const METODOS_VALIDOS: readonly MetodoIntegracion[] = ['iframe', 'nativa', 'popu
  * nadie pierda lo que ya había configurado.
  */
 export function leerConfig(raw: unknown): ConfigConstructor {
-  const c: ConfigConstructor = { ...CONFIG_POR_DEFECTO, tipos: [], instructoras: [], salas: [], tiposPlan: [] };
+  const c: ConfigConstructor = { ...CONFIG_POR_DEFECTO, soloHorario: false, tipos: [], instructoras: [], salas: [], tiposPlan: [] };
   if (!raw || typeof raw !== 'object') return c;
   const o = raw as Record<string, unknown>;
 
@@ -207,10 +222,31 @@ export function leerConfig(raw: unknown): ConfigConstructor {
   c.estiloBoton = o.estiloBoton === 'contorno' ? 'contorno' : 'relleno';
   c.abrirEn = o.abrirEn === 'misma' ? 'misma' : 'nueva';
   c.mostrarPie = o.mostrarPie !== false;
+  // Sin el campo, apagado (ver `soloHorario`): lo pegado y lo publicado de antes no cambia.
+  c.soloHorario = o.soloHorario === true;
 
   c.etiqueta = typeof o.etiqueta === 'string' && (o.etiqueta === '' || ETIQUETA_VALIDA.test(o.etiqueta)) ? o.etiqueta : null;
   c.cargaDiferida = o.cargaDiferida !== false;
   return c;
+}
+
+/**
+ * Lo guardado ANTES de «Tu horario, tus clases» no trae el campo: el constructor
+ * genera código nuevo, y el código nuevo lo lleva encendido. Lo ya pegado no se
+ * toca (es texto en su web) y lo publicado por id tampoco (`leerConfig` lo lee
+ * apagado); solo el borrador de aquí cambia, y lo que se copie a partir de ahora.
+ * Un campo guardado (encendido o apagado) manda siempre.
+ */
+function conSoloPorDefecto(w: WidgetDisponible, c: ConfigConstructor, raw: unknown): ConfigConstructor {
+  const o = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+  // Solo donde la opción existe: en un widget que no la tiene, `soloHorario` no se emite y no debe
+  // aparecer como «sin publicar» frente a lo publicado de antes.
+  if (typeof o.soloHorario === 'boolean' || !esHorarioPropio(w)) return c;
+  // Un código por id ya copiado se sirve desde lo PUBLICADO: encenderle la opción aquí sin que lo pida nadie
+  // dejaría «sin publicar» un cambio que no hizo, y el primer «Publicar en mi web» (de otra cosa) lo llevaría
+  // a su web. Para ese, la opción se activa a propósito (el aviso de ./solo-horario.ts lleva a ello).
+  const copiado = o.copiado && typeof o.copiado === 'object' ? o.copiado as Record<string, unknown> : null;
+  return esIdPieza(copiado?.pieza) ? c : { ...c, soloHorario: true };
 }
 
 /**
@@ -223,10 +259,10 @@ export function leerConfigs(raw: Record<string, unknown> | null | undefined): Re
   if (!raw || typeof raw !== 'object') return out;
   for (const w of WIDGETS) {
     if (w.estado !== 'disponible') continue;
-    if (w.id in raw) { out[w.id] = leerConfig(raw[w.id]); continue; }
+    if (w.id in raw) { out[w.id] = conSoloPorDefecto(w, leerConfig(raw[w.id]), raw[w.id]); continue; }
     const viejo = (w.legado ?? []).find(id => id in raw);
     if (!viejo) continue;
-    const c = leerConfig(raw[viejo]);
+    const c = conSoloPorDefecto(w, leerConfig(raw[viejo]), raw[viejo]);
     // El «Calendario embebido» de antes ES la integración nativa del horario.
     if (viejo === 'embed-script') c.metodo = 'nativa';
     out[w.id] = c;
@@ -295,6 +331,16 @@ export interface Copiado {
    * botón…). Sin él, un código congelado de los de siempre.
    */
   pieza?: string;
+  /**
+   * Lo copiado es de ANTES de «Tu horario, tus clases» (17-oct-2026): su código
+   * no lleva `solo=1`, y con él pegado salen los bonos y las cuotas debajo del
+   * horario. Es lo único que distingue una copia de antes de una de ahora hecha
+   * con la opción apagada a propósito: `config.soloHorario` se lee apagado en
+   * las dos. Se escribe al LEER (el campo no estaba) y se conserva al guardar;
+   * una copia nueva (`nuevaCopia`) no lo lleva. Solo sirve para el aviso de
+   * «vuelve a copiarlo» (./solo-horario.ts): nunca se emite.
+   */
+  antesDeSolo?: true;
 }
 
 const FIRMA_VALIDA = /^[0-9a-z]{1,32}$/;
@@ -326,6 +372,8 @@ export function leerCopiados(raw: Record<string, unknown> | null | undefined): R
     const metodo = uno(x.metodo, METODOS_VALIDOS);
     if (metodo) copia.metodo = metodo;
     if (x.config && typeof x.config === 'object' && !Array.isArray(x.config)) copia.config = leerConfig(x.config);
+    const fotoConSolo = !!x.config && typeof x.config === 'object' && typeof (x.config as Record<string, unknown>).soloHorario === 'boolean';
+    if (x.antesDeSolo === true || !fotoConSolo) copia.antesDeSolo = true;
     if (typeof x.contenido === 'string' && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
     const anteriores = limpiarAnteriores(x.anteriores);
     if (anteriores.length) copia.anteriores = anteriores;
@@ -368,6 +416,10 @@ export function nuevaCopia(anterior: Copiado | null | undefined, x: {
   if (anteriores.length) copia.anteriores = anteriores;
   if (x.botonVivo) copia.botonVivo = true;
   if (esIdPieza(x.pieza)) copia.pieza = x.pieza;
+  // El código por id es el MISMO antes y después de copiarlo otra vez: lo que lleva su web lo decide lo
+  // publicado, no esta copia. Si era de antes de «Tu horario, tus clases», sigue siéndolo (el aviso lo
+  // quita publicar la opción, no copiar). Un código congelado, en cambio, SÍ es nuevo al copiarlo.
+  if (copia.pieza && anterior?.pieza === copia.pieza && anterior.antesDeSolo) copia.antesDeSolo = true;
   return copia;
 }
 

@@ -7,6 +7,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { barrerAlertasApertura } from '@/lib/opening/alertas-cron';
 import { revisarAppsSinPlan } from '@/lib/app-nativa/apps-sin-plan-cron';
+import { registrarSituacionDiaria } from '@/lib/retencion/situacion-diaria';
+import { medirGratisEnSeco } from '@/lib/retencion/gratis-en-seco-servidor';
 
 export const dynamic = 'force-dynamic';
 // El ciclo de estudios vencidos puede, en modo activo, borrar Storage y R2 de
@@ -21,6 +23,10 @@ export const maxDuration = 120;
 // misma cadencia, sin crear un job de pg_cron ni un cron de Inngest nuevos.
 // Y, por lo mismo, las alertas de Opening OS (lib/opening/alertas-cron.ts) y el margen de 30 días
 // de la app de la App Store de quien deja de pagar Estudio/Cadena (lib/app-nativa/apps-sin-plan.ts).
+// Y el informe diario de bajas en seco (lib/retencion/situacion-diaria.ts), solo con
+// BAJAS_AUTOMATICAS=informe: escribe una fila por estudio y día, nada más. Y, sobre esas
+// filas, el plan gratis medido en seco (lib/retencion/gratis-en-seco-servidor.ts): mide cada
+// estudio gratis con la medición del gate y lo apunta en su fila, sin tocar `uso_plan_gratis`.
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
@@ -55,11 +61,37 @@ export async function POST(req: NextRequest) {
     appsSinPlan = { error: 'Error revisando las apps de estudio sin plan.' };
   }
 
+  // Los avisos a las propietarias, antes que el informe.
+  let resumen: Awaited<ReturnType<typeof barrerTrialAvisos>> | null = null;
+  let errorAvisos: unknown = null;
   try {
-    const resumen = await barrerTrialAvisos();
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan });
+    resumen = await barrerTrialAvisos();
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'notif-trial' } });
-    return errorInterno('cron/notif-trial:POST', err, 'Error avisando de prueba gratuita a punto de acabar.');
+    errorAvisos = err;
   }
+
+  // El informe diario de bajas (solo con BAJAS_AUTOMATICAS=informe), el último.
+  let situacionDiaria: unknown;
+  try {
+    situacionDiaria = await registrarSituacionDiaria(requireSupabaseAdmin());
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'retencion' } });
+    situacionDiaria = { error: 'Error escribiendo el informe diario de bajas.' };
+  }
+
+  // El plan gratis medido en seco, sobre las filas de ESE día (sin informe, nada).
+  let gratisEnSeco: unknown;
+  try {
+    const dia = situacionDiaria && typeof situacionDiaria === 'object' && 'dia' in situacionDiaria ? String(situacionDiaria.dia) : null;
+    gratisEnSeco = dia ? await medirGratisEnSeco(requireSupabaseAdmin(), { hoy: dia }) : { skipped: 'sin informe del día' };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'retencion' } });
+    gratisEnSeco = { error: 'Error midiendo el plan gratis en seco.' };
+  }
+
+  if (errorAvisos || !resumen) {
+    return errorInterno('cron/notif-trial:POST', errorAvisos, 'Error avisando de prueba gratuita a punto de acabar.');
+  }
+  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, situacionDiaria, gratisEnSeco });
 }

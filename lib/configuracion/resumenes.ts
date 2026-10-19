@@ -29,7 +29,7 @@ import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
 import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '../plataformas/venta-externa.ts';
-import { tarjetasDescubre, type BannerMin } from '../student/descubre.ts';
+import { tarjetasEnLaApp, type BannerDelEstudio } from '../student/descubre.ts';
 import { hoyEnEstudio } from '../utils.ts';
 
 export const MAX_RESUMEN = 44;
@@ -423,8 +423,13 @@ export interface DatosHerramientas {
   correos?: readonly { tipo: string; enviar?: boolean | null }[] | null;
   /** Las tarjetas de «Descubre» (los banners), tal cual las tiene el panel. */
   contenido?: {
-    tarjetas: readonly (BannerMin & { activo: boolean; ubicacion?: readonly string[] | null })[];
+    tarjetas: readonly BannerDelEstudio[];
     ahoraMs: number;
+    /**
+     * El mensaje destacado, SOLO si su app lo enseña (`MI_WEB_NUEVA`): sin el
+     * interruptor no sale en ninguna pantalla y la fila no lo cuenta.
+     */
+    mensaje?: string | null;
   } | null;
   /** Las webs donde está autorizada la integración nativa del horario. */
   widgetDominios?: readonly string[] | null;
@@ -480,13 +485,15 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       const { tarjetas, ahoraMs } = d.contenido;
       // Lo que sale HOY en su app, con la misma regla que la app: publicada, en el
       // inicio (es lo que filtra el servidor), con foto y dentro de sus fechas, que
-      // son inclusivas y del día de Madrid (`tarjetasDescubre`). Antes contaba una
+      // son inclusivas y del día de Madrid (`tarjetasEnLaApp`). Antes contaba una
       // tarjeta sin foto, que la app descarta, y la quitaba el último día a las 02:00.
       // Ni el mensaje destacado ni el tablón: ninguna pantalla de su app los enseña,
       // y «con mensaje destacado · 1 aviso» prometía que sí.
       const hoy = hoyEnEstudio(new Date(ahoraMs));
-      const n = tarjetasDescubre(tarjetas.filter(t => t.activo && (t.ubicacion ?? ['home']).includes('home')), hoy).length;
-      return n > 0 ? contar(n, 'tarjeta en su app', 'tarjetas en su app') : 'Ninguna tarjeta en su app';
+      const n = tarjetasEnLaApp(tarjetas, hoy).length;
+      const conMensaje = !!d.contenido.mensaje?.trim();
+      if (n === 0) return conMensaje ? 'Un mensaje destacado y ninguna tarjeta en su app' : 'Ninguna tarjeta en su app';
+      return unir([contar(n, 'tarjeta en su app', 'tarjetas en su app'), conMensaje ? 'con mensaje destacado' : null]);
     }
 
     case 'widgets': {

@@ -16,6 +16,7 @@ import type { MetodoIntegracion } from '@/lib/widgets/catalogo';
 import type { PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
 import { Ajuste, AjusteInterruptor, FOCO, GrupoOpciones, MuestraColor, Plegable, Segmentado, TACTIL, type Opcion } from './piezas';
 import type { EstiloWebPanel } from './usar-estilo-web';
+import { elegirNivel, nivelDeEstilo, type NivelEstilo } from '@/lib/widgets/estilo-dos-niveles';
 
 // «¿Cómo quieres que se vea?»: UN estilo para todos los widgets que pone dentro
 // de su web (Fase B del constructor, 28-sep-2026). Lo que elige aquí no va en
@@ -78,7 +79,7 @@ function frasesSinMarco(piezas: PiezasAfectadas, borrador: WidgetWeb): string[] 
   return out;
 }
 
-export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, verApariencia, piezas, disenoPropio }: {
+export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, verApariencia, piezas, disenoPropio, sinBarra = false, variante = 'v1', ancho, anchoElegido = false }: {
   estado: EstiloWebPanel;
   metodo: MetodoIntegracion;
   /**
@@ -96,6 +97,23 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
   piezas: PiezasAfectadas;
   /** «Un diseño distinto solo para este widget», justo después de «Ajustes finos». */
   disenoPropio?: ReactNode;
+  /**
+   * «Tu web» v2: sin la barra de aplicar ni su diálogo. El estilo se publica con
+   * la barra única de la pantalla («Publicar en mi web»), que usa la misma
+   * confirmación (`ConfirmarEstiloEnTuWeb`).
+   */
+  sinBarra?: boolean;
+  /**
+   * «Tu web» v2 (decisión 4): dos niveles —«Igual que tu app» o «Un estilo solo
+   * para tu web» (estilo, letra y botones)—, después «Tu web es…» y el fundido, y
+   * «Ajustes finos» pasa a «Más ajustes», con el ancho dentro. Sin barra ni
+   * diseño propio (ese va en «Ponlo en tu web», para quien te hace la web).
+   */
+  variante?: 'v1' | 'v2';
+  /** v2: el ancho de ESTE widget (va en su código), dentro de «Más ajustes». */
+  ancho?: ReactNode;
+  /** v2: el ancho ya está elegido: «Más ajustes» se abre, como con lo demás que tiene elegido. */
+  anchoElegido?: boolean;
 }) {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -106,6 +124,7 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
           <Loader2 size={13} className="animate-spin" aria-hidden />Cargando el estilo de tus widgets…
         </p>
         {disenoPropio}
+        {ancho}
       </>
     );
   }
@@ -119,6 +138,7 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
           <button type="button" onClick={estado.reintentarCarga} className={btnSecondary}>Reintentar</button>
         </div>
         {disenoPropio}
+        {ancho}
       </>
     );
   }
@@ -137,6 +157,160 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
   const ocupado = aplicando || estado.relectura === 'releyendo';
   const errorDe = (campo: 'colorWeb' | 'boton') => estado.errores.find(e => e.campo === campo)?.mensaje ?? null;
 
+  // Las piezas, una vez: las dos variantes las ordenan distinto, no las rehacen.
+  const letra = (
+    <GrupoOpciones
+      etiqueta="Letra de tus widgets"
+      tamano="mini"
+      className="grid-cols-3 @md/config:grid-cols-5"
+      valor={b.letra ?? 'app'}
+      onChange={v => cambiar({ letra: v === 'app' ? null : v })}
+      opciones={[
+        { valor: 'app' as const, titulo: 'Como tu app', detalle: tipografiaPorId(base.app.tipografia).nombre, dibujo: <Aa t={tipografiaPorId(base.app.tipografia)} /> },
+        // La de su app ya es «Como tu app»; solo se repite si la eligió aparte.
+        ...TIPOGRAFIAS
+          .filter(t => t.id !== base.app.tipografia || b.letra === t.id)
+          .map(t => ({ valor: t.id, titulo: t.nombre, dibujo: <Aa t={t} /> })),
+      ]}
+    />
+  );
+  const notaLetraSinMarco = letraSinMarco && (
+    <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+      {letraSinMarco === 'web'
+        ? 'Sin marco, «Como tu app» deja la letra de tu web; si eliges otra, la usa.'
+        : 'Sin marco, «Como tu app» le deja su letra de siempre; si eliges otra, la usa.'}
+    </p>
+  );
+  const tuWeb = (
+    <>
+      <GrupoOpciones
+        etiqueta="Cómo es tu web"
+        tamano="mini"
+        className="grid-cols-4"
+        // Sin contestar ≡ blanca: se guarda `null` para no tener dos formas de decir lo mismo.
+        valor={b.web ?? 'blanca'}
+        onChange={v => cambiar({ web: v === 'blanca' ? null : v })}
+        opciones={([
+          ['blanca', 'Blanca', COLOR_WEB.blanca],
+          ['crema', 'Crema', COLOR_WEB.crema],
+          ['oscura', 'Oscura', COLOR_WEB.oscura],
+          ['otro', 'Otro color', b.web === 'otro' ? web : COLOR_OTRO_INICIAL],
+        ] as const).map(([valor, titulo, color]): Opcion<WebId> => ({
+          valor, titulo, dibujo: <span className="block h-6 rounded-md border border-black/10" style={{ background: color }} />,
+        }))}
+      />
+      {b.web === 'otro' ? (
+        <div className="mt-3">
+          <MuestraColor
+            etiqueta="Color de tu web"
+            descripcion="El color del fondo de la página donde lo vas a poner."
+            valor={b.colorWeb && b.colorWeb.toLowerCase() !== COLOR_OTRO_INICIAL.toLowerCase() ? b.colorWeb : null}
+            muestra={COLOR_OTRO_INICIAL}
+            porDefecto="el de ejemplo"
+            onChange={v => cambiar({ colorWeb: v ?? COLOR_OTRO_INICIAL })}
+          />
+        </div>
+      ) : (
+        <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">Mira el fondo de la página donde lo vas a poner.</p>
+      )}
+    </>
+  );
+  const notaVentana = metodo === 'popup' && b.fundido && (
+    <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">En la ventana que se abre encima no se funde: va en su recuadro.</p>
+  );
+  const botones = (
+    <>
+      <ColorBotones b={b} base={base} neutros={vista.neutros} fondo={vista.tokens.bg} cambiar={cambiar} />
+      <AvisoContraste mensaje={errorDe('boton')} />
+    </>
+  );
+  const finos = (
+    <>
+      <Ajuste etiqueta="Esquinas">
+        <GrupoOpciones
+          etiqueta="Esquinas de tus widgets"
+          tamano="mini"
+          className="grid-cols-2 @md/config:grid-cols-4"
+          valor={b.forma ?? 'siempre'}
+          onChange={v => cambiar({ forma: v === 'siempre' ? null : v })}
+          opciones={([
+            ['siempre', 'Las de siempre'],
+            ['pill', 'Redondas'],
+            ['redondeado', 'Suaves'],
+            ['recto', 'Rectas'],
+          ] as const).map(([valor, titulo]): Opcion<FormaWeb | 'siempre'> => ({
+            valor, titulo, dibujo: <DibujoEsquinas radios={RADIOS_DIBUJO[valor]} />,
+          }))}
+        />
+      </Ajuste>
+      <Ajuste etiqueta="Separación">
+        <Segmentado
+          etiqueta="Separación de tus widgets"
+          valor={b.densidad ?? 'comoda'}
+          onChange={v => cambiar({ densidad: v === 'compacta' ? 'compacta' : null })}
+          opciones={[{ valor: 'comoda', nombre: 'Cómoda' }, { valor: 'compacta', nombre: 'Compacta: caben más clases' }] as const}
+        />
+      </Ajuste>
+      <AjusteInterruptor
+        etiqueta="Dirección y aviso legal al pie"
+        descripcion={metodo === 'nativa'
+          ? 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar. Sin marco, el widget no lleva pie.'
+          : 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar.'}
+        on={!b.ocultarPie}
+        onChange={v => cambiar({ ocultarPie: !v })}
+      />
+    </>
+  );
+  const finosElegidos = b.forma !== null || b.densidad !== null || b.ocultarPie;
+
+  if (variante === 'v2') {
+    return (
+      <>
+        {/* Deshabilitado de golpe: en solo lectura, y mientras se publica o se vuelve a leer.
+            Sin `m-0`: el hueco con «Más ajustes» lo pone el `space-y` de la tarjeta, que es un margen. */}
+        <fieldset disabled={soloLectura || ocupado} className="min-w-0 space-y-6 border-0 p-0">
+          <legend className="sr-only">El estilo de tus widgets</legend>
+          <DosNiveles b={b} base={base} cambiar={cambiar} letra={letra} botones={botones} />
+          {notaLetraSinMarco}
+          <Ajuste etiqueta="Tu web es…">{tuWeb}</Ajuste>
+          <div>
+            <AjusteInterruptor
+              etiqueta="Que se funda con tu web"
+              descripcion="Sin recuadro propio: detrás se ve el fondo de tu web."
+              on={b.fundido}
+              onChange={v => cambiar({ fundido: v })}
+            />
+            {notaVentana}
+            <AvisoContraste mensaje={errorDe('colorWeb')} />
+          </div>
+        </fieldset>
+        <Plegable
+          titulo={(
+            <span className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3">
+              <span>Más ajustes</span>
+              <span className="text-[12px] font-normal text-muted-foreground">esquinas, separación, pie{ancho ? ', ancho' : ''}</span>
+            </span>
+          )}
+          // Si ya tiene algo elegido aquí, se enseña: lo elegido no se esconde.
+          abierto={finosElegidos || anchoElegido}
+          className="border-t border-border pt-2"
+        >
+          <div className="space-y-5">
+            <fieldset disabled={soloLectura || ocupado} className="min-w-0 space-y-5 border-0 p-0">
+              <legend className="sr-only">Esquinas, separación y pie de tus widgets</legend>
+              {finos}
+            </fieldset>
+            {/* El ancho es de ESTE widget y va en su código, no en el estilo: no lo bloquea el estilo. */}
+            {ancho}
+          </div>
+        </Plegable>
+        {soloLectura && (
+          <p className="rounded-xl bg-muted px-3.5 py-3 text-[12.5px] text-foreground">Solo la propietaria puede cambiar el estilo de tus widgets.</p>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {/* Deshabilitado de golpe: en solo lectura, y mientras se aplica o se vuelve a leer (lo que llega del servidor pisa el borrador). */}
@@ -148,60 +322,12 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
         </Ajuste>
 
         <Ajuste etiqueta="Letra">
-          <GrupoOpciones
-            etiqueta="Letra de tus widgets"
-            tamano="mini"
-            className="grid-cols-3 @md/config:grid-cols-5"
-            valor={b.letra ?? 'app'}
-            onChange={v => cambiar({ letra: v === 'app' ? null : v })}
-            opciones={[
-              { valor: 'app' as const, titulo: 'Como tu app', detalle: tipografiaPorId(base.app.tipografia).nombre, dibujo: <Aa t={tipografiaPorId(base.app.tipografia)} /> },
-              // La de su app ya es «Como tu app»; solo se repite si la eligió aparte.
-              ...TIPOGRAFIAS
-                .filter(t => t.id !== base.app.tipografia || b.letra === t.id)
-                .map(t => ({ valor: t.id, titulo: t.nombre, dibujo: <Aa t={t} /> })),
-            ]}
-          />
-          {letraSinMarco && (
-            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
-              {letraSinMarco === 'web'
-                ? 'Sin marco, «Como tu app» deja la letra de tu web; si eliges otra, la usa.'
-                : 'Sin marco, «Como tu app» le deja su letra de siempre; si eliges otra, la usa.'}
-            </p>
-          )}
+          {letra}
+          {notaLetraSinMarco}
         </Ajuste>
 
         <Ajuste etiqueta="¿Cómo es tu web?">
-          <GrupoOpciones
-            etiqueta="Cómo es tu web"
-            tamano="mini"
-            className="grid-cols-4"
-            // Sin contestar ≡ blanca: se guarda `null` para no tener dos formas de decir lo mismo.
-            valor={b.web ?? 'blanca'}
-            onChange={v => cambiar({ web: v === 'blanca' ? null : v })}
-            opciones={([
-              ['blanca', 'Blanca', COLOR_WEB.blanca],
-              ['crema', 'Crema', COLOR_WEB.crema],
-              ['oscura', 'Oscura', COLOR_WEB.oscura],
-              ['otro', 'Otro color', b.web === 'otro' ? web : COLOR_OTRO_INICIAL],
-            ] as const).map(([valor, titulo, color]): Opcion<WebId> => ({
-              valor, titulo, dibujo: <span className="block h-6 rounded-md border border-black/10" style={{ background: color }} />,
-            }))}
-          />
-          {b.web === 'otro' ? (
-            <div className="mt-3">
-              <MuestraColor
-                etiqueta="Color de tu web"
-                descripcion="El color del fondo de la página donde lo vas a poner."
-                valor={b.colorWeb && b.colorWeb.toLowerCase() !== COLOR_OTRO_INICIAL.toLowerCase() ? b.colorWeb : null}
-                muestra={COLOR_OTRO_INICIAL}
-                porDefecto="el de ejemplo"
-                onChange={v => cambiar({ colorWeb: v ?? COLOR_OTRO_INICIAL })}
-              />
-            </div>
-          ) : (
-            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">Mira el fondo de la página donde lo vas a poner.</p>
-          )}
+          {tuWeb}
         </Ajuste>
 
         <Ajuste etiqueta="¿Que se funda con tu web o que vaya en su recuadro?">
@@ -215,57 +341,22 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
               { valor: 'fundido' as const, titulo: 'Que se funda con tu web', dibujo: <DibujoFondo web={web} estilo={paletaWidget(estilo, web, true).neutros} fundido /> },
             ]}
           />
-          {metodo === 'popup' && b.fundido && (
-            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">En la ventana que se abre encima no se funde: va en su recuadro.</p>
-          )}
+          {notaVentana}
           <AvisoContraste mensaje={errorDe('colorWeb')} />
         </Ajuste>
 
         <Ajuste etiqueta="Color de los botones">
-          <ColorBotones b={b} base={base} neutros={vista.neutros} fondo={vista.tokens.bg} cambiar={cambiar} />
-          <AvisoContraste mensaje={errorDe('boton')} />
+          {botones}
         </Ajuste>
 
         <Plegable
           titulo="Ajustes finos"
           // Si ya tiene algo elegido aquí, se enseña: lo aplicado no se esconde.
-          abierto={b.forma !== null || b.densidad !== null || b.ocultarPie}
+          abierto={finosElegidos}
           className="border-t border-border pt-2"
         >
           <div className="space-y-5">
-            <Ajuste etiqueta="Esquinas">
-              <GrupoOpciones
-                etiqueta="Esquinas de tus widgets"
-                tamano="mini"
-                className="grid-cols-2 @md/config:grid-cols-4"
-                valor={b.forma ?? 'siempre'}
-                onChange={v => cambiar({ forma: v === 'siempre' ? null : v })}
-                opciones={([
-                  ['siempre', 'Las de siempre'],
-                  ['pill', 'Redondas'],
-                  ['redondeado', 'Suaves'],
-                  ['recto', 'Rectas'],
-                ] as const).map(([valor, titulo]): Opcion<FormaWeb | 'siempre'> => ({
-                  valor, titulo, dibujo: <DibujoEsquinas radios={RADIOS_DIBUJO[valor]} />,
-                }))}
-              />
-            </Ajuste>
-            <Ajuste etiqueta="Separación">
-              <Segmentado
-                etiqueta="Separación de tus widgets"
-                valor={b.densidad ?? 'comoda'}
-                onChange={v => cambiar({ densidad: v === 'compacta' ? 'compacta' : null })}
-                opciones={[{ valor: 'comoda', nombre: 'Cómoda' }, { valor: 'compacta', nombre: 'Compacta: caben más clases' }] as const}
-              />
-            </Ajuste>
-            <AjusteInterruptor
-              etiqueta="Dirección y aviso legal al pie"
-              descripcion={metodo === 'nativa'
-                ? 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar. Sin marco, el widget no lleva pie.'
-                : 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar.'}
-              on={!b.ocultarPie}
-              onChange={v => cambiar({ ocultarPie: !v })}
-            />
+            {finos}
           </div>
         </Plegable>
       </fieldset>
@@ -274,65 +365,165 @@ export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, v
 
       {soloLectura ? (
         <p className="rounded-xl bg-muted px-3.5 py-3 text-[12.5px] text-foreground">Solo la propietaria puede cambiar el estilo de tus widgets.</p>
-      ) : (
+      ) : !sinBarra && (
         <BarraAplicar estado={estado} onAplicar={() => setConfirmando(true)} />
       )}
 
-      <Dialog open={confirmando} onOpenChange={setConfirmando}>
-        <DialogContent className="max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>¿Aplicar este estilo en tu web?</DialogTitle>
-            <DialogDescription>
-              Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus alumnas vuelvan a abrir la página.{' '}
-              <strong className="font-semibold text-foreground">No tienes que volver a pegar ningún código.</strong>
-            </DialogDescription>
-          </DialogHeader>
-          {/* Solo lo que sabemos: lo copiado desde aquí, nunca «tus N widgets» (no vemos qué hay pegado). */}
-          <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
-            {piezas.cambian.length > 0 && <p>Entre ellos, los que copiaste desde aquí: {enLista(piezas.cambian)}.</p>}
-            {piezas.columnasSinPaleta.length > 0 && (
-              // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
-              <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
-            )}
-            {/*
-              Sin marco (Fase E): el estilo le llega con sus datos, así que también
-              cambia lo pegado hace tiempo, sin volver a pegar nada; salvo las
-              columnas de noche, donde como mucho le llega la letra.
-            */}
-            {frasesSinMarco(piezas, b).map(f => <p key={f}>{f}</p>)}
-            <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
-            {/*
-              El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
-              se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
-              (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
-              unos minutos; lo copiado antes lleva su color literal y se queda como está.
-              Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
-              que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
-              sí»: con las columnas de noche no le llega todo (la línea de arriba).
-            */}
-            {piezas.botonesVivos.length > 0 && (
-              <p>
-                {piezas.botonesVivos.length > 1
-                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesVivos)} también cambian, aunque pueden tardar unos minutos más.`
-                  : `El botón que abre la ventana de ${piezas.botonesVivos[0]} también cambia, aunque puede tardar unos minutos más.`}
-              </p>
-            )}
-            {piezas.botonesCongelados.length > 0 && (
-              <p>
-                {piezas.botonesCongelados.length > 1
-                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
-                  : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
-              </p>
-            )}
-            {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-            <Button onClick={() => { setConfirmando(false); void estado.aplicar(); }}>Aplicar en mi web</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {!sinBarra && (
+        <ConfirmarEstiloEnTuWeb
+          abierto={confirmando}
+          onAbierto={setConfirmando}
+          piezas={piezas}
+          borrador={b}
+          titulo="¿Aplicar este estilo en tu web?"
+          verbo="Aplicar en mi web"
+          onConfirmar={() => { setConfirmando(false); void estado.aplicar(); }}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * Los dos niveles de «Tu web» v2 (decisión 4): «Igual que tu app» (por defecto)
+ * o «Un estilo solo para tu web», y solo con este, el estilo, la letra y el color
+ * de los botones. Elegir el segundo sin nada elegido abre los estilos y no cambia
+ * el borrador (`elegirNivel`): elegir el nivel no es un cambio que publicar.
+ * Volver al primero vacía las tres cosas a la vez (`aIgualQueTuApp`).
+ */
+function DosNiveles({ b, base, cambiar, letra, botones }: {
+  b: WidgetWeb;
+  base: BaseEstiloWeb;
+  cambiar: (parcial: Partial<WidgetWeb>) => void;
+  letra: ReactNode;
+  botones: ReactNode;
+}) {
+  const [eligiendo, setEligiendo] = useState(false);
+  const nivel: NivelEstilo = eligiendo ? 'propio' : nivelDeEstilo(b);
+  const app = estiloPorId(base.app.estilo);
+  const letraApp = tipografiaPorId(base.app.tipografia);
+  const mini = (id: EstiloId) => {
+    const boton = botonWeb(null, id, base);
+    return <DibujoEstilo estilo={id} acento={boton.fondo} boton={boton} tamano="mini" />;
+  };
+  function elegir(n: NivelEstilo) {
+    const r = elegirNivel(b, n);
+    setEligiendo(r.eligiendo);
+    if (r.cambio) cambiar(r.cambio);
+  }
+  return (
+    <div className="space-y-5">
+      <GrupoOpciones
+        etiqueta="Cómo se ven tus widgets"
+        className="@md/config:grid-cols-2"
+        valor={nivel}
+        onChange={elegir}
+        opciones={[
+          {
+            valor: 'app', titulo: 'Igual que tu app', insignia: 'Recomendado',
+            detalle: `${app.nombre} · letra ${letraApp.nombre}. Si cambias tu app, tu web cambia con ella.`,
+            dibujo: <span className="mx-auto block w-24 overflow-hidden rounded-md border border-border">{mini(app.id)}</span>,
+          },
+          {
+            valor: 'propio', titulo: 'Un estilo solo para tu web',
+            detalle: 'Elige otro estilo, otra letra y el color de los botones.',
+            dibujo: (
+              <span className="grid grid-cols-4 gap-1">
+                {ESTILOS.filter(e => e.id !== app.id).slice(0, 4).map(e => (
+                  <span key={e.id} className="block overflow-hidden rounded-md border border-border">{mini(e.id)}</span>
+                ))}
+              </span>
+            ),
+          },
+        ]}
+      />
+      {nivel === 'propio' && (
+        <div className="space-y-5 rounded-xl border border-border p-3.5">
+          <Ajuste etiqueta="Estilo">
+            <RejillaEstilos b={b} base={base} cambiar={cambiar} verApariencia={false} soloEstilos />
+          </Ajuste>
+          <Ajuste etiqueta="Letra">{letra}</Ajuste>
+          <Ajuste etiqueta="Color de los botones">{botones}</Ajuste>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La confirmación de llevar el estilo a su web: qué cambia, a quién no le llega y
+ * que no hace falta volver a pegar nada. La usan el constructor de siempre
+ * («¿Aplicar este estilo en tu web?» / «Aplicar en mi web») y la barra única de
+ * «Tu web» v2 («Publicar»), que añade en `extra` lo que se publica con él. Solo
+ * lo que sabemos: lo copiado desde aquí, nunca «tus N widgets».
+ */
+export function ConfirmarEstiloEnTuWeb({ abierto, onAbierto, piezas, borrador, titulo, verbo, onConfirmar, extra }: {
+  abierto: boolean;
+  onAbierto: (abierto: boolean) => void;
+  piezas: PiezasAfectadas;
+  borrador: WidgetWeb;
+  titulo: string;
+  verbo: string;
+  onConfirmar: () => void;
+  /** Una línea más, al final (lo que se publica a la vez). */
+  extra?: ReactNode;
+}) {
+  return (
+    <Dialog open={abierto} onOpenChange={onAbierto}>
+      <DialogContent className="max-w-md" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{titulo}</DialogTitle>
+          <DialogDescription>
+            Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus alumnas vuelvan a abrir la página.{' '}
+            <strong className="font-semibold text-foreground">No tienes que volver a pegar ningún código.</strong>
+          </DialogDescription>
+        </DialogHeader>
+        {/* Solo lo que sabemos: lo copiado desde aquí, nunca «tus N widgets» (no vemos qué hay pegado). */}
+        <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
+          {piezas.cambian.length > 0 && <p>Entre ellos, los que copiaste desde aquí: {enLista(piezas.cambian)}.</p>}
+          {piezas.columnasSinPaleta.length > 0 && (
+            // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
+            <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
+          )}
+          {/*
+            Sin marco (Fase E): el estilo le llega con sus datos, así que también
+            cambia lo pegado hace tiempo, sin volver a pegar nada; salvo las
+            columnas de noche, donde como mucho le llega la letra.
+          */}
+          {frasesSinMarco(piezas, borrador).map(f => <p key={f}>{f}</p>)}
+          <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
+          {/*
+            El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
+            se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
+            (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
+            unos minutos; lo copiado antes lleva su color literal y se queda como está.
+            Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
+            que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
+            sí»: con las columnas de noche no le llega todo (la línea de arriba).
+          */}
+          {piezas.botonesVivos.length > 0 && (
+            <p>
+              {piezas.botonesVivos.length > 1
+                ? `Los botones que abren la ventana de ${enLista(piezas.botonesVivos)} también cambian, aunque pueden tardar unos minutos más.`
+                : `El botón que abre la ventana de ${piezas.botonesVivos[0]} también cambia, aunque puede tardar unos minutos más.`}
+            </p>
+          )}
+          {piezas.botonesCongelados.length > 0 && (
+            <p>
+              {piezas.botonesCongelados.length > 1
+                ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
+                : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
+            </p>
+          )}
+          {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
+          {extra && <p className="text-foreground">{extra}</p>}
+        </div>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+          <Button onClick={onConfirmar}>{verbo}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -347,14 +538,20 @@ type ValorEstilo = EstiloId | 'app';
  * descripción del estilo en `title`. El teclado es el mismo: una parada de
  * tabulación, y las flechas mueven y eligen.
  */
-function RejillaEstilos({ b, base, cambiar, verApariencia }: {
+function RejillaEstilos({ b, base, cambiar, verApariencia, soloEstilos = false }: {
   b: WidgetWeb;
   base: BaseEstiloWeb;
   cambiar: (parcial: Partial<WidgetWeb>) => void;
   verApariencia: boolean;
+  /**
+   * «Tu web» v2: solo los ocho estilos, dentro de «Un estilo solo para tu web»
+   * («Igual que tu app» es el otro nivel, `DosNiveles`). Puede no haber ninguno
+   * marcado (solo una letra propia): entonces la parada de tabulación es el primero.
+   */
+  soloEstilos?: boolean;
 }) {
   const botones = useRef<(HTMLButtonElement | null)[]>([]);
-  const valores: ValorEstilo[] = ['app', ...ESTILOS.map(e => e.id)];
+  const valores: ValorEstilo[] = soloEstilos ? ESTILOS.map(e => e.id) : ['app', ...ESTILOS.map(e => e.id)];
   const marcado: ValorEstilo = b.estilo ?? 'app';
   const elegir = (v: ValorEstilo) => cambiar({ estilo: v === 'app' ? null : v });
 
@@ -378,7 +575,7 @@ function RejillaEstilos({ b, base, cambiar, verApariencia }: {
       type="button"
       role="radio"
       aria-checked={marcado === v}
-      tabIndex={marcado === v ? 0 : -1}
+      tabIndex={marcado === v || (soloEstilos && b.estilo === null && i === 0) ? 0 : -1}
       title={title}
       onClick={() => elegir(v)}
       onKeyDown={e => teclas(e, i)}
@@ -393,6 +590,19 @@ function RejillaEstilos({ b, base, cambiar, verApariencia }: {
     </button>
   );
   const app = estiloPorId(base.app.estilo);
+
+  if (soloEstilos) {
+    return (
+      <div role="radiogroup" aria-label="Estilo de tus widgets" className="grid grid-cols-4 gap-2">
+        {ESTILOS.map((e, n) => radio(e.id, n, 'flex-col items-stretch gap-1.5 p-1.5', (
+          <>
+            <span className="block overflow-hidden rounded-lg border border-border">{dibujo(e.id)}</span>
+            <span className="block truncate px-0.5 text-[12px] font-semibold text-foreground">{e.nombre}</span>
+          </>
+        ), e.descripcion))}
+      </div>
+    );
+  }
 
   return (
     <div role="radiogroup" aria-label="Estilo de tus widgets" className="grid grid-cols-4 gap-2">

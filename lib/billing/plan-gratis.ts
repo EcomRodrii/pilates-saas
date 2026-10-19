@@ -152,6 +152,62 @@ export function estadoGratis(entrada: { uso: UsoGratis | null; excedidoDesde: st
   return { fase: cerca.length > 0 ? 'CERCA' : 'DENTRO', uso, motivos: cerca, diasRestantes: 0, cierraEl: null };
 }
 
+// ─── El grupo de la dueña: sumar, y desde cuándo ─────────────────────────────
+// Las comparten quien mide y guarda (uso-gratis-servidor, el gate) y el informe
+// en seco de bajas (lib/retencion/gratis-en-seco.ts): una sola regla.
+
+/** El uso del grupo: la suma de lo de cada estudio. */
+export function sumarUsos(usos: Iterable<UsoGratis>): UsoGratis {
+  const t: UsoGratis = { alumnasActivas: 0, reservas30Dias: 0 };
+  for (const u of usos) {
+    t.alumnasActivas += u.alumnasActivas;
+    t.reservas30Dias += u.reservas30Dias;
+  }
+  return t;
+}
+
+/** Desde cuándo se pasó el grupo: la fecha más antigua de las guardadas. */
+export function excedidoMasAntiguo(fechas: Iterable<string | null>): string | null {
+  let m: string | null = null;
+  for (const f of fechas) if (f && (!m || f < m)) m = f;
+  return m;
+}
+
+/**
+ * Lo que deja una medición NUEVA de un grupo: el uso sumado y desde cuándo
+ * cuenta el margen (lo que guarda `refrescarUsoGratis` en cada estudio del grupo).
+ */
+export function medicionDelGrupo(
+  usos: readonly UsoGratis[], excedidosGuardados: readonly (string | null)[], hoy: string,
+): { uso: UsoGratis; excedidoDesde: string | null } {
+  const uso = sumarUsos(usos);
+  return { uso, excedidoDesde: siguienteExcedidoDesde(excedidoMasAntiguo(excedidosGuardados), uso, hoy) };
+}
+
+/** Lo guardado de un estudio (`uso_plan_gratis`). */
+export interface UsoGuardado {
+  alumnasActivas: number | null;
+  reservas30Dias: number | null;
+  excedidoDesde: string | null;
+  medidoEn: string | null;
+}
+
+/**
+ * Lo que dice lo GUARDADO de un grupo de `estudiosDelGrupo` estudios (lo que lee
+ * el gate): si alguno no tiene cifras, la suma saldría menor que la real y no hay
+ * uso (SIN_MEDIR), pero un margen ya acabado sigue cerrado.
+ */
+export function estadoDeLoGuardado(
+  guardado: readonly UsoGuardado[], estudiosDelGrupo: number, hoy: string,
+): { estado: EstadoGratis; excedidoDesde: string | null; medidas: UsoGuardado[] } {
+  const excedidoDesde = excedidoMasAntiguo(guardado.map(g => g.excedidoDesde));
+  const medidas = guardado.filter(g => g.medidoEn && g.alumnasActivas !== null && g.reservas30Dias !== null);
+  const uso = medidas.length < estudiosDelGrupo
+    ? null
+    : sumarUsos(medidas.map(g => ({ alumnasActivas: g.alumnasActivas!, reservas30Dias: g.reservas30Dias! })));
+  return { estado: estadoGratis({ uso, excedidoDesde, hoy }), excedidoDesde, medidas };
+}
+
 /** Lo que contesta /api/billing/status de un estudio gratis (ya derivado). */
 export interface EstadoGratisApi extends EstadoGratis {
   limites: { alumnas: number; reservasMes: number };

@@ -24,6 +24,8 @@ export const MENSAJE_DESTACADO_ID = 'mensaje-destacado';
 // ser http(s).
 function linkValido(tipo: BannerPortal['linkTipo'], valor: string): boolean {
   const v = valor.trim();
+  // Sin enlace (lo crea el editor nuevo, tras MI_WEB_NUEVA): no hay nada que validar.
+  if (tipo === 'ninguno') return true;
   if (!v) return false;
   if (tipo === 'interno') return v.startsWith('/');
   try {

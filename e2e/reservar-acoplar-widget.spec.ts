@@ -41,7 +41,7 @@ async function medir(page: Page, q: string) {
   return page.evaluate(() => {
     // La raíz del widget es la que CONTIENE #horario y lleva estilo en línea:
     // entre `body` y ella hay envoltorios de proveedores sin estilo propio.
-    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     const cs = getComputedStyle(raiz);
     return {
       fondo: cs.backgroundColor,

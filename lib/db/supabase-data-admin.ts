@@ -29,6 +29,8 @@ import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
 import { primerError } from '@/lib/db/primer-error';
+import { miWebNuevaPara } from '@/lib/estudio/mi-web-nueva';
+import { mensajeParaLaApp } from '@/lib/student/mensaje-destacado';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import {
@@ -928,6 +930,12 @@ export async function fetchPublicStudioData(
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+      // La franja de arriba del inicio de su app (decisión 11A, «Mi app y mi web» v2): el texto
+      // que pinta, o `null` = no hay franja. Solo con `MI_WEB_NUEVA`: el panel de antes dice
+      // «hoy su app no enseña el mensaje destacado», y los dos tienen que decir lo mismo.
+      mensajeDestacado: miWebNuevaPara(studioId, process.env)
+        ? mensajeParaLaApp((contenidoPortalRes?.data as RowContenidoPortal | null | undefined)?.mensaje_destacado)
+        : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       novedadesEstudio: (novedadesRes?.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
       // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/

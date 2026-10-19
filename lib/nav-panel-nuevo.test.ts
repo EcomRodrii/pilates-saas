@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MODULOS, navSections, ESSENTIAL_HREFS } from './nav-config.ts';
-import { GRUPO_TE_VEN, SECCIONES_MI_WEB_NUEVA, SECCIONES_PANEL_NUEVO, modulosDelMenu, seccionPanelNuevo, seccionesDelMenu } from './nav-panel-nuevo.ts';
+import { SECCIONES_PANEL_NUEVO, modulosDelMenu, seccionesDelMenu } from './nav-panel-nuevo.ts';
 import { puedeVer } from './permisos-reglas.ts';
 import { AYUDA_POR_PANTALLA } from './ayuda/pantallas.ts';
 
@@ -55,25 +55,4 @@ test('Módulos: con el panel nuevo, en el menú (Estudio), para quien gestiona; 
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeVer(rol, '/explorar-funciones'), true, rol);
   assert.equal(puedeVer('INSTRUCTOR', '/explorar-funciones'), false);
   assert.match(readFileSync(new URL('./seo/no-indexables.ts', import.meta.url), 'utf-8'), /'\/explorar-funciones'/);
-});
-
-test('«Tu app» y «Tu web» (MI_WEB_NUEVA): su grupo justo antes de «Estudio», solo con el panel nuevo, y solo para la propietaria', () => {
-  // Sin el interruptor, nada cambia; sin el panel nuevo, tampoco (aunque el interruptor esté encendido).
-  assert.deepEqual(seccionesDelMenu(true, false), seccionesDelMenu(true));
-  assert.equal(seccionesDelMenu(false, true), navSections);
-  const con = seccionesDelMenu(true, true);
-  const i = con.findIndex((s) => s.label === GRUPO_TE_VEN);
-  assert.ok(i > 0, 'el grupo existe');
-  assert.equal(con[i + 1]?.label, 'Estudio', 'va justo antes de «Estudio»');
-  assert.deepEqual(con[i].items.map((x) => x.href), ['/tu-app', '/tu-web']);
-  assert.equal(modulosDelMenu(true, true).length, MODULOS.length + SECCIONES_PANEL_NUEVO.length + SECCIONES_MI_WEB_NUEVA.length);
-  for (const s of SECCIONES_MI_WEB_NUEVA) {
-    assert.ok(!MODULOS.some((m) => m.href === s.href), `${s.href} fuera de MODULOS`);
-    assert.ok(s.frase.length > 20 && s.frase.length <= 140, `${s.href}: frase`);
-    assert.ok(ESSENTIAL_HREFS.includes(s.href), `${s.href}: en el menú de serie (es un módulo que se puede ocultar)`);
-    assert.equal(seccionPanelNuevo(s.href)?.label, s.label);
-    assert.equal(puedeVer('PROPIETARIO', s.href), true, s.href);
-    for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) assert.equal(puedeVer(rol, s.href), false, `${rol} ${s.href}`);
-    assert.match(readFileSync(new URL('./seo/no-indexables.ts', import.meta.url), 'utf-8'), new RegExp(`'${s.href}'`));
-  }
 });

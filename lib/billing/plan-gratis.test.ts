@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cadenaSinPlan, empiezaDeCeroAlConvertir, estadoGratis, finDelMargen, limitesCerca, limitesPasados, pagaPlan, pasaAGratis, sedeAdmiteGratis, siguienteExcedidoDesde,
+  cadenaSinPlan, empiezaDeCeroAlConvertir, estadoDeLoGuardado, estadoGratis, excedidoMasAntiguo, finDelMargen, limitesCerca, limitesPasados,
+  medicionDelGrupo, pagaPlan, pasaAGratis, sedeAdmiteGratis, siguienteExcedidoDesde, sumarUsos,
   FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, type UsoGratis,
 } from './plan-gratis.ts';
 
@@ -199,4 +200,36 @@ test('al pasarse de cualquiera de los dos límites, Founding Studio de pago: el 
   assert.equal(ENTITLEMENTS_GRATIS.features.appPropia, false);
   assert.equal(PLAN_ENTITLEMENTS.ESTUDIO.features.appPropia, true);
   assert.equal(PLAN_ENTITLEMENTS.CADENA.features.appPropia, true);
+});
+
+// ─── El grupo de la dueña: lo comparten el gate y el informe en seco ─────────
+
+test('el grupo: se suma lo de cada estudio y manda la fecha de exceso más antigua', () => {
+  assert.deepEqual(sumarUsos([uso({ alumnasActivas: 100, reservas30Dias: 10 }), uso({ alumnasActivas: 60, reservas30Dias: 5 })]), uso({ alumnasActivas: 160, reservas30Dias: 15 }));
+  assert.deepEqual(sumarUsos([]), uso());
+  assert.equal(excedidoMasAntiguo([null, '2026-10-05', '2026-09-30', null]), '2026-09-30');
+  assert.equal(excedidoMasAntiguo([null, null]), null);
+});
+
+test('una medición nueva del grupo deja el uso sumado y el margen al día (lo que guarda quien mide)', () => {
+  // Trocear no lo hace gratis: 100 + 60 pasa de 150 y el margen empieza hoy.
+  assert.deepEqual(medicionDelGrupo([uso({ alumnasActivas: 100 }), uso({ alumnasActivas: 60 })], [null, null], '2026-10-16'),
+    { uso: uso({ alumnasActivas: 160 }), excedidoDesde: '2026-10-16' });
+  // La fecha de una hermana se hereda mientras siga pasado; vuelto a estar dentro antes del fin del margen, se borra.
+  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 160 })], ['2026-10-10', null], '2026-10-16').excedidoDesde, '2026-10-10');
+  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 10 })], ['2026-10-10'], '2026-10-16').excedidoDesde, null);
+  // Acabado el margen se queda, aunque baje.
+  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 10 })], ['2026-09-01'], '2026-10-16').excedidoDesde, '2026-09-01');
+});
+
+test('lo guardado de un grupo: sin cifras de todos no hay uso, pero un margen acabado sigue cerrado', () => {
+  const medido = (a: number, r: number, excedidoDesde: string | null = null) => ({ alumnasActivas: a, reservas30Dias: r, excedidoDesde, medidoEn: '2026-10-16T08:00:00Z' });
+  const sinMedir = { alumnasActivas: null, reservas30Dias: null, excedidoDesde: null, medidoEn: null };
+  assert.equal(estadoDeLoGuardado([medido(10, 5)], 1, '2026-10-16').estado.fase, 'DENTRO');
+  assert.deepEqual(estadoDeLoGuardado([medido(100, 5), medido(60, 5)], 2, '2026-10-16').estado.uso, uso({ alumnasActivas: 160, reservas30Dias: 10 }));
+  // Le falta la fila de un estudio del grupo, o la tiene sin medir: SIN_MEDIR.
+  assert.equal(estadoDeLoGuardado([medido(10, 5)], 2, '2026-10-16').estado.fase, 'SIN_MEDIR');
+  assert.equal(estadoDeLoGuardado([medido(10, 5), sinMedir], 2, '2026-10-16').estado.fase, 'SIN_MEDIR');
+  const cerrado = estadoDeLoGuardado([medido(10, 5, '2026-09-01'), sinMedir], 2, '2026-10-16');
+  assert.deepEqual([cerrado.estado.fase, cerrado.excedidoDesde], ['CERRADO', '2026-09-01']);
 });

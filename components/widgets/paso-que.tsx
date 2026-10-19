@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowUpRight, BadgeEuro, Building2, CalendarCheck, CalendarDays, Clapperboard, Clock, Gift, Info, Mail,
+  AlertCircle, ArrowUpRight, BadgeEuro, Building2, CalendarCheck, CalendarDays, Clapperboard, Clock, Code2, Gift, Info, Mail,
   Newspaper, PartyPopper, ShoppingBag, Sparkles, Star, Ticket, UserRound, Users, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,8 +11,10 @@ import { inputCls } from '@/components/configuracion/estilos';
 import { widgetsVisibles, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import type { ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, nombrePlataforma, usaBotonPropio, type PlataformaWeb, type Receta } from '@/lib/widgets/recetas';
+import { ofreceSoloHorario } from '@/lib/widgets/integracion';
+import { NOMBRE_SOLO_HORARIO } from '@/lib/widgets/solo-horario';
 import type { TipoPlan } from '@/lib/types';
-import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta } from './piezas';
+import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta, useEtiquetasDeCambio, useTextosPublicar } from './piezas';
 
 // Paso 1 · Qué y dónde. Primero QUÉ quiere poner y DÓNDE lo quiere (con la
 // forma que mejor funciona en su web ya marcada), y solo después los ajustes
@@ -93,17 +95,32 @@ function notaCopia(copia: EstadoCopias[string] | undefined): ReactNode {
   );
 }
 
-function QueQuieres({ activo, avisos, copias, onElegir }: {
+export function QueQuieres({ activo, avisos, copias, onElegir, masCosasALaVista = false }: {
   activo: WidgetDisponible;
   avisos: readonly AvisoDeDatos[];
   copias: EstadoCopias;
   onElegir: (id: string) => void;
+  /**
+   * «Tu web» v2 (decisión 3): las seis de «Más cosas» a la vista, sin plegar, y
+   * «Próximamente» como una lista discreta debajo (se leen y no se pulsan). Sin
+   * él, lo de siempre: plegado.
+   */
+  masCosasALaVista?: boolean;
 }) {
   const visibles = widgetsVisibles();
   const disponibles = visibles.filter((x): x is WidgetDisponible => x.estado === 'disponible');
   const principales = disponibles.filter(x => x.principal);
   const otros = disponibles.filter(x => !x.principal);
   const enCamino = visibles.filter(x => x.estado === 'en-preparacion');
+  const masCosas = (
+    <GrupoOpciones
+      etiqueta="Más cosas para tu web"
+      valor={activo.principal ? null : activo.id}
+      onChange={onElegir}
+      className={cn('@md/config:grid-cols-2', masCosasALaVista && 'grid-cols-2 @3xl/config:grid-cols-3')}
+      opciones={otros.map(x => ({ valor: x.id, titulo: x.respuesta, detalle: masCosasALaVista ? undefined : x.descripcion, icono: icono(x.icono, 16), nota: notaCopia(copias[x.id]) }))}
+    />
+  );
   return (
     <Tarjeta titulo="¿Qué quieres poner en tu web?">
       <GrupoOpciones
@@ -117,32 +134,52 @@ function QueQuieres({ activo, avisos, copias, onElegir }: {
           insignia: x.id === 'horario' ? 'Lo que más se usa' : undefined, nota: notaCopia(copias[x.id]),
         }))}
       />
-      <Plegable titulo="Más cosas para tu web" abierto={!activo.principal} className="border-t border-border pt-2">
-        <GrupoOpciones
-          etiqueta="Más cosas para tu web"
-          valor={activo.principal ? null : activo.id}
-          onChange={onElegir}
-          className="@md/config:grid-cols-2"
-          opciones={otros.map(x => ({ valor: x.id, titulo: x.respuesta, detalle: x.descripcion, icono: icono(x.icono, 16), nota: notaCopia(copias[x.id]) }))}
-        />
-        {enCamino.length > 0 && (
-          <ul aria-label="Próximamente" className="mt-3 grid gap-2 @md/config:grid-cols-2">
-            {enCamino.map(x => (
-              // No es un botón: no hace nada todavía. Se lee, no se pulsa.
-              <li key={x.id} className="flex items-start gap-3 rounded-xl border border-dashed border-border px-3 py-2.5 opacity-80">
-                <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">{icono(x.icono, 16)}</span>
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] font-semibold text-muted-foreground">{x.nombre}</span>
-                    <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-muted-foreground">Próximamente</span>
+      {masCosasALaVista ? (
+        <>
+          <div className="space-y-2 border-t border-border pt-4">
+            <h4 className="text-[13px] font-semibold text-foreground">Más cosas para tu web</h4>
+            {masCosas}
+          </div>
+          {enCamino.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-[12.5px] font-medium text-muted-foreground">Próximamente</h4>
+              {/* No son botones: no hacen nada todavía. Se leen, no se pulsan. */}
+              <ul aria-label="Próximamente" className="grid gap-x-4 gap-y-1.5 @md/config:grid-cols-2">
+                {enCamino.map(x => (
+                  <li key={x.id} className="flex min-w-0 items-start gap-2 text-[12px] leading-snug text-muted-foreground">
+                    <span aria-hidden className="mt-px shrink-0 opacity-70">{icono(x.icono, 13)}</span>
+                    <span className="min-w-0">
+                      <span className="font-medium">{x.nombre}</span>
+                      {x.estado === 'en-preparacion' && x.falta ? <span className="opacity-80"> · {x.falta}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : (
+        <Plegable titulo="Más cosas para tu web" abierto={!activo.principal} className="border-t border-border pt-2">
+          {masCosas}
+          {enCamino.length > 0 && (
+            <ul aria-label="Próximamente" className="mt-3 grid gap-2 @md/config:grid-cols-2">
+              {enCamino.map(x => (
+                // No es un botón: no hace nada todavía. Se lee, no se pulsa.
+                <li key={x.id} className="flex items-start gap-3 rounded-xl border border-dashed border-border px-3 py-2.5 opacity-80">
+                  <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">{icono(x.icono, 16)}</span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] font-semibold text-muted-foreground">{x.nombre}</span>
+                      <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-muted-foreground">Próximamente</span>
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{x.estado === 'en-preparacion' ? x.falta : ''}</span>
                   </span>
-                  <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{x.estado === 'en-preparacion' ? x.falta : ''}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Plegable>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Plegable>
+      )}
       {avisos.length > 0 && (
         <ul className="space-y-2">
           {avisos.map(a => (
@@ -159,7 +196,7 @@ function QueQuieres({ activo, avisos, copias, onElegir }: {
 
 // ── ¿Dónde lo quieres? ────────────────────────────────────────────────────────
 
-function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo }: {
+export function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo, conPie = false }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -167,6 +204,12 @@ function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo
   receta: Receta;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   onMetodo: (m: MetodoIntegracion) => void;
+  /**
+   * «Tu web» v2 (decisión 2): al pie, UNA línea que dice que lo de este paso va
+   * dentro del código (en lugar de la etiqueta de «El botón»), y, con un enlace o
+   * un botón a su página, que lo que eligió de qué enseña no se aplica.
+   */
+  conPie?: boolean;
 }) {
   const no = (m: MetodoIntegracion) => (!w.metodos.includes(m) ? 'Este widget no se puede poner así.' : r.desactivados[m]);
   const botones = (['popup', 'boton'] as const).filter(m => !no(m));
@@ -242,7 +285,40 @@ function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo
         </p>
       )}
       {(metodo === 'popup' || (metodo === 'boton' && !botonPropio)) && <ElBoton w={w} c={c} metodo={metodo} cambiar={cambiar} />}
+
+      {conPie && <NoSeAplica w={w} metodo={metodo} />}
+      {conPie && (
+        <p className="flex items-start gap-2 border-t border-dashed border-border pt-3 text-[12px] leading-relaxed text-muted-foreground">
+          <Code2 size={14} aria-hidden className="mt-0.5 shrink-0" />
+          <span>
+            Lo de este paso va dentro {metodo === 'enlace' || botonPropio ? 'del enlace' : 'del código'}. Si lo cambias cuando ya esté en tu web, tendrás que pegarlo otra vez; te lo diremos.
+          </span>
+        </p>
+      )}
     </Tarjeta>
+  );
+}
+
+/**
+ * Con un enlace o un botón que lleva a su página se abre la página de reservas
+ * entera: lo que eligió en «Qué pones» sobre qué enseña no viaja con ella (la URL
+ * solo lleva el calendario con horas, `urlPagina` en lib/widgets/integracion.ts).
+ * Se dice donde elige la forma, no solo al volver al paso 1.
+ */
+function NoSeAplica({ w, metodo }: { w: WidgetDisponible; metodo: MetodoIntegracion }) {
+  if (metodo !== 'enlace' && metodo !== 'boton') return null;
+  const con = metodo === 'enlace' ? 'Con un enlace' : 'Con un botón que lleva a tu página';
+  const texto = w.contenido.includes('horario')
+    ? `${con} se abre tu página de reservas con todas tus clases: lo que elijas en «Qué sale en tu horario» no se aplica, salvo el «Calendario con horas».`
+    : w.contenido.includes('tiposPlan')
+      ? `${con} se abre tu página de reservas con todos tus precios: elegir solo algunos no se aplica.`
+      : null;
+  if (!texto) return null;
+  return (
+    <p role="note" className="flex items-start gap-2 rounded-xl bg-muted/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
+      <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span>{texto}</span>
+    </p>
   );
 }
 
@@ -313,18 +389,24 @@ const SE_ACTUALIZA_SOLO: Record<string, ReactNode> = {
   contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientas</EnlaceA>.</>,
 };
 
-function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
+export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario = 'Qué enseña' }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   datos: DatosPanel;
   porId: boolean;
+  /** El título de la tarjeta del horario. «Tu web» v2 la llama «Qué sale en tu horario». */
+  tituloHorario?: string;
 }) {
   // Lo que enseña va en el código, o (por id) llega con «Aplicar en mi web».
+  const { boton } = useTextosPublicar();
   const etiqueta = porId ? 'aplicar' : 'codigo';
-  const siCambia = porId
-    ? 'Si lo cambias después de pegarlo, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada.'
+  // En «Tu web» v2 no se dice tarjeta a tarjeta cómo llega cada cambio (decisión
+  // 2): lo dice una frase en «Ponlo en tu web».
+  const conEtiquetas = useEtiquetasDeCambio();
+  const siCambia = !conEtiquetas ? undefined : porId
+    ? `Si lo cambias después de pegarlo, pulsa «${boton}»: no hace falta volver a pegar nada.`
     : 'Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.';
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
   const reservas = w.categoria === 'reservas' && w.id !== 'cuenta';
@@ -346,8 +428,8 @@ function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
 
   if (w.contenido.includes('horario')) {
     return (
-      <Tarjeta titulo="Qué enseña" etiqueta={etiqueta} subtitulo={siCambia}>
-        <ContenidoHorario c={c} metodo={metodo} cambiar={cambiar} datos={datos} />
+      <Tarjeta titulo={tituloHorario} etiqueta={etiqueta} subtitulo={siCambia}>
+        <ContenidoHorario c={c} metodo={metodo} cambiar={cambiar} datos={datos} conSolo={ofreceSoloHorario(w, metodo)} />
         {reglas}
       </Tarjeta>
     );
@@ -399,11 +481,13 @@ function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
 
 type Orden = 'dias' | 'columnas' | 'semana';
 
-function ContenidoHorario({ c, metodo, cambiar, datos }: {
+function ContenidoHorario({ c, metodo, cambiar, datos, conSolo }: {
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   datos: DatosPanel;
+  /** «Tu horario, tus clases» se ofrece aquí (dentro de una página o encima, y es el horario). */
+  conSolo: boolean;
 }) {
   const nativa = metodo === 'nativa';
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
@@ -433,6 +517,15 @@ function ContenidoHorario({ c, metodo, cambiar, datos }: {
 
   return (
     <>
+      {conSolo && (
+        // A la vista, la primera: lo que se ve DEBAJO del horario es lo primero que nota quien lo pega.
+        <AjusteInterruptor
+          etiqueta={NOMBRE_SOLO_HORARIO}
+          descripcion="Solo se ven tus clases y reservar. Sin tus bonos ni tus cuotas debajo."
+          on={c.soloHorario}
+          onChange={v => cambiar({ soloHorario: v })}
+        />
+      )}
       <Ajuste etiqueta="Cómo se ordena">
         <GrupoOpciones
           etiqueta="Cómo se ordena"

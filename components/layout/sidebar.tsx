@@ -14,7 +14,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
-import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { useEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -23,6 +23,7 @@ import { filtrarItemsMenu, ordenarItemsMenu, type MenuPosicion } from '@/lib/lay
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
@@ -358,7 +359,6 @@ export function Sidebar() {
   const { rol, puedeVer } = usePermisos();
   // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
   const panelNuevo = usePanelNuevo();
-  const miWebNueva = useMiWebNueva();
   // Mientras `studio` no ha cargado, `useRol()` cae al mínimo (INSTRUCTOR,
   // fail-closed de A-2 en lib/permisos.ts) — sin este guard se veía el logo/
   // título de Tentare Core un instante en CUALQUIER rol, incluida la
@@ -417,7 +417,7 @@ export function Sidebar() {
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', alCambiar); };
   }, []);
 
-  const seccionesVisibles = seccionesDelMenu(panelNuevo, miWebNueva)
+  const seccionesVisibles = seccionesDelMenu(panelNuevo)
     .map(s => ({
       ...s,
       // ⚠️ Ordenar DESPUÉS de filtrar, no antes: ordenar primero recorre
@@ -600,7 +600,11 @@ export function Sidebar() {
             `justify-between` en el contenedor: la píldora no se pinta si el
             estudio no está en prueba, y con justify-between el logo se
             quedaría centrado a veces y a la izquierda otras. */}
-        <PildoraPrueba className="ml-auto" />
+        <div className="ml-auto flex items-center">
+          {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
+          <PrimerosPasosFlotante />
+          <PildoraPrueba />
+        </div>
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}

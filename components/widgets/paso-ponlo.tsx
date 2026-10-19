@@ -7,14 +7,17 @@ import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/e
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
 import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
+import type { AvisoSoloHorario } from '@/lib/widgets/solo-horario';
 import {
   codigoPorId, faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
 } from '@/lib/widgets/recetas';
-import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta } from './piezas';
+import { fraseComoLlegan } from '@/lib/widgets/como-llegan';
+import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta, useTextosPublicar } from './piezas';
 import { SelectorClase, type DatosPanel } from './paso-que';
+import { PasosConDibujo } from './v2/pasos-con-dibujo';
 import type { MostrarToast } from '@/components/ui/toast';
 
 // Paso 3 · Ponlo en tu web. Un botón grande para copiar, los pasos de SU web y
@@ -36,6 +39,7 @@ import type { MostrarToast } from '@/components/ui/toast';
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
   proximasClases, dominiosAutorizados, dominios, verDominios, showToast, preparando = false,
+  variante = 'v1', colores, onCambiarWeb, avisoSolo = null, onActivarSolo,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -63,6 +67,13 @@ export function PasoPonlo({
    * pegar, y no se deja copiar.
    */
   preparando?: boolean;
+  /**
+   * Lo copiado es de antes de «Tu horario, tus clases»: cómo recuperarlo (lib/widgets/solo-horario.ts).
+   * `null` si no le toca: no ha copiado nada, o ya tiene el código nuevo con la opción.
+   */
+  avisoSolo?: AvisoSoloHorario | null;
+  /** Enciende la opción desde el propio aviso (con un código por id, para publicarla después). */
+  onActivarSolo?: () => void;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   proximasClases: DatosPanel['proximasClases'];
@@ -75,9 +86,23 @@ export function PasoPonlo({
    */
   verDominios?: boolean;
   showToast: MostrarToast;
+  /**
+   * «Tu web» v2 (decisiones 2, 3 y 4): sin el recuadro «Cómo llega cada cambio»
+   * (una frase debajo de copiar, `fraseComoLlegan`), los pasos de su plataforma
+   * con un dibujo cada uno, «¿Te lleva la web otra persona?» a la vista y, en
+   * «Para quien te hace la web», los colores y la letra propios de este widget.
+   * La lógica de copiar es la misma: una sola.
+   */
+  variante?: 'v1' | 'v2';
+  /** v2: «Colores y letra propios solo en X» (`ColoresPropios`), dentro de «Para quien te hace la web». */
+  colores?: ReactNode;
+  /** v2: «¿No es WordPress? Cambiar», que lleva a donde se pregunta su web. */
+  onCambiarWeb?: () => void;
 }) {
+  const v2 = variante === 'v2';
   const w = entrada.widget;
   const c = entrada.config;
+  const textosPublicar = useTextosPublicar();
   // El código va por id (lib/widgets/pieza.ts): lo que enseña llega al aplicar, sin volver a pegarlo.
   const porId = codigoPorId(entrada);
   const falta = faltaParaGenerar(entrada, metodo, { dominiosAutorizados });
@@ -203,7 +228,7 @@ export function PasoPonlo({
         {estiloSinAplicar && (
           <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
             <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-            <span className="min-w-0">Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».</span>
+            <span className="min-w-0">{textosPublicar.estiloSinAplicar}</span>
           </p>
         )}
         {falta ? (
@@ -213,11 +238,24 @@ export function PasoPonlo({
           </div>
         ) : (
           <div className="space-y-2">
+            {avisoSolo && (
+              <div role="note" data-aviso-solo-horario={avisoSolo.modo} className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
+                <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+                <div className="min-w-0">
+                  <p>{avisoSolo.texto}</p>
+                  {avisoSolo.accion?.hace === 'activar-solo-horario' && onActivarSolo && (
+                    <button type="button" onClick={onActivarSolo} className="min-h-11 font-semibold underline underline-offset-2 hover:no-underline [@media(pointer:fine)]:min-h-8">
+                      {avisoSolo.accion.texto}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {codigoAntiguo && (
               <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
                 <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0">
-                  Tu web tiene {esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cópialo aquí y pégalo en lugar del anterior una sola vez; desde entonces, esos cambios llegarán con «Aplicar en mi web».
+                  Tu web tiene {esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cópialo aquí y pégalo en lugar del anterior una sola vez; desde entonces, esos cambios llegarán con «{textosPublicar.boton}».
                   {botonDeAntes && ' Con este, el botón que abre la ventana también seguirá el estilo de tus widgets.'}
                 </span>
               </p>
@@ -233,7 +271,7 @@ export function PasoPonlo({
             </button>
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
-              {yaPegado && ' No hace falta pegarlo otra vez: lo que enseña llega con «Aplicar en mi web».'}
+              {yaPegado && ` No hace falta pegarlo otra vez: lo que enseña llega con «${textosPublicar.boton}».`}
             </p>
             {botonDeAntes && !codigoAntiguo && (
               <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
@@ -249,6 +287,8 @@ export function PasoPonlo({
             <h4 className="mb-2 text-[13.5px] font-semibold text-foreground">Mándaselo a quien te lleva la web</h4>
             {envio}
           </div>
+        ) : v2 ? (
+          <PasosConDibujo plataforma={plataforma} metodo={metodo} onCambiarWeb={onCambiarWeb} />
         ) : (
           <ol className="space-y-2 text-[13px] leading-relaxed text-foreground">
             {pasos.map((p, i) => (
@@ -259,6 +299,13 @@ export function PasoPonlo({
             ))}
           </ol>
         ))}
+
+        {!falta && v2 && !agencia && plataforma !== 'sinweb' && (
+          <div className="rounded-xl border border-border p-3.5">
+            <h4 className="mb-1 text-[13.5px] font-semibold text-foreground">¿Te lleva la web otra persona?</h4>
+            {envio}
+          </div>
+        )}
 
         {!falta && (
           <details ref={detalles} onCopy={alCopiarAMano} className="group rounded-xl border border-border">
@@ -274,7 +321,7 @@ export function PasoPonlo({
 
         {!falta && (
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {!agencia && plataforma !== 'sinweb' ? (
+            {!v2 && !agencia && plataforma !== 'sinweb' ? (
               <Plegable titulo="¿Te lleva la web otra persona? Mándaselo" className="min-w-0 flex-1">{envio}</Plegable>
             ) : <span />}
             <a href={guiaDe(plataforma, metodo)} target="_blank" rel="noopener" className={cn('inline-flex min-h-11 items-center gap-1.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
@@ -283,11 +330,17 @@ export function PasoPonlo({
           </div>
         )}
 
-        <ComoLlegaCadaCambio
-          siempre={siempreAlDia(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
-          aplicar={conAplicar(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), aplicado: estiloAplicado, porId })}
-          pegar={alPegarOtraVez(metodo, porId)}
-        />
+        {v2 ? (
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            {fraseComoLlegan({ metodo: botonPropio ? 'enlace' : metodo, porId, sigueElEstilo: !tieneDisenoEnCodigo(c, metodo), boton: textosPublicar.boton })}
+          </p>
+        ) : (
+          <ComoLlegaCadaCambio
+            siempre={siempreAlDia(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
+            aplicar={conAplicar(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), aplicado: estiloAplicado, porId })}
+            pegar={alPegarOtraVez(metodo, porId)}
+          />
+        )}
       </Tarjeta>
 
       <ParaQuienHaceLaWeb
@@ -302,6 +355,7 @@ export function PasoPonlo({
         botonPropio={botonPropio}
         onCopiarReact={() => void copiarReact()}
         reactCopiado={recienCopiado === 'react'}
+        colores={colores}
       />
     </div>
   );
@@ -355,16 +409,17 @@ const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
  * AQUÍ: lo que ya tenga pegado de antes lo dicen sus avisos.
  */
 function ComoLlegaCadaCambio({ siempre, aplicar, pegar }: { siempre: string; aplicar: string | null; pegar: string }) {
+  const { boton } = useTextosPublicar();
   return (
     <ul aria-label="Cómo llega cada cambio a tu web" className="space-y-1.5 rounded-xl border border-border p-3 text-[12.5px] leading-relaxed text-foreground">
       <li><strong className="font-semibold">Siempre al día:</strong> {mayuscula(siempre)}.</li>
-      {aplicar && <li><strong className="font-semibold">Con «Aplicar en mi web»:</strong> {mayuscula(aplicar)}.</li>}
+      {aplicar && <li><strong className="font-semibold">Con «{boton}»:</strong> {mayuscula(aplicar)}.</li>}
       <li><strong className="font-semibold">Pegando el código otra vez:</strong> {mayuscula(pegar)}.</li>
     </ul>
   );
 }
 
-function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado }: {
+function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado, colores }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
   receta: Receta;
@@ -376,6 +431,8 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
   botonPropio: boolean;
   onCopiarReact: () => void;
   reactCopiado: boolean;
+  /** «Tu web» v2: los colores y la letra propios de este widget, al final. */
+  colores?: ReactNode;
 }) {
   const w = entrada.widget;
   const c = entrada.config;
@@ -387,7 +444,12 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
 
   return (
     <section className="rounded-2xl border border-border bg-card px-4 shadow-xs @md/config:px-5">
-      <Plegable titulo="Para quien te hace la web" abierto={metodo === 'nativa' && (!!falta || verDominios)} className="py-1.5">
+      <Plegable
+        titulo="Para quien te hace la web"
+        // v2: con colores propios, se abre: es donde «Cómo se ve» dice que están.
+        abierto={(metodo === 'nativa' && (!!falta || verDominios)) || (!!colores && c.identidad === 'propia')}
+        className="py-1.5"
+      >
         <div className="space-y-6 pb-3">
           {w.metodos.includes('nativa') && (
             <div className="space-y-3">
@@ -431,6 +493,8 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
               onChange={v => cambiar({ cargaDiferida: v })}
             />
           )}
+
+          {colores && <div className="border-t border-border pt-5">{colores}</div>}
         </div>
       </Plegable>
     </section>

@@ -48,6 +48,15 @@ const iso = (d: Date, h = 9, m = 0) => {
  * clases sembradas, así que da igual a qué hora corra el CI.
  */
 export const instanteDeHoy = (h: number, m = 0) => new Date(iso(dia(0), h, m));
+/**
+ * El primer LUNES desde hoy (hoy, si lo es) a las h:m de Madrid. El Calendario abre una semana que
+ * EMPIEZA el día del reloj, así que con un lunes la última columna es siempre el domingo («DOM», la
+ * abreviatura más ancha): permite medir ese caso cualquier día que corra el CI, y no solo los lunes.
+ */
+export const instanteDelProximoLunes = (h: number, m = 0) => {
+  const hoy = dia(0).getUTCDay(); // 0 = domingo … 6 = sábado, ya sobre el día del estudio
+  return new Date(iso(dia((8 - hoy) % 7), h, m));
+};
 
 const STUDIO_ROW = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',

@@ -27,7 +27,8 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink,
 import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
+import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo, FONDO_VISTA_MOVIL } from '@/components/dashboard/vivo';
+import { MarcoIphone, PANTALLA_IPHONE, useEscalaIphone } from '@/components/ui/marco-iphone';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -53,7 +54,6 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
 /** Tamaño lógico del móvil de la vista previa: un iPhone de 390 pt. */
-const MOVIL = { ancho: 390, alto: 800 };
 
 interface Borrador { primary: string; secondary: string; app: AparienciaApp }
 
@@ -65,6 +65,11 @@ const mismaApp = (a: AparienciaApp, b: AparienciaApp) =>
   a.estilo === b.estilo && a.tipografia === b.tipografia && a.marca === b.marca && a.boton === b.boton && a.encuadre === b.encuadre;
 
 /** Pinta el borrador dentro de la app del iframe. Mismo origen: se escribe en su `<head>`. */
+// Un iPhone le da a la app un margen arriba (isla y hora) y abajo (indicador de inicio) con
+// `env(safe-area-inset-*)`; dentro de un iframe esos márgenes valen 0 y la cabecera quedaría
+// debajo de la isla. La app los lee de estas dos variables: aquí se les dan los del iPhone 17.
+const MARGEN_IPHONE = 'html .student-app { --safe-top: 62px; --safe-bottom: 34px; }\n';
+
 function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
   const doc = iframe?.contentDocument;
   if (!doc?.head) return;
@@ -74,7 +79,7 @@ function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
     el.id = ID_ESTILO_BORRADOR;
     doc.head.appendChild(el);
   }
-  el.textContent = css;
+  el.textContent = MARGEN_IPHONE + css;
 }
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
@@ -253,8 +258,9 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = 
   // dé el salto de blanco → app.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCargando(true); }, [pantalla, recarga]);
-  const escala = 0.8;
   const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
+  // La app se pinta a 402 × 874, como en un iPhone 17, y el marco la reduce a lo que cabe.
+  const escala = useEscalaIphone();
   return (
     <div className="flex flex-col items-center">
       {paginaOculta && <AvisoPaginaOculta />}
@@ -266,20 +272,17 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = 
           onChange={onPantalla}
         />
       </div>
-      <div
-        className="overflow-hidden rounded-[38px] border-[10px] border-neutral-900 bg-neutral-900 shadow-xl"
-        style={{ width: MOVIL.ancho * escala + 20, height: MOVIL.alto * escala + 20 }}
-      >
+      <MarcoIphone escala={escala} tinta="auto" indicador="auto">
         <iframe
           key={`${recarga}-${pantalla}`}
           ref={ref}
           title="Vista previa de la app de tus alumnas"
           src={`/portal/${encodeURIComponent(slug)}${ruta}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
-          className="origin-top-left rounded-[28px] bg-white transition-opacity duration-300"
-          style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0, opacity: cargando ? 0.35 : 1 }}
+          className="bg-white transition-opacity duration-300"
+          style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
-      </div>
+      </MarcoIphone>
       <a
         href={`/portal/${encodeURIComponent(slug)}${ruta}`}
         target="_blank"
@@ -317,6 +320,17 @@ export function EditorAparienciaApp() {
   const irAPaso = (p: PasoAsistente) => { setPasoEstado(p); setPantalla(p === 'entrada' ? 'entrada' : 'inicio'); };
   // Sin dirección de la app (sin slug) no hay nada que instalar: ese paso no sale.
   const pasos = studio?.slug ? PASOS : PASOS.filter(p => p.id !== 'instalar');
+  // `?paso=instalar` abre directamente un paso: lo usa la fila «Tu app en la App Store» de
+  // Configuración (MI_WEB_NUEVA). Se lee una vez, al tener el estudio, y solo si ese paso existe.
+  const pasoDeLaUrl = useRef(false);
+  useEffect(() => {
+    if (pasoDeLaUrl.current || !studio) return;
+    pasoDeLaUrl.current = true;
+    const pedido = new URLSearchParams(window.location.search).get('paso');
+    const valido = pasos.find(p => p.id === pedido);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La URL solo se puede leer tras montar.
+    if (valido) irAPaso(valido.id);
+  }, [studio, pasos]);
 
   useEffect(() => {
     let vivo = true;
@@ -766,7 +780,7 @@ export function EditorAparienciaApp() {
             // Como Bonsai: el móvil sobre un panel grande de color, con los tonos del logo.
             <div
               className="flex min-h-[560px] items-center justify-center rounded-[28px] px-4 py-8 sm:px-8"
-              style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
+              style={FONDO_VISTA_MOVIL}
             >
               {studio.slug
                 ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />

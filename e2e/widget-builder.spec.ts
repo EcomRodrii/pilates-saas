@@ -202,11 +202,13 @@ const ultimoBuilder = (patches: Record<string, unknown>[]) =>
 
 test.describe('Tentare Widgets — cada control conectado al código y a la vista previa', () => {
 
-  test('⚠️ sin tocar nada, el código solo lleva la pestaña y la etiqueta del widget', async ({ page }) => {
+  test('⚠️ sin tocar nada, el código solo lleva la pestaña, «solo el horario» y la etiqueta del widget', async ({ page }) => {
     await montar(page);
     const codigo = await snippet(page).textContent();
-    expect(codigo).toContain(`/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario`);
-    for (const nunca of ['tipos=', 'instructoras=', 'salas=', 'vista=', 'ocultar-', 'diseno=', 'marca=', 'fondo=', 'tinta=', 'fuente=', 'fuente-display=', 'vista-previa']) {
+    // Un código NUEVO lleva `solo=1` («Tu horario, tus clases», encendida por defecto): solo el horario, sin bonos ni cuotas
+    // debajo. Sin esa opción, el código sigue siendo el de siempre (lib/widgets/integracion.test.ts lo fija con su literal).
+    expect(codigo).toContain(`/reservar/${SLUG}?embed=1&tab=clases&solo=1&ref=web-horario`);
+    for (const nunca of ['tipos=', 'instructoras=', 'salas=', 'vista=', 'ocultar-', 'diseno=', 'marca=', 'fondo=', 'tinta=', 'fuente=', 'fuente-display=', 'vista-previa', 'pie=']) {
       expect(codigo, `un default emitido (${nunca}) rompe el contrato del constructor`).not.toContain(nunca);
     }
   });
@@ -1034,8 +1036,11 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
 // (`?origen=in.(web-horario)`), y sin él la ruta no la reconoce.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** La versión que /reservar calcula del horario por defecto, dentro de una página. */
-const FIRMA_AHORA = firmaDeUrl(new URLSearchParams('embed=1&tab=clases&ref=web-horario'));
+/**
+ * La versión que /reservar calcula del horario por defecto, dentro de una página. Desde «Tu horario, tus clases»
+ * (17-oct-2026) el código nuevo lleva `solo=1`: la versión de AHORA la incluye.
+ */
+const FIRMA_AHORA = firmaDeUrl(new URLSearchParams('embed=1&tab=clases&solo=1&ref=web-horario'));
 /** La de una copia anterior (sin el precio): está en el historial de lo copiado. */
 const FIRMA_ANTERIOR = firmaDeUrl(new URLSearchParams('embed=1&tab=clases&ocultar-precio=1&ref=web-horario'));
 /** Una que nunca se copió desde aquí (retocada a mano, o de otra cuenta). */

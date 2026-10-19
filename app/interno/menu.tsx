@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Building2, ChevronDown, CreditCard, FileCheck2, Flag, Home, LifeBuoy, Loader2, Megaphone, Network, Phone, Route,
+  Building2, ChevronDown, CreditCard, FileCheck2, Flag, Home, Hourglass, LifeBuoy, Loader2, Megaphone, Network, Phone, Route,
   ScrollText, Search, Smartphone, Smile, Sprout, Users, X, Zap,
 } from 'lucide-react';
 import { fetchEstudios, type EstudioFila, type SesionInterna } from '@/lib/interno/client';
@@ -33,6 +33,8 @@ export const GRUPOS: Array<{ titulo: string; secciones: Seccion[] }> = [
       { href: '/interno/facturacion', etiqueta: 'Cobros a estudios', icono: CreditCard, permisos: ['billing.read'] },
       { href: '/interno/apps-estudio', etiqueta: 'Apps en la App Store', icono: Smartphone, permisos: ['studios.read'] },
       { href: '/interno/visita-guiada', etiqueta: 'Visita guiada', icono: Route, permisos: ['studios.read'] },
+      // Lo que diría la máquina de bajas, sin hacer nada (solo lectura).
+      { href: '/interno/bajas', etiqueta: 'Bajas (en seco)', icono: Hourglass, permisos: ['studios.read'] },
       // Veri*Factu: la declaración responsable y los poderes IZ860 los gestiona el
       // productor/apoderado en persona, así que solo `admin.full`.
       { href: '/interno/verifactu', etiqueta: 'Veri*Factu', icono: FileCheck2, permisos: ['admin.full'] },

@@ -1089,7 +1089,12 @@ export interface BannerPortal {
   imagenUrl: string;
   titulo: string | null;
   texto: string | null;
-  linkTipo: 'interno' | 'externo';
+  /**
+   * `ninguno` (con `linkValor` vacío): la tarjeta no lleva a ningún sitio. Es lo de
+   * serie al crearla en «Contenido de tu app» v2 (decisión 13, 15-oct-2026); la
+   * base de datos lo admite desde la migración `…_tarjeta_sin_enlace`.
+   */
+  linkTipo: 'interno' | 'externo' | 'ninguno';
   linkValor: string;
   ubicacion: UbicacionBannerPortal[];
   activo: boolean;
@@ -1826,7 +1831,11 @@ export type TipoActividad =
   | 'DOBLE_FACTOR_QUITADO'
   // Recepción liberó una plaza apartada para ClassPass («La he cerrado en
   // ClassPass»). Solo /api/plataformas/liberar-apartada.
-  | 'PLAZA_PLATAFORMA_LIBERADA';
+  | 'PLAZA_PLATAFORMA_LIBERADA'
+  // Una venta de la Caja cobrada sin ficha se asignó a una alumna que ya había usado su
+  // código de descuento: la venta queda como se cobró y esto deja constancia. Solo la
+  // escribe la RPC `asignar_venta_pos_a_socia` (migr 20261016140551), con origen TENTARE.
+  | 'CODIGO_REPETIDO_AL_ASIGNAR';
 
 export interface ActividadReciente {
   id: string;

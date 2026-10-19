@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertCircle, Check, ChevronRight, Globe, LayoutGrid, MapPin, Palette, Ruler, Send, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toggle } from '@/components/configuracion/estilos';
@@ -17,6 +17,31 @@ export const FOCO = 'focus-visible:outline-none focus-visible:ring-3 focus-visib
 /** 44 px con el dedo (el iPad de recepción), más justo con ratón. */
 export const TACTIL = 'inline-flex min-h-11 items-center [@media(pointer:fine)]:min-h-8';
 
+/**
+ * Cómo se llama lo que lleva lo de aquí a su web sin pegar nada. En el
+ * constructor de siempre, «Aplicar en mi web»; en «Tu web» v2, «Publicar en mi
+ * web» (decisión 1 del fundador, 15-oct-2026: un solo verbo, como «Publicar mi
+ * app»). Un contexto para que los textos de los pasos, que comparten las dos,
+ * no prometan un botón que en esa pantalla no está. Sin proveedor, lo de
+ * siempre: el constructor de siempre no cambia ni un carácter.
+ */
+export interface TextosPublicar {
+  /** El nombre del botón, sin comillas. */
+  boton: string;
+  /** El estilo cambiado y sin llevar a su web, dicho donde se copia. */
+  estiloSinAplicar: string;
+}
+export const PUBLICAR_DE_SIEMPRE: TextosPublicar = {
+  boton: 'Aplicar en mi web',
+  estiloSinAplicar: 'Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».',
+};
+export const PUBLICAR_V2: TextosPublicar = {
+  boton: 'Publicar en mi web',
+  estiloSinAplicar: 'Tienes cambios de estilo sin publicar. No van en el código: llegan a tu web con «Publicar en mi web».',
+};
+export const TextosDePublicar = createContext<TextosPublicar>(PUBLICAR_DE_SIEMPRE);
+export const useTextosPublicar = () => useContext(TextosDePublicar);
+
 /** «12 sept», en la hora del estudio. */
 export function fechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
@@ -31,7 +56,20 @@ export function fechaCorta(iso: string): string {
  *  - `codigo`: va en el propio código, y cambiarlo pide pegarlo otra vez.
  */
 export type TipoEtiqueta = 'codigo' | 'aplicar' | 'vivo';
+
+/**
+ * Si se pintan esas etiquetas. En «Tu web» v2, no (decisión 2 del fundador,
+ * 15-oct-2026): en su lugar, una línea al pie de «Dónde va», una marca en «Ancho»
+ * y una frase en «Ponlo en tu web» (`fraseComoLlegan`). Un contexto para no tocar
+ * ninguna de las llamadas; sin proveedor, las de siempre.
+ */
+export const EtiquetasDeCambio = createContext(true);
+export const useEtiquetasDeCambio = () => useContext(EtiquetasDeCambio);
+
 export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
+  const { boton } = useTextosPublicar();
+  const conEtiquetas = useEtiquetasDeCambio();
+  if (!conEtiquetas) return null;
   if (tipo === 'codigo') {
     return (
       <span className="inline-flex shrink-0 items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
@@ -41,7 +79,7 @@ export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
-      <Check size={11} aria-hidden />{tipo === 'aplicar' ? 'Con «Aplicar en mi web»' : 'Siempre al día'}
+      <Check size={11} aria-hidden />{tipo === 'aplicar' ? `Con «${boton}»` : 'Siempre al día'}
     </span>
   );
 }
@@ -55,7 +93,7 @@ function marcaDe(titulo: string): { Icono: LucideIcon; tono: Tono } {
   if (titulo.startsWith('¿Con qué está hecha') || titulo.startsWith('Lo que tienes')) return { Icono: Globe, tono: 'azul' };
   if (titulo.startsWith('¿Qué quieres poner')) return { Icono: LayoutGrid, tono: 'azul' };
   if (titulo.startsWith('¿Dónde')) return { Icono: MapPin, tono: 'magenta' };
-  if (titulo.startsWith('Qué enseña') || titulo.startsWith('¿Qué clase') || titulo.startsWith('¿Qué se vende')) return { Icono: SlidersHorizontal, tono: 'verde' };
+  if (titulo.startsWith('Qué enseña') || titulo.startsWith('Qué sale') || titulo.startsWith('¿Qué clase') || titulo.startsWith('¿Qué se vende')) return { Icono: SlidersHorizontal, tono: 'verde' };
   if (titulo.startsWith('¿Cómo quieres') || titulo.startsWith('Estilo de')) return { Icono: Palette, tono: 'magenta' };
   if (titulo.startsWith('Cómo encaja')) return { Icono: Ruler, tono: 'indigo' };
   if (titulo.startsWith('Te falta')) return { Icono: AlertCircle, tono: 'magenta' };
@@ -63,7 +101,7 @@ function marcaDe(titulo: string): { Icono: LucideIcon; tono: Tono } {
 }
 
 /** Una tarjeta de un paso, con su título y, si toca, su etiqueta. */
-export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
+export function Tarjeta({ titulo, etiqueta: pedida, subtitulo, children, className }: {
   titulo: string;
   etiqueta?: TipoEtiqueta;
   subtitulo?: ReactNode;
@@ -71,6 +109,7 @@ export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   className?: string;
 }) {
   const id = useId();
+  const etiqueta = useEtiquetasDeCambio() ? pedida : undefined;
   // Panel nuevo: el marco de las tarjetas del resto del panel (casi blanca, un toque de su tono) y su baldosa.
   const panelNuevo = usePanelNuevo();
   const marca = panelNuevo ? marcaDe(titulo) : null;

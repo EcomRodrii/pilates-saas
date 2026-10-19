@@ -69,6 +69,12 @@ const SPECS_WEBKIT = [
   // snippet embebido los sufre la visitante de la web del estudio.
   '**/widget-config-params.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
+  // El iframe del widget ENCOGE cuando su contenido encoge (16-oct-2026): lo que
+  // se prueba —`body.scrollHeight`, `ResizeObserver` y la raíz sin `100dvh`
+  // dentro de un marco de otro origen— es justo lo que un motor resuelve
+  // distinto, y el hueco en blanco lo ve la visitante de su web, casi siempre
+  // en un iPhone. Coste medido sumando por test (ver el PR).
+  '**/reservar-embed-encoge.spec.ts',
   // El estilo de los widgets en la web del estudio (Fase B del constructor):
   // lo ve la visitante de su web, casi siempre desde un iPhone, y lo que mira
   // es justo lo que cambia de un motor a otro —fondo transparente sobre la web,
@@ -154,6 +160,10 @@ const SPECS_WEBKIT = [
   // #565 (`BarcodeDetector`) y #994 (el portapapeles diciendo «Copiado» con
   // el portapapeles vacío).
   '**/student-filtros-rapidos.spec.ts',
+  // El mensaje destacado arriba del inicio (decisión 11A de «Mi app y mi web» v2): lo lee la
+  // alumna en su móvil, y lo que prueba —`pre-line` y una palabra larguísima que no puede
+  // desbordar— es justo lo que un motor resuelve distinto. Dos tests cortos, todo mockeado.
+  '**/student-mensaje-destacado.spec.ts',
   '**/student-anadir-al-calendario.spec.ts',
   '**/student-cabos.spec.ts',
   '**/student-acceso.spec.ts',

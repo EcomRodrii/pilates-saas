@@ -4,8 +4,8 @@ import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalo
 import { CONFIG_POR_DEFECTO, claveDeCopia, nuevaCopia, type ConfigConstructor, type Copiado } from './config.ts';
 import { embudoPorWidget } from './embudo.ts';
 import {
-  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, botonDeCodigoAnterior, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
-  textoCambios, textosEnTuWeb, unirGrupos, webSinAutorizar, type EstadoEnTuWeb,
+  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, botonDeCodigoAnterior, chipEnTuWeb, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
+  textoCambios, textosEnTuWeb, unirGrupos, versionPidePegar, webSinAutorizar, type EstadoEnTuWeb,
 } from './en-tu-web.ts';
 import { faltaParaGenerar, firmaCodigo, firmaContenidoDe, type EntradaIntegracion } from './integracion.ts';
 import { claveVista, type FormaPegada, type VistoWidget } from './pegado.ts';
@@ -603,4 +603,53 @@ test('webSinAutorizar: solo la dirección que ella dio, con y sin «www»', () =
   assert.equal(webSinAutorizar('www.albapilates.example.com', ['https://otra.example.com']), 'www.albapilates.example.com');
   assert.equal(webSinAutorizar(null, []), null);
   assert.equal(webSinAutorizar('no es una web', []), null);
+});
+
+// ── La pastilla de la portada v2 (`chipEnTuWeb`) ─────────────────────────────
+
+test('chipEnTuWeb: `oculto` no pinta nada (nunca «Aún no lo vemos» por un error o sin permiso)', () => {
+  assert.equal(chipEnTuWeb({ tipo: 'oculto' }, AHORA, false), null);
+  // Lo que llega de una lectura fallida o sin permiso es `oculto`: tampoco pinta.
+  assert.equal(chipEnTuWeb(estado(null), AHORA, false), null);
+  assert.equal(chipEnTuWeb(estado(undefined), AHORA, false), null);
+});
+
+test('chipEnTuWeb: visto al día, con su web y cuándo; sin dirección, solo cuándo; en la ventana, «Abierto»', () => {
+  const v = estado([fila({})]);
+  assert.deepEqual(chipEnTuWeb(v, AHORA, false), {
+    texto: 'Se ve en albapilates.example.com · hace 2 h', tono: 'ok', detalle: 'Visto en albapilates.example.com hace 2 h',
+  });
+  assert.equal(chipEnTuWeb(estado([fila({ anfitrion: null })]), AHORA, false)?.texto, 'Visto hace 2 h');
+  const ventana = estado([fila({ forma: 'ventana' })], { metodoCopiado: 'popup', claveAhora: 'ventana:c1ahora' });
+  assert.equal(chipEnTuWeb(ventana, AHORA, false)?.texto, 'Abierto en albapilates.example.com · hace 2 h');
+});
+
+test('chipEnTuWeb: versiones — anterior por id se pone al día sola (neutro); el resto es aviso', () => {
+  const laOtra = { anfitrion: WEB, ultimo: iso(AHORA - 3 * H) };
+  const visto = (version: 'anterior' | 'distinta' | 'dos-versiones', porId = false): EstadoEnTuWeb => ({
+    tipo: 'visto', forma: 'incrustado', anfitrion: WEB, ultimo: iso(AHORA - 2 * H), otrasWebs: 0, version, laOtra, ...(porId ? { porId: true } : {}),
+  });
+  assert.deepEqual(chipEnTuWeb(visto('anterior', true), AHORA, false)?.texto, 'Se pone al día en unos minutos');
+  assert.equal(chipEnTuWeb(visto('anterior', true), AHORA, false)?.tono, 'neutro');
+  assert.equal(versionPidePegar(visto('anterior', true)), false);
+  for (const [v, texto] of [['anterior', 'Tu web tiene lo de antes'], ['distinta', 'Tu web tiene otra versión'], ['dos-versiones', 'Tu web enseña dos versiones']] as const) {
+    const c = chipEnTuWeb(visto(v), AHORA, false)!;
+    assert.deepEqual([c.texto, c.tono], [texto, 'aviso']);
+    // La frase larga (la de siempre) va de detalle.
+    assert.equal(c.detalle, `${textosEnTuWeb(visto(v), AHORA).linea} ${textosEnTuWeb(visto(v), AHORA).version}`);
+    assert.equal(versionPidePegar(visto(v)), true);
+  }
+  // Por id, distinta y dos versiones siguen pidiendo pegar (hay un código de antes en otra página).
+  assert.equal(versionPidePegar(visto('distinta', true)), true);
+});
+
+test('chipEnTuWeb: no medible, sin ver y sin dato', () => {
+  assert.equal(chipEnTuWeb({ tipo: 'no-medible' }, AHORA, true)?.texto, 'Los enlaces no los vemos en tu web');
+  assert.equal(chipEnTuWeb({ tipo: 'no-medible' }, AHORA, false)?.texto, 'Los botones a tu página no los vemos en tu web');
+  assert.equal(chipEnTuWeb({ tipo: 'sin-ver', forma: 'incrustado' }, AHORA, false)?.texto, 'Aún no lo vemos en tu web');
+  assert.equal(chipEnTuWeb({ tipo: 'sin-ver', forma: 'ventana' }, AHORA, false)?.texto, 'Aún no lo ha abierto nadie');
+  assert.equal(chipEnTuWeb({ tipo: 'sin-dato' }, AHORA, false)?.texto, 'Con visitas · aún no sabemos desde qué web');
+  for (const e of [{ tipo: 'no-medible' }, { tipo: 'sin-ver', forma: 'incrustado' }, { tipo: 'sin-dato' }] as EstadoEnTuWeb[]) {
+    assert.equal(chipEnTuWeb(e, AHORA, false)?.tono, 'neutro');
+  }
 });

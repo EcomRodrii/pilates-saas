@@ -363,6 +363,18 @@ test('contenido de tu app: solo lo que sale hoy en su app, con la regla de la ap
   assert.equal(contenido([tarjeta({ fechaFin: '2026-09-15' })], Date.parse('2026-09-15T22:30:00Z')), 'Ninguna tarjeta en su app');
 });
 
+test('contenido de tu app: el mensaje destacado cuenta solo si su app lo enseña (MI_WEB_NUEVA)', () => {
+  const t = { id: 'b-1', activo: true, imagenUrl: 'https://example.com/foto.jpg' };
+  const fila = (mensaje: string | null | undefined, tarjetas = [t]) =>
+    resumenHerramienta('contenido-de-tu-app', { contenido: { tarjetas, ahoraMs: AHORA, mensaje } });
+  // Sin pasarlo (sin el interruptor, la app no lo pinta): como siempre.
+  assert.equal(fila(undefined), '1 tarjeta en su app');
+  assert.equal(fila('Cerramos el lunes'), '1 tarjeta en su app · con mensaje destacado');
+  assert.equal(fila('   '), '1 tarjeta en su app', 'un mensaje en blanco no sale en la app');
+  assert.equal(fila('Cerramos el lunes', []), 'Un mensaje destacado y ninguna tarjeta en su app');
+  assert.equal(fila(null, []), 'Ninguna tarjeta en su app');
+});
+
 test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, su descripción', () => {
   assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web autorizada para ponerlo sin marco');
   assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs autorizadas para ponerlo sin marco');

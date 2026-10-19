@@ -140,6 +140,8 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   // Aviso: tocar la seguridad de la cuenta de una alumna tiene que verse.
   DOBLE_FACTOR_QUITADO: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Seguridad' },
   PLAZA_PLATAFORMA_LIBERADA: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'ClassPass' },
+  // Aviso: un código que valía una vez se usó dos (una venta ya cobrada, asignada después).
+  CODIGO_REPETIDO_AL_ASIGNAR: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Código repetido' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────

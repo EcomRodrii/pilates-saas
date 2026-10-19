@@ -53,6 +53,7 @@ import { PlanesPublicos } from '@/components/reservar/planes-publicos';
 import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, fijarPegadoWidget, silenciarEventosWidget, sessionIdWidget, visitaYaContada } from '@/lib/reservar/eventos';
+import { ESCRITURA_EN_VISTA_PREVIA, enVistaPreviaDelPanel } from '@/lib/reservar/vista-previa-sin-escrituras';
 import { pegadoDesde } from '@/lib/reservar/pegado-widget';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, eyebrow, containerRoot, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
@@ -735,14 +736,23 @@ export default function ReservarPage() {
   // (cambio de tab, expandir un desplegable, cargar más clases…); el snippet
   // que se copia junto al iframe (lib/reservar/snippet-embed.ts) escucha este mensaje y ajusta
   // el alto. Sin efecto si el widget no está embebido en un iframe ajeno.
+  //
+  // ⚠️ Lo que se anuncia es lo que mide el CONTENIDO (`body`), nunca
+  // `documentElement.scrollHeight`: ese no baja nunca del alto del propio
+  // iframe (es el de la ventana como mínimo), y con la raíz a `100dvh` el
+  // iframe solo podía CRECER. Abrir una pantalla larga (los datos, el pago) y
+  // volver al horario dejaba en su web un hueco en blanco del alto de la
+  // pantalla larga (01b, hallazgo #3). Lo vigila
+  // e2e/reservar-embed-encoge.spec.ts.
   useEffect(() => {
     if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
     const enviarAltura = () => {
-      window.parent.postMessage({ tentareEmbedAltura: document.documentElement.scrollHeight, tentareSlug: slug }, '*');
+      window.parent.postMessage({ tentareEmbedAltura: Math.ceil(document.body.scrollHeight), tentareSlug: slug }, '*');
     };
     enviarAltura();
     const obs = new ResizeObserver(enviarAltura);
     obs.observe(document.documentElement);
+    obs.observe(document.body);
     return () => obs.disconnect();
   }, [embedMode, slug, tab]);
 
@@ -1942,6 +1952,9 @@ export default function ReservarPage() {
   async function handleEnviarEnlace() {
     if (!loginForm.email.trim() || enviandoEnlace) return;
     setLoginError('');
+    // En la vista previa del panel no se manda ningún correo (`enviarEnlace`
+    // también lo corta): se dice ya, sin esperar al captcha.
+    if (enVistaPreviaDelPanel()) { setLoginError(ESCRITURA_EN_VISTA_PREVIA); return; }
     // El estado de carga se enciende ANTES de pedir el token, no después:
     // el captcha tarda ~3,5 s en resolverse por dentro, y sin esto el botón
     // se quedaba mudo todo ese rato y admitía un segundo clic.
@@ -2029,6 +2042,8 @@ export default function ReservarPage() {
     // cinturón por si se llega por Enter.
     if (!privacidadAceptada) return;
     setDatosError('');
+    // La vista previa del panel no cobra (lib/reservar/vista-previa-sin-escrituras.ts).
+    if (enVistaPreviaDelPanel()) { setDatosError(ESCRITURA_EN_VISTA_PREVIA); return; }
     setDatosCargando(true);
     try {
       const res = await fetch('/api/public/checkout-embebido', {
@@ -2099,6 +2114,8 @@ export default function ReservarPage() {
     if (!loginForm.nombre.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
     if (!privacidadAceptada) return;
     setDatosError('');
+    // La vista previa del panel no cobra ni saca el panel a Stripe.
+    if (enVistaPreviaDelPanel()) { setDatosError(ESCRITURA_EN_VISTA_PREVIA); return; }
     setDatosCargando(true);
     try {
       const res = await fetch('/api/stripe/checkout', {
@@ -2426,6 +2443,9 @@ export default function ReservarPage() {
 
   async function handleContratarPlan(plan: PlanTarifa) {
     setStripeError(null);
+    // La vista previa del panel no vende: sin esto, `window.top` sacaba el PANEL
+    // entero a Stripe (lib/reservar/vista-previa-sin-escrituras.ts).
+    if (enVistaPreviaDelPanel()) { setStripeError(ESCRITURA_EN_VISTA_PREVIA); return; }
     setStripeLoading(plan.id);
     try {
       // Un código escrito se comprueba ANTES de ir a Stripe, con la misma regla
@@ -2689,7 +2709,11 @@ export default function ReservarPage() {
   // Las vistas incrustadas de UNA sola cosa (planes, equipo): nada de las
   // secciones de la página completa debajo — 1 widget = 1 propósito.
   // La clase de prueba también: debajo no van tus bonos ni «Sobre nosotros».
-  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || tab === 'contacto' || modoPrueba);
+  // Y el horario, si el código lo pide con `solo=1` («Tu horario, tus clases»):
+  // sin él, debajo salían la banda de bonos, «Sobre nosotros», las cifras, los
+  // bloques del editor y el pie, y `pie=0` solo quitaba el último. Sin el
+  // parámetro (los códigos ya pegados), todo igual que siempre.
+  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || tab === 'contacto' || modoPrueba || configWidget?.solo === true);
   // `?planes=BONO,MENSUAL` (widgets «Planes y precios» / «Bonos y packs»).
   // Solo incrustado, y un valor que no es un tipo de plan se ignora.
   const filtroPlanes = embedMode
@@ -2724,6 +2748,12 @@ export default function ReservarPage() {
     bloquesReservar.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : '')),
   );
   const seccionVisible = (id: string) => seccionesVisibles.has(id);
+  // ¿Se pinta en ESTA página la banda «Bonos y membresías» (`#bonos-membresias`)?
+  // Una sola respuesta para todos los que dependen de que exista: la banda, el
+  // «Ver bonos y membresías» de «Mi cuenta» y el del aviso de «sin plan» al
+  // reservar. Con `solo=1` (o cualquier vista única) no está, y un botón que
+  // hace scroll a la nada es justo lo que ya se corrigió dos veces aquí.
+  const haySeccionBonos = seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0;
   // Los bloques del CATÁLOGO (banner/texto/cta/faq/galería/vídeo/testimonios/
   // contenedor) que el estudio haya añadido — las 6 secciones de siempre son
   // `sistema` y ya se pintan por su cuenta, JSX fijo, más abajo; estos son
@@ -3251,7 +3281,12 @@ export default function ReservarPage() {
       // anfitrión por `tentareEmbedAltura`, ese sobrante se convertía en un
       // hueco real dentro de la web del estudio. La pantalla de error de esta
       // misma página ya usaba `dvh`; eran dos unidades distintas para lo mismo.
-      ...containerRoot, width: '100%', minHeight: '100dvh',
+      //
+      // Incrustada, sin mínimo: medía siempre al menos lo que el iframe, y como
+      // el iframe mide lo que se anuncia, ya no encogía nunca (ver el efecto del
+      // auto-alto, arriba). El fondo lo pinta `cssDocumentoIncrustado` en
+      // `html, body`, así que no queda ninguna franja sin pintar.
+      ...containerRoot, width: '100%', minHeight: embedMode ? undefined : '100dvh',
       // `transparent` deja ver el fondo de la web anfitriona. Era el problema
       // gordo: un `#F6F7F9` opaco es una losa casi blanca sobre una web oscura.
       // El `?fondo=` del snippet gana; si no, el estilo de su web fundido.
@@ -3970,7 +4005,7 @@ export default function ReservarPage() {
                 // «Ver bonos y membresías» solo si esa sección está en esta misma
                 // página (visible, con algo a la venta): un enlace a la nada es
                 // justo lo que ya se corrigió en el paso de «sin plan».
-                const haySeccionPlanes = seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0;
+                const haySeccionPlanes = haySeccionBonos;
                 return (
                   <MiCuenta
                     t={tokensCalendario} secciones={['bonos', 'perfil']} socio={socioCompleto}
@@ -4082,7 +4117,7 @@ export default function ReservarPage() {
           página pública es peor que no tenerla. */}
       {/* Con `?prueba=1` tampoco en la página completa (enlace/botón): la
           clase suelta a su precio competiría con la oferta de al lado. */}
-      {!enVistaReserva && seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0 && (
+      {!enVistaReserva && haySeccionBonos && (
         <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           {contenidoPlanes}
         </div>
@@ -4988,7 +5023,7 @@ export default function ReservarPage() {
                         venta, el gate ni siquiera bloquea (`hayAlgoQueContratar`),
                         así que no queda ningún camino sin salida. */}
                     {seArreglaComprando(gateError) && (() => {
-                      const seccionEnEstaPagina = seccionVisible('bonos') && planesContratables.length > 0;
+                      const seccionEnEstaPagina = haySeccionBonos;
                       if (seccionEnEstaPagina) {
                         return (
                           <>
@@ -5014,6 +5049,10 @@ export default function ReservarPage() {
                           {' '}
                           <a
                             href={`/portal/${slug}/comprar`}
+                            // Dentro del widget (con `solo=1` la banda de bonos no está en la
+                            // página, y esta es la única salida), la tienda se abre en otra
+                            // pestaña: navegar el iframe la metería en el marco de la web del estudio.
+                            {...(embedMode ? { target: '_blank', rel: 'noopener' } : {})}
                             className="font-semibold underline underline-offset-2"
                           >
                             Comprar un bono

@@ -43,6 +43,49 @@ test('si el pago no sale, la venta anulada suelta el código de la alumna', () =
   assert.match(cuerpo, /delete\s+from\s+public\.codigos_descuento_consumos\s+c\s+where\s+c\.venta_pos_id\s*=\s*p_venta_id/i, fichero);
 });
 
+test('si el pago no sale, devuelve el uso del tope global una sola vez y nunca por debajo de 0', () => {
+  // Migr 20261016115731. La prueba de verdad, con la doble llamada y dos a la vez:
+  // `supabase/tests/pos-pago-fallido-devuelve-uso.test.ts`.
+  const registrar = ultimaDefinicion('registrar_venta_pos');
+  assert.match(registrar.cuerpo, /matricula_cupo_plan_id,\s*codigo_descuento_id\s*\)\s*VALUES/i, `${registrar.fichero}: la venta ya no apunta qué código gastó`);
+  assert.match(registrar.cuerpo, /v_matricula_gratis_plan_id,\s*p_codigo_descuento_id\s*\)/i, registrar.fichero);
+
+  const { fichero, cuerpo } = ultimaDefinicion('fallar_pago_venta_pos');
+  const anula = cuerpo.search(/v\.estado\s*=\s*'PENDIENTE_PAGO'\s+returning\s+v\.matricula_cupo_plan_id,\s*v\.codigo_descuento_id\s+into\s+v_plan_matricula,\s*v_codigo/i);
+  const sale = cuerpo.search(/if\s+v_afectadas\s*=\s*0\s+then\s+return\s+false;\s*end\s+if;/i);
+  const devuelve = cuerpo.search(/set\s+usos\s*=\s*greatest\(\s*coalesce\(\s*c\.usos,\s*0\s*\)\s*-\s*1,\s*0\s*\)/i);
+  assert.ok(anula > 0, `${fichero}: el código se lee de la venta que se anula, en el mismo UPDATE`);
+  assert.ok(devuelve > 0, `${fichero}: el pago fallido ya no devuelve el uso del código`);
+  // Idempotente porque va detrás del compare-and-set: la segunda llamada sale antes.
+  assert.ok(anula < sale && sale < devuelve, `${fichero}: devolver el uso tiene que ir detrás de «return false»`);
+  assert.match(cuerpo.slice(devuelve, devuelve + 200), /where\s+c\.id\s*=\s*v_codigo\s+and\s+c\.studio_id\s*=\s*p_studio_id/i, fichero);
+  // En el orden en que `registrar_venta_pos` los coge (el código, luego el consumo): al revés,
+  // un pago fallido y una venta nueva del mismo código a la misma alumna se bloquean entre sí.
+  const suelta = cuerpo.search(/delete\s+from\s+public\.codigos_descuento_consumos/i);
+  assert.ok(devuelve < suelta, `${fichero}: devolver el uso tiene que ir antes de soltar el consumo de la alumna`);
+  assert.ok(
+    registrar.cuerpo.search(/UPDATE\s+public\.codigos_descuento\s+c\s+SET\s+usos/i) < registrar.cuerpo.search(/INSERT\s+INTO\s+public\.codigos_descuento_consumos/i),
+    `${registrar.fichero}: la venta coge el código antes que el consumo`,
+  );
+});
+
+test('asignar una venta cobrada sin ficha apunta su código, y si ya lo había usado lo deja en Actividad sin tocar la venta', () => {
+  // Migr 20261016140551, decisión del fundador del 16-oct. La prueba de verdad (duplicado
+  // histórico, simultáneas, asignar dos veces): `supabase/tests/pos-asignar-venta-codigo.test.ts`.
+  const { fichero, cuerpo } = ultimaDefinicion('asignar_venta_pos_a_socia');
+  const asigna = cuerpo.search(/UPDATE\s+public\.ventas_pos\s+v\s+SET\s+socio_id\s*=\s*p_socio_id/i);
+  const consumo = cuerpo.search(/INSERT\s+INTO\s+public\.codigos_descuento_consumos\s*\(\s*venta_pos_id,\s*codigo_id,\s*socio_id\s*\)/i);
+  assert.ok(asigna > 0 && consumo > asigna, `${fichero}: asignar ya no apunta el uso del código de la venta`);
+  // El mismo índice que la venta de la Caja y los cobros online: nada de una copia.
+  assert.match(cuerpo.slice(consumo, consumo + 300), /ON\s+CONFLICT\s*\(\s*codigo_id,\s*socio_id\s*\)\s+DO\s+NOTHING/i, fichero);
+  // Ya lo había usado: una línea por venta, apuntada por Tentare, y la venta no se revierte ni se bloquea.
+  assert.match(cuerpo, /INSERT\s+INTO\s+public\.actividad_reciente[\s\S]*?'CODIGO_REPETIDO_AL_ASIGNAR'[\s\S]*?'TENTARE'[\s\S]*?ON\s+CONFLICT\s*\(\s*id\s*\)\s+DO\s+NOTHING/i, fichero);
+  assert.doesNotMatch(cuerpo, /SET\s+(total|descuento|subtotal|importe)\b/i, `${fichero}: asignar no toca un importe`);
+  assert.doesNotMatch(cuerpo, /RAISE\s+EXCEPTION\s+'CODIGO_YA_USADO_POR_SOCIA'/i, `${fichero}: asignar una venta ya cobrada no se bloquea por el código`);
+  // Y el tipo existe para el panel, con su estilo (el mapa es un Record<TipoActividad, …>: sin él no compila).
+  assert.match(readFileSync(join(RAIZ, 'lib/types.ts'), 'utf8'), /\| 'CODIGO_REPETIDO_AL_ASIGNAR'/);
+});
+
 test('la Caja dice con palabras por qué no vale, y lo dicen igual la venta y la vista previa', () => {
   const tipos = readFileSync(join(RAIZ, 'lib/pos/tipos.ts'), 'utf8');
   assert.match(tipos, /case 'CODIGO_YA_USADO_POR_SOCIA':\s*return MENSAJE_CODIGO_YA_USADO;/);
