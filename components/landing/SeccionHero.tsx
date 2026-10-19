@@ -115,7 +115,7 @@ export function SeccionHero() {
         <div className="v5-nav-col v5-nav-col-entrar">
           <Link href="/login" className="v5-nav-entrar">Entrar</Link>
         </div>
-        <Link href={ALTA} className="v5-nav-cta">Probar Tentare</Link>
+        <Link href={ALTA} className="v5-nav-cta">{CTA_ALTA}</Link>
         <button
           type="button"
           className="v5-nav-burger"
@@ -143,7 +143,7 @@ export function SeccionHero() {
           </nav>
           <div className="v5-menu-pie">
             <Link href="/login" onClick={() => setMenuAbierto(false)} className="v5-menu-entrar">Entrar</Link>
-            <Link href={ALTA} onClick={() => setMenuAbierto(false)} className="v5-menu-cta">Probar Tentare</Link>
+            <Link href={ALTA} onClick={() => setMenuAbierto(false)} className="v5-menu-cta">{CTA_ALTA}</Link>
           </div>
         </div>
       )}

@@ -107,7 +107,7 @@ test.describe('«Cambiarme a Tentare» — escritorio', () => {
     await expect(isla(page).getByRole('link', { name: 'Entrar' })).toBeHidden();
     // …y lo que queda, entero y dentro de la isla.
     const logo = isla(page).getByRole('link', { name: /Tentare.*inicio/ });
-    const cta = isla(page).getByRole('link', { name: 'Probar Tentare' });
+    const cta = isla(page).getByRole('link', { name: 'Empezar gratis' });
     await expect(logo).toBeVisible();
     await expect(cta).toBeVisible();
     const marco = await caja();
@@ -166,7 +166,7 @@ test.describe('«Cambiarme a Tentare» — escritorio', () => {
       const b = (await isla(page).boundingBox())!;
       expect(b.x, `a ${ancho}px la isla empieza dentro`).toBeGreaterThanOrEqual(0);
       expect(b.x + b.width, `a ${ancho}px la isla acaba dentro`).toBeLessThanOrEqual(ancho);
-      await expect(isla(page).getByRole('link', { name: 'Probar Tentare' })).toBeVisible();
+      await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
     }
     // Y a 1001 vuelve, y cabe.
     await page.setViewportSize({ width: 1001, height: 800 });
@@ -248,7 +248,7 @@ test.describe('«Cambiarme a Tentare» y el héroe — móvil', () => {
 
   test('ya encogida, la isla en móvil sigue con el logo y el botón principal', async ({ page }) => {
     await prepararPagina(page);
-    const cta = isla(page).getByRole('link', { name: 'Probar Tentare' });
+    const cta = isla(page).getByRole('link', { name: 'Empezar gratis' });
     const logo = isla(page).getByRole('link', { name: /Tentare.*inicio/ });
     await expect(isla(page)).not.toHaveAttribute('data-compacta', /.*/);
     await expect(logo).toBeVisible();

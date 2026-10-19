@@ -12,8 +12,6 @@ import { CTA_ALTA } from './founding-gratis.ts';
 // secas en otras.
 //
 // Fuera de este test, A PROPÓSITO:
-//  · la isla de la cabecera de la home («Probar Tentare») y su menú móvil: el
-//    fundador prohibió tocar la cabecera;
 //  · la cabecera de las páginas internas (`SiteNav`, «Probar gratis»);
 //  · el pie de la home;
 //  · /comparativa (`CtaBlock` y `CompetitorPage`), vetada salvo metadatos.
@@ -66,12 +64,11 @@ for (const f of CUERPOS) {
   });
 }
 
-test('el botón del héroe dice CTA_ALTA (la isla de arriba queda como está)', () => {
+test('el botón del héroe, la isla y su menú móvil dicen CTA_ALTA', () => {
   const fuente = readFileSync(join(RAIZ, HEROE), 'utf8');
   const botones = botonesAlAlta(fuente);
-  // La isla y su menú móvil: «Probar Tentare» (dos veces). Lo único permitido fuera de regla.
-  const fuera = botonesFueraDeRegla(fuente);
-  assert.deepEqual(fuera, ['Probar Tentare', 'Probar Tentare'], 'solo la isla y su menú móvil pueden llevar otro texto');
+  // Ronda 2: la isla y su menú móvil dejan «Probar Tentare» (de la prueba de 7 días, que ya no existe) por CTA_ALTA.
+  assert.deepEqual(botonesFueraDeRegla(fuente), [], 'ningún botón al alta del héroe y la isla puede llevar otro texto');
   assert.ok(botones.includes('{CTA_ALTA}'), 'el botón del héroe debe decir {CTA_ALTA}');
 });
 
