@@ -325,6 +325,24 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Cambiar de cuenta no lo hace gratis** (19-oct-2026, `lib/billing/vinculos-gratis.ts`): el grupo que
+    mide el gate suma, al estudio NUEVO, el estudio MÁS ANTIGUO de otra cuenta que ya se pasó o está cerrado
+    si es el mismo negocio: misma cuenta de Stripe Connect (también la desconectada: `cuentas_stripe_vistas`
+    y `stripe_account_id_anterior`, porque `uq_studios_stripe_account` obliga a soltarla) o ≥ 30 alumnas en
+    común que sean ≥ 50 % de las suyas. Hereda el exceso; el margen no vuelve a empezar. El mismo NIF solo
+    AVISA (la dueña lo escribe sin verificar: se podría «ocupar» el NIF de un negocio que aún no ha llegado).
+    ⚠️ **Solo puede salir perjudicado quien copia, nunca el copiado** (el NIF lo escribe la dueña y las
+    alumnas se importan; ni las reservas ni las clases tienen una fecha que el navegador no pueda escribir):
+    el vínculo va nuevo → viejo y el grupo solo lo sigue así; alumnas y NIF solo cuentan con lo que el
+    SERVIDOR vio en el viejo antes del alta del nuevo (`rastro_gratis`, HMAC con clave que solo lee la
+    función + hora del servidor, lo apunta `detectar_vinculos_gratis` al medir); y medir nunca escribe
+    `excedido_desde` en un estudio de otra dueña. RGPD: el rastro de una alumna se borra al suprimir su ficha
+    (`borrarRastroDeAlumna`) y todo caduca a los 18 meses. ⚠️ `apply_migration` se queda colgado (pide
+    confirmación que nadie da) con DROP/DELETE/TRUNCATE, incluso dentro del cuerpo de una función: los
+    borrados de este rastro viven en el servidor. IP y navegador del alta (`huellas_alta`, HMAC, primeros 14 días, tras `HUELLA_ALTA=on`, apagado
+    hasta que lo vea un abogado: LSSI 22.2) solo AVISAN. Cada vínculo nuevo va a Sentry; se deshace en
+    /interno (ficha → «No es el mismo negocio»), que reabre al NUEVO y a los gratis de su dueña
+    (`reabrirPlanGratis`) solo si el vínculo sumaba.
   - **Una sede SECUNDARIA solo se reabre con Cadena** (decisión del 15-oct): no contrata Founding
     Studio ni Estudio (si pudiera, N sedes saldrían por 29 € × (N−1) con la principal gratis). La
     principal sí. Lo decide `decidirPlanSuelto` (`sede-incluida-en-cadena.ts`) en el checkout (409) y
