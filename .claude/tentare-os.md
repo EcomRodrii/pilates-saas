@@ -325,6 +325,15 @@ así que todo lo que se versiona lo lee cualquiera:
     con la misma función que el chip «Activa», y lo guarda en `uso_plan_gratis` (solo service_role:
     si la dueña pudiera escribir `excedido_desde`, se reiniciaría el margen).
   - Se suman los estudios gratis de la misma dueña: trocear el estudio no lo hace gratis.
+  - **Cambiar de cuenta no lo hace gratis** (19-oct-2026, `lib/billing/vinculos-gratis.ts`): el grupo que
+    mide el gate suma también los estudios de OTRAS cuentas que son el mismo negocio. Cuentan (heredan el
+    exceso y el margen no vuelve a empezar) la misma cuenta de Stripe Connect —también una ya desconectada:
+    `uq_studios_stripe_account` obliga a soltarla del viejo, por eso hay historial (`cuentas_stripe_vistas`)—,
+    el mismo NIF y ≥ 30 alumnas en común que sean ≥ 50 % de las suyas con un estudio ya pasado o cerrado.
+    La IP y el navegador del alta (`huellas_alta`, HMAC, tras `HUELLA_ALTA=on`, apagado hasta que lo vea un
+    abogado: LSSI 22.2) solo AVISAN. Lo detecta `detectar_vinculos_gratis` (solo service_role) al medir; cada
+    vínculo nuevo va a Sentry y se deshace en /interno (ficha → «No es el mismo negocio»: descarta los dos
+    sentidos y reabre ESE estudio con `reabrirPlanGratis`). ⚠️ Una IP compartida nunca cierra a nadie.
   - **Una sede SECUNDARIA solo se reabre con Cadena** (decisión del 15-oct): no contrata Founding
     Studio ni Estudio (si pudiera, N sedes saldrían por 29 € × (N−1) con la principal gratis). La
     principal sí. Lo decide `decidirPlanSuelto` (`sede-incluida-en-cadena.ts`) en el checkout (409) y

@@ -8,6 +8,7 @@ import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
 import { apiActivaSegunFila } from '@/lib/api-publica/acceso';
 import { credencialesWellhub, productosWellhub } from '@/lib/plataformas/wellhub/cliente';
+import { reabrirPlanGratis } from '@/lib/billing/convertir-a-gratis';
 
 export const runtime = 'nodejs';
 
@@ -30,7 +31,8 @@ type Accion =
   | { accion: 'activar-api'; nota?: string }
   | { accion: 'desactivar-api' }
   | { accion: 'vincular-wellhub'; gymId?: string; productoId?: string }
-  | { accion: 'desvincular-wellhub' };
+  | { accion: 'desvincular-wellhub' }
+  | { accion: 'desvincular-cuenta'; otroId: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -116,6 +118,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       antes: { suspendido: false }, despues: { suspendido: true, motivo },
     });
     return NextResponse.json({ ok: true, suspendido: true });
+  }
+
+  if (cuerpo.accion === 'desvincular-cuenta') {
+    // «No es el mismo negocio» (vinculos-gratis.ts): se descartan TODOS los
+    // vínculos entre los dos estudios, en las dos direcciones, y ESTE estudio
+    // (el de la ficha) se reabre y se vuelve a medir solo con lo suyo. El otro no
+    // se toca: si estaba cerrado, lo estaba por su cuenta.
+    const otroId = typeof cuerpo.otroId === 'string' ? cuerpo.otroId : '';
+    if (!otroId || otroId === id) return NextResponse.json({ error: 'Falta el otro estudio.' }, { status: 400 });
+    const ahora = new Date().toISOString();
+    const marca = { descartado_en: ahora, descartado_por: g.admin.email };
+    const [a, b] = await Promise.all([
+      db.from('vinculos_cuentas_gratis').update(marca).eq('studio_id', id).eq('vinculado_id', otroId).is('descartado_en', null).select('motivo'),
+      db.from('vinculos_cuentas_gratis').update(marca).eq('studio_id', otroId).eq('vinculado_id', id).is('descartado_en', null).select('motivo'),
+    ]);
+    if (a.error || b.error) return NextResponse.json({ error: 'No se ha podido desvincular.' }, { status: 500 });
+    const motivos = [...(a.data ?? []), ...(b.data ?? [])].map(r => r.motivo as string);
+    if (motivos.length === 0) return NextResponse.json({ error: 'No hay ningún vínculo activo entre los dos.' }, { status: 409 });
+    const reabierto = await reabrirPlanGratis(db, id);
+
+    await registrar(db, req, {
+      actor: g.admin,
+      accion: 'estudio.vinculo-gratis.descartado',
+      objetivoTipo: 'studio', objetivoId: id,
+      resumen: `${nombre}: no es el mismo negocio que ${otroId} (${[...new Set(motivos)].join(', ')}). Reabierto y se vuelve a medir.`,
+      antes: { vinculado: otroId, motivos }, despues: { vinculado: null, reabierto },
+    });
+    return NextResponse.json({ ok: true, reabierto });
   }
 
   if (cuerpo.accion === 'reactivar') {

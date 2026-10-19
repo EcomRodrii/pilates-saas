@@ -7,6 +7,7 @@ import {
   estadoDeLoGuardado, estadoGratis, medicionDelGrupo, ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, type EstadoGratis, type UsoGratis,
 } from './plan-gratis.ts';
 import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
+import { detectarVinculosGratis, estudiosVinculadosGratis } from './vinculos-gratis-servidor.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cuánto usa el plan gratis una dueña (plan-gratis.ts): mide, guarda y lee.
@@ -21,6 +22,9 @@ import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 // · Se suman TODOS los estudios gratis de la misma dueña (también uno que se
 //   quedó con `cadena_id` de un Checkout de Cadena abandonado): trocear el
 //   estudio no lo hace gratis.
+// · Y los de OTRAS cuentas que son el mismo negocio (misma cuenta de Stripe,
+//   mismo NIF o la mayoría de las alumnas: vinculos-gratis.ts). Cambiar de
+//   correo no hace gratis el estudio.
 // · Medir es caro (todas las reservas del grupo): se guarda en `uso_plan_gratis`
 //   y el gate lo vuelve a medir después de contestar si tiene más de
 //   HORAS_VIGENCIA. Una medición a la vez por estudio: se RESERVA con una
@@ -51,13 +55,22 @@ export interface FilaUso {
   creado_en: string;
 }
 
-/** Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira siempre dentro. `null` si la lectura falla. */
+/**
+ * Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira
+ * siempre dentro, y los de otras cuentas vinculados a ellos (mismo Stripe, NIF o
+ * alumnas: vinculos-gratis.ts). `null` si la lectura de la dueña falla.
+ */
 export async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, ownerId: string | null): Promise<string[] | null> {
-  if (!ownerId) return [studioId];
-  const { data, error } = await admin.from('studios').select('id')
-    .eq('owner_auth_user_id', ownerId).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
-  if (error) return null;
-  return [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
+  let propios = [studioId];
+  if (ownerId) {
+    const { data, error } = await admin.from('studios').select('id')
+      .eq('owner_auth_user_id', ownerId).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
+    if (error) return null;
+    propios = [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
+  }
+  // Y los de otras cuentas que son el mismo negocio (vinculos-gratis.ts): con un
+  // correo nuevo no se empieza de cero.
+  return [...propios, ...(await estudiosVinculadosGratis(admin, propios))];
 }
 
 /** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. Solo lee. */
@@ -147,6 +160,8 @@ async function reservarMedicion(admin: SupabaseClient, studioId: string, ahora: 
  */
 export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string, ownerId: string | null, ahora: Date): Promise<boolean> {
   if (!(await reservarMedicion(admin, studioId, ahora))) return false;
+  // Antes de medir, ¿es otra cuenta del mismo negocio? Nunca lanza.
+  await detectarVinculosGratis(admin, studioId);
   const ids = await estudiosGratisDeLaDuena(admin, studioId, ownerId);
   if (!ids) return false;
   const usos = await medirUsoGratis(admin, ids, ahora);

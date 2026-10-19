@@ -166,3 +166,19 @@ export async function cerrarPlanGratis(admin: SupabaseClient, studioId: string):
     .eq('id', studioId).eq('subscription_status', ESTADO_GRATIS).select('id');
   return !error && !!data?.length;
 }
+
+/**
+ * Deshace un cierre que no tocaba: lo usa /interno al desvincular un estudio que
+ * se cerró por heredar el exceso de otra cuenta que NO era el mismo negocio
+ * (vinculos-gratis.ts). 'gratis_cerrado' → 'gratis' (compare-and-set) y borra la
+ * fecha de exceso y la medición: la siguiente medición vuelve a contar solo lo
+ * suyo, y si de verdad se pasa, empieza un margen nuevo.
+ */
+export async function reabrirPlanGratis(admin: SupabaseClient, studioId: string): Promise<boolean> {
+  const { error: eUso } = await admin.from('uso_plan_gratis')
+    .update({ excedido_desde: null, medido_en: null, intento_en: null }).eq('studio_id', studioId);
+  if (eUso) return false;
+  const { error } = await admin.from('studios').update({ subscription_status: ESTADO_GRATIS })
+    .eq('id', studioId).eq('subscription_status', ESTADO_GRATIS_CERRADO);
+  return !error;
+}

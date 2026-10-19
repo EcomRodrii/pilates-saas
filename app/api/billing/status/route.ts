@@ -16,6 +16,9 @@ import {
   COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, leerCadenaParaGratis, type FilaParaGratis,
 } from '@/lib/billing/convertir-a-gratis';
 import { marcarUso } from '@/lib/retencion/marcar-uso';
+import { clientIp } from '@/lib/rate-limit-core';
+import { COOKIE_DISPOSITIVO, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
+import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
 
 /**
  * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
@@ -155,7 +158,17 @@ export async function GET(req: NextRequest) {
       .catch(() => null);
   }
 
-  return NextResponse.json({
+  // La huella del alta (vinculos-gratis.ts), solo con HUELLA_ALTA y solo de la
+  // propietaria: la primera IP y el primer navegador con que abre el panel. Solo
+  // AVISA en /interno de un alta parecida a un estudio cerrado; nunca cierra nada.
+  let dispositivoNuevo: string | null = null;
+  if (huellaAltaActiva(process.env) && sesion.rol === 'PROPIETARIO') {
+    const dispositivo = req.cookies.get(COOKIE_DISPOSITIVO)?.value ?? (dispositivoNuevo = crypto.randomUUID());
+    const ip = clientIp(req);
+    after(() => apuntarHuellaAlta(admin, sesion.studioId, ip === 'unknown' ? null : ip, dispositivo));
+  }
+
+  const respuesta = NextResponse.json({
     plan,
     subscriptionStatus,
     activo,
@@ -174,4 +187,10 @@ export async function GET(req: NextRequest) {
     // Qué planes se le ofrecen y qué cancelaría Cadena. Ausente si ya paga.
     ...(opciones !== undefined ? { opcionesDePlan: opciones } : {}),
   });
+  if (dispositivoNuevo) {
+    respuesta.cookies.set(COOKIE_DISPOSITIVO, dispositivoNuevo, {
+      httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 400 * 24 * 3600,
+    });
+  }
+  return respuesta;
 }
