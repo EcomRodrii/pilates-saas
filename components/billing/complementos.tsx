@@ -9,23 +9,40 @@
 import { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { ADDONS, LISTA_ADDONS, PLAN_INFO, precioMensual, type Addon } from '@/lib/billing/entitlements';
-import { cambiarComplemento } from '@/lib/api-client';
+import { cambiarComplemento, pasarAEstudio } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 export function Complementos({
-  contratados, disponibles, esPropietaria, onCambio, className,
+  contratados, disponibles, esPropietaria, onCambio, onPlanCambiado, className,
 }: {
   contratados: string[];
   disponibles: string[];
   esPropietaria: boolean;
   /** Los complementos que hay de verdad tras un cambio (para el total de arriba). */
   onCambio: (addons: string[]) => void;
+  /** Tras pasar a Estudio (lo confirma el servidor): la pantalla vuelve a leer su estado. */
+  onPlanCambiado?: () => void;
   className?: string;
 }) {
   const [confirmar, setConfirmar] = useState<{ addon: Addon; activar: boolean } | null>(null);
   const [trabajando, setTrabajando] = useState<Addon | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmarEstudio, setConfirmarEstudio] = useState(false);
+  const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  const [errorPlan, setErrorPlan] = useState<string | null>(null);
   const total = precioMensual('BASE', contratados);
+
+  // Founding → Estudio en una sola actualización (/api/billing/cambiar-plan): el
+  // portal de Stripe no cambia el plan de una suscripción con varias líneas.
+  async function aplicarEstudio() {
+    if (cambiandoPlan) return;
+    setCambiandoPlan(true); setErrorPlan(null);
+    const r = await pasarAEstudio();
+    setCambiandoPlan(false);
+    if ('error' in r) { setErrorPlan(r.error); return; }
+    setConfirmarEstudio(false);
+    onPlanCambiado?.();
+  }
 
   async function aplicar() {
     if (!confirmar || trabajando) return;
@@ -124,12 +141,49 @@ export function Complementos({
           <> Con {PLAN_INFO.ESTUDIO.nombre} ({PLAN_INFO.ESTUDIO.precioMes}€) los tienes todos incluidos, además de la app propia.</>
         )}
       </p>
-      {/* El portal de Stripe no cambia el plan de una suscripción con varias
-          líneas: hasta que haya un cambio de plan propio, se dice cómo hacerlo. */}
-      {contratados.length > 0 && (
-        <p className="mt-2 text-[12.5px] text-muted-foreground text-pretty">
-          Para cambiar de plan, quita antes tus complementos: {PLAN_INFO.ESTUDIO.nombre} ya los incluye.
-        </p>
+      {/* Pasar a Estudio: con complementos, el portal de Stripe no puede hacerlo
+          (varias líneas). Se confirma antes con el total nuevo. */}
+      {esPropietaria && contratados.length > 0 && (
+        <div data-pasar-a-estudio className="mt-4 rounded-xl border border-border bg-background px-4 py-3">
+          {!confirmarEstudio ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] text-muted-foreground text-pretty">
+                ¿Prefieres {PLAN_INFO.ESTUDIO.nombre}? Incluye todos los complementos y la app propia.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setErrorPlan(null); setConfirmarEstudio(true); }}
+                disabled={trabajando !== null}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-[13.5px] font-bold text-foreground hover:bg-background disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                Pasarme a {PLAN_INFO.ESTUDIO.nombre}
+              </button>
+            </div>
+          ) : (
+            <div role="group" aria-label={`Confirmar el cambio a ${PLAN_INFO.ESTUDIO.nombre}`}>
+              <p className="text-[13.5px] text-foreground text-pretty">
+                Tu cuota pasará de {total}€ a <strong>{PLAN_INFO.ESTUDIO.precioMes}€/mes</strong>. Tus complementos siguen funcionando, ya incluidos en {PLAN_INFO.ESTUDIO.nombre}.
+                Este mes se ajusta la parte proporcional en tu próxima factura.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button" onClick={() => void aplicarEstudio()} disabled={cambiandoPlan}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-[13.5px] font-bold text-brand-foreground hover:brightness-110 disabled:opacity-60"
+                >
+                  {cambiandoPlan && <Loader2 size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                  {cambiandoPlan ? 'Cambiando…' : `Sí, pasarme a ${PLAN_INFO.ESTUDIO.nombre}`}
+                </button>
+                <button
+                  type="button" onClick={() => setConfirmarEstudio(false)} disabled={cambiandoPlan}
+                  className="rounded-xl border border-border bg-card px-4 py-2 text-[13.5px] font-medium hover:bg-background disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+          {errorPlan && <p role="alert" className="mt-2 text-[13px] text-destructive">{errorPlan}</p>}
+        </div>
       )}
     </section>
   );
