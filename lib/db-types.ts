@@ -1122,7 +1122,7 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
-  // migr 20261019190000.
+  // migr 20261019182716.
   mostrar_logo_en_landing: boolean | null;
 }
 

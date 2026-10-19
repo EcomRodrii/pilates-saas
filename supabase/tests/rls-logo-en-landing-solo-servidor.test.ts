@@ -1,6 +1,6 @@
 // `studios.mostrar_logo_en_landing`: el consentimiento para que el logo de un estudio salga en la
 // franja de clientes de la landing lo da el equipo de Tentare (servidor), nunca el navegador
-// (migración 20261019190000). Si una propietaria pudiera ponérselo a true, la franja enseñaría un
+// (migración 20261019182716). Si una propietaria pudiera ponérselo a true, la franja enseñaría un
 // logo que nadie ha aprobado; si pudiera ponérselo a otra, lo mismo con un estudio ajeno.
 //
 // Contra Postgres de verdad (job «calidad-rls»), como el resto de supabase/tests. Ver

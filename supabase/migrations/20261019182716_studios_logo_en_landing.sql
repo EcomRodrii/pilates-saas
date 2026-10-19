@@ -1,4 +1,4 @@
--- 20261019190000 · TENTARE — el logo de un estudio solo sale en la landing si el estudio
+-- 20261019182716 · TENTARE — el logo de un estudio solo sale en la landing si el estudio
 -- ha dado su consentimiento, y ese consentimiento no lo escribe el navegador.
 --
 -- La franja «Estudios que ya usan Tentare» de la home (components/landing/FranjaLogos.tsx)
