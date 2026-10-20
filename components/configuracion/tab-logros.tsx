@@ -25,7 +25,7 @@ const LOGROS_SUGERIDOS: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoE
   { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 4 semanas', descripcion: '4 semanas seguidas entrenando.', umbral: 4, icono: 'racha', creditosRecompensa: 60, activo: true },
   { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 10 semanas', descripcion: '10 semanas seguidas entrenando.', umbral: 10, icono: 'destellos', creditosRecompensa: 150, activo: true },
   { metric: 'RESERVAS_TOTALES', nombre: '100 reservas', descripcion: 'Has hecho 100 reservas en total.', umbral: 100, icono: 'medalla', creditosRecompensa: 200, activo: true },
-  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Ni una sola falta este mes.', umbral: 1, icono: 'hecho', creditosRecompensa: 50, activo: true },
+  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Un mes completo sin ninguna falta.', umbral: 1, icono: 'hecho', creditosRecompensa: 50, activo: true },
   { metric: 'ASISTENCIA_CUMPLEANOS', nombre: 'Feliz cumpleaños', descripcion: 'Has entrenado el día de tu cumpleaños.', umbral: 1, icono: 'cumpleanos', creditosRecompensa: 100, activo: true },
 ];
 
