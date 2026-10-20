@@ -7750,6 +7750,21 @@ async function evaluarRetosServidor(
   }));
 }
 
+/**
+ * «Semana completa» con la racha única: paga SOLO si esta semana (lunes–domingo, hora del estudio) ya tiene una
+ * asistencia válida (`ASISTIDA`, clase no cancelada). La meta es el mínimo FIJO del estudio (1), nunca una meta
+ * personal. La clave es la de siempre (`socio:lunes`): el UNIQUE de `reward_actions` impide pagarla dos veces y el
+ * RPC revalida la asistencia en la base. Devuelve si la semana estaba completa (no si se concedió).
+ */
+export async function pagarSemanaCompletaUnica(
+  admin: SupabaseClient, studioId: string, socioId: string, now: Date = new Date(),
+): Promise<boolean> {
+  const r = await cargarRachaUnica(admin, studioId, socioId, now);
+  if (r.semanaEnCurso.estado !== 'hecha') return false;
+  await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${r.claveSemanaActual}`);
+  return true;
+}
+
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
 // Best-effort de verdad: si la gamificación falla, la reserva o el check-in que
 // la disparó siguen adelante — perder un logro es mucho menos malo que perder
@@ -7779,9 +7794,16 @@ async function evaluarGamificacionServidor(
     // UPDATE). Mismo ref_id que el cliente (`socioId:claveSemanaActual`) —
     // el UNIQUE de `reward_actions` es lo que evita otorgarla dos veces la
     // misma semana, tanto si la da el panel como si la da el servidor.
-    const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
-    if (racha.semanas > 0) {
-      await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+    if (rachaUnicaEncendida(studioId)) {
+      // Racha única (PR 3.3-B, D12): se paga por SEMANA COMPLETA (la asistencia válida de esta semana, con el
+      // mínimo del estudio), no porque haya racha de semanas anteriores. Misma clave de siempre.
+      // Su propio try: una lectura fallida no puede saltarse el objetivo mensual de abajo.
+      await pagarSemanaCompletaUnica(admin, studioId, socioId).catch((err) => reportDbError('[evaluarGamificacionServidor] semana completa', err));
+    } else {
+      const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
+      if (racha.semanas > 0) {
+        await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+      }
     }
     // Objetivo mensual (I-1, auditoria 49a): mismo punto que SEMANA_COMPLETA
     // arriba -- mismo motor puro sobre el mismo ctx ya cargado.
