@@ -1531,7 +1531,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setActividadReciente(data.actividadReciente);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
-      dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
+      // Se pide aquí y se aplica junto al resto de cargas tardías (un solo commit, más abajo).
+      const likesPromesa = dbMisLikesComunidad();
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       integrationsStore.setActivasDelServidor(data.integracionesActivas ?? []);
       setRewardRules(data.rewardRules ?? []);
@@ -1552,16 +1553,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTextosLegalesPropios(textosPropiosDe(data.studioConfig));
       setDataLoaded(true);
 
-      // Campos personalizados y plantillas de email: no son ruta crítica (solo
-      // config + fichas), se cargan aparte sin bloquear el primer pintado.
-      dbFetchCamposPersonalizados().then(c => { setCamposPersonalizados(c); setCamposPersonalizadosCargados(true); }).catch(() => {});
-      dbFetchSegmentosClientes().then(setSegmentosClientes).catch(() => {});
-      dbFetchPlantillasEmail().then(p => { setPlantillasEmail(p); setPlantillasEmailCargadas(true); }).catch(() => {});
-      dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
-      // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
+      // Campos personalizados, segmentos, plantillas de email, snapshots de dependencia,
+      // cuestionarios de salud y likes: no son ruta crítica (solo config + fichas), se
+      // cargan aparte sin bloquear el primer pintado. ⚠️ Se aplican TODOS en un único
+      // bloque de setState (un solo commit): antes eran siete `.then(setX)` sueltos, cada
+      // uno un render de los ~180 consumidores de `useStudio()`. Cada carga que falla se
+      // queda como estaba (sin su `*Cargadas`), igual que con el `.catch(() => {})` de antes.
+      // RECEPCION/MANAGER simplemente reciben [] en los cuestionarios (la RLS los excluye) —
       // no hace falta comprobar el rol en cliente antes de pedirlo.
-      dbFetchPlantillasCuestionarioSalud().then(p => { setPlantillasCuestionarioSalud(p); setCuestionarioSaludCargado(true); }).catch(() => {});
-      dbFetchRespuestasCuestionarioSalud().then(setRespuestasCuestionarioSalud).catch(() => {});
+      void Promise.allSettled([
+        dbFetchCamposPersonalizados(),
+        dbFetchSegmentosClientes(),
+        dbFetchPlantillasEmail(),
+        dbFetchDependencySnapshots(),
+        dbFetchPlantillasCuestionarioSalud(),
+        dbFetchRespuestasCuestionarioSalud(),
+        likesPromesa,
+      ]).then(([campos, segmentos, plantillas, snapshots, plantillasSalud, respuestasSalud, likes]) => {
+        if (campos.status === 'fulfilled') { setCamposPersonalizados(campos.value); setCamposPersonalizadosCargados(true); }
+        if (segmentos.status === 'fulfilled') setSegmentosClientes(segmentos.value);
+        if (plantillas.status === 'fulfilled') { setPlantillasEmail(plantillas.value); setPlantillasEmailCargadas(true); }
+        if (snapshots.status === 'fulfilled') setDependencySnapshots(snapshots.value);
+        if (plantillasSalud.status === 'fulfilled') { setPlantillasCuestionarioSalud(plantillasSalud.value); setCuestionarioSaludCargado(true); }
+        if (respuestasSalud.status === 'fulfilled') setRespuestasCuestionarioSalud(respuestasSalud.value);
+        if (likes.status === 'fulfilled') content.setLikedPostIds(new Set(likes.value));
+      });
 
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
       // vistas se rellenan un instante después. Ninguna lógica de negocio las

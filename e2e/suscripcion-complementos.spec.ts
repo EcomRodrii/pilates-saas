@@ -71,3 +71,69 @@ test.describe('Complementos de Founding Studio', () => {
     });
   }
 });
+
+// ─── Pasar a Estudio con complementos (/api/billing/cambiar-plan) ────────────
+// El portal de Stripe no cambia el plan de una suscripción con varias líneas: la
+// pantalla lo hace por el servidor y, como es dinero, solo cambia con lo que él
+// contesta (vuelve a leer /api/billing/status).
+async function montarConComplemento(page: Page, cambiar: (route: Route) => Promise<void>) {
+  await page.addInitScript((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e-duena', email: 'duena@example.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  }, STORAGE_KEY);
+  let cambiado = false;
+  const intentos: unknown[] = [];
+  const conComplemento = { ...ESTADO, complementos: { ...ESTADO.complementos, contratados: ['decisiones'] } };
+  const enEstudio = { ...ESTADO, plan: 'ESTUDIO', complementos: { pagaAparte: false, contratados: [], disponibles: [] } };
+  await page.route('**/api/**', (route) => json(route, {}));
+  await page.route('**/api/billing/status**', (route) => json(route, cambiado ? enEstudio : conComplemento));
+  await page.route('**/api/billing/cambiar-plan', async (route) => {
+    intentos.push(route.request().postDataJSON());
+    await cambiar(route);
+  });
+  await page.route('**/rest/v1/**', (route) => json(route, []));
+  await page.goto('/suscripcion');
+  await expect(page.getByRole('heading', { name: 'Complementos' })).toBeVisible({ timeout: 30_000 });
+  return { intentos, marcarCambiado: () => { cambiado = true; } };
+}
+
+test.describe('Pasar de Founding con complementos a Estudio', () => {
+  test('confirma con el total nuevo y la pantalla pasa a Estudio solo cuando el servidor lo confirma', async ({ page }) => {
+    let marcar = () => {};
+    const { intentos, marcarCambiado } = await montarConComplemento(page, async (route) => {
+      marcar();
+      await json(route, { ok: true, plan: 'ESTUDIO' });
+    });
+    marcar = marcarCambiado;
+    const bloque = page.locator('[data-pasar-a-estudio]');
+    await bloque.getByRole('button', { name: 'Pasarme a Estudio' }).click();
+    await expect(bloque).toContainText('de 38€ a');
+    await expect(bloque).toContainText('59€/mes');
+    expect(intentos).toHaveLength(0); // nada sin confirmar
+
+    await bloque.getByRole('button', { name: 'Sí, pasarme a Estudio' }).click();
+    await expect(page.getByRole('heading', { name: 'Complementos' })).toHaveCount(0);
+    await expect(page.getByText('Estudio').first()).toBeVisible();
+    expect(intentos).toEqual([{ plan: 'ESTUDIO' }]);
+  });
+
+  for (const [nombre, responder] of [
+    ['409', (r: Route) => json(r, { error: 'Tu último cobro no ha salido.' }, 409)],
+    ['500', (r: Route) => json(r, { error: 'No se ha podido cambiar de plan.' }, 500)],
+    ['sin red', (r: Route) => r.abort('failed')],
+  ] as const) {
+    test(`si el servidor dice que no (${nombre}), sigue en Founding con sus complementos`, async ({ page }) => {
+      const { intentos } = await montarConComplemento(page, responder);
+      const bloque = page.locator('[data-pasar-a-estudio]');
+      await bloque.getByRole('button', { name: 'Pasarme a Estudio' }).click();
+      await bloque.getByRole('button', { name: 'Sí, pasarme a Estudio' }).click();
+      await expect(bloque.getByRole('alert')).toBeVisible();
+      expect(intentos.length).toBeGreaterThan(0);
+      await expect(page.getByRole('heading', { name: 'Complementos' })).toBeVisible();
+      await expect(fila(page, 'decisiones').getByText('Activo')).toBeVisible();
+    });
+  }
+});

@@ -30,7 +30,7 @@ export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: 
       .eq('estado', 'LISTA_ESPERA')
       .not('oferta_expira_en', 'is', null)
       .lte('oferta_expira_en', new Date().toISOString())
-      .range(from, to),
+      .order('id').range(from, to),
   );
   // Y si la lectura FALLA no es «no había nada»: Sentry contó 128 «Gateway
   // Timeout» aquí entre el 17-ago y el 13-sep, todas con `desde: 0` (falla la

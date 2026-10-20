@@ -369,7 +369,7 @@ export async function calcularDependenciaTodosLosEstudios(
   // el estudio 1.001, a esos no se les calcularía el riesgo jamás.
   const { data: studios } = await fetchAllRows<{ id: string }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id').range(from, to),
+    (from, to) => admin.from('studios').select('id').order('id').range(from, to),
   );
 
   // En paralelo acotado, no en serie. Esto era un `for` con un `await` por

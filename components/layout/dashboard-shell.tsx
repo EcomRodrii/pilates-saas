@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -13,19 +13,17 @@ import { useCore } from '@/lib/core-context';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
-import { TourProvider } from '@/lib/tour-context';
+import { TourProvider, useTour } from '@/lib/tour-context';
 import { TutorialProvider } from '@/lib/tutorial-context';
 import { nacioConTutoriales } from '@/lib/ayuda/tutorial-progreso';
 import { tutorialDePantalla } from '@/lib/ayuda/pantallas';
 import { AsistenteProvider } from '@/lib/asistente-context';
-import { VisitaGuiada } from '@/components/tour/visita-guiada';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
-import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
 import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
@@ -34,6 +32,7 @@ import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { reviewBoostToca } from '@/lib/growth/review-boost';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
 // bienvenida solo sale hasta que el estudio la sella (y trae a Tenti, con su
@@ -52,6 +51,28 @@ const PrimeraVezAqui = dynamic(() => import('@/components/guia/primera-vez-aqui'
 const HitosActivacion = dynamic(() => import('@/components/analitica/hitos-activacion').then(m => m.HitosActivacion), { ssr: false });
 // «Siguiente paso» (P1.4): solo la propietaria de un estudio nuevo, y aparte del chunk del panel.
 const SiguientePaso = dynamic(() => import('@/components/onboarding/siguiente-paso').then(m => m.SiguientePaso), { ssr: false });
+
+// La visita guiada (con el currículo de capítulos) y el modal de reseñas salen aparte del
+// armazón: casi nadie los ve y se descargaban en las ~90 pantallas del panel. Cada uno se
+// pide SOLO cuando le toca (visita activa / estudio elegible) y desde ese momento aparece como
+// antes; los guardas replican la condición con la que ya se auto-gobernaban (`t.activo`,
+// `reviewBoostToca`).
+const VisitaGuiada = dynamic(() => import('@/components/tour/visita-guiada').then(m => m.VisitaGuiada), { ssr: false });
+const ReviewBoostModal = dynamic(() => import('@/components/growth/review-boost-modal').then(m => m.ReviewBoostModal), { ssr: false });
+
+function VisitaGuiadaSiActiva(props: ComponentProps<typeof VisitaGuiada>) {
+  const t = useTour();
+  return t.activo ? <VisitaGuiada {...props} /> : null;
+}
+
+function ReviewBoostSiToca(props: ComponentProps<typeof ReviewBoostModal>) {
+  // Una vez pedido se queda montado: al enseñarlo apunta `reviewBoostMostradoEn` en el estudio,
+  // `reviewBoostToca` pasa a ser falso y desmontarlo cerraría el modal en la cara de la propietaria.
+  const [pedido, setPedido] = useState(false);
+  const toca = reviewBoostToca(props.studio, props.rol);
+  if (toca && !pedido) setPedido(true);
+  return pedido ? <ReviewBoostModal {...props} /> : null;
+}
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
 // archivo necesita exportar `metadata` (manifest del panel instalable) y eso
@@ -418,12 +439,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* Montado una vez, fuera del árbol de cada página: la visita guiada
               por capítulos (lib/tour/). Solo localiza el data-tour="..." real de
               la pantalla actual; ver components/tour/visita-guiada.tsx. */}
-          <VisitaGuiada cargando={cargandoDatos} />
+          <VisitaGuiadaSiActiva cargando={cargandoDatos} />
           {observarHitos && <HitosActivacion />}
           {/* Overlay, NO pantalla completa (a diferencia de PantallaBienvenida
               arriba): no debe bloquear el panel. Se autogobierna con
               debeMostrarModal() — el componente decide si se muestra. */}
-          <ReviewBoostModal studio={studio} rol={rolResuelto ? rol : null} />
+          <ReviewBoostSiToca studio={studio} rol={rolResuelto ? rol : null} />
           {/* Aquí y no en la página del Calendario: se queda flotando mientras
               se cambia de pantalla, y una página se desmonta al salir de ella. */}
           <VentanaCalendario />

@@ -419,6 +419,7 @@ export default function SuscripcionPage() {
                 disponibles={estado.complementos.disponibles}
                 esPropietaria={esPropietaria}
                 onCambio={(addons) => setEstado((e) => (e && e.complementos ? { ...e, complementos: { ...e.complementos, contratados: addons } } : e))}
+                onPlanCambiado={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
               />
             )}
           </>

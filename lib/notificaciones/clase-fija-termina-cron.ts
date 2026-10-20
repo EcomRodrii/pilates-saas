@@ -49,7 +49,7 @@ async function avisarOfertasConNombre(admin: SupabaseClient, studioId: string, h
     (from, to) => admin.from('plazas_fijas').select('id, clase_fija_id, socio_id, vigencia_hasta')
       .eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA'])
       .not('clase_fija_id', 'is', null).not('socio_id', 'is', null)
-      .gte('vigencia_hasta', hoy).lte('vigencia_hasta', limite).range(from, to),
+      .gte('vigencia_hasta', hoy).lte('vigencia_hasta', limite).order('id').range(from, to),
   );
   exigir(plazasR.error, 'leyendo plazas_fijas');
   const plazas = plazasR.data;
@@ -90,7 +90,7 @@ async function avisarPlazasSueltas(admin: SupabaseClient, studioId: string, hoy:
     (from, to) => admin.from('plazas_fijas').select('id, socio_id, vigencia_hasta, dia_semana, hora_inicio, tipo_clase_id')
       .eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA'])
       .is('clase_fija_id', null).not('socio_id', 'is', null)
-      .gte('vigencia_hasta', hoy).lte('vigencia_hasta', limite).range(from, to),
+      .gte('vigencia_hasta', hoy).lte('vigencia_hasta', limite).order('id').range(from, to),
   );
   exigir(plazasR.error, 'leyendo plazas_fijas sueltas');
   if (!plazasR.data.length) return { publicados: 0 };
