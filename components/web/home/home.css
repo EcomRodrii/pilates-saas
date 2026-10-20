@@ -536,7 +536,7 @@
   /* En vertical, el texto va arriba y el producto debajo: la capa, uniforme. */
   .wh-heroe-foto::after { background: rgba(34, 38, 31, .62); }
   .wh-heroe-foto img { transform: none; object-position: 50% 40%; }
-  .wh-heroe-wrap { display: block; padding: calc(var(--wh-barra) + 28px) var(--wh-margen) 0; }
+  .wh-heroe-wrap { display: block; padding: calc(var(--wh-barra) + 52px) var(--wh-margen) 0; }
   .wh-heroe-texto { width: 100%; max-width: 600px; }
   .wh-heroe-h1 { font-size: 12px; }
   .wh-heroe-promesa { margin-top: 12px; font-size: clamp(40px, 11vw, 58px); letter-spacing: -.04em; }
