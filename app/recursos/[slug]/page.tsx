@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: a.descripcion,
     alternates: { canonical: url },
     openGraph: {
+      siteName: 'Tentare',
       type: 'article',
       title: a.titulo,
       description: a.descripcion,

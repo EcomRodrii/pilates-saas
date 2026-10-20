@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs BookyWay',
     description: 'Modelo de precio, sustitución de instructoras y elección de reformer — comparados con lo que consta en la web pública de BookyWay.',
