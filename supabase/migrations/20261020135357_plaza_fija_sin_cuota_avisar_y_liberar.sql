@@ -12,6 +12,9 @@
 -- Lo apunta y lo borra el servidor (`avisarPlazaFijaSinCuota`, service_role); el navegador no ve la tabla. Los demás
 -- valores siguen igual y cada estudio puede elegirlos en Configuración. Los 19 estudios estaban en MANTENER, que nadie
 -- había cambiado: pasan a la nueva de serie.
+--
+-- Supresión (RGPD): CONSERVAR. La fila solo guarda el id de la ficha (que la supresión anonimiza, no borra) y dos fechas,
+-- sin ningún dato suyo; y al suprimirla se le cancelan las reservas, así que la siguiente pasada borra el apunte.
 
 create table if not exists public.plaza_fija_sin_cuota_avisos (
   studio_id text not null references public.studios(id) on delete cascade,
