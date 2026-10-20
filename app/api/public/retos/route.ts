@@ -4,8 +4,9 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 
-// Apunta/desapunta a la socia de un reto del carrusel de Inicio, desde el
-// portal. SEGURIDAD: mismo patrón que /api/public/favoritos — exige sesión
+// Apunta/desapunta a la socia de un reto, desde el portal: un reto del carrusel
+// de Inicio (`retoKey`: 'core' | 'cara') o un reto del estudio con inscripción
+// (`challengeId`, el id del reto). SEGURIDAD: mismo patrón que /api/public/favoritos — exige sesión
 // real de socia (JWT de Supabase Auth) y deriva su id del token verificado,
 // nunca del body, así nadie puede apuntarse en nombre de otra socia.
 export async function POST(req: NextRequest) {
@@ -15,10 +16,15 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
     studioId?: string;
     retoKey?: string;
+    challengeId?: string;
     accion?: 'marcar' | 'desmarcar';
   } | null;
 
-  if (!body?.studioId || !body?.retoKey || !body?.accion) {
+  const clave = body?.challengeId ?? body?.retoKey;
+  if (!body?.studioId || !clave || !body?.accion) {
+    return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
+  }
+  if (typeof body.studioId !== 'string' || typeof clave !== 'string' || clave.length > 100) {
     return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
   }
   if (body.accion !== 'marcar' && body.accion !== 'desmarcar') {
@@ -32,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const r = await toggleRetoParticipacion({
-      studioId: body.studioId, socioId, retoKey: body.retoKey, accion: body.accion,
+      studioId: body.studioId, socioId, retoKey: clave, accion: body.accion,
     });
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
     return NextResponse.json(r);
