@@ -195,7 +195,7 @@ export interface RowChallengeDefinitions {
   creditos_recompensa: number;
   activo: boolean;
   creado_en: string;
-  // migr 20261019173000.
+  // migr 20261020153107.
   alcance: string | null;
 }
 
@@ -2164,7 +2164,7 @@ export interface RowRetoParticipaciones {
   socio_id: string;
   reto_key: string;
   created_at: string;
-  // migr 20261019173000.
+  // migr 20261020153107.
   baja_en: string | null;
 }
 
