@@ -8,9 +8,9 @@ import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { getAlumna, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getMinimoRacha, getPagos, getPlazaFija, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
+import { getAlumna, getRachaUnicaActiva, getBonos, getClases, getHayAlgoALaVenta, getHuella, getInstructoras, getMinimoRacha, getPagos, getPlazaFija, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
 import { deudaDeLaCuota, porPagarEnLaApp } from '@/lib/student/mi-plan-vista';
-import { getGamificacion } from '@/lib/student/gamificacion-datos';
+import { getGamificacion, getRachaSiUnica } from '@/lib/student/gamificacion-datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { hoyISO } from '@/lib/student/formato';
 import { useAhoraMs } from '@/lib/student/use-ahora';
@@ -65,12 +65,14 @@ export default function InicioPage() {
   const cargar = useCallback(async () => {
     // `getMinimoRacha` (el mínimo semanal del estudio, el denominador de «Tu progreso esta semana»), `getAlumna`, `getHuella` y `getHayAlgoALaVenta` (la bienvenida de la recién llegada) salen del mismo payload:
     // ninguna petición de más.
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, alumna, huella, hayAlgoALaVenta, pagos, renovacion] = await Promise.all([
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, alumna, huella, hayAlgoALaVenta, pagos, renovacion, racha, rachaActiva] = await Promise.all([
       getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug),
       getAlumna(estudio.slug), getHuella(estudio.slug), getHayAlgoALaVenta(estudio.slug), getPagos(estudio.slug), getRenovacionPorPagar(estudio.slug),
+      // Solo con `RACHA_UNICA` encendida (si no, `null` sin pedir nada).
+      getRachaSiUnica(estudio.slug, estudio.id), getRachaUnicaActiva(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, alumna, huella, hayAlgoALaVenta, pagos, renovacion };
-  }, [estudio.slug]);
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, alumna, huella, hayAlgoALaVenta, pagos, renovacion, racha, rachaActiva };
+  }, [estudio.slug, estudio.id]);
 
   // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
   // antes y se refresca por detrás (ver `useAsync`).
@@ -152,8 +154,9 @@ export default function InicioPage() {
   const loTuyo = data && loTengo && (tieneAlgo(loTengo) || porPagar.length > 0 || (yaVino && data.hayAlgoALaVenta)) ? (
     <LoTuyo
       // Sin racha (19-oct-2026): se calculaba sobre el catálogo, que no trae clases pasadas, así que casi nunca pasaba de
-      // la semana actual. El fundador: «rachas solo si se calculan correctamente». Vuelve cuando salga del historial.
-      slug={estudio.slug} t={loTengo} hoy={hoy} racha={0}
+      // la semana actual. El fundador: «rachas solo si se calculan correctamente». Vuelve con la racha única
+      // (`RACHA_UNICA`): la calcula el servidor con la historia entera. Apagada, sigue en 0.
+      slug={estudio.slug} t={loTengo} hoy={hoy} racha={data.racha?.semanas ?? 0}
       hrefMiPlan={href('/bonos')} hrefClaseFija={`${href('/mis-reservas')}?tab=fija`}
       hrefTienda={data.hayAlgoALaVenta ? href('/comprar') : null}
       debe={debeCuota}
@@ -228,7 +231,7 @@ export default function InicioPage() {
             {!valoracionDelante && <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />}
             <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
 
-            <TuProgreso studioId={estudio.id} minimoSemanal={data.minimoRacha ?? 1} hrefMas={href('/bonos') + '#estadisticas'} />
+            <TuProgreso studioId={estudio.id} minimoSemanal={data.rachaActiva ? 1 : (data.minimoRacha ?? 1)} hrefMas={href('/bonos') + '#estadisticas'} />
             {gamificacion && <RetoDeAhora retos={gamificacion.retos} href={href('/logros')} fotoUrl={estudio.fotoPortada} />}
 
             {/* Debajo de la maqueta, y SOLO si el estudio los ha escrito o publicado (de serie, nada): su frase a mano y

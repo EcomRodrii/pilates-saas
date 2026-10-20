@@ -8,6 +8,7 @@ import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
 import { configLegalDeFila, tieneTextoPropio } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { rachaUnicaEncendida } from '@/lib/interruptor-por-estudio';
 import { tokenCoincideConHash } from '@/lib/token-hash';
 import { claveCanjeValida, idCanjeDeClave, esViolacionUnica, leerResultadoClaseGratis } from '@/lib/canje-idempotencia';
 import { exigirLectura } from '@/lib/exigir-lectura';
@@ -91,6 +92,7 @@ import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { cargarRachaUnica } from '@/lib/gamificacion/racha-unica-servidor';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido, type AforoApartado } from '@/lib/booking-logic';
@@ -450,6 +452,9 @@ function studioPublico(r: RowStudios) {
     // La racha de la alumna se calcula en su app: sin esto usaría siempre 1 y
     // el ajuste del estudio no tendría efecto donde se ve.
     rachaClasesSemana: (r as { racha_clases_semana?: number | null }).racha_clases_semana ?? null,
+    // Semana y racha únicas (PR 3.3): si está encendida para este estudio la app pide la racha al
+    // servidor (`/api/public/racha`) y deja de calcularla con el historial. Apagada = como siempre.
+    rachaUnica: rachaUnicaEncendida(r.id),
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     // El importe de la penalización ya va dentro de los términos que se
     // enseñan (arriba); viaja también suelto para que quien recomponga el texto
@@ -7424,6 +7429,7 @@ async function evaluarLogrosServidor(
   const { socio, reservas, sesiones, referidas } = ctx;
 
   const now = new Date();
+  let rachaUnicaEvaluacion: ReturnType<typeof cargarRachaUnica> | null = null;
   // Cada logro es independiente de los demás (progreso/historial/crédito solo
   // tocan filas propias de ese achievement_id, y reward_actions se protege con
   // su UNIQUE) — se evalúan en paralelo en vez de un `for` con awaits
@@ -7433,7 +7439,21 @@ async function evaluarLogrosServidor(
     const existente = progresos.find(p => p.achievementId === def.id);
     if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
-    const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
+    // «Semanas consecutivas» con `RACHA_UNICA`: la función única (misma que la app de la alumna), no la
+    // racha de siempre. Se carga UNA vez por evaluación aunque haya varios logros de esta métrica.
+    let valor: number;
+    if (def.metric === 'SEMANAS_CONSECUTIVAS' && rachaUnicaEncendida(studioId)) {
+      rachaUnicaEvaluacion ??= cargarRachaUnica(admin, studioId, socioId, now);
+      try {
+        valor = (await rachaUnicaEvaluacion).semanas;
+      } catch (err) {
+        // Un fallo de lectura no se disfraza de racha 0 (que escribiría un progreso falso): no se evalúa.
+        reportDbError('[evaluarLogrosServidor] racha única', err);
+        return;
+      }
+    } else {
+      valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
+    }
     const completadoAhora = valor >= def.umbral;
 
     if (!completadoAhora) {

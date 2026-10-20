@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Coins, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import { PLAN_INFO, accesoProducto, entitlementsDe, planMinimoPara, tieneFeature } from '@/lib/billing/entitlements';
 import { nombreCreditos } from '@/lib/creditos-nombre';
@@ -39,6 +40,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
     codigosDescuento,
   } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  const rachaUnica = useInterruptor('rachaUnica', studio?.id);
 
   // Las diez tablas de gamificación NO vienen en el arranque del panel: se
   // sacaron de ahí en #1375 y ninguna función las recogió después, así que las
@@ -85,7 +87,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
   return (
     <>
       <GrupoFilas titulo="Tus créditos">
-        <FilaAjuste id="reglas" icono={Coins} valor={cargado ? resumenReglasCreditos(cargado) : null} estado={plan} onAbrir={abrir} />
+        <FilaAjuste id="reglas" icono={Coins} valor={cargado ? resumenReglasCreditos(cargado, { sinRacha: rachaUnica }) : null} estado={plan} onAbrir={abrir} />
         <FilaAjuste
           id="creditos-por-accion"
           icono={Sparkles}

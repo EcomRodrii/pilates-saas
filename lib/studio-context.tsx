@@ -237,6 +237,7 @@ import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido,
 import { estadosDeClientas } from '@/lib/clientas/estado';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
@@ -1099,6 +1100,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, []);
+
+  // Racha única (PR 3.3, `RACHA_UNICA`): con ella encendida el logro «Semanas consecutivas» lo evalúa SOLO
+  // el servidor con la función única; aquí no se calcula con la racha de siempre (daría otro número y podría
+  // concederlo antes de tiempo). Solo en el panel autenticado: el portal no pregunta (misma petición que
+  // ya hace el panel para sus demás interruptores, cacheada).
+  const rachaUnicaEnPanel = useInterruptor('rachaUnica', publicSlug || shadowedByPublicRoute ? null : studio?.id);
 
   // El self-claim de una instructora (confirmar el correo de invitación) pasa
   // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
@@ -5363,6 +5370,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     achievementDefinitions.filter(def => def.activo).forEach(def => {
       const progresoExistente = achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id);
       if (progresoExistente?.completado) return; // ya conseguido, no se re-evalúa
+      // Con la racha única encendida la evalúa el servidor (ver `rachaUnicaEnPanel`).
+      if (def.metric === 'SEMANAS_CONSECUTIVAS' && rachaUnicaEnPanel) return;
 
       const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now, todosLosSocios: socios });
       const completadoAhora = valor >= def.umbral;

@@ -58,3 +58,10 @@ export const pedirAppEncendido = (studioId: string) => encendidaPara(process.env
 
 /** «Tu app» y «Tu web» rehechos (`MI_WEB_NUEVA`). Para las rutas de servidor; la pantalla, el catálogo del navegador (misma variable). */
 export const miWebNuevaEncendida = (studioId: string) => encendidaPara(process.env.MI_WEB_NUEVA, studioId);
+
+/**
+ * Semana y racha únicas (Fase 3, PR 3.3). Lo mira el servidor (catálogo de la app, `/api/public/racha`,
+ * evaluación de logros); el panel, el catálogo del navegador (misma variable). Apagado = la racha de
+ * siempre, sin tocar nada.
+ */
+export const rachaUnicaEncendida = (studioId: string) => encendidaPara(process.env.RACHA_UNICA, studioId);

@@ -70,6 +70,8 @@ export interface PayloadPublico {
     reservaExigirPlan?: boolean | null;
     /** Clases por semana que mantienen la racha. `null` = 1 (lo de siempre). */
     rachaClasesSemana?: number | null;
+    /** `RACHA_UNICA` encendida para este estudio: la racha la calcula el servidor (`/api/public/racha`). */
+    rachaUnica?: boolean;
     penalizacionImporteEur?: number | null;
   } | null;
   sesiones: Sesion[];

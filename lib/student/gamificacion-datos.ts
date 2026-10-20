@@ -5,7 +5,7 @@ import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { proyectarGamificacion } from '@/lib/student/mapeo';
 import { hoyISO } from '@/lib/student/formato';
 import type { GamificacionVista } from '@/lib/student/tipos';
-import { getMinimoRacha } from '@/lib/student/datos';
+import { getMinimoRacha, getRachaUnicaActiva } from '@/lib/student/datos';
 import { clasesHechasDelHistorial, rachaSemanas } from '@/lib/student/ritmo';
 
 // Gamificación: sale del MISMO payload que todo lo demás (cero peticiones
@@ -94,11 +94,61 @@ export async function apuntarseReto(slug: string, studioId: string, retoId: stri
   }
 }
 
+/**
+ * La racha SOLO si el estudio tiene la racha única encendida; `null` si no (o si no se pudo leer). Lo usa
+ * Inicio: con la racha apagada sigue sin enseñarla (decisión del 19-oct-2026: «rachas solo si se calculan bien»).
+ */
+export async function getRachaSiUnica(slug: string, studioId: string): Promise<RachaVista | null> {
+  try {
+    if (!(await getRachaUnicaActiva(slug))) return null;
+    return await getRachaUnica(studioId);
+  } catch {
+    return null;
+  }
+}
+
 export interface RachaVista {
   /** Semanas seguidas cumpliendo el mínimo del estudio (la en curso solo suma si ya lo cumple). */
   semanas: number;
   /** Clases por semana que pide el estudio para mantenerla. */
   minimo: number;
+  /** Solo con la racha única (`RACHA_UNICA`): lo que calcula el servidor además del número. */
+  unica?: {
+    mejor: number;
+    respiroDisponible: boolean;
+    haciaRespiro: number;
+    semanaEnCurso: { hechas: number; meta: number; estado: 'hecha' | 'reservada' | 'pendiente' };
+  };
+}
+
+/** La racha única la calcula el servidor (`/api/public/racha`): una sola función para app, motor y panel. */
+async function getRachaUnica(studioId: string): Promise<RachaVista | null> {
+  const res = await fetch('/api/public/racha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+    body: JSON.stringify({ studioId }),
+  });
+  if (!res.ok) return null;
+  const c = (await res.json().catch(() => null)) as {
+    unica?: boolean; semanas?: number; mejor?: number; respiroDisponible?: boolean; haciaRespiro?: number;
+    semanaEnCurso?: { hechas?: number; meta?: number; estado?: string };
+  } | null;
+  if (!c || c.unica !== true || typeof c.semanas !== 'number' || !c.semanaEnCurso) return null;
+  const estado = c.semanaEnCurso.estado;
+  return {
+    semanas: c.semanas,
+    minimo: 1,
+    unica: {
+      mejor: c.mejor ?? c.semanas,
+      respiroDisponible: c.respiroDisponible === true,
+      haciaRespiro: c.haciaRespiro ?? 0,
+      semanaEnCurso: {
+        hechas: c.semanaEnCurso.hechas ?? 0,
+        meta: c.semanaEnCurso.meta ?? 1,
+        estado: estado === 'hecha' || estado === 'reservada' ? estado : 'pendiente',
+      },
+    },
+  };
 }
 
 /**
@@ -114,6 +164,8 @@ export interface RachaVista {
  */
 export async function getRacha(slug: string, studioId: string, hoy: string = hoyISO()): Promise<RachaVista | null> {
   try {
+    // Con `RACHA_UNICA` encendida el número lo da el servidor; apagada, lo de siempre (historial en el móvil).
+    if (await getRachaUnicaActiva(slug)) return await getRachaUnica(studioId);
     const [res, minimo] = await Promise.all([
       fetch('/api/public/historial', {
         method: 'POST',
