@@ -7,7 +7,7 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 // Guía de INSTALACIÓN (cómo se monta, en qué CMS, qué configurar y el checklist). La de
 // DECISIÓN —por qué no redirigir y qué opciones hay— es /recursos/reservas-en-tu-web.
@@ -17,11 +17,16 @@ const SLUG = 'widget-vs-iframe-reservas-pilates';
 
 const GUIA = guia('widget-vs-iframe-reservas-pilates');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/widget-vs-iframe-reservas-pilates')!;
+
 export const metadata: Metadata = {
-  title: 'Instalar reservas en WordPress, Wix y Squarespace — Tentare',
-  description: 'Cómo instalar reservas online en tu web en WordPress, Wix y Squarespace: redirección, iframe o widget, qué configurar después y el checklist antes de publicar.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: TITLE,
     description: 'El método que elijas determina cuántas alumnas potenciales llegan al final del proceso sin abandonar.',

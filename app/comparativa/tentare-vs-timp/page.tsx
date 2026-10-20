@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs TIMP',
     description: 'Precio, compromiso mínimo, facturación y comisión de TIMPY — comparados con lo que consta en la web pública de TIMP.',

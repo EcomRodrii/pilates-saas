@@ -9,17 +9,24 @@ import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Check } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('facturacion-electronica-verifactu');
 
-const DESCRIPCION = 'Veri*Factu en tu estudio de Pilates: si es una sociedad, el programa debe estar adaptado antes del 1 de enero de 2027; si eres autónoma, antes del 1 de julio.';
+// El titular visible y el `headline` del BlogPosting son el MISMO texto: Google
+// compara los dos, y antes no coincidían (auditoría de la fase 1, 19-oct-2026).
+const TITULAR = 'Facturación electrónica: qué cambia con Veri*factu';
+
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/facturacion-electronica-verifactu')!;
 
 export const metadata: Metadata = {
-  title: 'Veri*Factu para estudios de Pilates: qué cambia en 2026',
-  description: DESCRIPCION,
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/facturacion-electronica-verifactu') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Facturación electrónica para estudios de Pilates: qué cambia con Veri*factu',
     description: 'Qué es Veri*factu, cuándo te obliga según seas sociedad o autónoma y qué debe tener cada factura de tu estudio.',
@@ -62,14 +69,14 @@ export default function VerifactuPage() {
   return (
     <PageShell>
       <ArticleStructuredData
-        title="Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu"
-        description={DESCRIPCION}
+        title={TITULAR}
+        description={SEO.descripcion}
         slug="facturacion-electronica-verifactu"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        title="Facturación electrónica: qué cambia con Veri*factu"
+        title={TITULAR}
         intro="Qué es, cuándo te obliga según seas sociedad o autónoma y qué debe tener cada factura de tu estudio. Sin letra pequeña."
         readTime={`${GUIA.lectura} min de lectura`}
         actualizado={fechaModificada(GUIA)}

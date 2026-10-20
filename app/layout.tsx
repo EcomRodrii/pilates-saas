@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
+import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ProveedoresRaiz } from '@/components/raiz/proveedores-raiz';
 import { AhrefsAnalytics } from '@/components/analitica/ahrefs';
 import { MetaPixel } from '@/components/analitica/meta-pixel';
@@ -23,26 +24,27 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   // Con la marca al final (fase 5, 23-sep): era el único título del sitio sin
   // «Tentare», y es el de la página que más busca la marca.
-  title: 'Software de gestión para estudios de Pilates | Tentare',
-  description:
-    'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, gratis hasta 150 alumnas activas y 250 reservas al mes.',
+  // Pilates Y yoga, como el resto de la web (decisión del fundador), y las bajas
+  // «con tu visto bueno»: el modo por defecto es asistido, no se cubren solas
+  // (fase 1 de la web, 19-oct-2026). Lo heredan las páginas sin metadatos propios.
+  title: 'Software de gestión para estudios de Pilates y yoga | Tentare',
+  description: `Reservas desde la app de tu estudio, cobros que se reintentan solos y sustituciones con tu visto bueno. Para estudios de Pilates y yoga. ${GRATIS_CON_LIMITES}.`,
   // Sin `alternates.canonical` aquí (23-sep): un canonical en el layout raíz lo
   // heredan TODAS las páginas que no declaran el suyo, y las declara como copia de
   // la home. Cada página indexable pone el suyo; la home, en app/page.tsx.
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     locale: 'es_ES',
-    siteName: 'Tentare',
-    title: 'Tentare: software para estudios de Pilates y Yoga',
-    description:
-      'Reservas, cobros, bonos y sustituciones de instructoras para estudios de Pilates y Yoga. Sin permanencia, gratis hasta 150 alumnas activas y 250 reservas al mes.',
+    title: 'Tentare: software para estudios de Pilates y yoga',
+    description: `Reservas, cobros, bonos y sustituciones de instructoras para estudios de Pilates y yoga. Sin permanencia. ${GRATIS_CON_LIMITES}.`,
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Software para estudios de Pilates',
-    description:
-      'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',
-  },
+  // Solo la tarjeta, sin título ni descripción (fase 3, 20-oct-2026): los metadatos
+  // se mezclan SIN profundidad, así que una página sin `twitter` propio heredaba
+  // este título («solo Pilates») y esta frase («cubre las bajas solo», que no es
+  // cierta) en unas 70 URLs. Sin ellos, X lee `og:title` y `og:description` de
+  // cada página, que sí son los suyos.
+  twitter: { card: 'summary_large_image' },
   // El código lo da Search Console al añadir la propiedad (Ajustes →
   // Verificación de la propiedad → etiqueta HTML) — no es algo que se pueda
   // generar aquí. Sin GOOGLE_SITE_VERIFICATION en el entorno, esta clave se

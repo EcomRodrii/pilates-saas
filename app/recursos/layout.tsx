@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe('/recursos') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Centro de Recursos — Tentare',
     description: 'Guías prácticas para propietarias de estudios de Pilates.',
