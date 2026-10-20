@@ -11,9 +11,8 @@ import { usaMarquesina, type LogoCliente } from '@/lib/landing/logos-clientes';
 // sin demos, con suscripción viva). Con cero logos esto no pinta NADA: ni título ni
 // hueco. Sin logos no hay franja, que es mejor que una franja inventada.
 //
-// Va debajo de «¿Te suena?» y encima de «Seis cosas…», NO entre el héroe y el
-// vídeo: el vídeo monta sobre el bloque oscuro de «¿Te suena?» (decisión del
-// fundador, 23-sep) y ahí no cabe nada más.
+// Desde la home nueva (fase 2.2) va JUSTO bajo el héroe y encima de las seis
+// tarjetas, como en bsport y Momence (lo fija lib/landing/franja-logos-colocacion.test.ts).
 //
 // Cada logo ocupa una caja de tamaño FIJO (width/height en el <img> y en el CSS):
 // el navegador no tiene que esperar a la imagen para saber cuánto ocupa, así que
@@ -43,7 +42,10 @@ function Logo({ logo, decorativo }: { logo: LogoCliente; decorativo: boolean }) 
         alt={decorativo ? '' : logo.nombre}
         width={ANCHO}
         height={ALTO}
-        loading="lazy"
+        // Sin `lazy`: en la marquesina las copias van fuera de la pantalla, de lado,
+        // y el navegador no pedía una perezosa que no cruza la vista (llegaban en
+        // blanco al entrar). Son las mismas URL que los reales: no se descarga nada más.
+        loading="eager"
         decoding="async"
       />
     </li>
@@ -58,8 +60,9 @@ export function FranjaLogos({ logos }: { logos: readonly LogoCliente[] }) {
   const copias = marquesina ? 2 * k - 1 : 0;
 
   return (
-    <section id="clientes" className="v7-logos" aria-labelledby="v7-logos-t">
-      <p id="v7-logos-t" className="v7-logos-t">Estudios que ya usan Tentare</p>
+    // Sin frase encima (fundador, 20-oct-2026: «quita la frase»), como la franja de Mariana Tek;
+    // el nombre de la sección queda para los lectores de pantalla.
+    <section id="clientes" className="v7-logos" aria-label="Estudios que usan Tentare">
 
       <div className={marquesina ? 'v7-logos-carril v7-logos-marq' : 'v7-logos-carril'}>
         <div className="v7-logos-pista" style={{ ['--n' as string]: logos.length * (2 * k) }}>

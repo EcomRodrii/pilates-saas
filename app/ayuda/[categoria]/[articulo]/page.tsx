@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ categoria
     title: `${articulo.titulo} | Ayuda de Tentare`,
     description: articulo.descripcion,
     alternates: { canonical: urlDe(path) },
-    openGraph: { type: 'article', title: articulo.titulo, description: articulo.descripcion, url: urlDe(path) },
+    openGraph: { siteName: 'Tentare', type: 'article', title: articulo.titulo, description: articulo.descripcion, url: urlDe(path) },
   };
 }
 

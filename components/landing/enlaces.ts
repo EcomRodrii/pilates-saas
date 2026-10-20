@@ -32,8 +32,8 @@ export interface EnlaceNav {
 export const ALTA = '/crear-estudio';
 
 /**
- * WhatsApp Business de soporte. Mismo número que WhatsAppFab.tsx y
- * SeccionCtaFinal.tsx, que lo llevan literal; los bloques nuevos lo importan
+ * WhatsApp Business de soporte. Mismo número que WhatsAppFab.tsx,
+ * que lo lleva literal; los bloques nuevos lo importan
  * de aquí.
  */
 export const WHATSAPP_SOPORTE = '+34603556580';
@@ -84,7 +84,9 @@ export const SALIDAS = {
  * ni que las tarjetas guardadas viajen (la propia página dice que no).
  */
 export const NAV_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Cambiarme a Tentare' };
-export const HEROE_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Traer mis datos de otro programa' };
+// Home nueva (fase 2.2): el héroe dice lo mismo que la isla, «Cambiarme a
+// Tentare» (lo pidió el fundador). Antes, «Traer mis datos de otro programa».
+export const HEROE_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Cambiarme a Tentare' };
 
 // El menú y el pie de la home (NAV_V5, PIE_V5) se retiraron en la fase 2.1
 // (19-oct-2026): la isla y el pie son los de toda la web pública y sus enlaces

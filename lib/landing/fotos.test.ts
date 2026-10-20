@@ -18,7 +18,7 @@ import {
 
 const CARPETA = join(import.meta.dirname, '..', '..', 'public', CARPETA_PUBLICA);
 const ENTRADAS = Object.entries(FOTOS) as [string, FotoRegistrada][];
-const CONSENTIMIENTOS: Consentimiento[] = ['no-aplica', 'firmado', 'propia'];
+const CONSENTIMIENTOS: Consentimiento[] = ['no-aplica', 'firmado', 'propia', 'aportada'];
 
 // Presupuestos. Cada foto declara el suyo en el registro (`presupuesto`); el del
 // héroe además se fija aquí, porque su AVIF de escritorio más grande es la que se
@@ -144,7 +144,8 @@ test('la AVIF de escritorio más grande del héroe cabe en su presupuesto', () =
   const fichero = join(CARPETA, `${foto.id}-${ancho}.avif`);
   const kb = statSync(fichero).size / 1024;
   assert.ok(kb <= PRESUPUESTO_HEROE_AVIF_MAYOR_KB, `pesa ${kb.toFixed(1)} KB (presupuesto ${PRESUPUESTO_HEROE_AVIF_MAYOR_KB} KB)`);
-  assert.equal(altoDe(foto.recortes.escritorio, ancho), Math.round((ancho * 4) / 5), 'escritorio 5:4');
+  // Home nueva (fase 2.2): el héroe va a sangre de borde a borde, en 16:9 (antes, 5:4 en una columna).
+  assert.equal(altoDe(foto.recortes.escritorio, ancho), Math.round((ancho * 9) / 16), 'escritorio 16:9');
 });
 
 test('no quedan ficheros huérfanos de fotos que ya no están en el registro', () => {

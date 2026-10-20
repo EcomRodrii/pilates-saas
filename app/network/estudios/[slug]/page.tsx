@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title, description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, images: imagen ? [imagen] : undefined },
+    openGraph: { siteName: 'Tentare', title, description, url, images: imagen ? [imagen] : undefined },
     twitter: { card: 'summary', title, description, images: imagen ? [imagen] : undefined },
   };
 }

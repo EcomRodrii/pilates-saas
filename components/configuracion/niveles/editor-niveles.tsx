@@ -9,6 +9,8 @@ import { nombreCreditos } from '@/lib/creditos-nombre';
 import { cn } from '@/lib/utils';
 import { btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
+import { insigniaDeNivel } from '@/lib/gamificacion/insignias';
 import type { LevelDefinition } from '@/lib/types';
 import {
   CLASES_POR_SEMANA_SUPUESTAS, COLOR_NIVEL_NUEVO, MAX_NIVELES, NOMBRES_SUGERIDOS, RITMOS, UMBRAL_AVISO_SIN_LISTA,
@@ -57,6 +59,8 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
   const [base, setBase] = useState(() => firma(filasDe(levelDefinitions)));
   const [datos, setDatos] = useState<Datos>({ estado: 'cargando' });
   const [guardando, setGuardando] = useState(false);
+  // La fila cuyo selector de insignia está abierto (uno a la vez, debajo de su fila).
+  const [eligiendo, setEligiendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nota, setNota] = useState<string | null>(null);
 
@@ -126,7 +130,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
       if (f) return { ...f, umbral, clasesTexto: undefined };
       const nombre = NOMBRES_SUGERIDOS.find((x) => !usados.has(x.toLocaleLowerCase('es'))) ?? `Nivel ${i + 1}`;
       usados.add(nombre.toLocaleLowerCase('es'));
-      return { clave: nuevaClave(), nombre, umbral, color: COLOR_NIVEL_NUEVO, icono: String(i + 1), beneficios: '', activo: true };
+      return { clave: nuevaClave(), nombre, umbral, color: COLOR_NIVEL_NUEVO, icono: 'estrella', beneficios: '', activo: true };
     });
     // Los de más de cinco, por encima del último y en el mismo orden: nunca por debajo ni repetidos.
     const paso = Math.max(10, escala[escala.length - 1] - escala[escala.length - 2]);
@@ -211,7 +215,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
             Aún no hay niveles. {porClase ? 'Elige un ritmo arriba para empezar con cinco.' : ''}
             {!porClase && (
               <button type="button" className={cn(btnSecondary, 'ml-2')}
-                onClick={() => setFilas(NOMBRES_SUGERIDOS.map((nombre, i) => ({ clave: nuevaClave(), nombre, umbral: [0, 200, 500, 1000, 2000][i], color: COLOR_NIVEL_NUEVO, icono: String(i + 1), beneficios: '', activo: true })))}>
+                onClick={() => setFilas(NOMBRES_SUGERIDOS.map((nombre, i) => ({ clave: nuevaClave(), nombre, umbral: [0, 200, 500, 1000, 2000][i], color: COLOR_NIVEL_NUEVO, icono: i === NOMBRES_SUGERIDOS.length - 1 ? 'corona' : 'estrella', beneficios: '', activo: true })))}>
                 Empezar con cinco
               </button>
             )}
@@ -229,8 +233,12 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold text-foreground" style={{ backgroundColor: `${f.color}33` }} aria-hidden>
                       {f.activo && pos >= 0 ? pos + 1 : '–'}
                     </span>
-                    <input aria-label={`Icono de ${etiqueta}`} value={f.icono} maxLength={8} onChange={(e) => cambiar(f.clave, { icono: e.target.value })}
-                      className={cn(inputCls, 'w-14 text-center')} title="Lo que ve la alumna junto al nombre" />
+                    {/* Sin insignia elegida (los niveles nacían con un número) se ve la que pinta la app: estrella, y corona el último. */}
+                    <button type="button" aria-label={`Insignia de ${etiqueta}`} aria-expanded={eligiendo === f.clave}
+                      onClick={() => setEligiendo((e) => (e === f.clave ? null : f.clave))}
+                      className={cn(inputCls, 'flex w-14 items-center justify-center')} title="Lo que ve la alumna junto al nombre">
+                      <MiniaturaInsignia icono={insigniaDeNivel(f.icono, f.activo && pos === activas.length - 1).clave} tamano={24} />
+                    </button>
                     <input aria-label={pos >= 0 ? `Nombre del nivel ${pos + 1}` : `Nombre de ${etiqueta}`} value={f.nombre} maxLength={60}
                       onChange={(e) => cambiar(f.clave, { nombre: e.target.value })}
                       className={cn(inputCls, 'min-w-[8rem] flex-1')} aria-invalid={!f.nombre.trim()} />
@@ -268,6 +276,10 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
                       <Trash2 size={15} />
                     </button>
                   </div>
+                  {eligiendo === f.clave && (
+                    <SelectorInsignia valor={f.icono} etiqueta={`Insignia de ${etiqueta}`}
+                      onChange={(clave) => { cambiar(f.clave, { icono: clave }); setEligiendo(null); }} />
+                  )}
                   <input aria-label={`Beneficios de ${etiqueta}`} value={f.beneficios} maxLength={200} placeholder="Beneficios (opcional, solo texto: no se aplican solos)"
                     onChange={(e) => cambiar(f.clave, { beneficios: e.target.value })} className={cn(inputCls, 'w-full text-[12.5px]')} />
                 </li>

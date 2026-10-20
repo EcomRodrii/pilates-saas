@@ -39,15 +39,15 @@ async function cls(page: Page) {
   }));
 }
 
-test('la home, sin ningún estudio con consentimiento: ni franja ni título ni hueco entre «¿Te suena?» y lo siguiente', async ({ page }) => {
+test('la home, sin ningún estudio con consentimiento: ni franja ni título ni hueco entre el héroe y lo siguiente', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('#clientes')).toHaveCount(0);
   await expect(page.getByText('Estudios que ya usan Tentare')).toHaveCount(0);
-  // Sin hueco: «Seis cosas…» empieza justo donde acaba «¿Te suena?».
+  // Sin hueco: «Seis cosas…» empieza justo donde acaba el héroe (home nueva, fase 2.2: la franja va bajo el héroe).
   const [finSuena, inicioVerbos] = await Promise.all([
-    page.locator('#te-suena').evaluate((e) => e.getBoundingClientRect().bottom + window.scrollY),
+    page.locator('header#top').evaluate((e) => e.getBoundingClientRect().bottom + window.scrollY),
     page.locator('#verbos').evaluate((e) => e.getBoundingClientRect().top + window.scrollY),
   ]);
   expect(Math.abs(inicioVerbos - finSuena)).toBeLessThanOrEqual(1);
@@ -66,15 +66,15 @@ test('/e2e-franja-logos sin logos no pinta nada', async ({ page }) => {
 });
 
 for (const ancho of [1440, 375]) {
-  test(`con 3 logos (${ancho} px): fila con alt correcto, a una tinta, sin scroll lateral y CLS 0`, async ({ page }) => {
+  test(`con 3 logos (${ancho} px): marquesina con alt correcto, a una tinta, sin scroll lateral y CLS 0`, async ({ page }) => {
     await abrirPrueba(page, 3, ancho);
     const franja = page.locator('#clientes');
     await expect(franja).toBeVisible();
-    await expect(franja.getByText('Estudios que ya usan Tentare')).toBeVisible();
-    await expect(franja.locator('img')).toHaveCount(3);
-    await expect(franja.locator('.v7-logos-marq')).toHaveCount(0);
-    await expect(franja.locator('[aria-hidden="true"]')).toHaveCount(0);
-    expect(await franja.locator('img').evaluateAll((is) => is.map((i) => (i as HTMLImageElement).alt)))
+    await expect(franja).toHaveAttribute('aria-label', 'Estudios que usan Tentare');
+    // Siempre marquesina (fundador, 20-oct): los 3 reales, más copias decorativas fuera del árbol de accesibilidad.
+    await expect(franja.locator('.v7-logos-marq')).toHaveCount(1);
+    await expect(franja.locator('.v7-logos-lista:not(.v7-logos-copia) img')).toHaveCount(3);
+    expect(await franja.locator('.v7-logos-lista:not(.v7-logos-copia) img').evaluateAll((is) => is.map((i) => (i as HTMLImageElement).alt)))
       .toEqual(['Estudio Nube', 'Luna Reformer', 'Taller Brisa']);
     await franja.scrollIntoViewIfNeeded();
     // Todas cargadas y a la misma altura (la caja es fija: 40 px en escritorio, 30 en móvil).
@@ -101,6 +101,10 @@ for (const ancho of [1440, 375]) {
 }
 
 test('con 3 logos, el color vuelve al pasar el ratón por encima', async ({ page }) => {
+  // Siempre es marquesina (20-oct) y Playwright no pasa el ratón por algo que se
+  // mueve. Con «reducir movimiento» la franja se queda quieta (su CSS lo prevé), y
+  // el color al pasar por encima es el mismo: es lo que se mide aquí.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await abrirPrueba(page, 3);
   const primero = page.locator('#clientes .v7-logos-item').first();
   const img = primero.locator('img');
@@ -111,9 +115,9 @@ test('con 3 logos, el color vuelve al pasar el ratón por encima', async ({ page
   expect(await page.locator('#clientes .v7-logos-item').nth(1).locator('img').evaluate((i) => getComputedStyle(i).filter)).toContain('grayscale(1)');
 });
 
-test('con 6 logos todavía es una fila; con 7, marquesina', async ({ page }) => {
-  await abrirPrueba(page, 6);
-  await expect(page.locator('#clientes .v7-logos-marq')).toHaveCount(0);
+test('con 1 logo ya es marquesina (repite el mismo); con 7, también', async ({ page }) => {
+  await abrirPrueba(page, 1);
+  await expect(page.locator('#clientes .v7-logos-marq')).toHaveCount(1);
   await abrirPrueba(page, 7);
   await expect(page.locator('#clientes .v7-logos-marq')).toHaveCount(1);
 });

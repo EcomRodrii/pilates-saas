@@ -9,7 +9,7 @@ export const ACHIEVEMENT_METRICS: AchievementMetricDef[] = [
   { metric: 'CLASES_ASISTIDAS', nombre: 'Clases asistidas', descripcion: 'Total de clases a las que ha hecho check-in.', acumulable: true },
   { metric: 'RESERVAS_TOTALES', nombre: 'Reservas totales', descripcion: 'Total de reservas hechas alguna vez (asistidas o no).', acumulable: true },
   { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Semanas consecutivas', descripcion: 'Racha de semanas seguidas con al menos una clase asistida.', acumulable: true },
-  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Ha asistido a todas sus reservas del mes, sin ninguna falta.', acumulable: false },
+  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Un mes completo sin ninguna falta.', acumulable: false },
   { metric: 'AMIGOS_INVITADOS', nombre: 'Amigos invitados', descripcion: 'Amigas referidas que se han dado de alta.', acumulable: true },
   { metric: 'ASISTENCIA_CUMPLEANOS', nombre: 'Asistencia en tu cumpleaños', descripcion: 'Ha asistido a una clase el día de su cumpleaños.', acumulable: false },
 ];
@@ -55,6 +55,12 @@ export interface MetricaContexto {
   socio: Socio | undefined;
   now: Date;
   todosLosSocios?: Socio[]; // necesario solo para AMIGOS_INVITADOS
+  /**
+   * PR 3.4: `ASISTENCIA_MENSUAL_COMPLETA` vale 0 en una evaluación por acción. Un mes
+   * completo sin faltas solo se puede saber al cerrarse el mes: lo decide el barrido
+   * mensual (`evaluarMesCompleto`). Sin esto, el logro se concedía tras la primera clase.
+   */
+  mensualSoloAlCerrar?: boolean;
 }
 
 // Devuelve el progreso actual para una métrica. Para métricas booleanas,
@@ -68,6 +74,7 @@ export function calcularMetrica(metric: AchievementMetric, ctx: MetricaContexto)
     case 'SEMANAS_CONSECUTIVAS':
       return calcularRacha(ctx.reservas, ctx.sesiones, ctx.now).semanas;
     case 'ASISTENCIA_MENSUAL_COMPLETA':
+      if (ctx.mensualSoloAlCerrar) return 0;
       return asistenciaMensualCompleta(ctx.reservas, ctx.sesiones, ctx.now) ? 1 : 0;
     case 'AMIGOS_INVITADOS':
       if (!ctx.socio || !ctx.todosLosSocios) return 0;

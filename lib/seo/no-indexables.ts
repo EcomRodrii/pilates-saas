@@ -110,6 +110,20 @@ export const PREFIJOS_NO_INDEXABLES = [
 export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras', '/network/crear-perfil', '/network/terminos', '/network/privacidad'];
 
 /**
+ * Rutas bloqueadas que llevan además su PROPIO `noindex` en la página.
+ *
+ * Bloquear una URL en robots.txt y ponerle `noindex` a la vez se anula: Google no
+ * la rastrea, así que nunca lee el `noindex`, y puede indexar la URL sola (sin
+ * contenido) porque le llegan enlaces de todas las páginas (auditoría de la fase 1
+ * de la web, 19-oct-2026, §3.8). Estas tres se quedan en PREFIJOS_NO_INDEXABLES
+ * (para el test de cobertura y para que Ahrefs siga apagado en ellas,
+ * lib/ahrefs-cliente.ts) pero salen del `disallow` de app/robots.ts: Google las
+ * rastrea, lee `robots: { index: false }` y no las indexa. Que cada una lleve de
+ * verdad ese `noindex` lo comprueba lib/seo/noindex-propio.test.ts.
+ */
+export const NOINDEX_PROPIO: readonly string[] = ['/empieza', '/login', '/crear-estudio'];
+
+/**
  * Rutas que son un `redirect()` y no una página.
  *
  * Existe porque el registro solo contempla dos categorías —página pública

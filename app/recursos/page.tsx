@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
@@ -27,8 +26,8 @@ type Category = 'todos' | CategoriaRecursos;
 const CATEGORIES: { key: Category; label: string }[] = [{ key: 'todos', label: 'Todos' }, ...CATEGORIAS_RECURSOS];
 
 // Sin colores por categoría (1-oct-2026, el fundador): la foto manda; sin foto,
-// el mismo gris claro para todas.
-const FONDO_SIN_FOTO = '#E7E7E0';
+// la misma arena clara para todas.
+const FONDO_SIN_FOTO = 'var(--w-sand-claro)';
 
 type Article = {
   category: CategoriaRecursos;
@@ -104,16 +103,18 @@ export default function RecursosPage() {
       <RecursosBlogStructuredData />
       <IslaWeb />
 
-      <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
-        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(36px,5.4vw,62px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>
+      {/* Cabecera editorial a la izquierda, en el ancho de la rejilla (la forma de
+          bsport): sin el destello de color de antes ni titulares en 800. */}
+      <header style={{ position: 'relative', padding: 'clamp(56px,7vw,96px) 0 clamp(32px,4vw,48px)' }}>
+        {/* El mismo contenedor que los filtros y la rejilla, para que todo arranque en la misma línea. */}
+        <div style={{ position: 'relative', maxWidth: 1200, margin: '0 auto', padding: '0 clamp(20px,4vw,44px)' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(38px,5.4vw,64px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 20px', maxWidth: 820, color: 'var(--w-texto)' }}>
             <PildoraBusqueda>Guías para gestionar un estudio de Pilates</PildoraBusqueda>
             Cómo llenar, cobrar y<br className="rec-br" /> automatizar tu estudio.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 560, margin: '0 0 30px' }}>Guías prácticas para propietarias de estudios de pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó. Sin humo.</p>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', maxWidth: 600, margin: '0 0 30px' }}>Guías prácticas para propietarias de estudios de pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó. Sin humo.</p>
           <div style={{ position: 'relative', maxWidth: 460 }}>
-            <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#A8A89F' }}>
+            <span style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: 'var(--w-texto-3)' }}>
               <Search size={18} />
             </span>
             <input
@@ -121,7 +122,8 @@ export default function RecursosPage() {
               placeholder="Busca: sustituciones, precios, ocupación…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ width: '100%', fontFamily: 'inherit', fontSize: 15, color: '#1A1A1A', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '15px 16px 15px 46px', outline: 'none' }}
+              className="rec-buscar"
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 15, color: 'var(--w-texto)', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 999, padding: '15px 18px 15px 48px' }}
             />
           </div>
         </div>
@@ -135,7 +137,8 @@ export default function RecursosPage() {
               <button
                 key={c.key}
                 onClick={() => setCat(c.key)}
-                style={{ border: active ? 'none' : '1px solid #E1E1D8', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 999, background: active ? ACC : '#fff', color: active ? '#fff' : '#5A5A52', transition: 'background .2s, color .2s' }}
+                aria-pressed={active}
+                style={{ border: active ? '1px solid var(--w-olive)' : '1px solid var(--w-linea)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, padding: '9px 17px', borderRadius: 999, background: active ? 'var(--w-olive)' : 'var(--w-papel)', color: active ? 'var(--w-cream)' : 'var(--w-texto-2)', transition: 'background .2s, color .2s' }}
               >
                 {c.label}
               </button>
@@ -146,7 +149,7 @@ export default function RecursosPage() {
 
       {featuredVisible && (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 clamp(20px,4vw,44px)', marginBottom: 44 }}>
-          <div className="rec-card" style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 24, overflow: 'hidden', boxShadow: '0 30px 60px -40px rgba(26,26,26,.3)' }}>
+          <div className="rec-card" style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', overflow: 'hidden' }}>
             <div className="rec-feat">
               {/* La portada a su tamaño (480 px como mucho), enmarcada en el
                   degradado de su categoría: estirarla para rellenar la columna
@@ -156,17 +159,17 @@ export default function RecursosPage() {
                   <PortadaRecursos portada={FEATURED.portada} sizes={SIZES_DESTACADA} prioritaria className="rec-portada" />
                   <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', padding: 18, background: 'linear-gradient(to top, rgba(15,15,15,.62), transparent 60%)' }}>
                     <div>
-                      <span className="lp-mono" style={{ display: 'inline-block', fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#fff', background: 'rgba(15,15,15,.42)', padding: '5px 11px', borderRadius: 999, marginBottom: 10 }}>★ Guía destacada</span>
-                      <div className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.9)' }}>{CATEGORIES.find((c) => c.key === FEATURED.category)?.label}</div>
+                      <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--w-ink)', background: 'rgba(255,255,255,.88)', padding: '5px 12px', borderRadius: 999 }}>Guía destacada</span>
                     </div>
                   </div>
                 </div>
               </div>
               <Link href={FEATURED.href} style={{ padding: 'clamp(26px,3vw,40px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', textDecoration: 'none', color: 'inherit' }}>
-                <h2 style={{ fontWeight: 800, fontSize: 'clamp(24px,2.6vw,34px)', lineHeight: 1.08, letterSpacing: '-.03em', margin: '0 0 12px' }}>{FEATURED.title}</h2>
-                <p style={{ fontSize: 16, lineHeight: 1.6, color: MUTED, margin: '0 0 20px' }}>{FEATURED.body}</p>
-                <div className="lp-mono" style={{ fontSize: 12, color: '#8E8E86' }}>{FEATURED.meta}</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 22, fontSize: 15, fontWeight: 700, color: ACC }}>
+                <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600, color: 'var(--w-olive)' }}>{CATEGORIES.find((c) => c.key === FEATURED.category)?.label}</p>
+                <h2 style={{ fontWeight: 600, fontSize: 'clamp(26px,2.8vw,36px)', lineHeight: 1.1, letterSpacing: 'var(--w-track-h2)', margin: '0 0 12px', color: 'var(--w-texto)' }}>{FEATURED.title}</h2>
+                <p style={{ fontSize: 16.5, lineHeight: 1.6, color: 'var(--w-texto-2)', margin: '0 0 20px' }}>{FEATURED.body}</p>
+                <div style={{ fontSize: 14, color: 'var(--w-texto-3)' }}>{FEATURED.meta}</div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 22, fontSize: 15, fontWeight: 600, color: 'var(--w-olive)' }}>
                   Leer la guía <ArrowRight size={16} />
                 </span>
               </Link>
@@ -182,21 +185,22 @@ export default function RecursosPage() {
               <>
                 <div style={{ position: 'relative', aspectRatio: '2/1', background: FONDO_SIN_FOTO, overflow: 'hidden' }}>
                   {a.portada && <PortadaRecursos portada={a.portada} sizes={SIZES_TARJETA} className="rec-portada" />}
-                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 14, background: 'linear-gradient(to top, rgba(15,15,15,.55), transparent 60%)' }}>
-                    <span className="lp-mono" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#fff', background: 'rgba(15,15,15,.42)', padding: '5px 10px', borderRadius: 999 }}>
-                      {CATEGORIES.find((c) => c.key === a.category)?.label}
-                    </span>
-                    {!a.href && <span className="lp-mono" style={{ fontSize: 9.5, color: '#fff', background: 'rgba(0,0,0,.3)', padding: '4px 9px', borderRadius: 999 }}>Próximamente</span>}
-                  </div>
+                  {!a.href && (
+                    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 14 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--w-ink)', background: 'rgba(255,255,255,.88)', padding: '4px 10px', borderRadius: 999 }}>Próximamente</span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.15, margin: 0 }}>{a.title}</h3>
-                  <p style={{ fontSize: 14, lineHeight: 1.55, color: MUTED, margin: 0, flex: 1 }}>{a.body}</p>
-                  <div className="lp-mono" style={{ fontSize: 11.5, color: a.href ? '#8E8E86' : '#A8A89F' }}>{a.meta}</div>
+                <div style={{ padding: '18px 20px 22px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                  {/* La categoría, en texto y fuera de la foto: sin píldora oscura encima ni color por categoría (#2458). */}
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--w-olive)' }}>{CATEGORIES.find((c) => c.key === a.category)?.label}</span>
+                  <h3 style={{ fontSize: 19, fontWeight: 600, letterSpacing: 'var(--w-track-h3)', lineHeight: 1.2, margin: 0, color: 'var(--w-texto)' }}>{a.title}</h3>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--w-texto-2)', margin: 0, flex: 1 }}>{a.body}</p>
+                  <div style={{ fontSize: 13, color: 'var(--w-texto-3)', marginTop: 4 }}>{a.meta}</div>
                 </div>
               </>
             );
-            const style: React.CSSProperties = { display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 20, overflow: 'hidden' };
+            const style: React.CSSProperties = { display: 'flex', flexDirection: 'column', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', overflow: 'hidden' };
             return a.href ? (
               <Link key={a.title} href={a.href} className="rec-card" style={{ ...style, textDecoration: 'none', color: 'inherit' }}>{card}</Link>
             ) : (
@@ -204,20 +208,19 @@ export default function RecursosPage() {
             );
           })}
           {filtered.length === 0 && !featuredVisible && (
-            <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: MUTED, padding: '40px 0' }}>No hay guías que coincidan con tu búsqueda todavía.</p>
+            <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--w-texto-2)', padding: '40px 0' }}>No hay guías que coincidan con tu búsqueda todavía.</p>
           )}
         </div>
 
-        <div style={{ marginTop: 'clamp(48px,6vw,72px)', background: '#0F0F0F', color: '#E8E8E4', borderRadius: 26, padding: 'clamp(32px,5vw,56px)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-30%', right: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.3), transparent 64%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', maxWidth: 520 }}>
-            <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 14 }}>La newsletter de Tentare</div>
-            <h2 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 12px', color: '#fff' }}>Una idea al mes para llenar tu estudio.</h2>
-            <p style={{ fontSize: 16, lineHeight: 1.55, color: '#A6A69E', margin: '0 0 24px' }}>Guías nuevas, plantillas y datos del sector. Sin spam — cancelas cuando quieras.</p>
+        <div style={{ marginTop: 'clamp(48px,6vw,72px)', background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(32px,5vw,56px)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', maxWidth: 560 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--w-sand)', margin: '0 0 14px' }}>La newsletter de Tentare</p>
+            <h2 style={{ fontWeight: 600, fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1.08, letterSpacing: 'var(--w-track-h2)', margin: '0 0 12px', color: 'var(--w-sobre-noche)' }}>Una idea al mes para llenar tu estudio.</h2>
+            <p style={{ fontSize: 16, lineHeight: 1.55, color: 'var(--w-sobre-noche-2)', margin: '0 0 24px' }}>Guías nuevas, plantillas y datos del sector. Sin spam — cancelas cuando quieras.</p>
             <a
               href="mailto:hola@tentare.app?subject=Suscribirme%20a%20la%20newsletter"
               className="hover:brightness-110"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 12, padding: '14px 24px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: 'inherit', fontSize: 15, fontWeight: 600, color: 'var(--w-olive)', background: 'var(--w-sand)', borderRadius: 999, padding: '14px 26px' }}
             >
               Suscribirme por email
             </a>
@@ -235,7 +238,8 @@ export default function RecursosPage() {
         .rec-portada { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .rec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
         .rec-card { transition: transform .28s cubic-bezier(.2,.7,0,1), box-shadow .28s; }
-        .rec-card:hover { transform: translateY(-6px); box-shadow: 0 40px 74px -40px rgba(26,26,26,.32); }
+        .rec-card:hover { transform: translateY(-4px); box-shadow: var(--w-sombra-suave); }
+        .rec-buscar:focus-visible { outline: 2px solid var(--w-olive); outline-offset: 2px; }
         @media (max-width: 900px) {
           .rec-feat { grid-template-columns: 1fr; }
           .rec-grid { grid-template-columns: repeat(2,1fr); }

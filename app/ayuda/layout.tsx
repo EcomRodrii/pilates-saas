@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     'La documentación oficial de Tentare: cómo configurar tu estudio, reservas, pagos, bonos, el portal de reservas, el widget y qué hacer cuando algo falla.',
   alternates: { canonical: urlDe('/ayuda') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Centro de Ayuda — Tentare',
     description: 'La documentación oficial de Tentare, paso a paso.',

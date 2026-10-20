@@ -70,9 +70,10 @@ test('la calculadora de plazas vacías responde a los números', async ({ page }
   }).toPass({ timeout: 20_000 });
 });
 
-test('la home enlaza cada comparativa desde «¿Ya usas otro programa?»', async ({ request }) => {
+test('la home enlaza cada comparativa desde la etapa «Ya tengo estudio y quiero cambiar»', async ({ request }) => {
   const html = await (await request.get('/', { timeout: 120_000 })).text();
-  const seccion = html.slice(html.indexOf('id="cambiarte"'), html.indexOf('id="v5-pre-h"'));
+  // Home nueva (fase 2.2): las comparativas cuelgan de la etapa del cambio (components/web/home/Etapas.tsx).
+  const seccion = html.slice(html.indexOf('id="etapas"'), html.indexOf('id="precio"'));
   for (const slug of ['bsport', 'eversports', 'mindbody', 'timp', 'momence', 'lorari']) {
     expect(seccion, slug).toContain(`href="/comparativa/tentare-vs-${slug}"`);
   }

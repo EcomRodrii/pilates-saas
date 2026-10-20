@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { barrerNoShows, barrerEsperasSinPlaza, barrerEsperasDeClasesPasadas } from '@/lib/db/supabase-data-admin';
+import { barrerNoShows, barrerEsperasSinPlaza, barrerEsperasDeClasesPasadas, barrerLogroMensual } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { secretoValido } from '@/lib/salud/secreto';
 
@@ -51,7 +51,16 @@ export async function GET(req: NextRequest) {
       Sentry.captureException(err, { tags: { cron: 'no-shows', barrido: 'esperas-clases-pasadas' } });
       esperasPasadas = { error: err instanceof Error ? err.message : 'error' };
     }
-    return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen, esperas, esperasPasadas });
+    // Logro «mes completo sin faltas»: solo hace algo los días 1 y 2 del mes (hora del
+    // estudio) y DESPUÉS de los no-shows, para mirar el mes con todas sus clases resueltas.
+    let logroMensual: Awaited<ReturnType<typeof barrerLogroMensual>> | { error: string };
+    try {
+      logroMensual = await barrerLogroMensual(now.toISOString());
+    } catch (err) {
+      Sentry.captureException(err, { tags: { cron: 'no-shows', barrido: 'logro-mensual' } });
+      logroMensual = { error: err instanceof Error ? err.message : 'error' };
+    }
+    return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen, esperas, esperasPasadas, logroMensual });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'no-shows' } });
     return errorInterno('cron/no-shows:GET', err, 'Error en el barrido de no-shows.');
