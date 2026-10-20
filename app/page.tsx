@@ -6,7 +6,15 @@ import { SeccionEnUnaFrase } from '@/components/landing/SeccionEnUnaFrase';
 import { SeccionCambiarte } from '@/components/landing/SeccionCambiarte';
 import { SeccionSeisVerbos } from '@/components/landing/SeccionSeisVerbos';
 import { SeccionComparador } from '@/components/landing/SeccionComparador';
+import { FranjaLogos } from '@/components/landing/FranjaLogos';
+import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+// La franja de logos de clientes se lee en servidor (solo estudios con
+// consentimiento, lib/landing/logos-clientes-servidor.ts): la home se regenera
+// como mucho cada hora en vez de congelarse en el build. Un consentimiento que
+// se retira tarda como mucho una hora en salir de la landing.
+export const revalidate = 3600;
 
 // La home tiene sus PROPIOS metadatos (fase 5 del SEO, 23-sep). Hasta entonces
 // esta página era un componente de cliente, no podía exportarlos y heredaba
@@ -58,7 +66,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const logos = await logosClientesLanding();
   return (
     <LandingCliente
       guias={<SeccionGuias />}
@@ -67,6 +76,7 @@ export default function HomePage() {
       cambiarte={<SeccionCambiarte />}
       verbos={<SeccionSeisVerbos />}
       comparador={<SeccionComparador />}
+      logos={<FranjaLogos logos={logos} />}
     />
   );
 }

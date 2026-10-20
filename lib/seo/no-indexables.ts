@@ -26,6 +26,9 @@ export const PREFIJOS_NO_INDEXABLES = [
   // pestaña emergente y se cierra sola, nunca contenido a visitar (Fase 2 del
   // Booking Engine, docs/auth-widget-diseno.md §2/§6).
   '/widget-auth-retorno',
+  // Ruta SOLO de pruebas e2e (un 404 fuera de E2E_TEST=1): pinta la franja de
+  // logos de clientes con logos de mentira. No es contenido.
+  '/e2e-franja-logos',
   // Pantalla de consentimiento OAuth para apps de terceros (Zapier) — interrupción
   // puntual dentro de una sesión autenticada, no contenido público.
   '/oauth',

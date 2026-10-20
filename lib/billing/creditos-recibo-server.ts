@@ -37,6 +37,11 @@ export interface ResultadoCreditosRecibo {
   creditos: number;
   /** Saldo de la socia tras el cambio; null si no hubo cambio que leer. */
   saldo: number | null;
+  /**
+   * Créditos de COMPRA (venta del TPV) retirados en esta llamada porque el
+   * dinero de la venta ha vuelto. 0 casi siempre, y 0 al repetirla.
+   */
+  creditosCompraRetirados: number;
 }
 
 export interface DependenciasCreditosRecibo {
@@ -69,6 +74,13 @@ export async function seguirCreditosAlRecibo(
   },
   deps: DependenciasCreditosRecibo = DEPENDENCIAS,
 ): Promise<ResultadoCreditosRecibo | null> {
+  // Los créditos de COMPRA (por importe, venta del TPV) cuelgan del mismo hecho
+  // —«el dinero de este recibo ha vuelto»— y se retiran por la misma puerta:
+  // un efecto más, no un camino aparte. La base mira el ESTADO de la venta y es
+  // idempotente por venta (`sincronizar_creditos_compra`), así que repetir la
+  // llamada no quita nada dos veces. Se ejecuta aunque la renovación falle, y
+  // un fallo de uno no tumba al otro.
+  const creditosCompraRetirados = await sincronizarCompra(admin, p, deps);
   try {
     // Si no se puede saber si el plan incluye gamificación, no se otorga — pero
     // se sigue llamando: una devolución tiene que poder retirarlos igual.
@@ -86,6 +98,7 @@ export async function seguirCreditosAlRecibo(
       socioId: fila?.socia ?? null,
       creditos: Number(fila?.creditos_movidos ?? 0),
       saldo: fila?.saldo_final == null ? null : Number(fila.saldo_final),
+      creditosCompraRetirados,
     };
   } catch (e) {
     try {
@@ -94,5 +107,28 @@ export async function seguirCreditosAlRecibo(
       console.error('[seguirCreditosAlRecibo] sin sincronizar', p.reciboId, e);
     }
     return null;
+  }
+}
+
+async function sincronizarCompra(
+  admin: SupabaseClient,
+  p: { studioId: string; reciboId: string },
+  deps: DependenciasCreditosRecibo,
+): Promise<number> {
+  try {
+    const { data, error } = await admin.rpc('sincronizar_creditos_compra', {
+      p_studio_id: p.studioId, p_recibo_id: p.reciboId,
+    });
+    if (error) throw new Error(error.message);
+    const filas = (Array.isArray(data) ? data : data ? [data] : []) as Array<{ r_retirados?: number }>;
+    // Negativo = la base RESTITUYÓ créditos (el reembolso falló): no cuenta como retirado.
+    return filas.reduce((n, f) => n + Math.max(0, Number(f?.r_retirados ?? 0)), 0);
+  } catch (e) {
+    try {
+      deps.avisarFallo(e, { reciboId: p.reciboId, studioId: p.studioId });
+    } catch {
+      console.error('[seguirCreditosAlRecibo] compra sin sincronizar', p.reciboId, e);
+    }
+    return 0;
   }
 }
