@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs Bonsai',
     description: 'Precio, permanencia, comisiones y sustitución de instructoras — comparados con lo que consta en la web pública de Bonsai.',

@@ -50,6 +50,7 @@ export const metadata: Metadata = {
   // `app/opengraph-image.tsx` que había (diseño anterior a la marca actual): con
   // ese fichero-convención al lado habría dos `og:image` en la misma página. Se declara aquí con URL absoluta (`metadataBase` del layout).
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
