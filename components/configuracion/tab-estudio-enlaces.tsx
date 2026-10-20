@@ -18,6 +18,8 @@ import { IconoFila } from '@/components/configuracion/shell/fila-herramienta';
 import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import type { MostrarToast } from '@/components/ui/toast';
+import Link from 'next/link';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Dirección y enlaces», en Mi app y mi web (15-sep, v2): una fila con la
@@ -169,6 +171,9 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
     if (valor === slugVisto) setValor(slug);
   }
   const [redirigir, setRedirigir] = useState<string | null>(null);
+  // «Mi web» guiada (decisión 2, 21-oct-2026): el enlace y el QR de la app de tus alumnas viven en
+  // «Mi app → Compártela» (el paso de instalar del editor de Apariencia, con su QR para imprimir).
+  const miWebNueva = useMiWebNueva();
 
   // Se recarga en vez de tocar el estado a mano: el enlace de la página se
   // deriva de `studio.slug` en todo el panel, y verlo con la dirección vieja
@@ -257,7 +262,18 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
               showToast={showToast}
             />
             {/* Sin sesión de alumna no lleva a nada útil: se copia para pasarlo, no se abre. */}
-            <EnlacePublico
+            {miWebNueva ? (
+              <li className="flex items-start gap-2.5 py-3">
+                <Smartphone size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">App de tus alumnas</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">
+                    Su enlace, su código QR y cómo se instala están en{' '}
+                    <Link href="/configuracion/apariencia?paso=instalar" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app → Compártela</Link>.
+                  </span>
+                </span>
+              </li>
+            ) : <EnlacePublico
               icono={Smartphone}
               titulo="App de tus alumnas"
               detalle="Para alumnas ya dadas de alta: reservan, ven su bono y su progreso. Se instala en el móvil."
@@ -265,7 +281,7 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
               que="El enlace de la app"
               qr={{ destino: 'app', estudio, slug }}
               showToast={showToast}
-            />
+            />}
             {web ? (
               <EnlacePublico
                 icono={Globe}

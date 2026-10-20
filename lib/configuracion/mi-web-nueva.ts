@@ -40,8 +40,9 @@ export const PRESENTACION_MI_WEB: Partial<Record<SeccionId, { titulo: string; re
     frase: 'La app de tus alumnas: cómo se ve, qué enseña, tu logo y tus textos, y su app en la App Store.',
   },
   web: {
-    titulo: 'Mi web', resumen: 'Tu dirección, tus widgets y ocultar tu página',
-    frase: 'Tu página de reservas y lo que pones en tu propia web: la dirección, los widgets y ocultarla mientras la preparas.',
+    // La pantalla guiada (21-oct-2026) empieza por aquí: lo que es y cómo se recorre.
+    titulo: 'Mi web', resumen: 'Tu dirección, cómo te presentas y tus widgets',
+    frase: 'Tu página de reservas y lo que pones en tu propia web. Con el primer paso ya se puede reservar; los demás hacen que te encuentren y te conozcan.',
   },
 };
 

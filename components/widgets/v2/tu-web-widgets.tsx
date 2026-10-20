@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowUpRight, EyeOff, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -60,7 +61,10 @@ export function TuWebWidgets({ showToast }: { showToast: (m: string) => void }) 
 function TuWebDelEstudio({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
   const s = useConstructorWidgets({ slug, showToast, textos: 'v2' });
   const barra = usePublicarEnMiWeb(s);
-  const [vista, setVista] = useState<Vista>('widgets');
+  // «Cómo le va a tu página» de «Mi web» guiada llega con `&vista=resultados`: se entra ya ahí (solo
+  // la lectura inicial; cambiar de píldora no toca la URL).
+  const parametros = useSearchParams();
+  const [vista, setVista] = useState<Vista>(() => (s.veResultados && parametros.get('vista') === 'resultados' ? 'crecimiento' : 'widgets'));
   const [enfoque, setEnfoque] = useState<string | null>(null);
   const [modo, setModo] = useState<Modo>({ tipo: 'portada' });
   const [verDominios, setVerDominios] = useState(false);

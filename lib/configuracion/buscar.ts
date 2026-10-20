@@ -62,11 +62,12 @@ export function buscarAjustes(
     haySedes?: boolean;
     esCadena?: boolean;
     gmailConectado?: boolean;
+    miWebNueva?: boolean;
   } = {},
 ): ResultadoAjuste[] {
   const buscadas = trocear(consulta);
   if (buscadas.length === 0) return [];
-  const { secciones = SECCIONES, externas = Object.values(FILAS_EXTERNAS), haySedes = false, esCadena = false, gmailConectado = false } = opciones;
+  const { secciones = SECCIONES, externas = Object.values(FILAS_EXTERNAS), haySedes = false, esCadena = false, gmailConectado = false, miWebNueva = false } = opciones;
 
   const resultados: ResultadoAjuste[] = [];
   // `SECCIONES` es `as const`: vista con su tipo ancho, `palabras` existe en todas.
@@ -75,7 +76,7 @@ export function buscarAjustes(
       resultados.push({ id: `seccion-${s.id}`, titulo: s.titulo, donde: null, seccion: s.id });
     }
     for (const t of s.tarjetas as readonly TarjetaConfiguracion[]) {
-      if (!cumpleCondicion(t.condicion, { haySedes, esCadena, gmailConectado })) continue;
+      if (!cumpleCondicion(t.condicion, { haySedes, esCadena, gmailConectado, miWebNueva })) continue;
       if (casa(buscadas, [t.titulo, ...(t.palabras ?? [])])) {
         // Una tarjeta de una herramienta abre su pantalla: en la sección solo está su fila.
         const { abrir, ancla } = lugarDeTarjeta(t.id as TarjetaId);

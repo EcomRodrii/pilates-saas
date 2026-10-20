@@ -36,7 +36,7 @@ export type ModoGuardado = 'barra' | 'al-pulsar' | 'catalogo' | 'accion' | 'lect
 export type RolConfiguracion = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRUCTOR';
 
 /** Tarjetas que solo existen en algunos estudios. */
-export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado';
+export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado' | 'miWebNueva';
 
 /**
  * Las herramientas grandes: cada una tiene su propia pantalla
@@ -258,6 +258,9 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas, el enlace a la app de tus alumnas y el código QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
+      // «Mi web» guiada (21-oct-2026, decisión 4 de «Mi app»): la descripción sale en tu página de
+      // reservas y en Network, no en la app. El dato es el mismo que el de «Cómo te presentas» de «Mi app».
+      { id: 'presentacion-web', titulo: 'Cómo te presentas', frase: 'Dos o tres frases sobre tu estudio. Salen en tu página de reservas y en Tentare Network.', guardado: 'barra', condicion: 'miWebNueva', palabras: ['descripción', 'presentación', 'sobre nosotros'] },
       { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
       // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
       // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
@@ -609,10 +612,11 @@ export function herramientasDeSeccion(id: SeccionId): HerramientaConfiguracion[]
 
 export function cumpleCondicion(
   condicion: CondicionTarjeta | undefined,
-  ctx: { haySedes: boolean; esCadena: boolean; gmailConectado?: boolean },
+  ctx: { haySedes: boolean; esCadena: boolean; gmailConectado?: boolean; miWebNueva?: boolean },
 ): boolean {
   if (condicion === 'multiSede') return ctx.haySedes;
   if (condicion === 'cadena') return ctx.esCadena;
   if (condicion === 'gmailConectado') return ctx.gmailConectado === true;
+  if (condicion === 'miWebNueva') return ctx.miWebNueva === true;
   return true;
 }
