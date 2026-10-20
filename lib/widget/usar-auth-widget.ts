@@ -3,7 +3,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { mensajeSeguro } from '@/lib/errores';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
 import {
-  esAvisoPuenteListo, mensajeEncargo, resultadoDelPuente, TIPO_EMAIL_DEL_INTENTO, urlPuente,
+  esAvisoPuenteListo, mensajeEncargo, MOTIVO_CUENTA_DE_EQUIPO, resultadoDelPuente, TIPO_EMAIL_DEL_INTENTO, urlPuente,
   type EncargoAcceso,
 } from '@/lib/widget/puente-sesion';
 // `uuidV4` y no `randomUUID` a secas: la nativa corre en la web del estudio, y
@@ -46,6 +46,12 @@ export type ResultadoAcceso =
   | { enviado: true }
   | { error: string }
   /**
+   * La cuenta es del equipo de algún estudio (o de Tentare): la ventana no
+   * entrega su sesión a la web del estudio (decisión del fundador, 16-oct-2026).
+   * El formulario lo dice y ofrece la página de reservas entera.
+   */
+  | { error: string; cuentaDeEquipo: true }
+  /**
    * No hay ventana con la que hablar: el navegador no la dejó abrir, o se
    * cerró (o la web del estudio corta el vínculo entre ventanas, COOP) antes
    * de terminar. El formulario ofrece la página de reservas entera.
@@ -65,8 +71,17 @@ interface Intento {
 /** Cada cuánto se mira si la ventana sigue abierta. */
 const VIGILANCIA_MS = 500;
 
-export function useAuthWidget(slug: string, baseUrl: string) {
+/**
+ * `alResultadoTardio`: lo que la ventana contesta DESPUÉS de que el intento ya
+ * se resolviera con «correo enviado» (el enlace o el código llegan más tarde).
+ * Una sesión no pasa por aquí (la recoge `usar-sesion-widget.ts` sola); un
+ * error, sí: si no, el formulario se quedaría en «revisa tu correo» sin saber
+ * que la ventana dijo que no.
+ */
+export function useAuthWidget(slug: string, baseUrl: string, alResultadoTardio?: (r: ResultadoAcceso) => void) {
   const intentoRef = useRef<Intento | null>(null);
+  const tardioRef = useRef(alResultadoTardio);
+  useEffect(() => { tardioRef.current = alResultadoTardio; }, [alResultadoTardio]);
 
   const terminar = useCallback((resultado?: ResultadoAcceso) => {
     const intento = intentoRef.current;
@@ -119,7 +134,15 @@ export function useAuthWidget(slug: string, baseUrl: string) {
         resolver?.({ enviado: true });
         return;
       }
-      if (resultado.tipo === 'error') { terminar({ error: resultado.error }); return; }
+      if (resultado.tipo === 'error') {
+        const r: ResultadoAcceso = resultado.motivo === MOTIVO_CUENTA_DE_EQUIPO
+          ? { error: resultado.error, cuentaDeEquipo: true }
+          : { error: resultado.error };
+        // Si el intento ya contestó («correo enviado»), lo cuenta el aviso tardío.
+        if (!intento.resolver) { terminar(); tardioRef.current?.(r); return; }
+        terminar(r);
+        return;
+      }
       // Una sesión: el token ya viene firmado por Supabase; esto solo lo
       // transporta. Se da por buena cuando el SDK del widget la acepta.
       const resolver = intento.resolver;
