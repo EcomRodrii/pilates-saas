@@ -48,7 +48,7 @@ export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl
         alto={290}
         sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
         prioritaria
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
       />
       {/* Solo el velo de ARRIBA: el que necesitan la barra de estado y los círculos. Abajo ya no hay texto que leer. */}
       <div
