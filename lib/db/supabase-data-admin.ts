@@ -19,7 +19,7 @@ import { getLayout } from '@/lib/layout-data';
 import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio, masDias } from '@/lib/utils';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
 import {
@@ -70,7 +70,8 @@ import {
   avisoTopeAutomatico, cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
   type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
 } from '@/lib/plazas-fijas-reglas';
-import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
+import { agruparTerminanPronto, duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
+import { DIAS_PARA_RENOVAR_PLAZA_FIJA } from '@/lib/plazas-fijas-sin-cuota';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
@@ -5330,6 +5331,13 @@ async function retirarReservasFuturasPlazaFija(
 export async function soltarReservasPlazaFijaSinCuota(
   admin: SupabaseClient, filtro: { studioId?: string; socioId?: string } = {},
 ): Promise<{ canceladas: string[]; fallidas: number }> {
+  // AVISAR_Y_LIBERAR: antes de soltar nada, se avisa a quien acaba de quedarse sin cuota (y se borra el aviso de quien
+  // renovó). Best-effort: un fallo aquí no avisa, pero tampoco libera (sin aviso apuntado no se libera nada).
+  try {
+    await avisarPlazaFijaSinCuota(admin, filtro);
+  } catch (e) {
+    capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'plazas-fijas' }, extra: { paso: 'avisar-sin-cuota' } });
+  }
   const { data, error } = await admin.rpc('reservas_plaza_fija_sin_cuota', {
     p_studio_id: filtro.studioId ?? null, p_socio_id: filtro.socioId ?? null,
   });
@@ -5353,6 +5361,65 @@ export async function soltarReservasPlazaFijaSinCuota(
     }
   }
   return { canceladas, fallidas };
+}
+
+/**
+ * AVISAR_Y_LIBERAR (20-oct-2026): a quien tiene clases fijas reservadas que su cuota ya no cubre se le apunta el día
+ * desde el que se liberan (hoy + DIAS_PARA_RENOVAR_PLAZA_FIJA, en el día del estudio) y se le avisa UNA vez; quien ya no
+ * está en esa situación (renovó, o ya se liberaron) pierde el apunte, para que una pérdida futura vuelva a avisar. Lo que
+ * se libera lo decide después `reservas_plaza_fija_sin_cuota` con ese apunte.
+ */
+async function avisarPlazaFijaSinCuota(admin: SupabaseClient, filtro: { studioId?: string; socioId?: string }): Promise<void> {
+  const { data, error } = await admin.rpc('socias_plaza_fija_sin_cuota', {
+    p_studio_id: filtro.studioId ?? null, p_socio_id: filtro.socioId ?? null,
+  });
+  if (error) throw new Error(`socias_plaza_fija_sin_cuota: ${error.message}`);
+  const sinCuota = (data as { studio_id: string; socio_id: string; politica: string }[] | null) ?? [];
+  const clave = (s: string, a: string) => `${s}:${a}`;
+  const ahora = new Set(sinCuota.map((f) => clave(f.studio_id, f.socio_id)));
+
+  let lectura = admin.from('plaza_fija_sin_cuota_avisos').select('studio_id, socio_id');
+  if (filtro.studioId) lectura = lectura.eq('studio_id', filtro.studioId);
+  if (filtro.socioId) lectura = lectura.eq('socio_id', filtro.socioId);
+  const { data: avisos, error: errAvisos } = await lectura;
+  if (errAvisos) throw new Error(`plaza_fija_sin_cuota_avisos: ${errAvisos.message}`);
+  const avisadas = new Set((avisos ?? []).map((a) => clave(a.studio_id as string, a.socio_id as string)));
+
+  for (const a of avisos ?? []) {
+    if (ahora.has(clave(a.studio_id as string, a.socio_id as string))) continue;
+    await admin.from('plaza_fija_sin_cuota_avisos').delete().eq('studio_id', a.studio_id).eq('socio_id', a.socio_id);
+  }
+
+  const liberarDesde = masDias(hoyEnEstudio(), DIAS_PARA_RENOVAR_PLAZA_FIJA);
+  for (const f of sinCuota) {
+    if (f.politica !== 'AVISAR_Y_LIBERAR' || avisadas.has(clave(f.studio_id, f.socio_id))) continue;
+    // `ignoreDuplicates`: si dos pasadas llegan a la vez, solo la que lo apunta avisa.
+    const { data: nuevo, error: errIns } = await admin.from('plaza_fija_sin_cuota_avisos')
+      .upsert({ studio_id: f.studio_id, socio_id: f.socio_id, liberar_desde: liberarDesde }, { onConflict: 'studio_id,socio_id', ignoreDuplicates: true })
+      .select('socio_id');
+    if (errIns) throw new Error(`plaza_fija_sin_cuota_avisos: ${errIns.message}`);
+    if (!nuevo?.length) continue;
+    const nombre = await nombreDeSusPlazasFijas(admin, f.studio_id, f.socio_id, liberarDesde);
+    const { emitirPlazaFijaSinCuota } = await import('@/lib/notifications/emit');
+    await emitirPlazaFijaSinCuota(admin, { studioId: f.studio_id, socioId: f.socio_id, nombre, liberarDesde });
+  }
+}
+
+/** «Reformer · martes 18:00», «A y B» o «4 clases fijas»: el mismo nombre que el aviso de «termina pronto». */
+async function nombreDeSusPlazasFijas(admin: SupabaseClient, studioId: string, socioId: string, hasta: string): Promise<string> {
+  const { data: plazas } = await admin.from('plazas_fijas').select('id, dia_semana, hora_inicio, tipo_clase_id')
+    .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'ACTIVA');
+  const ids = [...new Set((plazas ?? []).map((p) => p.tipo_clase_id as string | null).filter((x): x is string => !!x))];
+  const tipos = new Map<string, string>();
+  if (ids.length) {
+    const { data } = await admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).in('id', ids);
+    for (const t of data ?? []) tipos.set(t.id as string, t.nombre as string);
+  }
+  const grupo = agruparTerminanPronto((plazas ?? []).map((p) => ({
+    id: p.id as string, socioId, vigenciaHasta: hasta, diaSemana: p.dia_semana as number, horaInicio: p.hora_inicio as string,
+    tipo: p.tipo_clase_id ? tipos.get(p.tipo_clase_id as string) ?? null : null,
+  })))[0];
+  return grupo?.nombre ?? 'Tu clase fija';
 }
 
 async function aplicarEstadoPlazaFija(
