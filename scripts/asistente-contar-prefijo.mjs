@@ -1,8 +1,9 @@
 // Mide lo que cuesta en tokens una pregunta del asistente, con
 // `messages.countTokens`, que es GRATIS (no ejecuta el modelo):
 //   · el prefijo cacheable (herramientas + prompt de sistema): el MISMO para la
-//     propietaria y la gerente (HERRAMIENTAS_DEL_ASISTENTE). Haiku 4.5 no
-//     cachea prefijos de menos de 4.096 tokens y no avisa: si no llega, falla;
+//     propietaria y la gerente (HERRAMIENTAS_DEL_ASISTENTE). Haiku 5.5 no cachea
+//     prefijos de menos de 512 tokens y Haiku 4.5 (el respaldo), de menos de
+//     4.096; ninguno avisa: se exige el mayor para que cachee con los dos;
 //   · lo que se añade en cada pregunta de ejemplo (contexto del día + pregunta)
 //     y un resultado de herramienta típico, para estimar el coste por pregunta.
 //
@@ -10,9 +11,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PROMPT_SISTEMA, contextoDelDia } from '../lib/asistente/prompt.ts';
 import { HERRAMIENTAS_DEL_ASISTENTE } from '../lib/asistente/herramientas/definiciones.ts';
-import { MODELO_ASISTENTE, PRECIOS_HAIKU_45 as P } from '../lib/asistente/modelo.ts';
+import { MODELO_ASISTENTE, preciosDe } from '../lib/asistente/modelo.ts';
 
 const MINIMO = 4096;
+const P = preciosDe(MODELO_ASISTENTE);
 const client = new Anthropic();
 const tools = [...HERRAMIENTAS_DEL_ASISTENTE];
 const contar = async (system, messages) =>

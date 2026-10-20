@@ -29,7 +29,12 @@ function sinNombres(texto: string, ctx: ContextoHerramienta): string {
 }
 
 export async function queRevisarHoy(_input: unknown, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> {
-  const conteos = await contarConteosEstudio(ctx.admin, { studioId: ctx.studioId, rol: ctx.rol, userId: ctx.userId, ahora: ctx.ahora });
+  // El mensaje del día no depende de los conteos: a la vez (si quien pregunta lo ve).
+  const verMensaje = puedeVer(ctx.rol, '/centro-de-control') && ctx.plan.decisiones;
+  const [conteos, mensaje] = await Promise.all([
+    contarConteosEstudio(ctx.admin, { studioId: ctx.studioId, rol: ctx.rol, userId: ctx.userId, ahora: ctx.ahora }),
+    verMensaje ? dbGetMensajeDia(ctx.studioId, ctx.hoy) : Promise.resolve(null),
+  ]);
   const estado = construirEstadoEstudio(conteos);
   const lineas = [
     ...estado.decidir.map(l => ({ ...l, bandeja: 'decidir' as const })),
@@ -37,8 +42,7 @@ export async function queRevisarHoy(_input: unknown, ctx: ContextoHerramienta): 
   ];
 
   let veredicto: { titulo: string; motivo: string } | null = null;
-  if (puedeVer(ctx.rol, '/centro-de-control') && ctx.plan.decisiones) {
-    const mensaje = await dbGetMensajeDia(ctx.studioId, ctx.hoy);
+  if (verMensaje) {
     if (mensaje?.tipo === 'MENSAJE' && mensaje.recomendacionId) {
       const reco = await dbGetRecomendacion(mensaje.recomendacionId, ctx.studioId);
       if (reco) {

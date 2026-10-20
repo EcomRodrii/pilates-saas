@@ -19,13 +19,18 @@
 //   - Pasado el tope de coste, si aún pide herramientas, se para sin otra llamada.
 //   - `max_tokens` con un `tool_use` a medias: no se ejecuta una entrada truncada.
 //   - Errores tipados del SDK, nunca por el texto del mensaje.
+//   - Respaldo de modelo: si la primera llamada de una vuelta falla por el MODELO
+//     (no existe, sin acceso, parámetro que rechaza, sin capacidad), se reintenta
+//     esa misma vuelta con MODELO_RESPALDO y el resto de la pregunta sigue con él.
+//     Solo si aún no había salido nada al navegador; el coste de cada llamada se
+//     calcula con los precios de SU modelo.
 //   - El historial que se devuelve para guardar es siempre VÁLIDO: un `tool_use`
 //     sin su `tool_result` no se guarda nunca (rompería el turno siguiente).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Anthropic from '@anthropic-ai/sdk';
 import { COSTE_MAX_PREGUNTA_USD, MAX_HERRAMIENTAS, MAX_LLAMADAS } from './limites.ts';
-import { MAX_TOKENS_RESPUESTA, MODELO_ASISTENTE, TEMPERATURA } from './modelo.ts';
+import { MAX_TOKENS_RESPUESTA, MODELO_ASISTENTE, MODELO_RESPALDO, parametrosDelModelo } from './modelo.ts';
 import { costeUsd, sumarUso, USO_CERO, type UsoAcumulado } from './coste.ts';
 import { filtroDeCifras } from './cifras.ts';
 import type { EventoAsistente, MotivoFin } from './protocolo.ts';
@@ -78,6 +83,12 @@ export interface ResultadoTurno {
   motivo: MotivoTurno;
   /** El texto que llegó a la pantalla (ya filtrado). */
   texto: string;
+  /** El modelo que respondió la última llamada (el de respaldo si hubo que cambiar). */
+  modelo: string;
+  /** Dólares de la pregunta: la suma del coste de cada llamada con los precios de su modelo. */
+  costeUsd: number;
+  /** Hubo que pasar al modelo de respaldo. */
+  conRespaldo: boolean;
 }
 
 export const AVISO_UNA_PROPUESTA = 'Ya hay una propuesta en este turno; espera a que la confirme o la cancele. No propongas nada más: responde en una frase.';
@@ -99,6 +110,19 @@ export function detalleDeErrorAnthropic(e: { status?: number; error?: unknown; n
     mensaje: typeof msg === 'string' ? msg.replace(/(["'«“`]).*?\1/g, '$1…$1').slice(0, 300) : undefined,
     ...(e.status === undefined ? { clase: e.name, causa: causa?.code ?? causa?.name } : {}),
   };
+}
+
+/**
+ * ¿El fallo es del MODELO (y otro modelo puede responder) y no de la pregunta o de
+ * la red? Por la clase del error del SDK, nunca por su texto: modelo no encontrado
+ * (404), sin acceso a él (403), un parámetro que rechaza (400) o sin capacidad
+ * (529). Un corte de red, un 429 o un 500 ya los reintenta el SDK.
+ */
+export function esFalloDelModelo(e: unknown): e is InstanceType<typeof Anthropic.APIError> {
+  return e instanceof Anthropic.NotFoundError
+    || e instanceof Anthropic.PermissionDeniedError
+    || e instanceof Anthropic.BadRequestError
+    || (e instanceof Anthropic.APIError && e.status === 529);
 }
 
 export const AVISO_LIMITE = 'Límite de 5 consultas por pregunta: responde con lo que ya tienes.';
@@ -179,6 +203,9 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
   let hayPropuesta = false;
   let texto = '';
   let avisadoCifras = false;
+  let modeloActivo = MODELO_ASISTENTE;
+  let conRespaldo = false;
+  let costeTotal = 0;
   // Entre el texto de una vuelta y el de la siguiente («Voy a mirarlo.» + «Tienes…»).
   let separar = false;
   let textoVuelta = '';
@@ -207,32 +234,56 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
   };
   const fin = (motivo: MotivoTurno): ResultadoTurno => ({
     mensajesNuevos: nuevos, bloques, uso, tokensContexto, nLlamadas, nHerramientas, herramientasUsadas: usadas, motivo, texto,
+    modelo: modeloActivo, costeUsd: Math.round(costeTotal * 1_000_000) / 1_000_000, conRespaldo,
   });
+
+  // ¿Ha llegado ya algo de esta llamada (cualquier bloque de contenido)? Entonces ya no se puede
+  // repetir con otro modelo sin duplicar texto o tarjetas: el filtro de cifras guarda lo que aún no ha salido.
+  let recibidoAlgo = false;
+
+  /** Una petición a Anthropic con el modelo dado. */
+  const llamar = async (modelo: string) => {
+    const params: Anthropic.MessageCreateParamsStreaming = {
+      model: modelo,
+      max_tokens: MAX_TOKENS_RESPUESTA,
+      ...parametrosDelModelo(modelo),
+      system: entrada.sistema,
+      tools: entrada.herramientas,
+      tool_choice: sinHerramientas ? { type: 'none' } : { type: 'auto' },
+      messages: conPuntoDeCache(mensajes),
+      stream: true,
+    };
+    textoVuelta = '';
+    recibidoAlgo = false;
+    const stream = deps.stream(params, entrada.signal);
+    for await (const ev of stream) {
+      if (ev.type === 'content_block_start' || ev.type === 'content_block_delta') recibidoAlgo = true;
+      if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
+        deps.emitir({ t: 'herramienta', id: ev.content_block.id, nombre: ev.content_block.name as NombreHerramienta, etiqueta: deps.etiqueta(ev.content_block.name, null) });
+      } else if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+        emitirTexto(filtro.empujar(ev.delta.text));
+      }
+    }
+    return await stream.finalMessage();
+  };
 
   try {
     while (nLlamadas < MAX_LLAMADAS) {
-      const params: Anthropic.MessageCreateParamsStreaming = {
-        model: MODELO_ASISTENTE,
-        max_tokens: MAX_TOKENS_RESPUESTA,
-        temperature: TEMPERATURA,
-        system: entrada.sistema,
-        tools: entrada.herramientas,
-        tool_choice: sinHerramientas ? { type: 'none' } : { type: 'auto' },
-        messages: conPuntoDeCache(mensajes),
-        stream: true,
-      };
-      textoVuelta = '';
-      const stream = deps.stream(params, entrada.signal);
-      for await (const ev of stream) {
-        if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
-          deps.emitir({ t: 'herramienta', id: ev.content_block.id, nombre: ev.content_block.name as NombreHerramienta, etiqueta: deps.etiqueta(ev.content_block.name, null) });
-        } else if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-          emitirTexto(filtro.empujar(ev.delta.text));
-        }
+      let msg: Anthropic.Message;
+      try {
+        msg = await llamar(modeloActivo);
+      } catch (e) {
+        if (modeloActivo !== MODELO_ASISTENTE || recibidoAlgo || entrada.signal.aborted || !esFalloDelModelo(e)) throw e;
+        // Solo códigos a la Sentry: estado y tipo, nunca el mensaje (puede citar la petición).
+        const cuerpo = (e.error ?? {}) as { error?: { type?: string } };
+        deps.avisar?.('ASISTENTE_MODELO_RESPALDO', 'error', { status: e.status, tipo: cuerpo.error?.type, de: modeloActivo, a: MODELO_RESPALDO });
+        modeloActivo = MODELO_RESPALDO;
+        conRespaldo = true;
+        msg = await llamar(modeloActivo);
       }
-      const msg = await stream.finalMessage();
       nLlamadas++;
       uso = sumarUso(uso, msg.usage);
+      costeTotal += costeUsd(sumarUso(USO_CERO, msg.usage), modeloActivo);
       tokensContexto = (msg.usage.input_tokens ?? 0) + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0);
       cerrarTexto();
       separar = true;
@@ -264,7 +315,7 @@ export async function ejecutarTurno(deps: DepsTurno, entrada: EntradaTurno): Pro
       }
 
       // Pide herramientas. ¿Queda presupuesto para seguir?
-      if (costeUsd(uso) > COSTE_MAX_PREGUNTA_USD) {
+      if (costeTotal > COSTE_MAX_PREGUNTA_USD) {
         if (soloTexto.length) nuevos.push({ role: 'assistant', content: soloTexto });
         deps.emitir({ t: 'aviso', codigo: 'DEMASIADO_AMPLIA' });
         return fin('DEMASIADO_AMPLIA');

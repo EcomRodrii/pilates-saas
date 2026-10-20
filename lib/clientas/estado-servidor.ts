@@ -88,7 +88,9 @@ async function leerYCalcular(
   type FReserva = { id: string; socio_id: string; sesion_id: string; estado: string };
   type FSesion = { id: string; inicio: string };
 
-  const [socios, suscripciones, planes, reservas] = await Promise.all([
+  // Sin filtro por ids se leen TODAS las clases del estudio: no dependen de las reservas, así que
+  // van a la vez que ellas (era un viaje más, y el más grande, después de los otros cuatro).
+  const [socios, suscripciones, planes, reservas, todasLasSesiones] = await Promise.all([
     todasLasFilas<FSocio>((d, h) => {
       let q = admin.from('socios').select('id, activo, fecha_alta, lead_stage').eq('studio_id', studioId).is('borrado_en', null);
       if (ids) q = q.in('id', ids);
@@ -106,6 +108,8 @@ async function leerYCalcular(
       if (ids) q = q.in('socio_id', ids);
       return q.order('id').range(d, h) as unknown as Pagina<FReserva>;
     }),
+    ids ? Promise.resolve(null) : todasLasFilas<FSesion>((d, h) =>
+      admin.from('sesiones').select('id, inicio').eq('studio_id', studioId).order('id').range(d, h) as unknown as Pagina<FSesion>),
   ]);
   if (socios.error || suscripciones.error || planes.error || reservas.error) return null;
 
@@ -121,10 +125,8 @@ async function leerYCalcular(
       sesiones.push(...((data ?? []) as FSesion[]));
     }
   } else {
-    const todas = await todasLasFilas<FSesion>((d, h) =>
-      admin.from('sesiones').select('id, inicio').eq('studio_id', studioId).order('id').range(d, h) as unknown as Pagina<FSesion>);
-    if (todas.error) return null;
-    sesiones = todas.data;
+    if (!todasLasSesiones || todasLasSesiones.error) return null;
+    sesiones = todasLasSesiones.data;
   }
 
   const reservasMapeadas = reservas.data.map(r => ({ socioId: r.socio_id, sesionId: r.sesion_id, estado: r.estado }) as Pick<Reserva, 'socioId' | 'sesionId' | 'estado'>);
