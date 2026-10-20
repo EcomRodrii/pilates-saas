@@ -278,3 +278,10 @@ export async function atarConsumo(admin: SupabaseClient, sesion: SesionAsistente
     .eq('studio_id', sesion.studioId).eq('id', consumoId);
   if (error) console.error('[asistente] atando el consumo', error.code);
 }
+
+/** Si la consulta acabó con el modelo de respaldo, el libro lo dice (se reservó con el principal). Solo el nombre del modelo. */
+export async function corregirModeloDelConsumo(admin: SupabaseClient, sesion: SesionAsistente, consumoId: string, modelo: string): Promise<void> {
+  const { error } = await admin.from('ia_consumos').update({ modelo })
+    .eq('studio_id', sesion.studioId).eq('id', consumoId);
+  if (error) console.error('[asistente] corrigiendo el modelo del consumo', error.code);
+}

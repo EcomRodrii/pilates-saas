@@ -3,7 +3,7 @@
 // `input_tokens` es solo lo que NO salió de caché: el prompt entero es
 // input + cache_read + cache_creation (cada uno a su precio).
 
-import { PRECIOS_HAIKU_45 } from './modelo.ts';
+import { MODELO_ASISTENTE, preciosDe } from './modelo.ts';
 import { MAX_CHARLAS_GRATIS_DIA } from './limites.ts';
 
 export interface UsoAcumulado {
@@ -38,9 +38,15 @@ export function sumarUso(a: UsoAcumulado, u: UsoDeAnthropic): UsoAcumulado {
   };
 }
 
-/** Dólares, redondeados a la millonésima (la precisión de `ia_consumos.coste_usd`). */
-export function costeUsd(u: UsoAcumulado): number {
-  const p = PRECIOS_HAIKU_45;
+/**
+ * Dólares, redondeados a la millonésima (la precisión de `ia_consumos.coste_usd`),
+ * con los precios del `modelo` (por defecto el del asistente; una consulta cerrada
+ * con otro se calcula con los suyos). La tarifa larga de Haiku 5.5 depende del
+ * prompt de CADA petición: para una consulta de varias llamadas, se suma el
+ * `costeUsd` de cada una (lo hace el bucle), no el de los tokens acumulados.
+ */
+export function costeUsd(u: UsoAcumulado, modelo: string = MODELO_ASISTENTE): number {
+  const p = preciosDe(modelo, u.input + u.cacheRead + u.cacheCreation);
   const unaHora = Math.min(u.cacheCreation1h ?? 0, u.cacheCreation);
   const usd = (u.input * p.entrada + u.output * p.salida + u.cacheRead * p.lecturaCache
     + (u.cacheCreation - unaHora) * p.escrituraCache + unaHora * p.escrituraCache1h) / 1_000_000;
