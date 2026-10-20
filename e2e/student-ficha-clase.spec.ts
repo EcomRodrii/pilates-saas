@@ -41,7 +41,8 @@ test.describe('Student PWA · ficha de una clase', () => {
     const a = await abrir(page, { reglasCreditos: [{ trigger: 'ASISTENCIA_CLASE', creditos: 10 }] });
     const heroe = await page.getByTestId('ficha-heroe').boundingBox();
     const titulo = await page.getByRole('heading', { level: 1 }).boundingBox();
-    expect(heroe!.y + heroe!.height, 'el título tiene que ir DEBAJO de la foto').toBeLessThanOrEqual(titulo!.y + 1);
+    // La hoja de contenido sube 24 px sobre la foto (maqueta de oct-2026), pero el título va DENTRO de ella, no sobre la foto.
+    expect(heroe!.y + heroe!.height - 24, 'el título tiene que ir DEBAJO de la foto').toBeLessThanOrEqual(titulo!.y + 1);
 
     const cv = page.getByTestId('como-vienes');
     await expect(cv).toContainText('Bono 8 sesiones');
@@ -109,7 +110,7 @@ test.describe('Student PWA · ficha de una clase', () => {
     await expect(page.getByTestId('pago-corto')).toHaveCount(0);
     // A quien viene con su cuota no se le habla de sesiones devueltas.
     await expect(page.locator('[data-fila="cancelacion"]')).not.toContainText('sesión');
-    await page.getByRole('button', { name: /^Reservar$/ }).click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).click();
     await expect(page.getByText('Incluida en tu cuota. No pagas nada hoy.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Confirmar 10:00 con tu cuota' })).toBeVisible();
     await expect(page.getByText(/Te quedan/)).toHaveCount(0);
@@ -141,7 +142,7 @@ test.describe('Student PWA · ficha de una clase', () => {
   test('bono que no cubre: la tarjeta lo dice con sus palabras, y la frase de la hoja sale UNA vez', async ({ page }) => {
     await abrir(page, { bonoQueNoCubre: true });
     await expect(page.getByTestId('como-vienes')).toContainText('Tu Bono Mat no sirve para Reformer');
-    await page.getByRole('button', { name: /^Reservar$/ }).click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).click();
     await expect(page.getByText(/tu bono no incluye este tipo de clase/i)).toHaveCount(1);
   });
 

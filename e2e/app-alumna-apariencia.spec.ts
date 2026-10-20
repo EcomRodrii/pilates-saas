@@ -42,7 +42,9 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
 const ALUMNA = 'Alumna Prueba';
 
 /** El saludo de Inicio sin nombre: el de la propietaria, que no es alumna. */
-const SALUDO_SIN_NOMBRE = /^Buen(os días|as tardes|as noches) 👋$/;
+// El saludo de Inicio desde la maqueta de oct-2026: «Hola» sin sesión, «Hola, <nombre de pila>» con ella.
+const SALUDO_SIN_NOMBRE = /^Hola$/;
+const SALUDO_ALUMNA = new RegExp(`^Hola, ${ALUMNA.split(' ')[0]}$`);
 const VISTA_PREVIA = 'iframe[title="Vista previa de la app de tus alumnas"]';
 
 /**
@@ -151,7 +153,7 @@ test.describe('Apariencia de tu app', () => {
     // Arranca en Inicio DE VERDAD. Sin esto el `.st-auth-hero` del final ya
     // estaba ahí desde el principio (el login) y el «salta» no probaba nada.
     const marco = page.frameLocator(VISTA_PREVIA);
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
 
     await page.getByLabel('Titular de la entrada').fill('Respira.\nEmpieza.');
@@ -163,7 +165,7 @@ test.describe('Apariencia de tu app', () => {
     // Y se enseña dónde se lee: la vista previa pasa a la pantalla de entrada.
     await expect(page.getByRole('radio', { name: 'Entrada', exact: true })).toHaveAttribute('aria-checked', 'true');
     await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toHaveCount(0);
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toHaveCount(0);
   });
 
   test('la vista previa cambia entre Inicio y Entrada, sin que la propietaria sea alumna', async ({ page }) => {
@@ -206,7 +208,7 @@ test.describe('Apariencia de tu app', () => {
     await ir(page, 'configuracion/apariencia');
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
     const marco = page.frameLocator(VISTA_PREVIA);
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
     expect(alumna.sesiones()).toBeGreaterThan(0);
   });

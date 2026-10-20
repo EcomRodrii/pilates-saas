@@ -24,7 +24,7 @@ test('una pantalla de la alumna no descarga las fuentes de los temas', async ({ 
   // `sinReloj`: `page.clock.install()` vacía la Performance API.
   await sembrarSociaCompleta(page, { bono: 5, sinReloj: true });
   await page.goto(`/portal/${SLUG}/reservar`);
-  await expect(page.getByRole('heading', { name: 'Horario', exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Reservar', exact: true })).toBeVisible({ timeout: 30_000 });
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
   const fuentes = await page.evaluate(() =>
     (performance.getEntriesByType('resource') as PerformanceResourceTiming[])

@@ -266,15 +266,16 @@ export default function MisReservasPage() {
   return (
     <StudentShell>
       <TirarParaActualizar onRefrescar={actualizar} />
-      <PageHeader titulo="Mis clases" />
+      <PageHeader titulo="Actividad" />
 
       {/* Segmentado con píldora deslizante (§I). `tablist` alrededor: unas
           pestañas sueltas (`role="tab"`) sin su lista no se anuncian como tales. */}
       <div
         role="tablist"
-        aria-label="Mis clases"
-        className="px"
-        style={{ position: 'relative', display: 'flex', background: 'var(--muted)', borderRadius: 999, padding: 4, margin: '14px 18px 0' }}
+        aria-label="Actividad"
+        // El margen lateral es el de la página (`--px`: 18 → 24 px desde 768), no 18 fijos: en tableta las pestañas
+        // empezaban 6 px a la izquierda del título.
+        style={{ position: 'relative', display: 'flex', background: 'var(--muted)', borderRadius: 999, padding: 4, margin: '14px var(--px) 0' }}
       >
         <span
           aria-hidden
@@ -544,7 +545,7 @@ function TarjetaOferta({ r, c, instructora, online, aceptando, onAceptar, onSali
 
 /**
  * La siguiente clase, destacada. Mismo lenguaje que «Tu próxima clase» de
- * Inicio (`NextClassCard`): verde noche sobre la foto de la clase.
+ * Inicio (`TarjetaProximaClase`): la foto de la clase con su velo.
  */
 function HeroProxima({ r, c, instructora, hrefDetalle, enCurso, esFija, puedeCancelar, motivoNoCancelar, onCalendario, onCancelar }: {
   r: Reserva; c: Clase; instructora?: Instructora; hrefDetalle: string; enCurso: boolean; esFija: boolean;

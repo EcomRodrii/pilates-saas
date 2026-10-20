@@ -41,15 +41,16 @@ test.describe('Student PWA · pestañas al instante', () => {
     await page.goto(`${base}/mis-reservas`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('proxima-clase')).toBeVisible({ timeout: 60_000 });
 
-    await pestana(page, 'Mi plan').click();
-    // Primera visita a Mi plan: en `next dev` la ruta se compila ahora.
-    await expect(page).toHaveURL(new RegExp(`${base}/bonos$`), { timeout: 45_000 });
-    await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
+    // Mi plan salió de la barra con la maqueta de oct-2026: se va y se vuelve por Comunidad.
+    await pestana(page, 'Comunidad').click();
+    // Primera visita a Comunidad: en `next dev` la ruta se compila ahora.
+    await expect(page).toHaveURL(new RegExp(`${base}/comunidad$`), { timeout: 45_000 });
+    await expect(page.getByRole('heading', { name: 'Comunidad' })).toBeVisible({ timeout: 30_000 });
 
     await vigilar(page, '$^');
-    await pestana(page, 'Mis clases').click();
+    await pestana(page, 'Actividad').click();
     await expect(page.getByTestId('proxima-clase')).toBeVisible();
-    expect((await visto(page)).esqueleto, 'al volver a «Mis clases» no debe pasar por el esqueleto').toBe(false);
+    expect((await visto(page)).esqueleto, 'al volver a «Actividad» no debe pasar por el esqueleto').toBe(false);
     // La pantalla ya vista no repite su entrada (`data-revisita` apaga `.a-up`/`.a-pop`).
     await expect(page.locator('.shell[data-revisita]')).toHaveCount(1);
   });
@@ -80,8 +81,8 @@ test.describe('Student PWA · pestañas al instante', () => {
     // La primera ve su clase en «Mis clases»…
     await page.goto(`${base}/mis-reservas`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('proxima-clase')).toContainText('Reformer', { timeout: 60_000 });
-    await pestana(page, 'Mi plan').click();
-    await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible({ timeout: 30_000 });
+    await pestana(page, 'Comunidad').click();
+    await expect(page.getByRole('heading', { name: 'Comunidad' })).toBeVisible({ timeout: 30_000 });
 
     // …y sin recargar, la sesión del dispositivo pasa a ser de otra persona.
     await page.evaluate(() => {
@@ -93,7 +94,7 @@ test.describe('Student PWA · pestañas al instante', () => {
     });
 
     await vigilar(page, 'Reformer');
-    await pestana(page, 'Mis clases').click();
+    await pestana(page, 'Actividad').click();
     await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
     // Contador: la pantalla de verdad se pidió con la sesión de la segunda.
     expect(pedidasPorB).toBeGreaterThan(0);

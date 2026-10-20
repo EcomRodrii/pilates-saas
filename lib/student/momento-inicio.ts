@@ -69,7 +69,7 @@ export function claseDelMomento(
 export function etiquetaMomento(m: Pick<ClaseDelMomento, 'clase' | 'cuando'>, ahoraMs: number | null): string {
   if (m.cuando === 'manana') return 'Mañana';
   // Las mismas palabras que el resto de la app para una clase que se está dando
-  // (NextClassCard, Mis clases): «Tu clase, en curso».
+  // (TarjetaProximaClase, Actividad): «Tu clase, en curso».
   if (m.cuando === 'ahora') return `Tu clase, en curso · hasta las ${horaFin(m.clase.hora, m.clase.duracionMin)}`;
   if (ahoraMs === null) return 'Hoy';
   const faltan = Math.max(1, Math.ceil((new Date(m.clase.inicio).getTime() - ahoraMs) / MIN));
