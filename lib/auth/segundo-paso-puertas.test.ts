@@ -59,7 +59,10 @@ test('identificar SIN cortar por el segundo paso es una lista cerrada', () => {
     .map((p) => relative(RAIZ, p)).sort();
   // `usuarioConToken`: solo las rutas del PROPIO segundo paso (recordar el
   // dispositivo, mandar y comprobar el código), que existen para quien aún no lo ha pasado.
+  // Y la que el puente del widget pregunta antes de entregar una sesión (¿es de equipo?):
+  // no da datos, y tiene que contestar también en `aal1` para no entregar una de equipo.
   assert.deepEqual(usan('usuarioConToken'), [
+    'app/api/auth/cuenta-de-equipo/route.ts',
     'app/api/auth/dispositivo-confianza/route.ts',
     'app/api/auth/dispositivo-confianza/usar/route.ts',
     'app/api/auth/doble-factor-correo/enviar/route.ts',

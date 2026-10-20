@@ -4,10 +4,11 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { esAppDeLaAlumna } from '@/lib/raiz/rutas-sin-proveedores';
+import { sinProveedoresDeSesion } from '@/lib/raiz/rutas-sin-proveedores';
 import { reiniciarBloqueoDeScroll } from '@/lib/bloqueo-scroll';
 
-// Los providers de sesión, montados en la raíz salvo en la app de la alumna.
+// Los providers de sesión, montados en la raíz salvo en la app de la alumna y en
+// la ventana del puente del widget (`sinProveedoresDeSesion`).
 //
 // Siguen en la RAÍZ a propósito, y no en el layout de cada grupo de rutas: con
 // una sola instancia, las navegaciones suaves entre panel, landing, /login o
@@ -32,6 +33,6 @@ export function ProveedoresRaiz({ children }: { children: ReactNode }) {
   // alumna/instructora, que comparten ese mismo hook.
   useEffect(() => { reiniciarBloqueoDeScroll(); }, [pathname]);
 
-  if (esAppDeLaAlumna(pathname)) return <>{children}</>;
+  if (sinProveedoresDeSesion(pathname)) return <>{children}</>;
   return <ProveedoresSesion>{children}</ProveedoresSesion>;
 }

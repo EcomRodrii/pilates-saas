@@ -51,7 +51,15 @@ export const supabasePortal = {
     // a ratos, según quién terminara antes. Es el hallazgo #9 de la auditoría
     // del 30-jul (ver `lib/db/supabase.ts`), en la otra dirección. Los enlaces
     // de la socia nunca vuelven a esas rutas (`/portal/…/acceso/verificar`,
-    // `/reservar/…`, `/widget-auth-retorno`).
-    detectSessionInUrl: !esRetornoAuthStaff(typeof window !== 'undefined' ? window.location.pathname : null),
+    // `/reservar/…`).
+    // Ni el del PUENTE del widget (`/widget-auth-retorno`): esa sesión es del
+    // widget y la recoge el cliente propio del puente
+    // (app/widget-auth-retorno/clientes-auth.ts). Esa página no carga este
+    // cliente (ni lo importa, ni monta los providers que lo traen:
+    // `sinProveedoresDeSesion`); esta comprobación es la otra cerradura, por si
+    // algo volviera a traerlo. ⚠️ No quitarla por redundante: si este cliente
+    // leyera esa URL, guardaría la sesión del widget encima de la de la alumna.
+    detectSessionInUrl: !esRetornoAuthStaff(typeof window !== 'undefined' ? window.location.pathname : null)
+      && !(typeof window !== 'undefined' && window.location.pathname === '/widget-auth-retorno'),
   }),
 };
