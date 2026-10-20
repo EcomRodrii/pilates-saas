@@ -103,7 +103,7 @@ export function TabLogros({ showToast }: { showToast: MostrarToast }) {
           {achievementDefinitions.map(a => (
             <div key={a.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
               <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
-                <MiniaturaInsignia icono={a.icono} />
+                <MiniaturaInsignia icono={a.icono} porDefecto="trofeo" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{a.nombre}</p>
