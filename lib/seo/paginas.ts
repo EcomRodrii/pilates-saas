@@ -601,6 +601,24 @@ export const PAGINAS: PaginaSeo[] = [
     actualizado: '2026-10-07',
     relacionadas: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/app-para-alumnas', '/soluciones/estudio-de-pilates-reformer', '/recursos/como-abrir-un-estudio-de-yoga', '/recursos/checklist-elegir-software-estudio'],
   },
+  // Para quien VA A ABRIR (fase 2.3 de la web, 20-oct-2026): la intención es la
+  // del programa con el que abrir, no la de cómo se abre (eso es la guía de
+  // /recursos, que esta página enlaza). «Varias sedes» se queda en
+  // /funcionalidades/multi-centro: una segunda página competiría con ella.
+  {
+    path: '/soluciones/abrir-un-estudio',
+    titulo: 'Software para abrir tu estudio de Pilates o yoga | Tentare',
+    descripcion:
+      'Abre con tu horario, tu página de reservas y tu app listos en tu primera sesión. Gratis mientras empiezas, sin tarjeta y sin permanencia.',
+    grupo: 'soluciones',
+    etiqueta: 'Abrir un estudio',
+    resumen: 'Tu horario, tus reservas y tu app, listos antes de la primera clase.',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: '2026-10-20',
+    // Sin guías: la página ya las lista enteras; aquí, el producto.
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/app-para-alumnas', '/funcionalidades/bonos-y-membresias', '/precios'],
+  },
   // Página pilar del estudio de REFORMER (fase 5 del rediseño, 23-sep). No
   // compite con la home («software de gestión para estudios de Pilates»): la
   // intención aquí es la del estudio boutique de máquinas —plaza por reformer,
@@ -648,7 +666,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-10-07',
-    relacionadas: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/funcionalidades/multi-centro', '/soluciones/cambiar-de-software'],
+    relacionadas: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/abrir-un-estudio', '/funcionalidades/multi-centro', '/soluciones/cambiar-de-software'],
   },
   {
     path: '/recursos',

@@ -548,6 +548,8 @@ function EstilosSolucion() {
 
       /* ── Relacionadas ────────────────────────────────────────────── */
       .sol-rel { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 16px; }
+      .sol-rel-3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      @media (max-width: 860px) { .sol-rel-3 { grid-template-columns: minmax(0,1fr); } }
       .sol-rel-card { display: block; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 16px; padding: 20px; text-decoration: none;
         transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
       .sol-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
