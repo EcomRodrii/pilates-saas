@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La portada enlaza las guías de /recursos (components/web/home/GuiasHome; antes SeccionGuias).
-// Desde la home nueva (fase 2.2) son TRES destacadas, como la banda de bsport, más «Ver todas».
-//  · Las seis guías y «Ver todas» están en el HTML del SERVIDOR: es lo que
+// La portada enlaza las guías de /recursos. Desde la home v2 (20-oct-2026) no hay
+// banda de guías (el blog está en el menú): las enlazan la etapa «Voy a abrir mi
+// estudio», el panel «Recursos» de la isla y el pie.
+//  · Esos enlaces y el del listado están en el HTML del SERVIDOR: es lo que
 //    rastrea Google, y la portada es la página con más autoridad del dominio.
 //  · Y el texto de los artículos NO viaja en el JavaScript de la home ni del
 //    listado: el cliente solo ve lib/recursos/articulos/meta.ts. Pasó con el
@@ -13,15 +14,13 @@ import { test, expect } from '@playwright/test';
 
 test.setTimeout(180_000);
 
-test('la portada enlaza tres guías y el listado, en el HTML del servidor', async ({ request }) => {
+test('la portada enlaza al menos tres guías y el listado, en el HTML del servidor', async ({ request }) => {
   const res = await request.get('/');
   expect(res.status()).toBe(200);
   const html = await res.text();
-  const seccion = html.slice(html.indexOf('id="guias"'));
-  expect(html).toContain('id="guias"');
-  const enlaces = [...seccion.matchAll(/href="(\/recursos\/[a-z0-9-]+)"/g)].map((m) => m[1]);
+  const enlaces = [...html.matchAll(/href="(\/recursos\/[a-z0-9-]+)"/g)].map((m) => m[1]);
   expect(new Set(enlaces).size).toBeGreaterThanOrEqual(3);
-  expect(seccion).toContain('href="/recursos"');
+  expect(html).toContain('href="/recursos"');
 });
 
 // Frases del cuerpo de dos artículos que no salen en ninguna tarjeta.
@@ -34,7 +33,7 @@ for (const ruta of ['/', '/recursos']) {
       if (r.request().resourceType() === 'script' && r.ok()) scripts.push(await r.text().catch(() => ''));
     });
     await page.goto(ruta, { waitUntil: 'networkidle' });
-    await expect(page.getByRole('link', { name: /Cómo abrir un estudio de pilates/ }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /abrir un estudio de pilates/i }).first()).toBeVisible();
     expect(scripts.length).toBeGreaterThan(0);
     for (const frase of FRASES_DEL_CUERPO) {
       expect(scripts.some((s) => s.includes(frase)), `«${frase}» está en el JS de ${ruta}`).toBe(false);

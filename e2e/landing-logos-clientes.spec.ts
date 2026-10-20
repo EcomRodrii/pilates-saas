@@ -45,10 +45,10 @@ test('la home, sin ningún estudio con consentimiento: ni franja ni título ni h
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('#clientes')).toHaveCount(0);
   await expect(page.getByText('Estudios que ya usan Tentare')).toHaveCount(0);
-  // Sin hueco: «Seis cosas…» empieza justo donde acaba el héroe (home nueva, fase 2.2: la franja va bajo el héroe).
+  // Sin hueco: el bloque siguiente («Lo que antes te llevaba la tarde», home v2) empieza justo donde acaba el héroe.
   const [finSuena, inicioVerbos] = await Promise.all([
     page.locator('header#top').evaluate((e) => e.getBoundingClientRect().bottom + window.scrollY),
-    page.locator('#verbos').evaluate((e) => e.getBoundingClientRect().top + window.scrollY),
+    page.locator('#te-suena').evaluate((e) => e.getBoundingClientRect().top + window.scrollY),
   ]);
   expect(Math.abs(inicioVerbos - finSuena)).toBeLessThanOrEqual(1);
   // CONTROL: con logos la franja SÍ ocupa sitio entre las dos (si no, la medida de arriba no prueba nada).

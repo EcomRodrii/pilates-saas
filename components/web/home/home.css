@@ -181,20 +181,6 @@
 .wh-agenda-plazas { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-variant-numeric: tabular-nums; font-weight: 600; }
 .wh-agenda-llena { background: var(--wh-arena-50); border-radius: 12px; padding-inline: 10px; margin-inline: -8px; border-bottom-color: transparent; }
 
-/* Fotograma de antes y después (bsport). */
-.wh-fotograma-clase { display: flex; align-items: center; gap: 12px; padding: 4px 2px 14px; border-bottom: 1px solid var(--wh-linea); }
-.wh-fotograma-plazas { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-variant-numeric: tabular-nums; }
-.wh-fotograma-plazas b { font-size: 16px; }
-.wh-fotograma-pasos { list-style: none; margin: 0; padding: 12px 0 0; position: relative; }
-.wh-fotograma-pasos::before { content: ''; position: absolute; left: 5px; top: 22px; bottom: 18px; width: 1.5px; background: var(--wh-linea); }
-.wh-fotograma-pasos li { position: relative; display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; color: var(--wh-gris); flex-wrap: wrap; }
-.wh-fotograma-pasos li > span:nth-child(2) { flex: 1; min-width: 140px; }
-.wh-fotograma-punto { position: relative; z-index: 1; flex-shrink: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--wh-blanco);
-  box-shadow: 0 0 0 1.5px #B9B2A0 inset; }
-.wh-fotograma-punto-error { box-shadow: 0 0 0 1.5px var(--wh-error) inset; }
-.wh-fotograma-hecho { color: var(--wh-tinta) !important; font-weight: 600; }
-.wh-fotograma-hecho .wh-fotograma-punto { background: var(--wh-ok); box-shadow: none; }
-
 /* Sustituciones. */
 .wh-susti-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 2px 2px 12px; border-bottom: 1px solid var(--wh-linea); }
 .wh-susti-cab > span:first-child { display: flex; flex-direction: column; }
@@ -219,24 +205,8 @@
 .wh-ocupacion li b { text-align: right; font-variant-numeric: tabular-nums; }
 .wh-ocupacion-barra { height: 8px; border-radius: 99px; background: rgba(34, 38, 31, .07); overflow: hidden; }
 .wh-ocupacion-barra span { display: block; height: 100%; border-radius: inherit; background: var(--wh-oliva); }
-
-/* Acta del importador. */
-.wh-acta-lista { list-style: none; margin: 0; padding: 10px 2px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 9px 14px; }
-.wh-acta-lista li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .wh-check { flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--wh-ok-fondo); position: relative; }
 .wh-check::after { content: ''; position: absolute; left: 5px; top: 3px; width: 4px; height: 7px; border: solid var(--wh-ok); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
-
-/* Mapa de la sala. */
-.wh-mapa-rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 2px 10px; }
-.wh-mapa-sitio { display: grid; place-items: center; height: 40px; border-radius: 10px; font-size: 12.5px; font-weight: 600;
-  background: var(--wh-blanco); box-shadow: 0 0 0 1px rgba(34, 38, 31, .14) inset; color: var(--wh-gris); }
-.wh-mapa-ocupado { background: rgba(34, 38, 31, .08); box-shadow: none; color: rgba(34, 38, 31, .38); }
-.wh-mapa-tuyo { background: var(--wh-oliva); box-shadow: none; color: var(--wh-arena); }
-.wh-mapa-leyenda { display: flex; gap: 14px; font-size: 11.5px; color: var(--wh-gris-suave); padding: 2px; }
-.wh-mapa-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
-.wh-mapa-leyenda i { display: inline-block; width: 11px; height: 11px; border-radius: 4px; box-shadow: 0 0 0 1px rgba(34, 38, 31, .2) inset; }
-.wh-mapa-leyenda i.wh-mapa-tuyo { background: var(--wh-oliva); box-shadow: none; }
-.wh-mapa-leyenda i.wh-mapa-ocupado { background: rgba(34, 38, 31, .14); box-shadow: none; }
 
 /* ── 1. Héroe: banda oscura a sangre (Mariana Tek + bsport) ──────────────────
    La foto, con vida: volteada para que la alumna y sus manos en la barra queden a
@@ -250,12 +220,16 @@
   min-height: clamp(720px, 100svh, 960px); display: flex; flex-direction: column; overflow: hidden;
   background: var(--wh-tinta); color: #fff; }
 .wh-heroe-foto { position: absolute; inset: 0; z-index: 0; }
-.wh-heroe-movil-dato { display: none; }
 .wh-heroe-foto picture, .wh-heroe-foto img { display: block; width: 100%; height: 100%; }
-.wh-heroe-foto img { object-fit: cover; object-position: 50% 30%; filter: saturate(.92) brightness(.9) contrast(1.03); }
-.wh-heroe-foto::before { content: ''; position: absolute; inset: 0; z-index: 1; background: var(--wh-oliva); mix-blend-mode: multiply; opacity: .28; }
+/* Home v2 (20-oct-2026, fundador: «foto a sangre más clara»): la foto a su luz, sin
+   el velo oliva que la apagaba entera. Solo la columna del texto lleva un degradado
+   (para que se lea en blanco) y la franja de logos, un poco de sombra debajo; el resto
+   de la foto se ve tal cual. */
+.wh-heroe-foto img { object-fit: cover; object-position: 50% 30%; }
+.wh-heroe-foto::before { content: ''; position: absolute; inset: auto 0 0 0; height: 26%; z-index: 1;
+  background: linear-gradient(0deg, rgba(34, 38, 31, .55), rgba(34, 38, 31, 0)); }
 .wh-heroe-foto::after { content: ''; position: absolute; inset: 0; z-index: 2;
-  background: linear-gradient(90deg, rgba(34, 38, 31, .84) 0%, rgba(34, 38, 31, .7) 38%, rgba(34, 38, 31, .48) 52%, rgba(34, 38, 31, .16) 72%, rgba(34, 38, 31, .1) 100%); }
+  background: linear-gradient(90deg, rgba(34, 38, 31, .74) 0%, rgba(34, 38, 31, .58) 30%, rgba(34, 38, 31, .2) 50%, rgba(34, 38, 31, 0) 64%); }
 .wh-heroe-wrap { position: relative; z-index: 3; flex: 1; width: 100%; max-width: calc(var(--wh-ancho) + 2 * var(--wh-margen)); margin: 0 auto;
   padding: calc(var(--wh-barra) + clamp(44px, 7vh, 96px)) var(--wh-margen) clamp(16px, 3vh, 40px);
   display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(24px, 4vw, 64px); align-items: center; }
@@ -282,9 +256,6 @@
 .wh-heroe-pantalla { height: 100%; background: #F4EEE5; }
 .wh-heroe-pantalla picture, .wh-heroe-pantalla img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .wh-heroe-tel { transform: rotateY(-9deg) rotateX(3deg); transform-origin: 50% 50%; filter: drop-shadow(0 40px 50px rgba(0, 0, 0, .45)); }
-.wh-heroe-clase { position: absolute; right: 47%; top: 4%; width: 210px; }
-.wh-heroe-clase .wh-cristal-dato { margin-top: 4px; }
-.wh-heroe-ficha { position: absolute; right: 41%; bottom: 6%; }
 .wh-heroe .wh-ficha { box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .5); }
 .wh-heroe-logos { position: relative; z-index: 3; padding: 0 var(--wh-margen) clamp(20px, 3vh, 36px); }
 .wh-heroe .v7-logos-t { margin-bottom: 14px; }
@@ -306,21 +277,10 @@
 .wh-heroe .v7-logos-item:hover img { filter: none; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes wh-entra { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  .wh-heroe-tel-marco, .wh-heroe-clase, .wh-heroe-ficha { animation: wh-entra .7s cubic-bezier(.2, .7, 0, 1) both; }
+  .wh-heroe-tel-marco { animation: wh-entra .7s cubic-bezier(.2, .7, 0, 1) both; }
   .wh-heroe-tel-marco { animation-name: wh-entra-centro; }
   @keyframes wh-entra-centro { from { opacity: 0; transform: translate(-50%, calc(-50% + 14px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
-  .wh-heroe-clase { animation-delay: .12s; } .wh-heroe-ficha { animation-delay: .24s; }
 }
-
-/* ── 2. Seis verbos (Momence) ──────────────────────────────────────────────── */
-.wh-verbos-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.wh-verbo { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 28px 28px 26px; border-radius: var(--wh-radio);
-  background: var(--wh-blanco); color: inherit; text-decoration: none; transition: background .2s; }
-.wh-verbo:hover { background: var(--wh-arena-50); }
-.wh-verbo-icono { color: var(--wh-ocre); }
-.wh-verbo-h { margin-top: 6px; font-size: 26px; font-weight: 500; letter-spacing: -.03em; color: var(--wh-tinta); }
-.wh-verbo-texto { font-size: 16px; line-height: 1.55; color: var(--wh-gris); flex: 1; }
-.wh-verbo-ir { margin-top: 6px; font-size: 14.5px; font-weight: 600; color: var(--wh-oliva); }
 
 /* ── 3. «Tú das la clase» (rejilla de iconos de bsport) ────────────────────── */
 .wh-resto-rejilla { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(36px, 6vw, 96px); align-items: start; }
@@ -329,53 +289,9 @@
 .wh-cierre-linea p { margin: 0; font-size: 17px; font-weight: 500; color: var(--wh-tinta); }
 .wh-resto-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--wh-linea); }
 .wh-resto-item { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 20px; padding: 28px 0; border-bottom: 1px solid var(--wh-linea); }
-.wh-resto { background: var(--wh-blanco); }
+.wh-resto { background: var(--wh-crema); }
 /* Icono sin baldosa, en el color de la marca (lo hacen las cinco referencias). */
 .wh-baldosa { display: block; padding-top: 2px; color: var(--wh-oliva); }
-
-/* ── 4. Bento del producto (bsport) ────────────────────────────────────────── */
-.wh-bn { background: var(--wh-crema); }
-.wh-bn-rejilla { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
-.wh-bn-tarjeta { position: relative; display: flex; flex-direction: column; min-height: 460px; overflow: hidden; border-radius: var(--wh-radio);
-  background: var(--wh-crema); }
-.wh-bn-7 { grid-column: span 7; } .wh-bn-5 { grid-column: span 5; } .wh-bn-6 { grid-column: span 6; min-height: 380px; }
-.wh-bn-crema { background: var(--wh-blanco); }
-.wh-bn-piedra { background: var(--wh-piedra); }
-.wh-bn-papel { background: var(--wh-blanco); }
-.wh-bn-arena { background: var(--wh-arena-50); }
-.wh-bn-oscura { background: var(--wh-oliva); color: #fff; }
-.wh-bn-oscura .wh-h3, .wh-bn-oscura .wh-h3 a { color: #fff; }
-.wh-bn-oscura .wh-texto { color: rgba(255, 255, 255, .78); }
-.wh-bn-oscura .wh-chip-enlace a { background: rgba(255, 255, 255, .1); color: #fff; }
-.wh-bn-oscura .wh-chip-enlace a:hover { background: rgba(255, 255, 255, .18); }
-.wh-bn-texto { position: relative; z-index: 2; padding: 32px 34px 0; max-width: 540px; }
-.wh-bn-h3 { font-size: clamp(22px, 2.1vw, 30px); font-weight: 500; letter-spacing: -.03em; }
-.wh-chips { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.wh-chip-enlace a { display: inline-block; padding: 7px 13px; border-radius: 999px; background: var(--wh-arena-25); color: #4A3B1C;
-  font-size: 13px; font-weight: 600; text-decoration: none; transition: background .2s; }
-.wh-chip-enlace a:hover { background: rgba(217, 194, 158, .55); }
-/* El fragmento va en el flujo, al fondo de la tarjeta, y la tarjeta le corta
-   los últimos 28 px (`overflow: hidden` + margen negativo): sale por el borde
-   como en bsport, y la tarjeta crece con lo que lleva dentro. */
-.wh-bn-escena { position: relative; margin-top: auto; padding: 32px 34px 0; }
-.wh-bn-escena .wh-escena-piezas { position: relative; }
-.wh-bn-ui { position: relative; }
-.wh-bn-ui-abajo { margin-bottom: -28px; }
-.wh-bn-7 .wh-bn-ui-abajo { max-width: 520px; }
-.wh-bn-flota { position: absolute; z-index: 3; }
-/* El aviso flota por encima del fragmento, en su esquina: lo tapa un poco, a
-   propósito, sin tapar el dato. */
-.wh-bn-con-aviso .wh-bn-escena { padding-top: 104px; }
-.wh-bn-flota-arriba { right: 0; top: -84px; }
-.wh-bn-oscura .wh-bn-flota-arriba { top: -112px; right: 14px; box-shadow: 0 22px 44px -18px rgba(0, 0, 0, .55); }
-.wh-bn-flota-abajo { left: 24px; bottom: 24px; }
-/* Una de cada tres, foto grande con su mini-tarjeta encima. */
-.wh-bn-foto { background: var(--wh-arena-50); }
-.wh-bn-foto .wh-bn-escena { flex: 1; min-height: 300px; margin-top: 28px; padding: 0; }
-.wh-bn-foto .wh-bn-escena .wh-escena-piezas { position: absolute; inset: 0; }
-.wh-bn-foto-img { position: absolute; inset: 0; }
-.wh-bn-foto-ancha .wh-bn-foto-img img { object-position: 50% 35% !important; }
-.wh-bn-pie { margin-top: 36px; display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 
 /* ── 5. Pestañas por resultado (Momence) ───────────────────────────────────── */
 .wh-tabs-seccion { background: var(--wh-blanco); }
@@ -409,45 +325,10 @@
 .wh-video { max-width: 980px; margin: clamp(56px, 6vw, 88px) auto 0; }
 .wh-video-titulo { margin: 0 0 18px; text-align: center; font-size: 17px; font-weight: 500; color: var(--wh-tinta); }
 
-/* ── 6. Filas alternas (Mariana Tek + el panel inclinado de Momence) ───────── */
-.wh-filas-seccion { background: var(--wh-crema); }
-.wh-fila-ed { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
-.wh-fila-ed + .wh-fila-ed { margin-top: clamp(96px, 12vw, 180px); }
-.wh-fila-ed-inversa .wh-fila-ed-texto { order: 2; }
-.wh-fila-ed-texto { max-width: 500px; }
-.wh-fila-ed-icono { display: block; color: var(--wh-ocre); margin-bottom: 18px; }
-.wh-fila-ed-h3 { font-size: clamp(24px, 2.4vw, 34px); font-weight: 400; letter-spacing: -.03em; }
-.wh-fila-ed-enlaces { margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 10px 24px; }
-.wh-fila-ed-visual { perspective: 1400px; }
-.wh-inclinado { position: relative; min-height: 400px; display: grid; place-items: center; padding: 48px 32px; border-radius: 28px;
-  background: var(--wh-blanco); transform: rotateY(-7deg) rotateX(3deg); transform-origin: 50% 50%; box-shadow: var(--wh-sombra-larga); }
-.wh-fila-ed-inversa .wh-inclinado { transform: rotateY(7deg) rotateX(3deg); }
-.wh-inclinado .wh-escena { width: 100%; display: grid; place-items: center; }
-.wh-inclinado .wh-escena-piezas { width: 100%; display: grid; place-items: center; }
-.wh-fila-ui { width: min(100%, 400px); }
-.wh-fila-tel { filter: drop-shadow(0 30px 40px rgba(34, 38, 31, .18)); }
-.wh-fila-pantalla { height: 100%; background: #F4EEE5; }
-.wh-fila-pantalla picture, .wh-fila-pantalla img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.wh-fila-flota { position: absolute; right: 0; bottom: 40px; }
-@media (prefers-reduced-motion: reduce) { .wh-inclinado, .wh-fila-ed-inversa .wh-inclinado { transform: none; } }
-
-/* ── 7. Banda oscura hoy / con Tentare (Mariana Tek) ───────────────────────── */
+/* ── Bandas oscuras (Momentos y cierre) ─────────────────────────────────────── */
 .wh-oscura { background: var(--wh-tinta); color: #fff; }
 .wh-oscura .wh-h2 { color: #fff; }
 .wh-oscura .wh-lead { color: rgba(255, 255, 255, .72); }
-.wh-cmp { margin: 0 clamp(8px, 1.4vw, 20px); border-radius: clamp(28px, 4vw, 48px); }
-.wh-cmp-cabecera { max-width: 760px; margin-bottom: clamp(32px, 4vw, 56px); }
-.wh-cmp-lista { list-style: none; margin: 0; padding: 0; }
-.wh-cmp-fila { display: grid; grid-template-columns: minmax(0, .55fr) minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px clamp(20px, 3vw, 48px);
-  padding: 24px 0; border-bottom: 1px solid rgba(255, 255, 255, .12); align-items: start; }
-.wh-cmp-titulos { padding: 0 0 14px; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; color: rgba(255, 255, 255, .6); }
-.wh-cmp-titulos span:last-child { color: var(--wh-arena); }
-.wh-cmp-tema { margin: 0; font-size: clamp(20px, 1.8vw, 24px); font-weight: 400; letter-spacing: -.02em; color: var(--wh-arena); }
-.wh-cmp-hoy, .wh-cmp-con { margin: 0; font-size: 16px; line-height: 1.55; }
-.wh-cmp-hoy { color: rgba(255, 255, 255, .66); }
-.wh-cmp-con { color: #fff; }
-.wh-cmp-et { display: none; }
-.wh-cmp-cierre { margin-top: 40px; }
 
 /* ── 8. Etapas ─────────────────────────────────────────────────────────────── */
 .wh-etapas-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -507,19 +388,11 @@
 .wh-faq-item[open] .wh-faq-signo::after { transform: translate(-50%, -50%) rotate(0deg); }
 .wh-faq-respuesta { margin: 0; padding: 0 44px 24px 2px; font-size: 16px; line-height: 1.65; color: var(--wh-gris); max-width: 66ch; }
 
-/* ── 11. Guías ─────────────────────────────────────────────────────────────── */
-.wh-guias { background: var(--wh-blanco); }
-.wh-guias-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.wh-guia { display: flex; flex-direction: column; gap: 10px; color: inherit; text-decoration: none; }
-.wh-guia-foto { aspect-ratio: 3 / 2; border-radius: 20px; margin-bottom: 8px; background: var(--wh-piedra); }
-.wh-guia-seccion { font-size: 13px; font-weight: 600; color: var(--wh-ocre); }
-.wh-guia-t { font-size: 20px; font-weight: 500; line-height: 1.3; letter-spacing: -.02em; color: var(--wh-tinta); text-wrap: balance; }
-.wh-guia:hover .wh-guia-t { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
-.wh-guia-d { font-size: 15px; line-height: 1.55; color: var(--wh-gris); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-
 /* ── 12. Cierre: banda oscura a sangre con foto y un botón ────────────────── */
 .wh-cierre { position: relative; overflow: hidden; display: flex; align-items: center; min-height: clamp(520px, 44vw, 640px);
-  margin: var(--wh-aire) clamp(8px, 1.4vw, 20px) 0; border-radius: clamp(28px, 4vw, 48px); padding: clamp(56px, 7vw, 96px) var(--wh-margen); }
+  /* A sangre y sin redondear (home v2): la tarjeta redondeada con margen chocaba
+     contra el pie oscuro; así foto y pie se leen como un solo cierre. */
+  margin: var(--wh-aire) 0 0; padding: clamp(64px, 8vw, 112px) var(--wh-margen); }
 .wh-cierre-foto { position: absolute; inset: 0; z-index: 0; }
 .wh-cierre-foto picture, .wh-cierre-foto img { display: block; width: 100%; height: 100%; }
 .wh-cierre-foto img { object-fit: cover; object-position: 50% 60%; filter: saturate(.7) brightness(.62) contrast(1.04); }
@@ -532,13 +405,9 @@
 
 /* ── Tableta ───────────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-  .wh-bn-tarjeta { min-height: 420px; }
-  .wh-bn-7, .wh-bn-5 { grid-column: span 6; }
-  .wh-verbos-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wh-tab-cuerpo { grid-template-columns: minmax(0, 1fr); }
   .wh-tab-flota { display: none; }
   .wh-tab-escena:has(.wh-tab-flota) { padding-bottom: 36px; }
-  .wh-heroe-ficha { display: none; }
 }
 
 /* ── Móvil: se QUITA, no se encoge (Mariana Tek) ───────────────────────────── */
@@ -568,13 +437,8 @@
   .wh-heroe .v7-logos { border-top: 0; padding-top: 0; }
   .wh-heroe-foto { order: 3; position: relative; inset: auto; height: 460px; margin: 40px var(--wh-margen) 8px; border-radius: 24px; overflow: hidden; }
   .wh-heroe-foto::after { background: none; }
-  .wh-heroe-movil-dato { display: block; position: absolute; z-index: 3; left: 16px; bottom: 16px; width: 200px;
-    background: rgba(255, 255, 255, .82); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, .7); border-radius: 20px; }
   .wh-heroe-tel-marco { top: 0; left: 50%; right: auto; transform: translateX(-50%); }
   .wh-heroe-tel { transform: none; }
-  .wh-heroe-clase { display: none; }
-  .wh-heroe-ficha { display: none; }
   @media (prefers-reduced-motion: no-preference) {
     .wh-heroe-tel-marco { animation-name: wh-entra-movil; }
     @keyframes wh-entra-movil { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translateX(-50%); } }
@@ -582,44 +446,34 @@
 
   .wh-resto-rejilla, .wh-faq-rejilla { grid-template-columns: minmax(0, 1fr); }
   .wh-resto-intro { position: static; }
-  .wh-fila-ed { grid-template-columns: minmax(0, 1fr); }
-  .wh-fila-ed-inversa .wh-fila-ed-texto { order: 0; }
-  .wh-inclinado, .wh-fila-ed-inversa .wh-inclinado { transform: none; min-height: 0; padding: 32px 18px; }
-  .wh-fila-flota { position: relative; right: auto; bottom: auto; margin-top: -60px; }
-  .wh-inclinado .wh-escena-piezas { gap: 0; }
-  .wh-etapas-rejilla, .wh-precio-rejilla, .wh-guias-rejilla { grid-template-columns: minmax(0, 1fr); }
-  .wh-cmp-fila { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .wh-cmp-titulos { display: none; }
-  .wh-cmp-et { display: block; margin-bottom: 3px; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .55); }
-  .wh-cmp-con .wh-cmp-et { color: var(--wh-arena); }
-  .wh-cierre { margin-inline: 8px; border-radius: 28px; min-height: 0; padding: 64px 20px; }
+  .wh-etapas-rejilla, .wh-precio-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-cierre { min-height: 0; padding: 64px 20px; }
   .wh-cierre-acciones { flex-direction: column; }
   .wh-cierre-acciones .wh-boton { width: 100%; }
 }
 
 @media (max-width: 760px) {
-  .wh-bn-7, .wh-bn-5, .wh-bn-6 { grid-column: 1 / -1; }
-  .wh-bn-tarjeta { min-height: 0; }
-  .wh-bn-texto { padding: 26px 22px 0; }
-  .wh-bn-escena { padding: 26px 18px 0; }
-  .wh-bn-foto .wh-bn-escena { min-height: 320px; }
-  .wh-bn-flota-arriba { display: none; }
-  .wh-bn-con-aviso .wh-bn-escena { padding-top: 26px; }
-  .wh-bn-flota-abajo { left: 14px; right: 14px; bottom: 14px; }
-  .wh-bn-flota-abajo.wh-aviso, .wh-bn-flota-abajo.wh-ficha { width: auto; }
-  .wh-acta-lista { grid-template-columns: minmax(0, 1fr); }
-  /* En el móvil, un carril que se desliza con la siguiente tarjeta asomando
-     (diseñado para el móvil, no seis tarjetas apiladas). */
-  .wh-verbos-rejilla { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 80%; gap: 12px;
-    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--wh-margen);
-    margin-inline: calc(-1 * var(--wh-margen)); padding: 0 var(--wh-margen) 6px; scrollbar-width: none; }
-  .wh-verbos-rejilla::-webkit-scrollbar { display: none; }
-  .wh-verbos-rejilla > li { scroll-snap-align: start; }
-  .wh-verbo { padding: 22px; }
   .wh-tabs-lista { display: flex; }
   .wh-tab { padding: 0 16px; font-size: 14.5px; }
   .wh-tab-cuerpo { padding: 22px 18px; border-radius: 22px; }
   .wh-tab-escena { min-height: 0; padding: 22px 14px; }
-  .wh-bn-pie { flex-direction: column; align-items: stretch; }
   .wh-ocupacion li { grid-template-columns: 1fr 70px 36px; }
 }
+
+/* ── Momentos (home v2, 20-oct-2026): personas a sangre, un verbo y una frase ── */
+.wh-mom-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.wh-mom-tarjeta { position: relative; overflow: hidden; border-radius: 24px; aspect-ratio: 3 / 4.2; background: #2d3128; }
+.wh-mom-tarjeta picture, .wh-mom-tarjeta img { display: block; width: 100%; height: 100%; }
+.wh-mom-tarjeta img { object-fit: cover; transition: transform .8s cubic-bezier(.2, .7, 0, 1); }
+.wh-mom-tarjeta:hover img { transform: scale(1.03); }
+.wh-mom-tarjeta::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(20, 22, 18, .82) 0%, rgba(20, 22, 18, .35) 42%, rgba(20, 22, 18, 0) 64%); }
+.wh-mom-texto { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; padding: 22px 22px 24px; }
+.wh-mom-verbo { margin: 0 0 6px; font-size: clamp(26px, 2.4vw, 34px); font-weight: 400; letter-spacing: -.035em; line-height: 1; color: #fff; }
+.wh-mom-frase { margin: 0; font-size: 15px; line-height: 1.45; color: rgba(255, 255, 255, .86); text-wrap: pretty; }
+@media (max-width: 1000px) { .wh-mom-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) {
+  .wh-mom-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-mom-tarjeta { aspect-ratio: 4 / 4.6; }
+}
+@media (prefers-reduced-motion: reduce) { .wh-mom-tarjeta img { transition: none; } }
+

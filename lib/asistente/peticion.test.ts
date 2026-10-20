@@ -19,9 +19,11 @@ const USO = { input: 3000, output: 400, cacheRead: 5000, cacheCreation: 0 };
 const NADA = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
 test('liquidar: respondida se consume; sin respuesta de Anthropic se libera; a medias o cortada, fallida', () => {
-  assert.deepEqual(liquidar('OK', USO), { estado: 'CONSUMIDA', costeUsd: 0.0055, codigoError: null });
+  assert.deepEqual(liquidar('OK', USO), { estado: 'CONSUMIDA', costeUsd: 0.00055, codigoError: null });
+  // Con el coste que suma el bucle llamada a llamada (cada una con su modelo), manda ese.
+  assert.deepEqual(liquidar('OK', USO, 0.0123), { estado: 'CONSUMIDA', costeUsd: 0.0123, codigoError: null });
   assert.equal(liquidar('DEMASIADO_AMPLIA', USO).estado, 'CONSUMIDA');
   assert.deepEqual(liquidar('IA_NO_DISPONIBLE', NADA), { estado: 'LIBERADA', costeUsd: 0, codigoError: 'IA_NO_DISPONIBLE' });
-  assert.deepEqual(liquidar('INTERNO', USO), { estado: 'FALLIDA', costeUsd: 0.0055, codigoError: 'INTERNO' });
+  assert.deepEqual(liquidar('INTERNO', USO), { estado: 'FALLIDA', costeUsd: 0.00055, codigoError: 'INTERNO' });
   assert.deepEqual(liquidar('ABORTADA', NADA), { estado: 'FALLIDA', costeUsd: 0.15, codigoError: 'ABORTADA' });
 });

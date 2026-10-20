@@ -54,10 +54,11 @@ export function SeOcupaDelResto() {
     <section id="te-suena" className="wh-seccion wh-resto" aria-labelledby="wh-resto-h">
       <div className="wh-contenedor wh-resto-rejilla">
         <div className="wh-resto-intro">
-          <h2 id="wh-resto-h" className="wh-h2">Tú das la clase. Tentare se ocupa del resto.</h2>
+          {/* Home v2 (20-oct-2026): la frase que lo resume pasa a ser el titular; el
+              «Tú das la clase» se lo queda el héroe («…aunque sueltes el móvil»). */}
+          <h2 id="wh-resto-h" className="wh-h2">Lo que antes te llevaba la tarde, ahora pasa solo.</h2>
           <p className="wh-lead">Cambios de hora, bonos que caducan, bajas del equipo y cobros: Tentare los lleva mientras tú estás en la sala.</p>
           <div className="wh-cierre-linea">
-            <p>Lo que antes te llevaba la tarde, ahora pasa solo.</p>
             <BotonBloque />
           </div>
         </div>

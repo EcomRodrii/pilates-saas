@@ -41,8 +41,10 @@ export interface Liquidacion {
  *   - cortada por la propietaria: FALLIDA con el máximo (la última llamada no
  *     llegó a decir lo que costó; conservador). 0 unidades a la clienta.
  */
-export function liquidar(motivo: string, uso: UsoAcumulado): Liquidacion {
-  const coste = costeUsd(uso);
+export function liquidar(motivo: string, uso: UsoAcumulado, costeReal?: number): Liquidacion {
+  // `costeReal`: lo que suma el bucle llamada a llamada con los precios de cada modelo (y su tarifa
+  // por tamaño de prompt). Sin él, el de los tokens acumulados con el modelo del asistente.
+  const coste = costeReal ?? costeUsd(uso);
   switch (motivo) {
     case 'OK': case 'ACLARACION': case 'DEMASIADO_AMPLIA': case 'RECHAZADA':
       return { estado: 'CONSUMIDA', costeUsd: coste, codigoError: motivo === 'RECHAZADA' ? 'RECHAZADA' : null };

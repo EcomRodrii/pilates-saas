@@ -29,7 +29,7 @@ function respuesta(g: Guion): MessageStreamLike {
     }
   });
   const mensaje = {
-    id: 'msg_x', type: 'message', role: 'assistant', model: 'claude-haiku-4-5', content,
+    id: 'msg_x', type: 'message', role: 'assistant', model: 'claude-haiku-5-5', content,
     stop_reason: g.stop ?? (g.herramientas?.length ? 'tool_use' : 'end_turn'), stop_sequence: null,
     usage: { input_tokens: 500, output_tokens: 100, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0, ...g.usage },
   } as unknown as Anthropic.Message;
@@ -91,9 +91,13 @@ test('pregunta → herramienta → respuesta: resultados en UN mensaje, tarjeta 
   const ultima = m.peticiones[1];
   const ultimoMsg = ultima.messages[ultima.messages.length - 1];
   assert.ok(Array.isArray(ultimoMsg.content) && 'cache_control' in ultimoMsg.content[ultimoMsg.content.length - 1]);
-  assert.equal(ultima.model, 'claude-haiku-4-5');
+  assert.equal(ultima.model, 'claude-haiku-5-5');
   assert.equal(ultima.tool_choice?.type, 'auto');
-  assert.equal('thinking' in ultima, false);
+  // Haiku 5.5 piensa por defecto: se apaga explícitamente. Y rechaza (400) una temperatura distinta de 1: no se manda.
+  assert.deepEqual(ultima.thinking, { type: 'disabled' });
+  assert.equal('temperature' in ultima, false);
+  assert.equal('top_p' in ultima, false);
+  assert.equal('top_k' in ultima, false);
   assert.equal(r.tokensContexto, 5500);
 });
 
@@ -123,7 +127,8 @@ test('tope de 5 herramientas: las sobrantes reciben is_error y la siguiente peti
 });
 
 test('corte por coste: si ya va por encima de 0,15 $ y aún pide herramientas, se para sin otra llamada', async () => {
-  const m = montar([{ herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 200_000 } }]);
+  // Haiku 5.5: un prompt de más de 100.000 tokens paga la tarifa larga (0,50 $/M): 400.000 tokens = 0,20 $.
+  const m = montar([{ herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 400_000 } }]);
   const r = await ejecutarTurno(m.deps, m.entrada);
   assert.equal(r.motivo, 'DEMASIADO_AMPLIA');
   assert.equal(m.peticiones.length, 1);
@@ -262,9 +267,13 @@ test('una sola propuesta por turno: la segunda proponer_* del mismo turno NO se 
 
 test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje sin valores) y nunca la pregunta', async () => {
   const cuerpo = { type: 'error', error: { type: 'invalid_request_error', message: 'tools.9.custom.input_schema: "minimum" not supported; got "¿Cuántas alumnas activas tengo?"' } };
-  const m = montar([() => { throw Anthropic.APIError.generate(400, cuerpo, 'x', new Headers()); }]);
+  // Con el modelo principal, un 400 prueba antes el de respaldo; si también falla, el aviso que cuenta es el segundo.
+  const m = montar([
+    () => { throw Anthropic.APIError.generate(400, cuerpo, 'x', new Headers()); },
+    () => { throw Anthropic.APIError.generate(400, cuerpo, 'x', new Headers()); },
+  ]);
   const detalles: unknown[] = [];
-  m.deps.avisar = (_c, _n, d) => { detalles.push(d); };
+  m.deps.avisar = (c, _n, d) => { if (c === 'ASISTENTE_ANTHROPIC_400') detalles.push(d); };
   const r = await ejecutarTurno(m.deps, m.entrada);
   assert.equal(r.motivo, 'IA_NO_DISPONIBLE');
   const d = detalles[0] as Record<string, unknown>;
@@ -284,4 +293,122 @@ test('un corte de red sin status deja pista de qué fue (antes «ASISTENTE_ANTHR
   const e = detalleDeErrorAnthropic({ status: 400, error: { type: 'error', error: { type: 'invalid_request_error', message: 'x' } } });
   assert.equal(e.status, 400);
   assert.equal(e.clase, undefined);
+});
+
+// ── Respaldo de modelo ──────────────────────────────────────────────────────
+
+const fallo404 = () => { throw new Anthropic.NotFoundError(404, { type: 'error', error: { type: 'not_found_error', message: 'model: claude-haiku-5-5' } }, 'x', new Headers()); };
+
+test('modelo no encontrado (404): la misma vuelta se repite con Haiku 4.5, con SUS parámetros, y se avisa solo con códigos', async () => {
+  const m = montar([fallo404, { texto: 'Tienes muchas alumnas activas.', usage: { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0 } }]);
+  const avisos: { c: string; d?: Record<string, unknown> }[] = [];
+  m.deps.avisar = (c, _n, d) => { avisos.push({ c, d }); };
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.motivo, 'OK');
+  assert.equal(r.conRespaldo, true);
+  assert.equal(r.modelo, 'claude-haiku-4-5');
+  assert.equal(m.peticiones.length, 2);
+  assert.equal(m.peticiones[0].model, 'claude-haiku-5-5');
+  assert.equal(m.peticiones[1].model, 'claude-haiku-4-5');
+  // Haiku 4.5 acepta la temperatura y no lleva el interruptor de thinking.
+  assert.equal(m.peticiones[1].temperature, 0.2);
+  assert.equal('thinking' in m.peticiones[1], false);
+  // La llamada fallida no cuenta: 1 llamada contada, y su coste a precios de Haiku 4.5 (1 M de entrada = 1 $).
+  assert.equal(r.nLlamadas, 1);
+  assert.equal(r.costeUsd, 1);
+  assert.equal(textoEmitido(m.eventos), 'Tienes muchas alumnas activas.');
+  assert.equal(avisos.length, 1);
+  assert.equal(avisos[0].c, 'ASISTENTE_MODELO_RESPALDO');
+  assert.deepEqual(avisos[0].d, { status: 404, tipo: 'not_found_error', de: 'claude-haiku-5-5', a: 'claude-haiku-4-5' });
+  // Nunca el texto del mensaje de error (puede citar la petición).
+  assert.doesNotMatch(JSON.stringify(avisos), /model: /);
+});
+
+test('el respaldo es para el resto de la pregunta: las vueltas siguientes ya van con Haiku 4.5', async () => {
+  const m = montar([fallo404, { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }] }, { texto: 'Tienes 84 alumnas activas.' }]);
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.deepEqual(m.peticiones.map(p => p.model), ['claude-haiku-5-5', 'claude-haiku-4-5', 'claude-haiku-4-5']);
+  assert.equal(r.nLlamadas, 2);
+});
+
+test('respaldo también con 403 (sin acceso al modelo), 400 (parámetro rechazado) y 529 (sin capacidad)', async () => {
+  const caidas: (() => never)[] = [
+    () => { throw new Anthropic.PermissionDeniedError(403, undefined, 'x', new Headers()); },
+    () => { throw new Anthropic.BadRequestError(400, undefined, 'x', new Headers()); },
+    () => { throw Anthropic.APIError.generate(529, { type: 'error', error: { type: 'overloaded_error', message: 'x' } }, 'x', new Headers()); },
+  ];
+  for (const caida of caidas) {
+    const m = montar([caida, { texto: 'Hola.' }]);
+    const r = await ejecutarTurno(m.deps, m.entrada);
+    assert.equal(r.conRespaldo, true);
+    assert.equal(r.motivo, 'OK');
+  }
+});
+
+test('un 429, un 500, una caída de red o una clave mala NO cambian de modelo (lo reintenta el SDK o falla igual)', async () => {
+  const caidas: (() => never)[] = [
+    () => { throw new Anthropic.RateLimitError(429, undefined, 'x', new Headers()); },
+    () => { throw new Anthropic.InternalServerError(500, undefined, 'x', new Headers()); },
+    () => { throw new Anthropic.APIConnectionError({ message: 'red' }); },
+    () => { throw new Anthropic.AuthenticationError(401, undefined, 'x', new Headers()); },
+  ];
+  for (const caida of caidas) {
+    const m = montar([caida]);
+    const r = await ejecutarTurno(m.deps, m.entrada);
+    assert.equal(r.motivo, 'IA_NO_DISPONIBLE');
+    assert.equal(r.conRespaldo, false);
+    assert.equal(m.peticiones.length, 1);
+  }
+});
+
+test('si el modelo ya había empezado a contestar, no se repite con otro (se duplicaría el texto)', async () => {
+  const m = montar([() => {
+    const buena = respuesta({ texto: 'Tienes 84 ' });
+    return {
+      async *[Symbol.asyncIterator]() { for await (const e of buena) yield e; throw Anthropic.APIError.generate(529, undefined, 'x', new Headers()); },
+      finalMessage: buena.finalMessage,
+    } as MessageStreamLike;
+  }]);
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.motivo, 'IA_NO_DISPONIBLE');
+  assert.equal(r.conRespaldo, false);
+  assert.equal(m.peticiones.length, 1);
+});
+
+test('si el respaldo también falla: error normal, sin tercer intento, y nada se guarda de la pregunta', async () => {
+  const m = montar([fallo404, fallo404]);
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.motivo, 'IA_NO_DISPONIBLE');
+  assert.equal(m.peticiones.length, 2);
+  assert.deepEqual(r.mensajesNuevos.map(x => x.role), ['user']);
+});
+
+test('el coste de la pregunta suma el de cada llamada con la tarifa de SU prompt (no la de los tokens sumados)', async () => {
+  // Dos llamadas de 60.000 tokens de entrada: cada una paga la tarifa corriente (0,10 $/M); sumadas serían 120.000 (tarifa larga).
+  const m = montar([
+    { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 60_000, output_tokens: 0, cache_read_input_tokens: 0 } },
+    { texto: 'Tienes 84 alumnas activas.', usage: { input_tokens: 60_000, output_tokens: 0, cache_read_input_tokens: 0 } },
+  ]);
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.costeUsd, 0.012);
+  assert.equal(r.modelo, 'claude-haiku-5-5');
+  assert.equal(r.conRespaldo, false);
+});
+
+test('con respaldo a mitad de pregunta, el coste suma cada llamada con los precios de SU modelo', async () => {
+  const m = montar([
+    { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 100_000, output_tokens: 0, cache_read_input_tokens: 0 } },
+    { texto: 'Hecho.', usage: { input_tokens: 100_000, output_tokens: 0, cache_read_input_tokens: 0 } },
+  ]);
+  // La 1.ª llamada va con 5.5; la 2.ª recibe un 404 con 5.5 y se repite con 4.5.
+  let n = 0;
+  const original = m.deps.stream;
+  m.deps.stream = (params, signal) => {
+    if (++n === 2) throw new Anthropic.NotFoundError(404, undefined, 'x', new Headers());
+    return original(params, signal);
+  };
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.conRespaldo, true);
+  // 100.000 tokens a 0,10 $/M (5.5) + 100.000 a 1 $/M (4.5).
+  assert.equal(r.costeUsd, 0.01 + 0.1);
 });

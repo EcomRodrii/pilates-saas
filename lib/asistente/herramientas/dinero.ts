@@ -21,31 +21,44 @@ import { euros, exigir, fallo, tono, tramosDelPeriodo, variacion } from './comun
 const NOTA_DINERO = 'Bruto, con IVA y antes de comisiones de Stripe; lo cobrado ya es neto de devoluciones y cuenta en el día en que se cobró.';
 const IDS_POR_CONSULTA = 100;
 
-/** El tipo de plan de cada suscripción de esos recibos, para el desglose por motivo. Acotado al estudio. */
-async function tipoDePlanDe(ctx: ContextoHerramienta, recibos: readonly ReciboDeInforme[]) {
+/**
+ * El tipo de plan de cada suscripción de esos recibos, para el desglose por motivo. Acotado al estudio.
+ * Los lotes de suscripciones van a la vez (eran N viajes en serie); el catálogo de planes ya viene pedido
+ * junto a los recibos (`facturacionDelPeriodo`).
+ */
+async function tipoDePlanDe(ctx: ContextoHerramienta, recibos: readonly ReciboDeInforme[], planesYa: LecturaPlanes) {
   const ids = [...new Set(recibos.map(r => r.suscripcionId).filter((x): x is string => !!x))];
+  const lotes: string[][] = [];
+  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) lotes.push(ids.slice(i, i + IDS_POR_CONSULTA));
+  const lecturas = await Promise.all(lotes.map(lote => todasLasFilas<{ id: string; plan_id: string }>((d, h) =>
+    ctx.admin.from('suscripciones').select('id, plan_id').eq('studio_id', ctx.studioId).in('id', lote)
+      .order('id').range(d, h) as unknown as Pagina<{ id: string; plan_id: string }>)));
+  const planes = planesYa;
   const suscripciones: { id: string; plan_id: string }[] = [];
-  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) {
-    const lote = ids.slice(i, i + IDS_POR_CONSULTA);
-    const r = await todasLasFilas<{ id: string; plan_id: string }>((d, h) =>
-      ctx.admin.from('suscripciones').select('id, plan_id').eq('studio_id', ctx.studioId).in('id', lote)
-        .order('id').range(d, h) as unknown as Pagina<{ id: string; plan_id: string }>);
+  for (const r of lecturas) {
     if (r.error) exigir(null, 'suscripciones');
     suscripciones.push(...r.data);
   }
-  const planes = await todasLasFilas<{ id: string; tipo: TipoPlan }>((d, h) =>
-    ctx.admin.from('planes_tarifa').select('id, tipo').eq('studio_id', ctx.studioId)
-      .order('id').range(d, h) as unknown as Pagina<{ id: string; tipo: TipoPlan }>);
   if (planes.error) exigir(null, 'planes');
   return tipoDePlanPorSuscripcion(suscripciones.map(s => ({ id: s.id, planId: s.plan_id })), planes.data);
 }
+
+type LecturaPlanes = { data: { id: string; tipo: TipoPlan }[]; error: { message: string } | null };
+const leerPlanes = (ctx: ContextoHerramienta) => todasLasFilas<{ id: string; tipo: TipoPlan }>((d, h) =>
+  ctx.admin.from('planes_tarifa').select('id, tipo').eq('studio_id', ctx.studioId)
+    .order('id').range(d, h) as unknown as Pagina<{ id: string; tipo: TipoPlan }>);
 
 export async function facturacionDelPeriodo(input: EntradaFacturacion, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> {
   if (!puedeVerFinanzas(ctx.rol)) return fallo('Las cifras de dinero no están disponibles para tu rol.');
   const p = tramosDelPeriodo(input.periodo, input.cual, ctx.hoy);
   const desde = p.anterior?.desde ?? p.visible.desde;
-  const recibos = exigir(await recibosCobradosEnTramo(ctx.admin, ctx.studioId, { desde, hasta: p.visible.hasta }), 'recibos');
-  const tipoDe = await tipoDePlanDe(ctx, recibos);
+  // El catálogo de planes no depende de los recibos: se pide a la vez que ellos.
+  const [recibosLeidos, planes] = await Promise.all([
+    recibosCobradosEnTramo(ctx.admin, ctx.studioId, { desde, hasta: p.visible.hasta }),
+    leerPlanes(ctx),
+  ]);
+  const recibos = exigir(recibosLeidos, 'recibos');
+  const tipoDe = await tipoDePlanDe(ctx, recibos, planes);
   const actual = dineroDelTramo(recibos, p.visible, { periodo: p.periodo, tipoDePlanDe: tipoDe });
   const antes = p.anterior ? dineroDelTramo(recibos, p.anterior, { periodo: p.periodo, tipoDePlanDe: tipoDe }) : null;
   const dif = antes ? variacion(actual.neto, antes.neto) : null;

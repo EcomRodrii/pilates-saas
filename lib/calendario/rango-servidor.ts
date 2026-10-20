@@ -19,6 +19,8 @@ import type { Reserva, Sesion } from '../types.ts';
 // `null` si falla cualquier lectura: «no he podido mirar» no es «no hay clases».
 
 const IDS_POR_CONSULTA = 100;
+/** Lotes de sesiones que se leen a la vez (cada lote son dos lecturas). */
+const LOTES_A_LA_VEZ = 4;
 
 interface FilaSesion {
   id: string; tipo_clase_id: string | null; sala_id: string | null; instructor_id: string | null;
@@ -58,9 +60,12 @@ export async function sesionesYReservasDelRango(
   const ids = sesionesR.data.map(s => s.id);
   const reservas: FilaReserva[] = [];
   const sustituciones: (FilaSustitucion & { creado_en: string })[] = [];
-  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) {
-    const lote = ids.slice(i, i + IDS_POR_CONSULTA);
-    const [r, s] = await Promise.all([
+  const lotes: string[][] = [];
+  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) lotes.push(ids.slice(i, i + IDS_POR_CONSULTA));
+  // Los lotes no dependen entre sí: de LOTES_A_LA_VEZ en LOTES_A_LA_VEZ (cada uno son dos lecturas), en vez
+  // de uno tras otro. El tope evita lanzar decenas de peticiones de golpe en un periodo largo (un año).
+  for (let w = 0; w < lotes.length; w += LOTES_A_LA_VEZ) {
+    const leidos = await Promise.all(lotes.slice(w, w + LOTES_A_LA_VEZ).map(lote => Promise.all([
       todasLasFilas<FilaReserva>((d, h) => admin.from('reservas')
         .select('id, sesion_id, socio_id, estado, check_in_en, confirmacion_pedida_en, confirmado_en, oferta_expira_en, posicion_espera')
         .eq('studio_id', studioId).in('sesion_id', lote)
@@ -69,10 +74,12 @@ export async function sesionesYReservasDelRango(
         .select('id, sesion_id, estado, creado_en')
         .eq('studio_id', studioId).in('sesion_id', lote)
         .order('creado_en', { ascending: true }).order('id').range(d, h) as unknown as Pagina<FilaSustitucion & { creado_en: string }>),
-    ]);
-    if (r.error || s.error) return null;
-    reservas.push(...r.data);
-    sustituciones.push(...s.data);
+    ])));
+    for (const [r, s] of leidos) {
+      if (r.error || s.error) return null;
+      reservas.push(...r.data);
+      sustituciones.push(...s.data);
+    }
   }
   sustituciones.sort((a, b) => a.creado_en.localeCompare(b.creado_en));
 

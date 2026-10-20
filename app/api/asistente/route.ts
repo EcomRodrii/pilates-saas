@@ -21,7 +21,7 @@ import { cronometro } from '@/lib/asistente/tiempos';
 import type { MessageStreamLike } from '@/lib/asistente/bucle';
 import {
   asistenteEncendido, atarConsumo, cargarConversacion, cerrarConsulta, crearConversacion, guardarTurno, leerSaldo,
-  nombresDeReferencias, personasDelEstudio, reservarConsulta, soltarTurno, tomarTurno, type ConversacionCargada, type SesionAsistente,
+  corregirModeloDelConsumo, nombresDeReferencias, personasDelEstudio, reservarConsulta, soltarTurno, tomarTurno, type ConversacionCargada, type SesionAsistente,
 } from '@/lib/asistente/servidor';
 import type { ContextoHerramienta } from '@/lib/asistente/tipos';
 
@@ -207,25 +207,34 @@ export async function POST(req: NextRequest) {
 
         tiempos.marcar('turno');
         await preparacion;
-        const l = liquidar(turno.motivo, turno.uso);
+        const l = liquidar(turno.motivo, turno.uso, turno.costeUsd);
         // Las unidades las decide el libro: la charla (sin herramientas) no gasta,
         // hasta 50 al día por estudio (migr 20261006014513, ia_cerrar_consulta).
-        const cierre = await cerrarConsulta(admin, sesion, {
-          consumoId, estado: l.estado, input: turno.uso.input, cacheRead: turno.uso.cacheRead, cacheCreation: turno.uso.cacheCreation,
-          output: turno.uso.output, costeUsd: l.costeUsd, nLlamadas: turno.nLlamadas, nHerramientas: turno.nHerramientas,
-          herramientas: turno.herramientasUsadas, codigoError: l.codigoError,
-        });
-        cerrado = true;
+        // Cerrar el libro y guardar la conversación no dependen entre sí: a la vez
+        // (era un viaje más a la base de datos antes de poder decir «fin»). Si el
+        // modelo de respaldo respondió, el libro lo dice (se reservó con el principal).
+        const [cierre] = await Promise.all([
+          cerrarConsulta(admin, sesion, {
+            consumoId, estado: l.estado, input: turno.uso.input, cacheRead: turno.uso.cacheRead, cacheCreation: turno.uso.cacheCreation,
+            output: turno.uso.output, costeUsd: l.costeUsd, nLlamadas: turno.nLlamadas, nHerramientas: turno.nHerramientas,
+            herramientas: turno.herramientasUsadas, codigoError: l.codigoError,
+          }).then(c => { cerrado = true; return c; }),
+          guardarTurno(admin, sesion, {
+            conversacionId: conversacion, desdeOrden: historial ? historial.siguienteOrden : 0, mensajes: turno.mensajesNuevos,
+            bloques: turno.bloques, consumoId, refs, tokensContexto: turno.tokensContexto,
+          }).catch(async e => {
+            // Un guardado que lanza (red caída) no puede dejar la conversación tomada: se suelta, como antes.
+            Sentry.captureException(e, { tags: { area: 'asistente' }, extra: { consumoId, fase: 'guardar' } });
+            await soltarTurno(admin, sesion, conversacion).catch(() => {});
+          }),
+          turno.conRespaldo ? corregirModeloDelConsumo(admin, sesion, consumoId, turno.modelo).catch(() => {}) : null,
+        ]);
         tiempos.marcar('cierre');
-        await guardarTurno(admin, sesion, {
-          conversacionId: conversacion, desdeOrden: historial ? historial.siguienteOrden : 0, mensajes: turno.mensajesNuevos,
-          bloques: turno.bloques, consumoId, refs, tokensContexto: turno.tokensContexto,
-        });
 
         // Registro de auditoría: quién, qué consultó y cuánto costó. Nunca el texto.
         console.info('[asistente]', JSON.stringify({
           studioId: sesion.studioId, userId: sesion.userId, rol: sesion.rol, conversacionId: conversacion, consumoId,
-          motivo: turno.motivo, herramientas: turno.herramientasUsadas, llamadas: turno.nLlamadas,
+          modelo: turno.modelo, motivo: turno.motivo, herramientas: turno.herramientasUsadas, llamadas: turno.nLlamadas,
           tokens: turno.uso, costeUsd: l.costeUsd, unidades: cierre?.unidades ?? null,
         }));
         tiempos.marcar('guardar');

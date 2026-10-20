@@ -8,7 +8,7 @@
 // `system[1]` (`contextoDelDia`). Un byte distinto antes del punto de caché y
 // cada pregunta paga el prefijo entero.
 //
-// ⚠️ Haiku 4.5 NO cachea prefijos de menos de 4.096 tokens, y no avisa
+// ⚠️ Haiku 4.5 (el respaldo) NO cachea prefijos de menos de 4.096 tokens (Haiku 5.5, de menos de 512), y no avisa
 // (`cache_creation_input_tokens: 0`). Herramientas + este texto tienen que
 // pasar de ahí: se mide con `node scripts/asistente-contar-prefijo.mjs`
 // (`messages.countTokens`, gratis). El juego de herramientas es UNO para todos
