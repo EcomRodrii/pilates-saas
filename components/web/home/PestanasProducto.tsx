@@ -106,7 +106,10 @@ const ESCENAS: Record<string, { descripcion: string; contenido: React.ReactNode 
           width={1110}
           height={489}
           alt="Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos"
-          loading="lazy"
+          // Sin `lazy`: va en una pestaña oculta (`hidden`) y el navegador no pide una
+          // imagen perezosa que no se pinta, así que al abrir «Alumnas» salía en blanco
+          // un instante (y e2e/landing-imagenes la daba por colgada). Pesa unos 10 KB.
+          loading="eager"
           decoding="async"
         />
       </picture>
