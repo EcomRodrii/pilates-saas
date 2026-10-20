@@ -92,7 +92,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Puedo traer mis alumnas desde Excel u otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Si prefieres, lo hacemos contigo; las tarjetas guardadas no se pueden pasar de una plataforma a otra y te ayudamos con ese paso.',
+    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
   },
   {
     q: '¿Cuánto cuesta Tentare?',

@@ -76,7 +76,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiarme a Tentare desde otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. Si prefieres, lo hacemos nosotros.',
+    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón.',
   },
 ];
 

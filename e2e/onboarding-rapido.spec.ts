@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { montarAlta, saltarLogo, irAlCierre, json } from './onboarding-andamio';
+import { montarAlta, saltarLogo, irAlCierre } from './onboarding-andamio';
 
 // El alta nueva: tres pantallas en vez de once preguntas, su app a la vista, la
 // guía rápida desde el primer segundo y «trae a tus alumnas» como paso final.
-// Y la ayuda por LLAMADA (no videollamada): el teléfono se pide solo si se elige
-// que la llamen, con su consentimiento, y se guarda solo entonces.
+// Sin ayuda que nadie da (21-oct-2026): ni llamada, ni «configuradlo por mí», ni
+// teléfono. La única ayuda humana es la que existe, el WhatsApp de soporte.
 
 test.describe('el asistente rápido', () => {
   test('la guía rápida está a la vista desde la primera pantalla, con 1 de 5 y solo lo hecho de verdad', async ({ page }) => {
@@ -94,102 +94,34 @@ test.describe('el asistente rápido', () => {
     await saltarLogo(page);
     await irAlCierre(page);
     await expect(page.getByText(/videollamada/i)).toHaveCount(0);
-    await expect(page.getByRole('radio', { name: 'Prefiero que me llamen' })).toBeVisible();
   });
 });
 
-test.describe('la llamada de puesta en marcha', () => {
-  test('elegir llamada pide el teléfono con su consentimiento, y se guarda al terminar', async ({ page }) => {
+test.describe('sin ayuda que nadie da', () => {
+  test('el cierre no ofrece llamada ni que lo configuren por ella, ni pide teléfono; solo el WhatsApp de soporte', async ({ page }) => {
     const pet = await montarAlta(page);
     await saltarLogo(page);
     await irAlCierre(page);
-    await expect(page.getByTestId('campo-llamada')).toHaveCount(0);
-    await page.getByRole('radio', { name: 'Prefiero que me llamen' }).click();
-    const campo = page.getByTestId('campo-llamada');
-    await expect(campo).toBeVisible();
-    await expect(campo.getByText('Te llamamos solo para ayudarte con tu alta, una vez. Sin comerciales.')).toBeVisible();
-
-    // Sin teléfono NO se pide nada al servidor.
-    await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-    await expect(campo.getByRole('alert')).toContainText('Escribe tu teléfono');
-    expect(pet.ayuda).toHaveLength(0);
-
-    const tel = campo.getByRole('textbox', { name: 'Teléfono' });
-    await tel.fill('612345678');
-    // Con formato mientras escribe, y bien montado para el móvil.
-    await expect(tel).toHaveValue('612 34 56 78');
-    await expect(tel).toHaveAttribute('inputmode', 'tel');
-    await expect(tel).toHaveAttribute('autocomplete', 'tel');
-    expect(await tel.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
-
-    // Sin la casilla tampoco.
-    await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-    await expect(campo.getByRole('alert')).toContainText('Marca la casilla');
-    expect(pet.ayuda).toHaveLength(0);
-
-    await campo.getByRole('button', { name: 'Por la tarde' }).click();
-    await campo.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-
-    await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
-    expect(pet.ayuda.length).toBeGreaterThan(0);
-    expect(pet.ayuda[0]).toMatchObject({
-      ayuda: 'Prefiero que me llamen', prefijo: '34', telefono: '612 34 56 78', consentimiento: true, horaPreferida: 'tarde',
-    });
-  });
-
-  test('no elegir llamada: no se pide teléfono y no se guarda ninguno', async ({ page }) => {
-    const pet = await montarAlta(page);
-    await saltarLogo(page);
-    await irAlCierre(page);
-    await page.getByRole('radio', { name: 'Lo configuro yo' }).click();
+    for (const opcion of ['Prefiero que me llamen', 'Configuradlo por mí', 'Lo configuro yo']) {
+      await expect(page.getByRole('radio', { name: opcion })).toHaveCount(0);
+    }
+    await expect(page.getByText('¿Cómo prefieres que te ayudemos?')).toHaveCount(0);
     await expect(page.getByTestId('campo-llamada')).toHaveCount(0);
     await expect(page.getByRole('textbox', { name: 'Teléfono' })).toHaveCount(0);
+    await expect(page.getByText(/te llamamos|que me llamen|configuradlo/i)).toHaveCount(0);
+    // Ni la promesa de reordenar el panel, que tiene orden fijo.
+    await expect(page.getByText(/Subimos a lo primero de tu panel/)).toHaveCount(0);
+
+    const soporte = page.getByRole('link', { name: /Escríbenos por WhatsApp/ });
+    await expect(soporte).toBeVisible();
+    await expect(soporte).toHaveAttribute('href', /^https:\/\/wa\.me\/\d+\?text=/);
+
     await page.getByRole('button', { name: 'Ver mi estudio' }).click();
     await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
-    // «Lo configuro yo» no avisa a nadie.
+    // Terminó de verdad (montó el estudio) y no pidió ninguna ayuda a nadie.
+    expect(pet.configurar.length).toBeGreaterThan(0);
     expect(pet.ayuda).toHaveLength(0);
   });
-
-  test('«Configuradlo por mí» avisa al equipo SIN teléfono', async ({ page }) => {
-    const pet = await montarAlta(page);
-    await saltarLogo(page);
-    await irAlCierre(page);
-    await page.getByRole('radio', { name: 'Configuradlo por mí' }).click();
-    await expect(page.getByTestId('campo-llamada')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-    await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
-    await expect.poll(() => pet.ayuda.length).toBeGreaterThan(0);
-    expect(pet.ayuda[0].ayuda).toBe('Configuradlo por mí');
-    expect(pet.ayuda[0]).not.toHaveProperty('telefono');
-  });
-
-  // El servidor dice que no: no se finge que se pidió la llamada. Con contador
-  // (lo que se mira es que SÍ lo intentó) y sin sellar el alta.
-  for (const [caso, responder] of [
-    ['un 400 del servidor', (r: import('@playwright/test').Route) => json(r, { error: 'Revisa el teléfono: son 9 cifras.' }, 400)],
-    ['un 500', (r: import('@playwright/test').Route) => json(r, { error: 'No se ha podido guardar tu petición. Prueba otra vez.' }, 500)],
-    ['la red caída', (r: import('@playwright/test').Route) => r.abort('failed')],
-  ] as const) {
-    test(`si la petición falla (${caso}), se queda con el error y no sella el alta`, async ({ page }) => {
-      const pet = await montarAlta(page, { ayuda: (route) => responder(route) });
-      await saltarLogo(page);
-      await irAlCierre(page);
-      await page.getByRole('radio', { name: 'Prefiero que me llamen' }).click();
-      const campo = page.getByTestId('campo-llamada');
-      await campo.getByRole('textbox', { name: 'Teléfono' }).fill('612345678');
-      await campo.getByRole('checkbox').check();
-      await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-
-      await expect.poll(() => pet.ayuda.length).toBeGreaterThan(0);
-      await expect(campo.getByRole('alert')).toBeVisible();
-      await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toHaveCount(0);
-      await expect(page.getByRole('heading', { name: 'Antes de entrar' })).toBeVisible();
-      expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
-      // Y puede reintentar: el botón vuelve a estar activo.
-      await expect(page.getByRole('button', { name: 'Ver mi estudio' })).toBeEnabled();
-    });
-  }
 });
 
 test.describe('en el móvil', () => {

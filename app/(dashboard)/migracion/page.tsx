@@ -748,7 +748,7 @@ export default function MigracionPage() {
 
           {sinClasificar.length > 0 && (
             <p className="text-[12px] text-muted-foreground">
-              Los archivos sin clasificar no se tocan. Si quieres que los migremos nosotros, escríbenos a soporte@tentare.app con el archivo adjunto.
+              Los archivos sin clasificar no se tocan.
             </p>
           )}
 

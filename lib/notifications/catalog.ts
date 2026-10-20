@@ -1079,7 +1079,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS}#PROPIETARIO`]: {
     title: 'Tu estudio todavía no tiene horario',
-    body: 'Sin clases programadas nadie puede reservar. Te ayudamos a montarlo en un momento.',
+    body: 'Sin clases programadas nadie puede reservar. Créalas en el Calendario, con «Crear clase».',
     deepLink: () => `/calendario`,
   },
   [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {

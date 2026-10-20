@@ -1,10 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// «Cámbiate en dos rutas» (ronda 3 de la landing, 19-oct-2026).
+// Qué se trae al cambiarse a Tentare (ronda 3 de la landing, 19-oct-2026).
 //
-// La forma viene de la página de migración de Momence (dos rutas de lanzamiento
-// comparadas y preguntas honestas sobre qué se transfiere). Lo que cuenta es
-// SOLO lo que /soluciones/cambiar-de-software ya cuenta: son dos rutas reales
-// (tú misma en el panel, o te lo hacemos nosotros) y no se inventa una tercera.
+// 21-oct-2026: fuera las «dos rutas». La segunda prometía que Tentare hacía la
+// migración por la propietaria, y nadie la hace (decisión del fundador). La
+// única vía es la real: el importador del panel, que hace ella misma.
 //
 // `SE_LLEVA` es la lista que la página de migración enseña en «Qué te llevas
 // contigo» (la misma lista, los mismos seis tipos de dato que mueve el
@@ -34,30 +33,3 @@ export const NO_SE_LLEVA = {
   titulo: 'Las tarjetas guardadas',
   texto: 'Ningún software puede leer la tarjeta que otro tiene guardada. Cada alumna la vuelve a introducir una vez, la primera vez que le cobres con Tentare.',
 } as const;
-
-export interface RutaMigracion {
-  /** El título del botón de la ruta, en primera persona. */
-  titulo: string;
-  texto: string;
-  /** Para quién es, como lo dice la página (solo la primera ruta lo dice). */
-  paraQuien?: string;
-  /** Frases literales de /soluciones/cambiar-de-software que prueban `texto`. */
-  frases: readonly string[];
-}
-
-export const RUTAS_MIGRACION: readonly [RutaMigracion, RutaMigracion] = [
-  {
-    titulo: 'Traigo mis datos yo',
-    texto: 'Subes tus exportaciones en CSV en el panel y ves una muestra de lo que va a entrar, qué filas quedan en cuarentena y qué avisos hay. Solo cuando lo confirmas se ejecuta, con botón de deshacer.',
-    paraQuien: 'Para quien prefiere llevar el proceso paso a paso, sin esperar a nadie.',
-    frases: ['una muestra de lo que va a crear', 'cuarentena', 'botón de deshacer', 'sin esperar a nadie'],
-  },
-  {
-    titulo: 'Me ayudáis a traerlos',
-    texto: 'Nos mandas lo que puedas exportar, sea cual sea el formato, y te entregamos el estudio montado con un acta para comprobar que todo cuadra. Tu programa actual sigue funcionando mientras tanto.',
-    frases: ['sea cual sea el formato', 'acta', 'sigue funcionando'],
-  },
-];
-
-/** Dónde está el formulario de la segunda ruta (el `id` lo lleva la propia página). */
-export const ANCLA_AYUDA = 'te-la-hacemos-nosotros';

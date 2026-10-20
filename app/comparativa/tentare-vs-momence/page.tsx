@@ -45,7 +45,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Momence a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Momence (y de bsport, Eversports, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Si prefieres, te ayudamos nosotros.',
+    a: 'Sí. El importador de Tentare reconoce las exportaciones de Momence (y de bsport, Eversports, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -82,7 +82,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de Momence a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de Momence: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador de Tentare reconoce las exportaciones de Momence: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];
@@ -97,7 +97,7 @@ export default function TentareVsMomencePage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: precio público, soporte en español y un producto hecho para estudios como el tuyo. Empieza gratis, sin tarjeta, y te traemos tus datos de Momence.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: precio público, soporte en español y un producto hecho para estudios como el tuyo. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Momence (momence.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

@@ -9,9 +9,8 @@ import { Callout, Checklist, CtaBlock } from '@/components/recursos/ArticlePrimi
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { ConciergeMigracionForm } from '@/components/soluciones/ConciergeMigracionForm';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
-import { ANCLA_AYUDA, SE_LLEVA } from '@/lib/landing/migracion';
+import { SE_LLEVA } from '@/lib/landing/migracion';
 
 const PATH = '/soluciones/cambiar-de-software';
 const pagina = paginaDe(PATH)!;
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: pagina.titulo,
-    description: 'Se hace tú misma en el panel, o te ayudamos nosotros. Nada se importa sin que lo revises antes.',
+    description: 'Se hace tú misma en el panel. Nada se importa sin que lo revises antes.',
     url: urlDe(PATH),
   },
 };
@@ -35,7 +34,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿En qué formato tengo que exportar mis datos?',
-    a: 'Si lo haces tú misma en el panel: CSV — el importador detecta solas comas, punto y coma (el formato habitual de Excel en español) o tabuladores. Si prefieres que te lo hagamos nosotros, nos vale lo que puedas exportar, sea cual sea el formato: lo convertimos nosotros.',
+    a: 'CSV — el importador detecta solas comas, punto y coma (el formato habitual de Excel en español) o tabuladores.',
   },
   {
     q: '¿Se pierden las tarjetas guardadas de mis alumnas?',
@@ -48,10 +47,6 @@ const FAQ = [
   {
     q: '¿Tengo que dejar de usar mi software actual mientras migro?',
     a: 'No. Tu software actual sigue funcionando exactamente igual mientras preparas el cambio — no hay un corte ni una ventana de mantenimiento.',
-  },
-  {
-    q: '¿Cuánto tarda si lo hacéis vosotros?',
-    a: 'Depende de cuánto tengas y de cómo nos llegue. Nos mandas los exports o el acceso, te decimos el plazo antes de empezar y te entregamos el estudio montado con un acta para comprobar que todo cuadra. Mientras tanto, tu software actual sigue funcionando.',
   },
 ];
 
@@ -69,7 +64,7 @@ export default function CambiarDeSoftwarePage() {
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Cambiarte de software</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Cambiarte a Tentare, sin perder nada.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tu <strong style={{ color: '#1A1A1A' }}>estudio de Pilates</strong> se lleva sus clientas, sus bonos, su calendario y su historial. Lo haces tú misma en el panel o te ayudamos nosotros.</p>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tu <strong style={{ color: '#1A1A1A' }}>estudio de Pilates</strong> se lleva sus clientas, sus bonos, su calendario y su historial. Lo haces tú misma en el panel.</p>
         </div>
       </header>
 
@@ -83,21 +78,10 @@ export default function CambiarDeSoftwarePage() {
 
       <section style={{ padding: 'clamp(8px,2vw,20px) clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 16 }}>Dos formas de hacerlo</Reveal>
-
-          <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>1. Tú misma, en el panel</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: '0 0 12px' }}>Subes tus exports en CSV y el sistema te enseña el plan antes de tocar nada: una muestra de lo que va a crear, qué filas quedan en cuarentena y qué avisos hay. Solo cuando lo confirmas, se ejecuta — con acta y botón de deshacer.</p>
-            <p style={{ fontSize: 13, color: MUTED, margin: 0 }}>Para quien prefiere controlar el proceso paso a paso, sin esperar a nadie.</p>
+          <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
+            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>Tú misma, en el panel</h2>
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>Subes tus exports en CSV y el sistema te enseña el plan antes de tocar nada: una muestra de lo que va a crear, qué filas quedan en cuarentena y qué avisos hay. Solo cuando lo confirmas, se ejecuta — con acta y botón de deshacer.</p>
           </Reveal>
-
-          <div id={ANCLA_AYUDA} style={{ scrollMarginTop: 96 }}>
-          <Reveal delay={60} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>2. Te la hacemos nosotros</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: '0 0 16px' }}>Nos mandas lo que puedas exportar — o acceso a tu software actual — y te entregamos el estudio montado, con el mismo acta verificable. Tu software actual sigue funcionando mientras tanto.</p>
-            <ConciergeMigracionForm />
-          </Reveal>
-          </div>
         </div>
       </section>
 

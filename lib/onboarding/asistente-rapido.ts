@@ -5,15 +5,18 @@
 // quedaban con CERO alumnas cargadas): las once preguntas ponían entre la
 // propietaria y SU estudio funcionando un cuestionario. Ahora todo lo que
 // cambia lo que se le enseña viaja en dos pantallas con los valores más
-// comunes ya marcados, y lo opcional (cobro, prioridad, ayuda) en una tercera
-// que se salta con un toque. Nada se pierde: cada respuesta sigue siendo la
+// comunes ya marcados, y lo opcional (cobro, prioridad) en una tercera que se
+// salta con un toque. Nada se pierde: cada respuesta sigue siendo la
 // misma clave de `RespuestasWizard` y `interpretarRespuestasWizard` /
 // `planificarConfiguracion` no se tocan.
+//
+// 21-oct-2026: fuera la pregunta «¿Cómo prefieres que te ayudemos?». Sus dos
+// opciones de ayuda («que me llamen», «configuradlo por mí») prometían algo que
+// nadie hacía, y sin ellas solo quedaba «Lo configuro yo».
 //
 // Puro y sin `@/`: se prueba con `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { RespuestasWizard } from './borrador-wizard.ts';
-import { OPCIONES_AYUDA } from '../llamada/solicitud.ts';
 
 export type PantallaId = 'estudio' | 'espacio' | 'cierre';
 export const PANTALLAS: readonly { id: PantallaId; etiqueta: string }[] = [
@@ -92,20 +95,19 @@ export function alinearAforos(ans: RespuestasWizard): RespuestasWizard {
   return { ...ans, aforos };
 }
 
-/** Una etiqueta de ayuda que ya no existe (un borrador de la versión anterior) se descarta. */
-export function ayudaVigente(ayuda: string | undefined): string | undefined {
-  return (OPCIONES_AYUDA as readonly string[]).includes(ayuda ?? '') ? ayuda : undefined;
-}
-
-/** Un borrador viejo trae «Quiero una videollamada»: ya no es una opción, así que no se arrastra. */
+/**
+ * Un borrador a medias: lo que falta, con los valores por defecto. La ayuda que
+ * traía un borrador viejo (videollamada, llamada, «configuradlo por mí») ya no
+ * llega hasta aquí: `leerProgresoWizard` no la lee.
+ */
 export function sanearBorrador(ans: RespuestasWizard): RespuestasWizard {
-  const limpia = { ...ans, ayuda: ayudaVigente(ans.ayuda) };
-  return alinearAforos(conDefectos(limpia));
+  return alinearAforos(conDefectos(ans));
 }
 
 /**
  * Lo que se guarda en `studios.onb_*` al terminar. Una respuesta sin contestar
- * es `null`, no un valor inventado.
+ * es `null`, no un valor inventado. `onb_ayuda_alta` ya no se escribe: no hay
+ * pregunta de ayuda (se deja lo que hubiera de antes).
  */
 export function camposOnb(ans: RespuestasWizard) {
   return {
@@ -114,6 +116,5 @@ export function camposOnb(ans: RespuestasWizard) {
     onbAlumnosActivos: ans.alumnos ?? null,
     onbImportarDatos: ans.importar ?? null,
     onbPrioridad: ans.foco && ans.foco.length > 0 ? ans.foco : null,
-    onbAyudaAlta: ans.ayuda ?? null,
   };
 }

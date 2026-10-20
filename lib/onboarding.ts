@@ -273,9 +273,9 @@ export function calcularOnboarding(d: DatosOnboarding): {
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
-    // superan). El calendario ya no recibe vacío: propone el horario a partir
-    // de lo que contestó en el asistente.
-    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Te proponemos un horario y lo confirmas.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
+    // superan). Ya no hay horario propuesto (se quitó el 8-oct): las clases se
+    // crean en el calendario, con «Crear clase» → «Clase» o «Clase semanal».
+    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Créalas en el calendario con «Crear clase»: una suelta o una clase semanal.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
     { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
   ];

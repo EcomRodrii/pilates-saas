@@ -84,7 +84,7 @@ export default function TentareVsVidayPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio de entrada más bajo, plaza por reformer y sustituciones de instructoras. Empieza gratis, sin tarjeta, y te traemos tus datos de ViDay.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio de entrada más bajo, plaza por reformer y sustituciones de instructoras. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de ViDay (viday.es) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. ViDay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

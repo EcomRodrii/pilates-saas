@@ -45,7 +45,7 @@ export function PrecioHome() {
             </div>
           ))}
         </div>
-        <p className="wh-precio-nota">IVA incluido · Sin permanencia · Te ayudamos a traer tus datos · Pagos con Stripe, sin comisión de Tentare</p>
+        <p className="wh-precio-nota">IVA incluido · Sin permanencia · Pagos con Stripe, sin comisión de Tentare</p>
         {/* La segunda prueba social (lo hacen las cinco referencias): la nota pública de
             G2 (lib/seo/g2.ts), la misma del héroe, comprobable con un clic. Ninguna cifra inventada. */}
         <p className="wh-precio-g2">

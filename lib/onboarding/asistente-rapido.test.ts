@@ -51,20 +51,21 @@ test('un aforo por sala: sube heredando el primero y baja recortando', () => {
   assert.deepEqual(una.aforos, ['10 plazas']);
 });
 
-test('un borrador de la versión anterior no arrastra «videollamada»', () => {
-  const r = sanearBorrador({ ayuda: 'Quiero una videollamada', software: 'Bsport' });
-  assert.equal(r.ayuda, undefined);
+test('un borrador a medias conserva lo contestado y rellena lo que falta', () => {
+  const r = sanearBorrador({ software: 'Bsport' });
   assert.equal(r.software, 'Bsport');
-  assert.equal(sanearBorrador({ ayuda: 'Prefiero que me llamen' }).ayuda, 'Prefiero que me llamen');
+  assert.equal(r.salas, POR_DEFECTO.salas);
 });
 
 test('lo no contestado se guarda como null, no como un valor inventado', () => {
-  const c = camposOnb({ software: 'Momence', ayuda: 'Lo configuro yo' });
+  const c = camposOnb({ software: 'Momence' });
   assert.equal(c.onbCentros, null);
   assert.equal(c.onbAlumnosActivos, null);
   assert.equal(c.onbPrioridad, null);
   assert.equal(c.onbSoftwareAnterior, 'Momence');
   assert.equal(camposOnb({ foco: ['Cobros'] }).onbPrioridad?.[0], 'Cobros');
+  // Ya no hay pregunta de ayuda: no se pisa lo que hubiera en onb_ayuda_alta.
+  assert.equal('onbAyudaAlta' in c, false);
 });
 
 test('de qué software se puede migrar', () => {

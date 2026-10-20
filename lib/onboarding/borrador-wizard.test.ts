@@ -28,6 +28,16 @@ test('guarda y recupera paso + respuestas del mismo estudio', () => {
   });
 });
 
+test('un borrador de antes no arrastra la ayuda que ya no se ofrece (llamada, «configuradlo por mí»)', () => {
+  conStorageFalso(() => {
+    const viejo = { software: 'Bsport', ayuda: 'Configuradlo por mí' };
+    guardarProgresoWizard('studio-1', 2, viejo as Parameters<typeof guardarProgresoWizard>[2]);
+    const r = leerProgresoWizard('studio-1');
+    assert.equal(r?.ans.software, 'Bsport');
+    assert.equal('ayuda' in (r?.ans ?? {}), false);
+  });
+});
+
 test('no devuelve nada de un estudio distinto (mismo navegador, alta distinta)', () => {
   conStorageFalso(() => {
     guardarProgresoWizard('studio-1', 2, { centros: '1 estudio' });

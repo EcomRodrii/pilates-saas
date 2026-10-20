@@ -57,7 +57,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de TIMP a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Timp (y de bsport, Momence, Eversports, Mindbody y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Si prefieres, te ayudamos nosotros.',
+    a: 'Sí. El importador de Tentare reconoce las exportaciones de Timp (y de bsport, Momence, Eversports, Mindbody y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -94,7 +94,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de TIMP a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de TIMP: clientas, bonos, clases y reservas, con un acta para revisarlo y un botón para deshacerlo. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>. Y si aún estás comparando, tenemos una guía con <Link href="/recursos/alternativas-a-timp">las alternativas a TIMP</Link>.</p>
+      <p>El importador de Tentare reconoce las exportaciones de TIMP: clientas, bonos, clases y reservas, con un acta para revisarlo y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>. Y si aún estás comparando, tenemos una guía con <Link href="/recursos/alternativas-a-timp">las alternativas a TIMP</Link>.</p>
     ),
   },
 ];
@@ -109,7 +109,7 @@ export default function TentareVsTimpPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas, y un producto hecho para Pilates. Empieza gratis, sin tarjeta, y te traemos tus datos de TIMP.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas, y un producto hecho para Pilates. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de TIMP (timp.pro) revisada el 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

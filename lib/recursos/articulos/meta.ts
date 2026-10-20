@@ -79,7 +79,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2947,
+    "palabras": 2932,
     "actualizado": "2026-10-15"
   },
   {
@@ -98,7 +98,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1979,
+    "palabras": 1966,
     "actualizado": "2026-10-07"
   },
   {

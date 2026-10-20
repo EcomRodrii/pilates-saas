@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Bonsai a Tentare?',
-    a: 'El importador de Tentare lee ficheros de Excel y las exportaciones de otros programas; te enseña un acta con lo importado y puedes deshacerlo. Si prefieres, te ayudamos nosotros.',
+    a: 'El importador de Tentare lee ficheros de Excel y las exportaciones de otros programas; te enseña un acta con lo importado y puedes deshacerlo.',
   },
 ];
 
@@ -85,7 +85,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de Bonsai a Tentare',
     cuerpo: (
-      <p>Exporta tus alumnas y bonos de Bonsai en Excel o CSV y súbelos al importador de Tentare: te enseña un acta antes de guardar y lo puedes deshacer con un botón. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>Exporta tus alumnas y bonos de Bonsai en Excel o CSV y súbelos al importador de Tentare: te enseña un acta antes de guardar y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];
@@ -100,7 +100,7 @@ export default function TentareVsBonsaiPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público y sin que la plataforma se quede nada de tus cobros. Empieza gratis, sin tarjeta, y te traemos tus datos de Bonsai.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público y sin que la plataforma se quede nada de tus cobros. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Bonsai (mybonsai.app) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
