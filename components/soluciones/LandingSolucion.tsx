@@ -12,8 +12,7 @@ import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
-import { CAPTURAS_APP, Escena } from '@/components/web/home/piezas';
-import { MarcoIphone } from '@/components/ui/marco-iphone';
+import { Escena } from '@/components/web/home/piezas';
 // Las piezas del producto de la home (AgendaDia, PanelCobros…) toman sus colores de
 // los tokens `--wh-*`, que cuelgan de `.wh`: por eso la página va dentro de `.wh`.
 import '@/components/web/home/home.css';
@@ -253,34 +252,9 @@ export function FilaProducto({
   );
 }
 
-/**
- * La app NUEVA de la alumna en el iPhone 17 Pro, la misma captura que el héroe de la
- * home (sin la marca de ningún estudio real: components/web/home/piezas.tsx). Para
- * el `pieza` de una FilaProducto con `movil: true`.
- */
-export function AppAlumna() {
-  const c = CAPTURAS_APP.inicio;
-  return (
-    <MarcoIphone modelo="17-pro" escala={0.5} tinta="clara" indicador="oscura">
-      <div style={{ height: '100%', background: '#F4EEE5' }}>
-        <picture>
-          <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes="210px" />
-          <img
-            src={`/landing/capturas/${c.n}-390.webp`}
-            srcSet={`/landing/capturas/${c.n}-390.webp 390w, /landing/capturas/${c.n}-780.webp 780w`}
-            sizes="210px"
-            width={780}
-            height={1696}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0' }}
-          />
-        </picture>
-      </div>
-    </MarcoIphone>
-  );
-}
+// La app nueva en el iPhone vive con el resto de piezas (piezas.tsx); se reexporta
+// aquí para las páginas de soluciones.
+export { AppAlumna } from '@/components/web/home/piezas';
 
 /** Banda oscura con una herramienta (la calculadora) o un bloque destacado. */
 export function BandaOscura({ eyebrow, titulo, children, lado }: { eyebrow: string; titulo: string; children: React.ReactNode; lado: React.ReactNode }) {

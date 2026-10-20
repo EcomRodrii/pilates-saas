@@ -6,6 +6,7 @@ import {
   ComoSeEligeLaCandidata, EscaladoEnElTiempo, NivelesDeAutonomia, ResumenSustitucion,
 } from '@/components/funcionalidades/visuales/sustituciones';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { PanelSustitucion } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/sustituciones';
 const pagina = paginaDe(PATH)!;
@@ -53,7 +54,7 @@ export default function SustitucionesPage() {
       intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y te la propone. Con tu visto bueno —o solo, si lo dejas en autónomo— le escribe y le insiste.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Sala de reformers de un estudio de Pilates', encuadre: 'center 42%' }}
-      captura={{ src: '/producto/sustituciones.png', alt: 'Pantalla de sustituciones de Tentare', pie: 'Las bajas abiertas y en qué punto está cada una.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo de una sustitución en Tentare: la clase sin instructora, las candidatas por orden y en qué punto está el contacto.', contenido: <PanelSustitucion completo /> }}
     >
       <Seccion id="problema" titulo="El problema no es la baja. Es todo lo que cuelga de ella">
         <Entradilla>
