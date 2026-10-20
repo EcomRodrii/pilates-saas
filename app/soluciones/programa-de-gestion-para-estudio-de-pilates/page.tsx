@@ -12,6 +12,7 @@ import {
   TablaSolucion,
 } from '@/components/soluciones/LandingSolucion';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AgendaDia, PanelCobros, PanelInformes } from '@/components/web/home/piezas';
 
 // Página de la búsqueda «programa de gestión para un estudio de pilates en
 // España» (11-oct-2026, auditoría SEO): la que no tenía ninguna página propia.
@@ -115,7 +116,7 @@ export default function ProgramaDeGestionPage() {
       <FilaProducto
         eyebrow="Calendario y reservas"
         titulo="El calendario, las salas y las reservas en un mismo sitio"
-        captura={{ src: '/producto/calendario-dia.png', alt: 'Calendario de Tentare en vista de día, con las salas en columnas, sus plazas y la ocupación del día', ancho: 2880, alto: 1624, pie: 'Un día por salas. Cada bloque lleva su aforo y quien la da.' }}
+        pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
         puntos={[
           'Series de clases recurrentes y varias salas, cada una con su aforo',
           'Reservas y cancelaciones desde el móvil, con las reglas que pongas por tipo de clase',
@@ -130,7 +131,7 @@ export default function ProgramaDeGestionPage() {
         invertida
         eyebrow="Bonos, cuotas y cobros"
         titulo="Cobros que no dependen de que alguien se acuerde"
-        captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado, lo pendiente y quién debe', ancho: 2880, alto: 1624, pie: 'Lo cobrado este mes, lo que falta y quién lo debe, en la misma pantalla.' }}
+        pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
         puntos={[
           'Bonos de sesiones con caducidad y cuotas mensuales con renovación automática',
           'Cobro con tarjeta o domiciliación SEPA, directo a tu cuenta de Stripe',
@@ -144,7 +145,7 @@ export default function ProgramaDeGestionPage() {
       <FilaProducto
         eyebrow="Equipo e informes"
         titulo="Instructoras, sustituciones y números del estudio"
-        captura={{ src: '/producto/informes.png', alt: 'Informes de Tentare con los ingresos del periodo, el ticket medio, la retención y la evolución de ingresos por día', ancho: 2880, alto: 1624 }}
+        pieza={{ descripcion: 'Ejemplo de los informes de Tentare: lo que deja cada clase y la ocupación por tipo.', contenido: <PanelInformes completo /> }}
         puntos={[
           'Disponibilidad, vacaciones y tarifa por hora de cada instructora',
           'Ocupación por tipo de clase y retención de tus alumnas',

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  AppAlumna,
   BandaOscura,
   CierreSolucion,
   FaqSolucion,
@@ -14,6 +15,7 @@ import {
 } from '@/components/soluciones/LandingSolucion';
 import { CalculadoraPlazasVacias } from '@/components/soluciones/CalculadoraPlazasVacias';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AgendaDia, PanelInformes } from '@/components/web/home/piezas';
 
 // Página pilar del estudio de Pilates REFORMER (fase 5 del rediseño, 23-sep;
 // rehecha el 7-oct-2026 como página de producto, no como artículo).
@@ -125,7 +127,7 @@ export default function EstudioDePilatesReformerPage() {
       <FilaProducto
         eyebrow="Reservas por máquina"
         titulo="Reservas por reformer y aforo por sala"
-        captura={{ src: '/producto/calendario-dia.png', alt: 'Calendario de Tentare en vista de día, con la sala de reformer y la de mat en columnas, sus plazas y la ocupación del día', ancho: 2880, alto: 1624, pie: 'Un día por salas: cada clase con sus plazas y la ocupación del día arriba.' }}
+        pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
         puntos={[
           'La ocupación del día, sala por sala, en el propio calendario',
           'Reglas distintas para el reformer y para el mat',
@@ -141,7 +143,7 @@ export default function EstudioDePilatesReformerPage() {
         invertida
         eyebrow="Lista de espera"
         titulo="La plaza que se libera no se pierde"
-        captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
+        pieza={{ descripcion: 'La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana.', contenido: <AppAlumna />, movil: true }}
         puntos={[
           'Avisos en el móvil de la alumna, desde la app con tu marca',
           'Plazo para aceptar la plaza, si lo quieres, por tipo de clase',
@@ -155,7 +157,7 @@ export default function EstudioDePilatesReformerPage() {
       <FilaProducto
         eyebrow="Bonos, cuotas y plazas fijas"
         titulo="El reformer y el mat, cada uno con su precio"
-        captura={{ src: '/producto/clientas.png', alt: 'Lista de clientas de Tentare con el plan de cada una, sus sesiones restantes y su estado', ancho: 2880, alto: 1624, pie: 'Cada alumna con su plan, sus sesiones y su última visita.' }}
+        captura={{ src: '/producto/v2/panel-clientas-1110.webp', alt: 'Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos', ancho: 1110, alto: 489 }}
         puntos={[
           'Bonos con caducidad y recuperaciones',
           'Cuotas mensuales, con o sin límite de clases a la semana',
@@ -191,7 +193,7 @@ export default function EstudioDePilatesReformerPage() {
       <FilaProducto
         eyebrow="Ocupación y rentabilidad"
         titulo="Qué clases te dan dinero, clase por clase"
-        captura={{ src: '/producto/informes.png', alt: 'Informes de Tentare con los ingresos del periodo, el ticket medio, la retención y la evolución de ingresos por día', ancho: 2880, alto: 1624 }}
+        pieza={{ descripcion: 'Ejemplo de los informes de Tentare: lo que deja cada clase y la ocupación por tipo.', contenido: <PanelInformes completo /> }}
         puntos={[
           'Ocupación por tipo de clase',
           'Retención de tus alumnas mes a mes',
