@@ -96,7 +96,7 @@ export default function TentareVsBonsaiPage() {
       name="Bonsai"
       slug="tentare-vs-bonsai"
       logo={{ src: '/comparativa/logos/bonsai.svg', alt: 'Logo de Bonsai', height: 26, width: 109 }}
-      intro={<>Bonsai es una app de gestión para estudios de yoga, pilates y barre, con un plan gratuito que cobra un extra por cada transacción. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong> que vende bonos y cuotas, Tentare te da más por un precio claro y sin comisión de la plataforma.</>}
+      intro={<>Bonsai es una app de gestión para estudios de yoga, pilates y barre, con un plan gratuito que cobra un extra por cada transacción. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong> que vende bonos y cuotas, Tentare te da más por un precio claro y sin comisión de la plataforma.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

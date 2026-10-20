@@ -76,7 +76,7 @@ export default function TentareVsGesYogaPage() {
       name="GesYoga"
       slug="tentare-vs-gesyoga"
       logo={{ src: '/comparativa/logos/gesyoga.svg', alt: 'Logo de GesYoga', height: 20, width: 110 }}
-      intro={<>GesYoga es un software de gestión para estudios de yoga, pilates y similares. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare va más allá: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras.</>}
+      intro={<>GesYoga es un software de gestión para estudios de yoga, pilates y similares. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare va más allá: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

@@ -109,7 +109,7 @@ export default function TentareVsBsportPage() {
       name="bsport"
       slug="tentare-vs-bsport"
       logo={{ src: '/comparativa/logos/bsport.svg', alt: 'Logo de bsport', height: 24, width: 69 }}
-      intro={<>bsport es una plataforma europea de fitness boutique que no publica sus precios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te deja saber lo que pagas antes de hablar con nadie, sin contrato y con todo lo que necesita tu estudio.</>}
+      intro={<>bsport es una plataforma europea de fitness boutique que no publica sus precios. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare te deja saber lo que pagas antes de hablar con nadie, sin contrato y con todo lo que necesita tu estudio.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
