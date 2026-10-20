@@ -148,8 +148,8 @@ test('recordatorios: una reserva confirmada sin socia no llama (la ruta la desca
   });
 });
 
-test('checkin automático: bordes de 120 y 121 min (la guarda es más ancha que la ruta, nunca más estrecha)', async () => {
-  for (const [haceMin, esperado] of [[119, true], [120, true], [121, true], [123, false]] as const) {
+test('checkin automático: bordes de 120 y 121 min (la ruta corta en 120; la guarda en 121, un minuto más ancha)', async () => {
+  for (const [haceMin, esperado] of [[119, true], [120, true], [121, false], [123, false]] as const) {
     await conEstudio(async ({ studioId }) => {
       const t = await tipo(studioId);
       const s = await sesion(studioId, t, enMin(-haceMin - 50)); // termina hace `haceMin` min

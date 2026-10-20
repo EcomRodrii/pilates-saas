@@ -285,6 +285,9 @@ begin
 end;
 $function$;
 
+revoke all on function public.vigilar_jobs_http() from public, anon, authenticated;
+grant execute on function public.vigilar_jobs_http() to postgres, service_role;
+
 do $$
 begin
   if has_function_privilege('anon', 'public.vigilar_jobs_http()', 'execute')
