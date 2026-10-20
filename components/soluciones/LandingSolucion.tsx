@@ -4,8 +4,8 @@ import { Check } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -49,7 +49,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
     <PageShell>
       <OrganizationStructuredData />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(migasLd).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/soluciones" backLabel="Soluciones" />
+      <IslaWeb />
       {children}
       {relacionadas.length > 0 && (
         <section className="sol-banda">
@@ -66,7 +66,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
           </div>
         </section>
       )}
-      <SiteFooter />
+      <PieWeb />
       <EstilosSolucion />
     </PageShell>
   );
@@ -280,7 +280,7 @@ export function TablaSolucion({ titulo, intro, cabeceras, filas }: { titulo: str
 // los de PLAN_INFO: Estudio no se vende por lo que también tiene Founding Studio.
 const RESUMEN_WEB: Partial<Record<Plan, string>> = {
   BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${SI_PASAS}.`,
-  ESTUDIO: 'Todo lo de Founding Studio, con más consultas al asistente.',
+  ESTUDIO: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.',
 };
 
 /** Los tres planes, con el precio de lib/billing (nunca escrito a mano). */
