@@ -1,9 +1,11 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { ACC } from '@/components/landing/theme';
 import { ArticleShell, type TocItem } from '@/components/recursos/ArticleShell';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
-import { Callout, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { Callout, CtaBlock, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticulosRelacionados } from '@/components/recursos/ArticulosRelacionados';
 import { TextoMarcado } from '@/components/recursos/TextoMarcado';
 import { PortadaCabecera } from '@/components/recursos/PortadaCabecera';
 import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
@@ -12,10 +14,12 @@ import { CalculadoraBonos } from '@/components/recursos/CalculadoraBonos';
 import { DescargaRecurso } from '@/components/recursos/DescargaRecurso';
 import { RECURSOS_DESCARGABLES } from '@/lib/recursos/descargas';
 import { captchaDeServidorListo } from '@/lib/auth/captcha-servidor';
-import { CATEGORIAS_RECURSOS } from '@/lib/recursos/guias';
 import { fechaArticulo, minutosLectura } from '@/lib/recursos/articulos';
 import { articuloLd, faqLd, migasLd, textoPlano } from '@/lib/recursos/articulos/schema';
 import { contarPalabras } from '@/lib/recursos/articulos/validar';
+import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
+import { elegirRelacionados, relacionadasDeProducto } from '@/lib/recursos/articulos/relacionados';
+import { recursoIntermedio, seccionDeLaLlamada } from '@/lib/recursos/articulos/recursos-intermedios';
 import { PAGINAS } from '@/lib/seo/paginas';
 import type { Articulo, Bloque } from '@/lib/recursos/articulos/tipos';
 import { CTA_ALTA } from '@/lib/landing/founding-gratis';
@@ -123,11 +127,16 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
     { id: 'preguntas-frecuentes', label: 'Preguntas frecuentes' },
     ...(a.fuentes.length ? [{ id: 'fuentes', label: 'Fuentes' }] : []),
   ];
-  const categoria = CATEGORIAS_RECURSOS.find((c) => c.key === a.categoria);
-  const relacionadas = a.relacionadas.map((ruta) => {
-    const p = PAGINAS.find((x) => x.path === ruta);
-    return { href: ruta, category: categoria?.label ?? 'Recursos', categoryColor: '#6E7650', title: p?.etiqueta ?? ruta };
-  });
+  // «Sigue leyendo»: tres artículos (relacionados.ts) y, aparte, las páginas de
+  // producto que el artículo ya enlazaba en `relacionadas`.
+  const relacionados = elegirRelacionados(a.slug, ARTICULOS_META);
+  const deProducto = relacionadasDeProducto(a, ARTICULOS_META).map((href) => ({
+    href,
+    etiqueta: PAGINAS.find((x) => x.path === href)?.etiqueta ?? href,
+  }));
+  // La llamada a mitad de texto, solo donde hay un recurso relevante (recursos-intermedios.ts).
+  const recurso = recursoIntermedio(a.slug);
+  const trasSeccion = recurso ? seccionDeLaLlamada(a) : -1;
 
   return (
     <PageShell>
@@ -150,11 +159,21 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
           <p className="art-lead"><TextoMarcado texto={a.respuesta} /></p>
         </section>
 
-        {a.secciones.map((s) => (
-          <section key={s.id} aria-labelledby={s.id}>
-            <h2 id={s.id}>{s.titulo}</h2>
-            {s.bloques.map((b, i) => <BloqueArticulo key={i} b={b} />)}
-          </section>
+        {a.secciones.map((s, n) => (
+          <Fragment key={s.id}>
+            <section aria-labelledby={s.id}>
+              <h2 id={s.id}>{s.titulo}</h2>
+              {s.bloques.map((b, i) => <BloqueArticulo key={i} b={b} />)}
+            </section>
+            {recurso && n === trasSeccion && (
+              <aside className="art-recurso">
+                <p>
+                  {recurso.texto}{' '}
+                  <Link href={recurso.href}>{recurso.enlace}</Link>.
+                </p>
+              </aside>
+            )}
+          </Fragment>
         ))}
 
         <h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
@@ -177,7 +196,7 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
         {a.cta.enlace
           ? <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} href={a.cta.enlace.href} cta={a.cta.enlace.texto} />
           : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta={`${CTA_ALTA} →`} />}
-        <RelatedLinks items={[...relacionadas, { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' }]} />
+        <ArticulosRelacionados articulos={relacionados} deProducto={deProducto} />
       </ArticleShell>
     </PageShell>
   );

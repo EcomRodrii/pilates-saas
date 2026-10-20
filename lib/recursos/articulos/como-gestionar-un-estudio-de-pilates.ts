@@ -15,6 +15,7 @@ const articulo: Articulo = {
   categoria: 'operacion',
   seccion: 'Operación',
   publicado: '2026-10-07',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cómo gestionar un estudio de pilates',
   consultas: [
     'gestión de un estudio de pilates',
