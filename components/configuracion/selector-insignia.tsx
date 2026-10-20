@@ -1,15 +1,20 @@
 'use client';
 
-import { INSIGNIAS, resolverInsignia, type ClaveInsignia } from '@/lib/gamificacion/insignias';
+import { INSIGNIAS, insigniaOPorDefecto, resolverInsignia, type ClaveInsignia } from '@/lib/gamificacion/insignias';
 import { cn } from '@/lib/utils';
 
 // Las insignias 3D en el panel (lib/gamificacion/insignias.ts): la miniatura de
 // una lista y el selector del formulario. Sustituye al campo de texto donde el
 // estudio tecleaba un emoji, que cada móvil dibujaba a su manera.
 
-/** La insignia de un logro, reto o recompensa en su tarjeta. Lo que no es insignia sale como texto. */
-export function MiniaturaInsignia({ icono, tamano = 28 }: { icono: string | null | undefined; tamano?: number }) {
-  const r = resolverInsignia(icono);
+/**
+ * La insignia de un logro, reto o recompensa en su tarjeta. Con `porDefecto`, enseña lo MISMO que ve la alumna (un
+ * emoji tecleado a mano cae a la insignia de su tipo); sin él, lo que no es insignia sale como texto.
+ */
+export function MiniaturaInsignia({ icono, porDefecto, tamano = 28 }: {
+  icono: string | null | undefined; porDefecto?: ClaveInsignia; tamano?: number;
+}) {
+  const r = porDefecto ? insigniaOPorDefecto(icono, porDefecto) : resolverInsignia(icono);
   if (!r) return <span className="text-[18px] leading-none">{icono}</span>;
   // eslint-disable-next-line @next/next/no-img-element -- PNG estático servido desde /public
   return <img src={r.src} alt="" width={tamano} height={tamano} loading="lazy" decoding="async" className="object-contain" />;
