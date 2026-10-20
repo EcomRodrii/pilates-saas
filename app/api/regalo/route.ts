@@ -6,9 +6,10 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import {
-  AJUSTES_POR_DEFECTO, MENSAJE_MOTIVO_REGALO, huellaCodigo, pareceCodigo, validarDatosRegalo, validarImporte,
+  AJUSTES_POR_DEFECTO, MENSAJE_MOTIVO_REGALO, pareceCodigo, validarDatosRegalo, validarImporte,
   type AjustesRegalo,
 } from '@/lib/regalo/reglas';
+import { huellaCodigo } from '@/lib/regalo/huella';
 import { crearTarjeta, guardarAjustes, leerAjustes, listarTarjetas, pasivoVivo } from '@/lib/regalo/servidor';
 import { enviarCorreosRegalo } from '@/lib/regalo/enviar';
 
