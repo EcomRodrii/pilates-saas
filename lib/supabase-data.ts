@@ -3691,19 +3691,8 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
 // la acción. La carrera no puede darse, y con ella se va la función y su
 // reintento: la solución del problema era no tener dos escrituras separadas.)
 
-export async function dbInsertCreditTransaction(t: CreditTransaction) {
-  const row = {
-    id: t.id, studio_id: t.studioId ?? STUDIO_ID, socio_id: t.socioId, tipo: t.tipo,
-    creditos: t.creditos, descripcion: t.descripcion, ref_id: t.refId ?? null, creado_en: t.creadoEn,
-  };
-  const { error } = await supabase.from('credit_transactions').insert(row);
-  if (error) reportDbError('[dbInsertCreditTransaction]', error);
-}
-
 // Gamificación — GANANCIA de créditos por un disparador (asistencia, referido,
-// racha, logro, reto...). A diferencia de dbAjustarCreditos (que sigue siendo
-// correcto para el DÉBITO de un canje), aquí el importe de créditos NUNCA lo
-// decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
+// racha, logro, reto...). El importe de créditos NUNCA lo decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
 // propio estudio, y para ASISTENCIA_CLASE/REFERIDO_AMIGO exige que la
 // condición exista de verdad en la BD (una reserva ASISTIDA real) antes de
 // conceder nada. Sin esto, cualquier cuenta de personal autenticada podía
@@ -3746,43 +3735,6 @@ export async function dbOtorgarCreditoDisparador(
     creditos: (row.creditos as number | null) ?? 0,
     descripcion: (row.descripcion as string | null) ?? null,
   };
-}
-
-// P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
-// leer-calcular-sobrescribir). deltaSaldo/Ganado/Canjeado: p. ej. una ganancia de
-// 5 → (+5, +5, 0); un canje de 3 → (-3, 0, +3). Devuelve el nuevo saldo o error
-// (SALDO_INSUFICIENTE si quedaría negativo).
-export async function dbAjustarCreditos(
-  socioId: string, studioId: string, deltaSaldo: number, deltaGanado: number, deltaCanjeado: number,
-): Promise<{ ok: true; saldo: number } | { error: string }> {
-  const { data, error } = await supabase.rpc('ajustar_creditos', {
-    p_socio_id: socioId, p_studio_id: studioId,
-    p_delta_saldo: deltaSaldo, p_delta_ganado: deltaGanado, p_delta_canjeado: deltaCanjeado,
-  });
-  if (error) {
-    if (error.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' };
-    reportDbError('[dbAjustarCreditos]', error);
-    return { error: error.message };
-  }
-  return { ok: true, saldo: data as number };
-}
-
-// A-13: ajuste ATÓMICO del stock de una recompensa (delta -1 reservar / +1
-// devolver) vía la RPC ajustar_stock. Con el cliente autenticado del panel; el
-// aislamiento por estudio lo aplica la propia función. Devuelve error 'SIN_STOCK'
-// si el decremento dejaría el stock por debajo de 0.
-export async function dbAjustarStock(
-  itemId: string, studioId: string, delta: number,
-): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.rpc('ajustar_stock', {
-    p_item_id: itemId, p_studio_id: studioId, p_delta: delta,
-  });
-  if (error) {
-    if (error.message.includes('SIN_STOCK')) return { error: 'SIN_STOCK' };
-    reportDbError('[dbAjustarStock]', error);
-    return { error: error.message };
-  }
-  return { ok: true };
 }
 
 /** Errores que la BD devuelve por nombre. El mensaje lo pone quien llama. */
@@ -3982,15 +3934,6 @@ export async function dbDeleteRewardCatalogItem(id: string): Promise<ResultadoEs
   return error ? falloEscritura('[dbDeleteRewardCatalogItem]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardRedemption(r: RewardRedemption) {
-  const row = {
-    id: r.id, studio_id: r.studioId ?? STUDIO_ID, socio_id: r.socioId, catalog_item_id: r.catalogItemId,
-    creditos_gastados: r.creditosGastados, estado: r.estado, creado_en: r.creadoEn,
-  };
-  const { error } = await supabase.from('reward_redemptions').insert(row);
-  if (error) reportDbError('[dbInsertRewardRedemption]', error);
-}
-
 // Cancelar un canje NO es un cambio de estado más: hay que devolver los
 // créditos y el stock, y las tres escrituras deben ir juntas o no ir. Hacerlas
 // desde aquí en tres llamadas dejaría a la socia sin recompensa y sin créditos
@@ -4013,13 +3956,6 @@ export async function dbCancelarCanje(
     return { error: 'No se ha podido confirmar la cancelación.' };
   }
   return { ok: true, estado: row.estado as EstadoCanje, saldo: row.saldo as number };
-}
-
-export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('estado' in changes) db.estado = changes.estado;
-  const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateRewardRedemption]', error) : ESCRITURA_OK;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
