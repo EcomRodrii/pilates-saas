@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
@@ -98,6 +98,20 @@ export default function HorarioPage() {
   const [q, setQ] = useState(sp.get('q') ?? '');
   const [verFiltros, setVerFiltros] = useState(false);
   const volver = useVolver();
+  // La sombra del bloque fijo solo con la lista ya por debajo. Un atributo puesto a mano, sin estado de React: el scroll
+  // no vuelve a pintar la pantalla.
+  const fijo = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let pendiente = 0;
+    const mirar = () => {
+      pendiente = 0;
+      fijo.current?.toggleAttribute('data-pegado', window.scrollY > 4);
+    };
+    const alScroll = () => { if (!pendiente) pendiente = requestAnimationFrame(mirar); };
+    window.addEventListener('scroll', alScroll, { passive: true });
+    mirar();
+    return () => { window.removeEventListener('scroll', alScroll); if (pendiente) cancelAnimationFrame(pendiente); };
+  }, []);
 
   const cargar = useCallback(async () => {
     const [clases, reservas, bonos, instructoras, favoritos] = await Promise.all([
@@ -185,6 +199,9 @@ export default function HorarioPage() {
     // la sala, «Con hueco», «Favoritas» y el calendario no se pierden: viven en la hoja del botón de filtros.
     <StudentShell sinCabecera>
       <TirarParaActualizar onRefrescar={actualizar} />
+      {/* Fijo arriba al hacer scroll: la cabecera, las píldoras y la tira de días se quedan a mano mientras la lista pasa
+          por debajo, como en una app (fondo opaco, sin desenfoque: el blur sobre una lista con fotos cuesta en iPhone). */}
+      <div className="reservar-fijo" ref={fijo}>
       <header className="px cabecera-pantalla">
         <button type="button" onClick={volver} aria-label="Volver" className="tap tap--icono cabecera-pantalla__boton">
           <Icono nombre="chevron-izquierda" tamano={22} />
@@ -204,7 +221,7 @@ export default function HorarioPage() {
         ))}
       </div>
 
-      <div style={{ marginTop: 14 }}>
+      <div style={{ marginTop: 12, paddingBottom: 10 }}>
         <DateSelector
           value={dia}
           onChange={setDia}
@@ -213,6 +230,7 @@ export default function HorarioPage() {
           marcados={data ? diasConReserva(data.reservas, data.clases) : undefined}
           habilitados={data ? diasConClases(data.clases) : undefined}
         />
+      </div>
       </div>
 
       {consulta && <p className="t-meta px" style={{ margin: '10px 0 0' }}>Buscando «{consulta}» en todo el horario</p>}
@@ -253,7 +271,10 @@ export default function HorarioPage() {
                   instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                   estado={disp}
                   temporal={estadoTemporalDeFila(c, disp, ahoraMs)}
-                  delay={i * 55}
+                  // Solo las seis primeras entran animadas, y seguidas (30 ms): lo que hay debajo de la pantalla no tiene que
+                  // esperar su turno ni gastar fotogramas al hacer scroll.
+                  entrada={i < 6}
+                  delay={i * 30}
                 />
               );
             })
