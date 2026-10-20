@@ -3,8 +3,8 @@ import { Activity, CreditCard, Database, Download, FileCheck, Globe, Layers, Loc
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -80,7 +80,7 @@ export default function SeguridadPage() {
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path="/seguridad" name="Seguridad" />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', background: '#0F0F0F', color: '#E8E8E4', overflow: 'hidden', padding: 'clamp(52px,7vw,92px) clamp(20px,4vw,44px) clamp(44px,6vw,72px)' }}>
         <div style={{ position: 'absolute', top: '-18%', right: '-6%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.28), transparent 62%)', pointerEvents: 'none' }} />
@@ -161,7 +161,7 @@ export default function SeguridadPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .sec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }

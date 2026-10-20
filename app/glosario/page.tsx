@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { ArrowRight, LayoutGrid, Sparkles, CalendarCheck, Users, Receipt, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { GlossaryStructuredData } from '@/components/glosario/GlossaryStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -285,7 +285,7 @@ export default function GlosarioPage() {
     <PageShell>
       <OrganizationStructuredData />
       <GlossaryStructuredData terms={TERMINOS.map((t) => ({ slug: t.slug, name: t.name, description: t.description }))} />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header className="glo-portada">
         <Image
@@ -381,7 +381,7 @@ export default function GlosarioPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .glo-portada { position: relative; isolation: isolate; overflow: hidden; background: #14150F;

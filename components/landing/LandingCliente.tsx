@@ -20,6 +20,7 @@ import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalida
 import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
+import { PieWeb } from '@/components/web/PieWeb';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
 import { BandaPrueba } from '@/components/landing/BandaPrueba';
@@ -154,6 +155,8 @@ export function LandingCliente({ guias, bento, frase, cambiarte, verbos, compara
         {guias}
       </div>
       <SeccionCtaFinal />
+      {/* El pie de toda la web pública (fase 2.1), debajo de la banda final. */}
+      <PieWeb />
       <WhatsAppFab />
       {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
           (lib/landing/popup-frecuencia.ts), no aquí. */}

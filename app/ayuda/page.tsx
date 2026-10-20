@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, LifeBuoy, Search, Sparkles } from 'lucide-react';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { AyudaIcono } from '@/components/ayuda/iconos';
@@ -22,7 +22,7 @@ export default function AyudaHomePage() {
   return (
     <PageShell>
       <OrganizationStructuredData />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
@@ -126,7 +126,7 @@ export default function AyudaHomePage() {
         </div>
       )}
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .ayuda-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }

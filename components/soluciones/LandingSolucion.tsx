@@ -4,8 +4,8 @@ import { Check } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -49,7 +49,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
     <PageShell>
       <OrganizationStructuredData />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(migasLd).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/soluciones" backLabel="Soluciones" />
+      <IslaWeb />
       {children}
       {relacionadas.length > 0 && (
         <section className="sol-banda">
@@ -66,7 +66,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
           </div>
         </section>
       )}
-      <SiteFooter />
+      <PieWeb />
       <EstilosSolucion />
     </PageShell>
   );
