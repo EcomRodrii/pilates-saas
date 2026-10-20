@@ -252,7 +252,7 @@ test('la función cuenta lo mismo que las consultas de antes, en un estudio con 
     assert.equal(antes.reservasPorAprobar, 1);
     assert.equal(antes.recibosFallidos, 2);
     assert.equal(antes.renovacionesSinCobro, 1);
-    assert.equal(antes.cobrosEnReintento, 2);
+    assert.equal(antes.cobrosEnReintento, 1, "solo el que ya falló alguna vez: la renovación con primer cobro programado no cuenta");
     assert.equal(antes.ofertasListaEspera, 1);
     assert.equal(antes.sustitucionesBuscando, 1);
     assert.equal(antes.sustitucionesCubiertas24h, 1);
