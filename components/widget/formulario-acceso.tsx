@@ -64,14 +64,6 @@ export function FormularioAccesoWidget({
   terminosServicio: string;
   onListo: () => void;
 }) {
-  // La ventana puede decir que no DESPUÉS de «correo enviado» (al abrir el
-  // enlace o escribir el código): se vuelve al formulario con el porqué.
-  const auth = useAuthWidget(slug, baseUrl, (r) => {
-    if (!('error' in r)) return;
-    setModo('magic-link');
-    setCuentaDeEquipo('cuentaDeEquipo' in r);
-    setError('cuentaDeEquipo' in r ? null : r.error);
-  });
 
   const [modo, setModo] = useState<'password' | 'magic-link' | 'magic-enviado'>('password');
   const [email, setEmail] = useState('');
@@ -87,6 +79,14 @@ export function FormularioAccesoWidget({
   const [sinVentana, setSinVentana] = useState<'bloqueada' | 'cerrada' | null>(null);
   // La cuenta es de un equipo: la ventana no entrega su sesión aquí.
   const [cuentaDeEquipo, setCuentaDeEquipo] = useState(false);
+  // La ventana puede decir que no DESPUÉS de «correo enviado» (al abrir el
+  // enlace o escribir el código): se vuelve al formulario con el porqué.
+  const auth = useAuthWidget(slug, baseUrl, (r) => {
+    if (!('error' in r)) return;
+    setModo('magic-link');
+    setCuentaDeEquipo('cuentaDeEquipo' in r);
+    setError('cuentaDeEquipo' in r ? null : r.error);
+  });
 
   const contratoTexto = politicaPrivacidad && terminosServicio
     ? textoLegalCompleto({ politicaPrivacidad, terminosServicio })
