@@ -116,7 +116,7 @@ test.describe('Student PWA · gamificación', () => {
     await expect(botones.nth(1)).toBeDisabled();
     await botones.nth(0).click();
     await expect.poll(() => p.length).toBe(1);
-    expect(p[0].body).toEqual({ studioId: STUDIO_ID, catalogItemId: 'p1' });
+    expect(p[0].body).toEqual({ studioId: STUDIO_ID, catalogItemId: 'p1', idempotencyKey: expect.any(String) });
     // Una clase gratis ya está en su cuenta: mandarla a esperar un aviso del
     // estudio sería falso y retrasaría que la use.
     await expect(page.getByText(/resérvala cuando quieras/i)).toBeVisible();

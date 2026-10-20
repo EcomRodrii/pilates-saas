@@ -37,7 +37,8 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
   // app/(dashboard)/citas/page.tsx (`if (guardando) return;` + `disabled`).
   const [guardando, setGuardando] = useState(false);
 
-  const ordenados = [...levelDefinitions].sort((a, b) => a.orden - b.orden);
+  // Por umbral, como panel y app de la alumna: `orden` ya no se edita ni manda.
+  const ordenados = [...levelDefinitions].sort((a, b) => a.umbralCreditos - b.umbralCreditos || a.orden - b.orden);
   // El último nivel activo por umbral es el que la app pinta con corona si no tiene insignia elegida.
   const ultimoId = levelDefinitions.filter((l) => l.activo !== false).sort((a, b) => a.umbralCreditos - b.umbralCreditos).at(-1)?.id;
 
@@ -145,17 +146,10 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
                 <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Field label="Orden"
-                  description="De menor a mayor. El 0 es el nivel de entrada, con el que empieza todo el mundo."
-                >
-                  <input type="number" min={0} className={inputCls} value={form.orden} onChange={e => setForm(f => ({ ...f, orden: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
-                </Field>
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <Field label="Créditos necesarios"
-                  description="Créditos acumulados para alcanzar este nivel. Debe ser mayor que el del nivel anterior."
+                  description="Créditos acumulados para alcanzar este nivel. Los niveles se ordenan por este número. Si subes o quitas un nivel y con eso alguna alumna bajaría, no se guarda."
                 >
                   <input type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
                 </Field>
@@ -194,7 +188,7 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
           <DialogHeader>
             <DialogTitle>Eliminar nivel</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Las alumnas que lo tengan alcanzado pasarán a mostrarse en el nivel inmediatamente inferior.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Si alguna alumna lo tiene alcanzado no se podrá eliminar: nadie baja de nivel.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>

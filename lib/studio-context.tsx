@@ -242,6 +242,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
+import { quienBajaria } from '@/lib/gamificacion/ritmo-niveles';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
@@ -694,7 +695,7 @@ interface StudioContextValue {
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteRewardCatalogItem: (id: string) => Promise<ResultadoEscritura>;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
-  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => Promise<ResultadoEscritura>;
+  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado'], motivo?: string) => Promise<ResultadoEscritura>;
   achievementDefinitions: AchievementDefinition[];
   achievementProgress: AchievementProgress[];
   achievementHistory: AchievementHistory[];
@@ -1006,6 +1007,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // para un único cobro. El Set bloquea el segundo disparo del MISMO recibo;
   // ids distintos (cobro masivo) siguen corriendo en paralelo sin trabas.
   const cobrosEnCursoRef = useRef<Set<string>>(new Set());
+  // Canjes en vuelo (socia + recompensa): un segundo toque no es otro canje.
+  const canjesEnCurso = useRef(new Set<string>());
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
   const [valoracionesSocias, setValoracionesSocias] = useState<ValoracionSocia[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
@@ -5208,7 +5211,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // Un segundo toque mientras el canje sigue en vuelo NO es otro canje: se
+  // rechaza aquí, antes de pedir nada. (El servidor además es idempotente por
+  // clave en el portal; esta es la primera barrera, la de la propia pantalla.)
   async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
+    const clave = `${socioId}:${catalogItemId}`;
+    if (canjesEnCurso.current.has(clave)) return { error: 'Este canje ya se está procesando.' };
+    canjesEnCurso.current.add(clave);
+    try {
+      return await canjearRecompensaUnaVez(socioId, catalogItemId);
+    } finally {
+      canjesEnCurso.current.delete(clave);
+    }
+  }
+
+  async function canjearRecompensaUnaVez(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
     // Validación pura y testeada (reward-engine): disponibilidad, vigencia,
     // límite por clienta, stock y saldo. Es un PRE-filtro para dar el mensaje
@@ -5241,7 +5258,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // fallaba) y un INSERT final cuyo error nadie miraba. Entre el débito y ese
     // INSERT cabía el peor de los finales: sin créditos y sin canje. La RPC lo
     // hace todo en una transacción y devuelve el código.
-    (async () => {
+    return await (async (): Promise<{ ok: true } | { error: string }> => {
       const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
       if ('error' in res) {
         const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
@@ -5250,8 +5267,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
               : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
                 : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'
                   : 'No se pudo completar el canje.';
-        setDbError({ msg, key: Date.now() });
-        return;
+        // Se DEVUELVE: antes iba a un `setDbError` y la llamada ya había
+        // contestado `{ ok: true }`, así que quien llamaba creía haber canjeado.
+        return { error: msg };
       }
 
       // La UI se aplica sobre lo YA confirmado en base de datos, con el código
@@ -5273,23 +5291,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (item.stock != null) {
         setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
       }
+      return { ok: true };
     })();
-
-    return { ok: true };
   }
 
-  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado'], motivo?: string): Promise<ResultadoEscritura> {
     // CANCELADO no es un estado más: devuelve créditos y stock. Eso va por la
     // RPC `cancelar_canje`, que hace las tres escrituras en una transacción —
     // hacerlas aquí sueltas dejaría a la socia sin recompensa y sin créditos si
     // fallara la segunda. ENTREGADO sí es solo un cambio de estado.
     if (estado === 'CANCELADO') {
       const socioId = rewardRedemptions.find(r => r.id === id)?.socioId ?? null;
-      const res = await dbCancelarCanje(id, getCurrentStudioId());
+      const res = await dbCancelarCanje(id, getCurrentStudioId(), motivo);
       if ('error' in res) return { ok: false, error: res.error };
       // La RPC es idempotente y responde con el estado REAL: si alguien lo
       // había entregado ya desde otra pestaña, se refleja eso y no 'CANCELADO'.
-      setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado: res.estado } : r));
+      setRewardRedemptions(prev => prev.map(r => r.id === id
+        ? { ...r, estado: res.estado, ...(res.estado === 'CANCELADO' ? { canceladoEn: new Date().toISOString(), canceladoMotivo: motivo?.trim() || null } : {}) }
+        : r));
       if (socioId) {
         setMemberCredits(prev => prev.map(m => m.socioId === socioId ? { ...m, saldo: res.saldo } : m));
       }
@@ -5431,8 +5450,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularNivel(levelDefinitions, totalGanado);
   }
 
+  // ⚠️ NADIE BAJA, también por esta vía (la del editor antiguo, que escribe con el
+  // cliente): si el cambio dejaría a alguna alumna con algo ganado sin su nivel o en
+  // uno más bajo, no se guarda. La ruta nueva (`/api/estudio/niveles`) hace lo mismo
+  // en servidor; aquí es la misma regla con los totales que el panel ya tiene.
+  function nivelesBajarian(despues: LevelDefinition[]): number {
+    // Sin los créditos cargados no se sabe quién bajaría: se bloquea, no se deja pasar.
+    // Y tampoco si pueden faltar filas (el snapshot del panel se corta en 1000): mejor no guardar que bajar a alguien.
+    if (!gamificacionCargada || memberCredits.length >= 1000) return -1;
+    return quienBajaria(memberCredits.map(m => m.totalGanado), levelDefinitions, despues);
+  }
+  const umbralOcupado = (umbral: number, id: string | null) =>
+    levelDefinitions.some(l => l.activo && l.id !== id && l.umbralCreditos === umbral);
+  const textoBajarian = (n: number) =>
+    n < 0 ? 'No se han podido comprobar los créditos de todas tus alumnas (aún cargan, o son demasiadas para este editor), y no se baja a nadie de nivel a ciegas. Espera un momento y reintenta; si sigue, avísanos.' : `Con este cambio ${n === 1 ? '1 alumna bajaría' : `${n} alumnas bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`;
+  /** `orden` = posición por umbral (solo presentación): panel y app ordenan por umbral. */
+  const ordenDeUmbral = (umbral: number, id: string | null) =>
+    levelDefinitions.filter(l => l.activo && l.id !== id && l.umbralCreditos < umbral).length;
+
   async function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
-    const nuevo: LevelDefinition = { ...fields, id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const nuevo: LevelDefinition = { ...fields, orden: ordenDeUmbral(fields.umbralCreditos, null), id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    if (nuevo.activo && umbralOcupado(nuevo.umbralCreditos, null)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    // Un nivel nuevo solo añade: nunca baja a nadie, pero se comprueba igual por si trae umbral 0 ya ocupado.
+    const bajarian = nivelesBajarian([...levelDefinitions, nuevo]);
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbInsertLevelDefinition(nuevo);
     if (!res.ok) return res;
     setLevelDefinitions(prev => [...prev, nuevo]);
@@ -5440,13 +5481,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
-    const res = await dbUpdateLevelDefinition(id, changes);
+    const actual = levelDefinitions.find(l => l.id === id);
+    const cambios = actual
+      ? { ...changes, orden: ordenDeUmbral(changes.umbralCreditos ?? actual.umbralCreditos, id) }
+      : changes;
+    const resultante = actual ? { ...actual, ...cambios } : null;
+    if (resultante?.activo && umbralOcupado(resultante.umbralCreditos, id)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    const bajarian = nivelesBajarian(levelDefinitions.map(l => l.id === id ? { ...l, ...cambios } : l));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
+    const res = await dbUpdateLevelDefinition(id, cambios);
     if (!res.ok) return res;
-    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
+    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...cambios } : l));
     return res;
   }
 
   async function deleteLevelDefinition(id: string): Promise<ResultadoEscritura> {
+    const bajarian = nivelesBajarian(levelDefinitions.filter(l => l.id !== id));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbDeleteLevelDefinition(id);
     if (!res.ok) return res;
     setLevelDefinitions(prev => prev.filter(l => l.id !== id));

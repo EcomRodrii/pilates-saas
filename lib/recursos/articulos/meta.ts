@@ -23,7 +23,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precios-reformer-mat",
       "/precios"
     ],
-    "palabras": 2835
+    "palabras": 2835,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "como-abrir-un-estudio-de-yoga",
@@ -41,7 +42,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/recursos/politica-de-cancelacion-de-clases"
     ],
-    "palabras": 2507
+    "palabras": 2507,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "como-gestionar-un-estudio-de-pilates",
@@ -58,7 +60,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/politica-de-cancelacion-de-clases",
       "/funcionalidades"
     ],
-    "palabras": 2129
+    "palabras": 2129,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "mejor-software-para-estudios-de-pilates",
@@ -76,7 +79,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2947
+    "palabras": 2947,
+    "actualizado": "2026-10-15"
   },
   {
     "slug": "bsport-vs-timp",
@@ -114,7 +118,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2540
+    "palabras": 2540,
+    "actualizado": "2026-10-15"
   },
   {
     "slug": "alternativas-a-timp",
@@ -133,7 +138,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/sustituciones"
     ],
-    "palabras": 2474
+    "palabras": 2474,
+    "actualizado": "2026-10-15"
   },
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
@@ -151,7 +157,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2349
+    "palabras": 2349,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "precio-clase-de-pilates",
@@ -168,7 +175,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/funcionalidades/bonos-y-membresias"
     ],
-    "palabras": 2407
+    "palabras": 2407,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "rentabilidad-estudio-de-pilates",
@@ -277,7 +285,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/lista-de-espera",
       "/recursos/como-abrir-un-estudio-de-yoga"
     ],
-    "palabras": 2411
+    "palabras": 2411,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "reducir-cancelaciones-ultima-hora",
@@ -313,7 +322,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cubrir-baja-instructora",
       "/recursos/iva-clases-de-pilates"
     ],
-    "palabras": 2165
+    "palabras": 2165,
+    "actualizado": "2026-10-15"
   },
   {
     "slug": "cubrir-baja-instructora",
@@ -348,7 +358,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/iva-clases-de-pilates",
       "/recursos/cubrir-baja-instructora"
     ],
-    "palabras": 2142
+    "palabras": 2142,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "iva-clases-de-pilates",
@@ -365,7 +376,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precio-clase-de-pilates",
       "/recursos/cuanto-cobra-una-instructora-de-pilates"
     ],
-    "palabras": 1902
+    "palabras": 1902,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "software-pilates-gratis",
@@ -382,7 +394,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/precios"
     ],
-    "palabras": 1982
+    "palabras": 1982,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "plantilla-control-de-asistencia-pilates",
@@ -399,7 +412,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/recursos/reducir-cancelaciones-ultima-hora"
     ],
-    "palabras": 1692
+    "palabras": 1692,
+    "actualizado": "2026-10-16"
   },
   {
     "slug": "franquicia-de-pilates",
@@ -417,7 +431,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/nombres-para-estudio-de-pilates",
       "/precios"
     ],
-    "palabras": 1983
+    "palabras": 1983,
+    "actualizado": "2026-10-15"
   },
   {
     "slug": "nombres-para-estudio-de-pilates",
@@ -435,6 +450,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/app-para-alumnas",
       "/recursos/reservas-en-tu-web"
     ],
-    "palabras": 1769
+    "palabras": 1769,
+    "actualizado": "2026-10-16"
   }
 ];

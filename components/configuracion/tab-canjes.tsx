@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Los canjes de las socias, y qué hacer con ellos.
 //
@@ -60,7 +61,7 @@ export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
     const casa = (r: RewardRedemption) => !q
       || nombreDe(r.socioId).toLowerCase().includes(q)
       || (r.codigo ?? '').toLowerCase().includes(q)
-      || recompensaDe(r.catalogItemId).toLowerCase().includes(q);
+      || (recompensaDe(r.catalogItemId) || r.recompensaNombre || '').toLowerCase().includes(q);
     const visibles = orden.filter(casa);
     return {
       pendientes: visibles.filter(r => r.estado === 'PENDIENTE'),
@@ -73,12 +74,21 @@ export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
 
   const nombreSocia = (socioId: string | null) =>
     socios.find(s => s.id === socioId)?.nombre ?? 'Socia dada de baja';
-  const nombreRecompensa = (itemId: string | null) =>
-    rewardCatalog.find(c => c.id === itemId)?.nombre ?? 'Recompensa retirada del catálogo';
+  // El nombre sale del catálogo; si la recompensa se eliminó, del que se guardó
+  // en el canje al eliminarla.
+  const nombreRecompensa = (canje: RewardRedemption) =>
+    rewardCatalog.find(c => c.id === canje.catalogItemId)?.nombre
+    ?? canje.recompensaNombre
+    ?? 'Recompensa retirada del catálogo';
 
-  async function resolver(canje: RewardRedemption, estado: EstadoCanje) {
+  // Cancelar pregunta el motivo (opcional): queda guardado con quién y cuándo.
+  const [cancelando, setCancelando] = useState<RewardRedemption | null>(null);
+  const [motivo, setMotivo] = useState('');
+
+  async function resolver(canje: RewardRedemption, estado: EstadoCanje, motivoCancelacion?: string) {
+    if (enCurso) return;
     setEnCurso(canje.id);
-    const res = await updateRewardRedemptionEstado(canje.id, estado);
+    const res = await updateRewardRedemptionEstado(canje.id, estado, motivoCancelacion);
     setEnCurso(null);
     if (!res.ok) { showToast(res.error, { variant: 'error' }); return; }
     showToast(estado === 'ENTREGADO'
@@ -95,11 +105,12 @@ export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-foreground truncate">
-            {nombreRecompensa(canje.catalogItemId)}
+            {nombreRecompensa(canje)}
           </p>
           <p className="text-[12px] text-muted-foreground truncate">
             {nombreSocia(canje.socioId)} · {canje.creditosGastados} {moneda} · {fechaCorta(canje.creadoEn)}
             {canje.codigo ? ` · ${canje.codigo}` : ''}
+            {canje.estado === 'CANCELADO' && canje.canceladoMotivo ? ` · Motivo: ${canje.canceladoMotivo}` : ''}
           </p>
         </div>
         {accionable ? (
@@ -117,7 +128,7 @@ export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
               <Check size={14} /> Entregar
             </button>
             <button
-              onClick={() => resolver(canje, 'CANCELADO')}
+              onClick={() => { setMotivo(''); setCancelando(canje); }}
               disabled={ocupado}
               className={cn(btnSecondary, 'disabled:opacity-50')}
               title={`Devuelve los ${moneda} a la alumna y el stock al catálogo`}
@@ -187,6 +198,41 @@ export function TabCanjes({ showToast }: { showToast: MostrarToast }) {
           </div>
         )}
       </div>
+
+      <Dialog open={cancelando !== null} onOpenChange={open => !open && setCancelando(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar canje</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground">
+            Se devolverán {cancelando?.creditosGastados} {moneda} a {cancelando ? nombreSocia(cancelando.socioId) : ''} y se repondrá el stock.
+          </p>
+          <label className="mt-3 block text-[12px] font-semibold text-foreground" htmlFor="motivo-cancelar-canje">
+            Motivo (opcional)
+          </label>
+          <input
+            id="motivo-cancelar-canje"
+            value={motivo}
+            maxLength={200}
+            onChange={e => setMotivo(e.target.value)}
+            placeholder="Ej. sin existencias"
+            className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-base [@media(pointer:fine)]:h-9 [@media(pointer:fine)]:text-[13px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+          <div className="flex justify-end gap-2 pt-4">
+            <button onClick={() => setCancelando(null)} className={btnSecondary}>Volver</button>
+            <button
+              onClick={() => {
+                const c = cancelando;
+                setCancelando(null);
+                if (c) void resolver(c, 'CANCELADO', motivo);
+              }}
+              className={btnPrimary}
+            >
+              <X size={14} /> Cancelar canje
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {resueltos.length > 0 && (
         <div>

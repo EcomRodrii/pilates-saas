@@ -86,12 +86,26 @@ const IBM_Plex_Mono_Ext = localFont({
 // La cursiva de la serif NO es decorativa en este diseño —titula la mitad de
 // las pantallas—, así que se carga explícitamente: sin ella el navegador la
 // falsearía inclinando la redonda, que en una Didone se nota a la legua.
+//
+// ⚠️ Sin precarga desde la fase 2.1 de la web (19-oct-2026). Este fichero lo
+// importa el layout RAÍZ, así que una precarga aquí se descargaba en TODAS las
+// páginas, y la web pública (home, interiores, legales) no pinta Instrument
+// Serif y solo usa Instrument Sans como reserva de la letra del sistema dentro
+// de las maquetas de iPhone de la home (SeccionBento, MockupIphone), lejos del
+// primer pantallazo: eran tres woff2 de peso muerto en la carga de la home
+// (medido en producción, auditoría de la fase 1). Donde sí
+// se usan (/reservar, la app de la alumna, el widget) el navegador las pide al
+// pintar el primer texto, como Outfit o Cormorant aquí abajo; la familia de
+// reserva lleva las métricas ajustadas (fuentes.css), así que el cambio no mueve
+// el texto. Si algún día hace falta precargarlas allí, va en el layout de esas
+// rutas, no aquí.
 const Instrument_Serif = localFont({
   src: [
     { path: './instrumentserif/instrumentserif-latin-400.woff2', weight: '400', style: 'normal' },
     { path: './instrumentserif/instrumentserif-latin-400-italic.woff2', weight: '400', style: 'italic' },
   ],
   adjustFontFallback: false,
+  preload: false,
   variable: '--font-display-latin',
 });
 const Instrument_Serif_Ext = localFont({
@@ -117,6 +131,8 @@ const Instrument_Sans = localFont({
     { path: './instrumentsans/instrumentsans-latin.woff2', weight: '700' },
   ],
   adjustFontFallback: false,
+  // Sin precarga: ver Instrument_Serif, arriba.
+  preload: false,
   variable: '--font-ui-latin',
 });
 const Instrument_Sans_Ext = localFont({

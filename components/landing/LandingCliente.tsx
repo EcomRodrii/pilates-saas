@@ -20,6 +20,7 @@ import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalida
 import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
+import { PieWeb } from '@/components/web/PieWeb';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
 import { BandaPrueba } from '@/components/landing/BandaPrueba';
@@ -41,7 +42,9 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
  * `bento`, `frase` y `cambiarte` van igual (SeccionBento, SeccionEnUnaFrase,
  * SeccionCambiarte): son texto puro y miniaturas en CSS, sin ningún motivo
  * para pesar en el cliente. Y `verbos` y `comparador` (ronda 3: SeccionSeisVerbos y
- * SeccionComparador), por lo mismo: texto con enlaces, sin estado.
+ * SeccionComparador), por lo mismo: texto con enlaces, sin estado. `logos` es la
+ * franja de estudios que ya usan Tentare (FranjaLogos): sale de una consulta en
+ * servidor y es `null` si no hay ningún estudio con consentimiento.
  */
 interface HuecosLanding {
   guias?: ReactNode;
@@ -50,9 +53,10 @@ interface HuecosLanding {
   cambiarte?: ReactNode;
   verbos?: ReactNode;
   comparador?: ReactNode;
+  logos?: ReactNode;
 }
 
-export function LandingCliente({ guias, bento, frase, cambiarte, verbos, comparador }: HuecosLanding = {}) {
+export function LandingCliente({ guias, bento, frase, cambiarte, verbos, comparador, logos }: HuecosLanding = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -118,6 +122,10 @@ export function LandingCliente({ guias, bento, frase, cambiarte, verbos, compara
             de la promesa, encima de «¿Te suena?» (el fundador, 23-sep). */}
         <VideoProducto />
         <SeccionTeSuena />
+        {/* Los estudios que ya usan Tentare (19-oct): solo con consentimiento y sin
+            demos, y NADA si no hay ninguno. Debajo de «¿Te suena?» y no entre el
+            héroe y el vídeo, que monta sobre ese bloque oscuro. */}
+        {logos}
         {/* Seis tarjetas «verbo + punto», cada una a su función (ronda 3, forma de
             Momence): el producto entero en un vistazo, justo tras el problema. */}
         {verbos}
@@ -147,6 +155,8 @@ export function LandingCliente({ guias, bento, frase, cambiarte, verbos, compara
         {guias}
       </div>
       <SeccionCtaFinal />
+      {/* El pie de toda la web pública (fase 2.1), debajo de la banda final. */}
+      <PieWeb />
       <WhatsAppFab />
       {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
           (lib/landing/popup-frecuencia.ts), no aquí. */}

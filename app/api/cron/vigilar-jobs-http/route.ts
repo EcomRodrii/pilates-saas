@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
   try {
-    const cuerpo = await req.json().catch(() => null) as { fallos?: number; muestra?: unknown[] } | null;
+    const cuerpo = await req.json().catch(() => null) as { fallos?: number; muestra?: unknown[]; jobs_fallidos?: unknown[] } | null;
     const fallos = cuerpo?.fallos ?? 0;
-    Sentry.captureMessage('[vigilar-jobs-http] net._http_response tiene respuestas fuera de 2xx en los últimos 20 min', {
+    Sentry.captureMessage('[vigilar-jobs-http] respuestas fuera de 2xx en net._http_response (20 min) o jobs de pg_cron fallando (2+ veces en 3 h)', {
       level: 'error',
       tags: { cron: 'vigilar-jobs-http' },
-      extra: { fallos, muestra: cuerpo?.muestra ?? [] },
+      extra: { fallos, muestra: cuerpo?.muestra ?? [], jobsFallidos: cuerpo?.jobs_fallidos ?? [] },
     });
     return NextResponse.json({ ejecutadoEn: new Date().toISOString(), fallos });
   } catch (err) {

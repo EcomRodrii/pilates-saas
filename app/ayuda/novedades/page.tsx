@@ -3,8 +3,8 @@ import { Rocket, Sparkles, Gauge, Wrench } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { compararVersiones } from '@/lib/utils';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { AyudaBreadcrumbs } from '@/components/ayuda/AyudaBreadcrumbs';
 import { MUTED } from '@/components/landing/theme';
@@ -53,7 +53,7 @@ export default async function NovedadesPage() {
   return (
     <PageShell>
       <OrganizationStructuredData />
-      <SiteNav backHref="/ayuda" backLabel="Centro de Ayuda" />
+      <IslaWeb />
 
       <header style={{ maxWidth: 720, margin: '0 auto', padding: 'clamp(32px,5vw,56px) clamp(20px,4vw,44px) 8px' }}>
         <AyudaBreadcrumbs items={migas} />
@@ -87,7 +87,7 @@ export default async function NovedadesPage() {
         </div>
       </div>
 
-      <SiteFooter />
+      <PieWeb />
     </PageShell>
   );
 }

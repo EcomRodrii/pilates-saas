@@ -15,10 +15,10 @@
 //     otro sitio — hay un test que lo comprueba, y cazó este fichero cuando el
 //     comentario traía el dominio literal.)
 //
-// El criterio con las anclas: el menú SIGUE llevando a las secciones (es la
-// intención del diseño y funciona mejor para quien está leyendo la página), y
-// son las secciones las que enlazan hacia fuera con un "ver más". Así no se
-// pierde ni el recorrido de la landing ni la profundidad del sitio.
+// El criterio con las anclas cambió en la fase 2.1 (19-oct-2026): el menú es el
+// de toda la web y lleva a páginas (components/web/IslaWeb.tsx). Solo «Precios»
+// sigue yendo a `#precio` desde la home, porque esa sección es la misma tabla y
+// su vista se mide. Las secciones siguen enlazando hacia fuera con un «ver más».
 
 export interface EnlaceNav {
   href: string;
@@ -37,14 +37,6 @@ export const ALTA = '/crear-estudio';
  * de aquí.
  */
 export const WHATSAPP_SOPORTE = '+34603556580';
-
-/** Menú superior. Anclas: el recorrido de la landing es la propia página. */
-export const NAV_V5: EnlaceNav[] = [
-  { href: '#funcionalidades', label: 'Funcionalidades' },
-  { href: '#app', label: 'App para alumnas' },
-  { href: '#precio', label: 'Precios' },
-  { href: '#faq', label: 'FAQ' },
-];
 
 /**
  * Único enlace del menú que NO es una ancla de esta página: Tentare Network
@@ -94,83 +86,7 @@ export const SALIDAS = {
 export const NAV_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Cambiarme a Tentare' };
 export const HEROE_CAMBIARSE: EnlaceNav = { href: SALIDAS.cambiarse.href, label: 'Traer mis datos de otro programa' };
 
-/** Pie. `/legal` y no `/aviso-legal`: ese enlace del diseño estaba roto. */
-export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
-  {
-    titulo: 'Producto',
-    enlaces: [
-      { href: '/funcionalidades', label: 'Funcionalidades' },
-      { href: '/precios', label: 'Precios' },
-      { href: '/comparativa', label: 'Comparativa' },
-      { href: '/seguridad', label: 'Seguridad' },
-      // Hasta el 7-oct ninguna página enlazaba /sobre-tentare (rastreo de ese día).
-      { href: '/sobre-tentare', label: 'Sobre Tentare' },
-      // Tentare Network salió del pie y del menú el 2-oct-2026: está congelado
-      // (lib/frozen-features.ts). Su web pública sigue viva, sin enlazar.
-    ],
-  },
-  {
-    // Las páginas por tipo de estudio no tenían ningún enlace desde la home
-    // (7-oct-2026): /soluciones recibía un solo enlace interno en todo el sitio.
-    titulo: 'Para tu estudio',
-    enlaces: [
-      { href: '/soluciones/programa-de-gestion-para-estudio-de-pilates', label: 'Programa de gestión' },
-      { href: '/soluciones/estudio-de-pilates-reformer', label: 'Pilates reformer' },
-      { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga' },
-      { href: '/funcionalidades/multi-centro', label: 'Varias sedes' },
-      { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software' },
-      { href: '/soluciones', label: 'Todas las soluciones →' },
-    ],
-  },
-  {
-    // La home es la página con más autoridad del dominio: que reparta un poco
-    // hacia las comparativas, que son las de búsqueda de compra.
-    titulo: 'Comparar',
-    enlaces: [
-      { href: '/comparativa/tentare-vs-bsport', label: 'Alternativa a bsport' },
-      { href: '/comparativa/tentare-vs-eversports', label: 'Alternativa a Eversports' },
-      { href: '/comparativa/tentare-vs-mindbody', label: 'Alternativa a Mindbody' },
-      { href: '/comparativa/tentare-vs-timp', label: 'Alternativa a TIMP' },
-      { href: '/recursos/mejor-software-para-estudios-de-pilates', label: 'Mejor software de Pilates' },
-    ],
-  },
-  {
-    titulo: 'Funcionalidades',
-    enlaces: [
-      { href: '/funcionalidades/reservas-online', label: 'Reservas online' },
-      { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
-      { href: '/funcionalidades/cobros-recurrentes', label: 'Cobros' },
-      { href: '/funcionalidades/facturacion', label: 'Facturación' },
-      // Solo 4 de las 17 caben sin que la columna se desborde — el resto se
-      // alcanza en un clic desde aquí. Antes esta columna era el único techo
-      // de las 11 restantes desde el pie global (docs/SEO-AI-MASTERPLAN.md §19).
-      { href: '/funcionalidades', label: 'Ver las 17 →' },
-    ],
-  },
-  {
-    titulo: 'Recursos',
-    enlaces: [
-      { href: '/recursos', label: 'Blog' },
-      // El Centro de Ayuda tiene 14 categorías y decenas de artículos y NO
-      // estaba enlazado desde ninguna página pública: solo llegaba quien ya
-      // sabía la URL o entraba desde el panel.
-      { href: '/ayuda', label: 'Centro de Ayuda' },
-      { href: '/glosario', label: 'Glosario' },
-      { href: 'mailto:hola@tentare.app', label: 'Contacto' },
-    ],
-  },
-  {
-    titulo: 'Legal',
-    enlaces: [
-      { href: '/legal', label: 'Aviso legal' },
-      { href: '/privacidad', label: 'Privacidad' },
-      { href: '/terminos', label: 'Términos' },
-      { href: '/cookies', label: 'Cookies' },
-    ],
-  },
-];
-
-/** Un enlace es externo si sale del sitio: se abre aparte y sin pasar por Link. */
-export function esExterno(href: string): boolean {
-  return href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:');
-}
+// El menú y el pie de la home (NAV_V5, PIE_V5) se retiraron en la fase 2.1
+// (19-oct-2026): la isla y el pie son los de toda la web pública y sus enlaces
+// viven en lib/seo/navegacion-publica.ts. Lo que decía este fichero de `/legal`
+// (y no `/aviso-legal`, que estaba roto en el diseño) sigue valiendo allí.

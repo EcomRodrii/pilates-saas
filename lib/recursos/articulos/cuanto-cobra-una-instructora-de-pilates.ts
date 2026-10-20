@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'sustituciones',
   seccion: 'Sustituciones y equipo',
   publicado: '2026-09-25',
+  actualizado: '2026-10-15',
   consultaPrincipal: 'cuánto cobra una instructora de pilates',
   consultas: [
     'cuánto gana un profesor de pilates en España',

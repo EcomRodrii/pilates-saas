@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'rentabilidad',
   seccion: 'Rentabilidad',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'precio de una clase de pilates',
   consultas: [
     'precio clase pilates reformer',

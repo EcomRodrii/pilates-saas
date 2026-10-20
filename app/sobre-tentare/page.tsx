@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
@@ -94,7 +94,7 @@ export default function SobreTentarePage() {
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Sobre Tentare" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/" backLabel="Inicio" />
+      <IslaWeb />
 
       <header className="st-cab">
         <div className="st-ancho">
@@ -172,7 +172,7 @@ export default function SobreTentarePage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .st-ancho { max-width: 760px; margin: 0 auto; padding: 0 clamp(20px,4vw,44px); }

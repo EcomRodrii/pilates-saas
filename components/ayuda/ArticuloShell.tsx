@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { AyudaBreadcrumbs, type Miga } from './AyudaBreadcrumbs';
 import { AyudaArticleStructuredData, AyudaBreadcrumbStructuredData } from './AyudaStructuredData';
@@ -33,7 +33,7 @@ export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda;
       <OrganizationStructuredData />
       <AyudaBreadcrumbStructuredData items={migas} />
       <AyudaArticleStructuredData titulo={articulo.titulo} descripcion={articulo.descripcion} path={urlArticulo(articulo)} actualizado={articulo.actualizado} />
-      <SiteNav backHref="/ayuda" backLabel="Centro de Ayuda" />
+      <IslaWeb />
 
       <article style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(28px,5vw,56px) clamp(20px,4vw,44px) clamp(60px,8vw,88px)' }}>
         <AyudaBreadcrumbs items={migas} />
@@ -52,7 +52,7 @@ export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda;
         <AyudaFeedback categoria={articulo.categoria} articulo={articulo.slug} />
       </article>
 
-      <SiteFooter />
+      <PieWeb />
     </PageShell>
   );
 }

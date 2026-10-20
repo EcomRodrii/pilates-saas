@@ -390,6 +390,8 @@ export interface RowMemberCredits {
   caduca_el: string | null;
   // migr 20260917010429.
   creditos_por_compensar: number | null;
+  // migr 20261019122801.
+  total_caducado: number | null;
 }
 
 export interface RowMensajesEquipo {
@@ -679,6 +681,14 @@ export interface RowRewardRedemptions {
   entregado_por: string | null;
   // migr 20260909154359.
   recuperacion_id: string | null;
+  // migr 20261019122801.
+  recompensa_nombre: string | null;
+  // migr 20261019122801.
+  cancelado_en: string | null;
+  // migr 20261019122801.
+  cancelado_por: string | null;
+  // migr 20261019122801.
+  cancelado_motivo: string | null;
 }
 
 export interface RowRewardRules {
@@ -1126,6 +1136,8 @@ export interface RowStudios {
   regimen_addons: boolean | null;
   // migr 20261019175741.
   addons: string[] | null;
+  // migr 20261019182716.
+  mostrar_logo_en_landing: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4383,6 +4395,13 @@ export interface RowRastroGratisClave {
   clave: string;
 }
 
+export interface RowPlazaFijaSinCuotaAvisos {
+  studio_id: string;
+  socio_id: string;
+  avisada_en: string;
+  liberar_desde: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -5041,6 +5060,7 @@ export type MemberCreditsInsert = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MemberCreditsUpdate = {
@@ -5052,6 +5072,7 @@ export type MemberCreditsUpdate = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MensajesEquipoInsert = {
@@ -5472,6 +5493,10 @@ export type RewardRedemptionsInsert = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRedemptionsUpdate = {
@@ -5486,6 +5511,10 @@ export type RewardRedemptionsUpdate = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRulesInsert = {
@@ -5878,6 +5907,7 @@ export type StudiosInsert = {
   tarjeta_clase?: any | null | null;
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6038,6 +6068,7 @@ export type StudiosUpdate = {
   tarjeta_clase?: any | null | null;
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -12144,6 +12175,20 @@ export type RastroGratisClaveUpdate = {
   clave?: string | null;
 }
 
+export type PlazaFijaSinCuotaAvisosInsert = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
+export type PlazaFijaSinCuotaAvisosUpdate = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13511,6 +13556,11 @@ export type Database = {
         Row: RowRastroGratisClave;
         Insert: RastroGratisClaveInsert;
         Update: RastroGratisClaveUpdate;
+      };
+      plaza_fija_sin_cuota_avisos: {
+        Row: RowPlazaFijaSinCuotaAvisos;
+        Insert: PlazaFijaSinCuotaAvisosInsert;
+        Update: PlazaFijaSinCuotaAvisosUpdate;
       };
     };
   };

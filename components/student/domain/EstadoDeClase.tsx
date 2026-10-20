@@ -11,7 +11,12 @@ import { etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
  *
  * En curso no se pintan plazas: «Quedan 2» sobre una clase que se está dando es una plaza que el servidor niega.
  */
-export function EstadoDeClase({ clase, estado, temporal }: { clase: Clase; estado: Disponibilidad; temporal: EstadoTemporal }) {
+export function EstadoDeClase({ clase, estado, temporal, compacta = false }: {
+  clase: Clase; estado: Disponibilidad; temporal: EstadoTemporal;
+  /** Solo el chip «En curso»: quien la pinta ya dice la hora de fin en otro sitio (la fila del horario, en su línea de hora). */
+  compacta?: boolean;
+}) {
+  if (temporal === 'en-curso' && compacta) return <EnCursoBadge />;
   // En la fila, la hora de fin va DEBAJO del badge: dentro («En curso · hasta 10:50») el badge se comía media fila y el
   // nombre de la clase quedaba en «Reformer avanza…».
   if (temporal === 'en-curso') {

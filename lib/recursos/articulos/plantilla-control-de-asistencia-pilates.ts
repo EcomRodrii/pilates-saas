@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'operacion',
   seccion: 'Operación',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'plantilla de control de asistencia para clases',
   consultas: [
     'control de asistencia a clases en Excel',
