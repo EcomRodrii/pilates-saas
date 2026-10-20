@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { textoPlazaFijaSinCuota } from './plazas-fijas-sin-cuota.ts';
+import { DIAS_PARA_RENOVAR_PLAZA_FIJA, textoPlazaFijaSinCuota } from './plazas-fijas-sin-cuota.ts';
 
 test('liberar: dice que se liberan, también las de estos días, y sin penalización', () => {
   const t = textoPlazaFijaSinCuota('LIBERAR', 'ahora');
@@ -31,4 +31,12 @@ test('mantener sin penalizar y como hasta ahora: conserva, no se le reservan nue
   assert.match(comoSiempre, /conserva las clases ya reservadas/);
   assert.match(comoSiempre, /reglas de siempre/);
   assert.doesNotMatch(comoSiempre, /liber|penalización/);
+});
+
+test('AVISAR_Y_LIBERAR (de serie desde el 20-oct-2026): dice el aviso, el plazo para renovar y que no se cobra mientras', () => {
+  const t = textoPlazaFijaSinCuota('AVISAR_Y_LIBERAR', 'ahora');
+  assert.match(t, /Le avisamos/);
+  assert.match(t, new RegExp(`${DIAS_PARA_RENOVAR_PLAZA_FIJA} días`));
+  assert.match(t, /sin penalización/);
+  assert.match(t, /no se le cobra/);
 });

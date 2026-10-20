@@ -727,7 +727,8 @@ export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
  * regla que usa el motor, con la gracia de la renovación por cobrar.
  */
 export function omitirPorPlazaFijaSinCuota(p: { politica: string | null | undefined; reservaId: string; cubre: boolean }): boolean {
-  const politicaNoCobra = p.politica === 'LIBERAR' || p.politica === 'MANTENER_SIN_PENALIZAR';
+  // AVISAR_Y_LIBERAR: mientras corre su plazo para renovar, tampoco se cobra (y después ya están liberadas).
+  const politicaNoCobra = p.politica === 'LIBERAR' || p.politica === 'MANTENER_SIN_PENALIZAR' || p.politica === 'AVISAR_Y_LIBERAR';
   return politicaNoCobra && esReservaPlazaFija(p.reservaId) && !p.cubre;
 }
 

@@ -6,6 +6,7 @@ import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import type { EstadoTemporal } from '@/lib/student/fila-horario';
 import { Foto } from '@/components/student/ui/Foto';
+import { horaFin } from '@/lib/student/formato';
 import { EstadoDeClase } from '@/components/student/domain/EstadoDeClase';
 import { Icono } from '@/components/student/ui/Icono';
 import { CaraInstructora } from '@/components/student/domain/InstructorCard';
@@ -19,9 +20,11 @@ import { CaraInstructora } from '@/components/student/domain/InstructorCard';
  * La foto es la de la clase (`fotoUrl`: la del tipo, la de su sala o la de por defecto de su disciplina), como en la
  * maqueta: antes solo se ponía la foto PROPIA y las demás filas salían con una inicial.
  */
-export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }: {
+export function FilaHorario({ clase, instructora, estado, temporal, delay = 0, entrada = true }: {
   clase: Clase; instructora?: Instructora; estado: Disponibilidad; temporal: EstadoTemporal;
   delay?: number;
+  /** Con su animación de entrada. Solo las primeras filas: una cascada de 40 tardaba más de 2 s en quedarse quieta. */
+  entrada?: boolean;
 }) {
   const href = usePortalHref();
   const suya = estado === 'reservada';
@@ -29,11 +32,11 @@ export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }:
     <Link
       href={href('/reservar/' + clase.id)}
       transitionTypes={TRANSICION_ADELANTE}
-      className="card card--tap a-up fila-horario"
+      className={'card card--tap fila-horario' + (entrada ? ' a-up' : '')}
       data-testid="fila-horario"
       data-clase={clase.id}
       style={{
-        display: 'flex', alignItems: 'stretch', gap: 12, padding: 8, animationDelay: delay + 'ms', color: 'var(--foreground)',
+        display: 'flex', alignItems: 'stretch', gap: 12, padding: 8, animationDelay: entrada ? delay + 'ms' : undefined, color: 'var(--foreground)',
         borderColor: suya ? 'var(--accent)' : undefined, borderWidth: suya ? 1.5 : 1,
       }}
     >
@@ -46,7 +49,7 @@ export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }:
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, padding: '4px 0' }}>
         <span className="fila-horario__nombre" style={{ fontSize: 'var(--t-body)', fontWeight: 800, lineHeight: 1.2 }}>{clase.nombre}</span>
         <span className="t-meta t-num" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Icono nombre="reloj" tamano={14} />{clase.hora} · {clase.duracionMin} min
+          <Icono nombre="reloj" tamano={14} />{clase.hora} · {temporal === 'en-curso' ? `hasta ${horaFin(clase.hora, clase.duracionMin)}` : `${clase.duracionMin} min`}
         </span>
         <span className="t-meta" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           {instructora && <CaraInstructora i={instructora} lado={18} />}
@@ -54,7 +57,8 @@ export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }:
         </span>
       </span>
       <span style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', padding: '4px 4px 4px 0' }}>
-        <EstadoDeClase clase={clase} estado={estado} temporal={temporal} />
+        {/* En curso, solo el chip: la hora de fin va en la línea de la hora (a la derecha se comía la instructora). */}
+        <EstadoDeClase clase={clase} estado={estado} temporal={temporal} compacta />
         <span aria-hidden className="flecha-fila"><Icono nombre="chevron-derecha" tamano={18} /></span>
       </span>
     </Link>

@@ -146,7 +146,9 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
   const { esperando, conPreguntas, completarPreguntas } = useGuardiaSesion(vistaPrevia);
   if (conPreguntas) return <PreguntasAlta estado={conPreguntas} onCompletada={completarPreguntas} />;
   const estiloPage: CSSProperties = {};
-  if (headerTransparente) estiloPage.paddingTop = 0;
+  // Sin la barra del estudio, su hueco sobra: la pantalla pone su propia cabecera con la zona segura (Reservar, Mi plan).
+  // Con él quedaba una franja en blanco de ~100 px arriba (fundador, 20-oct-2026, captura de Reservar en el iPhone).
+  if (headerTransparente || sinCabecera) estiloPage.paddingTop = 0;
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
   return (
     // `suppressHydrationWarning`: el script puede haberle puesto `data-sin-sesion`.
@@ -174,7 +176,9 @@ function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente
   const sinLeer = useNoLeidas(estudio.id);
   const revisita = useMemoriaDePestana(estudio.slug);
   const estiloPage: CSSProperties = {};
-  if (headerTransparente) estiloPage.paddingTop = 0;
+  // Sin la barra del estudio, su hueco sobra: la pantalla pone su propia cabecera con la zona segura (Reservar, Mi plan).
+  // Con él quedaba una franja en blanco de ~100 px arriba (fundador, 20-oct-2026, captura de Reservar en el iPhone).
+  if (headerTransparente || sinCabecera) estiloPage.paddingTop = 0;
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
   const contenido = (
     <div className="shell" data-revisita={revisita ? '' : undefined}>

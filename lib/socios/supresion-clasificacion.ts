@@ -50,6 +50,11 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   notas_internas: { accion: 'BORRAR', detalle: 'Notas del staff sobre ella (con su autora y para quién son).' },
   notas_progreso: { accion: 'BORRAR', detalle: 'Progreso clínico.' },
   preferencias_socio: { accion: 'BORRAR', detalle: 'Preferencias personales.' },
+  plaza_fija_sin_cuota_avisos: {
+    accion: 'CONSERVAR',
+    detalle: 'Solo el id de la ficha y dos fechas (cuándo se la avisó y desde cuándo se liberan sus clases fijas); la siguiente pasada lo borra al no tener ya reservas.',
+    documentadaEn: '20261020135357_plaza_fija_sin_cuota_avisar_y_liberar.sql',
+  },
   rastro_gratis: { accion: 'BORRAR', detalle: 'HMAC de su correo y su móvil que guarda la detección de cuentas múltiples del plan gratis (lib/billing/vinculos-gratis.ts).' },
   valoraciones_iniciales_salud: { accion: 'BORRAR', detalle: 'Mitad de salud de la valoración inicial (antes que la madre).' },
   valoraciones_iniciales: { accion: 'BORRAR', detalle: 'Valoración inicial.' },
