@@ -928,7 +928,7 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
   position: relative; overflow: hidden; border-radius: 26px;
   background: var(--accent-deep); color: var(--on-dark); box-shadow: var(--shadow-hero);
 }
-.student-app .tarjeta-proxima__foto { position: absolute; inset: 0; background-position: 70% 30%; background-size: cover; }
+.student-app .tarjeta-proxima__foto { position: absolute; inset: 0; display: block; }
 .student-app .tarjeta-proxima__cuerpo { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 16px; min-height: 236px; }
 .student-app .tarjeta-proxima__texto { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: inherit; flex: 1; }
 .student-app .tarjeta-proxima__texto > .pildora-foto { margin-bottom: auto; font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -986,11 +986,6 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 2px 0 14px; border: none; background: none;
   border-bottom: 1px solid var(--border); color: var(--foreground); font: inherit; cursor: pointer;
 }
-.student-app .fila-instructora__foto {
-  width: 48px; height: 48px; border-radius: 999px; flex-shrink: 0; background-size: cover; background-position: center;
-  background-color: var(--accent-soft); color: var(--accent-soft-foreground);
-  display: flex; align-items: center; justify-content: center; font-weight: 800;
-}
 /* El botón ancho de la ficha: oscuro, con la flecha a la derecha. */
 .student-app .boton-cta { position: relative; height: 56px !important; border-radius: 999px; font-size: var(--t-body); }
 .student-app .boton-cta__flecha { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); display: flex; }
@@ -1007,3 +1002,5 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
   padding: 14px 6px 12px; border-radius: 18px; background: var(--muted); color: var(--foreground);
 }
 .student-app .insignia-maqueta--hecha { background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .tarjeta-reto__foto { position: relative; }
+.student-app .tarjeta-reto__insignia { position: absolute; left: 8px; bottom: 8px; width: 42px; height: 42px; border-radius: 999px; background: var(--card); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-card); }

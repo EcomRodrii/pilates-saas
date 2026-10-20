@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import type { RetoVista } from '@/lib/student/gamificacion';
 import { Icono } from '@/components/student/ui/Icono';
+import { Insignia } from '@/components/student/ui/Insignia';
+import { Foto } from '@/components/student/ui/Foto';
+import { insigniaOPorDefecto } from '@/lib/gamificacion/insignias';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 
 /**
@@ -12,8 +15,8 @@ import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
  * La FOTO: un reto no tiene foto propia (`challenge_definitions` no guarda imagen), así que va la portada del estudio
  * (`estudio.fotoPortada`), la misma que ya enseña su app. Sin portada, un fondo neutro.
  *
- * ⚠️ HUECO. La gamificación (retos, logros, insignias y sus iconos 3D) la diseña otra sesión (FIDELIDAD); esta tarjeta
- * pinta los datos que YA existen (`retosDe`, el mismo cálculo que `/logros`). Sin el emoji del estudio.
+ * La insignia es la de la gamificación (`Insignia`, iconos 3D de #2788): la que el estudio eligió para el reto o, si no
+ * eligió ninguna, la de «objetivo». Los datos, los de `/logros` (`retosDe`).
  *
  * Solo un reto vigente en el que esté apuntada y que no haya completado; si no hay, no pinta nada.
  */
@@ -23,7 +26,11 @@ export function RetoDeAhora({ retos, href, fotoUrl }: { retos: RetoVista[]; href
   const pct = r.objetivo > 0 ? Math.min(100, Math.round((r.progresoActual / r.objetivo) * 100)) : 0;
   return (
     <Link href={href} transitionTypes={TRANSICION_ADELANTE} className="card tap a-fade tarjeta-reto" data-testid="reto-de-ahora" aria-label={`Reto ${r.nombre}: ${r.progresoActual} de ${r.objetivo}`}>
-      <span aria-hidden className="tarjeta-reto__foto" style={fotoUrl ? { backgroundImage: `url(${fotoUrl})` } : undefined} />
+      <span aria-hidden className="tarjeta-reto__foto">
+        {fotoUrl && <Foto src={fotoUrl} ancho={184} alto={184} sizes="92px" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+        {/* La insignia del reto (iconos 3D, #2788), sobre la foto. */}
+        <span className="tarjeta-reto__insignia"><Insignia insignia={insigniaOPorDefecto(r.icono, 'objetivo')} tamano={34} /></span>
+      </span>
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2, padding: '14px 14px 14px 16px' }}>
         <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <span className="t-meta" style={{ flex: 1, fontWeight: 600 }}>

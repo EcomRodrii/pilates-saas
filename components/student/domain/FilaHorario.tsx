@@ -8,6 +8,7 @@ import type { EstadoTemporal } from '@/lib/student/fila-horario';
 import { Foto } from '@/components/student/ui/Foto';
 import { EstadoDeClase } from '@/components/student/domain/EstadoDeClase';
 import { Icono } from '@/components/student/ui/Icono';
+import { CaraInstructora } from '@/components/student/domain/InstructorCard';
 
 /**
  * La fila de una clase en el HORARIO, copia de la maqueta de los cuatro iPhones (fundador, 19-oct-2026): la foto de la
@@ -48,7 +49,7 @@ export function FilaHorario({ clase, instructora, estado, temporal, delay = 0 }:
           <Icono nombre="reloj" tamano={14} />{clase.hora} · {clase.duracionMin} min
         </span>
         <span className="t-meta" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span aria-hidden style={{ width: 18, height: 18, borderRadius: 999, flexShrink: 0, background: instructora?.fotoUrl ? 'url(' + instructora.fotoUrl + ') center/cover' : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{!instructora?.fotoUrl && instructora?.iniciales}</span>
+          {instructora && <CaraInstructora i={instructora} lado={18} />}
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[clase.sala, instructora?.nombre].filter(Boolean).join(' · ')}</span>
         </span>
       </span>

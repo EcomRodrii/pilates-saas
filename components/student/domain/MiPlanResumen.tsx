@@ -12,6 +12,8 @@ import { useAhoraMs } from '@/lib/student/use-ahora';
 import { Icono } from '@/components/student/ui/Icono';
 import { Foto } from '@/components/student/ui/Foto';
 import { Sheet } from '@/components/student/ui/Sheet';
+import { Insignia } from '@/components/student/ui/Insignia';
+import { insigniaOPorDefecto } from '@/lib/gamificacion/insignias';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 
 // Los tres bloques de abajo de Mi plan (maqueta de oct-2026): sus próximas clases, sus cifras y sus logros. Cada uno se
@@ -150,8 +152,7 @@ function Cifra({ icono, valor, rotulo }: { icono: ReactNode; valor: string | nul
 /**
  * «Mis logros», tres insignias: las conseguidas más recientes y, si faltan, las que lleva más avanzadas.
  *
- * ⚠️ HUECO. Logros, insignias y sus iconos los diseña otra sesión (FIDELIDAD, 19-oct-2026); esto pinta los datos que
- * YA existen (`logrosDe`, el mismo cálculo que `/logros`) y su componente lo sustituirá. Sin el emoji del estudio.
+ * La insignia es la de la gamificación (`Insignia`, iconos 3D de #2788); los datos, los de `/logros` (`logrosDe`).
  */
 export function MisLogros({ logros, hrefTodos }: { logros: LogroVista[]; hrefTodos: string }) {
   if (logros.length === 0) return null;
@@ -164,9 +165,7 @@ export function MisLogros({ logros, hrefTodos }: { logros: LogroVista[]; hrefTod
       <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>
         {tres.map((l) => (
           <li key={l.id} className={'insignia-maqueta' + (l.completado ? ' insignia-maqueta--hecha' : '')}>
-            <span aria-hidden className="disco-cifra" style={{ background: 'var(--card)' }}>
-              <Icono nombre="trofeo" tamano={22} />
-            </span>
+            <Insignia insignia={insigniaOPorDefecto(l.icono, 'trofeo')} tamano={44} />
             <span style={{ fontSize: 'var(--t-meta)', fontWeight: 800, lineHeight: 1.2 }}>{l.nombre}</span>
             <span style={{ fontSize: 'var(--t-micro)', color: l.completado ? 'var(--accent)' : 'var(--muted-foreground)', fontWeight: 700 }}>
               {l.completado ? 'Completado' : 'En progreso'}

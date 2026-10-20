@@ -19,6 +19,8 @@ import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/Stat
 import { LoTuyo } from '@/components/student/domain/LoTuyo';
 import { TarjetaProximaClase } from '@/components/student/domain/TarjetaProximaClase';
 import { BaldosasInicio } from '@/components/student/domain/BaldosasInicio';
+import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
+import { Descubre } from '@/components/student/domain/Descubre';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
 import { ActivarAvisos } from '@/components/student/domain/ActivarAvisos';
 import { MensajeDestacado } from '@/components/student/domain/MensajeDestacado';
@@ -164,6 +166,8 @@ export default function InicioPage() {
   // Lo que tiene que pagar ELLA: lo único de «Lo tuyo» que no puede esperar a Mi plan. Sin nada pendiente, Inicio es la
   // maqueta tal cual; lo que tiene (bono, cuota, clase fija) vive en Mi plan.
   const hayQuePagar = porPagar.length > 0 || !!debeCuota?.pagaElla;
+  // La recién llegada sin clase reservada ve su primera clase: la valoración inicial va delante (P03).
+  const valoracionDelante = !proxima && recienLlegada && !!primera;
 
   return (
     // Inicio copia la maqueta de los cuatro iPhones (fundador, 19-oct-2026: «copia exacta»): cabecera sobre crema con el
@@ -189,6 +193,9 @@ export default function InicioPage() {
           <>
             {/* La clase recién terminada que puede valorar y lo que el estudio le espera: solo cuando los hay. */}
             {tarjetaValorar}
+            {/* La recién llegada (P03): la valoración inicial va DELANTE de su primera clase; es lo que el estudio espera de
+                ella. A las demás, debajo de las baldosas. */}
+            {valoracionDelante && <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />}
             {proxima ? (
               <TarjetaProximaClase
                 reserva={proxima.r} clase={proxima.c} hoy={hoy} href={href}
@@ -218,11 +225,17 @@ export default function InicioPage() {
             />
 
             {hayQuePagar && loTuyo}
-            <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />
+            {!valoracionDelante && <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />}
             <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
 
             <TuProgreso studioId={estudio.id} minimoSemanal={data.minimoRacha ?? 1} hrefMas={href('/bonos') + '#estadisticas'} />
             {gamificacion && <RetoDeAhora retos={gamificacion.retos} href={href('/logros')} fotoUrl={estudio.fotoPortada} />}
+
+            {/* Debajo de la maqueta, y SOLO si el estudio los ha escrito o publicado (de serie, nada): su frase a mano y
+                sus tarjetas «Descubre» («Contenido de tu app» en el panel). Un Inicio sin contenido propio es la maqueta
+                exacta; lo que un estudio publicó para sus alumnas no desaparece sin avisar. */}
+            <CitaManuscrita frase={estudio.fraseManuscrita} enLinea />
+            <Descubre slug={estudio.slug} href={href} />
           </>
         )}
       </div>

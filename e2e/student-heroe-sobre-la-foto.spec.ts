@@ -30,7 +30,7 @@ test.describe('Student PWA · el texto sobre la foto de Inicio', () => {
     const tarjeta = page.getByTestId('clase-del-momento');
     await expect(tarjeta).toBeVisible({ timeout: 30_000 });
     // Que la foto haya pintado: sin ella se mediría contra el color de fondo y saldría verde sin probar nada.
-    await expect.poll(() => tarjeta.locator('.tarjeta-proxima__foto').evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('url(');
+    await expect.poll(() => tarjeta.locator('.tarjeta-proxima__foto img').evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0), { timeout: 30_000 }).toBe(true);
     await page.waitForTimeout(800);
 
     const piezas = await page.evaluate(() => {

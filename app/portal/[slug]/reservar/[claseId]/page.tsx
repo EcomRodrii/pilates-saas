@@ -38,6 +38,8 @@ import { huecosDeClase } from '@/components/student/domain/ElegirHueco';
 import { HojaReserva } from '@/components/student/domain/HojaReserva';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
+import { CaraInstructora } from '@/components/student/domain/InstructorCard';
+import { partesNota } from '@/lib/student/instructora';
 import { etiquetaObjetivo } from '@/lib/reservar/objetivos';
 import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
@@ -187,6 +189,7 @@ export default function FichaClasePage() {
 
   const huecos = huecosDeClase(data?.spots, data?.aforoReservas, clase.salaId, clase.id);
   const hoy = hoyISO();
+  const notaInst = inst ? partesNota(inst.rating, inst.valoraciones) : null;
   // Sin nada que la cubra: cuál de los cuatro casos es (P01). Con la misma regla de «exigir plan» que el servidor.
   const sinBono = !bono
     ? sinBonoDeClase(clase, data?.planesTarifa, !!data?.stripeAccountId && !!clavePublicableStripe())
@@ -273,12 +276,15 @@ export default function FichaClasePage() {
 
           {inst && (
             <button type="button" onClick={() => setVerInstructora(true)} className="tap fila-instructora" data-testid="fila-instructora">
-              <span aria-hidden className="fila-instructora__foto" style={inst.fotoUrl ? { backgroundImage: `url(${inst.fotoUrl})` } : undefined}>
-                {!inst.fotoUrl && inst.iniciales}
-              </span>
+              {/* `CaraInstructora`: la URL de la foto la teclea el staff y va dentro de un `url()` de CSS; ahí se valida. */}
+              <CaraInstructora i={inst} lado={48} />
               <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: 800 }}>{inst.nombre}</span>
-                <span className="t-meta" style={{ display: 'block' }}>Instructora</span>
+                <span className="t-meta" style={{ display: 'block' }}>
+                  Instructora
+                  {/* Su nota con el número de votos al lado: un «5,0» a secas con dos votos diría «perfecta». */}
+                  {notaInst && <> · <span data-testid="nota-instructora" style={{ whiteSpace: 'nowrap' }}>{notaInst.valor} <Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ display: 'inline-block', verticalAlign: '-1px' }} /> {notaInst.votos}</span></>}
+                </span>
               </span>
               <Icono nombre="chevron-derecha" tamano={18} />
             </button>

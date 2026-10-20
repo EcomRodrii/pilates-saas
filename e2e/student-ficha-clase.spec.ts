@@ -41,7 +41,8 @@ test.describe('Student PWA · ficha de una clase', () => {
     const a = await abrir(page, { reglasCreditos: [{ trigger: 'ASISTENCIA_CLASE', creditos: 10 }] });
     const heroe = await page.getByTestId('ficha-heroe').boundingBox();
     const titulo = await page.getByRole('heading', { level: 1 }).boundingBox();
-    expect(heroe!.y + heroe!.height, 'el título tiene que ir DEBAJO de la foto').toBeLessThanOrEqual(titulo!.y + 1);
+    // La hoja de contenido sube 24 px sobre la foto (maqueta de oct-2026), pero el título va DENTRO de ella, no sobre la foto.
+    expect(heroe!.y + heroe!.height - 24, 'el título tiene que ir DEBAJO de la foto').toBeLessThanOrEqual(titulo!.y + 1);
 
     const cv = page.getByTestId('como-vienes');
     await expect(cv).toContainText('Bono 8 sesiones');

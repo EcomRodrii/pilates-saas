@@ -6,6 +6,7 @@ import { etiquetaDia, horaFin } from '@/lib/student/formato';
 import { estaEnCurso } from '@/lib/student/estado-clase';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { Icono } from '@/components/student/ui/Icono';
+import { Foto } from '@/components/student/ui/Foto';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 
 /**
@@ -30,7 +31,11 @@ export function TarjetaProximaClase({ reserva, clase, instructora, hoy, href }: 
       data-testid="clase-del-momento"
       className="a-pop tarjeta-proxima"
     >
-      {clase.fotoUrl && <div aria-hidden className="tarjeta-proxima__foto" style={{ backgroundImage: `url(${clase.fotoUrl})` }} />}
+      {clase.fotoUrl && (
+        <span aria-hidden className="tarjeta-proxima__foto">
+          <Foto src={clase.fotoUrl} ancho={640} alto={260} sizes="(min-width:768px) 640px, 100vw" prioritaria style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '70% 30%', display: 'block' }} />
+        </span>
+      )}
       <div aria-hidden className="velo-foto" />
       <div className="tarjeta-proxima__cuerpo">
         <Link href={hrefReserva} transitionTypes={TRANSICION_ADELANTE} className="tap tarjeta-proxima__texto">

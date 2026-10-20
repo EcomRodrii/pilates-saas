@@ -62,22 +62,22 @@ test.describe('Student PWA · clase fija y recuperaciones', () => {
     await expect(page.getByTestId('mi-plan-recuperaciones')).toHaveCount(0);
     await expect(page.getByTestId('cuota-fija')).toHaveCount(0);
     await page.goto(base);
-    await expect(page.getByText(/¿qué te apetece hoy\?/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('lo-tuyo-fija')).toHaveCount(0);
     await expect(page.getByTestId('lo-tuyo-recuperaciones')).toHaveCount(0);
   });
 
-  test('Inicio: «Lo tuyo» con su clase fija, en el mismo formato que Mi plan, y a Mis clases → Clase fija', async ({ page }) => {
+  // Desde la maqueta de oct-2026 Inicio no repite lo que tiene: la clase fija vive en Actividad → Fija y las
+  // recuperaciones en Mi plan.
+  test('la clase fija no se repite en Inicio: vive en Actividad → Fija, y las recuperaciones en Mi plan', async ({ page }) => {
     await montar(page, { recuperaciones: 1 });
     await page.goto(base);
-    const fija = page.getByTestId('lo-tuyo-fija');
-    await expect(fija).toBeVisible({ timeout: 30_000 });
-    await expect(fija).toContainText('Tu clase fija · jueves 18:00');
-    await expect(fija).toContainText('Próxima: mañana');
-    await expect(fija).toHaveAttribute('href', `${base}/mis-reservas?tab=fija`);
-    const recup = page.getByTestId('lo-tuyo-recuperaciones');
-    await expect(recup).toContainText('1 clase por recuperar');
-    await expect(recup).toHaveAttribute('href', `${base}/bonos`);
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('lo-tuyo-fija')).toHaveCount(0);
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await expect(page.getByTestId('mi-clase-fija')).toBeVisible({ timeout: 30_000 });
+    await page.goto(`${base}/bonos`);
+    await expect(page.getByTestId('mi-plan-recuperaciones')).toContainText('1 clase por recuperar', { timeout: 30_000 });
   });
 
   // Plaza fija desde su app (migr 20260915231920): PIDE, no cambia. El ajuste del
@@ -699,7 +699,7 @@ test.describe('Student PWA · clases fijas · enlaces viejos', () => {
     await expect(interruptorDe(page)).toBeVisible({ timeout: 30_000 });
 
     await page.goto(`${base}/reservar`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Reservar', exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('entrada-clases-fijas')).toHaveCount(0);
   });
 
@@ -970,10 +970,10 @@ test.describe('Student PWA · tu clase fija · calendario del mes', () => {
     await expect(cal.getByText('Agosto de 2026', { exact: true })).toBeVisible();
   });
 
-  test('en Inicio (tarjeta compacta) no sale el calendario', async ({ page }) => {
+  test('en Inicio no sale el calendario de la clase fija', async ({ page }) => {
     await montarConClaseFija(page);
     await page.goto(base);
-    await expect(page.getByTestId('lo-tuyo-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('calendario-clase-fija')).toHaveCount(0);
   });
 });

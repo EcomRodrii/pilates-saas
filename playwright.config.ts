@@ -166,7 +166,6 @@ const SPECS_WEBKIT = [
   // WebKit de Playwright no simula. Lo que cubre es la otra familia: la de
   // #565 (`BarcodeDetector`) y #994 (el portapapeles diciendo «Copiado» con
   // el portapapeles vacío).
-  '**/student-filtros-rapidos.spec.ts',
   // El mensaje destacado arriba del inicio (decisión 11A de «Mi app y mi web» v2): lo lee la
   // alumna en su móvil, y lo que prueba —`pre-line` y una palabra larguísima que no puede
   // desbordar— es justo lo que un motor resuelve distinto. Dos tests cortos, todo mockeado.
