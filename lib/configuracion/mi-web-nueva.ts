@@ -37,7 +37,8 @@ export function grupoEsLaSeccion(grupo: { titulo: string; secciones: readonly Se
 export const PRESENTACION_MI_WEB: Partial<Record<SeccionId, { titulo: string; resumen: string; frase: string }>> = {
   marca: {
     titulo: 'Mi app', resumen: 'Cómo se ve, qué enseña y dónde se descarga',
-    frase: 'La app de tus alumnas: cómo se ve, qué enseña, tu logo y tus textos, y su app en la App Store.',
+    // La pantalla guiada (21-oct-2026) empieza por aquí: lo que es y cómo se recorre.
+    frase: 'La app que tus alumnas llevan en el móvil. Sigue los pasos en orden: con los dos primeros ya la puedes compartir; los demás la hacen tuya.',
   },
   web: {
     titulo: 'Mi web', resumen: 'Tu dirección, tus widgets y ocultar tu página',
