@@ -75,7 +75,7 @@ test('los roles de una sección son los de sus tarjetas, juntos: ni una sección
 test('una herramienta se abre si este rol ve alguna de sus tarjetas', () => {
   assert.equal(herramientaVisible('salas', 'MANAGER'), true);
   assert.equal(herramientaVisible('tipos-de-clase', 'MANAGER'), true);
-  for (const id of ['correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets'] as const) {
+  for (const id of ['correos-automaticos', 'canjes', 'codigos-descuento', 'contenido-de-tu-app', 'widgets'] as const) {
     assert.equal(herramientaVisible(id, 'MANAGER'), false, id);
     assert.equal(herramientaVisible(id, 'PROPIETARIO'), true, id);
   }
@@ -194,7 +194,7 @@ test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mism
 
 test('nueve herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
   assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
-    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets',
+    'salas', 'tipos-de-clase', 'codigos-descuento', 'correos-automaticos', 'canjes', 'contenido-de-tu-app', 'widgets',
     'tus-avisos', 'avisos-del-movil',
   ]);
   for (const h of HERRAMIENTAS) {
@@ -222,9 +222,13 @@ test('nueve herramientas con pantalla propia, cada una de UNA sección y con sus
     assert.equal(h.titulo, tarjetaPorId(t).titulo);
     assert.equal(h.frase, tarjetaPorId(t).frase);
   }
-  assert.deepEqual(tarjetasDeHerramienta('recompensas-y-logros'), ['recompensas', 'canjes', 'logros', 'niveles', 'retos']);
-  // Las reglas de los créditos son un ajuste: se quedan en la sección.
-  assert.equal(herramientaDeTarjeta('reglas'), null);
+  // Motivación es una sola pantalla (20-oct): los catálogos viven en la sección y
+  // solo los canjes, que son trabajo, tienen pantalla propia.
+  for (const t of ['reglas', 'creditos-por-accion', 'recompensas', 'logros', 'niveles', 'retos'] as const) {
+    assert.equal(herramientaDeTarjeta(t), null, t);
+  }
+  assert.deepEqual(herramientasDeSeccion('motivacion').map(h => h.id), ['canjes']);
+  assert.equal(seccionDeTarjeta('codigos-descuento'), 'cobros');
   assert.deepEqual(herramientasDeSeccion('web').map(h => h.id), ['contenido-de-tu-app', 'widgets']);
   assert.deepEqual(herramientasDeSeccion('reservas'), []);
 });

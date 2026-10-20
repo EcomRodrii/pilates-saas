@@ -244,7 +244,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { quienBajaria } from '@/lib/gamificacion/ritmo-niveles';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -4210,10 +4210,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     evaluarRetosSocio(reserva.socioId, reservasActualizadas);
     // Racha: si esta es la primera clase de la semana, se premia "semana
     // completa" — refId por semana evita otorgarlo dos veces la misma semana.
-    const racha = calcularRacha(reservasActualizadas.filter(r => r.socioId === reserva.socioId), sesiones, new Date());
-    if (racha.semanas > 0) {
-      otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
-    }
+    // Racha única (PR 3.3-B): con `RACHA_UNICA` encendida, el SERVIDOR decide y paga «semana completa» con la
+    // misma función que la app de la alumna; el navegador solo avisa. Quien contesta es el servidor (`unica`),
+    // no lo que el navegador sepa del interruptor al cargar. Si contesta que no (apagado) o no se le puede
+    // preguntar, sigue el camino de siempre — que el RPC valida igual en la base.
+    const socioDeLaSemana = reserva.socioId;
+    const reservasDeLaSocia = reservasActualizadas.filter(r => r.socioId === socioDeLaSemana);
+    void (async () => {
+      let unica = false;
+      try {
+        const resp = await fetch('/api/gamificacion/semana-completa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify({ reservaId }),
+        });
+        if (resp.ok) unica = ((await resp.json().catch(() => null)) as { unica?: boolean } | null)?.unica === true;
+      } catch { /* sin red: camino de siempre */ }
+      if (unica) return;
+      const racha = calcularRacha(reservasDeLaSocia, sesiones, new Date());
+      if (racha.semanas > 0) {
+        otorgarCreditos(socioDeLaSemana, 'SEMANA_COMPLETA', `${socioDeLaSemana}:${racha.claveSemanaActual}`);
+      }
+    })();
     // Objetivo mensual (I-1, auditoria 49a): se dispara desde el mismo punto
     // que SEMANA_COMPLETA -- la RPC revalida objetivo+recuento en servidor,
     // esto solo evita una llamada inutil cuando aun no lo alcanzo.
@@ -5551,8 +5569,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const socio = socios.find(s => s.id === socioId);
     const misReservas = (reservasOverride ?? reservas).filter(r => r.socioId === socioId);
 
+    // Solo los retos «del estudio» (cuentan todas). Los de INSCRIPCION los evalúa el
+    // servidor, que es quien sabe quién se apuntó y cuándo: calcularlos aquí para
+    // todas las alumnas las inscribía sin pedirlo (y desde el inicio del reto).
     challengeDefinitions
-      .filter(reto => reto.activo && new Date(reto.fechaInicio) <= now && now <= new Date(reto.fechaFin))
+      .filter(reto => reto.activo && reto.alcance === 'ESTUDIO' && retoVigente(reto, now))
       .forEach(reto => {
         const progresoExistente = challengeProgress.find(p => p.socioId === socioId && p.challengeId === reto.id);
         if (progresoExistente?.completado) return;

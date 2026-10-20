@@ -105,7 +105,7 @@ export default function TentareVsTimpPage() {
       name="TIMP"
       slug="tentare-vs-timp"
       logo={{ src: '/comparativa/logos/timp.webp', alt: 'Logo de TIMP', height: 24, width: 89 }}
-      intro={<>TIMP es un software de gestión para muchos tipos de negocio de citas y clases. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare cuesta menos para empezar, no te pide compromiso mínimo y no cobra comisión por captar clientas.</>}
+      intro={<>TIMP es un software de gestión para muchos tipos de negocio de citas y clases. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare cuesta menos para empezar, no te pide compromiso mínimo y no cobra comisión por captar clientas.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

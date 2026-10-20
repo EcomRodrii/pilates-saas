@@ -61,10 +61,10 @@ async function abrirRecompensas(page: Page) {
 
 const guardar = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
 
-/** El catálogo de recompensas tiene su propia pantalla desde el 15-sep (v2): la sección solo guarda las reglas. */
+/** El catálogo de recompensas vive en Motivación, en su bloque 2, desde el 20-oct. */
 async function abrirCatalogo(page: Page) {
-  await page.goto('/configuracion?tab=motivacion&abrir=recompensas-y-logros');
-  await expect(page.getByRole('heading', { level: 2, name: 'Recompensas, logros y retos' })).toBeVisible({ timeout: 30_000 });
+  await page.goto('/configuracion?tab=motivacion#recompensas');
+  await expect(page.getByRole('heading', { level: 2, name: 'Motivación' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Nueva recompensa' })).toBeVisible({ timeout: 30_000 });
 }
 

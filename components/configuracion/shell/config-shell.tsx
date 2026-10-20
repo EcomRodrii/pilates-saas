@@ -46,7 +46,7 @@ import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 //     `replaceState`: no llena el historial. (Por qué la API nativa y no el
 //     router: ver `irA`.)
 //   · una HERRAMIENTA grande (`?tab=web&abrir=widgets`: widgets, correos, tipos
-//     de clase, salas, contenido de tu app, recompensas y logros) se abre desde
+//     de clase, salas, contenido de tu app, canjes…) se abre desde
 //     la fila de su sección a pantalla propia y a todo el ancho, sin la columna,
 //     con «volver» a su sección. Volver —con el botón o con el atrás— deja el
 //     foco en su fila. Pintadas dentro de la sección, «Mi app y mi web» medía
@@ -85,7 +85,7 @@ const COMPONENTES_HERRAMIENTA: Record<HerramientaId, ComponentType<PropsSeccion>
   salas: dynamic(() => import('@/components/configuracion/herramientas/herramienta-salas').then(m => m.HerramientaSalas), { loading: cargando }),
   'tipos-de-clase': dynamic(() => import('@/components/configuracion/herramientas/herramienta-tipos-de-clase').then(m => m.HerramientaTiposDeClase), { loading: cargando }),
   'correos-automaticos': dynamic(() => import('@/components/configuracion/herramientas/herramienta-correos-automaticos').then(m => m.HerramientaCorreosAutomaticos), { loading: cargando }),
-  'recompensas-y-logros': dynamic(() => import('@/components/configuracion/herramientas/herramienta-recompensas-y-logros').then(m => m.HerramientaRecompensasYLogros), { loading: cargando }),
+  canjes: dynamic(() => import('@/components/configuracion/herramientas/herramienta-canjes').then(m => m.HerramientaCanjes), { loading: cargando }),
   'contenido-de-tu-app': dynamic(() => import('@/components/configuracion/herramientas/herramienta-contenido-de-tu-app').then(m => m.HerramientaContenidoDeTuApp), { loading: cargando }),
   widgets: dynamic(() => import('@/components/configuracion/herramientas/herramienta-widgets').then(m => m.HerramientaWidgets), { loading: cargando }),
   'avisos-del-movil': dynamic(() => import('@/components/configuracion/herramientas/herramienta-avisos-del-movil').then(m => m.HerramientaAvisosDelMovil), { loading: cargando }),

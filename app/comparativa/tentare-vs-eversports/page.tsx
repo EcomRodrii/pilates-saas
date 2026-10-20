@@ -96,7 +96,7 @@ export default function TentareVsEversportsPage() {
       name="Eversports"
       slug="tentare-vs-eversports"
       logo={{ src: '/comparativa/logos/eversports.svg', alt: 'Logo de Eversports', height: 24, width: 118 }}
-      intro={<>Eversports Manager es una plataforma europea de fitness y yoga que cobra según el número de reservas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare tiene un precio fijo por plan, sin cuota de alta, y está pensado para Pilates.</>}
+      intro={<>Eversports Manager es una plataforma europea de fitness y yoga que cobra según el número de reservas. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare tiene un precio fijo por plan, sin cuota de alta, y está pensado para Pilates.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

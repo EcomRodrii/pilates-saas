@@ -170,10 +170,12 @@ for (const vista of VISTAS) {
       await abrir(page, 'configuracion?tab=motivacion');
       await expect(valor(page, 'reglas')).toHaveText('Se llaman créditos · no caducan · racha de 1 clase por semana', { timeout: 30_000 });
       await expect(valor(page, 'creditos-por-accion')).toHaveText('1 de 7 dan créditos · 10 por asistir');
+      // La cabecera y las dos filas de las reglas.
       await expect(page.locator('[data-estado-ajuste]').filter({ hasText: 'Incluido en tu plan' })).toHaveCount(3);
-      await expect(page.locator('#fila-herramienta-recompensas-y-logros')).toBeVisible();
-      // Los canjes son trabajo: van en la bandeja de Inicio, no aquí.
-      await expect(page.getByText('Canjes pendientes')).toHaveCount(0);
+      // Una sola pantalla (20-oct): los cinco bloques en orden, y los códigos de descuento ya no.
+      for (const id of ['reglas', 'recompensas', 'logros', 'niveles', 'retos']) await expect(page.locator(`#${id}`)).toBeVisible();
+      await expect(page.locator('#fila-herramienta-codigos-descuento')).toHaveCount(0);
+      await expect(page.getByRole('figure', { name: 'Vista previa de la app de tu alumna' })).toBeVisible();
       expect(await desborde(page), 'Motivación se sale de lado').toBeLessThanOrEqual(0);
       await page.screenshot({ path: test.info().outputPath(`motivacion-${vista.ancho}.png`), fullPage: true });
 

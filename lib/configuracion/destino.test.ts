@@ -32,7 +32,7 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
   const casos: [string, ReturnType<typeof resolverHref>][] = [
     // Los que aterrizaban mal (auditoría del 15-sep).
     // (Desde el 15-sep, v2, canjes y salas viven en la pantalla de su herramienta.)
-    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
+    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', abrir: 'canjes' }],
     ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
@@ -104,10 +104,10 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=clases-salas&sub=clases', { tab: 'clases', abrir: 'tipos-de-clase' }],
     ['/configuracion?tab=citas&sub=servicios', { tab: 'clases', ancla: 'servicios-de-cita' }],
     ['/configuracion?tab=citas&sub=horario', { tab: 'clases', ancla: 'horario-de-citas' }],
-    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
-    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
-    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
-    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', ancla: 'retos' }],
     ['/configuracion?tab=estudio&sub=general', { tab: 'estudio' }],
     ['/configuracion?tab=estudio&sub=sedes', { tab: 'estudio', ancla: 'sedes' }],
     ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario' }],
@@ -122,11 +122,11 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=api&sub=widgets', { tab: 'web', abrir: 'widgets' }],
     ['/configuracion?tab=api&sub=crecimiento', { tab: 'web', abrir: 'widgets' }],
     // Los alias que ya existían.
-    ['/configuracion?tab=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
-    ['/configuracion?tab=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
-    ['/configuracion?tab=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
-    ['/configuracion?tab=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
-    ['/configuracion?tab=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion?tab=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=canjes', { tab: 'motivacion', abrir: 'canjes' }],
+    ['/configuracion?tab=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=retos', { tab: 'motivacion', ancla: 'retos' }],
     ['/configuracion?tab=clases', { tab: 'clases' }],
     ['/configuracion?tab=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=servicios-cita', { tab: 'clases', ancla: 'servicios-de-cita' }],
@@ -145,8 +145,12 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=clases#tipos-de-clase', { tab: 'clases', abrir: 'tipos-de-clase' }],
     ['/configuracion?tab=comunicacion#correos-automaticos', { tab: 'comunicacion', abrir: 'correos-automaticos' }],
     ['/configuracion?tab=web#contenido-de-tu-app', { tab: 'web', abrir: 'contenido-de-tu-app' }],
-    ['/configuracion#canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
-    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros#retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion#canjes', { tab: 'motivacion', abrir: 'canjes' }],
+    // La herramienta «Recompensas, logros y retos» ya no existe (20-oct): sus
+    // enlaces viejos abren Motivación, y los códigos de descuento, Cobros.
+    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros#retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros', { tab: 'motivacion' }],
+    ['/configuracion?tab=motivacion&abrir=codigos-descuento', { tab: 'cobros', abrir: 'codigos-descuento' }],
     ['/configuracion?tab=web&abrir=widgets#no-es-una-tarjeta', { tab: 'web', abrir: 'widgets', ancla: 'no-es-una-tarjeta' }],
     // Un ancla de la sección cierra la herramienta: se ve la tarjeta que se pide.
     ['/configuracion?tab=web&abrir=widgets#network', { tab: 'web', ancla: 'network' }],
@@ -217,7 +221,7 @@ test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', (
 
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
   assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'conexiones', ancla: 'integracion-stripe' });
-  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' });
+  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'canjes' });
   // Una herramienta abre su sección, con cualquier otro `tab=`.
   assert.deepEqual(resolverDestino({ tab: 'cobros', params: { abrir: 'widgets' } }), { tab: 'web', abrir: 'widgets' });
   assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });

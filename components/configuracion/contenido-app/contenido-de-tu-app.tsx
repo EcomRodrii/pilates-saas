@@ -307,7 +307,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         {campos.modo === 'app' && campos.pantalla === '/logros' && sinMotivacion && (
           <p className="text-[12.5px] text-foreground">
             Aún no tienes logros, retos ni recompensas: en su app esa pantalla diría «Tu estudio aún no ha configurado esto».{' '}
-            <Link href="/configuracion?tab=motivacion&abrir=recompensas-y-logros" className="font-medium underline underline-offset-2">Crearlos</Link>
+            <Link href="/configuracion?tab=motivacion#logros" className="font-medium underline underline-offset-2">Crearlos</Link>
           </p>
         )}
         {campos.modo === 'web' && (

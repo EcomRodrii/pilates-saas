@@ -8,25 +8,16 @@ import { ANCLA_DECIDIR } from '@/lib/estado-estudio-cliente';
 import { cn } from '@/lib/utils';
 import { PlanGate } from '@/components/ui/plan-gate';
 import { cardCls } from '@/components/configuracion/estilos';
-import { TabRecompensas } from '@/components/configuracion/tab-recompensas';
 import { TabCanjes } from '@/components/configuracion/tab-canjes';
-import { TabLogros } from '@/components/configuracion/tab-logros';
-import { TabNiveles } from '@/components/configuracion/tab-niveles';
-import { EditorNiveles } from '@/components/configuracion/niveles/editor-niveles';
-import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
-import { useRol } from '@/lib/permisos';
-import { TabRetos } from '@/components/configuracion/tab-retos';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 
-// Los catálogos de Motivación: recompensas, canjes, logros, niveles y retos.
-// Cómo funcionan tus créditos (nombre, caducidad, racha) y cuántos se ganan con
-// cada cosa se quedan en la sección, en sus cajones: son ajustes, no catálogos.
-export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: string) => void }) {
+// Los canjes de Motivación: lo que falta por entregar y el historial.
+//
+// Hasta el 20-oct vivían dentro de «Recompensas, logros y retos», entre dos
+// catálogos. Son trabajo, no un ajuste: en Motivación queda un aviso con la
+// cifra que lleva aquí, y la entrega del día se hace desde Resumen.
+export function HerramientaCanjes({ showToast }: { showToast: (m: string) => void }) {
   const { studio, cargarGamificacion } = useStudio();
-  // Niveles con ritmo (P3.8), apagado tras `GAMIFICACION_NIVELES_RITMO`. Solo
-  // la propietaria: la ruta que guarda (y que impide que nadie baje) es suya.
-  const rol = useRol();
-  const nivelesConRitmo = useInterruptor('nivelesConRitmo', studio?.id) && rol === 'PROPIETARIO';
 
   // Las tablas de gamificación no vienen en el arranque del panel (ver
   // seccion-motivacion.tsx). Se entra aquí también por un enlace directo.
@@ -34,16 +25,12 @@ export function HerramientaRecompensasYLogros({ showToast }: { showToast: (m: st
 
   return (
     <PlanGate studio={studio ?? {}} feature="gamificacion">
-      <TabRecompensas showToast={showToast} />
       <TarjetaAjuste id="canjes" marco={false}>
         <div className="space-y-4">
           <CanjesPorEntregar />
           <TabCanjes showToast={showToast} />
         </div>
       </TarjetaAjuste>
-      <TabLogros showToast={showToast} />
-      {nivelesConRitmo ? <EditorNiveles showToast={showToast} /> : <TabNiveles showToast={showToast} />}
-      <TabRetos showToast={showToast} />
     </PlanGate>
   );
 }

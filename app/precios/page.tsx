@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
@@ -94,17 +93,16 @@ export default function PreciosPage() {
       <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(26px,3.5vw,38px)', textAlign: 'center' }}>
-        <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 620, height: 620, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.14), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 18px' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(36px,5.2vw,60px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 18px', color: 'var(--w-texto)' }}>
             <PildoraBusqueda centrada>Precios del software para estudios de Pilates</PildoraBusqueda>
             Precio público.<br />Sin permanencia.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, margin: '0 auto', maxWidth: 560 }}>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 auto', maxWidth: 560 }}>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
             contrato anual.
           </p>
-          <p className="lp-mono" style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: ACC, color: '#D9C29E', fontSize: 13, fontWeight: 700 }}>
+          <p style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: 'var(--w-olive)', color: 'var(--w-sand)', fontSize: 14, fontWeight: 600 }}>
             Empieza gratis · Sin tarjeta de crédito
           </p>
         </div>
@@ -118,16 +116,16 @@ export default function PreciosPage() {
               <div
                 key={p}
                 style={{
-                  background: destacado ? '#0F0F0F' : '#fff',
-                  color: destacado ? '#E8E8E4' : undefined,
-                  border: destacado ? 'none' : '1px solid #E7E7E0',
-                  borderRadius: 24, padding: 'clamp(26px,3vw,34px)', position: 'relative',
-                  boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
+                  background: destacado ? 'var(--w-noche)' : 'var(--w-papel)',
+                  color: destacado ? 'var(--w-sobre-noche)' : undefined,
+                  border: destacado ? 'none' : '1px solid var(--w-linea)',
+                  borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(26px,3vw,34px)', position: 'relative',
+                  boxShadow: destacado ? 'var(--w-sombra-flotante)' : undefined,
                 }}
               >
-                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
-                <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
-                  {p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span></>}
+                <div style={{ fontSize: 16, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-texto)', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
+                <div style={{ fontSize: 46, fontWeight: 600, letterSpacing: '-.035em', color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', lineHeight: 1 }}>
+                  {p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)' }}>/mes</span></>}
                 </div>
                 {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
                     página: el precio de un SaaS español se lee para compararlo
@@ -138,24 +136,24 @@ export default function PreciosPage() {
                 {p === 'BASE' ? (
                   <>
                     {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
-                    <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6B6B63', marginTop: 7 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--w-texto-3)', marginTop: 9, lineHeight: 1.45 }}>
                       {TOPE_GRATIS} · {SI_PASAS}
                     </div>
                     {/* La frase del fundador, junto a Founding Studio. En la
                         cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
-                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: '#3A3A34', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
+                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: 'var(--w-texto)', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
                   </>
                 ) : (
-                  <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', marginTop: 9 }}>
                     IVA incluido
                   </div>
                 )}
-                <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
+                <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? 'var(--w-sobre-noche-2)' : 'var(--w-texto-2)', margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
                 <div style={{ height: 14 }} />
                 <Link
                   href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
                   className="block hover:brightness-110 transition-all"
-                  style={{ textAlign: 'center', display: 'block', background: destacado ? '#D9C29E' : '#F3F3EF', color: destacado ? '#343825' : '#1A1A1A', fontWeight: 700, fontSize: 15, padding: 14, borderRadius: 14, textDecoration: 'none' }}
+                  style={{ textAlign: 'center', display: 'block', background: destacado ? 'var(--w-sand)' : 'var(--w-olive)', color: destacado ? 'var(--w-olive)' : 'var(--w-sand)', fontWeight: 600, fontSize: 15, padding: 14, borderRadius: 999, textDecoration: 'none' }}
                 >
                   {RESUMEN[p].cta}
                 </Link>
@@ -168,8 +166,8 @@ export default function PreciosPage() {
             autocontenido de ~130 palabras, con las cifras de entitlements.ts
             (nunca escritas a mano). Lo lee igual una persona que un buscador. */}
         <section style={{ marginTop: 'clamp(48px,6vw,72px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
-          <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--w-texto-2)', margin: 0, maxWidth: 820 }}>
             Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
             {LIMITES_GRATIS}; {SI_PASAS}, y con ese plan {COMPLEMENTOS_DE_PAGO} van aparte), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
             {PLAN_INFO.ESTUDIO.nombre}, que los incluye, y{' '}
@@ -181,43 +179,43 @@ export default function PreciosPage() {
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño: alumnas,
             reservas al mes y sedes.
           </p>
           <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
-          <p className="lp-mono" style={{ fontSize: 11.5, color: '#6B6B63', margin: '14px 0 0' }}>
-            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
+          <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
+            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
           </p>
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué se paga aparte y qué no</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué se paga aparte y qué no</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
           <div className="pre-dos">
-            <div style={{ background: '#F4F8F5', border: '1px solid #DFEBE3', borderRadius: 18, padding: '22px 24px' }}>
-              <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#3B7D64', marginBottom: 14 }}>Incluido en la cuota</div>
+            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-exito)', marginBottom: 14 }}>Incluido en la cuota</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
                 {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal y huella encadenada', 'Exportación de tus datos cuando quieras'].map((t) => (
-                  <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
-                    <span style={{ color: '#4E9E7F', flexShrink: 0 }}>✓</span>{t}
+                  <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
+                    <span style={{ color: 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
                   </li>
                 ))}
               </ul>
             </div>
-            <div style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 18, padding: '22px 24px' }}>
-              <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8E6B1E', marginBottom: 14 }}>No lo cobramos nosotros</div>
+            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-aviso)', marginBottom: 14 }}>No lo cobramos nosotros</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>La comisión de Stripe</strong> por procesar cada cobro con tarjeta. Es de Stripe, la ves en su
                   panel y Tentare no añade nada encima.
                 </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>Tu número de WhatsApp Business</strong>, si quieres enviar por ese canal: se conecta tu propia
                   cuenta de Meta, no una compartida.
                 </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>Lo que te cobre tu banco</strong> por presentar remesas SEPA, si cobras por domiciliación.
                 </li>
               </ul>
@@ -226,22 +224,22 @@ export default function PreciosPage() {
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 18px' }}>Preguntas sobre el precio</h2>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 18px' }}>Preguntas sobre el precio</h2>
           <FeatureFaq items={FAQ} />
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Antes de decidir</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 20px' }}>Mira en detalle lo que vas a usar cada día.</p>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Antes de decidir</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 20px' }}>Mira en detalle lo que vas a usar cada día.</p>
           <div className="pre-links">
             {funcionalidades().slice(0, 6).map((f) => (
-              <Link key={f.path} href={f.path} style={{ display: 'block', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '15px 17px', textDecoration: 'none', color: 'inherit', fontSize: 14.5, fontWeight: 600 }}>
+              <Link key={f.path} href={f.path} style={{ display: 'block', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 16, padding: '15px 17px', textDecoration: 'none', color: 'inherit', fontSize: 14.5, fontWeight: 600 }}>
                 {f.etiqueta}
               </Link>
             ))}
           </div>
-          <p style={{ fontSize: 15, color: MUTED, margin: '18px 0 0' }}>
-            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
+          <p style={{ fontSize: 15, color: 'var(--w-texto-2)', margin: '18px 0 0' }}>
+            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
             por punto — incluido lo que ellos hacen mejor.
           </p>
         </section>

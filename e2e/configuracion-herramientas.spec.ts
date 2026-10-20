@@ -53,8 +53,8 @@ const HERRAMIENTAS = [
   { id: 'salas', seccion: 'estudio', tituloSeccion: 'Mi estudio', titulo: 'Salas', valor: '2 salas' },
   { id: 'tipos-de-clase', seccion: 'clases', tituloSeccion: 'Mis clases y citas', titulo: 'Tipos de clase', valor: '2 tipos de clase' },
   { id: 'correos-automaticos', seccion: 'comunicacion', tituloSeccion: 'Cómo me comunico', titulo: 'Correos automáticos', valor: 'Los 6 correos se envían' },
-  { id: 'recompensas-y-logros', seccion: 'motivacion', tituloSeccion: 'Motivación', titulo: 'Recompensas, logros y retos', valor: null },
-  { id: 'codigos-descuento', seccion: 'motivacion', tituloSeccion: 'Motivación', titulo: 'Códigos de descuento', valor: null },
+  { id: 'codigos-descuento', seccion: 'cobros', tituloSeccion: 'Cobros y facturas', titulo: 'Códigos de descuento', valor: null },
+  { id: 'canjes', seccion: 'motivacion', tituloSeccion: 'Motivación', titulo: 'Canjes', valor: null },
   { id: 'contenido-de-tu-app', seccion: 'web', tituloSeccion: 'Mi app y mi web', titulo: 'Contenido de tu app', valor: null },
   { id: 'widgets', seccion: 'web', tituloSeccion: 'Mi app y mi web', titulo: 'Widgets para tu web', valor: null },
 ] as const;
@@ -119,7 +119,7 @@ test.describe('En el portátil', () => {
     await expect(page.locator('#widgets')).toBeAttached({ timeout: 15_000 });
 
     await ir(page, 'configuracion?tab=gamificacion&sub=canjes');
-    await expect(h2(page, 'Recompensas, logros y retos')).toBeVisible({ timeout: 30_000 });
+    await expect(h2(page, 'Canjes')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#canjes')).toBeInViewport({ timeout: 15_000 });
     // Llegar por un enlace y volver: a la sección, que sustituye a la herramienta.
     await page.getByRole('button', { name: 'Volver a Motivación' }).click();

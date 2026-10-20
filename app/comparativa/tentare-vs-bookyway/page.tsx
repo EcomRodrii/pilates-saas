@@ -75,7 +75,7 @@ export default function TentareVsBookyWayPage() {
       name="BookyWay"
       slug="tentare-vs-bookyway"
       logo={{ src: '/comparativa/logos/bookyway.svg', alt: 'Logo de BookyWay', height: 20, width: 120 }}
-      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que cobra por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es un software hecho para Pilates, con un precio mensual fijo que sabes desde el primer día.</>}
+      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que cobra por cada usuario adicional. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare es un software hecho para Pilates, con un precio mensual fijo que sabes desde el primer día.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

@@ -1075,6 +1075,8 @@ export interface RetoParticipacion {
   socioId: string;
   retoKey: string;
   creadoEn: string;
+  /** Se dio de baja («Ya no participo»); conserva su fecha original de inscripción. */
+  bajaEn: string | null;
 }
 
 // Valores cerrados a propósito: evita que aparezcan variantes libres tipo
@@ -2215,6 +2217,12 @@ export interface ChallengeDefinition {
   fechaFin: string;
   creditosRecompensa: number;
   activo: boolean;
+  /**
+   * ESTUDIO: cuentan todas las alumnas, sin botón «Me apunto».
+   * INSCRIPCION: solo las que se apuntan, y solo lo posterior a apuntarse.
+   * Un reto nuevo nace con INSCRIPCION (lib/engines/alcance-reto.ts).
+   */
+  alcance: 'ESTUDIO' | 'INSCRIPCION';
   creadoEn: string;
 }
 

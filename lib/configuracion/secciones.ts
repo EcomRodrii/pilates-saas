@@ -44,8 +44,8 @@ export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado';
  * dice cómo está.
  */
 export type HerramientaId =
-  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets'
-  | 'tus-avisos' | 'avisos-del-movil' | 'codigos-descuento';
+  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'codigos-descuento' | 'canjes' | 'contenido-de-tu-app'
+  | 'widgets' | 'tus-avisos' | 'avisos-del-movil';
 
 export interface TarjetaConfiguracion {
   readonly id: string;
@@ -166,6 +166,9 @@ export const SECCIONES = [
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
       { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
+      // Salió de Motivación el 20-oct: un descuento es dinero, no constancia, y no
+      // depende del plan de gamificación.
+      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
     ],
   },
   {
@@ -198,22 +201,23 @@ export const SECCIONES = [
   {
     id: 'motivacion',
     titulo: 'Motivación',
-    resumen: 'Créditos, recompensas, logros y retos',
+    resumen: 'Créditos, recompensas, logros, niveles y retos',
     frase: 'Premia la constancia de tus alumnas con créditos, logros y retos que ven en su app.',
     roles: SOLO_PROPIETARIA,
-    palabras: ['gamificación', 'puntos'],
-    // Las reglas se guardaban al salir de cada campo; desde el 15-sep (v2) son
-    // dos filas con cajón y un solo «Guardar»: eran diez campos y un cajón
-    // lleva unos seis, así que lo que se gana con cada cosa va aparte.
+    palabras: ['gamificación', 'puntos', 'fidelidad'],
+    // Una sola pantalla (20-oct, el fundador: «muy mal organizado»): antes eran
+    // dos cajones en la sección y una herramienta aparte con cinco catálogos
+    // seguidos. Ahora todo está en la sección, en el orden en que se piensa:
+    // cómo se ganan, en qué se gastan, qué se desbloquea, niveles y retos. Los
+    // canjes son trabajo, no ajuste: un aviso con su propia pantalla.
     tarjetas: [
       { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran y cuántas clases por semana mantienen la racha de una alumna.', guardado: 'barra', palabras: ['racha', 'puntos', 'caducidad'] },
       { id: 'creditos-por-accion', titulo: 'Créditos por acción', frase: 'Cuántos créditos gana una alumna con cada cosa: asistir, renovar, traer a alguien o comprar.', guardado: 'barra', palabras: ['referidos', 'asistencia', 'compra'] },
-      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['premios'] },
-      { id: 'canjes', titulo: 'Canjes pendientes', frase: 'Recompensas pedidas que tienes que entregar.', guardado: 'accion', herramienta: 'recompensas-y-logros' },
-      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['insignias'] },
-      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo', herramienta: 'recompensas-y-logros' },
-      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['desafíos'] },
-      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
+      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', palabras: ['premios'] },
+      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', palabras: ['insignias'] },
+      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo' },
+      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', palabras: ['desafíos'] },
+      { id: 'canjes', titulo: 'Canjes', frase: 'Las recompensas que han pedido tus alumnas: las que faltan por entregar y su historial.', guardado: 'accion', herramienta: 'canjes', palabras: ['entregar', 'pedidos'] },
     ],
   },
   // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
@@ -527,7 +531,7 @@ export function seccionDeTarjeta(id: TarjetaId): SeccionId {
 // que dice cómo está (lib/configuracion/resumenes.ts).
 //
 // Una herramienta de una sola tarjeta se llama como ella, y su pantalla es esa
-// tarjeta sin repetir el título. La de motivación junta cinco.
+// tarjeta sin repetir el título.
 
 export interface HerramientaConfiguracion {
   readonly id: HerramientaId;
@@ -548,15 +552,9 @@ function deTarjeta(id: HerramientaId & TarjetaId, resumen: string): HerramientaC
 export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
   deTarjeta('salas', 'Tus salas, su aforo y las máquinas en avería'),
   deTarjeta('tipos-de-clase', 'Nombre, duración, plazas y sus propias reglas'),
-  deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
-  {
-    id: 'recompensas-y-logros',
-    seccion: 'motivacion',
-    titulo: 'Recompensas, logros y retos',
-    frase: 'Lo que tus alumnas canjean con sus créditos, lo que desbloquean y los retos con fecha que ven en su app.',
-    resumen: 'Recompensas, canjes, logros, niveles y retos',
-  },
   deTarjeta('codigos-descuento', 'Códigos que usan tus alumnas al pagar'),
+  deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
+  deTarjeta('canjes', 'Lo que falta por entregar y el historial'),
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
   deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
   deTarjeta('tus-avisos', 'Cada tipo de aviso, en el panel y en el móvil'),

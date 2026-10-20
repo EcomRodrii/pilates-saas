@@ -407,7 +407,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c9.4', ruta: '/configuracion', href: '/configuracion?tab=motivacion', selector: 'configuracion-vista', tipo: 'mira',
         titulo: 'Créditos, logros y retos',
         texto: 'Premian la constancia de tus alumnas con créditos, logros y retos. Es opcional: déjalo para cuando el estudio ya ruede.',
-        accion: 'Mira las filas: créditos, logros, niveles y retos.',
+        accion: 'Mira los cinco pasos: cómo se ganan, recompensas, logros, niveles y retos.',
       },
     ],
   },

@@ -268,5 +268,5 @@ test('llevar a Logros sin nada de motivación avisa de que esa pantalla saldría
   await page.getByTestId('fila-tarjeta').getByRole('button', { name: /^Taller/ }).click();
   await page.getByLabel('Pantalla de su app').selectOption('/logros');
   await expect(page.getByText(/Aún no tienes logros, retos ni recompensas/)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole('link', { name: 'Crearlos' })).toHaveAttribute('href', /abrir=recompensas-y-logros/);
+  await expect(page.getByRole('link', { name: 'Crearlos' })).toHaveAttribute('href', /tab=motivacion#logros/);
 });

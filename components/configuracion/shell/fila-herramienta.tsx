@@ -28,7 +28,7 @@ export const ICONOS_HERRAMIENTA: Record<HerramientaId, LucideIcon> = {
   salas: DoorOpen,
   'tipos-de-clase': CalendarRange,
   'correos-automaticos': Mail,
-  'recompensas-y-logros': Gift,
+  canjes: Gift,
   'contenido-de-tu-app': Newspaper,
   widgets: Code2,
   'tus-avisos': BellRing,
