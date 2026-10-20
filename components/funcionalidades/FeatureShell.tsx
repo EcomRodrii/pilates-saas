@@ -24,8 +24,8 @@ import '@/components/web/home/home.css';
 //
 //   1. Una FOTO del mundo del cliente: una sala con reformers, no una
 //      ilustración ni un degradado.
-//   2. Una CAPTURA del panel de verdad (public/producto/, generada por
-//      scripts/capturar-producto.mjs contra un build real), solapando la foto.
+//   2. Una CAPTURA del panel de verdad (public/producto/v2/, generada por
+//      scripts/capturas-home-v2.mjs con los e2e sembrados), solapando la foto.
 //
 // Esa superposición —la herramienta encima de la sala— es lo único llamativo de
 // la página. Todo lo de abajo se mantiene callado a propósito.
