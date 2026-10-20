@@ -194,8 +194,9 @@ export interface RowChallengeDefinitions {
   fecha_fin: string;
   creditos_recompensa: number;
   activo: boolean;
-  alcance: string;
   creado_en: string;
+  // migr 20261019173000.
+  alcance: string | null;
 }
 
 export interface RowChallengeHistory {
@@ -2163,6 +2164,7 @@ export interface RowRetoParticipaciones {
   socio_id: string;
   reto_key: string;
   created_at: string;
+  // migr 20261019173000.
   baja_en: string | null;
 }
 
@@ -4721,8 +4723,8 @@ export type ChallengeDefinitionsInsert = {
   fecha_fin?: string | null;
   creditos_recompensa?: number | null;
   activo?: boolean | null;
-  alcance?: string | null;
   creado_en?: string | null;
+  alcance?: string | null | null;
 }
 
 export type ChallengeDefinitionsUpdate = {
@@ -4737,8 +4739,8 @@ export type ChallengeDefinitionsUpdate = {
   fecha_fin?: string | null;
   creditos_recompensa?: number | null;
   activo?: boolean | null;
-  alcance?: string | null;
   creado_en?: string | null;
+  alcance?: string | null | null;
 }
 
 export type ChallengeHistoryInsert = {
@@ -7887,7 +7889,7 @@ export type RetoParticipacionesInsert = {
   socio_id?: string | null;
   reto_key?: string | null;
   created_at?: string | null;
-  baja_en?: string | null;
+  baja_en?: string | null | null;
 }
 
 export type RetoParticipacionesUpdate = {
@@ -7896,7 +7898,7 @@ export type RetoParticipacionesUpdate = {
   socio_id?: string | null;
   reto_key?: string | null;
   created_at?: string | null;
-  baja_en?: string | null;
+  baja_en?: string | null | null;
 }
 
 export type StudioHorarioInsert = {
