@@ -77,7 +77,7 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
             />
           )}
         </Campo>
-        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan.">
+        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan. Cambiarlo no toca las fechas que ya tienen sus alumnas: se aplica a cada una la próxima vez que gane. Quitarlo no recupera los créditos que ya hayan caducado.">
           {id => (
             <input
               id={id}

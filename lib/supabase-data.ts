@@ -742,6 +742,10 @@ export function mapRewardRedemption(r: RowRewardRedemptions): RewardRedemption {
     entregadoEn: r.entregado_en ?? null,
     entregadoPor: r.entregado_por ?? null,
     recuperacionId: r.recuperacion_id ?? null,
+    recompensaNombre: r.recompensa_nombre ?? null,
+    canceladoEn: r.cancelado_en ?? null,
+    canceladoPor: r.cancelado_por ?? null,
+    canceladoMotivo: r.cancelado_motivo ?? null,
   } as RewardRedemption;
 }
 
@@ -3940,10 +3944,13 @@ export async function dbDeleteRewardCatalogItem(id: string): Promise<ResultadoEs
 // si fallara la segunda. Por eso va por RPC (migración 20260907193000), que
 // además es idempotente: cancelar dos veces devuelve el crédito una.
 export async function dbCancelarCanje(
-  redemptionId: string, studioId: string,
+  redemptionId: string, studioId: string, motivo?: string,
 ): Promise<{ ok: true; estado: EstadoCanje; saldo: number } | { error: string }> {
-  const { data, error } = await supabase.rpc('cancelar_canje', {
-    p_redemption_id: redemptionId, p_studio_id: studioId,
+  // `cancelar_canje_con_motivo` guarda además quién, cuándo y por qué (migr
+  // 20261019122801). `cancelar_canje` (2 args) sigue existiendo para el código
+  // desplegado antes de esa migración.
+  const { data, error } = await supabase.rpc('cancelar_canje_con_motivo', {
+    p_redemption_id: redemptionId, p_studio_id: studioId, p_motivo: motivo?.trim() || null,
   });
   if (error) {
     if (error.message.includes('CANJE_NO_ENCONTRADO')) return { error: 'Ese canje ya no existe.' };
@@ -6530,10 +6537,10 @@ export interface CanjePendiente {
 export async function dbListarCanjesPendientes(): Promise<CanjePendiente[]> {
   const { data, error } = await supabase
     .from('reward_redemptions')
-    .select('id, socio_id, catalog_item_id, creditos_gastados, codigo, creado_en')
+    .select('id, socio_id, catalog_item_id, recompensa_nombre, creditos_gastados, codigo, creado_en')
     .eq('estado', 'PENDIENTE')
     .order('creado_en', { ascending: true }) as {
-      data: Pick<RowRewardRedemptions, 'id' | 'socio_id' | 'catalog_item_id' | 'creditos_gastados' | 'codigo' | 'creado_en'>[] | null;
+      data: Pick<RowRewardRedemptions, 'id' | 'socio_id' | 'catalog_item_id' | 'recompensa_nombre' | 'creditos_gastados' | 'codigo' | 'creado_en'>[] | null;
       error: { message: string } | null;
     };
   if (error) { reportDbError('[dbListarCanjesPendientes]', error); return []; }
@@ -6553,7 +6560,7 @@ export async function dbListarCanjesPendientes(): Promise<CanjePendiente[]> {
     // Una socia dada de baja no borra su canje: alguien pagó por él y puede
     // presentarse igual. Decirlo es mejor que enseñar una fila sin nombre.
     socioNombre: (c.socio_id && nombrePorId.get(c.socio_id)) || 'Socia dada de baja',
-    recompensa: (c.catalog_item_id && recompensaPorId.get(c.catalog_item_id)) || 'Recompensa retirada del catálogo',
+    recompensa: (c.catalog_item_id && recompensaPorId.get(c.catalog_item_id)) || c.recompensa_nombre || 'Recompensa retirada del catálogo',
     creditos: c.creditos_gastados,
     codigo: c.codigo ?? null,
     creadoEn: c.creado_en,
