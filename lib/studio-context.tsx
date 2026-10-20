@@ -242,6 +242,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
+import { quienBajaria } from '@/lib/gamificacion/ritmo-niveles';
 import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
@@ -5449,8 +5450,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularNivel(levelDefinitions, totalGanado);
   }
 
+  // ⚠️ NADIE BAJA, también por esta vía (la del editor antiguo, que escribe con el
+  // cliente): si el cambio dejaría a alguna alumna con algo ganado sin su nivel o en
+  // uno más bajo, no se guarda. La ruta nueva (`/api/estudio/niveles`) hace lo mismo
+  // en servidor; aquí es la misma regla con los totales que el panel ya tiene.
+  function nivelesBajarian(despues: LevelDefinition[]): number {
+    // Sin los créditos cargados no se sabe quién bajaría: se bloquea, no se deja pasar.
+    // Y tampoco si pueden faltar filas (el snapshot del panel se corta en 1000): mejor no guardar que bajar a alguien.
+    if (!gamificacionCargada || memberCredits.length >= 1000) return -1;
+    return quienBajaria(memberCredits.map(m => m.totalGanado), levelDefinitions, despues);
+  }
+  const umbralOcupado = (umbral: number, id: string | null) =>
+    levelDefinitions.some(l => l.activo && l.id !== id && l.umbralCreditos === umbral);
+  const textoBajarian = (n: number) =>
+    n < 0 ? 'No se han podido comprobar los créditos de todas tus alumnas (aún cargan, o son demasiadas para este editor), y no se baja a nadie de nivel a ciegas. Espera un momento y reintenta; si sigue, avísanos.' : `Con este cambio ${n === 1 ? '1 alumna bajaría' : `${n} alumnas bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`;
+  /** `orden` = posición por umbral (solo presentación): panel y app ordenan por umbral. */
+  const ordenDeUmbral = (umbral: number, id: string | null) =>
+    levelDefinitions.filter(l => l.activo && l.id !== id && l.umbralCreditos < umbral).length;
+
   async function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
-    const nuevo: LevelDefinition = { ...fields, id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const nuevo: LevelDefinition = { ...fields, orden: ordenDeUmbral(fields.umbralCreditos, null), id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    if (nuevo.activo && umbralOcupado(nuevo.umbralCreditos, null)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    // Un nivel nuevo solo añade: nunca baja a nadie, pero se comprueba igual por si trae umbral 0 ya ocupado.
+    const bajarian = nivelesBajarian([...levelDefinitions, nuevo]);
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbInsertLevelDefinition(nuevo);
     if (!res.ok) return res;
     setLevelDefinitions(prev => [...prev, nuevo]);
@@ -5458,13 +5481,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
-    const res = await dbUpdateLevelDefinition(id, changes);
+    const actual = levelDefinitions.find(l => l.id === id);
+    const cambios = actual
+      ? { ...changes, orden: ordenDeUmbral(changes.umbralCreditos ?? actual.umbralCreditos, id) }
+      : changes;
+    const resultante = actual ? { ...actual, ...cambios } : null;
+    if (resultante?.activo && umbralOcupado(resultante.umbralCreditos, id)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    const bajarian = nivelesBajarian(levelDefinitions.map(l => l.id === id ? { ...l, ...cambios } : l));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
+    const res = await dbUpdateLevelDefinition(id, cambios);
     if (!res.ok) return res;
-    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
+    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...cambios } : l));
     return res;
   }
 
   async function deleteLevelDefinition(id: string): Promise<ResultadoEscritura> {
+    const bajarian = nivelesBajarian(levelDefinitions.filter(l => l.id !== id));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbDeleteLevelDefinition(id);
     if (!res.ok) return res;
     setLevelDefinitions(prev => prev.filter(l => l.id !== id));

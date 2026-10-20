@@ -156,24 +156,32 @@ test.describe('«Cambiarme a Tentare» — escritorio', () => {
     expect(await heroe.locator('.v5-hero-acciones > a').count()).toBe(3);
   });
 
-  test('entre 761 y 1000 px la entrada se quita y la isla no se sale de la pantalla', async ({ page }) => {
+  // Hasta la fase 2.1 (19-oct-2026) la entrada salía entre 761 y 1000 px. La isla
+  // es ahora la de toda la web y lleva «Producto», «Soluciones» y «Recursos»: la
+  // entrada se queda en la isla desde 1180 px (lo que mide con todo dentro) y,
+  // por debajo, vive en el menú; por debajo de 1024 px TODO el menú va tras el botón.
+  test('por debajo de 1180 px la entrada se quita y la isla no se sale de la pantalla', async ({ page }) => {
     await prepararPagina(page);
     // Control: a 1440 está y la isla cabe.
     await expect(isla(page).getByRole('link', { name: ENTRADA })).toBeVisible();
-    for (const ancho of [800, 900, 1000]) {
+    for (const ancho of [800, 900, 1023, 1024, 1100, 1179]) {
       await page.setViewportSize({ width: ancho, height: 800 });
       await expect(isla(page).getByRole('link', { name: ENTRADA })).toBeHidden();
       const b = (await isla(page).boundingBox())!;
       expect(b.x, `a ${ancho}px la isla empieza dentro`).toBeGreaterThanOrEqual(0);
       expect(b.x + b.width, `a ${ancho}px la isla acaba dentro`).toBeLessThanOrEqual(ancho);
       await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
+      // De 1024 en adelante el menú está en la isla; por debajo, tras el botón.
+      if (ancho >= 1024) await expect(isla(page).getByRole('button', { name: 'Producto' })).toBeVisible();
+      else await expect(isla(page).getByRole('button', { name: 'Abrir el menú' })).toBeVisible();
     }
-    // Y a 1001 vuelve, y cabe.
-    await page.setViewportSize({ width: 1001, height: 800 });
+    // Y a 1180 vuelve, en una línea, y cabe.
+    await page.setViewportSize({ width: 1180, height: 800 });
     await expect(isla(page).getByRole('link', { name: ENTRADA })).toBeVisible();
+    expect(await lineasDe(page, 'nav.v5-nav .v5-nav-cambiarse')).toBe(1);
     const b = (await isla(page).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(1001);
+    expect(b.x + b.width).toBeLessThanOrEqual(1180);
   });
 });
 

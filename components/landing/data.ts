@@ -1,21 +1,15 @@
-import { CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { PLAN_ENTITLEMENTS } from '@/lib/billing/entitlements';
+import { MENU_PUBLICO } from '@/lib/seo/navegacion-publica';
 
-// Menú principal. También alimenta el `SiteNavigationElement` de
-// components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
-// las candidatas a sitelinks de Google — no es solo la barra de arriba.
-//
-// «Producto» y «Precio» apuntaban a anclas de la propia home (#recorrido,
-// #precio). Ahora van a páginas reales: una ancla no es una URL para Google, y
-// las dos consultas que traían («funcionalidades», «precio») merecen destino
-// propio. `#faq` se queda como ancla porque su contenido sigue viviendo aquí.
-export const NAV_LINKS = [
-  { href: '/funcionalidades', label: 'Funcionalidades' },
-  { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
-  { href: '/precios', label: 'Precios' },
-  { href: '#faq', label: 'FAQ' },
-  { href: '/recursos', label: 'Recursos' },
-];
+// Los destinos de primer nivel de la isla (la navegación de toda la web
+// pública), para el `SiteNavigationElement` de
+// components/OrganizationStructuredData.tsx: cambiar esta lista mueve las
+// candidatas a sitelinks de Google. Desde la fase 2.1 (19-oct-2026) sale de la
+// misma lista que el menú (lib/seo/navegacion-publica.ts): antes llevaba `#faq`
+// y `/funcionalidades/sustituciones`, que no estaban en ningún menú, y le
+// faltaban Soluciones y Comparativa.
+export const NAV_LINKS = MENU_PUBLICO;
 
 // Solo integraciones CONECTABLES por el estudio hoy (auditoría 2026-07-23):
 // Mailchimp/Brevo eran "próximamente" en el producto y "Google" a secas y
@@ -54,8 +48,8 @@ export const PLANS = [
     id: 'ESTUDIO' as const,
     name: 'Estudio',
     price: '59€',
-    desc: 'Todo lo de Founding Studio, con más consultas al asistente.',
-    features: ['Todo lo de Founding Studio', `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
+    desc: `Todo lo de Founding Studio, con ${COMPLEMENTOS_CORTO} incluidos.`,
+    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`, `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
     cta: CTA_ALTA,
     dark: true,
     popular: true,
@@ -102,7 +96,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cuánto cuesta Tentare?',
-    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA, sin tope. El plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
+    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA, sin tope, y con ese plan ${COMPLEMENTOS_DE_PAGO} se contratan aparte. El plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
   },
   {
     q: '¿Hay permanencia?',

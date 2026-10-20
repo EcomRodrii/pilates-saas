@@ -4,8 +4,8 @@ import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -211,7 +211,7 @@ export default function ComparativaPage() {
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path="/comparativa" name="Comparativa" />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
@@ -320,7 +320,7 @@ export default function ComparativaPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .cmp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

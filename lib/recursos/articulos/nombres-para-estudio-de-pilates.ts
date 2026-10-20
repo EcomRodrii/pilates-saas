@@ -10,6 +10,7 @@ const articulo: Articulo = {
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'nombres para estudio de pilates',
   consultas: [
     'ideas de nombres para estudio de pilates',

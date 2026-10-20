@@ -1,0 +1,189 @@
+/*
+ * El armazón de la web pública: la isla (IslaWeb.tsx), sus paneles, el menú
+ * móvil y el pie (PieWeb.tsx). Todo con los tokens de tokens.css.
+ *
+ * Cortes de la web: 640 / 1024 / 1280 (README). Aquí:
+ *   · < 1024: la isla deja el menú tras el botón (pantalla completa);
+ *   · < 1180: «Cambiarme a Tentare» sale de la isla (vive en el menú). Es el
+ *     único corte fuera de la escala: es lo que mide la isla con todo dentro;
+ *   · < 640: «Entrar» sale de la isla (vive en el menú).
+ *
+ * ⚠️ `-webkit-backdrop-filter` va ANTES que `backdrop-filter`: LightningCSS (el
+ * de Next) junta las dos y se queda con la última (lib/brand-tokens.test.ts).
+ */
+
+/* ── LA ISLA ─────────────────────────────────────────────────────────────────
+   Cristal de verdad (blur + saturación sobre lo que pasa por detrás) con borde
+   fino y un reflejo arriba. El vidrio va en un ::before y no en la isla: un
+   elemento con backdrop-filter corta el de sus hijos, y el panel que cuelga de
+   ella no desenfocaría nada. El alto no cambia nunca (58 px): la barra va en el
+   flujo (sticky) y en la home el héroe sube por debajo de ella, así que
+   encoger NO mueve nada de la página. */
+.v5-nav { position: sticky; top: 14px; z-index: 60; display: flex; align-items: center;
+  width: fit-content; max-width: calc(100vw - 28px); margin: 0 auto; padding: 6px 6px 6px 16px;
+  border-radius: var(--w-r-pildora); isolation: isolate;
+  border: 1px solid var(--w-vidrio-borde);
+  box-shadow: var(--w-sombra-suave), inset 0 1px 0 rgba(255, 255, 255, .8);
+  font-family: var(--w-fuente); white-space: nowrap;
+  transition: box-shadow .4s var(--motion-ease); }
+.v5-nav::before, .w-isla-panel::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--w-vidrio);
+  -webkit-backdrop-filter: var(--w-vidrio-filtro); backdrop-filter: var(--w-vidrio-filtro); }
+/* El panel lleva más texto que la píldora y a menudo cae sobre una banda oscura
+   (el héroe de las interiores): el mismo vidrio, un poco más opaco, para que el
+   texto pequeño no pierda nitidez. */
+.w-isla-panel::before { background: var(--w-vidrio-panel); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .v5-nav::before, .w-isla-panel::before { background: var(--w-vidrio-solido); }
+}
+/* En las interiores no hay héroe que suba por debajo: la isla deja su aire
+   debajo. Arriba no lleva margen (se juntaría con el del contenedor y dejaría
+   ver el fondo del <body>): el `top` del sticky ya la baja 14 px. */
+.v5-nav[data-contexto="interior"] { margin-bottom: 28px; }
+.v5-nav[data-compacta] { box-shadow: 0 10px 30px rgba(34, 38, 31, .16), inset 0 1px 0 rgba(255, 255, 255, .8); }
+
+.v5-nav-logo { display: flex; align-items: center; min-height: 44px; flex-shrink: 0; margin-right: 4px; border-radius: var(--w-r-pildora); }
+
+/* Envoltorio que se pliega: 1fr → 0fr. Al alargarse, un resorte ligero (rebasa
+   un pelo y se asienta: es la firma de la isla y se conserva); al encogerse,
+   una curva limpia y más corta. Los enlaces plegados quedan fuera del orden de
+   tabulación (visibility) una vez terminada la transición. */
+.v5-nav-col { display: grid; grid-template-columns: 1fr; min-width: 0; opacity: 1; visibility: visible;
+  transition: grid-template-columns .55s cubic-bezier(.34, 1.32, .5, 1), opacity .3s ease .08s, visibility 0s; }
+.v5-nav-col > * { min-width: 0; overflow: hidden; }
+.v5-nav[data-compacta] .v5-nav-col { grid-template-columns: 0fr; opacity: 0; visibility: hidden;
+  transition: grid-template-columns .4s cubic-bezier(.4, 0, .2, 1), opacity .18s ease, visibility 0s .4s; }
+
+.v5-nav-links { display: flex; align-items: center; gap: 2px; padding: 0 clamp(6px, 1vw, 14px) 0 clamp(2px, .6vw, 8px); }
+/* Objetivo táctil de 44 px en todo lo que se pulsa de la isla. */
+.v5-nav-links > a, .w-isla-boton, .v5-nav-entrar { display: inline-flex; align-items: center; gap: 4px; min-height: 44px;
+  padding: 0 12px; border-radius: var(--w-r-pildora); border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-texto);
+  transition: background-color var(--motion-fast) var(--motion-ease); }
+.v5-nav-links > a:hover, .w-isla-boton:hover, .v5-nav-entrar:hover,
+.w-isla-boton[aria-expanded="true"] { background: rgba(34, 38, 31, .07); }
+.w-isla-boton svg { color: var(--w-texto-3); transition: transform var(--motion-fast) var(--motion-ease); }
+.w-isla-boton[aria-expanded="true"] svg { transform: rotate(180deg); }
+.v5-nav-cta { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; padding: 0 20px;
+  border-radius: var(--w-r-pildora); background: var(--w-olive); color: var(--w-sand);
+  font-size: var(--w-fs-pequeno); font-weight: 700; transition: background-color .2s; }
+.v5-nav-cta:hover { background: var(--w-olive-hondo); }
+.v5-nav a:focus-visible, .v5-nav button:focus-visible,
+.v5-menu a:focus-visible, .v5-menu button:focus-visible { outline: 2px solid var(--w-olive); outline-offset: 2px; }
+.v5-menu a:focus-visible, .v5-menu button:focus-visible { outline-color: var(--w-sand); }
+
+/* No cabe junto al resto por debajo de 1180 px: ahí se quita (vive en el menú). */
+@media (max-width: 1179px) { .v5-nav-links .v5-nav-cambiarse { display: none; } }
+
+/* Sin animación de ancho para quien pidió menos movimiento: la isla cambia de
+   golpe (sigue encogiéndose, que es información de layout, pero sin transición). */
+@media (prefers-reduced-motion: reduce) {
+  .v5-nav, .v5-nav-col, .v5-nav[data-compacta] .v5-nav-col, .w-isla-boton svg { transition: none; }
+}
+
+.v5-nav-burger { display: none; width: 44px; height: 44px; flex-shrink: 0; border-radius: var(--w-r-pildora);
+  border: 1px solid var(--w-linea); background: rgba(255, 255, 255, .6); cursor: pointer;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.v5-nav-burger span { display: block; width: 16px; height: 2px; border-radius: 2px; background: var(--w-texto); }
+@media (max-width: 1023px) {
+  .v5-nav-col-links { display: none; }
+  .v5-nav-burger { display: flex; margin-left: 6px; }
+  .v5-nav-cta { margin-left: 6px; transition: background-color .2s, padding .4s var(--motion-ease); }
+  .v5-nav[data-compacta] .v5-nav-cta { padding: 0 16px; }
+  .w-isla-panel { display: none; }
+}
+@media (max-width: 639px) { .v5-nav-col-entrar { display: none; } }
+
+/* ── Paneles: cuelgan de la isla, con su mismo ancho y su mismo vidrio ── */
+.w-isla-panel { position: absolute; top: calc(100% + 10px); left: 0; right: 0; isolation: isolate;
+  padding: 22px 24px 18px; border-radius: var(--w-r-tarjeta); white-space: normal; text-align: left;
+  border: 1px solid var(--w-vidrio-borde); box-shadow: var(--w-sombra-suave), inset 0 1px 0 rgba(255, 255, 255, .8); }
+.w-isla-areas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 20px; }
+.w-isla-columna { display: flex; flex-direction: column; gap: 18px; }
+.w-isla-area-titulo { margin: 0 0 8px; padding: 0 8px; font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis);
+  color: var(--w-texto-3); }
+.w-isla-area ul, .w-isla-tarjetas { list-style: none; margin: 0; padding: 0; }
+.w-isla-area a { display: flex; align-items: center; min-height: 36px; padding: 6px 8px; border-radius: 10px;
+  font-size: var(--w-fs-pequeno); font-weight: 500; line-height: 1.3; color: var(--w-texto); }
+.w-isla-area a:hover, .w-isla-tarjeta:hover { background: rgba(34, 38, 31, .06); }
+.w-isla-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
+.w-isla-tarjeta { display: flex; flex-direction: column; gap: 3px; height: 100%; padding: 12px 14px; border-radius: var(--w-r-control); }
+.w-isla-tarjeta-nombre { font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-texto); }
+.w-isla-tarjeta-resumen { font-size: var(--w-fs-mini); line-height: 1.45; color: var(--w-texto-3); }
+.w-isla-todas { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 10px; padding: 0 8px;
+  border-radius: 10px; font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-olive); }
+.w-isla-todas:hover { text-decoration: underline; text-underline-offset: 4px; }
+.w-isla-todas svg { transition: transform var(--motion-normal) var(--motion-ease); }
+.w-isla-todas:hover svg { transform: translateX(3px); }
+
+/* ── El menú a pantalla completa (móvil y tableta) ── */
+.v5-menu { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; overflow-y: auto;
+  padding: 18px 24px calc(28px + env(safe-area-inset-bottom, 0px));
+  background: var(--w-noche); color: var(--w-sobre-noche); font-family: var(--w-fuente); }
+.v5-menu-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: clamp(16px, 4vh, 40px); }
+.v5-menu-etiqueta { font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche-3); }
+.v5-menu-cerrar { width: 44px; height: 44px; border-radius: var(--w-r-pildora); border: 1px solid var(--w-linea-noche);
+  background: rgba(246, 244, 239, .06); color: var(--w-sobre-noche); font-size: 16px; cursor: pointer; }
+.v5-menu-links { display: flex; flex-direction: column; }
+.v5-menu-links > a, .v5-menu-seccion { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  min-height: 56px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--w-linea-noche); background: none; cursor: pointer;
+  font: inherit; font-size: clamp(22px, 6.2vw, 28px); font-weight: var(--w-peso-titular); letter-spacing: var(--w-track-h2);
+  color: var(--w-sobre-noche); text-align: left; }
+.v5-menu-seccion svg { color: var(--w-sobre-noche-3); transition: transform var(--motion-fast) var(--motion-ease); }
+.v5-menu-seccion[aria-expanded="true"] svg { transform: rotate(180deg); }
+.v5-menu-sub { padding: 12px 0 18px; border-bottom: 1px solid var(--w-linea-noche); }
+.v5-menu .w-isla-areas { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 16px; }
+.v5-menu .w-isla-columna { display: contents; }
+.v5-menu .w-isla-area-titulo { padding: 0; color: var(--w-sobre-noche-3); }
+.v5-menu .w-isla-area a, .v5-menu .w-isla-tarjeta { padding-left: 0; padding-right: 0; }
+.v5-menu .w-isla-area a { min-height: 44px; font-size: 16px; color: var(--w-sobre-noche); }
+.v5-menu .w-isla-area a:hover, .v5-menu .w-isla-tarjeta:hover { background: none; text-decoration: underline; text-underline-offset: 4px; }
+.v5-menu .w-isla-tarjeta-nombre { font-size: 16px; color: var(--w-sobre-noche); }
+.v5-menu .w-isla-tarjeta-resumen { color: var(--w-sobre-noche-3); }
+.v5-menu .w-isla-todas { padding: 0; color: var(--w-sand); }
+.v5-menu-pie { margin-top: auto; padding-top: 32px; display: flex; flex-direction: column; gap: 10px; }
+.v5-menu-entrar, .v5-menu-cta { display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 16px;
+  border-radius: var(--w-r-pildora); font-size: 16px; }
+.v5-menu-entrar { font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche);
+  background: rgba(246, 244, 239, .07); border: 1px solid var(--w-linea-noche); }
+/* Sobre Ink, el botón va en Sand con texto en Olive (7,0:1): en Olive sobre Ink no se distinguía del fondo. */
+.v5-menu-cta { font-weight: 700; color: var(--w-olive); background: var(--w-sand); }
+@media (prefers-reduced-motion: reduce) { .v5-menu-seccion svg { transition: none; } }
+
+/* ── EL PIE ──────────────────────────────────────────────────────────────────
+   Sobre Ink. Encima de la isla (z-index): en las páginas donde la isla sigue
+   pegada hasta el final, el pie pasa por encima en vez de verse a través de
+   ella. Todo su texto, ≥ 6,4:1 (README). */
+.w-pie { position: relative; z-index: 61; padding: clamp(56px, 7vw, 88px) var(--w-margen) 28px;
+  background: var(--w-noche); color: var(--w-sobre-noche-2); font-family: var(--w-fuente); }
+.w-pie-in { max-width: var(--w-ancho); margin: 0 auto; }
+.w-pie-rejilla { display: grid; grid-template-columns: minmax(230px, 1.35fr) repeat(5, minmax(0, 1fr)); gap: 36px 28px;
+  padding-bottom: clamp(36px, 4vw, 52px); border-bottom: 1px solid var(--w-linea-noche); }
+.w-pie-marca { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.w-pie-marca > a { display: inline-flex; border-radius: 6px; }
+.w-pie-lema { margin: 0; max-width: 34ch; font-size: var(--w-fs-pequeno); line-height: 1.6; color: var(--w-sobre-noche-2); }
+.w-pie-redes { display: flex; align-items: center; gap: 6px; margin-left: -10px; }
+.w-pie-redes a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  border-radius: var(--w-r-pildora); color: var(--w-sobre-noche-2); transition: color .2s, background-color .2s; }
+.w-pie-redes a:hover { color: var(--w-sobre-noche); background: rgba(246, 244, 239, .08); }
+.w-pie-titulo { margin: 0 0 12px; font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche); }
+.w-pie-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.w-pie-col a { display: inline-flex; align-items: center; min-height: 32px; font-size: var(--w-fs-pequeno); line-height: 1.35;
+  color: var(--w-sobre-noche-2); }
+.w-pie-col a:hover, .w-pie-base a:hover { color: var(--w-sobre-noche); text-decoration: underline; text-underline-offset: 3px; }
+.w-pie a:focus-visible { outline: 2px solid var(--w-sand); outline-offset: 2px; }
+.w-pie-base { display: flex; justify-content: space-between; align-items: center; gap: 12px 24px; flex-wrap: wrap;
+  padding-top: 22px; font-size: var(--w-fs-mini); line-height: 1.5; color: var(--w-sobre-noche-3); }
+.w-pie-base p { margin: 0; }
+.w-pie-base-der { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.w-pie-sello { display: inline-flex; align-items: center; opacity: .85; transition: opacity .2s; }
+.w-pie-sello:hover { opacity: 1; }
+.w-pie-sello img { display: block; height: 32px; width: auto; }
+@media (max-width: 1279px) {
+  .w-pie-rejilla { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .w-pie-marca { grid-column: 1 / -1; }
+}
+@media (max-width: 639px) {
+  .w-pie-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
+  .w-pie-col a { min-height: 36px; }
+}

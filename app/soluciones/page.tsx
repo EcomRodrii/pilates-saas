@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -47,7 +47,7 @@ export default function SolucionesPage() {
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Soluciones" />
-      <SiteNav backHref="/" backLabel="Inicio" />
+      <IslaWeb />
 
       <header style={{ padding: 'clamp(44px,6vw,80px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
@@ -108,7 +108,7 @@ export default function SolucionesPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .solh-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }

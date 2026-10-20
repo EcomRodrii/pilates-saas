@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un programa de gestión para un estudio de Pilates en España?',
-    a: 'En Tentare, Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas de ahí, 29 €/mes), con todas las funcionalidades menos varias sedes, también la app con tu marca; Estudio, 59 €/mes con IVA, y Cadena, 149 €/mes para varias sedes. Sin permanencia y sin tarjeta para empezar.',
+    a: 'En Tentare, Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 59 €/mes con IVA, los incluye, y Cadena, 149 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
   {
     q: '¿Sirve para cobrar y facturar en España?',

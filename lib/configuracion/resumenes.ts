@@ -969,7 +969,8 @@ export function resumenRegla(
     case 'si-se-queda-sin-cuota':
       return u([
         // Cortos a propósito: con «12 tipos lo cambian» detrás tiene que caber en MAX_RESUMEN.
-        r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
+        r.plazaFijaSinCuota === 'AVISAR_Y_LIBERAR' ? 'aviso y se liberan'
+          : r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
           : r.plazaFijaSinCuota === 'MANTENER_SIN_PENALIZAR' ? 'conserva, sin cargo'
           : 'conserva sus clases',
         excepciones,

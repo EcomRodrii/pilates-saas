@@ -1335,11 +1335,12 @@ export type EstadoPenalizacion =
 
 /**
  * Qué pasa con las reservas de plaza fija ya hechas cuando la alumna se queda
- * sin cuota. LIBERAR = se liberan sus clases futuras sin penalización;
+ * sin cuota. AVISAR_Y_LIBERAR (por defecto desde el 20-oct-2026) = se le avisa y,
+ * si no renueva en DIAS_PARA_RENOVAR_PLAZA_FIJA, se liberan; LIBERAR = se liberan sus clases futuras sin penalización;
  * MANTENER_SIN_PENALIZAR = las conserva y no se le cobra si falta; MANTENER =
- * como siempre (por defecto).
+ * como siempre.
  */
-export type PoliticaPlazaFijaSinCuota = 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
+export type PoliticaPlazaFijaSinCuota = 'AVISAR_Y_LIBERAR' | 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
 /** Al acabar una pausa que soltó su sitio: vuelve sola si sigue libre, o se pregunta al estudio. */
 export type PoliticaFinPausa = 'RECUPERAR_SI_LIBRE' | 'PENDIENTE_CONFIRMAR';
 

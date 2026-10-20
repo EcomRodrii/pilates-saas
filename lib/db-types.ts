@@ -4397,6 +4397,13 @@ export interface RowRastroGratisClave {
   clave: string;
 }
 
+export interface RowPlazaFijaSinCuotaAvisos {
+  studio_id: string;
+  socio_id: string;
+  avisada_en: string;
+  liberar_desde: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12174,6 +12181,20 @@ export type RastroGratisClaveUpdate = {
   clave?: string | null;
 }
 
+export type PlazaFijaSinCuotaAvisosInsert = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
+export type PlazaFijaSinCuotaAvisosUpdate = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13541,6 +13562,11 @@ export type Database = {
         Row: RowRastroGratisClave;
         Insert: RastroGratisClaveInsert;
         Update: RastroGratisClaveUpdate;
+      };
+      plaza_fija_sin_cuota_avisos: {
+        Row: RowPlazaFijaSinCuotaAvisos;
+        Insert: PlazaFijaSinCuotaAvisosInsert;
+        Update: PlazaFijaSinCuotaAvisosUpdate;
       };
     };
   };

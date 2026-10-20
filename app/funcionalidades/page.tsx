@@ -4,8 +4,8 @@ import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -67,7 +67,7 @@ export default function FuncionalidadesPage() {
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Funcionalidades" />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
@@ -152,7 +152,7 @@ export default function FuncionalidadesPage() {
         </section>
       </div>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .fun-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }

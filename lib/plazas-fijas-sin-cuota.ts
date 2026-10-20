@@ -10,6 +10,12 @@
 import type { PoliticaPlazaFijaSinCuota } from './types.ts';
 
 /**
+ * Con AVISAR_Y_LIBERAR, los días que tiene para renovar desde el aviso (migr 20261020…_avisar_y_liberar): pasado ese día,
+ * en el del estudio, sus clases fijas reservadas se liberan si sigue sin cuota.
+ */
+export const DIAS_PARA_RENOVAR_PLAZA_FIJA = 3;
+
+/**
  * `cuando`: `'ahora'` = deja de tener cuota hoy (cancelar ahora, pausar);
  * `'al-final'` = la conserva hasta `fechaFin` (baja programada); `'elegir'` = la
  * ventana aún ofrece las dos cosas.
@@ -21,6 +27,8 @@ export function textoPlazaFijaSinCuota(
 ): string {
   const despues = fechaFin ? `después del ${fechaFin}` : 'después del final del periodo';
   switch (politica) {
+    case 'AVISAR_Y_LIBERAR':
+      return `Su clase fija se guarda. Le avisamos de que, si no renueva en ${DIAS_PARA_RENOVAR_PLAZA_FIJA} días, se liberan las clases que su clase fija ya tenía reservadas, sin penalización; mientras tanto no se le cobra si falta.`;
     case 'LIBERAR':
       if (cuando === 'ahora') {
         return 'Su clase fija se guarda, pero se liberan todas las clases que ya tenía reservadas, también las de estos días, sin penalización.';
