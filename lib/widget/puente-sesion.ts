@@ -184,7 +184,7 @@ export function encargoDelIntento(datos: unknown, nonce: string | null): Encargo
 
 export type ResultadoPuente =
   | { tipo: 'sesion'; access_token: string; refresh_token: string }
-  | { tipo: 'error'; error: string }
+  | { tipo: 'error'; error: string; motivo?: typeof MOTIVO_CUENTA_DE_EQUIPO }
   | { tipo: 'enlace-enviado' };
 
 /**
@@ -202,7 +202,8 @@ export function resultadoDelPuente(datos: unknown, nonceEnCurso: string | null):
     return { tipo: 'sesion', access_token: d.access_token, refresh_token: d.refresh_token };
   }
   if (d.ok === false && typeof d.error === 'string' && d.error.trim()) {
-    return { tipo: 'error', error: d.error.trim().slice(0, MAX_ERROR) };
+    const error = d.error.trim().slice(0, MAX_ERROR);
+    return d.motivo === MOTIVO_CUENTA_DE_EQUIPO ? { tipo: 'error', error, motivo: MOTIVO_CUENTA_DE_EQUIPO } : { tipo: 'error', error };
   }
   return null;
 }
@@ -220,4 +221,67 @@ export function urlPuente(baseUrl: string, slug: string, origenEstudio: string, 
 /** Salida de siempre cuando la ventana no se puede usar: la página de reservas entera, en tentare.app. */
 export function urlReservarCompleta(baseUrl: string, slug: string): string {
   return `${baseUrl}/reservar/${encodeURIComponent(slug)}`;
+}
+
+// ── La sesión del puente tiene UN dueño: el widget (20-oct-2026) ────────────
+//
+// La sesión del correo (enlace o código) se abre en la ventana del puente y se
+// entrega al widget. Si además se quedara guardada en tentare.app, habría dos
+// dueños del mismo refresh token: el primero que lo rote deja al otro con uno
+// gastado, y la detección de reutilización de gotrue puede revocar la familia
+// entera (la alumna, fuera de golpe). Y si se guardara en la clave del portal
+// (`sb-portal-auth`), pisaría la sesión de la propia alumna en tentare.app.
+//
+// Por eso el puente usa su PROPIA clave (`CLAVE_SESION_PUENTE`): la comparten la
+// ventana y la pestaña del enlace del correo (mismo origen; auth-js avisa entre
+// pestañas por BroadcastChannel con esa clave), y en cuanto la sesión sale hacia
+// el widget se BORRA A MANO, sin llamar a gotrue. ⚠️ Nunca `signOut` para esto,
+// ni siquiera local: revoca la sesión en el servidor y mataría también la del
+// widget, que es la misma.
+export const CLAVE_SESION_PUENTE = 'sb-puente-widget';
+
+/** Todo lo que auth-js puede dejar bajo la clave del puente (la sesión, el usuario aparte y el verificador PKCE). */
+export const CLAVES_SESION_PUENTE: readonly string[] = [
+  CLAVE_SESION_PUENTE, `${CLAVE_SESION_PUENTE}-user`, `${CLAVE_SESION_PUENTE}-code-verifier`,
+];
+
+/**
+ * Olvida la sesión del puente en este navegador, sin red. Solo toca las claves
+ * del puente: la del portal de la alumna no es suya. Con el almacenamiento
+ * bloqueado no hay nada que olvidar.
+ */
+export function olvidarSesionDelPuente(almacen: Pick<Storage, 'removeItem'> | null | undefined): void {
+  if (!almacen) return;
+  for (const clave of CLAVES_SESION_PUENTE) {
+    try { almacen.removeItem(clave); } catch { /* bloqueado: nada guardado */ }
+  }
+}
+
+// ── Cuentas de equipo: no por el widget (decisión del fundador, 16-oct-2026) ─
+//
+// La sesión que entrega el puente vale para la cuenta ENTERA. Si es de alguien
+// del equipo de un estudio (propietaria, gerencia, recepción, instructora) o de
+// Tentare, la web que la recibe podría usarla en el estudio donde trabaja (con
+// la verificación en dos pasos la corta `exige_doble_factor`; sin ella, no).
+// Así que el puente pregunta al SERVIDOR (`/api/auth/cuenta-de-equipo`) antes de
+// entregar y, si es de equipo —o si no hay respuesta clara—, no entrega nada.
+// Tampoco a quien es equipo en un estudio y alumna en otro: reserva desde la
+// página entera, en tentare.app.
+export const RUTA_CUENTA_DE_EQUIPO = '/api/auth/cuenta-de-equipo';
+export const MOTIVO_CUENTA_DE_EQUIPO = 'cuenta_de_equipo';
+export const MENSAJE_CUENTA_DE_EQUIPO = 'Esta cuenta es de un equipo de Tentare: entra desde tentare.app.';
+export const ERROR_COMPROBAR_CUENTA = 'No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.';
+
+export type VeredictoCuenta = 'alumna' | 'equipo' | 'sin-respuesta';
+
+/**
+ * Lo que contestó el servidor, leído con fallo cerrado: solo un 200 con
+ * `equipo: false` explícito deja entregar la sesión.
+ */
+export function veredictoCuenta(status: number, cuerpo: unknown): VeredictoCuenta {
+  if (status !== 200 || !cuerpo || typeof cuerpo !== 'object') return 'sin-respuesta';
+  const { equipo } = cuerpo as { equipo?: unknown };
+  if (equipo === false) return 'alumna';
+  if (equipo === true) return 'equipo';
+  return 'sin-respuesta';
 }

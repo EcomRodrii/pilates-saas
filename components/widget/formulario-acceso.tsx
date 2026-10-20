@@ -15,7 +15,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { verificarCodigoApp } from '@/lib/auth/codigo-app';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { useAuthWidget, type AceptacionWidget, type ResultadoAcceso } from '@/lib/widget/usar-auth-widget';
-import { urlReservarCompleta } from '@/lib/widget/puente-sesion';
+import { MENSAJE_CUENTA_DE_EQUIPO, urlReservarCompleta } from '@/lib/widget/puente-sesion';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 // Auditoría 2026-09-22 (F-6/E-22): aquí la divergencia no descartaba el dato,
 // BLOQUEABA el alta. `@/lib/csv` exige 9 dígitos españoles (es el validador del
@@ -64,7 +64,14 @@ export function FormularioAccesoWidget({
   terminosServicio: string;
   onListo: () => void;
 }) {
-  const auth = useAuthWidget(slug, baseUrl);
+  // La ventana puede decir que no DESPUÉS de «correo enviado» (al abrir el
+  // enlace o escribir el código): se vuelve al formulario con el porqué.
+  const auth = useAuthWidget(slug, baseUrl, (r) => {
+    if (!('error' in r)) return;
+    setModo('magic-link');
+    setCuentaDeEquipo('cuentaDeEquipo' in r);
+    setError('cuentaDeEquipo' in r ? null : r.error);
+  });
 
   const [modo, setModo] = useState<'password' | 'magic-link' | 'magic-enviado'>('password');
   const [email, setEmail] = useState('');
@@ -78,6 +85,8 @@ export function FormularioAccesoWidget({
   const [error, setError] = useState<string | null>(null);
   // La ventana de Tentare no se pudo usar: se ofrece la página de reservas.
   const [sinVentana, setSinVentana] = useState<'bloqueada' | 'cerrada' | null>(null);
+  // La cuenta es de un equipo: la ventana no entrega su sesión aquí.
+  const [cuentaDeEquipo, setCuentaDeEquipo] = useState(false);
 
   const contratoTexto = politicaPrivacidad && terminosServicio
     ? textoLegalCompleto({ politicaPrivacidad, terminosServicio })
@@ -91,12 +100,13 @@ export function FormularioAccesoWidget({
     const r = await intento;
     setEnviando(false);
     if ('sinVentana' in r) setSinVentana(r.sinVentana);
-    if ('error' in r) setError(r.error);
+    if ('cuentaDeEquipo' in r) setCuentaDeEquipo(true);
+    else if ('error' in r) setError(r.error);
     return r;
   }
 
   async function onLoginPassword() {
-    setError(null); setSinVentana(null);
+    setError(null); setSinVentana(null); setCuentaDeEquipo(false);
     if (!email.trim() || !password) { setError('Escribe tu email y tu contraseña.'); return; }
     const r = await esperarAcceso(auth.acceder({ accion: 'password', email: email.trim(), password }));
     if ('ok' in r) setPassword('');
@@ -105,7 +115,7 @@ export function FormularioAccesoWidget({
   }
 
   async function onEnviarEnlace() {
-    setError(null); setSinVentana(null);
+    setError(null); setSinVentana(null); setCuentaDeEquipo(false);
     if (!email.trim()) { setError('Escribe tu email.'); return; }
     const r = await esperarAcceso(auth.acceder({ accion: 'enlace', email: email.trim() }));
     if ('enviado' in r) setModo('magic-enviado');
@@ -186,6 +196,7 @@ export function FormularioAccesoWidget({
       )}
       {error && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
       {sinVentana && <SinVentana t={t} motivo={sinVentana} href={urlReservarCompleta(baseUrl, slug)} />}
+      {cuentaDeEquipo && <CuentaDeEquipo t={t} href={urlReservarCompleta(baseUrl, slug)} />}
       {enviando && (
         <p style={{ margin: 0, fontSize: 12.5, color: t.muted }}>
           Sigue en la ventana de Tentare que se ha abierto; se cerrará sola.
@@ -196,7 +207,7 @@ export function FormularioAccesoWidget({
           <button type="button" onClick={onLoginPassword} disabled={enviando} style={botonPrimario(t, enviando)}>
             {enviando ? 'Entrando…' : 'Entrar'}
           </button>
-          <button type="button" onClick={() => { setError(null); setSinVentana(null); setModo('magic-link'); }} style={botonTexto()}>
+          <button type="button" onClick={() => { setError(null); setSinVentana(null); setCuentaDeEquipo(false); setModo('magic-link'); }} style={botonTexto()}>
             No tengo contraseña — enviarme un enlace
           </button>
         </>
@@ -205,7 +216,7 @@ export function FormularioAccesoWidget({
           <button type="button" onClick={onEnviarEnlace} disabled={enviando} style={botonPrimario(t, enviando)}>
             {enviando ? 'Enviando…' : 'Enviarme un enlace por email'}
           </button>
-          <button type="button" onClick={() => { setError(null); setSinVentana(null); setModo('password'); }} style={botonTexto()}>
+          <button type="button" onClick={() => { setError(null); setSinVentana(null); setCuentaDeEquipo(false); setModo('password'); }} style={botonTexto()}>
             Ya tengo contraseña
           </button>
         </>
@@ -229,6 +240,22 @@ function SinVentana({ t, motivo, href }: { t: ModoTokens; motivo: 'bloqueada' | 
       Vuelve a intentarlo o{' '}
       <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--portal-brand)' }}>
         entra desde la página de reservas del estudio
+      </a>.
+    </p>
+  );
+}
+
+/**
+ * La cuenta es del equipo de un estudio (o de Tentare): por el widget de la web
+ * de un estudio solo entran alumnas (decisión del fundador, 16-oct-2026). Reserva
+ * desde la página entera, en tentare.app.
+ */
+function CuentaDeEquipo({ t, href }: { t: ModoTokens; href: string }) {
+  return (
+    <p data-testid="widget-acceso-cuenta-de-equipo" role="alert" style={{ margin: 0, fontSize: 12.5, color: t.ink, lineHeight: 1.5 }}>
+      {MENSAJE_CUENTA_DE_EQUIPO}{' '}
+      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--portal-brand)' }}>
+        Ir a la página de reservas del estudio
       </a>.
     </p>
   );

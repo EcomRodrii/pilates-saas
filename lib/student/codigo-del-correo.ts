@@ -13,7 +13,7 @@
 // sigue su camino de siempre, igual que si hubiera abierto un enlace.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabasePortal } from '@/lib/db/supabase-portal';
+import type { AuthClient } from '@supabase/auth-js';
 import { LONGITUD_OTP, limpiarCodigo } from '@/lib/otp-utils';
 import { codigoCaducado, type FalloCodigo } from '@/lib/student/entrada-codigo';
 
@@ -21,8 +21,20 @@ import { codigoCaducado, type FalloCodigo } from '@/lib/student/entrada-codigo';
 type Resultado = { ok: true } | { error: string; esperaS?: number };
 type ResultadoCodigo = { ok: true } | { error: string; errorCode?: string; intentosRestantes?: number };
 
-/** Comprueba el código y, si vale, deja la sesión abierta en el cliente del portal. */
-export async function entrarConCodigoDelCorreo(email: string, codigo: string): Promise<ResultadoCodigo> {
+/**
+ * El cliente donde se abre la sesión del código: el del portal, salvo que la
+ * pantalla diga otro. La ventana del puente del widget pasa el suyo
+ * (app/widget-auth-retorno/clientes-auth.ts): esa sesión es del widget y no
+ * puede quedarse en la del portal de la alumna. Por eso el del portal se carga
+ * aquí, al usarlo, y no arriba: importarlo lo crearía en esa ventana también.
+ */
+async function clienteDeLaSesion(cliente?: AuthClient): Promise<AuthClient> {
+  if (cliente) return cliente;
+  return (await import('@/lib/db/supabase-portal')).supabasePortal.auth;
+}
+
+/** Comprueba el código y, si vale, deja la sesión abierta en el cliente del portal (o en `cliente`). */
+export async function entrarConCodigoDelCorreo(email: string, codigo: string, cliente?: AuthClient): Promise<ResultadoCodigo> {
   let data: {
     ok?: true; session?: { access_token: string; refresh_token: string };
     error?: string; errorCode?: string; intentosRestantes?: unknown;
@@ -45,7 +57,7 @@ export async function entrarConCodigoDelCorreo(email: string, codigo: string): P
       intentosRestantes: typeof data?.intentosRestantes === 'number' ? data.intentosRestantes : undefined,
     };
   }
-  const { error } = await supabasePortal.auth.setSession(data.session);
+  const { error } = await (await clienteDeLaSesion(cliente)).setSession(data.session);
   if (error) return { error: 'El código era correcto, pero no hemos podido abrir tu sesión. Inténtalo de nuevo.' };
   return { ok: true };
 }
@@ -62,6 +74,8 @@ export interface OpcionesCodigo {
   alFallar?: (f: FalloCodigo) => void;
   /** Si el código ya había caducado al escribirlo, manda otro sin que lo pida. */
   reenviarSiCaduca?: boolean;
+  /** Dónde abrir la sesión, si no es el portal (ver `clienteDeLaSesion`). Estable entre renders. */
+  cliente?: AuthClient;
 }
 
 /**
@@ -76,7 +90,7 @@ export interface OpcionesCodigo {
  * cuenta atrás del reenvío y deja saber, más tarde, si el código ha caducado.
  */
 export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Resultado>, alEntrar?: () => void, opciones: OpcionesCodigo = {}) {
-  const { alFallar, reenviarSiCaduca = false } = opciones;
+  const { alFallar, reenviarSiCaduca = false, cliente } = opciones;
   const [codigo, setCodigoCrudo] = useState('');
   const [error, setError] = useState('');
   const [fallo, setFallo] = useState<FalloCodigo | null>(null);
@@ -114,7 +128,7 @@ export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Result
     if (valor.length !== LONGITUD_OTP) { setError(`El código tiene ${LONGITUD_OTP} cifras.`); return false; }
     if (!email.trim()) { setError('Escribe el email al que te ha llegado el código.'); return false; }
     setError(''); setFallo(null); setVerificando(true);
-    const res = await entrarConCodigoDelCorreo(email, valor);
+    const res = await entrarConCodigoDelCorreo(email, valor, cliente);
     if (!('error' in res)) { setVerificando(false); alEntrar?.(); return true; }
 
     setCodigoCrudo('');
@@ -135,7 +149,7 @@ export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Result
     setFallo(f);
     alFallar?.(f);
     return false;
-  }, [email, alEntrar, alFallar, reenviar, reenviarSiCaduca]);
+  }, [email, alEntrar, alFallar, reenviar, reenviarSiCaduca, cliente]);
 
   /** Al teclear o pegar. Con las seis cifras ya puestas se comprueba solo (el autocompletado del móvil las pone de golpe). */
   const escribir = useCallback((texto: string) => {

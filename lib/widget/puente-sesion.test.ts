@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
+  CLAVE_SESION_PUENTE, CLAVES_SESION_PUENTE, ERROR_COMPROBAR_CUENTA, MENSAJE_CUENTA_DE_EQUIPO, MOTIVO_CUENTA_DE_EQUIPO,
+  olvidarSesionDelPuente, RUTA_CUENTA_DE_EQUIPO, veredictoCuenta,
   emailDelIntento, encargoDelIntento, esAvisoPuenteListo, mensajeEncargo, nonceValido, resultadoDelPuente,
   sesionAutenticadaPorEmailDespuesDe, sesionPorContrasenaDespuesDe, TOLERANCIA_PUENTE_MS,
   TIPO_EMAIL_DEL_INTENTO, TIPO_ENCARGO_ACCESO, TIPO_ENLACE_ENVIADO, TIPO_PUENTE_LISTO, TIPO_RESULTADO_ACCESO,
@@ -225,4 +228,82 @@ test('la URL del puente lleva el origen de quien la abre y el nonce, escapados',
   // Ni el email ni la contraseña viajan nunca en la URL.
   assert.equal([...url.searchParams.keys()].sort().join(','), 'nonce,origenEstudio,slug');
   assert.equal(urlReservarCompleta('https://www.tentare.app', 'a/b'), 'https://www.tentare.app/reservar/a%2Fb');
+});
+
+// ── Un dueño por sesión, y nunca la de una cuenta de equipo ─────────────────
+
+const RAIZ = new URL('../../', import.meta.url).pathname;
+const leer = (ruta: string) => readFileSync(`${RAIZ}${ruta}`, 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+test('olvidar la sesión del puente borra SOLO sus claves, nunca la del portal de la alumna', () => {
+  const guardado = new Map<string, string>([
+    [CLAVE_SESION_PUENTE, 'sesion'], [`${CLAVE_SESION_PUENTE}-code-verifier`, 'v'], ['sb-portal-auth', 'la-de-la-alumna'],
+  ]);
+  const almacen = { removeItem: (k: string) => { guardado.delete(k); } };
+  olvidarSesionDelPuente(almacen);
+  assert.deepEqual([...guardado.keys()], ['sb-portal-auth']);
+  assert.ok(!CLAVES_SESION_PUENTE.some((k) => k.startsWith('sb-portal-auth')));
+});
+
+test('olvidar no rompe con el almacenamiento bloqueado o ausente', () => {
+  assert.doesNotThrow(() => olvidarSesionDelPuente(null));
+  assert.doesNotThrow(() => olvidarSesionDelPuente({ removeItem: () => { throw new Error('SecurityError'); } }));
+});
+
+test('la cuenta: solo un 200 con `equipo: false` explícito deja entregar la sesión', () => {
+  assert.equal(veredictoCuenta(200, { equipo: false }), 'alumna');
+  assert.equal(veredictoCuenta(200, { equipo: true }), 'equipo');
+  for (const [status, cuerpo] of [
+    [200, {}], [200, { equipo: 'false' }], [200, { equipo: 0 }], [200, null], [200, 'ok'],
+    [401, { equipo: false }], [500, { equipo: false }], [503, null], [0, null],
+  ] as const) {
+    assert.equal(veredictoCuenta(status, cuerpo), 'sin-respuesta', `${status} ${JSON.stringify(cuerpo)}`);
+  }
+});
+
+test('el widget distingue el «no» por cuenta de equipo de cualquier otro error', () => {
+  const nonce = 'nonce-del-intento-0001';
+  assert.deepEqual(
+    resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, nonce, ok: false, error: MENSAJE_CUENTA_DE_EQUIPO, motivo: MOTIVO_CUENTA_DE_EQUIPO }, nonce),
+    { tipo: 'error', error: MENSAJE_CUENTA_DE_EQUIPO, motivo: MOTIVO_CUENTA_DE_EQUIPO },
+  );
+  // Un motivo desconocido no se cuela: queda como error a secas.
+  assert.deepEqual(
+    resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, nonce, ok: false, error: 'x', motivo: 'otro' }, nonce),
+    { tipo: 'error', error: 'x' },
+  );
+  // Y un «ok» con motivo sigue necesitando sus dos tokens.
+  assert.equal(resultadoDelPuente({ tipo: TIPO_RESULTADO_ACCESO, nonce, ok: true, motivo: MOTIVO_CUENTA_DE_EQUIPO }, nonce), null);
+  assert.notEqual(ERROR_COMPROBAR_CUENTA, MENSAJE_CUENTA_DE_EQUIPO);
+});
+
+test('la ventana del puente no importa el cliente del portal (no lee, refresca ni pisa la sesión de la alumna)', () => {
+  for (const f of ['app/widget-auth-retorno/page.tsx', 'app/widget-auth-retorno/cliente.tsx', 'app/widget-auth-retorno/clientes-auth.ts']) {
+    assert.doesNotMatch(leer(f), /supabase-portal|supabasePortal/, f);
+  }
+  // Lo único que importa y podría traerlo: el código del correo, que lo carga al usarlo, no al importarse.
+  assert.doesNotMatch(leer('lib/student/codigo-del-correo.ts'), /^import[^;]*supabase-portal/m);
+  // Y el cliente del portal no recoge la vuelta del correo en esta página.
+  assert.match(leer('lib/db/supabase-portal.ts'), /widget-auth-retorno/);
+});
+
+test('el cliente del correo del puente guarda con SU clave y no refresca nunca', () => {
+  const src = leer('app/widget-auth-retorno/clientes-auth.ts');
+  assert.match(src, /storageKey:\s*CLAVE_SESION_PUENTE/);
+  assert.doesNotMatch(src, /autoRefreshToken:\s*true/);
+  assert.doesNotMatch(src, /sb-portal-auth/);
+});
+
+test('la ventana pregunta al servidor antes de entregar, y no cierra con signOut la sesión que SÍ entrega', () => {
+  const src = leer('app/widget-auth-retorno/cliente.tsx');
+  assert.ok(src.includes('RUTA_CUENTA_DE_EQUIPO'));
+  assert.equal(RUTA_CUENTA_DE_EQUIPO, '/api/auth/cuenta-de-equipo');
+  // El único `ok: true` hacia el widget va DESPUÉS de comprobar la cuenta.
+  const comprobacion = src.indexOf('await comprobarCuenta(');
+  const entrega = src.indexOf('ok: true, access_token');
+  assert.ok(comprobacion > 0 && entrega > comprobacion, 'la entrega tiene que ir tras comprobarCuenta');
+  assert.equal(src.split('ok: true, access_token').length - 1, 1, 'una sola salida de sesión');
+  // Entre la comprobación y la entrega, el único signOut es el del «no» (y local).
+  for (const m of src.matchAll(/\.signOut\(([^)]*)\)/g)) assert.match(m[1], /scope:\s*'local'/);
 });

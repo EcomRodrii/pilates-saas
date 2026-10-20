@@ -50,7 +50,11 @@ test('la ventana del puente hace el acceso con captcha y la contraseña con un c
   assert.match(cliente, /clienteEfimero\(\)\.signInWithPassword\(/);
   assert.doesNotMatch(cliente, /supabasePortal\.auth\.signInWithPassword\(/,
     'La sesión de la contraseña no se guarda en tentare.app: dos dueños del mismo refresh token se lo revocan al rotarlo.');
-  assert.match(cliente, /persistSession:\s*false/);
+  // El cliente de la contraseña vive aparte, con los de la ventana: en memoria y nada más.
+  const clientes = fs.readFileSync(path.join(raiz, 'app/widget-auth-retorno/clientes-auth.ts'), 'utf8');
+  const efimero = clientes.slice(clientes.indexOf('export function clienteEfimero'), clientes.indexOf('export function clientePuente'));
+  assert.match(efimero, /persistSession:\s*false/);
+  assert.match(efimero, /autoRefreshToken:\s*false/);
 });
 
 test('ningún mensaje del acceso del widget se manda a cualquier origen', () => {
