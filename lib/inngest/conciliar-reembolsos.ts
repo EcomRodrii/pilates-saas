@@ -83,7 +83,7 @@ export const conciliarReembolsos = inngest.createFunction(
         .select('id, stripe_account_id')
         .not('stripe_account_id', 'is', null)
         .is('suspendido_en', null)
-        .range(from, to),
+        .order('id').range(from, to),
     );
     if (!studios.length) return { estudios: 0, reembolsos: 0, disputas: 0 };
 
@@ -441,7 +441,7 @@ async function conciliarDisputasAbiertasEstudio(
       .eq('studio_id', studio.id)
       .not('disputa_stripe_id', 'is', null)
       .not('disputa_estado', 'in', `(${ESTADOS_DISPUTA_SIN_RESCATE.join(',')})`)
-      .range(from, to),
+      .order('id').range(from, to),
   );
 
   // `null` = no se sabe qué chargebacks están ya anotados → ninguna perdida se

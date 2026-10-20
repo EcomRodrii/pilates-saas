@@ -198,21 +198,23 @@ test.describe('Student PWA · gamificación', () => {
     await expect(page.getByTestId('nivel')).toHaveCount(0);
     // Y en Inicio tampoco aparece la tarjeta.
     await page.goto(base);
-    await expect(page.getByText(/¿qué te apetece hoy\?/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('nivel-inicio')).toHaveCount(0);
+    await expect(page.getByTestId('reto-de-ahora')).toHaveCount(0);
   });
 
-  test('Inicio enseña nivel y créditos, y lleva a la pantalla completa', async ({ page }) => {
+  // Desde la maqueta de oct-2026 (copia exacta, fundador 19-oct) Inicio enseña el RETO en el que está apuntada, no el
+  // nivel ni los créditos: esos viven en Logros y recompensas.
+  test('Inicio enseña el reto en el que está apuntada, con su insignia, y lleva a Logros', async ({ page }) => {
     await montar(page, conGamificacion());
     await page.goto(base);
-    const card = page.getByTestId('nivel-inicio');
-    await expect(card).toBeVisible({ timeout: 30_000 });
-    await expect(card.getByText('Constante', { exact: false })).toBeVisible();
-    // El SALDO encabeza la tarjeta (antes iba pequeño en una esquina y no se encontraba).
-    await expect(card.getByText('Tus créditos')).toBeVisible();
-    await expect(card.getByTestId('saldo-inicio')).toHaveText('150');
-    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
-    await card.click();
+    const reto = page.getByTestId('reto-de-ahora');
+    await expect(reto).toBeVisible({ timeout: 30_000 });
+    await expect(reto).toContainText('Agosto activo');
+    await expect(reto).toContainText('7/12');
+    await expect(reto.locator('img[data-insignia]')).toHaveCount(1);
+    await expect(page.getByTestId('nivel-inicio')).toHaveCount(0);
+    await reto.click();
     await expect(page).toHaveURL(/\/logros$/);
     void HOY;
   });
@@ -385,12 +387,6 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     await expect(nivel.getByText('Tus créditos')).toBeVisible();
     await expect(nivel.getByText('30', { exact: true })).toBeVisible();
     await expect(nivel.getByText(/Aún sin nivel|Tu nivel/)).toHaveCount(0);
-
-    await page.goto(base);
-    const card = page.getByTestId('nivel-inicio');
-    await expect(card).toBeVisible({ timeout: 30_000 });
-    await expect(card.getByTestId('saldo-inicio')).toHaveText('30');
-    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
   });
 
   test('la ficha de la clase dice lo que da asistir', async ({ page }) => {

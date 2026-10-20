@@ -41,7 +41,10 @@ test.describe('Student PWA · lo que la app no debe decir', () => {
   test('buscar sin resultados no dice «no hay clases este día», porque las hay', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/reservar`);
+    // El buscador vive en la hoja de filtros (maqueta de oct-2026); se busca y se vuelve a la lista.
+    await page.getByTestId('abrir-filtros').click({ timeout: 30_000 });
     await page.getByLabel(/buscar clases/i).fill('zumba');
+    await page.getByRole('button', { name: /^Ver \d+ clases?$/ }).click();
     // Se busca en TODO el horario, así que el mensaje del día sería falso.
     await expect(page.getByText(/Nada para «zumba»/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/no hay clases este día/i)).toHaveCount(0);

@@ -14,12 +14,13 @@ test.describe('Fotos de la alumna', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 393, height: 852 } });
 
-  test('el héroe reserva su hueco y no bloquea el hilo principal', async ({ page }) => {
-    await sembrarSociaCompleta(page, { bono: 5 });
+  // La foto grande de Inicio es la de «Próxima clase» desde la maqueta de oct-2026 (ya no hay portada): con una reserva.
+  test('la foto de la próxima clase reserva su hueco y no bloquea el hilo principal', async ({ page }) => {
+    await sembrarSociaCompleta(page, { bono: 5, reservada: true });
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(2200);
 
-    const heroe = page.locator('section img').first();
+    const heroe = page.getByTestId('clase-del-momento').locator('img').first();
     await expect(heroe).toHaveAttribute('decoding', 'async');
     await expect(heroe).toHaveAttribute('width', /\d+/);
     await expect(heroe).toHaveAttribute('height', /\d+/);
@@ -30,11 +31,11 @@ test.describe('Fotos de la alumna', () => {
   test('la foto POR DEFECTO se sirve tal cual, sin pasar por el redimensionador', async ({ page }) => {
     // `/por-defecto/*` son estáticos de Next, NO objetos de Storage: pedirlos
     // por `render/image` devuelve 404 y la alumna se queda con un hueco negro.
-    await sembrarSociaCompleta(page, { bono: 5 });
+    await sembrarSociaCompleta(page, { bono: 5, reservada: true });
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(2200);
 
-    const src = await page.locator('section img').first().getAttribute('src');
+    const src = await page.getByTestId('clase-del-momento').locator('img').first().getAttribute('src');
     expect(src).toContain('/por-defecto/');
     expect(src).not.toContain('render/image');
     expect(src).not.toContain('width=');

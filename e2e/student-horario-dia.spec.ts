@@ -109,30 +109,41 @@ test.describe('Student PWA · horario: el día y los filtros', () => {
     ]));
     await abrir(page, '/reservar?q=reformer');
     await expect(page.getByTestId('aviso-salto')).toHaveCount(0);
-    await expect(page.getByText(/· todo el horario/)).toBeVisible();
+    await expect(page.getByText(/en todo el horario/)).toBeVisible();
   });
+
+  // La franja, la sala y el buscador viven en la hoja de filtros (maqueta de oct-2026).
+  const abrirFiltros = async (page: Page) => {
+    await page.getByTestId('abrir-filtros').click();
+    await expect(page.getByRole('dialog', { name: 'Filtros' })).toBeVisible();
+  };
+  const cerrarFiltros = (page: Page) => page.getByRole('button', { name: /^Ver \d+ clases?$/ }).click();
 
   const dosSalas = (f: Fixture) => {
     f.salas = [{ id: 'sala-1', studioId: 'studio-test', nombre: 'Sala Sol', capacidad: 10 }, { id: 'sala-2', studioId: 'studio-test', nombre: 'Sala Luna', capacidad: 10 }];
     conSesiones(f, [{ id: 'ses-10', hora: '10:00' }, { id: 'ses-l', hora: '11:00', salaId: 'sala-2' }, { id: 'ses-t', hora: '18:00' }]);
   };
 
-  test('con dos salas: «Sala ▾» filtra, lo dice y se recuerda al recargar', async ({ page }) => {
+  test('con dos salas: la sala se elige en la hoja de filtros, filtra y se recuerda al recargar', async ({ page }) => {
     await montar(page, '2026-08-12T08:00:00+02:00', dosSalas);
     await abrir(page);
-    await page.getByTestId('filtro-sala').click();
-    await page.locator('[role="dialog"]').last().getByRole('button', { name: 'Sala Luna' }).click();
-    await expect(page.getByTestId('filtro-sala')).toContainText('Sala Luna');
+    await abrirFiltros(page);
+    await page.getByTestId('filtro-sala').getByRole('button', { name: 'Sala Luna' }).click();
+    await cerrarFiltros(page);
     await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(1);
+    // El botón de filtros dice que hay uno puesto.
+    await expect(page.getByTestId('abrir-filtros')).toHaveAccessibleName(/1 activo/);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('filtro-sala')).toContainText('Sala Luna', { timeout: 45_000 });
-    await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(1, { timeout: 45_000 });
+    await abrirFiltros(page);
+    await expect(page.getByTestId('filtro-sala').getByRole('button', { name: 'Sala Luna' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('con una sola sala no hay «Sala ▾», y una sala recordada no filtra', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('alumna:tentare:horario-filtros', JSON.stringify({ franja: 'todo', sala: 'sala-2' })));
     await montar(page, '2026-08-12T08:00:00+02:00', (f) => conSesiones(f, [{ id: 'ses-10', hora: '10:00' }, { id: 'ses-t', hora: '18:00' }]));
     await abrir(page);
+    await abrirFiltros(page);
     await expect(page.getByTestId('filtro-sala')).toHaveCount(0);
     await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(2);
   });
@@ -152,6 +163,7 @@ test.describe('Student PWA · horario: el día y los filtros', () => {
   test('Mañanas y Tardes cortan a las 14:00', async ({ page }) => {
     await montar(page, '2026-08-12T08:00:00+02:00', (f) => conSesiones(f, [{ id: 'ses-10', hora: '13:30' }, { id: 'ses-t', hora: '14:00' }]));
     await abrir(page);
+    await abrirFiltros(page);
     await page.getByRole('button', { name: 'Mañanas' }).click();
     await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="fila-horario"]')).toContainText('13:30');
@@ -162,12 +174,14 @@ test.describe('Student PWA · horario: el día y los filtros', () => {
   test('vacío con sala y franja: lo dice con sus palabras, y «Quitar filtro» lo quita todo', async ({ page }) => {
     await montar(page, '2026-08-12T08:00:00+02:00', dosSalas);
     await abrir(page);
-    await page.getByTestId('filtro-sala').click();
-    await page.locator('[role="dialog"]').last().getByRole('button', { name: 'Sala Luna' }).click();
+    await abrirFiltros(page);
+    await page.getByTestId('filtro-sala').getByRole('button', { name: 'Sala Luna' }).click();
     await page.getByRole('button', { name: 'Tardes' }).click();
+    await cerrarFiltros(page);
     await expect(page.getByText('No hay clases en Sala Luna por la tarde este día')).toBeVisible();
     await page.getByRole('button', { name: 'Quitar filtro' }).click();
     await expect(page.locator('[data-testid="fila-horario"]')).toHaveCount(3);
+    await abrirFiltros(page);
     await expect(page.getByRole('button', { name: 'Todo el día' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

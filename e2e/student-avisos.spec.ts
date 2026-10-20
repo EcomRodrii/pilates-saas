@@ -237,7 +237,7 @@ test.describe('App de iOS · botón «Aceptar la plaza» del aviso', () => {
 
     // Mis clases abierta: lo que tiene en pantalla (y en el catálogo, que vive 60 s) es la reserva en espera SIN oferta.
     await page.goto(`${base}/mis-reservas`);
-    await expect(page.getByRole('heading', { name: 'Mis clases' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Actividad' })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText('Lista de espera · 1ª')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /Aceptar/ })).toHaveCount(0);
     const lecturasConLaCopia = servidor.lecturas;

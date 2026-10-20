@@ -636,7 +636,7 @@ export async function fetchAforoPublico(slug: string): Promise<
   const [{ data: aforoReservas, error: errAforo }, aforoApartadas] = await Promise.all([
     fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to)),
+        .eq('studio_id', studioId).in('sesion_id', sesionIds).order('id').range(from, to)),
     aforoApartadasDe(admin as never, studioId, sesionIds),
   ]);
   exigirLectura(errAforo, 'leyendo el aforo de las clases');
@@ -1106,14 +1106,14 @@ export async function fetchPublicStudioData(
   // ids resueltos primero.
   const { data: sesionesData, error: errSesiones } = await fetchAllRows(studioId, 'sesiones', (from, to) =>
     admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id')
-      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).range(from, to));
+      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).order('id').range(from, to));
   if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
   const sesionIdsVigentes = (sesionesData ?? []).map(s => s.id as string);
   const { data: reservasAforo, error: errReservas } = sesionIdsVigentes.length === 0
     ? { data: [] as { id: string; sesion_id: string; estado: string; spot_id: string | null }[], error: null }
     : await fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).range(from, to));
+        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).order('id').range(from, to));
   // Mismo criterio que el catálogo: un horario o un aforo truncados por un
   // fallo no se sirven como si fueran completos.
   if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);

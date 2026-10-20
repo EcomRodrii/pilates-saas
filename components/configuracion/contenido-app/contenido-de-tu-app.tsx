@@ -528,7 +528,7 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
       <div>
         <h3 className="text-[20px] font-semibold tracking-tight text-foreground">Un mensaje para todas tus alumnas</h3>
         <p className="max-w-[56ch] text-[13.5px] text-muted-foreground">
-          Sale arriba en el inicio de su app, justo debajo de la foto de portada, mientras tenga texto. Para algo puntual: un cierre, un cambio de horario, una bienvenida.
+          Sale arriba en el inicio de su app, justo debajo de su próxima clase, mientras tenga texto. Para algo puntual: un cierre, un cambio de horario, una bienvenida.
         </p>
       </div>
       <Bloque titulo="El mensaje">
@@ -715,8 +715,8 @@ export function ContenidoDeTuApp() {
   }) : [];
   const mensajeEnVista = pildora === 'mensaje' ? mensajeParaLaApp(borrador) : mensajeGuardado;
   const pie = pildora === 'mensaje'
-    ? (mensajeParaLaApp(borrador) !== mensajeGuardado ? 'Así quedará al guardarlo: arriba, debajo de la foto de portada.' : 'El mensaje, arriba, debajo de la foto de portada.')
-    : 'Tus tarjetas, debajo de su próxima clase. Las ocultas y las que no tienen foto no salen.';
+    ? (mensajeParaLaApp(borrador) !== mensajeGuardado ? 'Así quedará al guardarlo: arriba, debajo de su próxima clase.' : 'El mensaje, arriba, debajo de su próxima clase.')
+    : 'Tus tarjetas, al final de su pantalla de inicio. Las ocultas y las que no tienen foto no salen.';
 
   // En la hoja del móvil, cerrar va donde estaba «abrir su app» (arriba ya está «Ver mi app»).
   const panelVista = (cerrar?: () => void) => (
