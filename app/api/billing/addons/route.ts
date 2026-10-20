@@ -86,13 +86,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (activar && !linea) {
+      // Sin clave de idempotencia a propósito. Una clave atada a las líneas leídas
+      // (o al minuto) repite la MISMA clave en activar → quitar → activar, porque
+      // las líneas vuelven a ser las de la primera vez, y Stripe devolvía la
+      // respuesta guardada de entonces SIN crear la línea (medido el 20-oct-2026:
+      // «No se ha podido aplicar el cambio» durante 24 h). Un doble clic no puede
+      // duplicar: el cerrojo de arriba serializa las peticiones y cada una vuelve
+      // a leer las líneas antes de crear (`!linea`). Un reintento de red del SDK
+      // lleva su propia clave, que Stripe resuelve.
       await stripe.subscriptionItems.create(
         { subscription: subId, price, quantity: 1, proration_behavior: 'create_prorations' },
-        // La clave va atada a las líneas que había al leer: un doble clic no
-        // crea dos líneas, y activar → quitar → activar no reutiliza una
-        // respuesta guardada (con una clave por minuto, Stripe devolvía la del
-        // primer intento sin crear nada).
-        { idempotencyKey: `addon-${subId}-${addon}-on-${lineas.map((l) => l.id).sort().join('.')}` },
       );
     } else if (!activar && linea) {
       await stripe.subscriptionItems.del(linea.id, { proration_behavior: 'create_prorations' });
