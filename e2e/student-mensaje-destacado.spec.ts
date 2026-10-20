@@ -18,7 +18,7 @@ test.describe('Student PWA · mensaje destacado', () => {
   test('sin mensaje no hay franja: ni un hueco vacío', async ({ page }) => {
     await sembrarSociaCompleta(page);
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await expect(page.getByRole('searchbox', { name: 'Buscar clases o instructoras' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('navigation', { name: 'Accesos rápidos' })).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(1000);
     await expect(page.getByTestId('mensaje-destacado')).toHaveCount(0);
   });

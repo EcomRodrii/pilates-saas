@@ -3,7 +3,7 @@ import type { Reserva, Sesion } from '@/lib/types';
 // con `node --test --experimental-strip-types`, que no resuelve el alias en
 // un import de VALOR (el de arriba es `import type`, se borra al compilar y
 // por eso nunca dio problema). Ver alias-arroba-oculta-tests-node-test.md.
-import { claveSemanaEstudio } from '../utils.ts';
+import { claveSemanaEstudio, hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 
 export interface RachaInfo {
   semanas: number;
@@ -26,17 +26,10 @@ export interface RachaInfo {
   esMejor: boolean;
 }
 
-function lunesDe(d: Date): Date {
-  const copia = new Date(d);
-  const diaSemana = (copia.getDay() + 6) % 7; // 0 = lunes
-  copia.setDate(copia.getDate() - diaSemana);
-  copia.setHours(0, 0, 0, 0);
-  return copia;
-}
-
-function claveSemana(lunes: Date): string {
-  return lunes.toISOString().slice(0, 10);
-}
+// La semana (lunes a domingo) y el mes son los del ESTUDIO, nunca los del
+// runtime: el servidor corre en UTC y una clase del lunes a las 00:30 de Madrid
+// caía en la semana anterior (y la del día 1, en el mes anterior). Todas las
+// claves son 'YYYY-MM-DD' del lunes, y el salto de semana es `masDias(…, 7)`.
 
 export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date): RachaInfo {
   // P0-22: Map por id en vez de .find() lineal por cada reserva (O(reservas)).
@@ -47,22 +40,20 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
     .filter((s): s is Sesion => !!s)
     .map(s => new Date(s.inicio));
 
-  const lunesActual = lunesDe(now);
-  const claveActual = claveSemana(lunesActual);
-  const unaSemanaMs = 7 * 86400000;
+  const claveActual = claveSemanaEstudio(now);
 
   if (asistidas.length === 0) {
     return { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: claveActual, esMejor: false };
   }
 
-  const semanasConClase = new Set(asistidas.map(d => claveSemana(lunesDe(d))));
+  const semanasConClase = new Set(asistidas.map(d => claveSemanaEstudio(d)));
   const estaSemanaTieneClase = semanasConClase.has(claveActual);
 
   let racha = 0;
-  let cursor = estaSemanaTieneClase ? lunesActual.getTime() : lunesActual.getTime() - unaSemanaMs;
-  while (semanasConClase.has(claveSemana(new Date(cursor)))) {
+  let cursor = estaSemanaTieneClase ? claveActual : masDias(claveActual, -7);
+  while (semanasConClase.has(cursor)) {
     racha++;
-    cursor -= unaSemanaMs;
+    cursor = masDias(cursor, -7);
   }
 
   // En riesgo: hay racha de semanas anteriores pero esta semana aún no ha
@@ -70,16 +61,16 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
   const enRiesgo = racha > 0 && !estaSemanaTieneClase;
   let diasParaPerder: number | null = null;
   if (enRiesgo) {
-    const finDeSemana = new Date(lunesActual.getTime() + 6 * 86400000);
-    finDeSemana.setHours(23, 59, 59, 999);
-    diasParaPerder = Math.max(0, Math.ceil((finDeSemana.getTime() - now.getTime()) / 86400000));
+    // Fin de la semana: el domingo a las 23:59:59.999 de Madrid = un
+    // milisegundo antes de que empiece el lunes siguiente.
+    const finDeSemana = new Date(inicioDelDiaEstudio(masDias(claveActual, 7))).getTime() - 1;
+    diasParaPerder = Math.max(0, Math.ceil((finDeSemana - now.getTime()) / 86400000));
   }
 
   // ¿Es su mejor marca? Se recorre el historial ordenado contando tramos
   // seguidos. Las claves son 'YYYY-MM-DD', así que ordenan bien como texto.
   const todas = [...semanasConClase].sort();
-  const previaDe = (clave: string) =>
-    claveSemana(new Date(new Date(clave + 'T12:00:00Z').getTime() - unaSemanaMs));
+  const previaDe = (clave: string) => masDias(clave, -7);
   let mejor = 0, tramo = 0, previa: string | null = null;
   for (const semana of todas) {
     tramo = previa !== null && previaDe(semana) === previa ? tramo + 1 : 1;
@@ -92,13 +83,10 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
     semanas: racha,
     enRiesgo,
     diasParaPerder,
-    // `claveActual` (arriba) usa el reloj/huso del RUNTIME y solo vale para
-    // el bucketing interno de esta función (qué semanas tienen clase). El
-    // campo expuesto, en cambio, es lo que panel y kiosko usan como `ref_id`
-    // de "semana completa" — ahí SÍ importa que ambos den la misma clave para
-    // la misma semana real, así que se ancla a la hora del estudio, no a la
-    // del entorno donde corre cada uno (I-4, auditoría 2026-09-10).
-    claveSemanaActual: claveSemanaEstudio(now),
+    // Lo que panel y kiosko usan como `ref_id` de "semana completa": ambos
+    // tienen que dar la misma clave para la misma semana real (I-4, auditoría
+    // 2026-09-10), y es la misma con la que se agrupan las clases arriba.
+    claveSemanaActual: claveActual,
     esMejor: racha > 0 && racha >= mejor,
   };
 }
@@ -107,12 +95,11 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
  * Clave del mes en curso, formato YYYY-MM -- usada como sufijo del ref_id
  * de OBJETIVO_MENSUAL (socioId:YYYY-MM), mismo principio que
  * claveSemanaActual arriba: la RPC vuelve a derivarla y comparar, asi que
- * el formato tiene que coincidir byte a byte con to_char(current_date,
- * YYYY-MM) en SQL.
+ * el formato tiene que coincidir byte a byte con to_char(hoy_estudio(),
+ * YYYY-MM) en SQL: los dos miran el día del estudio (Madrid).
  */
 export function claveMesActual(now: Date): string {
-  const mes = String(now.getMonth() + 1).padStart(2, '0');
-  return now.getFullYear() + '-' + mes;
+  return hoyEnEstudio(now).slice(0, 7);
 }
 
 /**
@@ -127,14 +114,13 @@ export function objetivoMensualAlcanzado(
 ): boolean {
   if (!objetivoClasesMes || objetivoClasesMes < 1) return false;
   const sesionById = new Map(sesiones.map(s => [s.id, s]));
-  const anio = now.getFullYear();
-  const mes = now.getMonth();
+  const mesActual = claveMesActual(now);
   let hechas = 0;
   for (const r of reservas) {
     const s = sesionById.get(r.sesionId);
     if (!s) continue;
     const inicio = new Date(s.inicio);
-    if (inicio.getFullYear() !== anio || inicio.getMonth() !== mes) continue;
+    if (claveMesActual(inicio) !== mesActual) continue;
     const hecha = r.estado === 'ASISTIDA' || (r.estado === 'CONFIRMADA' && inicio < now);
     if (hecha) hechas++;
   }

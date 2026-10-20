@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Lock, RotateCcw } from 'lucide-react';
 import { SALIDAS } from './enlaces';
+import { BotonBloque } from './BotonBloque';
 
 // «Tu estudio, en el móvil de cada alumna» — bloque 04 del rediseño (23-sep).
 //
@@ -180,6 +181,9 @@ export function SeccionReservas() {
             <Link href={SALIDAS.widget.href} className="v5-res-salida">{SALIDAS.widget.label} →</Link>
           </div>
         </div>
+
+        {/* Un botón por bloque de beneficio (ronda 3). */}
+        <div className="lp-cierre-bloque"><BotonBloque /></div>
       </div>
 
       <style>{`

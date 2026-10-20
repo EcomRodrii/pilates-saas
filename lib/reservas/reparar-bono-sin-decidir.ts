@@ -49,7 +49,7 @@ export async function repararBonosSinDecidir(): Promise<ResumenReparacionBonos> 
       .eq('bono_consumo_rastreado', true)
       .is('bono_decidido_en', null)
       .lt('creado_en', corte)
-      .range(from, to),
+      .order('id').range(from, to),
   );
   exigirLectura(error, 'leyendo reservas con bono sin decidir');
   if (!candidatas.length) return { candidatas: 0, reparadas: 0, siguenSinDecidir: [] };

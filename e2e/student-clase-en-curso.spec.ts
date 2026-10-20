@@ -44,7 +44,7 @@ const badgeEnCurso = (page: Page) => page.getByTestId('badge-en-curso');
 // ⚠️ La REGIÓN, no el texto. Desde que el estado vacío de Inicio se rediseñó,
 // «Tu próxima clase» también se lee cuando NO hay ninguna —es el rótulo de la
 // tarjeta vacía, como en la maqueta—, así que buscar ese texto ya no distingue
-// «hay clase» de «no hay». Lo que sí distingue es la tarjeta: `NextClassCard`
+// «hay clase» de «no hay». Lo que sí distingue es la tarjeta: `TarjetaProximaClase`
 // se anuncia como región con ese nombre y el estado vacío no se anuncia.
 const rotuloProxima = (page: Page) => page.getByRole('region', { name: 'Tu próxima clase' });
 const rotuloEnCurso = (page: Page) => page.getByText(/^Tu clase, en curso$/);

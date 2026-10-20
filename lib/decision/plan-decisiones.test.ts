@@ -36,7 +36,8 @@ test('bloqueoDelPlan: si no se ha podido leer el estudio, un 500 para reintentar
 
 test('bloqueoPorPlan lee el plan del estudio de la sesión y responde lo que dice bloqueoDelPlan', () => {
   const src = sinComentarios(leer('lib/decision/plan-servidor.ts'));
-  assert.match(src, /\.from\('studios'\)\.select\('plan, subscription_status'\)\.eq\('id', studioId\)\.maybeSingle\(\)/);
+  // Con COLUMNAS_PLAN: sin las columnas de complementos, un Founding nuevo pasaría como el de siempre.
+  assert.match(src, /\.from\('studios'\)\.select\(COLUMNAS_PLAN\)\.eq\('id', studioId\)\.maybeSingle\(\)/);
   assert.match(src, /const bloqueo = bloqueoDelPlan\(data, !!error\);/);
   assert.match(src, /NextResponse\.json\(\{ error: bloqueo\.error \}, \{ status: bloqueo\.status \}\)/);
 });
@@ -80,7 +81,7 @@ test('ninguna ruta de /api/decisiones se queda sin comprobar el plan', () => {
   for (const ruta of rutas) {
     const src = sinComentarios(leer(ruta));
     const conAyudante = /await bloqueoPorPlan\(sesion\.studioId\)/.test(src);
-    const aMano = /tieneFeature\([^)]*'decisiones'\)/.test(src);
+    const aMano = /tieneFeature\(.*'decisiones'\)/.test(src);
     // El sondeo de «Analizar ahora» lee el plan en su única consulta y aplica la mitad pura.
     const enSuConsulta = /bloqueoDelPlan\(data, !!error\)/.test(src);
     assert.ok(conAyudante || aMano || enSuConsulta, `${ruta}: no comprueba que el plan incluya el Centro de Control`);
@@ -90,7 +91,7 @@ test('ninguna ruta de /api/decisiones se queda sin comprobar el plan', () => {
 test('el sondeo de «Analizar ahora»: rol, y el plan del estudio de la sesión en su única consulta', () => {
   const src = sinComentarios(leer('app/api/decisiones/analisis-en-curso/route.ts'));
   assert.match(src, /if \(sesion\.rol !== 'PROPIETARIO'\) return NextResponse\.json\(\{ error: 'No autorizado' \}, \{ status: 403 \}\);/);
-  assert.match(src, /\.select\('plan, subscription_status, decision_sessions\(id\)'\)\s*\.eq\('id', sesion\.studioId\)\s*\.eq\('decision_sessions\.studio_id', sesion\.studioId\)/);
+  assert.match(src, /\.select\(`\$\{COLUMNAS_PLAN\}, decision_sessions\(id\)`\)\s*\.eq\('id', sesion\.studioId\)\s*\.eq\('decision_sessions\.studio_id', sesion\.studioId\)/);
   // Antes de contestar nada sobre las sesiones, la puerta del plan.
   assert.ok(src.indexOf('bloqueoDelPlan(data, !!error)') < src.indexOf('analisisEnCurso:'));
   // Una sola consulta.

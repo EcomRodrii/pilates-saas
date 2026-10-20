@@ -48,7 +48,7 @@ import { COLUMNAS_EXTRA, claveColumnas, guardarColumnas, leerColumnas, type Colu
 import { SelectorColumnas } from '@/components/clientas/selector-columnas';
 import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, mesYAnio, textoDesde } from '@/lib/clientas/textos';
 import { PastillaAviso, PastillaEstado, PastillaSeguimiento, PuntoEstado } from '@/components/clientas/piezas';
-import { FichaClienta } from '@/components/clientas/ficha-clienta';
+import dynamic from 'next/dynamic';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import { InteresadasYPruebas } from '@/components/clientas/interesadas-y-pruebas';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -66,6 +66,27 @@ import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
 import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import { CifrasClientas, type CifraClientas } from '@/components/clientas/cifras-clientas';
+
+// La ficha de la clienta solo se pinta al abrir una (panel al lado de la lista, pantallas
+// anchas): ~65 KB gz que no hacen falta para ver la lista. `ssr: false` porque el panel solo
+// sale tras medir el ancho en el navegador. El esqueleto reserva el alto de la ficha para que
+// la columna no salte al llegar el chunk.
+const FichaClienta = dynamic(() => import('@/components/clientas/ficha-clienta').then(m => m.FichaClienta), {
+  ssr: false,
+  loading: () => (
+    <div role="status" aria-busy="true" aria-label="Cargando la ficha…" className="min-h-[640px] space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="size-14 animate-pulse rounded-full bg-foreground/10" aria-hidden="true" />
+        <div className="space-y-2">
+          <div className="h-5 w-48 animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+          <div className="h-4 w-32 animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="h-32 w-full animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+      <div className="h-64 w-full animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+    </div>
+  ),
+});
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =

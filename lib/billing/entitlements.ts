@@ -57,13 +57,15 @@ export interface Entitlements {
 export const CONSULTAS_ASISTENTE_PRUEBA = 30;
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
-  // Founding Studio (de pago, 29 €): lo mismo que el gratis, todo menos varias
-  // sedes y la app propia, y sin tope de alumnas (decisión del fundador,
-  // 15-oct-2026: al pasar cualquiera de los dos límites del gratis se paga esto
-  // y se sigue igual; ver plan-gratis.ts).
+  // Founding Studio (de pago, 29 €) para quien empieza a pagarlo desde el
+  // 19-oct-2026: el núcleo, sin varias sedes ni la app propia, y sin tope de
+  // alumnas. El Centro de Control, las sustituciones automáticas y la IA de
+  // redacción van aparte, como complementos de pago (`ADDONS`, decisión del
+  // fundador). ⚠️ Quien ya pagaba Founding antes conserva todo: eso lo decide
+  // `entitlementsDe` con `regimenAddons` (BASE_COMPLETO), no esta tabla.
   BASE: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: false },
+    features: { gamificacion: true, marketing: true, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true, appPropia: false },
     consultasAsistenteMes: 50,
   },
   ESTUDIO: {
@@ -93,6 +95,109 @@ export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resume
 };
 
 export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
+
+/**
+ * Founding Studio tal como era hasta el 19-oct-2026: todo menos varias sedes y
+ * la app propia. Es lo que tienen quien ya lo pagaba antes de los complementos
+ * (lo conservan sin pagar más, decisión del fundador), quien está en la prueba
+ * gratuita y quien no ha pasado por el checkout nuevo (`regimenAddons` falso).
+ */
+export const BASE_COMPLETO: Entitlements = {
+  ...PLAN_ENTITLEMENTS.BASE,
+  features: { ...PLAN_ENTITLEMENTS.BASE.features, ia: true, decisiones: true, sustitucionesAutonomas: true },
+};
+
+// ─── Complementos (add-ons) de Founding Studio ───────────────────────────────
+// Decisión del fundador (19-oct-2026): sobre los 29 € de Founding se contratan
+// por meses, cada uno como una línea más de la misma suscripción de Stripe
+// (29 + 6 = 35 €/mes). Estudio y Cadena ya los traen todos. El gratis también
+// los trae; al pasar a pagar Founding, se quedan fuera hasta contratarlos.
+// ⚠️ El id es lo que se guarda en `studios.addons` (CHECK en la migración) y
+// lo que mapea `STRIPE_PRICE_ADDON_*`: no se renombra.
+export type Addon = 'decisiones' | 'sustituciones' | 'ia';
+
+export interface InfoAddon {
+  nombre: string;
+  precioMes: number;
+  resumen: string;
+  /** Qué features enciende. */
+  features: ReadonlyArray<keyof Entitlements['features']>;
+}
+
+export const ADDONS: Record<Addon, InfoAddon> = {
+  decisiones: {
+    nombre: 'Centro de Control', precioMes: 9,
+    resumen: 'Un solo aviso al día con lo que merece tu atención, y el piloto automático.',
+    features: ['decisiones'],
+  },
+  sustituciones: {
+    nombre: 'Sustituciones automáticas', precioMes: 6,
+    resumen: 'Busca sustituta, avisa y cierra la sustitución sin ti (modos Autónomo y Vacaciones).',
+    features: ['sustitucionesAutonomas'],
+  },
+  ia: {
+    nombre: 'Redacción con IA', precioMes: 9,
+    resumen: 'Notas de sesión, campañas y los mensajes de tus automatizaciones redactados con IA.',
+    features: ['ia'],
+  },
+};
+
+export const LISTA_ADDONS: Addon[] = ['decisiones', 'sustituciones', 'ia'];
+
+export function esAddon(x: unknown): x is Addon {
+  return typeof x === 'string' && (LISTA_ADDONS as string[]).includes(x);
+}
+
+/** El complemento que da esta feature, si es de las que se contratan aparte. */
+export function addonDeFeature(feature: keyof Entitlements['features']): Addon | null {
+  return LISTA_ADDONS.find((a) => ADDONS[a].features.includes(feature)) ?? null;
+}
+
+/**
+ * Lo que un estudio necesita para decidir sus features. `regimenAddons` y
+ * `addons` son opcionales A PROPÓSITO: quien no los lee (una consulta que no
+ * pide esas columnas) cae en el Founding completo de siempre. Es el fallo
+ * menos malo: regalar un complemento antes que quitarle a quien paga lo que
+ * ya tenía. Las puertas de los tres complementos SÍ los leen (lo vigila
+ * `lib/billing/addons-puertas.test.ts`).
+ */
+export interface EstudioConPlan {
+  plan?: string | null;
+  subscriptionStatus?: string | null;
+  /** `studios.regimen_addons`: pagó Founding por el checkout nuevo. */
+  regimenAddons?: boolean | null;
+  /** `studios.addons`: complementos contratados (los escribe el webhook). */
+  addons?: readonly string[] | null;
+}
+
+/** Columnas de `studios` que hacen falta para `entitlementsDe` / `tieneFeature`. */
+export const COLUMNAS_PLAN = 'plan, subscription_status, regimen_addons, addons';
+
+/** Fila de `studios` (con COLUMNAS_PLAN) → lo que espera `tieneFeature`. */
+export function planDeFila(fila: { plan?: string | null; subscription_status?: string | null; regimen_addons?: boolean | null; addons?: readonly string[] | null } | null | undefined): EstudioConPlan {
+  return {
+    plan: fila?.plan ?? null,
+    subscriptionStatus: fila?.subscription_status ?? null,
+    regimenAddons: fila?.regimen_addons ?? null,
+    addons: fila?.addons ?? null,
+  };
+}
+
+/** ¿Este estudio paga los complementos aparte (Founding con régimen nuevo)? */
+export function pagaAddonsAparte(studio: EstudioConPlan): boolean {
+  if (studio.subscriptionStatus === 'gratis' || studio.subscriptionStatus === 'gratis_cerrado') return false;
+  return planDe(studio) === 'BASE' && studio.regimenAddons === true;
+}
+
+/** Lo que paga al mes: el plan más sus complementos (IVA incluido, como los precios). */
+export function precioMensual(plan: Plan, addons: readonly string[]): number {
+  return PLAN_INFO[plan].precioMes + LISTA_ADDONS.filter((a) => addons.includes(a)).reduce((t, a) => t + ADDONS[a].precioMes, 0);
+}
+
+/** Complementos contratados y válidos (lo que no es un id conocido, fuera). */
+export function addonsDe(studio: EstudioConPlan): Addon[] {
+  return LISTA_ADDONS.filter((a) => (studio.addons ?? []).includes(a));
+}
 
 /**
  * Founding Studio GRATIS (decisión del fundador, 15-oct-2026; reglas en
@@ -143,15 +248,24 @@ function planDe(studio: { plan?: string | null }): Plan {
   return p === 'ESTUDIO' || p === 'CADENA' ? p : 'BASE';
 }
 
-/** Entitlements efectivos del estudio (según su plan, o el gratis si lo es). */
-export function entitlementsDe(studio: { plan?: string | null; subscriptionStatus?: string | null }): Entitlements {
+/**
+ * Entitlements efectivos del estudio: el gratis si lo es; Estudio y Cadena,
+ * los de su plan; Founding, el de siempre (BASE_COMPLETO) salvo que lo pague
+ * con el régimen de complementos, y entonces el núcleo más lo contratado.
+ */
+export function entitlementsDe(studio: EstudioConPlan): Entitlements {
   if (studio.subscriptionStatus === 'gratis' || studio.subscriptionStatus === 'gratis_cerrado') return ENTITLEMENTS_GRATIS;
-  return PLAN_ENTITLEMENTS[planDe(studio)];
+  const plan = planDe(studio);
+  if (plan !== 'BASE') return PLAN_ENTITLEMENTS[plan];
+  if (!pagaAddonsAparte(studio)) return BASE_COMPLETO;
+  const features = { ...PLAN_ENTITLEMENTS.BASE.features };
+  for (const a of addonsDe(studio)) for (const f of ADDONS[a].features) features[f] = true;
+  return { ...PLAN_ENTITLEMENTS.BASE, features };
 }
 
 /** ¿El estudio tiene acceso a una feature concreta (y suscripción activa)? */
 export function tieneFeature(
-  studio: { plan?: string | null; subscriptionStatus?: string | null },
+  studio: EstudioConPlan,
   feature: keyof Entitlements['features'],
 ): boolean {
   return accesoProducto(studio) && entitlementsDe(studio).features[feature];
