@@ -25,7 +25,8 @@ import { test, expect, type Page } from '@playwright/test';
 
 const DESTINO = '/soluciones/cambiar-de-software';
 const ENTRADA = 'Cambiarme a Tentare';
-const BOTON_HEROE = 'Traer mis datos de otro programa';
+// Home nueva (fase 2.2): el héroe dice lo mismo que la isla (lo pidió el fundador).
+const BOTON_HEROE = 'Cambiarme a Tentare';
 
 const isla = (page: Page) => page.locator('nav.v5-nav');
 
@@ -152,8 +153,8 @@ test.describe('«Cambiarme a Tentare» — escritorio', () => {
     const bs = (await secundario.boundingBox())!;
     expect(bs.y + bs.height).toBeGreaterThan(bp.y);
     expect(bs.width * bs.height).toBeLessThan(bp.width * bp.height * 2.5);
-    // Nada de mosaico: el principal, este y el enlace de «Ver cómo funciona». Ni uno más.
-    expect(await heroe.locator('.v5-hero-acciones > a').count()).toBe(3);
+    // Nada de mosaico: el principal y este, como en Mariana Tek. Ni uno más (el vídeo pasó a la sección de producto).
+    expect(await heroe.locator('.v5-hero-acciones > a').count()).toBe(2);
   });
 
   // Hasta la fase 2.1 (19-oct-2026) la entrada salía entre 761 y 1000 px. La isla

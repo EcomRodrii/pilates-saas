@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La portada enlaza las guías de /recursos (components/landing/SeccionGuias).
+// La portada enlaza las guías de /recursos (components/web/home/GuiasHome; antes SeccionGuias).
+// Desde la home nueva (fase 2.2) son TRES destacadas, como la banda de bsport, más «Ver todas».
 //  · Las seis guías y «Ver todas» están en el HTML del SERVIDOR: es lo que
 //    rastrea Google, y la portada es la página con más autoridad del dominio.
 //  · Y el texto de los artículos NO viaja en el JavaScript de la home ni del
@@ -12,14 +13,14 @@ import { test, expect } from '@playwright/test';
 
 test.setTimeout(180_000);
 
-test('la portada enlaza seis guías y el listado, en el HTML del servidor', async ({ request }) => {
+test('la portada enlaza tres guías y el listado, en el HTML del servidor', async ({ request }) => {
   const res = await request.get('/');
   expect(res.status()).toBe(200);
   const html = await res.text();
   const seccion = html.slice(html.indexOf('id="guias"'));
   expect(html).toContain('id="guias"');
   const enlaces = [...seccion.matchAll(/href="(\/recursos\/[a-z0-9-]+)"/g)].map((m) => m[1]);
-  expect(new Set(enlaces).size).toBeGreaterThanOrEqual(6);
+  expect(new Set(enlaces).size).toBeGreaterThanOrEqual(3);
   expect(seccion).toContain('href="/recursos"');
 });
 

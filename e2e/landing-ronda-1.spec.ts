@@ -89,7 +89,8 @@ async function abrirLanding(page: Page, ancho: number) {
 
 test('el bento: cada tarjeta lleva a su página de función o solución, todas distintas y todas responden', async ({ page, request }) => {
   await abrirLanding(page, 1440);
-  const enlaces = await page.locator('#plataforma .bn-h3 a').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
+  // Home nueva (fase 2.2): el bento es BentoProducto (clases `wh-bn-*`).
+  const enlaces = await page.locator('#plataforma .wh-bn-h3 a').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
   expect(enlaces).toHaveLength(6);
   expect(new Set(enlaces).size).toBe(6);
   for (const href of enlaces as string[]) {
@@ -98,8 +99,9 @@ test('el bento: cada tarjeta lleva a su página de función o solución, todas d
     const res = await request.get(href, { timeout: 120_000 });
     expect(res.status(), href).toBe(200);
   }
-  const mas = await page.locator('#plataforma .bn-mas-nav a').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
-  expect(mas.length).toBeGreaterThanOrEqual(5);
+  // La fila «Seguir explorando» salió con la home nueva: ahora cada chip enlaza a su función (más que bsport, que no enlaza ninguno).
+  const mas = await page.locator('#plataforma .wh-chip-enlace a').evaluateAll((as) => [...new Set(as.map((a) => (a as HTMLAnchorElement).getAttribute('href')))]);
+  expect(mas.length).toBeGreaterThanOrEqual(10);
   for (const href of mas as string[]) {
     const res = await request.get(href, { timeout: 120_000 });
     expect(res.status(), href).toBe(200);
@@ -109,8 +111,9 @@ test('el bento: cada tarjeta lleva a su página de función o solución, todas d
 test('un solo verbo para empezar: héroe, banda final y planes dicen «Empezar gratis»; la isla (ronda 2) también', async ({ page }) => {
   await abrirLanding(page, 1440);
   await expect(page.locator('.v5-hero-cta')).toHaveText('Empezar gratis');
-  await expect(page.locator('.v5-cta-boton')).toHaveText('Empezar gratis');
-  await expect(page.locator('.v5-pre-cta').first()).toHaveText('Empezar gratis');
+  // Home nueva (fase 2.2): la banda final es CierreHome y los planes, PrecioHome.
+  await expect(page.locator('.wh-cierre-boton')).toHaveText('Empezar gratis');
+  await expect(page.locator('.wh-plan-cta').first()).toHaveText('Empezar gratis');
   // La isla (ronda 2, con autorización expresa del fundador para tocar la cabecera) dice lo mismo: «Probar Tentare»
   // arrastraba el aire de la prueba de 7 días, que ya no existe.
   await expect(page.locator('.v5-nav-cta')).toHaveText('Empezar gratis');

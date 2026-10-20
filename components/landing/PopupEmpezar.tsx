@@ -27,7 +27,7 @@ import {
 //    la home rediseñada era justo el bloque de la app de la alumna: el
 //    producto, interrumpido por un anuncio del producto.
 //  · No se enseña si ya está a punto de convertir por su cuenta — el pie de la
-//    página ya tiene su propio CTA grande (SeccionCtaFinal), y saltarle un
+//    página ya tiene su propio CTA grande (CierreHome, `data-cta-final`), y saltarle un
 //    modal justo ahí es interrumpir a quien iba a pulsar.
 //  · Las reglas de repetición (una por sesión, silencio de 30 días al cerrar,
 //    3 como máximo, nunca más si convierte) viven en lib/landing/popup-frecuencia.ts.

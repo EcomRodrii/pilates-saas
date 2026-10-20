@@ -116,7 +116,8 @@ test('vacío = lista vacía (sin franja)', () => {
 
 test('marquesina desde 7 logos; con menos, fila', () => {
   assert.equal(usaMarquesina(0), false);
-  assert.equal(usaMarquesina(6), false);
+  assert.equal(usaMarquesina(1), true);
+  assert.equal(usaMarquesina(5), true);
   assert.equal(usaMarquesina(7), true);
   assert.equal(usaMarquesina(12), true);
 });

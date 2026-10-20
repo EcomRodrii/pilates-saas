@@ -65,3 +65,10 @@ export const miWebNuevaEncendida = (studioId: string) => encendidaPara(process.e
  * siempre, sin tocar nada.
  */
 export const rachaUnicaEncendida = (studioId: string) => encendidaPara(process.env.RACHA_UNICA, studioId);
+
+/**
+ * Logro «Un mes completo sin ninguna falta» evaluado al CERRAR el mes, con ≥ 2 clases y 0 faltas
+ * (PR 3.4, Fase 3). Apagado = la regla de siempre (se concede tras la primera clase del mes). Lo
+ * miran la evaluación de logros y el barrido mensual, ambos de servidor.
+ */
+export const logroMensualCerradoEncendido = (studioId: string) => encendidaPara(process.env.GAMIFICACION_LOGRO_MENSUAL_CERRADO, studioId);

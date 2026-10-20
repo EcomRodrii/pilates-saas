@@ -83,10 +83,10 @@ export function DescargaRecurso(props: { recurso: string; formato: string; llama
       aria-labelledby={`${id}-t`}
       style={{ background: '#fff', border: '1px solid #E0E5D0', borderRadius: 20, padding: 'clamp(18px,3vw,26px)', margin: '26px 0' }}
     >
-      <p className="lp-mono" style={{ margin: '0 0 6px', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6B6B63' }}>
+      <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, color: 'var(--w-texto-3)' }}>
         Plantilla en {props.formato}
       </p>
-      <h3 id={`${id}-t`} style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, letterSpacing: '-.02em' }}>{props.llamada}</h3>
+      <h3 id={`${id}-t`} style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 600, letterSpacing: '-.02em' }}>{props.llamada}</h3>
 
       {estado.tipo === 'enviado' ? (
         <div role="status" style={{ marginTop: 12 }}>

@@ -21,7 +21,7 @@ const SALIDA = new URL('../public/landing/capturas/', import.meta.url).pathname;
 const MOVIL = [390, 780];
 
 // Solo las pantallas de móvil que «asoman» por el borde de las tarjetas de
-// components/landing/SeccionBento.tsx; todo lo demás de esas tarjetas son
+// la home (components/web/home/piezas.tsx, `Telefono`); todo lo demás son
 // tarjetitas en HTML/CSS con el estilo del producto y datos de muestra.
 export const CAPTURAS = {
   'app-alumna-inicio-estudio-pilates': { crudo: 'app-inicio', anchos: MOVIL },

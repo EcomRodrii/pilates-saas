@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: pagina.titulo,
     description: 'Se hace tú misma en el panel, o te ayudamos nosotros. Nada se importa sin que lo revises antes.',
