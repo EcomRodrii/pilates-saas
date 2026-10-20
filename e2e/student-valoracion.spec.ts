@@ -240,12 +240,8 @@ test.describe('Student PWA · valoración inicial', () => {
       }),
     }));
     await page.goto(base, { waitUntil: 'domcontentloaded' });
-    // ⚠️ `getByText`, no `getByRole('heading')`. En el héroe rediseñado el
-    // titular es el SALUDO —que lleva el nombre de la alumna— y «¿Qué te
-    // apetece hoy?» bajó a subtítulo: dejó de ser un heading. Mismo localizador
-    // que ya usaban `student-plaza-fija` y `student-gamificacion` para esperar
-    // a esta misma pantalla.
-    await expect(page.getByText(/¿qué te apetece hoy\?/i)).toBeVisible({ timeout: 90_000 });
+    // El saludo («Hola, …», maqueta de oct-2026) dice que Inicio ya ha cargado.
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('card-valoracion')).toHaveCount(0);
   });
 

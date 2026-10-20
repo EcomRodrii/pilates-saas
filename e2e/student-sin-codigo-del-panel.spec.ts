@@ -34,7 +34,7 @@ test('la app de la alumna no descarga los providers del panel', async ({ page })
   // `sinReloj`: `page.clock.install()` vacía la Performance API.
   await sembrarSociaCompleta(page, { bono: 5, sinReloj: true });
   await page.goto(`/portal/${SLUG}/reservar`);
-  await expect(page.getByRole('heading', { name: 'Horario', exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Reservar', exact: true })).toBeVisible({ timeout: 30_000 });
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
 
   const js = await jsDescargado(page);

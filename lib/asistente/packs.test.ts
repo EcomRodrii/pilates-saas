@@ -25,8 +25,8 @@ test('la cuota de TS es la misma que ia_cuota_mensual (la dueña del saldo)', ()
 
 test('el asistente está en todos los planes, con sus consultas por plan', () => {
   for (const p of PLANES) assert.equal(PLAN_ENTITLEMENTS[p].features.asistente, true, `${p} sin asistente`);
-  // Desde el 15-oct-2026 Founding Studio lo incluye todo menos varias sedes, IA incluida (plan-gratis.ts).
-  assert.equal(PLAN_ENTITLEMENTS.BASE.features.ia, true);
+  // El asistente no es complemento: va en Founding aunque la IA de redacción se contrate aparte (19-oct-2026).
+  assert.equal(PLAN_ENTITLEMENTS.BASE.features.ia, false);
   assert.deepEqual(PLANES.map(p => PLAN_ENTITLEMENTS[p].consultasAsistenteMes), [50, 200, 500]);
 });
 

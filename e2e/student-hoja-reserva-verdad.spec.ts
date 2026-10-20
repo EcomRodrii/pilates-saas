@@ -49,7 +49,7 @@ async function montar(page: Page, o: { exige: boolean; stripe: boolean }) {
 
 async function abrirHoja(page: Page) {
   await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 45_000 });
+  await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 45_000 });
   return page.locator('[role="dialog"]').last();
 }
 
@@ -126,7 +126,7 @@ test.describe('Student PWA · la hoja de reserva dice la verdad sin bono (P01)',
     await expect(opciones).toContainText('Clase suelta');
     await expect(opciones).toContainText('15 €');
     await expect(opciones).toContainText('ahorras un 20 %');
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click();
+    await page.getByRole('button', { name: /^Reservar clase$/ }).first().click();
     const hoja = page.locator('[role="dialog"]').last();
     await expect(hoja.getByRole('button', { name: /^Confirmar/ })).toHaveCount(0);
     await hoja.getByRole('button', { name: 'Ver cómo venir · desde 15 €' }).click();

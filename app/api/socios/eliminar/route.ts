@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { borrarRastroDeAlumna } from '@/lib/billing/vinculos-gratis-servidor';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
       console.error('[socios/eliminar] anonimizar_socio (reaplicar) falló', errRpc);
       return NextResponse.json({ error: 'No se pudo completar la supresión' }, { status: 500 });
     }
+    await borrarRastroDeAlumna(admin, sesion.studioId, socioId); // también lo hace anonimizar_socio (20261019192000)
     if (previos.length === 0) return NextResponse.json({ ok: true, yaEstaba: true, completa: true });
 
     const pendientes: TerceroPendiente[] = [];
@@ -153,6 +155,8 @@ export async function POST(req: NextRequest) {
     console.error('[socios/eliminar] anonimizar_socio falló', errRpc);
     return NextResponse.json({ error: 'No se pudo completar la supresión de la socia' }, { status: 500 });
   }
+  // Su rastro del plan gratis (HMAC de su correo y su móvil) se va con ella.
+  await borrarRastroDeAlumna(admin, sesion.studioId, socioId);
   const mandatoSepaRetenido = (resumen as { mandato_sepa_retenido?: unknown } | null)?.mandato_sepa_retenido === true;
 
   // 5) Terceros.

@@ -3,7 +3,8 @@
 // compra, que Stripe confirme el cobro; la base de datos decide saldo, caducidad e
 // idempotencia con candado de fila. Nunca se calcula un saldo aquí.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { huellaCodigo, huellasIguales, pareceCodigo, type AjustesRegalo, AJUSTES_POR_DEFECTO } from './reglas.ts';
+import { pareceCodigo, type AjustesRegalo, AJUSTES_POR_DEFECTO } from './reglas.ts';
+import { huellaCodigo, huellasIguales } from './huella.ts';
 
 export interface TarjetaRegaloFila {
   id: string; importe_inicial: number; origen: string; comprador_nombre: string | null; comprador_email: string | null;

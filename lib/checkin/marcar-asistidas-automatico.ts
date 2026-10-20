@@ -45,14 +45,14 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
       .eq('cancelada', false)
       .gt('fin', desde)
       .lte('fin', ahora.toISOString())
-      .range(from, to),
+      .order('id').range(from, to),
   );
   if (!sesiones.length) return { sesiones: 0, marcadas: 0 };
 
   const studioIds = [...new Set(sesiones.map(s => s.studio_id))];
   const { data: studios } = await fetchAllRows<{ id: string; requiere_checkin_qr: boolean | null }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id, requiere_checkin_qr').in('id', studioIds).range(from, to),
+    (from, to) => admin.from('studios').select('id, requiere_checkin_qr').in('id', studioIds).order('id').range(from, to),
   );
   // `?? true` es el mismo respaldo que usan el mapper y la UI: una columna sin
   // valor significa "se pasa lista", nunca "no hace falta". Equivocarse aquí
@@ -67,7 +67,7 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
   const { data: tipos } = tipoIds.length
     ? await fetchAllRows<{ id: string; requiere_checkin_qr: boolean | null }>(
       '(global)', 'tipos_clase',
-      (from, to) => admin.from('tipos_clase').select('id, requiere_checkin_qr').in('id', tipoIds).range(from, to),
+      (from, to) => admin.from('tipos_clase').select('id, requiere_checkin_qr').in('id', tipoIds).order('id').range(from, to),
     )
     : { data: [] as { id: string; requiere_checkin_qr: boolean | null }[] };
   const overridePorTipo = new Map(tipos.map(t => [t.id, t.requiere_checkin_qr]));
@@ -89,7 +89,7 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
       .select('id, studio_id')
       .in('sesion_id', sesionIdsElegibles)
       .eq('estado', 'CONFIRMADA')
-      .range(from, to),
+      .order('id').range(from, to),
   );
 
   let marcadas = 0;

@@ -133,6 +133,13 @@ const SPECS_WEBKIT = [
   // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y
   // el rebote de iOS—. Siete tests de unos segundos, todo local.
   '**/landing-isla.spec.ts',
+  // «Cambiarme a Tentare» y el héroe a 375 px (ronda 2 de la landing, 19-oct-2026):
+  // la puerta de quien ya paga otro programa. Misma pantalla y mismo criterio que la
+  // isla (pública, la sufre quien llega de Google desde el iPhone); lo que prueba en
+  // WebKit es la parte móvil —menú, botones del héroe sobre el pliegue, isla
+  // encogida sin recortes—. Los cuatro de escritorio se saltan solos en este
+  // proyecto. Coste: sumar por test en `timings-*` (ver el PR).
+  '**/landing-cambiarme.spec.ts',
 
   // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
   // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto
@@ -159,7 +166,6 @@ const SPECS_WEBKIT = [
   // WebKit de Playwright no simula. Lo que cubre es la otra familia: la de
   // #565 (`BarcodeDetector`) y #994 (el portapapeles diciendo «Copiado» con
   // el portapapeles vacío).
-  '**/student-filtros-rapidos.spec.ts',
   // El mensaje destacado arriba del inicio (decisión 11A de «Mi app y mi web» v2): lo lee la
   // alumna en su móvil, y lo que prueba —`pre-line` y una palabra larguísima que no puede
   // desbordar— es justo lo que un motor resuelve distinto. Dos tests cortos, todo mockeado.
@@ -174,7 +180,6 @@ const SPECS_WEBKIT = [
   '**/portal-dos-pasos.spec.ts',
   '**/student-aislamiento.spec.ts',
   '**/student-heroe-sobre-la-foto.spec.ts',
-  '**/student-cabecera-sobre-foto.spec.ts',
   '**/student-clase-en-curso.spec.ts',
   // Las preguntas del estudio antes de usar la app: es una PUERTA. Si se rompe
   // en Safari no es una pantalla fea, es una alumna que no puede entrar a

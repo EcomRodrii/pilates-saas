@@ -7,6 +7,7 @@ import {
   estadoDeLoGuardado, estadoGratis, medicionDelGrupo, ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, type EstadoGratis, type UsoGratis,
 } from './plan-gratis.ts';
 import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
+import { detectarVinculosGratis, estudiosVinculadosGratis } from './vinculos-gratis-servidor.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cuánto usa el plan gratis una dueña (plan-gratis.ts): mide, guarda y lee.
@@ -21,6 +22,9 @@ import { hoyEnEstudio, inicioDelDiaEstudio, masDias } from '../utils.ts';
 // · Se suman TODOS los estudios gratis de la misma dueña (también uno que se
 //   quedó con `cadena_id` de un Checkout de Cadena abandonado): trocear el
 //   estudio no lo hace gratis.
+// · Y los de OTRAS cuentas que son el mismo negocio (misma cuenta de Stripe,
+//   mismo NIF o la mayoría de las alumnas: vinculos-gratis.ts). Cambiar de
+//   correo no hace gratis el estudio.
 // · Medir es caro (todas las reservas del grupo): se guarda en `uso_plan_gratis`
 //   y el gate lo vuelve a medir después de contestar si tiene más de
 //   HORAS_VIGENCIA. Una medición a la vez por estudio: se RESERVA con una
@@ -51,13 +55,30 @@ export interface FilaUso {
   creado_en: string;
 }
 
-/** Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira siempre dentro. `null` si la lectura falla. */
+/**
+ * Los estudios gratis (abiertos o cerrados) de la dueña, con el que se mira
+ * siempre dentro, y los de otras cuentas vinculados a ellos (mismo Stripe, NIF o
+ * alumnas: vinculos-gratis.ts). `null` si la lectura de la dueña falla.
+ */
 export async function estudiosGratisDeLaDuena(admin: SupabaseClient, studioId: string, ownerId: string | null): Promise<string[] | null> {
-  if (!ownerId) return [studioId];
-  const { data, error } = await admin.from('studios').select('id')
-    .eq('owner_auth_user_id', ownerId).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
-  if (error) return null;
-  return [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
+  const g = await grupoDeLaDuena(admin, studioId, ownerId);
+  return g && [...g.propios, ...g.vinculados];
+}
+
+/** El grupo, separado: los de la dueña y los de otras cuentas a los que se suma. */
+async function grupoDeLaDuena(
+  admin: SupabaseClient, studioId: string, ownerId: string | null,
+): Promise<{ propios: string[]; vinculados: string[] } | null> {
+  let propios = [studioId];
+  if (ownerId) {
+    const { data, error } = await admin.from('studios').select('id')
+      .eq('owner_auth_user_id', ownerId).in('subscription_status', [ESTADO_GRATIS, ESTADO_GRATIS_CERRADO]);
+    if (error) return null;
+    propios = [...new Set([studioId, ...((data ?? []) as { id: string }[]).map(s => s.id)])];
+  }
+  // Y los de otras cuentas que son el mismo negocio (vinculos-gratis.ts): con un
+  // correo nuevo no se empieza de cero.
+  return { propios, vinculados: await estudiosVinculadosGratis(admin, propios) };
 }
 
 /** Mide alumnas y reservas de cada estudio. `null` si cualquier lectura falla. Solo lee. */
@@ -147,8 +168,11 @@ async function reservarMedicion(admin: SupabaseClient, studioId: string, ahora: 
  */
 export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string, ownerId: string | null, ahora: Date): Promise<boolean> {
   if (!(await reservarMedicion(admin, studioId, ahora))) return false;
-  const ids = await estudiosGratisDeLaDuena(admin, studioId, ownerId);
-  if (!ids) return false;
+  // Antes de medir, ¿es otra cuenta del mismo negocio? Nunca lanza.
+  await detectarVinculosGratis(admin, studioId);
+  const grupo = await grupoDeLaDuena(admin, studioId, ownerId);
+  if (!grupo) return false;
+  const ids = [...grupo.propios, ...grupo.vinculados];
   const usos = await medirUsoGratis(admin, ids, ahora);
   if (!usos) return false;
   const { data: previas } = await admin.from('uso_plan_gratis').select('excedido_desde').in('studio_id', ids);
@@ -156,10 +180,18 @@ export async function refrescarUsoGratis(admin: SupabaseClient, studioId: string
     [...usos.values()], ((previas ?? []) as { excedido_desde: string | null }[]).map(p => p.excedido_desde), hoyEnEstudio(ahora),
   );
   const medidoEn = ahora.toISOString();
-  const filas = ids.map(id => {
+  const cifras = (id: string) => {
     const u = usos.get(id)!;
-    return { studio_id: id, alumnas_activas: u.alumnasActivas, reservas_30_dias: u.reservas30Dias, excedido_desde: desde, medido_en: medidoEn };
-  });
-  const { error } = await admin.from('uso_plan_gratis').upsert(filas, { onConflict: 'studio_id' });
-  return !error;
+    return { studio_id: id, alumnas_activas: u.alumnasActivas, reservas_30_dias: u.reservas30Dias, medido_en: medidoEn };
+  };
+  // La fecha de exceso solo en los de la dueña: el estudio de otra cuenta al que
+  // se suma (vinculos-gratis.ts) se mide, pero su margen no se toca nunca.
+  const { error } = await admin.from('uso_plan_gratis')
+    .upsert(grupo.propios.map(id => ({ ...cifras(id), excedido_desde: desde })), { onConflict: 'studio_id' });
+  if (error) return false;
+  if (grupo.vinculados.length > 0) {
+    const { error: eV } = await admin.from('uso_plan_gratis').upsert(grupo.vinculados.map(cifras), { onConflict: 'studio_id' });
+    if (eV) return false;
+  }
+  return true;
 }

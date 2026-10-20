@@ -205,6 +205,8 @@ export interface Clase {
    */
   logoUrl?: string;
   descripcion?: string;
+  /** Objetivos del tipo de clase (lista fija de `lib/reservar/objetivos.ts`), ya limpios. Vacío = sin declarar. */
+  objetivos?: string[];
 }
 
 /** Disponibilidad tal y como la ve la alumna (derivada de Clase + sus reservas). */

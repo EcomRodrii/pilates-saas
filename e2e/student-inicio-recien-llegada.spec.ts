@@ -95,7 +95,7 @@ test('recién llegada: bienvenida, la cifra real de clases con plaza y su primer
   await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
   await expect(page.getByText('Sin bono activo')).toHaveCount(0);
   await expect(page.getByText('No tienes clases próximas')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Huecos de hoy' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Accesos rápidos' })).toBeVisible();
 
   await tarjeta.getByRole('link', { name: 'Elegir mi primera clase' }).click();
   await expect(page).toHaveURL(new RegExp(`${INICIO}/reservar$`));
@@ -134,7 +134,7 @@ test('una reserva CANCELADA no cuenta (sigue siendo recién llegada); una pendie
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   const otra = await montar(page, { payload: reserva('PENDIENTE_APROBACION') });
   await abrir(page);
-  await expect(page.getByRole('heading', { name: 'Huecos de hoy' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('primera-clase')).toHaveCount(0);
   expect(otra.pedidas()).toBeGreaterThan(0);
 });
@@ -172,10 +172,12 @@ test('alta de hace años (importada con su fecha): no es recién llegada', async
   expect(a.sinMockear()).toEqual([]);
 });
 
-test('con su bono: ni tarjeta de bienvenida ni se esconde «Lo tuyo»', async ({ page }) => {
+// Desde la maqueta de oct-2026 lo que tiene (bono, cuota) vive en Mi plan: «Lo tuyo» solo sale en Inicio con algo que pagar.
+test('con su bono: ni tarjeta de bienvenida ni «Lo tuyo» en Inicio', async ({ page }) => {
   const { a, pedidas } = await montar(page, { bono: 5 });
   await abrir(page);
-  await expect(page.getByRole('region', { name: 'Lo tuyo' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
   await expect(page.getByTestId('primera-clase')).toHaveCount(0);
   expect(pedidas()).toBeGreaterThan(0);
   expect(a.sinMockear()).toEqual([]);

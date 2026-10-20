@@ -32,6 +32,7 @@ import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
+import { CREDITO_ICONOS } from '@/lib/gamificacion/insignias';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -242,6 +243,10 @@ export default function PerfilPage() {
 
         <p className="t-meta" style={{ textAlign: 'center', color: 'var(--subtle-foreground)' }}>
           App de {estudio.nombre} · con Tentare
+          {/* Lo exige la licencia gratuita de los iconos de logros y recompensas (lib/gamificacion/insignias.ts):
+              un enlace visible a icons8.com. Quitarlo obliga a comprar la licencia de pago. */}
+          {' · '}
+          <a href={CREDITO_ICONOS.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{CREDITO_ICONOS.texto}</a>
         </p>
       </div>
 

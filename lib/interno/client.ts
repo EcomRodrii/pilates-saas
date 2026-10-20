@@ -3,6 +3,7 @@
 // de 403 importa: "no eres del equipo" y "esto no te toca" se arreglan de forma
 // muy distinta.
 import { authHeader } from '../api-client.ts';
+import type { VinculoFicha } from '../billing/vinculos-gratis.ts';
 import type { SaludEstudio } from './salud-estudio.ts';
 import type { AccionVisita, ResumenVisita } from './visita-guiada.ts';
 import type { CambioApp } from './apps-estudio.ts';
@@ -116,6 +117,8 @@ export interface FichaEstudio {
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
   /** API pública (F1): se activa estudio a estudio desde aquí. */
   apiPublica?: { activa: boolean; activadaEn: string | null; clavesActivas: number };
+  /** Cuentas que parecen el mismo negocio (plan gratis, lib/billing/vinculos-gratis.ts). */
+  vinculos?: VinculoFicha[];
   /** Wellhub por API: el gym y el producto vinculados, y si Tentare tiene sus credenciales. */
   wellhub?: { gymId: string | null; productoId: string | null; credenciales: boolean };
   reviewBoost: {

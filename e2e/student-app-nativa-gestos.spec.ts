@@ -55,6 +55,8 @@ test.describe('Student PWA · dentro de la app de iOS', () => {
   test('botones y pestañas no se seleccionan como texto; los campos siguen dejando escribir', async ({ page }) => {
     await sembrarSociaCompleta(page);
     await page.goto(`${base}/reservar`, { waitUntil: 'domcontentloaded' });
+    // El buscador vive en la hoja de filtros (maqueta de oct-2026).
+    await page.getByTestId('abrir-filtros').click({ timeout: 60_000 });
     const buscador = page.getByRole('searchbox', { name: 'Buscar clases o instructoras' });
     await expect(buscador).toBeVisible({ timeout: 60_000 });
 

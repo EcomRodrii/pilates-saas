@@ -1123,6 +1123,12 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
+  // migr 20261019175741.
+  regimen_addons: boolean | null;
+  // migr 20261019175741.
+  addons: string[] | null;
+  // migr 20261019182716.
+  mostrar_logo_en_landing: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4340,6 +4346,47 @@ export interface RowEstudioSituacionDiaria {
   gratis: any | null;
 }
 
+export interface RowVinculosCuentasGratis {
+  id: string;
+  studio_id: string;
+  vinculado_id: string;
+  motivo: string;
+  cuenta: boolean;
+  detalle: any;
+  detectado_en: string;
+  descartado_en: string | null;
+  descartado_por: string | null;
+}
+
+export interface RowHuellasAlta {
+  studio_id: string;
+  ip_hmac: string | null;
+  dispositivo_hmac: string | null;
+  visto_en: string;
+}
+
+export interface RowCuentasStripeVistas {
+  stripe_account_id: string;
+  studio_id: string;
+  visto_en: string;
+}
+
+export interface RowRastroGratis {
+  studio_id: string;
+  tipo: string;
+  clave: string;
+  visto_en: string;
+  // migr 20261019190418.
+  socio_id: string | null;
+  // migr 20261019190557.
+  es_hmac: boolean | null;
+}
+
+export interface RowRastroGratisClave {
+  id: boolean;
+  clave: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -5835,6 +5882,9 @@ export type StudiosInsert = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5993,6 +6043,9 @@ export type StudiosUpdate = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -12023,6 +12076,84 @@ export type EstudioSituacionDiariaUpdate = {
   gratis?: any | null | null;
 }
 
+export type VinculosCuentasGratisInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  vinculado_id?: string | null;
+  motivo?: string | null;
+  cuenta?: boolean | null;
+  detalle?: any | null;
+  detectado_en?: string | null;
+  descartado_en?: string | null | null;
+  descartado_por?: string | null | null;
+}
+
+export type VinculosCuentasGratisUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  vinculado_id?: string | null;
+  motivo?: string | null;
+  cuenta?: boolean | null;
+  detalle?: any | null;
+  detectado_en?: string | null;
+  descartado_en?: string | null | null;
+  descartado_por?: string | null | null;
+}
+
+export type HuellasAltaInsert = {
+  studio_id?: string | null;
+  ip_hmac?: string | null | null;
+  dispositivo_hmac?: string | null | null;
+  visto_en?: string | null;
+}
+
+export type HuellasAltaUpdate = {
+  studio_id?: string | null;
+  ip_hmac?: string | null | null;
+  dispositivo_hmac?: string | null | null;
+  visto_en?: string | null;
+}
+
+export type CuentasStripeVistasInsert = {
+  stripe_account_id?: string | null;
+  studio_id?: string | null;
+  visto_en?: string | null;
+}
+
+export type CuentasStripeVistasUpdate = {
+  stripe_account_id?: string | null;
+  studio_id?: string | null;
+  visto_en?: string | null;
+}
+
+export type RastroGratisInsert = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
+}
+
+export type RastroGratisUpdate = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
+}
+
+export type RastroGratisClaveInsert = {
+  id?: boolean | null;
+  clave?: string | null;
+}
+
+export type RastroGratisClaveUpdate = {
+  id?: boolean | null;
+  clave?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13365,6 +13496,31 @@ export type Database = {
         Row: RowEstudioSituacionDiaria;
         Insert: EstudioSituacionDiariaInsert;
         Update: EstudioSituacionDiariaUpdate;
+      };
+      vinculos_cuentas_gratis: {
+        Row: RowVinculosCuentasGratis;
+        Insert: VinculosCuentasGratisInsert;
+        Update: VinculosCuentasGratisUpdate;
+      };
+      huellas_alta: {
+        Row: RowHuellasAlta;
+        Insert: HuellasAltaInsert;
+        Update: HuellasAltaUpdate;
+      };
+      cuentas_stripe_vistas: {
+        Row: RowCuentasStripeVistas;
+        Insert: CuentasStripeVistasInsert;
+        Update: CuentasStripeVistasUpdate;
+      };
+      rastro_gratis: {
+        Row: RowRastroGratis;
+        Insert: RastroGratisInsert;
+        Update: RastroGratisUpdate;
+      };
+      rastro_gratis_clave: {
+        Row: RowRastroGratisClave;
+        Insert: RastroGratisClaveInsert;
+        Update: RastroGratisClaveUpdate;
       };
     };
   };
