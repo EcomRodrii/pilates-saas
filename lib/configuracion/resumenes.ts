@@ -433,7 +433,8 @@ export interface DatosHerramientas {
   } | null;
   /** Las webs donde está autorizada la integración nativa del horario. */
   widgetDominios?: readonly string[] | null;
-  motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
+  /** Canjes que esperan entrega. `null` = sin cargar. */
+  canjesPendientes?: number | null;
   codigosDescuento?: number | null;
   /**
    * «Mis avisos»: cuántos tipos puede configurar este rol, cuántos le llegan por
@@ -530,16 +531,9 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       ]);
     }
 
-    case 'recompensas-y-logros': {
-      if (!d.motivacion) return null;
-      const { recompensas, logros, niveles, retos } = d.motivacion;
-      if (recompensas + logros + niveles + retos === 0) return 'Sin recompensas ni logros todavía';
-      return unir([
-        recompensas > 0 ? contar(recompensas, 'recompensa', 'recompensas') : 'sin recompensas',
-        logros > 0 ? contar(logros, 'logro', 'logros') : null,
-        retos > 0 ? contar(retos, 'reto', 'retos') : null,
-        niveles > 0 ? contar(niveles, 'nivel', 'niveles') : null,
-      ]);
+    case 'canjes': {
+      if (d.canjesPendientes == null) return null;
+      return d.canjesPendientes === 0 ? 'Ninguno por entregar' : `${d.canjesPendientes} por entregar`;
     }
 
     case 'codigos-descuento': {

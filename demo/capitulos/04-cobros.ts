@@ -1,5 +1,5 @@
 import type { Capitulo } from './tipos.ts';
-import { abrirCajon, abrirSeccion, cajon, cerrarCajon, fila, guardarYCerrar } from './ayudas.ts';
+import { abrirCajon, abrirSeccion, cajon, cerrarCajon, fila, guardarYCerrar, volverDeHerramienta } from './ayudas.ts';
 
 export const cobros: Capitulo = {
   id: 'cobros',
@@ -87,6 +87,22 @@ export const cobros: Capitulo = {
       await g.ir(cajon(page).getByRole('switch', { name: /renueve ella/ }));
       await cerrarCajon(g);
     });
+
+    // ── Códigos de descuento ──
+    g.momento('codigos-descuento');
+    await g.mientras('Códigos de descuento, en Promociones. Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador. Entramos y creamos uno de bienvenida.', async () => {
+      await g.clic(page.locator('#fila-herramienta-codigos-descuento'));
+      await page.getByRole('heading', { name: 'Códigos de descuento', exact: true }).first().waitFor();
+      await g.clic(page.getByRole('button', { name: 'Nuevo código' }));
+    });
+    await g.mientras('El código se escribe en mayúsculas, eliges si descuenta un porcentaje o una cantidad fija, el valor y cuántas veces se puede usar. Diez por ciento, cincuenta usos.', async () => {
+      await g.escribe(page.getByPlaceholder('CÓDIGO'), 'BIENVENIDA10');
+      await g.escribe(page.getByPlaceholder('Valor'), '10');
+      await g.escribe(page.getByPlaceholder('Usos máx'), '50');
+      await g.clic(page.getByRole('button', { name: 'Crear código' }));
+      await g.pausa(900);
+    });
+    await volverDeHerramienta(g, 'Cobros y facturas');
 
     await g.dice('Al final de la pantalla hay dos filas que llevan a otras pantallas: Paquetes, donde están tus planes, bonos y precios, y Cobros, donde ves quién te debe, lo cobrado y tus facturas. Se configuran allí porque es donde se usan.');
   },
