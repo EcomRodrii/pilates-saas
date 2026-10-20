@@ -84,7 +84,7 @@ export function ritmoDe(umbrales: readonly number[], porClase: number | null): R
 }
 
 /** Lo mínimo de un nivel para comparar escalas. */
-export interface NivelComparable { id: string; umbralCreditos: number; activo: boolean; orden?: number }
+export interface NivelComparable { id: string; umbralCreditos: number; activo?: boolean; orden?: number }
 
 /**
  * Los niveles activos, de menor a mayor umbral. Empate: por `orden` y luego por
@@ -92,7 +92,8 @@ export interface NivelComparable { id: string; umbralCreditos: number; activo: b
  * creer que una alumna está en otro nivel del que ella ve.
  */
 export function escala<T extends NivelComparable>(niveles: readonly T[]): T[] {
-  return niveles.filter((n) => n.activo)
+  // `activo` ausente cuenta como activo (el payload de la app de la alumna lo trae opcional).
+  return niveles.filter((n) => n.activo !== false)
     .sort((a, b) => a.umbralCreditos - b.umbralCreditos || (a.orden ?? 0) - (b.orden ?? 0) || a.id.localeCompare(b.id));
 }
 
@@ -104,6 +105,39 @@ export function nivelDeTotal<T extends NivelComparable>(total: number, ordenada:
     else break;
   }
   return actual;
+}
+
+/** Lo que enseñan panel y app: nivel actual, siguiente y progreso hacia él. */
+export interface VistaNivel<T> {
+  actual: T | null;
+  siguiente: T | null;
+  /** Créditos que faltan para el siguiente; `null` si ya está en el último. */
+  faltan: number | null;
+  /** 0-1 dentro del tramo actual; 1 sin siguiente. */
+  progreso: number;
+}
+
+/**
+ * LA función que decide el nivel de una alumna, la misma para el servidor, el
+ * panel (`calcularNivel`) y la app (`nivelDe`): `escala` (activos, por UMBRAL;
+ * `orden` solo desempata) + `nivelDeTotal` sobre el total HISTÓRICO ganado.
+ * Quien necesite el nivel llama aquí; un ordenado propio reintroduce el bug de
+ * dos niveles distintos para la misma alumna (lo vigila nivel-paridad.test.ts).
+ */
+export function vistaDeNivel<T extends NivelComparable>(totalGanado: number, niveles: readonly T[]): VistaNivel<T> {
+  const ordenada = escala(niveles);
+  if (ordenada.length === 0) return { actual: null, siguiente: null, faltan: null, progreso: 0 };
+  const actual = nivelDeTotal(totalGanado, ordenada);
+  const siguiente = ordenada.find((n) => n.umbralCreditos > totalGanado) ?? null;
+  if (!siguiente) return { actual, siguiente: null, faltan: null, progreso: 1 };
+  const desde = actual?.umbralCreditos ?? 0;
+  const tramo = siguiente.umbralCreditos - desde;
+  return {
+    actual,
+    siguiente,
+    faltan: Math.max(0, siguiente.umbralCreditos - totalGanado),
+    progreso: tramo > 0 ? Math.min(1, Math.max(0, (totalGanado - desde) / tramo)) : 0,
+  };
 }
 
 /**

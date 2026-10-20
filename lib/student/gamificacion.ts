@@ -7,6 +7,8 @@
 // canje lo valida `/api/public/canje`. Esto solo ORDENA y presenta lo que el
 // payload ya trae: si el estudio no ha configurado nada, no hay nada que pintar.
 
+import { vistaDeNivel } from '../gamificacion/ritmo-niveles.ts';
+
 export interface NivelDef { id: string; nombre: string; orden: number; umbralCreditos: number; color: string; icono: string; beneficios: string | null; activo?: boolean }
 export interface LogroDef { id: string; nombre: string; descripcion: string | null; umbral: number; icono: string; creditosRecompensa: number; activo: boolean }
 export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean }
@@ -34,24 +36,8 @@ export interface NivelVista {
  * nunca hace bajar de nivel (es la regla que el propio panel enuncia).
  */
 export function nivelDe(totalGanado: number, niveles: NivelDef[]): NivelVista {
-  const orden = [...niveles].sort((a, b) => a.umbralCreditos - b.umbralCreditos || a.orden - b.orden);
-  if (orden.length === 0) return { actual: null, siguiente: null, faltan: null, progreso: 0 };
-  let actual: NivelDef | null = null;
-  let siguiente: NivelDef | null = null;
-  for (const n of orden) {
-    if (totalGanado >= n.umbralCreditos) actual = n;
-    else { siguiente = n; break; }
-  }
-  if (!siguiente) return { actual, siguiente: null, faltan: null, progreso: 1 };
-  const desde = actual?.umbralCreditos ?? 0;
-  const tramo = siguiente.umbralCreditos - desde;
-  const avance = totalGanado - desde;
-  return {
-    actual,
-    siguiente,
-    faltan: Math.max(0, siguiente.umbralCreditos - totalGanado),
-    progreso: tramo > 0 ? Math.min(1, Math.max(0, avance / tramo)) : 0,
-  };
+  // Una sola función para panel, app y servidor: ritmo-niveles.ts.
+  return vistaDeNivel(totalGanado, niveles);
 }
 
 export interface LogroVista extends LogroDef { progresoActual: number; completado: boolean; completadoEn: string | null }
