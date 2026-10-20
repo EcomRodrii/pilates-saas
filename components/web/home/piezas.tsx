@@ -199,19 +199,6 @@ export function PanelInformes({ className = '', completo = false }: { className?
   );
 }
 
-/** El acta del importador: qué entra, con el botón de deshacer. */
-export function ActaImportacion({ filas, className = '' }: { filas: readonly string[]; className?: string }) {
-  return (
-    <div className={`wh-panel wh-acta ${className}`.trim()}>
-      <div className="wh-panel-cab"><b>Acta de la importación</b><Pastilla tono="ok">Lista para revisar</Pastilla></div>
-      <ul className="wh-acta-lista">
-        {filas.map((f) => <li key={f}><span className="wh-check" />{f.split(' — ')[0]}</li>)}
-      </ul>
-      <div className="wh-susti-acciones"><span className="wh-boton-ui">Confirmar</span><span className="wh-boton-ui wh-boton-ui-claro">Deshacer</span></div>
-    </div>
-  );
-}
-
 /** Pasar lista desde la app de la instructora. */
 export function PasarLista({ className = '' }: { className?: string }) {
   const alumnas = [['CD', 'Carmen'], ['LM', 'Laura'], ['MG', 'María'], ['BO', 'Bea']] as const;
@@ -228,96 +215,6 @@ export function PasarLista({ className = '' }: { className?: string }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-/** El mapa de la sala para elegir reformer (opcional por tipo de clase). */
-export function MapaSala({ className = '' }: { className?: string }) {
-  const ocupados = new Set([1, 2, 5, 7, 8, 11]);
-  return (
-    <div className={`wh-panel wh-mapa ${className}`.trim()}>
-      <div className="wh-panel-cab"><b>Elige tu sitio</b><span>Sala Norte</span></div>
-      <div className="wh-mapa-rejilla">
-        {Array.from({ length: 12 }, (_, i) => (
-          <span key={i} className={i === 3 ? 'wh-mapa-sitio wh-mapa-tuyo' : ocupados.has(i) ? 'wh-mapa-sitio wh-mapa-ocupado' : 'wh-mapa-sitio'}>{i + 1}</span>
-        ))}
-      </div>
-      <div className="wh-mapa-leyenda"><span><i className="wh-mapa-tuyo" />El tuyo</span><span><i className="wh-mapa-ocupado" />Ocupado</span><span><i />Libre</span></div>
-    </div>
-  );
-}
-
-// ── «Cómo funciona» en un solo fotograma (la forma de bsport) ────────────────
-// Dato → propuesta → resultado dentro de la misma pieza de UI, en vez de una
-// lista de pasos con iconos.
-
-/** Clase llena → lista de espera → plaza ofrecida a la primera. */
-export function FotogramaEspera({ className = '' }: { className?: string }) {
-  return (
-    <div className={`wh-panel wh-fotograma ${className}`.trim()}>
-      <div className="wh-fotograma-clase">
-        <span className="wh-agenda-hora">19:00</span>
-        <span className="wh-agenda-cuerpo"><b>Reformer Avanzado</b><span>Con Ana · Sala Norte</span></span>
-        <span className="wh-fotograma-plazas"><b>12/12</b><Pastilla tono="arena">3 en espera</Pastilla></span>
-      </div>
-      <ol className="wh-fotograma-pasos">
-        <li><span className="wh-fotograma-punto" /><span>Carmen cancela desde su app</span></li>
-        <li><span className="wh-fotograma-punto" /><span>La plaza se ofrece a Lucía, la primera de la lista</span></li>
-        <li className="wh-fotograma-hecho"><span className="wh-fotograma-punto" /><span>Lucía entra en la clase</span><Pastilla tono="ok">Confirmada</Pastilla></li>
-      </ol>
-    </div>
-  );
-}
-
-/** Un cobro que falla → se reintenta solo → cobrado. */
-export function FotogramaReintento({ className = '' }: { className?: string }) {
-  return (
-    <div className={`wh-panel wh-fotograma ${className}`.trim()}>
-      <div className="wh-fotograma-clase">
-        <Iniciales t="LM" />
-        <span className="wh-agenda-cuerpo"><b>Laura Martín</b><span>Mensual ilimitado</span></span>
-        <span className="wh-fotograma-plazas"><b>75 €</b></span>
-      </div>
-      <ol className="wh-fotograma-pasos">
-        <li><span className="wh-fotograma-punto wh-fotograma-punto-error" /><span>La tarjeta no pasa</span><Pastilla tono="error">No se pudo cobrar</Pastilla></li>
-        <li><span className="wh-fotograma-punto" /><span>A Laura le llega el aviso</span><Pastilla tono="aviso">Se reintenta solo</Pastilla></li>
-        <li className="wh-fotograma-hecho"><span className="wh-fotograma-punto" /><span>Reintento con su tarjeta guardada</span><Pastilla tono="ok">Cobrado</Pastilla></li>
-      </ol>
-    </div>
-  );
-}
-
-/** Lo que deja cada clase, redibujado en barras horizontales. */
-export function MargenPorClase({ className = '' }: { className?: string }) {
-  const filas = [
-    { t: 'Reformer Avanzado · mar 19:00', v: 100 },
-    { t: 'Reformer Fundamental · lun 09:00', v: 78 },
-    { t: 'Yoga Flow · jue 18:00', v: 55 },
-    { t: 'Pilates Mat · vie 10:00', v: 22 },
-  ];
-  return (
-    <div className={`wh-panel wh-margen ${className}`.trim()}>
-      <div className="wh-panel-cab"><b>Lo que deja cada clase</b><span>Este mes</span></div>
-      <ul className="wh-ocupacion wh-ocupacion-ancha">
-        {filas.map((x) => (
-          <li key={x.t}><span>{x.t}</span><span className="wh-ocupacion-barra"><span style={{ width: `${x.v}%` }} /></span></li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Una foto aportada por el fundador (public/landing/fotos-aportadas/, ver fotos.ts). */
-export function FotoAportada({ src, ancho, alto, alt, sizes, posicion = '50% 50%', className = '' }: {
-  src: string; ancho: number; alto: number; alt: string; sizes: string; posicion?: string; className?: string;
-}) {
-  return (
-    <span className={`wh-foto ${className}`.trim()}>
-      <picture>
-        <source type="image/avif" srcSet={`/landing/fotos-aportadas/${src}.avif`} sizes={sizes} />
-        <img src={`/landing/fotos-aportadas/${src}.webp`} width={ancho} height={alto} alt={alt} sizes={sizes} loading="lazy" decoding="async" style={{ objectPosition: posicion }} />
-      </picture>
-    </span>
   );
 }
 

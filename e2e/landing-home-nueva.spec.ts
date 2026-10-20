@@ -28,7 +28,7 @@ test('el héroe: un solo h1, con la categoría, la promesa y los dos botones', a
   await expect(page.locator('h1')).toHaveCount(1);
   const h1 = page.locator('header#top h1');
   await expect(h1).toContainText('Software de gestión para estudios de Pilates y yoga');
-  await expect(h1).toContainText('Todo tu estudio. Bajo control.');
+  await expect(h1).toContainText('Tu estudio sigue funcionando aunque sueltes el móvil.');
   const principal = page.locator('header#top a.v5-hero-cta');
   await expect(principal).toHaveAttribute('href', '/crear-estudio');
   await expect(principal).toHaveText('Empezar gratis');

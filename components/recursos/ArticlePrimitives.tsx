@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Dark stat callout used for "the real cost" / "calendar" figure blocks.
 export function StatBlock({ eyebrow, stats, note }: { eyebrow: string; eyebrowColor?: string; stats: { value: string; label: string }[]; note?: string }) {
@@ -64,7 +65,8 @@ export function BeforeAfterCols({ beforeLabel, beforeItems, afterLabel, afterIte
   );
 }
 
-export function CtaBlock({ title, body, href = '/crear-estudio', cta = 'Crear mi estudio →' }: { title: string; body?: string; href?: string; cta?: string }) {
+// El botón dice lo mismo que el resto de la web («un solo verbo para empezar», lib/landing/cta-un-verbo.test.ts).
+export function CtaBlock({ title, body, href = '/crear-estudio', cta = CTA_ALTA }: { title: string; body?: string; href?: string; cta?: string }) {
   return (
     <div style={{ background: ACC, color: '#fff', borderRadius: 24, padding: 'clamp(26px,4vw,36px)', margin: '44px 0 0', textAlign: 'center' }}>
       <div>

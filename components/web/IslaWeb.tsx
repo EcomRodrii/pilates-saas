@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
@@ -104,6 +104,23 @@ function ContenidoPanel({ panel, alPulsar }: { panel: Panel; alPulsar: () => voi
   return <ListaConResumen enlaces={MENU_RECURSOS} alPulsar={alPulsar} />;
 }
 
+// En la home, el logo y «Precios» bajan a su sitio sin dejar `#top`/`#precio` en la
+// barra de direcciones (el fundador lo vio en tentare.app/#top: «¿qué es?»). El
+// `href` se queda para quien abre el enlace en otra pestaña o va sin JavaScript.
+function irSinAncla(e: MouseEvent<HTMLAnchorElement>) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  const destino = document.getElementById(e.currentTarget.hash.slice(1));
+  if (!destino) return;
+  e.preventDefault();
+  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  // Al fotograma siguiente: desde el menú móvil, antes hay que soltar el
+  // `overflow: hidden` que le pone al body al abrirse.
+  requestAnimationFrame(() => {
+    if (destino.id === 'top') window.scrollTo({ top: 0, behavior });
+    else destino.scrollIntoView({ behavior });
+  });
+}
+
 export function IslaWeb({ enHome = false }: { enHome?: boolean }) {
   const isla = useRef<HTMLElement>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -182,7 +199,7 @@ export function IslaWeb({ enHome = false }: { enHome?: boolean }) {
         }}
       >
         {enHome ? (
-          <a href="#top" className="v5-nav-logo" aria-label="Tentare — inicio">
+          <a href="#top" onClick={irSinAncla} className="v5-nav-logo" aria-label="Tentare — inicio">
             <LogoTentare formato="isotipo" tinta="color" alto={30} decorativo />
           </a>
         ) : (
@@ -197,7 +214,7 @@ export function IslaWeb({ enHome = false }: { enHome?: boolean }) {
           <div className="v5-nav-links">
             {PANELES.map((p) => (
               <Fragment key={p.id}>
-                {p.id === 'recursos' && (enHome ? <a href={precios}>Precios</a> : <Link href={precios}>Precios</Link>)}
+                {p.id === 'recursos' && (enHome ? <a href={precios} onClick={irSinAncla}>Precios</a> : <Link href={precios}>Precios</Link>)}
                 <button
                   type="button"
                   ref={(b) => { botones.current[p.id] = b; }}
@@ -268,7 +285,7 @@ export function IslaWeb({ enHome = false }: { enHome?: boolean }) {
                 </div>
               </div>
             ))}
-            {enHome ? <a href={precios} onClick={cerrarMenu}>Precios</a> : <Link href={precios} onClick={cerrarMenu}>Precios</Link>}
+            {enHome ? <a href={precios} onClick={(e) => { cerrarMenu(); irSinAncla(e); }}>Precios</a> : <Link href={precios} onClick={cerrarMenu}>Precios</Link>}
             <div className="v5-menu-grupo">
               <button
                 type="button"
