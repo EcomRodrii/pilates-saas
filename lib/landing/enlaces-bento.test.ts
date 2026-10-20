@@ -60,9 +60,10 @@ export function enlacesInternos(fuente: string): string[] {
   return hrefs.filter((h) => h.startsWith('/') && !h.startsWith('//') && !h.includes('${'));
 }
 
-/** Las seis tarjetas del bento (BentoProducto.tsx): `id: 'wh-bn-…',\n href: '…'`. */
+/** Los enlaces de las pestañas del producto (PestanasProducto.tsx): `enlace: { href: '…'`.
+ *  Home v2 (20-oct-2026): el bento salió y el producto se recorre por pestañas. */
 export function tarjetasDelBento(fuente: string): string[] {
-  return [...fuente.matchAll(/id: 'wh-bn-[a-z]+',\s*href: '([^']+)'/g)].map((m) => m[1]);
+  return [...fuente.matchAll(/enlace: \{ href: '([^']+)'/g)].map((m) => m[1]);
 }
 
 const DESTINOS_PROHIBIDOS = [/^\/crear-estudio/, /^\/empieza/, /^\/login/, /demo/i, /^#/];
@@ -76,25 +77,19 @@ export function problemasDeTarjeta(href: string, existentes: ReadonlySet<string>
   return fallos;
 }
 
-const BENTO = readFileSync(join(DIR_HOME, 'BentoProducto.tsx'), 'utf8');
+const BENTO = readFileSync(join(DIR_HOME, 'PestanasProducto.tsx'), 'utf8');
 
-test('el bento tiene sus seis tarjetas, cada una con su propio destino', () => {
+test('las pestañas del producto son cinco, cada una con su propio destino', () => {
   const tarjetas = tarjetasDelBento(BENTO);
-  assert.equal(tarjetas.length, 6, `se esperaban 6 tarjetas con enlace y hay ${tarjetas.length}`);
-  assert.equal(new Set(tarjetas).size, 6, `dos tarjetas llevan al mismo sitio: ${tarjetas.join(', ')}`);
+  assert.equal(tarjetas.length, 5, `se esperaban 5 pestañas con enlace y hay ${tarjetas.length}`);
+  assert.equal(new Set(tarjetas).size, 5, `dos pestañas llevan al mismo sitio: ${tarjetas.join(', ')}`);
 });
 
-test('cada tarjeta del bento lleva a su página de función o solución, y esa página existe', () => {
+test('cada pestaña lleva a su página de función o solución, y esa página existe', () => {
   for (const href of tarjetasDelBento(BENTO)) {
     assert.deepEqual(problemasDeTarjeta(href), [], href);
     assert.ok(paginaDe(href), `${href} no está en el registro SEO (lib/seo/paginas.ts)`);
   }
-});
-
-test('los chips del bento llevan cada uno a una ruta que existe', () => {
-  const chips = [...BENTO.matchAll(/\['[^']+',\s*'(\/[^']+)'\]/g)].map((m) => m[1]);
-  assert.ok(chips.length >= 15, `solo se leyeron ${chips.length} chips`);
-  assert.deepEqual(chips.filter((h) => !rutaExiste(h)), []);
 });
 
 test('ningún enlace interno de la home ni de su armazón apunta a una ruta que no existe', () => {
@@ -103,7 +98,7 @@ test('ningún enlace interno de la home ni de su armazón apunta a una ruta que 
     .filter((f) => /^Seccion.*\.tsx$/.test(f) || ['enlaces.ts', 'data.ts', 'PopupEmpezar.tsx', 'BandaPrueba.tsx', 'LandingCliente.tsx'].includes(f))
     .map((f) => join(DIR_LANDING, f));
   const ficheros = [...deLaHome, ...delArmazon];
-  assert.ok(deLaHome.length >= 12, `solo se leyeron ${deLaHome.length} ficheros de la home`);
+  assert.ok(deLaHome.length >= 9, `solo se leyeron ${deLaHome.length} ficheros de la home`);
   const rotos: string[] = [];
   for (const f of ficheros) {
     for (const h of enlacesInternos(readFileSync(f, 'utf8'))) {
@@ -132,7 +127,7 @@ test('CONTROL: el detector caza una tarjeta a la demo, una ruta rota y una fila 
   assert.deepEqual(problemasDeTarjeta('/funcionalidades/reservas-online'), []);
   assert.deepEqual(problemasDeTarjeta('/soluciones/cambiar-de-software'), []);
   // El extractor lee lo que debe, y el comprobador de rutas no se deja engañar por un ancla.
-  assert.deepEqual(tarjetasDelBento("id: 'wh-bn-x',\n    href: '/funcionalidades/x',"), ['/funcionalidades/x']);
+  assert.deepEqual(tarjetasDelBento("enlace: { href: '/funcionalidades/x', texto: 'Ver x' },"), ['/funcionalidades/x']);
   assert.deepEqual(enlacesInternos(`<Link href="/precios">a</Link><a href="https://x.es">b</a><a href="#top">c</a><Link href={\`/c/\${s}\`}>`), ['/precios']);
   assert.equal(rutaExiste('/precios#planes'), true);
   assert.equal(rutaExiste('/precios-que-no-existen'), false);

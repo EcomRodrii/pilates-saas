@@ -6,7 +6,7 @@ import { FOTOS } from '@/components/landing/fotos';
 import { FotoLanding } from '@/components/landing/FotoLanding';
 import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
 import { MarcoIphone } from '@/components/ui/marco-iphone';
-import { CAPTURAS_APP, Escena, Ficha, Pastilla } from './piezas';
+import { CAPTURAS_APP, Escena } from './piezas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Héroe de la home nueva (fase 2.2, 19-oct-2026). Lo que hacen a la vez Mariana
@@ -55,22 +55,15 @@ export function Heroe({ logos }: { logos?: ReactNode }) {
           mediaMovil={MEDIA_HEROE_MOVIL}
           sizes={{ escritorio: '100vw', movil: '100vw' }}
         />
-        {/* Solo en el móvil (como Mariana Tek): la foto deja de ser el fondo del texto y pasa a una
-            tarjeta debajo, con un dato de la app en cristal encima. */}
-        <div className="wh-ficha wh-heroe-movil-dato" aria-hidden="true">
-          <span className="wh-ficha-fila"><span className="wh-ficha-etiqueta">Reformer · 19:00</span><Pastilla tono="arena">Llena</Pastilla></span>
-          <span className="wh-cristal-dato">12/12</span>
-          <span className="wh-cristal-pie"><span className="wh-punto" />3 en lista de espera</span>
-        </div>
       </div>
 
       <div className="wh-heroe-wrap">
         <div className="wh-heroe-texto v5-hero-texto">
           <h1 className="wh-heroe-h1">Software de gestión para estudios de Pilates y yoga{' '}
-            <span className="wh-heroe-promesa v5-hero-promesa">Todo tu estudio. Bajo control.</span>
+            <span className="wh-heroe-promesa v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
           </h1>
           <p className="wh-heroe-lead">
-            Reservas con lista de espera, cobros que se reintentan solos y una app con tu marca para tus alumnas.
+            Las reservas y las cuotas van solas, las bajas se cubren con un solo sí y tus alumnas lo tienen todo en una app con tu nombre.
           </p>
           <div className="wh-heroe-acciones v5-hero-acciones">
             <Link href={ALTA} className="wh-boton wh-boton-arena v5-hero-cta">{CTA_ALTA}</Link>
@@ -86,7 +79,7 @@ export function Heroe({ logos }: { logos?: ReactNode }) {
 
         <Escena
           className="wh-heroe-escena"
-          descripcion="Ejemplos de Tentare sobre una clase de Pilates: la app de una alumna con su próxima clase, el estado de la clase de reformer de las 19:00, llena y con tres alumnas en lista de espera, y una cuota cobrada al reintentarla con la tarjeta guardada."
+          descripcion="La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana."
         >
           <div className="wh-heroe-tel-marco">
             {/* iPhone 17 Pro con Dynamic Island (el marco compartido de components/ui), con la captura REAL de la app dentro. */}
@@ -106,18 +99,6 @@ export function Heroe({ logos }: { logos?: ReactNode }) {
               </picture></div>
             </MarcoIphone>
           </div>
-          <div className="wh-ficha wh-heroe-clase">
-            <span className="wh-ficha-fila"><span className="wh-ficha-etiqueta">Reformer · 19:00</span><Pastilla tono="arena">Llena</Pastilla></span>
-            <span className="wh-cristal-dato">12/12</span>
-            <span className="wh-cristal-pie"><span className="wh-punto" />3 en lista de espera</span>
-          </div>
-          <Ficha
-            className="wh-heroe-ficha"
-            etiqueta="Cuota mensual"
-            estado="Cobrado"
-            titulo="Laura Martín · 75 €"
-            nota="En el reintento, con su tarjeta guardada"
-          />
         </Escena>
       </div>
 

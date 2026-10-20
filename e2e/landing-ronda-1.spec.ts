@@ -8,8 +8,6 @@ import { FAQ_FUNCIONALIDADES, FAQ_SOLUCIONES } from '../lib/seo/faq-hubs.ts';
 //  · las preguntas frecuentes de /funcionalidades y /soluciones: el JSON-LD
 //    FAQPage dice lo mismo que ve la visitante, y las respuestas están en el
 //    HTML del servidor (no solo al pulsar),
-//  · cada tarjeta del bento lleva a SU página de función o solución, y esa
-//    página responde,
 //  · y el botón para empezar dice lo mismo en el héroe, la banda final y las
 //    páginas de función (la isla de la cabecera queda como estaba).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,26 +85,8 @@ async function abrirLanding(page: Page, ancho: number) {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
 }
 
-test('el bento: cada tarjeta lleva a su página de función o solución, todas distintas y todas responden', async ({ page, request }) => {
-  await abrirLanding(page, 1440);
-  // Home nueva (fase 2.2): el bento es BentoProducto (clases `wh-bn-*`).
-  const enlaces = await page.locator('#plataforma .wh-bn-h3 a').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
-  expect(enlaces).toHaveLength(6);
-  expect(new Set(enlaces).size).toBe(6);
-  for (const href of enlaces as string[]) {
-    expect(href).toMatch(/^\/(funcionalidades|soluciones)\/[a-z-]+$/);
-    expect(href).not.toMatch(/crear-estudio|empieza|demo/);
-    const res = await request.get(href, { timeout: 120_000 });
-    expect(res.status(), href).toBe(200);
-  }
-  // La fila «Seguir explorando» salió con la home nueva: ahora cada chip enlaza a su función (más que bsport, que no enlaza ninguno).
-  const mas = await page.locator('#plataforma .wh-chip-enlace a').evaluateAll((as) => [...new Set(as.map((a) => (a as HTMLAnchorElement).getAttribute('href')))]);
-  expect(mas.length).toBeGreaterThanOrEqual(10);
-  for (const href of mas as string[]) {
-    const res = await request.get(href, { timeout: 120_000 });
-    expect(res.status(), href).toBe(200);
-  }
-});
+// El bento salió con la home v2 (20-oct-2026): los enlaces del producto a sus funciones
+// los fija ahora landing-ronda-3.spec.ts, sobre las pestañas.
 
 test('un solo verbo para empezar: héroe, banda final y planes dicen «Empezar gratis»; la isla (ronda 2) también', async ({ page }) => {
   await abrirLanding(page, 1440);

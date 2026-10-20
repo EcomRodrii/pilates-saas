@@ -12,10 +12,10 @@ import { join } from 'node:path';
 const pagina = readFileSync(join(process.cwd(), 'app/page.tsx'), 'utf8');
 const heroe = readFileSync(join(process.cwd(), 'components/web/home/Heroe.tsx'), 'utf8');
 
-test('la franja va dentro del héroe, al pie de la banda, y tras el héroe vienen las seis tarjetas', () => {
+test('la franja va dentro del héroe, al pie de la banda, y tras el héroe viene «Lo que antes te llevaba la tarde»', () => {
   const llamada = '<Heroe logos={<FranjaLogos logos={logos} />} />';
   const pos = pagina.indexOf(llamada);
-  const verbos = pagina.indexOf('<SeisVerbos />');
+  const verbos = pagina.indexOf('<SeOcupaDelResto />');
   assert.ok(pos > 0 && verbos > pos, 'orden inesperado');
   const sinComentarios = (t: string) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim();
   assert.equal(sinComentarios(pagina.slice(pos + llamada.length, verbos)), '');
