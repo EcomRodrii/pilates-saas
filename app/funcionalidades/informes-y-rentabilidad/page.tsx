@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion, Tabla } from '@/components/funcionalidades/bloques';
 import { ComoSeCalculaElMargen, LoQueNoEntraEnElMargen } from '@/components/funcionalidades/visuales/informes';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { PanelInformes } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/informes-y-rentabilidad';
 const pagina = paginaDe(PATH)!;
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -50,7 +51,7 @@ export default function InformesPage() {
       h1={<>¿Qué clases te dan dinero?</>}
       intro={<>Piensas en meses porque tu software te da informes mensuales. Pero tu negocio ocurre por clases — y hay franjas que llevan un año costándote dinero sin que nadie lo haya mirado.</>}
       chips={['Margen por clase concreta', 'Ocupación por tipo', 'Retención por cohorte']}
-      captura={{ src: '/producto/informes.png', alt: 'Pantalla de informes de Tentare con ingresos, evolución y ventas por tipo', pie: 'Ingresos del periodo, evolución diaria y ventas por tipo — el panel real, no una maqueta.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo de los informes de Tentare: lo que deja cada clase y la ocupación por tipo.', contenido: <PanelInformes completo /> }}
     >
       <Seccion id="problema" titulo="El mes cuadra. La clase de las 10:00 no">
         <Entradilla>

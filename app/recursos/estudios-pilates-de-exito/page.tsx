@@ -6,16 +6,20 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('estudios-pilates-de-exito');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/estudios-pilates-de-exito')!;
+
 export const metadata: Metadata = {
-  title: 'Estudios de pilates de éxito: 4 lecciones — Tentare',
-  description:
-    'Datos reales de Club Pilates, SLT, BASI y el mercado español: qué hacen distinto los estudios de pilates que más crecen y qué puede copiar un estudio pequeño.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/estudios-pilates-de-exito') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Qué aprender de los estudios de pilates que más crecen',
     description: 'Lecciones con datos reales de las cadenas líderes y del mercado español, aplicables a cualquier estudio.',

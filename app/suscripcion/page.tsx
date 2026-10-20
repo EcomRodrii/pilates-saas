@@ -198,6 +198,9 @@ export default function SuscripcionPage() {
   const trial = estado?.trial;
 
   const yaPaga = yaPagaSegun(estado);
+  // Un cobro que no salió (Stripe `past_due`) sigue siendo una suscripción viva,
+  // pero «Está al día» y «Activa» serían mentira: la tarjeta hay que arreglarla.
+  const enImpago = estado?.subscriptionStatus === 'past_due';
   // Founding Studio gratis (lib/billing/plan-gratis.ts): su uso, fase y margen, ya derivados.
   const gratis = estado?.gratis ?? null;
   // Ha pasado un límite del gratis: le toca Founding Studio de pago (plan-gratis.ts).
@@ -243,6 +246,8 @@ export default function SuscripcionPage() {
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
             {gratis
               ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
+              : yaPaga && enImpago
+              ? 'Tu último cobro no ha salido. Actualiza la tarjeta en «Facturas, tarjeta y cambio de plan» para ponerte al día.'
               : yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
               : pruebaAgotada
@@ -379,9 +384,15 @@ export default function SuscripcionPage() {
                     tarjeta») y que su test fija. */}
                 <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
-                <Check size={14} strokeWidth={3} aria-hidden="true" /> Activa
-              </span>
+              {enImpago ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-3 py-1.5 text-[12.5px] font-bold text-warning">
+                  Cobro pendiente
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
+                  <Check size={14} strokeWidth={3} aria-hidden="true" /> Activa
+                </span>
+              )}
             </div>
 
             <UsoDelPlan estado={estado} className="mt-4 border-t border-border pt-4" />

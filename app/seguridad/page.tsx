@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: pagina.titulo,
     description: 'Datos aislados por estudio, base de datos en la UE y diseñado con el RGPD en mente. Sin permanencia.',

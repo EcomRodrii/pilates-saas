@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: pagina.titulo,
     description: 'Las diferencias que se notan cada día y cada fin de mes en un estudio de Pilates en España.',

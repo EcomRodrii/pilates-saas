@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
 import { CicloDeReserva, ReglasQueSeHeredan } from '@/components/funcionalidades/visuales/reservas';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AppAlumna } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/reservas-online';
 const pagina = paginaDe(PATH)!;
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -54,7 +55,7 @@ export default function ReservasPage() {
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
-      captura={{ src: '/producto/calendario-dia.png', alt: 'Vista de día del calendario de Tentare, con las salas en columnas', pie: 'Un día por salas. Cada bloque lleva su aforo y quien la da.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana.', contenido: <AppAlumna />, movil: true }}
     >
       <Seccion id="problema" titulo="El coste real de reservar por WhatsApp">
         <Entradilla>

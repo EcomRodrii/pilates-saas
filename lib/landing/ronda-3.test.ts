@@ -103,7 +103,8 @@ test('la migración cuenta las dos rutas que /soluciones/cambiar-de-software ya 
 
 test('la lista de «qué se trae» es la MISMA que la de la página, y lo que no se trae son las tarjetas guardadas', () => {
   assert.match(leer('app/soluciones/cambiar-de-software/page.tsx'), /from '@\/lib\/landing\/migracion'/, 'la página debe importar SE_LLEVA, no copiarla');
-  assert.match(leer('components/landing/SeccionCambiarte.tsx'), /SE_LLEVA/);
+  // Home nueva (fase 2.2): la lista viaja al acta del bento («Cámbiate sin empezar de cero»).
+  assert.match(leer('components/web/home/BentoProducto.tsx'), /SE_LLEVA/);
   assert.equal(SE_LLEVA.length, 6);
   const faq = leer('app/soluciones/cambiar-de-software/page.tsx');
   assert.match(faq, /las tarjetas guardadas no se migran/i);
@@ -117,9 +118,10 @@ test('el ancla de la segunda ruta existe en la página de migración', () => {
 // ── Bento: chips con enlace ─────────────────────────────────────────────────
 
 test('los chips del bento que enlazan llevan a una ruta que existe', () => {
-  const bento = leer('components/landing/SeccionBento.tsx');
+  // Home nueva (fase 2.2): el bento es components/web/home/BentoProducto.tsx; los chips, `['texto', '/ruta']`.
+  const bento = leer('components/web/home/BentoProducto.tsx');
   const chips = [...bento.matchAll(/\['([^']+)',\s*'(\/[^']+)'\]/g)].map((m) => ({ texto: m[1], href: m[2] }));
-  assert.ok(chips.length >= 10, `solo se leyeron ${chips.length} chips con enlace`);
+  assert.ok(chips.length >= 15, `solo se leyeron ${chips.length} chips con enlace`);
   for (const c of chips) {
     assert.ok(rutaExiste(c.href), `${c.texto}: ${c.href} no existe`);
     assert.match(c.href, /^\/(funcionalidades|soluciones)\//, c.texto);
@@ -135,23 +137,23 @@ test('el botón de cierre de bloque dice «Empezar gratis» y lleva al alta', ()
   assert.equal(CTA_ALTA, 'Empezar gratis');
 });
 
-const BLOQUES_CON_BOTON = [
-  'SeccionSeisVerbos', 'SeccionReservas', 'SeccionCalendarioReservas', 'SeccionComparador',
-  'SeccionBento', 'SeccionSustituciones', 'SeccionCambiarte',
-];
+// Home nueva (fase 2.2): los bloques de beneficio que cierran con su botón.
+const BLOQUES_CON_BOTON = ['SeOcupaDelResto', 'BentoProducto', 'BandaComparador'];
 for (const b of BLOQUES_CON_BOTON) {
   test(`${b}: cierra con el botón de bloque y no escribe otro botón al alta con otro texto`, () => {
-    const fuente = leer(`components/landing/${b}.tsx`);
+    const fuente = leer(`components/web/home/${b}.tsx`);
     assert.match(fuente, /<BotonBloque\b/);
     assert.deepEqual(botonesFueraDeRegla(fuente), []);
   });
 }
 
-test('el orden de la home: tarjetas tras «¿Te suena?», comparador antes del bento', () => {
-  const l = leer('components/landing/LandingCliente.tsx');
-  const pos = (s: string) => l.indexOf(s);
-  assert.ok(pos('<SeccionTeSuena />') < pos('{verbos}') && pos('{verbos}') < pos('{frase}'));
-  assert.ok(pos('<SeccionCalendarioReservas />') < pos('{comparador}') && pos('{comparador}') < pos('{bento}'));
+test('el orden de la home nueva: logos dentro del héroe, seis verbos debajo, el bento antes de las pestañas y el comparador tras las filas', () => {
+  const l = leer('app/page.tsx');
+  const pos = (x: string) => l.indexOf(x);
+  const orden = ['<Heroe logos={<FranjaLogos', '<SeisVerbos />', '<SeOcupaDelResto />', '<BentoProducto />', '<PestanasProducto />',
+    '<FilasEditoriales />', '<BandaComparador />', '<Etapas />', '<PrecioHome />', '<PreguntasHome />', '<GuiasHome />', '<CierreHome />'];
+  for (const x of orden) assert.ok(pos(x) > 0, `falta ${x}`);
+  for (let i = 1; i < orden.length; i++) assert.ok(pos(orden[i - 1]) < pos(orden[i]), `${orden[i - 1]} debe ir antes que ${orden[i]}`);
 });
 
 // ── Controles ───────────────────────────────────────────────────────────────

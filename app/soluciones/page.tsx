@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { ACC, MUTED } from '@/components/landing/theme';
+import { FOTOS, rutaFoto } from '@/components/landing/fotos';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 /** La foto de cada tarjeta, si su tipo de estudio tiene una real (fotos.ts / fotos aportadas). */
@@ -38,6 +38,7 @@ const FOTO: Record<string, { src: string; alt: string; pos?: string }> = {
   '/soluciones/estudio-de-pilates-reformer': { src: '/landing/fotos/reformers-madera-tapizado-negro-plazas-640.webp', alt: 'Fila de reformers con tapizado negro en un estudio de Pilates' },
   '/soluciones/programa-de-gestion-para-estudio-de-pilates': { src: '/landing/fotos/sala-pilates-espejos-arco-anoche-560.webp', alt: 'Sala de un estudio de Pilates con espejos y un arco iluminado por la noche' },
   '/soluciones/estudio-de-yoga': { src: '/landing/fotos-aportadas/alumna-con-movil-y-esterilla-de-yoga-432.webp', alt: 'Alumna sonriendo con el móvil y una esterilla de yoga', pos: '50% 22%' },
+  '/soluciones/abrir-un-estudio': { src: rutaFoto(FOTOS.selfie, 'movil', 480, 'webp'), alt: FOTOS.selfie.alt },
   '/funcionalidades/multi-centro': { src: '/landing/fotos/sala-pilates-reformers-madera-cierre-768.webp', alt: 'Sala de un estudio de Pilates con una fila de reformers de madera clara' },
 };
 
@@ -51,11 +52,11 @@ export default function SolucionesPage() {
 
       <header style={{ padding: 'clamp(44px,6vw,80px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(36px,5.4vw,62px)', lineHeight: 1.02, letterSpacing: '-.038em', margin: '0 0 18px', maxWidth: '18ch' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(38px,5.4vw,64px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 18px', maxWidth: '18ch', color: 'var(--w-texto)' }}>
             <PildoraBusqueda>Software para cada tipo de estudio</PildoraBusqueda>
             Tentare, según tu estudio.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 640, margin: 0 }}>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', maxWidth: 640, margin: 0 }}>
             El mismo producto y el mismo precio público, contado desde lo que más le importa a cada estudio: un estudio de
             Pilates, uno de reformer, uno de yoga, varias sedes o quien viene de otro programa.
           </p>
@@ -65,7 +66,7 @@ export default function SolucionesPage() {
       <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,80px)' }}>
         <div className="solh-grid">
           <Link href="/" className="solh-card solh-card-ancha">
-            <span className="lp-mono solh-eyebrow">La más buscada</span>
+            <span className="solh-eyebrow">La más buscada</span>
             <span className="solh-nombre">Estudio de Pilates</span>
             <span className="solh-resumen">Reservas y lista de espera, app con tu marca, bonos, cuotas y cobros automáticos: todo lo que necesita un estudio de Pilates, en un solo programa.</span>
             <span className="solh-ir">Software para estudios de Pilates <ArrowRight size={15} aria-hidden /></span>
@@ -97,7 +98,7 @@ export default function SolucionesPage() {
       <section aria-labelledby="solh-faq-h" style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,80px)' }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <FaqStructuredData items={FAQ_SOLUCIONES} />
-          <h2 id="solh-faq-h" style={{ fontWeight: 800, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.03em', lineHeight: 1.12, margin: 0 }}>Preguntas frecuentes</h2>
+          <h2 id="solh-faq-h" style={{ fontWeight: 600, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.12, margin: 0, color: 'var(--w-texto)' }}>Preguntas frecuentes</h2>
           <ArticleFaq items={FAQ_SOLUCIONES} />
         </div>
       </section>
@@ -112,22 +113,22 @@ export default function SolucionesPage() {
 
       <style>{`
         .solh-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
-        .solh-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #E7E7E0; border-radius: 22px; overflow: hidden;
+        .solh-card { display: flex; flex-direction: column; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); overflow: hidden;
           text-decoration: none; transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
-        .solh-card:hover { transform: translateY(-4px); box-shadow: 0 32px 60px -36px rgba(26,26,26,.35); }
-        .solh-card-ancha { grid-column: 1 / -1; padding: clamp(26px,3.6vw,40px); background: ${ACC}; border-color: ${ACC}; }
-        .solh-card-ancha .solh-nombre { color: #fff; font-size: clamp(24px,2.8vw,32px); }
-        .solh-card-ancha .solh-resumen { color: #DDE0CB; max-width: 60ch; font-size: 16px; }
-        .solh-card-ancha .solh-ir { color: #fff; }
-        .solh-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #C9CDB3; margin-bottom: 10px; }
-        .solh-foto { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: #DCDBD2; }
+        .solh-card:hover { transform: translateY(-4px); box-shadow: var(--w-sombra-suave); }
+        .solh-card-ancha { grid-column: 1 / -1; padding: clamp(26px,3.6vw,40px); background: var(--w-noche); border-color: var(--w-noche); }
+        .solh-card-ancha .solh-nombre { color: var(--w-sobre-noche); font-size: clamp(24px,2.8vw,32px); }
+        .solh-card-ancha .solh-resumen { color: var(--w-sobre-noche-2); max-width: 60ch; font-size: 16px; }
+        .solh-card-ancha .solh-ir { color: var(--w-sand); }
+        .solh-eyebrow { font-size: 14px; font-weight: 600; color: var(--w-sand); margin-bottom: 10px; }
+        .solh-foto { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: var(--w-sand-claro); }
         .solh-foto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s var(--motion-ease); }
         .solh-card:hover .solh-foto img { transform: scale(1.03); }
         .solh-cuerpo { display: flex; flex-direction: column; padding: 22px 24px 24px; flex: 1; }
         .solh-card:not(.solh-card-foto):not(.solh-card-ancha) { padding: 22px 24px 24px; }
-        .solh-nombre { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.015em; color: #1A1A1A; margin-bottom: 8px; }
-        .solh-resumen { display: block; font-size: 14.5px; line-height: 1.55; color: ${MUTED}; margin-bottom: 16px; }
-        .solh-ir { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 700; color: ${ACC}; }
+        .solh-nombre { display: block; font-size: 20px; font-weight: 600; letter-spacing: var(--w-track-h3); color: var(--w-texto); margin-bottom: 8px; }
+        .solh-resumen { display: block; font-size: 14.5px; line-height: 1.55; color: var(--w-texto-2); margin-bottom: 16px; }
+        .solh-ir { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 600; color: var(--w-olive); }
         @media (max-width: 760px) { .solh-grid { grid-template-columns: minmax(0,1fr); } }
         @media (prefers-reduced-motion: reduce) { .solh-card, .solh-foto img { transition: none; } }
       `}</style>

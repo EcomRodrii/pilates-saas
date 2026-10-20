@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 export default function Cookies() {

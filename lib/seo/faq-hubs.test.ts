@@ -14,7 +14,7 @@ import { faqPageLd, type PreguntaFaq } from './faq-jsonld.ts';
 //  2. que el JSON-LD `FAQPage` dice EXACTAMENTE lo que ve la visitante (mismas
 //     preguntas, mismas respuestas, mismo orden), y que la página usa un único
 //     array para las dos cosas,
-//  3. que los dos índices y las 21 páginas de detalle llevan el marcado, para que
+//  3. que los dos índices y las 22 páginas de detalle llevan el marcado, para que
 //     un índice nuevo o una página nueva sin FAQ no pase sin que alguien lo vea.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -112,9 +112,10 @@ export function llevaFaqPage(fuente: string): boolean {
   return /<FeatureFaq items=\{/.test(fuente) || /<FaqSolucion /.test(fuente) || /<FaqStructuredData items=\{/.test(fuente);
 }
 
-test('los dos índices y las 21 páginas de detalle llevan marcado FAQPage', () => {
+test('los dos índices y las 22 páginas de detalle llevan marcado FAQPage', () => {
   const detalle = [...paginasDeDetalle('funcionalidades'), ...paginasDeDetalle('soluciones')];
-  assert.equal(detalle.length, 21);
+  // 17 funcionalidades y 5 soluciones (la quinta, «Abrir un estudio», desde la fase 2.3).
+  assert.equal(detalle.length, 22);
   const sin = [...detalle, join(process.cwd(), 'app', 'funcionalidades', 'page.tsx'), join(process.cwd(), 'app', 'soluciones', 'page.tsx')]
     .filter((f) => !llevaFaqPage(readFileSync(f, 'utf8')));
   assert.deepEqual(sin, [], `Sin FAQPage: ${sin.join(', ')}`);

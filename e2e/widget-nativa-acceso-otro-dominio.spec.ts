@@ -71,6 +71,17 @@ interface Contadores {
   acceso: { url: string; origen: string | undefined; cuerpo: string | null }[];
   /** Cualquier petición a Turnstile hecha DESDE la web del estudio. */
   turnstileEnLaWeb: number;
+  /** Preguntas de la ventana al servidor: «¿es de equipo?», con el token que llevaban. */
+  cuenta: { origen: string | undefined; autorizacion: string | undefined }[];
+  /**
+   * Sesiones que llegan a la web del estudio: el widget abre la que le entregan
+   * con `setSession`, que pregunta a gotrue por el usuario DESDE la web.
+   */
+  sesionEnLaWeb: number;
+  /** Cierres de sesión en gotrue, con su URL (para ver el `scope`). */
+  logout: string[];
+  /** Refrescos de token, desde cualquier sitio. */
+  refresco: number;
 }
 
 /**
@@ -80,8 +91,10 @@ interface Contadores {
 async function enLaWebDelEstudio(page: Page, context: BrowserContext, app: string, origen = ANFITRIONA, opciones: {
   token?: (r: Route) => Promise<void>;
   otp?: (r: Route) => Promise<void>;
+  /** Lo que contesta `/api/auth/cuenta-de-equipo`. Por defecto, una alumna. */
+  cuenta?: (r: Route) => Promise<void>;
 } = {}): Promise<Contadores> {
-  const c: Contadores = { acceso: [], turnstileEnLaWeb: 0 };
+  const c: Contadores = { acceso: [], turnstileEnLaWeb: 0, cuenta: [], sesionEnLaWeb: 0, logout: [], refresco: 0 };
   const cors = {
     'access-control-allow-origin': origen, 'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type, authorization',
@@ -114,12 +127,22 @@ async function enLaWebDelEstudio(page: Page, context: BrowserContext, app: strin
       if (opciones.otp) return opciones.otp(r);
       return r.fulfill({ status: 200, contentType: 'application/json', headers: gotrueCors(req), body: '{}' });
     }
+    if (url.includes('/auth/v1/token?grant_type=refresh_token')) c.refresco++;
+    if (url.includes('/auth/v1/logout')) c.logout.push(url);
     if (url.includes('/auth/v1/user')) {
+      if (req.headers().origin === origen) c.sesionEnLaWeb++;
       return r.fulfill({ status: 200, contentType: 'application/json', headers: gotrueCors(req), body: JSON.stringify(USUARIO) });
     }
     return r.fulfill({ status: 200, contentType: 'application/json', headers: gotrueCors(req), body: '{}' });
   });
   await context.routeWebSocket(/\/realtime\/v1\//, () => {});
+  // La pregunta de la ventana antes de entregar: en servidor (Supabase), adonde
+  // `page.route` no llega, así que se contesta aquí y se cuenta.
+  await context.route(`${app}/api/auth/cuenta-de-equipo`, async (r) => {
+    c.cuenta.push({ origen: r.request().headers().origin, autorizacion: r.request().headers().authorization });
+    if (opciones.cuenta) return opciones.cuenta(r);
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ equipo: false }) });
+  });
 
   page.on('request', (req) => { if (req.url().startsWith('https://challenges.cloudflare.com')) c.turnstileEnLaWeb++; });
   // La red de seguridad PRIMERO: la ruta registrada después gana.
@@ -171,6 +194,12 @@ test('con contraseña: la ventana de Tentare entra (desde tentare, no desde la w
   expect(c.acceso[0].cuerpo).toContain('una-clave-de-pruebas');
   // La web del estudio no carga Turnstile: allí no da token (110200).
   expect(c.turnstileEnLaWeb).toBe(0);
+  // Antes de entregar, la ventana preguntó al servidor con el token nuevo; y la
+  // sesión que entrega no se cierra (sería cerrar también la del widget).
+  expect(c.cuenta).toHaveLength(1);
+  expect(c.cuenta[0].autorizacion).toMatch(/^Bearer /);
+  expect(c.sesionEnLaWeb).toBeGreaterThan(0);
+  expect(c.logout).toHaveLength(0);
 });
 
 test('con contraseña equivocada: gotrue dice que no, el widget lo dice y no entra', async ({ page, context, baseURL }) => {
@@ -260,4 +289,149 @@ test('desde una web que el estudio NO autorizó: la ventana no acepta el encargo
   await ventana.close();
   await expect(page.getByTestId('widget-acceso-sin-ventana')).toContainText('se ha cerrado antes de terminar');
   expect(c.acceso).toHaveLength(0);
+});
+
+// ── Las cuentas de equipo no entran por el widget (decisión del 16-oct-2026) ──
+//
+// La sesión que entrega la ventana vale para la cuenta entera: si es de alguien
+// del equipo de un estudio, la web que la recibe podría usarla allí. La ventana
+// pregunta al servidor antes de entregar y, si es de equipo, no entrega nada.
+// Se cuenta lo que llega a la web: ninguna sesión.
+
+const comoEquipo = (r: Route) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ equipo: true }) });
+
+test('cuenta de equipo con contraseña: la ventana no entrega la sesión, la cierra y lo dice con la salida a la página entera', async ({ page, context, baseURL }) => {
+  const app = new URL(baseURL!).origin;
+  const c = await enLaWebDelEstudio(page, context, app, ANFITRIONA, { cuenta: comoEquipo });
+  await page.getByPlaceholder('Email').fill('equipo@example.com');
+  await page.getByPlaceholder('Contraseña').fill('una-clave-de-pruebas');
+  const ventanaPromesa = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  const ventana = await ventanaPromesa;
+
+  // La ventana se queda abierta, con el porqué y la página de reservas entera.
+  await expect(ventana.getByRole('heading', { name: 'Esta cuenta es de un equipo de Tentare: entra desde tentare.app.' })).toBeVisible({ timeout: 90_000 });
+  await expect(ventana.getByRole('link', { name: 'entra desde la página de reservas del estudio' })).toHaveAttribute('href', `${app}/reservar/${SLUG}`);
+  // El widget también lo dice, con el mismo enlace.
+  const aviso = page.getByTestId('widget-acceso-cuenta-de-equipo');
+  await expect(aviso).toContainText('Esta cuenta es de un equipo de Tentare');
+  await expect(aviso.getByRole('link')).toHaveAttribute('href', `${app}/reservar/${SLUG}`);
+  await expect(page.getByRole('button', { name: 'Mi cuenta' })).toHaveCount(0);
+
+  // Sí entró y sí preguntó (sin contadores, «no llegó» podría ser «no lo intentó»)…
+  expect(c.acceso).toHaveLength(1);
+  expect(c.cuenta).toHaveLength(1);
+  // …y a la web no llegó ninguna sesión. La que se abrió se cerró en gotrue, solo ella.
+  expect(c.sesionEnLaWeb).toBe(0);
+  expect(c.logout).toHaveLength(1);
+  expect(new URL(c.logout[0]).searchParams.get('scope')).toBe('local');
+  // Y el widget no guardó nada en la web del estudio.
+  expect(await page.evaluate(() => localStorage.getItem('sb-portal-auth') ?? sessionStorage.getItem('sb-portal-auth'))).toBeNull();
+  await ventana.close();
+});
+
+test('si el servidor no contesta a «¿es de equipo?»: no se entrega nada (fallo cerrado)', async ({ page, context, baseURL }) => {
+  const app = new URL(baseURL!).origin;
+  const c = await enLaWebDelEstudio(page, context, app, ANFITRIONA, {
+    cuenta: (r) => r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'x' }) }),
+  });
+  await page.getByPlaceholder('Email').fill('socia@example.com');
+  await page.getByPlaceholder('Contraseña').fill('una-clave-de-pruebas');
+  const ventanaPromesa = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  const ventana = await ventanaPromesa;
+  await ventana.waitForEvent('close', { timeout: 90_000 });
+
+  await expect(page.getByRole('alert')).toHaveText('No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.');
+  await expect(page.getByRole('button', { name: 'Mi cuenta' })).toHaveCount(0);
+  expect(c.cuenta.length).toBeGreaterThan(0);
+  expect(c.sesionEnLaWeb).toBe(0);
+});
+
+/** Lo que hay guardado en tentare.app (claves de Supabase), leído desde otra pestaña del mismo origen. */
+async function guardadoEnTentare(context: BrowserContext, app: string): Promise<Record<string, string | null>> {
+  const p = await context.newPage();
+  await p.route(`${app}/__e2e-almacen`, (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>x</title>' }));
+  await p.goto(`${app}/__e2e-almacen`);
+  const datos = await p.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter((k) => k.startsWith('sb-')).map((k) => [k, localStorage.getItem(k)])));
+  await p.close();
+  return datos;
+}
+
+/** La sesión de la propia alumna en tentare.app (el portal), puesta antes de empezar. */
+async function conSesionDelPortal(context: BrowserContext, app: string): Promise<string> {
+  const valor = JSON.stringify({ access_token: 'la-de-la-alumna', refresh_token: 'refresh-de-la-alumna', expires_at: Math.floor(Date.now() / 1000) + 3600 });
+  const p = await context.newPage();
+  await p.route(`${app}/__e2e-almacen`, (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>x</title>' }));
+  await p.goto(`${app}/__e2e-almacen`);
+  await p.evaluate((v) => localStorage.setItem('sb-portal-auth', v), valor);
+  await p.close();
+  return valor;
+}
+
+/** El código del correo, escrito en la ventana: `/api/auth/otp/verificar` contesta con una sesión de email. */
+async function conCodigoQueAbreSesion(context: BrowserContext, app: string): Promise<{ veces: number }> {
+  const contador = { veces: 0 };
+  await context.route(`${app}/api/auth/otp/verificar`, (r) => {
+    contador.veces++;
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, session: { access_token: tokenDe('otp'), refresh_token: 'refresh-e2e-codigo' },
+    }) });
+  });
+  return contador;
+}
+
+test('con el código del correo: la sesión llega al widget y NO se queda en tentare.app, ni pisa la de la alumna', async ({ page, context, baseURL }) => {
+  const app = new URL(baseURL!).origin;
+  const suya = await conSesionDelPortal(context, app);
+  const verificar = await conCodigoQueAbreSesion(context, app);
+  const c = await enLaWebDelEstudio(page, context, app);
+  await page.getByRole('button', { name: 'No tengo contraseña — enviarme un enlace' }).click();
+  await page.getByPlaceholder('Email').fill('nueva@example.com');
+  const ventanaPromesa = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Enviarme un enlace por email' }).click();
+  const ventana = await ventanaPromesa;
+  await expect(page.getByText('Te hemos escrito a')).toBeVisible({ timeout: 90_000 });
+  await ventana.getByTestId('codigo-correo').fill('123456');
+
+  await ventana.waitForEvent('close', { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Mi cuenta' })).toBeVisible({ timeout: 15_000 });
+  expect(verificar.veces).toBe(1);
+  expect(c.cuenta).toHaveLength(1);
+  expect(c.sesionEnLaWeb).toBeGreaterThan(0);
+  // Un solo dueño: en tentare.app no queda la sesión del puente, y la de la alumna sigue intacta.
+  const guardado = await guardadoEnTentare(context, app);
+  expect(Object.keys(guardado).filter((k) => k.startsWith('sb-puente-widget'))).toEqual([]);
+  expect(guardado['sb-portal-auth']).toBe(suya);
+  // Nadie la cerró (cerrarla mataría la del widget) ni la refrescó.
+  expect(c.logout).toHaveLength(0);
+  expect(c.refresco).toBe(0);
+});
+
+test('cuenta de equipo con el código del correo: no llega nada a la web, y el widget lo dice tras «revisa tu correo»', async ({ page, context, baseURL }) => {
+  const app = new URL(baseURL!).origin;
+  const suya = await conSesionDelPortal(context, app);
+  const verificar = await conCodigoQueAbreSesion(context, app);
+  const c = await enLaWebDelEstudio(page, context, app, ANFITRIONA, { cuenta: comoEquipo });
+  await page.getByRole('button', { name: 'No tengo contraseña — enviarme un enlace' }).click();
+  await page.getByPlaceholder('Email').fill('equipo@example.com');
+  const ventanaPromesa = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Enviarme un enlace por email' }).click();
+  const ventana = await ventanaPromesa;
+  await expect(page.getByText('Te hemos escrito a')).toBeVisible({ timeout: 90_000 });
+  await ventana.getByTestId('codigo-correo').fill('123456');
+
+  await expect(ventana.getByRole('heading', { name: 'Esta cuenta es de un equipo de Tentare: entra desde tentare.app.' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('widget-acceso-cuenta-de-equipo')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mi cuenta' })).toHaveCount(0);
+  expect(verificar.veces).toBe(1);
+  expect(c.cuenta).toHaveLength(1);
+  expect(c.sesionEnLaWeb).toBe(0);
+  // La sesión que se abrió en la ventana se cerró (solo ella) y no queda guardada.
+  expect(c.logout).toHaveLength(1);
+  expect(new URL(c.logout[0]).searchParams.get('scope')).toBe('local');
+  const guardado = await guardadoEnTentare(context, app);
+  expect(Object.keys(guardado).filter((k) => k.startsWith('sb-puente-widget'))).toEqual([]);
+  expect(guardado['sb-portal-auth']).toBe(suya);
+  await ventana.close();
 });

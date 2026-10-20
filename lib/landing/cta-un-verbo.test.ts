@@ -26,9 +26,11 @@ const RAIZ = process.cwd();
 const CUERPOS = [
   'components/landing/BandaPrueba.tsx',
   'components/landing/PopupEmpezar.tsx',
-  'components/landing/SeccionCtaFinal.tsx',
   'components/landing/BotonBloque.tsx',
-  'components/landing/SeccionPrecio.tsx',
+  // Home nueva (fase 2.2): el héroe, el precio y la banda final viven en components/web/home/.
+  'components/web/home/Heroe.tsx',
+  'components/web/home/PrecioHome.tsx',
+  'components/web/home/CierreHome.tsx',
   'components/funcionalidades/FeatureShell.tsx',
   'components/funcionalidades/bloques.tsx',
   'components/soluciones/LandingSolucion.tsx',
@@ -37,8 +39,8 @@ const CUERPOS = [
   'components/web/IslaWeb.tsx',
 ];
 
-/** El botón del héroe. La isla, que antes vivía aquí, está en components/web/IslaWeb.tsx (en CUERPOS). */
-const HEROE = 'components/landing/SeccionHero.tsx';
+/** El botón del héroe (fase 2.2: components/web/home/Heroe.tsx). La isla, en components/web/IslaWeb.tsx (en CUERPOS). */
+const HEROE = 'components/web/home/Heroe.tsx';
 const ISLA = 'components/web/IslaWeb.tsx';
 
 // Lo que se acepta como contenido de un botón al alta: la constante, con o sin

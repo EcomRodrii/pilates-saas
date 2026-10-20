@@ -4,31 +4,30 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Dónde va la franja de logos de clientes en la home, y que su cableado no se pierda.
-// El vídeo va justo debajo del héroe y monta sobre el bloque oscuro de «¿Te suena?»
-// (decisión del fundador, 23-sep): la franja NO se mete entre medias.
-const landing = readFileSync(join(process.cwd(), 'components/landing/LandingCliente.tsx'), 'utf8');
+//
+// Home nueva (fase 2.2, 19-oct-2026): la composición vive en app/page.tsx y la
+// franja va DENTRO de la banda oscura del héroe, al pie, como en bsport (antes iba
+// tras «¿Te suena?»: el vídeo montaba sobre el bloque de debajo del héroe y ya no
+// está ahí, pasó a la sección de producto).
 const pagina = readFileSync(join(process.cwd(), 'app/page.tsx'), 'utf8');
+const heroe = readFileSync(join(process.cwd(), 'components/web/home/Heroe.tsx'), 'utf8');
 
-test('héroe → vídeo → «¿Te suena?» siguen pegados, y la franja va justo detrás de «¿Te suena?»', () => {
-  const hero = landing.indexOf('<SeccionHero />');
-  const video = landing.indexOf('<VideoProducto />');
-  const suena = landing.indexOf('<SeccionTeSuena />');
-  const logos = landing.indexOf('{logos}');
-  const verbos = landing.indexOf('{verbos}');
-  assert.ok(hero > 0 && video > hero && suena > video && logos > suena && verbos > logos, 'orden inesperado');
-
-  // Entre el héroe y el vídeo, y entre el vídeo y «¿Te suena?», solo comentarios y espacio: ningún componente ni hueco.
+test('la franja va dentro del héroe, al pie de la banda, y tras el héroe vienen las seis tarjetas', () => {
+  const llamada = '<Heroe logos={<FranjaLogos logos={logos} />} />';
+  const pos = pagina.indexOf(llamada);
+  const verbos = pagina.indexOf('<SeisVerbos />');
+  assert.ok(pos > 0 && verbos > pos, 'orden inesperado');
   const sinComentarios = (t: string) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim();
-  assert.equal(sinComentarios(landing.slice(hero + '<SeccionHero />'.length, video)), '');
-  assert.equal(sinComentarios(landing.slice(video + '<VideoProducto />'.length, suena)), '');
-  // Y entre «¿Te suena?» y la franja, nada más.
-  assert.equal(sinComentarios(landing.slice(suena + '<SeccionTeSuena />'.length, logos)), '');
+  assert.equal(sinComentarios(pagina.slice(pos + llamada.length, verbos)), '');
+  // Dentro del héroe: después del contenido y antes de cerrar la banda.
+  assert.ok(heroe.indexOf('{logos &&') > heroe.indexOf('</Escena>') && heroe.indexOf('{logos &&') < heroe.indexOf('</header>'));
 });
 
-test('la home lee los logos en servidor, se regenera cada hora y pasa la franja como hueco', () => {
+test('la home lee los logos en servidor, se regenera cada hora y pinta la franja', () => {
   assert.match(pagina, /export const revalidate = 3600;/);
   assert.match(pagina, /await logosClientesLanding\(\)/);
-  assert.match(pagina, /logos=\{<FranjaLogos logos=\{logos\} \/>\}/);
+  assert.match(pagina, /<FranjaLogos logos=\{logos\} \/>/);
+  assert.match(heroe, /\.wh-heroe-logos|wh-heroe-logos/);
 });
 
 test('la franja no pinta nada con cero logos', () => {

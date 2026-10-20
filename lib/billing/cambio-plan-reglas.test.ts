@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { claveCambioPlan, itemsParaPasarAEstudio, motivoNoCambioPlan } from './cambio-plan-reglas.ts';
+import { itemsParaPasarAEstudio, motivoNoCambioPlan } from './cambio-plan-reglas.ts';
 
 const ok = { plan: 'BASE', subscriptionStatus: 'active', subscriptionId: 'sub_1', cadenaId: null };
 
@@ -55,12 +55,6 @@ test('una línea que no es ni plan ni complemento (añadida a mano): no se toca 
   assert.equal(itemsParaPasarAEstudio([{ id: 'si_plan', priceId: 'price_base' }, { id: 'si_x', priceId: 'price_otro' }], 'price_estudio', mapa), null);
 });
 
-test('la clave lleva línea y precio: otra forma de suscripción, otra clave', () => {
-  const a = claveCambioPlan('sub_1', [{ id: 'si_b', priceId: 'price_addon_ia' }, { id: 'si_a', priceId: 'price_base' }]);
-  assert.equal(a, 'plan-sub_1-ESTUDIO-si_a:price_base.si_b:price_addon_ia');
-  assert.notEqual(a, claveCambioPlan('sub_1', [{ id: 'si_b', priceId: 'price_addon_ia' }, { id: 'si_a', priceId: 'price_estudio' }]));
-});
-
 test('lo manda Stripe: si la suscripción no es de Founding (o no se entiende), no se toca', () => {
   assert.equal(itemsParaPasarAEstudio([{ id: 'si', priceId: 'price_estudio' }], 'price_estudio', mapa), null);
   assert.equal(itemsParaPasarAEstudio([{ id: 'si', priceId: 'price_otro' }], 'price_estudio', mapa), null);
@@ -75,7 +69,9 @@ test('la ruta: solo la propietaria, guardia de modo, cerrojo, decide con Stripe 
   assert.match(ruta, /reclamarCheckoutLock/);
   assert.match(ruta, /liberarCheckoutLock/);
   assert.match(ruta, /itemsParaPasarAEstudio\(/);
-  assert.match(ruta, /idempotencyKey: claveCambioPlan\(subId, /);
+  // Sin clave atada a las líneas: se repite si la suscripción vuelve a esa forma y Stripe
+  // devuelve la respuesta vieja sin aplicar nada (20-oct-2026).
+  assert.doesNotMatch(ruta, /idempotencyKey/);
   assert.match(ruta, /cancel_at_period_end/);
   assert.match(ruta, /recurring\?\.interval/);
   // Tras cambiar, se vuelve a leer Stripe y se exige el resultado pedido.

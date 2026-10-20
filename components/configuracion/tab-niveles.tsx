@@ -9,19 +9,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
+import { insigniaDeNivel } from '@/lib/gamificacion/insignias';
 
 // Punto de partida opcional — el estudio decide si le sirve esta progresión
 // o prefiere otros nombres/umbrales/colores. Nunca se inserta solo.
 const NIVELES_SUGERIDOS: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>[] = [
-  { nombre: 'Bronce', orden: 0, umbralCreditos: 0, color: '#B08D57', icono: '🥉', beneficios: null, activo: true },
-  { nombre: 'Plata', orden: 1, umbralCreditos: 200, color: '#9CA3AF', icono: '🥈', beneficios: null, activo: true },
-  { nombre: 'Oro', orden: 2, umbralCreditos: 500, color: '#D4AF37', icono: '🥇', beneficios: null, activo: true },
-  { nombre: 'Platino', orden: 3, umbralCreditos: 1000, color: '#7C8FA6', icono: '🏆', beneficios: null, activo: true },
-  { nombre: 'Diamante', orden: 4, umbralCreditos: 2000, color: '#5FA8D3', icono: '💎', beneficios: null, activo: true },
+  { nombre: 'Bronce', orden: 0, umbralCreditos: 0, color: '#B08D57', icono: 'medalla', beneficios: null, activo: true },
+  { nombre: 'Plata', orden: 1, umbralCreditos: 200, color: '#9CA3AF', icono: 'premio', beneficios: null, activo: true },
+  { nombre: 'Oro', orden: 2, umbralCreditos: 500, color: '#D4AF37', icono: 'trofeo', beneficios: null, activo: true },
+  { nombre: 'Platino', orden: 3, umbralCreditos: 1000, color: '#7C8FA6', icono: 'estrella', beneficios: null, activo: true },
+  { nombre: 'Diamante', orden: 4, umbralCreditos: 2000, color: '#5FA8D3', icono: 'corona', beneficios: null, activo: true },
 ];
 
 const emptyForm = (siguienteOrden: number): Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'> => ({
-  nombre: '', orden: siguienteOrden, umbralCreditos: 0, color: '#B08D57', icono: '🏅', beneficios: '', activo: true,
+  nombre: '', orden: siguienteOrden, umbralCreditos: 0, color: '#B08D57', icono: 'estrella', beneficios: '', activo: true,
 });
 
 export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
@@ -37,6 +39,8 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
 
   // Por umbral, como panel y app de la alumna: `orden` ya no se edita ni manda.
   const ordenados = [...levelDefinitions].sort((a, b) => a.umbralCreditos - b.umbralCreditos || a.orden - b.orden);
+  // El último nivel activo por umbral es el que la app pinta con corona si no tiene insignia elegida.
+  const ultimoId = levelDefinitions.filter((l) => l.activo !== false).sort((a, b) => a.umbralCreditos - b.umbralCreditos).at(-1)?.id;
 
   function openNuevo() { setForm(emptyForm(ordenados.length)); setEditId(null); setModal('nuevo'); }
   function openEditar(l: LevelDefinition) {
@@ -106,7 +110,7 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-[18px] shrink-0"
                 style={{ backgroundColor: `${l.color}22` }}
               >
-                {l.icono}
+                <MiniaturaInsignia icono={insigniaDeNivel(l.icono, l.id === ultimoId).clave} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{l.nombre}</p>
@@ -130,21 +134,17 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo nivel' : 'Editar nivel'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-[80px_1fr] gap-3">
-              <div>
-                <Field label="Icono"
-                  description="Un emoji. Acompaña al nombre del nivel en el perfil de la alumna."
-                >
-                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
-                </Field>
-              </div>
-              <div>
-                <Field label="Nombre"
-                  description="Los niveles suelen ir de menos a más: Bronce, Plata, Oro."
-                >
-                  <input className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                </Field>
-              </div>
+            <div>
+              <Field label="Nombre"
+                description="Los niveles suelen ir de menos a más: Bronce, Plata, Oro."
+              >
+                <input className={inputCls} value={form.nombre} placeholder="Ej. Plata" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </Field>
+            </div>
+            <div>
+              <Field label="Insignia" description="Acompaña al nombre del nivel en la app de la alumna.">
+                <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
+              </Field>
             </div>
             <div className="grid grid-cols-1 gap-3">
               <div>

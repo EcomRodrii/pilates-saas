@@ -56,6 +56,7 @@ export const metadata: Metadata = {
   description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
   alternates: { canonical: `${LEGAL.url}/network` },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare Network — Red de instructoras de Pilates y Yoga',
     description: 'La red profesional donde estudios buscan instructoras y viceversa.',

@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion, Tabla } from '@/components/funcionalidades/bloques';
 import { DisponibilidadSemanal, QuienVeQue, RiesgoDeConcentracion } from '@/components/funcionalidades/visuales/equipo';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { PasarLista } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/gestion-de-instructoras';
 const pagina = paginaDe(PATH)!;
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -46,7 +47,7 @@ export default function InstructorasPage() {
       h1={<>Quién puede dar qué, y cuándo.</>}
       intro={<>Disponibilidad, vacaciones, horas y tarifas de cada instructora en un sitio. Los mismos datos con los que cuadras el horario son los que cubren una baja sola.</>}
       chips={['Disponibilidad y bloqueos', 'Tarifa por hora y liquidación', 'Aviso de dependencia']}
-      captura={{ src: '/producto/equipo.png', alt: 'Pantalla de equipo de Tentare con las instructoras del estudio', pie: 'Tu equipo, con el rol de cada una y lo que cobra por hora.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo de pasar lista desde la app de la instructora: tres alumnas han venido y una está sin marcar.', contenido: <PasarLista /> }}
     >
       <Seccion id="problema" titulo="El dato que suele vivir en la cabeza de alguien">
         <Entradilla>

@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AuthClient, type Session } from '@supabase/auth-js';
-import { supabasePortal } from '@/lib/db/supabase-portal';
+import type { Session } from '@supabase/auth-js';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 import { ERROR_CAPTCHA, useCaptcha } from '@/components/auth/turnstile-widget';
 import {
-  emailDelIntento, encargoDelIntento, sesionAutenticadaPorEmailDespuesDe, sesionPorContrasenaDespuesDe,
-  TIPO_ENLACE_ENVIADO, TIPO_PUENTE_LISTO, TIPO_RESULTADO_ACCESO, urlPuente, urlReservarCompleta,
-  type EncargoAcceso,
+  emailDelIntento, encargoDelIntento, ERROR_COMPROBAR_CUENTA, MENSAJE_CUENTA_DE_EQUIPO, MOTIVO_CUENTA_DE_EQUIPO,
+  RUTA_CUENTA_DE_EQUIPO, sesionAutenticadaPorEmailDespuesDe, sesionPorContrasenaDespuesDe,
+  TIPO_ENLACE_ENVIADO, TIPO_PUENTE_LISTO, TIPO_RESULTADO_ACCESO, urlPuente, urlReservarCompleta, veredictoCuenta,
+  type EncargoAcceso, type VeredictoCuenta,
 } from '@/lib/widget/puente-sesion';
-import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { useCodigoDelCorreo, type ClienteAuth } from '@/lib/student/codigo-del-correo';
+import { clienteEfimero, clientePuente, olvidarSesionDelCorreo } from './clientes-auth';
 
 // Mitad cliente de app/widget-auth-retorno/page.tsx. `destino`, `nonce` y
 // `abiertoEn` ya vienen resueltos por el servidor — este componente NUNCA
@@ -27,6 +28,14 @@ import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 //    Nunca toca la sesión guardada en el navegador ni la deja guardada en
 //    tentare.app (dos dueños del mismo refresh token se lo revocarían el uno
 //    al otro al rotarlo).
+//  · La del CORREO, igual de un solo dueño (20-oct-2026): se abre en el cliente
+//    propio del puente (`clientePuente`, su propia clave, nunca la del portal
+//    de la alumna) y, al entregarla, se borra a mano de tentare.app, sin
+//    llamar a gotrue (ver `CLAVE_SESION_PUENTE`).
+//  · Antes de entregar NINGUNA sesión, se pregunta al servidor si la cuenta es
+//    de equipo (`RUTA_CUENTA_DE_EQUIPO`). Si lo es, o si no hay respuesta
+//    clara, no sale: se cierra esa sesión (solo esa, `scope: 'local'`; no la
+//    tiene nadie más) y se dice por qué.
 //  · MANDAR EL CORREO por encargo del widget (mismo motivo): captcha +
 //    `signInWithOtp`, con la vuelta del enlace a esta misma página y nonce.
 //  · Esperar la sesión del correo. Solo la que nace de un acceso por email
@@ -45,6 +54,12 @@ import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 // Un encargo por ventana: si llega otro, se ignora. Y solo se acepta de la
 // ventana que abrió esta, desde `destino`, con el nonce de esta página.
 const SONDEO_MS = 3_000;
+/**
+ * La pestaña del ENLACE guarda la sesión para que la recoja la ventana (al
+ * momento por BroadcastChannel, o en el siguiente sondeo). Pasado esto, si sigue
+ * ahí es que no había ventana esperando: se olvida, no se queda en tentare.app.
+ */
+const OLVIDO_EN_LA_PESTANA_DEL_ENLACE_MS = 60_000;
 /** Sin noticias del widget en este tiempo, se ofrece la página de reservas. */
 const ESPERA_WIDGET_MS = 10_000;
 
@@ -56,25 +71,6 @@ const estiloBotonSecundario: React.CSSProperties = {
   padding: '8px 20px', borderRadius: 999, border: '1px solid #ddd8c8', background: 'none', cursor: 'pointer',
 };
 
-// El cliente del acceso con contraseña: en memoria y nada más. Ni guarda, ni
-// refresca, ni lee la URL. Nace con la primera llamada (en el servidor no hay
-// nada que crear).
-let efimero: InstanceType<typeof AuthClient> | null = null;
-function clienteEfimero(): InstanceType<typeof AuthClient> {
-  if (efimero) return efimero;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  efimero = new AuthClient({
-    url: new URL('auth/v1', url).href,
-    headers: { Authorization: `Bearer ${anon}`, apikey: anon },
-    storageKey: 'sb-puente-widget-efimero',
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  });
-  return efimero;
-}
-
 function errorDeAcceso(mensaje: string): string {
   const msg = mensaje.toLowerCase();
   if (msg.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
@@ -85,7 +81,19 @@ function errorDeAcceso(mensaje: string): string {
 /** Si esta carga de la página ya le dijo «listo» al widget (ver el efecto). */
 let listoAvisado = false;
 
-type Fase = 'conectando' | 'entrando' | 'enviando-correo' | 'esperando' | 'enviado' | 'sin-respuesta' | 'error';
+type Fase = 'conectando' | 'entrando' | 'enviando-correo' | 'esperando' | 'comprobando' | 'enviado' | 'sin-respuesta' | 'cuenta-de-equipo' | 'error';
+
+/** Lo decide el servidor; cualquier fallo es «sin respuesta» (y no se entrega). */
+async function comprobarCuenta(accessToken: string): Promise<VeredictoCuenta> {
+  try {
+    const res = await fetch(RUTA_CUENTA_DE_EQUIPO, {
+      method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store',
+    });
+    return veredictoCuenta(res.status, await res.json().catch(() => null));
+  } catch {
+    return 'sin-respuesta';
+  }
+}
 
 export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
   slug: string | null;
@@ -100,10 +108,17 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
   const [emailDelWidget, setEmailDelWidget] = useState(false);
   // Sin reenvío desde aquí: pedir otro correo es otro intento del widget.
   const [codigoAceptado, setCodigoAceptado] = useState(false);
+  // El cliente del correo (la sesión del código también se abre en él, nunca en
+  // el del portal). Solo en el navegador, y solo con destino: sin él no hay a
+  // quién entregar, y crear el cliente recogería la sesión del enlace de la URL
+  // para dejarla guardada aquí sin dueño.
+  const [cliente] = useState<ClienteAuth | undefined>(() => (
+    typeof window === 'undefined' || !destino || !nonce ? undefined : clientePuente()));
   const codigo = useCodigoDelCorreo(
     email,
     async () => ({ error: 'Pídelo otra vez desde la web del estudio.' }),
     () => setCodigoAceptado(true),
+    { cliente },
   );
   const { widget: captcha, pedirToken, esperarMontado } = useCaptcha();
   const captchaRef = useRef({ pedirToken, esperarMontado });
@@ -120,6 +135,11 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     let cancelado = false;
     let enviado = false;
     let encargoRecibido = false;
+    // El widget de ESTE intento ya ha hablado (encargo o email, desde `destino` y
+    // con el nonce). Sin eso no se entrega: una pestaña del enlace que tenga otra
+    // ventana madre (un webmail que abre los enlaces sin `noopener`) no es la
+    // ventana del widget, y no debe gastar la sesión que esa espera.
+    let conWidget = false;
     // Con un encargo de contraseña, la sesión es SOLO la que devuelve el cliente efímero: una sesión
     // por correo que apareciera mientras tanto en tentare.app (otra pestaña, otro estudio) no se reenvía.
     let soloContrasena = false;
@@ -127,9 +147,32 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     function alWidget(mensaje: Record<string, unknown>) {
       window.opener?.postMessage({ nonce, ...mensaje }, destino!);
     }
-    function entregar(session: Pick<Session, 'access_token' | 'refresh_token'>) {
-      if (cancelado || enviado || !window.opener) return;
+    // `desde`: el cliente donde está abierta la sesión. `delCorreo`: la guarda el
+    // del puente, y hay que borrarla de tentare.app al entregarla.
+    async function entregar(session: Pick<Session, 'access_token' | 'refresh_token'>, desde: ClienteAuth, delCorreo: boolean) {
+      if (cancelado || enviado || !conWidget || !window.opener) return;
       enviado = true;
+      setFase('comprobando');
+      const veredicto = await comprobarCuenta(session.access_token);
+      if (cancelado) { if (delCorreo) olvidarSesionDelCorreo(); return; }
+      if (veredicto !== 'alumna') {
+        // No sale. Se cierra en gotrue ESTA sesión (la del token que se tiene en
+        // la mano, no lo que haya guardado, que podría ser otra o ya nada; y solo
+        // ella: `local`), que no tiene nadie más, y se borra de aquí.
+        await desde.admin.signOut(session.access_token, 'local').catch(() => {});
+        if (delCorreo) olvidarSesionDelCorreo();
+        if (veredicto === 'equipo') {
+          alWidget({ tipo: TIPO_RESULTADO_ACCESO, ok: false, error: MENSAJE_CUENTA_DE_EQUIPO, motivo: MOTIVO_CUENTA_DE_EQUIPO });
+          // La ventana se queda abierta con la salida: la página de reservas entera.
+          setFase('cuenta-de-equipo');
+          return;
+        }
+        fallar(ERROR_COMPROBAR_CUENTA);
+        return;
+      }
+      // Un solo dueño: el token es del widget desde ya. Se borra a mano, SIN
+      // `signOut` (revocaría también la sesión del widget, que es esta).
+      if (delCorreo) olvidarSesionDelCorreo();
       alWidget({ tipo: TIPO_RESULTADO_ACCESO, ok: true, access_token: session.access_token, refresh_token: session.refresh_token });
       setFase('enviado');
       window.close();
@@ -144,7 +187,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       if (soloContrasena) return;
       if (!session?.access_token || !session.refresh_token) return;
       if (!sesionAutenticadaPorEmailDespuesDe(session.access_token, abiertoEn)) return;
-      entregar(session);
+      void entregar(session, clientePuente(), true);
     }
 
     async function cumplir(encargo: EncargoAcceso) {
@@ -172,11 +215,11 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
           fallar('No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.');
           return;
         }
-        entregar(data.session);
+        await entregar(data.session, clienteEfimero(), false);
         return;
       }
 
-      const { error } = await supabasePortal.auth.signInWithOtp({
+      const { error } = await clientePuente().signInWithOtp({
         email: encargo.email,
         // La vuelta del enlace: esta misma página, con el mismo intento.
         options: { emailRedirectTo: urlPuente(window.location.origin, slug ?? '', destino!, nonce!), captchaToken },
@@ -191,15 +234,20 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       setFase('esperando');
     }
 
+    const puente = clientePuente();
     async function sondear() {
-      const { data: { session } } = await supabasePortal.auth.getSession();
+      const { data: { session } } = await puente.getSession();
       enviarSiNueva(session);
     }
     void sondear();
     const intervalo = setInterval(() => { void sondear(); }, SONDEO_MS);
-    const { data: sub } = supabasePortal.auth.onAuthStateChange((_evento, session) => {
+    const { data: sub } = puente.onAuthStateChange((_evento, session) => {
       enviarSiNueva(session);
     });
+    // La pestaña del enlace (sin ventana madre) no entrega: deja la sesión para la
+    // ventana y la olvida al minuto, o al cerrarse si es antes.
+    const olvidoEnlace = window.opener ? undefined : setTimeout(olvidarSesionDelCorreo, OLVIDO_EN_LA_PESTANA_DEL_ENLACE_MS);
+    if (!window.opener) window.addEventListener('pagehide', olvidarSesionDelCorreo);
 
     // Solo se atiende a la ventana que abrió esta, desde el origen ya validado
     // en servidor y con este nonce.
@@ -209,6 +257,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       if (encargo) {
         if (encargoRecibido) return;
         encargoRecibido = true;
+        conWidget = true;
         clearTimeout(sinRespuesta);
         void cumplir(encargo);
         return;
@@ -217,6 +266,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       // correo ya lo mandó él.
       const suEmail = emailDelIntento(e.data, nonce);
       if (suEmail) {
+        conWidget = true;
         clearTimeout(sinRespuesta);
         setEmail(suEmail); setEmailDelWidget(true);
         setFase((f) => (f === 'conectando' || f === 'sin-respuesta' ? 'esperando' : f));
@@ -241,6 +291,8 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       sub.subscription.unsubscribe();
       clearInterval(intervalo);
       clearTimeout(sinRespuesta);
+      clearTimeout(olvidoEnlace);
+      window.removeEventListener('pagehide', olvidarSesionDelCorreo);
       window.removeEventListener('message', onMessage);
     };
   }, [destino, nonce, abiertoEn, slug]);
@@ -256,6 +308,17 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       {(fase === 'conectando' && !sinVentanaMadre) && <p style={{ margin: 0, fontSize: 15 }}>Un momento…</p>}
       {fase === 'entrando' && <p role="status" style={{ margin: 0, fontSize: 15 }}>Entrando…</p>}
       {fase === 'enviando-correo' && <p role="status" style={{ margin: 0, fontSize: 15 }}>Enviando el correo…</p>}
+      {fase === 'comprobando' && <p role="status" style={{ margin: 0, fontSize: 15 }}>Entrando…</p>}
+      {fase === 'cuenta-de-equipo' && (
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center', maxWidth: 340 }}>
+          <h1 style={{ fontSize: 20, margin: 0 }}>{MENSAJE_CUENTA_DE_EQUIPO}</h1>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#555' }}>
+            Desde la web de un estudio solo pueden entrar sus alumnas.
+            {enlaceReservar && <> Para reservar, <a href={enlaceReservar} style={{ color: '#1a1a1a' }}>entra desde la página de reservas del estudio</a>.</>}
+          </p>
+          <button type="button" onClick={() => window.close()} style={estiloBotonSecundario}>Cerrar</button>
+        </div>
+      )}
       {fase === 'sin-respuesta' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center', maxWidth: 340 }}>
           <h1 style={{ fontSize: 20, margin: 0 }}>No hemos podido conectar con la web del estudio</h1>
