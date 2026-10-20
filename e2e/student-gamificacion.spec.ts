@@ -116,7 +116,7 @@ test.describe('Student PWA · gamificación', () => {
     await expect(botones.nth(1)).toBeDisabled();
     await botones.nth(0).click();
     await expect.poll(() => p.length).toBe(1);
-    expect(p[0].body).toEqual({ studioId: STUDIO_ID, catalogItemId: 'p1' });
+    expect(p[0].body).toEqual({ studioId: STUDIO_ID, catalogItemId: 'p1', idempotencyKey: expect.any(String) });
     // Una clase gratis ya está en su cuenta: mandarla a esperar un aviso del
     // estudio sería falso y retrasaría que la use.
     await expect(page.getByText(/resérvala cuando quieras/i)).toBeVisible();
@@ -198,21 +198,23 @@ test.describe('Student PWA · gamificación', () => {
     await expect(page.getByTestId('nivel')).toHaveCount(0);
     // Y en Inicio tampoco aparece la tarjeta.
     await page.goto(base);
-    await expect(page.getByText(/¿qué te apetece hoy\?/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('nivel-inicio')).toHaveCount(0);
+    await expect(page.getByTestId('reto-de-ahora')).toHaveCount(0);
   });
 
-  test('Inicio enseña nivel y créditos, y lleva a la pantalla completa', async ({ page }) => {
+  // Desde la maqueta de oct-2026 (copia exacta, fundador 19-oct) Inicio enseña el RETO en el que está apuntada, no el
+  // nivel ni los créditos: esos viven en Logros y recompensas.
+  test('Inicio enseña el reto en el que está apuntada, con su insignia, y lleva a Logros', async ({ page }) => {
     await montar(page, conGamificacion());
     await page.goto(base);
-    const card = page.getByTestId('nivel-inicio');
-    await expect(card).toBeVisible({ timeout: 30_000 });
-    await expect(card.getByText('Constante', { exact: false })).toBeVisible();
-    // El SALDO encabeza la tarjeta (antes iba pequeño en una esquina y no se encontraba).
-    await expect(card.getByText('Tus créditos')).toBeVisible();
-    await expect(card.getByTestId('saldo-inicio')).toHaveText('150');
-    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
-    await card.click();
+    const reto = page.getByTestId('reto-de-ahora');
+    await expect(reto).toBeVisible({ timeout: 30_000 });
+    await expect(reto).toContainText('Agosto activo');
+    await expect(reto).toContainText('7/12');
+    await expect(reto.locator('img[data-insignia]')).toHaveCount(1);
+    await expect(page.getByTestId('nivel-inicio')).toHaveCount(0);
+    await reto.click();
     await expect(page).toHaveURL(/\/logros$/);
     void HOY;
   });
@@ -385,12 +387,6 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     await expect(nivel.getByText('Tus créditos')).toBeVisible();
     await expect(nivel.getByText('30', { exact: true })).toBeVisible();
     await expect(nivel.getByText(/Aún sin nivel|Tu nivel/)).toHaveCount(0);
-
-    await page.goto(base);
-    const card = page.getByTestId('nivel-inicio');
-    await expect(card).toBeVisible({ timeout: 30_000 });
-    await expect(card.getByTestId('saldo-inicio')).toHaveText('30');
-    await expect(card.getByTestId('por-clase-inicio')).toHaveText('+10 por cada clase');
   });
 
   test('la ficha de la clase dice lo que da asistir', async ({ page }) => {
@@ -410,6 +406,40 @@ test.describe('Student PWA · saldo y cómo se ganan los créditos', () => {
     await page.goto(`${base}/reservar/${SESION_ID}`);
     await expect(page.locator('[data-fila="cancelacion"]')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/al asistir/)).toHaveCount(0);
+  });
+
+  // ── La racha, desde el historial real ─────────────────────────────────────
+  // Hoy es miércoles 12 de agosto (el reloj de sembrarSociaLista). Vino las tres
+  // semanas anteriores y todavía no esta: la semana en curso no rompe la racha.
+  test('la racha sale del historial de clases y cuenta las semanas pasadas', async ({ page }) => {
+    await montar(page, conGamificacion());
+    let pedidas = 0;
+    await page.route('**/api/public/historial', (r) => {
+      pedidas++;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clases: [
+        { reservaId: 'h1', sesionId: 's1', inicio: '2026-08-05T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        { reservaId: 'h2', sesionId: 's2', inicio: '2026-07-29T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        { reservaId: 'h3', sesionId: 's3', inicio: '2026-07-22T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'ASISTIDA' },
+        // Cancelada: no cuenta, y no alarga la racha a una cuarta semana.
+        { reservaId: 'h4', sesionId: 's4', inicio: '2026-07-15T08:00:00Z', nombre: 'Reformer', instructora: 'Ana', estado: 'CANCELADA' },
+      ] }) });
+    });
+    await page.goto(`${base}/logros`);
+    const racha = page.getByTestId('racha');
+    await expect(racha).toBeVisible({ timeout: 30_000 });
+    await expect(racha.getByText('3 semanas seguidas')).toBeVisible();
+    await expect(racha.getByText('Viniendo al menos una vez cada semana')).toBeVisible();
+    expect(pedidas).toBeGreaterThan(0);
+  });
+
+  test('si el historial no se puede leer, no se inventa una racha', async ({ page }) => {
+    await montar(page, conGamificacion());
+    let pedidas = 0;
+    await page.route('**/api/public/historial', (r) => { pedidas++; return r.fulfill({ status: 500, contentType: 'application/json', body: '{}' }); });
+    await page.goto(`${base}/logros`);
+    await expect(page.getByTestId('nivel')).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => pedidas).toBeGreaterThan(0);
+    await expect(page.getByTestId('racha')).toHaveCount(0);
   });
 });
 

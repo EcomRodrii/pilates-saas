@@ -25,7 +25,7 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; reci
     rpc(nombre: string, args: Fila) {
       // Los créditos (`seguirCreditosAlRecibo`, por defecto) van aparte: sus
       // tests los inyectan. Aquí solo interesa la recarga del bono.
-      if (nombre === 'sincronizar_creditos_renovacion') return Promise.resolve({ data: [], error: null });
+      if (nombre === 'sincronizar_creditos_renovacion' || nombre === 'sincronizar_creditos_compra') return Promise.resolve({ data: [], error: null });
       rpcs.push({ nombre, args });
       if (opts.rpcError) return Promise.resolve({ data: null, error: { message: opts.rpcError } });
       // La RPC recarga la suscripción por dentro, así que se refleja aquí para

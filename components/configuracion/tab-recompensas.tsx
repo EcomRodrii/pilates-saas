@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
-  nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL',
+  nombre: '', descripcion: '', costeCreditos: 500, icono: 'regalo', activo: true, stock: null, efecto: 'MANUAL',
   // Sin límite y sin fechas: lo que hacían todas las recompensas hasta ahora.
   // Un valor por defecto aquí cambiaría el comportamiento de las que ya existen
   // sin que nadie lo haya pedido.
@@ -31,6 +32,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
   const {
     rewardRules,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
+    rewardRedemptions,
     studio,
   } = useStudio();
 
@@ -130,7 +132,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
                 <div className="grid grid-cols-1 @xl/config:grid-cols-3 gap-3">
                   {sugeridas.map(sg => (
                     <div key={sg.nombre} className={cn(cardCls, 'p-3 flex flex-col gap-1')}>
-                      <span className="text-[18px]">{sg.icono}</span>
+                      <MiniaturaInsignia icono={sg.icono} />
                       <p className="text-[13px] font-semibold text-foreground">{sg.nombre}</p>
                       <p className="text-xs text-muted-foreground flex-1">{sg.descripcion}</p>
                       <p className="text-[12px] font-semibold text-foreground">
@@ -155,7 +157,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
             {rewardCatalog.map(item => (
               <div key={item.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
                 <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
-                  {item.icono}
+                  <MiniaturaInsignia icono={item.icono} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
@@ -191,21 +193,17 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>{modal === 'nuevo' ? 'Nueva recompensa' : 'Editar recompensa'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-[80px_1fr] gap-3">
-              <div>
-                <Field label="Icono"
-                  description="Un emoji. Es lo que verá la alumna en el catálogo de recompensas."
-                >
-                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
-                </Field>
-              </div>
-              <div>
-                <Field label="Nombre"
-                  description="Qué se lleva al canjearla. Ej: «Clase invitada» o «Botella de agua»."
-                >
-                  <input className={inputCls} value={form.nombre} placeholder="Ej. Clase gratis" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                </Field>
-              </div>
+            <div>
+              <Field label="Nombre"
+                description="Qué se lleva al canjearla. Ej: «Clase invitada» o «Botella de agua»."
+              >
+                <input className={inputCls} value={form.nombre} placeholder="Ej. Clase gratis" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </Field>
+            </div>
+            <div>
+              <Field label="Insignia" description="La que verá la alumna en el catálogo de recompensas.">
+                <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
+              </Field>
             </div>
             <div>
               <Field label="Descripción"
@@ -310,6 +308,22 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
           <p className="text-[13px] text-muted-foreground">
             ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las alumnas ya no podrán canjearla.
           </p>
+          {(() => {
+            // Los canjes ya hechos NO se borran: siguen en «Canjes» con el nombre
+            // de la recompensa, y los pendientes se pueden entregar o cancelar
+            // (cancelar devuelve los {moneda} a la alumna) igual que antes.
+            const canjes = rewardRedemptions.filter(r => r.catalogItemId === confirmDel?.id);
+            const pendientes = canjes.filter(r => r.estado === 'PENDIENTE').length;
+            if (canjes.length === 0) return null;
+            return (
+              <p data-testid="eliminar-recompensa-canjes" className="mt-2 text-[12px] text-muted-foreground">
+                {pendientes > 0
+                  ? `Tiene ${pendientes} ${pendientes === 1 ? 'canje pendiente' : 'canjes pendientes'} de entregar. Seguirán en «Canjes» y podrás entregarlos o cancelarlos. `
+                  : ''}
+                {`Sus ${canjes.length === 1 ? '1 canje' : `${canjes.length} canjes`} quedan en el historial. Si solo quieres que no se pueda canjear, ocúltala en vez de eliminarla.`}
+              </p>
+            );
+          })()}
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>
             <button

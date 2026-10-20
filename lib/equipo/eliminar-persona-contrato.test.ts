@@ -280,6 +280,7 @@ const COLUMNAS_NOMBRE_DECIDIDAS: Record<string, string> = {
   'instructor_bajas_seguimiento.instructor_nombre': 'la fila se borra (c_borrar)', 'mensajes_equipo.autor_nombre': 'la fila se borra (sus mensajes)',
   'automation_logs.socio_nombre': 'fuera: el nombre de una SOCIA, no de una persona del equipo',
   'facturas.receptor_nombre': 'fuera: el receptor de una factura (cliente), fiscal',
+  'reward_redemptions.recompensa_nombre': 'fuera: el nombre de la RECOMPENSA eliminada del catálogo, no el de una persona',
   'tarjetas_regalo.comprador_nombre': 'fuera: quien compró el regalo (un tercero, normalmente cliente), no una persona del equipo',
   'tarjetas_regalo.destinatario_nombre': 'fuera: quien recibe el regalo (un tercero), no una persona del equipo',
   'plataforma_auditoria.actor_nombre': 'fuera: equipo de Tentare, no del estudio',

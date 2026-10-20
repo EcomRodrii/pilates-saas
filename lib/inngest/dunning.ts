@@ -48,7 +48,7 @@ export const dunningDispatcher = inngest.createFunction(
           .select('id')
           .not('stripe_account_id', 'is', null)
           .is('suspendido_en', null)
-          .range(from, to),
+          .order('id').range(from, to),
       );
       if (error) throw new Error(error.message);
       return { nowISO, studios: data };

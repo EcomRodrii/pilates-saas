@@ -83,8 +83,9 @@ test.describe('Student PWA · añadir al calendario', () => {
         };
       });
       await montar(page);
-      await page.goto(base, { waitUntil: 'domcontentloaded' });
-      const boton = page.getByRole('button', { name: 'Cómo llegar' }).first();
+      // En la ficha de la clase: desde la maqueta de oct-2026, Inicio solo tiene «Ver reserva».
+      await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+      const boton = page.locator('[data-fila="donde"]').getByRole('button', { name: /Cómo llegar/ });
       await expect(boton).toBeVisible({ timeout: 30_000 });
       await boton.click();
       const url = await page.evaluate(() => (window as unknown as { __abierto?: string }).__abierto ?? '');

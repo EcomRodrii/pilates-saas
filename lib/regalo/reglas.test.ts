@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AJUSTES_POR_DEFECTO, FORMATO_CODIGO, huellaCodigo, huellasIguales, normalizarCodigo, pareceCodigo,
+  AJUSTES_POR_DEFECTO, FORMATO_CODIGO, normalizarCodigo, pareceCodigo,
   validarDatosRegalo, validarImporte, diasParaCaducar,
 } from './reglas.ts';
+import { huellaCodigo, huellasIguales } from './huella.ts';
 
 test('normalizar: guiones, espacios, minúsculas y prefijo RG opcional dan el mismo núcleo', () => {
   const base = 'ABCD2345EFGH6789';

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/db/supabase';
 import { configLegalDeFila, tieneTextoPropio } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tokenCoincideConHash } from '@/lib/token-hash';
+import { claveCanjeValida, idCanjeDeClave, esViolacionUnica, leerResultadoClaseGratis } from '@/lib/canje-idempotencia';
 import { exigirLectura } from '@/lib/exigir-lectura';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
@@ -636,7 +637,7 @@ export async function fetchAforoPublico(slug: string): Promise<
   const [{ data: aforoReservas, error: errAforo }, aforoApartadas] = await Promise.all([
     fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to)),
+        .eq('studio_id', studioId).in('sesion_id', sesionIds).order('id').range(from, to)),
     aforoApartadasDe(admin as never, studioId, sesionIds),
   ]);
   exigirLectura(errAforo, 'leyendo el aforo de las clases');
@@ -1106,14 +1107,14 @@ export async function fetchPublicStudioData(
   // ids resueltos primero.
   const { data: sesionesData, error: errSesiones } = await fetchAllRows(studioId, 'sesiones', (from, to) =>
     admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id')
-      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).range(from, to));
+      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).order('id').range(from, to));
   if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
   const sesionIdsVigentes = (sesionesData ?? []).map(s => s.id as string);
   const { data: reservasAforo, error: errReservas } = sesionIdsVigentes.length === 0
     ? { data: [] as { id: string; sesion_id: string; estado: string; spot_id: string | null }[], error: null }
     : await fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).range(from, to));
+        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).order('id').range(from, to));
   // Mismo criterio que el catálogo: un horario o un aforo truncados por un
   // fallo no se sirven como si fueran completos.
   if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);
@@ -7150,11 +7151,58 @@ export async function actualizarSociaPublica(params: {
 
 export async function canjearRecompensaPublica(params: {
   studioId: string; socioId: string; authUserId: string; catalogItemId: string;
+  /**
+   * Clave que genera la pantalla al empezar el canje y reutiliza en cada
+   * reintento. Con ella, un doble toque (o un reintento tras red lenta) es UN
+   * canje: el id del canje sale de la clave y la base rechaza el segundo.
+   * Sin clave (clientes antiguos) se comporta como siempre.
+   */
+  idempotencyKey?: string;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
+
+  const clave = claveCanjeValida(params.idempotencyKey) ? params.idempotencyKey : null;
+  const redemptionId = clave
+    ? idCanjeDeClave({ studioId: params.studioId, socioId: params.socioId, catalogItemId: params.catalogItemId, clave })
+    : `rwd-${uid()}`;
+
+  // El canje que ya existe con ESTA clave (repetición): se contesta con él, sin
+  // volver a validar saldo, límite ni stock — que ya no dirían lo mismo.
+  const repeticion = async () => {
+    if (!clave) return null;
+    const { data } = await admin.from('reward_redemptions')
+      .select('id, socio_id, estado, codigo')
+      .eq('id', redemptionId).eq('studio_id', params.studioId).maybeSingle();
+    if (!data || data.socio_id !== params.socioId) return null;
+    if (data.estado === 'CANCELADO') {
+      return { error: 'Este canje se ha cancelado. Vuelve a intentarlo.' as const };
+    }
+    const { data: it } = await admin.from('reward_catalog').select('efecto, nombre')
+      .eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle();
+    // Si la primera petición confirmó el canje y murió antes de conceder la
+    // clase, el reintento la concede (la RPC es idempotente por estado: si ya
+    // estaba entregado, no hace nada). Sin esto, el éxito sería falso.
+    if (it?.efecto === 'CLASE_GRATIS' && data.estado === 'PENDIENTE') {
+      const { data: r } = await admin.rpc('entregar_canje_clase_gratis', {
+        p_studio_id: params.studioId, p_redemption_id: redemptionId,
+        p_recuperacion_id: `rec-${uid()}`, p_motivo: `Canje de recompensa: ${it.nombre}`,
+      });
+      const lect = leerResultadoClaseGratis(r);
+      if (lect === 'TOPE') {
+        return { error: 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const };
+      }
+      if (!lect) return { error: 'No hemos podido completar tu canje. Inténtalo de nuevo.' as const };
+    }
+    return {
+      ok: true as const, redemptionId, codigo: data.codigo as string,
+      efecto: (it?.efecto === 'CLASE_GRATIS' ? 'CLASE_GRATIS' : 'MANUAL') as 'CLASE_GRATIS' | 'MANUAL',
+    };
+  };
+  const yaHecho = await repeticion();
+  if (yaHecho) return yaHecho;
 
   const [{ data: itemRow }, { data: credRow }, { count: canjesPrevios }] = await Promise.all([
     admin.from('reward_catalog').select('*').eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle(),
@@ -7174,8 +7222,6 @@ export async function canjearRecompensaPublica(params: {
   if ('error' in validacion) return validacion;
   if (!item) return { error: 'Esta recompensa ya no está disponible.' as const };
 
-  const redemptionId = `rwd-${uid()}`;
-
   // ⚠️ UNA sola llamada, y no por elegancia. Antes eran tres seguidas —reservar
   // stock, descontar créditos, insertar la fila— y la tercera ni siquiera
   // miraba su error: un fallo ahí dejaba a la socia sin créditos y sin canje.
@@ -7186,6 +7232,13 @@ export async function canjearRecompensaPublica(params: {
     p_studio_id: params.studioId, p_socio_id: params.socioId,
   });
   if (canjeErr) {
+    // Dos peticiones con la misma clave a la vez: la segunda choca con la PK y
+    // la transacción se deshace entera (ni créditos ni stock). El canje que
+    // existe es el de la primera.
+    if (clave && esViolacionUnica(canjeErr)) {
+      const r = await repeticion();
+      if (r) return r;
+    }
     const m = canjeErr.message;
     if (m.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
     if (m.includes('LIMITE_ALCANZADO')) return { error: 'Ya has canjeado esta recompensa el máximo de veces.' as const };
@@ -7200,36 +7253,45 @@ export async function canjearRecompensaPublica(params: {
   // inventa un vale nuevo — la alumna la gasta reservando por el camino de
   // siempre, cuenta contra su tope y caduca con la política del estudio.
   if (item.efecto === 'CLASE_GRATIS') {
+    // Comprobar que sigue PENDIENTE, conceder la clase y marcar ENTREGADO es UNA
+    // transacción con el canje bloqueado (`entregar_canje_clase_gratis`): el
+    // mostrador no puede cancelarlo a medias, y sin cupo (TOPE) la base lo
+    // cancela y devuelve los créditos ella misma. Antes eran tres llamadas con
+    // el deshacer sin mirar su resultado.
     const recuperacionId = `rec-${uid()}`;
-    const { data: resultado, error: recupErr } = await admin.rpc('crear_recuperacion', {
-      p_id: recuperacionId,
+    const { data: resultado, error: recupErr } = await admin.rpc('entregar_canje_clase_gratis', {
       p_studio_id: params.studioId,
-      p_socio_id: params.socioId,
-      p_origen_reserva_id: null,
+      p_redemption_id: redemptionId,
+      p_recuperacion_id: recuperacionId,
       p_motivo: `Canje de recompensa: ${item.nombre}`,
-      p_caduca_el: null,
     });
+    const lectura = leerResultadoClaseGratis(resultado);
 
-    // 'TOPE' = ya tiene 4 recuperaciones vivas y no le cabe otra. NO se le
-    // puede cobrar por algo que no va a recibir, así que se deshace el canje
-    // entero — créditos y stock — por el camino que ya existe y es atómico.
-    // Sin esto, el fallo sería el peor de todos: pagar y no recibir nada.
-    if (recupErr || resultado === 'TOPE') {
-      await admin.rpc('cancelar_canje', { p_redemption_id: redemptionId, p_studio_id: params.studioId });
-      return {
-        error: resultado === 'TOPE'
-          ? 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const
-          : 'No se ha podido activar tu clase. No se te han descontado créditos.' as const,
-      };
+    if (recupErr || !lectura) {
+      // La transacción se deshizo entera: el canje sigue PENDIENTE y gastado.
+      // Se cancela (devuelve créditos y stock) COMPROBANDO el resultado: si
+      // tampoco eso funciona, no se le dice a la socia que no se le ha cobrado.
+      const { data: cancel, error: cancelErr } = await admin.rpc('cancelar_canje_con_motivo', {
+        p_redemption_id: redemptionId, p_studio_id: params.studioId, p_motivo: 'clase_gratis_error',
+      });
+      const fila = (Array.isArray(cancel) ? cancel[0] : cancel) as { estado?: string } | null;
+      if (cancelErr || fila?.estado !== 'CANCELADO') {
+        capturarMensaje('[canje] clase gratis: no se pudo conceder ni deshacer el canje', 'error', {
+          tags: { area: 'gamificacion' },
+          extra: { redemptionId, studioId: params.studioId, recupErr: recupErr?.message, cancelErr: cancelErr?.message, estadoTrasCancelar: fila?.estado },
+        });
+        return { error: 'No hemos podido completar tu canje. El estudio lo revisará y te lo resolverá.' as const };
+      }
+      return { error: 'No se ha podido activar tu clase. Se han devuelto tus créditos.' as const };
     }
-
-    // No hay nada que entregar en mostrador: el canje nace resuelto. Y se
-    // GUARDA la recuperación concedida — hasta ahora el único rastro era la
-    // frase «Canje de recompensa: X» en `motivo`, así que para saber si una
-    // clase se pagó con una recompensa había que leer castellano.
-    await admin.from('reward_redemptions')
-      .update({ estado: 'ENTREGADO', entregado_en: new Date().toISOString(), recuperacion_id: recuperacionId })
-      .eq('id', redemptionId);
+    if (lectura === 'TOPE') {
+      return { error: 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const };
+    }
+    if (lectura === 'NO_PENDIENTE') {
+      // El estudio lo canceló (o ya estaba resuelto) entre medias: no se
+      // concedió ninguna clase, y lo que pasó con los créditos lo dice el canje.
+      return { error: 'Este canje ya no está activo.' as const };
+    }
   }
 
   // El portal le promete a la socia «El estudio te avisará». Sin esto, no se

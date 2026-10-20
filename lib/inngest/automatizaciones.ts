@@ -512,7 +512,7 @@ export const automatizacionesDispatcher = inngest.createFunction(
       const { data, error } = await fetchAllRows<{ id: string; nombre: string; color_primario: string | null; logo_url: string | null }>(
         '(global)', 'studios',
         (from, to) => requireSupabaseAdmin().from('studios')
-          .select('id, nombre, color_primario, logo_url').is('suspendido_en', null).range(from, to),
+          .select('id, nombre, color_primario, logo_url').is('suspendido_en', null).order('id').range(from, to),
       );
       if (error) throw new Error(error.message);
 
