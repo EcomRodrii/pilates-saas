@@ -291,8 +291,19 @@
 .wh-heroe-logos:empty { display: none; }
 .wh-heroe .v7-logos { padding: 18px 0 0; border-top: 1px solid rgba(255, 255, 255, .14); max-width: var(--wh-ancho); margin: 0 auto; }
 .wh-heroe .v7-logos-t { color: rgba(255, 255, 255, .7); }
-.wh-heroe .v7-logos-item img { filter: brightness(0) invert(1); opacity: .72; }
-.wh-heroe .v7-logos-item:hover img { filter: brightness(0) invert(1); opacity: 1; }
+/* Cada logo, en una tarjeta clara (20-oct-2026). Los logos los sube cada estudio y
+   muchos traen fondo blanco: el `brightness(0) invert(1)` de antes pintaba de blanco
+   TODO píxel opaco y esos logos salían como rectángulos grises sobre la banda oscura
+   (pasó en producción con 3 de los 5). Sobre arena clara, en gris y con `multiply`, el
+   fondo blanco del logo desaparece en la tarjeta y se ve el dibujo, sea cual sea el
+   archivo. Al pasar el ratón, vuelve su color. */
+.wh-heroe .v7-logos-item { box-sizing: border-box; width: 172px; height: 58px; padding: 9px 16px; border-radius: 14px; background: rgba(246, 244, 239, .94); }
+@media (max-width: 560px) {
+  /* El logo mide 96 × 30 en el móvil (FranjaLogos): la tarjeta, lo mismo más su aire. */
+  .wh-heroe .v7-logos-item { width: 124px; height: 44px; padding: 7px 14px; }
+}
+.wh-heroe .v7-logos-item img { filter: grayscale(1) contrast(1.15); mix-blend-mode: multiply; opacity: 1; }
+.wh-heroe .v7-logos-item:hover img { filter: none; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes wh-entra { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .wh-heroe-tel-marco, .wh-heroe-clase, .wh-heroe-ficha { animation: wh-entra .7s cubic-bezier(.2, .7, 0, 1) both; }
