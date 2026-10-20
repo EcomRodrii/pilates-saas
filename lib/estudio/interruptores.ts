@@ -50,6 +50,13 @@ export const INTERRUPTORES = {
    * estas pantallas va detrás de este. Primero en el estudio de prueba; a todos con el sí del fundador.
    */
   miWebNueva: 'MI_WEB_NUEVA',
+  /**
+   * Semana y racha únicas (Fase 3, PR 3.3): una sola función de racha (`calcularRachaUnica`) para el
+   * motor, la app de la alumna y el panel, con las reglas aprobadas por el fundador (solo ASISTIDA,
+   * semanas neutras, respiro). Apagado de serie: con él apagado nada cambia en ningún estudio. Se
+   * enciende estudio a estudio tras revisar con el fundador los casos de la Fase 3 (§4).
+   */
+  rachaUnica: 'RACHA_UNICA',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

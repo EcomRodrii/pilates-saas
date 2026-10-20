@@ -47,7 +47,7 @@ export function CuatroModelos() {
       <div className="bon-modelos" style={{ display: 'grid', gap: 12 }}>
         {MODELOS.map((m) => (
           <div key={m.n} style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 14, padding: '16px 17px', borderTop: `3px solid ${m.color}` }}>
-            <div className="lp-mono" style={{ fontSize: 9.5, letterSpacing: '.12em', textTransform: 'uppercase', color: m.color, marginBottom: 7 }}>{m.tipo}</div>
+            <div style={{ fontWeight: 600, fontSize: 11.5, color: m.color, marginBottom: 7 }}>{m.tipo}</div>
             <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 4 }}>{m.n}</div>
             <div style={{ fontSize: 12.5, color: '#8E8E86', marginBottom: 11, fontStyle: 'italic' }}>{m.quien}</div>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>

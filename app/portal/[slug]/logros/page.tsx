@@ -174,6 +174,21 @@ export default function LogrosPage() {
                       ? 'Viniendo al menos una vez cada semana'
                       : `Viniendo al menos ${racha.minimo} veces cada semana`}
                   </p>
+                  {/* Racha única (`RACHA_UNICA`): la semana en curso y el respiro, sin tono de culpa. */}
+                  {racha.unica && (
+                    <>
+                      <p className="t-meta" style={{ marginTop: 2 }} data-testid="racha-semana">
+                        Esta semana: {racha.unica.semanaEnCurso.estado === 'hecha'
+                          ? `${racha.unica.semanaEnCurso.hechas} de ${racha.unica.semanaEnCurso.meta}, hecha`
+                          : racha.unica.semanaEnCurso.estado === 'reservada' ? 'reservada' : 'aún sin clase'}
+                      </p>
+                      {racha.unica.respiroDisponible && (
+                        <p className="t-meta" style={{ marginTop: 2 }} data-testid="racha-respiro">
+                          Respiro disponible: si una semana no puedes venir, tu racha sigue.
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
               </section>
             )}

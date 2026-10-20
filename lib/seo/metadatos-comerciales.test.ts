@@ -6,7 +6,7 @@ import { PAGINAS, paginaDe, type PaginaSeo } from './paginas.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Título y descripción de las páginas COMERCIALES (Ronda 1 de la revisión de la
-// landing, 19-oct-2026): la home, /funcionalidades y sus 17, /soluciones y sus 4,
+// landing, 19-oct-2026): la home, /funcionalidades y sus 17, /soluciones y sus 5,
 // /comparativa y sus 13, /precios, /glosario y el índice de /recursos.
 //
 // Lo que fija, y por qué:
@@ -82,7 +82,8 @@ test('hay páginas comerciales que medir (y son las que deben ser)', () => {
     assert.ok(rutas.has(esperada), `falta ${esperada} entre las comerciales`);
   }
   assert.equal(COMERCIALES.filter((p) => p.path.startsWith('/funcionalidades/')).length, 17);
-  assert.equal(COMERCIALES.filter((p) => p.path.startsWith('/soluciones/')).length, 4);
+  // La quinta, «Abrir un estudio», desde la fase 2.3 de la web (20-oct-2026).
+  assert.equal(COMERCIALES.filter((p) => p.path.startsWith('/soluciones/')).length, 5);
   assert.equal(COMERCIALES.filter(esDeComparativa).length, 13);
 });
 

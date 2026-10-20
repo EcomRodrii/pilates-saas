@@ -56,7 +56,7 @@ export function ViasDeCobro() {
           <div key={v.t} style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: '13px 15px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{v.t}</div>
             <div style={{ fontSize: 13, lineHeight: 1.45, color: 'rgba(255,255,255,.62)', marginBottom: 6 }}>{v.d}</div>
-            <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: '#A8B080' }}>{v.pie}</div>
+            <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080' }}>{v.pie}</div>
           </div>
         ))}
       </div>

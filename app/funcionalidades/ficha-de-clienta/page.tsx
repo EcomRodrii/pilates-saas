@@ -51,7 +51,7 @@ export default function FichaPage() {
       intro={<>Historial, bonos, asistencia y notas de progreso de cada alumna. Y sus limitaciones físicas donde tienen que estar: delante de quien le va a dar la clase.</>}
       chips={['Historial completo', 'Ficha de salud operativa', 'Consentimiento trazable']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Alumna en una clase de Pilates reformer', encuadre: 'center 30%' }}
-      captura={{ src: '/producto/clientas.png', alt: 'Listado de clientas en Tentare con su plan, sesiones restantes y última asistencia', pie: 'Cada fila dice lo que necesitas antes de saludarla: su plan, cuántas sesiones le quedan y si el bono caduca.', ancho: 2880, alto: 1624 }}
+      captura={{ src: '/producto/v2/panel-clientas-1110.webp', alt: 'Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos', pie: 'Cada fila dice lo que necesitas antes de saludarla: su plan, lo que le queda, su última clase y si hay algo que mirar.', ancho: 1110, alto: 489 }}
     >
       <Seccion id="problema" titulo="La información existe. Está repartida en cinco sitios">
         <Entradilla>

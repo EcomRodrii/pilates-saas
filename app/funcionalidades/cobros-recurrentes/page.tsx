@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CasoDeUso, CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
 import { CadenciaDeReintentos, ViasDeCobro } from '@/components/funcionalidades/visuales/cobros';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { PanelCobros } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/cobros-recurrentes';
 const pagina = paginaDe(PATH)!;
@@ -46,7 +47,7 @@ export default function CobrosPage() {
       h1={<>Cobra sin perseguir a nadie.</>}
       intro={<>La cuota se cobra sola el día que toca. Y cuando una tarjeta falla —que fallará—, el sistema lo reintenta con cabeza en vez de dejarte una lista de impagos a fin de mes.</>}
       chips={['Cobro con tarjeta guardada', 'Tres intentos escalonados', 'Remesa SEPA 19.14']}
-      captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado, lo pendiente y quién debe', pie: 'Lo cobrado este mes, lo que falta y quién lo debe — en la misma pantalla.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
     >
       <Seccion id="problema" titulo="El dinero no se pierde de golpe, se pierde a goteo">
         <Entradilla>

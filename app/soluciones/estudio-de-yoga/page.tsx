@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  AppAlumna,
   CierreSolucion,
   FaqSolucion,
   FilaProducto,
@@ -12,6 +13,7 @@ import {
   TablaSolucion,
 } from '@/components/soluciones/LandingSolucion';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AgendaDia, PanelCobros } from '@/components/web/home/piezas';
 
 // Tentare para estudios de YOGA (rehecha el 7-oct-2026: desde el 6-oct el
 // producto se presenta para Pilates y yoga, decisión del fundador). Ya no se
@@ -118,7 +120,7 @@ export default function EstudioDeYogaPage() {
       <FilaProducto
         eyebrow="Horario por estilos"
         titulo="Cada estilo con su horario, su aforo y sus reglas"
-        captura={{ src: '/producto/calendario-semana.png', alt: 'Calendario semanal de Tentare con las clases de la semana por salas, su ocupación y las que necesitan una decisión', ancho: 2880, alto: 1624, pie: 'La semana entera, con la ocupación de cada clase.' }}
+        pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
         puntos={[
           'Series semanales que programas una vez',
           'Talleres y clases especiales con su propio precio',
@@ -133,7 +135,7 @@ export default function EstudioDeYogaPage() {
         invertida
         eyebrow="Bonos y mensualidades"
         titulo="Clase suelta, bono y mensualidad, a la vez"
-        captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado este mes, lo pendiente y los recibos de cada alumna', ancho: 2880, alto: 1624, pie: 'Lo cobrado, lo pendiente y quién te debe, en una pantalla.' }}
+        pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
         puntos={[
           'Mensualidades con o sin límite de clases a la semana',
           'Bonos con caducidad, que puedes ampliar en lote si cierras en agosto',
@@ -159,7 +161,7 @@ export default function EstudioDeYogaPage() {
       <FilaProducto
         eyebrow="App con tu marca"
         titulo="Tu estudio, en la pantalla de inicio de tus alumnas"
-        captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
+        pieza={{ descripcion: 'La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana.', contenido: <AppAlumna />, movil: true }}
         puntos={[
           'En todos los planes, también en el gratuito',
           'Avisos de sus reservas y de la lista de espera',
@@ -174,7 +176,7 @@ export default function EstudioDeYogaPage() {
         invertida
         eyebrow="Tus alumnas"
         titulo="Saber quién viene y qué necesita"
-        captura={{ src: '/producto/clientas.png', alt: 'Lista de clientas de Tentare con el plan de cada una, sus sesiones restantes y su estado', ancho: 2880, alto: 1624 }}
+        captura={{ src: '/producto/v2/panel-clientas-1110.webp', alt: 'Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos', ancho: 1110, alto: 489 }}
         puntos={[
           'Asistencia, bono e historial de cada alumna',
           'Ficha de salud con lesiones y adaptaciones, visible solo para quien debe verla',
