@@ -1,5 +1,5 @@
 import type { Capitulo } from './tipos.ts';
-import { abrirCajon, abrirSeccion, cajon, guardarYCerrar, volverDeHerramienta } from './ayudas.ts';
+import { abrirCajon, abrirSeccion, cajon, guardarYCerrar } from './ayudas.ts';
 
 export const motivacion: Capitulo = {
   id: 'motivacion',
@@ -36,9 +36,8 @@ export const motivacion: Capitulo = {
 
     // ── Recompensas, logros, niveles y retos ──
     g.momento('recompensas');
-    await g.mientras('Las recompensas, los logros, los niveles y los retos viven en una pantalla propia. Entramos.', async () => {
-      await g.clic(page.locator('#fila-herramienta-recompensas-y-logros'));
-      await page.getByRole('heading', { name: 'Recompensas, logros y retos', exact: true }).waitFor();
+    await g.mientras('Debajo, en el mismo orden en que se piensa: en qué se gastan, qué desbloquean, hasta dónde suben y los retos con fecha. A la derecha, lo que ve tu alumna en su app.', async () => {
+      await g.ir(page.locator('#recompensas'));
     });
     await g.mientras('Las recompensas son lo que tus alumnas pueden canjear con sus créditos. Creamos una: una clase suelta gratis, por seiscientos créditos. Eliges qué pasa al canjearla: normalmente, te llega un aviso y la entregas tú.', async () => {
       await g.clic(page.getByRole('button', { name: 'Nueva recompensa' }));
@@ -50,7 +49,7 @@ export const motivacion: Capitulo = {
       await g.pausa(900);
     });
     g.momento('canjes');
-    await g.dice('Los canjes pendientes son las recompensas que tus alumnas han pedido y que tienes que entregar. Aparecen aquí y en tu Resumen, para que no se queden olvidadas.');
+    await g.dice('Cuando una alumna canjea una recompensa, arriba de esta pantalla aparece un aviso con los canjes por entregar, que también ves en tu Resumen.');
 
     g.momento('logros');
     await g.mientras('Los logros se desbloquean al llegar a una cifra que eliges, como diez clases. Tentare te propone unos cuantos de ejemplo, que puedes cargar con un clic y luego editar, o crear los tuyos.', async () => {
@@ -71,22 +70,6 @@ export const motivacion: Capitulo = {
       await g.clic(page.getByRole('button', { name: 'Nuevo reto' }));
       await g.escribe(page.getByLabel('Nombre', { exact: true }), 'Tres clases esta semana');
       await g.clic(page.getByRole('button', { name: 'Guardar', exact: true }));
-      await g.pausa(900);
-    });
-    await volverDeHerramienta(g, 'Motivación');
-
-    // ── Códigos de descuento ──
-    g.momento('codigos-descuento');
-    await g.mientras('Códigos de descuento. Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador. Entramos y creamos uno de bienvenida.', async () => {
-      await g.clic(page.locator('#fila-herramienta-codigos-descuento'));
-      await page.getByRole('heading', { name: 'Códigos de descuento', exact: true }).first().waitFor();
-      await g.clic(page.getByRole('button', { name: 'Nuevo código' }));
-    });
-    await g.mientras('El código se escribe en mayúsculas, eliges si descuenta un porcentaje o una cantidad fija, el valor y cuántas veces se puede usar. Diez por ciento, cincuenta usos.', async () => {
-      await g.escribe(page.getByPlaceholder('CÓDIGO'), 'BIENVENIDA10');
-      await g.escribe(page.getByPlaceholder('Valor'), '10');
-      await g.escribe(page.getByPlaceholder('Usos máx'), '50');
-      await g.clic(page.getByRole('button', { name: 'Crear código' }));
       await g.pausa(900);
     });
   },

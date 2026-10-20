@@ -3,13 +3,15 @@
 import { Ban, CalendarClock, CreditCard, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenPlanesActivos,
+  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenHerramienta,
+  resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
 import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 
 // Cobros y facturas: cómo te pagan tus alumnas y qué sale en tus facturas.
 //
@@ -33,7 +35,7 @@ const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobro
 const ICONOS_OTRA_PANTALLA: Record<FilaDeCobros['id'], typeof Package> = { 'fila-paquetes': Package, 'fila-cobros': Wallet };
 
 export function SeccionCobros({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, planesTarifa } = useStudio();
+  const { studio, dataLoaded, planesTarifa, codigosDescuento } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
   function guardado(texto: string) {
     cerrar();
@@ -69,6 +71,12 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="si-se-cancela-una-cuota" icono={Ban} valor={cargado ? resumenAlCancelarCuota(cargado) : null} onAbrir={abrir} />
+      </GrupoFilas>
+
+      {/* Desde Motivación (20-oct): un descuento es dinero y no depende del plan
+          de gamificación. `codigosDescuento` viene en el arranque del panel. */}
+      <GrupoFilas titulo="Promociones">
+        <FilaHerramienta id="codigos-descuento" valor={resumenHerramienta('codigos-descuento', { codigosDescuento: dataLoaded ? codigosDescuento.length : null })} />
       </GrupoFilas>
 
       <GrupoFilas titulo="En otras pantallas">

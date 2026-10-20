@@ -382,14 +382,11 @@ test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, 
   assert.equal(resumenHerramienta('widgets', { widgetDominios: null }), null);
 });
 
-test('recompensas y logros: lo que hay en cada catálogo, y nada inventado mientras carga', () => {
-  const m = (recompensas: number, logros: number, niveles: number, retos: number) =>
-    resumenHerramienta('recompensas-y-logros', { motivacion: { recompensas, logros, niveles, retos } });
-  assert.equal(m(4, 3, 0, 2), '4 recompensas · 3 logros · 2 retos');
-  assert.equal(m(1, 1, 1, 1), '1 recompensa · 1 logro · 1 reto · 1 nivel');
-  assert.equal(m(0, 5, 0, 0), 'Sin recompensas · 5 logros');
-  assert.equal(m(0, 0, 0, 0), 'Sin recompensas ni logros todavía');
-  assert.equal(resumenHerramienta('recompensas-y-logros', { motivacion: null }), null);
+test('canjes: cuántos esperan entrega, y nada inventado mientras carga', () => {
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: 3 }), '3 por entregar');
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: 0 }), 'Ninguno por entregar');
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: null }), null);
+  assert.equal(resumenHerramienta('canjes', {}), null);
 });
 
 test('códigos de descuento: cuántos hay, y nada inventado sin cargar', () => {
@@ -418,7 +415,7 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     correos: [{ tipo: 'reserva', enviar: false }],
     contenido: { mensajeDestacado: 'Hola', tarjetas: Array.from({ length: 20 }, () => ({ activo: true })), avisos: Array.from({ length: 30 }, () => ({ activo: true })), ahoraMs: AHORA },
     widgetDominios: Array.from({ length: 12 }, (_, i) => `https://w${i}.example.com`),
-    motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
+    canjesPendientes: 999,
     avisos: { total: 12, encendidos: 7, push: 'unsupported' as const },
     avisosMovil: { largoHoras: 48, cortoMinutos: 120, textosPropios: 20 },
     codigosDescuento: 999,
