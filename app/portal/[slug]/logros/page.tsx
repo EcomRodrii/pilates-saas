@@ -239,8 +239,13 @@ export default function LogrosPage() {
                       <div className="row row--between" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
                         <p className="t-meta">
                           {r.progresoActual} de {r.objetivo} · {r.creditosRecompensa} {moneda}
+                          {/* Dos clases de reto: en uno «del estudio» cuentan todas y no hay
+                              nada que pulsar; en uno con inscripción solo cuenta desde que
+                              se apunta. */}
+                          {!r.completado && !r.conInscripcion && <><br />Participas automáticamente</>}
+                          {!r.completado && r.conInscripcion && !r.apuntada && <><br />Apúntate para que cuente</>}
                         </p>
-                        {!r.completado && (
+                        {!r.completado && r.conInscripcion && (
                           <Button size="sm" variant={r.apuntada ? 'secondary' : 'primary'} disabled={!online || ocupado === r.id}
                             aria-pressed={r.apuntada} onClick={() => void alternarReto(r.id, r.apuntada)}>
                             {r.apuntada ? 'Ya no participo' : 'Me apunto'}

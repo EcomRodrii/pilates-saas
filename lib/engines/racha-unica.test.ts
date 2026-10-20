@@ -295,6 +295,27 @@ test('el orden de entrada no importa', () => {
   assert.deepEqual(calcularRachaUnica(entrada([...clases].reverse(), ahora)), calcularRachaUnica(entrada(clases, ahora)));
 });
 
+test('D12: una racha larga NO hace completa la semana en curso (se paga por la asistencia de ESTA semana)', () => {
+  // Vino las tres semanas anteriores y esta aún no: racha 3, pero la semana en curso no está «hecha» → no se paga.
+  const clases = [asiste('2026-09-07'), asiste('2026-09-14'), asiste('2026-09-21')];
+  const r = calcularRachaUnica(entrada(clases, new Date('2026-09-29T09:00:00Z')));
+  assert.equal(r.semanas, 3);
+  assert.equal(r.semanaEnCurso.estado, 'pendiente');
+  // En cuanto asiste esta semana, queda hecha (y solo entonces toca pagar).
+  const con = calcularRachaUnica(entrada([...clases, asiste('2026-09-28')], new Date('2026-09-30T09:00:00Z')));
+  assert.equal(con.semanaEnCurso.estado, 'hecha');
+  assert.equal(con.claveSemanaActual, '2026-09-28');
+});
+
+test('D12: la asistencia del lunes siguiente no completa la semana anterior ni la actual', () => {
+  const clases = [{ inicio: '2026-10-05T08:00:00Z', estado: 'ASISTIDA' as const, sesionCancelada: false, sesionConLista: true }]; // lunes 5-oct, 10:00 Madrid
+  const r = calcularRachaUnica(entrada(clases, new Date('2026-10-05T09:00:00Z')));
+  assert.equal(r.claveSemanaActual, '2026-10-05');
+  assert.equal(r.semanaEnCurso.estado, 'hecha');
+  const domingoAntes = calcularRachaUnica(entrada([], new Date('2026-10-04T20:00:00Z')));
+  assert.equal(domingoAntes.semanaEnCurso.estado, 'pendiente');
+});
+
 test('el caso 9 da 3 en cualquier huso del servidor (UTC, Madrid, Nueva York), en procesos aparte', () => {
   const motor = fileURLToPath(new URL('./streak-engine.ts', import.meta.url));
   const script = `

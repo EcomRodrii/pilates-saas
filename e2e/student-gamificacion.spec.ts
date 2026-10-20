@@ -101,7 +101,78 @@ test.describe('Student PWA · gamificación', () => {
     await expect(boton).toBeVisible({ timeout: 30_000 });
     await boton.click();
     await expect.poll(() => p.length).toBe(1);
-    expect(p[0].body).toEqual({ studioId: STUDIO_ID, retoKey: 'r1', accion: 'desmarcar' });
+    expect(p[0].body).toEqual({ studioId: STUDIO_ID, challengeId: 'r1', accion: 'desmarcar' });
+  });
+
+  // ── Retos: «del estudio» y «con inscripción» ───────────────────────────────
+  // Antes «Me apunto» mandaba el id del reto como `retoKey` y la ruta solo
+  // aceptaba 'core'/'cara': un 400 que la alumna veía como «No hemos podido
+  // guardar el cambio», siempre. Y todas contaban en todos los retos sin apuntarse.
+  function conRetosDeLosDosTipos() {
+    const f = conGamificacion();
+    f.challengeDefinitions = [
+      { id: 'r-insc', studioId: STUDIO_ID, nombre: 'Reto con inscripción', descripcion: null, icono: '🎯', metric: 'CLASES', objetivo: 4, fechaInicio: '2026-08-01', fechaFin: '2026-08-31', creditosRecompensa: 20, alcance: 'INSCRIPCION' },
+      { id: 'r-est', studioId: STUDIO_ID, nombre: 'Reto de todo el estudio', descripcion: null, icono: '🌍', metric: 'CLASES', objetivo: 10, fechaInicio: '2026-08-01', fechaFin: '2026-08-31', creditosRecompensa: 30, alcance: 'ESTUDIO' },
+    ];
+    (f.socia as Record<string, unknown>).challengeProgress = [];
+    (f.socia as Record<string, unknown>).retosApuntados = [];
+    return f;
+  }
+
+  test('«Me apunto» manda el id del reto y avisa de que ya está apuntada', async ({ page }) => {
+    const p = await montar(page, conRetosDeLosDosTipos());
+    await page.goto(`${base}/logros`);
+    const tarjeta = page.getByTestId('retos').locator('div.card').filter({ hasText: 'Reto con inscripción' });
+    await expect(tarjeta.getByText(/apúntate para que cuente/i)).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByRole('button', { name: /me apunto/i }).click();
+    await expect.poll(() => p.length).toBe(1);
+    expect(p[0].body).toEqual({ studioId: STUDIO_ID, challengeId: 'r-insc', accion: 'marcar' });
+    await expect(page.getByText('¡Apuntada al reto!')).toBeVisible();
+  });
+
+  test('un reto del estudio no tiene botón: participa automáticamente y no se manda nada', async ({ page }) => {
+    const p = await montar(page, conRetosDeLosDosTipos());
+    await page.goto(`${base}/logros`);
+    const tarjeta = page.getByTestId('retos').locator('div.card').filter({ hasText: 'Reto de todo el estudio' });
+    await expect(tarjeta.getByText(/participas automáticamente/i)).toBeVisible({ timeout: 30_000 });
+    await expect(tarjeta.getByRole('button')).toHaveCount(0);
+    expect(p.length).toBe(0);
+  });
+
+  for (const estado of [400, 500]) {
+    test(`si el servidor dice ${estado} al apuntarse, se avisa y el botón sigue siendo «Me apunto»`, async ({ page }) => {
+      const p = await montar(page, conRetosDeLosDosTipos(), { reto: estado });
+      await page.goto(`${base}/logros`);
+      const tarjeta = page.getByTestId('retos').locator('div.card').filter({ hasText: 'Reto con inscripción' });
+      await tarjeta.getByRole('button', { name: /me apunto/i }).click({ timeout: 30_000 });
+      await expect(page.getByText(/no hemos podido guardar el cambio/i)).toBeVisible();
+      // Sin contador un test de fallo pasa también si nunca se intentó escribir.
+      expect(p.length).toBeGreaterThan(0);
+      await expect(tarjeta.getByRole('button', { name: /me apunto/i })).toBeVisible();
+      await expect(page.getByText('¡Apuntada al reto!')).toHaveCount(0);
+    });
+  }
+
+  test('sin red, apuntarse avisa y no da por hecho el apunte', async ({ page }) => {
+    await montar(page, conRetosDeLosDosTipos());
+    let intentos = 0;
+    await page.route('**/api/public/retos', (r) => { intentos++; return r.abort('failed'); });
+    await page.goto(`${base}/logros`);
+    const tarjeta = page.getByTestId('retos').locator('div.card').filter({ hasText: 'Reto con inscripción' });
+    await tarjeta.getByRole('button', { name: /me apunto/i }).click({ timeout: 30_000 });
+    await expect(page.getByText(/no hemos podido guardar el cambio/i)).toBeVisible();
+    expect(intentos).toBeGreaterThan(0);
+    await expect(page.getByText('¡Apuntada al reto!')).toHaveCount(0);
+  });
+
+  test('un reto que empieza hoy se ve hoy aunque el panel lo guardara como medianoche UTC', async ({ page }) => {
+    const f = conRetosDeLosDosTipos();
+    f.challengeDefinitions = [
+      { id: 'r-hoy', studioId: STUDIO_ID, nombre: 'Empieza hoy', descripcion: null, icono: '🚀', metric: 'CLASES', objetivo: 3, fechaInicio: `${HOY}T00:00:00.000Z`, fechaFin: '2026-08-20T21:59:59.000Z', creditosRecompensa: 0, alcance: 'INSCRIPCION' },
+    ];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+    await expect(page.getByTestId('retos').getByText('Empieza hoy')).toBeVisible({ timeout: 30_000 });
   });
 
   test('canjear: solo lo que puede pagar, y el servidor tiene la última palabra', async ({ page }) => {

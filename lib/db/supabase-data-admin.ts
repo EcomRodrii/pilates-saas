@@ -93,21 +93,23 @@ import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
+import { leCuentaElReto, puedeApuntarse } from '@/lib/engines/alcance-reto';
 import { cargarRachaUnica } from '@/lib/gamificacion/racha-unica-servidor';
 import { esDiaDeBarridoMensual, evaluarMesCompleto, MIN_CLASES_LOGRO_MENSUAL, ultimoMesCerrado, type HechoClaseMes } from '@/lib/gamificacion/asistencia-del-mes';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido, type AforoApartado } from '@/lib/booking-logic';
 import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { planMasElegido } from '@/lib/estudio-publico';
-import { esRetoKeyValida } from '@/lib/retos-portal';
+import { esRetoKeyValida, RETO_KEYS } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import type {
   RowCitasServicios,
   RowCitasDisponibilidad,
   RowFavoritosClase,
+  RowChallengeDefinitions,
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
@@ -805,7 +807,7 @@ export async function fetchPublicStudioData(
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
-        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId).in('reto_key', RETO_KEYS),
         // El horario de apertura del estudio (`studio_horario`, migr
         // 20260804213940), para «Información del centro» del portal.
         //
@@ -1279,7 +1281,8 @@ export async function fetchPublicStudioData(
       citas: (citasRes.data ?? []).map(mapCita),
       plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
       favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
-      retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones).retoKey),
+      retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones))
+        .filter((p) => !p.bajaEn).map((p) => p.retoKey),
       recuperaciones: (recupRes.data ?? []).map(mapRecuperacion),
       peticionesPlazaFija: (peticionesRes.data ?? []).map(p => ({
         id: p.id, tipo: p.tipo as 'CREAR' | 'PAUSAR', plazaId: p.plaza_id ?? null,
@@ -6973,17 +6976,24 @@ export async function historialAsistidasPublico(params: {
   }));
 }
 
-// Apunta/desapunta a la socia autenticada de un reto del carrusel de Inicio
-// (tema Bloom). `retoKey` se valida contra RETOS_PORTAL (contenido fijo de
-// código, no una tabla) — el CHECK de la migración es la segunda barrera.
+// Apunta/desapunta a la socia autenticada de un reto. Hay DOS clases de reto:
+//  · los del carrusel de Inicio (tema Bloom): claves fijas de código (`core`,
+//    `cara`), solo participación; «Ya no participo» borra la fila.
+//  · los del estudio (`challenge_definitions`): `retoKey` es el id del reto. Solo
+//    los que son «con inscripción» admiten apuntarse; en uno «del estudio» cuentan
+//    todas y no hay nada que apuntar. La inscripción guarda su fecha (created_at) y
+//    «Ya no participo» no borra la fila sino que marca `baja_en`: así volver a
+//    apuntarse conserva la fecha original y no se puede recuperar lo ya hecho
+//    dando de baja y de alta.
 // `socioId` sale de `socioAutenticado`, nunca del body, mismo criterio que
-// toggleFavoritoPublico.
+// toggleFavoritoPublico. El reto se busca SIEMPRE dentro del estudio de la socia:
+// el id de un reto de otro estudio responde igual que uno inexistente.
 export async function toggleRetoParticipacion(params: {
   studioId: string; socioId: string; retoKey: string; accion: 'marcar' | 'desmarcar';
 }): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { error: 'Service role no configurada' };
-  if (!esRetoKeyValida(params.retoKey)) return { error: 'Ese reto no existe.' };
+  if (!esRetoKeyValida(params.retoKey)) return toggleInscripcionRetoEstudio(admin, params);
   if (params.accion === 'marcar') {
     const { error } = await admin.from('reto_participaciones').upsert(
       { studio_id: params.studioId, socio_id: params.socioId, reto_key: params.retoKey },
@@ -6995,6 +7005,47 @@ export async function toggleRetoParticipacion(params: {
   const { error } = await admin.from('reto_participaciones').delete()
     .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
   if (error) return { error: 'No se ha podido quitar tu apunte al reto.' };
+  return { ok: true };
+}
+
+async function toggleInscripcionRetoEstudio(
+  admin: SupabaseClient,
+  params: { studioId: string; socioId: string; retoKey: string; accion: 'marcar' | 'desmarcar' },
+): Promise<{ ok: true } | { error: string }> {
+  const { data: defRow, error: defError } = await admin.from('challenge_definitions').select('*')
+    .eq('id', params.retoKey).eq('studio_id', params.studioId).maybeSingle();
+  if (defError) return { error: 'No se ha podido guardar tu apunte al reto.' };
+  if (!defRow) return { error: 'Ese reto no existe.' };
+
+  const { data: fila, error: filaError } = await admin.from('reto_participaciones').select('baja_en')
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey).maybeSingle();
+  if (filaError) return { error: 'No se ha podido guardar tu apunte al reto.' };
+
+  if (params.accion === 'desmarcar') {
+    // Idempotente y siempre permitido (también con el reto ya terminado).
+    if (!fila || fila.baja_en) return { ok: true };
+    const { error } = await admin.from('reto_participaciones').update({ baja_en: new Date().toISOString() })
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
+    if (error) return { error: 'No se ha podido quitar tu apunte al reto.' };
+    return { ok: true };
+  }
+
+  const reto = mapChallengeDefinition(defRow as RowChallengeDefinitions);
+  const puede = puedeApuntarse(reto, new Date());
+  if (!puede.ok) return { error: puede.error };
+  if (fila && !fila.baja_en) return { ok: true }; // ya estaba apuntada
+  if (fila) {
+    // Vuelve a apuntarse: conserva su fecha de inscripción original.
+    const { error } = await admin.from('reto_participaciones').update({ baja_en: null })
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
+    if (error) return { error: 'No se ha podido guardar tu apunte al reto.' };
+    return { ok: true };
+  }
+  const { error } = await admin.from('reto_participaciones').insert(
+    { studio_id: params.studioId, socio_id: params.socioId, reto_key: params.retoKey },
+  );
+  // 23505: dos pulsaciones a la vez; la otra ya la apuntó.
+  if (error && error.code !== '23505') return { error: 'No se ha podido guardar tu apunte al reto.' };
   return { ok: true };
 }
 
@@ -7625,12 +7676,21 @@ async function evaluarRetosServidor(
   admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
 ): Promise<void> {
   const now = new Date();
-  const [{ data: defRows }, { data: progRows }] = await Promise.all([
+  const [{ data: defRows }, { data: progRows }, { data: inscRows }] = await Promise.all([
     admin.from('challenge_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
     admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+    admin.from('reto_participaciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
   ]);
+  // Inscripciones por id de reto (las claves del carrusel no son ids de reto y no estorban).
+  const inscripciones = new Map((inscRows ?? []).map((r) => {
+    const p = mapRetoParticipacion(r as RowRetoParticipaciones);
+    return [p.retoKey, p] as const;
+  }));
+  // «Vigente» es el calendario de Madrid, y un reto CON INSCRIPCION solo se evalúa para
+  // quien se apuntó: sin esto cada reserva creaba progreso a todas las alumnas.
   const retos = (defRows ?? []).map(mapChallengeDefinition)
-    .filter(r => new Date(r.fechaInicio) <= now && now <= new Date(r.fechaFin));
+    .filter(r => retoVigente(r, now))
+    .filter(r => leCuentaElReto(r.alcance, inscripciones.get(r.id) ? { creadaEn: inscripciones.get(r.id)!.creadoEn, bajaEn: inscripciones.get(r.id)!.bajaEn } : null));
   if (retos.length === 0) return;
 
   const progresos = (progRows ?? []).map(mapChallengeProgress);
@@ -7642,7 +7702,9 @@ async function evaluarRetosServidor(
     const existente = progresos.find(p => p.challengeId === reto.id);
     if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
-    const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
+    // Con inscripción cuenta desde que se apuntó; «del estudio», desde el inicio del reto.
+    const inscritaEn = reto.alcance === 'INSCRIPCION' ? inscripciones.get(reto.id)?.creadoEn ?? null : null;
+    const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now, inscritaEn);
     const completadoAhora = valor >= reto.objetivo;
 
     if (!completadoAhora) {
@@ -7688,6 +7750,21 @@ async function evaluarRetosServidor(
   }));
 }
 
+/**
+ * «Semana completa» con la racha única: paga SOLO si esta semana (lunes–domingo, hora del estudio) ya tiene una
+ * asistencia válida (`ASISTIDA`, clase no cancelada). La meta es el mínimo FIJO del estudio (1), nunca una meta
+ * personal. La clave es la de siempre (`socio:lunes`): el UNIQUE de `reward_actions` impide pagarla dos veces y el
+ * RPC revalida la asistencia en la base. Devuelve si la semana estaba completa (no si se concedió).
+ */
+export async function pagarSemanaCompletaUnica(
+  admin: SupabaseClient, studioId: string, socioId: string, now: Date = new Date(),
+): Promise<boolean> {
+  const r = await cargarRachaUnica(admin, studioId, socioId, now);
+  if (r.semanaEnCurso.estado !== 'hecha') return false;
+  await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${r.claveSemanaActual}`);
+  return true;
+}
+
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
 // Best-effort de verdad: si la gamificación falla, la reserva o el check-in que
 // la disparó siguen adelante — perder un logro es mucho menos malo que perder
@@ -7717,9 +7794,16 @@ async function evaluarGamificacionServidor(
     // UPDATE). Mismo ref_id que el cliente (`socioId:claveSemanaActual`) —
     // el UNIQUE de `reward_actions` es lo que evita otorgarla dos veces la
     // misma semana, tanto si la da el panel como si la da el servidor.
-    const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
-    if (racha.semanas > 0) {
-      await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+    if (rachaUnicaEncendida(studioId)) {
+      // Racha única (PR 3.3-B, D12): se paga por SEMANA COMPLETA (la asistencia válida de esta semana, con el
+      // mínimo del estudio), no porque haya racha de semanas anteriores. Misma clave de siempre.
+      // Su propio try: una lectura fallida no puede saltarse el objetivo mensual de abajo.
+      await pagarSemanaCompletaUnica(admin, studioId, socioId).catch((err) => reportDbError('[evaluarGamificacionServidor] semana completa', err));
+    } else {
+      const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
+      if (racha.semanas > 0) {
+        await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+      }
     }
     // Objetivo mensual (I-1, auditoria 49a): mismo punto que SEMANA_COMPLETA
     // arriba -- mismo motor puro sobre el mismo ctx ya cargado.
