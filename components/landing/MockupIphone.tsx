@@ -10,7 +10,7 @@
 // captura lleva su propio alt y el marco va `aria-hidden`.
 //
 // Estilos en un <style> con prefijo `iph-` (la landing los lleva dentro de cada
-// sección): SeccionBento.tsx los incluye una sola vez con `estilosMockupIphone`.
+// sección): la incluye una sola vez quien la usa, con `estilosMockupIphone`.
 
 export type TonoPantalla = 'claro' | 'oscuro';
 

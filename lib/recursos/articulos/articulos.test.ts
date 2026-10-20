@@ -75,7 +75,7 @@ test('lo que llega al cliente no importa el texto de los artículos', () => {
   // estos vuelve a importarlo, ese texto viaja en el JavaScript de la home y
   // del listado (pasó con el lote 1, 25-sep-2026).
   const RAIZ = join(import.meta.dirname, '..', '..', '..');
-  const LIGEROS = ['lib/seo/paginas.ts', 'lib/recursos/schema.ts', 'app/recursos/page.tsx', 'components/landing/SeccionGuias.tsx'];
+  const LIGEROS = ['lib/seo/paginas.ts', 'lib/recursos/schema.ts', 'app/recursos/page.tsx', 'components/web/home/GuiasHome.tsx'];
   for (const f of LIGEROS) {
     const src = readFileSync(join(RAIZ, f), 'utf8');
     assert.ok(!/from ['"](@\/lib\/recursos\/articulos|\.{1,2}\/[^'"]*articulos(\/index(\.ts)?)?)['"]/.test(src), `${f} importa lib/recursos/articulos entero: usa meta.ts y util.ts`);

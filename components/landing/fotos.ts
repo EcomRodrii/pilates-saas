@@ -24,7 +24,9 @@
 //   (vive fuera del repo).
 // · `propia`: sale quien la sube y la autoriza, la propia persona al frente de
 //   Tentare. No hay documento: es su propia imagen y lo decide ella.
-export type Consentimiento = 'no-aplica' | 'firmado' | 'propia';
+// · `aportada`: la aporta el fundador para la web y responde él de sus derechos
+//   (autoría y permiso de quien sale); no hay documento en el repo, que es público.
+export type Consentimiento = 'no-aplica' | 'firmado' | 'propia' | 'aportada';
 
 export interface CreditoFoto {
   autor: string;
@@ -95,7 +97,38 @@ export const FORMATOS: readonly FormatoFoto[] = ['avif', 'webp'];
 export const CARPETA_PUBLICA = 'landing/fotos';
 
 export const FOTOS = {
+  // Héroe de la home nueva (fase 2.2, 19-oct-2026): gente de verdad en clase, A
+  // SANGRE de borde a borde, como los héroes de Mariana Tek y bsport. La foto se
+  // oscurece y se tiñe de oliva en CSS (`.wh-heroe-foto`, un campo uniforme, sin
+  // degradados) para que el texto blanco se lea encima; el contraste se mide
+  // sobre el resultado. En el original la cabeza queda fuera del cuadro: no hay
+  // cara bajo el texto en ningún recorte.
   heroe: {
+    // 20-oct-2026: la elige el fundador para el héroe (en lugar de la de Unsplash).
+    id: 'alumna-sonriente-caja-reformer-estudio-pilates-heroe',
+    original: 'heroe-alumna-caja-reformer-aportada-fundador.jpg',
+    alt: 'Alumna sonriente sentada en la caja de un reformer, en un estudio de Pilates crema con espejos dorados y luz cálida',
+    ancho: 1512,
+    alto: 2016,
+    recortes: {
+      // Banda a sangre: la alumna (cara y torso) en el tercio derecho; el texto va a la izquierda.
+      escritorio: { proporcion: [16, 9], foco: { x: 0.5, y: 0.35 }, anchos: [1280, 1512] },
+      movil: { proporcion: [3, 4], foco: { x: 0.5, y: 0.5 }, anchos: [480, 828, 1170] },
+    },
+    presupuesto: { ancho: 1512, kb: 160 },
+    credito: {
+      autor: 'Aportada por el fundador',
+      fuente: 'Tentare',
+      url: '',
+      licencia: 'Uso en la web de Tentare autorizado por el fundador',
+      fechaDescarga: '2026-10-20',
+    },
+    consentimiento: 'aportada',
+  },
+  // El héroe de antes (hasta la fase 2.2). Ya no va arriba: ahora ilustra la etapa
+  // «Voy a abrir mi estudio» (components/web/home/Etapas.tsx), con su mismo id
+  // (los ficheros no cambian).
+  selfie: {
     id: 'estudio-pilates-reformer-heroe',
     original: 'heroe-selfie-espejo-reformers.jpg',
     alt: 'Mujer en un estudio de Pilates con reformers de madera y espejos en arco, apoyada en un reformer con una pelota en la mano, haciéndose un selfie en el espejo',
@@ -125,7 +158,7 @@ export const FOTOS = {
     // móvil, y ella decide usarla.
     consentimiento: 'propia',
   },
-  // Sección final, antes del pie (SeccionCtaFinal). Sustituye a
+  // Banda final de la home, antes del pie (components/web/home/CierreHome.tsx). Sustituye a
   // `public/disciplinas/pilates.jpg`, vertical y de 900 px, que ahí se ampliaba
   // a todo el ancho; esa sigue en /funcionalidades y /network.
   cierre: {
@@ -270,7 +303,7 @@ export function derivados(foto: FotoRegistrada): { recorte: NombreRecorte; ancho
  * Fotos APORTADAS por el fundador (6-oct-2026), fuera del registro de arriba
  * porque no salen de un banco ni de `scripts/fotos-landing.mjs`: son suyas y las
  * subió él mismo (public/landing/fotos-aportadas/, AVIF + WebP, sin escalar por
- * encima de su tamaño nativo). Usadas en components/landing/SeccionBento.tsx.
+ * encima de su tamaño nativo). Usadas en components/web/home/BentoProducto.tsx.
  */
 export const FOTOS_APORTADAS = {
   app: { base: 'alumna-con-movil-y-esterilla-de-yoga', ancho: 864, alto: 1080, origen: 'foto aportada por el fundador' },

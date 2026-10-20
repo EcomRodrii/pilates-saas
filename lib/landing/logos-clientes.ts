@@ -112,7 +112,12 @@ export function seleccionarLogos(filas: readonly FilaLogoEstudio[], hostPermitid
   return logos;
 }
 
-/** Con tantos logos, ¿marquesina (true) o fila (false)? */
+/**
+ * ¿Marquesina (true) o fila (false)? Desde el 20-oct-2026, SIEMPRE marquesina en cuanto hay
+ * un logo (decisión del fundador: «que se vayan desplazando como en Mariana Tek; puedes
+ * repetirlos»). Con pocos logos, las copias repiten los mismos hasta cubrir la franja.
+ * Con `prefers-reduced-motion`, el CSS la para y la deja en una fila quieta.
+ */
 export function usaMarquesina(cuantos: number): boolean {
-  return cuantos >= LOGOS_PARA_MARQUESINA;
+  return cuantos >= 1;
 }

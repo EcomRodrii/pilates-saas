@@ -57,7 +57,8 @@ test.describe('Las imágenes de la home', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
 
-    const heroe = page.locator('header#top picture img');
+    // Home nueva (fase 2.2): en el héroe va también el móvil de la app (sin prioridad); la foto es la de `.wh-heroe-foto`.
+    const heroe = page.locator('header#top .wh-heroe-foto picture img');
     await expect(heroe).toHaveCount(1);
     await expect(heroe).toHaveAttribute('loading', 'eager');
     await expect(heroe).toHaveAttribute('fetchpriority', 'high');
