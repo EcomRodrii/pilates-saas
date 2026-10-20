@@ -34,14 +34,14 @@ export async function cancelarSesionesPorMinimoNoAlcanzado(): Promise<{ revisada
       .eq('cancelada', false)
       .gt('inicio', ahora.toISOString())
       .lte('inicio', hasta)
-      .range(from, to),
+      .order('id').range(from, to),
   );
   if (!sesiones.length) return { revisadas: 0, canceladas: 0 };
 
   const studioIds = [...new Set(sesiones.map(s => s.studio_id))];
   const { data: studios } = await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds).range(from, to),
+    (from, to) => admin.from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds).order('id').range(from, to),
   );
   const minimoEstudio = new Map(studios.map(s => [s.id, s.minimo_asistentes_por_clase]));
 
@@ -49,7 +49,7 @@ export async function cancelarSesionesPorMinimoNoAlcanzado(): Promise<{ revisada
   const { data: tipos } = tipoIds.length
     ? await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number | null }>(
         '(global)', 'tipos_clase',
-        (from, to) => admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds).range(from, to),
+        (from, to) => admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds).order('id').range(from, to),
       )
     : { data: [] as { id: string; minimo_asistentes_por_clase: number | null }[] };
   const minimoTipo = new Map(tipos.map(t => [t.id, t.minimo_asistentes_por_clase]));
@@ -66,7 +66,7 @@ export async function cancelarSesionesPorMinimoNoAlcanzado(): Promise<{ revisada
     '(global)', 'reservas',
     (from, to) => admin.from('reservas').select('sesion_id')
       .in('sesion_id', aRevisar.map(({ s }) => s.id))
-      .eq('estado', 'CONFIRMADA').range(from, to),
+      .eq('estado', 'CONFIRMADA').order('id').range(from, to),
   );
   const confirmadasPorSesion = new Map<string, number>();
   for (const r of confirmadas) {

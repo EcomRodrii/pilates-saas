@@ -7,6 +7,7 @@ import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
 import { apiActivaSegunFila } from '@/lib/api-publica/acceso';
 import { credencialesWellhub } from '@/lib/plataformas/wellhub/cliente';
+import { vinculosDeLaFicha } from '@/lib/interno/vinculos-gratis-ficha';
 
 export const runtime = 'nodejs';
 
@@ -90,6 +91,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })
     : null;
 
+  // Cuentas que parecen el mismo negocio (plan gratis, vinculos-gratis.ts): solo
+  // cifras y el nombre del otro estudio, nunca quiénes son las alumnas en común.
+  const vinculos = await vinculosDeLaFicha(db, id);
+
   await registrar(db, req, {
     actor: g.admin,
     accion: 'estudio.ficha.abierta',
@@ -142,6 +147,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       esSede: Boolean(studio.cadena_id),
     },
     salud,
+    vinculos,
     apiPublica: {
       activa: apiActivaSegunFila(apiAcceso.data),
       activadaEn: (apiAcceso.data?.activada_en as string | null) ?? null,

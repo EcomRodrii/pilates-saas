@@ -89,8 +89,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
  * su id: renombrarlo exigiría migrar la columna y los precios de Stripe.
  */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
-  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Todo Tentare menos varias sedes, sin límite de alumnas.' },
-  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Todo lo de Founding Studio, con más consultas al asistente.' },
+  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Sin límite de alumnas ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' },
+  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.' },
   CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
 };
 

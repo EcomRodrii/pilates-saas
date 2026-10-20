@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clienteAdminLocal, crearStudioConPropietaria, limpiarFixtures, sqlLocal } from '../../lib/db/rls-test-helpers.ts';
-import { huellaCodigo } from '../../lib/regalo/reglas.ts';
+import { huellaCodigo } from '../../lib/regalo/huella.ts';
 
 const admin = clienteAdminLocal();
 const sql = sqlLocal();

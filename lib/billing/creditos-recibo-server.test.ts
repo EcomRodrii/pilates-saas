@@ -10,16 +10,25 @@ import { seguirCreditosAlRecibo, type DependenciasCreditosRecibo } from './credi
 
 type Llamada = { nombre: string; args: Record<string, unknown> };
 
-function fakeAdmin(respuesta: { data?: unknown; error?: { message: string } | null; lanza?: boolean }) {
+function fakeAdmin(
+  respuesta: { data?: unknown; error?: { message: string } | null; lanza?: boolean },
+  compra: { data?: unknown; error?: { message: string } | null } = { data: [] },
+) {
   const llamadas: Llamada[] = [];
+  const llamadasCompra: Llamada[] = [];
   const admin = {
     rpc(nombre: string, args: Record<string, unknown>) {
+      if (nombre === 'sincronizar_creditos_compra') {
+        llamadasCompra.push({ nombre, args });
+        if (respuesta.lanza) return Promise.reject(new Error('red caída'));
+        return Promise.resolve({ data: compra.data ?? null, error: compra.error ?? null });
+      }
       llamadas.push({ nombre, args });
       if (respuesta.lanza) return Promise.reject(new Error('red caída'));
       return Promise.resolve({ data: respuesta.data ?? null, error: respuesta.error ?? null });
     },
   };
-  return { admin: admin as never, llamadas };
+  return { admin: admin as never, llamadas, llamadasCompra };
 }
 
 function deps(puedeOtorgar = true) {
@@ -40,7 +49,34 @@ test('pide sincronizar ESE recibo de ESE estudio, con el gate del plan', async (
     nombre: 'sincronizar_creditos_renovacion',
     args: { p_studio_id: 'studio-1', p_recibo_id: 'rec-1', p_puede_otorgar: true },
   }]);
-  assert.deepEqual(r, { accion: 'OTORGADO', socioId: 'socia-1', creditos: 40, saldo: 55 });
+  assert.deepEqual(r, { accion: 'OTORGADO', socioId: 'socia-1', creditos: 40, saldo: 55, creditosCompraRetirados: 0 });
+});
+
+test('la devolución también retira los créditos de COMPRA, por la misma puerta y para ESE recibo', async () => {
+  const { admin, llamadas, llamadasCompra } = fakeAdmin(
+    { data: [{ resultado: 'NADA', socia: 's', creditos_movidos: 0, saldo_final: null }] },
+    { data: [{ r_venta_id: 'v-1', r_retirados: 100 }] },
+  );
+  const r = await seguirCreditosAlRecibo(admin, P, deps().d);
+  assert.deepEqual(llamadasCompra, [{ nombre: 'sincronizar_creditos_compra', args: { p_studio_id: 'studio-1', p_recibo_id: 'rec-1' } }]);
+  assert.equal(llamadas.length, 1, 'la renovación se sigue sincronizando');
+  assert.equal(r?.creditosCompraRetirados, 100);
+});
+
+test('⚠️ un fallo de la sincronización de COMPRA no tumba la de renovación (ni al revés)', async () => {
+  const a = fakeAdmin(
+    { data: [{ resultado: 'REVERTIDO', socia: 's', creditos_movidos: 40, saldo_final: 0 }] },
+    { error: { message: 'boom' } },
+  );
+  const av = deps();
+  const r1 = await seguirCreditosAlRecibo(a.admin, P, av.d);
+  assert.equal(r1?.accion, 'REVERTIDO');
+  assert.equal(r1?.creditosCompraRetirados, 0);
+  assert.equal(av.avisos.length, 1);
+
+  const b = fakeAdmin({ error: { message: 'boom' } }, { data: [{ r_venta_id: 'v-1', r_retirados: 30 }] });
+  assert.equal(await seguirCreditosAlRecibo(b.admin, P, deps().d), null);
+  assert.equal(b.llamadasCompra.length, 1, 'la compra se pide aunque la renovación falle');
 });
 
 test('un plan sin gamificación NO impide llamar: revertir no depende del plan', async () => {

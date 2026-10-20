@@ -88,7 +88,7 @@ export const decisionDispatcher = inngest.createFunction(
       const { data, error } = await fetchAllRows<{ id: string; nombre: string; plan: string; subscription_status: string | null; regimen_addons: boolean | null; addons: string[] | null }>(
         '(global)', 'studios',
         (from, to) => requireSupabaseAdmin().from('studios')
-          .select(`id, nombre, ${COLUMNAS_PLAN}`).is('suspendido_en', null).range(from, to),
+          .select(`id, nombre, ${COLUMNAS_PLAN}`).is('suspendido_en', null).order('id').range(from, to),
       );
       if (error) throw new Error(error.message);
       const conPlanTodos = data.filter(s => tieneFeature(planDeFila(s), 'decisiones'));

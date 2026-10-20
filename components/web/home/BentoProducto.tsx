@@ -61,7 +61,7 @@ const TARJETAS: readonly Tarjeta[] = [
     texto: 'Cuotas y bonos con la tarjeta guardada o por SEPA. Si un cobro falla, se reintenta solo.',
     chips: [['Cobros recurrentes', '/funcionalidades/cobros-recurrentes'], ['Bonos y membresías', '/funcionalidades/bonos-y-membresias'], ['Facturación', '/funcionalidades/facturacion']],
     clase: 'wh-bn-5 wh-bn-oscura wh-bn-con-aviso',
-    descripcion: 'Ejemplo: la cuota de una alumna no se puede cobrar a la primera, le llega el aviso, se reintenta sola y queda cobrada con su tarjeta guardada. Se reintenta a los 3 y a los 7 días, tres intentos en total.',
+    descripcion: 'Ejemplo: la cuota de una alumna no se puede cobrar a la primera, le llega el aviso, se reintenta sola y queda cobrada con su tarjeta guardada. Se reintenta a los 3 días y de nuevo a los 7, tres intentos en total.',
     escena: (
       <>
         <FotogramaReintento className="wh-bn-ui wh-bn-ui-abajo" />

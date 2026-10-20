@@ -317,7 +317,7 @@ export interface RecuperacionesVista {
  * Enseñárselo a la alumna sería enseñarle eso. Por eso el canje guarda la
  * clave — el texto nunca fue suficiente.
  */
-export interface CanjeConRecuperacion { catalogItemId: string; recuperacionId?: string | null }
+export interface CanjeConRecuperacion { catalogItemId: string | null; recuperacionId?: string | null; recompensaNombre?: string | null }
 
 /** Recuperaciones que aún se pueden usar (DISPONIBLE y no caducada a fecha de hoy). */
 export function proyectarRecuperaciones(
@@ -334,7 +334,7 @@ export function proyectarRecuperaciones(
   const recompensaPorRecuperacion = new Map<string, string>();
   for (const c of canjes) {
     if (!c.recuperacionId) continue;
-    const n = nombre.get(c.catalogItemId);
+    const n = (c.catalogItemId ? nombre.get(c.catalogItemId) : undefined) ?? c.recompensaNombre ?? undefined;
     if (n) recompensaPorRecuperacion.set(c.recuperacionId, n);
   }
 

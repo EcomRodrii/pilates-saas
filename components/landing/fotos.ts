@@ -158,7 +158,7 @@ export const FOTOS = {
     // móvil, y ella decide usarla.
     consentimiento: 'propia',
   },
-  // Sección final, antes del pie (SeccionCtaFinal). Sustituye a
+  // Banda final de la home, antes del pie (components/web/home/CierreHome.tsx). Sustituye a
   // `public/disciplinas/pilates.jpg`, vertical y de 900 px, que ahí se ampliaba
   // a todo el ancho; esa sigue en /funcionalidades y /network.
   cierre: {

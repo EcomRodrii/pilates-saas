@@ -6,8 +6,8 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { SeccionHero } from '@/components/landing/SeccionHero';
-import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
 import { BandaPrueba } from '@/components/landing/BandaPrueba';
@@ -79,7 +79,7 @@ export function LandingCliente({ children }: Props = {}) {
     <div className="wh" style={{ overflowX: 'clip', position: 'relative' }}>
       <StructuredData />
       <OrganizationStructuredData />
-      {/* El nav (`position: sticky`, dentro de SeccionHero) queda "pegado" solo
+      {/* El nav (`position: sticky`, IslaWeb) queda "pegado" solo
           mientras este contenedor sigue en pantalla — es su límite de
           contención. Sin este envoltorio, el nav se queda pegado hasta el
           final literal de la página y se superpone al pie, tapando su texto
@@ -88,11 +88,11 @@ export function LandingCliente({ children }: Props = {}) {
       <div style={{ position: 'relative' }}>
         {/* Una línea con la oferta, en el flujo y sin popup (fundador, 9-oct). */}
         <BandaPrueba />
-        <SeccionHero />
+        <IslaWeb enHome />
         {children}
       </div>
-      {/* Solo el pie: la banda final es la de la home (CierreHome, en `children`). */}
-      <SeccionCtaFinal sinCierre />
+      {/* El pie de toda la web pública (fase 2.1). La banda final es la de la home (CierreHome, en `children`). */}
+      <PieWeb />
       <WhatsAppFab />
       {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
           (lib/landing/popup-frecuencia.ts), no aquí. */}

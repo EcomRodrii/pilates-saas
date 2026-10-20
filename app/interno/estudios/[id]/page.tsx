@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { fetchFichaEstudio, type FichaEstudio } from '@/lib/interno/client';
 import { AccionesEstudio } from './acciones';
+import { CuentasVinculadas } from './vinculos';
 import { PildoraSalud, SaludDetalle, textoSuscripcion } from '../salud';
 
 const fecha = (iso: string | null) =>
@@ -139,6 +140,7 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
             </div>
           ))}
         </Bloque>
+        <CuentasVinculadas id={f.estudio.id} vinculos={f.vinculos ?? []} alTerminar={cargar} />
         <AccionesEstudio
           id={f.estudio.id} plan={f.estudio.plan}
           suspendido={f.suspension.suspendido} motivo={f.suspension.motivo}

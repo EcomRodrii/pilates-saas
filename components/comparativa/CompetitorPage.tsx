@@ -3,8 +3,8 @@ import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
 import { ACC, ACC_SOFT, DARK, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { ComparativaBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -151,9 +151,7 @@ export function CompetitorPage({
       <ComparativaBreadcrumb slug={slug} name={`Tentare vs ${name}`} />
       {webPageLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageLd).replace(/</g, '\\u003c') }} />}
       {faq && faq.length > 0 && <FaqStructuredData items={faq} />}
-      {/* La vuelta lleva a la home: quien llega aquí desde Google no viene de
-          la comparativa general, y «volver» a ella no le enseña el producto. */}
-      <SiteNav backHref="/" backLabel="Inicio" />
+      <IslaWeb />
 
       <header className="cmp1-heroe">
         <div className="cmp1-heroe-in">
@@ -318,7 +316,7 @@ export function CompetitorPage({
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .cmp1-heroe { position: relative; padding: clamp(28px,4vw,40px) clamp(20px,4vw,44px) clamp(28px,4vw,40px); }

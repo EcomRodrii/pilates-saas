@@ -2,8 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureStructuredData } from './FeatureStructuredData';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
@@ -97,7 +97,7 @@ export function FeatureShell({
     <PageShell>
       <OrganizationStructuredData />
       <FeatureStructuredData path={path} />
-      <SiteNav backHref="/funcionalidades" backLabel="Funcionalidades" />
+      <IslaWeb />
 
       <header className={foto ? 'ft-portada ft-portada-foto' : 'ft-portada'}>
         {foto && (
@@ -196,7 +196,7 @@ export function FeatureShell({
         </section>
       )}
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         /* ── Portada: foto a sangre ──────────────────────────────────────── */

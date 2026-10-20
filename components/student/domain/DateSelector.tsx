@@ -4,7 +4,7 @@ import { addDias, etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato'
 import { marcaDeMes } from '@/lib/student/horario-dias';
 import { vibrar } from '@/lib/nativo/puente';
 
-const SEMANA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DIA_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 /**
@@ -65,7 +65,11 @@ export function DateSelector({ value, onChange, dias = 7, formato, marcados, hab
             >
               <span className="day__semana">{esHoy ? 'Hoy' : SEMANA[d.getUTCDay()]}</span>
               <span className="day__numero t-num">{numero}</span>
-              <span className="day__pie" aria-hidden>{mes}{conReserva && <i className="day__punto" />}</span>
+              {/* Maqueta de oct-2026: un punto bajo cada día con clases, relleno si tiene una reserva suya. El mes ya no se
+                  pinta (sigue en el nombre accesible). */}
+              <span className="day__pie" aria-hidden>
+                {conReserva ? <i className="day__punto" /> : habilitados?.has(iso) ? <i className="day__punto day__punto--clases" /> : null}
+              </span>
             </button>
           );
         })}

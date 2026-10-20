@@ -1,7 +1,9 @@
 import type { Disponibilidad } from '@/lib/student/tipos';
 const MAP: Record<Disponibilidad, { cls: string; txt: (n: number) => string; pulse?: boolean }> = {
-  disponible: { cls: 'badge--ok', txt: (n) => n + ' plazas' },
-  pocas: { cls: 'badge--few', txt: (n) => (n === 1 ? 'Última plaza' : 'Quedan ' + n), pulse: true },
+  // «N plazas» y «1 plaza», como en la maqueta de oct-2026 (copia exacta, fundador 19-oct): el tono avisa de que quedan
+  // pocas, sin frase más larga que parta la fila.
+  disponible: { cls: 'badge--ok', txt: (n) => (n === 1 ? '1 plaza' : n + ' plazas') },
+  pocas: { cls: 'badge--few', txt: (n) => (n === 1 ? '1 plaza' : n + ' plazas') },
   completa: { cls: 'badge--full', txt: () => 'Completa · lista' },
   'no-disponible': { cls: 'badge--neutral', txt: () => 'Completa' },
   'lista-espera': { cls: 'badge--wait', txt: () => 'En lista de espera' },
@@ -9,7 +11,9 @@ const MAP: Record<Disponibilidad, { cls: string; txt: (n: number) => string; pul
 };
 export function AvailabilityBadge({ estado, plazas }: { estado: Disponibilidad; plazas: number }) {
   const m = MAP[estado];
-  return <span className={'badge ' + m.cls}>{m.pulse && <span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: 'apPulse 2.2s infinite' }} />}{m.txt(plazas)}</span>;
+  // La última plaza, en el tono de «completa» (maqueta de oct-2026: «1 plaza» en rojo): es la que se va primero.
+  const cls = estado === 'pocas' && plazas === 1 ? 'badge--ultima' : m.cls;
+  return <span className={'badge ' + cls}>{m.pulse && <span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: 'apPulse 2.2s infinite' }} />}{m.txt(plazas)}</span>;
 }
 export function Badge({ tone = 'neutral', children }: { tone?: 'ok' | 'few' | 'full' | 'neutral' | 'wait' | 'booked'; children: React.ReactNode }) {
   return <span className={'badge badge--' + tone}>{children}</span>;

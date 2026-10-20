@@ -85,7 +85,7 @@ async function montar(page: Page, o: {
 /** Abre la hoja de confirmar de la clase del fixture y devuelve su aviso. */
 async function abrirHoja(page: Page) {
   await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-  const reservar = page.getByRole('button', { name: /^Reservar$/ }).first();
+  const reservar = page.getByRole('button', { name: /^Reservar clase$/ }).first();
   await expect(reservar).toBeVisible({ timeout: 30_000 });
   await reservar.click();
   await expect(page.getByText('Confirma tu plaza')).toBeVisible({ timeout: 15_000 });
