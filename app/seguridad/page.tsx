@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Activity, CreditCard, Database, Download, FileCheck, Globe, Layers, Lock, Shield, X } from 'lucide-react';
-import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
@@ -27,44 +26,39 @@ export const metadata: Metadata = {
   },
 };
 
-function Icon({ children, bg, fg }: { children: React.ReactNode; bg: string; fg: string }) {
-  return <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>{children}</div>;
+// Sin baldosa teñida (fase 2.5): el icono va solo, en oliva, como en la home.
+function Icon({ children }: { children: React.ReactNode }) {
+  return <div className="sec-icono" aria-hidden>{children}</div>;
 }
 
 const PILLARS = [
   {
-    bg: '#F1F2EA', fg: ACC,
-    icon: <Layers size={21} />,
+    icon: <Layers size={22} />,
     title: 'Cada estudio, aislado',
     body: 'Seguridad a nivel de fila en todas las tablas de la base de datos: tu estudio accede únicamente a sus propios datos, nunca a los de otro. Es una barrera técnica, no solo una pantalla.',
   },
   {
-    bg: '#EDF3F4', fg: '#3E7C86',
-    icon: <Globe size={21} />,
+    icon: <Globe size={22} />,
     title: 'Datos en Europa, RGPD',
     body: 'La base de datos se aloja en la Unión Europea (Fráncfort). Algunos proveedores que usamos pueden tratar datos fuera de la UE: están listados, con su ubicación, en la política de privacidad.',
   },
   {
-    bg: '#F1F2EA', fg: '#C2503A',
-    icon: <Activity size={21} />,
+    icon: <Activity size={22} />,
     title: 'Datos de salud, con consentimiento',
     body: 'La ficha clínica de tus alumnas (lesiones, embarazo, condiciones) es categoría especial del RGPD. Se guarda con consentimiento explícito y acceso restringido por rol.',
   },
   {
-    bg: '#E7F3EC', fg: '#4E9E7F',
-    icon: <FileCheck size={21} />,
+    icon: <FileCheck size={22} />,
     title: 'Facturación legal (Veri*factu)',
     body: 'Las facturas se emiten con numeración legal y encadenamiento por hash, calculado en el orden que fija la AEAT. La firma y el envío automático del registro a la AEAT están todavía en construcción; el QR de cotejo se imprime cuando la AEAT tiene el registro.',
   },
   {
-    bg: '#F1F2EA', fg: '#5A6142',
-    icon: <CreditCard size={21} />,
+    icon: <CreditCard size={22} />,
     title: 'Pagos que no tocan tu servidor',
     body: 'Los cobros se procesan con Stripe. Tentare no almacena los números de tarjeta de tus alumnas — los gestiona el proveedor de pagos certificado.',
   },
   {
-    bg: '#F1F2EA', fg: ACC,
-    icon: <Database size={21} />,
+    icon: <Database size={22} />,
     title: 'Copias de seguridad',
     body: 'Guardamos una copia diaria fuera de la propia base de datos, en almacenamiento independiente. La restauración desde el panel está desactivada temporalmente: si necesitas recuperar datos, lo hacemos contigo desde soporte.',
   },
@@ -83,80 +77,72 @@ export default function SeguridadPage() {
       <PageBreadcrumb path="/seguridad" name="Seguridad" />
       <IslaWeb />
 
-      <header style={{ position: 'relative', background: '#0F0F0F', color: '#E8E8E4', overflow: 'hidden', padding: 'clamp(52px,7vw,92px) clamp(20px,4vw,44px) clamp(44px,6vw,72px)' }}>
-        <div style={{ position: 'absolute', top: '-18%', right: '-6%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.28), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 800, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8B080', background: 'rgba(90,97,66,.16)', padding: '8px 15px', borderRadius: 999, marginBottom: 22 }}>
-            <Shield size={14} />
-            Seguridad y privacidad
-          </div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px', color: '#fff' }}>Tus datos y los de tus<br />alumnas, protegidos.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.6vw,20px)', lineHeight: 1.55, color: MUTED_DARK, maxWidth: 600, margin: '0 0 30px' }}>Tentare gestiona información sensible de tu negocio y de tus socias. Está construido desde el primer día para que esos datos estén aislados, alojados en Europa y bajo tu control.</p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {['Base de datos en la UE', 'Diseñado con el RGPD en mente', 'Cifrado en tránsito', 'Sin permanencia'].map((t) => (
-              <span key={t} className="lp-mono" style={{ fontSize: 12, color: '#D8D8D2', background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 999, padding: '8px 14px' }}>{t}</span>
-            ))}
-          </div>
+      <header className="sec-cab">
+        <div className="sec-cab-in">
+          <p className="sec-antetitulo"><Shield size={16} aria-hidden /> Seguridad y privacidad</p>
+          <h1 className="sec-h1">Tus datos y los de tus<br />alumnas, protegidos.</h1>
+          <p className="sec-entrada">Tentare gestiona información sensible de tu negocio y de tus socias. Está construido desde el primer día para que esos datos estén aislados, alojados en Europa y bajo tu control.</p>
+          <ul className="sec-sellos">
+            {['Base de datos en la UE', 'Diseñado con el RGPD en mente', 'Cifrado en tránsito', 'Sin permanencia'].map((t) => <li key={t}>{t}</li>)}
+          </ul>
         </div>
       </header>
 
-      <section style={{ padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+      <section className="sec-zona">
+        <div className="sec-ancho">
           <div className="sec-grid">
             {PILLARS.map((p, i) => (
-              <Reveal key={p.title} delay={(i % 3) * 70} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 20, padding: 26 }}>
-                <Icon bg={p.bg} fg={p.fg}>{p.icon}</Icon>
-                <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px' }}>{p.title}</h2>
-                <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{p.body}</p>
+              <Reveal key={p.title} delay={(i % 3) * 70} className="sec-tarjeta">
+                <Icon>{p.icon}</Icon>
+                <h2 className="sec-tarjeta-h">{p.title}</h2>
+                <p className="sec-tarjeta-p">{p.body}</p>
               </Reveal>
             ))}
           </div>
 
-          <div className="sec-two" style={{ marginTop: 22 }}>
-            <Reveal style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
-              <Icon bg="rgba(255,255,255,.08)" fg="#A8B080"><Lock size={21} /></Icon>
-              <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Acceso protegido</h2>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Inicio de sesión seguro con tu cuenta o con Google, permisos por rol para tu equipo, límites anti-abuso en las peticiones y monitorización continua de errores. Cada instructora ve solo lo que le corresponde.</p>
+          <div className="sec-two">
+            <Reveal className="sec-tarjeta">
+              <Icon><Lock size={22} /></Icon>
+              <h2 className="sec-tarjeta-h">Acceso protegido</h2>
+              <p className="sec-tarjeta-p">Inicio de sesión seguro con tu cuenta o con Google, permisos por rol para tu equipo, límites anti-abuso en las peticiones y monitorización continua de errores. Cada instructora ve solo lo que le corresponde.</p>
             </Reveal>
-            <Reveal delay={90} style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
-              <Icon bg="rgba(255,255,255,.08)" fg="#7BD3A8"><Download size={21} /></Icon>
-              <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Tus datos son tuyos</h2>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te vas con todo.</p>
+            <Reveal delay={90} className="sec-tarjeta">
+              <Icon><Download size={22} /></Icon>
+              <h2 className="sec-tarjeta-h">Tus datos son tuyos</h2>
+              <p className="sec-tarjeta-p">Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te vas con todo.</p>
             </Reveal>
           </div>
 
-          <Reveal style={{ marginTop: 44, textAlign: 'center' }}>
-            <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 18 }}>Construido sobre infraestructura de referencia</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {['Supabase · Postgres + Auth', 'Stripe · pagos', 'Cloudflare · copias y antibots', 'Sentry · monitorización'].map((t) => (
-                <span key={t} className="lp-mono" style={{ fontSize: 13, color: '#5A5A52', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 12, padding: '11px 18px' }}>{t}</span>
-              ))}
-            </div>
+          <Reveal className="sec-infra">
+            <p className="sec-infra-t">Construido sobre infraestructura de referencia</p>
+            <ul className="sec-sellos sec-sellos-claros">
+              {['Supabase · Postgres + Auth', 'Stripe · pagos', 'Cloudflare · copias y antibots', 'Sentry · monitorización'].map((t) => <li key={t}>{t}</li>)}
+            </ul>
           </Reveal>
         </div>
       </section>
 
-      <section style={{ background: '#F3F3EF', borderTop: '1px solid #E7E7E0', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
-        <div style={{ maxWidth: 820, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#22251A', marginBottom: 16 }}>Nuestro compromiso</Reveal>
-          <Reveal delay={80}><h2 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.6vw,40px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 26px' }}>Lo que <span style={{ color: ACC }}>nunca</span> hacemos con tus datos.</h2></Reveal>
-          <Reveal delay={120} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {NEVER.map((t) => (
-              <div key={t} style={{ display: 'flex', gap: 13, alignItems: 'flex-start', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '18px 20px' }}>
-                <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 7, background: '#F1F2EA', color: '#C2503A', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-                  <X size={14} strokeWidth={2.4} />
-                </span>
-                <span style={{ fontSize: 15.5, lineHeight: 1.5, color: '#3A3A34' }}>{t}</span>
-              </div>
-            ))}
+      <section className="sec-nunca">
+        <div className="sec-nunca-in">
+          <Reveal><p className="sec-antetitulo sec-antetitulo-claro">Nuestro compromiso</p></Reveal>
+          <Reveal delay={80}><h2 className="sec-h2">Lo que nunca hacemos con tus datos.</h2></Reveal>
+          <Reveal delay={120}>
+            <ul className="sec-nunca-lista">
+              {NEVER.map((t) => (
+                <li key={t}>
+                  <X size={18} strokeWidth={2.2} aria-hidden className="sec-nunca-x" />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 12, color: '#A8A89F', margin: '24px 0 0', lineHeight: 1.6 }}>
-            ¿Necesitas un acuerdo de tratamiento de datos (DPA) o detalles para tu asesoría? Escríbenos a <a href="mailto:hola@tentare.app" style={{ color: ACC }}>hola@tentare.app</a> y te lo damos.
+          <p className="sec-dpa">
+            ¿Necesitas un acuerdo de tratamiento de datos (DPA) o detalles para tu asesoría? Escríbenos a <a href="mailto:hola@tentare.app">hola@tentare.app</a> y te lo damos.
           </p>
         </div>
       </section>
 
-      <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
+      <section style={{ padding: 'clamp(64px,8vw,110px) var(--w-margen)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <CtaBlock title="Tranquila con tus datos. Y con tu estudio." />
         </div>
@@ -165,14 +151,42 @@ export default function SeguridadPage() {
       <PieWeb />
 
       <style>{`
-        .sec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
-        .sec-two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+        .sec-cab { background: var(--w-noche); color: var(--w-sobre-noche); padding: clamp(56px,8vw,104px) var(--w-margen) clamp(48px,6vw,80px); }
+        .sec-cab-in { max-width: 800px; margin: 0 auto; }
+        .sec-antetitulo { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; font-size: 14px; font-weight: var(--w-peso-enfasis); color: var(--w-sand); }
+        .sec-antetitulo-claro { color: var(--w-olive); }
+        .sec-h1 { margin: 0 0 20px; font-weight: var(--w-peso-titular); font-size: var(--w-fs-h1); line-height: 1.04; letter-spacing: var(--w-track-h1); color: var(--w-sobre-noche); }
+        .sec-entrada { max-width: 600px; margin: 0 0 30px; font-size: clamp(17px,1.6vw,20px); line-height: 1.55; color: var(--w-sobre-noche-2); }
+        .sec-sellos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+        .sec-sellos li { font-size: 14px; color: var(--w-sobre-noche); border: 1px solid var(--w-linea-noche); border-radius: 999px; padding: 8px 15px; }
+        .sec-sellos-claros { justify-content: center; }
+        .sec-sellos-claros li { color: var(--w-texto-2); background: var(--w-papel); border-color: var(--w-linea); }
+        .sec-zona { padding: var(--w-seccion) var(--w-margen); }
+        .sec-ancho { max-width: 1120px; margin: 0 auto; }
+        .sec-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
+        .sec-two { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 18px; }
+        .sec-tarjeta { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); padding: 28px; }
+        .sec-icono { display: flex; color: var(--w-olive); margin-bottom: 18px; }
+        .sec-tarjeta-h { margin: 0 0 8px; font-size: 19px; font-weight: var(--w-peso-titular); letter-spacing: -.015em; line-height: 1.25; color: var(--w-texto); }
+        .sec-tarjeta-p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--w-texto-2); }
+        .sec-infra { margin-top: 48px; text-align: center; }
+        .sec-infra-t { margin: 0 0 18px; font-size: 14px; font-weight: var(--w-peso-enfasis); color: var(--w-texto-3); }
+        .sec-nunca { background: var(--w-papel); border-top: 1px solid var(--w-linea); padding: var(--w-seccion) var(--w-margen); }
+        .sec-nunca-in { max-width: 820px; margin: 0 auto; }
+        .sec-h2 { margin: 0 0 28px; font-weight: var(--w-peso-titular); font-size: var(--w-fs-h2); line-height: 1.08; letter-spacing: var(--w-track-h2); color: var(--w-texto); }
+        .sec-nunca-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+        .sec-nunca-lista li { display: flex; gap: 14px; align-items: flex-start; padding: 18px 0; border-top: 1px solid var(--w-linea); font-size: 16.5px; line-height: 1.5; color: var(--w-texto); }
+        .sec-nunca-lista li:last-child { border-bottom: 1px solid var(--w-linea); }
+        .sec-nunca-x { flex-shrink: 0; margin-top: 2px; color: var(--w-error); }
+        .sec-dpa { margin: 24px 0 0; font-size: 15px; line-height: 1.6; color: var(--w-texto-2); }
+        .sec-dpa a { color: var(--w-olive); font-weight: var(--w-peso-enfasis); text-decoration: underline; text-underline-offset: 3px; }
         @media (max-width: 900px) {
-          .sec-grid { grid-template-columns: 1fr 1fr; }
-          .sec-two { grid-template-columns: 1fr; }
+          .sec-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+          .sec-two { grid-template-columns: minmax(0,1fr); }
         }
         @media (max-width: 600px) {
-          .sec-grid { grid-template-columns: 1fr; }
+          .sec-grid { grid-template-columns: minmax(0,1fr); }
+          .sec-tarjeta { padding: 24px; }
         }
       `}</style>
     </PageShell>
