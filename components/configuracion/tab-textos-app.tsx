@@ -79,7 +79,7 @@ export function DetallePresentacion({ showToast, onGuardado }: {
             />
           )}
         </Campo>
-        <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas. Va en mayúsculas.">
+        <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas, si no tienes la ciudad puesta (con ciudad, sale la ciudad). Va en mayúsculas.">
           {id => (
             <input
               id={id}
@@ -155,7 +155,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
       <div className="flex flex-col gap-5 pb-6">
         <Campo
           label="Tu frase de bienvenida"
-          ayuda="Va justo debajo del saludo, al abrir la app. Si la dejas vacía sale «¿Qué te apetece hoy?»."
+          ayuda="Ahora mismo no se ve: la pantalla de inicio nueva de la app (octubre de 2026) no lleva frase bajo el saludo. Se guarda por si vuelve."
         >
           {id => (
             <input
@@ -172,7 +172,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
           label="Frase de la portada"
           // La FOTO de la portada se cambia en «Apariencia de tu app»: pedir una
           // frase «al lado de la foto» sin decir dónde está la foto era prometer media cosa.
-          ayuda="Se lee en vertical al lado de la foto grande, al abrir la app. Cuatro o cinco palabras. La foto se cambia en «Apariencia de tu app»."
+          ayuda="Ahora mismo no se ve: la pantalla de inicio nueva de la app (octubre de 2026) no tiene foto grande de portada. Se guarda por si vuelve."
         >
           {id => (
             <input
@@ -187,7 +187,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
         </Campo>
         <Campo
           label="Tu frase, a mano"
-          ayuda="Se escribe con letra manuscrita en la pantalla de inicio de tus alumnas. Una frase corta, tuya."
+          ayuda="Se escribe con letra manuscrita al final de la pantalla de inicio de tus alumnas. Una frase corta, tuya."
         >
           {id => (
             <input

@@ -2,6 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { EstadoEnTuWeb, PiezaCopiada } from './en-tu-web.ts';
 import { ORDEN, REGLAS, filaDePortada, type ClaveAviso, type EntradaFila } from './fila-portada.ts';
+import type { AvisoSoloHorario } from './solo-horario.ts';
+
+const SOLO: AvisoSoloHorario = {
+  modo: 'copiar',
+  texto: 'Si en tu web te salen los bonos y las cuotas debajo del horario, vuelve a copiar el código: el nuevo trae «Tu horario, tus clases» activado. El que ya tienes pegado no cambia solo.',
+  accion: { texto: 'Copiar el código nuevo', hace: 'copiar' },
+};
 
 const H = 3600_000;
 const AHORA = Date.parse('2026-10-16T12:00:00.000Z');
@@ -16,7 +23,7 @@ function pieza(p: Partial<PiezaCopiada> = {}): PiezaCopiada {
   };
 }
 function fila(p: Partial<PiezaCopiada> = {}, extra: Partial<EntradaFila> = {}): EntradaFila {
-  return { pieza: pieza(p), esEnlace: false, webSinAutorizar: null, conListaDeWebs: false, codigoAntiguo: false, ...extra };
+  return { pieza: pieza(p), esEnlace: false, webSinAutorizar: null, conListaDeWebs: false, codigoAntiguo: false, soloHorario: null, ...extra };
 }
 const anterior = (porId: boolean): EstadoEnTuWeb => ({
   ...VISTO, version: 'anterior', laOtra: { anfitrion: VISTO.tipo === 'visto' ? VISTO.anfitrion : null, ultimo: iso(AHORA - 3 * H) }, ...(porId ? { porId: true } : {}),
@@ -25,7 +32,7 @@ const anterior = (porId: boolean): EstadoEnTuWeb => ({
 /** Una fila en la que encajan TODOS los avisos a la vez. */
 const TODO = fila(
   { desfasado: true, cambios: ['qué clases salen'], disenoPropio: true, botonCongelado: true },
-  { webSinAutorizar: 'pilatescentro.example.com', conListaDeWebs: true, codigoAntiguo: true },
+  { webSinAutorizar: 'pilatescentro.example.com', conListaDeWebs: true, codigoAntiguo: true, soloHorario: SOLO },
 );
 
 test('nunca más de un aviso: con todos a la vez, gana la web sin autorizar (lo único que no deja cargar el widget)', () => {
@@ -37,14 +44,15 @@ test('nunca más de un aviso: con todos a la vez, gana la web sin autorizar (lo 
   assert.equal(r.chip?.tono, 'aviso');
 });
 
-test('el orden: web sin autorizar (fundador, 16-oct) → desfase/versión → código de antes → diseño propio → botón de antes', () => {
-  assert.deepEqual(ORDEN, ['web-sin-autorizar', 'desfase', 'version', 'codigo-antiguo', 'diseno-propio', 'boton-de-antes']);
+test('el orden: web sin autorizar (fundador, 16-oct) → «Tu horario, tus clases» → desfase/versión → código de antes → diseño propio → botón de antes', () => {
+  assert.deepEqual(ORDEN, ['web-sin-autorizar', 'solo-horario', 'desfase', 'version', 'codigo-antiguo', 'diseno-propio', 'boton-de-antes']);
   // Quitando uno a uno el que gana, sale el siguiente.
   const pasos: [Partial<PiezaCopiada>, Partial<EntradaFila>, ClaveAviso][] = [
-    [{}, { webSinAutorizar: null }, 'desfase'],
-    [{ desfasado: false }, { webSinAutorizar: null }, 'codigo-antiguo'],
-    [{ desfasado: false }, { webSinAutorizar: null, codigoAntiguo: false }, 'diseno-propio'],
-    [{ desfasado: false, disenoPropio: false }, { webSinAutorizar: null, codigoAntiguo: false }, 'boton-de-antes'],
+    [{}, { webSinAutorizar: null }, 'solo-horario'],
+    [{}, { webSinAutorizar: null, soloHorario: null }, 'desfase'],
+    [{ desfasado: false }, { webSinAutorizar: null, soloHorario: null }, 'codigo-antiguo'],
+    [{ desfasado: false }, { webSinAutorizar: null, soloHorario: null, codigoAntiguo: false }, 'diseno-propio'],
+    [{ desfasado: false, disenoPropio: false }, { webSinAutorizar: null, soloHorario: null, codigoAntiguo: false }, 'boton-de-antes'],
   ];
   for (const [p, e, esperado] of pasos) {
     const f: EntradaFila = { ...TODO, ...e, pieza: { ...TODO.pieza, ...p } };
@@ -60,7 +68,7 @@ test('⚠️ la web sin autorizar va DELANTE de todo (decisión del fundador, 16
   assert.equal(filaDePortada(fila({ desfasado: true }, { ...sinAutorizar, conListaDeWebs: false }), AHORA).aviso?.clave, 'web-sin-autorizar');
 });
 
-test('cada uno de los seis tipos de aviso tiene su regla y sale solo', () => {
+test('cada uno de los siete tipos de aviso tiene su regla y sale solo', () => {
   const casos: Record<ClaveAviso, EntradaFila> = {
     desfase: fila({ desfasado: true }),
     version: fila({ estado: anterior(false) }),
@@ -68,6 +76,7 @@ test('cada uno de los seis tipos de aviso tiene su regla y sale solo', () => {
     'diseno-propio': fila({ disenoPropio: true }),
     'web-sin-autorizar': fila({}, { webSinAutorizar: 'pilatescentro.example.com', conListaDeWebs: true }),
     'boton-de-antes': fila({ botonCongelado: true }),
+    'solo-horario': fila({}, { soloHorario: SOLO }),
   };
   assert.deepEqual(Object.keys(REGLAS).sort(), [...ORDEN].sort());
   for (const clave of ORDEN) {
@@ -114,4 +123,16 @@ test('el código de antes habla de «Publicar en mi web», nunca de «Aplicar»'
   const r = filaDePortada(fila({}, { codigoAntiguo: true }), AHORA);
   assert.match(r.aviso!.texto, /«Publicar en mi web»/);
   assert.doesNotMatch(r.aviso!.texto, /Aplicar/);
+});
+
+test('«Tu horario, tus clases»: sin aviso del panel no sale, y con él la fila lo enseña con su botón', () => {
+  assert.equal(filaDePortada(fila(), AHORA).aviso, null);
+  const r = filaDePortada(fila({}, { soloHorario: SOLO }), AHORA);
+  assert.equal(r.aviso?.clave, 'solo-horario');
+  assert.match(r.aviso!.texto, /bonos y las cuotas debajo del horario/);
+  assert.deepEqual(r.aviso!.accion, { texto: 'Copiar el código nuevo', hace: 'copiar' });
+  // Sin botón (la barra de publicar ya está a la vista), el aviso sigue siendo cierto.
+  const sinBoton = filaDePortada(fila({}, { soloHorario: { ...SOLO, modo: 'publicar', accion: null } }), AHORA);
+  assert.equal(sinBoton.aviso?.clave, 'solo-horario');
+  assert.equal(sinBoton.aviso?.accion, null);
 });

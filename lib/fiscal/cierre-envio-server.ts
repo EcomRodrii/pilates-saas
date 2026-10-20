@@ -31,10 +31,10 @@ export async function generarYEnviarCierreGestoria(params: {
     admin.from('studios').select('nombre, email, color_primario, logo_url').eq('id', sid).maybeSingle(),
     fetchAllRows<RowFacturas>(sid, 'facturas', (from, to) =>
       admin.from('facturas').select('*').eq('studio_id', sid)
-        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).range(from, to)),
+        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).order('id').range(from, to)),
     fetchAllRows<RowIngresosManuales>(sid, 'ingresos_manuales', (from, to) =>
       admin.from('ingresos_manuales').select('*').eq('studio_id', sid)
-        .gte('fecha', desde).lte('fecha', hasta).range(from, to)),
+        .gte('fecha', desde).lte('fecha', hasta).order('id').range(from, to)),
   ]);
 
   if (facRes.error || manRes.error) return { ok: false, error: facRes.error ?? manRes.error };

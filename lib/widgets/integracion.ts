@@ -22,7 +22,7 @@ import { COLOR_VALIDO, fuenteValida, nativaTraeDisenoPropio } from '../reservar/
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
 import { PARAM_BORRADOR, borradorAParam, type WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { RADIO_BOTON, VAR_FONDO, VAR_RADIO, VAR_TEXTO, leerBotonVivo, type BotonVivo } from './boton-vivo.ts';
-import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
+import { esHorarioPropio, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import {
   anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
 } from './config.ts';
@@ -81,9 +81,22 @@ const familia = (v: string | null) => (v && fuenteValida(v) ? v.trim() : null);
 /** Pares `[nombre, valor]` ya validados; `encodeURIComponent` se aplica al unir. */
 type Par = [string, string];
 
+/**
+ * ¿Tiene sentido «Tu horario, tus clases» aquí? Solo el horario de verdad
+ * (la clase de prueba ya es una vista única por sí misma) y solo donde la página
+ * entera va dentro de un marco: dentro de una página y encima. La integración
+ * sin marco no pinta la página de reservas, y el botón y el enlace abren la
+ * página completa a propósito: ahí la opción no se ofrece ni se emite.
+ */
+export function ofreceSoloHorario(w: WidgetDisponible, metodo: MetodoIntegracion): boolean {
+  return esHorarioPropio(w) && (metodo === 'iframe' || metodo === 'popup');
+}
+
 function paresContenido(e: EntradaIntegracion, metodo: MetodoIntegracion): Par[] {
   const { widget: w, config: c } = e;
   const p: Par[] = [];
+  // Primero: lo que dice QUÉ vista es (la única, o la de siempre).
+  if (c.soloHorario && ofreceSoloHorario(w, metodo)) p.push(['solo', '1']);
   if (w.contenido.includes('horario')) {
     // El calendario semanal sustituye a la lista entera: con él, la vista
     // inicial y el diseño de la lista no pintan nada y no se emiten. La nativa

@@ -7,6 +7,8 @@ import {
 import { leerWeb } from './recetas.ts';
 
 const COPIA = { firma: 'abc123', en: '2026-09-12T10:00:00.000Z' };
+// Lo que sale de LEER una copia sin foto: de antes de «Tu horario, tus clases» (`antesDeSolo`).
+const COPIA_LEIDA = { ...COPIA, antesDeSolo: true };
 
 test('leerCopiados: solo widgets del catálogo y con firma y fecha válidas', () => {
   assert.deepEqual(leerCopiados(null), {});
@@ -17,7 +19,7 @@ test('leerCopiados: solo widgets del catálogo y con firma y fecha válidas', ()
     cuenta: { copiado: 'sí' },
     _web: { copiado: COPIA },
     inventado: { copiado: COPIA },
-  }), { horario: COPIA });
+  }), { horario: COPIA_LEIDA });
 });
 
 test('⚠️ guardar FUSIONA: `_web`, los ids viejos y las claves desconocidas sobreviven', () => {
@@ -39,7 +41,7 @@ test('cada widget guarda su copia, y se vuelve a leer igual', () => {
   assert.deepEqual((guardado.horario as Record<string, unknown>).copiado, COPIA);
   // Una copia de un widget sin ajustes guardados no arrastra una config entera.
   assert.deepEqual(guardado.planes, { copiado: COPIA });
-  assert.deepEqual(leerCopiados(guardado), { horario: COPIA, planes: COPIA });
+  assert.deepEqual(leerCopiados(guardado), { horario: COPIA_LEIDA, planes: COPIA_LEIDA });
   assert.deepEqual(leerWeb(guardado), { plataforma: 'wix', direccion: null });
 });
 
@@ -78,7 +80,7 @@ test('leerCopiados: forma, foto, versión e historial son opcionales y solo entr
       },
     },
   }).horario;
-  assert.deepEqual(rara, COPIA);
+  assert.deepEqual(rara, COPIA_LEIDA);
 });
 
 test('leerCopiados: la foto pasa por leerConfig, y el historial se limpia, no se repite y se corta a 5', () => {
@@ -95,7 +97,9 @@ test('leerCopiados: la foto pasa por leerConfig, y el historial se limpia, no se
       },
     },
   }).horario;
-  assert.deepEqual(k.config, { ...CONFIG_POR_DEFECTO, tipos: ['tc-r'] });
+  // Una foto de antes de «Tu horario, tus clases» se lee con la opción APAGADA: lo copiado no la llevaba.
+  assert.deepEqual(k.config, { ...CONFIG_POR_DEFECTO, soloHorario: false, tipos: ['tc-r'] });
+  assert.equal(k.antesDeSolo, true);
   assert.deepEqual(k.anteriores, ['incrustado:c1a', 'ventana:c1c', 'nativa:c1d', 'incrustado:c1e', 'ventana:c1f']);
   assert.equal(k.anteriores?.length, MAX_ANTERIORES);
 });
@@ -173,7 +177,7 @@ test('leerCopiados: `botonVivo` solo con `true` exacto', () => {
   assert.equal(leerCopiados({ horario: { copiado: { ...COPIA, botonVivo: true } } }).horario.botonVivo, true);
   for (const raro of ['true', 1, false, null, {}, 'sí']) {
     const k = leerCopiados({ horario: { copiado: { ...COPIA, botonVivo: raro } } }).horario;
-    assert.deepEqual(k, COPIA, JSON.stringify(raro));
+    assert.deepEqual(k, COPIA_LEIDA, JSON.stringify(raro));
   }
 });
 

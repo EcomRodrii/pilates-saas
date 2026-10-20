@@ -129,6 +129,8 @@ const CASOS: Caso[] = [
   { firma: 'paga_plan(text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'fase_plan_gratis(integer, integer, date, date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_derivada(text, text, boolean, text, text, boolean, boolean, boolean, boolean, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  // La bandeja única de la home, todos sus recuentos en una llamada (migr 20261020100000): solo la ruta del servidor.
+  { firma: 'estado_estudio_conteos(text, uuid, timestamptz, text[], text[], text[], integer)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_estudio(text, date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_estudios(date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'registrar_situacion_diaria(date)', anon: false, authenticated: false, serviceRole: true },

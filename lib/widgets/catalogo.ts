@@ -288,6 +288,15 @@ export const WIDGETS: readonly Widget[] = [
   },
 ];
 
+/**
+ * ¿Es un widget de HORARIO propiamente dicho? La clase de prueba también pinta
+ * el horario (con `prueba=1`), pero es otra cosa: una vista única, sin lo de
+ * la página completa debajo, y sin ninguno de los ajustes de «qué clases salen».
+ */
+export function esHorarioPropio(w: WidgetDisponible): boolean {
+  return w.contenido.includes('horario') && !w.embebido.extra?.prueba;
+}
+
 export function widgetPorId(id: string): Widget | undefined {
   return WIDGETS.find(w => w.id === id);
 }

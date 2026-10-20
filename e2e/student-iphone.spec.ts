@@ -22,11 +22,12 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     // poco.
     await sembrarSociaCompleta(page);
     await page.emulateMedia({ reducedMotion: null });
-    await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
-    // La portada (y su h1) sale ya en el HTML, antes que el resto: los campos
-    // —el buscador— llegan cuando la guardia de sesión termina.
+    // En Reservar, con la hoja de filtros abierta: ahí vive el buscador desde la maqueta de oct-2026 (Inicio ya no
+    // tiene campos).
+    await page.goto(`${base}/reservar`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0, { timeout: 30_000 });
+    await page.getByTestId('abrir-filtros').click({ timeout: 30_000 });
+    await expect(page.getByRole('searchbox')).toBeVisible();
 
     const pequenos = await page.evaluate(() => {
       // `pointer: coarse` no se puede emular desde Playwright, así que se
@@ -83,17 +84,17 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     expect(pequenos.efectivo, `el valor de la regla (${pequenos.decl}) se resuelve a 16 px o más`).toBeGreaterThanOrEqual(16);
   });
 
-  test('la portada es la del PORTAL, nunca la foto de la propietaria', async ({ page }) => {
-    // `studios.foto_url` es la foto de perfil de la propietaria (bucket
-    // `avatars`). Salía de portada en la app de sus alumnas: el héroe era un
-    // primer plano de una cara. La buena es `imagen_bienvenida_url`.
-    await sembrarSociaCompleta(page);
+  test('la foto de la próxima clase nunca es la de la propietaria', async ({ page }) => {
+    // `studios.foto_url` es la foto de perfil de la propietaria (bucket `avatars`). Salía de portada en la app de sus
+    // alumnas. Desde la maqueta de oct-2026 Inicio no tiene portada, pero la tarjeta de la próxima clase hereda foto
+    // (tipo → sala → estudio) y el último escalón tiene que ser `imagen_bienvenida_url`, nunca la cara de la dueña.
+    await sembrarSociaCompleta(page, { reservada: true });
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    const foto = page.locator('main.page > section img').first();
-    await expect(foto).toBeVisible({ timeout: 30_000 });
+    const foto = page.getByTestId('clase-del-momento').locator('img').first();
+    await expect(foto).toBeAttached({ timeout: 30_000 });
     const src = await foto.getAttribute('src');
-    expect(src, 'hay portada').toBeTruthy();
-    expect(src!, 'la portada NO sale del bucket de avatares').not.toMatch(/\/avatars\//);
+    expect(src, 'hay foto').toBeTruthy();
+    expect(src!, 'la foto NO sale del bucket de avatares').not.toMatch(/\/avatars\//);
     expect(src!, 'y menos de un fichero admin-studio-*').not.toMatch(/admin-studio/);
   });
 });

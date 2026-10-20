@@ -6,7 +6,7 @@
 // aprobando cobros con su sesión, aunque la pantalla ya no se le enseñara.
 //
 // Pura (sin red ni imports de servidor): corre con `node --test`.
-import { tieneFeature } from '../billing/entitlements.ts';
+import { tieneFeature, planDeFila } from '../billing/entitlements.ts';
 
 export const SIN_PLAN_DECISIONES = 'Tu plan no incluye el Centro de Control';
 export const PLAN_SIN_COMPROBAR = 'No se ha podido comprobar tu plan. Vuelve a intentarlo.';
@@ -17,11 +17,11 @@ export const PLAN_SIN_COMPROBAR = 'No se ha podido comprobar tu plan. Vuelve a i
  * plan no lo incluye» que no es verdad; y sin fila, como sin plan: cerrado.
  */
 export function bloqueoDelPlan(
-  fila: { plan?: string | null; subscription_status?: string | null } | null,
+  fila: Parameters<typeof planDeFila>[0],
   fallo: boolean,
 ): { status: 403 | 500; error: string } | null {
   if (fallo) return { status: 500, error: PLAN_SIN_COMPROBAR };
-  if (!fila || !tieneFeature({ plan: fila.plan, subscriptionStatus: fila.subscription_status }, 'decisiones')) {
+  if (!fila || !tieneFeature(planDeFila(fila), 'decisiones')) {
     return { status: 403, error: SIN_PLAN_DECISIONES };
   }
   return null;

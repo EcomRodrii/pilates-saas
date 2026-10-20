@@ -141,7 +141,7 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
   const sesionesR = await fetchAllRows<{ id: string; inicio: string }>(
     studioId, 'sesiones',
     (from, to) => admin.from('sesiones').select('id, inicio')
-      .eq('studio_id', studioId).gte('inicio', hace180).lte('inicio', new Date(ahora).toISOString()).range(from, to),
+      .eq('studio_id', studioId).gte('inicio', hace180).lte('inicio', new Date(ahora).toISOString()).order('id').range(from, to),
   );
   exigir(sesionesR.error, 'leyendo sesiones');
   const sesiones = sesionesR.data;
@@ -150,7 +150,7 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
   const reservas = await leerEnLotes<{ socio_id: string | null; sesion_id: string }>(
     studioId, 'reservas', [...inicioById.keys()],
     (lote, from, to) => admin.from('reservas').select('socio_id, sesion_id')
-      .eq('studio_id', studioId).in('estado', ['ASISTIDA', 'CONFIRMADA']).in('sesion_id', lote).range(from, to),
+      .eq('studio_id', studioId).in('estado', ['ASISTIDA', 'CONFIRMADA']).in('sesion_id', lote).order('id').range(from, to),
   );
   // Última asistencia por socia.
   const ultima = new Map<string, number>();
@@ -165,7 +165,7 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
   const socios = await leerEnLotes<{ id: string; nombre: string | null; apellidos: string | null }>(
     studioId, 'socios', idsInactivas,
     (lote, from, to) => admin.from('socios').select('id, nombre, apellidos')
-      .eq('studio_id', studioId).in('id', lote).range(from, to),
+      .eq('studio_id', studioId).in('id', lote).order('id').range(from, to),
   );
   const nombre = new Map(socios.map((s) => [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una clienta']));
   const mes = new Date(ahora).toISOString().slice(0, 7);

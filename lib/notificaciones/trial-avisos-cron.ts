@@ -37,7 +37,7 @@ export async function barrerTrialAvisos(): Promise<{ estudios: number; avisos: n
       .is('subscription_id', null)
       .not('trial_ends_at', 'is', null)
       .in('subscription_status', ['trialing', 'trial_expirado'])
-      .range(from, to),
+      .order('id').range(from, to),
   );
   if (error) throw new Error(`leyendo estudios en prueba: ${error.message}`);
 

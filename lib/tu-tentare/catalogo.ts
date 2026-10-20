@@ -18,7 +18,7 @@
 import type { ElementType } from 'react';
 import { ESSENTIAL_HREFS, NO_OCULTABLES, navSections, type NavSection } from '../nav-config.ts';
 import { seccionPanelNuevo } from '../nav-panel-nuevo.ts';
-import { PLAN_ENTITLEMENTS, PLAN_INFO, accesoProducto, entitlementsDe, planMinimoPara, tieneFeature, type Entitlements } from '../billing/entitlements.ts';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, accesoProducto, addonDeFeature, entitlementsDe, pagaAddonsAparte, planMinimoPara, tieneFeature, type Addon, type Entitlements, type EstudioConPlan } from '../billing/entitlements.ts';
 import { tutorialDePantalla, valorDeModulo } from '../ayuda/pantallas.ts';
 import { hrefDeLugar, hrefDeSeccion, hrefDeTarjeta } from '../configuracion/destino.ts';
 
@@ -123,10 +123,25 @@ export function planQueLoIncluye(m: Pick<ModuloTuTentare, 'feature'>): string | 
  */
 export function planQueFalta(
   m: Pick<ModuloTuTentare, 'feature'>,
-  studio: { plan?: string | null; subscriptionStatus?: string | null } | null | undefined,
+  studio: EstudioConPlan | null | undefined,
 ): string | null {
   if (!m.feature || !studio || !accesoProducto(studio)) return null;
+  if (complementoQueFalta(m, studio)) return null;
   return tieneFeature(studio, m.feature) ? null : planQueLoIncluye(m);
+}
+
+/**
+ * El complemento que le falta a este estudio para este módulo (Founding con los
+ * complementos aparte, lib/billing/entitlements.ts `ADDONS`). Si lo hay, la
+ * pantalla ofrece contratarlo en vez de «Desde el plan Estudio».
+ */
+export function complementoQueFalta(
+  m: Pick<ModuloTuTentare, 'feature'>,
+  studio: EstudioConPlan | null | undefined,
+): Addon | null {
+  if (!m.feature || !studio || !accesoProducto(studio) || !pagaAddonsAparte(studio)) return null;
+  if (tieneFeature(studio, m.feature)) return null;
+  return addonDeFeature(m.feature);
 }
 
 export type EstadoEnMenu = 'en-menu' | 'solo-todo' | 'fuera';

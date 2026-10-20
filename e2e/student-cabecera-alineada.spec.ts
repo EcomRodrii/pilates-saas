@@ -11,7 +11,8 @@ import { sembrarSociaCompleta, SLUG } from './socia-completa';
 //  · A 1280, el logo iba 6 px a la izquierda del título de cada pantalla.
 //
 // Se mide en las tres anchuras donde cambia algo. Y de paso, la ✕ nativa del
-// campo de búsqueda, que Chrome pintaba al lado de la nuestra.
+// campo de búsqueda, que Chrome pintaba al lado de la nuestra. Desde la maqueta
+// de oct-2026 la cabecera ya no flota sobre ninguna foto.
 
 const base = `/portal/${SLUG}`;
 
@@ -28,8 +29,9 @@ for (const [ancho, alto] of [[600, 900], [768, 1024], [1280, 860]] as const) {
 
     test('el logo empieza donde empieza el título de la pantalla', async ({ page }) => {
       await sembrarSociaCompleta(page, { bono: 5 });
-      await page.goto(`${base}/reservar`);
-      const titulo = page.getByRole('heading', { name: 'Horario', exact: true });
+      // Actividad: lleva la barra del estudio y un título (Reservar y Mi plan van sin ella, como en la maqueta).
+      await page.goto(`${base}/mis-reservas`);
+      const titulo = page.getByRole('heading', { name: 'Actividad', exact: true });
       await expect(titulo).toBeVisible({ timeout: 30_000 });
       const logo = await caja(page, page.locator('header a'));
       const h1 = await caja(page, titulo);
@@ -37,19 +39,18 @@ for (const [ancho, alto] of [[600, 900], [768, 1024], [1280, 860]] as const) {
       // ⚠️ Y el título con el CONTENIDO. Sin esto el test pasaba a 1280 con los
       // dos mal: `PageHeader` pisaba `.px` con 18 px fijos, así que logo y título
       // coincidían entre sí y quedaban 6 px a la izquierda de las tarjetas.
-      const buscador = await caja(page, page.getByRole('searchbox'));
-      expect(Math.abs(h1.x - buscador.x), `título en ${h1.x}, contenido en ${buscador.x}`).toBeLessThanOrEqual(1.5);
+      const pestanas = await caja(page, page.getByRole('tablist', { name: 'Actividad' }));
+      expect(Math.abs(h1.x - pestanas.x), `título en ${h1.x}, contenido en ${pestanas.x}`).toBeLessThanOrEqual(1.5);
     });
 
-    test('sobre la foto, el velo mide lo que la foto', async ({ page }) => {
+    test('en Inicio, el logo empieza donde empieza el saludo', async ({ page }) => {
       await sembrarSociaCompleta(page, { bono: 5 });
       await page.goto(base);
-      const heroe = page.locator('main section').first();
-      await expect(heroe).toBeVisible({ timeout: 30_000 });
-      const h = await caja(page, heroe);
-      const cab = await caja(page, page.locator('header'));
-      expect(Math.abs(cab.x - h.x), `velo desde ${cab.x}, foto desde ${h.x}`).toBeLessThanOrEqual(1);
-      expect(Math.abs(cab.width - h.width), `velo de ${cab.width}, foto de ${h.width}`).toBeLessThanOrEqual(1);
+      const hola = page.getByRole('heading', { name: /^Hola/ });
+      await expect(hola).toBeVisible({ timeout: 30_000 });
+      const logo = await caja(page, page.locator('header a'));
+      const h = await caja(page, hola);
+      expect(Math.abs(logo.x - h.x), `logo en ${logo.x}, saludo en ${h.x}`).toBeLessThanOrEqual(1.5);
     });
   });
 }
@@ -57,6 +58,8 @@ for (const [ancho, alto] of [[600, 900], [768, 1024], [1280, 860]] as const) {
 test('el campo de búsqueda no pinta la ✕ nativa junto a la nuestra', async ({ page }) => {
   await sembrarSociaCompleta(page, { bono: 5 });
   await page.goto(`${base}/reservar`);
+  // El buscador vive en la hoja de filtros (maqueta de oct-2026).
+  await page.getByTestId('abrir-filtros').click({ timeout: 30_000 });
   const campo = page.getByRole('searchbox').first();
   await expect(campo).toBeVisible({ timeout: 30_000 });
   // ⚠️ No con `getComputedStyle(el, '::-webkit-search-cancel-button')`: Chrome no

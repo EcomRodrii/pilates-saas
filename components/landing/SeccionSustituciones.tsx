@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useDemo } from './use-demo';
 import { SALIDAS } from './enlaces';
+import { BotonBloque } from './BotonBloque';
 
 // Sección 03 de la landing v5 — la demo de sustituciones.
 //
@@ -177,10 +178,14 @@ export function SeccionSustituciones() {
             </Link>
           </div>
         </div>
+
+        <div className="lp-cierre-bloque"><BotonBloque tono="oscuro" /></div>
       </div>
 
       <style>{`
-        .v5-sust { background: #131313; padding: clamp(40px,5vw,64px) clamp(20px,4vw,48px); }
+        /* Esquinas redondeadas (ronda 3): las bandas oscuras de la página son tarjetas, no franjas de borde a borde. */
+        .v5-sust { background: #131313; margin: clamp(24px,3vw,48px) clamp(8px,1.6vw,24px) 0; border-radius: clamp(28px,4vw,56px);
+          padding: clamp(56px,6vw,88px) clamp(20px,4vw,48px); }
         .v5-sust-wrap { max-width: 1240px; margin: 0 auto; }
         .v5-sust-head { max-width: 820px; margin-bottom: clamp(36px,4.5vw,56px); }
         .v5-sust-h2 { margin: 0 0 18px; font-size: clamp(30px,4.4vw,60px); font-weight: 800;

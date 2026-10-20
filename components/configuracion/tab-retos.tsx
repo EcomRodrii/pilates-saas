@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
 
 function isoToDateInput(iso: string): string {
   return iso ? iso.slice(0, 10) : '';
@@ -20,7 +21,7 @@ const emptyForm = (): Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'> 
   const hoy = new Date();
   const enUnaSemana = new Date(hoy.getTime() + 7 * 86400000);
   return {
-    metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', objetivo: 3, icono: '🎯',
+    metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', objetivo: 3, icono: 'objetivo',
     creditosRecompensa: 0, activo: true,
     fechaInicio: hoy.toISOString(), fechaFin: enUnaSemana.toISOString(),
   };
@@ -103,7 +104,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
             return (
               <div key={c.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
                 <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
-                  {c.icono}
+                  <MiniaturaInsignia icono={c.icono} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -138,21 +139,17 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo reto' : 'Editar reto'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-[80px_1fr] gap-3">
-              <div>
-                <Field label="Icono"
-                  description="Un emoji. Es la cara del reto en la app de la alumna."
-                >
-                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
-                </Field>
-              </div>
-              <div>
-                <Field label="Nombre"
-                  description="Corto y motivador. Ej: «Enero a tope» o «5 clases en 15 días»."
-                >
-                  <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                </Field>
-              </div>
+            <div>
+              <Field label="Nombre"
+                description="Corto y motivador. Ej: «Enero a tope» o «5 clases en 15 días»."
+              >
+                <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </Field>
+            </div>
+            <div>
+              <Field label="Insignia" description="La cara del reto en la app de la alumna.">
+                <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
+              </Field>
             </div>
             <div>
               <Field label="Descripción"

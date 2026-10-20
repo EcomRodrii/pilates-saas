@@ -29,7 +29,7 @@ export async function idsEstudios(
     '(global)', 'studios',
     (from, to) => {
       const q = admin.from('studios').select('id');
-      return (opts.incluirSuspendidos ? q : q.is('suspendido_en', null)).range(from, to);
+      return (opts.incluirSuspendidos ? q : q.is('suspendido_en', null)).order('id').range(from, to);
     },
   );
   if (error) throw new Error(error.message);

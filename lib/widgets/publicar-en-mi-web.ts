@@ -15,6 +15,7 @@
 
 import { GRUPOS, GRUPOS_EN_EL_HTML, gruposSinAplicar, unirGrupos } from './en-tu-web.ts';
 import type { ConfigConstructor, Copiado } from './config.ts';
+import { esDisponible, widgetPorId } from './catalogo.ts';
 
 export interface PiezaPendiente {
   id: string;
@@ -58,7 +59,8 @@ export function pendientesDePublicar(x: {
     const publicada = x.publicadas[id];
     const ahora = x.configs[id];
     if (!copia.pieza || !publicada || !ahora) continue;
-    const grupos = gruposSinAplicar(publicada.config, ahora);
+    const w = widgetPorId(id);
+    const grupos = gruposSinAplicar(publicada.config, ahora, esDisponible(w) ? w : undefined);
     if (grupos.length) piezas.push({ id, nombre: x.nombre(id), grupos });
   }
   const bloqueo = x.estilo.relectura === 'releyendo'

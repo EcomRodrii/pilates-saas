@@ -64,6 +64,9 @@ export interface SuWeb {
 
 const BLANCO = '#FFFFFF';
 
+/** Lo que pone la barra de direcciones del marco cuando aún no se sabe cuál es su web. */
+export const DIRECCION_DE_EJEMPLO = 'tu-web.com';
+
 /** Sobre un fondo así, los bloques del dibujo y la letra van en claro. */
 const esOscuro = (fondo: string) => (luminancia(fondo) ?? 1) < 0.2;
 
@@ -115,6 +118,9 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
 }) {
   const v2 = variante === 'v2';
   const movil = dispositivo === 'movil';
+  // La barra de direcciones del marco: la web de su estudio si se sabe (la que contestó, o una autorizada) y, si
+  // no, un ejemplo que no se confunde con una web de verdad. Nunca la de otro estudio ni una inventada con su nombre.
+  const direccionWeb = v2 ? (web.direccion ?? DIRECCION_DE_EJEMPLO) : web.direccion;
   // v2 en «Móvil»: el iPhone del panel (`MarcoIphone`), a tamaño real si cabe a lo alto de la
   // ventana y a lo ancho de la columna, y si no, a la escala que quepa sin cortar nada.
   const [seccion, anchoSeccion] = useAnchoDe<HTMLElement>();
@@ -202,7 +208,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
         </>
       ) : forma.tipo === 'boton' && v2 && movil ? (
         // En el iPhone, un solo teléfono: su web con el botón y, bajando, lo que se abre al pulsarlo.
-        <Marco movil v2 escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={false}>
+        <Marco movil v2 escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={false}>
           <CabeceraWeb web={web} movil />
           <div className="px-4 pb-6 pt-2">
             {forma.boton}
@@ -215,7 +221,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
         </Marco>
       ) : forma.tipo === 'boton' ? (
         <>
-          <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
+          <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={recortado}>
             <CabeceraWeb web={web} movil={movil} />
             <div className="px-4 pb-6 pt-2">
               {forma.boton}
@@ -228,11 +234,11 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
               página suelta lleva su propio fondo: ninguno es su web. */}
           <div className={cn('space-y-3', !v2 && !grande && 'hidden @4xl/config:block')}>
             <p className={cn('text-[12px]', tinta)}>{forma.alPulsar}</p>
-            <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} fondo={BLANCO} recortado={false}>{widget}</Marco>
+            <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={forma.abrePagina ? paginaDeReservas : direccionWeb} fondo={BLANCO} recortado={false}>{widget}</Marco>
           </div>
         </>
       ) : (
-        <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={web.direccion} fondo={web.fondo} recortado={recortado}>
+        <Marco movil={movil} v2={v2} escala={escalaIphone} direccion={direccionWeb} fondo={web.fondo} recortado={recortado}>
           <CabeceraWeb web={web} movil={movil} />
           {widget}
         </Marco>
@@ -240,8 +246,13 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className={cn('min-w-0 flex-1 text-[11.5px] leading-relaxed', tinta)}>
-          {ventanaEstrecha
-            ? 'Así se ve en una ventana estrecha de ordenador. El widget es el de verdad, con tus clases de hoy; lo de alrededor, un dibujo de tu web.'
+          {v2
+            ? (
+              <>
+                {ventanaEstrecha && 'Así se ve en una ventana estrecha de ordenador. '}
+                <strong className="font-semibold">Es un ejemplo de página</strong> con el nombre y el color de tu estudio: tu web real puede verse distinta. El widget sí es el de verdad, con tus clases de hoy.
+              </>
+            )
             : 'El widget es el de verdad, con tus clases de hoy. Lo de alrededor es un dibujo de tu web para que veas cómo encaja.'}
           {nota && <> {nota}</>}
         </p>
@@ -295,7 +306,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
                 movil={false}
                 v2
                 alto="libre"
-                direccion={forma.tipo === 'enlace' || (forma.tipo === 'boton' && forma.abrePagina) ? paginaDeReservas : web.direccion}
+                direccion={forma.tipo === 'enlace' || (forma.tipo === 'boton' && forma.abrePagina) ? paginaDeReservas : direccionWeb}
                 fondo={forma.tipo === 'dentro' ? web.fondo : BLANCO}
                 recortado={false}
               >

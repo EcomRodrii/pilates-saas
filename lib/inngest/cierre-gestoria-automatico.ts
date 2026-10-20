@@ -52,7 +52,7 @@ export const cierreGestoriaAutomaticoDispatcher = inngest.createFunction(
           .select('id, gestoria_email, gestoria_ultimo_envio_periodo')
           .eq('gestoria_envio_automatico', 'trimestral')
           .not('gestoria_email', 'is', null)
-          .range(from, to),
+          .order('id').range(from, to),
       );
       if (!studios.length) return { revisados: 0, enviados: 0 };
 
