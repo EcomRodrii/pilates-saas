@@ -1,0 +1,89 @@
+/*
+ * Tokens de la WEB PÚBLICA de Tentare (home, funcionalidades, soluciones,
+ * comparativas, recursos, precios, glosario, sobre, seguridad, ayuda y legales).
+ * Decisiones en components/web/README.md; aquí solo los valores.
+ *
+ * ⚠️ Prefijo `--w-` y SOLO propiedades personalizadas: Next no descarga una hoja
+ * global al navegar, así que esto llega al panel si alguien entra a él desde la
+ * web. Con un prefijo que nadie más usa no cambia nada allí. Nada de selectores
+ * de elemento en este fichero.
+ *
+ * ⚠️ No es `brand/tokens.css` (el del panel, con la oliva retirada). La web va
+ * con la paleta del fundador: Olive, Sand, Cream, Ink (fase 1, 19-oct-2026).
+ */
+:root {
+  /* ── Color: los cuatro de marca ───────────────────────────────────────── */
+  --w-olive: #343825;
+  --w-olive-hondo: #22251A;            /* hover de lo que va en oliva */
+  --w-sand: #D9C29E;
+  --w-cream: #F6F4EF;
+  --w-ink: #22261F;
+
+  /* ── Superficies claras ── */
+  --w-papel: #FFFFFF;
+  --w-piedra: #EEEEE8;                 /* fondo de página de hoy: se retira al migrar cada sección */
+  --w-sand-claro: #EFE6D6;
+
+  /* ── Texto sobre claro (contraste medido sobre Cream; ver README) ── */
+  --w-texto: var(--w-ink);             /* 14,0:1 */
+  --w-texto-2: #4A4E3F;                /* 7,8:1  */
+  --w-texto-3: #5C604F;                /* 5,9:1 (5,6 sobre Piedra): el mínimo para texto pequeño */
+  --w-linea: rgba(34, 38, 31, .12);
+  --w-linea-fuerte: rgba(34, 38, 31, .2);
+
+  /* ── Banda oscura (pie, cierre) ── */
+  --w-noche: var(--w-ink);
+  --w-sobre-noche: var(--w-cream);     /* 14,0:1 */
+  --w-sobre-noche-2: #C9C6B8;          /* 9,0:1  */
+  --w-sobre-noche-3: #A9A797;          /* 6,4:1: el mínimo para texto pequeño sobre Ink */
+  --w-linea-noche: rgba(246, 244, 239, .12);
+
+  /* ── Estados (AA sobre Cream y sobre blanco) ── */
+  --w-exito: #2F6B4F;                  /* 5,7:1 */
+  --w-aviso: #8A5A12;                  /* 5,4:1 */
+  --w-error: #A3342A;                  /* 6,2:1 */
+
+  /* ── Vidrio: solo la isla y su panel ── */
+  --w-vidrio: rgba(255, 255, 255, .72);
+  --w-vidrio-panel: rgba(255, 255, 255, .86);   /* el panel que cuelga: más texto encima */
+  --w-vidrio-borde: rgba(255, 255, 255, .7);
+  --w-vidrio-filtro: blur(22px) saturate(1.7);
+  --w-vidrio-solido: #F7F6F1;          /* sin backdrop-filter */
+
+  /* ── Tipografía (la sans ya cargada: Plus Jakarta Sans) ── */
+  --w-fuente: var(--font-jakarta), system-ui, sans-serif;
+  --w-fuente-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --w-fs-display: clamp(2.5rem, 1.6rem + 3.6vw, 4.5rem);   /* 40 → 72 */
+  --w-fs-h1: clamp(2.125rem, 1.6rem + 2.2vw, 3.5rem);      /* 34 → 56 */
+  --w-fs-h2: clamp(1.75rem, 1.4rem + 1.5vw, 2.75rem);      /* 28 → 44 */
+  --w-fs-h3: clamp(1.25rem, 1.15rem + .45vw, 1.625rem);    /* 20 → 26 */
+  --w-fs-cuerpo: clamp(1rem, .95rem + .25vw, 1.125rem);    /* 16 → 18 */
+  --w-fs-pequeno: .875rem;                                  /* 14 */
+  --w-fs-mini: .8125rem;                                    /* 13: nada más pequeño en la web */
+  --w-peso-titular: 600;
+  --w-peso-enfasis: 600;
+  --w-peso-cuerpo: 400;
+  --w-track-display: -.04em;
+  --w-track-h1: -.035em;
+  --w-track-h2: -.03em;
+  --w-track-h3: -.015em;
+  --w-alto-display: 1.02;
+  --w-alto-titular: 1.1;
+  --w-alto-cuerpo: 1.6;
+
+  /* ── Espaciado ── */
+  --w-seccion: clamp(4rem, 2.6rem + 3.6vw, 6rem);           /* 64 → 96 entre secciones */
+  --w-seccion-corta: clamp(2.5rem, 1.7rem + 2.4vw, 4rem);   /* 40 → 64 entre filas */
+  --w-margen: clamp(16px, 4vw, 48px);                        /* margen lateral de página */
+
+  /* ── Forma ── */
+  --w-r-pildora: 999px;
+  --w-r-tarjeta: 24px;
+  --w-r-control: 14px;
+  --w-sombra-flotante: 0 24px 48px -22px rgba(34, 38, 31, .42), 0 2px 6px rgba(34, 38, 31, .06);
+  --w-sombra-suave: 0 14px 44px rgba(34, 38, 31, .14);
+
+  /* ── Contenedores ── */
+  --w-ancho: 1200px;
+  --w-lectura: 680px;
+}

@@ -49,7 +49,7 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
             alto={800}
             sizes="(min-width:768px) 50vw, 100vw"
             prioritaria
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center var(--portada-y, 40%)', animation: 'apKen 22s ease-in-out infinite' }}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center var(--portada-y, 40%)' }}
           />
         )}
         {/* Velo neutro, no teñido: el diseño deja la foto en su color y el

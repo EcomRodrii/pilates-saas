@@ -10,6 +10,7 @@ const articulo: Articulo = {
   categoria: 'software',
   seccion: 'Elegir software',
   publicado: '2026-10-01',
+  actualizado: '2026-10-15',
   consultaPrincipal: 'alternativas a timp',
   consultas: [
     'alternativa a timp',

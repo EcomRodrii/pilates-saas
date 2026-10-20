@@ -9,6 +9,7 @@ const articulo: Articulo = {
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cuánto cuesta abrir un estudio de pilates',
   consultas: [
     'cuánto cuesta poner un estudio de pilates reformer',

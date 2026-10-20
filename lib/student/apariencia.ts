@@ -212,9 +212,11 @@ export const tipografiaPorId = (id: TipografiaId): Tipografia => TIPOGRAFIAS.fin
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 /** El fondo de un estilo, translúcido, para las barras que flotan sobre el contenido. */
+// Casi opaco y SIN desenfoque detrás (20-oct-2026): el `backdrop-filter` de la barra y la cabecera se recalculaba en cada
+// fotograma de scroll y en iPhone era lo que daba los tirones. Al .97 lo de debajo ya no se lee, así que no hace falta.
 function velo(hex: string): string {
   const c = hexARgb(hex);
-  return c ? `rgba(${c.r}, ${c.g}, ${c.b}, .88)` : 'rgba(250, 249, 245, .88)';
+  return c ? `rgba(${c.r}, ${c.g}, ${c.b}, .97)` : 'rgba(250, 249, 245, .97)';
 }
 
 /**

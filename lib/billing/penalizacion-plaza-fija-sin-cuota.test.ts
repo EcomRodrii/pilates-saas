@@ -12,7 +12,7 @@ const PF = 'res-pf-00000000-0000-0000-0000-000000000000';
 const SUELTA = 'res-abc';
 
 test('solo omite con una política que no cobra, en una reserva del motor y sin cuota', () => {
-  for (const politica of ['LIBERAR', 'MANTENER_SIN_PENALIZAR']) {
+  for (const politica of ['AVISAR_Y_LIBERAR', 'LIBERAR', 'MANTENER_SIN_PENALIZAR']) {
     assert.equal(omitirPorPlazaFijaSinCuota({ politica, reservaId: PF, cubre: false }), true, politica);
     assert.equal(omitirPorPlazaFijaSinCuota({ politica, reservaId: PF, cubre: true }), false, `${politica} con cuota`);
     assert.equal(omitirPorPlazaFijaSinCuota({ politica, reservaId: SUELTA, cubre: false }), false, `${politica} reserva suelta`);
