@@ -14,7 +14,7 @@ import { type ComoVieneSinBono, type TonoPago } from './como-se-paga.ts';
 import type { Bono, Clase, Disponibilidad, Reserva } from './tipos.ts';
 
 import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
-export type CasoComoVienes = 'clase-fija' | 'cuota' | 'ilimitado' | 'bono' | 'bono-no-cubre' | 'sin-nada';
+export type CasoComoVienes = 'clase-fija' | 'cuota' | 'ilimitado' | 'bono' | 'recuperacion' | 'bono-no-cubre' | 'sin-nada';
 
 export interface ComoVienesVista {
   caso: CasoComoVienes;
@@ -26,7 +26,7 @@ export interface ComoVienesVista {
 }
 
 
-export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planesTarifa, nombresTipo, hoy, sinBono }: {
+export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planesTarifa, nombresTipo, hoy, sinBono, recuperaciones = 0 }: {
   clase: Pick<Clase, 'id' | 'tipo' | 'tipoClaseId' | 'precioSuelto' | 'sinPrecioSuelto'>;
   bonos: Bono[];
   disp: Disponibilidad;
@@ -41,6 +41,11 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
    * dice lo MISMO que la hoja (pagar aquí, pedirlo en recepción, pagar en el estudio). Sin él, lo de antes.
    */
   sinBono?: ComoVieneSinBono | null;
+  /**
+   * Recuperaciones que puede usar en ESTA clase (sin caducar, y solo si hay plaza: en la espera no pagan). Sin plan, una
+   * la paga (`evaluar_reserva`, migr 20261020134420).
+   */
+  recuperaciones?: number;
 }): ComoVienesVista | null {
   // La suya, con el mismo criterio que `disponibilidad()` (estados proyectados, en minúscula).
   const mia = reservas.find((r) => r.claseId === clase.id && (r.estado === 'confirmada' || r.estado === 'en-espera'));
@@ -70,6 +75,13 @@ export function comoVienes({ clase, bonos, disp, reservas, yaNoSeReserva, planes
   }
   if (pagaria) {
     return { caso: 'bono', titulo: pagaria.nombre, detalle: unir(textoSaldoBono(pagaria, hoy), topes(pagaria)), enlace: verBono(pagaria), tono: 'ok' };
+  }
+
+  if (recuperaciones > 0) {
+    return {
+      caso: 'recuperacion', titulo: 'Con una de tus recuperaciones',
+      detalle: recuperaciones === 1 ? 'Es la última que te queda' : `Te quedan ${recuperaciones}`, tono: 'ok',
+    };
   }
 
   // Nada la cubre: lo que costaría, y la tienda SOLO si algo de la tienda la cubre (si no, sería mandarla a buscar algo

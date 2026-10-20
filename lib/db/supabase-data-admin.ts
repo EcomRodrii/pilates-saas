@@ -2903,6 +2903,13 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
 
+/** ¿Le queda alguna recuperación sin usar y sin caducar? Mismo criterio que `evaluar_reserva` (el día del estudio). */
+async function tieneRecuperacionDisponible(admin: SupabaseClient, studioId: string, socioId: string): Promise<boolean> {
+  const { count } = await admin.from('recuperaciones').select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'DISPONIBLE').gte('caduca_el', hoyEnEstudio());
+  return (count ?? 0) > 0;
+}
+
 export async function crearReservaPublica(params: {
   studioId: string; sesionId: string; socioId: string; authUserId: string | null; spotId?: string | null;
   /**
@@ -3011,9 +3018,11 @@ export async function crearReservaPublica(params: {
     // suposición: la RPC recibe el ajuste tal cual y decide ella, como siempre.
     // Cerrado, no abierto.
     exigirPlanEnRpc = errorPlanes ? exigirPlanResuelto : exigirPlan;
+    // Sin plan que la cubra, una recuperación DISPONIBLE paga la clase (migr 20261020134420): esa la decide la RPC, que es
+    // quien la gasta. Aquí solo no se corta antes de llegar (antes pedía pagar a quien tenía recuperaciones).
     if (exigirPlan && !tieneEntitlementActivo(
       params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(), tipoDeLaClase,
-    )) {
+    ) && !(await tieneRecuperacionDisponible(admin, params.studioId, params.socioId))) {
       const tieneAlgunPlan = tieneEntitlementActivo(
         params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(),
       );
