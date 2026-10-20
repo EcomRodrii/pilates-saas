@@ -76,7 +76,7 @@ export default function TentareVsFlowstarkPage() {
       name="Flowstark"
       slug="tentare-vs-flowstark"
       logo={{ src: '/comparativa/logos/flowstark.svg', alt: 'Logo de Flowstark', height: 20, width: 120 }}
-      intro={<>Flowstark es una herramienta de cobros recurrentes y suscripciones. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es el software completo: reservas con sala y reformer, bonos, plazas fijas, sustituciones y cobros en un solo sitio.</>}
+      intro={<>Flowstark es una herramienta de cobros recurrentes y suscripciones. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare es el software completo: reservas con sala y reformer, bonos, plazas fijas, sustituciones y cobros en un solo sitio.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

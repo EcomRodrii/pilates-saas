@@ -92,8 +92,8 @@ export default function TentareVsMomencePage() {
     <CompetitorPage
       name="Momence"
       slug="tentare-vs-momence"
-      logo={{ src: '/comparativa/logos/momence.svg', alt: 'Logo de Momence', height: 15, width: 122, cardBg: '#171717' }}
-      intro={<>Momence es una plataforma internacional de reservas para estudios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare tiene precio público, soporte en español y un producto pensado para ti.</>}
+      logo={{ src: '/comparativa/logos/momence.svg', alt: 'Logo de Momence', height: 15, width: 122, cardBg: 'var(--w-noche)' }}
+      intro={<>Momence es una plataforma internacional de reservas para estudios. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare tiene precio público, soporte en español y un producto pensado para ti.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

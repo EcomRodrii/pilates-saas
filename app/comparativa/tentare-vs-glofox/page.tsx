@@ -103,7 +103,7 @@ export default function TentareVsGlofoxPage() {
       name="Glofox"
       slug="tentare-vs-glofox"
       logo={{ src: '/comparativa/logos/glofox.svg', alt: 'Logo de Glofox', height: 24, width: 120 }}
-      intro={<>Glofox es una plataforma irlandesa de gestión para gimnasios y centros de fitness. Para un <strong style={{ color: '#1A1A1A' }}>estudio de Pilates en España</strong>, Tentare te deja saber el precio antes de hablar con nadie, gestiona cada reformer y cubre las bajas de las instructoras.</>}
+      intro={<>Glofox es una plataforma irlandesa de gestión para gimnasios y centros de fitness. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de Pilates en España</strong>, Tentare te deja saber el precio antes de hablar con nadie, gestiona cada reformer y cubre las bajas de las instructoras.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

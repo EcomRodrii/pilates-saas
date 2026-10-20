@@ -91,7 +91,7 @@ export default function TentareVsLorariPage() {
       name="Lorari"
       slug="tentare-vs-lorari"
       logo={{ src: '/comparativa/logos/lorari.png', alt: 'Logo de Lorari', height: 34, width: 34 }}
-      intro={<>Lorari es una plataforma de reservas para estudios de pilates y yoga, con precios por número de alumnas activas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare cubre lo que de verdad te quita tiempo: las bajas de las instructoras, el aforo de cada sala y los cobros.</>}
+      intro={<>Lorari es una plataforma de reservas para estudios de pilates y yoga, con precios por número de alumnas activas. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare cubre lo que de verdad te quita tiempo: las bajas de las instructoras, el aforo de cada sala y los cobros.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}

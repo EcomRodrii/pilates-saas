@@ -80,7 +80,7 @@ export default function TentareVsVidayPage() {
       name="ViDay"
       slug="tentare-vs-viday"
       logo={{ src: '/comparativa/logos/viday.svg', alt: 'Logo de ViDay', height: 22, width: 100 }}
-      intro={<>ViDay es un software de gestión de reservas y clases con varios modelos de planes. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare cuesta menos para empezar y trae plaza por reformer y sustituciones de instructoras.</>}
+      intro={<>ViDay es un software de gestión de reservas y clases con varios modelos de planes. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare cuesta menos para empezar y trae plaza por reformer y sustituciones de instructoras.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
