@@ -53,7 +53,6 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     locale: 'es_ES',
-    siteName: 'Tentare',
     title: COMPARTIR.titulo,
     description: COMPARTIR.descripcion,
     url: urlDe('/'),

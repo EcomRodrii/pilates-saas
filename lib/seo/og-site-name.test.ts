@@ -36,6 +36,22 @@ test('todo openGraph de la web de Tentare lleva siteName', () => {
   assert.deepEqual(sin, [], 'estos openGraph no llevan siteName (el del layout se pierde al sustituirlo)');
 });
 
+test('ningún fichero repite siteName dentro del mismo openGraph', () => {
+  // Un objeto literal con dos `siteName` no compila (TS1117): pasó al añadirlo a
+  // una página que ya lo llevaba más abajo.
+  const repetidos: string[] = [];
+  for (const f of ficheros(join(RAIZ, 'app'))) {
+    const s = readFileSync(f, 'utf8');
+    for (const m of s.matchAll(/openGraph: \{/g)) {
+      const resto = s.slice(m.index! + m[0].length);
+      let nivel = 1, i = 0;
+      for (; i < resto.length && nivel > 0; i++) { if (resto[i] === '{') nivel++; else if (resto[i] === '}') nivel--; }
+      if ((resto.slice(0, i).match(/siteName:/g) ?? []).length > 1) repetidos.push(relative(RAIZ, f));
+    }
+  }
+  assert.deepEqual(repetidos, []);
+});
+
 test('la marca blanca no dice «Tentare» como sitio', () => {
   for (const d of FUERA) {
     for (const f of ficheros(join(RAIZ, d))) {
