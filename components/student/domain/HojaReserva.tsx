@@ -22,7 +22,7 @@ import { ElegirHueco, type SpotMin } from '@/components/student/domain/ElegirHue
  */
 export function HojaReserva({
   hoja, clase, desaparecida = false, instructora, disp, bono, bonoNoCubre, politicaHoras, huecos = null, yaEmpezo, contexto,
-  sinBono = null, onVerOpciones,
+  sinBono = null, onVerOpciones, pagaRecuperacion = false,
 }: {
   hoja: HojaReservaControl;
   /** La clase que se pinta: la de los datos vivos o, si ha desaparecido, la última conocida. */
@@ -45,6 +45,8 @@ export function HojaReserva({
    * sin el ajuste de «exigir plan»): la hoja hace lo de siempre y decide el servidor.
    */
   sinBono?: ComoVieneSinBono | null;
+  /** Sin plan, la paga una de sus recuperaciones (migr 20261020134420): se reserva sin pagar, y lo dice. */
+  pagaRecuperacion?: boolean;
   /**
    * «Ver cómo venir»: a las opciones de pago de ESTA clase. Lleva el sitio elegido (si la sala tiene mapa): desde la
    * ficha abre la hoja de pagar y reservar (P06), que comprueba la plaza CON ese sitio antes de cobrar.
@@ -64,12 +66,14 @@ export function HojaReserva({
   const esFinal = abierta && bk !== 'reviewing' && bk !== 'submitting';
   // Solo cuenta si NADA cubre la clase: con bono o cuota, la hoja de siempre.
   const caso = bono ? null : sinBono;
-  const nota = caso ? notaSinBono(caso, bonoNoCubre) : null;
+  const nota = !bono && pagaRecuperacion && !enEspera
+    ? { texto: 'Usas una de tus recuperaciones', tono: 'ok' as const }
+    : caso ? notaSinBono(caso, bonoNoCubre) : null;
   // Con el plan exigido, ni reservar ni apuntarse a la espera sin algo que la cubra: el servidor lo rechazaría
   // (`evaluar_reserva` corta en «sin-plan» antes de mirar el aforo). No se ofrece un botón que va a decir que no.
   const exigePlanSinBono = caso?.caso === 'PAGA_AQUI' || caso?.caso === 'PIDE_BONO_EN_ESTUDIO';
   // Sin nada que la cubra, sin saber el caso y sin precio suelto: solo se viene con bono o cuota.
-  const soloConPlan = !bono && !caso && clase.sinPrecioSuelto === true && !enEspera;
+  const soloConPlan = !bono && !caso && !pagaRecuperacion && clase.sinPrecioSuelto === true && !enEspera;
 
   const finalizar = () => {
     if (bk === 'session-expired') { router.push(href('/acceso/login')); return; }

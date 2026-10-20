@@ -115,6 +115,7 @@ export default function FichaClasePage() {
         const s2 = payload?.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | undefined;
         return s2?.politicaPrivacidad || s2?.terminosServicio ? configLegalDe(payload?.studio, payload?.studio) : null;
       })(),
+      recuperaciones: payload?.socia?.recuperaciones ?? [],
       nombresTipo: Object.fromEntries((payload?.tiposClase ?? []).map((t) => [t.id, t.nombre])) as Record<string, string>,
     };
   }, [estudio.slug, claseId]);
@@ -191,12 +192,17 @@ export default function FichaClasePage() {
   const hoy = hoyISO();
   const notaInst = inst ? partesNota(inst.rating, inst.valoraciones) : null;
   // Sin nada que la cubra: cuál de los cuatro casos es (P01). Con la misma regla de «exigir plan» que el servidor.
-  const sinBono = !bono
+  // Sin plan, una recuperación paga la clase si hay plaza (`evaluar_reserva`, migr 20261020134420): ni «paga» ni
+  // «necesitas un bono» para quien tiene recuperaciones. En la espera no pagan (promocionar volvería a pedir el plan).
+  const recuperacionesVivas = (data?.recuperaciones ?? []).filter((r) => r.estado === 'DISPONIBLE' && r.caducaEl >= hoy).length;
+  const pagaRecuperacion = !bono && recuperacionesVivas > 0 && (disp === 'disponible' || disp === 'pocas') && !yaNoSeReserva;
+  const sinBono = !bono && !pagaRecuperacion
     ? sinBonoDeClase(clase, data?.planesTarifa, !!data?.stripeAccountId && !!clavePublicableStripe())
     : null;
   const vienes = comoVienes({
     clase, bonos: data?.bonos ?? [], disp, reservas: data?.reservas ?? [], yaNoSeReserva,
     planesTarifa: data?.planesTarifa, nombresTipo: data?.nombresTipo ?? {}, hoy, sinBono: sinBono?.caso ?? null,
+    recuperaciones: pagaRecuperacion ? recuperacionesVivas : 0,
   });
   // Con bono, el interruptor/«Reservar las próximas» va dentro de su tarjeta; si no, suelto como siempre.
   const autoEnElBono = vienes?.caso === 'bono';
@@ -419,6 +425,7 @@ export default function FichaClasePage() {
         yaEmpezo={empezada}
         contexto="ficha"
         sinBono={sinBono?.caso ?? null}
+        pagaRecuperacion={pagaRecuperacion}
         onVerOpciones={(spotId) => { hoja.cerrar(); setPagar({ spotId }); }}
       />
 
