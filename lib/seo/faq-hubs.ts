@@ -21,7 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { PLAN_INFO } from '../billing/entitlements.ts';
-import { LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '../landing/founding-gratis.ts';
+import { COMPLEMENTOS_DE_PAGO, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '../landing/founding-gratis.ts';
 import type { PreguntaFaq } from './faq-jsonld.ts';
 
 const PRECIO_ESTUDIO = PLAN_INFO.ESTUDIO.precioMes;
@@ -33,10 +33,10 @@ export const FAQ_MAX = 6;
 
 export const FAQ_FUNCIONALIDADES: PreguntaFaq[] = [
   {
-    // Fuente: lib/landing/founding-gratis.ts (TODO_MENOS_SEDES), /precios y
-    // lib/billing/catalogo-planes.ts («el núcleo no se trocea por plan»).
+    // Fuente: lib/landing/founding-gratis.ts (TODO_MENOS_SEDES, COMPLEMENTOS_DE_PAGO) y
+    // `ADDONS` en lib/billing/entitlements.ts (#2784: tres complementos en el Founding de pago).
     q: '¿Hay funciones que se pagan aparte?',
-    a: `No, no hay módulos sueltos. Founding Studio incluye todas las funcionalidades menos varias sedes y es gratis ${LIMITES_GRATIS}; si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes, sin tope. Varias sedes es lo que añade el plan Cadena, de ${PRECIO_CADENA} €/mes.`,
+    a: `Mientras es gratis, no: Founding Studio incluye todas las funcionalidades menos varias sedes ${LIMITES_GRATIS}. Si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} €/mes, sin tope, y con ese plan ${COMPLEMENTOS_DE_PAGO} se contratan aparte; el plan Estudio los incluye. Varias sedes es lo que añade el plan Cadena, de ${PRECIO_CADENA} €/mes.`,
   },
   {
     // Fuente: /funcionalidades/bonos-y-membresias (primera pregunta) y
@@ -91,7 +91,7 @@ export const FAQ_SOLUCIONES: PreguntaFaq[] = [
     // Fuente: /precios y lib/landing/founding-gratis.ts; «con IVA» y «sin
     // permanencia» como en /soluciones/estudio-de-yoga y /precios.
     q: '¿Cuánto cuesta y hace falta tarjeta para empezar?',
-    a: `Founding Studio es gratis ${LIMITES_GRATIS} (si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes), con todas las funcionalidades menos varias sedes, y se empieza sin tarjeta. Estudio cuesta ${PRECIO_ESTUDIO} €/mes con IVA y Cadena, ${PRECIO_CADENA} €/mes. Todos sin permanencia.`,
+    a: `Founding Studio es gratis ${LIMITES_GRATIS} con todas las funcionalidades menos varias sedes, y se empieza sin tarjeta; si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes, y con ese plan ${COMPLEMENTOS_DE_PAGO} van aparte. Estudio cuesta ${PRECIO_ESTUDIO} €/mes con IVA y Cadena, ${PRECIO_CADENA} €/mes. Todos sin permanencia.`,
   },
   {
     // Fuente: /soluciones/estudio-de-pilates-reformer y

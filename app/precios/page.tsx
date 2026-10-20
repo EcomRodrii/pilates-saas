@@ -11,7 +11,7 @@ import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { PLANS } from '@/components/landing/data';
-import { CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
@@ -171,8 +171,8 @@ export default function PreciosPage() {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
             Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
-            {LIMITES_GRATIS}; {SI_PASAS}), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
-            {PLAN_INFO.ESTUDIO.nombre} y{' '}
+            {LIMITES_GRATIS}; {SI_PASAS}, y con ese plan {COMPLEMENTOS_DE_PAGO} van aparte), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {PLAN_INFO.ESTUDIO.nombre}, que los incluye, y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
             cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer

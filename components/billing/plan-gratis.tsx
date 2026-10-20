@@ -32,7 +32,7 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
     case 'DENTRO':
       return {
         titulo: 'Te corresponde Founding Studio: gratis',
-        texto: `Todo Tentare, sin pagar nada. Si un día pasas de ${textoLimite('alumnas')} o de ${textoLimite('reservas')}, pasas a ${PLAN_INFO.BASE.precioMes} €/mes y sigues igual, sin límites. Te avisamos antes y tienes ${g.margenDias} días para hacerlo.`,
+        texto: `Todo Tentare, sin pagar nada. Si un día pasas de ${textoLimite('alumnas')} o de ${textoLimite('reservas')}, pasas a ${PLAN_INFO.BASE.precioMes} €/mes, sin límites; con ese plan, el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Te avisamos antes y tienes ${g.margenDias} días para hacerlo.`,
         tono: 'bien',
       };
     case 'CERCA':
@@ -75,7 +75,7 @@ export function CabeceraPlanGratis({ className }: { className?: string }) {
           </p>
           <p className="mt-2 text-[15px] font-semibold text-foreground text-pretty">{FRASE_PLAN_GRATIS}</p>
           <p className="mt-1 text-[13.5px] text-muted-foreground text-pretty">
-            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes y sigues igual.
+            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes, sin tope de alumnas ni de reservas; con ese plan, el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte.
           </p>
         </div>
       </div>
