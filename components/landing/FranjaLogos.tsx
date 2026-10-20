@@ -42,7 +42,10 @@ function Logo({ logo, decorativo }: { logo: LogoCliente; decorativo: boolean }) 
         alt={decorativo ? '' : logo.nombre}
         width={ANCHO}
         height={ALTO}
-        loading="lazy"
+        // Sin `lazy`: en la marquesina las copias van fuera de la pantalla, de lado,
+        // y el navegador no pedía una perezosa que no cruza la vista (llegaban en
+        // blanco al entrar). Son las mismas URL que los reales: no se descarga nada más.
+        loading="eager"
         decoding="async"
       />
     </li>

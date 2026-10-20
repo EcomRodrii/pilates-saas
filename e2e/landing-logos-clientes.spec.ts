@@ -101,6 +101,10 @@ for (const ancho of [1440, 375]) {
 }
 
 test('con 3 logos, el color vuelve al pasar el ratón por encima', async ({ page }) => {
+  // Siempre es marquesina (20-oct) y Playwright no pasa el ratón por algo que se
+  // mueve. Con «reducir movimiento» la franja se queda quieta (su CSS lo prevé), y
+  // el color al pasar por encima es el mismo: es lo que se mide aquí.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await abrirPrueba(page, 3);
   const primero = page.locator('#clientes .v7-logos-item').first();
   const img = primero.locator('img');
