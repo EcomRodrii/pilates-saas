@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { abrirPanel, controlesCortos, quitarMarcaPanelNuevo } from './zona-tactil';
-import { instanteDeHoy, instanteDelProximoLunes } from './panel-sembrado';
+import { instanteDeHoy, instanteDelProximoLunes, diasHastaElProximoLunes } from './panel-sembrado';
 
 // Las pantallas del MOSTRADOR del panel nuevo en el iPad de recepción, con el
 // dedo: Resumen (Hoy en el estudio), Clientas y su ficha, Cobros y el
@@ -145,7 +145,9 @@ for (const [ancho, alto, nombre] of [[768, 1024, 'vertical'], [1024, 768, 'tumba
     // día de la semana: reloj en el primer lunes, y se exige que la última cabecera plegada sea «DOM».
     test('un lunes, «DOM» (última columna, la más ancha) también cabe en su columna plegada', async ({ page }) => {
       await page.clock.setFixedTime(instanteDelProximoLunes(12, 30));
-      await abrirPanel(page, 'calendario');
+      // ⚠️ Las clases sembradas son de hoy a hoy+3: sin moverlas al lunes, esa semana no tiene ninguna
+      // y el Calendario pinta «No hay clases» en vez de la rejilla (el test solo valía en lunes).
+      await abrirPanel(page, 'calendario', true, { sesionesDesdeHoyMas: diasHastaElProximoLunes() });
       await expect(page.getByTestId('semana-franjas')).toBeVisible({ timeout: 30_000 });
       const ultima = page.locator('[data-cabecera-dia]').last();
       // Control: si el sembrado dejara «DOM» con clases, el test no estaría probando lo que dice.

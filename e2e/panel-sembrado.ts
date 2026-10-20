@@ -53,10 +53,9 @@ export const instanteDeHoy = (h: number, m = 0) => new Date(iso(dia(0), h, m));
  * EMPIEZA el día del reloj, así que con un lunes la última columna es siempre el domingo («DOM», la
  * abreviatura más ancha): permite medir ese caso cualquier día que corra el CI, y no solo los lunes.
  */
-export const instanteDelProximoLunes = (h: number, m = 0) => {
-  const hoy = dia(0).getUTCDay(); // 0 = domingo … 6 = sábado, ya sobre el día del estudio
-  return new Date(iso(dia((8 - hoy) % 7), h, m));
-};
+/** Días hasta el próximo lunes (0 si hoy lo es), sobre el día del estudio. */
+export const diasHastaElProximoLunes = () => (8 - dia(0).getUTCDay()) % 7; // 0 = domingo … 6 = sábado
+export const instanteDelProximoLunes = (h: number, m = 0) => new Date(iso(dia(diasHastaElProximoLunes()), h, m));
 
 const STUDIO_ROW = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',
@@ -110,17 +109,20 @@ const TIPOS = [
   { id: 'tc-mat', studio_id: STUDIO_ID, nombre: 'Mat', duracion_min: 50, color: '#7FB2E5', activo: true },
 ];
 
-const SESIONES = [-1, 0, 0, 1, 1, 2, 3].map((d, i) => ({
+/** Las sesiones sembradas, con el día de referencia `desde` días después de hoy (0 = hoy). */
+const sesionesDesde = (desde: number) => [-1, 0, 0, 1, 1, 2, 3].map((d, i) => ({
   id: `ses-${i}`, studio_id: STUDIO_ID,
   tipo_clase_id: i % 2 ? 'tc-mat' : 'tc-reformer',
   sala_id: i % 2 ? 'sala-2' : 'sala-1',
   instructor_id: i % 2 ? 'ins-marta' : 'ins-cloe',
-  inicio: iso(dia(d), 9 + (i % 4) * 2, 0),
-  fin: iso(dia(d), 9 + (i % 4) * 2, 50),
+  inicio: iso(dia(d + desde), 9 + (i % 4) * 2, 0),
+  fin: iso(dia(d + desde), 9 + (i % 4) * 2, 50),
   aforo_maximo: i % 2 ? 12 : 6,
   cancelada: false, notas: null, google_event_id: null, serie_id: null,
   incidencia_texto: null, precio_puntual: null, zoom_meeting_id: null, zoom_join_url: null,
 }));
+const SESIONES_HOY = sesionesDesde(0);
+const SESIONES = SESIONES_HOY;
 
 const RESERVAS = SESIONES.flatMap((s, i) =>
   SOCIOS.slice(0, (i % 3) + 1).map((soc, j) => ({
@@ -382,8 +384,14 @@ export interface CoberturaPanel {
   sinSembrar: () => string[];
 }
 
-export async function montar(page: Page): Promise<CoberturaPanel> {
+/**
+ * `sesionesDesdeHoyMas`: mueve las sesiones sembradas ese número de días (las mismas, con sus ids y
+ * reservas). Para un spec que fija el reloj en otro día y necesita que el Calendario tenga clases
+ * esa semana: sin clases pinta un estado vacío y no la rejilla.
+ */
+export async function montar(page: Page, { sesionesDesdeHoyMas = 0 } = {}): Promise<CoberturaPanel> {
   const sinSembrar: string[] = [];
+  const SESIONES = sesionesDesdeHoyMas ? sesionesDesde(sesionesDesdeHoyMas) : SESIONES_HOY;
 
   // ⚠️ Comodines PRIMERO: Playwright prioriza la ruta registrada más tarde.
   await page.route('**/rest/v1/**', (r) => json(r, []));

@@ -14,9 +14,9 @@ import { montar, ir } from './panel-sembrado';
 const json = (r: Route, b: unknown) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
 
 /** El panel sembrado, con el panel nuevo (o sin él) y la guía de primeros pasos plegada. */
-export async function abrirPanel(page: Page, ruta: string, panelNuevo = true) {
+export async function abrirPanel(page: Page, ruta: string, panelNuevo = true, sembrado: Parameters<typeof montar>[1] = {}) {
   await page.addInitScript(() => { try { localStorage.setItem('tentare-primeros-pasos-plegado', '1'); } catch { /* */ } });
-  await montar(page);
+  await montar(page, sembrado);
   await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, {
     filtrosClientas: false, importarPegando: false, invitarWhatsApp: false, horarioDesdeImagen: false,
     nivelesConRitmo: false, tarjetaClase: false, panelNuevo,
