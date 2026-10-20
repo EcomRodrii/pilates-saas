@@ -15,7 +15,7 @@ test('el servidor paga solo si la semana en curso está hecha, y con el interrup
   assert.match(admin, /if \(r\.semanaEnCurso\.estado !== 'hecha'\) return false/);
   assert.match(admin, /otorgarCreditosServidor\(admin, studioId, socioId, 'SEMANA_COMPLETA', `\$\{socioId\}:\$\{r\.claveSemanaActual\}`\)/);
   // Encendido → función única; apagado → el cálculo de siempre, intacto.
-  assert.match(admin, /if \(rachaUnicaEncendida\(studioId\)\) \{[\s\S]*?pagarSemanaCompletaUnica\(admin, studioId, socioId\);[\s\S]*?\} else \{[\s\S]*?calcularRacha\(ctx\.reservas, ctx\.sesiones, new Date\(\)\)/);
+  assert.match(admin, /if \(rachaUnicaEncendida\(studioId\)\) \{[\s\S]*?pagarSemanaCompletaUnica\(admin, studioId, socioId\)[\s\S]*?\} else \{[\s\S]*?calcularRacha\(ctx\.reservas, ctx\.sesiones, new Date\(\)\)/);
   // Nunca por una meta personal: no se lee ningún objetivo de la socia en esa función.
   const fn = admin.slice(admin.indexOf('export async function pagarSemanaCompletaUnica'), admin.indexOf('async function evaluarGamificacionServidor'));
   assert.doesNotMatch(fn, /objetivo|metaPersonal|objetivoClasesMes/);

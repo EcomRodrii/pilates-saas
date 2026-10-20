@@ -7720,7 +7720,8 @@ async function evaluarGamificacionServidor(
     if (rachaUnicaEncendida(studioId)) {
       // Racha única (PR 3.3-B, D12): se paga por SEMANA COMPLETA (la asistencia válida de esta semana, con el
       // mínimo del estudio), no porque haya racha de semanas anteriores. Misma clave de siempre.
-      await pagarSemanaCompletaUnica(admin, studioId, socioId);
+      // Su propio try: una lectura fallida no puede saltarse el objetivo mensual de abajo.
+      await pagarSemanaCompletaUnica(admin, studioId, socioId).catch((err) => reportDbError('[evaluarGamificacionServidor] semana completa', err));
     } else {
       const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
       if (racha.semanas > 0) {
