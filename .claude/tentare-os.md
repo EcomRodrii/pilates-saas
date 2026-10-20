@@ -1419,8 +1419,11 @@ líneas de la MISMA suscripción de Stripe (29 + 9 = 38 €/mes). Catálogo y pr
   (`lib/billing/lectura-suscripcion.ts`). El webhook relee la suscripción de Stripe (la foto del
   evento puede ser vieja) y, si el plan ya no es Founding, quita las líneas de complemento que
   sobren: Estudio y Cadena los incluyen.
-- ⚠️ **El portal de Stripe no cambia de plan una suscripción con varias líneas.** Hasta que haya una
-  ruta propia de cambio de plan, /suscripcion pide quitar los complementos antes.
+- ⚠️ **El portal de Stripe no cambia de plan una suscripción con varias líneas.** Founding → Estudio
+  va por `/api/billing/cambiar-plan` (botón «Pasarme a Estudio» en Suscripción → Complementos): UNA
+  actualización (plan → Estudio, líneas de complemento borradas), mismo intervalo o 409, nunca con la
+  baja programada (la diferencia iría a una factura que no llega) ni con una línea que no sea nuestra
+  (`itemsParaPasarAEstudio`). Bajar de Estudio y pasar a Cadena siguen por el portal y el checkout.
 - Precios en Stripe: `STRIPE_PRICE_ADDON_DECISIONES`, `_SUSTITUCIONES`, `_IA` (mensuales). Sin los
   tres (`complementosALaVenta`), el checkout sigue vendiendo el Founding completo. Un
   complemento sin su precio sale como «Muy pronto» y la ruta contesta 503.

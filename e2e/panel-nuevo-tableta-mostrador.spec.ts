@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { abrirPanel, controlesCortos, quitarMarcaPanelNuevo } from './zona-tactil';
-import { instanteDeHoy, instanteDelProximoLunes } from './panel-sembrado';
+import { instanteDeHoy, instanteDelLunesDeEstaSemana } from './panel-sembrado';
 
 // Las pantallas del MOSTRADOR del panel nuevo en el iPad de recepción, con el
 // dedo: Resumen (Hoy en el estudio), Clientas y su ficha, Cobros y el
@@ -144,7 +144,7 @@ for (const [ancho, alto, nombre] of [[768, 1024, 'vertical'], [1024, 768, 'tumba
     // rojo solo los lunes (19-oct-2026, en todos los PR a la vez). Aquí se fuerza ese caso cualquier
     // día de la semana: reloj en el primer lunes, y se exige que la última cabecera plegada sea «DOM».
     test('un lunes, «DOM» (última columna, la más ancha) también cabe en su columna plegada', async ({ page }) => {
-      await page.clock.setFixedTime(instanteDelProximoLunes(12, 30));
+      await page.clock.setFixedTime(instanteDelLunesDeEstaSemana(12, 30));
       await abrirPanel(page, 'calendario');
       await expect(page.getByTestId('semana-franjas')).toBeVisible({ timeout: 30_000 });
       const ultima = page.locator('[data-cabecera-dia]').last();
