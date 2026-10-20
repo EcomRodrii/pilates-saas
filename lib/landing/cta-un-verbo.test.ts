@@ -12,9 +12,12 @@ import { CTA_ALTA } from './founding-gratis.ts';
 // secas en otras.
 //
 // Fuera de este test, A PROPÓSITO:
-//  · la cabecera de las páginas internas (`SiteNav`, «Probar gratis»);
-//  · el pie de la home;
 //  · /comparativa (`CtaBlock` y `CompetitorPage`), vetada salvo metadatos.
+//
+// La cabecera de las páginas internas (`SiteNav`, «Probar gratis») estaba fuera
+// hasta la fase 2.1 (19-oct-2026): ahora toda la web lleva la isla
+// (components/web/IslaWeb.tsx), que entra en la regla. El pie nuevo
+// (components/web/PieWeb.tsx) no lleva botón al alta.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RAIZ = process.cwd();
@@ -30,10 +33,13 @@ const CUERPOS = [
   'components/funcionalidades/bloques.tsx',
   'components/soluciones/LandingSolucion.tsx',
   'app/funcionalidades/page.tsx',
+  // La isla y su menú móvil, en toda la web pública desde la fase 2.1.
+  'components/web/IslaWeb.tsx',
 ];
 
-/** El hero tiene la isla (fuera de regla) y el botón del héroe (dentro): se mira solo el segundo. */
+/** El botón del héroe. La isla, que antes vivía aquí, está en components/web/IslaWeb.tsx (en CUERPOS). */
 const HEROE = 'components/landing/SeccionHero.tsx';
+const ISLA = 'components/web/IslaWeb.tsx';
 
 // Lo que se acepta como contenido de un botón al alta: la constante, con o sin
 // flecha, o el texto del plan que viene de data.ts (cuyos `cta` son la constante).
@@ -69,8 +75,11 @@ test('el botón del héroe, la isla y su menú móvil dicen CTA_ALTA', () => {
   const fuente = readFileSync(join(RAIZ, HEROE), 'utf8');
   const botones = botonesAlAlta(fuente);
   // Ronda 2: la isla y su menú móvil dejan «Probar Tentare» (de la prueba de 7 días, que ya no existe) por CTA_ALTA.
-  assert.deepEqual(botonesFueraDeRegla(fuente), [], 'ningún botón al alta del héroe y la isla puede llevar otro texto');
+  assert.deepEqual(botonesFueraDeRegla(fuente), [], 'ningún botón al alta del héroe puede llevar otro texto');
   assert.ok(botones.includes('{CTA_ALTA}'), 'el botón del héroe debe decir {CTA_ALTA}');
+  // La isla: el botón de la píldora y el del menú a pantalla completa, los dos.
+  const isla = botonesAlAlta(readFileSync(join(RAIZ, ISLA), 'utf8'));
+  assert.deepEqual(isla, ['{CTA_ALTA}', '{CTA_ALTA}'], 'la isla lleva dos botones al alta (píldora y menú móvil) y los dos dicen {CTA_ALTA}');
 });
 
 test('los planes de la home usan la constante', () => {

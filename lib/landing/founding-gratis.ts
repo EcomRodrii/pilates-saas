@@ -25,7 +25,7 @@
 // Puro y sin `@/`: lo importan /precios, la home, `lib/seo/paginas.ts` y su test.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { ENTITLEMENTS_GRATIS, PLAN_INFO, type Entitlements, type Plan } from '../billing/entitlements.ts';
+import { ADDONS, ENTITLEMENTS_GRATIS, PLAN_INFO, type Entitlements, type Plan } from '../billing/entitlements.ts';
 import { FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS } from '../billing/plan-gratis.ts';
 
 export const GRATIS_ALUMNAS = LIMITE_ALUMNAS;
@@ -55,6 +55,14 @@ export const PRECIO_FOUNDING_PAGO = PLAN_INFO.BASE.precioMes;
 
 /** «si pasas de ahí, 29 €/mes»: lo que viene después del «gratis hasta…». */
 export const SI_PASAS = `si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes`;
+/**
+ * Desde #2784 (20-oct-2026), el Founding Studio DE PAGO no incluye tres cosas: van
+ * aparte como complementos (`ADDONS`). El gratis y la prueba siguen con todo, y
+ * Estudio y Cadena las incluyen. Precios desde el catálogo, nunca a mano.
+ */
+export const COMPLEMENTOS_DE_PAGO = `el ${ADDONS.decisiones.nombre} (${ADDONS.decisiones.precioMes} €/mes), las sustituciones automáticas (${ADDONS.sustituciones.precioMes} €/mes) y la redacción con IA (${ADDONS.ia.precioMes} €/mes)`;
+/** Las tres, en corto, para las tarjetas de los planes. */
+export const COMPLEMENTOS_CORTO = 'Centro de Control, sustituciones automáticas y redacción con IA';
 
 /** El botón que lleva al alta. Sustituye a «Probar 7 días gratis». */
 export const CTA_ALTA = 'Empezar gratis';

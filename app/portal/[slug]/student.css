@@ -124,10 +124,10 @@
   --on-dark-tinta: #1A1A1A;
 
   /* El VELO de las barras que flotan sobre el contenido (la de abajo y la
-     cabecera pegada): el fondo del estilo translúcido, con desenfoque detrás.
+     cabecera pegada): el fondo del estilo casi opaco, sin desenfoque (costaba fotogramas al hacer scroll).
      ⚠️ Estaba escrito a mano como `rgba(250,249,245,.88)` en las dos, así que
      con un estilo de fondo oscuro la app salía negra y su menú, crema. */
-  --velo: rgba(250, 249, 245, .88);
+  --velo: rgba(250, 249, 245, .97);
 
   /* ── Tipografía ──
      Las FAMILIAS son las del paquete y no se tocan. Lo que se añade es la
@@ -652,7 +652,6 @@
 @keyframes apPulse{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes apHeart{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
 @keyframes apToast{from{opacity:0;transform:translateY(-18px) scale(.94)}to{opacity:1;transform:none}}
-@keyframes apKen{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 @keyframes apDot{0%{transform:scale(0)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
 @keyframes apConfA{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(-46px,-110px) rotate(320deg)}}
 @keyframes apConfB{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(8px,-130px) rotate(-280deg)}}
@@ -1004,3 +1003,8 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
 .student-app .insignia-maqueta--hecha { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .tarjeta-reto__foto { position: relative; }
 .student-app .tarjeta-reto__insignia { position: absolute; left: 8px; bottom: 8px; width: 42px; height: 42px; border-radius: 999px; background: var(--card); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-card); }
+
+/* Reservar: cabecera, píldoras y días fijos arriba (20-oct-2026). Fondo opaco y una línea fina solo cuando la lista ya
+   pasa por debajo (`data-pegado`, lo pone un IntersectionObserver), sin backdrop-filter. */
+.student-app .reservar-fijo { position: sticky; top: 0; z-index: 20; background: var(--background); transition: box-shadow .2s; }
+.student-app .reservar-fijo[data-pegado] { box-shadow: 0 1px 0 var(--border), 0 6px 14px -10px rgba(26,26,26,.18); }
