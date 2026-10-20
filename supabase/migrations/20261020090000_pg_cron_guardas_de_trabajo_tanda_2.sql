@@ -171,6 +171,7 @@ do $$
 declare
   j record;
   v_cmd text;
+  v_id bigint;
 begin
   for j in
     select * from (values
@@ -193,7 +194,16 @@ begin
   )
   where %s;
   $c$, j.ruta, j.timeout_ms, j.guarda);
-    perform cron.alter_job(jobid, command := v_cmd) from cron.job where jobname = j.jobname;
+    -- Una migración nunca «pasa» sin reprogramar: si el job no está, o su comando
+    -- no queda como se pretendía, aborta.
+    select jobid into v_id from cron.job where jobname = j.jobname;
+    if v_id is null then
+      raise exception 'el job % no existe: no se puede ponerle guarda', j.jobname;
+    end if;
+    perform cron.alter_job(v_id, command := v_cmd);
+    if not exists (select 1 from cron.job where jobid = v_id and command = v_cmd) then
+      raise exception 'el job % no quedó reprogramado', j.jobname;
+    end if;
   end loop;
 end $$;
 
@@ -214,4 +224,71 @@ begin
       raise exception 'permisos de % mal: solo service_role', f;
     end if;
   end loop;
+end $$;
+
+-- ── 4) Si un job falla de verdad, que se entere Sentry ──────────────────────
+-- Un fallo de guarda (o de cualquier job) solo quedaba en `cron.job_run_details`.
+-- `vigilar_jobs_http` (cada 15 min, ya existente: no hay cron nuevo) suma ahora los
+-- jobs con 2 o más ejecuciones `failed` en las últimas 3 h y los manda en el mismo
+-- aviso. Misma firma y permisos que antes (create or replace los conserva).
+create or replace function public.vigilar_jobs_http()
+returns void
+language plpgsql
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  v_fallos int;
+  v_muestra jsonb;
+  v_jobs jsonb;
+begin
+  with malos as (
+    select status_code, timed_out, error_msg, created
+    from net._http_response
+    where created > now() - interval '20 minutes'
+      and (status_code is null or status_code not between 200 and 299 or timed_out or error_msg is not null)
+  )
+  select count(*), coalesce(
+    (select jsonb_agg(jsonb_build_object(
+       'status_code', status_code, 'timed_out', timed_out, 'error_msg', error_msg, 'created', created
+     ))
+     from (select * from malos order by created desc limit 5) m),
+    '[]'::jsonb
+  )
+  into v_fallos, v_muestra
+  from malos;
+
+  select coalesce(jsonb_agg(jsonb_build_object('job', f.jobname, 'fallos', f.n, 'ultimo_error', f.ultimo)), '[]'::jsonb)
+    into v_jobs
+    from (
+      select j.jobname, count(*) as n, (array_agg(d.return_message order by d.start_time desc))[1] as ultimo
+        from cron.job_run_details d
+        join cron.job j on j.jobid = d.jobid
+       where d.status = 'failed' and d.start_time > now() - interval '3 hours'
+       group by j.jobname
+      having count(*) >= 2
+    ) f;
+
+  if v_fallos > 0 or jsonb_array_length(v_jobs) > 0 then
+    perform net.http_post(
+      url := 'https://www.tentare.app/api/cron/vigilar-jobs-http',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (
+          select decrypted_secret from vault.decrypted_secrets where name = 'supabase_cron_secret'
+        )
+      ),
+      body := jsonb_build_object('fallos', v_fallos, 'muestra', v_muestra, 'jobs_fallidos', v_jobs),
+      timeout_milliseconds := 15000
+    );
+  end if;
+end;
+$function$;
+
+do $$
+begin
+  if has_function_privilege('anon', 'public.vigilar_jobs_http()', 'execute')
+     or has_function_privilege('authenticated', 'public.vigilar_jobs_http()', 'execute') then
+    raise exception 'vigilar_jobs_http() no debe ser ejecutable por anon ni authenticated';
+  end if;
 end $$;

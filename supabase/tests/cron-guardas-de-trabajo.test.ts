@@ -138,6 +138,27 @@ test('checkin automático: una clase cancelada no llama; el borde de las 2 h sí
   });
 });
 
+test('recordatorios: una reserva confirmada sin socia no llama (la ruta la descarta)', async () => {
+  await conEstudio(async ({ studioId }) => {
+    const t = await tipo(studioId);
+    const s = await sesion(studioId, t, enMin(23 * 60));
+    const { error } = await admin.from('reservas').insert({ id: idUnico('res'), studio_id: studioId, sesion_id: s, socio_id: null, estado: 'CONFIRMADA' });
+    assert.ok(!error, error?.message);
+    assert.equal(await guarda('cron_hay_recordatorios_de_clase', studioId), false);
+  });
+});
+
+test('checkin automático: bordes de 120 y 121 min (la guarda es más ancha que la ruta, nunca más estrecha)', async () => {
+  for (const [haceMin, esperado] of [[119, true], [120, true], [121, true], [123, false]] as const) {
+    await conEstudio(async ({ studioId }) => {
+      const t = await tipo(studioId);
+      const s = await sesion(studioId, t, enMin(-haceMin - 50)); // termina hace `haceMin` min
+      await reserva(studioId, s, 'CONFIRMADA');
+      assert.equal(await guarda('cron_hay_checkin_automatico', studioId), esperado, `terminó hace ${haceMin} min`);
+    });
+  }
+});
+
 // ── sustituciones-cerrar-vencidas ────────────────────────────────────────────
 async function sustitucion(studioId: string, sesionId: string, estado: string) {
   const { error } = await admin.from('sustituciones').insert({ id: idUnico('sus'), studio_id: studioId, sesion_id: sesionId, estado });
@@ -168,6 +189,15 @@ test('sustituciones: cada estado en juego con la clase ya empezada llama; clase 
     const pasada = await sesion(studioId, t, enMin(-30));
     for (const cerrado of ['confirmada', 'sin_sustituta', 'cancelada']) await sustitucion(studioId, pasada, cerrado);
     assert.equal(await guarda('cron_hay_sustituciones_vencidas', studioId), false, 'ya cerradas: nada que cerrar');
+  });
+});
+
+test('sustituciones: una clase cancelada con sustitución en juego SÍ llama (la ruta no mira `cancelada`)', async () => {
+  await conEstudio(async ({ studioId }) => {
+    const t = await tipo(studioId);
+    const s = await sesion(studioId, t, enMin(-30), { cancelada: true });
+    await sustitucion(studioId, s, 'buscando');
+    assert.equal(await guarda('cron_hay_sustituciones_vencidas', studioId), true);
   });
 });
 
