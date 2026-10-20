@@ -109,14 +109,15 @@ export const MENU_PRODUCTO: GrupoMenu[] = [
 ];
 
 /**
- * «Soluciones»: las páginas por tipo de estudio que existen hoy, y «Varias
- * sedes» (que aún vive como funcionalidad). Las dos nuevas de la estrategia
- * («Abrir un estudio» y «Varias sedes» como solución) entran aquí cuando existan.
+ * «Soluciones»: las páginas por tipo de estudio, «Abrir un estudio» (fase 2.3)
+ * y «Varias sedes», que se queda como funcionalidad a propósito: una solución
+ * casi igual competiría con /funcionalidades/multi-centro en el buscador.
  */
 export const MENU_SOLUCIONES: EnlaceConResumen[] = [
   { href: '/soluciones/programa-de-gestion-para-estudio-de-pilates', label: 'Programa de gestión', resumen: 'El programa que lleva el estudio entero: reservas, bonos, cobros, facturas y equipo.' },
   { href: '/soluciones/estudio-de-pilates-reformer', label: 'Estudio de Pilates reformer', resumen: 'Cada reformer, una plaza: aforo por sala, plazas fijas y lista de espera.' },
   { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga', resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.' },
+  { href: '/soluciones/abrir-un-estudio', label: 'Abrir un estudio', resumen: 'Tu horario, tus reservas y tu app, listos antes de la primera clase.' },
   { href: '/funcionalidades/multi-centro', label: 'Varias sedes', resumen: 'Dos o más centros, con datos separados y un solo acceso.' },
   { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software', resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.' },
 ];
@@ -157,6 +158,7 @@ export const PIE_PUBLICO: GrupoMenu[] = [
       { href: '/soluciones/programa-de-gestion-para-estudio-de-pilates', label: 'Programa de gestión' },
       { href: '/soluciones/estudio-de-pilates-reformer', label: 'Pilates reformer' },
       { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga' },
+      { href: '/soluciones/abrir-un-estudio', label: 'Abrir un estudio' },
       { href: '/funcionalidades/multi-centro', label: 'Varias sedes' },
       { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software' },
       { href: '/soluciones', label: 'Todas las soluciones' },

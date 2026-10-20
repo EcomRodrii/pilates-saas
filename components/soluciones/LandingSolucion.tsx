@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
@@ -13,6 +12,11 @@ import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
+import { CAPTURAS_APP, Escena } from '@/components/web/home/piezas';
+import { MarcoIphone } from '@/components/ui/marco-iphone';
+// Las piezas del producto de la home (AgendaDia, PanelCobros…) toman sus colores de
+// los tokens `--wh-*`, que cuelgan de `.wh`: por eso la página va dentro de `.wh`.
+import '@/components/web/home/home.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Piezas de las páginas por tipo de estudio (/soluciones/*), 7-oct-2026.
@@ -25,7 +29,9 @@ import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
 // preguntas—, con la tipografía y la paleta de las demás páginas públicas.
 //
 // Reglas que no se rompen aquí:
-//  · Solo capturas REALES de /public/producto y fotos con crédito (fotos.ts).
+//  · Solo capturas REALES de /public/producto, fotos con crédito (fotos.ts) o las
+//    piezas del producto de la home (components/web/home/piezas.tsx, fase 2.3),
+//    que dibujan pantallas reales con datos de ejemplo y lo dicen.
 //  · Cada frase de producto está en el código o ya publicada en su página de
 //    funcionalidad; lo que no hace, no se insinúa.
 //  · Un solo h1 por página; el h2 de cada bloque dice de qué trata (lo leen
@@ -50,11 +56,12 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
       <OrganizationStructuredData />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(migasLd).replace(/</g, '\\u003c') }} />
       <IslaWeb />
+      <div className="wh">
       {children}
       {relacionadas.length > 0 && (
         <section className="sol-banda">
           <div className="sol-ancho">
-            <p className="lp-mono sol-eyebrow">Sigue por aquí</p>
+            <p className="sol-eyebrow">Sigue por aquí</p>
             <div className="sol-rel">
               {relacionadas.map((r) => (
                 <Link key={r.path} href={r.path} className="sol-rel-card">
@@ -66,6 +73,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
           </div>
         </section>
       )}
+      </div>
       <PieWeb />
       <EstilosSolucion />
     </PageShell>
@@ -96,7 +104,7 @@ export function HeroSolucion({
     <header className="sol-heroe">
       <div className="sol-heroe-in">
         <div className="sol-heroe-texto">
-          <nav aria-label="Ruta" className="lp-mono sol-miga">
+          <nav aria-label="Migas de pan" className="sol-miga">
             <Link href="/">Inicio</Link>
             <span aria-hidden>/</span>
             <Link href="/soluciones">Soluciones</Link>
@@ -152,7 +160,7 @@ export function ResumenSolucion({ pregunta, children, datos }: { pregunta: strin
       {/* Sin Reveal: es la respuesta directa, justo bajo la portada; no debe
           estar ni un instante invisible. */}
       <div className="sol-resumen">
-        <p className="lp-mono sol-eyebrow">En resumen</p>
+        <p className="sol-eyebrow">En resumen</p>
         <h2 className="sol-resumen-h2">{pregunta}</h2>
         <p className="sol-resumen-p">{children}</p>
         {datos && datos.length > 0 && (
@@ -179,7 +187,7 @@ export function Situaciones({ titulo, items }: { titulo: string; items: { hora: 
         <div className="sol-situaciones">
           {items.map((it, i) => (
             <Reveal key={it.titulo} delay={i * 60} className="sol-situacion">
-              <p className="lp-mono sol-situacion-hora">{it.hora}</p>
+              <p className="sol-situacion-hora">{it.hora}</p>
               <h3>{it.titulo}</h3>
               <p>{it.texto}</p>
             </Reveal>
@@ -198,6 +206,7 @@ export function FilaProducto({
   puntos = [],
   enlace,
   captura,
+  pieza,
   invertida = false,
 }: {
   eyebrow: string;
@@ -205,14 +214,17 @@ export function FilaProducto({
   children: React.ReactNode;
   puntos?: React.ReactNode[];
   enlace?: { href: string; texto: string };
-  captura: { src: string; alt: string; ancho: number; alto: number; movil?: boolean; foto?: boolean; pie?: string };
+  /** Una captura real del producto… */
+  captura?: { src: string; alt: string; ancho: number; alto: number; movil?: boolean; foto?: boolean; pie?: string };
+  /** …o una pieza de la home (piezas.tsx), con su descripción para lectores de pantalla. */
+  pieza?: { descripcion: string; contenido: React.ReactNode; movil?: boolean };
   invertida?: boolean;
 }) {
   return (
     <section className="sol-zona">
       <div className={`sol-fila${invertida ? ' sol-fila-inv' : ''}`}>
         <div className="sol-fila-texto">
-          <p className="lp-mono sol-eyebrow">{eyebrow}</p>
+          <p className="sol-eyebrow">{eyebrow}</p>
           <h2 className="sol-h2">{titulo}</h2>
           <div className="sol-prosa">{children}</div>
           {puntos.length > 0 && (
@@ -224,14 +236,49 @@ export function FilaProducto({
           )}
           {enlace && <Link href={enlace.href} className="sol-enlace lp-flecha">{enlace.texto} <span aria-hidden>→</span></Link>}
         </div>
-        <Reveal className={captura.movil ? 'sol-captura sol-captura-movil' : captura.foto ? 'sol-captura sol-captura-foto' : 'sol-captura'}>
-          <figure>
-            <Image src={captura.src} alt={captura.alt} width={captura.ancho} height={captura.alto} sizes={captura.movil || captura.foto ? '(max-width: 900px) 70vw, 340px' : '(max-width: 900px) 94vw, 620px'} />
-            {captura.pie && <figcaption className="lp-mono">{captura.pie}</figcaption>}
-          </figure>
-        </Reveal>
+        {pieza ? (
+          <Reveal className={pieza.movil ? 'sol-captura sol-pieza sol-pieza-movil' : 'sol-captura sol-pieza'}>
+            <Escena descripcion={pieza.descripcion}>{pieza.contenido}</Escena>
+          </Reveal>
+        ) : captura && (
+          <Reveal className={captura.movil ? 'sol-captura sol-captura-movil' : captura.foto ? 'sol-captura sol-captura-foto' : 'sol-captura'}>
+            <figure>
+              <Image src={captura.src} alt={captura.alt} width={captura.ancho} height={captura.alto} sizes={captura.movil || captura.foto ? '(max-width: 900px) 70vw, 340px' : '(max-width: 900px) 94vw, 620px'} />
+              {captura.pie && <figcaption>{captura.pie}</figcaption>}
+            </figure>
+          </Reveal>
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * La app NUEVA de la alumna en el iPhone 17 Pro, la misma captura que el héroe de la
+ * home (sin la marca de ningún estudio real: components/web/home/piezas.tsx). Para
+ * el `pieza` de una FilaProducto con `movil: true`.
+ */
+export function AppAlumna() {
+  const c = CAPTURAS_APP.inicio;
+  return (
+    <MarcoIphone modelo="17-pro" escala={0.5} tinta="clara" indicador="oscura">
+      <div style={{ height: '100%', background: '#F4EEE5' }}>
+        <picture>
+          <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes="210px" />
+          <img
+            src={`/landing/capturas/${c.n}-390.webp`}
+            srcSet={`/landing/capturas/${c.n}-390.webp 390w, /landing/capturas/${c.n}-780.webp 780w`}
+            sizes="210px"
+            width={780}
+            height={1696}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0' }}
+          />
+        </picture>
+      </div>
+    </MarcoIphone>
   );
 }
 
@@ -241,7 +288,7 @@ export function BandaOscura({ eyebrow, titulo, children, lado }: { eyebrow: stri
     <section className="sol-oscura">
       <div className="sol-oscura-in">
         <div className="sol-oscura-texto">
-          <p className="lp-mono sol-eyebrow sol-eyebrow-claro">{eyebrow}</p>
+          <p className="sol-eyebrow sol-eyebrow-claro">{eyebrow}</p>
           <h2 className="sol-h2 sol-h2-claro">{titulo}</h2>
           <div className="sol-prosa sol-prosa-clara">{children}</div>
         </div>
@@ -339,39 +386,40 @@ function EstilosSolucion() {
       .sol-ancho-estrecho { max-width: 820px; }
       .sol-zona { padding: 0 clamp(18px,4vw,44px) clamp(56px,7vw,96px); }
       .sol-banda { padding: 0 clamp(18px,4vw,44px) clamp(56px,7vw,88px); }
-      .sol-eyebrow { margin: 0 0 12px; font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: #6B6B63; }
-      .sol-eyebrow-claro { color: #A8B080; }
-      .sol-h2 { margin: 0 0 16px; font-weight: 800; font-size: clamp(27px,3.4vw,40px); line-height: 1.08; letter-spacing: -.03em; text-wrap: balance; }
-      .sol-h2-claro { color: #fff; }
-      .sol-prosa p { margin: 0 0 14px; font-size: 17px; line-height: 1.65; color: #34342E; }
-      .sol-prosa a { color: ${ACC}; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-      .sol-prosa-clara p { color: #C9C9C1; }
-      .sol-prosa-clara a { color: #fff; }
+      .sol-eyebrow { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--w-olive); }
+      .sol-eyebrow-claro { color: var(--w-sand); }
+      .sol-h2 { margin: 0 0 16px; font-weight: 600; font-size: clamp(27px,3.4vw,40px); line-height: 1.1; letter-spacing: var(--w-track-h2); color: var(--w-texto); text-wrap: balance; }
+      .sol-h2-claro { color: var(--w-sobre-noche); }
+      .sol-prosa p { margin: 0 0 14px; font-size: 17px; line-height: 1.65; color: var(--w-texto); }
+      .sol-prosa a { color: var(--w-olive); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+      .sol-prosa-clara p { color: var(--w-sobre-noche-2); }
+      .sol-prosa-clara a { color: var(--w-sobre-noche); }
 
       /* ── Portada ─────────────────────────────────────────────────── */
       .sol-heroe { padding: clamp(24px,3vw,36px) clamp(18px,4vw,44px) clamp(56px,7vw,96px); }
       .sol-heroe-in { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0,1.05fr) minmax(0,1fr);
         gap: clamp(32px,5vw,72px); align-items: center; }
-      .sol-miga { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 clamp(24px,3vw,36px); font-size: 11.5px; letter-spacing: .06em; color: #8A8A80; }
-      .sol-miga a { color: #5A5A52; text-decoration: none; }
-      .sol-miga a:hover { color: #1A1A1A; text-decoration: underline; text-underline-offset: 3px; }
-      .sol-h1 { margin: 0 0 20px; font-weight: 800; font-size: clamp(40px,5.6vw,68px); line-height: .98; letter-spacing: -.042em; text-wrap: balance; }
-      .sol-entrada { margin: 0 0 28px; max-width: 52ch; font-size: clamp(17px,1.5vw,19.5px); line-height: 1.58; color: ${MUTED}; }
+      .sol-miga { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 clamp(24px,3vw,36px); font-size: var(--w-fs-mini); color: var(--w-texto-3); }
+      .sol-miga a { color: var(--w-texto-2); text-decoration: none; }
+      .sol-miga a:hover { color: var(--w-texto); text-decoration: underline; text-underline-offset: 3px; }
+      .sol-h1 { margin: 0 0 20px; font-weight: 600; font-size: clamp(40px,5.4vw,64px); line-height: 1.02; letter-spacing: var(--w-track-display); color: var(--w-texto); text-wrap: balance; }
+      .sol-entrada { margin: 0 0 28px; max-width: 52ch; font-size: clamp(17px,1.5vw,19.5px); line-height: 1.58; color: var(--w-texto-2); }
       .sol-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
       .sol-acciones-centro { justify-content: center; }
-      .sol-cta { display: inline-block; font-size: 16px; font-weight: 700; color: #fff; background: ${ACC}; padding: 15px 28px;
+      .sol-cta { display: inline-block; font-size: 16px; font-weight: 600; color: var(--w-sand); background: var(--w-olive); padding: 15px 28px;
         border-radius: 999px; text-decoration: none; box-shadow: 0 16px 30px -14px rgba(52,56,37,.6);
         transition: transform var(--motion-normal) var(--motion-ease), filter var(--motion-normal) var(--motion-ease); }
-      .sol-cta:hover { transform: translateY(-2px); filter: brightness(1.12); }
-      .sol-cta-claro { background: #EEEEE8; color: #1A1A1A; box-shadow: none; }
-      .sol-cta-2 { font-size: 15.5px; font-weight: 700; color: #1A1A1A; padding: 14px 10px; text-decoration: none; }
+      .sol-cta:hover { transform: translateY(-2px); background: var(--w-olive-hondo); }
+      .sol-cta-claro { background: var(--w-sand); color: var(--w-olive); box-shadow: none; }
+      .sol-cta-claro:hover { background: var(--w-sand-claro); }
+      .sol-cta-2 { font-size: 15.5px; font-weight: 600; color: var(--w-texto); padding: 14px 10px; text-decoration: none; }
       .sol-cta-2:hover { text-decoration: underline; text-underline-offset: 3px; }
-      .sol-cta-2-claro { color: #EEEEE8; }
-      .sol-confianza { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 22px 0 0; font-size: 13.5px; color: #5A5A52; }
+      .sol-cta-2-claro { color: var(--w-cream); }
+      .sol-confianza { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 22px 0 0; font-size: 13.5px; color: var(--w-texto-2); }
       .sol-confianza span { display: inline-flex; align-items: center; gap: 6px; }
-      .sol-confianza svg { color: #3F8A6C; }
+      .sol-confianza svg { color: var(--w-exito); }
       .sol-heroe-escena { position: relative; margin: 0; }
-      .sol-heroe-foto { border-radius: 28px; overflow: hidden; aspect-ratio: 4 / 5; background: #DCDBD2;
+      .sol-heroe-foto { border-radius: var(--w-r-tarjeta); overflow: hidden; aspect-ratio: 4 / 5; background: var(--w-sand-claro);
         box-shadow: 0 50px 90px -50px rgba(26,26,26,.55); }
       .sol-heroe-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .sol-avisos { position: absolute; inset: 0; pointer-events: none; }
@@ -381,9 +429,9 @@ function EstilosSolucion() {
       .sol-aviso-1 { top: 9%; left: -9%; }
       .sol-aviso-2 { bottom: 10%; right: -7%; }
       .sol-aviso-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      .sol-aviso-etiqueta { font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #6B6B63; }
-      .sol-aviso-estado { font-size: 10.5px; font-weight: 800; color: #2F6E55; background: #E3F0E9; padding: 2px 8px; border-radius: 999px; }
-      .sol-aviso-texto { font-size: 13.5px; font-weight: 700; line-height: 1.35; color: #1A1A1A; }
+      .sol-aviso-etiqueta { font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--w-texto-3); }
+      .sol-aviso-estado { font-size: 10.5px; font-weight: 600; color: var(--w-exito); background: #E3F0E9; padding: 2px 8px; border-radius: 999px; }
+      .sol-aviso-texto { font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--w-texto); }
       @media (max-width: 900px) {
         .sol-heroe-in { grid-template-columns: minmax(0,1fr); }
         .sol-heroe-foto { aspect-ratio: 5 / 4; }
@@ -393,21 +441,21 @@ function EstilosSolucion() {
       @media (max-width: 520px) { .sol-aviso-1 { display: none; } .sol-aviso { width: min(250px, 80%); } }
 
       /* ── En resumen ──────────────────────────────────────────────── */
-      .sol-resumen { max-width: 1120px; margin: 0 auto; background: #fff; border: 1px solid #E4E4DC; border-radius: 26px;
+      .sol-resumen { max-width: 1120px; margin: 0 auto; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta);
         padding: clamp(26px,4vw,48px); box-shadow: 0 40px 80px -60px rgba(26,26,26,.4); }
-      .sol-resumen-h2 { margin: 0 0 12px; font-weight: 800; font-size: clamp(23px,2.8vw,32px); line-height: 1.12; letter-spacing: -.024em; max-width: 30ch; }
-      .sol-resumen-p { margin: 0; max-width: 72ch; font-size: 17.5px; line-height: 1.65; color: #2E2E29; }
+      .sol-resumen-h2 { margin: 0 0 12px; font-weight: 600; font-size: clamp(23px,2.8vw,32px); line-height: 1.12; letter-spacing: -.024em; max-width: 30ch; }
+      .sol-resumen-p { margin: 0; max-width: 72ch; font-size: 17.5px; line-height: 1.65; color: var(--w-texto); }
       .sol-datos { margin: clamp(22px,3vw,30px) 0 0; display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 14px; }
-      .sol-datos > div { padding: 16px 18px; border-radius: 16px; background: #F5F6EE; }
-      .sol-datos dt { font-size: clamp(22px,2.4vw,28px); font-weight: 800; letter-spacing: -.02em; color: #1A1A1A; }
-      .sol-datos dd { margin: 4px 0 0; font-size: 13.5px; line-height: 1.45; color: #5A5A52; }
+      .sol-datos > div { padding: 16px 18px; border-radius: 16px; background: var(--w-cream); }
+      .sol-datos dt { font-size: clamp(22px,2.4vw,28px); font-weight: 600; letter-spacing: -.02em; color: var(--w-texto); }
+      .sol-datos dd { margin: 4px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--w-texto-2); }
 
       /* ── Situaciones ─────────────────────────────────────────────── */
       .sol-situaciones { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-top: 8px; }
-      .sol-situacion { background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 24px; }
-      .sol-situacion-hora { margin: 0 0 14px; font-size: 12px; color: #8A6D2C; letter-spacing: .08em; }
-      .sol-situacion h3 { margin: 0 0 8px; font-size: 18.5px; font-weight: 800; letter-spacing: -.012em; line-height: 1.25; }
-      .sol-situacion p { margin: 0; font-size: 15px; line-height: 1.55; color: ${MUTED}; }
+      .sol-situacion { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); padding: 24px; }
+      .sol-situacion-hora { margin: 0 0 14px; font-size: 13px; font-weight: 600; color: var(--w-olive); }
+      .sol-situacion h3 { margin: 0 0 8px; font-size: 18.5px; font-weight: 600; letter-spacing: -.012em; line-height: 1.25; }
+      .sol-situacion p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--w-texto-2); }
       @media (max-width: 860px) { .sol-situaciones { grid-template-columns: minmax(0,1fr); } }
 
       /* ── Filas de producto ───────────────────────────────────────── */
@@ -415,90 +463,98 @@ function EstilosSolucion() {
         gap: clamp(32px,5vw,72px); align-items: center; }
       .sol-fila-inv .sol-fila-texto { order: 2; }
       .sol-puntos { list-style: none; margin: 6px 0 18px; padding: 0; display: grid; gap: 10px; }
-      .sol-puntos li { display: flex; gap: 10px; align-items: flex-start; font-size: 15.5px; line-height: 1.5; color: #2E2E29; }
-      .sol-puntos svg { flex-shrink: 0; margin-top: 3px; color: #3F8A6C; }
-      .sol-enlace { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: ${ACC}; text-decoration: none; }
+      .sol-puntos li { display: flex; gap: 10px; align-items: flex-start; font-size: 15.5px; line-height: 1.5; color: var(--w-texto); }
+      .sol-puntos svg { flex-shrink: 0; margin-top: 3px; color: var(--w-exito); }
+      .sol-enlace { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--w-olive); text-decoration: none; }
       .sol-enlace:hover { text-decoration: underline; text-underline-offset: 3px; }
       .sol-captura figure { margin: 0; }
-      .sol-captura img { display: block; width: 100%; height: auto; border-radius: 18px; border: 1px solid #DEDED6; background: #fff;
+      .sol-captura img { display: block; width: 100%; height: auto; border-radius: 18px; border: 1px solid var(--w-linea); background: var(--w-papel);
         box-shadow: 0 44px 80px -48px rgba(26,26,26,.5); }
-      .sol-captura figcaption { margin: 12px 4px 0; font-size: 11.5px; letter-spacing: .03em; color: #6B6B63; }
+      .sol-captura figcaption { margin: 12px 4px 0; font-size: var(--w-fs-mini); color: var(--w-texto-3); }
       .sol-captura-movil { display: flex; justify-content: center; }
       .sol-captura-movil figure { width: min(340px, 78%); }
       .sol-captura-movil img { border-radius: 32px; border: 8px solid #141414; }
+      /* Piezas de la home (fase 2.3): sobre un panel de arena clara, como en las pestañas de la home. */
+      .sol-pieza { display: grid; place-items: center; min-height: 340px; padding: clamp(24px,4vw,40px) clamp(18px,3vw,32px);
+        border-radius: var(--w-r-tarjeta); background: var(--w-sand-claro); }
+      .sol-pieza .wh-escena { width: 100%; display: grid; place-items: center; }
+      .sol-pieza .wh-escena-piezas { width: min(100%, 480px); }
+      .sol-pieza-movil .wh-escena-piezas { width: auto; display: grid; place-items: center; }
       .sol-captura-foto { display: flex; justify-content: center; }
       .sol-captura-foto figure { width: min(330px, 78%); }
-      .sol-captura-foto img { border: 0; border-radius: 26px; }
+      .sol-captura-foto img { border: 0; border-radius: var(--w-r-tarjeta); }
       @media (max-width: 900px) {
         .sol-fila { grid-template-columns: minmax(0,1fr); }
         .sol-fila-inv .sol-fila-texto { order: 0; }
       }
 
       /* ── Banda oscura ────────────────────────────────────────────── */
-      .sol-oscura { background: #0F0F0F; padding: clamp(64px,8vw,110px) clamp(18px,4vw,44px); margin-bottom: clamp(56px,7vw,96px); }
+      .sol-oscura { background: var(--w-noche); padding: clamp(64px,8vw,110px) clamp(18px,4vw,44px); margin-bottom: clamp(56px,7vw,96px); }
       .sol-oscura-in { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.15fr);
         gap: clamp(32px,5vw,64px); align-items: center; }
       @media (max-width: 900px) { .sol-oscura-in { grid-template-columns: minmax(0,1fr); } }
 
       /* ── Calculadora (CalculadoraPlazasVacias) ───────────────────── */
       .sol-calc { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,.9fr); border-radius: 24px; overflow: hidden;
-        background: #fff; box-shadow: 0 40px 80px -40px rgba(0,0,0,.6); }
+        background: var(--w-papel); box-shadow: 0 40px 80px -40px rgba(0,0,0,.6); }
       .sol-calc-campos { padding: clamp(20px,3vw,28px); display: grid; gap: 14px; }
-      .sol-calc-titulo { margin: 0 0 2px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #6B6B63; }
-      .sol-calc-titulo-claro { color: #C9CDB3; }
+      .sol-calc-titulo { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--w-texto-3); }
+      .sol-calc-titulo-claro { color: var(--w-sand-claro); }
       .sol-calc-campo { display: block; }
-      .sol-calc-etiqueta { display: block; font-size: 14px; font-weight: 700; color: #1A1A1A; }
-      .sol-calc-ayuda { display: block; margin: 1px 0 6px; font-size: 12px; color: #6B6B63; }
-      .sol-calc-campo input { width: 100%; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid #D6D6CE; background: #FAFAF7; color: #1A1A1A; }
-      .sol-calc-campo input:focus-visible { outline: 2px solid ${ACC}; outline-offset: 1px; }
-      .sol-calc-resultado { background: ${ACC}; color: #fff; padding: clamp(20px,3vw,28px); display: flex; flex-direction: column; justify-content: center; }
-      .sol-calc-cifra { margin: 6px 0 6px; font-size: clamp(36px,4.6vw,52px); font-weight: 800; letter-spacing: -.035em; line-height: 1; }
-      .sol-calc-cifra span { font-size: 16px; font-weight: 600; letter-spacing: 0; color: #DDE0CB; }
-      .sol-calc-sub { margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #E6E8D8; }
-      .sol-calc-nota { margin: 0; font-size: 12px; line-height: 1.5; color: #C9CDB3; }
+      .sol-calc-etiqueta { display: block; font-size: 14px; font-weight: 600; color: var(--w-texto); }
+      .sol-calc-ayuda { display: block; margin: 1px 0 6px; font-size: 12px; color: var(--w-texto-3); }
+      .sol-calc-campo input { width: 100%; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--w-linea-fuerte); background: var(--w-papel); color: var(--w-texto); }
+      .sol-calc-campo input:focus-visible { outline: 2px solid var(--w-olive); outline-offset: 1px; }
+      .sol-calc-resultado { background: var(--w-olive); color: var(--w-cream); padding: clamp(20px,3vw,28px); display: flex; flex-direction: column; justify-content: center; }
+      .sol-calc-cifra { margin: 6px 0 6px; font-size: clamp(36px,4.6vw,52px); font-weight: 600; letter-spacing: -.035em; line-height: 1; }
+      .sol-calc-cifra span { font-size: 16px; font-weight: 600; letter-spacing: 0; color: var(--w-sand-claro); }
+      .sol-calc-sub { margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: var(--w-sand-claro); }
+      .sol-calc-nota { margin: 0; font-size: 12px; line-height: 1.5; color: var(--w-sand-claro); }
       @media (max-width: 640px) { .sol-calc { grid-template-columns: minmax(0,1fr); } }
 
       /* ── Tabla ───────────────────────────────────────────────────── */
-      .sol-tabla { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; background: #fff;
-        border: 1px solid #E7E7E0; border-radius: 20px; overflow: hidden; }
-      .sol-tabla thead th { text-align: left; padding: 14px 18px; font-size: 12.5px; font-weight: 700; color: #5A5A52; background: #F5F5F1; }
-      .sol-tabla tbody th { text-align: left; padding: 15px 18px; font-size: 14.5px; font-weight: 700; vertical-align: top; }
-      .sol-tabla td { padding: 15px 18px; font-size: 14.5px; line-height: 1.5; color: #3A3A34; vertical-align: top; }
-      .sol-tabla tbody tr > * { border-top: 1px solid #EDEDE6; }
+      .sol-tabla { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; background: var(--w-papel);
+        border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); overflow: hidden; }
+      .sol-tabla thead th { text-align: left; padding: 14px 18px; font-size: 12.5px; font-weight: 600; color: var(--w-texto-2); background: var(--w-cream); }
+      .sol-tabla tbody th { text-align: left; padding: 15px 18px; font-size: 14.5px; font-weight: 600; vertical-align: top; }
+      .sol-tabla td { padding: 15px 18px; font-size: 14.5px; line-height: 1.5; color: var(--w-texto); vertical-align: top; }
+      .sol-tabla tbody tr > * { border-top: 1px solid var(--w-linea); }
       @media (max-width: 640px) {
         .sol-tabla, .sol-tabla tbody, .sol-tabla tr, .sol-tabla th, .sol-tabla td { display: block; }
         .sol-tabla thead { display: none; }
-        .sol-tabla tbody tr { padding: 14px 16px; border-top: 1px solid #EDEDE6; }
+        .sol-tabla tbody tr { padding: 14px 16px; border-top: 1px solid var(--w-linea); }
         .sol-tabla tbody tr:first-child { border-top: 0; }
         .sol-tabla tbody tr > * { border-top: 0; padding: 4px 0; }
-        .sol-tabla td::before { content: attr(data-col) ': '; font-weight: 700; color: #1A1A1A; }
+        .sol-tabla td::before { content: attr(data-col) ': '; font-weight: 600; color: var(--w-texto); }
       }
 
       /* ── Planes ──────────────────────────────────────────────────── */
       .sol-planes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-top: 8px; }
-      .sol-plan { background: #fff; border: 1px solid #E7E7E0; border-radius: 22px; padding: 24px; }
-      .sol-plan-destacado { border-color: ${ACC}; box-shadow: 0 0 0 1px ${ACC}, 0 30px 60px -40px rgba(52,56,37,.5); }
-      .sol-plan-nombre { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #1A1A1A; }
-      .sol-plan-precio { margin: 0 0 10px; font-size: 38px; font-weight: 800; letter-spacing: -.03em; color: #1A1A1A; }
-      .sol-plan-precio span { font-size: 14px; font-weight: 600; letter-spacing: 0; color: #6B6B63; margin-left: 4px; }
-      .sol-plan-resumen { margin: 0; font-size: 14.5px; line-height: 1.5; color: ${MUTED}; }
-      .sol-planes-nota { margin: 18px 0 0; font-size: 14.5px; color: #5A5A52; }
-      .sol-planes-nota a { color: ${ACC}; font-weight: 700; }
+      .sol-plan { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); padding: 24px; }
+      .sol-plan-destacado { border-color: var(--w-olive); box-shadow: 0 0 0 1px var(--w-olive); }
+      .sol-plan-nombre { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--w-texto); }
+      .sol-plan-precio { margin: 0 0 10px; font-size: 38px; font-weight: 600; letter-spacing: -.03em; color: var(--w-texto); }
+      .sol-plan-precio span { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--w-texto-3); margin-left: 4px; }
+      .sol-plan-resumen { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--w-texto-2); }
+      .sol-planes-nota { margin: 18px 0 0; font-size: 14.5px; color: var(--w-texto-2); }
+      .sol-planes-nota a { color: var(--w-olive); font-weight: 600; }
       @media (max-width: 860px) { .sol-planes { grid-template-columns: minmax(0,1fr); } }
 
       /* ── Cierre ──────────────────────────────────────────────────── */
-      .sol-cierre { max-width: 1120px; margin: 0 auto; text-align: center; background: ${ACC}; color: #fff; border-radius: 30px;
+      .sol-cierre { max-width: 1120px; margin: 0 auto; text-align: center; background: var(--w-noche); color: var(--w-sobre-noche); border-radius: var(--w-r-tarjeta);
         padding: clamp(44px,6vw,80px) clamp(22px,4vw,56px); }
-      .sol-cierre h2 { margin: 0 auto 14px; max-width: 22ch; font-weight: 800; font-size: clamp(30px,4vw,48px); line-height: 1.04; letter-spacing: -.035em; }
-      .sol-cierre p { margin: 0 auto 28px; max-width: 54ch; font-size: 17px; line-height: 1.6; color: #DDE0CB; }
+      .sol-cierre h2 { margin: 0 auto 14px; max-width: 22ch; font-weight: 600; font-size: clamp(30px,4vw,48px); line-height: 1.04; letter-spacing: -.035em; }
+      .sol-cierre p { margin: 0 auto 28px; max-width: 54ch; font-size: 17px; line-height: 1.6; color: var(--w-sobre-noche-2); }
 
       /* ── Relacionadas ────────────────────────────────────────────── */
       .sol-rel { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 16px; }
-      .sol-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 20px; text-decoration: none;
+      .sol-rel-3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      @media (max-width: 860px) { .sol-rel-3 { grid-template-columns: minmax(0,1fr); } }
+      .sol-rel-card { display: block; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 16px; padding: 20px; text-decoration: none;
         transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
       .sol-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
-      .sol-rel-nombre { display: block; font-size: 15.5px; font-weight: 700; color: #1A1A1A; margin-bottom: 6px; }
-      .sol-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
+      .sol-rel-nombre { display: block; font-size: 15.5px; font-weight: 600; color: var(--w-texto); margin-bottom: 6px; }
+      .sol-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: var(--w-texto-2); }
       @media (prefers-reduced-motion: reduce) { .sol-cta, .sol-rel-card { transition: none; } }
     `}</style>
   );
