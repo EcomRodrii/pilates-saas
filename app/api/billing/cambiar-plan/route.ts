@@ -7,7 +7,7 @@ import { addonDePriceId, planDePriceId, priceIdDe } from '@/lib/billing/billing'
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
 import { COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
-import { claveCambioPlan, itemsParaPasarAEstudio, MENSAJE_NO_CAMBIO_PLAN, motivoNoCambioPlan } from '@/lib/billing/cambio-plan-reglas';
+import { itemsParaPasarAEstudio, MENSAJE_NO_CAMBIO_PLAN, motivoNoCambioPlan } from '@/lib/billing/cambio-plan-reglas';
 import { claveCheckoutLock, liberarCheckoutLock, reclamarCheckoutLock } from '@/lib/billing/checkout-lock';
 import { errorInterno } from '@/lib/errores-servidor';
 
@@ -93,12 +93,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN.revisar, codigo: 'revisar' }, { status: 409 });
     }
 
+    // Sin clave de idempotencia propia (mismo motivo que /api/billing/addons: una
+    // clave atada a las líneas leídas se repite si la suscripción vuelve a esa
+    // forma, p. ej. Estudio → Founding por el portal, y Stripe devuelve la
+    // respuesta vieja sin aplicar nada). Un doble clic no aplica dos cambios: el
+    // cerrojo serializa y, tras el primero, ya no hay línea de Founding
+    // (`itemsParaPasarAEstudio` → 409). Un reintento de red del SDK lleva su clave.
     await stripe.subscriptions.update(
       subId,
       { items, proration_behavior: 'create_prorations', metadata: { plan: 'ESTUDIO' } },
-      // Atada a las líneas leídas con su precio: un doble clic no aplica dos
-      // cambios, y otra forma de suscripción no reutiliza la respuesta.
-      { idempotencyKey: claveCambioPlan(subId, leidas) },
     );
 
     // Lo que hay AHORA en Stripe, no lo que creemos haber hecho.
