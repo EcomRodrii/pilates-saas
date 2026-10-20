@@ -62,12 +62,3 @@ export function itemsParaPasarAEstudio(
   for (const l of lineas) if (mapa.esAddon(l.priceId)) items.push({ id: l.id, deleted: true });
   return items;
 }
-
-/**
- * La clave de idempotencia del cambio: las líneas leídas con su precio. Un doble
- * clic sobre la misma suscripción es el mismo cambio; volver a la misma forma con
- * otros precios (o tras un error guardado por Stripe) no reutiliza la respuesta.
- */
-export function claveCambioPlan(subId: string, lineas: readonly LineaParaCambio[]): string {
-  return `plan-${subId}-ESTUDIO-${lineas.map((l) => `${l.id}:${l.priceId ?? ''}`).sort().join('.')}`;
-}
