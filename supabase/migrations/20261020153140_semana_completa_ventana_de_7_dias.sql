@@ -1,7 +1,7 @@
 -- «Semana completa»: la ventana del RPC pasa de 8 a 7 días, solo lunes y sin clases canceladas.
 -- (Fase 3, PR 3.3-B, decisión D12 del fundador.)
 --
--- ⚠️ PROPUESTA, NO APLICADA. Se aplica tras mergear el PR y revisar.
+-- APLICADA en producción el 20-oct-2026 (sello 20261020153140), tras ensayo en transacción con ROLLBACK.
 --
 -- Hoy `otorgar_credito_disparador` acepta para SEMANA_COMPLETA una clave de lunes o de domingo y una
 -- asistencia en [lunes, lunes+8): una asistencia del lunes SIGUIENTE bastaba para cobrar la semana
