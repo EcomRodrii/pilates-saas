@@ -1429,6 +1429,22 @@ export async function cambiarComplemento(addon: string, activar: boolean): Promi
   }
 }
 
+/** Founding Studio (con o sin complementos) → Estudio, en una sola actualización de Stripe. */
+export async function pasarAEstudio(): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/cambiar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plan: 'ESTUDIO' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.plan !== 'ESTUDIO') return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No se ha podido cambiar de plan. Vuelve a intentarlo.' };
+  }
+}
+
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
 import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija, FilaPago, FilaRecuperacion } from '@/lib/csv';
