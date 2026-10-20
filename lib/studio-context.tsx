@@ -5364,6 +5364,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const progresoExistente = achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id);
       if (progresoExistente?.completado) return; // ya conseguido, no se re-evalúa
 
+      // PR 3.4: «mes completo sin faltas» no se evalúa aquí (concedía tras la primera clase
+      // del mes): lo decide el barrido mensual del servidor al cerrarse el mes. Se salta (no
+      // se escribe un 0) para no pisar con `completado: false` lo que el barrido ya concedió.
+      if (def.metric === 'ASISTENCIA_MENSUAL_COMPLETA') return;
       const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now, todosLosSocios: socios });
       const completadoAhora = valor >= def.umbral;
       const progresoActualizado: AchievementProgress = progresoExistente

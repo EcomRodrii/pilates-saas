@@ -76,7 +76,7 @@ import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
   type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
 } from '@/lib/plazas-fijas-solicitudes';
-import type { EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
+import type { AchievementMetric, EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
 import {
@@ -91,6 +91,8 @@ import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
+import { logroMensualCerradoEncendido } from '@/lib/interruptor-por-estudio';
+import { esDiaDeBarridoMensual, evaluarMesCompleto, MIN_CLASES_LOGRO_MENSUAL, ultimoMesCerrado, type HechoClaseMes } from '@/lib/gamificacion/asistencia-del-mes';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido, type AforoApartado } from '@/lib/booking-logic';
@@ -7410,18 +7412,31 @@ async function cargarContextoGamificacion(
 }
 
 
+interface OpcionesLogros {
+  /** Evalúa solo los logros de esta métrica (el barrido mensual). */
+  soloMetrica?: AchievementMetric;
+  /** Valor ya calculado por quien sabe más que `calcularMetrica` (el barrido mensual). */
+  valores?: Partial<Record<AchievementMetric, number>>;
+}
+
 async function evaluarLogrosServidor(
   admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
+  opciones: OpcionesLogros = {},
 ): Promise<void> {
   const [{ data: defRows }, { data: progRows }] = await Promise.all([
     admin.from('achievement_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
     admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
   ]);
-  const definiciones = (defRows ?? []).map(mapAchievementDefinition);
+  const definiciones = (defRows ?? []).map(mapAchievementDefinition)
+    .filter(d => !opciones.soloMetrica || d.metric === opciones.soloMetrica);
   if (definiciones.length === 0) return;
 
   const progresos = (progRows ?? []).map(mapAchievementProgress);
   const { socio, reservas, sesiones, referidas } = ctx;
+  // PR 3.4: con el interruptor encendido, «mes completo sin faltas» NO se evalúa
+  // en cada acción (concedía tras la primera clase del mes) sino al cerrar el mes,
+  // en `barrerLogroMensual`. Aquí vale 0 salvo que el barrido traiga su veredicto.
+  const mensualSoloAlCerrar = logroMensualCerradoEncendido(studioId);
 
   const now = new Date();
   // Cada logro es independiente de los demás (progreso/historial/crédito solo
@@ -7433,7 +7448,8 @@ async function evaluarLogrosServidor(
     const existente = progresos.find(p => p.achievementId === def.id);
     if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
-    const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
+    const valor = opciones.valores?.[def.metric]
+      ?? calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas, mensualSoloAlCerrar });
     const completadoAhora = valor >= def.umbral;
 
     if (!completadoAhora) {
@@ -7618,6 +7634,137 @@ async function evaluarGamificacionServidor(
   } catch (err) {
     reportDbError('[evaluarGamificacionServidor]', err);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logro «Un mes completo sin ninguna falta» (PR 3.4, D7/D8).
+//
+// Lo evalúa el barrido diario de no-shows (mismo cron, SIN cron nuevo) los días 1
+// y 2 de cada mes en hora del estudio, sobre el último mes natural CERRADO. Va
+// DESPUÉS de los no-shows a propósito: así las clases del último día ya están
+// resueltas (`ASISTIDA`/`NO_ASISTIO`) cuando se mira. Solo estudios con el
+// interruptor `GAMIFICACION_LOGRO_MENSUAL_CERRADO` y con el logro activo.
+//
+// Idempotente por alumna+mes: el logro se concede una sola vez en la vida (el
+// guard de `completado` de `evaluarLogrosServidor` y el UNIQUE de `reward_actions`
+// del crédito), así que repetir el barrido —o el día 2 tras el día 1— no paga
+// dos veces. NO es retroactivo: solo se mira el último mes cerrado.
+// Solo trae a las candidatas (≥ N asistencias el mes pasado y sin el logro ya
+// conseguido); el veredicto lo da `evaluarMesCompleto`.
+// ─────────────────────────────────────────────────────────────────────────────
+const METRICA_MENSUAL: AchievementMetric = 'ASISTENCIA_MENSUAL_COMPLETA';
+const CONCURRENCIA_LOGRO_MENSUAL = 5;
+
+interface FilaClaseMes {
+  sesion_id: string;
+  estado: string;
+  cancelada_tardia: boolean | null;
+  sesiones: { inicio: string; cancelada: boolean } | { inicio: string; cancelada: boolean }[] | null;
+}
+
+async function hechosDelMes(
+  admin: SupabaseClient, studioId: string, socioId: string, mes: { desde: string; hasta: string },
+): Promise<HechoClaseMes[]> {
+  const { data, error } = await admin.from('reservas')
+    .select('sesion_id, estado, cancelada_tardia, sesiones!inner(inicio, cancelada)')
+    .eq('studio_id', studioId).eq('socio_id', socioId)
+    .gte('sesiones.inicio', mes.desde).lt('sesiones.inicio', mes.hasta);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as unknown as FilaClaseMes[];
+  const sesionDe = (f: FilaClaseMes) => (Array.isArray(f.sesiones) ? f.sesiones[0] : f.sesiones);
+  // «Se pasó lista» = en esa clase alguien figura ASISTIDA. Solo hace falta
+  // preguntarlo por las clases donde ella figura NO_ASISTIO.
+  const sesionesDeFalta = [...new Set(filas
+    .filter(f => f.estado === 'NO_ASISTIO' && sesionDe(f) && !sesionDe(f)!.cancelada)
+    .map(f => f.sesion_id))];
+  const conLista = new Set<string>();
+  if (sesionesDeFalta.length > 0) {
+    // Una pregunta por sesión (limit 1) y no «todas las asistidas»: con clases grandes las filas
+    // pasarían del tope de PostgREST y una sesión con lista se leería como sin lista (concedería de más).
+    await mapLimit(sesionesDeFalta, 5, async (sesionId) => {
+      const { data: una, error: errLista } = await admin.from('reservas')
+        .select('id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'ASISTIDA').limit(1);
+      if (errLista) throw new Error(errLista.message);
+      if ((una ?? []).length > 0) conLista.add(sesionId);
+    });
+  }
+  const hechos: HechoClaseMes[] = [];
+  for (const f of filas) {
+    const ses = sesionDe(f);
+    if (!ses) continue;
+    hechos.push({
+      inicio: ses.inicio, estado: f.estado, sesionCancelada: ses.cancelada === true,
+      canceladaTardia: f.cancelada_tardia, sesionConLista: conLista.has(f.sesion_id),
+    });
+  }
+  return hechos;
+}
+
+export async function barrerLogroMensual(nowISO: string) {
+  const now = new Date(nowISO);
+  if (!esDiaDeBarridoMensual(now)) return { evaluado: false as const };
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const mes = ultimoMesCerrado(now);
+
+  const { data: defs, error: defErr } = await admin.from('achievement_definitions')
+    .select('id, studio_id').eq('metric', METRICA_MENSUAL).eq('activo', true);
+  if (defErr) throw new Error(defErr.message);
+  const defsPorEstudio = new Map<string, string[]>();
+  for (const d of defs ?? []) {
+    const sid = d.studio_id as string;
+    if (!logroMensualCerradoEncendido(sid)) continue;
+    defsPorEstudio.set(sid, [...(defsPorEstudio.get(sid) ?? []), d.id as string]);
+  }
+
+  let candidatas = 0;
+  let cumplen = 0;
+  let truncado = false;
+  for (const [studioId, defIds] of defsPorEstudio) {
+    if (await evaluarFeature(admin, studioId, 'gamificacion')) continue;
+
+    const { filas, truncado: corto } = await leerCatalogoCompleto<{ socio_id: string }>(
+      (desde, hasta) => admin.from('reservas')
+        .select('id, socio_id, sesiones!inner(inicio, cancelada)')
+        .eq('studio_id', studioId).eq('estado', 'ASISTIDA')
+        .eq('sesiones.cancelada', false)
+        .gte('sesiones.inicio', mes.desde).lt('sesiones.inicio', mes.hasta)
+        .order('id', { ascending: true }).range(desde, hasta),
+    );
+    if (corto) {
+      truncado = true;
+      capturarMensaje('barrerLogroMensual: se alcanzó el tope de paginación, quedan candidatas sin mirar', 'warning', { tags: { area: 'logro-mensual' }, extra: { studioId } });
+    }
+    const asistidas = new Map<string, number>();
+    for (const f of filas) asistidas.set(f.socio_id, (asistidas.get(f.socio_id) ?? 0) + 1);
+
+    const { filas: hechas } = await leerCatalogoCompleto<{ socio_id: string }>(
+      (desde, hasta) => admin.from('achievement_progress')
+        .select('id, socio_id').eq('studio_id', studioId).eq('completado', true)
+        .in('achievement_id', defIds).order('id', { ascending: true }).range(desde, hasta),
+    );
+    const yaLoTienen = new Set(hechas.map(h => h.socio_id));
+    const lista = [...asistidas].filter(([socio, n]) => n >= MIN_CLASES_LOGRO_MENSUAL && !yaLoTienen.has(socio)).map(([socio]) => socio);
+    candidatas += lista.length;
+
+    await mapLimit(lista, CONCURRENCIA_LOGRO_MENSUAL, async (socioId) => {
+      try {
+        const veredicto = evaluarMesCompleto(await hechosDelMes(admin, studioId, socioId, mes), mes, now);
+        if (!veredicto.cumple) return;
+        const ctx = await cargarContextoGamificacion(admin, studioId, socioId);
+        if (!ctx) return;
+        cumplen++;
+        await evaluarLogrosServidor(admin, studioId, socioId, ctx, {
+          soloMetrica: METRICA_MENSUAL, valores: { [METRICA_MENSUAL]: 1 },
+        });
+      } catch (err) {
+        // `mapLimit` exige que la tarea no lance; una alumna que falla no frena a las demás
+        // y se reintenta el día siguiente.
+        capturarExcepcion(err, { tags: { area: 'logro-mensual' }, extra: { studioId } });
+      }
+    });
+  }
+  return { evaluado: true as const, mes: mes.clave, estudios: defsPorEstudio.size, candidatas, cumplen, truncado };
 }
 
 // C-2: valida el token de dispositivo de kiosko de un estudio. Sin token
