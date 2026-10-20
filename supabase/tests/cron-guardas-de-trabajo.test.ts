@@ -1,4 +1,4 @@
-// Guardas de pg_cron (migr 20261020090000): «hay trabajo ⇒ la guarda llama; no hay trabajo ⇒ no llama», contra una
+// Guardas de pg_cron (migr 20261020110000): «hay trabajo ⇒ la guarda llama; no hay trabajo ⇒ no llama», contra una
 // base real. Una guarda que dice «nada» cuando sí hay es un aviso o un cierre que no sale, en silencio.
 //
 // Cada función admite un `p_studio_id` solo para esto: acota la guarda a un estudio de fixture y no depende de lo que
@@ -169,7 +169,7 @@ test('sustituciones: cada estado en juego con la clase ya empezada llama; clase 
   const fuente = readFileSync(join(RAIZ, 'lib/sustituciones/contacto.ts'), 'utf8');
   const enJuego = [...fuente.match(/ESTADOS_EN_JUEGO\s*=\s*\[([^\]]+)\]/)![1].matchAll(/'([^']+)'/g)].map(m => m[1]);
   assert.ok(enJuego.length >= 4, 'no se pudo leer ESTADOS_EN_JUEGO');
-  const migracion = readFileSync(join(RAIZ, 'supabase/migrations/20261020090000_pg_cron_guardas_de_trabajo_tanda_2.sql'), 'utf8');
+  const migracion = readFileSync(join(RAIZ, 'supabase/migrations/20261020110000_pg_cron_guardas_de_trabajo_tanda_2.sql'), 'utf8');
   const enMigracion = [...migracion.match(/su\.estado in \(([^)]+)\)/)![1].matchAll(/'([^']+)'/g)].map(m => m[1]);
   assert.deepEqual([...enMigracion].sort(), [...enJuego].sort(), 'la guarda y ESTADOS_EN_JUEGO deben decir lo mismo');
 
