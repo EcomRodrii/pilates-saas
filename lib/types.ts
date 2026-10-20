@@ -2097,7 +2097,8 @@ export interface RewardRedemption {
   id: string;
   studioId: string;
   socioId: string;
-  catalogItemId: string;
+  /** NULL cuando la recompensa se eliminó del catálogo: el canje sobrevive con `recompensaNombre`. */
+  catalogItemId: string | null;
   creditosGastados: number;
   estado: EstadoCanje;
   creadoEn: string;
@@ -2117,6 +2118,12 @@ export interface RewardRedemption {
   entregadoPor?: string | null;
   /** La recuperación que se le concedió, si la recompensa era CLASE_GRATIS. */
   recuperacionId?: string | null;
+  /** Nombre de la recompensa guardado al eliminarla del catálogo. NULL mientras existe. */
+  recompensaNombre?: string | null;
+  /** Quién, cuándo y por qué se canceló. NULL si no está cancelado (y en los cancelados antiguos). */
+  canceladoEn?: string | null;
+  canceladoPor?: string | null;
+  canceladoMotivo?: string | null;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────

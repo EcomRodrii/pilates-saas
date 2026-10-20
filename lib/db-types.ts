@@ -391,6 +391,8 @@ export interface RowMemberCredits {
   caduca_el: string | null;
   // migr 20260917010429.
   creditos_por_compensar: number | null;
+  // migr 20261019122801.
+  total_caducado: number | null;
 }
 
 export interface RowMensajesEquipo {
@@ -680,6 +682,14 @@ export interface RowRewardRedemptions {
   entregado_por: string | null;
   // migr 20260909154359.
   recuperacion_id: string | null;
+  // migr 20261019122801.
+  recompensa_nombre: string | null;
+  // migr 20261019122801.
+  cancelado_en: string | null;
+  // migr 20261019122801.
+  cancelado_por: string | null;
+  // migr 20261019122801.
+  cancelado_motivo: string | null;
 }
 
 export interface RowRewardRules {
@@ -5047,6 +5057,7 @@ export type MemberCreditsInsert = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MemberCreditsUpdate = {
@@ -5058,6 +5069,7 @@ export type MemberCreditsUpdate = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MensajesEquipoInsert = {
@@ -5478,6 +5490,10 @@ export type RewardRedemptionsInsert = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRedemptionsUpdate = {
@@ -5492,6 +5508,10 @@ export type RewardRedemptionsUpdate = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRulesInsert = {

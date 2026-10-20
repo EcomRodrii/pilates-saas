@@ -310,7 +310,9 @@ export interface CanjeVista {
 
 export interface CanjeCrudo {
   id: string;
-  catalogItemId: string;
+  /** NULL si la recompensa se eliminó del catálogo (entonces vale `recompensaNombre`). */
+  catalogItemId: string | null;
+  recompensaNombre?: string | null;
   estado: string;
   codigo?: string | null;
   creditosGastados?: number;
@@ -342,7 +344,7 @@ export function canjesDe(
   return canjes
     .map((c) => ({
       id: c.id,
-      recompensa: nombre.get(c.catalogItemId) ?? 'Recompensa retirada del catálogo',
+      recompensa: (c.catalogItemId ? nombre.get(c.catalogItemId) : undefined) ?? c.recompensaNombre ?? 'Recompensa retirada del catálogo',
       creditos: c.creditosGastados ?? 0,
       fecha: c.creadoEn ?? '',
       estado: (c.estado === 'ENTREGADO' || c.estado === 'CANCELADO' ? c.estado : 'PENDIENTE') as CanjeVista['estado'],

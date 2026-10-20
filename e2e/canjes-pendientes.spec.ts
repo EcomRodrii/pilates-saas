@@ -118,15 +118,19 @@ test.describe('Canjes pendientes', () => {
       patchesDeEstado.push(route.request().method());
       return json(route, []);
     });
-    await page.route('**/rest/v1/rpc/cancelar_canje', route => {
+    await page.route('**/rest/v1/rpc/cancelar_canje_con_motivo', route => {
       llamadasRpc.push(route.request().postData() ?? '');
       return json(route, [{ estado: 'CANCELADO', saldo: 620 }]);
     });
 
     await abrirCanjes(page);
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    // Cancelar pregunta el motivo (opcional) y lo guarda con quién y cuándo.
+    await page.getByLabel('Motivo (opcional)').fill('sin existencias');
+    await page.getByRole('button', { name: 'Cancelar canje' }).click();
 
     await expect.poll(() => llamadasRpc.length, { timeout: 10_000 }).toBe(1);
+    expect(llamadasRpc[0]).toContain('sin existencias');
     // Y la RPC recibe el canje y el estudio: sin `p_studio_id` el aislamiento
     // por estudio de la función no puede aplicarse.
     expect(llamadasRpc[0]).toContain('rwd-1');
@@ -160,7 +164,7 @@ test.describe('Canjes pendientes', () => {
       entregas.push(route.request().postData() ?? '');
       return json(route, 'rwd-1');
     });
-    await page.route('**/rest/v1/rpc/cancelar_canje', route => {
+    await page.route('**/rest/v1/rpc/cancelar_canje_con_motivo', route => {
       cancelaciones.push('no debería llamarse');
       return json(route, [{ estado: 'CANCELADO', saldo: 620 }]);
     });

@@ -3,6 +3,7 @@ import { canjearRecompensaPublica, socioAutenticado } from '@/lib/db/supabase-da
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { claveCanjeValida } from '@/lib/canje-idempotencia';
 
 // Canje de una recompensa desde el portal de la socia. Exige sesión real de
 // socia (JWT de Supabase Auth): la identidad se deriva del token verificado, no
@@ -12,11 +13,16 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    studioId?: string; catalogItemId?: string;
+    studioId?: string; catalogItemId?: string; idempotencyKey?: unknown;
   } | null;
 
   if (!body?.studioId || !body?.catalogItemId) {
     return NextResponse.json({ error: 'Faltan datos del canje' }, { status: 400 });
+  }
+  // La clave la genera la pantalla; una mal formada es un error, no un «sin clave»
+  // silencioso (así un cliente roto no pierde la protección sin enterarse).
+  if (body.idempotencyKey !== undefined && !claveCanjeValida(body.idempotencyKey)) {
+    return NextResponse.json({ error: 'Clave de canje no válida' }, { status: 400 });
   }
 
   const user = await verificarUsuarioSupabase(req);
@@ -28,6 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const r = await canjearRecompensaPublica({
       studioId: body.studioId, socioId, authUserId: user.userId, catalogItemId: body.catalogItemId,
+      idempotencyKey: body.idempotencyKey,
     });
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
     return NextResponse.json(r);
