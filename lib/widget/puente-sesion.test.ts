@@ -278,14 +278,17 @@ test('el widget distingue el «no» por cuenta de equipo de cualquier otro error
   assert.notEqual(ERROR_COMPROBAR_CUENTA, MENSAJE_CUENTA_DE_EQUIPO);
 });
 
-test('la ventana del puente no importa el cliente del portal (no lee, refresca ni pisa la sesión de la alumna)', () => {
+test('la ventana del puente no importa el cliente del portal, ni la raíz le monta los providers que lo traen', () => {
   for (const f of ['app/widget-auth-retorno/page.tsx', 'app/widget-auth-retorno/cliente.tsx', 'app/widget-auth-retorno/clientes-auth.ts']) {
     assert.doesNotMatch(leer(f), /supabase-portal|supabasePortal/, f);
   }
   // Lo único que importa y podría traerlo: el código del correo, que lo carga al usarlo, no al importarse.
   assert.doesNotMatch(leer('lib/student/codigo-del-correo.ts'), /^import[^;]*supabase-portal/m);
-  // Y el cliente del portal no recoge la vuelta del correo en esta página.
-  assert.match(leer('lib/db/supabase-portal.ts'), /widget-auth-retorno/);
+  // La raíz no le monta AuthProvider/StudioProvider (cargan el del portal por debajo).
+  assert.match(leer('components/raiz/proveedores-raiz.tsx'), /if \(sinProveedoresDeSesion\(pathname\)\) return/);
+  // Y si algo lo trajera, no recoge la vuelta del correo en esta página: la condición exacta.
+  assert.match(leer('lib/db/supabase-portal.ts'),
+    /detectSessionInUrl:[^,]*&& !\(typeof window !== 'undefined' && window\.location\.pathname === '\/widget-auth-retorno'\)/);
 });
 
 test('el cliente del correo del puente guarda con SU clave y no refresca nunca', () => {
@@ -304,6 +307,9 @@ test('la ventana pregunta al servidor antes de entregar, y no cierra con signOut
   const entrega = src.indexOf('ok: true, access_token');
   assert.ok(comprobacion > 0 && entrega > comprobacion, 'la entrega tiene que ir tras comprobarCuenta');
   assert.equal(src.split('ok: true, access_token').length - 1, 1, 'una sola salida de sesión');
-  // Entre la comprobación y la entrega, el único signOut es el del «no» (y local).
-  for (const m of src.matchAll(/\.signOut\(([^)]*)\)/g)) assert.match(m[1], /scope:\s*'local'/);
+  // El único cierre es el del «no»: el token rechazado, y solo esa sesión (`local`).
+  const cierres = [...src.matchAll(/\.signOut\(([^)]*)\)/g)].map((m) => m[1]);
+  assert.deepEqual(cierres, ["session.access_token, 'local'"]);
+  // Y sin haber hablado con el widget de este intento, no se entrega.
+  assert.match(src, /!conWidget/);
 });

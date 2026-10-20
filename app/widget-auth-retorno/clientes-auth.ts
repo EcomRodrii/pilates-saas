@@ -4,9 +4,12 @@ import { AuthClient } from '@supabase/auth-js';
 import { CLAVE_SESION_PUENTE, olvidarSesionDelPuente } from '@/lib/widget/puente-sesion';
 
 // Los dos clientes de auth de la ventana del puente. NINGUNO es el del portal
-// (`supabasePortal`, clave `sb-portal-auth`): esta página ni lo importa, para
-// que el acceso del widget no lea, refresque ni pise la sesión que la alumna
-// tenga abierta en tentare.app (lo vigila `lib/widget/puente-sesion.test.ts`).
+// (`supabasePortal`, clave `sb-portal-auth`): esta página no lo carga (no lo
+// importa y la raíz no le monta los providers que lo traen,
+// `sinProveedoresDeSesion`), para que el acceso del widget no lea, refresque ni
+// pise la sesión que la alumna tenga abierta en tentare.app. Y si algo volviera
+// a traerlo, ese cliente no lee la URL en esta ruta (lib/db/supabase-portal.ts).
+// Lo vigilan `lib/widget/puente-sesion.test.ts` y el e2e de la sesión intacta.
 //
 //  · `clienteEfimero`: el de la CONTRASEÑA. En memoria y nada más: ni guarda,
 //    ni refresca, ni lee la URL.

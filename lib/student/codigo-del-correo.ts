@@ -14,6 +14,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthClient } from '@supabase/auth-js';
+
+/** Un cliente de auth-js (en auth-js, `AuthClient` es un valor, no un tipo). */
+export type ClienteAuth = InstanceType<typeof AuthClient>;
 import { LONGITUD_OTP, limpiarCodigo } from '@/lib/otp-utils';
 import { codigoCaducado, type FalloCodigo } from '@/lib/student/entrada-codigo';
 
@@ -28,13 +31,13 @@ type ResultadoCodigo = { ok: true } | { error: string; errorCode?: string; inten
  * puede quedarse en la del portal de la alumna. Por eso el del portal se carga
  * aquí, al usarlo, y no arriba: importarlo lo crearía en esa ventana también.
  */
-async function clienteDeLaSesion(cliente?: AuthClient): Promise<AuthClient> {
+async function clienteDeLaSesion(cliente?: ClienteAuth): Promise<ClienteAuth> {
   if (cliente) return cliente;
   return (await import('@/lib/db/supabase-portal')).supabasePortal.auth;
 }
 
 /** Comprueba el código y, si vale, deja la sesión abierta en el cliente del portal (o en `cliente`). */
-export async function entrarConCodigoDelCorreo(email: string, codigo: string, cliente?: AuthClient): Promise<ResultadoCodigo> {
+export async function entrarConCodigoDelCorreo(email: string, codigo: string, cliente?: ClienteAuth): Promise<ResultadoCodigo> {
   let data: {
     ok?: true; session?: { access_token: string; refresh_token: string };
     error?: string; errorCode?: string; intentosRestantes?: unknown;
@@ -75,7 +78,7 @@ export interface OpcionesCodigo {
   /** Si el código ya había caducado al escribirlo, manda otro sin que lo pida. */
   reenviarSiCaduca?: boolean;
   /** Dónde abrir la sesión, si no es el portal (ver `clienteDeLaSesion`). Estable entre renders. */
-  cliente?: AuthClient;
+  cliente?: ClienteAuth;
 }
 
 /**

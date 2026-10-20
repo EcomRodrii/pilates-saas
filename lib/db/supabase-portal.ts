@@ -54,8 +54,11 @@ export const supabasePortal = {
     // `/reservar/…`).
     // Ni el del PUENTE del widget (`/widget-auth-retorno`): esa sesión es del
     // widget y la recoge el cliente propio del puente
-    // (app/widget-auth-retorno/clientes-auth.ts). Esa página ni importa este
-    // cliente; esto es la segunda cerradura, por si algún día lo hiciera.
+    // (app/widget-auth-retorno/clientes-auth.ts). Esa página no carga este
+    // cliente (ni lo importa, ni monta los providers que lo traen:
+    // `sinProveedoresDeSesion`); esta comprobación es la otra cerradura, por si
+    // algo volviera a traerlo. ⚠️ No quitarla por redundante: si este cliente
+    // leyera esa URL, guardaría la sesión del widget encima de la de la alumna.
     detectSessionInUrl: !esRetornoAuthStaff(typeof window !== 'undefined' ? window.location.pathname : null)
       && !(typeof window !== 'undefined' && window.location.pathname === '/widget-auth-retorno'),
   }),

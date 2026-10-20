@@ -259,11 +259,9 @@ export function olvidarSesionDelPuente(almacen: Pick<Storage, 'removeItem'> | nu
 
 // ── Cuentas de equipo: no por el widget (decisión del fundador, 16-oct-2026) ─
 //
-// La sesión que entrega el puente vale para la cuenta ENTERA. Si es de alguien
-// del equipo de un estudio (propietaria, gerencia, recepción, instructora) o de
-// Tentare, la web que la recibe podría usarla en el estudio donde trabaja (con
-// la verificación en dos pasos la corta `exige_doble_factor`; sin ella, no).
-// Así que el puente pregunta al SERVIDOR (`/api/auth/cuenta-de-equipo`) antes de
+// La sesión que entrega el puente vale para la cuenta ENTERA, y el widget es
+// para alumnas: quien sea del equipo de un estudio (propietaria, gerencia,
+// recepción, instructora) o de Tentare entra desde tentare.app. Así que el puente pregunta al SERVIDOR (`/api/auth/cuenta-de-equipo`) antes de
 // entregar y, si es de equipo —o si no hay respuesta clara—, no entrega nada.
 // Tampoco a quien es equipo en un estudio y alumna en otro: reserva desde la
 // página entera, en tentare.app.

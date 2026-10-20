@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { AuthClient, Session } from '@supabase/auth-js';
+import type { Session } from '@supabase/auth-js';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 import { ERROR_CAPTCHA, useCaptcha } from '@/components/auth/turnstile-widget';
@@ -11,7 +11,7 @@ import {
   TIPO_ENLACE_ENVIADO, TIPO_PUENTE_LISTO, TIPO_RESULTADO_ACCESO, urlPuente, urlReservarCompleta, veredictoCuenta,
   type EncargoAcceso, type VeredictoCuenta,
 } from '@/lib/widget/puente-sesion';
-import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { useCodigoDelCorreo, type ClienteAuth } from '@/lib/student/codigo-del-correo';
 import { clienteEfimero, clientePuente, olvidarSesionDelCorreo } from './clientes-auth';
 
 // Mitad cliente de app/widget-auth-retorno/page.tsx. `destino`, `nonce` y
@@ -109,8 +109,11 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
   // Sin reenvío desde aquí: pedir otro correo es otro intento del widget.
   const [codigoAceptado, setCodigoAceptado] = useState(false);
   // El cliente del correo (la sesión del código también se abre en él, nunca en
-  // el del portal). Solo en el navegador; el valor del servidor no se usa.
-  const [cliente] = useState<AuthClient | undefined>(() => (typeof window === 'undefined' ? undefined : clientePuente()));
+  // el del portal). Solo en el navegador, y solo con destino: sin él no hay a
+  // quién entregar, y crear el cliente recogería la sesión del enlace de la URL
+  // para dejarla guardada aquí sin dueño.
+  const [cliente] = useState<ClienteAuth | undefined>(() => (
+    typeof window === 'undefined' || !destino || !nonce ? undefined : clientePuente()));
   const codigo = useCodigoDelCorreo(
     email,
     async () => ({ error: 'Pídelo otra vez desde la web del estudio.' }),
@@ -132,6 +135,11 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     let cancelado = false;
     let enviado = false;
     let encargoRecibido = false;
+    // El widget de ESTE intento ya ha hablado (encargo o email, desde `destino` y
+    // con el nonce). Sin eso no se entrega: una pestaña del enlace que tenga otra
+    // ventana madre (un webmail que abre los enlaces sin `noopener`) no es la
+    // ventana del widget, y no debe gastar la sesión que esa espera.
+    let conWidget = false;
     // Con un encargo de contraseña, la sesión es SOLO la que devuelve el cliente efímero: una sesión
     // por correo que apareciera mientras tanto en tentare.app (otra pestaña, otro estudio) no se reenvía.
     let soloContrasena = false;
@@ -141,16 +149,17 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     }
     // `desde`: el cliente donde está abierta la sesión. `delCorreo`: la guarda el
     // del puente, y hay que borrarla de tentare.app al entregarla.
-    async function entregar(session: Pick<Session, 'access_token' | 'refresh_token'>, desde: AuthClient, delCorreo: boolean) {
-      if (cancelado || enviado || !window.opener) return;
+    async function entregar(session: Pick<Session, 'access_token' | 'refresh_token'>, desde: ClienteAuth, delCorreo: boolean) {
+      if (cancelado || enviado || !conWidget || !window.opener) return;
       enviado = true;
       setFase('comprobando');
       const veredicto = await comprobarCuenta(session.access_token);
-      if (cancelado) return;
+      if (cancelado) { if (delCorreo) olvidarSesionDelCorreo(); return; }
       if (veredicto !== 'alumna') {
-        // No sale. Se cierra esta sesión en gotrue (solo ESTA: `local`), que no
-        // tiene nadie más, y se borra de aquí.
-        await desde.signOut({ scope: 'local' }).catch(() => {});
+        // No sale. Se cierra en gotrue ESTA sesión (la del token que se tiene en
+        // la mano, no lo que haya guardado, que podría ser otra o ya nada; y solo
+        // ella: `local`), que no tiene nadie más, y se borra de aquí.
+        await desde.admin.signOut(session.access_token, 'local').catch(() => {});
         if (delCorreo) olvidarSesionDelCorreo();
         if (veredicto === 'equipo') {
           alWidget({ tipo: TIPO_RESULTADO_ACCESO, ok: false, error: MENSAJE_CUENTA_DE_EQUIPO, motivo: MOTIVO_CUENTA_DE_EQUIPO });
@@ -235,7 +244,10 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
     const { data: sub } = puente.onAuthStateChange((_evento, session) => {
       enviarSiNueva(session);
     });
+    // La pestaña del enlace (sin ventana madre) no entrega: deja la sesión para la
+    // ventana y la olvida al minuto, o al cerrarse si es antes.
     const olvidoEnlace = window.opener ? undefined : setTimeout(olvidarSesionDelCorreo, OLVIDO_EN_LA_PESTANA_DEL_ENLACE_MS);
+    if (!window.opener) window.addEventListener('pagehide', olvidarSesionDelCorreo);
 
     // Solo se atiende a la ventana que abrió esta, desde el origen ya validado
     // en servidor y con este nonce.
@@ -245,6 +257,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       if (encargo) {
         if (encargoRecibido) return;
         encargoRecibido = true;
+        conWidget = true;
         clearTimeout(sinRespuesta);
         void cumplir(encargo);
         return;
@@ -253,6 +266,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       // correo ya lo mandó él.
       const suEmail = emailDelIntento(e.data, nonce);
       if (suEmail) {
+        conWidget = true;
         clearTimeout(sinRespuesta);
         setEmail(suEmail); setEmailDelWidget(true);
         setFase((f) => (f === 'conectando' || f === 'sin-respuesta' ? 'esperando' : f));
@@ -278,6 +292,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
       clearInterval(intervalo);
       clearTimeout(sinRespuesta);
       clearTimeout(olvidoEnlace);
+      window.removeEventListener('pagehide', olvidarSesionDelCorreo);
       window.removeEventListener('message', onMessage);
     };
   }, [destino, nonce, abiertoEn, slug]);

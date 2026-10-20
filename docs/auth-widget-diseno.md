@@ -260,31 +260,31 @@ fiable como el storage de terceros lo permita en cada navegador.
 >   ventana usa su propio cliente (`app/widget-auth-retorno/clientes-auth.ts`,
 >   clave `sb-puente-widget`, sin refresco automático), que comparte con la
 >   pestaña del enlace (mismo almacenamiento y BroadcastChannel por clave); el
->   código de 6 cifras se abre en ese mismo cliente. Al entregar la sesión, la
+>   código de 6 cifras se abre en ese mismo cliente. Solo entrega a la ventana
+>   del widget que ya habló con ella en este intento. Al entregar la sesión, la
 >   clave se **borra a mano** (`olvidarSesionDelPuente`), **sin llamar a gotrue**:
 >   un `signOut`, aunque sea `local`, revocaría en el servidor la sesión que acaba
->   de recibir el widget. La ventana ni importa el cliente del portal
->   (`lib/student/codigo-del-correo.ts` lo carga al usarlo), y el portal no
->   recoge la vuelta del correo en `/widget-auth-retorno` por si algún día lo
->   hiciera. La ventana que abre el widget empieza borrando restos de un intento
->   anterior, y la pestaña del enlace olvida la sesión al minuto si nadie la
->   recogió. Lo vigilan `lib/widget/puente-sesion.test.ts` y
+>   de recibir el widget. La ventana no carga el cliente del portal: no
+>   lo importa (`lib/student/codigo-del-correo.ts` lo carga al usarlo) y la raíz
+>   no le monta los providers del panel, que lo traen por debajo
+>   (`sinProveedoresDeSesion`). Si algo volviera a traerlo, el portal no recoge
+>   la vuelta del correo en `/widget-auth-retorno`. Sin destino válido la ventana
+>   ni crea el cliente del puente; la que abre el widget empieza borrando restos
+>   de un intento anterior, y la pestaña del enlace olvida la sesión al minuto o
+>   al cerrarse. Lo vigilan `lib/widget/puente-sesion.test.ts` y
 >   `e2e/widget-nativa-acceso-otro-dominio.spec.ts` (la sesión de la alumna sigue
 >   intacta y no queda la del puente).
 > - **Las cuentas de EQUIPO no entran por el widget** (decisión del fundador,
->   16-oct-2026). La sesión vale para la cuenta entera: si quien entra es del
->   equipo de algún estudio (propietaria de un estudio o una cadena, ficha en
->   `instructores` con cualquier rol, activa o no) o de Tentare
->   (`plataforma_admin`), la web que la recibe podría usarla en el estudio donde
->   trabaja (con la verificación en dos pasos la corta `exige_doble_factor`; sin
->   ella, no). Antes el captcha lo impedía en la práctica; con la ventana es
->   alcanzable. Así que, antes de entregar NINGUNA sesión (contraseña, enlace o
+>   16-oct-2026). La sesión vale para la cuenta entera, y el widget es para
+>   alumnas: quien sea del equipo de algún estudio (propietaria de un estudio o
+>   una cadena, ficha en `instructores` con cualquier rol, activa o no) o de
+>   Tentare (`plataforma_admin`) entra desde tentare.app. Así que, antes de entregar NINGUNA sesión (contraseña, enlace o
 >   código), la ventana pregunta al **servidor** con el token recién emitido
 >   (`POST /api/auth/cuenta-de-equipo`, que lo valida con `getUser` y cuenta con
 >   `esCuentaDeEquipo`, el mismo dueño que usa «quitar la verificación» desde la
 >   ficha). Solo un `200` con `equipo: false` explícito deja entregarla
 >   (`veredictoCuenta`, fallo cerrado). Si es de equipo, no sale: la ventana
->   cierra esa sesión en gotrue (solo esa, `signOut({ scope: 'local' })`: no la
+>   cierra en gotrue la sesión de ESE token (solo esa, `scope: 'local'`: no la
 >   tiene nadie más), la borra de aquí y dice «Esta cuenta es de un equipo de
 >   Tentare: entra desde tentare.app» con el enlace a `/reservar/<slug>`; el
 >   widget lo dice igual (también si llega después de «revisa tu correo»). Vale

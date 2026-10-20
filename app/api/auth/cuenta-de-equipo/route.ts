@@ -7,8 +7,8 @@ import { esCuentaDeEquipo } from '@/lib/auth/cuenta-de-equipo';
 // ¿La sesión recién abierta en la ventana del puente del widget
 // (app/widget-auth-retorno) es de una cuenta de EQUIPO? Si lo es, la ventana no
 // se la entrega a la web del estudio (decisión del fundador, 16-oct-2026): esa
-// sesión vale para la cuenta entera, y la web que la recibe podría usarla en el
-// estudio donde esa persona trabaja. Una cuenta que es equipo en un estudio y
+// sesión vale para la cuenta entera, y el widget es para alumnas; el equipo entra
+// desde tentare.app. Una cuenta que es equipo en un estudio y
 // alumna en otro tampoco: reserva desde la página entera, en tentare.app.
 //
 // Lo decide el servidor con el token que acaba de emitir gotrue (validado con
