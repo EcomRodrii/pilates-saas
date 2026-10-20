@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ronda 3 de la landing (19-oct-2026): seis tarjetas «verbo + punto», comparador
-// «hoy → con Tentare», migración en dos rutas, chips del bento con enlace, guías
-// con foto y un botón «Empezar gratis» al cierre de cada bloque.
+// Ronda 3 de la landing (19-oct-2026), rehecha con la home v2 (20-oct): las seis
+// tarjetas, el comparador, el bento y las guías salieron (decían lo mismo que las
+// pestañas); quedan el producto por áreas, «Un día cualquiera», las etapas y el
+// botón «Empezar gratis» al cierre del bloque de beneficio.
 //
 // Lo que fija esta spec es lo que un test unitario no ve porque depende del
 // navegador: que el HTML pintado lleve lo que los datos dicen, que no haya scroll
@@ -30,46 +31,44 @@ async function abrir(page: Page, ancho: number, alto = 900) {
 /** Cifra, porcentaje o importe en un texto. */
 const CIFRA = /[0-9]|%|€/;
 
-test('las seis tarjetas existen y cada una lleva a su función: seis rutas distintas que responden', async ({ page, request }) => {
+test('el producto por áreas: cada pestaña lleva a su función, cinco rutas distintas que responden', async ({ page, request }) => {
   await abrir(page, 1440);
-  // Home nueva (fase 2.2): las seis tarjetas son SeisVerbos (clases `wh-verbo*`).
-  const tarjetas = page.locator('#verbos .wh-verbo');
-  await expect(tarjetas).toHaveCount(6);
-  const hrefs = await tarjetas.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
-  expect(new Set(hrefs).size).toBe(6);
+  // Home v2 (20-oct-2026): las seis tarjetas, el bento y el comparador salieron; el
+  // producto se recorre en las pestañas (PestanasProducto), una función por pestaña.
+  const hrefs = await page.locator('#funcionalidades a.wh-enlace-flecha').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
+  expect(hrefs).toHaveLength(5);
+  expect(new Set(hrefs).size).toBe(5);
   for (const href of hrefs as string[]) {
     expect(href).toMatch(/^\/funcionalidades\/[a-z-]+$/);
     expect((await request.get(href, { timeout: 120_000 })).status(), href).toBe(200);
   }
-  const verbos = (await page.locator('#verbos .wh-verbo-h').allTextContents()).map((t) => t.trim());
-  expect(verbos).toEqual(['Reserva.', 'Cobra.', 'Avisa.', 'Cubre.', 'Factura.', 'Mide.']);
   // CONTROL: una ruta inventada no responde 200, así que el bucle de arriba puede fallar.
   expect((await request.get('/funcionalidades/no-existe', { timeout: 120_000 })).status()).toBe(404);
 });
 
-test('el comparador tiene seis filas «hoy / con Tentare» y ni una cifra', async ({ page }) => {
+test('«Un día cualquiera»: cuatro momentos con su verbo, su foto cargada y ni una cifra', async ({ page }) => {
   await abrir(page, 1440);
-  // Home nueva (fase 2.2): BandaComparador (clases `wh-cmp-*`).
-  const filas = page.locator('#antes-despues .wh-cmp-lista .wh-cmp-fila');
-  await expect(filas).toHaveCount(6);
-  await expect(page.locator('#antes-despues .wh-cmp-hoy')).toHaveCount(6);
-  await expect(page.locator('#antes-despues .wh-cmp-con')).toHaveCount(6);
-  const texto = await page.locator('#antes-despues .wh-cmp-lista').innerText();
-  expect(texto).not.toMatch(CIFRA);
-  // CONTROL: el mismo detector sí caza una cifra colada, y la sección de precios (que las lleva) lo dispara.
+  const tarjetas = page.locator('#momentos .wh-mom-tarjeta');
+  await expect(tarjetas).toHaveCount(4);
+  expect((await page.locator('#momentos .wh-mom-verbo').allTextContents()).map((t) => t.trim())).toEqual(['Reserva.', 'Repite.', 'Cubre.', 'Cobra.']);
+  for (let i = 0; i < 4; i++) {
+    const img = tarjetas.nth(i).locator('img');
+    await img.scrollIntoViewIfNeeded();
+    await expect(img).not.toHaveAttribute('alt', '');
+    await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
+  }
+  // «A las siete de la mañana» va en letra: una cifra sería una promesa medida que no tenemos.
+  expect(await page.locator('#momentos').innerText()).not.toMatch(CIFRA);
+  // CONTROL: el mismo detector sí caza una cifra, y la sección de precios (que las lleva) lo dispara.
   expect('ahorra 10 horas').toMatch(CIFRA);
   expect(await page.locator('#precio').innerText()).toMatch(CIFRA);
 });
 
-test('cada bloque de beneficio cierra con su botón «Empezar gratis», que lleva al alta', async ({ page }) => {
+test('el bloque de beneficio cierra con su botón «Empezar gratis», que lleva al alta', async ({ page }) => {
   await abrir(page, 1440);
-  // Home nueva (fase 2.2): los bloques que cierran con su botón son estos tres; el resto
-  // enlaza a su función (las seis tarjetas, las pestañas, las filas y las etapas).
-  for (const id of ['te-suena', 'plataforma', 'antes-despues']) {
-    const botones = page.locator(`#${id} a[href="/crear-estudio"]`);
-    expect(await botones.count(), `#${id} no tiene su botón`).toBeGreaterThan(0);
-    for (const t of await botones.allTextContents()) expect(t.trim(), `#${id}`).toBe('Empezar gratis');
-  }
+  const botones = page.locator('#te-suena a[href="/crear-estudio"]');
+  expect(await botones.count(), '#te-suena no tiene su botón').toBeGreaterThan(0);
+  for (const t of await botones.allTextContents()) expect(t.trim()).toBe('Empezar gratis');
   // CONTROL: un bloque sin botón da cero, así que el contador distingue.
   expect(await page.locator('#faq a[href="/crear-estudio"]').count()).toBe(0);
 });
@@ -86,32 +85,6 @@ test('etapas: las tres puertas (abrir, cambiar, varias sedes) llevan a páginas 
   await expect(seccion.locator('a[href^="/comparativa/tentare-vs-"]')).toHaveCount(6);
   // CONTROL: una ruta inventada no responde 200.
   expect((await request.get('/soluciones/no-existe', { timeout: 120_000 })).status()).toBe(404);
-});
-
-test('el bento: sus chips con enlace llevan a una función y las seis tarjetas siguen distintas', async ({ page }) => {
-  await abrir(page, 1440);
-  const chips = page.locator('#plataforma .wh-chip-enlace a');
-  expect(await chips.count()).toBeGreaterThanOrEqual(15);
-  for (const h of await chips.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')))) {
-    expect(h).toMatch(/^\/(funcionalidades|soluciones)\//);
-  }
-  expect(await page.locator('#plataforma .wh-bn-h3 a').count()).toBe(6);
-});
-
-test('guías destacadas: cada tarjeta con su foto cargada, su categoría y sus minutos', async ({ page }) => {
-  // Home nueva (fase 2.2): tres guías (GuiasHome), como la banda de bsport; antes, seis.
-  await abrir(page, 1440);
-  const tarjetas = page.locator('#guias .wh-guia');
-  await expect(tarjetas).toHaveCount(3);
-  await tarjetas.first().scrollIntoViewIfNeeded();
-  for (let i = 0; i < 3; i++) {
-    const t = tarjetas.nth(i);
-    await t.scrollIntoViewIfNeeded();
-    await expect(t.locator('.wh-guia-seccion')).toHaveText(/ · \d+ min de lectura$/);
-    const img = t.locator('img');
-    await expect(img).toHaveCount(1);
-    await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
-  }
 });
 
 test.describe('móvil · 375 × 812', () => {
@@ -134,11 +107,9 @@ test.describe('móvil · 375 × 812', () => {
     expect(roto.sw).toBeGreaterThan(roto.iw);
   });
 
-  test('las tarjetas, el comparador y las rutas caben en el ancho y no se pisan', async ({ page }) => {
+  test('los momentos, las etapas y los planes caben en el ancho y no se pisan', async ({ page }) => {
     await abrir(page, 375, 812);
-    // Home nueva (fase 2.2): en el móvil las seis tarjetas van en un carril que se desliza
-    // (la siguiente asoma a propósito), así que se mide el carril y no cada tarjeta.
-    for (const sel of ['#verbos .wh-verbos-rejilla', '#plataforma .wh-bn-tarjeta', '#antes-despues .wh-cmp-lista .wh-cmp-fila', '#etapas .wh-etapa', '#guias .wh-guia']) {
+    for (const sel of ['#te-suena .wh-contenedor', '#momentos .wh-mom-tarjeta', '#etapas .wh-etapa', '#precio .wh-plan']) {
       const cajas = await page.locator(sel).evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, w: r.width }; }));
       expect(cajas.length, sel).toBeGreaterThan(0);
       for (const c of cajas) {

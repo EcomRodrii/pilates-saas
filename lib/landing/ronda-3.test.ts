@@ -1,16 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { SEIS_VERBOS } from './seis-verbos.ts';
-import { COMPARADOR } from './comparador.ts';
 import { NO_SE_LLEVA, RUTAS_MIGRACION, SE_LLEVA } from './migracion.ts';
 import { CTA_ALTA } from './founding-gratis.ts';
 import { botonesAlAlta, botonesFueraDeRegla } from './cta-un-verbo.test.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ronda 3 de la landing (19-oct-2026): seis tarjetas «verbo + punto», comparador
-// «hoy → con Tentare», migración en dos rutas, chips del bento y guías con foto.
+// Ronda 3 de la landing (19-oct-2026): migración en dos rutas y un botón por bloque.
+// Con la home v2 (20-oct) salieron las seis tarjetas, el comparador, el bento y las
+// guías (repetían lo que cuentan las pestañas); entra «Un día cualquiera».
 //
 // Cada test lleva su CONTROL: una comprobación que no puede fallar no prueba
 // nada. Los controles son lo que cambia al otro lado (una ruta inventada, una
@@ -44,49 +43,20 @@ const frasesQueFaltan = (fichero: string, frases: readonly string[]) => {
   return frases.filter((f) => !fuente.includes(f));
 };
 
-// ── Seis tarjetas ───────────────────────────────────────────────────────────
+// ── «Un día cualquiera» (home v2) ───────────────────────────────────────────
 
-test('hay seis tarjetas y cada una lleva a una página de función DISTINTA que existe', () => {
-  assert.equal(SEIS_VERBOS.length, 6);
-  assert.equal(new Set(SEIS_VERBOS.map((v) => v.href)).size, 6, 'dos tarjetas llevan al mismo sitio');
-  assert.equal(new Set(SEIS_VERBOS.map((v) => v.verbo)).size, 6);
-  for (const v of SEIS_VERBOS) {
-    assert.match(v.href, /^\/funcionalidades\/[a-z-]+$/, `${v.verbo}: no lleva a una función`);
-    assert.ok(rutaExiste(v.href), `${v.verbo}: ${v.href} no existe en app/`);
-    assert.doesNotMatch(v.href, /crear-estudio|demo|login/);
+test('los cuatro momentos: un verbo cada uno, sin cifras y sin nombrar nada congelado o apagado', () => {
+  const fuente = leer('components/web/home/Momentos.tsx');
+  const verbos = [...fuente.matchAll(/verbo: '([^']+)'/g)].map((m) => m[1]);
+  const textos = [...fuente.matchAll(/texto: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(verbos, ['Reserva.', 'Repite.', 'Cubre.', 'Cobra.']);
+  assert.equal(textos.length, 4);
+  for (const t of textos) {
+    assert.doesNotMatch(t, CIFRA, t);
+    assert.doesNotMatch(t, /ClassPass|Wellhub|Urban|Gmail|Kiosko|Network|Core|Veri\*?Factu/i, t);
   }
-});
-
-test('cada frase de las seis tarjetas consta en la página de función que enlaza', () => {
-  for (const v of SEIS_VERBOS) {
-    assert.ok(v.fuente.fichero.includes(v.href.replace('/funcionalidades/', '')), `${v.verbo}: la fuente no es la página que enlaza`);
-    assert.deepEqual(frasesQueFaltan(v.fuente.fichero, v.fuente.frases), [], `${v.verbo}: la página ya no dice lo que la tarjeta afirma`);
-  }
-});
-
-test('las seis tarjetas no llevan cifras ni nombran nada congelado o apagado', () => {
-  for (const v of SEIS_VERBOS) {
-    assert.doesNotMatch(`${v.verbo} ${v.texto} ${v.funcion}`, CIFRA, v.verbo);
-    assert.doesNotMatch(v.texto, /ClassPass|Wellhub|Urban|Gmail|Kiosko|Network|Core|Veri\*?Factu/i, v.verbo);
-  }
-});
-
-// ── Comparador ──────────────────────────────────────────────────────────────
-
-test('el comparador tiene seis filas, sin una sola cifra, porcentaje ni importe', () => {
-  assert.equal(COMPARADOR.length, 6);
-  for (const f of COMPARADOR) {
-    assert.doesNotMatch(`${f.tema} ${f.hoy} ${f.conTentare}`, CIFRA, f.tema);
-    assert.doesNotMatch(`${f.hoy} ${f.conTentare}`, /ClassPass|Wellhub|Urban|Gmail|Kiosko|Network|Core|Veri\*?Factu|ahorra|horas/i, f.tema);
-  }
-});
-
-test('cada fila del comparador tiene su fuente en el repo y las frases que la prueban', () => {
-  for (const f of COMPARADOR) {
-    assert.ok(existsSync(join(RAIZ, f.fuente.fichero)), `${f.tema}: ${f.fuente.fichero} no existe`);
-    assert.ok(f.fuente.frases.length >= 2, `${f.tema}: una sola frase no prueba nada`);
-    assert.deepEqual(frasesQueFaltan(f.fuente.fichero, f.fuente.frases), [], `${f.tema}: la fuente ya no dice lo que la fila afirma`);
-  }
+  // La sustitución espera el sí de la propietaria: es el modo por defecto (asistido).
+  assert.match(textos[2], /espera tu sí/);
 });
 
 // ── Migración ───────────────────────────────────────────────────────────────
@@ -103,8 +73,6 @@ test('la migración cuenta las dos rutas que /soluciones/cambiar-de-software ya 
 
 test('la lista de «qué se trae» es la MISMA que la de la página, y lo que no se trae son las tarjetas guardadas', () => {
   assert.match(leer('app/soluciones/cambiar-de-software/page.tsx'), /from '@\/lib\/landing\/migracion'/, 'la página debe importar SE_LLEVA, no copiarla');
-  // Home nueva (fase 2.2): la lista viaja al acta del bento («Cámbiate sin empezar de cero»).
-  assert.match(leer('components/web/home/BentoProducto.tsx'), /SE_LLEVA/);
   assert.equal(SE_LLEVA.length, 6);
   const faq = leer('app/soluciones/cambiar-de-software/page.tsx');
   assert.match(faq, /las tarjetas guardadas no se migran/i);
@@ -113,19 +81,6 @@ test('la lista de «qué se trae» es la MISMA que la de la página, y lo que no
 
 test('el ancla de la segunda ruta existe en la página de migración', () => {
   assert.match(leer('app/soluciones/cambiar-de-software/page.tsx'), /id=\{ANCLA_AYUDA\}/);
-});
-
-// ── Bento: chips con enlace ─────────────────────────────────────────────────
-
-test('los chips del bento que enlazan llevan a una ruta que existe', () => {
-  // Home nueva (fase 2.2): el bento es components/web/home/BentoProducto.tsx; los chips, `['texto', '/ruta']`.
-  const bento = leer('components/web/home/BentoProducto.tsx');
-  const chips = [...bento.matchAll(/\['([^']+)',\s*'(\/[^']+)'\]/g)].map((m) => ({ texto: m[1], href: m[2] }));
-  assert.ok(chips.length >= 15, `solo se leyeron ${chips.length} chips con enlace`);
-  for (const c of chips) {
-    assert.ok(rutaExiste(c.href), `${c.texto}: ${c.href} no existe`);
-    assert.match(c.href, /^\/(funcionalidades|soluciones)\//, c.texto);
-  }
 });
 
 // ── Botón por bloque ────────────────────────────────────────────────────────
@@ -137,8 +92,8 @@ test('el botón de cierre de bloque dice «Empezar gratis» y lleva al alta', ()
   assert.equal(CTA_ALTA, 'Empezar gratis');
 });
 
-// Home nueva (fase 2.2): los bloques de beneficio que cierran con su botón.
-const BLOQUES_CON_BOTON = ['SeOcupaDelResto', 'BentoProducto', 'BandaComparador'];
+// Home v2: el bloque de beneficio que cierra con su botón (el bento y el comparador salieron).
+const BLOQUES_CON_BOTON = ['SeOcupaDelResto'];
 for (const b of BLOQUES_CON_BOTON) {
   test(`${b}: cierra con el botón de bloque y no escribe otro botón al alta con otro texto`, () => {
     const fuente = leer(`components/web/home/${b}.tsx`);
@@ -147,13 +102,15 @@ for (const b of BLOQUES_CON_BOTON) {
   });
 }
 
-test('el orden de la home nueva: logos dentro del héroe, seis verbos debajo, el bento antes de las pestañas y el comparador tras las filas', () => {
+test('el orden de la home v2: logos dentro del héroe, el beneficio, el producto por áreas, el día, las etapas, el precio, las preguntas y el cierre', () => {
   const l = leer('app/page.tsx');
   const pos = (x: string) => l.indexOf(x);
-  const orden = ['<Heroe logos={<FranjaLogos', '<SeisVerbos />', '<SeOcupaDelResto />', '<BentoProducto />', '<PestanasProducto />',
-    '<FilasEditoriales />', '<BandaComparador />', '<Etapas />', '<PrecioHome />', '<PreguntasHome />', '<GuiasHome />', '<CierreHome />'];
+  const orden = ['<Heroe logos={<FranjaLogos', '<SeOcupaDelResto />', '<PestanasProducto />', '<Momentos />',
+    '<Etapas />', '<PrecioHome />', '<PreguntasHome />', '<CierreHome />'];
   for (const x of orden) assert.ok(pos(x) > 0, `falta ${x}`);
   for (let i = 1; i < orden.length; i++) assert.ok(pos(orden[i - 1]) < pos(orden[i]), `${orden[i - 1]} debe ir antes que ${orden[i]}`);
+  // Lo que salió no vuelve de rebote.
+  for (const x of ['<SeisVerbos', '<BentoProducto', '<FilasEditoriales', '<BandaComparador', '<GuiasHome']) assert.equal(pos(x), -1, `${x} volvió a la home`);
 });
 
 // ── Controles ───────────────────────────────────────────────────────────────

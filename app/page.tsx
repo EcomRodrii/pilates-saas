@@ -1,16 +1,12 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
 import { Heroe } from '@/components/web/home/Heroe';
-import { SeisVerbos } from '@/components/web/home/SeisVerbos';
 import { SeOcupaDelResto } from '@/components/web/home/SeOcupaDelResto';
-import { BentoProducto } from '@/components/web/home/BentoProducto';
 import { PestanasProducto } from '@/components/web/home/PestanasProducto';
-import { FilasEditoriales } from '@/components/web/home/FilasEditoriales';
-import { BandaComparador } from '@/components/web/home/BandaComparador';
+import { Momentos } from '@/components/web/home/Momentos';
 import { Etapas } from '@/components/web/home/Etapas';
 import { PrecioHome } from '@/components/web/home/PrecioHome';
 import { PreguntasHome } from '@/components/web/home/PreguntasHome';
-import { GuiasHome } from '@/components/web/home/GuiasHome';
 import { CierreHome } from '@/components/web/home/CierreHome';
 import '@/components/web/home/home.css';
 import { FranjaLogos } from '@/components/landing/FranjaLogos';
@@ -73,28 +69,25 @@ export const metadata: Metadata = {
   },
 };
 
-// La composición de la home nueva (fase 2.2, 19-oct-2026), en su orden. Todo
-// son componentes de servidor salvo las pestañas (su estado) y el armazón de
-// LandingCliente (isla, pie, medición, popup):
-//   héroe a sangre con los logos de estudios dentro (Mariana Tek + bsport) → seis verbos
-//   (Momence) → «Tú das la clase» → bento del producto (bsport) → pestañas por
-//   resultado (Momence) + vídeo → filas alternas (Mariana Tek/Momence) → banda
-//   oscura hoy/con Tentare → etapas → precio → preguntas → guías → cierre.
+// La composición de la home (v2, 20-oct-2026: el fundador la vio «horrible»: larga,
+// repetida, todo crema y tarjetas). De 12 secciones a 8, una idea por bloque y
+// alternando bandas oscuras y claras:
+//   héroe a sangre y luminoso (solo el móvil) con los logos → «Lo que antes te llevaba
+//   la tarde» → el producto por áreas + vídeo → «Un día cualquiera» (personas a sangre)
+//   → etapas → precio → preguntas → cierre.
+// Fuera: los seis verbos, el bento, las filas y la banda «hoy / con Tentare» (decían
+// lo mismo que las pestañas) y las guías (el blog está en el menú).
 export default async function HomePage() {
   const logos = await logosClientesLanding();
   return (
     <LandingCliente>
       <Heroe logos={<FranjaLogos logos={logos} />} />
-      <SeisVerbos />
       <SeOcupaDelResto />
-      <BentoProducto />
       <PestanasProducto />
-      <FilasEditoriales />
-      <BandaComparador />
+      <Momentos />
       <Etapas />
       <PrecioHome />
       <PreguntasHome />
-      <GuiasHome />
       <CierreHome />
     </LandingCliente>
   );
