@@ -15,7 +15,7 @@ import {
 } from '@/components/soluciones/LandingSolucion';
 import { CalculadoraPlazasVacias } from '@/components/soluciones/CalculadoraPlazasVacias';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
-import { AgendaDia, PanelInformes } from '@/components/web/home/piezas';
+import { PanelInformes } from '@/components/web/home/piezas';
 
 // Página pilar del estudio de Pilates REFORMER (fase 5 del rediseño, 23-sep;
 // rehecha el 7-oct-2026 como página de producto, no como artículo).
@@ -128,7 +128,7 @@ export default function EstudioDePilatesReformerPage() {
       <FilaProducto
         eyebrow="Reservas por máquina"
         titulo="Reservas por reformer y aforo por sala"
-        pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
+        pieza={{ descripcion: 'La alumna confirma su plaza en la app, en un iPhone: la sesión que gasta de su bono y el mapa de la sala para elegir su reformer.', contenido: <AppAlumna captura="elegirReformer" />, movil: true }}
         puntos={[
           'La ocupación del día, sala por sala, en el propio calendario',
           'Reglas distintas para el reformer y para el mat',

@@ -83,6 +83,25 @@ export const CAPTURAS_APP = {
     // no enseña la marca de otro estudio. Altura real: 1696 a 780 px de ancho.
     n: 'app-alumna-inicio-v2-estudio-pilates',
     alt: 'Inicio de la app de la alumna con la marca de su estudio: su próxima clase con foto, accesos a reservar, su plan, la comunidad y sus favoritos, y su progreso de la semana',
+    tinta: 'clara',
+  },
+  // 21-oct-2026: tres pantallas más de la app nueva, para no repetir Inicio en todas las
+  // páginas. Salen de e2e/landing-capturas.spec.ts (Estudio Alma, datos inventados) con
+  // scripts/capturas-landing.mjs, que les añade el hueco de la barra de estado.
+  reservar: {
+    n: 'app-alumna-reservar-manana',
+    alt: 'Reservar en la app de la alumna: las clases de mañana con su foto, su hora, su sala, su instructora y las plazas que quedan',
+    tinta: 'oscura',
+  },
+  miPlan: {
+    n: 'app-alumna-mi-plan',
+    alt: 'Mi plan en la app de la alumna: su bono con las sesiones que le quedan y hasta cuándo, su próxima clase, la tienda y sus recibos',
+    tinta: 'oscura',
+  },
+  elegirReformer: {
+    n: 'app-alumna-elegir-reformer',
+    alt: 'La alumna confirma su plaza en la app: la clase, la sesión que gasta de su bono, la cancelación gratuita y el mapa de la sala para elegir su reformer',
+    tinta: 'clara',
   },
 } as const;
 
@@ -223,10 +242,10 @@ export function PasarLista({ className = '' }: { className?: string }) {
  * home (sin la marca de ningún estudio real: components/web/home/piezas.tsx). Para
  * una `pieza` con `movil: true` (soluciones y funcionalidades, fases 2.3 y 2.4).
  */
-export function AppAlumna() {
-  const c = CAPTURAS_APP.inicio;
+export function AppAlumna({ captura = 'inicio' }: { captura?: keyof typeof CAPTURAS_APP }) {
+  const c = CAPTURAS_APP[captura];
   return (
-    <MarcoIphone modelo="17-pro" escala={0.5} tinta="clara" indicador="oscura">
+    <MarcoIphone modelo="17-pro" escala={0.5} tinta={c.tinta} indicador="oscura">
       <div style={{ height: '100%', background: '#F4EEE5' }}>
         <picture>
           <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes="210px" />

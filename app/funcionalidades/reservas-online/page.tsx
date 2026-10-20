@@ -55,7 +55,7 @@ export default function ReservasPage() {
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
-      pieza={{ descripcion: 'La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana.', contenido: <AppAlumna />, movil: true }}
+      pieza={{ descripcion: 'Reservar en la app de una alumna, en un iPhone: las clases de mañana con su hora, su sala, su instructora y las plazas que quedan.', contenido: <AppAlumna captura="reservar" />, movil: true }}
     >
       <Seccion id="problema" titulo="El coste real de reservar por WhatsApp">
         <Entradilla>
