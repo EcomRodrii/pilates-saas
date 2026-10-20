@@ -45,7 +45,7 @@ test('el panel pregunta al servidor y solo sigue el camino de siempre si este di
 
 test('la migración estrecha el RPC a 7 días, solo lunes y sin clases canceladas, sin tocar permisos', () => {
   const sql = leer('supabase/migrations/20261020153140_semana_completa_ventana_de_7_dias.sql');
-  assert.match(sql, /PROPUESTA, NO APLICADA/);
+  assert.match(sql, /APLICADA en producción/);
   assert.match(sql, /'extract\(isodow from v_lunes\) not in \(1, 7\)', 'extract\(isodow from v_lunes\) <> 1'/);
   assert.match(sql, /\(v_lunes \+ 8\)::timestamp at time zone ''Europe\/Madrid''', '\(v_lunes \+ 7\)/);
   assert.match(sql, /not coalesce\(s\.cancelada, false\)/);
