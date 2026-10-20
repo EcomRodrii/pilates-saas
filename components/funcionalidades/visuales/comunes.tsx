@@ -17,7 +17,7 @@ import { MUTED } from '@/components/landing/theme';
 export function PanelOscuro({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div style={{ background: '#1A1D14', border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: 'clamp(18px,2.2vw,24px)' }}>
-      <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.5)', marginBottom: 16 }}>{titulo}</div>
+      <div style={{ fontWeight: 600, fontSize: 11.5, color: 'rgba(255,255,255,.5)', marginBottom: 16 }}>{titulo}</div>
       {children}
     </div>
   );
@@ -27,7 +27,7 @@ export function PanelOscuro({ titulo, children }: { titulo: string; children: Re
 export function PanelClaro({ titulo, nota, children }: { titulo: string; nota?: string; children: React.ReactNode }) {
   return (
     <figure style={{ margin: '28px 0', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 20, padding: 'clamp(20px,2.6vw,28px)', overflow: 'hidden' }}>
-      <figcaption className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 18 }}>{titulo}</figcaption>
+      <figcaption style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 18 }}>{titulo}</figcaption>
       {children}
       {nota && <p style={{ margin: '18px 0 0', fontSize: 12.5, lineHeight: 1.5, color: MUTED }}>{nota}</p>}
     </figure>

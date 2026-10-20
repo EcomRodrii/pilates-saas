@@ -1394,14 +1394,18 @@ export function estadoDelPlan(e: { enTuPlan: boolean; activo: boolean; planMinim
  * semana». Lo que no se ha tocado, como lo aplica el servidor: «créditos», no
  * caducan y la racha pide 1 clase. `null` = sin cargar.
  */
-export function resumenReglasCreditos(s: Partial<Pick<Studio, 'creditosNombre' | 'creditosCaducanMeses' | 'rachaClasesSemana'>>): string | null {
+export function resumenReglasCreditos(
+  s: Partial<Pick<Studio, 'creditosNombre' | 'creditosCaducanMeses' | 'rachaClasesSemana'>>,
+  /** Con la racha única (`RACHA_UNICA`) la meta es fija (1 clase por semana) y deja de ser un ajuste: no se resume. */
+  opciones: { sinRacha?: boolean } = {},
+): string | null {
   if (s.creditosNombre === undefined) return null;
   const meses = s.creditosCaducanMeses ?? null;
   const racha = s.rachaClasesSemana && s.rachaClasesSemana > 1 ? s.rachaClasesSemana : 1;
   return unir([
     `se llaman ${nombreCreditos(s.creditosNombre)}`,
     meses ? `caducan a los ${contar(meses, 'mes', 'meses')} sin ganar` : 'no caducan',
-    `racha de ${contar(racha, 'clase', 'clases')} por semana`,
+    ...(opciones.sinRacha ? [] : [`racha de ${contar(racha, 'clase', 'clases')} por semana`]),
   ], 90);
 }
 

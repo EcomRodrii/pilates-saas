@@ -53,6 +53,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
   // propietaria: la ruta que guarda (y que impide que nadie baje) es suya.
   const rol = useRol();
   const nivelesConRitmo = useInterruptor('nivelesConRitmo', studio?.id) && rol === 'PROPIETARIO';
+  const rachaUnica = useInterruptor('rachaUnica', studio?.id);
 
   // Las diez tablas de gamificación NO vienen en el arranque del panel (#1375):
   // se piden aquí y en la pantalla de canjes. `cargarGamificacion` es
@@ -106,7 +107,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
 
         <Paso n={1} titulo="Cómo se ganan">
           <GrupoFilas titulo="Tus créditos">
-            <FilaAjuste id="reglas" icono={Coins} valor={cargado ? resumenReglasCreditos(cargado) : null} estado={plan} onAbrir={abrir} />
+            <FilaAjuste id="reglas" icono={Coins} valor={cargado ? resumenReglasCreditos(cargado, { sinRacha: rachaUnica }) : null} estado={plan} onAbrir={abrir} />
             <FilaAjuste
               id="creditos-por-accion"
               icono={Sparkles}

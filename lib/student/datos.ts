@@ -136,6 +136,12 @@ export async function getMinimoRacha(slug: string): Promise<number> {
   return typeof n === 'number' && n >= 1 ? Math.floor(n) : 1;
 }
 
+/** ¿Este estudio tiene encendida la racha única (`RACHA_UNICA`)? Del mismo payload cacheado: cero peticiones. */
+export async function getRachaUnicaActiva(slug: string): Promise<boolean> {
+  const d = await catalogo(slug);
+  return d?.studio?.rachaUnica === true;
+}
+
 // `confirmarReserva` y `cancelarReserva` NO viven aquí: son escrituras contra
 // `POST /api/public/reserva` y su traducción de errores es la máquina de
 // estados del diseño. Entran en F4, con su propio fichero y sus propios tests.

@@ -65,7 +65,7 @@ export function QuePasaConElBono() {
           <thead>
             <tr>
               {['Qué ha pasado', 'Su bono', 'Su plaza'].map((c, i) => (
-                <th key={c} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: i === 0 ? 190 : 160 }}>{c}</th>
+                <th key={c} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: i === 0 ? 190 : 160 }}>{c}</th>
               ))}
             </tr>
           </thead>

@@ -49,7 +49,7 @@ export function CondicionesYZonas() {
     >
       <div style={{ display: 'grid', gap: 18 }}>
         <div>
-          <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>Ocho zonas</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Ocho zonas</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {ZONAS.map((z) => (
               <span key={z} style={{ fontSize: 13, color: '#3A3A34', background: '#F1F2EA', border: '1px solid #E1E5D4', padding: '6px 12px', borderRadius: 8 }}>{z}</span>
@@ -57,7 +57,7 @@ export function CondicionesYZonas() {
           </div>
         </div>
         <div>
-          <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>Seis categorías</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Seis categorías</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {CATEGORIAS.map((c) => (
               <span key={c} style={{ fontSize: 13, color: '#3A3A34', background: '#FAFAF6', border: '1px solid #EDEDE5', padding: '6px 12px', borderRadius: 8 }}>{c}</span>
@@ -65,7 +65,7 @@ export function CondicionesYZonas() {
           </div>
         </div>
         <div>
-          <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 10 }}>Cómo respondió a la última sesión</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Cómo respondió a la última sesión</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {[['Mejor', '#4E9E7F'], ['Igual', '#8E8E86'], ['Molestias', '#C79A2E'], ['Dolor', '#C2503A']].map(([c, col]) => (
               <span key={c} style={{ fontSize: 13, color: col as string, background: '#fff', border: `1px solid ${col}33`, padding: '6px 12px', borderRadius: 8, fontWeight: 600 }}>{c}</span>

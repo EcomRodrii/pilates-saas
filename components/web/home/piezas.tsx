@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { MarcoIphone } from '@/components/ui/marco-iphone';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,5 +318,34 @@ export function FotoAportada({ src, ancho, alto, alt, sizes, posicion = '50% 50%
         <img src={`/landing/fotos-aportadas/${src}.webp`} width={ancho} height={alto} alt={alt} sizes={sizes} loading="lazy" decoding="async" style={{ objectPosition: posicion }} />
       </picture>
     </span>
+  );
+}
+
+/**
+ * La app NUEVA de la alumna en el iPhone 17 Pro, la misma captura que el héroe de la
+ * home (sin la marca de ningún estudio real: components/web/home/piezas.tsx). Para
+ * una `pieza` con `movil: true` (soluciones y funcionalidades, fases 2.3 y 2.4).
+ */
+export function AppAlumna() {
+  const c = CAPTURAS_APP.inicio;
+  return (
+    <MarcoIphone modelo="17-pro" escala={0.5} tinta="clara" indicador="oscura">
+      <div style={{ height: '100%', background: '#F4EEE5' }}>
+        <picture>
+          <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes="210px" />
+          <img
+            src={`/landing/capturas/${c.n}-390.webp`}
+            srcSet={`/landing/capturas/${c.n}-390.webp 390w, /landing/capturas/${c.n}-780.webp 780w`}
+            sizes="210px"
+            width={780}
+            height={1696}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0' }}
+          />
+        </picture>
+      </div>
+    </MarcoIphone>
   );
 }
