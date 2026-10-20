@@ -32,7 +32,8 @@ const CIFRA = /[0-9]|%|€/;
 
 test('las seis tarjetas existen y cada una lleva a su función: seis rutas distintas que responden', async ({ page, request }) => {
   await abrir(page, 1440);
-  const tarjetas = page.locator('#verbos .v6-vb-card');
+  // Home nueva (fase 2.2): las seis tarjetas son SeisVerbos (clases `wh-verbo*`).
+  const tarjetas = page.locator('#verbos .wh-verbo');
   await expect(tarjetas).toHaveCount(6);
   const hrefs = await tarjetas.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
   expect(new Set(hrefs).size).toBe(6);
@@ -40,7 +41,7 @@ test('las seis tarjetas existen y cada una lleva a su función: seis rutas disti
     expect(href).toMatch(/^\/funcionalidades\/[a-z-]+$/);
     expect((await request.get(href, { timeout: 120_000 })).status(), href).toBe(200);
   }
-  const verbos = (await page.locator('#verbos .v6-vb-verbo').allTextContents()).map((t) => t.trim());
+  const verbos = (await page.locator('#verbos .wh-verbo-h').allTextContents()).map((t) => t.trim());
   expect(verbos).toEqual(['Reserva.', 'Cobra.', 'Avisa.', 'Cubre.', 'Factura.', 'Mide.']);
   // CONTROL: una ruta inventada no responde 200, así que el bucle de arriba puede fallar.
   expect((await request.get('/funcionalidades/no-existe', { timeout: 120_000 })).status()).toBe(404);
@@ -48,11 +49,12 @@ test('las seis tarjetas existen y cada una lleva a su función: seis rutas disti
 
 test('el comparador tiene seis filas «hoy / con Tentare» y ni una cifra', async ({ page }) => {
   await abrir(page, 1440);
-  const filas = page.locator('#antes-despues .v6-cmp-fila');
+  // Home nueva (fase 2.2): BandaComparador (clases `wh-cmp-*`).
+  const filas = page.locator('#antes-despues .wh-cmp-lista .wh-cmp-fila');
   await expect(filas).toHaveCount(6);
-  await expect(page.locator('#antes-despues .v6-cmp-hoy')).toHaveCount(6);
-  await expect(page.locator('#antes-despues .v6-cmp-con')).toHaveCount(6);
-  const texto = await page.locator('#antes-despues .v6-cmp-filas').innerText();
+  await expect(page.locator('#antes-despues .wh-cmp-hoy')).toHaveCount(6);
+  await expect(page.locator('#antes-despues .wh-cmp-con')).toHaveCount(6);
+  const texto = await page.locator('#antes-despues .wh-cmp-lista').innerText();
   expect(texto).not.toMatch(CIFRA);
   // CONTROL: el mismo detector sí caza una cifra colada, y la sección de precios (que las lleva) lo dispara.
   expect('ahorra 10 horas').toMatch(CIFRA);
@@ -61,7 +63,9 @@ test('el comparador tiene seis filas «hoy / con Tentare» y ni una cifra', asyn
 
 test('cada bloque de beneficio cierra con su botón «Empezar gratis», que lleva al alta', async ({ page }) => {
   await abrir(page, 1440);
-  for (const id of ['verbos', 'app', 'calendario', 'antes-despues', 'plataforma', 'sustituciones', 'cambiarte']) {
+  // Home nueva (fase 2.2): los bloques que cierran con su botón son estos tres; el resto
+  // enlaza a su función (las seis tarjetas, las pestañas, las filas y las etapas).
+  for (const id of ['te-suena', 'plataforma', 'antes-despues']) {
     const botones = page.locator(`#${id} a[href="/crear-estudio"]`);
     expect(await botones.count(), `#${id} no tiene su botón`).toBeGreaterThan(0);
     for (const t of await botones.allTextContents()) expect(t.trim(), `#${id}`).toBe('Empezar gratis');
@@ -70,42 +74,40 @@ test('cada bloque de beneficio cierra con su botón «Empezar gratis», que llev
   expect(await page.locator('#faq a[href="/crear-estudio"]').count()).toBe(0);
 });
 
-test('migración: dos rutas con sus nombres, la lista de lo que se trae y lo que NO se trae', async ({ page, request }) => {
+test('etapas: las tres puertas (abrir, cambiar, varias sedes) llevan a páginas que existen, con las comparativas', async ({ page, request }) => {
+  // Home nueva (fase 2.2): la migración en dos rutas vive en /soluciones/cambiar-de-software;
+  // la home lleva ahí desde la etapa «quiero cambiar», con las comparativas al lado.
   await abrir(page, 1440);
-  const seccion = page.locator('#cambiarte');
-  await expect(seccion.getByRole('heading', { level: 3, name: 'Traigo mis datos yo' })).toBeVisible();
-  await expect(seccion.getByRole('heading', { level: 3, name: 'Me ayudáis a traerlos' })).toBeVisible();
-  await expect(seccion.locator('.v5-cam-lista li')).toHaveCount(6);
-  await expect(seccion.locator('.v5-cam-no')).toContainText('tarjetas guardadas');
-  // La segunda ruta lleva al formulario de la página de migración, y ese ancla existe.
-  const ayuda = seccion.getByRole('link', { name: 'Pedir que me lo traigáis' });
-  const href = (await ayuda.getAttribute('href')) as string;
-  expect(href).toBe('/soluciones/cambiar-de-software#te-la-hacemos-nosotros');
-  const html = await (await request.get(href.split('#')[0], { timeout: 120_000 })).text();
-  expect(html).toContain('id="te-la-hacemos-nosotros"');
-  // CONTROL: un ancla inventada no está en la página.
-  expect(html).not.toContain('id="no-existe-esta-ancla"');
+  const seccion = page.locator('#etapas');
+  await expect(seccion.locator('.wh-etapa')).toHaveCount(3);
+  const hrefs = await seccion.locator('h3 a').evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')));
+  expect(hrefs).toEqual(['/recursos/como-abrir-un-estudio-de-pilates', '/soluciones/cambiar-de-software', '/funcionalidades/multi-centro']);
+  for (const h of hrefs as string[]) expect((await request.get(h, { timeout: 120_000 })).status(), h).toBe(200);
+  await expect(seccion.locator('a[href^="/comparativa/tentare-vs-"]')).toHaveCount(6);
+  // CONTROL: una ruta inventada no responde 200.
+  expect((await request.get('/soluciones/no-existe', { timeout: 120_000 })).status()).toBe(404);
 });
 
 test('el bento: sus chips con enlace llevan a una función y las seis tarjetas siguen distintas', async ({ page }) => {
   await abrir(page, 1440);
-  const chips = page.locator('#plataforma .bn-chip-enlace a');
-  expect(await chips.count()).toBeGreaterThanOrEqual(10);
+  const chips = page.locator('#plataforma .wh-chip-enlace a');
+  expect(await chips.count()).toBeGreaterThanOrEqual(15);
   for (const h of await chips.evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')))) {
     expect(h).toMatch(/^\/(funcionalidades|soluciones)\//);
   }
-  expect(await page.locator('#plataforma .bn-h3 a').count()).toBe(6);
+  expect(await page.locator('#plataforma .wh-bn-h3 a').count()).toBe(6);
 });
 
 test('guías destacadas: cada tarjeta con su foto cargada, su categoría y sus minutos', async ({ page }) => {
+  // Home nueva (fase 2.2): tres guías (GuiasHome), como la banda de bsport; antes, seis.
   await abrir(page, 1440);
-  const tarjetas = page.locator('#guias .v5-guia');
-  await expect(tarjetas).toHaveCount(6);
+  const tarjetas = page.locator('#guias .wh-guia');
+  await expect(tarjetas).toHaveCount(3);
   await tarjetas.first().scrollIntoViewIfNeeded();
   for (let i = 0; i < 6; i++) {
     const t = tarjetas.nth(i);
     await t.scrollIntoViewIfNeeded();
-    await expect(t.locator('.v5-guia-seccion')).toHaveText(/ · \d+ min de lectura$/);
+    await expect(t.locator('.wh-guia-seccion')).toHaveText(/ · \d+ min de lectura$/);
     const img = t.locator('img');
     await expect(img).toHaveCount(1);
     await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
@@ -134,7 +136,9 @@ test.describe('móvil · 375 × 812', () => {
 
   test('las tarjetas, el comparador y las rutas caben en el ancho y no se pisan', async ({ page }) => {
     await abrir(page, 375, 812);
-    for (const sel of ['#verbos .v6-vb-card', '#antes-despues .v6-cmp-fila', '#cambiarte .v5-cam-ruta', '#guias .v5-guia']) {
+    // Home nueva (fase 2.2): en el móvil las seis tarjetas van en un carril que se desliza
+    // (la siguiente asoma a propósito), así que se mide el carril y no cada tarjeta.
+    for (const sel of ['#verbos .wh-verbos-rejilla', '#plataforma .wh-bn-tarjeta', '#antes-despues .wh-cmp-lista .wh-cmp-fila', '#etapas .wh-etapa', '#guias .wh-guia']) {
       const cajas = await page.locator(sel).evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, w: r.width }; }));
       expect(cajas.length, sel).toBeGreaterThan(0);
       for (const c of cajas) {

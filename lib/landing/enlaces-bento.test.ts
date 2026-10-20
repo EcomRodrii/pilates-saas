@@ -18,6 +18,8 @@ import { ARTICULOS, urlArticulo } from '../recursos/articulos/index.ts';
 const RAIZ = process.cwd();
 const RAIZ_APP = join(RAIZ, 'app');
 const DIR_LANDING = join(RAIZ, 'components', 'landing');
+// Home nueva (fase 2.2, 19-oct-2026): las secciones viven aquí.
+const DIR_HOME = join(RAIZ, 'components', 'web', 'home');
 
 /** Rutas estáticas de `app/` (una por `page.tsx`), con los route-groups colapsados. */
 function rutasEstaticas(dir = RAIZ_APP, prefijo = ''): string[] {
@@ -58,9 +60,9 @@ export function enlacesInternos(fuente: string): string[] {
   return hrefs.filter((h) => h.startsWith('/') && !h.startsWith('//') && !h.includes('${'));
 }
 
-/** Las seis tarjetas del bento: `<Texto id="…" href="…"`. */
+/** Las seis tarjetas del bento (BentoProducto.tsx): `id: 'wh-bn-…',\n href: '…'`. */
 export function tarjetasDelBento(fuente: string): string[] {
-  return [...fuente.matchAll(/<Texto\s+id="[^"]+"\s+href="([^"]+)"/g)].map((m) => m[1]);
+  return [...fuente.matchAll(/id: 'wh-bn-[a-z]+',\s*href: '([^']+)'/g)].map((m) => m[1]);
 }
 
 const DESTINOS_PROHIBIDOS = [/^\/crear-estudio/, /^\/empieza/, /^\/login/, /demo/i, /^#/];
@@ -74,7 +76,7 @@ export function problemasDeTarjeta(href: string, existentes: ReadonlySet<string>
   return fallos;
 }
 
-const BENTO = readFileSync(join(DIR_LANDING, 'SeccionBento.tsx'), 'utf8');
+const BENTO = readFileSync(join(DIR_HOME, 'BentoProducto.tsx'), 'utf8');
 
 test('el bento tiene sus seis tarjetas, cada una con su propio destino', () => {
   const tarjetas = tarjetasDelBento(BENTO);
@@ -89,28 +91,31 @@ test('cada tarjeta del bento lleva a su página de función o solución, y esa p
   }
 });
 
-test('la fila «Seguir explorando» del bento no tiene enlaces rotos', () => {
-  const mas = [...BENTO.matchAll(/\{\s*href:\s*'([^']+)',\s*label:/g)].map((m) => m[1]);
-  assert.ok(mas.length >= 5, 'no se encontró la fila de enlaces');
-  const rotos = mas.filter((h) => !rutaExiste(h));
-  assert.deepEqual(rotos, []);
+test('los chips del bento llevan cada uno a una ruta que existe', () => {
+  const chips = [...BENTO.matchAll(/\['[^']+',\s*'(\/[^']+)'\]/g)].map((m) => m[1]);
+  assert.ok(chips.length >= 15, `solo se leyeron ${chips.length} chips`);
+  assert.deepEqual(chips.filter((h) => !rutaExiste(h)), []);
 });
 
-test('ningún enlace interno de las secciones de la landing apunta a una ruta que no existe', () => {
-  const ficheros = readdirSync(DIR_LANDING).filter((f) => /^Seccion.*\.tsx$/.test(f) || f === 'enlaces.ts' || f === 'data.ts' || f === 'PopupEmpezar.tsx' || f === 'BandaPrueba.tsx' || f === 'LandingCliente.tsx');
-  assert.ok(ficheros.length >= 15, `solo se leyeron ${ficheros.length} ficheros`);
+test('ningún enlace interno de la home ni de su armazón apunta a una ruta que no existe', () => {
+  const deLaHome = readdirSync(DIR_HOME).filter((f) => f.endsWith('.tsx')).map((f) => join(DIR_HOME, f));
+  const delArmazon = readdirSync(DIR_LANDING)
+    .filter((f) => /^Seccion.*\.tsx$/.test(f) || ['enlaces.ts', 'data.ts', 'PopupEmpezar.tsx', 'BandaPrueba.tsx', 'LandingCliente.tsx'].includes(f))
+    .map((f) => join(DIR_LANDING, f));
+  const ficheros = [...deLaHome, ...delArmazon];
+  assert.ok(deLaHome.length >= 12, `solo se leyeron ${deLaHome.length} ficheros de la home`);
   const rotos: string[] = [];
   for (const f of ficheros) {
-    for (const h of enlacesInternos(readFileSync(join(DIR_LANDING, f), 'utf8'))) {
-      if (!rutaExiste(h)) rotos.push(`${f}: ${h}`);
+    for (const h of enlacesInternos(readFileSync(f, 'utf8'))) {
+      if (!rutaExiste(h)) rotos.push(`${f.replace(RAIZ + '/', '')}: ${h}`);
     }
   }
   assert.deepEqual(rotos, []);
 });
 
-test('las comparativas que enlaza «¿Ya usas otro programa?» existen', () => {
-  const fuente = readFileSync(join(DIR_LANDING, 'SeccionCambiarte.tsx'), 'utf8');
-  const slugs = [...fuente.matchAll(/\{\s*slug:\s*'([^']+)'/g)].map((m) => m[1]);
+test('las comparativas que enlaza la etapa «quiero cambiar» existen', () => {
+  const fuente = readFileSync(join(DIR_HOME, 'Etapas.tsx'), 'utf8');
+  const slugs = [...fuente.matchAll(/\['([a-z]+)', '[^']+'\]/g)].map((m) => m[1]);
   assert.ok(slugs.length >= 6, `solo se encontraron ${slugs.length} comparativas`);
   const sinPagina = slugs.filter((s) => !PAGINAS.some((p) => p.path === `/comparativa/tentare-vs-${s}`));
   assert.deepEqual(sinPagina, []);
@@ -127,7 +132,7 @@ test('CONTROL: el detector caza una tarjeta a la demo, una ruta rota y una fila 
   assert.deepEqual(problemasDeTarjeta('/funcionalidades/reservas-online'), []);
   assert.deepEqual(problemasDeTarjeta('/soluciones/cambiar-de-software'), []);
   // El extractor lee lo que debe, y el comprobador de rutas no se deja engañar por un ancla.
-  assert.deepEqual(tarjetasDelBento('<Texto id="a" href="/funcionalidades/x" titulo="t"'), ['/funcionalidades/x']);
+  assert.deepEqual(tarjetasDelBento("id: 'wh-bn-x',\n    href: '/funcionalidades/x',"), ['/funcionalidades/x']);
   assert.deepEqual(enlacesInternos(`<Link href="/precios">a</Link><a href="https://x.es">b</a><a href="#top">c</a><Link href={\`/c/\${s}\`}>`), ['/precios']);
   assert.equal(rutaExiste('/precios#planes'), true);
   assert.equal(rutaExiste('/precios-que-no-existen'), false);

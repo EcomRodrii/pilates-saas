@@ -1,11 +1,18 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
-import { SeccionGuias } from '@/components/landing/SeccionGuias';
-import { SeccionBento } from '@/components/landing/SeccionBento';
-import { SeccionEnUnaFrase } from '@/components/landing/SeccionEnUnaFrase';
-import { SeccionCambiarte } from '@/components/landing/SeccionCambiarte';
-import { SeccionSeisVerbos } from '@/components/landing/SeccionSeisVerbos';
-import { SeccionComparador } from '@/components/landing/SeccionComparador';
+import { Heroe } from '@/components/web/home/Heroe';
+import { SeisVerbos } from '@/components/web/home/SeisVerbos';
+import { SeOcupaDelResto } from '@/components/web/home/SeOcupaDelResto';
+import { BentoProducto } from '@/components/web/home/BentoProducto';
+import { PestanasProducto } from '@/components/web/home/PestanasProducto';
+import { FilasEditoriales } from '@/components/web/home/FilasEditoriales';
+import { BandaComparador } from '@/components/web/home/BandaComparador';
+import { Etapas } from '@/components/web/home/Etapas';
+import { PrecioHome } from '@/components/web/home/PrecioHome';
+import { PreguntasHome } from '@/components/web/home/PreguntasHome';
+import { GuiasHome } from '@/components/web/home/GuiasHome';
+import { CierreHome } from '@/components/web/home/CierreHome';
+import '@/components/web/home/home.css';
 import { FranjaLogos } from '@/components/landing/FranjaLogos';
 import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
@@ -66,17 +73,29 @@ export const metadata: Metadata = {
   },
 };
 
+// La composición de la home nueva (fase 2.2, 19-oct-2026), en su orden. Todo
+// son componentes de servidor salvo las pestañas (su estado) y el armazón de
+// LandingCliente (isla, pie, medición, popup):
+//   héroe a sangre con los logos de estudios dentro (Mariana Tek + bsport) → seis verbos
+//   (Momence) → «Tú das la clase» → bento del producto (bsport) → pestañas por
+//   resultado (Momence) + vídeo → filas alternas (Mariana Tek/Momence) → banda
+//   oscura hoy/con Tentare → etapas → precio → preguntas → guías → cierre.
 export default async function HomePage() {
   const logos = await logosClientesLanding();
   return (
-    <LandingCliente
-      guias={<SeccionGuias />}
-      bento={<SeccionBento />}
-      frase={<SeccionEnUnaFrase />}
-      cambiarte={<SeccionCambiarte />}
-      verbos={<SeccionSeisVerbos />}
-      comparador={<SeccionComparador />}
-      logos={<FranjaLogos logos={logos} />}
-    />
+    <LandingCliente>
+      <Heroe logos={<FranjaLogos logos={logos} />} />
+      <SeisVerbos />
+      <SeOcupaDelResto />
+      <BentoProducto />
+      <PestanasProducto />
+      <FilasEditoriales />
+      <BandaComparador />
+      <Etapas />
+      <PrecioHome />
+      <PreguntasHome />
+      <GuiasHome />
+      <CierreHome />
+    </LandingCliente>
   );
 }

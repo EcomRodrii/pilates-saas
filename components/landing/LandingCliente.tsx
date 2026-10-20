@@ -6,19 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { BG } from '@/components/landing/theme';
 import { SeccionHero } from '@/components/landing/SeccionHero';
-import { VideoProducto } from '@/components/landing/VideoProducto';
-import { SeccionTeSuena } from '@/components/landing/SeccionTeSuena';
-import { SeccionTuEstudio } from '@/components/landing/SeccionTuEstudio';
-import { SeccionConfianza } from '@/components/landing/SeccionConfianza';
-import { SeccionParteNoche } from '@/components/landing/SeccionParteNoche';
-import { SeccionSustituciones } from '@/components/landing/SeccionSustituciones';
-import { SeccionCalendarioReservas } from '@/components/landing/SeccionCalendarioReservas';
-import { SeccionReservas } from '@/components/landing/SeccionReservas';
-import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalidades';
-import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
-import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
@@ -29,33 +17,21 @@ import { AnclasSuaves } from '@/components/landing/AnclasSuaves';
 import { StructuredData } from '@/components/landing/StructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
-// La landing entera (cliente): ya no es la página de `/` sino lo que ésta pinta.
-// Antes vivía en app/page.tsx con 'use client', y una página de cliente no puede
-// exportar `metadata`: la home heredaba título, descripción y canonical del
-// layout raíz (fase 5 del SEO, 23-sep). Ahora `app/page.tsx` es un componente de
-// servidor con sus propios metadatos y esto solo se monta debajo.
-/**
- * `guias`: la sección de guías de /recursos, que llega ya pintada desde el
- * servidor (app/page.tsx) para que el texto de los artículos no entre en el
- * JavaScript de la home. Ver components/landing/SeccionGuias.tsx.
- * `bento`, `frase` y `cambiarte` van igual (SeccionBento, SeccionEnUnaFrase,
- * SeccionCambiarte): son texto puro y miniaturas en CSS, sin ningún motivo
- * para pesar en el cliente. Y `verbos` y `comparador` (ronda 3: SeccionSeisVerbos y
- * SeccionComparador), por lo mismo: texto con enlaces, sin estado. `logos` es la
- * franja de estudios que ya usan Tentare (FranjaLogos): sale de una consulta en
- * servidor y es `null` si no hay ningún estudio con consentimiento.
- */
-interface HuecosLanding {
-  guias?: ReactNode;
-  bento?: ReactNode;
-  frase?: ReactNode;
-  cambiarte?: ReactNode;
-  verbos?: ReactNode;
-  comparador?: ReactNode;
-  logos?: ReactNode;
+// El armazón de cliente de la home: la isla, el pie y lo que necesita el
+// navegador (redirigir a quien ya tiene sesión, el salto a un #ancla, la
+// medición, el popup y el botón de WhatsApp). Antes vivía en app/page.tsx con
+// 'use client', y una página de cliente no puede exportar `metadata` (fase 5
+// del SEO, 23-sep).
+//
+// Desde la home nueva (fase 2.2, 19-oct-2026) las SECCIONES llegan como
+// `children`, ya pintadas en el servidor y en su orden, desde app/page.tsx: es
+// el único sitio donde se lee la composición de la home. Ninguna sección entra
+// en el JavaScript de la página salvo las pestañas (su estado).
+interface Props {
+  children?: ReactNode;
 }
 
-export function LandingCliente({ guias, bento, frase, cambiarte, verbos, comparador, logos }: HuecosLanding = {}) {
+export function LandingCliente({ children }: Props = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -100,7 +76,7 @@ export function LandingCliente({ guias, bento, frase, cambiarte, verbos, compara
   }, []);
 
   return (
-    <div style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
+    <div className="wh" style={{ overflowX: 'clip', position: 'relative' }}>
       <StructuredData />
       <OrganizationStructuredData />
       {/* El nav (`position: sticky`, dentro de SeccionHero) queda "pegado" solo
@@ -113,47 +89,10 @@ export function LandingCliente({ guias, bento, frase, cambiarte, verbos, compara
         {/* Una línea con la oferta, en el flujo y sin popup (fundador, 9-oct). */}
         <BandaPrueba />
         <SeccionHero />
-        {/* Rediseño por fases (23-sep): ATENCIÓN → IDENTIFICACIÓN → PERFIL →
-            VISUALIZACIÓN → SOLUCIÓN → RESULTADO → CONFIANZA → PRECIO → DUDAS.
-            Cada bloque tiene una sola función; lo que no la tenía salió (la
-            rejilla de 17 tarjetas pasó a una fila de enlaces y «Cambiarse» se
-            repartió entre Confianza y las preguntas). El vídeo va justo detrás
-            de la promesa, encima de «¿Te suena?» (el fundador, 23-sep). */}
-        <VideoProducto />
-        <SeccionTeSuena />
-        {/* Los estudios que ya usan Tentare (19-oct): solo con consentimiento y sin
-            demos, y NADA si no hay ninguno. Debajo de «¿Te suena?» y no entre el
-            héroe y el vídeo, que monta sobre ese bloque oscuro. */}
-        {logos}
-        {/* Seis tarjetas «verbo + punto», cada una a su función (ronda 3, forma de
-            Momence): el producto entero en un vistazo, justo tras el problema. */}
-        {verbos}
-        {/* La definición citable (GEO/AEO), justo tras el primer bloque. */}
-        {frase}
-        <SeccionTuEstudio />
-        <SeccionReservas />
-        {/* La noche y su mañana: mismo fondo, se leen como un solo bloque. */}
-        <SeccionParteNoche />
-        <SeccionCalendarioReservas />
-        {/* Cómo lo haces hoy, y cómo con Tentare (ronda 3, forma de Mariana Tek):
-            oscuro y redondeado, rompe la tirada de bloques claros del medio. */}
-        {comparador}
-        {/* El resumen de TODO lo que hace Tentare (encargo 6-oct): tras la
-            historia en profundidad y antes de pedir confianza. */}
-        {bento}
-        {/* Las sustituciones, un bloque corto: no es lo que más busca un estudio (fundador, 6-oct). */}
-        <SeccionSustituciones />
-        <SeccionConfianza />
-        <SeccionFuncionalidades />
-        {/* Para quien ya paga otro programa (la mayoría, fundador 1-oct): por
-            qué cambiar es poco arriesgado y la puerta a cada comparativa, justo
-            antes del precio (7-oct). */}
-        {cambiarte}
-        <SeccionPrecio />
-        <SeccionFaq />
-        {guias}
+        {children}
       </div>
-      <SeccionCtaFinal />
+      {/* Solo el pie: la banda final es la de la home (CierreHome, en `children`). */}
+      <SeccionCtaFinal sinCierre />
       <WhatsAppFab />
       {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
           (lib/landing/popup-frecuencia.ts), no aquí. */}

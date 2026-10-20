@@ -25,14 +25,17 @@ const CUERPOS = [
   'components/landing/PopupEmpezar.tsx',
   'components/landing/SeccionCtaFinal.tsx',
   'components/landing/BotonBloque.tsx',
-  'components/landing/SeccionPrecio.tsx',
+  // Home nueva (fase 2.2): el héroe, el precio y la banda final viven en components/web/home/.
+  'components/web/home/Heroe.tsx',
+  'components/web/home/PrecioHome.tsx',
+  'components/web/home/CierreHome.tsx',
   'components/funcionalidades/FeatureShell.tsx',
   'components/funcionalidades/bloques.tsx',
   'components/soluciones/LandingSolucion.tsx',
   'app/funcionalidades/page.tsx',
 ];
 
-/** El hero tiene la isla (fuera de regla) y el botón del héroe (dentro): se mira solo el segundo. */
+/** La isla y su menú móvil (el héroe salió de este fichero en la fase 2.2: ahora es components/web/home/Heroe.tsx, en CUERPOS). */
 const HEROE = 'components/landing/SeccionHero.tsx';
 
 // Lo que se acepta como contenido de un botón al alta: la constante, con o sin
@@ -70,7 +73,8 @@ test('el botón del héroe, la isla y su menú móvil dicen CTA_ALTA', () => {
   const botones = botonesAlAlta(fuente);
   // Ronda 2: la isla y su menú móvil dejan «Probar Tentare» (de la prueba de 7 días, que ya no existe) por CTA_ALTA.
   assert.deepEqual(botonesFueraDeRegla(fuente), [], 'ningún botón al alta del héroe y la isla puede llevar otro texto');
-  assert.ok(botones.includes('{CTA_ALTA}'), 'el botón del héroe debe decir {CTA_ALTA}');
+  assert.ok(botones.includes('{CTA_ALTA}'), 'el botón de la isla debe decir {CTA_ALTA}');
+  assert.ok(botonesAlAlta(readFileSync(join(RAIZ, 'components/web/home/Heroe.tsx'), 'utf8')).includes('{CTA_ALTA}'), 'el botón del héroe debe decir {CTA_ALTA}');
 });
 
 test('los planes de la home usan la constante', () => {

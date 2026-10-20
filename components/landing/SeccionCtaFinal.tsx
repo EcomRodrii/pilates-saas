@@ -69,13 +69,18 @@ function EnlacePie({ href, children }: { href: string; children: React.ReactNode
   return <Link href={href}>{children}</Link>;
 }
 
-export function SeccionCtaFinal() {
+/**
+ * `sinCierre`: solo el pie. La home nueva (fase 2.2) pinta su propia banda final
+ * (components/web/home/CierreHome.tsx) y aquí se queda el pie, que la fase 2.1
+ * sustituye por el pie común de la web.
+ */
+export function SeccionCtaFinal({ sinCierre = false }: { sinCierre?: boolean } = {}) {
   const enlaceWa = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:') ?? '#';
 
   return (
     <>
       {/* `data-cta-final`: PopupEmpezar no interrumpe a quien ya lo tiene a la vista. */}
-      <section className="v5-cta" aria-labelledby="v5-cta-h" data-cta-final>
+      {!sinCierre && <section className="v5-cta" aria-labelledby="v5-cta-h" data-cta-final>
         <div className="v5-cta-foto">
           <FotoLanding
             foto={FOTOS.cierre}
@@ -94,7 +99,7 @@ export function SeccionCtaFinal() {
             <Link href={ALTA} className="v5-cta-boton">{CTA_ALTA}</Link>
           </div>
         </div>
-      </section>
+      </section>}
 
       <footer className="v5-pie">
         <div className="v5-pie-wrap">
