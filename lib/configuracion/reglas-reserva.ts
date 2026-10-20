@@ -20,6 +20,7 @@
 // Puro: se prueba con `node --test`. El `import type` desaparece al ejecutarlo.
 
 import type { PoliticaFinPausa, PoliticaPlazaFijaSinCuota, Studio, TipoClase } from '../types.ts';
+import { DIAS_PARA_RENOVAR_PLAZA_FIJA } from '../plazas-fijas-sin-cuota.ts';
 import { heredaOverride } from '../booking-logic.ts';
 import { TOPES_AUTOMATICOS_PCT, TOPE_AUTOMATICO_POR_DEFECTO_PCT } from '../plazas-fijas-reglas.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
@@ -457,6 +458,8 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       // solo lista con LIBERAR, y el cron de penalizaciones omite con
       // LIBERAR o MANTENER_SIN_PENALIZAR (`omitirPorPlazaFijaSinCuota`).
       switch (r.plazaFijaSinCuota) {
+        case 'AVISAR_Y_LIBERAR':
+          return `Si una alumna con clase fija se queda sin cuota, le avisamos: si no renueva en ${DIAS_PARA_RENOVAR_PLAZA_FIJA} días, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.`;
         case 'LIBERAR':
           return 'Si una alumna con clase fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
         case 'MANTENER_SIN_PENALIZAR':
@@ -495,7 +498,12 @@ export const EXPLICACION_PLAZA_FIJA_SIN_CUOTA =
   'Cuando la cuota de una alumna con clase fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su clase fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
 
 export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaSinCuota; titulo: string; detalle: string }[] = [
-  { valor: 'MANTENER', titulo: 'Como hasta ahora', detalle: 'Conserva las clases que ya tenía reservadas y se aplican tus reglas de siempre.' },
+  {
+    valor: 'AVISAR_Y_LIBERAR',
+    titulo: 'Avisarla y liberarlas si no renueva',
+    detalle: `Le llega un aviso: si no renueva en ${DIAS_PARA_RENOVAR_PLAZA_FIJA} días, se cancelan sus reservas futuras de clase fija, sin penalización. Mientras tanto, si falta, no se le cobra.`,
+  },
+  { valor: 'MANTENER', titulo: 'Mantenerlas', detalle: 'Conserva las clases que ya tenía reservadas y se aplican tus reglas de siempre.' },
   { valor: 'MANTENER_SIN_PENALIZAR', titulo: 'Mantenerlas sin penalización', detalle: 'Conserva las clases que ya tenía reservadas; si no viene o cancela tarde, no se le cobra.' },
   {
     valor: 'LIBERAR',

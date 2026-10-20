@@ -160,3 +160,14 @@ test('guardia: ningún texto repite las frases de la hoja (saldrían dos veces y
     }
   }
 });
+
+test('sin plan y con recuperaciones: viene con una de ellas, sin precio ni tienda (20-oct-2026)', () => {
+  const v = vista({ recuperaciones: 2 })!;
+  assert.equal(v.caso, 'recuperacion');
+  assert.equal(v.titulo, 'Con una de tus recuperaciones');
+  assert.equal(v.detalle, 'Te quedan 2');
+  assert.equal(v.enlace, undefined);
+  assert.equal(vista({ recuperaciones: 1 })!.detalle, 'Es la última que te queda');
+  // Con bono o cuota, paga lo suyo: la recuperación no se gasta.
+  assert.equal(vista({ recuperaciones: 2, bonos: [cuota()] })!.caso, 'cuota');
+});
