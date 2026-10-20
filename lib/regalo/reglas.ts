@@ -2,7 +2,7 @@
 // pantallas y `node --test`. La fuente de verdad del saldo es el libro de la base de
 // datos (`movimientos_regalo`); aquí solo se validan entradas y se espeja la huella
 // del código, que `regalo_huella_codigo` (SQL) calcula igual — lo ata el test de BD.
-import { createHash, timingSafeEqual } from 'node:crypto';
+// ⚠️ Sin `node:crypto`: lo importan componentes de cliente. La huella vive en `huella.ts` (solo servidor).
 
 export const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** `RG-XXXX-XXXX-XXXX-XXXX`: 16 símbolos de un alfabeto de 32 = 80 bits. */
@@ -22,18 +22,6 @@ export function normalizarCodigo(texto: string): string {
 export function pareceCodigo(texto: string): boolean {
   const n = normalizarCodigo(texto);
   return n.length === 16 && [...n].every(c => ALFABETO_CODIGO.includes(c));
-}
-
-export function huellaCodigo(texto: string): string {
-  return createHash('sha256').update(normalizarCodigo(texto)).digest('hex');
-}
-
-/** Comparación en tiempo constante de dos huellas hexadecimales. */
-export function huellasIguales(a: string, b: string): boolean {
-  const ba = Buffer.from(a, 'utf8');
-  const bb = Buffer.from(b, 'utf8');
-  if (ba.length !== bb.length) return false;
-  return timingSafeEqual(ba, bb);
 }
 
 export interface AjustesRegalo {
