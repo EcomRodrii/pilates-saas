@@ -63,13 +63,11 @@ async function montar(page: Page, opts: {
   return { lecturas, envios };
 }
 
-const home = (page: Page) => page.getByText(/¿qué te apetece hoy\?/i);
+const home = (page: Page) => page.getByRole('heading', { name: /^Hola/ });
 
 /**
- * Ya ha decidido y la deja pasar. ⚠️ La portada de Inicio (con «¿Qué te apetece
- * hoy?») se pinta ANTES de que la guardia resuelva (30-sep-2026, ver
- * `ShellConHeroe`), así que verla no dice que se hayan mirado las preguntas: lo
- * dice la barra de abajo, que solo sale cuando la guardia ha terminado.
+ * Ya ha decidido y la deja pasar: lo dice la barra de abajo, que solo sale cuando
+ * la guardia ha terminado.
  */
 async function dentro(page: Page) {
   await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({ timeout: 30_000 });

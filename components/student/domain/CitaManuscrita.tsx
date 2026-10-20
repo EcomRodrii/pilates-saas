@@ -18,7 +18,8 @@
 // (#1832) y el ✓ sobre un muro (#1827): un color elegido por lo que significa,
 // puesto sobre una superficie que no controla.
 
-export function CitaManuscrita({ frase }: { frase: string | null }) {
+/** `enLinea`: dentro de un contenedor que ya pone el margen lateral y el hueco entre bloques (Inicio). */
+export function CitaManuscrita({ frase, enLinea = false }: { frase: string | null; enLinea?: boolean }) {
   const texto = frase?.trim();
   if (!texto) return null;
 
@@ -28,7 +29,7 @@ export function CitaManuscrita({ frase }: { frase: string | null }) {
     // con el mismo nombre son, para quien navega con lector, dos cosas
     // indistinguibles. La frase se lee igual dentro; una <section> sin nombre no
     // es un landmark. Para los tests, `data-testid`, que es el idioma del repo.
-    <section className="px a-up" style={{ marginTop: 14 }} data-testid="cita-manuscrita">
+    <section className={enLinea ? 'a-up' : 'px a-up'} style={enLinea ? undefined : { marginTop: 14 }} data-testid="cita-manuscrita">
       <div
         style={{
           borderRadius: 'var(--radius-card)',

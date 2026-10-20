@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, precioMensual, type Plan } from '@/lib/billing/entitlements';
+import { Complementos } from '@/components/billing/complementos';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
@@ -359,7 +360,8 @@ export default function SuscripcionPage() {
             </section>
           </div>
         ) : yaPaga ? (
-          /* ── Ya paga ──────────────────────────────────────────────────── */
+          <>
+          {/* ── Ya paga ──────────────────────────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-card p-6 sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -369,7 +371,7 @@ export default function SuscripcionPage() {
                     <NombrePlan plan={(estado?.plan as Plan) ?? 'BASE'} />
                   </span>
                   <span className="text-[15px] font-semibold text-muted-foreground tabular-nums">
-                    {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€
+                    {precioMensual((estado?.plan as Plan) ?? 'BASE', estado?.complementos?.pagaAparte ? estado.complementos.contratados : [])}€
                   </span>
                 </div>
                 {/* «al mes, IVA incluido» literal: es la frase que pidió P2-20
@@ -409,6 +411,18 @@ export default function SuscripcionPage() {
               </p>
             )}
           </div>
+            {/* Los complementos de Founding, solo para quien los paga aparte. */}
+            {estado?.complementos?.pagaAparte && (
+              <Complementos
+                className="mt-6"
+                contratados={estado.complementos.contratados}
+                disponibles={estado.complementos.disponibles}
+                esPropietaria={esPropietaria}
+                onCambio={(addons) => setEstado((e) => (e && e.complementos ? { ...e, complementos: { ...e.complementos, contratados: addons } } : e))}
+                onPlanCambiado={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
+              />
+            )}
+          </>
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>

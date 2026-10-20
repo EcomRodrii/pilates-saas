@@ -15,7 +15,7 @@ import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { catalogo } from '@/lib/student/catalogo';
 import { avisoCancelacion, disponibilidad } from '@/lib/student/maquina-reserva';
-import { horaFin, hoyISO } from '@/lib/student/formato';
+import { etiquetaDia, horaFin, hoyISO } from '@/lib/student/formato';
 import { textoPagoCorto } from '@/lib/student/como-se-paga';
 import { sinBonoDeClase } from '@/lib/student/como-viene-sin-bono';
 import { clavePublicableStripe } from '@/lib/student/comprar';
@@ -36,9 +36,11 @@ import { Icono } from '@/components/student/ui/Icono';
 import { BookingButton } from '@/components/student/domain/BookingButton';
 import { huecosDeClase } from '@/components/student/domain/ElegirHueco';
 import { HojaReserva } from '@/components/student/domain/HojaReserva';
-import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
+import { CaraInstructora } from '@/components/student/domain/InstructorCard';
+import { partesNota } from '@/lib/student/instructora';
+import { etiquetaObjetivo } from '@/lib/reservar/objetivos';
 import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { ComoVienes } from '@/components/student/domain/ComoVienes';
@@ -155,7 +157,7 @@ export default function FichaClasePage() {
     return (
       <StudentShell headerTransparente sinCabecera>
         {/* La misma geometría que la ficha: la foto a sangre, el título debajo y las filas. */}
-        <Skeleton h={290} r={0} style={{ height: 'calc(290px + var(--safe-top))' }} />
+        <Skeleton h={314} r={0} style={{ height: 'calc(314px + var(--safe-top))' }} />
         <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 18 }}>
           <Skeleton h={12} w="40%" />
           <Skeleton h={30} w="70%" />
@@ -167,15 +169,19 @@ export default function FichaClasePage() {
     );
   }
 
-  if (estado === 'error' || !clase) {
+  if (estado === 'error' || estado === 'offline' || !clase) {
+    // Sin red o con el servidor fallando, la clase no «ha desaparecido»: decirle «puede que se haya cancelado» a quien
+    // solo no tiene cobertura la mandaba a buscar otra. Cada caso con su frase.
     return (
       <StudentShell>
         <div className="px" style={{ paddingTop: 12 }}>
-          <ErrorState
-            titulo="No encontramos esta clase"
-            cuerpo="Puede que se haya cancelado o movido de hora."
-            onRetry={reintentar}
-          />
+          {estado === 'offline' ? <OfflineState cuerpo="Para ver esta clase hace falta conexión. Vuelve a abrirla cuando la tengas." /> : estado === 'error' ? <ErrorState onRetry={reintentar} /> : (
+            <ErrorState
+              titulo="No encontramos esta clase"
+              cuerpo="Puede que se haya cancelado o movido de hora."
+              onRetry={reintentar}
+            />
+          )}
         </div>
       </StudentShell>
     );
@@ -183,6 +189,7 @@ export default function FichaClasePage() {
 
   const huecos = huecosDeClase(data?.spots, data?.aforoReservas, clase.salaId, clase.id);
   const hoy = hoyISO();
+  const notaInst = inst ? partesNota(inst.rating, inst.valoraciones) : null;
   // Sin nada que la cubra: cuál de los cuatro casos es (P01). Con la misma regla de «exigir plan» que el servidor.
   const sinBono = !bono
     ? sinBonoDeClase(clase, data?.planesTarifa, !!data?.stripeAccountId && !!clavePublicableStripe())
@@ -230,11 +237,15 @@ export default function FichaClasePage() {
       {/* Dos bloques y no una lista plana: en escritorio (`grid-lg-2`) cada hijo es una columna, y suelto se rompía el
           orden. En el móvil van uno debajo del otro, en el orden de P10.
           El margen de abajo deja leer y tocar lo último por encima de la barra fija de «Reservar». */}
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 16, paddingBottom: 150, alignItems: 'start' }}>
-        <div data-bloque="a" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+      {/* Montado sobre la foto con las esquinas redondas (maqueta de oct-2026): la ficha se lee como una hoja que sube
+          sobre la clase, no como una página que empieza debajo de una imagen. */}
+      <div className="px grid-lg-2 hoja-sobre-foto" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 20, paddingBottom: 150, alignItems: 'start' }}>
+        <div data-bloque="a" style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          {/* Copia de la maqueta de los cuatro iPhones (fundador, 19-oct-2026): el nombre, la fila de hora · sala · plazas,
+              la instructora, la descripción y las etiquetas. Lo que la maqueta no enseña y tiene función (cómo vienes,
+              dónde, la cancelación, la clase fija, invitar, escribir al estudio) va justo debajo. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* El LOGO de la clase, junto al título: el banner hereda (tipo → sala → estudio) y el logo es lo que la
-                identifica. Sin logo propio no se pinta nada. */}
+            {/* El LOGO de la clase, junto al título: lo que la identifica. Sin logo propio no se pinta nada. */}
             {clase.logoUrl && (
               <span
                 aria-hidden
@@ -242,35 +253,74 @@ export default function FichaClasePage() {
                 style={{ display: 'block', flexShrink: 0, width: 32, height: 32, borderRadius: 9, background: `url(${clase.logoUrl}) center/cover`, border: '1px solid var(--border)' }}
               />
             )}
-            <p className="t-label" style={{ margin: 0 }}>{antetituloClase(clase.nivel)}</p>
+            <h1
+              className="t-h1"
+              style={{ margin: 0, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+            >
+              {clase.nombre}
+            </h1>
           </div>
-          <h1
-            className="t-h1"
-            style={{ margin: 0, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-          >
-            {clase.nombre}
-          </h1>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          {/* Hora · sala · plazas. La maqueta pone solo la duración; aquí va también el día y la hora, sin los cuales la
+              ficha no dice cuándo es. */}
+          <div className="fila-meta-ficha" data-testid="meta-ficha">
+            <span><Icono nombre="reloj" tamano={18} />{clase.fecha === hoy ? '' : `${etiquetaDia(clase.fecha, hoy)} `}{clase.hora} · {clase.duracionMin} min</span>
+            {clase.sala && <span><Icono nombre="ubicacion" tamano={18} />{clase.sala}</span>}
             {yaNoSeReserva
               ? (enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : <TerminadaBadge />)
               // Sin reloj todavía (hidratación) no se dice «hoy» ni «mañana»: la fecha sola.
               : aunNoAbre
                 ? <span data-se-abre="" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{ahoraMs === null ? etiquetaSeAbre(aunNoAbre) : `La reserva se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date(ahoraMs))}`}</span>
                 : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
-            {/* Lo que ya dice «Cómo vienes» justo debajo no se repite aquí (`pagoCortoSobra`). Sin plan exigido y sin nada
-                que cobrar (`RESERVA_SIN_PAGAR`) tampoco: «Solo con bono» mentiría, y la tarjeta ya dice que no lo necesita. */}
-            {!pagoCortoSobra(vienes) && sinBono?.caso.caso !== 'RESERVA_SIN_PAGAR' && (
-              <span data-testid="pago-corto" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)', textAlign: 'right' }}>
-                {textoPagoCorto(clase, bono)}
-              </span>
-            )}
           </div>
 
+          {inst && (
+            <button type="button" onClick={() => setVerInstructora(true)} className="tap fila-instructora" data-testid="fila-instructora">
+              {/* `CaraInstructora`: la URL de la foto la teclea el staff y va dentro de un `url()` de CSS; ahí se valida. */}
+              <CaraInstructora i={inst} lado={48} />
+              <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: 800 }}>{inst.nombre}</span>
+                <span className="t-meta" style={{ display: 'block' }}>
+                  Instructora
+                  {/* Su nota con el número de votos al lado: un «5,0» a secas con dos votos diría «perfecta». */}
+                  {notaInst && <> · <span data-testid="nota-instructora" style={{ whiteSpace: 'nowrap' }}>{notaInst.valor} <Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ display: 'inline-block', verticalAlign: '-1px' }} /> {notaInst.votos}</span></>}
+                </span>
+              </span>
+              <Icono nombre="chevron-derecha" tamano={18} />
+            </button>
+          )}
+
+          {/* Solo la descripción que escribió el estudio. Sin ella no se pinta nada: antes se INVENTABA una con normas que
+              ese estudio quizá no tiene. */}
+          {clase.descripcion?.trim() && (
+            <section aria-labelledby="ficha-descripcion-t" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <h2 id="ficha-descripcion-t" className="t-h2" style={{ margin: 0 }}>Descripción</h2>
+              <p style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
+                {clase.descripcion}
+              </p>
+            </section>
+          )}
+          {/* Las etiquetas (decisión del fundador, 19-oct-2026): el nivel y los objetivos que el estudio ya marca en el
+              tipo de clase, de la lista fija. Nada de etiquetas libres. */}
+          <ul aria-label="Nivel y objetivos" data-testid="etiquetas-clase" className="fila-etiquetas">
+            <li className="etiqueta">{antetituloClase(clase.nivel)}</li>
+            {(clase.objetivos ?? []).map((o) => <li key={o} className="etiqueta">{etiquetaObjetivo(o)}</li>)}
+          </ul>
+
+        </div>
+
+        <div data-bloque="b" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
           {/* Apertura suave: solo avisa. Una fundadora o invitada sí puede
               reservarla; eso lo decide el servidor (crearReservaPublica). */}
           {suave && <p style={{ fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{suave}</p>}
 
+          {/* Lo que ya dice «Cómo vienes» no se repite (`pagoCortoSobra`). Sin plan exigido y sin nada que cobrar
+              (`RESERVA_SIN_PAGAR`) tampoco: «Solo con bono» mentiría. */}
+          {!pagoCortoSobra(vienes) && sinBono?.caso.caso !== 'RESERVA_SIN_PAGAR' && (
+            <p data-testid="pago-corto" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>
+              {textoPagoCorto(clase, bono)}
+            </p>
+          )}
           <ComoVienes vista={vienes} claseId={clase.id}>
             {/* Con bono, «Reservar las próximas» va DENTRO de la tarjeta del bono: una tarjeta, no tres menciones. */}
             {autoEnElBono && autoReservable(true)}
@@ -303,19 +353,6 @@ export default function FichaClasePage() {
               <FilaDato icono="estrella" fila="creditos">{textoCreditosAlAsistir(clase.creditosAlAsistir, nombreCreditos(estudio.creditosNombre))}</FilaDato>
             )}
           </div>
-        </div>
-
-        <div data-bloque="b" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
-
-          {/* Solo la descripción que escribió el estudio. Sin ella no se pinta nada: antes se INVENTABA una con normas que
-              ese estudio quizá no tiene. */}
-          {clase.descripcion?.trim() && (
-            <p style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
-              {clase.descripcion}
-            </p>
-          )}
-
           {/* El interruptor «Clase fija»: no se mueve al tocarlo, abre lo que toque y sigue lo que conteste el servidor. Se carga aparte: no frena la reserva. */}
           {!autoEnElBono && autoReservable(false)}
 

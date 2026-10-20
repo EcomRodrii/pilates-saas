@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoDelPlan } from '@/lib/decision/plan-decisiones';
+import { COLUMNAS_PLAN } from '@/lib/billing/entitlements';
 import { enCursoDesde } from '@/lib/decision/analisis-en-curso';
 
 // GET /api/decisiones/analisis-en-curso — ¿sigue en marcha el «Analizar ahora»
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await requireSupabaseAdmin()
     .from('studios')
-    .select('plan, subscription_status, decision_sessions(id)')
+    .select(`${COLUMNAS_PLAN}, decision_sessions(id)`)
     .eq('id', sesion.studioId)
     .eq('decision_sessions.studio_id', sesion.studioId)
     .eq('decision_sessions.disparado_por', 'MANUAL')

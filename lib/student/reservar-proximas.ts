@@ -38,7 +38,7 @@ async function enviar(cuerpo: Record<string, unknown>): Promise<ResultadoProxima
     return { ok: true, datos: d as DatosProximas };
   } catch {
     // Falló la red: en `reservar` NO se sabe qué llegó a hacerse. Se dice la verdad e invita a mirar, no a reintentar a ciegas.
-    return { ok: false, error: 'Sin conexión: no sabemos si se ha reservado alguna. Comprueba «Mis clases» antes de volver a intentarlo.', sinConexion: true };
+    return { ok: false, error: 'Sin conexión: no sabemos si se ha reservado alguna. Comprueba «Actividad» antes de volver a intentarlo.', sinConexion: true };
   }
 }
 

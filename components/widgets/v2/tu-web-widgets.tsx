@@ -78,6 +78,12 @@ function TuWebDelEstudio({ slug, showToast }: { slug: string; showToast: (m: str
   }
   function accion(id: string, hace: AccionAviso) {
     if (hace === 'copiar') { s.prepararCodigo(id); abrirPieza(id, 'ponlo'); return; }
+    if (hace === 'activar-solo-horario') {
+      // Lo HACE (enciende la opción de ese widget; queda «sin publicar» en la barra) y abre «Qué pones», donde está.
+      s.activarSoloHorario(id);
+      abrirPieza(id, 'que');
+      return;
+    }
     if (hace === 'estilo-comun') {
       // Lo HACE (quita el diseño propio de ese widget) y abre «Cómo se ve», donde se ve el cambio.
       s.quitarDisenoPropio(id);

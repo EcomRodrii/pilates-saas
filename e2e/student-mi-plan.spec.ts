@@ -51,7 +51,6 @@ test.describe('Mi plan · los tres perfiles', () => {
     });
     await abrir(page, '/bonos');
     await expect(page.getByRole('heading', { name: 'Mi plan' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Mi plan' })).toHaveAttribute('aria-current', 'page');
     const bono = page.getByTestId('bono-hero');
     await expect(bono).toContainText('Tu bono');
     await expect(bono.getByTestId('bono-restantes')).toHaveText('6');
@@ -154,33 +153,20 @@ test.describe('Mis clases → «Clase fija»', () => {
   });
 });
 
-test.describe('Inicio · «Lo tuyo»', () => {
-  test('una tarjeta, una línea por cosa, y cada línea a su sitio', async ({ page }) => {
+// Desde la maqueta de oct-2026 (copia exacta, fundador 19-oct) Inicio no repite lo que tiene: la cuota, el bono, la clase
+// fija y las recuperaciones viven en Mi plan (y la clase fija en Actividad). «Lo tuyo» solo sale en Inicio cuando hay algo
+// que ELLA tiene que pagar (las pruebas de «Recibos · pagar lo pendiente», abajo).
+test.describe('Inicio · lo que tiene vive en Mi plan', () => {
+  test('sin nada que pagar, Inicio no enseña «Lo tuyo» y Mi plan está a una baldosa', async ({ page }) => {
     const a = await montar(page, {
       bono: 3, cuota: { limiteSemanal: 2 }, misBonos: SEMANA(2, 1),
-      payload: (f) => {
-        socia(f).plazasFijas = [PLAZA];
-        socia(f).recuperaciones = [
-          { id: 'r1', studioId: STUDIO_ID, socioId: SOCIO_ID, estado: 'DISPONIBLE', caducaEl: '2026-08-20', motivo: null, origenReservaId: null, usadaEnReservaId: null, creadaEn: '2026-08-01T00:00:00Z' },
-          { id: 'r2', studioId: STUDIO_ID, socioId: SOCIO_ID, estado: 'DISPONIBLE', caducaEl: '2026-09-20', motivo: null, origenReservaId: null, usadaEnReservaId: null, creadaEn: '2026-08-01T00:00:00Z' },
-        ];
-      },
+      payload: (f) => { socia(f).plazasFijas = [PLAZA]; },
     });
     await abrir(page, '');
-    const loTuyo = page.getByRole('region', { name: 'Lo tuyo' });
-    await expect(loTuyo).toBeVisible({ timeout: 45_000 });
-    await expect(loTuyo.getByTestId('lo-tuyo-cuota')).toContainText('Tu cuota · te queda 1 esta semana', { timeout: 30_000 });
-    await expect(loTuyo.getByTestId('lo-tuyo-cuota')).toContainText('Próxima renovación: 1 ene');
-    await expect(loTuyo.getByTestId('lo-tuyo-cuota')).toHaveAttribute('href', `${base}/bonos`);
-    await expect(loTuyo.getByTestId('lo-tuyo-bono')).toContainText('Tu bono · 3 de 8');
-    await expect(loTuyo.getByTestId('lo-tuyo-fija')).toContainText('Tu clase fija · miércoles 10:00');
-    await expect(loTuyo.getByTestId('lo-tuyo-fija')).toHaveAttribute('href', `${base}/mis-reservas?tab=fija`);
-    await expect(loTuyo.getByTestId('lo-tuyo-recuperaciones')).toContainText('2 clases por recuperar');
-    await expect(loTuyo.getByTestId('lo-tuyo-recuperaciones')).toContainText('La primera caduca el 20 ago');
-    await expect(loTuyo.getByTestId('lo-tuyo-recuperaciones')).toHaveAttribute('href', `${base}/bonos`);
-    // Ya no hay dos tarjetas: ni «Tu ritmo» ni la tarjeta suelta de la clase fija.
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByRole('navigation', { name: 'Accesos rápidos' }).getByRole('link', { name: 'Mi plan' })).toHaveAttribute('href', `${base}/bonos`);
+    await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Tu ritmo' })).toHaveCount(0);
-    await expect(page.getByTestId('plaza-fija')).toHaveCount(0);
     expect(a.sinMockear()).toEqual([]);
   });
 });
@@ -316,7 +302,9 @@ test.describe('Inicio y Perfil · lo que tiene por pagar', () => {
   test('lo que cobrará su banco no se le pide: ni en Inicio ni en Perfil', async ({ page }) => {
     await conRecibo(page, { como: 'BANCO', via: 'sepa', desde: '2026-08-20' });
     await abrir(page, '');
-    await expect(page.getByTestId('lo-tuyo-bono')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByRole('heading', { name: /^Hola/ })).toBeVisible({ timeout: 45_000 });
+    // Nada que pague ella: Inicio no saca «Lo tuyo» (su bono vive en Mi plan).
+    await expect(page.getByRole('navigation', { name: 'Accesos rápidos' })).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('lo-tuyo-pago')).toHaveCount(0);
     await abrir(page, '/perfil');
     await expect(page.getByRole('link', { name: /Recibos/ })).toBeVisible({ timeout: 30_000 });
@@ -337,7 +325,7 @@ test.describe('Inicio y Perfil · lo que tiene por pagar', () => {
     await expect(page.getByTestId('lo-tuyo-pago')).toHaveCount(0);
   });
 
-  test('si el recibo de su cuota lo cobra su banco, la línea de la cuota lo dice así (Inicio y Mi plan), sin «pendiente»', async ({ page }) => {
+  test('si el recibo de su cuota lo cobra su banco, Inicio no lo pide y Mi plan lo dice así, sin «pendiente»', async ({ page }) => {
     await montar(page, {
       bono: null, cuota: true,
       payload: (f) => {
@@ -345,11 +333,11 @@ test.describe('Inicio y Perfil · lo que tiene por pagar', () => {
         socia(f).cobroRecibos = { 'rec-cuota': { como: 'BANCO', via: 'sepa', desde: '2026-08-20' } };
       },
     });
+    // Inicio no le pide nada (lo cobra su banco): «Lo tuyo» no sale. Mi plan lo dice así.
     await abrir(page, '');
-    const cuota = page.getByTestId('lo-tuyo-cuota');
-    await expect(cuota).toContainText('Lo cobrará tu banco el 20 ago. No tienes que hacer nada.', { timeout: 45_000 });
-    await expect(cuota).not.toContainText('Pago pendiente');
+    await expect(page.getByRole('navigation', { name: 'Accesos rápidos' })).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('lo-tuyo-pago')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Lo tuyo' })).toHaveCount(0);
     await abrir(page, '/bonos');
     await expect(page.getByTestId('cuota-vigencia')).toHaveText('Cuota de agosto · 89 €. Lo cobrará tu banco el 20 ago. No tienes que hacer nada.', { timeout: 30_000 });
   });

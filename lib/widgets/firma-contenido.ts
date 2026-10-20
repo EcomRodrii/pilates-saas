@@ -50,7 +50,7 @@ export const VERSION_FIRMA = 'c1';
 export const CLAVES_FIRMA = [
   'cuenta', 'densidad', 'diseno', 'fondo', 'forma', 'fuente', 'fuente-display', 'identidad',
   'instructoras', 'linea', 'marca', 'negro', 'ocultar-nivel', 'ocultar-precio', 'ocultar-sustituta', 'pie', 'planes',
-  'presentacion', 'prueba', 'radio', 'radio-boton', 'radio-input', 'ref', 'relleno', 'salas', 'sesion', 'solo-pestana',
+  'presentacion', 'prueba', 'radio', 'radio-boton', 'radio-input', 'ref', 'relleno', 'salas', 'sesion', 'solo', 'solo-pestana',
   'superficie', 'tab', 'texto', 'texto-secundario', 'tinta', 'tipos', 'vista',
 ] as const;
 

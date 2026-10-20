@@ -1,7 +1,7 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { esPlataforma, origenDe, type Plataforma } from '@/lib/plataformas/catalogo';
 import type { FilaCobrada } from '@/lib/billing/export-cobrado';
-import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
+import { paginarTodo } from '@/lib/paginar-todo';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
@@ -226,25 +226,18 @@ export function setCurrentStudioId(id: string) {
 // no acota nada: trae la tabla entera, solo que en páginas de 1000. Uso: tablas
 // que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
 // facturas, ventas_pos, sesiones, credit_transactions.
-const PAGE_SIZE = 1000;
+// Paginación en lib/paginar-todo.ts (aparte para poder probarla): primera página
+// sola y el resto por olas de 4 en paralelo, recompuestas en orden.
+// ⚠️ La consulta de `pagina` DEBE llevar un `.order()` TOTAL (la PK, o una
+// columna + la PK): sin él, una escritura entre dos páginas repite u omite
+// filas. Lo vigila lib/paginar-todo-orden.test.ts en cada llamada.
 export async function fetchAllRows<T>(
   studioId: string,
   tabla: string,
   pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<{ data: T[]; error: { message: string } | null }> {
-  const filas: T[] = [];
-  let desde = 0;
-  for (;;) {
-    // M-11 (59ª auditoría / Sentry JAVASCRIPT-NEXTJS-1G): un "Gateway Timeout"
-    // es un 504 transitorio de la infraestructura, no un fallo de la app —
-    // reintentar la MISMA página un par de veces con una espera corta
-    // recupera la mayoría de estos casos. Lógica en lib/reintento-transitorio.ts,
-    // aparte porque este fichero usa el alias `@/` y eso rompe `node --test`.
-    const { resultado, reintentos } = await conReintentoTransitorio(
-      () => pagina(desde, desde + PAGE_SIZE - 1),
-    );
-    const { data, error } = resultado;
-    if (error) {
+  return paginarTodo<T>(pagina, {
+    alFallar: (error, desde, reintentado) => {
       // 2.4: antes esto se tragaba en silencio (data ?? []) y la app pintaba
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
@@ -252,20 +245,14 @@ export async function fetchAllRows<T>(
       //
       // Salvo un blip de red del propio cliente ("Failed to fetch" y
       // compañía) — mismo filtro que ya usa reportDbError() más abajo.
-      if (!esErrorDeRedCliente(error)) {
-        capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
-          tags: { area: 'supabase-data', tabla },
-          extra: { studioId, desde, error: error.message, reintentado: reintentos > 0 },
-        });
-      }
-      return { data: filas, error };
-    }
-    if (!data || data.length === 0) break;
-    filas.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    desde += PAGE_SIZE;
-  }
-  return { data: filas, error: null };
+      // (M-11: el reintento de 504 transitorios vive en paginar-todo.ts.)
+      if (esErrorDeRedCliente(error)) return;
+      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+        tags: { area: 'supabase-data', tabla },
+        extra: { studioId, desde, error: error.message, reintentado },
+      });
+    },
+  });
 }
 
 export function getCurrentStudioId() {
@@ -5519,6 +5506,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
+    regimenAddons: r.regimen_addons ?? false,
+    addons: r.addons ?? [],
     currentPeriodEnd: r.current_period_end ?? null,
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
@@ -5707,7 +5696,7 @@ async function enTandas<T extends readonly unknown[] | []>(
 // los roles (lo vigila lib/rgpd-socios-datos-privados-contrato.test.ts).
 async function fetchSociosPanel(db: SupabaseClient, sid: string) {
   const [publicas, privadas] = await Promise.all([
-    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, genero, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, genero, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).order('id').range(from, to)),
     // `.order('id')`: sin orden estable, paginar una RPC puede repetir o saltar filas.
     fetchAllRows<FilaDatosPrivadosSocia>(sid, 'socios_datos_privados', (from, to) => db.rpc('socios_datos_privados').order('id').range(from, to)),
   ]);
@@ -5816,7 +5805,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
     opciones.privadas === 'columnas'
-      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
+      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).order('id').range(from, to))
       : fetchSociosPanel(db, sid),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     // Paginadas como sus hermanas: sin `fetchAllRows`, PostgREST corta en 1.000
@@ -5827,18 +5816,18 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia, origen, nombre_externo, bono_suscripcion_id').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia, origen, nombre_externo, bono_suscripcion_id').eq('studio_id', sid).order('id').range(from, to)),
     // La misma lista que la relectura tras un cobro (`COLUMNAS_RECIBO_PANEL`): eran dos
     // copias del mismo texto, y dos listas escritas a mano acaban leyendo cosas distintas.
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).order('id').range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
-    fetchAllRows(sid, 'citas', (from, to) => db.from('citas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'citas', (from, to) => db.from('citas').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('campanas').select('*').eq('studio_id', sid),
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
@@ -5860,7 +5849,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     fetchAllRows(sid, 'automation_logs', (from, to) =>
       db.from('automation_logs').select('*').eq('studio_id', sid)
         .gte('ejecutado_en', new Date(Date.now() - VENTANA_DEDUP_AUTOMATIZACIONES_DIAS * 86400000).toISOString())
-        .range(from, to)),
+        .order('id').range(from, to)),
     db.from('codigos_descuento').select('*').eq('studio_id', sid),
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
@@ -5929,7 +5918,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
         sid, 'automation_logs_historico', (from, to) =>
           db.from('automation_logs')
             .select('rule_id, automatizacion_id, socio_id, accion, resultado')
-            .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to))
+            .eq('studio_id', sid).neq('resultado', 'FALLIDO').order('id').range(from, to))
       : Promise.resolve({ data: [] as Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>[], error: null }),
     // `integraciones` solo la lee la propietaria: gerencia y recepción reciben de
     // aquí los TIPOS encendidos (lib/integraciones/activas.ts). El servidor
@@ -6071,10 +6060,10 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   // cadena de imports estática.
   const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).order('id').range(from, to)),
     fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).eq('studio_id', sid).order('id').range(from, to)),
-    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
   ]);
 
@@ -6141,7 +6130,7 @@ export async function fetchDeferredStudioDataCon(db: SupabaseClient, studioId?: 
     // mismo es la que más se beneficia de paginar en vez de recibir el tope de
     // 1000 filas de PostgREST en silencio.
     db.from('reward_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('achievement_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),

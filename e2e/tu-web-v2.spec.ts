@@ -40,9 +40,12 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 /** La copia de un código por id del horario, copiada con lo de siempre (su foto). */
+// Un estudio que ya tenía su código por id ANTES de «Tu horario, tus clases»: la opción apagada en lo copiado, en
+// lo guardado y en lo publicado (`PUBLICADA`, config `{}`). Lo nuevo con la opción se prueba más abajo.
+const CONFIG_ANTIGUA = { ...CONFIG_POR_DEFECTO, soloHorario: false };
 function copiaPorId() {
-  const firma = firmaCodigo({ widget: HORARIO as never, config: CONFIG_POR_DEFECTO, origen: '', slug: SLUG, pieza: ID }, 'iframe');
-  return { firma, en: '2026-10-01T10:05:00.000Z', metodo: 'iframe', pieza: ID, config: CONFIG_POR_DEFECTO };
+  const firma = firmaCodigo({ widget: HORARIO as never, config: CONFIG_ANTIGUA, origen: '', slug: SLUG, pieza: ID }, 'iframe');
+  return { firma, en: '2026-10-01T10:05:00.000Z', metodo: 'iframe', pieza: ID, config: CONFIG_ANTIGUA };
 }
 
 type Respuesta = 'ok' | '409' | '500' | 'sin-red';
@@ -70,6 +73,8 @@ async function montar(page: Page, opts: {
   dominios?: string[];
   /** El portapapeles dice que no (Safari puede): se cuentan los intentos en `window.__intentosCopiar`. */
   portapapelesNo?: boolean;
+  /** Los planes que enseña la página de reservas (por defecto, una clase suelta). */
+  planesPublicos?: unknown[];
 }) {
   const studioRow: Record<string, unknown> = {
     id: STUDIO_ID, nombre: 'Pilates Centro', slug: SLUG, owner_auth_user_id: AUTH_UID,
@@ -121,7 +126,7 @@ async function montar(page: Page, opts: {
     tiposClase: [{ id: 'tc-r', studioId: STUDIO_ID, nombre: 'Reformer', color: '#7C6A52', nivel: 'TODOS', ventanaCancelacionHoras: null }],
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 8 }],
     instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ruiz', rol: 'INSTRUCTOR' }],
-    spots: [], planesTarifa: [{ id: 'p1', studioId: STUDIO_ID, tipo: 'PUNTUAL', activo: true, precio: 15, sesiones: 1, nombre: 'Clase suelta' }],
+    spots: [], planesTarifa: opts.planesPublicos ?? [{ id: 'p1', studioId: STUDIO_ID, tipo: 'PUNTUAL', activo: true, precio: 15, sesiones: 1, nombre: 'Clase suelta' }],
     citasServicios: [], citasDisponibilidad: [], sustitucionesConfirmadas: [],
     sesiones: [
       { id: 's1', studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: manana(10), fin: manana(11), aforoMaximo: 8, cancelada: false },
@@ -180,7 +185,7 @@ const publicar = (page: Page) => barra(page).getByRole('button', { name: 'Public
 const pasos = (page: Page) => page.getByRole('list', { name: 'Pasos' });
 const PUBLICADO = 'Publicado. Tu web lo enseñará en unos minutos.';
 /** El horario copiado por id, y AHORA enseñando solo Mat: «qué clases salen» sin publicar. */
-const SOLO_MAT = { horario: { ...CONFIG_POR_DEFECTO, tipos: ['tc-m'], copiado: copiaPorId() } };
+const SOLO_MAT = { horario: { ...CONFIG_ANTIGUA, tipos: ['tc-m'], copiado: copiaPorId() } };
 const PUBLICADA = (t = T0) => [{ id: ID, widget: 'horario', config: {}, actualizado_en: t }];
 
 async function captura(page: Page, nombre: string, opc: { soloPagina?: boolean } = {}) {
@@ -724,6 +729,156 @@ test.describe('capturas para el fundador (solo con CAPTURAS=<carpeta>; ANCHO=375
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// «Tu horario, tus clases»: el horario dentro de una página, sin la página
+// completa debajo (lib/widgets/solo-horario.ts; /reservar lo entiende con `solo=1`).
+// Una opción a la vista en «Qué pones», ENCENDIDA en un código nuevo; y, para
+// quien ya tiene pegado un código de antes (que no cambia solo), un aviso que
+// dice cómo recuperarlo, con su control: no sale a quien no le toca.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const interruptorSolo = (page: Page) => page.getByRole('switch', { name: 'Tu horario, tus clases' }).filter({ visible: true });
+const codigoVisible = (page: Page) => page.locator('pre');
+/** La foto de una config de ANTES de la opción: sin el campo (así la guardó el panel de antes). */
+const { soloHorario: _sinCampo, ...CONFIG_DE_ANTES } = CONFIG_POR_DEFECTO;
+const TEXTO_RECOPIAR = 'Si en tu web te salen los bonos y las cuotas debajo del horario, vuelve a copiar el código: el nuevo trae «Tu horario, tus clases» activado. El que ya tienes pegado no cambia solo.';
+const filaHorario = (page: Page) => page.getByRole('list', { name: 'Tus widgets' }).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+
+/** Lo pegado ANTES de la opción: un código de siempre (sin `solo=1`), con su foto sin el campo. */
+function copiaDeAntes(por: 'congelado' | 'id') {
+  const firma = firmaCodigo({ widget: HORARIO as never, config: { ...CONFIG_POR_DEFECTO, soloHorario: false }, origen: '', slug: SLUG, pieza: por === 'id' ? ID : null }, 'iframe');
+  return { firma, en: '2026-10-01T10:05:00.000Z', metodo: 'iframe', ...(por === 'id' ? { pieza: ID } : {}), config: CONFIG_DE_ANTES };
+}
+
+test('«Tu horario, tus clases» está a la vista en «Qué pones», ENCENDIDA en un código nuevo, y al apagarla el código copiado lo refleja', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const { c } = await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  // A la vista (no escondida en «Más opciones»), con su explicación en positivo.
+  await expect(interruptorSolo(page)).toBeVisible();
+  await expect(interruptorSolo(page)).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('Solo se ven tus clases y reservar. Sin tus bonos ni tus cuotas debajo.')).toBeVisible();
+  expect(await page.locator('body').innerText(), 'ningún texto de este paso habla de «nada más debajo»').not.toMatch(/nada más debajo/i);
+  // El código nuevo lleva `solo=1`, y la vista previa también: ve lo mismo que copia.
+  await expect(codigoVisible(page)).toContainText('solo=1');
+  await expect.poll(async () => await previa(page).getAttribute('src') ?? '', { timeout: 30_000 }).toContain('solo=1');
+  // Apagarla: el código y la vista previa dejan de llevarlo.
+  await interruptorSolo(page).click();
+  await expect(interruptorSolo(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(codigoVisible(page)).not.toContainText('solo=1');
+  await expect.poll(async () => await previa(page).getAttribute('src') ?? '', { timeout: 30_000 }).not.toContain('solo=1');
+  // Y lo que se publica al pasar a «Ponlo en tu web» (donde nace el código por id) la lleva APAGADA: el código
+  // que se pega es el de siempre (`w=<id>`) y lo que dice su web lo decide lo publicado.
+  await irA(page, 'Ponlo en tu web');
+  await expect.poll(() => c.piezas.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(c.piezas[0]).toMatchObject({ widget: 'horario', config: { soloHorario: false } });
+});
+
+test('en un código nuevo, lo que se publica al crear el código por id lleva la opción ENCENDIDA (es lo que su web leerá)', async ({ page }) => {
+  const { c } = await montar(page, { direccion: 'pilatescentro.example.com' });
+  await empezar(page);
+  await irA(page, 'Ponlo en tu web');
+  await expect.poll(() => c.piezas.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(c.piezas[0]).toMatchObject({ widget: 'horario', config: { soloHorario: true } });
+  const copiar = page.getByRole('button', { name: 'Copiar código' });
+  await expect(copiar).toBeEnabled({ timeout: 30_000 });
+  await copiar.click();
+  await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado)).toContain(`w=${ID}`);
+});
+
+test('«Tu horario, tus clases» no se ofrece donde no existe: en un enlace no sale ni se promete', async ({ page }) => {
+  await montar(page, { direccion: 'pilatescentro.example.com', widgetBuilder: { horario: { ...CONFIG_POR_DEFECTO, metodo: 'enlace' } } });
+  await empezar(page);
+  await expect(interruptorSolo(page)).toHaveCount(0);
+  await expect(page.getByText(/Sin tus bonos ni tus cuotas debajo/)).toHaveCount(0);
+  await expect(codigoVisible(page)).not.toContainText('solo=1');
+});
+
+test('el aviso de recuperarlo: quien tiene pegado un código de ANTES lo ve en su fila, con las palabras del fundador, y su botón copia el nuevo con la opción', async ({ page }) => {
+  const { c } = await montar(page, {
+    direccion: 'pilatescentro.example.com',
+    widgetBuilder: { horario: { ...CONFIG_DE_ANTES, metodo: 'iframe', copiado: copiaDeAntes('congelado') } },
+  });
+  const fila = filaHorario(page);
+  await expect(fila).toBeVisible({ timeout: 60_000 });
+  const aviso = fila.locator('[data-aviso-fila]');
+  await expect(aviso).toHaveAttribute('data-aviso-fila', 'solo-horario');
+  await expect(aviso).toContainText(TEXTO_RECOPIAR);
+  // No dice «lo cambiaste»: lo de ahora es lo mismo salvo la opción, y eso lo cuenta este aviso, no un desfase.
+  await expect(fila).not.toContainText('Lo cambiaste después de copiarlo');
+  await expect(fila.locator('[data-estado-en-tu-web]')).not.toHaveText('Tu web tiene lo de antes');
+  // Y su botón lleva a copiar el código nuevo, que la lleva.
+  await aviso.getByRole('button', { name: 'Copiar el código nuevo' }).click();
+  await expect(pasos(page).getByRole('button', { name: 'Ponlo en tu web' })).toHaveAttribute('aria-current', 'step');
+  // En «Ponlo en tu web» también se dice, junto al botón de copiar.
+  await expect(page.locator('[data-aviso-solo-horario="copiar"]')).toContainText(TEXTO_RECOPIAR);
+  // El código nuevo nace por id: lo que su web leerá es lo que se publica, y lleva la opción.
+  await expect.poll(() => c.piezas.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(c.piezas[0]).toMatchObject({ widget: 'horario', config: { soloHorario: true } });
+  const copiar = page.getByRole('button', { name: /Copiar el código/ }).first();
+  await expect(copiar).toBeEnabled({ timeout: 30_000 });
+  await copiar.click();
+  expect(await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado)).toContain(`w=${ID}`);
+  // Ya copiado el nuevo, el aviso se va (la copia nueva no es «de antes»).
+  await irA(page, 'Qué pones');
+  await page.getByRole('button', { name: /^Salir/ }).click();
+  await expect(filaHorario(page).locator('[data-aviso-fila="solo-horario"]')).toHaveCount(0);
+});
+
+test('CONTROL del aviso: no sale a quien aún no ha pegado nada, ni a quien ya tiene su código nuevo (con la opción o apagada a propósito)', async ({ page }) => {
+  // Nada copiado: el vacío que enseña, sin ninguna fila ni aviso.
+  await montar(page, { direccion: 'pilatescentro.example.com' });
+  await expect(page.getByRole('heading', { name: 'Pon tu horario en tu web' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('[data-aviso-fila]')).toHaveCount(0);
+  await expect(page.locator('[data-aviso-solo-horario]')).toHaveCount(0);
+});
+
+for (const caso of [
+  { nombre: 'con la opción encendida', solo: true },
+  { nombre: 'con la opción apagada a propósito', solo: false },
+]) {
+  test(`CONTROL del aviso: quien ya copió el código NUEVO ${caso.nombre} no lo ve`, async ({ page }) => {
+    const config = { ...CONFIG_POR_DEFECTO, soloHorario: caso.solo };
+    const firma = firmaCodigo({ widget: HORARIO as never, config, origen: '', slug: SLUG, pieza: null }, 'iframe');
+    await montar(page, {
+      direccion: 'pilatescentro.example.com',
+      widgetBuilder: { horario: { ...config, metodo: 'iframe', copiado: { firma, en: '2026-10-16T10:05:00.000Z', metodo: 'iframe', config } } },
+    });
+    // La fila está (hay algo copiado) y NO lleva el aviso.
+    await expect(filaHorario(page)).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-aviso-fila="solo-horario"]')).toHaveCount(0);
+    await expect(filaHorario(page)).not.toContainText('vuelve a copiar el código');
+  });
+}
+
+test('por id: el aviso dice «activa y publica» (el código pegado no cambia), el botón enciende la opción y «Publicar» la manda; publicada, el aviso se va', async ({ page }) => {
+  const { c } = await montar(page, {
+    direccion: 'pilatescentro.example.com',
+    piezas: PUBLICADA(),
+    widgetBuilder: { horario: { ...CONFIG_DE_ANTES, metodo: 'iframe', copiado: copiaDeAntes('id') } },
+  });
+  const fila = filaHorario(page);
+  await expect(fila).toBeVisible({ timeout: 60_000 });
+  const aviso = fila.locator('[data-aviso-fila]');
+  await expect(aviso).toHaveAttribute('data-aviso-fila', 'solo-horario');
+  await expect(aviso).toContainText('activa «Tu horario, tus clases» y pulsa «Publicar en mi web»: el código que ya tienes pegado no cambia');
+  // Al llegar, NADA está sin publicar (no se enciende sola: no se toca lo publicado sin pedirlo).
+  await expect(barra(page)).toHaveCount(0);
+  expect(c.piezas.length + c.estilos.length).toBe(0);
+  await aviso.getByRole('button', { name: 'Activar «Tu horario, tus clases»' }).click();
+  // Ahora sí queda sin publicar, con su nombre en la barra.
+  await expect(pasos(page).getByRole('button', { name: 'Qué pones' })).toHaveAttribute('aria-current', 'step');
+  await expect(barra(page)).toContainText('la opción «Tu horario, tus clases» de «Horario y reservas»', { timeout: 30_000 });
+  await publicar(page).click();
+  await expect.poll(() => c.piezas.length, { timeout: 30_000 }).toBe(1);
+  expect(c.piezas[0]).toMatchObject({ widget: 'horario', config: { soloHorario: true } });
+  await expect(barra(page).getByText(PUBLICADO)).toBeVisible();
+  // Publicada la opción, el aviso se va.
+  await page.getByRole('button', { name: /^Salir/ }).click();
+  await expect(filaHorario(page).locator('[data-aviso-fila="solo-horario"]')).toHaveCount(0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PR 3 · La vista previa (decisión 6): en el móvil por defecto y a tamaño real,
 // el ordenador que se lee, la anterior mientras carga, «Abrir en una pestaña»
 // con la dirección de verdad y, por debajo de las dos columnas, en una hoja.
@@ -880,6 +1035,48 @@ test.describe('la vista previa a 1440', () => {
   });
 });
 
+test.describe('la vista previa dice que es un ejemplo, y su barra de direcciones nombra la web del estudio', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('la leyenda lo dice claro y sin tecnicismos: un ejemplo con su nombre y su color; su web real puede verse distinta', async ({ page }) => {
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    await previaCargada(page);
+    const leyenda = page.locator('section[aria-label="Vista previa"] p').filter({ hasText: /Es un ejemplo de página/ });
+    await expect(leyenda).toBeVisible();
+    await expect(leyenda).toContainText('con el nombre y el color de tu estudio: tu web real puede verse distinta');
+    await expect(leyenda).toContainText('El widget sí es el de verdad, con tus clases de hoy.');
+    // Ya no habla de «dibujo»: era jerga.
+    await expect(page.locator('section[aria-label="Vista previa"]')).not.toContainText('un dibujo de tu web');
+  });
+
+  test('la barra de direcciones: la web que contestó; si no, una autorizada; si no, «tu-web.com» (nunca la de otro)', async ({ page }) => {
+    // Con su dirección.
+    await montar(page, { direccion: 'pilatescentro.example.com' });
+    await empezar(page);
+    await previaCargada(page);
+    await expect(page.locator('[data-marco-movil]')).toContainText('pilatescentro.example.com');
+  });
+
+  test('sin dirección contestada, la de una web autorizada', async ({ page }) => {
+    await montar(page, { dominios: ['https://www.estudiogranada.example.com'] });
+    await empezar(page);
+    await previaCargada(page);
+    await expect(page.locator('[data-marco-movil]')).toContainText('www.estudiogranada.example.com');
+    await expect(page.locator('[data-marco-movil]')).not.toContainText('tu-web.com');
+  });
+
+  test('sin ninguna, «tu-web.com», en el iPhone y en el Mac', async ({ page }) => {
+    await montar(page, {});
+    await empezar(page);
+    await previaCargada(page);
+    await expect(page.locator('[data-marco-movil]')).toContainText('tu-web.com');
+    await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+    await previaCargada(page);
+    await expect(page.getByTestId('mac-pantalla')).toContainText('tu-web.com');
+  });
+});
+
 test.describe('la vista previa a 375', () => {
   test.use({ viewport: { width: 375, height: 812 } });
   test('no va encima del paso: «Ver cómo queda» la abre en una hoja, en el móvil y sin salirse', async ({ page }) => {
@@ -961,4 +1158,85 @@ test.describe('capturas de la vista previa (solo con CAPTURAS_PR3=<carpeta>)', (
       r.soltar();
     });
   }
+});
+
+test.describe('capturas de «Tu horario, tus clases» (solo con CAPTURAS_SOLO=<carpeta>)', () => {
+  const carpeta = process.env.CAPTURAS_SOLO;
+  test.skip(!carpeta, 'solo con CAPTURAS_SOLO');
+  test.setTimeout(900_000);
+  const PLANES_CAPTURA = [
+    { id: 'p-cuota', studioId: STUDIO_ID, tipo: 'MENSUAL', activo: true, precio: 89, nombre: 'Cuota Reformer', periodicidadMeses: 1 },
+    { id: 'p-bono', studioId: STUDIO_ID, tipo: 'BONO', activo: true, precio: 100, nombre: 'Bono 10 clases', sesiones: 10 },
+  ];
+  async function foto(page: Page, nombre: string) {
+    const plegar = page.getByRole('button', { name: 'Plegar «Primeros pasos»' });
+    if (await plegar.isVisible().catch(() => false)) await plegar.click();
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: `${carpeta}/${nombre}.png` });
+  }
+  /** Baja la página dibujada hasta lo último: ahí es donde se ve lo que sale debajo del horario. */
+  const bajarLaPrevia = (page: Page) => page.evaluate(() => {
+    for (const el of document.querySelectorAll<HTMLElement>('[data-vista-previa]')) el.scrollTop = el.scrollHeight;
+  });
+
+  for (const ancho of [1440, 375]) {
+    test(`el paso con la opción, y la vista previa con y sin lo de debajo, a ${ancho}`, async ({ page }) => {
+      await page.setViewportSize({ width: ancho, height: ancho > 400 ? 900 : 812 });
+      await montar(page, { dominios: ['https://www.pilatescentro.example.com'], planesPublicos: PLANES_CAPTURA });
+      await empezar(page);
+      const estrecho = ancho < 400;
+      await expect(interruptorSolo(page)).toBeVisible();
+      if (!estrecho) await previaCargada(page);
+      await page.getByText('Solo se ven tus clases y reservar.').scrollIntoViewIfNeeded();
+      await foto(page, `paso-que-con-la-opcion-${ancho}`);
+
+      /** Móvil y ordenador, bajados hasta el final de la página dibujada. */
+      async function previas(estado: string) {
+        if (estrecho) await page.getByRole('button', { name: 'Ver cómo queda' }).click();
+        for (const [dispositivo, nombre] of [['Móvil', 'movil'], ['Ordenador', 'ordenador']] as const) {
+          await dispositivos(page).getByRole('button', { name: dispositivo }).click();
+          await previaCargada(page);
+          await page.waitForTimeout(2500);
+          await bajarLaPrevia(page);
+          await foto(page, `previa-${estado}-${nombre}-${ancho}`);
+        }
+        if (estrecho) await page.getByRole('button', { name: 'Cerrar la vista previa' }).click();
+      }
+
+      // Con la opción encendida (lo que sale en un código nuevo): el horario y nada más.
+      await previas('opcion-activada-sin-bonos');
+      // Y apagada (lo de antes): debajo del horario, los bonos y las cuotas.
+      await interruptorSolo(page).click();
+      await expect(interruptorSolo(page)).toHaveAttribute('aria-checked', 'false');
+      await page.waitForTimeout(1500);
+      await previas('opcion-apagada-con-bonos');
+    });
+  }
+
+  test('la leyenda de «ejemplo» y la barra de direcciones con la web del estudio', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { dominios: ['https://www.pilatescentro.example.com'], planesPublicos: PLANES_CAPTURA });
+    await empezar(page);
+    await previaCargada(page);
+    await page.waitForTimeout(2500);
+    await page.locator('section[aria-label="Vista previa"]').scrollIntoViewIfNeeded();
+    await foto(page, 'leyenda-ejemplo-y-direccion-movil-1440');
+    await dispositivos(page).getByRole('button', { name: 'Ordenador' }).click();
+    await previaCargada(page);
+    await foto(page, 'leyenda-ejemplo-y-direccion-ordenador-1440');
+  });
+
+  test('el aviso de recuperarlo, en la fila y en «Ponlo en tu web»', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, {
+      dominios: ['https://www.pilatescentro.example.com'], planesPublicos: PLANES_CAPTURA, direccion: 'pilatescentro.example.com',
+      widgetBuilder: { horario: { ...CONFIG_DE_ANTES, metodo: 'iframe', copiado: copiaDeAntes('congelado') } },
+    });
+    await expect(filaHorario(page)).toBeVisible({ timeout: 60_000 });
+    await foto(page, 'aviso-recuperarlo-fila-1440');
+    await filaHorario(page).getByRole('button', { name: 'Copiar el código nuevo' }).click();
+    await expect(page.locator('[data-aviso-solo-horario]')).toBeVisible();
+    await page.locator('[data-aviso-solo-horario]').scrollIntoViewIfNeeded();
+    await foto(page, 'aviso-recuperarlo-ponlo-1440');
+  });
 });

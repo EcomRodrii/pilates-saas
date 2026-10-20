@@ -37,14 +37,14 @@ export async function cerrarSustitucionesVencidas(): Promise<{ cerradas: number 
   const { data: enJuego } = await fetchAllRows<{ id: string; sesion_id: string; studio_id: string }>(
     '(global)', 'sustituciones',
     (from, to) => admin.from('sustituciones').select('id, sesion_id, studio_id')
-      .in('estado', ESTADOS_EN_JUEGO).range(from, to),
+      .in('estado', ESTADOS_EN_JUEGO).order('id').range(from, to),
   );
   if (enJuego.length === 0) return { cerradas: 0 };
 
   const sesionIds = Array.from(new Set(enJuego.map(s => s.sesion_id)));
   const { data: sesiones } = await fetchAllRows<{ id: string; inicio: string; tipo_clase_id: string | null }>(
     '(global)', 'sesiones',
-    (from, to) => admin.from('sesiones').select('id, inicio, tipo_clase_id').in('id', sesionIds).range(from, to),
+    (from, to) => admin.from('sesiones').select('id, inicio, tipo_clase_id').in('id', sesionIds).order('id').range(from, to),
   );
   const sesionPorId = new Map(sesiones.map(s => [s.id, s]));
 

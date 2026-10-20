@@ -1,42 +1,14 @@
 'use client';
 
-import { useRef, useState, type MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
-import { abrirConversacionConEstudio } from '@/lib/student/mensajeria';
 
-// Las cuatro cosas que hace una alumna, debajo del buscador.
+// La fila de cuatro baldosas de la INSTRUCTORA (su «Hoy»). Las de la alumna en Inicio son `BaldosasInicio`, copia de la
+// maqueta de oct-2026 (decisión del fundador del 19-oct, que sustituye a la fila Comunidad · Instructoras · Chat ·
+// Favoritos del 7-oct).
 //
-// ⚠️ Ninguna repite destino con la barra de abajo (decisión del fundador,
-// 7-oct-2026). Antes dos lo hacían a propósito (Clases y Mi plan), como «la
-// primera pantalla diciendo a qué se viene»; pero la barra ya lleva a los dos
-// y la fila gastaba la mitad de sus huecos en repetirla. Esos dos huecos son
-// ahora Comunidad y Chat, que no tenían más puerta que una fila de Perfil.
-//
-// ⚠️ Comunidad y el chat con el estudio están para TODAS las alumnas de todos
-// los estudios: no hay ajuste del estudio, ni plan, ni `frozen-features` que
-// los apague (Comunidad está descongelada; lo congelado es el chat de EQUIPO
-// del panel). Por eso no hay respaldo a Clases / Mi plan. Si algún día se
-// pueden apagar, esa decisión vive en el servidor y llega aquí con el estudio;
-// no se adivina desde la pantalla.
-//
-// ⚠️ La composición sale de la guía de marca del estudio, no de mi criterio:
-// icono dentro de un disco, todo CENTRADO, y sin chevron. La primera versión
-// las traía alineadas a la izquierda, con flecha, y la primera en tinta de
-// marca para que destacara; la guía las enseña **las cuatro iguales**, y la
-// tinta de marca reservada para una quinta pieza que es una cita, no un atajo.
-// Se sigue la guía: quien decide cómo se ve su app es el estudio.
-//
-// Los iconos son del mismo set que la barra (HugeIcons stroke-rounded) y al
-// mismo grosor. Mezclar familias en la misma pantalla se nota aunque no se
-// sepa por qué. Comunidad y Chat llevan los MISMOS que sus filas de Perfil
-// (`feed`, `mensaje`): un destino, un icono en toda la app.
-//
-// ⚠️ Tres de estos cuatro estaban dibujados a mano «a lo HugeIcons» y se
-// notaba: el hombro de la segunda persona de Instructoras volvía sobre sí mismo
-// y parecía un trazo duplicado, y el corazón tenía otra forma que el de la
-// barra. Ahora salen de `ui/Icono.tsx`, copiados del paquete sin retocar.
+// Los iconos son del mismo set que la barra (HugeIcons stroke-rounded) y al mismo grosor.
 
 export type Acceso = {
   href: string; titulo: string; pie: string; icono: NombreIcono;
@@ -45,68 +17,6 @@ export type Acceso = {
   /** Mientras `alPulsar` espera al servidor. */
   ocupado?: boolean;
 };
-
-export function AccesosRapidos({ studioId, hrefComunidad, hrefInstructoras, hrefMensajes, hrefFavoritas }: {
-  studioId: string;
-  hrefComunidad: string;
-  hrefInstructoras: string;
-  /** La bandeja (`/mensajes`); la conversación con el estudio es `${hrefMensajes}/<id>`. */
-  hrefMensajes: string;
-  hrefFavoritas: string;
-}) {
-  const router = useRouter();
-  const [abriendo, setAbriendo] = useState(false);
-  // Un ref además del estado: dos toques seguidos llegan antes de que React
-  // vuelva a pintar, y serían dos peticiones.
-  const enCurso = useRef(false);
-
-  // «Chat» lleva DIRECTO a la conversación con el mostrador, no a una bandeja
-  // que casi siempre está vacía. Es el mismo camino que el «Escribir» de
-  // `/mensajes`: `abrirConversacionConEstudio` abre la conversación o devuelve
-  // la que ya había (la RPC `abrir_conversacion` la reutiliza), y se entra.
-  // Si no sale —sin conexión, sin sesión, un fallo del servidor— va a la
-  // bandeja, que tiene sus propios estados de error, sin conexión y vacío, y su
-  // botón «Escribir»: el toque nunca se queda en nada.
-  // Sin cifra de no leídos: Inicio no pide las conversaciones (se quitó por lo
-  // que costaba) y no se añade una petición solo para eso.
-  const abrirChat = async (e: MouseEvent<HTMLAnchorElement>) => {
-    // ⌘/Ctrl-clic o clic central: la bandeja en otra pestaña, como cualquier enlace.
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    e.preventDefault();
-    if (enCurso.current) return;
-    enCurso.current = true;
-    setAbriendo(true);
-    try {
-      const r = await abrirConversacionConEstudio(studioId);
-      router.push(r.ok && r.id ? `${hrefMensajes}/${encodeURIComponent(r.id)}` : hrefMensajes);
-    } finally {
-      enCurso.current = false;
-      setAbriendo(false);
-    }
-  };
-
-  const accesos: Acceso[] = [
-    {
-      href: hrefComunidad, titulo: 'Comunidad', pie: 'Lo que pasa en tu estudio',
-      icono: 'feed',
-    },
-    {
-      href: hrefInstructoras, titulo: 'Instructoras', pie: 'Conoce al equipo',
-      icono: 'instructoras',
-    },
-    {
-      href: hrefMensajes, titulo: 'Chat', pie: 'Escribe al estudio',
-      icono: 'mensaje', alPulsar: (e) => void abrirChat(e), ocupado: abriendo,
-    },
-    {
-      href: hrefFavoritas, titulo: 'Mis favoritos', pie: 'Tus clases guardadas',
-      icono: 'favorito',
-    },
-  ];
-
-  return <FilaAccesos accesos={accesos} />;
-}
-
 
 /**
  * La fila de cuatro baldosas. Una sola pieza para la alumna y para la

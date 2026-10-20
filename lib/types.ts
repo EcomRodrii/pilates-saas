@@ -169,6 +169,10 @@ export interface Studio {
   stripeCustomerId: string | null;
   subscriptionId: string | null;
   subscriptionStatus: string | null;
+  /** Paga Founding con los complementos aparte (lib/billing/entitlements.ts). Solo lo escribe el webhook. */
+  regimenAddons?: boolean | null;
+  /** Complementos contratados (`ADDONS`), leídos de la suscripción de Stripe. */
+  addons?: string[] | null;
   currentPeriodEnd: string | null;
   /** Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). null = sin prueba
    *  local. Lo fija un trigger de la BD al crear el estudio, nunca el cliente. */

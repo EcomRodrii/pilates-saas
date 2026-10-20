@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Piezas de cuerpo compartidas por las páginas de funcionalidad. Son las que
 // SÍ deben repetirse (una sección es una sección); los dibujos propios de cada
@@ -120,7 +121,7 @@ export function CierreCta({ titulo, body }: { titulo: string; body: string }) {
           <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,31px)', lineHeight: 1.12, letterSpacing: '-.03em', margin: '0 0 11px', color: '#fff' }}>{titulo}</h2>
           <p style={{ fontSize: 15.5, lineHeight: 1.58, color: '#D6DAC6', margin: '0 0 22px' }}>{body}</p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <a href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 700, color: '#343825', background: '#D9C29E', padding: '14px 26px', borderRadius: 999, textDecoration: 'none' }}>Crear mi estudio</a>
+            <a href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 700, color: '#343825', background: '#D9C29E', padding: '14px 26px', borderRadius: 999, textDecoration: 'none' }}>{CTA_ALTA}</a>
             <a href="/precios" style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,.85)', padding: '14px 6px', textDecoration: 'none' }}>Ver precios →</a>
           </div>
         </div>

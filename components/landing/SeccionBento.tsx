@@ -3,6 +3,7 @@ import { FOTOS_APORTADAS } from './fotos';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { MockupIphone, estilosMockupIphone } from './MockupIphone';
 import { MessageCircle, Mail, CalendarDays } from 'lucide-react';
+import { BotonBloque } from './BotonBloque';
 
 // «Todo lo que necesita tu estudio, en una sola plataforma» — cuarta versión
 // (6-oct-2026), esta vez CLONANDO la estructura, la escala y la sensación de la
@@ -145,12 +146,27 @@ function Foto({ clave, pos }: { clave: keyof typeof FOTOS_FUNDADOR; pos: Pos }) 
   );
 }
 
-function Texto({ id, href, titulo, texto, chips }: { id: string; href: string; titulo: string; texto: string; chips: string[] }) {
+/**
+ * Un chip es un texto o `[texto, ruta]`: con ruta, lleva a la página de esa función
+ * (la forma del bento de Bsport, ronda 3: los chips son la puerta a cada función,
+ * no una etiqueta). Los que no tienen página propia siguen siendo texto.
+ */
+type Chip = string | readonly [string, string];
+
+function Texto({ id, href, titulo, texto, chips }: { id: string; href: string; titulo: string; texto: string; chips: readonly Chip[] }) {
   return (
     <div className="bn-t">
       <h3 id={id} className="bn-h3"><Link href={href}>{titulo}</Link></h3>
       <p className="bn-p">{texto}</p>
-      <ul className="bn-chips">{[...chips, '…'].map((c) => <li key={c}>{c}</li>)}</ul>
+      <ul className="bn-chips">
+        {chips.map((c) => {
+          const [t, ruta] = typeof c === 'string' ? [c, null] : c;
+          return ruta
+            ? <li key={t} className="bn-chip-enlace"><Link href={ruta}>{t}</Link></li>
+            : <li key={t}>{t}</li>;
+        })}
+        <li aria-hidden="true">…</li>
+      </ul>
     </div>
   );
 }
@@ -184,7 +200,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w7 bn-r1 bn-c1 lp-rv" aria-labelledby="bn-res-h">
             <Texto id="bn-res-h" href="/funcionalidades/reservas-online" titulo="Que tus alumnas llenen las clases solas"
               texto="Reservan desde el móvil, eligen su reformer y, si la clase está llena, entran en la lista de espera."
-              chips={['Elige su reformer', 'Lista de espera', 'En tu web']} />
+              chips={[['Elige su reformer', '/funcionalidades/calendario-y-salas#faq'], ['Lista de espera', '/funcionalidades/lista-de-espera'], ['En tu web', '/funcionalidades/reservas-online#pagina']]} />
             <div className="bn-st" style={{ ['--sh' as string]: '250px' }}>
               <Foto clave="reservas" pos={{ r: 0, t: 0, b: 0, w: 190, mr: 0, mt: 0, mb: 0, mw: 128 }} />
               <span className="bn-hora bn-no-m" style={estilo({ l: 30, t: 173 })} aria-hidden="true">09:00</span>
@@ -211,7 +227,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w5 bn-r1 bn-c2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-app-h">
             <Texto id="bn-app-h" href="/funcionalidades/app-para-alumnas" titulo="Tu app, con el nombre de tu estudio"
               texto="Tus alumnas reservan, ven su bono y pagan desde el móvil, con tu nombre, tu logo y tus colores."
-              chips={['Tu logo y tus colores', 'Avisos en el móvil']} />
+              chips={[['Tu logo y tus colores', '/funcionalidades/app-para-alumnas#marca'], ['Avisos en el móvil', '/funcionalidades/app-para-alumnas#avisos']]} />
             <div className="bn-st" style={{ ['--sh' as string]: '440px' }}>
               <Foto clave="app" pos={{ l: 0, t: 140, b: 0, w: 200, ml: 0, mt: 40, mb: 0, mw: 130 }} />
               <Movil cual="inicio" tono="oscuro" ancho={146} pos={{ r: 18, t: 196, mr: 14, mt: 296 }} />
@@ -225,7 +241,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w12 bn-r2 bn-c3 lp-rv" aria-labelledby="bn-cob-h">
             <Texto id="bn-cob-h" href="/funcionalidades/cobros-recurrentes" titulo="Cobra sin perseguir a nadie"
               texto="Bonos y cuotas con tarjeta o SEPA. Si un cobro falla, se reintenta a los 1, 3 y 7 días."
-              chips={['Tarjeta y SEPA', 'Reintento de cobros', 'Facturas']} />
+              chips={[['Tarjeta y SEPA', '/funcionalidades/cobros-recurrentes#sepa'], ['Reintento de cobros', '/funcionalidades/cobros-recurrentes#reintentos'], ['Facturas', '/funcionalidades/facturacion']]} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Mini etiqueta="Recibo de Ana López, cuota mensual de 59 euros, cobrado" pos={{ l: 470, t: 30, w: 246, ml: 12, mt: 4, mw: 262 }}>
                 <span className="bn-fila"><span className="bn-quien"><Av t="AL" /><span><b>Ana López</b><i>Cuota mensual · 59 €</i></span></span><Tag t="Cobrado ✅" tono="ok" /></span>
@@ -244,7 +260,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w7 bn-r3 bn-c1 lp-rv" aria-labelledby="bn-cc-h">
             <Texto id="bn-cc-h" href="/funcionalidades/calendario-y-salas" titulo="Cada mañana, una sola cosa que mirar"
               texto="El Centro de Control te propone lo que merece tu atención y «Pregúntale a Tentare» prepara clases y citas cuando tú confirmas."
-              chips={['Calendario por sala', 'Lo que espera tu visto bueno', 'Pregúntale a Tentare']} />
+              chips={[['Calendario por sala', '/funcionalidades/calendario-y-salas'], 'Lo que espera tu visto bueno', 'Pregúntale a Tentare']} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Mini etiqueta="Recomendación del Centro de Control: abrir una segunda clase de Reformer los martes, con 7 personas en lista de espera" pos={{ l: 30, t: 150, w: 292, ml: 12, mt: 4, mw: 276 }}>
                 <span className="bn-fila"><Tag t="✨ RECOMENDACIÓN" tono="arena" /><span className="bn-mini-txt">Centro de Control</span></span>
@@ -265,7 +281,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w5 bn-r3 bn-c2 lp-rv" style={{ ['--lp-r' as string]: 6 }} aria-labelledby="bn-eq-h">
             <Texto id="bn-eq-h" href="/funcionalidades/gestion-de-instructoras" titulo="Tu equipo, con su horario"
               texto="Cada instructora ve su agenda y marca su disponibilidad. Cuando hay una baja, la sustituta la apruebas tú."
-              chips={['Disponibilidad', 'App de la instructora', 'Sustituciones con tu visto bueno']} />
+              chips={[['Disponibilidad', '/funcionalidades/gestion-de-instructoras#disponibilidad'], 'App de la instructora', ['Sustituciones con tu visto bueno', '/funcionalidades/sustituciones']]} />
             <div className="bn-st" style={{ ['--sh' as string]: '270px' }}>
               <Foto clave="equipo" pos={{ l: 18, r: 18, t: 214, b: 0, ml: 16, mr: 16, mt: 70, mb: 0 }} />
               <Mini etiqueta="Disponibilidad de Marta Ruiz esta semana: lunes, miércoles y viernes" pos={{ l: 24, t: 172, w: 230, ml: 16, mt: 40, mw: 232 }}>
@@ -282,7 +298,7 @@ export function SeccionBento() {
           <article className="bn-card bn-w12 bn-r4 bn-c3 lp-rv" aria-labelledby="bn-mig-h">
             <Texto id="bn-mig-h" href="/soluciones/cambiar-de-software" titulo="Cámbiate sin empezar de cero"
               texto="Trae tus alumnas y tus bonos desde Excel u otro programa y revisa los números. Si algo no sale, te responde una persona."
-              chips={['Excel y otros programas', 'Botón para deshacer', 'Te responde una persona']} />
+              chips={[['Excel y otros programas', '/soluciones/cambiar-de-software'], ['Botón para deshacer', '/soluciones/cambiar-de-software'], 'Te responde una persona']} />
             <div className="bn-st" style={{ ['--sh' as string]: '250px' }}>
               <Mini etiqueta="Importando: alumnas, bonos y horario, todo revisado" pos={{ l: 470, t: 30, w: 232, ml: 14, mt: 4, mw: 240 }}>
                 <b className="bn-m-tit">Importando desde Excel <Emo e="📥" /></b>
@@ -306,6 +322,7 @@ export function SeccionBento() {
           {MAS.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
         </nav>
         <p className="bn-nota">Las pantallas y tarjetas son ejemplos con datos de muestra.</p>
+        <div className="bn-cierre"><BotonBloque /></div>
       </div>
 
       <style>{`
@@ -330,6 +347,12 @@ export function SeccionBento() {
         .bn-p { margin: 0 0 10px; max-width: 46ch; font-size: 13px; line-height: 1.5; color: #636758; text-wrap: pretty; }
         .bn-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
         .bn-chips li { padding: 4px 10px; border-radius: 999px; background: rgba(52,56,37,.07); font-size: 11px; font-weight: 500; color: #4A4E3D; }
+        /* Chip con enlace: el área de pulsación es la del chip entero (y no menos de 24 px de alto). */
+        .bn-chips li.bn-chip-enlace { padding: 0; }
+        .bn-chips li.bn-chip-enlace a { display: block; padding: 5px 10px; color: inherit; text-decoration: none; border-radius: 999px;
+          transition: background var(--motion-normal) var(--motion-ease), color var(--motion-normal); }
+        .bn-chips li.bn-chip-enlace a:hover { background: rgba(52,56,37,.16); color: #1F2216; text-decoration: underline; text-underline-offset: 3px; }
+        .bn-chips li.bn-chip-enlace a:focus-visible { outline: 2px solid #343825; outline-offset: 2px; }
 
         /* El escenario ocupa toda la tarjeta (por detrás del texto) en escritorio. */
         .bn-st { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -391,6 +414,8 @@ export function SeccionBento() {
         .bn-foto[data-hueco="app"] { border-radius: 20px 20px 0 0; } .bn-foto[data-hueco="equipo"] { border-radius: 16px 16px 0 0; }
         .bn-foto picture, .bn-foto img { display: block; width: 100%; height: 100%; } .bn-foto img { object-fit: cover; }
         
+        .bn-cierre { display: flex; justify-content: center; margin-top: 26px; }
+        @media (max-width: 600px) { .bn-cierre { display: block; } }
         .bn-mas-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 22px; margin-top: 22px; }
         .bn-mas-nav a { display: inline-flex; align-items: center; min-height: 40px; font-size: 13px; font-weight: 600; color: #4A4E3D; }
         .bn-mas-nav a:hover { color: #1F2216; text-decoration: underline; text-underline-offset: 4px; }

@@ -2709,7 +2709,11 @@ export default function ReservarPage() {
   // Las vistas incrustadas de UNA sola cosa (planes, equipo): nada de las
   // secciones de la página completa debajo — 1 widget = 1 propósito.
   // La clase de prueba también: debajo no van tus bonos ni «Sobre nosotros».
-  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || tab === 'contacto' || modoPrueba);
+  // Y el horario, si el código lo pide con `solo=1` («Tu horario, tus clases»):
+  // sin él, debajo salían la banda de bonos, «Sobre nosotros», las cifras, los
+  // bloques del editor y el pie, y `pie=0` solo quitaba el último. Sin el
+  // parámetro (los códigos ya pegados), todo igual que siempre.
+  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || tab === 'contacto' || modoPrueba || configWidget?.solo === true);
   // `?planes=BONO,MENSUAL` (widgets «Planes y precios» / «Bonos y packs»).
   // Solo incrustado, y un valor que no es un tipo de plan se ignora.
   const filtroPlanes = embedMode
@@ -2744,6 +2748,12 @@ export default function ReservarPage() {
     bloquesReservar.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : '')),
   );
   const seccionVisible = (id: string) => seccionesVisibles.has(id);
+  // ¿Se pinta en ESTA página la banda «Bonos y membresías» (`#bonos-membresias`)?
+  // Una sola respuesta para todos los que dependen de que exista: la banda, el
+  // «Ver bonos y membresías» de «Mi cuenta» y el del aviso de «sin plan» al
+  // reservar. Con `solo=1` (o cualquier vista única) no está, y un botón que
+  // hace scroll a la nada es justo lo que ya se corrigió dos veces aquí.
+  const haySeccionBonos = seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0;
   // Los bloques del CATÁLOGO (banner/texto/cta/faq/galería/vídeo/testimonios/
   // contenedor) que el estudio haya añadido — las 6 secciones de siempre son
   // `sistema` y ya se pintan por su cuenta, JSX fijo, más abajo; estos son
@@ -3995,7 +4005,7 @@ export default function ReservarPage() {
                 // «Ver bonos y membresías» solo si esa sección está en esta misma
                 // página (visible, con algo a la venta): un enlace a la nada es
                 // justo lo que ya se corrigió en el paso de «sin plan».
-                const haySeccionPlanes = seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0;
+                const haySeccionPlanes = haySeccionBonos;
                 return (
                   <MiCuenta
                     t={tokensCalendario} secciones={['bonos', 'perfil']} socio={socioCompleto}
@@ -4107,7 +4117,7 @@ export default function ReservarPage() {
           página pública es peor que no tenerla. */}
       {/* Con `?prueba=1` tampoco en la página completa (enlace/botón): la
           clase suelta a su precio competiría con la oferta de al lado. */}
-      {!enVistaReserva && seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0 && (
+      {!enVistaReserva && haySeccionBonos && (
         <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           {contenidoPlanes}
         </div>
@@ -5013,7 +5023,7 @@ export default function ReservarPage() {
                         venta, el gate ni siquiera bloquea (`hayAlgoQueContratar`),
                         así que no queda ningún camino sin salida. */}
                     {seArreglaComprando(gateError) && (() => {
-                      const seccionEnEstaPagina = seccionVisible('bonos') && planesContratables.length > 0;
+                      const seccionEnEstaPagina = haySeccionBonos;
                       if (seccionEnEstaPagina) {
                         return (
                           <>
@@ -5039,6 +5049,10 @@ export default function ReservarPage() {
                           {' '}
                           <a
                             href={`/portal/${slug}/comprar`}
+                            // Dentro del widget (con `solo=1` la banda de bonos no está en la
+                            // página, y esta es la única salida), la tienda se abre en otra
+                            // pestaña: navegar el iframe la metería en el marco de la web del estudio.
+                            {...(embedMode ? { target: '_blank', rel: 'noopener' } : {})}
                             className="font-semibold underline underline-offset-2"
                           >
                             Comprar un bono
