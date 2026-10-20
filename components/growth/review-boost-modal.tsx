@@ -44,7 +44,7 @@ import { Button } from '@/components/ui/button';
 import { useCore } from '@/lib/core-context';
 import { authHeader } from '@/lib/api-client';
 import { capturarEvento } from '@/lib/posthog-cliente';
-import { cambiosAlMostrar, debeMostrarModal } from '@/lib/growth/review-boost';
+import { cambiosAlMostrar, reviewBoostToca } from '@/lib/growth/review-boost';
 import { REVIEW_BOOST_PLATAFORMAS } from '@/lib/growth/review-boost-plataformas';
 import type { Studio } from '@/lib/types';
 
@@ -123,12 +123,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   // cerrar sin responder (si no, volvería a salir en la próxima carga).
   const vistoRef = useRef<{ cambios: Partial<Studio>; guardado: boolean } | null>(null);
 
-  const elegible = rol === 'PROPIETARIO' && !!studio && debeMostrarModal({
-    reviewBoostElegibleEn: studio.reviewBoostElegibleEn,
-    reviewBoostMostradoEn: studio.reviewBoostMostradoEn,
-    reviewBoostPospuestoEn: studio.reviewBoostPospuestoEn,
-    reviewBoostVecesMostrado: studio.reviewBoostVecesMostrado,
-  });
+  const elegible = reviewBoostToca(studio, rol);
 
   useEffect(() => {
     if (decididoRef.current || !elegible || !studio) return;

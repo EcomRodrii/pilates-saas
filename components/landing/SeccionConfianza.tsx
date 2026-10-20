@@ -80,7 +80,8 @@ export function SeccionConfianza() {
       </div>
 
       <style>{`
-        .v5-conf { background: #131313; color: #fff; padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); }
+        .v5-conf { background: #131313; color: #fff; margin: 12px clamp(8px,1.6vw,24px) clamp(24px,3vw,48px); border-radius: clamp(28px,4vw,56px);
+          padding: clamp(64px,7vw,104px) clamp(20px,4vw,48px); }
         .v5-conf-wrap { max-width: 1180px; margin: 0 auto; }
         .v5-conf-head { max-width: 760px; margin-bottom: clamp(32px,4vw,48px); }
         .v5-conf-h2 { margin: 0 0 16px; font-size: clamp(30px,4.4vw,58px); font-weight: 800; line-height: 1.02;

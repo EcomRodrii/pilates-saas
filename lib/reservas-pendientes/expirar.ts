@@ -25,7 +25,7 @@ export async function expirarReservasPendientes(): Promise<{ expiradas: number }
       .from('reservas')
       .select('id, studio_id, sesion_id, socio_id')
       .eq('estado', 'PENDIENTE_APROBACION')
-      .range(from, to),
+      .order('id').range(from, to),
   );
   exigirLectura(errReservas, 'leyendo reservas pendientes');
   if (!reservas.length) return { expiradas: 0 };
@@ -35,7 +35,7 @@ export async function expirarReservasPendientes(): Promise<{ expiradas: number }
       .from('sesiones')
       .select('id, inicio')
       .in('id', [...new Set(reservas.map((r) => r.sesion_id))])
-      .range(from, to),
+      .order('id').range(from, to),
   );
   exigirLectura(errSesiones, 'leyendo sesiones');
   const inicioById = new Map(sesiones.map((s) => [s.id, s.inicio]));

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe } from '@/lib/billing/billing';
-import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
+import { priceIdDe, priceIdDeAddon } from '@/lib/billing/billing';
+import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
@@ -16,6 +16,9 @@ import {
   COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, leerCadenaParaGratis, type FilaParaGratis,
 } from '@/lib/billing/convertir-a-gratis';
 import { marcarUso } from '@/lib/retencion/marcar-uso';
+import { clientIp } from '@/lib/rate-limit-core';
+import { COOKIE_DISPOSITIVO, enDiasDeAlta, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
+import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
 
 /**
  * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
@@ -56,7 +59,7 @@ export async function GET(req: NextRequest) {
 
   const { data: studio } = await admin
     .from('studios')
-    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, ${COLUMNAS_PARA_GRATIS}`)
+    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, creado_en, regimen_addons, addons, ${COLUMNAS_PARA_GRATIS}`)
     .eq('id', sesion.studioId)
     .single();
 
@@ -155,7 +158,18 @@ export async function GET(req: NextRequest) {
       .catch(() => null);
   }
 
-  return NextResponse.json({
+  // La huella del alta (vinculos-gratis.ts), solo con HUELLA_ALTA y solo de la
+  // propietaria: la primera IP y el primer navegador con que abre el panel. Solo
+  // AVISA en /interno de un alta parecida a un estudio cerrado; nunca cierra nada.
+  // Solo en los primeros días del estudio: es «desde dónde se dio de alta».
+  let dispositivoNuevo: string | null = null;
+  if (huellaAltaActiva(process.env) && sesion.rol === 'PROPIETARIO' && enDiasDeAlta(studio?.creado_en, new Date())) {
+    const dispositivo = req.cookies.get(COOKIE_DISPOSITIVO)?.value ?? (dispositivoNuevo = crypto.randomUUID());
+    const ip = clientIp(req);
+    after(() => apuntarHuellaAlta(admin, sesion.studioId, ip === 'unknown' ? null : ip, dispositivo));
+  }
+
+  const respuesta = NextResponse.json({
     plan,
     subscriptionStatus,
     activo,
@@ -171,7 +185,20 @@ export async function GET(req: NextRequest) {
     trial: { fase: trial.fase, diasRestantes: trial.diasRestantes, finaliza: trial.finaliza },
     // Founding Studio gratis: el uso, la fase y el margen, ya derivados. `null` si no lo es.
     gratis,
+    // Complementos de Founding (lib/billing/entitlements.ts `ADDONS`): si los paga
+    // aparte, cuáles tiene y cuáles se pueden contratar ya (con su precio en Stripe).
+    complementos: {
+      pagaAparte: pagaAddonsAparte(planDeFila({ ...studio, plan, subscription_status: subscriptionStatus })),
+      contratados: addonsDe(planDeFila(studio)),
+      disponibles: LISTA_ADDONS.filter((a) => priceIdDeAddon(a)),
+    },
     // Qué planes se le ofrecen y qué cancelaría Cadena. Ausente si ya paga.
     ...(opciones !== undefined ? { opcionesDePlan: opciones } : {}),
   });
+  if (dispositivoNuevo) {
+    respuesta.cookies.set(COOKIE_DISPOSITIVO, dispositivoNuevo, {
+      httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 400 * 24 * 3600,
+    });
+  }
+  return respuesta;
 }

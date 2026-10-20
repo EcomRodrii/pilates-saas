@@ -74,10 +74,12 @@ test.describe('Student PWA · favoritas', () => {
     await expect(corazon(page)).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('horario: la píldora «Favoritas» solo existe con favoritas, y filtra', async ({ page }) => {
+  // «Favoritas» vive en la hoja de filtros desde la maqueta de oct-2026 (la de la baldosa de Inicio llega por `?filtro=`).
+  test('horario: «Favoritas» solo existe con favoritas, y filtra', async ({ page }) => {
     await montar(page, { favoritas: ['tc-r'] });
     await page.goto(`${base}/reservar`);
-    const pildora = page.getByRole('button', { name: 'Favoritas' });
+    await page.getByTestId('abrir-filtros').click({ timeout: 30_000 });
+    const pildora = page.getByRole('dialog', { name: 'Filtros' }).getByRole('button', { name: 'Favoritas' });
     await expect(pildora).toBeVisible({ timeout: 30_000 });
     // Las dos clases del día antes de filtrar…
     await expect(page.getByRole('link', { name: /Reformer/ }).first()).toBeVisible();
@@ -89,9 +91,10 @@ test.describe('Student PWA · favoritas', () => {
     await expect(page.getByRole('link', { name: /Mat/ })).toHaveCount(0);
   });
 
-  test('horario: sin favoritas no hay píldora', async ({ page }) => {
+  test('horario: sin favoritas no hay «Favoritas»', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/reservar`);
+    await page.getByTestId('abrir-filtros').click({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Con hueco' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Favoritas' })).toHaveCount(0);
   });

@@ -169,6 +169,10 @@ export interface Studio {
   stripeCustomerId: string | null;
   subscriptionId: string | null;
   subscriptionStatus: string | null;
+  /** Paga Founding con los complementos aparte (lib/billing/entitlements.ts). Solo lo escribe el webhook. */
+  regimenAddons?: boolean | null;
+  /** Complementos contratados (`ADDONS`), leídos de la suscripción de Stripe. */
+  addons?: string[] | null;
   currentPeriodEnd: string | null;
   /** Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). null = sin prueba
    *  local. Lo fija un trigger de la BD al crear el estudio, nunca el cliente. */
@@ -2091,7 +2095,8 @@ export interface RewardRedemption {
   id: string;
   studioId: string;
   socioId: string;
-  catalogItemId: string;
+  /** NULL cuando la recompensa se eliminó del catálogo: el canje sobrevive con `recompensaNombre`. */
+  catalogItemId: string | null;
   creditosGastados: number;
   estado: EstadoCanje;
   creadoEn: string;
@@ -2111,6 +2116,12 @@ export interface RewardRedemption {
   entregadoPor?: string | null;
   /** La recuperación que se le concedió, si la recompensa era CLASE_GRATIS. */
   recuperacionId?: string | null;
+  /** Nombre de la recompensa guardado al eliminarla del catálogo. NULL mientras existe. */
+  recompensaNombre?: string | null;
+  /** Quién, cuándo y por qué se canceló. NULL si no está cancelado (y en los cancelados antiguos). */
+  canceladoEn?: string | null;
+  canceladoPor?: string | null;
+  canceladoMotivo?: string | null;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────

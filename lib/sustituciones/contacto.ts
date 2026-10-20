@@ -13,7 +13,7 @@ import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import {
   cuerpoNudgeCandidata,
   parametrosNudgeCandidata,
@@ -400,10 +400,10 @@ export async function escalacionVigente(
 // única para no reimplementar la degradación en cada llamador (baja/escalado/endpoint).
 export async function modoAutonomiaEfectivo(admin: SupabaseClient, studioId: string): Promise<string> {
   const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+    .from('studios').select(`modo_autonomia, ${COLUMNAS_PLAN}`).eq('id', studioId).maybeSingle();
   let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
   if ((modo === 'autonomo' || modo === 'vacaciones') &&
-      !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+      !tieneFeature(planDeFila(estudio), 'sustitucionesAutonomas')) {
     modo = 'asistido';
   }
   return modo;

@@ -107,6 +107,11 @@ export interface OpcionesSocia {
   bonoQueNoCubre?: boolean;
   /** Las reglas de créditos del estudio (`reward_rules`). */
   reglasCreditos?: Array<{ trigger: string; creditos: number; activa?: boolean; topeMensual?: number | null }>;
+  /**
+   * Sus clases pasadas (`POST /api/public/historial`), de donde salen «Tu progreso» y «Mis estadísticas». Por defecto
+   * ninguna: con el historial vacío esos bloques se callan, que es lo de serie para una alumna sin nada marcado.
+   */
+  historial?: Array<{ inicio: string; estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW'; nombre?: string; instructora?: string }>;
   /** Último retoque del payload, ya montado (sesiones con zona, dirección…). */
   ajustar?: (f: Record<string, unknown>) => void;
 }
@@ -330,6 +335,9 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   })));
 
   // Bonos: los movimientos y la semana de la cuota (P4). Vacío por defecto; un spec que los mire registra el suyo DESPUÉS.
+  await ruta((p) => p === '/api/public/historial', (r) => r.fulfill(json({
+    clases: (o.historial ?? []).map((h, i) => ({ reservaId: `res-h-${i}`, sesionId: `ses-h-${i}`, nombre: 'Reformer', instructora: 'Ana', ...h })),
+  })));
   await ruta((p) => p === '/api/public/mis-bonos', (r) => r.fulfill(json({ movimientos: { movimientos: [], hayMas: false, cuadra: true, historialCompleto: true, desde: null }, semanas: [] })));
   await ruta((p) => p === '/api/public/socio', (r) => r.fulfill(json({ ok: true })));
   await ruta((p) => p === '/api/public/favoritos', (r) => r.fulfill(json({ favoritos: [] })));

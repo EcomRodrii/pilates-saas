@@ -11,6 +11,7 @@ import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/Article
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { ConciergeMigracionForm } from '@/components/soluciones/ConciergeMigracionForm';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
+import { ANCLA_AYUDA, SE_LLEVA } from '@/lib/landing/migracion';
 
 const PATH = '/soluciones/cambiar-de-software';
 const pagina = paginaDe(PATH)!;
@@ -27,18 +28,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Los 6 tipos de dato que el importador real mueve — mismo orden y etiquetas
-// que `ENTIDADES` en lib/migracion/clasificador.ts. No se ha añadido "plazas
-// fijas" como entidad propia: en el código nace de la importación de
-// membresías, no es un tipo de archivo que se suba aparte.
-const SE_LLEVA = [
-  'Clientas — con su historial de bonos y asistencia',
-  'Bonos y membresías',
-  'Clases y horario',
-  'Reservas',
-  'Citas',
-  'Pagos históricos',
-];
+// Los 6 tipos de dato que el importador real mueve viven en lib/landing/migracion.ts
+// (SE_LLEVA): la home enseña la misma lista, y dos copias solo pueden desincronizarse.
 
 const FAQ = [
   {
@@ -99,11 +90,13 @@ export default function CambiarDeSoftwarePage() {
             <p style={{ fontSize: 13, color: MUTED, margin: 0 }}>Para quien prefiere controlar el proceso paso a paso, sin esperar a nadie.</p>
           </Reveal>
 
+          <div id={ANCLA_AYUDA} style={{ scrollMarginTop: 96 }}>
           <Reveal delay={60} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>2. Te la hacemos nosotros</h2>
             <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: '0 0 16px' }}>Nos mandas lo que puedas exportar — o acceso a tu software actual — y te entregamos el estudio montado, con el mismo acta verificable. Tu software actual sigue funcionando mientras tanto.</p>
             <ConciergeMigracionForm />
           </Reveal>
+          </div>
         </div>
       </section>
 

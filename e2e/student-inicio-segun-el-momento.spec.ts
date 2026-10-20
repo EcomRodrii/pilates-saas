@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { sembrarSociaCompleta, SLUG, STUDIO_ID } from './socia-completa';
 
-// Inicio según el momento (maqueta aprobada, oct-2026):
-//   · con clase HOY o MAÑANA, esa clase va lo primero, encima del buscador, y
-//     la portada se hace baja;
-//   · sin clase en esos dos días, Inicio queda como estaba;
+// Inicio según el momento (copia de la maqueta de los cuatro iPhones, 19-oct-2026):
+//   · con clase próxima, «Próxima clase» con su foto, bajo el saludo;
+//   · sin ninguna, la tarjeta vacía;
 //   · «¿Qué tal la clase?» tras una clase a la que asistió, y tocar una cara
 //     envía UNA valoración, aunque se toque dos veces.
 //   · «Volver» en una ficha a la que se llegó directa (aviso push, enlace) va a
@@ -17,44 +16,35 @@ test.describe.configure({ timeout: 150_000 });
 
 const INICIO = `/portal/${SLUG}`;
 
-test('con clase hoy, la clase va lo primero, encima del buscador, y la portada es baja', async ({ page }) => {
+test('con clase hoy, «Próxima clase» con su foto, la hora grande y «Ver reserva» (copia de la maqueta)', async ({ page }) => {
   const a = await sembrarSociaCompleta(page, { reservada: true });
   await page.goto(INICIO);
 
   const clase = page.getByTestId('clase-del-momento');
   await expect(clase).toBeVisible({ timeout: 60_000 });
-  await expect(clase).toContainText(/Hoy · en 2 h/i);
+  await expect(clase).toContainText('Próxima clase');
+  // La hora, grande (la del fixture depende de la zona del runner: se comprueba la forma, no el valor).
+  await expect(clase.locator('.tarjeta-proxima__hora')).toHaveText(/^\d{2}:\d{2}$/);
   await expect(clase).toContainText('Reformer');
-  await expect(clase.getByRole('link', { name: 'Mi QR para entrar' })).toBeVisible();
-  await expect(clase.getByRole('button', { name: 'Cómo llegar' })).toBeVisible();
-
-  // Encima del buscador.
+  await expect(clase.getByRole('link', { name: 'Ver reserva' })).toHaveAttribute('href', `${INICIO}/mis-reservas/res-1`);
+  // Debajo del saludo, encima de las baldosas.
+  const cajaHola = await page.getByRole('heading', { name: /^Hola/ }).boundingBox();
   const cajaClase = await clase.boundingBox();
-  const cajaBuscador = await page.getByRole('searchbox', { name: 'Buscar clases o instructoras' }).boundingBox();
-  expect(cajaClase && cajaBuscador && cajaClase.y < cajaBuscador.y).toBe(true);
-
-  // La portada, baja (160 px + zona segura, que en el navegador es 0).
-  const portada = page.getByTestId('portada-inicio');
-  await expect(portada).toHaveAttribute('data-compacta', '');
-  await expect.poll(async () => Math.round((await portada.boundingBox())?.height ?? 0), { timeout: 5_000 }).toBe(160);
-
-  // «Tu próxima clase» no se repite abajo: es la misma reserva.
-  await expect(page.getByRole('region', { name: 'Tu próxima clase' })).toHaveCount(0);
-  // Lo de siempre sigue debajo.
-  await expect(page.getByRole('heading', { name: 'Huecos de hoy' })).toBeVisible();
+  const cajaBaldosas = await page.getByRole('navigation', { name: 'Accesos rápidos' }).boundingBox();
+  expect(cajaHola && cajaClase && cajaBaldosas && cajaHola.y < cajaClase.y && cajaClase.y < cajaBaldosas.y).toBe(true);
+  // Sin portada ni buscador: la maqueta no los tiene.
+  await expect(page.getByTestId('portada-inicio')).toHaveCount(0);
+  await expect(page.getByRole('searchbox')).toHaveCount(0);
   expect(a.sinMockear()).toEqual([]);
 });
 
-test('sin clase hoy ni mañana, Inicio queda como estaba', async ({ page }) => {
+test('sin clase próxima, la tarjeta vacía en su sitio y nada que no exista', async ({ page }) => {
   const a = await sembrarSociaCompleta(page, { reservada: false });
   await page.goto(INICIO);
 
-  await expect(page.getByRole('heading', { name: 'Huecos de hoy' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('navigation', { name: 'Accesos rápidos' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('clase-del-momento')).toHaveCount(0);
-  const portada = page.getByTestId('portada-inicio');
-  await expect(portada).not.toHaveAttribute('data-compacta', '');
-  expect(Math.round((await portada.boundingBox())?.height ?? 0)).toBe(316);
-  await expect(page.getByRole('link', { name: /Reservar clase/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Reservar/ }).first()).toBeVisible();
   expect(a.sinMockear()).toEqual([]);
 });
 

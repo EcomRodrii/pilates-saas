@@ -24,6 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
 // `node --test`, y este módulo sí tiene test unitario propio (salud.test.ts).
 import { PREFIJO_RESERVA_WEB } from '../lista-espera/esperas-sin-plaza.ts';
+import { tieneFeature } from '../billing/entitlements.ts';
 
 export type EstadoSalud = 'ok' | 'aviso' | 'fallo';
 
@@ -101,6 +102,12 @@ export function avisoParaSentry(
  * por lo mismo que `VENTANA_ESPERAS_DIAS`; un test las ata.
  */
 export const ID_DEVOLUCION_POS_SIN_REFLEJAR = 'devolucion-pos-sin-reflejar-en-recibo';
+/**
+ * Asistencias de los últimos 30 días que debieron dar créditos y no los dieron.
+ * Exportado porque el cron diario de bonos la cuenta y manda el número a Sentry
+ * (sin cron nuevo): nadie sondea /api/health/flujos.
+ */
+export const ID_ASISTENCIAS_SIN_PREMIO = 'asistencias-sin-premio';
 export const ID_DENUNCIAS_ESPERANDO_A_TENTARE = 'denuncias-esperando-a-tentare';
 /** Las mismas, con más de 48 h desde que se hicieron: tampoco las ha revisado Tentare. */
 export const ID_DENUNCIAS_SIN_REVISAR_48H = 'denuncias-sin-revisar-48h';
@@ -270,6 +277,45 @@ export const DEFINICIONES: Definicion[] = [
     contar: (admin) => admin
       .from('ledger_conciliacion')
       .select('derecho_id', { count: 'exact', head: true }),
+  },
+  {
+    id: ID_ASISTENCIAS_SIN_PREMIO,
+    que: 'Asistencias de los últimos 30 días que debieron dar créditos por asistir y no los dieron.',
+    impacto:
+      'La alumna vino a clase y no suma los créditos que el estudio le prometió (ni nivel, ni logros que dependen de ellos). ' +
+      'La gamificación es best-effort a propósito: si falla al hacer el check-in, la asistencia queda guardada y el fallo solo ' +
+      'consta en el log. Mira en Sentry el error de la gamificación de ese día; esta comprobación no reparte nada por su cuenta.',
+    // Una sola ya es aviso y fallo: el premio se concede en la propia petición del check-in, y la vista deja una hora de margen.
+    umbralAviso: 1,
+    umbralFallo: 1,
+    // Dos consultas y no una: el gate de plan (feature `gamificacion` + suscripción activa) vive en TypeScript y se aplica
+    // aquí con la MISMA función que usa el servidor al conceder (`tieneFeature`); un estudio sin plan no premia y no es un fallo.
+    // Acotada a 1.000 asistencias: es una alarma, no un informe.
+    contar: async (admin) => {
+      const { data: filas, error } = await admin
+        .from('gamificacion_asistencias_sin_premio')
+        .select('studio_id')
+        .limit(1000);
+      if (error) return { count: null, error };
+      const porEstudio = new Map<string, number>();
+      for (const f of filas ?? []) {
+        const id = f.studio_id as string;
+        porEstudio.set(id, (porEstudio.get(id) ?? 0) + 1);
+      }
+      if (porEstudio.size === 0) return { count: 0, error: null };
+      const { data: estudios, error: errEstudios } = await admin
+        .from('studios')
+        .select('id, plan, subscription_status')
+        .in('id', [...porEstudio.keys()]);
+      if (errEstudios) return { count: null, error: errEstudios };
+      let total = 0;
+      for (const e of estudios ?? []) {
+        if (tieneFeature({ plan: e.plan as string | null, subscriptionStatus: e.subscription_status as string | null }, 'gamificacion')) {
+          total += porEstudio.get(e.id as string) ?? 0;
+        }
+      }
+      return { count: total, error: null };
+    },
   },
   {
     id: ID_DEVOLUCION_POS_SIN_REFLEJAR,

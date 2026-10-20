@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuentaComoHecha, lunesDe, semanaDe, hechasEstaSemana, rachaSemanas } from './ritmo.ts';
+import { clasesHechasDelHistorial, cuentaComoHecha, lunesDe, semanaDe, hechasEstaSemana, rachaSemanas } from './ritmo.ts';
 
 // 2026-09-04 es VIERNES. Toda la batería cuelga de esa fecha.
 const HOY = '2026-09-04';
@@ -150,4 +150,25 @@ test('un mínimo absurdo no rompe nada: por debajo de 1 se trata como 1', () => 
   assert.equal(rachaSemanas(clases, HOY, 0), rachaSemanas(clases, HOY, 1));
   assert.equal(rachaSemanas(clases, HOY, -3), rachaSemanas(clases, HOY, 1));
   assert.equal(rachaSemanas(clases, HOY, 1.7), rachaSemanas(clases, HOY, 1));
+});
+
+// ── La racha sale del historial, no del catálogo ─────────────────────────────
+
+test('clasesHechasDelHistorial: solo las asistidas, con el día de Madrid', () => {
+  const clases = clasesHechasDelHistorial([
+    { inicio: '2026-10-12T22:30:00Z', estado: 'ASISTIDA' }, // martes 13 a las 00:30 en Madrid
+    { inicio: '2026-10-10T09:00:00Z', estado: 'CANCELADA' },
+    { inicio: '2026-10-09T09:00:00Z', estado: 'NO_SHOW' },
+  ]);
+  assert.deepEqual(clases, [{ fecha: '2026-10-13', estado: 'asistida' }]);
+});
+
+test('con el historial, la racha cuenta las semanas pasadas que el catálogo no trae', () => {
+  // Hoy es miércoles 15 de octubre de 2026; vino las tres semanas anteriores y aún no esta.
+  const historial = [
+    { inicio: '2026-10-07T08:00:00Z', estado: 'ASISTIDA' },
+    { inicio: '2026-09-30T08:00:00Z', estado: 'ASISTIDA' },
+    { inicio: '2026-09-23T08:00:00Z', estado: 'ASISTIDA' },
+  ];
+  assert.equal(rachaSemanas(clasesHechasDelHistorial(historial), '2026-10-15', 1), 3);
 });

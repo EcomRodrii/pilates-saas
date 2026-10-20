@@ -42,7 +42,7 @@ test.describe('Student PWA · resto de la auditoría', () => {
   test('un bono que NO cubre este tipo de clase no promete «no pagas nada hoy»', async ({ page }) => {
     await montar(page, bonoQueNoCubre);
     await page.goto(`${base}/reservar/${SESION_ID}`);
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 30_000 });
     // El bono es de Mat y la clase es Reformer: se dice, en vez de prometer. En la HOJA: con «exigir plan» en el payload
     // (como en producción) la tarjeta «Cómo vienes» de detrás trae la misma nota (`notaSinBono`).
     await expect(page.getByLabel('Reservar clase').getByText(/tu bono no incluye este tipo de clase/i)).toBeVisible();
@@ -55,7 +55,7 @@ test.describe('Student PWA · resto de la auditoría', () => {
       (f.socia as Record<string, unknown>).suscripciones = [{ id: 'sus-gen', studioId: STUDIO_ID, socioId: 'socio-e2e-1', planId: 'plan-gen', estado: 'ACTIVA', sesionesRestantes: 8, fechaInicio: '2026-08-01', fechaFin: null }];
     });
     await page.goto(`${base}/reservar/${SESION_ID}`);
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 30_000 });
     await expect(page.getByText(/no pagas nada hoy/i)).toBeVisible();
   });
 

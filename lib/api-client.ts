@@ -529,7 +529,7 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
 }
 
 export async function listarSustituciones(): Promise<{
-  items: SustitucionPanel[]; avisarAlumnas: boolean; modoAutonomia: string; autonomiaDisponible: boolean; equipo: DiagnosticoEquipo;
+  items: SustitucionPanel[]; avisarAlumnas: boolean; modoAutonomia: string; autonomiaDisponible: boolean; autonomiaEsComplemento?: boolean; equipo: DiagnosticoEquipo;
 }> {
   // Equipo vacío como valor por defecto: ante un fallo NO inventamos un aviso de
   // "te falta configurar el equipo" que podría ser mentira.
@@ -538,13 +538,14 @@ export async function listarSustituciones(): Promise<{
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
     if (!res.ok) return { items: [], avisarAlumnas: false, modoAutonomia: 'asistido', autonomiaDisponible: false, equipo: vacio };
     const data = (await res.json()) as {
-      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; modoAutonomia?: string; autonomiaDisponible?: boolean; equipo?: DiagnosticoEquipo;
+      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; modoAutonomia?: string; autonomiaDisponible?: boolean; autonomiaEsComplemento?: boolean; equipo?: DiagnosticoEquipo;
     };
     return {
       items: data.sustituciones ?? [],
       avisarAlumnas: !!data.avisarAlumnas,
       modoAutonomia: data.modoAutonomia ?? 'asistido',
       autonomiaDisponible: !!data.autonomiaDisponible,
+      autonomiaEsComplemento: !!data.autonomiaEsComplemento,
       equipo: data.equipo ?? vacio,
     };
   } catch {
@@ -1360,6 +1361,8 @@ export interface EstadoBilling {
    * `null` si no se pudo leer.
    */
   opcionesDePlan?: OpcionesDePlan | null;
+  /** Complementos de Founding (`ADDONS`). Ausente con un servidor anterior. */
+  complementos?: { pagaAparte: boolean; contratados: string[]; disponibles: string[] };
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
@@ -1404,6 +1407,41 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
     return data as { url: string };
   } catch {
     return { error: 'No se pudo abrir el portal de facturación' };
+  }
+}
+
+/**
+ * Activa o quita un complemento de Founding (una línea más de la suscripción de
+ * Stripe). Devuelve los complementos que hay DE VERDAD tras el cambio.
+ */
+export async function cambiarComplemento(addon: string, activar: boolean): Promise<{ addons: string[] } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/addons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ addon, activar }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(data.addons)) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { addons: data.addons as string[] };
+  } catch {
+    return { error: 'No se ha podido cambiar el complemento. Vuelve a intentarlo.' };
+  }
+}
+
+/** Founding Studio (con o sin complementos) → Estudio, en una sola actualización de Stripe. */
+export async function pasarAEstudio(): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/cambiar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plan: 'ESTUDIO' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.plan !== 'ESTUDIO') return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No se ha podido cambiar de plan. Vuelve a intentarlo.' };
   }
 }
 
