@@ -161,7 +161,7 @@ export default function EstudioDeYogaPage() {
       <FilaProducto
         eyebrow="App con tu marca"
         titulo="Tu estudio, en la pantalla de inicio de tus alumnas"
-        pieza={{ descripcion: 'La app de una alumna con la marca de su estudio, en un iPhone: su próxima clase, accesos a reservar y a su plan y su progreso de la semana.', contenido: <AppAlumna />, movil: true }}
+        pieza={{ descripcion: 'Mi plan en la app de una alumna, en un iPhone: su bono con las sesiones que le quedan, su próxima clase, la tienda y sus recibos.', contenido: <AppAlumna captura="miPlan" />, movil: true }}
         puntos={[
           'En todos los planes, también en el gratuito',
           'Avisos de sus reservas y de la lista de espera',
