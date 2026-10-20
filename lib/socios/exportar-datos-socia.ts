@@ -97,6 +97,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   bajas_clienta: { seccion: 'otros' },
   // Lo que preguntó antes de ser clienta, enlazado a su ficha (migr 20261001105825).
   consultas_contacto: { seccion: 'otros' },
+  plaza_fija_sin_cuota_avisos: { excluida: 'Un apunte interno de cuándo se le avisó de que sus clases fijas se liberaban sin cuota y desde qué día; el aviso en sí ya lo recibió ella.' },
   rastro_gratis: { excluida: 'Solo un HMAC de su correo y de su móvil para que un estudio no salte de cuenta en el plan gratis; no se puede leer sin la clave, que solo tiene la base de datos, y se borra al suprimir su ficha.' },
   socios_qr_acceso: { excluida: 'Solo la huella del código de su QR de acceso, que no se puede leer ni contiene nada suyo; su QR lo ve siempre en su app.' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },

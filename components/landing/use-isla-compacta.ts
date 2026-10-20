@@ -28,6 +28,13 @@ export function useIslaCompacta(ref: RefObject<HTMLElement | null>) {
 
     const procesar = () => {
       pendiente = false;
+      // Con un panel del menú abierto (IslaWeb, `data-menu-abierto`) la isla no
+      // se encoge: se quedaría el panel colgando de unos botones que ya no se ven.
+      if (nav.hasAttribute('data-menu-abierto')) {
+        estado = { compacta: false, y: window.scrollY, acumulado: 0 };
+        poner(false);
+        return;
+      }
       const previo = estado.compacta;
       estado = siguienteEstado(estado, window.scrollY);
       if (estado.compacta !== previo) poner(estado.compacta);

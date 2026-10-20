@@ -72,7 +72,8 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   // MANTENER_SIN_PENALIZAR). Antes que el consentimiento, para no avisar de un
   // «cargo bloqueado» que nunca se iba a cobrar.
   if (sesion && esReservaPlazaFija(pen.reserva_id)
-    && (studio.plaza_fija_sin_cuota === 'LIBERAR' || studio.plaza_fija_sin_cuota === 'MANTENER_SIN_PENALIZAR')) {
+    && (studio.plaza_fija_sin_cuota === 'LIBERAR' || studio.plaza_fija_sin_cuota === 'MANTENER_SIN_PENALIZAR'
+      || studio.plaza_fija_sin_cuota === 'AVISAR_Y_LIBERAR')) {
     const fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(sesion.inicio as string));
     const { data: cubre, error: errCuota } = await admin.rpc('cuota_cubre_plaza_fija', {
       p_studio_id: pen.studio_id, p_socio_id: pen.socio_id, p_tipo_clase_id: sesion.tipo_clase_id, p_fecha: fecha, p_exigir_vigente: false,
