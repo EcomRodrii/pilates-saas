@@ -80,6 +80,28 @@ test('el reto lleva su progreso y si está apuntada; el que acaba antes va prime
   assert.equal(sept.apuntada, true);
 });
 
+// G-09: el panel guarda el inicio como medianoche UTC; el reto debe verse desde el primer día.
+test('un reto se ve el mismo día de su inicio aunque llegue como instante UTC', () => {
+  const r = { id: 'rx', nombre: 'Hoy empieza', descripcion: null, icono: '🚀', objetivo: 3, fechaInicio: '2026-10-17T00:00:00.000Z', fechaFin: '2026-10-23T21:59:59.000Z', creditosRecompensa: 0 };
+  assert.deepEqual(retosDe([r], [], [], '2026-10-17').map((x) => x.id), ['rx']);
+  assert.equal(retosDe([r], [], [], '2026-10-16').length, 0);
+  // El último día también se ve, y los días restantes salen de la fecha de Madrid.
+  const ultimo = retosDe([r], [], [], '2026-10-23');
+  assert.equal(ultimo.length, 1);
+  assert.equal(ultimo[0].diasRestantes, 0);
+  assert.equal(retosDe([r], [], [], '2026-10-24').length, 0);
+});
+
+test('retos: con inscripción por defecto; solo «del estudio» llega sin botón', () => {
+  const base = { descripcion: null, icono: '🔥', objetivo: 3, fechaInicio: '2026-09-01', fechaFin: '2026-09-30', creditosRecompensa: 0 };
+  const v = retosDe([
+    { ...base, id: 'a', nombre: 'A' },
+    { ...base, id: 'b', nombre: 'B', alcance: 'INSCRIPCION' },
+    { ...base, id: 'c', nombre: 'C', alcance: 'ESTUDIO' },
+  ], [], [], '2026-09-05');
+  assert.deepEqual(v.map((x) => [x.id, x.conInscripcion]), [['a', true], ['b', true], ['c', false]]);
+});
+
 const premios = [
   { id: 'p1', nombre: 'Clase suelta', descripcion: null, costeCreditos: 100, icono: '🎟', activo: true, stock: null },
   { id: 'p2', nombre: 'Camiseta', descripcion: null, costeCreditos: 300, icono: '👕', activo: true, stock: 2 },

@@ -47,13 +47,13 @@ export async function canjearRecompensa(slug: string, studioId: string, catalogI
   }
 }
 
-/** Apuntarse o borrarse de un reto. `false` si el servidor no lo guardó. */
+/** Apuntarse o borrarse de un reto con inscripción. `false` si el servidor no lo guardó. */
 export async function apuntarseReto(slug: string, studioId: string, retoId: string, apuntarse: boolean): Promise<boolean> {
   try {
     const res = await fetch('/api/public/retos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ studioId, retoKey: retoId, accion: apuntarse ? 'marcar' : 'desmarcar' }),
+      body: JSON.stringify({ studioId, challengeId: retoId, accion: apuntarse ? 'marcar' : 'desmarcar' }),
     });
     if (!res.ok) return false;
     invalidarCatalogo(slug);

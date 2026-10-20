@@ -242,7 +242,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -5471,8 +5471,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const socio = socios.find(s => s.id === socioId);
     const misReservas = (reservasOverride ?? reservas).filter(r => r.socioId === socioId);
 
+    // Solo los retos «del estudio» (cuentan todas). Los de INSCRIPCION los evalúa el
+    // servidor, que es quien sabe quién se apuntó y cuándo: calcularlos aquí para
+    // todas las alumnas las inscribía sin pedirlo (y desde el inicio del reto).
     challengeDefinitions
-      .filter(reto => reto.activo && new Date(reto.fechaInicio) <= now && now <= new Date(reto.fechaFin))
+      .filter(reto => reto.activo && reto.alcance === 'ESTUDIO' && retoVigente(reto, now))
       .forEach(reto => {
         const progresoExistente = challengeProgress.find(p => p.socioId === socioId && p.challengeId === reto.id);
         if (progresoExistente?.completado) return;

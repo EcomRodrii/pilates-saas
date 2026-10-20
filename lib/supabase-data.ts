@@ -193,6 +193,7 @@ import type {
   PoliticaPlazaFijaSinCuota,
 } from '@/lib/types';
 import type { Valoracion } from '@/lib/valoracion-inicial';
+import { alcanceDe } from '@/lib/engines/alcance-reto';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -825,6 +826,8 @@ export function mapChallengeDefinition(r: RowChallengeDefinitions): ChallengeDef
     fechaFin: r.fecha_fin,
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
+    // Sin la columna (antes de la migración) o con un valor raro: con inscripción, nunca «a todas».
+    alcance: alcanceDe(r.alcance),
     creadoEn: r.creado_en,
   } as ChallengeDefinition;
 }
@@ -1049,6 +1052,7 @@ export function mapRetoParticipacion(r: RowRetoParticipaciones): RetoParticipaci
     socioId: r.socio_id,
     retoKey: r.reto_key,
     creadoEn: r.created_at,
+    bajaEn: r.baja_en ?? null,
   };
 }
 
@@ -4146,7 +4150,7 @@ export async function dbInsertChallengeDefinition(c: ChallengeDefinition): Promi
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
-    creditos_recompensa: c.creditosRecompensa, activo: c.activo, creado_en: c.creadoEn,
+    creditos_recompensa: c.creditosRecompensa, activo: c.activo, alcance: c.alcance, creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('challenge_definitions').insert(row);
   return error ? falloEscritura('[dbInsertChallengeDefinition]', error) : ESCRITURA_OK;
@@ -4163,6 +4167,7 @@ export async function dbUpdateChallengeDefinition(id: string, changes: Partial<C
   if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
   if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
   if ('activo' in changes) db.activo = changes.activo;
+  if ('alcance' in changes) db.alcance = changes.alcance;
   const { error } = await supabase.from('challenge_definitions').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateChallengeDefinition]', error) : ESCRITURA_OK;
 }
