@@ -104,7 +104,7 @@ test('guías destacadas: cada tarjeta con su foto cargada, su categoría y sus m
   const tarjetas = page.locator('#guias .wh-guia');
   await expect(tarjetas).toHaveCount(3);
   await tarjetas.first().scrollIntoViewIfNeeded();
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     const t = tarjetas.nth(i);
     await t.scrollIntoViewIfNeeded();
     await expect(t.locator('.wh-guia-seccion')).toHaveText(/ · \d+ min de lectura$/);
