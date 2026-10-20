@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion, Tabla } from '@/components/funcionalidades/bloques';
 import { RejillaDeSala, SemanaEnSalas } from '@/components/funcionalidades/visuales/calendario';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AgendaDia } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/calendario-y-salas';
 const pagina = paginaDe(PATH)!;
@@ -46,7 +47,7 @@ export default function CalendarioPage() {
       h1={<>Tu semana cuadrada, puesto a puesto.</>}
       intro={<>Series recurrentes, varias salas a la vez y capacidad contada por máquina — no un número de aforo que hay que corregir a mano cada vez que algo se rompe.</>}
       chips={['Series recurrentes', 'Multi-sala', 'Capacidad por reformer']}
-      captura={{ src: '/producto/calendario-semana.png', alt: 'Calendario semanal de Tentare con las clases de un estudio de Pilates', pie: 'La semana real de un estudio: 29 clases, 81 % de ocupación y las 4 que no llegan al 60 %.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
     >
       <Seccion id="problema" titulo="El aforo de un estudio de Pilates no es un número">
         <Entradilla>

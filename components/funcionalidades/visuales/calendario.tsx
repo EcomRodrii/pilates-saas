@@ -19,7 +19,7 @@ export function RejillaDeSala() {
     >
       <div style={{ display: 'flex', gap: 'clamp(18px,3vw,34px)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 11 }}>Sala Reformer · 10 puestos</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8A89F', marginBottom: 11 }}>Sala Reformer · 10 puestos</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
             {PUESTOS.map((p) => (
               <div
@@ -45,7 +45,7 @@ export function RejillaDeSala() {
         </div>
 
         <div style={{ background: '#0F0F0F', borderRadius: 14, padding: '18px 20px', color: '#E8E8E4', minWidth: 210 }}>
-          <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 12 }}>Martes 19:00</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080', marginBottom: 12 }}>Martes 19:00</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A6A69E', marginBottom: 6 }}><span>Aforo de la sala</span><span style={{ color: '#fff' }}>10</span></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A6A69E', marginBottom: 10 }}><span>Fuera de servicio</span><span style={{ color: '#E0785F' }}>−1</span></div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

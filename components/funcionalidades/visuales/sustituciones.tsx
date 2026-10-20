@@ -126,7 +126,7 @@ export function NivelesDeAutonomia() {
       <div className="sust-modos" style={{ display: 'grid', gap: 12 }}>
         {MODOS.map((m, i) => (
           <div key={m.n} style={{ background: i >= 2 ? '#22251A' : '#FAFAF6', border: `1px solid ${i >= 2 ? '#22251A' : '#EDEDE5'}`, borderRadius: 14, padding: '16px 17px' }}>
-            <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: i >= 2 ? '#A8B080' : '#A8A89F', marginBottom: 8 }}>{m.nivel}</div>
+            <div style={{ fontWeight: 600, fontSize: 11.5, color: i >= 2 ? '#A8B080' : '#A8A89F', marginBottom: 8 }}>{m.nivel}</div>
             <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-.02em', color: i >= 2 ? '#fff' : '#1A1A1A', marginBottom: 6 }}>{m.n}</div>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: i >= 2 ? 'rgba(255,255,255,.7)' : MUTED, marginBottom: 10 }}>{m.body}</div>
             <div className="lp-mono" style={{ fontSize: 10.5, color: i >= 2 ? 'rgba(255,255,255,.45)' : '#A8A89F' }}>{m.quien}</div>

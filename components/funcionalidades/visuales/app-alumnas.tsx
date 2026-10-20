@@ -112,7 +112,7 @@ export function InstalableVsNativa() {
         <table style={{ width: '100%', minWidth: 540, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13.5 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }} />
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }} />
               <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#343825', background: '#F1F2EA', borderBottom: '1px solid #E1E5D4' }}>La de Tentare</th>
               <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#5A5A52', borderBottom: '1px solid #E7E7E0' }}>App de tienda</th>
             </tr>
