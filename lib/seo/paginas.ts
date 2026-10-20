@@ -698,8 +698,8 @@ export const PAGINAS: PaginaSeo[] = [
   // fechas de su JSON-LD: antes esta lista las repetía a mano.
   ...GUIAS.map((g): PaginaSeo => ({
     path: `/recursos/${g.slug}`,
-    titulo: g.titulo,
-    descripcion: `Guía de Tentare para propietarias de estudios de Pilates: ${g.titulo.toLowerCase()}.`,
+    titulo: g.tituloSeo,
+    descripcion: g.descripcionSeo,
     grupo: 'recursos',
     etiqueta: g.titulo,
     actualizado: fechaModificada(g),
@@ -841,4 +841,4 @@ export function urlDe(path: string): string {
 // Qué no se indexa: vive en ./no-indexables.ts (ligero, lo usa el navegador en
 // todas las pantallas); se reexporta aquí para que el registro siga siendo la
 // puerta de entrada de siempre.
-export { PREFIJOS_NO_INDEXABLES, EXCEPCIONES_INDEXABLES, RUTAS_REDIRECCION, esNoIndexable } from './no-indexables.ts';
+export { PREFIJOS_NO_INDEXABLES, EXCEPCIONES_INDEXABLES, NOINDEX_PROPIO, RUTAS_REDIRECCION, esNoIndexable } from './no-indexables.ts';

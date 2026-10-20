@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe('/glosario') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Glosario del software de gestión para estudios de Pilates',
     description: 'Definiciones claras y neutrales de los términos que se usan al gestionar un estudio de Pilates.',

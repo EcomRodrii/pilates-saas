@@ -86,7 +86,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title, description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, images: perfil.fotoUrl ? [perfil.fotoUrl] : undefined },
+    openGraph: { siteName: 'Tentare', title, description, url, images: perfil.fotoUrl ? [perfil.fotoUrl] : undefined },
     twitter: { card: 'summary', title, description, images: perfil.fotoUrl ? [perfil.fotoUrl] : undefined },
   };
 }

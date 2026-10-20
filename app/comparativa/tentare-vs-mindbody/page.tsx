@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs Mindbody',
     description: 'Precio, contrato, comisión del marketplace y funciones — comparados con lo que consta en la web pública de Mindbody.',

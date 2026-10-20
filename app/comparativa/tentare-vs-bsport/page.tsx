@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs bsport',
     description: 'Cuánto cuesta cada uno, permanencia, facturación y sustitución de instructoras — comparados con lo que consta en la web pública de bsport.',

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs Eversports',
     description: 'Precio por reservas, alta, facturación y funciones — comparados con lo que consta en la web pública de Eversports Manager.',

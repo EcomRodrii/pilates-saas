@@ -8,7 +8,7 @@ import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recurso
 import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 // Guía de DECISIÓN (por qué no redirigir y qué opciones hay). La de INSTALACIÓN
 // —WordPress, Wix, Squarespace— es /recursos/widget-vs-iframe-reservas-pilates.
@@ -19,13 +19,16 @@ const SLUG = 'reservas-en-tu-web';
 
 const GUIA = guia('reservas-en-tu-web');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/reservas-en-tu-web')!;
+
 export const metadata: Metadata = {
-  // El <title> responde a lo que se busca (cómo poner reservas en la web); el
-  // titular de la página sigue siendo el de la guía.
-  title: 'Reservas en tu web: widget, plugin o API — Tentare',
-  description: 'Cuando la alumna sale de tu web para reservar, casi siempre no vuelve. Qué pierdes con la redirección y qué opciones hay: widget, plugin de WordPress o API.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: TITLE,
     description: 'Por qué redirigir a otra plataforma cuesta reservas, y las tres formas reales de evitarlo.',

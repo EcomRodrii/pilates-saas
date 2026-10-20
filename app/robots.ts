@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { BASE_URL, PREFIJOS_NO_INDEXABLES, EXCEPCIONES_INDEXABLES } from '@/lib/seo/paginas';
+import { BASE_URL, PREFIJOS_NO_INDEXABLES, EXCEPCIONES_INDEXABLES, NOINDEX_PROPIO } from '@/lib/seo/paginas';
 
 // La lista de `disallow` sale del registro (PREFIJOS_NO_INDEXABLES), no de una
 // copia a mano.
@@ -21,7 +21,9 @@ export default function robots(): MetadataRoute.Robots {
       // DESPUÉS del `disallow` que lo contiene, mismo criterio que
       // esNoIndexable() en lib/seo/paginas.ts.
       allow: ['/', ...EXCEPCIONES_INDEXABLES],
-      disallow: [...PREFIJOS_NO_INDEXABLES],
+      // Sin las que llevan su propio `noindex` (NOINDEX_PROPIO): bloqueadas aquí,
+      // Google no lo leería nunca.
+      disallow: PREFIJOS_NO_INDEXABLES.filter((p) => !NOINDEX_PROPIO.includes(p)),
     },
     sitemap: `${BASE_URL}/sitemap.xml`,
     host: BASE_URL,

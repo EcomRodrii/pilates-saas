@@ -7,15 +7,20 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('checklist-elegir-software-estudio');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/checklist-elegir-software-estudio')!;
+
 export const metadata: Metadata = {
-  title: 'Elegir software para un estudio de yoga o pilates | Tentare',
-  description: 'Checklist para elegir el software de un estudio de yoga o pilates: 10 criterios, las preguntas de la demo y las señales de alarma antes de firmar.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/checklist-elegir-software-estudio') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Checklist: cómo elegir el software de tu estudio',
     description: 'Las señales de alarma que las reseñas públicas ya han encontrado por ti, antes de que firmes un contrato de un año.',
