@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { MUTED } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { Callout, Checklist, CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
@@ -61,7 +61,7 @@ export default function CambiarDeSoftwarePage() {
       <OrganizationStructuredData />
       <FaqStructuredData items={FAQ} />
       <PageBreadcrumb path={PATH} name="Cambiarte de software" />
-      <SiteNav backHref="/comparativa" backLabel="Comparativa" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
@@ -139,7 +139,7 @@ export default function CambiarDeSoftwarePage() {
         </section>
       )}
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .sol-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }

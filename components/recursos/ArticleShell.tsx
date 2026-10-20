@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { ACC } from '@/components/landing/theme';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { SiteNav } from './SiteNav';
-import { SiteFooter } from './SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { mesCorto } from '@/lib/recursos/guias';
 
 export type TocItem = { id: string; label: string };
@@ -15,8 +15,6 @@ export function ArticleShell({
   intro,
   readTime,
   actualizado,
-  backHref,
-  backLabel,
   children,
 }: {
   category: string;
@@ -35,7 +33,9 @@ export function ArticleShell({
   actualizado?: string;
   /** Ya no se pinta un índice lateral; los anclajes de cada sección siguen. */
   toc?: TocItem[];
+  /** Ya no se pinta: la isla (components/web/IslaWeb.tsx) no lleva «volver». */
   backHref?: string;
+  /** Ya no se pinta, como `backHref`. */
   backLabel?: string;
   children: React.ReactNode;
 }) {
@@ -51,7 +51,7 @@ export function ArticleShell({
           ninguna Organization/WebSite — auditoría SEO 2026-08-18. Un único
           punto, no 10 imports repetidos. */}
       <OrganizationStructuredData />
-      <SiteNav {...(backHref ? { backHref, backLabel } : {})} />
+      <IslaWeb />
 
       <header className="art-head">
         <p className="art-kicker"><Link href="/recursos">{category}</Link></p>
@@ -69,7 +69,7 @@ export function ArticleShell({
 
       <article className="art-body">{children}</article>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .art-head { max-width: 720px; margin: 0 auto; padding: clamp(40px,6vw,72px) clamp(20px,4vw,24px) 8px; }

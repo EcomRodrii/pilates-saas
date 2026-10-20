@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
@@ -91,7 +91,7 @@ export default function PreciosPage() {
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Precios" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ofertaLd).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(26px,3.5vw,38px)', textAlign: 'center' }}>
         <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 620, height: 620, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.14), transparent 62%)', pointerEvents: 'none' }} />
@@ -247,7 +247,7 @@ export default function PreciosPage() {
         </section>
       </div>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .pre-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; align-items: start; }
