@@ -477,3 +477,66 @@
 }
 @media (prefers-reduced-motion: reduce) { .wh-mom-tarjeta img { transition: none; } }
 
+/* Al pasar el ratón (como Mariana Tek, 21-oct-2026): en reposo, la foto y el verbo;
+   encima, la tarjeta se vuelve un panel oscuro con el verbo arriba y la frase debajo.
+   Solo con ratón: en el móvil no hay «encima», y ahí la frase se queda siempre a la
+   vista (las reglas de arriba). La frase sigue en el HTML para los lectores de pantalla. */
+@media (hover: hover) and (pointer: fine) {
+  .wh-mom-tarjeta::after { background: linear-gradient(0deg, rgba(20, 22, 18, .72) 0%, rgba(20, 22, 18, 0) 38%); }
+  .wh-mom-tarjeta::before { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(34, 38, 31, .9);
+    opacity: 0; transition: opacity .35s cubic-bezier(.2, .7, 0, 1); }
+  .wh-mom-texto { top: 0; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; padding: 26px 24px; }
+  .wh-mom-frase { opacity: 0; max-height: 0; transform: translateY(8px);
+    transition: opacity .35s cubic-bezier(.2, .7, 0, 1), transform .35s cubic-bezier(.2, .7, 0, 1); }
+  .wh-mom-tarjeta:hover::before { opacity: 1; }
+  .wh-mom-tarjeta:hover .wh-mom-texto { justify-content: flex-start; }
+  .wh-mom-tarjeta:hover .wh-mom-verbo { margin-bottom: 14px; }
+  .wh-mom-tarjeta:hover .wh-mom-frase { opacity: 1; max-height: none; transform: none; font-size: 16px; line-height: 1.5; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .wh-mom-tarjeta::before, .wh-mom-frase { transition: none; }
+}
+
+
+/* ── Antes / con Tentare (21-oct-2026): el deslizador de Mariana Tek, WhatsApp frente a la app ── */
+.wh-ad { background: var(--wh-blanco); }
+.wh-ad-rejilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
+.wh-ad-visual { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.wh-ad-tel { position: relative; touch-action: pan-y; }
+.wh-ad-pantalla { position: relative; width: 100%; height: 100%; overflow: hidden; background: #FAF9F5; }
+.wh-ad-app, .wh-ad-app img { display: block; width: 100%; height: 100%; }
+.wh-ad-app img { object-fit: cover; object-position: 50% 0; }
+.wh-ad-antes { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.wh-ad-linea { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: var(--wh-tinta); z-index: 3; pointer-events: none; }
+.wh-ad-asa { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 999px; background: var(--wh-tinta); color: #fff; font-size: 17px; letter-spacing: 2px; box-shadow: 0 8px 22px rgba(20, 22, 18, .28); }
+/* El rango, invisible y encima del móvil entero: se arrastra desde cualquier punto. */
+.wh-ad-rango { position: absolute; inset: 0; z-index: 5; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; -webkit-appearance: none; appearance: none; }
+.wh-ad-tel:has(.wh-ad-rango:focus-visible) { outline: 2px solid var(--wh-oliva); outline-offset: 8px; border-radius: 48px; }
+.wh-ad-etiquetas { display: flex; justify-content: space-between; width: min(100%, 300px); }
+.wh-ad-etiquetas span { padding: 7px 14px; border-radius: 999px; background: var(--wh-tinta); color: #fff; font-size: 13.5px; font-weight: 600; }
+.wh-ad-etiquetas span:last-child { background: var(--wh-oliva); color: var(--wh-arena); }
+.wh-ad-texto { max-width: 520px; }
+.wh-ad-pista { margin: 22px 0 0; font-size: 14.5px; font-weight: 600; color: var(--wh-gris); }
+
+/* El chat: un dibujo genérico de mensajería, sin el logo de ninguna app. */
+.wh-ad-chat { display: flex; flex-direction: column; height: 100%; padding-top: 54px; background: #EFE9E1; font-size: 15px; color: #111; }
+.wh-ad-chat-cab { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; background: #F7F5F2; border-bottom: 1px solid rgba(0, 0, 0, .06); }
+.wh-ad-chat-atras { font-size: 30px; line-height: 1; color: #1A7F5A; margin-top: -3px; }
+.wh-ad-chat-avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 999px; background: #55603F; color: #fff; font-weight: 700; }
+.wh-ad-chat-nombre { display: flex; flex-direction: column; line-height: 1.2; }
+.wh-ad-chat-nombre b { font-size: 16px; }
+.wh-ad-chat-nombre span { font-size: 12.5px; color: #667; }
+.wh-ad-chat-fecha { align-self: center; margin: 14px 0 6px; padding: 4px 10px; border-radius: 8px; background: #fff; font-size: 12px; color: #556; }
+.wh-ad-chat-lista { list-style: none; margin: 0; padding: 4px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.wh-ad-burbuja { position: relative; align-self: flex-start; max-width: 80%; padding: 8px 12px 20px; border-radius: 14px 14px 14px 4px; background: #fff;
+  line-height: 1.35; box-shadow: 0 1px 1px rgba(0, 0, 0, .06); }
+.wh-ad-burbuja-ella { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: #D9F7CF; }
+.wh-ad-hora { position: absolute; right: 10px; bottom: 4px; font-size: 11px; color: #6B7466; }
+.wh-ad-chat-pie { padding: 10px 12px 34px; }
+.wh-ad-chat-pie span { display: block; padding: 11px 16px; border-radius: 999px; background: #fff; color: #889; font-size: 15px; }
+
+@media (max-width: 900px) {
+  .wh-ad-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-ad-texto { order: -1; max-width: none; }
+}
