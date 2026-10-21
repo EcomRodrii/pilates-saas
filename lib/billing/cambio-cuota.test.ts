@@ -113,7 +113,7 @@ test('la ruta: rol que mueve dinero, estudio de la sesión, importe recalculado 
 });
 
 test('la migración: ids deterministas, todo o nada, grants de service_role y verificación', () => {
-  const m = leer('supabase/migrations/20261021160100_cambiar_cuota_con_diferencia.sql');
+  const m = leer('supabase/migrations/20261021175730_cambiar_cuota_con_diferencia.sql');
   assert.match(m, /'sus-camb-' \|\| p_sus_actual_id/);
   assert.match(m, /'rec-camb-' \|\| p_sus_actual_id/);
   assert.match(m, /for update/);
@@ -137,7 +137,7 @@ test('la migración: ids deterministas, todo o nada, grants de service_role y ve
 });
 
 test('la columna del ajuste: aditiva, apagada de serie y escribible por el navegador solo por su GRANT', () => {
-  const m = leer('supabase/migrations/20261021160000_cobro_proporcional_alta.sql');
+  const m = leer('supabase/migrations/20261021175710_cobro_proporcional_alta.sql');
   assert.match(m, /add column if not exists cobro_proporcional_alta_activo boolean not null default false/);
   assert.match(m, /grant update \(cobro_proporcional_alta_activo, cobro_proporcional_dias_minimos\) on public\.studios to authenticated/);
   assert.match(m, /cobro_proporcional_dias_minimos integer not null default 3/);
