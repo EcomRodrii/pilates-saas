@@ -8,7 +8,9 @@
 //               provincia sale sola), ciudad, la zona horaria a la vista y
 //               «¿Tienes varias sedes?».
 //   3 · 2 de 2  «Cuándo abre»: la franja de un toque (u «Otro horario») y los
-//               días, con la semana dibujada al lado.
+//               días, con la semana de su Calendario al lado: los componentes
+//               reales del panel (`SemanaFranjas`, `VistaAgenda` en el móvil),
+//               no un dibujo.
 //
 // Cada pantalla guarda al pulsar «Siguiente» y comprueba cada resultado: si algo
 // falla, lo dice y NO avanza. Su nombre va a `auth.users` (user_metadata); lo
@@ -17,7 +19,7 @@
 // La regla de qué se guarda y cómo vive en lib/alta/tu-estudio.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { FileText, MapPin, Store } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -28,14 +30,16 @@ import { apuntarTuEstudio } from '@/lib/alta/embudo-cliente';
 import {
   DIAS_ALTA, HORARIOS_ALTA, HORARIO_POR_DEFECTO, PRECIO_CADENA_MES, TOTALES_SEDES,
   aHoraCorta, diasDe, erroresCuando, erroresDonde, etiquetaCuando, etiquetaDonde, filasHorario, franjaDe, horarioGuardado,
-  horarioIdDe, limpiarDonde, lineaDireccion, onbCentrosDe, otrasSedes, posicionEnLaSemana, restoDeSedes, textoProvincia,
+  horarioIdDe, horasDeLaFranja, limpiarDonde, lineaDireccion, onbCentrosDe, otrasSedes, restoDeSedes, semanaPrevista, textoProvincia,
   tituloDonde, aHoraBd,
   type DatosDonde, type HorarioId, type Sedes, type TotalSedes,
 } from '@/lib/alta/tu-estudio';
-import { cn } from '@/lib/utils';
+import { cn, hoyEnEstudio } from '@/lib/utils';
+import { SemanaFranjas } from '@/components/calendario/semana-franjas';
+import { VistaAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { ZonaHorariaFija } from './zona-horaria-fija';
 import {
-  AtajoPrimeraClase, CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso,
+  CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso,
 } from './piezas';
 
 const MENSAJE_RED = 'No hemos podido guardarlo. Revisa la conexión y vuelve a pulsar «Siguiente».';
@@ -47,12 +51,11 @@ function iniciales(nombre: string): string {
 
 // ── 3 · 1 de 2 · Dónde está ──────────────────────────────────────────────────
 
-export function PasoDonde({ studio, sedes, onSedes, onListo, onSaltar, saliendo }: {
+export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
   studio: Studio;
   sedes: Sedes;
   onSedes: (s: Sedes) => void;
   onListo: () => void;
-  onSaltar: () => void;
   saliendo: boolean;
 }) {
   const { user } = useAuth();
@@ -177,7 +180,6 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, onSaltar, saliendo 
 
         <ErrorGuardado mensaje={error} />
         <NavPaso trabajando={trabajando || saliendo} />
-        <AtajoPrimeraClase onSaltar={onSaltar} disabled={trabajando || saliendo} />
       </form>
 
       <aside aria-label="Así te verán tus alumnas" className="flex min-w-0 flex-col items-center gap-5 self-start rounded-3xl bg-muted/70 p-6 text-center lg:min-h-[560px] lg:justify-center lg:p-8">
@@ -286,12 +288,11 @@ function DibujoSedes({ total }: { total: TotalSedes }) {
 
 // ── 3 · 2 de 2 · Cuándo abre ─────────────────────────────────────────────────
 
-export function PasoCuando({ studio, sedes, onAtras, onListo, onSaltar, saliendo }: {
+export function PasoCuando({ studio, sedes, onAtras, onListo, saliendo }: {
   studio: Studio;
   sedes: Sedes;
   onAtras: () => void;
   onListo: () => void;
-  onSaltar: () => void;
   saliendo: boolean;
 }) {
   const { updateStudio, updateHorarioEstudio } = useStudio();
@@ -408,70 +409,80 @@ export function PasoCuando({ studio, sedes, onAtras, onListo, onSaltar, saliendo
             {errores.dias && <p role="alert" className={cn(CLASE_ERROR, 'mt-2')}>{errores.dias}</p>}
           </fieldset>
 
-          {/* En el móvil la semana va aquí; en escritorio, a la derecha. */}
-          <div className="grid justify-items-center gap-2 lg:hidden">
+          {/* Hasta el escritorio la semana va aquí: en el móvil como la agenda del Calendario
+              (`CONSULTA_AGENDA`, por debajo de 768 px) y en la tableta como su semana; en
+              escritorio, a la derecha. */}
+          <div className="grid gap-2 lg:hidden">
             <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así se verá tu semana</p>
-            <SemanaDibujada franja={franja} dias={dias} />
+            <div className="md:hidden"><TuSemana franja={franja} dias={dias} movil /></div>
+            <div className="hidden md:block"><TuSemana franja={franja} dias={dias} /></div>
           </div>
         </div>
 
         <ErrorGuardado mensaje={error} />
         <NavPaso onAtras={onAtras} trabajando={trabajando || saliendo} />
-        <AtajoPrimeraClase onSaltar={onSaltar} disabled={trabajando || saliendo} />
       </form>
 
-      <aside aria-label="Así se verá tu semana" className="hidden min-w-0 flex-col items-center justify-center gap-5 self-start rounded-3xl bg-muted/70 p-8 text-center lg:flex lg:min-h-[560px]">
+      <aside aria-label="Así se verá tu semana" className="hidden min-w-0 flex-col items-center justify-center gap-4 self-start rounded-3xl bg-muted/70 p-6 text-center lg:flex lg:min-h-[560px]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así se verá tu semana</p>
-        <SemanaDibujada franja={franja} dias={dias} />
-        <p className="max-w-[340px] text-[12.5px] leading-[18px] text-muted-foreground">Las líneas punteadas son huecos libres. La primera clase la creas en el paso 6.</p>
+        <TuSemana franja={franja} dias={dias} />
+        <p className="max-w-[360px] text-[12.5px] leading-[18px] text-muted-foreground">Es la semana de tu Calendario, desde hoy, con tus horas y los días que cierras. Tu primera clase la creas en el paso 6.</p>
       </aside>
     </div>
   );
 }
 
-/** La semana: un tramo punteado de la apertura al cierre en cada día que abre. */
-function SemanaDibujada({ franja, dias }: { franja: { apertura: string; cierre: string } | null; dias: readonly boolean[] }) {
-  const n = dias.filter(Boolean).length;
-  const ejes = ['06:00', '12:00', '18:00', '23:00'];
+/**
+ * La semana de su Calendario, con lo que está eligiendo y sin clases todavía: el
+ * mismo `SemanaFranjas` del panel (una fila por hora de su franja y los días que
+ * cierra, rayados como en el Día) y, en el móvil, la misma `VistaAgenda`. Sin
+ * nada que tocar: es una vista previa.
+ */
+function TuSemana({ franja, dias, movil = false }: { franja: { apertura: string; cierre: string } | null; dias: readonly boolean[]; movil?: boolean }) {
+  const hoy = hoyEnEstudio();
+  const semana = useMemo(() => semanaPrevista(hoy, dias), [hoy, dias]);
+  // Las fechas como las crea el Calendario: a medianoche, en la hora del navegador.
+  const fechas = useMemo(() => semana.map(d => { const [y, m, dd] = d.iso.split('-').map(Number); return new Date(y, m - 1, dd); }), [semana]);
+  const horas = horasDeLaFranja(franja);
+  const abiertos = dias.filter(Boolean).length;
+  const resumen = `${franja ? `${franja.apertura} – ${franja.cierre}` : 'Revisa las horas'} · ${abiertos} ${abiertos === 1 ? 'día abierto' : 'días abiertos'}`;
   return (
-    <div className="w-full max-w-[440px] rounded-[20px] border border-border bg-card px-[18px] pb-3 pt-[18px] text-left shadow-xs" aria-hidden data-testid="semana-dibujada">
-      <div className="mb-1.5 grid grid-cols-[44px_1fr]">
-        <span />
-        <div className="relative h-3.5">
-          {ejes.map((h, i) => (
-            <span
-              key={h}
-              className="absolute whitespace-nowrap font-mono text-[10.5px] leading-[14px] text-muted-foreground"
-              style={{ left: `${posicionEnLaSemana(h)}%`, transform: i === 0 ? 'none' : i === ejes.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)' }}
-            >
-              {h}
-            </span>
-          ))}
-        </div>
+    <div className="w-full text-left" data-testid="tu-semana">
+      <div aria-hidden {...({ inert: true } as object)}>
+        {movil ? (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <VistaAgenda
+              modo="semana"
+              dias={semana.map((d, i): DiaDeAgenda => ({ clave: d.iso, fecha: fechas[i], esHoy: i === 0, cerrado: d.cerrado, sesiones: [] }))}
+              seleccionadaId={null}
+              onSeleccionar={() => {}}
+            />
+          </div>
+        ) : (
+          <div>
+            <SemanaFranjas
+              fechas={fechas}
+              hoyIndex={0}
+              clases={[]}
+              tarjetas={TARJETAS_VACIAS}
+              cerrados={semana.map(d => d.cerrado)}
+              resumenDia={() => ({ clases: 0, ocupacion: null })}
+              compacta={false}
+              seleccionadaId={null}
+              marcadas={MARCADAS_VACIAS}
+              enSeleccion={false}
+              atenuada={() => false}
+              onSeleccionar={() => {}}
+              arrastrable={() => false}
+              franjaVacia={horas ?? undefined}
+            />
+          </div>
+        )}
       </div>
-      {DIAS_ALTA.map((d, i) => (
-        <div key={d.corto} className="grid h-[30px] grid-cols-[44px_1fr] items-center">
-          <span className={cn('font-mono text-[11px] font-medium tracking-wider', dias[i] && franja ? 'text-muted-foreground' : 'text-muted-foreground/50')}>{d.corto}</span>
-          {dias[i] && franja ? (
-            <div className="relative h-[30px]">
-              <span
-                className="absolute top-[14px] border-t-[1.5px] border-dashed border-muted-foreground transition-[left,width] duration-300"
-                style={{ left: `${posicionEnLaSemana(franja.apertura)}%`, width: `${posicionEnLaSemana(franja.cierre) - posicionEnLaSemana(franja.apertura)}%` }}
-              >
-                <span className="absolute -left-[3px] -top-[4.5px] size-[7px] rounded-full bg-foreground" />
-                <span className="absolute -right-[3px] -top-[4.5px] size-[7px] rounded-full bg-foreground" />
-              </span>
-            </div>
-          ) : (
-            <span className="font-mono text-[12px] text-muted-foreground">{dias[i] ? '—' : 'Cerrado'}</span>
-          )}
-        </div>
-      ))}
-      <div className="mt-2 flex justify-between border-t border-border pt-2.5 font-mono text-[12px] leading-4 text-muted-foreground">
-        <span>{franja ? `${franja.apertura} – ${franja.cierre}` : 'Revisa las horas'}</span>
-        <span>{n} {n === 1 ? 'día abierto' : 'días abiertos'}</span>
-      </div>
+      <p className="mt-2.5 font-mono text-[12px] leading-4 text-muted-foreground" data-testid="resumen-semana">{resumen}</p>
     </div>
   );
 }
 
+const TARJETAS_VACIAS = new Map<string, never>();
+const MARCADAS_VACIAS: ReadonlySet<string> = new Set();

@@ -1,14 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // La bienvenida del alta nueva dentro del panel (PR-3 del plan del 21-oct-2026):
-// la línea de siete pasos, en qué pantalla se está y adónde se va, quién la ve,
-// y el paso 4 («¿Traes alumnas de otro sitio?»). Lo de «Tu estudio» vive en
+// la línea de pasos, en qué pantalla se está y adónde se va, quién la ve, y el
+// paso 4 («¿Traes alumnas de otro sitio?»). Lo de «Tu estudio» vive en
 // tu-estudio.ts.
 //
-// Los pasos 1 y 2 (registro y código) son de /crear-estudio. El 6 y el 7
-// (primera clase y publicar, PR-4) viven aquí también: después de la marca, y
-// con «Saltar a mi primera clase», se llega a «Tu primera clase»; al publicar,
-// a «¡Listo!». Quien ya entró al panel sin crearla la tiene en
-// `/calendario?primera=1` (`ENTRADA_PRIMERA_CLASE`).
+// Los pasos 1 y 2 (registro y código) son de /crear-estudio. El alta ACABA en el
+// 5, «Tu marca» (fundador, 21-oct-2026: «lo de crear la clase durante el
+// onboarding, descartado»). Detrás va «Tus primeros pasos», la introducción breve
+// de lo que viene, y de ahí al panel: la primera clase se crea allí
+// (`ENTRADA_PRIMERA_CLASE`, «Tu primera clase» sobre el Calendario) y el resto lo
+// lleva «Pon en marcha tu estudio» del Resumen (TAREAS_ALTA_NUEVA,
+// lib/guia/primeros-pasos.ts), tarea a tarea y con «Omitir».
 //
 // Puro, sin `@/`.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,29 +21,68 @@ import { OTRO_SOFTWARE, SIN_SOFTWARE } from '../onboarding/asistente-rapido.ts';
 
 export interface PasoDeLaLinea { num: string; nombre: string; opcional: boolean }
 
-/** Los siete de la maqueta, con su nombre corto. Arriba de cada pantalla: lo hecho en sólido, lo que queda en punteado. */
+/**
+ * Los cinco del alta, con su nombre corto. Arriba de cada pantalla: lo hecho en
+ * sólido, lo que queda en punteado. La maqueta tenía siete: «Primera clase» y
+ * «Publicar» salieron del alta (fundador, 21-oct) y son ahora las dos primeras
+ * tareas de «Pon en marcha tu estudio». La misma lista la pinta /crear-estudio.
+ */
 export const LINEA_DE_PASOS: readonly PasoDeLaLinea[] = [
   { num: '01', nombre: 'Cuenta', opcional: false },
   { num: '02', nombre: 'Código', opcional: false },
   { num: '03', nombre: 'Tu estudio', opcional: false },
   { num: '04', nombre: 'Tus datos', opcional: true },
   { num: '05', nombre: 'Tu marca', opcional: true },
-  { num: '06', nombre: 'Primera clase', opcional: false },
-  { num: '07', nombre: 'Publicar', opcional: true },
 ];
 
 /**
- * Las pantallas que viven aquí, en orden. «Tu estudio» son dos; `clase` es «Tu
- * primera clase» (paso 6) y `publicada`, «¡Listo! Tu clase … ya está
- * publicada» (paso 7), a la que solo se llega publicando.
+ * Las pantallas que viven aquí, en orden. «Tu estudio» son dos; `pasos` es «Tus
+ * primeros pasos», la introducción breve de lo que viene en el panel, la última:
+ * con el alta ya hecha (la línea, entera).
  */
-export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca', 'clase', 'publicada'] as const;
+export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca', 'pasos'] as const;
 export type PantallaAlta = (typeof PANTALLAS_ALTA)[number];
 
-/** El paso de la línea (1-7) en que está cada pantalla. */
+/** El paso de la línea en que está cada pantalla. «Tus primeros pasos», ya después del último. */
 export const PASO_DE_PANTALLA: Readonly<Record<PantallaAlta, number>> = {
-  estudio: 3, horario: 3, importar: 4, marca: 5, clase: 6, publicada: 7,
+  estudio: 3, horario: 3, importar: 4, marca: 5, pasos: 6,
 };
+
+/**
+ * Lo guardado por las pantallas que ya no están en el alta («Tu primera clase» y
+ * «¡Listo!», hasta el 21-oct): quien se quedó en ellas sigue por «Tus primeros
+ * pasos», que la lleva a la misma clase en el panel.
+ */
+const PANTALLAS_RETIRADAS = ['clase', 'publicada'];
+
+/**
+ * Lo que dice «Tus primeros pasos»: las tareas que vienen, en el orden y con los
+ * nombres de «Pon en marcha tu estudio» (`TAREAS_ALTA_NUEVA`, sin «Crea tu cuenta»,
+ * que ya está hecha). Nada que no exista: la primera clase se abre al pulsar
+ * «Empezar», y las demás las ofrece la lista del Resumen al terminar cada una.
+ */
+export const PRIMEROS_PASOS_DEL_ALTA: readonly { titulo: string; que: string; cuanto: string }[] = [
+  {
+    titulo: 'Crea tu primera clase',
+    que: 'Qué clase es, cuándo, quién la da, en qué sala y cuántas caben, y su precio. En un solo formulario, y se crea todo a la vez.',
+    cuanto: '≈ 5 min',
+  },
+  {
+    titulo: 'Comparte tu enlace de reservas',
+    que: 'Por WhatsApp, en Instagram o con el QR en recepción. Con eso ya te pueden reservar.',
+    cuanto: '≈ 2 min',
+  },
+  {
+    titulo: 'Trae a tus alumnas',
+    que: 'Impórtalas de tu programa o de tu Excel, o añádelas una a una.',
+    cuanto: '≈ 3 min',
+  },
+  {
+    titulo: 'Recibe tu primera reserva',
+    que: 'Se marca sola cuando alguien reserve desde tu página.',
+    cuanto: 'sola',
+  },
+];
 
 export function siguientePantalla(p: PantallaAlta): PantallaAlta | null {
   return PANTALLAS_ALTA[PANTALLAS_ALTA.indexOf(p) + 1] ?? null;
@@ -61,34 +102,25 @@ export function anteriorPantalla(p: PantallaAlta): PantallaAlta | null {
 export const clavePantallaAlta = (studioId: string) => `tentare-alta-nueva:${studioId}`;
 
 export function leerPantallaGuardada(crudo: string | null | undefined): PantallaAlta {
-  return leerAltaGuardada(crudo).pantalla;
-}
-
-/**
- * Lo guardado entero: la pantalla y, en la de «¡Listo!», el nombre de la clase
- * que acaba de publicar (para decirlo también si recarga). Una `publicada` sin
- * nombre vuelve a esa misma pantalla, sin nombre.
- */
-export function leerAltaGuardada(crudo: string | null | undefined): { pantalla: PantallaAlta; clase: string | null } {
   try {
-    const v = JSON.parse(crudo ?? 'null') as { pantalla?: unknown; clase?: unknown } | null;
-    const p = v?.pantalla;
-    const pantalla = typeof p === 'string' && (PANTALLAS_ALTA as readonly string[]).includes(p) ? (p as PantallaAlta) : 'estudio';
-    const clase = pantalla === 'publicada' && typeof v?.clase === 'string' && v.clase.trim() ? v.clase.trim().slice(0, 80) : null;
-    return { pantalla, clase };
+    const p = (JSON.parse(crudo ?? 'null') as { pantalla?: unknown } | null)?.pantalla;
+    if (typeof p !== 'string') return 'estudio';
+    if ((PANTALLAS_ALTA as readonly string[]).includes(p)) return p as PantallaAlta;
+    return PANTALLAS_RETIRADAS.includes(p) ? 'pasos' : 'estudio';
   } catch {
-    return { pantalla: 'estudio', clase: null };
+    return 'estudio';
   }
 }
 
-export function pantallaParaGuardar(p: PantallaAlta, clase?: string | null): string {
-  return JSON.stringify(p === 'publicada' && clase ? { pantalla: p, clase } : { pantalla: p });
+export function pantallaParaGuardar(p: PantallaAlta): string {
+  return JSON.stringify({ pantalla: p });
 }
 
 /**
- * La entrada a «Tu primera clase» desde fuera de la bienvenida: el correo «Tu
- * cuenta está activa» y el panel de quien la saltó. Con la bienvenida sin
- * terminar, abre su paso 6; terminada, el mismo formulario sobre el Calendario.
+ * «Tu primera clase», sobre el Calendario: la abren «Empezar» de «Tus primeros
+ * pasos», la tarea «Crea tu primera clase» y el correo «Tu cuenta está activa».
+ * Con la bienvenida sin terminar (el correo llega antes), la bienvenida sigue
+ * donde estaba: la clase va después del alta.
  */
 export const ENTRADA_PRIMERA_CLASE = '/calendario?primera=1';
 

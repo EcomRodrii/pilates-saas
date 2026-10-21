@@ -8,12 +8,17 @@
 // Lo que no es el color (su logo, su nombre) es lo que ya hay guardado: por eso
 // `recarga` vuelve a pedir la app cuando se acaba de guardar uno de los dos.
 //
-// Sin interacción: es una vista previa, no un control más del paso (`inert`,
-// como la app de la bienvenida de siempre, components/onboarding/app-alumna-real.tsx).
+// Se puede TOCAR (fundador, 21-oct-2026: «lo único malo es que no es
+// interactivo»): cambiar de pestaña, abrir pantallas, como en Apariencia. Sin que
+// eso escriba nada: el marco lleva el nombre de «solo mirar»
+// (lib/student/solo-mirar.ts), que en la app corta toda escritura —ni reservas,
+// ni cuentas de alumna, ni códigos— y deja ver cada pantalla sin sesión, como la
+// vería una recién llegada.
 
 import { useEffect, useRef, useState } from 'react';
 import { MarcoIphone, PANTALLA_IPHONE } from '@/components/ui/marco-iphone';
 import { pintarBorrador } from '@/lib/apariencia/borrador-en-marco';
+import { NOMBRE_MARCO_SOLO_MIRAR } from '@/lib/student/solo-mirar';
 
 export function AppEnVivo({ slug, css, recarga, escala }: {
   slug: string;
@@ -34,18 +39,16 @@ export function AppEnVivo({ slug, css, recarga, escala }: {
         <iframe
           key={recarga}
           ref={ref}
-          title="La app de tus alumnas, con tu color"
+          name={NOMBRE_MARCO_SOLO_MIRAR}
+          title="La app de tus alumnas, con tu color. Puedes tocarla: aquí no se reserva ni se crea nada"
           src={`/portal/${encodeURIComponent(slug)}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
-          {...({ inert: true } as object)}
-          aria-hidden="true"
-          tabIndex={-1}
           className="bg-white transition-opacity duration-300"
-          style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1, pointerEvents: 'none' }}
+          style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
       </MarcoIphone>
       <figcaption className="mt-3 text-center text-[12.5px] text-muted-foreground" aria-live="polite">
-        {cargando ? 'Cargando tu app…' : 'Tu app de verdad, con el color que eliges'}
+        {cargando ? 'Cargando tu app…' : 'Tu app de verdad, con el color que eliges. Tócala: aquí no se reserva ni se crea nada.'}
       </figcaption>
     </figure>
   );

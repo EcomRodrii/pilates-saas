@@ -10,6 +10,7 @@ import type { Post } from '@/lib/student/tipos';
 import { PostCard } from '@/components/student/domain/PostCard';
 import { Button } from '@/components/student/ui/Button';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { useEnMarcoSoloMirar } from '@/lib/student/vista-previa-panel';
 
 // El tablón del estudio: lo que publica desde Comunidad en el panel (texto,
 // fotos y eventos con plazas). El paquete de diseño no tiene esta pantalla;
@@ -18,6 +19,9 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 
 export default function ComunidadPage() {
   const { estudio } = useEstudio();
+  // En el marco de «solo mirar» del alta (sin sesión de alumna) el tablón no se
+  // puede leer: se dice qué es esta pantalla, sin un error que no lo es.
+  const soloMirar = useEnMarcoSoloMirar();
   const [mas, setMas] = useState<Post[]>([]);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [hayMas, setHayMas] = useState(true);
@@ -48,7 +52,9 @@ export default function ComunidadPage() {
       <PageHeader titulo="Comunidad" back />
       <div className="px" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={120} />}
-        {estado === 'error' && <ErrorState onRetry={reintentar} />}
+        {estado === 'error' && (soloMirar
+          ? <EmptyState ilustracion="charla" titulo="Tu tablón" cuerpo="Aquí verán tus alumnas lo que publiques en Comunidad, al entrar con su cuenta." />
+          : <ErrorState onRetry={reintentar} />)}
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver el tablón." />}
         {estado === 'empty' && (
           <EmptyState ilustracion="charla" titulo="Aún no hay publicaciones" cuerpo="Cuando el estudio publique algo, lo verás aquí." />

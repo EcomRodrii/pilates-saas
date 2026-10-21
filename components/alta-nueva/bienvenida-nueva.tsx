@@ -8,20 +8,22 @@
 //   3 · Tu estudio      dónde está y cuándo abre (obligatorio, dos pantallas)
 //   4 · Tus datos       «¿Traes alumnas de otro sitio?» (opcional)
 //   5 · Tu marca        logo, color y nombre con la app en vivo (opcional)
-//   6 · Primera clase   la clase y su precio, todo a la vez (obligatorio, PR-4)
-//   7 · Publicar        «¡Listo! Tu clase … ya está publicada» (PR-4)
+//       Tus primeros    la introducción breve de lo que viene en el panel
+//       pasos
 //
-// Los pasos 1 y 2 (cuenta y código) ya están hechos: son /crear-estudio. Al 6 se
-// llega después del 5, con «Saltar a mi primera clase» o con
-// `/calendario?primera=1` (el correo «Tu cuenta está activa»); al 7, solo
-// publicando.
+// Los pasos 1 y 2 (cuenta y código) ya están hechos: son /crear-estudio. El alta
+// ACABA en el 5 (fundador, 21-oct-2026: «lo de crear la clase durante el
+// onboarding, descartado»; y al terminar, nunca el Calendario vacío con su aviso,
+// sino «primeros pasos y una introducción breve de lo que va a hacer»).
+// «Empezar» sella el alta y abre la primera tarea, «Tu primera clase», sobre el
+// Calendario (`ENTRADA_PRIMERA_CLASE`); al publicarla, su «¡Listo!» lleva al
+// Resumen, donde «Pon en marcha tu estudio» ofrece la siguiente, con «Omitir».
 //
 // Igual que la bienvenida de siempre:
 //   · el alta se SELLA (`studios.bienvenida_vista_en`) al salir —«Prefiero ir a
-//     mi panel» o «Ir a mi panel» en el paso 7— y no antes; un UPDATE fallido no
-//     deja a nadie encerrado ni sella a medias;
-//   · sin Tenti en los pasos 3 a 6 (el plan lo deja fuera de la bienvenida
-//     nueva); en el 7 celebra, como siempre, `ListoParaReservar`.
+//     mi panel» o al terminar— y no antes; un UPDATE fallido no deja a nadie
+//     encerrado ni sella a medias;
+//   · sin Tenti (el plan lo deja fuera de la bienvenida nueva).
 // Lo nuevo: se REANUDA (si recarga, vuelve a la pantalla en que estaba) y una
 // persona por WhatsApp está a la vista en todas (decisión D5).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,36 +37,31 @@ import { capturarEvento } from '@/lib/posthog-cliente';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
-import { PASO_DE_PANTALLA, anteriorPantalla, pidePrimeraClase, siguientePantalla, type PantallaAlta } from '@/lib/alta/bienvenida-nueva';
-import type { RespuestaPuedeReservar } from '@/lib/onboarding/puede-reservar';
-import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
+import { ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PASO_DE_PANTALLA, anteriorPantalla, siguientePantalla, type PantallaAlta } from '@/lib/alta/bienvenida-nueva';
 import { sedesDeOnbCentros, type Sedes } from '@/lib/alta/tu-estudio';
 import { ErrorGuardado, WhatsAppPersona } from './piezas';
 import { PasoCuando, PasoDonde } from './paso-tu-estudio';
 import { PasoImportar } from './paso-importar';
 import { PasoMarca } from './paso-marca';
-import { PrimeraClase } from './primera-clase';
-import { guardarPantalla, leerAlta, olvidarPantalla } from './pantalla-guardada';
+import { PasoPrimerosPasos } from './paso-primeros-pasos';
+import { guardarPantalla, leerPantalla, olvidarPantalla } from './pantalla-guardada';
 
-type Salida = 'panel' | 'terminada';
+type Salida = 'panel' | 'terminada' | 'omitida';
 
-/** Lo que enseña el paso 7. Sin `veredicto` (recargó la página, o el servidor no pudo comprobarlo), lo vuelve a preguntar. */
-interface Publicada { nombre: string | null; veredicto?: RespuestaPuedeReservar; correo: boolean }
-
-/** Dónde empieza: `?primera=1` lleva a la primera clase; si no, donde se quedó. */
-function inicio(studioId: string): { pantalla: PantallaAlta; publicada: Publicada | null } {
-  const guardada = leerAlta(studioId);
-  if (guardada.pantalla === 'publicada') return { pantalla: 'publicada', publicada: { nombre: guardada.clase, correo: false } };
-  if (typeof window !== 'undefined' && pidePrimeraClase(window.location.search)) return { pantalla: 'clase', publicada: null };
-  return { pantalla: guardada.pantalla, publicada: null };
+/**
+ * Dónde empieza: donde se quedó. También con `?primera=1` (el botón del correo
+ * «Tu cuenta está activa», que llega antes de terminar el alta): la clase va
+ * DESPUÉS del alta, y saltar a ella se comería «Tu estudio», que es obligatorio.
+ * Al terminar, «Empezar» la abre.
+ */
+function inicio(studioId: string): PantallaAlta {
+  return leerPantalla(studioId);
 }
 
 export function BienvenidaNueva({ studio }: { studio: Studio }) {
   const { updateStudio } = useStudio();
   const router = useRouter();
-  const [arranque] = useState(() => inicio(studio.id));
-  const [pantalla, setPantalla] = useState<PantallaAlta>(arranque.pantalla);
-  const [publicada, setPublicada] = useState<Publicada | null>(arranque.publicada);
+  const [pantalla, setPantalla] = useState<PantallaAlta>(() => inicio(studio.id));
   const [sedes, setSedes] = useState<Sedes>(() => sedesDeOnbCentros(studio.onbCentros) ?? { tipo: 'una' });
   const [saliendo, setSaliendo] = useState(false);
   const [errorSalir, setErrorSalir] = useState<string | null>(null);
@@ -80,12 +77,12 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
     if (vistas.current.size === 0) capturarEvento('bienvenida_iniciada');
     if (vistas.current.has(pantalla)) return;
     vistas.current.add(pantalla);
-    capturarEvento('bienvenida_paso', { paso: `nueva_${pantalla}`, n: PASO_DE_PANTALLA[pantalla], total: 7, retomado: vistas.current.size === 1 && pantalla !== 'estudio' });
+    capturarEvento('bienvenida_paso', { paso: `nueva_${pantalla}`, n: PASO_DE_PANTALLA[pantalla], total: LINEA_DE_PASOS.length, retomado: vistas.current.size === 1 && pantalla !== 'estudio' });
   }, [pantalla]);
 
-  const irA = useCallback((p: PantallaAlta, clase?: string | null) => {
+  const irA = useCallback((p: PantallaAlta) => {
     setPantalla(p);
-    guardarPantalla(studio.id, p, clase);
+    guardarPantalla(studio.id, p);
     window.scrollTo({ top: 0 });
   }, [studio.id]);
 
@@ -110,12 +107,13 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
   }, [updateStudio, router, studio.id]);
 
   const alPanel = useCallback(() => void sellarYSalir('/dashboard', 'panel'), [sellarYSalir]);
-  // «Saltar a mi primera clase»: al paso 6, sin salir de la bienvenida.
-  const aLaPrimeraClase = useCallback(() => irA('clase'), [irA]);
+  // «Omitir» en «Tus primeros pasos»: al Resumen, donde «Pon en marcha tu estudio» los sigue teniendo.
+  const omitirPrimerosPasos = useCallback(() => void sellarYSalir('/dashboard', 'omitida'), [sellarYSalir]);
+  // La última pantalla sella el alta y abre la primera tarea: «Tu primera clase», en el panel.
   const seguir = useCallback((desde: PantallaAlta) => {
     const sig = siguientePantalla(desde);
     if (sig) irA(sig);
-    else void sellarYSalir('/dashboard', 'terminada');
+    else void sellarYSalir(ENTRADA_PRIMERA_CLASE, 'terminada');
   }, [irA, sellarYSalir]);
   const atras = useCallback((desde: PantallaAlta) => {
     const ant = anteriorPantalla(desde);
@@ -127,7 +125,7 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
     router.push(ruta);
   }, [router, studio.id]);
 
-  const comunes = { studio, saliendo, onSaltar: aLaPrimeraClase };
+  const comunes = { studio, saliendo };
   return (
     <PanelPrivacyProvider>
       <PanelThemeProvider className="panel-app min-h-dvh bg-background">
@@ -162,31 +160,12 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
             {pantalla === 'marca' && (
               <PasoMarca studio={studio} saliendo={saliendo} onAtras={() => atras('marca')} onListo={() => seguir('marca')} />
             )}
-            {pantalla === 'clase' && (
-              <PrimeraClase
-                studio={studio}
+            {pantalla === 'pasos' && (
+              <PasoPrimerosPasos
                 saliendo={saliendo}
-                onAtras={() => atras('clase')}
-                onPublicada={r => {
-                  setPublicada({ nombre: r.clase.nombre, veredicto: r.veredicto, correo: r.correo });
-                  irA('publicada', r.clase.nombre);
-                }}
-              />
-            )}
-            {/* Paso 7: «¡Listo!», con la respuesta del servidor que acaba de
-                publicar. «Ir a mi panel» (o Escape) sella el alta y va al panel. */}
-            {pantalla === 'publicada' && studio.slug && (
-              <ListoParaReservar
-                slug={studio.slug}
-                nombreEstudio={studio.nombre ?? 'tu estudio'}
-                clasesCreadas={0}
-                nombreClase={publicada?.nombre ?? null}
-                veredicto={publicada?.veredicto}
-                correoEnviado={publicada?.correo ?? false}
-                conQr
-                textoSeguir="Ir a mi panel"
-                errorSeguir={errorSalir}
-                onSeguir={() => void sellarYSalir('/dashboard', 'terminada')}
+                onAtras={() => atras('pasos')}
+                onEmpezar={() => seguir('pasos')}
+                onOmitir={omitirPrimerosPasos}
               />
             )}
           </main>

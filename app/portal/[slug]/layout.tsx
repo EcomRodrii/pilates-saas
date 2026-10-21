@@ -14,6 +14,11 @@ import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { appDeTiendaPublicada } from '@/lib/app-nativa/app-publicada';
 import { tarjetasDelPortal } from '@/lib/student/metadatos-portal';
+import { esSlugDeMuestra, estudioDeMuestra } from '@/lib/student/muestra';
+import { SCRIPT_SOLO_MIRAR } from '@/lib/student/solo-mirar';
+import { ProveedorMuestra } from '@/components/student/muestra/proveedor-muestra';
+import { ScriptEnLinea } from '@/components/student/ui/ScriptEnLinea';
+import { DEFAULT_THEME } from '@/lib/theme-schema';
 import './student.css';
 
 // Raíz de la Student PWA. Server Component a propósito.
@@ -32,7 +37,7 @@ import './student.css';
 
 export async function generateViewport({ params }: { params: Promise<{ slug: string }> }): Promise<Viewport> {
   const { slug } = await params;
-  const estudio = await cargarEstudio(slug);
+  const estudio = esSlugDeMuestra(slug) ? estudioDeMuestra('', DEFAULT_THEME.primary) : await cargarEstudio(slug);
   return {
     // El fondo del estilo que eligió el estudio (el crema del kit si no eligió
     // ninguno). El navegador tiñe con esto la barra de estado cuando la app
@@ -58,6 +63,8 @@ function tarjetaNeutra(titulo: string): Pick<Metadata, 'openGraph' | 'twitter'> 
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  // La app de muestra del alta (lib/student/muestra.ts): ni estudio que buscar ni nada que indexar.
+  if (esSlugDeMuestra(slug)) return { title: 'Tu estudio', robots: { index: false, follow: false }, ...tarjetaNeutra('Tu estudio') };
   const estudio = await cargarEstudio(slug);
   // Si no se ha podido leer, un título neutro: decir «no encontrado» sería
   // afirmar algo que no sabemos, y este título acaba en la pestaña y en el
@@ -114,6 +121,22 @@ export default async function StudentLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  // La app de muestra del alta nueva (lib/student/muestra.ts): el estudio tal
+  // como nacerá, sin fila en la base de datos, y con el nombre que se va
+  // escribiendo en el alta (`ProveedorMuestra`). Sin service worker: no es la
+  // app de nadie.
+  if (esSlugDeMuestra(slug)) {
+    const muestra = estudioDeMuestra('', DEFAULT_THEME.primary);
+    return (
+      <div className="student-app">
+        <ScriptEnLinea js={SCRIPT_SOLO_MIRAR} />
+        <style dangerouslySetInnerHTML={{ __html: temaAppCssText(muestra.colorPrimario, muestra.apariencia) }} />
+        <ProveedorMuestra colorPrimario={muestra.colorPrimario}>
+          <ToastProvider>{children}</ToastProvider>
+        </ProveedorMuestra>
+      </div>
+    );
+  }
   const estudio = await cargarEstudio(slug);
   // Un fallo al LEER no es un estudio inexistente. Se lanza para que lo recoja
   // el error boundary del segmento (error.tsx), que ofrece reintentar; con
@@ -155,6 +178,10 @@ export default async function StudentLayout({
 
   return (
     <div className="student-app">
+      {/* Dentro del marco del alta nueva (y solo ahí), la app se puede tocar
+          pero no escribe nada: lib/student/solo-mirar.ts. Va lo primero, antes
+          que el código de la app. */}
+      <ScriptEnLinea js={SCRIPT_SOLO_MIRAR} />
       {/* La apariencia del estudio, en servidor (sin destello). Solo lo que
           cambia respecto al kit: sin nada elegido, los 7 tokens de acento de
           siempre; el resto vive en student.css. */}

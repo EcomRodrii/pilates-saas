@@ -5,6 +5,7 @@ import { CacheSesion, claveSesion } from './sesion-cache';
 import { pasoDelPortal } from '@/lib/student/doble-factor-portal';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { personaEnElDispositivo } from '@/lib/student/persona-dispositivo';
+import { enMarcoSoloMirar } from '@/lib/student/solo-mirar';
 
 /** La sesión es buena pero le falta el segundo paso (lo dice `/api/public/session`). */
 class SegundoPasoPendiente extends Error {}
@@ -51,7 +52,10 @@ function sesionRecordada(baseUrl: string, slug: string): SesionRecordada | null 
 // el DOM de la web del estudio, así que una ruta relativa a `/api/public/...`
 // resolvería contra el origen del estudio, no el de Tentare.
 export function useSesionWidget(slug: string, baseUrl = '') {
-  const [recordada] = useState(() => sesionRecordada(baseUrl, slug));
+  // En el marco de «solo mirar» del alta nueva (la app de la alumna en el portal,
+  // `baseUrl` vacío) no se usa ninguna sesión: se ve como una recién llegada y no
+  // se resuelve nada que pueda escribir (lib/student/solo-mirar.ts).
+  const [recordada] = useState(() => (baseUrl === '' && enMarcoSoloMirar() ? null : sesionRecordada(baseUrl, slug)));
   const [socia, setSocia] = useState<SociaSesion | null>(recordada?.socia ?? null);
   // Autenticada (JWT válido) pero SIN ficha de socia todavía en este estudio —
   // walk-in recién logueada por primera vez. Distinto de `socia === null` sin
@@ -66,8 +70,9 @@ export function useSesionWidget(slug: string, baseUrl = '') {
   const [segundoPaso, setSegundoPaso] = useState(false);
 
   const resolver = useCallback(async (forzar = false) => {
-    const { data: { session: sb } } = await supabasePortal.auth.getSession();
     const claveRecordada = `${baseUrl}|${slug}`;
+    const soloMirar = baseUrl === '' && enMarcoSoloMirar();
+    const { data: { session: sb } } = soloMirar ? { data: { session: null } } : await supabasePortal.auth.getSession();
     if (!sb?.access_token) {
       recordadas.delete(claveRecordada);
       cacheSocia.vaciar(); setSocia(null); setUsuarioEmail(null); setSegundoPaso(false); setIsLoading(false); return;

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PANTALLAS_ALTA, PASO_DE_PANTALLA, PROGRAMAS, PROGRAMAS_RECONOCIDOS,
-  anteriorPantalla, clavePantallaAlta, esRutaDelAlta, leerAltaGuardada, leerPantallaGuardada, pidePrimeraClase, listaReconocidos, nacioConAltaNueva,
+  ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PANTALLAS_ALTA, PASO_DE_PANTALLA, PRIMEROS_PASOS_DEL_ALTA, PROGRAMAS, PROGRAMAS_RECONOCIDOS,
+  anteriorPantalla, clavePantallaAlta, esRutaDelAlta, leerPantallaGuardada, pidePrimeraClase, listaReconocidos, nacioConAltaNueva,
   ordenDeVias, origenDeSoftware, pantallaParaGuardar, queExportar, siguientePantalla, softwareAnteriorDe, viaRecomendada,
 } from './bienvenida-nueva.ts';
 import { VERSIONES_ALTA } from './embudo.ts';
@@ -13,34 +13,43 @@ import { EJEMPLOS } from '../migracion/ejemplos.ts';
 // La bienvenida del alta nueva en el panel (pasos 3, 4 y 5): la línea, el
 // orden de las pantallas, reanudar, quién la ve y el paso «Importar».
 
-test('la línea son los siete pasos de la maqueta; obligatorios 1, 2, 3 y 6', () => {
+test('la línea son los cinco pasos del alta; obligatorios 1, 2 y 3', () => {
+  // La maqueta tenía siete: «Primera clase» y «Publicar» salieron del alta (fundador, 21-oct-2026,
+  // «lo de crear la clase durante el onboarding, descartado») y son tareas de «Pon en marcha tu estudio».
   assert.deepEqual(LINEA_DE_PASOS.map(p => `${p.num} ${p.nombre}`), [
-    '01 Cuenta', '02 Código', '03 Tu estudio', '04 Tus datos', '05 Tu marca', '06 Primera clase', '07 Publicar',
+    '01 Cuenta', '02 Código', '03 Tu estudio', '04 Tus datos', '05 Tu marca',
   ]);
-  assert.deepEqual(LINEA_DE_PASOS.filter(p => !p.opcional).map(p => p.num), ['01', '02', '03', '06']);
+  assert.deepEqual(LINEA_DE_PASOS.filter(p => !p.opcional).map(p => p.num), ['01', '02', '03']);
 });
 
-test('las pantallas van en orden y cada una cae en su paso de la línea', () => {
-  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca', 'clase', 'publicada']);
-  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5, 6, 7]);
+test('«Tus primeros pasos» cuenta las tareas que vienen, con los nombres de «Pon en marcha tu estudio»', () => {
+  assert.deepEqual(PRIMEROS_PASOS_DEL_ALTA.map(p => p.titulo), [
+    'Crea tu primera clase', 'Comparte tu enlace de reservas', 'Trae a tus alumnas', 'Recibe tu primera reserva',
+  ]);
+  // La primera clase lo crea todo: lo que faltaba (sala, quién la da, precio) se dice.
+  const clase = PRIMEROS_PASOS_DEL_ALTA[0].que;
+  for (const palabra of ['quién la da', 'sala', 'precio']) assert.ok(clase.includes(palabra), palabra);
+});
+
+test('las pantallas van en orden; el alta acaba en «Tus primeros pasos», tras la marca', () => {
+  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca', 'pasos']);
+  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5, 6]);
   assert.equal(siguientePantalla('estudio'), 'horario');
-  assert.equal(siguientePantalla('marca'), 'clase', 'después de la marca, la primera clase (PR-4)');
-  assert.equal(siguientePantalla('clase'), 'publicada');
-  assert.equal(siguientePantalla('publicada'), null);
+  // Fundador, 21-oct: tras la marca, nunca el Calendario vacío; primero lo que viene.
+  assert.equal(siguientePantalla('marca'), 'pasos', 'después de la marca, «Tus primeros pasos»');
+  assert.equal(siguientePantalla('pasos'), null, 'y ahí se sale al panel');
   assert.equal(anteriorPantalla('estudio'), null);
   assert.equal(anteriorPantalla('importar'), 'horario');
-  assert.equal(anteriorPantalla('clase'), 'marca');
+  assert.equal(anteriorPantalla('pasos'), 'marca');
   assert.equal(ENTRADA_PRIMERA_CLASE, '/calendario?primera=1');
   assert.equal(pidePrimeraClase('?primera=1'), true);
   assert.equal(pidePrimeraClase('?nueva=1'), false);
   assert.equal(pidePrimeraClase(null), false);
 });
 
-test('en «¡Listo!» se guarda también el nombre de la clase, y solo ahí', () => {
-  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('publicada', 'Reformer')), { pantalla: 'publicada', clase: 'Reformer' });
-  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('publicada')), { pantalla: 'publicada', clase: null });
-  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('clase', 'Reformer')), { pantalla: 'clase', clase: null });
-  assert.deepEqual(leerAltaGuardada('{"pantalla":"publicada","clase":7}'), { pantalla: 'publicada', clase: null });
+test('quien se quedó en «Tu primera clase» o «¡Listo!» (cuando eran del alta) sigue por «Tus primeros pasos»', () => {
+  assert.equal(leerPantallaGuardada('{"pantalla":"clase"}'), 'pasos');
+  assert.equal(leerPantallaGuardada('{"pantalla":"publicada","clase":"Reformer"}'), 'pasos');
 });
 
 test('reanudar: vuelve a la pantalla guardada; lo que no se entiende, a la primera', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { enMarcoSoloMirar } from './solo-mirar.ts';
 
 // ¿Esta app está dentro de la vista previa de «Apariencia de tu app»?
 //
@@ -27,4 +28,14 @@ const sinCambios = () => () => {};
  */
 export function useEnVistaPreviaDelPanel(): boolean {
   return useSyncExternalStore(sinCambios, enVistaPreviaDelPanel, () => false);
+}
+
+/**
+ * ¿Es el marco de «solo mirar» del alta nueva (lib/student/solo-mirar.ts)? Ahí
+ * TODAS las pantallas se dejan ver sin sesión, como la vería una recién llegada,
+ * y nada escribe. Mismo trato que `useEnVistaPreviaDelPanel`: `false` en el
+ * servidor y al hidratar; quien decida en un efecto llama a `enMarcoSoloMirar()`.
+ */
+export function useEnMarcoSoloMirar(): boolean {
+  return useSyncExternalStore(sinCambios, () => enMarcoSoloMirar(), () => false);
 }

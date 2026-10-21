@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Eye, EyeOff, Info, Loader2, Mail, MessageCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
@@ -21,10 +21,11 @@ import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
 import { cn } from '@/lib/utils';
+import { useEscalaIphone } from '@/components/ui/marco-iphone';
+import { AppDeMuestra } from '@/components/alta-nueva/app-de-muestra';
 import {
   errorDeCampo,
   guardarBorradorAltaNueva,
-  iniciales,
   leerBorradorAltaNueva,
   mensajeDeErrorAlta,
   metadataDelAlta,
@@ -71,26 +72,26 @@ import {
 type Fase = 'formulario' | 'codigo' | 'listo';
 type Version = 'v2' | 'v2_prueba';
 
-/** La línea de la ruta: los siete pasos de la maqueta (`false` = opcional). */
+/**
+ * La línea de la ruta: los cinco pasos del alta (`false` = opcional), los mismos
+ * que la bienvenida del panel (`LINEA_DE_PASOS`, lib/alta/bienvenida-nueva.ts).
+ * La primera clase ya no es un paso del alta (fundador, 21-oct): es la primera
+ * tarea de «Pon en marcha tu estudio», justo después.
+ */
 const PASOS_RUTA: readonly (readonly [string, string, boolean])[] = [
   ['01', 'Cuenta', true],
   ['02', 'Código', true],
   ['03', 'Tu estudio', true],
   ['04', 'Tus datos', false],
   ['05', 'Tu marca', false],
-  ['06', 'Primera clase', true],
-  ['07', 'Publicar', false],
 ];
 
 /** Lo que viene después del código (la pantalla de éxito). */
 const RUTA_SIGUIENTE: readonly { que: string; cuanto: string; opcional?: boolean }[] = [
   { que: 'Dónde está y cuándo abre', cuanto: '≈ 3 min' },
   { que: 'Tus datos y tu marca', cuanto: 'opcional', opcional: true },
-  { que: 'Tu primera clase, con su precio', cuanto: '≈ 5 min' },
+  { que: 'Después, en tu panel: tu primera clase, con su precio', cuanto: '≈ 5 min' },
 ];
-
-/** Los colores de serie con los que nace la app de la alumna (su marca blanca): así se ve antes de elegir los suyos. */
-const DE_SERIE = { fondo: '#FBFAF8', marca: '#343825', sobreMarca: '#D9C29E', borde: '#CFC6B8', texto: '#1F2328', suave: '#5E6670', marco: '#0D1014' };
 
 const ERROR_RED = 'No hemos podido crear tu estudio. Revisa tu conexión e inténtalo otra vez.';
 
@@ -384,7 +385,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
         <Columna>
           <LineaDePasos actual={2} />
           <IconoGrande><Mail className="h-[22px] w-[22px]" aria-hidden="true" /></IconoGrande>
-          <p className="t-label mt-[18px] text-t-tertiary">Paso 2 de 7 · menos de 1 minuto</p>
+          <p className="t-label mt-[18px] text-t-tertiary">Paso 2 de 5 · menos de 1 minuto</p>
           <h1 ref={tituloRef} tabIndex={-1} className={TITULO}>Revisa tu correo</h1>
           <p className={SUBTITULO}>
             Te hemos enviado un código de 6 cifras a <b className="font-semibold text-t-primary [overflow-wrap:anywhere]">{emailOtp}</b>.
@@ -456,7 +457,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
       <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-9 lg:pt-3">
         <div className="min-w-0 lg:pt-2">
           <LineaDePasos actual={1} />
-          <p className="t-label mt-5 text-t-tertiary sm:mt-7">Paso 1 de 7 · unos 2 minutos</p>
+          <p className="t-label mt-5 text-t-tertiary sm:mt-7">Paso 1 de 5 · unos 2 minutos</p>
           <h1 className={TITULO}>Crea tu estudio en Tentare</h1>
           <p className={SUBTITULO}>Crea tu cuenta y, en unos 10 minutos, tendrás tu primera clase abierta a reservas.</p>
 
@@ -500,9 +501,10 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                 <IconoBien visible={bien('nombre')} />
               </div>
               <p id={`${id('nombre')}-a`} className={cn(AYUDA, 'mt-1.5')}>
-                Tu página de reservas:{' '}
+                {/* La misma dirección que enseña el iPhone de al lado: la de la app de sus alumnas. */}
+                La app de tus alumnas:{' '}
                 <span className="font-t-mono text-[12.5px] text-t-secondary [overflow-wrap:anywhere]" data-testid="direccion-prevista">
-                  tentare.app/reservar/{slug}
+                  tentare.app/portal/{slug}
                 </span>
                 {/* La base sale de `slugify`, pero `dbCreateStudio` le pone «-2»,
                     «-3»… si ya es de otro estudio: no se promete la exacta. */}
@@ -762,14 +764,15 @@ function Regla({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 
 /** La línea de la ruta: lo hecho en sólido, lo que queda en punteado y el paso de ahora en magenta. */
 function LineaDePasos({ actual }: { actual: number }) {
-  const progreso = (actual - 1) / (PASOS_RUTA.length - 1);
+  const n = PASOS_RUTA.length;
+  const progreso = (actual - 1) / (n - 1);
   return (
-    <ol aria-label="Los 7 pasos para abrir tu estudio" className="relative grid grid-cols-7">
-      <span aria-hidden="true" className="absolute left-[5px] right-[calc(100%/7_-_5px)] top-[5px] border-t-[1.5px] border-dashed border-[color:var(--t-text-disabled)]" />
+    <ol aria-label={`Los ${n} pasos para abrir tu estudio`} className="relative grid" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+      <span aria-hidden="true" className="absolute left-[5px] top-[5px] border-t-[1.5px] border-dashed border-[color:var(--t-text-disabled)]" style={{ right: `calc(100% / ${n} - 5px)` }} />
       <span
         aria-hidden="true"
         className="absolute left-[5px] top-1 h-[3px] rounded-[2px] transition-[width] duration-500 motion-reduce:transition-none"
-        style={{ width: `calc((100% - 100% / 7) * ${progreso})`, background: 'var(--t-gradient-progress)' }}
+        style={{ width: `calc((100% - 100% / ${n}) * ${progreso})`, background: 'var(--t-gradient-progress)' }}
       />
       {PASOS_RUTA.map(([num, nombre, obligatorio], i) => {
         const estado = i + 1 < actual ? 'hecho' : i + 1 === actual ? 'ahora' : 'pendiente';
@@ -799,50 +802,31 @@ function LineaDePasos({ actual }: { actual: number }) {
   );
 }
 
-/** «Así empieza tu página de reservas»: su página tal como nace, con el nombre que va escribiendo. */
+/**
+ * «Así empieza la app de tus alumnas»: la app de verdad, la pantalla con la que
+ * la recibe a una alumna al abrir su enlace, en un iPhone 17 Pro y con el nombre
+ * que va escribiendo (components/alta-nueva/app-de-muestra.tsx). Su estudio aún
+ * no existe: es el estudio tal como nacerá, sin nada inventado encima.
+ */
 function VistaPrevia({ nombre, slug }: { nombre: string; slug: string }) {
-  // El mes de hoy en Madrid, como lo verá la alumna.
-  const mes = useMemo(() => {
-    const m = new Intl.DateTimeFormat('es-ES', { month: 'long', timeZone: 'Europe/Madrid' }).format(new Date());
-    return m.charAt(0).toUpperCase() + m.slice(1);
-  }, []);
+  // Que el teléfono quepa entero (con la isla y el indicador) en la altura de la ventana.
+  const escala = useEscalaIphone(0.66, 300);
   return (
     <aside
-      aria-label="Vista previa de tu página de reservas"
-      className="flex min-w-0 flex-col items-center gap-[18px] self-start rounded-[20px] bg-t-sunken p-5 text-center lg:sticky lg:top-6 lg:min-h-[640px] lg:justify-center lg:rounded-[24px] lg:p-8"
+      aria-label="Vista previa de la app de tus alumnas"
+      className="flex min-w-0 flex-col items-center gap-[18px] self-start rounded-[20px] bg-t-sunken p-5 text-center lg:sticky lg:top-6 lg:rounded-[24px] lg:p-8"
     >
-      <p className="t-label -mb-1 text-t-tertiary">Así empieza tu página de reservas</p>
-      <div aria-hidden="true" className="w-[300px] max-w-full shrink-0 rounded-[40px] p-[9px] shadow-t-floating" style={{ background: DE_SERIE.marco }}>
-        <div className="relative flex min-h-[420px] flex-col overflow-hidden rounded-[32px] lg:min-h-[470px]" style={{ background: DE_SERIE.fondo }}>
-          <span className="absolute left-1/2 top-2 z-[3] h-6 w-[84px] -translate-x-1/2 rounded-[14px] bg-black" />
-          <div className="flex flex-1 flex-col pb-3.5 pt-10 text-left" style={{ color: DE_SERIE.texto }}>
-            <div className="flex items-center gap-3 px-4 pb-3 pt-1.5">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] text-[14px] font-bold tracking-[-0.02em]" style={{ background: DE_SERIE.marca, color: DE_SERIE.sobreMarca }}>
-                {iniciales(nombre)}
-              </span>
-              <div className="min-w-0">
-                <b className="block truncate text-[15px] font-bold leading-[19px]">{nombre}</b>
-                <small className="block text-[12px] font-medium leading-4" style={{ color: DE_SERIE.suave }}>Reserva tu clase</small>
-              </div>
-            </div>
-            <p className="px-4 pb-2 text-[13px] font-bold leading-[18px]" style={{ color: DE_SERIE.suave }} suppressHydrationWarning>{mes}</p>
-            <div className="flex gap-1.5 px-4 pb-3">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <span key={i} className="h-[54px] w-[42px] shrink-0 rounded-full border-[1.5px] border-dashed" style={{ borderColor: DE_SERIE.borde }} />
-              ))}
-            </div>
-            <div className="mx-3 mb-2 rounded-[18px] border-[1.5px] border-dashed px-3.5 py-5 text-center text-[12.5px] font-medium leading-[18px]" style={{ borderColor: DE_SERIE.borde, color: DE_SERIE.suave }}>
-              Aquí saldrán tus clases
-            </div>
-            <div className="mx-3 mb-2 rounded-[18px] border-[1.5px] border-dashed p-7" style={{ borderColor: DE_SERIE.borde }} />
-          </div>
-        </div>
-      </div>
-      <p className="max-w-full truncate rounded-full bg-t-raised px-3 py-1.5 font-t-mono text-[12px] leading-4 text-t-secondary shadow-t-card">
-        tentare.app/reservar/{slug}
+      <p className="t-label -mb-1 text-t-tertiary">Así empieza la app de tus alumnas</p>
+      <AppDeMuestra nombre={nombre} escala={escala} />
+      <p className="max-w-full truncate rounded-full bg-t-raised px-3 py-1.5 font-t-mono text-[12px] leading-4 text-t-secondary shadow-t-card" data-testid="enlace-app-prevista">
+        tentare.app/portal/{slug}
+      </p>
+      <p className="max-w-[300px] text-[12.5px] leading-[18px] text-t-tertiary">
+        Es tu app de verdad: lo primero que ve una alumna al abrir tu enlace. Tu logo y tu color los eliges en el paso 5;
+        la foto es una de serie hasta que subas la tuya en Apariencia.
       </p>
       <ul className="grid max-w-[300px] gap-2 text-left">
-        {['Tu página de reservas existe desde hoy', 'Tus alumnas reservan desde el móvil, sin descargarse nada', 'Si te atascas, te ayuda una persona'].map((v) => (
+        {['Tu app existe desde que creas tu estudio', 'Tus alumnas entran desde el móvil, sin descargarse nada', 'Si te atascas, te ayuda una persona'].map((v) => (
           <li key={v} className="flex gap-2.5 text-[14px] leading-5 text-t-secondary">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-t-success" aria-hidden="true" />
             {v}

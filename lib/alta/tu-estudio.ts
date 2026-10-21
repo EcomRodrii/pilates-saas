@@ -81,12 +81,12 @@ export function tituloDonde(s: Sedes): string {
 
 export function etiquetaDonde(s: Sedes): string {
   return s.tipo === 'varias'
-    ? `Paso 3 de 7 · Tu primera sede (1 de ${s.total >= 5 ? '5 o más' : s.total}) · unos 3 minutos`
-    : 'Paso 3 de 7 · Tu estudio, 1 de 2 · unos 3 minutos';
+    ? `Paso 3 de 5 · Tu primera sede (1 de ${s.total >= 5 ? '5 o más' : s.total}) · unos 3 minutos`
+    : 'Paso 3 de 5 · Tu estudio, 1 de 2 · unos 3 minutos';
 }
 
 export function etiquetaCuando(s: Sedes): string {
-  return s.tipo === 'varias' ? 'Paso 3 de 7 · Tu primera sede, 2 de 2 · 1 minuto' : 'Paso 3 de 7 · Tu estudio, 2 de 2 · 1 minuto';
+  return s.tipo === 'varias' ? 'Paso 3 de 5 · Tu primera sede, 2 de 2 · 1 minuto' : 'Paso 3 de 5 · Tu estudio, 2 de 2 · 1 minuto';
 }
 
 // ── «Dónde está» ─────────────────────────────────────────────────────────────
@@ -237,13 +237,52 @@ export function erroresCuando(id: HorarioId, otro: { apertura: string; cierre: s
   return e;
 }
 
-/** Dónde cae una hora en la semana dibujada (06:00 → 0 %, 23:00 → 100 %). */
-export function posicionEnLaSemana(hhmm: string): number {
+// ── «Así se verá tu semana» ──────────────────────────────────────────────────
+// La vista previa del paso es el calendario REAL del panel (`SemanaFranjas` en
+// escritorio, `VistaAgenda` en el móvil), sin clases todavía: lo que hay que
+// darle es lo mismo que le da el Calendario, sacado de lo que se está eligiendo.
+
+export interface DiaDeLaSemanaPrevista {
+  /** 'YYYY-MM-DD', día del estudio. */
+  iso: string;
+  /** 0 = domingo, como `Date.getDay()`. */
+  diaSemana: number;
+  cerrado: boolean;
+}
+
+/**
+ * Los siete días que enseña el Calendario al abrirse: desde HOY (en Madrid), no
+ * desde el lunes (`weekStart` del Calendario). `dias` va de lunes a domingo, como
+ * `DIAS_ALTA`.
+ */
+export function semanaPrevista(hoyIso: string, dias: readonly boolean[]): DiaDeLaSemanaPrevista[] {
+  const [y, m, d] = hoyIso.split('-').map(Number);
+  return Array.from({ length: 7 }, (_, i) => {
+    // A mediodía UTC: sumar días no cruza de fecha por el cambio de hora.
+    const f = new Date(Date.UTC(y, (m ?? 1) - 1, (d ?? 1) + i, 12));
+    const diaSemana = f.getUTCDay();
+    const iso = f.toISOString().slice(0, 10);
+    const indice = DIAS_ALTA.findIndex(x => x.diaSemana === diaSemana);
+    return { iso, diaSemana, cerrado: !dias[indice] };
+  });
+}
+
+/**
+ * Las horas de la franja, enteras, para las filas de la semana: de la hora en
+ * que abre a la primera hora entera en que ya ha cerrado (07:30–21:15 → 7 a 22).
+ * `null` si la franja no vale.
+ */
+export function horasDeLaFranja(franja: { apertura: string; cierre: string } | null): { desdeHora: number; hastaHora: number } | null {
+  if (!franja) return null;
+  const a = minutosDe(franja.apertura);
+  const c = minutosDe(franja.cierre);
+  if (a == null || c == null || c <= a) return null;
+  return { desdeHora: Math.floor(a / 60), hastaHora: Math.ceil(c / 60) };
+}
+
+function minutosDe(hhmm: string): number | null {
   const [h, m] = aHoraCorta(hhmm).split(':').map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
-  const min = 6 * 60;
-  const max = 23 * 60;
-  return Math.max(0, Math.min(100, ((h * 60 + m - min) / (max - min)) * 100));
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
 }
 
 // ── El embudo ────────────────────────────────────────────────────────────────

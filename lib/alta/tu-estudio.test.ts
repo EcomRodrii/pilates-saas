@@ -4,7 +4,7 @@ import {
   DIAS_ALTA, DIAS_POR_DEFECTO, HORARIOS_ALTA, PRECIO_CADENA_MES,
   aHoraBd, aHoraCorta, diasDe, erroresCuando, erroresDonde, esCanarias, etiquetaCuando, etiquetaDonde, filasHorario,
   franjaDe, horarioGuardado, horarioIdDe, horarioOtroValido, limpiarDonde, lineaDireccion, onbCentrosDe, otrasSedes,
-  posicionEnLaSemana, restoDeSedes, sedesDeOnbCentros, textoProvincia, tituloDonde, tuEstudioGuardado,
+  horasDeLaFranja, restoDeSedes, semanaPrevista, sedesDeOnbCentros, textoProvincia, tituloDonde, tuEstudioGuardado,
   type Sedes,
 } from './tu-estudio.ts';
 import { OPCIONES_HORARIO } from '../onboarding/plan-configuracion.ts';
@@ -77,11 +77,11 @@ test('sedes: lo que dice la pantalla con «Varias»', () => {
   assert.equal(restoDeSedes(5), 'Sede 3 y las demás');
   assert.equal(tituloDonde({ tipo: 'una' }), 'Dónde está tu estudio');
   assert.equal(tituloDonde({ tipo: 'varias', total: 3 }), 'Dónde está tu primera sede');
-  assert.equal(etiquetaDonde({ tipo: 'una' }), 'Paso 3 de 7 · Tu estudio, 1 de 2 · unos 3 minutos');
-  assert.equal(etiquetaDonde({ tipo: 'varias', total: 3 }), 'Paso 3 de 7 · Tu primera sede (1 de 3) · unos 3 minutos');
-  assert.equal(etiquetaDonde({ tipo: 'varias', total: 5 }), 'Paso 3 de 7 · Tu primera sede (1 de 5 o más) · unos 3 minutos');
-  assert.equal(etiquetaCuando({ tipo: 'una' }), 'Paso 3 de 7 · Tu estudio, 2 de 2 · 1 minuto');
-  assert.equal(etiquetaCuando({ tipo: 'varias', total: 2 }), 'Paso 3 de 7 · Tu primera sede, 2 de 2 · 1 minuto');
+  assert.equal(etiquetaDonde({ tipo: 'una' }), 'Paso 3 de 5 · Tu estudio, 1 de 2 · unos 3 minutos');
+  assert.equal(etiquetaDonde({ tipo: 'varias', total: 3 }), 'Paso 3 de 5 · Tu primera sede (1 de 3) · unos 3 minutos');
+  assert.equal(etiquetaDonde({ tipo: 'varias', total: 5 }), 'Paso 3 de 5 · Tu primera sede (1 de 5 o más) · unos 3 minutos');
+  assert.equal(etiquetaCuando({ tipo: 'una' }), 'Paso 3 de 5 · Tu estudio, 2 de 2 · 1 minuto');
+  assert.equal(etiquetaCuando({ tipo: 'varias', total: 2 }), 'Paso 3 de 5 · Tu primera sede, 2 de 2 · 1 minuto');
 });
 
 test('el precio de Cadena sale del catálogo de planes, nunca escrito a mano', () => {
@@ -145,11 +145,21 @@ test('días: de vuelta del horario por día; sin filas (estudio nuevo), de lunes
   assert.deepEqual(diasDe(guardado), [true, false, true, false, true, false, true], 'ida y vuelta');
 });
 
-test('la semana dibujada va de 06:00 a 23:00', () => {
-  assert.equal(posicionEnLaSemana('06:00'), 0);
-  assert.equal(posicionEnLaSemana('23:00'), 100);
-  assert.equal(posicionEnLaSemana('05:00'), 0, 'lo de antes, pegado al borde');
-  assert.ok(Math.abs(posicionEnLaSemana('14:30') - 50) < 0.01);
+test('la semana de la vista previa empieza HOY, como el Calendario, y cierra los días que no abre', () => {
+  // Miércoles 21 de octubre de 2026; abre de lunes a viernes.
+  const semana = semanaPrevista('2026-10-21', [true, true, true, true, true, false, false]);
+  assert.deepEqual(semana.map(d => d.iso), ['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27']);
+  assert.deepEqual(semana.map(d => d.diaSemana), [3, 4, 5, 6, 0, 1, 2]);
+  assert.deepEqual(semana.map(d => d.cerrado), [false, false, false, true, true, false, false]);
+  // El cambio de hora (25-oct-2026) no se come ni repite un día.
+  assert.equal(new Set(semana.map(d => d.iso)).size, 7);
+});
+
+test('las filas de la semana vacía salen de la franja, en horas enteras', () => {
+  assert.deepEqual(horasDeLaFranja({ apertura: '07:00', cierre: '22:00' }), { desdeHora: 7, hastaHora: 22 });
+  assert.deepEqual(horasDeLaFranja({ apertura: '07:30', cierre: '21:15' }), { desdeHora: 7, hastaHora: 22 }, 'la hora a medias cuenta entera');
+  assert.equal(horasDeLaFranja({ apertura: '21:00', cierre: '09:00' }), null);
+  assert.equal(horasDeLaFranja(null), null);
 });
 
 test('el embudo solo apunta «Tu estudio» con la dirección y el horario por día guardados', () => {

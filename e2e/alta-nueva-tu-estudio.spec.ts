@@ -16,7 +16,7 @@ async function montarAltaNueva(page: Page, { estudio = {}, horarioFalla = false,
   estudio?: Record<string, unknown>;
   horarioFalla?: boolean;
   /** Empezar en esta pantalla, como si se hubiera quedado ahí en este navegador. */
-  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca' | 'clase';
+  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca' | 'pasos';
 } = {}) {
   const escrito = {
     usuario: [] as Record<string, unknown>[],
@@ -70,12 +70,13 @@ async function rellenarDonde(page: Page, { cp = '28003' }: { cp?: string } = {})
 }
 
 test.describe('el alta nueva en el panel', () => {
-  test('con el alta nueva sale su bienvenida, con la línea de siete pasos y una persona por WhatsApp', async ({ page }) => {
+  test('con el alta nueva sale su bienvenida, con la línea de cinco pasos y una persona por WhatsApp', async ({ page }) => {
     await montarAltaNueva(page);
     await expect(page.getByRole('heading', { name: 'Dónde está tu estudio' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 3 de 7 · Tu estudio, 1 de 2 · unos 3 minutos');
+    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 3 de 5 · Tu estudio, 1 de 2 · unos 3 minutos');
     const linea = page.getByTestId('linea-de-pasos');
-    await expect(linea.locator('li')).toHaveCount(7);
+    // La primera clase ya no es un paso del alta (fundador, 21-oct): se crea en el panel.
+    await expect(linea.locator('li')).toHaveCount(5);
     await expect(linea.locator('li[data-estado="hecho"]')).toHaveCount(2);
     await expect(linea.locator('li[aria-current="step"]')).toContainText('03');
     await expect(page.getByRole('link', { name: /¿Dudas\? Escríbenos/ })).toHaveAttribute('href', /^https:\/\/wa\.me\//);
@@ -113,7 +114,7 @@ test.describe('el alta nueva en el panel', () => {
     await expect(bloque).toContainText('Ahora montamos la primera, entera y gratis');
     await expect(bloque).toContainText(/Las otras 2 se abren desde este mismo panel con el plan Cadena: \d+\s€\/mes, una sola suscripción para toda la cadena/);
     await expect(page.getByRole('heading', { name: 'Dónde está tu primera sede' })).toBeVisible();
-    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 3 de 7 · Tu primera sede (1 de 3) · unos 3 minutos');
+    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 3 de 5 · Tu primera sede (1 de 3) · unos 3 minutos');
     await bloque.getByRole('radio', { name: '5 o más' }).click();
     await expect(bloque).toContainText('Las otras 4 o más');
     await expect(page.getByTestId('dibujo-sedes')).toContainText('Sede 3 y las demás');
@@ -149,7 +150,7 @@ test.describe('el alta nueva en el panel', () => {
     expect(escrito.pasos, 'sin guardar, el embudo no apunta nada').toEqual([]);
   });
 
-  test('«Tu estudio» guarda lo que dice, el embudo lo pide, y «Más tarde» en 4 y 5 lleva a la primera clase', async ({ page }) => {
+  test('«Tu estudio» guarda lo que dice, el embudo lo pide, y «Más tarde» en 4 y 5 lleva a los primeros pasos', async ({ page }) => {
     const { pet, escrito } = await montarAltaNueva(page);
     await rellenarDonde(page);
     await page.getByRole('button', { name: 'Siguiente' }).click();
@@ -191,22 +192,21 @@ test.describe('el alta nueva en el panel', () => {
     await expect(page.getByTestId('app-en-vivo').locator('iframe')).toHaveAttribute('src', '/portal/studio-carmen');
     await page.getByRole('radio', { name: 'Océano' }).click();
     await expect(page.getByTestId('contraste')).toHaveText(/^Botones con texto blanco · \d+,\d:1 · se lee bien$/);
-    // «Más tarde»: no publica el color y sigue a la primera clase (paso 6, PR-4),
-    // dentro de la bienvenida: todavía no se sella.
+    // «Más tarde»: no publica el color y sigue a «Tus primeros pasos», la última
+    // pantalla del alta (fundador, 21-oct): todavía no se sella.
     await page.getByRole('button', { name: 'Más tarde' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
-    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 6 de 7 · obligatorio · unos 5 minutos');
+    await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
     expect(escrito.publicar).toEqual([]);
     expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
 
-  test('«Siguiente» en la marca publica el color elegido y sigue a la primera clase', async ({ page }) => {
+  test('«Siguiente» en la marca publica el color elegido y sigue a los primeros pasos', async ({ page }) => {
     const { pet, escrito } = await montarAltaNueva(page, { pantalla: 'marca' });
     await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('radio', { name: 'Océano' }).click();
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect.poll(() => escrito.publicar).toEqual([{ campos: { primary: '#2F6F8F' } }]);
-    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
     expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
 
@@ -234,10 +234,9 @@ test.describe('el alta nueva en el panel', () => {
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
   });
 
-  test('«Saltar a mi primera clase» lleva al paso 6 sin salir de la bienvenida', async ({ page }) => {
-    const { pet } = await montarAltaNueva(page);
-    await page.getByRole('button', { name: 'Saltar a mi primera clase' }).click();
-    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
-    expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
+  test('sin atajo a la primera clase: se crea en el panel, no en el alta', async ({ page }) => {
+    await montarAltaNueva(page);
+    await expect(page.getByRole('heading', { name: 'Dónde está tu estudio' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Saltar a mi primera clase' })).toHaveCount(0);
   });
 });

@@ -19,6 +19,7 @@ import { useAppNativa } from '@/lib/nativo/use-app-nativa';
 import { BotonApple } from '@/components/nativo/BotonApple';
 import { LogoGoogle } from '@/components/nativo/BotonGoogle';
 import { entrarConGoogleEnLaApp } from '@/lib/nativo/google';
+import { AVISO_SOLO_MIRAR, enMarcoSoloMirar } from '@/lib/student/solo-mirar';
 
 /**
  * La puerta del estudio (P08): tu correo, un código de 6 cifras en casillas que
@@ -98,7 +99,17 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
     r.replace(`${href('/acceso/verificar')}?via=codigo`);
   }, { alFallar, reenviarSiCaduca: true });
 
+  // En el marco de «solo mirar» del alta nueva la pantalla es la de siempre, pero
+  // ni manda códigos ni entra: se dice al pulsar (la cerradura está en `fetch`,
+  // lib/student/solo-mirar.ts; esto es para que no parezca un fallo).
+  const soloMirar = () => {
+    if (!enMarcoSoloMirar()) return false;
+    setGlobal(AVISO_SOLO_MIRAR);
+    return true;
+  };
+
   const seguir = async () => {
+    if (soloMirar()) return;
     if (!emailValido(email)) { setErrEmail('Escribe un email válido'); return; }
     setErrEmail(''); setGlobal(''); setSinConfirmar(false);
     fijarRecordarSesion(recordar);
@@ -122,6 +133,7 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
   };
 
   const entrarConContrasena = async () => {
+    if (soloMirar()) return;
     const eEmail = emailValido(email) ? '' : 'Escribe un email válido';
     const ePass = pass ? '' : 'Escribe tu contraseña';
     setErrEmail(eEmail); setErrPass(ePass); setGlobal(''); setSinConfirmar(false);
@@ -140,6 +152,7 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
   // Google es a la vez «entrar» y «darse de alta»: el consentimiento se pide a
   // la vuelta y solo a quien no tiene ficha (`/acceso/verificar`, rama sin-firma).
   const irAGoogle = () => {
+    if (soloMirar()) return;
     setGlobal('');
     guardarDestino();
     setYendoAGoogle(true);
