@@ -440,14 +440,16 @@ export const MARCA_CONCEPTO_PARCIAL = 'parte proporcional';
  * (`metadata.cicloFin`) y quien entrega (webhook, conciliador) NO recalcula con la
  * fecha de hoy: un cobro abierto el 31 y pagado el 1 entregaría otro periodo del
  * que se pagó. Si el pago llega cuando ese ciclo ya terminó, la cuota no puede
- * nacer caducada (la alumna acabaría de pagar sin poder reservar): se le da hasta
- * el fin del mes de hoy, alineada al día 1 para que el cron renueve el día 1.
+ * nacer caducada: se le entregan los días que pagó, contados desde hoy.
  * Una fecha ausente, mal formada o absurda (más de 62 días) cae a la de siempre.
  */
 export function fechaFinDeEntregaOnline(e: {
   cicloFinISO?: string | null;
   hoyISO: string;
   porDefecto: string | null;
+  /** Precio de la cuota y lo cobrado por ella (sin matrícula), en céntimos: dan los días pagados si llega tarde. */
+  cuotaCentimos?: number | null;
+  importeCuotaCentimos?: number | null;
 }): { fechaFin: string | null; origen: 'metadata' | 'medianoche' | 'tarde' | 'defecto' } {
   const c = e.cicloFinISO;
   if (typeof c !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(c) || Number.isNaN(Date.parse(`${c}T00:00:00Z`))) {
@@ -455,12 +457,18 @@ export function fechaFinDeEntregaOnline(e: {
   }
   if (c > masDias(e.hoyISO, 62)) return { fechaFin: e.porDefecto, origen: 'defecto' };
   if (c < e.hoyISO) {
-    // Cruce de medianoche (o un webhook que tarda un par de días): no nace caducada, llega a fin del mes de
-    // hoy. Con más retraso NO se regala el mes: el pago llegó tarde y se entrega solo hoy, avisando al
-    // estudio (`origen: 'tarde'`) para que lo resuelva a mano.
-    if (c >= masDias(e.hoyISO, -2)) {
-      const [y, m] = partes(e.hoyISO);
-      return { fechaFin: `${y}-${dosDigitos(m)}-${dosDigitos(diasDelMes(y, m))}`, origen: 'medianoche' };
+    // El pago llegó con el ciclo prometido ya vencido (cobro abierto antes de medianoche, o un webhook
+    // que tarda). Se le entregan los DÍAS QUE PAGÓ, contados desde hoy: ni se regala el mes siguiente por
+    // una parte proporcional, ni nace caducada (el cron le cobraría la cuota entera al día siguiente).
+    // Los días pagados salen de lo cobrado frente a la cuota, sobre los días del mes del ciclo prometido.
+    // Sin esos dos datos, solo hoy y se avisa al estudio.
+    const tarde = c < masDias(e.hoyISO, -2) ? 'tarde' : 'medianoche';
+    const cuota = e.cuotaCentimos ?? 0;
+    const pagado = e.importeCuotaCentimos ?? 0;
+    if (cuota > 0 && pagado > 0) {
+      const [y, m] = partes(c);
+      const dias = Math.min(diasDelMes(y, m), Math.max(1, Math.round((Math.min(pagado, cuota) / cuota) * diasDelMes(y, m))));
+      return { fechaFin: masDias(e.hoyISO, dias - 1), origen: tarde };
     }
     return { fechaFin: e.hoyISO, origen: 'tarde' };
   }

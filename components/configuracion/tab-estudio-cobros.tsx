@@ -256,7 +256,7 @@ function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
   if (f.proporcional !== base.proporcional || (f.proporcional && f.diasMinimos !== base.diasMinimos)) {
     partes.push(f.proporcional && f.proporcional === base.proporcional ? {
       titulo: '¿Cambiar los días mínimos del cobro proporcional?',
-      descripcion: `Desde ahora, si al apuntarse una alumna quedan ${f.diasMinimos} días o menos del mes, su primera cuota se cobra el día 1 del mes siguiente; con más días, la parte proporcional. No cambia a quien ya está dada de alta.`,
+      descripcion: `Desde ahora, si al apuntarse una alumna quedan ${f.diasMinimos} días o menos del mes, desde el panel no se cobra nada hoy y su primera cuota es el día 1 del mes siguiente (online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente); con más días, la parte proporcional.`,
       textoConfirmar: 'Sí, cambiar',
     } : f.proporcional ? {
       titulo: '¿Cobrar la parte proporcional del primer mes?',
@@ -360,8 +360,8 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
               (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea. Al cambiar a una cuota más cara a mitad de ciclo, «Cambiar plan» te deja cobrar la diferencia proporcional.
             </span>
             <span className="mt-1 block text-xs text-muted-foreground text-pretty">
-              Aplica a altas desde el panel y a la compra online de la alumna (mismas condiciones; ella ve antes de pagar cuánto y por qué). No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar». No cambia a las alumnas que ya tienes.
-              Si también eliges «Todas el día 1», las nuevas pagan la parte proporcional y las que ya tienes pasan al día 1 en su próxima renovación, sin prorratear.
+              Aplica a altas desde el panel y a la compra online de la alumna (ella ve antes de pagar cuánto y por qué). Con pocos días de mes por delante, panel y online no actúan igual: se explica en «Días mínimos». No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
+              Si también eliges «Todas el día 1», las alumnas que ya tienes pasan al día 1 en su próxima renovación, sin prorratear: pueden ganar unos días de cuota sin pagarlos y cambia el día en que se les cobra.
             </span>
           </span>
         </label>
@@ -385,7 +385,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
               className="mt-2 h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm"
             />
             <p className="mt-2 text-xs text-muted-foreground text-pretty">
-              Si al apuntarse quedan {form.diasMinimos} días o menos del mes (contando el día del alta), no se le cobra una cantidad simbólica: su primera cuota se cobra el día 1 del mes siguiente y se le dice. Con más días, se le cobra la parte proporcional. Pon 0 para prorratear siempre (por debajo de 0,50 € tampoco se cobra). En la compra online, con pocos días se cobra la cuota entera hoy y vale hasta el final del mes siguiente, porque la tarjeta no se puede guardar sin un primer pago.
+              Si al apuntarse quedan {form.diasMinimos} días o menos del mes (contando el día del alta), no se le cobra una cantidad simbólica: desde el panel no se le cobra nada hoy y su primera cuota es el día 1 del mes siguiente. Con más días, se le cobra la parte proporcional. Pon 0 para prorratear siempre (por debajo de 0,50 € tampoco se cobra). En la compra online, con pocos días se cobra hoy la cuota entera y cubre hasta el final del mes siguiente (el siguiente cobro es el día 1 del mes posterior), porque la tarjeta no se puede guardar sin un primer pago.
             </p>
           </div>
         )}

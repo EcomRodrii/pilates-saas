@@ -48,7 +48,7 @@ async function escribirNombre(page: Page, texto = 'Estudio Alba') {
   const slug = texto.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   await expect(async () => {
     await nombre(page).fill(texto);
-    await expect(page.getByTestId('direccion-prevista')).toHaveText(`tentare.app/reservar/${slug}`, { timeout: 2_000 });
+    await expect(page.getByTestId('direccion-prevista')).toHaveText(`tentare.app/portal/${slug}`, { timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
 }
 
@@ -74,7 +74,7 @@ test.describe('Sin ?alta=nueva, el alta de siempre', () => {
   test('con ?alta=nueva, la nueva: una pantalla con los tres campos', async ({ page }) => {
     await page.goto(ALTA);
     await expect(page.getByRole('heading', { name: 'Crea tu estudio en Tentare' })).toBeVisible();
-    await expect(page.getByText('Paso 1 de 7 · unos 2 minutos')).toBeVisible();
+    await expect(page.getByText('Paso 1 de 5 · unos 2 minutos')).toBeVisible();
     await expect(nombre(page)).toBeVisible();
     await expect(email(page)).toBeVisible();
     await expect(contrasena(page)).toBeVisible();
@@ -94,7 +94,7 @@ test.describe('Validación en línea, campo a campo', () => {
     await page.route('**/auth/v1/signup**', (route) => { altas += 1; return json(route, ALTA_PENDIENTE); });
     await page.goto(ALTA);
     await escribirNombre(page, 'E');
-    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/reservar/e');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/e');
 
     // Antes de salir del campo no se le riñe a nadie.
     await expect(page.getByText('Escribe el nombre de tu estudio: al menos 2 letras.')).toHaveCount(0);
@@ -105,7 +105,7 @@ test.describe('Validación en línea, campo a campo', () => {
     // Tras el primer error, se corrige mientras escribe.
     await nombre(page).fill('Estudio Alba');
     await expect(page.getByText('Escribe el nombre de tu estudio: al menos 2 letras.')).toHaveCount(0);
-    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/reservar/estudio-alba');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba');
     // No se promete la dirección exacta: `dbCreateStudio` puede sumarle un número.
     await expect(page.getByText('Si otro estudio ya la tiene, le añadimos un número al final.')).toBeVisible();
 
@@ -174,7 +174,7 @@ test.describe('Lo que dice gotrue', () => {
     await crear(page).click();
 
     await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible();
-    await expect(page.getByText('Paso 2 de 7 · menos de 1 minuto')).toBeVisible();
+    await expect(page.getByText('Paso 2 de 5 · menos de 1 minuto')).toBeVisible();
     await expect(page.getByText('prueba-tentare@example.com')).toBeVisible();
     await expect(page.getByText(/Mira en Promociones o en Spam/)).toBeVisible();
     expect(altas).toBe(1);
@@ -316,7 +316,7 @@ test.describe('El código y el estudio', () => {
 
     await expect(page.getByRole('heading', { name: 'Estudio Alba ya existe' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Código correcto')).toBeVisible();
-    for (const paso of ['Dónde está y cuándo abre', 'Tus datos y tu marca', 'Tu primera clase, con su precio']) {
+    for (const paso of ['Dónde está y cuándo abre', 'Tus datos y tu marca', 'Después, en tu panel: tu primera clase, con su precio']) {
       await expect(page.getByText(paso)).toBeVisible();
     }
     await expect(page.getByRole('link', { name: 'Configurar mi estudio' })).toHaveAttribute('href', '/dashboard');
@@ -349,5 +349,45 @@ test.describe('Recargar y el móvil', () => {
     await escribirNombre(page);
     const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(desborda, 'el alta nueva se sale a lo ancho en el móvil').toBe(false);
+  });
+});
+
+test.describe('El iPhone de al lado: la app de la alumna de verdad', () => {
+  // Fundador, 21-oct-2026: «el mockup ese de iphone es muy falso, no es la app
+  // alumna, el enlace tampoco». Ahora es la app real (su pantalla de entrada) de
+  // un estudio que aún no existe, con el nombre que se escribe
+  // (lib/student/muestra.ts), y el enlace, el de la app.
+  test('enseña la pantalla de entrada de la app, con su nombre, y el enlace de la app', async ({ page }) => {
+    await page.goto(ALTA);
+    const marco = page.getByTestId('app-de-muestra').locator('iframe');
+    await expect(marco).toHaveAttribute('src', '/portal/_muestra/acceso/login');
+    // Es una vista previa: ni se toca ni escribe (lib/student/solo-mirar.ts).
+    await expect(marco).toHaveAttribute('name', 'tentare-solo-mirar');
+    await expect(marco).toHaveAttribute('inert', '');
+    const app = page.frameLocator('[data-testid="app-de-muestra"] iframe');
+    await expect(app.getByRole('heading', { name: 'Entra en Tu estudio' })).toBeVisible({ timeout: 30_000 });
+
+    await escribirNombre(page, 'Estudio Alba');
+    await expect(app.getByRole('heading', { name: 'Entra en Estudio Alba' })).toBeVisible();
+    await expect(page.getByTestId('enlace-app-prevista')).toHaveText('tentare.app/portal/estudio-alba');
+    // Ni rastro del dibujo de antes (la página de reservas pintada a mano).
+    await expect(page.getByText('Aquí saldrán tus clases')).toHaveCount(0);
+  });
+
+  test('dentro del marco, la app lee pero no escribe nada', async ({ page }) => {
+    const intentos = { escritura: 0, lectura: 0 };
+    await page.route('**/api/public/reserva', (r) => { intentos.escritura += 1; return json(r, { ok: true }); });
+    await page.route('**/api/public/studio-data', (r) => { intentos.lectura += 1; return json(r, {}); });
+    await page.goto(ALTA);
+    await expect.poll(() => page.frame({ name: 'tentare-solo-mirar' })?.url() ?? '', { timeout: 30_000 }).toContain('/portal/_muestra/acceso/login');
+    const app = page.frame({ name: 'tentare-solo-mirar' });
+    if (!app) throw new Error('sin el marco de la app');
+    await expect.poll(() => app.evaluate(() => document.documentElement.hasAttribute('data-solo-mirar')), { timeout: 30_000 }).toBe(true);
+    const escribir = await app.evaluate(() => fetch('/api/public/reserva', { method: 'POST', body: '{}' }).then(() => 'salió', (e: Error) => e.message));
+    expect(escribir).toBe('Vista previa del alta: aquí no se escribe nada');
+    // Lo que lee con POST (el catálogo) sí sale: la cerradura no corta a ciegas.
+    await app.evaluate(() => fetch('/api/public/studio-data', { method: 'POST', body: '{}' }).then(() => null, () => null));
+    expect(intentos.lectura).toBeGreaterThan(0);
+    expect(intentos.escritura).toBe(0);
   });
 });

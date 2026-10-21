@@ -20,7 +20,15 @@ import { ayudaDePantalla, tutorialDePantalla } from '@/lib/ayuda/pantallas';
 // Mientras está montado, le dice al contexto «sigo en esta pantalla» (`presente`):
 // al desmontarse, si el tutorial abierto era el suyo, se cierra sin anotar nada.
 // Con la visita guiada en marcha no se pinta: un «?» que no responde es peor que ninguno.
-export function BotonTutorial({ ruta }: { ruta?: string }) {
+export function BotonTutorial({ ruta, abrirSolo = true }: {
+  ruta?: string;
+  /**
+   * `false` mientras la pantalla no tenga lo que el tutorial enseña (un Calendario
+   * sin ninguna clase: «Cada bloque es una clase…» sin un solo bloque). No se abre
+   * solo; con el botón, sí. En cuanto vuelva a `true`, se pide como siempre.
+   */
+  abrirSolo?: boolean;
+}) {
   const pathname = usePathname();
   const tutorial = useTutorial();
   const clave = ruta ?? pathname;
@@ -35,8 +43,8 @@ export function BotonTutorial({ ruta }: { ruta?: string }) {
   }, [t?.ruta, presente, visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (t && pedir) pedir(t.ruta);
-  }, [t?.ruta, pedir]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (t && pedir && abrirSolo) pedir(t.ruta);
+  }, [t?.ruta, pedir, abrirSolo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!t || !tutorial || !visible) return null;
   const nombre = ayudaDePantalla(t.ruta)?.titulo ?? 'esta pantalla';

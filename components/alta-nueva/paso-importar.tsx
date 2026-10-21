@@ -38,7 +38,7 @@ import {
 import { Baldosa } from '@/components/dashboard/vivo';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { cn } from '@/lib/utils';
-import { AtajoPrimeraClase, CLASE_CAMPO, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso } from './piezas';
+import { CLASE_CAMPO, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso } from './piezas';
 
 function descargarPlantilla(p: PlantillaImportar) {
   const blob = new Blob(['﻿' + serializeCsv(p.cabeceras, p.ejemplo)], { type: 'text/csv;charset=utf-8;' });
@@ -50,14 +50,13 @@ function descargarPlantilla(p: PlantillaImportar) {
   URL.revokeObjectURL(url);
 }
 
-export function PasoImportar({ studio, onAtras, onListo, onIrA, onSaltar, saliendo }: {
+export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
   studio: Studio;
   onAtras: () => void;
   /** Sigue al paso 5. */
   onListo: () => void;
   /** Abre una de las tres pantallas de traer datos, con la vuelta al paso 5. */
   onIrA: (ruta: string) => void;
-  onSaltar: () => void;
   saliendo: boolean;
 }) {
   const { updateStudio } = useStudio();
@@ -193,7 +192,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, onSaltar, salien
     <form noValidate onSubmit={siguiente} className="mx-auto w-full max-w-[960px]">
       <LineaDePasos actual={4} />
       <CabeceraPaso
-        etiqueta="Paso 4 de 7 · opcional · unos 3 minutos"
+        etiqueta="Paso 4 de 5 · opcional · unos 3 minutos"
         titulo="¿Traes alumnas de otro sitio?"
         sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Clientas."
         masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
@@ -238,7 +237,6 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, onSaltar, salien
 
       <ErrorGuardado mensaje={error} />
       <NavPaso onAtras={onAtras} trabajando={ocupado} masTarde={{ onClick: () => void seguirIgual(onListo) }} />
-      <AtajoPrimeraClase onSaltar={onSaltar} disabled={ocupado} />
     </form>
   );
 }

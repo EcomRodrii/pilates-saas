@@ -3734,6 +3734,10 @@ export default function Calendario() {
       ) : null}>
       <div className="shrink-0 space-y-3 px-4 pt-4 pb-3 lg:px-6 lg:pt-5 escritorio-bajo:space-y-2 escritorio-bajo:pt-3 escritorio-bajo:pb-2">
         <CabeceraCalendario
+          // Su tutorial enseña los bloques de las clases: con el Calendario vacío (o
+          // con «Tu primera clase» delante) no se abre solo. Fundador, 21-oct: lo
+          // primero que se ve no puede dar mala impresión. Con el botón, se abre.
+          tutorialAbreSolo={dataLoaded && !!datosVista && !sinNingunaClase && !(primeraAbierta && primeraClaseNueva)}
           vista={vista}
           onVista={v => { setVista(v); setFiltroResumen(null); }}
           conHorario={!esInstructorTop}

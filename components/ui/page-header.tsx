@@ -24,6 +24,7 @@ function PageHeader({
   actions,
   back,
   badge,
+  tutorialAbreSolo = true,
   className,
   ...props
 }: React.ComponentProps<"header"> & {
@@ -40,6 +41,8 @@ function PageHeader({
   back?: { href: string; label: string }
   /** Contador o estado junto al título: "12 vídeos", nº de no leídos. */
   badge?: React.ReactNode
+  /** `false`: su tutorial no se abre solo (la pantalla aún no tiene lo que enseña). Ver `BotonTutorial`. */
+  tutorialAbreSolo?: boolean
 }) {
   return (
     <header
@@ -106,7 +109,7 @@ function PageHeader({
                 (los importadores) no lo pintan porque no tienen ficha. */}
             <AyudaDePantalla />
             {/* El «?» del tutorial de la pantalla (P1.1): como el ⓘ, por la ruta. */}
-            <BotonTutorial />
+            <BotonTutorial abrirSolo={tutorialAbreSolo} />
             {badge}
             {/* «Ampliar a toda la pantalla»: como el ⓘ, se resuelve por la ruta
                 (lib/panel/ampliar.ts, PANTALLAS_AMPLIABLES) y no por prop. */}

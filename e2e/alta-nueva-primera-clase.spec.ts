@@ -1,8 +1,11 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { STUDIO_ID, json, montarAlta } from './onboarding-andamio';
+import { json, montarAlta } from './onboarding-andamio';
 
-// «Tu primera clase» y «¡Listo!» del alta nueva (PR-4): los pasos 6 y 7 de la
-// bienvenida, tras `ALTA_NUEVA`. Mismo andamio que el resto del alta
+// «Tu primera clase» y «¡Listo!» del alta nueva (PR-4), tras `ALTA_NUEVA`. Desde el
+// 21-oct (fundador: «lo de crear la clase durante el onboarding, descartado») ya no
+// son pasos del alta: se abren sobre el Calendario (`/calendario?primera=1`), que es
+// adonde llevan «Empezar» de «Tus primeros pasos» y la tarea «Crea tu primera
+// clase». Mismo andamio que el resto del alta
 // (e2e/onboarding-andamio.ts): sesión sembrada y la red mockeada con `page.route`.
 //
 // ⚠️ Un camino de fallo sin contador de peticiones es hueco: «no avanzó» puede
@@ -18,10 +21,9 @@ const EXITO_SI: Respuesta = {
   body: { ok: true, clase: { nombre: 'Reformer', cuando: 'jueves 22 a las 18:30, cada semana' }, sesiones: 4, repetida: false, veredicto: { estado: 'SI' }, correo: true },
 };
 
-async function montarPrimeraClase(page: Page, { respuesta = EXITO_SI, estudio = {}, pantalla = 'clase' }: {
+async function montarPrimeraClase(page: Page, { respuesta = EXITO_SI, estudio = {} }: {
   respuesta?: Respuesta;
   estudio?: Record<string, unknown>;
-  pantalla?: 'clase' | 'marca' | null;
 } = {}) {
   const red = {
     publicar: [] as Record<string, unknown>[],
@@ -29,11 +31,9 @@ async function montarPrimeraClase(page: Page, { respuesta = EXITO_SI, estudio = 
     usuario: [] as Record<string, unknown>[],
   };
   const pet = await montarAlta(page, {
-    estudio,
+    // El alta ya terminada: «Tu primera clase» vive en el panel.
+    estudio: { bienvenida_vista_en: '2026-10-21T08:00:00Z', ...estudio },
     antes: async (p) => {
-      if (pantalla) {
-        await p.addInitScript(([id, pa]) => localStorage.setItem(`tentare-alta-nueva:${id}`, JSON.stringify({ pantalla: pa })), [STUDIO_ID, pantalla] as const);
-      }
       await p.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, { altaNueva: true }));
       await p.route('**/auth/v1/user**', (r) => {
         const req = r.request();
@@ -57,6 +57,7 @@ async function montarPrimeraClase(page: Page, { respuesta = EXITO_SI, estudio = 
       await p.route('**/reservar/studio-carmen**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>Reservar</body></html>' }));
     },
   });
+  await page.goto('/calendario?primera=1');
   return { pet, red };
 }
 
@@ -70,11 +71,14 @@ async function rellenar(page: Page, precio = '20') {
 const publicar = (page: Page) => page.getByRole('button', { name: 'Publicar mi primera clase' }).click();
 
 test.describe('la primera clase del alta nueva', () => {
-  test('todo viene puesto menos el precio, con la línea en el paso 6 y una persona por WhatsApp', async ({ page }) => {
+  // Cada prueba entra al panel y luego al Calendario: con el `next dev` compilando, 30 s se quedan cortos.
+  test.describe.configure({ timeout: 90_000 });
+
+  test('todo viene puesto menos el precio, sin la línea del alta y con una persona por WhatsApp', async ({ page }) => {
     await montarPrimeraClase(page);
     await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 6 de 7 · obligatorio · unos 5 minutos');
-    await expect(page.getByTestId('linea-de-pasos').locator('li[aria-current="step"]')).toContainText('06');
+    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Unos 5 minutos');
+    await expect(page.getByTestId('linea-de-pasos')).toHaveCount(0);
     await expect(page.getByLabel('Nombre de la clase')).toHaveValue('Reformer');
     await expect(page.getByRole('radio', { name: '55 min' })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('plazas')).toHaveText('8');
@@ -155,13 +159,13 @@ test.describe('la primera clase del alta nueva', () => {
     await rellenar(page);
     await publicar(page);
     await expect(page.getByTestId('error-guardar')).toContainText('A esa hora la sala ya tiene otra clase.');
-    await expect(page.getByLabel('Hora')).toBeFocused();
+    await expect(page.getByTestId('primera-clase-en-calendario').getByLabel('Hora')).toBeFocused();
     await expect(page.getByRole('heading', { name: /¡Listo!/ })).toHaveCount(0);
     await publicar(page);
     await expect.poll(() => red.publicar.length).toBe(2);
     expect(red.publicar[1].intentoId).toBe(red.publicar[0].intentoId);
     // Cambiar algo es otro intento.
-    await page.getByLabel('Hora').fill('19:30');
+    await page.getByTestId('primera-clase-en-calendario').getByLabel('Hora').fill('19:30');
     await publicar(page);
     await expect.poll(() => red.publicar.length).toBe(3);
     expect(red.publicar[2].intentoId).not.toBe(red.publicar[0].intentoId);
@@ -181,7 +185,7 @@ test.describe('la primera clase del alta nueva', () => {
     expect(red.puedeReservar).toBe(0);
   });
 
-  test('publicada con el SÍ: «Comprobado», el correo y el QR; «Ir a mi panel» sella el alta', async ({ page }) => {
+  test('publicada con el SÍ: «Comprobado», el correo y el QR; «Ir a mi panel» lleva al Resumen', async ({ page }) => {
     const { pet, red } = await montarPrimeraClase(page);
     await rellenar(page);
     await publicar(page);
@@ -201,9 +205,9 @@ test.describe('la primera clase del alta nueva', () => {
     // Su nombre fue a SU cuenta, antes de publicar.
     expect(red.usuario).toEqual([expect.objectContaining({ data: { nombre: 'Lucía' } })]);
 
+    // Del «¡Listo!» a «Pon en marcha tu estudio» del Resumen (PR-5), donde se ofrece la siguiente tarea.
     expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
     await page.getByRole('button', { name: 'Ir a mi panel', exact: true }).click();
-    await expect.poll(() => pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(true);
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
   });
 
@@ -216,19 +220,18 @@ test.describe('la primera clase del alta nueva', () => {
     expect(red.publicar).toHaveLength(1);
   });
 
-  test('«Atrás» vuelve a la marca', async ({ page }) => {
-    await montarPrimeraClase(page);
-    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Atrás' }).click();
-    await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible();
+  test('«Cerrar» la cierra sin crear nada', async ({ page }) => {
+    const { red } = await montarPrimeraClase(page);
+    await rellenar(page);
+    await page.getByRole('button', { name: 'Cerrar sin crear la clase' }).click();
+    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toHaveCount(0);
+    expect(red.publicar).toHaveLength(0);
   });
 
-  test('quien ya entró al panel la abre con /calendario?primera=1', async ({ page }) => {
-    const { red } = await montarPrimeraClase(page, { estudio: { bienvenida_vista_en: '2026-10-21T08:00:00Z' }, pantalla: null });
-    await page.goto('/calendario?primera=1');
+  test('del «¡Listo!» se sale al Resumen, nunca a un Calendario vacío', async ({ page }) => {
+    const { red } = await montarPrimeraClase(page);
     const capa = page.getByTestId('primera-clase-en-calendario');
     await expect(capa.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible({ timeout: 30_000 });
-    await expect(capa.getByTestId('linea-de-pasos')).toHaveCount(0);
     await capa.getByLabel('Cómo te llamas').fill('Lucía');
     await capa.getByLabel('Precio por clase').fill('20');
     await capa.getByRole('button', { name: 'Publicar mi primera clase' }).click();

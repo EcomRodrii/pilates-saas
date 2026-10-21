@@ -7,7 +7,8 @@ import { useSesionStudent } from '@/lib/student/sesion';
 import { debeElegirComoEntrar, hayInvitacionParaEstaSesion, useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { alFaltarPreguntas, getPreguntasAlta, type EstadoPreguntasAltaRemoto } from '@/lib/student/preguntas-alta';
 import { PreguntasAlta } from '@/components/student/PreguntasAlta';
-import { enVistaPreviaDelPanel, useEnVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
+import { enVistaPreviaDelPanel, useEnMarcoSoloMirar, useEnVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
+import { enMarcoSoloMirar } from '@/lib/student/solo-mirar';
 
 /**
  * Socias (estudio:socia) que ya no tienen nada que contestar en esta carga de la
@@ -48,6 +49,10 @@ const sinPreguntasPendientes = new Set<string>();
  * `/api/public/studio-data` da solo el catálogo público (el que ya enseña
  * `/reservar`) y todo lo personal sale vacío. Fuera del marco, o en cualquier
  * otra pantalla dentro de él, sigue mandando a entrar.
+ *
+ * Y en el marco de «solo mirar» del alta nueva (lib/student/solo-mirar.ts), lo
+ * mismo en TODAS las pantallas: la dueña toca su app (Reservar, Actividad,
+ * Perfil…) y ve lo que vería una recién llegada, sin que nada se escriba.
  */
 export function GuardiaSesion({ children, vistaPrevia = false }: { children: ReactNode; vistaPrevia?: boolean }) {
   const { esperando, conPreguntas, completarPreguntas } = useGuardiaSesion(vistaPrevia);
@@ -90,7 +95,8 @@ export function useGuardiaSesion(vistaPrevia: boolean) {
   const { socia, autenticado, isLoading, segundoPaso } = useSesionStudent(slug);
   const sinFicha = !isLoading && autenticado && !socia && !segundoPaso;
   const enMarco = useEnVistaPreviaDelPanel();
-  const verSinSesion = vistaPrevia && enMarco && !isLoading && !autenticado;
+  const soloMirar = useEnMarcoSoloMirar();
+  const verSinSesion = ((vistaPrevia && enMarco) || soloMirar) && !isLoading && !autenticado;
   const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, sinFicha);
 
   const preguntarEleccion = sinFicha && !cargandoInstructora && !instructora;
@@ -118,7 +124,7 @@ export function useGuardiaSesion(vistaPrevia: boolean) {
     if (!autenticado) {
       // Se mira el marco AQUÍ y no con `enMarco`: en el primer efecto tras
       // hidratar ese valor aún es `false`, y mandaría a entrar igualmente.
-      if (vistaPrevia && enVistaPreviaDelPanel()) return;
+      if ((vistaPrevia && enVistaPreviaDelPanel()) || enMarcoSoloMirar()) return;
       // `?next=` para volver justo a donde iba después de entrar. El destino se
       // valida en la pantalla de acceso: solo se acepta una ruta de ESTE estudio.
       const destino = `${href('/acceso/login')}?next=${encodeURIComponent(path)}`;

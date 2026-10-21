@@ -183,7 +183,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
       <form noValidate onSubmit={siguiente} className="min-w-0">
         <LineaDePasos actual={5} />
         <CabeceraPaso
-          etiqueta="Paso 5 de 7 · opcional · unos 2 minutos"
+          etiqueta="Paso 5 de 5 · opcional · unos 2 minutos"
           titulo="Que se vea tu estudio"
           masTarde={{ onClick: onListo, disabled: ocupado }}
           tituloRef={titulo}
