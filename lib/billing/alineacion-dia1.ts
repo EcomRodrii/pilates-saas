@@ -156,12 +156,29 @@ export function planificarAlineacion(e: EntradaAlineacion): PlanAlineacion | nul
 
 /**
  * Hasta cuándo entrega el cobro de un recibo `rec-aline-…`: el último día del mes
- * de (`fecha_vencimiento` + 1). `null` si ese mes ya pasó (se entrega como A).
+ * de (`fecha_vencimiento` + 1). Si ese mes ya pasó al cobrarse (el dunning acierta
+ * a los 2-3 intentos), NO se regala el mes siguiente por una parte proporcional:
+ * se entregan los días que pagó, contados desde hoy (lo cobrado frente a la cuota,
+ * sobre los días de aquel mes), y el cron cobra la cuota entera al acabar. Sin
+ * importe o precio, solo hoy.
  */
-export function finDeEntregaAlineacion(fechaVencimientoRecibo: string | null, hoyISO: string): string | null {
+export function finDeEntregaAlineacion(
+  fechaVencimientoRecibo: string | null,
+  hoyISO: string,
+  pagado?: { importeCentimos: number | null; cuotaCentimos: number | null },
+): string | null {
   if (!fechaVencimientoRecibo) return null;
-  const fin = finDelMesDe(masDias(fechaVencimientoRecibo.slice(0, 10), 1));
-  return fin < hoyISO ? null : fin;
+  const renovacion = masDias(fechaVencimientoRecibo.slice(0, 10), 1);
+  const fin = finDelMesDe(renovacion);
+  if (fin >= hoyISO) return fin;
+  const cuota = pagado?.cuotaCentimos ?? 0;
+  const importe = pagado?.importeCentimos ?? 0;
+  if (cuota > 0 && importe > 0) {
+    const diasMes = Number(fin.slice(8, 10));
+    const dias = Math.min(diasMes, Math.max(1, Math.round((Math.min(importe, cuota) / cuota) * diasMes)));
+    return masDias(hoyISO, dias - 1);
+  }
+  return hoyISO;
 }
 
 // ── Vista previa (sin cobrar nada) ──────────────────────────────────────────

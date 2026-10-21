@@ -236,7 +236,7 @@ export function AlineacionAlumnasActuales() {
           <p id="texto-confirmar-alineacion" className="mt-1 text-sm text-muted-foreground text-pretty">
             {vista.alumnas === 0
               ? 'Hoy no cambia ninguna alumna. Quedará activado para las cuotas que lleguen a renovar en adelante. '
-              : <>Afecta a <strong className="font-medium text-foreground">{vista.alumnas} {vista.alumnas === 1 ? 'alumna' : 'alumnas'}</strong>, que renuevan entre el {primeraFecha ? fechaCorta(primeraFecha) : '—'} y el {ultimaFecha ? fechaCorta(ultimaFecha) : '—'}. En esas renovaciones cobrarás <strong className="font-medium text-foreground">{eur(vista.totalCobraB)} en total</strong> en vez de {eur(sumaCuotas)} de cuotas enteras; el día 1 vuelven a pagar la entera. </>}
+              : <>Afecta a <strong className="font-medium text-foreground">{vista.alumnas} {vista.alumnas === 1 ? 'alumna' : 'alumnas'}</strong>, que renuevan entre el {primeraFecha ? fechaCorta(primeraFecha) : '—'} y el {ultimaFecha ? fechaCorta(ultimaFecha) : '—'}. En esas renovaciones cobrarás <strong className="font-medium text-foreground">{eur(vista.totalCobraB)} en total</strong> por los días que quedan de ese mes (sin esta opción, esos días no se cobrarían); el día 1 pagan la cuota entera. </>}
             No se cambia ninguna cuota ahora: cada una cambia solo cuando le toca renovar. Puedes volver a la cuota entera cuando quieras; las que ya se alinearon siguen alineadas.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">

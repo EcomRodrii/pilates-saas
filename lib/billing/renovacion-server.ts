@@ -157,7 +157,7 @@ async function entregarRenovacion(
   try {
     const { data: rec } = await admin
       .from('recibos')
-      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion, tras_cancelar_cuota, fecha_vencimiento')
+      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion, tras_cancelar_cuota, fecha_vencimiento, importe')
       .eq('id', reciboId)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -216,7 +216,7 @@ async function entregarRenovacion(
 
     const { data: plan } = await admin
       .from('planes_tarifa')
-      .select('tipo, sesiones, periodicidad_meses')
+      .select('tipo, sesiones, periodicidad_meses, precio')
       .eq('id', sus.plan_id)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -284,8 +284,12 @@ async function entregarRenovacion(
       // cobró, y eso lo dice el RECIBO (su vencimiento), no el ajuste de hoy ni el
       // reloj. Si ese mes ya pasó al cobrarse, se entrega como A (abajo, alineado).
       const esAlineacion = reciboId.startsWith(PREFIJO_RECIBO_ALINEACION);
+      const precioPlanCentimos = plan.precio != null ? Math.round(Number(plan.precio) * 100) : null;
       const finAlineacion = esAlineacion
-        ? finDeEntregaAlineacion((rec.fecha_vencimiento ?? null) as string | null, hoyEnEstudio())
+        ? finDeEntregaAlineacion((rec.fecha_vencimiento ?? null) as string | null, hoyEnEstudio(), {
+          importeCentimos: rec.importe != null ? Math.round(Number(rec.importe) * 100) : null,
+          cuotaCentimos: precioPlanCentimos,
+        })
         : null;
       if (finAlineacion) {
         fechaFin = finAlineacion;

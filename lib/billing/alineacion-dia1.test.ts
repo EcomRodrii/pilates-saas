@@ -133,8 +133,11 @@ test('modo A intacto: proximoFinAlineadoDia1 no cambia (regresión)', () => {
 test('entrega anclada al recibo', () => {
   assert.equal(finDeEntregaAlineacion('2026-10-04', '2026-10-05'), '2026-10-31');
   assert.equal(finDeEntregaAlineacion('2026-10-04', '2026-10-31'), '2026-10-31');
-  // cobrado cuando el mes ya pasó: null (se entrega como A)
-  assert.equal(finDeEntregaAlineacion('2026-10-04', '2026-11-02'), null);
+  // cobrado cuando el mes ya pasó: solo los días pagados desde hoy, nunca el mes siguiente
+  assert.equal(finDeEntregaAlineacion('2026-10-04', '2026-11-02'), '2026-11-02');
+  // 15,10 € de 78 € (6 de 31 días de octubre... 6/31·78≈15,10) → 6 días desde el 1-nov
+  assert.equal(finDeEntregaAlineacion('2026-10-25', '2026-11-01', { importeCentimos: 1510, cuotaCentimos: 7800 }), '2026-11-06');
+  assert.equal(finDeEntregaAlineacion('2026-10-25', '2026-11-05', { importeCentimos: 1510, cuotaCentimos: 7800 }), '2026-11-10');
   assert.equal(finDeEntregaAlineacion(null, '2026-10-05'), null);
 });
 
