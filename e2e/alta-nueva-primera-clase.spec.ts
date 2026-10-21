@@ -234,7 +234,10 @@ test.describe('la primera clase del alta nueva', () => {
     await capa.getByRole('button', { name: 'Publicar mi primera clase' }).click();
     await expect(page.getByRole('heading', { name: '¡Listo! Tu clase «Reformer» ya está publicada' })).toBeVisible();
     expect(red.publicar).toHaveLength(1);
-    await page.getByRole('button', { name: 'Ver mi calendario' }).click();
+    // Del «¡Listo!» se sale a la lista «Pon en marcha tu estudio» del Resumen (PR-5):
+    // nunca a un Calendario, que es lo que el fundador vio y no quería.
+    await page.getByRole('button', { name: 'Ir a mi panel', exact: true }).click();
     await expect(page.getByRole('heading', { name: /¡Listo!/ })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
   });
 });

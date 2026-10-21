@@ -149,6 +149,9 @@ const CASOS: Caso[] = [
   // La primera clase del alta nueva, todo o nada (migr 20261021134000): escribe tipo, sala, ficha, serie,
   // clases y tarifa de un estudio que le dice quien llama. Solo /api/alta/primera-clase, que lo saca de la sesión.
   { firma: 'alta_primera_clase(text, jsonb)', anon: false, authenticated: false, serviceRole: true },
+  // La guarda del job `altas-sin-terminar` (migr 20261021160000): altas a medias y estudios del alta nueva sin
+  // clase reservable. Lee `altas_estudio` y `embudo_alta`, que el navegador no lee: solo el cron y el servidor.
+  { firma: 'cron_hay_trabajo_altas(text)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

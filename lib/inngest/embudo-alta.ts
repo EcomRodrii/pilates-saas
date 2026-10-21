@@ -17,6 +17,9 @@
 //    components/onboarding/propuesta-horario.tsx — sin horario no puede
 //    haber ni una reserva. Un único aviso por estudio en toda su vida
 //    (dedupKey sin fecha en emitirEmbudoSinClasesProgramadas).
+//    ⚠️ Salvo a un estudio que nació del ALTA NUEVA (PR-5): ese recibe a las 24 h
+//    «Tu primera clase en Tentare, en 5 minutos» (el cron `altas-sin-terminar`,
+//    lib/alta/recordatorio-servidor.ts), y dos correos por lo mismo sobran.
 //  · Estudio con horario pero sin ninguna reserva (>72h): segundo atasco del
 //    mismo recorrido (lib/onboarding/embudo-avisos.ts). Casi siempre es que el
 //    enlace de reservas no ha salido del panel. Mismo criterio de un único
@@ -25,6 +28,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emitirEmbudoSinClasesProgramadas, emitirEmbudoSinPrimeraReserva } from '@/lib/notifications/emit';
 import { avisoDeEmbudo, HORAS_SIN_CLASES } from '@/lib/onboarding/embudo-avisos';
+import { nacioConAltaNueva } from '@/lib/alta/bienvenida-nueva';
 
 const MS_HORA = 3_600_000;
 const VENTANA_DIAS_ESTUDIOS = 30; // mismo criterio que review-boost.ts: acota la ventana, no escanea la vida entera.
@@ -36,7 +40,7 @@ export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ 
 
   const { data: studios } = await admin
     .from('studios')
-    .select('id, creado_en, subscription_status')
+    .select('id, creado_en, subscription_status, owner_auth_user_id, cadena_id')
     .lte('creado_en', haceMinimo)
     .gte('creado_en', desdeVentana)
     .is('suspendido_en', null)
@@ -44,11 +48,21 @@ export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ 
 
   if (!studios?.length) return { avisados: 0, sinReservas: 0 };
 
+  // Con qué alta nació cada uno (la versión es de la cuenta de su dueña). Si no
+  // se puede leer, se trata como el alta de siempre: un aviso de más es mejor
+  // que dejar a un estudio sin ninguno.
+  const duenas = [...new Set(studios.map(s => s.owner_auth_user_id as string | null).filter((x): x is string => !!x))];
+  const versionDe = new Map<string, string>();
+  if (duenas.length) {
+    const { data: altas } = await admin.from('altas_estudio').select('auth_user_id, version').in('auth_user_id', duenas);
+    for (const a of altas ?? []) versionDe.set(a.auth_user_id as string, a.version as string);
+  }
+
   // Los dos atascos salen del mismo recorrido (sin clases a las 48 h, sin
   // ninguna reserva a las 72 h), así que no cuesta un paso de Inngest más.
   let avisados = 0;
   let sinReservas = 0;
-  for (const studio of studios as { id: string; creado_en: string; subscription_status: string | null }[]) {
+  for (const studio of studios as { id: string; creado_en: string; subscription_status: string | null; owner_auth_user_id: string | null; cadena_id: string | null }[]) {
     // `avisoDeEmbudo` solo distingue «ninguna» de «alguna»: una fila basta. Un
     // `count: 'exact'` recorría todas las de cada estudio, hasta 1000 consultas
     // seguidas en este paso.
@@ -65,6 +79,7 @@ export async function barrerEstudiosSinClases(admin: SupabaseClient): Promise<{ 
       sesiones: haySesiones ? 1 : 0,
       reservas: hayReservas ? 1 : 0,
       pruebaExpirada: studio.subscription_status === 'trial_expirado',
+      altaNueva: nacioConAltaNueva(studio.owner_auth_user_id ? versionDe.get(studio.owner_auth_user_id) : null, studio.cadena_id),
     });
     if (aviso === 'SIN_CLASES') { await emitirEmbudoSinClasesProgramadas({ studioId: studio.id }); avisados++; }
     else if (aviso === 'SIN_RESERVAS') { await emitirEmbudoSinPrimeraReserva({ studioId: studio.id }); sinReservas++; }

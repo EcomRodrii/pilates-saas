@@ -21,7 +21,7 @@ test('legacy: son exactamente los 7 pasos, en ese orden', () => {
   assert.deepEqual(labels, [
     'Configura tu estudio',
     'Añade tu primera instructora',
-    'Crea tu primera clase',
+    'Crea tu primer tipo de clase',
     'Configura tus horarios',
     'Añade tus primeras clientas',
     'Activa los métodos de pago',

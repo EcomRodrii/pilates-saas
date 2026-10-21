@@ -602,7 +602,7 @@ export function Sidebar() {
             quedaría centrado a veces y a la izquierda otras. */}
         <div className="ml-auto flex items-center">
           {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
-          <PrimerosPasosFlotante />
+          <PrimerosPasosFlotante variante="movil" />
           <PildoraPrueba />
         </div>
       </div>
