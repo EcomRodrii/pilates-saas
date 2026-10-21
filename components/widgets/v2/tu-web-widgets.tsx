@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, EyeOff, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -61,6 +61,14 @@ function TuWebDelEstudio({ slug, showToast }: { slug: string; showToast: (m: str
   const s = useConstructorWidgets({ slug, showToast, textos: 'v2' });
   const barra = usePublicarEnMiWeb(s);
   const [vista, setVista] = useState<Vista>('widgets');
+  // «Cómo le va a tu página» de «Mi web» guiada llega con `&vista=resultados`: se entra ya ahí. Se lee
+  // una vez al montar y sin `useSearchParams` (que, sin un <Suspense> encima, cambia cómo se monta la
+  // pantalla en el build de producción). Cambiar de píldora no toca la URL.
+  useEffect(() => {
+    if (!s.veResultados || new URLSearchParams(window.location.search).get('vista') !== 'resultados') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La URL solo se lee en el navegador, tras montar: en render daría otra cosa que el servidor.
+    setVista('crecimiento');
+  }, [s.veResultados]);
   const [enfoque, setEnfoque] = useState<string | null>(null);
   const [modo, setModo] = useState<Modo>({ tipo: 'portada' });
   const [verDominios, setVerDominios] = useState(false);

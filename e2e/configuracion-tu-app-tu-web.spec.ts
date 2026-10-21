@@ -46,9 +46,18 @@ for (const ancho of [1440, 375] as const) {
 
     await abrir(page, 'configuracion?tab=web', true);
     await expect(titulo(page)).toHaveText('Mi web', { timeout: 60_000 });
-    await expect(page.locator('main').getByText('Widgets para tu web').first()).toBeVisible();
+    // «Mi web» guiada (21-oct-2026): los cinco pasos, los widgets el tercero.
+    await expect(page.getByTestId('mi-web-guiada')).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('main').getByText('Ponla en tu web: tus widgets').first()).toBeVisible();
     await expect(page.locator('main').getByText('Contenido de tu app')).toHaveCount(0);
     await page.screenshot({ path: `test-results/configuracion-tu-web-${ancho}-despues.png`, fullPage: true });
+    // Decisión 4: la descripción se escribe aquí, sola. Decisión 2: el enlace de la app lleva a «Mi app».
+    await page.locator('#paso-presentacion').getByRole('button', { name: /Escribir|Cambiar/ }).click();
+    await expect(page.getByRole('dialog').getByLabel('Cómo te presentas')).toBeVisible();
+    await expect(page.getByRole('dialog').getByLabel('Tu lema')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.locator('#paso-direccion').getByRole('button', { name: /Cambiar|Ponerle dirección/ }).click();
+    await expect(page.getByRole('dialog').getByRole('link', { name: 'Mi app → Compártela' })).toHaveAttribute('href', '/configuracion/apariencia?paso=instalar');
 
     // «Mi app» y «Mi web», separadas: cada una su entrada en la columna de Configuración, sin el grupo
     // común «Tu app y tu web» (fundador, 16-oct: «antes ponía MI APP / MI WEB y ahora todo está junto»).
