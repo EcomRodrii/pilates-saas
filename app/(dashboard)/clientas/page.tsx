@@ -2200,9 +2200,9 @@ export default function Socios() {
                 // Cobro proporcional: se dice ANTES de guardar lo que se le va a cobrar y por qué.
                 if (showForm !== 'nueva' || studio?.cobroProporcionalAltaActivo !== true) return base;
                 const plan = planesTarifa.find(p => p.id === form.planId);
-                const pr = plan ? prorrateoDeAlta(plan, hoyEnEstudio()) : null;
+                const pr = plan ? prorrateoDeAlta(plan, hoyEnEstudio(), studio?.cobroProporcionalDiasMinimos) : null;
                 if (!plan || !pr || pr.mesCompleto) return base;
-                return `${base} Se le cobra ${pr.importe > 0 ? `${pr.importe.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '0 € (menos de 0,50 €)'} hoy (${pr.texto}); el día 1, ${plan.precio} €.`;
+                return `${base} ${pr.frase}`;
               })()}>
                 <select
                   className={selectCls}

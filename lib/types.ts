@@ -327,6 +327,8 @@ export interface Studio {
   // la parte del mes que queda y se renueva el día 1 por la cuota entera (ver
   // lib/billing/prorrateo.ts). Apagado de serie.
   cobroProporcionalAltaActivo: boolean;
+  // Días mínimos restantes del mes para prorratear (0..10, de serie 3): con ese número o menos, la primera cuota se cobra el día 1 del mes siguiente.
+  cobroProporcionalDiasMinimos: number;
   // true (default) = comportamiento de siempre: alguien del estudio marca su
   // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien

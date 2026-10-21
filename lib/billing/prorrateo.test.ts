@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   repartoProporcional, prorrateoDeAlta, planSeProrratea, cicloYCobroDeAlta, conceptoAltaProrrateada,
   diferenciaCambioPlan, idReciboCambioPlan, idSuscripcionCambioPlan, esReciboParcialDeCuota,
-  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes,
+  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes, normalizarDiasMinimos, periodoDeCuotaAnterior,
 } from './prorrateo.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import { proximoFinAlineadoDia1, cicloInicialDe } from '../bono-logic.ts';
@@ -44,7 +44,7 @@ test('alta el día 1 = mes entero, ciclo hasta fin de mes', () => {
 });
 
 test('alta el último día del mes: 1 día', () => {
-  const p = prorrateoDeAlta(mensual(62), '2026-10-31')!;
+  const p = prorrateoDeAlta(mensual(62), '2026-10-31', 0)!;
   assert.equal(p.diasRestantes, 1);
   assert.equal(p.importe, 2); // 62/31
 });
@@ -62,17 +62,71 @@ test('febrero normal (28) y bisiesto (29)', () => {
 test('mes de 30 días (abril) y año nuevo (diciembre → fin 31 dic)', () => {
   const a = prorrateoDeAlta(mensual(60), '2026-04-21')!;
   assert.equal(a.diasRestantes, 10); assert.equal(a.importe, 20); assert.equal(a.fechaFin, '2026-04-30');
-  const d = prorrateoDeAlta(mensual(31), '2026-12-31')!;
+  const d = prorrateoDeAlta(mensual(31), '2026-12-31', 0)!;
   assert.equal(d.fechaFin, '2026-12-31'); assert.equal(d.importe, 1);
 });
 
-test('por debajo de 0,50 € no se cobra (y se dice)', () => {
-  const p = prorrateoDeAlta(mensual(10), '2026-10-31')!; // 10/31 = 0,32 €
+test('por debajo de 0,50 € no se cobra hoy aunque el mínimo de días sea 0 (suelo de seguridad)', () => {
+  const p = prorrateoDeAlta(mensual(10), '2026-10-31', 0)!; // 10/31 = 0,32 €
   assert.equal(p.importe, 0);
-  assert.equal(p.bajoElMinimo, true);
-  const q = prorrateoDeAlta(mensual(10), '2026-10-30')!; // 2/31 = 0,65 €
+  assert.equal(p.modo, 'siguiente_mes');
+  const q = prorrateoDeAlta(mensual(10), '2026-10-30', 0)!; // 2/31 = 0,65 €
   assert.equal(q.importe, 0.65);
-  assert.equal(q.bajoElMinimo, false);
+  assert.equal(q.modo, 'proporcional');
+});
+
+test('días mínimos: con 3 de serie, el 29-oct (3 días) no cobra y el 28-oct (4 días) sí', () => {
+  const tres = prorrateoDeAlta(mensual(50), '2026-10-29')!;
+  assert.equal(tres.diasRestantes, 3);
+  assert.equal(tres.modo, 'siguiente_mes');
+  assert.equal(tres.importe, 0);
+  assert.equal(tres.fechaFin, '2026-10-31');
+  assert.deepEqual(tres.primerCobro, { fecha: '2026-11-01', importe: 50 });
+  assert.equal(tres.frase, 'Hoy no se cobra nada: quedan 3 días de octubre. Tu primera cuota (50 €) se cobra el 1 de noviembre.');
+  const cuatro = prorrateoDeAlta(mensual(50), '2026-10-28')!;
+  assert.equal(cuatro.diasRestantes, 4);
+  assert.equal(cuatro.modo, 'proporcional');
+  assert.equal(cuatro.importe, 6.45);
+});
+
+test('días mínimos 0 = prorratear siempre; el mínimo se acota a 0..10 y lo raro cae a 3', () => {
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-31', 0)!.modo, 'proporcional');
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-22', 10)!.modo, 'siguiente_mes'); // 10 días
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-21', 10)!.modo, 'proporcional'); // 11 días
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-01', 10)!.modo, 'completo'); // el día 1 nunca se aplaza
+  assert.equal(normalizarDiasMinimos(99), 10);
+  assert.equal(normalizarDiasMinimos(-4), 0);
+  assert.equal(normalizarDiasMinimos(2.9), 2);
+  assert.equal(normalizarDiasMinimos(undefined), 3);
+  assert.equal(normalizarDiasMinimos('7'), 3);
+});
+
+test('en el panel con pocos días: ciclo hasta fin de mes SIN recibo, y el cron cobra la entera el día 1', () => {
+  const r = cicloYCobroDeAlta(mensual(50), '2026-10-29T10:00:00Z', '2026-10-29', true);
+  assert.equal(r.fechaFin, '2026-10-31');
+  assert.equal(r.importe, 0);
+  assert.equal(r.prorrateo!.modo, 'siguiente_mes');
+  // Esa fecha_fin (< hoy el 1-nov) es lo que el cron de renovaciones recoge; y acaba en fin de mes → se realinea.
+  assert.equal(terminaEnFinDeMes(r.fechaFin!), true);
+  assert.equal(proximoFinAlineadoDia1(r.fechaFin!, { periodicidadMeses: 1 }), '2026-11-30');
+});
+
+test('online con pocos días: la cuota ENTERA hoy y ciclo hasta el último día del mes siguiente', () => {
+  const o = prorrateoDeAlta(mensual(50), '2026-10-29', 3, 'online')!;
+  assert.equal(o.importe, 50);
+  assert.equal(o.fechaFin, '2026-11-30');
+  assert.deepEqual(o.primerCobro, { fecha: '2026-12-01', importe: 50 });
+  assert.match(o.frase, /^Hoy pagas 50 €: incluye los 3 días que quedan de octubre y todo noviembre\. El 1 de diciembre, 50 € y cada mes\.$/);
+  // diciembre → el mes siguiente es enero del año siguiente
+  const d = prorrateoDeAlta(mensual(50), '2026-12-30', 3, 'online')!;
+  assert.equal(d.fechaFin, '2027-01-31');
+  // Con más días el importe online es el MISMO que en el panel.
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15', 3, 'online')!.importe, prorrateoDeAlta(mensual(50), '2026-10-15', 3, 'panel')!.importe);
+});
+
+test('la frase de la alumna dice qué paga, por qué y cuándo es lo siguiente', () => {
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15')!.frase, 'Hoy pagas 27,42 € (parte proporcional de octubre: 17 de 31 días). El 1 de noviembre, 50 € y cada mes.');
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-01')!.frase, 'Hoy pagas 50 € (octubre completo). El 1 de noviembre, 50 € y cada mes.');
 });
 
 test('solo cuotas mensuales de UN mes con precio: bonos, sueltas, trimestrales y 0 € no', () => {
@@ -214,4 +268,42 @@ test('la renovación solo realinea cuotas que acaban en fin de mes (las de anive
   const fin1 = proximoFinAlineadoDia1('2026-10-31', { periodicidadMeses: 1 });
   const fin2 = proximoFinAlineadoDia1(fin1, { periodicidadMeses: 1 });
   assert.deepEqual([fin1, fin2], ['2026-11-30', '2026-12-31']);
+});
+
+// ── Cancelar y volver a apuntarla el mismo mes: nunca dos veces el mismo periodo ──
+const planes = [{ id: 'p-mensual', tipo: 'MENSUAL', periodicidadMeses: 1 }, { id: 'p-bono', tipo: 'BONO' }, { id: 'p-tri', tipo: 'MENSUAL', periodicidadMeses: 3 }];
+const cancelada = (o: Record<string, unknown> = {}) => ({ id: 's1', socioId: 'soc', planId: 'p-mensual', estado: 'CANCELADA', fechaFin: '2026-10-31', ...o });
+
+test('cancelar → volver a apuntarla con el mes cobrado: el periodo ya está pagado (no se cobra otra vez)', () => {
+  const r = periodoDeCuotaAnterior({ socioId: 'soc', suscripciones: [cancelada()], recibos: [{ suscripcionId: 's1', estado: 'COBRADO' }], planes, hoyISO: '2026-10-20' });
+  assert.deepEqual(r, { fechaFin: '2026-10-31', estado: 'pagado' });
+  const alta = cicloYCobroDeAlta(mensual(50), '2026-10-20T10:00:00Z', '2026-10-20', true, 3, r);
+  assert.equal(alta.importe, 0);
+  assert.equal(alta.fechaFin, '2026-10-31');
+  assert.match(alta.aviso ?? '', /pagado hasta el 31 de octubre: no se le cobra otra vez/);
+});
+
+test('fallo → reintento NO es un alta: con el cobro fallido o pendiente tampoco se crea un segundo cobro', () => {
+  for (const estado of ['FALLIDO', 'PENDIENTE', 'EN_CURSO']) {
+    const r = periodoDeCuotaAnterior({ socioId: 'soc', suscripciones: [cancelada()], recibos: [{ suscripcionId: 's1', estado }], planes, hoyISO: '2026-10-20' });
+    assert.equal(r?.estado, 'pendiente', estado);
+    assert.equal(cicloYCobroDeAlta(mensual(50), '2026-10-20T10:00:00Z', '2026-10-20', true, 3, r).importe, 0);
+  }
+});
+
+test('lo que NO cuenta como periodo ya cobrado: otra clienta, ciclo vencido, anulado, bonos, trimestrales, sin recibos', () => {
+  const ok = (o: Parameters<typeof periodoDeCuotaAnterior>[0]) => periodoDeCuotaAnterior(o);
+  const recCobrado = [{ suscripcionId: 's1', estado: 'COBRADO' }];
+  assert.equal(ok({ socioId: 'otra', suscripciones: [cancelada()], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada({ fechaFin: '2026-10-19' })], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada()], recibos: [{ suscripcionId: 's1', estado: 'ANULADO' }], planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada({ planId: 'p-bono' })], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada({ planId: 'p-tri' })], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada()], recibos: [], planes, hoyISO: '2026-10-20' }), null);
+  assert.equal(ok({ socioId: 'soc', suscripciones: [cancelada({ estado: 'ACTIVA' })], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);
+});
+
+test('un alta de verdad (sin cuota anterior) sigue prorrateando', () => {
+  const alta = cicloYCobroDeAlta(mensual(50), '2026-10-15T10:00:00Z', '2026-10-15', true, 3, null);
+  assert.equal(alta.importe, 27.42);
 });

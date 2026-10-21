@@ -265,14 +265,19 @@ import {
   type AforoApartado,
 } from '@/lib/booking-logic';
 import { calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
-import { cicloYCobroDeAlta, conceptoAltaProrrateada } from '@/lib/billing/prorrateo';
+import { cicloYCobroDeAlta, conceptoAltaProrrateada, periodoDeCuotaAnterior } from '@/lib/billing/prorrateo';
 
 /** Cambio de cuota a una más cara cobrando la diferencia proporcional (la confirma el servidor). */
 export interface OpcionesAsignarPlan {
   cobrarDiferencia?: { suscripcionActualId: string; importeConfirmado: number };
 }
 /** `reciboCuotaId`: el recibo PENDIENTE de la cuota recién dada (alta o diferencia), o null. */
-export interface ResultadoAsignarPlan { reciboCuotaId: string | null; importeCuota: number }
+export interface ResultadoAsignarPlan {
+  reciboCuotaId: string | null;
+  importeCuota: number;
+  /** Si hoy no se cobra nada por quedar pocos días: «Tu primera cuota (50 €) se cobra el 1 de noviembre». */
+  avisoCuota?: string | null;
+}
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -2559,7 +2564,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (plan) {
         planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
-        const cicloAlta = cicloYCobroDeAlta(plan, ahora, hoy, studio?.cobroProporcionalAltaActivo === true);
+        const cicloAlta = cicloYCobroDeAlta(plan, ahora, hoy, studio?.cobroProporcionalAltaActivo === true, studio?.cobroProporcionalDiasMinimos);
         const sus: Suscripcion = {
           id: susId,
           studioId: getCurrentStudioId(),
@@ -2614,6 +2619,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // Una parte proporcional por debajo del mínimo (0,50 €) no se cobra: sin
         // recibo de 0 € a la vista en «Quién me debe». Solo pasa con el ajuste activo.
         const sinCuotaQueCobrar = cicloAlta.prorrateo !== null && cicloAlta.importe <= 0;
+        if (cicloAlta.aviso) avisos.push(cicloAlta.aviso);
         const recibosACobrar: string[] = [];
         if (!sinCuotaQueCobrar) {
           const resRec = await dbInsertRecibo(reciboAlta);
@@ -3091,8 +3097,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // se queda como siempre (el cambio cobrando la diferencia es otra vía, la que
     // confirma y recalcula el servidor).
     const sustituyeCuotaActiva = aDesactivar.some(s => planesTarifa.find(p => p.id === s.planId)?.tipo === 'MENSUAL');
+    const hoyAlta = hoyEnEstudio(new Date(ahoraAlta));
+    // Cancelar y volver a apuntarla el mismo mes no cobra dos veces el mismo periodo.
+    const periodoAnterior = plan && studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva
+      ? periodoDeCuotaAnterior({ socioId, suscripciones, recibos, planes: planesTarifa, hoyISO: hoyAlta })
+      : null;
     const cicloAlta = plan
-      ? cicloYCobroDeAlta(plan, ahoraAlta, hoyEnEstudio(new Date(ahoraAlta)), studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva)
+      ? cicloYCobroDeAlta(plan, ahoraAlta, hoyAlta, studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva, studio?.cobroProporcionalDiasMinimos, periodoAnterior)
       : null;
     const nueva: Suscripcion | null = plan ? {
       id: `sus-${uid()}`,
@@ -3253,7 +3264,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     // Lo que sí ha quedado guardado ya está en pantalla; lo que no, se cuenta.
     if (fallos.length > 0) throw new Error(fallos.join(' '));
-    return { reciboCuotaId: reciboPlan?.id ?? null, importeCuota: reciboPlan?.importe ?? 0 };
+    return {
+      reciboCuotaId: reciboPlan?.id ?? null, importeCuota: reciboPlan?.importe ?? 0,
+      avisoCuota: cicloAlta?.aviso ?? null,
+    };
   }
 
   // «Cambiar plan» a una cuota más cara cobrando la diferencia proporcional. El

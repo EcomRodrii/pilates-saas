@@ -22,10 +22,18 @@
 //  · EL REDONDEO ES UNO: al céntimo, y la mitad hacia ARRIBA, en aritmética
 //    entera (nunca `x * dias / total` en coma flotante: 2,675 € salía 2,67).
 //    Nunca supera el importe completo.
-//  · POR DEBAJO DE 0,50 € NO SE COBRA NADA. Es el mínimo que acepta Stripe en
-//    un cargo; un recibo que no se puede cobrar con tarjeta es peor que unos
-//    días gratis. Es raro (las últimas horas de un mes con una cuota baja) y
-//    queda dicho en la pantalla.
+//  · DÍAS MÍNIMOS (`cobro_proporcional_dias_minimos`, por estudio, 3 de serie):
+//    si al alta quedan ESE número de días o menos (contando el del alta), no se
+//    cobra una cantidad simbólica: la primera cuota se cobra el día 1 del mes
+//    siguiente. El primer ciclo sigue siendo «hoy → fin de mes» (días de
+//    cortesía) y, como acaba el último día del mes, el cron de renovaciones
+//    (`fecha_fin < hoy`) crea el día 1 el recibo de la cuota ENTERA: no hay
+//    cuota gratis sin fecha de cobro ni sin recibo. 0 = prorratear siempre.
+//    EN LA COMPRA ONLINE no se puede aplazar el cobro (Stripe no cobra 0 € y sin
+//    primer pago no se guarda la tarjeta para renovar): ahí se cobra la cuota
+//    ENTERA hoy y el ciclo llega hasta el último día del MES SIGUIENTE.
+//  · POR DEBAJO DE 0,50 € TAMPOCO SE COBRA (suelo de seguridad, el mínimo que
+//    acepta Stripe): se trata igual que «pocos días».
 //  · «HOY» ES EL DE MADRID, nunca el de UTC ni el del navegador: se recibe ya
 //    como 'YYYY-MM-DD' (`hoyEnEstudio`). Todo lo demás es aritmética de
 //    calendario sobre esa fecha (`Date.UTC`), así que el cambio de hora no
@@ -121,8 +129,30 @@ export function terminaEnFinDeMes(fechaFinISO: string): boolean {
 
 // ── A) Alta a mitad de mes ──────────────────────────────────────────────────
 
+/** Cuántos días mínimos restantes para prorratear, de serie. */
+export const DIAS_MINIMOS_POR_DEFECTO = 3;
+/** Tope: un mínimo ≥ días del mes anularía el prorrateo entero. */
+export const DIAS_MINIMOS_MAXIMO = 10;
+
+/** El mínimo de días como entero 0..10; lo que no sea un número cae al de serie. */
+export function normalizarDiasMinimos(n: unknown): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return DIAS_MINIMOS_POR_DEFECTO;
+  return Math.min(DIAS_MINIMOS_MAXIMO, Math.max(0, Math.trunc(n)));
+}
+
+/** Cómo se cobra el primer mes de una cuota nueva. */
+export type ModoAlta =
+  /** Alta el día 1: el mes entero. */
+  | 'completo'
+  /** Parte proporcional del mes en curso. */
+  | 'proporcional'
+  /** Quedan pocos días: no se cobra nada simbólico; la primera cuota es el día 1 del mes siguiente. */
+  | 'siguiente_mes';
+
 export interface ProrrateoAlta {
-  /** € que se cobran ahora por la cuota. 0 = nada (por debajo del mínimo). */
+  modo: ModoAlta;
+  canal: 'panel' | 'online';
+  /** € que se cobran ahora por la cuota. 0 = nada (primera cuota el día 1 del mes siguiente). */
   importe: number;
   /** El precio de la cuota entera, que es lo que se cobra cada mes después. */
   importeCompleto: number;
@@ -130,14 +160,18 @@ export interface ProrrateoAlta {
   diasDelMes: number;
   /** Alta el día 1: el mes entero, sin prorrateo. */
   mesCompleto: boolean;
-  /** El importe salió por debajo del mínimo y no se cobra. */
+  /** Pocos días (o menos de 0,50 €): no se cobra hoy. Equivale a `modo === 'siguiente_mes'`. */
   bajoElMinimo: boolean;
-  /** Último día del mes: hasta cuándo vale este primer ciclo. */
+  /** Último día que vale este primer ciclo. */
   fechaFin: string;
   /** Mes en palabras: «octubre». */
   mes: string;
-  /** «parte proporcional de octubre: 17 de 31 días» (o «octubre completo»). */
+  /** El próximo cobro: el día después de `fechaFin`, por la cuota entera (online con pocos días, el del mes siguiente). */
+  primerCobro: { fecha: string; importe: number };
+  /** «parte proporcional de octubre: 17 de 31 días», «octubre completo» o «primera cuota el 1 de noviembre». */
   texto: string;
+  /** La frase que ve la alumna ANTES de pagar: qué paga hoy, por qué y cuándo es lo siguiente. */
+  frase: string;
 }
 
 type PlanProrrateable = Pick<PlanTarifa, 'tipo' | 'precio'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>;
@@ -147,33 +181,81 @@ export function planSeProrratea(plan: PlanProrrateable): boolean {
   return plan.tipo === 'MENSUAL' && mesesDeCiclo(plan) === 1 && plan.precio > 0;
 }
 
+const fechaLarga = (iso: string): string => {
+  const [, m, d] = partes(iso);
+  return `${d} de ${MESES[m - 1]}`;
+};
+const eurTxt = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })} €`;
+
 /**
- * La parte del mes en curso que se cobra al dar de alta una cuota, o `null` si
- * el plan no se prorratea. `hoyISO` es el día del ESTUDIO ('YYYY-MM-DD').
+ * El cobro del primer mes de una cuota nueva, o `null` si el plan no se
+ * prorratea. ÚNICA función para el panel, el servidor y lo que ve la alumna.
+ * `hoyISO` es el día del ESTUDIO ('YYYY-MM-DD').
  */
-export function prorrateoDeAlta(plan: PlanProrrateable, hoyISO: string): ProrrateoAlta | null {
+export function prorrateoDeAlta(
+  plan: PlanProrrateable,
+  hoyISO: string,
+  diasMinimos: number = DIAS_MINIMOS_POR_DEFECTO,
+  canal: 'panel' | 'online' = 'panel',
+): ProrrateoAlta | null {
   if (!planSeProrratea(plan)) return null;
   const [y, m, d] = partes(hoyISO);
   if (!y || !m || !d) return null;
+  const minimo = normalizarDiasMinimos(diasMinimos);
   const total = diasDelMes(y, m);
   const restantes = Math.max(1, total - d + 1);
   const completoC = aCentimos(plan.precio);
   const mesCompleto = restantes >= total;
-  let c = mesCompleto ? completoC : repartoProporcional(completoC, restantes, total);
-  const bajoElMinimo = !mesCompleto && c < PRORRATEO_IMPORTE_MINIMO_CENTIMOS;
-  if (bajoElMinimo) c = 0;
+  const proporcionalC = mesCompleto ? completoC : repartoProporcional(completoC, restantes, total);
+  const siguienteMes = !mesCompleto && (restantes <= minimo || proporcionalC < PRORRATEO_IMPORTE_MINIMO_CENTIMOS);
   const mes = MESES[m - 1];
+  const finMes = `${y}-${dosDigitos(m)}-${dosDigitos(total)}`;
+  const modo: ModoAlta = mesCompleto ? 'completo' : siguienteMes ? 'siguiente_mes' : 'proporcional';
+
+  // Online con pocos días: la cuota entera hoy y el ciclo hasta fin del mes SIGUIENTE.
+  const onlineEntera = siguienteMes && canal === 'online';
+  const fechaFin = onlineEntera ? finDeMesSiguiente(y, m) : finMes;
+  const importeC = mesCompleto ? completoC : siguienteMes ? (onlineEntera ? completoC : 0) : proporcionalC;
+  const primerCobroFecha = masDias(fechaFin, 1);
+  const primerCobro = { fecha: primerCobroFecha, importe: plan.precio };
+  const restoTxt = `El ${fechaLarga(primerCobroFecha)}, ${eurTxt(plan.precio)} y cada mes.`;
+
+  let texto: string;
+  let frase: string;
+  if (mesCompleto) {
+    texto = `${mes} completo`;
+    frase = `Hoy pagas ${eurTxt(plan.precio)} (${mes} completo). ${restoTxt}`;
+  } else if (onlineEntera) {
+    texto = `cuota entera: incluye los ${restantes} días que quedan de ${mes} y ${MESES[(m % 12)]} entero`;
+    frase = `Hoy pagas ${eurTxt(plan.precio)}: incluye los ${restantes} días que quedan de ${mes} y todo ${MESES[m % 12]}. ${restoTxt}`;
+  } else if (siguienteMes) {
+    texto = `primera cuota el ${fechaLarga(primerCobroFecha)}`;
+    frase = `Hoy no se cobra nada: quedan ${restantes} días de ${mes}. Tu primera cuota (${eurTxt(plan.precio)}) se cobra el ${fechaLarga(primerCobroFecha)}.`;
+  } else {
+    texto = `parte proporcional de ${mes}: ${restantes} de ${total} días`;
+    frase = `Hoy pagas ${eurTxt(proporcionalC / 100)} (parte proporcional de ${mes}: ${restantes} de ${total} días). ${restoTxt}`;
+  }
   return {
-    importe: c / 100,
+    modo, canal,
+    importe: importeC / 100,
     importeCompleto: plan.precio,
     diasRestantes: restantes,
     diasDelMes: total,
     mesCompleto,
-    bajoElMinimo,
-    fechaFin: `${y}-${dosDigitos(m)}-${dosDigitos(total)}`,
+    bajoElMinimo: siguienteMes,
+    fechaFin,
     mes,
-    texto: mesCompleto ? `${mes} completo` : `parte proporcional de ${mes}: ${restantes} de ${total} días`,
+    primerCobro,
+    texto,
+    frase,
   };
+}
+
+/** Último día del mes siguiente a (y, m). */
+function finDeMesSiguiente(y: number, m: number): string {
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${dosDigitos(nm)}-${dosDigitos(diasDelMes(ny, nm))}`;
 }
 
 export interface CicloYCobroDeAlta {
@@ -185,6 +267,43 @@ export interface CicloYCobroDeAlta {
   prorrateo: ProrrateoAlta | null;
   /** Prefijo del id del recibo: el motivo viaja en el id. */
   prefijoRecibo: string;
+  /** Lo que hay que decirle a quien da el alta cuando hoy no se cobra nada (pocos días, o periodo ya cobrado); null si no hace falta. */
+  aviso: string | null;
+}
+
+/**
+ * ¿Esta clienta ya tuvo, en este MISMO periodo, una cuota mensual cobrada (o con su
+ * cobro pendiente)? Una cuota CANCELADA cuyo ciclo llega a hoy y que tiene un recibo
+ * COBRADO — o aún sin cobrar (PENDIENTE, EN_CURSO, FALLIDO) — ya cubre estos días:
+ * volver a darla de alta NO cobra otra vez el mismo periodo (idempotencia por
+ * clienta + periodo). Es la regla que distingue una REACTIVACIÓN (cancelar → volver
+ * a apuntarla: no se cobra dos veces) de una alta nueva de verdad, y de la
+ * recuperación de un pago fallido, que nunca es un alta: se cobra el recibo que ya
+ * existe, no uno nuevo.
+ *
+ * Devuelve el último día cubierto y si está pagado o pendiente, o `null`. Sin
+ * recibos cargados (la carga se corta a 1000 filas) no puede saberlo y devuelve `null`:
+ * el servidor es quien decide con la lectura completa en la compra online.
+ */
+export function periodoDeCuotaAnterior(e: {
+  socioId: string;
+  suscripciones: ReadonlyArray<{ id: string; socioId: string | null; planId: string | null; estado: string; fechaFin?: string | null }>;
+  recibos: ReadonlyArray<{ suscripcionId?: string | null; estado: string }>;
+  planes: ReadonlyArray<{ id: string; tipo: string; periodicidadMeses?: number | null }>;
+  hoyISO: string;
+}): { fechaFin: string; estado: 'pagado' | 'pendiente' } | null {
+  let mejor: { fechaFin: string; estado: 'pagado' | 'pendiente' } | null = null;
+  for (const s of e.suscripciones) {
+    if (s.socioId !== e.socioId || s.estado !== 'CANCELADA' || !s.fechaFin || s.fechaFin < e.hoyISO) continue;
+    const plan = e.planes.find(p => p.id === s.planId);
+    if (!plan || plan.tipo !== 'MENSUAL' || mesesDeCiclo({ periodicidadMeses: plan.periodicidadMeses as PlanTarifa['periodicidadMeses'] }) !== 1) continue;
+    const suyos = e.recibos.filter(r => r.suscripcionId === s.id);
+    const estado = suyos.some(r => r.estado === 'COBRADO') ? 'pagado'
+      : suyos.some(r => r.estado === 'PENDIENTE' || r.estado === 'EN_CURSO' || r.estado === 'FALLIDO') ? 'pendiente' : null;
+    if (!estado) continue;
+    if (!mejor || s.fechaFin > mejor.fechaFin) mejor = { fechaFin: s.fechaFin, estado };
+  }
+  return mejor;
 }
 
 /**
@@ -200,10 +319,21 @@ export function cicloYCobroDeAlta(
   ahoraISO: string,
   hoyISO: string,
   proporcionalActivo: boolean,
+  diasMinimos: number = DIAS_MINIMOS_POR_DEFECTO,
+  /** El periodo que ya cubre una cuota anterior de la clienta (`periodoDeCuotaAnterior`). */
+  periodoAnterior: { fechaFin: string; estado: 'pagado' | 'pendiente' } | null = null,
 ): CicloYCobroDeAlta {
   const base = cicloInicialDe(plan, ahoraISO);
-  const pr = proporcionalActivo ? prorrateoDeAlta(plan, hoyISO) : null;
-  if (!pr) return { ...base, importe: plan.precio, prorrateo: null, prefijoRecibo: 'rec-' };
+  const pr = proporcionalActivo ? prorrateoDeAlta(plan, hoyISO, diasMinimos, 'panel') : null;
+  if (!pr) return { ...base, importe: plan.precio, prorrateo: null, prefijoRecibo: 'rec-', aviso: null };
+  if (periodoAnterior) {
+    // No se cobra otra vez el periodo que ya cubre su cuota anterior: hereda su fin y el siguiente
+    // cobro llega con la renovación de siempre.
+    return {
+      fechaFin: periodoAnterior.fechaFin, sesionesRestantes: base.sesionesRestantes, importe: 0, prorrateo: null, prefijoRecibo: 'rec-',
+      aviso: `Ya tenía este periodo ${periodoAnterior.estado === 'pagado' ? 'pagado' : 'pendiente de cobro (mira sus recibos)'} hasta el ${fechaLarga(periodoAnterior.fechaFin)}: no se le cobra otra vez.`,
+    };
+  }
   return {
     fechaFin: pr.fechaFin,
     sesionesRestantes: base.sesionesRestantes,
@@ -212,6 +342,7 @@ export function cicloYCobroDeAlta(
     // Solo el recibo PARCIAL lleva el motivo en el id (lo reconoce el aviso de
     // «sube tu cuota» para no tomarlo por el precio de la cuota).
     prefijoRecibo: pr.importe < pr.importeCompleto ? PREFIJO_RECIBO_PRORRATEO : 'rec-',
+    aviso: pr.modo === 'siguiente_mes' ? pr.frase : null,
   };
 }
 

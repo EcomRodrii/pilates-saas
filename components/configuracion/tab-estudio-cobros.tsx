@@ -243,17 +243,21 @@ export function FormDevoluciones({ onGuardado }: PropsFormularioCajon) {
 // SOLA en su próxima renovación (converge en como mucho un ciclo). Es dinero:
 // «Guardar» pregunta antes, con lo que va a pasar.
 
-type CobroDiaForm = { dia1: boolean; proporcional: boolean };
+type CobroDiaForm = { dia1: boolean; proporcional: boolean; diasMinimos: number };
 
-function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo'>> | null): CobroDiaForm {
-  return { dia1: s?.cobroDia1Activo ?? false, proporcional: s?.cobroProporcionalAltaActivo ?? false };
+function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroProporcionalDiasMinimos'>> | null): CobroDiaForm {
+  return { dia1: s?.cobroDia1Activo ?? false, proporcional: s?.cobroProporcionalAltaActivo ?? false, diasMinimos: s?.cobroProporcionalDiasMinimos ?? 3 };
 }
 
 function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
   const partes: Array<{ titulo: string; descripcion: string; textoConfirmar: string }> = [];
   // El cobro proporcional es dinero: se pregunta con lo que va a pasar.
-  if (f.proporcional !== base.proporcional) {
-    partes.push(f.proporcional ? {
+  if (f.proporcional !== base.proporcional || (f.proporcional && f.diasMinimos !== base.diasMinimos)) {
+    partes.push(f.proporcional && f.proporcional === base.proporcional ? {
+      titulo: '¿Cambiar los días mínimos del cobro proporcional?',
+      descripcion: `Desde ahora, si al apuntarse una alumna quedan ${f.diasMinimos} días o menos del mes, su primera cuota se cobra el día 1 del mes siguiente; con más días, la parte proporcional. No cambia a quien ya está dada de alta.`,
+      textoConfirmar: 'Sí, cambiar',
+    } : f.proporcional ? {
       titulo: '¿Cobrar la parte proporcional del primer mes?',
       descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de clienta o «Asignar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Además, al cambiar a una cuota más cara a mitad de ciclo podrás cobrar la diferencia proporcional. Las alumnas que ya tienes no cambian. Las altas que hagan ellas mismas desde la web o la app siguen cobrando el mes completo. La matrícula no se prorratea.',
       textoConfirmar: 'Sí, cobrar la parte proporcional',
@@ -297,7 +301,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
 
   async function alGuardar(): Promise<string | null> {
     const enviado = form;
-    const res = await updateStudio({ cobroDia1Activo: form.dia1, cobroProporcionalAltaActivo: form.proporcional });
+    const res = await updateStudio({ cobroDia1Activo: form.dia1, cobroProporcionalAltaActivo: form.proporcional, cobroProporcionalDiasMinimos: form.diasMinimos });
     if (!res.ok) return res.error;
     setForm(f => sincronizarFormulario(f, enviado, enviado));
     setBase(enviado);
@@ -358,6 +362,30 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
             </span>
           </span>
         </label>
+        {form.proporcional && (
+          <div className="ml-7 rounded-lg border border-border p-3">
+            <label htmlFor="dias-minimos-prorrateo" className="block text-sm font-medium text-foreground">
+              Días mínimos que tienen que quedar para cobrar la parte proporcional
+            </label>
+            <input
+              id="dias-minimos-prorrateo"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10}
+              step={1}
+              value={form.diasMinimos}
+              onChange={e => {
+                const n = Number(e.target.value);
+                setForm(f => ({ ...f, diasMinimos: Number.isFinite(n) ? Math.min(10, Math.max(0, Math.trunc(n))) : f.diasMinimos }));
+              }}
+              className="mt-2 h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm"
+            />
+            <p className="mt-2 text-xs text-muted-foreground text-pretty">
+              Si al apuntarse quedan {form.diasMinimos} días o menos del mes (contando el día del alta), no se le cobra una cantidad simbólica: su primera cuota se cobra el día 1 del mes siguiente y se le dice. Con más días, se le cobra la parte proporcional. Pon 0 para prorratear siempre (por debajo de 0,50 € tampoco se cobra). En la compra online, con pocos días se cobra la cuota entera hoy y vale hasta el final del mes siguiente, porque la tarjeta no se puede guardar sin un primer pago.
+            </p>
+          </div>
+        )}
       </div>
       <BarraGuardar
         seccion="cobros"

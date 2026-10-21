@@ -139,8 +139,11 @@ test('la migración: ids deterministas, todo o nada, grants de service_role y ve
 test('la columna del ajuste: aditiva, apagada de serie y escribible por el navegador solo por su GRANT', () => {
   const m = leer('supabase/migrations/20261021160000_cobro_proporcional_alta.sql');
   assert.match(m, /add column if not exists cobro_proporcional_alta_activo boolean not null default false/);
-  assert.match(m, /grant update \(cobro_proporcional_alta_activo\) on public\.studios to authenticated/);
+  assert.match(m, /grant update \(cobro_proporcional_alta_activo, cobro_proporcional_dias_minimos\) on public\.studios to authenticated/);
+  assert.match(m, /cobro_proporcional_dias_minimos integer not null default 3/);
+  assert.match(m, /between 0 and 10/);
   // Y el código la lee/escribe con ese mismo nombre.
   assert.match(leer('lib/supabase-data.ts'), /db\.cobro_proporcional_alta_activo = changes\.cobroProporcionalAltaActivo/);
   assert.match(leer('lib/supabase-data.ts'), /cobroProporcionalAltaActivo: r\.cobro_proporcional_alta_activo \?\? false/);
+  assert.match(leer('lib/supabase-data.ts'), /db\.cobro_proporcional_dias_minimos = changes\.cobroProporcionalDiasMinimos/);
 });

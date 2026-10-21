@@ -1142,6 +1142,7 @@ export interface RowStudios {
   mostrar_logo_en_landing: boolean | null;
   // migr 20261021160000.
   cobro_proporcional_alta_activo: boolean | null;
+  cobro_proporcional_dias_minimos: number | null;
 }
 
 export interface RowSuscripciones {
@@ -5933,6 +5934,7 @@ export type StudiosInsert = {
   addons?: string[] | null | null;
   mostrar_logo_en_landing?: boolean | null | null;
   cobro_proporcional_alta_activo?: boolean | null | null;
+  cobro_proporcional_dias_minimos?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6095,6 +6097,7 @@ export type StudiosUpdate = {
   addons?: string[] | null | null;
   mostrar_logo_en_landing?: boolean | null | null;
   cobro_proporcional_alta_activo?: boolean | null | null;
+  cobro_proporcional_dias_minimos?: number | null | null;
 }
 
 export type SuscripcionesInsert = {

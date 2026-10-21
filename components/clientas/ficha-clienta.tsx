@@ -797,10 +797,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         setToast(`Plan "${nombrePlan}" asignado · diferencia de ${formatEuro(r.importeCuota)} pendiente: cóbrala aquí en Pagos`);
         return;
       }
-      await assignPlan(id, planId);
+      const asignado = await assignPlan(id, planId);
       setShowChangePlan(false);
       setVentaPorAsignar(null);
-      setToast(`Plan "${nombrePlan}" asignado`);
+      setToast(asignado.avisoCuota ? `Plan "${nombrePlan}" asignado. ${asignado.avisoCuota}` : `Plan "${nombrePlan}" asignado`);
       ofrecerPlazaFijaSiCuota(planId, nombrePlan);
     } catch (e) {
       setToastError(e instanceof Error ? e.message : ERROR_GENERICO);
@@ -2765,11 +2765,11 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   {(() => {
                     if (studio?.cobroProporcionalAltaActivo !== true) return null;
                     if (suscripcion?.estado === 'ACTIVA' && plan?.tipo === 'MENSUAL') return null;
-                    const pr = prorrateoDeAlta(p, hoyEnEstudio());
+                    const pr = prorrateoDeAlta(p, hoyEnEstudio(), studio?.cobroProporcionalDiasMinimos);
                     if (!pr || pr.mesCompleto) return null;
                     return (
                       <p className="text-xs font-medium text-muted-foreground">
-                        {pr.importe > 0 ? `Hoy se cobra ${formatEuro(pr.importe)}` : 'Hoy no se cobra nada (menos de 0,50 €)'} · {pr.texto}. El día 1, {formatEuro(p.precio)}.
+                        {pr.frase}
                       </p>
                     );
                   })()}

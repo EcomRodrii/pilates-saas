@@ -2012,15 +2012,18 @@ export default function Calendario() {
       return false;
     }
     let importeCuota = 0;
+    let avisoCuota: string | null = null;
     try {
       // Con «cobro proporcional» activo el recibo es la parte del mes: lo dice `assignPlan`.
-      importeCuota = (await assignPlan(socioId, planId)).importeCuota;
+      const asignado = await assignPlan(socioId, planId);
+      importeCuota = asignado.importeCuota;
+      avisoCuota = asignado.avisoCuota ?? null;
     } catch (e) {
       // Lo que no se ha guardado lo dice `assignPlan`; no se la apunta a ciegas.
       showToastError(e instanceof Error ? e.message : 'No se ha podido dar la cuota');
       return false;
     }
-    const recibo = importeCuota > 0 ? ` (recibo de ${formatEuro(importeCuota)} pendiente en Cobros)` : '';
+    const recibo = importeCuota > 0 ? ` (recibo de ${formatEuro(importeCuota)} pendiente en Cobros)` : avisoCuota ? `. ${avisoCuota}` : '';
     // Si ya se le había vendido una clase suelta para un día que esta cuota cubre, se dice:
     // si no, se le cobraría esa clase dos veces. Anularla es de la ficha (con su confirmación).
     const sueltas = clasesSueltasQueCubreSuCuota({
@@ -2028,7 +2031,7 @@ export default function Calendario() {
       sesion: sid => { const s = sesionesEnriquecidas.find(x => x.id === sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
       // La cuota recién dada, con su primer periodo real (`cicloYCobroDeAlta`, el mismo que usa `assignPlan`).
       suscripciones: [...suscripciones, (() => {
-        const { fechaFin, sesionesRestantes } = cicloYCobroDeAlta(plan, new Date().toISOString(), hoyEnEstudio(), studio?.cobroProporcionalAltaActivo === true);
+        const { fechaFin, sesionesRestantes } = cicloYCobroDeAlta(plan, new Date().toISOString(), hoyEnEstudio(), studio?.cobroProporcionalAltaActivo === true, studio?.cobroProporcionalDiasMinimos);
         return { id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA' as const, fechaInicio: hoyEnEstudio(), fechaFin, sesionesRestantes, stripeSubscriptionId: null };
       })()],
       planes: planesTarifa,
