@@ -75,14 +75,14 @@ test('rec-aline: con snapshot previo no se vuelve a decidir (idempotencia por re
   assert.equal(updates.suscripciones.length, 0);
 });
 
-test('rec-aline cobrado cuando su mes ya pasó: se entrega como A (alineada), nunca caducada', async () => {
+test('rec-aline cobrado cuando su mes ya pasó: entrega solo los días pagados desde hoy, nunca el mes siguiente ni caducada', async () => {
   const { admin, updates } = fakeAdmin({
     sus: { id: 'sus-1', plan_id: 'p', sesiones_restantes: null, fecha_fin: '2020-01-09', estado: 'ACTIVA' },
     recibo: { suscripcion_id: 'sus-1', es_renovacion: true, fecha_vencimiento: '2020-01-09' },
   });
   await aplicarRenovacionServidor(admin, { studioId: 's', reciboId: 'rec-aline-sus-1-2020-01-09' }, sinCreditos);
-  // Como el modo A: fin 9-ene → 28-feb... alineada (acaba el último día de un mes).
-  assert.equal(updates.suscripciones[0].fecha_fin, '2020-02-29');
+  // Sin importe cobrado en el recibo del test: solo hoy (se avisa). Jamás el fin del mes siguiente.
+  assert.equal(updates.suscripciones[0].fecha_fin, hoyEnEstudio());
 });
 
 test('recibo normal con el día 1 encendido: modo A intacto (regresión)', async () => {
