@@ -80,7 +80,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de Lorari a Tentare',
     cuerpo: (
-      <p>El importador de Tentare lee ficheros de Excel y CSV: exporta tus alumnas y bonos de Lorari, súbelos y revisa el acta antes de guardar; si algo no cuadra, lo deshaces con un botón. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador de Tentare lee ficheros de Excel y CSV: exporta tus alumnas y bonos de Lorari, súbelos y revisa el acta antes de guardar; si algo no cuadra, lo deshaces con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];
@@ -95,7 +95,7 @@ export default function TentareVsLorariPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sustituciones de instructoras, plazas fijas, aforo por sala y cobros que se reintentan solos, con precio público en cada plan. Empieza gratis, sin tarjeta, y te traemos tus datos de Lorari.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sustituciones de instructoras, plazas fijas, aforo por sala y cobros que se reintentan solos, con precio público en cada plan. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Lorari (lorari.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Lorari es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

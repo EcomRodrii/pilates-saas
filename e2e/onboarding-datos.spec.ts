@@ -109,13 +109,15 @@ test('«Saltar y ver mi estudio» monta lo marcado por defecto y no inventa cobr
   await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
 });
 
-test('lo opcional (cobro, prioridad, ayuda) solo está en la última pantalla y se deja en blanco', async ({ page }) => {
+test('lo opcional (cobro, prioridad) solo está en la última pantalla y se deja en blanco', async ({ page }) => {
   await montar(page);
   await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toHaveCount(0);
   await aPantalla(page, 3);
   await expect(page.getByText('¿Cómo cobras a tus alumnas?')).toBeVisible();
-  await expect(page.getByText('¿Cómo prefieres que te ayudemos?')).toBeVisible();
+  // Esa pregunta ya no existe (21-oct-2026): sus opciones de llamada y de
+  // «configuradlo por mí» prometían algo que nadie hacía.
+  await expect(page.getByText('¿Cómo prefieres que te ayudemos?')).toHaveCount(0);
   // En blanco también vale: se llega a la pantalla final sin contestar nada.
   await page.getByRole('button', { name: 'Ver mi estudio' }).click();
   await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();

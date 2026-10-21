@@ -311,7 +311,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Si ninguno te convence, empieza gratis en Tentare',
     texto:
-      'Tentare publica su precio: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia. Si vienes de bsport o de TIMP, te ayudamos a traer tus datos.',
+      'Tentare publica su precio: gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Precios, planes y condiciones de bsport y TIMP revisados en su web el 25-sep-2026: repasarlos cada trimestre, sobre todo los de bsport, que no publica precio.',

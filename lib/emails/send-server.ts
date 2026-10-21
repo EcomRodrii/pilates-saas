@@ -84,7 +84,7 @@ async function renderPorTipo(
       return {
         html: correoEsperaSinPlaza({ ...clase, sesionesRestantes: sesiones, caducaEl: d.caducaEl, urlHorario: d.urlHorario, emailEstudio: marca.replyTo }),
         subject: asunto ?? (sesiones <= 1
-          ? `Tu clase de ${d.claseNombre} se llenó — te devolvemos el dinero si quieres`
+          ? `Tu clase de ${d.claseNombre} se llenó: tu pago sigue disponible`
           : `No se liberó sitio en ${d.claseNombre}, pero tu bono está intacto`),
       };
     }

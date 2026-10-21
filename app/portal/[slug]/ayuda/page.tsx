@@ -40,7 +40,7 @@ export default function AyudaPage() {
       '¿Para qué sirve mi QR de acceso?',
       'Lo tienes en Perfil → QR de acceso, y también en tu reserva. Enséñalo al llegar: el estudio lo escanea y comprueba en el momento si tienes plaza en la clase. Es siempre el mismo y no lleva tus datos. Si has compartido una captura o has perdido el móvil, genera uno nuevo desde esa misma pantalla.',
     ] as [string, string]] : []),
-    ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Te avisamos antes de que caduque.'],
+    ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Antes de que caduque te avisamos en la app (y al móvil, si tienes los avisos activados).'],
     ['¿Puedo cambiar mi email?', 'Sí, en Perfil → Datos. Te mandamos un enlace para confirmarlo; hasta entonces sigues entrando con el de ahora.'],
   ];
 

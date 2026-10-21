@@ -81,7 +81,7 @@ export default function TentareVsDeporWebPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Empieza gratis, sin tarjeta, y te traemos tus datos.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

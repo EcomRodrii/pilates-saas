@@ -859,7 +859,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',
-    body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
+    body: 'Se te ha cobrado {importe} € por cancelar fuera del plazo de cancelación o no presentarte a la clase.',
     // Un cargo que ya ocurrió: lo que quiere es verlo, con su recibo.
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/pagos`,
   },
@@ -1079,7 +1079,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS}#PROPIETARIO`]: {
     title: 'Tu estudio todavía no tiene horario',
-    body: 'Sin clases programadas nadie puede reservar. Te ayudamos a montarlo en un momento.',
+    body: 'Sin clases programadas nadie puede reservar. Créalas en el Calendario, con «Crear clase».',
     deepLink: () => `/calendario`,
   },
   [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {

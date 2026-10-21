@@ -378,7 +378,7 @@ export default function GlosarioPage() {
 
       <section style={{ padding: 'clamp(24px,4vw,40px) clamp(20px,4vw,44px) clamp(64px,8vw,110px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="¿Quieres verlo en tu propio estudio?" body="Migramos tus datos por ti. Sin permanencia." />
+          <CtaBlock title="¿Quieres verlo en tu propio estudio?" body="Sin permanencia." />
         </div>
       </section>
 

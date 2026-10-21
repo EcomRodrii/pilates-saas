@@ -5,6 +5,7 @@ import { useId, useState } from 'react';
 import { FileWarning } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { rectificarFactura } from '@/lib/api-client';
+import { useStudio } from '@/lib/studio-context';
 import { formatEuro } from '@/lib/utils';
 import type { Factura } from '@/lib/types';
 
@@ -31,6 +32,10 @@ export function BotonRectificarFactura({
   onHecho: MostrarToast;
 }) {
   const uid = useId();
+  // Sin Veri*Factu (lo de serie, modo 'facturas') la rectificativa sale numerada y
+  // no se envía nada a la AEAT. Con Veri*Factu entra en la misma cola que el resto
+  // (sellarRectificativaDeFactura): ahí no hay nada que avisar.
+  const conVerifactu = useStudio().studio?.modoFacturacion === 'verifactu';
   const [abierto, setAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [tipoFactura, setTipoFactura] = useState<'R1' | 'R2' | 'R3' | 'R4' | 'R5'>('R1');
@@ -87,11 +92,11 @@ export function BotonRectificarFactura({
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Emitir factura rectificativa de {factura.numeroCompleto}</DialogTitle></DialogHeader>
           <div className="space-y-4 text-sm">
-            <p className="text-xs text-muted-foreground rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
-              El envío del registro a la AEAT todavía no está activo — ni para esta ni para el resto de
-              facturas. Quedará numerada y encadenada, pero sin QR hasta que la AEAT tenga su registro, y
-              hay que transmitirla aparte hasta que el envío automático esté en marcha.
-            </p>
+            {!conVerifactu && (
+              <p className="text-xs text-muted-foreground rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
+                Quedará numerada. Veri*Factu no está activado en tu estudio, así que no se envía a la AEAT.
+              </p>
+            )}
             <div>
               <span id={`${uid}-tipo`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Tipo (catálogo AEAT)</span>
               <div role="group" aria-labelledby={`${uid}-tipo`} className="flex flex-wrap gap-1.5">

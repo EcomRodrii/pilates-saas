@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Teléfono para la llamada de puesta en marcha: validar, normalizar, enseñar.
 //
-// Puro y sin `@/` (se prueba con `node --test`). Lo usan el campo del asistente
-// y el servidor, y tienen que decidir LO MISMO: si el cliente acepta un número
-// que el servidor rechaza, la propietaria cree haber pedido una llamada y no la
-// ha pedido.
+// Puro y sin `@/` (se prueba con `node --test`). Desde el 21-oct-2026 el
+// asistente ya no pide teléfono (nadie llama a los estudios): lo único vivo es
+// `mostrarE164`, con el que /interno/llamadas enseña los números que ya se
+// dejaron. La validación se queda probada por si vuelve a hacer falta.
 //
 // Se guarda en E.164 (`+34612345678`): sin espacios, sin guiones, con prefijo.
 // Es lo único que no es ambiguo para quien marca.

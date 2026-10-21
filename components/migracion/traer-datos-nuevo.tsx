@@ -151,7 +151,7 @@ export function QueSePuedeTraer() {
           <div className="min-w-0">
             <p className="text-[14px] font-semibold leading-snug text-foreground">¿Tienes otra cosa?</p>
             <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground text-pretty">
-              Lo que no reconozcamos no se toca. Si quieres que lo migremos nosotros, escríbenos a soporte@tentare.app con el archivo.
+              Lo que no reconozcamos no se toca.
             </p>
           </div>
         </li>

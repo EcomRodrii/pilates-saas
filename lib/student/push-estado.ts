@@ -63,7 +63,7 @@ export function textoPush(e: EstadoPush): TextoPush {
     case 'denied':
       return { titulo: 'Avisos bloqueados', cuerpo: 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador para este sitio.', accion: null, encendido: false };
     case 'ios-sin-instalar':
-      return { titulo: 'Instala la app para recibir avisos', cuerpo: 'En iPhone los avisos solo llegan desde la app instalada: Compartir → Añadir a pantalla de inicio, y ábrela desde ahí.', accion: null, encendido: false };
+      return { titulo: 'Instala la app para recibir avisos', cuerpo: 'En iPhone los avisos al móvil solo llegan con la app instalada: Compartir → Añadir a pantalla de inicio, y ábrela desde ahí.', accion: null, encendido: false };
     case 'sin-clave':
       return { titulo: 'Avisos no disponibles todavía', cuerpo: 'El estudio aún no tiene los avisos configurados. No es cosa tuya.', accion: null, encendido: false };
     case 'unsupported':

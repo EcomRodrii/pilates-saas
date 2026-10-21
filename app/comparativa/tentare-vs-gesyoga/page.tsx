@@ -80,7 +80,7 @@ export default function TentareVsGesYogaPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público y sin permanencia. Empieza gratis, sin tarjeta, y te traemos tus datos de GesYoga.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público y sin permanencia. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de GesYoga (gesyoga.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

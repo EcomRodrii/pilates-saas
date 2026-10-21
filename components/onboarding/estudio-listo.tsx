@@ -156,7 +156,7 @@ export function EstudioListo({
               <section aria-labelledby="enlace-t" className="ob-sube rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '240ms' }}>
                 <h2 id="enlace-t" className="flex items-center gap-1.5 text-[14px] font-bold"><Link2 size={15} aria-hidden /> Tu enlace de reservas</h2>
                 <p className="mt-1 break-all text-[13px] text-muted-foreground" data-testid="url-reservas">{urlReservas}</p>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Una alumna reserva sin cuenta.</p>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Una alumna reserva solo con su email, sin contraseña.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"

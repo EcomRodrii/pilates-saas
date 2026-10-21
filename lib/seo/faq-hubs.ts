@@ -104,7 +104,7 @@ export const FAQ_SOLUCIONES: PreguntaFaq[] = [
     // Fuente: /soluciones/cambiar-de-software (acta, deshacer, tarjetas no se
     // migran) y /precios («la migración no se cobra aparte»).
     q: '¿Puedo traer mis alumnas y mis bonos desde otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel, y te enseña lo que va a traer antes de guardarlo. Puedes deshacer la importación con un botón, la migración no se cobra aparte y, si prefieres, la hacemos nosotros. Las tarjetas guardadas no se migran: cada alumna introduce la suya una vez.',
+    a: 'Sí. El importador lee archivos CSV o Excel de cualquier programa y te enseña lo que va a traer antes de guardarlo. Puedes deshacer la importación con un botón y la migración no se cobra aparte. Las tarjetas guardadas no se migran: cada alumna introduce la suya una vez.',
   },
   {
     // Fuente: /funcionalidades/multi-centro (preguntas 1, 2 y 4) y /precios.

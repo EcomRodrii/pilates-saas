@@ -99,7 +99,7 @@ export function CompetitorPage({
   veredicto,
   footnote,
   faq,
-  ctaBody = 'Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas.',
+  ctaBody = 'Sin permanencia. Sin sorpresas.',
 }: {
   name: string;
   slug: string;

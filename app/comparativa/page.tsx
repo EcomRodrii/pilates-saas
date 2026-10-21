@@ -315,7 +315,7 @@ export default function ComparativaPage() {
 
       <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Compruébalo con tu propio estudio." body="Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas." />
+          <CtaBlock title="Compruébalo con tu propio estudio." body="Sin permanencia. Sin sorpresas." />
         </div>
       </section>
 

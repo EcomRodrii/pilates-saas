@@ -117,6 +117,7 @@ const REGLAS: { patron: RegExp; motivo: string; salvo?: RegExp }[] = [
   { patron: /rondan el 80|entre el 40 y el 60|la integracion que convierte mas|el motivo numero uno/, motivo: 'cifras del sector sin fuente' },
   { patron: /una idea al mes para llenar tu estudio|sin spam — cancelas cuando quieras/, motivo: 'no existe ningún envío periódico' },
   { patron: /prueba de (7|siete) dias|lo que no tiene nadie mas/, motivo: 'ya no hay prueba de 7 días (15-oct-2026), y otros programas también tienen sustituciones' },
+  { patron: /reconoce las exportaciones/, motivo: 'el importador lee CSV o Excel de cualquier programa; nunca se ha probado con un export real de bsport, Mindbody o TIMP' },
   { patron: /veri\*factu \(firma y envio a la aeat\)/, motivo: 'Veri*Factu no está activo: no hay firma ni envío a la AEAT' },
   // Legal (W4, W5): pendiente de abogado. Que no vuelva lo que no existe.
   { patron: /acuerdo de\s+encargo, art\. 28|\(dpa\)[^.]{0,120}te lo damos/, motivo: 'no hay un DPA ni un acuerdo de encargo del art. 28 publicado' },

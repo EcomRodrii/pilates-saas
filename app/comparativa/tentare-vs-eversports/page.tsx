@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Eversports a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Eversports (y de Momence, bsport, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Si prefieres, te ayudamos nosotros. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Eversports o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
   },
 ];
 
@@ -85,7 +85,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de Eversports a Tentare',
     cuerpo: (
-      <p>El importador reconoce las exportaciones de Eversports: te enseña un acta con las clientas, bonos, clases y reservas que va a traer, y lo puedes deshacer con un botón. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador lee los archivos CSV o Excel que exportas de Eversports: te enseña un acta con las clientas, bonos, clases y reservas que va a traer, y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];
@@ -100,7 +100,7 @@ export default function TentareVsEversportsPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio fijo por plan (no por número de reservas), sin cuota de alta y un producto pensado para Pilates. Empieza gratis, sin tarjeta, y te traemos tus datos de Eversports.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio fijo por plan (no por número de reservas), sin cuota de alta y un producto pensado para Pilates. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Eversports (eversportsmanager.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

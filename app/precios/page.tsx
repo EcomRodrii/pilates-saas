@@ -70,7 +70,7 @@ const FAQ = [
   },
   {
     q: '¿La migración desde otra plataforma cuesta aparte?',
-    a: 'No se cobra aparte. Traes tus datos con los asistentes de importación y te acompañamos en la puesta en marcha; tu sistema actual puede seguir funcionando mientras tanto.',
+    a: 'No se cobra aparte. Traes tus datos con los asistentes de importación; tu sistema actual puede seguir funcionando mientras tanto.',
   },
   {
     q: '¿Puedo cambiar de plan más adelante?',

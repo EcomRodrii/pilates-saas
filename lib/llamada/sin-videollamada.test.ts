@@ -1,6 +1,7 @@
-// El alta ofrece una LLAMADA, no una videollamada (fundador, 7-oct-2026). Esta
-// guardia vigila que el asistente, su endpoint y /interno no la vuelvan a
-// ofrecer, ni con la palabra ni con el icono de cámara.
+// El alta no ofrece ninguna videollamada (fundador, 7-oct-2026) y, desde el
+// 21-oct-2026, tampoco una llamada: eso lo vigila lib/sin-promesas-de-ayuda.test.ts.
+// Esta guardia vigila que el asistente, su endpoint y /interno no vuelvan a
+// ofrecer una videollamada, ni con la palabra ni con el icono de cámara.
 //
 // Fuera de alcance a propósito: `lib/csv.ts` (detecta clases ONLINE al importar),
 // `lib/legal-info.ts` (la integración opcional de Zoom para clases online) y
@@ -39,9 +40,4 @@ test('el onboarding no ofrece ninguna videollamada', () => {
     assert.ok(!/videollamada/i.test(codigo), `${f} ofrece una videollamada`);
     assert.ok(!/\b(Video|Videocamera|Camera)\b/.test(codigo.replace(/import[^;]+;/g, '')), `${f} usa un icono de cámara`);
   }
-});
-
-test('«Prefiero que me llamen» es la opción de ayuda y la única que pide teléfono', () => {
-  const src = readFileSync(join(raiz, 'lib/llamada/solicitud.ts'), 'utf8');
-  assert.match(src, /AYUDA_LLAMADA = 'Prefiero que me llamen'/);
 });

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { NO_SE_LLEVA, RUTAS_MIGRACION, SE_LLEVA } from './migracion.ts';
+import { NO_SE_LLEVA, SE_LLEVA } from './migracion.ts';
 import { CTA_ALTA } from './founding-gratis.ts';
 import { botonesAlAlta, botonesFueraDeRegla } from './cta-un-verbo.test.ts';
 
@@ -61,14 +61,10 @@ test('los cuatro momentos: un verbo cada uno, sin cifras y sin nombrar nada cong
 
 // ── Migración ───────────────────────────────────────────────────────────────
 
-test('la migración cuenta las dos rutas que /soluciones/cambiar-de-software ya cuenta, y nada más', () => {
-  assert.equal(RUTAS_MIGRACION.length, 2);
-  const pagina = 'app/soluciones/cambiar-de-software/page.tsx';
-  for (const r of RUTAS_MIGRACION) {
-    assert.deepEqual(frasesQueFaltan(pagina, r.frases), [], `${r.titulo}: la página ya no dice lo que la ruta afirma`);
-  }
-  assert.match(leer(pagina), /1\. Tú misma, en el panel/);
-  assert.match(leer(pagina), /2\. Te la hacemos nosotros/);
+test('la migración tiene UNA vía, la real: el importador del panel, sin «te la hacemos nosotros»', () => {
+  const pagina = leer('app/soluciones/cambiar-de-software/page.tsx');
+  assert.match(pagina, /Tú misma, en el panel/);
+  assert.doesNotMatch(pagina, /hacemos nosotros|ayudamos nosotros|ConciergeMigracionForm/);
 });
 
 test('la lista de «qué se trae» es la MISMA que la de la página, y lo que no se trae son las tarjetas guardadas', () => {
@@ -77,10 +73,6 @@ test('la lista de «qué se trae» es la MISMA que la de la página, y lo que no
   const faq = leer('app/soluciones/cambiar-de-software/page.tsx');
   assert.match(faq, /las tarjetas guardadas no se migran/i);
   assert.match(NO_SE_LLEVA.titulo, /tarjetas guardadas/i);
-});
-
-test('el ancla de la segunda ruta existe en la página de migración', () => {
-  assert.match(leer('app/soluciones/cambiar-de-software/page.tsx'), /id=\{ANCLA_AYUDA\}/);
 });
 
 // ── Botón por bloque ────────────────────────────────────────────────────────

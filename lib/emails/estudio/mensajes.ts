@@ -41,7 +41,7 @@ export interface PropsEsperaSinPlaza {
    * Sesiones que le quedan del bono que pagó y NO llegó a gastar (la lista de
    * espera nunca consume bono). `1` es el caso delicado: compró una clase
    * suelta, así que el crédito es el importe entero — por eso ahí, y solo ahí,
-   * se le ofrece la devolución.
+   * se le dice a quién escribir si tiene dudas sobre su pago.
    */
   sesionesRestantes: number;
   /**
@@ -51,7 +51,7 @@ export interface PropsEsperaSinPlaza {
    */
   caducaEl?: string | null;
   urlHorario?: string | null;
-  /** Dirección del estudio, para pedir la devolución. */
+  /** Dirección del estudio, para escribirle sobre el pago. Sin ella, no hay nota. */
   emailEstudio?: string | null;
   marca: MarcaCorreo;
 }
@@ -86,8 +86,11 @@ export function correoEsperaSinPlaza(p: PropsEsperaSinPlaza): string {
     boton: p.urlHorario ? { href: p.urlHorario, texto: 'Ver el horario' } : null,
     conPortada: false,
     acento: ACENTO.aviso,
-    nota: claseSuelta
-      ? `Y si prefieres que te devolvamos el dinero, contéstanos a este correo${p.emailEstudio ? ` o escríbenos a ${p.emailEstudio}` : ''} y lo hacemos — sin explicaciones.`
+    // Antes prometía «te devolvemos el dinero… sin explicaciones» en nombre del
+    // estudio, y ningún estudio lo había decidido (21-oct-2026). Devolver o no es
+    // cosa suya: aquí solo se le dice a quién escribir, y solo si hay a quién.
+    nota: claseSuelta && p.emailEstudio
+      ? `Si tienes cualquier duda sobre tu pago, escríbenos a ${p.emailEstudio}.`
       : null,
   });
 }

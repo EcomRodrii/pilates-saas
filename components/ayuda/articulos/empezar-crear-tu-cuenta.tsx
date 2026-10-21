@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
-import { LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_CORTO, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
 
 // Las capturas de los pasos 1 y 3 son reales, tomadas en vivo el 28-ago-2026
 // contra tentare.app/crear-estudio en producción (sin llegar a enviar el paso 3,
@@ -33,7 +33,8 @@ export default function Contenido() {
         <p>
           Empiezas en {PLAN_INFO.BASE.nombre}, gratis {LIMITES_GRATIS}. Si tu estudio pasa de ahí, sigues en el mismo
           plan por {PRECIO_FOUNDING_PAGO} €/mes: lo contratas desde Suscripción, en el menú, o desde Configuración &gt;
-          Plan de Tentare, sin perder nada de lo que hayas configurado.
+          Plan de Tentare, sin perder nada de lo que hayas configurado. En ese plan de pago, {COMPLEMENTOS_CORTO} van
+          aparte, como complementos.
         </p>
         <AyudaCaptura
           src="/help/empezar/crear-estudio-paso-2.png"
