@@ -19,6 +19,7 @@ import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
+import { cobroCuotaOnline } from '@/lib/billing/cobro-cuota-online';
 import {
   metadataVolatilEmbebida, parametrosClienteInvitada, parametrosPaymentIntentEmbebido, type DatosCompraEmbebida,
 } from '@/lib/billing/pago-embebido-parametros';
@@ -203,6 +204,9 @@ export async function POST(req: NextRequest) {
     // que app/api/stripe/checkout — texto tal cual, el servidor recalcula el
     // importe final.
     codigoDescuento?: string;
+    // Cobro proporcional: lo que la alumna vio como primera cuota, en céntimos. Solo se COMPARA con lo
+    // que calcula el servidor (nunca decide el importe).
+    cuotaEsperadaCentimos?: number | null;
     // "Información adicional" del formulario de pago sin login — solo se
     // escriben al crear ficha NUEVA (ver CompraPlan.datosAdicionales). Nunca
     // deciden nada de negocio, son datos de perfil.
@@ -274,7 +278,7 @@ export async function POST(req: NextRequest) {
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('nombre, precio, tipo, studio_id, activo, matricula, es_prueba')
+    .select('nombre, precio, tipo, studio_id, activo, matricula, es_prueba, periodicidad_meses')
     .eq('id', body.planId)
     .maybeSingle();
   if (errPlan || !plan) {
@@ -382,6 +386,24 @@ export async function POST(req: NextRequest) {
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
   }
+  // Cobro proporcional del primer mes (opción del estudio, apagada de serie): el MISMO motor que el panel.
+  // El servidor recalcula; lo que la alumna vio solo se compara. Antes del código de descuento y de la
+  // matrícula (que no se prorratea). «Pagar y reservar» una clase conserva su precio de siempre.
+  const cobroCuota = await cobroCuotaOnline(admin, {
+    studioId: body.studioId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
+    socioId, email: socioEmail ?? null, conSesion: !!body.sesionId, conRecibo: false,
+    cuotaEsperadaCentimos: body.cuotaEsperadaCentimos,
+  });
+  if (cobroCuota.tipo === 'rechazo' || cobroCuota.tipo === 'importe_cambiado') {
+    return conCorsWidget(req, NextResponse.json(
+      { error: cobroCuota.error, codigo: cobroCuota.codigo, ...(cobroCuota.tipo === 'importe_cambiado' ? { cobro: cobroCuota.cobro } : {}) },
+      { status: cobroCuota.status },
+    ));
+  }
+  const cuotaProrrateada = cobroCuota.tipo === 'prorrateo'
+    ? { importeCentimos: Math.round(cobroCuota.importe * 100), cicloFin: cobroCuota.pr.fechaFin, texto: cobroCuota.pr.texto, frase: cobroCuota.pr.frase }
+    : null;
+  if (cobroCuota.tipo === 'prorrateo') importe = cobroCuota.importe;
 
   // Auditoría vs Momence: canje de código de descuento. Mismo criterio que
   // app/api/stripe/checkout — el servidor recalcula siempre, un código
@@ -743,6 +765,7 @@ export async function POST(req: NextRequest) {
     studioId: body.studioId, planId: body.planId, socioId,
     socioEmail, sesionId: body.sesionId ?? null,
     codigoDescuentoId,
+    prorrateo: cuotaProrrateada,
   });
 
   // Cupo EXACTO de una etapa «Cerrar la venta» (Opening OS): plaza reservada
@@ -901,6 +924,8 @@ export async function POST(req: NextRequest) {
     customerId,
     fee,
     pagoClaseId: pagoClase?.id ?? null,
+    cicloFin: cuotaProrrateada?.cicloFin ?? null,
+    cuotaTexto: cuotaProrrateada?.texto ?? null,
   };
   // Solo lo ESTABLE del intento: lo que el formulario puede cambiar va después
   // (`metadataVolatilEmbebida`, por `update`). Ver lib/billing/pago-embebido-parametros.ts.
@@ -1161,6 +1186,7 @@ export async function POST(req: NextRequest) {
       // El TOTAL del cargo (importe + matrícula): lo que la pantalla tiene que enseñar en el botón de pagar.
       total: paymentIntent.amount / 100,
       ...(pagoClase ? { pagoClaseId: pagoClase.id } : {}),
+      ...(cuotaProrrateada ? { cuotaFrase: cuotaProrrateada.frase } : {}),
     }));
   } catch (err) {
     // Stripe ya tiene un cobro con ESTA clave y otros parámetros: el mismo intento

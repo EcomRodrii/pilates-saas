@@ -424,3 +424,34 @@ export function idReciboCambioPlan(suscripcionActualId: string): string {
 export function idSuscripcionCambioPlan(suscripcionActualId: string): string {
   return `sus-camb-${suscripcionActualId}`;
 }
+
+// ── Compra online: lo que se entrega es lo que se prometió al abrir el cobro ─
+
+/** Marca de todo concepto de recibo que NO es el precio de la cuota: lo reconoce el aviso de «sube tu cuota». */
+export const MARCA_CONCEPTO_PARCIAL = 'parte proporcional';
+
+/**
+ * `fecha_fin` de una cuota comprada online. El servidor la fija AL ABRIR el cobro
+ * (`metadata.cicloFin`) y quien entrega (webhook, conciliador) NO recalcula con la
+ * fecha de hoy: un cobro abierto el 31 y pagado el 1 entregaría otro periodo del
+ * que se pagó. Si el pago llega cuando ese ciclo ya terminó, la cuota no puede
+ * nacer caducada (la alumna acabaría de pagar sin poder reservar): se le da hasta
+ * el fin del mes de hoy, alineada al día 1 para que el cron renueve el día 1.
+ * Una fecha ausente, mal formada o absurda (más de 62 días) cae a la de siempre.
+ */
+export function fechaFinDeEntregaOnline(e: {
+  cicloFinISO?: string | null;
+  hoyISO: string;
+  porDefecto: string | null;
+}): { fechaFin: string | null; origen: 'metadata' | 'medianoche' | 'defecto' } {
+  const c = e.cicloFinISO;
+  if (typeof c !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(c) || Number.isNaN(Date.parse(`${c}T00:00:00Z`))) {
+    return { fechaFin: e.porDefecto, origen: 'defecto' };
+  }
+  if (c > masDias(e.hoyISO, 62)) return { fechaFin: e.porDefecto, origen: 'defecto' };
+  if (c < e.hoyISO) {
+    const [y, m] = partes(e.hoyISO);
+    return { fechaFin: `${y}-${dosDigitos(m)}-${dosDigitos(diasDelMes(y, m))}`, origen: 'medianoche' };
+  }
+  return { fechaFin: c, origen: 'metadata' };
+}

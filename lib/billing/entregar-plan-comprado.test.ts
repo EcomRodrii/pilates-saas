@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { entregarPlanComprado as entregarConEfectos, idsDe, type CompraPlan } from './entregar-plan-comprado.ts';
 import type { DependenciasEfectos } from './confirmar-cobro.ts';
+import { hoyEnEstudio, masDias } from '../utils.ts';
 
 // El aviso y el email salen de módulos con alias `@/`, que este runner no
 // resuelve: se sustituyen por un registro. El sellado de factura sigue siendo
@@ -473,4 +474,51 @@ test('reintento real de Stripe (choque por clave primaria): sigue siendo idempot
   assert.equal(r.ok && r.socioId, idsDe(COMPRA.sessionId).socioId, 'la ficha del reintento es la nuestra');
   assert.equal(r.ok && r.fichaCreada, false, 'no se creó ficha: ya existía');
   assert.equal(insertado.socios.length, 0);
+});
+
+// ── Cobro proporcional online: se entrega lo que se prometió al abrir el cobro ──
+const MENSUAL = { ...PLAN, validez_dias: null, sesiones: null, tipo: 'MENSUAL' };
+
+test('cobro proporcional online: la cuota nace con el fin de ciclo PROMETIDO (metadata), no con el de hoy', async () => {
+  const hoy = hoyEnEstudio();
+  const prometido = masDias(hoy, 10);
+  const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', importeCobradoCentimos: 2742, cicloFinISO: prometido, cuotaTexto: 'parte proporcional de octubre: 17 de 31 días' });
+  assert.equal(r.ok, true);
+  assert.equal(insertado.suscripciones[0].fecha_fin, prometido);
+  // El recibo lleva lo COBRADO y el porqué en el concepto.
+  assert.equal(insertado.recibos[0].importe, 27.42);
+  assert.match(String(insertado.recibos[0].concepto), /Alta web — .* · parte proporcional de octubre: 17 de 31 días/);
+});
+
+test('cobro abierto antes de medianoche y pagado después: no nace caducada, llega a fin del mes de hoy', async () => {
+  const hoy = hoyEnEstudio();
+  const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -1) });
+  assert.equal(r.ok, true);
+  const fin = insertado.suscripciones[0].fecha_fin as string;
+  assert.ok(fin >= hoy, 'no puede nacer vencida');
+  assert.equal(masDias(fin, 1).slice(8), '01', 'acaba en fin de mes: el cron la renueva el día 1');
+});
+
+test('un ciclo prometido mal formado, absurdo o en un plan que no es cuota se ignora', async () => {
+  const hoy = hoyEnEstudio();
+  const base = fakeAdmin({ plan: MENSUAL });
+  await entregarPlanComprado(base.admin, { ...COMPRA, socioId: 'soc-1' });
+  const deSiempre = base.insertado.suscripciones[0].fecha_fin;
+  for (const raro of ['mañana', '2026-13-45', masDias(hoy, 400), '']) {
+    const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
+    await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: raro });
+    assert.equal(insertado.suscripciones[0].fecha_fin, deSiempre, `«${raro}» tenía que ignorarse`);
+  }
+  const bono = fakeAdmin({ plan: PLAN });
+  await entregarPlanComprado(bono.admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, 3) });
+  assert.notEqual(bono.insertado.suscripciones[0].fecha_fin, masDias(hoy, 3), 'un bono no toma el ciclo de una cuota');
+});
+
+test('el reintento del webhook con el mismo ciclo prometido no duplica ni cambia nada', async () => {
+  const prometido = masDias(hoyEnEstudio(), 10);
+  const { admin } = fakeAdmin({ plan: MENSUAL, reciboYaExistia: true });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: prometido });
+  assert.equal(r.ok, true);
 });

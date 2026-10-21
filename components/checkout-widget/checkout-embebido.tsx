@@ -38,7 +38,7 @@ function origenDelPago(origenTentare: string | undefined): string {
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
-  onProcesando, importeTotal, textosLegales, origenTentare, customerSessionClientSecret,
+  onProcesando, importeTotal, cuotaFrase, textosLegales, origenTentare, customerSessionClientSecret,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -148,6 +148,11 @@ export function CheckoutEmbebido({
    * garantizar que coincidan. Opcional: sin pasarlo, se comporta como siempre.
    */
   importeTotal?: number;
+  /**
+   * Cobro proporcional del primer mes: qué se paga hoy, por qué (días) y cuándo es el siguiente cobro,
+   * dicho por el SERVIDOR con el mismo cálculo con el que creó el cobro. Va ANTES de pagar. Opcional.
+   */
+  cuotaFrase?: string | null;
   /**
    * P16 (6-oct-2026): la sesión de cliente de Stripe que deja enseñar las tarjetas que la alumna aceptó guardar
    * («Guárdala para la próxima», que Stripe pinta desmarcada). Solo la da el servidor a la app de la alumna con su
@@ -349,6 +354,7 @@ export function CheckoutEmbebido({
           <p style={{ fontSize: 12, color: t.muted }}>Total</p>
           <p style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>{euros(importeTotal ?? plan.precio)}</p>
         </div>
+        {cuotaFrase && <p data-testid="cuota-frase" style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{cuotaFrase}</p>}
       </div>
       <Elements
         // Sin letra todavía, sin Stripe: ver `fuenteCheckout`. Pasar de `null`

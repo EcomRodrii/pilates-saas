@@ -1,4 +1,5 @@
 import 'server-only';
+import { normalizarDiasMinimos } from '@/lib/billing/prorrateo';
 import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/renovacion-sin-tarjeta';
 import { cobrosDeRecibosAlumna, leTocaPagarlaAElla, type FilaReciboAlumna } from '@/lib/billing/cobro-recibo-alumna';
 import { contextoCobroAlumna, type EstudioCobroAlumna } from '@/lib/billing/cobro-recibo-alumna-servidor';
@@ -400,6 +401,11 @@ function studioPublico(r: RowStudios) {
     // con `fotoUrl` aquí abajo. Las REDES no viajan por aquí: llegan por
     // `camposTema.redesSociales`, que sale del tema publicado.
     sitioWeb: r.sitio_web ?? null,
+    // Cobro proporcional del primer mes (opción del estudio): la alumna ve ANTES de pagar el importe
+    // exacto y por qué. Lista blanca: sin estas dos líneas la pantalla no lo sabría. El importe que se
+    // cobra lo calcula el servidor; esto solo alimenta lo que se enseña.
+    cobroProporcionalAltaActivo: (r as { cobro_proporcional_alta_activo?: boolean | null }).cobro_proporcional_alta_activo === true,
+    cobroProporcionalDiasMinimos: normalizarDiasMinimos((r as { cobro_proporcional_dias_minimos?: number | null }).cobro_proporcional_dias_minimos),
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,

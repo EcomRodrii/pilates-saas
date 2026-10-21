@@ -1012,6 +1012,9 @@ async function entregar(
     // P-1 (auditoría 26ª pasada): ya decidido al crear el checkout, aquí solo
     // se lee para registrarla — mismo criterio que codigoDescuentoId abajo.
     matriculaCobradaCentimos: Number(sesion?.metadata?.matriculaCentimos ?? pi?.metadata?.matriculaCentimos ?? 0) || 0,
+    // Cobro proporcional: se reconstruye lo prometido al abrir el cobro, sin recalcular.
+    cicloFinISO: sesion?.metadata?.cicloFin ?? pi?.metadata?.cicloFin ?? null,
+    cuotaTexto: sesion?.metadata?.cuotaTexto ?? pi?.metadata?.cuotaTexto ?? null,
   });
 
   if (!entrega.ok) {

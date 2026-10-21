@@ -21,7 +21,7 @@ import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
 import { primerDiaDeCobro, renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
-import { PREFIJO_RECIBO_PRORRATEO, PREFIJO_RECIBO_CAMBIO_PLAN } from '@/lib/billing/prorrateo';
+import { PREFIJO_RECIBO_PRORRATEO, PREFIJO_RECIBO_CAMBIO_PLAN, MARCA_CONCEPTO_PARCIAL } from '@/lib/billing/prorrateo';
 import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
 
 export const renovacionesDispatcher = inngest.createFunction(
@@ -402,6 +402,8 @@ async function avisarSubidaPrecioRenovacion(studioId: string, nowISO: string): P
       .eq('studio_id', studioId).eq('suscripcion_id', sus.id as string).eq('estado', 'COBRADO')
       .not('id', 'like', `${PREFIJO_RECIBO_PRORRATEO}%`)
       .not('id', 'like', `${PREFIJO_RECIBO_CAMBIO_PLAN}%`)
+      // El alta online no lleva el motivo en el id (`rec-web-…`): lo lleva el concepto.
+      .not('concepto', 'ilike', `%${MARCA_CONCEPTO_PARCIAL}%`)
       .order('fecha_cobro', { ascending: false }).limit(1).maybeSingle();
     if (cobroErr) throw new Error(cobroErr.message);
     if (!ultimoCobro) continue;

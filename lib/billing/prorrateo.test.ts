@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   repartoProporcional, prorrateoDeAlta, planSeProrratea, cicloYCobroDeAlta, conceptoAltaProrrateada,
   diferenciaCambioPlan, idReciboCambioPlan, idSuscripcionCambioPlan, esReciboParcialDeCuota,
-  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes, normalizarDiasMinimos, periodoDeCuotaAnterior,
+  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes, normalizarDiasMinimos, periodoDeCuotaAnterior, fechaFinDeEntregaOnline, MARCA_CONCEPTO_PARCIAL,
 } from './prorrateo.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import { proximoFinAlineadoDia1, cicloInicialDe } from '../bono-logic.ts';
@@ -306,4 +306,21 @@ test('lo que NO cuenta como periodo ya cobrado: otra clienta, ciclo vencido, anu
 test('un alta de verdad (sin cuota anterior) sigue prorrateando', () => {
   const alta = cicloYCobroDeAlta(mensual(50), '2026-10-15T10:00:00Z', '2026-10-15', true, 3, null);
   assert.equal(alta.importe, 27.42);
+});
+
+test('fecha de entrega online: la prometida manda; vencida → fin del mes de hoy; rara → la de siempre', () => {
+  const porDefecto = '2026-11-14';
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-10-31', porDefecto }), { fechaFin: '2026-10-31', origen: 'metadata' });
+  // Abierto el 31, pagado el 1: nace con fin de noviembre (alineada), no caducada.
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-01', porDefecto }), { fechaFin: '2026-11-30', origen: 'medianoche' });
+  assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-12-30', hoyISO: '2026-11-01', porDefecto }).origen, 'metadata');
+  for (const raro of [null, undefined, '', 'ayer', '2026-02-30x', '2027-12-31']) {
+    assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: raro, hoyISO: '2026-11-01', porDefecto }), { fechaFin: porDefecto, origen: 'defecto' });
+  }
+});
+
+test('el concepto de un recibo proporcional lleva la marca que el aviso de «sube tu cuota» ignora', () => {
+  const r = cicloYCobroDeAlta(mensual(50), '2026-10-15T10:00:00Z', '2026-10-15', true);
+  assert.ok(conceptoAltaProrrateada('Alta', 'Reformer', r.prorrateo).includes(MARCA_CONCEPTO_PARCIAL));
+  assert.ok(r.prorrateo!.texto.includes(MARCA_CONCEPTO_PARCIAL));
 });

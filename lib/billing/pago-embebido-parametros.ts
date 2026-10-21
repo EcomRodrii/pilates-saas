@@ -58,6 +58,9 @@ export interface DatosCompraEmbebida {
    * marcar el pago PAGADO y decidir reserva o compensación.
    */
   pagoClaseId?: string | null;
+  /** Cobro proporcional online: fin del ciclo prometido y su porqué. ESTABLES (deciden el cargo y lo que se entrega). */
+  cicloFin?: string | null;
+  cuotaTexto?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,6 +99,8 @@ export function metadataEstableEmbebida(d: DatosCompraEmbebida): Record<string, 
   if (d.codigoDescuentoId) metadata.codigoDescuentoId = d.codigoDescuentoId;
   if (d.matriculaCentimos > 0) metadata.matriculaCentimos = String(d.matriculaCentimos);
   if (d.pagoClaseId) metadata.pagoClaseId = d.pagoClaseId;
+  if (d.cicloFin) metadata.cicloFin = d.cicloFin;
+  if (d.cuotaTexto) metadata.cuotaTexto = d.cuotaTexto;
   return metadata;
 }
 
