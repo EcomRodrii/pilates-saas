@@ -3968,6 +3968,10 @@ export interface RowAltasEstudio {
   version: string | null;
   // migr 20261021020248.
   llegada: string | null;
+  // migr 20261021102626.
+  condiciones_version: string | null;
+  // migr 20261021102626.
+  condiciones_aceptadas_en: string | null;
 }
 
 export interface RowMovimientosDerecho {
@@ -11332,6 +11336,8 @@ export type AltasEstudioInsert = {
   actualizado_en?: string | null;
   version?: string | null | null;
   llegada?: string | null | null;
+  condiciones_version?: string | null | null;
+  condiciones_aceptadas_en?: string | null | null;
 }
 
 export type AltasEstudioUpdate = {
@@ -11351,6 +11357,8 @@ export type AltasEstudioUpdate = {
   actualizado_en?: string | null;
   version?: string | null | null;
   llegada?: string | null | null;
+  condiciones_version?: string | null | null;
+  condiciones_aceptadas_en?: string | null | null;
 }
 
 export type MovimientosDerechoInsert = {

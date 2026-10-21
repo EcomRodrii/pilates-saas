@@ -127,6 +127,11 @@ const SPECS_WEBKIT = [
   // plataforma y no nos enteramos. Además llega casi siempre desde el móvil
   // (un enlace de Instagram, un WhatsApp), o sea Safari de iPhone.
   '**/alta-estudio.spec.ts',
+  // El alta NUEVA (registro en una pantalla, tras ALTA_NUEVA_REGISTRO): mismo
+  // criterio que la de arriba, y además valida mientras se escribe, sugiere el
+  // dominio y comprueba el código sola con la sexta cifra, que es justo lo que
+  // un teclado de iPhone hace distinto. Coste: sumar por test en `timings-*` (PR).
+  '**/alta-nueva-registro.spec.ts',
   // La isla de la landing (la barra flotante que se encoge al bajar y se
   // alarga al subir): pública, y quien llega desde Google la mira casi siempre
   // en un iPhone. Lo que cambia de un motor a otro es justo lo que prueba —el
@@ -272,6 +277,10 @@ export default defineConfig({
       // 22-sep (viene encendido de serie también en producción), se deja porque
       // no hace daño y documenta la intención de esas specs sin depender del default.
       E2E_PLAZA_FIJA_APP: '1',
+      // El alta nueva solo con `/crear-estudio?alta=nueva` (lo lee el SERVIDOR,
+      // app/crear-estudio/page.tsx): sin el parámetro, el alta de siempre, que es
+      // la que prueban alta-estudio y alta-otp. Lo prueba alta-nueva-registro.
+      ALTA_NUEVA_REGISTRO: process.env.ALTA_NUEVA_REGISTRO ?? 'prueba',
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',

@@ -33,6 +33,8 @@ export const LEGAL = {
   dominio: 'www.tentare.app',
   url: URL_CANONICA,
   // Fecha de última revisión del contenido legal (no la de render).
+  // ⚠️ Si cambia, cambia también `VERSION_TEXTOS_LEGALES` (abajo): es lo que se
+  // guarda como aceptado en cada alta. Lo vigila lib/legal-info.test.ts.
   actualizado: '6 de octubre de 2026',
 
   // ── Identificación del titular (LSSI-CE art. 10) ────────────────────────────
@@ -45,6 +47,20 @@ export const LEGAL = {
   email: 'hola@tentare.app',
   emailPrivacidad: 'privacidad@tentare.app',
 } as const;
+
+// La versión de las condiciones de uso y la política de privacidad que acepta
+// quien crea su estudio en el alta nueva (decisión del fundador del 21-oct-2026:
+// se guarda la fecha y la versión aceptadas, en `altas_estudio.condiciones_version`
+// y `condiciones_aceptadas_en`). Es la fecha de «Última actualización» que
+// enseñan /terminos y /privacidad (`LEGAL.actualizado`, la pinta su layout), en
+// ISO (AAAA-MM-DD) porque la base de datos la guarda con un formato fijo y
+// descarta cualquier otra cosa.
+//
+// Es un literal y no se calcula a partir de `actualizado` a propósito: cambiar
+// el texto legal es una decisión, y la versión aceptada tiene que cambiar con
+// ella, no por un retoque de redacción de la fecha. Si las dos dejan de decir el
+// mismo día, lib/legal-info.test.ts falla.
+export const VERSION_TEXTOS_LEGALES = '2026-10-06';
 
 // Encargados/subencargados del tratamiento realmente usados por el producto
 // (RGPD art. 28). Se listan en la Política de Privacidad. Mantener en sync con

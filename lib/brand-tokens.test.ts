@@ -232,9 +232,18 @@ test('fase 2: la tipografía de la marca solo vive en el panel', () => {
   const conAmbito = ficherosDe('app', 'components', 'lib').filter(f => f.endsWith('.tsx') && /\bmarca-panel\b/.test(sinComentariosTs(leer(f))));
   // El layout la pone en el envoltorio y `MarcaEnPortales` en `body` mientras
   // el panel está montado (de red para lo que se portalee a `body`).
-  assert.deepEqual(conAmbito.sort(), ['app/(dashboard)/layout.tsx', 'components/layout/marca-en-portales.tsx']);
+  // EXCEPCIÓN con motivo: el alta nueva (app/crear-estudio/page.tsx, solo cuando
+  // la sirve ALTA_NUEVA_REGISTRO) es la maqueta aprobada por el fundador el
+  // 21-oct-2026, dibujada con la marca, y es la puerta del panel. Lleva sus
+  // propias letras sin precargar (fuentes-alta-nueva.ts) para que el alta de
+  // siempre, que sigue en la misma ruta, no las descargue.
+  assert.deepEqual(conAmbito.sort(), ['app/(dashboard)/layout.tsx', 'app/crear-estudio/page.tsx', 'components/layout/marca-en-portales.tsx']);
   const cargan = ficherosDe('app', 'components', 'lib').filter(f => /_fuentes\/fuentes-panel['"]/.test(leer(f)));
   assert.deepEqual(cargan, ['app/(dashboard)/layout.tsx']);
+  const fuentesAlta = leer('app/crear-estudio/fuentes-alta-nueva.ts');
+  const familiasAlta = new Set([...fuentesAlta.matchAll(/prop: 'font-family', value: "'([^']+)'"/g)].map(m => m[1]));
+  assert.deepEqual([...familiasAlta].sort(), [primeraFamilia('--t-font-mono'), primeraFamilia('--t-font-sans')].sort());
+  assert.equal((fuentesAlta.match(/preload: false/g) ?? []).length, 2, 'las letras del alta nueva no se precargan');
   const ambito = bloque(globalsCss, '.marca-panel');
   assert.equal(ambito.get('--fuente-sans'), 'var(--t-font-sans)');
   assert.equal(ambito.get('--fuente-mono'), 'var(--t-font-mono)');
