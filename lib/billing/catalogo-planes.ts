@@ -145,7 +145,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Cobros y pagos',
     filas: [
       { nombre: 'Cobro con tarjeta (Stripe)', detalle: 'El dinero va directo a tu cuenta. Tentare no se lleva comisión.', valor: TODOS },
-      { nombre: 'Domiciliación SEPA', valor: TODOS },
+      { nombre: 'Remesa SEPA para domiciliaciones', detalle: 'Tentare prepara el fichero; lo presentas tú en tu banco.', valor: TODOS },
       { nombre: 'Cobro guardado para renovaciones', valor: TODOS },
       { nombre: 'Recobro automático de impagos', valor: TODOS },
       { nombre: 'Devoluciones desde el panel', valor: TODOS },

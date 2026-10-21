@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs Eversports',
-    description: 'Precio por reservas, alta, facturación y funciones — comparados con lo que consta en la web pública de Eversports Manager.',
+    description: 'Precio por reservas, alta y funciones — comparados con lo que consta en la web pública de Eversports Manager.',
     url: urlDe(PATH),
   },
 };
@@ -28,7 +28,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['yes', 'Desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA, según reservas al mes'] },
   { feature: 'Cuota de alta', tentare: ['yes', 'Sin cuota de alta'], them: ['partial', 'Su página de precios la enseña tachada (99 €), aunque sus preguntas frecuentes aún la mencionan'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública; el plan anual se factura por año'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['yes', '«Gestión de sustituciones», según su web'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['yes', '«Gestión de sustituciones», según su web'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Gestión de salas y Spot Booking», según su web'] },
   // Ejes añadidos el 29-sep-2026 (eversportsmanager.com/es, /es-ES/precios y
   // /es-ES/funciones-de-gestion, revisadas esa fecha).
@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Eversports a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Eversports (y de Momence, bsport, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Eversports o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
   },
 ];
 
@@ -78,14 +78,14 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>En Tentare cada tipo de clase tiene sus propias reglas: antelación para reservar y cancelar, si exige bono, si admite lista de espera. El reformer y el mat no tienen por qué compartir política, y lo que no cambias lo hereda del estudio. <Link href="/funcionalidades/reservas-online">Así funcionan las reservas</Link>.</p>
-        <p>Y cuando una instructora no puede dar su clase, Tentare propone quién la cubre, la contacta y avisa a las alumnas. En todos los planes puede hacerlo sola, sin esperar a que lo apruebes.</p>
+        <p>Y cuando una instructora no puede dar su clase, Tentare propone quién la cubre, la contacta y avisa a las alumnas. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.</p>
       </>
     ),
   },
   {
     titulo: 'Cómo cambiarte de Eversports a Tentare',
     cuerpo: (
-      <p>El importador reconoce las exportaciones de Eversports: te enseña un acta con las clientas, bonos, clases y reservas que va a traer, y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador lee los archivos CSV o Excel que exportas de Eversports: te enseña un acta con las clientas, bonos, clases y reservas que va a traer, y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];

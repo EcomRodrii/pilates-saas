@@ -26,12 +26,12 @@ export const metadata: Metadata = {
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras: pide hablar con ellos'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['yes', '«Automate instructor substitutions», según su web'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['yes', '«Automate instructor substitutions», según su web'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Spot scheduling», según su web'] },
   { feature: 'Marketplace de consumidores', tentare: ['yes', 'Sin marketplace'], them: ['yes', 'Sin marketplace: «strictly a booking app», según su web'] },
   { feature: 'Reglas de cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', 'Política de cancelación con «override» por plantilla de clase, según su centro de ayuda'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['yes', '«No se requiere tarjeta de crédito» en su alta, según su web'] },
-  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'No consta en su web pública que el aforo se fije por sala y no por clase'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo por clase, con la capacidad de la sala como referencia; una avería baja el aforo de las clases de esa sala'], them: ['partial', 'No consta en su web pública que el aforo se fije por sala y no por clase'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, sin mínimo de sedes'], them: ['partial', 'Su «panel corporativo» es solo para franquicias: exige un documento FDD firmado y mínimo 6 sedes, según su centro de ayuda'] },
 ];
 
@@ -45,7 +45,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Momence a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Momence (y de bsport, Eversports, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Momence o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -82,7 +82,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de Momence a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de Momence: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador de Tentare lee los archivos CSV o Excel que exportas de Momence: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];

@@ -208,7 +208,7 @@ const articulo: Articulo = {
             {
               titulo: 'Pacta las sustituciones por escrito',
               texto:
-                'Quién cubre una baja, con cuánto aviso y a qué tarifa. Con Tentare, en todos los planes lanzas la búsqueda de sustituta y das tú el visto bueno, o dejas que se resuelva sola; y si nadie acepta te avisa en vez de cancelar la clase. Más en [sustituciones](/funcionalidades/sustituciones) y en [gestión de instructoras](/funcionalidades/gestion-de-instructoras).',
+                'Quién cubre una baja, con cuánto aviso y a qué tarifa. Con Tentare lanzas la búsqueda de sustituta y das tú el visto bueno o, en el plan gratis, Estudio y Cadena (o con un complemento de 6 €/mes), dejas que se resuelva sola; y si nadie acepta te avisa en vez de cancelar la clase. Más en [sustituciones](/funcionalidades/sustituciones) y en [gestión de instructoras](/funcionalidades/gestion-de-instructoras).',
             },
           ],
         },

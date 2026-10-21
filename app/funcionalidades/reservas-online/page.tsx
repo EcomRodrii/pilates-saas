@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Cómo pagan mis alumnas al reservar?',
-    a: 'Con tarjeta a través de tu cuenta de Stripe. Si a una alumna le falta bono, lo compra en la propia página y reserva sin salir; Bizum también vale para bonos y pagos sueltos. Las cuotas mensuales se cobran con tarjeta o domiciliación SEPA, y el efectivo se registra como cobro de mostrador.',
+    a: 'Con tarjeta a través de tu cuenta de Stripe. Si a una alumna le falta bono, lo compra en la propia página y reserva sin salir; Bizum también vale para bonos y pagos sueltos. Las cuotas mensuales se cobran con la tarjeta guardada o por domiciliación, con la remesa SEPA que presentas en tu banco, y el efectivo se registra como cobro de mostrador.',
   },
   {
     q: '¿Cuánto cuesta un software de reservas y pagos para un estudio de Pilates?',
@@ -92,7 +92,7 @@ export default function ReservasPage() {
           columnas={2}
           items={[
             { titulo: 'Lista, semana o día', body: 'Tres vistas de la misma agenda. En el móvil casi todo el mundo usa la de semana.' },
-            { titulo: 'Filtros que se usan', body: 'Por tipo de clase, instructora, nivel y franja horaria. Buscar «reformer de tarde con Marta» no debería ser scroll.' },
+            { titulo: 'Filtros que se usan', body: 'Por tipo de clase e instructora.' },
             { titulo: 'Tu marca, no la nuestra', body: 'Colores, tipografía, logo y hasta el icono del navegador son de tu estudio.' },
             { titulo: 'Compra si le falta bono', body: 'Si no tiene sesiones, puede comprar ahí mismo y reservar sin salir.' },
           ]}
@@ -115,10 +115,10 @@ export default function ReservasPage() {
           o cuota— sin pasar por WhatsApp, y que tú veas quién ha reservado, cuántas plazas quedan y qué se ha cobrado.
         </Entradilla>
         <p>
-          En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro va con tarjeta
-          o domiciliación SEPA a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare
-          no añade comisión; lo único aparte es la de Stripe. Las facturas se pueden emitir automáticamente, con numeración
-          legal. Gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia: los{' '}
+          En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro con tarjeta
+          va a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare no añade
+          comisión; lo único aparte es la de Stripe. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para tu
+          banco. Las facturas se emiten automáticamente, con numeración legal. Gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia: los{' '}
           <Link href="/precios">planes y límites</Link> están en la página de precios.
         </p>
         <p>

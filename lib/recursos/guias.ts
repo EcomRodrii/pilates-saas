@@ -120,7 +120,7 @@ export const GUIAS: Guia[] = [
     // Sin «| Tentare»: con la marca pasaría de 64 caracteres y el buscador lo cortaría.
     tituloSeo: 'Veri*Factu para estudios de Pilates: qué cambia en 2026',
     descripcionSeo: 'Veri*Factu en tu estudio de Pilates: si es una sociedad, el programa debe estar adaptado antes del 1 de enero de 2027; si eres autónoma, antes del 1 de julio.',
-    resumen: 'Qué cambia con Veri*factu, cuándo es obligatorio y cómo dejarlo automatizado desde el primer cobro.',
+    resumen: 'Qué cambia con Veri*factu, cuándo es obligatorio y qué tiene que hacer tu programa de facturación.',
     categoria: 'espana',
     seccion: 'España y fiscalidad',
     lectura: 7,
@@ -134,8 +134,8 @@ export const GUIAS: Guia[] = [
     slug: 'estudios-pilates-de-exito',
     titulo: 'Qué puedes aprender de los estudios de pilates que más crecen',
     tituloSeo: 'Estudios de pilates de éxito: 4 lecciones | Tentare',
-    descripcionSeo: 'Datos reales de Club Pilates, SLT, BASI y el mercado español: qué hacen distinto los estudios de pilates que más crecen y qué puede copiar un estudio pequeño.',
-    resumen: 'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
+    descripcionSeo: 'Datos reales de Club Pilates, SLT y el mercado español: qué hacen distinto los estudios de pilates que más crecen y qué puede copiar un estudio pequeño.',
+    resumen: 'Datos reales de Club Pilates, SLT y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
     categoria: 'rentabilidad',
     seccion: 'Rentabilidad',
     lectura: 9,
@@ -215,10 +215,10 @@ export const TARJETAS_SIN_GUIA: TarjetaSinGuia[] = [
     // Es una comparativa (/comparativa), no una guía: sin portada y con su meta propia.
     clave: 'tentare-vs-glofox',
     titulo: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
-    resumen: 'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — sin folletos de marketing.',
+    resumen: 'Precio publicado (en dólares), permanencia, gestión por reformer individual y sustitución de instructoras — sin folletos de marketing.',
     categoria: 'software',
     href: '/comparativa/tentare-vs-glofox',
-    meta: '11 min · ago 2026',
+    meta: 'Comparativa · oct 2026',
   },
 ];
 

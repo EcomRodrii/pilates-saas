@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs TIMP',
-    description: 'Precio, compromiso mínimo, facturación y comisión de TIMPY — comparados con lo que consta en la web pública de TIMP.',
+    description: 'Precio, compromiso mínimo y comisión de TIMPY — comparados con lo que consta en la web pública de TIMP.',
     url: urlDe(PATH),
   },
 };
@@ -37,7 +37,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Compromiso mínimo', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', '«La contratación mínima en la mayoría de planes es de 3 meses»'] },
   { feature: 'Comisión por captar clientas', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', 'Con TIMPY, «comisión por la gestión del cobro»; el porcentaje no es público'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'Progressive Web App con tu logo, nombre y colores'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'El plan Cadena cubre varios centros bajo la misma suscripción'], them: ['partial', 'Según su FAQ, un único panel gestiona varias sedes; pero sus precios se cotizan «por centro»'] },
@@ -57,7 +57,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de TIMP a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Timp (y de bsport, Momence, Eversports, Mindbody y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Timp o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -94,7 +94,7 @@ const ANALISIS: SeccionAnalisis[] = [
   {
     titulo: 'Cómo cambiarte de TIMP a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de TIMP: clientas, bonos, clases y reservas, con un acta para revisarlo y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>. Y si aún estás comparando, tenemos una guía con <Link href="/recursos/alternativas-a-timp">las alternativas a TIMP</Link>.</p>
+      <p>El importador de Tentare lee los archivos CSV o Excel que exportas de TIMP: clientas, bonos, clases y reservas, con un acta para revisarlo y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>. Y si aún estás comparando, tenemos una guía con <Link href="/recursos/alternativas-a-timp">las alternativas a TIMP</Link>.</p>
     ),
   },
 ];

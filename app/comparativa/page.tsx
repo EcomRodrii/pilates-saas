@@ -112,7 +112,7 @@ const ROWS: {
     timp: ['partial', 'Mínimo de 3 meses en la mayoría de planes'],
     lorari: ['yes', 'Cancela cuando quieras'],
     bonsai: ['partial', 'Mensual sin compromiso; anual por adelantado'],
-    glofox: ['partial', 'Anual o trimestral habitual (según nuestra guía)'],
+    glofox: ['partial', 'No consta'],
     viday: ['yes', 'Sí'],
     gesyoga: ['partial', 'No consta'],
     bookyway: ['yes', 'Sin suscripción'],
@@ -121,7 +121,7 @@ const ROWS: {
   },
   {
     feature: 'Facturación España (Veri*factu)',
-    tentare: ['partial', 'Sí; envío a la AEAT en desarrollo'],
+    tentare: ['partial', 'Facturas numeradas; Veri*Factu, todavía no activo'],
     bsport: ['yes', 'Sí, activándolo con su gestor de cuenta'],
     momence: ['partial', 'No consta'],
     eversports: ['yes', 'Sí, por 10 €/mes más por centro'],
@@ -138,7 +138,7 @@ const ROWS: {
   },
   {
     feature: 'Datos alojados en la UE',
-    tentare: ['yes', 'Sí'],
+    tentare: ['yes', 'Base de datos en la UE; algunos proveedores, fuera'],
     bsport: ['partial', 'No consta'],
     momence: ['partial', 'No consta'],
     eversports: ['partial', 'No consta'],
@@ -172,7 +172,7 @@ const ROWS: {
   },
   {
     feature: 'Sustitución de instructoras',
-    tentare: ['yes', 'Con tu visto bueno; autónoma en todos los planes'],
+    tentare: ['yes', 'Con tu visto bueno; autónoma en gratis, Estudio y Cadena, o con complemento de 6 €/mes'],
     bsport: ['yes', 'Sustituciones automáticas'],
     momence: ['yes', 'Automatiza sustituciones'],
     eversports: ['yes', 'Gestión de sustituciones'],

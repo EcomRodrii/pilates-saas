@@ -123,7 +123,7 @@ test('CONTROL: una ruta inventada no existe, una verdadera sí', () => {
 });
 
 test('CONTROL: una frase que no está en la fuente se detecta', () => {
-  assert.deepEqual(frasesQueFaltan('app/funcionalidades/sustituciones/page.tsx', ['La baja se cubre sola']), []);
+  assert.deepEqual(frasesQueFaltan('app/funcionalidades/sustituciones/page.tsx', ['Tentare busca quién cubre la baja']), []);
   assert.deepEqual(frasesQueFaltan('app/funcionalidades/sustituciones/page.tsx', ['Garantizamos cobertura al cien por cien']), ['Garantizamos cobertura al cien por cien']);
 });
 

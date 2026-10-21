@@ -59,7 +59,7 @@ export function softwareApplicationLd() {
     featureList: [
       'Reservas online por clase y por reformer, con lista de espera',
       'App con el nombre, el logo y los colores del estudio',
-      'Bonos, cuotas mensuales y cobros con tarjeta o SEPA, con reintento de cobros',
+      'Bonos, cuotas mensuales y cobros con tarjeta con reintento, y remesa SEPA para el banco',
       'Facturas con numeración legal',
       'Calendario por salas',
       'Importación desde Excel y otros programas, con acta y botón de deshacer',

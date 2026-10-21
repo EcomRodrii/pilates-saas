@@ -21,8 +21,8 @@ import { AgendaDia, PanelCobros, PanelInformes } from '@/components/web/home/pie
 //
 // ⚠️ Cada afirmación sale de lo que ya dice el producto y sus páginas:
 // /funcionalidades/*, /precios y public/llms.txt. En particular, de la
-// facturación solo se promete la numeración legal y la huella encadenada; el
-// registro y el envío a la AEAT (Veri*Factu) van aparte y se activan por estudio.
+// facturación solo se promete la numeración legal: sin Veri*Factu la factura
+// sale sin huella ni QR, y Veri*Factu no está activo en ningún estudio (21-oct-2026).
 // Sin cifras de clientes ni testimonios: no los hay.
 
 const PATH = '/soluciones/programa-de-gestion-para-estudio-de-pilates';
@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: '¿Sirve para cobrar y facturar en España?',
-    a: 'Sí. Cobra con tarjeta o domiciliación SEPA a través de tu cuenta de Stripe, sin comisión de Tentare, y reintenta solo los cobros que fallan. Las facturas salen con numeración legal y huella encadenada. El registro y el envío a la AEAT (Veri*Factu) se configuran aparte, por estudio: en la página de facturación está el detalle de en qué punto está.',
+    a: 'Sí. Cobra con tarjeta a través de tu cuenta de Stripe, sin comisión de Tentare, y reintenta solo los cobros con tarjeta que fallan; si cobras por domiciliación, te prepara la remesa SEPA para que la presentes en tu banco. Las facturas salen con numeración legal correlativa. Veri*Factu (la huella, el QR y el envío a la AEAT) todavía no está activo en ningún estudio: en la página de facturación está el detalle.',
   },
   {
     q: '¿Mis alumnas tienen que descargarse una app?',
@@ -61,7 +61,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos desde otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel; te enseña lo que va a traer antes de guardarlo y puedes deshacerlo con un botón. La migración no se cobra aparte.',
+    a: 'Sí. El importador lee archivos CSV o Excel de cualquier programa; te enseña lo que va a traer antes de guardarlo y puedes deshacerlo con un botón. La migración no se cobra aparte.',
   },
   {
     q: '¿Sirve también para un estudio de yoga o uno que combine las dos cosas?',
@@ -95,11 +95,11 @@ export default function ProgramaDeGestionPage() {
         pregunta="¿Qué debe hacer un programa de gestión para un estudio de Pilates en España?"
         datos={[
           { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 250 reservas al mes' },
-          { cifra: 'UE', texto: 'Datos alojados en la Unión Europea, con soporte en español' },
+          { cifra: 'UE', texto: 'Base de datos en la Unión Europea, con soporte en español' },
         ]}
       >
         Cuatro cosas en un mismo sitio: el calendario con sus salas y su aforo, las reservas de las alumnas con lista de
-        espera y bonos, los cobros con tarjeta o domiciliación SEPA con facturas de numeración legal, y el equipo de
+        espera y bonos, los cobros con tarjeta o por remesa SEPA con facturas de numeración legal, y el equipo de
         instructoras con sus sustituciones. Un programa que solo reserva te deja el resto en hojas de cálculo; uno que
         sirve para cualquier negocio de citas no entiende un bono de sesiones ni un reformer. Tentare está hecho para
         estudios de Pilates y yoga en España, gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia.
@@ -110,7 +110,7 @@ export default function ProgramaDeGestionPage() {
         items={[
           { hora: 'Lunes · 7:30', titulo: 'Las alumnas reservan solas', texto: 'Desde el móvil, con el enlace de tu estudio. El aforo de la sala se respeta solo y la clase llena abre una lista de espera.' },
           { hora: 'Miércoles · 9:00', titulo: 'Una instructora no puede venir', texto: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio.' },
-          { hora: 'Día 1 · 8:00', titulo: 'Se cobra la cuota del mes', texto: 'Se cobra con la tarjeta guardada o por domiciliación SEPA, y si un cobro falla se reintenta solo en vez de dejarte una lista de impagos.' },
+          { hora: 'Día 1 · 8:00', titulo: 'Se cobra la cuota del mes', texto: 'Se cobra con la tarjeta guardada, y si un cobro falla se reintenta solo en vez de dejarte una lista de impagos. Si cobras por domiciliación, tienes lista la remesa SEPA para tu banco.' },
         ]}
       />
 
@@ -135,12 +135,12 @@ export default function ProgramaDeGestionPage() {
         pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
         puntos={[
           'Bonos de sesiones con caducidad y cuotas mensuales con renovación automática',
-          'Cobro con tarjeta o domiciliación SEPA, directo a tu cuenta de Stripe',
+          'Cobro con tarjeta, directo a tu cuenta de Stripe, y remesa SEPA para tu banco',
           'Tentare no añade comisión sobre lo que cobras',
         ]}
         enlace={{ href: '/funcionalidades/cobros-recurrentes', texto: 'Cobros automáticos y SEPA' }}
       >
-        <p>Los <Link href="/funcionalidades/bonos-y-membresias">bonos y las cuotas</Link> pueden ser de un tipo de clase concreto, así que el reformer y el mat tienen cada uno su precio. Las facturas se pueden emitir automáticamente, con <Link href="/funcionalidades/facturacion">numeración legal y huella encadenada</Link>.</p>
+        <p>Los <Link href="/funcionalidades/bonos-y-membresias">bonos y las cuotas</Link> pueden ser de un tipo de clase concreto, así que el reformer y el mat tienen cada uno su precio. Las facturas se emiten automáticamente, con <Link href="/funcionalidades/facturacion">numeración legal correlativa</Link>.</p>
       </FilaProducto>
 
       <FilaProducto
@@ -150,7 +150,7 @@ export default function ProgramaDeGestionPage() {
         puntos={[
           'Disponibilidad, vacaciones y tarifa por hora de cada instructora',
           'Ocupación por tipo de clase y retención de tus alumnas',
-          'Sustituciones con tu visto bueno, o solas en todos los planes',
+          'Sustituciones con tu visto bueno, o solas en el plan gratis, Estudio y Cadena',
         ]}
         enlace={{ href: '/funcionalidades/gestion-de-instructoras', texto: 'Gestión de instructoras' }}
       >
@@ -164,8 +164,8 @@ export default function ProgramaDeGestionPage() {
         filas={[
           ['Aforo por sala o por reformer', 'Un estudio vende plazas, no citas sueltas', 'Aforo propio por sala y plazas por reformer'],
           ['Bonos, cuotas y lista de espera', 'Es como se vende y se llena una clase', 'Los tres, con reglas por tipo de clase'],
-          ['Cobro con tarjeta y SEPA', 'La mayoría de cuotas se cobran así en España', 'Ambos, sin comisión de Tentare'],
-          ['Facturas con numeración legal', 'Se exige a quien emite facturas', 'Numeración legal y huella encadenada'],
+          ['Cobro con tarjeta y SEPA', 'La mayoría de cuotas se cobran así en España', 'Tarjeta con Stripe y remesa SEPA para tu banco, sin comisión de Tentare'],
+          ['Facturas con numeración legal', 'Se exige a quien emite facturas', 'Numeración legal correlativa; Veri*Factu, todavía no activo'],
           ['Sustitución de instructoras', 'Una baja no debería cancelar la clase', 'Propone candidatas, contacta y avisa'],
           ['Precio público y permanencia', 'Para comparar sin pedir demo', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA. Sin permanencia'],
           ['Importar tus datos', 'Cambiar de programa no debe costar el histórico', 'Importador con acta y botón de deshacer'],

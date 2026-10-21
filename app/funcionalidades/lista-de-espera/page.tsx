@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Cómo se entera la alumna de que tiene plaza?',
-    a: 'Por aviso en la app y notificación al móvil, que es lo que llega a tiempo. Un email para algo que caduca en dos horas no sirve.',
+    a: 'Por aviso en la app, notificación al móvil y email.',
   },
 ];
 

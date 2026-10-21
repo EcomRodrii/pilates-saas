@@ -30,7 +30,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', '«Tu app con tu logo», según su web'] },
   // Revisado el 7-oct-2026 en lorari.com/pricing: la lista de espera va en el plan Pro.
   { feature: 'Lista de espera automática', tentare: ['yes', 'En todos los planes: la plaza que se libera pasa sola a la siguiente'], them: ['partial', 'Lista de espera por WhatsApp, desde el plan Pro'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo (y su mapa de puestos, si lo usas), no un número global por clase'], them: ['partial', 'Menciona «control de capacidad y espacios» sin detallar si el aforo se fija por sala'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['partial', 'Habla de reprogramar «según las políticas del centro», sin detallar si son distintas por tipo de clase'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['no', '14 días, pero pide tarjeta al empezar, según sus preguntas frecuentes'] },
@@ -73,7 +73,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>La web de Lorari no menciona sustituciones de instructoras. En Tentare, cuando una instructora avisa de que no puede, el sistema busca quién la cubre según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. <Link href="/funcionalidades/sustituciones">Así funcionan las sustituciones</Link>.</p>
-        <p>Con los cobros pasa algo parecido: si una tarjeta falla, Tentare vuelve a intentarlo en tres momentos distintos y, si no lo consigue, te avisa. Y si prefieres la domiciliación, genera la remesa SEPA para tu banco. <Link href="/funcionalidades/cobros-recurrentes">Cobros automáticos</Link>.</p>
+        <p>Con los cobros pasa algo parecido: si una tarjeta falla, Tentare lo reintenta dos veces más, a los 3 y a los 7 días del vencimiento, y, si no lo consigue, te avisa. Y si prefieres la domiciliación, genera la remesa SEPA para tu banco. <Link href="/funcionalidades/cobros-recurrentes">Cobros automáticos</Link>.</p>
       </>
     ),
   },

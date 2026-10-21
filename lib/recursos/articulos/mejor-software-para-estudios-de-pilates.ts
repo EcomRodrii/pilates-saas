@@ -130,10 +130,10 @@ const articulo: Articulo = {
           t: 'tabla',
           cabecera: ['Programa', 'Precio de entrada publicado', 'Permanencia', 'Facturación Veri*Factu', 'Sustitución de instructoras'],
           filas: [
-            ['Tentare', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal y huella encadenada; firma y envío a la AEAT en desarrollo', 'Asistidas y autónomas en todos los planes'],
-            ['bsport', 'No publica precios: presupuesto a medida', 'No consta', 'No consta', 'Automática, en su plan Elevate'],
+            ['Tentare', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal correlativa; Veri*Factu (huella y envío a la AEAT), todavía no activo', 'Asistidas en todos los planes; autónomas en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'],
+            ['bsport', 'No publica precios: presupuesto a medida', 'No consta', 'Con Fiskaly, activándolo con su gestor de cuenta', 'Automática, en su plan Elevate'],
             ['Momence', 'No publica precios: «Let\'s talk pricing»', 'No consta', 'No consta', '«automate instructor substitutions»'],
-            ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; 99 € de configuración', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
+            ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; su web enseña tachada una configuración de 99 €', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
             ['Mindbody', 'Desde 99 €/mes por ubicación', 'Depende del plan; la baja puede requerir preaviso', 'No consta', 'No consta'],
             ['TIMP', '50 €/mes por centro (1 profesional); no consta si incluye IVA', 'Mínimo de 3 meses en la mayoría de planes', 'Facturación electrónica con Verifactu y TicketBAI', 'No consta'],
             ['Lorari', '16 €/mes + IVA mes a mes, 12 € pagando el año (hasta 50 alumnos activos)', '«Cancela cuando quieras»', 'No consta', 'No consta'],
@@ -211,9 +211,9 @@ const articulo: Articulo = {
           items: [
             'Tus alumnas reservan y cancelan solas desde el móvil e instalan la app en su pantalla de inicio, con el nombre, el icono, el logo y los colores de tu estudio, en todos los planes.',
             'Bonos, cuotas y clases sueltas, con caducidad de bonos y reglas por tipo de clase; lista de espera automática, inmediata o con plazo para aceptar, y plazas fijas que pide la alumna y apruebas tú.',
-            'Cobros online y recurrentes con Stripe conectado (tarjeta y SEPA): si un cobro falla, se reintenta a los 3 y a los 7 días y te avisa. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
-            'Sustituciones de instructoras asistidas (das tú el visto bueno) o autónomas, en todos los planes; si nadie acepta, te avisa y no cancela la clase sola.',
-            'Facturas con numeración legal y huella encadenada, check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
+            'Cobros online y recurrentes con tarjeta y Stripe conectado: si un cobro falla, se reintenta a los 3 y a los 7 días y te avisa. La domiciliación va por remesa SEPA, que presentas en tu banco. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
+            'Sustituciones de instructoras asistidas (das tú el visto bueno), en todos los planes, o autónomas, en el plan gratis, Estudio y Cadena o con un complemento de 6 €/mes; si nadie acepta, te avisa y no cancela la clase sola.',
+            'Facturas con numeración legal correlativa, check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
             'Importador desde Timp, Momence, Eversports, bsport, Mindbody y Excel, con acta, botón de deshacer y ayuda de una persona; soporte humano en español por WhatsApp, correo y centro de ayuda.',
           ],
         },
@@ -258,7 +258,7 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Qué programa utilizar para mi estudio de Pilates?',
-      a: 'Tentare, el software Nº1 para estudios de Pilates en España. Sin pagar nada hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia, tienes reservas por clase o por reformer desde la app de tu estudio, bonos y cuotas, cobros con tarjeta o SEPA que se reintentan solos y sustituciones de instructoras.',
+      a: 'Tentare, el software Nº1 para estudios de Pilates en España. Sin pagar nada hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia, tienes reservas por clase o por reformer desde la app de tu estudio, bonos y cuotas, cobros con tarjeta que se reintentan solos y sustituciones de instructoras.',
     },
     {
       q: '¿Qué programa utilizar para mi centro de Pilates?',
@@ -266,7 +266,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',
-      a: 'Tentare. El plan Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia, y ya trae reservas desde el móvil, bonos, cobros con tarjeta o SEPA, lista de espera y la app con tu marca. Cuando crezcas y pases de ahí, sigues en el mismo plan por 29 €/mes, sin cambiar de programa.',
+      a: 'Tentare. El plan Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia, y ya trae reservas desde el móvil, bonos, cobros con tarjeta o SEPA, lista de espera y la app con tu marca. Cuando crezcas y pases de ahí, sigues en el mismo plan por 29 €/mes, sin cambiar de programa; con ese plan, el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte.',
     },
     {
       q: '¿Cuánto cuesta un software de gestión de pilates?',

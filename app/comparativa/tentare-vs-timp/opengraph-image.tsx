@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Tentare vs TIMP.', 'Precio, permanencia, Veri*factu/TicketBAI y sustitución de instructoras — comparados punto por punto.');
+  return generarOgImage('Tentare vs TIMP.', 'Precio, permanencia y sustitución de instructoras — comparados punto por punto.');
 }

@@ -58,7 +58,7 @@ export default function EstudiosPilatesExitoPage() {
     <PageShell>
       <ArticleStructuredData
         title="Qué puedes aprender de los estudios de pilates que más crecen"
-        description="Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana."
+        description="Datos reales de Club Pilates, SLT y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana."
         slug="estudios-pilates-de-exito"
       />
       <FaqStructuredData items={FAQ} />
@@ -129,7 +129,7 @@ export default function EstudiosPilatesExitoPage() {
           . La referencia operativa que usan los mejores gestores es la baja mensual: un 3-4% mensual se considera un estudio bien llevado, y por debajo del 3% ya es un nivel de élite.
         </p>
         <p>
-          Ningún informe del sector atribuye esa retención al descuento agresivo. La atribuyen a la experiencia y a la comunicación: avisos claros, huecos que se llenan solos con listas de espera, y que una baja de instructora no se traduzca en una clase cancelada sin previo aviso — el motivo número uno por el que una alumna deja de confiar en un estudio.
+          Ningún informe del sector atribuye esa retención al descuento agresivo. La atribuyen a la experiencia y a la comunicación: avisos claros, huecos que se llenan solos con listas de espera, y que una baja de instructora no se traduzca en una clase cancelada sin previo aviso.
         </p>
 
         <Checklist
@@ -166,7 +166,7 @@ export default function EstudiosPilatesExitoPage() {
 
         <CtaBlock
           title="La gestión que protege tu retención, sin el presupuesto de una cadena"
-          body="Tentare cubre reservas, cobros y equipo — y es el único software que resuelve una baja de instructora sin que tengas que hacer una sola llamada."
+          body="Tentare cubre reservas, cobros y equipo — y busca quién cubre una baja de instructora sin que tengas que hacer una sola llamada."
         />
 
         <RelatedLinks

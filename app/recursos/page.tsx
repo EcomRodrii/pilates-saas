@@ -212,20 +212,8 @@ export default function RecursosPage() {
           )}
         </div>
 
-        <div style={{ marginTop: 'clamp(48px,6vw,72px)', background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(32px,5vw,56px)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'relative', maxWidth: 560 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--w-sand)', margin: '0 0 14px' }}>La newsletter de Tentare</p>
-            <h2 style={{ fontWeight: 600, fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1.08, letterSpacing: 'var(--w-track-h2)', margin: '0 0 12px', color: 'var(--w-sobre-noche)' }}>Una idea al mes para llenar tu estudio.</h2>
-            <p style={{ fontSize: 16, lineHeight: 1.55, color: 'var(--w-sobre-noche-2)', margin: '0 0 24px' }}>Guías nuevas, plantillas y datos del sector. Sin spam — cancelas cuando quieras.</p>
-            <a
-              href="mailto:hola@tentare.app?subject=Suscribirme%20a%20la%20newsletter"
-              className="hover:brightness-110"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: 'inherit', fontSize: 15, fontWeight: 600, color: 'var(--w-olive)', background: 'var(--w-sand)', borderRadius: 999, padding: '14px 26px' }}
-            >
-              Suscribirme por email
-            </a>
-          </div>
-        </div>
+        {/* Aquí iba «La newsletter de Tentare — Una idea al mes…»: el botón era un mailto y no
+            existe ningún envío periódico. Retirado el 21-oct-2026. */}
       </div>
 
       <PieWeb />

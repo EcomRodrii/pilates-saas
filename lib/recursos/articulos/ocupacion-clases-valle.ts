@@ -205,7 +205,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'En los informes de Tentare tienes la ocupación por tipo de clase, que es donde se ven las franjas que salen medio vacías todas las semanas, y el margen de cada clase sobre lo que cobra la instructora, ordenado de peor a mejor: es la primera línea de la tabla de arriba, calculada con lo que paga de verdad cada alumna según su cuota o su bono. Lo explica [informes y rentabilidad](/funcionalidades/informes-y-rentabilidad).',
+          texto: 'En los informes de Tentare tienes la ocupación por tipo de clase, que es donde se ven las franjas que salen medio vacías todas las semanas, y el margen de cada clase sobre lo que cobra la instructora, por tipo de clase y por franja: es la primera línea de la tabla de arriba, calculada con lo que paga de verdad cada alumna según su cuota o su bono. Lo explica [informes y rentabilidad](/funcionalidades/informes-y-rentabilidad).',
         },
         {
           t: 'p',
@@ -214,7 +214,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Saber qué franja te cuesta dinero, sin hojas de cálculo',
-          texto: 'Pon las tarifas de tu equipo y mira el margen de cada clase sobre lo que cobra la instructora, ordenado por la peor.',
+          texto: 'Pon las tarifas de tu equipo y mira el margen de cada clase sobre lo que cobra la instructora, por tipo de clase y por franja.',
         },
       ],
     },

@@ -31,7 +31,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Client Pick-a-Spot», en el plan Accelerate'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['partial', 'App de marca como complemento de pago (precio no publicado)'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', '«Booking window» y «cancellation window» configurables por servicio, según su web de ayuda'] },
-  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo por clase, con la capacidad de la sala como referencia; una avería baja el aforo de las clases de esa sala'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, desde el plan Cadena'], them: ['yes', '«Un panel corporativo único» para todas las sedes, según su web; solo en el nivel Enterprise, a consultar'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
 ];
@@ -46,7 +46,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de Mindbody a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Mindbody (y de bsport, Momence, Eversports, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Mindbody o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -79,14 +79,14 @@ const ANALISIS: SeccionAnalisis[] = [
     titulo: 'Elegir reformer y aforo por sala',
     cuerpo: (
       <>
-        <p>En Mindbody, elegir sitio al reservar («Pick-a-Spot») va en el plan Accelerate, y el aforo se fija por clase. En Tentare, si defines los puestos de una sala, la alumna elige su reformer al reservar en cualquier plan, y cada sala tiene su propio aforo: una máquina averiada baja la capacidad de esa clase sin tocar las demás. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
+        <p>En Mindbody, elegir sitio al reservar («Pick-a-Spot») va en el plan Accelerate, y el aforo se fija por clase. En Tentare, si defines los puestos de una sala, la alumna elige su reformer al reservar en cualquier plan, y la sala da la capacidad de partida de sus clases: una máquina averiada baja la capacidad de las clases de esa sala sin tocar las demás. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
       </>
     ),
   },
   {
     titulo: 'Cómo cambiarte de Mindbody a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de Mindbody: clientas, bonos, clases y reservas, con un acta para revisarlo antes de guardar y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador de Tentare lee los archivos CSV o Excel que exportas de Mindbody: clientas, bonos, clases y reservas, con un acta para revisarlo antes de guardar y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];

@@ -22,7 +22,9 @@ import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
 //     el enlace a comprar en la app (lib/notifications/catalog.ts);
 //   · sustituciones en modo asistido, el de serie: Tentare propone y escribe
 //     tras el visto bueno (app/funcionalidades/sustituciones);
-//   · cuotas con tarjeta guardada o adeudo SEPA y reintento (lib/billing/dunning.ts).
+//   · cuotas con tarjeta guardada y reintento (lib/billing/dunning.ts). La domiciliación
+//     va por remesa SEPA que el estudio presenta en su banco (lib/sepa-19-14.ts): no se
+//     cobra sola ni se reintenta, y el SEPA de Stripe está retirado (F-7).
 // Nada de efectivo ni transferencias: eso no se cobra solo.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +46,7 @@ const TARJETAS = [
   },
   {
     titulo: 'A fin de mes, las cuotas cobradas.',
-    texto: 'Se cobran solas con la tarjeta guardada o por adeudo SEPA. Si una falla, se reintenta y a la alumna le llega el aviso.',
+    texto: 'Con la tarjeta guardada se cobran solas; si una falla, se reintenta y a la alumna le llega el aviso. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para que la presentes en tu banco.',
     icono: 'tarjeta',
   },
 ] as const satisfies readonly { titulo: string; texto: string; icono: NombreIcono }[];

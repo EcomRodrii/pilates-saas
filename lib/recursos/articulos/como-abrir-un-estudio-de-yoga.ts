@@ -149,7 +149,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Lo que sí puede obligar es tu comunidad: varias tienen ley de profesiones del deporte, y si el yoga entra y con qué título depende de cada texto. Pregúntalo en su dirección general de deportes antes de contratar. Y si buscas profesoras, [Tentare Network](/network) es un directorio público y gratuito de instructoras de pilates y yoga en España.',
+          texto: 'Lo que sí puede obligar es tu comunidad: varias tienen ley de profesiones del deporte, y si el yoga entra y con qué título depende de cada texto. Pregúntalo en su dirección general de deportes antes de contratar.',
         },
       ],
     },
@@ -220,7 +220,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
+          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con tarjeta a través de Stripe, con dos reintentos si un cobro falla, o por domiciliación con la remesa SEPA para tu banco. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
         },
         {
           t: 'llamada',

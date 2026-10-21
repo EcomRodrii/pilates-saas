@@ -4,7 +4,7 @@ import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ALTA, HEROE_CAMBIARSE } from '@/components/landing/enlaces';
 import { FOTOS } from '@/components/landing/fotos';
 import { FotoLanding } from '@/components/landing/FotoLanding';
-import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
+import { G2_NOTA, G2_RESENAS, G2_URL } from '@/lib/seo/g2';
 import { MarcoIphone } from '@/components/ui/marco-iphone';
 import { CAPTURAS_APP, Escena } from './piezas';
 
@@ -71,7 +71,7 @@ export function Heroe({ logos }: { logos?: ReactNode }) {
           </div>
           <p className="wh-heroe-nota">
             <a href={G2_URL} target="_blank" rel="noopener noreferrer" className="wh-heroe-g2">
-              <span aria-hidden="true">★★★★★</span> {G2_NOTA} en G2
+              <span aria-hidden="true">★★★★★</span> {G2_NOTA} en G2 ({G2_RESENAS} reseñas)
             </a>
             <span aria-hidden="true"> · </span>Sin tarjeta · Sin permanencia · {GRATIS_CON_LIMITES}
           </p>

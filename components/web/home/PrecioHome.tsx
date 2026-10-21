@@ -5,7 +5,7 @@ import { FRASE_FOUNDING } from '@/lib/landing/founding-gratis';
 import { ALTA, SALIDAS, WHATSAPP_SOPORTE } from '@/components/landing/enlaces';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 import { Icono } from '@/components/student/ui/Icono';
-import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
+import { G2_NOTA, G2_RESENAS, G2_URL } from '@/lib/seo/g2';
 
 // Precio (fase 2.2). NINGUNA cifra ni condición se escribe aquí: todo sale de
 // PLANS (components/landing/data.ts) y de lib/landing/founding-gratis.ts, la
@@ -49,7 +49,7 @@ export function PrecioHome() {
         {/* La segunda prueba social (lo hacen las cinco referencias): la nota pública de
             G2 (lib/seo/g2.ts), la misma del héroe, comprobable con un clic. Ninguna cifra inventada. */}
         <p className="wh-precio-g2">
-          <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">★★★★★</span> {G2_NOTA} en G2</a>, la valoración pública de quienes ya lo usan
+          <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">★★★★★</span> {G2_NOTA} en G2</a> ({G2_RESENAS} reseñas), la valoración pública de quienes ya lo usan
         </p>
         <p className="wh-precio-salida"><Link href={SALIDAS.precio.href} className="wh-enlace-flecha">{SALIDAS.precio.label} <span aria-hidden="true">→</span></Link></p>
       </div>

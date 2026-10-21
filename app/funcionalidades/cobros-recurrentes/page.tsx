@@ -31,7 +31,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si una alumna cambia de tarjeta?',
-    a: 'Sus datos de tarjeta los guarda Stripe, no Tentare, y ella los actualiza desde su portal. Además, cuando una tarjeta se acerca a su caducidad el sistema lo detecta antes de que llegue a fallar el cobro.',
+    a: 'Sus datos de tarjeta los guarda Stripe, no Tentare, y ella los actualiza desde su portal. Además, si su tarjeta caduca antes del próximo cobro, el Centro de Control te lo avisa a ti, para que se lo pidas.',
   },
   {
     q: '¿Y si alguien paga en efectivo o por Bizum?',
@@ -87,7 +87,7 @@ export default function CobrosPage() {
         <Rejilla
           items={[
             { titulo: 'Se detecta antes', body: 'Una tarjeta que caduca en septiembre vale hasta el último día de septiembre — ni un día menos, ni un mes de más.' },
-            { titulo: 'Se avisa a tiempo', body: 'La socia actualiza su tarjeta desde su portal antes de que el cobro llegue a fallar.' },
+            { titulo: 'Te avisa a ti', body: 'El Centro de Control te lo cuenta antes del cobro, para que le pidas a la socia que la actualice desde su portal.' },
           ]}
         />
       </Seccion>

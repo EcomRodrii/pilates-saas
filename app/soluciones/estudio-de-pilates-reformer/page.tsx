@@ -76,7 +76,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiarme a Tentare desde otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de bsport, Momence, Eversports, Mindbody, TIMP y Excel: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón.',
+    a: 'Sí. El importador lee archivos CSV o Excel de cualquier programa: te enseña lo que va a traer antes de guardarlo y lo puedes deshacer con un botón.',
   },
 ];
 
@@ -162,7 +162,7 @@ export default function EstudioDePilatesReformerPage() {
         puntos={[
           'Bonos con caducidad y recuperaciones',
           'Cuotas mensuales, con o sin límite de clases a la semana',
-          'Cobro automático con tarjeta o domiciliación SEPA',
+          'Cobro automático con tarjeta y remesa SEPA para tu banco',
         ]}
         enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
       >
@@ -212,7 +212,7 @@ export default function EstudioDePilatesReformerPage() {
         captura={{ src: '/landing/fotos-aportadas/instructora-y-alumna-reformers-estudio-pilates.webp', alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates con cortinas de luz', ancho: 434, alto: 600, foto: true }}
         enlace={{ href: '/funcionalidades/sustituciones', texto: 'Cómo funcionan las sustituciones' }}
       >
-        <p>Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. En todos los planes puede hacerlo sola, sin esperar a que lo apruebes.</p>
+        <p>Tentare busca quién puede cubrirla según su disponibilidad y su costumbre, la contacta con tu visto bueno y avisa a las alumnas del cambio. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.</p>
       </FilaProducto>
 
       <PlanesSolucion titulo="Lo que cuesta Tentare para un estudio de reformer" />

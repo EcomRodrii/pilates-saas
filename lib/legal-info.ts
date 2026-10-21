@@ -65,7 +65,7 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
   // Sin Google Fonts: las letras se sirven desde el propio dominio (app/_fuentes).
   // Sin Gmail: se retiró el 1-oct-2026.
   { nombre: 'Google', uso: 'Inicio de sesión con Google e integración con Google Calendar, si la activas', ubicacion: 'UE / EE. UU.' },
-  { nombre: 'Meta (opcional)', uso: 'WhatsApp Business, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Meta (opcional)', uso: 'Píxel publicitario en la web comercial y en el alta, solo si aceptas sus cookies; y WhatsApp Business, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Klaviyo (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
   { nombre: 'Mailchimp (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
   { nombre: 'Kisi (opcional)', uso: 'Control de acceso, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },

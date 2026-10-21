@@ -119,7 +119,7 @@ export function CanalesPorEvento() {
       <p style={{ margin: '16px 0 0', fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.5)' }}>
         La proporción es la del catálogo real: la mayoría de avisos se quedan dentro de la app y del móvil. Un aviso solo
         sale por un canal si ese evento lo tiene declarado — ni siquiera los críticos improvisan uno nuevo. WhatsApp, si
-        conectas tu número, va aparte: recordatorio de clase, radar de ocupación y sustituciones.
+        conectas tu número, va aparte: recordatorio de clase y sustituciones.
       </p>
     </PanelOscuro>
   );

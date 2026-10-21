@@ -10,7 +10,7 @@ import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { PLANS } from '@/components/landing/data';
-import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, SI_PASAS_CON_COMPLEMENTOS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
@@ -62,7 +62,7 @@ const FAQ = [
   },
   {
     q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
-    a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando.`,
+    a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas; con ese plan, ${COMPLEMENTOS_DE_PAGO} van aparte, como complementos. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando. Las reservas se cuentan sobre los últimos 30 días, y si tienes varios estudios en el plan gratis, se suman. En el plan gratis, la redacción con IA tiene además un tope de 40 usos al día.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -137,7 +137,7 @@ export default function PreciosPage() {
                   <>
                     {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
                     <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--w-texto-3)', marginTop: 9, lineHeight: 1.45 }}>
-                      {TOPE_GRATIS} · {SI_PASAS}
+                      {TOPE_GRATIS} · {SI_PASAS_CON_COMPLEMENTOS}
                     </div>
                     {/* La frase del fundador, junto a Founding Studio. En la
                         cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
@@ -181,8 +181,8 @@ export default function PreciosPage() {
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
           <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
           <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
-            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño: alumnas,
-            reservas al mes y sedes.
+            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia son las alumnas, las reservas
+            al mes y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
           </p>
           <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
           <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
@@ -197,7 +197,7 @@ export default function PreciosPage() {
             <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-exito)', marginBottom: 14 }}>Incluido en la cuota</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal y huella encadenada', 'Exportación de tus datos cuando quieras'].map((t) => (
+                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal correlativa', 'Exportación de tus datos cuando quieras'].map((t) => (
                   <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                     <span style={{ color: 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
                   </li>
