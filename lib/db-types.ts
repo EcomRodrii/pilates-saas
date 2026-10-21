@@ -1098,8 +1098,6 @@ export interface RowStudios {
   zona_horaria: string | null;
   // migr 20260929112340.
   cobro_dia_1_activo: boolean | null;
-  // migr 20261021160000.
-  cobro_proporcional_alta_activo: boolean | null;
   // migr 20260929214142.
   modo_facturacion: string | null;
   // migr 20260930215029.
@@ -1142,6 +1140,8 @@ export interface RowStudios {
   addons: string[] | null;
   // migr 20261019182716.
   mostrar_logo_en_landing: boolean | null;
+  // migr 20261021160000.
+  cobro_proporcional_alta_activo: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -5911,7 +5911,6 @@ export type StudiosInsert = {
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
-  cobro_proporcional_alta_activo?: boolean | null | null;
   modo_facturacion?: string | null | null;
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
@@ -5933,6 +5932,7 @@ export type StudiosInsert = {
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
   mostrar_logo_en_landing?: boolean | null | null;
+  cobro_proporcional_alta_activo?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6073,7 +6073,6 @@ export type StudiosUpdate = {
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
-  cobro_proporcional_alta_activo?: boolean | null | null;
   modo_facturacion?: string | null | null;
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
@@ -6095,6 +6094,7 @@ export type StudiosUpdate = {
   regimen_addons?: boolean | null | null;
   addons?: string[] | null | null;
   mostrar_logo_en_landing?: boolean | null | null;
+  cobro_proporcional_alta_activo?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
