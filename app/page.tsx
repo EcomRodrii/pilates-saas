@@ -4,6 +4,8 @@ import { Heroe } from '@/components/web/home/Heroe';
 import { SeOcupaDelResto } from '@/components/web/home/SeOcupaDelResto';
 import { PestanasProducto } from '@/components/web/home/PestanasProducto';
 import { Momentos } from '@/components/web/home/Momentos';
+import { AntesDespues } from '@/components/web/home/AntesDespues';
+import { CAPTURAS_APP } from '@/components/web/home/piezas';
 import { Etapas } from '@/components/web/home/Etapas';
 import { PrecioHome } from '@/components/web/home/PrecioHome';
 import { PreguntasHome } from '@/components/web/home/PreguntasHome';
@@ -85,6 +87,7 @@ export default async function HomePage() {
       <SeOcupaDelResto />
       <PestanasProducto />
       <Momentos />
+      <AntesDespues captura={CAPTURAS_APP.reservar.n} />
       <Etapas />
       <PrecioHome />
       <PreguntasHome />
