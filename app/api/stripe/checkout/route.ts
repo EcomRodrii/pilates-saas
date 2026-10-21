@@ -21,6 +21,7 @@ import {
   type PeticionCheckout,
 } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
+import { cobroCuotaOnline } from '@/lib/billing/cobro-cuota-online';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, mensajePagoEnCurso } from '@/lib/billing/pago-en-curso';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
@@ -227,6 +228,9 @@ export async function POST(req: NextRequest) {
   // plan y se USA más abajo, cuando ya no queda ninguna validación que pueda
   // abortar la compra — ver el comentario de la reserva de plaza.
   let matriculaBase = 0;
+  // Cobro proporcional online: viaja a la clave de idempotencia (otro importe = otra sesión de Stripe).
+  let cuotaProrrateada: { importeCentimos: number; cicloFin: string } | null = null;
+  let cuotaFrase: string | null = null;
   // Qué plaza de matrícula gratis se ha reservado, para poder devolverla si el
   // cobro no llega a crearse. `null` = no se reservó ninguna.
   let cupoMatriculaReservado: { planId: string; studioId: string } | null = null;
@@ -399,7 +403,7 @@ export async function POST(req: NextRequest) {
     if (cerrada) return conCorsWidget(req, cerrada);
     const { data: plan, error } = await admin
       .from('planes_tarifa')
-      .select('nombre, precio, studio_id, activo, matricula, tipo, es_prueba')
+      .select('nombre, precio, studio_id, activo, matricula, tipo, es_prueba, periodicidad_meses')
       .eq('id', body.planId)
       .maybeSingle();
     if (error || !plan) {
@@ -470,6 +474,26 @@ export async function POST(req: NextRequest) {
       return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
     }
     importe = Number(plan.precio);
+    // Cobro proporcional del primer mes (opción del estudio, apagada de serie): el MISMO motor que el
+    // panel. El servidor recalcula; lo que la alumna vio solo se compara. Va ANTES del código de descuento
+    // (que se aplica sobre la parte que de verdad se cobra) y de la matrícula (que no se prorratea).
+    const cobroCuota = await cobroCuotaOnline(admin, {
+      studioId: body.studioId, planId: body.planId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
+      socioId, conSesion: !!body.sesionId, conRecibo: !!body.reciboId,
+    });
+    if (cobroCuota.tipo === 'rechazo') {
+      return conCorsWidget(req, NextResponse.json(
+        { error: cobroCuota.error, codigo: cobroCuota.codigo },
+        { status: cobroCuota.status },
+      ));
+    }
+    if (cobroCuota.tipo === 'prorrateo') {
+      importe = cobroCuota.importe;
+      metadata.cicloFin = cobroCuota.pr.fechaFin;
+      metadata.cuotaTexto = cobroCuota.pr.texto;
+      cuotaProrrateada = { importeCentimos: Math.round(cobroCuota.importe * 100), cicloFin: cobroCuota.pr.fechaFin };
+      cuotaFrase = cobroCuota.pr.frase;
+    }
     concepto = plan.nombre;
     tipoPlanCobrado = (plan.tipo as string | null | undefined) ?? null;
     metadata.planId = body.planId;
@@ -493,7 +517,10 @@ export async function POST(req: NextRequest) {
         esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
         codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
       });
-      if (resultado.ok) {
+      // Con la primera cuota ya prorrateada, un código que la dejara por debajo del mínimo de Stripe (o a 0 €)
+      // tumbaría una compra que sin él sale: se ignora (como cualquier código que no vale) y se paga la cuota de hoy.
+      const dejaMuyBajo = cuotaProrrateada !== null && Math.round((importe - (resultado.ok ? resultado.descuento : 0)) * 100) < 50;
+      if (resultado.ok && !dejaMuyBajo) {
         importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
         const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
         if (codigoAplicado) metadata.codigoDescuentoId = codigoAplicado.id;
@@ -875,6 +902,7 @@ export async function POST(req: NextRequest) {
         codigoDescuentoId: metadata.codigoDescuentoId ?? null,
         metodos: paymentMethodTypes,
         sesionId: body.sesionId ?? null,
+        prorrateo: cuotaProrrateada,
       })
     : null;
 
@@ -927,7 +955,7 @@ export async function POST(req: NextRequest) {
               // En la compra de un plan, sin el nombre: es del formulario, y con la
               // misma clave de idempotencia corregirlo daba `idempotency_error`. La
               // ficha saca el nombre de lo que Stripe recoge (`customer_details`).
-              description: body.reciboId && body.socioNombre ? `Tentare · ${body.socioNombre}` : 'Tentare',
+              description: body.reciboId && body.socioNombre ? `Tentare · ${body.socioNombre}` : cuotaFrase ? `Tentare · ${cuotaFrase}` : 'Tentare',
             },
             unit_amount: Math.round(importe * 100),
           },

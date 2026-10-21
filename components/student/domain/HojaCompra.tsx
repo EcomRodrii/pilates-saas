@@ -35,7 +35,7 @@ import { Sello } from '@/components/student/ui/Sello';
 type Estado =
   | { fase: 'listo' }
   | { fase: 'preparando' }
-  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number; total: number; customerSessionClientSecret: string | null }
+  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number; total: number; customerSessionClientSecret: string | null; cuotaFrase: string | null }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
   // Stripe ha dicho que cobró; el bono lo entrega el SERVIDOR (webhook o
   // conciliador). Hasta que `estado-pago` no lo confirma, NO se dice «ya está».
@@ -160,6 +160,7 @@ export function HojaCompra({ textosLegales,
         // El cargo de verdad: cuota + matrícula. Antes el botón decía solo la cuota y se cobraba la matrícula encima.
         total: Number.isFinite(r.total) ? r.total : (Number.isFinite(r.importe) ? r.importe : Number(plan.precio)) + r.matricula,
         customerSessionClientSecret: r.customerSessionClientSecret,
+        cuotaFrase: r.cuotaFrase ?? null,
       });
       if (codigo.trim() && !r.codigoAplicado) {
         // El motivo del servidor (misma regla que el cobro): «ya ha caducado» le dice
@@ -394,10 +395,11 @@ export function HojaCompra({ textosLegales,
                 style={{ ['--gap' as string]: 'var(--s-1)', marginBottom: 'var(--s-3)' }}
               >
                 <div className="row row--between">
-                  <span className="t-small t-dim">Precio</span>
+                  <span className="t-small t-dim">{estado.cuotaFrase ? 'Primera cuota' : 'Precio'}</span>
                   <span className="t-small t-num">
-                    {euros(Number(plan.precio))}
-                    {esSuscripcion(plan.tipo) && <span className="t-dim">/{nombrePeriodo(plan)}</span>}
+                    {/* Con cobro proporcional la cuota de hoy no es el precio del plan: el desglose tiene que sumar. */}
+                    {euros(estado.cuotaFrase && Number.isFinite(estado.importe) ? estado.importe + estado.descuento : Number(plan.precio))}
+                    {!estado.cuotaFrase && esSuscripcion(plan.tipo) && <span className="t-dim">/{nombrePeriodo(plan)}</span>}
                   </span>
                 </div>
                 {estado.descuento > 0 && (
@@ -429,6 +431,7 @@ export function HojaCompra({ textosLegales,
             publishableKey={publishableKey}
             stripeAccountId={stripeAccountId}
             importeTotal={estado.total}
+            cuotaFrase={estado.cuotaFrase}
             customerSessionClientSecret={estado.customerSessionClientSecret}
             onProcesando={setConfirmando}
             onExito={() => { setConfirmando(false); void confirmarEntrega(estado.clientSecret); }}

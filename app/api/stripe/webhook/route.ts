@@ -720,6 +720,9 @@ async function procesarEvento(
           esInvitada,
           fuente: 'webhook',
           matriculaCobradaCentimos: matriculaCentimos,
+          // Cobro proporcional: lo prometido al abrir el cobro, nunca recalculado aquí.
+          cicloFinISO: session.metadata?.cicloFin ?? null,
+          cuotaTexto: session.metadata?.cuotaTexto ?? null,
         });
         // «Clase de prueba» entregada a quien ya tenía otra: el dinero ya está
         // cobrado y se entrega; que el estudio decida si reembolsa (nunca solo).
@@ -1068,6 +1071,8 @@ async function procesarEvento(
         fuente: 'webhook',
         // P-1 (auditoría 26ª pasada): ya decidido al crear el PaymentIntent.
         matriculaCobradaCentimos: Number(pi.metadata.matriculaCentimos ?? 0) || 0,
+        cicloFinISO: pi.metadata.cicloFin ?? null,
+        cuotaTexto: pi.metadata.cuotaTexto ?? null,
       });
       // «Clase de prueba» entregada a quien ya tenía otra: el dinero ya está
       // cobrado y se entrega; que el estudio decida si reembolsa (nunca solo).

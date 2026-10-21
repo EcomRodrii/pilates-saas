@@ -18,7 +18,7 @@ type EstadoCompra =
   | { fase: 'lista' }
   | { fase: 'creando'; planId: string }
   /** `total`: lo que cobra Stripe (con matrícula o código), dicho por el servidor. */
-  | { fase: 'pagando'; plan: PlanTarifa; clientSecret: string; total?: number }
+  | { fase: 'pagando'; plan: PlanTarifa; clientSecret: string; total?: number; cuotaFrase?: string | null }
   | { fase: 'exito'; plan: PlanTarifa };
 
 export function ListaPlanes({
@@ -75,7 +75,8 @@ export function ListaPlanes({
     // El botón dice lo que se cobra: antes decía `plan.precio` y el cargo llevaba
     // además la matrícula de la primera vez (o un código aplicado).
     const total = (r.datos as { total?: unknown } | null)?.total;
-    setEstado({ fase: 'pagando', plan, clientSecret, total: typeof total === 'number' && Number.isFinite(total) ? total : undefined });
+    const cuotaFrase = (r.datos as { cuotaFrase?: unknown } | null)?.cuotaFrase;
+    setEstado({ fase: 'pagando', plan, clientSecret, total: typeof total === 'number' && Number.isFinite(total) ? total : undefined, cuotaFrase: typeof cuotaFrase === 'string' ? cuotaFrase : null });
   }
 
   if (estado.fase === 'exito') {
@@ -96,7 +97,7 @@ export function ListaPlanes({
   if (estado.fase === 'pagando' && publishableKey && stripeAccountId) {
     return (
       <CheckoutEmbebido
-        t={t} plan={estado.plan} clientSecret={estado.clientSecret} importeTotal={estado.total}
+        t={t} plan={estado.plan} clientSecret={estado.clientSecret} importeTotal={estado.total} cuotaFrase={estado.cuotaFrase}
         publishableKey={publishableKey} stripeAccountId={stripeAccountId}
         onExito={() => { setEstado({ fase: 'exito', plan: estado.plan }); onComprado?.(); }}
         onBizum={bizumPermitidoPara(estado.plan.tipo) ? (acepta) => onBizum(estado.plan, acepta) : undefined}

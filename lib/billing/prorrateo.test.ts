@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   repartoProporcional, prorrateoDeAlta, planSeProrratea, cicloYCobroDeAlta, conceptoAltaProrrateada,
   diferenciaCambioPlan, idReciboCambioPlan, idSuscripcionCambioPlan, esReciboParcialDeCuota,
-  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes, normalizarDiasMinimos, periodoDeCuotaAnterior,
+  PREFIJO_RECIBO_PRORRATEO, terminaEnFinDeMes, normalizarDiasMinimos, periodoDeCuotaAnterior, fechaFinDeEntregaOnline, MARCA_CONCEPTO_PARCIAL,
 } from './prorrateo.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import { proximoFinAlineadoDia1, cicloInicialDe } from '../bono-logic.ts';
@@ -82,7 +82,7 @@ test('días mínimos: con 3 de serie, el 29-oct (3 días) no cobra y el 28-oct (
   assert.equal(tres.importe, 0);
   assert.equal(tres.fechaFin, '2026-10-31');
   assert.deepEqual(tres.primerCobro, { fecha: '2026-11-01', importe: 50 });
-  assert.equal(tres.frase, 'Hoy no se cobra nada: quedan 3 días de octubre. Tu primera cuota (50 €) se cobra el 1 de noviembre.');
+  assert.equal(tres.frase, 'Hoy no se cobra la cuota: quedan 3 días de octubre. Tu primera cuota (50 €) se cobra el 1 de noviembre.');
   const cuatro = prorrateoDeAlta(mensual(50), '2026-10-28')!;
   assert.equal(cuatro.diasRestantes, 4);
   assert.equal(cuatro.modo, 'proporcional');
@@ -116,7 +116,7 @@ test('online con pocos días: la cuota ENTERA hoy y ciclo hasta el último día 
   assert.equal(o.importe, 50);
   assert.equal(o.fechaFin, '2026-11-30');
   assert.deepEqual(o.primerCobro, { fecha: '2026-12-01', importe: 50 });
-  assert.match(o.frase, /^Hoy pagas 50 €: incluye los 3 días que quedan de octubre y todo noviembre\. El 1 de diciembre, 50 € y cada mes\.$/);
+  assert.match(o.frase, /^Cuota de hoy: 50 €, que incluye 3 días que quedan de octubre y todo noviembre\. El 1 de diciembre, 50 € y cada mes\.$/);
   // diciembre → el mes siguiente es enero del año siguiente
   const d = prorrateoDeAlta(mensual(50), '2026-12-30', 3, 'online')!;
   assert.equal(d.fechaFin, '2027-01-31');
@@ -125,8 +125,8 @@ test('online con pocos días: la cuota ENTERA hoy y ciclo hasta el último día 
 });
 
 test('la frase de la alumna dice qué paga, por qué y cuándo es lo siguiente', () => {
-  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15')!.frase, 'Hoy pagas 27,42 € (parte proporcional de octubre: 17 de 31 días). El 1 de noviembre, 50 € y cada mes.');
-  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-01')!.frase, 'Hoy pagas 50 € (octubre completo). El 1 de noviembre, 50 € y cada mes.');
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15')!.frase, 'Cuota de hoy: 27,42 € (parte proporcional de octubre: 17 de 31 días). El 1 de noviembre, 50 € y cada mes.');
+  assert.equal(prorrateoDeAlta(mensual(50), '2026-10-01')!.frase, 'Cuota de hoy: 50 € (octubre completo). El 1 de noviembre, 50 € y cada mes.');
 });
 
 test('solo cuotas mensuales de UN mes con precio: bonos, sueltas, trimestrales y 0 € no', () => {
@@ -306,4 +306,43 @@ test('lo que NO cuenta como periodo ya cobrado: otra clienta, ciclo vencido, anu
 test('un alta de verdad (sin cuota anterior) sigue prorrateando', () => {
   const alta = cicloYCobroDeAlta(mensual(50), '2026-10-15T10:00:00Z', '2026-10-15', true, 3, null);
   assert.equal(alta.importe, 27.42);
+});
+
+test('fecha de entrega online: la prometida manda; vencida → fin del mes de hoy; rara → la de siempre', () => {
+  const porDefecto = '2026-11-14';
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-10-31', porDefecto }), { fechaFin: '2026-10-31', origen: 'metadata' });
+  // Abierto el 31, pagado el 1 (o hasta 2 días tarde): nace con fin de noviembre (alineada), no caducada.
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-01', porDefecto }), { fechaFin: '2026-11-30', origen: 'medianoche' });
+  assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-02', porDefecto }).origen, 'medianoche');
+  // Con más retraso NO se regala el mes: solo hoy, y se avisa (origen 'tarde').
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-05', porDefecto }), { fechaFin: '2026-11-05', origen: 'tarde' });
+  assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-12-30', hoyISO: '2026-11-01', porDefecto }).origen, 'metadata');
+  for (const raro of [null, undefined, '', 'ayer', '2026-02-30x', '2027-12-31']) {
+    assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: raro, hoyISO: '2026-11-01', porDefecto }), { fechaFin: porDefecto, origen: 'defecto' });
+  }
+});
+
+test('el concepto de un recibo proporcional lleva la marca que el aviso de «sube tu cuota» ignora', () => {
+  const r = cicloYCobroDeAlta(mensual(50), '2026-10-15T10:00:00Z', '2026-10-15', true);
+  assert.ok(conceptoAltaProrrateada('Alta', 'Reformer', r.prorrateo).includes(MARCA_CONCEPTO_PARCIAL));
+  assert.ok(r.prorrateo!.texto.includes(MARCA_CONCEPTO_PARCIAL));
+});
+
+test('gramática: 1 día, no «1 días»; y la frase no contradice la cuota con matrícula o código (habla de la cuota de hoy)', () => {
+  const ultimo = prorrateoDeAlta(mensual(62), '2026-10-31', 0)!;
+  assert.doesNotMatch(ultimo.frase + ultimo.texto, /\b1 días/);
+  assert.match(ultimo.texto, /1 de 31 días/);
+  assert.doesNotMatch(prorrateoDeAlta(mensual(50), '2026-10-15')!.frase, /Hoy pagas/);
+  assert.match(prorrateoDeAlta(mensual(50), '2026-10-30', 3, 'online')!.frase, /Cuota de hoy: 50 €, que incluye 2 días/);
+  assert.match(prorrateoDeAlta(mensual(50), '2026-10-31', 3, 'online')!.frase, /que incluye 1 día que queda de octubre/);
+});
+
+test('con N=3: 30-abr (1 día) y 28-abr (3 días) aplazan; 27-abr (4) prorratea; 29-feb bisiesto aplaza; N=10 en febrero no anula el 1', () => {
+  assert.equal(prorrateoDeAlta(mensual(60), '2026-04-30')!.modo, 'siguiente_mes');
+  assert.equal(prorrateoDeAlta(mensual(60), '2026-04-28')!.modo, 'siguiente_mes');
+  assert.equal(prorrateoDeAlta(mensual(60), '2026-04-27')!.modo, 'proporcional');
+  assert.equal(prorrateoDeAlta(mensual(58), '2028-02-29')!.modo, 'siguiente_mes');
+  assert.equal(prorrateoDeAlta(mensual(56), '2027-02-01', 10)!.modo, 'completo');
+  assert.equal(prorrateoDeAlta(mensual(56), '2027-02-19', 10)!.modo, 'siguiente_mes'); // 10 días
+  assert.equal(prorrateoDeAlta(mensual(56), '2027-02-18', 10)!.modo, 'proporcional'); // 11 días
 });

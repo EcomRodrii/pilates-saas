@@ -30,6 +30,8 @@ export type InicioCobro =
        * única forma de que el precio mostrado sea el precio cobrado.
        */
       importe: number;
+      /** Frase del cobro proporcional del primer mes, o null. */
+      cuotaFrase?: string | null;
       /** Cuánto se ha descontado. 0 = ninguno (o el código no valía). */
       descuento: number;
       /** `false` con un código que el servidor no pudo aplicar. */
@@ -117,7 +119,7 @@ export async function iniciarCompra(
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string; codigo?: string;
       importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number; total?: number;
-      customerSessionClientSecret?: string; motivoCodigo?: string;
+      customerSessionClientSecret?: string; motivoCodigo?: string; cuotaFrase?: string;
     } | null;
 
     if (res.status === 401) {
@@ -154,6 +156,8 @@ export async function iniciarCompra(
       // Por qué no entró el código, si no entró (el servidor lo dice con la misma regla que el cobro).
       motivoCodigo: typeof cuerpo.motivoCodigo === 'string' ? cuerpo.motivoCodigo : null,
       matricula: typeof cuerpo.matricula === 'number' ? cuerpo.matricula : 0,
+      // Cobro proporcional: qué paga hoy, por qué y cuándo es lo siguiente (del servidor).
+      cuotaFrase: typeof cuerpo.cuotaFrase === 'string' ? cuerpo.cuotaFrase : null,
     };
   } catch {
     return { ok: false, error: 'No hemos podido iniciar el pago. Comprueba tu conexión — no se te ha cobrado nada.' };
