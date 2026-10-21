@@ -126,7 +126,7 @@ test('tope de 5 herramientas: las sobrantes reciben is_error y la siguiente peti
   assert.ok(m.eventos.some(e => e.t === 'aviso' && e.codigo === 'LIMITE_HERRAMIENTAS'));
 });
 
-test('corte por coste: si ya va por encima de 0,15 $ y aún pide herramientas, se para sin otra llamada', async () => {
+test('corte por coste: si ya va por encima de 0,05 $ y aún pide herramientas, se para sin otra llamada', async () => {
   // Haiku 5.5: un prompt de más de 100.000 tokens paga la tarifa larga (0,50 $/M): 400.000 tokens = 0,20 $.
   const m = montar([{ herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 400_000 } }]);
   const r = await ejecutarTurno(m.deps, m.entrada);

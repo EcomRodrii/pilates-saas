@@ -25,5 +25,5 @@ test('liquidar: respondida se consume; sin respuesta de Anthropic se libera; a m
   assert.equal(liquidar('DEMASIADO_AMPLIA', USO).estado, 'CONSUMIDA');
   assert.deepEqual(liquidar('IA_NO_DISPONIBLE', NADA), { estado: 'LIBERADA', costeUsd: 0, codigoError: 'IA_NO_DISPONIBLE' });
   assert.deepEqual(liquidar('INTERNO', USO), { estado: 'FALLIDA', costeUsd: 0.00055, codigoError: 'INTERNO' });
-  assert.deepEqual(liquidar('ABORTADA', NADA), { estado: 'FALLIDA', costeUsd: 0.15, codigoError: 'ABORTADA' });
+  assert.deepEqual(liquidar('ABORTADA', NADA), { estado: 'FALLIDA', costeUsd: 0.05, codigoError: 'ABORTADA' });
 });

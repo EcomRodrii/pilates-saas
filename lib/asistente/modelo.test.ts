@@ -35,6 +35,6 @@ test('nada en el asistente manda top_p, top_k ni una temperatura fija (Haiku 5.5
   assert.doesNotMatch(bucle, /temperature\s*:/, 'la temperatura sale de parametrosDelModelo, solo para el modelo que la acepta');
 });
 
-test('el tope de salida sigue en 600: subirlo cambia el coste máximo por consulta y es una decisión aparte', () => {
-  assert.equal(MAX_TOKENS_RESPUESTA, 600);
+test('el tope de salida es 800: con el tokenizador de Haiku 5.5 conserva el mismo texto máximo que daban 600 con el de 4.5 (propuesta A, aprobada por el fundador)', () => {
+  assert.equal(MAX_TOKENS_RESPUESTA, 800);
 });
