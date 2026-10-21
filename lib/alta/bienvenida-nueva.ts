@@ -4,10 +4,11 @@
 // y el paso 4 («¿Traes alumnas de otro sitio?»). Lo de «Tu estudio» vive en
 // tu-estudio.ts.
 //
-// Los pasos 1 y 2 (registro y código) son de /crear-estudio; el 6 y el 7
-// (primera clase y publicar) llegan con el PR-4. Mientras tanto, después del 5
-// y con «Saltar a mi primera clase» se va al Calendario con «Nueva clase»
-// abierto (`?nueva=1`, lo que ya existe): no se inventa una pantalla.
+// Los pasos 1 y 2 (registro y código) son de /crear-estudio. El 6 y el 7
+// (primera clase y publicar, PR-4) viven aquí también: después de la marca, y
+// con «Saltar a mi primera clase», se llega a «Tu primera clase»; al publicar,
+// a «¡Listo!». Quien ya entró al panel sin crearla la tiene en
+// `/calendario?primera=1` (`ENTRADA_PRIMERA_CLASE`).
 //
 // Puro, sin `@/`.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,12 +30,18 @@ export const LINEA_DE_PASOS: readonly PasoDeLaLinea[] = [
   { num: '07', nombre: 'Publicar', opcional: true },
 ];
 
-/** Las pantallas que viven aquí, en orden. «Tu estudio» son dos. */
-export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca'] as const;
+/**
+ * Las pantallas que viven aquí, en orden. «Tu estudio» son dos; `clase` es «Tu
+ * primera clase» (paso 6) y `publicada`, «¡Listo! Tu clase … ya está
+ * publicada» (paso 7), a la que solo se llega publicando.
+ */
+export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca', 'clase', 'publicada'] as const;
 export type PantallaAlta = (typeof PANTALLAS_ALTA)[number];
 
 /** El paso de la línea (1-7) en que está cada pantalla. */
-export const PASO_DE_PANTALLA: Readonly<Record<PantallaAlta, number>> = { estudio: 3, horario: 3, importar: 4, marca: 5 };
+export const PASO_DE_PANTALLA: Readonly<Record<PantallaAlta, number>> = {
+  estudio: 3, horario: 3, importar: 4, marca: 5, clase: 6, publicada: 7,
+};
 
 export function siguientePantalla(p: PantallaAlta): PantallaAlta | null {
   return PANTALLAS_ALTA[PANTALLAS_ALTA.indexOf(p) + 1] ?? null;
@@ -54,21 +61,41 @@ export function anteriorPantalla(p: PantallaAlta): PantallaAlta | null {
 export const clavePantallaAlta = (studioId: string) => `tentare-alta-nueva:${studioId}`;
 
 export function leerPantallaGuardada(crudo: string | null | undefined): PantallaAlta {
+  return leerAltaGuardada(crudo).pantalla;
+}
+
+/**
+ * Lo guardado entero: la pantalla y, en la de «¡Listo!», el nombre de la clase
+ * que acaba de publicar (para decirlo también si recarga). Una `publicada` sin
+ * nombre vuelve a esa misma pantalla, sin nombre.
+ */
+export function leerAltaGuardada(crudo: string | null | undefined): { pantalla: PantallaAlta; clase: string | null } {
   try {
-    const v = JSON.parse(crudo ?? 'null') as { pantalla?: unknown } | null;
+    const v = JSON.parse(crudo ?? 'null') as { pantalla?: unknown; clase?: unknown } | null;
     const p = v?.pantalla;
-    return typeof p === 'string' && (PANTALLAS_ALTA as readonly string[]).includes(p) ? (p as PantallaAlta) : 'estudio';
+    const pantalla = typeof p === 'string' && (PANTALLAS_ALTA as readonly string[]).includes(p) ? (p as PantallaAlta) : 'estudio';
+    const clase = pantalla === 'publicada' && typeof v?.clase === 'string' && v.clase.trim() ? v.clase.trim().slice(0, 80) : null;
+    return { pantalla, clase };
   } catch {
-    return 'estudio';
+    return { pantalla: 'estudio', clase: null };
   }
 }
 
-export function pantallaParaGuardar(p: PantallaAlta): string {
-  return JSON.stringify({ pantalla: p });
+export function pantallaParaGuardar(p: PantallaAlta, clase?: string | null): string {
+  return JSON.stringify(p === 'publicada' && clase ? { pantalla: p, clase } : { pantalla: p });
 }
 
-/** Mientras llegan los pasos 6 y 7 (PR-4): el Calendario, con «Nueva clase» abierto para hoy. */
-export const DESTINO_PRIMERA_CLASE = '/calendario?nueva=1';
+/**
+ * La entrada a «Tu primera clase» desde fuera de la bienvenida: el correo «Tu
+ * cuenta está activa» y el panel de quien la saltó. Con la bienvenida sin
+ * terminar, abre su paso 6; terminada, el mismo formulario sobre el Calendario.
+ */
+export const ENTRADA_PRIMERA_CLASE = '/calendario?primera=1';
+
+/** ¿Pide esta dirección «Tu primera clase»? (`?primera=1`) */
+export function pidePrimeraClase(search: string | null | undefined): boolean {
+  return new URLSearchParams(search ?? '').get('primera') === '1';
+}
 
 // ── Quién la ve ──────────────────────────────────────────────────────────────
 

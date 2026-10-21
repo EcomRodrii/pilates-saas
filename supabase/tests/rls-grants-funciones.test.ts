@@ -146,6 +146,9 @@ const CASOS: Caso[] = [
   { firma: 'altas_estudio_registrar_cuenta()', anon: false, authenticated: false, serviceRole: true },
   // La única SECURITY DEFINER del grupo: lee `auth.sessions` para el punto de partida de la marca del panel.
   { firma: 'sesiones_iniciales_del_equipo()', anon: false, authenticated: false, serviceRole: true },
+  // La primera clase del alta nueva, todo o nada (migr 20261021134000): escribe tipo, sala, ficha, serie,
+  // clases y tarifa de un estudio que le dice quien llama. Solo /api/alta/primera-clase, que lo saca de la sesión.
+  { firma: 'alta_primera_clase(text, jsonb)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

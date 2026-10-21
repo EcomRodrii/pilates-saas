@@ -81,8 +81,6 @@ ${contenido}
 </tr>`;
   }).join('');
 
-  const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
-
   const bloques = [
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
@@ -97,14 +95,66 @@ ${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus alumnas 
     '<tr><td style="padding:0 0 14px;font-size:0;line-height:0;">&nbsp;</td></tr>',
   ].join('');
 
-  const pie = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.tintaSuave};text-align:center;">
-¿Te atascas? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>Tentare · Software para estudios de Pilates · Hecho en España
-</td></tr></table>`;
-
   return {
     asunto: `${estudio} ya está en Tentare`,
     preheader,
-    html: marcoTentare(preheader, bloques, pie),
+    html: marcoTentare(preheader, bloques, pieDelAlta(estudio)),
+  };
+}
+
+/** El pie de la maqueta en los correos del alta: una persona por WhatsApp y quién escribe. */
+function pieDelAlta(estudio: string): string {
+  const t = TENTARE;
+  const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.tintaSuave};text-align:center;">
+¿Te atascas? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>Tentare · Software para estudios de Pilates · Hecho en España
+</td></tr></table>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Ya puedes recibir reservas»: el correo n.º 4 (maqueta, «09 · Correos»). Sale
+// UNA vez por estudio, al publicar la primera clase y solo si el servidor ha
+// comprobado que una alumna nueva ya puede reservar (`puedeReservarEnServidor`,
+// app/api/alta/primera-clase). Lleva el enlace y el QR en PNG
+// (/api/public/qr-reservas/<slug>): Gmail no pinta un SVG.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function correoRecibirReservas(p: {
+  estudioNombre: string;
+  /** El nombre de la clase, tal y como sale en su página. */
+  claseNombre: string;
+  /** «lunes 26 a las 18:30, cada semana» (`cuandoCorto`, lib/alta/primera-clase.ts). */
+  cuando: string;
+  /** La dirección REAL de su página (`…/reservar/<slug>`). */
+  urlPagina: string;
+  /** El PNG del QR de esa dirección. */
+  urlQr: string;
+}): { asunto: string; preheader: string; html: string } {
+  const t = TENTARE;
+  const estudio = p.estudioNombre.trim() || 'Tu estudio';
+  const preheader = 'Tu enlace y tu QR, para tenerlos a mano.';
+  const parrafo = (html: string) =>
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+
+  const bloques = [
+    cabeceraTentare(),
+    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Ya puedes recibir reservas</div>
+${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
+<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlPagina)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlPagina)}</a></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.arena}" style="background:${t.arena};border-radius:8px;margin:0 0 14px;"><tr>
+<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de tu página de reservas" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
+<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre tu página.</td>
+</tr></table>
+${parrafo('Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en tu web. No hace falta que se descarguen nada.')}
+</td></tr>`,
+    botonTentare({ href: p.urlPagina, texto: 'Abrir mi página' }),
+  ].join('');
+
+  return {
+    asunto: `Ya puedes recibir reservas en ${estudio}`,
+    preheader,
+    html: marcoTentare(preheader, bloques, pieDelAlta(estudio)),
   };
 }
