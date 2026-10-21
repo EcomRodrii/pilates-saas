@@ -19,6 +19,7 @@ import { marcarUso } from '@/lib/retencion/marcar-uso';
 import { clientIp } from '@/lib/rate-limit-core';
 import { COOKIE_DISPOSITIVO, enDiasDeAlta, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
 import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
+import { apuntarPaso } from '@/lib/alta/embudo-servidor';
 
 /**
  * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
@@ -62,6 +63,15 @@ export async function GET(req: NextRequest) {
     .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, creado_en, regimen_addons, addons, ${COLUMNAS_PARA_GRATIS}`)
     .eq('id', sesion.studioId)
     .single();
+
+  // El embudo del alta: la propietaria ha abierto su panel (la vuelta del día 1,
+  // 7 y 30). Solo en los primeros días del estudio y una vez al día
+  // (lib/alta/embudo-servidor.ts). Después de contestar: esta ruta es la puerta
+  // del panel, y medir no le añade espera ni la puede tumbar.
+  if (studio && sesion.rol === 'PROPIETARIO') {
+    const creadoEn = (studio.creado_en as string | null | undefined) ?? null;
+    after(() => apuntarPaso(admin, sesion.studioId, 'panel_abierto', { creadoEn }));
+  }
 
   let subscriptionStatus = studio?.subscription_status ?? null;
   let plan = studio?.plan ?? 'BASE';

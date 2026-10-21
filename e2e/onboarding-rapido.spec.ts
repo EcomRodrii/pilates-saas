@@ -60,6 +60,26 @@ test.describe('el asistente rápido', () => {
     await expect(page).toHaveURL(/\/migracion/);
   });
 
+  test('copiar su enlace lo apunta en el embudo del alta, y si eso falla ella ve lo mismo', async ({ page }) => {
+    // Medir no puede cambiar lo que se ve: el servidor contesta 500 a propósito
+    // y la pantalla tiene que seguir diciendo «Enlace copiado».
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const pasos: unknown[] = [];
+    await montarAlta(page);
+    await page.route('**/api/alta/paso', route => {
+      pasos.push(route.request().postDataJSON());
+      return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"x"}' });
+    });
+    await saltarLogo(page);
+    await irAlCierre(page);
+    await page.getByRole('button', { name: 'Ver mi estudio' }).click();
+
+    await page.getByRole('button', { name: 'Copiar enlace' }).click();
+    await expect(page.getByText('Enlace copiado')).toBeVisible();
+    await expect.poll(() => pasos.length).toBeGreaterThan(0);
+    expect(pasos).toEqual([{ paso: 'enlace_compartido', detalle: 'copiar' }]);
+  });
+
   test('las clases se crean al confirmar la pantalla 2, para que la app real las tenga', async ({ page }) => {
     const pet = await montarAlta(page);
     await saltarLogo(page);

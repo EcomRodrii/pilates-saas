@@ -34,6 +34,8 @@ import {
 import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
+import { useRol } from '@/lib/permisos';
 // ⚠️ TentiDiferido y NUNCA '@/components/tenti/tenti': este componente lo
 // importa sin diferir /calendario, y un import directo metería
 // el motor de la mascota en cada carga del calendario, para todos los roles.
@@ -65,6 +67,9 @@ export function ListoParaReservar({
   // a poder (exige bono, hay tarifas activas y no hay Stripe), se dice aquí
   // mismo, antes de que copie el enlace y lo mande (evaluación del 13-sep).
   const { studio, planesTarifa } = useStudio();
+  // El embudo del alta es el de la propietaria (app/api/alta/paso solo la
+  // admite a ella): quien no lo es no manda nada que se vaya a rechazar.
+  const esPropietaria = useRol() === 'PROPIETARIO';
   const aviso = studio ? avisoVentaOnline({
     stripeAccountId: studio.stripeAccountId,
     reservaExigirPlan: studio.reservaExigirPlan ?? true,
@@ -120,6 +125,7 @@ export function ListoParaReservar({
     setError(null);
     if (await copiarAlPortapapeles(url)) {
       capturarEvento('enlace_compartido', { via: 'copiar' });
+      if (esPropietaria) apuntarEnlaceCompartido('copiar');
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
       return;
@@ -128,7 +134,7 @@ export function ListoParaReservar({
     // Safari fuera de un gesto y en contextos no seguros, y decir «Copiado»
     // con el portapapeles vacío es peor que no decir nada.
     setError('No hemos podido copiar. Selecciona el enlace y cópialo a mano.');
-  }, [url]);
+  }, [url, esPropietaria]);
 
   // La hoja nativa de compartir (WhatsApp, Instagram, Mensajes…) solo donde es
   // lo natural: un móvil o una tableta. En escritorio existe a medias y un
@@ -147,12 +153,13 @@ export function ListoParaReservar({
         url,
       });
       capturarEvento('enlace_compartido', { via: 'nativo' });
+      if (esPropietaria) apuntarEnlaceCompartido('compartir');
     } catch (e) {
       // Cerrar la hoja sin elegir nada NO es un fallo, y no cuenta como compartido.
       if (e instanceof DOMException && e.name === 'AbortError') return;
       setError('No hemos podido abrir el menú de compartir. Copia el enlace y pégalo donde quieras.');
     }
-  }, [url, nombreEstudio]);
+  }, [url, nombreEstudio, esPropietaria]);
 
   const textoWhatsApp = encodeURIComponent(
     `¡Ya puedes reservar tus clases en ${nombreEstudio}! Entra aquí y elige la que quieras: ${url}`,
@@ -259,7 +266,10 @@ export function ListoParaReservar({
               href={`https://wa.me/?text=${textoWhatsApp}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => capturarEvento('enlace_compartido', { via: 'whatsapp' })}
+              onClick={() => {
+                capturarEvento('enlace_compartido', { via: 'whatsapp' });
+                if (esPropietaria) apuntarEnlaceCompartido('whatsapp');
+              }}
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-medio hover:underline"
             >
               <MessageCircle size={14} aria-hidden />

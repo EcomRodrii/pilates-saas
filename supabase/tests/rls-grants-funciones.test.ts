@@ -140,6 +140,10 @@ const CASOS: Caso[] = [
   { firma: 'situacion_estudio(text, date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'situacion_estudios(date)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'registrar_situacion_diaria(date)', anon: false, authenticated: false, serviceRole: true },
+  // El embudo del alta (migr 20261021020248): la lectura cruza auth.users, solo /interno por el servidor; el
+  // trigger de auth.users que apunta el alta (con version y llegada) no lo llama nadie.
+  { firma: 'embudo_activacion_detalle(date, boolean)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'altas_estudio_registrar_cuenta()', anon: false, authenticated: false, serviceRole: true },
   // La única SECURITY DEFINER del grupo: lee `auth.sessions` para el punto de partida de la marca del panel.
   { firma: 'sesiones_iniciales_del_equipo()', anon: false, authenticated: false, serviceRole: true },
 ];

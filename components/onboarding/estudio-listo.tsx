@@ -25,6 +25,7 @@ import { ArrowRight, CheckCircle2, Copy, FileSpreadsheet, Link2, Loader2, UserPl
 import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import type { Studio } from '@/lib/types';
 import type { RespuestasWizard } from '@/lib/onboarding/borrador-wizard';
@@ -72,6 +73,8 @@ export function EstudioListo({
   async function copiar() {
     if (!urlReservas) return;
     const ok = await copiarAlPortapapeles(urlReservas);
+    // Al embudo del alta solo lo que de verdad se copió.
+    if (ok) apuntarEnlaceCompartido('copiar');
     setCopiado(ok ? 'ok' : 'fallo');
     setTimeout(() => setCopiado(null), 2500);
   }
@@ -165,7 +168,7 @@ export function EstudioListo({
                   >
                     <Copy size={14} aria-hidden /> Copiar enlace
                   </button>
-                  {studio.slug && <BotonQr destino="reservas" url={urlReservas} slug={studio.slug} estudio={nombre} nombreEnlace="Página de reservas" />}
+                  {studio.slug && <BotonQr destino="reservas" url={urlReservas} slug={studio.slug} estudio={nombre} nombreEnlace="Página de reservas" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
                   <span role="status" className="text-[12.5px] text-muted-foreground">
                     {copiado === 'ok' ? 'Enlace copiado' : copiado === 'fallo' ? 'No se ha podido copiar: selecciónalo y cópialo a mano.' : ''}
                   </span>
