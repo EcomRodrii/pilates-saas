@@ -80,7 +80,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/reservas-online',
     titulo: 'Reservas y pagos para estudios de Pilates y yoga | Tentare',
     descripcion:
-      'Tus alumnas reservan y pagan desde el móvil, 24/7: bono, clase suelta o cuota, con tarjeta o SEPA. Reglas por tipo de clase. Empieza gratis.',
+      'Tus alumnas reservan y pagan desde el móvil, 24/7: bono, clase suelta o cuota, con tarjeta. Reglas por tipo de clase. Empieza gratis.',
     grupo: 'funcionalidades',
     etiqueta: 'Reservas online',
     resumen: 'Reservan solas desde el móvil, con las reglas que tú pongas.',
@@ -135,7 +135,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
       'Una instructora avisa de que no puede y Tentare busca sustituta, la contacta con tu visto bueno (o sola, en modo autónomo) y avisa a las alumnas.',
     grupo: 'funcionalidades',
     etiqueta: 'Sustituciones',
-    resumen: 'La baja se cubre sola: candidatas, contacto, escalado y aviso.',
+    resumen: 'Tentare busca quién cubre la baja y espera tu sí: candidatas, contacto, escalado y aviso.',
     prioridad: 1,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
@@ -202,10 +202,10 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // cosa y la página diga otra es la peor forma de perder la confianza de
     // quien te está evaluando. Aquí solo va lo que hoy es cierto.
     descripcion:
-      'Si lo activas, cada cobro, salvo el efectivo, genera su factura con numeración correlativa y huella encadenada, y el cierre de año sale listo para tu gestoría.',
+      'La facturación viene encendida: con tu NIF, cada cobro salvo el efectivo genera su factura numerada, y el cierre de año sale listo para tu gestoría.',
     grupo: 'funcionalidades',
     etiqueta: 'Facturación',
-    resumen: 'Del cobro a la factura sellada, si la activas.',
+    resumen: 'Del cobro a la factura, sin emitirla a mano.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
@@ -226,7 +226,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades/automatizaciones-y-avisos',
-    titulo: 'Automatizaciones y avisos por WhatsApp y email | Tentare',
+    titulo: 'Automatizaciones y avisos por app, push y email | Tentare',
     // ⚠️ El recuento de esta página se comprobó contra el código antes de
     // escribirla y NO era el que se suponía: los 10 disparadores de
     // `TriggerAutomatizacion` solo se configuran desde /marketing, que está
@@ -388,10 +388,10 @@ export const PAGINAS: PaginaSeo[] = [
   {
     path: '/network',
     titulo: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
-    descripcion: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+    descripcion: 'Directorio público de instructoras de Pilates y Yoga, por especialidad, ciudad y disponibilidad. El alta de perfiles nuevos está cerrada por ahora.',
     grupo: 'funcionalidades',
     etiqueta: 'Tentare Network',
-    resumen: 'Descubre, conoce y contacta con instructoras de Pilates y Yoga verificadas.',
+    resumen: 'El directorio público de instructoras de Pilates y Yoga.',
     prioridad: 0.8,
     changeFrequency: 'weekly',
     relacionadas: ['/network/instructoras', '/funcionalidades/sustituciones', '/recursos/como-ser-instructora-de-pilates'],
@@ -422,10 +422,10 @@ export const PAGINAS: PaginaSeo[] = [
   {
     path: '/network/crear-perfil',
     titulo: 'Crea tu perfil de instructora | Tentare Network',
-    descripcion: 'Publica tu perfil una vez. Los estudios de Pilates y Yoga te contactan a ti cuando tu disponibilidad encaja.',
+    descripcion: 'El alta de perfiles nuevos en Tentare Network está cerrada por ahora. Quien ya tiene perfil puede seguir editándolo.',
     grupo: 'funcionalidades',
     etiqueta: 'Alta de instructora',
-    resumen: 'Publica tu perfil gratis en Tentare Network.',
+    resumen: 'El alta de perfiles nuevos, cerrada por ahora.',
     prioridad: 0.5,
     changeFrequency: 'monthly',
     relacionadas: ['/network', '/network/instructoras'],
@@ -489,9 +489,9 @@ export const PAGINAS: PaginaSeo[] = [
     ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
       'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia) en facturación, sustituciones y funciones.'],
+      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia) en sustituciones y funciones.'],
     ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): cobros, facturación y funciones, punto por punto.'],
+      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): cobros y funciones, punto por punto.'],
     ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
       'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
@@ -557,7 +557,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/comparativa/tentare-vs-glofox',
     titulo: '¿Glofox merece la pena? Precios y alternativa para Pilates',
     descripcion:
-      'Glofox en euros: precio real, permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).',
+      'Glofox: precio publicado (en dólares), permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).',
     grupo: 'software',
     etiqueta: 'Tentare vs Glofox',
     prioridad: 0.7,
@@ -644,7 +644,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/programa-de-gestion-para-estudio-de-pilates',
     titulo: 'Programa de gestión para estudios de Pilates en España',
     descripcion:
-      'Reservas, calendario con salas, bonos, cobros con tarjeta o SEPA, facturas y sustituciones en un programa para estudios de Pilates en España. Empieza gratis.',
+      'Reservas, calendario con salas, bonos, cobros con tarjeta o remesa SEPA, facturas y sustituciones para estudios de Pilates en España. Empieza gratis.',
     grupo: 'soluciones',
     etiqueta: 'Programa de gestión',
     resumen: 'El programa que lleva el estudio entero: reservas, bonos, cobros, facturas y equipo.',
@@ -739,10 +739,10 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/seguridad',
     titulo: 'Seguridad y privacidad — Tentare',
     descripcion:
-      'Cómo protege Tentare los datos de tu estudio y de tus alumnas: aislamiento por estudio, datos en la UE, RGPD, pagos con Stripe y copias de seguridad.',
+      'Cómo protege Tentare los datos de tu estudio y de tus alumnas: aislamiento por estudio, base de datos en la UE, RGPD, pagos con Stripe y copias de seguridad.',
     grupo: 'recursos',
     etiqueta: 'Seguridad',
-    resumen: 'Aislamiento por estudio, RGPD y datos en la UE.',
+    resumen: 'Aislamiento por estudio, RGPD y base de datos en la UE.',
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',

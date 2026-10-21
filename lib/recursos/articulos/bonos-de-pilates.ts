@@ -53,7 +53,7 @@ const articulo: Articulo = {
             '**Clase suelta:** precio de referencia alto que hace atractivos los otros dos.',
           ],
         },
-        { t: 'p', texto: 'Cobrar la cuota a mano es trabajo y deja huecos. En Tentare, con Stripe conectado, las cuotas se cobran solas con tarjeta o SEPA; si un cobro falla, se reintenta dos veces (a los 3 y a los 7 días) y te avisa. Los bonos y pagos puntuales admiten también Bizum; las cuotas, no. Más en [cobros recurrentes](/funcionalidades/cobros-recurrentes).' },
+        { t: 'p', texto: 'Cobrar la cuota a mano es trabajo y deja huecos. En Tentare, con Stripe conectado, las cuotas se cobran solas con la tarjeta guardada; si un cobro falla, se reintenta dos veces (a los 3 y a los 7 días) y te avisa. Si cobras por domiciliación, te prepara la remesa SEPA para tu banco. Los bonos y pagos puntuales admiten también Bizum; las cuotas, no. Más en [cobros recurrentes](/funcionalidades/cobros-recurrentes).' },
       ],
     },
     {
@@ -203,7 +203,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Tus bonos y cuotas, con sus reglas, en un solo sitio',
-    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con Stripe (tarjeta o SEPA). Empieza gratis, sin tarjeta.',
+    texto: 'En Tentare configuras bonos, cuotas y clases sueltas con su caducidad y reglas por tipo de clase, y cobras las cuotas con tarjeta a través de Stripe o por remesa SEPA en tu banco. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Escalera de ejemplo: la suelta (25 €) y las cuotas (75 y 130 €) son medianas del estudio de precios; los bonos de 5 (110 €) y 10 (200 €) están redondeados dentro de los descuentos observados, no son medianas.',

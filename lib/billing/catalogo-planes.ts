@@ -124,7 +124,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     id: 'equipo',
     titulo: 'Equipo',
     filas: [
-      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: recepción no entra en la caja ni en la ficha clínica.', valor: TODOS },
+      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: la gerencia no entra en la caja y recepción no ve el detalle clínico.', valor: TODOS },
       { nombre: 'App para tu equipo', detalle: 'Su agenda, pasar lista, su disponibilidad, sus ausencias y los mensajes con sus alumnas, desde el móvil y con tu marca.', valor: TODOS },
       { nombre: 'Tarifa por hora y liquidación', valor: TODOS },
       { nombre: 'Una instructora en varias sedes', detalle: 'Con horario, tarifa y permisos distintos en cada una.', valor: porFeature('multiCentro') },
@@ -145,7 +145,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Cobros y pagos',
     filas: [
       { nombre: 'Cobro con tarjeta (Stripe)', detalle: 'El dinero va directo a tu cuenta. Tentare no se lleva comisión.', valor: TODOS },
-      { nombre: 'Domiciliación SEPA', valor: TODOS },
+      { nombre: 'Remesa SEPA para domiciliaciones', detalle: 'Tentare prepara el fichero; lo presentas tú en tu banco.', valor: TODOS },
       { nombre: 'Cobro guardado para renovaciones', valor: TODOS },
       { nombre: 'Recobro automático de impagos', valor: TODOS },
       { nombre: 'Devoluciones desde el panel', valor: TODOS },
@@ -169,10 +169,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // ⚠️ Esta fila decía «Firma y envío a Hacienda desde el propio panel», y el
       // envío NO está ocurriendo: 26 facturas en producción y cero transmitidas
       // (el proveedor de firma que se dio por activado en julio nunca llegó a
-      // firmar ninguna). Lo que sí es verdad y no es poco: la numeración legal,
-      // la huella encadenada y el QR de cotejo, que son el formato que exige el
-      // reglamento. La fila se queda con lo cierto hasta que el envío funcione
-      // de extremo a extremo — anunciarlo antes es vender lo que no hay.
+      // firmar ninguna). La fila se queda con lo cierto hasta que el envío
+      // funcione de extremo a extremo — anunciarlo antes es vender lo que no hay.
       // El detalle dice ADEMÁS lo que todavía no hace. «Como exige el
       // reglamento» a secas se leía como «ya cumples», y dentro del producto el
       // panel de Facturas dice «envío a la AEAT en desarrollo»: descubrir esa
@@ -180,7 +178,11 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // decidiendo la compra.
       // ⚠️ Y el QR tampoco: la factura solo lo imprime cuando la AEAT ya tiene
       // el registro (selloParaCliente), así que sin envío no sale en ninguna.
-      { nombre: 'Facturas con huella encadenada (Veri*Factu)', detalle: 'Numeración legal y huella encadenada. La firma y el envío automático a la AEAT están en construcción; el QR de cotejo llega con el envío.', valor: TODOS },
+      // ⚠️ 21-oct-2026: tampoco la huella. Desde «facturas siempre, Veri*Factu
+      // aparte» (migr 20261002191517) una factura sin Veri*Factu nace SIN huella
+      // ni QR, y Veri*Factu no está activo en ningún estudio. Esta fila decía
+      // «Facturas con huella encadenada (Veri*Factu)»: era mentira en todas.
+      { nombre: 'Veri*Factu (huella, QR y envío a la AEAT)', detalle: 'Todavía no está activo en ningún estudio: hoy las facturas salen con su número, sin huella ni QR, y no se envían a la AEAT.', valor: () => NO },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],
@@ -203,9 +205,11 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Centro de Control', detalle: 'Un solo aviso al día, y solo cuando de verdad merece interrumpirte.', valor: porFeature('decisiones') },
       { nombre: 'Piloto automático', detalle: 'Ejecuta solo lo que ya has aprobado muchas veces.', valor: porFeature('decisiones') },
       { nombre: 'Riesgo de fuga y de impago', valor: porFeature('decisiones') },
-      // Hoy, lo que Estudio tiene de más frente a Founding Studio de pago (15-oct-2026);
-      // la app propia del estudio se añade aquí cuando se pueda pedir de verdad.
-      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p, e = PLAN_ENTITLEMENTS[p]) => txt(`${e.consultasAsistenteMes} consultas al mes`) },
+      // «Pregúntale a Tentare» salió de aquí el 21-oct-2026: va tras el interruptor
+      // ASISTENTE_IA (lib/asistente/interruptor.ts), encendido solo en algunos
+      // estudios, así que no es algo que se reciba por pagar un plan. Sus topes
+      // (`consultasAsistenteMes`) siguen en entitlements; vuelve a esta lista el
+      // día que esté encendido para todos.
     ],
   },
   {

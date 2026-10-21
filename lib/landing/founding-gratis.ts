@@ -3,8 +3,10 @@
 // (decisión del fundador, 15-oct-2026): todo Tentare menos varias sedes,
 // mientras el estudio no pase de GRATIS_ALUMNAS alumnas activas ni de
 // GRATIS_RESERVAS_MES reservas en un mes. Al pasarse tiene GRATIS_MARGEN_DIAS días
-// para pasarse a Founding Studio de pago (PRECIO_FOUNDING_PAGO), con lo mismo y
-// sin tope; si no, se cierra el panel y la app de sus alumnas sigue funcionando.
+// para pasarse a Founding Studio de pago (PRECIO_FOUNDING_PAGO), sin tope y, desde
+// el 19/20-oct-2026, con el Centro de Control, las sustituciones automáticas y la
+// redacción con IA como complementos aparte (COMPLEMENTOS_DE_PAGO); si no, se
+// cierra el panel y la app de sus alumnas sigue funcionando.
 // Pasar de CUALQUIERA de los dos límites lleva ahí: nadie va obligado a Estudio
 // (corrección del fundador, 15-oct por la mañana). Lo que distingue a Estudio es
 // la app propia del estudio, que todavía no existe: la web no la vende hasta que
@@ -63,6 +65,12 @@ export const SI_PASAS = `si pasas de ahí, ${PRECIO_FOUNDING_PAGO} €/mes`;
 export const COMPLEMENTOS_DE_PAGO = `el ${ADDONS.decisiones.nombre} (${ADDONS.decisiones.precioMes} €/mes), las sustituciones automáticas (${ADDONS.sustituciones.precioMes} €/mes) y la redacción con IA (${ADDONS.ia.precioMes} €/mes)`;
 /** Las tres, en corto, para las tarjetas de los planes. */
 export const COMPLEMENTOS_CORTO = 'Centro de Control, sustituciones automáticas y redacción con IA';
+/**
+ * «si pasas de ahí, 29 €/mes, con Centro de Control, … aparte»: lo que va junto a
+ * «todas las funcionalidades» del gratis. Sin la coletilla, el «si pasas de ahí»
+ * se leía «con lo mismo» (21-oct-2026).
+ */
+export const SI_PASAS_CON_COMPLEMENTOS = `${SI_PASAS}, con ${COMPLEMENTOS_CORTO} aparte`;
 
 /** El botón que lleva al alta. Sustituye a «Probar 7 días gratis». */
 export const CTA_ALTA = 'Empezar gratis';

@@ -199,7 +199,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'En el software, Tentare cubre lo que en algunas franquicias pone la central: tus alumnas reservan y cancelan solas desde el móvil, vendes bonos y cuotas, cobras de forma recurrente con tarjeta o SEPA a través de Stripe, la lista de espera funciona sola y gestionas las sustituciones de instructoras con tu visto bueno. Es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y si abres más sedes, el plan Cadena, de 149 €/mes con IVA, las reúne en [un solo acceso](/funcionalidades/multi-centro).',
+            'En el software, Tentare cubre lo que en algunas franquicias pone la central: tus alumnas reservan y cancelan solas desde el móvil, vendes bonos y cuotas, cobras de forma recurrente con tarjeta a través de Stripe o por remesa SEPA en tu banco, la lista de espera funciona sola y gestionas las sustituciones de instructoras con tu visto bueno. Es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y si abres más sedes, el plan Cadena, de 149 €/mes con IVA, las reúne en [un solo acceso](/funcionalidades/multi-centro).',
         },
       ],
     },

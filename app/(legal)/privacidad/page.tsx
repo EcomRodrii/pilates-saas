@@ -34,8 +34,7 @@ export default function Privacidad() {
         soporte), {LEGAL.marca} actúa como <strong>responsable</strong>. Respecto de los datos que cada estudio
         introduce sobre <strong>sus clientas</strong> para gestionar su actividad, {LEGAL.marca} actúa como{' '}
         <strong>encargado del tratamiento</strong> por cuenta del estudio, que es el responsable de esos datos;
-        el marco de ese tratamiento se recoge en los <a href="/terminos">Términos y Condiciones</a> (acuerdo de
-        encargo, art. 28 RGPD).
+        el marco de ese tratamiento se recoge en los <a href="/terminos">Términos y Condiciones</a>.
       </p>
 
       <h2>3. Datos que tratamos y finalidades</h2>
@@ -132,9 +131,10 @@ export default function Privacidad() {
         cuenta, los datos se suprimen o anonimizan una vez transcurridos dichos plazos.
       </p>
       <p>
-        Cuando un estudio deja Tentare, dispone de 30 días para descargar sus datos; después, o antes si lo pide,
-        se suprimen también de las copias de seguridad y se le confirma por correo. Se conservan bloqueados,
-        durante el plazo legal, las facturas, los recibos, los registros de facturación y los mandatos SEPA.
+        Cuando un estudio deja Tentare, puede descargar sus datos y pedirnos que los suprimamos escribiendo a{' '}
+        <a href={`mailto:${LEGAL.emailPrivacidad}`}>{LEGAL.emailPrivacidad}</a>. Aunque pida la supresión, se
+        conservan bloqueados, durante el plazo legal, las facturas, los recibos, los registros de facturación y los
+        mandatos SEPA.
       </p>
 
       <h2>6. Destinatarios y encargados</h2>

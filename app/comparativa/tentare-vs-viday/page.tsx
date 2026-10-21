@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs ViDay',
-    description: 'Precio, facturación y funciones — comparados con lo que consta en la web pública de ViDay.',
+    description: 'Precio y funciones — comparados con lo que consta en la web pública de ViDay.',
     url: urlDe(PATH),
   },
 };
@@ -35,7 +35,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sí: «solo avísanos y te damos de baja»'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta; sí ofrece plazas fijas con recuperación'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo ofrece agendar una demo'] },

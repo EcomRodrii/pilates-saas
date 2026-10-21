@@ -2,24 +2,25 @@ import { MUTED } from '@/components/landing/theme';
 import { PanelClaro, PanelOscuro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/facturacion ──────────────────────────
-// Fuente: lib/verifactu.ts (cadena y huella SHA-256 en el orden de la AEAT),
-// lib/billing/sellar-factura-server.ts (numeración atómica + encadenado). La
-// firma y el envío a la AEAT están EN CONSTRUCCIÓN (lib/verifactu/), así que el
-// dibujo no los pinta como hechos. El ejemplo de huella de abajo es ILUSTRATIVO
-// —hex acortado— pero el formato de la cadena es el real.
+// Fuente: lib/billing/sellar-factura-server.ts (numeración atómica) y
+// lib/verifactu.ts (cadena y huella SHA-256 en el orden de la AEAT). Sin
+// Veri*Factu activo —hoy en ningún estudio— la factura sale SIN huella ni QR y
+// sin envío (migr 20261002191517), así que el flujo no pinta la huella como un
+// paso de cada cobro: solo `CadenaDeHuellas` la explica, como lo que trae
+// Veri*Factu. El ejemplo de huella de abajo es ILUSTRATIVO —hex acortado— pero
+// el formato de la cadena es el real.
 
 const ETAPAS = [
-  { t: 'Se cobra', d: 'Tarjeta, SEPA o cobro de mostrador. El recibo pasa a COBRADO.', c: '#3E7C86' },
+  { t: 'Se cobra', d: 'Tarjeta, remesa SEPA o cobro de mostrador. El recibo pasa a COBRADO.', c: '#3E7C86' },
   { t: 'Se reserva el número', d: 'Correlativo, con bloqueo por estudio: dos cobros a la vez no pueden partir la serie.', c: '#5A6142' },
-  { t: 'Se calcula la huella', d: 'SHA-256 de los datos fiscales encadenados con la huella de la factura anterior.', c: '#343825' },
   { t: 'Sale la factura', d: 'Para la clienta y para tu gestoría, sin que la emitas a mano.', c: '#4E9E7F' },
 ];
 
 export function DelCobroALaFactura() {
   return (
     <PanelClaro
-      titulo="Del cobro a la factura sellada"
-      nota="Con la facturación activada, estas cuatro etapas ocurren en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo, y con ellos el QR de cotejo, sin cambiar nada de lo anterior."
+      titulo="Del cobro a la factura"
+      nota="Con la facturación encendida, que es como viene, estas tres etapas ocurren en cada cobro salvo el efectivo. La huella, el QR y el envío del registro a la AEAT van con Veri*Factu, que todavía no está activo en ningún estudio."
     >
       <div className="fac-flujo">
         {ETAPAS.map((e, i) => (
@@ -53,8 +54,8 @@ export function CadenaDeHuellas() {
   ];
   return (
     <PanelClaro
-      titulo="Por qué una factura ya no se puede tocar"
-      nota="Cada huella se calcula sobre los datos fiscales de la factura MÁS la huella de la anterior. Cambiar un importe de hace tres meses invalidaría todas las posteriores — y eso es exactamente lo que la Ley Antifraude persigue."
+      titulo="Cómo funciona la huella de Veri*Factu"
+      nota="Hoy tus facturas no la llevan: llega con Veri*Factu, todavía no activo. Cada huella se calcula sobre los datos fiscales de la factura MÁS la huella de la anterior. Cambiar un importe de hace tres meses invalidaría todas las posteriores — y eso es exactamente lo que la Ley Antifraude persigue."
     >
       <div style={{ display: 'grid', gap: 10 }}>
         {eslabones.map((e, i) => (
@@ -85,7 +86,6 @@ export function LoQueLlevaLaFactura() {
       <div style={{ display: 'grid', gap: 11 }}>
         {[
           ['Número correlativo', 'Serie por estudio, sin saltos ni duplicados'],
-          ['Huella SHA-256', 'Encadenada con la factura anterior'],
           ['Desglose de IVA', 'Base, cuota y total'],
           ['Datos del emisor', 'NIF validado antes de sellar'],
         ].map(([t, d]) => (

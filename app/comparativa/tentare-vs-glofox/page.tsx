@@ -29,12 +29,12 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['partial', 'Anuncia planes desde 99 USD/mes, en dólares; su web remite a pedir una demo para el precio'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Plaza por reformer individual', tentare: ['yes', 'Cada alumna reserva su reformer concreto'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Lista de espera por aparato', tentare: ['yes', 'Automática: la plaza que se libera pasa a la siguiente'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en todos los planes'], them: ['partial', 'No consta como función nativa en su web pública'] },
+  { feature: 'Plaza por reformer individual', tentare: ['yes', 'Cada alumna reserva su reformer concreto, si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Lista de espera automática', tentare: ['yes', 'Por clase: la plaza que se libera pasa a la siguiente'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta como función nativa en su web pública'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con marca propia, según su web'] },
   { feature: 'Reglas de reserva y cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase'], them: ['yes', 'Aforo, ventana de reserva y cancelación configurables por clase, según su web'] },
-  { feature: 'Cobros con Stripe y domiciliación', tentare: ['yes', 'Stripe (tarjeta y domiciliación SEPA); Tentare genera su propia remesa SEPA'], them: ['yes', 'Stripe y GoCardless, según su web'] },
+  { feature: 'Cobros con Stripe y domiciliación', tentare: ['yes', 'Stripe para la tarjeta; para la domiciliación, Tentare genera la remesa SEPA que presentas en tu banco'], them: ['yes', 'Stripe y GoCardless, según su web'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['yes', 'Plan para varias sedes y franquicias, según su web'] },
   { feature: 'Soporte en español', tentare: ['yes', 'Nativo en castellano'], them: ['yes', 'Disponible, según su web'] },
@@ -51,7 +51,7 @@ const FAQ = [
   },
   {
     q: '¿Glofox gestiona cada reformer por separado?',
-    a: 'No consta en su web pública que reserve una máquina concreta dentro de una misma sesión; sí describe aforo y reglas por clase. En Tentare cada alumna reserva su reformer, y la lista de espera es por aparato.',
+    a: 'No consta en su web pública que reserve una máquina concreta dentro de una misma sesión; sí describe aforo y reglas por clase. En Tentare cada alumna reserva su reformer si la sala tiene sus puestos definidos, y la lista de espera es por clase.',
   },
   {
     q: '¿Puedo pasar mis datos de Glofox a Tentare?',
@@ -81,7 +81,7 @@ const ANALISIS: SeccionAnalisis[] = [
     titulo: 'Lo que cambia en un estudio con reformers',
     cuerpo: (
       <>
-        <p>En un estudio de reformer no vendes clases: vendes una máquina a una hora. Tentare gestiona cada sala con su aforo y cada reformer con su plaza, con <Link href="/funcionalidades/plazas-fijas">plazas fijas</Link> para las alumnas de siempre y <Link href="/funcionalidades/lista-de-espera">lista de espera</Link> por aparato.</p>
+        <p>En un estudio de reformer no vendes clases: vendes una máquina a una hora. Tentare gestiona cada sala con su aforo y cada reformer con su plaza, con <Link href="/funcionalidades/plazas-fijas">plazas fijas</Link> para las alumnas de siempre y <Link href="/funcionalidades/lista-de-espera">lista de espera</Link> en cada clase.</p>
         <p>Cuando una instructora avisa de que no puede, <Link href="/funcionalidades/sustituciones">Tentare busca quién la cubre</Link> según su disponibilidad, la contacta y avisa a las alumnas del cambio.</p>
       </>
     ),

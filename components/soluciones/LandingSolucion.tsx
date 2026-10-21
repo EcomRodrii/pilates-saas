@@ -10,7 +10,7 @@ import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { SI_PASAS_CON_COMPLEMENTOS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
 import { Escena } from '@/components/web/home/piezas';
 // Las piezas del producto de la home (AgendaDia, PanelCobros…) toman sus colores de
@@ -300,8 +300,8 @@ export function TablaSolucion({ titulo, intro, cabeceras, filas }: { titulo: str
 // su resumen y el de Estudio son los de la home (components/landing/data.ts), no
 // los de PLAN_INFO: Estudio no se vende por lo que también tiene Founding Studio.
 const RESUMEN_WEB: Partial<Record<Plan, string>> = {
-  BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${SI_PASAS}.`,
-  ESTUDIO: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.',
+  BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${SI_PASAS_CON_COMPLEMENTOS}.`,
+  ESTUDIO: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos.',
 };
 
 /** Los tres planes, con el precio de lib/billing (nunca escrito a mano). */

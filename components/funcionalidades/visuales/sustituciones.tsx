@@ -1,4 +1,5 @@
 import { MUTED } from '@/components/landing/theme';
+import { ADDONS } from '@/lib/billing/entitlements';
 import { PanelClaro, PanelOscuro, PasoVertical } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/sustituciones ────────────────────────
@@ -110,11 +111,16 @@ export function EscaladoEnElTiempo() {
   );
 }
 
+// Autónomo y Vacaciones no van en todos los planes desde el 19/20-oct-2026: en
+// Founding Studio de pago son un complemento (`ADDONS.sustituciones`), y el
+// servidor contesta 403 sin él (app/api/sustituciones/route.ts).
+const SOLO_CON_AUTONOMIA = `Gratis, Estudio y Cadena; en Founding de pago, +${ADDONS.sustituciones.precioMes} €/mes`;
+
 const MODOS = [
   { n: 'Manual', nivel: 'Nivel 1', body: 'El sistema te propone a quién avisar. Tú das cada paso.', quien: 'Todos los planes' },
   { n: 'Asistido', nivel: 'Nivel 2 · por defecto', body: 'Te propone la candidata y, con tu visto bueno, la contacta y le insiste. Si acepta, la clase se reasigna sola.', quien: 'Todos los planes' },
-  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: 'Todos los planes' },
-  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: 'Todos los planes' },
+  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: SOLO_CON_AUTONOMIA },
+  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: SOLO_CON_AUTONOMIA },
 ];
 
 export function NivelesDeAutonomia() {

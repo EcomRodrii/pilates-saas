@@ -1,5 +1,4 @@
-import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
-import { PLAN_ENTITLEMENTS } from '@/lib/billing/entitlements';
+import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS_CON_COMPLEMENTOS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { MENU_PUBLICO } from '@/lib/seo/navegacion-publica';
 
 // Los destinos de primer nivel de la isla (la navegación de toda la web
@@ -31,13 +30,15 @@ export const INTEGRACIONES = [
 // 29 €, sin tope. Por eso Estudio ya no se vende por las sustituciones autónomas,
 // el Centro de Control ni las alumnas ilimitadas: lo tiene Founding Studio. Lo que
 // lo distinguirá es la app propia del estudio (decisión del fundador), que todavía
-// no existe: hasta entonces, solo lo que es verdad hoy (las consultas al asistente).
+// no existe: hasta entonces, solo lo que es verdad hoy. Las consultas al asistente
+// salieron el 21-oct-2026: «Pregúntale a Tentare» va tras el interruptor
+// ASISTENTE_IA, encendido solo en algunos estudios, y no se puede vender por plan.
 export const PLANS = [
   {
     id: 'BASE' as const,
     name: 'Founding Studio',
     price: 'Gratis',
-    desc: `Para empezar. ${TOPE_GRATIS}; ${SI_PASAS}.`,
+    desc: `Para empezar. ${TOPE_GRATIS}; ${SI_PASAS_CON_COMPLEMENTOS}.`,
     features: [TODO_MENOS_SEDES, 'Reservas y calendario', 'Cobros, bonos y facturas', 'App con tu marca'],
     cta: CTA_ALTA,
     dark: false,
@@ -49,7 +50,7 @@ export const PLANS = [
     name: 'Estudio',
     price: '59€',
     desc: `Todo lo de Founding Studio, con ${COMPLEMENTOS_CORTO} incluidos.`,
-    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`, `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
+    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`],
     cta: CTA_ALTA,
     dark: true,
     popular: true,
@@ -112,7 +113,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo cobro a mis alumnas?',
-    a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. También puedes apuntar pagos en efectivo o por transferencia, y cada cobro genera su recibo y su factura.',
+    a: 'Con tarjeta a través de tu cuenta de Stripe, y Bizum para pagos sueltos. Con la tarjeta guardada, las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para que la presentes en tu banco. También puedes apuntar pagos en efectivo o por transferencia; cada cobro genera su recibo y, salvo el efectivo, su factura.',
   },
   {
     q: '¿Sirve para varios centros o sedes?',
@@ -120,14 +121,14 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',
-    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. Los datos se alojan en la Unión Europea y Tentare está diseñado con el RGPD en mente.',
+    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. La base de datos está en la Unión Europea; algunos proveedores tratan datos fuera de ella y están listados en la política de privacidad. Tentare está diseñado con el RGPD en mente.',
   },
   {
     q: '¿Qué es «Pregúntale a Tentare»?',
-    a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia, y viene en todos los planes con un límite de consultas al mes.',
+    a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia. Hoy está en pruebas y solo está encendido en algunos estudios.',
   },
   {
     q: '¿Qué pasa si una instructora cancela su clase?',
-    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. Hay también un modo autónomo.',
+    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. Hay también un modo autónomo: en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.',
   },
 ];

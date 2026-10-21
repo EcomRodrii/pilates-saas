@@ -128,7 +128,7 @@ const articulo: Articulo = {
         },
         {
           t: 'llamada',
-          texto: 'Con Stripe conectado, Tentare cobra las cuotas solas con tarjeta o domiciliación, reintenta lo que falla y te avisa de lo que queda pendiente; los bonos los compra la alumna desde su app.',
+          texto: 'Con Stripe conectado, Tentare cobra las cuotas solas con la tarjeta guardada, reintenta lo que falla y te avisa de lo que queda pendiente; si cobras por domiciliación, te prepara la remesa SEPA para tu banco; los bonos los compra la alumna desde su app.',
         },
       ],
     },

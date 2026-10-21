@@ -7,7 +7,7 @@ import { ACC, ACC_SOFT, BG, MUTED, btnCta } from '@/components/landing/theme';
 import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ALTA, WHATSAPP_SOPORTE } from '@/components/landing/enlaces';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
-import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
+import { G2_NOTA, G2_RESENAS, G2_URL } from '@/lib/seo/g2';
 
 // Página de aterrizaje para quien llega desde TikTok (el enlace de la bio).
 //
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 const VENTAJAS = [
   'Tus alumnas reservan y cancelan solas desde el móvil',
-  'Los bonos se descuentan solos y los cobros entran por tarjeta o SEPA',
+  'Los bonos se descuentan solos y las cuotas se cobran con la tarjeta guardada',
   'Si falla una instructora, Tentare busca sustituta por ti',
 ];
 
@@ -70,7 +70,7 @@ export default function EmpiezaPage() {
         <section id="precio" className="flex flex-col gap-4 text-center" data-cta-final>
           <p className="text-xl font-bold">{GRATIS_CON_LIMITES}.</p>
           <a href={G2_URL} target="_blank" rel="noopener noreferrer" className="text-sm underline-offset-2 hover:underline" style={{ color: MUTED }}>
-            <span aria-hidden>★★★★★</span> Valorado {G2_NOTA} en G2
+            <span aria-hidden>★★★★★</span> Valorado {G2_NOTA} en G2 ({G2_RESENAS} reseñas)
           </a>
           <Link href={ALTA} className={`${btnCta} px-6 py-4 text-lg font-bold`}>
             Empezar ahora

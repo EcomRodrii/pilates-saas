@@ -129,7 +129,7 @@ export default function VerifactuPage() {
         />
 
         <h2 id="s4">País Vasco y Navarra: otro régimen</h2>
-        <p>Si tu domicilio fiscal está en el <strong>País Vasco o en Navarra</strong>, este reglamento estatal no se te aplica: rige la normativa de tu hacienda foral. En el País Vasco es <strong>TicketBAI</strong>; Navarra tiene su propia normativa. Hoy Tentare emite las facturas con numeración legal y huella encadenada; el QR se imprime cuando la AEAT ya tiene el registro, y el envío automático a la AEAT sigue en construcción. TicketBAI no está soportado. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
+        <p>Si tu domicilio fiscal está en el <strong>País Vasco o en Navarra</strong>, este reglamento estatal no se te aplica: rige la normativa de tu hacienda foral. En el País Vasco es <strong>TicketBAI</strong>; Navarra tiene su propia normativa. Hoy Tentare emite las facturas con numeración legal correlativa, sin huella ni QR y sin envío a la AEAT: Veri*Factu todavía no está activo en ningún estudio. TicketBAI no está soportado. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
 
         <h2 id="s5">La factura electrónica entre empresas es otra obligación</h2>
         <p>No confundas Veri*factu con la <strong>factura electrónica obligatoria entre empresas y profesionales</strong>, que regula el Real Decreto 238/2026. Solo afecta a las facturas que emites a otras empresas o profesionales, no a las de tus alumnas, que son particulares. Se aplicará doce meses después de la orden ministerial que regula la solución pública de facturación electrónica para quien facture más de 8 millones de euros al año, y veinticuatro meses después para el resto.</p>
@@ -155,7 +155,7 @@ export default function VerifactuPage() {
           ))}
         </ul>
 
-        <CtaBlock title="Numeración y huella, desde el primer cobro." body="Tentare emite tus facturas con numeración legal y huella encadenada desde el primer cobro. El QR se imprime cuando la AEAT tiene el registro, y el envío automático a la AEAT está en construcción: te lo contamos sin rodeos." />
+        <CtaBlock title="Numeración legal, desde el primer cobro." body="Tentare emite tus facturas con numeración legal correlativa desde el primer cobro. Veri*Factu (la huella, el QR y el envío a la AEAT) todavía no está activo en ningún estudio: te lo contamos sin rodeos." />
 
         <RelatedLinks
           items={[

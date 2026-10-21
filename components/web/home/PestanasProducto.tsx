@@ -44,7 +44,7 @@ export const PESTANAS_PRODUCTO: readonly PestanaProducto[] = [
     etiqueta: 'Cobros',
     titulo: 'Cuotas cobradas el día que toca.',
     puntos: [
-      'Las cuotas se renuevan y se cobran solas con la tarjeta guardada o por adeudo SEPA.',
+      'Con la tarjeta guardada, las cuotas se renuevan y se cobran solas; por domiciliación, te prepara la remesa SEPA para tu banco.',
       'Si un cobro falla, se reintenta solo y a la alumna le llega un aviso.',
       'Bonos con caducidad, clase suelta, matrícula y códigos de descuento.',
     ],
@@ -57,7 +57,7 @@ export const PESTANAS_PRODUCTO: readonly PestanaProducto[] = [
     puntos: [
       'Su plan, lo que le queda y cuándo vino por última vez, en una sola fila.',
       'Avisos a la vista: quien viene menos o tiene un recibo sin cobrar.',
-      'La ficha de salud con permisos aparte: el detalle clínico solo lo ve la propietaria.',
+      'La ficha de salud con permisos aparte: el detalle lo ven la propietaria y, de sus alumnas, cada instructora; recepción y gerencia, solo el color del semáforo.',
     ],
     enlace: { href: '/funcionalidades/ficha-de-clienta', texto: 'Ver la ficha de cada alumna' },
   },

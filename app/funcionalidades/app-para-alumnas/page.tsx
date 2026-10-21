@@ -39,7 +39,7 @@ const FAQ = [
   },
   {
     q: '¿Puede gestionar su plaza fija ella sola?',
-    a: 'Sí. Si un día no puede venir, la deja en pausa o cancela esa sesión concreta desde su portal, y si le corresponde recuperación, se genera sola — sin que tengas que dársela de baja tú ni que te escriba para avisarte.',
+    a: 'En parte. Si un día no puede venir, cancela esa sesión concreta desde su portal y, si le corresponde recuperación, se genera sola. La pausa, si lo tienes activado, la pide desde su app y la apruebas tú.',
   },
 ];
 
@@ -73,9 +73,9 @@ export default function AppAlumnasPage() {
         </CapturaMovil>
         <p>
           Además de consultar, puede actuar: cancelar dentro de plazo, apuntarse a la lista de espera de una clase llena,
-          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Si tiene plaza fija cada semana, también la
-          gestiona ella sola — pausarla, retomarla o recuperar la sesión que le corresponde — sin escribirte para
-          avisarte. Las reglas que se aplican en cada caso son las que tú configuras en{' '}
+          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Si tiene plaza fija cada semana, cancela un
+          día suelto ella sola y recupera la sesión que le corresponde; la pausa, si lo tienes activado, la pide desde su
+          app y la apruebas tú. Las reglas que se aplican en cada caso son las que tú configuras en{' '}
           <Link href="/funcionalidades/reservas-online">reservas</Link> y en{' '}
           <Link href="/funcionalidades/cancelaciones-y-politicas">cancelaciones</Link>.
         </p>

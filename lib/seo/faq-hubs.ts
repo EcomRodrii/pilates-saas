@@ -58,11 +58,12 @@ export const FAQ_FUNCIONALIDADES: PreguntaFaq[] = [
     a: 'Sí, si conectas tu propio número de WhatsApp Business desde Configuración. El recordatorio de clase va de serie y entonces sale también por WhatsApp a quien no lo haya desactivado; sin WhatsApp conectado sigue saliendo por email y por notificación en la app.',
   },
   {
-    // Fuente: /funcionalidades/facturacion (viene apagada; sin envío
-    // automático a la AEAT todavía) y /seguridad (firma y envío «en
-    // construcción»). El efectivo no emite la factura solo.
+    // Fuente: /funcionalidades/facturacion y lib/factura-automatica.ts: viene
+    // ENCENDIDA (`facturar_automatico` true de serie, migr 20261008231750) y, sin
+    // Veri*Factu —no activo en ningún estudio—, la factura sale sin huella ni QR
+    // y sin envío (migr 20261002191517). El efectivo no emite la factura solo.
     q: '¿Emite Tentare las facturas por mí?',
-    a: 'Sí, si activas la facturación: cada cobro, salvo el efectivo, genera su factura con numeración correlativa y huella encadenada, y el cierre de año sale listo para tu gestoría. Viene apagada, para que sigas con tu gestoría si prefieres. El envío automático del registro a la AEAT (Veri*Factu) todavía no está activo.',
+    a: 'Sí, y viene encendido: con tu NIF, cada cobro, salvo el efectivo, genera su factura con numeración correlativa, y el cierre de año sale listo para tu gestoría. Si te las hace la gestoría, apágalo en Configuración → Cobros y facturas. Veri*Factu (la huella, el QR y el envío a la AEAT) todavía no está activo en ningún estudio.',
   },
   {
     // Fuente: /seguridad (base de datos en la UE, aislamiento por estudio,

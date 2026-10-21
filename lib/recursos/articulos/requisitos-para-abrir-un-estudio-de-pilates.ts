@@ -220,7 +220,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Tentare emite facturas con numeración legal y huella encadenada; la firma y el envío automático a la AEAT están en desarrollo, y el QR de cotejo se imprime cuando la AEAT tiene el registro. Con otro programa, pregunta a tu proveedor cuándo se adapta.',
+          texto: 'Tentare emite facturas con numeración legal correlativa, sin huella ni QR: Veri*Factu (la huella, la firma y el envío a la AEAT) todavía no está activo en ningún estudio. Con otro programa, pregunta a tu proveedor cuándo se adapta.',
         },
       ],
     },

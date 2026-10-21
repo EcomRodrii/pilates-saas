@@ -18,15 +18,15 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Tengo que emitir yo las facturas una a una?',
-    a: 'No. Con la facturación activada, cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador con tarjeta. La excepción es el efectivo, que no la emite solo: la generas desde el recibo si te la piden.',
+    a: 'No. La facturación viene encendida y, con tu NIF configurado, cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador con tarjeta. La excepción es el efectivo, que no la emite solo: la generas desde el recibo si te la piden.',
   },
   {
     q: '¿Y si mis facturas ya las hace mi gestoría?',
-    a: 'Déjalo apagado, que es como viene. Tentare registra cada cobro y tu alumna recibe su justificante de pago; las facturas las seguís haciendo como hasta ahora. Cuando quieras que las emita Tentare, se activa en un paso desde Configuración.',
+    a: 'Apaga la facturación, que viene encendida: está en Configuración → Cobros y facturas, «Facturar automáticamente». Tentare sigue registrando cada cobro y tu alumna recibe su justificante de pago; las facturas las seguís haciendo como hasta ahora.',
   },
   {
     q: '¿Qué pasa si me equivoco en una factura ya emitida?',
-    a: 'No se edita — la ley precisamente lo impide. Se emite una rectificativa, que entra en la cadena como un registro más. Que una factura no se pueda tocar es la función, no una limitación.',
+    a: 'No se edita — la ley precisamente lo impide. Se emite una rectificativa, que queda como una factura más. Que una factura no se pueda tocar es la función, no una limitación.',
   },
   {
     q: '¿Esto vale para el País Vasco y Navarra?',
@@ -34,11 +34,11 @@ const FAQ = [
   },
   {
     q: '¿Puedo llevar mi contabilidad con esto?',
-    a: 'No es un programa de contabilidad ni presenta impuestos. Lo que hace es emitir tus facturas con numeración legal y huella encadenada, y prepararte el resumen anual de ingresos e IVA para que tu gestoría trabaje con datos, no con un Excel reconstruido en enero.',
+    a: 'No es un programa de contabilidad ni presenta impuestos. Lo que hace es emitir tus facturas con numeración legal correlativa, y prepararte el resumen anual de ingresos e IVA para que tu gestoría trabaje con datos, no con un Excel reconstruido en enero.',
   },
   {
     q: '¿Y si un cobro se devuelve después de emitir la factura?',
-    a: 'La devolución queda registrada sobre el recibo, y la factura original sigue existiendo con su huella intacta. El histórico refleja lo que pasó de verdad, que es lo que pide una inspección.',
+    a: 'La devolución queda registrada sobre el recibo, y la factura original sigue existiendo tal cual. El histórico refleja lo que pasó de verdad, que es lo que pide una inspección.',
   },
 ];
 
@@ -47,9 +47,9 @@ export default function FacturacionPage() {
     <FeatureShell
       path={PATH}
       busqueda="Facturación para estudios de Pilates y yoga"
-      h1={<>Cada cobro, su factura, si la quieres. Sin que tengas que saber cómo.</>}
-      intro={<>Actívalo y cada cobro —salvo el efectivo— genera su factura con número correlativo y huella encadenada, calculada como fija la AEAT. Sin que abras nada. Si tus facturas las lleva tu gestoría, déjalo apagado: tus alumnas reciben su justificante de pago.</>}
-      chips={['Huella encadenada', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
+      h1={<>Cada cobro, su factura. Sin que tengas que saber cómo.</>}
+      intro={<>La facturación viene encendida: con tu NIF, cada cobro —salvo el efectivo— genera su factura con número correlativo. Sin que abras nada. Si tus facturas las lleva tu gestoría, apágala en Configuración → Cobros y facturas: tus alumnas reciben su justificante de pago.</>}
+      chips={['Numeración a prueba de carreras', 'Rectificativas', 'Cierre anual para la gestoría']}
       visual={<LoQueLlevaLaFactura />}
     >
       <Seccion id="contexto" titulo="Qué cambió en España, en una página">
@@ -74,21 +74,20 @@ export default function FacturacionPage() {
         <p>
           La relación entre <Link href="/funcionalidades/cobros-recurrentes">cobros</Link> y facturas es donde la mayoría de
           estudios pierde horas: se cobra en un sitio y se factura en otro, y a fin de mes hay que cuadrar los dos. Aquí es
-          una sola cosa. Con la facturación activada, un recibo que pasa a cobrado dispara su factura (en efectivo, solo si
+          una sola cosa. Con la facturación encendida, que es como viene, un recibo que pasa a cobrado dispara su factura (en efectivo, solo si
           la pides desde el recibo).
         </p>
         <DelCobroALaFactura />
         <p>
           La reserva del número tiene más miga de la que parece. Dos cobros que caen en el mismo segundo —el webhook de un
-          adeudo SEPA confirmado y una venta de mostrador, por ejemplo— podrían coger el mismo número o partir la cadena en
-          dos. Por eso la numeración pasa por un bloqueo por estudio y una restricción de unicidad en la base de datos: el
+          cobro con tarjeta confirmado y una venta de mostrador, por ejemplo— podrían coger el mismo número. Por eso la numeración pasa por un bloqueo por estudio y una restricción de unicidad en la base de datos: el
           fallo no puede ocurrir, no es que sea improbable.
         </p>
       </Seccion>
 
-      <Seccion id="cadena" titulo="Qué es exactamente la huella">
+      <Seccion id="cadena" titulo="Qué es la huella de Veri*Factu">
         <p>
-          Es un SHA-256 calculado sobre los datos fiscales de la factura —NIF del emisor, número y serie, fecha, tipo, cuota
+          Hoy tus facturas no la llevan: la huella va con Veri*Factu, que todavía no está activo en ningún estudio. Es un SHA-256 calculado sobre los datos fiscales de la factura —NIF del emisor, número y serie, fecha, tipo, cuota
           de IVA, importe total— <strong>más la huella de la factura anterior</strong>, concatenados en el orden exacto que
           fija la AEAT. Ese orden no es un detalle de estilo: si cambias el orden de dos campos, el resultado deja de
           coincidir con el que Hacienda espera.
@@ -102,25 +101,24 @@ export default function FacturacionPage() {
 
       <Seccion id="aeat" titulo="Qué se genera hoy, y qué falta">
         <p>
-          Calcular la huella está hecho y funciona en cada factura. <strong>Firmar el registro con un certificado</strong> y
-          transmitirlo a la AEAT, todavía no.
+          Hoy tus facturas salen con su número correlativo, <strong>sin huella ni QR</strong>, y no se envían a la AEAT:
+          Veri*Factu todavía no está activo en ningún estudio.
         </p>
         <Tabla
           cabeceras={['Paso', 'Estado hoy']}
           filas={[
-            ['Emitir las facturas desde Tentare', 'Si lo activas: viene apagado'],
+            ['Emitir las facturas desde Tentare', 'Sí: viene encendido y se apaga en Configuración'],
             ['Numeración correlativa y a prueba de carreras', 'Sí, siempre'],
-            ['Huella SHA-256 encadenada', 'Sí, siempre'],
-            ['QR de cotejo AEAT', 'Cuando la AEAT tenga el registro: llega con el envío'],
+            ['Huella SHA-256 encadenada', 'Solo con Veri*Factu, todavía no activo'],
+            ['QR de cotejo AEAT', 'Solo con Veri*Factu, todavía no activo'],
             ['Facturas rectificativas (R1–R5)', 'Sí, siempre'],
             ['Cierre trimestral y anual para la gestoría', 'Sí, siempre'],
-            ['Firma con certificado y envío a la AEAT', 'En construcción'],
+            ['Firma con certificado y envío a la AEAT', 'Todavía no activo'],
           ]}
         />
         <Limite titulo="Dónde está el límite, dicho claro">
-          Tus facturas se emiten hoy con numeración legal y huella encadenada. Lo que <strong>todavía no ocurre</strong> es
-          la firma y el envío automático del registro a la AEAT, que estamos construyendo, y por eso tampoco llevan aún el
-          QR de cotejo: un QR que la AEAT no puede comprobar le diría a tu clienta que su factura no consta. Preferimos
+          Tus facturas se emiten hoy con numeración legal correlativa, sin huella. Lo que <strong>todavía no ocurre</strong> es
+          Veri*Factu —la huella, la firma y el envío del registro a la AEAT—, y por eso tampoco llevan el QR de cotejo: un QR que la AEAT no puede comprobar le diría a tu clienta que su factura no consta. Preferimos
           decirlo aquí antes que dejar que te enteres cuando toque. La obligación entra el 1 de enero de 2027 para las
           sociedades, sean del tamaño que sean, y el 1 de julio de 2027 para las autónomas. Además, esto cubre la vía común: los
           territorios forales tienen sus propios sistemas y no están incluidos. Nada de esto es asesoramiento fiscal — el
@@ -149,7 +147,7 @@ export default function FacturacionPage() {
 
       <CierreCta
         titulo="Deja de reconstruir el año en enero"
-        body="Factura desde el primer euro con numeración legal y huella encadenada, y llega a la gestoría con los números ya hechos."
+        body="Factura desde el primer euro con numeración legal correlativa, y llega a la gestoría con los números ya hechos."
       />
     </FeatureShell>
   );

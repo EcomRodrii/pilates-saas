@@ -30,7 +30,7 @@ export function PreguntasHome() {
           </p>
           <dl className="wh-faq-datos">
             <div><dt>Para quién</dt><dd>Estudios y centros de Pilates y yoga, independientes o con varias sedes</dd></div>
-            <div><dt>Dónde</dt><dd>España: interfaz y soporte en español, datos en la Unión Europea</dd></div>
+            <div><dt>Dónde</dt><dd>España: interfaz y soporte en español, base de datos en la Unión Europea</dd></div>
             <div><dt>Cuánto</dt><dd><Link href="/precios">Gratis</Link> {LIMITES_GRATIS}, sin permanencia</dd></div>
           </dl>
         </div>

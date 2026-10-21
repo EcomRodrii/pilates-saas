@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs DeporWeb',
-    description: 'Precio, facturación y elección de reformer — comparados con lo que consta en la web pública de DeporWeb.',
+    description: 'Precio y elección de reformer — comparados con lo que consta en la web pública de DeporWeb.',
     url: urlDe(PATH),
   },
 };
@@ -27,9 +27,9 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Base de datos en la UE; algunos proveedores, fuera (ver privacidad)'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (deporweb.es/gestion-de-clientes, /pilates/ y
   // /app-gestionar-gimnasio/, revisados el 29-sep-2026):
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'Menciona «reserva de zonas»; no consta un aforo propio por sala'] },

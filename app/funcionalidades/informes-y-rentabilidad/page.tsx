@@ -31,7 +31,7 @@ const FAQ = [
   },
   {
     q: '¿Puede ver recepción lo que cobra cada instructora?',
-    a: 'No. Recepción ve la tabla de margen por clase con el ingreso, pero no el coste ni el margen: la tarifa es dato salarial y tiene permisos más estrictos. Eso lo ven propietaria y gerencia.',
+    a: 'No. Informes es solo de la propietaria: ni recepción ni gerencia entran. La tarifa es dato salarial.',
   },
   {
     q: '¿Puedo sacar los datos para mi gestoría?',
@@ -111,7 +111,7 @@ export default function InformesPage() {
 
       <Seccion id="informes" titulo="El resto del informe">
         <p>
-          Alrededor del margen hay lo que se mira cada semana, con cuatro periodos: semana, mes, últimos tres meses y año.
+          Alrededor del margen hay lo que se mira cada semana, con cuatro periodos: semana, mes, trimestre y año.
         </p>
         <Rejilla
           columnas={2}
@@ -120,8 +120,8 @@ export default function InformesPage() {
             { titulo: 'Ventas por tipo', body: 'Planes, bonos, clases sueltas y otros — con la variación frente al periodo anterior de igual duración.' },
             { titulo: 'Ocupación por tipo de clase', body: 'Plazas ocupadas sobre aforo. Donde se ven las franjas que salen medio vacías todas las semanas.' },
             { titulo: 'Retención por cohorte', body: 'Qué porcentaje de las que entraron cada mes sigue viniendo. La métrica que anticipa el problema antes de que se vea en la caja.' },
-            { titulo: 'Estado de tus clientas', body: 'Cuántas activas, cuántas con bono en curso y cuántas llevan más de 30 días sin aparecer.' },
-            { titulo: 'Margen por clase', body: 'La tabla completa del periodo, ordenada por peor margen primero — que es por donde querrías empezar a mirar.' },
+            { titulo: 'Estado de tus clientas', body: 'Cuántas están activas hoy, cuántas en pausa o sin renovar, y cuántas son nuevas en el periodo.' },
+            { titulo: 'Margen por clase', body: 'El margen de cada clase del periodo, por tipo de clase y por franja.' },
           ]}
         />
         <p>
@@ -132,20 +132,20 @@ export default function InformesPage() {
 
       <Seccion id="permisos" titulo="Quién ve cada cifra">
         <p>
-          El informe no es un bloque único con un interruptor. Hay dos niveles, porque hay dos tipos de dato:
+          Hoy el informe entero es solo de la propietaria:
         </p>
         <Tabla
           cabeceras={['', 'Ingresos y ocupación', 'Coste y margen por clase']}
           filas={[
             ['Propietaria', 'Sí', 'Sí'],
-            ['Gerencia', 'Sí', 'Sí'],
-            ['Recepción', 'Sí', 'No — solo el ingreso'],
+            ['Gerencia', 'No', 'No'],
+            ['Recepción', 'No', 'No'],
             ['Instructora', 'No', 'No'],
           ]}
         />
         <p>
-          La distinción está en que el coste sale de la tarifa de una compañera. Recepción gestiona cobros y por eso ve
-          ingresos, pero no tiene por qué poder deducir lo que cobra cada instructora.
+          El coste sale de la tarifa de una compañera, que es un dato salarial. Recepción ve los cobros en Cobros, pero
+          no entra en Informes.
         </p>
       </Seccion>
 
@@ -172,7 +172,7 @@ export default function InformesPage() {
 
       <CierreCta
         titulo="Deja de decidir a ojo"
-        body="Pon las tarifas de tu equipo y mira la tabla de margen ordenada por la peor. Las dos o tres primeras suelen sorprender."
+        body="Pon las tarifas de tu equipo y mira el margen de cada clase, por tipo y por franja."
       />
     </FeatureShell>
   );

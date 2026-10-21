@@ -26,9 +26,9 @@ export const metadata: Metadata = {
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Cancelas cuando quieras; surte efecto al final del periodo'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'Dice cumplir el RGPD; no consta el país'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Base de datos en la UE; algunos proveedores, fuera (ver privacidad)'], them: ['partial', 'Dice cumplir el RGPD; no consta el país'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en todos los planes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   // Ejes añadidos el 29-sep-2026 (flowstark.com y flowstark.com/centros-yoga-y-pilates,
   // revisadas esa fecha). Flowstark se centra en cobros y suscripciones, no en
   // reservas de clase con sala — de ahí que estos cuatro ejes no consten.

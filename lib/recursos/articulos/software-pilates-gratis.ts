@@ -43,7 +43,7 @@ const articulo: Articulo = {
             ['SimplyBook.me, plan Free', '0 €: hasta 50 reservas al mes, un proveedor y widget de reservas', 'Con clases de grupo, 50 reservas al mes se acaban pronto'],
             ['Bonsai, plan Seed', '0 € para siempre: hasta 100 reservas grupales al mes, pensado para yoga y pilates', 'Un 3 % extra en cada cobro por su pasarela de pago'],
             ['Flowstark, plan Free', '0 €: hasta 50 clientes, 30 servicios y 30 suscripciones', 'Es una herramienta de cobros: en su web no consta que gestione reservas'],
-            ['Tentare, plan Founding Studio', 'Gratis hasta 150 alumnas activas y 250 reservas al mes: todas sus funciones menos varias sedes, con la app con tu marca', 'Si pasas de ahí, 29 €/mes con IVA, sin tope de alumnas ni de reservas'],
+            ['Tentare, plan Founding Studio', 'Gratis hasta 150 alumnas activas y 250 reservas al mes: todas sus funciones menos varias sedes, con la app con tu marca', 'Si pasas de ahí, 29 €/mes con IVA, sin tope de alumnas ni de reservas; el Centro de Control, las sustituciones automáticas y la redacción con IA, aparte'],
             ['Aplicación de facturación de la AEAT', 'Gratuita: emite facturas y envía los registros a Hacienda con VERI*FACTU', 'Va aparte de reservas y cobros, y está pensada para un volumen reducido de facturas'],
           ],
           nota:

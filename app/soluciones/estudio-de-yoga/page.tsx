@@ -59,7 +59,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si una profesora no puede dar su clase?',
-    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. En todos los planes puede hacerlo sola, sin esperar a que lo apruebes.',
+    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.',
   },
   {
     q: '¿Hay funciones pensadas solo para yoga?',
@@ -139,7 +139,7 @@ export default function EstudioDeYogaPage() {
         puntos={[
           'Mensualidades con o sin límite de clases a la semana',
           'Bonos con caducidad, que puedes ampliar en lote si cierras en agosto',
-          'Cobro con tarjeta o domiciliación SEPA, con reintentos cuando falla',
+          'Cobro con tarjeta, con reintentos cuando falla, y remesa SEPA para tu banco',
         ]}
         enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
       >

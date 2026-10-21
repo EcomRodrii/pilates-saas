@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs bsport',
-    description: 'Cuánto cuesta cada uno, permanencia, facturación y sustitución de instructoras — comparados con lo que consta en la web pública de bsport.',
+    description: 'Cuánto cuesta cada uno, permanencia y sustitución de instructoras — comparados con lo que consta en la web pública de bsport.',
     url: urlDe(PATH),
   },
 };
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['no', 'No publica cifras: hay que pedir presupuesto'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en todos los planes'], them: ['yes', 'Sustituciones automáticas, según su web'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['yes', 'Sustituciones automáticas, según su web'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App propia, en los planes superiores'] },
   { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de concentración'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (pro.bsport.io/pricing, /studios/multilocations-franchises y su

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
+import { G2_NOTA, G2_RESENAS, G2_URL } from '@/lib/seo/g2';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
@@ -34,8 +34,8 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
  */
 const POR_QUE = [
   { titulo: 'Pensado para Pilates y yoga', texto: 'Plaza por reformer, plazas fijas, bonos y lista de espera pensados para tu estudio, no para un gimnasio.' },
-  { titulo: 'Si falla una instructora, Tentare la cubre', texto: 'Busca sustituta, la contacta y avisa a tus alumnas. Sin llamadas ni grupos de WhatsApp.' },
-  { titulo: 'Cobras tú, sin comisión', texto: 'Tarjeta y SEPA directos a tu cuenta con Stripe. Tentare no se queda nada de cada cobro.' },
+  { titulo: 'Si falla una instructora, Tentare busca quién la cubre', texto: 'Propone sustituta y, con tu visto bueno, la contacta y avisa a tus alumnas. Sin llamadas ni grupos de WhatsApp.' },
+  { titulo: 'Cobras tú, sin comisión', texto: 'La tarjeta, directa a tu cuenta con Stripe; la domiciliación, con la remesa SEPA para tu banco. Tentare no se queda nada de cada cobro.' },
 ];
 
 /** La columna de Tentare del resumen: la misma en las trece comparativas.
@@ -179,7 +179,7 @@ export function CompetitorPage({
             <Link href="/precios" className="cmp1-btn cmp1-btn--sec">Ver precios</Link>
           </div>
           <p className="cmp1-confianza">
-            <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span className="cmp1-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2</a>
+            <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span className="cmp1-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2 ({G2_RESENAS} reseñas)</a>
             <span aria-hidden>·</span> Sin tarjeta <span aria-hidden>·</span> Sin permanencia
           </p>
         </div>

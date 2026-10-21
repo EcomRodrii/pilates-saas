@@ -215,7 +215,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Es lo que hace [Tentare](/funcionalidades/reservas-online): tus alumnas reservan y cancelan desde el móvil e instalan la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática; hay bonos con caducidad, cuotas mensuales y clases sueltas, con reglas por tipo de clase; y los cobros recurrentes con Stripe (tarjeta y SEPA) se reintentan dos veces si fallan y te avisan. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia ([precios](/precios)). Si ya tienes web, las reservas se ponen dentro con un widget: [reservas en tu web](/recursos/reservas-en-tu-web).',
+          texto: 'Es lo que hace [Tentare](/funcionalidades/reservas-online): tus alumnas reservan y cancelan desde el móvil e instalan la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática; hay bonos con caducidad, cuotas mensuales y clases sueltas, con reglas por tipo de clase; y los cobros recurrentes con tarjeta y Stripe se reintentan dos veces si fallan y te avisan; la domiciliación va por remesa SEPA, que presentas en tu banco. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia ([precios](/precios)). Si ya tienes web, las reservas se ponen dentro con un widget: [reservas en tu web](/recursos/reservas-en-tu-web).',
         },
         {
           t: 'llamada',

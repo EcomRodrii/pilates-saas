@@ -49,8 +49,8 @@ const PILLARS = [
   },
   {
     icon: <FileCheck size={22} />,
-    title: 'Facturación legal (Veri*factu)',
-    body: 'Las facturas se emiten con numeración legal y encadenamiento por hash, calculado en el orden que fija la AEAT. La firma y el envío automático del registro a la AEAT están todavía en construcción; el QR de cotejo se imprime cuando la AEAT tiene el registro.',
+    title: 'Facturas con numeración legal',
+    body: 'Las facturas se emiten con numeración legal correlativa. Veri*Factu (la huella, el QR y el envío del registro a la AEAT) todavía no está activo en ningún estudio: hoy no llevan huella ni QR y no se envían a la AEAT.',
   },
   {
     icon: <CreditCard size={22} />,
@@ -109,7 +109,7 @@ export default function SeguridadPage() {
             <Reveal delay={90} className="sec-tarjeta">
               <Icon><Download size={22} /></Icon>
               <h2 className="sec-tarjeta-h">Tus datos son tuyos</h2>
-              <p className="sec-tarjeta-p">Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te vas con todo.</p>
+              <p className="sec-tarjeta-p">Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te llevas tus alumnas, sus reservas, sus cobros y tus facturas.</p>
             </Reveal>
           </div>
 
@@ -137,7 +137,7 @@ export default function SeguridadPage() {
             </ul>
           </Reveal>
           <p className="sec-dpa">
-            ¿Necesitas un acuerdo de tratamiento de datos (DPA) o detalles para tu asesoría? Escríbenos a <a href="mailto:hola@tentare.app">hola@tentare.app</a> y te lo damos.
+            ¿Necesitas detalles para tu asesoría? Escríbenos a <a href="mailto:hola@tentare.app">hola@tentare.app</a>.
           </p>
         </div>
       </section>

@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Tentare vs GesYoga.', 'Precio, permanencia, Veri*factu, reformer individual y sustitución de instructoras — comparados punto por punto.');
+  return generarOgImage('Tentare vs GesYoga.', 'Precio, permanencia, reformer individual y sustitución de instructoras — comparados punto por punto.');
 }

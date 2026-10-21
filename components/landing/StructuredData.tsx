@@ -15,7 +15,7 @@ export function StructuredData() {
     '@type': 'VideoObject',
     name: 'Tentare por dentro: el panel de un estudio de Pilates en 78 segundos',
     description:
-      'Tentare por dentro: bajas que se cubren solas, la semana entera en el calendario, reservas online y los cobros del mes.',
+      'Tentare por dentro: quién cubre una baja, la semana entera en el calendario, reservas online y los cobros del mes.',
     thumbnailUrl: `${BASE_URL}/producto/tour-poster.jpg`,
     contentUrl: `${BASE_URL}/producto/tour.mp4`,
     uploadDate: '2026-09-17',

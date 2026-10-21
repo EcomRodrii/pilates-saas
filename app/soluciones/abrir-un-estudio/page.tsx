@@ -125,7 +125,7 @@ export default function AbrirUnEstudioPage() {
         items={[
           { hora: 'Antes de abrir', titulo: 'Publicas tu horario', texto: 'Creas tus clases, tus salas y tus bonos, y compartes el enlace de tu página de reservas en Instagram o en WhatsApp.' },
           { hora: 'La semana de apertura', titulo: 'Las primeras reservas llegan solas', texto: 'Tus primeras alumnas reservan desde el móvil y, si una clase se llena, entran en la lista de espera.' },
-          { hora: 'El primer mes', titulo: 'Los bonos y las cuotas se cobran solos', texto: <>Con tarjeta o por SEPA y, si un cobro falla, se reintenta. Tú das las clases. Más en <Link href="/funcionalidades/cobros-recurrentes">cobros recurrentes</Link>.</> },
+          { hora: 'El primer mes', titulo: 'Los bonos y las cuotas se cobran solos', texto: <>Con la tarjeta guardada y, si un cobro falla, se reintenta; por domiciliación, con la remesa SEPA que presentas en tu banco. Tú das las clases. Más en <Link href="/funcionalidades/cobros-recurrentes">cobros recurrentes</Link>.</> },
         ]}
       />
 
@@ -164,7 +164,7 @@ export default function AbrirUnEstudioPage() {
         pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
         puntos={[
           'Clase suelta, bono y cuota mensual a la vez',
-          'Tarjeta guardada o domiciliación SEPA',
+          'Tarjeta guardada o remesa SEPA para tu banco',
           'Sin comisión de Tentare sobre lo que cobras',
         ]}
         enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
