@@ -7,9 +7,11 @@
 //                         saber de qué software llega cada estudio).
 //   2 · Tus clases      — clases, salas, plazas y duración, con lo más común ya
 //                         marcado. Con solo «Continuar» el estudio queda montado.
-//   3 · Antes de entrar — cobro, prioridad y cómo prefiere que la ayudemos
-//                         (incluida «Prefiero que me llamen» con su teléfono).
-//                         Todo opcional: se salta con un toque.
+//   3 · Antes de entrar — cobro y prioridad. Todo opcional: se salta con un
+//                         toque. La única ayuda humana que se ofrece es la que
+//                         existe: escribir a soporte por WhatsApp (21-oct-2026:
+//                         fuera «que me llamen» y «configuradlo por mí», que
+//                         nadie hacía).
 //
 // A la derecha (o arriba, en el móvil) se ve SU app tomando forma y la guía
 // rápida con su progreso real. Al terminar, `onTerminado` entrega las respuestas
@@ -40,8 +42,9 @@ import {
 import { guardarProgresoWizard, leerProgresoWizard, type RespuestasWizard } from '@/lib/onboarding/borrador-wizard';
 import { alternarSeleccion } from '@/lib/onboarding/seleccion-multiple';
 import { eventoAlLlegar } from '@/lib/onboarding/embudo-wizard';
-import { AYUDA_LLAMADA, AYUDA_POR_MI, OPCIONES_AYUDA } from '@/lib/llamada/solicitud';
-import { CampoLlamada, LLAMADA_VACIA, errorLlamada, type DatosLlamada } from './campo-llamada';
+import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
+import { WhatsAppIcon } from '@/components/icons/brand-icons';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { GuiaRapidaLista, useGuiaRapida } from './guia-rapida-lista';
 import { MarcaCompacta, useColorMarca } from './vista-previa-app';
 import { AppAlumnaReal } from './app-alumna-real';
@@ -142,9 +145,6 @@ export function AsistenteRapido({
     const g = typeof window === 'undefined' ? null : leerProgresoWizard(studio.id);
     return sanearBorrador(g?.ans ?? {});
   });
-  const [llamada, setLlamada] = useState<DatosLlamada>(LLAMADA_VACIA);
-  const [intentoLlamada, setIntentoLlamada] = useState(false);
-  const [errorLlamadaServidor, setErrorLlamadaServidor] = useState<string | null>(null);
   const [errorFin, setErrorFin] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState(false);
   const [avisoTope, setAvisoTope] = useState(false);
@@ -176,45 +176,14 @@ export function AsistenteRapido({
 
   const clasesElegidas = ans.clases ?? [];
   const nSalas = numSalasDe(ans);
-  const preguntaLlamada = ans.ayuda === AYUDA_LLAMADA;
   const migrable = vieneDeOtraPlataforma(ans.software);
 
   const terminar = useCallback(async () => {
     if (trabajando) return;
     setErrorFin(null);
-    setErrorLlamadaServidor(null);
-    // 1 · La llamada primero: si el número no vale o el servidor dice que no, se
-    // queda aquí con su error en vez de creer que la hemos pedido.
-    if (ans.ayuda === AYUDA_LLAMADA) {
-      setIntentoLlamada(true);
-      if (errorLlamada(llamada)) { setI(PANTALLAS.length - 1); return; }
-    }
     setTrabajando(true);
     try {
-      if (ans.ayuda === AYUDA_LLAMADA) {
-        let res: Response;
-        try {
-          res = await fetch('/api/onboarding/ayuda-alta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-            body: JSON.stringify({
-              ayuda: ans.ayuda, software: ans.software ?? null,
-              prefijo: llamada.prefijo, telefono: llamada.telefono,
-              consentimiento: llamada.consentimiento, horaPreferida: llamada.hora,
-            }),
-          });
-        } catch {
-          setErrorLlamadaServidor('Sin conexión: no hemos podido guardar tu petición. Revisa tu red y vuelve a pulsar «Ver mi estudio».');
-          return;
-        }
-        if (!res.ok) {
-          const cuerpo = await res.json().catch(() => null) as { error?: string } | null;
-          setErrorLlamadaServidor(cuerpo?.error || 'No hemos podido guardar tu petición. Prueba otra vez.');
-          return;
-        }
-      }
-
-      // 2 · Respuestas del perfil y montaje del estudio, en paralelo.
+      // Respuestas del perfil y montaje del estudio, en paralelo.
       const operativa = interpretarRespuestasWizard(ans);
       const hayPlan = !planVacio(planificarConfiguracion(operativa));
       const [sellado, conf] = await Promise.all([
@@ -247,18 +216,6 @@ export function AsistenteRapido({
         setErrorFin('No hemos podido guardar tus respuestas. Vuelve a pulsar «Ver mi estudio».');
         return;
       }
-      // «Configuradlo por mí» no tiene datos que validar: aviso al equipo sin esperar.
-      if (ans.ayuda === AYUDA_POR_MI) {
-        void (async () => {
-          try {
-            await fetch('/api/onboarding/ayuda-alta', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-              body: JSON.stringify({ ayuda: ans.ayuda, software: ans.software ?? null }),
-            });
-          } catch { /* best-effort: el equipo lo ve igualmente en /interno por la columna */ }
-        })();
-      }
       const fin = conf ?? { tiposClase: 0, salas: 0 };
       onTerminado(ans, {
         tiposClase: Math.max(fin.tiposClase, creadoRef.current.tiposClase),
@@ -267,7 +224,7 @@ export function AsistenteRapido({
     } finally {
       setTrabajando(false);
     }
-  }, [ans, llamada, trabajando, updateStudio, onTerminado]);
+  }, [ans, trabajando, updateStudio, onTerminado]);
 
   // Monta salas y clases al confirmar la pantalla 2: el servidor es idempotente
   // (por nombre), así que repetirlo al final no duplica nada. Fallo suave: la
@@ -305,6 +262,8 @@ export function AsistenteRapido({
   }, [i, terminar, crearClases, studio.id, ans]);
 
   const horarioEtiquetas = useMemo(() => OPCIONES_HORARIO.map((o) => o.label), []);
+  // La ayuda humana que existe: el WhatsApp de soporte, el mismo de «Primeros pasos».
+  const soporte = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${studio.nombre || 'mi estudio'} y estoy poniendo en marcha Tentare:`);
 
   return (
     <div
@@ -374,7 +333,7 @@ export function AsistenteRapido({
                   Cuéntanos de tu estudio
                 </h1>
                 <p className="mt-1.5 text-[14px] text-muted-foreground">
-                  Tres datos rápidos. Si vienes de otra plataforma, traemos tus datos gratis.
+                  Tres datos rápidos. Si vienes de otra plataforma, puedes traer tus datos gratis.
                 </p>
                 <div className="mt-6">
                   <Desplegable etiqueta="¿Con qué lo llevas ahora?" opciones={OPCIONES_SOFTWARE} valor={ans.software}
@@ -386,7 +345,7 @@ export function AsistenteRapido({
                 </div>
                 {migrable && (
                   <p className="mt-4 rounded-xl border border-border bg-card px-3.5 py-2.5 text-[13px] text-muted-foreground" data-testid="aviso-migracion">
-                    Vienes de <strong className="text-foreground">{ans.software}</strong>: al terminar te ayudamos a traer tus alumnas, bonos y horario.
+                    Vienes de <strong className="text-foreground">{ans.software}</strong>: al terminar te enseñamos cómo traer tus alumnas, bonos y horario.
                   </p>
                 )}
               </>
@@ -452,16 +411,20 @@ export function AsistenteRapido({
                     opciones={OPCIONES_COBRO_LISTA} valor={ans.cobro} multi={OPCIONES_COBRO_LISTA.length}
                     onCambio={(v) => guardar({ ...ans, cobro: v as string[] })} />
                   <Chips legend="¿Qué es lo que más te preocupa ahora mismo?"
-                    nota="Elige hasta dos. Subimos a lo primero de tu panel lo que más te importe."
+                    nota="Elige hasta dos."
                     opciones={OPCIONES_FOCO} valor={ans.foco} multi={2}
                     onCambio={(v) => guardar({ ...ans, foco: v as string[] })} />
-                  <Chips legend="¿Cómo prefieres que te ayudemos?" nota="Puedes cambiar de idea cuando quieras."
-                    opciones={OPCIONES_AYUDA} valor={ans.ayuda}
-                    onCambio={(v) => guardar({ ...ans, ayuda: v as string || undefined })} />
-                  {preguntaLlamada && (
-                    <CampoLlamada valor={llamada} onCambio={setLlamada} mostrarErrores={intentoLlamada} errorServidor={errorLlamadaServidor} />
-                  )}
                 </div>
+                {soporte && (
+                  <a
+                    href={soporte}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-6 inline-flex min-h-11 items-center gap-2 text-[13.5px] font-semibold text-foreground hover:underline"
+                  >
+                    <WhatsAppIcon size={16} /> Escríbenos por WhatsApp
+                  </a>
+                )}
               </>
             )}
 

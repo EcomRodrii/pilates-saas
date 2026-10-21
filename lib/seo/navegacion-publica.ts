@@ -119,7 +119,7 @@ export const MENU_SOLUCIONES: EnlaceConResumen[] = [
   { href: '/soluciones/estudio-de-yoga', label: 'Estudio de yoga', resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.' },
   { href: '/soluciones/abrir-un-estudio', label: 'Abrir un estudio', resumen: 'Tu horario, tus reservas y tu app, listos antes de la primera clase.' },
   { href: '/funcionalidades/multi-centro', label: 'Varias sedes', resumen: 'Dos o más centros, con datos separados y un solo acceso.' },
-  { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software', resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.' },
+  { href: '/soluciones/cambiar-de-software', label: 'Cambiar de software', resumen: 'Cambiarte sin perder tus datos.' },
 ];
 
 /** «Recursos»: el blog, las comparativas, el glosario y la ayuda. Sin calculadoras: no tienen ruta propia. */

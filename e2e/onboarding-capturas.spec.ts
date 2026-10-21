@@ -64,15 +64,6 @@ for (const t of TAMANOS) {
       await page.getByRole('button', { name: 'Continuar' }).click();
       await page.getByRole('heading', { name: 'Antes de entrar' }).waitFor();
       await foto(page, '06-antes-de-entrar');
-      await page.getByRole('radio', { name: 'Prefiero que me llamen' }).click();
-      await foto(page, '07-llamada-sin-telefono');
-      await page.getByRole('button', { name: 'Ver mi estudio' }).click();
-      await foto(page, '08-llamada-con-errores');
-      const campo = page.getByTestId('campo-llamada');
-      await campo.getByRole('textbox', { name: 'Teléfono' }).fill('612345678');
-      await campo.getByRole('button', { name: 'Por la tarde' }).click();
-      await campo.getByRole('checkbox').check();
-      await foto(page, '09-llamada-con-telefono');
       await page.getByRole('button', { name: 'Ver mi estudio' }).click();
       await page.getByRole('heading', { name: /ya está en marcha/ }).waitFor();
       await page.waitForTimeout(900);

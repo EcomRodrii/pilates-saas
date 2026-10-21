@@ -326,7 +326,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Empieza gratis con tu propio horario',
     texto:
-      'Si Tentare encaja con lo que buscas, empieza gratis, sin tarjeta. Si vienes de otro programa o de un Excel, te ayudamos a traer tus datos.',
+      'Si Tentare encaja con lo que buscas, empieza gratis, sin tarjeta.',
   },
   revision: [
     'Precios y planes de la competencia revisados en su web el 25-sep-2026: conviene repasarlos cada trimestre.',

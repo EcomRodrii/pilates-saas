@@ -57,7 +57,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo pasar mis datos de bsport a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de bsport (y de Momence, Eversports, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Si prefieres, te ayudamos nosotros. Las tarjetas guardadas de las alumnas no se pueden pasar de una plataforma a otra.',
+    a: 'Sí. El importador de Tentare reconoce las exportaciones de bsport (y de Momence, Eversports, Mindbody, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Las tarjetas guardadas de las alumnas no se pueden pasar de una plataforma a otra.',
   },
 ];
 
@@ -96,7 +96,7 @@ const ANALISIS: SeccionAnalisis[] = [
     titulo: 'Cómo cambiarte de bsport a Tentare',
     cuerpo: (
       <>
-        <p>El importador de Tentare reconoce las exportaciones de bsport: clientas, bonos, clases y reservas. Antes de guardar nada te enseña un acta con lo que va a entrar, y si algo no cuadra lo deshaces con un botón. Si prefieres no hacerlo tú, lo hacemos nosotros: <Link href="/soluciones/cambiar-de-software">cómo es el cambio</Link>.</p>
+        <p>El importador de Tentare reconoce las exportaciones de bsport: clientas, bonos, clases y reservas. Antes de guardar nada te enseña un acta con lo que va a entrar, y si algo no cuadra lo deshaces con un botón. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
         <p>Lo único que ninguna plataforma puede pasarte son las tarjetas guardadas de tus alumnas: cada una la vuelve a introducir la primera vez que paga.</p>
       </>
     ),
@@ -113,7 +113,7 @@ export default function TentareVsBsportPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Empieza gratis, sin tarjeta, y te traemos tus datos de bsport.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de bsport (pro.bsport.io) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

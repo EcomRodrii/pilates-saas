@@ -240,7 +240,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Puesta en marcha y soporte',
     filas: [
       { nombre: 'Soporte en español', valor: TODOS },
-      { nombre: 'Traemos tus datos de tu plataforma actual', detalle: 'Sin coste aparte. Tu sistema actual puede seguir funcionando mientras tanto.', valor: TODOS },
+      { nombre: 'Trae tus datos de tu plataforma actual', detalle: 'Sin coste aparte. Tu sistema actual puede seguir funcionando mientras tanto.', valor: TODOS },
       { nombre: 'Actualizaciones y funciones nuevas', valor: TODOS },
       { nombre: 'Sin permanencia', valor: TODOS },
     ],

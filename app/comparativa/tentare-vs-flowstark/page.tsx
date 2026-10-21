@@ -80,7 +80,7 @@ export default function TentareVsFlowstarkPage() {
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para gestionar tu estudio de Pilates entero: reservas con plaza por reformer, plazas fijas, bonos, sustituciones y cobros en un solo programa. Empieza gratis, sin tarjeta, y te traemos tus datos.</>}
+      veredicto={<>Tentare es la mejor opción para gestionar tu estudio de Pilates entero: reservas con plaza por reformer, plazas fijas, bonos, sustituciones y cobros en un solo programa. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Flowstark (flowstark.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Flowstark es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

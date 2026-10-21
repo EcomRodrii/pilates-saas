@@ -150,34 +150,17 @@ test.describe('Crecimiento no deja que una señal se pierda ni infla las que hay
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// El bug que motivó la migración 0136, con su propio guardia.
-//
-// La ruta pública del concierge hacía: `if (!apiKey) return {ok: true, skipped}`.
-// Es decir, sin `RESEND_API_KEY` el lead desaparecía y la visitante leía
-// "Recibido, te escribimos en menos de 24h". El único canal de entrada de leads
-// del producto, mintiendo en silencio.
-//
-// En CI no hay ni Resend ni una Supabase de verdad, así que la ruta no puede
-// capturar el lead por ningún lado — que es exactamente el escenario del bug.
-// Lo que se fija aquí es que en ese caso DIGA que no lo ha recogido.
-// ─────────────────────────────────────────────────────────────────────────────
-test.describe('El concierge de la landing no puede perder un lead en silencio', () => {
-  test('si no lo guarda ni lo puede avisar, lo dice en vez de responder ok', async ({ request }) => {
+// El concierge de migración se retiró el 21-oct-2026: el formulario «Te la
+// hacemos nosotros» prometía que Tentare hacía la migración, y nadie la hace.
+// La ruta se queda contestando 410 para una pestaña vieja, sin guardar ningún
+// lead ni avisar a nadie. Los que ya entraron siguen en Crecimiento.
+test.describe('El concierge de migración está retirado', () => {
+  test('contesta 410 y dice cuál es la vía que existe', async ({ request }) => {
     const res = await request.post('/api/public/migracion-concierge', {
-      data: { email: 'propietaria@ejemplo.com', software: 'Momence' },
+      data: { email: 'propietaria@example.com', software: 'Momence' },
     });
-
-    expect(res.ok(), 'un lead que no se ha recogido no puede responder 2xx').toBe(false);
-    expect(res.status()).toBe(503);
-    const cuerpo = await res.json();
-    // Y con una salida para la persona, no un "error" a secas.
-    expect(cuerpo.error).toContain('hola@tentare.app');
-  });
-
-  test('un email inválido se sigue rechazando antes de tocar nada', async ({ request }) => {
-    const res = await request.post('/api/public/migracion-concierge', { data: { email: 'no-es-email' } });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(410);
+    expect((await res.json()).error).toContain('importador');
   });
 });
 
