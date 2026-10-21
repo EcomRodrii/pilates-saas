@@ -1140,9 +1140,9 @@ export interface RowStudios {
   addons: string[] | null;
   // migr 20261019182716.
   mostrar_logo_en_landing: boolean | null;
-  // migr 20261021160000.
+  // migr 20261021175710.
   cobro_proporcional_alta_activo: boolean | null;
-  // migr 20261021160000.
+  // migr 20261021175710.
   cobro_proporcional_dias_minimos: number | null;
 }
 
