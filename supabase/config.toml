@@ -270,8 +270,15 @@ otp_expiry = 600
 # recuperar contraseña (resetPasswordForEmail, ver app/clave-nueva) y el
 # magic link del portal de socias (signInWithOtp). Sin esto, Supabase usa su
 # plantilla por defecto, sin marca ninguna.
+# ⚠️ Esto es la REFERENCIA, no lo que se envía: en producción manda la plantilla
+# del proyecto (Management API, `mailer_subjects_confirmation` y
+# `mailer_templates_confirmation_content`), y la cambia el fundador con
+# docs/alta-nueva-correo-del-codigo.md. Nunca `supabase config push`.
+# Una sola plantilla para TODAS las altas del proyecto (equipo, alumnas, Network):
+# solo el alta nueva (`alta_nueva: true` en la metadata, app/crear-estudio/
+# alta-nueva.tsx) recibe el código en el asunto; el resto, el de siempre.
 [auth.email.template.confirmation]
-subject = "Tu código de verificación de Tentare"
+subject = "{{ if .Data.alta_nueva }}{{ .Token }} es tu código · Te damos la bienvenida a Tentare{{ else }}Tu código de verificación de Tentare{{ end }}"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]

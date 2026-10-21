@@ -43,6 +43,8 @@ const ANCHO = 600;
  * Times New Roman. Por eso además va el condicional `mso` que fuerza Arial.
  */
 const PILA = "'Plus Jakarta Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+/** La misma pila, para los correos de esta familia que montan sus propios bloques (alta.ts). */
+export const PILA_TENTARE = PILA;
 
 export interface CorreoTentareOpts {
   /** Lo que se lee en la bandeja junto al asunto. */
@@ -75,8 +77,7 @@ export interface CorreoTentareOpts {
 }
 
 export function correoTentare(o: CorreoTentareOpts): string {
-  const t = TENTARE;
-  const regla = o.acento?.trim() || t.dorado;
+  const regla = o.acento?.trim() || TENTARE.dorado;
   const bloques = [
     cabecera(regla),
     titular(o),
@@ -87,11 +88,23 @@ export function correoTentare(o: CorreoTentareOpts): string {
     o.nota?.trim() ? nota(o.nota.trim()) : '',
   ].join('');
 
+  return marcoTentare(o.preheader, bloques, pie(o.motivo));
+}
+
+/**
+ * El marco de todos los correos de Tentare: cabeza, preheader, la tarjeta de
+ * 600 px (con su tabla para Outlook) y el pie. Lo usa `correoTentare` y lo usa
+ * el correo del alta nueva (`alta.ts`), que necesita un orden de bloques que
+ * `correoTentare` no tiene (el enlace de su página entre dos párrafos) y un pie
+ * propio. Así el marco no se copia.
+ */
+export function marcoTentare(preheader: string, bloques: string, pieHtml: string): string {
+  const t = TENTARE;
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 ${cabezaHtml('Tentare', t.fondo, t.olivaMedio, ANCHO, '* { font-family: Arial, Helvetica, sans-serif !important; }')}
 <body style="margin:0;padding:0;background:${t.fondo};">
-${preheaderHtml(o.preheader)}
+${preheaderHtml(preheader)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.fondo}" style="background:${t.fondo};">
 <tr><td align="center" style="padding:32px 12px;">
 <!--[if mso | IE]>
@@ -101,7 +114,7 @@ ${preheaderHtml(o.preheader)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.papel}" style="background:${t.papel};border:1px solid ${t.borde};border-radius:10px;">
 ${bloques}
 </table>
-${pie(o.motivo)}
+${pieHtml}
 </div>
 <!--[if mso | IE]></td></tr></table><![endif]-->
 </td></tr>
@@ -111,6 +124,16 @@ ${pie(o.motivo)}
 }
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
+
+/** El logo y la regla de color: la misma cabecera en todos los correos de Tentare. */
+export function cabeceraTentare(regla: string = TENTARE.dorado): string {
+  return cabecera(regla);
+}
+
+/** El botón «fuerte» de la marca (un correo, una llamada a la acción). */
+export function botonTentare(b: { href: string; texto: string }): string {
+  return boton(b);
+}
 
 function cabecera(regla: string): string {
   // Mismas medidas que en supabase/templates/*.html: 132×35. Con las imágenes

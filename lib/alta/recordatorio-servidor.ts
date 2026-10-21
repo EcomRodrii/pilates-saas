@@ -11,6 +11,7 @@ import {
   contenidoRecordatorio,
   decidirRecordatorio,
   MAX_INTENTOS_RECORDATORIO,
+  versionDeFila,
 } from './abandono.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,10 +75,13 @@ export async function enviarRecordatoriosAltas(admin: SupabaseClient, ahoraMs = 
       .is('recordatorio_reclamado_en', null)
       .is('recordatorio_enviado_en', null)
       .is('recordatorio_descartado', null)
-      .select('auth_user_id');
+      // `version` sale de la propia fila (`altas_estudio_detalle()` no la
+      // devuelve): el alta nueva no tiene «elegir plan» y su correo no lo dice.
+      .select('auth_user_id, version');
     if (errReclamo || !reclamada?.length) continue;
 
-    const contenido = contenidoRecordatorio(decision.paso, alta, base, { foundingGratis: foundingGratisEnAltas() });
+    const version = versionDeFila((reclamada[0] as { version?: unknown }).version ?? alta.version);
+    const contenido = contenidoRecordatorio(decision.paso, { ...alta, version }, base, { foundingGratis: foundingGratisEnAltas() });
     const res = await enviarRecordatorioAlta({
       to: alta.email!,
       asunto: contenido.asunto,

@@ -22,11 +22,13 @@
 
 export const EVENTOS_NAVEGADOR = {
   // ── Alta del estudio (/crear-estudio; /login la recupera) ─────────────────
-  alta_estudio_iniciada: ['desde'],
+  // `version`: el alta nueva ('v2'/'v2_prueba', app/crear-estudio/alta-nueva.tsx);
+  // sin ella, la de siempre. La misma marca que `altas_estudio.version`.
+  alta_estudio_iniciada: ['desde', 'version'],
   alta_estudio_paso: ['paso'],
   alta_estudio_con_sesion: [],
   alta_estudio_continuar: ['paso', 'valido'],
-  alta_estudio_creada: ['plan'],
+  alta_estudio_creada: ['plan', 'version'],
   alta_estudio_cuenta_creada: [],
   alta_estudio_email_confirmado: [],
   alta_estudio_escribe: ['paso'],

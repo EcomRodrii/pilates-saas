@@ -1,11 +1,13 @@
-// El embudo del alta (migración 20261021020248_embudo_alta.sql), contra Postgres
-// de verdad (job `calidad-rls`):
+// El embudo del alta (migración 20261021020248_embudo_alta.sql, y las
+// condiciones aceptadas de 20261021102626_altas_estudio_condiciones.sql), contra
+// Postgres de verdad (job `calidad-rls`):
 //
 //  · `embudo_alta` no la lee ni la escribe el navegador (ni la propietaria de su
 //    propio estudio), y la lectura `embudo_activacion_detalle` es solo de
 //    service_role;
-//  · el trigger de auth.users copia `version` y `llegada` del `pending_studio`, y
-//    con valores raros NO rompe el alta: guarda 'v1' y null;
+//  · el trigger de auth.users copia `version`, `llegada` y la versión de los
+//    textos legales aceptados del `pending_studio`, y con valores raros NO rompe
+//    el alta: guarda 'v1' y null;
 //  · la lectura cruza lo que ya existía (primera clase, primera reserva sin las
 //    importadas) con los pasos apuntados, deja fuera las demos y las altas de
 //    prueba, y cuenta las altas que no llegaron a estudio.
@@ -116,6 +118,53 @@ test('el trigger de auth.users copia version y llegada, y un valor raro no rompe
       cuentas.push(id);
       assert.deepEqual(await filaDeAlta(id), { version: 'v1', llegada: null, origen: 'registro' }, JSON.stringify(raro));
     }
+  } finally {
+    for (const id of cuentas) await admin.auth.admin.deleteUser(id).catch(() => {});
+  }
+});
+
+test('el trigger guarda qué textos legales se aceptaron y cuándo, y una versión rara no rompe el alta', async () => {
+  // Migración 20261021102626_altas_estudio_condiciones.sql (alta nueva, PR-2).
+  const cuentas: string[] = [];
+  const condiciones = async (id: string) => {
+    const [f] = await sql<{ version: string | null; en: Date | null; creada: Date }[]>`
+      select a.condiciones_version as version, a.condiciones_aceptadas_en as en, u.created_at as creada
+        from public.altas_estudio a join auth.users u on u.id = a.auth_user_id
+       where a.auth_user_id = ${id}`;
+    return f;
+  };
+  try {
+    const nueva = await cuentaDeAlta({ nombre: 'Estudio Legal', version: 'v2', condiciones_version: '2026-10-06' });
+    cuentas.push(nueva);
+    const f = await condiciones(nueva);
+    assert.equal(f.version, '2026-10-06');
+    assert.equal(f.en?.toISOString(), f.creada.toISOString(), 'se aceptan al crear la cuenta');
+
+    // El alta de siempre no lleva la línea legal: ni versión ni fecha.
+    const deSiempre = await cuentaDeAlta({ nombre: 'Estudio Antiguo' });
+    cuentas.push(deSiempre);
+    const g = await condiciones(deSiempre);
+    assert.deepEqual([g.version, g.en], [null, null]);
+
+    // Lo que no tiene la forma AAAA-MM-DD se tira, sin fecha, y la cuenta se crea igual.
+    for (const raro of ['6 de octubre de 2026', '2026-13-01', 20261006, { v: 1 }, '2026-10-06 y algo más']) {
+      const id = await cuentaDeAlta({ nombre: 'Estudio Raro', version: 'v2', condiciones_version: raro });
+      cuentas.push(id);
+      const r = await condiciones(id);
+      assert.deepEqual([r.version, r.en], [null, null], JSON.stringify(raro));
+      assert.deepEqual(await filaDeAlta(id), { version: 'v2', llegada: null, origen: 'registro' }, 'la fila sigue entera');
+    }
+
+    // Las dos columnas van juntas también por fuera del trigger.
+    const suelta = await admin.from('altas_estudio')
+      .update({ condiciones_version: '2026-10-06', condiciones_aceptadas_en: null }).eq('auth_user_id', deSiempre);
+    assert.equal(suelta.error?.code, '23514', 'una versión sin fecha no se puede guardar');
+
+    const [p] = await sql<{ anon: boolean; auth: boolean; srv: boolean }[]>`
+      select has_function_privilege('anon', 'public.altas_estudio_registrar_cuenta()', 'EXECUTE') as anon,
+             has_function_privilege('authenticated', 'public.altas_estudio_registrar_cuenta()', 'EXECUTE') as auth,
+             has_function_privilege('service_role', 'public.altas_estudio_registrar_cuenta()', 'EXECUTE') as srv`;
+    assert.deepEqual(p, { anon: false, auth: false, srv: true });
   } finally {
     for (const id of cuentas) await admin.auth.admin.deleteUser(id).catch(() => {});
   }
