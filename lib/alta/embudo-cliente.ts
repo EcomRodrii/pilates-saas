@@ -36,3 +36,16 @@ export function apuntarEnlaceCompartido(canal: DetalleEmbudo): void {
 export function apuntarTuEstudio(): void {
   pedir({ paso: 'config_completada' });
 }
+
+/**
+ * El recorrido rápido de tres paradas ya salió (PR-5): no vuelve a salir solo,
+ * ni en este navegador (lo recuerda también quien lo enseña) ni en otro.
+ */
+export function apuntarRecorridoVisto(): void {
+  pedir({ paso: 'recorrido_visto' });
+}
+
+/** «Tu plan, sin sorpresas» ya se enseñó: sale UNA vez, tras la primera reserva (PR-5). */
+export function apuntarPlanEnsenado(): void {
+  pedir({ paso: 'plan_ensenado' });
+}

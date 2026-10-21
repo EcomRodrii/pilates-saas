@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  DETALLES_EMBUDO, DIAS_EMBUDO, FORMATO_LLEGADA, PASOS_EMBUDO, VERSIONES_ALTA,
+  DETALLES_EMBUDO, DIAS_EMBUDO, FORMATO_LLEGADA, PASOS_DURABLES, PASOS_EMBUDO, VERSIONES_ALTA,
   cohortes, desdeDeLaConsulta, diaCorto, enVentanaDelEmbudo, filaDesdeBd, horasConComa, horasHastaPrimeraClase,
   leerPasoDelNavegador, mediana, normalizarLlegada, rangoDeMeses, resumirActivacion, volvio,
   type FilaEmbudo,
@@ -16,9 +16,11 @@ import {
 const MIGRACION = readFileSync(new URL('../../supabase/migrations/20261021020248_embudo_alta.sql', import.meta.url), 'utf8');
 /**
  * La lista de pasos la rehízo la primera clase (PR-4) para sumar
- * `correo_recibir_reservas`: el CHECK que vale es el de ESA migración.
+ * `correo_recibir_reservas`, y «Pon en marcha tu estudio» (PR-5) para sumar
+ * `recorrido_visto` y `correo_primera_clase`: el CHECK que vale es el de ESA
+ * migración.
  */
-const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261021134000_alta_primera_clase.sql', import.meta.url), 'utf8');
+const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261021160000_alta_primeros_pasos.sql', import.meta.url), 'utf8');
 
 /** Los literales de un `check (col in (...))` de la migración. */
 function literalesDelCheck(columna: string, migracion = MIGRACION): string[] {
@@ -86,7 +88,7 @@ test('sin datos personales en embudo_alta: ni cuenta, ni correo, ni IP, ni texto
   assert.doesNotMatch(devuelve, /\bemail text\b|nombre|auth_user_id/);
 });
 
-test('el navegador solo puede apuntar «enlace compartido» (con su canal) y pedir «Tu estudio» (sin detalle)', () => {
+test('el navegador solo puede apuntar «enlace compartido» (con su canal), pedir «Tu estudio» y marcar lo que enseña', () => {
   for (const detalle of DETALLES_EMBUDO) {
     assert.deepEqual(leerPasoDelNavegador({ paso: 'enlace_compartido', detalle }), { paso: 'enlace_compartido', detalle });
   }
@@ -95,8 +97,13 @@ test('el navegador solo puede apuntar «enlace compartido» (con su canal) y ped
   // datos antes de apuntarlo (app/api/alta/paso, `tuEstudioGuardado`).
   assert.deepEqual(leerPasoDelNavegador({ paso: 'config_completada' }), { paso: 'config_completada', detalle: null });
   assert.equal(leerPasoDelNavegador({ paso: 'config_completada', detalle: 'copiar' }), null, 'sin detalle');
+  // Lo que ENSEÑA una pantalla (PR-5) también se pide desde ella, sin detalle.
+  for (const paso of ['recorrido_visto', 'plan_ensenado'] as const) {
+    assert.deepEqual(leerPasoDelNavegador({ paso }), { paso, detalle: null });
+    assert.equal(leerPasoDelNavegador({ paso, detalle: 'copiar' }), null, `${paso}: sin detalle`);
+  }
   // Lo que se apunta en servidor no se puede apuntar desde el navegador.
-  for (const paso of ['clase_reservable', 'panel_abierto', 'correo_cuenta_activa', 'plan_ensenado']) {
+  for (const paso of ['clase_reservable', 'panel_abierto', 'correo_cuenta_activa', 'correo_recibir_reservas', 'correo_primera_clase']) {
     assert.equal(leerPasoDelNavegador({ paso, detalle: 'copiar' }), null, paso);
     assert.equal(leerPasoDelNavegador({ paso }), null, paso);
   }
@@ -342,4 +349,12 @@ test('las fechas se dicen en castellano', () => {
   assert.equal(rangoDeMeses([]), null);
   assert.equal(horasConComa(23.8697), '23,9 h');
   assert.equal(horasConComa(5), '5,0 h');
+});
+
+test('las marcas de «ya se enseñó» valen pase el día que pase; las medidas, no', () => {
+  assert.deepEqual([...PASOS_DURABLES].sort(), ['correo_primera_clase', 'plan_ensenado', 'recorrido_visto']);
+  for (const p of PASOS_DURABLES) assert.ok((PASOS_EMBUDO as readonly string[]).includes(p), p);
+  for (const medida of ['panel_abierto', 'clase_reservable', 'enlace_compartido'] as const) {
+    assert.ok(!PASOS_DURABLES.includes(medida), `${medida} es una medida de cómo arranca: con su ventana`);
+  }
 });

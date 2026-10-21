@@ -55,6 +55,7 @@ import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 import { ResumenNuevo } from '@/components/dashboard/resumen-nuevo';
+import { CompartirDesdeEnlace } from '@/components/guia/compartir-desde-enlace';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Code-split (mismo patrón que components/configuracion/shell/config-shell.tsx):
@@ -773,6 +774,8 @@ export default function Dashboard() {
   if (panelNuevo) {
     return (
       <div data-tour="resumen-vista">
+        {/* `?compartir=1`: el aviso de las 72 h sin reservas abre aquí «Comparte tu enlace». */}
+        <CompartirDesdeEnlace />
         <ResumenNuevo
           titulo={nombrePropio ? `${saludo}, ${nombrePropio}` : saludo}
           fecha={capitalizarPrimera(mesFecha)}
@@ -815,6 +818,7 @@ export default function Dashboard() {
   return (
 
     <div data-tour="resumen-vista">
+      <CompartirDesdeEnlace />
       <div className="flex flex-col gap-5">
 
         {/* ── Header (fijo arriba, no reordenable) ───────────────────────────── */}

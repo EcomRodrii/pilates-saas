@@ -63,6 +63,7 @@ import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/eval
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
 import { emiteFacturas } from '@/lib/factura-automatica';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNuevaPropia } from '@/components/guia/use-pon-en-marcha';
 import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
 import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
@@ -1264,6 +1265,8 @@ export default function Socios() {
   // Ni una ficha (con los datos enteros: mientras cargan, `socios` también está
   // vacío): en vez de la tabla vacía, la pantalla que enseña para qué sirve.
   const sinNingunaNueva = panelNuevo && dataLoaded && !datosIncompletos.includes('socios') && socios.length === 0;
+  // La propietaria de un estudio del alta nueva ve el vacío de la maqueta.
+  const altaNuevaPropia = useAltaNuevaPropia().activo === true;
   const abrirAlta = () => { setForm(emptyForm()); setShowForm('nueva'); };
   // La cabecera nueva: la acción principal con el degradado del logo e
   // «Importar» con borde; las respuestas a las preguntas del estudio, en el ⋯.
@@ -1481,9 +1484,17 @@ export default function Socios() {
         <PantallaVacia
           tono="magenta"
           Icono={Users}
-          titulo="Da de alta a tu primera clienta"
+          // Con el alta nueva (PR-5, maqueta «08 · El panel después»), las tres
+          // maneras de que lleguen. La primera es verdad sin hacer nada: quien
+          // reserva desde su página se da de alta sola (`registrarSociaPublica`).
+          titulo={altaNuevaPropia ? 'Aún no tienes alumnas' : 'Da de alta a tu primera clienta'}
           texto="Aquí tendrás a cada clienta con su plan, lo que le queda y cuándo vino por última vez."
-          ejemplos={[
+          etiquetaEjemplos={altaNuevaPropia ? 'Tres maneras' : undefined}
+          ejemplos={altaNuevaPropia ? [
+            { accion: 'Comparte tu enlace', cuando: 'y se dan de alta solas al reservar.' },
+            { accion: 'Impórtalas', cuando: 'de tu Excel o de tu programa anterior.' },
+            { accion: 'Añádelas', cuando: 'una a una desde Clientas.' },
+          ] : [
             { accion: 'Mira quién lleva un mes sin venir', cuando: 'antes de que se te vaya.' },
             { accion: 'Ve cuántas sesiones le quedan a cada una', cuando: 'sin abrir su ficha.' },
             { accion: 'Encuentra a quien se le acabó el plan', cuando: 'cuando aún estás a tiempo de recuperarla.' },

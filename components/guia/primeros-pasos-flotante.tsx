@@ -21,6 +21,11 @@
 // lista es un menú que se abre al tocarla y se cierra con Esc, fuera o al cambiar de
 // pantalla. NUNCA se abre sola. Tampoco sale mientras corre la visita guiada: no se
 // abren dos cosas a la vez.
+//
+// Con el ALTA NUEVA (PR-5), la píldora es la de «Pon en marcha tu estudio», con
+// sus cinco tareas (pildora-pon-en-marcha.tsx): un menú en escritorio y una hoja
+// desde abajo en el móvil, como la maqueta. Quién ve cuál lo decide
+// `useAltaNuevaPropia`; mientras se pregunta, ninguna.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useId, useRef, useState } from 'react';
@@ -35,8 +40,18 @@ import { calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding'
 import { primerosPasos } from '@/lib/guia/primeros-pasos';
 import { cn } from '@/lib/utils';
 import { DEGRADADO_LOGO } from '@/components/dashboard/vivo';
+import { useAltaNuevaPropia } from './use-pon-en-marcha';
+import { PildoraPonEnMarcha } from './pildora-pon-en-marcha';
 
-export function PrimerosPasosFlotante() {
+/** `variante`: la barra de escritorio o la cabecera del móvil (las dos están montadas, una oculta). */
+export function PrimerosPasosFlotante({ variante = 'escritorio' }: { variante?: 'escritorio' | 'movil' } = {}) {
+  const alta = useAltaNuevaPropia();
+  if (alta.activo === null) return null;
+  if (alta.activo) return <PildoraPonEnMarcha variante={variante} />;
+  return <PrimerosPasosDeSiempre />;
+}
+
+function PrimerosPasosDeSiempre() {
   const {
     studio, instructores, tiposClase, sesiones, socios, reservas,
     salas, planesTarifa, suscripciones, automationRules, bannersPortal, dataLoaded, datosIncompletos,

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { correoCuentaActiva, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
+import { correoCuentaActiva, correoPrimeraClase, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
+import { TAREAS_ALTA_NUEVA } from '../../guia/primeros-pasos.ts';
 import { GRATIS_ALUMNAS, GRATIS_RESERVAS_MES } from '../../landing/founding-gratis.ts';
 import { TRIAL_DIAS } from '../../billing/trial.ts';
 
@@ -90,4 +91,50 @@ test('correo 4: lo que escribió una persona se escapa', () => {
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;x&lt;\/script&gt;/);
   assert.equal(asunto, 'Ya puedes recibir reservas en A & B', 'el asunto va en texto, no en HTML');
+});
+
+// ── Correo 3: «Tu primera clase en Tentare, en 5 minutos» (PR-5) ────────────
+
+const SIN_CLASE = {
+  estudioNombre: 'Estudio Alba Pilates',
+  nombre: 'Lucía',
+  variante: { tipo: 'sin_clase' as const, ejemplo: { clase: 'Reformer', minutos: 55, plazas: 8 } },
+  urlBoton: 'https://www.example.com/calendario?primera=1',
+};
+
+test('correo 3 sin clase: asunto, vista previa y cuerpo de la maqueta, y un solo botón', () => {
+  const c = correoPrimeraClase(SIN_CLASE);
+  assert.equal(c.asunto, 'Tu primera clase en Tentare, en 5 minutos');
+  assert.equal(c.preheader, 'Es lo único que le falta a Estudio Alba Pilates para recibir reservas.');
+  assert.match(c.html, /Te falta un paso, Lucía/);
+  assert.match(c.html, /A <b>Estudio Alba Pilates<\/b> le falta una cosa para recibir reservas: tu primera clase\./);
+  assert.match(c.html, /Está preparada con valores de ejemplo: Reformer, 55 minutos y 8 plazas\. Tú eliges el día y la hora, pones el precio y la publicas\./);
+  assert.match(c.html, /href="https:\/\/www\.example\.com\/calendario\?primera=1"/);
+  assert.equal((c.html.match(/Crear mi primera clase<\/a>/g) ?? []).length, 1);
+  assert.match(c.html, /¿Te atascas en algo\?/);
+  assert.match(c.html, /Es el único recordatorio que te mandamos sobre esto\./);
+  assert.match(c.html, /https:\/\/wa\.me\//);
+});
+
+test('correo 3 con clase que aún no se puede reservar: no le dice «crea tu primera clase» (D7)', () => {
+  const aviso = 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online.';
+  const c = correoPrimeraClase({ ...SIN_CLASE, variante: { tipo: 'no_reservable', aviso }, urlBoton: 'https://www.example.com/configuracion?tab=conexiones#integracion-stripe' });
+  assert.equal(c.asunto, 'Tus alumnas todavía no pueden reservar en Estudio Alba Pilates');
+  assert.match(c.html, /que una alumna nueva pueda reservar tu clase/);
+  assert.ok(c.html.includes(aviso));
+  assert.doesNotMatch(c.html, /tu primera clase\./);
+  assert.doesNotMatch(c.html, /Crear mi primera clase/);
+  assert.match(c.html, /Ver qué falta<\/a>/);
+});
+
+test('correo 3: sin nombre, sin coma; lo que escribió una persona se escapa', () => {
+  assert.match(correoPrimeraClase({ ...SIN_CLASE, nombre: null }).html, /Te falta un paso<\/div>/);
+  const { html, preheader } = correoPrimeraClase({ ...SIN_CLASE, estudioNombre: 'Pilates <b>Malo</b>', nombre: '<i>Ana</i>' });
+  assert.doesNotMatch(html, /<b>Malo<\/b>|<i>Ana<\/i>/);
+  assert.match(html, /&lt;i&gt;Ana&lt;\/i&gt;/);
+  assert.equal(preheader, 'Es lo único que le falta a Pilates <b>Malo</b> para recibir reservas.', 'el preheader lo escapa el marco');
+});
+
+test('los primeros pasos del correo 2 son las cinco tareas de la lista del panel', () => {
+  assert.deepEqual([...PRIMEROS_PASOS_ALTA], TAREAS_ALTA_NUEVA.map(t => t.titulo));
 });

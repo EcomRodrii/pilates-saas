@@ -790,6 +790,8 @@ export default function Calendario() {
   const [primeraClaseCreada, setPrimeraClaseCreada] = useState<number | null>(null);
   // El formulario de «Tu primera clase» del alta nueva (`?primera=1`).
   const [primeraAbierta, setPrimeraAbierta] = useState(false);
+  // `?nueva=1` (Accesos rápidos, avisos): pendiente de saber si va con el alta nueva.
+  const [nuevaPedida, setNuevaPedida] = useState(false);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   // «Buscar sustituta» del ⋯ en una clase CON instructora: enseña la caja de
   // sustituta en su ficha aunque no esté sin cubrir (su instructora no puede).
@@ -848,6 +850,21 @@ export default function Calendario() {
   // Con un tipo archivado no se programan clases nuevas: el primero por defecto
   // y los selectores de crear salen de aquí.
   const tiposProgramables = useMemo(() => tiposParaProgramar(tiposClase), [tiposClase]);
+  // Con el alta nueva, a un estudio sin tipo, sala o instructora no se le abre el
+  // formulario de siempre (que lo primero que enseña es «para crear la clase
+  // falta una sala, una instructora y un tipo de clase»): se le abre «Tu primera
+  // clase», que lo crea todo a la vez (fundador, 21-oct: «le sale un aviso en
+  // rojo ya; eso da muy mala impresión de primeras»).
+  const primeraEnVezDeNueva = primeraClaseNueva && dataLoaded
+    && (tiposProgramables.length === 0 || salas.length === 0 || instructores.length === 0);
+  useEffect(() => {
+    if (!nuevaPedida || altaNueva === null || !dataLoaded || !studio) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- se decide al saber si va con el alta nueva.
+    setNuevaPedida(false);
+    if (primeraEnVezDeNueva) setPrimeraAbierta(true);
+    else openNueva();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nuevaPedida, altaNueva, dataLoaded, studio, primeraEnVezDeNueva]);
 
   const finSegunDuracion = useCallback((horaInicio: string, tipoClaseId: string): string => {
     const dur = tiposClase.find(t => t.id === tipoClaseId)?.duracionMinutos;
@@ -1070,10 +1087,13 @@ export default function Calendario() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('nueva') === '1') {
-      openNueva();
+      // Se abre cuando se sabe qué toca (más abajo, `nuevaPedida`): con el alta
+      // nueva y el estudio sin nada creado, «Tu primera clase», no el formulario
+      // de siempre con su «para crear la clase falta…».
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNuevaPedida(true);
       window.history.replaceState({}, '', '/calendario');
     } else if (params.get('recurrentes') === '1') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitialRecurrente(undefined);
       setShowRecurrentes(true);
       window.history.replaceState({}, '', '/calendario');
@@ -1088,7 +1108,6 @@ export default function Calendario() {
       setVista('dia');
       window.history.replaceState({}, '', '/calendario');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Abre «Nueva clase» con este punto de partida. La clave nueva reinicia el
@@ -3740,7 +3759,7 @@ export default function Calendario() {
           seleccion={gestionaClientas && vista !== 'horario' ? { activa: modoSeleccion, onAlternar: () => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true)) } : null}
           // Quien gestiona el estudio elige primero qué crea; la instructora que
           // crea sus clases va directa a la suya (no tiene clases fijas).
-          onCrear={gestionaClientas ? () => setElegirQueCrear(true) : creaClasesPropias ? () => openNueva() : null}
+          onCrear={primeraEnVezDeNueva ? () => setPrimeraAbierta(true) : gestionaClientas ? () => setElegirQueCrear(true) : creaClasesPropias ? () => openNueva() : null}
           navegacion={vista === 'horario' ? null : {
             onAnterior: () => (vista === 'semana' ? cambiarSemana(-1) : cambiarDia(-1)),
             onSiguiente: () => (vista === 'semana' ? cambiarSemana(1) : cambiarDia(1)),
@@ -3855,6 +3874,7 @@ export default function Calendario() {
             // Con el alta nueva, la propietaria crea la primera con su clase y su
             // precio a la vez («Tu primera clase»), no solo la clase.
             onCrearClase={primeraClaseNueva ? () => setPrimeraAbierta(true) : gestionaClientas ? () => setElegirQueCrear(true) : () => openNueva()}
+            altaNueva={primeraClaseNueva ? { apertura: studio?.horaApertura, cierre: studio?.horaCierre } : null}
           />
         ) : enMovil ? (
           <VistaAgenda

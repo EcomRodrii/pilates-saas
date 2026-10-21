@@ -10,6 +10,10 @@
 // Un solo aviso de cada tipo por estudio en toda su vida (lo garantiza el
 // dedupKey del evento, no esta función).
 //
+// Un estudio que nació del ALTA NUEVA no recibe SIN_CLASES (PR-5): a las 24 h le
+// llega «Tu primera clase en Tentare, en 5 minutos» (lib/alta/correo-primera-clase.ts),
+// y dos avisos por lo mismo sobran. SIN_RESERVAS sí: ese no tiene otro.
+//
 // Regla pura, sin base de datos ni `@/`: se prueba con `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -24,8 +28,10 @@ export function avisoDeEmbudo(p: {
   reservas: number;
   /** Una prueba ya cerrada tiene el panel bloqueado: «comparte tu enlace» no le sirve. */
   pruebaExpirada?: boolean;
+  /** Nació del alta nueva: su «sin clases» es el correo de la primera clase, no este aviso. */
+  altaNueva?: boolean;
 }): AvisoEmbudo | null {
-  if (p.sesiones === 0) return p.creadoHaceHoras >= HORAS_SIN_CLASES ? 'SIN_CLASES' : null;
+  if (p.sesiones === 0) return p.creadoHaceHoras >= HORAS_SIN_CLASES && !p.altaNueva ? 'SIN_CLASES' : null;
   if (p.reservas === 0 && !p.pruebaExpirada && p.creadoHaceHoras >= HORAS_SIN_RESERVAS) return 'SIN_RESERVAS';
   return null;
 }

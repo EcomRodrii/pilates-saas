@@ -18,8 +18,8 @@
 import { masDias } from '../utils.ts';
 
 // ── Lo que se guarda: la MISMA lista que el CHECK de la migración ───────────
-// (lo cruza embudo.test.ts; desde el PR-4, el CHECK es el de
-// 20261021134000_alta_primera_clase.sql). Un paso nuevo se añade aquí Y en una
+// (lo cruza embudo.test.ts; desde el PR-5, el CHECK es el de
+// 20261021160000_alta_primeros_pasos.sql). Un paso nuevo se añade aquí Y en una
 // migración.
 
 export const PASOS_EMBUDO = [
@@ -28,8 +28,10 @@ export const PASOS_EMBUDO = [
   'enlace_compartido', // copió, mandó o bajó el QR de su enlace de reservas
   'config_completada', // «Tu estudio» de la bienvenida nueva (PR-3), comprobado en la base de datos
   'correo_cuenta_activa', // el correo «Tu cuenta está activa» (PR-2: hoy sin filas)
-  'plan_ensenado', // la tarjeta del plan tras la primera reserva (PR-5: hoy sin filas)
+  'plan_ensenado', // la tarjeta «Tu plan, sin sorpresas», enseñada UNA vez tras la primera reserva (PR-5)
   'correo_recibir_reservas', // el correo «Ya puedes recibir reservas», una vez (PR-4, migración 20261021134000)
+  'recorrido_visto', // el recorrido rápido de tres paradas, la primera vez en el panel (PR-5)
+  'correo_primera_clase', // el correo «Tu primera clase en Tentare, en 5 minutos», una vez (PR-5)
 ] as const;
 export type PasoEmbudo = (typeof PASOS_EMBUDO)[number];
 
@@ -60,6 +62,11 @@ export function normalizarLlegada(x: unknown): string | null {
  * resto lo apunta el servidor cuando lo ve: que el navegador pudiera escribir
  * «clase reservable» sería medir lo que dice la pantalla y no lo que pasa.
  *
+ *   · `recorrido_visto` y `plan_ensenado` (PR-5), sin detalle: son cosas que
+ *     ENSEÑA una pantalla (el recorrido de tres paradas, la tarjeta del plan) y
+ *     que no deben volver a salir. Solo las ve el navegador, y lo peor que puede
+ *     hacer una petición falsa es que no salgan: no dan nada.
+ *
  *   · `enlace_compartido`, con su canal obligatorio: copiar o mandar el enlace
  *     no deja huella en ningún servidor.
  *   · `config_completada` («Tu estudio», PR-3), sin detalle. Sus escrituras van
@@ -71,12 +78,25 @@ export function normalizarLlegada(x: unknown): string | null {
  */
 export type PasoDelNavegador =
   | { paso: 'enlace_compartido'; detalle: DetalleEmbudo }
-  | { paso: 'config_completada'; detalle: null };
+  | { paso: 'config_completada' | 'recorrido_visto' | 'plan_ensenado'; detalle: null };
+
+/** Los pasos del navegador que no llevan detalle. */
+const SIN_DETALLE = ['config_completada', 'recorrido_visto', 'plan_ensenado'] as const;
+
+/**
+ * Los que son una MARCA para no volver a enseñar algo, no una medida de cómo
+ * arranca un estudio: se apuntan también pasados los primeros DIAS_EMBUDO días
+ * (lib/alta/embudo-servidor.ts). Si no, a un estudio que tarde en
+ * llegar a su primera reserva le saldría la tarjeta del plan en cada carga.
+ */
+export const PASOS_DURABLES: readonly PasoEmbudo[] = ['recorrido_visto', 'plan_ensenado', 'correo_primera_clase'];
 
 export function leerPasoDelNavegador(cuerpo: unknown): PasoDelNavegador | null {
   if (!cuerpo || typeof cuerpo !== 'object') return null;
   const { paso, detalle } = cuerpo as Record<string, unknown>;
-  if (paso === 'config_completada') return detalle == null ? { paso, detalle: null } : null;
+  if ((SIN_DETALLE as readonly unknown[]).includes(paso)) {
+    return detalle == null ? { paso: paso as (typeof SIN_DETALLE)[number], detalle: null } : null;
+  }
   if (paso !== 'enlace_compartido') return null;
   if (typeof detalle !== 'string' || !(DETALLES_EMBUDO as readonly string[]).includes(detalle)) return null;
   return { paso, detalle: detalle as DetalleEmbudo };

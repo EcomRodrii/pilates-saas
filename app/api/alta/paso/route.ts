@@ -15,7 +15,10 @@ import { tuEstudioGuardado } from '@/lib/alta/tu-estudio';
 //     van del navegador a la base de datos sin pasar por ninguna ruta nuestra,
 //     así que no hay otro sitio donde apuntarlo. Y no se apunta porque lo pida
 //     la pantalla: antes se mira en la base de datos que la dirección y el
-//     horario por día están guardados (`tuEstudioGuardado`).
+//     horario por día están guardados (`tuEstudioGuardado`);
+//   · que ya se le enseñó el recorrido rápido de tres paradas o la tarjeta «Tu
+//     plan, sin sorpresas» (PR-5): salen UNA vez, y lo que se enseña solo lo
+//     sabe la pantalla. Lo peor que hace una petición falsa es que no salgan.
 //
 // Lo demás lo apunta el servidor cuando lo ve (`apuntarPaso` en
 // /api/billing/status y /api/onboarding/puede-reservar): la lista de lo que

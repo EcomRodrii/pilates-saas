@@ -297,12 +297,14 @@ export function VacioPositivo({ titulo, texto }: { titulo: string; texto: string
  * los ejemplos (lo que hace en negrita, cuándo en normal) y UNA acción
  * principal con verbo y objeto. Opcional, un enlace secundario.
  */
-export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, secundaria, className }: {
+export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEjemplos = 'Ejemplos', accion, secundaria, className }: {
   tono: Tono;
   Icono: ElementType;
   titulo: string;
   texto: ReactNode;
   ejemplos?: { accion: string; cuando: string }[];
+  /** Lo que va encima de los ejemplos («Ejemplos», o «Tres maneras» en Clientas del alta nueva). */
+  etiquetaEjemplos?: string;
   accion?: { label: string; href?: string; onClick?: () => void; Icono?: ElementType };
   secundaria?: { label: string; href?: string; onClick?: () => void };
   className?: string;
@@ -321,7 +323,7 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, se
       <p className="mt-2 max-w-md text-[14px] text-muted-foreground text-pretty">{texto}</p>
       {ejemplos && ejemplos.length > 0 && (
         <div className="mt-6 w-full max-w-md rounded-2xl border border-border bg-card p-4 text-left">
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Ejemplos</p>
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">{etiquetaEjemplos}</p>
           <ul className="mt-2.5 flex flex-col gap-2.5">
             {ejemplos.map(e => (
               <li key={e.accion} className="flex items-start gap-2.5 text-[13.5px] leading-snug">
